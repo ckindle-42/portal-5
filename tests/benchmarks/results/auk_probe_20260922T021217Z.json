@@ -1,0 +1,359 @@
+{
+  "started_at_utc": "2026-09-22T02:11:02.892177Z",
+  "head_commit": "7499bb20eca572ea5cf7d3cae728e4d9f7fd9bd7",
+  "auk_repo_head": "6943a1e967409e8c73139a7a345f2a611cfb3dd6",
+  "variant": "flash",
+  "port": 8940,
+  "health": {
+    "status": "ok",
+    "service": "auk-speech",
+    "variant": "flash",
+    "checkpoint_present": true,
+    "cli_present": true,
+    "bits": "8",
+    "sequential": true
+  },
+  "n_items": 10,
+  "n_seat_relevant": 8,
+  "n_seat_mechanical_ok": 8,
+  "mechanical_seat_rate": 1.0,
+  "cli_delta": "MLX branch exposes python -m auk_mlx.cli (--instruction/--audio/--output/--flash), not inference_mlx.py --task. Enhance and separate use cookbook instruction templates.",
+  "results": [
+    {
+      "id": "s01",
+      "tool": "synthesize",
+      "capability": "tts_baseline",
+      "seat_relevant": false,
+      "args": {
+        "text": "hello from Portal five"
+      },
+      "response": {
+        "output_path": "/Users/chris/AI_Output/generated/speech/auk_181b6cfd.wav",
+        "published": {
+          "id": "acf4a2c5-eb45-4c18-8817-50666b4e2b18",
+          "filename": "auk_181b6cfd.wav",
+          "url": "https://chat.intoodeep.systems/api/v1/files/acf4a2c5-eb45-4c18-8817-50666b4e2b18/content/auk_181b6cfd.wav"
+        },
+        "cmd_tail": [
+          "--flash",
+          "--bits",
+          "8",
+          "--sequential",
+          "--gen_seconds",
+          "2.400"
+        ]
+      },
+      "mechanical_ok": true,
+      "output_info": {
+        "channels": 1,
+        "sample_rate": 24000,
+        "duration_s": 2.4,
+        "size_bytes": 115244
+      },
+      "wall_s": 4.46
+    },
+    {
+      "id": "s02",
+      "tool": "synthesize",
+      "capability": "voice_cloning",
+      "seat_relevant": false,
+      "args": {
+        "text": "hello from Portal five",
+        "reference_audio_url": "reference_voice.wav"
+      },
+      "response": {
+        "output_path": "/Users/chris/AI_Output/generated/speech/auk_c41c1e8a.wav",
+        "published": {
+          "id": "1c9dedf5-2035-4b42-ba25-c23728852ebc",
+          "filename": "auk_c41c1e8a.wav",
+          "url": "https://chat.intoodeep.systems/api/v1/files/1c9dedf5-2035-4b42-ba25-c23728852ebc/content/auk_c41c1e8a.wav"
+        },
+        "cmd_tail": [
+          "8",
+          "--sequential",
+          "--audio",
+          "/Users/chris/AI_Output/generated/speech/src_82d316c1.wav",
+          "--gen_seconds",
+          "6.080"
+        ]
+      },
+      "mechanical_ok": true,
+      "output_info": {
+        "channels": 1,
+        "sample_rate": 24000,
+        "duration_s": 6.08,
+        "size_bytes": 291884
+      },
+      "wall_s": 7.28
+    },
+    {
+      "id": "e01",
+      "tool": "edit_content",
+      "capability": "content_edit",
+      "seat_relevant": true,
+      "args": {
+        "source_audio_url": "neutral_a.wav",
+        "instruction": "replace 'Monday' with 'Tuesday'"
+      },
+      "response": {
+        "output_path": "/Users/chris/AI_Output/generated/speech/auk_2b2d9bb5.wav",
+        "published": {
+          "id": "c20d5d1e-e572-4e55-ac98-89fe24865acb",
+          "filename": "auk_2b2d9bb5.wav",
+          "url": "https://chat.intoodeep.systems/api/v1/files/c20d5d1e-e572-4e55-ac98-89fe24865acb/content/auk_2b2d9bb5.wav"
+        },
+        "cmd_tail": [
+          "8",
+          "--sequential",
+          "--audio",
+          "/Users/chris/AI_Output/generated/speech/src_75b8b8fa.wav",
+          "--gen_seconds",
+          "2.875"
+        ]
+      },
+      "mechanical_ok": true,
+      "output_info": {
+        "channels": 1,
+        "sample_rate": 24000,
+        "duration_s": 2.88,
+        "size_bytes": 138284
+      },
+      "wall_s": 6.55
+    },
+    {
+      "id": "e02",
+      "tool": "edit_content",
+      "capability": "content_edit",
+      "seat_relevant": true,
+      "args": {
+        "source_audio_url": "neutral_b.wav",
+        "instruction": "replace 'compliance' with 'security'"
+      },
+      "response": {
+        "output_path": "/Users/chris/AI_Output/generated/speech/auk_8c159563.wav",
+        "published": {
+          "id": "f728a3fa-9878-4a04-a9dd-865f72e7b5dd",
+          "filename": "auk_8c159563.wav",
+          "url": "https://chat.intoodeep.systems/api/v1/files/f728a3fa-9878-4a04-a9dd-865f72e7b5dd/content/auk_8c159563.wav"
+        },
+        "cmd_tail": [
+          "8",
+          "--sequential",
+          "--audio",
+          "/Users/chris/AI_Output/generated/speech/src_87f49fb9.wav",
+          "--gen_seconds",
+          "2.975"
+        ]
+      },
+      "mechanical_ok": true,
+      "output_info": {
+        "channels": 1,
+        "sample_rate": 24000,
+        "duration_s": 2.98,
+        "size_bytes": 143084
+      },
+      "wall_s": 5.54
+    },
+    {
+      "id": "p01",
+      "tool": "edit_paralinguistic",
+      "capability": "paralinguistic_edit",
+      "seat_relevant": true,
+      "args": {
+        "source_audio_url": "neutral_a.wav",
+        "instruction": "make this sound cheerful"
+      },
+      "response": {
+        "output_path": "/Users/chris/AI_Output/generated/speech/auk_82cc6edf.wav",
+        "published": {
+          "id": "1919e087-6012-4867-83cd-3d648c997802",
+          "filename": "auk_82cc6edf.wav",
+          "url": "https://chat.intoodeep.systems/api/v1/files/1919e087-6012-4867-83cd-3d648c997802/content/auk_82cc6edf.wav"
+        },
+        "cmd_tail": [
+          "--flash",
+          "--bits",
+          "8",
+          "--sequential",
+          "--audio",
+          "/Users/chris/AI_Output/generated/speech/src_a14dbfbb.wav"
+        ]
+      },
+      "mechanical_ok": true,
+      "output_info": {
+        "channels": 1,
+        "sample_rate": 24000,
+        "duration_s": 2.88,
+        "size_bytes": 138284
+      },
+      "wall_s": 5.96
+    },
+    {
+      "id": "p02",
+      "tool": "edit_paralinguistic",
+      "capability": "paralinguistic_edit",
+      "seat_relevant": true,
+      "args": {
+        "source_audio_url": "neutral_b.wav",
+        "instruction": "make this sound sad"
+      },
+      "response": {
+        "output_path": "/Users/chris/AI_Output/generated/speech/auk_29a40e31.wav",
+        "published": {
+          "id": "68d01ab1-eae1-4230-97a1-4563c60afb4b",
+          "filename": "auk_29a40e31.wav",
+          "url": "https://chat.intoodeep.systems/api/v1/files/68d01ab1-eae1-4230-97a1-4563c60afb4b/content/auk_29a40e31.wav"
+        },
+        "cmd_tail": [
+          "--flash",
+          "--bits",
+          "8",
+          "--sequential",
+          "--audio",
+          "/Users/chris/AI_Output/generated/speech/src_97ac01d7.wav"
+        ]
+      },
+      "mechanical_ok": true,
+      "output_info": {
+        "channels": 1,
+        "sample_rate": 24000,
+        "duration_s": 2.98,
+        "size_bytes": 143084
+      },
+      "wall_s": 6.02
+    },
+    {
+      "id": "p03",
+      "tool": "edit_paralinguistic",
+      "capability": "paralinguistic_edit",
+      "seat_relevant": true,
+      "args": {
+        "source_audio_url": "neutral_a.wav",
+        "instruction": "convert to a whisper"
+      },
+      "response": {
+        "output_path": "/Users/chris/AI_Output/generated/speech/auk_38bead54.wav",
+        "published": {
+          "id": "52b2ebbf-df0f-4742-818e-57b583ba4f8d",
+          "filename": "auk_38bead54.wav",
+          "url": "https://chat.intoodeep.systems/api/v1/files/52b2ebbf-df0f-4742-818e-57b583ba4f8d/content/auk_38bead54.wav"
+        },
+        "cmd_tail": [
+          "--flash",
+          "--bits",
+          "8",
+          "--sequential",
+          "--audio",
+          "/Users/chris/AI_Output/generated/speech/src_564735b6.wav"
+        ]
+      },
+      "mechanical_ok": true,
+      "output_info": {
+        "channels": 1,
+        "sample_rate": 24000,
+        "duration_s": 2.88,
+        "size_bytes": 138284
+      },
+      "wall_s": 6.04
+    },
+    {
+      "id": "sep01",
+      "tool": "separate",
+      "capability": "separation",
+      "seat_relevant": true,
+      "args": {
+        "source_audio_url": "mixed_voice_noise.wav"
+      },
+      "response": {
+        "output_path": "/Users/chris/AI_Output/generated/speech/auk_e880a530.wav",
+        "published": {
+          "id": "96c77155-7595-45e4-924b-c9065ede9663",
+          "filename": "auk_e880a530.wav",
+          "url": "https://chat.intoodeep.systems/api/v1/files/96c77155-7595-45e4-924b-c9065ede9663/content/auk_e880a530.wav"
+        },
+        "cmd_tail": [
+          "--flash",
+          "--bits",
+          "8",
+          "--sequential",
+          "--audio",
+          "/Users/chris/AI_Output/generated/speech/src_78816042.wav"
+        ]
+      },
+      "mechanical_ok": true,
+      "output_info": {
+        "channels": 1,
+        "sample_rate": 24000,
+        "duration_s": 2.88,
+        "size_bytes": 138284
+      },
+      "wall_s": 6.39
+    },
+    {
+      "id": "sep02",
+      "tool": "separate",
+      "capability": "separation",
+      "seat_relevant": true,
+      "args": {
+        "source_audio_url": "sample_two_speakers.wav"
+      },
+      "response": {
+        "output_path": "/Users/chris/AI_Output/generated/speech/auk_96169524.wav",
+        "published": {
+          "id": "82a2b9a9-4e44-4d84-add2-e1cdc1af97aa",
+          "filename": "auk_96169524.wav",
+          "url": "https://chat.intoodeep.systems/api/v1/files/82a2b9a9-4e44-4d84-add2-e1cdc1af97aa/content/auk_96169524.wav"
+        },
+        "cmd_tail": [
+          "--flash",
+          "--bits",
+          "8",
+          "--sequential",
+          "--audio",
+          "/Users/chris/AI_Output/generated/speech/src_5880a94e.wav"
+        ]
+      },
+      "mechanical_ok": true,
+      "output_info": {
+        "channels": 1,
+        "sample_rate": 24000,
+        "duration_s": 18.4,
+        "size_bytes": 883244
+      },
+      "wall_s": 15.81
+    },
+    {
+      "id": "enh01",
+      "tool": "enhance",
+      "capability": "enhancement",
+      "seat_relevant": true,
+      "args": {
+        "source_audio_url": "mixed_voice_noise.wav"
+      },
+      "response": {
+        "output_path": "/Users/chris/AI_Output/generated/speech/auk_451978a0.wav",
+        "published": {
+          "id": "b2cb5c32-73e9-421e-9064-6f96d18d841c",
+          "filename": "auk_451978a0.wav",
+          "url": "https://chat.intoodeep.systems/api/v1/files/b2cb5c32-73e9-421e-9064-6f96d18d841c/content/auk_451978a0.wav"
+        },
+        "cmd_tail": [
+          "--flash",
+          "--bits",
+          "8",
+          "--sequential",
+          "--audio",
+          "/Users/chris/AI_Output/generated/speech/src_c423a78a.wav"
+        ]
+      },
+      "mechanical_ok": true,
+      "output_info": {
+        "channels": 1,
+        "sample_rate": 24000,
+        "duration_s": 2.88,
+        "size_bytes": 138284
+      },
+      "wall_s": 10.04
+    }
+  ]
+}

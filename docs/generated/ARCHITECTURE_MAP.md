@@ -2,7 +2,7 @@
 
 # Portal 5 Architecture Map
 
-*Deterministic projection of 744 canonical units.*
+*Deterministic projection of 745 canonical units.*
 
 ## Knowledge Layer
 
@@ -193,6 +193,7 @@
 | `unit-bench-security` | mixed | 1 |
 | `unit-blue-orchestration-v2-capture-gap` | why | 8 |
 | `unit-blue-orchestration-v3-council-of-agreement` | why | 3 |
+| `unit-capability-auk` | mixed | 3 |
 | `unit-capability-binresearch` | mixed | 3 |
 | `unit-capability-browser` | mixed | 3 |
 | `unit-capability-cad-render` | mixed | 3 |
@@ -239,7 +240,7 @@
 | `unit-code-portal_wiki` | what | 4 |
 | `unit-code-scripts` | what | 5 |
 | `unit-code-tests` | what | 5 |
-| `unit-compliance-bilateral-corpus` | mixed | 22 |
+| `unit-compliance-bilateral-corpus` | mixed | 25 |
 | `unit-compliance-change-pipeline` | mixed | 3 |
 | `unit-compliance-config-workspace-pointers` | mixed | 1 |
 | `unit-compliance-engine` | mixed | 87 |
@@ -256,7 +257,7 @@
 | `unit-compliance-prove-then-scale` | mixed | 3 |
 | `unit-compliance-requirement-join` | mixed | 6 |
 | `unit-compliance-substrate-properties` | mixed | 4 |
-| `unit-compliance-transport-dialects` | mixed | 3 |
+| `unit-compliance-transport-dialects` | mixed | 5 |
 | `unit-corpus-injection-a-canned-detection-firing-on-corpus-data-t1558-004-as-rep-roasting-verbatim-spl` | what | 2 |
 | `unit-corpus-injection-always-dry-run-first-it-prints-exact-per-sourcetype-volume-without-injecting` | what | 2 |
 | `unit-corpus-injection-confirm-the-live-triage-window-is-still-clean` | what | 2 |
@@ -560,7 +561,7 @@
 | `unit-module-general` | mixed | 4 |
 | `unit-module-icsot` | mixed | 4 |
 | `unit-module-image` | mixed | 3 |
-| `unit-module-media` | mixed | 7 |
+| `unit-module-media` | mixed | 8 |
 | `unit-module-netforensics` | mixed | 4 |
 | `unit-module-research` | mixed | 4 |
 | `unit-module-security` | mixed | 5 |
@@ -690,7 +691,7 @@
 | `unit-surface-archive-mlx` | mixed | 1 |
 | `unit-surface-benchmarks` | mixed | 3 |
 | `unit-surface-binary-research` | mixed | 1 |
-| `unit-surface-compliance-closeout-scripts` | mixed | 8 |
+| `unit-surface-compliance-closeout-scripts` | mixed | 11 |
 | `unit-surface-compliance-prove-then-scale-scripts` | mixed | 1 |
 | `unit-surface-inference` | mixed | 1 |
 | `unit-surface-inference-cli` | mixed | 1 |
@@ -753,12 +754,12 @@
 | `unit-wiki-tests-render` | mixed | 1 |
 | `unit-wiki-writeback` | mixed | 1 |
 
-**Total:** 744 units
+**Total:** 745 units
 
 ## Source Distribution
 
 - **bench-security**: 1 references
-- **code**: 1891 references
+- **code**: 1903 references
 - **config**: 1 references
 - **doc**: 1 references
 - **mitre**: 40 references

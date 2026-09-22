@@ -22,7 +22,7 @@ updated_at: 1788030600.446044
 
 # Operator commands — the launch.sh surface
 
-The operator's command surface is `./launch.sh <subcommand>` — 65 subcommands
+The operator's command surface is `./launch.sh <subcommand>` — 69 subcommands
 as of the current usage string, grouped below by what they act on.
 
 ## Lifecycle
@@ -59,6 +59,8 @@ as of the current usage string, grouped below by what they act on.
   `pull-video-mlx-models` — the video-mlx MCP lifecycle and LTX-2.3 packs.
 - `install-music-minimax`, `install-music-ace`, `stop-music-ace` — music
   backends.
+- `install-auk`, `start-auk`, `stop-auk`, `pull-auk-models` — the parallel
+  AuK speech-editing MCP. It does not replace `start-speech`.
 
 ## Speech / transcription / embedding arms
 
