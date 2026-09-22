@@ -1,0 +1,97 @@
+{
+  "run_id": "2026-09-22T17:50:10.564115+00:00",
+  "overall_manifest_status": "FRESH",
+  "corpora": [
+    {
+      "jurisdiction": "internal",
+      "kb_id": "operator_corpus",
+      "sections_in_store": 2636,
+      "manifest_status": "FRESH",
+      "sections_in_manifest": 2568,
+      "live_probe_hits": 3,
+      "probe_error": "",
+      "GAP": false
+    },
+    {
+      "jurisdiction": "US",
+      "kb_id": "nerc_corpus",
+      "sections_in_store": 7195,
+      "manifest_status": "FRESH",
+      "sections_in_manifest": 6833,
+      "live_probe_hits": 3,
+      "probe_error": "",
+      "GAP": false
+    },
+    {
+      "jurisdiction": "operator_note",
+      "kb_id": "operator_notes",
+      "sections_in_store": 1,
+      "manifest_status": "FRESH",
+      "sections_in_manifest": 1,
+      "live_probe_hits": 1,
+      "probe_error": "",
+      "GAP": false
+    },
+    {
+      "jurisdiction": "derived",
+      "kb_id": "conversation",
+      "sections_in_store": 8,
+      "manifest_status": "FRESH",
+      "sections_in_manifest": 8,
+      "live_probe_hits": 3,
+      "probe_error": "",
+      "GAP": false
+    }
+  ],
+  "n_gaps": 0,
+  "gate_hole": "retrieval_projection_status excludes an ABSENT corpus with no recorded section count from the overall verdict ('nothing to project is a state, not a drift'). A corpus with sections in the STORE and none in the INDEX is therefore invisible to GS, which is passing. GAP=true is exactly that case and it is what \u00a7P1.2 makes the gate catch.",
+  "verdict": "PASS",
+  "reason": "every populated corpus is projected",
+  "post_projection_rerun": {
+    "run_id": "2026-09-22T19:01:53.606668+00:00",
+    "overall_manifest_status": "FRESH",
+    "corpora": [
+      {
+        "jurisdiction": "internal",
+        "kb_id": "operator_corpus",
+        "sections_in_store": 2636,
+        "manifest_status": "FRESH",
+        "sections_in_manifest": 2568,
+        "live_probe_hits": 3,
+        "probe_error": "",
+        "GAP": false
+      },
+      {
+        "jurisdiction": "US",
+        "kb_id": "nerc_corpus",
+        "sections_in_store": 7195,
+        "manifest_status": "FRESH",
+        "sections_in_manifest": 6833,
+        "live_probe_hits": 3,
+        "probe_error": "",
+        "GAP": false
+      },
+      {
+        "jurisdiction": "operator_note",
+        "kb_id": "operator_notes",
+        "sections_in_store": 1,
+        "manifest_status": "FRESH",
+        "sections_in_manifest": 1,
+        "live_probe_hits": 1,
+        "probe_error": "",
+        "GAP": false
+      },
+      {
+        "jurisdiction": "derived",
+        "kb_id": "conversation",
+        "sections_in_store": 8,
+        "manifest_status": "FRESH",
+        "sections_in_manifest": 8,
+        "live_probe_hits": 3,
+        "probe_error": "",
+        "GAP": false
+      }
+    ],
+    "all_fresh_with_live_hits": true
+  }
+}

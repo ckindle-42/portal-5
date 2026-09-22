@@ -1,0 +1,8 @@
+  operator_corpus    eligible  2568  projected  2568  units  2579  split  21  unprojectable    0  boundary True  1251.4s
+  nerc_corpus        eligible  6833  projected  6833  units  6833  split   0  unprojectable    0  boundary True  1128.5s
+  operator_notes     eligible     1  projected     1  units     1  split   0  unprojectable    0  boundary True     0.1s
+  conversation       eligible     8  projected     8  units    11  split   6  unprojectable    0  boundary True    15.7s
+
+section population fingerprint: 193b4e3d846e59d8…
+projection status: FRESH
+receipt: /Users/chris/projects/portal-5/coding_task/v9_compliance/private/projections/20260922T190135Z/section_projection.json

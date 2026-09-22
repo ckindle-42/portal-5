@@ -1,0 +1,27 @@
+{
+  "run_id": "2026-09-22T18:08:00.526876+00:00",
+  "per_corpus": {
+    "operator_corpus": {
+      "sampled": 20,
+      "unresolvable": 0,
+      "examples": []
+    },
+    "nerc_corpus": {
+      "sampled": 20,
+      "unresolvable": 0,
+      "examples": []
+    },
+    "operator_notes": {
+      "sampled": 1,
+      "unresolvable": 0,
+      "examples": []
+    },
+    "conversation": {
+      "sampled": 11,
+      "unresolvable": 0,
+      "examples": []
+    }
+  },
+  "rule": "chunk_id IS section_id (BILATERAL_CORPUS_V1 P4). A hit that does not resolve means the index was written by the deprecated sha1 path.",
+  "verdict": "PASS"
+}
