@@ -326,6 +326,7 @@ models:
   qwen3_1_7b_q4:
     source_repo: Qwen/Qwen3-1.7B
     tool_parser: hermes
+    ollama_gguf: {repo: unsloth/Qwen3-1.7B-GGUF, file: Qwen3-1.7B-Q4_K_M.gguf}
     ollama_from: hf.co/unsloth/Qwen3-1.7B-GGUF:Q4_K_M
     ollama: bonsai-control:qwen3-1.7b-ctx16k
     ctx: 16384
@@ -335,6 +336,7 @@ models:
   qwen3_4b_q4:
     source_repo: Qwen/Qwen3-4B
     tool_parser: hermes
+    ollama_gguf: {repo: unsloth/Qwen3-4B-GGUF, file: Qwen3-4B-Q4_K_M.gguf}
     ollama_from: hf.co/unsloth/Qwen3-4B-GGUF:Q4_K_M
     ollama: bonsai-control:qwen3-4b-ctx16k
     ctx: 16384
@@ -344,6 +346,7 @@ models:
   qwen3_8b_q4:
     source_repo: Qwen/Qwen3-8B
     tool_parser: hermes
+    ollama_gguf: {repo: unsloth/Qwen3-8B-GGUF, file: Qwen3-8B-Q4_K_M.gguf}
     ollama_from: hf.co/unsloth/Qwen3-8B-GGUF:Q4_K_M
     ollama: bonsai-control:qwen3-8b-ctx16k
     ctx: 16384

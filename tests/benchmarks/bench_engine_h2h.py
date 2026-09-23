@@ -468,9 +468,10 @@ def ollama_evict(cfg: dict, tag: str | None = None) -> list[str]:
 def ollama_create_gguf(cfg: dict, model: str) -> str | None:
     """Import one cached GGUF through the documented Ollama Modelfile path."""
     m = cfg["models"][model]
-    if not m.get("gguf") or not m.get("ollama"):
+    gguf = m.get("gguf") or m.get("ollama_gguf")
+    if not gguf or not m.get("ollama"):
         return None
-    artifact = gguf_path_for(cfg, model)
+    artifact = gguf_path_for(cfg, model) if m.get("gguf") else cached_hf_file(gguf, model)
     with tempfile.TemporaryDirectory(prefix="bonsai-ollama-") as td:
         build_dir = Path(td)
         (build_dir / "file.gguf").symlink_to(artifact)
