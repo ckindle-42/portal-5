@@ -822,7 +822,9 @@ def template_check(cfg: dict, engine: str, model: str, mode: str) -> dict:
             "note": "" if same else "embedded GGUF template differs from the source template",
         }
     d = Path(cfg["mlx_root"]) / model_dir_for(cfg, model, engine, mode)
-    local, src = local_template(d), source_template(cfg["models"][model]["source_repo"])
+    entry = cfg["models"][model]
+    template_repo = entry.get("template_repo") or entry.get("base_repo") or entry["source_repo"]
+    local, src = local_template(d), source_template(template_repo)
     if src is None:
         return {"ok": None, "note": "source template unreachable — diff by hand"}
     same = normalize_template(local) == normalize_template(src)
