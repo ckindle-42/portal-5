@@ -24,6 +24,7 @@ import time
 
 SOCKET_PATH = "/tmp/portal5-powermetrics.sock"
 SAMPLE_INTERVAL_MS = 10000
+MAX_BUFFER_LINES = 20000
 
 
 class PowerSampler:
@@ -70,22 +71,17 @@ def run_powermetrics(sampler: PowerSampler):
             cmd = [
                 "powermetrics",
                 "--samplers",
-                "cpu_power,gpu_power,ane_power,interrupts",
+                "cpu_power,gpu_power,ane_power",
                 "-i",
                 str(SAMPLE_INTERVAL_MS),
                 "-f",
                 "plist",
             ]
             proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
-            buf = []
-            for line in iter(proc.stdout.readline, b""):
-                line_str = line.decode(errors="replace").strip()
-                if line_str.startswith("<?xml") and buf:
-                    sample = parse_plist_buffer("\n".join(buf))
-                    if sample:
-                        sampler.update(sample)
-                    buf = []
-                buf.append(line_str)
+            for doc in iter_plist_documents(iter(proc.stdout.readline, b"")):
+                sample = parse_plist_buffer(doc)
+                if sample:
+                    sampler.update(sample)
             print("[powermetrics] subprocess exited; retrying in 5s", file=sys.stderr)
             time.sleep(5)
         except FileNotFoundError:
@@ -96,20 +92,43 @@ def run_powermetrics(sampler: PowerSampler):
             time.sleep(5)
 
 
+def iter_plist_documents(lines):
+    """Yield one plist document per powermetrics sample.
+
+    Samples are split on the closing ``</plist>`` tag. The previous split on a
+    line *starting* with ``<?xml`` never matched, because powermetrics puts a NUL
+    byte between samples, so every line was buffered forever and no sample was
+    parsed. The buffer is capped so a format change can never grow it without bound.
+    """
+    buf: list[str] = []
+    for line in lines:
+        line_str = line.decode(errors="replace").replace("\x00", "").strip()
+        if not line_str:
+            continue
+        buf.append(line_str)
+        if "</plist>" in line_str:
+            yield "\n".join(buf)
+            buf = []
+        elif len(buf) > MAX_BUFFER_LINES:
+            print("[powermetrics] no sample boundary found; dropping buffer", file=sys.stderr)
+            buf = []
+
+
 def parse_plist_buffer(text: str) -> dict | None:
     try:
         sample = {}
+        # `powermetrics -f plist` reports milliwatts as <real> (e.g. cpu_power
+        # 6553.71). combined_power is the CPU+GPU+ANE total, so it is not read.
         for key, attr in [
-            ("CPU Power", "cpu_w"),
-            ("combined_power", "cpu_w"),
-            ("GPU Power", "gpu_w"),
+            ("cpu_power", "cpu_w"),
             ("gpu_power", "gpu_w"),
-            ("ANE Power", "ane_w"),
             ("ane_power", "ane_w"),
-            ("DRAM Power", "dram_w"),
             ("dram_power", "dram_w"),
         ]:
-            m = re.search(rf"<key>{re.escape(key)}</key>\s*<integer>(\d+)</integer>", text)
+            m = re.search(
+                rf"<key>{re.escape(key)}</key>\s*<(?:real|integer)>([\d.]+)</(?:real|integer)>",
+                text,
+            )
             if m:
                 sample[attr] = float(m.group(1)) / 1000.0
         if not sample:
