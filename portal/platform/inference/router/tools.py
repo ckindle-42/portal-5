@@ -19,6 +19,12 @@ from portal.platform.inference.router.metrics import (
     _tool_calls_total,
 )
 from portal.platform.inference.router.state import _record_error
+from portal.platform.inference.router.trace import (
+    capture as trace_capture,
+)
+from portal.platform.inference.router.trace import (
+    span as trace_span,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -194,12 +200,25 @@ async def _dispatch_tool_call(
     tool_name = fn.get("name", "").strip()
     arguments_str = fn.get("arguments", "{}")
     tool_call_id = tool_call.get("id", "")
+    allowed = tool_name in effective_tools
+    trace_span(
+        "tool.requested",
+        tool=tool_name,
+        tool_call_id=tool_call_id,
+        allowed=allowed,
+    )
 
     # Parse arguments
     try:
         arguments = json.loads(arguments_str) if arguments_str else {}
     except json.JSONDecodeError:
         _record_error(workspace_id, "tool_arg_parse")
+        trace_span(
+            "tool.completed",
+            tool=tool_name,
+            tool_call_id=tool_call_id,
+            outcome="invalid_arguments",
+        )
         return {
             "role": "tool",
             "tool_call_id": tool_call_id,
@@ -207,10 +226,17 @@ async def _dispatch_tool_call(
             "content": json.dumps({"error": f"Invalid JSON arguments: {arguments_str[:200]}"}),
         }
     arguments = _unwrap_tool_name_envelope(arguments)
+    trace_capture(tool_arguments={tool_name: arguments})
 
     # Whitelist enforcement
-    if tool_name not in effective_tools:
+    if not allowed:
         _record_error(workspace_id, "tool_not_allowed")
+        trace_span(
+            "tool.completed",
+            tool=tool_name,
+            tool_call_id=tool_call_id,
+            outcome="not_allowed",
+        )
         logger.warning(
             "Tool %s called but not in workspace=%s persona=%s whitelist; rejected",
             tool_name,
@@ -226,8 +252,25 @@ async def _dispatch_tool_call(
 
     # Dispatch via registry
     t0 = time.monotonic()
-    result = await tool_registry.dispatch(tool_name, arguments, request_id=request_id)
+    try:
+        result = await tool_registry.dispatch(tool_name, arguments, request_id=request_id)
+    except Exception:
+        trace_span(
+            "tool.completed",
+            tool=tool_name,
+            tool_call_id=tool_call_id,
+            outcome="exception",
+            duration_ms=round((time.monotonic() - t0) * 1000, 1),
+        )
+        raise
     elapsed = time.monotonic() - t0
+    trace_span(
+        "tool.completed",
+        tool=tool_name,
+        tool_call_id=tool_call_id,
+        outcome="error" if "error" in result else "ok",
+        duration_ms=round(elapsed * 1000, 1),
+    )
 
     # Metrics
     _tool_calls_total.labels(tool=tool_name, workspace=workspace_id).inc()
