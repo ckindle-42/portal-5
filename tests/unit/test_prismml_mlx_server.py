@@ -39,5 +39,50 @@ def test_v2_vision_pack_uses_pack_loader_without_processor(tmp_path, monkeypatch
 
     assert calls == {"path": tmp_path.resolve(), "load_processor": False}
     assert server._MODEL is language_model
+    assert server._MODEL_API == "packed_language"
     assert server._CONFIG["schema_version"] == 2
     assert server._CHAT_TEMPLATE == "template"
+
+
+def test_stock_mlx_model_uses_mlx_lm_cache_and_logits_api(monkeypatch):
+    cache = object()
+    logits = object()
+    seen = {}
+
+    class FakeLogits:
+        def __getitem__(self, index):
+            seen["logits_index"] = index
+            return logits
+
+    class FakeModel:
+        layers = [object()]
+
+        def __call__(self, tokens, *, cache):
+            seen["tokens"] = tokens
+            seen["cache"] = cache
+            return FakeLogits()
+
+    mlx_lm = ModuleType("mlx_lm")
+    models = ModuleType("mlx_lm.models")
+    cache_module = ModuleType("mlx_lm.models.cache")
+    fake_model = FakeModel()
+    cache_module.make_prompt_cache = lambda model: cache if model is fake_model else None
+    mlx_lm.models = models
+    models.cache = cache_module
+    monkeypatch.setitem(sys.modules, "mlx_lm", mlx_lm)
+    monkeypatch.setitem(sys.modules, "mlx_lm.models", models)
+    monkeypatch.setitem(sys.modules, "mlx_lm.models.cache", cache_module)
+    monkeypatch.setattr(server, "_MODEL", fake_model, raising=False)
+    monkeypatch.setattr(server, "_MODEL_API", "mlx_lm", raising=False)
+
+    tokens = object()
+    actual_cache = server._make_cache()
+    actual_logits = server._next_logits(tokens, actual_cache)
+
+    assert actual_cache is cache
+    assert actual_logits is logits
+    assert seen == {
+        "tokens": tokens,
+        "cache": cache,
+        "logits_index": (slice(None), -1, slice(None)),
+    }

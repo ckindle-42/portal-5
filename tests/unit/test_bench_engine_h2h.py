@@ -104,6 +104,33 @@ def test_ollama_imports_cached_control_gguf_without_vendor_pull(cfg, monkeypatch
     assert seen["argv"][:3] == ["ollama", "create", created]
 
 
+def test_speed_measurement_requires_timings_and_token_usage():
+    valid_sample = {
+        "ttft_s": 1.0,
+        "prompt_tokens": 10,
+        "completion_tokens": 2,
+        "usage_reported": True,
+    }
+    valid = {"cold": valid_sample, "decode": [valid_sample], "prefill": [valid_sample]}
+    assert h.speed_measurement_errors(valid) == []
+
+    empty_stream = {
+        "cold": {
+            "ttft_s": None,
+            "prompt_tokens": None,
+            "completion_tokens": 0,
+            "usage_reported": False,
+        },
+        "decode": [],
+        "prefill": [],
+    }
+    errors = h.speed_measurement_errors(empty_stream)
+    assert "cold: missing first-token timing" in errors
+    assert "cold: missing reported token usage" in errors
+    assert "cold: missing prompt token count" in errors
+    assert "cold: missing completion token count" in errors
+
+
 def test_bonsai_quality_fixture_is_frozen_with_expected_category_counts():
     import json
 

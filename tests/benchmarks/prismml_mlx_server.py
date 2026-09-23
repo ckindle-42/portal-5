@@ -22,6 +22,7 @@ from fastapi.responses import JSONResponse, StreamingResponse
 app = FastAPI()
 _PACK: Path
 _MODEL: Any
+_MODEL_API: str
 _TOKENIZER: Any
 _CONFIG: dict
 _GENERATION: dict
@@ -51,7 +52,7 @@ def _render(messages: list[dict], enable_thinking: bool, tools: list[dict] | Non
 
 
 def _load_pack(path: Path) -> None:
-    global _PACK, _MODEL, _TOKENIZER, _CONFIG, _GENERATION, _CHAT_TEMPLATE
+    global _PACK, _MODEL, _MODEL_API, _TOKENIZER, _CONFIG, _GENERATION, _CHAT_TEMPLATE
     _PACK = path.resolve()
     _CONFIG = _json_file("config.json", {})
     _GENERATION = _json_file("generation_config.json", {})
@@ -65,14 +66,17 @@ def _load_pack(path: Path) -> None:
 
             packed_model, _, _ = load_vl_model(_PACK, load_processor=False)
             _MODEL = packed_model.language_model
+            _MODEL_API = "packed_language"
         else:
             from artifact import load_model
 
             _MODEL, _ = load_model(_PACK)
+            _MODEL_API = "packed_language"
     else:
         from mlx_lm import load
 
         _MODEL, _ = load(str(_PACK))
+        _MODEL_API = "mlx_lm"
 
     from tokenizers import Tokenizer
 
@@ -82,6 +86,20 @@ def _load_pack(path: Path) -> None:
         if (_PACK / "chat_template.jinja").is_file()
         else _json_file("tokenizer_config.json", {}).get("chat_template", "")
     )
+
+
+def _make_cache():
+    if _MODEL_API == "packed_language":
+        return _MODEL.make_cache()
+    from mlx_lm.models.cache import make_prompt_cache
+
+    return make_prompt_cache(_MODEL)
+
+
+def _next_logits(tokens, cache):
+    if _MODEL_API == "mlx_lm":
+        return _MODEL(tokens, cache=cache)[:, -1, :]
+    return _MODEL.lm_head(_MODEL.model(tokens, cache=cache)[:, -1:, :])[:, -1, :]
 
 
 def _stop_ids() -> set[int]:
@@ -127,12 +145,12 @@ def _generate(payload: dict):
     processors = make_logits_processors(
         repetition_penalty=payload.get("repetition_penalty", _GENERATION.get("repetition_penalty"))
     )
-    cache = _MODEL.make_cache()
+    cache = _make_cache()
     x = mx.array([ids])
     generated: list[int] = []
     last_text = ""
     for _ in range(limit):
-        logits = _MODEL.lm_head(_MODEL.model(x, cache=cache)[:, -1:, :])[:, -1, :]
+        logits = _next_logits(x, cache)
         if payload.get("presence_penalty"):
             for token in set(generated):
                 logits[:, token] -= float(payload["presence_penalty"])
