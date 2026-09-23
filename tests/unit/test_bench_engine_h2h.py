@@ -118,3 +118,9 @@ def test_latest_prefers_valid_rows():
         {"kind": "speed", "model": "m", "engine": "e", "mode": "plain", "valid": False, "n": 2},
     ]
     assert h.latest(rows, "speed")[("m", "e", "plain")]["n"] == 1
+
+
+def test_start_gate_is_absolute_not_fractional():
+    assert not h.start_gate_verdict({"used_mb": 10842.0, "total_mb": 12288.0}, 4096)[0]
+    assert h.start_gate_verdict({"used_mb": 950.0, "total_mb": 1024.0}, 4096)[0]
+    assert h.start_gate_verdict({}, 4096)[0]

@@ -18,8 +18,9 @@ guard:
   sample_s: 30
   # Rule 4: a run whose swap grows more than this is INVALID, not reported.
   max_swap_growth_mb: 2048
-  # Rule 3: refuse to START a run when swap is already this full (fraction of total).
-  max_start_swap_fraction: 0.5
+  # Rule 3: refuse to START a run with more than this already swapped out. An
+  # absolute amount, not a fraction: macOS sizes the swap total to fit usage.
+  max_start_swap_used_mb: 4096
 
 engines:
   ollama:
