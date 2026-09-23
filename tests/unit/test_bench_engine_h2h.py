@@ -1,6 +1,8 @@
 """Pure-logic contracts for the engine head-to-head harness
 (tests/benchmarks/bench_engine_h2h.py). No network, no engines."""
 
+from pathlib import Path
+
 import pytest
 
 from tests.benchmarks import bench_engine_h2h as h
@@ -34,6 +36,12 @@ def test_every_managed_engine_renders_a_plain_command_for_every_model(cfg):
                 continue
             argv, _ = h.launch_command(cfg, eng, model, "plain")
             assert not any("{" in a and "}" in a and '"' not in a for a in argv), argv
+
+
+def test_mlx_launch_uses_model_specific_python_runtime(cfg):
+    argv, _ = h.launch_command(cfg, "prismml-mlx", "bonsai_v1_27b", "plain")
+
+    assert argv[0] == str(Path.home() / "src/prismml-mlx/.venv-bonsai/bin/python")
 
 
 def test_gguf_path_is_resolved_from_cache_and_spec_args_are_spliced(cfg, monkeypatch):

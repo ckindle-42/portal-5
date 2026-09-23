@@ -197,6 +197,8 @@ models:
     source_repo: prism-ml/Bonsai-27B-gguf
     mlx: Bonsai-27B-mlx-1bit
     prismml_mlx: Bonsai-27B-mlx-1bit
+    # Binary MLX needs the PrismML 1-bit core, separate from the stock 0.32 vision runtime.
+    prismml_mlx_python: ~/src/prismml-mlx/.venv-bonsai/bin/python
     ctx: 32768
     prefill_tokens: 2048
     tool_parser: hermes

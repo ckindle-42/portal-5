@@ -184,7 +184,9 @@ def launch_command(cfg: dict, engine: str, model: str, mode: str) -> tuple[list[
         else "",
         "llama_server": e.get("server_path", ""),
         "mlx_server_script": str(REPO / e["server_script"]) if e.get("server_script") else "",
-        "python": str(Path.home() / "src/prismml-mlx/.venv/bin/python"),
+        "python": os.path.expanduser(
+            m.get("prismml_mlx_python", "~/src/prismml-mlx/.venv/bin/python")
+        ),
         "spec_args": (spec or {}).get("args") or [],
     }
     if mode == "plain":
