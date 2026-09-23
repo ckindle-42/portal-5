@@ -169,6 +169,17 @@ def launch_command(cfg: dict, engine: str, model: str, mode: str) -> tuple[list[
         raise SystemExit(f"no {e.get('requires')} artifact for {engine} × {model}")
     model_dir = model if e.get("requires") == "gguf" else model_dir_for(cfg, model, engine, mode)
     spec = spec_entry(cfg, model, engine) if mode == "spec" else None
+    draft_gguf_override = m.get("draft_gguf_override") if mode == "spec" else None
+    if draft_gguf_override:
+        draft_gguf_path = Path(os.path.expanduser(draft_gguf_override)).resolve()
+        if not draft_gguf_path.is_file():
+            raise SystemExit(f"local draft GGUF override is missing: {draft_gguf_path}")
+    else:
+        draft_gguf_path = (
+            cached_hf_file(m.get("draft_gguf"), f"{model} drafter")
+            if mode == "spec" and m.get("draft_gguf")
+            else ""
+        )
     values = {
         "mlx_root": cfg["mlx_root"],
         "model_dir": model_dir,
@@ -179,9 +190,7 @@ def launch_command(cfg: dict, engine: str, model: str, mode: str) -> tuple[list[
         "drafter_path": local_dir_for(cfg, m.get("drafter")) or "",
         "draft_path": local_dir_for(cfg, m.get("draft_model")) or "",
         "gguf_path": gguf_path_for(cfg, model) if e.get("requires") == "gguf" else "",
-        "draft_gguf_path": cached_hf_file(m.get("draft_gguf"), f"{model} drafter")
-        if mode == "spec" and m.get("draft_gguf")
-        else "",
+        "draft_gguf_path": str(draft_gguf_path),
         "llama_server": e.get("server_path", ""),
         "mlx_server_script": str(REPO / e["server_script"]) if e.get("server_script") else "",
         "python": os.path.expanduser(
