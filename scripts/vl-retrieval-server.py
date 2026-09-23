@@ -51,6 +51,8 @@ import concurrent.futures
 import contextlib
 import os
 import tempfile
+import threading
+import time
 from pathlib import Path
 
 import uvicorn
@@ -134,6 +136,14 @@ async def _run_mx(fn, *args):
 # O1: recycle the process after this many model requests so the MLX runtime drift
 # can never compound past one window (0 == never). launchd/keepalive restarts it.
 MAX_REQUESTS = int(os.environ.get("VL_MAX_REQUESTS", "0"))
+# Idle release (TASK_MEMORY_FOOTPRINT_REDUCTION_V1 T3). Once loaded, the embed
+# model holds ~2.5 GB of Metal buffers that mx.clear_cache() does not return;
+# only process exit does. After this many idle seconds with a model loaded,
+# exit so launchd/keepalive restarts a lean process (models load lazily again).
+# Off by default: retrieval can be used often enough that the ~2.5 GB is worth
+# keeping warm. Opt in with e.g. VL_IDLE_EXIT_SECONDS=1800. 0 == never.
+IDLE_EXIT_S = int(os.environ.get("VL_IDLE_EXIT_SECONDS", "0"))
+_LAST_USE = time.monotonic()
 
 
 def _resolve_repo(repo: str) -> str:
@@ -227,8 +237,9 @@ def _mx_rows(out) -> list[list[float]]:
 def _mx_after_request() -> None:
     """S1/O1: free MLX's buffer cache after each request, count it, and recycle
     the process past MAX_REQUESTS so runtime drift never compounds."""
-    global _REQUESTS_SERVED
+    global _REQUESTS_SERVED, _LAST_USE
     _REQUESTS_SERVED += 1
+    _LAST_USE = time.monotonic()
     if MX_CLEAR_CACHE:
         with contextlib.suppress(Exception):
             import mlx.core as mx
@@ -240,6 +251,19 @@ def _mx_after_request() -> None:
         print(f"[vl-retrieval] recycling after {_REQUESTS_SERVED} requests", flush=True)
         sys.stdout.flush()
         os._exit(0)  # noqa: SLF001 — a clean supervisor restart is the point
+
+
+def _idle_exit_watch() -> None:
+    """Exit once a loaded model has sat unused for IDLE_EXIT_S (see above)."""
+    while True:
+        time.sleep(30)
+        loaded = _embed["model"] is not None or _rerank["model"] is not None
+        if loaded and _INFLIGHT == 0 and time.monotonic() - _LAST_USE > IDLE_EXIT_S:
+            print(
+                f"[vl-retrieval] idle {IDLE_EXIT_S}s with a model loaded; exiting to release it",
+                flush=True,
+            )
+            os._exit(0)  # noqa: SLF001 — a clean supervisor restart is the point
 
 
 def _mx_mem() -> dict:
@@ -457,4 +481,6 @@ if __name__ == "__main__":
             import mlx.core as mx
 
             mx.set_cache_limit(MX_CACHE_LIMIT_MB * 1024 * 1024)
+    if IDLE_EXIT_S > 0:
+        threading.Thread(target=_idle_exit_watch, daemon=True, name="vl-idle-exit").start()
     uvicorn.run(app, host=a.host, port=a.port)

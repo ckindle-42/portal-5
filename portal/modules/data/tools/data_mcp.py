@@ -8,9 +8,11 @@ Port: 8939 (DATA_MCP_PORT or MCP_PORT env override).
 
 from __future__ import annotations
 
+import contextlib
 import logging
 import os
 import re
+from collections import OrderedDict
 from collections.abc import Awaitable, Callable
 from pathlib import Path
 from typing import Any
@@ -55,13 +57,91 @@ _BLOCKED = re.compile(
     re.I,
 )
 
-_conns: dict[str, Any] = {}  # session_id -> read-only-ish query duckdb connection
+# Memory bounds. DuckDB's default memory_limit is 80% of system RAM *per
+# database*, and every session is its own database file; this server runs
+# host-native (no container cap), so one large query could push the host into
+# swap. SET is blocked in user SQL, so only the server moves these limits.
+# Sorts, joins, windows and DISTINCT spill to disk under the cap and still
+# succeed; only operators that build one huge value (list(), string_agg()) hit
+# OutOfMemory. Those are retried automatically with more memory (see
+# _with_headroom), so a caller never has to re-run with a bigger setting.
+_MEMORY_LIMIT = os.environ.get("DATA_MCP_MEMORY_LIMIT", "4GB")  # starting cap per query
+# Hard upper bound for automatic escalation; empty == half of physical RAM.
+_MEMORY_CEILING = os.environ.get("DATA_MCP_MEMORY_CEILING", "")
+_THREADS = int(os.environ.get("DATA_MCP_THREADS", "4"))
+_MAX_CONNS = max(1, int(os.environ.get("DATA_MCP_MAX_CONNS", "4")))
+_LIMITS = {"memory_limit": _MEMORY_LIMIT, "threads": _THREADS}
+_SIZE = re.compile(r"^\s*([\d.]+)\s*([KMGT]I?B)?\s*$", re.I)
+_UNITS = {
+    "KB": 1e3,
+    "MB": 1e6,
+    "GB": 1e9,
+    "TB": 1e12,
+    "KIB": 2**10,
+    "MIB": 2**20,
+    "GIB": 2**30,
+    "TIB": 2**40,
+}
+
+# session_id -> read-only-ish query duckdb connection, least recently used first
+_conns: OrderedDict[str, Any] = OrderedDict()
 
 
 def _duck() -> Any:
     import duckdb
 
     return duckdb
+
+
+def _bytes(spec: str) -> int:
+    m = _SIZE.match(spec)
+    if not m:
+        raise ValueError(f"bad memory size: {spec!r}")
+    return int(float(m[1]) * _UNITS.get((m[2] or "").upper(), 1))
+
+
+def _escalation_ceiling() -> int:
+    """Most memory one query may take right now: the hard ceiling, but never
+    more than 75% of what the host currently has available."""
+    try:
+        import psutil  # type: ignore[import-untyped]
+
+        vm = psutil.virtual_memory()
+        total, available = vm.total, vm.available
+    except ImportError:
+        total = os.sysconf("SC_PAGE_SIZE") * os.sysconf("SC_PHYS_PAGES")
+        available = total
+    hard = _bytes(_MEMORY_CEILING) if _MEMORY_CEILING else total // 2
+    return int(min(hard, available * 0.75))
+
+
+def _with_headroom(con: Any, work: Callable[[Any], Any]) -> tuple[Any, int]:
+    """Run work(con). On DuckDB OutOfMemory, raise this connection's
+    memory_limit 4x per step (bounded by _escalation_ceiling(), re-read each
+    step) and run it again; restore the starting limit afterwards. Returns the
+    result and the limit (bytes) it finally ran under."""
+    import duckdb
+
+    base = _bytes(str(_LIMITS["memory_limit"]))
+    limit = base
+    try:
+        while True:
+            try:
+                return work(con), limit
+            except duckdb.OutOfMemoryException as e:
+                ceiling = _escalation_ceiling()
+                if limit >= ceiling:
+                    raise duckdb.OutOfMemoryException(
+                        f"{e} [data-mcp: retried up to {limit / 1e9:.1f} GB; "
+                        f"host can spare {ceiling / 1e9:.1f} GB right now]"
+                    ) from e
+                limit = min(limit * 4, ceiling)
+                logger.warning("data-mcp: out of memory, retrying at %.1f GB", limit / 1e9)
+                con.execute(f"SET memory_limit='{limit // 2**20}MiB'")
+    finally:
+        if limit != base:
+            with contextlib.suppress(Exception):
+                con.execute(f"SET memory_limit='{_LIMITS['memory_limit']}'")
 
 
 def _resolve(path: str) -> Path:
@@ -83,7 +163,7 @@ def _db_path(session_id: str) -> str:
 def _loader_conn(session_id: str) -> Any:
     """Short-lived connection WITH filesystem access — used only by attach_source
     to materialise a source file into a table, then closed."""
-    return _duck().connect(_db_path(session_id))
+    return _duck().connect(_db_path(session_id), config=dict(_LIMITS))
 
 
 def _conn(session_id: str) -> Any:
@@ -91,10 +171,16 @@ def _conn(session_id: str) -> Any:
     sandbox guarantee for run_sql / profile_table / list_session. DuckDB refuses
     to re-enable external access on a running database, so this cannot be undone
     from user SQL."""
-    if session_id not in _conns:
-        _conns[session_id] = _duck().connect(
-            _db_path(session_id), config={"enable_external_access": False}
-        )
+    if session_id in _conns:
+        _conns.move_to_end(session_id)
+        return _conns[session_id]
+    while len(_conns) >= _MAX_CONNS:
+        _, old = _conns.popitem(last=False)
+        with contextlib.suppress(Exception):
+            old.close()
+    _conns[session_id] = _duck().connect(
+        _db_path(session_id), config={**_LIMITS, "enable_external_access": False}
+    )
     return _conns[session_id]
 
 
@@ -117,31 +203,35 @@ def attach_source(session_id: str, path: str, table: str) -> dict[str, Any]:
             old.close()
         loader = _loader_conn(session_id)
         try:
-            ext = p.suffix.lower()
-            # p is resolved + confined under _ROOT; DuckDB cannot bind a prepared
-            # parameter inside CREATE TABLE, so the path is quoted inline.
-            lit = "'" + str(p).replace("'", "''") + "'"
-            if ext in (".csv", ".tsv"):
-                loader.execute(
-                    f"CREATE OR REPLACE TABLE {table} AS SELECT * FROM read_csv_auto({lit})"
-                )
-            elif ext in (".parquet", ".pq"):
-                loader.execute(
-                    f"CREATE OR REPLACE TABLE {table} AS SELECT * FROM read_parquet({lit})"
-                )
-            elif ext == ".json":
-                loader.execute(
-                    f"CREATE OR REPLACE TABLE {table} AS SELECT * FROM read_json_auto({lit})"
-                )
-            elif ext in (".xlsx", ".xls"):
-                import pandas as pd
 
-                df = pd.read_excel(p)
-                loader.register("_src_df", df)
-                loader.execute(f"CREATE OR REPLACE TABLE {table} AS SELECT * FROM _src_df")
-                loader.unregister("_src_df")
-            else:
-                raise ValueError(f"unsupported source type: {ext}")
+            def load(c: Any) -> None:
+                ext = p.suffix.lower()
+                # p is resolved + confined under _ROOT; DuckDB cannot bind a prepared
+                # parameter inside CREATE TABLE, so the path is quoted inline.
+                lit = "'" + str(p).replace("'", "''") + "'"
+                if ext in (".csv", ".tsv"):
+                    c.execute(
+                        f"CREATE OR REPLACE TABLE {table} AS SELECT * FROM read_csv_auto({lit})"
+                    )
+                elif ext in (".parquet", ".pq"):
+                    c.execute(
+                        f"CREATE OR REPLACE TABLE {table} AS SELECT * FROM read_parquet({lit})"
+                    )
+                elif ext == ".json":
+                    c.execute(
+                        f"CREATE OR REPLACE TABLE {table} AS SELECT * FROM read_json_auto({lit})"
+                    )
+                elif ext in (".xlsx", ".xls"):
+                    import pandas as pd
+
+                    df = pd.read_excel(p)
+                    c.register("_src_df", df)
+                    c.execute(f"CREATE OR REPLACE TABLE {table} AS SELECT * FROM _src_df")
+                    c.unregister("_src_df")
+                else:
+                    raise ValueError(f"unsupported source type: {ext}")
+
+            _with_headroom(loader, load)
         finally:
             loader.close()
         con = _conn(session_id)
@@ -165,18 +255,24 @@ def run_sql(session_id: str, sql: str, max_rows: int = _MAX_ROWS) -> dict[str, A
             return {
                 "error": "statement blocked by sandbox policy (INSTALL/LOAD/ATTACH/COPY/EXPORT)"
             }
-        con = _conn(session_id)
-        cur = con.execute(sql)
-        cols = [d[0] for d in cur.description] if cur.description else []
         cap = min(max_rows, _MAX_ROWS)
-        rows = cur.fetchmany(cap) if cols else []
-        return {
+
+        def work(con: Any) -> tuple[list[str], list[Any]]:
+            cur = con.execute(sql)
+            cols = [d[0] for d in cur.description] if cur.description else []
+            return cols, (cur.fetchmany(cap) if cols else [])
+
+        (cols, rows), limit = _with_headroom(_conn(session_id), work)
+        out = {
             "session_id": session_id,
             "columns": cols,
             "rows": [list(r) for r in rows],
             "row_count": len(rows),
             "truncated": len(rows) >= cap,
         }
+        if limit != _bytes(str(_LIMITS["memory_limit"])):
+            out["memory_limit_used_gb"] = round(limit / 1e9, 1)
+        return out
     except Exception as e:  # noqa: BLE001
         return {"error": str(e)}
 
