@@ -1,0 +1,570 @@
+[09/23/26 12:35:31] INFO     detected formats:                   document.py:552
+                             [<InputFormat.PDF: 'pdf'>]                         
+                    INFO     Going to convert document document_converter.py:580
+                             batch...                                           
+                    INFO     Initializing pipeline for document_converter.py:625
+                             StandardPdfPipeline with                           
+                             options hash                                       
+                             80a8a1322ca5ef46817c7adbf                          
+                             875fff6                                            
+                    INFO     Loading plugin                  base_factory.py:112
+                             'docling_defaults'                                 
+                    INFO     Registered picture descriptions:     __init__.py:28
+                             ['picture_description_vlm_engine',                 
+                             'vlm', 'api']                                      
+                    INFO     Loading plugin                  base_factory.py:112
+                             'docling_defaults'                                 
+                    INFO     Registered ocr engines: ['auto',     __init__.py:18
+                             'easyocr', 'kserve_v2_ocr',                        
+                             'ocrmac', 'rapidocr', 'tesserocr',                 
+                             'tesseract']                                       
+                    INFO     ocrmac cannot be used because  auto_ocr_model.py:58
+                             ocrmac is not installed.                           
+[09/23/26 12:35:32] INFO     Accelerator device: 'mps'   accelerator_utils.py:96
+[32m[INFO] 2026-09-23 12:35:32,281 [RapidOCR] base.py:23: Using engine_name: onnxruntime[0m
+[32m[INFO] 2026-09-23 12:35:32,288 [RapidOCR] download_file.py:60: File exists and is valid: /Users/chris/projects/portal-5/.venv/lib/python3.13/site-packages/rapidocr/models/PP-OCRv6_det_small.onnx[0m
+[32m[INFO] 2026-09-23 12:35:32,288 [RapidOCR] main.py:63: Using /Users/chris/projects/portal-5/.venv/lib/python3.13/site-packages/rapidocr/models/PP-OCRv6_det_small.onnx[0m
+[32m[INFO] 2026-09-23 12:35:32,323 [RapidOCR] base.py:23: Using engine_name: onnxruntime[0m
+[32m[INFO] 2026-09-23 12:35:32,324 [RapidOCR] download_file.py:60: File exists and is valid: /Users/chris/projects/portal-5/.venv/lib/python3.13/site-packages/rapidocr/models/ch_ppocr_mobile_v2.0_cls_mobile.onnx[0m
+[32m[INFO] 2026-09-23 12:35:32,324 [RapidOCR] main.py:63: Using /Users/chris/projects/portal-5/.venv/lib/python3.13/site-packages/rapidocr/models/ch_ppocr_mobile_v2.0_cls_mobile.onnx[0m
+[32m[INFO] 2026-09-23 12:35:32,337 [RapidOCR] base.py:23: Using engine_name: onnxruntime[0m
+[32m[INFO] 2026-09-23 12:35:32,348 [RapidOCR] download_file.py:60: File exists and is valid: /Users/chris/projects/portal-5/.venv/lib/python3.13/site-packages/rapidocr/models/PP-OCRv6_rec_small.onnx[0m
+[32m[INFO] 2026-09-23 12:35:32,348 [RapidOCR] main.py:63: Using /Users/chris/projects/portal-5/.venv/lib/python3.13/site-packages/rapidocr/models/PP-OCRv6_rec_small.onnx[0m
+                    INFO     Auto OCR model selected        auto_ocr_model.py:75
+                             rapidocr with onnxruntime.                         
+                    INFO     Loading plugin                  base_factory.py:112
+                             'docling_defaults'                                 
+                    INFO     Registered layout engines:           __init__.py:36
+                             ['layout_object_detection',                        
+                             'docling_layout_default',                          
+                             'docling_experimental_table_crops_la               
+                             yout']                                             
+                    INFO     Accelerator device: 'mps'   accelerator_utils.py:96
+                    INFO     HTTP Request: GET                   _client.py:1025
+                             https://huggingface.co/api/models/d                
+                             ocling-project/docling-layout-heron                
+                             /revision/main "HTTP/1.1 200 OK"                   
+Loading weights:   0%|          | 0/770 [00:00<?, ?it/s]Loading weights: 100%|██████████| 770/770 [00:00<00:00, 81951.18it/s]
+                    INFO     Loading plugin                  base_factory.py:112
+                             'docling_defaults'                                 
+                    INFO     Registered table structure engines:  __init__.py:46
+                             ['docling_tableformer',                            
+                             'docling_tableformer_v2',                          
+                             'granite_vision_table']                            
+[09/23/26 12:35:33] INFO     HTTP Request: GET                   _client.py:1025
+                             https://huggingface.co/api/models/d                
+                             ocling-project/docling-models/revis                
+                             ion/v2.3.0 "HTTP/1.1 200 OK"                       
+                    INFO     Accelerator device: 'mps'   accelerator_utils.py:96
+                    INFO     Processing document             base_pipeline.py:71
+                             cip-002-5.1a-implementation-pla                    
+                             n.pdf                                              
+[33m[WARNING] 2026-09-23 12:35:36,984 [RapidOCR] main.py:132: The text detection result is empty[0m
+[09/23/26 12:35:36] WARNING  RapidOCR returned empty      rapid_ocr_model.py:321
+                             result!                                            
+[33m[WARNING] 2026-09-23 12:35:38,123 [RapidOCR] main.py:132: The text detection result is empty[0m
+[09/23/26 12:35:38] WARNING  RapidOCR returned empty      rapid_ocr_model.py:321
+                             result!                                            
+[33m[WARNING] 2026-09-23 12:35:39,123 [RapidOCR] main.py:132: The text detection result is empty[0m
+[09/23/26 12:35:39] WARNING  RapidOCR returned empty      rapid_ocr_model.py:321
+                             result!                                            
+[33m[WARNING] 2026-09-23 12:35:40,064 [RapidOCR] main.py:132: The text detection result is empty[0m
+[09/23/26 12:35:40] WARNING  RapidOCR returned empty      rapid_ocr_model.py:321
+                             result!                                            
+[33m[WARNING] 2026-09-23 12:35:41,022 [RapidOCR] main.py:132: The text detection result is empty[0m
+[09/23/26 12:35:41] WARNING  RapidOCR returned empty      rapid_ocr_model.py:321
+                             result!                                            
+[09/23/26 12:35:42] INFO     Finished converting       document_converter.py:604
+                             document                                           
+                             cip-002-5.1a-implementati                          
+                             on-plan.pdf in 11.19 sec.                          
+                    INFO     detected formats:                   document.py:552
+                             [<InputFormat.PDF: 'pdf'>]                         
+                    INFO     Going to convert document document_converter.py:580
+                             batch...                                           
+                    INFO     Processing document             base_pipeline.py:71
+                             cip-002-7.pdf                                      
+[09/23/26 12:35:46] INFO     Finished converting       document_converter.py:604
+                             document cip-002-7.pdf in                          
+                             4.22 sec.                                          
+                    INFO     detected formats:                   document.py:552
+                             [<InputFormat.PDF: 'pdf'>]                         
+                    INFO     Going to convert document document_converter.py:580
+                             batch...                                           
+                    INFO     Processing document             base_pipeline.py:71
+                             cip-002-7-technical-rationale.p                    
+                             df                                                 
+[09/23/26 12:35:51] INFO     Finished converting       document_converter.py:604
+                             document                                           
+                             cip-002-7-technical-ratio                          
+                             nale.pdf in 4.42 sec.                              
+                    INFO     detected formats:                   document.py:552
+                             [<InputFormat.PDF: 'pdf'>]                         
+                    INFO     Going to convert document document_converter.py:580
+                             batch...                                           
+                    INFO     Processing document             base_pipeline.py:71
+                             cip-002-8.pdf                                      
+[09/23/26 12:35:56] INFO     Finished converting       document_converter.py:604
+                             document cip-002-8.pdf in                          
+                             4.89 sec.                                          
+                    INFO     detected formats:                   document.py:552
+                             [<InputFormat.PDF: 'pdf'>]                         
+                    INFO     Going to convert document document_converter.py:580
+                             batch...                                           
+                    INFO     Processing document             base_pipeline.py:71
+                             cip-002-8-implementation-plan.p                    
+                             df                                                 
+[09/23/26 12:35:58] INFO     Finished converting       document_converter.py:604
+                             document                                           
+                             cip-002-8-implementation-                          
+                             plan.pdf in 2.64 sec.                              
+                    INFO     detected formats:                   document.py:552
+                             [<InputFormat.PDF: 'pdf'>]                         
+                    INFO     Going to convert document document_converter.py:580
+                             batch...                                           
+                    INFO     Processing document             base_pipeline.py:71
+                             cip-002-8-technical-rationale.p                    
+                             df                                                 
+[09/23/26 12:36:10] INFO     Finished converting       document_converter.py:604
+                             document                                           
+                             cip-002-8-technical-ratio                          
+                             nale.pdf in 11.83 sec.                             
+                    INFO     detected formats:                   document.py:552
+                             [<InputFormat.PDF: 'pdf'>]                         
+                    INFO     Going to convert document document_converter.py:580
+                             batch...                                           
+                    INFO     Processing document             base_pipeline.py:71
+                             cip-003-10.pdf                                     
+[09/23/26 12:36:16] INFO     Finished converting       document_converter.py:604
+                             document cip-003-10.pdf                            
+                             in 6.10 sec.                                       
+[09/23/26 12:36:17] INFO     detected formats:                   document.py:552
+                             [<InputFormat.PDF: 'pdf'>]                         
+                    INFO     Going to convert document document_converter.py:580
+                             batch...                                           
+                    INFO     Processing document             base_pipeline.py:71
+                             cip-003-10-technical-rationale.                    
+                             pdf                                                
+[09/23/26 12:36:22] INFO     Finished converting       document_converter.py:604
+                             document                                           
+                             cip-003-10-technical-rati                          
+                             onale.pdf in 5.23 sec.                             
+                    INFO     detected formats:                   document.py:552
+                             [<InputFormat.PDF: 'pdf'>]                         
+                    INFO     Going to convert document document_converter.py:580
+                             batch...                                           
+                    INFO     Processing document             base_pipeline.py:71
+                             cip-003-11.pdf                                     
+[09/23/26 12:36:29] INFO     Finished converting       document_converter.py:604
+                             document cip-003-11.pdf                            
+                             in 7.26 sec.                                       
+                    INFO     detected formats:                   document.py:552
+                             [<InputFormat.PDF: 'pdf'>]                         
+                    INFO     Going to convert document document_converter.py:580
+                             batch...                                           
+                    INFO     Processing document             base_pipeline.py:71
+                             cip-003-11-implementation-plan.                    
+                             pdf                                                
+[09/23/26 12:36:32] INFO     Finished converting       document_converter.py:604
+                             document                                           
+                             cip-003-11-implementation                          
+                             -plan.pdf in 3.08 sec.                             
+                    INFO     detected formats:                   document.py:552
+                             [<InputFormat.PDF: 'pdf'>]                         
+                    INFO     Going to convert document document_converter.py:580
+                             batch...                                           
+                    INFO     Processing document             base_pipeline.py:71
+                             cip-003-11-technical-rationale.                    
+                             pdf                                                
+[09/23/26 12:36:43] INFO     Finished converting       document_converter.py:604
+                             document                                           
+                             cip-003-11-technical-rati                          
+                             onale.pdf in 10.44 sec.                            
+                    INFO     detected formats:                   document.py:552
+                             [<InputFormat.PDF: 'pdf'>]                         
+                    INFO     Going to convert document document_converter.py:580
+                             batch...                                           
+                    INFO     Processing document             base_pipeline.py:71
+                             cip-003-9-implementation-plan.p                    
+                             df                                                 
+[09/23/26 12:36:44] INFO     Finished converting       document_converter.py:604
+                             document                                           
+                             cip-003-9-implementation-                          
+                             plan.pdf in 1.57 sec.                              
+                    INFO     detected formats:                   document.py:552
+                             [<InputFormat.PDF: 'pdf'>]                         
+                    INFO     Going to convert document document_converter.py:580
+                             batch...                                           
+                    INFO     Processing document             base_pipeline.py:71
+                             cip-003-9-technical-rationale.p                    
+                             df                                                 
+[09/23/26 12:36:47] INFO     Finished converting       document_converter.py:604
+                             document                                           
+                             cip-003-9-technical-ratio                          
+                             nale.pdf in 2.97 sec.                              
+                    INFO     detected formats:                   document.py:552
+                             [<InputFormat.PDF: 'pdf'>]                         
+                    INFO     Going to convert document document_converter.py:580
+                             batch...                                           
+                    INFO     Processing document             base_pipeline.py:71
+                             cip-004-7-implementation-plan.p                    
+                             df                                                 
+[09/23/26 12:36:49] INFO     Finished converting       document_converter.py:604
+                             document                                           
+                             cip-004-7-implementation-                          
+                             plan.pdf in 1.92 sec.                              
+                    INFO     detected formats:                   document.py:552
+                             [<InputFormat.PDF: 'pdf'>]                         
+                    INFO     Going to convert document document_converter.py:580
+                             batch...                                           
+                    INFO     Processing document             base_pipeline.py:71
+                             cip-004-7-technical-rationale.p                    
+                             df                                                 
+[09/23/26 12:36:53] INFO     Finished converting       document_converter.py:604
+                             document                                           
+                             cip-004-7-technical-ratio                          
+                             nale.pdf in 3.40 sec.                              
+                    INFO     detected formats:                   document.py:552
+                             [<InputFormat.PDF: 'pdf'>]                         
+                    INFO     Going to convert document document_converter.py:580
+                             batch...                                           
+                    INFO     Processing document             base_pipeline.py:71
+                             cip-004-8.pdf                                      
+[09/23/26 12:37:02] INFO     Finished converting       document_converter.py:604
+                             document cip-004-8.pdf in                          
+                             9.44 sec.                                          
+                    INFO     detected formats:                   document.py:552
+                             [<InputFormat.PDF: 'pdf'>]                         
+                    INFO     Going to convert document document_converter.py:580
+                             batch...                                           
+                    INFO     Processing document             base_pipeline.py:71
+                             cip-004-8-technical-rationale.p                    
+                             df                                                 
+[09/23/26 12:37:06] INFO     Finished converting       document_converter.py:604
+                             document                                           
+                             cip-004-8-technical-ratio                          
+                             nale.pdf in 3.46 sec.                              
+                    INFO     detected formats:                   document.py:552
+                             [<InputFormat.PDF: 'pdf'>]                         
+                    INFO     Going to convert document document_converter.py:580
+                             batch...                                           
+                    INFO     Processing document             base_pipeline.py:71
+                             cip-005-7-implementation-plan.p                    
+                             df                                                 
+[09/23/26 12:37:09] INFO     Finished converting       document_converter.py:604
+                             document                                           
+                             cip-005-7-implementation-                          
+                             plan.pdf in 2.94 sec.                              
+                    INFO     detected formats:                   document.py:552
+                             [<InputFormat.PDF: 'pdf'>]                         
+                    INFO     Going to convert document document_converter.py:580
+                             batch...                                           
+                    INFO     Processing document             base_pipeline.py:71
+                             cip-005-7-technical-rationale.p                    
+                             df                                                 
+[09/23/26 12:37:13] INFO     Finished converting       document_converter.py:604
+                             document                                           
+                             cip-005-7-technical-ratio                          
+                             nale.pdf in 3.76 sec.                              
+                    INFO     detected formats:                   document.py:552
+                             [<InputFormat.PDF: 'pdf'>]                         
+                    INFO     Going to convert document document_converter.py:580
+                             batch...                                           
+                    INFO     Processing document             base_pipeline.py:71
+                             cip-005-8.pdf                                      
+[09/23/26 12:37:17] INFO     Finished converting       document_converter.py:604
+                             document cip-005-8.pdf in                          
+                             4.75 sec.                                          
+                    INFO     detected formats:                   document.py:552
+                             [<InputFormat.PDF: 'pdf'>]                         
+                    INFO     Going to convert document document_converter.py:580
+                             batch...                                           
+                    INFO     Processing document             base_pipeline.py:71
+                             cip-005-8-technical-rationale.p                    
+                             df                                                 
+[09/23/26 12:37:24] INFO     Finished converting       document_converter.py:604
+                             document                                           
+                             cip-005-8-technical-ratio                          
+                             nale.pdf in 7.04 sec.                              
+[09/23/26 12:37:25] INFO     detected formats:                   document.py:552
+                             [<InputFormat.PDF: 'pdf'>]                         
+                    INFO     Going to convert document document_converter.py:580
+                             batch...                                           
+                    INFO     Processing document             base_pipeline.py:71
+                             cip-006-7.pdf                                      
+[09/23/26 12:37:30] INFO     Finished converting       document_converter.py:604
+                             document cip-006-7.pdf in                          
+                             5.06 sec.                                          
+                    INFO     detected formats:                   document.py:552
+                             [<InputFormat.PDF: 'pdf'>]                         
+                    INFO     Going to convert document document_converter.py:580
+                             batch...                                           
+                    INFO     Processing document             base_pipeline.py:71
+                             cip-006-7.1.pdf                                    
+[09/23/26 12:37:34] INFO     Finished converting       document_converter.py:604
+                             document cip-006-7.1.pdf                           
+                             in 4.85 sec.                                       
+[09/23/26 12:37:35] INFO     detected formats:                   document.py:552
+                             [<InputFormat.PDF: 'pdf'>]                         
+                    INFO     Going to convert document document_converter.py:580
+                             batch...                                           
+                    INFO     Processing document             base_pipeline.py:71
+                             cip-006-7.1-technical-rationale                    
+                             .pdf                                               
+[09/23/26 12:37:37] INFO     Finished converting       document_converter.py:604
+                             document                                           
+                             cip-006-7.1-technical-rat                          
+                             ionale.pdf in 2.62 sec.                            
+                    INFO     detected formats:                   document.py:552
+                             [<InputFormat.PDF: 'pdf'>]                         
+                    INFO     Going to convert document document_converter.py:580
+                             batch...                                           
+                    INFO     Processing document             base_pipeline.py:71
+                             cip-007-7.pdf                                      
+[09/23/26 12:37:44] INFO     Finished converting       document_converter.py:604
+                             document cip-007-7.pdf in                          
+                             7.33 sec.                                          
+[09/23/26 12:37:45] INFO     detected formats:                   document.py:552
+                             [<InputFormat.PDF: 'pdf'>]                         
+                    INFO     Going to convert document document_converter.py:580
+                             batch...                                           
+                    INFO     Processing document             base_pipeline.py:71
+                             cip-008-6-implementation-plan.p                    
+                             df                                                 
+[09/23/26 12:37:47] INFO     Finished converting       document_converter.py:604
+                             document                                           
+                             cip-008-6-implementation-                          
+                             plan.pdf in 2.41 sec.                              
+                    INFO     detected formats:                   document.py:552
+                             [<InputFormat.PDF: 'pdf'>]                         
+                    INFO     Going to convert document document_converter.py:580
+                             batch...                                           
+                    INFO     Processing document             base_pipeline.py:71
+                             cip-008-6-technical-rationale.p                    
+                             df                                                 
+[09/23/26 12:37:50] INFO     Finished converting       document_converter.py:604
+                             document                                           
+                             cip-008-6-technical-ratio                          
+                             nale.pdf in 3.39 sec.                              
+                    INFO     detected formats:                   document.py:552
+                             [<InputFormat.PDF: 'pdf'>]                         
+                    INFO     Going to convert document document_converter.py:580
+                             batch...                                           
+                    INFO     Processing document             base_pipeline.py:71
+                             cip-008-7.pdf                                      
+[09/23/26 12:37:55] INFO     Finished converting       document_converter.py:604
+                             document cip-008-7.pdf in                          
+                             4.89 sec.                                          
+                    INFO     detected formats:                   document.py:552
+                             [<InputFormat.PDF: 'pdf'>]                         
+                    INFO     Going to convert document document_converter.py:580
+                             batch...                                           
+                    INFO     Processing document             base_pipeline.py:71
+                             cip-008-7.1.pdf                                    
+[09/23/26 12:38:00] INFO     Finished converting       document_converter.py:604
+                             document cip-008-7.1.pdf                           
+                             in 5.13 sec.                                       
+                    INFO     detected formats:                   document.py:552
+                             [<InputFormat.PDF: 'pdf'>]                         
+                    INFO     Going to convert document document_converter.py:580
+                             batch...                                           
+                    INFO     Processing document             base_pipeline.py:71
+                             cip-008-7.1-technical-rationale                    
+                             .pdf                                               
+[09/23/26 12:38:04] INFO     Finished converting       document_converter.py:604
+                             document                                           
+                             cip-008-7.1-technical-rat                          
+                             ionale.pdf in 3.06 sec.                            
+                    INFO     detected formats:                   document.py:552
+                             [<InputFormat.PDF: 'pdf'>]                         
+                    INFO     Going to convert document document_converter.py:580
+                             batch...                                           
+                    INFO     Processing document             base_pipeline.py:71
+                             cip-009-7.pdf                                      
+[09/23/26 12:38:09] INFO     Finished converting       document_converter.py:604
+                             document cip-009-7.pdf in                          
+                             5.16 sec.                                          
+                    INFO     detected formats:                   document.py:552
+                             [<InputFormat.PDF: 'pdf'>]                         
+                    INFO     Going to convert document document_converter.py:580
+                             batch...                                           
+                    INFO     Processing document             base_pipeline.py:71
+                             cip-009-7.1.pdf                                    
+[09/23/26 12:38:14] INFO     Finished converting       document_converter.py:604
+                             document cip-009-7.1.pdf                           
+                             in 4.83 sec.                                       
+                    INFO     detected formats:                   document.py:552
+                             [<InputFormat.PDF: 'pdf'>]                         
+                    INFO     Going to convert document document_converter.py:580
+                             batch...                                           
+                    INFO     Processing document             base_pipeline.py:71
+                             cip-009-7.1-technical-rationale                    
+                             .pdf                                               
+[09/23/26 12:38:16] INFO     Finished converting       document_converter.py:604
+                             document                                           
+                             cip-009-7.1-technical-rat                          
+                             ionale.pdf in 2.53 sec.                            
+                    INFO     detected formats:                   document.py:552
+                             [<InputFormat.PDF: 'pdf'>]                         
+                    INFO     Going to convert document document_converter.py:580
+                             batch...                                           
+                    INFO     Processing document             base_pipeline.py:71
+                             cip-010-4-technical-rationale.p                    
+                             df                                                 
+[09/23/26 12:38:21] INFO     Finished converting       document_converter.py:604
+                             document                                           
+                             cip-010-4-technical-ratio                          
+                             nale.pdf in 4.31 sec.                              
+                    INFO     detected formats:                   document.py:552
+                             [<InputFormat.PDF: 'pdf'>]                         
+                    INFO     Going to convert document document_converter.py:580
+                             batch...                                           
+                    INFO     Processing document             base_pipeline.py:71
+                             cip-010-5.pdf                                      
+[09/23/26 12:38:26] INFO     Finished converting       document_converter.py:604
+                             document cip-010-5.pdf in                          
+                             4.96 sec.                                          
+                    INFO     detected formats:                   document.py:552
+                             [<InputFormat.PDF: 'pdf'>]                         
+                    INFO     Going to convert document document_converter.py:580
+                             batch...                                           
+                    INFO     Processing document             base_pipeline.py:71
+                             cip-010-5-technical-rationale.p                    
+                             df                                                 
+[09/23/26 12:38:30] INFO     Finished converting       document_converter.py:604
+                             document                                           
+                             cip-010-5-technical-ratio                          
+                             nale.pdf in 4.70 sec.                              
+                    INFO     detected formats:                   document.py:552
+                             [<InputFormat.PDF: 'pdf'>]                         
+                    INFO     Going to convert document document_converter.py:580
+                             batch...                                           
+                    INFO     Processing document             base_pipeline.py:71
+                             cip-011-3-technical-rationale.p                    
+                             df                                                 
+[09/23/26 12:38:33] INFO     Finished converting       document_converter.py:604
+                             document                                           
+                             cip-011-3-technical-ratio                          
+                             nale.pdf in 2.69 sec.                              
+                    INFO     detected formats:                   document.py:552
+                             [<InputFormat.PDF: 'pdf'>]                         
+                    INFO     Going to convert document document_converter.py:580
+                             batch...                                           
+                    INFO     Processing document             base_pipeline.py:71
+                             cip-011-4.pdf                                      
+[09/23/26 12:38:35] INFO     Finished converting       document_converter.py:604
+                             document cip-011-4.pdf in                          
+                             2.24 sec.                                          
+                    INFO     detected formats:                   document.py:552
+                             [<InputFormat.PDF: 'pdf'>]                         
+                    INFO     Going to convert document document_converter.py:580
+                             batch...                                           
+                    INFO     Processing document             base_pipeline.py:71
+                             cip-011-4.1.pdf                                    
+[09/23/26 12:38:38] INFO     Finished converting       document_converter.py:604
+                             document cip-011-4.1.pdf                           
+                             in 2.45 sec.                                       
+                    INFO     detected formats:                   document.py:552
+                             [<InputFormat.PDF: 'pdf'>]                         
+                    INFO     Going to convert document document_converter.py:580
+                             batch...                                           
+                    INFO     Processing document             base_pipeline.py:71
+                             cip-011-4.1-technical-rationale                    
+                             .pdf                                               
+[09/23/26 12:38:40] INFO     Finished converting       document_converter.py:604
+                             document                                           
+                             cip-011-4.1-technical-rat                          
+                             ionale.pdf in 2.52 sec.                            
+                    INFO     detected formats:                   document.py:552
+                             [<InputFormat.PDF: 'pdf'>]                         
+                    INFO     Going to convert document document_converter.py:580
+                             batch...                                           
+                    INFO     Processing document             base_pipeline.py:71
+                             cip-012-1.pdf                                      
+[09/23/26 12:38:42] INFO     Finished converting       document_converter.py:604
+                             document cip-012-1.pdf in                          
+                             1.26 sec.                                          
+                    INFO     detected formats:                   document.py:552
+                             [<InputFormat.PDF: 'pdf'>]                         
+                    INFO     Going to convert document document_converter.py:580
+                             batch...                                           
+                    INFO     Processing document             base_pipeline.py:71
+                             cip-012-2-implementation-plan.p                    
+                             df                                                 
+[09/23/26 12:38:43] INFO     Finished converting       document_converter.py:604
+                             document                                           
+                             cip-012-2-implementation-                          
+                             plan.pdf in 1.29 sec.                              
+                    INFO     detected formats:                   document.py:552
+                             [<InputFormat.PDF: 'pdf'>]                         
+                    INFO     Going to convert document document_converter.py:580
+                             batch...                                           
+                    INFO     Processing document             base_pipeline.py:71
+                             cip-012-2-technical-rationale.p                    
+                             df                                                 
+[09/23/26 12:38:49] INFO     Finished converting       document_converter.py:604
+                             document                                           
+                             cip-012-2-technical-ratio                          
+                             nale.pdf in 5.87 sec.                              
+                    INFO     detected formats:                   document.py:552
+                             [<InputFormat.PDF: 'pdf'>]                         
+                    INFO     Going to convert document document_converter.py:580
+                             batch...                                           
+                    INFO     Processing document             base_pipeline.py:71
+                             cip-013-2-technical-rationale.p                    
+                             df                                                 
+[09/23/26 12:38:52] INFO     Finished converting       document_converter.py:604
+                             document                                           
+                             cip-013-2-technical-ratio                          
+                             nale.pdf in 2.98 sec.                              
+                    INFO     detected formats:                   document.py:552
+                             [<InputFormat.PDF: 'pdf'>]                         
+                    INFO     Going to convert document document_converter.py:580
+                             batch...                                           
+                    INFO     Processing document             base_pipeline.py:71
+                             cip-013-3.pdf                                      
+[09/23/26 12:38:54] INFO     Finished converting       document_converter.py:604
+                             document cip-013-3.pdf in                          
+                             2.18 sec.                                          
+                    INFO     detected formats:                   document.py:552
+                             [<InputFormat.PDF: 'pdf'>]                         
+                    INFO     Going to convert document document_converter.py:580
+                             batch...                                           
+                    INFO     Processing document             base_pipeline.py:71
+                             cip-013-3-technical-rationale.p                    
+                             df                                                 
+[09/23/26 12:38:57] INFO     Finished converting       document_converter.py:604
+                             document                                           
+                             cip-013-3-technical-ratio                          
+                             nale.pdf in 2.66 sec.                              
+                    INFO     detected formats:                   document.py:552
+                             [<InputFormat.PDF: 'pdf'>]                         
+                    INFO     Going to convert document document_converter.py:580
+                             batch...                                           
+                    INFO     Processing document             base_pipeline.py:71
+                             cip-014-3-implementation-plan.p                    
+                             df                                                 
+[33m[WARNING] 2026-09-23 12:38:59,773 [RapidOCR] main.py:132: The text detection result is empty[0m
+[09/23/26 12:38:59] WARNING  RapidOCR returned empty      rapid_ocr_model.py:321
+                             result!                                            
+[09/23/26 12:39:00] INFO     Finished converting       document_converter.py:604
+                             document                                           
+                             cip-014-3-implementation-                          
+                             plan.pdf in 2.79 sec.                              
+captured 47, skipped 0
+standard        tb before   tb after  unplaced  max render
+CIP-002-5.1a      7/33       7/33            -      104123
+CIP-003-8        19/39      19/39            -      165578
+CIP-003-9         0/44       5/44           54      155132
+CIP-004-7         0/19      19/19           52       70340
+CIP-005-7         0/12      12/12          107       69657
+CIP-006-6        14/14      14/14            -       45169
+CIP-007-6        20/20      20/20            -       90469
+CIP-008-6         0/12      12/12          116       65794
+CIP-009-6        10/10      10/10            -       48504
+CIP-010-4         0/12      12/12          120       73081
+CIP-011-3         0/4        4/4            42       28016
+CIP-012-2         0/6        6/6            90       54716
+CIP-013-2         0/11      11/11           40       69819
+CIP-014-3        19/19      19/19            -       68089
+WROTE reports/compliance/cite_and_scope/p2/technical_basis.json

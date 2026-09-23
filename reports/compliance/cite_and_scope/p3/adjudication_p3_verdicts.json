@@ -1,0 +1,1166 @@
+[
+ {
+  "assertion_id": "rel-67da872fb62ecaaa2fb3",
+  "verdict": "SUPPORTED",
+  "quote": "Step 4 explicitly applies Attachment 1 categorization criteria 2.1-2.10 (Medium, generation/transmission facilities); Part 2.1 is one of those criteria applied by the operator's categorization process"
+ },
+ {
+  "assertion_id": "rel-7981dfa4c49a6dd5b362",
+  "verdict": "UNSUPPORTED",
+  "quote": "purpose statement names CIP-002-5.1a as a whole; it does not reference Part 2.1's specific 1500 MW commissioned-generation criterion"
+ },
+ {
+  "assertion_id": "rel-d5bb1a301c8e59bc1cbf",
+  "verdict": "SUPPORTED",
+  "quote": "Step 4 bullet applies Medium to selected Control Centers criteria 2.11-2.13; Part 2.13 is among the criteria the categorization process applies"
+ },
+ {
+  "assertion_id": "rel-0c9eba07759005b8be8d",
+  "verdict": "UNSUPPORTED",
+  "quote": "cited duty is fifteen-month backup/restore information testing, not Part 2.13's Control Center categorization criterion - shares only the control-center and Medium-Impact vocabulary"
+ },
+ {
+  "assertion_id": "rel-90cefad718dcfb85e64c",
+  "verdict": "SUPPORTED",
+  "quote": "Policy traceability appendix maps the incident-response requirement (R2 Part 2.4 / 1.2.4 Cyber Security Incident response, i.e. Att 1 Section 4) to Policy Section 3.5 - reference established at the claimed requirement's own granularity"
+ },
+ {
+  "assertion_id": "rel-84eb06e311e7f2cfd593",
+  "verdict": "SUPPORTED",
+  "quote": "procedure traceability table explicitly names 'CIP-003 R2 Attachment 1 Section 4' and Parts 4.1-4.6 with the procedure sections that address each"
+ },
+ {
+  "assertion_id": "rel-115522a309040bc7e264",
+  "verdict": "UNSUPPORTED",
+  "quote": "cited sentence covers CIP-008 R2 Part 2.2 deviation documentation for high/medium BCS, not CIP-003-8 Att 1 Section 4's low-impact incident response plan content"
+ },
+ {
+  "assertion_id": "rel-6e40e019ed8c46e5cb74",
+  "verdict": "SUPPORTED",
+  "quote": "Director OT makes the final reportability determination - implements Part 4.2's determination duty"
+ },
+ {
+  "assertion_id": "rel-f59608aadd8c61b3a253",
+  "verdict": "SUPPORTED",
+  "quote": "determination recorded on the Security Incident Investigation Form and OE-417 to E-ISAC within one hour - evidence of the Part 4.2 process operating"
+ },
+ {
+  "assertion_id": "rel-a9147f0064f653784b47",
+  "verdict": "WRONG_RELATION",
+  "wrong_relation": "IMPLEMENTS",
+  "quote": "sentence states the operating practice (TCAs receive signature updates per the plan) - that implements Part 5.1 rather than merely referencing it"
+ },
+ {
+  "assertion_id": "rel-81d2dcdf22efb725a05f",
+  "verdict": "SUPPORTED",
+  "quote": "third-party TCA review methods applied prior to connecting, explicitly per Att 1 Section 5.2 - implements the Part"
+ },
+ {
+  "assertion_id": "rel-373636b21df9f29e2104",
+  "verdict": "UNSUPPORTED",
+  "quote": "appendix row names 1.2.5 TCA/RM mitigation at section level and maps Section 3.7.4.2; no row reaches Part 5.2 specifically"
+ },
+ {
+  "assertion_id": "rel-f5c3e5700fbbd2cd9c13",
+  "verdict": "SUPPORTED",
+  "quote": "prohibition on third-party TCA use is the operator's answer to Part 5.2 ('if any'): with third-party TCAs barred, the review duty has no instance and the bar is the control"
+ },
+ {
+  "assertion_id": "rel-ab7cdd1d4b8e01e8268b",
+  "verdict": "UNSUPPORTED",
+  "quote": "plan-purpose/scope statement; says nothing about the RM malicious-code detection method Part 5.3.1 requires"
+ },
+ {
+  "assertion_id": "rel-94bf46cd2b907a9efdd6",
+  "verdict": "SUPPORTED",
+  "quote": "scan screenshot uploaded to the change record - evidence the RM detection method ran"
+ },
+ {
+  "assertion_id": "rel-cb9030f2edc28d74712c",
+  "verdict": "SUPPORTED",
+  "quote": "RM scanned in a TCA prior to use to ensure no malicious code - is the Part 5.3.1 detection method"
+ },
+ {
+  "assertion_id": "rel-9de89d4da5f87adb76c1",
+  "verdict": "UNSUPPORTED",
+  "quote": "appendix row names 1.2.5 at section level only; nothing reaches Part 5.3.1"
+ },
+ {
+  "assertion_id": "rel-3d4ad6b259491cecf1bb",
+  "verdict": "SUPPORTED",
+  "quote": "RM plugged into a TCA with current signatures and scanned for malicious code before connection - implements Part 5.3.1"
+ },
+ {
+  "assertion_id": "rel-03e6e27e0a62feab8d3a",
+  "verdict": "SUPPORTED",
+  "quote": "policy section on CIP Exceptional Circumstance effects and documentation addresses the R1 Part 1.1.9 topic the policy must cover"
+ },
+ {
+  "assertion_id": "rel-83787ecb430891e3cc30",
+  "verdict": "SUPPORTED",
+  "quote": "section 3.9 is the declare-and-respond process for CECs: who declares, what may be suspended, documentation - implements Part 1.1.9"
+ },
+ {
+  "assertion_id": "rel-e8282970af64f6c7dfab",
+  "verdict": "SUPPORTED",
+  "quote": "policy purpose explicitly includes declaring and responding to a CIP Exceptional Circumstance - shows the policy covers the Part 1.1.9 topic it must address"
+ },
+ {
+  "assertion_id": "rel-51e9ce80fb82f874ae62",
+  "verdict": "SUPPORTED",
+  "quote": "CEC declared by CIP Senior Manager or delegate with designated coordinator - implements the declaring half of Part 1.1.9"
+ },
+ {
+  "assertion_id": "rel-3a5749ba14ba0ccc38d0",
+  "verdict": "SUPPORTED",
+  "quote": "low-impact incident response plan testing per Att 1 Section 4.5 - addresses the R1 Part 1.2.4 topic"
+ },
+ {
+  "assertion_id": "rel-3cf876ca376ea26b82b2",
+  "verdict": "SUPPORTED",
+  "quote": "delegation form names the senior manager and mandates update within 30 calendar days of change - evidence of R3 in operation"
+ },
+ {
+  "assertion_id": "rel-acf19b21bdfb11f67865",
+  "verdict": "UNSUPPORTED",
+  "quote": "three-year incident-records retention is CIP-008 R4's duty; nothing in the cited sentence evidences a CIP-003-9 requirement, and the pairing is to the bare standard rather than any requirement"
+ },
+ {
+  "assertion_id": "rel-9141da900d2131be3411",
+  "verdict": "WRONG_RELATION",
+  "wrong_relation": "REFERENCES",
+  "quote": "cited text is the appendix row quoting Part 2.1's requirement and mapping Section 3.1.1.2 - the appendix references the requirement, it does not implement it"
+ },
+ {
+  "assertion_id": "rel-31cb592360ab5042a9cc",
+  "verdict": "SUPPORTED",
+  "quote": "appendix row names R2 Part 2.1 Cyber Security Awareness and maps Section 3.1.1.2 - reference established at the claimed part's granularity"
+ },
+ {
+  "assertion_id": "rel-92af99ba79fc8eb2a522",
+  "verdict": "SUPPORTED",
+  "quote": "appendix row names R2 Part 2.2 Physical Security Controls and maps Section 3.3.4"
+ },
+ {
+  "assertion_id": "rel-3ef1857356fce915fd8e",
+  "verdict": "SUPPORTED",
+  "quote": "appendix row names R2 Part 2.3 Electronic Access Controls and maps Section 3.2.4"
+ },
+ {
+  "assertion_id": "rel-5a6f9fe3747247e690e7",
+  "verdict": "SUPPORTED",
+  "quote": "appendix row names R2 Part 2.4 Cyber Security Incident Response and maps Section 3.5"
+ },
+ {
+  "assertion_id": "rel-06bbc58d3c2d21f13d7a",
+  "verdict": "WRONG_RELATION",
+  "wrong_relation": "REFERENCES",
+  "quote": "cited text quotes Part 2.5's requirement wording from the traceability row - a reference, not implementation"
+ },
+ {
+  "assertion_id": "rel-c04b974ef61861b27b1e",
+  "verdict": "SUPPORTED",
+  "quote": "appendix row names R2 Part 2.5 TCA/RM Malicious Code Risk Mitigation and maps Section 3.7.4.2"
+ },
+ {
+  "assertion_id": "rel-0ca60787118e84294265",
+  "verdict": "SUPPORTED",
+  "quote": "appendix row quotes Part 2.5.3's Removable Media methods - reference at the claimed part's granularity"
+ },
+ {
+  "assertion_id": "rel-1cbb2056013c18c3cb24",
+  "verdict": "SUPPORTED",
+  "quote": "section 3.2.4 explicitly per Att.1 Section 3: implement and document EAC for low impact BCS - implements Section 3"
+ },
+ {
+  "assertion_id": "rel-8065d0e6d5293b5403f5",
+  "verdict": "SUPPORTED",
+  "quote": "EAC permitting only necessary inbound/outbound access implemented for Low Impact BCS - is Part 3.1's duty"
+ },
+ {
+  "assertion_id": "rel-2683a983fcbca1825a2f",
+  "verdict": "SUPPORTED",
+  "quote": "section 3.2.4.1 restates Part 3.1's i/ii/iii communications conditions verbatim as implemented practice"
+ },
+ {
+  "assertion_id": "rel-4d10093c00d0e6e25778",
+  "verdict": "SUPPORTED",
+  "quote": "centralized firewalls permit only necessary inbound/outbound and deny all else by default for Low Impact BCS - implements Part 3.1"
+ },
+ {
+  "assertion_id": "rel-34c24c4deeb2b905752d",
+  "verdict": "SUPPORTED",
+  "quote": "processes to identify, classify, and respond, explicitly per Att.1 Section 4.1 - implements Part 4.1"
+ },
+ {
+  "assertion_id": "rel-1e8ba8cf4637113d0af6",
+  "verdict": "SUPPORTED",
+  "quote": "third-party TCA review methods prior to connecting, explicitly per Att 1 Section 5.2 - implements the Part"
+ },
+ {
+  "assertion_id": "rel-f296738bf81c5d6a9f22",
+  "verdict": "SUPPORTED",
+  "quote": "procedure traceability table quotes CIP 003-9 R1 verbatim and maps its parts - reference to R1 established"
+ },
+ {
+  "assertion_id": "rel-9c8068e51d2686ba204a",
+  "verdict": "SUPPORTED",
+  "quote": "policy section 3.1 is dedicated to Personnel and Training (CIP-004) - shows the policy addresses the Part 1.1.1 topic it must cover"
+ },
+ {
+  "assertion_id": "rel-5d10286972825fdbad31",
+  "verdict": "UNSUPPORTED",
+  "quote": "cited lines are the document TOC and a section-3.0 entry; neither names or addresses Part 1.1.1's topic"
+ },
+ {
+  "assertion_id": "rel-61f879eeb2bae529905b",
+  "verdict": "SUPPORTED",
+  "quote": "policy section 3.8 is dedicated to Information Protection (CIP-011) - the Part 1.1.8 topic is addressed"
+ },
+ {
+  "assertion_id": "rel-1022348e73922929da36",
+  "verdict": "SUPPORTED",
+  "quote": "awareness implemented for Low Impact per CIP-003-9 Att 1 Section 1 with 15-month reinforcement - implements Part 1.2.1"
+ },
+ {
+  "assertion_id": "rel-ad5c9e7e80fc15770fec",
+  "verdict": "SUPPORTED",
+  "quote": "documented awareness program for low-impact personnel reinforced every 15 months per Att 1 Section 1 - implements Part 1.2.1"
+ },
+ {
+  "assertion_id": "rel-6ba1d0f34432cfb41433",
+  "verdict": "SUPPORTED",
+  "quote": "CSIRP explicitly written to cover low impact BCS response - addresses the Part 1.2.4 topic"
+ },
+ {
+  "assertion_id": "rel-9128d2e7ccc91c0ff881",
+  "verdict": "SUPPORTED",
+  "quote": "incident response plans documented and implemented with Att 1 Section 4.x mappings - implements Part 1.2.4's topic"
+ },
+ {
+  "assertion_id": "rel-36dcecec0258827b7baf",
+  "verdict": "SUPPORTED",
+  "quote": "suspected incidents initiate the OT CSIRP - incident response practice supporting Part 1.2.4's topic"
+ },
+ {
+  "assertion_id": "rel-ca3222fa4f9124f139e6",
+  "verdict": "SUPPORTED",
+  "quote": "36-month low-impact CSIRP testing per Att 1 Section 4.5 - implements the Part 1.2.4 topic"
+ },
+ {
+  "assertion_id": "rel-6fdbeff6e3440d9089af",
+  "verdict": "SUPPORTED",
+  "quote": "TCA/RM plan prevents malware propagation and is explicitly applicable to low impact BCS - addresses the Part 1.2.5 topic"
+ },
+ {
+  "assertion_id": "rel-2c6d3caa137bb79c271f",
+  "verdict": "SUPPORTED",
+  "quote": "RM scanned in a TCA for malicious code before use - malware mitigation practice under the Part 1.2.5 topic"
+ },
+ {
+  "assertion_id": "rel-c4a8e28e16bd4090951b",
+  "verdict": "SUPPORTED",
+  "quote": "documented plan to mitigate malicious-code introduction via TCA/RM for low impact BCS - is the Part 1.2.5 topic"
+ },
+ {
+  "assertion_id": "rel-a6ec7611e3f2b574d535",
+  "verdict": "SUPPORTED",
+  "quote": "appendix row names 1.2.5 TCA/RM malicious code risk mitigation at the claimed part's own granularity and maps Section 3.7.4.2"
+ },
+ {
+  "assertion_id": "rel-34919f6c2d44cd68cb83",
+  "verdict": "SUPPORTED",
+  "quote": "TOC entry names the plan's Mitigate the Introduction of Malicious Code process (Section 1.4) - the citation itself shows the topic addressed"
+ },
+ {
+  "assertion_id": "rel-83a1b8dd204a60ba93d4",
+  "verdict": "WRONG_RELATION",
+  "wrong_relation": "REFERENCES",
+  "quote": "cited text is the appendix mapping cell (Sections 1.3, 3.1) for Part 1.2.6 - the row references where the requirement is addressed, it does not implement it"
+ },
+ {
+  "assertion_id": "rel-7d11f32878db52c65d44",
+  "verdict": "SUPPORTED",
+  "quote": "policy purpose explicitly includes declaring and responding to a CIP Exceptional Circumstance - the Part 1.2.7 topic is addressed"
+ },
+ {
+  "assertion_id": "rel-2b8b0eda359d55baf93c",
+  "verdict": "SUPPORTED",
+  "quote": "CEC Request Form with approval, recovery checklist and termination fields - evidence of the declaring/responding process operating"
+ },
+ {
+  "assertion_id": "rel-ba5539c53ea8f909ceb6",
+  "verdict": "SUPPORTED",
+  "quote": "awareness implemented in accordance with CIP-003-9 Att 1 Section 1 with 15-month reinforcement - implements Section 1"
+ },
+ {
+  "assertion_id": "rel-a1d57b53778e19ef8de3",
+  "verdict": "WRONG_RELATION",
+  "wrong_relation": "REFERENCES",
+  "quote": "cited text quotes Att 1 Section 3's requirement from the traceability table and maps Section 3.4 - a reference, not implementation"
+ },
+ {
+  "assertion_id": "rel-250ddfcf306bc6b07def",
+  "verdict": "WRONG_RELATION",
+  "wrong_relation": "REFERENCES",
+  "quote": "cited text quotes Att 1 Section 5's requirement wording from the traceability row mapping Section 3.7 - a reference, not implementation"
+ },
+ {
+  "assertion_id": "rel-4f832a9b73f94d977dd6",
+  "verdict": "SUPPORTED",
+  "quote": "",
+  "wrong_relation": "appendix quotes CIP-004 R4 and maps its parts (4.1 to Section 3.2) - reference established at R4's level"
+ },
+ {
+  "assertion_id": "rel-86b724b74b824d8e3dec",
+  "verdict": "SUPPORTED",
+  "quote": "",
+  "wrong_relation": "appendix row names R5 Part 5.1 verbatim and maps Section 3.6"
+ },
+ {
+  "assertion_id": "rel-892f925ed9b0bb4ae55b",
+  "verdict": "SUPPORTED",
+  "quote": "",
+  "wrong_relation": "appendix quotes CIP-004 R6 and maps Parts 6.1/6.3 to sections"
+ },
+ {
+  "assertion_id": "rel-f76800b5e6fb5478b5ea",
+  "verdict": "SUPPORTED",
+  "quote": "",
+  "wrong_relation": "quarterly/15-month access review with staged evidence sheets and approvals - evidence of the Part 6.2 verification operating"
+ },
+ {
+  "assertion_id": "rel-307087534982a4e4ea54",
+  "verdict": "SUPPORTED",
+  "quote": "",
+  "wrong_relation": "revocation program removes BCSI access by end of next calendar day per Part 6.3 - implements the Part"
+ },
+ {
+  "assertion_id": "rel-b9bbb837a15bd52e0444",
+  "verdict": "SUPPORTED",
+  "quote": "",
+  "wrong_relation": "BCSI access revoked by end of next calendar day following termination - is Part 6.3's duty"
+ },
+ {
+  "assertion_id": "rel-30e8348e8a1eef5ade3c",
+  "verdict": "SUPPORTED",
+  "quote": "",
+  "wrong_relation": "AD account expiry at end of termination day cuts all electronic BCSI access - implements Part 6.3"
+ },
+ {
+  "assertion_id": "rel-edda06066f24e73b32aa",
+  "verdict": "SUPPORTED",
+  "quote": "",
+  "wrong_relation": "appendix row names R6 Part 6.3 verbatim and maps Section 3.5"
+ },
+ {
+  "assertion_id": "rel-1a4d11a03297e276b896",
+  "verdict": "SUPPORTED",
+  "quote": "",
+  "wrong_relation": "appendix row names R1 Part 1.1 ESP verbatim and maps Section 3.2"
+ },
+ {
+  "assertion_id": "rel-941cd93b837c1e330562",
+  "verdict": "SUPPORTED",
+  "quote": "",
+  "wrong_relation": "explicit permissions with written justification and deny-by-default - is Part 1.3's duty"
+ },
+ {
+  "assertion_id": "rel-617c4d59ce21eeec6589",
+  "verdict": "SUPPORTED",
+  "quote": "",
+  "wrong_relation": "centralized firewalls permit only necessary access and deny all else by default - implements Part 1.3"
+ },
+ {
+  "assertion_id": "rel-8b2f0b597cfbf6a24869",
+  "verdict": "SUPPORTED",
+  "quote": "",
+  "wrong_relation": "process restates Part 1.3 as documented and implemented"
+ },
+ {
+  "assertion_id": "rel-895731ef3157a59086c0",
+  "verdict": "SUPPORTED",
+  "quote": "",
+  "wrong_relation": "section names the R2.5 method (vendor-initiated access denied by design) and routes IRA through the ESP procedure - implements R2's disable/determine methods"
+ },
+ {
+  "assertion_id": "rel-520addec30a83eff7a8e",
+  "verdict": "WRONG_RELATION",
+  "quote": "REFERENCES",
+  "wrong_relation": "cited text is the appendix row for Part 2.1 mapping Section 3.2 - a reference, not implementation"
+ },
+ {
+  "assertion_id": "rel-d756718933adda026680",
+  "verdict": "SUPPORTED",
+  "quote": "",
+  "wrong_relation": "Intermediate System prevents direct IRA initiation into the ESP - implements Part 2.1"
+ },
+ {
+  "assertion_id": "rel-a47cf5935a2cf23ced0a",
+  "verdict": "WRONG_RELATION",
+  "quote": "REFERENCES",
+  "wrong_relation": "cited text is the appendix row for Part 2.2 mapping Section 3.2 - a reference, not implementation"
+ },
+ {
+  "assertion_id": "rel-5b092f6950b9bb6b9a74",
+  "verdict": "SUPPORTED",
+  "quote": "",
+  "wrong_relation": "encryption between end user devices and Intermediate System servers plus encrypted RDP - implements Part 2.2"
+ },
+ {
+  "assertion_id": "rel-db4c4daf8649a14a308a",
+  "verdict": "WRONG_RELATION",
+  "quote": "REFERENCES",
+  "wrong_relation": "cited text is the appendix row for Part 2.3 mapping Section 3.2 - a reference, not implementation"
+ },
+ {
+  "assertion_id": "rel-3ab5b8698c6bf76d2a68",
+  "verdict": "UNSUPPORTED",
+  "quote": "x",
+  "wrong_relation": "cited sentence says IRA sessions follow the ESP procedure; it names no method for determining active vendor sessions as Part 2.4 requires"
+ },
+ {
+  "assertion_id": "rel-e0b4d3f29ae827333cdf",
+  "verdict": "WRONG_RELATION",
+  "quote": "REFERENCES",
+  "wrong_relation": "cited text is the requirement wording from the traceability row mapping Section 3.3 - a reference, not implementation"
+ },
+ {
+  "assertion_id": "rel-93678c42544623f4c9fc",
+  "verdict": "WRONG_RELATION",
+  "quote": "REFERENCES",
+  "wrong_relation": "same traceability-row quote for Part 2.5 in the EAC procedure appendix - a reference, not implementation"
+ },
+ {
+  "assertion_id": "rel-de12f843de5018700e74",
+  "verdict": "SUPPORTED",
+  "quote": "",
+  "wrong_relation": "appendix rows name CIP-005-7 R3 Parts 3.1/3.2 and map Sections 3.1/3.2"
+ },
+ {
+  "assertion_id": "rel-e7d80aafbb1673a60887",
+  "verdict": "SUPPORTED",
+  "quote": "",
+  "wrong_relation": "appendix row names R3 Part 3.2 verbatim and maps Section 3.2"
+ },
+ {
+  "assertion_id": "rel-e54ff4c760707b4397ac",
+  "verdict": "SUPPORTED",
+  "quote": "",
+  "wrong_relation": "traceability table quotes CIP-006 Parts 1.1-1.10 with plan-section mappings - reference to the standard established"
+ },
+ {
+  "assertion_id": "rel-0a1e96d9e76f18d7fe9f",
+  "verdict": "SUPPORTED",
+  "quote": "",
+  "wrong_relation": "physical security plan restates Part 1.1 as documented and implemented"
+ },
+ {
+  "assertion_id": "rel-edb3f11181b01aa2efb1",
+  "verdict": "SUPPORTED",
+  "quote": "",
+  "wrong_relation": "locked-cabinet protection of PACS controllers is an operational control restricting physical access"
+ },
+ {
+  "assertion_id": "rel-f34795dac0b540cea63a",
+  "verdict": "SUPPORTED",
+  "quote": "",
+  "wrong_relation": "procedure purpose is to define how LSPG controls physical access - the definitional duty Part 1.1 names"
+ },
+ {
+  "assertion_id": "rel-2b35a284b3e870108e9e",
+  "verdict": "SUPPORTED",
+  "quote": "",
+  "wrong_relation": "appendix row names CIP-006 Part 1.1 and maps Section 3.3"
+ },
+ {
+  "assertion_id": "rel-5584c258ce34581fa80d",
+  "verdict": "SUPPORTED",
+  "quote": "",
+  "wrong_relation": "plan restates Part 1.10 with its encryption/monitoring/logical-protection alternatives"
+ },
+ {
+  "assertion_id": "rel-1746f0b449325f420206",
+  "verdict": "SUPPORTED",
+  "quote": "",
+  "wrong_relation": "physical access controls protect each ACP from individuals without authorized unescorted access - is Part 1.2's control"
+ },
+ {
+  "assertion_id": "rel-15f2b59ac9a79db213b6",
+  "verdict": "SUPPORTED",
+  "quote": "",
+  "wrong_relation": "CEC visitor process enforces the only-authorized-unescorted gate during exceptions - the procedural control Part 1.2 requires"
+ },
+ {
+  "assertion_id": "rel-46bed40bae67fd55ac5f",
+  "verdict": "SUPPORTED",
+  "quote": "",
+  "wrong_relation": "card-scan process for granting unescorted PSP access - implements Part 1.2"
+ },
+ {
+  "assertion_id": "rel-480ce01481499f468a2f",
+  "verdict": "UNSUPPORTED",
+  "quote": "x",
+  "wrong_relation": "cited sentence says controls (plural) protect the ACP; it does not establish the two DIFFERENT controls Part 1.3 requires"
+ },
+ {
+  "assertion_id": "rel-9d14ff98f564620679e3",
+  "verdict": "UNSUPPORTED",
+  "quote": "x",
+  "wrong_relation": "cited CEC visitor sentence says nothing about two or more physical access controls"
+ },
+ {
+  "assertion_id": "rel-be7426c1504e46ec0597",
+  "verdict": "SUPPORTED",
+  "quote": "",
+  "wrong_relation": "access card AND PIN are two different controls for unescorted PSP entry - is Part 1.3's duty"
+ },
+ {
+  "assertion_id": "rel-62d4eff565be825a6893",
+  "verdict": "SUPPORTED",
+  "quote": "",
+  "wrong_relation": "appendix row names CIP-006 Part 1.3 and maps Section 3.3.2"
+ },
+ {
+  "assertion_id": "rel-8aea7eba9a931cc1c9ce",
+  "verdict": "UNSUPPORTED",
+  "quote": "x",
+  "wrong_relation": "cited sentence is about restricting access at the ACP, not MONITORING for unauthorized access through a physical access point as Part 1.4 requires"
+ },
+ {
+  "assertion_id": "rel-dbdb52d9b7ce8b835c29",
+  "verdict": "SUPPORTED",
+  "quote": "",
+  "wrong_relation": "tamper switches configured to notify the TSO of unauthorized access - the alert mechanism Part 1.5 demands"
+ },
+ {
+  "assertion_id": "rel-d848d7e3cd75cac21453",
+  "verdict": "SUPPORTED",
+  "quote": "",
+  "wrong_relation": "appendix row names CIP-006 Part 1.5 and maps Section 3.7"
+ },
+ {
+  "assertion_id": "rel-a595f736ae794c2b7e21",
+  "verdict": "SUPPORTED",
+  "quote": "",
+  "wrong_relation": "appendix row names CIP-006 Part 1.7 and maps Sections 3.5, 3.7"
+ },
+ {
+  "assertion_id": "rel-5a83f7bed60fd9622735",
+  "verdict": "SUPPORTED",
+  "quote": "",
+  "wrong_relation": "PACS monitors and logs access 24x7 via access control devices - implements Part 1.8's logging"
+ },
+ {
+  "assertion_id": "rel-4949899592758010b8ce",
+  "verdict": "UNSUPPORTED",
+  "quote": "x",
+  "wrong_relation": "cited sentence is the card-reader swipe test - it evidences reader function, not the Part 1.8 logging duty with identity and timestamp"
+ },
+ {
+  "assertion_id": "rel-b3fe07d875eea900a79e",
+  "verdict": "SUPPORTED",
+  "quote": "",
+  "wrong_relation": "section operationalizes Part 2.2's CIP-Exceptional-Circumstance boundary: who governs logging and the escort relief rule during CECs"
+ },
+ {
+  "assertion_id": "rel-ba6ae616c93de7df4f32",
+  "verdict": "UNSUPPORTED",
+  "quote": "x",
+  "wrong_relation": "cited sentence only names CIP-006 R2.2 as suspendable during a CEC; naming the requirement in a suspension list does not implement the logging duty"
+ },
+ {
+  "assertion_id": "rel-0ad03085aff04fa33bf5",
+  "verdict": "SUPPORTED",
+  "quote": "",
+  "wrong_relation": "24-month PACS testing with 3-year documentation retention - evidence of the R3 program operating"
+ },
+ {
+  "assertion_id": "rel-c9d97950eb7c3523d329",
+  "verdict": "SUPPORTED",
+  "quote": "",
+  "wrong_relation": "PACS tested for functionality with maintenance at intervals of no more than 24 months - implements R3"
+ },
+ {
+  "assertion_id": "rel-c39c1d986c2b93ab6957",
+  "verdict": "SUPPORTED",
+  "quote": "",
+  "wrong_relation": "documented maintenance and testing program per Part 3.1 - implements R3"
+ },
+ {
+  "assertion_id": "rel-5608e6db03f90e96d000",
+  "verdict": "SUPPORTED",
+  "quote": "",
+  "wrong_relation": "completed PACS maintenance/testing form uploaded for management review - evidence the program operates"
+ },
+ {
+  "assertion_id": "rel-e49da73166f5d5357605",
+  "verdict": "SUPPORTED",
+  "quote": "",
+  "wrong_relation": "appendix row names CIP-006 R3 Part 3.1 and maps Section 3.9"
+ },
+ {
+  "assertion_id": "rel-27fc41bde07947adbabd",
+  "verdict": "SUPPORTED",
+  "quote": "",
+  "wrong_relation": "MSPT deployment with IDS fallback and CMLAP behavioral alerting - implements Part 3.1's deploy-methods duty"
+ },
+ {
+  "assertion_id": "rel-532bdc162f04e8da8471",
+  "verdict": "SUPPORTED",
+  "quote": "",
+  "wrong_relation": "AV software as the malicious-code mitigation method per the prevention process - implements Part 3.1"
+ },
+ {
+  "assertion_id": "rel-d2fccd9a8bfcff2a024e",
+  "verdict": "SUPPORTED",
+  "quote": "",
+  "wrong_relation": "malicious code found on RM triggers quarantine, rescan and incident response - mitigates detected malicious code per Part 3.2"
+ },
+ {
+  "assertion_id": "rel-ece8f9e448d7ef0f1b33",
+  "verdict": "SUPPORTED",
+  "quote": "",
+  "wrong_relation": "AV method per the prevention process, whose section defines monthly signature updates and pull-from-service on missed updates - the Part 3.3 update process"
+ },
+ {
+  "assertion_id": "rel-0bfc01e26026e954c756",
+  "verdict": "SUPPORTED",
+  "quote": "",
+  "wrong_relation": "MSPT auto-notifies on failed signature updates with testing/distribution documented - implements Part 3.3"
+ },
+ {
+  "assertion_id": "rel-bbd9b836f67e92eed7d3",
+  "verdict": "SUPPORTED",
+  "quote": "",
+  "wrong_relation": "documentation of signature-update testing and distribution stored in the change solution - evidence of the Part 3.3 process"
+ },
+ {
+  "assertion_id": "rel-ac330a06495966a62545",
+  "verdict": "SUPPORTED",
+  "quote": "",
+  "wrong_relation": "monitoring process restates Part 4.4's 15-day summarization/sampling review as documented duty"
+ },
+ {
+  "assertion_id": "rel-6167f9e33e9b28578c0b",
+  "verdict": "SUPPORTED",
+  "quote": "",
+  "wrong_relation": "CIP logs reviewed and documented near-daily - within Part 4.4's 15-day interval"
+ },
+ {
+  "assertion_id": "rel-1f51564692a0ce4923a4",
+  "verdict": "SUPPORTED",
+  "quote": "",
+  "wrong_relation": "logging/not-logging report reviewed at intervals no greater than 15 days - Part 4.4's review at the required cadence"
+ },
+ {
+  "assertion_id": "rel-a5b90581fc05d01be761",
+  "verdict": "UNSUPPORTED",
+  "quote": "x",
+  "wrong_relation": "cited sentence covers removal/disabling/renaming of default accounts; the identify-and-inventory duty of Part 5.2 is in the section's next sentence, not the citation"
+ },
+ {
+  "assertion_id": "rel-f289901150f9bbc7cddd",
+  "verdict": "UNSUPPORTED",
+  "quote": "x",
+  "wrong_relation": "cited sentence governs access authorization for shared accounts; it does not identify or inventory default/generic account types as Part 5.2 requires"
+ },
+ {
+  "assertion_id": "rel-6ffa7cc21eb8f8f84003",
+  "verdict": "SUPPORTED",
+  "quote": "",
+  "wrong_relation": "access-control process restates Part 5.2's identify-and-inventory duty as documented"
+ },
+ {
+  "assertion_id": "rel-6e1c991fad1a94eef2d8",
+  "verdict": "SUPPORTED",
+  "quote": "",
+  "wrong_relation": "access-control process restates Part 5.3's identify-individuals-with-shared-access duty as documented"
+ },
+ {
+  "assertion_id": "rel-ff0e4c386a2d0a0206d2",
+  "verdict": "SUPPORTED",
+  "quote": "",
+  "wrong_relation": "default passwords validated and documented in the password key management tool - evidence supporting the Part 5.4 change process"
+ },
+ {
+  "assertion_id": "rel-3b46b5ad3789273663a9",
+  "verdict": "SUPPORTED",
+  "quote": "",
+  "wrong_relation": "default factory account treatment with the change duty in the same section (3.1.4.2: default password must be changed per asset capability) - implements Part 5.4"
+ },
+ {
+  "assertion_id": "rel-948923ce348233697b01",
+  "verdict": "SUPPORTED",
+  "quote": "",
+  "wrong_relation": "access-control process restates Part 5.4's change-default-passwords duty as documented"
+ },
+ {
+  "assertion_id": "rel-f71dce1b6d26231c90ce",
+  "verdict": "SUPPORTED",
+  "quote": "",
+  "wrong_relation": "appendix row names CIP-008 R1 Part 1.2 verbatim and maps Section 5.5, Table 5.1"
+ },
+ {
+  "assertion_id": "rel-8a2dbaa703ec1d7f2a05",
+  "verdict": "SUPPORTED",
+  "quote": "",
+  "wrong_relation": "attempt-to-compromise defined with threshold, contact and outside-source criteria - is Part 1.2.1's criteria duty"
+ },
+ {
+  "assertion_id": "rel-db9dccd1beb8f3752a50",
+  "verdict": "SUPPORTED",
+  "quote": "",
+  "wrong_relation": "role explicitly tasked with ensuring the plan is tested every 15 months per CIP-008-6 R2 - implements R2 Part 2.1"
+ },
+ {
+  "assertion_id": "rel-d676f752f6824c475ae9",
+  "verdict": "SUPPORTED",
+  "quote": "",
+  "wrong_relation": "section restates R2 Parts 2.1-2.3 (test, use, retain) as documented and implemented"
+ },
+ {
+  "assertion_id": "rel-147e4619b68d686ce7b8",
+  "verdict": "SUPPORTED",
+  "quote": "",
+  "wrong_relation": "appendix row names CIP-008 R2 Part 2.3 and maps Section 7.3.3"
+ },
+ {
+  "assertion_id": "rel-280508652ab353d2bb36",
+  "verdict": "UNSUPPORTED",
+  "quote": "x",
+  "wrong_relation": "cited sentence covers one-hour OE-417 notification and form capture; the retention duty of Part 2.3 is not what it evidences"
+ },
+ {
+  "assertion_id": "rel-244833e86cd004d096f0",
+  "verdict": "SUPPORTED",
+  "quote": "",
+  "wrong_relation": "appendix rows name R1 Parts 1.1-1.5 verbatim with section mappings"
+ },
+ {
+  "assertion_id": "rel-b806a2d9252e794f7875",
+  "verdict": "SUPPORTED",
+  "quote": "",
+  "wrong_relation": "activation conditions enumerated (asset failure, configuration failure, BES reliability risk) - is Part 1.1's duty"
+ },
+ {
+  "assertion_id": "rel-bcefbe066bc5766ee567",
+  "verdict": "SUPPORTED",
+  "quote": "",
+  "wrong_relation": "appendix row names R1 Part 1.1 and maps Section 3.2"
+ },
+ {
+  "assertion_id": "rel-24da9402e7ff8c5d9a85",
+  "verdict": "SUPPORTED",
+  "quote": "",
+  "wrong_relation": "recovery plan restates Part 1.1 as documented and implemented"
+ },
+ {
+  "assertion_id": "rel-c511846cab1282f66c91",
+  "verdict": "SUPPORTED",
+  "quote": "",
+  "wrong_relation": "backup media inventoried in the tracking tool and tested every 15 months - evidence the backup/storage process operates"
+ },
+ {
+  "assertion_id": "rel-3bc7b23798abc8cab91a",
+  "verdict": "SUPPORTED",
+  "quote": "",
+  "wrong_relation": "automated and manual backup processes with per-platform backup/restore procedures - implements Part 1.3"
+ },
+ {
+  "assertion_id": "rel-d7b4716625d46a559f49",
+  "verdict": "SUPPORTED",
+  "quote": "",
+  "wrong_relation": "recovery plan describes the backup and storage process to recover BCS functionality - Part 1.3's process"
+ },
+ {
+  "assertion_id": "rel-b4a2ae77d1be03e9b294",
+  "verdict": "SUPPORTED",
+  "quote": "",
+  "wrong_relation": "appendix row names R1 Part 1.3 and maps Section 3.6.2"
+ },
+ {
+  "assertion_id": "rel-4d0ff92a3c563c01928f",
+  "verdict": "SUPPORTED",
+  "quote": "",
+  "wrong_relation": "15-month media testing with results documentation - evidence of backup verification operating"
+ },
+ {
+  "assertion_id": "rel-6ab9dd2af9f0f226648a",
+  "verdict": "SUPPORTED",
+  "quote": "",
+  "wrong_relation": "backup software verifies and validates each backup on completion - implements Part 1.4"
+ },
+ {
+  "assertion_id": "rel-d8c32dab5c12eec99d14",
+  "verdict": "SUPPORTED",
+  "quote": "",
+  "wrong_relation": "completion verified by auto-generated reports with failed-backup follow-up via work instructions - is Part 1.4's verify-and-address duty"
+ },
+ {
+  "assertion_id": "rel-7e7b009cb6668954de0d",
+  "verdict": "SUPPORTED",
+  "quote": "",
+  "wrong_relation": "data preserved for incident cause determination without impeding recovery - restates Part 1.5"
+ },
+ {
+  "assertion_id": "rel-ab062ff9de71d9e312eb",
+  "verdict": "SUPPORTED",
+  "quote": "",
+  "wrong_relation": "appendix row names R1 Part 1.5 and maps Section 3.7.1"
+ },
+ {
+  "assertion_id": "rel-f346614561afc956ed14",
+  "verdict": "SUPPORTED",
+  "quote": "",
+  "wrong_relation": "recovery plans tested every 15 months by the three recognized methods - implements R2 Part 2.1"
+ },
+ {
+  "assertion_id": "rel-0cdd41f2d8714338fa7a",
+  "verdict": "SUPPORTED",
+  "quote": "",
+  "wrong_relation": "appendix row names R2 Part 2.1 and maps Section 3.8"
+ },
+ {
+  "assertion_id": "rel-e4d556d999bc556c80c9",
+  "verdict": "SUPPORTED",
+  "quote": "",
+  "wrong_relation": "appendix row names R2 Part 2.2 and maps Section 3.9"
+ },
+ {
+  "assertion_id": "rel-c906af57b374c0fc477f",
+  "verdict": "UNSUPPORTED",
+  "quote": "x",
+  "wrong_relation": "the traceability section as stored ends mid R2 Part 2.3; no row for R3 Part 3.1 exists in it, so the reference is not established"
+ },
+ {
+  "assertion_id": "rel-26ec235a690b43dfacea",
+  "verdict": "UNSUPPORTED",
+  "quote": "x",
+  "wrong_relation": "same traceability section contains no R3 Part 3.2 row - the citation's generic intro cannot carry it"
+ },
+ {
+  "assertion_id": "rel-40f9e24c64ca7dbf51f7",
+  "verdict": "SUPPORTED",
+  "quote": "",
+  "wrong_relation": "section 3.12 restates the 60-day update-and-notify duty verbatim - implements R3 Part 3.2"
+ },
+ {
+  "assertion_id": "rel-5c26ab8771dff3124a22",
+  "verdict": "SUPPORTED",
+  "quote": "",
+  "wrong_relation": "appendix row names R3 Part 3.2 verbatim and maps Section 3.12"
+ },
+ {
+  "assertion_id": "rel-155089376ec09bb7b5cb",
+  "verdict": "SUPPORTED",
+  "quote": "",
+  "wrong_relation": "whitelist process maintains the ports-and-services component (Part 1.1.4) of the asset's baseline configuration"
+ },
+ {
+  "assertion_id": "rel-c4b6c1db128ec373cd8f",
+  "verdict": "WRONG_RELATION",
+  "quote": "REFERENCES",
+  "wrong_relation": "cited text is the appendix mapping cell (Section 3.7) for R1.3 - the row references where the requirement is addressed, it does not implement it"
+ },
+ {
+  "assertion_id": "rel-d3beb1065cbaab016280",
+  "verdict": "SUPPORTED",
+  "quote": "",
+  "wrong_relation": "configuration monitoring performs 35-day scans to detect baseline changes - is Part 2.1's duty"
+ },
+ {
+  "assertion_id": "rel-5d0096fb568c5bc09065",
+  "verdict": "SUPPORTED",
+  "quote": "",
+  "wrong_relation": "process restates Part 2.1's 35-day monitoring and unauthorized-change investigation as documented"
+ },
+ {
+  "assertion_id": "rel-6e1249670171fe81738a",
+  "verdict": "SUPPORTED",
+  "quote": "",
+  "wrong_relation": "TCA/RM plan implemented for high and medium impact BCS except during CECs - is R4's duty"
+ },
+ {
+  "assertion_id": "rel-11dc0b0233aa401c0e64",
+  "verdict": "SUPPORTED",
+  "quote": "",
+  "wrong_relation": "traceability table names CIP 010-4 R4 and its Attachment 1 sections with mappings"
+ },
+ {
+  "assertion_id": "rel-79450e02f238a7535df4",
+  "verdict": "SUPPORTED",
+  "quote": "",
+  "wrong_relation": "section is the Part 1.2 protection and handling guideline set: marked, stored in protected locations, handling rules per context"
+ },
+ {
+  "assertion_id": "rel-195ea0b9cc9c05f570f5",
+  "verdict": "SUPPORTED",
+  "quote": "",
+  "wrong_relation": "appendix row names Part 2.1 verbatim and maps Sections 3.1-3.4"
+ },
+ {
+  "assertion_id": "rel-96854e0db2064b84655b",
+  "verdict": "SUPPORTED",
+  "quote": "",
+  "wrong_relation": "appendix row names R2 Part 2.1 and maps Section 4.1"
+ },
+ {
+  "assertion_id": "rel-7c80508ed8cf2adf4479",
+  "verdict": "SUPPORTED",
+  "quote": "",
+  "wrong_relation": "procedure describes methods preventing unauthorized BCSI retrieval from assets disposed of or repurposed - the Part 2.1 action"
+ },
+ {
+  "assertion_id": "rel-d446c1297ffbf19284c9",
+  "verdict": "SUPPORTED",
+  "quote": "",
+  "wrong_relation": "data-path protections identified incl. physical and logical (encrypted VPN, in-line encryption, PKI) - is Part 1.1's identification duty"
+ },
+ {
+  "assertion_id": "rel-d1fa5446c3fbecd0fe28",
+  "verdict": "SUPPORTED",
+  "quote": "",
+  "wrong_relation": "appendix row names R1 Part 1.1 and maps Sections 3.2, 3.3"
+ },
+ {
+  "assertion_id": "rel-b79295b42cc7b1e27fb1",
+  "verdict": "SUPPORTED",
+  "quote": "",
+  "wrong_relation": "traceability table contains a CIP-012 row naming R1 Part 1.1 with section mapping (raw section, char ~7271)"
+ },
+ {
+  "assertion_id": "rel-dc4496f86d877ce53018",
+  "verdict": "UNSUPPORTED",
+  "quote": "x",
+  "wrong_relation": "cited sentence identifies methods mitigating LOSS of RTA/RTM communications - that is Part 1.2's duty, not Part 1.1's unauthorized-disclosure/modification mitigation"
+ },
+ {
+  "assertion_id": "rel-da3cc588451726ad27b1",
+  "verdict": "SUPPORTED",
+  "quote": "",
+  "wrong_relation": "identifying methods mitigating loss of RTA/RTM communication with redundancy and SLA methods - is Part 1.2's duty"
+ },
+ {
+  "assertion_id": "rel-affd8ccc126817454057",
+  "verdict": "SUPPORTED",
+  "quote": "",
+  "wrong_relation": "appendix row names R1 Part 1.4 and maps Appendices 2, 3"
+ },
+ {
+  "assertion_id": "rel-25d9070de0da19ebbf08",
+  "verdict": "SUPPORTED",
+  "quote": "",
+  "wrong_relation": "third-party demarcation responsibility communications captured and stored - evidence of the Part 1.5 responsibility identification"
+ },
+ {
+  "assertion_id": "rel-d24e8dc080cfff595a30",
+  "verdict": "SUPPORTED",
+  "quote": "",
+  "wrong_relation": "each RE's implementation responsibilities captured in contract/MOU and stored - is Part 1.5's identification duty"
+ },
+ {
+  "assertion_id": "rel-bcfd284d81daf0f29517",
+  "verdict": "SUPPORTED",
+  "quote": "",
+  "wrong_relation": "appendix rows name CIP-013-2 R1 and its parts with section mappings"
+ },
+ {
+  "assertion_id": "rel-0297cbce7b6f3c150899",
+  "verdict": "WRONG_RELATION",
+  "quote": "REFERENCES",
+  "wrong_relation": "cited text is the appendix mapping cell (Sections 3.6) for R1 Part 1.1 - a reference, not implementation"
+ },
+ {
+  "assertion_id": "rel-92209368c512efbed2d9",
+  "verdict": "UNSUPPORTED",
+  "quote": "x",
+  "wrong_relation": "cited scope statement lists covered asset classes; it names no procurement process addressing the Part 1.2 sub-parts"
+ },
+ {
+  "assertion_id": "rel-afa9dda0bd0efc765bd9",
+  "verdict": "UNSUPPORTED",
+  "quote": "x",
+  "wrong_relation": "scope statement of covered assets only - no procurement process described"
+ },
+ {
+  "assertion_id": "rel-b9a538ed6d89269dec6c",
+  "verdict": "SUPPORTED",
+  "quote": "",
+  "wrong_relation": "threat-based procurement language encodes the 1.2.1-1.2.6 vendor expectations - is the Part 1.2 procurement process"
+ },
+ {
+  "assertion_id": "rel-f87a179b32e1d8afa6a1",
+  "verdict": "UNSUPPORTED",
+  "quote": "x",
+  "wrong_relation": "asset-scope statement only; no procurement process in the citation"
+ },
+ {
+  "assertion_id": "rel-928db0a4d17f2c2125a1",
+  "verdict": "SUPPORTED",
+  "quote": "",
+  "wrong_relation": "scope names the activity performed - validating source identity and integrity of procured OS/firmware/software/patches, the Part 1.2.5 process under Part 1.2"
+ },
+ {
+  "assertion_id": "rel-9b144a16edd30d78d6d3",
+  "verdict": "SUPPORTED",
+  "quote": "",
+  "wrong_relation": "appendix rows name R1 Part 1.2.1 and map Section 4.6"
+ },
+ {
+  "assertion_id": "rel-e1293cf7fe9e33aa528c",
+  "verdict": "WRONG_RELATION",
+  "quote": "REFERENCES",
+  "wrong_relation": "cited text is the mapping cell (Section 4.6) for Part 1.2.1 - a reference, not implementation"
+ },
+ {
+  "assertion_id": "rel-41c7be0a182948d3acb5",
+  "verdict": "SUPPORTED",
+  "quote": "",
+  "wrong_relation": "appendix rows name R1 Part 1.2.1 and map Sections 3.7, 3.8"
+ },
+ {
+  "assertion_id": "rel-15740fb74dd53dd0b714",
+  "verdict": "SUPPORTED",
+  "quote": "",
+  "wrong_relation": "appendix block names Part 1.2.1 within the mapped 1.2.1-1.2.3 group routed to Section 6.1"
+ },
+ {
+  "assertion_id": "rel-2545bbdd018b4835bd0b",
+  "verdict": "SUPPORTED",
+  "quote": "",
+  "wrong_relation": "vendor-incident notification process with defined means - implements Part 1.2.1"
+ },
+ {
+  "assertion_id": "rel-9ff0e85b6149cf02bcc8",
+  "verdict": "SUPPORTED",
+  "quote": "",
+  "wrong_relation": "procurement expectation of vendor incident notification per Part 1.2.1 - implements the part through procurement language"
+ },
+ {
+  "assertion_id": "rel-a6b4adba6d8ea9a8fd68",
+  "verdict": "SUPPORTED",
+  "quote": "",
+  "wrong_relation": "vendor rep authorization workflow whose section closes with the Part 1.2.3 OTAM update on vendor removal notification"
+ },
+ {
+  "assertion_id": "rel-192834650d43f9a24154",
+  "verdict": "SUPPORTED",
+  "quote": "",
+  "wrong_relation": "appendix row names CIP-013-2 1.2.3 and maps Sections 1.1 & 3.1.3.1"
+ },
+ {
+  "assertion_id": "rel-b84accfed63fb85d4bc8",
+  "verdict": "UNSUPPORTED",
+  "quote": "x",
+  "wrong_relation": "cited sentence covers AD provisioning for vendor reps; the end-of-access notification coordination of Part 1.2.3 is not what it describes"
+ },
+ {
+  "assertion_id": "rel-6ce04626234b3be1e7c3",
+  "verdict": "SUPPORTED",
+  "quote": "",
+  "wrong_relation": "documented vendor remote access management with determine/terminate/reconnect methods - the controls coordination Part 1.2.6 asks for"
+ },
+ {
+  "assertion_id": "rel-11091e6adf1fd2a50205",
+  "verdict": "UNSUPPORTED",
+  "quote": "x",
+  "wrong_relation": "scope statement naming the CIP-014 facility vocabulary; it establishes applicability, not the 30/60-month subsequent risk assessment cadence Part 1.1 requires"
+ },
+ {
+  "assertion_id": "rel-6ababd74258838033874",
+  "verdict": "UNSUPPORTED",
+  "quote": "x",
+  "wrong_relation": "purpose statement identifying and protecting substations; no risk assessment duty or cadence in the citation"
+ },
+ {
+  "assertion_id": "rel-39edcc4bfc5090ce84aa",
+  "verdict": "SUPPORTED",
+  "quote": "",
+  "wrong_relation": "traceability row names R1 Part 1.1 and maps Section 3.1.4"
+ },
+ {
+  "assertion_id": "rel-8b74aa7102d458ed28b6",
+  "verdict": "SUPPORTED",
+  "quote": "",
+  "wrong_relation": "risk assessment performed with subsequent assessments at 30 months (critical) or 60 months (not critical) - is Part 1.1's cadence"
+ },
+ {
+  "assertion_id": "rel-e5a8ccc2875e8259149f",
+  "verdict": "SUPPORTED",
+  "quote": "",
+  "wrong_relation": "traceability row names R2 Part 2.1 and maps Section 3.2.2"
+ },
+ {
+  "assertion_id": "rel-ebbef8360184ac02999e",
+  "verdict": "SUPPORTED",
+  "quote": "",
+  "wrong_relation": "traceability row names R2 Part 2.2 and maps Section 3.2"
+ },
+ {
+  "assertion_id": "rel-6ee0c4b5ee7a56ca607c",
+  "verdict": "SUPPORTED",
+  "quote": "",
+  "wrong_relation": "traceability rows name R2 Part 2.3 and map Section 3.2.4.1"
+ },
+ {
+  "assertion_id": "rel-1cdf0b3a2c1ca5505314",
+  "verdict": "SUPPORTED",
+  "quote": "",
+  "wrong_relation": "traceability row names R4 Part 4.1 and maps Section 3.4.2.1"
+ },
+ {
+  "assertion_id": "rel-d41a1b43117cb64483c8",
+  "verdict": "SUPPORTED",
+  "quote": "",
+  "wrong_relation": "traceability row names R4 Part 4.3 and maps Section 3.4.2.3"
+ },
+ {
+  "assertion_id": "rel-25cfb1d6f11256f94ac3",
+  "verdict": "SUPPORTED",
+  "quote": "",
+  "wrong_relation": "traceability row names R5 Part 5.2 and maps Section 3.5.3"
+ },
+ {
+  "assertion_id": "rel-7a4efcd6b9566d64b0c7",
+  "verdict": "SUPPORTED",
+  "quote": "",
+  "wrong_relation": "traceability row names R5 Part 5.3 and maps Section 3.5.3"
+ },
+ {
+  "assertion_id": "rel-8490bfd96b737e191b2d",
+  "verdict": "UNSUPPORTED",
+  "quote": "x",
+  "wrong_relation": "cited sentences cover conducting the review and NDA protection; the reviewer-selection criteria of Part 6.1 (section 3.6.2) are not cited"
+ },
+ {
+  "assertion_id": "rel-cde9126367e9ff9b00f9",
+  "verdict": "SUPPORTED",
+  "quote": "",
+  "wrong_relation": "traceability table contains an R6 Part 6.1 row mapping Section 3.6.2"
+ },
+ {
+  "assertion_id": "rel-5fd253d4aaf9815d9178",
+  "verdict": "UNSUPPORTED",
+  "quote": "x",
+  "wrong_relation": "cited sentence assigns third-party review responsibility internally; it does not establish selection of an unaffiliated reviewer with the Part 6.1 credentials"
+ },
+ {
+  "assertion_id": "rel-1ed04582c4fde579a81b",
+  "verdict": "SUPPORTED",
+  "quote": "",
+  "wrong_relation": "review ensured complete and documented within 90 days of approving the plan - is Part 6.2's duty"
+ },
+ {
+  "assertion_id": "rel-33d12342927f63eac567",
+  "verdict": "UNSUPPORTED",
+  "quote": "x",
+  "wrong_relation": "cited sentence assigns review responsibility; it says nothing about the 90-day completion window Part 6.2 requires"
+ },
+ {
+  "assertion_id": "rel-a9549e8e893278b50ddd",
+  "verdict": "SUPPORTED",
+  "quote": "",
+  "wrong_relation": "NDA protection of information given to the third-party verifier - is Part 6.4's duty"
+ }
+]

@@ -1,0 +1,48 @@
+{
+  "question": "For CIP-004-7 R4, where do my documents commit me to more than the standard requires? Quote the standard's requirement and my document's stronger commitment side by side, and cite both.",
+  "answer": "",
+  "reasoning_chars": 0,
+  "wall_s": 21.01,
+  "turn_budget_s": 900.0,
+  "turn_budget_exceeded": false,
+  "first_token_s": 0.01,
+  "finish_reason": "stop",
+  "http_status": 200,
+  "route_header": "compliance-reading;ollama-general;gemma4:26b-a4b-it-q4_K_M-ctx32k",
+  "served_model": "gemma4:26b-a4b-it-q4_K_M-ctx32k",
+  "tool_calls": {
+    "compliance_context": 1.0,
+    "compliance_read": 3.0
+  },
+  "tool_errors": {},
+  "pipeline_errors": {
+    "empty_completion": 1.0
+  },
+  "usage_hops": [
+    {
+      "prompt_tokens": 3253,
+      "completion_tokens": 23
+    },
+    {
+      "prompt_tokens": 10028,
+      "completion_tokens": 39
+    },
+    {
+      "prompt_tokens": 10706,
+      "completion_tokens": 39
+    },
+    {
+      "prompt_tokens": 11392,
+      "completion_tokens": 36
+    },
+    {
+      "prompt_tokens": 12133,
+      "completion_tokens": 4
+    }
+  ],
+  "prompt_tokens_high_water": 12133,
+  "prompt_tokens_final_hop": 12133,
+  "input_tokens_all_hops": 0,
+  "output_tokens_all_hops": 0,
+  "error": ""
+}

@@ -1,0 +1,396 @@
+{
+  "run_id": "2026-09-23T23:12:26.490890+00:00",
+  "family_edges": 278,
+  "family_precision": 0.8345,
+  "per_standard": {
+    "CIP-002-5.1a": {
+      "n": 5,
+      "precision": 0.6,
+      "supported": 3,
+      "unsupported": 2
+    },
+    "CIP-003-8": {
+      "n": 26,
+      "precision": 0.7308,
+      "supported": 19,
+      "unsupported": 6,
+      "wrong_relation": 1
+    },
+    "CIP-003-9": {
+      "n": 46,
+      "precision": 0.8478,
+      "unsupported": 2,
+      "wrong_relation": 5,
+      "supported": 39
+    },
+    "CIP-004-7": {
+      "n": 18,
+      "precision": 0.9444,
+      "supported": 17,
+      "unsupported": 1
+    },
+    "CIP-005-7": {
+      "n": 19,
+      "precision": 0.6842,
+      "supported": 13,
+      "wrong_relation": 5,
+      "unsupported": 1
+    },
+    "CIP-006-6": {
+      "n": 37,
+      "precision": 0.8649,
+      "supported": 32,
+      "unsupported": 5
+    },
+    "CIP-007-6": {
+      "n": 22,
+      "precision": 0.9091,
+      "supported": 20,
+      "unsupported": 2
+    },
+    "CIP-008-6": {
+      "n": 8,
+      "precision": 0.875,
+      "supported": 7,
+      "unsupported": 1
+    },
+    "CIP-009-6": {
+      "n": 23,
+      "precision": 0.913,
+      "supported": 21,
+      "unsupported": 2
+    },
+    "CIP-010-4": {
+      "n": 6,
+      "precision": 0.8333,
+      "supported": 5,
+      "wrong_relation": 1
+    },
+    "CIP-011-3": {
+      "n": 6,
+      "precision": 1.0,
+      "supported": 6
+    },
+    "CIP-012-2": {
+      "n": 9,
+      "precision": 0.8889,
+      "supported": 8,
+      "unsupported": 1
+    },
+    "CIP-013-2": {
+      "n": 25,
+      "precision": 0.76,
+      "supported": 19,
+      "wrong_relation": 2,
+      "unsupported": 4
+    },
+    "CIP-014-3": {
+      "n": 28,
+      "precision": 0.8214,
+      "unsupported": 5,
+      "supported": 23
+    }
+  },
+  "n_carried_verdicts": 75,
+  "baseline_sweep_set": {
+    "family_edges": 336,
+    "family_precision": 0.8036,
+    "per_standard": {
+      "CIP-002-5.1a": {
+        "n": 29,
+        "precision": 0.3103,
+        "unsupported": 20,
+        "supported": 9
+      },
+      "CIP-003-8": {
+        "n": 40,
+        "precision": 0.775,
+        "supported": 31,
+        "unsupported": 8,
+        "wrong_relation": 1
+      },
+      "CIP-003-9": {
+        "n": 41,
+        "precision": 0.8537,
+        "supported": 35,
+        "unsupported": 5,
+        "wrong_relation": 1
+      },
+      "CIP-004-7": {
+        "n": 34,
+        "precision": 0.8824,
+        "supported": 30,
+        "unsupported": 2,
+        "wrong_relation": 2
+      },
+      "CIP-005-7": {
+        "n": 15,
+        "precision": 0.6667,
+        "supported": 10,
+        "unsupported": 5
+      },
+      "CIP-006-6": {
+        "n": 24,
+        "precision": 0.8333,
+        "supported": 20,
+        "wrong_relation": 2,
+        "unsupported": 2
+      },
+      "CIP-007-6": {
+        "n": 24,
+        "precision": 0.875,
+        "supported": 21,
+        "unsupported": 3
+      },
+      "CIP-008-6": {
+        "n": 20,
+        "precision": 0.9,
+        "supported": 18,
+        "unsupported": 2
+      },
+      "CIP-009-6": {
+        "n": 11,
+        "precision": 1.0,
+        "supported": 11
+      },
+      "CIP-010-4": {
+        "n": 22,
+        "precision": 0.8182,
+        "supported": 18,
+        "unsupported": 2,
+        "wrong_relation": 2
+      },
+      "CIP-011-3": {
+        "n": 10,
+        "precision": 0.9,
+        "supported": 9,
+        "unsupported": 1
+      },
+      "CIP-012-2": {
+        "n": 8,
+        "precision": 0.875,
+        "supported": 7,
+        "unsupported": 1
+      },
+      "CIP-013-2": {
+        "n": 29,
+        "precision": 0.8966,
+        "supported": 26,
+        "unsupported": 2,
+        "wrong_relation": 1
+      },
+      "CIP-014-3": {
+        "n": 29,
+        "precision": 0.8621,
+        "supported": 25,
+        "unsupported": 4
+      }
+    }
+  },
+  "baseline_store_wide": {
+    "family_edges": 366,
+    "family_precision": 0.8142
+  },
+  "scope_effect_without_judgement": {
+    "family": {
+      "no_longer_affirmed": {
+        "UNSUPPORTED": 50,
+        "SUPPORTED": 213,
+        "WRONG_RELATION": 4
+      },
+      "reaffirmed": {
+        "SUPPORTED": 72,
+        "UNSUPPORTED": 6,
+        "WRONG_RELATION": 1
+      },
+      "requirement_not_reread": {
+        "SUPPORTED": 13,
+        "WRONG_RELATION": 4,
+        "UNSUPPORTED": 3
+      }
+    },
+    "per_standard": {
+      "CIP-002-5.1a": {
+        "no_longer_affirmed": {
+          "UNSUPPORTED": 20,
+          "SUPPORTED": 8
+        },
+        "reaffirmed": {
+          "SUPPORTED": 1
+        }
+      },
+      "CIP-003-8": {
+        "requirement_not_reread": {
+          "SUPPORTED": 3,
+          "WRONG_RELATION": 1
+        },
+        "no_longer_affirmed": {
+          "SUPPORTED": 26,
+          "UNSUPPORTED": 6
+        },
+        "reaffirmed": {
+          "SUPPORTED": 4,
+          "UNSUPPORTED": 2
+        }
+      },
+      "CIP-003-9": {
+        "no_longer_affirmed": {
+          "SUPPORTED": 25,
+          "UNSUPPORTED": 4,
+          "WRONG_RELATION": 1
+        },
+        "reaffirmed": {
+          "UNSUPPORTED": 1,
+          "SUPPORTED": 10
+        }
+      },
+      "CIP-004-7": {
+        "reaffirmed": {
+          "SUPPORTED": 9,
+          "UNSUPPORTED": 1
+        },
+        "no_longer_affirmed": {
+          "SUPPORTED": 31,
+          "UNSUPPORTED": 1
+        },
+        "requirement_not_reread": {
+          "WRONG_RELATION": 2,
+          "SUPPORTED": 1
+        }
+      },
+      "CIP-005-7": {
+        "requirement_not_reread": {
+          "SUPPORTED": 1,
+          "UNSUPPORTED": 1
+        },
+        "reaffirmed": {
+          "SUPPORTED": 4
+        },
+        "no_longer_affirmed": {
+          "UNSUPPORTED": 4,
+          "SUPPORTED": 5
+        }
+      },
+      "CIP-006-6": {
+        "reaffirmed": {
+          "SUPPORTED": 11,
+          "WRONG_RELATION": 1,
+          "UNSUPPORTED": 1
+        },
+        "no_longer_affirmed": {
+          "UNSUPPORTED": 1,
+          "SUPPORTED": 9
+        },
+        "requirement_not_reread": {
+          "WRONG_RELATION": 1
+        }
+      },
+      "CIP-007-6": {
+        "reaffirmed": {
+          "SUPPORTED": 6
+        },
+        "no_longer_affirmed": {
+          "SUPPORTED": 29,
+          "UNSUPPORTED": 3
+        },
+        "requirement_not_reread": {
+          "UNSUPPORTED": 2,
+          "SUPPORTED": 1
+        }
+      },
+      "CIP-008-6": {
+        "reaffirmed": {
+          "SUPPORTED": 2
+        },
+        "no_longer_affirmed": {
+          "SUPPORTED": 14,
+          "UNSUPPORTED": 2
+        },
+        "requirement_not_reread": {
+          "SUPPORTED": 2
+        }
+      },
+      "CIP-009-6": {
+        "no_longer_affirmed": {
+          "SUPPORTED": 8
+        },
+        "reaffirmed": {
+          "SUPPORTED": 3
+        }
+      },
+      "CIP-010-4": {
+        "no_longer_affirmed": {
+          "SUPPORTED": 18,
+          "UNSUPPORTED": 2,
+          "WRONG_RELATION": 2
+        }
+      },
+      "CIP-011-3": {
+        "no_longer_affirmed": {
+          "SUPPORTED": 7
+        },
+        "reaffirmed": {
+          "UNSUPPORTED": 1,
+          "SUPPORTED": 2
+        }
+      },
+      "CIP-012-2": {
+        "no_longer_affirmed": {
+          "SUPPORTED": 6,
+          "UNSUPPORTED": 1
+        },
+        "reaffirmed": {
+          "SUPPORTED": 1
+        }
+      },
+      "CIP-013-2": {
+        "no_longer_affirmed": {
+          "SUPPORTED": 18,
+          "UNSUPPORTED": 2,
+          "WRONG_RELATION": 1
+        },
+        "reaffirmed": {
+          "SUPPORTED": 8
+        }
+      },
+      "CIP-014-3": {
+        "requirement_not_reread": {
+          "SUPPORTED": 5
+        },
+        "reaffirmed": {
+          "SUPPORTED": 11
+        },
+        "no_longer_affirmed": {
+          "SUPPORTED": 9,
+          "UNSUPPORTED": 4
+        }
+      }
+    }
+  },
+  "conversational_passed": 9,
+  "conversational_total": 14,
+  "conversational_failures_by_check": {
+    "grounding_per_claim": 3,
+    "regulatory_cited": 1,
+    "used_search": 1
+  },
+  "product_passed": 10,
+  "product_total": 15,
+  "product_failures_by_check": {
+    "grounding_per_claim": 3,
+    "required_side_present": 5,
+    "answered": 2,
+    "cited_something": 2
+  },
+  "attribution_note": "The family sweep reads reading_material.render with handles, so the quote contract does not reach it: the sweep-set precision move is the scope line's. The conversational and product sets read the same material through compliance_context and see BOTH changes; their move is not attributable to either fix alone.",
+  "inputs": {
+    "baseline": "reports/compliance/cite_and_scope/p0/baseline.json",
+    "baseline_adjudication": "reports/compliance/load_and_converse/p6/adjudication_v2.json",
+    "baseline_edge_set": "reports/compliance/cite_and_scope/p3/baseline_edge_set.json",
+    "adjudication": "reports/compliance/cite_and_scope/p3/adjudication_p3.json",
+    "edge_set": "reports/compliance/cite_and_scope/p3/sweep_edge_set.json",
+    "conversational": "reports/compliance/cite_and_scope/p3/conversational/conversational_proof.json",
+    "product": "reports/compliance/cite_and_scope/p3/product/product_questions_family.json",
+    "out": "reports/compliance/cite_and_scope/p3/measured.json"
+  }
+}

@@ -1,0 +1,52 @@
+{
+  "question": "For CIP-004-7 R4, where does the standard leave a choice or an allowance that my documents do not take up? Cite the standard's own words granting the latitude, and say what my documents do instead.",
+  "answer": "",
+  "reasoning_chars": 0,
+  "wall_s": 30.28,
+  "turn_budget_s": 900.0,
+  "turn_budget_exceeded": false,
+  "first_token_s": 0.04,
+  "finish_reason": "stop",
+  "http_status": 200,
+  "route_header": "compliance-reading;ollama-general;gemma4:26b-a4b-it-q4_K_M-ctx32k",
+  "served_model": "gemma4:26b-a4b-it-q4_K_M-ctx32k",
+  "tool_calls": {
+    "compliance_context": 1.0,
+    "compliance_read": 4.0
+  },
+  "tool_errors": {},
+  "pipeline_errors": {
+    "empty_completion": 1.0
+  },
+  "usage_hops": [
+    {
+      "prompt_tokens": 3360,
+      "completion_tokens": 23
+    },
+    {
+      "prompt_tokens": 10135,
+      "completion_tokens": 39
+    },
+    {
+      "prompt_tokens": 10813,
+      "completion_tokens": 39
+    },
+    {
+      "prompt_tokens": 11499,
+      "completion_tokens": 36
+    },
+    {
+      "prompt_tokens": 12240,
+      "completion_tokens": 39
+    },
+    {
+      "prompt_tokens": 13917,
+      "completion_tokens": 4
+    }
+  ],
+  "prompt_tokens_high_water": 13917,
+  "prompt_tokens_final_hop": 13917,
+  "input_tokens_all_hops": 0,
+  "output_tokens_all_hops": 0,
+  "error": ""
+}

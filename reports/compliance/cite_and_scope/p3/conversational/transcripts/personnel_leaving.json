@@ -1,0 +1,33 @@
+{
+  "question": "What are our obligations around personnel leaving the company?",
+  "answer": "Our obligations regarding personnel leaving the company involve both a regulatory requirement for access removal and our internal procedures for notification and execution.\n\n### Regulatory Requirement\nUnder **CIP-004-7 R5 Part 5.1**, for High Impact BES Cyber Systems (and their associated EACMS and PACS) and Medium Impact BES Cyber Systems at Control Centers (and their associated EACMS, PACS, and PCA), we must have:\n> \"A process to initiate removal of an individual's ability for unescorted physical access and Interactive Remote Access upon a termination action, and complete the removals within 24 hours of the termination action\" [cite R-7edf3e]\n\n### Internal Procedures and Deadlines\nOur internal procedures establish the specific workflow and timelines for these actions:\n\n**1. Notification of Termination**\n*   **Source of Notification:** Notifications can originate from \"HR or any Supervisory personnel\" [cite O-471260].\n*   **Internal Workflow:** Management is required to notify the OT Director \"immediately when an Employee, Vendor or Contractor is terminated\" [cite O-471260]. The OT Director then notifies the OT Team to initiate the termination of access [cite O-471260].\n*   **Planned vs. Immediate:** \n    *   **Planned Revocation:** Occurs when HR or a manager is aware of a termination or reassignment in advance (e.g., retirement or end of contract) [cite O-6dbf20].\n    *   **Immediate Revocation:** Used for \"those LSPG employees or contractors whose employment is ending immediately, e.g., termination or involuntary separation\" [cite O-6dbf20].\n\n**2. Execution of Access Removal**\n*   **Physical and Electronic Access:** Our procedures mandate that \"All individual access will be disabled within 24 hours of notice of termination. This includes physical or electronic access\" [cite O-6dbf20]. This aligns with the 24-hour deadline set by the NERC standard [cite R-7edf3e].\n*   **Specific Physical Access Deadline:** The *LSPG Physical Access Control Procedure* specifically states that \"the OT Team will remove physical access for any Employee(s), Vendor(s), or Contractor(s) upon termination\" [cite O-471260] \"Within at least 24 hours of a termination action\" [cite O-471260].\n*   **BCSI Access:** For Bulk Electric System Cyber Information (BCSI), access \"will be revoked by the end of the next calendar day following the termination action\" [cite O-6dbf20].\n*   **Account Handling:** Note that \"All access accounts are disabled and not removed\" [cite O-6dbf20] to maintain an audit trail and allow for potential reinstatement.\n\n**3. Reassignment or Transfer**\nIf an individual is reassigned or transferred, their access must be revoked \"within 24 hours of the date it is determined the user no longer requires access\" [cite O-6ab619].\n\nQuoted sources:\n- \"Access revocation notifications can come from HR or any Supervisory personnel. Management will notify the OT Director immediately when an Employee, Vendor or Contractor is terminated. The OT Director notifies the OT Team who will terminate the individual\u2019s access.\" (O-471260 \u2014 LSPG Physical Access Control Procedure 3.5.2.1)\n- \"Within at least 24 hours of a termination action, the OT Team will remove physical access for any Employee(s), Vendor(s), or Contractor(s) upon termination.\" (O-471260 \u2014 LSPG Physical Access Control Procedure 3.5.3.1)\n- \"A process to initiate removal of an individual's ability for unescorted physical access and Interactive Remote Access upon a termination action, and complete the removals within 24 hours of the termination action (Removal of the ability for access may be different than deletion, disabling, revocation, or removal of all access rights).\" (R-7edf3e \u2014 CIP-004-7 R5 Part 5.1)\n- \"If an individual is terminated, the user\u2019s access is revoked per OT Access Management Procedure within 24 hours of the termination action.\" (O-6ab619 \u2014 LSPG Account Management 3.3.1)\n- \"If an individual is reassigned or transferred (job responsibility change), the user\u2019s access is revoked per OT Access Management Procedure within 24 hours of the date it is determined the user no longer requires access.\" (O-6ab619 \u2014 LSPG Account Management 3.3.3)\n- \"All individual access will be disabled within 24 hours of notice of termination. This includes physical or electronic access. BCSI access will be revoked by the end of the next calendar day following the termination action.\" (O-6dbf20 \u2014 LSPG Access Management 3.6)\n- \"Planned revocation is when HR or the LSPG manager who oversees employees or contractors is aware of an employee or contractor termination\\reassignment in advance of their last working day, e.g., retirement, voluntary separation of employment, transfer, end of project contract for vendors.\" (O-6dbf20 \u2014 LSPG Access Management 3.6.1.1)\n- \"Immediate revocation is the revocation of unescorted physical, electronic and/or BCSI access for those LSPG employees or contractors whose employment is ending immediately, e.g., termination or involuntary separation from company of either a LSPG employee or contractor from their company.\" (O-6dbf20 \u2014 LSPG Access Management 3.6.1.2)\n- \"All access accounts are disabled and not removed. This is done to show an audit trail of a user\u2019s access and in the case where access may need to be reinstated (e.g., for personnel whose training has expired but will require access again once training is completed).\" (O-6dbf20 \u2014 LSPG Access Management Note)",
+  "reasoning_chars": 0,
+  "wall_s": 47.49,
+  "turn_budget_s": 900.0,
+  "turn_budget_exceeded": false,
+  "first_token_s": 0.02,
+  "finish_reason": "stop",
+  "http_status": 200,
+  "route_header": "compliance-reading;ollama-general;gemma4:26b-a4b-it-q4_K_M-ctx32k",
+  "served_model": "gemma4:26b-a4b-it-q4_K_M-ctx32k",
+  "tool_calls": {
+    "compliance_search": 1.0
+  },
+  "tool_errors": {},
+  "pipeline_errors": {},
+  "usage_hops": [
+    {
+      "prompt_tokens": 3322,
+      "completion_tokens": 31
+    },
+    {
+      "prompt_tokens": 11134,
+      "completion_tokens": 1310
+    }
+  ],
+  "prompt_tokens_high_water": 11134,
+  "prompt_tokens_final_hop": 11134,
+  "input_tokens_all_hops": 0,
+  "output_tokens_all_hops": 0,
+  "error": ""
+}

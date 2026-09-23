@@ -1,0 +1,17 @@
+WROTE reports/compliance/cite_and_scope/p3/conversational/conversational_proof.json
+9/14 passed | retrieval used in 13
+  [PASS] topic          search=True What do our procedures say about remote access, and what
+  [FAIL] topic          search=True Where does our patching practice sit against what the st
+  [FAIL] topic          search=True Which of our policies touch vendor and supply-chain risk
+  [FAIL] topic          search=True What do we say about shared accounts?
+  [PASS] operator_fact  search=True We have a 30-day patch cycle. Which requirements does th
+  [PASS] operator_fact  search=True Our change-management procedure mentions baselines. Whic
+  [PASS] operator_fact  search=True What are our obligations around personnel leaving the co
+  [FAIL] cross_cutting  search=True Which of our documents are doing the most compliance wor
+  [FAIL] cross_cutting  search=False Where do the standards overlap in what they ask of us?
+  [PASS] cross_cutting  search=True If our CISO role changed hands, what would we need to re
+  [PASS] absence        search=True What do our documents say about physical security perime
+  [PASS] absence        search=True What's our position on BES Cyber System categorization?
+  [PASS] topic          search=True Which of our records would serve as evidence for trainin
+  [PASS] cross_cutting  search=True Did the newest CIP-003 revision change what it asks of u
+invented coverage on absence questions: 0

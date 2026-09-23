@@ -1,0 +1,33 @@
+{
+  "question": "Which of our policies touch vendor and supply-chain risk?",
+  "answer": "Based on the available documentation, the following operator policies and procedures address vendor and supply-chain risk:\n\n*   **LSPG CIP-013 Risk Assessment Procedure (v8.0):** This procedure contains specific duties regarding the supply chain, including:\n    *   Verifying the status of proposed Vendors (whether they need assessment, are approved, or are not eligible).\n    *   Coordinating with Business Units to collect Vendor documentation for risk assessments.\n    *   Identifying Vendor risk assessment needs for procurement.\n    *   Notifying the Cross-Functional Team Lead when Vendor risk re-assessments are required due to expiration.\n*   **LSPG CIP-013 Procurement Procedure (v8.0):** This procedure manages the execution of supply chain controls, such as:\n    *   Reviewing Purchase Requisition Request forms for accuracy.\n    *   Managing the purchasing strategy and sourcing for new and active contracts.\n    *   Negotiating and executing contracts with Vendors.\n    *   Managing the list of CIP-013 approved and prohibited Vendors.\n*   **Supply Chain Cyber Security Risk Management Plan (v8.0):** This plan outlines high-level management of the supply chain, including:\n    *   Reviewing the CIP-013 Applicability Form.\n    *   Managing the purchasing strategy and sourcing for active contracts.\n    *   Managing contract expirations and changes.\n    *   Managing the CIP-013-2 approved and prohibited Vendor list.\n\nQuoted sources:\n- \"1.4.6 Supply Chain \u2022 Verifies the proposed Vendor status: needs assessment, approved or not eligible. \u2022 Coordinates with Business Units to collect Vendor documentation for risk assessments. \u2022 Facilitates the receipt of products to LSPG. \u2022 Works with Business Unit to identify Vendors and Vendor risk assessment status for procurement. \u2022 Notifies Cross-Functional Team Lead of Vendor risk re-assessment need for Vendor risk assessments that are expiring or have expired.\" (O-623408 \u2014 LSPG CIP-013 Risk Assessment Procedure v8.0)\n- \"1.4.5 Supply Chain \u2022 Reviews Purchase Requisition Request form for accuracy and completeness. \u2022 Verifies the proposed Vendor status of needing assessment, approved or not eligible. \u2022 Notifies Cross-Functional Team Lead of Vendor risk re-assessment need for Vendor risk assessments that are expiring or have expired. \u2022 Manages the purchasing strategy and sourcing of products or services for new and active contracts. \u2022 Negotiates and executes Contracts with Vendors: o Manages Contract expirations and changes. o Manages CIP-013 approved and prohibited Vendor list. \u2022 Facilitates the receipt of products to LSPG.\" (O-ffd6de \u2014 LSPG CIP-013 Procurement Procedure v8.0)\n- \"1.4.5 Supply Chain \u2022 Reviews CIP-013 Applicability Form for accuracy and completeness. \u2022 Verifies the proposed Vendor status of needing assessment, approved or not eligible. \u2022 Notifies Cross-Functional Team Lead of Vendor risk re-assessment need for Vendor risk assessments that are expiring or have expired. \u2022 Manages the purchasing strategy and sourcing of products or services for active contracts. \u2022 Negotiates and executes contracts with Vendors: o Manages contract expirations and changes. o Manages CIP-013-2 approved and prohibited Vendor list. \u2022 Facilitates the receipt of products to LSPG.\" (O-9f5acb \u2014 Supply Chain Cyber Security Risk Management Plan v8.0)",
+  "reasoning_chars": 0,
+  "wall_s": 31.28,
+  "turn_budget_s": 900.0,
+  "turn_budget_exceeded": false,
+  "first_token_s": 0.02,
+  "finish_reason": "stop",
+  "http_status": 200,
+  "route_header": "compliance-reading;ollama-general;gemma4:26b-a4b-it-q4_K_M-ctx32k",
+  "served_model": "gemma4:26b-a4b-it-q4_K_M-ctx32k",
+  "tool_calls": {
+    "compliance_search": 1.0
+  },
+  "tool_errors": {},
+  "pipeline_errors": {},
+  "usage_hops": [
+    {
+      "prompt_tokens": 3324,
+      "completion_tokens": 20
+    },
+    {
+      "prompt_tokens": 10312,
+      "completion_tokens": 741
+    }
+  ],
+  "prompt_tokens_high_water": 10312,
+  "prompt_tokens_final_hop": 10312,
+  "input_tokens_all_hops": 0,
+  "output_tokens_all_hops": 0,
+  "error": ""
+}

@@ -1,0 +1,1923 @@
+{
+  "run_id": "2026-09-23T17:34:22.940826+00:00",
+  "seat_model": "gemma4:26b-a4b-it-q4_K_M-ctx32k",
+  "n_operator_documents": 69,
+  "n_scoped": 69,
+  "n_stating_scope": 64,
+  "n_claims_with_invalid_quote": 3,
+  "family_histogram": {
+    "CIP-002": 3,
+    "CIP-003": 9,
+    "CIP-004": 12,
+    "CIP-005": 19,
+    "CIP-006": 9,
+    "CIP-007": 20,
+    "CIP-008": 2,
+    "CIP-009": 9,
+    "CIP-010": 15,
+    "CIP-011": 3,
+    "CIP-012": 4,
+    "CIP-013": 5,
+    "CIP-014": 1
+  },
+  "read_budget_chars": 9000,
+  "method": "One seat read per document against its own opening and scope material (head + scope/purpose/applicability headings beyond the head). Every standard claim carries its quoted evidence and was validated by folded containment in the document text before storage; claims with invalid quotes are recorded and excluded from the scope build_links uses. families_served is evidence-backed only.",
+  "documents": [
+    {
+      "logical_id": "CIP-002/BES Cyber System Categorization Process V9.pdf",
+      "about": "Procedure for the categorization of BES Cyber Systems and BES Cyber Assets.",
+      "states_scope": true,
+      "claims": [
+        {
+          "standard": "CIP-002",
+          "stated_as": "CIP-002-5.1a",
+          "quote": "NERC Standard: CIP-002-5.1a",
+          "quote_valid": true
+        }
+      ],
+      "families_served": [
+        "CIP-002"
+      ],
+      "model": "gemma4:26b-a4b-it-q4_K_M-ctx32k",
+      "read_chars": 9295,
+      "derived_at": "2026-09-23T17:27:55.178631+00:00"
+    },
+    {
+      "logical_id": "CIP-003/LSP CIP Senior Manager Process - CIP Senior Manager Delegations - LSP GRID_v10.pdf",
+      "about": "NERC CIP Senior Manager delegation of authority and responsibilities",
+      "states_scope": true,
+      "claims": [
+        {
+          "standard": "CIP-002",
+          "stated_as": "CIP-002-5.1a",
+          "quote": "CIP-002-5.1a, R1",
+          "quote_valid": true
+        },
+        {
+          "standard": "CIP-007",
+          "stated_as": "CIP-007-6",
+          "quote": "CIP-007-6, R2.4",
+          "quote_valid": true
+        },
+        {
+          "standard": "CIP-004",
+          "stated_as": "CIP-004-7",
+          "quote": "CIP-004-7, R2.2",
+          "quote_valid": true
+        },
+        {
+          "standard": "CIP-004",
+          "stated_as": "CIP-004-7",
+          "quote": "CIP-004-7, R4.1-R4.1.3",
+          "quote_valid": true
+        },
+        {
+          "standard": "CIP-006",
+          "stated_as": "CIP-006-6",
+          "quote": "CIP-006-6, R2.1 and R2.2",
+          "quote_valid": true
+        },
+        {
+          "standard": "CIP-007",
+          "stated_as": "CIP-007-6",
+          "quote": "CIP-007-6, R4.3",
+          "quote_valid": true
+        },
+        {
+          "standard": "CIP-010",
+          "stated_as": "CIP-010-4",
+          "quote": "CIP-010-4, R3.3",
+          "quote_valid": true
+        },
+        {
+          "standard": "CIP-010",
+          "stated_as": "CIP-010-4",
+          "quote": "CIP-010-4, R4",
+          "quote_valid": true
+        },
+        {
+          "standard": "CIP-003",
+          "stated_as": "CIP-003-8",
+          "quote": "CIP-003-8, Section 5",
+          "quote_valid": true
+        },
+        {
+          "standard": "CIP-003",
+          "stated_as": "CIP-003-9",
+          "quote": "CIP-003-9, Section 5 (effective 4/1/2026)",
+          "quote_valid": true
+        },
+        {
+          "standard": "CIP-012",
+          "stated_as": "CIP-012-1",
+          "quote": "CIP-012-1, R1",
+          "quote_valid": true
+        },
+        {
+          "standard": "CIP-012",
+          "stated_as": "CIP-012-2",
+          "quote": "CIP-012-2, R1 (effective 7/1/26)",
+          "quote_valid": true
+        },
+        {
+          "standard": "CIP-005",
+          "stated_as": "CIP-005-7",
+          "quote": "CIP-005-7, Requirement R1, Part 1.4",
+          "quote_valid": true
+        },
+        {
+          "standard": "CIP-005",
+          "stated_as": "CIP-005-7",
+          "quote": "CIP-005-7, Requirement R2, Parts 2.1, 2.2, and 2.3",
+          "quote_valid": true
+        },
+        {
+          "standard": "CIP-006",
+          "stated_as": "CIP-006-6",
+          "quote": "CIP-006-6, Requirement R1, Part 1.3",
+          "quote_valid": true
+        },
+        {
+          "standard": "CIP-007",
+          "stated_as": "CIP-007-6",
+          "quote": "CIP-007-6, Requirement R1, Part 1.1",
+          "quote_valid": true
+        },
+        {
+          "standard": "CIP-007",
+          "stated_as": "CIP-007-6",
+          "quote": "CIP-007-6, Requirement R4, Part 4.3",
+          "quote_valid": true
+        },
+        {
+          "standard": "CIP-007",
+          "stated_as": "CIP-007-6",
+          "quote": "CIP-007-6, Requirement R5, Parts 5.1, 5.6, and 5.7",
+          "quote_valid": true
+        },
+        {
+          "standard": "CIP-010",
+          "stated_as": "CIP-010-4",
+          "quote": "CIP-010-4, Requirement R1, Part 1.5",
+          "quote_valid": true
+        },
+        {
+          "standard": "CIP-010",
+          "stated_as": "CIP-010-4",
+          "quote": "CIP-010-4, Requirement R3, Part 3.2",
+          "quote_valid": true
+        },
+        {
+          "standard": "CIP-013",
+          "stated_as": "CIP-013-2",
+          "quote": "CIP-013-2, R1",
+          "quote_valid": true
+        }
+      ],
+      "families_served": [
+        "CIP-002",
+        "CIP-003",
+        "CIP-004",
+        "CIP-005",
+        "CIP-006",
+        "CIP-007",
+        "CIP-010",
+        "CIP-012",
+        "CIP-013"
+      ],
+      "model": "gemma4:26b-a4b-it-q4_K_M-ctx32k",
+      "read_chars": 8266,
+      "derived_at": "2026-09-23T17:28:17.856048+00:00"
+    },
+    {
+      "logical_id": "CIP-003/LSP CIP Senior Manager Process Rev 6.0.pdf",
+      "about": "LS Power NERC CIP Senior Manager Process for designation and delegation of authority.",
+      "states_scope": true,
+      "claims": [
+        {
+          "standard": "CIP-002",
+          "stated_as": "CIP-002 through CIP-014",
+          "quote": "ensure compliance with North American Electric Reliability (NERC) Standards, including the Critical Infrastructure Protection (CIP) Standards CIP-002 through CIP-014.",
+          "quote_valid": true
+        },
+        {
+          "standard": "CIP-002",
+          "stated_as": "CIP-002 through CIP-014",
+          "quote": "the process for delegation of the CIP Senior Manager\u2019s authority for specific activities in accordance with the NERC Reliability Standards CIP-002 through CIP-014 (collectively the NERC CIP Standards).",
+          "quote_valid": true
+        },
+        {
+          "standard": "CIP-003",
+          "stated_as": "CIP-003-9",
+          "quote": "This document has been developed in accordance with CIP-003-9 Cyber Security Policies.",
+          "quote_valid": true
+        }
+      ],
+      "families_served": [
+        "CIP-002",
+        "CIP-003"
+      ],
+      "model": "gemma4:26b-a4b-it-q4_K_M-ctx32k",
+      "read_chars": 9015,
+      "derived_at": "2026-09-23T17:28:25.807225+00:00"
+    },
+    {
+      "logical_id": "CIP-003/LSPG CIP Cyber Security Policy V13.pdf",
+      "about": "LSPG CIP Cyber Security Policy for management and governance of NERC CIP Standards.",
+      "states_scope": true,
+      "claims": [
+        {
+          "standard": "CIP-004",
+          "stated_as": "CIP-004",
+          "quote": "3.1 Personnel and Training (CIP-004)",
+          "quote_valid": true
+        },
+        {
+          "standard": "CIP-005",
+          "stated_as": "CIP-005",
+          "quote": "3.2 Electronic Security Controls Process (CIP-005)",
+          "quote_valid": true
+        },
+        {
+          "standard": "CIP-006",
+          "stated_as": "CIP-006",
+          "quote": "3.3 Physical Security of BES Cyber Systems (CIP-006)",
+          "quote_valid": true
+        },
+        {
+          "standard": "CIP-007",
+          "stated_as": "CIP-007",
+          "quote": "3.4 System Security Management (CIP-007)",
+          "quote_valid": true
+        },
+        {
+          "standard": "CIP-008",
+          "stated_as": "CIP-008",
+          "quote": "3.5 Incident Reporting and Response Planning (CIP-008)",
+          "quote_valid": true
+        },
+        {
+          "standard": "CIP-009",
+          "stated_as": "CIP-009",
+          "quote": "3.6 Recovery Plans for BES Cyber Systems (CIP-009)",
+          "quote_valid": true
+        },
+        {
+          "standard": "CIP-010",
+          "stated_as": "CIP-010",
+          "quote": "3.7 Configuration Change Management and Vulnerability Assessments (CIP-010)",
+          "quote_valid": true
+        },
+        {
+          "standard": "CIP-011",
+          "stated_as": "CIP-011",
+          "quote": "3.8 Information Protection (CIP-011)",
+          "quote_valid": true
+        },
+        {
+          "standard": "CIP-003",
+          "stated_as": "CIP-003-9",
+          "quote": "Low impact BES Cyber Systems (CIP-003-9, Attachment 1)",
+          "quote_valid": true
+        }
+      ],
+      "families_served": [
+        "CIP-003",
+        "CIP-004",
+        "CIP-005",
+        "CIP-006",
+        "CIP-007",
+        "CIP-008",
+        "CIP-009",
+        "CIP-010",
+        "CIP-011"
+      ],
+      "model": "gemma4:26b-a4b-it-q4_K_M-ctx32k",
+      "read_chars": 10284,
+      "derived_at": "2026-09-23T17:28:37.355026+00:00"
+    },
+    {
+      "logical_id": "CIP-004/LSPG Access Management Procedure v10.pdf",
+      "about": "LSPG procedure for managing electronic and unescorted physical access to Cyber Assets and locations.",
+      "states_scope": true,
+      "claims": [
+        {
+          "standard": "CIP-004",
+          "stated_as": "CIP-004",
+          "quote": "NERC Standard: CIP-004",
+          "quote_valid": true
+        }
+      ],
+      "families_served": [
+        "CIP-004"
+      ],
+      "model": "gemma4:26b-a4b-it-q4_K_M-ctx32k",
+      "read_chars": 9474,
+      "derived_at": "2026-09-23T17:28:42.261350+00:00"
+    },
+    {
+      "logical_id": "CIP-004/LSPG Account Management Work Instruction v4.pdf",
+      "about": "LSPG Account Management Work Instruction for provisioning electronic and physical access.",
+      "states_scope": true,
+      "claims": [
+        {
+          "standard": "CIP-004",
+          "stated_as": "CIP-004",
+          "quote": "NERC Standard: CIP-004",
+          "quote_valid": true
+        }
+      ],
+      "families_served": [
+        "CIP-004"
+      ],
+      "model": "gemma4:26b-a4b-it-q4_K_M-ctx32k",
+      "read_chars": 9160,
+      "derived_at": "2026-09-23T17:28:47.059465+00:00"
+    },
+    {
+      "logical_id": "CIP-004/LSPG CIP Exceptional Circumstance Form v5.pdf",
+      "about": "LSPG CIP Exceptional Circumstance Request Form for documenting security events and deviations",
+      "states_scope": true,
+      "claims": [
+        {
+          "standard": "CIP-012",
+          "stated_as": "CIP-012",
+          "quote": "CIP-012 Restricted Space (RS)",
+          "quote_valid": true
+        },
+        {
+          "standard": "CIP-004",
+          "stated_as": "CIP-004",
+          "quote": "(CIP-004 R2.2)",
+          "quote_valid": true
+        },
+        {
+          "standard": "CIP-004",
+          "stated_as": "CIP-004",
+          "quote": "(CIP-004 R3)",
+          "quote_valid": true
+        },
+        {
+          "standard": "CIP-004",
+          "stated_as": "CIP-004",
+          "quote": "CIP-004 R4",
+          "quote_valid": true
+        },
+        {
+          "standard": "CIP-004",
+          "stated_as": "CIP-004",
+          "quote": "CIP-004 R6",
+          "quote_valid": false
+        },
+        {
+          "standard": "CIP-007",
+          "stated_as": "CIP-007",
+          "quote": "CIP-007 R4.3",
+          "quote_valid": true
+        },
+        {
+          "standard": "CIP-010",
+          "stated_as": "CIP-010",
+          "quote": "CIP-010 R3.3",
+          "quote_valid": true
+        },
+        {
+          "standard": "CIP-003",
+          "stated_as": "CIP-003",
+          "quote": "CIP-003 R2 Att 1 Sec 5",
+          "quote_valid": true
+        },
+        {
+          "standard": "CIP-010",
+          "stated_as": "CIP-010",
+          "quote": "CIP-010 R4",
+          "quote_valid": true
+        },
+        {
+          "standard": "CIP-006",
+          "stated_as": "CIP-006",
+          "quote": "CIP-006 R2.1 & R2.2",
+          "quote_valid": true
+        }
+      ],
+      "families_served": [
+        "CIP-003",
+        "CIP-004",
+        "CIP-006",
+        "CIP-007",
+        "CIP-010",
+        "CIP-012"
+      ],
+      "model": "gemma4:26b-a4b-it-q4_K_M-ctx32k",
+      "read_chars": 4084,
+      "derived_at": "2026-09-23T17:28:55.459030+00:00"
+    },
+    {
+      "logical_id": "CIP-004/LSPG CIP-004 PRA Attestation Form v6.pdf",
+      "about": "Attestation of Background Check form for personnel risk assessment",
+      "states_scope": true,
+      "claims": [
+        {
+          "standard": "CIP-004",
+          "stated_as": "CIP-004-7",
+          "quote": "CIP-004-7 R3 Personnel Background Check",
+          "quote_valid": true
+        }
+      ],
+      "families_served": [
+        "CIP-004"
+      ],
+      "model": "gemma4:26b-a4b-it-q4_K_M-ctx32k",
+      "read_chars": 2283,
+      "derived_at": "2026-09-23T17:28:58.075910+00:00"
+    },
+    {
+      "logical_id": "CIP-004/LSPG Electronic and Physical Access Review Work Instruction v11.pdf",
+      "about": "Work instruction for performing electronic and physical access reviews.",
+      "states_scope": true,
+      "claims": [
+        {
+          "standard": "CIP-004",
+          "stated_as": "CIP-004",
+          "quote": "NERC Standard: CIP-004",
+          "quote_valid": true
+        },
+        {
+          "standard": "CIP-004",
+          "stated_as": "CIP-004",
+          "quote": "as required by NERC CIP-004, R4.2, R4.3, and R6.2.",
+          "quote_valid": true
+        },
+        {
+          "standard": "CIP-004",
+          "stated_as": "CIP-004",
+          "quote": "in compliance with NERC CIP-004, R4.2, R4.3, and R6.2.",
+          "quote_valid": true
+        }
+      ],
+      "families_served": [
+        "CIP-004"
+      ],
+      "model": "gemma4:26b-a4b-it-q4_K_M-ctx32k",
+      "read_chars": 9128,
+      "derived_at": "2026-09-23T17:29:04.899163+00:00"
+    },
+    {
+      "logical_id": "CIP-004/LSPG OT CIP Exceptional Circumstances V9.pdf",
+      "about": "Procedure for managing OT CIP Exceptional Circumstances",
+      "states_scope": true,
+      "claims": [
+        {
+          "standard": "CIP-003",
+          "stated_as": "CIP-003",
+          "quote": "NERC Standard: CIP-003, CIP-004, CIP-006, CIP-007, CIP-010, CIP-012",
+          "quote_valid": true
+        },
+        {
+          "standard": "CIP-004",
+          "stated_as": "CIP-004",
+          "quote": "NERC Standard: CIP-003, CIP-004, CIP-006, CIP-007, CIP-010, CIP-012",
+          "quote_valid": true
+        },
+        {
+          "standard": "CIP-006",
+          "stated_as": "CIP-006",
+          "quote": "NERC Standard: CIP-003, CIP-004, CIP-006, CIP-007, CIP-010, CIP-012",
+          "quote_valid": true
+        },
+        {
+          "standard": "CIP-007",
+          "stated_as": "CIP-007",
+          "quote": "NERC Standard: CIP-003, CIP-004, CIP-006, CIP-007, CIP-010, CIP-012",
+          "quote_valid": true
+        },
+        {
+          "standard": "CIP-010",
+          "stated_as": "CIP-010",
+          "quote": "NERC Standard: CIP-003, CIP-004, CIP-006, CIP-007, CIP-010, CIP-012",
+          "quote_valid": true
+        },
+        {
+          "standard": "CIP-012",
+          "stated_as": "CIP-012",
+          "quote": "NERC Standard: CIP-003, CIP-004, CIP-006, CIP-007, CIP-010, CIP-012",
+          "quote_valid": true
+        }
+      ],
+      "families_served": [
+        "CIP-003",
+        "CIP-004",
+        "CIP-006",
+        "CIP-007",
+        "CIP-010",
+        "CIP-012"
+      ],
+      "model": "gemma4:26b-a4b-it-q4_K_M-ctx32k",
+      "read_chars": 9516,
+      "derived_at": "2026-09-23T17:29:16.342258+00:00"
+    },
+    {
+      "logical_id": "CIP-004/LSPG Personnel Risk Assessment Procedure v9.pdf",
+      "about": "LSPG Personnel Risk Assessment Procedure",
+      "states_scope": true,
+      "claims": [
+        {
+          "standard": "CIP-004",
+          "stated_as": "CIP-004",
+          "quote": "NERC Standard: CIP-004",
+          "quote_valid": true
+        }
+      ],
+      "families_served": [
+        "CIP-004"
+      ],
+      "model": "gemma4:26b-a4b-it-q4_K_M-ctx32k",
+      "read_chars": 9352,
+      "derived_at": "2026-09-23T17:29:20.693076+00:00"
+    },
+    {
+      "logical_id": "CIP-004/LSPG Physical Access Control Procedure v11.pdf",
+      "about": "LSPG Physical Access Control Procedure",
+      "states_scope": true,
+      "claims": [
+        {
+          "standard": "CIP-004",
+          "stated_as": "CIP-004",
+          "quote": "NERC Standard: CIP-004, CIP-006",
+          "quote_valid": true
+        },
+        {
+          "standard": "CIP-006",
+          "stated_as": "CIP-006",
+          "quote": "NERC Standard: CIP-004, CIP-006",
+          "quote_valid": true
+        },
+        {
+          "standard": "CIP-004",
+          "stated_as": "CIP-004",
+          "quote": "Access Revocation Process (CIP-004 R5)",
+          "quote_valid": true
+        },
+        {
+          "standard": "CIP-004",
+          "stated_as": "CIP-004",
+          "quote": "Modify/Reassignment/Transfer Process (CIP-004, R5)",
+          "quote_valid": true
+        }
+      ],
+      "families_served": [
+        "CIP-004",
+        "CIP-006"
+      ],
+      "model": "gemma4:26b-a4b-it-q4_K_M-ctx32k",
+      "read_chars": 9342,
+      "derived_at": "2026-09-23T17:29:27.272137+00:00"
+    },
+    {
+      "logical_id": "CIP-004/LSPG Service Request Work Instruction v4.pdf",
+      "about": "Work instruction for submitting service requests in the Change Management Solution.",
+      "states_scope": true,
+      "claims": [
+        {
+          "standard": "CIP-004",
+          "stated_as": "CIP-004",
+          "quote": "NERC Standard: CIP-004, CIP-007",
+          "quote_valid": true
+        },
+        {
+          "standard": "CIP-007",
+          "stated_as": "CIP-007",
+          "quote": "NERC Standard: CIP-004, CIP-007",
+          "quote_valid": true
+        }
+      ],
+      "families_served": [
+        "CIP-004",
+        "CIP-007"
+      ],
+      "model": "gemma4:26b-a4b-it-q4_K_M-ctx32k",
+      "read_chars": 9036,
+      "derived_at": "2026-09-23T17:29:33.426471+00:00"
+    },
+    {
+      "logical_id": "CIP-004/OT Cyber Security Training and Awareness Procedure v6.pdf",
+      "about": "OT Cyber Security Training and Awareness procedure",
+      "states_scope": true,
+      "claims": [
+        {
+          "standard": "CIP-004",
+          "stated_as": "CIP-004",
+          "quote": "NERC Standard: CIP-004",
+          "quote_valid": true
+        }
+      ],
+      "families_served": [
+        "CIP-004"
+      ],
+      "model": "gemma4:26b-a4b-it-q4_K_M-ctx32k",
+      "read_chars": 9215,
+      "derived_at": "2026-09-23T17:29:37.986907+00:00"
+    },
+    {
+      "logical_id": "CIP-004/OT Electronic Access Controls v6.pdf",
+      "about": "Procedure for OT Electronic Access Controls",
+      "states_scope": true,
+      "claims": [
+        {
+          "standard": "CIP-003",
+          "stated_as": "CIP-003",
+          "quote": "NERC Standard: CIP-003, CIP-005, CIP-007",
+          "quote_valid": true
+        },
+        {
+          "standard": "CIP-005",
+          "stated_as": "CIP-005",
+          "quote": "NERC Standard: CIP-003, CIP-005, CIP-007",
+          "quote_valid": true
+        },
+        {
+          "standard": "CIP-007",
+          "stated_as": "CIP-007",
+          "quote": "NERC Standard: CIP-003, CIP-005, CIP-007",
+          "quote_valid": true
+        },
+        {
+          "standard": "CIP-005",
+          "stated_as": "CIP-005",
+          "quote": "in accordance with NERC CIP-005, CIP-007, and CIP-003",
+          "quote_valid": true
+        }
+      ],
+      "families_served": [
+        "CIP-003",
+        "CIP-005",
+        "CIP-007"
+      ],
+      "model": "gemma4:26b-a4b-it-q4_K_M-ctx32k",
+      "read_chars": 9425,
+      "derived_at": "2026-09-23T17:29:45.826495+00:00"
+    },
+    {
+      "logical_id": "CIP-005/LSPG Bomgar Remote Access Session Work Instruction v4.pdf",
+      "about": "Work instruction for managing Bomgar remote access sessions for vendors.",
+      "states_scope": true,
+      "claims": [
+        {
+          "standard": "CIP-005",
+          "stated_as": "CIP-005",
+          "quote": "NERC Standard: CIP-005",
+          "quote_valid": true
+        }
+      ],
+      "families_served": [
+        "CIP-005"
+      ],
+      "model": "gemma4:26b-a4b-it-q4_K_M-ctx32k",
+      "read_chars": 9352,
+      "derived_at": "2026-09-23T17:29:50.381801+00:00"
+    },
+    {
+      "logical_id": "CIP-005/LSPG ESP and CIP Security Zone Commissioning Procedure v6.pdf",
+      "about": "Commissioning procedure for LSPG ESP and CIP Security Zones",
+      "states_scope": true,
+      "claims": [
+        {
+          "standard": "CIP-005",
+          "stated_as": "CIP-005",
+          "quote": "NERC Standard: CIP-005",
+          "quote_valid": true
+        }
+      ],
+      "families_served": [
+        "CIP-005"
+      ],
+      "model": "gemma4:26b-a4b-it-q4_K_M-ctx32k",
+      "read_chars": 9346,
+      "derived_at": "2026-09-23T17:29:54.980173+00:00"
+    },
+    {
+      "logical_id": "CIP-005/LSPG Electronic Security Perimeter and IRA Procedure v11.pdf",
+      "about": "LSPG procedure for Electronic Security Perimeter and IRA management",
+      "states_scope": true,
+      "claims": [
+        {
+          "standard": "CIP-005",
+          "stated_as": "CIP-005",
+          "quote": "NERC Standard: CIP-005",
+          "quote_valid": true
+        }
+      ],
+      "families_served": [
+        "CIP-005"
+      ],
+      "model": "gemma4:26b-a4b-it-q4_K_M-ctx32k",
+      "read_chars": 9359,
+      "derived_at": "2026-09-23T17:29:59.532135+00:00"
+    },
+    {
+      "logical_id": "CIP-005/LSPG Network Cable Color Codes Work Instruction v6.pdf",
+      "about": "Work instruction for network cable color coding to distinguish ESP from non-ESP networks.",
+      "states_scope": true,
+      "claims": [
+        {
+          "standard": "CIP-005",
+          "stated_as": "CIP-005",
+          "quote": "NERC Standard: CIP-005",
+          "quote_valid": true
+        }
+      ],
+      "families_served": [
+        "CIP-005"
+      ],
+      "model": "gemma4:26b-a4b-it-q4_K_M-ctx32k",
+      "read_chars": 9000,
+      "derived_at": "2026-09-23T17:30:04.682531+00:00"
+    },
+    {
+      "logical_id": "CIP-005/LSPG Network Drawing Work Instruction v6.pdf",
+      "about": "Work instruction for creating and updating network drawings in the LSPG OT environment.",
+      "states_scope": true,
+      "claims": [
+        {
+          "standard": "CIP-005",
+          "stated_as": "CIP-005",
+          "quote": "NERC Standard: CIP-005",
+          "quote_valid": true
+        }
+      ],
+      "families_served": [
+        "CIP-005"
+      ],
+      "model": "gemma4:26b-a4b-it-q4_K_M-ctx32k",
+      "read_chars": 9169,
+      "derived_at": "2026-09-23T17:30:09.718039+00:00"
+    },
+    {
+      "logical_id": "CIP-005/LSPG OT Naming Conventions v9.pdf",
+      "about": "LSPG OT Naming Conventions procedure for computers and network equipment",
+      "states_scope": false,
+      "claims": [],
+      "families_served": [],
+      "model": "gemma4:26b-a4b-it-q4_K_M-ctx32k",
+      "read_chars": 9631,
+      "derived_at": "2026-09-23T17:30:13.964939+00:00"
+    },
+    {
+      "logical_id": "CIP-005/LSPG TFE Procedure v4.pdf",
+      "about": "Procedure for documenting and approving Technical Feasible Exceptions (TFE) and Material Change Requests.",
+      "states_scope": true,
+      "claims": [
+        {
+          "standard": "CIP-005",
+          "stated_as": "CIP-005-7",
+          "quote": "CIP-005-7, Requirement R1, Part 1.4",
+          "quote_valid": true
+        },
+        {
+          "standard": "CIP-005",
+          "stated_as": "CIP-005-7",
+          "quote": "CIP-005-7, Requirement R2, Parts 2.1, 2.2, 2.3, 2.4 and 2.5",
+          "quote_valid": true
+        },
+        {
+          "standard": "CIP-006",
+          "stated_as": "CIP-006-6",
+          "quote": "CIP-006-6, Requirement R1, Part 1.3",
+          "quote_valid": true
+        },
+        {
+          "standard": "CIP-007",
+          "stated_as": "CIP-007-6",
+          "quote": "CIP-007-6, Requirement R1, Part 1.1",
+          "quote_valid": true
+        },
+        {
+          "standard": "CIP-007",
+          "stated_as": "CIP-007-6",
+          "quote": "CIP-007-6, Requirement R4, Part 4.3",
+          "quote_valid": true
+        },
+        {
+          "standard": "CIP-007",
+          "stated_as": "CIP-007-6",
+          "quote": "CIP-007-6, Requirement R5, Parts 5.1, 5.6, and 5.7",
+          "quote_valid": true
+        },
+        {
+          "standard": "CIP-010",
+          "stated_as": "CIP-010-4",
+          "quote": "CIP-010-4, Requirement R1, Part 1.5",
+          "quote_valid": true
+        },
+        {
+          "standard": "CIP-010",
+          "stated_as": "CIP-010-4",
+          "quote": "CIP-010-4, Requirement R3, Part 3.2",
+          "quote_valid": true
+        }
+      ],
+      "families_served": [
+        "CIP-005",
+        "CIP-006",
+        "CIP-007",
+        "CIP-010"
+      ],
+      "model": "gemma4:26b-a4b-it-q4_K_M-ctx32k",
+      "read_chars": 9113,
+      "derived_at": "2026-09-23T17:30:24.858346+00:00"
+    },
+    {
+      "logical_id": "CIP-005/LSPG User Open Session Report Work Instruction v4.pdf",
+      "about": "Work instruction for gathering evidence and terminating open RDP sessions.",
+      "states_scope": true,
+      "claims": [
+        {
+          "standard": "CIP-005",
+          "stated_as": "CIP-005",
+          "quote": "NERC Standard: CIP-005",
+          "quote_valid": true
+        }
+      ],
+      "families_served": [
+        "CIP-005"
+      ],
+      "model": "gemma4:26b-a4b-it-q4_K_M-ctx32k",
+      "read_chars": 9000,
+      "derived_at": "2026-09-23T17:30:29.292337+00:00"
+    },
+    {
+      "logical_id": "CIP-005/LSPG Vendor Remote Access Management Procedure v10.pdf",
+      "about": "Vendor remote access management procedure for BES cyber assets.",
+      "states_scope": true,
+      "claims": [
+        {
+          "standard": "CIP-003",
+          "stated_as": "CIP-003",
+          "quote": "NERC Standard: CIP-003, CIP-005, CIP-013",
+          "quote_valid": true
+        },
+        {
+          "standard": "CIP-005",
+          "stated_as": "CIP-005",
+          "quote": "NERC Standard: CIP-003, CIP-005, CIP-013",
+          "quote_valid": true
+        },
+        {
+          "standard": "CIP-013",
+          "stated_as": "CIP-013",
+          "quote": "NERC Standard: CIP-003, CIP-005, CIP-013",
+          "quote_valid": true
+        }
+      ],
+      "families_served": [
+        "CIP-003",
+        "CIP-005",
+        "CIP-013"
+      ],
+      "model": "gemma4:26b-a4b-it-q4_K_M-ctx32k",
+      "read_chars": 9414,
+      "derived_at": "2026-09-23T17:30:35.549089+00:00"
+    },
+    {
+      "logical_id": "CIP-005/LSPG Zero Trust Procedure v2.pdf",
+      "about": "LSPG Zero Trust Procedure for Operations Technology (OT)",
+      "states_scope": true,
+      "claims": [
+        {
+          "standard": "CIP-003",
+          "stated_as": "CIP-003",
+          "quote": "NERC Standard: CIP-003, CIP-005, CIP-007, CIP-010",
+          "quote_valid": true
+        },
+        {
+          "standard": "CIP-005",
+          "stated_as": "CIP-005",
+          "quote": "NERC Standard: CIP-003, CIP-005, CIP-007, CIP-010",
+          "quote_valid": true
+        },
+        {
+          "standard": "CIP-007",
+          "stated_as": "CIP-007",
+          "quote": "NERC Standard: CIP-003, CIP-005, CIP-007, CIP-010",
+          "quote_valid": true
+        },
+        {
+          "standard": "CIP-010",
+          "stated_as": "CIP-010",
+          "quote": "NERC Standard: CIP-003, CIP-005, CIP-007, CIP-010",
+          "quote_valid": true
+        }
+      ],
+      "families_served": [
+        "CIP-003",
+        "CIP-005",
+        "CIP-007",
+        "CIP-010"
+      ],
+      "model": "gemma4:26b-a4b-it-q4_K_M-ctx32k",
+      "read_chars": 9399,
+      "derived_at": "2026-09-23T17:30:43.302523+00:00"
+    },
+    {
+      "logical_id": "CIP-005/OT Firewall Management Work Instruction v8.pdf",
+      "about": "Work instruction for managing OT Firewall Policies",
+      "states_scope": true,
+      "claims": [
+        {
+          "standard": "CIP-005",
+          "stated_as": "CIP-005",
+          "quote": "NERC Standard: CIP-005",
+          "quote_valid": true
+        }
+      ],
+      "families_served": [
+        "CIP-005"
+      ],
+      "model": "gemma4:26b-a4b-it-q4_K_M-ctx32k",
+      "read_chars": 9187,
+      "derived_at": "2026-09-23T17:30:47.814796+00:00"
+    },
+    {
+      "logical_id": "CIP-005/OT IP Address Management Work Instruction v4.pdf",
+      "about": "Work instruction for managing OT IP addresses",
+      "states_scope": true,
+      "claims": [
+        {
+          "standard": "CIP-005",
+          "stated_as": "CIP-005",
+          "quote": "NERC Standard: CIP-005",
+          "quote_valid": true
+        }
+      ],
+      "families_served": [
+        "CIP-005"
+      ],
+      "model": "gemma4:26b-a4b-it-q4_K_M-ctx32k",
+      "read_chars": 7965,
+      "derived_at": "2026-09-23T17:30:51.956227+00:00"
+    },
+    {
+      "logical_id": "CIP-005/OT Intrusion Detection-Prevention Systems Work Instruction V7.1.pdf",
+      "about": "Work instruction for managing OT Intrusion Detection and Prevention Systems",
+      "states_scope": true,
+      "claims": [
+        {
+          "standard": "CIP-003",
+          "stated_as": "CIP-003",
+          "quote": "NERC Standard: CIP-003, CIP-005",
+          "quote_valid": true
+        },
+        {
+          "standard": "CIP-005",
+          "stated_as": "CIP-005",
+          "quote": "NERC Standard: CIP-003, CIP-005",
+          "quote_valid": true
+        }
+      ],
+      "families_served": [
+        "CIP-003",
+        "CIP-005"
+      ],
+      "model": "gemma4:26b-a4b-it-q4_K_M-ctx32k",
+      "read_chars": 9260,
+      "derived_at": "2026-09-23T17:30:57.750602+00:00"
+    },
+    {
+      "logical_id": "CIP-005/OT Managing Centralized Electronic Access Control v6.pdf",
+      "about": "Work instruction for managing OT centralized Electronic Access Control via VPN tunnels.",
+      "states_scope": true,
+      "claims": [
+        {
+          "standard": "CIP-005",
+          "stated_as": "CIP-005",
+          "quote": "NERC Standard: CIP-005",
+          "quote_valid": true
+        }
+      ],
+      "families_served": [
+        "CIP-005"
+      ],
+      "model": "gemma4:26b-a4b-it-q4_K_M-ctx32k",
+      "read_chars": 9086,
+      "derived_at": "2026-09-23T17:31:03.039160+00:00"
+    },
+    {
+      "logical_id": "CIP-005/OT Network External Service Activation v4.pdf",
+      "about": "Work instruction for the activation and validation of external OT network services.",
+      "states_scope": true,
+      "claims": [
+        {
+          "standard": "CIP-005",
+          "stated_as": "CIP-005-7",
+          "quote": "Added new version number CIP-005-7",
+          "quote_valid": true
+        }
+      ],
+      "families_served": [
+        "CIP-005"
+      ],
+      "model": "gemma4:26b-a4b-it-q4_K_M-ctx32k",
+      "read_chars": 9094,
+      "derived_at": "2026-09-23T17:31:08.524135+00:00"
+    },
+    {
+      "logical_id": "CIP-006/LSPG CIP-006 Physical Security Plan V14.pdf",
+      "about": "Physical Security Plan for managing access to BES Cyber Systems",
+      "states_scope": true,
+      "claims": [
+        {
+          "standard": "CIP-006",
+          "stated_as": "CIP-006",
+          "quote": "NERC Standard: CIP-006",
+          "quote_valid": true
+        },
+        {
+          "standard": "CIP-006",
+          "stated_as": "CIP-006",
+          "quote": "in accordance with CIP-006 R1",
+          "quote_valid": true
+        }
+      ],
+      "families_served": [
+        "CIP-006"
+      ],
+      "model": "gemma4:26b-a4b-it-q4_K_M-ctx32k",
+      "read_chars": 9371,
+      "derived_at": "2026-09-23T17:31:13.305354+00:00"
+    },
+    {
+      "logical_id": "CIP-006/LSPG Key Management Work Instruction v6.pdf",
+      "about": "Work instruction for the maintenance, issuance, and retrieval of physical keys for NERC CIP Physical Security Perimeters and LSPG Restricted Spaces.",
+      "states_scope": false,
+      "claims": [],
+      "families_served": [],
+      "model": "gemma4:26b-a4b-it-q4_K_M-ctx32k",
+      "read_chars": 9000,
+      "derived_at": "2026-09-23T17:31:17.827093+00:00"
+    },
+    {
+      "logical_id": "CIP-006/LSPG Visitor Control Procedure V7.pdf",
+      "about": "LSPG Visitor Control Procedure for managing physical access to facilities.",
+      "states_scope": true,
+      "claims": [
+        {
+          "standard": "CIP-006",
+          "stated_as": "CIP-006",
+          "quote": "NERC Standard: CIP-006",
+          "quote_valid": true
+        }
+      ],
+      "families_served": [
+        "CIP-006"
+      ],
+      "model": "gemma4:26b-a4b-it-q4_K_M-ctx32k",
+      "read_chars": 9164,
+      "derived_at": "2026-09-23T17:31:22.239112+00:00"
+    },
+    {
+      "logical_id": "CIP-006/PACS Maintenance and Testing Form.pdf",
+      "about": "PACS Maintenance and Testing Form for physical security systems",
+      "states_scope": true,
+      "claims": [
+        {
+          "standard": "CIP-006",
+          "stated_as": "CIP-006 R3",
+          "quote": "CIP-006 R3 Maintenance and Testing Program",
+          "quote_valid": true
+        }
+      ],
+      "families_served": [
+        "CIP-006"
+      ],
+      "model": "gemma4:26b-a4b-it-q4_K_M-ctx32k",
+      "read_chars": 1716,
+      "derived_at": "2026-09-23T17:31:24.918822+00:00"
+    },
+    {
+      "logical_id": "CIP-006/Substation Access Procedure V10.pdf",
+      "about": "Substation access and entry procedures for LSPG personnel and visitors.",
+      "states_scope": false,
+      "claims": [],
+      "families_served": [],
+      "model": "gemma4:26b-a4b-it-q4_K_M-ctx32k",
+      "read_chars": 9653,
+      "derived_at": "2026-09-23T17:31:29.788708+00:00"
+    },
+    {
+      "logical_id": "CIP-007/IDS Signature Pattern Updates WI v7.pdf",
+      "about": "Work instruction for managing IDS signature pattern updates.",
+      "states_scope": true,
+      "claims": [
+        {
+          "standard": "CIP-007",
+          "stated_as": "CIP-007, R3.3",
+          "quote": "NERC Standard: CIP-007, R3.3",
+          "quote_valid": true
+        }
+      ],
+      "families_served": [
+        "CIP-007"
+      ],
+      "model": "gemma4:26b-a4b-it-q4_K_M-ctx32k",
+      "read_chars": 9166,
+      "derived_at": "2026-09-23T17:31:34.806050+00:00"
+    },
+    {
+      "logical_id": "CIP-007/LSPG Account Management Procedure v6.pdf",
+      "about": "LSPG procedure for managing individual and shared user accounts for CIP Cyber Assets.",
+      "states_scope": true,
+      "claims": [
+        {
+          "standard": "CIP-007",
+          "stated_as": "CIP-007",
+          "quote": "NERC Standard: CIP-007",
+          "quote_valid": true
+        }
+      ],
+      "families_served": [
+        "CIP-007"
+      ],
+      "model": "gemma4:26b-a4b-it-q4_K_M-ctx32k",
+      "read_chars": 9229,
+      "derived_at": "2026-09-23T17:31:39.338771+00:00"
+    },
+    {
+      "logical_id": "CIP-007/LSPG Cyber Security Event Monitoring Procedure v10.pdf",
+      "about": "LSPG Cyber Security Event Monitoring procedure",
+      "states_scope": true,
+      "claims": [
+        {
+          "standard": "CIP-007",
+          "stated_as": "CIP-007",
+          "quote": "NERC Standard: CIP-007",
+          "quote_valid": true
+        }
+      ],
+      "families_served": [
+        "CIP-007"
+      ],
+      "model": "gemma4:26b-a4b-it-q4_K_M-ctx32k",
+      "read_chars": 9212,
+      "derived_at": "2026-09-23T17:31:43.502235+00:00"
+    },
+    {
+      "logical_id": "CIP-007/LSPG Malicious Code Response WI v7.pdf",
+      "about": "Work instruction for responding to malicious code incidents in OT environments.",
+      "states_scope": true,
+      "claims": [
+        {
+          "standard": "CIP-007",
+          "stated_as": "CIP-007",
+          "quote": "NERC Standard: CIP-007",
+          "quote_valid": true
+        }
+      ],
+      "families_served": [
+        "CIP-007"
+      ],
+      "model": "gemma4:26b-a4b-it-q4_K_M-ctx32k",
+      "read_chars": 9180,
+      "derived_at": "2026-09-23T17:31:47.529409+00:00"
+    },
+    {
+      "logical_id": "CIP-007/LSPG Patching Validation Work Instruction v3.pdf",
+      "about": "Work instruction for validating the OT patching process.",
+      "states_scope": true,
+      "claims": [
+        {
+          "standard": "CIP-007",
+          "stated_as": "CIP-007",
+          "quote": "NERC Standard: CIP-007",
+          "quote_valid": true
+        },
+        {
+          "standard": "CIP-007",
+          "stated_as": "CIP-007 R2.1",
+          "quote": "Validation of the patching process to meet the requirements of CIP-007 R2.1.",
+          "quote_valid": true
+        }
+      ],
+      "families_served": [
+        "CIP-007"
+      ],
+      "model": "gemma4:26b-a4b-it-q4_K_M-ctx32k",
+      "read_chars": 9160,
+      "derived_at": "2026-09-23T17:31:52.671573+00:00"
+    },
+    {
+      "logical_id": "CIP-007/LSPG Security Controls Testing v6.pdf",
+      "about": "LSPG Security Controls Testing procedure for NERC CIP compliance.",
+      "states_scope": true,
+      "claims": [
+        {
+          "standard": "CIP-007",
+          "stated_as": "CIP-007",
+          "quote": "NERC Standard: CIP-007, R1, CIP-010, R1 and R2",
+          "quote_valid": true
+        },
+        {
+          "standard": "CIP-010",
+          "stated_as": "CIP-010",
+          "quote": "NERC Standard: CIP-007, R1, CIP-010, R1 and R2",
+          "quote_valid": true
+        },
+        {
+          "standard": "CIP-010",
+          "stated_as": "CIP-010",
+          "quote": "The purpose of the LSPG Security Controls Testing procedure is to describe the processes and compliance activities within scope of NERC CIP Standard CIP-010 R1 and R2, as well as CIP-007 R1.",
+          "quote_valid": true
+        }
+      ],
+      "families_served": [
+        "CIP-007",
+        "CIP-010"
+      ],
+      "model": "gemma4:26b-a4b-it-q4_K_M-ctx32k",
+      "read_chars": 9576,
+      "derived_at": "2026-09-23T17:31:59.554698+00:00"
+    },
+    {
+      "logical_id": "CIP-007/LSPG Security Patch Management Procedure V11.pdf",
+      "about": "LSPG Security Patch Management Procedure",
+      "states_scope": true,
+      "claims": [
+        {
+          "standard": "CIP-007",
+          "stated_as": "CIP-007",
+          "quote": "NERC Standard: CIP-007",
+          "quote_valid": true
+        }
+      ],
+      "families_served": [
+        "CIP-007"
+      ],
+      "model": "gemma4:26b-a4b-it-q4_K_M-ctx32k",
+      "read_chars": 9132,
+      "derived_at": "2026-09-23T17:32:03.830046+00:00"
+    },
+    {
+      "logical_id": "CIP-007/LSPG Security Patch Management Work Instruction v7.pdf",
+      "about": "Work instruction for security patch management processes.",
+      "states_scope": true,
+      "claims": [
+        {
+          "standard": "CIP-007",
+          "stated_as": "CIP-007 R2",
+          "quote": "NERC Standard: CIP-007 R2",
+          "quote_valid": true
+        }
+      ],
+      "families_served": [
+        "CIP-007"
+      ],
+      "model": "gemma4:26b-a4b-it-q4_K_M-ctx32k",
+      "read_chars": 10207,
+      "derived_at": "2026-09-23T17:32:07.793169+00:00"
+    },
+    {
+      "logical_id": "CIP-007/OT CMLAP Verification WI v6.pdf",
+      "about": "Work instruction for the verification of the Centralized Monitoring, Logging and Alerting Platform (CMLAP).",
+      "states_scope": true,
+      "claims": [
+        {
+          "standard": "CIP-007",
+          "stated_as": "CIP-007",
+          "quote": "NERC Standard: CIP-007",
+          "quote_valid": true
+        }
+      ],
+      "families_served": [
+        "CIP-007"
+      ],
+      "model": "gemma4:26b-a4b-it-q4_K_M-ctx32k",
+      "read_chars": 9085,
+      "derived_at": "2026-09-23T17:32:12.458264+00:00"
+    },
+    {
+      "logical_id": "CIP-007/OT Malicious Code Prevention Process V10.pdf",
+      "about": "OT Malicious Code Prevention procedure",
+      "states_scope": true,
+      "claims": [
+        {
+          "standard": "CIP-007",
+          "stated_as": "CIP-007",
+          "quote": "NERC Standard: CIP-007",
+          "quote_valid": true
+        }
+      ],
+      "families_served": [
+        "CIP-007"
+      ],
+      "model": "gemma4:26b-a4b-it-q4_K_M-ctx32k",
+      "read_chars": 9000,
+      "derived_at": "2026-09-23T17:32:17.091596+00:00"
+    },
+    {
+      "logical_id": "CIP-008/OT Security Incident Response V14.pdf",
+      "about": "Cyber Security Incident Response Plan",
+      "states_scope": true,
+      "claims": [
+        {
+          "standard": "CIP-008",
+          "stated_as": "CIP-008",
+          "quote": "NERC Standtard: CIP-008",
+          "quote_valid": true
+        },
+        {
+          "standard": "EOP-004",
+          "stated_as": "EOP-004",
+          "quote": "comply with EOP-004 Event Reporting",
+          "quote_valid": false
+        },
+        {
+          "standard": "CIP-008",
+          "stated_as": "CIP-008-6",
+          "quote": "comply with EOP-004 Event Reporting and CIP-008-6 Incident Reporting and Response Planning.",
+          "quote_valid": true
+        }
+      ],
+      "families_served": [
+        "CIP-008"
+      ],
+      "model": "gemma4:26b-a4b-it-q4_K_M-ctx32k",
+      "read_chars": 9268,
+      "derived_at": "2026-09-23T17:32:22.524676+00:00"
+    },
+    {
+      "logical_id": "CIP-008/SIRT Contact List v4.pdf",
+      "about": "Contact list for the LSPG Management and Security Incident Response Team (SIRT)",
+      "states_scope": false,
+      "claims": [],
+      "families_served": [],
+      "model": "gemma4:26b-a4b-it-q4_K_M-ctx32k",
+      "read_chars": 2371,
+      "derived_at": "2026-09-23T17:32:24.957422+00:00"
+    },
+    {
+      "logical_id": "CIP-009/LSPG CIP-009 Recovery Summary Report Form v3.pdf",
+      "about": "LSPG CIP-009-6 Recovery Summary Report Form",
+      "states_scope": true,
+      "claims": [
+        {
+          "standard": "CIP-009",
+          "stated_as": "CIP-009",
+          "quote": "CIP-009:",
+          "quote_valid": true
+        }
+      ],
+      "families_served": [
+        "CIP-009"
+      ],
+      "model": "gemma4:26b-a4b-it-q4_K_M-ctx32k",
+      "read_chars": 2108,
+      "derived_at": "2026-09-23T17:32:27.362434+00:00"
+    },
+    {
+      "logical_id": "CIP-009/LSPG Recovery Plans and Backup and Restore for BCS EACMS and PACS v7.pdf",
+      "about": "LSPG procedure for recovery plans, backups, and restoration for BCS, EACMS, and PACS.",
+      "states_scope": true,
+      "claims": [
+        {
+          "standard": "CIP-009",
+          "stated_as": "CIP-009",
+          "quote": "NERC Standard: CIP-009",
+          "quote_valid": true
+        },
+        {
+          "standard": "CIP-009",
+          "stated_as": "CIP-009-6",
+          "quote": "address the North American Electric Reliability Corporation (NERC) Critical Infrastructure Protection (CIP) CIP-009-6 recovery requirements",
+          "quote_valid": true
+        }
+      ],
+      "families_served": [
+        "CIP-009"
+      ],
+      "model": "gemma4:26b-a4b-it-q4_K_M-ctx32k",
+      "read_chars": 9434,
+      "derived_at": "2026-09-23T17:32:32.824584+00:00"
+    },
+    {
+      "logical_id": "CIP-009/LSPG Server Build Work Instruction v7.pdf",
+      "about": "Work instruction for the process of building and configuring servers in the OT environment.",
+      "states_scope": true,
+      "claims": [
+        {
+          "standard": "CIP-009",
+          "stated_as": "CIP-009",
+          "quote": "NERC Standard: CIP-009",
+          "quote_valid": true
+        }
+      ],
+      "families_served": [
+        "CIP-009"
+      ],
+      "model": "gemma4:26b-a4b-it-q4_K_M-ctx32k",
+      "read_chars": 9241,
+      "derived_at": "2026-09-23T17:32:37.239469+00:00"
+    },
+    {
+      "logical_id": "CIP-009/OT Network Device Build Work Instruction v4.pdf",
+      "about": "Work instruction for the standardized building and configuration of OT network devices.",
+      "states_scope": true,
+      "claims": [
+        {
+          "standard": "CIP-009",
+          "stated_as": "CIP-009",
+          "quote": "NERC Standard: CIP-009",
+          "quote_valid": true
+        }
+      ],
+      "families_served": [
+        "CIP-009"
+      ],
+      "model": "gemma4:26b-a4b-it-q4_K_M-ctx32k",
+      "read_chars": 9321,
+      "derived_at": "2026-09-23T17:32:41.772631+00:00"
+    },
+    {
+      "logical_id": "CIP-009/OT Operator Workstation Console Build WI v4.pdf",
+      "about": "Work instruction for building OT operator workstation consoles.",
+      "states_scope": true,
+      "claims": [
+        {
+          "standard": "CIP-009",
+          "stated_as": "CIP-009",
+          "quote": "NERC Standard: CIP-009",
+          "quote_valid": true
+        }
+      ],
+      "families_served": [
+        "CIP-009"
+      ],
+      "model": "gemma4:26b-a4b-it-q4_K_M-ctx32k",
+      "read_chars": 9237,
+      "derived_at": "2026-09-23T17:32:45.904789+00:00"
+    },
+    {
+      "logical_id": "CIP-009/OT Physical Machine Recovery Work Instruction v5.pdf",
+      "about": "Work instruction for recovering physical OT machines",
+      "states_scope": true,
+      "claims": [
+        {
+          "standard": "CIP-009",
+          "stated_as": "CIP-009",
+          "quote": "NERC Standard: CIP-009",
+          "quote_valid": true
+        }
+      ],
+      "families_served": [
+        "CIP-009"
+      ],
+      "model": "gemma4:26b-a4b-it-q4_K_M-ctx32k",
+      "read_chars": 9086,
+      "derived_at": "2026-09-23T17:32:50.175725+00:00"
+    },
+    {
+      "logical_id": "CIP-009/OT Virtual Machine Recovery Work Instruction v4.pdf",
+      "about": "Work instruction for the recovery of OT virtual machines.",
+      "states_scope": true,
+      "claims": [
+        {
+          "standard": "CIP-009",
+          "stated_as": "CIP-009",
+          "quote": "NERC Standard: CIP-009",
+          "quote_valid": true
+        }
+      ],
+      "families_served": [
+        "CIP-009"
+      ],
+      "model": "gemma4:26b-a4b-it-q4_K_M-ctx32k",
+      "read_chars": 9126,
+      "derived_at": "2026-09-23T17:32:54.950764+00:00"
+    },
+    {
+      "logical_id": "CIP-010/LSPG Change Management Procedure V7.pdf",
+      "about": "LSPG Change Management Procedure for OT environments",
+      "states_scope": true,
+      "claims": [
+        {
+          "standard": "CIP-010",
+          "stated_as": "CIP-010",
+          "quote": "NERC Standard: CIP-010",
+          "quote_valid": true
+        },
+        {
+          "standard": "CIP-005",
+          "stated_as": "CIP-005",
+          "quote": "Assure change templates are available for use which are used to create tasks needed for CIP changes that address the requirements specified in CIP-005, CIP-007, CIP-009, and CIP-010",
+          "quote_valid": true
+        },
+        {
+          "standard": "CIP-007",
+          "stated_as": "CIP-007",
+          "quote": "Assure change templates are available for use which are used to create tasks needed for CIP changes that address the requirements specified in CIP-005, CIP-007, CIP-009, and CIP-010",
+          "quote_valid": true
+        },
+        {
+          "standard": "CIP-009",
+          "stated_as": "CIP-009",
+          "quote": "Assure change templates are available for use which are used to create tasks needed for CIP changes that address the requirements specified in CIP-005, CIP-007, CIP-009, and CIP-010",
+          "quote_valid": true
+        }
+      ],
+      "families_served": [
+        "CIP-005",
+        "CIP-007",
+        "CIP-009",
+        "CIP-010"
+      ],
+      "model": "gemma4:26b-a4b-it-q4_K_M-ctx32k",
+      "read_chars": 9304,
+      "derived_at": "2026-09-23T17:33:03.763831+00:00"
+    },
+    {
+      "logical_id": "CIP-010/LSPG Software Authenticity and Integrity Verification Procedure v7.pdf",
+      "about": "Procedure for verifying the authenticity and integrity of software sources and software integrity.",
+      "states_scope": true,
+      "claims": [
+        {
+          "standard": "CIP-010",
+          "stated_as": "CIP-010",
+          "quote": "NERC Standard: CIP-010",
+          "quote_valid": true
+        },
+        {
+          "standard": "CIP-010",
+          "stated_as": "CIP-010",
+          "quote": "The purpose of this procedure is to implement the software source identity and integrity validation processes in compliance with North American Regulatory Corporation (NERC) Critical Infrastructure Protection (CIP) 010 R1, Part 1.6.",
+          "quote_valid": true
+        }
+      ],
+      "families_served": [
+        "CIP-010"
+      ],
+      "model": "gemma4:26b-a4b-it-q4_K_M-ctx32k",
+      "read_chars": 9148,
+      "derived_at": "2026-09-23T17:33:09.642817+00:00"
+    },
+    {
+      "logical_id": "CIP-010/LSPG Transient Cyber Asset and Removable Media Plan v11.pdf",
+      "about": "LSPG Transient Cyber Asset and Removable Media Plan",
+      "states_scope": true,
+      "claims": [
+        {
+          "standard": "CIP-010",
+          "stated_as": "CIP-010",
+          "quote": "NERC Standard: CIP-010",
+          "quote_valid": true
+        }
+      ],
+      "families_served": [
+        "CIP-010"
+      ],
+      "model": "gemma4:26b-a4b-it-q4_K_M-ctx32k",
+      "read_chars": 9267,
+      "derived_at": "2026-09-23T17:33:13.923102+00:00"
+    },
+    {
+      "logical_id": "CIP-010/OT Change Management Work Instruction V7.pdf",
+      "about": "OT Change Management Work Instruction",
+      "states_scope": true,
+      "claims": [
+        {
+          "standard": "CIP-010",
+          "stated_as": "CIP-010",
+          "quote": "NERC Standard: CIP-010",
+          "quote_valid": true
+        }
+      ],
+      "families_served": [
+        "CIP-010"
+      ],
+      "model": "gemma4:26b-a4b-it-q4_K_M-ctx32k",
+      "read_chars": 9087,
+      "derived_at": "2026-09-23T17:33:18.543208+00:00"
+    },
+    {
+      "logical_id": "CIP-010/OT Configuration Change Monitoring Work Instruction v7.pdf",
+      "about": "Work instruction for monitoring OT configuration changes and ports/services.",
+      "states_scope": true,
+      "claims": [
+        {
+          "standard": "CIP-010",
+          "stated_as": "CIP-010",
+          "quote": "NERC Standard: CIP-010, CIP-007",
+          "quote_valid": true
+        },
+        {
+          "standard": "CIP-007",
+          "stated_as": "CIP-007",
+          "quote": "NERC Standard: CIP-010, CIP-007",
+          "quote_valid": true
+        },
+        {
+          "standard": "CIP-007",
+          "stated_as": "CIP-007-6",
+          "quote": "3.1 Enable Only Necessary Logical Network Accessible Ports CIP-007-6 R1.1",
+          "quote_valid": true
+        },
+        {
+          "standard": "CIP-010",
+          "stated_as": "CIP-010-4",
+          "quote": "3.2 Configuration Change Monitoring At Least Once Every 35 Days CIP-010-4 R2.1",
+          "quote_valid": true
+        },
+        {
+          "standard": "CIP-010",
+          "stated_as": "CIP-010-4",
+          "quote": "3.3 Develop, Authorizing and Document Changes That Deviate from Existing Baseline Configuration CIP-010-4 R1.1, R1.2 and R1.3",
+          "quote_valid": true
+        }
+      ],
+      "families_served": [
+        "CIP-007",
+        "CIP-010"
+      ],
+      "model": "gemma4:26b-a4b-it-q4_K_M-ctx32k",
+      "read_chars": 9167,
+      "derived_at": "2026-09-23T17:33:27.725074+00:00"
+    },
+    {
+      "logical_id": "CIP-010/OT Threat and Vulnerability Management Procedure V10.pdf",
+      "about": "OT Threat and Vulnerability Management Procedure",
+      "states_scope": true,
+      "claims": [
+        {
+          "standard": "CIP-010",
+          "stated_as": "CIP-010",
+          "quote": "NERC Standard: CIP-010",
+          "quote_valid": true
+        }
+      ],
+      "families_served": [
+        "CIP-010"
+      ],
+      "model": "gemma4:26b-a4b-it-q4_K_M-ctx32k",
+      "read_chars": 9276,
+      "derived_at": "2026-09-23T17:33:32.076058+00:00"
+    },
+    {
+      "logical_id": "CIP-010/OT Vulnerability Management WI v1.pdf",
+      "about": "OT Vulnerability Management Work Instruction",
+      "states_scope": true,
+      "claims": [
+        {
+          "standard": "CIP-010",
+          "stated_as": "CIP-010",
+          "quote": "NERC Standard: CIP-010",
+          "quote_valid": true
+        }
+      ],
+      "families_served": [
+        "CIP-010"
+      ],
+      "model": "gemma4:26b-a4b-it-q4_K_M-ctx32k",
+      "read_chars": 9322,
+      "derived_at": "2026-09-23T17:33:36.747067+00:00"
+    },
+    {
+      "logical_id": "CIP-011/Information Protection Program V15.pdf",
+      "about": "Information Protection Program for BES Cyber System Information (BCSI)",
+      "states_scope": true,
+      "claims": [
+        {
+          "standard": "CIP-011",
+          "stated_as": "CIP-011",
+          "quote": "NERC Standard: CIP-011",
+          "quote_valid": true
+        },
+        {
+          "standard": "CIP-011",
+          "stated_as": "CIP-011",
+          "quote": "This document addresses NERC CIP-011 that requires a program to identify and provide procedures for protecting and securely handling BES Cyber System Information (BCSI)",
+          "quote_valid": true
+        }
+      ],
+      "families_served": [
+        "CIP-011"
+      ],
+      "model": "gemma4:26b-a4b-it-q4_K_M-ctx32k",
+      "read_chars": 9288,
+      "derived_at": "2026-09-23T17:33:41.925322+00:00"
+    },
+    {
+      "logical_id": "CIP-011/LSPG BES Cyber Asset Reuse and Disposal v8.pdf",
+      "about": "Procedure for the reuse and disposal of BES Cyber Assets",
+      "states_scope": true,
+      "claims": [
+        {
+          "standard": "CIP-011",
+          "stated_as": "CIP-011",
+          "quote": "NERC Standard: CIP-011",
+          "quote_valid": true
+        }
+      ],
+      "families_served": [
+        "CIP-011"
+      ],
+      "model": "gemma4:26b-a4b-it-q4_K_M-ctx32k",
+      "read_chars": 9304,
+      "derived_at": "2026-09-23T17:33:46.200822+00:00"
+    },
+    {
+      "logical_id": "CIP-012/LSPG Communications Between Control Centers Plan v8.pdf",
+      "about": "Plan for OT communications between control centers",
+      "states_scope": true,
+      "claims": [
+        {
+          "standard": "CIP-012",
+          "stated_as": "CIP-012",
+          "quote": "NERC Standard: CIP-012",
+          "quote_valid": true
+        }
+      ],
+      "families_served": [
+        "CIP-012"
+      ],
+      "model": "gemma4:26b-a4b-it-q4_K_M-ctx32k",
+      "read_chars": 9272,
+      "derived_at": "2026-09-23T17:33:50.389804+00:00"
+    },
+    {
+      "logical_id": "CIP-013/LSPG CIP-013 Procurement Procedure v8.pdf",
+      "about": "LSPG procurement procedure for supply chain risk management",
+      "states_scope": true,
+      "claims": [
+        {
+          "standard": "CIP-013",
+          "stated_as": "CIP-013",
+          "quote": "NERC Standard: CIP-013",
+          "quote_valid": true
+        },
+        {
+          "standard": "CIP-013",
+          "stated_as": "CIP-013",
+          "quote": "in compliance with North American Regulatory Corporation (NERC) Critical Infrastructure Protection (CIP) 013-2 R1.",
+          "quote_valid": true
+        },
+        {
+          "standard": "CIP-013",
+          "stated_as": "CIP-013",
+          "quote": "3.1 Identification of CIP-013 Applicability",
+          "quote_valid": true
+        },
+        {
+          "standard": "CIP-013",
+          "stated_as": "CIP-013",
+          "quote": "3.4 CIP-013 Applicability Form",
+          "quote_valid": true
+        },
+        {
+          "standard": "CIP-013",
+          "stated_as": "CIP-013",
+          "quote": "3.6 CIP-013 Risk Assessment Process",
+          "quote_valid": true
+        }
+      ],
+      "families_served": [
+        "CIP-013"
+      ],
+      "model": "gemma4:26b-a4b-it-q4_K_M-ctx32k",
+      "read_chars": 9288,
+      "derived_at": "2026-09-23T17:33:57.388959+00:00"
+    },
+    {
+      "logical_id": "CIP-013/LSPG CIP-013 Risk Assessment Procedure v8.pdf",
+      "about": "LSPG CIP-013 Risk Assessment Procedure",
+      "states_scope": true,
+      "claims": [
+        {
+          "standard": "CIP-013",
+          "stated_as": "CIP-013",
+          "quote": "NERC Standard: CIP-013",
+          "quote_valid": true
+        },
+        {
+          "standard": "CIP-013",
+          "stated_as": "CIP-013",
+          "quote": "3.1 Validation of CIP-013 Risk Assessment Status",
+          "quote_valid": true
+        },
+        {
+          "standard": "CIP-013",
+          "stated_as": "CIP-013",
+          "quote": "3.3 Notification For Required CIP-01_3 Risk Assessment",
+          "quote_valid": false
+        },
+        {
+          "standard": "CIP-013",
+          "stated_as": "CIP-013",
+          "quote": "3.4 Perform CIP-013 Risk Assessment",
+          "quote_valid": true
+        },
+        {
+          "standard": "CIP-013",
+          "stated_as": "CIP-013",
+          "quote": "3.5 Documenting the CIP-013 Risk Assessment",
+          "quote_valid": true
+        },
+        {
+          "standard": "CIP-013",
+          "stated_as": "CIP-013",
+          "quote": "3.6 CIP-013 Risk Assessment Decision Documentation",
+          "quote_valid": true
+        },
+        {
+          "standard": "CIP-013",
+          "stated_as": "CIP-013",
+          "quote": "in compliance with North American Regulatory Corporation (NERC) Critical Infrastructure Protection (CIP) 013-2 R1",
+          "quote_valid": true
+        }
+      ],
+      "families_served": [
+        "CIP-013"
+      ],
+      "model": "gemma4:26b-a4b-it-q4_K_M-ctx32k",
+      "read_chars": 9409,
+      "derived_at": "2026-09-23T17:34:05.756327+00:00"
+    },
+    {
+      "logical_id": "CIP-013/LSPG Supply Chain Plan v8.pdf",
+      "about": "Supply Chain Cyber Security Risk Management Plan",
+      "states_scope": true,
+      "claims": [
+        {
+          "standard": "CIP-013",
+          "stated_as": "CIP-013",
+          "quote": "NERC Standard: CIP-013, CIP-005, CIP-010",
+          "quote_valid": true
+        },
+        {
+          "standard": "CIP-005",
+          "stated_as": "CIP-005",
+          "quote": "NERC Standard: CIP-013, CIP-005, CIP-010",
+          "quote_valid": true
+        },
+        {
+          "standard": "CIP-010",
+          "stated_as": "CIP-010",
+          "quote": "NERC Standard: CIP-013, CIP-005, CIP-010",
+          "quote_valid": true
+        },
+        {
+          "standard": "CIP-005",
+          "stated_as": "CIP-005-7",
+          "quote": "compliance as required by the CIP Supply Chain Standards covered by CIP-005-7, R2, Parts 2.4 and 2.5 and R3",
+          "quote_valid": true
+        },
+        {
+          "standard": "CIP-010",
+          "stated_as": "CIP-010-4",
+          "quote": "compliance as required by the CIP Supply Chain Standards covered by CIP-005-7, R2, Parts 2.4 and 2.5 and R3, CIP-010-4, R1 Part 1.6",
+          "quote_valid": true
+        },
+        {
+          "standard": "CIP-013",
+          "stated_as": "CIP-013-2",
+          "quote": "compliance as required by the CIP Supply Chain Standards covered by CIP-005-7, R2, Parts 2.4 and 2.5 and R3, CIP-010-4, R1 Part 1.6, and CIP-013-2, R1-R3",
+          "quote_valid": true
+        }
+      ],
+      "families_served": [
+        "CIP-005",
+        "CIP-010",
+        "CIP-013"
+      ],
+      "model": "gemma4:26b-a4b-it-q4_K_M-ctx32k",
+      "read_chars": 9366,
+      "derived_at": "2026-09-23T17:34:16.908600+00:00"
+    },
+    {
+      "logical_id": "CIP-014/LSPG CIP-014 Physical Security Procedure V8.pdf",
+      "about": "Physical security procedure for transmission substations and control centers.",
+      "states_scope": true,
+      "claims": [
+        {
+          "standard": "CIP-014",
+          "stated_as": "CIP-014",
+          "quote": "NERC Standard: CIP-014",
+          "quote_valid": true
+        }
+      ],
+      "families_served": [
+        "CIP-014"
+      ],
+      "model": "gemma4:26b-a4b-it-q4_K_M-ctx32k",
+      "read_chars": 9107,
+      "derived_at": "2026-09-23T17:34:21.605398+00:00"
+    },
+    {
+      "logical_id": "note/note-c7add17014402659a9cc",
+      "about": "Note regarding patch evaluation frequency and compliance strictness",
+      "states_scope": false,
+      "claims": [],
+      "families_served": [],
+      "model": "gemma4:26b-a4b-it-q4_K_M-ctx32k",
+      "read_chars": 243,
+      "derived_at": "2026-09-23T17:34:22.933405+00:00"
+    }
+  ],
+  "errors": []
+}

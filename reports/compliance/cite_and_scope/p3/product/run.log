@@ -1,0 +1,17 @@
+WROTE reports/compliance/cite_and_scope/p3/product/product_questions_family.json
+10/15 passed
+  [FAIL] CIP-007-6      coverage_gap     failed: grounding_per_claim, required_side_present
+  [PASS] CIP-007-6      exceedance       all checks passed
+  [PASS] CIP-007-6      unused_latitude  all checks passed
+  [PASS] CIP-004-7      coverage_gap     all checks passed
+  [FAIL] CIP-004-7      exceedance       failed: answered, cited_something, grounding_per_claim, required_side_present
+  [FAIL] CIP-004-7      unused_latitude  failed: answered, cited_something, grounding_per_claim, required_side_present
+  [PASS] CIP-010-4      coverage_gap     all checks passed
+  [FAIL] CIP-010-4      exceedance       failed: required_side_present
+  [PASS] CIP-010-4      unused_latitude  all checks passed
+  [FAIL] CIP-003-8      coverage_gap     failed: required_side_present
+  [PASS] CIP-003-8      exceedance       all checks passed
+  [PASS] CIP-003-8      unused_latitude  all checks passed
+  [PASS] CIP-002-5.1a   coverage_gap     all checks passed
+  [PASS] CIP-002-5.1a   exceedance       all checks passed
+  [PASS] CIP-002-5.1a   unused_latitude  all checks passed

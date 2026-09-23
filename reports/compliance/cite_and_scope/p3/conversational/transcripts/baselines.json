@@ -1,0 +1,33 @@
+{
+  "question": "Our change-management procedure mentions baselines. Which standards care about that?",
+  "answer": "Based on your change management procedure and the relevant NERC CIP standards, the following standards specifically address or are triggered by the use of baselines:\n\n### **CIP-010 (Configuration Change Management and Configuration Monitoring)**\nThis is the primary standard governing baselines. \n*   **The Trigger:** The technical rationale for CIP-010 states that \"Modification of any item within an applicable Cyber Asset's baseline configuration provides the triggering mechanism for when entities must apply change management processes\" [cite R-0732f0].\n*   **The Requirement:** The standard requires a documented and implemented configuration change management process. Specifically, the operator's policy (CIP Cyber Security Policy) mandates establishing a baseline configuration that includes elements such as \"Operating system(s) (including version) or firmware... Any commercially available or open-source application software (including version)... Any custom software installed... Any logical network accessible ports... [and] Any security patches applied\" [cite O-1500fe].\n*   **The Duty:** The process must \"Authorize and document any changes that deviate from the existing baseline configuration\" [cite O-1500fe]. Furthermore, for changes that deviate from the baseline, the entity must \"Update the baseline configuration within 30 calendar days of completing the change\" [cite O-1500fe].\n\n### **Other Related Standards**\nYour change management procedure also notes that its templates are used to create tasks for changes addressing requirements in:\n*   **CIP-005** (Electronic Security Perimeter(s))\n*   **CIP-007** (Systems Security Management)\n*   **CIP-009** (Recovery Plans for BES Cyber Systems)\n\nWhile these standards focus on different security domains (e.g., perimeter protection or recovery), your procedure links them to the change management process used when baseline-impacting changes occur [cite O-faab43].\n\nQuoted sources:\n- \"Modification of any item within an applicable Cyber Asset's baseline configuration provides the triggering mechanism for when entities must apply change management processes.\" (CIP-010-4 technical rationale)\n- \"Establish a baseline configuration, individually or by group, which shall include the following elements (Part 1.1): o Operating system(s) (including version) or firmware where no independent operating system exists (Part 1.1.1), o Any commercially available or open-source application software (including version) intentionally installed (Part 1.1.2), o Any custom software installed (Part 1.1.3), o Any logical network accessible ports (Part 1.1.4), and o Any security patches applied (Part 1.1.5).\" (CIP Cyber Security Policy)\n- \"Authorize and document any changes that deviate from the existing baseline configuration (Part 1.2)\" (CIP Cyber Security Policy)\n- \"Update the baseline configuration within 30 calendar days of completing the change (Part 1.3)\" (CIP Cyber Security Policy)\n- \"Assure change templates are available for use which are used to create tasks needed for CIP changes that address the requirements specified in CIP-005, CIP-007, CIP-009, and CIP-010\" (LSPG Change Management Procedure)",
+  "reasoning_chars": 0,
+  "wall_s": 36.84,
+  "turn_budget_s": 900.0,
+  "turn_budget_exceeded": false,
+  "first_token_s": 0.02,
+  "finish_reason": "stop",
+  "http_status": 200,
+  "route_header": "compliance-reading;ollama-general;gemma4:26b-a4b-it-q4_K_M-ctx32k",
+  "served_model": "gemma4:26b-a4b-it-q4_K_M-ctx32k",
+  "tool_calls": {
+    "compliance_search": 1.0
+  },
+  "tool_errors": {},
+  "pipeline_errors": {},
+  "usage_hops": [
+    {
+      "prompt_tokens": 3327,
+      "completion_tokens": 19
+    },
+    {
+      "prompt_tokens": 13153,
+      "completion_tokens": 701
+    }
+  ],
+  "prompt_tokens_high_water": 13153,
+  "prompt_tokens_final_hop": 13153,
+  "input_tokens_all_hops": 0,
+  "output_tokens_all_hops": 0,
+  "error": ""
+}

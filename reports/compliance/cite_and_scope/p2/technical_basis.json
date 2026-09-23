@@ -1,0 +1,4322 @@
+{
+  "run_id": "2026-09-23T17:35:25.579440+00:00",
+  "store": "/Users/chris/projects/portal-5/portal/modules/compliance/data/compliance_store.db",
+  "backup": "/Users/chris/projects/portal-5/data/compliance/backups/pre_technical_basis_20260923T173525Z.sqlite",
+  "coverage_before": {
+    "CIP-002-5.1a": {
+      "requirements": 33,
+      "with_technical_basis": 7
+    },
+    "CIP-003-8": {
+      "requirements": 39,
+      "with_technical_basis": 19
+    },
+    "CIP-003-9": {
+      "requirements": 44,
+      "with_technical_basis": 0
+    },
+    "CIP-004-7": {
+      "requirements": 19,
+      "with_technical_basis": 0
+    },
+    "CIP-005-7": {
+      "requirements": 12,
+      "with_technical_basis": 0
+    },
+    "CIP-006-6": {
+      "requirements": 14,
+      "with_technical_basis": 14
+    },
+    "CIP-007-6": {
+      "requirements": 20,
+      "with_technical_basis": 20
+    },
+    "CIP-008-6": {
+      "requirements": 12,
+      "with_technical_basis": 0
+    },
+    "CIP-009-6": {
+      "requirements": 10,
+      "with_technical_basis": 10
+    },
+    "CIP-010-4": {
+      "requirements": 12,
+      "with_technical_basis": 0
+    },
+    "CIP-011-3": {
+      "requirements": 4,
+      "with_technical_basis": 0
+    },
+    "CIP-012-2": {
+      "requirements": 6,
+      "with_technical_basis": 0
+    },
+    "CIP-013-2": {
+      "requirements": 11,
+      "with_technical_basis": 0
+    },
+    "CIP-014-3": {
+      "requirements": 19,
+      "with_technical_basis": 19
+    }
+  },
+  "render_before": {
+    "CIP-002-5.1a": {
+      "fixed_chars": 19527,
+      "max_render_chars": 86596
+    },
+    "CIP-003-8": {
+      "fixed_chars": 13519,
+      "max_render_chars": 165578
+    },
+    "CIP-003-9": {
+      "fixed_chars": 6267,
+      "max_render_chars": 150256
+    },
+    "CIP-004-7": {
+      "fixed_chars": 32820,
+      "max_render_chars": 52131
+    },
+    "CIP-005-7": {
+      "fixed_chars": 14634,
+      "max_render_chars": 33965
+    },
+    "CIP-006-6": {
+      "fixed_chars": 18110,
+      "max_render_chars": 45169
+    },
+    "CIP-007-6": {
+      "fixed_chars": 57906,
+      "max_render_chars": 90469
+    },
+    "CIP-008-6": {
+      "fixed_chars": 21081,
+      "max_render_chars": 52662
+    },
+    "CIP-009-6": {
+      "fixed_chars": 16471,
+      "max_render_chars": 48504
+    },
+    "CIP-010-4": {
+      "fixed_chars": 6763,
+      "max_render_chars": 31144
+    },
+    "CIP-011-3": {
+      "fixed_chars": 5286,
+      "max_render_chars": 17253
+    },
+    "CIP-012-2": {
+      "fixed_chars": 5390,
+      "max_render_chars": 43462
+    },
+    "CIP-013-2": {
+      "fixed_chars": 2283,
+      "max_render_chars": 48080
+    },
+    "CIP-014-3": {
+      "fixed_chars": 35649,
+      "max_render_chars": 64825
+    }
+  },
+  "captured": [
+    {
+      "logical_id": "NERC/CIP-002-5.1a implementation plan",
+      "revision_id": "b4a07c1f80701c5e6391f54382fb666595b81ce5018eb5a14f7dfb3d816ad40f",
+      "source_kind": "implementation_plan",
+      "sections": 82
+    },
+    {
+      "logical_id": "NERC/CIP-002-7",
+      "revision_id": "3ecd70c9355a088cb5d245ded46cf997e3e08a9a53a163374c2be43990def2a3",
+      "source_kind": "regulatory_standard",
+      "sections": 135
+    },
+    {
+      "logical_id": "NERC/CIP-002-7 technical rationale",
+      "revision_id": "0cc1b2319dc43bd0a08c015ecdfdd908014a798b012cf2fc196f8ef69aac56c8",
+      "source_kind": "technical_rationale",
+      "sections": 289
+    },
+    {
+      "logical_id": "NERC/CIP-002-8",
+      "revision_id": "2a3983d738128bf39ca933de6b910bd9747a23a5df8e47bc3f7246cc6ac3a83c",
+      "source_kind": "regulatory_standard",
+      "sections": 147
+    },
+    {
+      "logical_id": "NERC/CIP-002-8 implementation plan",
+      "revision_id": "00f58f1011c946e5ed92ee052b730e8e3045324c4129f6ca3408a5cfedccf93e",
+      "source_kind": "implementation_plan",
+      "sections": 61
+    },
+    {
+      "logical_id": "NERC/CIP-002-8 technical rationale",
+      "revision_id": "144e4ac2cff50608ccd53d52cebcf8fbe6f97b2e7423fed252c03e085562c854",
+      "source_kind": "technical_rationale",
+      "sections": 135
+    },
+    {
+      "logical_id": "NERC/CIP-003-10",
+      "revision_id": "0a1be556b902474dc2f80441265a8e2c9f820f58cff86af70b0d952037347462",
+      "source_kind": "regulatory_standard",
+      "sections": 214
+    },
+    {
+      "logical_id": "NERC/CIP-003-10 technical rationale",
+      "revision_id": "f7165d8be2de845ce756a7e69f6f5dcc41d023f047b80697bc1c15f5b545ee6f",
+      "source_kind": "technical_rationale",
+      "sections": 335
+    },
+    {
+      "logical_id": "NERC/CIP-003-11",
+      "revision_id": "923613c248ab0679e4d63cc74b7f42e0a8982dc1e51e36f7479627358015c207",
+      "source_kind": "regulatory_standard",
+      "sections": 238
+    },
+    {
+      "logical_id": "NERC/CIP-003-11 implementation plan",
+      "revision_id": "139efd7803b9d05a02b7bdeb502c3ef9603cb65b9391b4416d1da656fd5b0e34",
+      "source_kind": "implementation_plan",
+      "sections": 49
+    },
+    {
+      "logical_id": "NERC/CIP-003-11 technical rationale",
+      "revision_id": "e4cc8513405bccdc53bc35f48152ec505acec792a8122f05b4d89819f678a7a3",
+      "source_kind": "technical_rationale",
+      "sections": 70
+    },
+    {
+      "logical_id": "NERC/CIP-003-9 implementation plan",
+      "revision_id": "3f78ac315f75fa6cbfc7dd457562c94c767c0a1689cd6c6e94d6fd16e9811db4",
+      "source_kind": "implementation_plan",
+      "sections": 31
+    },
+    {
+      "logical_id": "NERC/CIP-003-9 technical rationale",
+      "revision_id": "3aa7858bc21854a6c66733037a3be44bcdb0c410d7a6cf4f674fed1a0ac69964",
+      "source_kind": "technical_rationale",
+      "sections": 69
+    },
+    {
+      "logical_id": "NERC/CIP-004-7 implementation plan",
+      "revision_id": "1b7f722db067992986b80022992911fabc34c223fc1c7ada57b081f3ecdadf39",
+      "source_kind": "implementation_plan",
+      "sections": 43
+    },
+    {
+      "logical_id": "NERC/CIP-004-7 technical rationale",
+      "revision_id": "4b01d0a7eb7892afb3965889c8140a5d0d4df3d4bb74cd82d088cbd745b68fe8",
+      "source_kind": "technical_rationale",
+      "sections": 136
+    },
+    {
+      "logical_id": "NERC/CIP-004-8",
+      "revision_id": "9376de2257cf4314bc954737264a46e069d789359da8b057f2d82f479f674d27",
+      "source_kind": "regulatory_standard",
+      "sections": 139
+    },
+    {
+      "logical_id": "NERC/CIP-004-8 technical rationale",
+      "revision_id": "b0afb2b2a42c13a8f416e8a03e025877108c1328950e980204319bb6f0fc25c4",
+      "source_kind": "technical_rationale",
+      "sections": 169
+    },
+    {
+      "logical_id": "NERC/CIP-005-7 implementation plan",
+      "revision_id": "316e0c6d030769a67af38f87a53e38ea59ed1eeef5e4b8d93c5197c01874c30f",
+      "source_kind": "implementation_plan",
+      "sections": 59
+    },
+    {
+      "logical_id": "NERC/CIP-005-7 technical rationale",
+      "revision_id": "a88f1600e4e564986648d72334f6ed50a9c0c90de556fd9da288f86f3b014b19",
+      "source_kind": "technical_rationale",
+      "sections": 203
+    },
+    {
+      "logical_id": "NERC/CIP-005-8",
+      "revision_id": "a636dba5808b2dc2567067722891fc238be9f4a265fd04a4a1524b4e0ad04143",
+      "source_kind": "regulatory_standard",
+      "sections": 111
+    },
+    {
+      "logical_id": "NERC/CIP-005-8 technical rationale",
+      "revision_id": "9551a14beb15f0632c642df8420224aaef6992ee2c8451a5d3fda30c50fdcd13",
+      "source_kind": "technical_rationale",
+      "sections": 347
+    },
+    {
+      "logical_id": "NERC/CIP-006-7",
+      "revision_id": "0c8afbe74dfd2bd1b794cf696987f8dd41f419294844efc6fe08779fc80df3db",
+      "source_kind": "regulatory_standard",
+      "sections": 108
+    },
+    {
+      "logical_id": "NERC/CIP-006-7.1",
+      "revision_id": "8b9a964ddcbc4ba9cc12747c4590b262a937b15e9b3f7132361769466e6e25cd",
+      "source_kind": "regulatory_standard",
+      "sections": 111
+    },
+    {
+      "logical_id": "NERC/CIP-006-7.1 technical rationale",
+      "revision_id": "43eec104482435ecb23e2eac809ff3120a2f145403826c3da00909f41484836f",
+      "source_kind": "technical_rationale",
+      "sections": 108
+    },
+    {
+      "logical_id": "NERC/CIP-007-7",
+      "revision_id": "9bac9a44fbb0cd1be6a078d6401aa73be4e70dc94920c58a5fc7b9c6537ffd69",
+      "source_kind": "regulatory_standard",
+      "sections": 139
+    },
+    {
+      "logical_id": "NERC/CIP-008-6 implementation plan",
+      "revision_id": "2f5f4fea9e310adb487065ff95c80a511eaf3db52dc1b6eecdfd14ae0a545ece",
+      "source_kind": "implementation_plan",
+      "sections": 40
+    },
+    {
+      "logical_id": "NERC/CIP-008-6 technical rationale",
+      "revision_id": "419d3a72b7a876cac2f0bbfee9b5169230326f061c3e7eae7b7c2ce28a74fc24",
+      "source_kind": "technical_rationale",
+      "sections": 155
+    },
+    {
+      "logical_id": "NERC/CIP-008-7",
+      "revision_id": "c4b6c027ae264054c20dbf0f52fb6a6dd45048ded3a89c415b4880172bf39faa",
+      "source_kind": "regulatory_standard",
+      "sections": 114
+    },
+    {
+      "logical_id": "NERC/CIP-008-7.1",
+      "revision_id": "71a2f5c33802179a39067d945e2d9c53e5c78a3f77c895678ff7b6d1e2887be4",
+      "source_kind": "regulatory_standard",
+      "sections": 116
+    },
+    {
+      "logical_id": "NERC/CIP-008-7.1 technical rationale",
+      "revision_id": "546100751a6d9b2a93b3748584a6f11a1e04a19d6951b22e631e9cf03085d896",
+      "source_kind": "technical_rationale",
+      "sections": 172
+    },
+    {
+      "logical_id": "NERC/CIP-009-7",
+      "revision_id": "f1af4592205b811b49b19cce91f5a9f2148c9c52e668e143ce2364d24f9cf8b7",
+      "source_kind": "regulatory_standard",
+      "sections": 113
+    },
+    {
+      "logical_id": "NERC/CIP-009-7.1",
+      "revision_id": "91c8d2192128263335f84c43a4c594fee719563cccf68562693db252315fb237",
+      "source_kind": "regulatory_standard",
+      "sections": 116
+    },
+    {
+      "logical_id": "NERC/CIP-009-7.1 technical rationale",
+      "revision_id": "b329ecca893b56fc4312ad1db5103a43388393964e39374d81678bcf35cdf4aa",
+      "source_kind": "technical_rationale",
+      "sections": 110
+    },
+    {
+      "logical_id": "NERC/CIP-010-4 technical rationale",
+      "revision_id": "999570c4fd8736a1299547ade45587cc5a9a21464e33e5eac9b45fc5c6352791",
+      "source_kind": "technical_rationale",
+      "sections": 229
+    },
+    {
+      "logical_id": "NERC/CIP-010-5",
+      "revision_id": "4d811503c1992382a126a7b99941d0e2eaba4caacaca7f3a7d179a6a30b9fbfe",
+      "source_kind": "regulatory_standard",
+      "sections": 169
+    },
+    {
+      "logical_id": "NERC/CIP-010-5 technical rationale",
+      "revision_id": "3a9ba26e18db02e486a88cc9de6c91b6232dcb50550caa7b38b66a4517bab923",
+      "source_kind": "technical_rationale",
+      "sections": 298
+    },
+    {
+      "logical_id": "NERC/CIP-011-3 technical rationale",
+      "revision_id": "c81107ef040156565779956ca2c990f4d98dc14a1051457dfb84e80f0c5eb7bd",
+      "source_kind": "technical_rationale",
+      "sections": 81
+    },
+    {
+      "logical_id": "NERC/CIP-011-4",
+      "revision_id": "e5dacb4f0d302e4fc2c94efe7aa07ca84c1b35ef3f343454d02ae8b3b54004d8",
+      "source_kind": "regulatory_standard",
+      "sections": 82
+    },
+    {
+      "logical_id": "NERC/CIP-011-4.1",
+      "revision_id": "4e03c65d0a797130ea6697718f5bf7d66f18ad92af0b44217c505778c3a5505c",
+      "source_kind": "regulatory_standard",
+      "sections": 88
+    },
+    {
+      "logical_id": "NERC/CIP-011-4.1 technical rationale",
+      "revision_id": "d2e66840087d6063517ffaae6cc89a4dd66d3eb33e71fc7349548f4458e8293a",
+      "source_kind": "technical_rationale",
+      "sections": 106
+    },
+    {
+      "logical_id": "NERC/CIP-012-1",
+      "revision_id": "0302d85d86d16ad1d92a3f0ea8245b2bf50ac1cd307f9fd03ce4af49baaab76a",
+      "source_kind": "regulatory_standard",
+      "sections": 45
+    },
+    {
+      "logical_id": "NERC/CIP-012-2 implementation plan",
+      "revision_id": "330e20218755e2859274c010b5d29bc10f17bf0a9f83f38d05d8ca68d3a1c208",
+      "source_kind": "implementation_plan",
+      "sections": 25
+    },
+    {
+      "logical_id": "NERC/CIP-012-2 technical rationale",
+      "revision_id": "e4d4aedfdaddca9c24801990d1e1a0f16aa52691275dd0c30e6f8e6cb37a8ada",
+      "source_kind": "technical_rationale",
+      "sections": 105
+    },
+    {
+      "logical_id": "NERC/CIP-013-2 technical rationale",
+      "revision_id": "de9db5c36c39a280be835d5bb3b8b3f39cfc2844c8185bcd371e3f2dff4e55c1",
+      "source_kind": "technical_rationale",
+      "sections": 98
+    },
+    {
+      "logical_id": "NERC/CIP-013-3",
+      "revision_id": "fd30ffd3700c9e6cfbedbca03bb9a721268a353024c062fcbaedbb6a38f5830f",
+      "source_kind": "regulatory_standard",
+      "sections": 86
+    },
+    {
+      "logical_id": "NERC/CIP-013-3 technical rationale",
+      "revision_id": "c96a82bc8d233153eea5b6421c21ea4c615c3b84f9f0720cb738796ef3885123",
+      "source_kind": "technical_rationale",
+      "sections": 105
+    },
+    {
+      "logical_id": "NERC/CIP-014-3 implementation plan",
+      "revision_id": "ff86cda30444651cdcdc7b4b34a38d11443c2a4d39bc119f1d9d6dadae56a9dd",
+      "source_kind": "implementation_plan",
+      "sections": 23
+    }
+  ],
+  "capture_skipped": [],
+  "technical_rationale_anchoring": {
+    "CIP-003-9": {
+      "revision_id": "3aa7858bc21854a6c66733037a3be44bcdb0c410d7a6cf4f674fed1a0ac69964",
+      "requirements_placed": 5,
+      "sections_joined": 48,
+      "unplaced_sections": 54,
+      "unplaced_chars": 9802,
+      "unplaced": [
+        {
+          "section_id": "csection-a8c93dc5aeb9234990a7",
+          "heading": "Cyber Security Security Management Controls",
+          "chars": 44,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-24eacfce873432a3bb34",
+          "heading": "Cyber Security Security Management Controls",
+          "chars": 73,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-5ad3da926e1b92f04dc9",
+          "heading": "Cyber Security Security Management Controls",
+          "chars": 13,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-7aa79849deb273f747f2",
+          "heading": "Cyber Security Security Management Controls",
+          "chars": 5,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-82c8ebb2f65f83550cb6",
+          "heading": "Cyber Security Security Management Controls",
+          "chars": 2,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-8121d25f898b0576d7ff",
+          "heading": "RELIABILITY | RESILIENCE | SECURITY",
+          "chars": 36,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-4ebef35f1041e1d1e370",
+          "heading": "RELIABILITY | RESILIENCE | SECURITY",
+          "chars": 25,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-02390b2ffe2e729a6c92",
+          "heading": "RELIABILITY | RESILIENCE | SECURITY",
+          "chars": 2,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-45df309ab38156484d5f",
+          "heading": "RELIABILITY | RESILIENCE | SECURITY",
+          "chars": 2,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-8cba0cbb9d71b93aa5d4",
+          "heading": "RELIABILITY | RESILIENCE | SECURITY",
+          "chars": 91,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-1e124a90921eb2cecf53",
+          "heading": "Table of Contents",
+          "chars": 18,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-8459d4eec15acb22ac90",
+          "heading": "Table of Contents",
+          "chars": 184,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-eba7572e7e56de976964",
+          "heading": "Table of Contents",
+          "chars": 160,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-afcf653f8be13c534781",
+          "heading": "Table of Contents",
+          "chars": 175,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-5c8545ae2cf89ccf2915",
+          "heading": "Table of Contents",
+          "chars": 174,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-a6bdb64abaa7e5bf3a4d",
+          "heading": "Table of Contents",
+          "chars": 154,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-8f8593259d4e14e9d41e",
+          "heading": "Table of Contents",
+          "chars": 147,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-ed9c96945b092921d35d",
+          "heading": "Table of Contents",
+          "chars": 131,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-57848fa5408289b3b38e",
+          "heading": "Table of Contents",
+          "chars": 135,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-b84093faaed768d037d5",
+          "heading": "Table of Contents",
+          "chars": 272,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-bde9e11df4f4343f288d",
+          "heading": "Preface",
+          "chars": 8,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-d799ee6995a1008f5f01",
+          "heading": "Preface",
+          "chars": 498,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-00313b37a7ca59aa6de1",
+          "heading": "Preface",
+          "chars": 36,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-9e2e351849a9f720914b",
+          "heading": "Preface",
+          "chars": 72,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-103f5424461765346380",
+          "heading": "Preface",
+          "chars": 283,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-340ee65bed0719e6a684",
+          "heading": "Preface",
+          "chars": 39,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-1deb6787ff352f817186",
+          "heading": "Preface",
+          "chars": 44,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-f841b98646352ca80a06",
+          "heading": "Preface",
+          "chars": 22,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-6ca8b24247de8f8ccc42",
+          "heading": "Preface",
+          "chars": 36,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-650d7b8384bec63cd8ce",
+          "heading": "Preface",
+          "chars": 36,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-ad28f5b92a76b6b08315",
+          "heading": "Preface",
+          "chars": 12,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-a9b117efa1de08fa14b3",
+          "heading": "Technical Rational for Reliability Standard CIP-003-9",
+          "chars": 54,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-ad24493fdc5cb6719cb8",
+          "heading": "Introduction",
+          "chars": 13,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-edebfe83dd4d4fcab87f",
+          "heading": "Introduction",
+          "chars": 406,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-ad4f985516ebe17cd51c",
+          "heading": "Introduction",
+          "chars": 170,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-6f4193d830607efdc834",
+          "heading": "Background",
+          "chars": 11,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-7c8c885a1d70926dafe8",
+          "heading": "Background",
+          "chars": 574,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-b1f2313c3d88393e3167",
+          "heading": "Background",
+          "chars": 548,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-7a03ce99f912a8ad6808",
+          "heading": "Background",
+          "chars": 424,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-bdf9bdf5b59f999a154f",
+          "heading": "Foreword Regarding Section 3 and Section 6",
+          "chars": 43,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-feb66e6e1ba7971cd673",
+          "heading": "Foreword Regarding Section 3 and Section 6",
+          "chars": 672,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-c04510c330309faf829d",
+          "heading": "Foreword Regarding Section 3 and Section 6",
+          "chars": 899,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-f772d79a934aec2f3d25",
+          "heading": "Foreword Regarding Section 3 and Section 6",
+          "chars": 49,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-e4f51808254a19a5059d",
+          "heading": "Foreword Regarding Section 3 and Section 6",
+          "chars": 62,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-b0a3520ac3828fc28ecd",
+          "heading": "Foreword Regarding Section 3 and Section 6",
+          "chars": 156,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-5973a03ec924f8334310",
+          "heading": "Foreword Regarding Section 3 and Section 6",
+          "chars": 332,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-5321d68124e9f45c1d00",
+          "heading": "Foreword Regarding Section 3 and Section 6",
+          "chars": 183,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-daf2ce34cea191a2845f",
+          "heading": "Foreword Regarding Section 3 and Section 6",
+          "chars": 209,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-bd0a0900baeda63f2df4",
+          "heading": "Foreword Regarding Section 3 and Section 6",
+          "chars": 274,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-6fbe1de3f4f3e15630cf",
+          "heading": "Foreword Regarding Section 3 and Section 6",
+          "chars": 290,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-a2d0c85100b7626f4c53",
+          "heading": "Foreword Regarding Section 3 and Section 6",
+          "chars": 440,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-0ed78d54b256a9ddee80",
+          "heading": "Foreword Regarding Section 3 and Section 6",
+          "chars": 357,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-f4fe20051e09bf69289d",
+          "heading": "Foreword Regarding Section 3 and Section 6",
+          "chars": 306,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-b44cbcc755e39577ea88",
+          "heading": "Foreword Regarding Section 3 and Section 6",
+          "chars": 401,
+          "reason": "heading names no requirement"
+        }
+      ]
+    },
+    "CIP-004-7": {
+      "revision_id": "4b01d0a7eb7892afb3965889c8140a5d0d4df3d4bb74cd82d088cbd745b68fe8",
+      "requirements_placed": 19,
+      "sections_joined": 275,
+      "unplaced_sections": 52,
+      "unplaced_chars": 8412,
+      "unplaced": [
+        {
+          "section_id": "csection-1c871b6bd7738bf6fb30",
+          "heading": "Cyber Security Personnel & Training",
+          "chars": 36,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-8b39dcef5a6b9e27543f",
+          "heading": "Cyber Security Personnel & Training",
+          "chars": 73,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-cd941acd0e4aa28fed5f",
+          "heading": "Cyber Security Personnel & Training",
+          "chars": 11,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-a86da4bd303bafd1a90c",
+          "heading": "RELIABILITY | RESILIENCE | SECURITY",
+          "chars": 36,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-06fa121a14d68d305349",
+          "heading": "RELIABILITY | RESILIENCE | SECURITY",
+          "chars": 34,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-41cfc416d81ffca27892",
+          "heading": "RELIABILITY | RESILIENCE | SECURITY",
+          "chars": 2,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-ea75df2ac0f151431112",
+          "heading": "RELIABILITY | RESILIENCE | SECURITY",
+          "chars": 89,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-e45186c4f14e5ec8ffd3",
+          "heading": "Table of Contents",
+          "chars": 18,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-011d3e8d738fb25816c1",
+          "heading": "Table of Contents",
+          "chars": 184,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-834d077a97cc2b6bc9ce",
+          "heading": "Table of Contents",
+          "chars": 180,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-f8cc1b1a0bea8691da90",
+          "heading": "Table of Contents",
+          "chars": 175,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-0dcf01d0aa8cdaf4b555",
+          "heading": "Table of Contents",
+          "chars": 150,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-f427e41afcedd579cb21",
+          "heading": "Table of Contents",
+          "chars": 159,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-0b1cffed088a203734db",
+          "heading": "Table of Contents",
+          "chars": 175,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-3c9927936e4fb8977707",
+          "heading": "Table of Contents",
+          "chars": 150,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-d3ce0a10f749b154409d",
+          "heading": "Table of Contents",
+          "chars": 159,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-8c667e3cb12c7fee7f7c",
+          "heading": "Table of Contents",
+          "chars": 175,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-1bf6e8511e505824846c",
+          "heading": "Table of Contents",
+          "chars": 150,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-6fdbba3fea78691fea5c",
+          "heading": "Table of Contents",
+          "chars": 159,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-3b1f2acdb76878674a0d",
+          "heading": "Table of Contents",
+          "chars": 175,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-5a15ff7ecc4df4009a76",
+          "heading": "Table of Contents",
+          "chars": 150,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-dcf724d24fe49196f202",
+          "heading": "Table of Contents",
+          "chars": 159,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-21f022b587251efa9239",
+          "heading": "Table of Contents",
+          "chars": 175,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-283ff5b5f81be78fd326",
+          "heading": "Table of Contents",
+          "chars": 150,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-95f1e786cfa22e5aa59f",
+          "heading": "Table of Contents",
+          "chars": 159,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-19355328a70011fe83be",
+          "heading": "Table of Contents",
+          "chars": 175,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-a3bb017449e1adaa36e0",
+          "heading": "Table of Contents",
+          "chars": 150,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-b327c5fd523b98f8a2fe",
+          "heading": "Table of Contents",
+          "chars": 76,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-dd00bc70673d17739c71",
+          "heading": "Table of Contents",
+          "chars": 69,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-412af6b93c94ecbad9a5",
+          "heading": "Preface",
+          "chars": 8,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-2f6e12d5d2b46bfafecf",
+          "heading": "Preface",
+          "chars": 498,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-2dd2ea601662a46d0b59",
+          "heading": "Preface",
+          "chars": 36,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-0091d79645c52ffabdb7",
+          "heading": "Preface",
+          "chars": 72,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-56ab96a79497ee7a0a00",
+          "heading": "Preface",
+          "chars": 286,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-8d03514dc1e976e3aa7e",
+          "heading": "Preface",
+          "chars": 39,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-18eedac0a77cbc244787",
+          "heading": "Preface",
+          "chars": 44,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-659db84b6dfcfb999da8",
+          "heading": "Preface",
+          "chars": 22,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-3ec1d8c060b3d0f3e407",
+          "heading": "Preface",
+          "chars": 36,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-12ee3297138d059b9a31",
+          "heading": "Preface",
+          "chars": 36,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-cc85247593a64f163c1c",
+          "heading": "Preface",
+          "chars": 48,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-4cb95a4757dff6b9b48b",
+          "heading": "Introduction",
+          "chars": 13,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-fe888ce392e818bc8c9f",
+          "heading": "Introduction",
+          "chars": 510,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-755086da44e967743038",
+          "heading": "Introduction",
+          "chars": 616,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-489072b46a2e7dbffb35",
+          "heading": "Introduction",
+          "chars": 277,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-c1c6dc3f61ab97d2dc68",
+          "heading": "Attachment 1: Technical Rationale for Reliability Standard CIP-004-6",
+          "chars": 69,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-ce58ec23fd5091260961",
+          "heading": "Attachment 1: Technical Rationale for Reliability Standard CIP-004-6",
+          "chars": 354,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-a43b91b4834ea0bd9de8",
+          "heading": "Section 4 - Scope of Applicability of the CIP Cyber Security Standards",
+          "chars": 71,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-60329ed13b56c6c702db",
+          "heading": "Section 4 - Scope of Applicability of the CIP Cyber Security Standards",
+          "chars": 184,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-cb41358ed81542670a84",
+          "heading": "Section 4 - Scope of Applicability of the CIP Cyber Security Standards",
+          "chars": 463,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-e62b384ecedebc46e551",
+          "heading": "Section 4 - Scope of Applicability of the CIP Cyber Security Standards",
+          "chars": 939,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-0a797b030ad7211ad054",
+          "heading": "Rationale:",
+          "chars": 11,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-e921d446265ad29b9bd4",
+          "heading": "Rationale:",
+          "chars": 227,
+          "reason": "heading names no requirement"
+        }
+      ]
+    },
+    "CIP-005-7": {
+      "revision_id": "a88f1600e4e564986648d72334f6ed50a9c0c90de556fd9da288f86f3b014b19",
+      "requirements_placed": 12,
+      "sections_joined": 477,
+      "unplaced_sections": 107,
+      "unplaced_chars": 23136,
+      "unplaced": [
+        {
+          "section_id": "csection-73143bc0a05c8685353d",
+          "heading": "Cyber Security Electronic Security Perimeter(s)",
+          "chars": 48,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-e4471d742f2ddad2063a",
+          "heading": "Cyber Security Electronic Security Perimeter(s)",
+          "chars": 73,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-a4cffd92702acbf27633",
+          "heading": "Cyber Security Electronic Security Perimeter(s)",
+          "chars": 13,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-226f5e694dee7780b756",
+          "heading": "RELIABILITY | RESILIENCE | SECURITY",
+          "chars": 36,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-b9454b07476b4a3af8ad",
+          "heading": "RELIABILITY | RESILIENCE | SECURITY",
+          "chars": 34,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-c5e2a4fb9c82390bab6e",
+          "heading": "RELIABILITY | RESILIENCE | SECURITY",
+          "chars": 2,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-5f7ad1598a1ff574f631",
+          "heading": "RELIABILITY | RESILIENCE | SECURITY",
+          "chars": 90,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-99d3b78bbac1de4d6f80",
+          "heading": "Table of Contents",
+          "chars": 18,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-2127848640a97e3cb0ae",
+          "heading": "Table of Contents",
+          "chars": 184,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-ce57153276c4f2743d0a",
+          "heading": "Table of Contents",
+          "chars": 180,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-28541b3516a9306f7cb5",
+          "heading": "Table of Contents",
+          "chars": 146,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-6a323476e037422c9c2d",
+          "heading": "Table of Contents",
+          "chars": 175,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-4ee280dd4c6acddfb88f",
+          "heading": "Table of Contents",
+          "chars": 153,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-9bc7991bc85a4dd64413",
+          "heading": "Table of Contents",
+          "chars": 172,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-04858cbf17cda2e6a886",
+          "heading": "Table of Contents",
+          "chars": 175,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-ef6e136bad2cda76ed52",
+          "heading": "Table of Contents",
+          "chars": 153,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-ab4da0981af1522b5a73",
+          "heading": "Table of Contents",
+          "chars": 174,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-8f9a214cb8c9b6d0c361",
+          "heading": "Table of Contents",
+          "chars": 136,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-a3c9fe68971418322733",
+          "heading": "Table of Contents",
+          "chars": 155,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-c11d02c5fbd630b673a3",
+          "heading": "Table of Contents",
+          "chars": 134,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-0825062fe077ca074b1e",
+          "heading": "Table of Contents",
+          "chars": 156,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-ac10750ebd354c1b3106",
+          "heading": "Table of Contents",
+          "chars": 156,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-ca83d6165a4a85e0eaea",
+          "heading": "Table of Contents",
+          "chars": 161,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-4a7b4f1362e8d90b4991",
+          "heading": "Table of Contents",
+          "chars": 158,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-50aec4b9d777c4058522",
+          "heading": "Table of Contents",
+          "chars": 158,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-e057420dc5fc2e6769d7",
+          "heading": "Preface",
+          "chars": 8,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-08ad4ed0857101863416",
+          "heading": "Preface",
+          "chars": 498,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-6c9cbbce14bf862eda69",
+          "heading": "Preface",
+          "chars": 36,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-719e15f8ec5f77320dce",
+          "heading": "Preface",
+          "chars": 72,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-160ca7fa32d0202a859a",
+          "heading": "Preface",
+          "chars": 286,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-db8a52af9b72332b3198",
+          "heading": "Preface",
+          "chars": 39,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-bb5821b9861c0d8e4cca",
+          "heading": "Preface",
+          "chars": 44,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-cd2c173f3e3309b255d1",
+          "heading": "Preface",
+          "chars": 22,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-6a852ba988bf7b29282e",
+          "heading": "Preface",
+          "chars": 36,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-8d710df7d5de196cd30c",
+          "heading": "Preface",
+          "chars": 36,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-a24c82acf1ee1b4e272d",
+          "heading": "Preface",
+          "chars": 48,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-02346ac7da374bb72792",
+          "heading": "Introduction",
+          "chars": 13,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-c54932bc4b5bafc6f920",
+          "heading": "Introduction",
+          "chars": 402,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-eecea3ba5b171cb7a1ac",
+          "heading": "Introduction",
+          "chars": 184,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-ff23d5a65c9ef688d72f",
+          "heading": "Introduction",
+          "chars": 464,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-6e41d1462184fa929413",
+          "heading": "Introduction",
+          "chars": 987,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-e00c1352dee6a31d32af",
+          "heading": "Introduction",
+          "chars": 174,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-3ed8917f8d1a7f788da0",
+          "heading": "Introduction",
+          "chars": 626,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-5b9d6951b1aadd1fb815",
+          "heading": "Introduction",
+          "chars": 216,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-841b8f0d858565ebdf59",
+          "heading": "Introduction",
+          "chars": 134,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-67e700c878428c2944ef",
+          "heading": "New and Modified Terms Used in NERC Reliability Standards",
+          "chars": 58,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-5a66a722f95524158df5",
+          "heading": "New and Modified Terms Used in NERC Reliability Standards",
+          "chars": 130,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-9f414b632251c4934a1e",
+          "heading": "New and Modified Terms Used in NERC Reliability Standards",
+          "chars": 30,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-dc0e2f29b5405b70446a",
+          "heading": "New and Modified Terms Used in NERC Reliability Standards",
+          "chars": 25,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-b83d3383a13c24bd7daa",
+          "heading": "Change Rationale: (Part 2.1)",
+          "chars": 29,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-edcd92f6c2dd62c2dfdd",
+          "heading": "Change Rationale: (Part 2.1)",
+          "chars": 131,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-e210471ed2793427001c",
+          "heading": "Change Rationale: (Part 2.1)",
+          "chars": 55,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-f13a8ee88dda4c46b788",
+          "heading": "Change Rationale: (Part 2.2)",
+          "chars": 29,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-81de947ee4d40b4dcc98",
+          "heading": "Change Rationale: (Part 2.2)",
+          "chars": 247,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-5b6de824bcd08a93e9c2",
+          "heading": "Reference to prior version:",
+          "chars": 28,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-56bb92bcb56642c3665d",
+          "heading": "Reference to prior version:",
+          "chars": 27,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-3621a65f962736bc0480",
+          "heading": "Change Rationale: (Part 2.3)",
+          "chars": 29,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-939ba72be87ea0e7082c",
+          "heading": "Change Rationale: (Part 2.3)",
+          "chars": 295,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-8e9e2baf18917b40412b",
+          "heading": "Requirement Part 3.1 and Part 3.2 Vendor Remote Access Management for EACMS and PACS",
+          "chars": 85,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-45bb0478a0f617e1e30a",
+          "heading": "Requirement Part 3.1 and Part 3.2 Vendor Remote Access Management for EACMS and PACS",
+          "chars": 949,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-ce393f3e012757d8367e",
+          "heading": "Requirement Part 3.1 and Part 3.2 Vendor Remote Access Management for EACMS and PACS",
+          "chars": 172,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-d8991781102a21dedf62",
+          "heading": "Requirement Part 3.1 and Part 3.2 Vendor Remote Access Management for EACMS and PACS",
+          "chars": 514,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-04f95cb7d3fc7ee90c87",
+          "heading": "Requirement Part 3.1 and Part 3.2 Vendor Remote Access Management for EACMS and PACS",
+          "chars": 438,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-3ddd2508bab5844140bd",
+          "heading": "Requirement Part 3.1 and Part 3.2 Vendor Remote Access Management for EACMS and PACS",
+          "chars": 645,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-86d02a06c8a76e0c5ec4",
+          "heading": "Requirement Part 3.1 and Part 3.2 Vendor Remote Access Management for EACMS and PACS",
+          "chars": 373,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-e5045923601c1ede1ff9",
+          "heading": "Requirement Part 3.1 and Part 3.2 Vendor Remote Access Management for EACMS and PACS",
+          "chars": 198,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-6b1e6ff2480dcdfba987",
+          "heading": "Requirement Part 3.1 and Part 3.2 Vendor Remote Access Management for EACMS and PACS",
+          "chars": 269,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-66c6650628f5b282a319",
+          "heading": "Requirement Part 3.1 and Part 3.2 Vendor Remote Access Management for EACMS and PACS",
+          "chars": 140,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-f386659d92c0b9792f81",
+          "heading": "Requirement Part 3.1 and Part 3.2 Vendor Remote Access Management for EACMS and PACS",
+          "chars": 410,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-2a116fa2e69115c55791",
+          "heading": "Requirement Part 3.1 and Part 3.2 Vendor Remote Access Management for EACMS and PACS",
+          "chars": 628,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-e855c874af245f396a34",
+          "heading": "Requirement Part 3.1 and Part 3.2 Vendor Remote Access Management for EACMS and PACS",
+          "chars": 229,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-a80bbecb5724b6c20161",
+          "heading": "Requirement Part 3.1 and Part 3.2 Vendor Remote Access Management for EACMS and PACS",
+          "chars": 777,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-f351f098d4f0efec8d8f",
+          "heading": "Requirement Part 3.1 and Part 3.2 Vendor Remote Access Management for EACMS and PACS",
+          "chars": 258,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-28067ca28059fb4d3f6b",
+          "heading": "Requirement Part 3.1 and Part 3.2 Vendor Remote Access Management for EACMS and PACS",
+          "chars": 98,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-d24a95ded56c639b47f9",
+          "heading": "Requirement Part 3.1 and Part 3.2 Vendor Remote Access Management for EACMS and PACS",
+          "chars": 120,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-8aba820d3445d7572eaa",
+          "heading": "Technical Rational for Reliability Standard CIP-005-6",
+          "chars": 54,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-2ace4896b13509bd0390",
+          "heading": "Technical Rational for Reliability Standard CIP-005-6",
+          "chars": 340,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-dfca1a2712f491256521",
+          "heading": "Section 4 - Scope of Applicability of the CIP Cyber Security Standards",
+          "chars": 71,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-123bfa617105010d7765",
+          "heading": "Section 4 - Scope of Applicability of the CIP Cyber Security Standards",
+          "chars": 184,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-fe4c9fb30b3731995fd6",
+          "heading": "Section 4 - Scope of Applicability of the CIP Cyber Security Standards",
+          "chars": 441,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-bec9bb137446ac212158",
+          "heading": "Section 4 - Scope of Applicability of the CIP Cyber Security Standards",
+          "chars": 964,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-feb1bea8839de7e725f5",
+          "heading": "The EAP",
+          "chars": 8,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-dd4e7e32d15722b14d70",
+          "heading": "The EAP",
+          "chars": 1699,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-5e613f6586148f721e25",
+          "heading": "The EAP",
+          "chars": 724,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-47722bbbe79dcb2a10f7",
+          "heading": "The EAP",
+          "chars": 648,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-83a43920db0ece4858d4",
+          "heading": "The EAP",
+          "chars": 514,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-8967d090383a3953bc42",
+          "heading": "Rationale:",
+          "chars": 11,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-f0c6133c1e18b3da5810",
+          "heading": "Rationale:",
+          "chars": 240,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-e4823daceea925eb9858",
+          "heading": "Change Rationale:",
+          "chars": 18,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-67a6739771d2dba4995f",
+          "heading": "Change Rationale:",
+          "chars": 11,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-7ed9e9b0afb165a6f4fc",
+          "heading": "Change Rationale:",
+          "chars": 375,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-3b0c6dbd1417d54ce42f",
+          "heading": "Change Rationale:",
+          "chars": 18,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-336445cc6e78e5e45abb",
+          "heading": "Change Rationale:",
+          "chars": 11,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-1c243dbd70e88fd546b2",
+          "heading": "Change Rationale:",
+          "chars": 131,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-81690dabec52742c690c",
+          "heading": "Reference to prior version:",
+          "chars": 28,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-c7a8ecfb28af1cd3e0b1",
+          "heading": "Reference to prior version:",
+          "chars": 27,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-92e04e52520684abe8b3",
+          "heading": "Change Rationale:",
+          "chars": 18,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-b0afa136f938be9b9684",
+          "heading": "Change Rationale:",
+          "chars": 11,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-f81fafb8bc600cb85df9",
+          "heading": "Change Rationale:",
+          "chars": 247,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-96e755f87a0e9023f70b",
+          "heading": "Change Rationale:",
+          "chars": 55,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-66245758f4decb85136d",
+          "heading": "Change Rationale:",
+          "chars": 18,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-b48b54db8e7013328d40",
+          "heading": "Change Rationale:",
+          "chars": 11,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-e0f1844382acd3bf9a95",
+          "heading": "Change Rationale:",
+          "chars": 295,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-024c3e38ab430a9cdd1b",
+          "heading": "Change Rationale:",
+          "chars": 18,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-c28bdde14c9e1d1b6f3f",
+          "heading": "(Part 2.4 and 2.5)",
+          "chars": 19,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-2a7b0b5b35fa9344d8a7",
+          "heading": "(Part 2.4 and 2.5)",
+          "chars": 380,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-6118e1ee1dc7353e1103",
+          "heading": "(Part 2.4 and 2.5)",
+          "chars": 766,
+          "reason": "heading names no requirement"
+        }
+      ]
+    },
+    "CIP-008-6": {
+      "revision_id": "419d3a72b7a876cac2f0bbfee9b5169230326f061c3e7eae7b7c2ce28a74fc24",
+      "requirements_placed": 12,
+      "sections_joined": 148,
+      "unplaced_sections": 116,
+      "unplaced_chars": 19873,
+      "unplaced": [
+        {
+          "section_id": "csection-38f4f81dbc5482bacb3b",
+          "heading": "Cyber Security Incident Report",
+          "chars": 31,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-b77fa4e82b9e4f6bb206",
+          "heading": "Cyber Security Incident Report",
+          "chars": 73,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-80ec536323943e63bfb3",
+          "heading": "Cyber Security Incident Report",
+          "chars": 13,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-e4751e7357a4f07de9e3",
+          "heading": "RELIABILITY |ACCOUNTABILITY",
+          "chars": 28,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-2b08fdcabf6048a076f1",
+          "heading": "RELIABILITY |ACCOUNTABILITY",
+          "chars": 34,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-225c284542507a7944c8",
+          "heading": "RELIABILITY |ACCOUNTABILITY",
+          "chars": 2,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-51d7b07e3ce6cbad23a3",
+          "heading": "RELIABILITY |ACCOUNTABILITY",
+          "chars": 91,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-ce5a5e773ba184ce8cd2",
+          "heading": "Table of Contents",
+          "chars": 18,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-25028f8adc4f7da15bce",
+          "heading": "Table of Contents",
+          "chars": 160,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-9cf1c4c03af1997424f2",
+          "heading": "Table of Contents",
+          "chars": 157,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-01c09cbe711a4d357595",
+          "heading": "Table of Contents",
+          "chars": 134,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-b5ede96050e5098c8cc6",
+          "heading": "Table of Contents",
+          "chars": 146,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-0c4e08d3f06b597dbf27",
+          "heading": "Table of Contents",
+          "chars": 147,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-19e6467a6efc1c454ad0",
+          "heading": "Table of Contents",
+          "chars": 141,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-53d1c9c38a789a28d4b6",
+          "heading": "Table of Contents",
+          "chars": 151,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-e57be15d0378d13c2a46",
+          "heading": "Table of Contents",
+          "chars": 148,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-614a992c13428d4a657f",
+          "heading": "Table of Contents",
+          "chars": 120,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-83c11c92e5f08cc95f6c",
+          "heading": "Table of Contents",
+          "chars": 134,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-5f389c2caca20d38a452",
+          "heading": "Table of Contents",
+          "chars": 127,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-a12f716f554d4a06a06a",
+          "heading": "Table of Contents",
+          "chars": 153,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-5a7eba5f82197ac351f5",
+          "heading": "Table of Contents",
+          "chars": 139,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-98a933474da819f03d12",
+          "heading": "Table of Contents",
+          "chars": 141,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-5bba51abbdca31c1f44d",
+          "heading": "Table of Contents",
+          "chars": 143,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-3642d2c973c5cdaa02bc",
+          "heading": "Table of Contents",
+          "chars": 151,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-3b3376a1707b8366fc16",
+          "heading": "Table of Contents",
+          "chars": 150,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-d5f2180516bbc5565863",
+          "heading": "Table of Contents",
+          "chars": 142,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-be0d277c81d47182a347",
+          "heading": "Preface",
+          "chars": 8,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-e46340850dc16aa02165",
+          "heading": "Preface",
+          "chars": 382,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-c37402e5af8ee4251075",
+          "heading": "Preface",
+          "chars": 277,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-489f7f532e12638a255a",
+          "heading": "Preface",
+          "chars": 47,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-22222736ff46f48718c6",
+          "heading": "Preface",
+          "chars": 39,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-1f9a4dd81c7f6bb206ba",
+          "heading": "Preface",
+          "chars": 43,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-ac1629abcbe7547d7f3d",
+          "heading": "Preface",
+          "chars": 22,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-4d89dd2b4441ea13bc61",
+          "heading": "Preface",
+          "chars": 36,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-38bcae53387809670b5b",
+          "heading": "Preface",
+          "chars": 34,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-e42ee6a1459e8ac50925",
+          "heading": "Preface",
+          "chars": 47,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-2c59966c42a2c72115d2",
+          "heading": "Introduction",
+          "chars": 13,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-c50ee6fee57effb246da",
+          "heading": "Introduction",
+          "chars": 512,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-604b016cf3e6d29dccfe",
+          "heading": "Introduction",
+          "chars": 524,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-6d020e3e3cc64225e336",
+          "heading": "Introduction",
+          "chars": 1216,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-abd4561fcebb9411accd",
+          "heading": "Introduction",
+          "chars": 388,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-aa5d5aa70fb511dfc916",
+          "heading": "New and Modified Terms Used in NERC Reliability Standards",
+          "chars": 58,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-2dac522b0381f2f1c841",
+          "heading": "Proposed Modified Terms:",
+          "chars": 25,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-733f1766a704927b0303",
+          "heading": "Cyber Security Incident",
+          "chars": 24,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-c361c36180d71d5593d9",
+          "heading": "Cyber Security Incident",
+          "chars": 43,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-130c4b9887b9d6beb0fb",
+          "heading": "Cyber Security Incident",
+          "chars": 252,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-a67b3b34c53247b79ab1",
+          "heading": "Cyber Security Incident",
+          "chars": 71,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-f452b15f3ada5b137952",
+          "heading": "Cyber Security Incident",
+          "chars": 266,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-12a41c4c269ea8398c16",
+          "heading": "Cyber Security Incident",
+          "chars": 385,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-c98dfa1edcea5381c2b8",
+          "heading": "Cyber Security Incident",
+          "chars": 286,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-4ea853c12bfecb5a3bff",
+          "heading": "Reportable Cyber Security Incident",
+          "chars": 35,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-ec681b3548e773062763",
+          "heading": "Reportable Cyber Security Incident",
+          "chars": 57,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-9c805d05bd9522a3e9f8",
+          "heading": "Reportable Cyber Security Incident",
+          "chars": 87,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-1c9d919f70b52266009d",
+          "heading": "Reportable Cyber Security Incident",
+          "chars": 81,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-af99bd6042dc983f487f",
+          "heading": "Reportable Cyber Security Incident",
+          "chars": 96,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-266ebab3d439fed79d7a",
+          "heading": "Reportable Cyber Security Incident",
+          "chars": 624,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-723982c30fda0710bf08",
+          "heading": "Reportable Cyber Security Incident",
+          "chars": 321,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-419ee9a5f347d0b9e4b5",
+          "heading": "New and Modified Terms Used in NERC Reliability Standards",
+          "chars": 58,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-e1b138eb6016ece27897",
+          "heading": "EACMS",
+          "chars": 6,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-2cf6819d45dd38297670",
+          "heading": "EACMS",
+          "chars": 592,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-bdda185d4c37e21efaaf",
+          "heading": "Inclusion of 'Successor Organizations' throughout the Requirement Parts",
+          "chars": 72,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-c14f120c9c87412841c5",
+          "heading": "Inclusion of 'Successor Organizations' throughout the Requirement Parts",
+          "chars": 603,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-7533a84408dd04078dbd",
+          "heading": "Required Reportable Incident Attributes",
+          "chars": 40,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-448909b1f30f7a023ca7",
+          "heading": "Required Reportable Incident Attributes",
+          "chars": 280,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-4d8ec53bdeae5620a160",
+          "heading": "Required Reportable Incident Attributes",
+          "chars": 503,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-5e3b8f7de064c7d394df",
+          "heading": "Methods for Submitting Notifications",
+          "chars": 37,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-97cb21da92f31fb0b678",
+          "heading": "Methods for Submitting Notifications",
+          "chars": 476,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-20710acab4a3d930d167",
+          "heading": "Notification Timing",
+          "chars": 20,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-a8db4b737622c28913a2",
+          "heading": "Notification Timing",
+          "chars": 544,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-e6d18409d4f656a9a269",
+          "heading": "Notification Timing",
+          "chars": 377,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-c8a84ffec9cb9b97dfb9",
+          "heading": "Notification Timing",
+          "chars": 720,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-8240debeda2d3f2ffb20",
+          "heading": "Notification Updates",
+          "chars": 21,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-2df422799c01ae855d02",
+          "heading": "Notification Updates",
+          "chars": 1068,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-8b0abca3dd8e99ff9432",
+          "heading": "Notification Updates",
+          "chars": 405,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-f7e8eeb90b564758bdf3",
+          "heading": "Notification Updates",
+          "chars": 183,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-33d01ebcd22ebeb8f0c6",
+          "heading": "Notification Updates",
+          "chars": 141,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-f3ec4c6e3ece77eb6233",
+          "heading": "Notification Updates",
+          "chars": 184,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-0f23f4d0279020d7b0f6",
+          "heading": "Notification Updates",
+          "chars": 477,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-92b87c19d50884665070",
+          "heading": "Notification Updates",
+          "chars": 941,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-6cd143ec70e4b3da5838",
+          "heading": "Figure 1: CIP-008-5 R3 Timeline for Reportable Cyber Security Incidents",
+          "chars": 72,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-f6faaf89c98e0a39dbc1",
+          "heading": "Figure 1: CIP-008-5 R3 Timeline for Reportable Cyber Security Incidents",
+          "chars": 116,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-7573e92875612380f68d",
+          "heading": "Figure 1: CIP-008-5 R3 Timeline for Reportable Cyber Security Incidents",
+          "chars": 326,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-de502becdca3cfe7bd49",
+          "heading": "Figure 1: CIP-008-5 R3 Timeline for Reportable Cyber Security Incidents",
+          "chars": 43,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-a470d7efb100b7492104",
+          "heading": "Figure 1: CIP-008-5 R3 Timeline for Reportable Cyber Security Incidents",
+          "chars": 43,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-168e79f7273a19478909",
+          "heading": "Change Description and Justification: (Part 1.1)",
+          "chars": 49,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-13a5eef4f383f2141c7a",
+          "heading": "Change Description and Justification: (Part 1.1)",
+          "chars": 124,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-e8a15080ab00baaeba08",
+          "heading": "Change Description and Justification: (Part 1.1)",
+          "chars": 53,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-5330a9a853178ba667f1",
+          "heading": "Change Description and Justification: (Part 1.2)",
+          "chars": 49,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-5ac12fdaee61153f9e6b",
+          "heading": "Change Description and Justification: (Part 1.2)",
+          "chars": 316,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-ebb9b9b29a0676a180c9",
+          "heading": "Change Description and Justification: (Part 1.2)",
+          "chars": 28,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-c2233b6cbd0b928f3dee",
+          "heading": "Change Description and Justification: (Part 1.2)",
+          "chars": 25,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-ac91d764bc7104650cf6",
+          "heading": "Change Description and Justification: (Part 1.3)",
+          "chars": 49,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-b567a34106804c6d96ff",
+          "heading": "Change Description and Justification: (Part 1.3)",
+          "chars": 180,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-cb7407d980a18e6c53b4",
+          "heading": "Change Description and Justification: (Part 1.3)",
+          "chars": 53,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-5e9a677c69fec4830df7",
+          "heading": "Change Description and Justification: (Part 1.4)",
+          "chars": 49,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-146143b57e61d426e652",
+          "heading": "Change Description and Justification: (Part 1.4)",
+          "chars": 74,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-6d124a09c3ca50def1f7",
+          "heading": "Technical Rationale for Reliability Standard CIP-008-5",
+          "chars": 55,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-2c9e50fb8b7712d6ea48",
+          "heading": "Technical Rationale for Reliability Standard CIP-008-5",
+          "chars": 215,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-a39be4091983cde3bb8f",
+          "heading": "Technical Rationale for Reliability Standard CIP-008-5",
+          "chars": 53,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-691f097974117e815300",
+          "heading": "Technical Rationale for Reliability Standard CIP-008-5",
+          "chars": 11,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-0f3963fdbf8f3e6eac4f",
+          "heading": "Technical Rationale for Reliability Standard CIP-008-5",
+          "chars": 38,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-00a6f85513a13c1ad45e",
+          "heading": "Technical Rationale for Reliability Standard CIP-008-5",
+          "chars": 46,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-e935cb2deaa7877d2e0d",
+          "heading": "Technical Rationale for Reliability Standard CIP-008-5",
+          "chars": 53,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-6c14bf1301cc17a00d9f",
+          "heading": "Technical Rationale for Reliability Standard CIP-008-5",
+          "chars": 49,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-9f83569e4dff8fa73803",
+          "heading": "Technical Rationale for Reliability Standard CIP-008-5",
+          "chars": 101,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-d3781002d8c65b9ab155",
+          "heading": "Technical Rationale for Reliability Standard CIP-008-5",
+          "chars": 28,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-121ed8d7132993c200ed",
+          "heading": "Technical Rationale for Reliability Standard CIP-008-5",
+          "chars": 23,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-7c29de7e276226b21b0b",
+          "heading": "Technical Rationale for Reliability Standard CIP-008-5",
+          "chars": 11,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-63a68e77db06c1b44ead",
+          "heading": "Technical Rationale for Reliability Standard CIP-008-5",
+          "chars": 38,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-bef6f36dcef31edf736c",
+          "heading": "Technical Rationale for Reliability Standard CIP-008-5",
+          "chars": 116,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-87dac1d900c426f9ec4f",
+          "heading": "Change Description and Justification: (Part 3.1)",
+          "chars": 49,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-2097124afab8e5c844d7",
+          "heading": "Change Description and Justification: (Part 3.1)",
+          "chars": 98,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-8466cf1ea8ba89dd2b83",
+          "heading": "Change Description and Justification: (Part 3.1)",
+          "chars": 28,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-f06373f3646d160afcaa",
+          "heading": "Change Description and Justification: (Part 3.1)",
+          "chars": 25,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-ba369e5f5bfe30ceb04c",
+          "heading": "Change Description and Justification: (Part 3.2)",
+          "chars": 49,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-35c7db34398a634e0a74",
+          "heading": "Change Description and Justification: (Part 3.2)",
+          "chars": 217,
+          "reason": "heading names no requirement"
+        }
+      ]
+    },
+    "CIP-010-4": {
+      "revision_id": "999570c4fd8736a1299547ade45587cc5a9a21464e33e5eac9b45fc5c6352791",
+      "requirements_placed": 12,
+      "sections_joined": 246,
+      "unplaced_sections": 120,
+      "unplaced_chars": 29162,
+      "unplaced": [
+        {
+          "section_id": "csection-2f332c3c6341d1e07d41",
+          "heading": "Cyber Security Configuration Change Management and Vulnerability Assessments",
+          "chars": 77,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-70fd3dc92abb68661fc4",
+          "heading": "Cyber Security Configuration Change Management and Vulnerability Assessments",
+          "chars": 73,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-3bf9974fb1f29d6f1abc",
+          "heading": "Cyber Security Configuration Change Management and Vulnerability Assessments",
+          "chars": 13,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-752541b7a8f038008ddc",
+          "heading": "RELIABILITY | RESILIENCE | SECURITY",
+          "chars": 36,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-2419e8a7c2047a41d194",
+          "heading": "RELIABILITY | RESILIENCE | SECURITY",
+          "chars": 34,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-1f3861882afec9879399",
+          "heading": "RELIABILITY | RESILIENCE | SECURITY",
+          "chars": 2,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-a02c7af1484b7cd2a3b0",
+          "heading": "RELIABILITY | RESILIENCE | SECURITY",
+          "chars": 90,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-800d3f52e9d3099179a1",
+          "heading": "Table of Contents",
+          "chars": 18,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-6f2c5ec470fd541c58dd",
+          "heading": "Table of Contents",
+          "chars": 183,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-49e1b7e0ada49c5056fb",
+          "heading": "Table of Contents",
+          "chars": 180,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-1eeb10134c6a0b051ae4",
+          "heading": "Table of Contents",
+          "chars": 145,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-0b0b8350037a1bd2b641",
+          "heading": "Table of Contents",
+          "chars": 175,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-7822d715aba836c94763",
+          "heading": "Table of Contents",
+          "chars": 152,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-9d70a8cd3fb87372e4d2",
+          "heading": "Table of Contents",
+          "chars": 162,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-aac2e302f4a93d7072d0",
+          "heading": "Table of Contents",
+          "chars": 167,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-8eb10a12531bcc01b0a2",
+          "heading": "Table of Contents",
+          "chars": 167,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-794ec3a62b7a55f95bd0",
+          "heading": "Table of Contents",
+          "chars": 169,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-586c24731d6603b21fef",
+          "heading": "Table of Contents",
+          "chars": 169,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-0ab0207b3ede3ce335c5",
+          "heading": "Table of Contents",
+          "chars": 174,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-7481baa63dbe6fe0c4cb",
+          "heading": "Table of Contents",
+          "chars": 161,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-a9ab9f7c7d3c66704a95",
+          "heading": "Table of Contents",
+          "chars": 167,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-256742c8b9c81df4dca6",
+          "heading": "Table of Contents",
+          "chars": 174,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-9136cb087efba0c059de",
+          "heading": "Table of Contents",
+          "chars": 161,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-3379aba3fcdaf5b4e4e4",
+          "heading": "Table of Contents",
+          "chars": 164,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-55f2db584675264de1de",
+          "heading": "Table of Contents",
+          "chars": 174,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-261099d9a9e1b0891237",
+          "heading": "Table of Contents",
+          "chars": 161,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-7029af190a96ab37b96c",
+          "heading": "Table of Contents",
+          "chars": 165,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-bd3651ceecdcf4d41e9a",
+          "heading": "Table of Contents",
+          "chars": 149,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-140ae40549a40c736eb4",
+          "heading": "Table of Contents",
+          "chars": 167,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-e17ec63a422b9d482641",
+          "heading": "Table of Contents",
+          "chars": 159,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-4049e898408a816196f9",
+          "heading": "Table of Contents",
+          "chars": 176,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-dc6ed4df6a5c92396b35",
+          "heading": "Table of Contents",
+          "chars": 114,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-ad4328c846abc5bd9f9c",
+          "heading": "Table of Contents",
+          "chars": 270,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-8704f6e1885f5d35f087",
+          "heading": "Table of Contents",
+          "chars": 138,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-32fc39c9881c5427b614",
+          "heading": "Table of Contents",
+          "chars": 154,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-37af7c614fda70313a5a",
+          "heading": "Table of Contents",
+          "chars": 140,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-5f5647e1357ef28c6e55",
+          "heading": "Table of Contents",
+          "chars": 169,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-4b8cba240c11471d9d38",
+          "heading": "Table of Contents",
+          "chars": 169,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-7570afa96939f6dcacbf",
+          "heading": "Table of Contents",
+          "chars": 102,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-9e9458aa94c5be0c86bf",
+          "heading": "Table of Contents",
+          "chars": 12,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-c4c1780141d59660f2c9",
+          "heading": "Table of Contents",
+          "chars": 270,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-7b3e6d9096913ac2db60",
+          "heading": "Table of Contents",
+          "chars": 138,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-b7f3efcd8824d1ba5dac",
+          "heading": "Table of Contents",
+          "chars": 175,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-98e365072e68b9b54739",
+          "heading": "Table of Contents",
+          "chars": 161,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-6e3eb6c22b1242e3bea1",
+          "heading": "Table of Contents",
+          "chars": 161,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-cbb2f08863fd9598958e",
+          "heading": "Table of Contents",
+          "chars": 161,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-51f8b17dd6424eaa7bb3",
+          "heading": "Table of Contents",
+          "chars": 161,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-097089f45cc789ebdda2",
+          "heading": "Table of Contents",
+          "chars": 165,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-2d5bfd5a1f0a26f6084a",
+          "heading": "Preface",
+          "chars": 8,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-4a40eeda77c3d9c7f88d",
+          "heading": "Preface",
+          "chars": 498,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-46471b9ae1e63f4a15d1",
+          "heading": "Preface",
+          "chars": 36,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-5a4bfc77fa0228895678",
+          "heading": "Preface",
+          "chars": 72,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-91c8abc96dd66c3b1eab",
+          "heading": "Preface",
+          "chars": 286,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-059de185a06a0d87eb45",
+          "heading": "Preface",
+          "chars": 39,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-32f7725cfbe194d9eaba",
+          "heading": "Preface",
+          "chars": 44,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-d9d0e5e256427e989191",
+          "heading": "Preface",
+          "chars": 22,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-70afa165c18b5b08a26e",
+          "heading": "Preface",
+          "chars": 36,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-c9e88d5d48979770dd30",
+          "heading": "Preface",
+          "chars": 36,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-1caa525cb1e6119bca7f",
+          "heading": "Preface",
+          "chars": 48,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-9a24c6c58f640764e293",
+          "heading": "Introduction",
+          "chars": 13,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-1e724d754e23b9a2c099",
+          "heading": "Introduction",
+          "chars": 401,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-507a769f09ff1684f248",
+          "heading": "Introduction",
+          "chars": 748,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-a4390f13f2fa3a99b711",
+          "heading": "Introduction",
+          "chars": 216,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-0ecd2bf1fba1d1dfe967",
+          "heading": "Introduction",
+          "chars": 64,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-445a2064b4d511503b92",
+          "heading": "Introduction",
+          "chars": 122,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-83956908d4547b4b81bf",
+          "heading": "New and Modified Terms Used on NERC Reliability Standards",
+          "chars": 58,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-415d9701e99364168b46",
+          "heading": "New and Modified Terms Used on NERC Reliability Standards",
+          "chars": 130,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-86d8e4bcb9312758fa12",
+          "heading": "New and Modified Terms Used on NERC Reliability Standards",
+          "chars": 30,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-4df60adfb2391d46a8a4",
+          "heading": "New and Modified Terms Used on NERC Reliability Standards",
+          "chars": 25,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-c71aa21eac2c143c36a8",
+          "heading": "Baseline Configuration",
+          "chars": 23,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-621e527f6754b1707f4e",
+          "heading": "Baseline Configuration",
+          "chars": 379,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-76d51568c247631446c9",
+          "heading": "Baseline Configuration",
+          "chars": 2003,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-a366d29535453e844544",
+          "heading": "Cyber Security Controls",
+          "chars": 24,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-cd41595b647dd961f02f",
+          "heading": "Cyber Security Controls",
+          "chars": 1364,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-ad8b4af6be3614dfef83",
+          "heading": "Test Environment",
+          "chars": 17,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-04a242adb175a7a733da",
+          "heading": "Test Environment",
+          "chars": 302,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-4503fc0515f2320c97e4",
+          "heading": "Software Verification",
+          "chars": 22,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-978f1d593d8b90c2b59b",
+          "heading": "Software Verification",
+          "chars": 567,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-40e0015a1dab8596bfe0",
+          "heading": "Baseline Monitoring",
+          "chars": 20,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-16c2f8e5aeb4cf00c2f3",
+          "heading": "Baseline Monitoring",
+          "chars": 196,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-17186403f0a63773df6e",
+          "heading": "Vulnerability Assessments",
+          "chars": 26,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-154147a18b0de8a9582e",
+          "heading": "Vulnerability Assessments",
+          "chars": 276,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-83d2f402144ebdd3d191",
+          "heading": "Summary of Changes",
+          "chars": 19,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-42518f7c97496fce55b0",
+          "heading": "Summary of Changes",
+          "chars": 634,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-5816943697524683fdd8",
+          "heading": "Transient Cyber Assets and Removable Media",
+          "chars": 43,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-f0aef99b2714a732b984",
+          "heading": "Transient Cyber Assets and Removable Media",
+          "chars": 726,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-7b2f165f6bc28eb23a64",
+          "heading": "Transient Cyber Assets and Removable Media",
+          "chars": 323,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-d44e4d15b5372e55c0f9",
+          "heading": "Transient Cyber Assets and Removable Media",
+          "chars": 541,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-4fbe462b5d85e213a6f3",
+          "heading": "Transient Cyber Assets and Removable Media",
+          "chars": 775,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-4e19d7f8a54b1093b468",
+          "heading": "Transient Cyber Assets and Removable Media",
+          "chars": 169,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-fa84e8d40a7538002fd1",
+          "heading": "Transient Cyber Assets and Removable Media",
+          "chars": 347,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-23e20f4a52e2bac74091",
+          "heading": "Vulnerability Mitigation",
+          "chars": 25,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-9091a604b8e6669c2b7c",
+          "heading": "Vulnerability Mitigation",
+          "chars": 579,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-26471b16f0ce284f06fd",
+          "heading": "Per Transient Cyber Asset Capability",
+          "chars": 37,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-e377643b84a20be89544",
+          "heading": "Per Transient Cyber Asset Capability",
+          "chars": 572,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-a1cf5b5b01f9dbbb1349",
+          "heading": "Attachment 1",
+          "chars": 13,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-3bf97d456346963e1726",
+          "heading": "Technical Rationale for Reliability Standard CIP-010-3",
+          "chars": 55,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-db6e8ecf4c2bbad3c71f",
+          "heading": "Technical Rationale for Reliability Standard CIP-010-3",
+          "chars": 340,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-c6593ff6b54756c8be65",
+          "heading": "Section 4 - Scope of Applicability of the CIP Cyber Security Standards:",
+          "chars": 72,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-6d6e0a561774651c6fcd",
+          "heading": "Section 4 - Scope of Applicability of the CIP Cyber Security Standards:",
+          "chars": 184,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-032cc0823cca66e6b19b",
+          "heading": "Section 4 - Scope of Applicability of the CIP Cyber Security Standards:",
+          "chars": 463,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-d40e9bea538c0b3552a2",
+          "heading": "Section 4 - Scope of Applicability of the CIP Cyber Security Standards:",
+          "chars": 940,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-63f05f0ed26f2e093ce5",
+          "heading": "Baseline Configuration",
+          "chars": 23,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-0732f01a5ea6519b4eb8",
+          "heading": "Baseline Configuration",
+          "chars": 379,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-9a9a4a61829c983ad997",
+          "heading": "Baseline Configuration",
+          "chars": 2003,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-2d9fcafe350b87dfd7d6",
+          "heading": "Cyber Security Controls",
+          "chars": 24,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-80b1afda92dec94963b3",
+          "heading": "Cyber Security Controls",
+          "chars": 1364,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-e19c9960013c95d6ea7a",
+          "heading": "Test Environment",
+          "chars": 17,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-4d7926f00798ad50e960",
+          "heading": "Test Environment",
+          "chars": 220,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-084731e0464e905f21f3",
+          "heading": "Test Environment",
+          "chars": 507,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-067db1051051437a3bfb",
+          "heading": "Software Verification",
+          "chars": 22,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-e291fc5c2d115802bf44",
+          "heading": "Software Verification",
+          "chars": 665,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-5be3400ecbaa2c1d05ab",
+          "heading": "Vulnerability Mitigation",
+          "chars": 25,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-696c4866bacfc32fdd84",
+          "heading": "Vulnerability Mitigation",
+          "chars": 579,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-63d4d66cb13f8866f99c",
+          "heading": "Per Transient Cyber Asset Capability",
+          "chars": 37,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-9c779afe10dfa4ec2d2c",
+          "heading": "Per Transient Cyber Asset Capability",
+          "chars": 573,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-66af04a2481b9fe57507",
+          "heading": "Rationale:",
+          "chars": 11,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-4ad9a6424de8b577ae96",
+          "heading": "Rationale:",
+          "chars": 228,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-5ee37aa4e109d8768701",
+          "heading": "Summary of Changes:",
+          "chars": 20,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-0d4b3df709296a2a90ba",
+          "heading": "Summary of Changes:",
+          "chars": 633,
+          "reason": "heading names no requirement"
+        }
+      ]
+    },
+    "CIP-011-3": {
+      "revision_id": "c81107ef040156565779956ca2c990f4d98dc14a1051457dfb84e80f0c5eb7bd",
+      "requirements_placed": 4,
+      "sections_joined": 78,
+      "unplaced_sections": 42,
+      "unplaced_chars": 6967,
+      "unplaced": [
+        {
+          "section_id": "csection-79fc1a8650ea95db9fdd",
+          "heading": "Cyber Security Information Protection",
+          "chars": 38,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-98ab662b244d7c1c6d3f",
+          "heading": "Cyber Security Information Protection",
+          "chars": 73,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-c2264ff8df6a20af58e9",
+          "heading": "Cyber Security Information Protection",
+          "chars": 11,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-0ef7358125cb782daf64",
+          "heading": "RELIABILITY | RESILIENCE | SECURITY",
+          "chars": 36,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-0ff4c700fb567dab3ea2",
+          "heading": "RELIABILITY | RESILIENCE | SECURITY",
+          "chars": 34,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-244d6f91c58be370a099",
+          "heading": "RELIABILITY | RESILIENCE | SECURITY",
+          "chars": 2,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-2823077decd0c39658e0",
+          "heading": "RELIABILITY | RESILIENCE | SECURITY",
+          "chars": 89,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-1ca378bc0a20945738c3",
+          "heading": "Table of Contents",
+          "chars": 18,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-3f54314eca4a5fda2f7b",
+          "heading": "Table of Contents",
+          "chars": 184,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-775458de526af6ab1eb4",
+          "heading": "Table of Contents",
+          "chars": 180,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-b4b9a3214c0a42e3be90",
+          "heading": "Table of Contents",
+          "chars": 175,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-cd871fb79909054a8ae5",
+          "heading": "Table of Contents",
+          "chars": 175,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-10d9e31a5f623e0b7d91",
+          "heading": "Table of Contents",
+          "chars": 153,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-9e4cc327b858ed794978",
+          "heading": "Table of Contents",
+          "chars": 149,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-4164ef4b1e4a03dfd33a",
+          "heading": "Table of Contents",
+          "chars": 175,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-144b20ec6a0c4b81d402",
+          "heading": "Table of Contents",
+          "chars": 153,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-6f6fed3d0d1373734fab",
+          "heading": "Table of Contents",
+          "chars": 159,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-e4911502b770769445af",
+          "heading": "Table of Contents",
+          "chars": 145,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-8517e8ac6ea37ef29410",
+          "heading": "Preface",
+          "chars": 8,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-e4596963297c07d012ab",
+          "heading": "Preface",
+          "chars": 500,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-1051cf1dbc2acc8c8f5c",
+          "heading": "Preface",
+          "chars": 36,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-286dfd8f432658eaac95",
+          "heading": "Preface",
+          "chars": 72,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-d09c15864fb5f8df94a7",
+          "heading": "Preface",
+          "chars": 287,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-f4d3cd2d063ae58aac59",
+          "heading": "Preface",
+          "chars": 39,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-bf2fa30404afbdf6fdc3",
+          "heading": "Preface",
+          "chars": 44,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-2bb0554f2214b90c12a4",
+          "heading": "Preface",
+          "chars": 22,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-c15b9af4863b6a841a6c",
+          "heading": "Preface",
+          "chars": 36,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-7444bd13f3b00e57ecc1",
+          "heading": "Preface",
+          "chars": 36,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-33f94acdcac9a577cd5f",
+          "heading": "Preface",
+          "chars": 48,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-d484bf1f68f2a1648d62",
+          "heading": "Introduction",
+          "chars": 13,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-9f11afa8ca1287287433",
+          "heading": "Background",
+          "chars": 11,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-60591fcc273de981d672",
+          "heading": "Background",
+          "chars": 510,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-d28bbbff0a4ef4b38035",
+          "heading": "Background",
+          "chars": 595,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-6dfb3b3479e9fbdfcb2f",
+          "heading": "Background",
+          "chars": 433,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-d9a380fdb45e82f77fdd",
+          "heading": "Attachment 1: Technical Rationale for Reliability Standard CIP-011-2",
+          "chars": 69,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-a22baf206dd16bfcbf43",
+          "heading": "Attachment 1: Technical Rationale for Reliability Standard CIP-011-2",
+          "chars": 342,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-6f711e8579eb27361315",
+          "heading": "Section 4 - Scope of Applicability of the CIP Cyber Security Standards",
+          "chars": 71,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-0d26434a8511cdc676e8",
+          "heading": "Section 4 - Scope of Applicability of the CIP Cyber Security Standards",
+          "chars": 184,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-d47b51a50d9ff785c5cf",
+          "heading": "Section 4 - Scope of Applicability of the CIP Cyber Security Standards",
+          "chars": 466,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-bfac89e3d93df52d29d0",
+          "heading": "Section 4 - Scope of Applicability of the CIP Cyber Security Standards",
+          "chars": 943,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-685c0d764ce26ef0fdec",
+          "heading": "Rationale:",
+          "chars": 11,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-1ec05758389d4d560dfd",
+          "heading": "Rationale:",
+          "chars": 242,
+          "reason": "heading names no requirement"
+        }
+      ]
+    },
+    "CIP-012-2": {
+      "revision_id": "e4d4aedfdaddca9c24801990d1e1a0f16aa52691275dd0c30e6f8e6cb37a8ada",
+      "requirements_placed": 6,
+      "sections_joined": 90,
+      "unplaced_sections": 90,
+      "unplaced_chars": 23895,
+      "unplaced": [
+        {
+          "section_id": "csection-f6920594f0174b3831a7",
+          "heading": "",
+          "chars": 5,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-451a50f00a5a2b0e1759",
+          "heading": "Cyber Security Communications between Control Centers",
+          "chars": 54,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-2341269c91cc6f78892f",
+          "heading": "Cyber Security Communications between Control Centers",
+          "chars": 73,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-390be0910b6edc31c343",
+          "heading": "Cyber Security Communications between Control Centers",
+          "chars": 14,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-aa2ea2c30a6115f54934",
+          "heading": "RELIABILITY | RESILIENCE | SECURITY",
+          "chars": 36,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-dd20079bec7a2e078ba6",
+          "heading": "RELIABILITY | RESILIENCE | SECURITY",
+          "chars": 34,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-cdf00b86b1339cd1fff8",
+          "heading": "RELIABILITY | RESILIENCE | SECURITY",
+          "chars": 2,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-1a529e15ee8b236400fd",
+          "heading": "RELIABILITY | RESILIENCE | SECURITY",
+          "chars": 89,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-7489857ab1a044dc27d7",
+          "heading": "Table of Contents",
+          "chars": 18,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-9efcbb43cbadc5c0a174",
+          "heading": "Table of Contents",
+          "chars": 179,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-02f2beec3f16d8c1c9a5",
+          "heading": "Table of Contents",
+          "chars": 175,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-a801ab198c639b1b7745",
+          "heading": "Table of Contents",
+          "chars": 170,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-23281e3542392081ec01",
+          "heading": "Table of Contents",
+          "chars": 145,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-05dad8894b8f74d63054",
+          "heading": "Table of Contents",
+          "chars": 144,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-1f3005286bb8e729bb3c",
+          "heading": "Table of Contents",
+          "chars": 148,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-2a4340c124d351afd588",
+          "heading": "Table of Contents",
+          "chars": 129,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-8d4c0f680f0f04952549",
+          "heading": "Table of Contents",
+          "chars": 156,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-3dd3f54f534861125534",
+          "heading": "Table of Contents",
+          "chars": 174,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-54c9002d6391c9cbbfa0",
+          "heading": "Preface",
+          "chars": 8,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-3ace9bd96cdfb1a9f0ab",
+          "heading": "Preface",
+          "chars": 492,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-55c8ecba00886f633cd8",
+          "heading": "Preface",
+          "chars": 36,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-2a0a2ab669860df5f2f4",
+          "heading": "Preface",
+          "chars": 72,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-6972212ce1b66ff8f45b",
+          "heading": "Preface",
+          "chars": 293,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-80f23d019845aed93018",
+          "heading": "Preface",
+          "chars": 39,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-8073fca7c201b36b2353",
+          "heading": "Preface",
+          "chars": 44,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-4e6069f234141e0d6023",
+          "heading": "Preface",
+          "chars": 23,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-d38943dc41b01aafdfb6",
+          "heading": "Preface",
+          "chars": 36,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-c0c41353f89eb961d338",
+          "heading": "Preface",
+          "chars": 36,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-276b62d0e9515f6901eb",
+          "heading": "Preface",
+          "chars": 12,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-43439b55174a21a82693",
+          "heading": "Introduction",
+          "chars": 13,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-ff325dc55ab1ba1f1997",
+          "heading": "Introduction",
+          "chars": 504,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-245c166184e47c66bbc5",
+          "heading": "CIP-012-1",
+          "chars": 10,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-92ce395ccffcde836ab1",
+          "heading": "CIP-012-1",
+          "chars": 918,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-aafde6183341bc9be832",
+          "heading": "CIP-012-1",
+          "chars": 516,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-e1cc6742abc7a4c0299e",
+          "heading": "CIP-012-1",
+          "chars": 857,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-069def71d2680dfbc99e",
+          "heading": "CIP-012-2",
+          "chars": 10,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-0af5753a6614aa16633b",
+          "heading": "CIP-012-2",
+          "chars": 738,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-3ce1fda9e16e4973dc20",
+          "heading": "CIP-012-2",
+          "chars": 776,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-2b47be845a19b54c5deb",
+          "heading": "CIP-012-2",
+          "chars": 117,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-1f1c0235e8fa2db00d7c",
+          "heading": "CIP-012-2",
+          "chars": 33,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-03c09b83e6f90e05df91",
+          "heading": "CIP-012-2",
+          "chars": 248,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-99d60ac65e48a8685550",
+          "heading": "CIP-012 Exemption (4.2.3) for certain Control Centers",
+          "chars": 54,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-f3bff5217cf3756a6401",
+          "heading": "CIP-012 Exemption (4.2.3) for certain Control Centers",
+          "chars": 637,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-a953f82eebe3c83498fc",
+          "heading": "Figure 1",
+          "chars": 9,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-7b99766efde15f664009",
+          "heading": "Figure 1",
+          "chars": 678,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-b4e446529083f5296e2a",
+          "heading": "Figure 1",
+          "chars": 238,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-7f913dce9c511ad17c18",
+          "heading": "Figure 2",
+          "chars": 9,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-6eacad1c49fe6b59c19a",
+          "heading": "Figure 2",
+          "chars": 590,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-25e933ae0962c50c0ce1",
+          "heading": "Figure 2",
+          "chars": 356,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-86a3ff1952dcacd0eac1",
+          "heading": "Figure 3",
+          "chars": 9,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-f36fa83b2e5d1a31933c",
+          "heading": "Figure 3",
+          "chars": 393,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-606af41610eeb8089778",
+          "heading": "Figure 3",
+          "chars": 927,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-4b6496931a2d9c325b24",
+          "heading": "Figure 3",
+          "chars": 245,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-0a169dbc5799fd956a28",
+          "heading": "Figure 3",
+          "chars": 503,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-253248871a6bbee60e07",
+          "heading": "Figure 3",
+          "chars": 233,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-112765aab7353719a0f3",
+          "heading": "Figure 3",
+          "chars": 194,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-f7246db167264f48dac4",
+          "heading": "Figure 3",
+          "chars": 94,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-4fefc3064baca10f69a2",
+          "heading": "Figure 4",
+          "chars": 9,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-feed0ee5050232fca662",
+          "heading": "Figure 4",
+          "chars": 324,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-b720875bd7a8407b3991",
+          "heading": "Figure 4",
+          "chars": 275,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-de1c87798ca5d1a8fa58",
+          "heading": "Overview of Confidentiality, Integrity and Availability",
+          "chars": 56,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-d5750971c3ca938d3695",
+          "heading": "Overview of Confidentiality, Integrity and Availability",
+          "chars": 559,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-a9b93cde3a86e5f35ceb",
+          "heading": "Overview of Confidentiality, Integrity and Availability",
+          "chars": 196,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-d4b43bb7f4fbd86fc1ae",
+          "heading": "Overview of Confidentiality, Integrity and Availability",
+          "chars": 164,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-36f8bf6b37444983db88",
+          "heading": "Overview of Confidentiality, Integrity and Availability",
+          "chars": 127,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-ee9838b6a530828dcd70",
+          "heading": "Overview of Confidentiality, Integrity and Availability",
+          "chars": 755,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-edc533d70e06d3917a1c",
+          "heading": "Overview of Confidentiality, Integrity and Availability",
+          "chars": 336,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-1dc02395cc38dfcfd3a6",
+          "heading": "Alignment with IRO and TOP Standards",
+          "chars": 37,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-cfbb26b88ae56249de03",
+          "heading": "Alignment with IRO and TOP Standards",
+          "chars": 1686,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-8a6ed34187a6ce8631ad",
+          "heading": "Alignment with IRO and TOP Standards",
+          "chars": 322,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-99295d94abb55e73c6be",
+          "heading": "Identification of Where Protections are Applied by the Responsible Entity",
+          "chars": 74,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-d2bd9babb6632562611c",
+          "heading": "Identification of Where Protections are Applied by the Responsible Entity",
+          "chars": 697,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-9d3b0e3d1c0c321e993d",
+          "heading": "Identification of Where Protections are Applied by the Responsible Entity",
+          "chars": 57,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-62b0b5ede75298a28d43",
+          "heading": "Identification of Where Protections are Applied by the Responsible Entity",
+          "chars": 58,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-dcccff60f02b495892ba",
+          "heading": "Identification of Where Protections are Applied by the Responsible Entity",
+          "chars": 74,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-a7018346b15a4a10deb2",
+          "heading": "Identification of Where Protections are Applied by the Responsible Entity",
+          "chars": 451,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-665e007098e566dc16a6",
+          "heading": "Identification of Where Protections are Applied by the Responsible Entity",
+          "chars": 875,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-901ecfd368c807dd6753",
+          "heading": "Identification of Where Protections are Applied by the Responsible Entity",
+          "chars": 647,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-841849de7c41b90d1ef1",
+          "heading": "Control Center Ownership",
+          "chars": 25,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-719222587c7f4ab63d27",
+          "heading": "Control Center Ownership",
+          "chars": 1164,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-2a08668275235d6b0371",
+          "heading": "Control Center Ownership",
+          "chars": 312,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-b910c5fe672643dfddf4",
+          "heading": "Control Center Ownership",
+          "chars": 91,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-bc14730bac0ac411ee41",
+          "heading": "Control Center Ownership",
+          "chars": 91,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-9d7a7177ae7b1cf406a1",
+          "heading": "Control Center Ownership",
+          "chars": 1128,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-95d9a134438daf03bd7f",
+          "heading": "References",
+          "chars": 11,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-b2501cee91142245c937",
+          "heading": "References",
+          "chars": 108,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-82d3e394f16dfd79d13a",
+          "heading": "References",
+          "chars": 126,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-1d59717600a23a2b2730",
+          "heading": "References",
+          "chars": 84,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-b49fe67957de1dead9d6",
+          "heading": "References",
+          "chars": 132,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-13047df634b5ad500e43",
+          "heading": "References",
+          "chars": 99,
+          "reason": "heading names no requirement"
+        }
+      ]
+    },
+    "CIP-013-2": {
+      "revision_id": "de9db5c36c39a280be835d5bb3b8b3f39cfc2844c8185bcd371e3f2dff4e55c1",
+      "requirements_placed": 11,
+      "sections_joined": 430,
+      "unplaced_sections": 40,
+      "unplaced_chars": 4997,
+      "unplaced": [
+        {
+          "section_id": "csection-820ee35752d2df5d10f5",
+          "heading": "Cyber Security - Supply Chain Risk Management",
+          "chars": 46,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-db592757b8e51110fda0",
+          "heading": "Cyber Security - Supply Chain Risk Management",
+          "chars": 73,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-bde8de5b172d86f3e0d9",
+          "heading": "Cyber Security - Supply Chain Risk Management",
+          "chars": 13,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-2ba9a6c4369441065c2d",
+          "heading": "RELIABILITY | RESILIENCE | SECURITY",
+          "chars": 36,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-3d29e178ec7fca1a4493",
+          "heading": "RELIABILITY | RESILIENCE | SECURITY",
+          "chars": 34,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-152fec40632978a340f0",
+          "heading": "RELIABILITY | RESILIENCE | SECURITY",
+          "chars": 2,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-14b17b5733087ff95b0f",
+          "heading": "RELIABILITY | RESILIENCE | SECURITY",
+          "chars": 89,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-234c1e8cb453867e5be1",
+          "heading": "Table of Contents",
+          "chars": 18,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-0db5c87a9a4a2204b16c",
+          "heading": "Table of Contents",
+          "chars": 184,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-460ec2c85fe41c5887c5",
+          "heading": "Table of Contents",
+          "chars": 180,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-550100e2dd99f4499f32",
+          "heading": "Table of Contents",
+          "chars": 145,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-b8b57372127fa2dce66c",
+          "heading": "Table of Contents",
+          "chars": 169,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-6918011e5a4b2e603f1f",
+          "heading": "Table of Contents",
+          "chars": 148,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-e20090fe20f67e69e39a",
+          "heading": "Table of Contents",
+          "chars": 159,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-84ef11f41d3eb551b482",
+          "heading": "Table of Contents",
+          "chars": 175,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-762fff1a5e4352dcc91f",
+          "heading": "Table of Contents",
+          "chars": 153,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-48bce379dd85ecf6b85a",
+          "heading": "Table of Contents",
+          "chars": 155,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-8f69439dac1c06293bb3",
+          "heading": "Preface",
+          "chars": 8,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-f552aa44b003a36f366e",
+          "heading": "Preface",
+          "chars": 498,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-9940d0f1c23d280e1d99",
+          "heading": "Preface",
+          "chars": 36,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-12056a782ee677baffed",
+          "heading": "Preface",
+          "chars": 72,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-e4229c0b86cae1e569a0",
+          "heading": "Preface",
+          "chars": 286,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-76885dac61b756a9068b",
+          "heading": "Preface",
+          "chars": 39,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-5f3be814e971fee1136c",
+          "heading": "Preface",
+          "chars": 44,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-8ca5b83fb0badb1c3e53",
+          "heading": "Preface",
+          "chars": 22,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-c1a56d66ebdc6427cf86",
+          "heading": "Preface",
+          "chars": 36,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-642991abdee499fa184e",
+          "heading": "Preface",
+          "chars": 36,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-e90cfef1b36c91f57dd4",
+          "heading": "Preface",
+          "chars": 48,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-0bfa2501741b08c37cda",
+          "heading": "Introduction",
+          "chars": 13,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-ae9fb2834ad85e34b39b",
+          "heading": "Introduction",
+          "chars": 553,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-ecf1d16543add64b8cda",
+          "heading": "Introduction",
+          "chars": 626,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-a6ffe66f9716f76ba8c7",
+          "heading": "Introduction",
+          "chars": 216,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-fd24cb6b2ef4887a0d8e",
+          "heading": "New and Modified Terms Used on NERC Reliability Standards",
+          "chars": 58,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-69380bdb3790b75ec822",
+          "heading": "New and Modified Terms Used on NERC Reliability Standards",
+          "chars": 131,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-f7dbef70a75596886a2d",
+          "heading": "New and Modified Terms Used on NERC Reliability Standards",
+          "chars": 30,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-168431851886e486246d",
+          "heading": "New and Modified Terms Used on NERC Reliability Standards",
+          "chars": 25,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-69a85c2d1fbd77453e17",
+          "heading": "Notional BES Cyber System Life Cycle",
+          "chars": 37,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-2461dd3a1be0b3a42984",
+          "heading": "Technical Rational for Reliability Standard CIP-013-1",
+          "chars": 54,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-9ce209ea661951a85929",
+          "heading": "Technical Rational for Reliability Standard CIP-013-1",
+          "chars": 340,
+          "reason": "heading names no requirement"
+        },
+        {
+          "section_id": "csection-f32fe7b3423becc3bc0e",
+          "heading": "Rationale",
+          "chars": 10,
+          "reason": "heading names no requirement"
+        }
+      ]
+    }
+  },
+  "coverage_after": {
+    "CIP-002-5.1a": {
+      "requirements": 33,
+      "with_technical_basis": 7
+    },
+    "CIP-003-8": {
+      "requirements": 39,
+      "with_technical_basis": 19
+    },
+    "CIP-003-9": {
+      "requirements": 44,
+      "with_technical_basis": 5
+    },
+    "CIP-004-7": {
+      "requirements": 19,
+      "with_technical_basis": 19
+    },
+    "CIP-005-7": {
+      "requirements": 12,
+      "with_technical_basis": 12
+    },
+    "CIP-006-6": {
+      "requirements": 14,
+      "with_technical_basis": 14
+    },
+    "CIP-007-6": {
+      "requirements": 20,
+      "with_technical_basis": 20
+    },
+    "CIP-008-6": {
+      "requirements": 12,
+      "with_technical_basis": 12
+    },
+    "CIP-009-6": {
+      "requirements": 10,
+      "with_technical_basis": 10
+    },
+    "CIP-010-4": {
+      "requirements": 12,
+      "with_technical_basis": 12
+    },
+    "CIP-011-3": {
+      "requirements": 4,
+      "with_technical_basis": 4
+    },
+    "CIP-012-2": {
+      "requirements": 6,
+      "with_technical_basis": 6
+    },
+    "CIP-013-2": {
+      "requirements": 11,
+      "with_technical_basis": 11
+    },
+    "CIP-014-3": {
+      "requirements": 19,
+      "with_technical_basis": 19
+    }
+  },
+  "render_after": {
+    "CIP-002-5.1a": {
+      "fixed_chars": 37054,
+      "max_render_chars": 104123
+    },
+    "CIP-003-8": {
+      "fixed_chars": 13519,
+      "max_render_chars": 165578
+    },
+    "CIP-003-9": {
+      "fixed_chars": 11143,
+      "max_render_chars": 155132
+    },
+    "CIP-004-7": {
+      "fixed_chars": 40907,
+      "max_render_chars": 70340
+    },
+    "CIP-005-7": {
+      "fixed_chars": 26305,
+      "max_render_chars": 69657
+    },
+    "CIP-006-6": {
+      "fixed_chars": 18110,
+      "max_render_chars": 45169
+    },
+    "CIP-007-6": {
+      "fixed_chars": 57906,
+      "max_render_chars": 90469
+    },
+    "CIP-008-6": {
+      "fixed_chars": 28529,
+      "max_render_chars": 65794
+    },
+    "CIP-009-6": {
+      "fixed_chars": 16471,
+      "max_render_chars": 48504
+    },
+    "CIP-010-4": {
+      "fixed_chars": 6763,
+      "max_render_chars": 73081
+    },
+    "CIP-011-3": {
+      "fixed_chars": 5286,
+      "max_render_chars": 28016
+    },
+    "CIP-012-2": {
+      "fixed_chars": 9277,
+      "max_render_chars": 54716
+    },
+    "CIP-013-2": {
+      "fixed_chars": 2283,
+      "max_render_chars": 69819
+    },
+    "CIP-014-3": {
+      "fixed_chars": 38913,
+      "max_render_chars": 68089
+    }
+  }
+}

@@ -1,0 +1,73 @@
+69 operator documents, 69 scoped, 69 to read; seat=gemma4:26b-a4b-it-q4_K_M-ctx32k
+[1/69] CIP-002/BES Cyber System Categorization Process V9.pdf     scope=True  serves=CIP-002
+[2/69] CIP-003/LSP CIP Senior Manager Process - CIP Senior Manage scope=True  serves=CIP-002,CIP-003,CIP-004,CIP-005,CIP-006,CIP-007,CIP-010,CIP-012,CIP-013
+[3/69] CIP-003/LSP CIP Senior Manager Process Rev 6.0.pdf         scope=True  serves=CIP-002,CIP-003
+[4/69] CIP-003/LSPG CIP Cyber Security Policy V13.pdf             scope=True  serves=CIP-003,CIP-004,CIP-005,CIP-006,CIP-007,CIP-008,CIP-009,CIP-010,CIP-011
+[5/69] CIP-004/LSPG Access Management Procedure v10.pdf           scope=True  serves=CIP-004
+[6/69] CIP-004/LSPG Account Management Work Instruction v4.pdf    scope=True  serves=CIP-004
+[7/69] CIP-004/LSPG CIP Exceptional Circumstance Form v5.pdf      scope=True  serves=CIP-003,CIP-004,CIP-006,CIP-007,CIP-010,CIP-012
+[8/69] CIP-004/LSPG CIP-004 PRA Attestation Form v6.pdf           scope=True  serves=CIP-004
+[9/69] CIP-004/LSPG Electronic and Physical Access Review Work In scope=True  serves=CIP-004
+[10/69] CIP-004/LSPG OT CIP Exceptional Circumstances V9.pdf       scope=True  serves=CIP-003,CIP-004,CIP-006,CIP-007,CIP-010,CIP-012
+[11/69] CIP-004/LSPG Personnel Risk Assessment Procedure v9.pdf    scope=True  serves=CIP-004
+[12/69] CIP-004/LSPG Physical Access Control Procedure v11.pdf     scope=True  serves=CIP-004,CIP-006
+[13/69] CIP-004/LSPG Service Request Work Instruction v4.pdf       scope=True  serves=CIP-004,CIP-007
+[14/69] CIP-004/OT Cyber Security Training and Awareness Procedure scope=True  serves=CIP-004
+[15/69] CIP-004/OT Electronic Access Controls v6.pdf               scope=True  serves=CIP-003,CIP-005,CIP-007
+[16/69] CIP-005/LSPG Bomgar Remote Access Session Work Instruction scope=True  serves=CIP-005
+[17/69] CIP-005/LSPG ESP and CIP Security Zone Commissioning Proce scope=True  serves=CIP-005
+[18/69] CIP-005/LSPG Electronic Security Perimeter and IRA Procedu scope=True  serves=CIP-005
+[19/69] CIP-005/LSPG Network Cable Color Codes Work Instruction v6 scope=True  serves=CIP-005
+[20/69] CIP-005/LSPG Network Drawing Work Instruction v6.pdf       scope=True  serves=CIP-005
+[21/69] CIP-005/LSPG OT Naming Conventions v9.pdf                  scope=False serves=-
+[22/69] CIP-005/LSPG TFE Procedure v4.pdf                          scope=True  serves=CIP-005,CIP-006,CIP-007,CIP-010
+[23/69] CIP-005/LSPG User Open Session Report Work Instruction v4. scope=True  serves=CIP-005
+[24/69] CIP-005/LSPG Vendor Remote Access Management Procedure v10 scope=True  serves=CIP-003,CIP-005,CIP-013
+[25/69] CIP-005/LSPG Zero Trust Procedure v2.pdf                   scope=True  serves=CIP-003,CIP-005,CIP-007,CIP-010
+[26/69] CIP-005/OT Firewall Management Work Instruction v8.pdf     scope=True  serves=CIP-005
+[27/69] CIP-005/OT IP Address Management Work Instruction v4.pdf   scope=True  serves=CIP-005
+[28/69] CIP-005/OT Intrusion Detection-Prevention Systems Work Ins scope=True  serves=CIP-003,CIP-005
+[29/69] CIP-005/OT Managing Centralized Electronic Access Control  scope=True  serves=CIP-005
+[30/69] CIP-005/OT Network External Service Activation v4.pdf      scope=True  serves=CIP-005
+[31/69] CIP-006/LSPG CIP-006 Physical Security Plan V14.pdf        scope=True  serves=CIP-006
+[32/69] CIP-006/LSPG Key Management Work Instruction v6.pdf        scope=False serves=-
+[33/69] CIP-006/LSPG Visitor Control Procedure V7.pdf              scope=True  serves=CIP-006
+[34/69] CIP-006/PACS Maintenance and Testing Form.pdf              scope=True  serves=CIP-006
+[35/69] CIP-006/Substation Access Procedure V10.pdf                scope=False serves=-
+[36/69] CIP-007/IDS Signature Pattern Updates WI v7.pdf            scope=True  serves=CIP-007
+[37/69] CIP-007/LSPG Account Management Procedure v6.pdf           scope=True  serves=CIP-007
+[38/69] CIP-007/LSPG Cyber Security Event Monitoring Procedure v10 scope=True  serves=CIP-007
+[39/69] CIP-007/LSPG Malicious Code Response WI v7.pdf             scope=True  serves=CIP-007
+[40/69] CIP-007/LSPG Patching Validation Work Instruction v3.pdf   scope=True  serves=CIP-007
+[41/69] CIP-007/LSPG Security Controls Testing v6.pdf              scope=True  serves=CIP-007,CIP-010
+[42/69] CIP-007/LSPG Security Patch Management Procedure V11.pdf   scope=True  serves=CIP-007
+[43/69] CIP-007/LSPG Security Patch Management Work Instruction v7 scope=True  serves=CIP-007
+[44/69] CIP-007/OT CMLAP Verification WI v6.pdf                    scope=True  serves=CIP-007
+[45/69] CIP-007/OT Malicious Code Prevention Process V10.pdf       scope=True  serves=CIP-007
+[46/69] CIP-008/OT Security Incident Response V14.pdf              scope=True  serves=CIP-008
+[47/69] CIP-008/SIRT Contact List v4.pdf                           scope=False serves=-
+[48/69] CIP-009/LSPG CIP-009 Recovery Summary Report Form v3.pdf   scope=True  serves=CIP-009
+[49/69] CIP-009/LSPG Recovery Plans and Backup and Restore for BCS scope=True  serves=CIP-009
+[50/69] CIP-009/LSPG Server Build Work Instruction v7.pdf          scope=True  serves=CIP-009
+[51/69] CIP-009/OT Network Device Build Work Instruction v4.pdf    scope=True  serves=CIP-009
+[52/69] CIP-009/OT Operator Workstation Console Build WI v4.pdf    scope=True  serves=CIP-009
+[53/69] CIP-009/OT Physical Machine Recovery Work Instruction v5.p scope=True  serves=CIP-009
+[54/69] CIP-009/OT Virtual Machine Recovery Work Instruction v4.pd scope=True  serves=CIP-009
+[55/69] CIP-010/LSPG Change Management Procedure V7.pdf            scope=True  serves=CIP-005,CIP-007,CIP-009,CIP-010
+[56/69] CIP-010/LSPG Software Authenticity and Integrity Verificat scope=True  serves=CIP-010
+[57/69] CIP-010/LSPG Transient Cyber Asset and Removable Media Pla scope=True  serves=CIP-010
+[58/69] CIP-010/OT Change Management Work Instruction V7.pdf       scope=True  serves=CIP-010
+[59/69] CIP-010/OT Configuration Change Monitoring Work Instructio scope=True  serves=CIP-007,CIP-010
+[60/69] CIP-010/OT Threat and Vulnerability Management Procedure V scope=True  serves=CIP-010
+[61/69] CIP-010/OT Vulnerability Management WI v1.pdf              scope=True  serves=CIP-010
+[62/69] CIP-011/Information Protection Program V15.pdf             scope=True  serves=CIP-011
+[63/69] CIP-011/LSPG BES Cyber Asset Reuse and Disposal v8.pdf     scope=True  serves=CIP-011
+[64/69] CIP-012/LSPG Communications Between Control Centers Plan v scope=True  serves=CIP-012
+[65/69] CIP-013/LSPG CIP-013 Procurement Procedure v8.pdf          scope=True  serves=CIP-013
+[66/69] CIP-013/LSPG CIP-013 Risk Assessment Procedure v8.pdf      scope=True  serves=CIP-013
+[67/69] CIP-013/LSPG Supply Chain Plan v8.pdf                      scope=True  serves=CIP-005,CIP-010,CIP-013
+[68/69] CIP-014/LSPG CIP-014 Physical Security Procedure V8.pdf    scope=True  serves=CIP-014
+[69/69] note/note-c7add17014402659a9cc                             scope=False serves=-
+WROTE reports/compliance/cite_and_scope/p2/document_scope_v2.json
+scoped 69/69; state a scope: 64; invalid-quote claims: 3
+family histogram: {"CIP-002": 3, "CIP-003": 9, "CIP-004": 12, "CIP-005": 19, "CIP-006": 9, "CIP-007": 20, "CIP-008": 2, "CIP-009": 9, "CIP-010": 15, "CIP-011": 3, "CIP-012": 4, "CIP-013": 5, "CIP-014": 1}

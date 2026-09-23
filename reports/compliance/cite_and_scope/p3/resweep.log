@@ -1,0 +1,285 @@
+== CIP-002-5.1a ==
+  CIP-002-5.1a Attachment 1 Part 1.1 wall=  52.5 s prefill= 25.389 s determined=0 corroborated=0 rejected=4
+  CIP-002-5.1a Attachment 1 Part 1.2 wall= 39.02 s prefill= 27.725 s determined=0 corroborated=1 rejected=0
+  CIP-002-5.1a Attachment 1 Part 1.3 wall= 44.06 s prefill=  29.13 s determined=0 corroborated=0 rejected=0
+  CIP-002-5.1a Attachment 1 Part 1.4 wall= 45.88 s prefill= 29.032 s determined=0 corroborated=0 rejected=1
+  CIP-002-5.1a Attachment 1 Part 2.1 wall= 54.52 s prefill= 29.114 s determined=1 corroborated=1 rejected=0
+  CIP-002-5.1a Attachment 1 Part 2.2 wall= 53.75 s prefill= 28.938 s determined=0 corroborated=0 rejected=2
+  CIP-002-5.1a Attachment 1 Part 2.3 wall= 41.58 s prefill= 29.415 s determined=0 corroborated=0 rejected=0
+  CIP-002-5.1a Attachment 1 Part 2.4 wall= 28.71 s prefill= 24.376 s determined=0 corroborated=0 rejected=0
+  CIP-002-5.1a Attachment 1 Part 2.5 wall= 29.75 s prefill=  25.14 s determined=0 corroborated=0 rejected=0
+  CIP-002-5.1a Attachment 1 Part 2.6 wall= 37.81 s prefill= 26.747 s determined=0 corroborated=0 rejected=0
+  CIP-002-5.1a Attachment 1 Part 2.7 wall= 30.58 s prefill= 24.295 s determined=0 corroborated=0 rejected=0
+  CIP-002-5.1a Attachment 1 Part 2.8 wall= 40.42 s prefill= 28.033 s determined=0 corroborated=0 rejected=0
+  CIP-002-5.1a Attachment 1 Part 2.9 wall= 40.23 s prefill= 30.001 s determined=0 corroborated=0 rejected=1
+  CIP-002-5.1a Attachment 1 Part 2.10 wall= 29.31 s prefill= 23.871 s determined=0 corroborated=0 rejected=0
+  CIP-002-5.1a Attachment 1 Part 2.11 wall= 41.34 s prefill= 25.551 s determined=0 corroborated=0 rejected=1
+  CIP-002-5.1a Attachment 1 Part 2.12 wall= 40.31 s prefill=  27.32 s determined=0 corroborated=0 rejected=0
+  CIP-002-5.1a Attachment 1 Part 2.13 wall= 49.75 s prefill= 28.784 s determined=0 corroborated=2 rejected=0
+  CIP-002-5.1a Attachment 1 Part 3.1 wall=  57.3 s prefill= 27.385 s determined=0 corroborated=0 rejected=4
+  CIP-002-5.1a Attachment 1 Part 3.2 wall= 54.06 s prefill=  32.83 s determined=0 corroborated=0 rejected=2
+  CIP-002-5.1a Attachment 1 Part 3.3 wall= 30.34 s prefill= 25.321 s determined=0 corroborated=0 rejected=0
+  CIP-002-5.1a Attachment 1 Part 3.4 wall=  36.1 s prefill= 28.416 s determined=0 corroborated=0 rejected=0
+  CIP-002-5.1a Attachment 1 Part 3.5 wall= 46.48 s prefill= 30.892 s determined=0 corroborated=0 rejected=2
+  CIP-002-5.1a Attachment 1 Part 3.6 wall= 30.79 s prefill= 27.128 s determined=0 corroborated=0 rejected=0
+  CIP-002-5.1a Attachment 1 Section 1 wall= 43.79 s prefill= 28.564 s determined=0 corroborated=0 rejected=1
+  CIP-002-5.1a Attachment 1 Section 2 wall=  43.0 s prefill= 26.657 s determined=0 corroborated=0 rejected=0
+  CIP-002-5.1a Attachment 1 Section 3 wall= 46.06 s prefill= 28.964 s determined=0 corroborated=0 rejected=1
+  CIP-002-5.1a R1              wall=129.52 s prefill= 85.547 s determined=0 corroborated=3 rejected=0
+  CIP-002-5.1a R1 Part 1.1     wall= 90.62 s prefill= 61.496 s determined=0 corroborated=0 rejected=0
+  CIP-002-5.1a R1 Part 1.2     wall= 80.48 s prefill= 60.601 s determined=0 corroborated=0 rejected=0
+  CIP-002-5.1a R1 Part 1.3     wall= 80.44 s prefill= 62.683 s determined=0 corroborated=0 rejected=0
+  CIP-002-5.1a R2              wall= 62.27 s prefill=   40.2 s determined=0 corroborated=0 rejected=0
+  CIP-002-5.1a R2 Part 2.1     wall= 46.41 s prefill= 33.292 s determined=0 corroborated=0 rejected=0
+  CIP-002-5.1a R2 Part 2.2     wall= 56.51 s prefill= 37.714 s determined=0 corroborated=0 rejected=0
+  33 requirements, 1634.0 s, determined 1, corroborated 7, cache collapse x0.8
+== CIP-003-8 ==
+  CIP-003-8 Attachment 1 Part 1 wall= 46.11 s prefill=  20.63 s determined=0 corroborated=0 rejected=3
+  CIP-003-8 Attachment 1 Part 2 wall= 39.05 s prefill= 21.478 s determined=0 corroborated=0 rejected=1
+  CIP-003-8 Attachment 1 Part 3 wall=114.64 s prefill= 24.242 s determined=0 corroborated=0 rejected=0
+  CIP-003-8 Attachment 1 Part 3.1 wall= 35.68 s prefill= 15.348 s determined=0 corroborated=0 rejected=2
+  CIP-003-8 Attachment 1 Part 3.2 wall= 34.67 s prefill= 15.747 s determined=0 corroborated=0 rejected=2
+  CIP-003-8 Attachment 1 Part 4 wall= 64.85 s prefill= 26.057 s determined=3 corroborated=0 rejected=2
+  CIP-003-8 Attachment 1 Part 4.1 wall= 42.75 s prefill= 25.404 s determined=0 corroborated=0 rejected=1
+  CIP-003-8 Attachment 1 Part 4.2 wall= 50.12 s prefill= 13.661 s determined=1 corroborated=1 rejected=3
+  CIP-003-8 Attachment 1 Part 4.3 wall= 55.96 s prefill= 22.188 s determined=0 corroborated=0 rejected=4
+  CIP-003-8 Attachment 1 Part 4.4 wall= 62.53 s prefill= 27.028 s determined=0 corroborated=0 rejected=4
+  CIP-003-8 Attachment 1 Part 4.5 wall= 53.88 s prefill= 29.634 s determined=0 corroborated=0 rejected=1
+  CIP-003-8 Attachment 1 Part 4.6 wall= 46.29 s prefill= 21.569 s determined=0 corroborated=0 rejected=3
+  CIP-003-8 Attachment 1 Part 5 wall=121.49 s prefill= 29.285 s determined=0 corroborated=0 rejected=0
+  CIP-003-8 Attachment 1 Part 5.1 wall= 46.87 s prefill= 22.629 s determined=1 corroborated=2 rejected=1
+  CIP-003-8 Attachment 1 Part 5.2 wall= 47.59 s prefill=  20.55 s determined=1 corroborated=2 rejected=1
+  CIP-003-8 Attachment 1 Part 5.2.1 wall= 45.41 s prefill= 22.017 s determined=0 corroborated=0 rejected=1
+  CIP-003-8 Attachment 1 Part 5.2.2 wall= 49.22 s prefill= 22.116 s determined=1 corroborated=1 rejected=2
+  CIP-003-8 Attachment 1 Part 5.3 wall= 42.31 s prefill= 18.953 s determined=0 corroborated=0 rejected=2
+  CIP-003-8 Attachment 1 Part 5.3.1 wall=  51.4 s prefill= 19.529 s determined=2 corroborated=3 rejected=1
+  CIP-003-8 Attachment 1 Part 5.3.2 wall= 54.41 s prefill= 20.043 s determined=0 corroborated=0 rejected=4
+  CIP-003-8 R1                 wall=312.61 s prefill=170.622 s determined=0 corroborated=0 rejected=0
+  CIP-003-8 R1 Part 1.1.1      wall= 46.27 s prefill= 21.347 s determined=0 corroborated=0 rejected=1
+  CIP-003-8 R1 Part 1.1.2      wall= 93.84 s prefill= 31.575 s determined=2 corroborated=2 rejected=10
+  CIP-003-8 R1 Part 1.1.3      wall= 50.84 s prefill= 21.093 s determined=0 corroborated=0 rejected=3
+  CIP-003-8 R1 Part 1.1.4      wall= 38.49 s prefill= 19.922 s determined=0 corroborated=1 rejected=0
+  CIP-003-8 R1 Part 1.1.5      wall= 41.47 s prefill= 27.768 s determined=0 corroborated=0 rejected=1
+  CIP-003-8 R1 Part 1.1.6      wall= 52.62 s prefill=  29.48 s determined=0 corroborated=0 rejected=2
+  CIP-003-8 R1 Part 1.1.7      wall= 46.65 s prefill= 31.163 s determined=0 corroborated=0 rejected=0
+  CIP-003-8 R1 Part 1.1.8      wall=  37.4 s prefill= 20.023 s determined=0 corroborated=0 rejected=1
+  CIP-003-8 R1 Part 1.1.9      wall= 44.94 s prefill=  22.48 s determined=0 corroborated=4 rejected=1
+  CIP-003-8 R1 Part 1.2.1      wall= 30.95 s prefill= 19.223 s determined=0 corroborated=0 rejected=0
+  CIP-003-8 R1 Part 1.2.2      wall= 54.02 s prefill= 25.459 s determined=0 corroborated=0 rejected=3
+  CIP-003-8 R1 Part 1.2.3      wall=  38.2 s prefill= 21.871 s determined=0 corroborated=0 rejected=1
+  CIP-003-8 R1 Part 1.2.4      wall= 42.83 s prefill= 20.976 s determined=0 corroborated=1 rejected=1
+  CIP-003-8 R1 Part 1.2.5      wall= 54.72 s prefill= 30.402 s determined=0 corroborated=0 rejected=1
+  CIP-003-8 R1 Part 1.2.6      wall= 46.63 s prefill= 23.632 s determined=0 corroborated=0 rejected=0
+  CIP-003-8 R2                 wall=128.51 s prefill= 91.163 s determined=0 corroborated=0 rejected=4
+  CIP-003-8 R3                 wall= 52.39 s prefill= 13.697 s determined=1 corroborated=5 rejected=1
+  CIP-003-8 R4                 wall= 50.63 s prefill= 15.986 s determined=0 corroborated=0 rejected=6
+  39 requirements, 2369.74 s, determined 12, corroborated 22, cache collapse x0.7
+== CIP-003-9 ==
+  CIP-003-9 Attachment 1 Part 1 wall= 36.71 s prefill= 18.773 s determined=0 corroborated=0 rejected=1
+  CIP-003-9 Attachment 1 Part 2 wall= 52.62 s prefill= 20.416 s determined=3 corroborated=1 rejected=2
+  CIP-003-9 Attachment 1 Part 3 wall=113.28 s prefill= 23.128 s determined=0 corroborated=0 rejected=0
+  CIP-003-9 Attachment 1 Part 3.1 wall= 33.32 s prefill= 11.355 s determined=0 corroborated=3 rejected=0
+  CIP-003-9 Attachment 1 Part 3.2 wall= 35.43 s prefill= 15.777 s determined=0 corroborated=0 rejected=4
+  CIP-003-9 Attachment 1 Part 4 wall= 48.09 s prefill=  26.19 s determined=0 corroborated=0 rejected=0
+  CIP-003-9 Attachment 1 Part 4.1 wall= 46.25 s prefill= 25.695 s determined=0 corroborated=2 rejected=0
+  CIP-003-9 Attachment 1 Part 4.2 wall= 29.18 s prefill= 13.075 s determined=0 corroborated=0 rejected=2
+  CIP-003-9 Attachment 1 Part 4.3 wall= 40.14 s prefill= 22.033 s determined=0 corroborated=0 rejected=1
+  CIP-003-9 Attachment 1 Part 4.4 wall= 53.52 s prefill= 23.472 s determined=0 corroborated=0 rejected=3
+  CIP-003-9 Attachment 1 Part 4.5 wall=  85.1 s prefill=  26.33 s determined=3 corroborated=0 rejected=7
+  CIP-003-9 Attachment 1 Part 4.6 wall= 32.81 s prefill= 20.304 s determined=0 corroborated=0 rejected=2
+  CIP-003-9 Attachment 1 Part 5 wall=116.83 s prefill= 27.228 s determined=0 corroborated=0 rejected=0
+  CIP-003-9 Attachment 1 Part 5.1 wall= 64.84 s prefill= 20.809 s determined=3 corroborated=1 rejected=2
+  CIP-003-9 Attachment 1 Part 5.2 wall= 63.77 s prefill= 18.518 s determined=3 corroborated=2 rejected=2
+  CIP-003-9 Attachment 1 Part 5.2.1 wall= 47.84 s prefill= 20.625 s determined=0 corroborated=0 rejected=2
+  CIP-003-9 Attachment 1 Part 5.2.2 wall= 45.99 s prefill= 20.531 s determined=0 corroborated=0 rejected=2
+  CIP-003-9 Attachment 1 Part 5.3 wall=  51.7 s prefill= 17.714 s determined=0 corroborated=0 rejected=4
+  CIP-003-9 Attachment 1 Part 5.3.1 wall= 55.15 s prefill= 18.734 s determined=0 corroborated=0 rejected=2
+  CIP-003-9 Attachment 1 Part 5.3.2 wall= 51.61 s prefill= 19.368 s determined=0 corroborated=0 rejected=3
+  CIP-003-9 Attachment 1 Part 6 wall=120.19 s prefill=  28.67 s determined=0 corroborated=0 rejected=0
+  CIP-003-9 Attachment 1 Part 6.1 wall=112.09 s prefill= 22.448 s determined=0 corroborated=0 rejected=0
+  CIP-003-9 Attachment 1 Part 6.2 wall= 63.72 s prefill= 22.261 s determined=0 corroborated=2 rejected=6
+  CIP-003-9 Attachment 1 Part 6.3 wall= 85.05 s prefill= 21.477 s determined=0 corroborated=0 rejected=10
+  CIP-003-9 R1                 wall=297.73 s prefill=155.914 s determined=0 corroborated=0 rejected=0
+  CIP-003-9 R1 Part 1.1.1      wall= 29.74 s prefill= 12.045 s determined=0 corroborated=2 rejected=0
+  CIP-003-9 R1 Part 1.1.2      wall=111.22 s prefill= 22.073 s determined=0 corroborated=0 rejected=0
+  CIP-003-9 R1 Part 1.1.3      wall= 27.61 s prefill= 12.466 s determined=0 corroborated=0 rejected=2
+  CIP-003-9 R1 Part 1.1.4      wall= 32.76 s prefill= 11.735 s determined=0 corroborated=0 rejected=1
+  CIP-003-9 R1 Part 1.1.5      wall= 45.02 s prefill=  18.13 s determined=0 corroborated=0 rejected=4
+  CIP-003-9 R1 Part 1.1.6      wall= 41.17 s prefill= 19.319 s determined=0 corroborated=0 rejected=1
+  CIP-003-9 R1 Part 1.1.7      wall= 37.71 s prefill= 20.964 s determined=0 corroborated=0 rejected=1
+  CIP-003-9 R1 Part 1.1.8      wall= 26.08 s prefill=  11.16 s determined=0 corroborated=2 rejected=0
+  CIP-003-9 R1 Part 1.1.9      wall= 33.56 s prefill= 13.534 s determined=0 corroborated=3 rejected=1
+  CIP-003-9 R1 Part 1.2.1      wall= 25.36 s prefill= 10.251 s determined=0 corroborated=2 rejected=0
+  CIP-003-9 R1 Part 1.2.2      wall= 27.44 s prefill=  15.57 s determined=0 corroborated=0 rejected=2
+  CIP-003-9 R1 Part 1.2.3      wall=  25.8 s prefill= 12.634 s determined=0 corroborated=0 rejected=1
+  CIP-003-9 R1 Part 1.2.4      wall= 32.41 s prefill= 11.416 s determined=0 corroborated=4 rejected=0
+  CIP-003-9 R1 Part 1.2.5      wall= 49.66 s prefill= 19.438 s determined=1 corroborated=4 rejected=0
+  CIP-003-9 R1 Part 1.2.6      wall=106.92 s prefill= 17.968 s determined=0 corroborated=0 rejected=0
+  CIP-003-9 R1 Part 1.2.7      wall= 35.58 s prefill= 14.791 s determined=1 corroborated=3 rejected=0
+  CIP-003-9 R2                 wall= 88.07 s prefill= 35.055 s determined=2 corroborated=0 rejected=4
+  CIP-003-9 R3                 wall= 26.94 s prefill= 11.507 s determined=0 corroborated=0 rejected=0
+  CIP-003-9 R4                 wall= 42.53 s prefill= 13.369 s determined=0 corroborated=5 rejected=1
+  44 requirements, 2629.09 s, determined 16, corroborated 36, cache collapse x0.9
+== CIP-004-7 ==
+  CIP-004-7 R1 Part 1.1        wall= 52.34 s prefill= 34.396 s determined=0 corroborated=0 rejected=1
+  CIP-004-7 R2 Part 2.1        wall= 58.48 s prefill= 35.959 s determined=0 corroborated=0 rejected=1
+  CIP-004-7 R2 Part 2.2        wall= 57.62 s prefill= 40.929 s determined=0 corroborated=0 rejected=0
+  CIP-004-7 R2 Part 2.3        wall= 51.71 s prefill= 34.993 s determined=0 corroborated=0 rejected=0
+  CIP-004-7 R3 Part 3.1        wall= 69.44 s prefill= 38.818 s determined=0 corroborated=5 rejected=0
+  CIP-004-7 R3 Part 3.2        wall= 51.18 s prefill= 40.182 s determined=0 corroborated=0 rejected=0
+  CIP-004-7 R3 Part 3.3        wall= 64.77 s prefill= 39.037 s determined=0 corroborated=5 rejected=0
+  CIP-004-7 R3 Part 3.4        wall= 49.17 s prefill= 36.424 s determined=0 corroborated=0 rejected=0
+  CIP-004-7 R3 Part 3.5        wall=  55.0 s prefill= 37.354 s determined=0 corroborated=0 rejected=0
+  CIP-004-7 R4 Part 4.1        wall= 90.46 s prefill= 45.801 s determined=0 corroborated=0 rejected=5
+  CIP-004-7 R4 Part 4.2        wall= 77.01 s prefill= 42.383 s determined=0 corroborated=0 rejected=1
+  CIP-004-7 R4 Part 4.3        wall= 64.95 s prefill= 41.754 s determined=0 corroborated=0 rejected=1
+  CIP-004-7 R5 Part 5.1        wall=135.29 s prefill= 42.438 s determined=0 corroborated=0 rejected=0
+  CIP-004-7 R5 Part 5.2        wall= 91.32 s prefill= 45.744 s determined=3 corroborated=0 rejected=2
+  CIP-004-7 R5 Part 5.3        wall= 51.51 s prefill=  36.79 s determined=0 corroborated=0 rejected=0
+  CIP-004-7 R5 Part 5.4        wall= 70.73 s prefill= 42.927 s determined=0 corroborated=0 rejected=1
+  CIP-004-7 R6 Part 6.1        wall= 61.12 s prefill= 44.177 s determined=0 corroborated=0 rejected=0
+  CIP-004-7 R6 Part 6.2        wall= 64.82 s prefill= 43.944 s determined=1 corroborated=0 rejected=0
+  CIP-004-7 R6 Part 6.3        wall= 75.96 s prefill=  45.05 s determined=1 corroborated=3 rejected=1
+  19 requirements, 1293.12 s, determined 5, corroborated 13, cache collapse x0.8
+== CIP-005-7 ==
+  CIP-005-7 R1 Part 1.1        wall= 65.52 s prefill=  43.22 s determined=0 corroborated=0 rejected=1
+  CIP-005-7 R1 Part 1.2        wall= 91.57 s prefill= 50.619 s determined=0 corroborated=3 rejected=2
+  CIP-005-7 R1 Part 1.3        wall= 71.65 s prefill= 42.323 s determined=0 corroborated=4 rejected=0
+  CIP-005-7 R1 Part 1.4        wall= 70.01 s prefill= 49.146 s determined=0 corroborated=0 rejected=1
+  CIP-005-7 R1 Part 1.5        wall= 63.52 s prefill= 43.638 s determined=0 corroborated=0 rejected=1
+  CIP-005-7 R2 Part 2.1        wall=134.71 s prefill= 38.406 s determined=0 corroborated=0 rejected=0
+  CIP-005-7 R2 Part 2.2        wall= 70.28 s prefill= 34.159 s determined=0 corroborated=0 rejected=6
+  CIP-005-7 R2 Part 2.3        wall= 63.17 s prefill= 34.045 s determined=1 corroborated=3 rejected=0
+  CIP-005-7 R2 Part 2.4        wall= 58.89 s prefill= 32.185 s determined=0 corroborated=0 rejected=4
+  CIP-005-7 R2 Part 2.5        wall= 76.75 s prefill= 35.179 s determined=0 corroborated=0 rejected=7
+  CIP-005-7 R3 Part 3.1        wall= 39.92 s prefill= 23.622 s determined=0 corroborated=0 rejected=0
+  CIP-005-7 R3 Part 3.2        wall= 55.22 s prefill= 23.465 s determined=1 corroborated=3 rejected=0
+  12 requirements, 861.4 s, determined 2, corroborated 13, cache collapse x1.2
+== CIP-006-6 ==
+  CIP-006-6 R1 Part 1.1        wall= 49.92 s prefill= 23.289 s determined=1 corroborated=2 rejected=1
+  CIP-006-6 R1 Part 1.2        wall=  44.3 s prefill= 23.768 s determined=0 corroborated=4 rejected=0
+  CIP-006-6 R1 Part 1.3        wall= 55.08 s prefill= 23.907 s determined=1 corroborated=3 rejected=1
+  CIP-006-6 R1 Part 1.4        wall= 50.88 s prefill= 24.409 s determined=0 corroborated=5 rejected=0
+  CIP-006-6 R1 Part 1.5        wall= 47.16 s prefill= 23.541 s determined=0 corroborated=1 rejected=0
+  CIP-006-6 R1 Part 1.6        wall= 96.21 s prefill=  27.16 s determined=6 corroborated=6 rejected=2
+  CIP-006-6 R1 Part 1.7        wall= 51.71 s prefill= 27.816 s determined=0 corroborated=0 rejected=1
+  CIP-006-6 R1 Part 1.8        wall= 47.92 s prefill= 26.817 s determined=0 corroborated=0 rejected=1
+  CIP-006-6 R1 Part 1.9        wall= 49.73 s prefill= 27.257 s determined=0 corroborated=0 rejected=1
+  CIP-006-6 R1 Part 1.10       wall= 50.49 s prefill=  25.88 s determined=0 corroborated=3 rejected=0
+  CIP-006-6 R2 Part 2.1        wall= 40.63 s prefill= 18.071 s determined=0 corroborated=2 rejected=1
+  CIP-006-6 R2 Part 2.2        wall= 46.79 s prefill= 19.721 s determined=0 corroborated=2 rejected=3
+  CIP-006-6 R2 Part 2.3        wall= 29.11 s prefill= 18.063 s determined=0 corroborated=0 rejected=0
+  CIP-006-6 R3                 wall= 48.24 s prefill=  19.31 s determined=3 corroborated=2 rejected=1
+  14 requirements, 708.33 s, determined 11, corroborated 30, cache collapse x1.0
+== CIP-007-6 ==
+  CIP-007-6 R1 Part 1.1        wall= 81.74 s prefill= 59.843 s determined=0 corroborated=0 rejected=1
+  CIP-007-6 R1 Part 1.2        wall=  79.0 s prefill= 56.841 s determined=0 corroborated=0 rejected=1
+  CIP-007-6 R2 Part 2.1        wall= 94.21 s prefill= 57.009 s determined=0 corroborated=0 rejected=3
+  CIP-007-6 R2 Part 2.2        wall= 89.19 s prefill= 62.406 s determined=0 corroborated=0 rejected=1
+  CIP-007-6 R2 Part 2.3        wall= 85.65 s prefill= 59.179 s determined=0 corroborated=0 rejected=1
+  CIP-007-6 R2 Part 2.4        wall=  89.3 s prefill= 61.679 s determined=0 corroborated=0 rejected=1
+  CIP-007-6 R3 Part 3.1        wall=  84.1 s prefill= 50.919 s determined=0 corroborated=4 rejected=1
+  CIP-007-6 R3 Part 3.2        wall= 80.08 s prefill= 56.709 s determined=0 corroborated=1 rejected=1
+  CIP-007-6 R3 Part 3.3        wall= 76.71 s prefill= 49.032 s determined=1 corroborated=3 rejected=1
+  CIP-007-6 R4 Part 4.1        wall= 82.13 s prefill= 58.517 s determined=0 corroborated=0 rejected=2
+  CIP-007-6 R4 Part 4.2        wall= 83.05 s prefill= 57.186 s determined=0 corroborated=0 rejected=1
+  CIP-007-6 R4 Part 4.3        wall= 80.37 s prefill=  57.41 s determined=0 corroborated=0 rejected=1
+  CIP-007-6 R4 Part 4.4        wall= 93.52 s prefill= 56.776 s determined=0 corroborated=5 rejected=0
+  CIP-007-6 R5 Part 5.1        wall=127.35 s prefill= 62.877 s determined=0 corroborated=0 rejected=7
+  CIP-007-6 R5 Part 5.2        wall= 80.32 s prefill=  59.04 s determined=0 corroborated=2 rejected=1
+  CIP-007-6 R5 Part 5.3        wall= 79.71 s prefill= 59.208 s determined=0 corroborated=0 rejected=0
+  CIP-007-6 R5 Part 5.4        wall= 89.19 s prefill= 65.145 s determined=1 corroborated=2 rejected=1
+  CIP-007-6 R5 Part 5.5        wall= 87.07 s prefill=  65.99 s determined=0 corroborated=0 rejected=0
+  CIP-007-6 R5 Part 5.6        wall=106.94 s prefill= 66.885 s determined=1 corroborated=2 rejected=3
+  CIP-007-6 R5 Part 5.7        wall= 94.98 s prefill= 69.969 s determined=0 corroborated=0 rejected=1
+  20 requirements, 1764.85 s, determined 3, corroborated 19, cache collapse x1.0
+== CIP-008-6 ==
+  CIP-008-6 R1 Part 1.1        wall= 54.84 s prefill= 35.583 s determined=0 corroborated=0 rejected=0
+  CIP-008-6 R1 Part 1.2        wall= 76.05 s prefill= 36.846 s determined=1 corroborated=1 rejected=3
+  CIP-008-6 R1 Part 1.3        wall= 82.57 s prefill= 43.431 s determined=0 corroborated=0 rejected=6
+  CIP-008-6 R1 Part 1.4        wall= 66.41 s prefill= 40.085 s determined=0 corroborated=0 rejected=2
+  CIP-008-6 R2 Part 2.1        wall= 70.03 s prefill= 44.268 s determined=0 corroborated=0 rejected=1
+  CIP-008-6 R2 Part 2.2        wall= 72.02 s prefill=  44.81 s determined=0 corroborated=1 rejected=2
+  CIP-008-6 R2 Part 2.3        wall= 60.12 s prefill= 37.847 s determined=1 corroborated=1 rejected=1
+  CIP-008-6 R3 Part 3.1        wall= 63.95 s prefill= 43.898 s determined=0 corroborated=0 rejected=0
+  CIP-008-6 R3 Part 3.2        wall= 60.28 s prefill= 38.433 s determined=0 corroborated=0 rejected=1
+  CIP-008-6 R4 Part 4.1        wall= 67.38 s prefill= 42.535 s determined=0 corroborated=0 rejected=3
+  CIP-008-6 R4 Part 4.2        wall= 59.18 s prefill= 39.593 s determined=0 corroborated=0 rejected=0
+  CIP-008-6 R4 Part 4.3        wall= 32.24 s prefill= 25.253 s determined=0 corroborated=0 rejected=0
+  12 requirements, 765.21 s, determined 2, corroborated 3, cache collapse x0.9
+== CIP-009-6 ==
+  CIP-009-6 R1 Part 1.1        wall= 46.59 s prefill= 20.942 s determined=1 corroborated=2 rejected=1
+  CIP-009-6 R1 Part 1.2        wall= 29.05 s prefill= 17.966 s determined=0 corroborated=1 rejected=0
+  CIP-009-6 R1 Part 1.3        wall= 49.77 s prefill= 23.189 s determined=2 corroborated=2 rejected=1
+  CIP-009-6 R1 Part 1.4        wall= 63.42 s prefill= 23.166 s determined=1 corroborated=6 rejected=1
+  CIP-009-6 R1 Part 1.5        wall= 47.25 s prefill= 22.526 s determined=1 corroborated=2 rejected=1
+  CIP-009-6 R2 Part 2.1        wall= 41.36 s prefill= 21.272 s determined=0 corroborated=0 rejected=0
+  CIP-009-6 R2 Part 2.2        wall= 33.99 s prefill= 19.705 s determined=0 corroborated=0 rejected=0
+  CIP-009-6 R2 Part 2.3        wall= 85.51 s prefill= 30.366 s determined=5 corroborated=2 rejected=2
+  CIP-009-6 R3 Part 3.1        wall= 50.72 s prefill= 27.285 s determined=0 corroborated=0 rejected=0
+  CIP-009-6 R3 Part 3.2        wall= 73.63 s prefill= 28.429 s determined=1 corroborated=1 rejected=2
+  10 requirements, 521.42 s, determined 11, corroborated 16, cache collapse x0.9
+== CIP-010-4 ==
+  CIP-010-4 R1 Part 1.1        wall= 58.24 s prefill= 19.509 s determined=0 corroborated=0 rejected=4
+  CIP-010-4 R1 Part 1.2        wall= 43.67 s prefill=  22.55 s determined=1 corroborated=1 rejected=0
+  CIP-010-4 R1 Part 1.3        wall= 40.22 s prefill= 21.908 s determined=0 corroborated=0 rejected=1
+  CIP-010-4 R1 Part 1.4        wall= 60.36 s prefill= 21.966 s determined=0 corroborated=0 rejected=0
+  CIP-010-4 R1 Part 1.5        wall=  43.5 s prefill= 18.846 s determined=0 corroborated=0 rejected=1
+  CIP-010-4 R1 Part 1.6        wall= 43.31 s prefill= 20.476 s determined=0 corroborated=0 rejected=1
+  CIP-010-4 R2 Part 2.1        wall= 35.56 s prefill= 13.196 s determined=0 corroborated=2 rejected=1
+  CIP-010-4 R3 Part 3.1        wall= 46.65 s prefill= 15.037 s determined=0 corroborated=0 rejected=3
+  CIP-010-4 R3 Part 3.2        wall=  36.1 s prefill= 14.664 s determined=0 corroborated=0 rejected=0
+  CIP-010-4 R3 Part 3.3        wall= 43.79 s prefill= 20.544 s determined=0 corroborated=0 rejected=1
+  CIP-010-4 R3 Part 3.4        wall= 28.65 s prefill= 11.965 s determined=0 corroborated=0 rejected=0
+  CIP-010-4 R4                 wall= 95.97 s prefill=  47.02 s determined=0 corroborated=0 rejected=4
+  12 requirements, 576.16 s, determined 1, corroborated 3, cache collapse x0.9
+== CIP-011-3 ==
+  CIP-011-3 R1 Part 1.1        wall= 35.24 s prefill= 15.842 s determined=0 corroborated=0 rejected=1
+  CIP-011-3 R1 Part 1.2        wall= 34.87 s prefill=  15.55 s determined=0 corroborated=2 rejected=1
+  CIP-011-3 R2 Part 2.1        wall= 38.81 s prefill= 13.732 s determined=2 corroborated=2 rejected=0
+  CIP-011-3 R2 Part 2.2        wall=  29.6 s prefill= 14.467 s determined=0 corroborated=0 rejected=0
+  4 requirements, 138.57 s, determined 2, corroborated 4, cache collapse x1.1
+== CIP-012-2 ==
+  CIP-012-2 R1                 wall= 74.93 s prefill= 36.453 s determined=0 corroborated=0 rejected=2
+  CIP-012-2 R1 Part 1.1        wall= 48.99 s prefill= 21.241 s determined=2 corroborated=2 rejected=0
+  CIP-012-2 R1 Part 1.2        wall= 47.62 s prefill= 21.497 s determined=0 corroborated=0 rejected=2
+  CIP-012-2 R1 Part 1.3        wall= 36.24 s prefill= 15.212 s determined=0 corroborated=1 rejected=0
+  CIP-012-2 R1 Part 1.4        wall= 37.76 s prefill= 21.191 s determined=1 corroborated=0 rejected=0
+  CIP-012-2 R1 Part 1.5        wall= 38.84 s prefill= 16.065 s determined=2 corroborated=1 rejected=0
+  6 requirements, 284.44 s, determined 5, corroborated 4, cache collapse x1.9
+== CIP-013-2 ==
+  CIP-013-2 R1                 wall=134.07 s prefill= 43.777 s determined=5 corroborated=10 rejected=0
+  CIP-013-2 R1 Part 1.1        wall= 40.85 s prefill= 25.585 s determined=0 corroborated=0 rejected=0
+  CIP-013-2 R1 Part 1.2        wall= 39.85 s prefill= 20.825 s determined=0 corroborated=2 rejected=0
+  CIP-013-2 R1 Part 1.2.1      wall= 49.43 s prefill= 24.877 s determined=0 corroborated=1 rejected=1
+  CIP-013-2 R1 Part 1.2.2      wall=  57.9 s prefill= 24.799 s determined=3 corroborated=2 rejected=0
+  CIP-013-2 R1 Part 1.2.3      wall= 45.48 s prefill= 21.102 s determined=1 corroborated=4 rejected=0
+  CIP-013-2 R1 Part 1.2.4      wall= 39.76 s prefill= 25.231 s determined=0 corroborated=0 rejected=0
+  CIP-013-2 R1 Part 1.2.5      wall= 43.66 s prefill= 23.671 s determined=0 corroborated=0 rejected=1
+  CIP-013-2 R1 Part 1.2.6      wall= 35.32 s prefill= 17.689 s determined=0 corroborated=1 rejected=0
+  CIP-013-2 R2                 wall= 59.23 s prefill= 25.044 s determined=0 corroborated=0 rejected=4
+  CIP-013-2 R3                 wall= 27.28 s prefill=  11.25 s determined=0 corroborated=0 rejected=0
+  11 requirements, 573.0 s, determined 9, corroborated 20, cache collapse x2.0
+== CIP-014-3 ==
+  CIP-014-3 R1 Part 1.1        wall= 69.21 s prefill= 34.987 s determined=0 corroborated=5 rejected=0
+  CIP-014-3 R1 Part 1.2        wall= 49.79 s prefill= 32.282 s determined=0 corroborated=0 rejected=0
+  CIP-014-3 R2 Part 2.1        wall= 71.74 s prefill= 34.946 s determined=0 corroborated=0 rejected=5
+  CIP-014-3 R2 Part 2.2        wall= 57.87 s prefill= 34.986 s determined=0 corroborated=0 rejected=0
+  CIP-014-3 R2 Part 2.3        wall= 48.11 s prefill=  33.63 s determined=1 corroborated=1 rejected=0
+  CIP-014-3 R2 Part 2.4        wall= 56.09 s prefill= 34.393 s determined=0 corroborated=0 rejected=1
+  CIP-014-3 R4                 wall= 59.29 s prefill= 39.256 s determined=0 corroborated=0 rejected=0
+  CIP-014-3 R4 Part 4.1        wall= 59.38 s prefill=  33.37 s determined=0 corroborated=0 rejected=1
+  CIP-014-3 R4 Part 4.2        wall= 40.33 s prefill= 32.017 s determined=0 corroborated=0 rejected=0
+  CIP-014-3 R4 Part 4.3        wall= 52.17 s prefill= 34.024 s determined=0 corroborated=0 rejected=1
+  CIP-014-3 R5                 wall=  69.8 s prefill= 41.378 s determined=0 corroborated=0 rejected=1
+  CIP-014-3 R5 Part 5.1        wall= 50.92 s prefill= 34.484 s determined=0 corroborated=0 rejected=1
+  CIP-014-3 R5 Part 5.2        wall= 34.27 s prefill= 25.022 s determined=0 corroborated=0 rejected=0
+  CIP-014-3 R5 Part 5.3        wall=124.44 s prefill= 33.399 s determined=7 corroborated=9 rejected=7
+  CIP-014-3 R5 Part 5.4        wall= 43.58 s prefill= 34.161 s determined=0 corroborated=0 rejected=1
+  CIP-014-3 R6 Part 6.1        wall= 67.74 s prefill= 35.382 s determined=1 corroborated=3 rejected=1
+  CIP-014-3 R6 Part 6.2        wall= 70.83 s prefill= 34.862 s determined=0 corroborated=2 rejected=2
+  CIP-014-3 R6 Part 6.3        wall= 54.77 s prefill= 36.152 s determined=0 corroborated=0 rejected=0
+  CIP-014-3 R6 Part 6.4        wall= 58.49 s prefill= 34.679 s determined=0 corroborated=3 rejected=0
+  19 requirements, 1138.99 s, determined 9, corroborated 23, cache collapse x1.0
+
+family so far: 255 requirements, 15258 s total, 59.8 s/requirement
