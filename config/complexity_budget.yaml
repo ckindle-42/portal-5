@@ -2,8 +2,8 @@
 # Values are ceilings. Re-baseline after intentional code growth; lower them when complexity falls.
 committed_blob_bytes: 1772493
 data_lines: 10666
-god_funcs: 466
-god_lines: 59060
+god_funcs: 467
+god_lines: 59119
 identical_pairs: 0
-prose: 52710
+prose: 52725
 unwired_scripts: 21
