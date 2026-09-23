@@ -7,7 +7,8 @@
 # is the run's own preflight, and "engine unsupported" is a valid result for them.
 #
 # Placeholders rendered by the harness: {mlx_root} {model_dir} {served} {port}
-# {ctx} {tool_parser} {reasoning_parser} {drafter_path} {draft_path}
+# {ctx} {tool_parser} {reasoning_parser} {drafter_path} {draft_path} {gguf_path}
+# {draft_gguf_path} {spec_args} {llama_server} {mlx_server_script} {python}
 
 mlx_root: /Volumes/data01/omlx-models
 # Drafters / draft models stay OUTSIDE mlx_root: oMLX lists any dir with a
@@ -25,9 +26,11 @@ guard:
 engines:
   ollama:
     kind: external
+    requires: ollama
     base: http://127.0.0.1:11434
   omlx:
     kind: external
+    requires: mlx
     base: http://127.0.0.1:8085
     # oMLX's admin API needs an API key this host deliberately doesn't set (it
     # would also gate the /v1 path the pipeline uses), so per-model spec settings
@@ -38,6 +41,7 @@ engines:
     process_name: omlx-server
   mlx-serve:
     kind: managed
+    requires: mlx
     port: 11234
     # PLD (prompt-lookup speculation) is ON by default in mlx-serve, and it
     # auto-loads an MTP head or a drafter/ subdir it finds — plain must turn all three off.
@@ -46,6 +50,7 @@ engines:
     stop_signal: INT
   rapid-mlx:
     kind: managed
+    requires: mlx
     port: 11235
     # --no-telemetry is the kill switch (verified: `telemetry status` reports
     # Reporting OFF, Upload blocked). DO_NOT_TRACK=1 is also set by the harness.
@@ -54,6 +59,7 @@ engines:
     stop_signal: INT
   vllm-mlx:
     kind: managed
+    requires: mlx
     port: 11236
     # Rapid-MLX is a vllm-mlx fork and installs its own `vllm-mlx` executables,
     # so upstream runs pinned through uvx to keep the two distinct.
@@ -62,6 +68,7 @@ engines:
     stop_signal: INT
   mlx_lm.server:
     kind: managed
+    requires: mlx
     port: 11237
     # Reference baseline only. Its /v1/models lists the whole HF cache and the
     # request `model` must be the --model path, so it is launched from mlx_root
@@ -72,6 +79,30 @@ engines:
     # Measured: mlx_lm.server ignores SIGINT.
     stop_signal: TERM
     list_models_is_cache: true
+  prismml-llama:
+    kind: managed
+    requires: gguf
+    port: 11238
+    server_path: ~/src/prismml-llama.cpp/build/bin/llama-server
+    plain: ["{llama_server}", -m, "{gguf_path}", -ngl, "99", -c, "{ctx}", --jinja, --alias, "{served}", --host, 127.0.0.1, --port, "{port}"]
+    base_spec: ["{llama_server}", -m, "{gguf_path}", -ngl, "99", -c, "{ctx}", --jinja, --alias, "{served}", --host, 127.0.0.1, --port, "{port}", "{spec_args}"]
+    stop_signal: INT
+  brew-llama:
+    kind: managed
+    requires: gguf
+    port: 11240
+    server_path: /opt/homebrew/bin/llama-server
+    plain: ["{llama_server}", -m, "{gguf_path}", -ngl, "99", -c, "{ctx}", --jinja, --alias, "{served}", --host, 127.0.0.1, --port, "{port}"]
+    base_spec: ["{llama_server}", -m, "{gguf_path}", -ngl, "99", -c, "{ctx}", --jinja, --alias, "{served}", --host, 127.0.0.1, --port, "{port}", "{spec_args}"]
+    stop_signal: INT
+  prismml-mlx:
+    kind: managed
+    requires: prismml_mlx
+    port: 11239
+    server_script: tests/benchmarks/prismml_mlx_server.py
+    plain: ["{python}", "{mlx_server_script}", --model-dir, "{mlx_root}/{model_dir}", --host, 127.0.0.1, --port, "{port}", --ctx, "{ctx}"]
+    base_spec: ["{python}", "{mlx_server_script}", --model-dir, "{mlx_root}/{model_dir}", --host, 127.0.0.1, --port, "{port}", --ctx, "{ctx}", "{spec_args}"]
+    stop_signal: INT
 
 models:
   mimo:
@@ -123,3 +154,217 @@ models:
       rapid-mlx: {method: suffix, args: [--speculative-config, '{"method":"suffix","num_speculative_tokens":8}']}
       vllm-mlx: null
       omlx: null
+  # Bonsai family probe. GGUF weights resolve only from the Hugging Face cache;
+  # PrismML MLX packs are materialized beneath mlx_root by `hf download`.
+  bonsai_v1_7b:
+    base_repo: prism-ml/Bonsai-1.7B-unpacked
+    gguf: {repo: prism-ml/Bonsai-1.7B-gguf, file: Bonsai-1.7B-Q1_0.gguf}
+    source_repo: prism-ml/Bonsai-1.7B-gguf
+    ctx: 16384
+    prefill_tokens: 2048
+    tool_parser: hermes
+    sampling: {temperature: 0.5, top_p: 0.9, top_k: 20}
+    thinking_sampling: {temperature: 0.5, top_p: 0.9, top_k: 20}
+    ollama: bonsai-probe:bonsai-v1-1.7b
+    control: qwen3_1_7b_q4
+  bonsai_v1_4b:
+    base_repo: prism-ml/Bonsai-4B-unpacked
+    gguf: {repo: prism-ml/Bonsai-4B-gguf, file: Bonsai-4B-Q1_0.gguf}
+    source_repo: prism-ml/Bonsai-4B-gguf
+    ctx: 16384
+    prefill_tokens: 2048
+    tool_parser: hermes
+    sampling: {temperature: 0.5, top_p: 0.9, top_k: 20}
+    thinking_sampling: {temperature: 0.5, top_p: 0.9, top_k: 20}
+    ollama: bonsai-probe:bonsai-v1-4b
+    control: qwen3_4b_q4
+  bonsai_v1_8b:
+    base_repo: prism-ml/Bonsai-8B-unpacked
+    gguf: {repo: prism-ml/Bonsai-8B-gguf, file: Bonsai-8B-Q1_0.gguf}
+    source_repo: prism-ml/Bonsai-8B-gguf
+    mlx: Bonsai-8B-mlx-1bit
+    prismml_mlx: Bonsai-8B-mlx-1bit
+    ctx: 16384
+    prefill_tokens: 2048
+    tool_parser: hermes
+    sampling: {temperature: 0.5, top_p: 0.9, top_k: 20}
+    thinking_sampling: {temperature: 0.5, top_p: 0.9, top_k: 20}
+    ollama: bonsai-probe:bonsai-v1-8b
+    control: qwen3_8b_q4
+  bonsai_v1_27b:
+    base_repo: Qwen/Qwen3.6-27B
+    gguf: {repo: prism-ml/Bonsai-27B-gguf, file: Bonsai-27B-Q1_0.gguf}
+    source_repo: prism-ml/Bonsai-27B-gguf
+    mlx: Bonsai-27B-mlx-1bit
+    prismml_mlx: Bonsai-27B-mlx-1bit
+    ctx: 32768
+    prefill_tokens: 2048
+    tool_parser: hermes
+    sampling: {temperature: 0.7, top_p: 0.95, top_k: 20}
+    thinking_sampling: {temperature: 0.7, top_p: 0.95, top_k: 20}
+    ollama: bonsai-probe:bonsai-v1-27b
+    control: qwen36_27b_q4
+    draft_gguf: {repo: prism-ml/Bonsai-27B-gguf, file: Bonsai-27B-dspark-Q4_1.gguf}
+    spec:
+      prismml-llama: {method: draft-dspark, args: [-md, "{draft_gguf_path}", --spec-type, draft-dspark, --spec-draft-n-max, "4", -ngld, "999", -np, "1"]}
+  ternary_v1_1_7b:
+    base_repo: prism-ml/Ternary-Bonsai-1.7B-unpacked
+    gguf: {repo: prism-ml/Ternary-Bonsai-1.7B-gguf, file: Ternary-Bonsai-1.7B-PQ2_0.gguf}
+    source_repo: prism-ml/Ternary-Bonsai-1.7B-gguf
+    ctx: 16384
+    prefill_tokens: 2048
+    tool_parser: hermes
+    sampling: {temperature: 0.7, top_p: 0.8, top_k: 20}
+    thinking_sampling: {temperature: 0.6, top_p: 0.95, top_k: 20}
+    ollama: bonsai-probe:ternary-v1-1.7b
+    control: qwen3_1_7b_q4
+  ternary_v1_4b:
+    base_repo: prism-ml/Ternary-Bonsai-4B-unpacked
+    gguf: {repo: prism-ml/Ternary-Bonsai-4B-gguf, file: Ternary-Bonsai-4B-PQ2_0.gguf}
+    source_repo: prism-ml/Ternary-Bonsai-4B-gguf
+    ctx: 16384
+    prefill_tokens: 2048
+    tool_parser: hermes
+    sampling: {temperature: 0.7, top_p: 0.8, top_k: 20}
+    thinking_sampling: {temperature: 0.6, top_p: 0.95, top_k: 20}
+    ollama: bonsai-probe:ternary-v1-4b
+    control: qwen3_4b_q4
+  ternary_v1_8b:
+    base_repo: prism-ml/Ternary-Bonsai-8B-unpacked
+    gguf: {repo: prism-ml/Ternary-Bonsai-8B-gguf, file: Ternary-Bonsai-8B-PQ2_0.gguf}
+    source_repo: prism-ml/Ternary-Bonsai-8B-gguf
+    mlx: Ternary-Bonsai-8B-mlx-2bit
+    prismml_mlx: Ternary-Bonsai-8B-mlx-2bit
+    ctx: 16384
+    prefill_tokens: 2048
+    tool_parser: hermes
+    sampling: {temperature: 0.7, top_p: 0.8, top_k: 20}
+    thinking_sampling: {temperature: 0.6, top_p: 0.95, top_k: 20}
+    ollama: bonsai-probe:ternary-v1-8b
+    control: qwen3_8b_q4
+  ternary_v1_8b_q2:
+    base_repo: prism-ml/Ternary-Bonsai-8B-unpacked
+    gguf: {repo: prism-ml/Ternary-Bonsai-8B-gguf, file: Ternary-Bonsai-8B-Q2_0_g64.gguf}
+    source_repo: prism-ml/Ternary-Bonsai-8B-gguf
+    ctx: 16384
+    prefill_tokens: 2048
+    tool_parser: hermes
+    sampling: {temperature: 0.7, top_p: 0.8, top_k: 20}
+    thinking_sampling: {temperature: 0.6, top_p: 0.95, top_k: 20}
+    ollama: bonsai-probe:ternary-v1-8b-q2
+    control: qwen3_8b_q4
+  ternary_v1_27b:
+    base_repo: Qwen/Qwen3.6-27B
+    gguf: {repo: prism-ml/Ternary-Bonsai-27B-gguf, file: Ternary-Bonsai-27B-PQ2_0.gguf}
+    source_repo: prism-ml/Ternary-Bonsai-27B-gguf
+    ctx: 32768
+    prefill_tokens: 2048
+    tool_parser: hermes
+    sampling: {temperature: 0.7, top_p: 0.95, top_k: 20, min_p: 0.0}
+    thinking_sampling: {temperature: 0.7, top_p: 0.95, top_k: 20}
+    ollama: bonsai-probe:ternary-v1-27b
+    control: qwen36_27b_q4
+    draft_gguf: {repo: prism-ml/Ternary-Bonsai-27B-gguf, file: Ternary-Bonsai-27B-dspark-Q4_1.gguf}
+    spec:
+      prismml-llama: {method: draft-dspark, args: [-md, "{draft_gguf_path}", --spec-type, draft-dspark, --spec-draft-n-max, "4", -ngld, "999", -np, "1"]}
+  anchor_v2_pq2:
+    base_repo: Qwen/Qwen3.8-27B
+    gguf: {repo: prism-ml/Ternary-Bonsai-2-27B-gguf, file: Ternary-Bonsai-2-27B-PQ2_0.gguf}
+    source_repo: prism-ml/Ternary-Bonsai-2-27B-gguf
+    ctx: 32768
+    prefill_tokens: 2048
+    tool_parser: hermes
+    sampling: {temperature: 0.7, top_p: 0.8, top_k: 20, presence_penalty: 1.5}
+    thinking_sampling: {temperature: 1.0, top_p: 0.95, top_k: 20, min_p: 0.0}
+    ollama: bonsai-probe:ternary-v2-pq2
+    control: qwen38_27b_q4
+  anchor_v2_ptq1:
+    base_repo: Qwen/Qwen3.8-27B
+    gguf: {repo: prism-ml/Ternary-Bonsai-2-27B-gguf, file: Ternary-Bonsai-2-27B-PTQ1_0.gguf}
+    source_repo: prism-ml/Ternary-Bonsai-2-27B-gguf
+    ctx: 32768
+    prefill_tokens: 2048
+    tool_parser: hermes
+    sampling: {temperature: 0.7, top_p: 0.8, top_k: 20, presence_penalty: 1.5}
+    thinking_sampling: {temperature: 1.0, top_p: 0.95, top_k: 20, min_p: 0.0}
+    ollama: bonsai-probe:ternary-v2-ptq1
+    control: qwen38_27b_q4
+  anchor_v2_mlx:
+    base_repo: Qwen/Qwen3.8-27B
+    source_repo: prism-ml/Ternary-Bonsai-2-27B-mlx-2bit
+    prismml_mlx: Ternary-Bonsai-2-27B-mlx-2bit
+    ctx: 32768
+    prefill_tokens: 2048
+    tool_parser: hermes
+    sampling: {temperature: 0.7, top_p: 0.8, top_k: 20, presence_penalty: 1.5}
+    thinking_sampling: {temperature: 1.0, top_p: 0.95, top_k: 20, min_p: 0.0}
+    control: qwen38_27b_q4
+  anchor_v2_mtp_n1:
+    base_repo: Qwen/Qwen3.8-27B
+    gguf: {repo: ProCreations/Ternary-Bonsai-2-27B-MTP, file: Ternary-Bonsai-2-27B-PQ2_0-MTP-Q8_0.gguf}
+    source_repo: prism-ml/Ternary-Bonsai-2-27B-gguf
+    ctx: 32768
+    prefill_tokens: 2048
+    tool_parser: hermes
+    sampling: {temperature: 0.7, top_p: 0.8, top_k: 20, presence_penalty: 1.5}
+    thinking_sampling: {temperature: 1.0, top_p: 0.95, top_k: 20, min_p: 0.0}
+    control: qwen38_27b_q4
+    spec:
+      prismml-llama: {method: draft-mtp, args: [--spec-type, draft-mtp, --spec-draft-n-max, "1"]}
+  anchor_v2_mtp_n2:
+    base_repo: Qwen/Qwen3.8-27B
+    gguf: {repo: ProCreations/Ternary-Bonsai-2-27B-MTP, file: Ternary-Bonsai-2-27B-PQ2_0-MTP-Q8_0.gguf}
+    source_repo: prism-ml/Ternary-Bonsai-2-27B-gguf
+    ctx: 32768
+    prefill_tokens: 2048
+    tool_parser: hermes
+    sampling: {temperature: 0.7, top_p: 0.8, top_k: 20, presence_penalty: 1.5}
+    thinking_sampling: {temperature: 1.0, top_p: 0.95, top_k: 20, min_p: 0.0}
+    control: qwen38_27b_q4
+    spec:
+      prismml-llama: {method: draft-mtp, args: [--spec-type, draft-mtp, --spec-draft-n-max, "2"]}
+  qwen3_1_7b_q4:
+    source_repo: Qwen/Qwen3-1.7B
+    tool_parser: hermes
+    ollama_from: hf.co/unsloth/Qwen3-1.7B-GGUF:Q4_K_M
+    ollama: bonsai-control:qwen3-1.7b-ctx16k
+    ctx: 16384
+    prefill_tokens: 2048
+    sampling: {temperature: 0.7, top_p: 0.8, top_k: 20}
+    thinking_sampling: {temperature: 0.6, top_p: 0.95, top_k: 20}
+  qwen3_4b_q4:
+    source_repo: Qwen/Qwen3-4B
+    tool_parser: hermes
+    ollama_from: hf.co/unsloth/Qwen3-4B-GGUF:Q4_K_M
+    ollama: bonsai-control:qwen3-4b-ctx16k
+    ctx: 16384
+    prefill_tokens: 2048
+    sampling: {temperature: 0.7, top_p: 0.8, top_k: 20}
+    thinking_sampling: {temperature: 0.6, top_p: 0.95, top_k: 20}
+  qwen3_8b_q4:
+    source_repo: Qwen/Qwen3-8B
+    tool_parser: hermes
+    ollama_from: hf.co/unsloth/Qwen3-8B-GGUF:Q4_K_M
+    ollama: bonsai-control:qwen3-8b-ctx16k
+    ctx: 16384
+    prefill_tokens: 2048
+    sampling: {temperature: 0.7, top_p: 0.8, top_k: 20}
+    thinking_sampling: {temperature: 0.6, top_p: 0.95, top_k: 20}
+  qwen36_27b_q4:
+    source_repo: Qwen/Qwen3.6-27B
+    tool_parser: hermes
+    ollama_from: qwen3.6:27b-q4_K_M
+    ollama: bonsai-control:qwen36-27b-ctx32k
+    ctx: 32768
+    prefill_tokens: 2048
+    sampling: {temperature: 0.7, top_p: 0.8, top_k: 20, min_p: 0.0, presence_penalty: 1.5}
+    thinking_sampling: {temperature: 1.0, top_p: 0.95, top_k: 20}
+  qwen38_27b_q4:
+    source_repo: Qwen/Qwen3.8-27B
+    tool_parser: hermes
+    ollama_from: hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M
+    ollama: bonsai-control:qwen38-27b-ctx32k
+    ctx: 32768
+    prefill_tokens: 2048
+    sampling: {temperature: 0.7, top_p: 0.8, top_k: 20, presence_penalty: 1.5}
+    thinking_sampling: {temperature: 1.0, top_p: 0.95, top_k: 20, min_p: 0.0}

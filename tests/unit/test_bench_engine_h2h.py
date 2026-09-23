@@ -16,8 +16,75 @@ def test_every_managed_engine_renders_a_plain_command_for_every_model(cfg):
         if e["kind"] != "managed":
             continue
         for model in cfg["models"]:
+            if not h.model_supports_engine(cfg, model, eng) or e.get("requires") == "gguf":
+                continue
             argv, _ = h.launch_command(cfg, eng, model, "plain")
             assert not any("{" in a and "}" in a and '"' not in a for a in argv), argv
+
+
+def test_gguf_path_is_resolved_from_cache_and_spec_args_are_spliced(cfg, monkeypatch):
+    monkeypatch.setattr(h, "gguf_path_for", lambda _cfg, _model: "/cache/anchor.gguf")
+    argv, _ = h.launch_command(cfg, "prismml-llama", "anchor_v2_mtp_n1", "spec")
+    assert argv[argv.index("-m") + 1] == "/cache/anchor.gguf"
+    assert argv[-4:] == ["--spec-type", "draft-mtp", "--spec-draft-n-max", "1"]
+    assert "{spec_args}" not in argv
+
+
+def test_gguf_engine_rejects_missing_local_cache_artifact(cfg, monkeypatch):
+    monkeypatch.setattr(
+        h, "gguf_path_for", lambda _cfg, _model: (_ for _ in ()).throw(SystemExit("missing"))
+    )
+    with pytest.raises(SystemExit, match="missing"):
+        h.launch_command(cfg, "prismml-llama", "anchor_v2_pq2", "plain")
+
+
+def test_ollama_control_creation_uses_vendor_tag_and_registered_context(cfg, monkeypatch):
+    seen = {}
+
+    def fake_run(argv, **kwargs):
+        seen["argv"] = argv
+        seen["modelfile"] = open(argv[-1]).read()
+
+    monkeypatch.setattr(h.subprocess, "run", fake_run)
+    created = h.ollama_create_derived(cfg, "qwen38_27b_q4")
+    assert created == cfg["models"]["qwen38_27b_q4"]["ollama"]
+    assert "FROM hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M" in seen["modelfile"]
+    assert "PARAMETER num_ctx 32768" in seen["modelfile"]
+    assert seen["argv"][:3] == ["ollama", "create", created]
+
+
+def test_bonsai_quality_fixture_is_frozen_with_expected_category_counts():
+    import json
+
+    fx = json.loads(h.QUALITY_FIXTURE.read_text())
+    counts = {
+        category: sum(row["category"] == category for row in fx["items"])
+        for category in {row["category"] for row in fx["items"]}
+    }
+    assert counts == {
+        "arithmetic": 8,
+        "logic": 6,
+        "python": 8,
+        "factual": 8,
+        "instruction": 6,
+        "summary": 4,
+        "long_context": 3,
+    }
+    assert len(fx["long_context"].splitlines()) == 601
+
+
+def test_bonsai_quality_scorers_use_exact_checks_and_hidden_tests():
+    assert h.score_quality({"category": "arithmetic", "expected": "444"}, "444.")["ok"]
+    item = {
+        "category": "instruction",
+        "checks": {"json": {"equals": {"status": "ready", "count": 3}}},
+    }
+    assert h.score_quality(item, '{"status":"ready","count":3}')["ok"]
+    code = {
+        "category": "python",
+        "test_source": "def test_it():\n    from solution import is_even\n    assert is_even(4)\n    assert not is_even(3)\n",
+    }
+    assert h.score_quality(code, "```python\ndef is_even(n):\n    return n % 2 == 0\n```")["ok"]
 
 
 def test_spec_json_args_survive_rendering(cfg):
@@ -44,13 +111,14 @@ def test_mlx_lm_runs_from_model_root_with_relative_model(cfg):
 
 
 def test_served_id_is_shared_across_mlx_engines(cfg):
-    ids = {h.served_id(cfg, e, "laguna", "plain") for e in cfg["engines"] if e != "ollama"}
+    engines = {"omlx", "mlx-serve", "rapid-mlx", "vllm-mlx", "mlx_lm.server"}
+    ids = {h.served_id(cfg, e, "laguna", "plain") for e in engines}
     assert ids == {"Laguna-XS.2-4bit"}
     assert h.served_id(cfg, "ollama", "laguna", "plain") == cfg["models"]["laguna"]["ollama"]
 
 
 def test_think_off_dialects():
-    assert h.think_off_fields("ollama") == {"reasoning_effort": "none"}
+    assert h.think_off_fields("ollama") == {"think": False, "reasoning_effort": "none"}
     assert h.think_off_fields("rapid-mlx") == {"chat_template_kwargs": {"enable_thinking": False}}
 
 
