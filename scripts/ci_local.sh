@@ -31,7 +31,8 @@ env -i HOME="$HOME" PATH="$VENV/bin:$PATH" VIRTUAL_ENV="$VENV" bash -c '
   # mypy (strict) over the whole portal tree. TASK_MYPY_STRICT_BASELINE_REMEDIATION_V1
   # drove the entire tree to zero errors; this whole-tree gate now holds it there
   # (any regression anywhere fails the push gate).
-  uv run mypy portal/
+  # --active keeps uv from ignoring .ci-local-venv in favor of the project .venv.
+  uv run --active mypy portal/
   pytest tests/unit portal/modules/security/tests -n auto -x --tb=short -q
 ' _ "$(pwd)"
 
