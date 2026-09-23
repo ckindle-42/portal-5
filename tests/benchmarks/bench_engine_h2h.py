@@ -43,6 +43,7 @@ import re
 import signal
 import subprocess
 import sys
+import tempfile
 import threading
 import time
 import urllib.request
@@ -55,6 +56,7 @@ import yaml
 REPO = Path(__file__).resolve().parents[2]
 CONFIG = Path(__file__).parent / "engine_h2h.yaml"
 FIXTURES = Path(__file__).parent / "fixtures" / "engine_h2h"
+QUALITY_FIXTURE = Path(__file__).parent / "fixtures" / "bonsai_quality" / "quality.json"
 RESULTS = Path(__file__).parent / "results" / "engine_h2h"
 STATE_DIR = RESULTS / "state"
 LOCK_FILE = Path("/tmp/portal5_engine_h2h.lock")
@@ -85,6 +87,9 @@ def load_config(path: Path = CONFIG) -> dict:
     cfg = yaml.safe_load(path.read_text())
     cfg["mlx_root"] = os.path.expanduser(cfg["mlx_root"])
     cfg["drafter_root"] = os.path.expanduser(cfg["drafter_root"])
+    for engine in cfg["engines"].values():
+        if engine.get("server_path"):
+            engine["server_path"] = os.path.expanduser(engine["server_path"])
     return cfg
 
 
@@ -106,10 +111,37 @@ def local_dir_for(cfg: dict, repo: str | None) -> str | None:
 
 def model_dir_for(cfg: dict, model: str, engine: str, mode: str) -> str:
     m = cfg["models"][model]
+    if engine == "prismml-mlx":
+        return m["prismml_mlx"]
     if mode == "spec":
         s = spec_entry(cfg, model, engine) or {}
         return s.get("model_dir") or m["mlx"]
     return m["mlx"]
+
+
+def model_supports_engine(cfg: dict, model: str, engine: str) -> bool:
+    """Whether the registry provides the artifact this engine consumes."""
+    requires = cfg["engines"][engine].get("requires")
+    if requires:
+        return bool(cfg["models"][model].get(requires))
+    return True
+
+
+def cached_hf_file(gguf: dict | None, label: str) -> str:
+    """Resolve a registered Hugging Face file from the local cache only."""
+    if not gguf:
+        raise SystemExit(f"{label} has no file artifact in the registry")
+    from huggingface_hub import try_to_load_from_cache
+
+    path = try_to_load_from_cache(gguf["repo"], gguf["file"])
+    if not isinstance(path, str):
+        raise SystemExit(f"file is not cached: hf download {gguf['repo']} {gguf['file']}")
+    return path
+
+
+def gguf_path_for(cfg: dict, model: str) -> str:
+    """Resolve one registered model GGUF from the local HF cache only."""
+    return cached_hf_file(cfg["models"][model].get("gguf"), model)
 
 
 def render_one(part, values: dict) -> str:
@@ -118,14 +150,24 @@ def render_one(part, values: dict) -> str:
 
 
 def render(template: list[str], values: dict) -> list[str]:
-    return [render_one(part, values) for part in template]
+    """Render argv parts, splicing a list-valued `{spec_args}` placeholder."""
+    argv: list[str] = []
+    for part in template:
+        if part == "{spec_args}":
+            argv.extend(render_one(arg, values) for arg in (values.get("spec_args") or []))
+        else:
+            argv.append(render_one(part, values))
+    return argv
 
 
 def launch_command(cfg: dict, engine: str, model: str, mode: str) -> tuple[list[str], str | None]:
     """The exact argv (and cwd) for a managed engine. Raises on a null spec cell."""
     e = cfg["engines"][engine]
     m = cfg["models"][model]
-    model_dir = model_dir_for(cfg, model, engine, mode)
+    if not model_supports_engine(cfg, model, engine):
+        raise SystemExit(f"no {e.get('requires')} artifact for {engine} × {model}")
+    model_dir = model if e.get("requires") == "gguf" else model_dir_for(cfg, model, engine, mode)
+    spec = spec_entry(cfg, model, engine) if mode == "spec" else None
     values = {
         "mlx_root": cfg["mlx_root"],
         "model_dir": model_dir,
@@ -135,14 +177,24 @@ def launch_command(cfg: dict, engine: str, model: str, mode: str) -> tuple[list[
         "tool_parser": per_engine(m.get("tool_parser"), engine) or "auto",
         "drafter_path": local_dir_for(cfg, m.get("drafter")) or "",
         "draft_path": local_dir_for(cfg, m.get("draft_model")) or "",
+        "gguf_path": gguf_path_for(cfg, model) if e.get("requires") == "gguf" else "",
+        "draft_gguf_path": cached_hf_file(m.get("draft_gguf"), f"{model} drafter")
+        if mode == "spec" and m.get("draft_gguf")
+        else "",
+        "llama_server": e.get("server_path", ""),
+        "mlx_server_script": str(REPO / e["server_script"]) if e.get("server_script") else "",
+        "python": str(Path.home() / "src/prismml-mlx/.venv/bin/python"),
+        "spec_args": (spec or {}).get("args") or [],
     }
     if mode == "plain":
         argv = render(e["plain"], values)
     else:
-        s = spec_entry(cfg, model, engine)
-        if s is None:
+        if spec is None:
             raise SystemExit(f"no spec path for {engine} × {model} (registry cell is null)")
-        argv = render(e["base_spec"], values) + render(s.get("args") or [], values)
+        if "{spec_args}" in e["base_spec"]:
+            argv = render(e["base_spec"], values)
+        else:
+            argv = render(e["base_spec"], values) + render(spec.get("args") or [], values)
     cwd = render_one(e["cwd"], values) if e.get("cwd") else None
     return argv, cwd
 
@@ -158,18 +210,25 @@ def served_id(cfg: dict, engine: str, model: str, mode: str) -> str:
     --model so the id is identical across engines)."""
     if engine == "ollama":
         return cfg["models"][model]["ollama"]
+    if cfg["engines"][engine].get("requires") == "gguf":
+        return model
     return model_dir_for(cfg, model, engine, mode)
 
 
 def think_off_fields(engine: str) -> dict:
     """Thinking OFF in each engine's dialect (same intent everywhere).
 
-    Ollama's /v1 ignores a bare `think` and chat_template_kwargs; it honours
-    reasoning_effort "none" (tests/wfe/runner.py _v1_think_fields). MLX engines
-    take the chat template's own switch."""
+    Keep Ollama's `think` switch required by this probe and its OpenAI-compatible
+    `reasoning_effort` spelling for the other harness users. MLX engines take
+    the chat template's own switch."""
     if engine == "ollama":
-        return {"reasoning_effort": "none"}
+        return {"think": False, "reasoning_effort": "none"}
     return {"chat_template_kwargs": {"enable_thinking": False}}
+
+
+def sampling_for(cfg: dict, model: str, thinking: bool = False) -> dict:
+    key = "thinking_sampling" if thinking else "sampling"
+    return dict(cfg["models"][model].get(key) or {})
 
 
 # ── host probes ────────────────────────────────────────────────────────────
@@ -359,6 +418,7 @@ def start_managed(cfg: dict, engine: str, model: str, mode: str) -> dict:
         "engine": engine,
         "model": model,
         "mode": mode,
+        "control_model": cfg["models"][model].get("control"),
         "pid": proc.pid,
         "argv": argv,
         "log": str(log),
@@ -403,6 +463,42 @@ def ollama_evict(cfg: dict, tag: str | None = None) -> list[str]:
     return targets
 
 
+def ollama_create_gguf(cfg: dict, model: str) -> str | None:
+    """Import one cached GGUF through the documented Ollama Modelfile path."""
+    m = cfg["models"][model]
+    if not m.get("gguf") or not m.get("ollama"):
+        return None
+    artifact = gguf_path_for(cfg, model)
+    with tempfile.TemporaryDirectory(prefix="bonsai-ollama-") as td:
+        build_dir = Path(td)
+        (build_dir / "file.gguf").symlink_to(artifact)
+        modelfile = build_dir / "Modelfile"
+        modelfile.write_text(f"FROM ./file.gguf\nPARAMETER num_ctx {m['ctx']}\n")
+        subprocess.run(
+            ["ollama", "create", m["ollama"], "-f", str(modelfile)],
+            check=True,
+            timeout=3600,
+        )
+    return m["ollama"]
+
+
+def ollama_create_derived(cfg: dict, model: str) -> str | None:
+    """Create the context-sized Ollama control tag from its vendor Q4_K_M tag."""
+    m = cfg["models"][model]
+    source, target = m.get("ollama_from"), m.get("ollama")
+    if not source or not target:
+        return None
+    content = f"FROM {source}\nPARAMETER num_ctx {m['ctx']}\n"
+    with tempfile.NamedTemporaryFile("w", prefix="bonsai-control-", delete=False) as fh:
+        fh.write(content)
+        path = Path(fh.name)
+    try:
+        subprocess.run(["ollama", "create", target, "-f", str(path)], check=True, timeout=3600)
+    finally:
+        path.unlink(missing_ok=True)
+    return target
+
+
 def omlx_apply_settings(cfg: dict, model_id: str, settings: dict | None) -> Path:
     """Set (or clear) the harness-owned spec keys for one oMLX model, backing up
     the settings file once per call. `settings=None` clears them (plain mode)."""
@@ -442,6 +538,10 @@ def switch(cfg: dict, engine: str, model: str, mode: str) -> dict:
         # oMLX holds whatever it last served; a clean restart releases it.
         info["omlx_restart_s"] = omlx_restart(cfg)
     if engine == "ollama":
+        imported = ollama_create_gguf(cfg, model)
+        derived = ollama_create_derived(cfg, model) if not imported else None
+        if imported or derived:
+            info["ollama_import"] = imported or derived
         return info
     if engine == "omlx":
         return {**info, **omlx_configure(cfg, model, mode)}
@@ -558,24 +658,32 @@ def prefill_prompt(cfg: dict, model: str) -> str:
 # ── measurements ───────────────────────────────────────────────────────────
 
 
-def _payload(cfg, engine, model, mode, messages, max_tokens, **extra) -> dict:
+def _payload(cfg, engine, model, mode, messages, max_tokens, *, thinking=False, **extra) -> dict:
+    thinking_fields = (
+        ({"think": True} if thinking and engine == "ollama" else {})
+        if thinking
+        else think_off_fields(engine)
+    )
     return {
         "model": served_id(cfg, engine, model, mode),
         "messages": messages,
         "max_tokens": max_tokens,
-        **think_off_fields(engine),
+        **thinking_fields,
+        **sampling_for(cfg, model, thinking=thinking),
         **extra,
     }
 
 
-def measure_speed(cfg: dict, engine: str, model: str, mode: str, rounds: int) -> dict:
+def measure_speed(
+    cfg: dict, engine: str, model: str, mode: str, rounds: int, max_tokens: int = 400
+) -> dict:
     url = base_url(cfg, engine)
     # First request after `switch`; a managed engine's load time is its launch ready_s.
     ok = [{"role": "user", "content": "Reply with exactly: OK"}]
-    res: dict = {"cold": stream_chat(url, _payload(cfg, engine, model, mode, ok, 8, temperature=0))}
+    res: dict = {"cold": stream_chat(url, _payload(cfg, engine, model, mode, ok, 8))}
     msgs = [{"role": "user", "content": DECODE_PROMPT}]
     res["decode"] = [
-        stream_chat(url, _payload(cfg, engine, model, mode, msgs, 400, temperature=0.3))
+        stream_chat(url, _payload(cfg, engine, model, mode, msgs, max_tokens))
         for _ in range(rounds)
     ]
     body = prefill_prompt(cfg, model)
@@ -585,9 +693,7 @@ def measure_speed(cfg: dict, engine: str, model: str, mode: str, rounds: int) ->
         # so each round measures a real cold prefill of identical length.
         text = f"[run {uuid.uuid4()}]\n{body}\n\nSummarize the code above in one sentence."
         m = [{"role": "user", "content": text}]
-        res["prefill"].append(
-            stream_chat(url, _payload(cfg, engine, model, mode, m, 32, temperature=0))
-        )
+        res["prefill"].append(stream_chat(url, _payload(cfg, engine, model, mode, m, 32)))
     for r in [res["cold"], *res["decode"], *res["prefill"]]:
         r.pop("content", None)
     res["resident_gb"] = resident_gb(cfg, engine, model)
@@ -673,11 +779,46 @@ def source_template(repo: str) -> str | None:
     return None
 
 
+def gguf_chat_template(cfg: dict, model: str) -> str | None:
+    """Read tokenizer.chat_template from a cached GGUF metadata header."""
+    gguf_root = Path.home() / "src/prismml-llama.cpp/gguf-py"
+    if gguf_root.is_dir() and str(gguf_root) not in sys.path:
+        sys.path.insert(0, str(gguf_root))
+    try:
+        from gguf.gguf_reader import GGUFReader
+
+        field = GGUFReader(gguf_path_for(cfg, model)).fields.get("tokenizer.chat_template")
+    except Exception:
+        return None
+    if field is None:
+        return None
+    part = field.parts[field.data[0]] if len(field.data) else field.parts[-1]
+    if hasattr(part, "tobytes"):
+        raw = part.tobytes()
+    elif isinstance(part, bytes):
+        raw = part
+    else:
+        raw = str(part).encode()
+    return raw.decode("utf-8", "replace").rstrip("\x00")
+
+
 def template_check(cfg: dict, engine: str, model: str, mode: str) -> dict:
     if engine == "ollama":
         return {
             "ok": None,
             "note": "Ollama Go template — verified by hand in the bring-up doc for MiMo",
+        }
+    if cfg["engines"][engine].get("requires") == "gguf":
+        local = gguf_chat_template(cfg, model)
+        entry = cfg["models"][model]
+        template_repo = entry.get("template_repo") or entry.get("base_repo") or entry["source_repo"]
+        source = source_template(template_repo)
+        if local is None or source is None:
+            return {"ok": None, "note": "embedded or source template unavailable; compare by hand"}
+        same = normalize_template(local) == normalize_template(source)
+        return {
+            "ok": same,
+            "note": "" if same else "embedded GGUF template differs from the source template",
         }
     d = Path(cfg["mlx_root"]) / model_dir_for(cfg, model, engine, mode)
     local, src = local_template(d), source_template(cfg["models"][model]["source_repo"])
@@ -719,8 +860,9 @@ def preflight(cfg: dict, engine: str, model: str, mode: str) -> dict:
         "OK"
         if out["listed"] is not False
         and out["think_off_reply"].upper().startswith("OK")
+        and "<think>" not in out["think_off_reply"].lower()
         and out["tool_call"]["ok"]
-        and out["template"]["ok"] is not False
+        and out["template"]["ok"] is True
         else "REVIEW"
     )
     return out
@@ -795,6 +937,197 @@ def security_summary(rows: list[dict]) -> dict:
     }
 
 
+def _quality_lib():
+    from tests.benchmarks.capability_lib import (
+        extract_code_block,
+        extract_final_answer,
+        run_python_against_tests,
+    )
+
+    return extract_code_block, extract_final_answer, run_python_against_tests
+
+
+def _normalized_answer(text: str) -> str:
+    _, extract_final_answer, _ = _quality_lib()
+    body = extract_final_answer(text)
+    lines = [line.strip() for line in body.splitlines() if line.strip()]
+    answer = lines[-1] if lines else body.strip()
+    answer = re.sub(r"^(?:final answer|answer|result)\s*:\s*", "", answer, flags=re.I)
+    return re.sub(r"[^a-z0-9]+", "", answer.lower())
+
+
+def _score_exact(item: dict, response: str) -> dict:
+    expected = re.sub(r"[^a-z0-9]+", "", item["expected"].lower())
+    actual = _normalized_answer(response)
+    ok = actual.endswith(expected)
+    return {"score": float(ok), "ok": ok, "actual": actual[-120:]}
+
+
+def _score_python(item: dict, response: str) -> dict:
+    extract_code_block, _, run_python_against_tests = _quality_lib()
+    source = extract_code_block(response, "python")
+    if not source:
+        return {"score": 0.0, "ok": False, "why": "no Python block"}
+    passed, output = run_python_against_tests(source, item["test_source"], timeout=20)
+    return {"score": float(passed), "ok": passed, "output": output[-500:]}
+
+
+def _score_instruction(item: dict, response: str) -> dict:
+    _, extract_final_answer, _ = _quality_lib()
+    body = extract_final_answer(response).strip()
+    checks = item["checks"]
+    details: dict[str, bool] = {}
+    if "json" in checks:
+        candidate = body
+        fenced = re.search(r"```(?:json)?\s*(.*?)```", body, re.S | re.I)
+        if fenced:
+            candidate = fenced.group(1).strip()
+        try:
+            value = json.loads(candidate)
+        except json.JSONDecodeError:
+            value = None
+        expected_type = checks["json"].get("type", "object")
+        details["json"] = (
+            isinstance(value, dict)
+            if expected_type == "object"
+            else isinstance(value, list)
+            if expected_type == "array"
+            else False
+        )
+        for key, expected in checks["json"].get("equals", {}).items():
+            details[f"json.{key}"] = isinstance(value, dict) and value.get(key) == expected
+        if "array_length" in checks["json"]:
+            details["json.array_length"] = (
+                isinstance(value, list) and len(value) == checks["json"]["array_length"]
+            )
+        if "array_members" in checks["json"]:
+            details["json.array_members"] = (
+                isinstance(value, list) and value == checks["json"]["array_members"]
+            )
+    if "line_count" in checks:
+        details["line_count"] = (
+            sum(bool(line.strip()) for line in body.splitlines()) == checks["line_count"]
+        )
+    if "line_prefix" in checks:
+        lines = [line.strip() for line in body.splitlines() if line.strip()]
+        details["line_prefix"] = bool(lines) and all(
+            line.startswith(checks["line_prefix"]) for line in lines
+        )
+    details.update(
+        {
+            key: expected.lower() in body.lower()
+            for key, expected in checks.items()
+            if key == "contains" or key.startswith("contains_")
+        }
+    )
+    if "ends_with" in checks:
+        details["ends_with"] = body.endswith(checks["ends_with"])
+    if "word_count_max" in checks:
+        details["word_count_max"] = len(body.split()) <= checks["word_count_max"]
+    if "starts_with" in checks:
+        details["starts_with"] = body.startswith(checks["starts_with"])
+    return {
+        "score": sum(details.values()) / len(details) if details else 0.0,
+        "ok": bool(details) and all(details.values()),
+        "checks": details,
+    }
+
+
+def _score_summary(item: dict, response: str) -> dict:
+    _, extract_final_answer, _ = _quality_lib()
+    body = re.sub(r"\s+", " ", extract_final_answer(response)).lower()
+    found = {term: term.lower() in body for term in item["required_terms"]}
+    return {"score": sum(found.values()) / len(found), "ok": all(found.values()), "terms": found}
+
+
+def score_quality(item: dict, response: str) -> dict:
+    """Score one frozen Bonsai item with deterministic capability checks."""
+    category = item["category"]
+    scorer = {
+        "arithmetic": _score_exact,
+        "logic": _score_exact,
+        "factual": _score_exact,
+        "long_context": _score_exact,
+        "python": _score_python,
+        "instruction": _score_instruction,
+        "summary": _score_summary,
+    }.get(category)
+    if scorer is None:
+        raise ValueError(f"unknown quality category: {category}")
+    return scorer(item, response)
+
+
+def quality_summary(rows: list[dict]) -> dict:
+    import statistics
+
+    by_mode: dict[str, dict] = {}
+    for thinking in (False, True):
+        mode_rows = [row for row in rows if row["thinking"] is thinking]
+        categories = sorted({row["category"] for row in mode_rows})
+        category_scores = {
+            category: [row["score"] for row in mode_rows if row["category"] == category]
+            for category in categories
+        }
+        means = {
+            category: round(statistics.fmean(values), 4)
+            for category, values in category_scores.items()
+        }
+        spreads = {
+            category: round(statistics.pstdev(values), 4) if len(values) > 1 else 0.0
+            for category, values in category_scores.items()
+        }
+        scores = [row["score"] for row in mode_rows]
+        by_mode["thinking_on" if thinking else "thinking_off"] = {
+            "mean": round(statistics.fmean(scores), 4) if scores else None,
+            "spread": round(statistics.pstdev(scores), 4) if len(scores) > 1 else 0.0,
+            "categories": means,
+            "category_spread": spreads,
+            "items": len(scores),
+        }
+    return by_mode
+
+
+def run_quality(cfg: dict, engine: str, model: str, mode: str, repeats: int) -> dict:
+    fixture = json.loads(QUALITY_FIXTURE.read_text())
+    is_27b = "27b" in model.lower()
+    items = [item for item in fixture["items"] if item["category"] != "long_context" or is_27b]
+    rows = []
+    for thinking in (False, True):
+        for ix, item in enumerate(items):
+            if item["category"] == "long_context":
+                prompt = fixture["long_context"] + "\n\n" + item["question"]
+            else:
+                prompt = item["prompt"]
+            for repeat in range(repeats):
+                max_tokens = 8192 if thinking else int(item.get("max_tokens", 512))
+                payload = _payload(
+                    cfg,
+                    engine,
+                    model,
+                    mode,
+                    [{"role": "user", "content": prompt}],
+                    max_tokens,
+                    thinking=thinking,
+                    seed=910000 + ix * 100 + repeat + int(thinking) * 10000,
+                )
+                timing = stream_chat(base_url(cfg, engine), payload, timeout=1800)
+                response = timing.pop("content")
+                score = score_quality(item, response)
+                rows.append(
+                    {
+                        "item_id": item["id"],
+                        "category": item["category"],
+                        "thinking": thinking,
+                        "repeat": repeat,
+                        "score": score["score"],
+                        "score_detail": score,
+                        "timing": timing,
+                        "response": response,
+                    }
+                )
+    return {"summary": quality_summary(rows), "rows": rows, "fixture": fixture["version"]}
+
+
 # ── results ────────────────────────────────────────────────────────────────
 
 
@@ -817,6 +1150,16 @@ def engine_version(engine: str) -> str:
             "import vllm_mlx;print(vllm_mlx.__version__)",
         ],
         "mlx_lm.server": ["python3", "-c", "import mlx_lm;print(mlx_lm.__version__)"],
+        "prismml-llama": [
+            str(Path.home() / "src/prismml-llama.cpp/build/bin/llama-server"),
+            "--version",
+        ],
+        "brew-llama": ["/opt/homebrew/bin/llama-server", "--version"],
+        "prismml-mlx": [
+            str(Path.home() / "src/prismml-mlx/.venv/bin/python"),
+            "-c",
+            "import mlx_lm;print(mlx_lm.__version__)",
+        ],
     }[engine]
     return " ".join(_run(argv, 60).split()[-3:])
 
@@ -838,6 +1181,8 @@ def base_row(cfg, kind, engine, model, mode) -> dict:
         "engine_version": engine_version(engine),
         "model": model,
         "mode": mode,
+        "sampling": sampling_for(cfg, model),
+        "thinking_sampling": sampling_for(cfg, model, thinking=True),
         "spec_method": (spec_entry(cfg, model, engine) or {}).get("method")
         if mode == "spec"
         else None,
@@ -875,17 +1220,27 @@ def fmt(v) -> str:
 def summarize(cfg: dict) -> str:
     rows = load_rows(list(cfg["models"]))
     spd, sec, pre = latest(rows, "speed"), latest(rows, "security"), latest(rows, "preflight")
+    qual = latest(rows, "quality")
     lines = []
     for model in cfg["models"]:
         lines += [
             f"\n### {model}\n",
-            "| engine | mode | spec | decode tok/s | prefill tok/s | prefill TTFT s | cold s | resident GB | tool | template | valid | CWE acc | clean FP |",
-            "|---|---|---|---|---|---|---|---|---|---|---|---|---|",
+            "| engine | mode | spec | decode tok/s | prefill tok/s | prefill TTFT s | cold s | resident GB | tool | template | valid | CWE acc | clean FP | quality off/on | % control off/on |",
+            "|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|",
         ]
         for (m, eng, mode), r in sorted(spd.items()):
             if m != model:
                 continue
             s, p, q = r["summary"], pre.get((m, eng, mode), {}), sec.get((m, eng, mode), {})
+            ql = qual.get((m, eng, mode), {}).get("summary", {})
+            control_id = cfg["models"][m].get("control")
+            control_ql = qual.get((control_id, "ollama", "plain"), {}).get("summary", {})
+            off = (ql.get("thinking_off") or {}).get("mean")
+            on = (ql.get("thinking_on") or {}).get("mean")
+            control_off = (control_ql.get("thinking_off") or {}).get("mean")
+            control_on = (control_ql.get("thinking_on") or {}).get("mean")
+            pct_off = round(100 * off / control_off, 1) if off is not None and control_off else None
+            pct_on = round(100 * on / control_on, 1) if on is not None and control_on else None
             lines.append(
                 f"| {eng} | {mode} | {fmt(r.get('spec_method'))} | {fmt(s['decode_tps_median'])} | "
                 f"{fmt(s['prefill_tps_median'])} | {fmt(s['prefill_ttft_median_s'])} | "
@@ -894,7 +1249,8 @@ def summarize(cfg: dict) -> str:
                 f"{fmt((p.get('result') or {}).get('template', {}).get('ok'))} | "
                 f"{'yes' if r.get('valid') else 'INVALID'} | "
                 f"{fmt((q.get('summary') or {}).get('cwe_accuracy'))} | "
-                f"{fmt((q.get('summary') or {}).get('clean_false_positives'))} |"
+                f"{fmt((q.get('summary') or {}).get('clean_false_positives'))} | "
+                f"{fmt(off)}/{fmt(on)} | {fmt(pct_off)}/{fmt(pct_on)} |"
             )
     return "\n".join(lines)
 
@@ -912,23 +1268,37 @@ def cmd_doctor(cfg: dict) -> int:
         "uvx",
         "mlx_lm.server",
         "footprint",
+        "llama-server",
         "lsof",
     ):
         found = _run(["which", tool]).strip()
         print(f"{'OK ' if found else 'MISSING'} {tool} {found}")
         ok &= bool(found)
+    prismllama = Path(cfg["engines"]["prismml-llama"]["server_path"])
+    print(f"{'OK ' if prismllama.is_file() else 'BLOCKED'} prismml-llama {prismllama}")
+    brewllama = Path(cfg["engines"]["brew-llama"]["server_path"])
+    print(f"{'OK ' if brewllama.is_file() else 'BLOCKED'} brew-llama {brewllama}")
+    mlx_server = REPO / cfg["engines"]["prismml-mlx"]["server_script"]
+    print(f"{'OK ' if mlx_server.is_file() else 'MISSING'} prismml-mlx adapter {mlx_server}")
+    ok &= mlx_server.is_file()
+    mlx_python = Path.home() / "src/prismml-mlx/.venv/bin/python"
+    print(f"{'OK ' if mlx_python.is_file() else 'BLOCKED'} prismml-mlx python {mlx_python}")
     for name, m in cfg["models"].items():
-        for d in {
-            m["mlx"],
-            *[
-                s.get("model_dir")
-                for s in (m.get("spec") or {}).values()
-                if s and s.get("model_dir")
-            ],
-        }:
-            exists = (Path(cfg["mlx_root"]) / d).is_dir()
-            print(f"{'OK ' if exists else 'MISSING'} {name}: {cfg['mlx_root']}/{d}")
-            ok &= exists
+        for engine, e in cfg["engines"].items():
+            if not model_supports_engine(cfg, name, engine):
+                continue
+            if e.get("requires") == "gguf":
+                try:
+                    artifact = gguf_path_for(cfg, name)
+                    print(f"OK {name}: {artifact}")
+                except SystemExit as exc:
+                    print(f"NOT CACHED {name}: {exc}")
+            elif e.get("requires") in {"mlx", "prismml_mlx"}:
+                d = m.get(e["requires"])
+                exists = bool(d and (Path(cfg["mlx_root"]) / d).is_dir())
+                print(
+                    f"{'OK ' if exists else 'NOT FETCHED'} {name}: {cfg['mlx_root']}/{d or 'unset'}"
+                )
         for key in ("drafter", "draft_model"):
             if m.get(key):
                 exists = Path(local_dir_for(cfg, m[key])).is_dir()
@@ -966,12 +1336,37 @@ def drafter_format(conf: dict) -> str:
     return f"plain model ({conf.get('model_type')}) — classic draft-model use"
 
 
+def cmd_build_prefill(cfg: dict) -> int:
+    print(json.dumps(build_prefill(cfg), indent=1))
+    return 0
+
+
+def cmd_summarize(cfg: dict) -> int:
+    print(summarize(cfg))
+    return 0
+
+
+def cmd_commands(cfg: dict) -> int:
+    for engine, engine_cfg in cfg["engines"].items():
+        if engine_cfg["kind"] != "managed":
+            continue
+        for model in cfg["models"]:
+            if not model_supports_engine(cfg, model, engine):
+                continue
+            for mode in ("plain", "spec"):
+                with contextlib.suppress(SystemExit):
+                    argv, cwd = launch_command(cfg, engine, model, mode)
+                    prefix = f"(cwd {cwd}) " if cwd else ""
+                    print(f"{engine:14s} {model:8s} {mode:5s} {prefix}{' '.join(argv)}")
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     sub = ap.add_subparsers(dest="cmd", required=True)
     for name in ("doctor", "fetch-drafters", "build-prefill", "summarize", "commands"):
         sub.add_parser(name)
-    for name in ("switch", "preflight", "speed", "security", "stop", "start-only"):
+    for name in ("switch", "preflight", "speed", "security", "quality", "stop", "start-only"):
         p = sub.add_parser(name)
         p.add_argument("--engine", required=True)
         if name != "stop":
@@ -979,30 +1374,18 @@ def main(argv: list[str] | None = None) -> int:
         p.add_argument("--mode", choices=["plain", "spec"], default="plain")
         p.add_argument("--rounds", type=int, default=3)
         p.add_argument("--repeats", type=int, default=3)
+        p.add_argument("--max-tokens", type=int, default=400)
     a = ap.parse_args(argv)
     cfg = load_config()
-    if a.cmd == "doctor":
-        return cmd_doctor(cfg)
-    if a.cmd == "fetch-drafters":
-        return cmd_fetch_drafters(cfg)
-    if a.cmd == "build-prefill":
-        print(json.dumps(build_prefill(cfg), indent=1))
-        return 0
-    if a.cmd == "summarize":
-        print(summarize(cfg))
-        return 0
-    if a.cmd == "commands":
-        for eng, e in cfg["engines"].items():
-            if e["kind"] != "managed":
-                continue
-            for model in cfg["models"]:
-                for mode in ("plain", "spec"):
-                    with contextlib.suppress(SystemExit):
-                        argv_, cwd = launch_command(cfg, eng, model, mode)
-                        print(
-                            f"{eng:14s} {model:8s} {mode:5s} {'(cwd ' + cwd + ') ' if cwd else ''}{' '.join(argv_)}"
-                        )
-        return 0
+    handlers = {
+        "doctor": cmd_doctor,
+        "fetch-drafters": cmd_fetch_drafters,
+        "build-prefill": cmd_build_prefill,
+        "summarize": cmd_summarize,
+        "commands": cmd_commands,
+    }
+    if a.cmd in handlers:
+        return handlers[a.cmd](cfg)
     with single_flight():
         return dispatch(cfg, a)
 
@@ -1029,11 +1412,17 @@ def dispatch(cfg: dict, a) -> int:
         raise SystemExit(f"rule 3: {msg} — clear swap before measuring")
     with Guard(cfg, a.engine, a.model) as g:
         if a.cmd == "speed":
-            res = measure_speed(cfg, a.engine, a.model, a.mode, a.rounds)
-            payload = {"summary": speed_summary(res), "raw": res}
-        else:
+            res = measure_speed(cfg, a.engine, a.model, a.mode, a.rounds, a.max_tokens)
+            payload = {
+                "summary": speed_summary(res),
+                "raw": res,
+                "decode_max_tokens": a.max_tokens,
+            }
+        elif a.cmd == "security":
             rows = run_security(cfg, a.engine, a.model, a.mode, a.repeats)
             payload = {"summary": security_summary(rows), "rows": rows}
+        else:
+            payload = run_quality(cfg, a.engine, a.model, a.mode, a.repeats)
     v = g.verdict()
     row = {
         **base_row(cfg, a.cmd, a.engine, a.model, a.mode),
