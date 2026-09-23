@@ -135,7 +135,7 @@ Voice and constraints layered over a workspace. The workspace picks the model; t
 - **33 MCP tool servers** (ports 8910-8941)
 - **122 personas**
 - **3 channels**
-- **213 validation checks**
+- **215 validation checks**
 - **= everything runs on your hardware**
 
 ---
@@ -461,7 +461,7 @@ This repository contains **everything** needed to run a production-grade, privac
 - ✅ **33 MCP tool servers** (ports 8910-8941)
 - ✅ **122 personas**
 - ✅ **3 channels** (browser, Telegram, Slack)
-- ✅ **213 validation checks**
+- ✅ **215 validation checks**
 - ✅ **No cloud dependencies** (100% local inference)
 
 **Start with `./launch.sh up` and sign in at localhost:8080!**
