@@ -1,0 +1,17 @@
+# MiMo-V2.6-Distill-Qwen-9B head-to-head — MLX engine arms.
+# Governing doc: docs/MIMO_V26_DISTILL_9B_BRINGUP_V1.md (engine lane).
+# Arm names are the SERVED model names, identical on every MLX engine: each
+# engine is started by tests/benchmarks/bench_engine_h2h.py with
+# --served-model-name (or the directory name) set to the oMLX directory name
+# under /Volumes/data01/omlx-models, so one plan serves oMLX, mlx-serve,
+# Rapid-MLX, vllm-mlx and mlx_lm.server alike. Run one campaign per engine:
+#   WFE_ENGINE=<engine> WFE_CHAT_BASE_URL=http://127.0.0.1:<port> \
+#     uv run python tests/wfe/campaign.py --plan tests/wfe/plans/mimo_h2h_mlx.yaml \
+#     --campaign-id <id>_<engine> --arm <served name>
+workloads:
+  auto-coding:
+    home: coding
+    discovery: [compliance_agentic]
+    arms:
+      incumbent: Laguna-XS.2-4bit
+      challengers: [MiMo-V2.6-Distill-Qwen-9B-MLX-4bit]

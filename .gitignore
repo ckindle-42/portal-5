@@ -56,6 +56,10 @@ coding_task/
 # tests/benchmarks/results/ is tracked (needed for off-machine analysis)
 # Per-host benchmark bookkeeping is local even though selected baselines are tracked.
 tests/benchmarks/results/.quant_trueup_last_utc
+# Engine head-to-head: per-launch engine logs and live pid state are local; the
+# <model>.jsonl result rows beside them are the tracked receipts.
+tests/benchmarks/results/engine_h2h/logs/
+tests/benchmarks/results/engine_h2h/state/
 tests/fixtures/audio/
 
 # Stage 2 propose/prove staged diffs + report — working dir, not source

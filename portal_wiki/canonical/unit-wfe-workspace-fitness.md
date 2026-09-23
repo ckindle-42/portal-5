@@ -76,6 +76,16 @@ The harness (`tests/wfe/`):
   is caught in minutes. Deterministic persona resolution; token/latency
   economics captured; `--preflight` self-test reconciles observed strict-JSON
   behaviour (empty OR degenerate) against the model card's format_json_safe.
+- Engine mode (`WFE_ENGINE`, `WFE_CHAT_BASE_URL`) — points the same campaign
+  at any OpenAI-compatible engine (oMLX, mlx-serve, Rapid-MLX, vllm-mlx,
+  mlx_lm.server) for an engine head-to-head. Ollama stays the model manager
+  (draining it frees memory for the engine under test); preflight's native
+  probes run on `/v1`; thinking goes through `chat_template_kwargs.enable_thinking`
+  instead of Ollama-only fields; the engine is stamped into the environment
+  fingerprint only when set, so existing Ollama campaigns keep theirs and can
+  never be mixed with an engine campaign. Unset, behaviour is unchanged. The
+  companion speed/security harness is `tests/benchmarks/bench_engine_h2h.py`
+  (docs/MIMO_V26_DISTILL_9B_BRINGUP_V1.md).
 - `schema.py` — outcomes are an enum, not a boolean; instrument failures
   (TOOL_ERROR/HARNESS_ERROR/BLOCKED) are quarantined out of every quality rate.
 - `checkers.py` — extracted, unit-tested checkers (hidden_pytest against a

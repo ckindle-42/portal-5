@@ -1,0 +1,124 @@
+# Engine × model head-to-head registry — read by tests/benchmarks/bench_engine_h2h.py.
+# Governing doc: docs/MIMO_V26_DISTILL_9B_BRINGUP_V1.md ("Head-to-head test plan V2").
+#
+# Every launch command below was smoke-tested on this host 2026-09-23 against
+# VulnLLM-R-7B-4bit: server up, served id, chat "OK", clean get_weather tool call,
+# clean shutdown. The spec (speculative-decoding) rows were NOT load-tested — that
+# is the run's own preflight, and "engine unsupported" is a valid result for them.
+#
+# Placeholders rendered by the harness: {mlx_root} {model_dir} {served} {port}
+# {ctx} {tool_parser} {reasoning_parser} {drafter_path} {draft_path}
+
+mlx_root: /Volumes/data01/omlx-models
+# Drafters / draft models stay OUTSIDE mlx_root: oMLX lists any dir with a
+# model config as a servable model, and a drafter dir carries one.
+drafter_root: /Volumes/data01/engine_h2h_drafters
+
+guard:
+  sample_s: 30
+  # Rule 4: a run whose swap grows more than this is INVALID, not reported.
+  max_swap_growth_mb: 2048
+  # Rule 3: refuse to START a run when swap is already this full (fraction of total).
+  max_start_swap_fraction: 0.5
+
+engines:
+  ollama:
+    kind: external
+    base: http://127.0.0.1:11434
+  omlx:
+    kind: external
+    base: http://127.0.0.1:8085
+    # oMLX's admin API needs an API key this host deliberately doesn't set (it
+    # would also gate the /v1 path the pipeline uses), so per-model spec settings
+    # are applied by editing this file (backed up first) and restarting the
+    # launchd service. Discovery of a new model dir also needs the restart.
+    settings_file: ~/.omlx/model_settings.json
+    restart: [launchctl, kickstart, -k, "gui/{uid}/homebrew.mxcl.omlx"]
+    process_name: omlx-server
+  mlx-serve:
+    kind: managed
+    port: 11234
+    # PLD (prompt-lookup speculation) is ON by default in mlx-serve, and it
+    # auto-loads an MTP head or a drafter/ subdir it finds — plain must turn all three off.
+    plain: [mlx-serve, --serve, --model, "{mlx_root}/{model_dir}", --host, 127.0.0.1, --port, "{port}", --ctx-size, "{ctx}", --no-pld, --no-drafter, --no-mtp]
+    base_spec: [mlx-serve, --serve, --model, "{mlx_root}/{model_dir}", --host, 127.0.0.1, --port, "{port}", --ctx-size, "{ctx}"]
+    stop_signal: INT
+  rapid-mlx:
+    kind: managed
+    port: 11235
+    # --no-telemetry is the kill switch (verified: `telemetry status` reports
+    # Reporting OFF, Upload blocked). DO_NOT_TRACK=1 is also set by the harness.
+    plain: [rapid-mlx, --no-telemetry, serve, "{mlx_root}/{model_dir}", --served-model-name, "{served}", --host, 127.0.0.1, --port, "{port}", --no-spec-decode, --enable-auto-tool-choice, --tool-call-parser, "{tool_parser}"]
+    base_spec: [rapid-mlx, --no-telemetry, serve, "{mlx_root}/{model_dir}", --served-model-name, "{served}", --host, 127.0.0.1, --port, "{port}", --enable-auto-tool-choice, --tool-call-parser, "{tool_parser}"]
+    stop_signal: INT
+  vllm-mlx:
+    kind: managed
+    port: 11236
+    # Rapid-MLX is a vllm-mlx fork and installs its own `vllm-mlx` executables,
+    # so upstream runs pinned through uvx to keep the two distinct.
+    plain: [uvx, --from, vllm-mlx==0.5.0, vllm-mlx, serve, "{mlx_root}/{model_dir}", --served-model-name, "{served}", --host, 127.0.0.1, --port, "{port}", --enable-auto-tool-choice, --tool-call-parser, "{tool_parser}"]
+    base_spec: [uvx, --from, vllm-mlx==0.5.0, vllm-mlx, serve, "{mlx_root}/{model_dir}", --served-model-name, "{served}", --host, 127.0.0.1, --port, "{port}", --enable-auto-tool-choice, --tool-call-parser, "{tool_parser}"]
+    stop_signal: INT
+  mlx_lm.server:
+    kind: managed
+    port: 11237
+    # Reference baseline only. Its /v1/models lists the whole HF cache and the
+    # request `model` must be the --model path, so it is launched from mlx_root
+    # with a RELATIVE path: the id then equals the served name every engine uses.
+    cwd: "{mlx_root}"
+    plain: [mlx_lm.server, --model, "{model_dir}", --host, 127.0.0.1, --port, "{port}"]
+    base_spec: [mlx_lm.server, --model, "{model_dir}", --host, 127.0.0.1, --port, "{port}"]
+    # Measured: mlx_lm.server ignores SIGINT.
+    stop_signal: TERM
+    list_models_is_cache: true
+
+models:
+  mimo:
+    source_repo: XiaomiMiMo/MiMo-V2.6-Distill-Qwen-9B
+    ollama: portal5/mimo-v26-distill-9b:q4_K_M-ctx256k
+    mlx: MiMo-V2.6-Distill-Qwen-9B-MLX-4bit            # nativ-community build, shared by every MLX engine
+    ctx: 262144
+    prefill_tokens: 20000
+    # <tool_call><function=NAME><parameter=K>V</parameter></function></tool_call>
+    # (bring-up doc, template section) is the qwen3-coder XML format.
+    tool_parser: qwen3_coder
+    spec:
+      # ddalcu (mlx-serve author) build ships model-mtp.safetensors — Qwen3.5's native MTP head.
+      mlx-serve: {method: mtp, model_dir: MiMo-V2.6-Distill-Qwen-9B-MLX-Serve-4bit-mtp, args: []}
+      rapid-mlx: {method: mtp, model_dir: MiMo-V2.6-Distill-Qwen-9B-MLX-Serve-4bit-mtp, args: [--speculative-config, '{"method":"mtp","num_speculative_tokens":3}']}
+      vllm-mlx: {method: mtp, model_dir: MiMo-V2.6-Distill-Qwen-9B-MLX-Serve-4bit-mtp, args: [--enable-mtp]}
+      omlx: {method: mtp, model_dir: MiMo-V2.6-Distill-Qwen-9B-MLX-Serve-4bit-mtp, settings: {mtp_enabled: true}}
+      mlx_lm.server: null
+  laguna:
+    source_repo: poolside/Laguna-XS.2
+    ollama: portal5/laguna-xs2:q4_K_M-ctx128k
+    mlx: Laguna-XS.2-4bit
+    ctx: 131072
+    prefill_tokens: 20000
+    tool_parser: {vllm-mlx: poolside_v1, rapid-mlx: auto, default: auto}
+    # Poolside's drafter is in `speculators` format (aux_hidden_state_layer_ids,
+    # draft_vocab_size 32000) — NOT the z-lab DFlash layout (dflash_config.
+    # target_layer_ids) the MLX engines auto-detect. Expect load failures; a
+    # success here is the single biggest possible agentic-lane win.
+    drafter: poolside/Laguna-XS.2-speculator.dflash
+    spec:
+      mlx-serve: {method: dflash, args: [--drafter, "{drafter_path}"]}
+      rapid-mlx: {method: dflash, args: [--speculative-config, '{"method":"dflash","model":"{drafter_path}"}']}
+      omlx: {method: dflash, settings: {dflash_enabled: true, dflash_draft_model: "{drafter_path}", dflash_max_ctx: 131072}}
+      vllm-mlx: null
+      mlx_lm.server: null
+  vulnllm:
+    source_repo: UCSB-SURFI/VulnLLM-R-7B                # base_model per the MLX build's README
+    ollama: hf.co/mradermacher/VulnLLM-R-7B-GGUF:q4_K_M-ctx8k
+    mlx: VulnLLM-R-7B-4bit
+    ctx: 8192
+    prefill_tokens: 6000                                 # must fit the 8k window with room to answer
+    tool_parser: hermes
+    # Qwen2.5-7B base: a 0.5B Qwen2.5 shares the tokenizer — classic draft-model speculation.
+    draft_model: mlx-community/Qwen2.5-0.5B-Instruct-4bit
+    spec:
+      mlx_lm.server: {method: draft, args: [--draft-model, "{draft_path}", --num-draft-tokens, "4"]}
+      mlx-serve: {method: pld, args: []}                 # PLD is its built-in, model-agnostic path
+      rapid-mlx: {method: suffix, args: [--speculative-config, '{"method":"suffix","num_speculative_tokens":8}']}
+      vllm-mlx: null
+      omlx: null
