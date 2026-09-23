@@ -721,6 +721,36 @@ def speed_summary(res: dict) -> dict:
     }
 
 
+def speed_measurement_errors(res: dict) -> list[str]:
+    """A resource-valid row still needs complete timing and token receipts."""
+    errors = []
+    groups = [
+        ("cold", [res.get("cold")]),
+        ("decode", res.get("decode") or []),
+        ("prefill", res.get("prefill") or []),
+    ]
+    for name, rows in groups:
+        for index, row in enumerate(rows):
+            label = name if name == "cold" else f"{name}[{index}]"
+            if not row or row.get("ttft_s") is None:
+                errors.append(f"{label}: missing first-token timing")
+            if not row or not row.get("usage_reported"):
+                errors.append(f"{label}: missing reported token usage")
+            if (
+                not row
+                or not isinstance(row.get("prompt_tokens"), int)
+                or row["prompt_tokens"] <= 0
+            ):
+                errors.append(f"{label}: missing prompt token count")
+            if (
+                not row
+                or not isinstance(row.get("completion_tokens"), int)
+                or row["completion_tokens"] <= 0
+            ):
+                errors.append(f"{label}: missing completion token count")
+    return errors
+
+
 TOOL_SPEC = [
     {
         "type": "function",
@@ -1550,10 +1580,13 @@ def dispatch(cfg: dict, a) -> int:
     with Guard(cfg, a.engine, a.model) as g:
         if a.cmd == "speed":
             res = measure_speed(cfg, a.engine, a.model, a.mode, a.rounds, a.max_tokens)
+            measurement_errors = speed_measurement_errors(res)
             payload = {
                 "summary": speed_summary(res),
                 "raw": res,
                 "decode_max_tokens": a.max_tokens,
+                "measurement_valid": not measurement_errors,
+                "measurement_errors": measurement_errors,
             }
         elif a.cmd == "security":
             rows = run_security(cfg, a.engine, a.model, a.mode, a.repeats)
@@ -1565,11 +1598,22 @@ def dispatch(cfg: dict, a) -> int:
         **base_row(cfg, a.cmd, a.engine, a.model, a.mode),
         **payload,
         "guard": v,
-        "valid": v["valid"],
+        "valid": v["valid"] and payload.get("measurement_valid", True),
     }
     path = append_row(a.model, row)
-    print(json.dumps({"summary": payload["summary"], "guard": v, "written": str(path)}, indent=1))
-    return 0 if v["valid"] else 2
+    print(
+        json.dumps(
+            {
+                "summary": payload["summary"],
+                "measurement_valid": payload.get("measurement_valid", True),
+                "measurement_errors": payload.get("measurement_errors", []),
+                "guard": v,
+                "written": str(path),
+            },
+            indent=1,
+        )
+    )
+    return 0 if row["valid"] else 2
 
 
 if __name__ == "__main__":
