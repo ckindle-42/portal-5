@@ -82,6 +82,8 @@ from portal.platform.inference.router.trace import (
 )
 from portal.platform.inference.router.trace import (
     finalize_trace,
+    read_trace,
+    recent_traces,
     start_trace,
 )
 from portal.platform.inference.router.trace import (
@@ -860,6 +862,47 @@ async def chat_completions(
         finalize_trace()
 
 
+async def list_traces(
+    limit: int = 20,
+    authorization: str | None = Header(None),
+) -> dict[str, Any]:
+    """GET /v1/trace — summaries of the most recent turns, newest first.
+
+    Operational telemetry, not conversation state (Ground Rule 4): nothing here
+    is read back into a routing decision, and the store is discarded when the
+    container restarts. Authenticated because a summary names the workspace,
+    persona, backend and model a turn resolved to.
+    """
+    _verify_key(authorization)
+    return {"object": "list", "data": recent_traces(limit)}
+
+
+async def get_trace(
+    correlation_id: str,
+    authorization: str | None = Header(None),
+) -> dict[str, Any]:
+    """GET /v1/trace/{correlation_id} — one turn's full span record.
+
+    The id is the ``X-Correlation-ID`` echoed on the chat response, so an
+    operator reading a failed turn goes straight from the response header to
+    the routing decision, the backend chosen, and every tool dispatch with its
+    duration and outcome — including a call the whitelist gate refused, which
+    is otherwise visible only as a turn that ended without an answer.
+
+    Raises:
+        HTTPException: 401 on bad auth, 404 when the turn has aged out of the
+            bounded store, was never traced, or tracing is disabled.
+    """
+    _verify_key(authorization)
+    record = read_trace(correlation_id)
+    if record is None:
+        raise HTTPException(
+            status_code=404,
+            detail=f"No trace for correlation id {correlation_id!r}.",
+        )
+    return record
+
+
 async def anthropic_messages(
     request: Request,
     authorization: str | None = Header(None),
@@ -891,6 +934,9 @@ async def anthropic_messages(
     fwd_headers = {
         "Authorization": authorization or "",
         "Content-Type": "application/json",
+        # Without this the ASGI loopback mints a second correlation id, so a
+        # Claude Code turn would trace under an id the caller never saw.
+        "X-Correlation-ID": get_correlation_id(),
     }
 
     # Deferred to avoid circular import (app.py imports handlers.py)
