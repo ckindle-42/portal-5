@@ -207,6 +207,7 @@ models:
     ollama: bonsai-probe:bonsai-v1-27b
     control: qwen36_27b_q4
     draft_gguf: {repo: prism-ml/Bonsai-27B-gguf, file: Bonsai-27B-dspark-Q4_1.gguf}
+    draft_gguf_override: ~/.cache/hf-bonsai/converted/Bonsai-27B-dspark-Q4_1-dflash.gguf
     spec:
       prismml-llama: {method: draft-dspark, args: [-md, "{draft_gguf_path}", --spec-type, draft-dspark, --spec-draft-n-max, "4", -ngld, "999", -np, "1"]}
   ternary_v1_1_7b:
@@ -267,6 +268,7 @@ models:
     ollama: bonsai-probe:ternary-v1-27b
     control: qwen36_27b_q4
     draft_gguf: {repo: prism-ml/Ternary-Bonsai-27B-gguf, file: Ternary-Bonsai-27B-dspark-Q4_1.gguf}
+    draft_gguf_override: ~/.cache/hf-bonsai/converted/Ternary-Bonsai-27B-dspark-Q4_1-dflash.gguf
     spec:
       prismml-llama: {method: draft-dspark, args: [-md, "{draft_gguf_path}", --spec-type, draft-dspark, --spec-draft-n-max, "4", -ngld, "999", -np, "1"]}
   anchor_v2_pq2:

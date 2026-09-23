@@ -52,6 +52,32 @@ def test_gguf_path_is_resolved_from_cache_and_spec_args_are_spliced(cfg, monkeyp
     assert "{spec_args}" not in argv
 
 
+def test_spec_command_accepts_converted_local_drafter_override(cfg, tmp_path, monkeypatch):
+    drafter = tmp_path / "converted-dspark.gguf"
+    drafter.touch()
+    monkeypatch.setitem(cfg["models"]["bonsai_v1_27b"], "draft_gguf_override", str(drafter))
+
+    def resolve_cached_file(_gguf, description):
+        if description.endswith("drafter"):
+            pytest.fail("used cached legacy drafter")
+        return "/cache/target.gguf"
+
+    monkeypatch.setattr(h, "cached_hf_file", resolve_cached_file)
+
+    argv, _ = h.launch_command(cfg, "prismml-llama", "bonsai_v1_27b", "spec")
+
+    assert argv[argv.index("-m") + 1] == "/cache/target.gguf"
+    assert argv[argv.index("-md") + 1] == str(drafter)
+
+
+def test_spec_command_rejects_missing_local_drafter_override(cfg, tmp_path, monkeypatch):
+    missing = tmp_path / "missing-dspark.gguf"
+    monkeypatch.setitem(cfg["models"]["bonsai_v1_27b"], "draft_gguf_override", str(missing))
+
+    with pytest.raises(SystemExit, match="local draft GGUF override is missing"):
+        h.launch_command(cfg, "prismml-llama", "bonsai_v1_27b", "spec")
+
+
 def test_gguf_engine_rejects_missing_local_cache_artifact(cfg, monkeypatch):
     monkeypatch.setattr(
         h, "gguf_path_for", lambda _cfg, _model: (_ for _ in ()).throw(SystemExit("missing"))
