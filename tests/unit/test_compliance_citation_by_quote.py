@@ -248,3 +248,41 @@ def test_scope_round_trips_through_the_store(tmp_path: Path) -> None:
     )
     assert document_scope.families_for(document_scope.scope_row(repo, "LSPG/plan.pdf")) == set()
     repo.close()
+
+
+# ── visible provenance: the scope line the reader sees ───────────────────────
+
+
+def _scope(families: list[str], *, valid: bool = True, about: str = "a plan") -> dict:
+    return {
+        "claims": [{"standard": f, "quote": "q", "quote_valid": valid} for f in families],
+        "about": about,
+    }
+
+
+def test_scope_line_says_when_the_document_serves_another_standard() -> None:
+    from portal.modules.compliance.core.reading_material import _scope_line
+
+    line = _scope_line(_scope(["CIP-014"]), "CIP-002")
+    assert "serves CIP-014" in line and "does not include CIP-002" in line
+
+
+def test_scope_line_says_when_the_document_serves_this_standard() -> None:
+    from portal.modules.compliance.core.reading_material import _scope_line
+
+    line = _scope_line(_scope(["CIP-002", "CIP-014"]), "CIP-002")
+    assert "serves CIP-002, CIP-014" in line and "which includes CIP-002" in line
+
+
+def test_scope_line_is_absent_for_an_unread_document() -> None:
+    from portal.modules.compliance.core.reading_material import _scope_line
+
+    # unread is not "serves nothing" — no row, no line
+    assert _scope_line(None, "CIP-002") == ""
+
+
+def test_scope_line_never_states_an_unevidenced_claim() -> None:
+    from portal.modules.compliance.core.reading_material import _scope_line
+
+    line = _scope_line(_scope(["CIP-002"], valid=False), "CIP-002")
+    assert "states no NERC CIP standard" in line and "CIP-002 " not in line.split("about")[0]

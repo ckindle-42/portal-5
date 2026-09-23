@@ -1,0 +1,347 @@
+{
+  "run_id": "2026-09-23T02:00:32.882001+00:00",
+  "decision": "provenance",
+  "decision_detail": "build_links keeps scope_mode=off; the scope signal is rendered beside every operator section in reading_material.render (the material the sweep, compliance_context and the product questions all read) as a '> document scope:' line stating what the section's document serves and whether that includes this reading's standard. It excludes nothing.",
+  "why_not_filter": {
+    "family_wide_mechanical": {
+      "pairs_scoped": 353,
+      "document_serves_family": {
+        "SUPPORTED": 210,
+        "UNSUPPORTED": 26,
+        "WRONG_RELATION": 5
+      },
+      "document_has_other_scope": {
+        "UNSUPPORTED": 32,
+        "SUPPORTED": 76,
+        "WRONG_RELATION": 4
+      },
+      "supported_pairs_a_filter_would_remove": 76,
+      "share_of_all_supported_removed": 0.2657,
+      "precision_all": 0.8102,
+      "precision_retained_under_filter": 0.8714
+    },
+    "reading": "A hard filter lifts retained precision but removes about a quarter of all SUPPORTED pairs. That is the recall collapse \u00a7P2 names, so it is rejected as the family default. It works on CIP-002 alone (19 UNSUPPORTED, 1 SUPPORTED removed), and picking a per-standard filter on that basis would be fitting.",
+    "largest_cross_scope_documents": {
+      "CIP-003/LSPG CIP Cyber Security Policy V13.pdf": {
+        "SUPPORTED": 33,
+        "WRONG_RELATION": 1,
+        "UNSUPPORTED": 3
+      },
+      "CIP-008/OT Security Incident Response V14.pdf": {
+        "SUPPORTED": 12,
+        "UNSUPPORTED": 1
+      },
+      "CIP-006/LSPG CIP-006 Physical Security Plan V14.pdf": {
+        "UNSUPPORTED": 5,
+        "SUPPORTED": 5
+      },
+      "CIP-004/OT Cyber Security Training and Awareness Procedure v6.pdf": {
+        "UNSUPPORTED": 1,
+        "SUPPORTED": 5
+      },
+      "CIP-010/LSPG Transient Cyber Asset and Removable Media Plan v11.pdf": {
+        "UNSUPPORTED": 4,
+        "SUPPORTED": 2
+      },
+      "CIP-014/LSPG CIP-014 Physical Security Procedure V8.pdf": {
+        "UNSUPPORTED": 3,
+        "SUPPORTED": 1
+      }
+    }
+  },
+  "why_not_prior": "Live on CIP-002-5.1a and CIP-007-6, prior mode removed 0 pairs relative to off; it only adds serving candidates that the boost lifts over threshold. Proposal is gated by threshold, not by the keep cap, so a bonus cannot displace a contaminating candidate.",
+  "per_standard_mechanical": {
+    "CIP-002": {
+      "document_has_other_scope": {
+        "UNSUPPORTED": 19,
+        "SUPPORTED": 1
+      },
+      "document_serves_family": {
+        "SUPPORTED": 8,
+        "UNSUPPORTED": 1
+      }
+    },
+    "CIP-003": {
+      "document_serves_family": {
+        "SUPPORTED": 36,
+        "UNSUPPORTED": 7,
+        "WRONG_RELATION": 1
+      },
+      "document_has_other_scope": {
+        "SUPPORTED": 28,
+        "UNSUPPORTED": 6,
+        "WRONG_RELATION": 1
+      }
+    },
+    "CIP-004": {
+      "document_serves_family": {
+        "SUPPORTED": 30,
+        "UNSUPPORTED": 2,
+        "WRONG_RELATION": 2
+      },
+      "document_has_other_scope": {
+        "SUPPORTED": 11
+      }
+    },
+    "CIP-005": {
+      "document_has_other_scope": {
+        "SUPPORTED": 1,
+        "UNSUPPORTED": 2
+      },
+      "document_serves_family": {
+        "SUPPORTED": 7,
+        "UNSUPPORTED": 3
+      }
+    },
+    "CIP-006": {
+      "document_serves_family": {
+        "SUPPORTED": 13,
+        "UNSUPPORTED": 2,
+        "WRONG_RELATION": 1
+      },
+      "document_has_other_scope": {
+        "WRONG_RELATION": 1,
+        "SUPPORTED": 7
+      }
+    },
+    "CIP-007": {
+      "document_has_other_scope": {
+        "SUPPORTED": 6,
+        "UNSUPPORTED": 2
+      },
+      "document_serves_family": {
+        "SUPPORTED": 27,
+        "UNSUPPORTED": 2
+      }
+    },
+    "CIP-008": {
+      "document_has_other_scope": {
+        "SUPPORTED": 8
+      },
+      "document_serves_family": {
+        "SUPPORTED": 10,
+        "UNSUPPORTED": 2
+      }
+    },
+    "CIP-009": {
+      "document_has_other_scope": {
+        "SUPPORTED": 5
+      },
+      "document_serves_family": {
+        "SUPPORTED": 6
+      }
+    },
+    "CIP-010": {
+      "document_has_other_scope": {
+        "SUPPORTED": 4,
+        "WRONG_RELATION": 1
+      },
+      "document_serves_family": {
+        "UNSUPPORTED": 2,
+        "SUPPORTED": 12,
+        "WRONG_RELATION": 1
+      }
+    },
+    "CIP-011": {
+      "document_serves_family": {
+        "SUPPORTED": 7,
+        "UNSUPPORTED": 1
+      },
+      "document_has_other_scope": {
+        "SUPPORTED": 2
+      }
+    },
+    "CIP-012": {
+      "document_serves_family": {
+        "SUPPORTED": 7,
+        "UNSUPPORTED": 1
+      }
+    },
+    "CIP-013": {
+      "document_serves_family": {
+        "SUPPORTED": 24,
+        "UNSUPPORTED": 1
+      },
+      "document_has_other_scope": {
+        "SUPPORTED": 2,
+        "WRONG_RELATION": 1,
+        "UNSUPPORTED": 1
+      }
+    },
+    "CIP-014": {
+      "document_serves_family": {
+        "SUPPORTED": 23,
+        "UNSUPPORTED": 2
+      },
+      "document_has_other_scope": {
+        "UNSUPPORTED": 2,
+        "SUPPORTED": 1
+      }
+    }
+  },
+  "derivation_under_claim": {
+    "n_documents": 15,
+    "rows": [
+      {
+        "logical_id": "CIP-003/LSP CIP Senior Manager Process Rev 6.0.pdf",
+        "served": [
+          "CIP-002",
+          "CIP-003"
+        ],
+        "named_in_read_window_not_claimed": [
+          "CIP-004",
+          "CIP-005",
+          "CIP-010",
+          "CIP-012",
+          "CIP-013",
+          "CIP-014"
+        ]
+      },
+      {
+        "logical_id": "CIP-003/LSPG CIP Cyber Security Policy V13.pdf",
+        "served": [
+          "CIP-003"
+        ],
+        "named_in_read_window_not_claimed": [
+          "CIP-004",
+          "CIP-005",
+          "CIP-006",
+          "CIP-007",
+          "CIP-008",
+          "CIP-009",
+          "CIP-010",
+          "CIP-011"
+        ]
+      },
+      {
+        "logical_id": "CIP-004/LSPG Access Management Procedure v10.pdf",
+        "served": [
+          "CIP-004"
+        ],
+        "named_in_read_window_not_claimed": [
+          "CIP-005"
+        ]
+      },
+      {
+        "logical_id": "CIP-004/LSPG CIP Exceptional Circumstance Form v5.pdf",
+        "served": [],
+        "named_in_read_window_not_claimed": [
+          "CIP-003",
+          "CIP-004",
+          "CIP-006",
+          "CIP-007",
+          "CIP-010",
+          "CIP-012"
+        ]
+      },
+      {
+        "logical_id": "CIP-004/LSPG Physical Access Control Procedure v11.pdf",
+        "served": [
+          "CIP-004"
+        ],
+        "named_in_read_window_not_claimed": [
+          "CIP-006",
+          "CIP-011",
+          "CIP-012"
+        ]
+      },
+      {
+        "logical_id": "CIP-004/OT Cyber Security Training and Awareness Procedure v6.pdf",
+        "served": [
+          "CIP-004"
+        ],
+        "named_in_read_window_not_claimed": [
+          "CIP-003"
+        ]
+      },
+      {
+        "logical_id": "CIP-004/OT Electronic Access Controls v6.pdf",
+        "served": [
+          "CIP-003",
+          "CIP-005",
+          "CIP-007"
+        ],
+        "named_in_read_window_not_claimed": [
+          "CIP-002"
+        ]
+      },
+      {
+        "logical_id": "CIP-005/LSPG Vendor Remote Access Management Procedure v10.pdf",
+        "served": [
+          "CIP-005",
+          "CIP-013"
+        ],
+        "named_in_read_window_not_claimed": [
+          "CIP-003"
+        ]
+      },
+      {
+        "logical_id": "CIP-006/LSPG CIP-006 Physical Security Plan V14.pdf",
+        "served": [
+          "CIP-006"
+        ],
+        "named_in_read_window_not_claimed": [
+          "CIP-003"
+        ]
+      },
+      {
+        "logical_id": "CIP-006/LSPG Visitor Control Procedure V7.pdf",
+        "served": [
+          "CIP-006"
+        ],
+        "named_in_read_window_not_claimed": [
+          "CIP-012"
+        ]
+      },
+      {
+        "logical_id": "CIP-006/PACS Maintenance and Testing Form.pdf",
+        "served": [],
+        "named_in_read_window_not_claimed": [
+          "CIP-006"
+        ]
+      },
+      {
+        "logical_id": "CIP-007/LSPG Security Controls Testing v6.pdf",
+        "served": [
+          "CIP-007",
+          "CIP-010"
+        ],
+        "named_in_read_window_not_claimed": [
+          "CIP-005"
+        ]
+      },
+      {
+        "logical_id": "CIP-010/LSPG Change Management Procedure V7.pdf",
+        "served": [
+          "CIP-010"
+        ],
+        "named_in_read_window_not_claimed": [
+          "CIP-005",
+          "CIP-007",
+          "CIP-009"
+        ]
+      },
+      {
+        "logical_id": "CIP-010/OT Threat and Vulnerability Management Procedure V10.pdf",
+        "served": [
+          "CIP-010"
+        ],
+        "named_in_read_window_not_claimed": [
+          "CIP-003"
+        ]
+      },
+      {
+        "logical_id": "CIP-012/LSPG Communications Between Control Centers Plan v8.pdf",
+        "served": [
+          "CIP-012"
+        ],
+        "named_in_read_window_not_claimed": [
+          "CIP-006"
+        ]
+      }
+    ],
+    "reading": "The derivation seat recorded one family per document in most cases. The umbrella 'LSPG CIP Cyber Security Policy V13' devotes TOC sections to CIP-004 through CIP-011 and was recorded as serving CIP-003 alone, and 33 of the 37 adjudicated pairs from that document outside CIP-003 are SUPPORTED. Under provenance its CIP-007 sections would read 'does not include CIP-007', which is false. The derivation prompt now asks for every standard the document devotes a section to, with the heading as the quote. Some names in this list are cross-references, not service, so this is an upper bound on the under-claim, not its size."
+  },
+  "prerequisite_for_p3": "Re-run scripts/compliance/derive_document_scope.py --force (69 seat reads) with the amended prompt BEFORE the P3 re-sweep. Provenance on the current rows would mislabel umbrella documents.",
+  "method": "Deterministic, no seat call. Uses p2/scope_effect.json's mechanical_detail (every baseline-adjudicated pair against the stored scope) and live arm counts. The under-claim audit compares CIP family names in each document's reading window with its evidence-backed families."
+}

@@ -93,6 +93,35 @@ def _side_heading(side: str) -> str:
     return _SIDE_HEADING.get(side, side or "unclassified")
 
 
+def _scope_line(scope: dict[str, Any] | None, family: str) -> str:
+    """What an operator section's document states it serves, as one line the
+    reader sees beside the section (CITE_AND_SCOPE_V1 P2, visible provenance).
+
+    Similarity put the operator's CIP-014 physical-security procedure in
+    CIP-002's population because both name Control Centers and 3000; nothing
+    the reader saw said the document was written for another standard. The
+    measured alternatives failed family-wide — a hard filter on this signal
+    dropped 76 adjudicated-SUPPORTED edges to remove 32 UNSUPPORTED, and a
+    ranking prior moved nothing on a threshold-gated population — so the
+    signal goes where the judgement is. It states a fact; it excludes nothing.
+    A document with no scope row gets no line: unread is not "serves nothing".
+    """
+    if scope is None or not family:
+        return ""
+    from portal.modules.compliance.core.document_scope import families_for
+
+    served = sorted(families_for(scope))
+    about = str(scope.get("about") or "").strip()
+    about_part = f"; it is about: {about}" if about else ""
+    if not served:
+        return f"> document scope: its document states no NERC CIP standard it serves{about_part}"
+    relation = "which includes" if family in served else "which does not include"
+    return (
+        f"> document scope: its document states it serves {', '.join(served)} — "
+        f"{relation} {family}, this reading's standard{about_part}"
+    )
+
+
 def fixed_body(repo: Any, logical_id: str) -> dict[str, Any]:
     """The standard's fixed body as text, byte-identical for every requirement
     of the revision — rendered once per standard and reused as the shared
@@ -136,11 +165,14 @@ def _population_blocks(
     order (regulatory anchors, then operator edges, then notes), with each
     section's resolved text."""
     from portal.modules.compliance.core import requirement_scope
+    from portal.modules.compliance.core.document_scope import normalize_family, scope_row
     from portal.modules.compliance.core.section_index import resolve_sections
 
     population = requirement_scope.population(repo, ref, valid_at=valid_at)
     sections = population.get("sections") or {}
     texts = resolve_sections(repo, list(sections))
+    family = normalize_family(ref) or ""
+    scope_cache: dict[str, dict[str, Any] | None] = {}
     order = ("regulatory", "operator", "operator_note")
     grouped: list[tuple[str, list[dict[str, Any]]]] = []
     for side in order:
@@ -150,6 +182,7 @@ def _population_blocks(
                 continue
             resolved = dict(texts.get(section_id) or {})
             standing = ""
+            scope_line = ""
             if side == "regulatory":
                 standing = (
                     f"anchored as {entry.get('relation', '')} for {entry.get('requirement_id', '')}"
@@ -158,12 +191,17 @@ def _population_blocks(
                 standing = (
                     f"{entry.get('link_status', '')} edge to {entry.get('requirement_id', '')}"
                 )
+                logical_id = str(resolved.get("logical_id") or "")
+                if logical_id and logical_id not in scope_cache:
+                    scope_cache[logical_id] = scope_row(repo, logical_id)
+                scope_line = _scope_line(scope_cache.get(logical_id), family)
             elif side == "operator_note":
                 standing = f"note on {entry.get('requirement_id', '')}"
             entries.append(
                 {
                     "section_id": section_id,
                     "standing": standing,
+                    "scope_line": scope_line,
                     "text": str(resolved.get("text", "")).strip(),
                     "headings": str(resolved.get("headings", "")),
                     "document_title": str(resolved.get("document_title") or ""),
@@ -411,7 +449,7 @@ def render(
             line = _section_line(entry, handle=token.handle if token else "")
             if entry["standing"]:
                 line += f" — standing: {entry['standing']}"
-            scope_lines.append(line)
+            scope_lines.extend(part for part in (line, entry.get("scope_line")) if part)
             scope_lines.append(entry["text"])
             for neighbour in entry.get("neighbourhood", []):
                 scope_lines.append("")

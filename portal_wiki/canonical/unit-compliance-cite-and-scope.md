@@ -43,13 +43,19 @@ provenance sentences, which the resolver reproduces at recall 1.0
 each operator document STATES it serves (§P2): one bounded seat read per
 document against its own opening and scope material, every standard claim
 carrying quoted evidence validated by folded containment before storage
-(migration 20, `document_scope`). Only evidence-backed families reach the
-population — `build_links`' scope modes (filter / prior) use
-`document_scope.scope_map`, and what a hard filter excludes is recorded per
-requirement. This replaces scoping a requirement's population by similarity
-alone, which paired the operator's physical-security material to CIP-002
-asset-categorization requirements because they share vocabulary: CIP-002
-adjudicated 0.31 while the family ran 0.81.
+(migration 20, `document_scope`). Only evidence-backed families are ever
+stated. The signal reaches the reader as **visible provenance**:
+`reading_material.render` puts a `> document scope:` line beside every
+operator section, saying what its document serves and whether that includes
+the reading's own standard. It excludes nothing, and a document with no scope
+row gets no line. `build_links`' filter and prior modes remain, measured and
+not adopted: family-wide, a hard filter removed about a quarter of all
+adjudicated-SUPPORTED pairs, and the prior displaced nothing on a
+threshold-gated population (reports/compliance/cite_and_scope/p2/scope_decision.json).
+The problem both modes were aimed at is similarity-only scoping, which paired
+the operator's physical-security material to CIP-002 asset-categorization
+requirements because they share vocabulary: CIP-002 adjudicated 0.31 while
+the family ran 0.81.
 
 The driving scripts are idempotent: `derive_document_scope.py` skips
 documents already scoped, and `scope_effect.py` measures each mechanism
