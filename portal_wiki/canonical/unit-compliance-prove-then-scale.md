@@ -53,3 +53,19 @@ model to search for), the sweep that turns readings into typed,
 provenance-carrying mapping edges under a checker that refuses what it
 cannot trace, and the review surfaces that keep the human's queue down
 to real questions.
+
+## No reading runs on truncated material
+
+Ollama does not refuse a prompt larger than the window. It truncates it
+silently, and the answer comes back looking normal. In the LOAD_AND_CONVERSE
+family sweep, CIP-003-8 R1 (155k bytes) and CIP-003-9 R1 (139k bytes) were
+each counted at exactly 16,387 tokens against a 32,768 window. Each answered
+from its last Part alone ("the material contains a single requirement ...
+no operator sections"), with 65 and 67 operator sections sent, and determined
+nothing. CIP-003-8 R2 was cut to 31,355 tokens and determined nothing.
+
+`sweep.window_fit` now estimates every prompt before the call, at 3.3 bytes
+per token (measured median 3.59, set to err high). A prompt that does not
+fit goes to `overflow_model`, the same weights with a larger baked window,
+or is recorded as a `context_overflow` error without a call. The route taken
+is stamped as `context_fit` in the retained run.

@@ -164,6 +164,10 @@ class Anchor:
     section_ids: list[str] = field(default_factory=list)
     occurrences: int = 0
     reason: str = ""
+    #: how the anchor was found: ``exact`` (verbatim text located in the
+    #: capture) or ``heading`` (a Technical Rationale section placed by the
+    #: requirement its own heading names — see :func:`anchor_rationale_document`)
+    method: str = "exact"
 
 
 def locate(needle_text: str, offsets: OffsetMap) -> tuple[int, int, int, str]:
@@ -400,6 +404,123 @@ def anchor_bundle_spans(
     for key, text in (getattr(bundle, "measures_leadins", {}) or {}).items():
         emit(by_requirement.get(key, []), _leadin_statement(str(text)), "measure")
     return out
+
+
+_REQ_HEADING = re.compile(r"\brequirements?\b|\brational", re.I)
+_R_NUMBER = re.compile(r"\bR(\d+)\b")
+_REQUIREMENT_NUMBER = re.compile(r"\brequirements?\s+(\d+)\b", re.I)
+_ATTACHMENT_SECTION = re.compile(r"\battachment\s+(\d+)\b.*?\bsection\s+(\d+)\b", re.I)
+
+
+def requirements_named(heading: str) -> tuple[set[str], tuple[str, str] | None]:
+    """The requirement numbers a Technical Rationale heading names, and the
+    ``(attachment, section)`` it names, if any.
+
+    Only a heading that says *requirement* (or the drafting teams' recurring
+    misspelling *Rational for Requirement 1 and Requirement 2*) places a
+    section. ``CIP-010-3`` in a heading names a standard, not a requirement,
+    and is never read as one.
+    """
+    text = str(heading or "")
+    attachment = _ATTACHMENT_SECTION.search(text)
+    placed_attachment = (attachment.group(1), attachment.group(2)) if attachment else None
+    if not _REQ_HEADING.search(text):
+        # an "Attachment 1 Section 6 Part 6.3 - ..." heading names its place
+        # without the word requirement (CIP-003-9's rationale is organised so)
+        return set(), placed_attachment
+    numbers = {f"R{n}" for n in _R_NUMBER.findall(text)}
+    numbers |= {f"R{n}" for n in _REQUIREMENT_NUMBER.findall(text)}
+    return numbers, placed_attachment
+
+
+def anchor_rationale_document(
+    repo: Any, revision_id: str, nodes: list[Any]
+) -> tuple[list[Anchor], list[dict[str, Any]]]:
+    """Place a standard's separate Technical Rationale document on its requirements.
+
+    Newer CIP versions moved the Guidelines and Technical Basis out of the
+    standard into a separate Technical Rationale document, so the exact-text
+    route (:func:`anchor_bundle_spans`, which locates GTB spans the standard's
+    own bundle carries) has nothing to locate. That document is organised by
+    requirement, and every section heading says which one ("Rationale for
+    Requirement R4", "General Considerations for Requirements R1 and R2",
+    "Requirement R4, Attachment 1, Section 1 - ...").
+
+    A section is placed on every Register node of each requirement its OWN
+    heading names, which matches the requirement-level rule
+    :func:`anchor_bundle_spans` applies (the rationale for R2 is the context of
+    2.1 through 2.4 alike). A heading naming Attachment N Section S also places
+    it on that attachment's nodes. Nothing is inferred from position: a section
+    whose heading names neither a requirement nor an attachment section (Preface, Introduction, Table of
+    Contents, a topical sub-heading) is returned UNPLACED with its size, and
+    never attached to a neighbour. The join records ``method='heading'`` so this
+    placement is never mistaken for a verbatim-text anchor.
+    """
+    by_requirement: dict[str, list[str]] = {}
+    by_attachment_section: dict[tuple[str, str], list[str]] = {}
+    for node in nodes:
+        requirement = str(getattr(node, "requirement", "") or "")
+        by_requirement.setdefault(requirement, []).append(str(node.id))
+        attachment_node = re.match(r"Attachment (\d+)(?: Section (\d+))?$", requirement)
+        if attachment_node:
+            part = str(getattr(node, "part", "") or "")
+            section = attachment_node.group(2) or part.split(".")[0]
+            if section:
+                by_attachment_section.setdefault((attachment_node.group(1), section), []).append(
+                    str(node.id)
+                )
+
+    rows = repo._conn.execute(
+        """SELECT section_id, heading_path, title, char_start, char_end, unit_kind
+             FROM source_sections WHERE revision_id = ? ORDER BY ordinal""",
+        (revision_id,),
+    ).fetchall()
+    placed: dict[str, list[tuple[str, int, int]]] = {}
+    unplaced: list[dict[str, Any]] = []
+    for row in rows:
+        heading = str(row["heading_path"] or "")
+        numbers, attachment = requirements_named(heading)
+        targets: list[str] = []
+        for number in sorted(numbers):
+            targets.extend(by_requirement.get(number, []))
+        if attachment is not None:
+            targets.extend(by_attachment_section.get(attachment, []))
+        if not targets:
+            reason = (
+                "heading names no requirement"
+                if not numbers and attachment is None
+                else f"heading names {sorted(numbers) or attachment} which the Register "
+                "does not carry for this standard"
+            )
+            unplaced.append(
+                {
+                    "section_id": str(row["section_id"]),
+                    "heading": heading,
+                    "chars": int(row["char_end"]) - int(row["char_start"]),
+                    "reason": reason,
+                }
+            )
+            continue
+        for req_id in dict.fromkeys(targets):
+            placed.setdefault(req_id, []).append(
+                (str(row["section_id"]), int(row["char_start"]), int(row["char_end"]))
+            )
+
+    anchors = [
+        Anchor(
+            requirement_id=req_id,
+            revision_id=revision_id,
+            relation="technical_basis",
+            anchored=True,
+            char_start=min(start for _, start, _ in spans),
+            char_end=max(end for _, _, end in spans),
+            section_ids=[section_id for section_id, _, _ in spans],
+            occurrences=1,
+            method="heading",
+        )
+        for req_id, spans in placed.items()
+    ]
+    return anchors, unplaced
 
 
 def anchor_report(anchors: list[Anchor]) -> dict[str, Any]:
