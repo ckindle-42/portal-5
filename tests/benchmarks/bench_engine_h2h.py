@@ -388,18 +388,19 @@ def _state_file(engine: str) -> Path:
     return STATE_DIR / f"{engine}.json"
 
 
-def wait_ready(url: str, timeout_s: float, pid: int | None = None) -> float:
-    """Poll /v1/models until it answers. Event-driven with a ceiling."""
+def wait_ready(url: str, timeout_s: float, process: subprocess.Popen | None = None) -> float:
+    """Poll /v1/models until ready or fail promptly if its managed child exits."""
     t0 = time.monotonic()
     while time.monotonic() - t0 < timeout_s:
         with contextlib.suppress(Exception):
             http_json(f"{url}/v1/models", timeout=3)
             return round(time.monotonic() - t0, 2)
-        if pid is not None:
-            try:
-                os.kill(pid, 0)
-            except ProcessLookupError:
-                raise SystemExit("engine process exited during startup — see its log") from None
+        if process is not None:
+            exit_code = process.poll()
+            if exit_code is not None:
+                raise SystemExit(
+                    f"engine process exited during startup (exit {exit_code}) — see its log"
+                )
         time.sleep(1)
     raise SystemExit(f"{url} not ready after {timeout_s}s")
 
@@ -414,7 +415,7 @@ def start_managed(cfg: dict, engine: str, model: str, mode: str) -> dict:
         proc = subprocess.Popen(
             argv, cwd=cwd, stdout=fh, stderr=subprocess.STDOUT, env=env, start_new_session=True
         )
-    ready_s = wait_ready(base_url(cfg, engine), 900, proc.pid)
+    ready_s = wait_ready(base_url(cfg, engine), 900, proc)
     st = {
         "engine": engine,
         "model": model,
