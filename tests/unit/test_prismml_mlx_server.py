@@ -1,5 +1,6 @@
 """MLX pack loader selection without importing the model runtime."""
 
+import asyncio
 import json
 import sys
 from types import ModuleType, SimpleNamespace
@@ -86,3 +87,28 @@ def test_stock_mlx_model_uses_mlx_lm_cache_and_logits_api(monkeypatch):
         "cache": cache,
         "logits_index": (slice(None), -1, slice(None)),
     }
+
+
+def test_streaming_response_keeps_generation_on_async_iterator(tmp_path, monkeypatch):
+    class FakeRequest:
+        async def json(self):
+            return {"messages": [], "stream": True}
+
+    monkeypatch.setattr(server, "_PACK", tmp_path, raising=False)
+    monkeypatch.setattr(
+        server,
+        "_generate",
+        lambda _payload: iter(["hello", {"usage": {"prompt_tokens": 2, "completion_tokens": 1}}]),
+    )
+
+    response = asyncio.run(server.chat_completions(FakeRequest()))
+
+    assert hasattr(response.body_iterator, "__anext__")
+
+    async def collect():
+        return [chunk async for chunk in response.body_iterator]
+
+    chunks = asyncio.run(collect())
+    assert '"content": "hello"' in chunks[0]
+    assert '"prompt_tokens": 2' in chunks[1]
+    assert chunks[-1] == "data: [DONE]\n\n"
