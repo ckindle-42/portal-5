@@ -83,6 +83,46 @@ def test_disabled_is_inert(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> N
     assert mod.recent_traces(10) == []
 
 
+def test_bodies_are_opt_in_and_nested_credentials_are_redacted(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("PORTAL_TRACE", "1")
+    monkeypatch.setenv("PORTAL_TRACE_BODIES", "1")
+    monkeypatch.setenv("PORTAL_TRACE_DIR", str(tmp_path / "bodies"))
+    import portal.platform.inference.router.trace as mod
+
+    mod = importlib.reload(mod)
+    mod.start_trace("p5-dddd0001")
+    mod.capture(messages=[{"role": "user", "content": "private prompt"}])
+    mod.capture(tool_arguments={"lookup": {"api_key": "secret", "query": "CIP-007-6"}})
+    mod.finalize_trace()
+
+    record = mod.read_trace("p5-dddd0001")
+    assert record["bodies_captured"] is True
+    assert record["bodies"]["messages"][0]["content"] == "private prompt"
+    assert record["bodies"]["tool_arguments"]["lookup"]["api_key"] == "<redacted>"
+
+
+def test_oversized_records_remain_bounded_valid_json(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("PORTAL_TRACE", "1")
+    monkeypatch.setenv("PORTAL_TRACE_DIR", str(tmp_path / "bounded"))
+    monkeypatch.setenv("PORTAL_TRACE_MAX_BYTES", "512")
+    import portal.platform.inference.router.trace as mod
+
+    mod = importlib.reload(mod)
+    mod.start_trace("p5-dddd0002")
+    mod.note(workspace="x" * 2000)
+    mod.finalize_trace()
+
+    path = tmp_path / "bounded" / "p5-dddd0002.json"
+    assert path.stat().st_size <= 512
+    record = mod.read_trace("p5-dddd0002")
+    assert record["truncated"] is True
+    assert record["correlation_id"] == "p5-dddd0002"
+
+
 def test_helpers_never_raise_without_a_current_trace(trace_mod) -> None:
     trace_mod.span("orphan", detail="no turn in flight")
     trace_mod.note(workspace="none")

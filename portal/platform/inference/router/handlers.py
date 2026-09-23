@@ -77,6 +77,19 @@ from portal.platform.inference.router.streaming import (
     _select_streaming_backend,
     _stream_with_fallback,
 )
+from portal.platform.inference.router.trace import (
+    capture as trace_capture,
+)
+from portal.platform.inference.router.trace import (
+    finalize_trace,
+    start_trace,
+)
+from portal.platform.inference.router.trace import (
+    note as trace_note,
+)
+from portal.platform.inference.router.trace import (
+    span as trace_span,
+)
 from portal.platform.inference.router.workspaces import (
     _PERSONA_MAP,
     WORKSPACES,
@@ -546,6 +559,16 @@ async def _resolve_request_route(
             ),
         )
 
+    trace_span(
+        "route.resolved",
+        requested=_original_model_id,
+        workspace=workspace_id,
+        stream=bool(stream),
+        candidates=len(candidates),
+    )
+    trace_note(requested=_original_model_id, workspace=workspace_id, persona=persona)
+    trace_capture(messages=body.get("messages", []))
+
     return workspace_id, body, stream, persona, candidates
 
 
@@ -648,6 +671,8 @@ async def _dispatch_non_streaming(
             resolved_model = (
                 route_header.split(";")[2] if len(route_header.split(";")) > 2 else "unknown"
             )
+            trace_note(backend=backend.id, model=resolved_model, outcome="ok")
+            trace_span("backend.selected", backend=backend.id, model=resolved_model)
             _record_response_time(
                 resolved_model,
                 workspace_id,
@@ -678,6 +703,7 @@ async def _dispatch_non_streaming(
                     primary_model=resolved_model,
                 )
             return result
+        trace_span("backend.attempt", backend=backend.id, outcome="failed")
     # All backends failed
     _record_error(workspace_id, "all_backends_failed")
     raise HTTPException(
@@ -719,6 +745,8 @@ async def chat_completions(
     """
     _verify_key(authorization)
 
+    start_trace(get_correlation_id())
+
     slot = RequestSlot()
     await slot.acquire_global()
 
@@ -749,6 +777,8 @@ async def chat_completions(
         backend, target_model, _model_hint, _chain, _secondary_model, _tertiary_model = (
             _select_streaming_backend(workspace_id, candidates)
         )
+        trace_note(backend=backend.id, model=target_model)
+        trace_span("backend.selected", backend=backend.id, model=target_model)
         (
             backend_body,
             effective_tools,
@@ -818,13 +848,16 @@ async def chat_completions(
         )
         _record_persona(persona, target_model)
         return _streaming_response
-    except HTTPException:
+    except HTTPException as exc:
+        trace_note(outcome=f"http_{exc.status_code}")
         raise
     except Exception:
+        trace_note(outcome="error")
         _record_error(workspace_id, "unexpected_error")
         raise
     finally:
         slot.release_if_attached()
+        finalize_trace()
 
 
 async def anthropic_messages(

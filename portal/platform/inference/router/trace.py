@@ -51,7 +51,9 @@ def _int(name: str, default: int) -> int:
 ENABLED: bool = _flag("PORTAL_TRACE", "1")
 CAPTURE_BODIES: bool = _flag("PORTAL_TRACE_BODIES", "0")
 MAX_RECORDS: int = _int("PORTAL_TRACE_MAX", 200)
-MAX_RECORD_BYTES: int = _int("PORTAL_TRACE_MAX_BYTES", 32768)
+# Keep enough room for the compact fallback record even when an operator sets
+# an unusually small limit. Records stay valid JSON at every configured size.
+MAX_RECORD_BYTES: int = max(512, _int("PORTAL_TRACE_MAX_BYTES", 32768))
 
 # Correlation ids are minted as ``p5-<hex12>`` but may be supplied by a client
 # through X-Correlation-ID, so the id is a filename component we do not trust.
@@ -66,12 +68,22 @@ def trace_dir() -> Path:
     return Path(configured) if configured else Path(tempfile.gettempdir()) / "portal_traces"
 
 
+def _redact_value(value: Any) -> Any:
+    if isinstance(value, dict):
+        return redact(value)
+    if isinstance(value, list):
+        return [_redact_value(item) for item in value]
+    return value
+
+
 def redact(mapping: dict[str, Any]) -> dict[str, Any]:
     """Copy *mapping* with credential-shaped values replaced by a marker."""
     out: dict[str, Any] = {}
     for key, value in mapping.items():
         lowered = str(key).lower()
-        out[key] = "<redacted>" if any(token in lowered for token in _REDACT) else value
+        out[key] = (
+            "<redacted>" if any(token in lowered for token in _REDACT) else _redact_value(value)
+        )
     return out
 
 
@@ -86,7 +98,7 @@ class TurnTrace:
     disconnects mid-stream still leaves the earlier, partial record on disk.
     """
 
-    __slots__ = ("cid", "started_at", "_t0", "_spans", "_meta")
+    __slots__ = ("cid", "started_at", "_t0", "_spans", "_meta", "_bodies")
 
     def __init__(self, cid: str) -> None:
         self.cid = cid
@@ -94,6 +106,7 @@ class TurnTrace:
         self._t0 = time.monotonic()
         self._spans: list[dict[str, Any]] = []
         self._meta: dict[str, Any] = {}
+        self._bodies: dict[str, Any] = {}
 
     def span(self, name: str, **fields: Any) -> None:
         """Append one named event with its offset from the start of the turn."""
@@ -109,8 +122,18 @@ class TurnTrace:
         """Merge turn-level facts (workspace, backend, model, outcome)."""
         self._meta.update(redact(fields))
 
+    def capture(self, **fields: Any) -> None:
+        """Keep opt-in message or tool-argument bodies on this turn."""
+        for key, value in redact(fields).items():
+            if key not in self._bodies:
+                self._bodies[key] = value
+            elif isinstance(self._bodies[key], list):
+                self._bodies[key].append(value)
+            else:
+                self._bodies[key] = [self._bodies[key], value]
+
     def to_dict(self) -> dict[str, Any]:
-        return {
+        record = {
             "correlation_id": self.cid,
             "started_at": self.started_at,
             "duration_ms": round((time.monotonic() - self._t0) * 1000, 1),
@@ -118,6 +141,9 @@ class TurnTrace:
             **self._meta,
             "spans": list(self._spans),
         }
+        if self._bodies:
+            record["bodies"] = dict(self._bodies)
+        return record
 
     def finalize(self) -> None:
         """Write (or rewrite) this turn's record. Never raises."""
@@ -165,6 +191,14 @@ def note(**fields: Any) -> None:
             trace.set(**fields)
 
 
+def capture(**fields: Any) -> None:
+    """Capture message or tool-argument bodies only when explicitly enabled."""
+    with contextlib.suppress(Exception):
+        trace = _current.get()
+        if CAPTURE_BODIES and trace is not None:
+            trace.capture(**fields)
+
+
 def finalize_trace() -> None:
     """Write the current turn's record. Safe to call more than once."""
     with contextlib.suppress(Exception):
@@ -176,14 +210,17 @@ def finalize_trace() -> None:
 def _write(cid: str, record: dict[str, Any]) -> None:
     directory = trace_dir()
     directory.mkdir(parents=True, exist_ok=True)
-    payload = json.dumps(record, default=str)
-    if len(payload) > MAX_RECORD_BYTES:
-        thin = {k: v for k, v in record.items() if k != "spans"}
+    payload = json.dumps(record, default=str, separators=(",", ":"))
+    if len(payload.encode("utf-8")) > MAX_RECORD_BYTES:
+        thin = {k: v for k, v in record.items() if k not in ("spans", "bodies")}
         thin["truncated"] = True
-        thin["spans"] = [
-            {"name": s.get("name"), "at_ms": s.get("at_ms")} for s in record.get("spans", [])
-        ]
-        payload = json.dumps(thin, default=str)[:MAX_RECORD_BYTES]
+        thin["spans"] = []
+        payload = json.dumps(thin, default=str, separators=(",", ":"))
+        if len(payload.encode("utf-8")) > MAX_RECORD_BYTES:
+            thin = {"correlation_id": cid, "truncated": True, "spans": []}
+            payload = json.dumps(thin, separators=(",", ":"))
+        if len(payload.encode("utf-8")) > MAX_RECORD_BYTES:
+            raise ValueError("minimum trace record exceeds configured size limit")
     target = directory / f"{cid}.json"
     tmp = directory / f".{cid}.{os.getpid()}.tmp"
     tmp.write_text(payload, encoding="utf-8")

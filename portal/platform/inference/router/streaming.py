@@ -54,6 +54,15 @@ from portal.platform.inference.router.tools import (
     _dispatch_tool_call,
     _select_explicit_required_tool,
 )
+from portal.platform.inference.router.trace import (
+    finalize_trace,
+)
+from portal.platform.inference.router.trace import (
+    note as trace_note,
+)
+from portal.platform.inference.router.trace import (
+    span as trace_span,
+)
 from portal.platform.inference.router.validation import (
     _inject_ollama_options,
     _inject_omlx_options,
@@ -155,13 +164,21 @@ async def _stream_with_tool_loop(
     Yields:
         SSE bytes for OWUI consumption.
     """
+    outcome = "interrupted"
     try:
         async for chunk in _stream_with_tool_loop_impl(
             backend_url, body, workspace_id, model, persona, effective_tools, start_time
         ):
             yield chunk
+        outcome = "complete"
+    except Exception:
+        outcome = "error"
+        raise
     finally:
+        trace_note(outcome=outcome)
+        trace_span("stream.finished", outcome=outcome)
         slot.release()
+        finalize_trace()
 
 
 def _accumulate_tool_calls(
@@ -805,13 +822,21 @@ async def _stream_with_preamble(
         yield _make_chunk({"content": f"`⚡ {ws_name} → {model}`\n\n"})
 
     # Stream from backend.
+    outcome = "interrupted"
     try:
         async for chunk in _stream_from_backend_guarded(
             url, body, workspace_id=workspace_id, model=model, start_time=start_time
         ):
             yield chunk
+        outcome = "complete"
+    except Exception:
+        outcome = "error"
+        raise
     finally:
+        trace_note(outcome=outcome)
+        trace_span("stream.finished", outcome=outcome)
         slot.release()
+        finalize_trace()
 
 
 async def _stream_from_backend_guarded(
@@ -1150,6 +1175,7 @@ async def _stream_with_chain(
 
     # collected[i] holds the joined text output of hop i
     collected: list[str] = []
+    outcome = "interrupted"
     try:
         # ── Hop 0: primary model (uses body as-is) ───────────────────────────
         hop0_parts: list[str] = []
@@ -1169,6 +1195,7 @@ async def _stream_with_chain(
             if not prior_text:
                 # previous hop produced nothing — abort chain, emit [DONE]
                 yield b"data: [DONE]\n\n"
+                outcome = "complete"
                 return
 
             hop_model = hop_cfg["model"]
@@ -1269,8 +1296,15 @@ async def _stream_with_chain(
 
             collected.append("".join(hop_parts))
 
+        outcome = "complete"
+    except Exception:
+        outcome = "error"
+        raise
     finally:
+        trace_note(outcome=outcome)
+        trace_span("stream.finished", outcome=outcome)
         slot.release()
+        finalize_trace()
 
 
 # ── Legacy two/three-hop shim (kept for any callers outside this module) ──────
@@ -1678,6 +1712,21 @@ async def _stream_with_fallback(
     """
     stream_failed = False
     _error_buffer = None
+
+    def _record_fallback_route(result: Any, candidate: Any) -> None:
+        route_parts = result.headers.get("x-portal-route", "").split(";")
+        resolved_backend = (
+            route_parts[1] if len(route_parts) > 1 and route_parts[1] else candidate.id
+        )
+        resolved_model = route_parts[2] if len(route_parts) > 2 and route_parts[2] else target_model
+        trace_note(backend=resolved_backend, model=resolved_model, outcome="ok")
+        trace_span(
+            "backend.selected",
+            backend=resolved_backend,
+            model=resolved_model,
+            fallback=True,
+        )
+
     try:
         _inner_stream = _select_stream_fn(
             backend,
@@ -1722,9 +1771,11 @@ async def _stream_with_fallback(
                 persona=persona,
             )
         if result is not None:
+            _record_fallback_route(result, backend)
             data = json.loads(_as_bytes(result.body))
             for frame in _json_completion_to_sse(data, workspace_id):
                 yield frame
+            finalize_trace()
             return
 
         if remaining:
@@ -1744,9 +1795,11 @@ async def _stream_with_fallback(
                     persona=persona,
                 )
                 if result is not None:
+                    _record_fallback_route(result, fb)
                     data = json.loads(_as_bytes(result.body))
                     for frame in _json_completion_to_sse(data, workspace_id):
                         yield frame
+                    finalize_trace()
                     return
 
         if _error_buffer:
@@ -1755,3 +1808,6 @@ async def _stream_with_fallback(
             yield b'data: {"error": "All backends failed"}\n\n'
         yield b"data: [DONE]\n\n"
         _record_error(workspace_id, "all_backends_failed")
+        trace_note(outcome="error")
+        trace_span("backend.failed", backend=backend.id)
+        finalize_trace()
