@@ -67,6 +67,8 @@ def check_pipeline_assembles() -> tuple[str, str, list[dict]]:
         ("/v1/backends", "GET"),
         ("/v1/chat/completions", "POST"),
         ("/v1/messages", "POST"),
+        ("/v1/trace", "GET"),
+        ("/v1/trace/{correlation_id}", "GET"),
     }
     actual_routes = set()
     for r in app.routes:
@@ -78,7 +80,7 @@ def check_pipeline_assembles() -> tuple[str, str, list[dict]]:
     missing = expected_routes - actual_routes
     if missing:
         return "FAIL", f"missing routes: {missing}", []
-    return "PASS", "FastAPI app + all 9 routes registered", []
+    return "PASS", "FastAPI app + all 11 routes registered", []
 
 
 @register("hint_validator", "E. hint validator", order=4)
@@ -195,3 +197,36 @@ def check_unit_tests(*, skip_env_only: bool = True) -> tuple[str, str, list[dict
     if result.returncode == 0:
         return "PASS", summary_line or "pytest rc=0", []
     return "FAIL", f"rc={result.returncode}: {summary_line}", []
+
+
+@register(
+    "trace_never_routes",
+    "HI. turn trace is read-only telemetry (Ground Rule 4)",
+    order=200,
+)
+def check_trace_never_routes() -> tuple[str, str, list[dict]]:
+    """HI. The trace read surface is confined to its own module and the endpoints.
+
+    Ground Rule 4 keeps conversation state out of routing. The trace store is
+    the closest thing the pipeline has to per-turn state, so the guard is
+    mechanical rather than a comment: `read_trace` and `recent_traces` may
+    appear only in `router/trace.py` (where they are defined), in
+    `router/handlers.py` (the two operator endpoints), and under `tests/`.
+    A read anywhere else would mean a decision path is consulting the trace.
+    """
+    allowed = {
+        "portal/platform/inference/router/trace.py",
+        "portal/platform/inference/router/handlers.py",
+    }
+    offenders: list[dict] = []
+    for path in REPO_ROOT.glob("portal/**/*.py"):
+        rel = path.relative_to(REPO_ROOT).as_posix()
+        if rel in allowed:
+            continue
+        text = path.read_text(encoding="utf-8", errors="ignore")
+        for symbol in ("read_trace", "recent_traces"):
+            if symbol in text:
+                offenders.append({"file": rel, "symbol": symbol})
+    if offenders:
+        return ("FAIL", "trace read surface reached a non-endpoint module", offenders)
+    return ("PASS", "trace reads confined to trace.py + the /v1/trace endpoints", [])
