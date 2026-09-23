@@ -89,6 +89,10 @@ services:
         target: /tmp/portal_metrics
         tmpfs:
           size: 10485760
+      - type: tmpfs
+        target: /tmp/portal_traces
+        tmpfs:
+          size: 33554432
       - pipeline-metrics-state:/app/data
     environment:
       - PIPELINE_API_KEY=${PIPELINE_API_KEY}
@@ -113,6 +117,13 @@ services:
       # at all) — red-side dispatch never hit this since it uses raw Ollama
       # model IDs directly, bypassing workspace resolution.
       - PORTAL_ENABLE_EVAL=${PORTAL_ENABLE_EVAL:-false}
+      # Turn trace — a var missing from this block never reaches the
+      # container, which is how PORTAL_ENABLE_EVAL and STRICT_HINT_VALIDATION
+      # above were each found silently inert during a live test.
+      - PORTAL_TRACE=${PORTAL_TRACE:-1}
+      - PORTAL_TRACE_BODIES=${PORTAL_TRACE_BODIES:-0}
+      - PORTAL_TRACE_MAX=${PORTAL_TRACE_MAX:-200}
+      - PORTAL_TRACE_DIR=/tmp/portal_traces
       # Notifications
       - NOTIFICATIONS_ENABLED=${NOTIFICATIONS_ENABLED:-false}
       - SLACK_ALERT_WEBHOOK_URL=${SLACK_ALERT_WEBHOOK_URL:-}
