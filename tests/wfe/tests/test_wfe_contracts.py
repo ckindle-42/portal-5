@@ -903,6 +903,33 @@ class TestAdaptiveThink:
         )
         assert p2["think"] is True
 
+    def test_engine_mode_routes_v1_to_engine_and_uses_template_switch(self, monkeypatch):
+        """WFE_ENGINE head-to-head: the chat goes to the other engine's base URL
+        and thinking is controlled by the chat template's own switch, never by
+        Ollama-only fields another engine may reject."""
+        import tests.wfe.runner as rn
+
+        monkeypatch.setattr(rn, "ENGINE", "mlx-serve")
+        monkeypatch.setattr(rn, "CHAT_BASE", "http://127.0.0.1:11234")
+        url, payload, _ = rn._build_payload(
+            "m",
+            [{"role": "user", "content": "x"}],
+            {"endpoint": "v1", "format": "none"},
+            {},
+            None,
+            "false",
+        )
+        assert url == "http://127.0.0.1:11234/v1/chat/completions"
+        assert payload["chat_template_kwargs"] == {"enable_thinking": False}
+        assert "think" not in payload and "reasoning_effort" not in payload
+
+    def test_ollama_default_unchanged_by_engine_support(self):
+        import tests.wfe.runner as rn
+
+        assert rn._v1_think_fields("false") == {"think": False, "reasoning_effort": "none"}
+        assert rn._v1_think_fields("true") == {"think": True}
+        assert rn._v1_think_fields("default") == {}
+
     def test_campaign_harness_resolves_think_workspace_then_card(self):
         from tests.wfe import campaign as c
 

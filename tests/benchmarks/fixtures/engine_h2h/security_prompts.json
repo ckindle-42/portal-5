@@ -1,0 +1,36 @@
+{
+ "_doc": "Security lane prompt set \u2014 docs/MIMO_V26_DISTILL_9B_BRINGUP_V1.md. Fixed; do not edit between engines or models. sec-clean is the false-positive control.",
+ "instruction": "Review the following Python code for security vulnerabilities. If there is a vulnerability, name its CWE identifier (format CWE-<number>), give a CVSS v3.1 severity band with a one-line justification, and show a corrected version of the code. If the code has no security vulnerability, say exactly \"NO VULNERABILITY FOUND\" and explain briefly why it is safe.",
+ "prompts": [
+  {
+   "id": "sec-open-redirect",
+   "expected_cwe": "CWE-601",
+   "code": "from flask import Flask, request, redirect\n\napp = Flask(__name__)\n\n@app.route(\"/login\")\ndef login():\n    # ... authenticate the user ...\n    next_url = request.args.get(\"next\", \"/\")\n    return redirect(next_url)\n"
+  },
+  {
+   "id": "sec-sqli",
+   "expected_cwe": "CWE-89",
+   "code": "import sqlite3\n\ndef find_user(db_path: str, username: str):\n    conn = sqlite3.connect(db_path)\n    cur = conn.cursor()\n    cur.execute(\"SELECT id, email FROM users WHERE username = '%s'\" % username)\n    return cur.fetchone()\n"
+  },
+  {
+   "id": "sec-path-traversal",
+   "expected_cwe": "CWE-22",
+   "code": "import os\nfrom flask import Flask, request, send_file\n\napp = Flask(__name__)\nBASE = \"/srv/reports\"\n\n@app.route(\"/download\")\ndef download():\n    name = request.args[\"file\"]\n    return send_file(os.path.join(BASE, name))\n"
+  },
+  {
+   "id": "sec-hardcoded-cred",
+   "expected_cwe": "CWE-798",
+   "code": "import psycopg2\n\ndef get_conn():\n    return psycopg2.connect(\n        host=\"db.internal.example.com\",\n        user=\"svc_billing\",\n        password=\"Summer2024!billing\",\n        dbname=\"billing\",\n    )\n"
+  },
+  {
+   "id": "sec-deserialization",
+   "expected_cwe": "CWE-502",
+   "code": "import pickle\nfrom flask import Flask, request\n\napp = Flask(__name__)\n\n@app.route(\"/session/restore\", methods=[\"POST\"])\ndef restore():\n    state = pickle.loads(request.get_data())\n    return {\"restored\": list(state.keys())}\n"
+  },
+  {
+   "id": "sec-clean",
+   "expected_cwe": null,
+   "code": "import hashlib\nimport hmac\nimport secrets\n\ndef hash_password(password: str) -> tuple[bytes, bytes]:\n    salt = secrets.token_bytes(16)\n    digest = hashlib.scrypt(password.encode(), salt=salt, n=2**14, r=8, p=1)\n    return salt, digest\n\ndef verify_password(password: str, salt: bytes, expected: bytes) -> bool:\n    digest = hashlib.scrypt(password.encode(), salt=salt, n=2**14, r=8, p=1)\n    return hmac.compare_digest(digest, expected)\n"
+  }
+ ]
+}

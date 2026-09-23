@@ -73,6 +73,8 @@ import yaml
 
 from tests.wfe.checkers import CheckContext, apply_checkers
 from tests.wfe.runner import (
+    CHAT_BASE,
+    ENGINE,
     OLLAMA,
     TOOL_NAMES,
     load_suite,
@@ -170,10 +172,14 @@ def _notify(event_type: str, message: str, metadata: dict | None = None) -> None
 
 
 def ollama_reachable() -> bool:
+    """The chat engine answers. For a non-Ollama engine (WFE_ENGINE) that is its
+    /v1/models; Ollama is still the model manager there, but the rows go to the
+    other engine, so that is the one whose absence stops the sweep."""
     import urllib.request
 
+    url = f"{OLLAMA}/api/version" if ENGINE == "ollama" else f"{CHAT_BASE}/v1/models"
     try:
-        with urllib.request.urlopen(f"{OLLAMA}/api/version", timeout=5) as r:
+        with urllib.request.urlopen(url, timeout=5) as r:
             return bool(json.load(r))
     except Exception:
         return False
@@ -1205,7 +1211,8 @@ def _cmd_preflight(campaign_dir: Path, force: bool) -> int:
         {r["arm"] for r in load_manifest(campaign_dir)["rows"]},
         key=lambda a: (sizes.get(a, 0), a),
     )
-    missing = [a for a in arms if a not in sizes] if sizes else []
+    # Arms served by another engine (WFE_ENGINE) are not Ollama tags at all.
+    missing = [a for a in arms if a not in sizes] if sizes and ENGINE == "ollama" else []
     bad = []
     for i, a in enumerate(arms, 1):
         t0 = time.monotonic()

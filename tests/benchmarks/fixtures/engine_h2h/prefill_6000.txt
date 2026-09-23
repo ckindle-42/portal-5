@@ -1,0 +1,521 @@
+
+
+# ===== tests/wfe/runner.py =====
+#!/usr/bin/env python3
+"""WFE fitness runner — real-use evaluation of a model IN its workspace/persona
+context with tools exposed: multi-turn, tool-executing, objectively checked.
+
+Repairs in this revision (each was a false-result generator):
+  - /v1 returns tool-call arguments as a JSON STRING; the previous runner
+    splatted it as **kwargs, so EVERY tool call on the default endpoint failed
+    with "ERROR: bad args". Arguments are now normalised at the boundary,
+    matching portal/platform/inference/router/tools.py.
+  - tool result messages carry tool_call_id + name, as production does.
+  - sandboxes are per (task, repeat); the previous runner shared one directory
+    across every task and every arm, so later runs inherited earlier work.
+  - persona resolution is deterministic and recorded (auto-coding has 40
+    personas bound to it; first-glob-wins made the measured prompt arbitrary).
+  - token/latency economics and finish_reason are captured, not discarded.
+  - `think` is resolved and SENT the way production sends it (the workspace's
+    explicit bool -> the model card -> the model's native default). On /v1 the
+    suppressing direction goes as `reasoning_effort: "none"`: a top-level
+    `think` is silently DROPPED there (measured 2026-09-12, Ollama 0.33.2), and
+    believing otherwise is what invalidated wfe_full_20260911's creative lane.
+  - the preflight verdict gates only on the arms the campaign uses (v1 reach,
+    v1 tool contract, stream parity). A format:json incompatibility (gpt-oss)
+    is a note, not a block — the campaign runs zero strict-JSON tasks.
+  - every request is STREAMED on the wire and a stall (no bytes for STALL_S),
+    not a total-time cap, aborts the turn — a slow-but-progressing model keeps
+    its work; a wedged backend is caught in minutes, not hours.
+
+Usage:
+  uv run python -m tests.wfe.runner --workspace tools-specialist \\
+      --suite tests/wfe/suites/coding.jsonl --sandbox /tmp/wfe/coding
+  uv run python -m tests.wfe.runner --model <tag> --preflight
+"""
+
+from __future__ import annotations
+
+import argparse
+import datetime as dt
+import json
+import os
+import re
+import shutil
+import subprocess
+import sys
+import time
+import urllib.request
+from pathlib import Path
+
+import yaml
+
+from tests.wfe.checkers import CheckContext, apply_checkers
+from tests.wfe.schema import Economics, Outcome, ResultRow, env_fingerprint, sha12
+
+REPO = Path(__file__).resolve().parents[2]
+OLLAMA = "http://localhost:11434"
+#: The chat engine under test. Default is production (Ollama). Set
+#: WFE_ENGINE=<name> and WFE_CHAT_BASE_URL=<base> to point the campaign at any
+#: OpenAI-compatible engine (oMLX, mlx-serve, Rapid-MLX, vllm-mlx, mlx_lm.server)
+#: for an engine head-to-head. Model management (/api/ps, eviction, tags) stays on
+#: Ollama either way: in engine mode draining Ollama frees the memory the other
+#: engine needs, and the other engine's own load/unload is the operator's job.
+ENGINE = os.environ.get("WFE_ENGINE", "ollama")
+CHAT_BASE = os.environ.get("WFE_CHAT_BASE_URL", OLLAMA).rstrip("/")
+#: /api/chat exists only on Ollama; elsewhere the native-endpoint probes run on /v1.
+NATIVE_ENDPOINT = "api" if ENGINE == "ollama" else "v1"
+RESULTS = REPO / "tests" / "wfe" / "results"
+
+HARNESS_DEFAULTS = {"endpoint": "v1", "stream": False, "think": "default", "format": "none"}
+
+#: A timeout is the enemy of a slow-but-progressing model: a large model under
+#: memory pressure can legitimately take many minutes per turn, and a blind
+#: wall-clock deadline throws that work away. The runner therefore streams every
+#: request on the wire and watches for a STALL — no bytes for STALL_S — rather
+#: than a total-time cap. Real progress (tokens arriving) resets the clock and is
+#: logged so a human tailing a multi-day sweep can see the model is alive.
+#:
+#: 600s is sized for the worst case in the fleet: a 70+GB model doing prompt-eval
+#: over a 256k-token context before its first output token, on a machine that is
+#: swapping. The single-call hard ceiling is still the task's remaining --budget-s
+#: (default 1800s), so a genuinely wedged backend cannot run forever.
+STALL_S = int(os.environ.get("WFE_STALL_S", "600"))
+_PROGRESS_EVERY_S = 30
+
+
+class StreamStalledError(RuntimeError):
+    """The backend accepted the request but produced no output for STALL_S, or
+    blew a generous hard ceiling. Attributed to the model (too slow for real
+    work in its lane), never to the harness."""
+
+
+_NETWORK_OK: bool | None = None
+
+
+def network_ok(probe: str = "https://raw.githubusercontent.com") -> bool:
+    """One cached reachability probe for the public internet. A `requires_network`
+    task on a machine with no outbound route is a BLOCKED instrument outcome, not
+    a model FAIL — without this check http_get errors on every call and a
+    fetch-grounded checker scores the model 0 for the harness's problem."""
+    global _NETWORK_OK
+    if _NETWORK_OK is None:
+        try:
+            urllib.request.urlopen(probe, timeout=5)
+            _NETWORK_OK = True
+        except Exception:
+            _NETWORK_OK = False
+    return _NETWORK_OK
+
+
+def _fn(name: str, desc: str, props: dict, required: list[str] | None = None) -> dict:
+    return {
+        "type": "function",
+        "function": {
+            "name": name,
+            "description": desc,
+            "parameters": {"type": "object", "properties": props, "required": required or []},
+        },
+    }
+
+
+#: One entry per tool. The previous list declared file_write TWICE (7 entries,
+#: 6 unique names) alongside a stale TOOLS_AVAILABLE constant that omitted it.
+TOOL_SCHEMAS = [
+    _fn(
+        "file_read",
+        "Read a text file. Args: path (str, relative).",
+        {"path": {"type": "string"}},
+        ["path"],
+    ),
+    _fn(
+        "file_list",
+        "List files under a directory. Args: path (str, default '.').",
+        {"path": {"type": "string"}},
+    ),
+    _fn(
+        "repo_search",
+        "Regex search across the sandbox and the repository. Args: pattern (str), path (str, optional).",
+        {"pattern": {"type": "string"}, "path": {"type": "string"}},
+        ["pattern"],
+    ),
+    _fn(
+        "pytest_run",
+        "Run pytest in the task sandbox. Args: args (str, default '').",
+        {"args": {"type": "string"}},
+    ),
+    _fn(
+        "file_write",
+        "Write a text file inside the task sandbox. Args: path (str), content (str).",
+        {"path": {"type": "string"}, "content": {"type": "string"}},
+        ["path", "content"],
+    ),
+    _fn(
+        "http_get",
+        "GET a URL, return the first 4000 chars of text. Args: url (str).",
+        {"url": {"type": "string"}},
+        ["url"],
+    ),
+]
+TOOL_NAMES = [t["function"]["name"] for t in TOOL_SCHEMAS]
+
+
+class Sandbox:
+    """Root for all file tools. Writes are confined to the sandbox; reads may
+    fall back to the repository (read-only) so in-repo tasks are possible.
+    Checkers never use this resolver — they resolve sandbox-only, because a repo
+    fallback let a checker be satisfied by a file the model never wrote."""
+
+    def __init__(self, root: Path, allow_repo_read: bool = True):
+        self.root = Path(root).resolve()
+        self.root.mkdir(parents=True, exist_ok=True)
+        self.allow_repo_read = allow_repo_read
+
+    @staticmethod
+    def _under(child: Path, parent: Path) -> bool:
+        return child == parent or parent in child.parents
+
+    def _resolve(self, path: str, write: bool = False) -> Path | None:
+        """Resolve a tool path. Writes are sandbox-only. Reads prefer a sandbox
+        file when one exists, then fall back to the repository — the previous
+        version only fell back when the path ESCAPED the sandbox, so
+        file_read('README.md') on an in-repo research task never reached the
+        repo and repo_search('.', ...) searched an empty directory."""
+        sp = (self.root / path).resolve()
+        in_sandbox = self._under(sp, self.root)
+        if write:
+            return sp if in_sandbox else None
+        if in_sandbox and sp.exists():
+            return sp
+        if self.allow_repo_read:
+            rp = (REPO / path).resolve()
+            if self._under(rp, REPO) and rp.exists():
+                return rp
+        return sp if in_sandbox else None
+
+    def file_read(self, path: str = ".") -> str:
+        f = self._resolve(path)
+        if f is None or not f.is_file():
+            return f"ERROR: cannot read {path}"
+        return f.read_text(errors="ignore")[:20000]
+
+    def file_list(self, path: str = ".") -> str:
+        # No empty-sandbox -> repo-root fallback: a code task's sandbox is
+        # legitimately empty, and dumping the whole repo tree into the context
+        # (hundreds of entries) is noise the model then has to reason past. A
+        # research task lists a real repo subpath (`file_list('docs')`), which
+        # _resolve reaches, or uses repo_search.
+        d = self._resolve(path)
+        if d is None or not d.is_dir():
+            return f"ERROR: cannot list {path}"
+        if d == REPO or REPO in d.parents:  # never rglob deep into the repo
+            return "\n".join(sorted(p.name for p in d.iterdir() if not p.name.startswith(".")))
+        return "\n".join(str(x.relative_to(d)) for x in sorted(d.rglob("*"))[:200])
+
+    def _grep_sandbox(self, pattern: str, root: Path) -> str:
+        try:
+            return subprocess.run(
+                ["grep", "-rEnI", "--exclude-dir=__pycache__", "--", pattern, str(root)],
+                capture_output=True,
+                text=True,
+                timeout=15,
+            ).stdout.replace(str(root) + "/", "")
+        except Exception as e:  # pragma: no cover - defensive
+            return f"ERROR: {e}\n"
+
+    def _grep_repo(self, pattern: str) -> str:
+        """`git grep` over TRACKED files only — fast, and .venv / worktrees /
+        node_modules / build artifacts are excluded for free. A plain `grep -r`
+        over the repo root walks .claude/worktrees/*/.venv and times out."""
+        try:
+            r = subprocess.run(
+                ["git", "-C", str(REPO), "grep", "-nEI", "--no-color", "-e", pattern],
+                capture_output=True,
+                text=True,
+                timeout=20,
+            )
+            return r.stdout
+        except Exception as e:  # pragma: no cover - defensive
+            return f"ERROR: {e}\n"
+
+    def repo_search(self, pattern: str = "", path: str = "") -> str:
+        """Regex search across the sandbox AND the repository (its stated
+        contract). The previous version only added the repo when `path` was
+        empty or escaped the sandbox, so `path='.'` — which the model naturally
+        passes for "here" — resolved to the sandbox root and excluded the repo."""
+        if not str(pattern).strip():
+            return "ERROR: pattern required"
+        chunks: list[str] = []
+        if path and path not in (".", "./"):
+            t = self._resolve(path)
+            chunks.append(self._grep_sandbox(pattern, t if (t and t.is_dir()) else self.root))
+        else:
+            chunks.append(self._grep_sandbox(pattern, self.root))
+            if self.allow_repo_read:
+                chunks.append(self._grep_repo(pattern))
+        body = "\n".join(c for c in chunks if c.strip())
+        return (body or "(no matches)")[:8000]
+
+    def pytest_run(self, args: str = "") -> str:
+        try:
+            r = subprocess.run(
+                [
+                    sys.executable,
+                    "-m",
+                    "pytest",
+                    "-q",
+                    "-p",
+                    "no:cacheprovider",
+                    "--import-mode=importlib",
+                    *(args.split() if args else []),
+                ],
+                capture_output=True,
+                text=True,
+                timeout=180,
+                cwd=str(self.root),
+            )
+            return (r.stdout + r.stderr)[:8000]
+        except Exception as e:
+            return f"ERROR: {e}"
+
+    def file_write(self, path: str = "", content: str = "") -> str:
+        if not str(path).strip():
+            return "ERROR: path required"
+        f = self._resolve(path, write=True)
+        if f is None:
+            return f"ERROR: {path} outside sandbox"
+        if f.is_dir() or f == self.root:
+            return f"ERROR: {path} is a directory"
+        f.parent.mkdir(parents=True, exist_ok=True)
+        f.write_text(content)
+        return f"wrote {len(content)} chars to {path}"
+
+    def http_get(self, url: str = "") -> str:
+        if not str(url).startswith("http"):
+            return "ERROR: url required"
+        try:
+            with urllib.request.urlopen(url, timeout=30) as r:
+                return r.read(200000).decode(errors="ignore")[:4000]
+        except Exception as e:
+            return f"ERROR: {e}"
+
+    def dispatch(self, name: str, args: dict) -> str:
+        fn = {
+            "file_read": self.file_read,
+            "file_list": self.file_list,
+            "repo_search": self.repo_search,
+            "pytest_run": self.pytest_run,
+            "file_write": self.file_write,
+            "http_get": self.http_get,
+        }.get(name)
+        if fn is None:
+            return f"ERROR: unknown tool {name}"
+        try:
+            return fn(**args)
+        except TypeError as e:
+            return f"ERROR: bad args for {name}: {e}"
+        except Exception as e:
+            # A model emitting a hostile or malformed argument must produce a
+            # recorded tool ERROR the model can recover from, not abort the run
+            # into HARNESS_ERROR. Dimension 13/14 depend on this distinction.
+            return f"ERROR: {name} failed: {type(e).__name__}: {e}"
+
+
+def _unwrap_tool_name_envelope(parsed: dict) -> dict:
+    """Some models (command-r confirmed via WFE 2026-09-11) emit tool-call
+    arguments wrapped as {"tool_name": ..., "parameters": {...}} instead of
+    flat kwargs. Mirrors portal/platform/inference/router/tools.py."""
+    if set(parsed) <= {"tool_name", "parameters"} and isinstance(parsed.get("parameters"), dict):
+        return parsed["parameters"]
+    return parsed
+
+
+def normalize_tool_args(raw) -> tuple[dict, str | None]:
+    """/api/chat returns a dict; /v1 returns a JSON string (OpenAI contract).
+    Mirrors portal/platform/inference/router/tools.py:189."""
+    if raw is None or raw == "":
+        return {}, None
+    if isinstance(raw, dict):
+        return _unwrap_tool_name_envelope(raw), None
+    if isinstance(raw, str):
+        try:
+            parsed = json.loads(raw)
+        except json.JSONDecodeError as e:
+            return {}, f"invalid JSON arguments: {e}"
+        if not isinstance(parsed, dict):
+            return {}, f"arguments decoded to {type(parsed).__name__}, expected object"
+        return _unwrap_tool_name_envelope(parsed), None
+    return {}, f"unsupported arguments type {type(raw).__name__}"
+
+
+def _card_registry() -> dict:
+    path = REPO / "config" / "model_card_expectations.yaml"
+    if not path.exists():
+        return {}
+    return (yaml.safe_load(path.read_text()) or {}).get("models", {}) or {}
+
+
+def _norm_key(s: str) -> str:
+    return re.sub(r"[-_.\s]", "", s.lower())
+
+
+def card_entry(tag: str, registry: dict | None = None) -> tuple[str, dict] | None:
+    """Longest-match-wins over separator-normalised keys.
+
+    The previous first-substring-wins scan resolved 28 of 81 production hints to
+    the generic 'qwen3' entry (shadowing qwen3.5/3.6/3.8) and matched NOTHING for
+    granite, because registry keys are hyphenated ('granite-4.1') while installed
+    tags are not ('granite4.1'). Dimensions 2 and 3 were inert as a result."""
+    registry = _card_registry() if registry is None else registry
+    tl = _norm_key(tag)
+    best = None
+    for key, entry in registry.items():
+        nk = _norm_key(key)
+        if nk and nk in tl and (best is None or len(nk) > len(_norm_key(best[0]))):
+            best = (key, entry or {})
+    return best
+
+
+def think_policy(tag: str, registry: dict | None = None) -> str:
+    hit = card_entry(tag, registry)
+    if hit:
+        pol = (hit[1].get("harness_policy") or {}).get("think")
+        if pol:
+            return pol
+    return "default"
+
+
+def format_json_policy(tag: str, registry: dict | None = None) -> bool | None:
+    """Card ground truth for the strict-JSON arm: harness_policy.format_json_safe.
+
+    Returns True/False when the card records it, None when the model has no card
+    entry or the field is absent. The gpt-oss card records this False — a
+    harmony/template conflict makes `format:json` return empty or degenerate
+    content — and preflight reconciles that claim against live behaviour rather
+    than trusting either side."""
+    hit = card_entry(tag, registry)
+    if hit:
+        pol = (hit[1].get("harness_policy") or {}).get("format_json_safe")
+        if isinstance(pol, bool):
+            return pol
+    return None
+
+
+def _is_json_object(text: str) -> bool:
+    """True iff `text` parses to a JSON object. The strict-JSON arm asks for
+    exactly `{"ok": true}`; anything that will not `json.loads` to a dict is
+    degenerate output, not a passing response — which is the other half of the
+    'empty/degenerate' breakage the gpt-oss card records."""
+    try:
+        return isinstance(json.loads((text or "").strip()), dict)
+    except (json.JSONDecodeError, ValueError):
+        return False
+
+
+def _mk_msg(content: list, tool_parts: dict) -> dict:
+    msg = {"role": "assistant", "content": "".join(content)}
+    if tool_parts:
+        msg["tool_calls"] = [
+            {
+                "id": s.get("id") or f"call_{i}",
+                "type": "function",
+                "function": {
+                    "name": s["function"]["name"],
+                    "arguments": s["function"]["arguments"],
+                },
+            }
+            for i, (_, s) in enumerate(sorted(tool_parts.items()))
+        ]
+    return msg
+
+
+def _iter_lines_with_stall(resp, stall_s: int, hard_s: int, tag: str):
+    """Yield response lines, aborting on a stall rather than on total time.
+
+    The socket carries a stall_s read timeout, so a readline that blocks longer
+    than that means the backend has gone quiet — raise StreamStalledError. As long as
+    bytes keep arriving the only ceiling is hard_s (minutes of headroom over the
+    slowest plausible real turn), and progress is logged every _PROGRESS_EVERY_S.
+    """
+    t0 = time.monotonic()
+    last_log = t0
+    seen = 0
+    while True:
+        try:
+            line = resp.readline()
+        except TimeoutError as e:
+            raise StreamStalledError(
+                f"{tag}: no output for {stall_s}s after {seen} bytes / "
+                f"{int(time.monotonic() - t0)}s — backend stalled"
+            ) from e
+        if not line:
+            return
+        seen += len(line)
+        now = time.monotonic()
+        if now - t0 > hard_s:
+            raise StreamStalledError(
+                f"{tag}: exceeded {hard_s}s hard ceiling ({seen} bytes) — abandoning turn"
+            )
+        if now - last_log >= _PROGRESS_EVERY_S:
+            print(
+                f"    … {tag}: streaming, {seen} bytes, {int(now - t0)}s elapsed",
+                file=sys.stderr,
+                flush=True,
+            )
+            last_log = now
+        yield line
+
+
+def _parse_stream_api(lines) -> dict:
+    content, tool_parts, done_reason, raw = [], {}, None, {}
+    for line in lines:
+        line = line.strip()
+        if not line:
+            continue
+        obj = json.loads(line)
+        msg = obj.get("message") or {}
+        if msg.get("content"):
+            content.append(msg["content"])
+        for tc in msg.get("tool_calls") or []:
+            fn = tc.get("function", {}) or {}
+            idx = fn.get("index", len(tool_parts)) or 0
+            slot = tool_parts.setdefault(
+                idx, {"id": tc.get("id") or "", "function": {"name": "", "arguments": ""}}
+            )
+            slot["function"]["name"] += fn.get("name") or ""
+            a = fn.get("arguments")
+            slot["function"]["arguments"] += a if isinstance(a, str) else json.dumps(a or {})
+        if obj.get("done"):
+            done_reason = obj.get("done_reason")
+            raw = obj
+    return {"message": _mk_msg(content, tool_parts), "done_reason": done_reason, "_raw": raw}
+
+
+def _parse_stream_v1(lines) -> dict:
+    content, reasoning, tool_parts, finish, usage = [], [], {}, None, {}
+    for line in lines:
+        line = line.strip()
+        if not line.startswith("data:"):
+            continue
+        data = line[5:].strip()
+        if data == "[DONE]":
+            break
+        obj = json.loads(data)
+        if obj.get("usage"):
+            usage = obj["usage"]
+        choice = (obj.get("choices") or [{}])[0]
+        finish = choice.get("finish_reason") or finish
+        delta = choice.get("delta") or {}
+        if delta.get("content"):
+            content.append(delta["content"])
+        # Reasoning models (granite4.x, deepseek-r1, ...) stream <think> content
+        # in a separate field on /v1. Capturing it is the difference between a
+        # debug record that shows "reasoned for 4096 tokens and never answered"
+        # and one that shows an inexplicable empty response.
+        r = delta.get("reasoning_content") or delta.get("reasoning")
+        if r:
+            reasoning.append(r)
+        for tc in delta.get("tool_calls") or []:
+            idx = tc.get("index", 0) or 0
+            slot = tool_parts.setdefault(
+                idx, {"id": tc.get("id") or "", "function": {"name": "", "arguments": 

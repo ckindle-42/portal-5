@@ -14,6 +14,7 @@ from __future__ import annotations
 import hashlib
 import json
 import math
+import os
 import platform
 import subprocess
 import sys
@@ -155,6 +156,13 @@ def env_fingerprint(base: str = "http://localhost:11434") -> dict:
         "python": sys.version.split()[0],
         "platform": platform.platform(),
     }
+    # Engine head-to-head (tests/wfe/runner.py ENGINE). Stamped only off the
+    # default, so every existing Ollama campaign keeps its fingerprint and still
+    # resumes; a non-Ollama campaign can never be silently mixed with one.
+    engine = os.environ.get("WFE_ENGINE", "ollama")
+    if engine != "ollama":
+        fp["engine"] = engine
+        fp["engine_base_url"] = os.environ.get("WFE_CHAT_BASE_URL", "")
     fp["fingerprint"] = sha12(json.dumps(fp, sort_keys=True))
     return fp
 
