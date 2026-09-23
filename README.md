@@ -52,7 +52,7 @@ portal-5/
 │   └── BACKUP_RESTORE.md                # Snapshot + recovery
 │
 ├── 📁 scripts/                           # Validation + tooling
-│   ├── validate_system.py               # ✅ 213 checks
+│   ├── validate_system.py               # ✅ 220 checks
 │   └── smoke_stream.sh                  # ✅ Live streaming gate
 │
 ├── 📁 tests/                             # Unit + benchmark suites
@@ -135,7 +135,7 @@ Voice and constraints layered over a workspace. The workspace picks the model; t
 - **33 MCP tool servers** (ports 8910-8941)
 - **122 personas**
 - **3 channels**
-- **215 validation checks**
+- **220 validation checks**
 - **= everything runs on your hardware**
 
 ---
@@ -461,7 +461,7 @@ This repository contains **everything** needed to run a production-grade, privac
 - ✅ **33 MCP tool servers** (ports 8910-8941)
 - ✅ **122 personas**
 - ✅ **3 channels** (browser, Telegram, Slack)
-- ✅ **215 validation checks**
+- ✅ **220 validation checks**
 - ✅ **No cloud dependencies** (100% local inference)
 
 **Start with `./launch.sh up` and sign in at localhost:8080!**
