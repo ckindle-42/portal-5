@@ -213,7 +213,10 @@ async def chat_completions(request: Request):
 
     if is_stream:
 
-        def events():
+        async def events():
+            # MLX streams are thread-local. The pack is loaded on Uvicorn's
+            # event-loop thread, so keep generation there instead of letting
+            # Starlette move a synchronous iterator into its worker pool.
             usage = {}
             for piece in _generate(payload):
                 if isinstance(piece, dict):
