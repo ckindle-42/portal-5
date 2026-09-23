@@ -1,0 +1,72 @@
+{
+  "run_id": "2026-09-23T00:12:48.724539+00:00",
+  "family_precision": 0.8142,
+  "family_edges": 366,
+  "per_standard": {
+    "CIP-002-5.1a": {
+      "n": 29,
+      "precision": 0.3103
+    },
+    "CIP-003-8": {
+      "n": 42,
+      "precision": 0.7857
+    },
+    "CIP-003-9": {
+      "n": 41,
+      "precision": 0.8537
+    },
+    "CIP-004-7": {
+      "n": 45,
+      "precision": 0.9111
+    },
+    "CIP-005-7": {
+      "n": 15,
+      "precision": 0.6667
+    },
+    "CIP-006-6": {
+      "n": 24,
+      "precision": 0.8333
+    },
+    "CIP-007-6": {
+      "n": 41,
+      "precision": 0.878
+    },
+    "CIP-008-6": {
+      "n": 20,
+      "precision": 0.9
+    },
+    "CIP-009-6": {
+      "n": 11,
+      "precision": 1.0
+    },
+    "CIP-010-4": {
+      "n": 22,
+      "precision": 0.8182
+    },
+    "CIP-011-3": {
+      "n": 10,
+      "precision": 0.9
+    },
+    "CIP-012-2": {
+      "n": 8,
+      "precision": 0.875
+    },
+    "CIP-013-2": {
+      "n": 29,
+      "precision": 0.8966
+    },
+    "CIP-014-3": {
+      "n": 29,
+      "precision": 0.8621
+    }
+  },
+  "worst_standard": "CIP-002-5.1a",
+  "conversational_passed": 8,
+  "conversational_total": 14,
+  "conversational_failures_by_check": {
+    "grounding_per_claim": 6,
+    "regulatory_cited": 1,
+    "operator_cited": 1
+  },
+  "note": "Both fixes are judged against these. CIP-002-5.1a at 0.3103 is the scope fix's worst case; family precision at 0.8142 is the guard that a scope fix helping CIP-002 has not cost recall elsewhere. The conversational count is the citation fix's target: all six failures were grounding_per_claim with every other check green."
+}

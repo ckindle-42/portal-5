@@ -446,7 +446,28 @@ def _probe_compliance_workspace_tools(root: Path) -> list[str]:
     )
 
 
+def _probe_compliance_cite_and_scope(root: Path) -> list[str]:
+    """Facts the cite-and-scope units rest on (CITE_AND_SCOPE_V1), derived
+    from the module sources — never from live state."""
+    import re as _re
+
+    out: list[str] = []
+    p = root / "portal" / "modules" / "compliance" / "core" / "citation_by_quote.py"
+    if p.is_file():
+        src = p.read_text(encoding="utf-8")
+        out += [f"quote-min-part-chars={m}" for m in _re.findall(r"_MIN_PART_CHARS = (\d+)", src)]
+    p = root / "portal" / "modules" / "compliance" / "core" / "document_scope.py"
+    if p.is_file():
+        src = p.read_text(encoding="utf-8")
+        out += [
+            f"scope-read-budget-chars={m}" for m in _re.findall(r"READING_CHAR_BUDGET = (\d+)", src)
+        ]
+        out += ["family-normal-form=CIP-NNN"] if "_FAMILY = re.compile" in src else []
+    return sorted(out)
+
+
 PROBES: dict[str, Callable[[Path], Any]] = {
+    "compliance.cite_and_scope": _probe_compliance_cite_and_scope,
     "workspaces.total": _probe_workspaces_total,
     "workspaces.bench": _probe_workspaces_bench,
     "workspaces.functional": _probe_workspaces_functional,

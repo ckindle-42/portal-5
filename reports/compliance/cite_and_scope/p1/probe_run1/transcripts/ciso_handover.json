@@ -1,0 +1,33 @@
+{
+  "question": "If our CISO role changed hands, what would we need to revisit?",
+  "answer": "If the CISO role (or the CIP Senior Manager role) changes hands, there are three specific areas you must revisit to maintain compliance:\n\n### 1. Regulatory Notification (CIP-003-9 R3)\nThe most critical deadline is the 30-day window for updating the official record. Under the standard, the Responsible Entity must \"identify a CIP Senior Manager by name and document any change within 30 calendar days of the change\" [cite R-ec9dfc]. \n\n### 2. Internal Process and Delegation Updates\nWhile the standard allows existing delegations to remain in effect even if the delegator changes, your internal processes and documentation must be updated to reflect the new authority.\n*   **Senior Manager Process:** Your internal \"NERC CIP Senior Manager Process\" must be reviewed and modified to reflect the new individual. Specifically, any changes to this process \"shall be reflected in the [process] revision table\" [cite O-13e9b1].\n*   **Delegations:** While you do not need to re-institute existing delegations (e.g., a delegation from the CISO to a Maintenance Manager remains valid), any *new* delegations or changes to the delegation structure require the new CIP Senior Manager's \"review and approval\" [cite O-13e9b1].\n\n### 3. Access Management and Revocation\nIf the outgoing CISO is an employee or contractor with access to the CIP OT environment, you must trigger your access revocation process. According to your \"LSPG Access Management Procedure,\" the process for \"revocation of access for terminations, reassignments, or transfers\" is the same [cite O-d6f420]. \n*   **Notification:** OT Security Operations must receive email notification from HR or the LSPG Manager regarding the status change [cite O-d6f420].\n*   **Action:** OT Security Operations must then determine if any physical, electronic, or BCSI access requires revocation and create an Action Request (AR) in the Change Management Solution [cite O-d6f420].\n\n**Summary of Duties:**\n| Action Item | Deadline / Condition | Source |\n| :--- | :--- | :--- |\n| **Update CIP Senior Manager Name** | Within 30 calendar days of change | [cite R-ec9dfc] |\n| **Update Senior Manager Process** | As part of process maintenance | [cite O-13e9b1] |\n| **Revoke Outgoing CISO Access** | Upon notification of status change | [cite O-d6f420] |\n\nQuoted sources:\n- \"Each Responsible Entity shall identify a CIP Senior Manager by name and document any change within 30 calendar days of the change.\" (NERC/CIP-003-9 R3)\n- \"This NERC CIP Senior Manager Process and any Delegations will be reviewed at least annually and modified if needed. Any changes to the Process will be reviewed and approved by the COO and CIP Senior Manager. These changes shall be reflected in the revision table.\" (LSPG CIP Senior Manager Process Rev 6.0)\n- \"The process below is the same for revocation of access for terminations, reassignments, or transfers. ... OT Security Operations receives email notification from either HR or LSPG Manager notifying them of a status change...\" (LSPG Access Management Procedure v10.0)",
+  "reasoning_chars": 0,
+  "wall_s": 37.55,
+  "turn_budget_s": 900.0,
+  "turn_budget_exceeded": false,
+  "first_token_s": 0.03,
+  "finish_reason": "stop",
+  "http_status": 200,
+  "route_header": "compliance-reading;ollama-general;gemma4:26b-a4b-it-q4_K_M-ctx32k",
+  "served_model": "gemma4:26b-a4b-it-q4_K_M-ctx32k",
+  "tool_calls": {
+    "compliance_search": 1.0
+  },
+  "tool_errors": {},
+  "pipeline_errors": {},
+  "usage_hops": [
+    {
+      "prompt_tokens": 3247,
+      "completion_tokens": 23
+    },
+    {
+      "prompt_tokens": 11365,
+      "completion_tokens": 729
+    }
+  ],
+  "prompt_tokens_high_water": 11365,
+  "prompt_tokens_final_hop": 11365,
+  "input_tokens_all_hops": 0,
+  "output_tokens_all_hops": 0,
+  "error": ""
+}

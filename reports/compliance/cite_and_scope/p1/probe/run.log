@@ -1,0 +1,12 @@
+WROTE reports/compliance/cite_and_scope/p1/probe/conversational_proof.json
+5/8 passed | retrieval used in 8
+  [FAIL] topic          search=True What do our procedures say about remote access, and what
+  [PASS] topic          search=True What do we say about shared accounts?
+  [PASS] operator_fact  search=True Our change-management procedure mentions baselines. Whic
+  [FAIL] cross_cutting  search=True Which of our documents are doing the most compliance wor
+  [PASS] cross_cutting  search=True If our CISO role changed hands, what would we need to re
+  [FAIL] absence        search=True What do our documents say about physical security perime
+  [PASS] absence        search=True What's our position on BES Cyber System categorization?
+  [PASS] cross_cutting  search=True Did the newest CIP-003 revision change what it asks of u
+invented coverage on absence questions: 1
+exit=1

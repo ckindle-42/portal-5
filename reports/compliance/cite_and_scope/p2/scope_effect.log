@@ -1,0 +1,15 @@
+CIP-002-5.1a off    proposed= 123 excluded=  0 boosted=0
+CIP-002-5.1a filter proposed=  67 excluded=523 boosted=0
+CIP-002-5.1a prior  proposed= 143 excluded=  0 boosted=53
+  filter: added=34 {'SUPPORTED': 0, 'UNSUPPORTED': 0, 'WRONG_RELATION': 0, 'unadjudicated': 34}
+  filter: removed=90 {'SUPPORTED': 1, 'UNSUPPORTED': 19, 'WRONG_RELATION': 0, 'unadjudicated': 70}
+  prior: added=20 {'SUPPORTED': 0, 'UNSUPPORTED': 0, 'WRONG_RELATION': 0, 'unadjudicated': 20}
+  prior: removed=0 {'SUPPORTED': 0, 'UNSUPPORTED': 0, 'WRONG_RELATION': 0, 'unadjudicated': 0}
+CIP-007-6 off    proposed=  98 excluded=  0 boosted=0
+CIP-007-6 filter proposed=  94 excluded=164 boosted=0
+CIP-007-6 prior  proposed= 100 excluded=  0 boosted=66
+  filter: added=30 {'SUPPORTED': 1, 'UNSUPPORTED': 0, 'WRONG_RELATION': 0, 'unadjudicated': 29}
+  filter: removed=34 {'SUPPORTED': 5, 'UNSUPPORTED': 1, 'WRONG_RELATION': 0, 'unadjudicated': 28}
+  prior: added=2 {'SUPPORTED': 0, 'UNSUPPORTED': 0, 'WRONG_RELATION': 0, 'unadjudicated': 2}
+  prior: removed=0 {'SUPPORTED': 0, 'UNSUPPORTED': 0, 'WRONG_RELATION': 0, 'unadjudicated': 0}
+WROTE /Users/chris/projects/portal-5/reports/compliance/cite_and_scope/p2/scope_effect.json

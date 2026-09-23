@@ -1,0 +1,33 @@
+{
+  "question": "Our change-management procedure mentions baselines. Which standards care about that?",
+  "answer": "Based on your change management procedure and the relevant NERC CIP standards, the following standards specifically address baseline configurations:\n\n### **CIP-010-4**\nThis is the primary standard governing configuration change management and baselines. \n*   **Requirement R1** focuses on the implementation of a configuration change management process. Specifically, it requires the establishment of a baseline configuration that includes elements such as \"Operating system(s) (including version) or firmware... Any commercially available or open-source application software (including version)... Any custom software installed... Any logical network accessible ports... [and] Any security patches applied\" [cite R-afe225].\n*   **Requirement R1.3** mandates that for any change deviating from the existing baseline, the entity must \"update the baseline configuration as necessary within 30 calendar days of completing the change\" [cite R-bbee7b].\n\n### **Internal Alignment**\nYour internal documents align with these requirements, and in some areas, they are more specific or stricter:\n*   **LSPG CIP Cyber Security Policy (V13)**: Your policy explicitly directs the establishment of a baseline configuration including the specific elements mentioned in CIP-010 (OS, software, ports, etc.) [cite O-1500fe].\n*   **LSPG Security Controls Testing (v6)**: Your testing procedure specifies that for changes deviating from the baseline, the update must occur \"within 30 calendar days of the completion of the change\" [cite O-5e0cad].\n*   **LSPG Change Management Procedure (V7)**: This procedure notes that the team is responsible for ensuring that \"change templates are available for use which are... used to create tasks needed for CIP changes that address the requirements specified in... CIP-010\" [cite O-faab43].\n\n**Summary of Duties**\n| Duty | NERC CIP-010-4 | LSPG Procedure/Policy | Note |\n| :--- | :--- | :--- | :--- |\n| **Baseline Elements** | OS, Software, Ports, Patches | Identical elements listed | Aligned |\n| **Update Deadline** | Within 30 calendar days | Within 30 calendar days | Aligned |\n| **Change Authorization** | Required for deviations | Required for deviations | Aligned |\n\nQuoted sources:\n- \"Establish a baseline configuration, individually or by group, which shall include the following elements (Part 1.1): o Operating system(s) (including version) or firmware where no independent operating system exists (Part 1.1.1), o Any commercially available or open-source application software (including version) intentionally installed (Part 1.1.2), o Any custom software installed (Part 1.1.3), o Any logical network accessible ports (Part 1.1.4), and o Any security patches applied (Part 1.1.5).\" (LSPG CIP Cyber Security Policy V13, 3.7.1.1)\n- \"The Responsible Entity has documented and implemented a configuration change management process(es) that includes only four of the required baseline items listed in 1.1.1 through 1.1.5. (1.1)\" (CIP-010-4, R1. Violation Severity Levels)\n- \"For a change that deviates from the existing baseline configuration, update the baseline configuration as necessary within 30 calendar days of completing the change.\" (CIP-010-4, 1.3)\n- \"For any changes that deviate from the existing baseline configuration, update the baseline configuration in the designated baseline system of record as necessary within 30 calendar days of the completion of the change...\" (LSPG Security Controls Testing v6, 3.6.2)\n- \"Assure change templates are available for use which are used to create tasks needed for CIP changes that address the requirements specified in CIP-005, CIP-007, CIP-009, and CIP-010\" (LSPG Change Management Procedure V7, 1.4.3.6)",
+  "reasoning_chars": 0,
+  "wall_s": 49.87,
+  "turn_budget_s": 900.0,
+  "turn_budget_exceeded": false,
+  "first_token_s": 0.02,
+  "finish_reason": "stop",
+  "http_status": 200,
+  "route_header": "compliance-reading;ollama-general;gemma4:26b-a4b-it-q4_K_M-ctx32k",
+  "served_model": "gemma4:26b-a4b-it-q4_K_M-ctx32k",
+  "tool_calls": {
+    "compliance_search": 1.0
+  },
+  "tool_errors": {},
+  "pipeline_errors": {},
+  "usage_hops": [
+    {
+      "prompt_tokens": 3292,
+      "completion_tokens": 18
+    },
+    {
+      "prompt_tokens": 13171,
+      "completion_tokens": 891
+    }
+  ],
+  "prompt_tokens_high_water": 13171,
+  "prompt_tokens_final_hop": 13171,
+  "input_tokens_all_hops": 0,
+  "output_tokens_all_hops": 0,
+  "error": ""
+}

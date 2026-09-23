@@ -2393,7 +2393,8 @@ def compliance_context(
     regulatory anchors, operator edges, notes, each labelled with its side
     and standing, operator sections with their document neighbourhood — and
     the standing instruction. One message; nothing is missing from it; answer
-    from what it returns and cite section ids. This is the same primitive the
+    from what it returns and support each claim by quoting the exact words it
+    rests on. This is the same primitive the
     proof used, exposed — not a second renderer.
 
     ``mode=packet`` assembles full text — the requirement and its lead-in,
@@ -2419,7 +2420,8 @@ def compliance_context(
             payload["note"] = (
                 "the proven reading material (reading_material.render) — the whole "
                 "neighbourhood for this ref, fixed body first; answer from what this "
-                "returns and cite section ids"
+                "returns and support each claim by quoting, in double quotes, the "
+                "exact words it rests on"
             )
             return payload
         if mode == "packet":
@@ -2509,7 +2511,8 @@ def compliance_ask(
 
     The reader receives ``compliance_context`` output — nothing filtered on its
     behalf, nothing marked ineligible to cite, and whatever the budget could not
-    hold named in the payload. It answers in prose and cites section ids. Those
+    hold named in the payload. It answers in prose, quoting the words each
+    claim rests on (and any section ids it carries are resolved too). Those
     ids are then resolved and reported with **what each one is**, so an argument
     resting on the standard quoting itself as the operator's control is visible
     as exactly that. Nothing here adjudicates whether the answer is right.

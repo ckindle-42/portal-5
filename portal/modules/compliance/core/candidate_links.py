@@ -48,6 +48,12 @@ class Candidate:
     text: str
     headings: str
     document: str
+    #: the cross-encoder's own score, before any scope adjustment. In
+    #: ``prior`` mode ``score`` is the thresholded figure and this stays the
+    #: raw rerank score, so a stored edge's confidence is always comparable
+    #: across runs (CITE_AND_SCOPE_V1 P2).
+    rerank_score: float | None = None
+    scope_boosted: bool = False
 
     def as_dict(self) -> dict[str, Any]:
         return {
@@ -66,6 +72,9 @@ class RequirementLinks:
     proposed: list[Candidate] = field(default_factory=list)
     rejected: list[Candidate] = field(default_factory=list)
     threshold: float = DEFAULT_THRESHOLD
+    #: candidates a scope mode excluded BEFORE ranking-out — the evidence of
+    #: what a hard filter cost in recall, per requirement
+    excluded_by_scope: list[Candidate] = field(default_factory=list)
 
     @property
     def has_link(self) -> bool:
@@ -193,6 +202,57 @@ async def _rank(query: str, kb_id: str, pool: int) -> list[tuple[str, float, str
     ]
 
 
+#: In ``prior`` mode, the score bonus a candidate earns when its document
+#: STATES it serves the requirement's standard. Fixed a priori at a quarter of
+#: the threshold — enough to lift a genuine serving candidate above a
+#: vocabulary-twin that merely mentions the asset class, stated here before
+#: any outcome was measured with it, and never tuned against a result.
+SCOPE_PRIOR = 0.125
+
+
+def apply_scope(
+    candidate: Candidate,
+    *,
+    family: str,
+    served: set[str] | None,
+    mode: str,
+    prior: float = SCOPE_PRIOR,
+) -> Candidate | None:
+    """One candidate through one scope mode (CITE_AND_SCOPE_V1 P2).
+
+    ``served`` is the document's evidence-backed families from the store, or
+    None when the document has no scope row. Returns the candidate to rank
+    (possibly prior-boosted), or None where the mode excludes it:
+
+    * ``off`` — never excludes, never boosts;
+    * ``filter`` — a document KNOWN to serve other standards only is excluded;
+      an UNSCOPED document (``served is None``) is never excluded, because an
+      unread document must not be silently dropped from the population;
+    * ``prior`` — nothing is excluded; a serving document's candidate gains
+      ``prior`` on its thresholding score while ``rerank_score`` keeps the
+      raw figure.
+    """
+    if mode == "off" or not family:
+        return candidate
+    if mode == "filter":
+        if served is not None and family not in served:
+            return None
+        return candidate
+    if mode == "prior":
+        if served is not None and family in served:
+            return Candidate(
+                candidate.section_id,
+                min(candidate.score + prior, 1.0),
+                candidate.text,
+                candidate.headings,
+                candidate.document,
+                rerank_score=candidate.score,
+                scope_boosted=True,
+            )
+        return candidate
+    raise ValueError(f"scope_mode must be off|filter|prior, not {mode!r}")
+
+
 def build_links(
     repo: Any,
     standard: str,
@@ -201,18 +261,47 @@ def build_links(
     threshold: float = DEFAULT_THRESHOLD,
     pool: int = RERANK_POOL,
     keep: int = 5,
+    scope: dict[str, set[str]] | None = None,
+    scope_mode: str = "off",
+    scope_prior: float = SCOPE_PRIOR,
 ) -> list[RequirementLinks]:
-    """Candidate edges for every requirement Part of one standard."""
+    """Candidate edges for every requirement Part of one standard.
+
+    ``scope`` (CITE_AND_SCOPE_V1 P2) is ``document file -> served standard
+    families`` from ``document_scope.scope_map`` — what each operator document
+    STATES it serves, read once with evidence and stored. Similarity alone
+    cannot distinguish *mentions this asset class* from *implements this
+    requirement*; CIP-002, whose content IS the shared vocabulary, adjudicated
+    at 0.31 against a family at 0.81 on similarity alone. ``scope_mode`` and
+    :func:`apply_scope` decide how the signal is used; the mode is measured,
+    not assumed — see p2/scope_effect.json.
+    """
+    import re as _re
+
+    family_match = _re.match(r"(CIP-\d+)", standard)
+    family = family_match.group(1) if family_match else ""
     out: list[RequirementLinks] = []
     for ref, query in requirement_queries(repo, standard).items():
         ranked = asyncio.run(_rank(query, kb_id, pool))
         links = RequirementLinks(ref=ref, query=query, threshold=threshold)
         for section_id, score, text, headings, document in ranked:
-            candidate = Candidate(section_id, score, text, headings, document)
-            if score >= threshold and len(links.proposed) < keep:
-                links.proposed.append(candidate)
+            served = scope.get(document) if scope is not None else None
+            adjusted = apply_scope(
+                Candidate(section_id, score, text, headings, document),
+                family=family,
+                served=served,
+                mode=scope_mode,
+                prior=scope_prior,
+            )
+            if adjusted is None:
+                links.excluded_by_scope.append(
+                    Candidate(section_id, score, text, headings, document)
+                )
+                continue
+            if adjusted.score >= threshold and len(links.proposed) < keep:
+                links.proposed.append(adjusted)
             else:
-                links.rejected.append(candidate)
+                links.rejected.append(adjusted)
         out.append(links)
     return out
 
@@ -264,6 +353,14 @@ def record_links(
                         f"{entry.ref}|{candidate.section_id}|{DERIVATION_RERANK}".encode()
                     ).hexdigest()[:20]
                 )
+                score_note = f"score {candidate.score:.4f} (threshold {entry.threshold})"
+                if candidate.scope_boosted:
+                    score_note = (
+                        f"rerank score {candidate.rerank_score:.4f} + document-scope prior "
+                        f"{round(candidate.score - candidate.rerank_score, 4):.4f} "
+                        f"({candidate.document} states it serves this standard) "
+                        f"= {candidate.score:.4f} (threshold {entry.threshold})"
+                    )
                 repo._conn.execute(
                     """INSERT INTO relationship_assertions(assertion_id, relation_type,
                            src_ref, src_revision_id, dst_ref, dst_revision_id, scope,
@@ -282,10 +379,11 @@ def record_links(
                         stamp,
                         (
                             f"retrieval + cross-encoder rerank over the projected section "
-                            f"population, score {candidate.score:.4f} "
-                            f"(threshold {entry.threshold})"
+                            f"population, {score_note}"
                         ),
-                        candidate.score,
+                        candidate.rerank_score
+                        if candidate.rerank_score is not None
+                        else candidate.score,
                         DERIVATION_RERANK,
                         org_id,
                     ),
@@ -573,7 +671,17 @@ def _norm_for_verbatim(text: str) -> str:
     characters, quote marks, whitespace runs, case — so a VERBATIM check judges
     the words, not the typography. The folding is symmetric: if the folded
     sentence is not a substring of the folded section text, the sentence is not
-    in the section, and the determination is not written."""
+    in the section, and the determination is not written.
+
+    Every quotation-mark glyph — straight, curly, single or double — folds to
+    ONE character (CITE_AND_SCOPE_V1 §P1: a document that writes
+    ``the "reason for retrieval" field`` gets quoted back with the same words
+    in single quotes, and a fold that distinguishes the two judges the mark,
+    not the words). Applied identically to both sides of every comparison, so
+    it can never loosen one comparison and tighten another. A dash-space
+    sequence folds away too: PDF capture breaks hyphenated tokens across lines
+    (``CIP-⏎006`` → ``CIP- 006``) and a quote of the document's own words must
+    not fail on the capture's line wrap."""
     folded = text.translate(
         str.maketrans(
             {
@@ -585,15 +693,24 @@ def _norm_for_verbatim(text: str) -> str:
                 "\u2015": "-",
                 "\u2212": "-",
                 "\uff0d": "-",
-                "\u2018": "'",
-                "\u2019": "'",
+                "\u2018": '"',
+                "\u2019": '"',
+                "\u201a": '"',
+                "\u201b": '"',
                 "\u201c": '"',
                 "\u201d": '"',
+                "\u201e": '"',
+                "\u201f": '"',
+                "\u00ab": '"',
+                "\u00bb": '"',
+                "'": '"',
+                '"': '"',
                 "\u00a0": " ",
             }
         )
     )
-    return re.sub(r"\s+", " ", folded).strip().lower()
+    folded = re.sub(r"\s+", " ", folded).strip().lower()
+    return re.sub(r"- ", "-", folded)
 
 
 def _requirement_in_register(repo: Any, parsed: Any) -> bool:

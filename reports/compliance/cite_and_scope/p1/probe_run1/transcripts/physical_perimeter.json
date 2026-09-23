@@ -1,0 +1,33 @@
+{
+  "question": "What do our documents say about physical security perimeters?",
+  "answer": "Based on the available documents, the definition and management of Physical Security Perimeters (PSP) are addressed through NERC regulatory definitions and the operator's specific security plans and procedures.\n\n### Regulatory Definition\nAccording to the NERC Glossary of Terms, a Physical Security Perimeter (PSP) is:\n> \"The physical border surrounding locations in which BES Cyber Assets, BES Cyber Systems, or Electronic Access Control or Monitoring Systems reside, and for which access is controlled.\" [cite R-a7329d]\n\n### Operator's Implementation and Controls\nThe operator's **CIP Cyber Security Policy v13** and **Physical Security Plan** outline the specific requirements for managing these perimeters:\n\n*   **Scope and Purpose:** The operator has established PSPs specifically \"to protect High Impact and Medium Impact BES Cyber Systems.\" [cite O-32ec5c]\n*   **Access Control Requirements:** The policy mandates several controls for the Physical Security Plan, including:\n    *   **Access Restriction:** Defining controls to \"restrict physical access\" and utilizing at least one physical access control to allow unescorted access only to authorized individuals. [cite O-5a5ab9]\n    *   **Multi-layered Controls:** Where technically feasible, the operator must \"utilize two or more different physical access controls\" for High Impact BES Cyber Systems and associated EACMS and PCA. [cite O-5a5ab9]\n    *   **Hardware Standards:** For Access Control Points (ACPs) into PSPs, the **Physical Security Plan** requires \"Position sensors/switches... for all ACPs\" (including individual switches for double doors) and \"Fail-secure electrified locking hardware.\" [cite O-32ec5c]\n*   **Monitoring and Alerting:**\n    *   **Unauthorized Access:** The operator must \"Monitor for unauthorized access through a physical access point\" and \"Issue an alarm or alert... to the personnel identified in the Cyber Security Incident response plan within 15 minutes of detection.\" [cite O-5a5ab9]\n    *   **System Monitoring:** The operator must also monitor Physical Access Control Systems (PACS) for unauthorized access and issue alerts within 15 minutes of detection. [cite O-5a5ab9]\n*   **Logging and Retention:**\n    *   The operator must log the entry of every individual with authorized unescorted access, including their identity, date, and time of entry. [cite O-5a5ab9]\n    *   These physical access logs must be retained \"for at least 90 calendar days.\" [cite O-5a5ab9]\n*   **Incident Response:** The **Cyber Security Incident Response Plan** identifies specific personnel, such as \"Initial responders and investigators for Physical Security Perimeter alarms,\" to handle detected breaches. [cite O-e82515]\n\n### Summary of Duties\n| Feature | Operator Requirement |\n| :--- | :--- |\n| **Alert Deadline** | Within 15 minutes of detection for both PSP and PACS unauthorized access. [cite O-5a5ab9] |\n| **Log Retention** | Minimum of 90 calendar days. [cite O-5a5ab9] |\n| **Hardware** | Mandatory position sensors/switches and fail-secure electrified locks for ACPs. [cite O-32ec5c]\n\nQuoted sources:\n- \"Physical Security Perimeter (PSP) The physical border surrounding locations in which BES Cyber Assets, BES Cyber Systems, or Electronic Access Control or Monitoring Systems reside, and for which access is controlled.\" (NERC Glossary of Terms Used in NERC Reliability Standards)\n- \"LSPG has established PSPs to protect High Impact and Medium Impact BES Cyber Systems.\" (Physical Security Plan)\n- \"Position sensors/switches are required for all ACPs. If the ACP is a double door, each door shall require a door position switch. Fail-secure electrified locking hardware.\" (Physical Security Plan)\n- \"Issue an alarm or alert in response to detected unauthorized access through a physical access point into a Physical Security Perimeter to the personnel identified in the Cyber Security Incident response plan within 15 minutes of detection (Part 1.5)\" (CIP Cyber Security Policy v13)\n- \"Retain physical access logs of entry of individuals with authorized unescorted physical access into each Physical Security Perimeter for at least 90 calendar days (Part 1.9)\" (CIP Cyber Security Policy v13)\n- \"Initial responders and investigators for Physical Security Perimeter alarms\" (Cyber Security Incident Response Plan)",
+  "reasoning_chars": 0,
+  "wall_s": 42.57,
+  "turn_budget_s": 900.0,
+  "turn_budget_exceeded": false,
+  "first_token_s": 0.03,
+  "finish_reason": "stop",
+  "http_status": 200,
+  "route_header": "compliance-reading;ollama-general;gemma4:26b-a4b-it-q4_K_M-ctx32k",
+  "served_model": "gemma4:26b-a4b-it-q4_K_M-ctx32k",
+  "tool_calls": {
+    "compliance_search": 1.0
+  },
+  "tool_errors": {},
+  "pipeline_errors": {},
+  "usage_hops": [
+    {
+      "prompt_tokens": 3243,
+      "completion_tokens": 17
+    },
+    {
+      "prompt_tokens": 10649,
+      "completion_tokens": 972
+    }
+  ],
+  "prompt_tokens_high_water": 10649,
+  "prompt_tokens_final_hop": 10649,
+  "input_tokens_all_hops": 0,
+  "output_tokens_all_hops": 0,
+  "error": ""
+}
