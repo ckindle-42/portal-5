@@ -81,6 +81,29 @@ def test_ollama_control_creation_uses_vendor_tag_and_registered_context(cfg, mon
     assert seen["argv"][:3] == ["ollama", "create", created]
 
 
+def test_ollama_imports_cached_control_gguf_without_vendor_pull(cfg, monkeypatch):
+    seen = {}
+    model = "qwen3_1_7b_q4"
+    monkeypatch.setitem(
+        cfg["models"][model],
+        "ollama_gguf",
+        {"repo": "unsloth/Qwen3-1.7B-GGUF", "file": "Qwen3-1.7B-Q4_K_M.gguf"},
+    )
+    monkeypatch.setattr(h, "cached_hf_file", lambda _gguf, _label: "/cache/qwen.gguf")
+
+    def fake_run(argv, **kwargs):
+        seen["argv"] = argv
+        seen["modelfile"] = open(argv[-1]).read()
+
+    monkeypatch.setattr(h.subprocess, "run", fake_run)
+    created = h.ollama_create_gguf(cfg, model)
+
+    assert created == cfg["models"][model]["ollama"]
+    assert "FROM ./file.gguf" in seen["modelfile"]
+    assert "PARAMETER num_ctx 16384" in seen["modelfile"]
+    assert seen["argv"][:3] == ["ollama", "create", created]
+
+
 def test_bonsai_quality_fixture_is_frozen_with_expected_category_counts():
     import json
 
