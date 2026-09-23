@@ -24,6 +24,7 @@ Typical sequence for one model on one engine (see the doc for the full order):
   uv run python $H build-prefill                           # one-time, fixed prompt files
   uv run python $H switch --engine rapid-mlx --model mimo --mode plain
   uv run python $H preflight --engine rapid-mlx --model mimo
+  uv run python $H sanity --engine prismml-llama --model bonsai_v1_8b
   uv run python $H speed --engine rapid-mlx --model mimo --mode plain
   uv run python $H security --engine rapid-mlx --model mimo --repeats 3
   uv run python $H stop --engine rapid-mlx
@@ -806,7 +807,7 @@ def template_check(cfg: dict, engine: str, model: str, mode: str) -> dict:
     if engine == "ollama":
         return {
             "ok": None,
-            "note": "Ollama Go template — verified by hand in the bring-up doc for MiMo",
+            "note": "Ollama translates the source template to Go; check its off-mode and tool probes",
         }
     if cfg["engines"][engine].get("requires") == "gguf":
         local = gguf_chat_template(cfg, model)
@@ -856,16 +857,90 @@ def preflight(cfg: dict, engine: str, model: str, mode: str) -> dict:
     except Exception as e:
         out["tool_call"] = {"ok": False, "why": f"ERROR {e}"}
     out["template"] = template_check(cfg, engine, model, mode)
+    template_ready = out["template"]["ok"] is True or (
+        engine == "ollama" and out["template"]["ok"] is None
+    )
     out["verdict"] = (
         "OK"
         if out["listed"] is not False
         and out["think_off_reply"].upper().startswith("OK")
         and "<think>" not in out["think_off_reply"].lower()
         and out["tool_call"]["ok"]
-        and out["template"]["ok"] is True
+        and template_ready
         else "REVIEW"
     )
     return out
+
+
+def score_compatibility_sanity(prompt_id: str, response: str) -> dict:
+    text = response.strip()
+    mojibake = ("\ufffd", "Ã", "Â", "â€", "ï¿", "ðŸ")
+    clean = (
+        bool(text)
+        and not any(marker in text for marker in mojibake)
+        and not any(ord(char) < 32 and char not in "\t\n\r" for char in text)
+        and not re.search(r"(.)\1{7,}", text)
+        and not re.search(r"\b(\w+)(?:\W+\1){3,}\b", text, re.I)
+    )
+    if prompt_id == "france":
+        sentences = [s for s in re.split(r"(?<=[.!?])\s+", text) if s]
+        checks = {
+            "nonempty_clean": clean,
+            "mentions_paris": "paris" in text.lower(),
+            "one_sentence": len(sentences) == 1,
+        }
+    elif prompt_id == "sort":
+        expected = [1, 3, 7, 11, 19, 23, 42, 56, 70, 88]
+        actual = [int(value) for value in re.findall(r"\d+", text)]
+        checks = {"nonempty_clean": clean, "sorted_exactly": actual == expected}
+    else:
+        raise ValueError(f"unknown compatibility prompt: {prompt_id}")
+    return {"status": "OK" if all(checks.values()) else "GARBAGE", "checks": checks}
+
+
+def run_compatibility_sanity(cfg: dict, engine: str, model: str, mode: str) -> dict:
+    import statistics
+
+    prompts = {
+        "france": "Capital of France? One sentence.",
+        "sort": "Sort: 42 7 19 3 88 1 56 23 11 70",
+    }
+    outputs = []
+    for prompt_id, prompt in prompts.items():
+        payload = _payload(
+            cfg,
+            engine,
+            model,
+            mode,
+            [{"role": "user", "content": prompt}],
+            64,
+        )
+        try:
+            timing = stream_chat(base_url(cfg, engine), payload, timeout=600)
+            response = timing.pop("content")
+            check = score_compatibility_sanity(prompt_id, response)
+            outputs.append(
+                {
+                    "prompt_id": prompt_id,
+                    "prompt": prompt,
+                    "response": response,
+                    **check,
+                    "timing": timing,
+                }
+            )
+        except Exception as exc:
+            outputs.append(
+                {"prompt_id": prompt_id, "prompt": prompt, "status": "REJECT", "error": str(exc)}
+            )
+    statuses = {output["status"] for output in outputs}
+    verdict = "REJECT" if "REJECT" in statuses else "OK" if statuses == {"OK"} else "GARBAGE"
+    rates = [o["timing"].get("decode_tps") for o in outputs if o.get("timing")]
+    rates = [rate for rate in rates if rate is not None]
+    return {
+        "verdict": verdict,
+        "tg_tps_median": statistics.median(rates) if rates else None,
+        "outputs": outputs,
+    }
 
 
 # ── security lane ──────────────────────────────────────────────────────────
@@ -1087,10 +1162,18 @@ def quality_summary(rows: list[dict]) -> dict:
     return by_mode
 
 
+def quality_items(cfg: dict, model: str, fixture: dict) -> list[dict]:
+    entry = cfg["models"][model]
+    is_27b = any(
+        "27b" in str(value).lower()
+        for value in (model, entry.get("base_repo"), entry.get("source_repo"))
+    )
+    return [item for item in fixture["items"] if item["category"] != "long_context" or is_27b]
+
+
 def run_quality(cfg: dict, engine: str, model: str, mode: str, repeats: int) -> dict:
     fixture = json.loads(QUALITY_FIXTURE.read_text())
-    is_27b = "27b" in model.lower()
-    items = [item for item in fixture["items"] if item["category"] != "long_context" or is_27b]
+    items = quality_items(cfg, model, fixture)
     rows = []
     for thinking in (False, True):
         for ix, item in enumerate(items):
@@ -1221,7 +1304,19 @@ def summarize(cfg: dict) -> str:
     rows = load_rows(list(cfg["models"]))
     spd, sec, pre = latest(rows, "speed"), latest(rows, "security"), latest(rows, "preflight")
     qual = latest(rows, "quality")
-    lines = []
+    compat = latest(rows, "compatibility")
+    lines = [
+        "## Phase 1 compatibility sanity\n",
+        "| model | engine | verdict | TG tok/s | valid |",
+        "|---|---|---|---:|---|",
+    ]
+    for (model, engine, mode), row in sorted(compat.items()):
+        if mode != "plain":
+            continue
+        lines.append(
+            f"| {model} | {engine} | {row.get('verdict')} | {fmt(row.get('tg_tps_median'))} | "
+            f"{'yes' if row.get('valid') else 'INVALID'} |"
+        )
     for model in cfg["models"]:
         lines += [
             f"\n### {model}\n",
@@ -1366,7 +1461,16 @@ def main(argv: list[str] | None = None) -> int:
     sub = ap.add_subparsers(dest="cmd", required=True)
     for name in ("doctor", "fetch-drafters", "build-prefill", "summarize", "commands"):
         sub.add_parser(name)
-    for name in ("switch", "preflight", "speed", "security", "quality", "stop", "start-only"):
+    for name in (
+        "switch",
+        "preflight",
+        "sanity",
+        "speed",
+        "security",
+        "quality",
+        "stop",
+        "start-only",
+    ):
         p = sub.add_parser(name)
         p.add_argument("--engine", required=True)
         if name != "stop":
@@ -1401,12 +1505,41 @@ def dispatch(cfg: dict, a) -> int:
         print(json.dumps(start_managed(cfg, a.engine, a.model, a.mode), indent=1))
         return 0
     if a.cmd == "preflight":
-        res = preflight(cfg, a.engine, a.model, a.mode)
+        gate, msg = start_gate(cfg)
+        if not gate:
+            raise SystemExit(f"rule 3: {msg} — clear swap before measuring")
+        with Guard(cfg, a.engine, a.model) as g:
+            res = preflight(cfg, a.engine, a.model, a.mode)
+        guard = g.verdict()
         append_row(
-            a.model, {**base_row(cfg, "preflight", a.engine, a.model, a.mode), "result": res}
+            a.model,
+            {
+                **base_row(cfg, "preflight", a.engine, a.model, a.mode),
+                "result": res,
+                "guard": guard,
+                "valid": guard["valid"],
+            },
         )
-        print(json.dumps(res, indent=1))
-        return 0 if res["verdict"] == "OK" else 1
+        print(json.dumps({**res, "guard": guard}, indent=1))
+        return 0 if res["verdict"] == "OK" and guard["valid"] else 1
+    if a.cmd == "sanity":
+        if not model_supports_engine(cfg, a.model, a.engine):
+            raise SystemExit(f"{a.engine} does not support {a.model}")
+        gate, msg = start_gate(cfg)
+        if not gate:
+            raise SystemExit(f"rule 3: {msg} — clear swap before measuring")
+        with Guard(cfg, a.engine, a.model) as g:
+            result = run_compatibility_sanity(cfg, a.engine, a.model, a.mode)
+        verdict = g.verdict()
+        row = {
+            **base_row(cfg, "compatibility", a.engine, a.model, a.mode),
+            **result,
+            "guard": verdict,
+            "valid": verdict["valid"],
+        }
+        path = append_row(a.model, row)
+        print(json.dumps({**result, "guard": verdict, "written": str(path)}, indent=1))
+        return 0 if verdict["valid"] else 2
     gate, msg = start_gate(cfg)
     if not gate:
         raise SystemExit(f"rule 3: {msg} — clear swap before measuring")
