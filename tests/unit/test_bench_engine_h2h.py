@@ -11,6 +11,20 @@ def cfg():
     return h.load_config()
 
 
+def test_wait_ready_fails_fast_when_managed_child_exits(monkeypatch):
+    class ExitedProcess:
+        def poll(self):
+            return 1
+
+    def unavailable(*_args, **_kwargs):
+        raise ConnectionError("connection refused")
+
+    monkeypatch.setattr(h, "http_json", unavailable)
+    monkeypatch.setattr(h.time, "sleep", lambda _seconds: pytest.fail("waited for dead child"))
+    with pytest.raises(SystemExit, match=r"process exited during startup \(exit 1\)"):
+        h.wait_ready("http://127.0.0.1:11240", 900, ExitedProcess())
+
+
 def test_every_managed_engine_renders_a_plain_command_for_every_model(cfg):
     for eng, e in cfg["engines"].items():
         if e["kind"] != "managed":
