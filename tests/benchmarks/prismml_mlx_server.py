@@ -60,9 +60,15 @@ def _load_pack(path: Path) -> None:
         import sys
 
         sys.path.insert(0, str(_PACK / "runtime"))
-        from artifact import load_model
+        if _CONFIG.get("components", {}).get("vision"):
+            from vision_artifact import load_vl_model
 
-        _MODEL, _ = load_model(_PACK)
+            packed_model, _, _ = load_vl_model(_PACK, load_processor=False)
+            _MODEL = packed_model.language_model
+        else:
+            from artifact import load_model
+
+            _MODEL, _ = load_model(_PACK)
     else:
         from mlx_lm import load
 
