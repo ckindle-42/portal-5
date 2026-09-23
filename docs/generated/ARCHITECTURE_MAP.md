@@ -2,7 +2,7 @@
 
 # Portal 5 Architecture Map
 
-*Deterministic projection of 745 canonical units.*
+*Deterministic projection of 747 canonical units.*
 
 ## Knowledge Layer
 
@@ -27,6 +27,7 @@
 | `unit-ADMIN_GUIDE-ollama-memory-limit-deferred` | why | 2 |
 | `unit-ADMIN_GUIDE-pull-additional-models` | what | 3 |
 | `unit-ADMIN_GUIDE-pull-router-model-if-not-yet-downloaded` | why | 3 |
+| `unit-ADMIN_GUIDE-read-a-turn-trace` | mixed | 2 |
 | `unit-ADMIN_GUIDE-recommended-remote-access-cloudflare-tunnel` | why | 3 |
 | `unit-ADMIN_GUIDE-router-benchmarks` | why | 3 |
 | `unit-ADMIN_GUIDE-routine-operations` | why | 2 |
@@ -222,6 +223,7 @@
 | `unit-capability-security` | mixed | 2 |
 | `unit-capability-serena` | mixed | 3 |
 | `unit-capability-tts` | mixed | 3 |
+| `unit-capability-turn-trace` | mixed | 4 |
 | `unit-capability-video-mlx` | mixed | 3 |
 | `unit-capability-vulnintel` | mixed | 4 |
 | `unit-capability-whisper` | mixed | 3 |
@@ -754,12 +756,12 @@
 | `unit-wiki-tests-render` | mixed | 1 |
 | `unit-wiki-writeback` | mixed | 1 |
 
-**Total:** 745 units
+**Total:** 747 units
 
 ## Source Distribution
 
 - **bench-security**: 1 references
-- **code**: 1910 references
+- **code**: 1916 references
 - **config**: 1 references
 - **doc**: 1 references
 - **mitre**: 40 references
