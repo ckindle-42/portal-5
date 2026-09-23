@@ -12,6 +12,10 @@ sources:
 - type: code
   path: scripts/compliance/scope_effect.py
 - type: code
+  path: scripts/compliance/sweep_edge_set.py
+- type: code
+  path: scripts/compliance/cite_and_scope_measure.py
+- type: code
   path: tests/unit/test_compliance_citation_by_quote.py
 claims:
 - probe: compliance.cite_and_scope
@@ -56,6 +60,20 @@ The problem both modes were aimed at is similarity-only scoping, which paired
 the operator's physical-security material to CIP-002 asset-categorization
 requirements because they share vocabulary: CIP-002 adjudicated 0.31 while
 the family ran 0.81.
+
+**Measuring a re-sweep.** The store only accumulates reading-derived edges.
+A re-read either corroborates an edge or leaves it alone, and never retracts
+one, so a store-wide precision mixes every campaign's readings.
+`sweep_edge_set.py` rebuilds the edges one sweep affirmed from its stored
+`reading_runs`, and splits the baseline edges into reaffirmed, no longer
+affirmed, and requirement-not-re-read. `adjudicate_determinations.py
+--assertions/--carry` judges only that set, and carries a prior verdict when
+the claim is unchanged. `cite_and_scope_measure.py` compares like with like:
+the new sweep's set against the previous sweep's
+(p3/baseline_edge_set.json). The conversational grounding check resolves a
+`cite_as` token by the rule that minted it (`addressing.resolve_cite_as`: the
+letter is the side, not the id prefix), and material served into a
+conversation asks for quotes, not render handles.
 
 The driving scripts are idempotent: `derive_document_scope.py` skips
 documents already scoped, and `scope_effect.py` measures each mechanism

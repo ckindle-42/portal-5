@@ -327,10 +327,23 @@ def _document_neighbourhood(
     return out
 
 
-def _standing_instruction(extra: str) -> str:
+#: How a reader of the CONVERSATION cites (CITE_AND_SCOPE_V1 §P1): the
+#: conversational grounding check resolves quotes and store tokens against the
+#: whole store — it has no render contract in scope, so a handle like ``[O3]``
+#: resolves to nothing there. The sweep keeps handles: its answers are judged
+#: against this render's own contract, where they resolve.
+_QUOTE_CITATION = (
+    "support every claim by quoting, in double quotes, the exact words it rests "
+    "on — the quote is the citation; the bracketed handles label the sections "
+    "for you and are not citations outside this message"
+)
+
+
+def _standing_instruction(extra: str, citation: str = "handle") -> str:
     """The material's standing instruction, plus an optional A6.1 candidate
     sentence (tried separately, measured on all six cases, never tuned
-    against the one case that failed)."""
+    against the one case that failed). ``citation="quote"`` swaps the one
+    clause that says how to cite, for material served into a conversation."""
     base = (
         "You are given the complete material for this question — every section "
         "the standard's own join and the operator's recorded edges place in this "
@@ -346,6 +359,13 @@ def _standing_instruction(extra: str) -> str:
         'has become a conjunction ("and", "all of"); say so when the '
         "restatement narrows what the standard permits."
     )
+    if citation == "quote":
+        base = base.replace(
+            "cite the bracketed handle exactly as shown — [O3], not the long id in "
+            "parentheses beside it — for every claim, and quote the text verbatim "
+            "where the exact words matter",
+            _QUOTE_CITATION,
+        )
     return f"{base} {extra.strip()}" if extra else base
 
 
@@ -358,6 +378,7 @@ def render(
     valid_at: str = "",
     neighbourhood: bool = True,
     extra_instruction: str = "",
+    citation: str = "handle",
 ) -> dict[str, Any]:
     """One requirement's population as the material a reading reads — one
     message, fixed body first, the question last.
@@ -435,7 +456,7 @@ def render(
     scope_lines: list[str] = [f"# This reading: {ref}", ""]
     scope_lines.extend(
         [
-            _standing_instruction(extra_instruction),
+            _standing_instruction(extra_instruction, citation),
             "",
             f"## {ref}'s own scope",
         ]
