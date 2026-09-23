@@ -8,6 +8,8 @@ imports the package and iterates ``all_checks()``.
 from . import (  # noqa: F401  (imports populate the check registry)
     blue_orchestration,
     bully_relate,
+    compliance_acceptance,
+    compliance_currency,
     config,
     doc_voice,
     inference,
