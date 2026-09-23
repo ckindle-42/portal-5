@@ -138,6 +138,8 @@ class TurnTrace:
             "started_at": self.started_at,
             "duration_ms": round((time.monotonic() - self._t0) * 1000, 1),
             "bodies_captured": CAPTURE_BODIES,
+            # Derived from completed spans so this count cannot drift from the record.
+            "tool_calls": sum(1 for s in self._spans if s.get("name") == "tool.completed"),
             **self._meta,
             "spans": list(self._spans),
         }
