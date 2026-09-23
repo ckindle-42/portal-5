@@ -297,13 +297,16 @@ def guard_verdict(samples: list[dict], max_growth_mb: float) -> dict:
     }
 
 
+def start_gate_verdict(swap: dict, max_used_mb: float) -> tuple[bool, str]:
+    """Rule 3 on the absolute amount swapped: macOS sizes the swap total to fit usage."""
+    if "used_mb" not in swap:
+        return True, "swap: unreadable"
+    msg = f"swap used {swap['used_mb']:.0f}MB of {swap.get('total_mb', 0):.0f}MB allocated"
+    return swap["used_mb"] <= max_used_mb, msg
+
+
 def start_gate(cfg: dict) -> tuple[bool, str]:
-    s = swap_now()
-    if not s.get("total_mb"):
-        return True, "swap: none configured"
-    frac = s["used_mb"] / s["total_mb"]
-    msg = f"swap {s['used_mb']:.0f}/{s['total_mb']:.0f}MB ({frac:.0%})"
-    return frac <= cfg["guard"]["max_start_swap_fraction"], msg
+    return start_gate_verdict(swap_now(), cfg["guard"]["max_start_swap_used_mb"])
 
 
 @contextlib.contextmanager
@@ -567,8 +570,7 @@ def _payload(cfg, engine, model, mode, messages, max_tokens, **extra) -> dict:
 
 def measure_speed(cfg: dict, engine: str, model: str, mode: str, rounds: int) -> dict:
     url = base_url(cfg, engine)
-    # First request after `switch`: on Ollama it includes the model load; a
-    # managed engine loads at startup, so its load time is the launch ready_s.
+    # First request after `switch`; a managed engine's load time is its launch ready_s.
     ok = [{"role": "user", "content": "Reply with exactly: OK"}]
     res: dict = {"cold": stream_chat(url, _payload(cfg, engine, model, mode, ok, 8, temperature=0))}
     msgs = [{"role": "user", "content": DECODE_PROMPT}]
@@ -935,7 +937,7 @@ def cmd_doctor(cfg: dict) -> int:
                 )
     gate, msg = start_gate(cfg)
     print(
-        f"{'OK ' if gate else 'BLOCKED'} {msg} (start ceiling {cfg['guard']['max_start_swap_fraction']:.0%})"
+        f"{'OK ' if gate else 'BLOCKED'} {msg} (start ceiling {cfg['guard']['max_start_swap_used_mb']}MB)"
     )
     print(_run(["rapid-mlx", "--no-telemetry", "telemetry", "status"]).strip().splitlines()[:1])
     return 0 if ok and gate else 1
