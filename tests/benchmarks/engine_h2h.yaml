@@ -214,8 +214,8 @@ models:
     ctx: 16384
     prefill_tokens: 2048
     tool_parser: hermes
-    sampling: {temperature: 0.7, top_p: 0.8, top_k: 20}
-    thinking_sampling: {temperature: 0.6, top_p: 0.95, top_k: 20}
+    sampling: {temperature: 0.7, top_p: 0.8, top_k: 20, min_p: 0.0, presence_penalty: 1.5}
+    thinking_sampling: {temperature: 0.6, top_p: 0.95, top_k: 20, min_p: 0.0}
     ollama: bonsai-probe:ternary-v1-1.7b
     control: qwen3_1_7b_q4
   ternary_v1_4b:
@@ -225,8 +225,8 @@ models:
     ctx: 16384
     prefill_tokens: 2048
     tool_parser: hermes
-    sampling: {temperature: 0.7, top_p: 0.8, top_k: 20}
-    thinking_sampling: {temperature: 0.6, top_p: 0.95, top_k: 20}
+    sampling: {temperature: 0.7, top_p: 0.8, top_k: 20, min_p: 0.0, presence_penalty: 1.5}
+    thinking_sampling: {temperature: 0.6, top_p: 0.95, top_k: 20, min_p: 0.0}
     ollama: bonsai-probe:ternary-v1-4b
     control: qwen3_4b_q4
   ternary_v1_8b:
@@ -238,8 +238,8 @@ models:
     ctx: 16384
     prefill_tokens: 2048
     tool_parser: hermes
-    sampling: {temperature: 0.7, top_p: 0.8, top_k: 20}
-    thinking_sampling: {temperature: 0.6, top_p: 0.95, top_k: 20}
+    sampling: {temperature: 0.7, top_p: 0.8, top_k: 20, min_p: 0.0, presence_penalty: 1.5}
+    thinking_sampling: {temperature: 0.6, top_p: 0.95, top_k: 20, min_p: 0.0}
     ollama: bonsai-probe:ternary-v1-8b
     control: qwen3_8b_q4
   ternary_v1_8b_q2:
@@ -249,8 +249,8 @@ models:
     ctx: 16384
     prefill_tokens: 2048
     tool_parser: hermes
-    sampling: {temperature: 0.7, top_p: 0.8, top_k: 20}
-    thinking_sampling: {temperature: 0.6, top_p: 0.95, top_k: 20}
+    sampling: {temperature: 0.7, top_p: 0.8, top_k: 20, min_p: 0.0, presence_penalty: 1.5}
+    thinking_sampling: {temperature: 0.6, top_p: 0.95, top_k: 20, min_p: 0.0}
     ollama: bonsai-probe:ternary-v1-8b-q2
     control: qwen3_8b_q4
   ternary_v1_27b:
@@ -261,7 +261,7 @@ models:
     prefill_tokens: 2048
     tool_parser: hermes
     sampling: {temperature: 0.7, top_p: 0.95, top_k: 20, min_p: 0.0}
-    thinking_sampling: {temperature: 0.7, top_p: 0.95, top_k: 20}
+    thinking_sampling: {temperature: 0.7, top_p: 0.95, top_k: 20, min_p: 0.0}
     ollama: bonsai-probe:ternary-v1-27b
     control: qwen36_27b_q4
     draft_gguf: {repo: prism-ml/Ternary-Bonsai-27B-gguf, file: Ternary-Bonsai-27B-dspark-Q4_1.gguf}
@@ -330,8 +330,8 @@ models:
     ollama: bonsai-control:qwen3-1.7b-ctx16k
     ctx: 16384
     prefill_tokens: 2048
-    sampling: {temperature: 0.7, top_p: 0.8, top_k: 20}
-    thinking_sampling: {temperature: 0.6, top_p: 0.95, top_k: 20}
+    sampling: {temperature: 0.7, top_p: 0.8, top_k: 20, min_p: 0.0, presence_penalty: 1.5}
+    thinking_sampling: {temperature: 0.6, top_p: 0.95, top_k: 20, min_p: 0.0}
   qwen3_4b_q4:
     source_repo: Qwen/Qwen3-4B
     tool_parser: hermes
@@ -339,8 +339,8 @@ models:
     ollama: bonsai-control:qwen3-4b-ctx16k
     ctx: 16384
     prefill_tokens: 2048
-    sampling: {temperature: 0.7, top_p: 0.8, top_k: 20}
-    thinking_sampling: {temperature: 0.6, top_p: 0.95, top_k: 20}
+    sampling: {temperature: 0.7, top_p: 0.8, top_k: 20, min_p: 0.0, presence_penalty: 1.5}
+    thinking_sampling: {temperature: 0.6, top_p: 0.95, top_k: 20, min_p: 0.0}
   qwen3_8b_q4:
     source_repo: Qwen/Qwen3-8B
     tool_parser: hermes
@@ -348,17 +348,17 @@ models:
     ollama: bonsai-control:qwen3-8b-ctx16k
     ctx: 16384
     prefill_tokens: 2048
-    sampling: {temperature: 0.7, top_p: 0.8, top_k: 20}
-    thinking_sampling: {temperature: 0.6, top_p: 0.95, top_k: 20}
+    sampling: {temperature: 0.7, top_p: 0.8, top_k: 20, min_p: 0.0, presence_penalty: 1.5}
+    thinking_sampling: {temperature: 0.6, top_p: 0.95, top_k: 20, min_p: 0.0}
   qwen36_27b_q4:
     source_repo: Qwen/Qwen3.6-27B
     tool_parser: hermes
-    ollama_from: qwen3.6:27b-q4_K_M
+    ollama_from: qwen3.6:27b-q4_K_M-ctx16k
     ollama: bonsai-control:qwen36-27b-ctx32k
     ctx: 32768
     prefill_tokens: 2048
     sampling: {temperature: 0.7, top_p: 0.8, top_k: 20, min_p: 0.0, presence_penalty: 1.5}
-    thinking_sampling: {temperature: 1.0, top_p: 0.95, top_k: 20}
+    thinking_sampling: {temperature: 1.0, top_p: 0.95, top_k: 20, min_p: 0.0}
   qwen38_27b_q4:
     source_repo: Qwen/Qwen3.8-27B
     tool_parser: hermes

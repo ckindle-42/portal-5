@@ -73,6 +73,16 @@ def test_bonsai_quality_fixture_is_frozen_with_expected_category_counts():
     assert len(fx["long_context"].splitlines()) == 601
 
 
+def test_quality_long_context_scope_uses_base_model_for_anchor_aliases(cfg):
+    import json
+
+    fx = json.loads(h.QUALITY_FIXTURE.read_text())
+    anchor = h.quality_items(cfg, "anchor_v2_mtp_n1", fx)
+    small = h.quality_items(cfg, "ternary_v1_8b", fx)
+    assert sum(item["category"] == "long_context" for item in anchor) == 3
+    assert not any(item["category"] == "long_context" for item in small)
+
+
 def test_bonsai_quality_scorers_use_exact_checks_and_hidden_tests():
     assert h.score_quality({"category": "arithmetic", "expected": "444"}, "444.")["ok"]
     item = {
@@ -85,6 +95,22 @@ def test_bonsai_quality_scorers_use_exact_checks_and_hidden_tests():
         "test_source": "def test_it():\n    from solution import is_even\n    assert is_even(4)\n    assert not is_even(3)\n",
     }
     assert h.score_quality(code, "```python\ndef is_even(n):\n    return n % 2 == 0\n```")["ok"]
+
+
+def test_phase_one_sanity_checks_reject_wrong_answers_and_accept_expected_outputs():
+    assert (
+        h.score_compatibility_sanity("france", "Paris is the capital of France.")["status"] == "OK"
+    )
+    assert (
+        h.score_compatibility_sanity("france", "ParÃs is the capital of France.")["status"]
+        == "GARBAGE"
+    )
+    assert h.score_compatibility_sanity("france", "Paris Paris Paris Paris.")["status"] == "GARBAGE"
+    assert (
+        h.score_compatibility_sanity("sort", "1, 3, 7, 11, 19, 23, 42, 56, 70, 88")["status"]
+        == "OK"
+    )
+    assert h.score_compatibility_sanity("sort", "42 7 19 3 88 1 56 23 11 70")["status"] == "GARBAGE"
 
 
 def test_spec_json_args_survive_rendering(cfg):
