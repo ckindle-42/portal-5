@@ -38,6 +38,20 @@ def test_gguf_engine_rejects_missing_local_cache_artifact(cfg, monkeypatch):
         h.launch_command(cfg, "prismml-llama", "anchor_v2_pq2", "plain")
 
 
+def test_mlx_template_check_uses_model_base_repo_when_available(cfg, monkeypatch):
+    seen = {}
+
+    def fake_source(repo):
+        seen["repo"] = repo
+        return "same template"
+
+    monkeypatch.setattr(h, "local_template", lambda _path: "same template")
+    monkeypatch.setattr(h, "source_template", fake_source)
+    result = h.template_check(cfg, "prismml-mlx", "ternary_v1_8b", "plain")
+    assert seen["repo"] == cfg["models"]["ternary_v1_8b"]["base_repo"]
+    assert result["ok"]
+
+
 def test_ollama_control_creation_uses_vendor_tag_and_registered_context(cfg, monkeypatch):
     seen = {}
 
