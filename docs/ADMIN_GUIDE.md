@@ -333,6 +333,37 @@ Router decisions are logged by the pipeline. The LLM layer logs each confident c
 Misrouted requests are decided at a single point, so the router logs are the first place to look when a user reports the wrong workspace. The `confidence` field distinguishes a genuinely low-confidence classification from a timeout, which separates a model-quality problem from a latency problem before any deeper debugging starts.
 <!-- /WIKI:GENERATED -->
 
+### Read a Turn Trace
+
+<!-- WIKI:GENERATED unit=unit-ADMIN_GUIDE-read-a-turn-trace -->
+Every chat response carries an `X-Correlation-ID` header. Hand that value to
+`GET /v1/trace/{correlation_id}` on the pipeline and the reply is the whole
+turn: which workspace the request resolved to from whatever the client asked
+for, how many backend candidates were available, and each tool the model
+reached for with the verdict on whether its persona was allowed to. `GET
+/v1/trace` lists recent turns newest first when the header was not kept.
+
+Both need the pipeline key:
+
+```
+curl -s -H "Authorization: Bearer $PIPELINE_API_KEY" \
+  http://localhost:9099/v1/trace | jq .
+curl -s -H "Authorization: Bearer $PIPELINE_API_KEY" \
+  "http://localhost:9099/v1/trace/p5-abc123def456" | jq .
+```
+
+A `404` means the turn aged out of the bounded store, predates the container
+restart, or capture is off. Nothing is persisted across a restart by design.
+
+#### Why
+
+The header was already being minted and stamped on log lines, so the shortest
+path from a turn that misbehaved to the reason was a container log grep
+against an id. Serving the record over the same port the client already talks
+to removes that step, and keeping it key-authenticated matters because a
+summary names the workspace, persona and model a turn resolved to.
+<!-- /WIKI:GENERATED -->
+
 ### Pulling the Router Model
 
 <!-- WIKI:GENERATED unit=unit-ADMIN_GUIDE-pull-router-model-if-not-yet-downloaded -->
