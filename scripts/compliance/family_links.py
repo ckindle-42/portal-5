@@ -28,7 +28,11 @@ import time
 REPO_ROOT = pathlib.Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO_ROOT))
 
-from portal.modules.compliance.core import candidate_links, section_index  # noqa: E402
+from portal.modules.compliance.core import (  # noqa: E402
+    candidate_links,
+    document_scope,
+    section_index,
+)
 from portal.modules.compliance.core.cip_register import Register  # noqa: E402
 from portal.modules.compliance.core.repository import Repository  # noqa: E402
 
@@ -42,6 +46,13 @@ def main() -> int:
     ap.add_argument("--standards", default="", help="comma-separated subset (default: all)")
     ap.add_argument("--out", type=pathlib.Path, default=DEFAULT_OUT)
     ap.add_argument("--resume", action="store_true", help="skip standards already recorded")
+    ap.add_argument(
+        "--scope-mode",
+        default="off",
+        choices=("off", "filter", "prior"),
+        help="use each document's stored scope (CITE_AND_SCOPE_V1 P2): hard filter, "
+        "ranking prior, or off (similarity alone)",
+    )
     args = ap.parse_args()
 
     register = Register.load()
@@ -61,6 +72,9 @@ def main() -> int:
         links_report = dict(json.loads(args.out.read_text()).get("links", {}))
 
     repo = Repository()
+    scope = document_scope.scope_map(repo) if args.scope_mode != "off" else None
+    if scope is not None:
+        print(f"scope map: {sum(1 for v in scope.values() if v)} file entries")
     try:
         # the population every absence claim is entitled to: the whole projected
         # operator corpus, not a window
@@ -78,9 +92,11 @@ def main() -> int:
                 print(f"skip {std} (already recorded)")
                 continue
             started = time.time()
-            links = candidate_links.build_links(repo, std)
+            links = candidate_links.build_links(repo, std, scope=scope, scope_mode=args.scope_mode)
             payload = candidate_links.record_links(repo, links, boundary_receipt=receipt)
             payload["wall_s"] = round(time.time() - started, 1)
+            payload["scope_mode"] = args.scope_mode
+            payload["scope_excluded"] = sum(len(link.excluded_by_scope) for link in links)
             links_report[std] = payload
             args.out.write_text(
                 json.dumps(

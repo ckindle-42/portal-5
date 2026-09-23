@@ -9,13 +9,16 @@ requirement address at all, on the deployed workspace, and judges each on:
   answered          non-empty answer, HTTP 200, inside the turn budget
   used_search       ``compliance_search`` was ACTUALLY called — read from the
                     router's own tool counters, never assumed
-  grounding         per-claim (LOAD_AND_CONVERSE_V1 §P5): every claim unit that
-                    cites anything cites a token that RESOLVES — full id,
-                    ``cite_as`` token, or a UNIQUE prefix of a section id — or
-                    is a mistyped restatement of a resolving citation elsewhere
-                    in the same answer. An id with no resolving counterpart and
-                    no unique prefix fails. Nothing is ever repaired onto a
-                    near neighbour: the token is judged as typed.
+  grounding         per-claim (LOAD_AND_CONVERSE_V1 §P5; CITE_AND_SCOPE_V1 §P1):
+                    every claim unit that cites anything cites support that
+                    RESOLVES — a double-quoted span matching a store section by
+                    containment, or a token that resolves (full id, ``cite_as``
+                    token, unique prefix) — or is a mistyped restatement of a
+                    resolving citation elsewhere in the same answer. A quote
+                    matching several sections grounds with every match recorded
+                    (multi-match policy decided on the p1 distribution). A quote
+                    matching nothing stays unresolved and fails, exactly as an
+                    id does; nothing is ever repaired onto a near neighbour.
   both sides        ≥1 operator AND ≥1 regulatory section cited (the questions
                     are relational by construction)
   honest absence    for ABSENCE questions the rule inverts. Mechanical floor: a
@@ -58,6 +61,10 @@ from portal.modules.compliance.core.answer_contract import (  # noqa: E402
     _mistyped_variant_of,
 )
 from portal.modules.compliance.core.candidate_links import classify_assertion  # noqa: E402
+from portal.modules.compliance.core.citation_by_quote import (  # noqa: E402
+    quoted_spans,
+    resolve_quote,
+)
 from portal.modules.compliance.core.repository import Repository  # noqa: E402
 from portal.modules.compliance.core.section_index import parent_section_id  # noqa: E402
 
@@ -203,10 +210,20 @@ def _grounding(store: Repository, answer: str) -> dict:
     """Per-claim grounding against the STORE (the conversational answers have
     no render contract in scope — the store is what the tools read from).
 
-    Every line that cites anything is grounded when at least one of its tokens
-    resolves, or its only unresolved tokens are mistyped restatements of ids
-    that resolved elsewhere in the same answer. Unresolved tokens are reported
-    as typed, never repaired."""
+    The citation is the QUOTE (CITE_AND_SCOPE_V1 §P1): a line's double-quoted
+    spans are resolved by containment over the whole store
+    (``citation_by_quote.resolve_quote`` — the verbatim check inverted), and
+    any identifier the answer also carries resolves as before (full id,
+    ``cite_as`` token, unique prefix). A line is grounded when at least one of
+    its quotes or tokens resolves, or its only unresolved tokens are mistyped
+    restatements of ids that resolved elsewhere in the same answer. A quote
+    matching several sections grounds with EVERY match recorded — the words
+    demonstrably exist in the store; the multi-match policy was decided on the
+    measured distribution in p1/quote_resolution.json (27% multi-match, tail
+    to 88, all repeated boilerplate — a floor would not fix it). Everything
+    unresolved is reported as written, never repaired: an unresolvable quote
+    stays unresolvable exactly as an unresolvable id does, and a claim
+    supported by nothing still fails."""
     resolving_raw: list[str] = []
     lines: list[dict] = []
     for raw_line in answer.splitlines():
@@ -215,24 +232,40 @@ def _grounding(store: Repository, answer: str) -> dict:
             continue
         tokens_here = [m.group(0) for m in _SECTION_TOKEN.finditer(stripped)]
         tokens_here += [m.group(0) for m in _CITEAS_TOKEN.finditer(stripped)]
-        if not tokens_here:
+        quotes_here = quoted_spans(stripped)
+        if not tokens_here and not quotes_here:
             continue
         resolved_here, unresolved_here = [], []
+        section_ids_here: list[str] = []
+        quoted_resolved: list[dict] = []
+        quoted_unresolved: list[str] = []
         for token in tokens_here:
-            if _resolve_token(store, token) is not None:
+            entry = _resolve_token(store, token)
+            if entry is not None:
                 resolved_here.append(token)
                 resolving_raw.append(token)
+                section_ids_here.append(str(entry["section_id"]))
             else:
                 unresolved_here.append(token)
+        for quote in quotes_here:
+            hits = resolve_quote(store, quote)
+            if hits:
+                quoted_resolved.append({"quote": quote, "sections": hits})
+                section_ids_here.extend(hits)
+            else:
+                quoted_unresolved.append(quote)
         lines.append(
             {
                 "claim": stripped,
                 "resolved": sorted(dict.fromkeys(resolved_here)),
                 "unresolved": sorted(dict.fromkeys(unresolved_here)),
+                "quoted": quoted_resolved,
+                "quoted_unresolved": quoted_unresolved,
+                "section_ids": sorted(dict.fromkeys(section_ids_here)),
             }
         )
     for line in lines:
-        line["grounded"] = bool(line["resolved"]) or any(
+        line["grounded"] = bool(line["section_ids"]) or any(
             _mistyped_variant_of(raw, resolving_raw) for raw in line["unresolved"]
         )
     unsupported = [line for line in lines if not line["grounded"]]
@@ -241,6 +274,8 @@ def _grounding(store: Repository, answer: str) -> dict:
         "n_claims": len(lines),
         "n_ungrounded": len(unsupported),
         "unsupported_lines": [c["claim"] for c in unsupported],
+        "n_quotes_resolved": sum(len(c["quoted"]) for c in lines),
+        "n_quotes_unresolved": sum(len(c["quoted_unresolved"]) for c in lines),
         "grounded": bool(lines) and not unsupported,
     }
 
@@ -332,12 +367,15 @@ def main() -> int:
         "rows": rows,
         "pass_rule": (
             "answered + compliance_search actually called (router counters) + "
-            "per-claim grounding (full id, cite_as token, or unique prefix; "
+            "per-claim grounding (a quoted span that matches a store section by "
+            "containment, or a resolving token: full id, cite_as token, unique "
+            "prefix; multi-match quotes ground with all matches recorded; "
             "mistyped restatements of resolving citations absorbed; nothing "
-            "repaired) + (relational questions) both sides cited. Absence "
-            "questions: positively-asserted operator coverage must RESOLVE "
-            "(mechanical); whether resolvable coverage is real is the agent's "
-            "reading, folded via --overrides and recorded on the row."
+            "repaired — an unmatched quote or id fails as written) + "
+            "(relational questions) both sides cited. Absence questions: "
+            "positively-asserted operator coverage must RESOLVE, by quote or by "
+            "id (mechanical); whether resolvable coverage is real is the "
+            "agent's reading, folded via --overrides and recorded on the row."
         ),
         "verdict": "PASS" if all(r.get("verdict") == "PASS" for r in rows) else "FAIL",
     }
@@ -368,24 +406,32 @@ def _judge(store: Repository, spec: dict, record: dict) -> dict:
     used_search = (record.get("tool_calls") or {}).get("compliance_search", 0) > 0
     grounding = _grounding(store, answer)
 
+    # every section a resolving token OR a resolving quote names, one lookup:
+    # quotes arrive as section ids already, tokens resolve through
+    # _resolve_token
+    from portal.modules.compliance.core.section_index import resolve_sections
+
+    cited_ids = {sid for c in grounding["claims"] for sid in c["section_ids"]}
+    token_ids = {
+        str(entry["section_id"])
+        for c in grounding["claims"]
+        for token in c["resolved"]
+        if (entry := _resolve_token(store, token)) is not None
+    }
+    resolved_entries = resolve_sections(store, sorted(cited_ids | token_ids))
     cited: dict[str, dict] = {}
-    for claim in grounding["claims"]:
-        for token in [*claim["resolved"]]:
-            entry = _resolve_token(store, token)
-            if entry is None:
-                continue
-            sid = str(entry["section_id"])
-            jur = str(entry.get("jurisdiction") or "")
-            cited[sid] = {
-                "jurisdiction": jur,
-                "operator_side": jur in ("internal", "operator_note"),
-                "document": entry.get("document_title") or entry.get("logical_id"),
-                "side": (
-                    "operator"
-                    if jur in ("internal", "operator_note")
-                    else ("regulatory" if jur == "US" else (jur or "unknown"))
-                ),
-            }
+    for sid, entry in resolved_entries.items():
+        jur = str(entry.get("jurisdiction") or "")
+        cited[sid] = {
+            "jurisdiction": jur,
+            "operator_side": jur in ("internal", "operator_note"),
+            "document": entry.get("document_title") or entry.get("logical_id"),
+            "side": (
+                "operator"
+                if jur in ("internal", "operator_note")
+                else ("regulatory" if jur == "US" else (jur or "unknown"))
+            ),
+        }
     sides = {e["side"] for e in cited.values()}
     unresolved_tokens = sorted({t for c in grounding["claims"] for t in c["unresolved"]})
 
@@ -416,6 +462,8 @@ def _judge(store: Repository, spec: dict, record: dict) -> dict:
         "used_search": used_search,
         "cited_ids": sorted(cited),
         "unresolved_ids": unresolved_tokens,
+        "n_quotes_resolved": grounding["n_quotes_resolved"],
+        "n_quotes_unresolved": grounding["n_quotes_unresolved"],
         "sides_cited": sorted(sides),
         "grounding": {
             "n_claims": grounding["n_claims"],
@@ -432,8 +480,10 @@ def _judge_absence(store: Repository, answer: str, cited: dict[str, dict], groun
 
     MECHANICAL: a citing sentence that POSITIVELY asserts operator coverage
     (``classify_assertion``) must rest on a section that RESOLVES — support
-    naming no real section is invented coverage. Negated, contrasted or merely
-    discussed sections are not coverage claims.
+    naming no real section is invented coverage, and in the quote contract
+    that includes a quotation that matches no section in the store: the words
+    it offers as support demonstrably do not exist there. Negated, contrasted
+    or merely discussed sections are not coverage claims.
     READING (agent, via --overrides): whether resolvable operator material
     really covers what the sentence claims — the link graph is never the
     arbiter, because it is sparse by construction.
@@ -452,6 +502,19 @@ def _judge_absence(store: Repository, answer: str, cited: dict[str, dict], groun
                     "sentence": sentence,
                     "classification": reason,
                     "why": "a coverage claim whose cited section resolves to nothing",
+                }
+            )
+        for quote in claim.get("quoted_unresolved", []):
+            sentence = _sentence_around(answer, quote)
+            relation, reason = classify_assertion(sentence)
+            if not relation:
+                continue
+            invented.append(
+                {
+                    "section_id": f'"{quote[:80]}"',
+                    "sentence": sentence,
+                    "classification": reason,
+                    "why": "a coverage claim whose quoted support matches no section in the store",
                 }
             )
     for section_id, entry in cited.items():

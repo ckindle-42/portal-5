@@ -6,10 +6,10 @@ Decision artifact for TASK_BULLY_P0_SPINE_REDUCTION_V1.md P0.1. `[GATE]`:
 produced read-only, best-evidenced classification made without a live
 operator sign-off in this run — flagged for review before P0.2+ acted on it.
 
-- Total canonical units at generation time: **740**
+- Total canonical units at generation time: **744**
 - KEEP-FACT: **53**
 - RELEASE: **71**
-- ARCHIVE: **616**
+- ARCHIVE: **620**
 
 ## KEEP-FACT
 
@@ -338,6 +338,8 @@ P0.4 candidates for the archive bridge rule.
 | `unit-compliance-fallback-policy-threshold-policy` | prose-only: no claim, no fact, not referenced by a live doc block |
 | `unit-compliance-fallback-policy-what-compliance-fallback-means` | prose-only: no claim, no fact, not referenced by a live doc block |
 | `unit-compliance-module-config-only` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-compliance-prove-then-scale` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-compliance-transport-dialects` | prose-only: no claim, no fact, not referenced by a live doc block |
 | `unit-corpus-injection-a-canned-detection-firing-on-corpus-data-t1558-004-as-rep-roasting-verbatim-spl` | prose-only: no claim, no fact, not referenced by a live doc block |
 | `unit-corpus-injection-always-dry-run-first-it-prints-exact-per-sourcetype-volume-without-injecting` | prose-only: no claim, no fact, not referenced by a live doc block |
 | `unit-corpus-injection-confirm-the-live-triage-window-is-still-clean` | prose-only: no claim, no fact, not referenced by a live doc block |
@@ -725,6 +727,8 @@ P0.4 candidates for the archive bridge rule.
 | `unit-surface-archive-mlx` | prose-only: no claim, no fact, not referenced by a live doc block |
 | `unit-surface-benchmarks` | prose-only: no claim, no fact, not referenced by a live doc block |
 | `unit-surface-binary-research` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-surface-compliance-closeout-scripts` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-surface-compliance-prove-then-scale-scripts` | prose-only: no claim, no fact, not referenced by a live doc block |
 | `unit-surface-inference` | prose-only: no claim, no fact, not referenced by a live doc block |
 | `unit-surface-inference-cli` | prose-only: no claim, no fact, not referenced by a live doc block |
 | `unit-surface-investigation` | prose-only: no claim, no fact, not referenced by a live doc block |

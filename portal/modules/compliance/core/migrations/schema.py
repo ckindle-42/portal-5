@@ -978,4 +978,30 @@ MIGRATIONS: list[tuple[int, str, str]] = [
         CREATE INDEX ix_req_absence_boundary ON requirement_absence(boundary_proof_id);
         """,
     ),
+    (
+        20,
+        "document scope, derived by reading (CITE_AND_SCOPE_V1 P2)",
+        # A requirement's population was scoped by similarity alone, and
+        # CIP-002 — whose content IS the shared vocabulary — adjudicated at
+        # 0.31 while the family ran 0.81: the operator's physical-security
+        # material was being paired to asset-categorization requirements
+        # because both name Control Centers, substations and 3000. The
+        # disambiguating signal is what each document is FOR, stated in its
+        # own scope material, read once per document and stored HERE — with
+        # the quoted evidence each standard claim rests on, so any scope row
+        # can be checked by reading the document. A derived fact living in a
+        # sidecar JSON beside the database was the same defect in miniature.
+        """
+        CREATE TABLE document_scope (
+            logical_id      TEXT PRIMARY KEY REFERENCES source_documents(logical_id),
+            standards_json  TEXT NOT NULL DEFAULT '[]',
+            about           TEXT NOT NULL DEFAULT '',
+            states_scope    INTEGER NOT NULL DEFAULT 0,
+            model           TEXT NOT NULL DEFAULT '',
+            read_chars      INTEGER NOT NULL DEFAULT 0,
+            derived_at      TEXT NOT NULL,
+            raw_json        TEXT NOT NULL DEFAULT ''
+        );
+        """,
+    ),
 ]
