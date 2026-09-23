@@ -61,7 +61,7 @@ RerankFn = Callable[[str, list[dict[str, Any]], int], Awaitable[list[dict[str, A
 # what it narrowed.
 
 
-class FusedWithFilter(list):
+class FusedWithFilter(list[dict[str, Any]]):
     """The fusion output, when a ``where`` predicate was requested.
 
     A ``list`` (every consumer unchanged), carrying ``filter_report``: one entry
