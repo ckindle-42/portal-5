@@ -535,7 +535,7 @@ class Repository:
                             anchor.char_start,
                             anchor.char_end,
                             anchor.occurrences,
-                            "exact",
+                            getattr(anchor, "method", "exact"),
                             stamp,
                             "",
                         )

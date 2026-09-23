@@ -15,6 +15,10 @@ sources:
   path: tests/unit/test_compliance_requirement_anchor.py
 - type: code
   path: tests/unit/test_compliance_requirement_scoping.py
+- type: code
+  path: scripts/compliance/capture_technical_basis.py
+- type: code
+  path: tests/unit/test_compliance_technical_basis.py
 claims:
 - probe: compliance.register
   contains: CIP-007-6
@@ -181,3 +185,33 @@ The module writes nothing to `source_sections`. `assert_faithful` raises on
 overlapping spans, and a `table_row` already holds the requirement text, the
 applicable-systems column and the Measures column as one unit, so every
 relationship lives in the join and the capture is never edited.
+
+## Technical basis from a separate Technical Rationale
+
+A standard has two layers, and procedure reviews need both. The normative text
+says what is required. The Guidelines and Technical Basis (GTB) say what the
+requirement is for and how an entity is meant to meet it. Older versions
+carry GTB inside the standard, and `anchor_bundle_spans` locates it by exact
+text. Newer versions moved it into a separate Technical Rationale document,
+where the exact-text route has nothing to locate.
+`anchor_rationale_document` places each TR section on the requirements its
+OWN heading names ("Rationale for Requirement R4", "Requirements R1 and R2",
+"Attachment 1 Section 6 Part 6.3"). It records `anchor_method='heading'`, so
+this placement is never read as a verbatim anchor. A section whose heading
+names neither a requirement nor an attachment section is left unplaced and
+reported. A bare "Section 4" is the standard's applicability section, so it
+is never guessed onto a Part.
+
+Once a TR is placed per requirement, `reading_assembly` stops carrying it
+whole in the fixed body. Whole, it repeated every requirement's rationale in
+every reading and put CIP-004-7 and CIP-010-4 material near 100k characters,
+against a 32k-token seat.
+
+Measured 2026-09-22: eight register versions' TR PDFs (CIP-003-9, 004-7,
+005-7, 008-6, 010-4, 011-3, 012-2, 013-2) were acquired and registered but
+never captured. The sync registers without capturing, and the materializer
+walked only the last manifest. `materialize_regulatory_corpus.capture_registered`
+now captures any registered-but-uncaptured regulatory revision, hash-match or
+skip, on every materialize. `scripts/compliance/capture_technical_basis.py`
+runs capture and placement and receipts the coverage before and after.
+

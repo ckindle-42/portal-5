@@ -199,6 +199,54 @@ def _lifecycle_for(manifest: dict[str, Any], logical_id: str) -> dict[str, Any]:
     return dict(manifest.get("lifecycle", {}).get(_standard_of(logical_id), {}))
 
 
+def capture_registered(repo: Repository) -> dict[str, Any]:
+    """Capture every regulatory revision the store holds bytes for but never captured.
+
+    The acquisition path (``nerc_source_sync._register_artifacts``) registers
+    each downloaded artifact as a revision WITHOUT capturing it, and this
+    materializer walks only the LAST sync's manifest, with ``--only-changed``
+    skipping bytes that did not move. An artifact registered by one sync run is
+    therefore never captured by a later one. Measured 2026-09-22: the
+    Technical Rationale for CIP-003-9, 004-7, 005-7, 008-6, 010-4, 011-3, 012-2
+    and 013-2 sat registered with zero sections, so 120 register requirements
+    never saw how the standard is meant to be met, alongside seven register
+    versions' implementation plans and every newer version's standard.
+
+    Store-driven, so it does not depend on which manifest survived. Hash-match
+    or skip: a revision whose file is missing, or whose bytes no longer hash to
+    its ``revision_id``, is reported and left alone, never captured from the
+    wrong bytes. Structured artifacts that are not prose (the lifecycle
+    registry, the Glossary) are excluded.
+    """
+    from portal.modules.compliance.core.provenance import content_hash
+
+    rows = repo._conn.execute(
+        """SELECT d.logical_id, d.source_kind, v.revision_id, v.alias_path
+             FROM source_documents d
+             JOIN document_revisions v ON v.logical_id = d.logical_id
+            WHERE d.jurisdiction = 'US'
+              AND d.source_kind NOT IN ('lifecycle_registry', 'glossary')
+              AND NOT EXISTS (SELECT 1 FROM source_sections s
+                               WHERE s.revision_id = v.revision_id)
+            ORDER BY d.logical_id"""
+    ).fetchall()
+    captured: list[dict[str, Any]] = []
+    skipped: list[dict[str, Any]] = []
+    for row in rows:
+        path = Path(str(row["alias_path"] or ""))
+        record = {"logical_id": str(row["logical_id"]), "revision_id": str(row["revision_id"])}
+        if not path.is_file():
+            skipped.append({**record, "reason": f"file missing: {path}"})
+            continue
+        payload = path.read_bytes()
+        if content_hash(payload) != record["revision_id"]:
+            skipped.append({**record, "reason": "bytes on disk no longer match the revision"})
+            continue
+        capture = _capture_into(repo, record["revision_id"], path)
+        captured.append({**record, "source_kind": str(row["source_kind"]), "capture": capture})
+    return {"captured": captured, "skipped": skipped}
+
+
 def _capture_into(repo: Repository, revision_id: str, path: Path) -> dict[str, Any]:
     captured = capture_document(path)
     return store_capture(repo, revision_id, captured)
@@ -242,6 +290,8 @@ def materialize(
         report["skipped_all_unchanged"] = True
         report["identity_repairs"] = 0
         report["jurisdiction_normalised"] = 0
+        # bytes that did not move may still never have been captured
+        report["registered_uncaptured"] = capture_registered(repo)
         report["census"] = _census(repo)
         if repository is None:
             repo.close()
@@ -317,6 +367,7 @@ def materialize(
 
     _repair_filename_identities(repo, report)
     _normalise_jurisdictions(repo, report)
+    report["registered_uncaptured"] = capture_registered(repo)
     report["census"] = _census(repo)
     if repository is None:
         repo.close()

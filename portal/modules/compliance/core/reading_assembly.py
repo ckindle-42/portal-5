@@ -800,8 +800,30 @@ def _companion_documents(repo: Any, parsed: Ref, valid_at: str) -> list[Componen
         revision = _revision_for(repo, parsed.logical_id + suffix, valid_at)
         if revision is None:
             continue
+        if name == "technical_rationale_document" and _anchored_per_requirement(
+            repo, str(revision["revision_id"])
+        ):
+            # Placed on its requirements, it reaches each reading as that
+            # requirement's `technical_basis` sections, the same way the GTB
+            # inside an older standard does. Whole, it repeated every
+            # requirement's rationale in every reading of the standard and put
+            # CIP-004-7 and CIP-010-4 material at ~100k chars against a 32k-token
+            # seat (measured 2026-09-22).
+            continue
         out.append(Component(name, why, _sections(repo, str(revision["revision_id"]))))
     return out
+
+
+def _anchored_per_requirement(repo: Any, revision_id: str) -> bool:
+    """True when any requirement carries ``technical_basis`` sections from this revision."""
+    return (
+        repo._conn.execute(
+            """SELECT 1 FROM requirement_sections
+                WHERE revision_id = ? AND relation = 'technical_basis' LIMIT 1""",
+            (revision_id,),
+        ).fetchone()
+        is not None
+    )
 
 
 def _cells_for(repo: Any, sections: list[dict[str, Any]]) -> dict[str, list[dict[str, Any]]]:

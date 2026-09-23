@@ -66,6 +66,38 @@ MAPPING_PROMPT_PATH = (
 #: stratification (P5.3 stratifies the sample by confidence).
 CONFIDENCE_BANDS = {"high": 0.9, "medium": 0.6, "low": 0.3}
 
+#: Prompt bytes per token for the reading seat on this corpus, set to err HIGH.
+#: Measured over the LOAD_AND_CONVERSE family sweep's untruncated mapping calls
+#: (2026-09-22): median 3.59, 10th percentile 3.45. 3.3 over-counts a prompt by
+#: ~9%, the safe direction for deciding whether it fits.
+SEAT_BYTES_PER_TOKEN = 3.3
+
+#: Headroom beyond the answer budget: the chat template's own tokens.
+_TEMPLATE_RESERVE = 512
+
+
+def window_fit(prompt_bytes: int, num_ctx: int, answer_budget: int) -> dict[str, Any]:
+    """Would this prompt fit the window with the answer's room reserved?
+
+    Ollama does not refuse an oversized prompt: it TRUNCATES it silently and
+    answers from whatever is left. Measured in the LOAD_AND_CONVERSE sweep:
+    CIP-003-8 R1 (155,333 bytes) and CIP-003-9 R1 (139,403 bytes) were both
+    counted at exactly 16,387 prompt tokens against a 32,768 window, and
+    CIP-003-8 R2 (120,449 bytes) at 31,355, so three readings answered from a
+    fraction of their material and the receipts looked normal. This check
+    runs BEFORE the call.
+    """
+    estimated = int(prompt_bytes / SEAT_BYTES_PER_TOKEN) + 1
+    available = num_ctx - answer_budget - _TEMPLATE_RESERVE
+    return {
+        "prompt_bytes": prompt_bytes,
+        "estimated_tokens": estimated,
+        "num_ctx": num_ctx,
+        "available_tokens": available,
+        "fits": estimated <= available,
+    }
+
+
 _DETERMINATIONS_RE = re.compile(
     r"```json\s*(\{.*?\"determinations\".*?\})\s*```",
     re.S,
@@ -121,9 +153,18 @@ def map_read(
     keep_alive: str = "30m",
     write: bool = True,
     dialect: Any = None,
+    overflow_model: str = "",
+    overflow_num_ctx: int = 65536,
 ) -> dict[str, Any]:
     """One map reading: the population as one message, the mapping prompt as
     the question, one call, a receipt.
+
+    **A reading never runs on truncated material.** :func:`window_fit` checks
+    the prompt against the window first. One that does not fit goes to
+    ``overflow_model``, the same weights with a larger baked window, when one
+    is named and the prompt fits there. Otherwise the cell is RECORDED as a
+    ``context_overflow`` error without a call. The route taken is stamped on
+    the payload as ``context_fit``.
 
     ``write=False`` runs the reading and reports what it would determine
     without touching the store — the smoke path. Determinations are written
@@ -143,6 +184,31 @@ def map_read(
     material = reading_material.render(repo, ref, question=prompt_body, fixed=fixed)
     if "error" in material:
         return {"ref": ref, "error": material["error"], "model": model}
+    prompt_bytes = len(material["text"].encode())
+    fit = window_fit(prompt_bytes, num_ctx, answer_budget)
+    fit["route"] = "seat"
+    if not fit["fits"]:
+        wider = window_fit(prompt_bytes, overflow_num_ctx, answer_budget)
+        if overflow_model and wider["fits"]:
+            fit = {**wider, "route": "overflow_model", "seat_window": num_ctx}
+            model, num_ctx = overflow_model, overflow_num_ctx
+        else:
+            return {
+                "ref": ref,
+                "error": (
+                    f"context_overflow: ~{fit['estimated_tokens']} prompt tokens against "
+                    f"{fit['available_tokens']} available in a {num_ctx}-token window"
+                    + (
+                        f" (and {wider['available_tokens']} in the {overflow_num_ctx}-token "
+                        f"overflow window of {overflow_model})"
+                        if overflow_model
+                        else " and no overflow_model named"
+                    )
+                    + " — not called, because Ollama would truncate the material silently"
+                ),
+                "model": model,
+                "context_fit": fit,
+            }
     started = time.time()
     # A transient transport failure is a RECORDED cell, never a dead sweep:
     # reader.read learned this the hard way (an HTTP 500 killed a 1,522 s
@@ -219,6 +285,7 @@ def map_read(
         "prompt_version": prompt_version,
         "prompt_sha": prompt_sha,
         "num_ctx": num_ctx,
+        "context_fit": fit,
         "verification": verify_citations(repo, answer, material["text"]),
         "failed": bool(parse_error) or not answer,
         "failure": parse_error or ("" if answer else "the model produced no answer"),
@@ -334,6 +401,8 @@ def sweep_standard(
     write: bool = True,
     refs: list[str] | None = None,
     dialect: Any = None,
+    overflow_model: str = "",
+    overflow_num_ctx: int = 65536,
 ) -> dict[str, Any]:
     """Map every requirement of one standard, sequentially, shared body first.
 
@@ -387,6 +456,8 @@ def sweep_standard(
             num_ctx=num_ctx,
             write=write,
             dialect=dialect,
+            overflow_model=overflow_model,
+            overflow_num_ctx=overflow_num_ctx,
         )
         if "error" in payload:
             rows.append({"ref": ref, "error": payload["error"]})

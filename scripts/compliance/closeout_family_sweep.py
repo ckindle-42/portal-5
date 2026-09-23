@@ -67,6 +67,14 @@ def main() -> int:
         help="sweep artifact; standards already recorded in it are SKIPPED (resume), so a "
         "fresh campaign re-sweep must name a new path — the default is the closeout run's",
     )
+    parser.add_argument(
+        "--overflow-model",
+        default="",
+        help="same weights with a larger baked window, used ONLY for a reading whose "
+        "material does not fit the seat's window (sweep.window_fit); without it such a "
+        "reading is recorded as context_overflow and not called",
+    )
+    parser.add_argument("--overflow-num-ctx", type=int, default=65536)
     args = parser.parse_args()
     art: Path = args.out
 
@@ -85,7 +93,14 @@ def main() -> int:
                 print(f"skip {revision} (already recorded)")
                 continue
             print(f"== {revision} ==")
-            summary = sweep.sweep_standard(repo, revision, model=SEAT, write=True)
+            summary = sweep.sweep_standard(
+                repo,
+                revision,
+                model=SEAT,
+                write=True,
+                overflow_model=args.overflow_model,
+                overflow_num_ctx=args.overflow_num_ctx,
+            )
             standards.append(summary)
             art.parent.mkdir(parents=True, exist_ok=True)
             art.write_text(
