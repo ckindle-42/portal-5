@@ -286,3 +286,38 @@ def test_scope_line_never_states_an_unevidenced_claim() -> None:
 
     line = _scope_line(_scope(["CIP-002"], valid=False), "CIP-002")
     assert "states no NERC CIP standard" in line and "CIP-002 " not in line.split("about")[0]
+
+
+# ── cite_as tokens resolve by the rule that minted them ──────────────────────
+
+
+def test_every_section_resolves_by_its_own_cite_token(store: Repository) -> None:
+    from portal.modules.compliance.core.addressing import cite_as, resolve_cite_as
+    from portal.modules.compliance.core.section_index import resolve_sections
+
+    ids = [str(r[0]) for r in store._conn.execute("SELECT section_id FROM source_sections")]
+    for section_id, entry in resolve_sections(store, ids).items():
+        token = cite_as(entry)
+        assert token.startswith("O-")  # operator side, whatever the id prefix
+        hit = resolve_cite_as(store, token)
+        assert hit is not None and hit["section_id"] == section_id
+
+
+def test_a_cite_token_with_the_wrong_side_letter_resolves_to_nothing(store: Repository) -> None:
+    from portal.modules.compliance.core.addressing import cite_as, resolve_cite_as
+    from portal.modules.compliance.core.section_index import resolve_sections
+
+    section_id = str(store._conn.execute("SELECT section_id FROM source_sections").fetchone()[0])
+    token = cite_as(resolve_sections(store, [section_id])[section_id])
+    assert resolve_cite_as(store, "R-" + token[2:]) is None  # never a near neighbour
+    assert resolve_cite_as(store, "O-zzzzzz") is None
+
+
+def test_conversation_material_asks_for_quotes_not_handles() -> None:
+    from portal.modules.compliance.core.reading_material import _standing_instruction
+
+    sweep = _standing_instruction("")
+    conversation = _standing_instruction("", "quote")
+    assert "cite the bracketed handle exactly as shown" in sweep
+    assert "cite the bracketed handle exactly as shown" not in conversation
+    assert "the quote is the citation" in conversation

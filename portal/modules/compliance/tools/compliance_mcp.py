@@ -2415,7 +2415,7 @@ def compliance_context(
     repo = _repo()
     try:
         if mode == "material":
-            payload = reading_material.render(repo, ref, valid_at=valid_at)
+            payload = reading_material.render(repo, ref, valid_at=valid_at, citation="quote")
             payload["mode"] = "material"
             payload["note"] = (
                 "the proven reading material (reading_material.render) — the whole "

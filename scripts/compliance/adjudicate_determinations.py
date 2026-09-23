@@ -38,7 +38,37 @@ def _standard_of(ref: str) -> str:
     return str(ref).split(" ")[0]
 
 
-def _extract(derivation_filter: str, out: pathlib.Path) -> None:
+def _carry_for(unit: dict[str, Any], prior: dict[str, Any] | None) -> dict[str, Any] | None:
+    """A prior verdict carries to this unit only when the claim it judged is
+    unchanged: the same assertion (requirement, section, relation) and either
+    the identical cited-sentence set, or a SUPPORTED verdict whose sentences are
+    all still cited — a sentence added by corroboration cannot un-support a
+    relation the old sentence already supported, while it CAN support one that
+    was judged unsupported, so those are re-read. Everything else is judged
+    fresh."""
+    if prior is None:
+        return None
+    before = {str(x) for x in prior.get("cited_sentences") or []}
+    now = {str(x) for x in unit.get("cited_sentences") or []}
+    same = before == now
+    widened_supported = prior.get("verdict") == "SUPPORTED" and before <= now
+    if not (same or widened_supported):
+        return None
+    return {
+        "verdict": prior.get("verdict"),
+        "quote": prior.get("quote", ""),
+        "wrong_relation": prior.get("wrong_relation_should_be"),
+        "rule": "identical_sentences" if same else "supported_sentences_still_cited",
+    }
+
+
+def _extract(
+    derivation_filter: str,
+    out: pathlib.Path,
+    *,
+    only: set[str] | None = None,
+    carry_from: dict[str, dict[str, Any]] | None = None,
+) -> None:
     from portal.modules.compliance.core.cip_register import Register
     from portal.modules.compliance.core.repository import Repository
     from portal.modules.compliance.core.section_index import parent_section_id, resolve_sections
@@ -87,6 +117,8 @@ def _extract(derivation_filter: str, out: pathlib.Path) -> None:
 
         units: list[dict[str, Any]] = []
         for r in rows:
+            if only is not None and str(r["assertion_id"]) not in only:
+                continue
             src_ref = str(r["src_ref"])
             dst_ref = str(r["dst_ref"])
             citations = json.loads(r["citations_json"] or "[]")
@@ -111,12 +143,21 @@ def _extract(derivation_filter: str, out: pathlib.Path) -> None:
                     "n_citations": len(citations),
                 }
             )
+            if carry_from is not None:
+                carried = _carry_for(units[-1], carry_from.get(str(r["assertion_id"])))
+                if carried is not None:
+                    units[-1]["carried"] = carried
     finally:
         repo.close()
 
     out.parent.mkdir(parents=True, exist_ok=True)
-    out.write_text(json.dumps({"n_units": len(units), "units": units}, indent=2, default=str))
-    print(f"WROTE {out}  ({len(units)} units to adjudicate)")
+    n_carried = sum(1 for u in units if "carried" in u)
+    out.write_text(
+        json.dumps(
+            {"n_units": len(units), "n_carried": n_carried, "units": units}, indent=2, default=str
+        )
+    )
+    print(f"WROTE {out}  ({len(units)} units, {len(units) - n_carried} to adjudicate fresh)")
     missing_req = sum(1 for u in units if not u["requirement_text"])
     missing_sec = sum(1 for u in units if not u["section_text"])
     if missing_req or missing_sec:
@@ -133,6 +174,13 @@ def _fold(units_path: pathlib.Path, verdicts_path: pathlib.Path, out: pathlib.Pa
 
     rows: list[dict[str, Any]] = []
     seen = set()
+    # a fresh verdict always wins; a carried one fills only what was not re-judged
+    fresh_ids = {v["assertion_id"] for v in verdicts}
+    verdicts = list(verdicts) + [
+        {"assertion_id": aid, **u["carried"], "_carried": True}
+        for aid, u in units.items()
+        if "carried" in u and aid not in fresh_ids
+    ]
     for v in verdicts:
         aid = v["assertion_id"]
         seen.add(aid)
@@ -145,6 +193,7 @@ def _fold(units_path: pathlib.Path, verdicts_path: pathlib.Path, out: pathlib.Pa
                 "verdict": v["verdict"],
                 "quote": v.get("quote", ""),
                 "wrong_relation_should_be": v.get("wrong_relation"),
+                "verdict_source": "carried" if v.get("_carried") else "fresh",
             }
         )
 
@@ -175,6 +224,7 @@ def _fold(units_path: pathlib.Path, verdicts_path: pathlib.Path, out: pathlib.Pa
     receipt = {
         "run_id": _dt.datetime.now(_dt.UTC).isoformat(),
         "n_total": n_total,
+        "n_carried": sum(1 for r in rows if r.get("verdict_source") == "carried"),
         "n_missing_verdict": len(missing),
         "missing_assertion_ids": missing,
         "precision": precision,
@@ -220,6 +270,17 @@ def main() -> int:
         help="units file for --fold (default: --out's *_units.json sibling)",
     )
     ap.add_argument("--verdicts", type=pathlib.Path, help="agent verdicts JSON for --fold")
+    ap.add_argument(
+        "--assertions",
+        type=pathlib.Path,
+        help="--extract only these assertions: a sweep_edge_set.py receipt "
+        "(affirmed_assertion_ids) or a JSON list of ids",
+    )
+    ap.add_argument(
+        "--carry",
+        type=pathlib.Path,
+        help="--extract: a prior adjudication receipt whose verdicts carry to unchanged claims",
+    )
     args = ap.parse_args()
 
     if args.fold:
@@ -232,7 +293,14 @@ def main() -> int:
 
     # default / --extract: write units next to --out
     units_out = args.out.with_name(args.out.stem + "_units.json")
-    _extract(args.derivation, units_out)
+    only: set[str] | None = None
+    if args.assertions:
+        loaded = json.loads(args.assertions.read_text())
+        only = set(loaded["affirmed_assertion_ids"] if isinstance(loaded, dict) else loaded)
+    carry_from = None
+    if args.carry:
+        carry_from = {r["assertion_id"]: r for r in json.loads(args.carry.read_text())["rows"]}
+    _extract(args.derivation, units_out, only=only, carry_from=carry_from)
     return 0
 
 

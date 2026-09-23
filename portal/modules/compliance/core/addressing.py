@@ -46,6 +46,34 @@ def cite_as(entry: dict[str, Any]) -> str:
     return f"{letter}-{hex_part}" if hex_part else ""
 
 
+def resolve_cite_as(repo: Any, token: str) -> dict[str, Any] | None:
+    """The section a ``cite_as`` token names, by the SAME rule that minted it.
+
+    The letter is the section's side (O = operator documents and notes, R =
+    everything else), not its id prefix. A resolver that read ``O`` as
+    ``isection-`` could never resolve an operator note (stored ``csection-``)
+    or any ``section-`` id, so a citation copied exactly from a tool's own
+    header failed the check (CITE_AND_SCOPE_V1 P1 probe: ``[cite O-440a5c]``
+    on the operator's patch-cycle note). Unique or nothing — an ambiguous
+    token resolves to None, never to a guess.
+    """
+    from portal.modules.compliance.core.section_index import resolve_sections
+
+    raw = str(token or "").strip()
+    letter, _, prefix = raw.partition("-")
+    if letter.upper() not in ("O", "R") or len(prefix) != 6 or not prefix.isalnum():
+        return None
+    rows = repo._conn.execute(
+        "SELECT section_id FROM source_sections WHERE section_id LIKE ?",
+        (f"%-{prefix.lower()}%",),
+    ).fetchall()
+    wanted = f"{letter.upper()}-{prefix.lower()}"
+    ids = [str(r[0]) for r in rows]
+    resolved = resolve_sections(repo, ids) if ids else {}
+    matches = [e for e in resolved.values() if cite_as(e) == wanted]
+    return matches[0] if len(matches) == 1 else None
+
+
 def with_cite_header(entry: dict[str, Any], text: str) -> str:
     """Prepend the short cite token to the section text a TOOL returns.
 
@@ -199,5 +227,6 @@ __all__ = [
     "neighbors",
     "provenance",
     "resolve_by_address",
+    "resolve_cite_as",
     "within_clocks",
 ]

@@ -60,11 +60,19 @@ def revisions_in_order() -> list[str]:
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--only", default="", help="sweep one standard revision (resume aid)")
+    parser.add_argument(
+        "--out",
+        type=Path,
+        default=ART,
+        help="sweep artifact; standards already recorded in it are SKIPPED (resume), so a "
+        "fresh campaign re-sweep must name a new path — the default is the closeout run's",
+    )
     args = parser.parse_args()
+    art: Path = args.out
 
     existing: dict = {}
-    if ART.exists():
-        existing = json.loads(ART.read_text())
+    if art.exists():
+        existing = json.loads(art.read_text())
     done = {s["standard"] for s in existing.get("standards", []) if not s.get("error")}
 
     revisions = [args.only] if args.only else revisions_in_order()
@@ -79,7 +87,8 @@ def main() -> int:
             print(f"== {revision} ==")
             summary = sweep.sweep_standard(repo, revision, model=SEAT, write=True)
             standards.append(summary)
-            ART.write_text(
+            art.parent.mkdir(parents=True, exist_ok=True)
+            art.write_text(
                 json.dumps(
                     {
                         "seat": SEAT,

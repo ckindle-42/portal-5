@@ -55,6 +55,7 @@ sys.path.insert(0, str(REPO_ROOT / "scripts"))
 import httpx  # noqa: E402
 from compliance_acceptance import WorkspaceThread, router_base_url  # noqa: E402
 
+from portal.modules.compliance.core.addressing import resolve_cite_as  # noqa: E402
 from portal.modules.compliance.core.answer_contract import (  # noqa: E402
     _CITEAS_TOKEN,
     SECTION_ID_PATTERN,
@@ -172,17 +173,9 @@ def _resolve_token(store: Repository, raw: str) -> dict | None:
     got = resolve_sections(store, [resolved])
     if got:
         return got.get(resolved)
-    citeas = _CITEAS_TOKEN.fullmatch(raw)
-    if citeas is not None:
-        letter, prefix = citeas.group(1).upper(), citeas.group(2).lower()
-        like = f"isection-{prefix}%" if letter == "O" else f"csection-{prefix}%"
-        rows = store._conn.execute(
-            "SELECT section_id FROM source_sections WHERE section_id LIKE ?", (like,)
-        ).fetchall()
-        if len(rows) == 1:
-            got = resolve_sections(store, [str(rows[0][0])])
-            return got.get(str(rows[0][0]))
-        return None
+    if _CITEAS_TOKEN.fullmatch(raw) is not None:
+        # by the rule that minted it — side letter, not id prefix
+        return resolve_cite_as(store, raw)
     # "csection-<hex>" / "isection-<hex>" — plain split; the section-id shape is
     # decided in answer_contract alone, so this module compiles no second regex
     stem, _, hex_prefix = full.partition("-")
