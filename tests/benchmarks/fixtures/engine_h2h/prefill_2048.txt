@@ -1,0 +1,175 @@
+
+
+# ===== tests/wfe/runner.py =====
+#!/usr/bin/env python3
+"""WFE fitness runner — real-use evaluation of a model IN its workspace/persona
+context with tools exposed: multi-turn, tool-executing, objectively checked.
+
+Repairs in this revision (each was a false-result generator):
+  - /v1 returns tool-call arguments as a JSON STRING; the previous runner
+    splatted it as **kwargs, so EVERY tool call on the default endpoint failed
+    with "ERROR: bad args". Arguments are now normalised at the boundary,
+    matching portal/platform/inference/router/tools.py.
+  - tool result messages carry tool_call_id + name, as production does.
+  - sandboxes are per (task, repeat); the previous runner shared one directory
+    across every task and every arm, so later runs inherited earlier work.
+  - persona resolution is deterministic and recorded (auto-coding has 40
+    personas bound to it; first-glob-wins made the measured prompt arbitrary).
+  - token/latency economics and finish_reason are captured, not discarded.
+  - `think` is resolved and SENT the way production sends it (the workspace's
+    explicit bool -> the model card -> the model's native default). On /v1 the
+    suppressing direction goes as `reasoning_effort: "none"`: a top-level
+    `think` is silently DROPPED there (measured 2026-09-12, Ollama 0.33.2), and
+    believing otherwise is what invalidated wfe_full_20260911's creative lane.
+  - the preflight verdict gates only on the arms the campaign uses (v1 reach,
+    v1 tool contract, stream parity). A format:json incompatibility (gpt-oss)
+    is a note, not a block — the campaign runs zero strict-JSON tasks.
+  - every request is STREAMED on the wire and a stall (no bytes for STALL_S),
+    not a total-time cap, aborts the turn — a slow-but-progressing model keeps
+    its work; a wedged backend is caught in minutes, not hours.
+
+Usage:
+  uv run python -m tests.wfe.runner --workspace tools-specialist \\
+      --suite tests/wfe/suites/coding.jsonl --sandbox /tmp/wfe/coding
+  uv run python -m tests.wfe.runner --model <tag> --preflight
+"""
+
+from __future__ import annotations
+
+import argparse
+import datetime as dt
+import json
+import os
+import re
+import shutil
+import subprocess
+import sys
+import time
+import urllib.request
+from pathlib import Path
+
+import yaml
+
+from tests.wfe.checkers import CheckContext, apply_checkers
+from tests.wfe.schema import Economics, Outcome, ResultRow, env_fingerprint, sha12
+
+REPO = Path(__file__).resolve().parents[2]
+OLLAMA = "http://localhost:11434"
+#: The chat engine under test. Default is production (Ollama). Set
+#: WFE_ENGINE=<name> and WFE_CHAT_BASE_URL=<base> to point the campaign at any
+#: OpenAI-compatible engine (oMLX, mlx-serve, Rapid-MLX, vllm-mlx, mlx_lm.server)
+#: for an engine head-to-head. Model management (/api/ps, eviction, tags) stays on
+#: Ollama either way: in engine mode draining Ollama frees the memory the other
+#: engine needs, and the other engine's own load/unload is the operator's job.
+ENGINE = os.environ.get("WFE_ENGINE", "ollama")
+CHAT_BASE = os.environ.get("WFE_CHAT_BASE_URL", OLLAMA).rstrip("/")
+#: /api/chat exists only on Ollama; elsewhere the native-endpoint probes run on /v1.
+NATIVE_ENDPOINT = "api" if ENGINE == "ollama" else "v1"
+RESULTS = REPO / "tests" / "wfe" / "results"
+
+HARNESS_DEFAULTS = {"endpoint": "v1", "stream": False, "think": "default", "format": "none"}
+
+#: A timeout is the enemy of a slow-but-progressing model: a large model under
+#: memory pressure can legitimately take many minutes per turn, and a blind
+#: wall-clock deadline throws that work away. The runner therefore streams every
+#: request on the wire and watches for a STALL — no bytes for STALL_S — rather
+#: than a total-time cap. Real progress (tokens arriving) resets the clock and is
+#: logged so a human tailing a multi-day sweep can see the model is alive.
+#:
+#: 600s is sized for the worst case in the fleet: a 70+GB model doing prompt-eval
+#: over a 256k-token context before its first output token, on a machine that is
+#: swapping. The single-call hard ceiling is still the task's remaining --budget-s
+#: (default 1800s), so a genuinely wedged backend cannot run forever.
+STALL_S = int(os.environ.get("WFE_STALL_S", "600"))
+_PROGRESS_EVERY_S = 30
+
+
+class StreamStalledError(RuntimeError):
+    """The backend accepted the request but produced no output for STALL_S, or
+    blew a generous hard ceiling. Attributed to the model (too slow for real
+    work in its lane), never to the harness."""
+
+
+_NETWORK_OK: bool | None = None
+
+
+def network_ok(probe: str = "https://raw.githubusercontent.com") -> bool:
+    """One cached reachability probe for the public internet. A `requires_network`
+    task on a machine with no outbound route is a BLOCKED instrument outcome, not
+    a model FAIL — without this check http_get errors on every call and a
+    fetch-grounded checker scores the model 0 for the harness's problem."""
+    global _NETWORK_OK
+    if _NETWORK_OK is None:
+        try:
+            urllib.request.urlopen(probe, timeout=5)
+            _NETWORK_OK = True
+        except Exception:
+            _NETWORK_OK = False
+    return _NETWORK_OK
+
+
+def _fn(name: str, desc: str, props: dict, required: list[str] | None = None) -> dict:
+    return {
+        "type": "function",
+        "function": {
+            "name": name,
+            "description": desc,
+            "parameters": {"type": "object", "properties": props, "required": required or []},
+        },
+    }
+
+
+#: One entry per tool. The previous list declared file_write TWICE (7 entries,
+#: 6 unique names) alongside a stale TOOLS_AVAILABLE constant that omitted it.
+TOOL_SCHEMAS = [
+    _fn(
+        "file_read",
+        "Read a text file. Args: path (str, relative).",
+        {"path": {"type": "string"}},
+        ["path"],
+    ),
+    _fn(
+        "file_list",
+        "List files under a directory. Args: path (str, default '.').",
+        {"path": {"type": "string"}},
+    ),
+    _fn(
+        "repo_search",
+        "Regex search across the sandbox and the repository. Args: pattern (str), path (str, optional).",
+        {"pattern": {"type": "string"}, "path": {"type": "string"}},
+        ["pattern"],
+    ),
+    _fn(
+        "pytest_run",
+        "Run pytest in the task sandbox. Args: args (str, default '').",
+        {"args": {"type": "string"}},
+    ),
+    _fn(
+        "file_write",
+        "Write a text file inside the task sandbox. Args: path (str), content (str).",
+        {"path": {"type": "string"}, "content": {"type": "string"}},
+        ["path", "content"],
+    ),
+    _fn(
+        "http_get",
+        "GET a URL, return the first 4000 chars of text. Args: url (str).",
+        {"url": {"type": "string"}},
+        ["url"],
+    ),
+]
+TOOL_NAMES = [t["function"]["name"] for t in TOOL_SCHEMAS]
+
+
+class Sandbox:
+    """Root for all file tools. Writes are confined to the sandbox; reads may
+    fall back to the repository (read-only) so in-repo tasks are possible.
+    Checkers never use this resolver — they resolve sandbox-only, because a repo
+    fallback let a checker be satisfied by a file the model never wrote."""
+
+    def __init__(self, root: Path, allow_repo_read: bool = True):
+        self.root = Path(root).resolve()
+        self.root.mkdir(parents=True, exist_ok=True)
+        self.allow_repo_read = allow_repo_read
+
+    @staticmethod
+    def _under(child: Path, parent: Path) -> 
