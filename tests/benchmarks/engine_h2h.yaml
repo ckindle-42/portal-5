@@ -15,8 +15,9 @@ mlx_root: /Volumes/data01/omlx-models
 # model config as a servable model, and a drafter dir carries one.
 drafter_root: /Volumes/data01/engine_h2h_drafters
 # MTPLX packs (MLX weights + mtp.safetensors + mtplx_runtime.json) stay OUTSIDE
-# mlx_root for the same reason: oMLX would list them as servable models.
-mtplx_root: /Volumes/data01/mtplx-models
+# mlx_root for the same reason: oMLX would list them as servable models. On the
+# internal SSD because data01 is 99% full; that moves cold-load time, not decode.
+mtplx_root: ~/mtplx-models
 
 guard:
   sample_s: 30
