@@ -552,6 +552,24 @@ def _v1_think_fields(think: str) -> dict:
     return {"think": think == "true"} | ({"reasoning_effort": "none"} if think == "false" else {})
 
 
+#: Every sampling key the workspace resolves is sent. Until 2026-09-24 only
+#: temperature/top_p/seed were, so top_k, min_p, repeat_penalty and
+#: presence_penalty never reached the model. Ollama masked that with its own
+#: defaults (repeat_penalty 1.1); llama-server and MTPLX default to no repetition
+#: penalty, so their arms ran without the workspace's loop guard and looped.
+#: Ollama's /v1 ignores the non-OpenAI keys (it applies its defaults instead);
+#: /api honours all of them via `options`.
+SAMPLING_KEYS = (
+    "temperature",
+    "top_p",
+    "top_k",
+    "min_p",
+    "repeat_penalty",
+    "presence_penalty",
+    "seed",
+)
+
+
 def _build_payload(
     model: str,
     messages: list[dict],
@@ -580,7 +598,7 @@ def _build_payload(
         }
         if wire_stream:
             payload["stream_options"] = {"include_usage": True}
-        for k in ("temperature", "top_p", "seed"):
+        for k in SAMPLING_KEYS:
             if sampling.get(k) is not None:
                 payload[k] = sampling[k]
         if fmt == "json":
@@ -589,7 +607,7 @@ def _build_payload(
         url = f"{CHAT_BASE}/v1/chat/completions"
     else:
         options = {"num_predict": max_tokens}
-        for k in ("temperature", "top_p", "seed"):
+        for k in SAMPLING_KEYS:
             if sampling.get(k) is not None:
                 options[k] = sampling[k]
         payload = {

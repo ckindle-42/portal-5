@@ -54,6 +54,7 @@ def test_mtplx_serves_its_own_pack_from_mtplx_root_with_fairness_pins(cfg):
         assert "--no-stats-footer" in argv
         assert argv[argv.index("--ssd-session-cache") + 1] == "off"
         assert argv[argv.index("--profile") + 1] == "sustained"
+        assert argv[argv.index("--tool-prompt-mode") + 1] == "native"
         assert "{spec_args}" not in argv
     assert plain[-1] == "--no-mtp" and "--mtp" not in plain
     assert spec[-1] == "--mtp" and "--no-mtp" not in spec

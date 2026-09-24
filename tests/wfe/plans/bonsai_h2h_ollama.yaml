@@ -1,0 +1,13 @@
+# Bonsai (Ternary-Bonsai-2-27B, "Anchor V2") vs Qwen3.8-27B Q4 — Ollama incumbent arm.
+# Settles whether Bonsai's compression is useful in real use: Anchor V2 is a
+# ternary Qwen3.8-27B, and Qwen3.8-27B Q4 is auto-compliance's live model_hint,
+# so auto-compliance's own lanes are the drop-in test. Both arms run under
+# auto-compliance's workspace context (prompt + sampling), at 32k context.
+# Governing doc: docs/MIMO_V26_DISTILL_9B_BRINGUP_V1.md (Bonsai verdict section).
+workloads:
+  auto-compliance:
+    home: compliance_agentic
+    discovery: [research]
+    arms:
+      incumbent: hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k
+      challengers: []

@@ -256,3 +256,25 @@ MLX engines may have matured since then — continuous batching, SSD KV cache an
 - clean cold-start behaviour, with no 503 windows visible in OWUI
 - one routing path in `BackendRegistry` with no proxy or watchdog
 - a single-engine alternative considered: whether the winner could *replace* Ollama or oMLX, rather than become a third concurrent engine
+
+## Bonsai verdict (2026-09-24)
+
+**Question:** is Bonsai's compression useful, not just measurable? Anchor V2 (Ternary-Bonsai-2-27B, a ternary Qwen3.8-27B) was tested as a drop-in for Qwen3.8-27B Q4, the live `auto-compliance` model. Plans: `tests/wfe/plans/bonsai_h2h_{ollama,engine}.yaml`, 14 tasks × n=3 (11 `compliance_agentic` + 3 `research`), stack up, one request in flight.
+
+**Verdict: NOT VIABLE for agentic/tool work.** The compression holds on the synthetic quality fixture and on speed. It does not hold in real use: Bonsai-2 falls into a re-read loop (the same `file_read` of `packet.json` until the 17-turn cap) that the uncompressed model almost never enters. This showed on both engines and both MTPLX tool modes, with the same template, prompt, thinking-off and sampling.
+
+| Arm (all on the corrected runner) | PASS / 42 | Turn-cap loops | Decode tok/s | Resident GB |
+|---|---|---|---|---|
+| Qwen3.8-27B Q4 / Ollama (incumbent) | **33** | 3 (all `comp-reading-contract-01`) | 10.45 | 17.5 |
+| Bonsai-2 PQ2 / prismml-llama | 21 | 12 | 16.7 | 5.8 |
+| Bonsai-2 / MTPLX, MTP, native tool mode | 11 | 26 | 33.5 | 15.0 |
+| (Bonsai-2 / MTPLX, legacy `hybrid` tool mode, pre-fix runner) | 20 | 14 | — | — |
+
+Engine-lane speed (MTPLX, `sustained`): Bonsai-2 MTP 33.5 tok/s, plain 24.7. Qwen3.8-27B MTPLX pack MTP 19.5, plain 11.6. Prefill is ~110 tok/s for every engine and build, so neither compression nor MTP shortens time-to-first-token. oMLX 0.6.4 cannot load the Bonsai-2 MTPLX pack (`model type prism_hadamard_qwen35 not supported`).
+
+**Harness defects found and fixed while running this** (they were real, and they are why the first Bonsai arms looked worse than they are):
+- `tests/wfe/runner.py` sent only temperature/top_p/seed. The workspace's `top_k`, `min_p`, `repeat_penalty` (auto-compliance's declared loop guard) and `presence_penalty` never reached any engine. Ollama masked this with its own default `repeat_penalty 1.1`; llama-server and MTPLX have no default penalty. Fixed: every resolved key is sent (`SAMPLING_KEYS`), pinned by `test_every_resolved_sampling_key_reaches_the_request`. The incumbent re-ran identically after the fix (33/42 both times), so its earlier rows stand. The prismml arm went from 0/8 to 21/42.
+- MTPLX defaulted to `--tool-prompt-mode hybrid` (its legacy tool contract, not the model's template). The registry now pins `native`. MTPLX has no `repeat_penalty` parameter at all, so its arm cannot carry the loop guard. That is part of why it scores below prismml.
+- Templates verified identical across arms: Ollama's differs from the Qwen3.8 source only by a no-op `| safe`. The GGUF embedded template and the MTPLX pack template match the source byte for byte. MTPLX renders from the pack (`chat_template_profile: tokenizer`, per `mtplx_stats`). Thinking was off in every row.
+
+**What would reopen it:** a Bonsai build or sampler that breaks the re-read attractor (for example, MTPLX gaining `repeat_penalty`, or a `presence_penalty` workspace profile tested on both arms), or a non-agentic use (short-prompt chat) where the 3× decode and 3× smaller footprint matter and tool loops don't.

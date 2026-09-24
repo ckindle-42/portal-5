@@ -1,0 +1,15 @@
+# Bonsai head-to-head — engine arms (WFE_ENGINE mode). Arm names are the served
+# ids tests/benchmarks/bench_engine_h2h.py gives each engine: prismml-llama serves
+# the registry key (anchor_v2_pq2), MTPLX serves its pack directory name.
+# Start the engine with `bench_engine_h2h.py switch` first, then one campaign
+# per engine:
+#   WFE_ENGINE=<engine> WFE_CHAT_BASE_URL=http://127.0.0.1:<port> \
+#     uv run python -m tests.wfe.campaign --plan tests/wfe/plans/bonsai_h2h_engine.yaml \
+#     --campaign-id <id>_<engine> --arm <served id> --repeats 3
+workloads:
+  auto-compliance:
+    home: compliance_agentic
+    discovery: [research]
+    arms:
+      incumbent: anchor_v2_pq2
+      challengers: [Ternary-Bonsai-2-27B-MTPLX-Optimized-Speed]
