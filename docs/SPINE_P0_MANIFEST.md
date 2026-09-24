@@ -6,10 +6,10 @@ Decision artifact for TASK_BULLY_P0_SPINE_REDUCTION_V1.md P0.1. `[GATE]`:
 produced read-only, best-evidenced classification made without a live
 operator sign-off in this run — flagged for review before P0.2+ acted on it.
 
-- Total canonical units at generation time: **744**
-- KEEP-FACT: **53**
-- RELEASE: **71**
-- ARCHIVE: **620**
+- Total canonical units at generation time: **747**
+- KEEP-FACT: **54**
+- RELEASE: **72**
+- ARCHIVE: **621**
 
 ## KEEP-FACT
 
@@ -28,6 +28,7 @@ facts (A4). These keep a `WIKI:GENERATED` fence and stay AW-governed.
 | `unit-capability-wiki` | carries executable claims (A2 anti-drift core) |
 | `unit-compliance-bilateral-corpus` | carries executable claims (A2 anti-drift core) |
 | `unit-compliance-change-pipeline` | carries executable claims (A2 anti-drift core) |
+| `unit-compliance-cite-and-scope` | carries executable claims (A2 anti-drift core) |
 | `unit-compliance-engine` | carries executable claims (A2 anti-drift core) |
 | `unit-compliance-requirement-join` | carries executable claims (A2 anti-drift core) |
 | `unit-compliance-substrate-properties` | carries executable claims (A2 anti-drift core) |
@@ -98,6 +99,7 @@ binding unit from the AW-governed set; P0.4 archives the now-orphaned unit.
 | `unit-ADMIN_GUIDE-ollama-memory-limit-deferred` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
 | `unit-ADMIN_GUIDE-pull-additional-models` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
 | `unit-ADMIN_GUIDE-pull-router-model-if-not-yet-downloaded` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
+| `unit-ADMIN_GUIDE-read-a-turn-trace` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
 | `unit-ADMIN_GUIDE-recommended-remote-access-cloudflare-tunnel` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
 | `unit-ADMIN_GUIDE-router-benchmarks` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
 | `unit-ADMIN_GUIDE-routine-operations` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
@@ -312,6 +314,7 @@ P0.4 candidates for the archive bridge rule.
 | `unit-capability-security` | prose-only: no claim, no fact, not referenced by a live doc block |
 | `unit-capability-serena` | prose-only: no claim, no fact, not referenced by a live doc block |
 | `unit-capability-tts` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-capability-turn-trace` | prose-only: no claim, no fact, not referenced by a live doc block |
 | `unit-capability-video-mlx` | prose-only: no claim, no fact, not referenced by a live doc block |
 | `unit-capability-whisper` | prose-only: no claim, no fact, not referenced by a live doc block |
 | `unit-channels-dispatcher` | prose-only: no claim, no fact, not referenced by a live doc block |
