@@ -88,6 +88,8 @@ def load_config(path: Path = CONFIG) -> dict:
     cfg = yaml.safe_load(path.read_text())
     cfg["mlx_root"] = os.path.expanduser(cfg["mlx_root"])
     cfg["drafter_root"] = os.path.expanduser(cfg["drafter_root"])
+    if cfg.get("mtplx_root"):
+        cfg["mtplx_root"] = os.path.expanduser(cfg["mtplx_root"])
     for engine in cfg["engines"].values():
         if engine.get("server_path"):
             engine["server_path"] = os.path.expanduser(engine["server_path"])
@@ -110,10 +112,17 @@ def local_dir_for(cfg: dict, repo: str | None) -> str | None:
     return f"{cfg['drafter_root']}/{repo.split('/')[-1]}" if repo else None
 
 
+def model_root(cfg: dict, engine: str) -> str:
+    """The directory an engine's model dirs live under (mlx_root unless the engine names one)."""
+    return cfg[cfg["engines"][engine].get("root", "mlx_root")]
+
+
 def model_dir_for(cfg: dict, model: str, engine: str, mode: str) -> str:
     m = cfg["models"][model]
     if engine == "prismml-mlx":
         return m["prismml_mlx"]
+    if engine == "mtplx":
+        return m["mtplx"]
     if mode == "spec":
         s = spec_entry(cfg, model, engine) or {}
         return s.get("model_dir") or m["mlx"]
@@ -182,6 +191,7 @@ def launch_command(cfg: dict, engine: str, model: str, mode: str) -> tuple[list[
         )
     values = {
         "mlx_root": cfg["mlx_root"],
+        "model_root": model_root(cfg, engine),
         "model_dir": model_dir,
         "served": model_dir,
         "port": e.get("port", ""),
@@ -864,7 +874,7 @@ def template_check(cfg: dict, engine: str, model: str, mode: str) -> dict:
             "ok": same,
             "note": "" if same else "embedded GGUF template differs from the source template",
         }
-    d = Path(cfg["mlx_root"]) / model_dir_for(cfg, model, engine, mode)
+    d = Path(model_root(cfg, engine)) / model_dir_for(cfg, model, engine, mode)
     entry = cfg["models"][model]
     template_repo = entry.get("template_repo") or entry.get("base_repo") or entry["source_repo"]
     local, src = local_template(d), source_template(template_repo)
@@ -1278,6 +1288,7 @@ def engine_version(engine: str) -> str:
             "import vllm_mlx;print(vllm_mlx.__version__)",
         ],
         "mlx_lm.server": ["python3", "-c", "import mlx_lm;print(mlx_lm.__version__)"],
+        "mtplx": ["mtplx", "--version"],
         "prismml-llama": [
             str(Path.home() / "src/prismml-llama.cpp/build/bin/llama-server"),
             "--version",
@@ -1407,6 +1418,7 @@ def cmd_doctor(cfg: dict) -> int:
         "rapid-mlx",
         "uvx",
         "mlx_lm.server",
+        "mtplx",
         "footprint",
         "llama-server",
         "lsof",
@@ -1433,12 +1445,11 @@ def cmd_doctor(cfg: dict) -> int:
                     print(f"OK {name}: {artifact}")
                 except SystemExit as exc:
                     print(f"NOT CACHED {name}: {exc}")
-            elif e.get("requires") in {"mlx", "prismml_mlx"}:
+            elif e.get("requires") in {"mlx", "prismml_mlx", "mtplx"}:
                 d = m.get(e["requires"])
-                exists = bool(d and (Path(cfg["mlx_root"]) / d).is_dir())
-                print(
-                    f"{'OK ' if exists else 'NOT FETCHED'} {name}: {cfg['mlx_root']}/{d or 'unset'}"
-                )
+                root = model_root(cfg, engine)
+                exists = bool(d and (Path(root) / d).is_dir())
+                print(f"{'OK ' if exists else 'NOT FETCHED'} {name}: {root}/{d or 'unset'}")
         for key in ("drafter", "draft_model"):
             if m.get(key):
                 exists = Path(local_dir_for(cfg, m[key])).is_dir()

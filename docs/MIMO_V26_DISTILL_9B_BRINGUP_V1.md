@@ -197,6 +197,7 @@ Goal: for each model, find out which engine on this host is fastest. Each model 
 | **Rapid-MLX** 0.15.0 | `:11235` | vllm-mlx fork; spec via `--speculative-config` (mtp / dflash / suffix); telemetry killed with `--no-telemetry` |
 | **vllm-mlx** 0.5.0 | `:11236` | upstream, via uvx; spec = `--enable-mtp` only |
 | **mlx_lm.server** 0.31.3 | `:11237` | reference baseline; spec = classic `--draft-model` |
+| **MTPLX** 2.12.0 | `:11241` | added 2026-09-24 as an addition to the run in progress (see below); native MTP only, from its own Youssofal packs; plain = `--no-mtp` |
 
 **Spec cell per model** (registry `models.<m>.spec`; null = no spec path, report as such):
 
@@ -205,6 +206,19 @@ Goal: for each model, find out which engine on this host is fastest. Each model 
 | MiMo | MTP (`-mtp` build) | MTP | MTP | MTP | — |
 | Laguna | DFlash (Poolside drafter) | DFlash (Poolside drafter) | — | DFlash (Poolside drafter) | — |
 | VulnLLM | PLD | suffix | — | — | draft model (Qwen2.5-0.5B) |
+
+**MTPLX (added 2026-09-24).** MTPLX won't load an arbitrary MLX dir plus an external MTP head. It serves its own packs (MLX weights + `mtp.safetensors` + `mtplx_runtime.json`), so it's the one engine that doesn't share the build and runs on a different quant. A row compares engine+pack, not engine alone, and the row's `resident_gb` shows the difference. Cells (registry `models.<m>.mtplx`, packs under `mtplx_root` = `/Volumes/data01/mtplx-models`, outside oMLX's discovery dir):
+
+| Model | Pack (`Youssofal/…`) | Size |
+|---|---|---|
+| mimo | `MiMo-V2.6-Qwen-9B-MTPLX-Optimized-Speed` | 8.7GB |
+| anchor_v2_mlx | `Ternary-Bonsai-2-27B-MTPLX-Optimized-Speed` (built on the same mlx-2bit pack) | 8.8GB |
+| qwen36_27b_q4 (control) | `Qwen3.6-27B-MTPLX-Optimized-Speed` | 16.4GB |
+| qwen38_27b_q4 (control) | `Qwen3.8-27B-MTPLX-Optimized-Speed` | 20.7GB |
+
+Laguna and VulnLLM have no MTPLX pack, so they have no MTPLX cell. The launch argv pins `--no-stats-footer` (otherwise a TPS footer is appended to every reply, which would corrupt the security/quality scoring), `--ssd-session-cache off` (a disk KV tier no other engine gets), and `--profile sustained` (the default is Turbo for the 27B/9B packs; sustained matches `docs/MTP_BENCH_20260528.md`). The question it answers: does standalone MTPLX beat oMLX serving MTPLX-derived checkpoints? oMLX is already in production. A win only matters if MTPLX could *replace* an engine (see Promotion below).
+
+**Status:** `uv tool install mtplx` is done (2.12.0) and the argv renders (`commands`). The launch was **not** smoke-tested, and the packs were **not** downloaded, so the run already in progress isn't disturbed. Before the first MTPLX cell: `hf download Youssofal/<pack> --local-dir /Volumes/data01/mtplx-models/<pack>` for each pack, then `doctor`. Then smoke `switch --engine mtplx --model mimo --mode plain` + `preflight`. Expect a template REVIEW: the packs ship their own `chat_template.jinja`.
 
 **One MLX build per model, shared by every MLX engine**, from the same directory under `/Volumes/data01/omlx-models`, so the comparison is between engines, not builds. 4-bit only, to match Q4_K_M. The spec build for MiMo is the one exception, because the plain build has no MTP head.
 

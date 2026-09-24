@@ -14,6 +14,9 @@ mlx_root: /Volumes/data01/omlx-models
 # Drafters / draft models stay OUTSIDE mlx_root: oMLX lists any dir with a
 # model config as a servable model, and a drafter dir carries one.
 drafter_root: /Volumes/data01/engine_h2h_drafters
+# MTPLX packs (MLX weights + mtp.safetensors + mtplx_runtime.json) stay OUTSIDE
+# mlx_root for the same reason: oMLX would list them as servable models.
+mtplx_root: /Volumes/data01/mtplx-models
 
 guard:
   sample_s: 30
@@ -103,12 +106,27 @@ engines:
     plain: ["{python}", "{mlx_server_script}", --model-dir, "{mlx_root}/{model_dir}", --host, 127.0.0.1, --port, "{port}", --ctx, "{ctx}"]
     base_spec: ["{python}", "{mlx_server_script}", --model-dir, "{mlx_root}/{model_dir}", --host, 127.0.0.1, --port, "{port}", --ctx, "{ctx}", "{spec_args}"]
     stop_signal: INT
+  mtplx:
+    kind: managed
+    requires: mtplx
+    port: 11241
+    root: mtplx_root
+    # MTPLX 2.12.0 (uv tool install mtplx). Native-MTP only: it drafts with the
+    # model's own mtp head from a Youssofal pack, never an external drafter or PLD.
+    # Plain = --no-mtp (target-only AR in the same loaded runtime). Fairness pins:
+    # --no-stats-footer (else a TPS footer is appended to every reply), SSD session
+    # cache off (a disk tier no other engine gets), --profile sustained (the default
+    # resolves to Turbo for the 27B/9B packs; sustained matches MTP_BENCH_20260528).
+    plain: [mtplx, serve, --model, "{model_root}/{model_dir}", --model-id, "{served}", --host, 127.0.0.1, --port, "{port}", --no-auth, --yes, --context-window, "{ctx}", --profile, sustained, --no-stats-footer, --ssd-session-cache, "off", --no-mtp]
+    base_spec: [mtplx, serve, --model, "{model_root}/{model_dir}", --model-id, "{served}", --host, 127.0.0.1, --port, "{port}", --no-auth, --yes, --context-window, "{ctx}", --profile, sustained, --no-stats-footer, --ssd-session-cache, "off", "{spec_args}"]
+    stop_signal: INT
 
 models:
   mimo:
     source_repo: XiaomiMiMo/MiMo-V2.6-Distill-Qwen-9B
     ollama: portal5/mimo-v26-distill-9b:q4_K_M-ctx256k
     mlx: MiMo-V2.6-Distill-Qwen-9B-MLX-4bit            # nativ-community build, shared by every MLX engine
+    mtplx: MiMo-V2.6-Qwen-9B-MTPLX-Optimized-Speed     # Youssofal/…, base XiaomiMiMo/MiMo-V2.6-Distill-Qwen-9B
     ctx: 262144
     prefill_tokens: 20000
     # <tool_call><function=NAME><parameter=K>V</parameter></function></tool_call>
@@ -120,6 +138,7 @@ models:
       rapid-mlx: {method: mtp, model_dir: MiMo-V2.6-Distill-Qwen-9B-MLX-Serve-4bit-mtp, args: [--speculative-config, '{"method":"mtp","num_speculative_tokens":3}']}
       vllm-mlx: {method: mtp, model_dir: MiMo-V2.6-Distill-Qwen-9B-MLX-Serve-4bit-mtp, args: [--enable-mtp]}
       omlx: {method: mtp, model_dir: MiMo-V2.6-Distill-Qwen-9B-MLX-Serve-4bit-mtp, settings: {mtp_enabled: true}}
+      mtplx: {method: mtp, args: [--mtp]}
       mlx_lm.server: null
   laguna:
     source_repo: poolside/Laguna-XS.2
@@ -297,12 +316,15 @@ models:
     base_repo: Qwen/Qwen3.8-27B
     source_repo: prism-ml/Ternary-Bonsai-2-27B-mlx-2bit
     prismml_mlx: Ternary-Bonsai-2-27B-mlx-2bit
+    mtplx: Ternary-Bonsai-2-27B-MTPLX-Optimized-Speed   # Youssofal/…, built on this same mlx-2bit pack
     ctx: 32768
     prefill_tokens: 2048
     tool_parser: hermes
     sampling: {temperature: 0.7, top_p: 0.8, top_k: 20, presence_penalty: 1.5}
     thinking_sampling: {temperature: 1.0, top_p: 0.95, top_k: 20, min_p: 0.0}
     control: qwen38_27b_q4
+    spec:
+      mtplx: {method: mtp, args: [--mtp]}
   anchor_v2_mtp_n1:
     base_repo: Qwen/Qwen3.8-27B
     gguf: {repo: ProCreations/Ternary-Bonsai-2-27B-MTP, file: Ternary-Bonsai-2-27B-PQ2_0-MTP-Q8_0.gguf}
@@ -358,6 +380,7 @@ models:
     sampling: {temperature: 0.7, top_p: 0.8, top_k: 20, min_p: 0.0, presence_penalty: 1.5}
     thinking_sampling: {temperature: 0.6, top_p: 0.95, top_k: 20, min_p: 0.0}
   qwen36_27b_q4:
+    mtplx: Qwen3.6-27B-MTPLX-Optimized-Speed   # Youssofal/…
     source_repo: Qwen/Qwen3.6-27B
     tool_parser: hermes
     ollama_from: qwen3.6:27b-q4_K_M-ctx16k
@@ -366,7 +389,10 @@ models:
     prefill_tokens: 2048
     sampling: {temperature: 0.7, top_p: 0.8, top_k: 20, min_p: 0.0, presence_penalty: 1.5}
     thinking_sampling: {temperature: 1.0, top_p: 0.95, top_k: 20, min_p: 0.0}
+    spec:
+      mtplx: {method: mtp, args: [--mtp]}
   qwen38_27b_q4:
+    mtplx: Qwen3.8-27B-MTPLX-Optimized-Speed   # Youssofal/…
     source_repo: Qwen/Qwen3.8-27B
     tool_parser: hermes
     ollama_from: hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M
@@ -375,3 +401,5 @@ models:
     prefill_tokens: 2048
     sampling: {temperature: 0.7, top_p: 0.8, top_k: 20, presence_penalty: 1.5}
     thinking_sampling: {temperature: 1.0, top_p: 0.95, top_k: 20, min_p: 0.0}
+    spec:
+      mtplx: {method: mtp, args: [--mtp]}

@@ -44,6 +44,28 @@ def test_mlx_launch_uses_model_specific_python_runtime(cfg):
     assert argv[0] == str(Path.home() / "src/prismml-mlx/.venv-bonsai/bin/python")
 
 
+def test_mtplx_serves_its_own_pack_from_mtplx_root_with_fairness_pins(cfg):
+    plain, _ = h.launch_command(cfg, "mtplx", "mimo", "plain")
+    spec, _ = h.launch_command(cfg, "mtplx", "mimo", "spec")
+    pack = "MiMo-V2.6-Qwen-9B-MTPLX-Optimized-Speed"
+    for argv in (plain, spec):
+        assert argv[argv.index("--model") + 1] == f"{cfg['mtplx_root']}/{pack}"
+        assert argv[argv.index("--model-id") + 1] == pack
+        assert "--no-stats-footer" in argv
+        assert argv[argv.index("--ssd-session-cache") + 1] == "off"
+        assert argv[argv.index("--profile") + 1] == "sustained"
+        assert "{spec_args}" not in argv
+    assert plain[-1] == "--no-mtp" and "--mtp" not in plain
+    assert spec[-1] == "--mtp" and "--no-mtp" not in spec
+    assert h.served_id(cfg, "mtplx", "mimo", "spec") == pack
+
+
+def test_mtplx_only_covers_models_with_a_pack(cfg):
+    assert h.model_supports_engine(cfg, "mimo", "mtplx")
+    assert not h.model_supports_engine(cfg, "laguna", "mtplx")
+    assert not h.model_supports_engine(cfg, "vulnllm", "mtplx")
+
+
 def test_gguf_path_is_resolved_from_cache_and_spec_args_are_spliced(cfg, monkeypatch):
     monkeypatch.setattr(h, "gguf_path_for", lambda _cfg, _model: "/cache/anchor.gguf")
     argv, _ = h.launch_command(cfg, "prismml-llama", "anchor_v2_mtp_n1", "spec")
