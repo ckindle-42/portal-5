@@ -1,0 +1,101 @@
+{
+  "note": "sharpened check: only lines attributing obligation to the standard/regulation are judged; honest attributions to guidance or operator documents are exempt",
+  "rows": [
+    {
+      "key": "baselines",
+      "checked_lines": 1,
+      "violations": 1
+    },
+    {
+      "key": "categorization",
+      "checked_lines": 0,
+      "violations": 0
+    },
+    {
+      "key": "cip003_revision_change",
+      "checked_lines": 0,
+      "violations": 0
+    },
+    {
+      "key": "ciso_handover",
+      "checked_lines": 1,
+      "violations": 1
+    },
+    {
+      "key": "most_work",
+      "checked_lines": 0,
+      "violations": 0
+    },
+    {
+      "key": "overlap",
+      "checked_lines": 0,
+      "violations": 0
+    },
+    {
+      "key": "patch_cycle",
+      "checked_lines": 0,
+      "violations": 0
+    },
+    {
+      "key": "patching",
+      "checked_lines": 3,
+      "violations": 0
+    },
+    {
+      "key": "personnel_leaving",
+      "checked_lines": 0,
+      "violations": 0
+    },
+    {
+      "key": "physical_perimeter",
+      "checked_lines": 0,
+      "violations": 0
+    },
+    {
+      "key": "remote_access",
+      "checked_lines": 1,
+      "violations": 1
+    },
+    {
+      "key": "shared_accounts",
+      "checked_lines": 0,
+      "violations": 0
+    },
+    {
+      "key": "training_evidence_bridge",
+      "checked_lines": 1,
+      "violations": 0
+    },
+    {
+      "key": "vendor_risk",
+      "checked_lines": 0,
+      "violations": 0
+    }
+  ],
+  "violations": [
+    {
+      "key": "baselines",
+      "claim": "*   **The Requirement:** The standard requires a documented and implemented configuration change management process. Specifically, the opera",
+      "cited": [
+        "isection-1500fee07c685ebbaece"
+      ]
+    },
+    {
+      "key": "ciso_handover",
+      "claim": "The standard requires that your documentation of the CIP Senior Manager and any associated delegations be kept up-to-date to prevent individ",
+      "cited": [
+        "csection-3d98554d1cb48f6334c4"
+      ]
+    },
+    {
+      "key": "remote_access",
+      "claim": "*   **Management of Interactive Remote Access (R2):** For any entity allowing interactive remote access to BES Cyber Systems, the standard r",
+      "cited": [
+        "csection-11cd5efdbf2376aeb911",
+        "csection-18c0a8bc4219e134e3a4",
+        "isection-057fa20386bfe1ef3a26",
+        "isection-06f4009b4cbab1f25cf6"
+      ]
+    }
+  ]
+}

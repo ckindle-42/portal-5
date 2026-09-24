@@ -98,6 +98,49 @@ def render_sizes(repo: Repository, register: Register) -> dict[str, dict[str, in
     return out
 
 
+def _latest_revision(repo: Repository, logical_id: str, *, us_only: bool = False) -> str:
+    """The revision of ``logical_id`` carrying the most sections (the capture)."""
+    join = "JOIN source_documents d ON d.logical_id = v.logical_id" if us_only else ""
+    where = "AND d.jurisdiction = 'US'" if us_only else ""
+    row = repo._conn.execute(
+        f"""SELECT v.revision_id FROM document_revisions v
+            {join}
+            WHERE v.logical_id = ? {where}
+            ORDER BY (SELECT COUNT(*) FROM source_sections s
+                       WHERE s.revision_id = v.revision_id) DESC
+            LIMIT 1""",  # noqa: S608
+        (logical_id,),
+    ).fetchone()
+    return str(row[0]) if row else ""
+
+
+def _anchor_gtb_attachments(
+    repo: Repository,
+    register: Register,
+    logical_id_of,
+    anchor_fn,
+    *,
+    us_only: bool = False,
+) -> dict[str, dict[str, Any]]:
+    """Run one heading-anchoring pass per standard and tally what it placed."""
+    out: dict[str, dict[str, Any]] = {}
+    for standard in sorted({n.standard for n in register.nodes}):
+        revision_id = _latest_revision(repo, logical_id_of(standard), us_only=us_only)
+        if not revision_id:
+            continue
+        nodes = [n for n in register.nodes if n.standard == standard]
+        anchors, unplaced = anchor_fn(repo, revision_id, nodes)
+        written = repo.record_anchors(anchors) if anchors else {"sections_joined": 0}
+        out[standard] = {
+            "revision_id": revision_id,
+            "requirements_placed": len(anchors),
+            "sections_joined": written.get("sections_joined", 0),
+            "unplaced_sections": len(unplaced),
+            "unplaced": unplaced,
+        }
+    return out
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--store", type=pathlib.Path, help="store path (default: the live store)")
@@ -124,32 +167,25 @@ def main() -> int:
         ]
         receipt["capture_skipped"] = captured["skipped"]
 
-        anchored: dict[str, Any] = {}
-        for standard in sorted({n.standard for n in register.nodes}):
-            row = repo._conn.execute(
-                """SELECT v.revision_id FROM document_revisions v
-                    WHERE v.logical_id = ?
-                    ORDER BY (SELECT COUNT(*) FROM source_sections s
-                               WHERE s.revision_id = v.revision_id) DESC
-                    LIMIT 1""",
-                (f"NERC/{standard}{_TR_SUFFIX}",),
-            ).fetchone()
-            if row is None:
-                continue
-            nodes = [n for n in register.nodes if n.standard == standard]
-            anchors, unplaced = requirement_anchor.anchor_rationale_document(
-                repo, str(row[0]), nodes
-            )
-            written = repo.record_anchors(anchors) if anchors else {"sections_joined": 0}
-            anchored[standard] = {
-                "revision_id": str(row[0]),
-                "requirements_placed": len(anchors),
-                "sections_joined": written.get("sections_joined", 0),
-                "unplaced_sections": len(unplaced),
-                "unplaced_chars": sum(u["chars"] for u in unplaced),
-                "unplaced": unplaced,
-            }
-        receipt["technical_rationale_anchoring"] = anchored
+        anchored = _anchor_gtb_attachments(
+            repo,
+            register,
+            lambda standard: f"NERC/{standard}{_TR_SUFFIX}",
+            requirement_anchor.anchor_rationale_document,
+        )
+        receipt["technical_rationale_anchoring"] = dict(anchored)
+
+        # The same heading route, run over each standard's OWN capture: the
+        # pre-TR revisions keep their attachment guidance inside the standard,
+        # and the requirement-keyed bundle route never reaches it (a locate
+        # miss — the text is in the capture; see anchor_standard_attachment_gtb).
+        receipt["standard_gtb_attachment_anchoring"] = _anchor_gtb_attachments(
+            repo,
+            register,
+            lambda standard: f"NERC/{standard}",
+            requirement_anchor.anchor_standard_attachment_gtb,
+            us_only=True,
+        )
         receipt["coverage_after"] = coverage(repo, register)
         if not args.no_sizes:
             receipt["render_after"] = render_sizes(repo, register)

@@ -1412,13 +1412,30 @@ def supersede_answers_for_revisions(repo: Any, revision_ids: list[str]) -> list[
 def record_correction(
     repo: Any, answer_id: str, correction: str, author: str = ""
 ) -> dict[str, Any]:
-    """An operator's correction of a stored answer. Recorded as a NOTE about the
-    answer — the operator's word outranks the reading, and both remain."""
+    """An operator's correction of a stored answer. Recorded as a NOTE — the
+    operator's word outranks the reading, and both remain.
+
+    **Filed against the requirement, addressed from both sides.** A correction
+    is *about an answer* but *concerns a requirement*, and losing either link
+    loses something. So the note's ``subject_ref`` is the answer's own
+    ``subject_ref`` — the requirement the answer was about — which is the key
+    ``requirement_scope.population`` pulls notes by: filed under the answer's
+    id, the note never reached the next reading of that requirement (one
+    operator note in the module's whole life; zero corrections ever recorded).
+    The answer-side address survives in ``conversation_answers.correction_of``,
+    which names the note, and the returned payload carries both addresses.
+    An answer that names no requirement ref cannot bridge — the note falls
+    back to the answer id and says so, rather than guessing a requirement.
+    """
     from portal.modules.compliance.core.notes import write_note
 
+    row = repo._conn.execute(
+        "SELECT subject_ref FROM conversation_answers WHERE answer_id = ?", (answer_id,)
+    ).fetchone()
+    subject_ref = str(row["subject_ref"] or "").strip() if row is not None else ""
     note = write_note(
         repo,
-        subject_ref=answer_id,
+        subject_ref=subject_ref or answer_id,
         body=correction,
         kind="correction",
         author=author,
@@ -1427,6 +1444,17 @@ def record_correction(
         repo._conn.execute(
             "UPDATE conversation_answers SET correction_of = ? WHERE answer_id = ?",
             (note["note_id"], answer_id),
+        )
+    note["about_answer"] = answer_id
+    note["addresses"] = {
+        "requirement_ref": subject_ref,
+        "answer_id": answer_id,
+        "bridged": bool(subject_ref),
+    }
+    if not subject_ref:
+        note["bridge"] = (
+            f"answer {answer_id} names no requirement ref — the note is filed under the "
+            "answer id; nothing bridges it into a requirement population"
         )
     return note
 

@@ -76,7 +76,12 @@ SEAT_BYTES_PER_TOKEN = 3.3
 _TEMPLATE_RESERVE = 512
 
 
-def window_fit(prompt_bytes: int, num_ctx: int, answer_budget: int) -> dict[str, Any]:
+def window_fit(
+    prompt_bytes: int,
+    num_ctx: int,
+    answer_budget: int,
+    bytes_per_token: float = SEAT_BYTES_PER_TOKEN,
+) -> dict[str, Any]:
     """Would this prompt fit the window with the answer's room reserved?
 
     Ollama does not refuse an oversized prompt: it TRUNCATES it silently and
@@ -86,14 +91,20 @@ def window_fit(prompt_bytes: int, num_ctx: int, answer_budget: int) -> dict[str,
     CIP-003-8 R2 (120,449 bytes) at 31,355, so three readings answered from a
     fraction of their material and the receipts looked normal. This check
     runs BEFORE the call.
+
+    ``bytes_per_token`` lets a caller price with ITS OWN measured ratio — the
+    conversational seat probes at 3.17–3.28 (module_complete p0_5), below this
+    sweep's mapping-call 3.3, and a guard priced too low under-counts tokens,
+    which is the one direction a truncation guard may never err.
     """
-    estimated = int(prompt_bytes / SEAT_BYTES_PER_TOKEN) + 1
+    estimated = int(prompt_bytes / bytes_per_token) + 1
     available = num_ctx - answer_budget - _TEMPLATE_RESERVE
     return {
         "prompt_bytes": prompt_bytes,
         "estimated_tokens": estimated,
         "num_ctx": num_ctx,
         "available_tokens": available,
+        "bytes_per_token": bytes_per_token,
         "fits": estimated <= available,
     }
 

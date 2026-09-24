@@ -63,6 +63,7 @@ _LIFECYCLE_COLUMNS = (
     "Public Notes",
     "Project Page",
     "Technical Rationale",
+    "RSAW",
 )
 
 
@@ -104,6 +105,7 @@ class LifecycleFacts:
     implementation_plan_url: str = ""
     project_page_url: str = ""
     technical_rationale_url: str = ""
+    rsaw_url: str = ""
     public_notes: str = ""
     docket: str = ""
     registry_sha256: str = ""  # provenance: the workbook these facts came from
@@ -255,7 +257,9 @@ def parse_lifecycle(xlsx_bytes: bytes, *, registry_sha256: str = "") -> dict[str
         wb = load_workbook(io.BytesIO(xlsx_bytes), data_only=True)
     ws = wb["One Stop Shop"]
     rows = list(ws.iter_rows())
-    header = [str(c.value or "") for c in rows[0]]
+    # stripped: the workbook's own header cells carry padding (" RSAW "), and a
+    # column lost to whitespace is a component nobody knows is missing
+    header = [str(c.value or "").strip() for c in rows[0]]
     idx = {name: header.index(name) for name in _LIFECYCLE_COLUMNS if name in header}
 
     facts: dict[str, LifecycleFacts] = {}
@@ -283,6 +287,7 @@ def parse_lifecycle(xlsx_bytes: bytes, *, registry_sha256: str = "") -> dict[str
             implementation_plan_url=_link(row[idx["Implementation Plan"]]),
             project_page_url=_link(row[idx["Project Page"]]),
             technical_rationale_url=_link(row[idx["Technical Rationale"]]),
+            rsaw_url=_link(row[idx["RSAW"]]),
             public_notes=notes,
             docket=docket,
             registry_sha256=registry_sha256,
@@ -564,6 +569,24 @@ def sync_official_bundle(
                     fetch=fetch,
                 )
             )
+
+        # the RSAW — the compliance auditor's own question sheet per requirement
+        # (MODULE_COMPLETE_V1 §P0.5: acquired + captured; placement stays open —
+        # the guidance is keyed by bare table-cell R<n> markers, not by
+        # requirement-named headings, so the heading route cannot place it)
+        if entry.rsaw_url:
+            rsaw_suffix = ".docx" if entry.rsaw_url.lower().endswith(".docx") else ".pdf"
+            report.artifacts.append(
+                _acquire(
+                    f"{standard.lower()}-rsaw{rsaw_suffix}",
+                    quote(entry.rsaw_url, safe=":/%"),
+                    role="rsaw",
+                    directory=directory,
+                    fetch=fetch,
+                )
+            )
+        else:
+            report.warnings.append(f"{standard} has no RSAW link in the registry")
 
     report.warnings.extend(
         f"{a.name}: {a.warning}" for a in report.artifacts if a.warning and a.status != "FAILED"

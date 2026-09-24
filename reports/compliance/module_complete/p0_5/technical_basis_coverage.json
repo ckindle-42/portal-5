@@ -1,0 +1,282 @@
+{
+  "run_id": "2026-09-24T13:30:12.358182+00:00",
+  "coverage": {
+    "CIP-002-5.1a": {
+      "requirements": 33,
+      "with_technical_basis": 33
+    },
+    "CIP-003-8": {
+      "requirements": 39,
+      "with_technical_basis": 39
+    },
+    "CIP-003-9": {
+      "requirements": 44,
+      "with_technical_basis": 5
+    },
+    "CIP-004-7": {
+      "requirements": 19,
+      "with_technical_basis": 19
+    },
+    "CIP-005-7": {
+      "requirements": 12,
+      "with_technical_basis": 12
+    },
+    "CIP-006-6": {
+      "requirements": 14,
+      "with_technical_basis": 14
+    },
+    "CIP-007-6": {
+      "requirements": 20,
+      "with_technical_basis": 20
+    },
+    "CIP-008-6": {
+      "requirements": 12,
+      "with_technical_basis": 12
+    },
+    "CIP-009-6": {
+      "requirements": 10,
+      "with_technical_basis": 10
+    },
+    "CIP-010-4": {
+      "requirements": 12,
+      "with_technical_basis": 12
+    },
+    "CIP-011-3": {
+      "requirements": 4,
+      "with_technical_basis": 4
+    },
+    "CIP-012-2": {
+      "requirements": 6,
+      "with_technical_basis": 6
+    },
+    "CIP-013-2": {
+      "requirements": 11,
+      "with_technical_basis": 11
+    },
+    "CIP-014-3": {
+      "requirements": 19,
+      "with_technical_basis": 19
+    }
+  },
+  "CIP-003-9:rationale_headings": [
+    "Attachment  1  Section  6  Part  6.2  -  Disabling  vendor  electronic  remote access",
+    "Attachment 1 Section 6 Part 6.1 - Determining vendor electronic remote access",
+    "Attachment 1 Section 6 Part 6.3 - Detecting known or suspected malicious communications for both inbound and outbound communications",
+    "Background",
+    "Cyber Security Security Management Controls",
+    "Foreword Regarding Section 3 and Section 6",
+    "Introduction",
+    "Preface",
+    "RELIABILITY | RESILIENCE | SECURITY",
+    "Rationale Section 6 of Attachment 1 (Requirement R2)",
+    "Table of Contents",
+    "Technical Rational for Reliability Standard CIP-003-9"
+  ],
+  "CIP-008-6:rationale_headings": [
+    "Change Description and Justification: (Part 1.1)",
+    "Change Description and Justification: (Part 1.2)",
+    "Change Description and Justification: (Part 1.3)",
+    "Change Description and Justification: (Part 1.4)",
+    "Change Description and Justification: (Part 3.1)",
+    "Change Description and Justification: (Part 3.2)",
+    "Cyber Security Incident",
+    "Cyber Security Incident Report",
+    "EACMS",
+    "Figure 1: CIP-008-5 R3 Timeline for Reportable Cyber Security Incidents",
+    "General Considerations for Requirement R1, Requirement R2, and Requirement R3",
+    "General Considerations for Requirement R4",
+    "Inclusion of 'Successor Organizations' throughout the Requirement Parts",
+    "Introduction",
+    "Methods for Submitting Notifications",
+    "Moving Parts of Requirement R1 to Requirement R4",
+    "New and Modified Terms Used in NERC Reliability Standards",
+    "Notification Timing",
+    "Notification Updates",
+    "Preface",
+    "Proposed Modified Terms:",
+    "RELIABILITY |ACCOUNTABILITY",
+    "Rationale for R1:",
+    "Rationale for R2:",
+    "Rationale for R3:",
+    "Reportable Cyber Security Incident",
+    "Required Reportable Incident Attributes",
+    "Requirement R1:",
+    "Requirement R2:",
+    "Requirement R3:",
+    "Requirement R4",
+    "Table of Contents",
+    "Technical Rationale for Reliability Standard CIP-008-5"
+  ],
+  "gaps": {
+    "CIP-003-9": [
+      {
+        "node_id": "CIP-003-9 R1 Part 1.1.1",
+        "reason": "genuine absence \u2014 the standard's Technical Rationale carries no section whose heading names this requirement or any attachment section it belongs to; the rationale headings present are listed under rationale_headings"
+      },
+      {
+        "node_id": "CIP-003-9 R1 Part 1.1.2",
+        "reason": "genuine absence \u2014 the standard's Technical Rationale carries no section whose heading names this requirement or any attachment section it belongs to; the rationale headings present are listed under rationale_headings"
+      },
+      {
+        "node_id": "CIP-003-9 R1 Part 1.1.3",
+        "reason": "genuine absence \u2014 the standard's Technical Rationale carries no section whose heading names this requirement or any attachment section it belongs to; the rationale headings present are listed under rationale_headings"
+      },
+      {
+        "node_id": "CIP-003-9 R1 Part 1.1.4",
+        "reason": "genuine absence \u2014 the standard's Technical Rationale carries no section whose heading names this requirement or any attachment section it belongs to; the rationale headings present are listed under rationale_headings"
+      },
+      {
+        "node_id": "CIP-003-9 R1 Part 1.1.5",
+        "reason": "genuine absence \u2014 the standard's Technical Rationale carries no section whose heading names this requirement or any attachment section it belongs to; the rationale headings present are listed under rationale_headings"
+      },
+      {
+        "node_id": "CIP-003-9 R1 Part 1.1.6",
+        "reason": "genuine absence \u2014 the standard's Technical Rationale carries no section whose heading names this requirement or any attachment section it belongs to; the rationale headings present are listed under rationale_headings"
+      },
+      {
+        "node_id": "CIP-003-9 R1 Part 1.1.7",
+        "reason": "genuine absence \u2014 the standard's Technical Rationale carries no section whose heading names this requirement or any attachment section it belongs to; the rationale headings present are listed under rationale_headings"
+      },
+      {
+        "node_id": "CIP-003-9 R1 Part 1.1.8",
+        "reason": "genuine absence \u2014 the standard's Technical Rationale carries no section whose heading names this requirement or any attachment section it belongs to; the rationale headings present are listed under rationale_headings"
+      },
+      {
+        "node_id": "CIP-003-9 R1 Part 1.1.9",
+        "reason": "genuine absence \u2014 the standard's Technical Rationale carries no section whose heading names this requirement or any attachment section it belongs to; the rationale headings present are listed under rationale_headings"
+      },
+      {
+        "node_id": "CIP-003-9 R1 Part 1.2.1",
+        "reason": "genuine absence \u2014 the standard's Technical Rationale carries no section whose heading names this requirement or any attachment section it belongs to; the rationale headings present are listed under rationale_headings"
+      },
+      {
+        "node_id": "CIP-003-9 R1 Part 1.2.2",
+        "reason": "genuine absence \u2014 the standard's Technical Rationale carries no section whose heading names this requirement or any attachment section it belongs to; the rationale headings present are listed under rationale_headings"
+      },
+      {
+        "node_id": "CIP-003-9 R1 Part 1.2.3",
+        "reason": "genuine absence \u2014 the standard's Technical Rationale carries no section whose heading names this requirement or any attachment section it belongs to; the rationale headings present are listed under rationale_headings"
+      },
+      {
+        "node_id": "CIP-003-9 R1 Part 1.2.4",
+        "reason": "genuine absence \u2014 the standard's Technical Rationale carries no section whose heading names this requirement or any attachment section it belongs to; the rationale headings present are listed under rationale_headings"
+      },
+      {
+        "node_id": "CIP-003-9 R1 Part 1.2.5",
+        "reason": "genuine absence \u2014 the standard's Technical Rationale carries no section whose heading names this requirement or any attachment section it belongs to; the rationale headings present are listed under rationale_headings"
+      },
+      {
+        "node_id": "CIP-003-9 R1 Part 1.2.6",
+        "reason": "genuine absence \u2014 the standard's Technical Rationale carries no section whose heading names this requirement or any attachment section it belongs to; the rationale headings present are listed under rationale_headings"
+      },
+      {
+        "node_id": "CIP-003-9 R1 Part 1.2.7",
+        "reason": "genuine absence \u2014 the standard's Technical Rationale carries no section whose heading names this requirement or any attachment section it belongs to; the rationale headings present are listed under rationale_headings"
+      },
+      {
+        "node_id": "CIP-003-9 Attachment 1 Part 1",
+        "reason": "genuine absence \u2014 the standard's Technical Rationale carries no section whose heading names this requirement or any attachment section it belongs to; the rationale headings present are listed under rationale_headings"
+      },
+      {
+        "node_id": "CIP-003-9 Attachment 1 Part 2",
+        "reason": "genuine absence \u2014 the standard's Technical Rationale carries no section whose heading names this requirement or any attachment section it belongs to; the rationale headings present are listed under rationale_headings"
+      },
+      {
+        "node_id": "CIP-003-9 Attachment 1 Part 3",
+        "reason": "genuine absence \u2014 the standard's Technical Rationale carries no section whose heading names this requirement or any attachment section it belongs to; the rationale headings present are listed under rationale_headings"
+      },
+      {
+        "node_id": "CIP-003-9 Attachment 1 Part 3.1",
+        "reason": "genuine absence \u2014 the standard's Technical Rationale carries no section whose heading names this requirement or any attachment section it belongs to; the rationale headings present are listed under rationale_headings"
+      },
+      {
+        "node_id": "CIP-003-9 Attachment 1 Part 3.2",
+        "reason": "genuine absence \u2014 the standard's Technical Rationale carries no section whose heading names this requirement or any attachment section it belongs to; the rationale headings present are listed under rationale_headings"
+      },
+      {
+        "node_id": "CIP-003-9 Attachment 1 Part 4",
+        "reason": "genuine absence \u2014 the standard's Technical Rationale carries no section whose heading names this requirement or any attachment section it belongs to; the rationale headings present are listed under rationale_headings"
+      },
+      {
+        "node_id": "CIP-003-9 Attachment 1 Part 4.1",
+        "reason": "genuine absence \u2014 the standard's Technical Rationale carries no section whose heading names this requirement or any attachment section it belongs to; the rationale headings present are listed under rationale_headings"
+      },
+      {
+        "node_id": "CIP-003-9 Attachment 1 Part 4.2",
+        "reason": "genuine absence \u2014 the standard's Technical Rationale carries no section whose heading names this requirement or any attachment section it belongs to; the rationale headings present are listed under rationale_headings"
+      },
+      {
+        "node_id": "CIP-003-9 Attachment 1 Part 4.3",
+        "reason": "genuine absence \u2014 the standard's Technical Rationale carries no section whose heading names this requirement or any attachment section it belongs to; the rationale headings present are listed under rationale_headings"
+      },
+      {
+        "node_id": "CIP-003-9 Attachment 1 Part 4.4",
+        "reason": "genuine absence \u2014 the standard's Technical Rationale carries no section whose heading names this requirement or any attachment section it belongs to; the rationale headings present are listed under rationale_headings"
+      },
+      {
+        "node_id": "CIP-003-9 Attachment 1 Part 4.5",
+        "reason": "genuine absence \u2014 the standard's Technical Rationale carries no section whose heading names this requirement or any attachment section it belongs to; the rationale headings present are listed under rationale_headings"
+      },
+      {
+        "node_id": "CIP-003-9 Attachment 1 Part 4.6",
+        "reason": "genuine absence \u2014 the standard's Technical Rationale carries no section whose heading names this requirement or any attachment section it belongs to; the rationale headings present are listed under rationale_headings"
+      },
+      {
+        "node_id": "CIP-003-9 Attachment 1 Part 5",
+        "reason": "genuine absence \u2014 the standard's Technical Rationale carries no section whose heading names this requirement or any attachment section it belongs to; the rationale headings present are listed under rationale_headings"
+      },
+      {
+        "node_id": "CIP-003-9 Attachment 1 Part 5.1",
+        "reason": "genuine absence \u2014 the standard's Technical Rationale carries no section whose heading names this requirement or any attachment section it belongs to; the rationale headings present are listed under rationale_headings"
+      },
+      {
+        "node_id": "CIP-003-9 Attachment 1 Part 5.2",
+        "reason": "genuine absence \u2014 the standard's Technical Rationale carries no section whose heading names this requirement or any attachment section it belongs to; the rationale headings present are listed under rationale_headings"
+      },
+      {
+        "node_id": "CIP-003-9 Attachment 1 Part 5.2.1",
+        "reason": "genuine absence \u2014 the standard's Technical Rationale carries no section whose heading names this requirement or any attachment section it belongs to; the rationale headings present are listed under rationale_headings"
+      },
+      {
+        "node_id": "CIP-003-9 Attachment 1 Part 5.2.2",
+        "reason": "genuine absence \u2014 the standard's Technical Rationale carries no section whose heading names this requirement or any attachment section it belongs to; the rationale headings present are listed under rationale_headings"
+      },
+      {
+        "node_id": "CIP-003-9 Attachment 1 Part 5.3",
+        "reason": "genuine absence \u2014 the standard's Technical Rationale carries no section whose heading names this requirement or any attachment section it belongs to; the rationale headings present are listed under rationale_headings"
+      },
+      {
+        "node_id": "CIP-003-9 Attachment 1 Part 5.3.1",
+        "reason": "genuine absence \u2014 the standard's Technical Rationale carries no section whose heading names this requirement or any attachment section it belongs to; the rationale headings present are listed under rationale_headings"
+      },
+      {
+        "node_id": "CIP-003-9 Attachment 1 Part 5.3.2",
+        "reason": "genuine absence \u2014 the standard's Technical Rationale carries no section whose heading names this requirement or any attachment section it belongs to; the rationale headings present are listed under rationale_headings"
+      },
+      {
+        "node_id": "CIP-003-9 R1",
+        "reason": "genuine absence \u2014 the standard's Technical Rationale carries no section whose heading names this requirement or any attachment section it belongs to; the rationale headings present are listed under rationale_headings"
+      },
+      {
+        "node_id": "CIP-003-9 R3",
+        "reason": "genuine absence \u2014 the standard's Technical Rationale carries no section whose heading names this requirement or any attachment section it belongs to; the rationale headings present are listed under rationale_headings"
+      },
+      {
+        "node_id": "CIP-003-9 R4",
+        "reason": "genuine absence \u2014 the standard's Technical Rationale carries no section whose heading names this requirement or any attachment section it belongs to; the rationale headings present are listed under rationale_headings"
+      }
+    ],
+    "CIP-008-6": [
+      {
+        "node_id": "CIP-008-6 R3 Part 3.1",
+        "reason": "genuine absence \u2014 the standard's Technical Rationale carries no section whose heading names this requirement or any attachment section it belongs to; the rationale headings present are listed under rationale_headings"
+      },
+      {
+        "node_id": "CIP-008-6 R3 Part 3.2",
+        "reason": "genuine absence \u2014 the standard's Technical Rationale carries no section whose heading names this requirement or any attachment section it belongs to; the rationale headings present are listed under rationale_headings"
+      }
+    ]
+  },
+  "verdict": "VERIFIED",
+  "note": "Coverage counted from requirement_sections relation='technical_basis' (both anchor methods \u2014 exact and heading). Every remaining gap is named with its reason and the evidence that decides it: the Technical Rationale's own heading list."
+}

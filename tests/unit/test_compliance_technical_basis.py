@@ -19,6 +19,8 @@ from portal.modules.compliance.core.models import SourceDocument
 from portal.modules.compliance.core.repository import Repository
 from portal.modules.compliance.core.requirement_anchor import (
     anchor_rationale_document,
+    anchor_standard_attachment_gtb,
+    attachment_targets_named,
     requirements_named,
 )
 from portal.modules.compliance.core.sweep import window_fit
@@ -190,3 +192,128 @@ def test_window_fit_refuses_what_ollama_would_truncate() -> None:
     assert window_fit(155_333, 65_536, 3_072)["fits"] is True
     # CIP-007-6 R5 Part 5.1: 90,894 bytes, 25,160 real tokens — fits
     assert window_fit(90_894, 32_768, 3_072)["fits"] is True
+
+
+def test_attachment_grammars_are_parsed_not_guessed() -> None:
+    assert attachment_targets_named("Requirement R2, Attachment 1, Section 3 - ESPs") == {
+        "attachment": "1",
+        "section": "3",
+        "part": None,
+        "impact": None,
+    }
+    assert attachment_targets_named("Attachment 1, Criterion 2.1")["part"] == "2.1"
+    assert attachment_targets_named("Medium Impact Rating (M)") == {
+        "attachment": "1",
+        "section": "2",
+        "part": None,
+        "impact": "medium impact rating",
+    }
+    assert attachment_targets_named("Requirement R2, Attachment 1")["attachment"] == "1"
+    # no attachment named → this route stays out of it
+    assert attachment_targets_named("Guidelines and Technical Basis")["attachment"] is None
+    assert (
+        attachment_targets_named("Requirement R2: identify BES Cyber Systems")["attachment"] is None
+    )
+
+
+@pytest.fixture
+def standard_gtb(tmp_path: Path) -> tuple[Repository, str]:
+    repo = Repository(tmp_path / "gtb.db")
+    repo.upsert_source_document(
+        SourceDocument(
+            logical_id="NERC/CIP-X-1",
+            title="CIP-X-1",
+            issuer="NERC",
+            source_kind="standard",
+            jurisdiction="US",
+        )
+    )
+    revision = repo.add_document_revision("NERC/CIP-X-1", "/docs/std.pdf", b"std-bytes")
+    store_capture(
+        repo,
+        revision.revision_id,
+        _capture(
+            Path("/docs/std.pdf"),
+            [
+                ("Guidelines and Technical Basis", "The guidance lives here."),
+                (
+                    "Requirement R2, Attachment 1",
+                    "Attachment 1 contains the sections that must be included in the cyber "
+                    "security policy, and this guidance explains how to apply each of those "
+                    "sections to the entity's own policy document.",
+                ),
+                (
+                    "Requirement R2, Attachment 1, Section 3 - Electronic Access Controls",
+                    "Guidance for section 3 of the attachment, in the drafting team's own "
+                    "words, explaining the electronic access control approaches the guidance "
+                    "considers acceptable for a low impact BES Cyber System.",
+                ),
+                (
+                    "Requirement R2, Attachment 1, Section 3 - Electronic Access Controls",
+                    "A heading row",
+                ),
+                (
+                    "Medium Impact Rating (M)",
+                    "Guidance for the medium impact criteria, which the requirement's own "
+                    "measures file under Attachment 1, Section 2, covering generation and "
+                    "transmission thresholds in detail.",
+                ),
+                (
+                    "Attachment 1, Criterion 2.1",
+                    "Guidance addressed to criterion 2.1 and nothing else in the attachment, "
+                    "with the reasoning behind the 3,000 MW threshold for BA Control Centres.",
+                ),
+                ("Overall Application", "No attachment named; nothing here is placed."),
+            ],
+        ),
+    )
+    return repo, revision.revision_id
+
+
+_GTB_NODES = [
+    _Node("CIP-X-1 R2 Part 2.1", "R2", "2.1"),
+    _Node("CIP-X-1 Attachment 1 Part 3", "Attachment 1", "3"),
+    _Node("CIP-X-1 Attachment 1 Part 3.1", "Attachment 1", "3.1"),
+    _Node("CIP-X-1 Attachment 1 Part 2.1", "Attachment 1", "2.1"),
+    _Node("CIP-X-1 Attachment 1 Part 2.2", "Attachment 1", "2.2"),
+    _Node("CIP-X-1 Attachment 1 Section 2", "Attachment 1 Section 2"),
+]
+
+
+def test_standard_gtb_attachment_guidance_lands_on_the_nodes_its_headings_name(
+    standard_gtb,
+) -> None:
+    repo, revision_id = standard_gtb
+    anchors, unplaced = anchor_standard_attachment_gtb(repo, revision_id, _GTB_NODES)
+    placed = {a.requirement_id: a for a in anchors}
+    # the bare attachment heading guides every Attachment 1 part; section 3's
+    # heading guides its parts; the impact-rating alias reaches section 2's
+    # parent and parts; the criterion heading reaches exactly part 2.1
+    assert set(placed) == {
+        "CIP-X-1 Attachment 1 Part 3",
+        "CIP-X-1 Attachment 1 Part 3.1",
+        "CIP-X-1 Attachment 1 Part 2.1",
+        "CIP-X-1 Attachment 1 Part 2.2",
+        "CIP-X-1 Attachment 1 Section 2",
+    }
+    assert placed["CIP-X-1 Attachment 1 Part 2.1"].method == "heading"
+    # bare attachment + impact alias (section 2) + the criterion's own heading
+    assert len(placed["CIP-X-1 Attachment 1 Part 2.1"].section_ids) == 3
+    assert len(placed["CIP-X-1 Attachment 1 Part 2.2"].section_ids) == 2  # bare + alias
+    assert placed["CIP-X-1 Attachment 1 Section 2"].section_ids == [
+        placed["CIP-X-1 Attachment 1 Section 2"].section_ids[0]
+    ]  # the alias alone reaches the section parent
+    assert placed["CIP-X-1 Attachment 1 Part 3.1"].relation == "technical_basis"
+    # R-level nodes are never placed here — the exact route owns them
+    assert "CIP-X-1 R2 Part 2.1" not in placed
+    reasons = {u["heading"]: u["reason"] for u in unplaced}
+    assert any("heading row" in r for r in reasons.values())
+    assert "Overall Application" not in reasons  # not this route's business at all
+    repo.close()
+
+
+def test_standard_gtb_route_never_places_without_a_headed_node(standard_gtb) -> None:
+    repo, revision_id = standard_gtb
+    anchors, unplaced = anchor_standard_attachment_gtb(repo, revision_id, [_GTB_NODES[0]])
+    assert anchors == []
+    repo.close()

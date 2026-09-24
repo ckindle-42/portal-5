@@ -410,6 +410,194 @@ _REQ_HEADING = re.compile(r"\brequirements?\b|\brational", re.I)
 _R_NUMBER = re.compile(r"\bR(\d+)\b")
 _REQUIREMENT_NUMBER = re.compile(r"\brequirements?\s+(\d+)\b", re.I)
 _ATTACHMENT_SECTION = re.compile(r"\battachment\s+(\d+)\b.*?\bsection\s+(\d+)\b", re.I)
+_ATTACHMENT_BARE = re.compile(r"\battachment\s+(\d+)\b", re.I)
+_ATTACHMENT_CRITERION = re.compile(r"\battachment\s+(\d+)\b.*?\bcriterion\s+(\d+)\.(\d+)\b", re.I)
+
+#: CIP-002's Attachment 1 is the Impact Rating Criteria, and the standard itself
+#: fixes which rating each Section carries: R1's Measures read *identify each of
+#: the high impact BES Cyber Systems according to Attachment 1, Section 1*
+#: (medium → Section 2, low → Section 3). The GTB guidance for those Sections is
+#: headed *High / Medium / Low Impact Rating* — the same mapping, worded for a
+#: reader. This alias is that stated equivalence, not an inference; it applies
+#: ONLY to the impact-rating attachment, and a Section the alias cannot name
+#: stays unplaced like any other headingless guidance.
+_IMPACT_RATING_SECTION = {
+    "high impact rating": 1,
+    "medium impact rating": 2,
+    "low impact rating": 3,
+}
+
+#: A section under this size is the heading row the capture emits for a heading
+#: itself, not guidance — placing it would join a title where a reader needs text.
+_MIN_GUIDANCE_CHARS = 120
+
+
+def attachment_targets_named(heading: str) -> dict[str, Any]:
+    """Which attachment register identities a standard-GTB heading names.
+
+    Four grammars the captured standards actually use, each placed only on what
+    its own words name:
+
+    * ``Requirement R2, Attachment 1, Section 3 - Electronic Access Controls``
+      → attachment 1, section 3;
+    * ``Requirement R2, Attachment 1`` (bare) → attachment 1 as a whole;
+    * ``Attachment 1, Criterion 2.1`` → attachment 1, the exact part 2.1;
+    * ``High / Medium / Low Impact Rating`` → attachment 1, sections 1/2/3, by
+      the standard's own stated mapping (:data:`_IMPACT_RATING_SECTION`).
+
+    A requirement number in the heading is deliberately NOT returned: the
+    requirement-level GTB is served by the exact-text route, and re-placing it
+    by heading would double-anchor with a weaker method.
+    """
+    text = str(heading or "")
+    out: dict[str, Any] = {"attachment": None, "section": None, "part": None, "impact": None}
+    criterion = _ATTACHMENT_CRITERION.search(text)
+    if criterion:
+        out["attachment"] = criterion.group(1)
+        out["part"] = f"{criterion.group(2)}.{criterion.group(3)}"
+        return out
+    both = _ATTACHMENT_SECTION.search(text)
+    if both:
+        out["attachment"] = both.group(1)
+        out["section"] = both.group(2)
+        return out
+    for name, section in _IMPACT_RATING_SECTION.items():
+        if re.search(rf"\b{name}", text, re.I):
+            out["attachment"] = "1"
+            out["section"] = str(section)
+            out["impact"] = name
+            return out
+    bare = _ATTACHMENT_BARE.search(text)
+    if bare:
+        out["attachment"] = bare.group(1)
+    return out
+
+
+def _attachment_index(nodes: list[Any]) -> dict[str, Any]:
+    """The attachment identities of one standard's register nodes, keyed the
+    four heading grammars address: bare attachment, (attachment, section),
+    (attachment, exact part), and the Section parents."""
+    by_attachment: dict[str, list[str]] = {}
+    by_attachment_section: dict[tuple[str, str], list[str]] = {}
+    by_attachment_part: dict[tuple[str, str], list[str]] = {}
+    section_parents: dict[tuple[str, str], list[str]] = {}
+    for node in nodes:
+        requirement = str(getattr(node, "requirement", "") or "")
+        part = str(getattr(node, "part", "") or "")
+        bare = re.match(r"Attachment (\d+)$", requirement)
+        parent = re.match(r"Attachment (\d+) Section (\d+)$", requirement)
+        if bare:
+            attachment = bare.group(1)
+            by_attachment.setdefault(attachment, []).append(str(node.id))
+            if part:
+                by_attachment_section.setdefault((attachment, part.split(".")[0]), []).append(
+                    str(node.id)
+                )
+                by_attachment_part.setdefault((attachment, part), []).append(str(node.id))
+        elif parent:
+            section_parents.setdefault((parent.group(1), parent.group(2)), []).append(str(node.id))
+    return {
+        "by_attachment": by_attachment,
+        "by_attachment_section": by_attachment_section,
+        "by_attachment_part": by_attachment_part,
+        "section_parents": section_parents,
+    }
+
+
+def _resolve_attachment_targets(named: dict[str, Any], index: dict[str, Any]) -> list[str]:
+    """The register nodes a parsed attachment heading names, or [] if none."""
+    attachment, section, part = named["attachment"], named["section"], named["part"]
+    if part:
+        return list(index["by_attachment_part"].get((attachment, part), []))
+    if section:
+        return list(index["section_parents"].get((attachment, section), [])) + list(
+            index["by_attachment_section"].get((attachment, section), [])
+        )
+    return list(index["by_attachment"].get(attachment, []))
+
+
+def anchor_standard_attachment_gtb(
+    repo: Any, revision_id: str, nodes: list[Any]
+) -> tuple[list[Anchor], list[dict[str, Any]]]:
+    """Place a standard's OWN Guidelines-and-Technical-Basis attachment guidance
+    on the attachment register nodes it names.
+
+    Newer CIP revisions moved the GTB into a separate Technical Rationale
+    document, and :func:`anchor_rationale_document` places that by heading. The
+    older revisions keep the guidance inside the standard, where the requirement
+    route (:func:`anchor_bundle_spans`) keys it by requirement number only — so
+    the guidance written FOR an attachment's sections (CIP-003-8's *Requirement
+    R2, Attachment 1, Section 3 - Electronic Access Controls*, CIP-002-5.1a's
+    *Medium Impact Rating*) sat unanchored on every register Attachment node:
+    a locate miss, not an absence — the text is in the capture.
+
+    The rule is the heading route's rule, narrowed to the attachment identities:
+    a section is placed on the attachment nodes its OWN heading names, recorded
+    ``method='heading'``, never inferred from position, and a heading row too
+    short to carry guidance is skipped by name. Requirement-level targets are
+    excluded on purpose — that material is already anchored exact.
+    """
+    index = _attachment_index(nodes)
+    rows = repo._conn.execute(
+        """SELECT section_id, heading_path, char_start, char_end, char_end - char_start AS chars
+             FROM source_sections WHERE revision_id = ? ORDER BY ordinal""",
+        (revision_id,),
+    ).fetchall()
+    placed: dict[str, list[tuple[str, int, int]]] = {}
+    unplaced: list[dict[str, Any]] = []
+    for row in rows:
+        heading = str(row["heading_path"] or "")
+        chars = int(row["chars"])
+        named = attachment_targets_named(heading)
+        if not named["attachment"]:
+            continue  # not this route's business — the requirement routes own it
+        if chars < _MIN_GUIDANCE_CHARS:
+            unplaced.append(
+                {
+                    "section_id": str(row["section_id"]),
+                    "heading": heading,
+                    "chars": chars,
+                    "reason": "heading row with no guidance body",
+                }
+            )
+            continue
+        targets = _resolve_attachment_targets(named, index)
+        if not targets:
+            reason = (
+                f"heading names attachment {named['attachment']}"
+                + (f" section {named['section']}" if named["section"] else "")
+                + (" (impact-rating alias)" if named["impact"] else "")
+                + " which the Register does not carry for this standard"
+            )
+            unplaced.append(
+                {
+                    "section_id": str(row["section_id"]),
+                    "heading": heading,
+                    "chars": chars,
+                    "reason": reason,
+                }
+            )
+            continue
+        for node_id in dict.fromkeys(targets):
+            placed.setdefault(node_id, []).append(
+                (str(row["section_id"]), int(row["char_start"]), int(row["char_end"]))
+            )
+
+    anchors = [
+        Anchor(
+            requirement_id=node_id,
+            revision_id=revision_id,
+            relation="technical_basis",
+            anchored=True,
+            char_start=min(start for _, start, _ in spans),
+            char_end=max(end for _, _, end in spans),
+            section_ids=[section_id for section_id, _, _ in spans],
+            occurrences=1,
+            method="heading",
+        )
+        for node_id, spans in placed.items()
+    ]
+    return anchors, unplaced
 
 
 def requirements_named(heading: str) -> tuple[set[str], tuple[str, str] | None]:

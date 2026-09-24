@@ -1,0 +1,249 @@
+{
+  "run_id": "2026-09-24T14:22:01.955569+00:00",
+  "receipt": "reports/compliance/module_complete/p1/entailment_gap.json",
+  "n_entries": 15,
+  "n_retyped": 15,
+  "rows": [
+    {
+      "assertion_id": "rel-a9147f0064f653784b47",
+      "requirement_id": "CIP-003-8 Attachment 1 Part 5.1",
+      "section_id": "isection-5a7613a5a29fd37975bd",
+      "was": "REFERENCES",
+      "correct": "IMPLEMENTS",
+      "revoked": true,
+      "written": {
+        "action": "corroborated",
+        "assertion_id": "rel-ff2a978025a81fbdc2f0",
+        "status": "proposed",
+        "requirement_id": "CIP-003-8 Attachment 1 Part 5.1",
+        "section_id": "isection-5a7613a5a29fd37975bd",
+        "relation_type": "IMPLEMENTS"
+      }
+    },
+    {
+      "assertion_id": "rel-9141da900d2131be3411",
+      "requirement_id": "CIP-003-9 Attachment 1 Part 2.1",
+      "section_id": "isection-7085ec4c19d8f192fcc5",
+      "was": "IMPLEMENTS",
+      "correct": "REFERENCES",
+      "revoked": true,
+      "written": {
+        "action": "corroborated",
+        "assertion_id": "rel-31cb592360ab5042a9cc",
+        "status": "machine_determined",
+        "requirement_id": "CIP-003-9 Attachment 1 Part 2.1",
+        "section_id": "isection-7085ec4c19d8f192fcc5",
+        "relation_type": "REFERENCES"
+      }
+    },
+    {
+      "assertion_id": "rel-06bbc58d3c2d21f13d7a",
+      "requirement_id": "CIP-003-9 Attachment 1 Part 2.5",
+      "section_id": "isection-7085ec4c19d8f192fcc5",
+      "was": "IMPLEMENTS",
+      "correct": "REFERENCES",
+      "revoked": true,
+      "written": {
+        "action": "corroborated",
+        "assertion_id": "rel-c04b974ef61861b27b1e",
+        "status": "machine_determined",
+        "requirement_id": "CIP-003-9 Attachment 1 Part 2.5",
+        "section_id": "isection-7085ec4c19d8f192fcc5",
+        "relation_type": "REFERENCES"
+      }
+    },
+    {
+      "assertion_id": "rel-83a1b8dd204a60ba93d4",
+      "requirement_id": "CIP-003-9 R1 Part 1.2.6",
+      "section_id": "isection-92592a9832a91d9ae017",
+      "was": "IMPLEMENTS",
+      "correct": "REFERENCES",
+      "revoked": true,
+      "written": {
+        "action": "determined",
+        "assertion_id": "rel-1d81fefaf613052511af",
+        "requirement_id": "CIP-003-9 R1 Part 1.2.6",
+        "section_id": "isection-92592a9832a91d9ae017",
+        "relation_type": "REFERENCES",
+        "confidence": 1.0
+      }
+    },
+    {
+      "assertion_id": "rel-a1d57b53778e19ef8de3",
+      "requirement_id": "CIP-003-9 R2 Attachment 1 Section 3",
+      "section_id": "isection-057fa20386bfe1ef3a26",
+      "was": "IMPLEMENTS",
+      "correct": "REFERENCES",
+      "revoked": true,
+      "written": {
+        "action": "determined",
+        "assertion_id": "rel-f308ad7ac0a0f7a8d0c1",
+        "requirement_id": "CIP-003-9 R2 Attachment 1 Section 3",
+        "section_id": "isection-057fa20386bfe1ef3a26",
+        "relation_type": "REFERENCES",
+        "confidence": 1.0
+      }
+    },
+    {
+      "assertion_id": "rel-250ddfcf306bc6b07def",
+      "requirement_id": "CIP-003-9 R2 Attachment 1 Section 5",
+      "section_id": "isection-861636e35ef1f520cac3",
+      "was": "IMPLEMENTS",
+      "correct": "REFERENCES",
+      "revoked": true,
+      "written": {
+        "action": "determined",
+        "assertion_id": "rel-e76a927847fae45cc8ed",
+        "requirement_id": "CIP-003-9 R2 Attachment 1 Section 5",
+        "section_id": "isection-861636e35ef1f520cac3",
+        "relation_type": "REFERENCES",
+        "confidence": 1.0
+      }
+    },
+    {
+      "assertion_id": "rel-520addec30a83eff7a8e",
+      "requirement_id": "CIP-005-7 R2 Part 2.1",
+      "section_id": "isection-06f4009b4cbab1f25cf6",
+      "was": "IMPLEMENTS",
+      "correct": "REFERENCES",
+      "revoked": true,
+      "written": {
+        "action": "determined",
+        "assertion_id": "rel-34b2363aa71353db4402",
+        "requirement_id": "CIP-005-7 R2 Part 2.1",
+        "section_id": "isection-06f4009b4cbab1f25cf6",
+        "relation_type": "REFERENCES",
+        "confidence": 1.0
+      }
+    },
+    {
+      "assertion_id": "rel-a47cf5935a2cf23ced0a",
+      "requirement_id": "CIP-005-7 R2 Part 2.2",
+      "section_id": "isection-06f4009b4cbab1f25cf6",
+      "was": "IMPLEMENTS",
+      "correct": "REFERENCES",
+      "revoked": true,
+      "written": {
+        "action": "determined",
+        "assertion_id": "rel-f517cf75c0e0314059d8",
+        "requirement_id": "CIP-005-7 R2 Part 2.2",
+        "section_id": "isection-06f4009b4cbab1f25cf6",
+        "relation_type": "REFERENCES",
+        "confidence": 1.0
+      }
+    },
+    {
+      "assertion_id": "rel-db4c4daf8649a14a308a",
+      "requirement_id": "CIP-005-7 R2 Part 2.3",
+      "section_id": "isection-06f4009b4cbab1f25cf6",
+      "was": "IMPLEMENTS",
+      "correct": "REFERENCES",
+      "revoked": true,
+      "written": {
+        "action": "corroborated",
+        "assertion_id": "rel-6bf5ff13a7332a4f318c",
+        "status": "machine_determined",
+        "requirement_id": "CIP-005-7 R2 Part 2.3",
+        "section_id": "isection-06f4009b4cbab1f25cf6",
+        "relation_type": "REFERENCES"
+      }
+    },
+    {
+      "assertion_id": "rel-e0b4d3f29ae827333cdf",
+      "requirement_id": "CIP-005-7 R2 Part 2.5",
+      "section_id": "isection-057fa20386bfe1ef3a26",
+      "was": "IMPLEMENTS",
+      "correct": "REFERENCES",
+      "revoked": true,
+      "written": {
+        "action": "corroborated",
+        "assertion_id": "rel-603c36b2c4876026c4de",
+        "status": "machine_determined",
+        "requirement_id": "CIP-005-7 R2 Part 2.5",
+        "section_id": "isection-057fa20386bfe1ef3a26",
+        "relation_type": "REFERENCES"
+      }
+    },
+    {
+      "assertion_id": "rel-93678c42544623f4c9fc",
+      "requirement_id": "CIP-005-7 R2 Part 2.5",
+      "section_id": "isection-92592a9832a91d9ae017",
+      "was": "IMPLEMENTS",
+      "correct": "REFERENCES",
+      "revoked": true,
+      "written": {
+        "action": "corroborated",
+        "assertion_id": "rel-7b7aac24d41320bcbcdf",
+        "status": "machine_determined",
+        "requirement_id": "CIP-005-7 R2 Part 2.5",
+        "section_id": "isection-92592a9832a91d9ae017",
+        "relation_type": "REFERENCES"
+      }
+    },
+    {
+      "assertion_id": "rel-c4b6c1db128ec373cd8f",
+      "requirement_id": "CIP-010-4 R1 Part 1.3",
+      "section_id": "isection-3d2874e685fc97754de2",
+      "was": "IMPLEMENTS",
+      "correct": "REFERENCES",
+      "revoked": true,
+      "written": {
+        "action": "determined",
+        "assertion_id": "rel-a25821a5b6fcd7332bc8",
+        "requirement_id": "CIP-010-4 R1 Part 1.3",
+        "section_id": "isection-3d2874e685fc97754de2",
+        "relation_type": "REFERENCES",
+        "confidence": 1.0
+      }
+    },
+    {
+      "assertion_id": "rel-0297cbce7b6f3c150899",
+      "requirement_id": "CIP-013-2 R1 Part 1.1",
+      "section_id": "isection-2ef1cac3f1e8507a618d",
+      "was": "IMPLEMENTS",
+      "correct": "REFERENCES",
+      "revoked": true,
+      "written": {
+        "action": "corroborated",
+        "assertion_id": "rel-cf449270a3ab47db2fc2",
+        "status": "machine_determined",
+        "requirement_id": "CIP-013-2 R1 Part 1.1",
+        "section_id": "isection-2ef1cac3f1e8507a618d",
+        "relation_type": "REFERENCES"
+      }
+    },
+    {
+      "assertion_id": "rel-e1293cf7fe9e33aa528c",
+      "requirement_id": "CIP-013-2 R1 Part 1.2.1",
+      "section_id": "isection-0da86e8620c76da446c5",
+      "was": "IMPLEMENTS",
+      "correct": "REFERENCES",
+      "revoked": true,
+      "written": {
+        "action": "corroborated",
+        "assertion_id": "rel-9b144a16edd30d78d6d3",
+        "status": "machine_determined",
+        "requirement_id": "CIP-013-2 R1 Part 1.2.1",
+        "section_id": "isection-0da86e8620c76da446c5",
+        "relation_type": "REFERENCES"
+      }
+    },
+    {
+      "assertion_id": "rel-ba6ae616c93de7df4f32",
+      "requirement_id": "CIP-006-6 R2 Part 2.2",
+      "section_id": "isection-33386dc31a5696c751f7",
+      "was": "IMPLEMENTS",
+      "correct": "REFERENCES",
+      "revoked": true,
+      "written": {
+        "action": "corroborated",
+        "assertion_id": "rel-4cc3cf72e6971774ee46",
+        "status": "machine_determined",
+        "requirement_id": "CIP-006-6 R2 Part 2.2",
+        "section_id": "isection-33386dc31a5696c751f7",
+        "relation_type": "REFERENCES"
+      }
+    }
+  ],
+  "verdict": "RETYPED"
+}

@@ -128,6 +128,10 @@ surfaces:
   globs:
   - portal/modules/compliance/core/contradictions.py
   unit: unit-compliance-prove-then-scale
+- name: file-portal-modules-compliance-core-conversation_window
+  globs:
+  - portal/modules/compliance/core/conversation_window.py
+  unit: unit-compliance-conversation-window
 - name: file-portal-modules-compliance-core-council
   globs:
   - portal/modules/compliance/core/council.py
@@ -780,6 +784,10 @@ surfaces:
   globs:
   - scripts/compliance/closeout_family_sweep.py
   unit: unit-surface-compliance-closeout-scripts
+- name: file-scripts-compliance-correction_loop_demo
+  globs:
+  - scripts/compliance/correction_loop_demo.py
+  unit: unit-compliance-module-complete-instruments
 - name: file-scripts-compliance-decide_sweep_engine
   globs:
   - scripts/compliance/decide_sweep_engine.py
@@ -796,10 +804,18 @@ surfaces:
   globs:
   - scripts/compliance/family_links.py
   unit: unit-surface-compliance-closeout-scripts
+- name: file-scripts-compliance-retype_relations
+  globs:
+  - scripts/compliance/retype_relations.py
+  unit: unit-compliance-module-complete-instruments
 - name: file-scripts-compliance-scope_effect
   globs:
   - scripts/compliance/scope_effect.py
   unit: unit-compliance-cite-and-scope
+- name: file-scripts-compliance-session_proof
+  globs:
+  - scripts/compliance/session_proof.py
+  unit: unit-compliance-module-complete-instruments
 - name: file-scripts-compliance-single_vs_split
   globs:
   - scripts/compliance/single_vs_split.py
@@ -812,6 +828,10 @@ surfaces:
   globs:
   - scripts/compliance/verify_conjunction_adoption.py
   unit: unit-surface-compliance-closeout-scripts
+- name: file-scripts-compliance-verify_technical_basis_coverage
+  globs:
+  - scripts/compliance/verify_technical_basis_coverage.py
+  unit: unit-compliance-technical-basis-coverage
 - name: file-scripts-compliance-write_closeout_report
   globs:
   - scripts/compliance/write_closeout_report.py

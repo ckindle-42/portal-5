@@ -1,0 +1,33 @@
+{
+  "seat": "gemma4:26b-a4b-it-q4_K_M-ctx32k",
+  "probe": "ollama /api/chat, num_predict=1",
+  "rows": [
+    {
+      "bytes": 4006,
+      "prompt_tokens": 1263,
+      "bytes_per_token": 3.172
+    },
+    {
+      "bytes": 12016,
+      "prompt_tokens": 3596,
+      "bytes_per_token": 3.341
+    },
+    {
+      "bytes": 30046,
+      "prompt_tokens": 9147,
+      "bytes_per_token": 3.285
+    },
+    {
+      "bytes": 60086,
+      "prompt_tokens": 18351,
+      "bytes_per_token": 3.274
+    },
+    {
+      "bytes": 100136,
+      "prompt_tokens": 30530,
+      "bytes_per_token": 3.28
+    }
+  ],
+  "median_bytes_per_token": 3.28,
+  "sweep_constant": 3.3
+}
