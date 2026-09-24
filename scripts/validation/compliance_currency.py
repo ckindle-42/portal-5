@@ -14,7 +14,11 @@ true, both invisible from the outside:
   two-identity-spaces failure returning by another route.
 
 Neither is baselinable and neither is a warning: an answer from a stale corpus
-is worse than no answer, because it is confident.
+is worse than no answer, because it is confident. That holds once compliance is
+in service. Until then, GS follows the module's `IN_SERVICE` flag
+(scripts/validation/compliance_acceptance.py) and reports WARN rather than FAIL:
+a module still being built re-captures its store constantly, and a stale index
+there must not block pushes of unrelated work.
 """
 
 from __future__ import annotations
@@ -23,6 +27,7 @@ import json
 from datetime import UTC, datetime
 from pathlib import Path
 
+from scripts.validation import compliance_acceptance
 from scripts.validation.registry import register
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -52,6 +57,18 @@ def _age_hours(stamp: str) -> float | None:
     order=197,
 )
 def check_compliance_corpus_currency() -> tuple[str, str, list[dict]]:
+    status, detail, findings = _compliance_corpus_currency()
+    if status == "FAIL" and not compliance_acceptance.IN_SERVICE:
+        return (
+            "WARN",
+            "compliance is pre-service (IN_SERVICE=False in "
+            f"scripts/validation/compliance_acceptance.py) — not blocking. Underlying: {detail}",
+            findings,
+        )
+    return status, detail, findings
+
+
+def _compliance_corpus_currency() -> tuple[str, str, list[dict]]:
     from portal.modules.compliance.core.projections import retrieval_projection_status
     from portal.modules.compliance.core.repository import Repository
 
