@@ -118,8 +118,11 @@ engines:
     # --no-stats-footer (else a TPS footer is appended to every reply), SSD session
     # cache off (a disk tier no other engine gets), --profile sustained (the default
     # resolves to Turbo for the 27B/9B packs; sustained matches MTP_BENCH_20260528).
-    plain: [mtplx, serve, --model, "{model_root}/{model_dir}", --model-id, "{served}", --host, 127.0.0.1, --port, "{port}", --no-auth, --yes, --context-window, "{ctx}", --profile, sustained, --no-stats-footer, --ssd-session-cache, "off", --no-mtp]
-    base_spec: [mtplx, serve, --model, "{model_root}/{model_dir}", --model-id, "{served}", --host, 127.0.0.1, --port, "{port}", --no-auth, --yes, --context-window, "{ctx}", --profile, sustained, --no-stats-footer, --ssd-session-cache, "off", "{spec_args}"]
+    # --tool-prompt-mode native: the default is `hybrid`, MTPLX's legacy tool
+    # contract, so tool calls/results were not rendered by the model's own chat
+    # template (visible as tool_prompt_mode in the per-request mtplx_stats).
+    plain: [mtplx, serve, --model, "{model_root}/{model_dir}", --model-id, "{served}", --host, 127.0.0.1, --port, "{port}", --no-auth, --yes, --context-window, "{ctx}", --profile, sustained, --no-stats-footer, --ssd-session-cache, "off", --tool-prompt-mode, native, --no-mtp]
+    base_spec: [mtplx, serve, --model, "{model_root}/{model_dir}", --model-id, "{served}", --host, 127.0.0.1, --port, "{port}", --no-auth, --yes, --context-window, "{ctx}", --profile, sustained, --no-stats-footer, --ssd-session-cache, "off", --tool-prompt-mode, native, "{spec_args}"]
     stop_signal: INT
 
 models:

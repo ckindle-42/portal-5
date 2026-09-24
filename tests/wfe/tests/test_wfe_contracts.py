@@ -903,6 +903,27 @@ class TestAdaptiveThink:
         )
         assert p2["think"] is True
 
+    def test_every_resolved_sampling_key_reaches_the_request(self):
+        """The workspace's loop guard (repeat_penalty) and top_k/min_p were dropped
+        on both paths; engines without Ollama's defaults then looped."""
+        from tests.wfe.runner import _build_payload
+
+        sampling = {
+            "temperature": 0.3,
+            "top_p": 0.95,
+            "top_k": 20,
+            "min_p": 0.0,
+            "repeat_penalty": 1.1,
+            "presence_penalty": 1.5,
+            "seed": 7,
+        }
+        msgs = [{"role": "user", "content": "x"}]
+        _, v1, _ = _build_payload("m", msgs, {"endpoint": "v1"}, dict(sampling), None, "false")
+        _, api, _ = _build_payload("m", msgs, {"endpoint": "api"}, dict(sampling), None, "false")
+        for k, v in sampling.items():
+            assert v1[k] == v
+            assert api["options"][k] == v
+
     def test_engine_mode_routes_v1_to_engine_and_uses_template_switch(self, monkeypatch):
         """WFE_ENGINE head-to-head: the chat goes to the other engine's base URL
         and thinking is controlled by the chat template's own switch, never by
