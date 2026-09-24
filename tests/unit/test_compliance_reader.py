@@ -18,7 +18,7 @@ from pathlib import Path
 
 import pytest
 
-from portal.modules.compliance.core import reader
+from portal.modules.compliance.core import reader, requirement_scope
 from portal.modules.compliance.core.capture import CapturedDocument, CapturedUnit, store_capture
 from portal.modules.compliance.core.models import SourceDocument
 from portal.modules.compliance.core.notes import write_note
@@ -325,6 +325,48 @@ class TestTheConversationIsACorpus:
         (stored,) = reader.answers_for(store, "CIP-007-6 R2")
         assert stored["correction_of"] == note["note_id"]
         assert stored["answer"]  # the answer is not rewritten
+
+    def test_a_correction_is_filed_against_the_requirement_the_answer_was_about(
+        self, store: Repository
+    ) -> None:
+        """MODULE_COMPLETE_V1 §P3: the bridge. Filed under the answer id alone,
+        a correction never reached the next reading of the requirement —
+        populations pull notes by REQUIREMENT identity, and the two keys never
+        met."""
+        payload = self._answer(store)
+        note = reader.record_correction(
+            store, payload["answer_id"], "The 35 days is a ceiling, not a target."
+        )
+        # requirement-side address: the note is a population member of the ref
+        population = requirement_scope.population(store, "CIP-007-6 R2")
+        assert note["section_id"] in population["section_ids"]
+        note_entry = population["sections"][note["section_id"]]
+        assert note_entry["side"] == "operator_note"
+        # answer-side address: the answer names its correction, the correction
+        # names the answer, and both remain
+        assert note["about_answer"] == payload["answer_id"]
+        assert note["addresses"] == {
+            "requirement_ref": "CIP-007-6 R2",
+            "answer_id": payload["answer_id"],
+            "bridged": True,
+        }
+        (stored,) = reader.answers_for(store, "CIP-007-6 R2")
+        assert stored["correction_of"] == note["note_id"]
+        assert "outranks it" in stored["standing"]
+
+    def test_a_correction_to_an_answer_without_a_ref_cannot_bridge_and_says_so(
+        self, store: Repository
+    ) -> None:
+        payload = self._answer(store)
+        store._conn.execute(
+            "UPDATE conversation_answers SET subject_ref = '' WHERE answer_id = ?",
+            (payload["answer_id"],),
+        )
+        note = reader.record_correction(store, payload["answer_id"], "That is not ours.")
+        assert note["addresses"]["bridged"] is False
+        assert "names no requirement ref" in note["bridge"]
+        # still filed, still addressable from the answer
+        assert note["subject_ref"] == payload["answer_id"]
 
 
 class TestStandingQuestions:

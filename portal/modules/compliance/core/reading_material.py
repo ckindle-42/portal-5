@@ -357,7 +357,13 @@ def _standing_instruction(extra: str, citation: str = "handle") -> str:
         "requirement's list of permitted actions, check whether the standard's "
         'disjunction ("or", "either", "one of") survives the restatement or '
         'has become a conjunction ("and", "all of"); say so when the '
-        "restatement narrows what the standard permits."
+        "restatement narrows what the standard permits. The material carries "
+        "two layers and they are not interchangeable: the requirement's own "
+        "text and its Measures state what is REQUIRED, while the technical "
+        "basis and rationale explain intent and acceptable means — never report "
+        "guidance as obligation; when you say the standard requires something, "
+        "ground it in the requirement's own words, and attribute guidance as "
+        "guidance."
     )
     if citation == "quote":
         base = base.replace(

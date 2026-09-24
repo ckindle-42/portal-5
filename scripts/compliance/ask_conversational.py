@@ -72,6 +72,27 @@ from portal.modules.compliance.core.section_index import parent_section_id  # no
 _SECTION_TOKEN = re.compile(rf"\b{SECTION_ID_PATTERN}\b", re.I)
 _REQUIREMENT_ADDRESS = re.compile(r"\bCIP-\d{3}-[A-Za-z0-9.]+(\s+R\d+)?\b")
 
+#: obligation language — a line saying what the standard DEMANDS. The
+#: normative-basis check (MODULE_COMPLETE_V1 §P0.5) applies only to these:
+#: guidance text (technical basis / rationale) may be quoted freely as long as
+#: it is not doing the work of a requirement.
+_OBLIGATION_LANGUAGE = re.compile(
+    r"\b(requires?|required|requirement|must|shall|obligat\w+|mandat\w+)\b", re.I
+)
+
+#: obligation attributed to the NORMATIVE voice — the standard, a requirement,
+#: a Part, the regulation. This is the only conflation the two-layers rule
+#: forbids: a line that honestly attributes a demand to guidance ("the
+#: technical rationale states …") or to the operator ("our procedure mandates …")
+#: is labelled truth-telling, not a violation.
+_STANDARD_ATTRIBUTION = re.compile(
+    r"(the\s+(?:standard|requirement|requirements|regulation|regulations|rule|clause|part)\b[^.]{0,60}?"
+    r"\b(requires?|required|mandat\w+|obligat\w+|demands?|states?|says))"
+    r"|((?:CIP-\d{3}(?:-[A-Za-z0-9.]+)?(?:\s+R\d[\w.]*)?)\s+(?:requires?|mandat\w+|obligat\w+|demands?))"
+    r"|(the\s+standard\s+(?:is\s+that|is\s+clear))",
+    re.I,
+)
+
 #: the floor set from the task file, plus the two additions argued for above.
 QUESTIONS: list[dict[str, str]] = [
     # ── Topic → both sides ────────────────────────────────────────────────
@@ -273,6 +294,70 @@ def _grounding(store: Repository, answer: str) -> dict:
     }
 
 
+def normative_basis(store: Repository, section_ids: list[str]) -> dict[str, bool]:
+    """Which cited sections can carry a NORMATIVE claim at all (MODULE_COMPLETE_V1
+    §P0.5): a section joined to a requirement by anything other than
+    ``technical_basis`` — the GTB/rationale anchors mark intent, not obligation.
+    A section with no join either way (e.g. an operator section) is reported
+    ``False`` here; operator sections answer for operator side, never for what
+    the standard requires."""
+    if not section_ids:
+        return {}
+    marks = {
+        str(r[0]): str(r[1])
+        for r in store._conn.execute(
+            f"""SELECT section_id, GROUP_CONCAT(DISTINCT relation) FROM requirement_sections
+                 WHERE section_id IN ({",".join("?" * len(section_ids))})
+                GROUP BY section_id""",  # noqa: S608
+            section_ids,
+        ).fetchall()
+    }
+    return {
+        sid: bool(relations) and any(r.strip() != "technical_basis" for r in relations.split(","))
+        for sid, relations in marks.items()
+    }
+
+
+def obligation_normative_check(store: Repository, grounding: dict) -> dict:
+    """A line attributing obligation to the STANDARD must stand on normative text.
+
+    Mechanical and one-directional: for every citing line that attributes a
+    demand to the standard/requirement (not merely containing obligation
+    words — honest attributions to guidance or to the operator's own
+    documents are truth-telling and exempt), at least one cited section must
+    be normative-capable. A line saying ``the standard requires`` whose
+    citations join only as technical_basis — or that cites only operator
+    sections — conflates guidance or practice with obligation and FAILS. The
+    strictening can only turn a pass into a fail, never the reverse, so it
+    cannot be tuned to pass."""
+    normative = normative_basis(
+        store, sorted({sid for c in grounding["claims"] for sid in c["section_ids"]})
+    )
+    violations: list[dict] = []
+    checked = 0
+    for claim in grounding["claims"]:
+        if not claim["section_ids"] or not _STANDARD_ATTRIBUTION.search(claim["claim"]):
+            continue
+        checked += 1
+        if not any(normative.get(sid) for sid in claim["section_ids"]):
+            violations.append(
+                {
+                    "claim": claim["claim"],
+                    "cited": claim["section_ids"],
+                    "why": (
+                        "obligation attributed to the standard, but every cited section "
+                        "joins only as technical_basis (guidance) or carries no normative "
+                        "join at all"
+                    ),
+                }
+            )
+    return {
+        "checked_lines": checked,
+        "violations": violations,
+        "ok": not violations,
+    }
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--workspace", default="compliance-reading")
@@ -412,6 +497,7 @@ def _judge(store: Repository, spec: dict, record: dict) -> dict:
         if (entry := _resolve_token(store, token)) is not None
     }
     resolved_entries = resolve_sections(store, sorted(cited_ids | token_ids))
+    obligation = obligation_normative_check(store, grounding)
     cited: dict[str, dict] = {}
     for sid, entry in resolved_entries.items():
         jur = str(entry.get("jurisdiction") or "")
@@ -432,8 +518,10 @@ def _judge(store: Repository, spec: dict, record: dict) -> dict:
         "answered": answered,
         "used_search": used_search,
         "grounding_per_claim": grounding["grounded"],
+        "obligation_on_normative": obligation["ok"],
     }
     detail: dict = {}
+    detail["obligation_normative"] = obligation
     if spec["kind"] == "absence":
         absence = _judge_absence(store, answer, cited, grounding)
         detail["absence"] = absence

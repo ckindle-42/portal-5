@@ -2416,6 +2416,33 @@ def compliance_context(
     try:
         if mode == "material":
             payload = reading_material.render(repo, ref, valid_at=valid_at, citation="quote")
+            if "error" not in payload:
+                # The conversation's window guard (MODULE_COMPLETE_V1 §P0.5):
+                # the sweep refuses oversize readings; the conversation used to
+                # return this payload unbudgeted, and Ollama truncates silently.
+                # An oversize material is REFUSED as one message and routed to
+                # the Part-level refs instead — never clipped.
+                from portal.modules.compliance.core import conversation_window
+                from portal.modules.compliance.core.runtime_config import reading_seat
+
+                seat = reading_seat()
+                fitted = conversation_window.fit_material(payload, seat)
+                if not fitted["fits"]:
+                    return {
+                        "mode": "material_routed",
+                        "ref": ref,
+                        "window": fitted,
+                        "route": conversation_window.route(repo, ref, seat),
+                        "note": (
+                            f"the whole material for {ref} is {fitted['prompt_bytes']} bytes "
+                            f"~ {fitted['estimated_tokens']} tokens against this seat's "
+                            f"{fitted['num_ctx']}-token window; returning it would be truncated "
+                            "silently by the engine, so it is NOT returned. Read it per Part "
+                            "instead: compliance_context(mode=material, ref=<part ref>) for "
+                            "each ref in route — nothing here was clipped or summarised."
+                        ),
+                    }
+                payload["window"] = fitted
             payload["mode"] = "material"
             payload["note"] = (
                 "the proven reading material (reading_material.render) — the whole "

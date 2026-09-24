@@ -6,10 +6,10 @@ Decision artifact for TASK_BULLY_P0_SPINE_REDUCTION_V1.md P0.1. `[GATE]`:
 produced read-only, best-evidenced classification made without a live
 operator sign-off in this run — flagged for review before P0.2+ acted on it.
 
-- Total canonical units at generation time: **747**
+- Total canonical units at generation time: **750**
 - KEEP-FACT: **54**
 - RELEASE: **72**
-- ARCHIVE: **621**
+- ARCHIVE: **624**
 
 ## KEEP-FACT
 
@@ -331,6 +331,7 @@ P0.4 candidates for the archive bridge rule.
 | `unit-code-scripts` | prose-only: no claim, no fact, not referenced by a live doc block |
 | `unit-code-tests` | prose-only: no claim, no fact, not referenced by a live doc block |
 | `unit-compliance-config-workspace-pointers` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-compliance-conversation-window` | prose-only: no claim, no fact, not referenced by a live doc block |
 | `unit-compliance-fallback-policy-canonical-baseline` | prose-only: no claim, no fact, not referenced by a live doc block |
 | `unit-compliance-fallback-policy-compliance-fallback-policy` | prose-only: no claim, no fact, not referenced by a live doc block |
 | `unit-compliance-fallback-policy-full-sweep` | prose-only: no claim, no fact, not referenced by a live doc block |
@@ -340,8 +341,10 @@ P0.4 candidates for the archive bridge rule.
 | `unit-compliance-fallback-policy-re-running-the-matrix` | prose-only: no claim, no fact, not referenced by a live doc block |
 | `unit-compliance-fallback-policy-threshold-policy` | prose-only: no claim, no fact, not referenced by a live doc block |
 | `unit-compliance-fallback-policy-what-compliance-fallback-means` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-compliance-module-complete-instruments` | prose-only: no claim, no fact, not referenced by a live doc block |
 | `unit-compliance-module-config-only` | prose-only: no claim, no fact, not referenced by a live doc block |
 | `unit-compliance-prove-then-scale` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-compliance-technical-basis-coverage` | prose-only: no claim, no fact, not referenced by a live doc block |
 | `unit-compliance-transport-dialects` | prose-only: no claim, no fact, not referenced by a live doc block |
 | `unit-corpus-injection-a-canned-detection-firing-on-corpus-data-t1558-004-as-rep-roasting-verbatim-spl` | prose-only: no claim, no fact, not referenced by a live doc block |
 | `unit-corpus-injection-always-dry-run-first-it-prints-exact-per-sourcetype-volume-without-injecting` | prose-only: no claim, no fact, not referenced by a live doc block |
