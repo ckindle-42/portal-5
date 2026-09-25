@@ -296,18 +296,46 @@ def _card_temperature(hint: str, ws: dict) -> float | None:
     hit = _expectations_for(hint, registry)
     if hit is None or hit[1].get("status") == "research-debt":
         return None
-    t = _card_sampling(hit[1], _served_think(ws, hint, registry)).get("temperature")
+    think = _served_think(ws, hint, registry)
+    temps = [m.get("temperature") for m in _card_modes(hit[1], think)]
+    eff = _resolve_temperature(ws)
+    if eff is not None and any(t is not None and abs(float(t) - eff) < 1e-6 for t in temps):
+        return eff
+    t = _card_sampling(hit[1], think).get("temperature")
     return None if t is None else float(t)
 
 
-def _card_sampling(entry: dict, think: bool | None) -> dict:
-    """The card's recommendation for how the seat runs: the thinking/instruct
-    mode when the card has modes and the seat pins `think`, else the default."""
+def _resolve_temperature(ws: dict) -> float | None:
+    from portal.platform.inference.router.validation import _resolve_sampling_values
+
+    t = _resolve_sampling_values(ws).get("temperature")
+    return None if t is None else float(t)
+
+
+def _card_modes(entry: dict, think: bool | None) -> list[dict]:
+    """Every card-sanctioned sampling mode for the served think state, primary
+    first. Cards name modes `thinking`/`instruct` or split them by purpose
+    (`thinking_general` / `thinking_precise_coding`, `instruct_general` ...);
+    the exact name wins, then `<mode>_general`, then any other `<mode>_*`.
+    Exact-name-only lookup returned {} for qwen3.5/qwen3.6, so those seats
+    were never compared."""
     modes = entry.get("recommended_sampling_modes") or {}
     if modes and think is not None:
-        return dict(modes.get("thinking" if think else "instruct") or {})
+        want = "thinking" if think else "instruct"
+        names = sorted(
+            (n for n in modes if n == want or n.startswith(want + "_")),
+            key=lambda n: (n != want, n != f"{want}_general", n),
+        )
+        if names:
+            return [dict(modes[n] or {}) for n in names]
     rec = entry.get("recommended_sampling") or {}
-    return {} if rec.get("pending_research") else dict(rec)
+    return [] if rec.get("pending_research") else [dict(rec)]
+
+
+def _card_sampling(entry: dict, think: bool | None) -> dict:
+    """The card's primary recommendation for how the seat runs."""
+    modes = _card_modes(entry, think)
+    return modes[0] if modes else {}
 
 
 def _served_sampling_check(
@@ -339,17 +367,25 @@ def _served_sampling_check(
     hit = _expectations_for(hint, registry)
     if hit is None or hit[1].get("status") == "research-debt":
         return
-    card = _card_sampling(hit[1], _served_think(ws, hint, registry))
     defaults = baked_params(hint) if engine == "ollama" else omlx_default_sampling()
-    diffs = []
-    for k, want in card.items():
-        if engine == "ollama" and k == "presence_penalty":
-            continue  # undeliverable on Ollama; not a seat choice to A/B
-        got, src = (
-            (declared[k], "seat") if k in declared else (defaults.get(k), f"{engine} default")
-        )
-        if got is None or abs(float(got) - float(want)) > 1e-6:
-            diffs.append(f"{k} {got} ({src}) vs card {want}")
+
+    def _diffs(card: dict) -> list[str]:
+        out = []
+        for k, want in card.items():
+            if engine == "ollama" and k == "presence_penalty":
+                continue  # undeliverable on Ollama; not a seat choice to A/B
+            if engine == "ollama" and k == "repeat_penalty" and card.get("presence_penalty"):
+                continue  # the seat's repeat_penalty substitutes the card's presence_penalty
+            got, src = (
+                (declared[k], "seat") if k in declared else (defaults.get(k), f"{engine} default")
+            )
+            if got is None or abs(float(got) - float(want)) > 1e-6:
+                out.append(f"{k} {got} ({src}) vs card {want}")
+        return out
+
+    # A seat on ANY sanctioned mode matches; otherwise report against the primary.
+    per_mode = [_diffs(m) for m in _card_modes(hit[1], _served_think(ws, hint, registry))]
+    diffs = [] if not per_mode or any(not d for d in per_mode) else per_mode[0]
     if diffs:
         _v(
             violations,

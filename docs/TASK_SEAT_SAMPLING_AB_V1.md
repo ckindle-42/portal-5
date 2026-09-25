@@ -16,8 +16,11 @@ near-greedy regime Qwen's card warns causes endless repetition.
 card's sampling now, *by purpose*. Then A/B each one against its prior config and
 revert the losers. The decision covered three points:
 
-- **Exempt:** every `auto-security*` seat (safety-guard risk; seat rule from
-  S3 stands), plus these by-purpose exceptions:
+- **Security seats** were first exempt. On the operator's follow-up request
+  (2026-09-25) they got the same treatment for **engine settings only**:
+  sampling, template and think checks. System prompts, models and tools were
+  left untouched. See "Security seats" below.
+- **By-purpose exceptions:**
   - `auto-compliance`, `compliance-reading`: deterministic lane, settled 0.3 policy.
   - `auto-image`, `auto-video`: granite card is greedy; the job is creative prompt-writing.
   - `auto-music`: LFM card 0.2; the job is lyrics.
@@ -79,6 +82,34 @@ if in doubt.
 | `auto-vision` | ollama | `{temperature: 0.7, top_p: 0.8, top_k: 20, min_p: 0.05, repeat_penalty: 1.05}` | `{temperature: 0.5, top_p: 0.9, top_k: 40, min_p: 0.05}` |
 | `auto-data` | ollama | `{temperature: 0.7, top_p: 0.8, top_k: 20, min_p: 0.0, repeat_penalty: 1.05}` | see B4 |
 
+### Security seats (engine settings, 2026-09-25)
+
+Template and engine check (neutral probes, all on the production engine):
+
+| Model (engine) | Seats | Tools render | Think control | Notes |
+|---|---|---|---|---|
+| VulnLLM-R-7B-4bit (oMLX) | base, blueteam-orchestrated, blueteam-council | ✓ | no separate reasoning channel either way | ignores the contrived system-word probe |
+| granite-4.1-8b-mxfp8 (oMLX) | blueteam | ✓ | no thinking mode (as carded) | ignores the contrived system-word probe |
+| Huihui-Qwen3.5-9B-abliterated-mlx-4bit (oMLX) | redteam, purpleteam, purpleteam-deep | ✓ | honoured (off: 0 reasoning; on: reasons) | system ✓ |
+| Qwen3.6-35B-A3B-HauhauCS-Aggressive-4bit (oMLX) | pentest | ✓ | honoured | system ✓ |
+| baronllm-abliterated ctx8k (Ollama) | uncensored | ✓ | no thinking (think:true → 400; seat sends false) | declined the system-word probe |
+| supergemma4-26b-uncensored ctx64k (Ollama) | redteam-deep, purpleteam-exec | ✓ (direct probe 3/3 clean) | honoured | `supports_tools: false` is deliberate: driver-dispatched, looped with tools in context on UAT 2026-06-27, which was measured under the old `/v1` delivery. Operator-held. |
+
+Sampling now vs prior. Loop guards are kept where the card is silent.
+`pentest` keeps `repeat_penalty 1.1` as the thinking-chain guard (the card says
+1.0), which is the auditor's one remaining deviation there. `pentest` uses the
+qwen3.6 `thinking_precise_coding` mode, because its job is an exec loop.
+
+| Seat | Now served (card) | Prior arm |
+|---|---|---|
+| `auto-security`, `::blueteam-orchestrated`, `::blueteam-council` (VulnLLM) | `{temperature: 0.7, top_p: 0.8, top_k: 20, min_p: 0.05, repeat_penalty: 1.05}` | `{temperature: 0.3, top_p: 0.9, top_k: 40, min_p: 0.05, repeat_penalty: 1.1}` |
+| `::uncensored` (baronllm) | `{temperature: 0.6, top_p: 0.9, top_k: 40, min_p: 0.05, repeat_penalty: 1.1}` | temperature 0.3, rest same |
+| `::pentest` (qwen3.6, think on) | `{temperature: 0.6, top_p: 0.95, top_k: 20, min_p: 0.0, presence_penalty: 0.0, repeat_penalty: 1.1}` | `{temperature: 0.3, top_p: 0.9, top_k: 40, min_p: 0.05, repeat_penalty: 1.1}` |
+| `::blueteam` (granite, greedy) | `{temperature: 0.0, top_p: 0.9, top_k: 40, min_p: 0.05, repeat_penalty: 1.1}` | temperature 0.3, rest same |
+| `::redteam`, `::purpleteam`, `::purpleteam-deep` (qwen3.5 9B, think off, oMLX honours presence) | `{temperature: 0.7, top_p: 0.8, top_k: 20, min_p: 0.05, presence_penalty: 1.5, repeat_penalty: 1.0}` | `{temperature: 0.3, top_p: 0.9, top_k: 40, min_p: 0.05, repeat_penalty: 1.1}` |
+| `::redteam-deep` (supergemma4) | `{temperature: 1.0, top_p: 0.95, top_k: 64, min_p: 0.05, repeat_penalty: 1.1}` | `{temperature: 0.3, top_p: 0.9, top_k: 40, min_p: 0.05, repeat_penalty: 1.1}` |
+| `::purpleteam-exec` (supergemma4) | `{temperature: 1.0, top_p: 0.95, top_k: 64, min_p: 0.05, repeat_penalty: 1.1}` | `{temperature: 0.1, top_p: 0.9, top_k: 20, min_p: 0.05, repeat_penalty: 1.1}` |
+
 `auto-coding::northmini` had `top_k: 40` pinned so it did not inherit the base's
 new 20; nothing else about it changed.
 
@@ -91,9 +122,12 @@ new 20; nothing else about it changed.
    name first, unconditionally).
 3. **One seat → one campaign → one decision → one commit.** Never batch config
    changes across seats (the reverted `d51dd29a` did exactly that).
-4. **Do not touch `auto-security*` sampling or models.** S3's `scan_code`
-   comparison gates the chat-seat model; `purpleteam-exec`'s `tools_unsupported`
-   FAIL is the operator's to decide.
+4. **`auto-security*`: engine settings only.** Sampling A/B is B8. Do not change
+   system prompts, models or tool lists. S3's `scan_code` comparison gates the
+   chat-seat model, and `purpleteam-exec`'s `tools_unsupported` FAIL is the
+   operator's to decide. Use the benign probe set (the colour, arithmetic and
+   weather-tool probes in `tests/wfe/settings_audit.py`) for template checks.
+   Run the security bench directly in the main session (not a subagent).
 5. **Before blaming a model:** render its template, raw-generate, and compare
    with what the engine returned. Most past "model failures" were engine,
    config, or harness faults.
@@ -180,6 +214,16 @@ below and on the card entry's `behavioral_quirks` in
   - `auto-nemotron`: first resolve the source conflict (NVIDIA unified 1.0/0.95
     vs the seat comment's unsloth 0.6/0.95 thinking / 0.2 instruct; find the
     unsloth source or record it as unverifiable), then A/B.
+- [ ] **B8 security seats** (engine settings only; Rule 4). Highest risk
+      first: the driver-parsed seats whose output a driver or multi-hop pipeline
+      parses. These are `::purpleteam-exec` (0.1 → 1.0) and the rigid 5-phase
+      `::redteam`/`::purpleteam`/`::purpleteam-deep`. Score format adherence and
+      parse success as well as the bench outcome; the higher temperatures threaten
+      these first. Then `::pentest` (exec loop, turn-cap exhaustion), the VulnLLM
+      seats (the archived 6-snippet CWE set: recall plus clean false positives;
+      card+trained prompt already scored 17/18, 0/3 FP vs 15/18, 3/3), `::blueteam`
+      (greedy) and `::uncensored`. Use the existing security bench / UAT sections
+      for these lanes. If a structured seat loses, revert it alone.
 - [ ] **B7 apply winners** per seat:
   1. Edit `config/portal.yaml` (keep the `# 2026-09-25` marker line, amended with
      the decision).

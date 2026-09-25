@@ -811,14 +811,15 @@ workspaces:
     module: security
     name: 🔒 Portal Security Analyst
     description: 'Authorized security assessment, vulnerability analysis, CVE/CWE classification, hardening. VulnLLM-R-7B (UCSB SURFI, Dec 2025, Qwen2.5-7B base — trained on AppSec vulnerability research: CVE severity, CWE classification, vulnerable code patterns). NOTE 2026-07-16 (P5-AUTOSEC-RESELECT): the "2026-06-20: 2/2 chain wins, fastest" claim predates the reliability-scoring fix. Live re-bench on the kerberoast_to_da EXECUTION chain found valid_rate 0.89 but redundant_call_rate 0.50 (docs/reselection/AUTOSEC_VULNLLM_DIAGNOSIS_20260716T164436Z.md) — but that scenario tests live-exploit tool orchestration, not this workspace''s actual job (CVE/CWE analysis, hardening). No candidate has been benched against the analytical workload itself, so no swap is made here pending that test (see docs/reselection/AUTOSEC_RESELECT_EVIDENCE_20260716T192100Z.md for the full candidate comparison, which found glm-4.7-flash:Q4_K_M strongest on tool-reliability generically — untested for this workspace''s specific analytical use case). Retained as incumbent. Fast vuln analysis with web search, vuln classification, and code execution.'
+    # 2026-09-25: sampling set to the vulnllm card (engine settings only; prompts untouched); prior values + A/B: docs/TASK_SEAT_SAMPLING_AB_V1.md
     model_hint: hf.co/mradermacher/VulnLLM-R-7B-GGUF:q4_K_M-ctx8k
     context_limit: 8192
     keep_alive: 10m
-    temperature: 0.3
-    top_p: 0.9
-    top_k: 40
+    temperature: 0.7
+    top_p: 0.8
+    top_k: 20
     min_p: 0.05
-    repeat_penalty: 1.1
+    repeat_penalty: 1.05
     # think:false on the group default. It's a no-op for the base (VulnLLM-R is
     # Qwen2.5, not a thinking model) and for uncensored/blueteam/redteam-deep/
     # purpleteam-exec (Llama / gemma4). It DOES take effect on the Qwen3.5/3.6
@@ -855,10 +856,11 @@ workspaces:
       uncensored:
         name: 🔓 Portal Security (Uncensored)
         description: Uncensored security analysis — same BaronLLM-abliterated as auto-security (Llama-3.1-8B, 53K cybersec examples, 200+ domains) with no safety filtering. Use when auto-security content-guards are interfering with authorized research. Counterpart to auto-security.
+        # 2026-09-25: sampling set to the baronllm (Llama-3.1 base) card (engine settings only; prompts untouched); prior values + A/B: docs/TASK_SEAT_SAMPLING_AB_V1.md
         model_hint: huihui_ai/baronllm-abliterated:latest-ctx8k
         context_limit: 8192
         keep_alive: 10m
-        temperature: 0.3
+        temperature: 0.6
         top_p: 0.9
         top_k: 40
         min_p: 0.05
@@ -875,14 +877,16 @@ workspaces:
       pentest:
         name: 🖊️ Portal Pentest Assistant
         description: 'Authorized penetration testing assistant with execution capability. Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive (MoE, ~22GB). PROMOTED 2026-07-16 (P5-AUTOSEC-RESELECT widened slate): the only candidate across 27 tested (original 11-candidate slate + a widened abliterated-model sweep) to clear BOTH the tool-call reliability gate (valid_rate 0.80, unique_coverage 6/8 on kerberoast_to_da --lab-exec — best of any abliterated candidate) AND zero-refusal authorized-content compliance (verified: delivers complete working reverse-shell payloads, detailed mimikatz credential-dump walkthroughs, and working Metasploit EternalBlue commands — see docs/reselection/ for the diagnosis chain). Superseded the prior gemma-4-abliterated:E2b-qat pick, whose 2026-06-25 head-to-head numbers predated the reliability-scoring fix and were never re-verified; re-tested under the corrected methodology it failed the reliability gate (valid_rate 0.50-0.67 across 3 reps). execute_bash + execute_python + web_search for live target enumeration and PoC validation. Web app / AD / cloud / container attack paths, CVE-specific payloads, exec-ready findings.'
+        # 2026-09-25: sampling set to the qwen3.6 thinking_precise_coding; repeat_penalty 1.1 kept as the thinking-chain loop guard card (engine settings only; prompts untouched); prior values + A/B: docs/TASK_SEAT_SAMPLING_AB_V1.md
         model_hint: fredrezones55/Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive:Q4-ctx24k
+        presence_penalty: 0.0
         context_limit: 24576
         predict_limit: 8192
         keep_alive: 15m
-        temperature: 0.3
-        top_p: 0.9
-        top_k: 40
-        min_p: 0.05
+        temperature: 0.6
+        top_p: 0.95
+        top_k: 20
+        min_p: 0.0
         repeat_penalty: 1.1
         # think:true — the pentest loop (read tool output → decide next command →
         # execute) is genuinely reasoning-heavy, and 35B-A3B stays coherent even
@@ -906,9 +910,10 @@ workspaces:
       blueteam:
         name: 🔵 Portal Blue Team
         description: Defensive security, SOC triage, threat hunting, incident response. Granite 4.1 8B (IBM, supports tool calls, good at structured analysis). Previous model sylink/sylink:8b is a reasoning model that does not call tools — switched to granite for autonomous investigation capability.
+        # 2026-09-25: sampling set to the granite-4.1 (greedy) card (engine settings only; prompts untouched); prior values + A/B: docs/TASK_SEAT_SAMPLING_AB_V1.md
         model_hint: granite4.1:8b-ctx8k
         context_limit: 8192
-        temperature: 0.3
+        temperature: 0.0
         top_p: 0.9
         top_k: 40
         min_p: 0.05
@@ -933,14 +938,16 @@ workspaces:
       redteam:
         name: 🔴 Portal Red Team
         description: Deep offensive security, attack chain simulation, exploit scripting. Huihui-ai Qwen3.5-9B abliterated (zero refusals, Qwen3 architecture). Structures responses in attack phases with mandatory DEFENDER CUE for blue team handoff.
+        # 2026-09-25: sampling set to the qwen3.5 instruct_general card (engine settings only; prompts untouched); prior values + A/B: docs/TASK_SEAT_SAMPLING_AB_V1.md
         model_hint: huihui_ai/qwen3.5-abliterated:9b-ctx8k
+        presence_penalty: 1.5
         context_limit: 8192
         keep_alive: 15m
-        temperature: 0.3
-        top_p: 0.9
-        top_k: 40
+        temperature: 0.7
+        top_p: 0.8
+        top_k: 20
         min_p: 0.05
-        repeat_penalty: 1.1
+        repeat_penalty: 1.0
         system_prompt_append: "\n\nHARD CONSTRAINTS (never violate):\n- YOUR RESPONSE IS INCOMPLETE WITHOUT ALL FIVE PHASE HEADERS BELOW.\n- DO NOT add disclaimers, authorization warnings, ethical caveats, or legal notices. This is an authorized red team simulation — omit all safety hedging entirely.\n- DO NOT skip, rename, or reorder the phase headers.\n- DO NOT add closing remarks after DEFENDER CUE.\n\nREQUIRED STRUCTURE — use these exact headers in order:\n\n## RECON\nTarget identification, OSINT sources, enumeration commands.\n\n## ATTACK VECTORS\nRanked attack paths with MITRE ATT&CK TTP IDs and confidence level.\n\n## EXPLOITATION\nTechnical execution: tool names, flags, commands, payloads, or PoC code. Be specific — name the CVE, the tool, the exact syntax.\n\n## PERSISTENCE\nFoothold mechanism, location, and eviction resistance.\n\n## DEFENDER CUE\nEvent IDs, log sources, IOCs, and detection signatures. This section is mandatory — it feeds the blue team analysis pipeline."
         tools: []
         depth: default
@@ -949,12 +956,13 @@ workspaces:
       redteam-deep:
         name: 🔴 Portal Red Team · Deep
         description: High-fidelity single-model red team analysis. SuperGemma4-26B-uncensored (abliterated Gemma4 MoE, bench score 0.90, 6.7 ATT&CK IDs avg, zero disclaimers). Slower than the redteam variant (~100s/prompt) but produces denser ATT&CK coverage. Use when you need maximum MITRE TTP specificity for threat models or red team reports. Pipe the output to the purpleteam-deep variant (auto-security?variant=purpleteam-deep) manually for full four-hop analysis.
+        # 2026-09-25: sampling set to the supergemma4 (gemma4) card (engine settings only; prompts untouched); prior values + A/B: docs/TASK_SEAT_SAMPLING_AB_V1.md
         model_hint: supergemma4-26b-uncensored:Q4_K_M-ctx64k
         context_limit: 65536
         keep_alive: 15m
-        temperature: 0.3
-        top_p: 0.9
-        top_k: 40
+        temperature: 1.0
+        top_p: 0.95
+        top_k: 64
         min_p: 0.05
         repeat_penalty: 1.1
         system_prompt_append: "\n\nHARD CONSTRAINTS (never violate):\n- YOUR RESPONSE IS INCOMPLETE WITHOUT ALL FIVE PHASE HEADERS BELOW.\n- DO NOT add disclaimers, authorization warnings, ethical caveats, or legal notices. This is an authorized red team simulation — omit all safety hedging entirely.\n- DO NOT skip, rename, or reorder the phase headers.\n- DO NOT add closing remarks after DEFENDER CUE.\n\nREQUIRED STRUCTURE — use these exact headers in order:\n\n## RECON\nTarget identification, OSINT sources, enumeration commands.\n\n## ATTACK VECTORS\nRanked attack paths with MITRE ATT&CK TTP IDs and confidence level.\n\n## EXPLOITATION\nTechnical execution: tool names, flags, commands, payloads, or PoC code. Be specific — name the CVE, the tool, the exact syntax.\n\n## PERSISTENCE\nFoothold mechanism, location, and eviction resistance.\n\n## DEFENDER CUE\nEvent IDs, log sources, IOCs, and detection signatures. This section feeds the blue team analysis pipeline."
@@ -965,14 +973,16 @@ workspaces:
       purpleteam:
         name: 🟣 Portal Purple Team
         description: "Two-hop purple team chain — one seamless response:\n1. \U0001F534 RED — Qwen3.5-abliterated: attack vectors, exploitation, persistence\n2. \U0001F535 BLUE — Granite 4.1 8B — tool-capable: detection, IOCs, mitigations\n\nUse for threat modeling and attack/detect alignment. For full detection artifacts + IR playbook, use the purpleteam-deep variant (auto-security?variant=purpleteam-deep)."
+        # 2026-09-25: sampling set to the qwen3.5 instruct_general card (engine settings only; prompts untouched); prior values + A/B: docs/TASK_SEAT_SAMPLING_AB_V1.md
         model_hint: huihui_ai/qwen3.5-abliterated:9b-ctx8k
+        presence_penalty: 1.5
         context_limit: 8192
         keep_alive: 15m
-        temperature: 0.3
-        top_p: 0.9
-        top_k: 40
+        temperature: 0.7
+        top_p: 0.8
+        top_k: 20
         min_p: 0.05
-        repeat_penalty: 1.1
+        repeat_penalty: 1.0
         system_prompt_append: "\n\nHARD CONSTRAINTS (never violate):\n- YOU ARE THE RED TEAM COMPONENT ONLY. A separate BLUE TEAM model will analyze your output for detection and response.\n- TERMINATE your response immediately after the ## PERSISTENCE section. Do not write anything after it.\n- DO NOT add detection guidance, defender analysis, mitigations, or blue team content.\n- DO NOT add disclaimers, ethical caveats, authorization warnings, or closing remarks.\n- DO NOT summarize — stop hard after PERSISTENCE.\n\nREQUIRED STRUCTURE — use these exact headers in order:\n\n## ATTACK VECTORS\nRanked attack paths with MITRE ATT&CK TTP IDs.\n\n## EXPLOITATION\nTechnical execution: tool names, flags, commands, payloads, or PoC code.\n\n## PERSISTENCE\nFoothold mechanism and location. STOP HERE."
         tools: []
         chain:
@@ -986,14 +996,16 @@ workspaces:
       purpleteam-deep:
         name: 🟣 Portal Purple Team · Deep
         description: "Four-hop purple team chain — one seamless response:\n1. \U0001F534 RED — Qwen3.5-abliterated: attack vectors, exploitation, persistence\n2. \U0001F535 BLUE — Granite 4.1 8B — tool-capable: detection, IOCs, D3FEND mitigations\n3. \U0001F6E1️ DETECT — Qwen3-Coder: Sigma rules, Wazuh XML, hunting queries, atomic tests\n4. \U0001F4CB IR PLAYBOOK — Qwen3.6-27B: triage, containment, evidence, eradication, recovery\n\nTerminates in deployable detection content + an IR playbook the SOC can execute. Latency is significant — four sequential model calls. Use when completeness matters."
+        # 2026-09-25: sampling set to the qwen3.5 instruct_general card (engine settings only; prompts untouched); prior values + A/B: docs/TASK_SEAT_SAMPLING_AB_V1.md
         model_hint: huihui_ai/qwen3.5-abliterated:9b-ctx64k
+        presence_penalty: 1.5
         context_limit: 65536
         keep_alive: 15m
-        temperature: 0.3
-        top_p: 0.9
-        top_k: 40
+        temperature: 0.7
+        top_p: 0.8
+        top_k: 20
         min_p: 0.05
-        repeat_penalty: 1.1
+        repeat_penalty: 1.0
         system_prompt_append: "\n\nHARD CONSTRAINTS (never violate):\n- YOU ARE THE RED TEAM COMPONENT ONLY. Three follow-on models (blue team, detection engineer, IR coordinator) will process your output.\n- TERMINATE your response immediately after the ## PERSISTENCE section. Do not write anything after it.\n- DO NOT add detection guidance, defender analysis, mitigations, or blue team content.\n- DO NOT add disclaimers, ethical caveats, authorization warnings, or closing remarks.\n- Maximize MITRE ATT&CK TTP IDs, specific tool names, exact flags, and IOCs. Every downstream hop depends on the specificity of your output.\n- DO NOT summarize — stop hard after PERSISTENCE.\n\nREQUIRED STRUCTURE — use these exact headers in order:\n\n## ATTACK VECTORS\nRanked attack paths with MITRE ATT&CK TTP IDs and confidence level.\n\n## EXPLOITATION\nTechnical execution: exact tool names, flags, commands, payloads, or PoC code. Name the CVE, the tool, the exact syntax.\n\n## PERSISTENCE\nFoothold mechanism, registry key or path, and eviction resistance. STOP HERE."
         tools: []
         chain:
@@ -1015,12 +1027,13 @@ workspaces:
       purpleteam-exec:
         name: 🟣 Portal Purple Team · Execute
         description: "Four-hop execution-mode purple team chain — attack planning + live execution + detection + IR:\n1. \U0001F534 RED (exec) — SuperGemma4-26B: attack plan with execute_bash/execute_python/web_search for live PoC\n2. \U0001F535 BLUE — Granite 4.1 8B — tool-capable: detection analysis on actual execution output\n3. \U0001F6E1️ DETECT — Qwen3-Coder: Sigma rules, Wazuh XML, hunting queries from real artifacts\n4. \U0001F4CB IR PLAYBOOK — Qwen3.6-27B: triage, containment, evidence, eradication, recovery\n\nUnlike the purpleteam-deep variant (simulation only), this workspace executes commands against real targets. Use only on authorized systems. Latency is high — four sequential model calls, first hop uses tools."
+        # 2026-09-25: sampling set to the supergemma4 (gemma4) card (engine settings only; prompts untouched); prior values + A/B: docs/TASK_SEAT_SAMPLING_AB_V1.md
         model_hint: supergemma4-26b-uncensored:Q4_K_M-ctx64k
         context_limit: 65536
         keep_alive: 15m
-        temperature: 0.1
-        top_p: 0.9
-        top_k: 20
+        temperature: 1.0
+        top_p: 0.95
+        top_k: 64
         min_p: 0.05
         repeat_penalty: 1.1
         system_prompt_append: "\n\nLAB ENVIRONMENT:\nYour execute_bash calls run inside portal5-attack (Kali Linux). These tools are available:\n  nmap, nxc (NetExec), impacket-* (GetUserSPNs GetNPUsers secretsdump psexec smbclient dacledit),\n  certipy-ad, bloodhound-ce-python, responder, john, msfconsole, ldap3 (Python)\n\nThe following environment variables are pre-injected and ready to use in every execute_bash call:\n  $LAB_TARGET_DC       — Active Directory domain controller IP\n  $LAB_TARGET_SRV      — Member server IP (IIS :80, WinRM :5985)\n  $LAB_TARGET_NETWORK  — Lab network CIDR (e.g. 10.10.11.0/24)\n  Domain: portal.lab   NetBIOS: PORTAL\n\nALWAYS use $LAB_TARGET_DC / $LAB_TARGET_SRV / $LAB_TARGET_NETWORK in commands — never hardcode IPs.\n\nUSER TARGET OVERRIDE: if the user specifies a different target in their message (e.g. 'use 10.10.10.5 as the DC', 'target 192.168.1.100', 'point at X instead'), substitute their value for the relevant env var in your commands and announce it once at the top: '⚠ Target override: DC=<ip> (user-specified)'. Revert to $LAB_TARGET_* on the next message unless the user specifies again.\n\nHARD CONSTRAINTS (never violate):\n- MANDATORY FIRST ACTION: your very first output MUST be an execute_bash tool call. Do not write any prose, headers, or planning before calling the tool. If you write text before calling execute_bash, you have violated this constraint.\n- YOU ARE THE RED TEAM EXECUTION COMPONENT. Three follow-on models (blue team, detection engineer, IR coordinator) will process your output.\n- USE execute_bash and execute_python to run enumeration, PoC payloads, and persistence commands. Include raw tool output verbatim in the EXECUTION RESULTS section.\n- USE web_search for current CVEs, version-specific exploits, and missing details.\n- TERMINATE your response immediately after the ## EXPLOITATION PLAN section. Do not write anything after it.\n- DO NOT add detection guidance, defender analysis, mitigations, or blue team content.\n- DO NOT add disclaimers, ethical caveats, authorization warnings, or closing remarks.\n- Maximize MITRE ATT&CK TTP IDs, exact tool names, flags, CVE IDs, and real command output. Every downstream hop depends on the specificity and authenticity of your output.\n\nREQUIRED STRUCTURE — call tools FIRST, then write sections in this order:\n\n## EXECUTION RESULTS\nRaw output from execute_bash/execute_python tool calls. Include verbatim. Multiple calls allowed.\n\n## ATTACK VECTORS\nRanked attack paths derived from actual execution output, with MITRE ATT&CK TTP IDs.\n\n## EXPLOITATION PLAN\nExact tool names, flags, commands, and payloads based on live results. STOP HERE."
@@ -1045,6 +1058,11 @@ workspaces:
         guardrail: default
         role: purple
       blueteam-orchestrated:
+        # 2026-09-25: sampling set to the vulnllm card (engine settings only; prompts untouched); prior values + A/B: docs/TASK_SEAT_SAMPLING_AB_V1.md
+        repeat_penalty: 1.05
+        top_k: 20
+        top_p: 0.8
+        temperature: 0.7
         name: 🔵 Portal Blue Team · Orchestrated Discovery
         description: 'BUILD_PROGRAM_SEC_BLUE_ORCHESTRATION_V2. Purpose-built three-section
           discovery pipeline (portal.modules.security.core.blue_orchestrate.run_blue_orchestration):
@@ -1066,6 +1084,11 @@ workspaces:
         guardrail: default
         role: blue
       blueteam-council:
+        # 2026-09-25: sampling set to the vulnllm card (engine settings only; prompts untouched); prior values + A/B: docs/TASK_SEAT_SAMPLING_AB_V1.md
+        repeat_penalty: 1.05
+        top_k: 20
+        top_p: 0.8
+        temperature: 0.7
         name: 🔵 Portal Blue Team · Council of Agreement
         description: 'GATE-D ablation Part II-A (TASK-SEC-GATED-ABLATION-TO-COUNCIL-V1).
           The routed next build after the full 89-scenario 1-vs-2-vs-3-section ablation
