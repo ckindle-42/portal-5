@@ -47,6 +47,11 @@ class Report:
     latest: str = "?"
     status: str = "unknown"  # "current" | "behind" | "unknown"
     security: bool = False
+    #: A release BETWEEN the installed and latest version carries a security
+    #: fix. `security` is broader — any published repo advisory, including ones
+    #: for long-superseded versions — so it must not trigger an out-of-cycle
+    #: engine update on its own (engine_autoupdate.py uses this field).
+    security_in_gap: bool = False
     lines: list[str] = field(default_factory=list)
 
     @property
@@ -90,7 +95,15 @@ def _release_gap(repo: str, current: tuple[int, ...], report: Report) -> None:
     except (urllib.error.URLError, json.JSONDecodeError) as e:
         report.lines.append(f"release check failed: {e}")
         return
-    releases = [r for r in releases if not r.get("draft")]
+    # Pre-releases (rc/beta) are not upgrade targets — counting them made the
+    # report say BEHIND against v0.40.0-rc0 while 0.34.4 was the newest release.
+    releases = [
+        r
+        for r in releases
+        if not r.get("draft")
+        and not r.get("prerelease")
+        and not re.search(r"(rc|alpha|beta)\d*$", str(r.get("tag_name", "")), re.IGNORECASE)
+    ]
     if not releases:
         report.lines.append("no releases found")
         return
@@ -110,6 +123,7 @@ def _release_gap(repo: str, current: tuple[int, ...], report: Report) -> None:
         mark = f"  [SECURITY: {', '.join(hits)}]" if hits else ""
         if hits:
             report.security = True
+            report.security_in_gap = True
         report.lines.append(f"  - {r['tag_name']} ({r.get('published_at', '?')[:10]}){mark}")
 
 
@@ -151,7 +165,10 @@ def check_obscura() -> Report:
 
 def check_ollama() -> Report:
     rep = Report("ollama")
-    if OLLAMA_CURRENT.is_symlink():
+    marker = OLLAMA_CURRENT.resolve() / "VERSION"  # ~/ollama-live (engine_autoupdate.py)
+    if marker.exists():
+        rep.current = marker.read_text().strip()
+    elif OLLAMA_CURRENT.is_symlink():
         rep.current = re.sub(r"^ollama-", "", os.readlink(OLLAMA_CURRENT).rsplit("/", 1)[-1])
     else:
         try:
@@ -166,8 +183,8 @@ def check_ollama() -> Report:
     _advisories("ollama/ollama", rep)
     if rep.status == "behind":
         rep.lines.append(
-            "  bump: unpack release to ~/ollama-<ver>/, flip ~/ollama-current, "
-            "reload com.portal5.ollama (see docs/ADMIN_GUIDE.md)"
+            "  bump: automatic — scripts/engine_autoupdate.py (daily launchd job, "
+            "contract-gated); force now with --now"
         )
     return rep
 

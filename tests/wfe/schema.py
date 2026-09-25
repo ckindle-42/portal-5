@@ -147,6 +147,24 @@ def _ollama_version(base: str = "http://localhost:11434") -> str:
         return "unreachable"
 
 
+def _engine_version(engine: str) -> str:
+    """The non-Ollama engine's own version, so a report never pools two oMLX
+    releases (sampling/template behaviour changes across them just as it does
+    across Ollama versions)."""
+    if engine != "omlx":
+        return "unknown"
+    try:
+        out = subprocess.run(
+            ["brew", "list", "--versions", "jundot/omlx/omlx"],
+            capture_output=True,
+            text=True,
+            timeout=30,
+        ).stdout.split()
+        return out[-1] if out else "unknown"
+    except Exception:
+        return "unknown"
+
+
 def env_fingerprint(base: str = "http://localhost:11434") -> dict:
     """Environment stamp. Dimension 22: an Ollama upgrade changes behaviour, so
     a report must refuse to mix fingerprints without an explicit override."""
@@ -163,6 +181,7 @@ def env_fingerprint(base: str = "http://localhost:11434") -> dict:
     if engine != "ollama":
         fp["engine"] = engine
         fp["engine_base_url"] = os.environ.get("WFE_CHAT_BASE_URL", "")
+        fp["engine_version"] = _engine_version(engine)
     fp["fingerprint"] = sha12(json.dumps(fp, sort_keys=True))
     return fp
 

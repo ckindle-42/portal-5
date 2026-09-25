@@ -128,11 +128,15 @@ backends:
     supports_tools: true
   - id: gemma4:e4b-it-q4_K_M
     supports_tools: true
+  # supports_tools verified 2026-09-25: direct tool-call probe 3/3 clean on the
+  # ctx8k tag (native path). It was false, so auto-general-uncensored's six
+  # declared tools were silently never offered to the model.
   - id: hf.co/mradermacher/Huihui-Qwen3.6-35B-A3B-abliterated-GGUF:Q4_K_M
-    supports_tools: false
-  # 2026-09-07 fleet closeout: auto-general-uncensored promotion (refusal 1.0 vs 0.75 incumbent)
-  - id: hf.co/mradermacher/Huihui-Qwen3.6-35B-A3B-abliterated-GGUF:Q4_K_M-ctx8k  # PENDING CREATE (WFE-0.3): apply-params creation failed
-    supports_tools: false
+    supports_tools: true
+  # 2026-09-07 fleet closeout: auto-general-uncensored promotion (refusal 1.0 vs 0.75 incumbent).
+  # The tag exists (Ollama names are case-insensitive: installed as :q4_K_M-ctx8k).
+  - id: hf.co/mradermacher/Huihui-Qwen3.6-35B-A3B-abliterated-GGUF:Q4_K_M-ctx8k
+    supports_tools: true
   # V11 candidate intake (2026-06-30) — bench-only, PROMOTE_POLICY=confirm
   - id: hf.co/mradermacher/Qwen3.5-9B-Claude-4.6-HighIQ-THINKING-HERETIC-UNCENSORED-GGUF:Q4_K_M
     supports_tools: false
@@ -190,6 +194,9 @@ backends:
     supports_tools: false
   - id: gemma4:e4b-it-qat
     supports_tools: false
+  # tools-specialist::fast bakes its declared context_limit via this tag (2026-09-25).
+  - id: gemma4:e4b-it-qat-ctx8k
+    supports_tools: true
   - id: gemma4:31b-it-qat
     supports_tools: false
   - id: hf.co/douyamv/Gemma-4-31B-JANG_4M-CRACK-GGUF:gemma-4-31b-jang-crack-Q4_K_M.gguf
@@ -376,6 +383,14 @@ backends:
   # Full-native-context tag (262144) added 2026-08-26 for the codinguncensored
   # persona -- ctx8k was severely undersized for real opencode/agentic use.
   - id: portal5/omnicoder2-9b:q4_k_m-ctx256k
+    supports_tools: true
+  # auto-coding::fast-repair / ::uncensored-fast hint these ctx32k tags. Until
+  # 2026-09-25 only the base tags were registered (ollama-general), so the
+  # router found no backend serving the hint and silently fell back to
+  # omlx-creative's Qwen3.6-35B HauhauCS — both seats served the wrong model.
+  - id: kat-coder-v2.5-dev:Q4_K_M-ctx32k
+    supports_tools: true
+  - id: orcarouter/Qwen3.8-27B-Uncensored:Q4_K_M-ctx32k
     supports_tools: true
   - id: devstral:24b
     supports_tools: true

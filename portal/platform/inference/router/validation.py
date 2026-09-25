@@ -190,7 +190,9 @@ def _inject_ollama_options(body: dict[str, Any], workspace_id: str = "") -> dict
     Global tuning: ``keep_alive`` (-1 keeps the model in VRAM; workspace
     override wins via hard assignment), ``num_batch`` (2048 prefill speedup).
 
-    ``num_ctx`` here is belt-and-suspenders, not load-bearing: verified live
+    ``num_ctx`` here is belt-and-suspenders, not load-bearing (and
+    ``OllamaNativeTransport`` deliberately does not forward it — honouring it
+    would reload a resident model on any mismatch): verified live
     (2026-08-05, Ollama 0.32.5) that a runtime ``options.num_ctx`` sent to
     ``/v1/chat/completions`` is silently ignored — the model loads at its full
     trained context regardless. The mechanism that actually works is a
@@ -248,7 +250,10 @@ def _inject_ollama_options(body: dict[str, Any], workspace_id: str = "") -> dict
         body.setdefault("stream_options", {})["include_usage"] = True
 
     # ── Per-workspace sampling tuning ────────────────────────────────────────
-    # setdefault — caller wins; values from _resolve_sampling_values.
+    # setdefault — caller wins; values from _resolve_sampling_values. These
+    # reach the model because Ollama backends are served from native /api/chat
+    # (ollama_native.OllamaNativeTransport); Ollama's /v1 silently drops the
+    # whole `options` object, so until 2026-09-25 none of this was applied.
     for key, val in _resolve_sampling_values(ws_cfg_local).items():
         body["options"].setdefault(key, val)
 
@@ -263,6 +268,12 @@ def _inject_ollama_options(body: dict[str, Any], workspace_id: str = "") -> dict
                 body["options"].setdefault(mk, mv)
 
     # extended thinking toggle (Qwen3/DeepSeek).
+    #
+    # CURRENT (2026-09-25): Ollama backends are served from native /api/chat by
+    # ollama_native.OllamaNativeTransport, which forwards `think` in BOTH
+    # directions to thinking-capable models (per /api/show capabilities) and
+    # omits it for the rest — so a think:true workspace now actually reasons.
+    # The /v1-era history below explains the reasoning_effort form.
     #
     # `think` is Ollama's NATIVE knob and works only on /api/chat. We dispatch
     # over /v1/chat/completions (`Backend.chat_url`), whose OpenAI-compat layer

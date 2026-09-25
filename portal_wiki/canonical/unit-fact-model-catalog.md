@@ -1,11 +1,11 @@
 ---
 id: unit-fact-model-catalog
 kind: what
-title: 259 model ids, 7 backend groups
+title: 262 model ids, 7 backend groups
 sources:
 - type: code
   path: config/backends.yaml
-  commit: 60f173e0f83d
+  commit: 047ae6eb0607
 claims:
 - probe: backends.groups.count
   pattern: '{value} backend groups)'
@@ -14,12 +14,12 @@ tags:
 - fact
 - models
 created_at: 1784000421.487881
-updated_at: 1790304195.30476
+updated_at: 1790332632.861394
 ---
 
-# Model catalog (259 model ids across 7 backend groups)
+# Model catalog (262 model ids across 7 backend groups)
 
-## coding (54)
+## coding (56)
 
 - `Laguna-XS-2.1-4bit`
 - `Qwen3-Coder-30B-A3B-Instruct-4bit`
@@ -55,8 +55,10 @@ updated_at: 1790304195.30476
 - `hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M`
 - `hf.co/yuxinlu1/gemma-4-12B-agentic-fable5-composer2.5-v2-3.5x-tau2-GGUF:Q4_K_M`
 - `huihui_ai/qwen3-abliterated:14b-v2`
+- `kat-coder-v2.5-dev:Q4_K_M-ctx32k`
 - `omnicoder2:9b-q4_k_m`
 - `omnicoder2:9b-q4_k_m-ctx8k`
+- `orcarouter/Qwen3.8-27B-Uncensored:Q4_K_M-ctx32k`
 - `phi4-reasoning:plus`
 - `phi4-reasoning:plus-ctx32k`
 - `portal5/agentworld-35b:ud-q4_K_XL-ctx256k`
@@ -91,7 +93,7 @@ updated_at: 1790304195.30476
 - `huihui_ai/baronllm-abliterated`
 - `huihui_ai/baronllm-abliterated:latest-ctx8k`
 
-## general (112)
+## general (113)
 
 - `NVIDIA-Nemotron-3.5-Lightning-30B-A3B-oQ4e-mtp`
 - `cybersecqwen-4b-toolfix:latest`
@@ -110,6 +112,7 @@ updated_at: 1790304195.30476
 - `gemma4:e2b-it-qat`
 - `gemma4:e4b-it-q4_K_M`
 - `gemma4:e4b-it-qat`
+- `gemma4:e4b-it-qat-ctx8k`
 - `glm-4.7-flash:Q4_K_M`
 - `glm-4.7-flash:Q4_K_M-ctx64k`
 - `gpt-oss:20b`

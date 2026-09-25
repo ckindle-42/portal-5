@@ -159,6 +159,46 @@ holding a correct build hostage to a multi-hour eval.
 
 ---
 
+<!-- WIKI:GENERATED unit=unit-known-limitations-ollama-v1-sampling-drop -->
+- **ID**: P5-OLLAMA-V1-SAMPLING-001
+- **Status**: RESOLVED 2026-09-25 — Ollama backends are served from native `/api/chat` by `OllamaNativeTransport`; residual limits below remain.
+- **Description**: The pipeline sent each workspace's sampling inside `options`, which Ollama's `/v1/chat/completions` ignores entirely; `/v1` also has no field for `top_k`, `min_p` or `repeat_penalty`, and forces `temperature`/`top_p` to 1.0 when a request omits them (`FromChatRequest` in Ollama's `openai.go`). Every Ollama-served workspace therefore ran at temperature 1.0 / top_p 1.0 with the tag's baked top_k/min_p/repeat_penalty, never at its `config/portal.yaml` sampling; a `think: true` was dropped as well. Upstream declined to add the fields (ollama#11325, closed not-planned). Measured 2026-09-25 on 0.34.2 with extreme values (top_k=1 / min_p=1 collapse three seeds to one output only when honoured).
+- **Fix**: an httpx transport on the pipeline's shared client answers `/v1/chat/completions` for registered Ollama backends from `/api/chat` and returns the exact `/v1` response shape (parity-verified on text, tools, tool-result turns, non-thinking models and image parts — content, tool calls and prompt tokens identical). `scripts/engine_contract_check.py` re-proves delivery of every key through production's own request builders on each engine version change.
+- **Residual limits**: (1) `presence_penalty` reaches Ollama but its sampler applies nothing — seats declaring it on Ollama are flagged `presence_ignored_by_ollama` by the settings auditor; (2) `tool_choice` is ignored by Ollama on every endpoint, so `tool_choice=required` forcing has never applied on Ollama seats — the single-tool schema is what narrows the call; (3) `keep_alive` is deliberately NOT forwarded: `/v1` never delivered it, so every model has always been released on Ollama's server default, and turning on the pipeline's `-1` default would pin models oMLX cannot reclaim — an operator decision, not a bug fix.
+
+#### Why
+
+The failure returned HTTP 200 on every request, so nothing in the stack could see it; only a behavioural probe can. Recording the residual limits keeps the three keys that still do not behave as configured from being mistaken for a regression of the fix.
+<!-- /WIKI:GENERATED -->
+
+---
+
+<!-- WIKI:GENERATED unit=unit-known-limitations-unregistered-hint-fallback -->
+- **ID**: P5-HINT-FALLBACK-001
+- **Status**: RESOLVED 2026-09-25 — both seats re-registered; the class is now a FAIL in the settings auditor and a UAT gate.
+- **Description**: When no backend in a workspace's routing groups resolves its `model_hint`, the router serves `backend.models[0]` and only logs a warning. `auto-coding::fast-repair` (kat-coder) and `auto-coding::uncensored-fast` (orcarouter Qwen3.8) hinted `-ctx32k` tags registered nowhere, so both were served Qwen3.6-35B HauhauCS from `omlx-creative`. The settings auditor had never walked variants, so it could not see it.
+- **Guard**: `tests/wfe/settings_audit.py` audits every workspace and variant and raises `hint_unroutable` using production's own `BackendRegistry.resolve_model` over the seat's routing groups; `tests/uat/settings_gate.py` refuses to start a UAT while any production seat is unroutable or absent.
+
+#### Why
+
+A seat that silently serves another model makes every measurement of that seat — UAT, WFE, user feedback — describe the wrong model. Making the check mechanical is the only defence, because the router's fallback is designed to keep traffic flowing rather than fail.
+<!-- /WIKI:GENERATED -->
+
+---
+
+<!-- WIKI:GENERATED unit=unit-known-limitations-engine-update-data01-approval -->
+- **ID**: P5-ENGINE-TCC-001
+- **Status**: MITIGATED 2026-09-25 — cannot be pre-approved without MDM; the updater detects it, asks, waits and rolls back.
+- **Description**: A new Ollama or oMLX binary must be allowed by macOS to read the external `data01` volume that holds the models; until someone clicks Allow on the popup the engine answers with no models. Pre-approval needs an MDM-installed privacy profile, which this host does not have.
+- **Mitigation**: Ollama now always runs from the fixed real path `~/ollama-live/` (macOS keys the grant to path + Developer ID, identical across Ollama releases), so one approval should cover future upgrades — in three consecutive version switches on that path on 2026-09-25 the models stayed visible, but whether each release keeps the grant is only proven one upgrade at a time. oMLX runs under Homebrew's Python, whose path changes when brew upgrades it, so it can still prompt. `scripts/engine_autoupdate.py` compares the engine's model count before and after every switch; a drop sends a high-priority Pushover asking for the click and waits 30 minutes, then rolls back without rejecting the release and retries the next day. `engine_contract_check.py` alerts the same way when a probe model vanishes after a manual upgrade.
+
+#### Why
+
+An unattended update that silently leaves the engine blind to its models would take every seat down while reporting success; the popup is the one step automation cannot perform, so the design makes it loud, bounded and reversible.
+<!-- /WIKI:GENERATED -->
+
+---
+
 <!-- WIKI:GENERATED unit=unit-known-limitations-auto-rag-silent-miss -->
 ##### Auto-RAG context injection never ran, and failed as a cache miss (RESOLVED)
 

@@ -1601,7 +1601,7 @@ def _clip_revised_sections(revision_id: str, repo: Any) -> list[dict[str, Any]]:
     WINDOW_AND_SEAT_V1 P1.1: `include_sections=true` used to return whole
     sections unbounded. The ids are what a reader follows for the full text.
     """
-    sections = repo.sections_with_role(revision_id)
+    sections: list[dict[str, Any]] = repo.sections_with_role(revision_id)
     for section in sections:
         text, note = _clip(str(section.get("text", "")), 4000)
         section["text"] = text
@@ -2020,7 +2020,9 @@ def _repo() -> Any:
     return Repository()
 
 
-def _ceiling(parts: list[dict[str, Any]], max_chars: int) -> tuple[list[dict[str, Any]], dict]:
+def _ceiling(
+    parts: list[dict[str, Any]], max_chars: int
+) -> tuple[list[dict[str, Any]], dict[str, Any]]:
     """Bound the verbatim text one call returns, shared across its parts.
 
     WINDOW_AND_SEAT_V1 P1.1: a tool that can return more than a fifth of the
@@ -2030,7 +2032,7 @@ def _ceiling(parts: list[dict[str, Any]], max_chars: int) -> tuple[list[dict[str
     named, so a truncated read is visible as one.
     """
     remaining = max(int(max_chars), 0)
-    clipped: list[dict[str, str]] = []
+    clipped: list[dict[str, Any]] = []
 
     def _cut(text: str, where: str) -> str:
         nonlocal remaining

@@ -211,7 +211,14 @@
       "models": {
         "ducquoc/gpt-oss-sonnet:latest": {
           "name": "P40 · Conductor (gpt-oss-sonnet)",
-          "reasoning": true
+          "reasoning": true,
+          // Ollama's /v1 forces temperature/top_p to 1.0 when a request omits
+          // them, overriding the tag's own baked 0.4/0.9 — and opencode sends
+          // neither by default (captured 2026-09-25). Stating the tag's values
+          // here puts them on the wire, where /v1 honours them. Independent of
+          // Portal code by design; top_k/min_p/repeat_penalty can only come
+          // from the tag on thebrain (/v1 drops them).
+          "options": { "temperature": 0.4, "top_p": 0.9 }
         }
       }
     }

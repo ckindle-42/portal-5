@@ -60,6 +60,7 @@ from __future__ import annotations
 import argparse
 import contextlib
 import datetime as dt
+import functools
 import json
 import os
 import shutil
@@ -81,7 +82,7 @@ from tests.wfe.runner import (
     make_sandbox,
     preflight_harness,
     run_task,
-    think_policy,
+    undeliverable_keys,
     workspace_context,
 )
 from tests.wfe.schema import (
@@ -102,25 +103,31 @@ DEFAULT_REPEATS = 3
 CAMPAIGN_HARNESS = {"endpoint": "v1", "stream": False, "think": "default", "format": "none"}
 
 
-def campaign_harness(wsc: dict) -> dict:
+def campaign_harness(wsc: dict, overrides: dict | None = None) -> dict:
     """The harness dimensions for one workspace's runs. `think` is resolved the
-    way production resolves it: the workspace's explicit `think` bool wins;
-    otherwise the model card's harness_policy.think; otherwise the model's
-    native default. A test of model X in workspace Y must run X the way Y is
+    way production resolves it: the workspace's explicit `think` bool, else
+    nothing at all (the model's native default). A test of model X in workspace Y must run X the way Y is
     configured, including a misconfiguration — that is the signal Y needs
     fixing, or that X is not a fit."""
     h = dict(CAMPAIGN_HARNESS)
     ws_think = wsc.get("think")
-    # WFE_THINK=true|false is an explicit experiment override (e.g. "how does
-    # this seat score with reasoning off?"). It is stamped in every row's
-    # harness record, so an override row can't pass for a production-resolved one.
-    forced = os.environ.get("WFE_THINK")
+    # A `think` override is an explicit experiment arm (e.g. "how does this seat
+    # score with reasoning off?"). It lives on the ROW (see arm_spec), and is
+    # stamped in every row's harness record, so an override row can't pass for a
+    # production-resolved one.
+    forced = (overrides or {}).get("think")
     if forced in ("true", "false"):
         h["think"] = forced
     elif ws_think is not None:
         h["think"] = "true" if ws_think else "false"
     else:
-        h["think"] = think_policy(wsc.get("model") or "")
+        # Production sends NO think field when the workspace sets none
+        # (router/validation.py reads only the workspace's `think`; nothing in
+        # portal/ reads the card's harness_policy), so the model runs at its
+        # native default. "native" sends nothing too. Resolving the card policy
+        # here ran auto-coding::laguna / ::uncensored-fast / ::reap288 with
+        # thinking OFF while production runs them with it ON (2026-09-25).
+        h["think"] = "native"
     return h
 
 
@@ -259,6 +266,39 @@ def drain_others(keep: str, timeout_s: int = DRAIN_TIMEOUT_S) -> list[str]:
     return evicted
 
 
+def _omlx_pool() -> dict:
+    import urllib.request
+
+    try:
+        with urllib.request.urlopen(f"{CHAT_BASE}/health", timeout=5) as r:
+            return json.load(r).get("engine_pool") or {}
+    except Exception:
+        return {}
+
+
+def drain_omlx(timeout_s: int = DRAIN_TIMEOUT_S) -> str:
+    """Start an oMLX arm with nothing else resident. drain_others() only reaches
+    Ollama; oMLX holds its own pool (up to its memory ceiling), so an arm could
+    run beside a previous arm's 27B weights and measure paging. oMLX's unload
+    endpoint needs admin auth, so a service restart is the drain — the same
+    remedy the house rules use for a wedged MLX server."""
+    loaded = int(_omlx_pool().get("loaded_count") or 0)
+    if not loaded:
+        return "oMLX pool empty"
+    subprocess.run(
+        ["brew", "services", "restart", "jundot/omlx/omlx"],
+        capture_output=True,
+        timeout=120,
+    )
+    deadline = time.monotonic() + timeout_s
+    while time.monotonic() < deadline:
+        pool = _omlx_pool()
+        if pool and not int(pool.get("loaded_count") or 0):
+            return f"oMLX restarted to release {loaded} resident model(s)"
+        time.sleep(_DRAIN_POLL_S)
+    return f"WARNING — oMLX still reports resident models after {timeout_s}s"
+
+
 def model_sizes() -> dict[str, int]:
     """Installed tag -> on-disk bytes, for smallest-first arm ordering."""
     import urllib.request
@@ -287,6 +327,59 @@ def config_dirty() -> list[str]:
 # --------------------------------------------------------------------------
 # matrix
 # --------------------------------------------------------------------------
+
+
+def env_overrides() -> dict:
+    """WFE_SAMPLING / WFE_THINK as an override dict. Read ONLY when the matrix
+    is expanded: the override is then stored on every row it created, so a
+    resume in a shell without (or with different) env vars can neither drop the
+    override nor apply it to rows it was never meant for."""
+    ov: dict = {}
+    raw = os.environ.get("WFE_SAMPLING")
+    if raw:
+        ov["sampling"] = json.loads(raw)
+    think = os.environ.get("WFE_THINK")
+    if think in ("true", "false"):
+        ov["think"] = think
+    return ov
+
+
+def arm_spec(entry) -> tuple[str, str, dict]:
+    """(arm_id, model, overrides) for one plan arm.
+
+    A plan arm is a model tag, or a variant of one:
+      {model: <tag>, label: card, sampling: {...}, think: true|false}
+    A variant's arm_id is `<tag>@<label>-<sha8 of its overrides>`, so the seat
+    arm and the card arm of the SAME model are distinct arms with distinct
+    run_ids. Before this, run_id carried no sampling: an A/B with --append
+    added 0 rows ("already present") and the card arm silently never ran."""
+    if isinstance(entry, dict):
+        model = str(entry["model"])
+        ov = {k: entry[k] for k in ("sampling", "think") if entry.get(k) is not None}
+        label = entry.get("label")
+    else:
+        model, ov, label = str(entry), {}, None
+    env = env_overrides()
+    if env:
+        ov, label = {**ov, **env}, label or "env"
+    if "think" in ov:
+        ov["think"] = str(ov["think"]).lower()
+    if not ov:
+        return model, model, {}
+    digest = sha12(json.dumps(ov, sort_keys=True))[:8]
+    return f"{model}@{label}-{digest}" if label else f"{model}@{digest}", model, ov
+
+
+def row_model(r: dict) -> str:
+    """The model tag a row runs. Rows written before variant arms carry none."""
+    return r.get("model") or r["arm"]
+
+
+def row_overrides(r: dict) -> dict:
+    """The row's own overrides. A legacy row (no `overrides` key) keeps the old
+    semantics — the env of the process running it — so an in-flight campaign
+    started before variant arms resumes exactly as it would have."""
+    return r["overrides"] if "overrides" in r else env_overrides()
 
 
 def expand_matrix(
@@ -321,16 +414,20 @@ def expand_matrix(
         ordered = [("incumbent", arms.get("incumbent"))] + [
             ("challenger", c) for c in (arms.get("challengers") or [])
         ]
-        for role, tag in ordered:
-            if not tag or (only_arm and tag != only_arm):
+        for role, entry in ordered:
+            if not entry:
                 continue
+            arm_id, model, overrides = arm_spec(entry)
+            if only_arm and only_arm not in (arm_id, model):
+                continue
+            spec = (arm_id, model, overrides)
             for suite in dict.fromkeys(s for s in suites if s):
                 if only_suite and suite != only_suite:
                     continue
                 suite_path = SUITE_DIR / f"{suite}.jsonl"
                 if not suite_path.exists():
                     rows.append(
-                        _row_stub(ws_id, tag, role, suite, suite_path, "MISSING", 0, suite == home)
+                        _row_stub(ws_id, spec, role, suite, suite_path, "MISSING", 0, suite == home)
                         | {
                             "state": Outcome.HARNESS_ERROR.value,
                             "note": f"suite file not found: {suite_path}",
@@ -343,7 +440,7 @@ def expand_matrix(
                     for rep in range(repeats):
                         rows.append(
                             _row_stub(
-                                ws_id, tag, role, suite, suite_path, task["id"], rep, suite == home
+                                ws_id, spec, role, suite, suite_path, task["id"], rep, suite == home
                             )
                         )
     # Arm-major: every task for a model runs while its weights are resident.
@@ -351,11 +448,14 @@ def expand_matrix(
     return rows
 
 
-def _row_stub(ws_id, tag, role, suite, suite_path, task_id, rep, is_home) -> dict:
+def _row_stub(ws_id, spec, role, suite, suite_path, task_id, rep, is_home) -> dict:
+    arm_id, model, overrides = spec
     return {
-        "run_id": f"{ws_id}|{tag}|{suite}|{task_id}|r{rep}",
+        "run_id": f"{ws_id}|{arm_id}|{suite}|{task_id}|r{rep}",
         "workspace": ws_id,
-        "arm": tag,
+        "arm": arm_id,
+        "model": model,
+        "overrides": overrides,
         "arm_role": role,
         "suite": suite,
         "suite_path": str(suite_path),
@@ -474,10 +574,9 @@ def write_debug(debug_dir: Path, arm: str, record: dict) -> None:
 
 
 #: Outcomes decided by run_task from RUN telemetry, not by a checker: a stall,
-#: an exhausted turn budget, a blocked-offline task, an all-errored tool loop.
-#: apply_checkers cannot re-derive these from a static record, so --rescore must
-#: preserve them — unless the re-graded checker now says PASS, in which case a
-#: too-strict checker was the real reason the run looked incomplete.
+#: an exhausted wall or turn budget, a blocked-offline task, an all-errored tool
+#: loop. apply_checkers cannot re-derive these from a static record, so --rescore
+#: preserves them.
 _RUN_TELEMETRY_OUTCOMES = frozenset(
     {
         Outcome.BUDGET_EXHAUSTED.value,
@@ -490,8 +589,17 @@ _RUN_TELEMETRY_OUTCOMES = frozenset(
 
 def _reconcile_offline(recorded: str | None, checker_outcome: str) -> tuple[str, str]:
     """Combine the recorded run-telemetry outcome with a fresh checker verdict,
-    mirroring runner._classify's precedence. Returns (outcome, why)."""
-    if recorded in _RUN_TELEMETRY_OUTCOMES and checker_outcome != Outcome.PASS.value:
+    mirroring runner._classify's precedence. Returns (outcome, why).
+
+    BUDGET_EXHAUSTED always stands: the model did not finish, and a checker
+    re-grade — even a PASS on the artifacts it left — cannot change that. This
+    used to upgrade it to PASS, which re-created the stall-masking defect on
+    every --rescore. The other telemetry outcomes may still be upgraded by a
+    checker PASS (a too-strict checker was the real reason for a FAIL-shaped
+    TOOL_ERROR)."""
+    if recorded == Outcome.BUDGET_EXHAUSTED.value or (
+        recorded in _RUN_TELEMETRY_OUTCOMES and checker_outcome != Outcome.PASS.value
+    ):
         return (
             recorded,
             f"kept recorded {recorded} (run telemetry; checker re-grade: {checker_outcome})",
@@ -601,7 +709,11 @@ def preflight_arm(campaign_dir: Path, arm: str, force: bool = False) -> dict:
     return res
 
 
-def _sampling_for(wsc: dict, repeat: int) -> dict:
+#: A single turn past this many tokens is a runaway on any seat in the fleet.
+HARNESS_RUNAWAY_CAP = 32768
+
+
+def _sampling_for(wsc: dict, repeat: int, overrides: dict | None = None) -> dict:
     """The workspace's OWN sampling block, with a distinct seed per repeat.
 
     Dimension 8: a temperature-0 pass is not evidence about a product served at
@@ -609,19 +721,49 @@ def _sampling_for(wsc: dict, repeat: int) -> dict:
     than three copies of one. All 81 workspaces in portal.yaml declare a
     sampling block; the campaign serves each arm at its workspace's settings.
 
-    The default output cap is 4096, not 2048: a reasoning-heavy 30B model doing
-    multi-step tool work exhausts 2048 tokens inside its <think> block and never
-    reaches an answer. A workspace with its own predict_limit still wins."""
-    s = {"max_tokens": 4096, **(wsc.get("sampling") or {})}
-    # WFE_SAMPLING='{"temperature": 1.0, ...}' is an experiment override (e.g.
-    # "seat config vs the vendor's card"). It REPLACES the workspace's sampling
-    # keys, keeping only max_tokens, so seat-only keys like min_p can't leak
-    # into a vendor arm. Every row already records the sampling it ran with.
-    forced = os.environ.get("WFE_SAMPLING")
+    Output cap: the workspace's predict_limit when it has one — exactly what
+    production sends. Without one, production sends NO cap (oMLX then defaults
+    to 262144, Ollama to unbounded), so the old 4096 default manufactured
+    TRUNCATED rows production would never produce — worst on thinking arms.
+    HARNESS_RUNAWAY_CAP only stops a single turn that has genuinely run away;
+    `max_tokens_source` records which cap applied."""
+    s = {"max_tokens": HARNESS_RUNAWAY_CAP, **(wsc.get("sampling") or {})}
+    s["max_tokens_source"] = (
+        "predict_limit" if (wsc.get("sampling") or {}).get("max_tokens") else "harness_runaway_cap"
+    )
+    # A sampling override (e.g. "seat config vs the vendor's card") REPLACES the
+    # workspace's sampling keys, keeping only max_tokens, so seat-only keys like
+    # min_p can't leak into a vendor arm. Every row records what it ran with.
+    forced = (overrides or {}).get("sampling")
     if forced:
-        s = {"max_tokens": s["max_tokens"], **json.loads(forced)}
+        s = {"max_tokens": s["max_tokens"], "max_tokens_source": s["max_tokens_source"], **forced}
     s["seed"] = 1000 + repeat
     return s
+
+
+@functools.cache
+def _baked_params(model: str) -> dict:
+    """The Modelfile PARAMETERs Ollama serves for `model` — the value of every
+    key /v1 drops. Empty off Ollama (other engines honour the request)."""
+    if ENGINE != "ollama":
+        return {}
+    import urllib.request
+
+    params: dict = {}
+    with contextlib.suppress(Exception):
+        req = urllib.request.Request(
+            f"{OLLAMA}/api/show",
+            data=json.dumps({"model": model}).encode(),
+            headers={"Content-Type": "application/json"},
+        )
+        with urllib.request.urlopen(req, timeout=30) as r:
+            show = json.load(r)
+        for line in (show.get("parameters") or "").splitlines():
+            k, _, v = line.strip().partition(" ")
+            v = v.strip()
+            with contextlib.suppress(ValueError):
+                params[k] = float(v) if "." in v else int(v)
+    return params
 
 
 def degenerate_repeats(wsc: dict) -> str | None:
@@ -650,12 +792,13 @@ def run_row(
     sandbox = make_sandbox(
         Path("/tmp/wfe") / manifest["campaign_id"] / sha12(r["run_id"]), r["task_id"], r["repeat"]
     )
-    sampling = _sampling_for(wsc, r["repeat"])
-    harness = campaign_harness(wsc)
+    overrides = row_overrides(r)
+    sampling = _sampling_for(wsc, r["repeat"], overrides)
+    harness = campaign_harness(wsc, overrides)
     t0 = time.monotonic()
     try:
         out = run_task(
-            r["arm"],
+            row_model(r),
             wsc["system_prompt"],
             task,
             sandbox,
@@ -716,6 +859,13 @@ def run_row(
     ).to_dict()
     row["final_text"] = out.get("final_text", "")
     row["repeat_degeneracy"] = degenerate_repeats(wsc)
+    row["model"] = row_model(r)
+    row["overrides"] = overrides
+    # What the engine was ASKED for but silently drops (runner.DELIVERABLE_KEYS),
+    # and — on Ollama — what the tag bakes, which is what actually served those
+    # keys. Without this a row's `sampling` claims values the model never saw.
+    row["sampling_undelivered"] = undeliverable_keys(sampling)
+    row["baked_params"] = _baked_params(row_model(r))
     _row_path(campaign_dir, r["run_id"]).write_text(json.dumps(row, indent=1))
 
     if debug_dir:
@@ -781,7 +931,25 @@ def _rows_to_run(
         _log(campaign_dir, f"arm {arm}: nothing pending")
         return [], {"arm": arm, "ran": 0}
 
-    pf = preflight_arm(campaign_dir, arm, force_preflight)
+    # An override that depends on a key this engine silently drops would run
+    # hours of rows identical to the seat arm and report them as the card arm.
+    # Refuse it before the first request (runner.DELIVERABLE_KEYS; on Ollama
+    # such a key has to be baked into a tag, which is then its own arm).
+    dropped = undeliverable_keys((row_overrides(todo[0]) if todo else {}).get("sampling") or {})
+    if dropped:
+        note = (
+            f"override sampling keys {dropped} are silently dropped by the {ENGINE} "
+            "/v1 endpoint — bake them into a tag (its own arm) or serve on oMLX"
+        )
+        for r in todo:
+            r["state"] = Outcome.BLOCKED.value
+            r["note"] = note
+        save_manifest(campaign_dir, manifest)
+        _log(campaign_dir, f"arm {arm}: BLOCKED — {note}")
+        return [], {"arm": arm, "ran": 0, "blocked": len(todo)}
+
+    model = row_model(arm_rows[0])
+    pf = preflight_arm(campaign_dir, model, force_preflight)
     findings = "; ".join(pf.get("findings") or [])
     if pf.get("verdict") != "OK" and not force_preflight:
         for r in todo:
@@ -829,9 +997,12 @@ def execute_arm(
     # Evict on model change, before the first row rather than after the last: the
     # previous arm's process may have been killed without cleaning up, and the
     # pipeline may have pinned a classifier since. Both are memory this arm needs.
-    evicted = drain_others(arm)
+    model = row_model(todo[0])
+    evicted = drain_others(model)
     if evicted:
         _log(campaign_dir, f"arm {arm}: drained {len(evicted)} resident model(s): {evicted}")
+    if ENGINE == "omlx":
+        _log(campaign_dir, f"arm {arm}: {drain_omlx()}")
 
     _log(campaign_dir, f"arm {arm}: {len(todo)} runs pending")
     if notify:
@@ -873,7 +1044,7 @@ def execute_arm(
             f"errs={row['tool_errors']} {row['economics'].get('wall_s')}s",
         )
 
-    if not drain_model(arm):
+    if not drain_model(model):
         _log(campaign_dir, f"arm {arm}: WARNING — still resident after {DRAIN_TIMEOUT_S}s")
     elapsed = round(time.monotonic() - t_arm)
     summary = f"{arm}: {tally} in {elapsed}s"
@@ -1176,7 +1347,7 @@ def _cmd_smoke(args, plan: Path) -> int:
     (d / "preflight").mkdir(parents=True, exist_ok=True)
     manifest = {"campaign_id": d.name, "env": env_fingerprint(OLLAMA), "rows": [r]}
     save_manifest(d, manifest)
-    pf = preflight_arm(d, r["arm"], force=True)
+    pf = preflight_arm(d, row_model(r), force=True)
     print(json.dumps(pf, indent=1))
     if pf.get("verdict") != "OK" and not args.force:
         print("\nsmoke: preflight REVIEW — fix or pass --force", file=sys.stderr)
@@ -1220,8 +1391,9 @@ def _cmd_preflight(campaign_dir: Path, force: bool) -> int:
     the sweep does not pay for the probe twice. Exit 1 if any arm needs review."""
     drain_others("")
     sizes = model_sizes()
+    # Preflight probes the MODEL's transport; variant arms of one model share it.
     arms = sorted(
-        {r["arm"] for r in load_manifest(campaign_dir)["rows"]},
+        {row_model(r) for r in load_manifest(campaign_dir)["rows"]},
         key=lambda a: (sizes.get(a, 0), a),
     )
     # Arms served by another engine (WFE_ENGINE) are not Ollama tags at all.
@@ -1270,6 +1442,26 @@ def _inspect_command(args, campaign_dir: Path) -> int | None:
     return None
 
 
+def _select_arms(manifest: dict, want: str | None) -> list[str]:
+    """Arm ids to run. `--arm` may name an arm id or a model tag (every variant)."""
+    return sorted({r["arm"] for r in manifest["rows"] if want in (None, r["arm"], row_model(r))})
+
+
+def _ready(campaign_dir: Path) -> bool:
+    """The chat engine answers, and it is the engine the campaign was created
+    for: the arm ids of an oMLX campaign are oMLX served ids, and resuming it
+    with WFE_ENGINE unset would send them to Ollama (404 -> HARNESS_ERROR rows),
+    or, for a tag both engines serve, silently measure the other engine."""
+    if not ollama_reachable():
+        _log(campaign_dir, "ABORT: chat engine unreachable")
+        return False
+    started_on = (load_manifest(campaign_dir).get("env") or {}).get("engine", "ollama")
+    if started_on != ENGINE:
+        _log(campaign_dir, f"ABORT: campaign created on engine {started_on}, now {ENGINE}")
+        return False
+    return True
+
+
 def main() -> int:
     ap, args = _parse_args()
     plan = Path(args.plan)
@@ -1293,16 +1485,12 @@ def main() -> int:
     rc = _inspect_command(args, campaign_dir)
     if rc is not None:
         return rc
-    if args.preflight:
-        if not ollama_reachable():
-            _log(campaign_dir, "ABORT: Ollama unreachable")
-            return 3
-        return _cmd_preflight(campaign_dir, args.force)
-    if not ollama_reachable():
-        _log(campaign_dir, "ABORT: Ollama unreachable")
+    if not _ready(campaign_dir):
         return 3
+    if args.preflight:
+        return _cmd_preflight(campaign_dir, args.force)
     manifest = load_manifest(campaign_dir)
-    arms = [args.arm] if args.arm else sorted({r["arm"] for r in manifest["rows"]})
+    arms = _select_arms(manifest, args.arm)
     for arm in arms:
         if not ollama_reachable():
             _log(campaign_dir, f"ABORT before {arm}: Ollama unreachable")

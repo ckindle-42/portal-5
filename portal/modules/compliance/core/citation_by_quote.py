@@ -27,7 +27,7 @@ measured distribution (``reports/compliance/cite_and_scope/p1/``), not here.
 from __future__ import annotations
 
 import re
-from typing import Any
+from typing import Any, cast
 
 from portal.modules.compliance.core.candidate_links import (
     _norm_for_verbatim as _fold,
@@ -88,7 +88,7 @@ def _folded_index(repo: Any) -> dict[str, tuple[str, str]]:
     """
     index = getattr(repo, _INDEX_ATTR, None)
     if index is not None:
-        return index
+        return cast("dict[str, tuple[str, str]]", index)
     from portal.modules.compliance.core.section_index import resolve_sections
 
     ids = [

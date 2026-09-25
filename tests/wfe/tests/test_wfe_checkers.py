@@ -429,6 +429,108 @@ def test_empty_response_breaks_instead_of_stacking_assistant_messages(tmp_path):
     assert any(t.get("empty_response") for t in out["transcript"])
 
 
+def _fake_turn(rn, content="", calls=None, finish="stop"):
+    return {
+        "message": {"content": content, "tool_calls": calls or []},
+        "finish_reason": finish,
+        "economics": rn.Economics(),
+        "harness_caveats": [],
+        "resolved_think": "default",
+    }
+
+
+def test_stall_after_passing_artifact_is_budget_exhausted_not_pass(tmp_path):
+    """s2_seat_vendor_omlx_seat_v1 row 1: a 900s StreamStalledError after the
+    model had already written a PASS-shaped file was reported PASS. A run that
+    did not finish is BUDGET_EXHAUSTED; the checker's view is kept as evidence."""
+    from unittest.mock import patch
+
+    from tests.wfe import runner as rn
+
+    turns = [
+        _fake_turn(
+            rn,
+            calls=[
+                {
+                    "id": "c",
+                    "function": {
+                        "name": "file_write",
+                        "arguments": '{"path": "out.txt", "content": "done"}',
+                    },
+                }
+            ],
+            finish="tool_calls",
+        ),
+        rn.StreamStalledError("no output for 600s"),
+    ]
+    task = {
+        "id": "s",
+        "agentic": True,
+        "instruction": "write out.txt",
+        "checkers": [{"type": "file_exists", "path": "out.txt"}],
+    }
+    with patch.object(rn, "chat", side_effect=turns):
+        out = rn.run_task(
+            "m", "sys", task, rn.Sandbox(tmp_path), max_turns=8, budget_s=120, use_tools=True
+        )
+    assert out["outcome"] == Outcome.BUDGET_EXHAUSTED.value
+    assert out["evidence"]["checker_outcome"] == Outcome.PASS.value
+
+
+def test_text_answer_without_signal_ends_the_run_and_is_graded(tmp_path):
+    """The runner used to re-send an agentic conversation with the assistant
+    message LAST when the answer lacked the literal completion signal; the model
+    then produced a second answer, which replaced the first (33 of 1150 archived
+    rows). A text-only turn ends the run, as it does in production."""
+    from unittest.mock import patch
+
+    from tests.wfe import runner as rn
+
+    calls = []
+
+    def fake_chat(*a, **k):
+        calls.append(1)
+        return _fake_turn(
+            rn, content='{"determination": "PARTIAL", "determination_complete": true}'
+        )
+
+    task = {
+        "id": "d",
+        "agentic": True,
+        "completion_signal": "DETERMINATION COMPLETE",
+        "instruction": "decide",
+        "checkers": [{"type": "answer_contains", "patterns": ["PARTIAL"]}],
+    }
+    with patch.object(rn, "chat", side_effect=fake_chat):
+        out = rn.run_task(
+            "m", "sys", task, rn.Sandbox(tmp_path), max_turns=8, budget_s=120, use_tools=True
+        )
+    assert len(calls) == 1
+    assert out["outcome"] == Outcome.PASS.value
+    assert out["evidence"]["completion_signal_missing"] is True
+
+
+def test_http_error_body_is_kept_in_the_harness_error(tmp_path):
+    """A bare "HTTP Error 400" cannot tell a context overflow from a malformed
+    request; the engine's body must reach the row."""
+    import io
+    import urllib.error
+    from unittest.mock import patch
+
+    from tests.wfe import runner as rn
+
+    err = urllib.error.HTTPError(
+        "u", 400, "Bad Request", {}, io.BytesIO(b'{"error":"context length exceeded"}')
+    )
+    with patch.object(rn.urllib.request, "urlopen", side_effect=err):
+        try:
+            rn.chat("m", [{"role": "user", "content": "x"}])
+        except RuntimeError as e:
+            assert "context length exceeded" in str(e)
+        else:
+            raise AssertionError("expected RuntimeError")
+
+
 # ---------------------------------------------------------------------------
 # compliance reading contract — the gate that could pass without a reading
 # ---------------------------------------------------------------------------

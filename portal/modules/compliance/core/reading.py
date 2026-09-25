@@ -196,7 +196,7 @@ def build_reading_packet(request: AssessmentRequest, *, repository: Any = None) 
     measure_slices = [s for s in all_governing_slices if s.role == "measure"]
     tb_slices = [s for s in all_governing_slices if s.role == "technical_basis"]
 
-    def _context_block(slices_, role_label, note):
+    def _context_block(slices_: list[Any], role_label: str, note: str) -> list[dict[str, Any]]:
         return [
             {
                 "slice_id": s.slice_id,

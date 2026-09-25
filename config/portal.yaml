@@ -312,7 +312,10 @@ workspaces:
     name: 🔓 Portal General (Uncensored)
     description: |-
       Uncensored generalist + reasoning lane — makes the documented general uncensored model explicitly promptable instead of fallback-only. [PROMOTED 2026-09-07 fleet closeout on lane-instrument data: Huihui-Qwen3.6-35B-A3B-abliterated refusal-preservation 1.0/0% over-refusal vs incumbent 27b-ctx8k 0.75/33% at 4.3x throughput (55.6 vs 12.9 t/s); cross-domain judgment tradeoff recorded (exact 0.87 vs 0.90). Reversible one-line hint swap; prior incumbent retained as persona-pinned manual model. Evidence: tests/benchmarks/results/refusal_preservation_probe_20260907T025849Z.json + judgment_probe_v6_20260907T034934Z.json]
-    model_hint: hf.co/mradermacher/Huihui-Qwen3.6-35B-A3B-abliterated-GGUF:Q4_K_M  # ROLLBACK 2026-09-07: apply-params failed to create -ctx8k derived tag; Phase-0 WFE item WFE-0.3
+    # -ctx8k bakes the declared context_limit (8192); /v1 and native both ignore a
+    # request-time num_ctx. The 2026-09-07 "creation failed" rollback was a case
+    # mismatch — the tag exists as :q4_K_M-ctx8k (Ollama names are case-insensitive).
+    model_hint: hf.co/mradermacher/Huihui-Qwen3.6-35B-A3B-abliterated-GGUF:Q4_K_M-ctx8k
     context_limit: 8192
     keep_alive: 10m
     temperature: 0.7
@@ -1101,7 +1104,7 @@ workspaces:
       fast:
         name: 🔧 Portal Tool Composer (Fast)
         description: 'Faster tool-composition option — gemma4:e4b-it-qat (Google DeepMind, ~6.1GB effective 4B QAT, thinking, 128K ctx). WFE wfe_full_20260911 (2026-09-12): 9/9=1.00 home:coding and 9/9=1.00 discovery:research vs the granite4.1:8b-ctx8k incumbent''s 6/9=0.67 / 9/9=1.00 (NOT SEPARATED, small n). [BENCH-GATED PROVISIONAL model_hint — not a default; promotion requires a passing GC/CC bench run + operator promotion task.]'
-        model_hint: gemma4:e4b-it-qat
+        model_hint: gemma4:e4b-it-qat-ctx8k
         context_limit: 8192
         temperature: 0.6
         top_p: 0.95

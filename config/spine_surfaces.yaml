@@ -907,7 +907,7 @@ surfaces:
 - name: file-tests-wfe-settings_audit
   globs:
   - tests/wfe/settings_audit.py
-  unit: unit-wfe-workspace-fitness
+  unit: unit-known-limitations-unregistered-hint-fallback
 - name: file-tests-wfe-tests-test_wfe_checkers
   globs:
   - tests/wfe/tests/test_wfe_checkers.py

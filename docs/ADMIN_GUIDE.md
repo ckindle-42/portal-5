@@ -276,7 +276,7 @@ On Apple Silicon the default Ollama is native under launchd, not a container —
 /Library/LaunchDaemons/com.portal5.ollama.plist
 ```
 
-Root-owned — edit with `sudo`. Since the 2026-08-13 upgrade to v0.32.9, `ProgramArguments` points at `/Users/chris/ollama-current/ollama`, a symlink to the active versioned install directory (currently `ollama-0.33.2`, upgraded 2026-08-29), not a hardcoded version path — this was a deliberate fix after the previous scheme (editing the plist's binary path on every upgrade) left the PATH symlink and the plist able to drift out of sync. **A version upgrade is now just:** unpack the new release to `~/ollama-<version>/`, flip the symlink (`ln -sfn ~/ollama-<version> ~/ollama-current`), then reload the daemon — no plist edit needed. Reload with `sudo launchctl unload /Library/LaunchDaemons/com.portal5.ollama.plist && sudo launchctl load /Library/LaunchDaemons/com.portal5.ollama.plist` (equivalent to `bootout`/`bootstrap` — both fully remove and re-register the service, re-reading the plist from disk; a mere `kickstart -k` restarts the process but does **not** re-read the plist, so it only picks up env var or `ProgramArguments` changes via the full unload/load or bootout/bootstrap cycle). Retaining the previous version directory after an upgrade makes rollback one more symlink flip with no reinstall; `ollama-0.33.1` remains on disk after the 2026-08-29 upgrade to 0.33.2, so a rollback from 0.33.2 is a symlink flip.
+Root-owned — edit with `sudo`. `ProgramArguments` points at `/Users/chris/ollama-current/ollama`; since 2026-09-25 `~/ollama-current` is a symlink to `~/ollama-live/`, a **fixed real path** whose contents are the active release (its version in `~/ollama-live/VERSION`), with every release archived as `~/ollama-<version>/` for rollback. The path is fixed because macOS keys an unbundled binary's permission to read the external `data01` volume (where `OLLAMA_MODELS` lives) to its path plus its Developer ID requirement, which is identical across Ollama releases — a new path per version meant a new approval popup per upgrade. **Upgrades are automatic:** `scripts/engine_autoupdate.py` (daily launchd job `com.portal5.engine-update`, installed by `./launch.sh up`) installs the newest non-pre-release weekly — sooner when a release in the gap carries a security fix, or on `--now` — kickstarts the daemon, waits for the model count to return (asking via Pushover for the data01 popup if it does not), and runs `scripts/engine_contract_check.py`. A contract failure rolls back to the previous release and records the rejected version in `~/.portal5/engine_update.json`; an unanswered popup rolls back and retries the next day. A plist edit still needs the full unload/load (a `kickstart -k` restarts the process but does not re-read the plist).
 
 #### Why
 
@@ -556,7 +556,7 @@ The roster is derived from the persona YAML files under `config/personas/`, one 
 | `auto-data` | research | `hf.co/unsloth/Qwen3.6-35B-A3B-GGUF:UD-Q4_K_XL-ctx32k` |
 | `auto-documents` | documents | `granite4.1:8b-ctx16k` |
 | `auto-extract-uncensored` | documents | `hf.co/gaston-parravicini/LFM2.5-8B-A1B-Uncensored-Gaston-GGUF:q4_K_M-ctx8k` |
-| `auto-general-uncensored` | general | `hf.co/mradermacher/Huihui-Qwen3.6-35B-A3B-abliterated-GGUF:Q4_K_M` |
+| `auto-general-uncensored` | general | `hf.co/mradermacher/Huihui-Qwen3.6-35B-A3B-abliterated-GGUF:Q4_K_M-ctx8k` |
 | `auto-image` | image | `granite4.1:8b-ctx16k` |
 | `auto-math` | general | `phi4-mini-reasoning:latest-ctx24k` |
 | `auto-music` | media | `lfm2.5:8b-ctx8k` |
@@ -626,7 +626,7 @@ default.
 | `auto-data` | `hf.co/unsloth/Qwen3.6-35B-A3B-GGUF:UD-Q4_K_XL-ctx32k` | yes |
 | `auto-documents` | `granite4.1:8b-ctx16k` | yes |
 | `auto-extract-uncensored` | `hf.co/gaston-parravicini/LFM2.5-8B-A1B-Uncensored-Gaston-GGUF:q4_K_M-ctx8k` | yes |
-| `auto-general-uncensored` | `hf.co/mradermacher/Huihui-Qwen3.6-35B-A3B-abliterated-GGUF:Q4_K_M` | yes |
+| `auto-general-uncensored` | `hf.co/mradermacher/Huihui-Qwen3.6-35B-A3B-abliterated-GGUF:Q4_K_M-ctx8k` | yes |
 | `auto-image` | `granite4.1:8b-ctx16k` | yes |
 | `auto-math` | `phi4-mini-reasoning:latest-ctx24k` | yes |
 | `auto-music` | `lfm2.5:8b-ctx8k` | yes |
@@ -713,9 +713,9 @@ The fleet table is the `mcp_fleet` list in `config/portal.yaml`, the single sour
 ### Model Catalog
 
 <!-- WIKI:GENERATED unit=unit-fact-model-catalog -->
-#### Model catalog (259 model ids across 7 backend groups)
+#### Model catalog (262 model ids across 7 backend groups)
 
-##### coding (54)
+##### coding (56)
 
 - `Laguna-XS-2.1-4bit`
 - `Qwen3-Coder-30B-A3B-Instruct-4bit`
@@ -751,8 +751,10 @@ The fleet table is the `mcp_fleet` list in `config/portal.yaml`, the single sour
 - `hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M`
 - `hf.co/yuxinlu1/gemma-4-12B-agentic-fable5-composer2.5-v2-3.5x-tau2-GGUF:Q4_K_M`
 - `huihui_ai/qwen3-abliterated:14b-v2`
+- `kat-coder-v2.5-dev:Q4_K_M-ctx32k`
 - `omnicoder2:9b-q4_k_m`
 - `omnicoder2:9b-q4_k_m-ctx8k`
+- `orcarouter/Qwen3.8-27B-Uncensored:Q4_K_M-ctx32k`
 - `phi4-reasoning:plus`
 - `phi4-reasoning:plus-ctx32k`
 - `portal5/agentworld-35b:ud-q4_K_XL-ctx256k`
@@ -787,7 +789,7 @@ The fleet table is the `mcp_fleet` list in `config/portal.yaml`, the single sour
 - `huihui_ai/baronllm-abliterated`
 - `huihui_ai/baronllm-abliterated:latest-ctx8k`
 
-##### general (112)
+##### general (113)
 
 - `NVIDIA-Nemotron-3.5-Lightning-30B-A3B-oQ4e-mtp`
 - `cybersecqwen-4b-toolfix:latest`
@@ -806,6 +808,7 @@ The fleet table is the `mcp_fleet` list in `config/portal.yaml`, the single sour
 - `gemma4:e2b-it-qat`
 - `gemma4:e4b-it-q4_K_M`
 - `gemma4:e4b-it-qat`
+- `gemma4:e4b-it-qat-ctx8k`
 - `glm-4.7-flash:Q4_K_M`
 - `glm-4.7-flash:Q4_K_M-ctx64k`
 - `gpt-oss:20b`

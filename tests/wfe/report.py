@@ -113,6 +113,12 @@ def _collect_warnings(rows: list[dict], manifest: dict, allow_mixed: bool) -> li
         f"more than once for the affected workspaces"
         for d in degen
     ]
+    dropped = Counter((r["arm"], k) for r in rows for k in (r.get("sampling_undelivered") or []))
+    warnings += [
+        f"{arm}: {k} was requested on {n} row(s) but the engine does not apply it — "
+        f"the served value is the tag's baked value (row `baked_params`), not the request"
+        for (arm, k), n in sorted(dropped.items())
+    ]
     if manifest.get("rescores"):
         last = manifest["rescores"][-1]
         warnings.append(

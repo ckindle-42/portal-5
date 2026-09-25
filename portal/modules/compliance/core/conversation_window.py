@@ -70,7 +70,7 @@ def fit_material(payload: dict[str, Any], seat: str) -> dict[str, Any]:
     return fitted
 
 
-def route(repo: Any, ref: str, seat: str) -> dict[str, Any]:
+def route(repo: Any, ref: str, seat: str) -> list[dict[str, Any]]:
     """Where a conversation should look instead: the Part-level refs this
     requirement is made of, each priced against the same window."""
     from portal.modules.compliance.core.requirement_scope import resolve

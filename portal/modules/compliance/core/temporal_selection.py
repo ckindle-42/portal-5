@@ -162,7 +162,10 @@ def temporal_exclusion_census(
 
 
 def store_nodes_for_revisions(
-    conn: sqlite3.Connection, revision_ids: set[str], *, exclude_standards: set[str] = ()
+    conn: sqlite3.Connection,
+    revision_ids: set[str],
+    *,
+    exclude_standards: set[str] | frozenset[str] = frozenset(),
 ) -> dict[str, dict[str, Any]]:
     """Canonical-store duty text for revisions the pinned register does not
     carry (e.g. the future CIP-007-7.1): the requirement_nodes of those

@@ -365,6 +365,24 @@ PY
         fi
     fi
 
+    # ── Engine auto-update + contract gate (daily launchd job) ─────────────
+    # Keeps Ollama/oMLX current and re-proves that the sampling/think values
+    # Portal sends actually reach the model (scripts/engine_autoupdate.py).
+    local _eu_label="com.portal5.engine-update"
+    local _eu_src="$PORTAL_ROOT/deploy/launchd/${_eu_label}.plist"
+    local _eu_dst="$HOME/Library/LaunchAgents/${_eu_label}.plist"
+    if [ -f "$_eu_src" ] && [ "$(uname -s)" = "Darwin" ]; then
+        mkdir -p "$HOME/.portal5/logs" "$HOME/Library/LaunchAgents"
+        sed -e "s#__PORTAL_ROOT__#${PORTAL_ROOT}#g" \
+            -e "s#__LOG_DIR__#${HOME}/.portal5/logs#g" \
+            "$_eu_src" > "$_eu_dst"
+        if ! launchctl print "gui/$(id -u)/${_eu_label}" &>/dev/null 2>&1; then
+            launchctl bootstrap "gui/$(id -u)" "$_eu_dst" &>/dev/null \
+                && echo "[portal-5]   ✅ engine auto-update: daily contract-gated job enabled" \
+                || echo "[portal-5]   ⚠️  engine auto-update: launchd registration failed"
+        fi
+    fi
+
     # ── MFLUX image MCP (native MLX on Apple Silicon) ──────────────────────
     if [ "$ARCH" = "arm64" ]; then
         if [ -f "$HOME/.portal5/mflux/.venv/bin/python" ]; then

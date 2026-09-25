@@ -141,7 +141,7 @@ def reading_seat() -> str:
 
 def build_assessment_context(
     kb_id: str,
-    scope: AssetScope,
+    scope: AssetScope | None,
     effective_on: str,
     known_at: str,
     repository: Any,

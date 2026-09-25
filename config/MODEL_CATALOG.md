@@ -466,6 +466,14 @@ The dual `general`/`coding` registration with `supports_tools: true` in both gro
 
 `orcarouter/Qwen3.8-27B-Uncensored:Q4_K_M` is a dense uncensored Qwen3.8-27B quant (~16.5 GiB) registered with `supports_tools: true`. Fleet closeout 2026-09-07: RETAINED_FOR_PURPOSE — verified uncensored-coding specialist (repair exam 100%/100%, refusal 1.0/0%, judgment parity 0.952/0.90); manual/bench-only via `bench-orcarouter-q38` until optionally wired as an uncensored-coding variant. omnicoder2-9b's small-lane variant is not displaced.
 
+### `kat-coder-v2.5-dev:Q4_K_M-ctx32k`
+
+`kat-coder-v2.5-dev:Q4_K_M-ctx32k` bakes a 32768-token context onto `kat-coder-v2.5-dev:Q4_K_M` and is the `model_hint` of the `auto-coding::fast-repair` variant. `config/backends.yaml` registers it in the `coding` group with `supports_tools: true`. Until 2026-09-25 only the base tag was registered (in `general`), so the router found no backend serving the hint and silently served `omlx-creative`'s Qwen3.6-35B HauhauCS instead — caught by the settings auditor's `hint_unroutable` check.
+
+### `orcarouter/Qwen3.8-27B-Uncensored:Q4_K_M-ctx32k`
+
+`orcarouter/Qwen3.8-27B-Uncensored:Q4_K_M-ctx32k` bakes a 32768-token context onto `orcarouter/Qwen3.8-27B-Uncensored:Q4_K_M` and is the `model_hint` of the `auto-coding::uncensored-fast` variant. `config/backends.yaml` registers it in the `coding` group with `supports_tools: true`; before 2026-09-25 the same unregistered-hint fallback served a different model for this seat.
+
 ### `glm-4.7-flash:Q4_K_M-ctx64k`
 
 `glm-4.7-flash:Q4_K_M-ctx64k` is the 64K-context derived tag (baked `PARAMETER num_ctx 65536`, weights shared with the base tag — 0 extra bytes) created 2026-09-07 when the fleet closeout flipped the `glm-coder` persona pin off REAP-23B per its recorded promotion policy. The persona's system prompt promises a 128K window; the base `glm-4.7-flash:Q4_K_M` tag ships no baked `num_ctx`, so the pin would have silently collapsed to the Ollama default — caught by settings review, not by the short-prompt exam that motivated the flip. Registered in `general` (`supports_tools: false`) and `coding` (`true`) to match the base tag.

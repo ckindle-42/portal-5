@@ -202,7 +202,7 @@ def _model_config() -> dict[str, Any]:
             None,
             "",
             "",
-            None,  # type: ignore[arg-type]
+            None,
         )
         seats = [
             {"role": seat.get("role", ""), "model": seat.get("model", "")}
@@ -219,7 +219,7 @@ def _model_config() -> dict[str, Any]:
 def seven_question_plan(ctx: SliceContext) -> list[SliceOperation]:
     """The compound plan: one operation per bounded question, every operation
     carrying the SAME shared context ids. Deterministic — no keyword routing."""
-    shared = {
+    shared: dict[str, Any] = {
         "requirement": ctx.requirement,
         "part_ids": ctx.part_ids,
         "valid_at": ctx.valid_at,

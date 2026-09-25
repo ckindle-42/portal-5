@@ -360,7 +360,7 @@ def sweep_order(repo: Any) -> list[str]:
     receipt readable against the standard itself."""
     from portal.modules.compliance.core.cip_register import Register
 
-    def _numbering(node_id: str) -> tuple:
+    def _numbering(node_id: str) -> list[tuple[int, Any]]:
         tail = node_id.split(" ", 1)[1] if " " in node_id else ""
         pieces: list[tuple[int, Any]] = []
         for token in re.split(r"[\s.]+", tail):
@@ -392,7 +392,7 @@ def refs_for_standard(reg: Any, standard: str) -> list[str]:
     live, PROVE_THEN_SCALE_V1 §P7), double-reading 44 requirements under the
     wrong fixed body."""
 
-    def _numbering(node_id: str) -> tuple:
+    def _numbering(node_id: str) -> list[tuple[int, Any]]:
         tail = node_id.split(" ", 1)[1] if " " in node_id else ""
         return [(0, int(t)) if t.isdigit() else (1, t) for t in re.split(r"[\s.]+", tail)]
 

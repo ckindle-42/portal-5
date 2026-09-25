@@ -94,7 +94,43 @@ def installed_tags(backends: dict | None = None) -> set[str]:
     for b in (backends or {}).get("backends", []):
         if b.get("type") == "omlx":
             tags |= set(b.get("aliases") or {})
+    # oMLX-served ids with no Ollama tag and no alias (bench REAP-288, Nex-N2.5)
+    # exist only in oMLX's own inventory; without this they read hint_absent.
+    tags |= omlx_served_ids()
     return tags
+
+
+OMLX = "http://localhost:8085"
+
+
+def omlx_served_ids() -> set[str]:
+    with (
+        contextlib.suppress(Exception),
+        urllib.request.urlopen(f"{OMLX}/v1/models", timeout=10) as r,
+    ):
+        return {m["id"] for m in json.load(r).get("data", [])}
+    return set()
+
+
+def seat_engine(hint: str, backends: dict, omlx_ids: set[str]) -> str:
+    """Which engine SERVES this hint in production: a priority-10 oMLX alias or
+    a raw oMLX id means oMLX; anything else is Ollama."""
+    for b in backends.get("backends", []):
+        if b.get("type") == "omlx" and b.get("priority") == 10 and hint in (b.get("aliases") or {}):
+            return "omlx"
+    return "omlx" if hint in omlx_ids else "ollama"
+
+
+def omlx_default_sampling() -> dict:
+    """oMLX's global sampling defaults — what an oMLX seat is served for any key
+    it does not declare."""
+    with contextlib.suppress(Exception):
+        d = json.loads((Path.home() / ".omlx" / "settings.json").read_text()).get("sampling") or {}
+        out = {k: d[k] for k in ("temperature", "top_p", "top_k") if k in d}
+        if "repetition_penalty" in d:
+            out["repeat_penalty"] = d["repetition_penalty"]
+        return out
+    return {}
 
 
 def baked_params(tag: str) -> dict:
@@ -236,6 +272,63 @@ def _audit_sampling(ws_id, ws, hint, bp, tags, violations) -> None:
         )
 
 
+def _card_sampling(entry: dict, think: bool | None) -> dict:
+    """The card's recommendation for how the seat runs: the thinking/instruct
+    mode when the card has modes and the seat pins `think`, else the default."""
+    modes = entry.get("recommended_sampling_modes") or {}
+    if modes and think is not None:
+        return dict(modes.get("thinking" if think else "instruct") or {})
+    rec = entry.get("recommended_sampling") or {}
+    return {} if rec.get("pending_research") else dict(rec)
+
+
+def _served_sampling_check(
+    ws_id: str,
+    ws: dict,
+    hint: str,
+    engine: str,
+    registry: dict,
+    violations: list[dict],
+) -> None:
+    """What the model is SERVED, key by key, against its vendor card.
+
+    Served = the seat's resolved sampling (production's own resolver: think
+    profile -> flat keys), else the engine's default for that key (the tag's
+    baked value on Ollama, oMLX's global setting on oMLX). A deviation is a
+    WARN, not a FAIL: the doctrine (docs/TASK_SEAT_VENDOR_FIT_V1.md) adopts
+    the card only when an A/B in the seat shows it better for the job."""
+    from portal.platform.inference.router.validation import _resolve_sampling_values
+
+    declared = _resolve_sampling_values(ws)
+    if engine == "ollama" and "presence_penalty" in declared:
+        _v(
+            violations,
+            ws_id,
+            "presence_ignored_by_ollama",
+            f"declares presence_penalty={declared['presence_penalty']} but Ollama's sampler "
+            "applies nothing for it (measured 2026-09-25; KNOWN_LIMITATIONS.md)",
+        )
+    hit = _expectations_for(hint, registry)
+    if hit is None or hit[1].get("status") == "research-debt":
+        return
+    card = _card_sampling(hit[1], ws.get("think"))
+    defaults = baked_params(hint) if engine == "ollama" else omlx_default_sampling()
+    diffs = []
+    for k, want in card.items():
+        got, src = (
+            (declared[k], "seat") if k in declared else (defaults.get(k), f"{engine} default")
+        )
+        if got is None or abs(float(got) - float(want)) > 1e-6:
+            diffs.append(f"{k} {got} ({src}) vs card {want}")
+    if diffs:
+        _v(
+            violations,
+            ws_id,
+            "served_vs_card",
+            f"{hint} on {engine}: " + "; ".join(diffs) + " — A/B before changing (seat-vendor fit)",
+        )
+
+
 def _audit_workspace(
     ws_id: str,
     ws: dict,
@@ -243,10 +336,12 @@ def _audit_workspace(
     registered: set[str],
     tool_flags: dict[str, bool],
     violations: list[dict],
+    omlx: bool = False,
 ) -> None:
     hint = ws["model_hint"]
 
-    if hint not in tags:
+    # Ollama model names are case-insensitive (:q4_k_m and :Q4_K_M are one tag).
+    if hint not in tags and hint.lower() not in {t.lower() for t in tags}:
         _v(
             violations,
             ws_id,
@@ -264,7 +359,9 @@ def _audit_workspace(
         )
 
     bp = baked_params(hint) if hint in tags else {}
-    _audit_context(ws_id, ws, hint, bp, tags, violations)
+    # Baked num_ctx is an Ollama mechanism; an oMLX seat's window is oMLX's.
+    if not omlx:
+        _audit_context(ws_id, ws, hint, bp, tags, violations)
     _audit_sampling(ws_id, ws, hint, bp, tags, violations)
 
     ws_tools = ws.get("tools") or []
@@ -283,7 +380,7 @@ def _audit_workspace(
 
 
 _REASONING_TAG_RE = re.compile(
-    r"(deepseek-r1|qwen3\.[5-9]|phi4.*reasoning|glm-4\.[67]|glm-z1|gpt-oss|granite4\.[12]"
+    r"(deepseek-r1|qwen3\.[5-9]|phi4.*reasoning|glm-4\.[67]|glm-z1|gpt-oss|granite4\.2"
     r"|magistral|nemotron.*lightning|qwen3-coder-next|Deepwen)",
     re.I,
 )
@@ -427,25 +524,10 @@ def _card_check(tag: str, bp: dict, registry: dict, violations: list[dict], wher
             "card_research_debt",
             f"{tag}: recommended_sampling pending research (WFE-0.6)",
         )
-    else:
-        for k, want in (rec or {}).items():
-            got = bp.get(k)
-            if got is None:
-                _v(
-                    violations,
-                    where,
-                    "sampling_absent_vs_card",
-                    f"{tag} bakes no {k} but the card recommends {k}={want} — the served "
-                    f"value is Ollama's default, not the card's",
-                )
-            elif abs(float(got) - float(want)) > 1e-6:
-                _v(
-                    violations,
-                    where,
-                    "sampling_vs_card",
-                    f"{tag} bakes {k}={got} but card recommends {k}={want}",
-                    "FAIL",
-                )
+    # Sampling vs card is judged on what is SERVED (_served_sampling_check), not
+    # on what the tag bakes: since 2026-09-25 a seat's declared sampling reaches
+    # the model on both engines, so a baked value matters only for a key the
+    # seat leaves undeclared — and not at all on an oMLX-served seat.
     max_ctx = entry.get("max_context")
     if isinstance(max_ctx, int) and bp.get("num_ctx") and bp["num_ctx"] > max_ctx:
         _v(
@@ -697,6 +779,47 @@ def _behavioral_probes(tag: str, violations: list[dict], where: str) -> None:
     _probe_think_honored(tag, violations, where)
 
 
+def _audit_routable(seats: list, backends: dict, violations: list[dict]) -> None:
+    """Can production actually serve each seat's model_hint? Mirrors the router:
+    the backends of the workspace's routing groups, each asked to
+    `resolve_model(hint)` (aliases and case included). When none can, the router
+    silently serves another model (backend.models[0]) — measured 2026-09-25:
+    auto-coding::fast-repair and ::uncensored-fast both served Qwen3.6-35B
+    HauhauCS instead of kat-coder / orcarouter for exactly this reason."""
+    from portal.platform.inference.cluster_backends import BackendRegistry
+
+    reg = BackendRegistry()
+    routing = backends.get("workspace_routing") or {}
+    for seat_id, ws in seats:
+        groups = routing.get(seat_id.split("::")[0]) or []
+        hint = ws["model_hint"]
+        if not any(b.resolve_model(hint) for b in reg.list_backends() if b.group in groups):
+            _v(
+                violations,
+                seat_id,
+                "hint_unroutable",
+                f"no backend in routing groups {groups} serves {hint} — the router falls back "
+                "to a DIFFERENT model (backend.models[0]); register the tag in config/backends.yaml",
+                "FAIL",
+            )
+
+
+def _seats(portal: dict):
+    """Every seat production can serve: each workspace, and each variant as the
+    synthetic `workspace::variant` id with the variant's keys merged over the
+    base (router/preinject.py). Variants were never audited before — and most
+    of the fleet's specialised seats are variants."""
+    for ws_id, ws in (portal.get("workspaces") or {}).items():
+        if not isinstance(ws, dict):
+            continue
+        if ws.get("model_hint"):
+            yield ws_id, ws
+        for vname, v in (ws.get("variants") or {}).items():
+            merged = {**ws, **(v or {})}
+            if merged.get("model_hint"):
+                yield f"{ws_id}::{vname}", merged
+
+
 def run_audit(behavioral: bool = False) -> dict:
     registry = _load_expectations()
     portal = yaml.safe_load((REPO / "config/portal.yaml").read_text())
@@ -719,13 +842,16 @@ def run_audit(behavioral: bool = False) -> dict:
 
     violations: list[dict] = []
     checked = 0
-    for ws_id, ws in portal.get("workspaces", {}).items():
-        if not isinstance(ws, dict) or not ws.get("model_hint"):
-            continue
+    omlx_ids = omlx_served_ids()
+    served_seats = list(_seats(portal))
+    _audit_routable(served_seats, backends, violations)
+    for ws_id, ws in served_seats:
         checked += 1
-        _audit_workspace(ws_id, ws, tags, registered, tool_flags, violations)
         hint = ws["model_hint"]
+        engine = seat_engine(hint, backends, omlx_ids)
+        _audit_workspace(ws_id, ws, tags, registered, tool_flags, violations, omlx=engine == "omlx")
         _audit_reasoning_fit(ws_id, ws, hint, registry, tags, violations)
+        _served_sampling_check(ws_id, ws, hint, engine, registry, violations)
         if hint in tags:
             _card_check(hint, baked_params(hint), registry, violations, ws_id)
             if behavioral:

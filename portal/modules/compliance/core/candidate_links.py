@@ -25,7 +25,7 @@ import hashlib
 import json
 import re
 from dataclasses import dataclass, field
-from typing import Any
+from typing import Any, cast
 
 DERIVATION_RERANK = "projection_rerank"
 DERIVATION_READING = "reading"
@@ -354,7 +354,7 @@ def record_links(
                     ).hexdigest()[:20]
                 )
                 score_note = f"score {candidate.score:.4f} (threshold {entry.threshold})"
-                if candidate.scope_boosted:
+                if candidate.scope_boosted and candidate.rerank_score is not None:
                     score_note = (
                         f"rerank score {candidate.rerank_score:.4f} + document-scope prior "
                         f"{round(candidate.score - candidate.rerank_score, 4):.4f} "
@@ -684,29 +684,32 @@ def _norm_for_verbatim(text: str) -> str:
     not fail on the capture's line wrap."""
     folded = text.translate(
         str.maketrans(
-            {
-                "\u2010": "-",
-                "\u2011": "-",
-                "\u2012": "-",
-                "\u2013": "-",
-                "\u2014": "-",
-                "\u2015": "-",
-                "\u2212": "-",
-                "\uff0d": "-",
-                "\u2018": '"',
-                "\u2019": '"',
-                "\u201a": '"',
-                "\u201b": '"',
-                "\u201c": '"',
-                "\u201d": '"',
-                "\u201e": '"',
-                "\u201f": '"',
-                "\u00ab": '"',
-                "\u00bb": '"',
-                "'": '"',
-                '"': '"',
-                "\u00a0": " ",
-            }
+            cast(
+                "dict[str, str | int | None]",
+                {
+                    "\u2010": "-",
+                    "\u2011": "-",
+                    "\u2012": "-",
+                    "\u2013": "-",
+                    "\u2014": "-",
+                    "\u2015": "-",
+                    "\u2212": "-",
+                    "\uff0d": "-",
+                    "\u2018": '"',
+                    "\u2019": '"',
+                    "\u201a": '"',
+                    "\u201b": '"',
+                    "\u201c": '"',
+                    "\u201d": '"',
+                    "\u201e": '"',
+                    "\u201f": '"',
+                    "\u00ab": '"',
+                    "\u00bb": '"',
+                    "'": '"',
+                    '"': '"',
+                    "\u00a0": " ",
+                },
+            )
         )
     )
     folded = re.sub(r"\s+", " ", folded).strip().lower()

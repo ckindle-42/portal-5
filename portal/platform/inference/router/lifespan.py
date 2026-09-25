@@ -22,6 +22,7 @@ import portal.platform.inference.router.concurrency as _concurrency_mod
 import portal.platform.inference.router.council as _council_mod
 import portal.platform.inference.router.streaming as _streaming_mod
 from portal.platform.inference.cluster_backends import BackendRegistry
+from portal.platform.inference.ollama_native import OllamaNativeTransport
 from portal.platform.inference.router.power import _power_polling_loop
 from portal.platform.inference.router.routing import (
     _LLM_ROUTER_ENABLED,
@@ -251,6 +252,12 @@ async def _run_startup_warmups(registry: BackendRegistry) -> None:
     )
 
 
+def _is_ollama_backend(registry: BackendRegistry, base_url: str) -> bool:
+    """True only for a base URL the registry positively knows is Ollama."""
+    needle = base_url.rstrip("/")
+    return any(b.type == "ollama" and b.url.rstrip("/") == needle for b in registry.list_backends())
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     """FastAPI lifecycle — create singletons on startup, tear down on shutdown.
@@ -291,11 +298,18 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     # timeouts in _try_non_streaming are the operative control, and reasoning
     # workspaces get 600s per-request. Connect stays 5s — local backends should
     # bind immediately.
+    registry = BackendRegistry()
+    # Ollama backends are served from native /api/chat behind the unchanged
+    # OpenAI surface: /v1 drops most sampling and `think` (ollama_native.py).
+    # The limits live on the transport, which is what enforces them once a
+    # custom transport is supplied.
     _http_client = httpx.AsyncClient(
         timeout=httpx.Timeout(600.0, connect=5.0),
-        limits=httpx.Limits(
-            max_keepalive_connections=20,
-            max_connections=100,
+        transport=OllamaNativeTransport(
+            httpx.AsyncHTTPTransport(
+                limits=httpx.Limits(max_keepalive_connections=20, max_connections=100)
+            ),
+            is_ollama=lambda base: _is_ollama_backend(registry, base),
         ),
     )
     # Propagate shared client to the routing module (needed by _route_with_llm)
@@ -304,7 +318,6 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     _routing_mod._http_client = _http_client
     _streaming_mod._http_client = _http_client
     _council_mod._http_client = _http_client
-    registry = BackendRegistry()
     # Push registry + _http_client to modules that can't capture them at import time.
     import portal.platform.inference.router.handlers as _handlers_mod  # noqa: PLC0415
     import portal.platform.inference.router.non_streaming as _non_streaming_mod  # noqa: PLC0415

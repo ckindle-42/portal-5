@@ -1,0 +1,14 @@
+# Probe models for scripts/engine_contract_check.py — the live check that every
+# sampling key and the think control Portal sends actually reaches the model on
+# each inference engine, through production's own request builders.
+#
+# Pick small, installed models. Each role needs the capability it names:
+#   thinking_tools : thinking-capable AND tool-capable (think both ways, tools parity)
+#   non_thinking   : no thinking capability (think must be omitted, never 400)
+#   vision         : image input (multi-part content parity)
+ollama:
+  thinking_tools: huihui_ai/qwen3.5-abliterated:9b-ctx8k
+  non_thinking: granite4:tiny-h-ctx32k
+  vision: qwen3-vl:4b-instruct-q4_K_M
+omlx:
+  thinking_tools: huihui-ai--Huihui-Qwen3.5-9B-abliterated-mlx-4bit
