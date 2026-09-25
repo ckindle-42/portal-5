@@ -18,7 +18,7 @@ tags:
 - tests
 - evaluation
 created_at: 1788792773.476087
-updated_at: 1788792773.476087
+updated_at: 1790365849
 ---
 
 The WFE harness evaluates a model IN its workspace context — persona system
@@ -76,6 +76,16 @@ The harness (`tests/wfe/`):
   is caught in minutes. Deterministic persona resolution; token/latency
   economics captured; `--preflight` self-test reconciles observed strict-JSON
   behaviour (empty OR degenerate) against the model card's format_json_safe.
+- Pipeline mode (`WFE_ENGINE=pipeline`, source `.env` for `PIPELINE_API_KEY`) is
+  the standard path for seat testing: every request goes to the Portal pipeline
+  (`:9099`) under the workspace id, as Open WebUI sends it. The pipeline applies
+  seat sampling, `think`, the prompt append, routing and tool-call recovery.
+  Only an arm's explicit override is sent (caller wins key by key). Requests
+  carry `portal_client_tools_only`, so the seat is measured on the harness
+  toolset and calls come back to the harness. Each request's pipeline trace
+  (`/v1/trace/{id}`) confirms the served model: preflight refuses an arm the
+  pipeline would route elsewhere, and a row served by another model is BLOCKED.
+  Direct engine modes stay for raw model and engine probes.
 - Engine mode (`WFE_ENGINE`, `WFE_CHAT_BASE_URL`) — points the same campaign
   at any OpenAI-compatible engine (oMLX, mlx-serve, Rapid-MLX, vllm-mlx,
   mlx_lm.server) for an engine head-to-head. Ollama stays the model manager

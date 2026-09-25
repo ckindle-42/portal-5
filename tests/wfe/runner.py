@@ -50,6 +50,7 @@ from pathlib import Path
 import yaml
 
 from portal.platform.inference.ollama_native import to_native_request
+from portal.platform.inference.router.text_tool_calls import salvage_text_tool_calls
 from tests.wfe.checkers import CheckContext, apply_checkers
 from tests.wfe.schema import Economics, Outcome, ResultRow, env_fingerprint, sha12
 
@@ -61,8 +62,17 @@ OLLAMA = "http://localhost:11434"
 #: for an engine head-to-head. Model management (/api/ps, eviction, tags) stays on
 #: Ollama either way: in engine mode draining Ollama frees the memory the other
 #: engine needs, and the other engine's own load/unload is the operator's job.
+#:
+#: WFE_ENGINE=pipeline is the production path and the one seat A/Bs use: every
+#: request goes to the Portal pipeline (:9099) under the WORKSPACE id, exactly as
+#: Open WebUI sends it, and the pipeline applies seat sampling, think, the prompt
+#: append, routing and tool-call recovery itself. Only an arm's explicit override
+#: is sent. Direct engine modes stay for raw model/engine probes.
 ENGINE = os.environ.get("WFE_ENGINE", "ollama")
-CHAT_BASE = os.environ.get("WFE_CHAT_BASE_URL", OLLAMA).rstrip("/")
+PIPELINE = "http://localhost:9099"
+CHAT_BASE = os.environ.get(
+    "WFE_CHAT_BASE_URL", PIPELINE if ENGINE == "pipeline" else OLLAMA
+).rstrip("/")
 #: /api/chat exists only on Ollama; elsewhere the native-endpoint probes run on /v1.
 NATIVE_ENDPOINT = "api" if ENGINE == "ollama" else "v1"
 RESULTS = REPO / "tests" / "wfe" / "results"
@@ -591,6 +601,9 @@ SAMPLING_KEYS = (
 DELIVERABLE_KEYS = {
     "ollama": frozenset(SAMPLING_KEYS) - {"presence_penalty"},
     "omlx": frozenset(SAMPLING_KEYS),
+    # The seat behind the pipeline may be on Ollama, so assume the narrower set;
+    # a presence_penalty arm for an oMLX seat runs in direct omlx mode.
+    "pipeline": frozenset(SAMPLING_KEYS) - {"presence_penalty"},
 }
 
 
@@ -652,6 +665,8 @@ def _build_payload(
     temperature/top_p to 1.0 when absent). The harness applies the SAME
     translation, so an arm is measured exactly as production serves it."""
     endpoint, fmt = h["endpoint"], h.get("format", "none")
+    if ENGINE == "pipeline":
+        return _build_pipeline(model, messages, fmt, sampling, schemas, think, wire_stream)
     if endpoint == "v1":
         payload = _build_v1(model, messages, fmt, sampling, think, wire_stream)
         if schemas:
@@ -671,6 +686,58 @@ def _build_payload(
     if schemas:
         payload["tools"] = schemas
     return f"{OLLAMA}/api/chat", payload, []
+
+
+def _build_pipeline(
+    workspace: str,
+    messages: list[dict],
+    fmt: str,
+    sampling: dict,
+    schemas: list | None,
+    think: str,
+    wire_stream: bool,
+) -> tuple[str, dict, list[str]]:
+    """The body Open WebUI would send the pipeline for `workspace`, plus only
+    the arm's explicit overrides. No max_tokens: the pipeline applies the seat's
+    predict_limit, and sending one would override it."""
+    payload: dict = {"model": workspace, "messages": messages, "stream": wire_stream}
+    for k in SAMPLING_KEYS:
+        if sampling.get(k) is not None:
+            payload[k] = sampling[k]
+    if "repeat_penalty" in payload:
+        # The pipeline fills an oMLX seat's `repetition_penalty` by setdefault,
+        # so an override must name it too or the seat value wins there.
+        payload["repetition_penalty"] = payload["repeat_penalty"]
+    if think in ("true", "false"):
+        # `think` reaches Ollama seats (native adapter), chat_template_kwargs
+        # reaches oMLX seats; the pipeline keeps a caller's value on both.
+        payload["think"] = think == "true"
+        payload["chat_template_kwargs"] = {"enable_thinking": think == "true"}
+    if fmt == "json":
+        payload["response_format"] = {"type": "json_object"}
+    if schemas:
+        # The seat is measured on the harness toolset (the same proxy the direct
+        # modes use); everything else runs through the pipeline.
+        payload["tools"] = schemas
+        payload["portal_client_tools_only"] = True
+    return f"{CHAT_BASE}/v1/chat/completions", payload, []
+
+
+def pipeline_served(correlation_id: str) -> dict:
+    """The backend and model the pipeline actually used for one request, from
+    its per-request trace. Empty when the trace is unavailable."""
+    req = urllib.request.Request(
+        f"{CHAT_BASE}/v1/trace/{correlation_id}", headers=_pipeline_headers()
+    )
+    with contextlib.suppress(Exception), urllib.request.urlopen(req, timeout=10) as r:
+        rec = json.load(r)
+        return {"backend": rec.get("backend"), "model": rec.get("model")}
+    return {}
+
+
+def _pipeline_headers() -> dict:
+    key = os.environ.get("PIPELINE_API_KEY", "")
+    return {"Authorization": f"Bearer {key}"} if key else {}
 
 
 _CAN_THINK: dict[str, bool] = {}
@@ -786,9 +853,12 @@ def chat(
     hard_s = max(30, int(timeout))
     stall_s = min(STALL_S, hard_s)
     t0 = time.monotonic()
-    req = urllib.request.Request(
-        url, data=json.dumps(payload).encode(), headers={"Content-Type": "application/json"}
-    )
+    headers = {"Content-Type": "application/json"}
+    cid = ""
+    if ENGINE == "pipeline":
+        cid = f"wfe-{os.urandom(6).hex()}"
+        headers |= _pipeline_headers() | {"X-Correlation-ID": cid}
+    req = urllib.request.Request(url, data=json.dumps(payload).encode(), headers=headers)
     try:
         with urllib.request.urlopen(req, timeout=stall_s) as r:
             if wire_stream:
@@ -812,6 +882,7 @@ def chat(
         "economics": econ,
         "harness_caveats": caveats,
         "resolved_think": think,
+        "served": pipeline_served(cid) if cid else {},
     }
 
 
@@ -994,6 +1065,7 @@ def workspace_context(ws_id: str, persona: str | None = None) -> dict:
     # (router/preinject.py `_inject_system_prompt_append`). Until 2026-09-24 WFE
     # never did, so auto-coding / auto-compliance / auto-documents /
     # auto-general-uncensored were measured without their appended instructions.
+    sp_base = sp
     sp += ws.get("system_prompt_append") or ""
     declared = list(ws.get("tools") or [])
     surface = [t for t in TOOL_NAMES if t in declared] or TOOL_NAMES
@@ -1022,6 +1094,8 @@ def workspace_context(ws_id: str, persona: str | None = None) -> dict:
     return {
         "model": ws.get("model_hint"),
         "system_prompt": sp,
+        # What Open WebUI sends; the pipeline adds the append itself.
+        "system_prompt_base": sp_base,
         "persona_slug": slug,
         "persona_candidates": len(
             [
@@ -1168,6 +1242,26 @@ class _Loop:
         if content:
             self.assistant_texts.append(content)
 
+    def _read_reply(self, turn: int, resp: dict) -> tuple[str, list]:
+        """Record one reply and return its (content, tool_calls)."""
+        msg = resp.get("message") or {}
+        content, calls = msg.get("content") or "", msg.get("tool_calls") or []
+        # Production parity: the pipeline recovers a call the engine returned as
+        # text (P5-OMLX-QWEN3CODER-TOOLTEXT-001); in direct engine modes the
+        # harness must do the same or it scores recovered calls as lost.
+        recovered = 0
+        if not calls and self.use_tools and content:
+            content, calls = salvage_text_tool_calls(content, self.schemas)
+            recovered = len(calls)
+        self._record(turn, content, calls)
+        extra = {
+            "recovered_tool_calls": recovered,
+            "served": resp.get("served"),
+            "reasoning_chars": len(msg.get("reasoning") or ""),
+        }
+        self.transcript[-1].update({k: v for k, v in extra.items() if v})
+        return content, calls
+
     def step(self, turn: int, remaining: int) -> bool:
         """One turn. Returns True to continue the loop, False to stop."""
         try:
@@ -1189,12 +1283,7 @@ class _Loop:
 
         self.econ.merge(resp["economics"])
         self.finish_reason = resp.get("finish_reason") or self.finish_reason
-        msg = resp.get("message") or {}
-        content, calls = msg.get("content") or "", msg.get("tool_calls") or []
-        reasoning = msg.get("reasoning") or ""
-        self._record(turn, content, calls)
-        if reasoning:
-            self.transcript[-1]["reasoning_chars"] = len(reasoning)
+        content, calls = self._read_reply(turn, resp)
 
         if calls:
             self.messages.append({"role": "assistant", "content": content, "tool_calls": calls})
@@ -1211,7 +1300,7 @@ class _Loop:
             # request — which surfaced running granite4.2 (verbose reasoning,
             # invisible on /v1, so `content` came back empty turn after turn).
             self.transcript[-1]["empty_response"] = True
-            if reasoning:
+            if self.transcript[-1].get("reasoning_chars"):
                 # The model spent its whole output budget inside <think> and
                 # never emitted an answer — a truncation, not a wrong answer.
                 self.finish_reason = self.finish_reason or "length"
@@ -1322,6 +1411,14 @@ def _finalize_run(
     )
     if any(t.get("completion_signal_missing") for t in transcript):
         evidence = {**evidence, "completion_signal_missing": True}
+    recovered = sum(t.get("recovered_tool_calls", 0) for t in transcript)
+    if recovered:
+        evidence = {**evidence, "recovered_tool_calls": recovered}
+    served = sorted(
+        {t["served"]["model"] for t in transcript if (t.get("served") or {}).get("model")}
+    )
+    if served:
+        evidence = {**evidence, "served_models": served}
     return {
         "outcome": outcome.value,
         "notes": notes,

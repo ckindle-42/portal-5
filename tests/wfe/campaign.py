@@ -78,6 +78,7 @@ from tests.wfe.runner import (
     ENGINE,
     OLLAMA,
     TOOL_NAMES,
+    chat,
     load_suite,
     make_sandbox,
     preflight_harness,
@@ -110,7 +111,7 @@ def campaign_harness(wsc: dict, overrides: dict | None = None) -> dict:
     configured, including a misconfiguration — that is the signal Y needs
     fixing, or that X is not a fit."""
     h = dict(CAMPAIGN_HARNESS)
-    ws_think = wsc.get("think")
+    ws_think = None if ENGINE == "pipeline" else wsc.get("think")  # pipeline applies it
     # A `think` override is an explicit experiment arm (e.g. "how does this seat
     # score with reasoning off?"). It lives on the ROW (see arm_spec), and is
     # stamped in every row's harness record, so an override row can't pass for a
@@ -190,7 +191,9 @@ def ollama_reachable() -> bool:
     other engine, so that is the one whose absence stops the sweep."""
     import urllib.request
 
-    url = f"{OLLAMA}/api/version" if ENGINE == "ollama" else f"{CHAT_BASE}/v1/models"
+    url = {"ollama": f"{OLLAMA}/api/version", "pipeline": f"{CHAT_BASE}/health"}.get(
+        ENGINE, f"{CHAT_BASE}/v1/models"
+    )
     try:
         with urllib.request.urlopen(url, timeout=5) as r:
             return bool(json.load(r))
@@ -266,11 +269,19 @@ def drain_others(keep: str, timeout_s: int = DRAIN_TIMEOUT_S) -> list[str]:
     return evicted
 
 
+#: oMLX itself — the chat base in omlx mode; in pipeline mode the engine behind it.
+OMLX_BASE = (
+    CHAT_BASE
+    if ENGINE == "omlx"
+    else os.environ.get("WFE_OMLX_URL", "http://127.0.0.1:8085").rstrip("/")
+)
+
+
 def _omlx_pool() -> dict:
     import urllib.request
 
     try:
-        with urllib.request.urlopen(f"{CHAT_BASE}/health", timeout=5) as r:
+        with urllib.request.urlopen(f"{OMLX_BASE}/health", timeout=5) as r:
             return json.load(r).get("engine_pool") or {}
     except Exception:
         return {}
@@ -689,6 +700,23 @@ def rescore_debug_dir(debug_dir: Path, campaign_dir: Path | None = None) -> list
 # --------------------------------------------------------------------------
 
 
+def preflight_pipeline(workspaces: list[str], model: str) -> dict:
+    """Pipeline mode: the pipeline owns the wire, so the raw transport probe is
+    moot. What must hold is that each seat is actually served by the arm's model
+    (a fallback or alias drift would make every row describe another model)."""
+    findings = []
+    for ws in workspaces:
+        try:
+            r = chat(ws, [{"role": "user", "content": "Reply with the word ready."}], tools=False)
+            served = (r.get("served") or {}).get("model")
+        except Exception as e:
+            served, findings = None, [*findings, f"{ws}: request failed: {e}"]
+            continue
+        if served != model:
+            findings.append(f"{ws}: pipeline served {served!r}, arm is {model!r}")
+    return {"model": model, "verdict": "REVIEW" if findings else "OK", "findings": findings}
+
+
 def preflight_arm(campaign_dir: Path, arm: str, force: bool = False) -> dict:
     """Probe an arm's transport before spending an arm's worth of wall clock.
 
@@ -727,6 +755,11 @@ def _sampling_for(wsc: dict, repeat: int, overrides: dict | None = None) -> dict
     TRUNCATED rows production would never produce — worst on thinking arms.
     HARNESS_RUNAWAY_CAP only stops a single turn that has genuinely run away;
     `max_tokens_source` records which cap applied."""
+    if ENGINE == "pipeline":
+        # The pipeline serves the seat's own sampling and output cap; only an
+        # arm's explicit override is sent, and it wins key by key (caller wins).
+        forced = (overrides or {}).get("sampling") or {}
+        return {**forced, "seed": 1000 + repeat, "max_tokens_source": "pipeline"}
     s = {"max_tokens": HARNESS_RUNAWAY_CAP, **(wsc.get("sampling") or {})}
     s["max_tokens_source"] = (
         "predict_limit" if (wsc.get("sampling") or {}).get("max_tokens") else "harness_runaway_cap"
@@ -797,9 +830,10 @@ def run_row(
     harness = campaign_harness(wsc, overrides)
     t0 = time.monotonic()
     try:
+        pipe = ENGINE == "pipeline"
         out = run_task(
-            row_model(r),
-            wsc["system_prompt"],
+            r["workspace"] if pipe else row_model(r),
+            wsc["system_prompt_base"] if pipe else wsc["system_prompt"],
             task,
             sandbox,
             max_turns,
@@ -824,6 +858,15 @@ def run_row(
             "final_text_head": "",
             "transcript": [],
             "tool_call_log": [],
+        }
+    served = (out.get("evidence") or {}).get("served_models")
+    if ENGINE == "pipeline" and served and served != [row_model(r)]:
+        # The pipeline routed this seat to another model (fallback, alias drift):
+        # the row says nothing about the arm, so it must not count as seat evidence.
+        out = {
+            **out,
+            "outcome": Outcome.BLOCKED.value,
+            "notes": f"pipeline served {served}, arm is {row_model(r)} | {out.get('notes', '')}",
         }
     econ = dict(out.get("economics") or {})
     econ["cold_load"] = cold
@@ -949,7 +992,11 @@ def _rows_to_run(
         return [], {"arm": arm, "ran": 0, "blocked": len(todo)}
 
     model = row_model(arm_rows[0])
-    pf = preflight_arm(campaign_dir, model, force_preflight)
+    pf = (
+        preflight_pipeline(sorted({r["workspace"] for r in arm_rows}), model)
+        if ENGINE == "pipeline"
+        else preflight_arm(campaign_dir, model, force_preflight)
+    )
     findings = "; ".join(pf.get("findings") or [])
     if pf.get("verdict") != "OK" and not force_preflight:
         for r in todo:
@@ -1001,7 +1048,7 @@ def execute_arm(
     evicted = drain_others(model)
     if evicted:
         _log(campaign_dir, f"arm {arm}: drained {len(evicted)} resident model(s): {evicted}")
-    if ENGINE == "omlx":
+    if ENGINE == "omlx" or (ENGINE == "pipeline" and model not in model_sizes()):
         _log(campaign_dir, f"arm {arm}: {drain_omlx()}")
 
     _log(campaign_dir, f"arm {arm}: {len(todo)} runs pending")
@@ -1347,7 +1394,11 @@ def _cmd_smoke(args, plan: Path) -> int:
     (d / "preflight").mkdir(parents=True, exist_ok=True)
     manifest = {"campaign_id": d.name, "env": env_fingerprint(OLLAMA), "rows": [r]}
     save_manifest(d, manifest)
-    pf = preflight_arm(d, row_model(r), force=True)
+    pf = (
+        preflight_pipeline([r["workspace"]], row_model(r))
+        if ENGINE == "pipeline"
+        else preflight_arm(d, row_model(r), force=True)
+    )
     print(json.dumps(pf, indent=1))
     if pf.get("verdict") != "OK" and not args.force:
         print("\nsmoke: preflight REVIEW — fix or pass --force", file=sys.stderr)
