@@ -50,12 +50,14 @@ from portal.platform.inference.router.metrics import (
 )
 from portal.platform.inference.router.non_streaming import _try_non_streaming
 from portal.platform.inference.router.state import _record_error
+from portal.platform.inference.router.text_tool_calls import (
+    TextToolCallHoldback,
+    salvage_text_tool_calls,
+)
 from portal.platform.inference.router.thinking import extract_think_inner, strip_think
 from portal.platform.inference.router.tools import (
-    TextToolCallHoldback,
     _dispatch_tool_call,
     _select_explicit_required_tool,
-    salvage_text_tool_calls,
 )
 from portal.platform.inference.router.trace import (
     finalize_trace,
@@ -642,7 +644,8 @@ async def _stream_with_tool_loop_impl(
         # accumulated reasoning as the response rather than returning empty.
         # Mirrors the non-stream promotion in router_pipe.py:1308-1335.
         if not _content_emitted and _think_content_buf:
-            _fallback = " ".join(_think_content_buf).strip()
+            # The buffer holds streamed token fragments: join them as-is.
+            _fallback = "".join(_think_content_buf).strip()
             if _fallback:
                 logger.warning(
                     "Streaming hop %d/%d: model produced only thinking content "
@@ -1565,6 +1568,13 @@ async def _build_streaming_request(
     # Resolve effective tool list for this request (M2)
     persona_data: PersonaSpec | dict[str, Any] = _PERSONA_MAP.get(persona, {})
     effective_tools = _resolve_persona_tools(persona_data, workspace_id)
+    # portal_client_tools_only: a client that brings its own toolset (an
+    # external agent, the WFE harness) is offered exactly those tools. The tool
+    # loop still runs, so a call written as text is recovered and passed back
+    # to the client; the workspace's MCP tools are neither offered nor dispatched.
+    _client_tools_only = bool(backend_body.pop("portal_client_tools_only", False))
+    if _client_tools_only:
+        effective_tools = []
     # Per-model supports_tools lookup for both backend types — see
     # TASK_TOOL_SUPPORT_AUDIT_V1 §A4. The previous Ollama-default-true
     # logic caused tool-using workspaces to error when their fallback
@@ -1585,7 +1595,9 @@ async def _build_streaming_request(
         backend_body.pop("tool_choice", None)
         _has_tools = False
     else:
-        _has_tools = bool(effective_tools) and backend_supports_tools
+        _has_tools = backend_supports_tools and (
+            bool(effective_tools) or (_client_tools_only and bool(backend_body.get("tools")))
+        )
     if effective_tools and not backend_supports_tools:
         logger.info(
             "Tool-call: workspace=%s persona=%s model=%s does not declare "
@@ -1597,7 +1609,9 @@ async def _build_streaming_request(
             target_model,
         )
 
-    if _has_tools:
+    if _has_tools and _client_tools_only:
+        backend_body["tool_choice"] = backend_body.get("tool_choice") or "auto"
+    elif _has_tools:
         from portal.platform.inference.tool_registry import tool_registry
 
         _required_tool = None
