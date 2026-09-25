@@ -49,7 +49,9 @@ models:
       - "harmony format BREAKS under API 'format':'json' + think:false — returns empty/degenerate content (3-arm diagnostic, judgment 0.000 artifact). Use native settings; think:true works; strict-JSON tasks need the full council system prompt (abbreviated prompts degraded abstention)."
     verified: behavioral-only
     source: tests/benchmarks/results/judgment_probe_v6_gptoss_native_20260907T043151Z.json
-    recommended_sampling: {pending_research: true}
+    card_source: "https://huggingface.co/openai/gpt-oss-20b (README 'Recommended Sampling Parameters') (2026-09-25)"
+    recommended_sampling: {temperature: 1.0, top_p: 1.0}
+    prompt_contract: "Harmony format; reasoning effort set in the system prompt (low/medium/high). generation_config.json sets no sampling; the README recommends temperature 1.0, top_p 1.0."
     max_context: {pending_research: true}
     tools: {pending_research: true}
 
@@ -60,7 +62,9 @@ models:
       - "4.2:30b-q4_K_M honored system and scored F2 0.6962 vs 4.1:30b 0.8434 on identical instrument — real gap, parameters standardized (temp 0)."
     verified: behavioral-only
     source: tests/benchmarks/results/judgment_probe_v6_rescored_20260906T224306Z.json
-    recommended_sampling: {pending_research: true}   # stock ships temp 1.0 / top_p 0.95 — card recommendation TBD
+    card_source: "https://huggingface.co/ibm-granite/granite-4.2-8b/resolve/main/generation_config.json (2026-09-25)"
+    recommended_sampling: {temperature: 1.0, top_p: 0.95}
+    prompt_contract: "Reasoning model (built-in <think>...</think>), base granite-4.1-8b-base. Unlike 4.1, a reasoning_uncontrolled flag DOES apply: a seat must set think explicitly."
     max_context: {pending_research: true}
 
   glm-4.7-flash:
@@ -71,7 +75,12 @@ models:
     max_context: 131072
     verified: partial
     source: config/MODEL_CATALOG.md (glm-4.7-flash:Q4_K_M-ctx64k entry)
-    recommended_sampling: {pending_research: true}
+    card_source: "https://huggingface.co/zai-org/GLM-4.7-Flash (README 'Default Settings') (2026-09-25)"
+    recommended_sampling: {temperature: 1.0, top_p: 0.95}
+    recommended_sampling_modes:
+      default: {temperature: 1.0, top_p: 0.95}
+      agentic_coding: {temperature: 0.7, top_p: 1.0}
+    prompt_contract: "Card: default 1.0/0.95 for most tasks; Terminal-Bench / SWE-bench run at 0.7/1.0 with 16K max new tokens; multi-turn agentic tasks want Preserved Thinking mode on."
 
   nemotron-3.5-lightning:
     status: wiring-verified
@@ -79,7 +88,9 @@ models:
       - "CASE-SENSITIVE TAG: installed spelling is ':q4_K_M-ctx8k' (lowercase q) — every config reference must use the installed case (three personas had silent 404s)."
       - "rejected for compliance council: abstain-recall 0.25 (Sept-6 sweep) — lane-specific, not global."
     verified: wiring-only
-    recommended_sampling: {pending_research: true}
+    card_source: "https://huggingface.co/nvidia/NVIDIA-Nemotron-3.5-Lightning-30B-A3B-BF16 (README 'Recommended Sampling' + generation_config.json) (2026-09-25)"
+    recommended_sampling: {temperature: 1.0, top_p: 0.95}
+    prompt_contract: "Lineage: bartowski GGUF and txgsync oQ4e-mtp are quants of nvidia/NVIDIA-Nemotron-3.5-Lightning-30B-A3B-BF16."
     max_context: {pending_research: true}
 
   # ---- families owing Phase-0.6 card research (registry coverage debt) ----
@@ -88,9 +99,30 @@ models:
   qwen3:
     status: verified-card
     verified: true
+    source: "https://huggingface.co/Qwen/Qwen3-8B (README best practices) (2026-09-25)"
+    recommended_sampling: {temperature: 0.7, top_p: 0.8, top_k: 20, min_p: 0.0}
+    recommended_sampling_modes:
+      thinking: {temperature: 0.6, top_p: 0.95, top_k: 20, min_p: 0.0}
+      instruct: {temperature: 0.7, top_p: 0.8, top_k: 20, min_p: 0.0}
+    prompt_contract: "Generic Qwen3 (2504) hybrid-thinking card. 'DO NOT use greedy decoding' (repetition/loops). Coder, Coder-Next and VL have their own keys below — longest match wins."
+  qwen3-coder:
+    status: verified-card
+    verified: true
     source: "https://huggingface.co/Qwen/Qwen3-Coder-30B-A3B-Instruct/resolve/main/generation_config.json (2026-09-25)"
     recommended_sampling: {temperature: 0.7, top_p: 0.8, top_k: 20, repeat_penalty: 1.05}
-    prompt_contract: "Values are Qwen3-Coder-30B-A3B-Instruct's (non-thinking coder). Other qwen3 tags in this family (qwen3-vl) need their own card check."
+    prompt_contract: "Non-thinking coder; Qwen3-Coder XML tool calls. Matches qwen3-coder:30b tags and the oMLX Qwen3-Coder-30B-A3B-Instruct-4bit id."
+  qwen3-coder-next:
+    status: verified-card
+    verified: true
+    source: "https://huggingface.co/Qwen/Qwen3-Coder-Next (README + generation_config.json) (2026-09-25)"
+    recommended_sampling: {temperature: 1.0, top_p: 0.95, top_k: 40}
+    prompt_contract: "Different card from Qwen3-Coder-30B: 1.0/0.95/40. Lineage: huihui-ai/Huihui-Qwen3-Coder-Next-abliterated (bartowski GGUF, portal5/qwen3-coder-next-abliterated) keeps top_p 0.95 / top_k 40 and inherits the base temperature."
+  qwen3-vl:
+    status: verified-card
+    verified: true
+    source: "https://huggingface.co/Qwen/Qwen3-VL-32B-Instruct (README + generation_config.json) (2026-09-25)"
+    recommended_sampling: {temperature: 0.7, top_p: 0.8, top_k: 20, repeat_penalty: 1.0, presence_penalty: 1.5}
+    prompt_contract: "Instruct VL card for vision tasks; the README's text-only setting is temperature 1.0 / presence_penalty 2.0 and 32K output."
   qwen3.5:
     status: verified-card
     verified: true
@@ -108,7 +140,11 @@ models:
     verified: true
     source: "https://huggingface.co/Qwen/Qwen3.6-35B-A3B/resolve/main/generation_config.json (2026-09-25)"
     recommended_sampling: {temperature: 1.0, top_p: 0.95, top_k: 20}
-    prompt_contract: "Thinking-mode defaults; see qwen3.5 for the instruct-mode (0.7/0.8/20, presence 1.5) values Unsloth documents for this generation."
+    recommended_sampling_modes:
+      thinking_general: {temperature: 1.0, top_p: 0.95, top_k: 20, min_p: 0.0, presence_penalty: 0.0, repeat_penalty: 1.0}
+      thinking_precise_coding: {temperature: 0.6, top_p: 0.95, top_k: 20, min_p: 0.0, presence_penalty: 0.0, repeat_penalty: 1.0}
+      instruct: {temperature: 0.7, top_p: 0.8, top_k: 20, min_p: 0.0, presence_penalty: 1.5, repeat_penalty: 1.0}
+    prompt_contract: "Thinking on by default. Modes from https://huggingface.co/Qwen/Qwen3.6-27B README (2026-09-25). Lineage covers huihui abliterations, HauhauCS Aggressive (GGUF arch qwen35moe; tags carry qwen3.6/qwen36), and KAT-Coder/Ornith, which have their own keys."
   qwen3.8:
     status: verified-card
     verified: true
@@ -143,9 +179,14 @@ models:
     recommended_sampling: {temperature: 0.8, top_p: 0.95}
     prompt_contract: "phi4-mini-reasoning is math-only by design ('designed and tested for math reasoning only'); card system prompt 'Your name is Phi, an AI math expert developed by Microsoft.'; max_new_tokens 32768; repetitive in very long chats."
   mistral-small:
-    status: research-debt
+    status: verified-card
+    verified: true
+    source: "https://huggingface.co/mistralai/Mistral-Small-3.2-24B-Instruct-2506/resolve/main/generation_config.json (2026-09-25)"
+    recommended_sampling: {temperature: 0.15}
+    prompt_contract: "Mistral recommends a low temperature (0.15) and its own system prompt. Only bench/persona use in this fleet (mistral-small3.2:24b)."
   command-r:
     status: research-debt
+    prompt_contract: "Not a model_hint for any workspace (folded 2026-09-12). Research only if it comes back."
   deepseek-r1:
     status: verified-card
     verified: true
@@ -153,14 +194,29 @@ models:
     recommended_sampling: {temperature: 0.6, top_p: 0.95}
     prompt_contract: "Always reasons (no <think> forcing needed since 0528). Max generation 64K tokens. Official system prompt names the model and today's date."
   llama:
-    status: research-debt
+    status: verified-card
+    verified: true
+    source: "https://huggingface.co/meta-llama/Llama-3.1-8B-Instruct/resolve/main/generation_config.json (2026-09-25)"
+    recommended_sampling: {temperature: 0.6, top_p: 0.9}
+    prompt_contract: "Llama-3.1 instruct defaults; Llama 3.2/3.3 instruct ship the same values."
+  baronllm:
+    status: verified-lineage
+    verified: true
+    source: "lineage: huihui-ai/BaronLLM_Offensive_Security-abliterated-GGUF -> AlicanKiraz0/BaronLLM-llama3.1-v1 (repo removed from HF 2026-09-25) -> Llama-3.1-8B-Instruct; GGUF arch llama (2026-09-25)"
+    recommended_sampling: {temperature: 0.6, top_p: 0.9}
+    prompt_contract: "The finetuner card is gone, so the base Llama-3.1-8B-Instruct defaults stand in. Offensive-security SFT + abliteration; no tool-call training is claimed."
   lfm2:
     status: verified-card
     verified: true
     source: "https://huggingface.co/LiquidAI/LFM2.5-8B-A1B/resolve/main/generation_config.json (2026-09-25)"
     recommended_sampling: {temperature: 0.2, top_k: 80, repeat_penalty: 1.05}
+    prompt_contract: "Lineage covers gaston-parravicini/LFM2.5-8B-A1B-Uncensored-Gaston-GGUF (base_model LiquidAI/LFM2.5-8B-A1B)."
   nex-n2:
-    status: research-debt
+    status: verified-card
+    verified: true
+    source: "https://huggingface.co/nex-agi/Nex-N2-mini + https://huggingface.co/nex-agi/Nex-N2.5-mini (README sampling parameters) (2026-09-25)"
+    recommended_sampling: {temperature: 0.7, top_p: 0.95, top_k: 40}
+    prompt_contract: "No generation_config.json in either repo; both READMEs state 0.7/0.95/40. Covers sjakek/Nex-N2-mini-GGUF and orcarouter Nex-N2.5-mini-Uncensored (GGUF/MLX)."
   laguna:
     status: verified-card
     verified: true
@@ -202,8 +258,57 @@ models:
     behavioral_quirks:
       - "2026-09-25, 6-snippet CWE set, n=3: open-ended prompt (auto-security system prompt + find/CVSS/fix instruction, temp 0.3) = 15/18 with 3/3 clean-control false positives (invents CWE-306/327/522/798), outputs up to ~9.7k chars; trained prompt + card sampling = 17/18, 0/3 false positives, ~250-500 tokens. The FPs were prompt-contract mismatch, not model quality."
   kat-coder:
-    status: research-debt
+    status: verified-card
+    verified: true
+    source: "https://huggingface.co/Kwaipilot/KAT-Coder-V2.5-Dev (README + generation_config.json) (2026-09-25)"
+    recommended_sampling: {temperature: 1.0, top_p: 0.95, top_k: 20}
+    recommended_sampling_modes:
+      default: {temperature: 1.0, top_p: 0.95, top_k: 20}
+      terminal_agent: {temperature: 0.7, top_p: 1.0}
+    prompt_contract: "Qwen3.5/3.6 tokenizer lineage. SWE-bench is evaluated at 1.0/0.95; Terminal-Bench and PinchBench at 0.7/1.0."
   hermes:
-    status: research-debt
+    status: verified-card
+    verified: true
+    source: "https://huggingface.co/NousResearch/Hermes-3-Llama-3.1-8B/resolve/main/generation_config.json (2026-09-25)"
+    recommended_sampling: {temperature: 0.6, top_p: 0.9}
+    prompt_contract: "ChatML; bench/persona use only (hermes3:8b)."
   tongyi:
-    status: research-debt
+    status: verified-lineage
+    verified: true
+    source: "https://github.com/Alibaba-NLP/DeepResearch inference/react_agent.py defaults (the HF repo ships no generation_config.json) (2026-09-25)"
+    recommended_sampling: {temperature: 0.6, top_p: 0.95, presence_penalty: 1.1}
+    prompt_contract: "ReAct deep-research agent (Qwen3-30B-A3B lineage). Vendor inference loop, not a chat card. Covers the huihui abliterations (GGUF + MLX)."
+  ornith:
+    status: verified-card
+    verified: true
+    source: "https://huggingface.co/deepreinforce-ai/Ornith-1.0-35B + https://huggingface.co/ornith-ai/Ornith-1.5-35B-A3B (generation_config.json) (2026-09-25)"
+    recommended_sampling: {temperature: 1.0, top_p: 0.95, top_k: 20}
+    prompt_contract: "Qwen3.6-35B-A3B finetune. Card agentic evals run at 1.0/0.95 (Terminal-Bench/NL2Repo at 1.0/1.0) with a modified Qwen chat template (chat_template.jinja in the repo). portal5/ornith15-35b is the 0xKitkat uncensored build (GGUF base_model chain: Ornith-1.5 + wangzhang Qwen3.6 abliterated)."
+  north-mini-code:
+    status: verified-card
+    verified: true
+    source: "https://huggingface.co/CohereLabs/North-Mini-Code-1.0 (README) (2026-09-25)"
+    recommended_sampling: {temperature: 1.0, top_p: 0.95}
+    prompt_contract: "Cohere coder; the lineage runs coder543 QAD GGUF -> CohereLabs/North-Mini-Code-1.0-w4a16 -> base. generation_config.json sets no sampling; the README recommends 1.0/0.95."
+  omnicoder:
+    status: verified-lineage
+    verified: true
+    source: "GGUF general.base_model = Qwen/Qwen3.5-9B; the Tesslate/OmniCoder-2-9B card is not reachable on HF (2026-09-25)"
+    recommended_sampling: {temperature: 0.7, top_p: 0.8, top_k: 20, presence_penalty: 1.5}
+    recommended_sampling_modes:
+      instruct_general: {temperature: 0.7, top_p: 0.8, top_k: 20, presence_penalty: 1.5}
+      thinking_precise_coding: {temperature: 0.6, top_p: 0.95, top_k: 20, presence_penalty: 0.0}
+    prompt_contract: "Qwen3.5-9B coding finetune; the finetuner card is gone, so the qwen3.5 base modes stand in. The local tag bakes temperature 0.5."
+  agentworld:
+    status: verified-card
+    verified: true
+    source: "https://huggingface.co/Qwen/Qwen-AgentWorld-35B-A3B (README + generation_config.json) (2026-09-25)"
+    recommended_sampling: {temperature: 0.6, top_p: 0.95, top_k: 20}
+    prompt_contract: "WORLD MODEL (predicts environment observations), thinking on by default — not a general coding agent. The Jiunsong SuperQwen abliterated build adds repetition_penalty 1.05. Base Qwen3.5-35B-A3B."
+  supergemma4:
+    status: verified-lineage
+    verified: true
+    source: "https://huggingface.co/Jiunsong/supergemma4-26b-abliterated-multimodal/resolve/main/generation_config.json (2026-09-25)"
+    recommended_sampling: {temperature: 1.0, top_p: 0.95, top_k: 64}
+    prompt_contract: "gemma-4-26b-it abliteration; keeps the gemma4 card sampling."
+
