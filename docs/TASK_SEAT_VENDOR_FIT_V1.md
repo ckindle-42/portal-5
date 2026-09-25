@@ -5,6 +5,12 @@
 
 ## Current state (2026-09-25 evening) — read before running anything
 
+> **Superseded for execution by `docs/TASK_SEAT_SAMPLING_AB_V1.md`** (2026-09-25,
+> late): the operator switched production seats to card sampling by purpose
+> (security exempt) and replaced Ollama `presence_penalty` with
+> `repeat_penalty: 1.05`. S2 now A/Bs card (incumbent) against the prior config;
+> S3–S5 carry over there. This file remains the method reference.
+
 ### What was wrong, and is now fixed
 
 Nothing below failed loudly — every request returned 200. Each one silently made

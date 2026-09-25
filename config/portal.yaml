@@ -293,10 +293,12 @@ workspaces:
     name: 🔓 Portal Extract (Uncensored)
     description: |-
       Text-only entity/data extraction and summarization with an uncensored model — fewer content refusals on sensitive source text. LFM2.5-8B-A1B Uncensored (gaston-parravicini, ~5GB, abliterated LFM2.5 base). BENCH-PASSED: EX-01 5/5 (100%, 18s) on this hardware. tools=false — extraction/summarization only, no tool loop. Explicit-select; not a default.
+    # 2026-09-25: sampling set to the lfm2 card (by purpose); prior values + A/B: docs/TASK_SEAT_SAMPLING_AB_V1.md
     model_hint: hf.co/gaston-parravicini/LFM2.5-8B-A1B-Uncensored-Gaston-GGUF:q4_K_M-ctx8k
+    top_k: 80
     context_limit: 8192
     keep_alive: 10m
-    temperature: 0.6
+    temperature: 0.2
     top_p: 0.95
     # TASK_SAMPLING_PROFILE_AUDIT_V1: 1.05 is Liquid AI's verified value.
     repeat_penalty: 1.05
@@ -326,8 +328,9 @@ workspaces:
     # per operator decision — don't newly enable thinking pending evaluation.
     think: false
     think_profiles:
-      thinking: {temperature: 1.0, top_p: 0.95, top_k: 20, min_p: 0.0, presence_penalty: 0.0, repeat_penalty: 1.0}
-      instruct: {temperature: 0.7, top_p: 0.8, top_k: 20, min_p: 0.0, presence_penalty: 1.5, repeat_penalty: 1.0}
+      thinking: {temperature: 1.0, top_p: 0.95, top_k: 20, min_p: 0.0, repeat_penalty: 1.0}
+      # presence_penalty 1.5 (card) is a no-op on Ollama; repeat_penalty 1.05 substitutes (2026-09-25, calibrate: docs/TASK_SEAT_SAMPLING_AB_V1.md)
+      instruct: {temperature: 0.7, top_p: 0.8, top_k: 20, min_p: 0.0, repeat_penalty: 1.05}
     system_prompt_append: |2-
   
   
@@ -346,13 +349,16 @@ workspaces:
     name: 🗑️ Portal Uncensored Throwaway
     description: |-
       General-purpose uncensored conversation lane — not coding-specific, not a fallback lane. Backed by the 3 MoE models added 2026-08-26 for the local-dev IDE MoE-vs-dense comparison ([[project_local_dev_ide_moe_vs_dense]]). Primary: HauhauCS Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive (same abliteration lineage already proven 0/465 refusals in auto-creative). Variants swap in the other two MoE additions (gemma4-heretic-coder, ornith15-coder) as alternates, all repointed at general discussion instead of coding. web_search/web_fetch/news_search wired in for fact lookups the model isn't confident on. Deliberately separate from auto-general-uncensored (dense 27B, kept as-is — chosen for a reason, not swapped).
+    # 2026-09-25: sampling set to the qwen3.6 card (by purpose); prior values + A/B: docs/TASK_SEAT_SAMPLING_AB_V1.md
     model_hint: portal5/hauhaucs-qwen36-35b:q4_K_M-ctx256k
+    # presence_penalty 1.5 (card) is a no-op on Ollama; repeat_penalty 1.05 substitutes (2026-09-25, calibrate: docs/TASK_SEAT_SAMPLING_AB_V1.md)
+    repeat_penalty: 1.05
     context_limit: 32768
     keep_alive: 10m
-    temperature: 0.8
-    top_p: 0.95
-    top_k: 50
-    min_p: 0.02
+    temperature: 0.7
+    top_p: 0.8
+    top_k: 20
+    min_p: 0.0
     think: false
     system_prompt: |
       You are an uncensored general-purpose conversational assistant covering any topic —
@@ -375,11 +381,20 @@ workspaces:
       gemma4-heretic:
         name: 🗑️ Portal Uncensored Throwaway (Gemma-4-26B Heretic)
         description: Same general-purpose uncensored lane, alternate backend — Gemma-4-26B-A4B heretic/uncensored MoE (added 2026-08-26). Untested for conversational quality vs the HauhauCS primary; pick this to compare.
+        # 2026-09-25: sampling set to the gemma4 card (by purpose); prior values + A/B: docs/TASK_SEAT_SAMPLING_AB_V1.md
         model_hint: portal5/gemma4-26b-heretic:q4_K_M-ctx256k
+        repeat_penalty: 1.0  # gemma4 card; the base's 1.05 substitutes a Qwen presence_penalty
+        top_p: 0.95
+        top_k: 64
+        temperature: 1.0
       ornith15:
         name: 🗑️ Portal Uncensored Throwaway (Ornith-1.5)
         description: Same general-purpose uncensored lane, alternate backend — Ornith-1.5-35B-A3B uncensored MoE (added 2026-08-26). Untested for conversational quality vs the HauhauCS primary; pick this to compare.
+        # 2026-09-25: sampling set to the ornith card (by purpose); prior values + A/B: docs/TASK_SEAT_SAMPLING_AB_V1.md
         model_hint: portal5/ornith15-35b:q4_K_M-ctx256k
+        top_p: 0.95
+        top_k: 20
+        temperature: 1.0
   auto-daily:
     module: general
     name: 🪶 Portal Daily Driver
@@ -460,12 +475,13 @@ workspaces:
     module: coding
     name: 💻 Portal Code Expert
     description: Code generation, debugging, architecture review (Qwen3-Coder-30B MoE, Ollama, 0.22s TTFT)
+    # 2026-09-25: sampling set to the qwen3-coder card (by purpose); prior values + A/B: docs/TASK_SEAT_SAMPLING_AB_V1.md
     model_hint: qwen3-coder:30b-a3b-q4_K_M-ctx256k
     context_limit: 262144
     predict_limit: 16384
-    temperature: 0.2
-    top_p: 0.9
-    top_k: 40
+    temperature: 0.7
+    top_p: 0.8
+    top_k: 20
     min_p: 0.05
     repeat_penalty: 1.05
     system_prompt_append: "\n\nCRITICAL OUTPUT RULE: This is a SINGLE-TURN response — deliver everything now. Do NOT promise, plan, or say 'I will'. IMMEDIATELY produce your complete output. For code: wrap in fenced code blocks (```language). For terminal output: emit the exact shell output, nothing else. Your response must be complete and self-contained — the user cannot follow up."
@@ -485,12 +501,13 @@ workspaces:
       laguna:
         name: 🔄 Portal IDE / Agentic Coder
         description: 'Multi-turn agentic coding workspace — the default model for opencode and Claude Code in this repo. Laguna-XS-2.1 (Poolside AI, 33B-A3B MoE, ~19GB, 70.9% SWE-bench Verified, interleaved reasoning; replaced XS.2 2026-09-25 — XS.2 could not stop after a tool call on this stack; 2.1 scored 29/42 on the laguna-seat WFE via oMLX, coding 9/9). Tuned for the read → understand → edit → verify loop: inspects files via explore_repository + execute_bash, makes targeted changes, runs tests, iterates. Devstral-small-2 (V2, 256K ctx, vision) is the first fallback in the coding pool. For one-shot code generation, use auto-coding instead.'
+        # 2026-09-25: sampling set to the laguna card (by purpose); prior values + A/B: docs/TASK_SEAT_SAMPLING_AB_V1.md
         model_hint: portal5/laguna-xs21:q4_K_M-ctx128k
         context_limit: 131072
         keep_alive: 15m
-        temperature: 0.2
-        top_p: 0.9
-        top_k: 40
+        temperature: 1.0
+        top_p: 1.0
+        top_k: 20
         min_p: 0.05
         repeat_penalty: 1.05
         system_prompt_append: "\n\nAGENTIC CODING LOOP — follow this pattern every turn:\n1. EXPLORE: call explore_repository('what you need to find') first.\n   It returns exact file paths and line numbers — use these, do not guess paths.\n2. READ: call read_text_file(path=...) to read those specific files before editing.\n   NEVER use execute_bash cat/head/tail to read project files —\n   execute_bash runs inside an isolated Docker container with NO access to the\n   host filesystem. read_text_file/list_directory/search_files are the only way\n   to read project files.\n3. PLAN: state the minimal change needed and which files are affected\n4. EDIT: call write_file(path=..., content=...) — do not rewrite whole files\n5. VERIFY: run tests or linters with execute_bash after every change\n   (pytest tests/unit/ -q; ruff check <file>)\n6. REPORT: state what changed, what passed, and what remains\n\nTOOL ROUTING:\n- read_text_file, write_file, search_files, list_directory:\n  host-native pipeline tools — call these directly by name for ALL file I/O\n- execute_bash / execute_python / execute_nodejs:\n  isolated sandbox container — use ONLY for running code, tests, and linters\n\nHARD CONSTRAINTS:\n- Never hardcode model names, backend URLs, or credentials\n- Never modify Open WebUI source — use extension points only\n- Never commit .env or add cloud dependencies\n- Run pytest before declaring a fix complete\n- Keep portal.platform.inference lean — no ML framework imports\n- Changes to workspace routing must pass the Rule 6 consistency check:\n  python3 -c \"from portal.platform.inference.router_pipe import WORKSPACES; import yaml; cfg=yaml.safe_load(open('config/backends.yaml')); assert set(WORKSPACES)==set(cfg['workspace_routing']), 'mismatch'\""
@@ -514,6 +531,7 @@ workspaces:
         name: 💻 Portal Code Expert (North-Mini)
         description: 'Additional code generation option for model diversity — North-Mini-Code-1.0-QAD (Cohere Labs, Apache 2.0, ~19.3GB NVFP4 W4A16, cohere2moe arch, 256K ctx, 64K out, 30B-A3B MoE 128 experts top-8). Agentic-coding RL with verifiable rewards; QAD claims >99% accuracy recovery vs unquantized. PROMOTED 2026-06-30 from bench-north-mini-code (V10 candidate eval): 4/5 tool-chain + 4/5 SWE-handoff markers, cohere2moe smoke-loaded cleanly on this Ollama build. This is an *option*, not a replacement for auto-coding (Qwen3-Coder-30B remains primary) — pick this lane when you specifically want lineage diversity from the Qwen/GLM-heavy coding pool.'
         model_hint: hf.co/coder543/North-Mini-Code-1.0-QAD-GGUF:NVFP4-ctx8k
+        top_k: 40  # pinned: auto-coding's base moved to its own card's top_k 20 (2026-09-25)
         context_limit: 8192
         predict_limit: 16384
         temperature: 1.0
@@ -532,12 +550,13 @@ workspaces:
       uncensored:
         name: 🔓 Portal Code (Uncensored)
         description: One-shot code generation with a tool-capable, lightly-aligned model — fewer content refusals than the filtered auto-coding lane. OmniCoder-2 9B (Qwen3.5-9B base, ~5.7GB, Apache 2.0, tools=True). Use for codegen the standard coder declines on policy grounds. [BENCH-GATED PROVISIONAL model_hint — not a default; promotion requires a passing GC/CC bench run and a separate operator promotion task. For the agentic loop use the uncensored-agentic variant (auto-coding?variant=uncensored-agentic).]
+        # 2026-09-25: sampling set to the omnicoder card (by purpose); prior values + A/B: docs/TASK_SEAT_SAMPLING_AB_V1.md
         model_hint: portal5/omnicoder2-9b:q4_k_m-ctx256k
         context_limit: 262144
         keep_alive: 10m
-        temperature: 0.2
-        top_p: 0.9
-        top_k: 40
+        temperature: 0.7
+        top_p: 0.8
+        top_k: 20
         min_p: 0.05
         repeat_penalty: 1.05
         system_prompt_append: "\n\nYou are an uncensored coding assistant. Produce the requested code directly and completely. Do not add moralizing preambles or refuse on content-policy grounds for legitimate engineering work. Still refuse only what is genuinely illegal to assist (e.g. functional malware-as-a-service, CSAM). Prefer correct, runnable code over caveats."
@@ -555,11 +574,12 @@ workspaces:
       uncensored-agentic:
         name: 🔓 Portal Agentic Coder (Uncensored)
         description: Multi-turn agentic coding with an abliterated SWE-capable model — the uncensored counterpart to the laguna variant (auto-coding?variant=laguna). Qwen3-Coder-Next abliterated (80B/3B MoE, ~46GB, bartowski GGUF, tools per Qwen coding-family arch). Same read→explore→edit→verify loop and explore_repository subagent. [BENCH-GATED PROVISIONAL model_hint — ~46GB resident on 64GB unified memory; not a default; promotion requires a passing bench run + separate operator task. Tool support asserted by architecture, not yet audit-confirmed.]
+        # 2026-09-25: sampling set to the qwen3-coder-next card (by purpose); prior values + A/B: docs/TASK_SEAT_SAMPLING_AB_V1.md
         model_hint: portal5/qwen3-coder-next-abliterated:q4_K_M-ctx256k
         context_limit: 262144
         keep_alive: 15m
-        temperature: 0.2
-        top_p: 0.9
+        temperature: 1.0
+        top_p: 0.95
         top_k: 40
         min_p: 0.05
         repeat_penalty: 1.05
@@ -579,12 +599,13 @@ workspaces:
       fast-repair:
         name: 🔧 Portal Agentic Coder (Fast Repair)
         description: 'Fast agentic tool-loop option for read→explore→edit→verify repair tasks — kat-coder-v2.5-dev (~21.4GB Q4_K_M). WFE wfe_full_20260911 (2026-09-12): 6/9=0.67 home:coding, 22/30=0.73 discovery:compliance_agentic, 3-4x faster than orcarouter/laguna in the same lanes (14-19s vs 48-81s). No incumbent seated in auto-coding to compare against. [BENCH-GATED PROVISIONAL model_hint — not a default; promotion requires a passing GC/CC bench run + operator promotion task.]'
+        # 2026-09-25: sampling set to the kat-coder card (by purpose); prior values + A/B: docs/TASK_SEAT_SAMPLING_AB_V1.md
         model_hint: kat-coder-v2.5-dev:Q4_K_M-ctx32k
         context_limit: 32768
         keep_alive: 10m
-        temperature: 0.2
-        top_p: 0.9
-        top_k: 40
+        temperature: 1.0
+        top_p: 0.95
+        top_k: 20
         min_p: 0.05
         repeat_penalty: 1.05
         system_prompt_append: "\n\nAGENTIC CODING LOOP — follow this pattern every turn:\n1. EXPLORE: call explore_repository('what you need to find') first.\n   It returns exact file paths and line numbers — use these, do not guess paths.\n2. READ: use execute_bash to read those specific files/line ranges before editing\n   (cat -n <file> | sed -n '<start>,<end>p')\n3. PLAN: state the minimal change needed and which files are affected\n4. EDIT: make precise, targeted changes — do not rewrite whole files\n5. VERIFY: run tests or linters with execute_bash after every change\n6. REPORT: state what changed, what passed, and what remains\n\nHARD CONSTRAINTS:\n- Never hardcode model names, backend URLs, or credentials\n- Never modify Open WebUI source — use extension points only\n- Never commit .env or add cloud dependencies\n- Run pytest before declaring a fix complete\n"
@@ -603,12 +624,13 @@ workspaces:
       uncensored-fast:
         name: 🔓 Portal Agentic Coder (Uncensored, Fast)
         description: 'Lighter-weight uncensored agentic option than uncensored-agentic (17.7GB vs 46GB) — orcarouter/Qwen3.8-27B-Uncensored. WFE wfe_full_20260911 (2026-09-12): 9/9=1.00 home:coding, 26/29=0.90 discovery:compliance_agentic — best coding rates in the whole campaign, no incumbent seated in auto-coding to compare against. Explicitly NOT validated for creative use (0/9 on its own home:creative lane in auto-general-uncensored). [BENCH-GATED PROVISIONAL model_hint — not a default; promotion requires a passing GC/CC bench run + operator promotion task.]'
+        # 2026-09-25: sampling set to the qwen3.8 card (by purpose); prior values + A/B: docs/TASK_SEAT_SAMPLING_AB_V1.md
         model_hint: orcarouter/Qwen3.8-27B-Uncensored:Q4_K_M-ctx32k
         context_limit: 32768
         keep_alive: 10m
-        temperature: 0.2
-        top_p: 0.9
-        top_k: 40
+        temperature: 1.0
+        top_p: 0.95
+        top_k: 20
         min_p: 0.05
         repeat_penalty: 1.05
         system_prompt_append: "\n\nAGENTIC CODING LOOP — follow this pattern every turn:\n1. EXPLORE: call explore_repository('what you need to find') first.\n   It returns exact file paths and line numbers — use these, do not guess paths.\n2. READ: use execute_bash to read those specific files/line ranges before editing\n   (cat -n <file> | sed -n '<start>,<end>p')\n3. PLAN: state the minimal change needed and which files are affected\n4. EDIT: make precise, targeted changes — do not rewrite whole files\n5. VERIFY: run tests or linters with execute_bash after every change\n6. REPORT: state what changed, what passed, and what remains\n\nYou are uncensored: complete legitimate engineering work directly without content-policy preambles or refusals. Refuse only what is genuinely illegal to assist. HARD CONSTRAINTS:\n- Never hardcode model names, backend URLs, or credentials\n- Never modify Open WebUI source — use extension points only\n- Never commit .env or add cloud dependencies\n- Run pytest before declaring a fix complete\n"
@@ -627,7 +649,11 @@ workspaces:
       heavy:
         name: ⚡ Portal Agentic Coder (Heavy)
         description: 'Agentic coding workspace for long-horizon multi-file tasks, SWE-agent-style workflows, and complex refactors. Qwen3-Coder-Next 80B/3B MoE (V8: agentic RL training on 800K executable tasks, 256K ctx, ~46GB, 20 t/s pipeline). Fallback 1: Qwen-AgentWorld-35B-A3B (~21GB, 45 t/s, MoE 3B active, 262K ctx) — language world model trained on MCP/Terminal/SWE/Web/OS env-simulation; strong tool-call coherence, available in general+coding pools. Fallback 2: gpt-oss:20b (~12GB, o3-mini level, MoE, purpose-built for agent/tool use, 2/2 security chain at 45s) — available in the coding pool when the primary is not loaded.'
+        # 2026-09-25: sampling set to the qwen3-coder-next card (by purpose); prior values + A/B: docs/TASK_SEAT_SAMPLING_AB_V1.md
         model_hint: portal5/qwen3-coder-next:latest-ctx256k
+        top_k: 40
+        top_p: 0.95
+        temperature: 1.0
         context_limit: 262144
         tools:
         - execute_python
@@ -680,11 +706,12 @@ workspaces:
       ornith:
         name: ⚡ Portal Agentic Coder (Ornith)
         description: 'Agentic coding workspace direct to Ornith-1.0-35B (DeepReinforce, MIT, ~21GB Q4_K_M, Qwen3.5-35B-A3B base, 262K ctx, MoE 3B active). Self-improving RL training jointly optimizes solution rollout + scaffold — Terminal-Bench/SWE-Bench/NL2Repo/OpenClaw agentic coding. PROMOTED 2026-06-30 from bench-ornith-35b (V10 candidate eval): strong tool-chain coverage (4/5 markers) and SWE handoff (4/5 markers) in TASK_MODEL_EVAL_V10_CANDIDATES probes. Use this for an architecturally-different agentic option alongside the heavy variant (Qwen3-Coder-Next) and lite variant (AgentWorld) — not a replacement for either.'
+        # 2026-09-25: sampling set to the ornith card (by purpose); prior values + A/B: docs/TASK_SEAT_SAMPLING_AB_V1.md
         model_hint: hf.co/deepreinforce-ai/Ornith-1.0-35B-GGUF:Q4_K_M-ctx64k
         context_limit: 65536
         max_concurrent: 1
         keep_alive: 15m
-        temperature: 0.6
+        temperature: 1.0
         top_p: 0.95
         top_k: 20
         repeat_penalty: 1.05
@@ -710,11 +737,12 @@ workspaces:
       reap288:
         name: 🧪 Portal Agentic Coder (REAP-288, heavy — IDE only)
         description: 'IDE-lane agentic coder direct to Qwen3.8-Flash-Next-REAP-288-MLX-4bit (oMLX, MLX 4-bit, REAP expert-pruned 512->288 of the 180B-class Qwen3.8-Flash-Next MoE, top-10 routing, 262K native ctx). Thinking model. Explicit pick only — NEVER an auto-* default / never OWUI (TASK_OMLX_QWEN38FN_REAP288_BRINGUP_V1 operator verdict). ~39GB resident with qwen4_ple_ssd_offload:true; a ~40.6GB oMLX admission gate cannot be met with the full Portal stack up (~10GB reclaimable then). RELIABLE PATH: `./launch.sh coder-reap288` — stops the stack, frees RAM, warm-loads the model, opens opencode straight against oMLX :8085 (not this pipeline path). Warm decode ~24-29 tok/s. Prefill ceiling: ~39GB resident leaves ~17GB under the 56GB Metal cap, so full agentic turns (~18-20K token repo context) trip oMLX''s prefill guard — bounded-context coding only; heavy repo-wide work stays on the laguna default. oMLX-only, no Ollama/GGUF fallback.'
+        # 2026-09-25: sampling set to the qwen3.8 card (by purpose); prior values + A/B: docs/TASK_SEAT_SAMPLING_AB_V1.md
         model_hint: Qwen3.8-Flash-Next-REAP-288-MLX-4bit
         context_limit: 32768
         max_concurrent: 1
         keep_alive: 30m
-        temperature: 0.6
+        temperature: 1.0
         top_p: 0.95
         top_k: 20
         repeat_penalty: 1.05
@@ -741,10 +769,12 @@ workspaces:
     name: 🔍 Portal SPL Engineer
     description: |-
       Splunk SPL queries, YARA rules, detection search authoring, security scripting. Qwen3-Coder-Next abliterated (V8: 80B/3B MoE, 19 t/s, no refusals on offensive/security code, same quality as non-abliterated, ~46GB).
+    # 2026-09-25: sampling set to the qwen3-coder-next card (by purpose); prior values + A/B: docs/TASK_SEAT_SAMPLING_AB_V1.md
     model_hint: hf.co/bartowski/huihui-ai_Qwen3-Coder-Next-abliterated-GGUF:Q4_K_M-ctx64k
+    top_k: 40
     context_limit: 65536
     keep_alive: 10m
-    temperature: 0.2
+    temperature: 1.0
     top_p: 0.95
     repeat_penalty: 1.1
     tools:
@@ -1065,10 +1095,11 @@ workspaces:
     name: 🩹 Portal BigFix Analyst
     description: |-
       HCL BigFix endpoint management and patch compliance workspace. Handles: BigFix REST API queries and response parsing, Relevance Language expressions for targeting endpoints, RQL fixlet applicability queries, patch deployment status reporting, computer property retrieval, and compliance gap analysis across managed endpoints. Model_hint pending D10 sec10-bigfix-parse probe results — will be set to the top D10 scorer from TASK_MODEL_EVAL_V9_CANDIDATES.
+    # 2026-09-25: sampling set to the qwen3-coder card (by purpose); prior values + A/B: docs/TASK_SEAT_SAMPLING_AB_V1.md
     model_hint: qwen3-coder:30b-a3b-q4_K_M-ctx16k
     context_limit: 16384
-    temperature: 0.1
-    top_p: 0.9
+    temperature: 0.7
+    top_p: 0.8
     top_k: 20
     min_p: 0.05
     repeat_penalty: 1.05
@@ -1087,9 +1118,10 @@ workspaces:
     name: 🔧 Portal Tool Composer
     description: |-
       Structured function/API calling via Granite-4.1 8B (tool-tagged, BFCL V3 68.27). Substitutes for ToolACE-2.5 (no GGUF after MLX retirement; re-sourcing tracked in P5-FUT-PARITY-001). Use for tasks composing multiple tool calls in sequence.
+    # 2026-09-25: sampling set to the granite-4.1 card (by purpose); prior values + A/B: docs/TASK_SEAT_SAMPLING_AB_V1.md
     model_hint: granite4.1:8b-ctx8k
     context_limit: 8192
-    temperature: 0.6
+    temperature: 0.0
     top_p: 0.95
     repeat_penalty: 1.0
     tools:
@@ -1104,9 +1136,11 @@ workspaces:
       fast:
         name: 🔧 Portal Tool Composer (Fast)
         description: 'Faster tool-composition option — gemma4:e4b-it-qat (Google DeepMind, ~6.1GB effective 4B QAT, thinking, 128K ctx). WFE wfe_full_20260911 (2026-09-12): 9/9=1.00 home:coding and 9/9=1.00 discovery:research vs the granite4.1:8b-ctx8k incumbent''s 6/9=0.67 / 9/9=1.00 (NOT SEPARATED, small n). [BENCH-GATED PROVISIONAL model_hint — not a default; promotion requires a passing GC/CC bench run + operator promotion task.]'
+        # 2026-09-25: sampling set to the gemma4 card (by purpose); prior values + A/B: docs/TASK_SEAT_SAMPLING_AB_V1.md
         model_hint: gemma4:e4b-it-qat-ctx8k
+        top_k: 64
         context_limit: 8192
-        temperature: 0.6
+        temperature: 1.0
         top_p: 0.95
         repeat_penalty: 1.0
         tools:
@@ -1180,10 +1214,11 @@ workspaces:
           margins). Slow by design (~18 t/s on oMLX with MTP, ~12 on the Ollama
           GGUF); invoke deliberately with ?variant=deep, not for throughput work.
           oMLX serves Qwen3.8-27B-oQ4e-mtp; Ollama GGUF is the fallback.
+        # 2026-09-25: sampling set to the qwen3.8 card (by purpose); prior values + A/B: docs/TASK_SEAT_SAMPLING_AB_V1.md
         model_hint: hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k
         context_limit: 32768
         predict_limit: 24576
-        temperature: 0.6
+        temperature: 1.0
         top_p: 0.95
         top_k: 20
         min_p: 0.0
@@ -1212,8 +1247,9 @@ workspaces:
     # per operator decision — don't newly enable thinking pending evaluation.
     think: false
     think_profiles:
-      thinking: {temperature: 1.0, top_p: 0.95, top_k: 20, min_p: 0.0, presence_penalty: 0.0, repeat_penalty: 1.0}
-      instruct: {temperature: 0.7, top_p: 0.8, top_k: 20, min_p: 0.0, presence_penalty: 1.5, repeat_penalty: 1.0}
+      thinking: {temperature: 1.0, top_p: 0.95, top_k: 20, min_p: 0.0, repeat_penalty: 1.0}
+      # presence_penalty 1.5 (card) is a no-op on Ollama; repeat_penalty 1.05 substitutes (2026-09-25, calibrate: docs/TASK_SEAT_SAMPLING_AB_V1.md)
+      instruct: {temperature: 0.7, top_p: 0.8, top_k: 20, min_p: 0.0, repeat_penalty: 1.05}
     tools: []
     council:
       minimum_participation: 0.66
@@ -1246,10 +1282,11 @@ workspaces:
     system_prompt_append: "\n\nSAFETY POSTURE: You are a standard-posture assistant. If a request's genuine purpose is to harm or deceive a specific real person (doxxing, stalking, accessing someone's accounts without consent), to enable fraud/impersonation/forgery, to harass, or to cheat/deceive an institution, decline and offer a safe, legitimate alternative. This does not restrict ordinary academic, professional, security-research, or fictional work \u2014 help fully with those."
     name: 📄 Portal Document Builder
     description: Create Word, Excel, PowerPoint via MCP tools
+    # 2026-09-25: sampling set to the granite-4.1 card (by purpose); prior values + A/B: docs/TASK_SEAT_SAMPLING_AB_V1.md
     model_hint: granite4.1:8b-ctx16k
     context_limit: 16384
     predict_limit: 8192
-    temperature: 0.5
+    temperature: 0.0
     top_p: 0.9
     top_k: 40
     min_p: 0.05
@@ -1355,10 +1392,11 @@ workspaces:
       lane instrument (0.4). Evidence: tests/benchmarks/results/
       research_probe_20260907T030136Z.json + research_probe_20260907T032401Z.json.
       Reversible one-line hint swap.
+    # 2026-09-25: sampling set to the nex-n2 card (by purpose); prior values + A/B: docs/TASK_SEAT_SAMPLING_AB_V1.md
     model_hint: hf.co/sjakek/Nex-N2-mini-GGUF:UD-Q4_K_M-ctx16k
     context_limit: 16384
     predict_limit: 16384
-    temperature: 0.6
+    temperature: 0.7
     top_p: 0.95
     top_k: 40
     min_p: 0.02
@@ -1387,11 +1425,14 @@ workspaces:
     module: general
     name: 👁️  Portal Vision
     description: Image understanding, visual analysis, multimodal tasks (Qwen3-VL, Ollama)
+    # 2026-09-25: sampling set to the qwen3-vl card (by purpose); prior values + A/B: docs/TASK_SEAT_SAMPLING_AB_V1.md
     model_hint: qwen3-vl:32b-ctx8k
+    # presence_penalty 1.5 (card) is a no-op on Ollama; repeat_penalty 1.05 substitutes (2026-09-25, calibrate: docs/TASK_SEAT_SAMPLING_AB_V1.md)
+    repeat_penalty: 1.05
     context_limit: 8192
-    temperature: 0.5
-    top_p: 0.9
-    top_k: 40
+    temperature: 0.7
+    top_p: 0.8
+    top_k: 20
     min_p: 0.05
     tools:
     - transcribe_audio
@@ -1421,8 +1462,8 @@ workspaces:
     top_p: 0.8
     top_k: 20
     min_p: 0.0
-    presence_penalty: 1.5
-    repeat_penalty: 1.0
+    # presence_penalty 1.5 (card) is a no-op on Ollama; repeat_penalty 1.05 substitutes (2026-09-25, calibrate: docs/TASK_SEAT_SAMPLING_AB_V1.md)
+    repeat_penalty: 1.05
     think: false
     tools:
     - execute_python
@@ -1798,8 +1839,8 @@ workspaces:
     # TASK_SAMPLING_PROFILE_AUDIT_V1 verified Qwen3.5 profile (general rows).
     think: false
     think_profiles:
-      thinking: {temperature: 1.0, top_p: 0.95, top_k: 20, min_p: 0.0, presence_penalty: 1.5, repeat_penalty: 1.0}
-      instruct: {temperature: 0.7, top_p: 0.8, top_k: 20, min_p: 0.0, presence_penalty: 1.5, repeat_penalty: 1.0}
+      thinking: {temperature: 1.0, top_p: 0.95, top_k: 20, min_p: 0.0, repeat_penalty: 1.0}
+      instruct: {temperature: 0.7, top_p: 0.8, top_k: 20, min_p: 0.0, repeat_penalty: 1.0}
     emits_reasoning: true
     tools: []
     expose_to_owui: true
@@ -1910,8 +1951,8 @@ workspaces:
     # TASK_SAMPLING_PROFILE_AUDIT_V1 verified Qwen3.6 profile.
     think: false
     think_profiles:
-      thinking: {temperature: 1.0, top_p: 0.95, top_k: 20, min_p: 0.0, presence_penalty: 0.0, repeat_penalty: 1.0}
-      instruct: {temperature: 0.7, top_p: 0.8, top_k: 20, min_p: 0.0, presence_penalty: 1.5, repeat_penalty: 1.0}
+      thinking: {temperature: 1.0, top_p: 0.95, top_k: 20, min_p: 0.0, repeat_penalty: 1.0}
+      instruct: {temperature: 0.7, top_p: 0.8, top_k: 20, min_p: 0.0, repeat_penalty: 1.0}
     emits_reasoning: true
     tools: []
     expose_to_owui: true
@@ -2022,12 +2063,14 @@ workspaces:
     name: 📐 Portal CAD / 3D-Print Designer
     description: |-
       Parametric 3D-model generation via code-CAD: constrained structured-intermediate generation (generate_scad — feature-level JSON in, validated OpenSCAD+STL+PNG out, self-correcting on failure) for parts with holes/pockets/patterns/shells; direct render_openscad for trivial single-primitive parts; Python+trimesh for procedural geometry. Produces STL/3MF for FDM/SLA printing. Qwen3-Coder 30B-A3B MoE (Ollama, tool-capable, >20 t/s). Every render is mesh-validated (watertight/volume/bbox) and CadQuery/build123d/OCP are now available via conda-forge (capability-gated, not platform-hardcoded — see PLATFORM.md).
+    # 2026-09-25: sampling set to the qwen3-coder card (by purpose); prior values + A/B: docs/TASK_SEAT_SAMPLING_AB_V1.md
     model_hint: qwen3-coder:30b-a3b-q4_K_M-ctx16k
+    top_k: 20
     context_limit: 16384
     predict_limit: 16384
-    temperature: 0.2
-    top_p: 0.9
-    repeat_penalty: 1.1
+    temperature: 0.7
+    top_p: 0.8
+    repeat_penalty: 1.05
     # Observed hallucinating tool names that don't exist ("write_note",
     # "render_3d" instead of the real render_openscad) rather than not
     # calling a tool at all — forcing a real call at least keeps it inside
@@ -2121,8 +2164,8 @@ workspaces:
     # TASK_SAMPLING_PROFILE_AUDIT_V1: inherited_unverified from Qwen3.6 base.
     think: false
     think_profiles:
-      thinking: {temperature: 1.0, top_p: 0.95, top_k: 20, min_p: 0.0, presence_penalty: 0.0, repeat_penalty: 1.0}
-      instruct: {temperature: 0.7, top_p: 0.8, top_k: 20, min_p: 0.0, presence_penalty: 1.5, repeat_penalty: 1.0}
+      thinking: {temperature: 1.0, top_p: 0.95, top_k: 20, min_p: 0.0, repeat_penalty: 1.0}
+      instruct: {temperature: 0.7, top_p: 0.8, top_k: 20, min_p: 0.0, repeat_penalty: 1.0}
     tools: []
     expose_to_owui: true
     enable_web_search: false
