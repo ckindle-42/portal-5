@@ -990,6 +990,18 @@ class TestAdaptiveThink:
 
         assert rn.think_policy("gpt-oss:20b", reg) == "true"
 
+    def test_wfe_sampling_override_replaces_seat_sampling(self, monkeypatch):
+        from tests.wfe import campaign as c
+
+        wsc = {"sampling": {"temperature": 0.2, "min_p": 0.05, "max_tokens": 16384}}
+        monkeypatch.setenv("WFE_SAMPLING", '{"temperature": 1.0, "top_k": 20}')
+        assert c._sampling_for(wsc, 1) == {
+            "max_tokens": 16384,
+            "temperature": 1.0,
+            "top_k": 20,
+            "seed": 1001,
+        }
+
     def test_wfe_think_override_wins_and_is_stamped(self, monkeypatch):
         from tests.wfe import campaign as c
 

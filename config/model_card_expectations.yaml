@@ -15,6 +15,10 @@
 #                          PASSED behavioral probes (system-honored + JSON + no
 #                          think-leak) on this machine — the diff target
 #   behavioral_quirks    : failure modes proven in testing (not folklore)
+#   prompt_contract      : the prompt/system/output shape the model was trained on (for
+#                          narrow specialists this decides whether a seat can use it at all)
+#   recommended_sampling_modes : per-mode card values when the card gives several;
+#                          recommended_sampling holds the mode the auditor checks
 #   verified             : true only when source URL + date are recorded below
 #   harness_policy       : how the WFE harness must drive this family —
 #       think: 'default' | 'true' | 'false'  (api endpoint only; v1 has no knob)
@@ -82,33 +86,121 @@ models:
   # Each needs: card URL, recommended sampling, max context, tools claim,
   # template review. Fill from the model card, then flip verified: true.
   qwen3:
-    status: research-debt
+    status: verified-card
+    verified: true
+    source: "https://huggingface.co/Qwen/Qwen3-Coder-30B-A3B-Instruct/resolve/main/generation_config.json (2026-09-25)"
+    recommended_sampling: {temperature: 0.7, top_p: 0.8, top_k: 20, repeat_penalty: 1.05}
+    prompt_contract: "Values are Qwen3-Coder-30B-A3B-Instruct's (non-thinking coder). Other qwen3 tags in this family (qwen3-vl) need their own card check."
   qwen3.5:
-    status: research-debt
+    status: verified-card
+    verified: true
+    source: "https://unsloth.ai/docs/models/qwen3.5 (2026-09-24)"
+    recommended_sampling: {temperature: 0.7, top_p: 0.8, top_k: 20, presence_penalty: 1.5}
+    recommended_sampling_modes:
+      thinking_general: {temperature: 1.0, top_p: 0.95, top_k: 20, presence_penalty: 1.5}
+      thinking_precise_coding: {temperature: 0.6, top_p: 0.95, top_k: 20, presence_penalty: 0.0}
+      instruct_general: {temperature: 0.7, top_p: 0.8, top_k: 20, presence_penalty: 1.5}
+      instruct_reasoning: {temperature: 1.0, top_p: 0.95, top_k: 20, presence_penalty: 1.5}
+    max_context: 262144
+    prompt_contract: "Small sizes (0.8B-9B) default reasoning OFF per Unsloth; fine-tunes may override (MiMo-V2.6 enables thinking unless enable_thinking is false). repeat_penalty disabled or 1.0; presence_penalty is the recommended loop guard."
   qwen3.6:
-    status: research-debt
+    status: verified-card
+    verified: true
+    source: "https://huggingface.co/Qwen/Qwen3.6-35B-A3B/resolve/main/generation_config.json (2026-09-25)"
+    recommended_sampling: {temperature: 1.0, top_p: 0.95, top_k: 20}
+    prompt_contract: "Thinking-mode defaults; see qwen3.5 for the instruct-mode (0.7/0.8/20, presence 1.5) values Unsloth documents for this generation."
   qwen3.8:
-    status: research-debt
+    status: verified-card
+    verified: true
+    source: "https://huggingface.co/unsloth/Qwen3.8-27B-GGUF (2026-09-24)"
+    recommended_sampling: {temperature: 0.7, top_p: 0.8, top_k: 20}
+    recommended_sampling_modes:
+      thinking: {temperature: 1.0, top_p: 0.95, top_k: 20}
+      instruct: {temperature: 0.7, top_p: 0.8, top_k: 20}
+    max_context: 262144
+    tools: true
+    prompt_contract: "Qwen3 XML tool calls; thinking on by default (enable_thinking / think:false to suppress). Unsloth's GGUFs carry a nested-object tool-call fix and developer-role support."
+    harness_policy:
+      think: "false"
+      notes: "2026-09-25 template-path probe: hf.co/unsloth/Qwen3.8-27B-GGUF tags run on Ollama's gguf_chat_template path and pass all 4 tool-call probes."
   gemma4:
-    status: research-debt
+    status: verified-card
+    verified: true
+    source: "https://huggingface.co/google/gemma-4-26B-A4B-it/resolve/main/generation_config.json (2026-09-25)"
+    recommended_sampling: {temperature: 1.0, top_p: 0.95, top_k: 64}
   granite-4.1:
-    status: research-debt
+    status: verified-card
+    verified: true
+    source: "https://huggingface.co/ibm-granite/granite-4.1-8b (card + generation_config.json, 2026-09-25)"
+    recommended_sampling: {temperature: 0.0}
+    max_context: 131072
+    tools: true
+    prompt_contract: "No thinking/reasoning mode (the auditor's reasoning_uncontrolled flag does not apply to 4.1). generation_config sets no sampling, i.e. transformers greedy decoding; tools passed via the chat template, calls emitted as JSON inside <tool_call> tags."
   phi4:
-    status: research-debt
+    status: verified-card
+    verified: true
+    source: "https://huggingface.co/microsoft/Phi-4-mini-reasoning (card, 2026-09-25)"
+    recommended_sampling: {temperature: 0.8, top_p: 0.95}
+    prompt_contract: "phi4-mini-reasoning is math-only by design ('designed and tested for math reasoning only'); card system prompt 'Your name is Phi, an AI math expert developed by Microsoft.'; max_new_tokens 32768; repetitive in very long chats."
   mistral-small:
     status: research-debt
   command-r:
     status: research-debt
   deepseek-r1:
-    status: research-debt
+    status: verified-card
+    verified: true
+    source: "https://huggingface.co/deepseek-ai/DeepSeek-R1-0528-Qwen3-8B (usage recommendations, 2026-09-25)"
+    recommended_sampling: {temperature: 0.6, top_p: 0.95}
+    prompt_contract: "Always reasons (no <think> forcing needed since 0528). Max generation 64K tokens. Official system prompt names the model and today's date."
   llama:
     status: research-debt
   lfm2:
-    status: research-debt
+    status: verified-card
+    verified: true
+    source: "https://huggingface.co/LiquidAI/LFM2.5-8B-A1B/resolve/main/generation_config.json (2026-09-25)"
+    recommended_sampling: {temperature: 0.2, top_k: 80, repeat_penalty: 1.05}
   nex-n2:
     status: research-debt
+  laguna:
+    status: verified-card
+    verified: true
+    source: "https://huggingface.co/poolside/Laguna-XS-2.1 + https://huggingface.co/poolside/Laguna-XS-2.1-GGUF (2026-09-25)"
+    recommended_sampling: {temperature: 1.0, top_p: 1.0, top_k: 20}
+    max_context: 262144
+    tools: true
+    prompt_contract: "Interleaved thinking between tool calls, toggled per request with enable_thinking. Card suggests bounding context to ~32K locally."
+    harness_policy:
+      think: "false"
+      notes: "XS.2 cannot stop after a tool call on this stack (chains invented calls to the token cap); XS-2.1 stops. Ollama 0.34.2 Laguna parser returns HTTP 500 ('empty Laguna tool call name') on replies that begin with a bare JSON object; oMLX does not."
+
+  mimo:
+    status: verified-card
+    verified: true
+    source: "https://huggingface.co/XiaomiMiMo/MiMo-V2.6-Distill-Qwen-9B (card + generation_config.json + chat_template.jinja, 2026-09-24)"
+    recommended_sampling: {temperature: 0.6, top_p: 0.95, top_k: 20}
+    max_context: 262144
+    tools: true
+    prompt_contract: "Qwen3.5-9B SFT; template enables thinking unless enable_thinking is false. qwen3-coder XML tool format."
+    harness_policy:
+      think: "false"
+      notes: "Ollama 0.34.2 serves the bartowski GGUF via gguf_chat_template; valid calls such as file_list(path='src') turn into runaway generation + HTTP 500. oMLX parses them correctly: oMLX only."
+
   vulnllm:
-    status: research-debt
+    status: verified-card
+    verified: true
+    source: "https://huggingface.co/UCSB-SURFI/VulnLLM-R-7B (generation_config.json) + https://github.com/ucsb-mlsec/VulnLLM-R vulscan/utils/sys_prompts.py (2026-09-25)"
+    recommended_sampling: {temperature: 0.7, top_p: 0.8, top_k: 20, repeat_penalty: 1.05}
+    max_context: 32768
+    prompt_contract: >-
+      Targeted DETECTOR, not a chat assistant. Trained on reasoning_user_prompt:
+      "You are an advanced vulnerability detection model. Your task is to check if a
+      specific vulnerability exists..." + the code in a fenced block + CWE_INFO (a policy
+      line and a list of candidate CWEs to check) + a 4-step reasoning procedure
+      (our_cot), and it must end with "## Final Answer / #judge: yes|no / #type: CWE-xx"
+      (exactly one CWE). System prompt: "You are a helpful assistant. You should think
+      step-by-step."
+    behavioral_quirks:
+      - "2026-09-25, 6-snippet CWE set, n=3: open-ended prompt (auto-security system prompt + find/CVSS/fix instruction, temp 0.3) = 15/18 with 3/3 clean-control false positives (invents CWE-306/327/522/798), outputs up to ~9.7k chars; trained prompt + card sampling = 17/18, 0/3 false positives, ~250-500 tokens. The FPs were prompt-contract mismatch, not model quality."
   kat-coder:
     status: research-debt
   hermes:

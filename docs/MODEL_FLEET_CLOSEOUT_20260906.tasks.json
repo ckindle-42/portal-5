@@ -1,7 +1,7 @@
 {
   "task": "Close every model disposition and retire the pending-model backlog",
   "baseline_observed_at_utc": "2026-09-06T23:31:34.626374+00:00",
-  "execution_state": "WFE_CLOSEOUT_EXECUTED_2026-09-12 — every USE-PROBE and contender row now terminal; see docs/WFE_CLOSEOUT_20260912.md",
+  "execution_state": "WFE_CLOSEOUT_EXECUTED_2026-09-12 — every USE-PROBE and contender row now terminal; see docs/WFE_CLOSEOUT_20260912.md | 2026-09-25 decisions wired (Laguna XS.2->XS-2.1, MiMo, VulnLLM role, Bonsai/engine-h2h): see CLOSEOUT §10",
   "terminal_dispositions": [
     "INTEGRATED",
     "RETAINED_FOR_PURPOSE",
@@ -9,7 +9,7 @@
   ],
   "closure_rule": "Every identity needs final_disposition, concrete decision_reason/purpose, durable closure_record_refs and verification. Null fields are temporary task work, not a permanent pending model category. Refresh inventory after the active job.",
   "inventory_scope": "138 Ollama manifests + 17 oMLX entries + 33 absent historical Ollama tags. Additional service/media cache assets must be assigned subsystem ownership during dependency reconciliation; cross-store entries can share files.",
-  "item_count": 188,
+  "item_count": 203,
   "items": [
     {
       "item_id": "ollama:baronllm:q6_k",
@@ -2349,7 +2349,7 @@
       "test_if_needed": null,
       "stop_rule": null,
       "final_disposition": "INTEGRATED",
-      "decision_reason": "routed: model_hint",
+      "decision_reason": "routed: model_hint | 2026-09-25: detector contract verified (trained prompt + card sampling 17/18, 0/3 FP vs chat use 15/18, 3/3 FP); role moves to a scan_code specialist tool (TASK_SEAT_VENDOR_FIT_V1 S3, operator option B)",
       "purpose_or_replacement": "routed: model_hint",
       "evidence_refs": [
         "config refs (dep scan)"
@@ -4067,7 +4067,7 @@
       "item_id": "ollama:portal5/laguna-xs2:q4_K_M-ctx128k",
       "kind": "ollama_manifest",
       "exact_identity": "portal5/laguna-xs2:q4_K_M-ctx128k",
-      "observed_present": true,
+      "observed_present": false,
       "model_layer_digests": [
         "sha256:59885ff3cab3c264b315b4d3ebbd21190127c22283bd89e071932af0ddf2884e"
       ],
@@ -4081,17 +4081,18 @@
       "decision_question": null,
       "test_if_needed": null,
       "stop_rule": null,
-      "final_disposition": "INTEGRATED",
-      "decision_reason": "routed: variants.laguna.model_hint",
-      "purpose_or_replacement": "routed: variants.laguna.model_hint",
+      "final_disposition": "REMOVED_CLOSED",
+      "decision_reason": "Laguna-XS.2 cannot stop after a tool call on this stack (chains invented calls to the token cap per turn; official and imported builds, both renderers)",
+      "purpose_or_replacement": "replaced by portal5/laguna-xs21:q4_K_M-ctx128k (Laguna-XS-2.1); deleted from disk",
       "evidence_refs": [
-        "config refs (dep scan)"
+        "docs/TASK_SEAT_VENDOR_FIT_V1.md",
+        "docs/MIMO_V26_DISTILL_9B_BRINGUP_V1.md#fit-bench-v3-and-closure-2026-09-25"
       ],
       "closure_record_refs": [
-        "docs/MODEL_FLEET_CLOSEOUT_20260906.CLOSEOUT.md#portal5_laguna-xs2-q4_K_M-ctx128k"
+        "docs/MODEL_FLEET_CLOSEOUT_20260906.CLOSEOUT.md#10-decisions-2026-09-25-laguna-mimo-bonsai-vulnllm"
       ],
       "verified_storage_effect_bytes": null,
-      "closed_at": "2026-09-07"
+      "closed_at": "2026-09-25"
     },
     {
       "item_id": "ollama:portal5/omnicoder2-9b:q4_K_M-ctx256k",
@@ -4849,22 +4850,21 @@
       "item_id": "omlx:Laguna-XS.2-4bit",
       "kind": "omlx_entry",
       "exact_identity": "Laguna-XS.2-4bit",
-      "observed_present": true,
+      "observed_present": false,
       "symlink_target": null,
       "logical_bytes": 18829661006,
       "required_action": "Verify checkpoint/draft purpose, serving/alias dependencies and recorded acceptance; close integrated or retained-for-purpose, or retire unneeded copy with shared-cache review.",
-      "final_disposition": "INTEGRATED",
-      "decision_reason": "oMLX pool member registered in config/backends.yaml (MLX backend alias); manual/pool serving",
-      "purpose_or_replacement": "oMLX pool member registered in config/backends.yaml (MLX backend alias); manual/pool serving",
+      "final_disposition": "REMOVED_CLOSED",
+      "decision_reason": "Laguna-XS.2 cannot stop after a tool call on this stack (chains invented calls to the token cap per turn; official and imported builds, both renderers)",
+      "purpose_or_replacement": "replaced by omlx:Laguna-XS-2.1-4bit; deleted from disk",
       "evidence_refs": [
-        "config/backends.yaml",
-        "config/MODEL_CATALOG.md",
-        "audit section 3"
+        "docs/TASK_SEAT_VENDOR_FIT_V1.md",
+        "docs/MIMO_V26_DISTILL_9B_BRINGUP_V1.md#fit-bench-v3-and-closure-2026-09-25"
       ],
       "closure_record_refs": [
-        "docs/MODEL_FLEET_CLOSEOUT_20260906.CLOSEOUT.md#Laguna-XS.2-4bit"
+        "docs/MODEL_FLEET_CLOSEOUT_20260906.CLOSEOUT.md#10-decisions-2026-09-25-laguna-mimo-bonsai-vulnllm"
       ],
-      "closed_at": "2026-09-07",
+      "closed_at": "2026-09-25",
       "verified_storage_effect_bytes": null,
       "decision_question": null,
       "test_if_needed": null,
@@ -6313,6 +6313,261 @@
       "decision_question": null,
       "test_if_needed": null,
       "stop_rule": null
+    },
+    {
+      "item_id": "ollama:portal5/laguna-xs21:q4_K_M-ctx128k",
+      "kind": "ollama_manifest",
+      "exact_identity": "portal5/laguna-xs21:q4_K_M-ctx128k",
+      "observed_present": true,
+      "final_disposition": "INTEGRATED",
+      "decision_reason": "laguna-seat WFE via oMLX, think off, n=3: 29/42 (coding 9/9) vs MiMo 11/42; card sampling (1.0/20/1.0) worse than seat sampling (19 vs 24 PASS on 29 matched runs, 2 turn-cap loops)",
+      "purpose_or_replacement": "auto-coding::laguna model_hint (Ollama fallback; oMLX alias serves)",
+      "evidence_refs": [
+        "docs/TASK_SEAT_VENDOR_FIT_V1.md",
+        "docs/MIMO_V26_DISTILL_9B_BRINGUP_V1.md#fit-bench-v3-and-closure-2026-09-25"
+      ],
+      "closure_record_refs": [
+        "docs/MODEL_FLEET_CLOSEOUT_20260906.CLOSEOUT.md#10-decisions-2026-09-25-laguna-mimo-bonsai-vulnllm"
+      ],
+      "closed_at": "2026-09-25"
+    },
+    {
+      "item_id": "ollama:laguna-xs-2.1:latest",
+      "kind": "ollama_manifest",
+      "exact_identity": "laguna-xs-2.1:latest",
+      "observed_present": true,
+      "final_disposition": "INTEGRATED",
+      "decision_reason": "Ollama library base of the derived laguna-seat tag (shares its blob, poolside-v1 renderer/parser)",
+      "purpose_or_replacement": "base of portal5/laguna-xs21:q4_K_M-ctx128k",
+      "evidence_refs": [
+        "docs/TASK_SEAT_VENDOR_FIT_V1.md",
+        "docs/MIMO_V26_DISTILL_9B_BRINGUP_V1.md#fit-bench-v3-and-closure-2026-09-25"
+      ],
+      "closure_record_refs": [
+        "docs/MODEL_FLEET_CLOSEOUT_20260906.CLOSEOUT.md#10-decisions-2026-09-25-laguna-mimo-bonsai-vulnllm"
+      ],
+      "closed_at": "2026-09-25"
+    },
+    {
+      "item_id": "omlx:Laguna-XS-2.1-4bit",
+      "kind": "omlx_entry",
+      "exact_identity": "Laguna-XS-2.1-4bit",
+      "observed_present": true,
+      "final_disposition": "INTEGRATED",
+      "decision_reason": "laguna-seat WFE via oMLX, think off, n=3: 29/42 (coding 9/9) vs MiMo 11/42; card sampling (1.0/20/1.0) worse than seat sampling (19 vs 24 PASS on 29 matched runs, 2 turn-cap loops)",
+      "purpose_or_replacement": "serves auto-coding::laguna via omlx-coding priority-10 alias",
+      "evidence_refs": [
+        "docs/TASK_SEAT_VENDOR_FIT_V1.md",
+        "docs/MIMO_V26_DISTILL_9B_BRINGUP_V1.md#fit-bench-v3-and-closure-2026-09-25"
+      ],
+      "closure_record_refs": [
+        "docs/MODEL_FLEET_CLOSEOUT_20260906.CLOSEOUT.md#10-decisions-2026-09-25-laguna-mimo-bonsai-vulnllm"
+      ],
+      "closed_at": "2026-09-25"
+    },
+    {
+      "item_id": "ollama:portal5/mimo-v26-distill-9b:q4_K_M-ctx256k",
+      "kind": "ollama_manifest",
+      "exact_identity": "portal5/mimo-v26-distill-9b:q4_K_M-ctx256k",
+      "observed_present": false,
+      "final_disposition": "REMOVED_CLOSED",
+      "decision_reason": "not promoted in any seat: laguna seat 11/42 (loops), tools-specialist 7/10 vs granite 16/18, security 11/15 0 FP vs VulnLLM 15/15 3 FP; Ollama 0.34.2 gguf_chat_template path breaks its tool calls (runaway + HTTP 500)",
+      "purpose_or_replacement": "oMLX build retained instead; deleted from disk",
+      "evidence_refs": [
+        "docs/TASK_SEAT_VENDOR_FIT_V1.md",
+        "docs/MIMO_V26_DISTILL_9B_BRINGUP_V1.md#fit-bench-v3-and-closure-2026-09-25"
+      ],
+      "closure_record_refs": [
+        "docs/MODEL_FLEET_CLOSEOUT_20260906.CLOSEOUT.md#10-decisions-2026-09-25-laguna-mimo-bonsai-vulnllm"
+      ],
+      "closed_at": "2026-09-25"
+    },
+    {
+      "item_id": "omlx:MiMo-V2.6-Distill-Qwen-9B-MLX-Serve-4bit-mtp",
+      "kind": "omlx_entry",
+      "exact_identity": "MiMo-V2.6-Distill-Qwen-9B-MLX-Serve-4bit-mtp",
+      "observed_present": false,
+      "final_disposition": "REMOVED_CLOSED",
+      "decision_reason": "MTP head slower than plain oMLX 4-bit (44.2 vs 48.5 tok/s)",
+      "purpose_or_replacement": "none; deleted from disk",
+      "evidence_refs": [
+        "docs/TASK_SEAT_VENDOR_FIT_V1.md",
+        "docs/MIMO_V26_DISTILL_9B_BRINGUP_V1.md#fit-bench-v3-and-closure-2026-09-25"
+      ],
+      "closure_record_refs": [
+        "docs/MODEL_FLEET_CLOSEOUT_20260906.CLOSEOUT.md#10-decisions-2026-09-25-laguna-mimo-bonsai-vulnllm"
+      ],
+      "closed_at": "2026-09-25"
+    },
+    {
+      "item_id": "omlx:MiMo-V2.6-Distill-Qwen-9B-MLX-4bit",
+      "kind": "omlx_entry",
+      "exact_identity": "MiMo-V2.6-Distill-Qwen-9B-MLX-4bit",
+      "observed_present": true,
+      "final_disposition": "RETAINED_FOR_PURPOSE",
+      "decision_reason": "not promoted in any seat: laguna seat 11/42 (loops), tools-specialist 7/10 vs granite 16/18, security 11/15 0 FP vs VulnLLM 15/15 3 FP; oMLX 48.5 tok/s in 8GB, clean tool calls",
+      "purpose_or_replacement": "candidate high-precision second reviewer beside VulnLLM in auto-security::blueteam-council (TASK_SEAT_VENDOR_FIT_V1 S3); remove if that test fails",
+      "evidence_refs": [
+        "docs/TASK_SEAT_VENDOR_FIT_V1.md",
+        "docs/MIMO_V26_DISTILL_9B_BRINGUP_V1.md#fit-bench-v3-and-closure-2026-09-25"
+      ],
+      "closure_record_refs": [
+        "docs/MODEL_FLEET_CLOSEOUT_20260906.CLOSEOUT.md#10-decisions-2026-09-25-laguna-mimo-bonsai-vulnllm"
+      ],
+      "closed_at": "2026-09-25"
+    },
+    {
+      "item_id": "ollama:bonsai-control:qwen36-27b-ctx32k",
+      "kind": "ollama_manifest",
+      "exact_identity": "bonsai-control:qwen36-27b-ctx32k",
+      "observed_present": false,
+      "final_disposition": "REMOVED_CLOSED",
+      "decision_reason": "Bonsai compression probe + engine head-to-head: faster, but agentic WFE 21/42 and 11/42 vs 33/42 for Qwen3.8 Q4 (re-read loops); single-use deep-lane win not worth a third engine (operator 2026-09-24)",
+      "purpose_or_replacement": "none; deleted from disk",
+      "evidence_refs": [
+        "docs/TASK_SEAT_VENDOR_FIT_V1.md",
+        "docs/MIMO_V26_DISTILL_9B_BRINGUP_V1.md#fit-bench-v3-and-closure-2026-09-25"
+      ],
+      "closure_record_refs": [
+        "docs/MODEL_FLEET_CLOSEOUT_20260906.CLOSEOUT.md#10-decisions-2026-09-25-laguna-mimo-bonsai-vulnllm"
+      ],
+      "closed_at": "2026-09-25"
+    },
+    {
+      "item_id": "ollama:bonsai-control:qwen3-8b-ctx16k",
+      "kind": "ollama_manifest",
+      "exact_identity": "bonsai-control:qwen3-8b-ctx16k",
+      "observed_present": false,
+      "final_disposition": "REMOVED_CLOSED",
+      "decision_reason": "Bonsai compression probe + engine head-to-head: faster, but agentic WFE 21/42 and 11/42 vs 33/42 for Qwen3.8 Q4 (re-read loops); single-use deep-lane win not worth a third engine (operator 2026-09-24)",
+      "purpose_or_replacement": "none; deleted from disk",
+      "evidence_refs": [
+        "docs/TASK_SEAT_VENDOR_FIT_V1.md",
+        "docs/MIMO_V26_DISTILL_9B_BRINGUP_V1.md#fit-bench-v3-and-closure-2026-09-25"
+      ],
+      "closure_record_refs": [
+        "docs/MODEL_FLEET_CLOSEOUT_20260906.CLOSEOUT.md#10-decisions-2026-09-25-laguna-mimo-bonsai-vulnllm"
+      ],
+      "closed_at": "2026-09-25"
+    },
+    {
+      "item_id": "ollama:bonsai-control:qwen3-4b-ctx16k",
+      "kind": "ollama_manifest",
+      "exact_identity": "bonsai-control:qwen3-4b-ctx16k",
+      "observed_present": false,
+      "final_disposition": "REMOVED_CLOSED",
+      "decision_reason": "Bonsai compression probe + engine head-to-head: faster, but agentic WFE 21/42 and 11/42 vs 33/42 for Qwen3.8 Q4 (re-read loops); single-use deep-lane win not worth a third engine (operator 2026-09-24)",
+      "purpose_or_replacement": "none; deleted from disk",
+      "evidence_refs": [
+        "docs/TASK_SEAT_VENDOR_FIT_V1.md",
+        "docs/MIMO_V26_DISTILL_9B_BRINGUP_V1.md#fit-bench-v3-and-closure-2026-09-25"
+      ],
+      "closure_record_refs": [
+        "docs/MODEL_FLEET_CLOSEOUT_20260906.CLOSEOUT.md#10-decisions-2026-09-25-laguna-mimo-bonsai-vulnllm"
+      ],
+      "closed_at": "2026-09-25"
+    },
+    {
+      "item_id": "ollama:bonsai-control:qwen3-1.7b-ctx16k",
+      "kind": "ollama_manifest",
+      "exact_identity": "bonsai-control:qwen3-1.7b-ctx16k",
+      "observed_present": false,
+      "final_disposition": "REMOVED_CLOSED",
+      "decision_reason": "Bonsai compression probe + engine head-to-head: faster, but agentic WFE 21/42 and 11/42 vs 33/42 for Qwen3.8 Q4 (re-read loops); single-use deep-lane win not worth a third engine (operator 2026-09-24)",
+      "purpose_or_replacement": "none; deleted from disk",
+      "evidence_refs": [
+        "docs/TASK_SEAT_VENDOR_FIT_V1.md",
+        "docs/MIMO_V26_DISTILL_9B_BRINGUP_V1.md#fit-bench-v3-and-closure-2026-09-25"
+      ],
+      "closure_record_refs": [
+        "docs/MODEL_FLEET_CLOSEOUT_20260906.CLOSEOUT.md#10-decisions-2026-09-25-laguna-mimo-bonsai-vulnllm"
+      ],
+      "closed_at": "2026-09-25"
+    },
+    {
+      "item_id": "ollama:bonsai-control:qwen38-27b-ctx32k",
+      "kind": "ollama_manifest",
+      "exact_identity": "bonsai-control:qwen38-27b-ctx32k",
+      "observed_present": false,
+      "final_disposition": "REMOVED_CLOSED",
+      "decision_reason": "Bonsai compression probe + engine head-to-head: faster, but agentic WFE 21/42 and 11/42 vs 33/42 for Qwen3.8 Q4 (re-read loops); single-use deep-lane win not worth a third engine (operator 2026-09-24)",
+      "purpose_or_replacement": "none; deleted from disk",
+      "evidence_refs": [
+        "docs/TASK_SEAT_VENDOR_FIT_V1.md",
+        "docs/MIMO_V26_DISTILL_9B_BRINGUP_V1.md#fit-bench-v3-and-closure-2026-09-25"
+      ],
+      "closure_record_refs": [
+        "docs/MODEL_FLEET_CLOSEOUT_20260906.CLOSEOUT.md#10-decisions-2026-09-25-laguna-mimo-bonsai-vulnllm"
+      ],
+      "closed_at": "2026-09-25"
+    },
+    {
+      "item_id": "ollama:bonsai-probe:bonsai-v1-8b",
+      "kind": "ollama_manifest",
+      "exact_identity": "bonsai-probe:bonsai-v1-8b",
+      "observed_present": false,
+      "final_disposition": "REMOVED_CLOSED",
+      "decision_reason": "Bonsai compression probe + engine head-to-head: faster, but agentic WFE 21/42 and 11/42 vs 33/42 for Qwen3.8 Q4 (re-read loops); single-use deep-lane win not worth a third engine (operator 2026-09-24)",
+      "purpose_or_replacement": "none; deleted from disk",
+      "evidence_refs": [
+        "docs/TASK_SEAT_VENDOR_FIT_V1.md",
+        "docs/MIMO_V26_DISTILL_9B_BRINGUP_V1.md#fit-bench-v3-and-closure-2026-09-25"
+      ],
+      "closure_record_refs": [
+        "docs/MODEL_FLEET_CLOSEOUT_20260906.CLOSEOUT.md#10-decisions-2026-09-25-laguna-mimo-bonsai-vulnllm"
+      ],
+      "closed_at": "2026-09-25"
+    },
+    {
+      "item_id": "omlx:Bonsai-27B-mlx-1bit",
+      "kind": "omlx_entry",
+      "exact_identity": "Bonsai-27B-mlx-1bit",
+      "observed_present": false,
+      "final_disposition": "REMOVED_CLOSED",
+      "decision_reason": "Bonsai compression probe + engine head-to-head: faster, but agentic WFE 21/42 and 11/42 vs 33/42 for Qwen3.8 Q4 (re-read loops); single-use deep-lane win not worth a third engine (operator 2026-09-24)",
+      "purpose_or_replacement": "none; deleted from disk",
+      "evidence_refs": [
+        "docs/TASK_SEAT_VENDOR_FIT_V1.md",
+        "docs/MIMO_V26_DISTILL_9B_BRINGUP_V1.md#fit-bench-v3-and-closure-2026-09-25"
+      ],
+      "closure_record_refs": [
+        "docs/MODEL_FLEET_CLOSEOUT_20260906.CLOSEOUT.md#10-decisions-2026-09-25-laguna-mimo-bonsai-vulnllm"
+      ],
+      "closed_at": "2026-09-25"
+    },
+    {
+      "item_id": "omlx:Ternary-Bonsai-2-27B-mlx-2bit",
+      "kind": "omlx_entry",
+      "exact_identity": "Ternary-Bonsai-2-27B-mlx-2bit",
+      "observed_present": false,
+      "final_disposition": "REMOVED_CLOSED",
+      "decision_reason": "Bonsai compression probe + engine head-to-head: faster, but agentic WFE 21/42 and 11/42 vs 33/42 for Qwen3.8 Q4 (re-read loops); single-use deep-lane win not worth a third engine (operator 2026-09-24)",
+      "purpose_or_replacement": "none; deleted from disk",
+      "evidence_refs": [
+        "docs/TASK_SEAT_VENDOR_FIT_V1.md",
+        "docs/MIMO_V26_DISTILL_9B_BRINGUP_V1.md#fit-bench-v3-and-closure-2026-09-25"
+      ],
+      "closure_record_refs": [
+        "docs/MODEL_FLEET_CLOSEOUT_20260906.CLOSEOUT.md#10-decisions-2026-09-25-laguna-mimo-bonsai-vulnllm"
+      ],
+      "closed_at": "2026-09-25"
+    },
+    {
+      "item_id": "omlx:Ternary-Bonsai-8B-mlx-2bit",
+      "kind": "omlx_entry",
+      "exact_identity": "Ternary-Bonsai-8B-mlx-2bit",
+      "observed_present": false,
+      "final_disposition": "REMOVED_CLOSED",
+      "decision_reason": "Bonsai compression probe + engine head-to-head: faster, but agentic WFE 21/42 and 11/42 vs 33/42 for Qwen3.8 Q4 (re-read loops); single-use deep-lane win not worth a third engine (operator 2026-09-24)",
+      "purpose_or_replacement": "none; deleted from disk",
+      "evidence_refs": [
+        "docs/TASK_SEAT_VENDOR_FIT_V1.md",
+        "docs/MIMO_V26_DISTILL_9B_BRINGUP_V1.md#fit-bench-v3-and-closure-2026-09-25"
+      ],
+      "closure_record_refs": [
+        "docs/MODEL_FLEET_CLOSEOUT_20260906.CLOSEOUT.md#10-decisions-2026-09-25-laguna-mimo-bonsai-vulnllm"
+      ],
+      "closed_at": "2026-09-25"
     }
   ],
   "determination_date": "2026-09-07",
@@ -6488,9 +6743,9 @@
     "bench_repair 4 arms x 70 samples (in flight)"
   ],
   "final_counts": {
-    "REMOVED_CLOSED": 100,
-    "INTEGRATED": 81,
-    "RETAINED_FOR_PURPOSE": 7
+    "REMOVED_CLOSED": 113,
+    "INTEGRATED": 82,
+    "RETAINED_FOR_PURPOSE": 8
   },
   "closure_tiers": {
     "stage1_confirmed": "removals with decisive evidence independent of usability lens (absent, duplicate-identical, real-scenario gate failures, broken install, instruction-floor failures x2, stale wiring) + alias folds (weights survive) + record-only",
