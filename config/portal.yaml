@@ -624,12 +624,13 @@ workspaces:
       uncensored-fast:
         name: 🔓 Portal Agentic Coder (Uncensored, Fast)
         description: 'Lighter-weight uncensored agentic option than uncensored-agentic (17.7GB vs 46GB) — orcarouter/Qwen3.8-27B-Uncensored. WFE wfe_full_20260911 (2026-09-12): 9/9=1.00 home:coding, 26/29=0.90 discovery:compliance_agentic — best coding rates in the whole campaign, no incumbent seated in auto-coding to compare against. Explicitly NOT validated for creative use (0/9 on its own home:creative lane in auto-general-uncensored). [BENCH-GATED PROVISIONAL model_hint — not a default; promotion requires a passing GC/CC bench run + operator promotion task.]'
-        # 2026-09-25: sampling set to the qwen3.8 card (by purpose); prior values + A/B: docs/TASK_SEAT_SAMPLING_AB_V1.md
+        # 2026-09-25: qwen3.8 instruct card + think pinned off — Qwen3.x default <think> loops / exhausts the budget on non-reasoning lanes (auto-compliance 2026-08-31); A/B: docs/TASK_SEAT_SAMPLING_AB_V1.md B2
         model_hint: orcarouter/Qwen3.8-27B-Uncensored:Q4_K_M-ctx32k
+        think: false
         context_limit: 32768
         keep_alive: 10m
-        temperature: 1.0
-        top_p: 0.95
+        temperature: 0.7
+        top_p: 0.8
         top_k: 20
         min_p: 0.05
         repeat_penalty: 1.05
@@ -737,13 +738,14 @@ workspaces:
       reap288:
         name: 🧪 Portal Agentic Coder (REAP-288, heavy — IDE only)
         description: 'IDE-lane agentic coder direct to Qwen3.8-Flash-Next-REAP-288-MLX-4bit (oMLX, MLX 4-bit, REAP expert-pruned 512->288 of the 180B-class Qwen3.8-Flash-Next MoE, top-10 routing, 262K native ctx). Thinking model. Explicit pick only — NEVER an auto-* default / never OWUI (TASK_OMLX_QWEN38FN_REAP288_BRINGUP_V1 operator verdict). ~39GB resident with qwen4_ple_ssd_offload:true; a ~40.6GB oMLX admission gate cannot be met with the full Portal stack up (~10GB reclaimable then). RELIABLE PATH: `./launch.sh coder-reap288` — stops the stack, frees RAM, warm-loads the model, opens opencode straight against oMLX :8085 (not this pipeline path). Warm decode ~24-29 tok/s. Prefill ceiling: ~39GB resident leaves ~17GB under the 56GB Metal cap, so full agentic turns (~18-20K token repo context) trip oMLX''s prefill guard — bounded-context coding only; heavy repo-wide work stays on the laguna default. oMLX-only, no Ollama/GGUF fallback.'
-        # 2026-09-25: sampling set to the qwen3.8 card (by purpose); prior values + A/B: docs/TASK_SEAT_SAMPLING_AB_V1.md
+        # 2026-09-25: qwen3.8 instruct card + think pinned off — its bench seat ran think:false (code repair, not a reasoning task); the flag was lost when it became a variant (5703b5e8); A/B: docs/TASK_SEAT_SAMPLING_AB_V1.md B2
         model_hint: Qwen3.8-Flash-Next-REAP-288-MLX-4bit
+        think: false
         context_limit: 32768
         max_concurrent: 1
         keep_alive: 30m
-        temperature: 1.0
-        top_p: 0.95
+        temperature: 0.7
+        top_p: 0.8
         top_k: 20
         repeat_penalty: 1.05
         emits_reasoning: true

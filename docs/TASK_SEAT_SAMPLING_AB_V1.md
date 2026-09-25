@@ -33,9 +33,16 @@ revert the losers. The decision covered three points:
   `auto-uncensored-throwaway` (+`::ornith15`), `auto-vision`,
   `auto-coding::uncensored`. Bench workspaces had the key dropped with no
   substitute.
-- Seats with no `think` pin on a reasoning model (Qwen3.8: `::uncensored-fast`,
-  `::reap288`) think natively, so they got the card's **thinking** mode. The
-  settings auditor now resolves the card mode the same way.
+- The two Qwen3.8 coding seats (`::uncensored-fast`, `::reap288`) had no `think`
+  pin, so they were thinking natively. Both now have **`think: false`** plus the
+  card's **instruct** mode, as the project's evidence and history call for:
+  - REAP-288's bench seat ran `think: false` on purpose ("code repair, not a
+    reasoning task"). The flag was lost when it became a variant (`5703b5e8`).
+  - The Qwen3.x default `<think>` loops or exhausts the token budget on lanes
+    that don't need reasoning. auto-compliance looped for 300+ lines on
+    2026-08-31. See memory `feedback_thinking_model_needs_think_false`.
+  - The settings auditor resolves a seat without a pin to its native mode
+    (reasoning model → thinking card).
 
 ### Now vs prior (the A/B arms)
 
@@ -56,10 +63,10 @@ if in doubt.
 | `auto-coding::uncensored` | ollama | `{temperature: 0.7, top_p: 0.8, top_k: 20, min_p: 0.05, repeat_penalty: 1.05}` | `{temperature: 0.2, top_p: 0.9, top_k: 40, min_p: 0.05, repeat_penalty: 1.05}` |
 | `auto-coding::uncensored-agentic` | ollama | `{temperature: 1.0, top_p: 0.95, top_k: 40, min_p: 0.05, repeat_penalty: 1.05}` | `{temperature: 0.2, top_p: 0.9, top_k: 40, min_p: 0.05, repeat_penalty: 1.05}` |
 | `auto-coding::fast-repair` | ollama | `{temperature: 1.0, top_p: 0.95, top_k: 20, min_p: 0.05, repeat_penalty: 1.05}` | `{temperature: 0.2, top_p: 0.9, top_k: 40, min_p: 0.05, repeat_penalty: 1.05}` |
-| `auto-coding::uncensored-fast` | ollama | `{temperature: 1.0, top_p: 0.95, top_k: 20, min_p: 0.05, repeat_penalty: 1.05}` | `{temperature: 0.2, top_p: 0.9, top_k: 40, min_p: 0.05, repeat_penalty: 1.05}` |
+| `auto-coding::uncensored-fast` (think: false) | ollama | `{temperature: 0.7, top_p: 0.8, top_k: 20, min_p: 0.05, repeat_penalty: 1.05}` | `{temperature: 0.2, top_p: 0.9, top_k: 40, min_p: 0.05, repeat_penalty: 1.05}` |
 | `auto-coding::heavy` | ollama | `{temperature: 1.0, top_p: 0.95, top_k: 40, min_p: 0.05, repeat_penalty: 1.05}` | `{temperature: 0.2, top_p: 0.9, top_k: 40, min_p: 0.05, repeat_penalty: 1.05}` |
 | `auto-coding::ornith` | ollama | `{temperature: 1.0, top_p: 0.95, top_k: 20, min_p: 0.05, repeat_penalty: 1.05}` | `{temperature: 0.6, top_p: 0.95, top_k: 20, min_p: 0.05, repeat_penalty: 1.05}` |
-| `auto-coding::reap288` | omlx | `{temperature: 1.0, top_p: 0.95, top_k: 20, min_p: 0.05, repeat_penalty: 1.05}` | `{temperature: 0.6, top_p: 0.95, top_k: 20, min_p: 0.05, repeat_penalty: 1.05}` |
+| `auto-coding::reap288` (think: false) | omlx | `{temperature: 0.7, top_p: 0.8, top_k: 20, min_p: 0.05, repeat_penalty: 1.05}` | `{temperature: 0.6, top_p: 0.95, top_k: 20, min_p: 0.05, repeat_penalty: 1.05}` |
 | `auto-spl` | ollama | `{temperature: 1.0, top_p: 0.95, top_k: 40, repeat_penalty: 1.1}` | `{temperature: 0.2, top_p: 0.95, repeat_penalty: 1.1}` |
 | `auto-bigfix` | omlx | `{temperature: 0.7, top_p: 0.8, top_k: 20, min_p: 0.05, repeat_penalty: 1.05}` | `{temperature: 0.1, top_p: 0.9, top_k: 20, min_p: 0.05, repeat_penalty: 1.05}` |
 | `auto-cad` | omlx | `{temperature: 0.7, top_p: 0.8, top_k: 20, repeat_penalty: 1.05}` | `{temperature: 0.2, top_p: 0.9, repeat_penalty: 1.1}` |
@@ -132,11 +139,18 @@ below and on the card entry's `behavioral_quirks` in
 
 - [ ] **B1 `auto-coding::laguna`** — the plan is ready (`s2_laguna_rerun_omlx.yaml`,
       campaign id `s2_laguna_rerun_omlx_v2`, 126 rows). Voids the old result.
-- [ ] **B2 think pin: `auto-coding::uncensored-fast` (Ollama), `auto-coding::reap288` (oMLX, stack down: `./launch.sh coder-reap288 --warm-only`)**.
-      Arms: seat as served (native think, thinking-mode card sampling);
-      `think: false` + instruct card `{temperature: 0.7, top_p: 0.8, top_k: 20, min_p: 0.05, repeat_penalty: 1.05}`;
-      `prior`. Then **pin `think` explicitly** in `portal.yaml` with the winning
-      mode's sampling, so harness and production can never diverge on it.
+- [ ] **B2 think check: `auto-coding::uncensored-fast` (Ollama), `auto-coding::reap288` (oMLX, stack down: `./launch.sh coder-reap288 --warm-only`)**.
+      Both are pinned `think: false` with the instruct card (incumbent). Arms:
+      - `prior` (the table's prior block, `think: false`);
+      - `think: true` with the thinking card `{temperature: 1.0, top_p: 0.95, top_k: 20, min_p: 0.05, repeat_penalty: 1.05}`.
+
+      Caveat: uncensored-fast's only WFE result (9/9 coding, `wfe_full_20260911`)
+      ran before `8ccaa84a`, when `think: false` was a silent no-op on Ollama
+      `/v1`. It was therefore measured *thinking* (and at 1.0/1.0). The think-on
+      arm is a real contender there, not a formality. Flip the pin only on a clear
+      win with no rise in `BUDGET_EXHAUSTED`. Also check the other seats with no
+      `think` pin whose models may think by default (`::ornith`, `::fast-repair`),
+      and pin them the same way.
 - [ ] **B3 Ollama seats**, highest traffic first: `auto-general-uncensored` and
       `auto-data` (B4 arms), `auto-research`, `auto-council` (B4), `auto-vision`,
       then the `auto-coding` Ollama variants (`::heavy`, `::uncensored-agentic`,
