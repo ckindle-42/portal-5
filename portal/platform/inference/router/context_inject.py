@@ -27,6 +27,7 @@ from portal.platform.inference.router.metrics import (
     _auto_context_inject_total,
     _auto_context_latency_seconds,
 )
+from portal.platform.inference.router.preinject import append_text_to_content
 from portal.platform.inference.router.workspaces import WORKSPACES
 from portal.platform.inference.tool_registry import tool_registry
 
@@ -77,6 +78,16 @@ def _last_user_text(messages: list[dict[str, Any]], limit: int) -> str:
                     if isinstance(part, dict) and part.get("type") == "text":
                         return str(part.get("text", ""))[:limit]
     return ""
+
+
+def _is_owui_task_prompt(messages: list[dict[str, Any]]) -> bool:
+    """OWUI's background tasks (title, tags, follow-ups, ...) arrive as ordinary
+    chat requests whose user turn is a ``### Task:`` template wrapping the chat
+    history. They are not user statements: a history containing "remember that"
+    matched the write-back markers and stored the whole template as a memory,
+    which recall then injected into later conversations."""
+    text = _last_user_text(messages, 4000).lstrip()
+    return text.startswith("### Task:") and "<chat_history>" in text
 
 
 def _extract_snippets(result: dict[str, Any]) -> list[str]:
@@ -141,7 +152,11 @@ def _inject_context_block(body: dict[str, Any], header: str, items: list[str]) -
     sys_i = next((i for i, m in enumerate(messages) if m.get("role") == "system"), None)
     if sys_i is not None:
         updated = dict(messages[sys_i])
-        updated["content"] = (updated.get("content", "") + "\n\n" + block).lstrip()
+        content = updated.get("content")
+        if isinstance(content, list):
+            updated["content"] = append_text_to_content(content, block)
+        else:
+            updated["content"] = append_text_to_content(content, "\n\n" + block).lstrip()
         messages[sys_i] = updated
     else:
         messages = [{"role": "system", "content": block}] + messages
@@ -168,6 +183,8 @@ async def inject_recalled_memory(
     if not _AUTO_MEMORY_ENABLED:
         return body
     if not WORKSPACES.get(workspace_id, {}).get("inject_memory", False):
+        return body
+    if _is_owui_task_prompt(body.get("messages", [])):
         return body
     query = _last_user_text(body.get("messages", []), 500)
     if not query:
@@ -214,7 +231,7 @@ async def inject_retrieved_context(
 def _salient_user_text(messages: list[dict[str, Any]], workspace_id: str) -> str | None:
     """The user text worth persisting, or None. High-precision by default."""
     text = _last_user_text(messages, 2000)
-    if not text:
+    if not text or _is_owui_task_prompt(messages):
         return None
     if WORKSPACES.get(workspace_id, {}).get("memory_writeback_all", False):
         return text

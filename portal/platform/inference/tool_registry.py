@@ -369,6 +369,14 @@ class ToolRegistry:
                 tool.consecutive_failures = 0
                 tool.next_retry_at = 0.0
                 return cast(dict[str, Any], r.json())
+            elif r.status_code in (400, 422):
+                # The MCP rejected the model's arguments; the tool itself is
+                # fine. Tripping the breaker here locked the tool for every
+                # request — including the model's own corrected retry.
+                return {
+                    "error": f"Tool '{tool_name}' rejected the arguments",
+                    "detail": r.text[:500],
+                }
             else:
                 tool.consecutive_failures += 1
                 tool.healthy = False

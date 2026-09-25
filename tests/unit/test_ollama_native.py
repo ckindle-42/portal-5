@@ -223,3 +223,51 @@ async def test_non_thinking_model_never_gets_think():
         json={"model": "g", "messages": [], "reasoning_effort": "none"},
     )
     assert r.json()["choices"][0]["message"]["content"] == "hi"
+
+
+def test_openai_request_shapes_native_rejects_or_ignores():
+    """A string ``stop`` 500s on /api/chat ("must be of type array"), and
+    tool_choice has no native field — "none" and a named function are
+    expressed by what is offered (both measured live 2026-09-25)."""
+    tools = [
+        {"type": "function", "function": {"name": "a", "parameters": {}}},
+        {"type": "function", "function": {"name": "b", "parameters": {}}},
+    ]
+    base = {"model": "m", "messages": [{"role": "user", "content": "hi"}], "tools": tools}
+    assert to_native_request({**base, "stop": "5"}, False)["options"]["stop"] == ["5"]
+    assert "tools" not in to_native_request({**base, "tool_choice": "none"}, False)
+    named = {"type": "function", "function": {"name": "b"}}
+    only_b = to_native_request({**base, "tool_choice": named}, False)["tools"]
+    assert [t["function"]["name"] for t in only_b] == ["b"]
+    assert len(to_native_request({**base, "tool_choice": "required"}, False)["tools"]) == 2
+
+
+@pytest.mark.anyio
+async def test_final_done_chunk_fields_are_not_dropped():
+    from portal.platform.inference.ollama_native import native_stream_to_sse
+
+    lines = [
+        json.dumps(
+            {
+                "model": "m",
+                "done": True,
+                "done_reason": "stop",
+                "message": {
+                    "content": "",
+                    "tool_calls": [{"function": {"name": "f", "arguments": {"x": 1}}}],
+                },
+            }
+        )
+    ]
+
+    async def it():
+        for line in lines:
+            yield line
+
+    frames = [
+        json.loads(c[6:])
+        async for c in native_stream_to_sse(it(), False)
+        if c.startswith(b"data: {")
+    ]
+    assert frames[0]["choices"][0]["delta"]["tool_calls"][0]["function"]["name"] == "f"
+    assert frames[-1]["choices"][0]["finish_reason"] == "tool_calls"

@@ -9,6 +9,7 @@ streaming/non-streaming branch is decided by the request body's
 from __future__ import annotations
 
 import asyncio
+import json
 import logging
 import time
 from typing import Any
@@ -45,6 +46,91 @@ registry: Any = None
 logger = logging.getLogger(__name__)
 
 
+class BackendRequestError(Exception):
+    """The backend rejected the request itself (HTTP 4xx).
+
+    Every other candidate would reject it the same way, so the caller surfaces
+    it to the client instead of cascading — a cascade turned a bad parameter
+    into an opaque 502 after sending the request to unrelated models.
+    """
+
+    def __init__(self, status_code: int, detail: str) -> None:
+        super().__init__(f"HTTP {status_code}: {detail}")
+        self.status_code = status_code
+        self.detail = detail
+
+
+#: Statuses meaning the request itself is malformed. 404 (model not on this
+#: engine), 408 and 429 stay cascadable — another candidate can serve those.
+_REQUEST_ERROR_STATUSES = frozenset({400, 413, 422})
+
+
+def _raise_for_backend_status(resp: httpx.Response) -> None:
+    if resp.status_code in _REQUEST_ERROR_STATUSES:
+        raise BackendRequestError(resp.status_code, backend_error_detail(resp.content))
+    resp.raise_for_status()
+
+
+def backend_error_detail(raw: bytes | str) -> str:
+    """The message from an OpenAI-style ``{"error": ...}`` body, else the raw text."""
+    text = raw.decode(errors="replace") if isinstance(raw, bytes) else raw
+    try:
+        err = json.loads(text).get("error")
+    except Exception:
+        return text[:500]
+    if isinstance(err, dict):
+        err = err.get("message")
+    return str(err or text)[:500]
+
+
+#: Keys the primary request carries for its own engine (Ollama native options,
+#: oMLX template kwargs, the think control). A hop served elsewhere must not
+#: inherit them.
+_ENGINE_SPECIFIC_KEYS = (
+    "options",
+    "keep_alive",
+    "think",
+    "reasoning_effort",
+    "chat_template_kwargs",
+    "repetition_penalty",
+)
+
+
+def resolve_hop_target(
+    workspace_id: str, hop_model: str, primary_url: str, hop_body: dict[str, Any]
+) -> tuple[str, dict[str, Any]]:
+    """``(chat_url, body)`` for one chain hop.
+
+    Chain hops used to be posted to the primary backend's URL with the hop's
+    raw model id. With the primary on oMLX (priority seats) every hop naming an
+    Ollama tag 404'd — the purple-team chains silently lost their blue-team,
+    detection and IR hops. The hop now goes to the first healthy backend that
+    serves its model (workspace groups first, then any), under that backend's
+    native id.
+    """
+    if registry is None:
+        return primary_url, hop_body
+    seen: set[str] = set()
+    for b in [*registry.get_backend_candidates(workspace_id), *registry.list_healthy_backends()]:
+        if b.id in seen:
+            continue
+        seen.add(b.id)
+        native = b.resolve_model(hop_model)
+        if native is None:
+            continue
+        body = {**hop_body, "model": native}
+        if b.chat_url != primary_url:
+            for key in _ENGINE_SPECIFIC_KEYS:
+                body.pop(key, None)
+        return b.chat_url, body
+    logger.warning(
+        "Chain hop model %s is not served by any healthy backend (workspace=%s)",
+        hop_model,
+        workspace_id,
+    )
+    return primary_url, hop_body
+
+
 async def _run_non_streaming_chain(
     primary_text: str,
     chain: list[dict[str, Any]],
@@ -73,7 +159,10 @@ async def _run_non_streaming_chain(
         system_prompt = hop_cfg.get("system", "")
         user_tmpl = hop_cfg.get("user_template", "{hop_0}")
         context_vars = {f"hop_{i}": collected[i] for i in range(len(collected))}
-        user_content = user_tmpl.format(**context_vars)
+        try:
+            user_content = user_tmpl.format(**context_vars)
+        except (KeyError, IndexError):
+            user_content = collected[-1]  # same fallback as the streaming chain
 
         hop_body = {
             **body,
@@ -87,10 +176,11 @@ async def _run_non_streaming_chain(
             "tool_choice": None,
         }
         hop_body = {k: v for k, v in hop_body.items() if v is not None}
+        hop_url, hop_body = resolve_hop_target(workspace_id, hop_model, backend.chat_url, hop_body)
 
         hop_parts: list[str] = []
         try:
-            async with _http_client.stream("POST", backend.chat_url, json=hop_body) as resp:
+            async with _http_client.stream("POST", hop_url, json=hop_body) as resp:
                 resp.raise_for_status()
                 async for line in resp.aiter_lines():
                     if not line.startswith("data: ") or line == "data: [DONE]":
@@ -183,21 +273,27 @@ async def _try_non_streaming(
     *,
     enforce_hint: bool = True,
     persona: str = "",
+    tried: dict[tuple[str, str], str] | None = None,
 ) -> JSONResponse | None:
     """Attempt one non-streaming completion against ``backend``; ``None`` on failure.
 
     This is the **fallback engine**. It runs in two distinct
     callers:
 
-    1. The non-streaming branch of ``chat_completions`` (line 2572)
-       — iterates candidates until one succeeds.
-    2. ``_stream_or_fallback`` (line 2834) — when a streaming
-       attempt yields an error chunk, the same backend is retried
-       non-streaming, then remaining candidates are tried.
+    1. ``handlers._dispatch_non_streaming`` — iterates candidates until
+       one succeeds.
+    2. ``streaming._stream_with_fallback`` — when a stream fails before
+       any output reached the client, the remaining candidates are tried.
 
-    **Never raises.** Every failure path returns ``None`` so the
-    caller's loop can try the next candidate. Raising would
-    short-circuit the fallback chain.
+    Every failure path returns ``None`` so the caller's loop can try the
+    next candidate — except a request the backend rejects as malformed
+    (``BackendRequestError``, HTTP 400/413/422), which every candidate would
+    reject alike and which the caller surfaces instead of cascading.
+    ``tried`` (shared across one request's attempts) maps each
+    ``(chat_url, model)`` pair already attempted to its failure reason:
+    several backend groups front the same engine, and resending an identical
+    request to it is a repeat, not a fallback. The reasons let the caller
+    tell the client why every attempt failed.
 
     Major steps in order:
 
@@ -275,6 +371,18 @@ async def _try_non_streaming(
                 backend.id,
             )
             return None
+        if model_hint and tried:
+            # The hinted model was reached and failed (error or timeout).
+            # Substituting an unrelated model loads it under the same memory
+            # pressure and answers with a model the user didn't pick; the
+            # any-model last resort is for a hint no healthy backend serves.
+            logger.warning(
+                "workspace=%s: hinted model %s failed on every backend that serves it — "
+                "not substituting a different model",
+                workspace_id,
+                model_hint,
+            )
+            return None
         _literal_model = backend.resolve_model(workspace_id)
         target_model = _literal_model if _literal_model is not None else backend.models[0]
         if model_hint and target_model != model_hint:
@@ -292,6 +400,18 @@ async def _try_non_streaming(
                 served=target_model,
                 path="non_streaming",
             ).inc()
+
+    if tried is not None:
+        _attempt = (backend.chat_url, target_model)
+        if _attempt in tried:
+            logger.debug(
+                "Backend %s: %s on %s already attempted for this request — skipping",
+                backend.id,
+                target_model,
+                backend.chat_url,
+            )
+            return None
+        tried[_attempt] = ""
 
     if enforce_hint:
         logger.info(
@@ -321,10 +441,17 @@ async def _try_non_streaming(
     # mismatch), so the tool schemas aren't silently dropped in the fallback.
     _persona_data: PersonaSpec | dict[str, Any] = _PERSONA_MAP.get(persona, {}) if persona else {}
     _ns_tools = _resolve_persona_tools(_persona_data, workspace_id)
-    # portal_client_tools_only: see streaming._build_streaming_request.
+    # portal_client_tools_only / portal_no_tools / the non-tool-model strip:
+    # same contract as streaming._build_streaming_request, so a request (or a
+    # stream's non-streaming fallback) behaves the same in either mode.
     if req_body.pop("portal_client_tools_only", False):
         _ns_tools = []
-    if _ns_tools and _model_supports_tools(target_model):
+    _supports_tools = _model_supports_tools(target_model)
+    if req_body.pop("portal_no_tools", False) or not _supports_tools:
+        req_body.pop("tools", None)
+        req_body.pop("tool_choice", None)
+        _ns_tools = []
+    if _ns_tools and _supports_tools:
         from portal.platform.inference.tool_registry import tool_registry  # noqa: PLC0415
 
         _required_tool = None
@@ -395,7 +522,7 @@ async def _try_non_streaming(
             ]
             logger.info("NON-STREAM tools: %s", _tool_names)
             resp = await _http_client.post(backend.chat_url, json=req_body, timeout=_timeout_obj)
-            resp.raise_for_status()
+            _raise_for_backend_status(resp)
             data = resp.json()
             # P5-OMLX-QWEN3CODER-TOOLTEXT-001: a call the engine's parser
             # missed arrives as content; recover it before the tool loop.
@@ -419,7 +546,9 @@ async def _try_non_streaming(
                 _resp_tc.extend((_c.get("message") or {}).get("tool_calls") or [])
             _resp_content = ""
             for _c in data.get("choices") or []:
-                _resp_content = (_c.get("message") or {}).get("content", "")[:200]
+                # content is null on a tool-call reply from OpenAI-shaped
+                # engines; slicing None failed every such response.
+                _resp_content = ((_c.get("message") or {}).get("content") or "")[:200]
             logger.info(
                 "NON-STREAM ← %s | %d tool_calls, content=%r",
                 backend.chat_url,
@@ -471,7 +600,7 @@ async def _try_non_streaming(
                 _synth_resp = await _http_client.post(
                     backend.chat_url, json=_synth_body, timeout=_timeout_obj
                 )
-                _synth_resp.raise_for_status()
+                _raise_for_backend_status(_synth_resp)
                 data = _synth_resp.json()
                 logger.info(
                     "Non-stream tool loop: workspace=%s dispatched %d tool(s), synthesis complete",
@@ -488,9 +617,26 @@ async def _try_non_streaming(
             schedule_writeback(workspace_id, body.get("messages", []), get_correlation_id())
 
             return _apply_non_stream_response(data, backend, workspace_id, target_model, start_time)
-        except httpx.TimeoutException:
-            raise  # propagate so outer handler can check /api/ps
-        except Exception:
+        except (httpx.TimeoutException, BackendRequestError):
+            raise  # timeout: outer handler checks /api/ps; 4xx: caller surfaces it
+        except Exception as exc:
+            # The cause used to be swallowed: a cascade to the next candidate
+            # left only "Backend X failed" in the log.
+            detail = (
+                backend_error_detail(exc.response.content)
+                if isinstance(exc, httpx.HTTPStatusError)
+                else str(exc)
+            )
+            if tried is not None:
+                tried[(backend.chat_url, target_model)] = f"{target_model}: {detail[:300]}"
+            logger.warning(
+                "Backend %s request failed for workspace=%s model=%s: %s: %s",
+                backend.id,
+                workspace_id,
+                target_model,
+                type(exc).__name__,
+                detail[:300],
+            )
             return None
 
     try:
@@ -525,9 +671,17 @@ async def _try_non_streaming(
                 backend.id,
                 _req_timeout,
             )
-            result = await _run_request()
+            try:
+                result = await _run_request()
+            except httpx.TimeoutException:
+                result = None  # a second timeout must cascade, not escape
             if result is not None:
                 return result
+        if tried is not None:
+            tried[(backend.chat_url, target_model)] = (
+                f"{target_model}: timed out after {_req_timeout:.0f}s"
+            )
+        if _model_still_running:
             logger.warning(
                 "Backend %s retry also failed for workspace=%s — cascading",
                 backend.id,

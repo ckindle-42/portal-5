@@ -26,6 +26,18 @@ from portal.platform.inference.router.workspaces import _PERSONA_MAP, WORKSPACES
 logger = logging.getLogger(__name__)
 
 
+def append_text_to_content(content: Any, text: str) -> Any:
+    """Append ``text`` to a message's content in whichever form the client sent.
+
+    OpenAI allows ``content`` as a string or a list of typed parts (IDE clients
+    and SDKs send system prompts as parts); string concatenation onto a list
+    raised TypeError and failed the request with a 500.
+    """
+    if isinstance(content, list):
+        return [*content, {"type": "text", "text": text}]
+    return (content if isinstance(content, str) else "") + text
+
+
 def _resolve_persona_workspace(workspace_id: str) -> str:
     """Resolve a persona slug to its backing workspace_model if not already a known workspace.
 
@@ -277,7 +289,7 @@ def _inject_temporal_context(workspace_id: str, body: dict[str, Any]) -> dict[st
     _sys_i = next((i for i, m in enumerate(_msgs) if m.get("role") == "system"), None)
     if _sys_i is not None:
         _u = dict(_msgs[_sys_i])
-        _u["content"] = _u.get("content", "") + _temporal
+        _u["content"] = append_text_to_content(_u.get("content"), _temporal)
         _msgs = list(_msgs)
         _msgs[_sys_i] = _u
         return {**body, "messages": _msgs}
@@ -301,7 +313,7 @@ def _inject_system_prompt_append(workspace_id: str, body: dict[str, Any]) -> dic
     sys_idx = next((i for i, m in enumerate(messages) if m.get("role") == "system"), None)
     if sys_idx is not None:
         updated = dict(messages[sys_idx])
-        updated["content"] = updated.get("content", "") + _prompt_append
+        updated["content"] = append_text_to_content(updated.get("content"), _prompt_append)
         messages = list(messages)
         messages[sys_idx] = updated
         return {**body, "messages": messages}

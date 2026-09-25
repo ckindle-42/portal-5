@@ -161,12 +161,32 @@ def _think_value(body: dict[str, Any]) -> bool | str | None:
     return None
 
 
+def _tools_for_choice(tools: list[dict[str, Any]], choice: Any) -> list[dict[str, Any]]:
+    """Apply ``tool_choice`` the one way /api/chat allows — by what is offered.
+
+    It has no tool_choice field, so ``"none"`` (offer nothing) and a named
+    function (offer only that one) are expressed through the tools list;
+    dropping the field let the model call tools the caller had forbidden.
+    ``"required"`` cannot be expressed and stays a no-op.
+    """
+    if choice == "none":
+        return []
+    if isinstance(choice, dict):
+        name = (choice.get("function") or {}).get("name")
+        named = [t for t in tools if (t.get("function") or {}).get("name") == name]
+        return named or tools
+    return tools
+
+
 def to_native_request(body: dict[str, Any], can_think: bool) -> dict[str, Any]:
     """Build the /api/chat body for an OpenAI chat body."""
     options = {k: v for k, v in (body.get("options") or {}).items() if k in _SAMPLING_OPTIONS}
     for key in _TOP_LEVEL_OPTIONS:
         if body.get(key) is not None:
             options[key] = body[key]
+    # OpenAI allows a bare string; /api/chat 500s on anything but an array.
+    if isinstance(options.get("stop"), str):
+        options["stop"] = [options["stop"]]
     max_tokens = body.get("max_completion_tokens") or body.get("max_tokens")
     if max_tokens is not None:
         options["num_predict"] = max_tokens
@@ -176,8 +196,9 @@ def to_native_request(body: dict[str, Any], can_think: bool) -> dict[str, Any]:
         "stream": bool(body.get("stream", False)),
         "options": options,
     }
-    if body.get("tools"):
-        native["tools"] = body["tools"]
+    tools = _tools_for_choice(body.get("tools") or [], body.get("tool_choice"))
+    if tools:
+        native["tools"] = tools
     fmt = body.get("response_format") or {}
     if fmt.get("type") == "json_object":
         native["format"] = "json"
@@ -291,9 +312,16 @@ async def native_stream_to_sse(
         model = chunk.get("model", model)
         msg = chunk.get("message") or {}
         if chunk.get("done"):
+            # The final chunk can still carry message fields; dropping its
+            # tool_calls would also misreport finish_reason as "stop".
             final_delta: dict[str, Any] = {}
             if msg.get("content"):
                 final_delta["content"] = msg["content"]
+            if msg.get("thinking"):
+                final_delta["reasoning"] = msg["thinking"]
+            if msg.get("tool_calls"):
+                final_delta["tool_calls"] = _openai_tool_calls(msg["tool_calls"], n_calls)
+                n_calls += len(msg["tool_calls"])
             if final_delta:
                 yield sse(
                     _envelope(

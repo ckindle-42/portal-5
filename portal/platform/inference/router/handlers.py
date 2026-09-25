@@ -8,7 +8,9 @@ is a route handler body; the ``@app.<method>`` decorators live in
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import importlib.metadata
+import json
 import logging
 import os
 import time
@@ -50,6 +52,7 @@ from portal.platform.inference.router.metrics import (
     _requests_total,
 )
 from portal.platform.inference.router.non_streaming import (
+    BackendRequestError,
     _run_non_streaming_chain,
     _try_non_streaming,
 )
@@ -658,16 +661,23 @@ async def _dispatch_non_streaming(
         stream,
     )
     _ns_chain = WORKSPACES.get(workspace_id, {}).get("chain") or []
+    tried: dict[tuple[str, str], str] = {}
     for i, backend in enumerate(candidates):
         is_last = i == len(candidates) - 1
-        result = await _try_non_streaming(
-            backend,
-            body,
-            workspace_id,
-            start_time,
-            enforce_hint=(not is_last),
-            persona=persona,
-        )
+        try:
+            result = await _try_non_streaming(
+                backend,
+                body,
+                workspace_id,
+                start_time,
+                enforce_hint=(not is_last),
+                persona=persona,
+                tried=tried,
+            )
+        except BackendRequestError as exc:
+            _record_error(workspace_id, f"backend_http_{exc.status_code}")
+            trace_span("backend.attempt", backend=backend.id, outcome=f"http_{exc.status_code}")
+            raise HTTPException(status_code=exc.status_code, detail=exc.detail) from None
         if result is not None:
             route_header = result.headers.get("x-portal-route", ";;")
             resolved_model = (
@@ -708,9 +718,11 @@ async def _dispatch_non_streaming(
         trace_span("backend.attempt", backend=backend.id, outcome="failed")
     # All backends failed
     _record_error(workspace_id, "all_backends_failed")
+    reasons = [r for r in tried.values() if r]
     raise HTTPException(
         status_code=502,
-        detail="All backends failed — check server logs",
+        detail="All backends failed"
+        + (f" — {'; '.join(reasons)}" if reasons else " — check server logs"),
     )
 
 
@@ -824,7 +836,9 @@ async def chat_completions(
 
         # Multiple candidates — stream from the first; fall back to non-streaming
         # retries of the remaining.
-        remaining = candidates[1:]
+        # _select_streaming_backend may have moved a later candidate to the
+        # front; candidates[1:] then re-listed the one being streamed from.
+        remaining = [c for c in candidates if c is not backend]
 
         slot.detach()
         _streaming_response = StreamingResponse(
@@ -906,6 +920,7 @@ async def get_trace(
 async def anthropic_messages(
     request: Request,
     authorization: str | None = Header(None),
+    x_api_key: str | None = Header(None),
 ) -> Any:
     """POST /v1/messages — Anthropic Messages API compatibility endpoint.
 
@@ -915,10 +930,17 @@ async def anthropic_messages(
     Anthropic wire format. Makes Claude Code usable as a local-model IDE (see
     ``scripts/cc-local.sh``).
 
-    Implementation: translates the body then dispatches to
-    ``/v1/chat/completions`` via ASGI-level loopback (zero network overhead,
-    full routing stack, independent semaphore slot).
+    Implementation: translates the body and calls ``chat_completions``
+    in-process on a synthetic request (same routing stack, its own semaphore
+    slot, the caller's correlation id and query string). The previous
+    ``httpx.ASGITransport`` loopback buffered the whole response body, so a
+    "streamed" reply arrived in one piece at the end of generation, under a
+    300s cap that long agentic turns exceeded.
     """
+    # Anthropic SDKs (Claude Code with ANTHROPIC_API_KEY, as cc-local.sh sets
+    # it) authenticate with x-api-key, not Authorization — accepting only the
+    # latter rejected every Claude Code request with 401.
+    authorization = authorization or x_api_key
     _verify_key(authorization)
 
     try:
@@ -931,51 +953,40 @@ async def anthropic_messages(
     stream = openai_body.get("stream", False)
     msg_id = f"msg_{__import__('uuid').uuid4().hex[:24]}"
 
-    fwd_headers = {
-        "Authorization": authorization or "",
-        "Content-Type": "application/json",
-        # Without this the ASGI loopback mints a second correlation id, so a
-        # Claude Code turn would trace under an id the caller never saw.
-        "X-Correlation-ID": get_correlation_id(),
-    }
+    payload = json.dumps(openai_body).encode()
 
-    # Deferred to avoid circular import (app.py imports handlers.py)
-    from portal.platform.inference.router.app import app as _app  # noqa: PLC0415
+    async def _receive() -> dict[str, Any]:
+        return {"type": "http.request", "body": payload, "more_body": False}
 
-    if stream:
+    inner_request = Request(
+        {
+            "type": "http",
+            "method": "POST",
+            "path": "/v1/chat/completions",
+            "query_string": request.scope.get("query_string", b""),
+            "headers": [(b"content-type", b"application/json")],
+        },
+        _receive,
+    )
+    resp = await chat_completions(inner_request, authorization)
+
+    if stream and isinstance(resp, StreamingResponse):
+        body_iter = resp.body_iterator
 
         async def _generate() -> AsyncIterator[str]:
-            async with (
-                httpx.AsyncClient(
-                    transport=httpx.ASGITransport(app=_app),
-                    base_url="http://portal-local",
-                    timeout=httpx.Timeout(300.0),
-                ) as client,
-                client.stream(
-                    "POST",
-                    "/v1/chat/completions",
-                    json=openai_body,
-                    headers=fwd_headers,
-                ) as resp,
-            ):
-                async for chunk in openai_stream_to_anthropic_sse(
-                    resp.aiter_lines(), msg_id, model_id
-                ):
-                    yield chunk
+            # aclosing: a client disconnect must reach the inner stream's
+            # finally, which releases its semaphore slot.
+            async with contextlib.aclosing(body_iter) as chunks:  # type: ignore[type-var]
+
+                async def _lines() -> AsyncIterator[str]:
+                    async for chunk in chunks:
+                        text = chunk.decode() if isinstance(chunk, bytes) else str(chunk)
+                        for line in text.splitlines():
+                            yield line
+
+                async for event in openai_stream_to_anthropic_sse(_lines(), msg_id, model_id):
+                    yield event
 
         return StreamingResponse(_generate(), media_type="text/event-stream")
 
-    # Non-streaming
-    async with httpx.AsyncClient(
-        transport=httpx.ASGITransport(app=_app),
-        base_url="http://portal-local",
-        timeout=httpx.Timeout(300.0),
-    ) as client:
-        resp = await client.post(
-            "/v1/chat/completions",
-            json=openai_body,
-            headers=fwd_headers,
-        )
-    if resp.status_code != 200:
-        raise HTTPException(status_code=resp.status_code, detail=resp.text)
-    return openai_response_to_anthropic(resp.json(), model_id)
+    return openai_response_to_anthropic(json.loads(resp.body), model_id)
