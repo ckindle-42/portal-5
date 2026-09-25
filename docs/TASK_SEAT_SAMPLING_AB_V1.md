@@ -61,7 +61,7 @@ if in doubt.
 | `auto-uncensored-throwaway` | ollama | `{temperature: 0.7, top_p: 0.8, top_k: 20, min_p: 0.0, repeat_penalty: 1.05}` | `{temperature: 0.8, top_p: 0.95, top_k: 50, min_p: 0.02}` |
 | `auto-uncensored-throwaway::gemma4-heretic` | ollama | `{temperature: 1.0, top_p: 0.95, top_k: 64, min_p: 0.0, repeat_penalty: 1.0}` | `{temperature: 0.8, top_p: 0.95, top_k: 50, min_p: 0.02}` |
 | `auto-uncensored-throwaway::ornith15` | ollama | `{temperature: 1.0, top_p: 0.95, top_k: 20, min_p: 0.0, repeat_penalty: 1.05}` | `{temperature: 0.8, top_p: 0.95, top_k: 50, min_p: 0.02}` |
-| `auto-coding` | omlx | **reverted** to `{temperature: 0.2, top_p: 0.9, top_k: 40, min_p: 0.05, repeat_penalty: 1.05}`: card lost on tool calls (see Tool verification) | card `{temperature: 0.7, top_p: 0.8, top_k: 20, min_p: 0.05, repeat_penalty: 1.05}`, blocked until C6 |
+| `auto-coding` | omlx | **reverted** to `{temperature: 0.2, top_p: 0.9, top_k: 40, min_p: 0.05, repeat_penalty: 1.05}`: card lost on tool calls (see Tool verification) | card `{temperature: 0.7, top_p: 0.8, top_k: 20, min_p: 0.05, repeat_penalty: 1.05}`, A/B unblocked (C6 done) |
 | `auto-coding::laguna` | omlx | `{temperature: 1.0, top_p: 1.0, top_k: 20, min_p: 0.05, repeat_penalty: 1.05}` | `{temperature: 0.2, top_p: 0.9, top_k: 40, min_p: 0.05, repeat_penalty: 1.05}` |
 | `auto-coding::uncensored` | ollama | `{temperature: 0.7, top_p: 0.8, top_k: 20, min_p: 0.05, repeat_penalty: 1.05}` | `{temperature: 0.2, top_p: 0.9, top_k: 40, min_p: 0.05, repeat_penalty: 1.05}` |
 | `auto-coding::uncensored-agentic` | ollama | `{temperature: 1.0, top_p: 0.95, top_k: 40, min_p: 0.05, repeat_penalty: 1.05}` | `{temperature: 0.2, top_p: 0.9, top_k: 40, min_p: 0.05, repeat_penalty: 1.05}` |
@@ -71,8 +71,8 @@ if in doubt.
 | `auto-coding::ornith` | ollama | `{temperature: 1.0, top_p: 0.95, top_k: 20, min_p: 0.05, repeat_penalty: 1.05}` | `{temperature: 0.6, top_p: 0.95, top_k: 20, min_p: 0.05, repeat_penalty: 1.05}` |
 | `auto-coding::reap288` (think: false) | omlx | `{temperature: 0.7, top_p: 0.8, top_k: 20, min_p: 0.05, repeat_penalty: 1.05}` | `{temperature: 0.6, top_p: 0.95, top_k: 20, min_p: 0.05, repeat_penalty: 1.05}` |
 | `auto-spl` | ollama | `{temperature: 1.0, top_p: 0.95, top_k: 40, repeat_penalty: 1.1}` | `{temperature: 0.2, top_p: 0.95, repeat_penalty: 1.1}` |
-| `auto-bigfix` | omlx | **reverted** to `{temperature: 0.1, top_p: 0.9, top_k: 20, min_p: 0.05, repeat_penalty: 1.05}` | card, blocked until C6 |
-| `auto-cad` | omlx | **reverted** to `{temperature: 0.2, top_p: 0.9, top_k: 40, repeat_penalty: 1.1}` (`top_k` now bounded) | card, blocked until C6 |
+| `auto-bigfix` | omlx | **reverted** to `{temperature: 0.1, top_p: 0.9, top_k: 20, min_p: 0.05, repeat_penalty: 1.05}` | card, A/B unblocked (C6 done) |
+| `auto-cad` | omlx | **reverted** to `{temperature: 0.2, top_p: 0.9, top_k: 40, repeat_penalty: 1.1}` (`top_k` now bounded) | card, A/B unblocked (C6 done) |
 | `tools-specialist` | omlx | `{temperature: 0.0, top_p: 0.95, repeat_penalty: 1.0}` | `{temperature: 0.6, top_p: 0.95, repeat_penalty: 1.0}` |
 | `tools-specialist::fast` | ollama | `{temperature: 1.0, top_p: 0.95, top_k: 64, repeat_penalty: 1.0}` | `{temperature: 0.6, top_p: 0.95, repeat_penalty: 1.0}` |
 | `auto-reasoning::deep` | omlx | `{temperature: 1.0, top_p: 0.95, top_k: 20, min_p: 0.0, repeat_penalty: 1.1}` | `{temperature: 0.6, top_p: 0.95, top_k: 20, min_p: 0.0, repeat_penalty: 1.1}` |
@@ -254,6 +254,7 @@ each. One request was in flight at a time, with the stack up. Results:
   oMLX's `mlx_lm` `qwen3_coder` parser then returns the call as text. Reverted to
   the prior sampling (6/6, 6/6, 7/8) — P5-OMLX-QWEN3CODER-TOOLTEXT-001. Ollama
   parses the same model 3/3 at 0.7.
+  Resolved by C6: the pipeline now recovers these calls whatever the sampling.
 - **`phi4-mini-reasoning`**: 0/3, and it is correctly `supports_tools: false`.
 - **Flags corrected to `true`** (probe or same-weights sibling):
   - supergemma4 (base + `-ctx64k`; also 3/3 multi-turn exec-shaped runs, no
@@ -276,13 +277,16 @@ each. One request was in flight at a time, with the stack up. Results:
 
 ## C — Code items
 
-- [ ] **C6 Qwen3-Coder tool-call salvage** (P5-OMLX-QWEN3CODER-TOOLTEXT-001):
-      when tools were offered and `content` holds a Qwen3-Coder XML call
-      (`<function=NAME>…</function>`, with or without the `<tool_call>` opener),
-      convert it to `tool_calls`. Do it in the pipeline (streaming and
-      non-streaming; run `./scripts/smoke_stream.sh`), or patch/report the oMLX
-      parser upstream. Acceptance: 20/20 on the neutral probe at the card sampling
-      on oMLX. Then A/B card vs prior for `auto-coding`/`auto-bigfix`/`auto-cad`.
+- [x] **C6 Qwen3-Coder tool-call salvage** (P5-OMLX-QWEN3CODER-TOOLTEXT-001),
+      done 2026-09-25 in the pipeline (`salvage_text_tool_calls` /
+      `TextToolCallHoldback`, streaming and non-streaming,
+      `portal5_tool_calls_recovered_total`). Acceptance met: 200/200 probe calls
+      as `tool_calls` through the pipeline on oMLX (card 0.7, seat, and 1.2),
+      `./scripts/smoke_stream.sh` PASS. Finding: the loss is prompt-shaped, not
+      temperature-driven. Some pipeline prompts lost the opener on every attempt
+      at the seat's 0.2, so the low-temperature revert was never a real
+      mitigation. Next: the card vs prior A/B for `auto-coding`/`auto-bigfix`/
+      `auto-cad` is unblocked; tool reliability no longer depends on it.
 
 - [ ] **C1 S3: VulnLLM `scan_code` tool** — spec in the parent task §S3. It goes
       in `portal/modules/security/tools/security_mcp.py`:

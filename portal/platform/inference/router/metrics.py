@@ -120,6 +120,12 @@ _tool_call_errors = Counter(
     ["tool", "workspace"],
     registry=_REGISTRY,
 )
+_tool_calls_recovered = Counter(
+    "portal5_tool_calls_recovered_total",
+    "Tool calls the engine returned as text and the pipeline recovered, by workspace",
+    ["workspace"],
+    registry=_REGISTRY,
+)
 _tool_workspace_strip = Counter(
     "portal5_tool_workspace_strip_total",
     "Tools stripped from request because workspace doesn't authorize them",
