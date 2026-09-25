@@ -166,13 +166,13 @@ backends:
   # supports_tools defaults to false (conservative — not live-probed, per
   # CLAUDE.md discipline: never infer tool support from a model card).
   - id: qwen3-coder:30b-a3b-q4_K_M
-    supports_tools: false
+    supports_tools: true
   - id: gpt-oss:20b
-    supports_tools: false
+    supports_tools: true
   - id: granite4.1:30b
-    supports_tools: false
+    supports_tools: true
   - id: granite4.1:30b-ctx16k
-    supports_tools: false
+    supports_tools: true
   # supports_tools was `false` here and `true` for the same tag under
   # ollama-coding. One model cannot both render a tools array and not render
   # one, and nothing in the module produced the field. It does now:
@@ -189,11 +189,11 @@ backends:
     # P1.4 preflight: direct /api/chat tool-call probe accepted typed arguments.
     supports_tools: true
   - id: omnicoder2:9b-q4_k_m
-    supports_tools: false
+    supports_tools: true
   - id: fredrezones55/Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive:Q4
-    supports_tools: false
+    supports_tools: true
   - id: gemma4:12b-it-qat
-    supports_tools: false
+    supports_tools: true
   - id: gemma4:e2b-it-qat
     supports_tools: false
   # supports_tools verified 2026-09-25: native tool-call probe 3/3 clean (was
@@ -206,20 +206,20 @@ backends:
   - id: gemma4:31b-it-qat
     supports_tools: false
   - id: hf.co/douyamv/Gemma-4-31B-JANG_4M-CRACK-GGUF:gemma-4-31b-jang-crack-Q4_K_M.gguf
-    supports_tools: false
+    supports_tools: true
   - id: hf.co/sjakek/Nex-N2-mini-GGUF:UD-Q4_K_M
-    supports_tools: false
+    supports_tools: true
   # 2026-09-07 fleet closeout: auto-research promotion (research probe 0.9/0.8 vs 0.3/0.4)
   - id: hf.co/sjakek/Nex-N2-mini-GGUF:UD-Q4_K_M-ctx16k
-    supports_tools: false
+    supports_tools: true
   - id: qwen3-coder-next:latest
-    supports_tools: false
+    supports_tools: true
   - id: hf.co/gaston-parravicini/LFM2.5-8B-A1B-Uncensored-Gaston-GGUF:Q4_K_M
-    supports_tools: false
+    supports_tools: true
   - id: hf.co/bartowski/huihui-ai_Qwen3-Coder-Next-abliterated-GGUF:Q4_K_M
-    supports_tools: false
+    supports_tools: true
   - id: huihui_ai/gemma-4-abliterated:E2b-qat
-    supports_tools: false
+    supports_tools: true
   - id: hf.co/mitkox/FastContext-1.0-4B-SFT-Q4_K_M-GGUF:Q4_K_M
     supports_tools: false
   - id: devstral:24b
@@ -239,15 +239,15 @@ backends:
   - id: hf.co/bartowski/THUDM_GLM-Z1-Rumination-32B-0414-GGUF:THUDM_GLM-Z1-Rumination-32B-0414-Q4_K_M.gguf
     supports_tools: false
   - id: supergemma4-26b-uncensored:Q4_K_M
-    supports_tools: false
+    supports_tools: true
   - id: sylink/sylink:8b
     supports_tools: false
   - id: hf.co/mradermacher/VulnLLM-R-7B-GGUF:Q4_K_M
-    supports_tools: false
+    supports_tools: true
   - id: hf.co/bartowski/Qwen_Qwen3.6-27B-GGUF:Q4_K_M
     supports_tools: false
   - id: hf.co/deepreinforce-ai/Ornith-1.0-35B-GGUF:Q4_K_M
-    supports_tools: false
+    supports_tools: true
   - id: hf.co/coder543/North-Mini-Code-1.0-QAD-GGUF:NVFP4
     supports_tools: false
   # 2026-09-07 fleet closeout: contender bench seats (WFE use-probe tier)
@@ -532,14 +532,15 @@ backends:
   - id: sylink/sylink:8b-ctx8k
     supports_tools: false
   - id: supergemma4-26b-uncensored:Q4_K_M
-    # supports_tools=false: model is wired to driver-dispatched workspaces
+    supports_tools: true  # same weights as the -ctx64k tag below (re-verified 2026-09-25)
   - id: supergemma4-26b-uncensored:Q4_K_M-ctx64k
-    # supports_tools=false: model is wired to driver-dispatched workspaces
-    # (auto-security, purpleteam-exec variant). Empirically enters reasoning loop when given
-    # tool definitions in context (UAT WS-PE03 killed at 1353s). Driver
-    # parses model text output and dispatches via _lab_mcp_call directly.
-    # Reference: UAT 20260627 + commit 7fee599 regression analysis.
-    supports_tools: false
+    # supports_tools re-verified 2026-09-25 (true): native probe 3/3 single-call
+    # and 3/3 multi-turn exec-shaped runs (call -> result -> answer, 2 turns, no
+    # loop) at purpleteam-exec's served sampling. The earlier false came from a
+    # reasoning loop with tools in context (UAT WS-PE03, 2026-06-27, commit
+    # 7fee599), measured when /v1 served every Ollama seat at 1.0/1.0 with no
+    # top_k/min_p/repeat_penalty; confirm in the next lab UAT (taskfile B8).
+    supports_tools: true
   - id: hf.co/douyamv/Gemma-4-31B-JANG_4M-CRACK-GGUF:gemma-4-31b-jang-crack-Q4_K_M.gguf
     supports_tools: true
   - id: hf.co/mradermacher/VulnLLM-R-7B-GGUF:Q4_K_M
@@ -628,14 +629,15 @@ backends:
   - id: huihui_ai/tongyi-deepresearch-abliterated:latest-ctx64k
     supports_tools: true
   - id: supergemma4-26b-uncensored:Q4_K_M
-    # supports_tools=false: model is wired to driver-dispatched workspaces
+    supports_tools: true  # same weights as the -ctx64k tag below (re-verified 2026-09-25)
   - id: supergemma4-26b-uncensored:Q4_K_M-ctx64k
-    # supports_tools=false: model is wired to driver-dispatched workspaces
-    # (auto-security, purpleteam-exec variant). Empirically enters reasoning loop when given
-    # tool definitions in context (UAT WS-PE03 killed at 1353s). Driver
-    # parses model text output and dispatches via _lab_mcp_call directly.
-    # Reference: UAT 20260627 + commit 7fee599 regression analysis.
-    supports_tools: false
+    # supports_tools re-verified 2026-09-25 (true): native probe 3/3 single-call
+    # and 3/3 multi-turn exec-shaped runs (call -> result -> answer, 2 turns, no
+    # loop) at purpleteam-exec's served sampling. The earlier false came from a
+    # reasoning loop with tools in context (UAT WS-PE03, 2026-06-27, commit
+    # 7fee599), measured when /v1 served every Ollama seat at 1.0/1.0 with no
+    # top_k/min_p/repeat_penalty; confirm in the next lab UAT (taskfile B8).
+    supports_tools: true
   - id: granite4.1:30b
     supports_tools: true
   - id: granite4.1:30b-ctx16k
@@ -666,9 +668,9 @@ backends:
   - id: phi4-mini-reasoning:latest-ctx24k
     supports_tools: false
   - id: hf.co/unsloth/DeepSeek-R1-0528-Qwen3-8B-GGUF:Q4_K_XL
-    supports_tools: false
+    supports_tools: true
   - id: hf.co/unsloth/DeepSeek-R1-0528-Qwen3-8B-GGUF:Q4_K_XL-ctx64k
-    supports_tools: false
+    supports_tools: true
   # Tier-2 deep lane (auto-reasoning?variant=deep, PROPOSED_REASONING_OVERHAUL
   # _V3). Dense Qwen3.8-27B. Ollama GGUF fallback; omlx-reasoning aliases it to
   # Qwen3.8-27B-oQ4e-mtp (MTP ~1.45x). ctx32k baked. Tool-calling audited
@@ -747,9 +749,9 @@ backends:
   - id: huihui_ai/Qwen3.6-abliterated:27b-ctx8k
     supports_tools: true
   - id: hf.co/gaston-parravicini/LFM2.5-8B-A1B-Uncensored-Gaston-GGUF:Q4_K_M
-    supports_tools: false
+    supports_tools: true
   - id: hf.co/gaston-parravicini/LFM2.5-8B-A1B-Uncensored-Gaston-GGUF:q4_K_M-ctx8k
-    supports_tools: false
+    supports_tools: true
   type: ollama
   url: ${OLLAMA_URL:-http://host.docker.internal:11434}
 # oMLX evaluation backend (P5-FUT-013 Phase 1, 2026-08-02).

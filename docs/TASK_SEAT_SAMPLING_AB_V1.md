@@ -61,7 +61,7 @@ if in doubt.
 | `auto-uncensored-throwaway` | ollama | `{temperature: 0.7, top_p: 0.8, top_k: 20, min_p: 0.0, repeat_penalty: 1.05}` | `{temperature: 0.8, top_p: 0.95, top_k: 50, min_p: 0.02}` |
 | `auto-uncensored-throwaway::gemma4-heretic` | ollama | `{temperature: 1.0, top_p: 0.95, top_k: 64, min_p: 0.0, repeat_penalty: 1.0}` | `{temperature: 0.8, top_p: 0.95, top_k: 50, min_p: 0.02}` |
 | `auto-uncensored-throwaway::ornith15` | ollama | `{temperature: 1.0, top_p: 0.95, top_k: 20, min_p: 0.0, repeat_penalty: 1.05}` | `{temperature: 0.8, top_p: 0.95, top_k: 50, min_p: 0.02}` |
-| `auto-coding` | omlx | `{temperature: 0.7, top_p: 0.8, top_k: 20, min_p: 0.05, repeat_penalty: 1.05}` | `{temperature: 0.2, top_p: 0.9, top_k: 40, min_p: 0.05, repeat_penalty: 1.05}` |
+| `auto-coding` | omlx | **reverted** to `{temperature: 0.2, top_p: 0.9, top_k: 40, min_p: 0.05, repeat_penalty: 1.05}`: card lost on tool calls (see Tool verification) | card `{temperature: 0.7, top_p: 0.8, top_k: 20, min_p: 0.05, repeat_penalty: 1.05}`, blocked until C6 |
 | `auto-coding::laguna` | omlx | `{temperature: 1.0, top_p: 1.0, top_k: 20, min_p: 0.05, repeat_penalty: 1.05}` | `{temperature: 0.2, top_p: 0.9, top_k: 40, min_p: 0.05, repeat_penalty: 1.05}` |
 | `auto-coding::uncensored` | ollama | `{temperature: 0.7, top_p: 0.8, top_k: 20, min_p: 0.05, repeat_penalty: 1.05}` | `{temperature: 0.2, top_p: 0.9, top_k: 40, min_p: 0.05, repeat_penalty: 1.05}` |
 | `auto-coding::uncensored-agentic` | ollama | `{temperature: 1.0, top_p: 0.95, top_k: 40, min_p: 0.05, repeat_penalty: 1.05}` | `{temperature: 0.2, top_p: 0.9, top_k: 40, min_p: 0.05, repeat_penalty: 1.05}` |
@@ -71,8 +71,8 @@ if in doubt.
 | `auto-coding::ornith` | ollama | `{temperature: 1.0, top_p: 0.95, top_k: 20, min_p: 0.05, repeat_penalty: 1.05}` | `{temperature: 0.6, top_p: 0.95, top_k: 20, min_p: 0.05, repeat_penalty: 1.05}` |
 | `auto-coding::reap288` (think: false) | omlx | `{temperature: 0.7, top_p: 0.8, top_k: 20, min_p: 0.05, repeat_penalty: 1.05}` | `{temperature: 0.6, top_p: 0.95, top_k: 20, min_p: 0.05, repeat_penalty: 1.05}` |
 | `auto-spl` | ollama | `{temperature: 1.0, top_p: 0.95, top_k: 40, repeat_penalty: 1.1}` | `{temperature: 0.2, top_p: 0.95, repeat_penalty: 1.1}` |
-| `auto-bigfix` | omlx | `{temperature: 0.7, top_p: 0.8, top_k: 20, min_p: 0.05, repeat_penalty: 1.05}` | `{temperature: 0.1, top_p: 0.9, top_k: 20, min_p: 0.05, repeat_penalty: 1.05}` |
-| `auto-cad` | omlx | `{temperature: 0.7, top_p: 0.8, top_k: 20, repeat_penalty: 1.05}` | `{temperature: 0.2, top_p: 0.9, repeat_penalty: 1.1}` |
+| `auto-bigfix` | omlx | **reverted** to `{temperature: 0.1, top_p: 0.9, top_k: 20, min_p: 0.05, repeat_penalty: 1.05}` | card, blocked until C6 |
+| `auto-cad` | omlx | **reverted** to `{temperature: 0.2, top_p: 0.9, top_k: 40, repeat_penalty: 1.1}` (`top_k` now bounded) | card, blocked until C6 |
 | `tools-specialist` | omlx | `{temperature: 0.0, top_p: 0.95, repeat_penalty: 1.0}` | `{temperature: 0.6, top_p: 0.95, repeat_penalty: 1.0}` |
 | `tools-specialist::fast` | ollama | `{temperature: 1.0, top_p: 0.95, top_k: 64, repeat_penalty: 1.0}` | `{temperature: 0.6, top_p: 0.95, repeat_penalty: 1.0}` |
 | `auto-reasoning::deep` | omlx | `{temperature: 1.0, top_p: 0.95, top_k: 20, min_p: 0.0, repeat_penalty: 1.1}` | `{temperature: 0.6, top_p: 0.95, top_k: 20, min_p: 0.0, repeat_penalty: 1.1}` |
@@ -125,7 +125,9 @@ new 20; nothing else about it changed.
 4. **`auto-security*`: engine settings only.** Sampling A/B is B8. Do not change
    system prompts, models or tool lists. S3's `scan_code` comparison gates the
    chat-seat model, and `purpleteam-exec`'s `tools_unsupported` FAIL is the
-   operator's to decide. Use the benign probe set (the colour, arithmetic and
+   operator's to decide (that FAIL cleared 2026-09-25: supergemma4 re-verified
+   `supports_tools: true`, so the pipeline now offers purpleteam-exec its tools;
+   the next lab UAT must confirm the live exec loop). Use the benign probe set (the colour, arithmetic and
    weather-tool probes in `tests/wfe/settings_audit.py`) for template checks.
    Run the security bench directly in the main session (not a subagent).
 5. **Before blaming a model:** render its template, raw-generate, and compare
@@ -232,7 +234,55 @@ below and on the card entry's `behavioral_quirks` in
   4. Send one live request through `:9099`.
   5. Commit (one seat per commit).
 
+## Tool verification (2026-09-25, done)
+
+Every production seat that declares tools was probed on its production engine
+at its exact served sampling and `think`: 4 calls each, a neutral weather-tool
+question. The flag check also covered the council seats and every model id
+whose flags disagreed across groups: 3 single calls plus a tool-result turn
+each. One request was in flight at a time, with the stack up. Results:
+
+- **Clean** (4/4, or 3/3 + a clean tool-result turn): every Ollama seat, and on
+  oMLX laguna, pentest, blueteam, the VulnLLM seats (4/4 on retry; the first
+  pass got HTTP 409 while models were loading), tools-specialist, documents,
+  image, video, compliance and `auto`.
+- **Single misses at card temperature:** `auto-security::uncensored` (Baron,
+  0.6) and `auto-research` (Nex-N2, 0.7), each 3/4. Worth watching in B3/B8;
+  not a flag error.
+- **Qwen3-Coder on oMLX** (`auto-coding`, `auto-bigfix`, `auto-cad`): 2–3 of 4 at
+  the card sampling. The model sometimes skips the `<tool_call>` opener, and
+  oMLX's `mlx_lm` `qwen3_coder` parser then returns the call as text. Reverted to
+  the prior sampling (6/6, 6/6, 7/8) — P5-OMLX-QWEN3CODER-TOOLTEXT-001. Ollama
+  parses the same model 3/3 at 0.7.
+- **`phi4-mini-reasoning`**: 0/3, and it is correctly `supports_tools: false`.
+- **Flags corrected to `true`** (probe or same-weights sibling):
+  - supergemma4 (base + `-ctx64k`; also 3/3 multi-turn exec-shaped runs, no
+    loop, at purpleteam-exec's sampling), which clears the auditor's last FAIL;
+  - LFM2.5-Gaston (base + `-ctx8k`) and DeepSeek-R1-0528-Qwen3-8B (base + `-ctx64k`);
+  - these ids, which had a group-split `false`: Nex-N2-mini (both), granite4.1:30b
+    (both), qwen3-coder:30b, gpt-oss:20b, omnicoder2:9b, Gemma-4-31B-JANG,
+    gemma-4-abliterated E2b, HauhauCS `:Q4`, gemma4:12b-it-qat,
+    qwen3-coder-next:latest, Coder-Next-abliterated, VulnLLM `Q4_K_M` and Ornith-1.0.
+
+  The router keeps **one** flag per model id (last entry wins), so a per-group
+  split never did what its comments said.
+- **Unverified, left as-is:** 11 ids that are not installed and have no installed
+  sibling. They still carry split flags, which is harmless while they're not
+  installed; re-probe any of them before use:
+  - `portal5/qwen3.6-27b-mtp:q8_0-drafted`, `gemma4:e2b-it-qat`, `gemma4:31b-it-qat`
+  - FastContext-4B, `devstral:24b`, Qwopus3.6-27B, GLM-4.7-Flash-REAP-23B,
+    bartowski Qwen3.6-27B
+  - `cybersecqwen-4b-toolfix`, `huihui_ai/qwen3-abliterated:14b-v2`, `devstral-small-2`
+
 ## C — Code items
+
+- [ ] **C6 Qwen3-Coder tool-call salvage** (P5-OMLX-QWEN3CODER-TOOLTEXT-001):
+      when tools were offered and `content` holds a Qwen3-Coder XML call
+      (`<function=NAME>…</function>`, with or without the `<tool_call>` opener),
+      convert it to `tool_calls`. Do it in the pipeline (streaming and
+      non-streaming; run `./scripts/smoke_stream.sh`), or patch/report the oMLX
+      parser upstream. Acceptance: 20/20 on the neutral probe at the card sampling
+      on oMLX. Then A/B card vs prior for `auto-coding`/`auto-bigfix`/`auto-cad`.
 
 - [ ] **C1 S3: VulnLLM `scan_code` tool** — spec in the parent task §S3. It goes
       in `portal/modules/security/tools/security_mcp.py`:

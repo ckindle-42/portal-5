@@ -16,8 +16,7 @@ tags:
 created_at: 1784946220.6162739
 updated_at: 1784946220.6162739
 ---
-
-`hf.co/deepreinforce-ai/Ornith-1.0-35B-GGUF:Q4_K_M` is Ornith-1.0-35B Q4_K_M (~21GB, DeepReinforce/MIT, Qwen3.5-35B-A3B base, 262K ctx, MoE 3B active), sharing its self-improving RL training with the 9B sibling. It was a V10 candidate under `bench-ornith-35b`, substituting for the operator-requested AEON-7 NVFP4 (Blackwell-only). `config/backends.yaml` registers it in the `general` group with `supports_tools: false` and in the `coding` group with `supports_tools: true`. `config/portal.yaml` promoted it 2026-06-30 to the `ornith` variant of `auto-coding` (whose `model_hint` is the `-ctx64k` derived tag) on strong tool-chain 4/5 and SWE-handoff 4/5 probe markers; the variant sits alongside `auto-coding`'s heavy and lite variants without replacing either. The base id remains `bench-ornith-35b`'s `model_hint`.
+`hf.co/deepreinforce-ai/Ornith-1.0-35B-GGUF:Q4_K_M` is Ornith-1.0-35B Q4_K_M (~21GB, DeepReinforce/MIT, Qwen3.5-35B-A3B base, 262K ctx, MoE 3B active), sharing its self-improving RL training with the 9B sibling. It was a V10 candidate under `bench-ornith-35b`, substituting for the operator-requested AEON-7 NVFP4 (Blackwell-only). `config/backends.yaml` lists it with `supports_tools: true` in every group (verified 2026-09-25 by a neutral native tool-call probe — sibling -ctx64k tag: 3/3 single-call plus a clean tool-result turn); the router reads one flag per model id, last entry wins, so a per-group split never took effect. `config/portal.yaml` promoted it 2026-06-30 to the `ornith` variant of `auto-coding` (whose `model_hint` is the `-ctx64k` derived tag) on strong tool-chain 4/5 and SWE-handoff 4/5 probe markers; the variant sits alongside `auto-coding`'s heavy and lite variants without replacing either. The base id remains `bench-ornith-35b`'s `model_hint`.
 
 ## Why
 

@@ -15,8 +15,7 @@ tags:
 created_at: 1784946220.606742
 updated_at: 1784946220.606742
 ---
-
-`omnicoder2:9b-q4_k_m` is OmniCoder-2 9B Q4_K_M (~5.7GB, Apache 2.0), a Qwen3.5-9B base SFT on 425K agentic trajectories from Claude Opus 4.6 / GPT-5.4 / Codex / Gemini 3.1 Pro. `config/backends.yaml` registers it in `group: general` with `supports_tools: false` and in `group: coding` with `supports_tools: true`, so the tool flag is resolved per backend group. `config/portal.yaml` pins it as the `bench-omnicoder2` workspace `model_hint`; the pull registry lists its `ollama_name` from the mradermacher GGUF. The auto-coding uncensored variant instead serves the ctx8k sibling. v2 fixes v1's repetition loops, bloated thinking, and agentic-loop instability.
+`omnicoder2:9b-q4_k_m` is OmniCoder-2 9B Q4_K_M (~5.7GB, Apache 2.0), a Qwen3.5-9B base SFT on 425K agentic trajectories from Claude Opus 4.6 / GPT-5.4 / Codex / Gemini 3.1 Pro. `config/backends.yaml` lists it with `supports_tools: true` in every group (verified 2026-09-25 by a neutral native tool-call probe — 3/3 single-call plus a clean tool-result turn); the router reads one flag per model id, last entry wins, so a per-group split never took effect. `config/portal.yaml` pins it as the `bench-omnicoder2` workspace `model_hint`; the pull registry lists its `ollama_name` from the mradermacher GGUF. The auto-coding uncensored variant instead serves the ctx8k sibling. v2 fixes v1's repetition loops, bloated thinking, and agentic-loop instability.
 
 ## Why
 

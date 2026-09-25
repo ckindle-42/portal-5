@@ -15,8 +15,7 @@ tags:
 created_at: 1784946220.612376
 updated_at: 1784946220.612376
 ---
-
-`hf.co/sjakek/Nex-N2-mini-GGUF:UD-Q4_K_M` is a ~22GB imatrix quant of a 35B-total / 3B-active MoE post-trained on Qwen3.5-35B-A3B-Base, multimodal with image and text input. `config/backends.yaml` registers it twice with conflicting flags: the `general` group sets `supports_tools: false` while the `coding` group sets `supports_tools: true`, so tool support is asserted only in the agentic-coding lane, not as a global property. `config/portal.yaml` binds it to the `bench-nex-n2-mini` workspace `model_hint` with a Terminal-Bench 2.1 score of 60.7 and PROMOTE_POLICY=confirm. The flag split is the config's way of being conservative outside the coding lane.
+`hf.co/sjakek/Nex-N2-mini-GGUF:UD-Q4_K_M` is a ~22GB imatrix quant of a 35B-total / 3B-active MoE post-trained on Qwen3.5-35B-A3B-Base, multimodal with image and text input. `config/backends.yaml` lists it with `supports_tools: true` in every group (verified 2026-09-25 by a neutral native tool-call probe — 3/3 single-call plus a clean tool-result turn); the router reads one flag per model id, last entry wins, so a per-group split never took effect. `config/portal.yaml` binds it to the `bench-nex-n2-mini` workspace `model_hint` with a Terminal-Bench 2.1 score of 60.7 and PROMOTE_POLICY=confirm. The flag split is the config's way of being conservative outside the coding lane.
 
 ## Why
 

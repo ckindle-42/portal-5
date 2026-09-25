@@ -293,7 +293,7 @@ The doc body asserted the vanch007→mradermacher rehost; `config/portal.yaml`'s
 
 ### `omnicoder2:9b-q4_k_m`
 
-`omnicoder2:9b-q4_k_m` is OmniCoder-2 9B Q4_K_M (~5.7GB, Apache 2.0), a Qwen3.5-9B base SFT on 425K agentic trajectories from Claude Opus 4.6 / GPT-5.4 / Codex / Gemini 3.1 Pro. `config/backends.yaml` registers it in `group: general` with `supports_tools: false` and in `group: coding` with `supports_tools: true`, so the tool flag is resolved per backend group. `config/portal.yaml` pins it as the `bench-omnicoder2` workspace `model_hint`; the pull registry lists its `ollama_name` from the mradermacher GGUF. The auto-coding uncensored variant instead serves the ctx8k sibling. v2 fixes v1's repetition loops, bloated thinking, and agentic-loop instability.
+`omnicoder2:9b-q4_k_m` is OmniCoder-2 9B Q4_K_M (~5.7GB, Apache 2.0), a Qwen3.5-9B base SFT on 425K agentic trajectories from Claude Opus 4.6 / GPT-5.4 / Codex / Gemini 3.1 Pro. `config/backends.yaml` lists it with `supports_tools: true` in every group (verified 2026-09-25 by a neutral native tool-call probe — 3/3 single-call plus a clean tool-result turn); the router reads one flag per model id, last entry wins, so a per-group split never took effect. `config/portal.yaml` pins it as the `bench-omnicoder2` workspace `model_hint`; the pull registry lists its `ollama_name` from the mradermacher GGUF. The auto-coding uncensored variant instead serves the ctx8k sibling. v2 fixes v1's repetition loops, bloated thinking, and agentic-loop instability.
 
 ## Why
 
@@ -348,7 +348,7 @@ The bare `devstral-small-2` id and the `devstral-small-2:latest` tag are distinc
 
 ### `gpt-oss:20b`
 
-`gpt-oss:20b` is registered in `config/backends.yaml` under the `coding` group with `supports_tools: true`, the `reasoning` group with `supports_tools: true`, and the `general` group with `supports_tools: false`. `config/portal.yaml` binds it as the `bench-gptoss` workspace `model_hint` and the `auto-agentic` description lists it as fallback 2, describing an OpenAI open-weight MoE (~12GB, o3-mini level) purpose-built for agent/tool use with configurable thinking depth. The catalog records an audit-tools confirmation on 2026-06-18 after an earlier text-only mislabel, and the model was promoted to the auto-agentic fallback and coding pool.
+`config/backends.yaml` lists it with `supports_tools: true` in every group (verified 2026-09-25 by a neutral native tool-call probe — 3/3 single-call plus a clean tool-result turn); the router reads one flag per model id, last entry wins, so a per-group split never took effect. `config/portal.yaml` binds it as the `bench-gptoss` workspace `model_hint` and the `auto-agentic` description lists it as fallback 2, describing an OpenAI open-weight MoE (~12GB, o3-mini level) purpose-built for agent/tool use with configurable thinking depth. The catalog records an audit-tools confirmation on 2026-06-18 after an earlier text-only mislabel, and the model was promoted to the auto-agentic fallback and coding pool.
 
 ## Why
 
@@ -368,7 +368,7 @@ Grounding anchors the model to the coding-group registration whose supports_tool
 
 ### `qwen3-coder:30b-a3b-q4_K_M`
 
-`qwen3-coder:30b-a3b-q4_K_M` is the Qwen3-Coder 30B-A3B MoE Q4 build (~19GB, Alibaba). `config/backends.yaml` registers it in `group: general` with `supports_tools: false` and in `group: coding` with `supports_tools: true`. `config/portal.yaml` uses it as the DETECTION ENGINEERING hop in the purpleteam-deep and purpleteam-exec chains, and as the `model_hint` of the `bench-qwen3-coder-30b` workspace; the auto-coding and auto-cad descriptions reference the 30B-A3B family. The old auto-spl-primary label is stale — portal.yaml's auto-spl `model_hint` now points at the abliterated coder-next build; this id's live wiring is the chains, the bench, and the coding descriptions.
+`qwen3-coder:30b-a3b-q4_K_M` is the Qwen3-Coder 30B-A3B MoE Q4 build (~19GB, Alibaba). `config/backends.yaml` lists it with `supports_tools: true` in every group (verified 2026-09-25 by a neutral native tool-call probe — 3/3 on Ollama; on oMLX see P5-OMLX-QWEN3CODER-TOOLTEXT-001); the router reads one flag per model id, last entry wins, so a per-group split never took effect. `config/portal.yaml` uses it as the DETECTION ENGINEERING hop in the purpleteam-deep and purpleteam-exec chains, and as the `model_hint` of the `bench-qwen3-coder-30b` workspace; the auto-coding and auto-cad descriptions reference the 30B-A3B family. The old auto-spl-primary label is stale — portal.yaml's auto-spl `model_hint` now points at the abliterated coder-next build; this id's live wiring is the chains, the bench, and the coding descriptions.
 
 ## Why
 
@@ -460,7 +460,7 @@ The dual `general`/`coding` registration with `supports_tools: true` in both gro
 
 ### `hf.co/sjakek/Nex-N2-mini-GGUF:UD-Q4_K_M`
 
-`hf.co/sjakek/Nex-N2-mini-GGUF:UD-Q4_K_M` is a ~22GB imatrix quant of a 35B-total / 3B-active MoE post-trained on Qwen3.5-35B-A3B-Base, multimodal with image and text input. `config/backends.yaml` registers it twice with conflicting flags: the `general` group sets `supports_tools: false` while the `coding` group sets `supports_tools: true`, so tool support is asserted only in the agentic-coding lane, not as a global property. `config/portal.yaml` binds it to the `bench-nex-n2-mini` workspace `model_hint` with a Terminal-Bench 2.1 score of 60.7 and PROMOTE_POLICY=confirm. The flag split is the config's way of being conservative outside the coding lane.
+`hf.co/sjakek/Nex-N2-mini-GGUF:UD-Q4_K_M` is a ~22GB imatrix quant of a 35B-total / 3B-active MoE post-trained on Qwen3.5-35B-A3B-Base, multimodal with image and text input. `config/backends.yaml` lists it with `supports_tools: true` in every group (verified 2026-09-25 by a neutral native tool-call probe — 3/3 single-call plus a clean tool-result turn); the router reads one flag per model id, last entry wins, so a per-group split never took effect. `config/portal.yaml` binds it to the `bench-nex-n2-mini` workspace `model_hint` with a Terminal-Bench 2.1 score of 60.7 and PROMOTE_POLICY=confirm. The flag split is the config's way of being conservative outside the coding lane.
 
 ### `kat-coder-v2.5-dev:Q4_K_M`
 
@@ -484,7 +484,7 @@ The dual `general`/`coding` registration with `supports_tools: true` in both gro
 
 ### `hf.co/sjakek/Nex-N2-mini-GGUF:UD-Q4_K_M-ctx16k`
 
-`hf.co/sjakek/Nex-N2-mini-GGUF:UD-Q4_K_M-ctx16k` is the 16K-context derived tag (baked `PARAMETER num_ctx 16384` via apply-params — Ollama's `/v1/chat/completions` ignores request-time `options.num_ctx`). PROMOTED 2026-09-07 (fleet closeout): it is the `auto-research` workspace `model_hint` after winning the research-task probe head-to-head twice on the same instrument (factuality 0.9/0.8, synthesis 5.0/4.5, vs incumbent xyz-aquila-mini 0.3 and tongyi-deepresearch 0.4 — `tests/benchmarks/results/research_probe_20260907T030136Z.json` + `research_probe_20260907T032401Z.json`). `config/backends.yaml` registers it in `general` (`supports_tools: false`) and `coding` (`true`), inheriting the base tag's conservative split; the research lane does not rely on tool calls.
+`hf.co/sjakek/Nex-N2-mini-GGUF:UD-Q4_K_M-ctx16k` is the 16K-context derived tag (baked `PARAMETER num_ctx 16384` via apply-params — Ollama's `/v1/chat/completions` ignores request-time `options.num_ctx`). PROMOTED 2026-09-07 (fleet closeout): it is the `auto-research` workspace `model_hint` after winning the research-task probe head-to-head twice on the same instrument (factuality 0.9/0.8, synthesis 5.0/4.5, vs incumbent xyz-aquila-mini 0.3 and tongyi-deepresearch 0.4 — `tests/benchmarks/results/research_probe_20260907T030136Z.json` + `research_probe_20260907T032401Z.json`). `config/backends.yaml` lists it with `supports_tools: true` in every group (verified 2026-09-25 by a neutral native tool-call probe — 3/3 single-call plus a clean tool-result turn); the router reads one flag per model id, last entry wins, so a per-group split never took effect.
 
 ## Why
 
@@ -494,17 +494,17 @@ The group-split `supports_tools` values are the core config fact: `config/backen
 
 ### `qwen3-coder-next:latest`
 
-`qwen3-coder-next:latest` is an 80B-total / 3B-active MoE agentic coder (Alibaba, Apache 2.0, non-reasoning for fast code responses, ~46GB Q4, 256K context) that fits 64GB unified memory with roughly 18GB headroom, and its small active size is why throughput stays fast. `config/backends.yaml` registers it twice: `group: general` (`ollama-general`) lists it with `supports_tools: false` as a conservative unprobed default, while `group: coding` (`ollama-coding`) lists it with `supports_tools: true` — the value the audit-tools 2026-06-21 probe confirmed with a tool_call after a prior probe errored on an evicted model. `config/portal.yaml` uses the base tag as the `model_hint` of the `bench-qwen3-coder-next` eval workspace, whose description documents the hybrid Gated DeltaNet + MoE architecture and 800K-task agentic RL training. The derived `qwen3-coder-next:latest-ctx64k` tag wires the heavy auto-coding variant.
+`qwen3-coder-next:latest` is an 80B-total / 3B-active MoE agentic coder (Alibaba, Apache 2.0, non-reasoning for fast code responses, ~46GB Q4, 256K context) that fits 64GB unified memory with roughly 18GB headroom, and its small active size is why throughput stays fast. `config/backends.yaml` lists it with `supports_tools: true` in every group (verified 2026-09-25 by a neutral native tool-call probe — its portal5/qwen3-coder-next:latest-ctx256k derivative: 3/3 single-call plus a clean tool-result turn); the router reads one flag per model id, last entry wins, so a per-group split never took effect. `config/portal.yaml` uses the base tag as the `model_hint` of the `bench-qwen3-coder-next` eval workspace, whose description documents the hybrid Gated DeltaNet + MoE architecture and 800K-task agentic RL training. The derived `qwen3-coder-next:latest-ctx64k` tag wires the heavy auto-coding variant.
 
 ## Why
 
-The base tag's `supports_tools` value cannot be stated as a single fact: backends.yaml disagrees between groups, and the coding-group `true` is the live-probed answer while the general-group `false` is the unprobed conservative default. Naming both groups and both flags is the only accurate grounding, and it explains why the coding lane trusts this model for tool dispatch while the general pool does not.
+The router keeps one tool flag per model id (last entry wins), so the old general-`false` / coding-`true` split never meant what it seemed to. The 2026-09-25 probe of its `portal5/qwen3-coder-next:latest-ctx256k` derivative (same weights, 3/3 plus a clean tool-result turn) settled it: every entry is now `true`.
 
 ---
 
 ### `hf.co/bartowski/huihui-ai_Qwen3-Coder-Next-abliterated-GGUF:Q4_K_M`
 
-`hf.co/bartowski/huihui-ai_Qwen3-Coder-Next-abliterated-GGUF:Q4_K_M` is the bartowski GGUF of the huihui-ai abliteration of Qwen3-Coder-Next (80B/3B MoE agentic coder, ~46GB, 74k downloads, Feb 2026) — the no-refusals variant. `config/backends.yaml` registers it in two groups with a split flag: the `general` group lists `supports_tools: false` (conservative default, not live-probed), while the `coding` group lists `supports_tools: true` per the Qwen coding-family architecture. `config/portal.yaml` selects the `-ctx64k` derived tag as the `model_hint` for `auto-spl` and for the `uncensored-agentic` variant of `auto-coding`, while the base id is the `model_hint` for `bench-qwen3-coder-next-abliterated`, the head-to-head against the non-abliterated `bench-qwen3-coder-next`.
+`hf.co/bartowski/huihui-ai_Qwen3-Coder-Next-abliterated-GGUF:Q4_K_M` is the bartowski GGUF of the huihui-ai abliteration of Qwen3-Coder-Next (80B/3B MoE agentic coder, ~46GB, 74k downloads, Feb 2026) — the no-refusals variant. `config/backends.yaml` lists it with `supports_tools: true` in every group (verified 2026-09-25 by a neutral native tool-call probe — sibling -ctx64k tag: 3/3 single-call plus a clean tool-result turn); the router reads one flag per model id, last entry wins, so a per-group split never took effect. `config/portal.yaml` selects the `-ctx64k` derived tag as the `model_hint` for `auto-spl` and for the `uncensored-agentic` variant of `auto-coding`, while the base id is the `model_hint` for `bench-qwen3-coder-next-abliterated`, the head-to-head against the non-abliterated `bench-qwen3-coder-next`.
 
 ## Why
 
@@ -597,7 +597,7 @@ embalming a stale score.
 
 ### `hf.co/deepreinforce-ai/Ornith-1.0-35B-GGUF:Q4_K_M` — PROMOTED 2026-06-30
 
-`hf.co/deepreinforce-ai/Ornith-1.0-35B-GGUF:Q4_K_M` is Ornith-1.0-35B Q4_K_M (~21GB, DeepReinforce/MIT, Qwen3.5-35B-A3B base, 262K ctx, MoE 3B active), sharing its self-improving RL training with the 9B sibling. It was a V10 candidate under `bench-ornith-35b`, substituting for the operator-requested AEON-7 NVFP4 (Blackwell-only). `config/backends.yaml` registers it in the `general` group with `supports_tools: false` and in the `coding` group with `supports_tools: true`. `config/portal.yaml` promoted it 2026-06-30 to the `ornith` variant of `auto-coding` (whose `model_hint` is the `-ctx64k` derived tag) on strong tool-chain 4/5 and SWE-handoff 4/5 probe markers; the variant sits alongside `auto-coding`'s heavy and lite variants without replacing either. The base id remains `bench-ornith-35b`'s `model_hint`.
+`hf.co/deepreinforce-ai/Ornith-1.0-35B-GGUF:Q4_K_M` is Ornith-1.0-35B Q4_K_M (~21GB, DeepReinforce/MIT, Qwen3.5-35B-A3B base, 262K ctx, MoE 3B active), sharing its self-improving RL training with the 9B sibling. It was a V10 candidate under `bench-ornith-35b`, substituting for the operator-requested AEON-7 NVFP4 (Blackwell-only). `config/backends.yaml` lists it with `supports_tools: true` in every group (verified 2026-09-25 by a neutral native tool-call probe — sibling -ctx64k tag: 3/3 single-call plus a clean tool-result turn); the router reads one flag per model id, last entry wins, so a per-group split never took effect. `config/portal.yaml` promoted it 2026-06-30 to the `ornith` variant of `auto-coding` (whose `model_hint` is the `-ctx64k` derived tag) on strong tool-chain 4/5 and SWE-handoff 4/5 probe markers; the variant sits alongside `auto-coding`'s heavy and lite variants without replacing either. The base id remains `bench-ornith-35b`'s `model_hint`.
 
 ## Why
 
@@ -647,17 +647,17 @@ The promotion recorded in `bench-sylink` is easy to misread as the current state
 
 ### `supergemma4-26b-uncensored:Q4_K_M`
 
-`supergemma4-26b-uncensored:Q4_K_M` is the abliterated SuperGemma4 26B A4B MoE. `config/backends.yaml` registers it in three groups — `general` (`ollama-general`), `security` (`ollama-security`), and `reasoning` (`ollama-reasoning`) — and every entry carries `supports_tools: false`. The config comments state the reason: the model is wired to driver-dispatched workspaces and empirically enters a reasoning loop when given tool definitions, so its output is parsed and dispatched by the driver rather than emitted as native tool calls. `config/portal.yaml` pins the derived `-ctx64k` tag on the auto-security redteam-deep and purpleteam-exec variants; `bench-supergemma4-sec` (whose `model_hint` is the base tag) records a completed 2026-06-17 bench at avg 0.783 with zero disclaimers and its promotion as auto-redteam-deep primary.
+`supergemma4-26b-uncensored:Q4_K_M` is the abliterated SuperGemma4 26B A4B MoE. `config/backends.yaml` lists it with `supports_tools: true` in every group (verified 2026-09-25 by a neutral native tool-call probe — sibling -ctx64k tag: 3/3 single-call, 3/3 multi-turn exec-shaped runs with no loop; the 2026-06-27 UAT loop that set it false was measured under the old /v1 delivery at 1.0/1.0); the router reads one flag per model id, last entry wins, so a per-group split never took effect. `config/portal.yaml` pins the derived `-ctx64k` tag on the auto-security redteam-deep and purpleteam-exec variants; `bench-supergemma4-sec` (whose `model_hint` is the base tag) records a completed 2026-06-17 bench at avg 0.783 with zero disclaimers and its promotion as auto-redteam-deep primary.
 
 ## Why
 
-This unit's earlier "tool-use capable" and "bench eval pending" claims were both contradicted by the config: every group entry marks the model non-tool-calling, and the bench workspace records a finished bench and a promotion, not a pending one. Restating the flags, the driver-dispatched rationale, and the recorded bench outcome grounds the model's real role: a high-coverage red-team writer whose outputs are dispatched by a driver, never via native tools.
+The `false` flags came from a 2026-06-27 UAT loop with tools in context, measured when Ollama's `/v1` served every seat at 1.0/1.0 with no top_k/min_p/repeat_penalty. Re-probed 2026-09-25 on the native path at the seat's sampling, it called tools cleanly and finished multi-turn exec-shaped runs in two turns, so every entry is now `true`. The bench workspace records a finished bench and a promotion; a lab UAT still has to confirm the live exec loop (`docs/TASK_SEAT_SAMPLING_AB_V1.md` B8).
 
 ---
 
 ### `hf.co/douyamv/Gemma-4-31B-JANG_4M-CRACK-GGUF:gemma-4-31b-jang-crack-Q4_K_M.gguf`
 
-`hf.co/douyamv/Gemma-4-31B-JANG_4M-CRACK-GGUF:gemma-4-31b-jang-crack-Q4_K_M.gguf` is the douyamv community quant (33K downloads) of dealignai's Gemma-4-31B-JANG_4M-CRACK abliterated+uncensored fine-tune (~20GB Q4_K_M, Gemma license, 4M context, vision+text). `config/backends.yaml` registers it in the `general` group with `supports_tools: false`, but in the `security` and `vision` groups with `supports_tools: true` — the tool-calling value applies where it is routed for agentic security work. `config/portal.yaml` selects it as the `model_hint` for `bench-gemma4-31b-crack`, whose description records the audit-tools 2026-06-16 `finish_reason=tool_calls` confirmation, the pentest bench 0.933 vs supergemma4 0.867 win, and its promotion to auto-pentest primary.
+`hf.co/douyamv/Gemma-4-31B-JANG_4M-CRACK-GGUF:gemma-4-31b-jang-crack-Q4_K_M.gguf` is the douyamv community quant (33K downloads) of dealignai's Gemma-4-31B-JANG_4M-CRACK abliterated+uncensored fine-tune (~20GB Q4_K_M, Gemma license, 4M context, vision+text). `config/backends.yaml` lists it with `supports_tools: true` in every group (verified 2026-09-25 by a neutral native tool-call probe — 3/3 single-call plus a clean tool-result turn); the router reads one flag per model id, last entry wins, so a per-group split never took effect. `config/portal.yaml` selects it as the `model_hint` for `bench-gemma4-31b-crack`, whose description records the audit-tools 2026-06-16 `finish_reason=tool_calls` confirmation, the pentest bench 0.933 vs supergemma4 0.867 win, and its promotion to auto-pentest primary.
 
 ## Why
 
@@ -667,7 +667,7 @@ The doc body said `supports_tools` was confirmed true by audit-tools; re-groundi
 
 ### `hf.co/mradermacher/VulnLLM-R-7B-GGUF:Q4_K_M`
 
-`hf.co/mradermacher/VulnLLM-R-7B-GGUF:Q4_K_M` appears in `config/backends.yaml` under the `general` group with `supports_tools: false` and under the `security` group with `supports_tools: true`, so its tool flag is group-specific rather than global. `config/portal.yaml` binds the base id to the `bench-vulnllm-r-7b` and `bench-vulnllm-r7b` bench workspaces and the `bench-exec-recon` exec-chain role, while the `auto-security` workspace routes the `q4_K_M-ctx8k` variant and its description records the 2026-07-16 reselection note: the older fast-chain claim predates the reliability-scoring fix, the live re-bench found valid_rate 0.89 with redundant_call_rate 0.50, and `glm-4.7-flash:Q4_K_M` is staged as the reselection primary pending an analytical-workload test.
+`config/backends.yaml` lists it with `supports_tools: true` in every group (verified 2026-09-25 by a neutral native tool-call probe — sibling -ctx8k seat on oMLX: 4/4 at the seat's sampling); the router reads one flag per model id, last entry wins, so a per-group split never took effect. `config/portal.yaml` binds the base id to the `bench-vulnllm-r-7b` and `bench-vulnllm-r7b` bench workspaces and the `bench-exec-recon` exec-chain role, while the `auto-security` workspace routes the `q4_K_M-ctx8k` variant and its description records the 2026-07-16 reselection note: the older fast-chain claim predates the reliability-scoring fix, the live re-bench found valid_rate 0.89 with redundant_call_rate 0.50, and `glm-4.7-flash:Q4_K_M` is staged as the reselection primary pending an analytical-workload test.
 
 ## Why
 
@@ -677,7 +677,7 @@ The group-split `supports_tools` value is the key config fact: `config/backends.
 
 ### `huihui_ai/gemma-4-abliterated:E2b-qat`
 
-`huihui_ai/gemma-4-abliterated:E2b-qat` is a ~3GB QAT abliterated Gemma4 model, registered in `config/backends.yaml` under the `security` group with `supports_tools: true` and under the `general` group with `supports_tools: false`. `config/portal.yaml` binds it as the `bench-e2b-pentest` and `bench-exec-reasoning` `model_hint`s, where it was the 2026-06-24 exec-chain winner at 80% EXPLOIT-slot fill and 71.6 t/s, replacing Qwable-35B. The `auto-security` pentest variant description records that its earlier auto-pentest promotion was superseded on 2026-07-16: re-tested under the corrected reliability methodology it failed the gate at valid_rate 0.50-0.67, so the pentest lane now routes a different model. The head-to-head win and the memory savings remain historical context.
+`config/backends.yaml` lists it with `supports_tools: true` in every group (verified 2026-09-25 by a neutral native tool-call probe — 3/3 single-call plus a clean tool-result turn); the router reads one flag per model id, last entry wins, so a per-group split never took effect. `config/portal.yaml` binds it as the `bench-e2b-pentest` and `bench-exec-reasoning` `model_hint`s, where it was the 2026-06-24 exec-chain winner at 80% EXPLOIT-slot fill and 71.6 t/s, replacing Qwable-35B. The `auto-security` pentest variant description records that its earlier auto-pentest promotion was superseded on 2026-07-16: re-tested under the corrected reliability methodology it failed the gate at valid_rate 0.50-0.67, so the pentest lane now routes a different model. The head-to-head win and the memory savings remain historical context.
 
 ## Why
 
@@ -899,7 +899,7 @@ The prior body claimed a 2026-06-21 promotion with quality 1.00 and 12.1 TPS; `c
 
 ### `gpt-oss:20b`
 
-`gpt-oss:20b` is registered in `config/backends.yaml` under the `coding` group with `supports_tools: true`, the `reasoning` group with `supports_tools: true`, and the `general` group with `supports_tools: false`. `config/portal.yaml` binds it as the `bench-gptoss` workspace `model_hint` and the `auto-agentic` description lists it as fallback 2, describing an OpenAI open-weight MoE (~12GB, o3-mini level) purpose-built for agent/tool use with configurable thinking depth. The catalog records an audit-tools confirmation on 2026-06-18 after an earlier text-only mislabel, and the model was promoted to the auto-agentic fallback and coding pool.
+`config/backends.yaml` lists it with `supports_tools: true` in every group (verified 2026-09-25 by a neutral native tool-call probe — 3/3 single-call plus a clean tool-result turn); the router reads one flag per model id, last entry wins, so a per-group split never took effect. `config/portal.yaml` binds it as the `bench-gptoss` workspace `model_hint` and the `auto-agentic` description lists it as fallback 2, describing an OpenAI open-weight MoE (~12GB, o3-mini level) purpose-built for agent/tool use with configurable thinking depth. The catalog records an audit-tools confirmation on 2026-06-18 after an earlier text-only mislabel, and the model was promoted to the auto-agentic fallback and coding pool.
 
 ## Why
 
@@ -925,17 +925,17 @@ The `reasoning`-group placement with `supports_tools: true` is asserted directly
 
 ### `supergemma4-26b-uncensored:Q4_K_M`
 
-`supergemma4-26b-uncensored:Q4_K_M` is the abliterated SuperGemma4 26B A4B MoE. `config/backends.yaml` registers it in three groups — `general` (`ollama-general`), `security` (`ollama-security`), and `reasoning` (`ollama-reasoning`) — and every entry carries `supports_tools: false`. The config comments state the reason: the model is wired to driver-dispatched workspaces and empirically enters a reasoning loop when given tool definitions, so its output is parsed and dispatched by the driver rather than emitted as native tool calls. `config/portal.yaml` pins the derived `-ctx64k` tag on the auto-security redteam-deep and purpleteam-exec variants; `bench-supergemma4-sec` (whose `model_hint` is the base tag) records a completed 2026-06-17 bench at avg 0.783 with zero disclaimers and its promotion as auto-redteam-deep primary.
+`supergemma4-26b-uncensored:Q4_K_M` is the abliterated SuperGemma4 26B A4B MoE. `config/backends.yaml` lists it with `supports_tools: true` in every group (verified 2026-09-25 by a neutral native tool-call probe — sibling -ctx64k tag: 3/3 single-call, 3/3 multi-turn exec-shaped runs with no loop; the 2026-06-27 UAT loop that set it false was measured under the old /v1 delivery at 1.0/1.0); the router reads one flag per model id, last entry wins, so a per-group split never took effect. `config/portal.yaml` pins the derived `-ctx64k` tag on the auto-security redteam-deep and purpleteam-exec variants; `bench-supergemma4-sec` (whose `model_hint` is the base tag) records a completed 2026-06-17 bench at avg 0.783 with zero disclaimers and its promotion as auto-redteam-deep primary.
 
 ## Why
 
-This unit's earlier "tool-use capable" and "bench eval pending" claims were both contradicted by the config: every group entry marks the model non-tool-calling, and the bench workspace records a finished bench and a promotion, not a pending one. Restating the flags, the driver-dispatched rationale, and the recorded bench outcome grounds the model's real role: a high-coverage red-team writer whose outputs are dispatched by a driver, never via native tools.
+The `false` flags came from a 2026-06-27 UAT loop with tools in context, measured when Ollama's `/v1` served every seat at 1.0/1.0 with no top_k/min_p/repeat_penalty. Re-probed 2026-09-25 on the native path at the seat's sampling, it called tools cleanly and finished multi-turn exec-shaped runs in two turns, so every entry is now `true`. The bench workspace records a finished bench and a promotion; a lab UAT still has to confirm the live exec loop (`docs/TASK_SEAT_SAMPLING_AB_V1.md` B8).
 
 ---
 
 ### `granite4.1:30b`
 
-`granite4.1:30b` is registered in `config/backends.yaml` under the `reasoning` group with `supports_tools: true` and under the `general` group with `supports_tools: false` (bench-only intake). `config/portal.yaml` describes it in the `bench-granite41-30b` workspace entry as a dense 30B no-think model (~17GB Q4_K_M, Apache 2.0, ISO-certified, cryptographic signatures) with BFCL V3 73.7 (#1 on the IBM chart), IFEval 89.7, GSM8K 94.2, and EvalPlus 82.7, trained with GRC data curation for compliance and audit workflows; that workspace's `model_hint` is the derived `granite4.1:30b-ctx16k` tag.
+`config/backends.yaml` lists it with `supports_tools: true` in every group (verified 2026-09-25 by a neutral native tool-call probe — sibling -ctx16k tag: 3/3 single-call plus a clean tool-result turn); the router reads one flag per model id, last entry wins, so a per-group split never took effect. `config/portal.yaml` describes it in the `bench-granite41-30b` workspace entry as a dense 30B no-think model (~17GB Q4_K_M, Apache 2.0, ISO-certified, cryptographic signatures) with BFCL V3 73.7 (#1 on the IBM chart), IFEval 89.7, GSM8K 94.2, and EvalPlus 82.7, trained with GRC data curation for compliance and audit workflows; that workspace's `model_hint` is the derived `granite4.1:30b-ctx16k` tag.
 
 ## Why
 
@@ -1089,7 +1089,7 @@ The `vision` group registration in `config/backends.yaml` asserts `supports_tool
 
 ### `gemma4:12b-it-qat`
 
-`gemma4:12b-it-qat` is registered in `config/backends.yaml` under the `general` group with `supports_tools: false` and under the `vision` group with `supports_tools: true`. `config/portal.yaml` binds it as the `bench-gemma4-12b` workspace `model_hint` and names it in the `auto-audio` description as the first encoder-free audio model in the fleet (12B Unified QAT, ~7GB, 256K ctx, native function calling); the `auto-audio` workspace itself serves the derived `gemma4:12b-it-qat-ctx8k` tag. Released June 3, 2026; promoted to the `auto-audio` lane via its derived tag.
+`config/backends.yaml` lists it with `supports_tools: true` in every group (verified 2026-09-25 by a neutral native tool-call probe — sibling -ctx8k tag: 3/3 single-call plus a clean tool-result turn); the router reads one flag per model id, last entry wins, so a per-group split never took effect. `config/portal.yaml` binds it as the `bench-gemma4-12b` workspace `model_hint` and names it in the `auto-audio` description as the first encoder-free audio model in the fleet (12B Unified QAT, ~7GB, 256K ctx, native function calling); the `auto-audio` workspace itself serves the derived `gemma4:12b-it-qat-ctx8k` tag. Released June 3, 2026; promoted to the `auto-audio` lane via its derived tag.
 
 ## Why
 
@@ -1119,7 +1119,7 @@ The `vision` group registration in `config/backends.yaml` asserts `supports_tool
 
 ### `hf.co/douyamv/Gemma-4-31B-JANG_4M-CRACK-GGUF:gemma-4-31b-jang-crack-Q4_K_M.gguf`
 
-`hf.co/douyamv/Gemma-4-31B-JANG_4M-CRACK-GGUF:gemma-4-31b-jang-crack-Q4_K_M.gguf` is the douyamv community quant (33K downloads) of dealignai's Gemma-4-31B-JANG_4M-CRACK abliterated+uncensored fine-tune (~20GB Q4_K_M, Gemma license, 4M context, vision+text). `config/backends.yaml` registers it in the `general` group with `supports_tools: false`, but in the `security` and `vision` groups with `supports_tools: true` — the tool-calling value applies where it is routed for agentic security work. `config/portal.yaml` selects it as the `model_hint` for `bench-gemma4-31b-crack`, whose description records the audit-tools 2026-06-16 `finish_reason=tool_calls` confirmation, the pentest bench 0.933 vs supergemma4 0.867 win, and its promotion to auto-pentest primary.
+`hf.co/douyamv/Gemma-4-31B-JANG_4M-CRACK-GGUF:gemma-4-31b-jang-crack-Q4_K_M.gguf` is the douyamv community quant (33K downloads) of dealignai's Gemma-4-31B-JANG_4M-CRACK abliterated+uncensored fine-tune (~20GB Q4_K_M, Gemma license, 4M context, vision+text). `config/backends.yaml` lists it with `supports_tools: true` in every group (verified 2026-09-25 by a neutral native tool-call probe — 3/3 single-call plus a clean tool-result turn); the router reads one flag per model id, last entry wins, so a per-group split never took effect. `config/portal.yaml` selects it as the `model_hint` for `bench-gemma4-31b-crack`, whose description records the audit-tools 2026-06-16 `finish_reason=tool_calls` confirmation, the pentest bench 0.933 vs supergemma4 0.867 win, and its promotion to auto-pentest primary.
 
 ## Why
 
@@ -1169,7 +1169,7 @@ The `security` and `creative` dual registration with `supports_tools: true` is a
 
 ### `fredrezones55/Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive:Q4`
 
-`fredrezones55/Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive:Q4` is registered in `config/backends.yaml` under the `creative` group with `supports_tools: true` and under the `general` group with `supports_tools: false` (bench-only intake). `config/portal.yaml` binds it as the `bench-qwen36-hauhaucs` workspace `model_hint` and as the uncensored `pentest` variant `model_hint` of `auto-security`, describing a MoE with 3B active at ~22GB and 0/465 refusals. The HauhauCS abliteration method has the lowest KL-divergence versus the base, vision patched, and robust tool-calling at low quant; an audit-tools run on 2026-06-20 reported a tool_call win that corrected an earlier no-tool result.
+`config/backends.yaml` lists it with `supports_tools: true` in every group (verified 2026-09-25 by a neutral native tool-call probe — sibling -ctx24k/-ctx8k tags on oMLX and Ollama); the router reads one flag per model id, last entry wins, so a per-group split never took effect. `config/portal.yaml` binds it as the `bench-qwen36-hauhaucs` workspace `model_hint` and as the uncensored `pentest` variant `model_hint` of `auto-security`, describing a MoE with 3B active at ~22GB and 0/465 refusals. The HauhauCS abliteration method has the lowest KL-divergence versus the base, vision patched, and robust tool-calling at low quant; an audit-tools run on 2026-06-20 reported a tool_call win that corrected an earlier no-tool result.
 
 ## Why
 
@@ -1189,11 +1189,11 @@ The dual `general`/`creative` registration with `supports_tools: true` is assert
 
 ### `hf.co/gaston-parravicini/LFM2.5-8B-A1B-Uncensored-Gaston-GGUF:Q4_K_M`
 
-`hf.co/gaston-parravicini/LFM2.5-8B-A1B-Uncensored-Gaston-GGUF:Q4_K_M` is the gaston-parravicini imatrix Q4_K_M (~5GB) of the abliterated LiquidAI/LFM2.5-8B-A1B base, a head-to-head candidate against production `lfm2.5:8b` for creative/music/agentic lanes. `config/backends.yaml` registers it in the `general` and `creative` groups, both with `supports_tools: false`; the creative entry confirms the no-tool posture — audit-tools 2026-06-18 recorded an empty content response, meaning the abliteration broke the tool template that production `lfm2.5:8b` still carries. `config/portal.yaml` selects it as the `model_hint` for `bench-lfm25-8b-uncensored`, while the `-ctx8k` derived tag is the `model_hint` for `auto-extract-uncensored`, the extraction/summarization lane that is explicit-select rather than a default.
+`hf.co/gaston-parravicini/LFM2.5-8B-A1B-Uncensored-Gaston-GGUF:Q4_K_M` is the gaston-parravicini imatrix Q4_K_M (~5GB) of the abliterated LiquidAI/LFM2.5-8B-A1B base, a head-to-head candidate against production `lfm2.5:8b` for creative/music/agentic lanes. `config/backends.yaml` lists it with `supports_tools: true` in every group (verified 2026-09-25 by a neutral native tool-call probe — sibling -ctx8k tag: 3/3 single-call plus a clean tool-result turn; the 2026-06-18 empty-content result did not reproduce); the router reads one flag per model id, last entry wins, so a per-group split never took effect. `config/portal.yaml` selects it as the `model_hint` for `bench-lfm25-8b-uncensored`, while the `-ctx8k` derived tag is the `model_hint` for `auto-extract-uncensored`, the extraction/summarization lane that is explicit-select rather than a default.
 
 ## Why
 
-The doc body's claim that abliteration broke the tool template is now pinned to `config/backends.yaml`, where both the `general` and `creative` entries carry `supports_tools: false`. `config/portal.yaml` records the serving role: base id to the bench lane, `-ctx8k` tag to `auto-extract-uncensored`. The head-to-head-vs-production framing survives because the bench workspace description states it, and the extraction-lane facts come straight from its description.
+The earlier claim that abliteration broke the tool template (an empty-content result on 2026-06-18) did not reproduce on 2026-09-25: the `-ctx8k` tag called tools 3/3 and completed a tool-result turn, so both entries are now `supports_tools: true`. `config/portal.yaml` records the serving role: base id to the bench lane, `-ctx8k` tag to `auto-extract-uncensored`. The head-to-head-vs-production framing survives because the bench workspace description states it, and the extraction-lane facts come straight from its description.
 
 ---
 
@@ -1289,7 +1289,7 @@ The `reasoning` group registration in `config/backends.yaml` and the `auto-data`
 
 ### `granite4.1:30b-ctx16k`
 
-`granite4.1:30b-ctx16k` is the 16384-token bounded form of `granite4.1:30b`. `config/backends.yaml` registers it under the `reasoning` group with `supports_tools: true` and under the `general` group with `supports_tools: false`. `config/portal.yaml` uses it in three places: the `bench-granite41-30b` workspace `model_hint`, the compliance workspace's `reasoning_model`, and the Evidence Auditor member model of the council workspace. The bound is baked in via `portal models apply-params` because the completion API ignores request-time context settings.
+`granite4.1:30b-ctx16k` is the 16384-token bounded form of `granite4.1:30b`. `config/backends.yaml` lists it with `supports_tools: true` in every group (verified 2026-09-25 by a neutral native tool-call probe — 3/3 single-call plus a clean tool-result turn); the router reads one flag per model id, last entry wins, so a per-group split never took effect. `config/portal.yaml` uses it in three places: the `bench-granite41-30b` workspace `model_hint`, the compliance workspace's `reasoning_model`, and the Evidence Auditor member model of the council workspace. The bound is baked in via `portal models apply-params` because the completion API ignores request-time context settings.
 
 ## Why
 
@@ -1369,7 +1369,7 @@ The old body was the shared derived-tag template. Re-grounding distinguishes it 
 
 ### `hf.co/gaston-parravicini/LFM2.5-8B-A1B-Uncensored-Gaston-GGUF:q4_K_M-ctx8k`
 
-`hf.co/gaston-parravicini/LFM2.5-8B-A1B-Uncensored-Gaston-GGUF:Q4_K_M-ctx8k` is the 8K-context derived tag of the abliterated LFM2.5-8B-A1B Uncensored model. `config/backends.yaml` registers it in the `creative` group only, with `supports_tools: false` — the same value as its base tag in both `general` and `creative`. `config/portal.yaml` uses this exact tag as the `model_hint` for `auto-extract-uncensored`, the entity/data-extraction and summarization workspace whose description notes the EX-01 5/5 bench pass and the explicit `tools=false` posture; it is explicit-select, not a default. `PARAMETER num_ctx 8192` is baked in via `portal models apply-params` because Ollama ignores request-time `options.num_ctx`. The base id, by contrast, routes to `bench-lfm25-8b-uncensored`.
+`hf.co/gaston-parravicini/LFM2.5-8B-A1B-Uncensored-Gaston-GGUF:Q4_K_M-ctx8k` is the 8K-context derived tag of the abliterated LFM2.5-8B-A1B Uncensored model. `config/backends.yaml` lists it with `supports_tools: true` in every group (verified 2026-09-25 by a neutral native tool-call probe — 3/3 single-call plus a clean tool-result turn; the 2026-06-18 empty-content result did not reproduce); the router reads one flag per model id, last entry wins, so a per-group split never took effect. `PARAMETER num_ctx 8192` is baked in via `portal models apply-params` because Ollama ignores request-time `options.num_ctx`. The base id, by contrast, routes to `bench-lfm25-8b-uncensored`.
 
 ## Why
 
@@ -1389,7 +1389,7 @@ The distinction that matters here is routing: `config/portal.yaml` resolves the 
 
 ### `hf.co/unsloth/DeepSeek-R1-0528-Qwen3-8B-GGUF:Q4_K_XL-ctx64k`
 
-`hf.co/unsloth/DeepSeek-R1-0528-Qwen3-8B-GGUF:Q4_K_XL-ctx64k` is the 64K-context derived tag that `auto-reasoning` actually routes to: `config/portal.yaml` carries it as that workspace's `model_hint` and as the Operator and User Advocate role in the `auto-council` chain, and it appears in several persona `model_pin` / preferred lists. `config/backends.yaml` registers it under the `reasoning` group with `supports_tools: false`, matching the base tag. The `PARAMETER num_ctx 65536` is baked into the derived tag because Ollama's chat completions ignore request-time `options.num_ctx`, so a per-workspace context cap has to be a distinct model id. Full model detail lives in the base tag's entry.
+`hf.co/unsloth/DeepSeek-R1-0528-Qwen3-8B-GGUF:Q4_K_XL-ctx64k` is the 64K-context derived tag that `auto-reasoning` actually routes to: `config/portal.yaml` carries it as that workspace's `model_hint` and as the Operator and User Advocate role in the `auto-council` chain, and it appears in several persona `model_pin` / preferred lists. `config/backends.yaml` lists it with `supports_tools: true` in every group (verified 2026-09-25 by a neutral native tool-call probe — 3/3 single-call plus a clean tool-result turn); the router reads one flag per model id, last entry wins, so a per-group split never took effect. The `PARAMETER num_ctx 65536` is baked into the derived tag because Ollama's chat completions ignore request-time `options.num_ctx`, so a per-workspace context cap has to be a distinct model id. Full model detail lives in the base tag's entry.
 
 ## Why
 
@@ -1648,11 +1648,11 @@ This entry exists to record that the vision lane's context is controlled by the 
 
 ### `supergemma4-26b-uncensored:Q4_K_M-ctx64k`
 
-`supergemma4-26b-uncensored:Q4_K_M-ctx64k` is the context-capped derivation of the base `supergemma4-26b-uncensored:Q4_K_M`, baked with `PARAMETER num_ctx 65536`. `config/backends.yaml` lists it under `group: security` (`ollama-security`) and `group: reasoning` (`ollama-reasoning`), both `supports_tools: false`; the shared comment explains that offensive models given tool definitions enter reasoning loops, so the driver parses text output and dispatches via the lab MCP call directly. `config/portal.yaml` pins the tag as the `model_hint` of the auto-security `redteam-deep` and `purpleteam-exec` variants, each with `context_limit: 65536`. The 64K window is therefore the standard context for the security chain, not the base tag.
+`supergemma4-26b-uncensored:Q4_K_M-ctx64k` is the context-capped derivation of the base `supergemma4-26b-uncensored:Q4_K_M`, baked with `PARAMETER num_ctx 65536`. `config/backends.yaml` lists it with `supports_tools: true` in every group (verified 2026-09-25 by a neutral native tool-call probe — 3/3 single-call, 3/3 multi-turn exec-shaped runs with no loop at purpleteam-exec's sampling; the 2026-06-27 UAT loop that set it false was measured under the old /v1 delivery at 1.0/1.0); the router reads one flag per model id, last entry wins, so a per-group split never took effect. `config/portal.yaml` pins the tag as the `model_hint` of the auto-security `redteam-deep` and `purpleteam-exec` variants, each with `context_limit: 65536`. The 64K window is therefore the standard context for the security chain, not the base tag.
 
 ## Why
 
-The security chain runs on the capped tag, and the `supports_tools: false` posture carries over from the base model's driver-dispatched design. Grounding the tag to its two group entries and to the two workspace pins that consume it ties the context cap and the no-native-tools posture to the exact config lines that enforce them, so a reader can verify both at once.
+The security chain runs on the capped tag. Its tool flag is `true` since the 2026-09-25 re-verification (3/3 single-call, 3/3 multi-turn exec-shaped runs, no loop). Grounding the tag to its two group entries and to the two workspace pins that consume it ties the context cap and the tool posture to the exact config lines that set them.
 
 ---
 
