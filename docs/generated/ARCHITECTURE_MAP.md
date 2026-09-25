@@ -2,7 +2,7 @@
 
 # Portal 5 Architecture Map
 
-*Deterministic projection of 749 canonical units.*
+*Deterministic projection of 753 canonical units.*
 
 ## Knowledge Layer
 
@@ -22,7 +22,7 @@
 | `unit-ADMIN_GUIDE-how-the-llm-router-works` | why | 3 |
 | `unit-ADMIN_GUIDE-inference-health-monitoring` | why | 3 |
 | `unit-ADMIN_GUIDE-network-exposure` | why | 4 |
-| `unit-ADMIN_GUIDE-ollama-is-native-plist-is-the-source-of-truth` | why | 4 |
+| `unit-ADMIN_GUIDE-ollama-is-native-plist-is-the-source-of-truth` | why | 5 |
 | `unit-ADMIN_GUIDE-ollama-max-loaded-models-3` | why | 4 |
 | `unit-ADMIN_GUIDE-ollama-memory-limit-deferred` | why | 2 |
 | `unit-ADMIN_GUIDE-pull-additional-models` | what | 3 |
@@ -281,10 +281,11 @@
 | `unit-corpus-injection-verify-lane-b` | what | 2 |
 | `unit-corpus-injection-verify-lane-c` | what | 2 |
 | `unit-corpus-injection-why-corpus-data-coexists-safely-with-bench-runs` | what | 3 |
+| `unit-design-ollama-native-dispatch` | why | 5 |
 | `unit-design-omlx-dual-backend-plumbing` | mixed | 12 |
 | `unit-design-spine-drift-census` | mixed | 4 |
 | `unit-design-wiki-archive-mechanism` | mixed | 5 |
-| `unit-fact-config-index` | mixed | 10 |
+| `unit-fact-config-index` | mixed | 11 |
 | `unit-fact-doc-migration-coverage` | what | 1 |
 | `unit-fact-dockerfile-index` | mixed | 7 |
 | `unit-fact-env-reference` | mixed | 3 |
@@ -321,6 +322,7 @@
 | `unit-known-limitations-devstral-24b-runtime-vram-footprint-25-7-gb` | what | 3 |
 | `unit-known-limitations-diarized-transcription-task-transcribe-001` | what | 3 |
 | `unit-known-limitations-emergent-objective-loop-curated-capability-tool-names-vs-live-dispatch-whitelist` | what | 8 |
+| `unit-known-limitations-engine-update-data01-approval` | what | 2 |
 | `unit-known-limitations-fara-cua-tag-closure` | what | 1 |
 | `unit-known-limitations-higgs-voice-cloning` | mixed | 1 |
 | `unit-known-limitations-host-native-mcp-lifecycle-launcher-child-exit` | what | 5 |
@@ -337,6 +339,7 @@
 | `unit-known-limitations-ollama-gpu-overhead-ceiling` | what | 1 |
 | `unit-known-limitations-ollama-native-mlx-engine-evaluation-findings-2026-07-01` | what | 3 |
 | `unit-known-limitations-ollama-v1-ignores-options-num-ctx-and-options-num-batch` | what | 6 |
+| `unit-known-limitations-ollama-v1-sampling-drop` | what | 4 |
 | `unit-known-limitations-owui-audio-drop-ux-task-owui-audio-drop-001` | what | 2 |
 | `unit-known-limitations-p5-emergent-002-deterministic-capability-ranker-can-t-reach-oracle-bearing-capabilities-once-any-tool-declaring-recon-capability-is-a-candidate` | what | 4 |
 | `unit-known-limitations-p5-mlx-eval-001-gguf-fleet-regressed-slightly-on-0-31-1-mtp-is-mlx-engine-only` | what | 2 |
@@ -355,6 +358,7 @@
 | `unit-known-limitations-speculative-decoding-mtp-retired-with-the-mlx-proxy-commit-3a0c58e` | what | 3 |
 | `unit-known-limitations-spine-code-coverage-ratchet` | what | 2 |
 | `unit-known-limitations-tool-preselection-candidate-1b-models-cannot-rank-tools` | what | 6 |
+| `unit-known-limitations-unregistered-hint-fallback` | what | 3 |
 | `unit-known-limitations-v5-model-visible-corpus-retrieval-coverage` | what | 4 |
 | `unit-known-limitations-v8-catalog-deferred-insufficient-hardware` | what | 2 |
 | `unit-known-limitations-vl-retrieval-runtime` | what | 3 |
@@ -758,12 +762,12 @@
 | `unit-wiki-tests-render` | mixed | 1 |
 | `unit-wiki-writeback` | mixed | 1 |
 
-**Total:** 749 units
+**Total:** 753 units
 
 ## Source Distribution
 
 - **bench-security**: 1 references
-- **code**: 1918 references
+- **code**: 1934 references
 - **config**: 1 references
 - **doc**: 1 references
 - **mitre**: 40 references
