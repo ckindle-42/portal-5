@@ -1115,22 +1115,33 @@ The ratchet exists to fix an authority inversion: docs generated from units were
   `cli_probe.py` is operator-invoked only, no automated coverage needed.
 - **2026-09-25 follow-up — fleet-wide KV churn, and no recovery after eviction**:
   mining `ollama.log` showed 1,053 of 1,187 Ollama load decisions since
-  2026-09-01 had to evict. Reservations are weights + KV x
-  `OLLAMA_NUM_PARALLEL`: at `4`, `granite4.1:30b` reserved 112 GiB and
-  `mistral-small3.2:24b` 89 GiB (compliance `reading_transport.DEFAULT_NUM_CTX`
-  98,304 x 4), `DeepSeek-R1-0528-Qwen3-8B` ctx64k 40.8 GiB. The daemon now runs
-  `OLLAMA_NUM_PARALLEL=2` (same load: 14.6 GiB). `keep_alive: -1` only stops
-  the idle timer; the scheduler still evicts a pinned model to fit a load.
-  Second defect: the routing call's 1 s deadline cancelled its own cold load
-  (Ollama: "client connection closed before llama-server finished loading,
-  aborting load"), so an evicted router never came back until the pipeline
-  restarted. A timeout now schedules one background reload with no deadline
-  (`_schedule_router_reload`, `routing.py`); verified live: evicted, one
-  timed-out request, router resident again. **Still open**: oMLX has no idle
-  unload (`idle_timeout_seconds = None`), so its models hold unified memory
-  Ollama cannot reclaim (`system_limited=true` in the scheduler) and the
-  router, the smallest Ollama resident, is squeezed first — an operator
-  decision (oMLX idle timeout and/or pinning the router on oMLX).
+  2026-09-01 had to evict. Each seat's footprint was then measured live at its
+  baked context: most are weight-dominated, but dense-attention seats scale
+  with `OLLAMA_NUM_PARALLEL` — DeepSeek-R1 8B ctx64k 10.0 / 15.2 / 25.7 GiB and
+  granite4.1:30b at compliance's 98,304 window 29.7 / 44.5 / ~73 GiB at 1 / 2
+  / 4 slots. At 1 slot the concurrent auto-council reviewers fit (50.3 vs
+  60.2 GiB at 2) and so does the compliance granite seat, so the daemon now
+  runs `OLLAMA_NUM_PARALLEL=1` (same-model requests queue instead of running
+  side by side — a known cost for security/compliance fan-out, to revisit).
+  `keep_alive: -1` only stops the idle timer; the scheduler still evicts a
+  pinned model to fit a load.
+  Three router defects, all fixed: (1) the routing call's deadline cancelled
+  its own cold load (Ollama: "client connection closed before llama-server
+  finished loading, aborting load"), so an evicted router never came back
+  until a pipeline restart — a timeout now schedules one background reload;
+  (2) warmup and reload sent a trivial prompt, which loaded the weights but
+  never cached the ~1,500-token routing prefix: a cold call measured 1.32 s
+  (0.82 s prefill) against the deadline and, cancelled, never populated the
+  cache — both now send the routing call itself (`warm_router_model`,
+  `routing.py`); (3) `LLM_ROUTER_TIMEOUT_MS` 1000 sat inside the normal warm
+  spread (0.5-1.0 s, mean 0.8 s) and docker-compose defaulted it to 500; all
+  three places are now 2000. Verified live from a restart: 8/8 auto requests
+  routed by the classifier, 0 timeouts, mean 0.70 s.
+  oMLX had no idle unload (`idle_timeout_seconds = None`): idle models held
+  ~41 GiB of unified memory Ollama could not reclaim (`system_limited=true`).
+  `~/.omlx/settings.json` now sets `idle_timeout.idle_timeout_seconds: 300`
+  (Ollama's default), verified firing (idle 305 s > ttl 300 s). oMLX's
+  `memory_guard_tier` stays `balanced` pending data.
 
 ## Why
 
