@@ -15,8 +15,7 @@ tags:
 created_at: 1784946220.6398652
 updated_at: 1784946220.6398652
 ---
-
-`hf.co/douyamv/Gemma-4-31B-JANG_4M-CRACK-GGUF:gemma-4-31b-jang-crack-Q4_K_M.gguf` is the douyamv community quant (33K downloads) of dealignai's Gemma-4-31B-JANG_4M-CRACK abliterated+uncensored fine-tune (~20GB Q4_K_M, Gemma license, 4M context, vision+text). `config/backends.yaml` registers it in the `general` group with `supports_tools: false`, but in the `security` and `vision` groups with `supports_tools: true` — the tool-calling value applies where it is routed for agentic security work. `config/portal.yaml` selects it as the `model_hint` for `bench-gemma4-31b-crack`, whose description records the audit-tools 2026-06-16 `finish_reason=tool_calls` confirmation, the pentest bench 0.933 vs supergemma4 0.867 win, and its promotion to auto-pentest primary.
+`hf.co/douyamv/Gemma-4-31B-JANG_4M-CRACK-GGUF:gemma-4-31b-jang-crack-Q4_K_M.gguf` is the douyamv community quant (33K downloads) of dealignai's Gemma-4-31B-JANG_4M-CRACK abliterated+uncensored fine-tune (~20GB Q4_K_M, Gemma license, 4M context, vision+text). `config/backends.yaml` lists it with `supports_tools: true` in every group (verified 2026-09-25 by a neutral native tool-call probe — 3/3 single-call plus a clean tool-result turn); the router reads one flag per model id, last entry wins, so a per-group split never took effect. `config/portal.yaml` selects it as the `model_hint` for `bench-gemma4-31b-crack`, whose description records the audit-tools 2026-06-16 `finish_reason=tool_calls` confirmation, the pentest bench 0.933 vs supergemma4 0.867 win, and its promotion to auto-pentest primary.
 
 ## Why
 

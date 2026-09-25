@@ -15,8 +15,7 @@ tags:
 created_at: 1784946220.609118
 updated_at: 1784946220.609118
 ---
-
-`qwen3-coder:30b-a3b-q4_K_M` is the Qwen3-Coder 30B-A3B MoE Q4 build (~19GB, Alibaba). `config/backends.yaml` registers it in `group: general` with `supports_tools: false` and in `group: coding` with `supports_tools: true`. `config/portal.yaml` uses it as the DETECTION ENGINEERING hop in the purpleteam-deep and purpleteam-exec chains, and as the `model_hint` of the `bench-qwen3-coder-30b` workspace; the auto-coding and auto-cad descriptions reference the 30B-A3B family. The old auto-spl-primary label is stale — portal.yaml's auto-spl `model_hint` now points at the abliterated coder-next build; this id's live wiring is the chains, the bench, and the coding descriptions.
+`qwen3-coder:30b-a3b-q4_K_M` is the Qwen3-Coder 30B-A3B MoE Q4 build (~19GB, Alibaba). `config/backends.yaml` lists it with `supports_tools: true` in every group (verified 2026-09-25 by a neutral native tool-call probe — 3/3 on Ollama; on oMLX see P5-OMLX-QWEN3CODER-TOOLTEXT-001); the router reads one flag per model id, last entry wins, so a per-group split never took effect. `config/portal.yaml` uses it as the DETECTION ENGINEERING hop in the purpleteam-deep and purpleteam-exec chains, and as the `model_hint` of the `bench-qwen3-coder-30b` workspace; the auto-coding and auto-cad descriptions reference the 30B-A3B family. The old auto-spl-primary label is stale — portal.yaml's auto-spl `model_hint` now points at the abliterated coder-next build; this id's live wiring is the chains, the bench, and the coding descriptions.
 
 ## Why
 

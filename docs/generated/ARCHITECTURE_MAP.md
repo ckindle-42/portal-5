@@ -2,7 +2,7 @@
 
 # Portal 5 Architecture Map
 
-*Deterministic projection of 753 canonical units.*
+*Deterministic projection of 754 canonical units.*
 
 ## Knowledge Layer
 
@@ -340,6 +340,7 @@
 | `unit-known-limitations-ollama-native-mlx-engine-evaluation-findings-2026-07-01` | what | 3 |
 | `unit-known-limitations-ollama-v1-ignores-options-num-ctx-and-options-num-batch` | what | 6 |
 | `unit-known-limitations-ollama-v1-sampling-drop` | what | 4 |
+| `unit-known-limitations-omlx-qwen3coder-tool-text` | what | 2 |
 | `unit-known-limitations-owui-audio-drop-ux-task-owui-audio-drop-001` | what | 2 |
 | `unit-known-limitations-p5-emergent-002-deterministic-capability-ranker-can-t-reach-oracle-bearing-capabilities-once-any-tool-declaring-recon-capability-is-a-candidate` | what | 4 |
 | `unit-known-limitations-p5-mlx-eval-001-gguf-fleet-regressed-slightly-on-0-31-1-mtp-is-mlx-engine-only` | what | 2 |
@@ -762,12 +763,12 @@
 | `unit-wiki-tests-render` | mixed | 1 |
 | `unit-wiki-writeback` | mixed | 1 |
 
-**Total:** 753 units
+**Total:** 754 units
 
 ## Source Distribution
 
 - **bench-security**: 1 references
-- **code**: 1934 references
+- **code**: 1936 references
 - **config**: 1 references
 - **doc**: 1 references
 - **mitre**: 40 references

@@ -15,8 +15,7 @@ tags:
 created_at: 1784946220.619392
 updated_at: 1784946220.619392
 ---
-
-`hf.co/mradermacher/VulnLLM-R-7B-GGUF:Q4_K_M` appears in `config/backends.yaml` under the `general` group with `supports_tools: false` and under the `security` group with `supports_tools: true`, so its tool flag is group-specific rather than global. `config/portal.yaml` binds the base id to the `bench-vulnllm-r-7b` and `bench-vulnllm-r7b` bench workspaces and the `bench-exec-recon` exec-chain role, while the `auto-security` workspace routes the `q4_K_M-ctx8k` variant and its description records the 2026-07-16 reselection note: the older fast-chain claim predates the reliability-scoring fix, the live re-bench found valid_rate 0.89 with redundant_call_rate 0.50, and `glm-4.7-flash:Q4_K_M` is staged as the reselection primary pending an analytical-workload test.
+`config/backends.yaml` lists it with `supports_tools: true` in every group (verified 2026-09-25 by a neutral native tool-call probe — sibling -ctx8k seat on oMLX: 4/4 at the seat's sampling); the router reads one flag per model id, last entry wins, so a per-group split never took effect. `config/portal.yaml` binds the base id to the `bench-vulnllm-r-7b` and `bench-vulnllm-r7b` bench workspaces and the `bench-exec-recon` exec-chain role, while the `auto-security` workspace routes the `q4_K_M-ctx8k` variant and its description records the 2026-07-16 reselection note: the older fast-chain claim predates the reliability-scoring fix, the live re-bench found valid_rate 0.89 with redundant_call_rate 0.50, and `glm-4.7-flash:Q4_K_M` is staged as the reselection primary pending an analytical-workload test.
 
 ## Why
 

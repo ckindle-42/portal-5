@@ -15,8 +15,7 @@ tags:
 created_at: 1784946220.642302
 updated_at: 1784946220.642302
 ---
-
-`fredrezones55/Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive:Q4` is registered in `config/backends.yaml` under the `creative` group with `supports_tools: true` and under the `general` group with `supports_tools: false` (bench-only intake). `config/portal.yaml` binds it as the `bench-qwen36-hauhaucs` workspace `model_hint` and as the uncensored `pentest` variant `model_hint` of `auto-security`, describing a MoE with 3B active at ~22GB and 0/465 refusals. The HauhauCS abliteration method has the lowest KL-divergence versus the base, vision patched, and robust tool-calling at low quant; an audit-tools run on 2026-06-20 reported a tool_call win that corrected an earlier no-tool result.
+`config/backends.yaml` lists it with `supports_tools: true` in every group (verified 2026-09-25 by a neutral native tool-call probe — sibling -ctx24k/-ctx8k tags on oMLX and Ollama); the router reads one flag per model id, last entry wins, so a per-group split never took effect. `config/portal.yaml` binds it as the `bench-qwen36-hauhaucs` workspace `model_hint` and as the uncensored `pentest` variant `model_hint` of `auto-security`, describing a MoE with 3B active at ~22GB and 0/465 refusals. The HauhauCS abliteration method has the lowest KL-divergence versus the base, vision patched, and robust tool-calling at low quant; an audit-tools run on 2026-06-20 reported a tool_call win that corrected an earlier no-tool result.
 
 ## Why
 

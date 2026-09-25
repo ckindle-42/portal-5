@@ -15,8 +15,7 @@ tags:
 created_at: 1784946220.613122
 updated_at: 1784946220.613122
 ---
-
-`hf.co/bartowski/huihui-ai_Qwen3-Coder-Next-abliterated-GGUF:Q4_K_M` is the bartowski GGUF of the huihui-ai abliteration of Qwen3-Coder-Next (80B/3B MoE agentic coder, ~46GB, 74k downloads, Feb 2026) — the no-refusals variant. `config/backends.yaml` registers it in two groups with a split flag: the `general` group lists `supports_tools: false` (conservative default, not live-probed), while the `coding` group lists `supports_tools: true` per the Qwen coding-family architecture. `config/portal.yaml` selects the `-ctx64k` derived tag as the `model_hint` for `auto-spl` and for the `uncensored-agentic` variant of `auto-coding`, while the base id is the `model_hint` for `bench-qwen3-coder-next-abliterated`, the head-to-head against the non-abliterated `bench-qwen3-coder-next`.
+`hf.co/bartowski/huihui-ai_Qwen3-Coder-Next-abliterated-GGUF:Q4_K_M` is the bartowski GGUF of the huihui-ai abliteration of Qwen3-Coder-Next (80B/3B MoE agentic coder, ~46GB, 74k downloads, Feb 2026) — the no-refusals variant. `config/backends.yaml` lists it with `supports_tools: true` in every group (verified 2026-09-25 by a neutral native tool-call probe — sibling -ctx64k tag: 3/3 single-call plus a clean tool-result turn); the router reads one flag per model id, last entry wins, so a per-group split never took effect. `config/portal.yaml` selects the `-ctx64k` derived tag as the `model_hint` for `auto-spl` and for the `uncensored-agentic` variant of `auto-coding`, while the base id is the `model_hint` for `bench-qwen3-coder-next-abliterated`, the head-to-head against the non-abliterated `bench-qwen3-coder-next`.
 
 ## Why
 

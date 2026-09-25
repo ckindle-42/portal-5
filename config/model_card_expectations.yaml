@@ -111,6 +111,8 @@ models:
     source: "https://huggingface.co/Qwen/Qwen3-Coder-30B-A3B-Instruct/resolve/main/generation_config.json (2026-09-25)"
     recommended_sampling: {temperature: 0.7, top_p: 0.8, top_k: 20, repeat_penalty: 1.05}
     prompt_contract: "Non-thinking coder; Qwen3-Coder XML tool calls. Matches qwen3-coder:30b tags and the oMLX Qwen3-Coder-30B-A3B-Instruct-4bit id."
+    behavioral_quirks:
+      - "2026-09-25: on oMLX 0.6.4 the card sampling (0.7/0.8/20) loses tool calls: 2-4 of 6 come back as text because the model skips the <tool_call> opener and mlx_lm's qwen3_coder parser needs it. 0.2/0.9/40 is 90-100%. Ollama parses the same output 3/3. Seats keep low temperature until a salvage lands (P5-OMLX-QWEN3CODER-TOOLTEXT-001)."
   qwen3-coder-next:
     status: verified-card
     verified: true
