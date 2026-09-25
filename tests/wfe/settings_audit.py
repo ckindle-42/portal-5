@@ -248,6 +248,16 @@ def _audit_sampling(ws_id, ws, hint, bp, tags, violations) -> None:
                 f"nor {hint} sets a temperature — the pipeline serves Ollama's 0.7 default",
                 "FAIL",
             )
+    elif eff > limit + 1e-9 and _card_temperature(hint, ws) == eff:
+        # The vendor's own recommendation for this model outranks the lane's
+        # generic ceiling (seat-vendor fit, operator 2026-09-25): noted, not flagged.
+        _v(
+            violations,
+            ws_id,
+            "sampling_card_over_lane",
+            f"serves the card's temperature {eff}, above the {ws.get('module')} lane's {limit}",
+            "INFO",
+        )
     elif eff > limit + 1e-9:
         _v(
             violations,
@@ -270,6 +280,23 @@ def _audit_sampling(ws_id, ws, hint, bp, tags, violations) -> None:
             f"served temperature {eff} is within the {limit} lane limit, but {hint} bakes "
             f"temperature={baked} — a request that omits the workspace override would exceed it",
         )
+
+
+def _served_think(ws: dict, hint: str, registry: dict) -> bool | None:
+    """The mode the seat actually runs in: its `think` pin, else — with no pin,
+    nothing is sent — the model's native default (a reasoning model thinks)."""
+    if ws.get("think") is not None:
+        return bool(ws["think"])
+    return True if _is_reasoning_model(hint, registry) else None
+
+
+def _card_temperature(hint: str, ws: dict) -> float | None:
+    registry = _load_expectations()
+    hit = _expectations_for(hint, registry)
+    if hit is None or hit[1].get("status") == "research-debt":
+        return None
+    t = _card_sampling(hit[1], _served_think(ws, hint, registry)).get("temperature")
+    return None if t is None else float(t)
 
 
 def _card_sampling(entry: dict, think: bool | None) -> dict:
@@ -311,10 +338,12 @@ def _served_sampling_check(
     hit = _expectations_for(hint, registry)
     if hit is None or hit[1].get("status") == "research-debt":
         return
-    card = _card_sampling(hit[1], ws.get("think"))
+    card = _card_sampling(hit[1], _served_think(ws, hint, registry))
     defaults = baked_params(hint) if engine == "ollama" else omlx_default_sampling()
     diffs = []
     for k, want in card.items():
+        if engine == "ollama" and k == "presence_penalty":
+            continue  # undeliverable on Ollama; not a seat choice to A/B
         got, src = (
             (declared[k], "seat") if k in declared else (defaults.get(k), f"{engine} default")
         )
@@ -867,7 +896,7 @@ def run_audit(behavioral: bool = False) -> dict:
         "council_seats": seats,
         "violations": violations,
         "fail_count": len(fails),
-        "warn_count": len(violations) - len(fails),
+        "warn_count": sum(v["severity"] == "WARN" for v in violations),
     }
 
 
@@ -932,7 +961,7 @@ def main() -> int:
             f"{len(report['council_seats'])} council seats"
         )
     for v in report["violations"]:
-        mark = "FAIL" if v["severity"] == "FAIL" else "warn"
+        mark = {"FAIL": "FAIL", "INFO": "info"}.get(v["severity"], "warn")
         print(f"  [{mark}] {v['workspace']}: {v['kind']} — {v['detail']}")
     print(f"\n{report['fail_count']} FAIL / {report['warn_count']} warn")
     return 1 if report["fail_count"] else 0

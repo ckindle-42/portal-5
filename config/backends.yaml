@@ -126,6 +126,10 @@ backends:
     supports_tools: false
   - id: mistral-small3.2:24b
     supports_tools: true
+  # Same weights (digest 5a408ab55df5) under the explicit tag the compliance
+  # council seat names (config/compliance/council.yaml).
+  - id: mistral-small3.2:24b-instruct-2506-q4_K_M
+    supports_tools: true
   - id: gemma4:e4b-it-q4_K_M
     supports_tools: true
   # supports_tools verified 2026-09-25: direct tool-call probe 3/3 clean on the
@@ -192,8 +196,10 @@ backends:
     supports_tools: false
   - id: gemma4:e2b-it-qat
     supports_tools: false
+  # supports_tools verified 2026-09-25: native tool-call probe 3/3 clean (was
+  # false here, true in the other group that lists it).
   - id: gemma4:e4b-it-qat
-    supports_tools: false
+    supports_tools: true
   # tools-specialist::fast bakes its declared context_limit via this tag (2026-09-25).
   - id: gemma4:e4b-it-qat-ctx8k
     supports_tools: true

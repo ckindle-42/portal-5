@@ -7,7 +7,7 @@ import re
 import subprocess
 import sys
 from pathlib import Path
-from typing import Annotated
+from typing import Annotated, Any
 
 import typer
 
@@ -291,7 +291,8 @@ def _write_back_model_hints(updates: dict[str, str]) -> None:
     """Replace model_hint: <old> with model_hint: <new> for each targeted workspace
     in config/portal.yaml, in place, without disturbing formatting/comments elsewhere.
     Line-based (not a full YAML round-trip) so multi-line descriptions and comments
-    in the rest of the file are untouched.
+    in the rest of the file are untouched. A key `ws::variant` targets the
+    variant's own model_hint (6-space variant key, 8-space model_hint).
     """
     import re
 
@@ -301,16 +302,43 @@ def _write_back_model_hints(updates: dict[str, str]) -> None:
     lines = text.splitlines(keepends=True)
     out: list[str] = []
     current_ws: str | None = None
+    current_var: str | None = None
+    in_variants = False
+    done: set[str] = set()  # only rewrite the first model_hint line per target
     for line in lines:
         m = re.match(r"^  ([a-zA-Z0-9_-]+):\s*$", line)
-        if m and not line.startswith("    "):
-            current_ws = m.group(1)
-        if current_ws in updates and re.match(r"^    model_hint:\s*\S", line):
-            out.append(f"    model_hint: {updates[current_ws]}\n")
-            current_ws = None  # only rewrite the first model_hint line per workspace
+        if m:
+            current_ws, current_var, in_variants = m.group(1), None, False
+        elif re.match(r"^    variants:\s*$", line):
+            in_variants = True
+        elif re.match(r"^    \S", line):
+            in_variants, current_var = False, None
+        elif in_variants and (mv := re.match(r"^      ([a-zA-Z0-9_.-]+):\s*$", line)):
+            current_var = mv.group(1)
+        key = f"{current_ws}::{current_var}" if current_var else current_ws
+        indent = "        " if current_var else "    "
+        if key in updates and key not in done and re.match(rf"^{indent}model_hint:\s*\S", line):
+            out.append(f"{indent}model_hint: {updates[key]}\n")
+            done.add(key)
             continue
         out.append(line)
     PORTAL_YAML.write_text("".join(out))
+
+
+def _apply_params_targets(cfg: Any) -> dict[str, dict[str, Any]]:
+    """Every seat apply-params sizes: base workspaces plus `ws::variant` for each
+    variant with its own model_hint. Variants shallow-override their base (as the
+    router resolves them); one without a model_hint serves the base's hint,
+    which the base entry already handles."""
+    from portal.platform.inference.config import get_workspace_dict
+
+    workspaces = get_workspace_dict(cfg)
+    targets: dict[str, dict[str, Any]] = dict(workspaces)
+    for ws_id in workspaces:
+        for var_id, var in cfg.workspaces[ws_id].variants.items():
+            if var.get("model_hint"):
+                targets[f"{ws_id}::{var_id}"] = {**workspaces[ws_id], **var}
+    return targets
 
 
 @models_app.command("apply-params")
@@ -332,20 +360,20 @@ def cmd_models_apply_params() -> None:
     """
     import tempfile
 
-    from portal.platform.inference.config import get_workspace_dict, load_portal_config
+    from portal.platform.inference.config import load_portal_config
 
     ollama_cmd = _detect_ollama_cmd()
     if ollama_cmd is None:
         typer.echo("ERROR: Ollama not reachable", err=True)
         raise typer.Exit(code=1)
 
-    workspaces = get_workspace_dict(load_portal_config())
+    targets = _apply_params_targets(load_portal_config())
     typer.echo("Applying model params (ctx tags) ...")
 
     updates: dict[str, str] = {}
     created = skipped = failed = 0
 
-    for ws_id, ws_cfg in workspaces.items():
+    for ws_id, ws_cfg in targets.items():
         ctx_limit = ws_cfg.get("context_limit")
         model_hint = ws_cfg.get("model_hint", "")
         if not ctx_limit or not model_hint:

@@ -257,6 +257,10 @@ Re-grounding anchors this micro-model unit to the config that defines it: `confi
 
 `mistral-small3.2:24b` is Mistral Small 3.2 (June 2025, Apache 2.0, 24B, ~14GB Q4) with improved function calling and instruction following over Small 3.1. `config/backends.yaml` registers it in `group: general` with `supports_tools: true`. `config/portal.yaml` uses it as a `council_models` entry in an auto-security blue variant and as the challenger member in `auto-council`'s member roster, so it reviews rather than serves a primary lane. It is the auto-mistral lane candidate and the `bench-mistral-small32` target per the catalog; the config tool flag matches the Mistral function-calling format.
 
+### `mistral-small3.2:24b-instruct-2506-q4_K_M`
+
+`mistral-small3.2:24b-instruct-2506-q4_K_M` is the explicit Ollama library tag for the same weights as `mistral-small3.2:24b` (digest `5a408ab55df5`). It is the model the compliance council's `mistral` seat names in `config/compliance/council.yaml`; `config/backends.yaml` registers it next to the short tag in `general` with `supports_tools: true` (2026-09-25), which clears the settings auditor's `seat_unregistered` warning.
+
 ## Why
 
 Grounding ties the model to the general-group registration whose supports_tools true flag the config actually declares, and to the two portal.yaml placements (auto-security blue variant council and auto-council challenger) that consume it. The auto-mistral lane-candidate status is kept as catalog intent because no current workspace wires it as a `model_hint`.
