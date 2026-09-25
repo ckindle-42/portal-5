@@ -47,7 +47,7 @@ with the pinned model, is:
 | `auto-spl` | Qwen3-Coder-Next abliterated (classify_vulnerability, kb_search) |
 | `auto-compliance` | `granite4.1:8b` (NERC CIP gap analysis) |
 | `auto-bigfix` | `qwen3-coder:30b-a3b-q4_K_M` (BigFix relevance scripting) |
-| `auto-security` | VulnLLM-R-7B (web_search, classify_vulnerability, sandbox) |
+| `auto-security` | Granite 4.7 Flash (VulnLLM-R via `scan_code`, web_search, classify_vulnerability, sandbox) |
 | `auto-general-uncensored` | `huihui_ai/Qwen3.6-abliterated:27b` (uncensored generalist) |
 | `auto-extract-uncensored` | LFM2.5-8B-A1B uncensored (extraction, no tool loop) |
 | `tools-specialist` | `granite4.1:8b` (execute_python, remember, recall) |

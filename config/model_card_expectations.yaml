@@ -91,6 +91,9 @@ models:
     source: "https://huggingface.co/Qwen/Qwen3-Coder-30B-A3B-Instruct/resolve/main/generation_config.json (2026-09-25)"
     recommended_sampling: {temperature: 0.7, top_p: 0.8, top_k: 20, repeat_penalty: 1.05}
     prompt_contract: "Values are Qwen3-Coder-30B-A3B-Instruct's (non-thinking coder). Other qwen3 tags in this family (qwen3-vl) need their own card check."
+  qwen3-vl:
+    status: research-debt
+    prompt_contract: "Vision-language Qwen3 family; the card and multimodal prompt/sampling contract still require a dedicated review rather than inheriting the Qwen3-Coder entry."
   qwen3.5:
     status: verified-card
     verified: true

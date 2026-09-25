@@ -320,14 +320,14 @@ class TestMetricsEndpoint:
 class TestWorkspaceModelHintUpdated:
     """Verify model hints use the updated recs.md models."""
 
-    def test_security_uses_baronllm(self):
-        # VulnLLM-R-7B promoted to auto-security primary 2026-06-20
-        # baronllm retained in auto-security-uncensored
+    def test_security_uses_tool_capable_chat_seat(self):
+        # Granite 4.7 Flash is the chat seat; VulnLLM-R is exposed through scan_code.
         ws = WORKSPACES.get("auto-security", {})
         hint = ws.get("model_hint", "").lower()
-        assert "vulnllm" in hint or "baronllm" in hint or "baron" in hint, (
-            "Security workspace should use a dedicated security model (VulnLLM-R-7B or baronllm)"
+        assert "glm-4.7-flash" in hint, (
+            "Security workspace should use the tool-capable Granite 4.7 Flash chat seat"
         )
+        assert "scan_code" in ws.get("tools", [])
 
     def test_coding_uses_qwen_or_glm(self):
         ws = WORKSPACES.get("auto-coding", {})
@@ -503,9 +503,9 @@ class TestR18ModelCompleteness:
         assert "granite4.1" in WORKSPACES["auto-documents"]["model_hint"].lower(), (
             "auto-documents should use granite4.1:8b (tool-capable document model; phi4:14b-q8_0 rejected by Ollama 0.30.x for tool calls — see commit 7376ba4)"
         )
-        # R23: VulnLLM-R-7B promoted to auto-security primary 2026-06-20
-        assert "vulnllm-r-7b" in WORKSPACES["auto-security"]["model_hint"].lower(), (
-            "auto-security should use VulnLLM-R-7B (UCSB SURFI, AppSec/CVE/CWE specialist, promoted 2026-06-20)"
+        # Seat-vendor fit: Granite 4.7 Flash is the chat seat; VulnLLM-R is the scan_code specialist.
+        assert "glm-4.7-flash" in WORKSPACES["auto-security"]["model_hint"].lower(), (
+            "auto-security should use the tool-capable Granite 4.7 Flash chat seat"
         )
         from portal.platform.inference.router.preinject import (
             _resolve_workspace_variant,

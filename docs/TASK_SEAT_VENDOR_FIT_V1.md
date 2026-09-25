@@ -91,3 +91,5 @@ Qwen's guidance warns that near-greedy decoding on Qwen3.x causes performance lo
 |---|---|---|---|---|
 | 2026-09-25 | `auto-security` (VulnLLM, CWE set) | 15/18, 3/3 FP | 17/18, 0/3 FP (trained prompt + card sampling) | S3 (tool) |
 | 2026-09-25 | `auto-coding::laguna` (Laguna-XS-2.1, oMLX, think off) | 24/29 PASS, 0 turn-cap | 19/29 PASS, 2 turn-cap + 16K-token runaway turns (1.0/20/1.0) | keep seat sampling (0.2/40/0.9) |
+| 2026-09-25 | `scan_code` live replay (6 snippets × 3, case CWE shortlist) | 12/15 positive CWE hits, 0/3 clean false positives | 0 parse-error rows; default unshortlisted replay was 8/15 positive hits, 0/3 clean false positives | historical 17/18 result not reproduced in this live replay; retain as follow-up evidence |
+| 2026-09-25 | `scan_code` live replay after caller-shortlist fix (6 snippets × 3) | 15/15 positive CWE hits, 0/3 clean false positives | 18/18 rows parsed; caller shortlist preserved CWE-601/89/798/502 descriptions | S3 acceptance reproduced; retain prior unfavorable replay above as the regression receipt |
