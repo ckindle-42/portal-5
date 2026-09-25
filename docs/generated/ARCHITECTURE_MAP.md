@@ -2,7 +2,7 @@
 
 # Portal 5 Architecture Map
 
-*Deterministic projection of 750 canonical units.*
+*Deterministic projection of 749 canonical units.*
 
 ## Knowledge Layer
 
@@ -501,9 +501,7 @@
 | `unit-model-catalog-huihui-ai-tongyi-deepresearch-abliterated-latest-ctx64k` | what | 2 |
 | `unit-model-catalog-jackrong-deepseek-v4-pro-qwen3-5-4b-mtp` | what | 2 |
 | `unit-model-catalog-jackrong-deepseek-v4-pro-qwen3-5-9b-mtp` | what | 2 |
-| `unit-model-catalog-laguna-xs-2-4bit` | what | 2 |
-| `unit-model-catalog-laguna-xs-2-q4-k-m` | what | 2 |
-| `unit-model-catalog-laguna-xs-2-q4-k-m-ctx64k` | what | 2 |
+| `unit-model-catalog-laguna-xs-2-1-4bit` | what | 2 |
 | `unit-model-catalog-lfm2-5-8b` | what | 2 |
 | `unit-model-catalog-lfm2-5-8b-ctx8k` | what | 2 |
 | `unit-model-catalog-llama-3-2-3b-instruct-8bit` | what | 1 |
@@ -693,6 +691,7 @@
 | `unit-security-knowledge-surface` | mixed | 1 |
 | `unit-security-tools-mcp-surface` | mixed | 1 |
 | `unit-surface-acceptance` | mixed | 1 |
+| `unit-surface-archive-engine-h2h` | mixed | 1 |
 | `unit-surface-archive-mlx` | mixed | 1 |
 | `unit-surface-benchmarks` | mixed | 3 |
 | `unit-surface-binary-research` | mixed | 1 |
@@ -759,12 +758,12 @@
 | `unit-wiki-tests-render` | mixed | 1 |
 | `unit-wiki-writeback` | mixed | 1 |
 
-**Total:** 750 units
+**Total:** 749 units
 
 ## Source Distribution
 
 - **bench-security**: 1 references
-- **code**: 1921 references
+- **code**: 1918 references
 - **config**: 1 references
 - **doc**: 1 references
 - **mitre**: 40 references

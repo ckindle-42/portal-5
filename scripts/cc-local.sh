@@ -6,7 +6,7 @@
 #
 # Usage:
 #   scripts/cc-local.sh                                    # default: agenticheavy
-#   scripts/cc-local.sh --model codingagentic              # Laguna-XS.2 33B agentic
+#   scripts/cc-local.sh --model codingagentic              # Laguna-XS-2.1 33B agentic
 #   scripts/cc-local.sh --model agenticheavy               # Qwen3-Coder-Next 80B / AgentWorld 35B fallback
 #   scripts/cc-local.sh --model agenticlite                # AgentWorld 35B direct (lighter, 45 t/s)
 #   scripts/cc-local.sh --model auto-coding                # Qwen3-Coder 30B one-shot

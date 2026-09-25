@@ -1,37 +1,42 @@
 ---
 id: unit-code-scripts
 kind: what
-title: scripts subsystem (175 files)
+title: scripts subsystem (180 files)
 sources:
 - type: code
   path: scripts/_archive/analyze_bench_v5.py
-  commit: f9bfb6421d53
+  commit: 60f173e0f83d
 - type: code
-  path: scripts/_archive/mlx-retired-3a0c58e/mlx-proxy.py
-  commit: f9bfb6421d53
+  path: scripts/_archive/engine_h2h_20260924/bench_engine_h2h.py
+  commit: 60f173e0f83d
 - type: code
-  path: scripts/_archive/mlx-retired-3a0c58e/mlx-watchdog.py
-  commit: f9bfb6421d53
+  path: scripts/_archive/engine_h2h_20260924/deep_lane/run_deep.py
+  commit: 60f173e0f83d
 - type: code
-  path: scripts/_archive/mlx-retired-3a0c58e/smoke_test_mlx.py
-  commit: f9bfb6421d53
+  path: scripts/_archive/engine_h2h_20260924/prismml_mlx_server.py
+  commit: 60f173e0f83d
 - type: code
-  path: scripts/alias_census.py
-  commit: f9bfb6421d53
+  path: scripts/_archive/engine_h2h_20260924/tests/test_bench_engine_h2h.py
+  commit: 60f173e0f83d
 claims: []
 confidence: high
 tags:
 - code
 - scripts
-created_at: 1790264202.318321
-updated_at: 1790264202.318321
+created_at: 1790305374.010997
+updated_at: 1790305374.010997
 ---
 
 # scripts subsystem
 
-**Files:** 175
+**Files:** 180
 
 - `scripts/_archive/analyze_bench_v5.py`
+- `scripts/_archive/engine_h2h_20260924/bench_engine_h2h.py`
+- `scripts/_archive/engine_h2h_20260924/deep_lane/run_deep.py`
+- `scripts/_archive/engine_h2h_20260924/prismml_mlx_server.py`
+- `scripts/_archive/engine_h2h_20260924/tests/test_bench_engine_h2h.py`
+- `scripts/_archive/engine_h2h_20260924/tests/test_prismml_mlx_server.py`
 - `scripts/_archive/mlx-retired-3a0c58e/mlx-proxy.py`
 - `scripts/_archive/mlx-retired-3a0c58e/mlx-watchdog.py`
 - `scripts/_archive/mlx-retired-3a0c58e/smoke_test_mlx.py`
@@ -46,9 +51,4 @@ updated_at: 1790264202.318321
 - `scripts/bully_analyst_loop_run.py`
 - `scripts/bully_corpus_hunt_run.py`
 - `scripts/bully_cousin_ladder.py`
-- `scripts/bully_cousin_run_c7.py`
-- `scripts/bully_full_assembly_run.py`
-- `scripts/bully_inject_capture.py`
-- `scripts/bully_investigation_run_a6.py`
-- `scripts/bully_investigation_run_i6.py`
-- ... and 155 more
+- ... and 160 more

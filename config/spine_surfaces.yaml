@@ -924,6 +924,10 @@ surfaces:
   globs:
   - tests/acceptance/*.py
   unit: unit-surface-acceptance
+- name: unit-surface-archive-engine-h2h
+  globs:
+  - scripts/_archive/engine_h2h_20260924/**/*.py
+  unit: unit-surface-archive-engine-h2h
 - name: unit-surface-archive-mlx
   globs:
   - scripts/_archive/mlx-retired-3a0c58e/*.py

@@ -161,8 +161,6 @@ backends:
     supports_tools: false
   - id: gpt-oss:20b
     supports_tools: false
-  - id: laguna-xs.2:Q4_K_M
-    supports_tools: false
   - id: granite4.1:30b
     supports_tools: false
   - id: granite4.1:30b-ctx16k
@@ -385,15 +383,15 @@ backends:
     supports_tools: true
   - id: devstral-small-2:latest-ctx8k
     supports_tools: true
-  - id: laguna-xs.2:Q4_K_M
-    supports_tools: true
-  - id: laguna-xs.2:Q4_K_M-ctx64k
-    supports_tools: true
-  # Full-native-context tag (131072) added 2026-08-26 for the codingagentic
-  # persona (opencode's default) -- ctx64k was undersized for real opencode
-  # requests (verified: an 87,665-token real-scale prompt exceeds 64K).
-  # ~23GB footprint, 100% GPU, no CPU offload. Tool-calling verified.
-  - id: portal5/laguna-xs2:q4_K_M-ctx128k
+  # Laguna-XS-2.1 (2026-09-25) replaces Laguna-XS.2 in the laguna seat. XS.2 could
+  # not stop after a tool call on this stack (chained invented calls to the token
+  # cap, official and imported GGUF alike). Derived from the Ollama library
+  # `laguna-xs-2.1` (poolside-v1 renderer/parser), num_ctx 131072 baked — ctx64k
+  # was undersized for real opencode prompts (87,665-token case). ~20GB. This is
+  # the Ollama FALLBACK only: Ollama 0.34.2's Laguna parser 500s on any reply that
+  # starts with a bare JSON object ("empty Laguna tool call name"); the oMLX
+  # alias in omlx-coding (priority 10) serves the seat and does not.
+  - id: portal5/laguna-xs21:q4_K_M-ctx128k
     supports_tools: true
   - id: gpt-oss:20b
     supports_tools: true
@@ -758,7 +756,7 @@ backends:
   models:
   - id: Qwen3-Coder-30B-A3B-Instruct-4bit
     supports_tools: true
-  - id: Laguna-XS.2-4bit
+  - id: Laguna-XS-2.1-4bit
     supports_tools: true
   type: omlx
   url: ${OMLX_URL:-http://host.docker.internal:8085}
@@ -789,7 +787,9 @@ backends:
   models:
   - id: Qwen3-Coder-30B-A3B-Instruct-4bit
     supports_tools: true
-  - id: Laguna-XS.2-4bit
+  # mlx-community/Laguna-XS-2.1-4bit (2026-09-25): laguna-seat WFE on oMLX,
+  # think off, n=3: 29/42 (coding 9/9) vs MiMo 11/42 on the same instrument.
+  - id: Laguna-XS-2.1-4bit
     supports_tools: true
   - id: Qwen3.8-27B-oQ4e-mtp
     supports_tools: true
@@ -819,7 +819,7 @@ backends:
   # OPERATOR VERDICT 2026-09-02: this MUST NOT become an auto-coding /
   # auto-* default -- too heavy (39GB loaded + a 40.57GB admission gate
   # that needs a quiet host). Bench / restricted manual use only, and only
-  # if it proves out against Laguna-XS.2 in the bench lane.
+  # if it proves out against Laguna-XS-2.1 in the bench lane.
   #
   # MEMORY (measured 2026-09-02 -- the model card's own numbers held):
   #   - card: 68GB disk / 68GB resident non-streamed / "39 GB streamed".
@@ -865,8 +865,7 @@ backends:
   aliases:
     qwen3-coder:30b-a3b-q4_K_M-ctx256k: Qwen3-Coder-30B-A3B-Instruct-4bit
     qwen3-coder:30b-a3b-q4_K_M-ctx16k: Qwen3-Coder-30B-A3B-Instruct-4bit
-    laguna-xs.2:Q4_K_M-ctx64k: Laguna-XS.2-4bit
-    portal5/laguna-xs2:q4_K_M-ctx128k: Laguna-XS.2-4bit
+    portal5/laguna-xs21:q4_K_M-ctx128k: Laguna-XS-2.1-4bit
     hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M: Qwen3.8-27B-oQ4e-mtp
   type: omlx
   url: ${OMLX_URL:-http://host.docker.internal:8085}

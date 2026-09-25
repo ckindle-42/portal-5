@@ -20,11 +20,12 @@ updated_at: 1784946220.5778859
 
 The `laguna` variant of the `auto-coding` workspace is the default agentic coding lane
 for opencode and Claude Code. `config/portal.yaml` pins its `model_hint` to
-`laguna-xs.2:Q4_K_M-ctx64k`, sets `keep_alive` to 15 minutes and `context_limit` to
-65536, and attaches a `system_prompt_append` that encodes the agentic loop: explore
+`portal5/laguna-xs21:q4_K_M-ctx128k` (Laguna-XS-2.1), sets `keep_alive` to 15 minutes and
+`context_limit` to 131072, and attaches a `system_prompt_append` that encodes the agentic loop: explore
 with `explore_repository`, read with `read_text_file`, plan, edit with `write_file`,
-verify with `execute_bash` running pytest, then report. The backing model id
-`laguna-xs.2:Q4_K_M` is registered in `config/backends.yaml`, and the `codingagentic`
+verify with `execute_bash` running pytest, then report. `config/backends.yaml` registers that tag as the Ollama fallback and aliases it, in
+the `omlx-coding` entry (priority 10), to `Laguna-XS-2.1-4bit` on oMLX, which serves
+the seat, and the `codingagentic`
 persona in `config/personas/codingagentic.yaml` binds this variant for the IDE
 picker with `ide_expose` enabled.
 

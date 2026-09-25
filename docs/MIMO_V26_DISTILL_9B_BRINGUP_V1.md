@@ -278,3 +278,30 @@ Engine-lane speed (MTPLX, `sustained`): Bonsai-2 MTP 33.5 tok/s, plain 24.7. Qwe
 - Templates verified identical across arms: Ollama's differs from the Qwen3.8 source only by a no-op `| safe`. The GGUF embedded template and the MTPLX pack template match the source byte for byte. MTPLX renders from the pack (`chat_template_profile: tokenizer`, per `mtplx_stats`). Thinking was off in every row.
 
 **What would reopen it:** a Bonsai build or sampler that breaks the re-read attractor (for example, MTPLX gaining `repeat_penalty`, or a `presence_penalty` workspace profile tested on both arms), or a non-agentic use (short-prompt chat) where the 3× decode and 3× smaller footprint matter and tool loops don't.
+
+## Fit bench V3 and closure (2026-09-25)
+
+Tooling from this doc was archived to `scripts/_archive/engine_h2h_20260924/` (README there). The test engines (MTPLX, Rapid-MLX, vllm-mlx, mlx-serve, the PrismML forks) and every Bonsai/MTPLX model were removed. MiMo itself was kept for this bench.
+
+**Card:** Qwen3.5-9B SFT (MIT). The card's domains are code, agent, cyber and visual. `generation_config` sets temperature 0.6, top_p 0.95, top_k 20. The template enables thinking unless `enable_thinking` is false (unlike Unsloth's note that small Qwen3.5 defaults off).
+
+**Verdict: NOT PROMOTED.** Every lane was run as the seat runs it, with the WFE runner fixes below:
+
+| Lane | MiMo | Seated model |
+|---|---|---|
+| Speed | oMLX 4-bit 48.5 tok/s in 8GB; Ollama Q4_K_M 33.2 in 11GB; the oMLX MTP build is *slower* (44.2) | — |
+| `auto-security` (defensive CWE set, n=3) | 11/15, 0 clean false positives, no refusals | VulnLLM 15/15 but flags the clean control 3/3 — a trade-off, not a replacement. Offensive variants need an uncensored build; stock MiMo was not tested there |
+| `tools-specialist` WFE | 7/10 (partial), `code-kv` 0/6 | granite4.1:8b 16/18, about 10× faster |
+| `auto-coding::laguna` WFE (oMLX, think off) | 11/42: loops on agentic compliance packets (24 turn-cap) | Laguna-XS-2.1 29/42 on the same instrument |
+
+**MiMo on Ollama is broken for tools.** Ollama 0.34.2 serves this GGUF through llama.cpp's template and grammar-constrained parser (`gguf_chat_template`). Valid calls (for example `file_list(path="src")`) become runaway generation plus HTTP 500 `invalid tool call arguments… unexpected end of JSON input`. The model's raw output, rendered with its official template, is a clean 17-token call, and oMLX parses it correctly. Only oMLX can serve it.
+
+**Laguna: XS.2 replaced by XS-2.1 (live 2026-09-25).** XS.2 cannot stop after a tool call on this stack. It chained invented calls to the token cap in one turn (about 10 minutes per turn), on our import, on Ollama's official build, and under both the `laguna` and `poolside-v1` renderers. XS-2.1 (the Ollama library `laguna-xs-2.1`; oMLX `mlx-community/Laguna-XS-2.1-4bit`) stops correctly. Ollama 0.34.2's Laguna parser 500s on any reply that begins with a bare JSON object ("empty Laguna tool call name"); oMLX does not, so the seat is served by oMLX (the priority-10 alias) with the Ollama tag as fallback. Seat WFE, think off, n=3: 2.1/oMLX 29/42 (coding 9/9); 2.1/Ollama 11/42 plus 23 parser errors. Verified live through the pipeline as `codingagentic`. The seat still uses its pre-existing sampling (0.2 / top_k 40 / top_p 0.9); Poolside recommends 1.0 / 20 / 1.0, which is untested here.
+
+**Template-path probe (21 production tags, 4 tool-call probes each):** 19/21 pass 4/4, including the compliance and deep-lane Qwen3.8 on the llama.cpp path, so MiMo's failure is specific to its GGUF. The two exceptions are model quirks: BaronLLM writes a malformed JSON call as text when 6 tools are offered, and Nex-N2-mini returned empty content once.
+
+**Harness fixes that made these numbers valid** (`tests/wfe`, pinned by contract tests):
+- Every resolved sampling key is sent (`SAMPLING_KEYS`).
+- `workspace::variant` ids merge as production does, and `system_prompt_append` is applied. WFE never applied it before, which affected auto-coding, auto-compliance, auto-documents and auto-general-uncensored results.
+- A `WFE_THINK` override, stamped per row.
+- Campaign arms after the first need `--append`, or they silently run nothing.

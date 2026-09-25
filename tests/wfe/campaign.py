@@ -111,7 +111,13 @@ def campaign_harness(wsc: dict) -> dict:
     fixing, or that X is not a fit."""
     h = dict(CAMPAIGN_HARNESS)
     ws_think = wsc.get("think")
-    if ws_think is not None:
+    # WFE_THINK=true|false is an explicit experiment override (e.g. "how does
+    # this seat score with reasoning off?"). It is stamped in every row's
+    # harness record, so an override row can't pass for a production-resolved one.
+    forced = os.environ.get("WFE_THINK")
+    if forced in ("true", "false"):
+        h["think"] = forced
+    elif ws_think is not None:
         h["think"] = "true" if ws_think else "false"
     else:
         h["think"] = think_policy(wsc.get("model") or "")

@@ -1,0 +1,27 @@
+# MiMo-V2.6-Distill-Qwen-9B fit bench — where would it earn a seat?
+# Governing doc: docs/MIMO_V26_DISTILL_9B_BRINGUP_V1.md ("Fit bench V3").
+# The model card targets coding, general agentic work and cyber (SWE Pro 44.6,
+# Terminal Bench 37.1, AutomationBench 30.3, MiMo Cyber 31.3). Each lane below
+# pits it against the seated model it would replace, under that workspace's own
+# prompt, sampling and think setting (WFE resolves them per workspace), so the
+# result answers "would it be better in this seat as production would run it".
+# auto-security has no WFE suite; its lane is the 6-prompt CWE set (doc).
+workloads:
+  tools-specialist:
+    home: coding
+    discovery: [research]
+    arms:
+      incumbent: granite4.1:8b-ctx8k
+      challengers: [portal5/mimo-v26-distill-9b:q4_K_M-ctx256k]
+  auto-coding::laguna:
+    # The `laguna` seat (IDE / agentic coder, opencode default) under that
+    # variant's own production context: its sampling, predict_limit, tools and
+    # system_prompt_append (runner.workspace_context resolves `ws::variant`).
+    home: coding
+    discovery: [compliance_agentic]
+    arms:
+      incumbent: portal5/laguna-xs2:q4_K_M-ctx128k
+      # orcarouter Qwen3.8-27B-Uncensored: the pivot candidate (wfe_full_20260911:
+      # 9/9 coding, 26/29 compliance_agentic) — the auto-coding uncensored-agentic tag.
+      # laguna-xs21: Laguna-XS-2.1 (Ollama library tag, poolside-v1 renderer) — the upgrade candidate.
+      challengers: [portal5/mimo-v26-distill-9b:q4_K_M-ctx256k, orcarouter/Qwen3.8-27B-Uncensored:Q4_K_M-ctx32k, portal5/laguna-xs21:q4_K_M-ctx128k]

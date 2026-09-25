@@ -355,7 +355,7 @@ class TestAutoCodingOmlxShadowRouting:
         ("hint", "native_id"),
         [
             ("qwen3-coder:30b-a3b-q4_K_M-ctx16k", "Qwen3-Coder-30B-A3B-Instruct-4bit"),
-            ("laguna-xs.2:Q4_K_M-ctx64k", "Laguna-XS.2-4bit"),
+            ("portal5/laguna-xs21:q4_K_M-ctx128k", "Laguna-XS-2.1-4bit"),
         ],
     )
     def test_production_hints_resolve_and_prioritize_omlx(self, coding_candidates, hint, native_id):
