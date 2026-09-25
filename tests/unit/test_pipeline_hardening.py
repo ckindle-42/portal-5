@@ -545,3 +545,34 @@ def test_chain_hop_goes_to_a_backend_that_serves_its_model(monkeypatch) -> None:
     )
     assert url == ollama.chat_url
     assert "chat_template_kwargs" not in body
+
+
+@pytest.mark.anyio
+async def test_router_timeout_schedules_one_uncancelled_reload(monkeypatch) -> None:
+    import asyncio
+
+    import portal.platform.inference.router.routing as routing
+
+    posts: list[dict[str, typing.Any]] = []
+    release = asyncio.Event()
+
+    class _C:
+        async def post(self, url, json):
+            posts.append(json)
+            if json.get("prompt") == "ok":  # the reload: no deadline, completes
+                await release.wait()
+                return httpx.Response(200, json={})
+            await asyncio.sleep(10)  # cold load outlasts the routing deadline
+
+    monkeypatch.setattr(routing, "_http_client", _C())
+    monkeypatch.setattr(routing, "_LLM_ROUTER_ENABLED", True)
+    monkeypatch.setattr(routing, "_LLM_ROUTER_TIMEOUT_MS", 10)
+    monkeypatch.setattr(routing, "_router_reload_task", None)
+    msgs = [{"role": "user", "content": "write a python function"}]
+    assert await routing._route_with_llm(msgs) is None
+    assert await routing._route_with_llm(msgs) is None
+    await asyncio.sleep(0)
+    reloads = [p for p in posts if p.get("prompt") == "ok"]
+    assert len(reloads) == 1 and reloads[0]["keep_alive"] == -1
+    release.set()
+    await routing._router_reload_task

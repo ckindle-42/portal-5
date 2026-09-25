@@ -1113,6 +1113,24 @@ The ratchet exists to fix an authority inversion: docs generated from units were
   tests: `TestOllamaOutcomes::test_payload_caps_num_ctx` in
   `portal/platform/inference/tool_preselect/tests/test_preselector.py`.
   `cli_probe.py` is operator-invoked only, no automated coverage needed.
+- **2026-09-25 follow-up — fleet-wide KV churn, and no recovery after eviction**:
+  mining `ollama.log` showed 1,053 of 1,187 Ollama load decisions since
+  2026-09-01 had to evict. Reservations are weights + KV x
+  `OLLAMA_NUM_PARALLEL`: at `4`, `granite4.1:30b` reserved 112 GiB and
+  `mistral-small3.2:24b` 89 GiB (compliance `reading_transport.DEFAULT_NUM_CTX`
+  98,304 x 4), `DeepSeek-R1-0528-Qwen3-8B` ctx64k 40.8 GiB. The daemon now runs
+  `OLLAMA_NUM_PARALLEL=2` (same load: 14.6 GiB). `keep_alive: -1` only stops
+  the idle timer; the scheduler still evicts a pinned model to fit a load.
+  Second defect: the routing call's 1 s deadline cancelled its own cold load
+  (Ollama: "client connection closed before llama-server finished loading,
+  aborting load"), so an evicted router never came back until the pipeline
+  restarted. A timeout now schedules one background reload with no deadline
+  (`_schedule_router_reload`, `routing.py`); verified live: evicted, one
+  timed-out request, router resident again. **Still open**: oMLX has no idle
+  unload (`idle_timeout_seconds = None`), so its models hold unified memory
+  Ollama cannot reclaim (`system_limited=true` in the scheduler) and the
+  router, the smallest Ollama resident, is squeezed first — an operator
+  decision (oMLX idle timeout and/or pinning the router on oMLX).
 
 ## Why
 
