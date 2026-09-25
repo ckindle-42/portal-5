@@ -103,6 +103,19 @@ Service/media caches stay owned by their subsystems (image/video/speech/OCR/embe
 
 Each assignment names the workspace/persona context, the real inputs, and a stop rule. Count: 13 models / ~120.6 GiB held. Sequence cheapest-first (OCR comparisons are fully mechanical; creative use is operator-judged). No model is removed while its probe is queued; every probe ends in INTEGRATE / RETAIN-with-purpose / REMOVE per its pre-registered rule. Diversity doctrine: lineage census is recorded (§1); gpt-oss re-tiered on it; command-r remains removed (lineage noted, but no seat and below-cluster data — diversity is a factor, not the factor).
 
+## 10. Decisions 2026-09-25 (Laguna, MiMo, Bonsai, VulnLLM)
+
+Evidence is in [TASK_SEAT_VENDOR_FIT_V1](TASK_SEAT_VENDOR_FIT_V1.md) and the bring-up doc's [fit bench V3](MIMO_V26_DISTILL_9B_BRINGUP_V1.md#fit-bench-v3-and-closure-2026-09-25). Each row is wired in `MODEL_FLEET_CLOSEOUT_20260906.tasks.json`.
+
+| Identity | Disposition | Why |
+|---|---|---|
+| `portal5/laguna-xs2:q4_K_M-ctx128k`, oMLX `Laguna-XS.2-4bit` | REMOVED_CLOSED (deleted) | XS.2 cannot stop after a tool call on this stack; it chains invented calls to the token cap |
+| `portal5/laguna-xs21:q4_K_M-ctx128k`, `laguna-xs-2.1:latest`, oMLX `Laguna-XS-2.1-4bit` | INTEGRATED | laguna seat via oMLX: 29/42, coding 9/9. The seat keeps its own sampling: card sampling scored 19 vs 24 PASS on 29 matched runs, with runaway turns |
+| `portal5/mimo-v26-distill-9b:q4_K_M-ctx256k`, oMLX `…-MLX-Serve-4bit-mtp` | REMOVED_CLOSED (deleted) | Ollama breaks its tool calls; its MTP head is slower than plain oMLX |
+| oMLX `MiMo-V2.6-Distill-Qwen-9B-MLX-4bit` | RETAINED_FOR_PURPOSE | candidate high-precision second reviewer beside VulnLLM (security 11/15, 0 FP). Removed if the blueteam-council test fails |
+| `…VulnLLM-R-7B-GGUF:q4_K_M-ctx8k` | INTEGRATED (role change pending) | detector contract verified (17/18, 0/3 FP with its trained prompt); moves behind a `scan_code` tool (operator option B) |
+| 6 `bonsai-*` Ollama tags, 3 Bonsai/Ternary MLX builds | REMOVED_CLOSED (deleted) | faster, but agentic WFE 21/42 and 11/42 vs 33/42; a single-use deep-lane win was not worth a third engine |
+
 ## 8. Provenance
 
 Instruments: repo-native probes (judgment_probe_v6 + native-arm variant, research/refusal/vision/CUA probes, bench_repair exam), same scorer/corpus per comparison, incumbents re-run same-batch. Ollama 0.33.2, Apple M4 Pro. Key artifacts: `tests/benchmarks/results/{research_probe_20260907T030136Z,research_probe_20260907T032401Z,refusal_preservation_probe_20260907T025849Z,vision_probe_20260907T030047Z,judgment_probe_v6_20260907T034934Z,judgment_probe_v6_gptoss_native_20260907T043151Z,BENCH_REPAIR_20260907T081156Z,BENCH_REPAIR_CHECKPOINT_00e9d1b544a2}.json|md`. Limitations: repair exam run on Ollama 0.33.2 (Aug trio baseline was 0.32.15 — cross-version treated as reference); vision probe is a 4-case synthetic floor; CUA full harness absent; APFS clone sharing not resolved (union is inode-dedup).

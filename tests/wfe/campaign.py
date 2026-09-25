@@ -613,6 +613,13 @@ def _sampling_for(wsc: dict, repeat: int) -> dict:
     multi-step tool work exhausts 2048 tokens inside its <think> block and never
     reaches an answer. A workspace with its own predict_limit still wins."""
     s = {"max_tokens": 4096, **(wsc.get("sampling") or {})}
+    # WFE_SAMPLING='{"temperature": 1.0, ...}' is an experiment override (e.g.
+    # "seat config vs the vendor's card"). It REPLACES the workspace's sampling
+    # keys, keeping only max_tokens, so seat-only keys like min_p can't leak
+    # into a vendor arm. Every row already records the sampling it ran with.
+    forced = os.environ.get("WFE_SAMPLING")
+    if forced:
+        s = {"max_tokens": s["max_tokens"], **json.loads(forced)}
     s["seed"] = 1000 + repeat
     return s
 

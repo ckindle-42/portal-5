@@ -5,9 +5,9 @@ This audit does NOT regenerate a pending ledger.
 
 | Disposition | Count |
 |---|---:|
-| INTEGRATED | 67 |
-| RETAINED_FOR_PURPOSE | 12 |
-| REMOVED_CLOSED | 102 |
+| INTEGRATED | 68 |
+| RETAINED_FOR_PURPOSE | 6 |
+| REMOVED_CLOSED | 116 |
 
 ## True cleanup exceptions — REMOVED_CLOSED still on disk (0)
 
