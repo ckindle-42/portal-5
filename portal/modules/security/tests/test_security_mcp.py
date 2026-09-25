@@ -298,58 +298,6 @@ class TestClassifyVulnerability:
         assert "severity" in result
 
 
-class TestScanCode:
-    """Test the VulnLLM-R code-scanning contract without a model call."""
-
-    def test_manifest_lists_scan_code(self) -> None:
-        from portal.modules.security.tools.security_mcp import TOOLS_MANIFEST
-
-        entry = next(tool for tool in TOOLS_MANIFEST if tool["name"] == "scan_code")
-        assert "VulnLLM-R" in entry["description"]
-        assert entry["parameters"]["required"] == ["code"]
-
-    def test_prompt_contains_trained_reasoning_contract(self) -> None:
-        from portal.modules.security.tools.security_mcp import _vulnllm_prompt
-
-        prompt = _vulnllm_prompt("user = request.args['user']", ["CWE-22"])
-        assert "#judge: <yes/no>" in prompt
-        assert "#type: <vulnerability type>" in prompt
-        assert "CWE-22" in prompt
-        assert "Step 1" in prompt
-
-        caller_shortlist = _vulnllm_prompt("redirect(request.args['next'])", ["CWE-601"])
-        assert "CWE-601" in caller_shortlist
-        assert "untrusted destinations" in caller_shortlist
-
-    def test_parser_requires_one_cwe_for_positive_judgment(self) -> None:
-        from portal.modules.security.tools.security_mcp import _parse_vulnllm_output
-
-        result = _parse_vulnllm_output("## Final Answer\n#judge: yes\n#type: CWE-22")
-        assert result["vulnerable"] is True
-        assert result["cwe"] == "CWE-22"
-        assert result["parse_errors"] == []
-
-        invalid = _parse_vulnllm_output("#judge: yes\n#type: injection")
-        assert invalid["vulnerable"] is True
-        assert "requires exactly one CWE" in invalid["parse_errors"][0]
-
-    def test_scan_code_returns_structured_raw_receipt(
-        self, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
-        from portal.modules.security.tools import security_mcp
-
-        monkeypatch.setattr(
-            security_mcp,
-            "_vulnllm_chat",
-            lambda prompt: "## Final Answer\n#judge: no\n#type: none",
-        )
-        result = security_mcp.scan_code("print('safe')")
-        assert result["judge"] == "no"
-        assert result["vulnerable"] is False
-        assert result["raw"].startswith("## Final Answer")
-        assert result["sampling"]["max_tokens"] == 3072
-
-
 class TestLabPerceptionTool:
     """Test the lab_perception MCP tool (Slice 1.4, invariant I1)."""
 

@@ -23,7 +23,7 @@ Verified variant summary from `config/portal.yaml`:
 
 | Variant | Tier | Model hint | Tools |
 |---|---|---|---|
-| *(base)* | Research | `glm-4.7-flash:Q4_K_M` (VulnLLM-R via `scan_code`) | web_search, web_fetch, classify_vulnerability, scan_code, execute_python, execute_bash, kb_search, kb_list |
+| *(base)* | Research | `hf.co/mradermacher/VulnLLM-R-7B-GGUF:q4_K_M-ctx8k` | web_search, web_fetch, classify_vulnerability, execute_python, execute_bash, kb_search, kb_list |
 | `uncensored` | Research | `huihui_ai/baronllm-abliterated:latest-ctx8k` | execute_bash, execute_python, remember, recall |
 | `redteam` | Simulation | `huihui_ai/qwen3.5-abliterated:9b-ctx8k` | none |
 | `redteam-deep` | Simulation | `supergemma4-26b-uncensored:Q4_K_M-ctx64k` | none |

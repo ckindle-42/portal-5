@@ -5,7 +5,7 @@ title: tool authorizations for 26 production workspaces
 sources:
 - type: code
   path: config/portal.yaml
-  commit: b306f4b127d8
+  commit: a8efd5a4c2a4
   section: workspaces[].tools
 claims: []
 confidence: high
@@ -14,7 +14,7 @@ tags:
 - tools
 - workspaces
 created_at: 1784049584.703768
-updated_at: 1790312215.311101
+updated_at: 1789692579.113007
 ---
 
 # Tool authorizations (per-workspace `tools:` whitelist)
@@ -42,7 +42,7 @@ The pipeline strips any tool a workspace does not authorize (metric `portal5_too
 | `auto-nemotron` | general | `web_search`!, `web_fetch`!, `kb_search`!, `kb_list`!, `read_pdf`, `read_word_document`, `remember`!, `recall`! |
 | `auto-reasoning` | general | _(none)_ |
 | `auto-research` | research | `web_search`!, `web_fetch`!, `news_search`!, `kb_search`!, `kb_search_all`!, `kb_list`!, `remember`!, `recall`!, `graph_recall`!, `neighbors`!, `entity_timeline`! |
-| `auto-security` | security | `web_search`!, `web_fetch`!, `classify_vulnerability`, `scan_code`, `execute_python`, `execute_bash`, `kb_search`!, `kb_list`!, `lookup_cve`, `get_epss`, `check_kev`, `triage_cve`, `ics_advisories`, `scan_dependencies`, `lookup_ioc`, `list_ics_protocols`, `dissect_pcap`, `asset_inventory`, `correlate_advisories` |
+| `auto-security` | security | `web_search`!, `web_fetch`!, `classify_vulnerability`, `execute_python`, `execute_bash`, `kb_search`!, `kb_list`!, `lookup_cve`, `get_epss`, `check_kev`, `triage_cve`, `ics_advisories`, `scan_dependencies`, `lookup_ioc`, `list_ics_protocols`, `dissect_pcap`, `asset_inventory`, `correlate_advisories` |
 | `auto-spl` | general | `classify_vulnerability`, `kb_search`!, `kb_list`!, `lookup_cve`, `get_epss`, `check_kev`, `triage_cve`, `ics_advisories`, `scan_dependencies`, `lookup_ioc`, `list_ics_protocols`, `dissect_pcap`, `asset_inventory`, `correlate_advisories`, `convert_sigma`, `validate_sigma`, `compile_yara`, `scan_yara`, `query_splunk`, `query_windows_events`, `protocol_hierarchy`, `extract_fields`, `conversations` |
 | `auto-uncensored-throwaway` | general | `web_search`!, `web_fetch`!, `news_search`!, `execute_bash`, `execute_python`, `remember`!, `recall`! |
 | `auto-video` | video | `generate_video`, `animate_image` |

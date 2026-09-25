@@ -775,8 +775,8 @@ workspaces:
   auto-security:
     module: security
     name: 🔒 Portal Security Analyst
-    description: 'Authorized security assessment, vulnerability analysis, CVE/CWE classification, hardening. Granite 4.7 Flash is the chat-seat model; VulnLLM-R remains available through scan_code as the trained AppSec detector. The chat seat is chosen for tool reliability while the specialist keeps its own prompt and sampling contract.'
-    model_hint: glm-4.7-flash:Q4_K_M
+    description: 'Authorized security assessment, vulnerability analysis, CVE/CWE classification, hardening. VulnLLM-R-7B (UCSB SURFI, Dec 2025, Qwen2.5-7B base — trained on AppSec vulnerability research: CVE severity, CWE classification, vulnerable code patterns). NOTE 2026-07-16 (P5-AUTOSEC-RESELECT): the "2026-06-20: 2/2 chain wins, fastest" claim predates the reliability-scoring fix. Live re-bench on the kerberoast_to_da EXECUTION chain found valid_rate 0.89 but redundant_call_rate 0.50 (docs/reselection/AUTOSEC_VULNLLM_DIAGNOSIS_20260716T164436Z.md) — but that scenario tests live-exploit tool orchestration, not this workspace''s actual job (CVE/CWE analysis, hardening). No candidate has been benched against the analytical workload itself, so no swap is made here pending that test (see docs/reselection/AUTOSEC_RESELECT_EVIDENCE_20260716T192100Z.md for the full candidate comparison, which found glm-4.7-flash:Q4_K_M strongest on tool-reliability generically — untested for this workspace''s specific analytical use case). Retained as incumbent. Fast vuln analysis with web search, vuln classification, and code execution.'
+    model_hint: hf.co/mradermacher/VulnLLM-R-7B-GGUF:q4_K_M-ctx8k
     context_limit: 8192
     keep_alive: 10m
     temperature: 0.3
@@ -784,9 +784,8 @@ workspaces:
     top_k: 40
     min_p: 0.05
     repeat_penalty: 1.1
-    # think:false on the group default. It's a no-op for the base chat seat
-    # (Granite 4.7's current route does not use thinking) and for
-    # uncensored/blueteam/redteam-deep/
+    # think:false on the group default. It's a no-op for the base (VulnLLM-R is
+    # Qwen2.5, not a thinking model) and for uncensored/blueteam/redteam-deep/
     # purpleteam-exec (Llama / gemma4). It DOES take effect on the Qwen3.5/3.6
     # variants: redteam/purpleteam(-deep) emit rigid 5-phase structured output
     # into a multi-hop pipeline on a 9B abliterated model at ctx8192 — a
@@ -798,7 +797,6 @@ workspaces:
     - web_search
     - web_fetch
     - classify_vulnerability
-    - scan_code
     - execute_python
     - execute_bash
     - kb_search
