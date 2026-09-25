@@ -713,11 +713,11 @@ The fleet table is the `mcp_fleet` list in `config/portal.yaml`, the single sour
 ### Model Catalog
 
 <!-- WIKI:GENERATED unit=unit-fact-model-catalog -->
-#### Model catalog (262 model ids across 7 backend groups)
+#### Model catalog (259 model ids across 7 backend groups)
 
-##### coding (56)
+##### coding (54)
 
-- `Laguna-XS.2-4bit`
+- `Laguna-XS-2.1-4bit`
 - `Qwen3-Coder-30B-A3B-Instruct-4bit`
 - `Qwen3.8-27B-4bit`
 - `Qwen3.8-27B-oQ4e-mtp`
@@ -751,8 +751,6 @@ The fleet table is the `mcp_fleet` list in `config/portal.yaml`, the single sour
 - `hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M`
 - `hf.co/yuxinlu1/gemma-4-12B-agentic-fable5-composer2.5-v2-3.5x-tau2-GGUF:Q4_K_M`
 - `huihui_ai/qwen3-abliterated:14b-v2`
-- `laguna-xs.2:Q4_K_M`
-- `laguna-xs.2:Q4_K_M-ctx64k`
 - `omnicoder2:9b-q4_k_m`
 - `omnicoder2:9b-q4_k_m-ctx8k`
 - `phi4-reasoning:plus`
@@ -760,7 +758,7 @@ The fleet table is the `mcp_fleet` list in `config/portal.yaml`, the single sour
 - `portal5/agentworld-35b:ud-q4_K_XL-ctx256k`
 - `portal5/gemma4-26b-heretic:q4_K_M-ctx256k`
 - `portal5/hauhaucs-qwen36-35b:q4_K_M-ctx256k`
-- `portal5/laguna-xs2:q4_K_M-ctx128k`
+- `portal5/laguna-xs21:q4_K_M-ctx128k`
 - `portal5/omnicoder2-9b:q4_k_m-ctx256k`
 - `portal5/ornith15-35b:q4_K_M-ctx256k`
 - `portal5/qwen3-coder-next-abliterated:q4_K_M-ctx256k`
@@ -789,7 +787,7 @@ The fleet table is the `mcp_fleet` list in `config/portal.yaml`, the single sour
 - `huihui_ai/baronllm-abliterated`
 - `huihui_ai/baronllm-abliterated:latest-ctx8k`
 
-##### general (113)
+##### general (112)
 
 - `NVIDIA-Nemotron-3.5-Lightning-30B-A3B-oQ4e-mtp`
 - `cybersecqwen-4b-toolfix:latest`
@@ -874,7 +872,6 @@ The fleet table is the `mcp_fleet` list in `config/portal.yaml`, the single sour
 - `huihui_ai/qwen3.5-abliterated:9b-ctx64k`
 - `huihui_ai/qwen3.5-abliterated:9b-ctx8k`
 - `kat-coder-v2.5-dev:Q4_K_M`
-- `laguna-xs.2:Q4_K_M`
 - `lfm2.5:8b`
 - `lfm2.5:8b-ctx8k`
 - `ling30-tiny-test:latest`
@@ -907,7 +904,7 @@ The fleet table is the `mcp_fleet` list in `config/portal.yaml`, the single sour
 
 ##### omlx (2)
 
-- `Laguna-XS.2-4bit`
+- `Laguna-XS-2.1-4bit`
 - `Qwen3-Coder-30B-A3B-Instruct-4bit`
 
 ##### reasoning (30)

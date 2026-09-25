@@ -667,6 +667,34 @@ class TestOfflineRescore:
         if wsc.get("declared_temperature") is not None:
             assert s["temperature"] == wsc["declared_temperature"]
 
+    def test_variant_context_merges_like_production(self):
+        """`workspace::variant` is production's synthetic id: variant keys override
+        the base, and system_prompt_append lands in the system prompt as the
+        router injects it."""
+        import yaml
+
+        from tests.wfe.runner import REPO, workspace_context
+
+        ws = yaml.safe_load((REPO / "config/portal.yaml").read_text())["workspaces"]
+        variant = ws["auto-coding"]["variants"]["laguna"]
+        wsc = workspace_context("auto-coding::laguna")
+        assert wsc["model"] == variant["model_hint"]
+        assert wsc["sampling"]["temperature"] == variant["temperature"]
+        assert wsc["system_prompt"].endswith(variant["system_prompt_append"])
+        assert wsc["declared_tools"] == variant["tools"]
+
+    def test_base_workspace_system_prompt_append_is_applied(self):
+        import yaml
+
+        from tests.wfe.runner import REPO, workspace_context
+
+        base = yaml.safe_load((REPO / "config/portal.yaml").read_text())["workspaces"][
+            "auto-coding"
+        ]
+        assert workspace_context("auto-coding")["system_prompt"].endswith(
+            base["system_prompt_append"]
+        )
+
 
 class _FakeResp:
     """Minimal stand-in for an http.client.HTTPResponse line stream."""
@@ -961,6 +989,14 @@ class TestAdaptiveThink:
         import tests.wfe.runner as rn
 
         assert rn.think_policy("gpt-oss:20b", reg) == "true"
+
+    def test_wfe_think_override_wins_and_is_stamped(self, monkeypatch):
+        from tests.wfe import campaign as c
+
+        monkeypatch.setenv("WFE_THINK", "false")
+        assert c.campaign_harness({"model": "m", "think": True})["think"] == "false"
+        monkeypatch.setenv("WFE_THINK", "bogus")
+        assert c.campaign_harness({"model": "m", "think": True})["think"] == "true"
 
     def test_workspace_context_exposes_think(self):
         from tests.wfe.runner import workspace_context

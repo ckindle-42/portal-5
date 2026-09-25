@@ -5,26 +5,26 @@ title: portal subsystem (553 files)
 sources:
 - type: code
   path: portal/conftest.py
-  commit: f9bfb6421d53
+  commit: 60f173e0f83d
 - type: code
   path: portal/modules/binary_research/harness/__main__.py
-  commit: f9bfb6421d53
+  commit: 60f173e0f83d
 - type: code
   path: portal/modules/binary_research/harness/cli.py
-  commit: f9bfb6421d53
+  commit: 60f173e0f83d
 - type: code
   path: portal/modules/binary_research/harness/llm.py
-  commit: f9bfb6421d53
+  commit: 60f173e0f83d
 - type: code
   path: portal/modules/binary_research/harness/loop.py
-  commit: f9bfb6421d53
+  commit: 60f173e0f83d
 claims: []
 confidence: high
 tags:
 - code
 - portal
-created_at: 1790264202.31582
-updated_at: 1790264202.31582
+created_at: 1790305374.007945
+updated_at: 1790305374.007945
 ---
 
 # portal subsystem

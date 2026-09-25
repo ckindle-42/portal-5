@@ -36,7 +36,7 @@
 // Models available: the curated 20 below, or the full ~138-persona +
 // 21-workspace catalog via `opencode models` (GET /v1/models advertises
 // every ide_expose: true persona alongside all base workspaces).
-// Default model: portal/codingagentic  →  Laguna-XS.2 (Poolside AI 33B-A3B MoE, 68.2% SWE-bench Verified).
+// Default model: portal/codingagentic  →  Laguna-XS-2.1 (Poolside AI 33B-A3B MoE, 70.9% SWE-bench Verified; served by oMLX).
 // Uncensored lanes (explicit pick): codinguncensored (one-shot),
 // codinguncensoredagentic (agentic), auto-general-uncensored (generalist).
 // Not defaults — select deliberately. Also: auto-extract-uncensored and
@@ -89,7 +89,7 @@
           "reasoning": false
         },
         "codingagentic": {
-          "name": "Portal · IDE Agentic (Laguna-XS.2 33B, opencode default)",
+          "name": "Portal · IDE Agentic (Laguna-XS-2.1 33B, opencode default)",
           "attachment": true,
           "reasoning": false
         },

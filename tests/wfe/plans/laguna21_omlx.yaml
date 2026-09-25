@@ -1,0 +1,11 @@
+# Laguna-XS-2.1 in the laguna seat, served by oMLX (WFE_ENGINE=omlx,
+# WFE_CHAT_BASE_URL=http://127.0.0.1:8085). Ollama 0.34.2's Laguna parser 500s on
+# any reply that begins with a bare JSON object ("empty Laguna tool call name");
+# oMLX's parser does not. Arm = oMLX served id of mlx-community/Laguna-XS-2.1-4bit.
+workloads:
+  auto-coding::laguna:
+    home: coding
+    discovery: [compliance_agentic]
+    arms:
+      incumbent: Laguna-XS-2.1-4bit
+      challengers: []

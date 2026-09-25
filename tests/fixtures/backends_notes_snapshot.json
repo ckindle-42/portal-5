@@ -83,10 +83,6 @@
     "notes": "Mistral Devstral Small 2 (Dec 2025, Apache 2.0, 24B, ~14GB Q4). V2 of devstral \u2014 256K ctx (+2x vs V1), vision added, improved SWE-bench. bench-devstral-small-2 target (TASK_MODEL_REFRESH_V8 A10). supports_tools=true per Mistral function-calling format; verify via --audit-tools.",
     "group": "coding"
   },
-  "laguna-xs.2:Q4_K_M": {
-    "notes": "Laguna XS.2 33B-A3B MoE Q4 (~19GB, Poolside AI, 68.2% SWE-bench Verified). PROMOTED 2026-06-20: auto-coding-agentic primary (opencode/Claude Code default). 2/2 security chain at 63s.",
-    "group": "coding"
-  },
   "gpt-oss:20b": {
     "notes": "~12GB \u2014 OpenAI open-weight MoE, o3-mini level, configurable thinking depth, designed for agent/tool use. supports_tools=true: audit-tools 2026-06-18 confirmed tool_call (was false from 2026-05-14 text_only \u2014 likely stale Ollama template).",
     "group": "reasoning"

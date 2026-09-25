@@ -342,16 +342,6 @@ The bare `devstral-small-2` id and the `devstral-small-2:latest` tag are distinc
 
 ---
 
-### `laguna-xs.2:Q4_K_M`
-
-`laguna-xs.2:Q4_K_M` is the Q4 GGUF registration of poolside/Laguna-XS.2, a 33B-A3B MoE (~19GB, 68.2% SWE-bench Verified). `config/backends.yaml` lists it in `group: general` with `supports_tools: false` and in `group: coding` with `supports_tools: true`, so the tool flag is resolved per backend group rather than globally. `config/portal.yaml` pins it as the `bench-laguna` workspace `model_hint`; that workspace's description records the 2026-06-20 promotion to the auto-coding-agentic primary and the 2/2 security chain at 63s. The opencode/Claude Code default resolves through this bench entry.
-
-## Why
-
-This unit re-sources the laguna promotion claim to the bench-laguna workspace description that actually records it, and to the two backend groups where the id appears, fixing the supports_tools value to its per-group truth instead of a single doc-only figure. The SWE-bench percentage is kept as the recorded benchmark attribute of the model, not as a config-derived number.
-
----
-
 ### `gpt-oss:20b`
 
 `gpt-oss:20b` is registered in `config/backends.yaml` under the `coding` group with `supports_tools: true`, the `reasoning` group with `supports_tools: true`, and the `general` group with `supports_tools: false`. `config/portal.yaml` binds it as the `bench-gptoss` workspace `model_hint` and the `auto-agentic` description lists it as fallback 2, describing an OpenAI open-weight MoE (~12GB, o3-mini level) purpose-built for agent/tool use with configurable thinking depth. The catalog records an audit-tools confirmation on 2026-06-18 after an earlier text-only mislabel, and the model was promoted to the auto-agentic fallback and coding pool.
@@ -1534,26 +1524,6 @@ The `auto-research` routing in `config/portal.yaml` is the decisive binding — 
 
 ---
 
-### `laguna-xs.2:Q4_K_M-ctx64k`
-
-`laguna-xs.2:Q4_K_M-ctx64k` is the derived tag of `laguna-xs.2:Q4_K_M` with `PARAMETER num_ctx 65536` baked in via the `apply-params` command in `portal/platform/inference/cli/models.py`, because Ollama's `/v1/chat/completions` ignores request-time `options.num_ctx`. `config/backends.yaml` registers it only in `group: coding` with `supports_tools: true`; the `omlx-coding` `aliases` block additionally maps it to the oMLX `Laguna-XS.2-4bit` model. `config/portal.yaml` sets it as the auto-coding laguna variant `model_hint` with `context_limit: 65536`, so the agentic lane runs on the capped tag. See the base tag's unit for model detail.
-
-## Why
-
-The ctx64k variant exists because the completion endpoint discards per-request context options, so a workspace-level context bound has to be baked into a dedicated id. Grounding to the coding-group registration, the omlx alias, and the auto-coding laguna variant's context_limit makes the cap's mechanism and its consumer traceable to config rather than to template prose.
-
----
-
-### `portal5/laguna-xs2:q4_K_M-ctx128k`
-
-`portal5/laguna-xs2:q4_K_M-ctx128k` is the full-native-context derived tag of `laguna-xs.2:Q4_K_M`, added 2026-08-26 as the `model_hint` of the `auto-coding` laguna variant — the default model behind opencode's `codingagentic` persona — replacing the undersized `-ctx64k` tag. `config/backends.yaml` registers it in `group: coding` with `supports_tools: true`, and the `omlx-coding` `aliases` block additionally maps it to the oMLX `Laguna-XS.2-4bit` model (same as the old tag). `PARAMETER num_ctx 131072` is baked in via `portal models apply-params`. Verified live via a direct tool-call probe (clean `tool_calls`, correctly typed arguments) and empirically confirmed ~23-24GB footprint, 100% GPU, negligible marginal memory cost over the `-ctx64k` tag.
-
-## Why
-
-Real opencode agentic sessions were observed reaching 87K+ tokens (tool-call payloads included), well past the old `-ctx64k` cap, causing hard context-exceeded failures on Laguna specifically since it is opencode's default model. The original 64K sizing was a 2026-07-02 workload estimate, not a deliberate memory-safety decision (confirmed before raising it), and the memory cost of the full 131072 native window is negligible, so this tag exists to close that gap.
-
----
-
 ### `lfm2.5:8b-ctx8k`
 
 `lfm2.5:8b-ctx8k` is the derived tag of `lfm2.5:8b` with `PARAMETER num_ctx 8192` baked in via the `apply-params` command, needed because Ollama's `/v1/chat/completions` drops request-time `options.num_ctx`. `config/backends.yaml` lists it in `group: general` and `group: security` with `supports_tools: true`, mirroring its parent. `config/portal.yaml` makes it the `auto-music` workspace `model_hint` with `context_limit: 8192`, so music generation runs against the capped tag rather than the full-context base. Base model detail lives in the parent unit.
@@ -1752,13 +1722,25 @@ This unit grounds the MLX Llama model to the single `omlx-local` registration in
 
 Grounding anchors the model to the single `omlx-local` registration whose supports_tools false flag and degenerate-output comment are the authoritative statement of its status, replacing the doc-only claim. The Phase-0 Gate-6 result is kept as the institutional evidence behind the do-not-migrate note, which is a chat-template defect, not a model-quality judgement.
 
-### `Laguna-XS.2-4bit`
+---
 
-`Laguna-XS.2-4bit` is the 4-bit MLX conversion of poolside/Laguna-XS.2 served by the oMLX evaluation backend. `config/backends.yaml` registers it twice: in the no-traffic `omlx-local` holding entry (group `omlx`) and in the live `omlx-coding` entry (group `coding`, `priority: 10`), both with `supports_tools: true`. The `omlx-coding` `aliases` block maps the production GGUF hint `laguna-xs.2:Q4_K_M-ctx64k` onto this oMLX name, so `config/portal.yaml`'s auto-coding laguna variant keeps serving that hint without a workspace change. The conversion ships `modeling_laguna.py`/`configuration_laguna.py` custom code that mlx_lm never upstreamed; oMLX loads it natively. No Phase-0 bench numbers cover it yet — added post-hoc for the B2 shadow-then-shift.
+### `portal5/laguna-xs21:q4_K_M-ctx128k`
+
+`portal5/laguna-xs21:q4_K_M-ctx128k` is the `model_hint` of `config/portal.yaml`'s auto-coding `laguna` variant: the Ollama library `laguna-xs-2.1` (Poolside Laguna-XS-2.1, 33B-A3B MoE, Q4_K_M, ~20GB) with `RENDERER`/`PARSER poolside-v1` and `PARAMETER num_ctx 131072` baked in. `config/backends.yaml` registers it in the coding Ollama group with `supports_tools: true`, and the `omlx-coding` alias maps it to `Laguna-XS-2.1-4bit`, so oMLX serves the seat and this tag is the fallback.
 
 ## Why
 
-This unit grounds the oMLX Laguna entry to the two backends.yaml registrations that actually serve it and to the aliases block that ties it to the GGUF hint used by portal.yaml's auto-coding laguna variant. The retired MLX proxy plugin is dropped as a source because oMLX now loads the custom code natively; the alias relationship is the load-bearing fact for production routing.
+The seat needs the full 128K window (real opencode prompts reached 87,665 tokens), and request-time `num_ctx` is ignored, so it is baked. It is the fallback rather than the primary because Ollama 0.34.2's Laguna parser returns HTTP 500 on replies that begin with a bare JSON object.
+
+---
+
+### `Laguna-XS-2.1-4bit`
+
+`Laguna-XS-2.1-4bit` is mlx-community's 4-bit MLX conversion of poolside/Laguna-XS-2.1 (33B total, 3B active, 262K context), served by oMLX. `config/backends.yaml` registers it in the no-traffic `omlx-local` holding entry (group `omlx`) and in the live `omlx-coding` entry (group `coding`, `priority: 10`), both with `supports_tools: true`. The `omlx-coding` `aliases` block maps `portal5/laguna-xs21:q4_K_M-ctx128k` (the auto-coding `laguna` variant's `model_hint`, derived from the Ollama library `laguna-xs-2.1`) onto this oMLX name, so oMLX serves the seat and Ollama is the fallback. It replaced Laguna-XS.2 on 2026-09-25.
+
+## Why
+
+XS.2 could not stop after a tool call on this stack: it chained invented calls to the token cap in one turn, on both our import and Ollama's official build, so every opencode turn could run to the limit. 2.1 stops correctly and scored 29/42 (coding 9/9) on the laguna-seat WFE via oMLX, against MiMo's 11/42 on the same instrument. It is served by oMLX rather than Ollama because Ollama 0.34.2's Laguna parser returns HTTP 500 ("empty Laguna tool call name") on any reply that begins with a bare JSON object; oMLX's parser does not.
 
 ---
 

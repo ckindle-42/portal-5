@@ -84,8 +84,12 @@ The harness (`tests/wfe/`):
   instead of Ollama-only fields; the engine is stamped into the environment
   fingerprint only when set, so existing Ollama campaigns keep theirs and can
   never be mixed with an engine campaign. Unset, behaviour is unchanged. The
-  companion speed/security harness is `tests/benchmarks/bench_engine_h2h.py`
-  (docs/MIMO_V26_DISTILL_9B_BRINGUP_V1.md).
+  companion speed/security harness was archived 2026-09-24 to
+  `scripts/_archive/engine_h2h_20260924/` (docs/MIMO_V26_DISTILL_9B_BRINGUP_V1.md).
+- Every sampling key the workspace resolves (temperature, top_p, top_k, min_p,
+  repeat_penalty, presence_penalty, seed) is sent on both `/v1` and `/api`
+  (`SAMPLING_KEYS`). Before 2026-09-24 only temperature/top_p/seed were, and
+  non-Ollama engines ran without the workspace's loop guard.
 - `schema.py` — outcomes are an enum, not a boolean; instrument failures
   (TOOL_ERROR/HARNESS_ERROR/BLOCKED) are quarantined out of every quality rate.
 - `checkers.py` — extracted, unit-tested checkers (hidden_pytest against a

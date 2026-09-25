@@ -272,7 +272,7 @@ async def _impl_get_workspace_recommendation(task: str) -> dict[str, Any]:
                 "feature",
             ],
             "codingagentic",
-            "Laguna-XS.2 33B — agentic loop (read→edit→verify)",
+            "Laguna-XS-2.1 33B — agentic loop (read→edit→verify)",
         ),
         (
             ["generate code", "write a function", "implement", "one-shot", "snippet"],
@@ -327,7 +327,7 @@ async def _impl_get_workspace_recommendation(task: str) -> dict[str, Any]:
 
     return {
         "workspace": "codingagentic",
-        "model": "Laguna-XS.2 33B (default for portal-5 maintenance)",
+        "model": "Laguna-XS-2.1 33B (default for portal-5 maintenance)",
         "reason": "no specific keyword match — defaulting to agentic coding workspace",
         "pipeline_model_id": "codingagentic",
     }

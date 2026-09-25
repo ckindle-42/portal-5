@@ -481,8 +481,8 @@ workspaces:
     variants:
       laguna:
         name: 🔄 Portal IDE / Agentic Coder
-        description: 'Multi-turn agentic coding workspace — the default model for opencode and Claude Code in this repo. Laguna-XS.2 (Poolside AI, 33B-A3B MoE, ~19GB, 68.2% SWE-bench Verified, interleaved reasoning, 2/2 security chain). Tuned for the read → understand → edit → verify loop: inspects files via explore_repository + execute_bash, makes targeted changes, runs tests, iterates. Devstral-small-2 (V2, 256K ctx, vision) is the first fallback in the coding pool. For one-shot code generation, use auto-coding instead.'
-        model_hint: portal5/laguna-xs2:q4_K_M-ctx128k
+        description: 'Multi-turn agentic coding workspace — the default model for opencode and Claude Code in this repo. Laguna-XS-2.1 (Poolside AI, 33B-A3B MoE, ~19GB, 70.9% SWE-bench Verified, interleaved reasoning; replaced XS.2 2026-09-25 — XS.2 could not stop after a tool call on this stack; 2.1 scored 29/42 on the laguna-seat WFE via oMLX, coding 9/9). Tuned for the read → understand → edit → verify loop: inspects files via explore_repository + execute_bash, makes targeted changes, runs tests, iterates. Devstral-small-2 (V2, 256K ctx, vision) is the first fallback in the coding pool. For one-shot code generation, use auto-coding instead.'
+        model_hint: portal5/laguna-xs21:q4_K_M-ctx128k
         context_limit: 131072
         keep_alive: 15m
         temperature: 0.2

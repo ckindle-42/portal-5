@@ -904,11 +904,22 @@ def resolve_persona(ws_id: str, override: str | None = None) -> tuple[str | None
 
 
 def workspace_context(ws_id: str, persona: str | None = None) -> dict:
+    """`ws_id` may name a variant as `workspace::variant`, the synthetic id
+    production uses (router/preinject.py `_resolve_workspace_variant`): the
+    variant's keys shallow-override the base workspace's."""
     portal = yaml.safe_load((REPO / "config/portal.yaml").read_text())
-    ws = portal["workspaces"][ws_id]
-    slug, sp = resolve_persona(ws_id, persona)
+    base_id, _, variant = ws_id.partition("::")
+    ws = portal["workspaces"][base_id]
+    if variant:
+        ws = {**ws, **ws["variants"][variant]}
+    slug, sp = resolve_persona(base_id, persona)
     if not sp:
         sp = (ws.get("description") or "") + "\nPerform the user's task faithfully."
+    # Production appends this to the system message on every request
+    # (router/preinject.py `_inject_system_prompt_append`). Until 2026-09-24 WFE
+    # never did, so auto-coding / auto-compliance / auto-documents /
+    # auto-general-uncensored were measured without their appended instructions.
+    sp += ws.get("system_prompt_append") or ""
     declared = list(ws.get("tools") or [])
     surface = [t for t in TOOL_NAMES if t in declared] or TOOL_NAMES
 
@@ -941,7 +952,7 @@ def workspace_context(ws_id: str, persona: str | None = None) -> dict:
             [
                 1
                 for pf in (REPO / "config/personas").glob("*.yaml")
-                if (yaml.safe_load(pf.read_text()) or {}).get("workspace_model") == ws_id
+                if (yaml.safe_load(pf.read_text()) or {}).get("workspace_model") == base_id
             ]
         ),
         "declared_tools": declared,

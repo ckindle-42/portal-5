@@ -1,0 +1,16 @@
+# MiMo fit bench — oMLX arm (WFE_ENGINE=omlx, WFE_CHAT_BASE_URL=http://127.0.0.1:8085).
+# Same lanes as mimo_fit.yaml; the arm is oMLX's served id for the nativ-community
+# MLX 4-bit build. Run only the lane(s) MiMo is competitive in on Ollama.
+workloads:
+  tools-specialist:
+    home: coding
+    discovery: [research]
+    arms:
+      incumbent: MiMo-V2.6-Distill-Qwen-9B-MLX-4bit
+      challengers: []
+  auto-coding::laguna:
+    home: coding
+    discovery: [compliance_agentic]
+    arms:
+      incumbent: MiMo-V2.6-Distill-Qwen-9B-MLX-4bit
+      challengers: []
