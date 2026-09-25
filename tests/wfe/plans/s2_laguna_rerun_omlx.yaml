@@ -10,10 +10,12 @@
 # campaign; each has its own run_ids, so nothing collides and a resume cannot
 # mix them.
 #
-# Serve on oMLX, as production does (priority-10 alias):
-#   WFE_ENGINE=omlx WFE_CHAT_BASE_URL=http://127.0.0.1:8085 \
+# Run through the pipeline, as users are served (it routes this seat to oMLX;
+# preflight confirms the served model from the pipeline trace):
+#   set -a; source .env; set +a
+#   WFE_ENGINE=pipeline \
 #     uv run python -m tests.wfe.campaign --plan tests/wfe/plans/s2_laguna_rerun_omlx.yaml \
-#       --campaign-id s2_laguna_rerun_omlx_v2 --debug-dir <dir>
+#       --campaign-id s2_laguna_rerun_pipeline_v1 --debug-dir <dir>
 workloads:
   auto-coding::laguna:
     home: coding

@@ -878,6 +878,42 @@ class TestUnreachableIsNotAModelFailure:
         assert len(calls) == 1
 
 
+class TestTextToolCallParity:
+    """The pipeline recovers a Qwen3-Coder call written as text
+    (P5-OMLX-QWEN3CODER-TOOLTEXT-001). The harness posts to the engine
+    directly, so it must recover it too or it scores a production success as a
+    lost call."""
+
+    def test_text_written_call_is_executed_and_counted(self, tmp_path, monkeypatch):
+        from tests.wfe import runner as rn
+
+        replies = iter(
+            [
+                {
+                    "content": "note\n<function=file_write>\n<parameter=path>\nout.txt\n"
+                    "</parameter>\n<parameter=content>\nhello\n</parameter>\n"
+                    "</function>\n</tool_call>"
+                },
+                {"content": "Done."},
+            ]
+        )
+
+        def fake_chat(*a, **k):
+            return {
+                "message": next(replies),
+                "finish_reason": "stop",
+                "economics": rn.Economics(),
+            }
+
+        monkeypatch.setattr(rn, "chat", fake_chat)
+        sb = rn.Sandbox(tmp_path)
+        task = {"id": "t", "instruction": "write", "checkers": []}
+        out = rn.run_task("m", "sys", task, sb, max_turns=3, budget_s=60, use_tools=True)
+        assert out["tool_calls"] == 1
+        assert (tmp_path / "out.txt").read_text() == "hello"
+        assert out["evidence"]["recovered_tool_calls"] == 1
+
+
 class _Ctx:
     def __enter__(self):
         return self
@@ -1581,3 +1617,46 @@ class TestSamplingDelivery:
         assert c._ready(tmp_path) is False
         monkeypatch.setattr(c, "ENGINE", "omlx")
         assert c._ready(tmp_path) is True
+
+
+class TestPipelineMode:
+    """WFE_ENGINE=pipeline: the request is what Open WebUI sends — the
+    workspace id, no seat sampling, no cap — plus only the arm's override."""
+
+    def test_payload_is_workspace_plus_override_only(self, monkeypatch):
+        from tests.wfe import runner as rn
+
+        monkeypatch.setattr(rn, "ENGINE", "pipeline")
+        monkeypatch.setattr(rn, "CHAT_BASE", "http://p:9099")
+        url, body, _ = rn._build_payload(
+            "auto-coding::laguna",
+            [{"role": "user", "content": "x"}],
+            {**rn.HARNESS_DEFAULTS},
+            {"temperature": 0.2, "repeat_penalty": 1.05, "max_tokens": 32768},
+            [{"type": "function", "function": {"name": "f"}}],
+            "false",
+            True,
+        )
+        assert url == "http://p:9099/v1/chat/completions"
+        assert body["model"] == "auto-coding::laguna"
+        assert "max_tokens" not in body
+        assert body["temperature"] == 0.2
+        assert body["repetition_penalty"] == body["repeat_penalty"] == 1.05
+        assert body["think"] is False
+        assert body["chat_template_kwargs"] == {"enable_thinking": False}
+        assert body["portal_client_tools_only"] is True
+
+    def test_incumbent_sends_no_sampling_and_no_think(self, monkeypatch):
+        from tests.wfe import campaign as cp
+
+        monkeypatch.setattr(cp, "ENGINE", "pipeline")
+        wsc = {"sampling": {"temperature": 1.0, "max_tokens": 16384}, "think": True}
+        assert cp._sampling_for(wsc, 1) == {"seed": 1001, "max_tokens_source": "pipeline"}
+        assert cp.campaign_harness(wsc)["think"] == "native"
+
+    def test_override_sampling_is_sent(self, monkeypatch):
+        from tests.wfe import campaign as cp
+
+        monkeypatch.setattr(cp, "ENGINE", "pipeline")
+        s = cp._sampling_for({"sampling": {"top_k": 20}}, 0, {"sampling": {"temperature": 0.2}})
+        assert s == {"temperature": 0.2, "seed": 1000, "max_tokens_source": "pipeline"}

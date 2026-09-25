@@ -4,6 +4,12 @@
 remains the method reference. **Executor:** a coding agent, unattended between
 operator checkpoints. **Read "Rules" before running anything.**
 
+**Status (2026-09-25, late): ready to start B1.** Preconditions A1–A4 are met
+(below). Every campaign runs **through the pipeline** (`WFE_ENGINE=pipeline`, see
+"How to run a campaign"). The pause for fixes is over: C6 (tool-call recovery),
+the harness's pipeline mode, and a pipeline reasoning-join bug found by the first
+pipeline smoke are all landed.
+
 ## What changed, and why this task exists
 
 Until `b76db906` (2026-09-25) no Ollama-served seat ever received its
@@ -133,25 +139,66 @@ new 20; nothing else about it changed.
 5. **Before blaming a model:** render its template, raw-generate, and compare
    with what the engine returned. Most past "model failures" were engine,
    config, or harness faults.
-6. **Serve on the production engine.** A priority-10 oMLX alias means oMLX:
-   `WFE_ENGINE=omlx WFE_CHAT_BASE_URL=http://127.0.0.1:8085`.
+6. **Test through the pipeline.** Actual usage runs through the pipeline, so
+   seat testing does too (operator, 2026-09-25): `WFE_ENGINE=pipeline`. Direct
+   engine modes (`WFE_ENGINE=omlx`, Ollama default) are for raw model/engine
+   probes only, never seat decisions. When a pipeline run exposes a gap, fix
+   the pipeline (it is the product), don't work around it in the harness.
 7. Use `uv run` for every pytest/ruff/mypy/python. Use a 300000–400000 ms
    timeout on `git push` (the pre-push hook takes about 4 minutes).
 8. If an engine restart is needed, use the clean paths (`launchctl kickstart`,
    `./launch.sh`), never `kill -9` on Ollama/oMLX or the drivers.
 
-## A — Preconditions (do once, before B)
+## A — Preconditions (do once, before B; re-check A2–A4 if a session starts cold)
 
-- [ ] **A1** `git log -1` includes this task's commit. Rebuild the pipeline
-      image (`./launch.sh rebuild`), because `portal.yaml` is baked into it.
-      Verify with a live request through `:9099` that the new seat sampling is
-      served (e.g. `auto-coding::laguna`, `auto-vision`).
-- [ ] **A2** `uv run python scripts/engine_contract_check.py`: PASS on both engines.
-- [ ] **A3** `uv run python -m tests.wfe.settings_audit`: the only FAIL is
-      `auto-security::purpleteam-exec tools_unsupported` (operator-held).
-      Save the output as the baseline in the result log.
-- [ ] **A4** Before the first run, check that Docker images are not older than
-      HEAD for pipeline-affecting commits.
+- [x] **A1** Pipeline image rebuilt at HEAD (2026-09-25); live requests through
+      `:9099` serve the seats (pipeline preflight: `auto-coding::laguna` →
+      Laguna-XS-2.1-4bit, `auto-coding`/`auto-bigfix` → Qwen3-Coder-30B-A3B-4bit).
+- [x] **A2** `engine_contract_check.py`: PASS, Ollama 0.34.4 and oMLX 0.6.4.
+- [x] **A3** `settings_audit`: **0 FAIL / 47 WARN** (the purpleteam-exec FAIL
+      cleared with the supergemma4 flag fix). The 47 `served_vs_card` WARNs are
+      the expected deviations this task A/Bs. Baseline in the result log.
+- [x] **A4** Pipeline image newer than every pipeline-affecting commit. Rebuild
+      again after any later `portal/` or `config/portal.yaml` change
+      (`docker compose build portal-pipeline` + `up -d --no-deps portal-pipeline`
+      in `deploy/portal-5`).
+
+## How to run a campaign (pipeline mode)
+
+```bash
+set -a; source .env; set +a          # PIPELINE_API_KEY
+WFE_ENGINE=pipeline uv run python -m tests.wfe.campaign --plan tests/wfe/plans/<plan>.yaml --dry-run
+WFE_ENGINE=pipeline uv run python -m tests.wfe.campaign --plan tests/wfe/plans/<plan>.yaml --smoke --arm <incumbent model>
+WFE_ENGINE=pipeline uv run python -m tests.wfe.campaign --plan tests/wfe/plans/<plan>.yaml \
+    --campaign-id <id> --debug-dir tests/wfe/results/debug/<id> --notify
+```
+
+What pipeline mode does (tests/wfe/runner.py `_build_pipeline`):
+
+- Sends what Open WebUI sends: the **workspace id** as `model`, the persona
+  system prompt (the pipeline adds `system_prompt_append`), no `max_tokens`
+  (the pipeline applies `predict_limit`).
+- **Incumbent arm sends no sampling and no `think`**: the pipeline serves the
+  seat exactly as configured.
+- **Override arms** send their `sampling:`/`think:`. The pipeline takes the
+  caller's value *key by key* and fills any key the arm leaves out from the
+  seat, so a prior-config arm must restate every key it means to set.
+  `repeat_penalty` is also sent as `repetition_penalty` for oMLX seats.
+  `presence_penalty` overrides are refused (the seat may be on Ollama); an
+  oMLX-only presence arm needs direct `WFE_ENGINE=omlx`.
+- Requests carry `portal_client_tools_only`: the seat is measured on the
+  harness toolset (its file/test tools), and calls come back to the harness to
+  run in its sandbox. Without it the pipeline offers the seat's real MCP tools
+  too, and a repo-writing seat (e.g. `auto-coding::laguna`'s `write_file`)
+  does the task in the real repo.
+- **Served-model check:** preflight asks the pipeline trace which model served
+  each seat and refuses an arm the pipeline routes elsewhere. Any row served
+  by another model is BLOCKED, not counted.
+- Evidence per row: `served_models`, and `recovered_tool_calls` whenever a
+  call arrived as text and was recovered.
+
+Smoke, 2026-09-25: `auto-coding::laguna` / `code-cli-args` PASS (5 turns, 4 tool
+calls, 36.5 s), served model confirmed from the trace.
 
 ## B — A/B campaigns (in this order)
 
@@ -174,8 +221,12 @@ below and on the card entry's `behavioral_quirks` in
 `config/model_card_expectations.yaml`.
 
 - [ ] **B1 `auto-coding::laguna`** — the plan is ready (`s2_laguna_rerun_omlx.yaml`,
-      campaign id `s2_laguna_rerun_omlx_v2`, 126 rows). Voids the old result.
+      126 rows: seat / `prior` / `seat-nothink`; dry-run verified). Run it in
+      pipeline mode as campaign `s2_laguna_rerun_pipeline_v1` (the plan header
+      has the command). Voids the old result.
 - [ ] **B2 think check: `auto-coding::uncensored-fast` (Ollama), `auto-coding::reap288` (oMLX, stack down: `./launch.sh coder-reap288 --warm-only`)**.
+      (REAP-288's production path is IDE → oMLX directly, not the pipeline, so
+      that one arm set runs in direct `WFE_ENGINE=omlx` mode: its real path.)
       Both are pinned `think: false` with the instruct card (incumbent). Arms:
       - `prior` (the table's prior block, `think: false`);
       - `think: true` with the thinking card `{temperature: 1.0, top_p: 0.95, top_k: 20, min_p: 0.05, repeat_penalty: 1.05}`.
@@ -202,7 +253,10 @@ below and on the card entry's `behavioral_quirks` in
       A `presence_penalty` arm is BLOCKED on Ollama by design. Score repetition
       (loops, `BUDGET_EXHAUSTED`) as well as pass rate. `auto-council`'s judgment
       probe is its home lane.
-- [ ] **B5 oMLX seats:** `auto-coding` (+`auto-bigfix`, `auto-cad`),
+- [ ] **B5 oMLX seats:** `auto-coding` (+`auto-bigfix`, `auto-cad`). Here the
+      incumbent is the low-temperature block and the **card is the challenger**
+      (reverted before C6). Score `recovered_tool_calls` per arm: recovery keeps
+      calls working, but a rising count is still a signal. Then
       `auto-reasoning::deep` (deep-lane prompts), `tools-specialist` and
       `auto-documents` (greedy 0.0 on granite4.1:8b; watch for greedy loops in
       long documents, which is the specific risk of the card here).
@@ -342,8 +396,8 @@ run sequentially, never in parallel.
 ## Operator-held (do not act; surface in the report)
 
 - `keep_alive` delivery (operator is monitoring).
-- `auto-security::purpleteam-exec` declares tools its model is marked as not
-  supporting.
+- `auto-security::purpleteam-exec`: tools now offered (supergemma4 verified
+  2026-09-25); the next lab UAT must confirm the live exec loop.
 - oMLX 0.7.0rc1 early adoption (the updater skips pre-releases; `--allow-prerelease`).
 - p40 (thebrain): top_k/min_p/repeat_penalty can only be set by baking them into the tag there.
 - At the next Ollama upgrade: does the macOS data01 popup still appear?
@@ -352,4 +406,4 @@ run sequentially, never in parallel.
 
 | Date | Seat | Arms (n=3) | Result | Decision / commit |
 |---|---|---|---|---|
-| | | | | |
+| 2026-09-25 | (baseline) | — | settings_audit 0 FAIL / 47 WARN; engine contract PASS (Ollama 0.34.4, oMLX 0.6.4) | A3 baseline |

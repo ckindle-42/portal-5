@@ -104,9 +104,10 @@ less. Watch for loops/repetition in real use until it has run.
    first request (on Ollama only `presence_penalty`, which its sampler ignores).
    Template: `tests/wfe/plans/s2_laguna_rerun_omlx.yaml` (dry-run and a live
    smoke row verified).
-4. **Engine:** serve on the engine production uses — a priority-10 oMLX alias
-   means oMLX: `WFE_ENGINE=omlx WFE_CHAT_BASE_URL=http://127.0.0.1:8085`. The
-   campaign aborts if resumed on another engine.
+4. **Path:** through the pipeline, as users are served: `WFE_ENGINE=pipeline`
+   (2026-09-25, operator: "actual usage is run through the pipeline and that is
+   how regular testing should be"). Direct engine modes are for raw model/engine
+   probes only. The campaign aborts if resumed in another mode.
 5. **Decide by purpose** (unchanged): deterministic lanes may keep low
    temperature only if the card arm shows no gain; agentic/coding lanes score
    pass rate **and** `BUDGET_EXHAUSTED` (turn cap, stall) — loops are the hunted
