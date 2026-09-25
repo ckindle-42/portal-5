@@ -559,7 +559,7 @@ async def test_router_timeout_schedules_one_uncancelled_reload(monkeypatch) -> N
     class _C:
         async def post(self, url, json):
             posts.append(json)
-            if json.get("prompt") == "ok":  # the reload: no deadline, completes
+            if json.get("prompt") == routing._build_router_prompt("warmup"):  # the reload
                 await release.wait()
                 return httpx.Response(200, json={})
             await asyncio.sleep(10)  # cold load outlasts the routing deadline
@@ -572,7 +572,7 @@ async def test_router_timeout_schedules_one_uncancelled_reload(monkeypatch) -> N
     assert await routing._route_with_llm(msgs) is None
     assert await routing._route_with_llm(msgs) is None
     await asyncio.sleep(0)
-    reloads = [p for p in posts if p.get("prompt") == "ok"]
+    reloads = [p for p in posts if p.get("prompt") == routing._build_router_prompt("warmup")]
     assert len(reloads) == 1 and reloads[0]["keep_alive"] == -1
     release.set()
     await routing._router_reload_task

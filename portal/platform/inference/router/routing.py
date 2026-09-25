@@ -346,8 +346,9 @@ def _last_user_text(messages: list[dict[str, Any]], limit: int) -> str:
 
 # ── LLM-Based Intent Router (P5-FUT-006) ─────────────────────────────────────
 # Falls back to keyword scoring (Layer 2) on low confidence or timeout.
-# Default model: gemma-4-E4B-it-OBLITERATED-GGUF:Q4_K_M (~82% acc, 840ms warm).
-# Requires LLM_ROUTER_TIMEOUT_MS=1000 and OLLAMA_MAX_LOADED_MODELS=3.
+# Default model: gemma-4-E4B-it-OBLITERATED-GGUF:Q4_K_M (~82% acc).
+# Timeout 2000ms (2026-09-25, live): warm calls 0.5-1.0 s (mean 0.8 s through the
+# pipeline), a cold routing prefix 1.32 s — 1000ms sat inside the normal spread.
 
 _LLM_ROUTER_ENABLED: bool = os.environ.get("LLM_ROUTER_ENABLED", "true").lower() == "true"
 _LLM_ROUTER_MODEL: str = os.environ.get(
@@ -356,7 +357,7 @@ _LLM_ROUTER_MODEL: str = os.environ.get(
 _LLM_ROUTER_CONFIDENCE_THRESHOLD: float = float(
     os.environ.get("LLM_ROUTER_CONFIDENCE_THRESHOLD", "0.5")
 )
-_LLM_ROUTER_TIMEOUT_MS: int = int(os.environ.get("LLM_ROUTER_TIMEOUT_MS", "1000"))
+_LLM_ROUTER_TIMEOUT_MS: int = int(os.environ.get("LLM_ROUTER_TIMEOUT_MS", "2000"))
 _LLM_ROUTER_OLLAMA_URL: str = os.environ.get(
     "LLM_ROUTER_OLLAMA_URL", "http://host.docker.internal:11434"
 )
@@ -596,25 +597,49 @@ def _infer_variant(base: str, message: str) -> str:
     return f"{base}::{winner}"
 
 
+def _router_payload(prompt: str) -> dict[str, Any]:
+    """The classification request — also what warms the router."""
+    return {
+        "model": _LLM_ROUTER_MODEL,
+        "prompt": prompt,
+        "stream": False,
+        "keep_alive": -1,  # Keep model warm — int not string (Ollama 0.30+ rejects "-1")
+        "options": {
+            "temperature": 0,
+            "num_predict": 64,  # room for the added "posture" field
+            "num_ctx": 2048,
+        },
+        "format": _ROUTER_JSON_SCHEMA,  # Ollama grammar-enforced JSON
+    }
+
+
 _router_reload_task: asyncio.Task[None] | None = None
 
 
-async def _reload_router_model() -> None:
-    """Load the router model with no client-side deadline; never raises."""
+async def warm_router_model() -> int:
+    """Load the router AND cache the routing prompt's prefix; returns HTTP status.
+
+    Warming with a trivial prompt loaded the weights but left the ~1,500-token
+    routing instructions uncached. A cold routing call measured 1.32 s (0.82 s
+    prefill) against the 1 s deadline — cancelled, so its prefill never
+    reached the cache either — while a cached-prefix call takes 0.49 s. Warming
+    with the real prompt (the user text is its last line) is what lets the
+    first real request make the deadline. No client deadline here; never raises.
+    """
     try:
         resp = await _http_client.post(  # type: ignore[union-attr]
             f"{_LLM_ROUTER_OLLAMA_URL}/api/generate",
-            json={
-                "model": _LLM_ROUTER_MODEL,
-                "prompt": "ok",
-                "stream": False,
-                "keep_alive": -1,
-                "options": {"num_predict": 1, "num_ctx": 2048},  # = the routing call
-            },
+            json=_router_payload(_build_router_prompt("warmup")),
         )
-        logger.info("LLM router model reloaded after eviction (HTTP %d)", resp.status_code)
+        return resp.status_code
     except Exception as e:
-        logger.warning("LLM router reload failed: %s", e)
+        logger.warning("LLM router warm-up failed: %s", e)
+        return 0
+
+
+async def _reload_router_model() -> None:
+    status = await warm_router_model()
+    logger.info("LLM router reloaded and prefix re-cached (HTTP %d)", status)
 
 
 def _schedule_router_reload() -> None:
@@ -650,7 +675,7 @@ async def _route_with_llm(messages: list[dict[str, Any]]) -> str | None:
     * ``LLM_ROUTER_ENABLED=false`` — feature disabled outright.
     * HTTP client not yet initialised (request arrived before
       ``lifespan`` finished).
-    * Hard timeout (default 1000ms, via ``LLM_ROUTER_TIMEOUT_MS``).
+    * Hard timeout (default 2000ms, via ``LLM_ROUTER_TIMEOUT_MS``).
     * HTTP failure, JSON parse failure, missing fields.
     * Workspace returned is not in ``_VALID_WORKSPACE_IDS`` (logged
       at WARNING — usually means a model hallucination or schema
@@ -706,18 +731,7 @@ async def _route_with_llm(messages: list[dict[str, Any]]) -> str | None:
             logger.debug("LLM router skipped: HTTP client not ready")
             _router_latency_seconds.labels(outcome="disabled").observe(0.0)
             return None
-        payload = {
-            "model": _LLM_ROUTER_MODEL,
-            "prompt": prompt,
-            "stream": False,
-            "keep_alive": -1,  # Keep model warm — int not string (Ollama 0.30+ rejects "-1")
-            "options": {
-                "temperature": 0,
-                "num_predict": 64,  # room for the added "posture" field
-                "num_ctx": 2048,
-            },
-            "format": _ROUTER_JSON_SCHEMA,  # Ollama grammar-enforced JSON
-        }
+        payload = _router_payload(prompt)
         resp = await asyncio.wait_for(
             _http_client.post(
                 f"{_LLM_ROUTER_OLLAMA_URL}/api/generate",

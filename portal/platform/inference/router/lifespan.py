@@ -27,7 +27,7 @@ from portal.platform.inference.router.power import _power_polling_loop
 from portal.platform.inference.router.routing import (
     _LLM_ROUTER_ENABLED,
     _LLM_ROUTER_MODEL,
-    _LLM_ROUTER_OLLAMA_URL,
+    warm_router_model,
 )
 from portal.platform.inference.router.state import (
     _load_state,
@@ -213,26 +213,16 @@ async def _warmup_llm_router() -> None:
     if _http_client is None:
         logger.debug("LLM router warmup skipped: HTTP client not ready")
         return
-    try:
-        resp = await _http_client.post(
-            f"{_LLM_ROUTER_OLLAMA_URL}/api/generate",
-            json={
-                "model": _LLM_ROUTER_MODEL,
-                "prompt": "ok",
-                "stream": False,
-                "keep_alive": -1,
-                "options": {"num_predict": 1, "num_ctx": 2048},
-            },
+    # The routing call itself (routing.warm_router_model): a trivial prompt
+    # loaded the weights but left the routing prefix uncached, so the first
+    # real request still overran its 1 s deadline.
+    status = await warm_router_model()
+    if status == 200:
+        logger.info("Warmup complete: LLM router model '%s' pre-loaded", _LLM_ROUTER_MODEL)
+    else:
+        logger.debug(
+            "LLM router warmup returned HTTP %d — router will cold-load on first use", status
         )
-        if resp.status_code == 200:
-            logger.info("Warmup complete: LLM router model '%s' pre-loaded", _LLM_ROUTER_MODEL)
-        else:
-            logger.debug(
-                "LLM router warmup returned HTTP %d — router will cold-load on first use",
-                resp.status_code,
-            )
-    except Exception as e:
-        logger.debug("LLM router warmup failed (non-fatal): %s", e)
 
 
 async def _run_startup_warmups(registry: BackendRegistry) -> None:

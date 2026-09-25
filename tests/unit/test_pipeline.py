@@ -1797,6 +1797,9 @@ class TestRouterWarmupContext:
         fake_response = MagicMock(status_code=200)
         fake_client.post = AsyncMock(return_value=fake_response)
         monkeypatch.setattr(lifespan_mod, "_http_client", fake_client)
+        import portal.platform.inference.router.routing as routing_mod
+
+        monkeypatch.setattr(routing_mod, "_http_client", fake_client)
 
         await lifespan_mod._warmup_llm_router()
 
@@ -1804,6 +1807,9 @@ class TestRouterWarmupContext:
         _, kwargs = fake_client.post.await_args
         payload = kwargs["json"]
         assert payload["model"] == _LLM_ROUTER_MODEL
+        # the warmup is the routing call itself, so its prefix is cached
+        assert payload["prompt"] == routing_mod._build_router_prompt("warmup")
+        assert payload["format"] == routing_mod._ROUTER_JSON_SCHEMA
         assert payload["options"]["num_ctx"] == 2048, (
             "warmup num_ctx must match the 2048 used by _route_with_llm in "
             "routing.py, or the warmed runner reserves the model's full "
