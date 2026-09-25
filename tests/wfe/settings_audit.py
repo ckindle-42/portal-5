@@ -258,6 +258,7 @@ def _audit_sampling(ws_id, ws, hint, bp, tags, violations) -> None:
             f"serves the card's temperature {eff}, above the {ws.get('module')} lane's {limit}",
             "INFO",
         )
+        limit = eff  # the card's value is this seat's ceiling from here on
     elif eff > limit + 1e-9:
         _v(
             violations,
