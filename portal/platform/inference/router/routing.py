@@ -596,6 +596,44 @@ def _infer_variant(base: str, message: str) -> str:
     return f"{base}::{winner}"
 
 
+_router_reload_task: asyncio.Task[None] | None = None
+
+
+async def _reload_router_model() -> None:
+    """Load the router model with no client-side deadline; never raises."""
+    try:
+        resp = await _http_client.post(  # type: ignore[union-attr]
+            f"{_LLM_ROUTER_OLLAMA_URL}/api/generate",
+            json={
+                "model": _LLM_ROUTER_MODEL,
+                "prompt": "ok",
+                "stream": False,
+                "keep_alive": -1,
+                "options": {"num_predict": 1, "num_ctx": 2048},  # = the routing call
+            },
+        )
+        logger.info("LLM router model reloaded after eviction (HTTP %d)", resp.status_code)
+    except Exception as e:
+        logger.warning("LLM router reload failed: %s", e)
+
+
+def _schedule_router_reload() -> None:
+    """Reload an evicted router model in the background, once at a time.
+
+    The routing call's 1s deadline cancels its HTTP request, and Ollama aborts
+    a load whose client disconnects ("client connection closed before
+    llama-server finished loading, aborting load"). A cold router load takes
+    several seconds, so once the model had been evicted every auto request
+    re-triggered and then cancelled its own reload: routing stayed on the
+    keyword fallback until the pipeline restarted and re-ran its startup
+    warmup. This load has no deadline, so the next request finds it warm.
+    """
+    global _router_reload_task
+    if _http_client is None or (_router_reload_task and not _router_reload_task.done()):
+        return
+    _router_reload_task = asyncio.create_task(_reload_router_model())
+
+
 async def _route_with_llm(messages: list[dict[str, Any]]) -> str | None:
     """Layer 1 of auto-routing — LLM intent classifier with grammar-enforced JSON.
 
@@ -758,6 +796,7 @@ async def _route_with_llm(messages: list[dict[str, Any]]) -> str | None:
             _LLM_ROUTER_TIMEOUT_MS,
         )
         _router_latency_seconds.labels(outcome="timeout").observe(time.monotonic() - _t0)
+        _schedule_router_reload()
         return None
     except Exception as e:
         logger.debug("LLM router error (non-fatal): %s — falling back to keywords", e)
