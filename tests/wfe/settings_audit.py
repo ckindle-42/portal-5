@@ -25,6 +25,7 @@ from __future__ import annotations
 import argparse
 import contextlib
 import json
+import os
 import re
 import urllib.error
 import urllib.request
@@ -83,17 +84,66 @@ def _post(path: str, payload: dict, timeout: int = 60) -> dict:
         return json.load(r)
 
 
+def _expand_backend_url(raw: str, env_name: str, default: str) -> str:
+    """Resolve the small ``${NAME:-default}`` form used in backends.yaml."""
+    value = str(raw or "")
+    value = re.sub(
+        rf"\$\{{{re.escape(env_name)}:-[^}}]*\}}",
+        os.environ.get(env_name, default),
+        value,
+    )
+    return value.rstrip("/")
+
+
+def _omlx_inventory(backends: dict | None) -> tuple[set[str], list[str]]:
+    """Read native oMLX model ids before accepting aliases as served hints.
+
+    oMLX models are not present in Ollama's ``/api/tags``.  The old auditor
+    treated every declared alias as installed, which made a dangling model
+    directory look healthy and hid the exact failure the live router would
+    report.  Return both native ids and aliases whose targets are advertised by
+    the corresponding oMLX ``/v1/models`` endpoint.
+    """
+    native: set[str] = set()
+    errors: list[str] = []
+    for backend in (backends or {}).get("backends", []):
+        if backend.get("type") != "omlx":
+            continue
+        url = _expand_backend_url(
+            str(backend.get("url") or "http://localhost:8085"),
+            "OMLX_URL",
+            "http://localhost:8085",
+        )
+        try:
+            with urllib.request.urlopen(f"{url}/v1/models", timeout=5) as response:
+                payload = json.load(response)
+            native.update(
+                str(model.get("id"))
+                for model in payload.get("data", [])
+                if isinstance(model, dict) and model.get("id")
+            )
+        except Exception as exc:  # noqa: BLE001 - audit records endpoint health
+            errors.append(f"{backend.get('id', 'omlx')}: {exc}")
+
+    served = set(native)
+    for backend in (backends or {}).get("backends", []):
+        if backend.get("type") != "omlx":
+            continue
+        aliases = backend.get("aliases") or {}
+        served.update(alias for alias, target in aliases.items() if target in native)
+    return served, errors
+
+
 def installed_tags(backends: dict | None = None) -> set[str]:
-    """Ollama tags PLUS oMLX backend aliases (oMLX models never appear in /api/tags)."""
+    """Ollama tags plus aliases backed by the oMLX ``/v1/models`` inventory."""
     tags: set[str] = set()
     try:
         tags |= {m["name"] for m in _post("/api/tags", {}, timeout=10).get("models", [])}
     except Exception:
         with urllib.request.urlopen(f"{OLLAMA}/api/tags", timeout=10) as r:
             tags |= {m["name"] for m in json.load(r).get("models", [])}
-    for b in (backends or {}).get("backends", []):
-        if b.get("type") == "omlx":
-            tags |= set(b.get("aliases") or {})
+    omlx_tags, _ = _omlx_inventory(backends)
+    tags |= omlx_tags
     return tags
 
 
@@ -283,7 +333,7 @@ def _audit_workspace(
 
 
 _REASONING_TAG_RE = re.compile(
-    r"(deepseek-r1|qwen3\.[5-9]|phi4.*reasoning|glm-4\.[67]|glm-z1|gpt-oss|granite4\.[12]"
+    r"(deepseek-r1|qwen3\.[5-9]|phi4.*reasoning|glm-4\.[67]|glm-z1|gpt-oss|granite4\.2"
     r"|magistral|nemotron.*lightning|qwen3-coder-next|Deepwen)",
     re.I,
 )
@@ -399,8 +449,123 @@ def _template_sha(tag: str) -> str | None:
     return None
 
 
-def _card_check(tag: str, bp: dict, registry: dict, violations: list[dict], where: str) -> None:
-    """Ground-truth layer: baked settings vs model-card expectations + research debt."""
+def _card_sampling(entry: dict, ws: dict | None) -> tuple[dict, str]:
+    """Pick the card mode that matches the seat's thinking setting."""
+    modes = entry.get("recommended_sampling_modes") or {}
+    if not isinstance(modes, dict) or not modes:
+        return entry.get("recommended_sampling") or {}, "recommended_sampling"
+    want = "thinking" if ws and ws.get("think") is True else "instruct"
+    exact = [name for name in modes if str(name).lower() == want]
+    family = [name for name in modes if str(name).lower().startswith(want + "_")]
+    if exact:
+        return modes[exact[0]] or {}, exact[0]
+    if family:
+        return modes[sorted(family)[0]] or {}, sorted(family)[0]
+    return entry.get("recommended_sampling") or {}, "recommended_sampling"
+
+
+def effective_sampling(ws: dict, bp: dict) -> tuple[dict, dict[str, str]]:
+    """Resolve the sampling block injected by the production router.
+
+    This mirrors ``router.validation._resolve_sampling_values``: a selected
+    think profile wins over flat workspace fields, which win over parameters
+    baked into the model tag.  Values absent from both layers intentionally
+    remain absent because the backend's implicit default is not a verified
+    vendor-contract value.
+    """
+    profile: dict = {}
+    think_profiles = ws.get("think_profiles") or {}
+    if think_profiles and ws.get("think") is not None:
+        profile = think_profiles.get("thinking" if ws.get("think") else "instruct") or {}
+    values: dict = {}
+    sources: dict[str, str] = {}
+    for key in (
+        "temperature",
+        "top_p",
+        "top_k",
+        "min_p",
+        "repeat_penalty",
+        "presence_penalty",
+        "seed",
+    ):
+        if key in profile and profile[key] is not None:
+            values[key] = profile[key]
+            sources[key] = "think_profile"
+        elif ws.get(key) is not None:
+            values[key] = ws[key]
+            sources[key] = "workspace config"
+        elif bp.get(key) is not None:
+            values[key] = bp[key]
+            sources[key] = "baked tag"
+    return values, sources
+
+
+def _card_sampling_check(
+    tag: str,
+    bp: dict,
+    rec: dict,
+    rec_name: str,
+    violations: list[dict],
+    where: str,
+    ws: dict | None,
+) -> None:
+    """Report baked-tag and router-served sampling differences."""
+    if rec.get("pending_research"):
+        _v(
+            violations,
+            where,
+            "card_research_debt",
+            f"{tag}: recommended_sampling pending research (WFE-0.6)",
+        )
+        return
+    for k, want in rec.items():
+        got = bp.get(k)
+        if got is None:
+            _v(
+                violations,
+                where,
+                "sampling_absent_vs_card",
+                f"{tag} bakes no {k} but the card recommends {k}={want} — the served "
+                f"value is Ollama's default, not the card's",
+            )
+        elif abs(float(got) - float(want)) > 1e-6:
+            _v(
+                violations,
+                where,
+                "sampling_vs_card",
+                f"{tag} bakes {k}={got} but card recommends {k}={want}",
+                "FAIL",
+            )
+    if ws is None:
+        return
+    served, sources = effective_sampling(ws, bp)
+    for k, want in rec.items():
+        got = served.get(k)
+        if got is None:
+            _v(
+                violations,
+                where,
+                "served_sampling_absent_vs_card",
+                f"{tag} serves no resolved {k} but {rec_name} recommends {k}={want}",
+            )
+        elif abs(float(got) - float(want)) > 1e-6:
+            _v(
+                violations,
+                where,
+                "served_sampling_vs_card",
+                f"{tag} serves {k}={got} from {sources[k]} but {rec_name} recommends {k}={want}",
+            )
+
+
+def _card_check(
+    tag: str,
+    bp: dict,
+    registry: dict,
+    violations: list[dict],
+    where: str,
+    ws: dict | None = None,
+) -> None:
+    """Ground-truth layer: baked and served settings vs card expectations."""
     hit = _expectations_for(tag, registry)
     if hit is None:
         _v(
@@ -411,6 +576,13 @@ def _card_check(tag: str, bp: dict, registry: dict, violations: list[dict], wher
         )
         return
     key, entry = hit
+    if not entry.get("prompt_contract"):
+        _v(
+            violations,
+            where,
+            "prompt_contract_absent",
+            f"{tag}: family '{key}' has no prompt_contract in model_card_expectations",
+        )
     if entry.get("status") == "research-debt":
         _v(
             violations,
@@ -419,33 +591,8 @@ def _card_check(tag: str, bp: dict, registry: dict, violations: list[dict], wher
             f"{tag}: family '{key}' has no verified card ground truth yet (WFE-0.6)",
         )
         return
-    rec = entry.get("recommended_sampling") or {}
-    if isinstance(rec, dict) and rec.get("pending_research"):
-        _v(
-            violations,
-            where,
-            "card_research_debt",
-            f"{tag}: recommended_sampling pending research (WFE-0.6)",
-        )
-    else:
-        for k, want in (rec or {}).items():
-            got = bp.get(k)
-            if got is None:
-                _v(
-                    violations,
-                    where,
-                    "sampling_absent_vs_card",
-                    f"{tag} bakes no {k} but the card recommends {k}={want} — the served "
-                    f"value is Ollama's default, not the card's",
-                )
-            elif abs(float(got) - float(want)) > 1e-6:
-                _v(
-                    violations,
-                    where,
-                    "sampling_vs_card",
-                    f"{tag} bakes {k}={got} but card recommends {k}={want}",
-                    "FAIL",
-                )
+    rec, rec_name = _card_sampling(entry, ws)
+    _card_sampling_check(tag, bp, rec, rec_name, violations, where, ws)
     max_ctx = entry.get("max_context")
     if isinstance(max_ctx, int) and bp.get("num_ctx") and bp["num_ctx"] > max_ctx:
         _v(
@@ -727,7 +874,7 @@ def run_audit(behavioral: bool = False) -> dict:
         hint = ws["model_hint"]
         _audit_reasoning_fit(ws_id, ws, hint, registry, tags, violations)
         if hint in tags:
-            _card_check(hint, baked_params(hint), registry, violations, ws_id)
+            _card_check(hint, baked_params(hint), registry, violations, ws_id, ws)
             if behavioral:
                 _behavioral_probes(hint, violations, ws_id)
 
