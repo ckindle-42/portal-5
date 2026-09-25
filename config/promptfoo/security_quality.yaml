@@ -2,8 +2,8 @@ description: "Portal 5 — Security workspaces quality evaluation (auto-security
 prompts:
   - file://prompts/security.txt
 providers:
-  - id: ollama:chat:glm-4.7-flash:Q4_K_M
-    label: auto-security-chat-seat
+  - id: ollama:chat:hf.co/mradermacher/VulnLLM-R-7B-GGUF:q4_K_M-ctx8k
+    label: auto-security-vulnllm
     config:
       temperature: 0
       num_predict: 4096

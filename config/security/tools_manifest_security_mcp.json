@@ -1,26 +1,5 @@
 [
   {
-    "description": "Run the trained VulnLLM-R vulnerability detector against a code snippet. Returns a structured yes/no judgment and at most one CWE, preserving the raw detector answer for review.",
-    "name": "scan_code",
-    "parameters": {
-      "properties": {
-        "code": {
-          "description": "The source-code snippet to inspect.",
-          "type": "string"
-        },
-        "cwe_ids": {
-          "description": "Optional CWE shortlist; defaults to the trained 19-CWE policy list.",
-          "items": {
-            "type": "string"
-          },
-          "type": "array"
-        }
-      },
-      "required": ["code"],
-      "type": "object"
-    }
-  },
-  {
     "description": "Classify a vulnerability description into severity level (low/medium/high/critical) using CIRCL's VLAI RoBERTa model. Returns severity label, confidence score, and all class probabilities.",
     "name": "classify_vulnerability",
     "parameters": {

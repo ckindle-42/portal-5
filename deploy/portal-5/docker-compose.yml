@@ -655,7 +655,6 @@ services:
     environment:
       - SECURITY_MCP_PORT=8919
       - MCP_PORT=8919
-      - OLLAMA_URL=${OLLAMA_URL:-http://host.docker.internal:11434}
       - HF_HOME=/app/data/hf_cache
     command: ["python", "-m", "portal.modules.security.tools.security_mcp"]
     volumes:

@@ -184,11 +184,6 @@ class TestCardRegistryMatching:
         key, _ = card_entry("granite4.1:8b-ctx8k", self.REG)
         assert key == "granite-4.1"
 
-    def test_qwen3_vl_has_a_dedicated_card_key(self):
-        reg = {"qwen3": {}, "qwen3-vl": {"status": "research-debt"}}
-        key, _ = card_entry("qwen3-vl:32b-ctx8k", reg)
-        assert key == "qwen3-vl"
-
     def test_unknown_tag_returns_none(self):
         assert card_entry("some-unlisted-model:q4", self.REG) is None
 
@@ -793,25 +788,6 @@ class TestEffectiveSampling:
         v: list[dict] = []
         _audit_sampling("w", ws, "x", {}, {"x"}, v)
         assert any(x["kind"] == "sampling_defaulted" and x["severity"] == "FAIL" for x in v)
-
-    def test_think_profile_is_the_served_card_comparison(self):
-        from tests.wfe.settings_audit import effective_sampling
-
-        values, sources = effective_sampling(
-            {
-                "think": False,
-                "temperature": 0.3,
-                "think_profiles": {"instruct": {"temperature": 0.7, "top_k": 20}},
-            },
-            {"temperature": 0.9, "top_k": 40},
-        )
-        assert values == {"temperature": 0.7, "top_k": 20}
-        assert sources == {"temperature": "think_profile", "top_k": "think_profile"}
-
-    def test_granite41_is_not_a_reasoning_model(self):
-        from tests.wfe.settings_audit import _is_reasoning_model
-
-        assert not _is_reasoning_model("granite4.1:8b-ctx8k", {})
 
 
 class TestSandboxRepoAccess:

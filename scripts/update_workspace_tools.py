@@ -78,7 +78,6 @@ TOOL_TO_SERVER: dict[str, str] = {
     "animate_image": "portal_video_mlx",
     # portal_security
     "classify_vulnerability": "portal_security",
-    "scan_code": "portal_security",
     "lab_perception": "portal_security",
     # portal_memory
     "remember": "portal_memory",
