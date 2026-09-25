@@ -137,13 +137,16 @@ def compute_tool_ids(tools: list[str]) -> list[str]:
 
 
 def all_tools_dead(tools: list[str]) -> bool:
-    """True if every declared tool maps to a dead server or nothing at all —
-    i.e. this workspace/persona has zero working tools despite declaring some."""
+    """True if every declared tool maps to a dead server — i.e. this
+    workspace/persona has zero working tools despite declaring some.
+
+    A tool absent from TOOL_TO_SERVER is not dead: servers OWUI has no toolId
+    for (compliance, vulnintel, data, ...) are dispatched by the pipeline's own
+    MCP registry. Counting those as dead flagged compliance-reading, whose 19
+    compliance tools all work, as having none."""
     if not tools:
         return False
-    return all(
-        TOOL_TO_SERVER.get(t) is None or TOOL_TO_SERVER.get(t) in DEAD_SERVERS for t in tools
-    )
+    return all(TOOL_TO_SERVER.get(t) in DEAD_SERVERS for t in tools)
 
 
 def _portal_yaml_path() -> Path:

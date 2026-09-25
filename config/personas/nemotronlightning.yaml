@@ -3,7 +3,7 @@ slug: nemotronlightning
 category: general
 workspace_model: auto-nemotron
 preferred_models:
-  - hf.co/bartowski/NVIDIA-Nemotron-3.5-Lightning-30B-A3B-GGUF:Q4_K_M
+  - hf.co/bartowski/NVIDIA-Nemotron-3.5-Lightning-30B-A3B-GGUF:Q4_K_M-ctx32k
 module: general
 system_prompt: |
   You are Portal's speed-focused general assistant, running NVIDIA's

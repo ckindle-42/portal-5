@@ -14,7 +14,7 @@ Repairs in this revision (each was a false-result generator):
     personas bound to it; first-glob-wins made the measured prompt arbitrary).
   - token/latency economics and finish_reason are captured, not discarded.
   - `think` is resolved and SENT the way production sends it (the workspace's
-    explicit bool -> the model card -> the model's native default). On /v1 the
+    explicit bool, else nothing; a raw --model arm uses the card). On /v1 the
     suppressing direction goes as `reasoning_effort: "none"`: a top-level
     `think` is silently DROPPED there (measured 2026-09-12, Ollama 0.33.2), and
     believing otherwise is what invalidated wfe_full_20260911's creative lane.
@@ -1401,7 +1401,7 @@ def _parse_args(argv=None):
     ap.add_argument("--repeat", type=int, default=0)
     ap.add_argument("--temperature", type=float)
     ap.add_argument("--seed", type=int)
-    ap.add_argument("--max-tokens", type=int, default=2048)
+    ap.add_argument("--max-tokens", type=int, help="default: the seat's predict_limit, else 2048")
     ap.add_argument("--no-tools", action="store_true")
     ap.add_argument("--label", default="")
     ap.add_argument("--endpoint", choices=["v1", "api"], default="v1")
@@ -1431,13 +1431,22 @@ def main() -> int:
         if args.system_prompt_file
         else ctxinfo.get("system_prompt", "")
     )
+    think = args.think
+    if args.workspace and think == "default":
+        # As production (and campaign_harness): the workspace's explicit bool,
+        # else nothing sent. The card policy is for raw --model arms only.
+        ws_think = ctxinfo.get("think")
+        think = "native" if ws_think is None else ("true" if ws_think else "false")
     harness = {
         "endpoint": args.endpoint,
         "stream": args.stream,
-        "think": args.think,
+        "think": think,
         "format": args.format,
     }
-    sampling = {"max_tokens": args.max_tokens}
+    # A workspace arm runs at the seat's own sampling, as production serves it.
+    sampling = {**ctxinfo.get("sampling", {})}
+    if args.max_tokens is not None or "max_tokens" not in sampling:
+        sampling["max_tokens"] = args.max_tokens or 2048
     if args.temperature is not None:
         sampling["temperature"] = args.temperature
     if args.seed is not None:
