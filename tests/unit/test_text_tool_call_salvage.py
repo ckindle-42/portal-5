@@ -13,7 +13,7 @@ from unittest.mock import MagicMock
 import pytest
 
 import portal.platform.inference.router.streaming as streaming
-from portal.platform.inference.router.tools import (
+from portal.platform.inference.router.text_tool_calls import (
     TextToolCallHoldback,
     salvage_text_tool_calls,
 )
@@ -178,3 +178,31 @@ async def test_stream_releases_unparseable_text_in_order(monkeypatch):
     assert "<function=rm_rf>x</function> like this." in out
     assert out.index("rm_rf") < out.index('"finish_reason": "stop"') < out.index("[DONE]")
     assert out.count("[DONE]") == 1
+
+
+@pytest.mark.anyio
+async def test_reasoning_fallback_joins_fragments_verbatim(monkeypatch):
+    hop1 = [
+        _frame({"reasoning_content": "summarize"}),
+        _frame({"reasoning_content": "(rows)"}),
+        _frame({"reasoning_content": " 3."}),
+        _frame({}, "stop"),
+        "data: [DONE]",
+    ]
+    out, _ = await _run(monkeypatch, [hop1])
+    assert "summarize(rows) 3." in out
+
+
+@pytest.mark.anyio
+async def test_client_tools_only_offers_exactly_the_client_tools(monkeypatch):
+    backend = MagicMock(type="omlx")
+    monkeypatch.setattr(streaming, "_resolve_persona_tools", lambda *a: ["execute_python"])
+    monkeypatch.setattr(streaming, "_model_supports_tools", lambda m: True)
+    monkeypatch.setattr(streaming, "_inject_omlx_options", lambda b, w: dict(b))
+    body = {"messages": [], "tools": TOOLS, "portal_client_tools_only": True}
+    out, effective, has_tools, _ = await streaming._build_streaming_request(
+        body, backend, "m", "auto-coding", ""
+    )
+    assert has_tools and effective == []
+    assert out["tools"] == TOOLS and out["tool_choice"] == "auto"
+    assert "portal_client_tools_only" not in out

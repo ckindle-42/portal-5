@@ -19,10 +19,12 @@ from fastapi.responses import JSONResponse
 from portal.platform.inference.config import PersonaSpec
 from portal.platform.inference.router.metrics import _hint_fallback_total, _tool_calls_recovered
 from portal.platform.inference.router.power import _record_usage
+from portal.platform.inference.router.text_tool_calls import (
+    salvage_text_tool_calls,
+)
 from portal.platform.inference.router.tools import (
     _dispatch_tool_call,
     _select_explicit_required_tool,
-    salvage_text_tool_calls,
 )
 from portal.platform.inference.router.validation import (
     _inject_ollama_options,
@@ -319,6 +321,9 @@ async def _try_non_streaming(
     # mismatch), so the tool schemas aren't silently dropped in the fallback.
     _persona_data: PersonaSpec | dict[str, Any] = _PERSONA_MAP.get(persona, {}) if persona else {}
     _ns_tools = _resolve_persona_tools(_persona_data, workspace_id)
+    # portal_client_tools_only: see streaming._build_streaming_request.
+    if req_body.pop("portal_client_tools_only", False):
+        _ns_tools = []
     if _ns_tools and _model_supports_tools(target_model):
         from portal.platform.inference.tool_registry import tool_registry  # noqa: PLC0415
 
