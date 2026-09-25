@@ -27,11 +27,12 @@ The shared ``httpx.AsyncClient`` is injected by ``lifespan`` as
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import json
 import logging
 import os
 import time
-from collections.abc import AsyncIterator, Iterator
+from collections.abc import AsyncGenerator, AsyncIterator, Iterator
 from typing import TYPE_CHECKING, Any
 
 import httpx
@@ -48,7 +49,13 @@ from portal.platform.inference.router.metrics import (
     _tool_calls_recovered,
     _tool_loop_hops,
 )
-from portal.platform.inference.router.non_streaming import _try_non_streaming
+from portal.platform.inference.router.non_streaming import (
+    _REQUEST_ERROR_STATUSES,
+    BackendRequestError,
+    _try_non_streaming,
+    backend_error_detail,
+    resolve_hop_target,
+)
 from portal.platform.inference.router.state import _record_error
 from portal.platform.inference.router.text_tool_calls import (
     TextToolCallHoldback,
@@ -106,6 +113,63 @@ _SHOW_ROUTING_STATUS: bool = os.environ.get("SHOW_ROUTING_STATUS", "false").lowe
 def _as_bytes(body: bytes | memoryview[int]) -> bytes:
     """Normalise a response body that may be bytes or memoryview for json.loads."""
     return body.tobytes() if isinstance(body, memoryview) else body
+
+
+def _content_chunk(request_id: str, workspace_id: str, text: str) -> bytes:
+    """One OpenAI chunk carrying ``text`` as assistant content."""
+    payload = {
+        "id": request_id,
+        "object": "chat.completion.chunk",
+        "created": int(time.time()),
+        "model": workspace_id,
+        "choices": [{"index": 0, "delta": {"content": text}, "finish_reason": None}],
+    }
+    return f"data: {json.dumps(payload)}\n\n".encode()
+
+
+def _backend_error_chunk(status: int, raw: bytes) -> bytes:
+    """Error envelope for a non-200 backend reply: the engine's own message plus
+    the status, so the fallback wrapper can tell a malformed request (surface it)
+    from an unavailable backend (fall back)."""
+    msg = f"Backend returned HTTP {status}: {backend_error_detail(raw)}"
+    return f"data: {json.dumps({'error': msg, 'status': status})}\n\n".encode()
+
+
+def _stream_error(chunk: bytes) -> int | None:
+    """``None`` unless ``chunk`` is an error envelope; else its HTTP status (0 if
+    unknown). Parsed, not substring-matched: a delta whose text contained the
+    JSON key ``"error"`` used to be taken for a failure."""
+    if b'"error"' not in chunk or not chunk.startswith(b"data:"):
+        return None
+    try:
+        obj = json.loads(chunk[5:].strip())
+    except Exception:
+        return None
+    if not isinstance(obj, dict) or "error" not in obj or obj.get("choices"):
+        return None
+    status = obj.get("status")
+    return status if isinstance(status, int) else 0
+
+
+def _chunk_has_output(chunk: bytes) -> bool:
+    """Whether an SSE chunk puts model output in front of the client (content,
+    reasoning or a tool call — not the role preamble or routing status line)."""
+    if not chunk.startswith(b"data:"):
+        return False
+    try:
+        obj = json.loads(chunk[5:].strip())
+    except Exception:
+        return False
+    for choice in (obj.get("choices") or []) if isinstance(obj, dict) else []:
+        d = choice.get("delta") or {}
+        content = d.get("content")
+        if content and not (isinstance(content, str) and content.startswith("`⚡ ")):
+            return True
+        if d.get("reasoning") or d.get("reasoning_content") or d.get("thinking"):
+            return True
+        if d.get("tool_calls"):
+            return True
+    return False
 
 
 def _json_completion_to_sse(data: dict[str, Any], workspace_id: str) -> Iterator[bytes]:
@@ -239,9 +303,12 @@ def _apply_reasoning_rewrite(
     _rc = delta.get("reasoning_content")
     _ct = delta.get("content") or ""
 
-    # Buffer reasoning_content for end-of-stream fallback.
-    if _rc:
-        think_content_buf.append(_rc)
+    # Buffer reasoning for the end-of-stream fallback, under every field name
+    # an engine uses (the Ollama native adapter emits ``reasoning``; missing it
+    # turned a think-only turn into a false "empty response").
+    _any_reasoning = _rc or delta.get("reasoning") or delta.get("thinking")
+    if _any_reasoning:
+        think_content_buf.append(_any_reasoning)
 
     if _rc and not _ct and (thinking_off or hop > 1):
         # reasoning_content with no content — surface as content.
@@ -330,6 +397,9 @@ async def _dispatch_hop_tool_calls(
     return assistant_msg, dispatch_results
 
 
+_DONE = b"data: [DONE]\n\n"
+
+
 async def _stream_with_tool_loop_impl(
     backend_url: str,
     body: dict[str, Any],
@@ -339,6 +409,35 @@ async def _stream_with_tool_loop_impl(
     effective_tools: set[str],
     start_time: float | None = None,
 ) -> AsyncIterator[bytes]:
+    """The tool loop's frames, terminated by exactly one ``[DONE]``.
+
+    The loop body forwards the backend's ``[DONE]`` and then, on several paths,
+    appends frames after it (the reasoning fallback, the empty-response notice).
+    OpenAI-SDK clients stop reading at the first ``[DONE]``, so those frames
+    never reached them. Every ``[DONE]`` inside is dropped and one is emitted
+    at the true end — error paths included.
+    """
+    # aclosing: a client disconnect closes the backend stream now, not at GC.
+    async with contextlib.aclosing(
+        _tool_loop_frames(
+            backend_url, body, workspace_id, model, persona, effective_tools, start_time
+        )
+    ) as frames:
+        async for chunk in frames:
+            if chunk != _DONE:
+                yield chunk
+    yield _DONE
+
+
+async def _tool_loop_frames(
+    backend_url: str,
+    body: dict[str, Any],
+    workspace_id: str,
+    model: str,
+    persona: str,
+    effective_tools: set[str],
+    start_time: float | None = None,
+) -> AsyncGenerator[bytes, None]:
     """Stream-and-tool-loop implementation (no semaphore ownership).
 
     The most complex function in the file. Wrapped by
@@ -477,9 +576,8 @@ async def _stream_with_tool_loop_impl(
                     logger.error(
                         "Tool-loop backend returned HTTP %d: %s", resp.status_code, err[:200]
                     )
-                    yield (
-                        f"data: {json.dumps({'error': f'Backend HTTP {resp.status_code}'})}\n\n"
-                    ).encode()
+                    _record_error(workspace_id, f"backend_http_{resp.status_code}")
+                    yield _backend_error_chunk(resp.status_code, err)
                     return
 
                 async for line in resp.aiter_lines():
@@ -951,6 +1049,7 @@ async def _stream_from_backend_guarded(
         return
     _any_content_emitted = False
     _completion_tokens_seen = 0
+    _reasoning_buf: list[str] = []
     try:
         _usage_recorded = False  # guard: only record TPS once per request
         async with _http_client.stream("POST", url, json=body) as resp:
@@ -966,11 +1065,7 @@ async def _stream_from_backend_guarded(
                     workspace_id,
                     f"backend_http_{resp.status_code}",
                 )
-                yield (
-                    "data: "
-                    + json.dumps({"error": f"Backend returned HTTP {resp.status_code}"})
-                    + "\n\n"
-                ).encode()
+                yield _backend_error_chunk(resp.status_code, err)
                 return
             async for line in resp.aiter_lines():
                 if not line:
@@ -1043,56 +1138,62 @@ async def _stream_from_backend_guarded(
                     except Exception:
                         pass  # measurement must never affect the stream
 
-                # Reasoning-model deltas under Ollama /v1: keep the behaviour,
-                # fix the attribution — promote reasoning → content.
-                # Gate on '"reasoning"' only — not '"content"' not in line, because
-                # qwen3.6 HauhauCS emits {"content":"","reasoning":"..."} (empty
-                # string content) which makes that substring check false. The inner
-                # `not delta.get("content")` correctly handles both absent and empty.
-                if '"reasoning"' in line:
-                    try:
-                        if not line.startswith("data:") or line == "data: [DONE]":
-                            yield (line + "\n\n").encode()
-                            continue
-                        payload = line[5:].strip()
-                        if not payload:
-                            yield (line + "\n\n").encode()
-                            continue
-                        obj = json.loads(payload)
-                        for choice in obj.get("choices", []):
-                            delta = choice.get("delta", {})
-                            reasoning_val = (
-                                delta.get("reasoning")
-                                or delta.get("reasoning_content")
-                                or delta.get("thinking")
-                            )
-                            if reasoning_val and not delta.get("content"):
-                                delta["content"] = reasoning_val
-                                delta.pop("reasoning", None)
-                                delta.pop("reasoning_content", None)
-                                delta.pop("thinking", None)
-                        line = f"data: {json.dumps(obj)}"
-                    except Exception:
-                        pass  # Fall through to raw yield on parse failure
-
-                # Cheap substring check (no JSON parse) for whether this chunk
-                # carried any real content — mirrors the zero-content safety
-                # net already added to the tool-loop path
-                # (_stream_with_tool_loop_impl): a backend can complete with
-                # non-zero completion_tokens yet emit nothing into content or
-                # any reasoning field (observed live: completion_tokens=136,
-                # content="", no reasoning chunk at all). Without this, OWUI
-                # persists a fully empty assistant message with zero
-                # indication anything went wrong.
+                # Reasoning deltas pass through untouched: OWUI renders
+                # reasoning/reasoning_content/thinking as its collapsible
+                # thinking block, and OpenAI-SDK clients read content only.
+                # Promoting every reasoning delta into content (review item
+                # C-1) printed the whole chain of thought as the answer. The
+                # reasoning is buffered instead and surfaced as content only
+                # when the turn ends without any — the same rule the
+                # non-streaming path applies (thinking.normalize_think_message).
+                # Content is detected by parsing, not by a '"content":"'
+                # substring: that missed any re-serialised or space-separated
+                # frame and appended a false "empty response" to real answers.
                 if (
-                    not _any_content_emitted
-                    and '"content":"' in line
-                    and '"content":""' not in line
+                    line.startswith("data:")
+                    and line[5:].strip() != "[DONE]"
+                    and (
+                        '"content"' in line
+                        or '"reasoning' in line
+                        or '"thinking"' in line
+                        or '"tool_calls"' in line
+                    )
                 ):
-                    _any_content_emitted = True
+                    try:
+                        _frame = json.loads(line[5:].strip())
+                        for _choice in _frame.get("choices") or []:
+                            _d = _choice.get("delta") or {}
+                            # a client-tool call is output too (IDE clients
+                            # bring their own tools to tool-less workspaces)
+                            if _d.get("content") or _d.get("tool_calls"):
+                                _any_content_emitted = True
+                            _r = (
+                                _d.get("reasoning")
+                                or _d.get("reasoning_content")
+                                or _d.get("thinking")
+                            )
+                            if _r:
+                                _reasoning_buf.append(_r)
+                    except Exception:
+                        pass  # detection only — never alters the stream
 
                 if line.startswith("data:") and line[5:].strip() == "[DONE]":
-                    if _completion_tokens_seen > 0 and not _any_content_emitted:
+                    if not _any_content_emitted and _reasoning_buf:
+                        # Thinking consumed the whole budget: surface it as the
+                        # answer rather than an empty message.
+                        logger.warning(
+                            "Backend %s: only reasoning, no content (workspace=%s, "
+                            "model=%s) — promoting reasoning as response.",
+                            url,
+                            workspace_id,
+                            model,
+                        )
+                        yield _content_chunk(
+                            f"chatcmpl-{workspace_id}",
+                            workspace_id,
+                            "".join(_reasoning_buf).strip(),
+                        )
+                    elif _completion_tokens_seen > 0 and not _any_content_emitted:
                         # LOAD_AND_CONVERSE_V1 §P5: completion tokens without
                         # content is the shape whose cause used to die with the
                         # turn — carry the serving identity in the log so the
@@ -1196,8 +1297,14 @@ async def _stream_with_chain(
     chain: list[dict[str, Any]] | None = None,
     start_time: float | None = None,
     persona: str = "unknown",
+    primary_tools: set[str] | None = None,
 ) -> AsyncIterator[bytes]:
     """Multi-hop purple-team chain: primary model followed by any number of follow-on hops.
+
+    ``primary_tools`` runs hop 0 through the tool loop — a tool-using chain
+    workspace (auto-security::purpleteam-exec) used to take the plain tool-loop
+    branch in streaming and silently skip every follow-on hop, while the
+    non-streaming path ran them.
 
     Hop 0 is the primary model using ``body`` as-is (system_prompt_append already
     applied by the router). Each subsequent hop is driven by an entry in ``chain``:
@@ -1247,9 +1354,16 @@ async def _stream_with_chain(
         # ── Hop 0: primary model (uses body as-is) ───────────────────────────
         hop0_parts: list[str] = []
         has_more = bool(_chain)
-        async for chunk in _stream_from_backend_guarded(
-            url, body, workspace_id=workspace_id, model=primary_model, start_time=start_time
-        ):
+        hop0 = (
+            _stream_with_tool_loop_impl(
+                url, body, workspace_id, primary_model, persona, primary_tools, start_time
+            )
+            if primary_tools
+            else _stream_from_backend_guarded(
+                url, body, workspace_id=workspace_id, model=primary_model, start_time=start_time
+            )
+        )
+        async for chunk in hop0:
             if has_more and chunk == b"data: [DONE]\n\n":
                 continue
             _collect_text(chunk, hop0_parts)
@@ -1310,8 +1424,9 @@ async def _stream_with_chain(
                         hop_model,
                         len(tools_array),
                     )
+                    hop_url, hop_body = resolve_hop_target(workspace_id, hop_model, url, hop_body)
                     async for chunk in _stream_with_tool_loop_impl(
-                        backend_url=url,
+                        backend_url=hop_url,
                         body=hop_body,
                         workspace_id=workspace_id,
                         model=hop_model,
@@ -1349,8 +1464,9 @@ async def _stream_with_chain(
                     }.items()
                     if v is not None
                 }
+                hop_url, hop_body = resolve_hop_target(workspace_id, hop_model, url, hop_body)
                 async for chunk in _stream_from_backend_guarded(
-                    url,
+                    hop_url,
                     hop_body,
                     workspace_id=workspace_id,
                     model=hop_model,
@@ -1683,26 +1799,18 @@ def _select_stream_fn(
 ) -> AsyncIterator[bytes]:
     """Pick the streaming generator for the resolved backend/body.
 
-    Chooses ``_stream_with_tool_loop`` (tools), ``_stream_with_chain``
-    (multi-hop chain, unless theory mode), ``_stream_with_secondary_chain``
+    Chooses ``_stream_with_chain`` (multi-hop chain, unless theory mode; its
+    first hop uses the tool loop when tools apply), ``_stream_with_tool_loop``
+    (tools), ``_stream_with_secondary_chain``
     (legacy secondary/tertiary chain), else ``_stream_with_preamble``.
     Detaches the slot for the generator's lifetime.
     """
-    if has_tools:
-        return _stream_with_tool_loop(
-            backend.chat_url,
-            backend_body,
-            slot.detach(),
-            workspace_id,
-            target_model,
-            persona,
-            set(effective_tools),
-            start_time,
-        )
-    elif chain and not portal_no_tools:
+    if chain and not portal_no_tools:
         # Chain requires tool execution to be meaningful — skip in theory
         # mode (portal_no_tools) so exec models get a plain prose prompt
         # instead of hallucinating the entire multi-hop chain themselves.
+        # Checked before has_tools: a tool-using chain runs its first hop
+        # through the tool loop rather than dropping the chain.
         return _stream_with_chain(
             backend.chat_url,
             backend_body,
@@ -1712,6 +1820,18 @@ def _select_stream_fn(
             chain=chain,
             start_time=start_time,
             persona=persona,
+            primary_tools=set(effective_tools) if has_tools else None,
+        )
+    elif has_tools:
+        return _stream_with_tool_loop(
+            backend.chat_url,
+            backend_body,
+            slot.detach(),
+            workspace_id,
+            target_model,
+            persona,
+            set(effective_tools),
+            start_time,
         )
     elif secondary_model:
         return _stream_with_secondary_chain(
@@ -1763,25 +1883,17 @@ async def _stream_with_fallback(
     1. Stream from ``backend`` (first candidate) via either
        ``_stream_with_tool_loop`` or ``_stream_with_preamble``
        depending on ``has_tools``.
-    2. Detect failure by either:
-       - Substring check ``b'"error"' in chunk`` (the explicit
-         error envelopes emitted by ``_stream_from_backend_guarded``).
-         False-positive risk if a model's content happens to include
-         ``"error"`` literally — accepted, because that chunk would
-         also contain real content and the fallback then produces
-         the same answer the streaming variant would have, just
-         slower.
-       - Exception from the inner generator.
-    3. On failure, retry the **same backend** in non-streaming
-       via ``_try_non_streaming`` with ``enforce_hint=True``.
-    4. If that succeeds, wrap the JSON response as SSE (role chunk,
-       content chunk, per-tool-call chunks, done chunk, ``[DONE]``)
-       and yield. OWUI cannot tolerate a Content-Type switch
-       mid-stream — once we've started SSE we must keep emitting SSE.
-    5. If that also fails, try **remaining** candidates non-streaming.
-       The ``_try_non_streaming`` call iterates all remaining
-       candidates in order; fixed in
-       ``TASK_ROUTER_BACKEND_REVIEW_AND_IMPROVEMENTS``.
+    2. Detect failure by either a parsed error envelope
+       (``_stream_error``) or an exception from the inner generator.
+    3. No fallback when output already reached the client (a second
+       answer would be appended to the partial one) or when the backend
+       rejected the request as malformed (HTTP 400/413/422 — every
+       candidate would reject it alike): the error is reported instead.
+    4. Otherwise try the **remaining** candidates non-streaming, skipping
+       any ``(engine URL, model)`` pair already attempted — several backend
+       groups front one engine, so the same request would just be resent.
+       A success is wrapped as SSE (OWUI cannot tolerate a Content-Type
+       switch mid-stream — once SSE has started it must stay SSE).
 
     Semaphore release is delegated to the streaming function
     (``_stream_with_tool_loop`` or ``_stream_with_preamble``) via
@@ -1805,6 +1917,8 @@ async def _stream_with_fallback(
             fallback=True,
         )
 
+    _output_sent = False  # any content/reasoning/tool call reached the client
+    _error_status: int | None = None
     try:
         _inner_stream = _select_stream_fn(
             backend,
@@ -1822,56 +1936,61 @@ async def _stream_with_fallback(
             has_tools,
         )
         async for chunk in _inner_stream:
-            if b'"error"' in chunk:
+            if stream_failed:
+                # Drain after an error: a trailing [DONE] forwarded here would
+                # end the client's read before any fallback answer arrives.
+                continue
+            _err = _stream_error(chunk)
+            if _err is not None:
                 stream_failed = True
                 _error_buffer = chunk
+                _error_status = _err
                 continue
+            if not _output_sent and _chunk_has_output(chunk):
+                _output_sent = True
             yield chunk
     except Exception:
         stream_failed = True
 
+    if stream_failed and (_output_sent or _error_status in _REQUEST_ERROR_STATUSES):
+        # Part of an answer is already on screen — a fallback would append a
+        # second, different answer to it. A malformed request (4xx) fails the
+        # same on every candidate. Either way, report the error and stop.
+        yield _error_buffer or b'data: {"error": "Backend stream failed"}\n\n'
+        yield _DONE
+        _record_error(workspace_id, "stream_failed_after_output" if _output_sent else "bad_request")
+        trace_note(outcome="error")
+        finalize_trace()
+        return
+
     if stream_failed:
         fallback_body = {**body, "stream": False}
-        _skip_same_backend = bool(remaining) and remaining[0].id != backend.id
-        result = None
-        if not _skip_same_backend:
-            logger.info(
-                "Stream from %s failed, retrying same backend in non-streaming for workspace=%s",
-                backend.id,
-                workspace_id,
-            )
-            result = await _try_non_streaming(
-                backend,
-                fallback_body,
-                workspace_id,
-                start_time,
-                enforce_hint=True,
-                persona=persona,
-            )
-        if result is not None:
-            _record_fallback_route(result, backend)
-            data = json.loads(_as_bytes(result.body))
-            for frame in _json_completion_to_sse(data, workspace_id):
-                yield frame
-            finalize_trace()
-            return
-
+        # The streamed (engine, model) pair already failed; several backend
+        # groups front the same engine, so resending there is a repeat.
+        tried: dict[tuple[str, str], str] = {(backend.chat_url, target_model): ""}
         if remaining:
             logger.info(
-                "Non-streaming retry on %s failed, falling back to remaining backends for workspace=%s",
+                "Stream from %s failed, falling back to remaining backends for workspace=%s",
                 backend.id,
                 workspace_id,
             )
             for j, fb in enumerate(remaining):
                 fb_last = j == len(remaining) - 1
-                result = await _try_non_streaming(
-                    fb,
-                    fallback_body,
-                    workspace_id,
-                    start_time,
-                    enforce_hint=not fb_last,
-                    persona=persona,
-                )
+                try:
+                    result = await _try_non_streaming(
+                        fb,
+                        fallback_body,
+                        workspace_id,
+                        start_time,
+                        enforce_hint=not fb_last,
+                        persona=persona,
+                        tried=tried,
+                    )
+                except BackendRequestError as exc:
+                    _error_buffer = (
+                        f"data: {json.dumps({'error': exc.detail, 'status': exc.status_code})}\n\n"
+                    ).encode()
+                    break
                 if result is not None:
                     _record_fallback_route(result, fb)
                     data = json.loads(_as_bytes(result.body))
@@ -1884,7 +2003,7 @@ async def _stream_with_fallback(
             yield _error_buffer
         else:
             yield b'data: {"error": "All backends failed"}\n\n'
-        yield b"data: [DONE]\n\n"
+        yield _DONE
         _record_error(workspace_id, "all_backends_failed")
         trace_note(outcome="error")
         trace_span("backend.failed", backend=backend.id)

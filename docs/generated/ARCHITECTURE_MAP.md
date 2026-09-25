@@ -2,7 +2,7 @@
 
 # Portal 5 Architecture Map
 
-*Deterministic projection of 754 canonical units.*
+*Deterministic projection of 755 canonical units.*
 
 ## Knowledge Layer
 
@@ -340,7 +340,7 @@
 | `unit-known-limitations-ollama-native-mlx-engine-evaluation-findings-2026-07-01` | what | 3 |
 | `unit-known-limitations-ollama-v1-ignores-options-num-ctx-and-options-num-batch` | what | 6 |
 | `unit-known-limitations-ollama-v1-sampling-drop` | what | 4 |
-| `unit-known-limitations-omlx-qwen3coder-tool-text` | what | 2 |
+| `unit-known-limitations-omlx-qwen3coder-tool-text` | what | 3 |
 | `unit-known-limitations-owui-audio-drop-ux-task-owui-audio-drop-001` | what | 2 |
 | `unit-known-limitations-p5-emergent-002-deterministic-capability-ranker-can-t-reach-oracle-bearing-capabilities-once-any-tool-declaring-recon-capability-is-a-candidate` | what | 4 |
 | `unit-known-limitations-p5-mlx-eval-001-gguf-fleet-regressed-slightly-on-0-31-1-mtp-is-mlx-engine-only` | what | 2 |
@@ -349,6 +349,7 @@
 | `unit-known-limitations-p5-mlx-eval-004-large-single-blob-mlx-downloads-hang-intermittently` | what | 3 |
 | `unit-known-limitations-p5-mlx-eval-005-two-security-tier-fine-tunes-have-no-working-mlx-conversion` | what | 3 |
 | `unit-known-limitations-phi4-reasoning-plus-crashes-ollama-s-llama-server-on-this-host-confirmed-not-a-corrupted-download` | what | 3 |
+| `unit-known-limitations-pipeline-hardening-20260925` | what | 8 |
 | `unit-known-limitations-post-v1-messages-anthropic-compat-endpoint-returns-http-200-with-a-null-body` | what | 3 |
 | `unit-known-limitations-pytest-portal-leaves-real-write-through-test-artifacts` | what | 4 |
 | `unit-known-limitations-rbp-benign-corpus-alert-fatigue` | what | 5 |
@@ -763,12 +764,12 @@
 | `unit-wiki-tests-render` | mixed | 1 |
 | `unit-wiki-writeback` | mixed | 1 |
 
-**Total:** 754 units
+**Total:** 755 units
 
 ## Source Distribution
 
 - **bench-security**: 1 references
-- **code**: 1936 references
+- **code**: 1945 references
 - **config**: 1 references
 - **doc**: 1 references
 - **mitre**: 40 references

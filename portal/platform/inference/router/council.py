@@ -390,6 +390,16 @@ async def _synthesize(
         "temperature": 0.2,
         "max_tokens": int(council.get("synthesizer_max_tokens", 4096)),
     }
+    # Council payloads skip per-engine option injection, so the workspace's
+    # think setting never reached the synthesizer: a thinking-capable model
+    # reasoned by default and a budget spent thinking came back as the
+    # synthesis. The Ollama native adapter drops the field for models without
+    # the capability.
+    from portal.platform.inference.router.workspaces import WORKSPACES  # noqa: PLC0415
+
+    think = council.get("synthesizer_think", WORKSPACES.get(workspace_id, {}).get("think"))
+    if think is not None:
+        payload["think"] = think
     try:
         response = await _http_client.post(backend.chat_url, json=payload)
         response.raise_for_status()

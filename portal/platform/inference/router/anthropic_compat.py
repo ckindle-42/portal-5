@@ -63,14 +63,22 @@ def anthropic_to_openai_body(body: dict[str, Any]) -> dict[str, Any]:
 
         # Content is a list of typed blocks
         text_parts: list[str] = []
+        image_parts: list[dict[str, Any]] = []
         tool_calls: list[dict[str, Any]] = []
-        tool_result_id: str | None = None
-        tool_result_text: str | None = None
+        # Every tool_result becomes its own tool message: Claude Code returns
+        # parallel tool calls' results in ONE user message, and keeping only
+        # the last left the backend with unanswered tool calls.
+        tool_results: list[dict[str, Any]] = []
 
         for block in content:
             btype = block.get("type")
             if btype == "text":
                 text_parts.append(block.get("text", ""))
+            elif btype == "image":
+                src = block.get("source") or {}
+                if src.get("type") == "base64" and src.get("data"):
+                    url = f"data:{src.get('media_type', 'image/png')};base64,{src['data']}"
+                    image_parts.append({"type": "image_url", "image_url": {"url": url}})
             elif btype == "tool_use":
                 tool_calls.append(
                     {
@@ -83,22 +91,27 @@ def anthropic_to_openai_body(body: dict[str, Any]) -> dict[str, Any]:
                     }
                 )
             elif btype == "tool_result":
-                tool_result_id = block.get("tool_use_id", "")
                 rc = block.get("content", "")
                 if isinstance(rc, list):
                     rc = " ".join(b.get("text", "") for b in rc if b.get("type") == "text")
-                tool_result_text = str(rc)
+                text = str(rc)
+                if block.get("is_error"):
+                    text = f"Error: {text}"
+                tool_results.append(
+                    {"role": "tool", "tool_call_id": block.get("tool_use_id", ""), "content": text}
+                )
 
-        if tool_result_text is not None:
-            messages.append(
-                {"role": "tool", "tool_call_id": tool_result_id or "", "content": tool_result_text}
-            )
-        elif tool_calls:
+        messages.extend(tool_results)
+        if tool_calls:
             out: dict[str, Any] = {"role": "assistant", "tool_calls": tool_calls}
             if text_parts:
                 out["content"] = "\n".join(text_parts)
             messages.append(out)
-        else:
+        elif image_parts:
+            parts: list[dict[str, Any]] = [{"type": "text", "text": t} for t in text_parts if t]
+            messages.append({"role": role, "content": parts + image_parts})
+        elif text_parts or not tool_results:
+            # text that accompanies tool results follows them as its own turn
             messages.append({"role": role, "content": "\n".join(text_parts)})
 
     result: dict[str, Any] = {
@@ -161,7 +174,9 @@ def openai_response_to_anthropic(data: dict[str, Any], model_id: str) -> dict[st
         )
 
     finish = choice.get("finish_reason", "stop")
-    stop_reason = "tool_use" if tool_calls else ("end_turn" if finish == "stop" else finish)
+    # Anthropic's vocabulary: "length" is "max_tokens"; anything else unknown
+    # to it (content_filter, ...) ends the turn.
+    stop_reason = "tool_use" if tool_calls else ("max_tokens" if finish == "length" else "end_turn")
 
     return {
         "id": data.get("id", f"msg_{uuid.uuid4().hex[:24]}"),
@@ -186,8 +201,12 @@ async def openai_stream_to_anthropic_sse(
     """Wrap an OpenAI SSE line iterator and yield Anthropic SSE event strings.
 
     Emits the full Anthropic streaming protocol:
-    message_start → content_block_start → ping → N×content_block_delta
-    → content_block_stop → message_delta → message_stop
+    message_start → ping → per block (content_block_start →
+    N×content_block_delta → content_block_stop) → message_delta → message_stop.
+    Text becomes ``text`` blocks; tool-call deltas become ``tool_use`` blocks
+    with ``input_json_delta`` (dropping them left Claude Code with
+    ``stop_reason: tool_use`` and no tool to run). A pipeline error envelope
+    becomes an ``error`` event.
     """
 
     def _evt(event: str, data: dict[str, Any]) -> str:
@@ -209,19 +228,20 @@ async def openai_stream_to_anthropic_sse(
             },
         },
     )
-    yield _evt(
-        "content_block_start",
-        {
-            "type": "content_block_start",
-            "index": 0,
-            "content_block": {"type": "text", "text": ""},
-        },
-    )
     yield _evt("ping", {"type": "ping"})
 
     output_tokens = 0
-    input_tokens = 0
     stop_reason = "end_turn"
+    block_index = -1
+    open_block: str | None = None  # "text" | "tool:<openai index>"
+    saw_tool = False
+
+    def _stop_open() -> list[str]:
+        nonlocal open_block
+        if open_block is None:
+            return []
+        open_block = None
+        return [_evt("content_block_stop", {"type": "content_block_stop", "index": block_index})]
 
     async for line in line_iter:
         if not line.startswith("data: "):
@@ -234,10 +254,19 @@ async def openai_stream_to_anthropic_sse(
         except (json.JSONDecodeError, ValueError):
             continue
 
-        if "usage" in chunk:
-            u = chunk["usage"]
-            input_tokens = u.get("prompt_tokens", input_tokens)
-            output_tokens = u.get("completion_tokens", output_tokens)
+        if chunk.get("error") and not chunk.get("choices"):
+            err = chunk["error"]
+            message = err.get("message") if isinstance(err, dict) else str(err)
+            for e in _stop_open():
+                yield e
+            yield _evt(
+                "error",
+                {"type": "error", "error": {"type": "api_error", "message": message}},
+            )
+            return
+
+        if chunk.get("usage"):
+            output_tokens = chunk["usage"].get("completion_tokens", output_tokens)
 
         choices = chunk.get("choices") or []
         if not choices:
@@ -247,20 +276,84 @@ async def openai_stream_to_anthropic_sse(
 
         text = delta.get("content") or ""
         if text:
-            output_tokens += 1
+            if open_block != "text":
+                for e in _stop_open():
+                    yield e
+                block_index += 1
+                open_block = "text"
+                yield _evt(
+                    "content_block_start",
+                    {
+                        "type": "content_block_start",
+                        "index": block_index,
+                        "content_block": {"type": "text", "text": ""},
+                    },
+                )
             yield _evt(
                 "content_block_delta",
                 {
                     "type": "content_block_delta",
-                    "index": 0,
+                    "index": block_index,
                     "delta": {"type": "text_delta", "text": text},
                 },
             )
 
-        if finish:
-            stop_reason = "tool_use" if finish == "tool_calls" else "end_turn"
+        for i, tc in enumerate(delta.get("tool_calls") or []):
+            key = f"tool:{tc.get('index', i)}"
+            fn = tc.get("function") or {}
+            if open_block != key:
+                for e in _stop_open():
+                    yield e
+                block_index += 1
+                open_block = key
+                saw_tool = True
+                yield _evt(
+                    "content_block_start",
+                    {
+                        "type": "content_block_start",
+                        "index": block_index,
+                        "content_block": {
+                            "type": "tool_use",
+                            "id": tc.get("id") or f"toolu_{uuid.uuid4().hex[:24]}",
+                            "name": fn.get("name", ""),
+                            "input": {},
+                        },
+                    },
+                )
+            args = fn.get("arguments")
+            if args:
+                yield _evt(
+                    "content_block_delta",
+                    {
+                        "type": "content_block_delta",
+                        "index": block_index,
+                        "delta": {
+                            "type": "input_json_delta",
+                            "partial_json": args if isinstance(args, str) else json.dumps(args),
+                        },
+                    },
+                )
 
-    yield _evt("content_block_stop", {"type": "content_block_stop", "index": 0})
+        if finish:
+            stop_reason = (
+                "tool_use"
+                if finish == "tool_calls" or saw_tool
+                else ("max_tokens" if finish == "length" else "end_turn")
+            )
+
+    if block_index < 0:
+        # Anthropic clients expect at least one content block.
+        block_index, open_block = 0, "text"
+        yield _evt(
+            "content_block_start",
+            {
+                "type": "content_block_start",
+                "index": 0,
+                "content_block": {"type": "text", "text": ""},
+            },
+        )
+    for e in _stop_open():
+        yield e
     yield _evt(
         "message_delta",
         {
