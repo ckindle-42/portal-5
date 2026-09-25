@@ -45,14 +45,17 @@ from portal.platform.inference.router.metrics import (
     _hint_fallback_total,
     _reasoning_promotion_total,
     _record_response_time,
+    _tool_calls_recovered,
     _tool_loop_hops,
 )
 from portal.platform.inference.router.non_streaming import _try_non_streaming
 from portal.platform.inference.router.state import _record_error
 from portal.platform.inference.router.thinking import extract_think_inner, strip_think
 from portal.platform.inference.router.tools import (
+    TextToolCallHoldback,
     _dispatch_tool_call,
     _select_explicit_required_tool,
+    salvage_text_tool_calls,
 )
 from portal.platform.inference.router.trace import (
     finalize_trace,
@@ -422,6 +425,13 @@ async def _stream_with_tool_loop_impl(
         # empty_completion site, so a zero-content completion names its cause
         # (LOAD_AND_CONVERSE_V1 §P5) instead of leaving a bare count
         _last_frame: dict[str, Any] = {}
+        # Text-written tool calls (P5-OMLX-QWEN3CODER-TOOLTEXT-001): with tools
+        # offered, content from a call marker on is withheld until the stream
+        # ends, then dispatched if it parses or released as text if it doesn't.
+        # The finish frame and [DONE] wait with it.
+        _holdback = TextToolCallHoldback() if current_body.get("tools") else None
+        _deferred_finish: str | None = None
+        _deferred_done = False
 
         # Emit preamble (role chunk) on first hop
         if hop == 1:
@@ -481,7 +491,9 @@ async def _stream_with_tool_loop_impl(
                         # Suppress hop-N [DONE] when more hops follow.
                         # Hop 2+ will emit their own [DONE] after the
                         # final answer is streamed.
-                        if finish_reason != "tool_calls" or not tool_calls_buf:
+                        if _holdback is not None and _holdback.holding:
+                            _deferred_done = True
+                        elif finish_reason != "tool_calls" or not tool_calls_buf:
                             yield b"data: [DONE]\n\n"
                         continue
                     try:
@@ -509,6 +521,28 @@ async def _stream_with_tool_loop_impl(
                         if finish_reason == "tool_calls":
                             # Suppress finish_reason=tool_calls chunk too
                             continue
+
+                    _ct = delta.get("content")
+                    if _holdback is not None and (
+                        (_ct and isinstance(_ct, str)) or choice.get("finish_reason")
+                    ):
+                        _ct = _ct if isinstance(_ct, str) else ""
+                        _shown = _holdback.feed(_ct)
+                        _finish = choice.get("finish_reason")
+                        if _finish and _holdback.holding:
+                            _deferred_finish = "data: " + json.dumps(
+                                dict(obj, choices=[dict(choice, delta=dict(delta, content=""))])
+                            )
+                            _finish = None
+                        elif _finish:
+                            _shown += _holdback.take()
+                        if _shown != _ct or _finish != choice.get("finish_reason"):
+                            if not _shown and not _finish:
+                                continue
+                            delta = dict(delta, content=_shown)
+                            choice = dict(choice, delta=delta, finish_reason=_finish)
+                            obj = dict(obj, choices=[choice])
+                            line = f"data: {json.dumps(obj)}"
 
                     # ── Think-content handling ──────────────────────────────
                     # Centralised logic for both reasoning_content (Qwen3/Ollama
@@ -572,6 +606,36 @@ async def _stream_with_tool_loop_impl(
             _record_error(workspace_id, "stream_error")
             yield (f"data: {json.dumps({'error': 'Backend connection error'})}\n\n").encode()
             return
+
+        if _holdback is not None and _holdback.holding:
+            _held = _holdback.take()
+            _, _salvaged = salvage_text_tool_calls(_held, current_body.get("tools"))
+            if _salvaged:
+                logger.info(
+                    "Tool loop hop %d: recovered %d tool call(s) written as text "
+                    "(workspace=%s model=%s)",
+                    hop,
+                    len(_salvaged),
+                    workspace_id,
+                    current_body.get("model", ""),
+                )
+                _tool_calls_recovered.labels(workspace=workspace_id).inc(len(_salvaged))
+                tool_calls_buf.extend(_salvaged)
+                finish_reason = "tool_calls"
+            else:
+                _held_chunk = {
+                    "id": request_id,
+                    "object": "chat.completion.chunk",
+                    "created": int(time.time()),
+                    "model": workspace_id,
+                    "choices": [{"index": 0, "delta": {"content": _held}, "finish_reason": None}],
+                }
+                yield f"data: {json.dumps(_held_chunk)}\n\n".encode()
+                _content_emitted = True
+                if _deferred_finish:
+                    yield (_deferred_finish + "\n\n").encode()
+                if _deferred_done:
+                    yield b"data: [DONE]\n\n"
 
         # End-of-stream think fallback: if the model exhausted its token budget
         # inside a <think> block and emitted no actual content, surface the

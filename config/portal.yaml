@@ -475,7 +475,7 @@ workspaces:
     module: coding
     name: 💻 Portal Code Expert
     description: Code generation, debugging, architecture review (Qwen3-Coder-30B MoE, Ollama, 0.22s TTFT)
-    # 2026-09-25: card sampling (0.7/0.8/20) REVERTED same day — on oMLX it breaks tool calls (2-4 of 6 returned as text: the qwen3_coder parser misses a call preceded by text); prior values restored, 6/6. KNOWN_LIMITATIONS P5-OMLX-QWEN3CODER-TOOLTEXT-001
+    # 2026-09-25: card sampling (0.7/0.8/20) REVERTED same day — on oMLX it breaks tool calls (2-4 of 6 returned as text: the qwen3_coder parser misses a call preceded by text); prior values restored, 6/6. KNOWN_LIMITATIONS P5-OMLX-QWEN3CODER-TOOLTEXT-001 (resolved same day: the pipeline recovers text-written calls; the loss was prompt-shaped, so low temperature never covered it. Card A/B is unblocked.)
     model_hint: qwen3-coder:30b-a3b-q4_K_M-ctx256k
     context_limit: 262144
     predict_limit: 16384
@@ -1120,7 +1120,7 @@ workspaces:
     name: 🩹 Portal BigFix Analyst
     description: |-
       HCL BigFix endpoint management and patch compliance workspace. Handles: BigFix REST API queries and response parsing, Relevance Language expressions for targeting endpoints, RQL fixlet applicability queries, patch deployment status reporting, computer property retrieval, and compliance gap analysis across managed endpoints. Model_hint pending D10 sec10-bigfix-parse probe results — will be set to the top D10 scorer from TASK_MODEL_EVAL_V9_CANDIDATES.
-    # 2026-09-25: card sampling (0.7/0.8/20) REVERTED same day — on oMLX it breaks tool calls (2-4 of 6 returned as text: the qwen3_coder parser misses a call preceded by text); prior values restored, 6/6. KNOWN_LIMITATIONS P5-OMLX-QWEN3CODER-TOOLTEXT-001
+    # 2026-09-25: card sampling (0.7/0.8/20) REVERTED same day — on oMLX it breaks tool calls (2-4 of 6 returned as text: the qwen3_coder parser misses a call preceded by text); prior values restored, 6/6. KNOWN_LIMITATIONS P5-OMLX-QWEN3CODER-TOOLTEXT-001 (resolved same day: the pipeline recovers text-written calls; the loss was prompt-shaped, so low temperature never covered it. Card A/B is unblocked.)
     model_hint: qwen3-coder:30b-a3b-q4_K_M-ctx16k
     context_limit: 16384
     temperature: 0.1
@@ -2088,7 +2088,7 @@ workspaces:
     name: 📐 Portal CAD / 3D-Print Designer
     description: |-
       Parametric 3D-model generation via code-CAD: constrained structured-intermediate generation (generate_scad — feature-level JSON in, validated OpenSCAD+STL+PNG out, self-correcting on failure) for parts with holes/pockets/patterns/shells; direct render_openscad for trivial single-primitive parts; Python+trimesh for procedural geometry. Produces STL/3MF for FDM/SLA printing. Qwen3-Coder 30B-A3B MoE (Ollama, tool-capable, >20 t/s). Every render is mesh-validated (watertight/volume/bbox) and CadQuery/build123d/OCP are now available via conda-forge (capability-gated, not platform-hardcoded — see PLATFORM.md).
-    # 2026-09-25: card sampling (0.7/0.8/20) REVERTED same day — on oMLX it breaks tool calls (2-4 of 6 returned as text: the qwen3_coder parser misses a call preceded by text); prior values restored, 6/6. KNOWN_LIMITATIONS P5-OMLX-QWEN3CODER-TOOLTEXT-001
+    # 2026-09-25: card sampling (0.7/0.8/20) REVERTED same day — on oMLX it breaks tool calls (2-4 of 6 returned as text: the qwen3_coder parser misses a call preceded by text); prior values restored, 6/6. KNOWN_LIMITATIONS P5-OMLX-QWEN3CODER-TOOLTEXT-001 (resolved same day: the pipeline recovers text-written calls; the loss was prompt-shaped, so low temperature never covered it. Card A/B is unblocked.)
     model_hint: qwen3-coder:30b-a3b-q4_K_M-ctx16k
     context_limit: 16384
     predict_limit: 16384

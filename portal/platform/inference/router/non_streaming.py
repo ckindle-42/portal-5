@@ -17,11 +17,12 @@ import httpx
 from fastapi.responses import JSONResponse
 
 from portal.platform.inference.config import PersonaSpec
-from portal.platform.inference.router.metrics import _hint_fallback_total
+from portal.platform.inference.router.metrics import _hint_fallback_total, _tool_calls_recovered
 from portal.platform.inference.router.power import _record_usage
 from portal.platform.inference.router.tools import (
     _dispatch_tool_call,
     _select_explicit_required_tool,
+    salvage_text_tool_calls,
 )
 from portal.platform.inference.router.validation import (
     _inject_ollama_options,
@@ -391,6 +392,23 @@ async def _try_non_streaming(
             resp = await _http_client.post(backend.chat_url, json=req_body, timeout=_timeout_obj)
             resp.raise_for_status()
             data = resp.json()
+            # P5-OMLX-QWEN3CODER-TOOLTEXT-001: a call the engine's parser
+            # missed arrives as content; recover it before the tool loop.
+            for _c in data.get("choices") or []:
+                _msg = _c.get("message") or {}
+                if req_body.get("tools") and not _msg.get("tool_calls"):
+                    _text, _salvaged = salvage_text_tool_calls(
+                        _msg.get("content") or "", req_body["tools"]
+                    )
+                    if _salvaged:
+                        logger.info(
+                            "NON-STREAM: recovered %d tool call(s) written as text (model=%s)",
+                            len(_salvaged),
+                            req_body.get("model", ""),
+                        )
+                        _tool_calls_recovered.labels(workspace=workspace_id).inc(len(_salvaged))
+                        _msg.update(content=_text, tool_calls=_salvaged)
+                        _c["finish_reason"] = "tool_calls"
             _resp_tc: list[dict[str, Any]] = []
             for _c in data.get("choices") or []:
                 _resp_tc.extend((_c.get("message") or {}).get("tool_calls") or [])
