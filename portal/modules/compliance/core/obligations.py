@@ -295,7 +295,8 @@ def decompose(
         body_start = region.head_start + (intro.end() if intro else 0)
         items = _split_alternative_list(source[body_start : region.end], region.kind)
         head_conditions = _leading_conditions(head)
-        head_cadence = _CADENCE.search(head).group(0) if _CADENCE.search(head) else ""
+        cadence_match = _CADENCE.search(head)
+        head_cadence = cadence_match.group(0) if cadence_match else ""
         head_depends = [f"Part {r}" for r in _PART_REF_RE.findall(head)]
         if not items:
             continue

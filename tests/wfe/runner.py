@@ -34,6 +34,7 @@ Usage:
 from __future__ import annotations
 
 import argparse
+import contextlib
 import datetime as dt
 import json
 import os
@@ -42,11 +43,13 @@ import shutil
 import subprocess
 import sys
 import time
+import urllib.error
 import urllib.request
 from pathlib import Path
 
 import yaml
 
+from portal.platform.inference.ollama_native import to_native_request
 from tests.wfe.checkers import CheckContext, apply_checkers
 from tests.wfe.schema import Economics, Outcome, ResultRow, env_fingerprint, sha12
 
@@ -464,15 +467,19 @@ def _iter_lines_with_stall(resp, stall_s: int, hard_s: int, tag: str):
 
 
 def _parse_stream_api(lines) -> dict:
-    content, tool_parts, done_reason, raw = [], {}, None, {}
+    content, thinking, tool_parts, done_reason, raw = [], [], {}, None, {}
     for line in lines:
         line = line.strip()
         if not line:
             continue
         obj = json.loads(line)
+        if obj.get("error"):
+            raise RuntimeError(f"engine error mid-stream: {obj['error']}")
         msg = obj.get("message") or {}
         if msg.get("content"):
             content.append(msg["content"])
+        if msg.get("thinking"):
+            thinking.append(msg["thinking"])
         for tc in msg.get("tool_calls") or []:
             fn = tc.get("function", {}) or {}
             idx = fn.get("index", len(tool_parts)) or 0
@@ -485,7 +492,10 @@ def _parse_stream_api(lines) -> dict:
         if obj.get("done"):
             done_reason = obj.get("done_reason")
             raw = obj
-    return {"message": _mk_msg(content, tool_parts), "done_reason": done_reason, "_raw": raw}
+    out_msg = _mk_msg(content, tool_parts)
+    if thinking:
+        out_msg["reasoning"] = "".join(thinking)
+    return {"message": out_msg, "done_reason": done_reason, "_raw": raw}
 
 
 def _parse_stream_v1(lines) -> dict:
@@ -554,11 +564,8 @@ def _v1_think_fields(think: str) -> dict:
 
 #: Every sampling key the workspace resolves is sent. Until 2026-09-24 only
 #: temperature/top_p/seed were, so top_k, min_p, repeat_penalty and
-#: presence_penalty never reached the model. Ollama masked that with its own
-#: defaults (repeat_penalty 1.1); llama-server and MTPLX default to no repetition
-#: penalty, so their arms ran without the workspace's loop guard and looped.
-#: Ollama's /v1 ignores the non-OpenAI keys (it applies its defaults instead);
-#: /api honours all of them via `options`.
+#: presence_penalty never reached the model; llama-server and MTPLX default to no
+#: repetition penalty, so their arms ran without the workspace's loop guard.
 SAMPLING_KEYS = (
     "temperature",
     "top_p",
@@ -568,6 +575,58 @@ SAMPLING_KEYS = (
     "presence_penalty",
     "seed",
 )
+
+#: Which sampling keys each engine APPLIES — measured 2026-09-25 (Ollama 0.34.2
+#: on gemma4 + qwen3-vl; oMLX 0.6.4 on Qwen3.5-9B) with extreme values: top_k=1 /
+#: min_p=1 / top_p=0.001 collapse 3 seeds to 1 output when honoured, a penalty
+#: of 2.0 changes a temperature-0 output when honoured.
+#:   Ollama: served natively (see _build_payload), so everything reaches the
+#:     sampler — which ignores presence_penalty (no effect even on /api/chat).
+#:     Over /v1 top_k/min_p/repeat_penalty/options were silently dropped.
+#:   oMLX: everything, with repeat_penalty sent as `repetition_penalty`.
+#: scripts/engine_contract_check.py re-proves this table against production's
+#: request builders on every engine version change.
+#: A key outside an engine's set would run as a no-op, so the campaign refuses
+#: an override that depends on one (campaign.py).
+DELIVERABLE_KEYS = {
+    "ollama": frozenset(SAMPLING_KEYS) - {"presence_penalty"},
+    "omlx": frozenset(SAMPLING_KEYS),
+}
+
+
+def undeliverable_keys(sampling: dict, engine: str | None = None) -> list[str]:
+    """Sampling keys in `sampling` that `engine`'s /v1 will silently drop. An
+    engine not in the measured table is assumed to honour everything."""
+    ok = DELIVERABLE_KEYS.get(engine or ENGINE)
+    if ok is None:
+        return []
+    return sorted(k for k in sampling if k in SAMPLING_KEYS and k not in ok)
+
+
+def _build_v1(
+    model: str, messages: list[dict], fmt: str, sampling: dict, think: str, wire_stream: bool
+) -> dict:
+    """The OpenAI-shaped body, exactly as production would send it."""
+    payload = {
+        "model": model,
+        "messages": messages,
+        "stream": wire_stream,
+        "max_tokens": int(sampling.pop("max_tokens", 2048)),
+    }
+    if wire_stream:
+        payload["stream_options"] = {"include_usage": True}
+    for k in SAMPLING_KEYS:
+        if sampling.get(k) is not None:
+            payload[k] = sampling[k]
+    if ENGINE != "ollama" and "repeat_penalty" in payload:
+        # MLX servers (oMLX, mlx_lm, vllm-mlx) name it repetition_penalty and
+        # ignore repeat_penalty; llama-server takes repeat_penalty. Sending
+        # both reaches either — production maps it the same way for oMLX
+        # (router/validation.py `_inject_omlx_options`).
+        payload["repetition_penalty"] = payload["repeat_penalty"]
+    if fmt == "json":
+        payload["response_format"] = {"type": "json_object"}
+    return payload | _v1_think_fields(think)
 
 
 def _build_payload(
@@ -579,51 +638,59 @@ def _build_payload(
     think: str,
     wire_stream: bool = True,
 ) -> tuple[str, dict, list[str]]:
-    """Assemble the endpoint-specific request. Split out of chat() so the two
-    wire contracts stay legible and independently testable.
+    """Assemble the request actually put on the wire. Split out of chat() so
+    the wire contracts stay legible and independently testable.
 
     `wire_stream` is how the bytes come off the socket, which the stall watchdog
     needs — it is independent of the harness `stream` dimension (that only marks
     which logical mode a preflight arm is exercising). Default True: streaming is
-    the only way to tell a slow model from a wedged one."""
+    the only way to tell a slow model from a wedged one.
+
+    The "v1" endpoint on Ollama is served natively: production answers Ollama
+    backends from /api/chat through ollama_native.OllamaNativeTransport, because
+    /v1 drops top_k, min_p, repeat_penalty and `options` (and forces
+    temperature/top_p to 1.0 when absent). The harness applies the SAME
+    translation, so an arm is measured exactly as production serves it."""
     endpoint, fmt = h["endpoint"], h.get("format", "none")
-    caveats: list[str] = []
-    max_tokens = int(sampling.pop("max_tokens", 2048))
     if endpoint == "v1":
-        payload = {
-            "model": model,
-            "messages": messages,
-            "stream": wire_stream,
-            "max_tokens": max_tokens,
-        }
-        if wire_stream:
-            payload["stream_options"] = {"include_usage": True}
-        for k in SAMPLING_KEYS:
-            if sampling.get(k) is not None:
-                payload[k] = sampling[k]
-        if fmt == "json":
-            payload["response_format"] = {"type": "json_object"}
-        payload |= _v1_think_fields(think)
-        url = f"{CHAT_BASE}/v1/chat/completions"
-    else:
-        options = {"num_predict": max_tokens}
-        for k in SAMPLING_KEYS:
-            if sampling.get(k) is not None:
-                options[k] = sampling[k]
-        payload = {
-            "model": model,
-            "messages": messages,
-            "stream": wire_stream,
-            "options": options,
-        }
-        if fmt == "json":
-            payload["format"] = "json"
-        if think in ("true", "false"):
-            payload["think"] = think == "true"
-        url = f"{OLLAMA}/api/chat"
+        payload = _build_v1(model, messages, fmt, sampling, think, wire_stream)
+        if schemas:
+            payload["tools"] = schemas
+        if ENGINE == "ollama":
+            return f"{OLLAMA}/api/chat", to_native_request(payload, _ollama_can_think(model)), []
+        return f"{CHAT_BASE}/v1/chat/completions", payload, []
+    options = {"num_predict": int(sampling.pop("max_tokens", 2048))}
+    for k in SAMPLING_KEYS:
+        if sampling.get(k) is not None:
+            options[k] = sampling[k]
+    payload = {"model": model, "messages": messages, "stream": wire_stream, "options": options}
+    if fmt == "json":
+        payload["format"] = "json"
+    if think in ("true", "false"):
+        payload["think"] = think == "true"
     if schemas:
         payload["tools"] = schemas
-    return url, payload, caveats
+    return f"{OLLAMA}/api/chat", payload, []
+
+
+_CAN_THINK: dict[str, bool] = {}
+
+
+def _ollama_can_think(model: str) -> bool:
+    """Whether Ollama reports the thinking capability for `model` (cached). The
+    native API rejects `think` either way on a model without it."""
+    if model not in _CAN_THINK:
+        try:
+            req = urllib.request.Request(
+                f"{OLLAMA}/api/show",
+                data=json.dumps({"model": model}).encode(),
+                headers={"Content-Type": "application/json"},
+            )
+            with urllib.request.urlopen(req, timeout=30) as r:
+                _CAN_THINK[model] = "thinking" in (json.load(r).get("capabilities") or [])
+        except Exception:
+            return False
+    return _CAN_THINK[model]
 
 
 def _econ_from_usage(u: dict) -> Economics:
@@ -702,7 +769,6 @@ def chat(
     model under memory pressure is slow, not broken, and a blind deadline would
     discard real work and mislabel the model."""
     h = {**HARNESS_DEFAULTS, **(harness or {})}
-    endpoint = h["endpoint"]
     wire_stream = h.get("wire_stream", True)
     think = h["think"]
     if think == "default":
@@ -715,6 +781,8 @@ def chat(
     # threshold is the smaller of STALL_S and that budget; the hard ceiling for
     # a single call IS that budget, so a task never overruns its wall budget
     # even though no individual generation is cut off while tokens still flow.
+    # The wire protocol actually spoken — an Ollama "v1" arm is served natively.
+    wire = "api" if url.endswith("/api/chat") else "v1"
     hard_s = max(30, int(timeout))
     stall_s = min(STALL_S, hard_s)
     t0 = time.monotonic()
@@ -725,11 +793,18 @@ def chat(
         with urllib.request.urlopen(req, timeout=stall_s) as r:
             if wire_stream:
                 lines = _iter_lines_with_stall(r, stall_s, hard_s, model)
-                msg, finish, econ = _read_stream(endpoint, lines)
+                msg, finish, econ = _read_stream(wire, lines)
             else:
-                msg, finish, econ = _read_response(endpoint, r)
+                msg, finish, econ = _read_response(wire, r)
     except TimeoutError as e:
         raise StreamStalledError(f"{model}: no response headers for {stall_s}s ({e})") from e
+    except urllib.error.HTTPError as e:
+        # The status line alone ("HTTP Error 400: Bad Request") cannot tell a
+        # context overflow from a malformed request; the engine's body can.
+        body = ""
+        with contextlib.suppress(Exception):
+            body = e.read().decode(errors="ignore")[:500]
+        raise RuntimeError(f"HTTP {e.code} from {url}: {body or e.reason}") from e
     econ.wall_s = round(time.monotonic() - t0, 2)
     return {
         "message": msg,
@@ -1023,8 +1098,14 @@ def _classify(
         return Outcome.HARNESS_ERROR, note, {}
     cr = apply_checkers(task, ctx)
     outcome, notes, evidence = cr.outcome, cr.notes, cr.evidence
-    if override is Outcome.BUDGET_EXHAUSTED and outcome != Outcome.PASS:
-        outcome, notes = Outcome.BUDGET_EXHAUSTED, "budget exhausted | " + notes
+    if override is Outcome.BUDGET_EXHAUSTED:
+        # A stall, the wall budget or the turn cap: the model did NOT finish. A
+        # checker PASS on artifacts it left behind must not hide that — the
+        # previous `outcome != PASS` guard reported a 900s StreamStalledError as
+        # PASS (s2_seat_vendor_omlx_seat_v1 row 1). The checker's verdict on the
+        # partial work is kept as evidence.
+        evidence = {**evidence, "checker_outcome": outcome.value}
+        outcome, notes = Outcome.BUDGET_EXHAUSTED, "did not finish | " + notes
     if outcome == Outcome.FAIL and tool_log and tool_errors == len(tool_log):
         outcome = Outcome.TOOL_ERROR
         notes = "every tool call errored — instrument suspect | " + notes
@@ -1137,9 +1218,16 @@ class _Loop:
             return False
         self.messages.append({"role": "assistant", "content": content})
         sig = self.task.get("completion_signal")
-        if sig and re.search(sig, content, re.I):
-            return False
-        return bool(self.task.get("agentic"))
+        if sig and not re.search(sig, content, re.I):
+            self.transcript[-1]["completion_signal_missing"] = True
+        # A text-only turn ENDS the run, signal or not — that is what production
+        # does (the response returns to the user). The previous runner looped an
+        # agentic task on with the assistant message LAST and no new user turn:
+        # a prefill-continue the model answers by producing a SECOND answer. In
+        # 33 of 1150 archived rows that second answer (often a different
+        # determination) replaced the first as the scored final_text, or 400'd
+        # the next request as HARNESS_ERROR, and it inflated turn counts.
+        return False
 
 
 def _run_turns(lp: _Loop, max_turns: int, budget_s: int) -> None:
@@ -1152,14 +1240,13 @@ def _run_turns(lp: _Loop, max_turns: int, budget_s: int) -> None:
         if not lp.step(turn, int(remaining)):
             break
     else:
-        # Every turn ran without breaking — an agentic task that kept calling
-        # tools and never delivered an answer: a turn-budget exhaustion (the
-        # model did not finish), not a wrong answer against an empty string.
-        if not lp.final_text:
-            lp.outcome_override = lp.outcome_override or Outcome.BUDGET_EXHAUSTED
-            lp.transcript.append(
-                {"turn": max_turns, "exhausted_turns": f"no final answer in {max_turns} turns"}
-            )
+        # Every turn ran without breaking: the model kept calling tools and never
+        # delivered an answer (a text-only turn always ends the run) — a
+        # turn-budget exhaustion, the loop signature this harness hunts.
+        lp.outcome_override = lp.outcome_override or Outcome.BUDGET_EXHAUSTED
+        lp.transcript.append(
+            {"turn": max_turns, "exhausted_turns": f"no final answer in {max_turns} turns"}
+        )
     lp.econ.wall_s = round(time.monotonic() - t0, 1)
     if not lp.final_text and lp.assistant_texts:
         lp.final_text = lp.assistant_texts[-1]
@@ -1233,6 +1320,8 @@ def _finalize_run(
     outcome, notes, evidence = _classify(
         task, ctx, transcript, outcome_override, tool_log, tool_errors
     )
+    if any(t.get("completion_signal_missing") for t in transcript):
+        evidence = {**evidence, "completion_signal_missing": True}
     return {
         "outcome": outcome.value,
         "notes": notes,

@@ -63,7 +63,7 @@ def _text_schema() -> Any:
     still writes — but only a ``project_sections`` rebuild stamps a KB whose
     rows actually carry the predicates.
     """
-    import pyarrow as pa
+    import pyarrow as pa  # type: ignore[import-untyped]  # pyarrow ships no stubs/py.typed
 
     from portal.modules.compliance.core import section_index as si
 

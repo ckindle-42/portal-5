@@ -132,13 +132,15 @@ def _projectable_sections_in_store(repo: Any, jurisdiction: str) -> int:
     covers, never part of the eligible population (``section_index.build_plan``
     classifies them superseded, not eligible) — so they do not count as
     something the index is missing."""
-    return repo._conn.execute(
-        """SELECT COUNT(*) FROM source_sections s
+    return int(
+        repo._conn.execute(
+            """SELECT COUNT(*) FROM source_sections s
              JOIN document_revisions r ON r.revision_id = s.revision_id
              JOIN source_documents d ON d.logical_id = r.logical_id
             WHERE d.jurisdiction = ? AND s.char_start >= 0""",
-        (jurisdiction,),
-    ).fetchone()[0]
+            (jurisdiction,),
+        ).fetchone()[0]
+    )
 
 
 def retrieval_projection_status(repo: Any) -> dict[str, Any]:

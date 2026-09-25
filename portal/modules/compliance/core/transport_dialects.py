@@ -306,13 +306,13 @@ class OpenAICompat:
             ),
             "load_duration_s": timings.get("load_s"),
             "prompt_eval_duration_s": (
-                timings.get("prompt_ms") / 1000.0
-                if isinstance(timings.get("prompt_ms"), (int, float))
+                prompt_ms / 1000.0
+                if isinstance(prompt_ms := timings.get("prompt_ms"), (int, float))
                 else None
             ),
             "eval_duration_s": (
-                timings.get("predicted_ms") / 1000.0
-                if isinstance(timings.get("predicted_ms"), (int, float))
+                predicted_ms / 1000.0
+                if isinstance(predicted_ms := timings.get("predicted_ms"), (int, float))
                 else None
             ),
         }

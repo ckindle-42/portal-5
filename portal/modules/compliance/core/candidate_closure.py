@@ -36,7 +36,8 @@ _CONTEXT_NOTE = (
 
 
 def _section_rows(repo: Any, revision_id: str) -> list[dict[str, Any]]:
-    return repo.sections_with_role(revision_id)
+    rows: list[dict[str, Any]] = repo.sections_with_role(revision_id)
+    return rows
 
 
 def _document_revision(repo: Any, document_id: str) -> tuple[str, str] | None:

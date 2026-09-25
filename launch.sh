@@ -650,7 +650,13 @@ PYEOF
     ;;
 
   sync-config)
-    exec python3 -m portal.platform.inference.cli sync-config "${@:2}"
+    python3 -m portal.platform.inference.cli sync-config "${@:2}" || exit $?
+    # Direct-to-oMLX clients (IDE paths) get the seat's sampling as oMLX's
+    # per-model defaults; the pipeline already sends it explicitly.
+    if [ -d "$HOME/.omlx" ]; then
+      "$PORTAL_ROOT/.venv/bin/python" "$PORTAL_ROOT/scripts/omlx_seat_defaults.py" \
+        || echo "[portal-5] ⚠️  oMLX seat defaults sync failed (pipeline traffic unaffected)"
+    fi
     ;;
 
 

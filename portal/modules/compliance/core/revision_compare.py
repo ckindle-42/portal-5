@@ -82,11 +82,8 @@ def classify_delta(before_text: str, after_text: str) -> tuple[str, dict[str, An
     if bq != aq:
         detail["quantity_before"] = bq
         detail["quantity_after"] = aq
-        tightened = (
-            _min_days(bq) is not None
-            and _min_days(aq) is not None
-            and _min_days(aq) < _min_days(bq)
-        )
+        before_days, after_days = _min_days(bq), _min_days(aq)
+        tightened = before_days is not None and after_days is not None and after_days < before_days
         return ("QUANTITY_TIGHTENED" if tightened else "QUANTITY_CHANGED"), detail
     low_b, low_a = before_text.lower(), after_text.lower()
     if any(

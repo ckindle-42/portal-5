@@ -1,0 +1,29 @@
+# S2 rerun of the laguna seat (docs/TASK_SEAT_VENDOR_FIT_V1.md) — the 2026-09-25
+# A/B in the result log is VOID: its seat arm ran with thinking forced off
+# (production sends no think for this seat, so the model thinks) and with its
+# repeat_penalty never reaching oMLX (sent as `repeat_penalty`, which oMLX
+# ignores). All three arms are variants of ONE model in ONE campaign; each has
+# its own run_ids, so nothing collides and a resume cannot mix them.
+#
+# Serve on oMLX, as production does (priority-10 alias):
+#   WFE_ENGINE=omlx WFE_CHAT_BASE_URL=http://127.0.0.1:8085 \
+#     uv run python -m tests.wfe.campaign --plan tests/wfe/plans/s2_laguna_rerun_omlx.yaml \
+#       --campaign-id s2_laguna_rerun_omlx_v1 --debug-dir <dir>
+workloads:
+  auto-coding::laguna:
+    home: coding
+    discovery: [compliance_agentic]
+    arms:
+      # Arm A — the seat exactly as production serves it (sampling from
+      # config/portal.yaml, no think field -> model default).
+      incumbent: Laguna-XS-2.1-4bit
+      challengers:
+        # Arm B — the vendor card (config/model_card_expectations.yaml `laguna`).
+        - model: Laguna-XS-2.1-4bit
+          label: card
+          sampling: {temperature: 1.0, top_p: 1.0, top_k: 20}
+        # Arm C — seat sampling with thinking pinned off: the configuration the
+        # voided run actually measured, now as an explicit, labelled arm.
+        - model: Laguna-XS-2.1-4bit
+          label: seat-nothink
+          think: false

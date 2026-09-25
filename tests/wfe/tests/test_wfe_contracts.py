@@ -608,10 +608,11 @@ class TestOfflineRescore:
         assert out[0]["rescore"]["checker_outcome"] == "FAIL"
         assert out[0]["rescore"]["changed"] is False
 
-    def test_rescore_upgrades_a_budget_outcome_when_the_checker_now_passes(self, tmp_path):
-        """The one case a checker fix legitimately overrides run telemetry: the
-        model DID produce a correct artifact, and the too-strict checker was why
-        the run looked unfinished."""
+    def test_rescore_never_upgrades_a_budget_outcome_to_pass(self, tmp_path):
+        """A run that stalled or hit its turn/wall budget did not finish. A
+        checker PASS on the artifacts it left behind must not turn it into a
+        PASS — that was the stall-masking defect (s2_seat_vendor_omlx_seat_v1
+        row 1: a 900s StreamStalledError reported PASS)."""
         rec = self._debug_record()
         rec["outcome"] = "BUDGET_EXHAUSTED"
         rec["sandbox_tree"] = {"parse_kv.py": TestOfflineRescore._GOOD_PARSE_KV}
@@ -619,7 +620,8 @@ class TestOfflineRescore:
         dbg.mkdir()
         (dbg / "m_t.debug.jsonl").write_text(json.dumps(rec) + "\n")
         out = camp.rescore_debug_dir(dbg)
-        assert out[0]["rescore"]["outcome"] == "PASS"
+        assert out[0]["rescore"]["outcome"] == "BUDGET_EXHAUSTED"
+        assert out[0]["rescore"]["checker_outcome"] == "PASS"
 
     def test_rescore_updates_campaign_rows_and_manifest(self, tmp_path):
         camp.CAMPAIGNS = tmp_path / "campaigns"
@@ -907,8 +909,13 @@ class TestAdaptiveThink:
     no campaign task uses, and dropped `think` entirely on the /v1 path so a
     `think: false` workspace was measured with the model's reasoning left on."""
 
-    def test_v1_payload_carries_think_like_production(self):
+    def test_v1_payload_carries_think_like_production(self, monkeypatch):
+        import tests.wfe.runner as rn
         from tests.wfe.runner import _build_payload
+
+        # Ollama "v1" arms are served natively, as production serves them;
+        # think reaches a thinking-capable model in both directions.
+        monkeypatch.setattr(rn, "_ollama_can_think", lambda m: True)
 
         url, payload, caveats = _build_payload(
             "m",
@@ -918,7 +925,7 @@ class TestAdaptiveThink:
             None,
             "false",
         )
-        assert "/v1/chat/completions" in url
+        assert url.endswith("/api/chat")
         assert payload["think"] is False
         assert not caveats  # no more "v1_think_unsupported"
         _, p2, _ = _build_payload(
@@ -931,10 +938,14 @@ class TestAdaptiveThink:
         )
         assert p2["think"] is True
 
-    def test_every_resolved_sampling_key_reaches_the_request(self):
+    def test_every_resolved_sampling_key_reaches_the_request(self, monkeypatch):
         """The workspace's loop guard (repeat_penalty) and top_k/min_p were dropped
-        on both paths; engines without Ollama's defaults then looped."""
+        on both paths; engines without Ollama's defaults then looped. On Ollama
+        the v1 arm is served natively, so every key lands in `options`."""
+        import tests.wfe.runner as rn
         from tests.wfe.runner import _build_payload
+
+        monkeypatch.setattr(rn, "_ollama_can_think", lambda m: True)
 
         sampling = {
             "temperature": 0.3,
@@ -949,7 +960,7 @@ class TestAdaptiveThink:
         _, v1, _ = _build_payload("m", msgs, {"endpoint": "v1"}, dict(sampling), None, "false")
         _, api, _ = _build_payload("m", msgs, {"endpoint": "api"}, dict(sampling), None, "false")
         for k, v in sampling.items():
-            assert v1[k] == v
+            assert v1["options"][k] == v
             assert api["options"][k] == v
 
     def test_engine_mode_routes_v1_to_engine_and_uses_template_switch(self, monkeypatch):
@@ -979,36 +990,93 @@ class TestAdaptiveThink:
         assert rn._v1_think_fields("true") == {"think": True}
         assert rn._v1_think_fields("default") == {}
 
-    def test_campaign_harness_resolves_think_workspace_then_card(self):
+    def test_campaign_harness_resolves_think_like_production(self, monkeypatch):
+        """Production reads only the workspace's `think`; with none it sends
+        nothing. The harness used to fall back to the card's harness_policy and
+        ran three production seats with thinking off that production runs on."""
+        import tests.wfe.runner as rn
         from tests.wfe import campaign as c
 
         assert c.campaign_harness({"model": "m", "think": False})["think"] == "false"
         assert c.campaign_harness({"model": "m", "think": True})["think"] == "true"
-        # no workspace think -> card policy
+        assert c.campaign_harness({"model": "laguna", "think": None})["think"] == "native"
+        _, payload, _ = rn._build_payload("m", [], {"endpoint": "v1"}, {}, None, "native")
+        assert "think" not in payload and "reasoning_effort" not in payload
+        # raw-model preflight still resolves the card policy
         reg = {"gpt-oss": {"harness_policy": {"think": "true"}}}
         import tests.wfe.runner as rn
 
         assert rn.think_policy("gpt-oss:20b", reg) == "true"
 
-    def test_wfe_sampling_override_replaces_seat_sampling(self, monkeypatch):
+    def test_wfe_sampling_override_replaces_seat_sampling(self):
         from tests.wfe import campaign as c
 
         wsc = {"sampling": {"temperature": 0.2, "min_p": 0.05, "max_tokens": 16384}}
-        monkeypatch.setenv("WFE_SAMPLING", '{"temperature": 1.0, "top_k": 20}')
-        assert c._sampling_for(wsc, 1) == {
+        ov = {"sampling": {"temperature": 1.0, "top_k": 20}}
+        assert c._sampling_for(wsc, 1, ov) == {
             "max_tokens": 16384,
             "temperature": 1.0,
             "top_k": 20,
             "seed": 1001,
+            "max_tokens_source": "predict_limit",
         }
+        # no override -> the seat's own block
+        assert c._sampling_for(wsc, 0)["min_p"] == 0.05
+        # no predict_limit -> production sends no cap; the harness only guards runaways
+        bare = c._sampling_for({"sampling": {"temperature": 0.7}}, 0)
+        assert bare["max_tokens"] == c.HARNESS_RUNAWAY_CAP
+        assert bare["max_tokens_source"] == "harness_runaway_cap"
 
-    def test_wfe_think_override_wins_and_is_stamped(self, monkeypatch):
+    def test_wfe_think_override_wins_and_is_stamped(self):
         from tests.wfe import campaign as c
 
-        monkeypatch.setenv("WFE_THINK", "false")
-        assert c.campaign_harness({"model": "m", "think": True})["think"] == "false"
-        monkeypatch.setenv("WFE_THINK", "bogus")
-        assert c.campaign_harness({"model": "m", "think": True})["think"] == "true"
+        assert (
+            c.campaign_harness({"model": "m", "think": True}, {"think": "false"})["think"]
+            == "false"
+        )
+        assert (
+            c.campaign_harness({"model": "m", "think": True}, {"think": "bogus"})["think"] == "true"
+        )
+
+    def test_env_override_becomes_a_distinct_arm_with_its_own_run_ids(self, monkeypatch):
+        """The A/B of one model: seat arm and card arm must not share run_ids,
+        or --append adds 0 rows and the card arm silently never runs."""
+        from tests.wfe import campaign as c
+
+        monkeypatch.delenv("WFE_SAMPLING", raising=False)
+        monkeypatch.delenv("WFE_THINK", raising=False)
+        seat = c.arm_spec("m:tag")
+        assert seat == ("m:tag", "m:tag", {})
+        monkeypatch.setenv("WFE_SAMPLING", '{"temperature": 1.0}')
+        card = c.arm_spec("m:tag")
+        assert card[0].startswith("m:tag@env-") and card[1] == "m:tag"
+        assert card[2] == {"sampling": {"temperature": 1.0}}
+        monkeypatch.setenv("WFE_SAMPLING", '{"temperature": 0.7}')
+        assert c.arm_spec("m:tag")[0] != card[0]
+
+    def test_plan_variant_arm(self, monkeypatch):
+        from tests.wfe import campaign as c
+
+        monkeypatch.delenv("WFE_SAMPLING", raising=False)
+        monkeypatch.delenv("WFE_THINK", raising=False)
+        arm, model, ov = c.arm_spec(
+            {"model": "m:tag", "label": "card", "sampling": {"top_k": 20}, "think": True}
+        )
+        assert arm.startswith("m:tag@card-") and model == "m:tag"
+        assert ov == {"sampling": {"top_k": 20}, "think": "true"}
+
+    def test_row_override_survives_a_resume_without_env(self, monkeypatch):
+        """Overrides live on the row; a resume in a clean shell must still run
+        the card arm as the card arm."""
+        from tests.wfe import campaign as c
+
+        monkeypatch.delenv("WFE_SAMPLING", raising=False)
+        row = {"arm": "m@card-x", "model": "m", "overrides": {"sampling": {"temperature": 1.0}}}
+        assert c.row_overrides(row) == {"sampling": {"temperature": 1.0}}
+        assert c.row_model(row) == "m"
+        # legacy rows (pre-variant manifests) keep the env semantics
+        monkeypatch.setenv("WFE_SAMPLING", '{"temperature": 0.5}')
+        assert c.row_overrides({"arm": "m"}) == {"sampling": {"temperature": 0.5}}
 
     def test_workspace_context_exposes_think(self):
         from tests.wfe.runner import workspace_context
@@ -1455,3 +1523,61 @@ class TestHealth:
         h = camp.health(self._c(tmp_path, {"inc": ["PASS", "PENDING"]}))
         assert h["checks"]["disk_free_gb"] == 5
         assert (h["verdict"], h["exit_code"]) == ("DEGRADED", 3)
+
+
+class TestSamplingDelivery:
+    """Measured 2026-09-25: Ollama /v1 drops top_k/min_p/repeat_penalty/
+    presence_penalty; oMLX ignores `repeat_penalty` and honours
+    `repetition_penalty`. A row must never claim sampling the model never saw."""
+
+    def test_omlx_gets_repetition_penalty(self, monkeypatch):
+        import tests.wfe.runner as rn
+
+        monkeypatch.setattr(rn, "ENGINE", "omlx")
+        _, payload, _ = rn._build_payload(
+            "m", [], {"endpoint": "v1"}, {"repeat_penalty": 1.05, "top_k": 20}, None, "default"
+        )
+        assert payload["repetition_penalty"] == 1.05
+        assert payload["top_k"] == 20
+
+    def test_ollama_undeliverable_keys(self):
+        import tests.wfe.runner as rn
+
+        s = {"temperature": 0.7, "top_p": 0.8, "top_k": 20, "min_p": 0.0, "repeat_penalty": 1.05}
+        assert rn.undeliverable_keys(s, "ollama") == []
+        assert rn.undeliverable_keys({"presence_penalty": 1.5}, "ollama") == ["presence_penalty"]
+        assert rn.undeliverable_keys(s, "omlx") == []
+        assert rn.undeliverable_keys({"max_tokens": 5, "seed": 1}, "ollama") == []
+
+    def test_override_with_undeliverable_key_blocks_the_arm(self, tmp_path, monkeypatch):
+        import tests.wfe.campaign as c
+
+        monkeypatch.setattr(c, "ENGINE", "ollama")
+        monkeypatch.setattr(
+            c, "undeliverable_keys", lambda s: [k for k in s if k == "top_k"]
+        )  # stand-in
+        monkeypatch.setattr(c, "preflight_arm", lambda *a, **k: pytest.fail("must not preflight"))
+        rows = [
+            {
+                "run_id": "w|m@card-1|s|t|r0",
+                "arm": "m@card-1",
+                "model": "m",
+                "overrides": {"sampling": {"temperature": 1.0, "top_k": 20}},
+                "state": "PENDING",
+            }
+        ]
+        manifest = {"rows": rows}
+        (tmp_path / "manifest.json").write_text(json.dumps(manifest))
+        todo, early = c._rows_to_run(tmp_path, manifest, "m@card-1", set(), False, False)
+        assert todo == [] and early["blocked"] == 1
+        assert rows[0]["state"] == "BLOCKED" and "top_k" in rows[0]["note"]
+
+    def test_resume_on_a_different_engine_aborts(self, tmp_path, monkeypatch):
+        import tests.wfe.campaign as c
+
+        monkeypatch.setattr(c, "ollama_reachable", lambda: True)
+        monkeypatch.setattr(c, "ENGINE", "ollama")
+        (tmp_path / "manifest.json").write_text(json.dumps({"env": {"engine": "omlx"}, "rows": []}))
+        assert c._ready(tmp_path) is False
+        monkeypatch.setattr(c, "ENGINE", "omlx")
+        assert c._ready(tmp_path) is True

@@ -5,7 +5,7 @@ title: 26 production + 21 eval workspaces
 sources:
 - type: code
   path: config/portal.yaml
-  commit: 2acd84207797
+  commit: 047ae6eb0607
 claims:
 - probe: workspaces.total
   pattern: '{value} total)'
@@ -14,7 +14,7 @@ tags:
 - fact
 - workspaces
 created_at: 1784000421.2630541
-updated_at: 1789853954.5593688
+updated_at: 1790332606.8096828
 ---
 
 # Workspace roster (26 production, 21 eval, 47 total)
@@ -35,7 +35,7 @@ updated_at: 1789853954.5593688
 | `auto-data` | research | `hf.co/unsloth/Qwen3.6-35B-A3B-GGUF:UD-Q4_K_XL-ctx32k` |
 | `auto-documents` | documents | `granite4.1:8b-ctx16k` |
 | `auto-extract-uncensored` | documents | `hf.co/gaston-parravicini/LFM2.5-8B-A1B-Uncensored-Gaston-GGUF:q4_K_M-ctx8k` |
-| `auto-general-uncensored` | general | `hf.co/mradermacher/Huihui-Qwen3.6-35B-A3B-abliterated-GGUF:Q4_K_M` |
+| `auto-general-uncensored` | general | `hf.co/mradermacher/Huihui-Qwen3.6-35B-A3B-abliterated-GGUF:Q4_K_M-ctx8k` |
 | `auto-image` | image | `granite4.1:8b-ctx16k` |
 | `auto-math` | general | `phi4-mini-reasoning:latest-ctx24k` |
 | `auto-music` | media | `lfm2.5:8b-ctx8k` |

@@ -1,6 +1,189 @@
 # Task: Seat–vendor fit — test every production seat against its model's own contract
 
 **Opened:** 2026-09-25. **Continues:** WFE-0.6 and WFE-0.7 in `docs/TASK_WORKSPACE_FITNESS_EVAL_V1.md`.
+**Revised:** 2026-09-25 (evening) — delivery and harness repair. **Read "Current state" first; everything under "History" was measured before the repair and is superseded where the two disagree.**
+
+## Current state (2026-09-25 evening) — read before running anything
+
+### What was wrong, and is now fixed
+
+Nothing below failed loudly — every request returned 200. Each one silently made
+a measurement describe something other than the configured seat.
+
+**Production (what users were actually served)**
+
+| Defect | Effect | Fix |
+|---|---|---|
+| Ollama `/v1` drops `options` and has no `top_k`/`min_p`/`repeat_penalty`; forces temperature/top_p to 1.0 when omitted | **Every Ollama-served seat ran at temperature 1.0 / top_p 1.0** with the tag's baked top_k etc. — never at its `portal.yaml` sampling; `think:true` was dropped | `portal/platform/inference/ollama_native.py`: Ollama backends answered from native `/api/chat` behind the unchanged OpenAI surface; parity-verified against `/v1` (P5-OLLAMA-V1-SAMPLING-001) |
+| Unregistered `-ctx32k` hints | `auto-coding::fast-repair` and `::uncensored-fast` were served **Qwen3.6-35B HauhauCS**, not kat-coder / orcarouter | tags registered in `ollama-coding`; `hint_unroutable` FAIL in the auditor + UAT gate (P5-HINT-FALLBACK-001) |
+| `auto-general-uncensored` on the base tag; `supports_tools: false` | ran at Ollama's default context, not 8192; its six declared tools were never offered | hint → `:Q4_K_M-ctx8k` (the "creation failed" rollback was a case mismatch); tool probe 3/3 → `supports_tools: true` |
+| `tools-specialist::fast` had no ctx tag | default context, not 8192 | `gemma4:e4b-it-qat-ctx8k` created + registered in `general` |
+| IDE-direct oMLX (`./launch.sh coder-reap288`) sends no sampling | REAP-288 ran on oMLX globals (temp 1.0, top_k 0, no repetition penalty) | `scripts/omlx_seat_defaults.py` writes a single-seat model's sampling as oMLX per-model defaults (run by `sync-config` and `coder-reap288`) |
+| p40 (opencode → thebrain Ollama `/v1`, Portal-independent) sends no sampling | gpt-oss-sonnet ran at 1.0/1.0, not its tag's 0.4/0.9 | per-model `options` in `opencode.jsonc` (captured on the wire; no Portal code in that path) |
+
+Verified live after deploy: a caller `top_k=1` collapses three seeds to one
+output through `:9099`; OWUI → pipeline → Ollama works; both coding variants
+serve their configured models; both ctx8k seats load at 8192.
+
+**Consequence for everything already measured:** no earlier seat A/B, WFE or
+UAT number for an Ollama-served seat measured the seat's configuration, and
+none for an oMLX seat had its repeat penalty. Treat them as evidence about the
+*model*, not the *seat*. The one S2 result in the log (laguna) is **void** — see
+below.
+
+**Production behaviour changed today.** Ollama-served seats now run at their
+declared sampling for the first time — mostly temperature 0.1–0.3 where they
+had been running at 1.0. That is exactly the near-greedy regime this task
+suspects of causing loops, so S2 on the Ollama seats is now more urgent, not
+less. Watch for loops/repetition in real use until it has run.
+
+**Harness (WFE) — defects that produced invalid rows**
+
+| Defect | Effect | Fix |
+|---|---|---|
+| Stall / wall / turn budget overridden by a checker PASS (runner **and** `--rescore`) | a 900s stall reported PASS | `BUDGET_EXHAUSTED` always stands; checker verdict kept as `evidence.checker_outcome` |
+| Agentic answer without the literal completion signal was re-sent with the assistant message last | the model wrote a second answer that replaced the first (33/1150 archived rows), or 400'd as HARNESS_ERROR | a text-only turn ends the run, as in production; `evidence.completion_signal_missing` records it |
+| Turn cap only flagged when no text was ever produced | loops that narrated between tool calls hid the loop signal | every turn-cap exhaustion is `BUDGET_EXHAUSTED` |
+| `run_id` carried no sampling; overrides read from env on every row | a card arm of the same model added 0 rows ("already present") and never ran; a resume without the env var mixed arms | **variant arms** in the plan (below); overrides stored on each row; resume on a different engine aborts |
+| Seat without `think` resolved to the card's `harness_policy` | laguna / uncensored-fast / reap288 measured with thinking OFF; production runs them ON | a seat with no `think` runs `native` — nothing sent, as production |
+| oMLX arms sent `repeat_penalty` (oMLX reads `repetition_penalty`) | every oMLX arm ran without its loop guard | both names sent; production already mapped it |
+| Ollama arms posted to `/v1` | top_k/min_p/repeat_penalty never reached the model | Ollama arms use production's `to_native_request` translation |
+| 4096 output cap when a seat has no `predict_limit` (production sends none) | manufactured TRUNCATED rows, worst on thinking arms | 32768 runaway-only cap; `sampling.max_tokens_source` records which cap applied |
+| No oMLX memory management; no oMLX version in the fingerprint | an arm could run beside the previous arm's weights; pooled oMLX versions | oMLX restarted to an empty pool before each arm; `engine_version` stamped |
+| HTTP errors recorded without the engine's body | a context overflow read like a harness bug | body kept in the HARNESS_ERROR note |
+| Settings auditor never walked variants; compared baked tags, not served values | most specialised seats unaudited; false FAILs | variants audited; `served_vs_card` (WARN) + `hint_unroutable` (FAIL); oMLX inventory; granite 4.1 not treated as reasoning |
+
+### Keeping it true (automatic)
+
+- `scripts/engine_contract_check.py` — proves, per running engine version, that
+  every sampling key and `think` in both directions visibly change the model's
+  output through production's own request builders, and (Ollama) that the
+  adapter answers exactly as `/v1`. Probe models: `config/engine_contract.yaml`.
+- `scripts/engine_autoupdate.py` — daily launchd job
+  (`com.portal5.engine-update`, installed by `./launch.sh up`): re-runs the
+  contract whenever an engine version changed by any route; weekly (sooner on a
+  security fix, or `--now`) installs the newest non-pre-release of Ollama and
+  oMLX, gates it on the contract, rolls back and records the rejected version on
+  failure. The macOS data01 popup is detected, requested via Pushover and waited
+  for (P5-ENGINE-TCC-001). Ollama is now on 0.34.4 through this path.
+- UAT refuses to start (`tests/uat/settings_gate.py`) unless the contract is
+  current, no production seat is unroutable/absent, and OWUI injects no sampling
+  of its own (a caller's values win in the pipeline, so an OWUI default would
+  override every seat).
+
+## Method (per seat) — revised
+
+1. **Card contract** as before (`config/model_card_expectations.yaml`).
+2. **Baseline:** `uv run python -m tests.wfe.settings_audit` — `served_vs_card`
+   lists what each seat is *actually served* per key (seat value, else the
+   engine default) against its card. 47 WARN on 2026-09-25; that list is the S2
+   work queue. Re-run it before each seat — it reads live engine state.
+3. **One seat, one campaign, arms as plan variants** (no env vars):
+
+   ```yaml
+   workloads:
+     auto-coding::laguna:
+       home: coding
+       discovery: [compliance_agentic]
+       arms:
+         incumbent: Laguna-XS-2.1-4bit            # the seat as production serves it
+         challengers:
+           - {model: Laguna-XS-2.1-4bit, label: card, sampling: {temperature: 1.0, top_p: 1.0, top_k: 20}}
+           - {model: Laguna-XS-2.1-4bit, label: seat-nothink, think: false}
+   ```
+
+   Each variant is its own arm (`<tag>@<label>-<sha8>`) with its own run_ids and
+   stored overrides; `report.py` compares each against the incumbent. A variant
+   whose sampling includes a key the engine cannot apply is BLOCKED before its
+   first request (on Ollama only `presence_penalty`, which its sampler ignores).
+   Template: `tests/wfe/plans/s2_laguna_rerun_omlx.yaml` (dry-run and a live
+   smoke row verified).
+4. **Engine:** serve on the engine production uses — a priority-10 oMLX alias
+   means oMLX: `WFE_ENGINE=omlx WFE_CHAT_BASE_URL=http://127.0.0.1:8085`. The
+   campaign aborts if resumed on another engine.
+5. **Decide by purpose** (unchanged): deterministic lanes may keep low
+   temperature only if the card arm shows no gain; agentic/coding lanes score
+   pass rate **and** `BUDGET_EXHAUSTED` (turn cap, stall) — loops are the hunted
+   failure; creative lanes add blinded review.
+6. **Apply winners** in `config/portal.yaml`, `./launch.sh sync-config`, rebuild
+   the pipeline image (portal.yaml is baked in; backends.yaml is mounted — a
+   restart suffices for it), verify one live request through `:9099`.
+7. **Record** on the card entry and in the result log below.
+
+Rules still in force: one request in flight; stack up; back up checkpoints
+before clearing; before blaming a model, render its template, raw-generate, and
+compare with what the engine returned.
+
+## Work items — revised
+
+### S0 — auditor: DONE 2026-09-25
+Served-vs-card check, oMLX inventory, variants, granite 4.1 regex, routability.
+Remaining auditor FAILs are not delivery bugs: `sampling_hot` on
+`auto-extract-uncensored` (0.6) and `auto-documents` (0.5) against the
+documents-lane 0.4 ceiling — lane-policy questions for S2 now that the value is
+really served; `auto-security::purpleteam-exec` `tools_unsupported`
+(operator's); `persona:nemotronlightning` pin absent (pre-existing).
+
+### S1 — cards: CLOSED (see History).
+
+### S2 — A/B the seats, in this order
+1. **`auto-coding::laguna` rerun** — `tests/wfe/plans/s2_laguna_rerun_omlx.yaml`
+   (seat / card / seat-nothink). Replaces the void result.
+2. **Seats with no explicit `think` whose card says off** —
+   `auto-coding::uncensored-fast`, `auto-coding::reap288` (IDE-only; needs the
+   stack down: `./launch.sh coder-reap288 --warm-only` path). Arms: native vs
+   `think: false`. Decide and then **pin `think` explicitly** in portal.yaml so
+   the harness and production can never diverge on it again.
+3. **Ollama-served seats**, now that their sampling is real — highest traffic
+   first: `auto-general-uncensored`, `auto-data`, `auto-research`,
+   `auto-reasoning`, `auto-council`, `auto-vision`, `compliance-reading`, the
+   `auto-coding` Ollama variants, `auto-music` / `auto-extract-uncensored`.
+4. **oMLX-served seats**: `auto-compliance`, `auto-reasoning::deep`,
+   `auto-coding` (+ bigfix, cad), `auto`, the granite4.1 seats.
+5. `auto-security` chat seat: unchanged rule — no model change without the S3
+   `scan_code` comparison.
+
+### S3 — VulnLLM as a specialist tool: unchanged (see History).
+
+### S4 — carried-over queue: unchanged (see History); rerun anything measured on
+Ollama before 2026-09-25 evening before using it as seat evidence.
+
+### S5 — UAT pass after S2 lands (the overhaul)
+The settings gate makes UAT refuse unsound runs; what UAT must now exercise:
+- every section on the seats whose served settings changed today (all
+  Ollama-served seats) — they are behaving differently from every earlier UAT;
+- loops/repetition on low-temperature seats (the suspected failure) and
+  turn-cap exhaustion in agentic sections;
+- `think: true` seats on Ollama now actually reason (latency and token budget);
+- the two re-routed coding variants and the two ctx8k seats (first UAT on the
+  intended models);
+- OWUI display of reasoning: the pipeline promotes Ollama `reasoning` deltas to
+  content (review item C-1) and some templates (lfm2.5) emit inline `<think>`;
+- multi-turn tool conversations through OWUI (tool-result turns now travel the
+  native path).
+
+### Open operator decisions
+- **`keep_alive`** — never delivered by `/v1`, still not forwarded (every model
+  unloads on Ollama's server default). Deliver the per-workspace values? The
+  pipeline default is `-1` (pin forever), which would hold memory oMLX cannot
+  reclaim.
+- **`presence_penalty` on Ollama seats** (`auto-general-uncensored`, `auto-data`
+  and four others at 1.5) — Ollama's sampler ignores it; move those seats to oMLX
+  or drop the key.
+- **`tool_choice=required`** has never applied on Ollama seats (Ollama ignores
+  it everywhere).
+- **oMLX 0.7.0rc1** is on the tap as "stable"; the updater skips pre-releases
+  (`--allow-prerelease` to take it deliberately).
+
+## Result log
+| Date | Seat | Arm A (seat) | Arm B (card) | Decision |
+|---|---|---|---|---|
+| 2026-09-25 | `auto-security` (VulnLLM, CWE set) | 15/18, 3/3 FP | 17/18, 0/3 FP (trained prompt + card sampling) | S3 (tool) |
+| 2026-09-25 | `auto-coding::laguna` (Laguna-XS-2.1, oMLX) | 24/29 PASS, 0 turn-cap | 19/29 PASS, 2 turn-cap + 16K-token runaway turns (1.0/20/1.0) | **VOID** — arm A ran thinking OFF (production: on) and without its repeat_penalty (oMLX ignored the key); the stall-masking and completion-signal defects also applied. Rerun: S2 item 1 |
+
+---
+
+# History (pre-repair — superseded where it conflicts with "Current state")
 
 ## Why this task exists
 
@@ -86,11 +269,7 @@ Qwen's guidance warns that near-greedy decoding on Qwen3.x causes performance lo
 - `uv run python -m tests.wfe.settings_audit`: config and card audit.
 - Rules: one request in flight; stack up; back up checkpoints before clearing; and before blaming a model, render its official template, raw-generate, and compare with what the engine returned. Both the XS.2 and MiMo "failures" lived in the engine layer.
 
-## Result log
-| Date | Seat | Arm A (seat) | Arm B (card) | Decision |
-|---|---|---|---|---|
-| 2026-09-25 | `auto-security` (VulnLLM, CWE set) | 15/18, 3/3 FP | 17/18, 0/3 FP (trained prompt + card sampling) | S3 (tool) |
-| 2026-09-25 | `auto-coding::laguna` (Laguna-XS-2.1, oMLX, think off) | 24/29 PASS, 0 turn-cap | 19/29 PASS, 2 turn-cap + 16K-token runaway turns (1.0/20/1.0) | keep seat sampling (0.2/40/0.9) |
+## Result log (pre-repair copy — see the current log above)
 
 ## 2026-09-25 — reversion, S1 completion, and re-plan before any further run
 

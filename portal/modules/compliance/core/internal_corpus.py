@@ -26,6 +26,7 @@ import hashlib
 import re
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import Any
 
 from portal.modules.compliance.core.provenance import text_hash
 
@@ -757,12 +758,13 @@ def extract_pages(path: Path) -> tuple[list[str], str]:
     resolve against ``full_text`` and hash-verify against section text."""
     import pymupdf
 
-    with pymupdf.open(path) as document:
+    open_document: Any = pymupdf.open  # untyped C-extension entry point
+    with open_document(path) as document:
         pages = [page.get_text("text") for page in document]
     return pages, "\n".join(pages)
 
 
-def inventory_file(path: Path) -> dict:
+def inventory_file(path: Path) -> dict[str, Any]:
     """Classify one controlled document: sourced control metadata, kind, and
     section functions. No store access — the pure inventory half of P4."""
     pages, full_text = extract_pages(path)

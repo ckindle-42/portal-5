@@ -81,6 +81,12 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument("--skip-bots", action="store_true", help="Skip Telegram/Slack bot tests")
     parser.add_argument(
+        "--skip-settings-gate",
+        action="store_true",
+        help="Run even if the settings-delivery gate fails (results then do not "
+        "describe the configured seats)",
+    )
+    parser.add_argument(
         "--media",
         action="store_true",
         help=(
@@ -881,6 +887,20 @@ async def main() -> None:
         sys.exit(1)
 
     _check_image_freshness()
+
+    if not getattr(args, "skip_settings_gate", False):
+        from tests.uat.settings_gate import settings_gate
+
+        problems = settings_gate(token)
+        if problems:
+            print("\nSETTINGS GATE FAILED — the UAT would not measure the configured seats:")
+            for p in problems:
+                print(f"  - {p}")
+            print("Fix these (or pass --skip-settings-gate to run anyway).", file=sys.stderr)
+            sys.exit(2)
+        print(
+            "Settings gate: engine contract current, every seat routable, OWUI adds no sampling\n"
+        )
 
     if _dispatch_standalone(args, token):
         return

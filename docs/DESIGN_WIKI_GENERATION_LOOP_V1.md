@@ -50,7 +50,7 @@ Mechanical termination exists so migration is never an open-ended rewrite campai
 <!-- WIKI:GENERATED unit=unit-fact-doc-migration-coverage -->
 #### Doc migration coverage (3/23 docs migrated, 13.0%)
 
-Total generated blocks across migrated docs: 82
+Total generated blocks across migrated docs: 85
 
 ##### Migrated docs (content-hash gate only)
 

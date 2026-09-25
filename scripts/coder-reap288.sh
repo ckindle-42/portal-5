@@ -109,6 +109,15 @@ if [ -n "$loaded" ]; then
   sleep 3
 fi
 
+# ── 2b. seat sampling as oMLX per-model defaults ─────────────────────────────
+# opencode sends no sampling on this direct path; without this REAP-288 ran on
+# oMLX's global defaults (temp 1.0, top_k 0, no repetition penalty) instead of
+# the auto-coding::reap288 seat's. Restarts oMLX only if the defaults changed.
+"$REPO/.venv/bin/python" "$REPO/scripts/omlx_seat_defaults.py" >/dev/null \
+  && say "oMLX per-model defaults match the reap288 seat." \
+  || say "WARNING: could not sync oMLX seat defaults — sampling falls back to oMLX globals."
+for _ in $(seq 1 30); do curl -sf "$OMLX_BASE/health" >/dev/null && break; sleep 2; done
+
 # ── 3. warm-load REAP-288 ────────────────────────────────────────────────────
 say "Warm-loading $MODEL_ID (first load ~22s)…"
 code="$(curl -s -o "$CONF_DIR.warm.json" -w '%{http_code}' --max-time 300 \

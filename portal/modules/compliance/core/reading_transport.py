@@ -306,7 +306,8 @@ def _unpack(raw: dict[str, Any], dialect: Any = None) -> tuple[str, str]:
     A non-native dialect owns its own response shape; the strip is native-only
     because ``<think>`` inlining is an Ollama-template failure mode."""
     if dialect is not None and dialect.name != "ollama-native":
-        return dialect.unpack(raw)
+        content, reasoning = dialect.unpack(raw)
+        return str(content), str(reasoning)
     message = raw.get("message") or {}
     raw_content = str(message.get("content", "") or "")
     return (
@@ -453,7 +454,7 @@ def chat(
     def build(allowance: int, thinking: bool | str) -> dict[str, Any]:
         predict = answer_budget + (allowance if thinking else 0)
         if _dialect.name != "ollama-native":
-            return _dialect.build(
+            built: dict[str, Any] = _dialect.build(
                 model=model,
                 messages=sent_messages,
                 tools=tools,
@@ -464,6 +465,7 @@ def chat(
                 temperature=temperature,
                 keep_alive=keep_alive,
             )
+            return built
         payload: dict[str, Any] = {
             "model": model,
             "messages": sent_messages,
