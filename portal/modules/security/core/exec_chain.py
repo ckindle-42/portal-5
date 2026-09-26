@@ -2518,12 +2518,17 @@ def _assign_steps(
 def _is_pipeline_model(m: str) -> bool:
     """Route through the pipeline by default — the real serving path.
 
-    Only bypass to direct Ollama when CHAIN_DIRECT_OLLAMA=true env is set
-    (rare debugging escape hatch). The model-name string MUST NOT decide
-    routing — that was the old heuristic that caused GGUF refs
-    (hf.co/...:Q4_K_M) to silently bypass the pipeline.
+    Only bypass to direct Ollama when CHAIN_DIRECT_OLLAMA=true AND the
+    shared PORTAL_SECURITY_DIRECT_ENGINE_DIAGNOSTIC gate are both set (rare,
+    explicitly-named debugging escape hatch — TASK_AUTO_COUNCIL_PIPELINE_
+    REVISIT_V1 P1.5: CHAIN_DIRECT_OLLAMA alone used to be enough, so a stray
+    env var could silently take a product run off the pipeline). The
+    model-name string MUST NOT decide routing — that was the old heuristic
+    that caused GGUF refs (hf.co/...:Q4_K_M) to silently bypass the pipeline.
     """
-    return os.environ.get("CHAIN_DIRECT_OLLAMA", "").lower() != "true"
+    from ._direct_engine_diagnostic import direct_engine_diagnostic_enabled
+
+    return not direct_engine_diagnostic_enabled("CHAIN_DIRECT_OLLAMA")
 
 
 def _call_via_pipeline(

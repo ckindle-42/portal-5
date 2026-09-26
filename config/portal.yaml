@@ -1075,9 +1075,28 @@ workspaces:
           the CLI (--blue-mode orchestrated, Slice 7) and the Slice 8 ablation. The
           existing blueteam variant''s prod model_hint (granite4.1:8b-ctx8k) is unchanged.'
         expose_to_owui: false
-        tool_model: granite4.1:8b-ctx8k
-        reasoning_model: granite4.1:30b-ctx16k
-        expert_model: hf.co/fdtn-ai/Foundation-Sec-8B-Reasoning-Q8_0-GGUF:Q8_0
+        # TASK_AUTO_COUNCIL_PIPELINE_REVISIT_V1 P1: these three used to be raw
+        # Ollama tags. resolve_role_model() (bully/config.py) returns the
+        # field value VERBATIM to _call_model -- a raw tag here is looked up
+        # in the GLOBAL model_addressing hint map, where granite4.1:30b-ctx16k
+        # and hf.co/fdtn-ai/Foundation-Sec-8B-Reasoning-Q8_0-GGUF:Q8_0 lose to
+        # the earlier-registered top-level bench-granite41-30b /
+        # bench-foundation-sec-8b-reasoning eval workspaces (first-hint-wins,
+        # model_addressing.py), and granite4.1:8b-ctx8k loses to
+        # tools-specialist -- so the security role got that workspace's
+        # general eval/tool-composer sampling and tool policy, not a
+        # dedicated security-role policy, even though addressing itself
+        # worked. Pointing these at their own `auto-security::security-*`
+        # variant ids (below) instead of the raw tag sidesteps the hint
+        # collision entirely -- resolve_pipeline_model() passes an
+        # already-workspace-id-shaped string through unchanged (same
+        # mechanism bully-handoff-drafter already uses), so this changes
+        # ONLY what these two bully-config trios resolve to; the global hint
+        # map and every other caller of these raw tags (compliance, bench
+        # harness, tools-specialist) are untouched.
+        tool_model: auto-security::security-tool-granite41-8b
+        reasoning_model: auto-security::security-council-granite41-30b
+        expert_model: auto-security::security-expert-foundation-sec-8b
         tools:
         - classify_vulnerability
         depth: default
@@ -1104,14 +1123,172 @@ workspaces:
           roster for the CLI (--blue-mode council). The existing blueteam variant''s
           prod model_hint (granite4.1:8b-ctx8k) is unchanged.'
         expose_to_owui: false
-        tool_model: granite4.1:8b-ctx8k
+        # TASK_AUTO_COUNCIL_PIPELINE_REVISIT_V1 P1: same dedicated-workspace-id
+        # fix as blueteam-orchestrated above, for the same reason (global
+        # hint-map collision with bench-granite41-30b / bench-mistral-small-3-2
+        # / bench-foundation-sec-8b-reasoning / tools-specialist). qwen3.6:27b-
+        # q4_K_M already had no collision (no other top-level workspace shares
+        # that exact hint) and was fixed via security-council-qwen36-27b in
+        # the prior pass -- switched to its workspace id here too, for
+        # consistency (every council seat addressed the same way).
+        tool_model: auto-security::security-tool-granite41-8b
         council_models:
-        - granite4.1:30b-ctx16k
-        - mistral-small3.2:24b
-        - qwen3.6:27b-q4_K_M
-        expert_model: hf.co/fdtn-ai/Foundation-Sec-8B-Reasoning-Q8_0-GGUF:Q8_0
+        - auto-security::security-council-granite41-30b
+        - auto-security::security-council-mistral-small32-24b
+        - auto-security::security-council-qwen36-27b
+        expert_model: auto-security::security-expert-foundation-sec-8b
         tools:
         - classify_vulnerability
+        depth: default
+        guardrail: default
+        role: blue
+      security-council-qwen36-27b:
+        # TASK_AUTO_COUNCIL_PIPELINE_REVISIT_V1 P1: `qwen3.6:27b-q4_K_M` (as
+        # used verbatim in blueteam-council.council_models and HEART's roster,
+        # bully/adversary.py::resolve_roster) previously had NO workspace
+        # anywhere with that exact model_hint — model_addressing.py's global
+        # hint map left it unresolved, so the pipeline treated the raw tag as
+        # an unknown workspace id and silently fell back to the routing
+        # group's first model (observed live: gemma-4-26b-a4b-it-QAT-4bit,
+        # x-portal-route correlation p5-ffedfd419f32). This workspace closes
+        # that gap. Deliberately distinct from qwen3.6:27b-q4_K_M-ctx16k (the
+        # public council/synthesizer tag, 16384 baked context) — this tag has
+        # NO num_ctx baked (`ollama show --modelfile` confirms no PARAMETER
+        # num_ctx line), so it runs at Ollama's server default. Preserving
+        # the exact tag the council roster already names per the task's "do
+        # not silently swap tags/windows" instruction; giving this seat a
+        # proper `-ctxNNk` production tag is follow-up work, not done here.
+        repeat_penalty: 1.05
+        top_k: 20
+        top_p: 0.8
+        temperature: 0.7
+        name: 🔵 Portal Blue Team · Council Seat (Qwen3.6 27B)
+        description: 'Security-role-scoped seat binding for the HEART/council
+          member tag qwen3.6:27b-q4_K_M — not user-facing, not auto-routed.'
+        expose_to_owui: false
+        model_hint: qwen3.6:27b-q4_K_M
+        context_limit: 4096
+        tools: []
+        depth: default
+        guardrail: default
+        role: blue
+      bully-handoff-drafter:
+        # TASK_AUTO_COUNCIL_PIPELINE_REVISIT_V1 P1: bully/handoff.py::draft_generalization
+        # passed the literal string "bully-handoff-drafter" to _call_model as
+        # a `model` value — it was never an addressable route (no Ollama tag,
+        # no workspace), so model_addressing left it unchanged and the
+        # pipeline silently served it from the routing group's first model
+        # (observed live: gemma-4-26b-a4b-it-QAT-4bit, correlation
+        # p5-5a4160801618). Registering the exact literal AS a workspace id
+        # (not a model_hint) makes it addressable without touching the
+        # call-site string — the router matches `model` against a workspace
+        # id first. model_hint below reuses the same reasoning-tier tag as
+        # blueteam-orchestrated's Hunter (granite4.1:30b-ctx16k) since SPL/Sigma
+        # drafting is a structured-reasoning task, not a chat role. A future
+        # trained `bully-<hash>` HND drafter should repoint THIS workspace's
+        # model_hint after passing P2's canary/route-eligibility gate, never
+        # by re-hardcoding a tag at the call site.
+        repeat_penalty: 1.1
+        top_k: 40
+        top_p: 0.9
+        temperature: 0.2
+        name: 🔵 Portal Blue Team · HND Drafter
+        description: 'Security-role-scoped seat binding for Bully HND''s SPL/Sigma
+          generalization drafter (bully/handoff.py::draft_generalization) —
+          not user-facing, not auto-routed.'
+        expose_to_owui: false
+        model_hint: granite4.1:30b-ctx16k
+        context_limit: 16384
+        tools: []
+        depth: default
+        guardrail: default
+        role: blue
+      security-tool-granite41-8b:
+        # TASK_AUTO_COUNCIL_PIPELINE_REVISIT_V1 P1: dedicated seat for the
+        # tool_model role (blueteam-orchestrated/blueteam-council's Retriever)
+        # -- granite4.1:8b-ctx8k previously resolved through the global hint
+        # map to tools-specialist (general-purpose tool composer workspace:
+        # own execute_python/remember/recall tool list, general sampling).
+        # RBP's retriever already brings its own scoped retrieval-only tool
+        # schemas per call (agentic_blue_eval._call_model sets
+        # portal_client_tools_only for every tool-bearing call, P1.4), so
+        # `tools: []` here is inert by design -- the workspace's own tool
+        # list is never offered regardless.
+        repeat_penalty: 1.0
+        top_k: 20
+        top_p: 0.8
+        temperature: 0.0
+        name: 🔵 Portal Blue Team · Tool Seat (Granite 4.1 8B)
+        description: 'Security-role-scoped seat binding for RBP''s tool-model
+          role (retrieval) -- not user-facing, not auto-routed.'
+        expose_to_owui: false
+        model_hint: granite4.1:8b-ctx8k
+        context_limit: 8192
+        tools: []
+        depth: default
+        guardrail: default
+        role: blue
+      security-council-granite41-30b:
+        # TASK_AUTO_COUNCIL_PIPELINE_REVISIT_V1 P1: dedicated seat for the
+        # reasoning_model role and the first council/HEART member --
+        # granite4.1:30b-ctx16k previously resolved through the global hint
+        # map to bench-granite41-30b (a general eval workspace: eval sampling/
+        # budgets, not a security-role policy).
+        repeat_penalty: 1.05
+        top_k: 20
+        top_p: 0.8
+        temperature: 0.7
+        name: 🔵 Portal Blue Team · Council Seat (Granite 4.1 30B)
+        description: 'Security-role-scoped seat binding for the Hunter/HEART
+          member tag granite4.1:30b-ctx16k -- not user-facing, not auto-routed.'
+        expose_to_owui: false
+        model_hint: granite4.1:30b-ctx16k
+        context_limit: 16384
+        tools: []
+        depth: default
+        guardrail: default
+        role: blue
+      security-council-mistral-small32-24b:
+        # TASK_AUTO_COUNCIL_PIPELINE_REVISIT_V1 P1: dedicated seat for the
+        # third council/HEART member -- mistral-small3.2:24b previously
+        # resolved through the global hint map to bench-mistral-small-3-2
+        # (eval-only workspace, PROMOTE_POLICY=confirm, own eval sampling).
+        repeat_penalty: 1.05
+        top_k: 20
+        top_p: 0.8
+        temperature: 0.7
+        name: 🔵 Portal Blue Team · Council Seat (Mistral Small 3.2 24B)
+        description: 'Security-role-scoped seat binding for the HEART/council
+          member tag mistral-small3.2:24b -- not user-facing, not auto-routed.'
+        expose_to_owui: false
+        model_hint: mistral-small3.2:24b
+        context_limit: 16384
+        tools: []
+        depth: default
+        guardrail: default
+        role: blue
+      security-expert-foundation-sec-8b:
+        # TASK_AUTO_COUNCIL_PIPELINE_REVISIT_V1 P1: dedicated seat for the
+        # expert_model role (fed no-tools domain expert / optional council
+        # arbiter) -- previously resolved through the global hint map to
+        # bench-foundation-sec-8b-reasoning (that workspace's own comment:
+        # added 2026-07-20/21 as the GATE-D ablation's locked Expert model so
+        # resolve_pipeline_model() had somewhere to route instead of a silent
+        # fallback -- a real fix at the time, but an eval-module workspace,
+        # not a security-role-policy one). Preserves the exact tag; only the
+        # policy scope changes.
+        repeat_penalty: 1.05
+        top_k: 20
+        top_p: 0.8
+        temperature: 0.7
+        name: 🔵 Portal Blue Team · Expert Seat (Foundation-Sec 8B)
+        description: 'Security-role-scoped seat binding for the fed expert/
+          arbiter role (hf.co/fdtn-ai/Foundation-Sec-8B-Reasoning-Q8_0-GGUF)
+          -- not user-facing, not auto-routed.'
+        expose_to_owui: false
+        model_hint: hf.co/fdtn-ai/Foundation-Sec-8B-Reasoning-Q8_0-GGUF:Q8_0
+        context_limit: 8192
+        tools: []
         depth: default
         guardrail: default
         role: blue

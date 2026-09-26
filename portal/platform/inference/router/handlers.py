@@ -540,6 +540,33 @@ async def _resolve_request_route(
     body = await inject_recalled_memory(workspace_id, body, _cid)
     body = await inject_retrieved_context(workspace_id, body, _cid)
 
+    # Phase 6b: strict-seat enforcement (TASK_AUTO_COUNCIL_PIPELINE_REVISIT_V1
+    # P1.2/P1.3), opt-in per request via portal_strict_seat -- NOT a global
+    # default, so ordinary general-chat fallback (a KNOWN workspace's
+    # preferred backend being unhealthy, degrading to the general group) is
+    # untouched; that still happens below via get_backend_candidates /
+    # _try_non_streaming's own ladder. This only closes the specific hole
+    # the task's two live probes demonstrated: a `model` value that matches
+    # NO known workspace/variant at all. Unchecked, get_backend_candidates
+    # silently clamps that to the configured fallback_group's backends, and
+    # _try_non_streaming/streaming then serve from that backend's models[0]
+    # -- a 200 with a completely unrelated model, not an error. A caller
+    # that needs an exact seat sets this flag on every pipeline-mode
+    # request (security's agentic_blue_eval._call_model does, alongside its
+    # own client-side is_addressable() pre-check -- this is defense in
+    # depth, not a replacement for it). Popped here so it never reaches a
+    # backend as a stray request field.
+    if body.pop("portal_strict_seat", False) and workspace_id not in WORKSPACES:
+        raise HTTPException(
+            status_code=404,
+            detail=(
+                f"Unaddressable workspace/seat {workspace_id!r} for a strict-seat "
+                "request -- no matching workspace/variant binding in "
+                "config/portal.yaml. Refusing to fall back to the routing group's "
+                "first model."
+            ),
+        )
+
     # Per-workspace semaphore + gauge
     await slot.acquire_workspace(workspace_id)
 

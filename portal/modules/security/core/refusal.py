@@ -6,7 +6,6 @@ everything from this module.
 
 from __future__ import annotations
 
-import os
 import time
 from typing import Any
 
@@ -17,7 +16,11 @@ from ._data import PIPELINE_API_KEY, PIPELINE_URL, resolve_pipeline_model
 from .agentic_blue_eval import normalize_tool_calls
 from .exec_chain import AUDIT_TOOL, OLLAMA_URL
 
-_REFUSAL_DIRECT_OLLAMA = os.environ.get("REFUSAL_DIRECT_OLLAMA", "").lower() == "true"
+# TASK_AUTO_COUNCIL_PIPELINE_REVISIT_V1 P1.5: REFUSAL_DIRECT_OLLAMA alone
+# used to gate this; now also requires the shared
+# PORTAL_SECURITY_DIRECT_ENGINE_DIAGNOSTIC gate (see _direct_engine_
+# diagnostic.py) so a stray env var can't silently take a product/
+# qualification refusal-test run off the pipeline.
 
 
 def _refusal_chat(
@@ -27,7 +30,9 @@ def _refusal_chat(
     num_ctx: int,
     ollama_url: str,
 ) -> dict[str, Any]:
-    if _REFUSAL_DIRECT_OLLAMA:
+    from ._direct_engine_diagnostic import direct_engine_diagnostic_enabled
+
+    if direct_engine_diagnostic_enabled("REFUSAL_DIRECT_OLLAMA"):
         resp = httpx.post(
             f"{ollama_url}/api/chat",
             json={

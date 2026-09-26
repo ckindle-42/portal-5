@@ -1,11 +1,11 @@
 ---
 id: unit-fact-security-variants
 kind: what
-title: 10 security canonical variants
+title: 16 security canonical variants
 sources:
 - type: code
   path: config/portal.yaml
-  commit: db75e444cdca521f9be63059be9180bb380a4a64
+  commit: 1179539abbf8
   section: workspaces.auto-security.variants
 claims: []
 confidence: high
@@ -13,22 +13,28 @@ tags:
 - fact
 - security
 created_at: 1784000421.308071
-updated_at: 1785829024.435267
+updated_at: 1790432976.303871
 ---
 
-# Security canonical variants (10)
+# Security canonical variants (16)
 
 sec-bench `--workspaces` targets, addressed as `auto-security::<variant>`:
 
 - `auto-security::blueteam`
 - `auto-security::blueteam-council`
 - `auto-security::blueteam-orchestrated`
+- `auto-security::bully-handoff-drafter`
 - `auto-security::pentest`
 - `auto-security::purpleteam`
 - `auto-security::purpleteam-deep`
 - `auto-security::purpleteam-exec`
 - `auto-security::redteam`
 - `auto-security::redteam-deep`
+- `auto-security::security-council-granite41-30b`
+- `auto-security::security-council-mistral-small32-24b`
+- `auto-security::security-council-qwen36-27b`
+- `auto-security::security-expert-foundation-sec-8b`
+- `auto-security::security-tool-granite41-8b`
 - `auto-security::uncensored`
 
 ## Why

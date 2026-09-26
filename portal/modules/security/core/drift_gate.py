@@ -248,13 +248,16 @@ CANARY_PROBES: list[dict[str, Any]] = load_data("config/security", "drift_gate_c
 
 
 def _run_single_probe(model: str, probe: dict[str, Any], ollama_url: str) -> dict[str, Any]:
-    import os
 
     import httpx
 
     from ._data import PIPELINE_API_KEY, PIPELINE_URL, resolve_pipeline_model
+    from ._direct_engine_diagnostic import direct_engine_diagnostic_enabled
 
-    _direct = os.environ.get("DRIFT_DIRECT_OLLAMA", "").lower() == "true"
+    # TASK_AUTO_COUNCIL_PIPELINE_REVISIT_V1 P1.5: DRIFT_DIRECT_OLLAMA alone
+    # used to be enough to bypass the canary's pipeline route -- now also
+    # requires the shared PORTAL_SECURITY_DIRECT_ENGINE_DIAGNOSTIC gate.
+    _direct = direct_engine_diagnostic_enabled("DRIFT_DIRECT_OLLAMA")
     try:
         if _direct:
             r = httpx.post(

@@ -34,8 +34,20 @@ from .unknown_defense import MatchGrade, compute_similarity
 _CAPTURE_DIR = Path(__file__).resolve().parent / "results" / "captures"
 _PIPELINE_URL = "http://localhost:9099"
 _OLLAMA_URL = "http://localhost:11434"
-_DIRECT_OLLAMA = os.environ.get("CHAIN_DIRECT_OLLAMA", "").lower() == "true"
+# TASK_AUTO_COUNCIL_PIPELINE_REVISIT_V1 P1.5: CHAIN_DIRECT_OLLAMA alone used
+# to gate this; see _direct_engine_diagnostic.py for why a per-module env
+# var can no longer silently take a product run off the pipeline by itself
+# (both CHAIN_DIRECT_OLLAMA and the shared PORTAL_SECURITY_DIRECT_ENGINE_
+# DIAGNOSTIC gate must be set). Evaluated per-call, not cached at import
+# time, so a test/diagnostic run can flip it without a module reload.
 _PIPELINE_API_KEY = ""
+
+
+class UnaddressableSecurityModelError(RuntimeError):
+    """Raised by ``_call_model`` (pipeline mode) when the requested role tag
+    resolves to no workspace/model_hint binding -- see TASK_AUTO_COUNCIL_
+    PIPELINE_REVISIT_V1 P1. A named failure here replaces a silent pipeline
+    substitution."""
 
 
 def emergent_recall_metric(graph: Any, corpus_technique_ids: set[str]) -> dict[str, Any]:
@@ -280,11 +292,12 @@ def _call_model(
     (the default) leaves the workspace's own configured values in effect —
     no behavior change for existing callers.
     """
+    from ._direct_engine_diagnostic import direct_engine_diagnostic_enabled
     from .exec_chain import _stream_chain_turn
 
     api_key = _load_api_key()
 
-    if _DIRECT_OLLAMA:
+    if direct_engine_diagnostic_enabled("CHAIN_DIRECT_OLLAMA"):
         options = {"num_predict": max_tokens}
         if extra_options:
             options.update(extra_options)
@@ -304,13 +317,55 @@ def _call_model(
         if api_key:
             headers["Authorization"] = f"Bearer {api_key}"
 
+        resolved_model = resolve_pipeline_model(model)
+        # TASK_AUTO_COUNCIL_PIPELINE_REVISIT_V1 P1: fail closed instead of
+        # letting an unmapped role tag reach the pipeline, where an unknown
+        # `model` value is NOT an error -- it silently falls back to the
+        # routing group's first model (this is how both live wrong-seat
+        # cases happened: qwen3.6:27b-q4_K_M and the literal
+        # "bully-handoff-drafter" were each served as an unrelated Gemma
+        # alias with a 200 and no error). A security role call must name an
+        # addressable workspace id or model_hint before dispatch, not
+        # discover the substitution after the fact from a route header.
+        from portal.platform.inference.model_addressing import (  # noqa: PLC0415
+            is_addressable,
+        )
+
+        if not is_addressable(resolved_model):
+            raise UnaddressableSecurityModelError(
+                f"security role model {model!r} (resolved to {resolved_model!r}) has no "
+                "workspace/model_hint binding in config/portal.yaml -- refusing to dispatch "
+                "rather than let the pipeline silently substitute the routing group's first "
+                "model. Add an explicit workspace (or variant) binding for this tag."
+            )
+
         body = {
-            "model": resolve_pipeline_model(model),
+            "model": resolved_model,
             "messages": messages,
             "max_tokens": max_tokens,
+            # TASK_AUTO_COUNCIL_PIPELINE_REVISIT_V1 P1.2/P1.3: this call
+            # already refused to dispatch above if is_addressable() said no
+            # (client-side check) -- portal_strict_seat asks the pipeline
+            # itself (router/handlers.py::_resolve_request_route) to make
+            # the SAME refusal server-side instead of silently falling back
+            # to the routing group's first model, which is what actually
+            # served the wrong model in both of this task's live probes.
+            # Defense in depth: the client check can't see a pipeline-side
+            # resolution difference (e.g. a variant merge race); this can.
+            "portal_strict_seat": True,
         }
         if tools:
             body["tools"] = tools
+            # TASK_AUTO_COUNCIL_PIPELINE_REVISIT_V1 P1.4: every security
+            # tool-bearing call brings its own scoped schema (retrieval-only
+            # for RBP's tool model, report_detection+grounding for the
+            # tools/harness eval arms) -- the pipeline must dispatch exactly
+            # that schema, not merge in the resolved workspace's own tool
+            # whitelist (e.g. tools-specialist's execute_python/remember/
+            # recall). portal_client_tools_only is the existing WFE/compliance
+            # contract for this (router/non_streaming.py, router/streaming.py
+            # both already honor it); security calls just weren't setting it.
+            body["portal_client_tools_only"] = True
         if extra_options:
             body["options"] = dict(extra_options)
 

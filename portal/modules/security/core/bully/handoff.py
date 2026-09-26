@@ -44,6 +44,17 @@ from .store import Store
 CallModelFn = Callable[..., dict[str, Any]]
 ReplayCaptureFn = Callable[..., dict[str, Any]]
 
+# TASK_AUTO_COUNCIL_PIPELINE_REVISIT_V1 P1: this used to be the bare literal
+# "bully-handoff-drafter" passed straight to _call_model — not a workspace id,
+# not an Ollama tag, so the pipeline treated it as an unknown workspace and
+# silently served the routing group's first model (observed live substitute:
+# gemma-4-26b-a4b-it-QAT-4bit, x-portal-route correlation p5-5a4160801618).
+# `auto-security::bully-handoff-drafter` is the real, addressable workspace
+# id (config/portal.yaml auto-security.variants.bully-handoff-drafter);
+# model_addressing.is_addressable() now indexes variant-nested workspaces so
+# this resolves without silent substitution.
+_HND_DRAFTER_ROUTE = "auto-security::bully-handoff-drafter"
+
 
 class HandoffInfrastructureError(RuntimeError):
     """Real gather-adapter infra failure (capture replay down, corpus
@@ -126,7 +137,7 @@ def draft_generalization(
     context = _render_draft_context(technique_id, signature, discriminators)
     try:
         msg = call_model(
-            "bully-handoff-drafter",
+            _HND_DRAFTER_ROUTE,
             [
                 {"role": "system", "content": _DRAFT_SYSTEM_PROMPT},
                 {"role": "user", "content": context},

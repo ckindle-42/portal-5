@@ -59,13 +59,37 @@ def _load() -> None:
             data = yaml.safe_load(_PORTAL_YAML.read_text()) or {}
         except Exception:  # noqa: BLE001 - an unreadable registry addresses nothing
             data = {}
-        for ws_id, ws_cfg in (data.get("workspaces") or {}).items():
+        top_level = data.get("workspaces") or {}
+        for ws_id, ws_cfg in top_level.items():
             hint = (ws_cfg or {}).get("model_hint")
             if hint:
                 # First workspace wins per hint — same rule the security
                 # resolver always applied.
                 _BY_HINT.setdefault(str(hint), ws_id)
             _BY_WORKSPACE[ws_id] = ws_cfg or {}
+        # TASK_AUTO_COUNCIL_PIPELINE_REVISIT_V1 P1: this used to stop at
+        # top-level workspace ids only. A role-scoped seat declared under a
+        # base workspace's `variants:` (e.g. security's
+        # auto-security::blueteam-council, auto-security::bully-handoff-
+        # drafter) is a real, independently routable workspace — the
+        # pipeline's own catalog (router/workspaces.py::get_workspace_dict)
+        # flattens it to the synthetic id `f"{base}::{variant_id}"` and
+        # serves it — but this module never indexed it, so a caller
+        # addressing a variant by that synthetic id, or by its model_hint,
+        # silently fell through to "unaddressable" even when the pipeline
+        # could serve it correctly. Index every variant the same way as its
+        # base, in a SEPARATE second pass: a top-level workspace's own
+        # model_hint must keep first-match priority over any variant's
+        # (e.g. tools-specialist's granite4.1:8b-ctx8k over
+        # auto-security::blueteam's identical hint) — existing callers rely
+        # on that precedence, so this only fills gaps, never reorders it.
+        for ws_id, ws_cfg in top_level.items():
+            for variant_id, variant_cfg in ((ws_cfg or {}).get("variants") or {}).items():
+                synthetic_id = f"{ws_id}::{variant_id}"
+                variant_hint = (variant_cfg or {}).get("model_hint")
+                if variant_hint:
+                    _BY_HINT.setdefault(str(variant_hint), synthetic_id)
+                _BY_WORKSPACE[synthetic_id] = variant_cfg or {}
         try:
             import yaml  # noqa: PLC0415
 
