@@ -2193,6 +2193,16 @@ The Synthesizer was the council's last tool-capable Ollama member; with this ali
 
 ---
 
+### `unsloth--Qwen3.6-35B-A3B-UD-MLX-4bit`
+
+`unsloth--Qwen3.6-35B-A3B-UD-MLX-4bit` is unsloth's MLX UD 4-bit conversion of Qwen3.6-35B-A3B — the same checkpoint the Ollama `hf.co/unsloth/Qwen3.6-35B-A3B-GGUF:UD-Q4_K_XL-ctx32k` GGUF serves for `auto-data` (both carry the model's vision tower; unused on either engine — oMLX 0.6.4's vision path is non-functional). Pulled and pipeline-verified 2026-09-26 per an operator research request into unmoved oMLX-candidate lanes: `x-portal-route` confirmed real traffic lands on `omlx-reasoning` (auto-data resolves `[reasoning, general]`, so the alias had to live there, not `omlx-general`, to ever be reached), `think:false` correctly suppressed with no leakage, and a typed `execute_python` tool call verified through the full 7-tool production surface. One no-tool-call response was observed on a retry (plain-text mental arithmetic instead of invoking `execute_python`) alongside two clean typed calls on the identical prompt — consistent with ordinary sampling variance at auto-data's temperature 0.7, the same class of watch item already accepted for the Qwen3.6-27B synthesizer above, not a systemic gap. Aliased in `config/backends.yaml` `omlx-reasoning` from the auto-data hint.
+
+## Why
+
+`auto-math`'s candidate (`mlx-community/Phi-4-mini-reasoning-4bit`) was rejected the same day: through the identical pipeline path it burned the full 8192-token production budget on trivial arithmetic (17×23) without ever reaching an answer, while the Ollama seat converges in under 700 tokens. This entry exists to record the contrast — same day, same methodology, opposite verdicts — so a future auditor trusts the process, not just the model name.
+
+---
+
 ### `mlx-community--gemma-4-26b-a4b-it-4bit`
 
 `mlx-community--gemma-4-26b-a4b-it-4bit` is the MLX 4-bit conversion of google/gemma-4-26B-A4B-it — the standard checkpoint behind the Ollama `gemma4:26b-a4b-it-q4_K_M(-ctx32k)` tags (distinct from the QAT conversion already on disk, which serves the `-qat` tag). Pulled and audited 2026-09-26 (P5-FANOUT-001) for the compliance-reading lane contract: `response_format json_object` verified, typed `compliance_read` tool call in 1.8 s, and a **90,041-token needle test passed** (the reading window intent, ~82k worst case, holds with margin; 59 s wall). Aliased in `config/backends.yaml` `omlx-general` from the reading-seat hint.

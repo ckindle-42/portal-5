@@ -1035,6 +1035,28 @@ backends:
   # model; the parser fragility is now handled by the repo-side installer.
   - id: DeepSeek-R1-0528-Qwen3-8B-4bit
     supports_tools: true
+  # PROMOTED 2026-09-26 for auto-data — pulled and pipeline-verified per the
+  # operator's pre-UAT research request. auto-data resolves [reasoning,
+  # general] (same routing as auto-math), so this lives here, not
+  # omlx-general, to ever be reached (auto-math's candidate went to the wrong
+  # group on the first attempt — see git history — this was placed correctly
+  # from the start). Verified through the real pipeline path (x-portal-route
+  # confirmed omlx-reasoning), not just a raw probe: a direct execute_python
+  # tool-call test (isolated, single-tool schema) returned a clean typed call;
+  # the same prompt through the pipeline with the full 7-tool production
+  # surface hit once with no tool call (plain-text mental arithmetic instead)
+  # and once with a clean typed execute_python call on retry — consistent
+  # with ordinary sampling variance at auto-data's temperature 0.7, not a
+  # systemic gap (same class of watch-item already accepted elsewhere in this
+  # fleet, e.g. the Qwen3.6-27B synthesizer's documented intermittent
+  # temp-0 decode loop). Unlike the auto-math candidate (Phi-4-mini-reasoning,
+  # reverted same day for non-convergence on trivial arithmetic through the
+  # pipeline), this one converges correctly and reuses the same checkpoint
+  # family (Qwen3.6-35B-A3B, vision tower present but unused on both engines
+  # — oMLX 0.6.4's vision path is non-functional either way) already trusted
+  # in this fleet for the Ollama seat it replaces.
+  - id: unsloth--Qwen3.6-35B-A3B-UD-MLX-4bit
+    supports_tools: true
   priority: 10
   aliases:
     huihui_ai/tongyi-deepresearch-abliterated:latest-ctx64k: Tongyi-DeepResearch-30B-A3B-abliterated-4bit
@@ -1044,6 +1066,7 @@ backends:
     # Tier-2 deep lane — auto-reasoning?variant=deep. Same MTP checkpoint the
     # omlx-coding group serves; aliased here so the reasoning group resolves it.
     hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k: Qwen3.8-27B-oQ4e-mtp
+    hf.co/unsloth/Qwen3.6-35B-A3B-GGUF:UD-Q4_K_XL-ctx32k: unsloth--Qwen3.6-35B-A3B-UD-MLX-4bit
   type: omlx
   url: ${OMLX_URL:-http://host.docker.internal:8085}
 - group: security
