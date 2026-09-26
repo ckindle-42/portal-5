@@ -52,6 +52,7 @@ from portal.platform.inference.router.metrics import (
 from portal.platform.inference.router.non_streaming import (
     _REQUEST_ERROR_STATUSES,
     BackendRequestError,
+    _is_capacity_error,
     _try_non_streaming,
     backend_error_detail,
     resolve_hop_target,
@@ -149,6 +150,28 @@ def _stream_error(chunk: bytes) -> int | None:
         return None
     status = obj.get("status")
     return status if isinstance(status, int) else 0
+
+
+def _stream_error_detail(chunk: bytes) -> str:
+    """The message text from a ``_backend_error_chunk`` envelope, else ''."""
+    if not chunk.startswith(b"data:"):
+        return ""
+    try:
+        obj = json.loads(chunk[5:].strip())
+    except Exception:
+        return ""
+    return str(obj.get("error", "")) if isinstance(obj, dict) else ""
+
+
+def _is_noncascadable_stream_error(status: int | None, buffer: bytes | None) -> bool:
+    """Whether a streamed backend error should surface to the client instead of
+    falling back to the next candidate — mirrors non_streaming.py's
+    ``_raise_for_backend_status`` rule (see there for why a 400 needs a
+    capacity exception: oMLX's prefill_memory_guard also returns 400, and that
+    one should cascade to Ollama, not surface)."""
+    if status not in _REQUEST_ERROR_STATUSES:
+        return False
+    return not (status == 400 and buffer and _is_capacity_error(_stream_error_detail(buffer)))
 
 
 def _chunk_has_output(chunk: bytes) -> bool:
@@ -1952,10 +1975,13 @@ async def _stream_with_fallback(
     except Exception:
         stream_failed = True
 
-    if stream_failed and (_output_sent or _error_status in _REQUEST_ERROR_STATUSES):
+    if stream_failed and (
+        _output_sent or _is_noncascadable_stream_error(_error_status, _error_buffer)
+    ):
         # Part of an answer is already on screen — a fallback would append a
-        # second, different answer to it. A malformed request (4xx) fails the
-        # same on every candidate. Either way, report the error and stop.
+        # second, different answer to it. A malformed request (4xx, minus an
+        # oMLX capacity rejection wearing a 400) fails the same on every
+        # candidate. Either way, report the error and stop.
         yield _error_buffer or b'data: {"error": "Backend stream failed"}\n\n'
         yield _DONE
         _record_error(workspace_id, "stream_failed_after_output" if _output_sent else "bad_request")

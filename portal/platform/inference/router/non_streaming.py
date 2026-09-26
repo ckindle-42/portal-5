@@ -64,10 +64,54 @@ class BackendRequestError(Exception):
 #: engine), 408 and 429 stay cascadable — another candidate can serve those.
 _REQUEST_ERROR_STATUSES = frozenset({400, 413, 422})
 
+#: Substrings identifying oMLX's own capacity rejections (prefill_memory_guard
+#: at 400, "cannot load" at 507) rather than a genuinely malformed request.
+#: Matched case-insensitively. A false negative just means a capacity error
+#: surfaces to the client instead of cascading (the behavior before this
+#: distinction existed); a false positive would let a truly bad request loop
+#: across every candidate before failing — the narrower match is the safer
+#: side to err on.
+_CAPACITY_ERROR_MARKERS = (
+    "memory guard",
+    "prefill memory",
+    "would exceed",
+    "projected memory",
+    "cannot load",
+    "metal_cap",
+    "wired_limit",
+)
+
+
+def _is_capacity_error(detail: str) -> bool:
+    """Whether a 400 is an engine capacity rejection, not a malformed request.
+
+    oMLX's prefill_memory_guard returns HTTP 400 when it predicts a request
+    would blow its own memory ceiling right now — a fact about current engine
+    state, not the request's shape. Another engine (Ollama has an entirely
+    different memory profile) would very likely serve it fine, so unlike a
+    genuinely malformed request (bad JSON, an invalid parameter — the same
+    failure on every candidate), this one is cascadable.
+
+    The 2026-09-25 hardening pass that introduced ``_REQUEST_ERROR_STATUSES``
+    (commit edcedc5a) didn't carry this distinction, which silently broke the
+    "automatic Ollama fallback on unhealthy/rejects" pattern the oMLX
+    shadow-shift design (P5-FANOUT-001, docs/TASK_FANOUT_CONCURRENCY_V1.md)
+    depends on for every priority-10 alias. Found in the P5-FANOUT-001 audit
+    follow-up, not yet reproduced as a live incident — the one lane that
+    reliably trips the guard (granite-30b ctx98k) was already Ollama-only for
+    an unrelated reason, and SWEEP_CONCURRENCY defaults to 1 (opt-in).
+    """
+    low = detail.lower()
+    return any(marker in low for marker in _CAPACITY_ERROR_MARKERS)
+
 
 def _raise_for_backend_status(resp: httpx.Response) -> None:
     if resp.status_code in _REQUEST_ERROR_STATUSES:
-        raise BackendRequestError(resp.status_code, backend_error_detail(resp.content))
+        detail = backend_error_detail(resp.content)
+        if resp.status_code == 400 and _is_capacity_error(detail):
+            resp.raise_for_status()  # a capacity rejection, not a bad request — cascade
+            return
+        raise BackendRequestError(resp.status_code, detail)
     resp.raise_for_status()
 
 
