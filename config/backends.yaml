@@ -932,6 +932,10 @@ backends:
   models:
   - id: gemma-4-26b-a4b-it-QAT-4bit
     supports_tools: true
+  # P5-FANOUT-001: council Challenger conversion (lane contract = response_format
+  # json, NO tools — its template does not render tools on oMLX, probed live).
+  - id: mlx-community--Mistral-Small-3.2-24B-Instruct-2506-4bit
+    supports_tools: false
   # Nemotron 3.5 Lightning oQ4e-mtp added 2026-08-14 (txgsync/NVIDIA-Nemotron-
   # 3.5-Lightning-30B-A3B-oQ4e-mtp, oMLX 0.6.0.dev1 MTPLX side-car import —
   # real mtp.* weights verified at the tensor level, unlike the plain
@@ -942,6 +946,15 @@ backends:
   # direct tool-call probe.
   - id: NVIDIA-Nemotron-3.5-Lightning-30B-A3B-oQ4e-mtp
     supports_tools: true
+  # P5-FANOUT-001 lane-alignment audit (2026-09-25): granite4.1:30b-ctx98k is
+  # deliberately NOT aliased here — the granite-4.1-30b-4bit conversion
+  # returned EMPTY output on an 85k-token needle probe (400 correctly at 132k,
+  # fine at <=39k), so the reading lane's ~82k worst case is NOT served on the
+  # MLX conversion; bench-granite41-30b-ctx98k keeps its baked-98304 Ollama
+  # seat (verified: /api/ps context_length 98304). The ctx16k add covers
+  # auto-documents/video/image (16k ≪ the conversion's proven range, same
+  # checkpoint, tool-probed). 8b-ctx16k also pre-existed on omlx-reasoning;
+  # this makes the general-group lanes consistent.
   # P5-FANOUT-001 W4: the compliance fan-out's seats registered here so the
   # priority-10 alias block below can shadow them onto oMLX (workspace_routing
   # for bench-* and compliance-reading reaches only this group). Every alias
@@ -959,8 +972,9 @@ backends:
     gemma4:26b-a4b-it-qat-ctx8k: gemma-4-26b-a4b-it-QAT-4bit
     hf.co/bartowski/NVIDIA-Nemotron-3.5-Lightning-30B-A3B-GGUF:q4_K_M-ctx8k: NVIDIA-Nemotron-3.5-Lightning-30B-A3B-oQ4e-mtp
     granite4.1:8b-ctx8k: granite-4.1-8b-mxfp8
+    granite4.1:8b-ctx16k: granite-4.1-8b-mxfp8
     granite4.1:30b-ctx16k: granite-4.1-30b-4bit
-    granite4.1:30b-ctx98k: granite-4.1-30b-4bit
+    mistral-small3.2:24b: mlx-community--Mistral-Small-3.2-24B-Instruct-2506-4bit
     hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k: Qwen3.8-27B-oQ4e-mtp
   type: omlx
   url: ${OMLX_URL:-http://host.docker.internal:8085}
@@ -1009,21 +1023,29 @@ backends:
   # the base VulnLLM alias above only covered plain auto-security requests.
   # Four variants added here for free: their oMLX conversions were already
   # on disk (shared with omlx-creative/omlx-reasoning, or previously
-  # unregistered), each live tool-call-audited before being added. Two
-  # roles (redteam-deep, purpleteam-exec — supergemma4-26b-uncensored)
-  # deliberately NOT added: the only supergemma4-26b MLX conversion on
-  # disk is Jiunsong/supergemma4-26b-abliterated-multimodal, a DIFFERENT
-  # base checkpoint per its own README (not the -uncensored repo Ollama
-  # actually serves) — aliasing it would be a silent model substitution.
-  # Left Ollama-backed until a correct conversion is deliberately pulled.
-  # `uncensored` (baronllm-abliterated) also left Ollama-backed — no oMLX
-  # conversion on disk, deferred pending a disk-usage reassessment.
+  # unregistered), each live tool-call-audited before being added. The
+  # redteam-deep/purpleteam-exec refusal (2026-08-10) targeted Jiunsong/
+  # supergemma4-26b-abliterated-multimodal, a DIFFERENT checkpoint; the
+  # correct -uncensored conversion (Jiunsong v2) was pulled and audited
+  # 2026-09-25 (P5-FANOUT-001 lane-alignment audit): behavioral A/B against
+  # the Ollama GGUF seat matches — identical reasoning-channel structure
+  # (2,726 reasoning + 4,219 content chars vs GGUF's 2,515 + 4,017 on the
+  # same Kerberoasting probe), clean typed tool calls via oMLX's gemma4
+  # parser. `uncensored` (baronllm-abliterated) remains Ollama-backed: NO
+  # MLX conversion of that checkpoint exists on HF (searched 2026-09-25) —
+  # converting it locally is the remaining path.
   models:
   - id: VulnLLM-R-7B-4bit
     supports_tools: true
   - id: Qwen3.6-35B-A3B-HauhauCS-Aggressive-4bit
     supports_tools: true
   - id: granite-4.1-8b-mxfp8
+    supports_tools: true
+  # P5-FANOUT-001: redteam-deep/purpleteam-exec conversion — behavioral A/B vs
+  # the GGUF seat + typed tool calls verified (see comment below).
+  - id: Jiunsong--supergemma4-26b-uncensored-mlx-4bit-v2
+    supports_tools: true
+  - id: huihui-ai--Huihui-Qwen3.5-9B-abliterated-mlx-4bit
     supports_tools: true
   - id: huihui-ai--Huihui-Qwen3.5-9B-abliterated-mlx-4bit
     supports_tools: true
@@ -1069,6 +1091,7 @@ backends:
     granite4.1:8b-ctx8k: granite-4.1-8b-mxfp8
     huihui_ai/qwen3.5-abliterated:9b-ctx8k: huihui-ai--Huihui-Qwen3.5-9B-abliterated-mlx-4bit
     huihui_ai/qwen3.5-abliterated:9b-ctx64k: huihui-ai--Huihui-Qwen3.5-9B-abliterated-mlx-4bit
+    supergemma4-26b-uncensored:Q4_K_M-ctx64k: Jiunsong--supergemma4-26b-uncensored-mlx-4bit-v2
   type: omlx
   url: ${OMLX_URL:-http://host.docker.internal:8085}
 - group: creative

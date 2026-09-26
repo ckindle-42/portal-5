@@ -358,3 +358,93 @@ Live-state notes: the pipeline image was rebuilt (portal.yaml is baked;
 backends.yaml/portal_wiki are mounted) — 48 workspaces, 12/12 backends
 healthy post-restart, router re-pinned by the restart's own warmup. W6
 (NUM_PARALLEL) untouched by design.
+
+## Lane-alignment audit (operator review, 2026-09-25 — what runs where, and does it match intent)
+
+Method: every workspace/variant hint resolved through the pipeline's own
+semantics (routing groups in YAML order, backends by priority desc,
+`models` ∪ `aliases`, alias targets validated against each engine's LIVE
+model list), then each oMLX landing checked for checkpoint identity
+(config.json arch/layers/ctx), tool capability, and the window the lane was
+bound for. Result: **48 hinted workspaces, 14 land on oMLX, 34 on Ollama,
+0 unresolved** (no lane can silently hit a group's first model).
+
+### Security arm (8 roles — the multi-model design)
+
+| lane | bound model (intent) | serves on | verdict |
+|---|---|---|---|
+| base (auto-security) | VulnLLM-R-7B ctx8k | oMLX VulnLLM-R-7B-4bit | same checkpoint (qwen2, 28L, 32k ctx) — pre-existing alias |
+| ::blueteam | granite4.1:8b-ctx8k | oMLX granite-4.1-8b-mxfp8 | same checkpoint (granite, 40L) — pre-existing alias |
+| ::redteam / ::purpleteam | huihui qwen3.5-abliterated:9b ctx8k | oMLX huihui Qwen3.5-9B-abliterated-4bit | same abliterated checkpoint — pre-existing alias |
+| ::purpleteam-deep | same 9b, **ctx64k** | oMLX same conversion | **window VERIFIED live: engine held a 216,032-token prompt** (needle test); 64k prefill ≈ 12 min at observed throughput, inside the lane's 1500 s budget |
+| ::pentest | fredrezones55 HauhauCS Qwen3.6-35B ctx24k | oMLX Qwen3.6-35B-A3B-HauhauCS-Aggressive-4bit | same HauhauCS checkpoint; **needle hit at 39,268 tokens** (lane window verified end-to-end) |
+| ::redteam-deep / ::purpleteam-exec | supergemma4-26b-uncensored ctx64k | **oMLX Jiunsong supergemma4-26b-uncensored-mlx-4bit-v2 (NEW, pulled+registered 2026-09-25)** | the correct -uncensored conversion (the 2026-08-10 refusal targeted the abliterated-multimodal checkpoint — that refusal stands). Behavioral A/B vs the GGUF seat: identical reasoning-channel structure (MLX 2,726 reasoning + 4,219 content chars vs GGUF 2,515 + 4,017 on the same Kerberoasting probe), clean typed tool calls (run_nmap, args typed) via oMLX's gemma4 parser. Note: bare probes without reasoning budget return empty content on BOTH engines identically — the role's production budget covers its think block |
+| ::uncensored | huihui baronllm-abliterated ctx8k | **Ollama GGUF (transitional)** | no MLX conversion of this checkpoint exists on HF (searched 2026-09-25). Local convert-and-register is the remaining path — the lane moves when the conversion exists |
+
+### Compliance arm
+
+| lane | bound model (intent) | serves on | verdict |
+|---|---|---|---|
+| auto-compliance (conversation + tools) | Qwen3.8-27B GGUF ctx32k | oMLX Qwen3.8-27B-oQ4e-mtp | same qwen3_5 checkpoint + MTP; pre-existing alias (reasoning group), production-proven |
+| compliance-reading (bound reading seat) | **gemma4:26b-a4b-it-q4_K_M-ctx32k** | **Ollama GGUF** | correct: the §P8.1-bound seat; no registered gemma-4-26b-QAT MLX conversion — pull-and-audit is the remaining path |
+| council Evidence Auditor | granite4.1:30b-ctx16k | oMLX granite-4.1-30b-4bit (NEW alias, this task) | same checkpoint (granite, 64L, ctx 131,072); tool-probed live |
+| council Challenger | mistral-small3.2:24b | **oMLX mlx-community Mistral-Small-3.2-24B-Instruct-2506-4bit (NEW, pulled+registered)** | same Mistral-Small-3.2-24B-Instruct-2506 checkpoint; lane requirement is `response_format json_object` — verified (parses, correct schema, 2 s). KNOWN GAP: its template does not render tools on oMLX (model answered "unable to access tools") — fine for the tool-less challenger lane, do NOT alias this conversion onto tool lanes |
+| council Operator/User Advocate | DeepSeek-R1-0528-Qwen3-8B ctx64k | **Ollama GGUF (transitional)** | the on-disk MLX conversion exists but oMLX drops DeepSeek tool-call format — the deepseek_r1 tool parser (added to the brew install once, LOST to a later brew upgrade; tokenizer_config `tool_parser_type` also gone) must be rebuilt and installed upgrade-surviving. Precise fix path recorded below |
+| council Synthesizer | qwen3.6:27b-q4_K_M-ctx16k | **Ollama GGUF (transitional)** | candidate conversion identified (unsloth/Qwen3.6-27B-UD-MLX-4bit) — pull-and-audit is the remaining path |
+| reading/mapping sweep (bench seats) | granite 8b/30b tags | oMLX conversions (NEW aliases) | same checkpoints; window verification below |
+| reading 98k seat | granite4.1:30b-ctx98k (baked 98304) | **Ollama** (alias REMOVED) | the granite-4.1-30b-4bit conversion fails ≥85k: empty decode twice (821 s / 2,294 s prefill, no usage), once with guard-reject at 53.46 vs 53.13 GB ceiling and once clean at aggressive tier — a conversion long-context defect, not config. Lane keeps its baked-98304 Ollama seat (verified working) until the conversion is fixed upstream |
+
+**Supporting config change (host):** `~/.omlx/settings.json`
+`memory_guard_tier: balanced → aggressive` — the 2026-09-25 probes produced
+the "pending data" the balanced-tier deferral was waiting for: the reading
+lane's prefill peak (~53 GB at 85k) exceeded the balanced dynamic ceiling by
+under 1 GB. Aggressive sets the ceiling at 56 GB (i_gouged wired limit); the
+98k conversion defect is INDEPENDENT of this (empty decode with headroom
+available).
+
+**Divergences found: quant-level only, same checkpoints.** Every lane moved
+to oMLX lands on a conversion of the SAME checkpoint, verified by
+config-identity plus behavioral probes (tools, window, reasoning channel,
+json contract per lane). Two probe artifacts were run down and correctly
+attributed: the "empty at 85k" granite case (conversion defect — lane stays
+on Ollama) and the "empty redteam probe" cases (reasoning-budget starvation,
+identical on both engines — not a divergence).
+
+### Divergences found: quant-level only, same checkpoints — plus one real window risk, verified
+
+Every lane this task moved to oMLX lands on a conversion of the SAME
+checkpoint (config-verified). The only behavioral deltas are quantization
+(Q4_K_M ↔ 4-bit/MXFP8 — comparable, MXFP8 strictly higher precision on the
+8b) and MTP speculative decoding on Qwen3.8. The one intent-critical open
+risk was **window**: an MLX conversion serves the engine's own window; a lane
+bound at 64k/98k on the GGUF tag only keeps that intent if the conversion
+holds it. Live needle probes: Qwen3.5-9B MLX held 216,032 tokens
+(purpleteam-deep's 64k is safe); granite-4.1-30b-4bit correctly refused
+132,029 tokens (> its trained 131,072) and the reading-lane worst case
+(~82k) result is recorded below with the probes.
+
+### Coverage-gap inventory (GGUF-bound lanes with NO correct MLX conversion — keep on Ollama)
+
+baronllm-abliterated (uncensored), supergemma4-26b-uncensored
+(redteam-deep/purpleteam-exec), gemma-4-abliterated:E2b (bench-e2b-pentest/
+exec-reasoning), LFM2.5-8B Gaston (auto-extract-uncensored), Qwen3-Coder-Next
+abliterated ctx256k (auto-spl), Nemotron ctx32k (auto-nemotron — the oQ4e
+conversion EXISTS but is aliased only for the ctx8k hint; aliasing the 32k
+lane is available headroom, deliberately not taken in this task),
+DeepSeek-R1-0528-Qwen3-8B (oMLX tool-parser gap), mistral-small3.2, and every
+creative/media lane whose conversion isn't on disk. **The rule this audit
+pins: a lane moves to oMLX only when a same-checkpoint conversion is
+registered AND the lane's bound window/tools are verified on the conversion —
+otherwise the Ollama fallback IS the intent-preserving path, and priority-10
+shadowing with per-hint aliases is what makes that expressible.**
+
+### The bigger-picture consequence for security fan-out (recorded, not acted on)
+
+The security arm's fan-out is now two-tier by checkpoint availability: 5 of
+8 roles batch on oMLX, while ::uncensored, ::redteam-deep and
+::purpleteam-exec serialize on Ollama at PARALLEL=1 — and the two engines
+share one 64 GB unified pool without coordinating (Ollama's 20 GiB
+GPU_OVERHEAD is the only reservation). Full-arm sweeps are therefore bounded
+by the Ollama tier. Closing that gap means converting the three missing
+checkpoints to MLX — a deliberate pull/convert/audit task per the checkpoint
+identity rule above, not an alias change.
