@@ -228,3 +228,103 @@ def test_build_refuses_unmapped_tag():
 def test_build_accepts_variant_workspace_ids():
     body = _built(model="auto-security::redteam")
     assert body["model"] == "auto-security::redteam"
+
+
+# ── applied options lift (PIPELINE_ALIGNMENT_V1 §P3) ─────────────────────────
+
+
+def test_trace_lifts_applied_options_when_recorded(monkeypatch):
+    """The receipt carries what the pipeline APPLIED, not what was requested."""
+    captured: dict[str, Any] = {}
+
+    def _fake_get(url, timeout, headers):
+        captured["url"] = url
+        return {
+            "backend": "omlx-general",
+            "model": "mlx-community--gemma-4-26b-a4b-it-4bit",
+            "options_applied": {
+                "workspace": "compliance-reading",
+                "temperature": 0.0,
+                "max_tokens": 3072,
+                "enable_thinking": False,
+                "workspace_context_limit": 32768,
+            },
+        }
+
+    import portal.modules.compliance.core.transport_dialects as td
+
+    monkeypatch.setattr(td, "_get", _fake_get)
+    applied = PipelineCompat()._trace("compliance-abc123")
+    assert applied["backend"] == "omlx-general"
+    assert applied["options_applied"]["temperature"] == 0.0
+    assert applied["options_applied"]["enable_thinking"] is False
+    assert applied["options_applied"]["workspace_context_limit"] == 32768
+
+
+def test_trace_records_applied_options_absence_as_none(monkeypatch):
+    """A trace without applied options says so — the receipt never invents them."""
+    import portal.modules.compliance.core.transport_dialects as td
+
+    monkeypatch.setattr(td, "_get", lambda url, timeout, headers: {"backend": "omlx-general"})
+    applied = PipelineCompat()._trace("compliance-abc123")
+    assert applied["options_applied"] is None
+
+
+def test_chat_receipt_carries_applied_options():
+    class _PipelineFake(PipelineCompat):
+        def post(self, payload: dict[str, Any], timeout: int) -> dict[str, Any]:
+            return {
+                "model": "granite-4.1-8b-mxfp8",
+                "choices": [{"message": {"role": "assistant", "content": '{"ok": 1}'}}],
+                "_portal": {
+                    "correlation_id": "compliance-def456",
+                    "workspace": "tools-specialist",
+                    "backend": "omlx-general",
+                    "served_model": "granite-4.1-8b-mxfp8",
+                    "options_applied": {"temperature": 0.0, "max_tokens": 3072},
+                },
+            }
+
+    reading_transport._THINK_CAPABLE.clear()
+    try:
+        result = chat(
+            "granite4.1:8b-ctx8k",
+            system="s",
+            user="u",
+            fmt="json",
+            dialect=_PipelineFake(),
+        )
+    finally:
+        reading_transport._THINK_CAPABLE.clear()
+    assert result["applied_options"] == {"temperature": 0.0, "max_tokens": 3072}
+
+
+def test_note_applied_options_records_post_injection_body():
+    """The recorder reads the WIRE body after injection, caller values included."""
+    from portal.platform.inference.router import trace as trace_module
+    from portal.platform.inference.router.validation import _note_applied_options
+
+    seen: dict[str, Any] = {}
+
+    def _fake_note(**fields):
+        seen.update(fields)
+
+    original = trace_module.note
+    trace_module.note = _fake_note
+    try:
+        body = {
+            "model": "x",
+            "temperature": 0.42,  # caller-supplied wins and is what shows
+            "max_tokens": 777,
+            "options": {"num_ctx": 16384},
+            "chat_template_kwargs": {"enable_thinking": False},
+        }
+        _note_applied_options(body, "compliance-reading")
+    finally:
+        trace_module.note = original
+    applied = seen["options_applied"]
+    assert applied["temperature"] == 0.42
+    assert applied["max_tokens"] == 777
+    assert applied["num_ctx"] == 16384
+    assert applied["enable_thinking"] is False
+    assert applied["workspace"] == "compliance-reading"

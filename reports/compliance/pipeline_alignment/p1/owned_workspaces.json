@@ -1,0 +1,60 @@
+{
+  "generated_at": "2026-09-26T12:47:02Z",
+  "method": "resolve every compliance call-site argument with the real resolver against the live config, then against a copy with every non-compliance workspace's model_hint rewritten to a sentinel; diff",
+  "n_altered_workspaces": 46,
+  "rows": [
+    {
+      "call_site": "sweep.map_read / sweep.reduce_standard / reader.read",
+      "model_arg": "gemma4:26b-a4b-it-q4_K_M-ctx32k",
+      "baseline_workspace": "compliance-reading",
+      "altered_config_workspace": "compliance-reading",
+      "moved": false,
+      "compliance_owned": true
+    },
+    {
+      "call_site": "council.qwen38 (workspace)",
+      "model_arg": "compliance-council-qwen38",
+      "baseline_workspace": "compliance-council-qwen38",
+      "altered_config_workspace": "compliance-council-qwen38",
+      "moved": false,
+      "compliance_owned": true
+    },
+    {
+      "call_site": "council.granite41 (workspace)",
+      "model_arg": "compliance-council-granite41",
+      "baseline_workspace": "compliance-council-granite41",
+      "altered_config_workspace": "compliance-council-granite41",
+      "moved": false,
+      "compliance_owned": true
+    },
+    {
+      "call_site": "council.deepseek_r1 (workspace)",
+      "model_arg": "compliance-council-deepseek-r1",
+      "baseline_workspace": "compliance-council-deepseek-r1",
+      "altered_config_workspace": "compliance-council-deepseek-r1",
+      "moved": false,
+      "compliance_owned": true
+    }
+  ],
+  "tag_resolution_snapshot": [
+    {
+      "seat": "qwen38",
+      "tag": "hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k",
+      "baseline_workspace": "auto-compliance",
+      "note": "resolved from the tag itself; call sites address the workspace id"
+    },
+    {
+      "seat": "granite41",
+      "tag": "granite4.1:30b-ctx16k",
+      "baseline_workspace": "compliance-council-granite41",
+      "note": "resolved from the tag itself; call sites address the workspace id"
+    },
+    {
+      "seat": "deepseek_r1",
+      "tag": "hf.co/unsloth/DeepSeek-R1-0528-Qwen3-8B-GGUF:Q4_K_XL-ctx64k",
+      "baseline_workspace": "compliance-council-deepseek-r1",
+      "note": "resolved from the tag itself; call sites address the workspace id"
+    }
+  ],
+  "objective_met": true
+}

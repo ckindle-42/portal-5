@@ -12,12 +12,20 @@ seats:
   - id: qwen38
     label: "Qwen3.8 27B (unsloth Q4_K_M, 32k)"
     model: "hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k"
+    # PIPELINE_ALIGNMENT_V1 §P1: address the seat's calls at the compliance-
+    # owned workspace by id (config/portal.yaml compliance-council-*), so
+    # hint first-match can never land the seat in a borrowed lane. `model`
+    # stays the tag: it keys council._MODEL_TEMPERATURE and rides on the
+    # receipts.
+    workspace: "compliance-council-qwen38"
   - id: granite41
     label: "IBM Granite 4.1 30B (16k)"
     model: "granite4.1:30b-ctx16k"
+    workspace: "compliance-council-granite41"
   - id: deepseek_r1
     label: "DeepSeek-R1-0528-Qwen3-8B (unsloth Q4_K_XL, 64k)"
     model: "hf.co/unsloth/DeepSeek-R1-0528-Qwen3-8B-GGUF:Q4_K_XL-ctx64k"
+    workspace: "compliance-council-deepseek-r1"
     # PROMOTED 2026-09-26, provisional — PROMOTE_POLICY: confirm (pre-UAT
     # decision, explicitly revisitable, not a fresh 12-seat sweep result).
     # Replaces the mistral seat below, which was UNDER REVIEW (docs/

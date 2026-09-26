@@ -60,6 +60,49 @@ def _validate_workspace_hints(registry: BackendRegistry) -> list[str]:
     return errors
 
 
+def _note_applied_options(body: dict[str, Any], workspace_id: str) -> None:
+    """Stamp the APPLIED request fields onto the turn's trace (P5-FANOUT-001
+    receipt work; TASK_COMPLIANCE_PIPELINE_ALIGNMENT_V1 §P3).
+
+    Called at the END of each ``_inject_*_options`` return path, so the values
+    are what the wire body carries after injection — a caller-supplied value and
+    a workspace-injected one look identical here, which is the point: a receipt
+    must say what actually ran, not what was requested. ``trace_note`` merges by
+    key, so on a fallback the later injection (the candidate that served)
+    overwrites the earlier one; a body that was never served is recorded only
+    when it was also the last one built. The import is lazy because this module
+    is imported by lifespan before the trace store exists.
+
+    Never raises: a trace failure must not change the outcome of a turn.
+    """
+    try:
+        from portal.platform.inference.router.trace import note as _trace_note
+
+        options = body.get("options") or {}
+        ctk = body.get("chat_template_kwargs") or {}
+        ws_cfg = WORKSPACES.get(workspace_id, {}) if workspace_id else {}
+        _trace_note(
+            options_applied={
+                "workspace": workspace_id,
+                "temperature": body.get("temperature"),
+                "top_p": body.get("top_p"),
+                "top_k": body.get("top_k"),
+                "min_p": body.get("min_p"),
+                "presence_penalty": body.get("presence_penalty"),
+                "repetition_penalty": body.get("repetition_penalty"),
+                "seed": body.get("seed"),
+                "max_tokens": body.get("max_tokens"),
+                "num_ctx": options.get("num_ctx"),
+                "think": body.get("think"),
+                "enable_thinking": ctk.get("enable_thinking"),
+                "reasoning_effort": body.get("reasoning_effort"),
+                "workspace_context_limit": ws_cfg.get("context_limit"),
+            }
+        )
+    except Exception:  # noqa: BLE001 — tracing never changes an outcome
+        pass
+
+
 # Model families whose chat template opens a `<think>` block by default when
 # `enable_thinking` isn't explicitly set (Qwen3.5/3.6/3.8, DeepSeek-R1, GLM-Z1,
 # Magistral, olmo-think). A non-reasoning workspace on one of these that leaves
@@ -308,6 +351,8 @@ def _inject_ollama_options(body: dict[str, Any], workspace_id: str = "") -> dict
         if not ws_think:
             body["reasoning_effort"] = "none"
 
+    _note_applied_options(body, workspace_id)
+
     return body
 
 
@@ -347,5 +392,7 @@ def _inject_omlx_options(body: dict[str, Any], workspace_id: str = "") -> dict[s
         ctk = dict(body.get("chat_template_kwargs") or {})
         ctk.setdefault("enable_thinking", ws_think)
         body["chat_template_kwargs"] = ctk
+
+    _note_applied_options(body, workspace_id)
 
     return body

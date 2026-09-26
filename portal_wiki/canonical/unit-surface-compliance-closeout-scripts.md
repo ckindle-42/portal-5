@@ -37,6 +37,10 @@ sources:
   path: scripts/compliance/pipeline_call_site_ledger.py
 - type: code
   path: scripts/compliance/window_census.py
+- type: code
+  path: scripts/compliance/lane_alteration_diff.py
+- type: code
+  path: scripts/compliance/self_agreement_pipeline.py
 claims: []
 confidence: high
 tags:
@@ -117,4 +121,10 @@ resolved workspace declares, so the ledger is measured rather than derived
 from config. `window_census` (§P2) renders every register node's sweep
 material and prices it against the seat and overflow windows at the measured
 bytes-per-token, local computation only, so the oversized-material problem
-is sized before an overflow route is built.
+is sized before an overflow route is built. `lane_alteration_diff` (§P1)
+resolves every compliance call-site argument with the real resolver against
+the live config and against a copy with every non-compliance workspace's
+model_hint rewritten to a sentinel — a moved resolution is a seat living in
+a borrowed lane. `self_agreement_pipeline` (§P4) reads one standard twice
+per arm, sequential and concurrent, and compares determinations as triple
+sets — the reproducibility number for the engine that actually serves.

@@ -804,6 +804,10 @@ surfaces:
   globs:
   - scripts/compliance/family_links.py
   unit: unit-surface-compliance-closeout-scripts
+- name: file-scripts-compliance-lane_alteration_diff
+  globs:
+  - scripts/compliance/lane_alteration_diff.py
+  unit: unit-surface-compliance-closeout-scripts
 - name: file-scripts-compliance-pipeline_call_site_ledger
   globs:
   - scripts/compliance/pipeline_call_site_ledger.py
@@ -816,6 +820,10 @@ surfaces:
   globs:
   - scripts/compliance/scope_effect.py
   unit: unit-compliance-cite-and-scope
+- name: file-scripts-compliance-self_agreement_pipeline
+  globs:
+  - scripts/compliance/self_agreement_pipeline.py
+  unit: unit-surface-compliance-closeout-scripts
 - name: file-scripts-compliance-session_proof
   globs:
   - scripts/compliance/session_proof.py

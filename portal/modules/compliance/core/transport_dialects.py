@@ -615,11 +615,16 @@ class PipelineCompat(OpenAICompat):
         return body
 
     def _trace(self, correlation_id: str) -> dict[str, Any]:
-        """``backend``/``served_model`` for one turn, from the pipeline's span store.
+        """``backend``/``served_model``/applied options for one turn, from the
+        pipeline's span store.
 
         A missing record degrades to an empty dict — the correlation id on the
         receipt is the durable pointer, and a 404 here must not fail a call
-        whose answer is already in hand.
+        whose answer is already in hand. ``options_applied`` (the sampling,
+        thinking and window the pipeline actually put on the wire after
+        workspace injection — TASK_COMPLIANCE_PIPELINE_ALIGNMENT_V1 §P3) rides
+        through when the turn's trace recorded it; absence is recorded as its
+        absence, never guessed.
         """
         try:
             data = _get(
@@ -627,7 +632,13 @@ class PipelineCompat(OpenAICompat):
                 10,
                 self.headers(),
             )
-            return {"backend": data.get("backend"), "served_model": data.get("model")}
+            out: dict[str, Any] = {
+                "backend": data.get("backend"),
+                "served_model": data.get("model"),
+            }
+            applied = data.get("options_applied")
+            out["options_applied"] = applied if isinstance(applied, dict) else None
+            return out
         except Exception:  # noqa: BLE001 - the id on the receipt is the pointer
             return {}
 

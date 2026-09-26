@@ -72,14 +72,20 @@ def seat_roster() -> list[dict[str, str]]:
     data = _read_council_config()
     seats = data.get("seats")
     if isinstance(seats, list) and seats:
-        return [
-            {
+        out: list[dict[str, str]] = []
+        for s in seats:
+            entry = {
                 "id": str(s["id"]),
                 "label": str(s.get("label", s["id"])),
                 "model": str(s["model"]),
             }
-            for s in seats
-        ]
+            # The compliance-owned workspace the seat is addressed through
+            # (PIPELINE_ALIGNMENT_V1 §P1). Optional so older rosters load;
+            # the call sites fall back to the tag when absent.
+            if s.get("workspace"):
+                entry["workspace"] = str(s["workspace"])
+            out.append(entry)
+        return out
     return list(_DEFAULT_SEATS)
 
 

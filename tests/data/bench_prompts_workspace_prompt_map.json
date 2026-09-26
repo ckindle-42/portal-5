@@ -5,7 +5,6 @@
   "auto-cad": "coding",
   "auto-coding": "coding",
   "auto-compliance": "reasoning",
-  "compliance-reading": "reasoning",
   "auto-council": "reasoning",
   "auto-creative": "creative",
   "auto-daily": "general",
@@ -46,5 +45,10 @@
   "bench-qwen36-cad": "coding",
   "bench-qwen38-27b": "coding",
   "bench-qwen38-flash-next-reap288": "coding",
+  "compliance-council-deepseek-r1": "reasoning",
+  "compliance-council-granite41": "reasoning",
+  "compliance-council-qwen38": "reasoning",
+  "compliance-reading": "reasoning",
+  "compliance-reading-overflow": "reasoning",
   "tools-specialist": "general"
 }

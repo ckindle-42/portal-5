@@ -144,8 +144,11 @@ def align_part(request: AssessmentRequest, context: AssessmentContext) -> Alignm
     for seat in seats:
         seat_id = str(seat.get("id", ""))
         model = str(seat.get("model", ""))
+        # Address the seat's compliance-owned workspace when the roster names
+        # one (PIPELINE_ALIGNMENT_V1 §P1); the tag stays what the receipts record.
+        address = str(seat.get("workspace") or model)
         try:
-            raw = fn(model, _ALIGNMENT_SYSTEM, user)
+            raw = fn(address, _ALIGNMENT_SYSTEM, user)
         except Exception as exc:  # noqa: BLE001 - a failed reader seat fails the reading
             return AlignmentResult(
                 part_ref=part_ref,
@@ -602,7 +605,11 @@ def _align_pairs(
         facts: list[str] = []
         for seat in seats:
             try:
-                raw = fn(str(seat.get("model", "")), _ALIGNMENT_SYSTEM, user)
+                raw = fn(
+                    str(seat.get("workspace") or seat.get("model", "")),
+                    _ALIGNMENT_SYSTEM,
+                    user,
+                )
             except Exception:  # noqa: BLE001 - a malformed pair vote is not a crash
                 continue
             relation, rationale, missing = _parse_pair(raw)

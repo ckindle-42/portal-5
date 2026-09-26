@@ -47,6 +47,13 @@ VALID_WORKSPACES = frozenset(
         "auto-data",
         "auto-compliance",
         "compliance-reading",
+        # PIPELINE_ALIGNMENT_V1 §P1/§P2: compliance-owned engine seats (not
+        # conversation lanes, not exposed to OWUI) — listed so the dispatcher
+        # matches the pipeline's workspace set exactly.
+        "compliance-council-qwen38",
+        "compliance-council-granite41",
+        "compliance-council-deepseek-r1",
+        "compliance-reading-overflow",
         "auto-math",
         "auto-audio",
         "auto-uncensored-throwaway",

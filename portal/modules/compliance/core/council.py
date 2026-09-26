@@ -208,6 +208,15 @@ def _json_object(text: str) -> dict[str, Any] | None:
             return None
 
 
+def _seat_address(seat: dict[str, Any]) -> str:
+    """What the transport is asked to serve this seat: the compliance-owned
+    workspace id when the roster names one (PIPELINE_ALIGNMENT_V1 §P1), else
+    the raw tag. The pipeline resolves a workspace id to itself, so a hint
+    registered by another lane can never capture a seat that declares its
+    home; ``model`` stays the tag for receipts and the temperature table."""
+    return str(seat.get("workspace") or seat.get("model", ""))
+
+
 def _ollama_seat(model: str, system: str, user: str) -> str:
     """One council seat, through the shared reasoning transport.
 
@@ -227,14 +236,19 @@ def _ollama_seat(model: str, system: str, user: str) -> str:
     are, so the distinction has to be visible.
     """
     from portal.modules.compliance.core.reading_transport import DEFAULT_TEMPERATURE, chat
+    from portal.platform.inference.model_addressing import workspace_model_hint
 
+    # ``model`` may be a workspace id (the seat's declared home); the
+    # temperature table is keyed by the TAG, so resolve back through the
+    # workspace's hint before the lookup.
+    tag = workspace_model_hint(model) or model
     result = chat(
         model,
         system,
         user,
         budget=_SEAT_BUDGET,
         fmt="json",
-        temperature=_MODEL_TEMPERATURE.get(model, DEFAULT_TEMPERATURE),
+        temperature=_MODEL_TEMPERATURE.get(tag, DEFAULT_TEMPERATURE),
     )
     _LAST_TRACE.append(
         {
@@ -243,6 +257,14 @@ def _ollama_seat(model: str, system: str, user: str) -> str:
             "downgraded": result.get("downgraded", ""),
             "thinking_chars": len(result.thinking),
             "elapsed": result.get("elapsed", 0.0),
+            # Who answered and with what, when the pipeline served the seat:
+            # workspace, backend, served model, and the applied sampling /
+            # thinking / window (None when the trace did not record them).
+            "workspace": result.get("workspace", ""),
+            "route_backend": result.get("route_backend", ""),
+            "served_model": result.get("served_model", ""),
+            "correlation_id": result.get("correlation_id", ""),
+            "applied_options": result.get("applied_options"),
         }
     )
     return result.content
@@ -270,7 +292,7 @@ def run_council(
     opinions: list[SeatOpinion] = []
     for seat in seats:
         try:
-            raw = fn(seat["model"], _SEAT_SYSTEM, user)
+            raw = fn(_seat_address(seat), _SEAT_SYSTEM, user)
         except Exception as exc:  # noqa: BLE001 - a failed seat is a non-vote, not a crash
             op = SeatOpinion(seat_id=seat["id"], model=seat["model"], dropped=f"seat error: {exc}")
             opinions.append(op)
@@ -347,7 +369,7 @@ def _run_override(
     n = 0
     for seat in seats:
         try:
-            obj = _json_object(fn(seat["model"], _OVERRIDE_SYSTEM, user))
+            obj = _json_object(fn(_seat_address(seat), _OVERRIDE_SYSTEM, user))
         except Exception:  # noqa: BLE001
             continue
         if not obj:
