@@ -28,6 +28,45 @@ _http_client: httpx.AsyncClient | None = None
 _RECOMMENDATIONS = frozenset({"SUPPORT", "REVISE", "REJECT", "ABSTAIN"})
 _DECISIONS = frozenset({"SUPPORT", "REVISE", "REJECT", "ESCALATE"})
 
+# Reviewers run at a fixed 0.1 below (deterministic-leaning, fine for most
+# instruct models on a structured-JSON review task) — but DeepSeek-R1's own
+# model card explicitly warns against near-greedy decoding: it recommends
+# 0.5-0.7 (0.6) to avoid repetition loops and incoherent output. auto-council's
+# Operator seat runs DeepSeek-R1 and had no per-model exception, same class of
+# gap found and fixed in portal.modules.compliance.core.council on 2026-09-26
+# (that fix cites the same vendor evidence) — not shared code between the two
+# council implementations, so the exception is duplicated here rather than
+# silently assumed to carry over.
+_MODEL_TEMPERATURE: dict[str, float] = {
+    "hf.co/unsloth/DeepSeek-R1-0528-Qwen3-8B-GGUF:Q4_K_XL-ctx64k": 0.6,
+}
+
+
+def _apply_think(payload: dict[str, Any], think: bool | str | None, backend_type: str) -> None:
+    """Set the think control in whatever field the target engine actually reads.
+
+    Council payloads are built and posted directly to ``backend.chat_url``
+    (this module skips the pipeline's own ``_inject_omlx_options`` /
+    ``_inject_ollama_options`` translation entirely — see the module docstring
+    on why that's a known gap). A bare ``"think"`` key is correct for Ollama's
+    native ``/api/chat`` but oMLX ignores it silently: no error, no
+    ``reasoning_content`` field, and the model still reasons — straight into
+    ``content``, corrupting the JSON this council depends on. Verified live
+    2026-09-26 (a bare ``think:false`` to oMLX's DeepSeek-R1 conversion left
+    the chain-of-thought unsuppressed in ``content``). oMLX reads
+    ``chat_template_kwargs.enable_thinking`` instead — the same mapping
+    ``_inject_omlx_options`` already uses for ordinary chat completions.
+    """
+    if think is None:
+        return
+    if backend_type == "omlx":
+        ctk = dict(payload.get("chat_template_kwargs") or {})
+        ctk["enable_thinking"] = think
+        payload["chat_template_kwargs"] = ctk
+    else:
+        payload["think"] = think
+
+
 _REVIEW_CONTRACT = """
 Return exactly one JSON object and no Markdown:
 {
@@ -286,16 +325,23 @@ async def _call_reviewer(
         return parse_opinion(member, "", error=f"configured model is unavailable: {model}")
 
     system = f"{member.get('system', '')}\n\n{_REVIEW_CONTRACT}".strip()
-    payload = {
+    payload: dict[str, Any] = {
         "model": model,
         "stream": False,
         "messages": [
             {"role": "system", "content": system},
             {"role": "user", "content": f"## REVIEW MATERIAL\n\n{review_material}"},
         ],
-        "temperature": 0.1,
+        "temperature": _MODEL_TEMPERATURE.get(model, 0.1),
         "max_tokens": max_tokens,
     }
+    # Same gap _synthesize already had fixed for it (946196bb): with no think
+    # control, a thinking-capable model (the Operator seat's DeepSeek-R1) opens
+    # <think> by the template's own default and can spend the whole
+    # reviewer_max_tokens budget reasoning, returning an empty opinion.
+    from portal.platform.inference.router.workspaces import WORKSPACES  # noqa: PLC0415
+
+    _apply_think(payload, WORKSPACES.get(workspace_id, {}).get("think"), backend.type)
     try:
         response = await _http_client.post(backend.chat_url, json=payload)
         response.raise_for_status()
@@ -394,12 +440,14 @@ async def _synthesize(
     # think setting never reached the synthesizer: a thinking-capable model
     # reasoned by default and a budget spent thinking came back as the
     # synthesis. The Ollama native adapter drops the field for models without
-    # the capability.
+    # the capability. See _apply_think's docstring: this fix was itself
+    # incomplete until 2026-09-26 — it only worked for Ollama-native backends,
+    # and silently no-opped for the synthesizer once it moved to oMLX
+    # (Qwen3.6-27B-UD-MLX-4bit, P5-FANOUT-001).
     from portal.platform.inference.router.workspaces import WORKSPACES  # noqa: PLC0415
 
     think = council.get("synthesizer_think", WORKSPACES.get(workspace_id, {}).get("think"))
-    if think is not None:
-        payload["think"] = think
+    _apply_think(payload, think, backend.type)
     try:
         response = await _http_client.post(backend.chat_url, json=payload)
         response.raise_for_status()

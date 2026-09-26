@@ -1279,8 +1279,22 @@ workspaces:
     council:
       minimum_participation: 0.66
       quorum: 0.66
-      reviewer_max_tokens: 4096
-      synthesizer_max_tokens: 4096
+      # Bumped 4096 -> 8192 (2026-09-26): the Operator seat (DeepSeek-R1)
+      # cannot suppress its own reasoning on either engine — its chat_template
+      # has no thinking conditional at all (verified against the raw template,
+      # not assumed) and every oMLX suppression mechanism tried (bare think,
+      # chat_template_kwargs.enable_thinking, thinking_budget, the model-level
+      # settings.json default, a reasoning_parser registration) was a no-op.
+      # A live probe at 4096 used 4055 tokens on reasoning+answer for one
+      # moderate review — correct, but uncomfortably close to the ceiling.
+      # 8192 matches the headroom portal.modules.compliance.core.council
+      # already gives the same failure mode (_SEAT_BUDGET, same rationale:
+      # "a judgment is a reasoning task"). Not a redesign — auto-council still
+      # has no split answer/reasoning budget like compliance's reading
+      # transport; that's the real fix, deferred (operator is focused on the
+      # compliance module right now).
+      reviewer_max_tokens: 8192
+      synthesizer_max_tokens: 8192
       members:
       - id: evidence
         label: Evidence Auditor
