@@ -14,7 +14,7 @@ import httpx
 from ._config import BenchConfig
 from ._data import PIPELINE_API_KEY, PIPELINE_URL, resolve_pipeline_model
 from .agentic_blue_eval import normalize_tool_calls
-from .exec_chain import AUDIT_TOOL, OLLAMA_URL
+from .exec_chain import AUDIT_TOOL, OLLAMA_URL, OMLX_URL
 
 # TASK_AUTO_COUNCIL_PIPELINE_REVISIT_V1 P1.5: REFUSAL_DIRECT_OLLAMA alone
 # used to gate this; now also requires the shared
@@ -153,26 +153,43 @@ def _run_refusal_test(model: str, cfg: BenchConfig, dry_run: bool = False) -> di
 # ── Audit-tools probe ────────────────────────────────────────────────────────
 
 
-def _audit_tools_probe(model: str, dry_run: bool = False) -> dict[str, Any]:
-    """Direct-Ollama tool probe (F1: intentionally not pipeline-routed — audits raw tool-calling)."""
+def _audit_tools_probe(model: str, dry_run: bool = False, engine: str = "ollama") -> dict[str, Any]:
+    """Direct tool-calling probe (F1: intentionally not pipeline-routed — audits raw
+    tool-calling). ``engine="omlx"`` targets oMLX's OpenAI-compatible server instead
+    of Ollama's native /api/chat — same AUDIT_TOOL, same pass/fail criteria."""
     print(f"  audit-tools  {model} ...", end="", flush=True)
     if dry_run:
         print(" DRY-RUN")
         return {"model": model, "outcome": "dry_run"}
 
     try:
-        resp = httpx.post(
-            f"{OLLAMA_URL}/api/chat",
-            json={
-                "model": model,
-                "messages": [{"role": "user", "content": "What time is it?"}],
-                "tools": [AUDIT_TOOL],
-                "stream": False,
-            },
-            timeout=60.0,
-        )
-        resp.raise_for_status()
-        msg = normalize_tool_calls(resp.json().get("message", {}))
+        if engine == "omlx":
+            resp = httpx.post(
+                f"{OMLX_URL}/v1/chat/completions",
+                json={
+                    "model": model,
+                    "messages": [{"role": "user", "content": "What time is it?"}],
+                    "tools": [AUDIT_TOOL],
+                    "stream": False,
+                },
+                timeout=60.0,
+            )
+            resp.raise_for_status()
+            raw_msg = (resp.json().get("choices") or [{}])[0].get("message", {})
+        else:
+            resp = httpx.post(
+                f"{OLLAMA_URL}/api/chat",
+                json={
+                    "model": model,
+                    "messages": [{"role": "user", "content": "What time is it?"}],
+                    "tools": [AUDIT_TOOL],
+                    "stream": False,
+                },
+                timeout=60.0,
+            )
+            resp.raise_for_status()
+            raw_msg = resp.json().get("message", {})
+        msg = normalize_tool_calls(raw_msg)
         tool_calls = msg.get("tool_calls") or []
         if tool_calls:
             name = tool_calls[0].get("function", {}).get("name", "?")

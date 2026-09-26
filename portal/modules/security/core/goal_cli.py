@@ -48,6 +48,20 @@ def goal_main(argv: list[str] | None = None) -> int:
 
     p_eval = sub.add_parser("eval", help="Run the proposal-quality harness over seeded targets")
     p_eval.add_argument("--workspace", default=None)
+    p_eval.add_argument(
+        "--model",
+        default=None,
+        help=(
+            "Evaluate a raw candidate model directly (bypasses the pipeline) instead "
+            "of --workspace. Requires --engine."
+        ),
+    )
+    p_eval.add_argument(
+        "--engine",
+        default="pipeline",
+        choices=["pipeline", "ollama", "omlx"],
+        help="Where --model lives. Ignored when using --workspace.",
+    )
     p_eval.add_argument("--role", default="red", choices=["red", "blue", "purple"])
     p_eval.add_argument("--json", action="store_true")
 
@@ -150,7 +164,9 @@ def _render_plan_markdown(goal: EngagementGoal, report: dict[str, Any]) -> str:
 def _cmd_eval(args: argparse.Namespace) -> int:
     from .goal_eval import eval_proposals
 
-    result = eval_proposals(workspace=args.workspace, role=args.role)
+    result = eval_proposals(
+        workspace=args.workspace, model=args.model, engine=args.engine, role=args.role
+    )
     if args.json:
         print(json.dumps(result, indent=2, default=str))
     else:
