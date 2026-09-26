@@ -1297,6 +1297,16 @@ This derived id is unusual in that three `config/portal.yaml` bindings consume i
 
 ---
 
+### `granite4.1:30b-ctx98k`
+
+`granite4.1:30b-ctx98k` is the 98304-token reading-window form of `granite4.1:30b` (trained ceiling 131,072; created from the existing blobs with `PARAMETER num_ctx 98304`, the same bake `portal models apply-params` performs). `config/backends.yaml` registers it in the `general` group with `supports_tools: true` (verified 2026-09-25 by a live native tool-call probe on the derived tag: clean typed `get_weather` call) and shadows it onto `granite-4.1-30b-4bit` via the `omlx-general` priority-10 alias block. `config/portal.yaml` binds it as the `model_hint` of the `bench-granite41-30b-ctx98k` workspace with `context_limit: 98304`. It exists because the compliance reading loop's worst case is ~82k tokens while the pipeline drops request-time `num_ctx` (P5-FANOUT-001 W3, docs/TASK_FANOUT_CONCURRENCY_V1.md): a reading needing the big window must address a seat that bakes it, and short verdict/council calls stay on the 16k/32k seats.
+
+## Why
+
+The window is a seat property on the pipeline path — this tag is the mechanism that makes the declared `context_limit: 98304` real on the Ollama fallback, and the `omlx-general` alias is the mechanism that gives the reading fan-out oMLX's measured 2.1x decode batching. Citing both config files keeps the parity gate grounded in the two places that decide where the seat lives.
+
+---
+
 ### `granite4.1:8b-ctx16k`
 
 `granite4.1:8b-ctx16k` is a derived context-capped tag of `granite4.1:8b`. It appears in `config/backends.yaml` under the `general`, `security`, and `reasoning` groups, always with `supports_tools: true`. In `config/portal.yaml` it is the `model_hint` for `auto-documents`, `auto-image`, `auto-video`, and `auto-compliance` — the tool-calling MCP lanes for documents, image generation, video, and compliance analysis all route on this 16K-context variant. The cap is baked in via `portal models apply-params` because Ollama's `/v1/chat/completions` ignores request-time `options.num_ctx`; a derived tag is the only way to bound context per workspace. See the base `granite4.1:8b` entry for full model detail; this unit exists to satisfy backends.yaml/MODEL_CATALOG parity.

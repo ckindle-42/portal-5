@@ -21,6 +21,7 @@ taken on Ollama and written into a promotion decision.
 
 from __future__ import annotations
 
+import contextlib
 import json
 import os
 import urllib.error
@@ -32,6 +33,7 @@ __all__ = [
     "Dialect",
     "OllamaNative",
     "OpenAICompat",
+    "PipelineCompat",
     "resolve_dialect",
 ]
 
@@ -64,6 +66,8 @@ class Dialect(Protocol):
 
     def seat_ceiling(self, model: str) -> int: ...
 
+    def seat_window(self, model: str) -> int: ...
+
     def applied_context_length(self, model: str) -> int: ...
 
     def classify_400(self, exc: urllib.error.HTTPError) -> str: ...
@@ -92,6 +96,7 @@ class OllamaNative:
         self.base = (base or os.environ.get("OLLAMA_BASE", "http://localhost:11434")).rstrip("/")
         self.endpoint = f"{self.base}/api/chat"
         self._ceiling: dict[str, int] = {}
+        self._window: dict[str, int] = {}
 
     def headers(self) -> dict[str, str]:
         return {"Content-Type": "application/json"}
@@ -171,12 +176,43 @@ class OllamaNative:
     def applied_context_length(self, model: str) -> int:
         try:
             models = (_get(f"{self.base}/api/ps", 10) or {}).get("models") or []
-        except Exception:  # noqa: BLE001
+        except Exception:  # noqa: BLE001 - an unreadable runner is reported as unknown
             return 0
         for entry in models:
             if entry.get("name") == model or entry.get("model") == model:
                 return int(entry.get("context_length") or 0)
         return 0
+
+    def seat_window(self, model: str) -> int:
+        """The window this tag BAKES (``PARAMETER num_ctx``), 0 when unbaked.
+
+        Distinct from :meth:`seat_ceiling` (the trained maximum): a request may
+        raise a baked default (native endpoint), but the baked value is what a
+        resident model has already reserved, and — measured 2026-09-25
+        (P5-FANOUT-001 M2) — any CHANGE of request-time window on a resident
+        model is a full 3.4–5.6 s reload. The baked value is therefore the one
+        a window-sizing decision should read.
+        """
+        if model in self._window:
+            return self._window[model]
+        window = 0
+        try:
+            request = urllib.request.Request(
+                f"{self.base}/api/show",
+                data=json.dumps({"model": model}).encode(),
+                headers=self.headers(),
+            )
+            with urllib.request.urlopen(request, timeout=30) as response:  # noqa: S310
+                params = (json.load(response) or {}).get("parameters") or ""
+            for line in params.splitlines():
+                parts = line.split()
+                if len(parts) >= 2 and parts[0] == "num_ctx":
+                    window = int(parts[1])
+                    break
+        except Exception:  # noqa: BLE001 - an unreadable tag reports 0, never a guess
+            window = 0
+        self._window[model] = window
+        return window
 
     def classify_400(self, exc: urllib.error.HTTPError) -> str:
         try:
@@ -349,6 +385,10 @@ class OpenAICompat:
         # once for Ollama. 0 means "unknown here — read the serve line".
         return 0
 
+    def seat_window(self, model: str) -> int:
+        """The serve-line pin — on this surface the pin IS the baked window."""
+        return self.seat_ceiling(model)
+
     def classify_400(self, exc: urllib.error.HTTPError) -> str:
         try:
             detail = json.loads(exc.read().decode() or "{}")
@@ -365,21 +405,281 @@ class OpenAICompat:
         return "serve_line_pin"
 
 
+class PipelineCompat(OpenAICompat):
+    """The Portal pipeline (:9099) — the production path. P5-FANOUT-001 W1.
+
+    Everything actual usage reaches the models through IS the pipeline
+    (operator doctrine, 2026-09-25 — same decision that moved WFE seat testing
+    to ``WFE_ENGINE=pipeline``). This dialect is the compliance transport
+    speaking to it, so the sweep/reader/assessment calls stop bypassing the
+    one component that owns routing, fallback, sampling enforcement and
+    tool-call recovery. The direct dialects above stay for raw probes, and a
+    receipt built through them says so.
+
+    What it sends (the WFE ``_build_pipeline`` contract, proven live):
+
+    * ``model`` is a WORKSPACE id — a raw tag is resolved through
+      :mod:`portal.platform.inference.model_addressing` and the workspace is
+      what travels on the wire; an unresolved workspace would silently land on
+      the routing group's first model, which is exactly the substitution the
+      trace check below turns into an attributed error;
+    * ``portal_client_tools_only: true`` — the reading loop brings its own
+      schemas, the workspace's persona tools are stripped;
+    * ``response_format`` json when ``fmt`` says so;
+    * **streamed, never a blocking read** — the pipeline's non-streaming
+      branch enforces a total 300 s timeout and the reading loop's turns run
+      to 1,522 s (measured, ``reader.py``); this dialect goes through
+      :mod:`portal.platform.inference.streaming_client`, whose idle timeout
+      distinguishes "loading/working" from "hung".
+
+    What it deliberately DROPS, each a memory/lifecycle decision the pipeline
+    already made (see ``portal/platform/inference/ollama_native.py``):
+
+    * ``num_ctx`` — the window is the seat's baked tag (measured M2: any
+      request-time window change on a resident ollama model is a full
+      3.4–5.6 s reload; per-call sizing is a reload trap);
+    * ``keep_alive`` — residency is the server's;
+    * ``think`` — the workspace's own ``think`` setting governs, exactly as it
+      does for every OWUI client.
+
+    Attribution (the module's load-bearing rule, extended): every call mints
+    an ``X-Correlation-ID``, and after the turn the pipeline's
+    ``/v1/trace/{cid}`` is read so the receipt can stamp
+    ``workspace``/``route_backend``/``served_model`` — not just which protocol
+    was spoken, but which backend actually answered. The trace fields ride on
+    the synthesized body as ``_portal`` for :func:`reading_transport.chat` to
+    lift onto the ChatResult; they are best-effort by design (the correlation
+    id is ALWAYS stamped, so a missing trace is diagnosable), never silent.
+    """
+
+    name = "pipeline"
+
+    def __init__(self, base: str = "") -> None:
+        super().__init__(base=base or os.environ.get("PIPELINE_BASE", "http://localhost:9099"))
+
+    def headers(self) -> dict[str, str]:
+        head = {"Content-Type": "application/json"}
+        key = _pipeline_api_key()
+        if key:
+            head["Authorization"] = f"Bearer {key}"
+        return head
+
+    def context_source(self) -> str:
+        return "seat_baked_window"
+
+    def seat_ceiling(self, model: str) -> int:
+        # /v1/models reports no window field today (oMLX checked live,
+        # 2026-09-25), and the pipeline's workspace layer declares limits in
+        # config/portal.yaml, not on this endpoint. 0 disables the pre-flight
+        # check — the documented stance — rather than inventing a number.
+        return 0
+
+    def seat_window(self, model: str) -> int:
+        """The resolved workspace's declared ``context_limit`` (0 when undeclared).
+
+        This is the value the operator is expected to have baked into the
+        seat's tag (``./launch.sh apply-model-params``); it is what a window
+        decision reads, and what the pipeline's own startup check enforces.
+        """
+        from portal.platform.inference.model_addressing import (  # noqa: PLC0415
+            workspace_context_limit,
+            workspace_id_for_model,
+        )
+
+        return workspace_context_limit(workspace_id_for_model(model))
+
+    def build(
+        self,
+        *,
+        model: str,
+        messages: list[dict[str, Any]],
+        tools: list[dict[str, Any]] | None,
+        fmt: Any,
+        think: bool | str,
+        num_predict: int,
+        num_ctx: int,
+        temperature: float,
+        keep_alive: str,
+    ) -> dict[str, Any]:
+        from portal.platform.inference.model_addressing import (  # noqa: PLC0415
+            is_addressable,
+            workspace_id_for_model,
+        )
+
+        if not is_addressable(model):
+            # The pipeline would serve this request anyway — on the routing
+            # group's FIRST model, silently. Refusing here is the whole point
+            # of addressing through the pipeline: an unmapped name is a
+            # caller bug (typo, unregistered seat) and must be one loudly.
+            raise ValueError(
+                f"{model!r} is neither a portal.yaml workspace id nor any "
+                "workspace's model_hint — the pipeline would silently serve it "
+                "on the group's first model. Register the tag (apply-params / "
+                "config/backends.yaml) or address the workspace by id."
+            )
+        payload = super().build(
+            model=workspace_id_for_model(model),
+            messages=messages,
+            tools=tools,
+            fmt=fmt,
+            think=think,
+            num_predict=num_predict,
+            num_ctx=num_ctx,
+            temperature=temperature,
+            keep_alive=keep_alive,
+        )
+        # The parent builds the OpenAI shape minus the fields it documented as
+        # dropped; this subclass adds the one field the pipeline's client-tools
+        # contract needs (schemas travel, persona tools do not), and removes
+        # ``reasoning_effort`` — the parent's mapping of ``think`` — because the
+        # pipeline takes its thinking policy from the workspace config, exactly
+        # as it does for every OWUI client, and a caller-side effort value
+        # would silently fight it.
+        payload.pop("reasoning_effort", None)
+        if tools is not None:
+            payload["portal_client_tools_only"] = True
+        return payload
+
+    def post(self, payload: dict[str, Any], timeout: int) -> dict[str, Any]:
+        """Send one built payload, streamed, and synthesize an OpenAI-shaped body.
+
+        The failure translation is deliberate and load-bearing: the reading
+        loop catches ``ContextCeilingError`` (named stop) and
+        ``urllib.error.HTTPError``/``URLError``/``OSError`` (transport failure
+        with a receipt) — an httpx exception would escape ``read()`` and kill
+        a reading with NO receipt, the exact outcome this module exists to
+        prevent. So httpx's shapes are re-raised in the shapes the caller
+        already handles.
+        """
+        import io  # noqa: PLC0415
+
+        import httpx  # noqa: PLC0415
+
+        from portal.platform.inference.streaming_client import (  # noqa: PLC0415
+            StreamTurnStalledError,
+            stream_chat_turn,
+        )
+
+        correlation_id = f"compliance-{os.urandom(6).hex()}"
+        headers = dict(self.headers())
+        headers["X-Correlation-ID"] = correlation_id
+        try:
+            msg = stream_chat_turn(
+                self.endpoint,
+                headers,
+                payload,
+                is_pipeline_mode=True,
+                idle_timeout_s=timeout,
+            )
+        except StreamTurnStalledError as exc:
+            raise urllib.error.URLError(f"pipeline stream stalled: {exc}") from exc
+        except httpx.TimeoutException as exc:
+            raise urllib.error.URLError(f"pipeline stream timed out: {exc}") from exc
+        except httpx.HTTPStatusError as exc:
+            # The response was STREAMED (this dialect never does a blocking
+            # read), so the error body is not buffered yet — read it before
+            # handing it to a urllib-shaped error, or ResponseNotRead replaces
+            # the status the caller needs to classify.
+            with contextlib.suppress(Exception):
+                exc.response.read()
+            raise urllib.error.HTTPError(
+                self.endpoint,
+                exc.response.status_code,
+                exc.response.reason_phrase,
+                dict(exc.response.headers),  # type: ignore[arg-type]
+                io.BytesIO(exc.response.content),
+            ) from exc
+        except httpx.HTTPError as exc:
+            raise urllib.error.URLError(f"pipeline transport error: {exc}") from exc
+
+        message: dict[str, Any] = {"role": msg["role"], "content": msg["content"]}
+        if msg["tool_calls"]:
+            message["tool_calls"] = msg["tool_calls"]
+        body: dict[str, Any] = {
+            "model": msg.get("served_model") or payload.get("model"),
+            "choices": [
+                {
+                    "message": message,
+                    "finish_reason": "tool_calls" if msg["tool_calls"] else "stop",
+                }
+            ],
+            "usage": msg.get("usage") or {},
+            # The workspace we addressed is known here (we put it on the wire);
+            # the trace contributes backend/served_model.
+            "_portal": {
+                "workspace": payload.get("model", ""),
+                "correlation_id": correlation_id,
+                **self._trace(correlation_id),
+            },
+        }
+        return body
+
+    def _trace(self, correlation_id: str) -> dict[str, Any]:
+        """``backend``/``served_model`` for one turn, from the pipeline's span store.
+
+        A missing record degrades to an empty dict — the correlation id on the
+        receipt is the durable pointer, and a 404 here must not fail a call
+        whose answer is already in hand.
+        """
+        try:
+            data = _get(
+                f"{self.base}/v1/trace/{correlation_id}",
+                10,
+                self.headers(),
+            )
+            return {"backend": data.get("backend"), "served_model": data.get("model")}
+        except Exception:  # noqa: BLE001 - the id on the receipt is the pointer
+            return {}
+
+
 DIALECTS: dict[str, Any] = {
     "ollama-native": OllamaNative,
     "openai-compat": OpenAICompat,
+    "pipeline": PipelineCompat,
 }
 
 
-def resolve_dialect(dialect: Any = None) -> Any:
-    """An explicit dialect wins; then ``COMPLIANCE_TRANSPORT``; then native.
+def _pipeline_api_key() -> str:
+    """The pipeline's auth key: process env first, then the repo ``.env`` snapshot.
 
-    A name this module does not know is an error, never a silent fallback to
-    the default — falling back would serve an Ollama call under a splash label.
+    Host-side bench processes are not launchd-managed and often run without the
+    key exported; the same fallback the security benches read (``_data._DOTENV``)
+    keeps them working. The hermetic-test guard matches ``_data``'s: unit tests
+    must not leak real keys into ``os.environ`` by import side effect.
+    """
+    import pathlib  # noqa: PLC0415
+
+    key = os.environ.get("PIPELINE_API_KEY")
+    if key:
+        return key
+    if os.environ.get("UNIT_TEST_MODE") == "1":
+        return ""
+    env_file = pathlib.Path(__file__).resolve().parents[4] / ".env"
+    try:
+        for line in env_file.read_text().splitlines():
+            line = line.strip()
+            if line.startswith("PIPELINE_API_KEY="):
+                return line.partition("=")[2].strip()
+    except OSError:
+        pass
+    return ""
+
+
+def resolve_dialect(dialect: Any = None) -> Any:
+    """An explicit dialect wins; then ``COMPLIANCE_TRANSPORT``; then the pipeline.
+
+    The default flipped from ``ollama-native`` to ``pipeline`` in
+    P5-FANOUT-001: every production model call goes through the pipeline (the
+    component that owns routing, fallback, sampling enforcement and
+    tool-call recovery), so the sweep does too — the direct dialects remain
+    for raw probes and A/B isolations, selected explicitly or via
+    ``COMPLIANCE_TRANSPORT=ollama-native`` (the rollback). A name this module
+    does not know is an error, never a silent fallback — falling back would
+    serve an Ollama call under a pipeline label.
     """
     if dialect is not None and not isinstance(dialect, str):
         return dialect
-    name = dialect or os.environ.get("COMPLIANCE_TRANSPORT", "ollama-native")
+    name = dialect or os.environ.get("COMPLIANCE_TRANSPORT", "pipeline")
     if name not in DIALECTS:
         raise ValueError(f"unknown transport dialect {name!r}; known: {sorted(DIALECTS)}")
     return DIALECTS[name]()

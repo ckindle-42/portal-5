@@ -35,6 +35,7 @@ __all__ = [
     "applied_context_length",
     "chat",
     "seat_ceiling",
+    "seat_window",
     "strip_inline_reasoning",
 ]
 
@@ -122,6 +123,14 @@ def strip_inline_reasoning(text: str) -> str:
 
 def _post(payload: dict[str, Any], timeout: int, dialect: Any = None) -> dict[str, Any]:
     dialect = dialect if dialect is not None else _resolve_dialect()
+    # A dialect that owns its transport (the pipeline dialect must stream —
+    # the pipeline's non-streaming branch kills at a 300 s total timeout,
+    # and this loop's turns run far past that) sends the payload itself and
+    # synthesizes the response body everything downstream expects.
+    owned_post = getattr(dialect, "post", None)
+    if owned_post is not None:
+        owned_result: dict[str, Any] = owned_post(payload, timeout)
+        return owned_result
     request = urllib.request.Request(
         dialect.endpoint,
         data=json.dumps(payload).encode(),
@@ -266,6 +275,23 @@ def applied_context_length(model: str) -> int:
         if entry.get("name") == model or entry.get("model") == model:
             return int(entry.get("context_length") or 0)
     return 0
+
+
+def seat_window(model: str, dialect: Any = None) -> int:
+    """The window the resolved SEAT will actually serve, 0 when it is requestable.
+
+    Authoritative only where the caller cannot raise the window: through the
+    pipeline the request's ``num_ctx`` is dropped and the seat serves its
+    baked/workspace-declared window (``seat_baked_window``); splash-style
+    serve-line pins are equally fixed. On the NATIVE endpoint the baked
+    ``num_ctx`` is a default a request may exceed (measured, SETTINGS_
+    PREFLIGHT_V1) — there this returns 0 so the caller keeps sizing the
+    window itself, exactly as before P5-FANOUT-001.
+    """
+    _dialect = _resolve_dialect(dialect)
+    if _dialect.context_source() == "request_num_ctx":
+        return 0
+    return int(_dialect.seat_window(model) or 0)
 
 
 #: How long the seat stays resident between turns of one session. A conversation
@@ -511,11 +537,25 @@ def chat(
         if not content.strip():
             stop_reason = "budget_exhausted_in_reasoning"
 
+    # Native bodies carry the message at the top level; an OpenAI-shaped
+    # dialect (the pipeline dialect among them) nests it under
+    # choices[0].message — and losing that nesting lost every tool_call a
+    # dialected turn made, which the tool-less JSON lanes never noticed.
     message = body.get("message") or {}
+    if not message and body.get("choices"):
+        message = (body["choices"][0] or {}).get("message") or {}
     prompt_bytes = sum(len(str(entry.get("content", "")).encode()) for entry in sent_messages)
     # P6.7: enough to reason about latency afterwards. `_recording_seat_fn`
     # stored {model, raw}, so no run in the module's history has a single
     # recorded duration, token count or load time to argue from.
+    #
+    # P5-FANOUT-001: when the pipeline dialect served the call, its `_portal`
+    # block carries the routing truth — the workspace the tag resolved to, the
+    # backend that answered and the model it served — from the pipeline's own
+    # span store, keyed by the call's correlation id. A receipt that cannot
+    # say who answered gets filed under the wrong engine; a dialect name alone
+    # no longer says that once the pipeline routes across engines.
+    portal = body.get("_portal") or {}
     return ChatResult(
         content=content,
         thinking=thinking,
@@ -538,6 +578,10 @@ def chat(
         dialect=_dialect.name,
         endpoint=_dialect.endpoint,
         context_source=_dialect.context_source(),
+        workspace=portal.get("workspace", ""),
+        route_backend=portal.get("backend", ""),
+        served_model=portal.get("served_model", ""),
+        correlation_id=portal.get("correlation_id", ""),
         temperature=temperature,
         answer_budget=answer_budget,
         reasoning_allowance=allowance if want_think else 0,

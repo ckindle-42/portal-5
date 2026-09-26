@@ -8,22 +8,31 @@ M5: auto-writes the winning (model, arm, config) as a cited wiki unit.
 Parallel: ThreadPoolExecutor at the cell level (scenario × model).
 Each cell's trials run serially (trials are dependent — same model/scenario).
 
-CAVEAT (verified 2026-07-07): OLLAMA_NUM_PARALLEL=4 gives real concurrent
-throughput for short/decode-bound prompts (confirmed 2-3.8x on trivial
-prompts), but this bench's payloads (system prompt + telemetry preview,
-~7-8k tokens per initial turn) are prefill-dominated — a single raw call
-profiled at prompt_eval_duration=25.8s vs eval_duration=3.7s (87% prefill).
-Prefill is compute-bound on one Metal GPU: concurrent cells with DIFFERENT
-scenarios (different telemetry, no shared prefix) measured at ~1x wall-clock
-per worker (fully additive, not overlapped) — e.g. 2 concurrent unique
-7500-token calls took wall=63.6s vs 31.9s solo. SWEEP_WORKERS>1 does NOT
-give proportional speedup on the full/decision sweep; treat call-count
-reduction (TRIALS, --arms, --sample, --step-cap below) as the primary lever,
-not worker count. Ollama DOES automatically cache the repeated initial
-prefix within a cell (trial 0 cold ~12s -> trials 1+ ~2.5s, same
-scenario+model) — free, no code change needed, but it only covers the first
-turn; tool-loop turns after that diverge per trial (sampling) and are never
-cacheable.
+CAVEAT (verified 2026-07-07, re-measured 2026-09-25): OLLAMA_NUM_PARALLEL
+gives real concurrent throughput for short/decode-bound prompts (confirmed
+2-3.8x on trivial prompts), but this bench's payloads (system prompt +
+telemetry preview, ~7-8k tokens per initial turn) are prefill-dominated — a
+single raw call profiled at prompt_eval_duration=25.8s vs eval_duration=3.7s
+(87% prefill). Prefill is compute-bound on one Metal GPU: concurrent cells with
+DIFFERENT scenarios (different telemetry, no shared prefix) measured at ~1x
+wall-clock per worker (fully additive, not overlapped) — e.g. 2 concurrent
+unique 7500-token calls took wall=63.6s vs 31.9s solo; re-confirmed at
+NUM_PARALLEL=1 (ratio 1.02, P5-FANOUT-001 M1b). SWEEP_WORKERS>1 does NOT give
+proportional speedup on the full/decision sweep; treat call-count reduction
+(TRIALS, --arms, --sample, --step-cap below) as the primary lever, not worker
+count. Ollama DOES automatically cache the repeated initial prefix within a
+cell (trial 0 cold ~12s -> trials 1+ ~2.5s, same scenario+model) — free, no
+code change needed, but it only covers the first turn; tool-loop turns after
+that diverge per trial (sampling) and are never cacheable.
+
+oMLX is the exception for the decode-bound portion, not the prefill one: on
+granite-4.1-30b-4bit, 3 concurrent calls measured ratio 0.47 (2.1x) on
+decode-bound shapes and 0.78 (1.28x) prefill-heavy (P5-FANOUT-001 M3). The
+fleet's fan-out seats (granite4.1:8b/30b tags, Qwen3.8-27B ctx32k) are
+aliased onto oMLX in config/backends.yaml's omlx-general block (priority 10,
+Ollama fallback), and cells run through the pipeline (`_call_model` in
+agentic_blue_eval.py is pipeline-first), so an aliased seat's decode-bound
+arms overlap at ~2x while prefill-heavy cells stay ~additive.
 
 Run directly: python3 -m portal.modules.security.core._sweep_driver
 Env vars:

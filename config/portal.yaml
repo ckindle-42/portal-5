@@ -1832,6 +1832,32 @@ workspaces:
     enable_web_search: false
     owui_system_prompt: |-
       You are a creative coder. Ship complete, working, single-file HTML. No TODOs. No framework questions. Build the most interesting version.
+  bench-granite41-30b-ctx98k:
+    module: eval
+    name: 🔬 Bench · Granite-4.1 30B ctx98k (reading window)
+    description: |-
+      P5-FANOUT-001 W3: the compliance reading seat's big-window bench shell.
+      Same weights as bench-granite41-30b (granite4.1:30b), with PARAMETER
+      num_ctx 98304 baked into the tag (trained ceiling 131,072) — the window
+      the reading loop's worst case needs (~82k tokens: seed + bootstrap +
+      twelve 12k-char tool results + answer budget; derivation in
+      reading_transport.py). Through the pipeline the request's num_ctx is
+      dropped, so a reading that needs the big window must address a seat that
+      bakes it; short verdict/council calls stay on the 16k/32k seats so they
+      stop reserving the 31.7 GiB 98k footprint (P5-FANOUT-001 M2).
+    model_hint: granite4.1:30b-ctx98k
+    context_limit: 98304
+    predict_limit: 8192
+    max_concurrent: 1
+    keep_alive: 30m
+    temperature: 0.0
+    top_p: 0.95
+    repeat_penalty: 1.1
+    tools: []
+    expose_to_owui: true
+    enable_web_search: false
+    owui_system_prompt: |-
+      You are a creative coder. Ship complete, working, single-file HTML. No TODOs. No framework questions. Build the most interesting version.
   bench-foundation-sec-8b-reasoning:
     module: eval
     name: 🔬 Bench · Foundation-Sec-8B-Reasoning (Cisco)

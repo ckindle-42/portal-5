@@ -146,46 +146,23 @@ PIPELINE_URL = "http://localhost:9099"
 PIPELINE_API_KEY = _env("PIPELINE_API_KEY")
 REQUEST_TIMEOUT = 600.0  # per-chunk httpx read ceiling — event-driven (fires on absent data)
 
-_PORTAL_YAML = (
-    Path(__file__).resolve().parent.parent.parent.parent.parent / "config" / "portal.yaml"
-)
-_MODEL_TO_BENCH_WORKSPACE: dict[str, str] | None = None
-_WORKSPACE_TO_MODEL_HINT: dict[str, str] | None = None
-
-
-def _load_workspace_model_hints() -> dict[str, str]:
-    global _MODEL_TO_BENCH_WORKSPACE, _WORKSPACE_TO_MODEL_HINT
-    if _MODEL_TO_BENCH_WORKSPACE is None:
-        _MODEL_TO_BENCH_WORKSPACE = {}
-        _WORKSPACE_TO_MODEL_HINT = {}
-        try:
-            import yaml
-
-            data = yaml.safe_load(_PORTAL_YAML.read_text()) or {}
-            for ws_id, ws_cfg in (data.get("workspaces") or {}).items():
-                hint = ws_cfg.get("model_hint")
-                if hint:
-                    _MODEL_TO_BENCH_WORKSPACE.setdefault(hint, ws_id)
-                    _WORKSPACE_TO_MODEL_HINT[ws_id] = hint
-        except Exception:
-            pass
-    ws_hint = _WORKSPACE_TO_MODEL_HINT
-    assert ws_hint is not None
-    return ws_hint
-
 
 def resolve_pipeline_model(model: str) -> str:
     """Map a raw Ollama model tag to its ``bench-*``/production workspace slug, if one exists.
 
-    The pipeline's ``/v1/chat/completions`` treats the ``model`` field as a
-    workspace/persona id, not a literal model selector: an unrecognized value
-    silently falls back to the routing group's first model rather than erroring.
-    Every model callers want to address directly needs a workspace entry in
-    ``config/portal.yaml`` with a matching ``model_hint``. Already-known
-    workspace/persona ids pass through unchanged.
+    Delegates to ``portal.platform.inference.model_addressing`` (P5-FANOUT-001
+    W2) so the security benches and the compliance transport share one
+    tag→workspace authority instead of two copies that drift. The failure mode
+    that makes this mapping load-bearing is unchanged: the pipeline treats the
+    ``model`` field as a workspace id and silently falls back to the routing
+    group's first model when nothing matches, so every directly-addressed tag
+    needs a workspace entry whose ``model_hint`` is that tag.
     """
-    _load_workspace_model_hints()
-    return (_MODEL_TO_BENCH_WORKSPACE or {}).get(model, model)
+    from portal.platform.inference.model_addressing import (  # noqa: PLC0415
+        workspace_id_for_model,
+    )
+
+    return workspace_id_for_model(model)
 
 
 def expected_model_hint(workspace_id: str) -> str | None:
@@ -195,7 +172,11 @@ def expected_model_hint(workspace_id: str) -> str | None:
     not silently substituted (see ``resolve_pipeline_model``'s docstring for
     the failure mode this guards against).
     """
-    return _load_workspace_model_hints().get(workspace_id)
+    from portal.platform.inference.model_addressing import (  # noqa: PLC0415
+        workspace_model_hint,
+    )
+
+    return workspace_model_hint(workspace_id)
 
 
 # Per-workspace request-timeout overrides (seconds).

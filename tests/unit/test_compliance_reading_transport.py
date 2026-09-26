@@ -53,6 +53,15 @@ class _Server:
 
 
 @pytest.fixture(autouse=True)
+def _pin_native_transport(monkeypatch):
+    """These tests pin the NATIVE wire contract. The P5-FANOUT-001 default
+    (``COMPLIANCE_TRANSPORT=pipeline``) would resolve them at the pipeline
+    dialect, which owns its transport and bypasses the ``_post`` fakes below;
+    ``ollama-native`` restores the resolution these tests were written under."""
+    monkeypatch.setenv("COMPLIANCE_TRANSPORT", "ollama-native")
+
+
+@pytest.fixture(autouse=True)
 def _clear_capability_cache():
     reading_transport._THINK_CAPABLE.clear()
     yield
