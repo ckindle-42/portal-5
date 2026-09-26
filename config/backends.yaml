@@ -955,6 +955,14 @@ backends:
   # direct tool-call probe.
   - id: NVIDIA-Nemotron-3.5-Lightning-30B-A3B-oQ4e-mtp
     supports_tools: true
+  # granite-4.1-8b-mxfp8 / granite-4.1-30b-4bit: listed here (not just in the
+  # aliases: block below) so this backend's own models: list matches what it
+  # actually serves — both were tool-call probed live 2026-09-25, see the W4
+  # comment a few lines down for the full record.
+  - id: granite-4.1-8b-mxfp8
+    supports_tools: true
+  - id: granite-4.1-30b-4bit
+    supports_tools: true
   # P5-FANOUT-001 lane-alignment audit (2026-09-25): granite4.1:30b-ctx98k is
   # deliberately NOT aliased here — the granite-4.1-30b-4bit conversion
   # returned EMPTY output on an 85k-token needle probe (400 correctly at 132k,
@@ -998,13 +1006,16 @@ backends:
 # cluster_backends.py). Tongyi-DeepResearch-30B / granite-4.1-30b /
 # granite-4.1-8b-mxfp8 re-audited for tool-calling on oMLX 0.6.4 — all clean.
 #
-# DeepSeek-R1-0528-Qwen3-8B deliberately NOT here: oMLX 0.6.4's tool_calling.py
-# has no parser for DeepSeek's `<｜tool▁calls▁begin｜>` format (the model emits a
-# clean, well-formed call — tokenizer_config/chat_template in the model dir were
-# fixed — but oMLX drops it). A parser is a per-brew-upgrade maintenance burden
-# for a speed shadow-shift; auto-reasoning stays on the Ollama GGUF
-# (hf.co/unsloth/DeepSeek-R1-0528-Qwen3-8B-GGUF), tool-calling fix baked in,
-# verified in production.
+# DeepSeek-R1-0528-Qwen3-8B: SUPERSEDED 2026-09-25 (P5-FANOUT-001) — see the
+# DeepSeek-R1-0528-Qwen3-8B-4bit entry below, now aliased and serving
+# auto-reasoning's default lane on oMLX. This used to be a hard exclusion
+# (oMLX's tool_calling.py had no parser for DeepSeek's tool-call format) until
+# scripts/omlx/deepseek_r1_tool_parser.py + scripts/install_omlx_parsers.sh
+# fixed it. That installer must be re-run after every `brew upgrade omlx` —
+# it silently died once already (the original bug this note used to describe).
+# supports_tools:true on this alias is only as good as the parser being
+# installed; there is no automated check for that yet (see backends.yaml
+# omlx-reasoning entry below and P5-FANOUT-001 audit follow-up).
 - group: reasoning
   id: omlx-reasoning
   models:
