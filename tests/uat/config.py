@@ -87,6 +87,13 @@ SCREENSHOT_DIR = Path("/tmp/uat_screenshots")
 ARTIFACT_DIR = Path("/tmp/uat_artifacts")
 
 OLLAMA_URL = os.environ.get("OLLAMA_BASE_URL", "http://localhost:11434")
+OMLX_URL = os.environ.get("OMLX_URL", "http://localhost:8085")
+
+# P5-FANOUT-001 W6 follow-up: set to a file path to have MemoryMonitor append a
+# per-poll JSONL snapshot (system memory, Ollama /api/ps residents, oMLX
+# /health engine_pool) for post-run analysis via scripts/uat_memory_report.py.
+# Empty (default) disables recording — zero cost on ordinary UAT runs.
+MEMORY_RECORD_PATH = os.environ.get("UAT_MEMORY_RECORD", "")
 
 # Sections that require all models unloaded before running for max memory headroom.
 SECTIONS_REQUIRE_UNLOAD = True  # Always unload Ollama before sections

@@ -9,16 +9,20 @@ from __future__ import annotations
 import asyncio
 import json as _json
 import threading
+import time
 from pathlib import Path
+from typing import Any
 
 import httpx
 
+from tests.memory_guard import free_ram_gb as _get_free_ram_gb
 from tests.memory_guard import memory_pct as _get_memory_pct
 from tests.uat.config import (
     MEMORY_ABORT_PCT,
     MEMORY_CRITICAL_PCT,
     MEMORY_WARN_PCT,
     OLLAMA_URL,
+    OMLX_URL,
 )
 from tests.uat.health import _wait_for_drain
 from tests.uat.lifecycle import unload_all_models
@@ -58,8 +62,9 @@ class MemoryMonitor:
     stop() after. Stats are available via .stats dict.
     """
 
-    def __init__(self, poll_interval: float = 20.0) -> None:
+    def __init__(self, poll_interval: float = 20.0, record_path: str = "") -> None:
         self.poll_interval = poll_interval
+        self.record_path = Path(record_path) if record_path else None
         self._task: asyncio.Task | None = None
         self._running = False
         self.stats = {
@@ -78,7 +83,8 @@ class MemoryMonitor:
             return
         self._running = True
         self._task = asyncio.create_task(self._monitor_loop())
-        print(f"  [monitor] Memory monitor started (poll every {self.poll_interval}s)")
+        suffix = f", recording to {self.record_path}" if self.record_path else ""
+        print(f"  [monitor] Memory monitor started (poll every {self.poll_interval}s{suffix})")
 
     async def stop(self) -> None:
         """Stop the background monitor and return stats."""
@@ -143,14 +149,67 @@ class MemoryMonitor:
             self._log(f"Memory warning: {used:.0f}%")
 
         # ── 2. Ollama health ──
+        ollama_models: list[dict[str, Any]] = []
         try:
             r = httpx.get(f"{OLLAMA_URL}/api/ps", timeout=3)
             if r.status_code != 200:
                 self.stats["ollama_crashes"] += 1
                 self._log(f"Ollama unhealthy: HTTP {r.status_code}")
+            else:
+                ollama_models = r.json().get("models", [])
         except Exception:
             self.stats["ollama_crashes"] += 1
             self._log("Ollama unreachable — may have crashed")
+
+        # ── 3. Optional memory-footprint recording (P5-FANOUT-001 W6) ──
+        if self.record_path is not None:
+            self._record_snapshot(used, ollama_models)
+
+    def _record_snapshot(self, memory_pct: float, ollama_models: list[dict[str, Any]]) -> None:
+        """Append one JSONL line: system + per-engine resident footprint.
+
+        Feeds scripts/uat_memory_report.py's answer to the still-open W6
+        question (docs/TASK_FANOUT_CONCURRENCY_V1.md) — whether OLLAMA_
+        NUM_PARALLEL can safely go back above 1 now that the fan-out lanes
+        that originally forced it down have moved to oMLX. Never raises: a
+        recording failure must not affect the UAT run it's observing.
+        """
+        try:
+            omlx_pool: dict[str, Any] = {}
+            try:
+                resp = httpx.get(f"{OMLX_URL}/health", timeout=3)
+                if resp.status_code == 200:
+                    omlx_pool = resp.json().get("engine_pool", {})
+            except Exception:
+                pass
+            snapshot = {
+                "ts": time.time(),
+                "memory_pct": memory_pct,
+                "free_ram_gb": _get_free_ram_gb(),
+                "ollama_models": [
+                    {
+                        "name": m.get("name"),
+                        "size_vram": m.get("size_vram", 0),
+                        "context_length": m.get("context_length"),
+                    }
+                    for m in ollama_models
+                ],
+                "ollama_concurrent_vram_gb": round(
+                    sum(float(m.get("size_vram") or 0) for m in ollama_models) / (1024**3), 2
+                ),
+                "omlx_loaded_count": omlx_pool.get("loaded_count"),
+                "omlx_current_model_memory_gb": round(
+                    float(omlx_pool.get("current_model_memory") or 0) / (1024**3), 2
+                ),
+                "omlx_final_ceiling_gb": round(
+                    float(omlx_pool.get("final_ceiling") or 0) / (1024**3), 2
+                ),
+            }
+            assert self.record_path is not None  # narrowed by the caller's None check
+            with self.record_path.open("a") as f:
+                f.write(_json.dumps(snapshot) + "\n")
+        except Exception as e:
+            self._log(f"memory recording failed (non-fatal): {e}")
 
     async def _emergency_evict(self) -> None:
         """Aggressive eviction when memory is critically high."""
