@@ -1,35 +1,35 @@
 ---
 id: unit-code-scripts
 kind: what
-title: scripts subsystem (180 files)
+title: scripts subsystem (184 files)
 sources:
 - type: code
   path: scripts/_archive/analyze_bench_v5.py
-  commit: 60f173e0f83d
+  commit: f7d042c24e66
 - type: code
   path: scripts/_archive/engine_h2h_20260924/bench_engine_h2h.py
-  commit: 60f173e0f83d
+  commit: f7d042c24e66
 - type: code
   path: scripts/_archive/engine_h2h_20260924/deep_lane/run_deep.py
-  commit: 60f173e0f83d
+  commit: f7d042c24e66
 - type: code
   path: scripts/_archive/engine_h2h_20260924/prismml_mlx_server.py
-  commit: 60f173e0f83d
+  commit: f7d042c24e66
 - type: code
   path: scripts/_archive/engine_h2h_20260924/tests/test_bench_engine_h2h.py
-  commit: 60f173e0f83d
+  commit: f7d042c24e66
 claims: []
 confidence: high
 tags:
 - code
 - scripts
-created_at: 1790305374.010997
-updated_at: 1790305374.010997
+created_at: 1790411311.5242481
+updated_at: 1790411311.5242481
 ---
 
 # scripts subsystem
 
-**Files:** 180
+**Files:** 184
 
 - `scripts/_archive/analyze_bench_v5.py`
 - `scripts/_archive/engine_h2h_20260924/bench_engine_h2h.py`
@@ -51,4 +51,4 @@ updated_at: 1790305374.010997
 - `scripts/bully_analyst_loop_run.py`
 - `scripts/bully_corpus_hunt_run.py`
 - `scripts/bully_cousin_ladder.py`
-- ... and 160 more
+- ... and 164 more

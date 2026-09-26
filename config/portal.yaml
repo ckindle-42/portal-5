@@ -1847,6 +1847,9 @@ workspaces:
       stop reserving the 31.7 GiB 98k footprint (P5-FANOUT-001 M2).
     model_hint: granite4.1:30b-ctx98k
     context_limit: 98304
+    # working-ctx preflight verified live 2026-09-25: /api/ps context_length
+    # 98304 on the baked tag (P5-FANOUT-001 A5).
+    ctx_validated: true
     predict_limit: 8192
     max_concurrent: 1
     keep_alive: 30m
