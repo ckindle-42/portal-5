@@ -484,7 +484,7 @@ async def _run_suite(
         )
 
         # Start continuous memory/health monitor (background task)
-        monitor = MemoryMonitor(poll_interval=20.0)
+        monitor = MemoryMonitor(poll_interval=20.0, record_path=config.MEMORY_RECORD_PATH)
         monitor.start()
 
         # Start crash watcher (background thread — watches DiagnosticReports)
