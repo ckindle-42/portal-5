@@ -283,6 +283,27 @@ async def test_no_fallback_on_malformed_request(monkeypatch) -> None:
 
 
 @pytest.mark.anyio
+async def test_fallback_on_omlx_capacity_400(monkeypatch) -> None:
+    """A streamed oMLX prefill_memory_guard rejection (400) must fall back to
+    the next candidate, unlike a genuinely malformed request — mirrors
+    test_omlx_capacity_400_cascades_instead_of_surfacing on the non-streaming
+    path. See non_streaming._is_capacity_error's docstring."""
+    from fastapi.responses import JSONResponse
+
+    ok = JSONResponse(
+        {"choices": [{"message": {"role": "assistant", "content": "rescued"}}]},
+        headers={"x-portal-route": "ws;b1;m"},
+    )
+    inner = [
+        b'data: {"error": "Backend returned HTTP 400: prefill memory guard: '
+        b'projected memory would exceed ceiling", "status": 400}\n\n'
+    ]
+    chunks, calls = await _fallback_run(monkeypatch, inner, [_backend("b1")], ok)
+    assert calls == ["b1"]
+    assert _content(chunks) == "rescued"
+
+
+@pytest.mark.anyio
 async def test_fallback_done_not_leaked_before_answer(monkeypatch) -> None:
     from fastapi.responses import JSONResponse
 
@@ -376,6 +397,28 @@ async def test_malformed_request_raises_instead_of_cascading(monkeypatch, ns_env
     with pytest.raises(ns.BackendRequestError) as exc:
         await ns._try_non_streaming(_backend("a"), {"messages": []}, ns_env, 0.0)
     assert exc.value.status_code == 400 and "bad param" in exc.value.detail
+
+
+@pytest.mark.anyio
+async def test_omlx_capacity_400_cascades_instead_of_surfacing(monkeypatch, ns_env) -> None:
+    """oMLX's prefill_memory_guard returns 400 too, but it's an engine-capacity
+    fact (Ollama has a different memory profile and may well serve it), not a
+    malformed request — it must cascade like a 500/503 would, not raise
+    BackendRequestError. See _is_capacity_error's docstring for the incident."""
+    _set_client(
+        monkeypatch,
+        httpx.Response(
+            400, json={"error": "prefill memory guard: projected memory would exceed ceiling"}
+        ),
+    )
+    result = await ns._try_non_streaming(_backend("a"), {"messages": []}, ns_env, 0.0)
+    assert result is None  # cascades — caller tries the next candidate
+
+
+def test_is_capacity_error_matches_known_omlx_wording() -> None:
+    assert ns._is_capacity_error("prefill memory guard rejected the request")
+    assert ns._is_capacity_error("Cannot load Qwen3-VL-32B: projected memory 60.81GB")
+    assert not ns._is_capacity_error("bad param: top_k must be positive")
 
 
 @pytest.mark.anyio
