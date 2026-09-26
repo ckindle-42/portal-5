@@ -33,6 +33,10 @@ sources:
   path: scripts/compliance/family_links.py
 - type: code
   path: scripts/compliance/ask_conversational.py
+- type: code
+  path: scripts/compliance/pipeline_call_site_ledger.py
+- type: code
+  path: scripts/compliance/window_census.py
 claims: []
 confidence: high
 tags:
@@ -104,3 +108,13 @@ it answers, `compliance_search` was ACTUALLY called (router counters), every
 citation resolves, and both sides are cited — with the absence questions
 inverted: honest absence passes, invented coverage fails, judged by the
 module's own assertion classifier against the store's recorded edges.
+
+PIPELINE_ALIGNMENT_V1 adds two measurement instruments. `pipeline_call_site_
+ledger` (§P0) makes one live call per compliance call site through the
+default dialect and records from the pipeline's own trace where each landed
+— workspace, backend, served model, fallback cascade — plus what the
+resolved workspace declares, so the ledger is measured rather than derived
+from config. `window_census` (§P2) renders every register node's sweep
+material and prices it against the seat and overflow windows at the measured
+bytes-per-token, local computation only, so the oversized-material problem
+is sized before an overflow route is built.

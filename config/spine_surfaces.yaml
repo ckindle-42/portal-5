@@ -804,6 +804,10 @@ surfaces:
   globs:
   - scripts/compliance/family_links.py
   unit: unit-surface-compliance-closeout-scripts
+- name: file-scripts-compliance-pipeline_call_site_ledger
+  globs:
+  - scripts/compliance/pipeline_call_site_ledger.py
+  unit: unit-surface-compliance-closeout-scripts
 - name: file-scripts-compliance-retype_relations
   globs:
   - scripts/compliance/retype_relations.py
@@ -832,6 +836,10 @@ surfaces:
   globs:
   - scripts/compliance/verify_technical_basis_coverage.py
   unit: unit-compliance-technical-basis-coverage
+- name: file-scripts-compliance-window_census
+  globs:
+  - scripts/compliance/window_census.py
+  unit: unit-surface-compliance-closeout-scripts
 - name: file-scripts-compliance-write_closeout_report
   globs:
   - scripts/compliance/write_closeout_report.py

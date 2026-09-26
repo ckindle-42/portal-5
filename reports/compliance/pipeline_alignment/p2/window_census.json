@@ -1,0 +1,4356 @@
+{
+  "generated_at": "2026-09-26T12:07:17Z",
+  "prompt_version": "mapping-v2-2026-09-24",
+  "prompt_sha": "558fb34ca0a7",
+  "bytes_per_token_measured": 3.28,
+  "bytes_per_token_sweep_constant": 3.3,
+  "answer_budget": 3072,
+  "windows": {
+    "seat_32768": 32768,
+    "overflow_65536": 65536
+  },
+  "n_nodes": 255,
+  "n_rendered": 255,
+  "n_errors": 0,
+  "over_seat_window": 4,
+  "over_seat_window_at_sweep_constant": 4,
+  "over_overflow_window": 0,
+  "rows": [
+    {
+      "ref": "CIP-002-5.1a Attachment 1 Part 1.1",
+      "revision": "CIP-002-5.1a",
+      "prompt_bytes": 51926,
+      "seat_32768": {
+        "fits": true,
+        "estimated_tokens": 15832,
+        "available_tokens": 29184,
+        "fits_at_sweep_constant": true
+      },
+      "overflow_65536": {
+        "fits": true,
+        "estimated_tokens": 15832,
+        "available_tokens": 61952,
+        "fits_at_sweep_constant": true
+      }
+    },
+    {
+      "ref": "CIP-002-5.1a Attachment 1 Part 1.2",
+      "revision": "CIP-002-5.1a",
+      "prompt_bytes": 52287,
+      "seat_32768": {
+        "fits": true,
+        "estimated_tokens": 15942,
+        "available_tokens": 29184,
+        "fits_at_sweep_constant": true
+      },
+      "overflow_65536": {
+        "fits": true,
+        "estimated_tokens": 15942,
+        "available_tokens": 61952,
+        "fits_at_sweep_constant": true
+      }
+    },
+    {
+      "ref": "CIP-002-5.1a Attachment 1 Part 1.3",
+      "revision": "CIP-002-5.1a",
+      "prompt_bytes": 54705,
+      "seat_32768": {
+        "fits": true,
+        "estimated_tokens": 16679,
+        "available_tokens": 29184,
+        "fits_at_sweep_constant": true
+      },
+      "overflow_65536": {
+        "fits": true,
+        "estimated_tokens": 16679,
+        "available_tokens": 61952,
+        "fits_at_sweep_constant": true
+      }
+    },
+    {
+      "ref": "CIP-002-5.1a Attachment 1 Part 1.4",
+      "revision": "CIP-002-5.1a",
+      "prompt_bytes": 54705,
+      "seat_32768": {
+        "fits": true,
+        "estimated_tokens": 16679,
+        "available_tokens": 29184,
+        "fits_at_sweep_constant": true
+      },
+      "overflow_65536": {
+        "fits": true,
+        "estimated_tokens": 16679,
+        "available_tokens": 61952,
+        "fits_at_sweep_constant": true
+      }
+    },
+    {
+      "ref": "CIP-002-5.1a Attachment 1 Part 2.1",
+      "revision": "CIP-002-5.1a",
+      "prompt_bytes": 58366,
+      "seat_32768": {
+        "fits": true,
+        "estimated_tokens": 17795,
+        "available_tokens": 29184,
+        "fits_at_sweep_constant": true
+      },
+      "overflow_65536": {
+        "fits": true,
+        "estimated_tokens": 17795,
+        "available_tokens": 61952,
+        "fits_at_sweep_constant": true
+      }
+    },
+    {
+      "ref": "CIP-002-5.1a Attachment 1 Part 2.2",
+      "revision": "CIP-002-5.1a",
+      "prompt_bytes": 57020,
+      "seat_32768": {
+        "fits": true,
+        "estimated_tokens": 17385,
+        "available_tokens": 29184,
+        "fits_at_sweep_constant": true
+      },
+      "overflow_65536": {
+        "fits": true,
+        "estimated_tokens": 17385,
+        "available_tokens": 61952,
+        "fits_at_sweep_constant": true
+      }
+    },
+    {
+      "ref": "CIP-002-5.1a Attachment 1 Part 2.3",
+      "revision": "CIP-002-5.1a",
+      "prompt_bytes": 55716,
+      "seat_32768": {
+        "fits": true,
+        "estimated_tokens": 16987,
+        "available_tokens": 29184,
+        "fits_at_sweep_constant": true
+      },
+      "overflow_65536": {
+        "fits": true,
+        "estimated_tokens": 16987,
+        "available_tokens": 61952,
+        "fits_at_sweep_constant": true
+      }
+    },
+    {
+      "ref": "CIP-002-5.1a Attachment 1 Part 2.4",
+      "revision": "CIP-002-5.1a",
+      "prompt_bytes": 49918,
+      "seat_32768": {
+        "fits": true,
+        "estimated_tokens": 15219,
+        "available_tokens": 29184,
+        "fits_at_sweep_constant": true
+      },
+      "overflow_65536": {
+        "fits": true,
+        "estimated_tokens": 15219,
+        "available_tokens": 61952,
+        "fits_at_sweep_constant": true
+      }
+    },
+    {
+      "ref": "CIP-002-5.1a Attachment 1 Part 2.5",
+      "revision": "CIP-002-5.1a",
+      "prompt_bytes": 50901,
+      "seat_32768": {
+        "fits": true,
+        "estimated_tokens": 15519,
+        "available_tokens": 29184,
+        "fits_at_sweep_constant": true
+      },
+      "overflow_65536": {
+        "fits": true,
+        "estimated_tokens": 15519,
+        "available_tokens": 61952,
+        "fits_at_sweep_constant": true
+      }
+    },
+    {
+      "ref": "CIP-002-5.1a Attachment 1 Part 2.6",
+      "revision": "CIP-002-5.1a",
+      "prompt_bytes": 53062,
+      "seat_32768": {
+        "fits": true,
+        "estimated_tokens": 16178,
+        "available_tokens": 29184,
+        "fits_at_sweep_constant": true
+      },
+      "overflow_65536": {
+        "fits": true,
+        "estimated_tokens": 16178,
+        "available_tokens": 61952,
+        "fits_at_sweep_constant": true
+      }
+    },
+    {
+      "ref": "CIP-002-5.1a Attachment 1 Part 2.7",
+      "revision": "CIP-002-5.1a",
+      "prompt_bytes": 50818,
+      "seat_32768": {
+        "fits": true,
+        "estimated_tokens": 15494,
+        "available_tokens": 29184,
+        "fits_at_sweep_constant": true
+      },
+      "overflow_65536": {
+        "fits": true,
+        "estimated_tokens": 15494,
+        "available_tokens": 61952,
+        "fits_at_sweep_constant": true
+      }
+    },
+    {
+      "ref": "CIP-002-5.1a Attachment 1 Part 2.8",
+      "revision": "CIP-002-5.1a",
+      "prompt_bytes": 54235,
+      "seat_32768": {
+        "fits": true,
+        "estimated_tokens": 16536,
+        "available_tokens": 29184,
+        "fits_at_sweep_constant": true
+      },
+      "overflow_65536": {
+        "fits": true,
+        "estimated_tokens": 16536,
+        "available_tokens": 61952,
+        "fits_at_sweep_constant": true
+      }
+    },
+    {
+      "ref": "CIP-002-5.1a Attachment 1 Part 2.9",
+      "revision": "CIP-002-5.1a",
+      "prompt_bytes": 57922,
+      "seat_32768": {
+        "fits": true,
+        "estimated_tokens": 17660,
+        "available_tokens": 29184,
+        "fits_at_sweep_constant": true
+      },
+      "overflow_65536": {
+        "fits": true,
+        "estimated_tokens": 17660,
+        "available_tokens": 61952,
+        "fits_at_sweep_constant": true
+      }
+    },
+    {
+      "ref": "CIP-002-5.1a Attachment 1 Part 2.10",
+      "revision": "CIP-002-5.1a",
+      "prompt_bytes": 50550,
+      "seat_32768": {
+        "fits": true,
+        "estimated_tokens": 15412,
+        "available_tokens": 29184,
+        "fits_at_sweep_constant": true
+      },
+      "overflow_65536": {
+        "fits": true,
+        "estimated_tokens": 15412,
+        "available_tokens": 61952,
+        "fits_at_sweep_constant": true
+      }
+    },
+    {
+      "ref": "CIP-002-5.1a Attachment 1 Part 2.11",
+      "revision": "CIP-002-5.1a",
+      "prompt_bytes": 52419,
+      "seat_32768": {
+        "fits": true,
+        "estimated_tokens": 15982,
+        "available_tokens": 29184,
+        "fits_at_sweep_constant": true
+      },
+      "overflow_65536": {
+        "fits": true,
+        "estimated_tokens": 15982,
+        "available_tokens": 61952,
+        "fits_at_sweep_constant": true
+      }
+    },
+    {
+      "ref": "CIP-002-5.1a Attachment 1 Part 2.12",
+      "revision": "CIP-002-5.1a",
+      "prompt_bytes": 54511,
+      "seat_32768": {
+        "fits": true,
+        "estimated_tokens": 16620,
+        "available_tokens": 29184,
+        "fits_at_sweep_constant": true
+      },
+      "overflow_65536": {
+        "fits": true,
+        "estimated_tokens": 16620,
+        "available_tokens": 61952,
+        "fits_at_sweep_constant": true
+      }
+    },
+    {
+      "ref": "CIP-002-5.1a Attachment 1 Part 2.13",
+      "revision": "CIP-002-5.1a",
+      "prompt_bytes": 56811,
+      "seat_32768": {
+        "fits": true,
+        "estimated_tokens": 17321,
+        "available_tokens": 29184,
+        "fits_at_sweep_constant": true
+      },
+      "overflow_65536": {
+        "fits": true,
+        "estimated_tokens": 17321,
+        "available_tokens": 61952,
+        "fits_at_sweep_constant": true
+      }
+    },
+    {
+      "ref": "CIP-002-5.1a Attachment 1 Part 3.1",
+      "revision": "CIP-002-5.1a",
+      "prompt_bytes": 50330,
+      "seat_32768": {
+        "fits": true,
+        "estimated_tokens": 15345,
+        "available_tokens": 29184,
+        "fits_at_sweep_constant": true
+      },
+      "overflow_65536": {
+        "fits": true,
+        "estimated_tokens": 15345,
+        "available_tokens": 61952,
+        "fits_at_sweep_constant": true
+      }
+    },
+    {
+      "ref": "CIP-002-5.1a Attachment 1 Part 3.2",
+      "revision": "CIP-002-5.1a",
+      "prompt_bytes": 60079,
+      "seat_32768": {
+        "fits": true,
+        "estimated_tokens": 18317,
+        "available_tokens": 29184,
+        "fits_at_sweep_constant": true
+      },
+      "overflow_65536": {
+        "fits": true,
+        "estimated_tokens": 18317,
+        "available_tokens": 61952,
+        "fits_at_sweep_constant": true
+      }
+    },
+    {
+      "ref": "CIP-002-5.1a Attachment 1 Part 3.3",
+      "revision": "CIP-002-5.1a",
+      "prompt_bytes": 46871,
+      "seat_32768": {
+        "fits": true,
+        "estimated_tokens": 14290,
+        "available_tokens": 29184,
+        "fits_at_sweep_constant": true
+      },
+      "overflow_65536": {
+        "fits": true,
+        "estimated_tokens": 14290,
+        "available_tokens": 61952,
+        "fits_at_sweep_constant": true
+      }
+    },
+    {
+      "ref": "CIP-002-5.1a Attachment 1 Part 3.4",
+      "revision": "CIP-002-5.1a",
+      "prompt_bytes": 49568,
+      "seat_32768": {
+        "fits": true,
+        "estimated_tokens": 15113,
+        "available_tokens": 29184,
+        "fits_at_sweep_constant": true
+      },
+      "overflow_65536": {
+        "fits": true,
+        "estimated_tokens": 15113,
+        "available_tokens": 61952,
+        "fits_at_sweep_constant": true
+      }
+    },
+    {
+      "ref": "CIP-002-5.1a Attachment 1 Part 3.5",
+      "revision": "CIP-002-5.1a",
+      "prompt_bytes": 52722,
+      "seat_32768": {
+        "fits": true,
+        "estimated_tokens": 16074,
+        "available_tokens": 29184,
+        "fits_at_sweep_constant": true
+      },
+      "overflow_65536": {
+        "fits": true,
+        "estimated_tokens": 16074,
+        "available_tokens": 61952,
+        "fits_at_sweep_constant": true
+      }
+    },
+    {
+      "ref": "CIP-002-5.1a Attachment 1 Part 3.6",
+      "revision": "CIP-002-5.1a",
+      "prompt_bytes": 47314,
+      "seat_32768": {
+        "fits": true,
+        "estimated_tokens": 14426,
+        "available_tokens": 29184,
+        "fits_at_sweep_constant": true
+      },
+      "overflow_65536": {
+        "fits": true,
+        "estimated_tokens": 14426,
+        "available_tokens": 61952,
+        "fits_at_sweep_constant": true
+      }
+    },
+    {
+      "ref": "CIP-002-5.1a Attachment 1 Section 1",
+      "revision": "CIP-002-5.1a",
+      "prompt_bytes": 51897,
+      "seat_32768": {
+        "fits": true,
+        "estimated_tokens": 15823,
+        "available_tokens": 29184,
+        "fits_at_sweep_constant": true
+      },
+      "overflow_65536": {
+        "fits": true,
+        "estimated_tokens": 15823,
+        "available_tokens": 61952,
+        "fits_at_sweep_constant": true
+      }
+    },
+    {
+      "ref": "CIP-002-5.1a Attachment 1 Section 2",
+      "revision": "CIP-002-5.1a",
+      "prompt_bytes": 53816,
+      "seat_32768": {
+        "fits": true,
+        "estimated_tokens": 16408,
+        "available_tokens": 29184,
+        "fits_at_sweep_constant": true
+      },
+      "overflow_65536": {
+        "fits": true,
+        "estimated_tokens": 16408,
+        "available_tokens": 61952,
+        "fits_at_sweep_constant": true
+      }
+    },
+    {
+      "ref": "CIP-002-5.1a Attachment 1 Section 3",
+      "revision": "CIP-002-5.1a",
+      "prompt_bytes": 50918,
+      "seat_32768": {
+        "fits": true,
+        "estimated_tokens": 15524,
+        "available_tokens": 29184,
+        "fits_at_sweep_constant": true
+      },
+      "overflow_65536": {
+        "fits": true,
+        "estimated_tokens": 15524,
+        "available_tokens": 61952,
+        "fits_at_sweep_constant": true
+      }
+    },
+    {
+      "ref": "CIP-002-5.1a R1",
+      "revision": "CIP-002-5.1a",
+      "prompt_bytes": 109735,
+      "seat_32768": {
+        "fits": false,
+        "estimated_tokens": 33456,
+        "available_tokens": 29184,
+        "fits_at_sweep_constant": false
+      },
+      "overflow_65536": {
+        "fits": true,
+        "estimated_tokens": 33456,
+        "available_tokens": 61952,
+        "fits_at_sweep_constant": true
+      }
+    },
+    {
+      "ref": "CIP-002-5.1a R1 Part 1.1",
+      "revision": "CIP-002-5.1a",
+      "prompt_bytes": 89280,
+      "seat_32768": {
+        "fits": true,
+        "estimated_tokens": 27220,
+        "available_tokens": 29184,
+        "fits_at_sweep_constant": true
+      },
+      "overflow_65536": {
+        "fits": true,
+        "estimated_tokens": 27220,
+        "available_tokens": 61952,
+        "fits_at_sweep_constant": true
+      }
+    },
+    {
+      "ref": "CIP-002-5.1a R1 Part 1.2",
+      "revision": "CIP-002-5.1a",
+      "prompt_bytes": 89286,
+      "seat_32768": {
+        "fits": true,
+        "estimated_tokens": 27222,
+        "available_tokens": 29184,
+        "fits_at_sweep_constant": true
+      },
+      "overflow_65536": {
+        "fits": true,
+        "estimated_tokens": 27222,
+        "available_tokens": 61952,
+        "fits_at_sweep_constant": true
+      }
+    },
+    {
+      "ref": "CIP-002-5.1a R1 Part 1.3",
+      "revision": "CIP-002-5.1a",
+      "prompt_bytes": 91824,
+      "seat_32768": {
+        "fits": true,
+        "estimated_tokens": 27996,
+        "available_tokens": 29184,
+        "fits_at_sweep_constant": true
+      },
+      "overflow_65536": {
+        "fits": true,
+        "estimated_tokens": 27996,
+        "available_tokens": 61952,
+        "fits_at_sweep_constant": true
+      }
+    },
+    {
+      "ref": "CIP-002-5.1a R2",
+      "revision": "CIP-002-5.1a",
+      "prompt_bytes": 65098,
+      "seat_32768": {
+        "fits": true,
+        "estimated_tokens": 19847,
+        "available_tokens": 29184,
+        "fits_at_sweep_constant": true
+      },
+      "overflow_65536": {
+        "fits": true,
+        "estimated_tokens": 19847,
+        "available_tokens": 61952,
+        "fits_at_sweep_constant": true
+      }
+    },
+    {
+      "ref": "CIP-002-5.1a R2 Part 2.1",
+      "revision": "CIP-002-5.1a",
+      "prompt_bytes": 56515,
+      "seat_32768": {
+        "fits": true,
+        "estimated_tokens": 17231,
+        "available_tokens": 29184,
+        "fits_at_sweep_constant": true
+      },
+      "overflow_65536": {
+        "fits": true,
+        "estimated_tokens": 17231,
+        "available_tokens": 61952,
+        "fits_at_sweep_constant": true
+      }
+    },
+    {
+      "ref": "CIP-002-5.1a R2 Part 2.2",
+      "revision": "CIP-002-5.1a",
+      "prompt_bytes": 61474,
+      "seat_32768": {
+        "fits": true,
+        "estimated_tokens": 18743,
+        "available_tokens": 29184,
+        "fits_at_sweep_constant": true
+      },
+      "overflow_65536": {
+        "fits": true,
+        "estimated_tokens": 18743,
+        "available_tokens": 61952,
+        "fits_at_sweep_constant": true
+      }
+    },
+    {
+      "ref": "CIP-003-8 Attachment 1 Part 1",
+      "revision": "CIP-003-8",
+      "prompt_bytes": 45805,
+      "seat_32768": {
+        "fits": true,
+        "estimated_tokens": 13965,
+        "available_tokens": 29184,
+        "fits_at_sweep_constant": true
+      },
+      "overflow_65536": {
+        "fits": true,
+        "estimated_tokens": 13965,
+        "available_tokens": 61952,
+        "fits_at_sweep_constant": true
+      }
+    },
+    {
+      "ref": "CIP-003-9 Attachment 1 Part 1",
+      "revision": "CIP-003-9",
+      "prompt_bytes": 35410,
+      "seat_32768": {
+        "fits": true,
+        "estimated_tokens": 10796,
+        "available_tokens": 29184,
+        "fits_at_sweep_constant": true
+      },
+      "overflow_65536": {
+        "fits": true,
+        "estimated_tokens": 10796,
+        "available_tokens": 61952,
+        "fits_at_sweep_constant": true
+      }
+    },
+    {
+      "ref": "CIP-003-8 Attachment 1 Part 2",
+      "revision": "CIP-003-8",
+      "prompt_bytes": 50660,
+      "seat_32768": {
+        "fits": true,
+        "estimated_tokens": 15446,
+        "available_tokens": 29184,
+        "fits_at_sweep_constant": true
+      },
+      "overflow_65536": {
+        "fits": true,
+        "estimated_tokens": 15446,
+        "available_tokens": 61952,
+        "fits_at_sweep_constant": true
+      }
+    },
+    {
+      "ref": "CIP-003-9 Attachment 1 Part 2",
+      "revision": "CIP-003-9",
+      "prompt_bytes": 37979,
+      "seat_32768": {
+        "fits": true,
+        "estimated_tokens": 11579,
+        "available_tokens": 29184,
+        "fits_at_sweep_constant": true
+      },
+      "overflow_65536": {
+        "fits": true,
+        "estimated_tokens": 11579,
+        "available_tokens": 61952,
+        "fits_at_sweep_constant": true
+      }
+    },
+    {
+      "ref": "CIP-003-8 Attachment 1 Part 3",
+      "revision": "CIP-003-8",
+      "prompt_bytes": 54505,
+      "seat_32768": {
+        "fits": true,
+        "estimated_tokens": 16618,
+        "available_tokens": 29184,
+        "fits_at_sweep_constant": true
+      },
+      "overflow_65536": {
+        "fits": true,
+        "estimated_tokens": 16618,
+        "available_tokens": 61952,
+        "fits_at_sweep_constant": true
+      }
+    },
+    {
+      "ref": "CIP-003-9 Attachment 1 Part 3",
+      "revision": "CIP-003-9",
+      "prompt_bytes": 41823,
+      "seat_32768": {
+        "fits": true,
+        "estimated_tokens": 12751,
+        "available_tokens": 29184,
+        "fits_at_sweep_constant": true
+      },
+      "overflow_65536": {
+        "fits": true,
+        "estimated_tokens": 12751,
+        "available_tokens": 61952,
+        "fits_at_sweep_constant": true
+      }
+    },
+    {
+      "ref": "CIP-003-8 Attachment 1 Part 3.1",
+      "revision": "CIP-003-8",
+      "prompt_bytes": 41412,
+      "seat_32768": {
+        "fits": true,
+        "estimated_tokens": 12626,
+        "available_tokens": 29184,
+        "fits_at_sweep_constant": true
+      },
+      "overflow_65536": {
+        "fits": true,
+        "estimated_tokens": 12626,
+        "available_tokens": 61952,
+        "fits_at_sweep_constant": true
+      }
+    },
+    {
+      "ref": "CIP-003-9 Attachment 1 Part 3.1",
+      "revision": "CIP-003-9",
+      "prompt_bytes": 23002,
+      "seat_32768": {
+        "fits": true,
+        "estimated_tokens": 7013,
+        "available_tokens": 29184,
+        "fits_at_sweep_constant": true
+      },
+      "overflow_65536": {
+        "fits": true,
+        "estimated_tokens": 7013,
+        "available_tokens": 61952,
+        "fits_at_sweep_constant": true
+      }
+    },
+    {
+      "ref": "CIP-003-8 Attachment 1 Part 3.2",
+      "revision": "CIP-003-8",
+      "prompt_bytes": 42377,
+      "seat_32768": {
+        "fits": true,
+        "estimated_tokens": 12920,
+        "available_tokens": 29184,
+        "fits_at_sweep_constant": true
+      },
+      "overflow_65536": {
+        "fits": true,
+        "estimated_tokens": 12920,
+        "available_tokens": 61952,
+        "fits_at_sweep_constant": true
+      }
+    },
+    {
+      "ref": "CIP-003-9 Attachment 1 Part 3.2",
+      "revision": "CIP-003-9",
+      "prompt_bytes": 29737,
+      "seat_32768": {
+        "fits": true,
+        "estimated_tokens": 9067,
+        "available_tokens": 29184,
+        "fits_at_sweep_constant": true
+      },
+      "overflow_65536": {
+        "fits": true,
+        "estimated_tokens": 9067,
+        "available_tokens": 61952,
+        "fits_at_sweep_constant": true
+      }
+    },
+    {
+      "ref": "CIP-003-8 Attachment 1 Part 4",
+      "revision": "CIP-003-8",
+      "prompt_bytes": 53577,
+      "seat_32768": {
+        "fits": true,
+        "estimated_tokens": 16335,
+        "available_tokens": 29184,
+        "fits_at_sweep_constant": true
+      },
+      "overflow_65536": {
+        "fits": true,
+        "estimated_tokens": 16335,
+        "available_tokens": 61952,
+        "fits_at_sweep_constant": true
+      }
+    },
+    {
+      "ref": "CIP-003-9 Attachment 1 Part 4",
+      "revision": "CIP-003-9",
+      "prompt_bytes": 44814,
+      "seat_32768": {
+        "fits": true,
+        "estimated_tokens": 13663,
+        "available_tokens": 29184,
+        "fits_at_sweep_constant": true
+      },
+      "overflow_65536": {
+        "fits": true,
+        "estimated_tokens": 13663,
+        "available_tokens": 61952,
+        "fits_at_sweep_constant": true
+      }
+    },
+    {
+      "ref": "CIP-003-8 Attachment 1 Part 4.1",
+      "revision": "CIP-003-8",
+      "prompt_bytes": 55580,
+      "seat_32768": {
+        "fits": true,
+        "estimated_tokens": 16946,
+        "available_tokens": 29184,
+        "fits_at_sweep_constant": true
+      },
+      "overflow_65536": {
+        "fits": true,
+        "estimated_tokens": 16946,
+        "available_tokens": 61952,
+        "fits_at_sweep_constant": true
+      }
+    },
+    {
+      "ref": "CIP-003-9 Attachment 1 Part 4.1",
+      "revision": "CIP-003-9",
+      "prompt_bytes": 46805,
+      "seat_32768": {
+        "fits": true,
+        "estimated_tokens": 14270,
+        "available_tokens": 29184,
+        "fits_at_sweep_constant": true
+      },
+      "overflow_65536": {
+        "fits": true,
+        "estimated_tokens": 14270,
+        "available_tokens": 61952,
+        "fits_at_sweep_constant": true
+      }
+    },
+    {
+      "ref": "CIP-003-8 Attachment 1 Part 4.2",
+      "revision": "CIP-003-8",
+      "prompt_bytes": 35614,
+      "seat_32768": {
+        "fits": true,
+        "estimated_tokens": 10858,
+        "available_tokens": 29184,
+        "fits_at_sweep_constant": true
+      },
+      "overflow_65536": {
+        "fits": true,
+        "estimated_tokens": 10858,
+        "available_tokens": 61952,
+        "fits_at_sweep_constant": true
+      }
+    },
+    {
+      "ref": "CIP-003-9 Attachment 1 Part 4.2",
+      "revision": "CIP-003-9",
+      "prompt_bytes": 26537,
+      "seat_32768": {
+        "fits": true,
+        "estimated_tokens": 8091,
+        "available_tokens": 29184,
+        "fits_at_sweep_constant": true
+      },
+      "overflow_65536": {
+        "fits": true,
+        "estimated_tokens": 8091,
+        "available_tokens": 61952,
+        "fits_at_sweep_constant": true
+      }
+    },
+    {
+      "ref": "CIP-003-8 Attachment 1 Part 4.3",
+      "revision": "CIP-003-8",
+      "prompt_bytes": 49214,
+      "seat_32768": {
+        "fits": true,
+        "estimated_tokens": 15005,
+        "available_tokens": 29184,
+        "fits_at_sweep_constant": true
+      },
+      "overflow_65536": {
+        "fits": true,
+        "estimated_tokens": 15005,
+        "available_tokens": 61952,
+        "fits_at_sweep_constant": true
+      }
+    },
+    {
+      "ref": "CIP-003-9 Attachment 1 Part 4.3",
+      "revision": "CIP-003-9",
+      "prompt_bytes": 40439,
+      "seat_32768": {
+        "fits": true,
+        "estimated_tokens": 12329,
+        "available_tokens": 29184,
+        "fits_at_sweep_constant": true
+      },
+      "overflow_65536": {
+        "fits": true,
+        "estimated_tokens": 12329,
+        "available_tokens": 61952,
+        "fits_at_sweep_constant": true
+      }
+    },
+    {
+      "ref": "CIP-003-8 Attachment 1 Part 4.4",
+      "revision": "CIP-003-8",
+      "prompt_bytes": 52917,
+      "seat_32768": {
+        "fits": true,
+        "estimated_tokens": 16134,
+        "available_tokens": 29184,
+        "fits_at_sweep_constant": true
+      },
+      "overflow_65536": {
+        "fits": true,
+        "estimated_tokens": 16134,
+        "available_tokens": 61952,
+        "fits_at_sweep_constant": true
+      }
+    },
+    {
+      "ref": "CIP-003-9 Attachment 1 Part 4.4",
+      "revision": "CIP-003-9",
+      "prompt_bytes": 44142,
+      "seat_32768": {
+        "fits": true,
+        "estimated_tokens": 13458,
+        "available_tokens": 29184,
+        "fits_at_sweep_constant": true
+      },
+      "overflow_65536": {
+        "fits": true,
+        "estimated_tokens": 13458,
+        "available_tokens": 61952,
+        "fits_at_sweep_constant": true
+      }
+    },
+    {
+      "ref": "CIP-003-8 Attachment 1 Part 4.5",
+      "revision": "CIP-003-8",
+      "prompt_bytes": 54935,
+      "seat_32768": {
+        "fits": true,
+        "estimated_tokens": 16749,
+        "available_tokens": 29184,
+        "fits_at_sweep_constant": true
+      },
+      "overflow_65536": {
+        "fits": true,
+        "estimated_tokens": 16749,
+        "available_tokens": 61952,
+        "fits_at_sweep_constant": true
+      }
+    },
+    {
+      "ref": "CIP-003-9 Attachment 1 Part 4.5",
+      "revision": "CIP-003-9",
+      "prompt_bytes": 46160,
+      "seat_32768": {
+        "fits": true,
+        "estimated_tokens": 14074,
+        "available_tokens": 29184,
+        "fits_at_sweep_constant": true
+      },
+      "overflow_65536": {
+        "fits": true,
+        "estimated_tokens": 14074,
+        "available_tokens": 61952,
+        "fits_at_sweep_constant": true
+      }
+    },
+    {
+      "ref": "CIP-003-8 Attachment 1 Part 4.6",
+      "revision": "CIP-003-8",
+      "prompt_bytes": 46813,
+      "seat_32768": {
+        "fits": true,
+        "estimated_tokens": 14273,
+        "available_tokens": 29184,
+        "fits_at_sweep_constant": true
+      },
+      "overflow_65536": {
+        "fits": true,
+        "estimated_tokens": 14273,
+        "available_tokens": 61952,
+        "fits_at_sweep_constant": true
+      }
+    },
+    {
+      "ref": "CIP-003-9 Attachment 1 Part 4.6",
+      "revision": "CIP-003-9",
+      "prompt_bytes": 38038,
+      "seat_32768": {
+        "fits": true,
+        "estimated_tokens": 11597,
+        "available_tokens": 29184,
+        "fits_at_sweep_constant": true
+      },
+      "overflow_65536": {
+        "fits": true,
+        "estimated_tokens": 11597,
+        "available_tokens": 61952,
+        "fits_at_sweep_constant": true
+      }
+    },
+    {
+      "ref": "CIP-003-8 Attachment 1 Part 5",
+      "revision": "CIP-003-8",
+      "prompt_bytes": 77695,
+      "seat_32768": {
+        "fits": true,
+        "estimated_tokens": 23688,
+        "available_tokens": 29184,
+        "fits_at_sweep_constant": true
+      },
+      "overflow_65536": {
+        "fits": true,
+        "estimated_tokens": 23688,
+        "available_tokens": 61952,
+        "fits_at_sweep_constant": true
+      }
+    },
+    {
+      "ref": "CIP-003-9 Attachment 1 Part 5",
+      "revision": "CIP-003-9",
+      "prompt_bytes": 48962,
+      "seat_32768": {
+        "fits": true,
+        "estimated_tokens": 14928,
+        "available_tokens": 29184,
+        "fits_at_sweep_constant": true
+      },
+      "overflow_65536": {
+        "fits": true,
+        "estimated_tokens": 14928,
+        "available_tokens": 61952,
+        "fits_at_sweep_constant": true
+      }
+    },
+    {
+      "ref": "CIP-003-8 Attachment 1 Part 5.1",
+      "revision": "CIP-003-8",
+      "prompt_bytes": 69692,
+      "seat_32768": {
+        "fits": true,
+        "estimated_tokens": 21248,
+        "available_tokens": 29184,
+        "fits_at_sweep_constant": true
+      },
+      "overflow_65536": {
+        "fits": true,
+        "estimated_tokens": 21248,
+        "available_tokens": 61952,
+        "fits_at_sweep_constant": true
+      }
+    },
+    {
+      "ref": "CIP-003-9 Attachment 1 Part 5.1",
+      "revision": "CIP-003-9",
+      "prompt_bytes": 40894,
+      "seat_32768": {
+        "fits": true,
+        "estimated_tokens": 12468,
+        "available_tokens": 29184,
+        "fits_at_sweep_constant": true
+      },
+      "overflow_65536": {
+        "fits": true,
+        "estimated_tokens": 12468,
+        "available_tokens": 61952,
+        "fits_at_sweep_constant": true
+      }
+    },
+    {
+      "ref": "CIP-003-8 Attachment 1 Part 5.2",
+      "revision": "CIP-003-8",
+      "prompt_bytes": 67283,
+      "seat_32768": {
+        "fits": true,
+        "estimated_tokens": 20514,
+        "available_tokens": 29184,
+        "fits_at_sweep_constant": true
+      },
+      "overflow_65536": {
+        "fits": true,
+        "estimated_tokens": 20514,
+        "available_tokens": 61952,
+        "fits_at_sweep_constant": true
+      }
+    },
+    {
+      "ref": "CIP-003-9 Attachment 1 Part 5.2",
+      "revision": "CIP-003-9",
+      "prompt_bytes": 38488,
+      "seat_32768": {
+        "fits": true,
+        "estimated_tokens": 11735,
+        "available_tokens": 29184,
+        "fits_at_sweep_constant": true
+      },
+      "overflow_65536": {
+        "fits": true,
+        "estimated_tokens": 11735,
+        "available_tokens": 61952,
+        "fits_at_sweep_constant": true
+      }
+    },
+    {
+      "ref": "CIP-003-8 Attachment 1 Part 5.2.1",
+      "revision": "CIP-003-8",
+      "prompt_bytes": 67967,
+      "seat_32768": {
+        "fits": true,
+        "estimated_tokens": 20722,
+        "available_tokens": 29184,
+        "fits_at_sweep_constant": true
+      },
+      "overflow_65536": {
+        "fits": true,
+        "estimated_tokens": 20722,
+        "available_tokens": 61952,
+        "fits_at_sweep_constant": true
+      }
+    },
+    {
+      "ref": "CIP-003-9 Attachment 1 Part 5.2.1",
+      "revision": "CIP-003-9",
+      "prompt_bytes": 39104,
+      "seat_32768": {
+        "fits": true,
+        "estimated_tokens": 11922,
+        "available_tokens": 29184,
+        "fits_at_sweep_constant": true
+      },
+      "overflow_65536": {
+        "fits": true,
+        "estimated_tokens": 11922,
+        "available_tokens": 61952,
+        "fits_at_sweep_constant": true
+      }
+    },
+    {
+      "ref": "CIP-003-8 Attachment 1 Part 5.2.2",
+      "revision": "CIP-003-8",
+      "prompt_bytes": 69948,
+      "seat_32768": {
+        "fits": true,
+        "estimated_tokens": 21326,
+        "available_tokens": 29184,
+        "fits_at_sweep_constant": true
+      },
+      "overflow_65536": {
+        "fits": true,
+        "estimated_tokens": 21326,
+        "available_tokens": 61952,
+        "fits_at_sweep_constant": true
+      }
+    },
+    {
+      "ref": "CIP-003-9 Attachment 1 Part 5.2.2",
+      "revision": "CIP-003-9",
+      "prompt_bytes": 41091,
+      "seat_32768": {
+        "fits": true,
+        "estimated_tokens": 12528,
+        "available_tokens": 29184,
+        "fits_at_sweep_constant": true
+      },
+      "overflow_65536": {
+        "fits": true,
+        "estimated_tokens": 12528,
+        "available_tokens": 61952,
+        "fits_at_sweep_constant": true
+      }
+    },
+    {
+      "ref": "CIP-003-8 Attachment 1 Part 5.3",
+      "revision": "CIP-003-8",
+      "prompt_bytes": 63020,
+      "seat_32768": {
+        "fits": true,
+        "estimated_tokens": 19214,
+        "available_tokens": 29184,
+        "fits_at_sweep_constant": true
+      },
+      "overflow_65536": {
+        "fits": true,
+        "estimated_tokens": 19214,
+        "available_tokens": 61952,
+        "fits_at_sweep_constant": true
+      }
+    },
+    {
+      "ref": "CIP-003-9 Attachment 1 Part 5.3",
+      "revision": "CIP-003-9",
+      "prompt_bytes": 34225,
+      "seat_32768": {
+        "fits": true,
+        "estimated_tokens": 10435,
+        "available_tokens": 29184,
+        "fits_at_sweep_constant": true
+      },
+      "overflow_65536": {
+        "fits": true,
+        "estimated_tokens": 10435,
+        "available_tokens": 61952,
+        "fits_at_sweep_constant": true
+      }
+    },
+    {
+      "ref": "CIP-003-8 Attachment 1 Part 5.3.1",
+      "revision": "CIP-003-8",
+      "prompt_bytes": 64084,
+      "seat_32768": {
+        "fits": true,
+        "estimated_tokens": 19538,
+        "available_tokens": 29184,
+        "fits_at_sweep_constant": true
+      },
+      "overflow_65536": {
+        "fits": true,
+        "estimated_tokens": 19538,
+        "available_tokens": 61952,
+        "fits_at_sweep_constant": true
+      }
+    },
+    {
+      "ref": "CIP-003-9 Attachment 1 Part 5.3.1",
+      "revision": "CIP-003-9",
+      "prompt_bytes": 35227,
+      "seat_32768": {
+        "fits": true,
+        "estimated_tokens": 10740,
+        "available_tokens": 29184,
+        "fits_at_sweep_constant": true
+      },
+      "overflow_65536": {
+        "fits": true,
+        "estimated_tokens": 10740,
+        "available_tokens": 61952,
+        "fits_at_sweep_constant": true
+      }
+    },
+    {
+      "ref": "CIP-003-8 Attachment 1 Part 5.3.2",
+      "revision": "CIP-003-8",
+      "prompt_bytes": 64944,
+      "seat_32768": {
+        "fits": true,
+        "estimated_tokens": 19801,
+        "available_tokens": 29184,
+        "fits_at_sweep_constant": true
+      },
+      "overflow_65536": {
+        "fits": true,
+        "estimated_tokens": 19801,
+        "available_tokens": 61952,
+        "fits_at_sweep_constant": true
+      }
+    },
+    {
+      "ref": "CIP-003-9 Attachment 1 Part 5.3.2",
+      "revision": "CIP-003-9",
+      "prompt_bytes": 36087,
+      "seat_32768": {
+        "fits": true,
+        "estimated_tokens": 11003,
+        "available_tokens": 29184,
+        "fits_at_sweep_constant": true
+      },
+      "overflow_65536": {
+        "fits": true,
+        "estimated_tokens": 11003,
+        "available_tokens": 61952,
+        "fits_at_sweep_constant": true
+      }
+    },
+    {
+      "ref": "CIP-003-9 Attachment 1 Part 6",
+      "revision": "CIP-003-9",
+      "prompt_bytes": 50609,
+      "seat_32768": {
+        "fits": true,
+        "estimated_tokens": 15430,
+        "available_tokens": 29184,
+        "fits_at_sweep_constant": true
+      },
+      "overflow_65536": {
+        "fits": true,
+        "estimated_tokens": 15430,
+        "available_tokens": 61952,
+        "fits_at_sweep_constant": true
+      }
+    },
+    {
+      "ref": "CIP-003-9 Attachment 1 Part 6.1",
+      "revision": "CIP-003-9",
+      "prompt_bytes": 41485,
+      "seat_32768": {
+        "fits": true,
+        "estimated_tokens": 12648,
+        "available_tokens": 29184,
+        "fits_at_sweep_constant": true
+      },
+      "overflow_65536": {
+        "fits": true,
+        "estimated_tokens": 12648,
+        "available_tokens": 61952,
+        "fits_at_sweep_constant": true
+      }
+    },
+    {
+      "ref": "CIP-003-9 Attachment 1 Part 6.2",
+      "revision": "CIP-003-9",
+      "prompt_bytes": 40925,
+      "seat_32768": {
+        "fits": true,
+        "estimated_tokens": 12478,
+        "available_tokens": 29184,
+        "fits_at_sweep_constant": true
+      },
+      "overflow_65536": {
+        "fits": true,
+        "estimated_tokens": 12478,
+        "available_tokens": 61952,
+        "fits_at_sweep_constant": true
+      }
+    },
+    {
+      "ref": "CIP-003-9 Attachment 1 Part 6.3",
+      "revision": "CIP-003-9",
+      "prompt_bytes": 41259,
+      "seat_32768": {
+        "fits": true,
+        "estimated_tokens": 12579,
+        "available_tokens": 29184,
+        "fits_at_sweep_constant": true
+      },
+      "overflow_65536": {
+        "fits": true,
+        "estimated_tokens": 12579,
+        "available_tokens": 61952,
+        "fits_at_sweep_constant": true
+      }
+    },
+    {
+      "ref": "CIP-003-8 R1",
+      "revision": "CIP-003-8",
+      "prompt_bytes": 171746,
+      "seat_32768": {
+        "fits": false,
+        "estimated_tokens": 52362,
+        "available_tokens": 29184,
+        "fits_at_sweep_constant": false
+      },
+      "overflow_65536": {
+        "fits": true,
+        "estimated_tokens": 52362,
+        "available_tokens": 61952,
+        "fits_at_sweep_constant": true
+      }
+    },
+    {
+      "ref": "CIP-003-9 R1",
+      "revision": "CIP-003-9",
+      "prompt_bytes": 161224,
+      "seat_32768": {
+        "fits": false,
+        "estimated_tokens": 49154,
+        "available_tokens": 29184,
+        "fits_at_sweep_constant": false
+      },
+      "overflow_65536": {
+        "fits": true,
+        "estimated_tokens": 49154,
+        "available_tokens": 61952,
+        "fits_at_sweep_constant": true
+      }
+    },
+    {
+      "ref": "CIP-003-8 R1 Part 1.1.1",
+      "revision": "CIP-003-8",
+      "prompt_bytes": 40788,
+      "seat_32768": {
+        "fits": true,
+        "estimated_tokens": 12436,
+        "available_tokens": 29184,
+        "fits_at_sweep_constant": true
+      },
+      "overflow_65536": {
+        "fits": true,
+        "estimated_tokens": 12436,
+        "available_tokens": 61952,
+        "fits_at_sweep_constant": true
+      }
+    },
+    {
+      "ref": "CIP-003-9 R1 Part 1.1.1",
+      "revision": "CIP-003-9",
+      "prompt_bytes": 26199,
+      "seat_32768": {
+        "fits": true,
+        "estimated_tokens": 7988,
+        "available_tokens": 29184,
+        "fits_at_sweep_constant": true
+      },
+      "overflow_65536": {
+        "fits": true,
+        "estimated_tokens": 7988,
+        "available_tokens": 61952,
+        "fits_at_sweep_constant": true
+      }
+    },
+    {
+      "ref": "CIP-003-8 R1 Part 1.1.2",
+      "revision": "CIP-003-8",
+      "prompt_bytes": 52266,
+      "seat_32768": {
+        "fits": true,
+        "estimated_tokens": 15935,
+        "available_tokens": 29184,
+        "fits_at_sweep_constant": true
+      },
+      "overflow_65536": {
+        "fits": true,
+        "estimated_tokens": 15935,
+        "available_tokens": 61952,
+        "fits_at_sweep_constant": true
+      }
+    },
+    {
+      "ref": "CIP-003-9 R1 Part 1.1.2",
+      "revision": "CIP-003-9",
+      "prompt_bytes": 38152,
+      "seat_32768": {
+        "fits": true,
+        "estimated_tokens": 11632,
+        "available_tokens": 29184,
+        "fits_at_sweep_constant": true
+      },
+      "overflow_65536": {
+        "fits": true,
+        "estimated_tokens": 11632,
+        "available_tokens": 61952,
+        "fits_at_sweep_constant": true
+      }
+    },
+    {
+      "ref": "CIP-003-8 R1 Part 1.1.3",
+      "revision": "CIP-003-8",
+      "prompt_bytes": 41280,
+      "seat_32768": {
+        "fits": true,
+        "estimated_tokens": 12586,
+        "available_tokens": 29184,
+        "fits_at_sweep_constant": true
+      },
+      "overflow_65536": {
+        "fits": true,
+        "estimated_tokens": 12586,
+        "available_tokens": 61952,
+        "fits_at_sweep_constant": true
+      }
+    },
+    {
+      "ref": "CIP-003-9 R1 Part 1.1.3",
+      "revision": "CIP-003-9",
+      "prompt_bytes": 27166,
+      "seat_32768": {
+        "fits": true,
+        "estimated_tokens": 8283,
+        "available_tokens": 29184,
+        "fits_at_sweep_constant": true
+      },
+      "overflow_65536": {
+        "fits": true,
+        "estimated_tokens": 8283,
+        "available_tokens": 61952,
+        "fits_at_sweep_constant": true
+      }
+    },
+    {
+      "ref": "CIP-003-8 R1 Part 1.1.4",
+      "revision": "CIP-003-8",
+      "prompt_bytes": 40005,
+      "seat_32768": {
+        "fits": true,
+        "estimated_tokens": 12197,
+        "available_tokens": 29184,
+        "fits_at_sweep_constant": true
+      },
+      "overflow_65536": {
+        "fits": true,
+        "estimated_tokens": 12197,
+        "available_tokens": 61952,
+        "fits_at_sweep_constant": true
+      }
+    },
+    {
+      "ref": "CIP-003-9 R1 Part 1.1.4",
+      "revision": "CIP-003-9",
+      "prompt_bytes": 25891,
+      "seat_32768": {
+        "fits": true,
+        "estimated_tokens": 7894,
+        "available_tokens": 29184,
+        "fits_at_sweep_constant": true
+      },
+      "overflow_65536": {
+        "fits": true,
+        "estimated_tokens": 7894,
+        "available_tokens": 61952,
+        "fits_at_sweep_constant": true
+      }
+    },
+    {
+      "ref": "CIP-003-8 R1 Part 1.1.5",
+      "revision": "CIP-003-8",
+      "prompt_bytes": 49126,
+      "seat_32768": {
+        "fits": true,
+        "estimated_tokens": 14978,
+        "available_tokens": 29184,
+        "fits_at_sweep_constant": true
+      },
+      "overflow_65536": {
+        "fits": true,
+        "estimated_tokens": 14978,
+        "available_tokens": 61952,
+        "fits_at_sweep_constant": true
+      }
+    },
+    {
+      "ref": "CIP-003-9 R1 Part 1.1.5",
+      "revision": "CIP-003-9",
+      "prompt_bytes": 35012,
+      "seat_32768": {
+        "fits": true,
+        "estimated_tokens": 10675,
+        "available_tokens": 29184,
+        "fits_at_sweep_constant": true
+      },
+      "overflow_65536": {
+        "fits": true,
+        "estimated_tokens": 10675,
+        "available_tokens": 61952,
+        "fits_at_sweep_constant": true
+      }
+    },
+    {
+      "ref": "CIP-003-8 R1 Part 1.1.6",
+      "revision": "CIP-003-8",
+      "prompt_bytes": 52948,
+      "seat_32768": {
+        "fits": true,
+        "estimated_tokens": 16143,
+        "available_tokens": 29184,
+        "fits_at_sweep_constant": true
+      },
+      "overflow_65536": {
+        "fits": true,
+        "estimated_tokens": 16143,
+        "available_tokens": 61952,
+        "fits_at_sweep_constant": true
+      }
+    },
+    {
+      "ref": "CIP-003-9 R1 Part 1.1.6",
+      "revision": "CIP-003-9",
+      "prompt_bytes": 38834,
+      "seat_32768": {
+        "fits": true,
+        "estimated_tokens": 11840,
+        "available_tokens": 29184,
+        "fits_at_sweep_constant": true
+      },
+      "overflow_65536": {
+        "fits": true,
+        "estimated_tokens": 11840,
+        "available_tokens": 61952,
+        "fits_at_sweep_constant": true
+      }
+    },
+    {
+      "ref": "CIP-003-8 R1 Part 1.1.7",
+      "revision": "CIP-003-8",
+      "prompt_bytes": 53397,
+      "seat_32768": {
+        "fits": true,
+        "estimated_tokens": 16280,
+        "available_tokens": 29184,
+        "fits_at_sweep_constant": true
+      },
+      "overflow_65536": {
+        "fits": true,
+        "estimated_tokens": 16280,
+        "available_tokens": 61952,
+        "fits_at_sweep_constant": true
+      }
+    },
+    {
+      "ref": "CIP-003-9 R1 Part 1.1.7",
+      "revision": "CIP-003-9",
+      "prompt_bytes": 39284,
+      "seat_32768": {
+        "fits": true,
+        "estimated_tokens": 11977,
+        "available_tokens": 29184,
+        "fits_at_sweep_constant": true
+      },
+      "overflow_65536": {
+        "fits": true,
+        "estimated_tokens": 11977,
+        "available_tokens": 61952,
+        "fits_at_sweep_constant": true
+      }
+    },
+    {
+      "ref": "CIP-003-8 R1 Part 1.1.8",
+      "revision": "CIP-003-8",
+      "prompt_bytes": 40259,
+      "seat_32768": {
+        "fits": true,
+        "estimated_tokens": 12275,
+        "available_tokens": 29184,
+        "fits_at_sweep_constant": true
+      },
+      "overflow_65536": {
+        "fits": true,
+        "estimated_tokens": 12275,
+        "available_tokens": 61952,
+        "fits_at_sweep_constant": true
+      }
+    },
+    {
+      "ref": "CIP-003-9 R1 Part 1.1.8",
+      "revision": "CIP-003-9",
+      "prompt_bytes": 26145,
+      "seat_32768": {
+        "fits": true,
+        "estimated_tokens": 7972,
+        "available_tokens": 29184,
+        "fits_at_sweep_constant": true
+      },
+      "overflow_65536": {
+        "fits": true,
+        "estimated_tokens": 7972,
+        "available_tokens": 61952,
+        "fits_at_sweep_constant": true
+      }
+    },
+    {
+      "ref": "CIP-003-8 R1 Part 1.1.9",
+      "revision": "CIP-003-8",
+      "prompt_bytes": 42325,
+      "seat_32768": {
+        "fits": true,
+        "estimated_tokens": 12904,
+        "available_tokens": 29184,
+        "fits_at_sweep_constant": true
+      },
+      "overflow_65536": {
+        "fits": true,
+        "estimated_tokens": 12904,
+        "available_tokens": 61952,
+        "fits_at_sweep_constant": true
+      }
+    },
+    {
+      "ref": "CIP-003-9 R1 Part 1.1.9",
+      "revision": "CIP-003-9",
+      "prompt_bytes": 28211,
+      "seat_32768": {
+        "fits": true,
+        "estimated_tokens": 8601,
+        "available_tokens": 29184,
+        "fits_at_sweep_constant": true
+      },
+      "overflow_65536": {
+        "fits": true,
+        "estimated_tokens": 8601,
+        "available_tokens": 61952,
+        "fits_at_sweep_constant": true
+      }
+    },
+    {
+      "ref": "CIP-003-8 R1 Part 1.2.1",
+      "revision": "CIP-003-8",
+      "prompt_bytes": 36214,
+      "seat_32768": {
+        "fits": true,
+        "estimated_tokens": 11041,
+        "available_tokens": 29184,
+        "fits_at_sweep_constant": true
+      },
+      "overflow_65536": {
+        "fits": true,
+        "estimated_tokens": 11041,
+        "available_tokens": 61952,
+        "fits_at_sweep_constant": true
+      }
+    },
+    {
+      "ref": "CIP-003-9 R1 Part 1.2.1",
+      "revision": "CIP-003-9",
+      "prompt_bytes": 22100,
+      "seat_32768": {
+        "fits": true,
+        "estimated_tokens": 6738,
+        "available_tokens": 29184,
+        "fits_at_sweep_constant": true
+      },
+      "overflow_65536": {
+        "fits": true,
+        "estimated_tokens": 6738,
+        "available_tokens": 61952,
+        "fits_at_sweep_constant": true
+      }
+    },
+    {
+      "ref": "CIP-003-8 R1 Part 1.2.2",
+      "revision": "CIP-003-8",
+      "prompt_bytes": 45608,
+      "seat_32768": {
+        "fits": true,
+        "estimated_tokens": 13905,
+        "available_tokens": 29184,
+        "fits_at_sweep_constant": true
+      },
+      "overflow_65536": {
+        "fits": true,
+        "estimated_tokens": 13905,
+        "available_tokens": 61952,
+        "fits_at_sweep_constant": true
+      }
+    },
+    {
+      "ref": "CIP-003-9 R1 Part 1.2.2",
+      "revision": "CIP-003-9",
+      "prompt_bytes": 31494,
+      "seat_32768": {
+        "fits": true,
+        "estimated_tokens": 9602,
+        "available_tokens": 29184,
+        "fits_at_sweep_constant": true
+      },
+      "overflow_65536": {
+        "fits": true,
+        "estimated_tokens": 9602,
+        "available_tokens": 61952,
+        "fits_at_sweep_constant": true
+      }
+    },
+    {
+      "ref": "CIP-003-8 R1 Part 1.2.3",
+      "revision": "CIP-003-8",
+      "prompt_bytes": 40224,
+      "seat_32768": {
+        "fits": true,
+        "estimated_tokens": 12264,
+        "available_tokens": 29184,
+        "fits_at_sweep_constant": true
+      },
+      "overflow_65536": {
+        "fits": true,
+        "estimated_tokens": 12264,
+        "available_tokens": 61952,
+        "fits_at_sweep_constant": true
+      }
+    },
+    {
+      "ref": "CIP-003-9 R1 Part 1.2.3",
+      "revision": "CIP-003-9",
+      "prompt_bytes": 26110,
+      "seat_32768": {
+        "fits": true,
+        "estimated_tokens": 7961,
+        "available_tokens": 29184,
+        "fits_at_sweep_constant": true
+      },
+      "overflow_65536": {
+        "fits": true,
+        "estimated_tokens": 7961,
+        "available_tokens": 61952,
+        "fits_at_sweep_constant": true
+      }
+    },
+    {
+      "ref": "CIP-003-8 R1 Part 1.2.4",
+      "revision": "CIP-003-8",
+      "prompt_bytes": 38264,
+      "seat_32768": {
+        "fits": true,
+        "estimated_tokens": 11666,
+        "available_tokens": 29184,
+        "fits_at_sweep_constant": true
+      },
+      "overflow_65536": {
+        "fits": true,
+        "estimated_tokens": 11666,
+        "available_tokens": 61952,
+        "fits_at_sweep_constant": true
+      }
+    },
+    {
+      "ref": "CIP-003-9 R1 Part 1.2.4",
+      "revision": "CIP-003-9",
+      "prompt_bytes": 24150,
+      "seat_32768": {
+        "fits": true,
+        "estimated_tokens": 7363,
+        "available_tokens": 29184,
+        "fits_at_sweep_constant": true
+      },
+      "overflow_65536": {
+        "fits": true,
+        "estimated_tokens": 7363,
+        "available_tokens": 61952,
+        "fits_at_sweep_constant": true
+      }
+    },
+    {
+      "ref": "CIP-003-8 R1 Part 1.2.5",
+      "revision": "CIP-003-8",
+      "prompt_bytes": 53019,
+      "seat_32768": {
+        "fits": true,
+        "estimated_tokens": 16165,
+        "available_tokens": 29184,
+        "fits_at_sweep_constant": true
+      },
+      "overflow_65536": {
+        "fits": true,
+        "estimated_tokens": 16165,
+        "available_tokens": 61952,
+        "fits_at_sweep_constant": true
+      }
+    },
+    {
+      "ref": "CIP-003-9 R1 Part 1.2.5",
+      "revision": "CIP-003-9",
+      "prompt_bytes": 38901,
+      "seat_32768": {
+        "fits": true,
+        "estimated_tokens": 11861,
+        "available_tokens": 29184,
+        "fits_at_sweep_constant": true
+      },
+      "overflow_65536": {
+        "fits": true,
+        "estimated_tokens": 11861,
+        "available_tokens": 61952,
+        "fits_at_sweep_constant": true
+      }
+    },
+    {
+      "ref": "CIP-003-8 R1 Part 1.2.6",
+      "revision": "CIP-003-8",
+      "prompt_bytes": 42346,
+      "seat_32768": {
+        "fits": true,
+        "estimated_tokens": 12911,
+        "available_tokens": 29184,
+        "fits_at_sweep_constant": true
+      },
+      "overflow_65536": {
+        "fits": true,
+        "estimated_tokens": 12911,
+        "available_tokens": 61952,
+        "fits_at_sweep_constant": true
+      }
+    },
+    {
+      "ref": "CIP-003-9 R1 Part 1.2.6",
+      "revision": "CIP-003-9",
+      "prompt_bytes": 29333,
+      "seat_32768": {
+        "fits": true,
+        "estimated_tokens": 8943,
+        "available_tokens": 29184,
+        "fits_at_sweep_constant": true
+      },
+      "overflow_65536": {
+        "fits": true,
+        "estimated_tokens": 8943,
+        "available_tokens": 61952,
+        "fits_at_sweep_constant": true
+      }
+    },
+    {
+      "ref": "CIP-003-9 R1 Part 1.2.7",
+      "revision": "CIP-003-9",
+      "prompt_bytes": 28232,
+      "seat_32768": {
+        "fits": true,
+        "estimated_tokens": 8608,
+        "available_tokens": 29184,
+        "fits_at_sweep_constant": true
+      },
+      "overflow_65536": {
+        "fits": true,
+        "estimated_tokens": 8608,
+        "available_tokens": 61952,
+        "fits_at_sweep_constant": true
+      }
+    },
+    {
+      "ref": "CIP-003-8 R2",
+      "revision": "CIP-003-8",
+      "prompt_bytes": 123673,
+      "seat_32768": {
+        "fits": false,
+        "estimated_tokens": 37706,
+        "available_tokens": 29184,
+        "fits_at_sweep_constant": false
+      },
+      "overflow_65536": {
+        "fits": true,
+        "estimated_tokens": 37706,
+        "available_tokens": 61952,
+        "fits_at_sweep_constant": true
+      }
+    },
+    {
+      "ref": "CIP-003-9 R2",
+      "revision": "CIP-003-9",
+      "prompt_bytes": 55674,
+      "seat_32768": {
+        "fits": true,
+        "estimated_tokens": 16974,
+        "available_tokens": 29184,
+        "fits_at_sweep_constant": true
+      },
+      "overflow_65536": {
+        "fits": true,
+        "estimated_tokens": 16974,
+        "available_tokens": 61952,
+        "fits_at_sweep_constant": true
+      }
+    },
+    {
+      "ref": "CIP-003-8 R3",
+      "revision": "CIP-003-8",
+      "prompt_bytes": 28731,
+      "seat_32768": {
+        "fits": true,
+        "estimated_tokens": 8760,
+        "available_tokens": 29184,
+        "fits_at_sweep_constant": true
+      },
+      "overflow_65536": {
+        "fits": true,
+        "estimated_tokens": 8760,
+        "available_tokens": 61952,
+        "fits_at_sweep_constant": true
+      }
+    },
+    {
+      "ref": "CIP-003-9 R3",
+      "revision": "CIP-003-9",
+      "prompt_bytes": 23797,
+      "seat_32768": {
+        "fits": true,
+        "estimated_tokens": 7256,
+        "available_tokens": 29184,
+        "fits_at_sweep_constant": true
+      },
+      "overflow_65536": {
+        "fits": true,
+        "estimated_tokens": 7256,
+        "available_tokens": 61952,
+        "fits_at_sweep_constant": true
+      }
+    },
+    {
+      "ref": "CIP-003-8 R4",
+      "revision": "CIP-003-8",
+      "prompt_bytes": 32965,
+      "seat_32768": {
+        "fits": true,
+        "estimated_tokens": 10051,
+        "available_tokens": 29184,
+        "fits_at_sweep_constant": true
+      },
+      "overflow_65536": {
+        "fits": true,
+        "estimated_tokens": 10051,
+        "available_tokens": 61952,
+        "fits_at_sweep_constant": true
+      }
+    },
+    {
+      "ref": "CIP-003-9 R4",
+      "revision": "CIP-003-9",
+      "prompt_bytes": 27316,
+      "seat_32768": {
+        "fits": true,
+        "estimated_tokens": 8329,
+        "available_tokens": 29184,
+        "fits_at_sweep_constant": true
+      },
+      "overflow_65536": {
+        "fits": true,
+        "estimated_tokens": 8329,
+        "available_tokens": 61952,
+        "fits_at_sweep_constant": true
+      }
+    },
+    {
+      "ref": "CIP-004-7 R1 Part 1.1",
+      "revision": "CIP-004-7",
+      "prompt_bytes": 60289,
+      "seat_32768": {
+        "fits": true,
+        "estimated_tokens": 18381,
+        "available_tokens": 29184,
+        "fits_at_sweep_constant": true
+      },
+      "overflow_65536": {
+        "fits": true,
+        "estimated_tokens": 18381,
+        "available_tokens": 61952,
+        "fits_at_sweep_constant": true
+      }
+    },
+    {
+      "ref": "CIP-004-7 R2 Part 2.1",
+      "revision": "CIP-004-7",
+      "prompt_bytes": 62832,
+      "seat_32768": {
+        "fits": true,
+        "estimated_tokens": 19157,
+        "available_tokens": 29184,
+        "fits_at_sweep_constant": true
+      },
+      "overflow_65536": {
+        "fits": true,
+        "estimated_tokens": 19157,
+        "available_tokens": 61952,
+        "fits_at_sweep_constant": true
+      }
+    },
+    {
+      "ref": "CIP-004-7 R2 Part 2.2",
+      "revision": "CIP-004-7",
+      "prompt_bytes": 69201,
+      "seat_32768": {
+        "fits": true,
+        "estimated_tokens": 21098,
+        "available_tokens": 29184,
+        "fits_at_sweep_constant": true
+      },
+      "overflow_65536": {
+        "fits": true,
+        "estimated_tokens": 21098,
+        "available_tokens": 61952,
+        "fits_at_sweep_constant": true
+      }
+    },
+    {
+      "ref": "CIP-004-7 R2 Part 2.3",
+      "revision": "CIP-004-7",
+      "prompt_bytes": 61475,
+      "seat_32768": {
+        "fits": true,
+        "estimated_tokens": 18743,
+        "available_tokens": 29184,
+        "fits_at_sweep_constant": true
+      },
+      "overflow_65536": {
+        "fits": true,
+        "estimated_tokens": 18743,
+        "available_tokens": 61952,
+        "fits_at_sweep_constant": true
+      }
+    },
+    {
+      "ref": "CIP-004-7 R3 Part 3.1",
+      "revision": "CIP-004-7",
+      "prompt_bytes": 66345,
+      "seat_32768": {
+        "fits": true,
+        "estimated_tokens": 20228,
+        "available_tokens": 29184,
+        "fits_at_sweep_constant": true
+      },
+      "overflow_65536": {
+        "fits": true,
+        "estimated_tokens": 20228,
+        "available_tokens": 61952,
+        "fits_at_sweep_constant": true
+      }
+    },
+    {
+      "ref": "CIP-004-7 R3 Part 3.2",
+      "revision": "CIP-004-7",
+      "prompt_bytes": 71362,
+      "seat_32768": {
+        "fits": true,
+        "estimated_tokens": 21757,
+        "available_tokens": 29184,
+        "fits_at_sweep_constant": true
+      },
+      "overflow_65536": {
+        "fits": true,
+        "estimated_tokens": 21757,
+        "available_tokens": 61952,
+        "fits_at_sweep_constant": true
+      }
+    },
+    {
+      "ref": "CIP-004-7 R3 Part 3.3",
+      "revision": "CIP-004-7",
+      "prompt_bytes": 66720,
+      "seat_32768": {
+        "fits": true,
+        "estimated_tokens": 20342,
+        "available_tokens": 29184,
+        "fits_at_sweep_constant": true
+      },
+      "overflow_65536": {
+        "fits": true,
+        "estimated_tokens": 20342,
+        "available_tokens": 61952,
+        "fits_at_sweep_constant": true
+      }
+    },
+    {
+      "ref": "CIP-004-7 R3 Part 3.4",
+      "revision": "CIP-004-7",
+      "prompt_bytes": 63365,
+      "seat_32768": {
+        "fits": true,
+        "estimated_tokens": 19319,
+        "available_tokens": 29184,
+        "fits_at_sweep_constant": true
+      },
+      "overflow_65536": {
+        "fits": true,
+        "estimated_tokens": 19319,
+        "available_tokens": 61952,
+        "fits_at_sweep_constant": true
+      }
+    },
+    {
+      "ref": "CIP-004-7 R3 Part 3.5",
+      "revision": "CIP-004-7",
+      "prompt_bytes": 64332,
+      "seat_32768": {
+        "fits": true,
+        "estimated_tokens": 19614,
+        "available_tokens": 29184,
+        "fits_at_sweep_constant": true
+      },
+      "overflow_65536": {
+        "fits": true,
+        "estimated_tokens": 19614,
+        "available_tokens": 61952,
+        "fits_at_sweep_constant": true
+      }
+    },
+    {
+      "ref": "CIP-004-7 R4 Part 4.1",
+      "revision": "CIP-004-7",
+      "prompt_bytes": 73739,
+      "seat_32768": {
+        "fits": true,
+        "estimated_tokens": 22482,
+        "available_tokens": 29184,
+        "fits_at_sweep_constant": true
+      },
+      "overflow_65536": {
+        "fits": true,
+        "estimated_tokens": 22482,
+        "available_tokens": 61952,
+        "fits_at_sweep_constant": true
+      }
+    },
+    {
+      "ref": "CIP-004-7 R4 Part 4.2",
+      "revision": "CIP-004-7",
+      "prompt_bytes": 70960,
+      "seat_32768": {
+        "fits": true,
+        "estimated_tokens": 21635,
+        "available_tokens": 29184,
+        "fits_at_sweep_constant": true
+      },
+      "overflow_65536": {
+        "fits": true,
+        "estimated_tokens": 21635,
+        "available_tokens": 61952,
+        "fits_at_sweep_constant": true
+      }
+    },
+    {
+      "ref": "CIP-004-7 R4 Part 4.3",
+      "revision": "CIP-004-7",
+      "prompt_bytes": 71254,
+      "seat_32768": {
+        "fits": true,
+        "estimated_tokens": 21724,
+        "available_tokens": 29184,
+        "fits_at_sweep_constant": true
+      },
+      "overflow_65536": {
+        "fits": true,
+        "estimated_tokens": 21724,
+        "available_tokens": 61952,
+        "fits_at_sweep_constant": true
+      }
+    },
+    {
+      "ref": "CIP-004-7 R5 Part 5.1",
+      "revision": "CIP-004-7",
+      "prompt_bytes": 72317,
+      "seat_32768": {
+        "fits": true,
+        "estimated_tokens": 22048,
+        "available_tokens": 29184,
+        "fits_at_sweep_constant": true
+      },
+      "overflow_65536": {
+        "fits": true,
+        "estimated_tokens": 22048,
+        "available_tokens": 61952,
+        "fits_at_sweep_constant": true
+      }
+    },
+    {
+      "ref": "CIP-004-7 R5 Part 5.2",
+      "revision": "CIP-004-7",
+      "prompt_bytes": 73423,
+      "seat_32768": {
+        "fits": true,
+        "estimated_tokens": 22386,
+        "available_tokens": 29184,
+        "fits_at_sweep_constant": true
+      },
+      "overflow_65536": {
+        "fits": true,
+        "estimated_tokens": 22386,
+        "available_tokens": 61952,
+        "fits_at_sweep_constant": true
+      }
+    },
+    {
+      "ref": "CIP-004-7 R5 Part 5.3",
+      "revision": "CIP-004-7",
+      "prompt_bytes": 63945,
+      "seat_32768": {
+        "fits": true,
+        "estimated_tokens": 19496,
+        "available_tokens": 29184,
+        "fits_at_sweep_constant": true
+      },
+      "overflow_65536": {
+        "fits": true,
+        "estimated_tokens": 19496,
+        "available_tokens": 61952,
+        "fits_at_sweep_constant": true
+      }
+    },
+    {
+      "ref": "CIP-004-7 R5 Part 5.4",
+      "revision": "CIP-004-7",
+      "prompt_bytes": 71248,
+      "seat_32768": {
+        "fits": true,
+        "estimated_tokens": 21722,
+        "available_tokens": 29184,
+        "fits_at_sweep_constant": true
+      },
+      "overflow_65536": {
+        "fits": true,
+        "estimated_tokens": 21722,
+        "available_tokens": 61952,
+        "fits_at_sweep_constant": true
+      }
+    },
+    {
+      "ref": "CIP-004-7 R6 Part 6.1",
+      "revision": "CIP-004-7",
+      "prompt_bytes": 75560,
+      "seat_32768": {
+        "fits": true,
+        "estimated_tokens": 23037,
+        "available_tokens": 29184,
+        "fits_at_sweep_constant": true
+      },
+      "overflow_65536": {
+        "fits": true,
+        "estimated_tokens": 23037,
+        "available_tokens": 61952,
+        "fits_at_sweep_constant": true
+      }
+    },
+    {
+      "ref": "CIP-004-7 R6 Part 6.2",
+      "revision": "CIP-004-7",
+      "prompt_bytes": 72473,
+      "seat_32768": {
+        "fits": true,
+        "estimated_tokens": 22096,
+        "available_tokens": 29184,
+        "fits_at_sweep_constant": true
+      },
+      "overflow_65536": {
+        "fits": true,
+        "estimated_tokens": 22096,
+        "available_tokens": 61952,
+        "fits_at_sweep_constant": true
+      }
+    },
+    {
+      "ref": "CIP-004-7 R6 Part 6.3",
+      "revision": "CIP-004-7",
+      "prompt_bytes": 73655,
+      "seat_32768": {
+        "fits": true,
+        "estimated_tokens": 22456,
+        "available_tokens": 29184,
+        "fits_at_sweep_constant": true
+      },
+      "overflow_65536": {
+        "fits": true,
+        "estimated_tokens": 22456,
+        "available_tokens": 61952,
+        "fits_at_sweep_constant": true
+      }
+    },
+    {
+      "ref": "CIP-005-7 R1 Part 1.1",
+      "revision": "CIP-005-7",
+      "prompt_bytes": 68180,
+      "seat_32768": {
+        "fits": true,
+        "estimated_tokens": 20787,
+        "available_tokens": 29184,
+        "fits_at_sweep_constant": true
+      },
+      "overflow_65536": {
+        "fits": true,
+        "estimated_tokens": 20787,
+        "available_tokens": 61952,
+        "fits_at_sweep_constant": true
+      }
+    },
+    {
+      "ref": "CIP-005-7 R1 Part 1.2",
+      "revision": "CIP-005-7",
+      "prompt_bytes": 75127,
+      "seat_32768": {
+        "fits": true,
+        "estimated_tokens": 22905,
+        "available_tokens": 29184,
+        "fits_at_sweep_constant": true
+      },
+      "overflow_65536": {
+        "fits": true,
+        "estimated_tokens": 22905,
+        "available_tokens": 61952,
+        "fits_at_sweep_constant": true
+      }
+    },
+    {
+      "ref": "CIP-005-7 R1 Part 1.3",
+      "revision": "CIP-005-7",
+      "prompt_bytes": 66557,
+      "seat_32768": {
+        "fits": true,
+        "estimated_tokens": 20292,
+        "available_tokens": 29184,
+        "fits_at_sweep_constant": true
+      },
+      "overflow_65536": {
+        "fits": true,
+        "estimated_tokens": 20292,
+        "available_tokens": 61952,
+        "fits_at_sweep_constant": true
+      }
+    },
+    {
+      "ref": "CIP-005-7 R1 Part 1.4",
+      "revision": "CIP-005-7",
+      "prompt_bytes": 72244,
+      "seat_32768": {
+        "fits": true,
+        "estimated_tokens": 22026,
+        "available_tokens": 29184,
+        "fits_at_sweep_constant": true
+      },
+      "overflow_65536": {
+        "fits": true,
+        "estimated_tokens": 22026,
+        "available_tokens": 61952,
+        "fits_at_sweep_constant": true
+      }
+    },
+    {
+      "ref": "CIP-005-7 R1 Part 1.5",
+      "revision": "CIP-005-7",
+      "prompt_bytes": 68309,
+      "seat_32768": {
+        "fits": true,
+        "estimated_tokens": 20826,
+        "available_tokens": 29184,
+        "fits_at_sweep_constant": true
+      },
+      "overflow_65536": {
+        "fits": true,
+        "estimated_tokens": 20826,
+        "available_tokens": 61952,
+        "fits_at_sweep_constant": true
+      }
+    },
+    {
+      "ref": "CIP-005-7 R2 Part 2.1",
+      "revision": "CIP-005-7",
+      "prompt_bytes": 57238,
+      "seat_32768": {
+        "fits": true,
+        "estimated_tokens": 17451,
+        "available_tokens": 29184,
+        "fits_at_sweep_constant": true
+      },
+      "overflow_65536": {
+        "fits": true,
+        "estimated_tokens": 17451,
+        "available_tokens": 61952,
+        "fits_at_sweep_constant": true
+      }
+    },
+    {
+      "ref": "CIP-005-7 R2 Part 2.2",
+      "revision": "CIP-005-7",
+      "prompt_bytes": 52138,
+      "seat_32768": {
+        "fits": true,
+        "estimated_tokens": 15896,
+        "available_tokens": 29184,
+        "fits_at_sweep_constant": true
+      },
+      "overflow_65536": {
+        "fits": true,
+        "estimated_tokens": 15896,
+        "available_tokens": 61952,
+        "fits_at_sweep_constant": true
+      }
+    },
+    {
+      "ref": "CIP-005-7 R2 Part 2.3",
+      "revision": "CIP-005-7",
+      "prompt_bytes": 52954,
+      "seat_32768": {
+        "fits": true,
+        "estimated_tokens": 16145,
+        "available_tokens": 29184,
+        "fits_at_sweep_constant": true
+      },
+      "overflow_65536": {
+        "fits": true,
+        "estimated_tokens": 16145,
+        "available_tokens": 61952,
+        "fits_at_sweep_constant": true
+      }
+    },
+    {
+      "ref": "CIP-005-7 R2 Part 2.4",
+      "revision": "CIP-005-7",
+      "prompt_bytes": 54768,
+      "seat_32768": {
+        "fits": true,
+        "estimated_tokens": 16698,
+        "available_tokens": 29184,
+        "fits_at_sweep_constant": true
+      },
+      "overflow_65536": {
+        "fits": true,
+        "estimated_tokens": 16698,
+        "available_tokens": 61952,
+        "fits_at_sweep_constant": true
+      }
+    },
+    {
+      "ref": "CIP-005-7 R2 Part 2.5",
+      "revision": "CIP-005-7",
+      "prompt_bytes": 47980,
+      "seat_32768": {
+        "fits": true,
+        "estimated_tokens": 14629,
+        "available_tokens": 29184,
+        "fits_at_sweep_constant": true
+      },
+      "overflow_65536": {
+        "fits": true,
+        "estimated_tokens": 14629,
+        "available_tokens": 61952,
+        "fits_at_sweep_constant": true
+      }
+    },
+    {
+      "ref": "CIP-005-7 R3 Part 3.1",
+      "revision": "CIP-005-7",
+      "prompt_bytes": 43462,
+      "seat_32768": {
+        "fits": true,
+        "estimated_tokens": 13251,
+        "available_tokens": 29184,
+        "fits_at_sweep_constant": true
+      },
+      "overflow_65536": {
+        "fits": true,
+        "estimated_tokens": 13251,
+        "available_tokens": 61952,
+        "fits_at_sweep_constant": true
+      }
+    },
+    {
+      "ref": "CIP-005-7 R3 Part 3.2",
+      "revision": "CIP-005-7",
+      "prompt_bytes": 43274,
+      "seat_32768": {
+        "fits": true,
+        "estimated_tokens": 13194,
+        "available_tokens": 29184,
+        "fits_at_sweep_constant": true
+      },
+      "overflow_65536": {
+        "fits": true,
+        "estimated_tokens": 13194,
+        "available_tokens": 61952,
+        "fits_at_sweep_constant": true
+      }
+    },
+    {
+      "ref": "CIP-006-6 R1 Part 1.1",
+      "revision": "CIP-006-6",
+      "prompt_bytes": 47687,
+      "seat_32768": {
+        "fits": true,
+        "estimated_tokens": 14539,
+        "available_tokens": 29184,
+        "fits_at_sweep_constant": true
+      },
+      "overflow_65536": {
+        "fits": true,
+        "estimated_tokens": 14539,
+        "available_tokens": 61952,
+        "fits_at_sweep_constant": true
+      }
+    },
+    {
+      "ref": "CIP-006-6 R1 Part 1.2",
+      "revision": "CIP-006-6",
+      "prompt_bytes": 48318,
+      "seat_32768": {
+        "fits": true,
+        "estimated_tokens": 14732,
+        "available_tokens": 29184,
+        "fits_at_sweep_constant": true
+      },
+      "overflow_65536": {
+        "fits": true,
+        "estimated_tokens": 14732,
+        "available_tokens": 61952,
+        "fits_at_sweep_constant": true
+      }
+    },
+    {
+      "ref": "CIP-006-6 R1 Part 1.3",
+      "revision": "CIP-006-6",
+      "prompt_bytes": 48072,
+      "seat_32768": {
+        "fits": true,
+        "estimated_tokens": 14657,
+        "available_tokens": 29184,
+        "fits_at_sweep_constant": true
+      },
+      "overflow_65536": {
+        "fits": true,
+        "estimated_tokens": 14657,
+        "available_tokens": 61952,
+        "fits_at_sweep_constant": true
+      }
+    },
+    {
+      "ref": "CIP-006-6 R1 Part 1.4",
+      "revision": "CIP-006-6",
+      "prompt_bytes": 47723,
+      "seat_32768": {
+        "fits": true,
+        "estimated_tokens": 14550,
+        "available_tokens": 29184,
+        "fits_at_sweep_constant": true
+      },
+      "overflow_65536": {
+        "fits": true,
+        "estimated_tokens": 14550,
+        "available_tokens": 61952,
+        "fits_at_sweep_constant": true
+      }
+    },
+    {
+      "ref": "CIP-006-6 R1 Part 1.5",
+      "revision": "CIP-006-6",
+      "prompt_bytes": 45586,
+      "seat_32768": {
+        "fits": true,
+        "estimated_tokens": 13899,
+        "available_tokens": 29184,
+        "fits_at_sweep_constant": true
+      },
+      "overflow_65536": {
+        "fits": true,
+        "estimated_tokens": 13899,
+        "available_tokens": 61952,
+        "fits_at_sweep_constant": true
+      }
+    },
+    {
+      "ref": "CIP-006-6 R1 Part 1.6",
+      "revision": "CIP-006-6",
+      "prompt_bytes": 50373,
+      "seat_32768": {
+        "fits": true,
+        "estimated_tokens": 15358,
+        "available_tokens": 29184,
+        "fits_at_sweep_constant": true
+      },
+      "overflow_65536": {
+        "fits": true,
+        "estimated_tokens": 15358,
+        "available_tokens": 61952,
+        "fits_at_sweep_constant": true
+      }
+    },
+    {
+      "ref": "CIP-006-6 R1 Part 1.7",
+      "revision": "CIP-006-6",
+      "prompt_bytes": 50447,
+      "seat_32768": {
+        "fits": true,
+        "estimated_tokens": 15381,
+        "available_tokens": 29184,
+        "fits_at_sweep_constant": true
+      },
+      "overflow_65536": {
+        "fits": true,
+        "estimated_tokens": 15381,
+        "available_tokens": 61952,
+        "fits_at_sweep_constant": true
+      }
+    },
+    {
+      "ref": "CIP-006-6 R1 Part 1.8",
+      "revision": "CIP-006-6",
+      "prompt_bytes": 49199,
+      "seat_32768": {
+        "fits": true,
+        "estimated_tokens": 15000,
+        "available_tokens": 29184,
+        "fits_at_sweep_constant": true
+      },
+      "overflow_65536": {
+        "fits": true,
+        "estimated_tokens": 15000,
+        "available_tokens": 61952,
+        "fits_at_sweep_constant": true
+      }
+    },
+    {
+      "ref": "CIP-006-6 R1 Part 1.9",
+      "revision": "CIP-006-6",
+      "prompt_bytes": 49871,
+      "seat_32768": {
+        "fits": true,
+        "estimated_tokens": 15205,
+        "available_tokens": 29184,
+        "fits_at_sweep_constant": true
+      },
+      "overflow_65536": {
+        "fits": true,
+        "estimated_tokens": 15205,
+        "available_tokens": 61952,
+        "fits_at_sweep_constant": true
+      }
+    },
+    {
+      "ref": "CIP-006-6 R1 Part 1.10",
+      "revision": "CIP-006-6",
+      "prompt_bytes": 49168,
+      "seat_32768": {
+        "fits": true,
+        "estimated_tokens": 14991,
+        "available_tokens": 29184,
+        "fits_at_sweep_constant": true
+      },
+      "overflow_65536": {
+        "fits": true,
+        "estimated_tokens": 14991,
+        "available_tokens": 61952,
+        "fits_at_sweep_constant": true
+      }
+    },
+    {
+      "ref": "CIP-006-6 R2 Part 2.1",
+      "revision": "CIP-006-6",
+      "prompt_bytes": 35206,
+      "seat_32768": {
+        "fits": true,
+        "estimated_tokens": 10734,
+        "available_tokens": 29184,
+        "fits_at_sweep_constant": true
+      },
+      "overflow_65536": {
+        "fits": true,
+        "estimated_tokens": 10734,
+        "available_tokens": 61952,
+        "fits_at_sweep_constant": true
+      }
+    },
+    {
+      "ref": "CIP-006-6 R2 Part 2.2",
+      "revision": "CIP-006-6",
+      "prompt_bytes": 35550,
+      "seat_32768": {
+        "fits": true,
+        "estimated_tokens": 10839,
+        "available_tokens": 29184,
+        "fits_at_sweep_constant": true
+      },
+      "overflow_65536": {
+        "fits": true,
+        "estimated_tokens": 10839,
+        "available_tokens": 61952,
+        "fits_at_sweep_constant": true
+      }
+    },
+    {
+      "ref": "CIP-006-6 R2 Part 2.3",
+      "revision": "CIP-006-6",
+      "prompt_bytes": 34785,
+      "seat_32768": {
+        "fits": true,
+        "estimated_tokens": 10606,
+        "available_tokens": 29184,
+        "fits_at_sweep_constant": true
+      },
+      "overflow_65536": {
+        "fits": true,
+        "estimated_tokens": 10606,
+        "available_tokens": 61952,
+        "fits_at_sweep_constant": true
+      }
+    },
+    {
+      "ref": "CIP-006-6 R3",
+      "revision": "CIP-006-6",
+      "prompt_bytes": 36707,
+      "seat_32768": {
+        "fits": true,
+        "estimated_tokens": 11192,
+        "available_tokens": 29184,
+        "fits_at_sweep_constant": true
+      },
+      "overflow_65536": {
+        "fits": true,
+        "estimated_tokens": 11192,
+        "available_tokens": 61952,
+        "fits_at_sweep_constant": true
+      }
+    },
+    {
+      "ref": "CIP-007-6 R1 Part 1.1",
+      "revision": "CIP-007-6",
+      "prompt_bytes": 86000,
+      "seat_32768": {
+        "fits": true,
+        "estimated_tokens": 26220,
+        "available_tokens": 29184,
+        "fits_at_sweep_constant": true
+      },
+      "overflow_65536": {
+        "fits": true,
+        "estimated_tokens": 26220,
+        "available_tokens": 61952,
+        "fits_at_sweep_constant": true
+      }
+    },
+    {
+      "ref": "CIP-007-6 R1 Part 1.2",
+      "revision": "CIP-007-6",
+      "prompt_bytes": 81033,
+      "seat_32768": {
+        "fits": true,
+        "estimated_tokens": 24706,
+        "available_tokens": 29184,
+        "fits_at_sweep_constant": true
+      },
+      "overflow_65536": {
+        "fits": true,
+        "estimated_tokens": 24706,
+        "available_tokens": 61952,
+        "fits_at_sweep_constant": true
+      }
+    },
+    {
+      "ref": "CIP-007-6 R2 Part 2.1",
+      "revision": "CIP-007-6",
+      "prompt_bytes": 85862,
+      "seat_32768": {
+        "fits": true,
+        "estimated_tokens": 26178,
+        "available_tokens": 29184,
+        "fits_at_sweep_constant": true
+      },
+      "overflow_65536": {
+        "fits": true,
+        "estimated_tokens": 26178,
+        "available_tokens": 61952,
+        "fits_at_sweep_constant": true
+      }
+    },
+    {
+      "ref": "CIP-007-6 R2 Part 2.2",
+      "revision": "CIP-007-6",
+      "prompt_bytes": 87995,
+      "seat_32768": {
+        "fits": true,
+        "estimated_tokens": 26828,
+        "available_tokens": 29184,
+        "fits_at_sweep_constant": true
+      },
+      "overflow_65536": {
+        "fits": true,
+        "estimated_tokens": 26828,
+        "available_tokens": 61952,
+        "fits_at_sweep_constant": true
+      }
+    },
+    {
+      "ref": "CIP-007-6 R2 Part 2.3",
+      "revision": "CIP-007-6",
+      "prompt_bytes": 85258,
+      "seat_32768": {
+        "fits": true,
+        "estimated_tokens": 25994,
+        "available_tokens": 29184,
+        "fits_at_sweep_constant": true
+      },
+      "overflow_65536": {
+        "fits": true,
+        "estimated_tokens": 25994,
+        "available_tokens": 61952,
+        "fits_at_sweep_constant": true
+      }
+    },
+    {
+      "ref": "CIP-007-6 R2 Part 2.4",
+      "revision": "CIP-007-6",
+      "prompt_bytes": 88315,
+      "seat_32768": {
+        "fits": true,
+        "estimated_tokens": 26926,
+        "available_tokens": 29184,
+        "fits_at_sweep_constant": true
+      },
+      "overflow_65536": {
+        "fits": true,
+        "estimated_tokens": 26926,
+        "available_tokens": 61952,
+        "fits_at_sweep_constant": true
+      }
+    },
+    {
+      "ref": "CIP-007-6 R3 Part 3.1",
+      "revision": "CIP-007-6",
+      "prompt_bytes": 78521,
+      "seat_32768": {
+        "fits": true,
+        "estimated_tokens": 23940,
+        "available_tokens": 29184,
+        "fits_at_sweep_constant": true
+      },
+      "overflow_65536": {
+        "fits": true,
+        "estimated_tokens": 23940,
+        "available_tokens": 61952,
+        "fits_at_sweep_constant": true
+      }
+    },
+    {
+      "ref": "CIP-007-6 R3 Part 3.2",
+      "revision": "CIP-007-6",
+      "prompt_bytes": 85323,
+      "seat_32768": {
+        "fits": true,
+        "estimated_tokens": 26014,
+        "available_tokens": 29184,
+        "fits_at_sweep_constant": true
+      },
+      "overflow_65536": {
+        "fits": true,
+        "estimated_tokens": 26014,
+        "available_tokens": 61952,
+        "fits_at_sweep_constant": true
+      }
+    },
+    {
+      "ref": "CIP-007-6 R3 Part 3.3",
+      "revision": "CIP-007-6",
+      "prompt_bytes": 77723,
+      "seat_32768": {
+        "fits": true,
+        "estimated_tokens": 23697,
+        "available_tokens": 29184,
+        "fits_at_sweep_constant": true
+      },
+      "overflow_65536": {
+        "fits": true,
+        "estimated_tokens": 23697,
+        "available_tokens": 61952,
+        "fits_at_sweep_constant": true
+      }
+    },
+    {
+      "ref": "CIP-007-6 R4 Part 4.1",
+      "revision": "CIP-007-6",
+      "prompt_bytes": 86423,
+      "seat_32768": {
+        "fits": true,
+        "estimated_tokens": 26349,
+        "available_tokens": 29184,
+        "fits_at_sweep_constant": true
+      },
+      "overflow_65536": {
+        "fits": true,
+        "estimated_tokens": 26349,
+        "available_tokens": 61952,
+        "fits_at_sweep_constant": true
+      }
+    },
+    {
+      "ref": "CIP-007-6 R4 Part 4.2",
+      "revision": "CIP-007-6",
+      "prompt_bytes": 83570,
+      "seat_32768": {
+        "fits": true,
+        "estimated_tokens": 25479,
+        "available_tokens": 29184,
+        "fits_at_sweep_constant": true
+      },
+      "overflow_65536": {
+        "fits": true,
+        "estimated_tokens": 25479,
+        "available_tokens": 61952,
+        "fits_at_sweep_constant": true
+      }
+    },
+    {
+      "ref": "CIP-007-6 R4 Part 4.3",
+      "revision": "CIP-007-6",
+      "prompt_bytes": 82945,
+      "seat_32768": {
+        "fits": true,
+        "estimated_tokens": 25289,
+        "available_tokens": 29184,
+        "fits_at_sweep_constant": true
+      },
+      "overflow_65536": {
+        "fits": true,
+        "estimated_tokens": 25289,
+        "available_tokens": 61952,
+        "fits_at_sweep_constant": true
+      }
+    },
+    {
+      "ref": "CIP-007-6 R4 Part 4.4",
+      "revision": "CIP-007-6",
+      "prompt_bytes": 82352,
+      "seat_32768": {
+        "fits": true,
+        "estimated_tokens": 25108,
+        "available_tokens": 29184,
+        "fits_at_sweep_constant": true
+      },
+      "overflow_65536": {
+        "fits": true,
+        "estimated_tokens": 25108,
+        "available_tokens": 61952,
+        "fits_at_sweep_constant": true
+      }
+    },
+    {
+      "ref": "CIP-007-6 R5 Part 5.1",
+      "revision": "CIP-007-6",
+      "prompt_bytes": 91599,
+      "seat_32768": {
+        "fits": true,
+        "estimated_tokens": 27927,
+        "available_tokens": 29184,
+        "fits_at_sweep_constant": true
+      },
+      "overflow_65536": {
+        "fits": true,
+        "estimated_tokens": 27927,
+        "available_tokens": 61952,
+        "fits_at_sweep_constant": true
+      }
+    },
+    {
+      "ref": "CIP-007-6 R5 Part 5.2",
+      "revision": "CIP-007-6",
+      "prompt_bytes": 86987,
+      "seat_32768": {
+        "fits": true,
+        "estimated_tokens": 26521,
+        "available_tokens": 29184,
+        "fits_at_sweep_constant": true
+      },
+      "overflow_65536": {
+        "fits": true,
+        "estimated_tokens": 26521,
+        "available_tokens": 61952,
+        "fits_at_sweep_constant": true
+      }
+    },
+    {
+      "ref": "CIP-007-6 R5 Part 5.3",
+      "revision": "CIP-007-6",
+      "prompt_bytes": 87831,
+      "seat_32768": {
+        "fits": true,
+        "estimated_tokens": 26778,
+        "available_tokens": 29184,
+        "fits_at_sweep_constant": true
+      },
+      "overflow_65536": {
+        "fits": true,
+        "estimated_tokens": 26778,
+        "available_tokens": 61952,
+        "fits_at_sweep_constant": true
+      }
+    },
+    {
+      "ref": "CIP-007-6 R5 Part 5.4",
+      "revision": "CIP-007-6",
+      "prompt_bytes": 91494,
+      "seat_32768": {
+        "fits": true,
+        "estimated_tokens": 27895,
+        "available_tokens": 29184,
+        "fits_at_sweep_constant": true
+      },
+      "overflow_65536": {
+        "fits": true,
+        "estimated_tokens": 27895,
+        "available_tokens": 61952,
+        "fits_at_sweep_constant": true
+      }
+    },
+    {
+      "ref": "CIP-007-6 R5 Part 5.5",
+      "revision": "CIP-007-6",
+      "prompt_bytes": 92232,
+      "seat_32768": {
+        "fits": true,
+        "estimated_tokens": 28120,
+        "available_tokens": 29184,
+        "fits_at_sweep_constant": true
+      },
+      "overflow_65536": {
+        "fits": true,
+        "estimated_tokens": 28120,
+        "available_tokens": 61952,
+        "fits_at_sweep_constant": true
+      }
+    },
+    {
+      "ref": "CIP-007-6 R5 Part 5.6",
+      "revision": "CIP-007-6",
+      "prompt_bytes": 93651,
+      "seat_32768": {
+        "fits": true,
+        "estimated_tokens": 28553,
+        "available_tokens": 29184,
+        "fits_at_sweep_constant": true
+      },
+      "overflow_65536": {
+        "fits": true,
+        "estimated_tokens": 28553,
+        "available_tokens": 61952,
+        "fits_at_sweep_constant": true
+      }
+    },
+    {
+      "ref": "CIP-007-6 R5 Part 5.7",
+      "revision": "CIP-007-6",
+      "prompt_bytes": 94723,
+      "seat_32768": {
+        "fits": true,
+        "estimated_tokens": 28879,
+        "available_tokens": 29184,
+        "fits_at_sweep_constant": true
+      },
+      "overflow_65536": {
+        "fits": true,
+        "estimated_tokens": 28879,
+        "available_tokens": 61952,
+        "fits_at_sweep_constant": true
+      }
+    },
+    {
+      "ref": "CIP-008-6 R1 Part 1.1",
+      "revision": "CIP-008-6",
+      "prompt_bytes": 57610,
+      "seat_32768": {
+        "fits": true,
+        "estimated_tokens": 17565,
+        "available_tokens": 29184,
+        "fits_at_sweep_constant": true
+      },
+      "overflow_65536": {
+        "fits": true,
+        "estimated_tokens": 17565,
+        "available_tokens": 61952,
+        "fits_at_sweep_constant": true
+      }
+    },
+    {
+      "ref": "CIP-008-6 R1 Part 1.2",
+      "revision": "CIP-008-6",
+      "prompt_bytes": 59663,
+      "seat_32768": {
+        "fits": true,
+        "estimated_tokens": 18190,
+        "available_tokens": 29184,
+        "fits_at_sweep_constant": true
+      },
+      "overflow_65536": {
+        "fits": true,
+        "estimated_tokens": 18190,
+        "available_tokens": 61952,
+        "fits_at_sweep_constant": true
+      }
+    },
+    {
+      "ref": "CIP-008-6 R1 Part 1.3",
+      "revision": "CIP-008-6",
+      "prompt_bytes": 71162,
+      "seat_32768": {
+        "fits": true,
+        "estimated_tokens": 21696,
+        "available_tokens": 29184,
+        "fits_at_sweep_constant": true
+      },
+      "overflow_65536": {
+        "fits": true,
+        "estimated_tokens": 21696,
+        "available_tokens": 61952,
+        "fits_at_sweep_constant": true
+      }
+    },
+    {
+      "ref": "CIP-008-6 R1 Part 1.4",
+      "revision": "CIP-008-6",
+      "prompt_bytes": 65710,
+      "seat_32768": {
+        "fits": true,
+        "estimated_tokens": 20034,
+        "available_tokens": 29184,
+        "fits_at_sweep_constant": true
+      },
+      "overflow_65536": {
+        "fits": true,
+        "estimated_tokens": 20034,
+        "available_tokens": 61952,
+        "fits_at_sweep_constant": true
+      }
+    },
+    {
+      "ref": "CIP-008-6 R2 Part 2.1",
+      "revision": "CIP-008-6",
+      "prompt_bytes": 68306,
+      "seat_32768": {
+        "fits": true,
+        "estimated_tokens": 20826,
+        "available_tokens": 29184,
+        "fits_at_sweep_constant": true
+      },
+      "overflow_65536": {
+        "fits": true,
+        "estimated_tokens": 20826,
+        "available_tokens": 61952,
+        "fits_at_sweep_constant": true
+      }
+    },
+    {
+      "ref": "CIP-008-6 R2 Part 2.2",
+      "revision": "CIP-008-6",
+      "prompt_bytes": 68463,
+      "seat_32768": {
+        "fits": true,
+        "estimated_tokens": 20873,
+        "available_tokens": 29184,
+        "fits_at_sweep_constant": true
+      },
+      "overflow_65536": {
+        "fits": true,
+        "estimated_tokens": 20873,
+        "available_tokens": 61952,
+        "fits_at_sweep_constant": true
+      }
+    },
+    {
+      "ref": "CIP-008-6 R2 Part 2.3",
+      "revision": "CIP-008-6",
+      "prompt_bytes": 59417,
+      "seat_32768": {
+        "fits": true,
+        "estimated_tokens": 18115,
+        "available_tokens": 29184,
+        "fits_at_sweep_constant": true
+      },
+      "overflow_65536": {
+        "fits": true,
+        "estimated_tokens": 18115,
+        "available_tokens": 61952,
+        "fits_at_sweep_constant": true
+      }
+    },
+    {
+      "ref": "CIP-008-6 R3 Part 3.1",
+      "revision": "CIP-008-6",
+      "prompt_bytes": 69118,
+      "seat_32768": {
+        "fits": true,
+        "estimated_tokens": 21073,
+        "available_tokens": 29184,
+        "fits_at_sweep_constant": true
+      },
+      "overflow_65536": {
+        "fits": true,
+        "estimated_tokens": 21073,
+        "available_tokens": 61952,
+        "fits_at_sweep_constant": true
+      }
+    },
+    {
+      "ref": "CIP-008-6 R3 Part 3.2",
+      "revision": "CIP-008-6",
+      "prompt_bytes": 59986,
+      "seat_32768": {
+        "fits": true,
+        "estimated_tokens": 18289,
+        "available_tokens": 29184,
+        "fits_at_sweep_constant": true
+      },
+      "overflow_65536": {
+        "fits": true,
+        "estimated_tokens": 18289,
+        "available_tokens": 61952,
+        "fits_at_sweep_constant": true
+      }
+    },
+    {
+      "ref": "CIP-008-6 R4 Part 4.1",
+      "revision": "CIP-008-6",
+      "prompt_bytes": 66823,
+      "seat_32768": {
+        "fits": true,
+        "estimated_tokens": 20373,
+        "available_tokens": 29184,
+        "fits_at_sweep_constant": true
+      },
+      "overflow_65536": {
+        "fits": true,
+        "estimated_tokens": 20373,
+        "available_tokens": 61952,
+        "fits_at_sweep_constant": true
+      }
+    },
+    {
+      "ref": "CIP-008-6 R4 Part 4.2",
+      "revision": "CIP-008-6",
+      "prompt_bytes": 61488,
+      "seat_32768": {
+        "fits": true,
+        "estimated_tokens": 18747,
+        "available_tokens": 29184,
+        "fits_at_sweep_constant": true
+      },
+      "overflow_65536": {
+        "fits": true,
+        "estimated_tokens": 18747,
+        "available_tokens": 61952,
+        "fits_at_sweep_constant": true
+      }
+    },
+    {
+      "ref": "CIP-008-6 R4 Part 4.3",
+      "revision": "CIP-008-6",
+      "prompt_bytes": 44505,
+      "seat_32768": {
+        "fits": true,
+        "estimated_tokens": 13569,
+        "available_tokens": 29184,
+        "fits_at_sweep_constant": true
+      },
+      "overflow_65536": {
+        "fits": true,
+        "estimated_tokens": 13569,
+        "available_tokens": 61952,
+        "fits_at_sweep_constant": true
+      }
+    },
+    {
+      "ref": "CIP-009-6 R1 Part 1.1",
+      "revision": "CIP-009-6",
+      "prompt_bytes": 38752,
+      "seat_32768": {
+        "fits": true,
+        "estimated_tokens": 11815,
+        "available_tokens": 29184,
+        "fits_at_sweep_constant": true
+      },
+      "overflow_65536": {
+        "fits": true,
+        "estimated_tokens": 11815,
+        "available_tokens": 61952,
+        "fits_at_sweep_constant": true
+      }
+    },
+    {
+      "ref": "CIP-009-6 R1 Part 1.2",
+      "revision": "CIP-009-6",
+      "prompt_bytes": 35448,
+      "seat_32768": {
+        "fits": true,
+        "estimated_tokens": 10808,
+        "available_tokens": 29184,
+        "fits_at_sweep_constant": true
+      },
+      "overflow_65536": {
+        "fits": true,
+        "estimated_tokens": 10808,
+        "available_tokens": 61952,
+        "fits_at_sweep_constant": true
+      }
+    },
+    {
+      "ref": "CIP-009-6 R1 Part 1.3",
+      "revision": "CIP-009-6",
+      "prompt_bytes": 42704,
+      "seat_32768": {
+        "fits": true,
+        "estimated_tokens": 13020,
+        "available_tokens": 29184,
+        "fits_at_sweep_constant": true
+      },
+      "overflow_65536": {
+        "fits": true,
+        "estimated_tokens": 13020,
+        "available_tokens": 61952,
+        "fits_at_sweep_constant": true
+      }
+    },
+    {
+      "ref": "CIP-009-6 R1 Part 1.4",
+      "revision": "CIP-009-6",
+      "prompt_bytes": 42916,
+      "seat_32768": {
+        "fits": true,
+        "estimated_tokens": 13085,
+        "available_tokens": 29184,
+        "fits_at_sweep_constant": true
+      },
+      "overflow_65536": {
+        "fits": true,
+        "estimated_tokens": 13085,
+        "available_tokens": 61952,
+        "fits_at_sweep_constant": true
+      }
+    },
+    {
+      "ref": "CIP-009-6 R1 Part 1.5",
+      "revision": "CIP-009-6",
+      "prompt_bytes": 44576,
+      "seat_32768": {
+        "fits": true,
+        "estimated_tokens": 13591,
+        "available_tokens": 29184,
+        "fits_at_sweep_constant": true
+      },
+      "overflow_65536": {
+        "fits": true,
+        "estimated_tokens": 13591,
+        "available_tokens": 61952,
+        "fits_at_sweep_constant": true
+      }
+    },
+    {
+      "ref": "CIP-009-6 R2 Part 2.1",
+      "revision": "CIP-009-6",
+      "prompt_bytes": 40369,
+      "seat_32768": {
+        "fits": true,
+        "estimated_tokens": 12308,
+        "available_tokens": 29184,
+        "fits_at_sweep_constant": true
+      },
+      "overflow_65536": {
+        "fits": true,
+        "estimated_tokens": 12308,
+        "available_tokens": 61952,
+        "fits_at_sweep_constant": true
+      }
+    },
+    {
+      "ref": "CIP-009-6 R2 Part 2.2",
+      "revision": "CIP-009-6",
+      "prompt_bytes": 38036,
+      "seat_32768": {
+        "fits": true,
+        "estimated_tokens": 11597,
+        "available_tokens": 29184,
+        "fits_at_sweep_constant": true
+      },
+      "overflow_65536": {
+        "fits": true,
+        "estimated_tokens": 11597,
+        "available_tokens": 61952,
+        "fits_at_sweep_constant": true
+      }
+    },
+    {
+      "ref": "CIP-009-6 R2 Part 2.3",
+      "revision": "CIP-009-6",
+      "prompt_bytes": 53318,
+      "seat_32768": {
+        "fits": true,
+        "estimated_tokens": 16256,
+        "available_tokens": 29184,
+        "fits_at_sweep_constant": true
+      },
+      "overflow_65536": {
+        "fits": true,
+        "estimated_tokens": 16256,
+        "available_tokens": 61952,
+        "fits_at_sweep_constant": true
+      }
+    },
+    {
+      "ref": "CIP-009-6 R3 Part 3.1",
+      "revision": "CIP-009-6",
+      "prompt_bytes": 49875,
+      "seat_32768": {
+        "fits": true,
+        "estimated_tokens": 15206,
+        "available_tokens": 29184,
+        "fits_at_sweep_constant": true
+      },
+      "overflow_65536": {
+        "fits": true,
+        "estimated_tokens": 15206,
+        "available_tokens": 61952,
+        "fits_at_sweep_constant": true
+      }
+    },
+    {
+      "ref": "CIP-009-6 R3 Part 3.2",
+      "revision": "CIP-009-6",
+      "prompt_bytes": 53844,
+      "seat_32768": {
+        "fits": true,
+        "estimated_tokens": 16416,
+        "available_tokens": 29184,
+        "fits_at_sweep_constant": true
+      },
+      "overflow_65536": {
+        "fits": true,
+        "estimated_tokens": 16416,
+        "available_tokens": 61952,
+        "fits_at_sweep_constant": true
+      }
+    },
+    {
+      "ref": "CIP-010-4 R1 Part 1.1",
+      "revision": "CIP-010-4",
+      "prompt_bytes": 36923,
+      "seat_32768": {
+        "fits": true,
+        "estimated_tokens": 11258,
+        "available_tokens": 29184,
+        "fits_at_sweep_constant": true
+      },
+      "overflow_65536": {
+        "fits": true,
+        "estimated_tokens": 11258,
+        "available_tokens": 61952,
+        "fits_at_sweep_constant": true
+      }
+    },
+    {
+      "ref": "CIP-010-4 R1 Part 1.2",
+      "revision": "CIP-010-4",
+      "prompt_bytes": 42698,
+      "seat_32768": {
+        "fits": true,
+        "estimated_tokens": 13018,
+        "available_tokens": 29184,
+        "fits_at_sweep_constant": true
+      },
+      "overflow_65536": {
+        "fits": true,
+        "estimated_tokens": 13018,
+        "available_tokens": 61952,
+        "fits_at_sweep_constant": true
+      }
+    },
+    {
+      "ref": "CIP-010-4 R1 Part 1.3",
+      "revision": "CIP-010-4",
+      "prompt_bytes": 37180,
+      "seat_32768": {
+        "fits": true,
+        "estimated_tokens": 11336,
+        "available_tokens": 29184,
+        "fits_at_sweep_constant": true
+      },
+      "overflow_65536": {
+        "fits": true,
+        "estimated_tokens": 11336,
+        "available_tokens": 61952,
+        "fits_at_sweep_constant": true
+      }
+    },
+    {
+      "ref": "CIP-010-4 R1 Part 1.4",
+      "revision": "CIP-010-4",
+      "prompt_bytes": 40972,
+      "seat_32768": {
+        "fits": true,
+        "estimated_tokens": 12492,
+        "available_tokens": 29184,
+        "fits_at_sweep_constant": true
+      },
+      "overflow_65536": {
+        "fits": true,
+        "estimated_tokens": 12492,
+        "available_tokens": 61952,
+        "fits_at_sweep_constant": true
+      }
+    },
+    {
+      "ref": "CIP-010-4 R1 Part 1.5",
+      "revision": "CIP-010-4",
+      "prompt_bytes": 38126,
+      "seat_32768": {
+        "fits": true,
+        "estimated_tokens": 11624,
+        "available_tokens": 29184,
+        "fits_at_sweep_constant": true
+      },
+      "overflow_65536": {
+        "fits": true,
+        "estimated_tokens": 11624,
+        "available_tokens": 61952,
+        "fits_at_sweep_constant": true
+      }
+    },
+    {
+      "ref": "CIP-010-4 R1 Part 1.6",
+      "revision": "CIP-010-4",
+      "prompt_bytes": 40599,
+      "seat_32768": {
+        "fits": true,
+        "estimated_tokens": 12378,
+        "available_tokens": 29184,
+        "fits_at_sweep_constant": true
+      },
+      "overflow_65536": {
+        "fits": true,
+        "estimated_tokens": 12378,
+        "available_tokens": 61952,
+        "fits_at_sweep_constant": true
+      }
+    },
+    {
+      "ref": "CIP-010-4 R2 Part 2.1",
+      "revision": "CIP-010-4",
+      "prompt_bytes": 27041,
+      "seat_32768": {
+        "fits": true,
+        "estimated_tokens": 8245,
+        "available_tokens": 29184,
+        "fits_at_sweep_constant": true
+      },
+      "overflow_65536": {
+        "fits": true,
+        "estimated_tokens": 8245,
+        "available_tokens": 61952,
+        "fits_at_sweep_constant": true
+      }
+    },
+    {
+      "ref": "CIP-010-4 R3 Part 3.1",
+      "revision": "CIP-010-4",
+      "prompt_bytes": 32146,
+      "seat_32768": {
+        "fits": true,
+        "estimated_tokens": 9801,
+        "available_tokens": 29184,
+        "fits_at_sweep_constant": true
+      },
+      "overflow_65536": {
+        "fits": true,
+        "estimated_tokens": 9801,
+        "available_tokens": 61952,
+        "fits_at_sweep_constant": true
+      }
+    },
+    {
+      "ref": "CIP-010-4 R3 Part 3.2",
+      "revision": "CIP-010-4",
+      "prompt_bytes": 32149,
+      "seat_32768": {
+        "fits": true,
+        "estimated_tokens": 9802,
+        "available_tokens": 29184,
+        "fits_at_sweep_constant": true
+      },
+      "overflow_65536": {
+        "fits": true,
+        "estimated_tokens": 9802,
+        "available_tokens": 61952,
+        "fits_at_sweep_constant": true
+      }
+    },
+    {
+      "ref": "CIP-010-4 R3 Part 3.3",
+      "revision": "CIP-010-4",
+      "prompt_bytes": 39121,
+      "seat_32768": {
+        "fits": true,
+        "estimated_tokens": 11928,
+        "available_tokens": 29184,
+        "fits_at_sweep_constant": true
+      },
+      "overflow_65536": {
+        "fits": true,
+        "estimated_tokens": 11928,
+        "available_tokens": 61952,
+        "fits_at_sweep_constant": true
+      }
+    },
+    {
+      "ref": "CIP-010-4 R3 Part 3.4",
+      "revision": "CIP-010-4",
+      "prompt_bytes": 26151,
+      "seat_32768": {
+        "fits": true,
+        "estimated_tokens": 7973,
+        "available_tokens": 29184,
+        "fits_at_sweep_constant": true
+      },
+      "overflow_65536": {
+        "fits": true,
+        "estimated_tokens": 7973,
+        "available_tokens": 61952,
+        "fits_at_sweep_constant": true
+      }
+    },
+    {
+      "ref": "CIP-010-4 R4",
+      "revision": "CIP-010-4",
+      "prompt_bytes": 78533,
+      "seat_32768": {
+        "fits": true,
+        "estimated_tokens": 23943,
+        "available_tokens": 29184,
+        "fits_at_sweep_constant": true
+      },
+      "overflow_65536": {
+        "fits": true,
+        "estimated_tokens": 23943,
+        "available_tokens": 61952,
+        "fits_at_sweep_constant": true
+      }
+    },
+    {
+      "ref": "CIP-011-3 R1 Part 1.1",
+      "revision": "CIP-011-3",
+      "prompt_bytes": 33250,
+      "seat_32768": {
+        "fits": true,
+        "estimated_tokens": 10138,
+        "available_tokens": 29184,
+        "fits_at_sweep_constant": true
+      },
+      "overflow_65536": {
+        "fits": true,
+        "estimated_tokens": 10138,
+        "available_tokens": 61952,
+        "fits_at_sweep_constant": true
+      }
+    },
+    {
+      "ref": "CIP-011-3 R1 Part 1.2",
+      "revision": "CIP-011-3",
+      "prompt_bytes": 32524,
+      "seat_32768": {
+        "fits": true,
+        "estimated_tokens": 9916,
+        "available_tokens": 29184,
+        "fits_at_sweep_constant": true
+      },
+      "overflow_65536": {
+        "fits": true,
+        "estimated_tokens": 9916,
+        "available_tokens": 61952,
+        "fits_at_sweep_constant": true
+      }
+    },
+    {
+      "ref": "CIP-011-3 R2 Part 2.1",
+      "revision": "CIP-011-3",
+      "prompt_bytes": 28979,
+      "seat_32768": {
+        "fits": true,
+        "estimated_tokens": 8836,
+        "available_tokens": 29184,
+        "fits_at_sweep_constant": true
+      },
+      "overflow_65536": {
+        "fits": true,
+        "estimated_tokens": 8836,
+        "available_tokens": 61952,
+        "fits_at_sweep_constant": true
+      }
+    },
+    {
+      "ref": "CIP-011-3 R2 Part 2.2",
+      "revision": "CIP-011-3",
+      "prompt_bytes": 30309,
+      "seat_32768": {
+        "fits": true,
+        "estimated_tokens": 9241,
+        "available_tokens": 29184,
+        "fits_at_sweep_constant": true
+      },
+      "overflow_65536": {
+        "fits": true,
+        "estimated_tokens": 9241,
+        "available_tokens": 61952,
+        "fits_at_sweep_constant": true
+      }
+    },
+    {
+      "ref": "CIP-012-2 R1",
+      "revision": "CIP-012-2",
+      "prompt_bytes": 60108,
+      "seat_32768": {
+        "fits": true,
+        "estimated_tokens": 18326,
+        "available_tokens": 29184,
+        "fits_at_sweep_constant": true
+      },
+      "overflow_65536": {
+        "fits": true,
+        "estimated_tokens": 18326,
+        "available_tokens": 61952,
+        "fits_at_sweep_constant": true
+      }
+    },
+    {
+      "ref": "CIP-012-2 R1 Part 1.1",
+      "revision": "CIP-012-2",
+      "prompt_bytes": 39970,
+      "seat_32768": {
+        "fits": true,
+        "estimated_tokens": 12186,
+        "available_tokens": 29184,
+        "fits_at_sweep_constant": true
+      },
+      "overflow_65536": {
+        "fits": true,
+        "estimated_tokens": 12186,
+        "available_tokens": 61952,
+        "fits_at_sweep_constant": true
+      }
+    },
+    {
+      "ref": "CIP-012-2 R1 Part 1.2",
+      "revision": "CIP-012-2",
+      "prompt_bytes": 40222,
+      "seat_32768": {
+        "fits": true,
+        "estimated_tokens": 12263,
+        "available_tokens": 29184,
+        "fits_at_sweep_constant": true
+      },
+      "overflow_65536": {
+        "fits": true,
+        "estimated_tokens": 12263,
+        "available_tokens": 61952,
+        "fits_at_sweep_constant": true
+      }
+    },
+    {
+      "ref": "CIP-012-2 R1 Part 1.3",
+      "revision": "CIP-012-2",
+      "prompt_bytes": 31271,
+      "seat_32768": {
+        "fits": true,
+        "estimated_tokens": 9534,
+        "available_tokens": 29184,
+        "fits_at_sweep_constant": true
+      },
+      "overflow_65536": {
+        "fits": true,
+        "estimated_tokens": 9534,
+        "available_tokens": 61952,
+        "fits_at_sweep_constant": true
+      }
+    },
+    {
+      "ref": "CIP-012-2 R1 Part 1.4",
+      "revision": "CIP-012-2",
+      "prompt_bytes": 39022,
+      "seat_32768": {
+        "fits": true,
+        "estimated_tokens": 11897,
+        "available_tokens": 29184,
+        "fits_at_sweep_constant": true
+      },
+      "overflow_65536": {
+        "fits": true,
+        "estimated_tokens": 11897,
+        "available_tokens": 61952,
+        "fits_at_sweep_constant": true
+      }
+    },
+    {
+      "ref": "CIP-012-2 R1 Part 1.5",
+      "revision": "CIP-012-2",
+      "prompt_bytes": 31762,
+      "seat_32768": {
+        "fits": true,
+        "estimated_tokens": 9684,
+        "available_tokens": 29184,
+        "fits_at_sweep_constant": true
+      },
+      "overflow_65536": {
+        "fits": true,
+        "estimated_tokens": 9684,
+        "available_tokens": 61952,
+        "fits_at_sweep_constant": true
+      }
+    },
+    {
+      "ref": "CIP-013-2 R1",
+      "revision": "CIP-013-2",
+      "prompt_bytes": 75325,
+      "seat_32768": {
+        "fits": true,
+        "estimated_tokens": 22965,
+        "available_tokens": 29184,
+        "fits_at_sweep_constant": true
+      },
+      "overflow_65536": {
+        "fits": true,
+        "estimated_tokens": 22965,
+        "available_tokens": 61952,
+        "fits_at_sweep_constant": true
+      }
+    },
+    {
+      "ref": "CIP-013-2 R1 Part 1.1",
+      "revision": "CIP-013-2",
+      "prompt_bytes": 46366,
+      "seat_32768": {
+        "fits": true,
+        "estimated_tokens": 14136,
+        "available_tokens": 29184,
+        "fits_at_sweep_constant": true
+      },
+      "overflow_65536": {
+        "fits": true,
+        "estimated_tokens": 14136,
+        "available_tokens": 61952,
+        "fits_at_sweep_constant": true
+      }
+    },
+    {
+      "ref": "CIP-013-2 R1 Part 1.2",
+      "revision": "CIP-013-2",
+      "prompt_bytes": 40828,
+      "seat_32768": {
+        "fits": true,
+        "estimated_tokens": 12448,
+        "available_tokens": 29184,
+        "fits_at_sweep_constant": true
+      },
+      "overflow_65536": {
+        "fits": true,
+        "estimated_tokens": 12448,
+        "available_tokens": 61952,
+        "fits_at_sweep_constant": true
+      }
+    },
+    {
+      "ref": "CIP-013-2 R1 Part 1.2.1",
+      "revision": "CIP-013-2",
+      "prompt_bytes": 42986,
+      "seat_32768": {
+        "fits": true,
+        "estimated_tokens": 13106,
+        "available_tokens": 29184,
+        "fits_at_sweep_constant": true
+      },
+      "overflow_65536": {
+        "fits": true,
+        "estimated_tokens": 13106,
+        "available_tokens": 61952,
+        "fits_at_sweep_constant": true
+      }
+    },
+    {
+      "ref": "CIP-013-2 R1 Part 1.2.2",
+      "revision": "CIP-013-2",
+      "prompt_bytes": 46837,
+      "seat_32768": {
+        "fits": true,
+        "estimated_tokens": 14280,
+        "available_tokens": 29184,
+        "fits_at_sweep_constant": true
+      },
+      "overflow_65536": {
+        "fits": true,
+        "estimated_tokens": 14280,
+        "available_tokens": 61952,
+        "fits_at_sweep_constant": true
+      }
+    },
+    {
+      "ref": "CIP-013-2 R1 Part 1.2.3",
+      "revision": "CIP-013-2",
+      "prompt_bytes": 41742,
+      "seat_32768": {
+        "fits": true,
+        "estimated_tokens": 12727,
+        "available_tokens": 29184,
+        "fits_at_sweep_constant": true
+      },
+      "overflow_65536": {
+        "fits": true,
+        "estimated_tokens": 12727,
+        "available_tokens": 61952,
+        "fits_at_sweep_constant": true
+      }
+    },
+    {
+      "ref": "CIP-013-2 R1 Part 1.2.4",
+      "revision": "CIP-013-2",
+      "prompt_bytes": 47578,
+      "seat_32768": {
+        "fits": true,
+        "estimated_tokens": 14506,
+        "available_tokens": 29184,
+        "fits_at_sweep_constant": true
+      },
+      "overflow_65536": {
+        "fits": true,
+        "estimated_tokens": 14506,
+        "available_tokens": 61952,
+        "fits_at_sweep_constant": true
+      }
+    },
+    {
+      "ref": "CIP-013-2 R1 Part 1.2.5",
+      "revision": "CIP-013-2",
+      "prompt_bytes": 45068,
+      "seat_32768": {
+        "fits": true,
+        "estimated_tokens": 13741,
+        "available_tokens": 29184,
+        "fits_at_sweep_constant": true
+      },
+      "overflow_65536": {
+        "fits": true,
+        "estimated_tokens": 13741,
+        "available_tokens": 61952,
+        "fits_at_sweep_constant": true
+      }
+    },
+    {
+      "ref": "CIP-013-2 R1 Part 1.2.6",
+      "revision": "CIP-013-2",
+      "prompt_bytes": 36684,
+      "seat_32768": {
+        "fits": true,
+        "estimated_tokens": 11185,
+        "available_tokens": 29184,
+        "fits_at_sweep_constant": true
+      },
+      "overflow_65536": {
+        "fits": true,
+        "estimated_tokens": 11185,
+        "available_tokens": 61952,
+        "fits_at_sweep_constant": true
+      }
+    },
+    {
+      "ref": "CIP-013-2 R2",
+      "revision": "CIP-013-2",
+      "prompt_bytes": 47943,
+      "seat_32768": {
+        "fits": true,
+        "estimated_tokens": 14617,
+        "available_tokens": 29184,
+        "fits_at_sweep_constant": true
+      },
+      "overflow_65536": {
+        "fits": true,
+        "estimated_tokens": 14617,
+        "available_tokens": 61952,
+        "fits_at_sweep_constant": true
+      }
+    },
+    {
+      "ref": "CIP-013-2 R3",
+      "revision": "CIP-013-2",
+      "prompt_bytes": 24628,
+      "seat_32768": {
+        "fits": true,
+        "estimated_tokens": 7509,
+        "available_tokens": 29184,
+        "fits_at_sweep_constant": true
+      },
+      "overflow_65536": {
+        "fits": true,
+        "estimated_tokens": 7509,
+        "available_tokens": 61952,
+        "fits_at_sweep_constant": true
+      }
+    },
+    {
+      "ref": "CIP-014-3 R1 Part 1.1",
+      "revision": "CIP-014-3",
+      "prompt_bytes": 65248,
+      "seat_32768": {
+        "fits": true,
+        "estimated_tokens": 19893,
+        "available_tokens": 29184,
+        "fits_at_sweep_constant": true
+      },
+      "overflow_65536": {
+        "fits": true,
+        "estimated_tokens": 19893,
+        "available_tokens": 61952,
+        "fits_at_sweep_constant": true
+      }
+    },
+    {
+      "ref": "CIP-014-3 R1 Part 1.2",
+      "revision": "CIP-014-3",
+      "prompt_bytes": 62308,
+      "seat_32768": {
+        "fits": true,
+        "estimated_tokens": 18997,
+        "available_tokens": 29184,
+        "fits_at_sweep_constant": true
+      },
+      "overflow_65536": {
+        "fits": true,
+        "estimated_tokens": 18997,
+        "available_tokens": 61952,
+        "fits_at_sweep_constant": true
+      }
+    },
+    {
+      "ref": "CIP-014-3 R2 Part 2.1",
+      "revision": "CIP-014-3",
+      "prompt_bytes": 64498,
+      "seat_32768": {
+        "fits": true,
+        "estimated_tokens": 19665,
+        "available_tokens": 29184,
+        "fits_at_sweep_constant": true
+      },
+      "overflow_65536": {
+        "fits": true,
+        "estimated_tokens": 19665,
+        "available_tokens": 61952,
+        "fits_at_sweep_constant": true
+      }
+    },
+    {
+      "ref": "CIP-014-3 R2 Part 2.2",
+      "revision": "CIP-014-3",
+      "prompt_bytes": 68635,
+      "seat_32768": {
+        "fits": true,
+        "estimated_tokens": 20926,
+        "available_tokens": 29184,
+        "fits_at_sweep_constant": true
+      },
+      "overflow_65536": {
+        "fits": true,
+        "estimated_tokens": 20926,
+        "available_tokens": 61952,
+        "fits_at_sweep_constant": true
+      }
+    },
+    {
+      "ref": "CIP-014-3 R2 Part 2.3",
+      "revision": "CIP-014-3",
+      "prompt_bytes": 63058,
+      "seat_32768": {
+        "fits": true,
+        "estimated_tokens": 19226,
+        "available_tokens": 29184,
+        "fits_at_sweep_constant": true
+      },
+      "overflow_65536": {
+        "fits": true,
+        "estimated_tokens": 19226,
+        "available_tokens": 61952,
+        "fits_at_sweep_constant": true
+      }
+    },
+    {
+      "ref": "CIP-014-3 R2 Part 2.4",
+      "revision": "CIP-014-3",
+      "prompt_bytes": 65022,
+      "seat_32768": {
+        "fits": true,
+        "estimated_tokens": 19824,
+        "available_tokens": 29184,
+        "fits_at_sweep_constant": true
+      },
+      "overflow_65536": {
+        "fits": true,
+        "estimated_tokens": 19824,
+        "available_tokens": 61952,
+        "fits_at_sweep_constant": true
+      }
+    },
+    {
+      "ref": "CIP-014-3 R4",
+      "revision": "CIP-014-3",
+      "prompt_bytes": 73030,
+      "seat_32768": {
+        "fits": true,
+        "estimated_tokens": 22266,
+        "available_tokens": 29184,
+        "fits_at_sweep_constant": true
+      },
+      "overflow_65536": {
+        "fits": true,
+        "estimated_tokens": 22266,
+        "available_tokens": 61952,
+        "fits_at_sweep_constant": true
+      }
+    },
+    {
+      "ref": "CIP-014-3 R4 Part 4.1",
+      "revision": "CIP-014-3",
+      "prompt_bytes": 61888,
+      "seat_32768": {
+        "fits": true,
+        "estimated_tokens": 18869,
+        "available_tokens": 29184,
+        "fits_at_sweep_constant": true
+      },
+      "overflow_65536": {
+        "fits": true,
+        "estimated_tokens": 18869,
+        "available_tokens": 61952,
+        "fits_at_sweep_constant": true
+      }
+    },
+    {
+      "ref": "CIP-014-3 R4 Part 4.2",
+      "revision": "CIP-014-3",
+      "prompt_bytes": 59449,
+      "seat_32768": {
+        "fits": true,
+        "estimated_tokens": 18125,
+        "available_tokens": 29184,
+        "fits_at_sweep_constant": true
+      },
+      "overflow_65536": {
+        "fits": true,
+        "estimated_tokens": 18125,
+        "available_tokens": 61952,
+        "fits_at_sweep_constant": true
+      }
+    },
+    {
+      "ref": "CIP-014-3 R4 Part 4.3",
+      "revision": "CIP-014-3",
+      "prompt_bytes": 62030,
+      "seat_32768": {
+        "fits": true,
+        "estimated_tokens": 18912,
+        "available_tokens": 29184,
+        "fits_at_sweep_constant": true
+      },
+      "overflow_65536": {
+        "fits": true,
+        "estimated_tokens": 18912,
+        "available_tokens": 61952,
+        "fits_at_sweep_constant": true
+      }
+    },
+    {
+      "ref": "CIP-014-3 R5",
+      "revision": "CIP-014-3",
+      "prompt_bytes": 73280,
+      "seat_32768": {
+        "fits": true,
+        "estimated_tokens": 22342,
+        "available_tokens": 29184,
+        "fits_at_sweep_constant": true
+      },
+      "overflow_65536": {
+        "fits": true,
+        "estimated_tokens": 22342,
+        "available_tokens": 61952,
+        "fits_at_sweep_constant": true
+      }
+    },
+    {
+      "ref": "CIP-014-3 R5 Part 5.1",
+      "revision": "CIP-014-3",
+      "prompt_bytes": 64902,
+      "seat_32768": {
+        "fits": true,
+        "estimated_tokens": 19788,
+        "available_tokens": 29184,
+        "fits_at_sweep_constant": true
+      },
+      "overflow_65536": {
+        "fits": true,
+        "estimated_tokens": 19788,
+        "available_tokens": 61952,
+        "fits_at_sweep_constant": true
+      }
+    },
+    {
+      "ref": "CIP-014-3 R5 Part 5.2",
+      "revision": "CIP-014-3",
+      "prompt_bytes": 48579,
+      "seat_32768": {
+        "fits": true,
+        "estimated_tokens": 14811,
+        "available_tokens": 29184,
+        "fits_at_sweep_constant": true
+      },
+      "overflow_65536": {
+        "fits": true,
+        "estimated_tokens": 14811,
+        "available_tokens": 61952,
+        "fits_at_sweep_constant": true
+      }
+    },
+    {
+      "ref": "CIP-014-3 R5 Part 5.3",
+      "revision": "CIP-014-3",
+      "prompt_bytes": 61309,
+      "seat_32768": {
+        "fits": true,
+        "estimated_tokens": 18692,
+        "available_tokens": 29184,
+        "fits_at_sweep_constant": true
+      },
+      "overflow_65536": {
+        "fits": true,
+        "estimated_tokens": 18692,
+        "available_tokens": 61952,
+        "fits_at_sweep_constant": true
+      }
+    },
+    {
+      "ref": "CIP-014-3 R5 Part 5.4",
+      "revision": "CIP-014-3",
+      "prompt_bytes": 61263,
+      "seat_32768": {
+        "fits": true,
+        "estimated_tokens": 18678,
+        "available_tokens": 29184,
+        "fits_at_sweep_constant": true
+      },
+      "overflow_65536": {
+        "fits": true,
+        "estimated_tokens": 18678,
+        "available_tokens": 61952,
+        "fits_at_sweep_constant": true
+      }
+    },
+    {
+      "ref": "CIP-014-3 R6 Part 6.1",
+      "revision": "CIP-014-3",
+      "prompt_bytes": 65069,
+      "seat_32768": {
+        "fits": true,
+        "estimated_tokens": 19839,
+        "available_tokens": 29184,
+        "fits_at_sweep_constant": true
+      },
+      "overflow_65536": {
+        "fits": true,
+        "estimated_tokens": 19839,
+        "available_tokens": 61952,
+        "fits_at_sweep_constant": true
+      }
+    },
+    {
+      "ref": "CIP-014-3 R6 Part 6.2",
+      "revision": "CIP-014-3",
+      "prompt_bytes": 63474,
+      "seat_32768": {
+        "fits": true,
+        "estimated_tokens": 19352,
+        "available_tokens": 29184,
+        "fits_at_sweep_constant": true
+      },
+      "overflow_65536": {
+        "fits": true,
+        "estimated_tokens": 19352,
+        "available_tokens": 61952,
+        "fits_at_sweep_constant": true
+      }
+    },
+    {
+      "ref": "CIP-014-3 R6 Part 6.3",
+      "revision": "CIP-014-3",
+      "prompt_bytes": 67634,
+      "seat_32768": {
+        "fits": true,
+        "estimated_tokens": 20621,
+        "available_tokens": 29184,
+        "fits_at_sweep_constant": true
+      },
+      "overflow_65536": {
+        "fits": true,
+        "estimated_tokens": 20621,
+        "available_tokens": 61952,
+        "fits_at_sweep_constant": true
+      }
+    },
+    {
+      "ref": "CIP-014-3 R6 Part 6.4",
+      "revision": "CIP-014-3",
+      "prompt_bytes": 63663,
+      "seat_32768": {
+        "fits": true,
+        "estimated_tokens": 19410,
+        "available_tokens": 29184,
+        "fits_at_sweep_constant": true
+      },
+      "overflow_65536": {
+        "fits": true,
+        "estimated_tokens": 19410,
+        "available_tokens": 61952,
+        "fits_at_sweep_constant": true
+      }
+    }
+  ],
+  "elapsed_s": 4.2
+}

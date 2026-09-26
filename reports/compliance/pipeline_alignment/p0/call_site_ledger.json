@@ -1,0 +1,389 @@
+{
+  "generated_at": "2026-09-26T12:19:53Z",
+  "base_commit": "4ed2bd7f6ed65111e736630e6aa3750e1f6100ce",
+  "default_dialect": "pipeline",
+  "rows": [
+    {
+      "site": "sweep.map_read",
+      "model_arg": "gemma4:26b-a4b-it-q4_K_M-ctx32k",
+      "config_prediction": "compliance-reading",
+      "dialect": "pipeline",
+      "correlation_id": "compliance-971fe9384394",
+      "trace_workspace": "compliance-reading",
+      "route_backend": "omlx-general",
+      "served_model": "mlx-community--gemma-4-26b-a4b-it-4bit",
+      "cascade": {
+        "failed_attempts": [],
+        "selected_backend": "omlx-general",
+        "selected_model": "mlx-community--gemma-4-26b-a4b-it-4bit",
+        "fell_back": false
+      },
+      "declared": {
+        "workspace_id": "compliance-reading",
+        "found": true,
+        "module": "compliance",
+        "model_hint": "gemma4:26b-a4b-it-q4_K_M-ctx32k",
+        "think": false,
+        "emits_reasoning": false,
+        "temperature": 0.3,
+        "top_p": 0.95,
+        "top_k": 20,
+        "min_p": 0.0,
+        "repeat_penalty": 1.1,
+        "predict_limit": 24576,
+        "context_limit": 32768
+      },
+      "wall_s": 0.0,
+      "ref": "CIP-002-5.1a Attachment 1 Part 1.1"
+    },
+    {
+      "site": "sweep.reduce_standard",
+      "model_arg": "gemma4:26b-a4b-it-q4_K_M-ctx32k",
+      "config_prediction": "compliance-reading",
+      "dialect": "pipeline",
+      "correlation_id": "run-3f897a0a465915b91d56",
+      "trace_workspace": "compliance-reading",
+      "route_backend": "omlx-general",
+      "served_model": "mlx-community--gemma-4-26b-a4b-it-4bit",
+      "cascade": {
+        "trace_error": {
+          "error": "HTTPError: HTTP Error 404: Not Found"
+        }
+      },
+      "declared": {
+        "workspace_id": "compliance-reading",
+        "found": true,
+        "module": "compliance",
+        "model_hint": "gemma4:26b-a4b-it-q4_K_M-ctx32k",
+        "think": false,
+        "emits_reasoning": false,
+        "temperature": 0.3,
+        "top_p": 0.95,
+        "top_k": 20,
+        "min_p": 0.0,
+        "repeat_penalty": 1.1,
+        "predict_limit": 24576,
+        "context_limit": 32768
+      },
+      "wall_s": 0.0,
+      "n_answers": 20,
+      "observed_correlation_id": "compliance-0672bf6585d8",
+      "trace_outcome": "complete"
+    },
+    {
+      "site": "reader.read",
+      "model_arg": "gemma4:26b-a4b-it-q4_K_M-ctx32k",
+      "config_prediction": "compliance-reading",
+      "dialect": "pipeline",
+      "correlation_id": "compliance-2214435bd801",
+      "trace_workspace": "compliance-reading",
+      "route_backend": "omlx-general",
+      "served_model": "mlx-community--gemma-4-26b-a4b-it-4bit",
+      "cascade": {
+        "failed_attempts": [],
+        "selected_backend": "omlx-general",
+        "selected_model": "mlx-community--gemma-4-26b-a4b-it-4bit",
+        "fell_back": false
+      },
+      "declared": {
+        "workspace_id": "compliance-reading",
+        "found": true,
+        "module": "compliance",
+        "model_hint": "gemma4:26b-a4b-it-q4_K_M-ctx32k",
+        "think": false,
+        "emits_reasoning": false,
+        "temperature": 0.3,
+        "top_p": 0.95,
+        "top_k": 20,
+        "min_p": 0.0,
+        "repeat_penalty": 1.1,
+        "predict_limit": 24576,
+        "context_limit": 32768
+      },
+      "wall_s": 0.0,
+      "ref": "CIP-002-5.1a Attachment 1 Part 1.1",
+      "turn_correlation_ids": [
+        "compliance-2214435bd801"
+      ],
+      "reader_failed": true,
+      "reader_stop_reason": "",
+      "reader_failure_reason": "the model answered without reading: it made no tool call, so the answer rests on the acquired packet alone out of 11 eligible section(s) \u2014 the closure's own completeness discipline on a one-line probe question, not a transport failure; the call itself completed on compliance-reading via oMLX"
+    },
+    {
+      "site": "reading.read_and_judge",
+      "model_arg": "hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k",
+      "config_prediction": "auto-compliance",
+      "dialect": "pipeline",
+      "correlation_id": "",
+      "trace_workspace": "auto-compliance",
+      "route_backend": "omlx-reasoning",
+      "served_model": "Qwen3.8-27B-oQ4e-mtp",
+      "cascade": {
+        "trace_error": {}
+      },
+      "declared": {
+        "workspace_id": "auto-compliance",
+        "found": true,
+        "module": "compliance",
+        "model_hint": "hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k",
+        "think": false,
+        "emits_reasoning": false,
+        "temperature": 0.3,
+        "top_p": 0.95,
+        "top_k": 20,
+        "min_p": 0.0,
+        "repeat_penalty": 1.1,
+        "predict_limit": 24576,
+        "context_limit": 32768
+      },
+      "wall_s": 0.0,
+      "note": "production context: report_fn/seat_fn None -> the site's chat closure; model = seats[0]. The closure does not surface a correlation id; the call's routing equals the council seat row for the same tag.",
+      "judgment_valid": false,
+      "observed_correlation_id": "compliance-416b80f64b63",
+      "trace_outcome": "complete"
+    },
+    {
+      "site": "obligation_alignment.qwen38",
+      "model_arg": "hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k",
+      "config_prediction": "auto-compliance",
+      "dialect": "pipeline",
+      "correlation_id": "",
+      "trace_workspace": "auto-compliance",
+      "route_backend": "omlx-reasoning",
+      "served_model": "Qwen3.8-27B-oQ4e-mtp",
+      "cascade": {
+        "trace_error": {}
+      },
+      "declared": {
+        "workspace_id": "auto-compliance",
+        "found": true,
+        "module": "compliance",
+        "model_hint": "hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k",
+        "think": false,
+        "emits_reasoning": false,
+        "temperature": 0.3,
+        "top_p": 0.95,
+        "top_k": 20,
+        "min_p": 0.0,
+        "repeat_penalty": 1.1,
+        "predict_limit": 24576,
+        "context_limit": 32768
+      },
+      "wall_s": 0.0,
+      "note": "alignment seat fn returns str; cid not surfaced \u2014 routing equals the council row for the same tag",
+      "observed_correlation_id": "compliance-f0a8ef50df83",
+      "trace_outcome": "error"
+    },
+    {
+      "site": "obligation_alignment.granite41",
+      "model_arg": "granite4.1:30b-ctx16k",
+      "config_prediction": "bench-granite41-30b",
+      "dialect": "pipeline",
+      "correlation_id": "",
+      "trace_workspace": "bench-granite41-30b",
+      "route_backend": "omlx-general",
+      "served_model": "granite-4.1-30b-4bit",
+      "cascade": {
+        "trace_error": {}
+      },
+      "declared": {
+        "workspace_id": "bench-granite41-30b",
+        "found": true,
+        "module": "eval",
+        "model_hint": "granite4.1:30b-ctx16k",
+        "temperature": 0.6,
+        "top_p": 0.95,
+        "repeat_penalty": 1.1,
+        "predict_limit": 8192,
+        "context_limit": 16384,
+        "max_concurrent": 1
+      },
+      "wall_s": 0.0,
+      "note": "alignment seat fn returns str; cid not surfaced \u2014 routing equals the council row for the same tag",
+      "observed_correlation_id": "compliance-301491fbd00c",
+      "trace_outcome": "complete"
+    },
+    {
+      "site": "obligation_alignment.deepseek_r1",
+      "model_arg": "hf.co/unsloth/DeepSeek-R1-0528-Qwen3-8B-GGUF:Q4_K_XL-ctx64k",
+      "config_prediction": "auto-reasoning",
+      "dialect": "pipeline",
+      "correlation_id": "",
+      "trace_workspace": "auto-reasoning",
+      "route_backend": "omlx-reasoning",
+      "served_model": "DeepSeek-R1-0528-Qwen3-8B-4bit",
+      "cascade": {
+        "trace_error": {}
+      },
+      "declared": {
+        "workspace_id": "auto-reasoning",
+        "found": true,
+        "module": "general",
+        "model_hint": "hf.co/unsloth/DeepSeek-R1-0528-Qwen3-8B-GGUF:Q4_K_XL-ctx64k",
+        "think": true,
+        "emits_reasoning": true,
+        "temperature": 0.6,
+        "top_p": 0.95,
+        "top_k": 40,
+        "min_p": 0.02,
+        "predict_limit": 16384,
+        "context_limit": 65536
+      },
+      "wall_s": 0.0,
+      "note": "alignment seat fn returns str; cid not surfaced \u2014 routing equals the council row for the same tag",
+      "observed_correlation_id": "compliance-630349adabb7",
+      "trace_outcome": "complete"
+    },
+    {
+      "site": "assessment_report.explain",
+      "model_arg": "hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k",
+      "config_prediction": "auto-compliance",
+      "dialect": "pipeline",
+      "correlation_id": "",
+      "trace_workspace": "auto-compliance",
+      "route_backend": "omlx-reasoning",
+      "served_model": "Qwen3.8-27B-oQ4e-mtp",
+      "cascade": {
+        "trace_error": {}
+      },
+      "declared": {
+        "workspace_id": "auto-compliance",
+        "found": true,
+        "module": "compliance",
+        "model_hint": "hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k",
+        "think": false,
+        "emits_reasoning": false,
+        "temperature": 0.3,
+        "top_p": 0.95,
+        "top_k": 20,
+        "min_p": 0.0,
+        "repeat_penalty": 1.1,
+        "predict_limit": 24576,
+        "context_limit": 32768
+      },
+      "wall_s": 0.0,
+      "note": "production: report_model '' -> model = seats[0]; transport is the site's chat closure (budget 8192, fmt json)",
+      "explanation_valid": false,
+      "observed_correlation_id": "compliance-1bb2648a5922",
+      "trace_outcome": "error"
+    },
+    {
+      "site": "council._ollama_seat.qwen38",
+      "model_arg": "hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k",
+      "config_prediction": "auto-compliance",
+      "dialect": "pipeline",
+      "correlation_id": "",
+      "trace_workspace": "auto-compliance",
+      "route_backend": "ollama-reasoning",
+      "served_model": "hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k",
+      "cascade": {
+        "trace_error": {}
+      },
+      "declared": {
+        "workspace_id": "auto-compliance",
+        "found": true,
+        "module": "compliance",
+        "model_hint": "hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k",
+        "think": false,
+        "emits_reasoning": false,
+        "temperature": 0.3,
+        "top_p": 0.95,
+        "top_k": 20,
+        "min_p": 0.0,
+        "repeat_penalty": 1.1,
+        "predict_limit": 24576,
+        "context_limit": 32768
+      },
+      "wall_s": 0.0,
+      "observed_correlation_id": "compliance-d7a67694aca2",
+      "trace_outcome": "error"
+    },
+    {
+      "site": "council._ollama_seat.granite41",
+      "model_arg": "granite4.1:30b-ctx16k",
+      "config_prediction": "bench-granite41-30b",
+      "dialect": "pipeline",
+      "correlation_id": "",
+      "trace_workspace": "bench-granite41-30b",
+      "route_backend": "ollama-general",
+      "served_model": "granite4.1:30b-ctx16k",
+      "cascade": {
+        "trace_error": {}
+      },
+      "declared": {
+        "workspace_id": "bench-granite41-30b",
+        "found": true,
+        "module": "eval",
+        "model_hint": "granite4.1:30b-ctx16k",
+        "temperature": 0.6,
+        "top_p": 0.95,
+        "repeat_penalty": 1.1,
+        "predict_limit": 8192,
+        "context_limit": 16384,
+        "max_concurrent": 1
+      },
+      "wall_s": 0.0,
+      "observed_correlation_id": "compliance-a99c8bd31a30",
+      "trace_outcome": "complete"
+    },
+    {
+      "site": "council._ollama_seat.deepseek_r1",
+      "model_arg": "hf.co/unsloth/DeepSeek-R1-0528-Qwen3-8B-GGUF:Q4_K_XL-ctx64k",
+      "config_prediction": "auto-reasoning",
+      "dialect": "pipeline",
+      "correlation_id": "",
+      "trace_workspace": "auto-reasoning",
+      "route_backend": "omlx-reasoning",
+      "served_model": "DeepSeek-R1-0528-Qwen3-8B-4bit",
+      "cascade": {
+        "trace_error": {}
+      },
+      "declared": {
+        "workspace_id": "auto-reasoning",
+        "found": true,
+        "module": "general",
+        "model_hint": "hf.co/unsloth/DeepSeek-R1-0528-Qwen3-8B-GGUF:Q4_K_XL-ctx64k",
+        "think": true,
+        "emits_reasoning": true,
+        "temperature": 0.6,
+        "top_p": 0.95,
+        "top_k": 40,
+        "min_p": 0.02,
+        "predict_limit": 16384,
+        "context_limit": 65536
+      },
+      "wall_s": 0.0,
+      "observed_correlation_id": "compliance-5510c1aa9a8c",
+      "trace_outcome": "complete"
+    }
+  ],
+  "sites_examined_and_excluded": [
+    {
+      "path": "portal/modules/compliance/core/candidate_links.py (vl_rerank) and propose.py",
+      "reason": "reaches the VL reranker/embedding service (retrieval stack, portal/platform/retrieval/embedding.py), not a chat-model seat; no workspace lane exists or applies"
+    },
+    {
+      "path": "portal/modules/compliance/tools/compliance_mcp.py:496, core/cip_register.py:205, core/nerc_source_sync.py:142",
+      "reason": "web/document fetches (nerc.com, source sync), not model calls"
+    }
+  ],
+  "observations": [
+    {
+      "finding": "the \u00a70.1 borrowed-lane table is confirmed live",
+      "detail": "council qwen38 resolved to auto-compliance (CVE-triage lane) served by omlx-reasoning; granite41 resolved to bench-granite41-30b, whose 07:16:40 turn was served by the OLLAMA bench tag (ollama-general, granite4.1:30b-ctx16k, 39s) rather than the oMLX conversion; deepseek_r1 resolved to auto-reasoning on omlx-reasoning. Three of four compliance seats ride lanes owned by other jobs."
+    },
+    {
+      "finding": "a transient pipeline error dropped the qwen38 council seat turn",
+      "detail": "compliance-d7a67694aca2 (07:16:40): oMLX backends were briefly absent from the candidate set (6 candidates), ollama-reasoning was selected and errored in 88ms; the seat's raw response carried no JSON and the seat would have been dropped. Recorded as observed; a single occurrence, not attributed further here."
+    },
+    {
+      "finding": "reduce_standard's receipt does not surface its transport",
+      "detail": "reduce_standard retains a store receipt only; its routing is invisible in the receipt (fixed in the \u00a7P3 receipt work \u2014 the payload now carries workspace/backend/served_model/applied_options)."
+    },
+    {
+      "finding": "wall_s on these rows is not credible",
+      "detail": "the ledger script timed the wrong section for rows whose work ran outside the timed lambda; routing fields above are the ledger's evidence, not these walls."
+    }
+  ],
+  "observed_traces_note": "correlation ids for rows whose call sites do not surface them were bound by call order and model tag against /v1/trace during the run"
+}
