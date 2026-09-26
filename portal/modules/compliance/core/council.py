@@ -47,6 +47,21 @@ _SEAT_BUDGET = 8192
 # imported by a long-lived MCP server, so an unbounded list would be a slow leak.
 _LAST_TRACE: deque[dict[str, Any]] = deque(maxlen=256)
 
+# reading_transport.DEFAULT_TEMPERATURE (0.0, greedy) is the right default for
+# a JSON-verdict task on an instruct model — deterministic, reproducible. It is
+# the WRONG default for a reasoning model: DeepSeek's own model card explicitly
+# warns that greedy decoding on DeepSeek-R1 causes repetition loops and
+# incoherent output, and recommends 0.5-0.7 (0.6) with top_p 0.95. council.py
+# has no per-seat sampling override in its call chain (SeatFn is just
+# (model, system, user) -> str), so without this table the deepseek_r1 seat
+# (promoted 2026-09-26, config/compliance/council.yaml) would silently run at
+# temperature 0 against its own vendor's guidance. Same pattern as
+# reading_transport._THINK_CAPABLE — a per-model exception table, not a
+# blanket change to the system-wide default the other seats rely on.
+_MODEL_TEMPERATURE: dict[str, float] = {
+    "hf.co/unsloth/DeepSeek-R1-0528-Qwen3-8B-GGUF:Q4_K_XL-ctx64k": 0.6,
+}
+
 _SEAT_SYSTEM = (
     "You are one sealed seat on a compliance review council. You receive a "
     "PRE-ANALYZED problem as JSON: one governing compliance unit already "
@@ -211,9 +226,16 @@ def _ollama_seat(model: str, system: str, user: str) -> str:
     downgraded for lacking the capability — which two of the three D0-M seats
     are, so the distinction has to be visible.
     """
-    from portal.modules.compliance.core.reading_transport import chat
+    from portal.modules.compliance.core.reading_transport import DEFAULT_TEMPERATURE, chat
 
-    result = chat(model, system, user, budget=_SEAT_BUDGET, fmt="json")
+    result = chat(
+        model,
+        system,
+        user,
+        budget=_SEAT_BUDGET,
+        fmt="json",
+        temperature=_MODEL_TEMPERATURE.get(model, DEFAULT_TEMPERATURE),
+    )
     _LAST_TRACE.append(
         {
             "model": model,

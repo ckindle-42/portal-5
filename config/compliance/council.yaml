@@ -15,18 +15,39 @@ seats:
   - id: granite41
     label: "IBM Granite 4.1 30B (16k)"
     model: "granite4.1:30b-ctx16k"
-  - id: mistral
-    label: "Mistral Small 3.2 24B (Q4_K_M)"
-    model: "mistral-small3.2:24b-instruct-2506-q4_K_M"
-    # UNDER REVIEW — docs/TASK_COMPLIANCE_READING_SEAT_REPLACEMENT_V1.md
-    # The roster was qualified on the OLD question (F2 violation detection over
-    # a pre-analyzed packet). On the reading task this seat gets
-    # documentary_coverage right 4/4 but attaches the counterevidence slice id
-    # only 1/4, and once emitted an id with a digit dropped. Its gaps are
-    # therefore unciteable: an operator cannot follow them to the sentence in
-    # their own procedure. The other two seats score 6/6 on the same four cases.
-    # Quorum still carries every case at 2-of-3, so this is a quality issue, not
-    # an outage. Not swapped here: PROMOTE_POLICY: confirm.
+  - id: deepseek_r1
+    label: "DeepSeek-R1-0528-Qwen3-8B (unsloth Q4_K_XL, 64k)"
+    model: "hf.co/unsloth/DeepSeek-R1-0528-Qwen3-8B-GGUF:Q4_K_XL-ctx64k"
+    # PROMOTED 2026-09-26, provisional — PROMOTE_POLICY: confirm (pre-UAT
+    # decision, explicitly revisitable, not a fresh 12-seat sweep result).
+    # Replaces the mistral seat below, which was UNDER REVIEW (docs/
+    # TASK_COMPLIANCE_READING_SEAT_REPLACEMENT_V1.md) for dropping/mangling
+    # the counterevidence slice id (1/4 correct, once with a digit dropped) —
+    # unciteable, though quorum still carried every case at 2-of-3. Picked
+    # for architectural diversity from the other two seats (reasoning-tuned
+    # Qwen3 distillation vs. IBM Granite vs. Mistral dense — a council of
+    # near-identical architectures votes less independently) and because its
+    # visible reasoning trace plausibly targets mistral's exact failure mode
+    # (it re-derives references before answering instead of citing from
+    # memory). Already production-proven in this codebase: auto-council's
+    # Operator seat and auto-reasoning's default both run it, and its oMLX
+    # tool-parser was rebuilt and live-probed 2026-09-25 (P5-FANOUT-001,
+    # clean typed calls at temperature 0 and 0.3). NOT yet run through this
+    # roster's own judgment-probe sweep (F2 / abstain-recall / schema on
+    # violation detection) — that's the real gap before trusting this beyond
+    # "better than a documented-broken seat."
+
+# Superseded seats, with evidence (do not re-add without a fresh sweep):
+#   mistral-small3.2:24b-instruct-2506-q4_K_M — SUPERSEDED 2026-09-26 by
+#     deepseek_r1 above. UNDER REVIEW since docs/
+#     TASK_COMPLIANCE_READING_SEAT_REPLACEMENT_V1.md: qualified on the OLD
+#     question (F2 violation detection over a pre-analyzed packet), but on the
+#     reading task got documentary_coverage right 4/4 while attaching the
+#     counterevidence slice id only 1/4 (once with a digit dropped) — gaps
+#     therefore unciteable, an operator can't follow them to the sentence in
+#     their own procedure. The other two seats scored 6/6 on the same four
+#     cases. Quorum still carried every case at 2-of-3, so this was a quality
+#     issue, not an outage.
 
 # Rejected candidates, with evidence (do not re-add without a fresh sweep):
 #   hf.co/unsloth/GLM-4.7-Flash-REAP-23B-A3B-GGUF   F2 0.40 — REAP pruning degrades reasoning
