@@ -6,10 +6,10 @@ Decision artifact for TASK_BULLY_P0_SPINE_REDUCTION_V1.md P0.1. `[GATE]`:
 produced read-only, best-evidenced classification made without a live
 operator sign-off in this run — flagged for review before P0.2+ acted on it.
 
-- Total canonical units at generation time: **750**
+- Total canonical units at generation time: **756**
 - KEEP-FACT: **54**
-- RELEASE: **72**
-- ARCHIVE: **624**
+- RELEASE: **77**
+- ARCHIVE: **625**
 
 ## KEEP-FACT
 
@@ -142,7 +142,12 @@ binding unit from the AW-governed set; P0.4 archives the now-orphaned unit.
 | `unit-known-limitations-compliance-implicit-change-recall` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
 | `unit-known-limitations-compliance-review-queue-not-a-gate` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
 | `unit-known-limitations-compliance-scope-was-gated-on-data-the-corpus-already-answers` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
+| `unit-known-limitations-engine-update-data01-approval` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
 | `unit-known-limitations-minimax-music3-mlx` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
+| `unit-known-limitations-ollama-v1-sampling-drop` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
+| `unit-known-limitations-omlx-qwen3coder-tool-text` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
+| `unit-known-limitations-pipeline-hardening-20260925` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
+| `unit-known-limitations-unregistered-hint-fallback` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
 | `unit-known-limitations-vl-text-gate-tuned-against-manufactured-collision` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
 | `unit-user-guide-cross-session-memory` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
 | `unit-user-guide-getting-access` | prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact |
@@ -364,6 +369,7 @@ P0.4 candidates for the archive bridge rule.
 | `unit-corpus-injection-verify-lane-b` | prose-only: no claim, no fact, not referenced by a live doc block |
 | `unit-corpus-injection-verify-lane-c` | prose-only: no claim, no fact, not referenced by a live doc block |
 | `unit-corpus-injection-why-corpus-data-coexists-safely-with-bench-runs` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-design-ollama-native-dispatch` | prose-only: no claim, no fact, not referenced by a live doc block |
 | `unit-design-omlx-dual-backend-plumbing` | prose-only: no claim, no fact, not referenced by a live doc block |
 | `unit-design-wiki-archive-mechanism` | prose-only: no claim, no fact, not referenced by a live doc block |
 | `unit-fixture-capability-context-sample` | prose-only: no claim, no fact, not referenced by a live doc block |
@@ -560,9 +566,7 @@ P0.4 candidates for the archive bridge rule.
 | `unit-model-catalog-huihui-ai-tongyi-deepresearch-abliterated-latest-ctx64k` | prose-only: no claim, no fact, not referenced by a live doc block |
 | `unit-model-catalog-jackrong-deepseek-v4-pro-qwen3-5-4b-mtp` | prose-only: no claim, no fact, not referenced by a live doc block |
 | `unit-model-catalog-jackrong-deepseek-v4-pro-qwen3-5-9b-mtp` | prose-only: no claim, no fact, not referenced by a live doc block |
-| `unit-model-catalog-laguna-xs-2-4bit` | prose-only: no claim, no fact, not referenced by a live doc block |
-| `unit-model-catalog-laguna-xs-2-q4-k-m` | prose-only: no claim, no fact, not referenced by a live doc block |
-| `unit-model-catalog-laguna-xs-2-q4-k-m-ctx64k` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-model-catalog-laguna-xs-2-1-4bit` | prose-only: no claim, no fact, not referenced by a live doc block |
 | `unit-model-catalog-lfm2-5-8b` | prose-only: no claim, no fact, not referenced by a live doc block |
 | `unit-model-catalog-lfm2-5-8b-ctx8k` | prose-only: no claim, no fact, not referenced by a live doc block |
 | `unit-model-catalog-llama-3-2-3b-instruct-8bit` | prose-only: no claim, no fact, not referenced by a live doc block |
@@ -730,6 +734,7 @@ P0.4 candidates for the archive bridge rule.
 | `unit-security-knowledge-surface` | prose-only: no claim, no fact, not referenced by a live doc block |
 | `unit-security-tools-mcp-surface` | prose-only: no claim, no fact, not referenced by a live doc block |
 | `unit-surface-acceptance` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-surface-archive-engine-h2h` | prose-only: no claim, no fact, not referenced by a live doc block |
 | `unit-surface-archive-mlx` | prose-only: no claim, no fact, not referenced by a live doc block |
 | `unit-surface-benchmarks` | prose-only: no claim, no fact, not referenced by a live doc block |
 | `unit-surface-binary-research` | prose-only: no claim, no fact, not referenced by a live doc block |
@@ -740,6 +745,7 @@ P0.4 candidates for the archive bridge rule.
 | `unit-surface-investigation` | prose-only: no claim, no fact, not referenced by a live doc block |
 | `unit-surface-mcp-host` | prose-only: no claim, no fact, not referenced by a live doc block |
 | `unit-surface-notifications` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-surface-omlx-tool-parsers` | prose-only: no claim, no fact, not referenced by a live doc block |
 | `unit-surface-persona-matrix` | prose-only: no claim, no fact, not referenced by a live doc block |
 | `unit-surface-portal-wiki` | prose-only: no claim, no fact, not referenced by a live doc block |
 | `unit-surface-router` | prose-only: no claim, no fact, not referenced by a live doc block |

@@ -332,6 +332,8 @@ def aggregate(rows: list[dict], cases: list[dict]) -> dict:
 
 
 def unload(model: str) -> None:
+    if _PIPELINE_MODE:
+        return  # residency is the pipeline's, not Ollama's to drop
     with contextlib.suppress(Exception):
         req = urllib.request.Request(
             f"{OLLAMA_URL}/api/generate",
@@ -339,6 +341,150 @@ def unload(model: str) -> None:
             headers={"Content-Type": "application/json"},
         )
         urllib.request.urlopen(req, timeout=20).read()
+
+
+# ── PIPELINE_ALIGNMENT_V1 §P6: the pipeline transport ────────────────────────
+# The original instrument spoke Ollama's native /api/chat directly — that is
+# the transport the 2026-09-06 sweep QUALIFIED the roster on, and it stays the
+# default so the old numbers remain reproducible. `--transport pipeline` runs
+# the same 30 cases and the same scorer through the product path: seats are
+# addressed by their compliance-owned workspace id, sampling is the WORKSPACE's
+# declared policy (no caller temperature — that is the §P1 ownership
+# objective), and the receipt carries the applied settings from the trace.
+
+_PIPELINE_MODE = False
+PIPELINE_URL = "http://localhost:9099"
+
+
+def _pipeline_post(model: str, system: str, user: str, timeout: int) -> dict:
+    # Production seat budget (council._SEAT_BUDGET), not the probe's native-
+    # era 700: the product runs seats at 8192, and DeepSeek-R1 — which reasons
+    # on every call and cannot suppress it — spends the legacy 700 entirely in
+    # its trace before any JSON appears (measured live, 2026-09-26: every case
+    # pred=ERR with content that is pure reasoning prose). §P6 asks whether the
+    # seat clears the bar AS THE PRODUCT RUNS IT.
+    from portal.modules.compliance.core.council import _SEAT_BUDGET
+    from portal.modules.compliance.core.transport_dialects import _pipeline_api_key
+
+    payload = {
+        "model": model,
+        "messages": [
+            {"role": "system", "content": system},
+            {"role": "user", "content": user},
+        ],
+        "stream": False,
+        "max_tokens": _SEAT_BUDGET,
+        "response_format": {"type": "json_object"},
+        "portal_client_tools_only": True,
+    }
+    headers = {
+        "Content-Type": "application/json",
+        "Authorization": f"Bearer {_pipeline_api_key()}",
+    }
+    correlation_id = f"judgment-probe-{__import__('os').urandom(6).hex()}"
+    headers["X-Correlation-ID"] = correlation_id
+    req = urllib.request.Request(
+        f"{PIPELINE_URL}/v1/chat/completions",
+        data=json.dumps(payload).encode(),
+        headers=headers,
+    )
+    t0 = time.monotonic()
+    with urllib.request.urlopen(req, timeout=timeout) as r:  # noqa: S310 - fixed localhost
+        body = json.load(r)
+    wall = time.monotonic() - t0
+    message = (body.get("choices") or [{}])[0].get("message") or {}
+    # DeepSeek-R1 CANNOT suppress its thinking (the template has no thinking
+    # conditional) — it must be EXTRACTED. The pipeline's reasoning parser
+    # moves the trace to `reasoning_content`; an inline <think> block is
+    # stripped defensively for any route whose parser is not configured, and
+    # the extraction is recorded so prose reasoning can never masquerade as
+    # the answer (operator note, 2026-09-26).
+    content = str(message.get("content", "") or "")
+    thinking = str(message.get("reasoning_content") or message.get("reasoning") or "")
+    inline_think_stripped = "<think>" in content.lower()
+    if inline_think_stripped:
+        from portal.modules.compliance.core.reading_transport import strip_inline_reasoning
+
+        content = strip_inline_reasoning(content)
+    usage = body.get("usage") or {}
+    eval_tokens = usage.get("completion_tokens") or 0
+    prompt_tokens = usage.get("prompt_tokens") or 0
+    applied = None
+    with contextlib.suppress(Exception):
+        treq = urllib.request.Request(
+            f"{PIPELINE_URL}/v1/trace/{correlation_id}",
+            headers={"Authorization": f"Bearer {_pipeline_api_key()}"},
+        )
+        with urllib.request.urlopen(treq, timeout=10) as r:
+            trace = json.load(r)
+        applied = {
+            "workspace": trace.get("workspace"),
+            "backend": trace.get("backend"),
+            "served_model": trace.get("model"),
+            "options_applied": trace.get("options_applied"),
+        }
+    return {
+        "content": content,
+        "thinking_chars": len(thinking),
+        "inline_think_stripped": inline_think_stripped,
+        "prompt_tokens": prompt_tokens,
+        "eval_tokens": eval_tokens,
+        "tps": round(eval_tokens / wall, 1) if wall and eval_tokens else None,
+        "wall_s": round(wall, 2),
+        "trace": applied,
+        "correlation_id": correlation_id,
+    }
+
+
+def _pipeline_run_case(model: str, case: dict, system: str) -> dict:
+    try:
+        probe = _pipeline_post(model, system, packet(case), timeout=TIMEOUT)
+    except Exception as e:  # noqa: BLE001 - a failed case is a recorded cell
+        return {"id": case["id"], "error": str(e), "trace": None}
+    return {
+        "id": case["id"],
+        "raw": probe["content"][:2000],
+        "raw_full": probe["content"],
+        "thinking_chars": probe.get("thinking_chars", 0),
+        "inline_think_stripped": probe.get("inline_think_stripped", False),
+        "request": {"model": model, "transport": "pipeline", "max_tokens": "council._SEAT_BUDGET"},
+        "parsed": parse_output(probe["content"]),
+        "prompt_tokens": probe["prompt_tokens"],
+        "eval_tokens": probe["eval_tokens"],
+        "tps": probe["tps"],
+        "wall_s": probe["wall_s"],
+        "trace": probe.get("trace"),
+        "correlation_id": probe.get("correlation_id"),
+    }
+
+
+def _pipeline_preflight(model: str, system: str) -> dict:
+    """Pipeline-mode preflight: one live verdict call; JSON parses; the trace
+    names the workspace that answered and the sampling it APPLIED."""
+    out: dict = {"model": model, "transport": "pipeline"}
+    try:
+        probe = _pipeline_post(
+            model,
+            system,
+            json.dumps(
+                {
+                    "governing_unit": {"ref": "PROBE R1"},
+                    "premises": [],
+                    "candidate_implementation": None,
+                    "packet_complete": False,
+                }
+            ),
+            timeout=TIMEOUT,
+        )
+    except Exception as e:  # noqa: BLE001 - a dead pipeline is the finding
+        out.update(verdict="FAIL", json_ok=False, error=str(e))
+        return out
+    obj = parse_output(probe["content"])
+    out["json_ok"] = bool(obj)
+    out["trace"] = probe.get("trace")
+    out["applied"] = (probe.get("trace") or {}).get("options_applied")
+    out["verdict"] = "OK" if out["json_ok"] else "CONFIG_UNVERIFIED"
+    return out
 
 
 _SAMPLING_KEYS = ("temperature", "top_p", "top_k", "min_p", "repeat_penalty", "num_ctx")
@@ -354,7 +500,9 @@ def _post(path: str, payload: dict, timeout: int = 120) -> dict:
         return json.load(r)
 
 
-def preflight(model: str) -> dict:
+def preflight(model: str, system: str | None = None) -> dict:
+    if _PIPELINE_MODE:
+        return _pipeline_preflight(model, system or _SYSTEM)
     """Verify the seat is usable before scoring it (Y28 + the operator's note
     that chat templates / sampling settings are often wrong out of the box):
 
@@ -447,6 +595,8 @@ def _is_json(s: str) -> bool:
 
 
 def run_case(model: str, case: dict, baked: dict | None = None, system: str | None = None) -> dict:
+    if _PIPELINE_MODE:
+        return _pipeline_run_case(model, case, system=system or _SYSTEM)
     # the model's own baked sampling params (from /api/show), with a
     # deterministic temperature and a fixed predict budget for the task
     opts = {k: v for k, v in (baked or {}).items() if k != "num_ctx"}
@@ -724,7 +874,7 @@ def _per_case_table(r: dict) -> str:
     )
 
 
-def main() -> None:
+def _build_arg_parser() -> argparse.ArgumentParser:
     ap = argparse.ArgumentParser()
     ap.add_argument("--models", nargs="*", default=[])
     ap.add_argument("--seats-file", type=Path)
@@ -739,7 +889,22 @@ def main() -> None:
     ap.add_argument(
         "--notify", action="store_true", help="push start/per-seat/done to enabled channels"
     )
-    args = ap.parse_args()
+    ap.add_argument(
+        "--transport",
+        default="ollama",
+        choices=("ollama", "pipeline"),
+        help="ollama: the original native /api/chat instrument (the transport the "
+        "2026-09-06 sweep qualified on). pipeline: the product path — seats are "
+        "workspace ids, sampling is the owned workspace's declared policy.",
+    )
+    return ap
+
+
+def main() -> None:
+    args = _build_arg_parser().parse_args()
+
+    global _PIPELINE_MODE
+    _PIPELINE_MODE = args.transport == "pipeline"
 
     cases = load_cases()
     assert len(cases) == 30, f"probe has {len(cases)} cases, expected 30"
@@ -762,7 +927,7 @@ def main() -> None:
             if ln.strip() and not ln.startswith("#")
         ]
     if not models:
-        ap.error("no models given (--models or --seats-file)")
+        raise SystemExit("no models given (--models or --seats-file)")
 
     debug_dir = args.debug_dir
     out = RESULTS_DIR / f"judgment_probe_v6_{ts}.json"
