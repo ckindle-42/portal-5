@@ -70,9 +70,12 @@ _BASELINE_DIR = Path(__file__).resolve().parent / "results" / "baselines"
 
 # Ollama direct URL — used for blue/purple chain tests that bypass the pipeline.
 OLLAMA_URL = "http://localhost:11434"
-# Explicit routing: pipeline is the real serving path. Only bypass to
-# direct Ollama when BLUE_DIRECT_OLLAMA=true (rare debugging escape hatch).
-_BLUE_DIRECT_OLLAMA = os.environ.get("BLUE_DIRECT_OLLAMA", "").lower() == "true"
+# Explicit routing: pipeline is the real serving path. Only bypass to direct
+# Ollama when BLUE_DIRECT_OLLAMA=true AND the shared
+# PORTAL_SECURITY_DIRECT_ENGINE_DIAGNOSTIC gate are both set (rare,
+# explicitly-named debugging escape hatch — TASK_AUTO_COUNCIL_PIPELINE_
+# REVISIT_V1 P1.5: BLUE_DIRECT_OLLAMA alone used to be enough). Evaluated
+# per-call via _direct_engine_diagnostic, not cached at import time.
 
 
 # ── TelemetryBackend implementations ─────────────────────────────────────────
@@ -1109,7 +1112,9 @@ def _run_blue_chain_test(
     # Routing: pipeline is the real serving path (workspace slugs, persona
     # prompts, tool injection). Only bypass to direct Ollama when explicitly
     # requested via env — never by inspecting the model name string.
-    _use_pipeline = not _BLUE_DIRECT_OLLAMA
+    from ._direct_engine_diagnostic import direct_engine_diagnostic_enabled
+
+    _use_pipeline = not direct_engine_diagnostic_enabled("BLUE_DIRECT_OLLAMA")
     _headers: dict[str, str] = {"Content-Type": "application/json"}
     if PIPELINE_API_KEY:
         _headers["Authorization"] = f"Bearer {PIPELINE_API_KEY}"

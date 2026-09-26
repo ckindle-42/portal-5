@@ -300,6 +300,77 @@ class TestPipelineAPI:
         }
 
 
+class TestStrictSeatEnforcement:
+    """TASK_AUTO_COUNCIL_PIPELINE_REVISIT_V1 P1.2/P1.3: portal_strict_seat is
+    an opt-in per-request flag that rejects an unaddressable `model` BEFORE
+    candidate selection, instead of letting it fall through to
+    get_backend_candidates' fallback_group clamp (the root cause of both of
+    the task's live wrong-seat probes)."""
+
+    def test_unknown_model_with_strict_seat_returns_404(self, client):
+        resp = client.post(
+            "/v1/chat/completions",
+            json={
+                "model": "not-a-real-workspace-or-tag",
+                "messages": [{"role": "user", "content": "hi"}],
+                "stream": False,
+                "portal_strict_seat": True,
+            },
+            headers=HEADERS,
+        )
+        assert resp.status_code == 404
+        assert "not-a-real-workspace-or-tag" in resp.json()["detail"]
+
+    def test_unknown_model_without_strict_seat_is_not_rejected_by_the_gate(self, client):
+        # No portal_strict_seat -- ordinary general-chat fallback behavior is
+        # untouched. The fake backend can't really serve, so this still
+        # fails downstream, but it must NOT be this gate's 404.
+        resp = client.post(
+            "/v1/chat/completions",
+            json={
+                "model": "not-a-real-workspace-or-tag",
+                "messages": [{"role": "user", "content": "hi"}],
+                "stream": False,
+            },
+            headers=HEADERS,
+        )
+        assert resp.status_code != 404
+
+    def test_known_workspace_with_strict_seat_is_not_rejected(self, client, monkeypatch):
+        from fastapi.responses import JSONResponse
+
+        import portal.platform.inference.router.handlers as handlers_mod
+
+        async def fake_non_streaming(*_args, **_kwargs):
+            return JSONResponse(
+                {
+                    "id": "chatcmpl-test",
+                    "choices": [
+                        {
+                            "message": {"role": "assistant", "content": "ok"},
+                            "finish_reason": "stop",
+                        }
+                    ],
+                    "usage": {"prompt_tokens": 1, "completion_tokens": 1},
+                },
+                headers={"x-portal-route": "auto-daily;test-backend;test-model"},
+            )
+
+        monkeypatch.setattr(handlers_mod, "_try_non_streaming", fake_non_streaming)
+
+        resp = client.post(
+            "/v1/chat/completions",
+            json={
+                "model": "auto-daily",
+                "messages": [{"role": "user", "content": "hi"}],
+                "stream": False,
+                "portal_strict_seat": True,
+            },
+            headers=HEADERS,
+        )
+        assert resp.status_code == 200
+
+
 class TestMetricsEndpoint:
     def test_metrics_endpoint_returns_200(self, client):
         resp = client.get("/metrics", headers=HEADERS)
