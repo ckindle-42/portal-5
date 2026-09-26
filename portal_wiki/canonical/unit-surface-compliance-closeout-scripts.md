@@ -41,6 +41,8 @@ sources:
   path: scripts/compliance/lane_alteration_diff.py
 - type: code
   path: scripts/compliance/self_agreement_pipeline.py
+- type: code
+  path: scripts/compliance/pipeline_alignment_verify.py
 claims: []
 confidence: high
 tags:
@@ -128,3 +130,9 @@ model_hint rewritten to a sentinel — a moved resolution is a seat living in
 a borrowed lane. `self_agreement_pipeline` (§P4) reads one standard twice
 per arm, sequential and concurrent, and compares determinations as triple
 sets — the reproducibility number for the engine that actually serves.
+`pipeline_alignment_verify` (§P1/§P2/§P3 acceptance) calls each council seat
+through its production address (`council._seat_address`, not the raw tag a
+hint could mis-resolve), reads CIP-003-8 R1 through the overflow seat
+end-to-end, and probes the Ollama fallback's window capacity with a
+~64k-token prompt read back from the runner — the receipts carry the
+pipeline's applied sampling and thinking per seat.

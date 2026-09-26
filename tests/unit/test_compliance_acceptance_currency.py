@@ -179,6 +179,8 @@ class TestHHTemplateIdentity:
         pin = tmp_path / "pin.json"
         pin.write_text(json.dumps({"seats": [{"seat": "seat-a", "template_sha": sha}]}))
         monkeypatch.setattr(check, "CAMPAIGN_PIN", pin)
+        # The native-era fixture must not be shadowed by a repo-level V2 pin.
+        monkeypatch.setattr(check, "CAMPAIGN_PIN_V2", tmp_path / "absent-v2.json")
 
     def test_a_matching_sha_passes(self, tmp_path, acceptance_root, monkeypatch) -> None:
         self._pin(tmp_path, monkeypatch, "aaaaaaaaaaaa")
@@ -216,9 +218,104 @@ class TestHHTemplateIdentity:
 
     def test_a_missing_pin_fails(self, tmp_path, acceptance_root, monkeypatch) -> None:
         monkeypatch.setattr(check, "CAMPAIGN_PIN", tmp_path / "absent.json")
+        monkeypatch.setattr(check, "CAMPAIGN_PIN_V2", tmp_path / "absent-v2.json")
         status, detail, _ = check._compliance_seat_template_identity()
         assert status == "FAIL"
         assert "compliance_preflight" in detail
+
+
+class TestHHPipelinePin:
+    """HH against the pipeline-era pin: each engine on the seat's serving
+    route is certified with its OWN template sha (PIPELINE_ALIGNMENT_V1 §P5).
+    The native failure this closes: HH read Ollama's /api/show while oMLX
+    served — it certified the fallback for a campaign the primary answered."""
+
+    def _pipeline_pin(self, tmp_path, monkeypatch, primary_sha: str) -> None:
+        pin = tmp_path / "pin-v2.json"
+        pin.write_text(
+            json.dumps(
+                {
+                    "path": "pipeline",
+                    "seats": [
+                        {
+                            "seat": "seat-a",
+                            "workspace": "compliance-reading",
+                            "serving_route": {
+                                "route": [
+                                    {
+                                        "backend": "omlx-general",
+                                        "engine": "omlx",
+                                        "served_model": "seat-a-mlx",
+                                        "template": {"tokenizer_config_chat_template": primary_sha},
+                                    },
+                                    {
+                                        "backend": "ollama-general",
+                                        "engine": "ollama",
+                                        "served_model": "seat-a-tag",
+                                        "template": {"api_show_template_sha": "fallback-sha"},
+                                    },
+                                ]
+                            },
+                        }
+                    ],
+                }
+            )
+        )
+        monkeypatch.setattr(check, "CAMPAIGN_PIN_V2", pin)
+        monkeypatch.setattr(check, "CAMPAIGN_PIN", tmp_path / "absent-v1.json")
+
+    def test_matching_pipeline_pin_passes(self, tmp_path, acceptance_root, monkeypatch) -> None:
+        self._pipeline_pin(tmp_path, monkeypatch, "primary-sha")
+        monkeypatch.setattr(
+            "tests.wfe.settings_audit._template_sha_omlx",
+            lambda model: {"tokenizer_config_chat_template": "primary-sha"},
+        )
+        monkeypatch.setattr("tests.wfe.settings_audit._template_sha", lambda tag: "fallback-sha")
+        status, detail, _ = check._compliance_seat_template_identity()
+        assert status == "PASS", detail
+
+    def test_moved_primary_template_fails_even_when_fallback_matches(
+        self, tmp_path, acceptance_root, monkeypatch
+    ) -> None:
+        """The failure V1 could not see: the engine that ANSWERS moved while
+        the engine HH happened to read stayed put."""
+        self._pipeline_pin(tmp_path, monkeypatch, "primary-sha")
+        monkeypatch.setattr(
+            "tests.wfe.settings_audit._template_sha_omlx",
+            lambda model: {"tokenizer_config_chat_template": "moved-sha"},
+        )
+        monkeypatch.setattr("tests.wfe.settings_audit._template_sha", lambda tag: "fallback-sha")
+        status, detail, _ = check._compliance_seat_template_identity()
+        assert status == "FAIL"
+        assert "primary-sha" in detail and "moved-sha" in detail
+
+    def test_native_per_run_pin_does_not_shadow_pipeline_campaign_pin(
+        self, tmp_path, acceptance_root, monkeypatch
+    ) -> None:
+        self._pipeline_pin(tmp_path, monkeypatch, "primary-sha")
+        monkeypatch.setattr(
+            "tests.wfe.settings_audit._template_sha_omlx",
+            lambda model: {"tokenizer_config_chat_template": "primary-sha"},
+        )
+        monkeypatch.setattr("tests.wfe.settings_audit._template_sha", lambda tag: "fallback-sha")
+        runs = tmp_path / "acceptance"
+        runs.mkdir(exist_ok=True)
+        run_dir = runs / "run-native"
+        run_dir.mkdir()
+        (run_dir / "status.json").write_text(
+            json.dumps({"git_head": "abc", "cells": [{"passed": True}], "updated_at": "1"})
+        )
+        (run_dir / "preflight.json").write_text(
+            json.dumps({"seats": [{"seat": "seat-a", "template_sha": "native-sha"}]})
+        )
+        monkeypatch.setattr(check, "ACCEPTANCE_ROOT", runs)
+        monkeypatch.setattr(
+            check,
+            "_acceptance_runs",
+            lambda: [{"dir": "run-native", "updated_at": "1", "complete": True, "cells": 1}],
+        )
+        status, _, _ = check._compliance_seat_template_identity()
+        assert status == "PASS"
 
 
 class TestHHInServiceSkip:

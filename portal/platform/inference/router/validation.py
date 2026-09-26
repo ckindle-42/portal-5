@@ -91,7 +91,10 @@ def _note_applied_options(body: dict[str, Any], workspace_id: str) -> None:
                 "presence_penalty": body.get("presence_penalty"),
                 "repetition_penalty": body.get("repetition_penalty"),
                 "seed": body.get("seed"),
-                "max_tokens": body.get("max_tokens"),
+                # Named output_limit, not max_tokens: the trace store's
+                # credential redaction substring-matches "token" and would
+                # redact the applied output budget out of the receipt.
+                "output_limit": body.get("max_tokens"),
                 "num_ctx": options.get("num_ctx"),
                 "think": body.get("think"),
                 "enable_thinking": ctk.get("enable_thinking"),

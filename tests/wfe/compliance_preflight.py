@@ -350,6 +350,100 @@ def pin_seat(seat: str, ref: str, num_ctx: int) -> dict[str, Any]:
     }
 
 
+def _serving_route(tag: str) -> list[dict[str, Any]]:
+    """The route the pipeline takes for `tag`, from config — primary first.
+
+    Mirrors get_backend_candidates' shape at the level HH needs: which backends
+    can serve the tag (in `models` or translated by an `aliases` entry), by
+    priority descending. The priority-10 oMLX shadow IS the primary when
+    present; the Ollama tag is the fallback — the two engines the §P5 pin must
+    each certify with their own template sha.
+    """
+    import yaml
+
+    backends = yaml.safe_load((REPO / "config" / "backends.yaml").read_text()) or {}
+    route: list[dict[str, Any]] = []
+    for be in backends.get("backends") or []:
+        engine = be.get("type") or "ollama"
+        entries = [m.get("id") for m in (be.get("models") or []) if isinstance(m, dict)]
+        alias_target = (be.get("aliases") or {}).get(tag)
+        if tag in entries:
+            route.append(
+                {
+                    "backend": be.get("id"),
+                    "group": be.get("group"),
+                    "priority": be.get("priority", 0),
+                    "engine": engine,
+                    "served_model": tag,
+                    "via": "models",
+                }
+            )
+        elif alias_target:
+            route.append(
+                {
+                    "backend": be.get("id"),
+                    "group": be.get("group"),
+                    "priority": be.get("priority", 0),
+                    "engine": engine,
+                    "served_model": alias_target,
+                    "via": "alias",
+                }
+            )
+    route.sort(key=lambda r: r["priority"], reverse=True)
+    return route
+
+
+def _pin_route_templates(tag: str) -> dict[str, Any]:
+    """Template identity for every engine on the seat's route, each against
+    its own reader — Ollama through /api/show, oMLX through the served model
+    directory. This is what makes HH certify the ENGINE THAT SERVES instead of
+    whichever one /api/show can see."""
+    from tests.wfe.settings_audit import _template_sha, _template_sha_omlx
+
+    entries = []
+    for hop in _serving_route(tag):
+        if hop["engine"] == "omlx":
+            template = _template_sha_omlx(hop["served_model"])
+        else:
+            sha = _template_sha(hop["served_model"])
+            template = {"api_show_template_sha": sha} if sha else None
+        entries.append({**hop, "template": template})
+    return {"tag": tag, "route": entries}
+
+
+def pin_v2(seats: list[str]) -> dict[str, Any]:
+    """The campaign pin for the PIPELINE era (SETTINGS_PREFLIGHT_V2).
+
+    Per seat: the workspace its tag resolves to, the workspace's declared
+    window (what the pipeline serves — request num_ctx is dropped), and the
+    per-engine route with each engine's own template sha. No model probe here:
+    the window/runtime checks this file made on the native path (a request
+    could exceed the baked window) do not describe the pipeline, and the
+    pipeline's applied-settings receipt carries that truth per call instead.
+    """
+    from portal.platform.inference.model_addressing import (
+        workspace_context_limit,
+        workspace_id_for_model,
+    )
+
+    return {
+        "generated_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+        "git_rev": subprocess.check_output(
+            ["git", "-C", str(REPO), "rev-parse", "HEAD"], text=True
+        ).strip(),
+        "path": "pipeline",
+        "seats": [
+            {
+                "seat": tag,
+                "workspace": workspace_id_for_model(tag),
+                "declared_context_limit": workspace_context_limit(workspace_id_for_model(tag)),
+                "serving_route": _pin_route_templates(tag),
+            }
+            for tag in seats
+        ],
+    }
+
+
 def run(seats: list[str], ref: str = LARGEST_REF, num_ctx: int = 0) -> dict[str, Any]:
     from portal.modules.compliance.core.reading_transport import DEFAULT_NUM_CTX
 
@@ -379,7 +473,21 @@ def main() -> int:
     parser.add_argument("--num-ctx", type=int, default=0)
     parser.add_argument("--json", action="store_true")
     parser.add_argument("--survey", action="store_true", help="populations only, no model calls")
+    parser.add_argument(
+        "--pin-v2",
+        type=Path,
+        default="",
+        help="write the pipeline-era campaign pin (per-engine serving routes and "
+        "template shas, no model probes) to this path and exit",
+    )
     args = parser.parse_args()
+
+    if args.pin_v2:
+        seats = args.seat or [reading_seat()]
+        args.pin_v2.parent.mkdir(parents=True, exist_ok=True)
+        args.pin_v2.write_text(json.dumps(pin_v2(seats), indent=1))
+        print(f"v2 pin written: {args.pin_v2}")
+        return 0
 
     if args.survey:
         print(json.dumps(populations(), indent=1))

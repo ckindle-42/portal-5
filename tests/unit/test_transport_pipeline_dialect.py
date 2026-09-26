@@ -324,7 +324,9 @@ def test_note_applied_options_records_post_injection_body():
         trace_module.note = original
     applied = seen["options_applied"]
     assert applied["temperature"] == 0.42
-    assert applied["max_tokens"] == 777
+    # output_limit, not max_tokens — the credential redactor substring-matches
+    # "token" and would redact the applied output budget out of the receipt.
+    assert applied["output_limit"] == 777
     assert applied["num_ctx"] == 16384
     assert applied["enable_thinking"] is False
     assert applied["workspace"] == "compliance-reading"

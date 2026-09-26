@@ -26,6 +26,7 @@ import argparse
 import contextlib
 import json
 import re
+import time
 import urllib.error
 import urllib.request
 from pathlib import Path
@@ -559,6 +560,62 @@ def _template_sha(tag: str) -> str | None:
         show = _post("/api/show", {"model": tag}, timeout=30)
         if show.get("template") is not None:
             return hashlib.sha256(show["template"].encode()).hexdigest()[:12]
+    return None
+
+
+def _omlx_model_dirs() -> list[Path]:
+    """The directories oMLX serves models from, per its own settings file."""
+    import os
+
+    out: list[Path] = []
+    settings = Path(os.path.expanduser("~/.omlx/settings.json"))
+    with contextlib.suppress(Exception):
+        data = json.loads(settings.read_text())
+        for d in (data.get("model") or {}).get("model_dirs") or []:
+            out.append(Path(d))
+        single = (data.get("model") or {}).get("model_dir")
+        if single and Path(single) not in out:
+            out.append(Path(single))
+    return out
+
+
+def _template_sha_omlx(model_id: str) -> dict | None:
+    """The chat template of an oMLX conversion, read from its model directory.
+
+    oMLX exposes no /api/show; the served template is the model directory's
+    ``tokenizer_config.json`` ``chat_template`` (the form the live loader
+    reads), falling back to a standalone ``chat_template.jinja``. Both shapes
+    are hashed when both exist, so a pin cannot be fooled by which one the
+    loader happened to prefer. Returns ``None`` when no directory is found —
+    the caller records the absence rather than guessing a sha.
+    """
+    import hashlib
+
+    # One retry per read: the model volume is an external mount and a
+    # transient unreadable window must not read as "template absent" — a pin
+    # sha of None fails HH, so flaky IO here would fail pushes spuriously.
+    for attempt in range(2):
+        for base in _omlx_model_dirs():
+            model_dir = base / model_id
+            if not model_dir.is_dir():
+                continue
+            shas: dict[str, str] = {}
+            with contextlib.suppress(Exception):
+                cfg = json.loads((model_dir / "tokenizer_config.json").read_text())
+                if cfg.get("chat_template"):
+                    shas["tokenizer_config_chat_template"] = hashlib.sha256(
+                        str(cfg["chat_template"]).encode()
+                    ).hexdigest()[:12]
+            jinja = model_dir / "chat_template.jinja"
+            if jinja.is_file():
+                with contextlib.suppress(Exception):
+                    shas["chat_template_jinja"] = hashlib.sha256(jinja.read_bytes()).hexdigest()[
+                        :12
+                    ]
+            if shas:
+                return {"model_dir": str(model_dir), **shas}
+        if attempt == 0:
+            time.sleep(0.5)
     return None
 
 
