@@ -34,6 +34,9 @@ _DEFAULT_ORG_GRAPH = (
 # D0-M-qualified default roster — the fallback when config/compliance/council.yaml
 # is absent. Selected from the 12-seat judgment-probe sweep (2026-09-06): three
 # families, F2 {0.952, 0.843, 0.802} on violation detection, all vca >= 0.87.
+# Third seat updated 2026-09-26: config/compliance/council.yaml is authoritative
+# and this must mirror it — see that file's "Superseded seats" note for why
+# mistral was replaced by deepseek_r1 (provisional, PROMOTE_POLICY: confirm).
 _DEFAULT_SEATS: list[dict[str, str]] = [
     {
         "id": "qwen38",
@@ -42,9 +45,9 @@ _DEFAULT_SEATS: list[dict[str, str]] = [
     },
     {"id": "granite41", "label": "IBM Granite 4.1 30B (16k)", "model": "granite4.1:30b-ctx16k"},
     {
-        "id": "mistral",
-        "label": "Mistral Small 3.2 24B (Q4_K_M)",
-        "model": "mistral-small3.2:24b-instruct-2506-q4_K_M",
+        "id": "deepseek_r1",
+        "label": "DeepSeek-R1-0528-Qwen3-8B (unsloth Q4_K_XL, 64k)",
+        "model": "hf.co/unsloth/DeepSeek-R1-0528-Qwen3-8B-GGUF:Q4_K_XL-ctx64k",
     },
 ]
 
