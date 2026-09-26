@@ -728,7 +728,11 @@ def read_and_judge(
     chosen = (
         model
         or context.report_model
-        or (str(context.seats[0].get("model", "")) if context.seats else "")
+        or (
+            str(context.seats[0].get("workspace") or context.seats[0].get("model", ""))
+            if context.seats
+            else ""
+        )
     )
     if fn is None:
         from portal.modules.compliance.core.reading_transport import chat

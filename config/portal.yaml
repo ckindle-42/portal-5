@@ -1751,6 +1751,99 @@ workspaces:
       - An obligation whose operator side is not in scope is an UNVERIFIED obligation: say plainly that nothing in scope addresses it. That is not a confirmed gap, and material you did not read is not coverage.
     owui_system_prompt: |-
       Focused NERC CIP reading workspace, in conversation. Start a requirement with compliance_requirement; use compliance_context (the index) to see what exists, compliance_read for verbatim text, compliance_links for references only, compliance_notes for the operator's own decisions. Answer what was asked, name what you have not read, offer to go further, and support each claim by quoting the exact words it rests on. State over-strictness as fact in both directions: exceeding a requirement is permitted, and using less latitude than NERC grants is a narrowing to name. Other frameworks have catalog lookups only.
+
+  # ── compliance council seats (TASK_COMPLIANCE_PIPELINE_ALIGNMENT_V1 §P1) ──
+  # The three council seats in config/compliance/council.yaml previously
+  # resolved through model_hint borrowing: qwen38 landed in auto-compliance
+  # (the CVE-triage conversation lane), granite41 in bench-granite41-30b (a
+  # bench workspace), deepseek_r1 in auto-reasoning (a general reasoning
+  # lane). Whatever those lanes set was what the council ran — and a retune
+  # of CVE triage would have changed compliance judgments with nothing to
+  # say so. These workspaces are compliance's own: each carries the same
+  # model_hint its seat uses (same models — a re-homing, not a swap), the
+  # settings the COUNCIL JOB calls for, and is addressed by workspace id at
+  # the council call sites (council.yaml `workspace:`), so hint resolution
+  # order can never move a seat back into a borrowed lane. Not
+  # expose_to_owui: they are engine seats, not conversation lanes.
+  compliance-council-qwen38:
+    module: compliance
+    name: ⚖️ Compliance Council · Qwen3.8 seat
+    description: Compliance review council, Qwen3.8-27B seat — addressed by id from config/compliance/council.yaml; owns the settings the council job calls for instead of borrowing auto-compliance's.
+    model_hint: hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k
+    context_limit: 32768 # the tag's baked window; matches the borrowed lane's
+    predict_limit: 8192 # council._SEAT_BUDGET — the seat's own output budget
+    temperature: 0.0 # the roster qualified at greedy (bench_judgment_probe_v6 pins 0.0); council._ollama_seat sends 0.0
+    top_p: 0.95
+    top_k: 20
+    min_p: 0.0
+    repeat_penalty: 1.1 # Qwen3.x <think>-degeneration guard, same as auto-compliance
+    # think:false — the qualification probe sent think:False and
+    # council._ollama_seat's default (reading_transport.DEFAULT_EFFORT) is
+    # False: strict-JSON verdicts at this seat were measured with reasoning
+    # suppressed. council.py's docstring says seats are "allowed to reason";
+    # the MEASURED qualification says think was off — this declares what ran.
+    think: false
+    emits_reasoning: false
+    tools: []
+    expose_to_owui: false
+    enable_web_search: false
+  compliance-council-granite41:
+    module: compliance
+    name: ⚖️ Compliance Council · Granite seat
+    description: Compliance review council, granite4.1-30b seat — addressed by id from config/compliance/council.yaml; owns its settings instead of borrowing bench-granite41-30b.
+    model_hint: granite4.1:30b-ctx16k
+    context_limit: 16384 # the tag's baked window; matches the borrowed bench lane's
+    predict_limit: 8192 # council._SEAT_BUDGET — the seat's own output budget
+    temperature: 0.0 # the roster qualified at greedy; council._ollama_seat sends 0.0
+    top_p: 0.95
+    top_k: 20
+    min_p: 0.0
+    repeat_penalty: 1.1 # carried from the bench lane the seat borrowed
+    think: false # granite4.1 is a non-thinking model; the probe suppressed anyway
+    emits_reasoning: false
+    tools: []
+    expose_to_owui: false
+    enable_web_search: false
+  compliance-council-deepseek-r1:
+    module: compliance
+    name: ⚖️ Compliance Council · DeepSeek-R1 seat
+    description: Compliance review council, DeepSeek-R1-0528-Qwen3-8B seat — addressed by id from config/compliance/council.yaml; owns its settings instead of borrowing auto-reasoning.
+    model_hint: hf.co/unsloth/DeepSeek-R1-0528-Qwen3-8B-GGUF:Q4_K_XL-ctx64k
+    context_limit: 65536 # the tag's baked window; matches the borrowed lane's
+    predict_limit: 8192 # council._SEAT_BUDGET — room for the reasoning trace plus the JSON verdict in one budget
+    temperature: 0.6 # DeepSeek-R1 vendor card (greedy causes repetition loops); recorded in council._MODEL_TEMPERATURE and declared here
+    top_p: 0.95 # vendor card
+    top_k: 40
+    min_p: 0.02
+    # think:true — this template has NO thinking conditional (verified against
+    # the raw template, auto-council 2026-09-26): the seat reasons regardless,
+    # and declaring false would misdescribe what actually runs.
+    think: true
+    emits_reasoning: true
+    tools: []
+    expose_to_owui: false
+    enable_web_search: false
+  compliance-reading-overflow:
+    module: compliance
+    name: ⚖️ Compliance Reading Overflow
+    description: Compliance reading's big-window seat — same gemma-4-26b-a4b-it weights at a 65k window, addressed as the sweep map_read overflow_model. Native reads could overflow to 65k; on the pipeline the window is the seat's, so an oversized requirement needs a seat that holds it (PIPELINE_ALIGNMENT_V1 §P2).
+    # WINDOW census 2026-09-26: 4 of 255 register nodes (CIP-002-5.1a R1,
+    # CIP-003-8 R1, CIP-003-8 R2, CIP-003-9 R1) price over the 32k seat window
+    # and fit 65k, so the route is registered even though today's populations
+    # are the only ones affected.
+    model_hint: gemma4:26b-a4b-it-q4_K_M-ctx64k
+    context_limit: 65536 # the tag's baked window (trained ceiling 262,144); priced against the census
+    predict_limit: 24576 # matches compliance-reading: one mapping answer's room
+    temperature: 0.3 # same lane policy as compliance-reading (the reading transport's 0.0 governs the nested engine)
+    top_p: 0.95
+    top_k: 20
+    min_p: 0.0
+    repeat_penalty: 1.1 # same as compliance-reading
+    think: false # map readings are strict-JSON at reasoning off, measured (reading_transport DEFAULT_EFFORT)
+    emits_reasoning: false
+    tools: [] # map_read is tool-less; persona tools would be stripped anyway (portal_client_tools_only)
+    expose_to_owui: false
+    enable_web_search: false
   auto-math:
     module: general
     system_prompt_append: "\n\nSAFETY POSTURE: You are a standard-posture assistant. If a request's genuine purpose is to harm or deceive a specific real person (doxxing, stalking, accessing someone's accounts without consent), to enable fraud/impersonation/forgery, to harass, or to cheat/deceive an institution, decline and offer a safe, legitimate alternative. This does not restrict ordinary academic, professional, security-research, or fictional work \u2014 help fully with those."

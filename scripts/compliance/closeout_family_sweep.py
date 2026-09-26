@@ -69,7 +69,11 @@ def main() -> int:
     )
     parser.add_argument(
         "--overflow-model",
-        default="",
+        # PIPELINE_ALIGNMENT_V1 §P2 default: the compliance-owned 65k seat
+        # (config/portal.yaml compliance-reading-overflow) — the census route
+        # for material priced over the 32k seat window. Empty disables
+        # overflow, recording those cells as context_overflow instead.
+        default="gemma4:26b-a4b-it-q4_K_M-ctx64k",
         help="same weights with a larger baked window, used ONLY for a reading whose "
         "material does not fit the seat's window (sweep.window_fit); without it such a "
         "reading is recorded as context_overflow and not called",

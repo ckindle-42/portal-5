@@ -582,6 +582,11 @@ def chat(
         route_backend=portal.get("backend", ""),
         served_model=portal.get("served_model", ""),
         correlation_id=portal.get("correlation_id", ""),
+        # The sampling / thinking / window the pipeline APPLIED after workspace
+        # injection (its options_applied trace note), when the pipeline served
+        # the call — None means the trace did not say, and the receipt records
+        # that absence rather than echoing the requested values.
+        applied_options=portal.get("options_applied"),
         temperature=temperature,
         answer_budget=answer_budget,
         reasoning_allowance=allowance if want_think else 0,

@@ -1107,6 +1107,12 @@ def read(  # noqa: PLR0912, PLR0915
             "num_predict": result.get("num_predict"),
             "attempts": result.get("attempts"),
             "transport_stop_reason": result.get("stop_reason"),
+            # What the pipeline put on the wire after workspace injection
+            # (backend, served model, sampling, thinking, window) — None when
+            # the call did not go through the pipeline or the trace did not
+            # record it. Requested-vs-applied is a visible distinction on
+            # every receipt (PIPELINE_ALIGNMENT_V1 §P3).
+            "pipeline_applied": result.get("applied_options"),
         },
         "material_chars": len(material),
         "material_tokens": len(material) // CHARS_PER_TOKEN,

@@ -1,11 +1,11 @@
 ---
 id: unit-fact-workspace-roster
 kind: what
-title: 26 production + 22 eval workspaces
+title: 30 production + 22 eval workspaces
 sources:
 - type: code
   path: config/portal.yaml
-  commit: 47b82d7c6947
+  commit: a28a76a04d5b
 claims:
 - probe: workspaces.total
   pattern: '{value} total)'
@@ -14,10 +14,10 @@ tags:
 - fact
 - workspaces
 created_at: 1784000421.2630541
-updated_at: 1790382004.576571
+updated_at: 1790427072.377922
 ---
 
-# Workspace roster (26 production, 22 eval, 48 total)
+# Workspace roster (30 production, 22 eval, 52 total)
 
 ## Production workspaces (acceptance/UAT scope, eval OFF)
 
@@ -47,7 +47,11 @@ updated_at: 1790382004.576571
 | `auto-uncensored-throwaway` | general | `portal5/hauhaucs-qwen36-35b:q4_K_M-ctx256k` |
 | `auto-video` | video | `granite4.1:8b-ctx16k` |
 | `auto-vision` | general | `qwen3-vl:32b-ctx8k` |
+| `compliance-council-deepseek-r1` | compliance | `hf.co/unsloth/DeepSeek-R1-0528-Qwen3-8B-GGUF:Q4_K_XL-ctx64k` |
+| `compliance-council-granite41` | compliance | `granite4.1:30b-ctx16k` |
+| `compliance-council-qwen38` | compliance | `hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k` |
 | `compliance-reading` | compliance | `gemma4:26b-a4b-it-q4_K_M-ctx32k` |
+| `compliance-reading-overflow` | compliance | `gemma4:26b-a4b-it-q4_K_M-ctx64k` |
 | `tools-specialist` | general | `granite4.1:8b-ctx8k` |
 
 ## Eval/bench workspaces (need PORTAL_ENABLE_EVAL=1)

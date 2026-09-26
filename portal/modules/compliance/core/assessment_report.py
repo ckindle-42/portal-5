@@ -108,7 +108,9 @@ def explain(
     )
     user = json.dumps(user_packet, indent=2, ensure_ascii=False, default=str)
     model = context.report_model or (
-        str(context.seats[0].get("model", "")) if context.seats else ""
+        str(context.seats[0].get("workspace") or context.seats[0].get("model", ""))
+        if context.seats
+        else ""
     )
     try:
         raw = transport(model, _REPORT_SYSTEM, user)

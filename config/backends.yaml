@@ -27,6 +27,14 @@ backends:
     supports_tools: true
   - id: gemma4:26b-a4b-it-q4_K_M-ctx32k
     supports_tools: true
+  # PIPELINE_ALIGNMENT_V1 §P2: the reading seat's overflow variant — same
+  # gemma-4-26b-a4b-it weights, PARAMETER num_ctx 65536 baked (trained ceiling
+  # 262,144). Serves compliance-reading-overflow, the route for sweep material
+  # priced over the 32k seat window (census 2026-09-26: 4 of 255 register
+  # nodes). The FALLBACK must hold the window too: ollama-native honoured a
+  # 65,536 request window on this tag in the P2 verification.
+  - id: gemma4:26b-a4b-it-q4_K_M-ctx64k
+    supports_tools: true
   - id: granite4:tiny-h-ctx32k
     supports_tools: true
   - id: granite4:small-h-ctx32k
@@ -994,6 +1002,10 @@ backends:
     mistral-small3.2:24b: mlx-community--Mistral-Small-3.2-24B-Instruct-2506-4bit
     qwen3.6:27b-q4_K_M-ctx16k: unsloth--Qwen3.6-27B-UD-MLX-4bit
     gemma4:26b-a4b-it-q4_K_M-ctx32k: mlx-community--gemma-4-26b-a4b-it-4bit
+    # PIPELINE_ALIGNMENT_V1 §P2: the overflow tag shares the 32k tag's MLX
+    # conversion (max_model_len 262,144 — the conversion holds the 65k window
+    # with room; the 90,041-token needle passed under the balanced guard).
+    gemma4:26b-a4b-it-q4_K_M-ctx64k: mlx-community--gemma-4-26b-a4b-it-4bit
     hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k: Qwen3.8-27B-oQ4e-mtp
   type: omlx
   url: ${OMLX_URL:-http://host.docker.internal:8085}
@@ -1238,6 +1250,15 @@ workspace_routing:
   - reasoning
   - general
   compliance-reading:
+  - general
+  compliance-council-qwen38:
+  - general
+  compliance-council-granite41:
+  - general
+  compliance-council-deepseek-r1:
+  - reasoning
+  - general
+  compliance-reading-overflow:
   - general
   auto-math:
   - reasoning

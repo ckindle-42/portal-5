@@ -2143,6 +2143,16 @@ The slate's mid-weight hybrid: 9B active puts its decode between the incumbent d
 
 ---
 
+### `gemma4:26b-a4b-it-q4_K_M-ctx64k`
+
+`gemma4:26b-a4b-it-q4_K_M-ctx64k` is the 64K-context derived tag of the same Gemma 4 26B-A4B weights (`PARAMETER num_ctx 65536`, trained ceiling 262,144), baked 2026-09-24 and registered in the `general` group 2026-09-26 during TASK_COMPLIANCE_PIPELINE_ALIGNMENT_V1 §P2: on the pipeline the request's `num_ctx` is dropped and the window is the seat's, so the reading seat's oversized sweep material (census 2026-09-26: 4 of 255 register nodes, all fitting 65k) needs a seat that bakes it. Serves `compliance-reading-overflow`; aliased on omlx-general to the same `mlx-community--gemma-4-26b-a4b-it-4bit` conversion as the 32k tag (max_model_len 262,144 — the conversion holds the window; the 90,041-token needle passed under the balanced memory guard), so both engines of the fallback cascade hold 65k.
+
+## Why
+
+The overflow FALLBACK's window is not academic: `01d4176b` made capacity-specific 400s cascade to the Ollama fallback, so a 65k oMLX primary in front of a 32k Ollama tag would be one capacity cascade away from the old silent-truncation era. The tag gives the cascade a genuine 65k on both engines.
+
+---
+
 ### `ling30-tiny-test:latest`
 
 `ling30-tiny-test` is a local import (`ollama create` from the official `inclusionAI/Ling-3.0-tiny-GGUF` Q4_K_M, 4.8 GB) made 2026-09-17 during WINDOW_AND_SEAT_V1 to settle the Ling arch question by experiment: **Ollama 0.34.0 knows `bailingmoe3`** — the expected `honest-BLOCKED: arch not supported` did not happen; the model loads, reports capabilities `tools, thinking`, and runs (KDA 3:1 + MLA, 1.3B active of 7.9B, 131k native context). `settings_audit.probe_tag`: tools rendered, think honored (template sha `eb6226c94ae3`); the system-probe flag was investigated to the template level and attributed to small-active instruction-following (answers "Green." to grass over a system command to say BLUE), and the template defaults `thinking_option` ON when the flag is absent — safe on the workspace's pinned `think:false`, recorded for any client that omits it. §P3 sweep: **104.5 tok/s decode (fastest of the slate), 1040 tok/s prefill**, 3.7 s cold load, no swap, cache holds (turn-2 prefill 0.13 s). NOT registered in `backends.yaml` — the `-test` tag and the /tmp GGUF are measurement artifacts; a production candidate needs a proper name, a decided quant, and a catalog entry.

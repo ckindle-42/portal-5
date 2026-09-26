@@ -5,13 +5,13 @@ title: "model bindings \u2014 0 reachability gap(s)"
 sources:
 - type: code
   path: config/backends.yaml
-  commit: 047ae6eb0607
+  commit: a28a76a04d5b
 - type: code
   path: config/portal.yaml
-  commit: 047ae6eb0607
+  commit: a28a76a04d5b
 - type: code
   path: config/personas/
-  commit: 047ae6eb0607
+  commit: a28a76a04d5b
 claims: []
 confidence: high
 tags:
@@ -19,7 +19,7 @@ tags:
 - model-bindings
 - reachability
 created_at: 1784000421.433863
-updated_at: 1790332607.0095518
+updated_at: 1790427072.5913239
 ---
 
 # Model bindings (reachability-resolved)
@@ -57,7 +57,11 @@ default.
 | `auto-uncensored-throwaway` | `portal5/hauhaucs-qwen36-35b:q4_K_M-ctx256k` | yes |
 | `auto-video` | `granite4.1:8b-ctx16k` | yes |
 | `auto-vision` | `qwen3-vl:32b-ctx8k` | yes |
+| `compliance-council-deepseek-r1` | `hf.co/unsloth/DeepSeek-R1-0528-Qwen3-8B-GGUF:Q4_K_XL-ctx64k` | yes |
+| `compliance-council-granite41` | `granite4.1:30b-ctx16k` | yes |
+| `compliance-council-qwen38` | `hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k` | yes |
 | `compliance-reading` | `gemma4:26b-a4b-it-q4_K_M-ctx32k` | yes |
+| `compliance-reading-overflow` | `gemma4:26b-a4b-it-q4_K_M-ctx64k` | yes |
 | `tools-specialist` | `granite4.1:8b-ctx8k` | yes |
 
 ## Persona model_pin reachability
