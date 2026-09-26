@@ -423,28 +423,49 @@ holds it. Live needle probes: Qwen3.5-9B MLX held 216,032 tokens
 132,029 tokens (> its trained 131,072) and the reading-lane worst case
 (~82k) result is recorded below with the probes.
 
-### Coverage-gap inventory (GGUF-bound lanes with NO correct MLX conversion — keep on Ollama)
+### A/B use-case validation (2026-09-26): every flipped seat vs the Ollama seat it replaced
 
-baronllm-abliterated (uncensored), supergemma4-26b-uncensored
-(redteam-deep/purpleteam-exec), gemma-4-abliterated:E2b (bench-e2b-pentest/
-exec-reasoning), LFM2.5-8B Gaston (auto-extract-uncensored), Qwen3-Coder-Next
-abliterated ctx256k (auto-spl), Nemotron ctx32k (auto-nemotron — the oQ4e
-conversion EXISTS but is aliased only for the ctx8k hint; aliasing the 32k
-lane is available headroom, deliberately not taken in this task),
-DeepSeek-R1-0528-Qwen3-8B (oMLX tool-parser gap), mistral-small3.2, and every
-creative/media lane whose conversion isn't on disk. **The rule this audit
-pins: a lane moves to oMLX only when a same-checkpoint conversion is
-registered AND the lane's bound window/tools are verified on the conversion —
-otherwise the Ollama fallback IS the intent-preserving path, and priority-10
-shadowing with per-hint aliases is what makes that expressible.**
+One lane-representative case per lane, sent to BOTH engines, contract-checked
+(json parses / tool call emitted / substantive content). Results:
 
-### The bigger-picture consequence for security fan-out (recorded, not acted on)
+| lane | contract | oMLX | Ollama | verdict |
+|---|---|---|---|---|
+| council-challenger (mistral) | json | ✓ (6/7 clean; one intermittent temp-0 decode loop, non-reproducible at council sampling) | ✓ | MATCH |
+| council-evidence (granite-30b) | json | ✓ | ✓ | MATCH |
+| redteam-deep (supergemma4-v2) | toolcall | ✓ | ✓ | MATCH |
+| blueteam (granite-8b mxfp8) | json | ✓ | ✓ | MATCH — unconstrained (no response_format) runs degrade; the lane contract always sends it |
+| base-security (VulnLLM) | content | ✓ near-identical wording | ✓ | MATCH |
+| pentest (HauhauCS-35B) | content | ✓ | empty in bare probe (reasoning-starved at 32-token budget; lane runs larger) | MATCH on contract; probe artifact on the GGUF side |
+| auto-compliance (Qwen3.8) | content | ✓ | ✓ | MATCH |
+| council-synthesizer (Qwen3.6-27B) | json | ✓ | empty in bare probe (same artifact class) | MATCH on contract |
+| reading seat (gemma-4-26b) | full map_read | ✓ 68 s, 3,986 chars, clean parse | ✓ 61 s, 3,837 chars, clean parse | MATCH — same placeholder-citation behavior both sides (bench domain) |
 
-The security arm's fan-out is now two-tier by checkpoint availability: 5 of
-8 roles batch on oMLX, while ::uncensored, ::redteam-deep and
-::purpleteam-exec serialize on Ollama at PARALLEL=1 — and the two engines
-share one 64 GB unified pool without coordinating (Ollama's 20 GiB
-GPU_OVERHEAD is the only reservation). Full-arm sweeps are therefore bounded
-by the Ollama tier. Closing that gap means converting the three missing
-checkpoints to MLX — a deliberate pull/convert/audit task per the checkpoint
-identity rule above, not an alias change.
+Probe artifacts to remember: reasoning-capable checkpoints return EMPTY
+content when `max_tokens` cannot cover the think block — identical on both
+engines; a bare-prompt A/B must budget for the reasoning channel or it
+manufactures divergences.
+
+### Remaining gaps, terminal or in progress (2026-09-26)
+
+- **DeepSeek-R1-0528-Qwen3-8B — FIXED.** `deepseek_r1` parser rebuilt
+  (`scripts/omlx/deepseek_r1_tool_parser.py`, installed by
+  `scripts/install_omlx_parsers.sh` — re-run after every `brew upgrade
+  omlx`), `tool_parser_type: deepseek_r1` stamped in the model's
+  tokenizer_config. Live probe: clean typed `get_weather` calls at
+  temperature 0 and 0.3. Alias registered in `omlx-reasoning`; the council
+  operator seat and auto-reasoning now have an oMLX path.
+- **Qwen3.6-27B synthesizer — REGISTERED** (unsloth UD-4bit pulled): json
+  synthesis verified, typed tool call verified, alias in `omlx-general`.
+- **gemma-4-26b-a4b-it-4bit (standard checkpoint) — REGISTERED** for the
+  compliance-reading seat: json ✓, tools ✓, **90,041-token needle ✓** —
+  the reading window intent holds with margin. Full map_read A/B matched
+  the GGUF seat (see table). NOTE the standard-vs-QAT distinction: two
+  gemma-4-26b conversions exist and are never cross-aliased.
+- **baronllm-abliterated — BLOCKED BY UPSTREAM.** The abliterated
+  checkpoint exists ONLY as GGUF (huihui-ai repo is `gguf-my-repo`
+  auto-quantized; no safetensors anywhere on HF, searched 2026-09-26), and
+  the bundled mlx_lm has no GGUF→MLX conversion path. A hand-rolled
+  conversion would double-quantize (Q4_K_M → affine-4bit) a security lane's
+  weights — rejected for fidelity reasons. The lane stays on its Ollama
+  GGUF until huihui-ai publishes safetensors or an official MLX conversion
+  appears. This is the ONE security role without an oMLX path.
