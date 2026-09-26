@@ -1,7 +1,13 @@
 """Shared gate for every raw-engine-bypass diagnostic switch in security's
 core modules: ``agentic_blue_eval``/``exec_chain``'s ``CHAIN_DIRECT_OLLAMA``,
 ``blue.py``'s ``BLUE_DIRECT_OLLAMA``, ``refusal.py``'s
-``REFUSAL_DIRECT_OLLAMA``, ``drift_gate.py``'s ``DRIFT_DIRECT_OLLAMA``.
+``REFUSAL_DIRECT_OLLAMA``, ``drift_gate.py``'s ``DRIFT_DIRECT_OLLAMA``, and
+``exec_chain``'s ``CHAIN_DIRECT_OMLX`` (TASK_RBP_OMLX_ENGINE_V1 — routes an
+oMLX-only candidate straight to oMLX's OpenAI-compatible server instead of
+Ollama; unlike the others, scoped to specific model ids via
+``PORTAL_SECURITY_OMLX_CANDIDATES`` rather than the whole process, because a
+candidate-eval run also calls the incumbent, normally Ollama/pipeline-served,
+in the same process).
 
 TASK_AUTO_COUNCIL_PIPELINE_REVISIT_V1 P1.5: each of those was a bare
 per-module env var — set it (even by accident: a stale ``.env`` line, a

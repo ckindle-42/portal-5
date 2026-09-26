@@ -129,6 +129,11 @@ _CHAIN_ROLES = [
 # ── Constants ────────────────────────────────────────────────────────────────
 
 OLLAMA_URL = "http://localhost:11434"
+#: oMLX's OpenAI-compatible server. TASK_RBP_OMLX_ENGINE_V1: a candidate that
+#: only exists as MLX weights (no Ollama/GGUF form) has no other way into this
+#: harness. Reachable only via the same CHAIN_DIRECT_OMLX + shared-gate
+#: bypass as CHAIN_DIRECT_OLLAMA -- see _direct_engine_diagnostic.py.
+OMLX_URL = os.environ.get("OMLX_URL", "http://localhost:8085")
 
 AUDIT_TOOL: dict[str, Any] = {
     "type": "function",
@@ -2515,20 +2520,82 @@ def _assign_steps(
 # ── A3: module-level pipeline helpers ────────────────────────────────────────
 
 
+def _omlx_candidate_ids() -> set[str]:
+    """Model ids that should be probed directly against oMLX, from
+    PORTAL_SECURITY_OMLX_CANDIDATES (comma-separated).
+
+    Deliberately scoped to specific model ids rather than a blanket process
+    switch: a candidate-eval run calls the CANDIDATE *and* the INCUMBENT
+    (usually Ollama/pipeline-served) in the same process. A global bypass
+    would misroute the incumbent's calls too whenever it happens to be an
+    Ollama tag — which it usually is.
+    """
+    raw = os.environ.get("PORTAL_SECURITY_OMLX_CANDIDATES", "")
+    return {s.strip() for s in raw.split(",") if s.strip()}
+
+
 def _is_pipeline_model(m: str) -> bool:
     """Route through the pipeline by default — the real serving path.
 
-    Only bypass to direct Ollama when CHAIN_DIRECT_OLLAMA=true AND the
-    shared PORTAL_SECURITY_DIRECT_ENGINE_DIAGNOSTIC gate are both set (rare,
-    explicitly-named debugging escape hatch — TASK_AUTO_COUNCIL_PIPELINE_
-    REVISIT_V1 P1.5: CHAIN_DIRECT_OLLAMA alone used to be enough, so a stray
-    env var could silently take a product run off the pipeline). The
-    model-name string MUST NOT decide routing — that was the old heuristic
-    that caused GGUF refs (hf.co/...:Q4_K_M) to silently bypass the pipeline.
+    Only bypass to a direct engine when the model is one of
+    _omlx_candidate_ids() (see there for why this one is scoped per-model)
+    with CHAIN_DIRECT_OMLX=true, or CHAIN_DIRECT_OLLAMA=true applies
+    process-wide — AND the shared PORTAL_SECURITY_DIRECT_ENGINE_DIAGNOSTIC
+    gate is also set (rare, explicitly-named debugging escape hatch —
+    TASK_AUTO_COUNCIL_PIPELINE_REVISIT_V1 P1.5: CHAIN_DIRECT_OLLAMA alone
+    used to be enough, so a stray env var could silently take a product run
+    off the pipeline). The model-name string itself must not otherwise
+    decide routing — that was the old heuristic that caused GGUF refs
+    (hf.co/...:Q4_K_M) to silently bypass the pipeline.
     """
     from ._direct_engine_diagnostic import direct_engine_diagnostic_enabled
 
+    if m in _omlx_candidate_ids() and direct_engine_diagnostic_enabled("CHAIN_DIRECT_OMLX"):
+        return False
     return not direct_engine_diagnostic_enabled("CHAIN_DIRECT_OLLAMA")
+
+
+def _direct_engine(m: str) -> str:
+    """Which raw engine a direct-engine bypass targets for model ``m``: "omlx"
+    or "ollama". Only meaningful when _is_pipeline_model(m) is False."""
+    return "omlx" if m in _omlx_candidate_ids() else "ollama"
+
+
+def _candidate_sampling_override() -> dict[str, Any] | None:
+    """Optional per-run sampling override for ONE named model, from
+    PORTAL_SECURITY_CANDIDATE_SAMPLING_JSON — a JSON object with a "model"
+    key plus any of temperature/top_p/repeat_penalty/think.
+
+    Model cards for uncensored/abliterated candidates routinely mandate
+    settings far from the fleet default (disabled thinking, temperature 0,
+    a specific repeat_penalty) — scoring a candidate at the wrong settings
+    for its own card, while the incumbent runs at ITS normal settings, is
+    not a fair delta. Scoped to a single named model (never the incumbent)
+    for the same reason _omlx_candidate_ids() is scoped: both models run in
+    the same process.
+    """
+    raw = os.environ.get("PORTAL_SECURITY_CANDIDATE_SAMPLING_JSON", "")
+    if not raw:
+        return None
+    try:
+        return json.loads(raw)
+    except Exception:
+        return None
+
+
+def _apply_candidate_sampling(model: str, payload: dict[str, Any]) -> dict[str, Any]:
+    """Merge the model-card sampling override into `payload` (OpenAI-style —
+    oMLX and the Ollama /v1 dialect both accept these top-level), only when
+    `model` is the one PORTAL_SECURITY_CANDIDATE_SAMPLING_JSON names."""
+    ov = _candidate_sampling_override()
+    if not ov or ov.get("model") != model:
+        return payload
+    if "think" in ov:
+        payload["chat_template_kwargs"] = {"enable_thinking": bool(ov["think"])}
+    for k in ("temperature", "top_p", "repeat_penalty"):
+        if k in ov:
+            payload[k] = ov[k]
+    return payload
 
 
 def _call_via_pipeline(
@@ -2655,7 +2722,10 @@ def _run_model_turn(
     """
     assigned = steps
     step_names = [s["step"] for s in assigned]
-    ollama_url = cfg.ollama_url
+    # _call_chain_model below already speaks the OpenAI /v1/chat/completions
+    # dialect (identical wire format on Ollama and oMLX) — only the base URL
+    # needs to move when the direct-engine bypass targets oMLX.
+    ollama_url = OMLX_URL if _direct_engine(model) == "omlx" else cfg.ollama_url
 
     role_name, role_desc = _CHAIN_ROLES[model_idx % len(_CHAIN_ROLES)]
     round_tag = f" [Round {round_num + 1}/{chain_rounds}]" if chain_rounds > 1 else ""
@@ -2760,13 +2830,16 @@ def _run_model_turn(
             _client.stream(
                 "POST",
                 f"{ollama_url}/v1/chat/completions",
-                json={
-                    "model": model,
-                    "messages": msgs,
-                    "stream": True,
-                    "max_tokens": PROMPT_MAX_TOKENS,
-                    "tools": CHAIN_TOOLS_BASE,
-                },
+                json=_apply_candidate_sampling(
+                    model,
+                    {
+                        "model": model,
+                        "messages": msgs,
+                        "stream": True,
+                        "max_tokens": PROMPT_MAX_TOKENS,
+                        "tools": CHAIN_TOOLS_BASE,
+                    },
+                ),
             ) as _resp,
         ):
             _resp.raise_for_status()
@@ -2810,13 +2883,16 @@ def _run_model_turn(
                 with httpx.Client(timeout=httpx.Timeout(REQUEST_TIMEOUT, connect=5.0)) as _nc:
                     _nr = _nc.post(
                         f"{ollama_url}/v1/chat/completions",
-                        json={
-                            "model": model,
-                            "messages": msgs,
-                            "stream": False,
-                            "max_tokens": _fallback_max_tokens,
-                            "tools": CHAIN_TOOLS_BASE,
-                        },
+                        json=_apply_candidate_sampling(
+                            model,
+                            {
+                                "model": model,
+                                "messages": msgs,
+                                "stream": False,
+                                "max_tokens": _fallback_max_tokens,
+                                "tools": CHAIN_TOOLS_BASE,
+                            },
+                        ),
                     )
                     _nr.raise_for_status()
                     _nd = _nr.json()
@@ -3561,6 +3637,22 @@ def _run_chain_test(
                         is_pipeline_mode=True,
                         idle_timeout_s=per_turn_timeout,
                     )
+                elif _direct_engine(model) == "omlx":
+                    _n_tools = len(cfg.chain_tools)
+                    _n_msgs = len(messages)
+                    print(
+                        f"    [debug] step {_step}: → oMLX ({model}) {_n_msgs} msgs, {_n_tools} tools, idle_timeout={per_turn_timeout}s",
+                        flush=True,
+                    )
+                    msg = _stream_chain_turn(
+                        f"{OMLX_URL}/v1/chat/completions",
+                        {},
+                        _apply_candidate_sampling(
+                            model, {"model": model, "messages": messages, "tools": cfg.chain_tools}
+                        ),
+                        is_pipeline_mode=True,
+                        idle_timeout_s=per_turn_timeout,
+                    )
                 else:
                     _n_tools = len(cfg.chain_tools)
                     _n_msgs = len(messages)
@@ -3917,6 +4009,21 @@ def _run_multimodel_chain(
                             "messages": messages,
                             "tools": cfg.chain_tools,
                         },
+                        is_pipeline_mode=True,
+                        idle_timeout_s=120.0,
+                    )
+                elif _direct_engine(current_model) == "omlx":
+                    msg = _stream_chain_turn(
+                        f"{OMLX_URL}/v1/chat/completions",
+                        {},
+                        _apply_candidate_sampling(
+                            current_model,
+                            {
+                                "model": current_model,
+                                "messages": messages,
+                                "tools": cfg.chain_tools,
+                            },
+                        ),
                         is_pipeline_mode=True,
                         idle_timeout_s=120.0,
                     )

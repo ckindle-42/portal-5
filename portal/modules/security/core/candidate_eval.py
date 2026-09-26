@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, cast
@@ -269,10 +270,75 @@ def candidate_eval_main(argv: list[str] | None = None) -> int:
             "rejection."
         ),
     )
+    parser.add_argument(
+        "--engine",
+        default="ollama",
+        choices=["ollama", "omlx"],
+        help=(
+            "Where the CANDIDATE lives (the incumbent is always resolved from live "
+            "fleet config and reached its own normal way). 'omlx' is for a candidate "
+            "that only exists as MLX weights with no Ollama/GGUF form: it skips the "
+            "Ollama pull gate (nothing to pull — the weights are already resident "
+            "under oMLX's model_dir) and probes/scores against oMLX's OpenAI-"
+            "compatible server instead. TASK_RBP_OMLX_ENGINE_V1."
+        ),
+    )
+    parser.add_argument(
+        "--think",
+        default="default",
+        choices=["default", "true", "false"],
+        help=(
+            "Override the CANDIDATE's thinking mode (never the incumbent's). "
+            "'default' leaves the engine/template default untouched. Many "
+            "uncensored/abliterated model cards explicitly call for thinking "
+            "disabled for tool-use tasks — scoring at the wrong setting for the "
+            "candidate's own card is not a fair delta."
+        ),
+    )
+    parser.add_argument(
+        "--temperature", type=float, default=None, help="Override the CANDIDATE's temperature."
+    )
+    parser.add_argument("--top-p", type=float, default=None, help="Override the CANDIDATE's top_p.")
+    parser.add_argument(
+        "--repeat-penalty",
+        type=float,
+        default=None,
+        help="Override the CANDIDATE's repeat_penalty.",
+    )
     args = parser.parse_args(argv)
 
     candidate = args.candidate
     slot = args.slot
+
+    if args.engine == "omlx":
+        # This tool's candidate side was always a raw, isolated, non-pipeline
+        # probe (intake never went through the pipeline even for Ollama) — an
+        # --engine omlx candidate needs the matching direct-engine bypass for
+        # the SCORING chain calls too, or they'd silently try the pipeline
+        # (which has never heard of this candidate) instead of oMLX.
+        #
+        # Scoped to THIS candidate's model id (PORTAL_SECURITY_OMLX_CANDIDATES),
+        # not a blanket process-wide switch: the incumbent runs in the same
+        # process and is normally Ollama/pipeline-served — a global bypass
+        # would misroute its calls too, breaking the delta comparison.
+        os.environ["CHAIN_DIRECT_OMLX"] = "true"
+        os.environ["PORTAL_SECURITY_DIRECT_ENGINE_DIAGNOSTIC"] = "true"
+        os.environ["PORTAL_SECURITY_OMLX_CANDIDATES"] = args.candidate
+        print(f"  [engine] omlx — direct-engine bypass enabled for candidate {args.candidate!r}\n")
+
+    _sampling_override: dict[str, Any] = {}
+    if args.think != "default":
+        _sampling_override["think"] = args.think == "true"
+    if args.temperature is not None:
+        _sampling_override["temperature"] = args.temperature
+    if args.top_p is not None:
+        _sampling_override["top_p"] = args.top_p
+    if args.repeat_penalty is not None:
+        _sampling_override["repeat_penalty"] = args.repeat_penalty
+    if _sampling_override:
+        _sampling_override["model"] = args.candidate
+        os.environ["PORTAL_SECURITY_CANDIDATE_SAMPLING_JSON"] = json.dumps(_sampling_override)
+        print(f"  [sampling] candidate override: {_sampling_override}\n")
 
     # ── Resolve incumbent: explicit override → auto from config ──────────────
     incumbent = _resolve_incumbent(slot, args.incumbent)
@@ -303,6 +369,7 @@ def candidate_eval_main(argv: list[str] | None = None) -> int:
             dry_run=False,
             skip_pull=args.skip_pull,
             tps_floor=0.0 if args.force else TPS_FLOOR,
+            engine=args.engine,
         )
         if not intake or not intake[0].get("queued"):
             reason = intake[0].get("skip_reason", "unknown") if intake else "no result"

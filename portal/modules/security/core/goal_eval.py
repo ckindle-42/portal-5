@@ -68,6 +68,8 @@ def eval_proposals(
     targets: list[dict[str, Any]] | None = None,
     *,
     workspace: str | None = None,
+    model: str | None = None,
+    engine: str = "pipeline",
     role: str = "red",
 ) -> dict[str, Any]:
     """For each seeded target, run goal planning (single decide step, dry-run
@@ -92,7 +94,9 @@ def eval_proposals(
             budget={"max_iterations": 1, "max_wall_clock_sec": 60, "max_lab_actions": 1},
             domain_hint=t.get("domain_hint"),
         )
-        decision = decide_next_action(goal, t.get("observations", {}), [], workspace=workspace)
+        decision = decide_next_action(
+            goal, t.get("observations", {}), [], workspace=workspace, model=model, engine=engine
+        )
 
         non_flailing = decision.get("outcome") != "no_applicable_capability"
         grounding = True
