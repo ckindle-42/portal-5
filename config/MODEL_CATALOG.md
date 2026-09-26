@@ -2180,3 +2180,23 @@ The council Challenger seat was the last compliance-arm member without an oMLX p
 ## Why
 
 The redteam-deep and purpleteam-exec roles were the security arm's last Ollama-serialized seats. The A/B evidence (not the repo name alone) is what justifies the alias: an earlier Jiunsong conversion was refused for checkpoint divergence, so this registration rests on measured behavioral identity plus typed tool-call output, recorded here for the next auditor.
+
+---
+
+### `unsloth--Qwen3.6-27B-UD-MLX-4bit`
+
+`unsloth--Qwen3.6-27B-UD-MLX-4bit` is unsloth's MLX UD 4-bit conversion of Qwen3.6-27B — the same checkpoint the Ollama `qwen3.6:27b-q4_K_M-ctx16k` GGUF serves. Pulled and audited 2026-09-26 (P5-FANOUT-001): the council Synthesizer's contract (`response_format json_object`) verified with a coherent synthesis, and a clean typed `compliance_read` tool call. Aliased in `config/backends.yaml` `omlx-general` from the synthesizer hint. Watch item recorded: one intermittent temp-0 decode loop observed across six A/B probes — production sampling covers it; the bench campaigns are the detector if it matters.
+
+## Why
+
+The Synthesizer was the council's last tool-capable Ollama member; with this alias the entire auto-council roster is oMLX-served with the same checkpoints. The registration evidence is contract-level (json + tools), matching what the lane actually asks of the seat.
+
+---
+
+### `mlx-community--gemma-4-26b-a4b-it-4bit`
+
+`mlx-community--gemma-4-26b-a4b-it-4bit` is the MLX 4-bit conversion of google/gemma-4-26B-A4B-it — the standard checkpoint behind the Ollama `gemma4:26b-a4b-it-q4_K_M(-ctx32k)` tags (distinct from the QAT conversion already on disk, which serves the `-qat` tag). Pulled and audited 2026-09-26 (P5-FANOUT-001) for the compliance-reading lane contract: `response_format json_object` verified, typed `compliance_read` tool call in 1.8 s, and a **90,041-token needle test passed** (the reading window intent, ~82k worst case, holds with margin; 59 s wall). Aliased in `config/backends.yaml` `omlx-general` from the reading-seat hint.
+
+## Why
+
+The compliance-reading seat is the §P8.1-bound production seat; moving it to oMLX rests on three verified contract points (json, tools, window) rather than checkpoint-name matching, because the reading loop exercises all three. The standard-vs-QAT distinction is recorded so the two gemma-4-26b conversions are never cross-aliased.

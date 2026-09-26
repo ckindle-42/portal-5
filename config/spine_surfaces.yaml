@@ -840,6 +840,10 @@ surfaces:
   globs:
   - scripts/compliance/write_splash_report.py
   unit: unit-compliance-transport-dialects
+- name: file-scripts-omlx-deepseek_r1_tool_parser
+  globs:
+  - scripts/omlx/deepseek_r1_tool_parser.py
+  unit: unit-surface-omlx-tool-parsers
 - name: file-tests-fixtures-capability_context-sample_module
   globs:
   - tests/fixtures/capability_context/sample_module.py

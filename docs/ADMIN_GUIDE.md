@@ -714,7 +714,7 @@ The fleet table is the `mcp_fleet` list in `config/portal.yaml`, the single sour
 ### Model Catalog
 
 <!-- WIKI:GENERATED unit=unit-fact-model-catalog -->
-#### Model catalog (266 model ids across 7 backend groups)
+#### Model catalog (269 model ids across 7 backend groups)
 
 ##### coding (56)
 
@@ -790,7 +790,7 @@ The fleet table is the `mcp_fleet` list in `config/portal.yaml`, the single sour
 - `huihui_ai/baronllm-abliterated`
 - `huihui_ai/baronllm-abliterated:latest-ctx8k`
 
-##### general (116)
+##### general (118)
 
 - `NVIDIA-Nemotron-3.5-Lightning-30B-A3B-oQ4e-mtp`
 - `cybersecqwen-4b-toolfix:latest`
@@ -886,6 +886,7 @@ The fleet table is the `mcp_fleet` list in `config/portal.yaml`, the single sour
 - `mistral-small3.2:24b`
 - `mistral-small3.2:24b-instruct-2506-q4_K_M`
 - `mlx-community--Mistral-Small-3.2-24B-Instruct-2506-4bit`
+- `mlx-community--gemma-4-26b-a4b-it-4bit`
 - `muse-glimmer:30b-mlx`
 - `omnicoder2:9b-q4_k_m`
 - `orcarouter/Qwen3.8-27B-Uncensored:Q4_K_M`
@@ -908,14 +909,16 @@ The fleet table is the `mcp_fleet` list in `config/portal.yaml`, the single sour
 - `qwen3.6:35b-a3b-q4_K_M`
 - `supergemma4-26b-uncensored:Q4_K_M`
 - `sylink/sylink:8b`
+- `unsloth--Qwen3.6-27B-UD-MLX-4bit`
 
 ##### omlx (2)
 
 - `Laguna-XS-2.1-4bit`
 - `Qwen3-Coder-30B-A3B-Instruct-4bit`
 
-##### reasoning (30)
+##### reasoning (31)
 
+- `DeepSeek-R1-0528-Qwen3-8B-4bit`
 - `Qwen3.8-27B-oQ4e-mtp`
 - `Tongyi-DeepResearch-30B-A3B-abliterated-4bit`
 - `deepseek-r1:32b-q4_k_m`

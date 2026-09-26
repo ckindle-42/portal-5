@@ -936,6 +936,15 @@ backends:
   # json, NO tools — its template does not render tools on oMLX, probed live).
   - id: mlx-community--Mistral-Small-3.2-24B-Instruct-2506-4bit
     supports_tools: false
+  # P5-FANOUT-001: council Synthesizer conversion (json verified; tool probe
+  # clean typed compliance_read call). Watch item: one intermittent temp-0
+  # decode loop observed in 6 A/B probes — production sampling covers it.
+  - id: unsloth--Qwen3.6-27B-UD-MLX-4bit
+    supports_tools: true
+  # P5-FANOUT-001: compliance-reading seat conversion (same google/gemma-4-26b
+  # A4B-it checkpoint as the GGUF tag; json ✓, tools ✓, 90,041-token needle ✓).
+  - id: mlx-community--gemma-4-26b-a4b-it-4bit
+    supports_tools: true
   # Nemotron 3.5 Lightning oQ4e-mtp added 2026-08-14 (txgsync/NVIDIA-Nemotron-
   # 3.5-Lightning-30B-A3B-oQ4e-mtp, oMLX 0.6.0.dev1 MTPLX side-car import —
   # real mtp.* weights verified at the tensor level, unlike the plain
@@ -975,6 +984,8 @@ backends:
     granite4.1:8b-ctx16k: granite-4.1-8b-mxfp8
     granite4.1:30b-ctx16k: granite-4.1-30b-4bit
     mistral-small3.2:24b: mlx-community--Mistral-Small-3.2-24B-Instruct-2506-4bit
+    qwen3.6:27b-q4_K_M-ctx16k: unsloth--Qwen3.6-27B-UD-MLX-4bit
+    gemma4:26b-a4b-it-q4_K_M-ctx32k: mlx-community--gemma-4-26b-a4b-it-4bit
     hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k: Qwen3.8-27B-oQ4e-mtp
   type: omlx
   url: ${OMLX_URL:-http://host.docker.internal:8085}
@@ -1005,11 +1016,20 @@ backends:
     supports_tools: true
   - id: Qwen3.8-27B-oQ4e-mtp
     supports_tools: true
+  # P5-FANOUT-001 (2026-09-25): the deepseek_r1 tool parser was rebuilt
+  # (scripts/omlx/deepseek_r1_tool_parser.py + scripts/install_omlx_parsers.sh —
+  # re-run after every brew upgrade) and the model's tokenizer_config now pins
+  # tool_parser_type: deepseek_r1. Live probe: clean typed get_weather calls at
+  # temperature 0 AND 0.3. The old refusal note below is SUPERSEDED for this
+  # model; the parser fragility is now handled by the repo-side installer.
+  - id: DeepSeek-R1-0528-Qwen3-8B-4bit
+    supports_tools: true
   priority: 10
   aliases:
     huihui_ai/tongyi-deepresearch-abliterated:latest-ctx64k: Tongyi-DeepResearch-30B-A3B-abliterated-4bit
     granite4.1:30b-ctx64k: granite-4.1-30b-4bit
     granite4.1:8b-ctx16k: granite-4.1-8b-mxfp8
+    hf.co/unsloth/DeepSeek-R1-0528-Qwen3-8B-GGUF:Q4_K_XL-ctx64k: DeepSeek-R1-0528-Qwen3-8B-4bit
     # Tier-2 deep lane — auto-reasoning?variant=deep. Same MTP checkpoint the
     # omlx-coding group serves; aliased here so the reasoning group resolves it.
     hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k: Qwen3.8-27B-oQ4e-mtp
