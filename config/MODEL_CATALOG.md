@@ -2160,3 +2160,23 @@ The slate's mid-weight hybrid: 9B active puts its decode between the incumbent d
 ## Why
 
 WINDOW_AND_SEAT_V1 §P8.1 bound it as the compliance-reading seat: the binding criterion among qualifiers (no swap, high-water held) is fastest decode, and it carries a working `think` lever for the §P7 rung-4 reserve that the granite hybrid lacks. The arch-support risk named in the task (Ollama too old for `bailingmoe3`) did not materialize on Ollama 0.34.0, and the community-reported agentic-use fragility (dropped tool calls in unclosed think blocks, 500s) did not reproduce on this build's live 14-tool loop.
+
+---
+
+### `mlx-community--Mistral-Small-3.2-24B-Instruct-2506-4bit`
+
+`mlx-community--Mistral-Small-3.2-24B-Instruct-2506-4bit` is the MLX 4-bit conversion of Mistral Small 3.2 24B Instruct 2506 — the same checkpoint the Ollama `mistral-small3.2:24b` GGUF serves. Pulled 2026-09-25 (P5-FANOUT-001 lane-alignment audit) and aliased in `config/backends.yaml` `omlx-general` from the hint `mistral-small3.2:24b`. Lane contract verified live: `response_format json_object` returns schema-correct JSON (the council Challenger lane is a tool-less JSON judgment seat). KNOWN GAP, pinned here so nobody aliases it onto a tool lane: its chat template does not render tools on oMLX (the model answered "unable to access tools" to a tools probe) — tool-calling lanes must stay on the GGUF.
+
+## Why
+
+The council Challenger seat was the last compliance-arm member without an oMLX path. The conversion matches intent exactly because the lane needs prose/JSON judgment, not tools — and the tool-rendering gap is documented as a hard aliasing boundary rather than left to be rediscovered.
+
+---
+
+### `Jiunsong--supergemma4-26b-uncensored-mlx-4bit-v2`
+
+`Jiunsong--supergemma4-26b-uncensored-mlx-4bit-v2` is the MLX 4-bit conversion of the `supergemma4-26b-uncensored` checkpoint — the SAME base the Ollama `supergemma4-26b-uncensored:Q4_K_M-ctx64k` GGUF serves on the redteam-deep and purpleteam-exec roles. Pulled and behaviorally A/B-audited 2026-09-25 (P5-FANOUT-001): identical reasoning-channel structure to the GGUF seat on the same Kerberoasting probe (MLX 2,726 reasoning + 4,219 content chars vs GGUF 2,515 + 4,017), and clean typed tool calls via oMLX's gemma4 parser (`run_nmap`, typed args). This supersedes the 2026-08-10 refusal of `Jiunsong/supergemma4-26b-abliterated-multimodal`, which was a DIFFERENT checkpoint — the v2 `-uncensored` conversion is the one the refusal asked for. Probe artifact worth remembering: bare probes with a small `max_tokens` return EMPTY content on BOTH engines identically — the checkpoint spends its budget in its reasoning block first; the roles' production budgets cover it.
+
+## Why
+
+The redteam-deep and purpleteam-exec roles were the security arm's last Ollama-serialized seats. The A/B evidence (not the repo name alone) is what justifies the alias: an earlier Jiunsong conversion was refused for checkpoint divergence, so this registration rests on measured behavioral identity plus typed tool-call output, recorded here for the next auditor.

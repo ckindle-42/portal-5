@@ -1,11 +1,11 @@
 ---
 id: unit-fact-model-catalog
 kind: what
-title: 264 model ids, 7 backend groups
+title: 266 model ids, 7 backend groups
 sources:
 - type: code
   path: config/backends.yaml
-  commit: 47b82d7c6947
+  commit: 40634132bb9c
 claims:
 - probe: backends.groups.count
   pattern: '{value} backend groups)'
@@ -14,10 +14,10 @@ tags:
 - fact
 - models
 created_at: 1784000421.487881
-updated_at: 1790382004.863243
+updated_at: 1790398363.090488
 ---
 
-# Model catalog (264 model ids across 7 backend groups)
+# Model catalog (266 model ids across 7 backend groups)
 
 ## coding (56)
 
@@ -93,7 +93,7 @@ updated_at: 1790382004.863243
 - `huihui_ai/baronllm-abliterated`
 - `huihui_ai/baronllm-abliterated:latest-ctx8k`
 
-## general (115)
+## general (116)
 
 - `NVIDIA-Nemotron-3.5-Lightning-30B-A3B-oQ4e-mtp`
 - `cybersecqwen-4b-toolfix:latest`
@@ -188,6 +188,7 @@ updated_at: 1790382004.863243
 - `meta-secalign-8b-q4_k_m:latest`
 - `mistral-small3.2:24b`
 - `mistral-small3.2:24b-instruct-2506-q4_K_M`
+- `mlx-community--Mistral-Small-3.2-24B-Instruct-2506-4bit`
 - `muse-glimmer:30b-mlx`
 - `omnicoder2:9b-q4_k_m`
 - `orcarouter/Qwen3.8-27B-Uncensored:Q4_K_M`
@@ -249,8 +250,9 @@ updated_at: 1790382004.863243
 - `supergemma4-26b-uncensored:Q4_K_M`
 - `supergemma4-26b-uncensored:Q4_K_M-ctx64k`
 
-## security (33)
+## security (34)
 
+- `Jiunsong--supergemma4-26b-uncensored-mlx-4bit-v2`
 - `Nex-N2.5-mini-Uncensored-MLX-4bit`
 - `Qwen3.6-35B-A3B-HauhauCS-Aggressive-4bit`
 - `VulnLLM-R-7B-4bit`
