@@ -851,15 +851,25 @@ def read(  # noqa: PLR0912, PLR0915
     # it from the first turn's prefix alone therefore sizes it for the smallest
     # thread this reading will ever have. On Ollama 0.34.0 an overflowing prompt
     # is not truncated: it is HTTP 400 `exceed_context_size_error`, which kills
-    # the reading outright. So the floor is the transport's own default, which
-    # is sized for the worst case this loop can build.
+    # the reading outright. So where the seat's window is FIXED — through the
+    # pipeline the request's num_ctx is dropped and the workspace's declared
+    # context_limit is what gets served (P5-FANOUT-001 W3) — that window is
+    # the truth and wins over everything, including an explicit `num_ctx`
+    # argument: a caller cannot pick a window the transport will not deliver,
+    # and a reading sized for a window the seat does not have stops HERE,
+    # named, instead of as a runner-side 400 mid-loop. Where the window is
+    # requestable (the native endpoint honours request-time num_ctx) the
+    # transport reports 0 and the old rule stands: the caller's value, else the
+    # transport constant, else `needed`.
     #
     # `CHARS_PER_TOKEN` (2.1) OVER-counts on this material — measured at 4.22
     # chars/token on the seat (140,000 chars -> 33,142 prompt tokens), so the
     # estimate reserves about twice the window it needs. That is the safe
     # direction and it is left alone deliberately: the number that must never be
     # optimistic is the one that reserves the window.
-    window = num_ctx or max(DEFAULT_NUM_CTX, -(-needed // 4096) * 4096)
+    from portal.modules.compliance.core.reading_transport import seat_window as _seat_window
+
+    window = _seat_window(model) or num_ctx or max(DEFAULT_NUM_CTX, -(-needed // 4096) * 4096)
     answer_result: Any = None
     stop_reason = ""
     model_calls = 0

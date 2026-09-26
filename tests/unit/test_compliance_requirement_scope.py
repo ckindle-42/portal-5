@@ -90,6 +90,16 @@ def _sections(repo: Repository, revision_id: str) -> list[str]:
     ]
 
 
+@pytest.fixture(autouse=True)
+def _pin_native_transport(monkeypatch):
+    """This module fakes ``reading_transport._post`` to feed deterministic
+    answers. The P5-FANOUT-001 default (``COMPLIANCE_TRANSPORT=pipeline``)
+    resolves chat() at the pipeline dialect, which owns its transport and
+    bypasses that fake — pin ``ollama-native`` so the fake is on the wire
+    again."""
+    monkeypatch.setenv("COMPLIANCE_TRANSPORT", "ollama-native")
+
+
 @pytest.fixture
 def store(tmp_path: Path) -> Repository:
     repo = Repository(tmp_path / "store.db")

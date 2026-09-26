@@ -20,11 +20,31 @@ twenty calls.
 
 from __future__ import annotations
 
+import concurrent.futures
 import json
+import os
 import re
 import time
 from pathlib import Path
 from typing import Any
+
+
+def _sweep_concurrency() -> int:
+    """The sweep's worker count: 1 (sequential) unless the caller opts in.
+
+    Sequential is the default because it is not free of content: on Ollama
+    State B the shared-body-first sequential order buys a real prefill
+    collapse (§B2, ×118), while concurrent calls there prefill independently.
+    ``SWEEP_CONCURRENCY=N`` opts into the fan-out for engines that share
+    prefixes across concurrent requests and batch decode — the pipeline
+    dialect's oMLX seats (measured 2.1x at 3 concurrent, P5-FANOUT-001 M3).
+    Values < 1 mean 1.
+    """
+    try:
+        return max(1, int(os.environ.get("SWEEP_CONCURRENCY", "1")))
+    except ValueError:
+        return 1
+
 
 #: The dependency order over the register's standards, and the reason each
 #: placement claims. Foundational first: categorisation (CIP-002) before
@@ -184,9 +204,14 @@ def map_read(
     pairing the store already holds is corroborated, never re-created.
 
     ``dialect`` names the wire protocol the call travels on
-    (:mod:`transport_dialects`). None means the default resolution —
-    ``ollama-native`` unless ``COMPLIANCE_TRANSPORT`` says otherwise — and the
-    resolved engine is stamped onto the payload either way.
+    (:mod:`transport_dialects`). None means the default resolution — the
+    pipeline (:9099), the production path, unless ``COMPLIANCE_TRANSPORT``
+    says otherwise (``ollama-native`` is the raw-probe/rollback setting) —
+    and the resolved engine is stamped onto the payload either way. The
+    pipeline dialect addresses the seat by WORKSPACE (a raw tag resolves
+    through ``model_addressing``), drops ``num_ctx`` (the window is the
+    seat's baked tag — set ``num_ctx`` to match the seat you address), and
+    streams, so a reading survives the pipeline's non-streaming 300 s cap.
     """
     from portal.modules.compliance.core import candidate_links, reading_material
     from portal.modules.compliance.core.reading_transport import chat
@@ -287,10 +312,17 @@ def map_read(
         "answer": answer,
         # Which engine produced this cell. A receipt that cannot say this can be
         # filed under the wrong engine — which is how a splash measurement gets
-        # taken on Ollama and written into a promotion decision.
+        # taken on Ollama and written into a promotion decision. The pipeline
+        # dialect extends this beyond the protocol name: the workspace the tag
+        # resolved to, the backend that answered and the model it served, from
+        # the pipeline's own span store (P5-FANOUT-001).
         "dialect": result.get("dialect", "ollama-native"),
         "endpoint": result.get("endpoint", ""),
         "context_source": result.get("context_source", "request_num_ctx"),
+        "workspace": result.get("workspace", ""),
+        "route_backend": result.get("route_backend", ""),
+        "served_model": result.get("served_model", ""),
+        "correlation_id": result.get("correlation_id", ""),
         "thinking_chars": len(result.thinking),
         "model": model,
         "prompt_version": prompt_version,
@@ -414,8 +446,9 @@ def sweep_standard(
     dialect: Any = None,
     overflow_model: str = "",
     overflow_num_ctx: int = 65536,
+    concurrency: int | None = None,
 ) -> dict[str, Any]:
-    """Map every requirement of one standard, sequentially, shared body first.
+    """Map every requirement of one standard, shared body first; optionally fanned out.
 
     The cache story of this loop has now been measured THREE times, and the
     latest measurement wins:
@@ -435,12 +468,14 @@ def sweep_standard(
       =q8_0``, ``OLLAMA_FLASH_ATTENTION=1`` are the prime suspects — not
       isolated). A genuinely-unshared control still prefills at full price, so
       the reuse is real prefix sharing, not a broken clock.
-    * Consequence: the sequential loop's fixed-body-first ordering is not
-      "correct by accident" any more — on State B it buys the collapse for
-      independent sequential calls. Whether a CONCURRENT fan-out still beats
-      it on wall clock, on any engine, is exactly what
-      tests/benchmarks/bench_engine_concurrency.py measures; this docstring
-      deliberately does not preempt that verdict.
+    * Consequence: the sequential order is the DEFAULT — on State B it buys a
+      real collapse on Ollama, and concurrent calls there prefill
+      independently across requests. ``concurrency > 1`` is the opt-in fan-out
+      for engines that share prefixes ACROSS concurrent requests (oMLX's
+      block-based paged KV) and batch decode (measured 2.1x at 3 concurrent on
+      granite-4.1-30b-4bit, P5-FANOUT-001 M3) — i.e. run it through the
+      pipeline dialect, and record the wall verdict with the run rather than
+      assuming it.
     (``prompt_eval_duration`` remains the honest cache signal on Ollama;
     ``prompt_eval_count`` reads the FULL prompt length on a hit — and
     ``prompt_eval_cached_count`` on the native surface is the corroborating
@@ -452,12 +487,14 @@ def sweep_standard(
 
     if refs is None:
         refs = refs_for_standard(Register.load(), standard)
+    workers = concurrency if concurrency is not None else _sweep_concurrency()
     fixed = reading_material.fixed_body(repo, standard)
     if "error" in fixed:
         return {"standard": standard, "error": fixed["error"]}
     rows: list[dict[str, Any]] = []
     started = time.time()
-    for ref in refs:
+
+    def _run(ref: str) -> dict[str, Any]:
         payload = map_read(
             repo,
             ref,
@@ -471,30 +508,52 @@ def sweep_standard(
             overflow_num_ctx=overflow_num_ctx,
         )
         if "error" in payload:
-            rows.append({"ref": ref, "error": payload["error"]})
-            continue
+            return {"ref": ref, "error": payload["error"]}
         latency = payload.get("latency", {})
         determinations = payload.get("determinations", {})
-        rows.append(
-            {
-                "ref": ref,
-                "wall_s": latency.get("elapsed_s"),
-                "prompt_tokens": latency.get("prompt_eval_count"),
-                "prompt_eval_duration_s": latency.get("prompt_eval_duration_s"),
-                "eval_count": latency.get("eval_count"),
-                "determined": determinations.get("determined", 0),
-                "corroborated": determinations.get("corroborated", 0),
-                "rejected": determinations.get("rejected", 0),
-                "parse_error": determinations.get("parse_error", ""),
-                "run_id": payload.get("run_id", ""),
-            }
-        )
-        print(
-            f"  {ref:<28} wall={rows[-1]['wall_s']:>6} s "
-            f"prefill={rows[-1]['prompt_eval_duration_s']:>7} s "
-            f"determined={rows[-1]['determined']} corroborated={rows[-1]['corroborated']} "
-            f"rejected={rows[-1]['rejected']}"
-        )
+        return {
+            "ref": ref,
+            "wall_s": latency.get("elapsed_s"),
+            "prompt_tokens": latency.get("prompt_eval_count"),
+            "prompt_eval_duration_s": latency.get("prompt_eval_duration_s"),
+            "eval_count": latency.get("eval_count"),
+            "determined": determinations.get("determined", 0),
+            "corroborated": determinations.get("corroborated", 0),
+            "rejected": determinations.get("rejected", 0),
+            "parse_error": determinations.get("parse_error", ""),
+            "run_id": payload.get("run_id", ""),
+            "served_model": payload.get("served_model", ""),
+            "route_backend": payload.get("route_backend", ""),
+        }
+
+    if workers > 1:
+        # Order-preserving fan-out: results report in sweep order regardless of
+        # completion order, so downstream consumers of `rows` see the same
+        # sequence the sequential loop produced.
+        with concurrent.futures.ThreadPoolExecutor(max_workers=workers) as pool:
+            rows = list(pool.map(_run, refs))
+        for row in rows:
+            if "error" in row:
+                print(f"  {row['ref']:<28} ERROR {row['error']}")
+                continue
+            print(
+                f"  {row['ref']:<28} wall={row['wall_s']:>6} s "
+                f"prefill={row['prompt_eval_duration_s']:>7} s "
+                f"determined={row['determined']} corroborated={row['corroborated']} "
+                f"rejected={row['rejected']}"
+            )
+    else:
+        for ref in refs:
+            rows.append(_run(ref))
+            if "error" in rows[-1]:
+                print(f"  {ref:<28} ERROR {rows[-1]['error']}")
+                continue
+            print(
+                f"  {ref:<28} wall={rows[-1]['wall_s']:>6} s "
+                f"prefill={rows[-1]['prompt_eval_duration_s']:>7} s "
+                f"determined={rows[-1]['determined']} corroborated={rows[-1]['corroborated']} "
+                f"rejected={rows[-1]['rejected']}"
+            )
     total_wall = round(time.time() - started, 2)
     durations = [r["prompt_eval_duration_s"] for r in rows if r.get("prompt_eval_duration_s")]
     summary = {

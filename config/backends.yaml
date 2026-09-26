@@ -37,6 +37,15 @@ backends:
   # see config/portal.yaml compliance-reading for the decision record).
   - id: hf.co/inclusionAI/Ling-3.0-tiny-GGUF:Q4_K_M-ctx32k
     supports_tools: true
+  # P5-FANOUT-001 W3: the reading seat's big-window variant (granite4.1:30b
+  # weights, PARAMETER num_ctx 98304 baked, trained ceiling 131,072). Serves
+  # bench-granite41-30b-ctx98k; the reading loop's ~82k worst case must
+  # address a seat that bakes the window because the pipeline drops
+  # request-time num_ctx. supports_tools verified live 2026-09-25 via a
+  # direct /api/chat probe on the derived tag (clean tool_calls, typed
+  # arguments — same weights/template as the incumbent seat).
+  - id: granite4.1:30b-ctx98k
+    supports_tools: true
   # Nemotron 3.5 Lightning added 2026-08-14 for auto-nemotron workspace
   # (architectural diversity vs the Gemma-4 daily driver). supports_tools
   # verified via direct tool-call probe (clean tool_calls, typed arguments).
@@ -933,10 +942,26 @@ backends:
   # direct tool-call probe.
   - id: NVIDIA-Nemotron-3.5-Lightning-30B-A3B-oQ4e-mtp
     supports_tools: true
+  # P5-FANOUT-001 W4: the compliance fan-out's seats registered here so the
+  # priority-10 alias block below can shadow them onto oMLX (workspace_routing
+  # for bench-* and compliance-reading reaches only this group). Every alias
+  # was tool-call probed live 2026-09-25 before registration: granite-4.1-8b-
+  # mxfp8 and granite-4.1-30b-4bit each returned a clean typed get_weather
+  # call; Qwen3.8-27B-oQ4e-mtp is the model the omlx-reasoning alias block
+  # already serves (re-audited 2026-08-31, TASK_OMLX_REASONING_POOL_REPAIR_V1,
+  # and re-verified live the same day by a real auto-compliance pipeline
+  # request). Measured basis for the shadow: same-model decode-bound fan-out
+  # on oMLX runs 2.1x (30b) / 2.4-2.8x (8b) at 3-4 concurrent vs fully
+  # serialized (1.00x) on Ollama at OLLAMA_NUM_PARALLEL=1 — docs/
+  # TASK_FANOUT_CONCURRENCY_V1.md.
   priority: 10
   aliases:
     gemma4:26b-a4b-it-qat-ctx8k: gemma-4-26b-a4b-it-QAT-4bit
     hf.co/bartowski/NVIDIA-Nemotron-3.5-Lightning-30B-A3B-GGUF:q4_K_M-ctx8k: NVIDIA-Nemotron-3.5-Lightning-30B-A3B-oQ4e-mtp
+    granite4.1:8b-ctx8k: granite-4.1-8b-mxfp8
+    granite4.1:30b-ctx16k: granite-4.1-30b-4bit
+    granite4.1:30b-ctx98k: granite-4.1-30b-4bit
+    hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k: Qwen3.8-27B-oQ4e-mtp
   type: omlx
   url: ${OMLX_URL:-http://host.docker.internal:8085}
 # omlx-reasoning: reasoning-group workspaces (auto-research, auto-compliance,
@@ -1148,6 +1173,8 @@ workspace_routing:
   bench-granite41-8b:
   - general
   bench-granite41-30b:
+  - general
+  bench-granite41-30b-ctx98k:
   - general
   bench-foundation-sec-8b-reasoning:
   - reasoning

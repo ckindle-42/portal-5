@@ -10,6 +10,8 @@ from __future__ import annotations
 import json
 from typing import Any
 
+import pytest
+
 from portal.modules.compliance.core.council import _SEAT_SYSTEM
 from portal.modules.compliance.core.determination import (
     AssessmentContext,
@@ -20,6 +22,17 @@ from portal.modules.compliance.core.determination import (
     SourceSlice,
 )
 from portal.modules.compliance.core.obligation_alignment import align_part
+
+
+@pytest.fixture(autouse=True)
+def _pin_native_transport(monkeypatch):
+    """This module fakes ``urllib.request.urlopen`` to stand in for the model
+    runner. The P5-FANOUT-001 default (``COMPLIANCE_TRANSPORT=pipeline``)
+    resolves chat() at the pipeline dialect, whose transport is httpx-based and
+    bypasses that fake entirely — pin ``ollama-native`` so the fake is on the
+    wire again."""
+    monkeypatch.setenv("COMPLIANCE_TRANSPORT", "ollama-native")
+
 
 SEATS = [
     {"id": "s1", "label": "a", "model": "m1"},

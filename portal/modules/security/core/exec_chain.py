@@ -41,7 +41,6 @@ from ._data import (
     PROMPT_MAX_TOKENS,
     PROMPTS,
     REQUEST_TIMEOUT,
-    expected_model_hint,
 )
 from .lab import (
     build_step_dag,
@@ -3409,31 +3408,6 @@ class _ChainTurnStalledError(Exception):
     """Raised when a streamed chain-test turn produces no data for the idle window."""
 
 
-def _accumulate_chain_tool_calls(
-    tc_deltas: list[dict[str, Any]], tool_calls_buf: list[dict[str, Any]]
-) -> None:
-    """Accumulate streamed tool_call deltas by index — mirrors
-    portal.platform.inference.router.streaming._accumulate_tool_calls so both
-    the pipeline's own hop logic and this chain-test client parse the same
-    OpenAI-style incremental tool_calls shape identically.
-    """
-    for tc_delta in tc_deltas:
-        idx = tc_delta.get("index", 0)
-        while len(tool_calls_buf) <= idx:
-            tool_calls_buf.append(
-                {"id": "", "type": "function", "function": {"name": "", "arguments": ""}}
-            )
-        buf = tool_calls_buf[idx]
-        if "id" in tc_delta:
-            buf["id"] = tc_delta["id"]
-        if "function" in tc_delta:
-            fn = tc_delta["function"]
-            if "name" in fn:
-                buf["function"]["name"] += fn["name"]
-            if "arguments" in fn:
-                buf["function"]["arguments"] += fn["arguments"]
-
-
 def _stream_chain_turn(
     url: str,
     headers: dict[str, str],
@@ -3446,117 +3420,62 @@ def _stream_chain_turn(
     """One chain-test turn, streamed and idle-timeout-gated instead of a
     single blocking full-response read.
 
-    P5-EMERGENT-003 (found live during TASK_SECURITY_ARM_CLOSE_LOOP_V1 Phase
-    9): the prior `httpx.post(..., stream=False, timeout=per_turn_timeout)`
-    applied `per_turn_timeout` to the ENTIRE call — a cold model swap (Ollama
-    evicting/loading a different GGUF for each chain-test model in sequence)
-    routinely blew a 120s total budget even though the model was actively
-    loading/generating the whole time, discarding a real in-flight turn as
-    "TIMEOUT — model did not respond" and polluting chain-test telemetry with
-    false stalls. httpx's `read` timeout, used with a *streamed* response, is
-    inactivity-based (applies between successive chunk reads, not to total
-    duration) — this switches the transport to `stream: true` and only
-    raises _ChainTurnStalledError when NO bytes arrive for `idle_timeout_s`,
-    regardless of how long the whole turn takes. Timeouts become the last
-    resort (genuine hang) rather than the default control-flow signal for
-    "model is still working."
+    The transport itself lives in
+    :mod:`portal.platform.inference.streaming_client` — shared with the
+    compliance pipeline dialect, because P5-EMERGENT-003's lesson (a total
+    timeout kills a cold-loading model; only an idle timeout between chunks
+    distinguishes "working" from "hung") applies to every caller, and two
+    copies of the streamed parser were already diverging. What remains here is
+    this bench's own specifics: its stall error type, the workspace
+    model_hint substitution guard input, and the P5-TOOLCALL-WRAPPER-001
+    recovery for a model that drifted from its own chat template's tool-call
+    wrapper.
     """
-    payload = dict(payload, stream=True)
-    timeout = httpx.Timeout(idle_timeout_s, connect=connect_timeout_s, write=connect_timeout_s)
-    content_parts: list[str] = []
-    tool_calls: list[dict[str, Any]] = []
-    role = "assistant"
-    got_any_chunk = False
-    served_model = ""
+    from portal.platform.inference.streaming_client import (  # noqa: PLC0415
+        StreamTurnStalledError,
+        stream_chat_turn,
+    )
 
-    with (
-        httpx.Client(timeout=timeout) as client,
-        client.stream("POST", url, headers=headers, json=payload) as resp,
-    ):
-        resp.raise_for_status()
-        # x-portal-route is "{requested_workspace};{backend_id};{target_model}",
-        # set once per HTTP response by the router itself (handlers.py) —
-        # unlike per-chunk "model" fields (which echo the *requested* value on
-        # the pipeline's own synthetic preamble/tool_calls-only chunks and are
-        # unreliable for tool-calling turns that never emit a content chunk),
-        # this is the router's own routing decision, always present and
-        # accurate regardless of hop count.
-        route_header = resp.headers.get("x-portal-route", "")
-        if route_header.count(";") == 2:
-            served_model = route_header.rsplit(";", 1)[1]
-        for line in resp.iter_lines():
-            if not line:
-                continue
-            got_any_chunk = True
-            if is_pipeline_mode:
-                if not line.startswith("data: "):
-                    continue
-                data = line[len("data: ") :]
-                if data == "[DONE]":
-                    break
-                chunk = json.loads(data)
-                choice = (chunk.get("choices") or [{}])[0]
-                delta = choice.get("delta") or {}
-                if delta.get("role"):
-                    role = delta["role"]
-                if delta.get("content"):
-                    content_parts.append(delta["content"])
-                if delta.get("tool_calls"):
-                    _accumulate_chain_tool_calls(delta["tool_calls"], tool_calls)
-            else:
-                chunk = json.loads(line)
-                msg = chunk.get("message") or {}
-                if msg.get("role"):
-                    role = msg["role"]
-                if msg.get("content"):
-                    content_parts.append(msg["content"])
-                if msg.get("tool_calls"):
-                    # Ollama sends the full tool_calls array per chunk, not
-                    # incremental deltas — replace rather than accumulate.
-                    tool_calls = msg["tool_calls"]
-                if chunk.get("done"):
-                    break
+    def _recover(msg: dict[str, Any]) -> dict[str, Any]:
+        from .agentic_blue_eval import normalize_tool_calls  # noqa: PLC0415
 
-    if not got_any_chunk:
-        raise _ChainTurnStalledError(f"no data received within {idle_timeout_s}s")
+        return normalize_tool_calls(msg)
 
-    # Served-model verification (P5-SILENT-SUBSTITUTION-001): the pipeline
-    # treats `model` as a workspace id and silently falls back to the routing
-    # group's first model when no workspace matches — resolve_pipeline_model()
-    # exists to prevent that by mapping a raw tag to its registered workspace,
-    # but a *new* model with no workspace entry yet still slips through
-    # unresolved and gets silently swapped, with no error anywhere. Only
-    # checkable in pipeline mode — direct-Ollama requests use a literal model
-    # tag, not a workspace id, so there's no substitution risk to verify there.
-    if is_pipeline_mode and served_model:
-        requested_workspace = payload.get("model", "")
-        expected_hint = expected_model_hint(requested_workspace)
-        if expected_hint and served_model != expected_hint:
-            raise RuntimeError(
-                f"Silent model substitution: requested workspace {requested_workspace!r} "
-                f"(expected model {expected_hint!r}) but the pipeline served "
-                f"{served_model!r} instead. This means {requested_workspace!r}'s "
-                "model_hint is missing/wrong in config/portal.yaml, or its "
-                "workspace_routing group in config/backends.yaml doesn't actually "
-                "carry that model — fix the mapping, don't silently continue."
-            )
+    def _acceptable_models(workspace: str) -> set[str] | None:
+        """The hint plus every alias target it resolves onto.
 
-    msg = {"role": role, "content": "".join(content_parts), "tool_calls": tool_calls}
+        A priority-10 oMLX alias legitimately serves the conversion id, not
+        the GGUF tag the workspace names — a guard that rejected the alias
+        target would flag every correctly-routed aliased seat (P5-FANOUT-001).
+        """
+        if not is_pipeline_mode:
+            return None
+        from portal.platform.inference.model_addressing import (  # noqa: PLC0415
+            alias_targets_for_model,
+            workspace_model_hint,
+        )
 
-    # P5-TOOLCALL-WRAPPER-001: some fine-tunes drift from their own chat
-    # template's expected tool-call tag (using <response>, <request>, <output>,
-    # markdown fences, or no wrapper at all instead of the <tool_call> its
-    # template specifies) — the JSON payload itself is well-formed, just
-    # wrapped differently than Ollama's parser expects, so `tool_calls` comes
-    # back empty even though the model made a genuine, structured tool call.
-    # Recovering it here (single centralized point, not per-caller) means
-    # every chain-test/blue/agentic-eval caller gets the same protection, and
-    # a model doesn't get scored as "stalled" for a wrapper mismatch.
-    if not msg["tool_calls"]:
-        from .agentic_blue_eval import normalize_tool_calls
+        hint = workspace_model_hint(workspace)
+        if not hint:
+            return None
+        return {hint, *alias_targets_for_model(hint)}
 
-        msg = normalize_tool_calls(msg)
-
+    try:
+        msg = stream_chat_turn(
+            url,
+            headers,
+            payload,
+            is_pipeline_mode=is_pipeline_mode,
+            idle_timeout_s=idle_timeout_s,
+            connect_timeout_s=connect_timeout_s,
+            expected_model_hint=_acceptable_models(payload.get("model", "")),
+            recover_tool_calls=_recover,
+        )
+    except StreamTurnStalledError as exc:
+        raise _ChainTurnStalledError(str(exc)) from exc
+    # served_model stays on the message (additive key): bench rows that care
+    # about which backend answered can record it instead of re-deriving it
+    # from config. The shared client sets it; direct-Ollama calls carry "".
     return msg
 
 

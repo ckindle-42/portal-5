@@ -31,6 +31,7 @@
   "bench-gemma4-e4b-qat": "vision",
   "bench-glm": "coding",
   "bench-granite41-30b": "coding",
+  "bench-granite41-30b-ctx98k": "coding",
   "bench-granite41-8b": "coding",
   "bench-hermes3": "reasoning",
   "bench-huihui-qwen36-27b": "general",

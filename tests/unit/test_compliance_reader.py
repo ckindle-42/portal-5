@@ -116,6 +116,15 @@ def _section(repo: Repository, needle: str) -> str:
     raise AssertionError(f"no section containing {needle!r}")
 
 
+@pytest.fixture(autouse=True)
+def _pin_native_transport(monkeypatch):
+    """These tests pin the NATIVE wire contract. The P5-FANOUT-001 default
+    (``COMPLIANCE_TRANSPORT=pipeline``) would resolve them at the pipeline
+    dialect, which owns its transport and bypasses the ``_post`` fakes below;
+    ``ollama-native`` restores the resolution these tests were written under."""
+    monkeypatch.setenv("COMPLIANCE_TRANSPORT", "ollama-native")
+
+
 class TestTheMaterialHandedOver:
     def test_every_component_is_rendered_with_its_own_label(self, store: Repository) -> None:
         from portal.modules.compliance.core.reading_assembly import assemble

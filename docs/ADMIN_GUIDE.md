@@ -538,7 +538,7 @@ The roster is derived from the persona YAML files under `config/personas/`, one 
 ### Workspaces
 
 <!-- WIKI:GENERATED unit=unit-fact-workspace-roster -->
-#### Workspace roster (26 production, 21 eval, 47 total)
+#### Workspace roster (26 production, 22 eval, 48 total)
 
 ##### Production workspaces (acceptance/UAT scope, eval OFF)
 
@@ -580,6 +580,7 @@ The roster is derived from the persona YAML files under `config/personas/`, one 
 - `bench-gemma4-e4b-qat`
 - `bench-glm`
 - `bench-granite41-30b`
+- `bench-granite41-30b-ctx98k`
 - `bench-granite41-8b`
 - `bench-hermes3`
 - `bench-huihui-qwen36-27b`
@@ -713,7 +714,7 @@ The fleet table is the `mcp_fleet` list in `config/portal.yaml`, the single sour
 ### Model Catalog
 
 <!-- WIKI:GENERATED unit=unit-fact-model-catalog -->
-#### Model catalog (263 model ids across 7 backend groups)
+#### Model catalog (264 model ids across 7 backend groups)
 
 ##### coding (56)
 
@@ -789,7 +790,7 @@ The fleet table is the `mcp_fleet` list in `config/portal.yaml`, the single sour
 - `huihui_ai/baronllm-abliterated`
 - `huihui_ai/baronllm-abliterated:latest-ctx8k`
 
-##### general (114)
+##### general (115)
 
 - `NVIDIA-Nemotron-3.5-Lightning-30B-A3B-oQ4e-mtp`
 - `cybersecqwen-4b-toolfix:latest`
@@ -814,6 +815,7 @@ The fleet table is the `mcp_fleet` list in `config/portal.yaml`, the single sour
 - `gpt-oss:20b`
 - `granite4.1:30b`
 - `granite4.1:30b-ctx16k`
+- `granite4.1:30b-ctx98k`
 - `granite4.1:8b`
 - `granite4.1:8b-ctx16k`
 - `granite4.1:8b-ctx8k`
