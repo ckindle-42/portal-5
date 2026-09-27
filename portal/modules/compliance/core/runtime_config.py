@@ -31,12 +31,13 @@ _DEFAULT_ORG_GRAPH = (
     / "org_graph.json"
 )
 
-# D0-M-qualified default roster — the fallback when config/compliance/council.yaml
-# is absent. Selected from the 12-seat judgment-probe sweep (2026-09-06): three
-# families, F2 {0.952, 0.843, 0.802} on violation detection, all vca >= 0.87.
-# Third seat updated 2026-09-26: config/compliance/council.yaml is authoritative
-# and this must mirror it — see that file's "Superseded seats" note for why
-# mistral was replaced by deepseek_r1 (provisional, PROMOTE_POLICY: confirm).
+# Fallback roster when config/compliance/council.yaml is absent. The cited
+# 2026-09-06 D0-M sweep (F2 {0.952, 0.843, 0.802}; VCA >= 0.87) measured the
+# then-selected roster and does not qualify the DeepSeek-R1 seat added on
+# 2026-09-26. The controlled 2026-09-27 P3B experiment kept PROMOTE_POLICY:
+# confirm; its selected prompt failed independent holdout schema/citation
+# gates. Keep this fallback aligned with council.yaml, but do not treat either
+# roster declaration as evidence of current R1 qualification.
 _DEFAULT_SEATS: list[dict[str, str]] = [
     {
         "id": "qwen38",

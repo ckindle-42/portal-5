@@ -146,7 +146,7 @@ def _staged_seat() -> Any:
                 {
                     "determination": "PARTIAL" if weak else "SUPPORTED",
                     "finding_type": None,
-                    "cited_refs": ["c1"],
+                    "cited_refs": ["proc c1"],
                     "confidence": 0.9,
                     "rationale": "scripted",
                 }

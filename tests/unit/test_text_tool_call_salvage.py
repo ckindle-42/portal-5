@@ -181,7 +181,7 @@ async def test_stream_releases_unparseable_text_in_order(monkeypatch):
 
 
 @pytest.mark.anyio
-async def test_reasoning_fallback_joins_fragments_verbatim(monkeypatch):
+async def test_reasoning_only_remains_separate_and_is_not_an_answer(monkeypatch):
     hop1 = [
         _frame({"reasoning_content": "summarize"}),
         _frame({"reasoning_content": "(rows)"}),
@@ -190,7 +190,26 @@ async def test_reasoning_fallback_joins_fragments_verbatim(monkeypatch):
         "data: [DONE]",
     ]
     out, _ = await _run(monkeypatch, [hop1])
-    assert "summarize(rows) 3." in out
+    payloads = [
+        json.loads(line[6:])
+        for line in out.splitlines()
+        if line.startswith("data: ") and line[6:] != "[DONE]"
+    ]
+    content = "".join(
+        (choice.get("delta") or {}).get("content") or ""
+        for payload in payloads
+        for choice in payload.get("choices") or []
+    )
+    reasoning = "".join(
+        (choice.get("delta") or {}).get("reasoning_content") or ""
+        for payload in payloads
+        for choice in payload.get("choices") or []
+    )
+    assert content == streaming.NO_ANSWER_MESSAGE
+    assert reasoning == "summarize(rows) 3."
+    assert "summarize(rows) 3." not in content
+    assert payloads[-1]["choices"][0]["finish_reason"] == "length"
+    assert out.rstrip().endswith("data: [DONE]")
 
 
 @pytest.mark.anyio

@@ -1,9 +1,11 @@
 # Compliance review council roster (TASK_COMPLIANCE_REASONING_V6 D0-M).
 #
-# Selected from the 12-seat judgment-probe sweep
-# (tests/benchmarks/results/judgment_probe_v6_*.json, run 2026-09-06):
-# three families, F2 {0.952, 0.843, 0.802} on violation detection, all with
-# violation-class accuracy >= 0.87, abstain-recall 1.00, schema 1.00.
+# The original D0-M roster was selected from the 12-seat judgment-probe sweep
+# (tests/benchmarks/results/judgment_probe_v6_*.json, 2026-09-06): F2
+# {0.952, 0.843, 0.802}, with the then-selected seats meeting the stated bars.
+# The current R1 seat replaced Mistral on 2026-09-26 and is not covered by
+# those historical scores. Its controlled 2026-09-27 P3B holdout failed the
+# schema/citation gates; see reports/compliance/stream_and_council_repair/.
 #
 # quorum is computed in code (ceil(quorum * roster)); 0.66 of 3 -> 2 seats
 # must agree or the determination escalates to S04_INTERPRETATION_DISPUTE.
@@ -26,8 +28,10 @@ seats:
     label: "DeepSeek-R1-0528-Qwen3-8B (unsloth Q4_K_XL, 64k)"
     model: "hf.co/unsloth/DeepSeek-R1-0528-Qwen3-8B-GGUF:Q4_K_XL-ctx64k"
     workspace: "compliance-council-deepseek-r1"
-    # PROMOTED 2026-09-26, provisional — PROMOTE_POLICY: confirm (pre-UAT
-    # decision, explicitly revisitable, not a fresh 12-seat sweep result).
+    # Configured 2026-09-26, provisional — PROMOTE_POLICY: confirm. The
+    # controlled P3B incumbent experiment ran 2026-09-27; explicit_contract
+    # failed the independent holdout schema/citation gates. Retain this seat
+    # for diagnosis, but do not treat it as qualified or promote its prompt.
     # Replaces the mistral seat below, which was UNDER REVIEW (docs/
     # TASK_COMPLIANCE_READING_SEAT_REPLACEMENT_V1.md) for dropping/mangling
     # the counterevidence slice id (1/4 correct, once with a digit dropped) —
@@ -37,13 +41,14 @@ seats:
     # near-identical architectures votes less independently) and because its
     # visible reasoning trace plausibly targets mistral's exact failure mode
     # (it re-derives references before answering instead of citing from
-    # memory). Already production-proven in this codebase: auto-council's
-    # Operator seat and auto-reasoning's default both run it, and its oMLX
-    # tool-parser was rebuilt and live-probed 2026-09-25 (P5-FANOUT-001,
-    # clean typed calls at temperature 0 and 0.3). NOT yet run through this
-    # roster's own judgment-probe sweep (F2 / abstain-recall / schema on
-    # violation detection) — that's the real gap before trusting this beyond
-    # "better than a documented-broken seat."
+    # memory). It also serves unrelated Operator/auto-reasoning roles and
+    # passed a separate oMLX tool-parser probe; neither is compliance-council
+    # evidence. P3B's selected arm cleared development gates only
+    # inconsistently (one schema failure); on the frozen 21-case holdout,
+    # repetition 1 had schema 20/21 and citation 14/21, while repetition 2
+    # had schema 21/21 and citation 7/21. The independent gates did not pass.
+    # Do not infer a global model limitation from this
+    # prompt/contract/route experiment.
 
 # Superseded seats, with evidence (do not re-add without a fresh sweep):
 #   mistral-small3.2:24b-instruct-2506-q4_K_M — SUPERSEDED 2026-09-26 by

@@ -347,13 +347,85 @@ def _attempt(
 ) -> dict[str, Any]:
     content, thinking = _unpack(body, dialect)
     metrics = dialect.metrics(body) if dialect is not None else {}
+    choice = (body.get("choices") or [{}])[0]
     return {
         "answer_budget": answer_budget,
         "reasoning_allowance": allowance,
         "thinking_chars": len(thinking),
         "answer_chars": len(content),
         "eval_count": metrics.get("eval_count", body.get("eval_count", 0)),
+        "finish_reason": choice.get("finish_reason") or body.get("done_reason"),
     }
+
+
+def _applied_thinking(body: dict[str, Any], requested: bool | str) -> bool:
+    """Use route-applied workspace policy when a transport reports it."""
+    portal = body.get("_portal") or {}
+    options = portal.get("options_applied") or {}
+    for key in ("enable_thinking", "think"):
+        value = options.get(key)
+        if isinstance(value, bool):
+            return value
+        if isinstance(value, str):
+            return value.strip().lower() not in {"", "0", "false", "off", "none", "no"}
+    effort = options.get("reasoning_effort")
+    if isinstance(effort, str):
+        return effort.strip().lower() not in {"", "0", "false", "off", "none", "no"}
+    message = (body.get("choices") or [{}])[0].get("message") or {}
+    return bool(message.get("reasoning_content") or message.get("reasoning")) or bool(requested)
+
+
+def _finalize_answer(
+    body: dict[str, Any],
+    *,
+    build: Any,
+    answer_budget: int,
+    allowance: int,
+    sent_think: bool | str,
+    timeout: int,
+    dialect: Any,
+) -> tuple[dict[str, Any], str, str, bool, list[dict[str, Any]], Any, str, int]:
+    """Read separated channels, preserve terminal status, and bound recovery."""
+    content, thinking = _unpack(body, dialect)
+    effective_think = _applied_thinking(body, sent_think)
+    attempts = [_attempt(body, answer_budget, allowance if sent_think else 0, dialect)]
+    finish_reason = attempts[0]["finish_reason"]
+    stop_reason = ""
+    message = body.get("message") or {}
+    if not message and body.get("choices"):
+        message = (body["choices"][0] or {}).get("message") or {}
+    has_tool_calls = bool(message.get("tool_calls"))
+    from portal.platform.inference.router.thinking import NO_ANSWER_MESSAGE
+
+    if content.strip() == NO_ANSWER_MESSAGE:
+        content = ""
+        stop_reason = "no_answer_from_pipeline"
+    elif finish_reason == "length":
+        content = ""
+        stop_reason = "budget_exhausted"
+    elif effective_think and not content.strip() and thinking and not has_tool_calls:
+        if dialect.name == "pipeline":
+            # The workspace owns the effective prediction limit. Retrying the
+            # same request against that fixed limit cannot create a verdict.
+            stop_reason = "reasoning_only_no_answer"
+        elif sent_think:
+            # Native endpoints accept the caller's larger prediction budget;
+            # this one bounded retry cannot search for a favorable verdict.
+            allowance *= 2
+            body = _post(build(allowance, sent_think), timeout, dialect)
+            content, thinking = _unpack(body, dialect)
+            effective_think = _applied_thinking(body, sent_think)
+            attempts.append(_attempt(body, answer_budget, allowance, dialect))
+            finish_reason = attempts[-1]["finish_reason"]
+            if finish_reason == "length":
+                content = ""
+                stop_reason = "budget_exhausted"
+            elif not content.strip():
+                stop_reason = "budget_exhausted_in_reasoning"
+    elif not content.strip() and not has_tool_calls:
+        stop_reason = "empty_answer"
+
+    return body, content, thinking, effective_think, attempts, finish_reason, stop_reason, allowance
 
 
 def _post_judged(
@@ -523,19 +595,25 @@ def chat(
     body, want_think, downgraded = _post_judged(
         model, build, allowance, want_think, timeout, _dialect
     )
-
-    content, thinking = _unpack(body, _dialect)
-    attempts = [_attempt(body, answer_budget, allowance if want_think else 0, _dialect)]
-    stop_reason = ""
-    if want_think and not content.strip() and thinking:
-        # One retry at double the allowance. The answer budget is untouched:
-        # what was starved was the trace's room, not the answer's.
-        allowance *= 2
-        body = _post(build(allowance, want_think), timeout, _dialect)
-        content, thinking = _unpack(body, _dialect)
-        attempts.append(_attempt(body, answer_budget, allowance, _dialect))
-        if not content.strip():
-            stop_reason = "budget_exhausted_in_reasoning"
+    sent_think = want_think
+    (
+        body,
+        content,
+        thinking,
+        effective_think,
+        attempts,
+        finish_reason,
+        stop_reason,
+        allowance,
+    ) = _finalize_answer(
+        body,
+        build=build,
+        answer_budget=answer_budget,
+        allowance=allowance,
+        sent_think=sent_think,
+        timeout=timeout,
+        dialect=_dialect,
+    )
 
     # Native bodies carry the message at the top level; an OpenAI-shaped
     # dialect (the pipeline dialect among them) nests it under
@@ -544,6 +622,9 @@ def chat(
     message = body.get("message") or {}
     if not message and body.get("choices"):
         message = (body["choices"][0] or {}).get("message") or {}
+    if finish_reason:
+        message = {**message, "finish_reason": finish_reason}
+    metrics = _dialect.metrics(body)
     prompt_bytes = sum(len(str(entry.get("content", "")).encode()) for entry in sent_messages)
     # P6.7: enough to reason about latency afterwards. `_recording_seat_fn`
     # stored {model, raw}, so no run in the module's history has a single
@@ -559,14 +640,14 @@ def chat(
     return ChatResult(
         content=content,
         thinking=thinking,
-        reasoned=bool(want_think),
+        reasoned=effective_think,
         downgraded=downgraded,
         elapsed=time.time() - started,
-        eval_count=body.get("eval_count", 0),
-        prompt_eval_count=body.get("prompt_eval_count", 0),
-        eval_duration_s=round(float(body.get("eval_duration", 0) or 0) / 1e9, 3),
-        prompt_eval_duration_s=round(float(body.get("prompt_eval_duration", 0) or 0) / 1e9, 3),
-        load_duration_s=round(float(body.get("load_duration", 0) or 0) / 1e9, 3),
+        eval_count=metrics.get("eval_count"),
+        prompt_eval_count=metrics.get("prompt_eval_count"),
+        eval_duration_s=metrics.get("eval_duration_s"),
+        prompt_eval_duration_s=metrics.get("prompt_eval_duration_s"),
+        load_duration_s=metrics.get("load_duration_s"),
         total_duration_s=round(float(body.get("total_duration", 0) or 0) / 1e9, 3),
         prompt_bytes=prompt_bytes,
         num_ctx=num_ctx,
@@ -589,12 +670,16 @@ def chat(
         applied_options=portal.get("options_applied"),
         temperature=temperature,
         answer_budget=answer_budget,
-        reasoning_allowance=allowance if want_think else 0,
-        num_predict=answer_budget + (allowance if want_think else 0),
+        reasoning_allowance=allowance if sent_think else 0,
+        num_predict=answer_budget + (allowance if sent_think else 0),
         attempts=attempts,
+        finish_reason=finish_reason,
         stop_reason=stop_reason,
+        usage=body.get("usage") or {},
         keep_alive=keep_alive,
-        reasoning_effort=want_think if isinstance(want_think, str) else str(bool(want_think)),
+        reasoning_effort=(
+            effective_think if isinstance(effective_think, str) else str(bool(effective_think))
+        ),
         model=model,
         tool_calls=message.get("tool_calls") or [],
         raw_message=message,

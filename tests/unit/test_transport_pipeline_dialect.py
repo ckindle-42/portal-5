@@ -153,7 +153,9 @@ def test_post_synthesizes_body_and_carries_trace(monkeypatch):
         return {
             "role": "assistant",
             "content": '{"ok": true}',
+            "reasoning_content": "private thought",
             "tool_calls": [],
+            "finish_reason": "stop",
             "served_model": "granite-4.1-8b-mxfp8",
             "usage": {"prompt_tokens": 11, "completion_tokens": 4},
         }
@@ -167,6 +169,9 @@ def test_post_synthesizes_body_and_carries_trace(monkeypatch):
     )
     body = dialect.post({"model": "tools-specialist", "messages": []}, timeout=60)
     assert body["choices"][0]["message"]["content"] == '{"ok": true}'
+    assert body["choices"][0]["message"]["reasoning_content"] == "private thought"
+    assert body["choices"][0]["finish_reason"] == "stop"
+    assert dialect.unpack(body) == ('{"ok": true}', "private thought")
     assert body["usage"]["prompt_tokens"] == 11
     assert body["_portal"]["backend"] == "omlx-general"
     assert body["_portal"]["served_model"] == "granite-4.1-8b-mxfp8"

@@ -7,7 +7,7 @@ Phase-4 edit to ``router_pipe.py``.
 Coverage:
 - Plain content output (single-line and multi-line)
 - tool_calls multi-hop (OpenAI SSE shape)
-- reasoning → content promotion (reasoning_content in delta)
+- reasoning-channel preservation and explicit no-answer classification
 - Empty-line passthrough and [DONE] termination
 """
 
@@ -20,6 +20,7 @@ from unittest.mock import MagicMock
 import pytest
 
 from portal.platform.inference import router_pipe
+from portal.platform.inference.router.thinking import NO_ANSWER_MESSAGE
 
 # ── helpers ──────────────────────────────────────────────────────────
 
@@ -193,12 +194,12 @@ class TestStreamFallbackPlainContent:
         assert "message" in text or len(payloads) == 0
 
 
-class TestStreamFallbackReasoningPromotion:
-    """Golden-output: reasoning_content → content promotion."""
+class TestStreamFallbackReasoningSeparation:
+    """Reasoning stays separate and reasoning-only turns fail closed."""
 
     @pytest.mark.anyio
-    async def test_reasoning_promoted_when_content_empty(self, mock_client, monkeypatch):
-        """Delta with reasoning_content but no content → reasoning surfaced."""
+    async def test_reasoning_only_is_not_answer_content(self, mock_client, monkeypatch):
+        """A separate reasoning channel never supplies the missing answer."""
         events = (
             _sse_line(
                 {
@@ -230,10 +231,21 @@ class TestStreamFallbackReasoningPromotion:
             model="test-model",
         )
         chunks = await _drain(gen)
-        text = _decode_chunks(chunks)
-
-        # reasoning_content should be preserved in the output
-        assert "Let me think" in text
+        payloads = _json_from_sse(chunks)
+        content = "".join(
+            (choice.get("delta") or {}).get("content") or ""
+            for payload in payloads
+            for choice in payload.get("choices") or []
+        )
+        reasoning = "".join(
+            (choice.get("delta") or {}).get("reasoning_content") or ""
+            for payload in payloads
+            for choice in payload.get("choices") or []
+        )
+        assert content == NO_ANSWER_MESSAGE
+        assert reasoning == "Let me think..."
+        assert payloads[-1]["choices"][0]["finish_reason"] == "length"
+        assert chunks[-1].startswith(b"data: [DONE]")
 
     @pytest.mark.anyio
     async def test_reasoning_not_promoted_when_content_present(self, mock_client, monkeypatch):
@@ -502,8 +514,8 @@ class TestStreamContractRegression:
         assert "Backend connection error" not in text2
 
     @pytest.mark.anyio
-    async def test_reasoning_promotion_with_str_contract(self, mock_client, monkeypatch):
-        """Reasoning promotion path works with str-yielding aiter_lines()."""
+    async def test_reasoning_separation_with_str_contract(self, mock_client, monkeypatch):
+        """Reasoning separation works with str-yielding aiter_lines()."""
         events = (
             _sse_line(
                 {
@@ -535,7 +547,18 @@ class TestStreamContractRegression:
             model="test-model",
         )
         chunks = await _drain(gen)
-        text = _decode_chunks(chunks)
-
-        assert "Let me think" in text
-        assert "Backend connection error" not in text
+        payloads = _json_from_sse(chunks)
+        content = "".join(
+            (choice.get("delta") or {}).get("content") or ""
+            for payload in payloads
+            for choice in payload.get("choices") or []
+        )
+        reasoning = "".join(
+            (choice.get("delta") or {}).get("reasoning_content") or ""
+            for payload in payloads
+            for choice in payload.get("choices") or []
+        )
+        assert content == NO_ANSWER_MESSAGE
+        assert reasoning == "Let me think..."
+        assert payloads[-1]["choices"][0]["finish_reason"] == "length"
+        assert "Backend connection error" not in _decode_chunks(chunks)

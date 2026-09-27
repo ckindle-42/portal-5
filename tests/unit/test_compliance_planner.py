@@ -59,7 +59,9 @@ def test_execute_plan_records_evidence_per_step_and_marks_ran(g):
         return json.dumps(
             {
                 "determination": "SUPPORTED",
+                "finding_type": None,
                 "cited_refs": ["CIP-007-6 R2 Part 2.2"],
+                "confidence": 0.8,
                 "rationale": "ok",
             }
         )
@@ -99,7 +101,13 @@ def test_split_council_sme_kind_propagates_into_the_trace(g):
             return '{"overrides": false}'
         det = {"m0": "SUPPORTED", "m1": "CONTRADICTED", "m2": "PARTIAL"}[model]
         return json.dumps(
-            {"determination": det, "cited_refs": ["CIP-007-6 R2 Part 2.2"], "rationale": "x"}
+            {
+                "determination": det,
+                "finding_type": None,
+                "cited_refs": ["CIP-007-6 R2 Part 2.2"],
+                "confidence": 0.8,
+                "rationale": "x",
+            }
         )
 
     scope = AssetScope(

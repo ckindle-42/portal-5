@@ -52,6 +52,69 @@ class _Server:
         return {"message": message, "eval_count": 7}
 
 
+class _PipelineDialect:
+    name = "pipeline"
+    endpoint = "http://pipeline/v1/chat/completions"
+
+    def __init__(
+        self,
+        content: str,
+        reasoning: str,
+        finish_reason: str,
+        tool_calls: list[dict[str, Any]] | None = None,
+    ) -> None:
+        self.content = content
+        self.reasoning = reasoning
+        self.finish_reason = finish_reason
+        self.tool_calls = tool_calls or []
+        self.payloads: list[dict[str, Any]] = []
+
+    def seat_ceiling(self, model: str) -> int:
+        return 0
+
+    def build(self, **kwargs: Any) -> dict[str, Any]:
+        return dict(kwargs)
+
+    def post(self, payload: dict[str, Any], timeout: int) -> dict[str, Any]:
+        self.payloads.append(payload)
+        return {
+            "choices": [
+                {
+                    "message": {
+                        "role": "assistant",
+                        "content": self.content,
+                        "reasoning_content": self.reasoning,
+                        "tool_calls": self.tool_calls,
+                    },
+                    "finish_reason": self.finish_reason,
+                }
+            ],
+            "usage": {"completion_tokens": 8192},
+            "_portal": {
+                "options_applied": {
+                    "enable_thinking": True,
+                    "output_limit": 8192,
+                }
+            },
+        }
+
+    def metrics(self, body: dict[str, Any]) -> dict[str, Any]:
+        return {"eval_count": 8192}
+
+    def unpack(self, body: dict[str, Any]) -> tuple[str, str]:
+        message = body["choices"][0]["message"]
+        return message["content"], message["reasoning_content"]
+
+    def applied_context_length(self, model: str) -> int:
+        return 65536
+
+    def context_source(self) -> str:
+        return "workspace_policy"
+
+    def classify_400(self, exc: urllib.error.HTTPError) -> str:
+        return ""
+
+
 @pytest.fixture(autouse=True)
 def _pin_native_transport(monkeypatch):
     """These tests pin the NATIVE wire contract. The P5-FANOUT-001 default
@@ -156,6 +219,60 @@ def test_inline_think_block_is_stripped_from_content(monkeypatch):
     # disabling the model's reasoning
     assert result.content == '{"relation": "SAME"}'
     assert json.loads(result.content) == {"relation": "SAME"}
+
+
+def test_pipeline_no_answer_is_not_retried_or_treated_as_a_verdict(monkeypatch):
+    from portal.platform.inference.router.thinking import NO_ANSWER_MESSAGE
+
+    server = _Server(thinking_capable=True, content=NO_ANSWER_MESSAGE, thinking="private trace")
+    monkeypatch.setattr(reading_transport, "_post", server)
+
+    result = chat("deepseek-r1", "sys", "user", think=True)
+
+    assert len(server.payloads) == 1
+    assert result.content == ""
+    assert result["stop_reason"] == "no_answer_from_pipeline"
+    assert result["attempts"] and len(result["attempts"]) == 1
+    assert result.raw_message["content"] == NO_ANSWER_MESSAGE
+    assert result.thinking == "private trace"
+
+
+def test_pipeline_applied_reasoning_and_finish_reason_are_observed():
+    dialect = _PipelineDialect("", "private trace", "length")
+    result = chat(
+        "compliance-council-deepseek-r1",
+        "system",
+        "packet",
+        budget=8192,
+        think=False,
+        dialect=dialect,
+    )
+
+    assert len(dialect.payloads) == 1  # workspace policy owns the fixed pipeline limit
+    assert result.reasoned is True  # actual applied option overrides the caller default
+    assert result.thinking == "private trace"
+    assert result.content == ""  # a length terminal is never a vote
+    assert result["finish_reason"] == "length"
+    assert result["stop_reason"] == "budget_exhausted"
+    assert result["eval_count"] == 8192
+    assert result["usage"]["completion_tokens"] == 8192
+
+
+def test_pipeline_reasoning_only_is_classified_but_tool_call_hop_survives():
+    reasoning_only = _PipelineDialect("", "private trace", "stop")
+    result = chat("council", "system", "packet", dialect=reasoning_only, think=False)
+    assert result["stop_reason"] == "reasoning_only_no_answer"
+    assert result.content == ""
+
+    tool_call = {
+        "id": "call-1",
+        "type": "function",
+        "function": {"name": "read", "arguments": "{}"},
+    }
+    tool_hop = _PipelineDialect("", "private trace", "tool_calls", [tool_call])
+    result = chat("council", "system", "packet", dialect=tool_hop, think=False)
+    assert result["stop_reason"] == ""
+    assert result.tool_calls == [tool_call]
 
 
 def test_think_false_is_honoured_when_a_caller_asks_for_it(monkeypatch):

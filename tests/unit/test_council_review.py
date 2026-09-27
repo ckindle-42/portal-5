@@ -14,6 +14,7 @@ from portal.platform.inference.config import CouncilSpec
 from portal.platform.inference.router.council import (
     CouncilCompletion,
     CouncilOpinion,
+    _message_text,
     aggregate_opinions,
     parse_opinion,
     run_council_review,
@@ -53,6 +54,41 @@ def test_invalid_output_abstains_without_becoming_a_vote() -> None:
     assert result.participated is False
     assert result.recommendation == "ABSTAIN"
     assert result.error
+
+
+def test_council_response_never_promotes_reasoning_to_the_answer() -> None:
+    embedded_vote = '{"recommendation":"SUPPORT","confidence":1.0}'
+    assert (
+        _message_text(
+            {
+                "choices": [
+                    {
+                        "message": {
+                            "content": "",
+                            "reasoning_content": embedded_vote,
+                            "reasoning": embedded_vote,
+                        }
+                    }
+                ]
+            }
+        )
+        == ""
+    )
+    assert (
+        _message_text(
+            {
+                "choices": [
+                    {
+                        "message": {
+                            "content": '{"recommendation":"REVISE"}',
+                            "reasoning_content": embedded_vote,
+                        }
+                    }
+                ]
+            }
+        )
+        == '{"recommendation":"REVISE"}'
+    )
 
 
 def test_quorum_uses_full_roster_not_only_participants() -> None:

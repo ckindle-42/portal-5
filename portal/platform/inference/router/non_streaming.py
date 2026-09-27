@@ -27,6 +27,7 @@ from portal.platform.inference.router.tools import (
     _dispatch_tool_call,
     _select_explicit_required_tool,
 )
+from portal.platform.inference.router.trace import capture as trace_capture
 from portal.platform.inference.router.validation import (
     _inject_ollama_options,
     _inject_omlx_options,
@@ -280,11 +281,27 @@ def _apply_non_stream_response(
     Pure sync — no awaits.
     """
     try:
-        from portal.platform.inference.router.thinking import normalize_think_message
+        from portal.platform.inference.router.thinking import (
+            NO_ANSWER_MESSAGE,
+            normalize_think_message,
+        )
 
         for choice in data.get("choices") or []:
             msg = choice.get("message") or {}
-            normalize_think_message(msg, workspace_id=workspace_id, backend_id=backend.id)
+            reasoning_only = normalize_think_message(
+                msg, workspace_id=workspace_id, backend_id=backend.id
+            )
+            empty_answer = not str(msg.get("content") or "").strip()
+            if (reasoning_only or empty_answer) and not msg.get("tool_calls"):
+                # Keep a concise, non-verdict failure visible to ordinary
+                # clients. The finish reason gives machine callers a stable
+                # way to reject this response without parsing the warning.
+                msg["content"] = NO_ANSWER_MESSAGE
+                choice["finish_reason"] = (
+                    "length"
+                    if reasoning_only or choice.get("finish_reason") == "length"
+                    else "stop"
+                )
 
     except Exception:
         pass  # Never let normalisation break a valid response
@@ -354,10 +371,10 @@ async def _try_non_streaming(
        results, call the model once more for synthesis with
        ``tools: None``, ``tool_choice: None``.
         **Single hop, not unbounded** — see "asymmetry" below.
-     6. **Reasoning normalisation**: promote
-       ``message.reasoning`` → ``message.content`` when content is
-       empty (DeepSeek-R1 CoT exhaustion).
-    8. **Record metrics** + **emit ``x-portal-route`` header** so
+     6. **Reasoning normalisation**: keep reasoning in its separate field,
+       filter inline protocol wrappers, and classify a reasoning-only result
+       as an incomplete answer.
+     7. **Record metrics** + **emit ``x-portal-route`` header** so
        callers and operators can see which workspace × backend ×
        model served.
 
@@ -565,6 +582,7 @@ async def _try_non_streaming(
                 t.get("function", {}).get("name", "?") for t in req_body.get("tools", [])
             ]
             logger.info("NON-STREAM tools: %s", _tool_names)
+            trace_capture(backend_request=req_body)
             resp = await _http_client.post(backend.chat_url, json=req_body, timeout=_timeout_obj)
             _raise_for_backend_status(resp)
             data = resp.json()

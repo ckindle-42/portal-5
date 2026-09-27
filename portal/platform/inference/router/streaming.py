@@ -11,7 +11,7 @@ This module owns the streaming machinery extracted from ``router_pipe.py``:
 * :func:`_stream_with_preamble` — semaphore-owning wrapper for the no-tools
   path; emits the role preamble before opening the backend connection.
 * :func:`_stream_from_backend_guarded` — lowest-level: HTTP stream → SSE
-  bytes, with reasoning promotion and error envelope.
+  bytes, with channel separation and error envelope.
 
 **Transport-only contract**: a prepared request goes in; OWUI-shaped SSE
 bytes come out. No routing decisions, no persona resolution, no tool policy.
@@ -44,7 +44,6 @@ from portal.platform.inference.router.correlation import (
 )
 from portal.platform.inference.router.metrics import (
     _hint_fallback_total,
-    _reasoning_promotion_total,
     _record_response_time,
     _tool_calls_recovered,
     _tool_loop_hops,
@@ -62,10 +61,13 @@ from portal.platform.inference.router.text_tool_calls import (
     TextToolCallHoldback,
     salvage_text_tool_calls,
 )
-from portal.platform.inference.router.thinking import extract_think_inner, strip_think
+from portal.platform.inference.router.thinking import NO_ANSWER_MESSAGE, ThinkTagFilter
 from portal.platform.inference.router.tools import (
     _dispatch_tool_call,
     _select_explicit_required_tool,
+)
+from portal.platform.inference.router.trace import (
+    capture as trace_capture,
 )
 from portal.platform.inference.router.trace import (
     finalize_trace,
@@ -195,27 +197,61 @@ def _chunk_has_output(chunk: bytes) -> bool:
     return False
 
 
-def _json_completion_to_sse(data: dict[str, Any], workspace_id: str) -> Iterator[bytes]:
-    """Yield OpenAI completion JSON as SSE frames: role, content (with
-    reasoning->content promotion when content empty), tool_calls, done,
-    and [DONE] marker.
-    """
+def _thinking_enabled(body: dict[str, Any]) -> bool:
+    """Read the effective thinking policy across Ollama and oMLX request shapes."""
+    direct = body.get("enable_thinking")
+    if isinstance(direct, bool):
+        return direct
+    ctk = body.get("chat_template_kwargs")
+    if isinstance(ctk, dict) and isinstance(ctk.get("enable_thinking"), bool):
+        return ctk["enable_thinking"]
+    if body.get("reasoning_effort") == "none":
+        return False
+    if body.get("think") is False:
+        return False
+    options = body.get("options")
+    return not (isinstance(options, dict) and options.get("think") is False)
+
+
+def _completion_finish_chunk(reason: str) -> bytes:
+    return f"data: {json.dumps({'choices': [{'delta': {}, 'finish_reason': reason}]})}\n\n".encode()
+
+
+def _json_completion_to_sse(
+    data: dict[str, Any], workspace_id: str, *, thinking_enabled: bool = True
+) -> Iterator[bytes]:
+    """Convert a completion to SSE without treating reasoning as answer text."""
     choice = data.get("choices", [{}])[0]
     message = choice.get("message", {})
     role = message.get("role", "assistant")
     if role:
         yield f"data: {json.dumps({'choices': [{'delta': {'role': role}}]})}\n\n".encode()
-    content = message.get("content")
-    if not content:
-        reasoning = message.get("reasoning_content")
-        if reasoning:
-            content = reasoning
-    if content:
-        yield f"data: {json.dumps({'choices': [{'delta': {'content': content}}]})}\n\n".encode()
+    content = message.get("content") or ""
+    content_filter = ThinkTagFilter()
+    visible = content_filter.feed(content, final=True) if isinstance(content, str) else ""
+    delta: dict[str, Any] = {}
+    if visible:
+        delta["content"] = visible
+    if thinking_enabled:
+        for name in ("reasoning", "reasoning_content", "thinking"):
+            if message.get(name):
+                delta[name] = message[name]
+    if delta:
+        yield f"data: {json.dumps({'choices': [{'delta': delta}]})}\n\n".encode()
     tool_calls = message.get("tool_calls")
     if tool_calls:
         yield f"data: {json.dumps({'choices': [{'delta': {'tool_calls': tool_calls}}]})}\n\n".encode()
-    yield f"data: {json.dumps({'choices': [{'finish_reason': choice.get('finish_reason', 'stop')}]})}\n\n".encode()
+    finish_reason = choice.get("finish_reason", "stop")
+    if not visible.strip() and not tool_calls:
+        yield _content_chunk(str(data.get("id", "chatcmpl")), workspace_id, NO_ANSWER_MESSAGE)
+        finish_reason = (
+            "length"
+            if content_filter.removed
+            or any(message.get(name) for name in ("reasoning", "reasoning_content", "thinking"))
+            or finish_reason == "length"
+            else "stop"
+        )
+    yield _completion_finish_chunk(str(finish_reason or "stop"))
     yield b"data: [DONE]\n\n"
 
 
@@ -303,16 +339,10 @@ def _apply_reasoning_rewrite(
     delta: dict[str, Any],
     choice: dict[str, Any],
     obj: dict[str, Any],
-    thinking_off: bool,
-    hop: int,
-    think_content_buf: list[str],
+    thinking_enabled: bool,
+    think_filter: ThinkTagFilter,
 ) -> tuple[bytes | None, bool, bool]:
-    """Handle think-content promotion and reasoning rewriting for a single SSE chunk.
-
-    Centralised logic for both reasoning_content (Qwen3/Ollama thinking mode) and
-    <think>...</think> inline tags. Mirrors the non-stream promotion in router_pipe.py.
-
-    Mutates think_content_buf in place (append only).
+    """Separate reasoning channels and incrementally filter inline wrappers.
 
     Returns:
         (rewritten_chunk_or_None, content_emitted, skip_default_yield)
@@ -323,45 +353,29 @@ def _apply_reasoning_rewrite(
         - skip_default_yield: True if the caller should ``continue`` instead of yielding
           the original line.
     """
-    _rc = delta.get("reasoning_content")
-    _ct = delta.get("content") or ""
+    new_delta = dict(delta)
+    changed = False
+    if not thinking_enabled:
+        for name in ("reasoning", "reasoning_content", "thinking"):
+            if name in new_delta:
+                new_delta.pop(name)
+                changed = True
 
-    # Buffer reasoning for the end-of-stream fallback, under every field name
-    # an engine uses (the Ollama native adapter emits ``reasoning``; missing it
-    # turned a think-only turn into a false "empty response").
-    _any_reasoning = _rc or delta.get("reasoning") or delta.get("thinking")
-    if _any_reasoning:
-        think_content_buf.append(_any_reasoning)
+    content = delta.get("content")
+    visible = think_filter.feed(content) if isinstance(content, str) else content
+    if isinstance(content, str) and visible != content:
+        changed = True
+        if visible:
+            new_delta["content"] = visible
+        else:
+            new_delta.pop("content", None)
 
-    if _rc and not _ct and (thinking_off or hop > 1):
-        # reasoning_content with no content — surface as content.
-        # hop > 1: synthesis hops always surface reasoning as content
-        # so recalled keywords are visible, not buried in <details>.
-        _new_delta = {k: v for k, v in delta.items() if k != "reasoning_content"}
-        _new_delta["content"] = _rc
-        _new_obj = dict(obj)
-        _new_obj["choices"] = [dict(choice, delta=_new_delta)]
-        return f"data: {json.dumps(_new_obj)}\n\n".encode(), True, True
-
-    if _ct and "<think>" in _ct:
-        _stripped = strip_think(_ct)
-        _inner_think = extract_think_inner(_ct)
-        # Buffer inline think content for end-of-stream fallback.
-        if _inner_think and _inner_think != _stripped:
-            think_content_buf.append(_inner_think)
-
-        if thinking_off and not _stripped and _inner_think:
-            # Thinking disabled + content is pure think block —
-            # surface inner text as content.
-            _new_delta = dict(delta)
-            _new_delta["content"] = _inner_think
-            _new_obj = dict(obj)
-            _new_obj["choices"] = [dict(choice, delta=_new_delta)]
-            return f"data: {json.dumps(_new_obj)}\n\n".encode(), True, True
-    elif _ct:
-        return None, True, False
-
-    return None, False, False
+    emitted = bool(visible.strip()) if isinstance(visible, str) else False
+    if not changed:
+        return None, emitted, False
+    new_obj = dict(obj)
+    new_obj["choices"] = [dict(choice, delta=new_delta)]
+    return f"data: {json.dumps(new_obj)}\n\n".encode(), emitted, True
 
 
 async def _dispatch_hop_tool_calls(
@@ -502,13 +516,9 @@ async def _tool_loop_frames(
     ``tool_calls`` into ``tool_calls_buf``, then dispatches them
     itself after the stream completes.
 
-    **Reasoning-content rewriting**: when thinking is disabled but the
-    model still emits content in ``delta.reasoning_content`` (Gemma 4
-    quirk), OR when this is hop 2+ (synthesis after a tool call, where
-    recalled content must be visible not buried in OWUI's
-    ``<details type="reasoning">`` accordion), the delta is rewritten
-    to surface ``reasoning_content`` as ``content``. Also strips
-    ``<think>...</think>`` wrapper when content is the wrapped form.
+    Reasoning fields stay separate from answer content on every hop. If the
+    effective request disables thinking, unexpected reasoning fields are
+    suppressed. Inline protocol think blocks are filtered incrementally.
 
     Args:
         backend_url: Full URL to POST to (chat_url on the
@@ -543,19 +553,14 @@ async def _tool_loop_frames(
         # Accumulators for this iteration
         tool_calls_buf: list[dict[str, Any]] = []
         finish_reason: str | None = None
-        _content_emitted: bool = False  # any non-think content reached client
-        _think_content_buf: list[str] = []  # reasoning fallback if content is empty
-        # the backend's final parsed SSE frame — the error body logged at the
-        # empty_completion site, so a zero-content completion names its cause
-        # (LOAD_AND_CONVERSE_V1 §P5) instead of leaving a bare count
-        _last_frame: dict[str, Any] = {}
+        _content_emitted: bool = False  # substantive answer bytes reached client
+        _reasoning_seen = False
+        _think_filter = ThinkTagFilter()
+        _thinking_allowed = _thinking_enabled(current_body)
         # Text-written tool calls (P5-OMLX-QWEN3CODER-TOOLTEXT-001): with tools
         # offered, content from a call marker on is withheld until the stream
         # ends, then dispatched if it parses or released as text if it doesn't.
-        # The finish frame and [DONE] wait with it.
         _holdback = TextToolCallHoldback() if current_body.get("tools") else None
-        _deferred_finish: str | None = None
-        _deferred_done = False
 
         # Emit preamble (role chunk) on first hop
         if hop == 1:
@@ -593,6 +598,7 @@ async def _tool_loop_frames(
 
         # Stream from backend
         try:
+            trace_capture(backend_request=current_body)
             async with _http_client.stream("POST", backend_url, json=current_body) as resp:  # type: ignore[union-attr]
                 if resp.status_code != 200:
                     err = await resp.aread()
@@ -611,23 +617,19 @@ async def _tool_loop_frames(
                         continue
                     data_str = line[6:].strip()
                     if data_str == "[DONE]":
-                        # Suppress hop-N [DONE] when more hops follow.
-                        # Hop 2+ will emit their own [DONE] after the
-                        # final answer is streamed.
-                        if _holdback is not None and _holdback.holding:
-                            _deferred_done = True
-                        elif finish_reason != "tool_calls" or not tool_calls_buf:
-                            yield b"data: [DONE]\n\n"
+                        # The router decides whether this was a tool hop or a
+                        # terminal answer before writing the finish/DONE pair.
                         continue
                     try:
                         obj = json.loads(data_str)
                     except Exception:
                         yield (line + "\n\n").encode()
                         continue
-                    _last_frame = obj
-
                     choice = (obj.get("choices") or [{}])[0]
                     delta = choice.get("delta", {})
+                    _reasoning_seen = _reasoning_seen or any(
+                        delta.get(name) for name in ("reasoning", "reasoning_content", "thinking")
+                    )
 
                     if delta.get("tool_calls"):
                         _accumulate_tool_calls(delta["tool_calls"], tool_calls_buf)
@@ -639,58 +641,46 @@ async def _tool_loop_frames(
                         # Suppress tool_call delta — pipeline owns dispatch
                         continue
 
-                    if choice.get("finish_reason"):
-                        finish_reason = choice["finish_reason"]
+                    _frame_finish = choice.get("finish_reason")
+                    if _frame_finish:
+                        finish_reason = _frame_finish
                         if finish_reason == "tool_calls":
                             # Suppress finish_reason=tool_calls chunk too
                             continue
+                        # Emit terminal finish only after final content/error.
+                        choice = dict(choice, finish_reason=None)
+                        obj = dict(obj, choices=[choice])
+                        line = f"data: {json.dumps(obj)}"
 
                     _ct = delta.get("content")
-                    if _holdback is not None and (
-                        (_ct and isinstance(_ct, str)) or choice.get("finish_reason")
-                    ):
+                    if _holdback is not None and _ct and isinstance(_ct, str):
                         _ct = _ct if isinstance(_ct, str) else ""
                         _shown = _holdback.feed(_ct)
-                        _finish = choice.get("finish_reason")
-                        if _finish and _holdback.holding:
-                            _deferred_finish = "data: " + json.dumps(
-                                dict(obj, choices=[dict(choice, delta=dict(delta, content=""))])
-                            )
-                            _finish = None
-                        elif _finish:
-                            _shown += _holdback.take()
-                        if _shown != _ct or _finish != choice.get("finish_reason"):
-                            if not _shown and not _finish:
+                        if _shown != _ct:
+                            if not _shown:
                                 continue
                             delta = dict(delta, content=_shown)
-                            choice = dict(choice, delta=delta, finish_reason=_finish)
+                            choice = dict(choice, delta=delta)
                             obj = dict(obj, choices=[choice])
                             line = f"data: {json.dumps(obj)}"
 
-                    # ── Think-content handling ──────────────────────────────
-                    # Centralised logic for both reasoning_content (Qwen3/Ollama
-                    # thinking mode) and <think>...</think> inline tags.
-                    # Mirrors the non-stream promotion in router_pipe.py so the
-                    # same fallback behaviour applies regardless of stream mode.
-                    _thinking_off = not current_body.get("enable_thinking", True)
                     _rewrite_chunk, _emitted, _skip = _apply_reasoning_rewrite(
                         line,
                         delta,
                         choice,
                         obj,
-                        _thinking_off,
-                        hop,
-                        _think_content_buf,
+                        _thinking_allowed,
+                        _think_filter,
                     )
                     if _rewrite_chunk is not None:
                         yield _rewrite_chunk
-                        _content_emitted = True
+                        _content_emitted = _content_emitted or _emitted
                     if _skip:
                         continue
                     if _emitted:
                         _content_emitted = True
-
-                    yield (line + "\n\n").encode()
+                    if delta or not _frame_finish:
+                        yield (line + "\n\n").encode()
         except httpx.TimeoutException:
             logger.warning(
                 "Tool-loop backend %s timed out (workspace=%s, hop=%d) — probing engine state",
@@ -746,68 +736,50 @@ async def _tool_loop_frames(
                 tool_calls_buf.extend(_salvaged)
                 finish_reason = "tool_calls"
             else:
-                _held_chunk = {
-                    "id": request_id,
-                    "object": "chat.completion.chunk",
-                    "created": int(time.time()),
-                    "model": workspace_id,
-                    "choices": [{"index": 0, "delta": {"content": _held}, "finish_reason": None}],
-                }
-                yield f"data: {json.dumps(_held_chunk)}\n\n".encode()
-                _content_emitted = True
-                if _deferred_finish:
-                    yield (_deferred_finish + "\n\n").encode()
-                if _deferred_done:
-                    yield b"data: [DONE]\n\n"
+                _visible_held = _think_filter.feed(_held)
+                if _visible_held:
+                    _held_chunk = {
+                        "id": request_id,
+                        "object": "chat.completion.chunk",
+                        "created": int(time.time()),
+                        "model": workspace_id,
+                        "choices": [
+                            {"index": 0, "delta": {"content": _visible_held}, "finish_reason": None}
+                        ],
+                    }
+                    yield f"data: {json.dumps(_held_chunk)}\n\n".encode()
+                    _content_emitted = _content_emitted or bool(_visible_held.strip())
 
-        # End-of-stream think fallback: if the model exhausted its token budget
-        # inside a <think> block and emitted no actual content, surface the
-        # accumulated reasoning as the response rather than returning empty.
-        # Mirrors the non-stream promotion in router_pipe.py:1308-1335.
-        if not _content_emitted and _think_content_buf:
-            # The buffer holds streamed token fragments: join them as-is.
-            _fallback = "".join(_think_content_buf).strip()
-            if _fallback:
-                logger.warning(
-                    "Streaming hop %d/%d: model produced only thinking content "
-                    "(workspace=%s) — promoting reasoning as response.",
-                    hop,
-                    MAX_TOOL_HOPS,
-                    workspace_id,
-                )
-                _fb_chunk = {
-                    "id": request_id,
-                    "object": "chat.completion.chunk",
-                    "created": int(time.time()),
-                    "model": workspace_id,
-                    "choices": [
-                        {"index": 0, "delta": {"content": _fallback}, "finish_reason": None}
-                    ],
-                }
-                yield f"data: {json.dumps(_fb_chunk)}\n\n".encode()
+        _tail = _think_filter.feed("", final=True)
+        if _tail:
+            _tail_chunk = {
+                "id": request_id,
+                "object": "chat.completion.chunk",
+                "created": int(time.time()),
+                "model": workspace_id,
+                "choices": [{"index": 0, "delta": {"content": _tail}, "finish_reason": None}],
+            }
+            yield f"data: {json.dumps(_tail_chunk)}\n\n".encode()
+            _content_emitted = _content_emitted or bool(_tail.strip())
 
-        # Surface a backend completion with neither visible content nor reasoning
-        # tokens. A silent stream close would leave OWUI with an empty assistant
-        # message that is indistinguishable from a rendering or transport failure.
-        # LOAD_AND_CONVERSE_V1 §P5: the counter alone recorded THAT it happened
-        # and never WHY — the harness read a count instead of a reason. The log
-        # now carries the error body: the backend's own final frame (finish
-        # reason, usage, error field) and the serving identity, so the named
-        # cause is diagnosable from the log without re-running the turn.
-        if not _content_emitted and not _think_content_buf and finish_reason != "tool_calls":
+        # Empty and reasoning-only terminals are explicit no-answer outcomes.
+        # Diagnostics contain only the outcome class and route identity; raw
+        # reasoning text is not copied into ordinary logs.
+        if not _content_emitted and finish_reason != "tool_calls":
+            _reasoning_only = _reasoning_seen or _think_filter.removed
             logger.warning(
-                "Streaming hop %d/%d: backend returned zero content and zero "
-                "reasoning tokens (workspace=%s, finish_reason=%s, backend=%s, "
-                "model=%s, last_frame=%s).",
+                "Streaming hop %d/%d completed without answer content "
+                "(workspace=%s, finish_reason=%s, backend=%s, model=%s, "
+                "reasoning_only=%s).",
                 hop,
                 MAX_TOOL_HOPS,
                 workspace_id,
                 finish_reason,
                 backend_url,
                 current_body.get("model", ""),
-                json.dumps(_last_frame, default=str)[:500],
+                _reasoning_only,
             )
-            _record_error(workspace_id, "empty_completion")
+            _record_error(workspace_id, "reasoning_only" if _reasoning_only else "empty_completion")
             _empty_chunk = {
                 "id": request_id,
                 "object": "chat.completion.chunk",
@@ -816,14 +788,13 @@ async def _tool_loop_frames(
                 "choices": [
                     {
                         "index": 0,
-                        "delta": {"content": "⚠️ Model returned an empty response — please retry."},
-                        "finish_reason": "stop",
+                        "delta": {"content": NO_ANSWER_MESSAGE},
+                        "finish_reason": None,
                     }
                 ],
             }
             yield f"data: {json.dumps(_empty_chunk)}\n\n".encode()
-            yield b"data: [DONE]\n\n"
-            return
+            finish_reason = "length" if _reasoning_only or finish_reason == "length" else "stop"
 
         # After stream completes, check if tool calls were emitted
         if finish_reason == "tool_calls":
@@ -842,6 +813,8 @@ async def _tool_loop_frames(
                 yield (
                     f"data: {json.dumps({'error': 'Tool call could not be parsed from the model response — please retry.'})}\n\n"
                 ).encode()
+                yield _completion_finish_chunk("stop")
+                yield b"data: [DONE]\n\n"
                 return
 
             _tool_loop_hops.labels(workspace=workspace_id).observe(hop)
@@ -941,6 +914,8 @@ async def _tool_loop_frames(
                     ],
                 }
                 yield f"data: {json.dumps(audit_event)}\n\n".encode()
+            yield _completion_finish_chunk(finish_reason or "stop")
+            yield b"data: [DONE]\n\n"
             if start_time is not None:
                 _record_response_time(model, workspace_id, time.monotonic() - start_time)
             return
@@ -1070,11 +1045,16 @@ async def _stream_from_backend_guarded(
         logger.error("HTTP client not initialised — yielding error chunk")
         yield ("data: " + json.dumps({"error": "Pipeline not ready"}) + "\n\n").encode()
         return
-    _any_content_emitted = False
+    _answer_emitted = False
+    _tool_calls_emitted = False
+    _reasoning_seen = False
     _completion_tokens_seen = 0
-    _reasoning_buf: list[str] = []
+    _finish_reason: str | None = None
+    _think_filter = ThinkTagFilter()
+    _thinking_allowed = _thinking_enabled(body)
     try:
         _usage_recorded = False  # guard: only record TPS once per request
+        trace_capture(backend_request=body)
         async with _http_client.stream("POST", url, json=body) as resp:
             if resp.status_code != 200:
                 err = await resp.aread()
@@ -1093,6 +1073,10 @@ async def _stream_from_backend_guarded(
             async for line in resp.aiter_lines():
                 if not line:
                     continue
+                if line.startswith("data:") and line[5:].strip() == "[DONE]":
+                    # The router owns the terminal sequence so it can classify
+                    # an empty/reasoning-only turn before finish and [DONE].
+                    break
                 # Fast-path: detect Ollama native "done" chunk (has eval_count/eval_duration)
                 if '"done"' in line and line.startswith("data:") and line != "data: [DONE]":
                     payload = line[5:].strip()
@@ -1138,116 +1122,77 @@ async def _stream_from_backend_guarded(
                             _completion_tokens_seen = usage_data.get("completion_tokens", 0) or 0
                         except Exception:
                             logger.debug("Could not parse OpenAI usage chunk from stream")
-                # ── C-1 measurement probe (no behavior change) ──────────
-                # Observe reasoning-bearing deltas so the promotion-path
-                # divergence can be decided from real traffic. Broad match is
-                # measurement-only; the promotion gate below is unchanged.
-                # See PIPELINE_REVIEW_V2 finding C-1.
-                if '"reasoning' in line or '"thinking"' in line:
+                if line.startswith("data:"):
                     try:
-                        _probe_payload = line[5:].strip() if line.startswith("data:") else ""
-                        if _probe_payload and _probe_payload != "[DONE]":
-                            _probe_obj = json.loads(_probe_payload)
-                            for _pc in _probe_obj.get("choices", []):
-                                _pd = _pc.get("delta", {})
-                                for _k in ("reasoning", "reasoning_content", "thinking"):
-                                    if _pd.get(_k):
-                                        _reasoning_promotion_total.labels(
-                                            key=_k,
-                                            gate_hit=("yes" if '"reasoning"' in line else "no"),
-                                            empty_ct=("yes" if not _pd.get("content") else "no"),
-                                        ).inc()
-                                        break
-                    except Exception:
-                        pass  # measurement must never affect the stream
-
-                # Reasoning deltas pass through untouched: OWUI renders
-                # reasoning/reasoning_content/thinking as its collapsible
-                # thinking block, and OpenAI-SDK clients read content only.
-                # Promoting every reasoning delta into content (review item
-                # C-1) printed the whole chain of thought as the answer. The
-                # reasoning is buffered instead and surfaced as content only
-                # when the turn ends without any — the same rule the
-                # non-streaming path applies (thinking.normalize_think_message).
-                # Content is detected by parsing, not by a '"content":"'
-                # substring: that missed any re-serialised or space-separated
-                # frame and appended a false "empty response" to real answers.
-                if (
-                    line.startswith("data:")
-                    and line[5:].strip() != "[DONE]"
-                    and (
-                        '"content"' in line
-                        or '"reasoning' in line
-                        or '"thinking"' in line
-                        or '"tool_calls"' in line
-                    )
-                ):
-                    try:
-                        _frame = json.loads(line[5:].strip())
-                        for _choice in _frame.get("choices") or []:
-                            _d = _choice.get("delta") or {}
-                            # a client-tool call is output too (IDE clients
-                            # bring their own tools to tool-less workspaces)
-                            if _d.get("content") or _d.get("tool_calls"):
-                                _any_content_emitted = True
-                            _r = (
-                                _d.get("reasoning")
-                                or _d.get("reasoning_content")
-                                or _d.get("thinking")
-                            )
-                            if _r:
-                                _reasoning_buf.append(_r)
-                    except Exception:
-                        pass  # detection only — never alters the stream
-
-                if line.startswith("data:") and line[5:].strip() == "[DONE]":
-                    if not _any_content_emitted and _reasoning_buf:
-                        # Thinking consumed the whole budget: surface it as the
-                        # answer rather than an empty message.
-                        logger.warning(
-                            "Backend %s: only reasoning, no content (workspace=%s, "
-                            "model=%s) — promoting reasoning as response.",
-                            url,
-                            workspace_id,
-                            model,
+                        frame = json.loads(line[5:].strip())
+                    except (json.JSONDecodeError, TypeError):
+                        yield (line + "\n\n").encode()
+                        continue
+                    choices = frame.get("choices") or []
+                    if choices:
+                        choice = choices[0]
+                        delta = choice.get("delta") or {}
+                        _reasoning_seen = _reasoning_seen or any(
+                            delta.get(name)
+                            for name in ("reasoning", "reasoning_content", "thinking")
                         )
-                        yield _content_chunk(
-                            f"chatcmpl-{workspace_id}",
-                            workspace_id,
-                            "".join(_reasoning_buf).strip(),
+                        _tool_calls_emitted = _tool_calls_emitted or bool(delta.get("tool_calls"))
+                        finish = choice.get("finish_reason")
+                        if finish:
+                            _finish_reason = str(finish)
+                        clean_choice = dict(choice)
+                        clean_choice["finish_reason"] = None
+                        clean_frame = dict(frame, choices=[clean_choice])
+                        rewritten, emitted, _skip = _apply_reasoning_rewrite(
+                            line,
+                            delta,
+                            clean_choice,
+                            clean_frame,
+                            _thinking_allowed,
+                            _think_filter,
                         )
-                    elif _completion_tokens_seen > 0 and not _any_content_emitted:
-                        # LOAD_AND_CONVERSE_V1 §P5: completion tokens without
-                        # content is the shape whose cause used to die with the
-                        # turn — carry the serving identity in the log so the
-                        # named cause is reachable without a re-run.
-                        logger.warning(
-                            "Backend %s completed with %d completion tokens but zero "
-                            "content ever emitted (workspace=%s, model=%s).",
-                            url,
-                            _completion_tokens_seen,
-                            workspace_id,
-                            model,
-                        )
-                        _record_error(workspace_id, "empty_completion")
-                        _empty_chunk = {
-                            "id": f"chatcmpl-{workspace_id}",
-                            "object": "chat.completion.chunk",
-                            "created": int(time.time()),
-                            "model": workspace_id,
-                            "choices": [
-                                {
-                                    "index": 0,
-                                    "delta": {
-                                        "content": "⚠️ Model returned an empty response — please retry."
-                                    },
-                                    "finish_reason": "stop",
-                                }
-                            ],
-                        }
-                        yield f"data: {json.dumps(_empty_chunk)}\n\n".encode()
-
+                        _answer_emitted = _answer_emitted or emitted
+                        if rewritten is not None:
+                            yield rewritten
+                        elif finish:
+                            # Finish is emitted once after terminal answer
+                            # classification, never before a recovered error.
+                            if delta:
+                                yield f"data: {json.dumps(clean_frame)}\n\n".encode()
+                        else:
+                            yield (line + "\n\n").encode()
+                        continue
+                    yield (line + "\n\n").encode()
+                    continue
                 yield (line + "\n\n").encode()
+
+            tail = _think_filter.feed("", final=True)
+            if tail:
+                yield _content_chunk(f"chatcmpl-{workspace_id}", workspace_id, tail)
+                _answer_emitted = _answer_emitted or bool(tail.strip())
+            if not _answer_emitted and not _tool_calls_emitted:
+                reasoning_only = _reasoning_seen or _think_filter.removed
+                _record_error(
+                    workspace_id, "reasoning_only" if reasoning_only else "empty_completion"
+                )
+                logger.warning(
+                    "Backend %s completed without answer content (workspace=%s, model=%s, "
+                    "reasoning_only=%s, completion_tokens=%d, finish_reason=%s).",
+                    url,
+                    workspace_id,
+                    model,
+                    reasoning_only,
+                    _completion_tokens_seen,
+                    _finish_reason,
+                )
+                yield _content_chunk(f"chatcmpl-{workspace_id}", workspace_id, NO_ANSWER_MESSAGE)
+                _finish_reason = (
+                    "length" if reasoning_only or _finish_reason == "length" else "stop"
+                )
+            yield _completion_finish_chunk(
+                _finish_reason or ("tool_calls" if _tool_calls_emitted else "stop")
+            )
+            yield b"data: [DONE]\n\n"
     except httpx.TimeoutException:
         logger.warning(
             "Backend %s timed out during stream (workspace=%s) — probing engine state",
@@ -2020,7 +1965,9 @@ async def _stream_with_fallback(
                 if result is not None:
                     _record_fallback_route(result, fb)
                     data = json.loads(_as_bytes(result.body))
-                    for frame in _json_completion_to_sse(data, workspace_id):
+                    for frame in _json_completion_to_sse(
+                        data, workspace_id, thinking_enabled=_thinking_enabled(body)
+                    ):
                         yield frame
                     finalize_trace()
                     return

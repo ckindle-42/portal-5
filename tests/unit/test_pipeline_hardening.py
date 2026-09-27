@@ -159,15 +159,22 @@ async def test_reasoning_passes_through_and_content_stays_the_answer(stream_clie
 
 
 @pytest.mark.anyio
-async def test_reasoning_only_turn_is_promoted_before_done(stream_client) -> None:
+async def test_reasoning_only_turn_is_classified_before_done(stream_client) -> None:
     usage = _data({"choices": [], "usage": {"completion_tokens": 50}})
     _serve(
         stream_client,
         _Resp(200, [_delta(content="", reasoning="only thoughts"), usage, "data: [DONE]"]),
     )
     chunks = await _drain(st._stream_from_backend_guarded("http://x/v1/chat/completions", {}))
-    assert _content(chunks) == "only thoughts"
-    assert "empty response" not in _content(chunks)
+    assert _content(chunks) == st.NO_ANSWER_MESSAGE
+    assert "only thoughts" not in _content(chunks)
+    assert "only thoughts" in "".join(
+        (choice.get("delta") or {}).get("reasoning") or ""
+        for payload in _payloads(chunks)
+        for choice in payload.get("choices") or []
+    )
+    assert _payloads(chunks)[-1]["choices"][0]["finish_reason"] == "length"
+    assert chunks.index(DONE) == len(chunks) - 1
     assert chunks[-1] == DONE
 
 
@@ -201,7 +208,7 @@ async def test_backend_error_chunk_carries_status_and_message(stream_client) -> 
 
 
 @pytest.mark.anyio
-async def test_tool_loop_emits_single_done_after_fallback(stream_client) -> None:
+async def test_tool_loop_emits_no_answer_failure_before_single_done(stream_client) -> None:
     _serve(
         stream_client,
         _Resp(200, [_delta(content="", reasoning="deep thought"), "data: [DONE]"]),
@@ -212,8 +219,207 @@ async def test_tool_loop_emits_single_done_after_fallback(stream_client) -> None
         )
     )
     assert chunks.count(DONE) == 1 and chunks[-1] == DONE
-    assert "deep thought" in _content(chunks)
+    assert _content(chunks) == st.NO_ANSWER_MESSAGE
+    assert "deep thought" in "".join(
+        (choice.get("delta") or {}).get("reasoning") or ""
+        for payload in _payloads(chunks)
+        for choice in payload.get("choices") or []
+    )
     assert "empty response" not in _content(chunks)
+    assert _payloads(chunks)[-1]["choices"][0]["finish_reason"] == "length"
+
+
+@pytest.mark.anyio
+async def test_post_tool_reasoning_and_newline_are_not_answer_content(
+    stream_client, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Reproduce §R3 through the real tool-loop state machine.
+
+    The effective oMLX setting is nested under chat_template_kwargs, while the
+    pre-fix stream policy looked only at top-level enable_thinking. The second
+    hop therefore promoted a one-character reasoning delta to visible answer
+    content before the actual final answer.
+    """
+    first_hop = _Resp(
+        200,
+        [
+            _delta(
+                tool_calls=[
+                    {"index": 0, "id": "call-1", "function": {"name": "lookup", "arguments": "{}"}}
+                ]
+            ),
+            _data({"choices": [{"index": 0, "delta": {}, "finish_reason": "tool_calls"}]}),
+            "data: [DONE]",
+        ],
+    )
+    second_hop = _Resp(
+        200,
+        [
+            _delta(reasoning_content="\nPOST_TOOL_REASONING_SENTINEL"),
+            _delta(content="FINAL_ANSWER_SENTINEL"),
+            _data({"choices": [{"index": 0, "delta": {}, "finish_reason": "stop"}]}),
+            "data: [DONE]",
+        ],
+    )
+    _serve(stream_client, first_hop, second_hop)
+
+    async def dispatch(*args):
+        calls = args[0]
+        return (
+            {"role": "assistant", "tool_calls": calls},
+            [{"role": "tool", "tool_call_id": "call-1", "content": "tool result"}],
+        )
+
+    monkeypatch.setattr(st, "_dispatch_hop_tool_calls", dispatch)
+    chunks = await _drain(
+        st._stream_with_tool_loop_impl(
+            "http://x/v1/chat/completions",
+            {
+                "messages": [{"role": "user", "content": "lookup"}],
+                "tools": [{"type": "function", "function": {"name": "lookup"}}],
+                "chat_template_kwargs": {"enable_thinking": False},
+            },
+            "ws",
+            "m",
+            "p",
+            {"lookup"},
+        )
+    )
+    rendered = _content(chunks)
+    assert rendered == "FINAL_ANSWER_SENTINEL"
+    assert "POST_TOOL_REASONING_SENTINEL" not in rendered
+    assert chunks.count(DONE) == 1 and chunks[-1] == DONE
+
+
+@pytest.mark.anyio
+async def test_chat_completions_route_dispatches_tool_and_synthesizes_without_reasoning_leak(
+    api, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Exercise the HTTP router, real tool-loop orchestration, and final hop."""
+    from types import SimpleNamespace
+
+    import portal.platform.inference.router.handlers as handlers_mod
+    from portal.platform.inference.router.auth import PIPELINE_API_KEY
+
+    backend = SimpleNamespace(id="fake-omlx", type="omlx", chat_url="http://engine/chat")
+    body = {
+        "messages": [{"role": "user", "content": "lookup"}],
+        "tools": [{"type": "function", "function": {"name": "lookup", "parameters": {}}}],
+        "chat_template_kwargs": {"enable_thinking": False},
+    }
+
+    async def resolved_route(_request, _slot):
+        return "auto-coding", body, True, "", [backend]
+
+    monkeypatch.setattr(handlers_mod, "_resolve_request_route", resolved_route)
+    monkeypatch.setattr(
+        handlers_mod,
+        "_select_streaming_backend",
+        lambda _workspace, _candidates: (backend, "served-model", "lookup", None, None, None),
+    )
+
+    async def build_request(*_args):
+        return body, {"lookup"}, True, False
+
+    monkeypatch.setattr(handlers_mod, "_build_streaming_request", build_request)
+
+    tool_frame = _data(
+        {
+            "choices": [
+                {
+                    "index": 0,
+                    "delta": {
+                        "tool_calls": [
+                            {
+                                "index": 0,
+                                "id": "call-1",
+                                "function": {"name": "lookup", "arguments": "{}"},
+                            }
+                        ]
+                    },
+                    "finish_reason": "tool_calls",
+                }
+            ]
+        }
+    )
+    second_tool_call = _data(
+        {
+            "choices": [
+                {
+                    "index": 0,
+                    "delta": {
+                        "tool_calls": [
+                            {
+                                "index": 0,
+                                "id": "call-2",
+                                "function": {"name": "lookup", "arguments": "{}"},
+                            }
+                        ]
+                    },
+                    "finish_reason": "tool_calls",
+                }
+            ]
+        }
+    )
+    synthesis = [
+        _delta(reasoning_content="\nPOST_TOOL_REASONING_SENTINEL"),
+        second_tool_call,
+        "data: [DONE]",
+    ]
+    final_synthesis = [
+        _delta(reasoning_content="\nLATER_HOP_REASONING_SENTINEL"),
+        _delta(content="FINAL_ANSWER_SENTINEL"),
+        _data({"choices": [{"index": 0, "delta": {}, "finish_reason": "stop"}]}),
+        "data: [DONE]",
+    ]
+    responses = [
+        _Resp(200, [tool_frame, "data: [DONE]"]),
+        _Resp(200, synthesis),
+        _Resp(200, final_synthesis),
+    ]
+    seen_requests: list[dict[str, typing.Any]] = []
+
+    class _QueuedClient:
+        def stream(self, _method, _url, *, json):
+            seen_requests.append(json)
+            return _Ctx(responses.pop(0))
+
+    monkeypatch.setattr(st, "_http_client", _QueuedClient())
+
+    async def dispatch(call, _allowed, _workspace, _persona, _request_id):
+        return {
+            "role": "tool",
+            "tool_call_id": call["id"],
+            "name": "lookup",
+            "content": f"TOOL_RESULT_{call['id']}_SENTINEL",
+        }
+
+    monkeypatch.setattr(st, "_dispatch_tool_call", dispatch)
+    response = api.post(
+        "/v1/chat/completions",
+        json={
+            "model": "auto-coding",
+            "messages": [{"role": "user", "content": "lookup"}],
+            "stream": True,
+        },
+        headers={"Authorization": f"Bearer {PIPELINE_API_KEY}"},
+    )
+    assert response.status_code == 200, response.text
+    assert response.headers["x-portal-route"] == "auto-coding;fake-omlx;served-model"
+    assert len(seen_requests) == 3
+    assert any(
+        m.get("role") == "tool" and "TOOL_RESULT_call-1_SENTINEL" in m.get("content", "")
+        for m in seen_requests[1]["messages"]
+    )
+    assert any(
+        m.get("role") == "tool" and "TOOL_RESULT_call-2_SENTINEL" in m.get("content", "")
+        for m in seen_requests[2]["messages"]
+    )
+    assert "POST_TOOL_REASONING_SENTINEL" not in response.text
+    assert "LATER_HOP_REASONING_SENTINEL" not in response.text
+    assert "FINAL_ANSWER_SENTINEL" in response.text
+    assert response.text.count("[DONE]") == 1
+    assert response.text.rstrip().endswith("data: [DONE]")
 
 
 # ── stream fallback policy ───────────────────────────────────────────

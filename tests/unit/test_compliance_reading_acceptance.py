@@ -293,11 +293,26 @@ class FakeTransport:
             for label, spec in self._relations(active).items()
             if spec.get("relation") == "SAME"
         ]
-        cited = same[:2] if decision in ("SUPPORTED", "PARTIAL", "CONTRADICTED") else []
+        # Council citations are exact IDs from its serialized packet. Labels
+        # such as ``A22`` are useful fixture shorthand but are not themselves
+        # the packet namespace (which carries IDs like ``fixture:A22 A22``).
+        packet = json.loads(user)
+        candidate_ids = [
+            candidate["commitment_id"]
+            for candidate in packet.get("candidates", [])
+            if any(
+                str(candidate.get("document_id", "")).endswith(f":{label}") for label in same[:2]
+            )
+        ]
+        cited = candidate_ids if decision in ("SUPPORTED", "PARTIAL", "CONTRADICTED") else []
         return json.dumps(
             {
                 "determination": decision,
-                "finding_type": self.case.get("finding_type", ""),
+                # The production seat schema permits a finding enum or literal
+                # JSON null when there is no finding.  Empty strings are not a
+                # valid substitute and would turn this controlled fixture vote
+                # into a dropped/missing seat after strict parser validation.
+                "finding_type": self.case.get("finding_type") or None,
                 "cited_refs": cited,
                 "confidence": 0.9,
                 "rationale": "controlled acceptance seat",

@@ -598,6 +598,8 @@ class PipelineCompat(OpenAICompat):
             raise urllib.error.URLError(f"pipeline transport error: {exc}") from exc
 
         message: dict[str, Any] = {"role": msg["role"], "content": msg["content"]}
+        if msg.get("reasoning_content"):
+            message["reasoning_content"] = msg["reasoning_content"]
         if msg["tool_calls"]:
             message["tool_calls"] = msg["tool_calls"]
         body: dict[str, Any] = {
@@ -605,7 +607,8 @@ class PipelineCompat(OpenAICompat):
             "choices": [
                 {
                     "message": message,
-                    "finish_reason": "tool_calls" if msg["tool_calls"] else "stop",
+                    "finish_reason": msg.get("finish_reason")
+                    or ("tool_calls" if msg["tool_calls"] else "stop"),
                 }
             ],
             "usage": msg.get("usage") or {},

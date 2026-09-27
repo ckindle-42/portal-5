@@ -6,6 +6,7 @@ useDefault = true
 description = "Portal 5 known non-secrets (test fixtures, placeholders)"
 regexes = [
   '''sk-abcdefghijklmnopqrstuvwx''',   # dummy key in redaction unit test
+  '''691c78e9eb1c120acbc85f68d1c21b8848c391d773c13adce963d313be6bf4ae''',  # SHA-256 of the served R1 tokenizer_config.json, not a credential
   '''PIPELINE_API_KEY=mykey''',         # usage example in smoke_stream.sh
   '''CHANGEME''',                       # .env.example placeholder
   '''tomcat:tomcat''',                  # vulhub's own documented default Tomcat Manager weak creds (lab target, not a secret)

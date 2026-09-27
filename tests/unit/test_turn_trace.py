@@ -94,12 +94,24 @@ def test_bodies_are_opt_in_and_nested_credentials_are_redacted(
     mod = importlib.reload(mod)
     mod.start_trace("p5-dddd0001")
     mod.capture(messages=[{"role": "user", "content": "private prompt"}])
+    mod.capture(
+        backend_request={
+            "messages": [
+                {"role": "system", "content": "sealed prompt"},
+                {"role": "user", "content": "private packet"},
+            ],
+            "response_format": {"type": "json_object"},
+            "chat_template_kwargs": {"enable_thinking": True},
+        }
+    )
     mod.capture(tool_arguments={"lookup": {"api_key": "secret", "query": "CIP-007-6"}})
     mod.finalize_trace()
 
     record = mod.read_trace("p5-dddd0001")
     assert record["bodies_captured"] is True
     assert record["bodies"]["messages"][0]["content"] == "private prompt"
+    assert record["bodies"]["backend_request"]["messages"][0]["content"] == "sealed prompt"
+    assert record["bodies"]["backend_request"]["chat_template_kwargs"]["enable_thinking"]
     assert record["bodies"]["tool_arguments"]["lookup"]["api_key"] == "<redacted>"
 
 

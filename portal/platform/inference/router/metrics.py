@@ -166,21 +166,6 @@ _stream_content_yielded_total = Counter(
     ["workspace", "path"],
     registry=_REGISTRY,
 )
-# reasoning_promotion_total: measures the C-1 promotion-path divergence on the
-# no-tools (guarded) streaming path WITHOUT changing any promotion behavior.
-#   key       — reasoning key present: 'reasoning' | 'reasoning_content' | 'thinking'
-#   gate_hit  — whether the current narrow gate ('"reasoning"') would fire: 'yes'|'no'
-#   empty_ct  — whether delta.content was empty (promotion-eligible): 'yes'|'no'
-# Lets us see how often a reasoning delta arrives on the no-tools path with a key
-# the current gate misses — the data needed to decide whether to make the guarded
-# path thinking-aware. See PIPELINE_REVIEW_V2 finding C-1.
-_reasoning_promotion_total = Counter(
-    "portal5_reasoning_promotion_total",
-    "Reasoning-bearing deltas observed on the no-tools streaming path",
-    ["key", "gate_hit", "empty_ct"],
-    registry=_REGISTRY,
-)
-
 # ── Power & cost metrics (M6-T02) ─────────────────────────────────────────
 _power_current_watts = Gauge(
     "portal5_power_current_watts",

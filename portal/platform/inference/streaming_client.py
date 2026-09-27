@@ -84,9 +84,11 @@ class _Turn:
 
     def __init__(self) -> None:
         self.content_parts: list[str] = []
+        self.reasoning_parts: list[str] = []
         self.tool_calls: list[dict[str, Any]] = []
         self.role = "assistant"
         self.usage: dict[str, Any] = {}
+        self.finish_reason: str | None = None
 
 
 def _take_pipeline_line(line: str, turn: _Turn) -> bool:
@@ -98,11 +100,17 @@ def _take_pipeline_line(line: str, turn: _Turn) -> bool:
         return True
     chunk = json.loads(data)
     choice = (chunk.get("choices") or [{}])[0]
+    if choice.get("finish_reason") is not None:
+        turn.finish_reason = str(choice["finish_reason"])
     delta = choice.get("delta") or {}
     if delta.get("role"):
         turn.role = delta["role"]
     if delta.get("content"):
         turn.content_parts.append(delta["content"])
+    for field in ("reasoning_content", "reasoning", "thinking"):
+        value = delta.get(field)
+        if isinstance(value, str) and value:
+            turn.reasoning_parts.append(value)
     if delta.get("tool_calls"):
         _accumulate_tool_call_deltas(delta["tool_calls"], turn.tool_calls)
     # The pipeline sends a trailing usage chunk after [DONE]-able content;
@@ -121,10 +129,16 @@ def _take_native_line(line: str, turn: _Turn) -> bool:
         turn.role = msg["role"]
     if msg.get("content"):
         turn.content_parts.append(msg["content"])
+    for field in ("reasoning_content", "reasoning", "thinking"):
+        value = msg.get(field)
+        if isinstance(value, str) and value:
+            turn.reasoning_parts.append(value)
     if msg.get("tool_calls"):
         # Ollama sends the full tool_calls array per chunk, not incremental
         # deltas — replace rather than accumulate.
         turn.tool_calls = msg["tool_calls"]
+    if chunk.get("done"):
+        turn.finish_reason = str(chunk.get("done_reason") or "stop")
     return bool(chunk.get("done"))
 
 
@@ -212,7 +226,9 @@ def stream_chat_turn(
     message: dict[str, Any] = {
         "role": turn.role,
         "content": "".join(turn.content_parts),
+        "reasoning_content": "".join(turn.reasoning_parts),
         "tool_calls": turn.tool_calls,
+        "finish_reason": turn.finish_reason,
     }
     if recover_tool_calls is not None and not message["tool_calls"]:
         message = recover_tool_calls(message)

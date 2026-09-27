@@ -49,6 +49,18 @@ def _fake(responses: dict[str, str]):
     return fn
 
 
+def _vote(determination: str, cited_refs: list[str], rationale: str = "x") -> str:
+    return json.dumps(
+        {
+            "determination": determination,
+            "finding_type": None,
+            "cited_refs": cited_refs,
+            "confidence": 0.8,
+            "rationale": rationale,
+        }
+    )
+
+
 def test_unanimous_supported_with_citation():
     good = json.dumps(
         {
@@ -69,13 +81,9 @@ def test_unanimous_supported_with_citation():
 
 
 def test_cite_or_drop_removes_uncited_seat():
-    cited = json.dumps(
-        {"determination": "CONTRADICTED", "cited_refs": ["CIP-007-6 R2 Part 2.2"], "rationale": "x"}
-    )
-    uncited = json.dumps({"determination": "CONTRADICTED", "cited_refs": [], "rationale": "x"})
-    offpacket = json.dumps(
-        {"determination": "CONTRADICTED", "cited_refs": ["CIP-099-1 R9"], "rationale": "x"}
-    )
+    cited = _vote("CONTRADICTED", ["CIP-007-6 R2 Part 2.2"])
+    uncited = _vote("CONTRADICTED", [])
+    offpacket = _vote("CONTRADICTED", ["CIP-099-1 R9"])
     r = run_council(
         _PACKET, _SEATS, seat_fn=_fake({"m-granite": cited, "m-qwen": uncited, "m-glm": offpacket})
     )
@@ -87,30 +95,97 @@ def test_cite_or_drop_removes_uncited_seat():
 
 
 def test_split_council_escalates_as_s04():
-    a = json.dumps(
-        {"determination": "SUPPORTED", "cited_refs": ["CIP-007-6 R2 Part 2.2"], "rationale": "x"}
-    )
-    b = json.dumps(
-        {"determination": "CONTRADICTED", "cited_refs": ["CIP-007-6 R2 Part 2.2"], "rationale": "x"}
-    )
-    c = json.dumps(
-        {"determination": "PARTIAL", "cited_refs": ["CIP-007-6 R2 Part 2.2"], "rationale": "x"}
-    )
+    a = _vote("SUPPORTED", ["CIP-007-6 R2 Part 2.2"])
+    b = _vote("CONTRADICTED", ["CIP-007-6 R2 Part 2.2"])
+    c = _vote("PARTIAL", ["CIP-007-6 R2 Part 2.2"])
     r = run_council(_PACKET, _SEATS, seat_fn=_fake({"m-granite": a, "m-qwen": b, "m-glm": c}))
     assert r.determination == "ESCALATE"
     assert r.sme_decision_kind == "S04_INTERPRETATION_DISPUTE"
 
 
 def test_insufficient_is_not_a_vote():
-    ins = json.dumps(
-        {"determination": "INSUFFICIENT", "cited_refs": [], "rationale": "packet incomplete"}
-    )
-    sup = json.dumps(
-        {"determination": "SUPPORTED", "cited_refs": ["CIP-007-6 R2 Part 2.2"], "rationale": "x"}
-    )
+    ins = _vote("INSUFFICIENT", [], "packet incomplete")
+    sup = _vote("SUPPORTED", ["CIP-007-6 R2 Part 2.2"])
     r = run_council(_PACKET, _SEATS, seat_fn=_fake({"m-granite": ins, "m-qwen": ins, "m-glm": sup}))
     # 1 vote, quorum 2 -> ESCALATE, silence never becomes a guess
     assert r.determination == "ESCALATE"
+
+
+def test_missing_seat_output_does_not_shrink_quorum_denominator():
+    supported = _vote("SUPPORTED", ["CIP-007-6 R2 Part 2.2"])
+
+    def fn(model, system, user):
+        if model == "m-granite":
+            return supported
+        if model == "m-qwen":
+            return ""
+        raise TimeoutError("controlled missing-seat timeout")
+
+    r = run_council(_PACKET, _SEATS, seat_fn=fn)
+    assert r.roster == 3
+    assert r.quorum_required == 2
+    assert r.votes["SUPPORTED"] == 1
+    assert sum(r.votes.values()) == 1
+    assert r.determination == "ESCALATE"
+
+
+def test_all_seats_failing_escalates_without_affirmative_vote():
+    def fn(model, system, user):
+        raise TimeoutError("controlled all-seat failure")
+
+    r = run_council(_PACKET, _SEATS, seat_fn=fn)
+    assert r.roster == 3
+    assert r.quorum_required == 2
+    assert r.votes == {
+        "SUPPORTED": 0,
+        "PARTIAL": 0,
+        "CONTRADICTED": 0,
+        "ABSENT": 0,
+        "INSUFFICIENT": 0,
+    }
+    assert r.determination == "ESCALATE"
+    assert all(
+        not opinion.valid and opinion.dropped.startswith("seat error:") for opinion in r.opinions
+    )
+
+
+def test_json_inside_reasoning_prose_is_not_salvaged_as_a_vote():
+    embedded = (
+        "I considered the possible outputs, including "
+        '{"determination":"SUPPORTED","cited_refs":["CIP-007-6 R2 Part 2.2"],'
+        '"rationale":"example only"}, but this is not a final JSON answer.'
+    )
+    r = run_council(_PACKET, _SEATS, seat_fn=_fake({seat["model"]: embedded for seat in _SEATS}))
+    assert r.determination == "ESCALATE"
+    assert r.quorum_required == 2
+    assert all(not opinion.valid for opinion in r.opinions)
+
+
+def test_malformed_contract_and_nonexact_reference_are_not_votes():
+    malformed = json.dumps(
+        {
+            "determination": "SUPPORTED",
+            "finding_type": "null",
+            "cited_refs": ["CIP-007-6 R2 Part 2.2"],
+            "confidence": 0.9,
+            "rationale": "example",
+        }
+    )
+    fuzzy_reference = _vote("SUPPORTED", ["premise mentioning CIP-007-6 R2 Part 2.2"])
+    r = run_council(
+        _PACKET,
+        _SEATS,
+        seat_fn=_fake(
+            {
+                "m-granite": malformed,
+                "m-qwen": fuzzy_reference,
+                "m-glm": malformed,
+            }
+        ),
+    )
+    assert r.determination == "ESCALATE"
+    assert r.quorum_required == 2
+    assert all(not opinion.votes for opinion in r.opinions)
 
 
 def test_exception_override_overturns_a_violation():
@@ -119,6 +194,7 @@ def test_exception_override_overturns_a_violation():
             "determination": "CONTRADICTED",
             "finding_type": "CONTRADICTION",
             "cited_refs": ["CIP-007-6 R2 Part 2.2"],
+            "confidence": 0.8,
             "rationale": "too slow",
         }
     )
@@ -159,7 +235,9 @@ def test_no_seat_sees_another_seats_answer():
         return json.dumps(
             {
                 "determination": "SUPPORTED",
+                "finding_type": None,
                 "cited_refs": ["CIP-007-6 R2 Part 2.2"],
+                "confidence": 0.8,
                 "rationale": "x",
             }
         )

@@ -277,12 +277,10 @@ def aggregate_opinions(
 
 
 def _message_text(data: dict[str, Any]) -> str:
+    """Return only the model's answer channel; thoughts are never votes."""
     message = (data.get("choices") or [{}])[0].get("message") or {}
     content = message.get("content")
-    if isinstance(content, str) and content.strip():
-        return content
-    reasoning = message.get("reasoning_content") or message.get("reasoning")
-    return reasoning if isinstance(reasoning, str) else ""
+    return content if isinstance(content, str) else ""
 
 
 def _render_review_material(messages: list[dict[str, Any]]) -> str:

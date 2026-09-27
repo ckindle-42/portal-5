@@ -158,23 +158,48 @@ def _parse_seat(seat_id: str, model: str, raw: str, allowlist: set[str]) -> Seat
     if obj is None:
         op.dropped = "no JSON object"
         return op
-    det = str(obj.get("determination", "")).upper()
+    required = {"determination", "finding_type", "cited_refs", "confidence", "rationale"}
+    if not required.issubset(obj) or not set(obj).issubset(required):
+        op.dropped = "seat response does not match the declared schema"
+        return op
+    if not isinstance(obj.get("determination"), str):
+        op.dropped = "invalid determination"
+        return op
+    det = obj["determination"].strip().upper()
     if det not in _DETERMINATIONS:
         op.dropped = f"invalid determination {det!r}"
         return op
-    ft = obj.get("finding_type") or ""
-    ft = str(ft).upper() if ft else ""
-    if ft not in _FINDING_TYPES:
-        ft = ""
-    cited = [str(r) for r in (obj.get("cited_refs") or []) if r]
+    raw_ft = obj.get("finding_type")
+    if raw_ft is not None and (
+        not isinstance(raw_ft, str) or raw_ft.strip().upper() not in _FINDING_TYPES[1:]
+    ):
+        op.dropped = "invalid finding_type"
+        return op
+    ft = raw_ft.strip().upper() if isinstance(raw_ft, str) else ""
+    raw_cited = obj.get("cited_refs")
+    if not isinstance(raw_cited, list) or any(
+        not isinstance(ref, str) or not ref.strip() for ref in raw_cited
+    ):
+        op.dropped = "cited_refs must be an array of exact reference IDs"
+        return op
+    cited = [ref.strip() for ref in raw_cited]
+    raw_confidence = obj.get("confidence")
+    if isinstance(raw_confidence, bool) or not isinstance(raw_confidence, (int, float)):
+        op.dropped = "invalid confidence"
+        return op
+    confidence = float(raw_confidence)
+    if not math.isfinite(confidence) or not 0.0 <= confidence <= 1.0:
+        op.dropped = "invalid confidence"
+        return op
+    rationale = obj.get("rationale")
+    if not isinstance(rationale, str) or not rationale.strip():
+        op.dropped = "missing rationale"
+        return op
     op.determination = det
     op.finding_type = ft
     op.cited_refs = cited
-    try:
-        op.confidence = max(0.0, min(1.0, float(obj.get("confidence", 0.0))))
-    except (TypeError, ValueError):
-        op.confidence = 0.0
-    op.rationale = str(obj.get("rationale", ""))[:400]
+    op.confidence = confidence
+    op.rationale = rationale[:400]
     op.valid = True
     # cite-or-drop: a determination resting on a ref outside the packet is dropped
     off = [r for r in cited if not _ref_in_allowlist(r, allowlist)]
@@ -185,27 +210,22 @@ def _parse_seat(seat_id: str, model: str, raw: str, allowlist: set[str]) -> Seat
 
 def _ref_in_allowlist(ref: str, allowlist: set[str]) -> bool:
     r = re.sub(r"\s+", " ", ref).strip().lower()
-    return any(r == a.lower() or r in a.lower() or a.lower() in r for a in allowlist)
+    return any(r == re.sub(r"\s+", " ", a).strip().lower() for a in allowlist)
 
 
 def _json_object(text: str) -> dict[str, Any] | None:
-    t = text.strip()
-    if t.startswith("```"):
-        t = "\n".join(t.splitlines()[1:])
-        if t.rstrip().endswith("```"):
-            t = t.rstrip()[:-3]
+    """Accept only the final answer as one JSON object.
+
+    Searching prose for braces can turn a reasoning example into a vote. The
+    reasoning transport already separates the thought channel; malformed or
+    prose-wrapped output must remain a missing vote and let the fixed council
+    denominator escalate.
+    """
     try:
-        v = json.loads(t)
-        return v if isinstance(v, dict) else None
-    except json.JSONDecodeError:
-        s, e = t.find("{"), t.rfind("}")
-        if s < 0 or e <= s:
-            return None
-        try:
-            v = json.loads(t[s : e + 1])
-            return v if isinstance(v, dict) else None
-        except json.JSONDecodeError:
-            return None
+        value = json.loads(text.strip())
+    except (json.JSONDecodeError, TypeError):
+        return None
+    return value if isinstance(value, dict) else None
 
 
 def _seat_address(seat: dict[str, Any]) -> str:

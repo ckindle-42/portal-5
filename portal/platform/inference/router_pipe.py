@@ -77,7 +77,6 @@ from portal.platform.inference.router.metrics import (  # noqa: F401
     _power_current_watts,
     _power_dram_watts,
     _power_gpu_watts,
-    _reasoning_promotion_total,
     _record_response_time,
     _request_energy_ws,
     _requests_by_model,
