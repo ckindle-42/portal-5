@@ -54,6 +54,7 @@ VALID_WORKSPACES = frozenset(
         "compliance-council-granite41",
         "compliance-council-deepseek-r1",
         "compliance-reading-overflow",
+        "compliance-mapping",
         "auto-math",
         "auto-audio",
         "auto-uncensored-throwaway",

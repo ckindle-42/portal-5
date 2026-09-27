@@ -1249,6 +1249,8 @@ workspace_routing:
   auto-compliance:
   - reasoning
   - general
+  compliance-mapping:
+  - general
   compliance-reading:
   - general
   compliance-council-qwen38:

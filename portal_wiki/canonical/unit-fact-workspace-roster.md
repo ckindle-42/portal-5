@@ -1,11 +1,11 @@
 ---
 id: unit-fact-workspace-roster
 kind: what
-title: 30 production + 22 eval workspaces
+title: 31 production + 22 eval workspaces
 sources:
 - type: code
   path: config/portal.yaml
-  commit: a28a76a04d5b
+  commit: 6e6cab5dd06f
 claims:
 - probe: workspaces.total
   pattern: '{value} total)'
@@ -14,10 +14,10 @@ tags:
 - fact
 - workspaces
 created_at: 1784000421.2630541
-updated_at: 1790427072.377922
+updated_at: 1790467405.952775
 ---
 
-# Workspace roster (30 production, 22 eval, 52 total)
+# Workspace roster (31 production, 22 eval, 53 total)
 
 ## Production workspaces (acceptance/UAT scope, eval OFF)
 
@@ -50,6 +50,7 @@ updated_at: 1790427072.377922
 | `compliance-council-deepseek-r1` | compliance | `hf.co/unsloth/DeepSeek-R1-0528-Qwen3-8B-GGUF:Q4_K_XL-ctx64k` |
 | `compliance-council-granite41` | compliance | `granite4.1:30b-ctx16k` |
 | `compliance-council-qwen38` | compliance | `hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k` |
+| `compliance-mapping` | compliance | `gemma4:26b-a4b-it-q4_K_M-ctx32k` |
 | `compliance-reading` | compliance | `gemma4:26b-a4b-it-q4_K_M-ctx32k` |
 | `compliance-reading-overflow` | compliance | `gemma4:26b-a4b-it-q4_K_M-ctx64k` |
 | `tools-specialist` | general | `granite4.1:8b-ctx8k` |

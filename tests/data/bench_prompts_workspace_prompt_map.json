@@ -48,6 +48,7 @@
   "compliance-council-deepseek-r1": "reasoning",
   "compliance-council-granite41": "reasoning",
   "compliance-council-qwen38": "reasoning",
+  "compliance-mapping": "reasoning",
   "compliance-reading": "reasoning",
   "compliance-reading-overflow": "reasoning",
   "tools-specialist": "general"

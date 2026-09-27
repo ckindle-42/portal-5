@@ -1,5 +1,5 @@
 ---
-prompt_version: mapping-v2-2026-09-24
+prompt_version: mapping-v3-2026-09-26
 rationale: >
   The map unit of the sweep (PROVE_THEN_SCALE_V1 P2/P4). The reading prompt
   (reading-v2.1) serves a conversation; this one serves a determination: the
@@ -88,13 +88,17 @@ End your answer with one fenced block:
 ```json
 {"determinations": [
   {"requirement_id": "CIP-007-6 R2 Part 2.3",
-   "section_id": "isection-...",
+   "section_id": "O1",
    "relation_type": "IMPLEMENTS",
    "sentence": "the exact sentence from the section's text",
    "confidence": "high"},
   ...
 ]}
 ```
+
+`section_id` is the handle printed in brackets before the operator section in
+the material — `O1`, `O2`, … — copied exactly. Never compose an id: no
+prefixes, no section numbers, no headings appended to the handle.
 
 `confidence` is `high`, `medium`, or `low` — how directly the sentence states
 the relation. Only NEW pairings go in the block: pairings this material does

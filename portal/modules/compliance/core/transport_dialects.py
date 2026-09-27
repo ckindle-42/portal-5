@@ -538,6 +538,11 @@ class PipelineCompat(OpenAICompat):
         payload.pop("reasoning_effort", None)
         if tools is not None:
             payload["portal_client_tools_only"] = True
+        else:
+            # A tool-less call (map_read, reduce, a council seat) must never be
+            # offered the addressed workspace's MCP tools: without this flag the
+            # pipeline attaches them and runs its tool loop on a strict-JSON read.
+            payload["portal_no_tools"] = True
         return payload
 
     def post(self, payload: dict[str, Any], timeout: int) -> dict[str, Any]:

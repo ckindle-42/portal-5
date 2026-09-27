@@ -93,6 +93,15 @@ def test_build_keeps_client_tools_and_marks_them_client_only():
     body = _built()
     assert body["tools"] == [{"type": "function", "function": {"name": "t"}}]
     assert body["portal_client_tools_only"] is True
+    assert "portal_no_tools" not in body
+
+
+def test_build_without_tools_refuses_workspace_tools():
+    # A tool-less read must not be offered the addressed workspace's MCP tools.
+    body = _built(tools=None)
+    assert body["portal_no_tools"] is True
+    assert "tools" not in body
+    assert "portal_client_tools_only" not in body
 
 
 def test_build_drops_direct_call_fields():

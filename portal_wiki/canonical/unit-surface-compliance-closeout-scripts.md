@@ -43,6 +43,8 @@ sources:
   path: scripts/compliance/self_agreement_pipeline.py
 - type: code
   path: scripts/compliance/pipeline_alignment_verify.py
+- type: code
+  path: scripts/compliance/sweep_acceptance_ab.py
 claims: []
 confidence: high
 tags:
@@ -136,3 +138,8 @@ hint could mis-resolve), reads CIP-003-8 R1 through the overflow seat
 end-to-end, and probes the Ollama fallback's window capacity with a
 ~64k-token prompt read back from the runner — the receipts carry the
 pipeline's applied sampling and thinking per seat.
+`sweep_acceptance_ab` (PIPELINE_ALIGNMENT_V1 §12) map-reads a standard with
+`write=False` and scores each determination by the store's own acceptance
+gates — id resolves, operator side, sentence verbatim — so a mapping-prompt,
+route or transport change is compared on what the store would accept, not on
+a count of emitted edges.

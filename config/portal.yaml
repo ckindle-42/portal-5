@@ -1810,6 +1810,32 @@ workspaces:
       a source-integrity question, or a traceability question by itself — a web excerpt or a
       relevant-sounding passage is never a substitute for a compliance_* tool's validated
       answer on these questions.
+  # Declared BEFORE compliance-reading on purpose: model_addressing resolves a
+  # hint to the FIRST workspace carrying it, and the machine callers (sweep
+  # map_read/reduce, reader.read) address the reading tag. They must land here,
+  # not in the conversational lane — the pipeline appends a workspace's
+  # system_prompt_append and offers its tools to every request, so every
+  # strict-JSON map reading carried compliance-reading's conversational persona
+  # (its own citation-token rules) and 19 tool schemas from 40634132 on.
+  # Conversation addresses compliance-reading by id and is unaffected.
+  # Guarded by tests/unit/test_compliance_machine_seat_isolation.py.
+  compliance-mapping:
+    module: compliance
+    name: ⚖️ Compliance Mapping (machine seat)
+    description: The compliance module's own machine calls — sweep map readings, standard reduce, the batch reader. Same gemma-4-26b-a4b-it weights as compliance-reading, with no persona and no workspace tools, because each caller brings its complete prompt and (reader) its own tool schemas.
+    model_hint: gemma4:26b-a4b-it-q4_K_M-ctx32k
+    context_limit: 32768 # the tag's baked window; the overflow route is compliance-reading-overflow
+    predict_limit: 24576 # matches compliance-reading: one mapping answer's room
+    temperature: 0.0 # the reading transport sends 0.0 (DEFAULT_TEMPERATURE); declared so the lane says what runs
+    top_p: 0.95
+    top_k: 20
+    min_p: 0.0
+    repeat_penalty: 1.1 # same as compliance-reading; 1.1 vs 1.0 measured neutral on verbatim copy (PIPELINE_ALIGNMENT_V1 §12)
+    think: false # map readings are strict-JSON at reasoning off, measured (reading_transport DEFAULT_EFFORT)
+    emits_reasoning: false
+    tools: [] # callers bring their own schemas (portal_client_tools_only) or none (portal_no_tools)
+    expose_to_owui: false
+    enable_web_search: false
   compliance-reading:
     module: compliance
     name: ⚖️ Portal Compliance Reading
@@ -2018,7 +2044,7 @@ workspaces:
     repeat_penalty: 1.1 # same as compliance-reading
     think: false # map readings are strict-JSON at reasoning off, measured (reading_transport DEFAULT_EFFORT)
     emits_reasoning: false
-    tools: [] # map_read is tool-less; persona tools would be stripped anyway (portal_client_tools_only)
+    tools: [] # map_read is tool-less; the dialect also sends portal_no_tools when it passes none
     expose_to_owui: false
     enable_web_search: false
   auto-math:

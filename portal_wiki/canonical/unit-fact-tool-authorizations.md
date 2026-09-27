@@ -1,11 +1,11 @@
 ---
 id: unit-fact-tool-authorizations
 kind: what
-title: tool authorizations for 30 production workspaces
+title: tool authorizations for 31 production workspaces
 sources:
 - type: code
   path: config/portal.yaml
-  commit: a28a76a04d5b
+  commit: 6e6cab5dd06f
   section: workspaces[].tools
 claims: []
 confidence: high
@@ -14,7 +14,7 @@ tags:
 - tools
 - workspaces
 created_at: 1784049584.703768
-updated_at: 1790427072.739012
+updated_at: 1790467406.333298
 ---
 
 # Tool authorizations (per-workspace `tools:` whitelist)
@@ -50,6 +50,7 @@ The pipeline strips any tool a workspace does not authorize (metric `portal5_too
 | `compliance-council-deepseek-r1` | compliance | _(none)_ |
 | `compliance-council-granite41` | compliance | _(none)_ |
 | `compliance-council-qwen38` | compliance | _(none)_ |
+| `compliance-mapping` | compliance | _(none)_ |
 | `compliance-reading` | compliance | `nerc_cip_requirement`, `compliance_requirement`, `nerc_cip_currency`, `compliance_search`, `compliance_read`, `compliance_links`, `compliance_timeline`, `compliance_note`, `compliance_notes`, `compliance_answers`, `compliance_correct`, `compliance_context`, `compliance_coverage`, `compliance_conflicts`, `compliance_standing_questions`, `compliance_review_list`, `compliance_review_decide`, `compliance_review_decide_batch`, `compliance_sources` |
 | `compliance-reading-overflow` | compliance | _(none)_ |
 | `tools-specialist` | general | `execute_python`, `remember`!, `recall`! |

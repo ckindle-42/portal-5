@@ -836,6 +836,10 @@ surfaces:
   globs:
   - scripts/compliance/single_vs_split.py
   unit: unit-surface-compliance-closeout-scripts
+- name: file-scripts-compliance-sweep_acceptance_ab
+  globs:
+  - scripts/compliance/sweep_acceptance_ab.py
+  unit: unit-surface-compliance-closeout-scripts
 - name: file-scripts-compliance-sweep_edge_set
   globs:
   - scripts/compliance/sweep_edge_set.py

@@ -5,13 +5,13 @@ title: "model bindings \u2014 0 reachability gap(s)"
 sources:
 - type: code
   path: config/backends.yaml
-  commit: a28a76a04d5b
+  commit: 6e6cab5dd06f
 - type: code
   path: config/portal.yaml
-  commit: a28a76a04d5b
+  commit: 6e6cab5dd06f
 - type: code
   path: config/personas/
-  commit: a28a76a04d5b
+  commit: 6e6cab5dd06f
 claims: []
 confidence: high
 tags:
@@ -19,7 +19,7 @@ tags:
 - model-bindings
 - reachability
 created_at: 1784000421.433863
-updated_at: 1790427072.5913239
+updated_at: 1790467406.1705549
 ---
 
 # Model bindings (reachability-resolved)
@@ -60,6 +60,7 @@ default.
 | `compliance-council-deepseek-r1` | `hf.co/unsloth/DeepSeek-R1-0528-Qwen3-8B-GGUF:Q4_K_XL-ctx64k` | yes |
 | `compliance-council-granite41` | `granite4.1:30b-ctx16k` | yes |
 | `compliance-council-qwen38` | `hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k` | yes |
+| `compliance-mapping` | `gemma4:26b-a4b-it-q4_K_M-ctx32k` | yes |
 | `compliance-reading` | `gemma4:26b-a4b-it-q4_K_M-ctx32k` | yes |
 | `compliance-reading-overflow` | `gemma4:26b-a4b-it-q4_K_M-ctx64k` | yes |
 | `tools-specialist` | `granite4.1:8b-ctx8k` | yes |

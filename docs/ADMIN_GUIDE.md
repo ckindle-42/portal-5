@@ -538,7 +538,7 @@ The roster is derived from the persona YAML files under `config/personas/`, one 
 ### Workspaces
 
 <!-- WIKI:GENERATED unit=unit-fact-workspace-roster -->
-#### Workspace roster (30 production, 22 eval, 52 total)
+#### Workspace roster (31 production, 22 eval, 53 total)
 
 ##### Production workspaces (acceptance/UAT scope, eval OFF)
 
@@ -571,6 +571,7 @@ The roster is derived from the persona YAML files under `config/personas/`, one 
 | `compliance-council-deepseek-r1` | compliance | `hf.co/unsloth/DeepSeek-R1-0528-Qwen3-8B-GGUF:Q4_K_XL-ctx64k` |
 | `compliance-council-granite41` | compliance | `granite4.1:30b-ctx16k` |
 | `compliance-council-qwen38` | compliance | `hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k` |
+| `compliance-mapping` | compliance | `gemma4:26b-a4b-it-q4_K_M-ctx32k` |
 | `compliance-reading` | compliance | `gemma4:26b-a4b-it-q4_K_M-ctx32k` |
 | `compliance-reading-overflow` | compliance | `gemma4:26b-a4b-it-q4_K_M-ctx64k` |
 | `tools-specialist` | general | `granite4.1:8b-ctx8k` |
@@ -646,6 +647,7 @@ default.
 | `compliance-council-deepseek-r1` | `hf.co/unsloth/DeepSeek-R1-0528-Qwen3-8B-GGUF:Q4_K_XL-ctx64k` | yes |
 | `compliance-council-granite41` | `granite4.1:30b-ctx16k` | yes |
 | `compliance-council-qwen38` | `hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k` | yes |
+| `compliance-mapping` | `gemma4:26b-a4b-it-q4_K_M-ctx32k` | yes |
 | `compliance-reading` | `gemma4:26b-a4b-it-q4_K_M-ctx32k` | yes |
 | `compliance-reading-overflow` | `gemma4:26b-a4b-it-q4_K_M-ctx64k` | yes |
 | `tools-specialist` | `granite4.1:8b-ctx8k` | yes |
