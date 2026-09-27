@@ -246,29 +246,105 @@ def _direct(
     }
 
 
-def _pipeline(  # noqa: PLR0912, PLR0915 - streaming state accumulator
-    client: httpx.Client, question: str, sampling_arm: str, sampling: dict[str, Any]
-) -> dict[str, Any]:
+def _pipeline_body(sampling_arm: str, sampling: dict[str, Any]) -> dict[str, Any]:
     body: dict[str, Any] = {
         "model": WORKSPACE,
         "stream": True,
-        "messages": [{"role": "user", "content": question}],
+        "messages": [{"role": "user", "content": ""}],
     }
     if sampling_arm != "ws":
-        body.update({k: v for k, v in sampling.items() if k != "repeat_penalty"})
+        body.update({key: value for key, value in sampling.items() if key != "repeat_penalty"})
         if "repeat_penalty" in sampling:
             body["repeat_penalty"] = sampling["repeat_penalty"]
             body["repetition_penalty"] = sampling["repeat_penalty"]
+    return body
+
+
+def _stream_state(started: float) -> dict[str, Any]:
+    return {
+        "started": started,
+        "parts": [],
+        "reasoning": [],
+        "raw_sse_lines": [],
+        "route": "",
+        "correlation_id": "",
+        "finish_reason": "",
+        "usage": {},
+        "status_code": None,
+        "terminal_frames": 0,
+    }
+
+
+def _consume_sse_line(line: str, state: dict[str, Any]) -> bool:
+    state["raw_sse_lines"].append(line)
+    if time.monotonic() - state["started"] > 900:
+        state["error"] = "900s budget"
+        state["wall_s"] = 900.0
+        return True
+    if not line.startswith("data: "):
+        return False
+    if line.strip() == "data: [DONE]":
+        state["terminal_frames"] += 1
+        return False
+    try:
+        event = json.loads(line[6:])
+    except ValueError:
+        return False
+    choice = (event.get("choices") or [{}])[0] or {}
+    delta = choice.get("delta") or {}
+    if delta.get("content"):
+        state["parts"].append(delta["content"])
+    state["reasoning"].extend(
+        str(delta[channel])
+        for channel in ("reasoning_content", "reasoning", "thinking")
+        if delta.get(channel)
+    )
+    state["finish_reason"] = choice.get("finish_reason") or state["finish_reason"]
+    state["usage"] = event.get("usage") or state["usage"]
+    return False
+
+
+def _stream_result(state: dict[str, Any], error: str = "") -> dict[str, Any]:
+    result = {
+        "answer": "".join(state["parts"]),
+        "reasoning": "".join(state["reasoning"]),
+        "raw_sse_lines": state["raw_sse_lines"],
+        "route": state["route"],
+        "correlation_id": state["correlation_id"],
+        "status_code": state["status_code"],
+        "finish_reason": state["finish_reason"],
+        "usage": state["usage"],
+        "terminal_frames": state["terminal_frames"],
+        "wall_s": state.get("wall_s", round(time.monotonic() - state["started"], 1)),
+    }
+    if error or state.get("error"):
+        result["error"] = error or state["error"]
+    return result
+
+
+def _pipeline_trace(client: httpx.Client, correlation_id: str) -> dict[str, Any] | None:
+    if not correlation_id:
+        return None
+    try:
+        from portal.modules.compliance.core.transport_dialects import _pipeline_api_key
+
+        response = client.get(
+            f"{PIPELINE}/v1/trace/{correlation_id}",
+            headers={"Authorization": f"Bearer {_pipeline_api_key()}"},
+            timeout=15,
+        )
+        return response.json() if response.is_success else None
+    except Exception:
+        return None
+
+
+def _pipeline(
+    client: httpx.Client, question: str, sampling_arm: str, sampling: dict[str, Any]
+) -> dict[str, Any]:
+    body = _pipeline_body(sampling_arm, sampling)
+    body["messages"][0]["content"] = question
     started = time.monotonic()
-    parts: list[str] = []
-    reasoning: list[str] = []
-    raw_sse_lines: list[str] = []
-    route = ""
-    correlation_id = ""
-    finish_reason = ""
-    usage: dict[str, Any] = {}
-    status_code: int | None = None
-    terminal_frames = 0
+    state = _stream_state(started)
     try:
         with client.stream(
             "POST",
@@ -276,82 +352,21 @@ def _pipeline(  # noqa: PLR0912, PLR0915 - streaming state accumulator
             json=body,
             headers={"Authorization": f"Bearer {_pipeline_key()}"},
             timeout=httpx.Timeout(900, connect=10),
-        ) as r:
-            status_code = r.status_code
-            route = r.headers.get("x-portal-route", "")
-            correlation_id = (
-                r.headers.get("x-correlation-id") or r.headers.get("x-portal-correlation-id") or ""
+        ) as response:
+            state["status_code"] = response.status_code
+            state["route"] = response.headers.get("x-portal-route", "")
+            state["correlation_id"] = (
+                response.headers.get("x-correlation-id")
+                or response.headers.get("x-portal-correlation-id")
+                or ""
             )
-            for line in r.iter_lines():
-                raw_sse_lines.append(line)
-                if time.monotonic() - started > 900:
-                    return {
-                        "answer": "".join(parts),
-                        "reasoning": "".join(reasoning),
-                        "raw_sse_lines": raw_sse_lines,
-                        "route": route,
-                        "correlation_id": correlation_id,
-                        "status_code": status_code,
-                        "error": "900s budget",
-                        "wall_s": 900.0,
-                    }
-                if not line.startswith("data: "):
-                    continue
-                if line.strip() == "data: [DONE]":
-                    terminal_frames += 1
-                    continue
-                try:
-                    event = json.loads(line[6:])
-                except ValueError:
-                    continue
-                choices = event.get("choices") or [{}]
-                choice = choices[0] or {}
-                delta = choice.get("delta") or {}
-                if delta.get("content"):
-                    parts.append(delta["content"])
-                for channel in ("reasoning_content", "reasoning", "thinking"):
-                    if delta.get(channel):
-                        reasoning.append(str(delta[channel]))
-                finish_reason = choice.get("finish_reason") or finish_reason
-                usage = event.get("usage") or usage
+            for line in response.iter_lines():
+                if _consume_sse_line(line, state):
+                    return _stream_result(state)
     except httpx.HTTPError as exc:
-        return {
-            "answer": "".join(parts),
-            "reasoning": "".join(reasoning),
-            "raw_sse_lines": raw_sse_lines,
-            "route": route,
-            "correlation_id": correlation_id,
-            "status_code": status_code,
-            "error": repr(exc),
-            "wall_s": round(time.monotonic() - started, 1),
-        }
-    trace: dict[str, Any] | None = None
-    if correlation_id:
-        try:
-            from portal.modules.compliance.core.transport_dialects import _pipeline_api_key
-
-            trace_response = client.get(
-                f"{PIPELINE}/v1/trace/{correlation_id}",
-                headers={"Authorization": f"Bearer {_pipeline_api_key()}"},
-                timeout=15,
-            )
-            if trace_response.is_success:
-                trace = trace_response.json()
-        except Exception:  # trace absence stays absence, not a guessed route
-            trace = None
-    return {
-        "answer": "".join(parts),
-        "reasoning": "".join(reasoning),
-        "raw_sse_lines": raw_sse_lines,
-        "route": route,
-        "correlation_id": correlation_id,
-        "status_code": status_code,
-        "finish_reason": finish_reason,
-        "usage": usage,
-        "terminal_frames": terminal_frames,
-        "trace": trace,
-        "wall_s": round(time.monotonic() - started, 1),
-    }
+        return _stream_result(state, repr(exc))
+    trace = _pipeline_trace(client, state["correlation_id"])
+    return {**_stream_result(state), "trace": trace}
 
 
 def _classify(result: dict[str, Any]) -> str:
@@ -368,137 +383,172 @@ def _classify(result: dict[str, Any]) -> str:
     return "answered"
 
 
-def main() -> int:  # noqa: PLR0915 - bounded campaign driver
-    ap = argparse.ArgumentParser()
-    ap.add_argument("--out", required=True, type=Path)
-    ap.add_argument("--questions", required=True, type=Path)
-    ap.add_argument("--arms", default="omlx:current,ollama:current,pipeline:current")
-    ap.add_argument("--repeats", type=int, default=1)
-    ap.add_argument(
+def _arguments() -> argparse.Namespace:
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--out", required=True, type=Path)
+    parser.add_argument("--questions", required=True, type=Path)
+    parser.add_argument("--arms", default="omlx:current,ollama:current,pipeline:current")
+    parser.add_argument("--repeats", type=int, default=1)
+    parser.add_argument(
         "--private-out",
         type=Path,
         default=None,
         help="permission-restricted JSONL for questions, answers, raw SSE, and trace bodies",
     )
-    args = ap.parse_args()
+    return parser.parse_args()
 
+
+def _private_path(args: argparse.Namespace) -> Path:
+    if args.private_out is not None:
+        return args.private_out
+    stamp = dt.datetime.now(dt.UTC).strftime("%Y%m%dT%H%M%SZ")
+    return (
+        _REPO
+        / "portal/modules/compliance/data/private/reading_loop_triage"
+        / stamp
+        / f"{args.out.stem}.jsonl"
+    )
+
+
+def _load_private(path: Path) -> tuple[list[dict[str, Any]], set[tuple[str, str, int]]]:
+    rows: list[dict[str, Any]] = []
+    completed: set[tuple[str, str, int]] = set()
+    if path.exists():
+        for line in path.read_text().splitlines():
+            if line.strip():
+                row = json.loads(line)
+                rows.append(row)
+                completed.add((row["arm"], row["key"], int(row["repeat"])))
+    return rows, completed
+
+
+def _public_row(row: dict[str, Any], private_path: Path) -> dict[str, Any]:
+    result = row["result"]
+    trace = result.get("trace") or {}
+    return {
+        "arm": row["arm"],
+        "key": row["key"],
+        "repeat": row["repeat"],
+        "verdict": row["verdict"],
+        "answer_chars": len(result.get("answer") or ""),
+        "route": result.get("route", ""),
+        "route_backend": trace.get("backend", ""),
+        "served_model": trace.get("served_model", ""),
+        "correlation_id": result.get("correlation_id", ""),
+        "finish_reason": result.get("finish_reason", ""),
+        "status_code": result.get("status_code"),
+        "usage": result.get("usage") or {},
+        "options_applied": trace.get("options_applied"),
+        "wall_s": result.get("wall_s"),
+        "error_type": "HTTPError" if result.get("error") else "",
+        "terminal_frames": result.get("terminal_frames"),
+        "private_receipt": str(private_path),
+    }
+
+
+def _write_public(
+    args: argparse.Namespace, question_count: int, private_rows: list[dict[str, Any]]
+) -> None:
+    rows = [_public_row(row, args.private_out) for row in private_rows]
+    args.out.parent.mkdir(parents=True, exist_ok=True)
+    summary = {
+        "arms": args.arms,
+        "question_count": question_count,
+        "repeats": args.repeats,
+        "attempted": len(rows),
+        "answered": sum(row["verdict"] == "answered" for row in rows),
+        "private_receipt": str(args.private_out),
+        "rows": rows,
+    }
+    args.out.write_text(json.dumps(summary, indent=1))
+
+
+def _attempt(
+    client: httpx.Client,
+    route: str,
+    sampling_arm: str,
+    sampling: dict[str, Any],
+    question: dict[str, Any],
+    ws: dict[str, Any],
+    hint: str,
+    tools: list[dict[str, Any]],
+) -> dict[str, Any]:
+    if route == "pipeline":
+        return _pipeline(client, question["question"], sampling_arm, sampling)
+    model = _alias_target(hint) if route == "omlx" else os.environ.get("TRIAGE_OLLAMA_MODEL", hint)
+    return _direct(
+        client, route, model, str(ws["system_prompt_append"]), question["question"], tools, sampling
+    )
+
+
+def _save_attempt(
+    args: argparse.Namespace,
+    row: dict[str, Any],
+    private_rows: list[dict[str, Any]],
+    completed: set[tuple[str, str, int]],
+    question: dict[str, Any],
+    question_count: int,
+) -> None:
+    with args.private_out.open("a", encoding="utf-8") as handle:
+        handle.write(json.dumps(row, ensure_ascii=False) + "\n")
+        handle.flush()
+        os.fsync(handle.fileno())
+    args.private_out.chmod(0o600)
+    private_rows.append(row)
+    completed.add((row["arm"], row["key"], row["repeat"]))
+    result = row["result"]
+    print(
+        f"{row['arm']:18s} {question['key']:32s} r{row['repeat']} {row['verdict']:10s} "
+        f"{len(result.get('answer') or ''):6d} chars {result.get('wall_s')}s",
+        flush=True,
+    )
+    _write_public(args, question_count, private_rows)
+
+
+def _run_campaign(
+    args: argparse.Namespace,
+    client: httpx.Client,
+    ws: dict[str, Any],
+    hint: str,
+    questions: list[dict[str, Any]],
+    tools: list[dict[str, Any]],
+    private_rows: list[dict[str, Any]],
+    completed: set[tuple[str, str, int]],
+) -> None:
+    for arm in args.arms.split(","):
+        route, sampling_arm = arm.split(":")
+        sampling = _sampling(ws, sampling_arm)
+        for question in questions:
+            for repeat in range(args.repeats):
+                key = (arm, question["key"], repeat)
+                if key in completed:
+                    continue
+                result = _attempt(client, route, sampling_arm, sampling, question, ws, hint, tools)
+                row = {
+                    "arm": arm,
+                    "sampling": sampling,
+                    "key": question["key"],
+                    "repeat": repeat,
+                    "question": question["question"],
+                    "verdict": _classify(result),
+                    "result": result,
+                }
+                _save_attempt(args, row, private_rows, completed, question, len(questions))
+
+
+def main() -> int:
+    args = _arguments()
     ws = _workspace()
     hint = str(ws["model_hint"])
     questions = json.loads(args.questions.read_text())
-    if args.private_out is None:
-        stamp = dt.datetime.now(dt.UTC).strftime("%Y%m%dT%H%M%SZ")
-        args.private_out = (
-            _REPO
-            / "portal/modules/compliance/data/private/reading_loop_triage"
-            / stamp
-            / f"{args.out.stem}.jsonl"
-        )
+    args.private_out = _private_path(args)
     args.private_out.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
     args.private_out.parent.chmod(0o700)
-    private_rows: list[dict[str, Any]] = []
-    completed: set[tuple[str, str, int]] = set()
-    if args.private_out.exists():
-        for line in args.private_out.read_text().splitlines():
-            if not line.strip():
-                continue
-            row = json.loads(line)
-            private_rows.append(row)
-            completed.add((row["arm"], row["key"], int(row["repeat"])))
-
-    def write_public() -> None:
-        public_rows = []
-        for row in private_rows:
-            result = row["result"]
-            trace = result.get("trace") or {}
-            public_rows.append(
-                {
-                    "arm": row["arm"],
-                    "key": row["key"],
-                    "repeat": row["repeat"],
-                    "verdict": row["verdict"],
-                    "answer_chars": len(result.get("answer") or ""),
-                    "route": result.get("route", ""),
-                    "route_backend": trace.get("backend", ""),
-                    "served_model": trace.get("served_model", ""),
-                    "correlation_id": result.get("correlation_id", ""),
-                    "finish_reason": result.get("finish_reason", ""),
-                    "status_code": result.get("status_code"),
-                    "usage": result.get("usage") or {},
-                    "options_applied": trace.get("options_applied"),
-                    "wall_s": result.get("wall_s"),
-                    "error_type": "HTTPError" if result.get("error") else "",
-                    "terminal_frames": result.get("terminal_frames"),
-                    "private_receipt": str(args.private_out),
-                }
-            )
-        args.out.parent.mkdir(parents=True, exist_ok=True)
-        args.out.write_text(
-            json.dumps(
-                {
-                    "arms": args.arms,
-                    "question_count": len(questions),
-                    "repeats": args.repeats,
-                    "attempted": len(public_rows),
-                    "answered": sum(row["verdict"] == "answered" for row in public_rows),
-                    "private_receipt": str(args.private_out),
-                    "rows": public_rows,
-                },
-                indent=1,
-            )
-        )
-
+    private_rows, completed = _load_private(args.private_out)
     with httpx.Client() as client:
         tools = _tools(client, list(ws.get("tools") or []))
-        for arm in args.arms.split(","):
-            route, sampling_arm = arm.split(":")
-            sampling = _sampling(ws, sampling_arm)
-            for q in questions:
-                for rep in range(args.repeats):
-                    key = (arm, q["key"], rep)
-                    if key in completed:
-                        continue
-                    if route == "pipeline":
-                        result = _pipeline(client, q["question"], sampling_arm, sampling)
-                    else:
-                        model = (
-                            _alias_target(hint)
-                            if route == "omlx"
-                            else os.environ.get("TRIAGE_OLLAMA_MODEL", hint)
-                        )
-                        result = _direct(
-                            client,
-                            route,
-                            model,
-                            str(ws["system_prompt_append"]),
-                            q["question"],
-                            tools,
-                            sampling,
-                        )
-                    verdict = _classify(result)
-                    row = {
-                        "arm": arm,
-                        "sampling": sampling,
-                        "key": q["key"],
-                        "repeat": rep,
-                        "question": q["question"],
-                        "verdict": verdict,
-                        "result": result,
-                    }
-                    with args.private_out.open("a", encoding="utf-8") as handle:
-                        handle.write(json.dumps(row, ensure_ascii=False) + "\n")
-                        handle.flush()
-                        os.fsync(handle.fileno())
-                    args.private_out.chmod(0o600)
-                    private_rows.append(row)
-                    completed.add(key)
-                    print(
-                        f"{arm:18s} {q['key']:32s} r{rep} {verdict:10s} "
-                        f"{len(result.get('answer') or ''):6d} chars "
-                        f"{result.get('wall_s')}s",
-                        flush=True,
-                    )
-                    write_public()
-    write_public()
+        _run_campaign(args, client, ws, hint, questions, tools, private_rows, completed)
+    _write_public(args, len(questions), private_rows)
     return 0
 
 

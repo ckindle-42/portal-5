@@ -111,126 +111,133 @@ def _request(text: str = STRONG_TEXT, *, fingerprint: str = "snapfp") -> Assessm
 
 
 def _staged_seat() -> Any:
-    """One transport dispatching on the three stage system prompts.
+    return _staged_response
 
-    The report stage keys coverage on the operative activity the alignment stage
-    set: a weaker cadence (``40``) is ``weak``. A ``prop-`` slice marks the
-    virtual (after) assessment, which is used only to expose virtual identity.
-    """
 
-    def fn(model: str, system: str, user: str) -> str:
-        if json.loads(user).get("task") == "clause_alignment":
-            packet = json.loads(user)
-            gid = packet["governing"]["selectable_slice_ids"][0]
-            records = []
-            for cand in packet["candidates"]:
-                text = cand["text"]
-                weak = "40 calendar days" in text
-                records.append(
-                    {
-                        "candidate_id": cand["candidate_id"],
-                        "relation": "SAME",
-                        "governing_slice_ids": [gid],
-                        "candidate_slice_ids": cand["selectable_slice_ids"][:1],
-                        "population_overlap": "OVERLAPPING",
-                        "source_function": "OPERATIVE_COMMITMENT",
-                        "activity": "weak" if weak else "evaluate patches",
-                        "object": "security patches",
-                        "constraint_bindings": [],
-                    }
-                )
-            return json.dumps({"records": records})
-        if "sealed seat on a compliance review council" in system:
-            weak = "40 calendar days" in user
-            return json.dumps(
+def _alignment_response(packet: dict[str, Any]) -> str:
+    gid = packet["governing"]["selectable_slice_ids"][0]
+    records = []
+    for candidate in packet["candidates"]:
+        weak = "40 calendar days" in candidate["text"]
+        records.append(
+            {
+                "candidate_id": candidate["candidate_id"],
+                "relation": "SAME",
+                "governing_slice_ids": [gid],
+                "candidate_slice_ids": candidate["selectable_slice_ids"][:1],
+                "population_overlap": "OVERLAPPING",
+                "source_function": "OPERATIVE_COMMITMENT",
+                "activity": "weak" if weak else "evaluate patches",
+                "object": "security patches",
+                "constraint_bindings": [],
+            }
+        )
+    return json.dumps({"records": records})
+
+
+def _council_response(user: str) -> str:
+    weak = "40 calendar days" in user
+    return json.dumps(
+        {
+            "determination": "PARTIAL" if weak else "SUPPORTED",
+            "finding_type": None,
+            "cited_refs": ["proc c1"],
+            "confidence": 0.9,
+            "rationale": "scripted",
+        }
+    )
+
+
+def _reading_response(packet: dict[str, Any]) -> str:
+    gid = packet["governing"]["selectable_slice_ids"][0]
+    candidates = packet["candidates"]
+    internal = next(
+        (
+            candidate["selectable_slice_ids"][0]
+            for candidate in candidates
+            if candidate["selectable_slice_ids"]
+        ),
+        "",
+    )
+    weak = any("40 calendar days" in candidate["text"] for candidate in candidates)
+    gap = (
+        [
+            {
+                "duty_id": "d1",
+                "gap_id": "gap-cadence",
+                "kind": "WEAKER_COMMITMENT",
+                "missing_commitment": "35 calendar day cadence",
+                "governing_slice_ids": [gid],
+                "internal_counterevidence_slice_ids": [internal],
+            }
+        ]
+        if weak
+        else []
+    )
+    return json.dumps(
+        {
+            "documentary_coverage": "PARTIAL" if weak else "FULL",
+            "duties": [
                 {
-                    "determination": "PARTIAL" if weak else "SUPPORTED",
-                    "finding_type": None,
-                    "cited_refs": ["proc c1"],
-                    "confidence": 0.9,
-                    "rationale": "scripted",
-                }
-            )
-        if "You are a compliance analyst" in system:
-            # The reading pass replaced the reporter: duties, not covered/gaps.
-            packet = json.loads(user)
-            gid = packet["governing"]["selectable_slice_ids"][0]
-            cands = packet["candidates"]
-            internal = next(
-                (c["selectable_slice_ids"][0] for c in cands if c["selectable_slice_ids"]), ""
-            )
-            weak = any("40 calendar days" in c["text"] for c in cands)
-            return json.dumps(
-                {
-                    "documentary_coverage": "PARTIAL" if weak else "FULL",
-                    "duties": [
-                        {
-                            "duty_id": "d1",
-                            "statement": "evaluate patches",
-                            "finding": "PARTIAL" if weak else "COVERED",
-                            "governing_slice_ids": [gid],
-                            "candidate_slice_ids": [internal],
-                        }
-                    ],
-                    "gaps": (
-                        [
-                            {
-                                "duty_id": "d1",
-                                "gap_id": "gap-cadence",
-                                "kind": "WEAKER_COMMITMENT",
-                                "missing_commitment": "35 calendar day cadence",
-                                "governing_slice_ids": [gid],
-                                "internal_counterevidence_slice_ids": [internal],
-                            }
-                        ]
-                        if weak
-                        else []
-                    ),
-                    "uncertainties": [],
-                }
-            )
-        if "source-linked reporting analyst" in system:
-            packet = json.loads(user)
-            gid = packet["governing"]["governing_slice_ids"][0]
-            internal = packet["permitted_internal_slice_ids"][0]
-            weak = any(o.get("activity") == "weak" for o in packet.get("operative_commitments", []))
-            covered = [
-                {
-                    "commitment": "evaluate patches",
+                    "duty_id": "d1",
+                    "statement": "evaluate patches",
+                    "finding": "PARTIAL" if weak else "COVERED",
                     "governing_slice_ids": [gid],
-                    "internal_slice_ids": [internal],
+                    "candidate_slice_ids": [internal],
                 }
-            ]
-            if weak:
-                return json.dumps(
-                    {
-                        "documentary_coverage": "PARTIAL",
-                        "covered": covered,
-                        "gaps": [
-                            {
-                                "gap_id": "gap-cadence",
-                                "kind": "WEAKER_COMMITMENT",
-                                "missing_commitment": "35 calendar day cadence",
-                                "governing_slice_ids": [gid],
-                                "internal_counterevidence_slice_ids": [internal],
-                            }
-                        ],
-                        "uncertainties": [],
-                    }
-                )
-            return json.dumps(
-                {
-                    "documentary_coverage": "FULL",
-                    "covered": covered,
-                    "gaps": [],
-                    "uncertainties": [],
-                }
-            )
-        if "checking one thing only" in system:
-            return '{"overrides": false, "exception_ref": null}'
-        raise AssertionError(f"unexpected system prompt: {system[:60]}")
+            ],
+            "gaps": gap,
+            "uncertainties": [],
+        }
+    )
 
-    return fn
+
+def _report_response(packet: dict[str, Any]) -> str:
+    gid = packet["governing"]["governing_slice_ids"][0]
+    internal = packet["permitted_internal_slice_ids"][0]
+    weak = any(item.get("activity") == "weak" for item in packet.get("operative_commitments", []))
+    covered = [
+        {
+            "commitment": "evaluate patches",
+            "governing_slice_ids": [gid],
+            "internal_slice_ids": [internal],
+        }
+    ]
+    gaps = (
+        [
+            {
+                "gap_id": "gap-cadence",
+                "kind": "WEAKER_COMMITMENT",
+                "missing_commitment": "35 calendar day cadence",
+                "governing_slice_ids": [gid],
+                "internal_counterevidence_slice_ids": [internal],
+            }
+        ]
+        if weak
+        else []
+    )
+    return json.dumps(
+        {
+            "documentary_coverage": "PARTIAL" if weak else "FULL",
+            "covered": covered,
+            "gaps": gaps,
+            "uncertainties": [],
+        }
+    )
+
+
+def _staged_response(model: str, system: str, user: str) -> str:
+    if json.loads(user).get("task") == "clause_alignment":
+        return _alignment_response(json.loads(user))
+    if "sealed seat on a compliance review council" in system:
+        return _council_response(user)
+    if "You are a compliance analyst" in system:
+        return _reading_response(json.loads(user))
+    if "source-linked reporting analyst" in system:
+        return _report_response(json.loads(user))
+    if "checking one thing only" in system:
+        return '{"overrides": false, "exception_ref": null}'
+    raise AssertionError(f"unexpected system prompt: {system[:60]}")
 
 
 def _context() -> AssessmentContext:

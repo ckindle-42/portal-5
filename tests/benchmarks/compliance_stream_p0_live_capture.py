@@ -24,35 +24,16 @@ def decode(raw: bytes) -> dict:
     finish: list[str] = []
     frames: list[dict] = []
     done_count = 0
-    for block in raw.decode("utf-8", errors="replace").replace("\r\n", "\n").split("\n\n"):
-        data = "\n".join(
-            line[5:].lstrip() for line in block.splitlines() if line.startswith("data:")
-        )
-        if not data:
-            continue
-        if data.strip() == "[DONE]":
+    for data in _data_payloads(raw):
+        if data == "[DONE]":
             done_count += 1
             continue
-        try:
-            frame = json.loads(data)
-        except json.JSONDecodeError:
+        frame = _parse_frame(data)
+        if frame is None:
             continue
         frames.append(frame)
         for choice in frame.get("choices") or []:
-            delta = choice.get("delta") or {}
-            text = delta.get("content")
-            if isinstance(text, str):
-                content.append(text)
-            for key in reasoning:
-                value = delta.get(key)
-                if isinstance(value, str) and value:
-                    reasoning[key].append(value)
-            for tc in delta.get("tool_calls") or []:
-                name = ((tc.get("function") or {}).get("name") or "").strip()
-                if name:
-                    tool_names.append(name)
-            if choice.get("finish_reason"):
-                finish.append(str(choice["finish_reason"]))
+            _capture_choice(choice, content, reasoning, tool_names, finish)
     assembled = "".join(content)
     all_reasoning = {k: "".join(v) for k, v in reasoning.items()}
     return {
@@ -63,6 +44,56 @@ def decode(raw: bytes) -> dict:
         "finish_reasons": finish,
         "done_count": done_count,
     }
+
+
+def _data_payloads(raw: bytes) -> list[str]:
+    payloads = []
+    text = raw.decode("utf-8", errors="replace").replace("\r\n", "\n")
+    for block in text.split("\n\n"):
+        data = "\n".join(
+            line[5:].lstrip() for line in block.splitlines() if line.startswith("data:")
+        )
+        if data:
+            payloads.append(data.strip())
+    return payloads
+
+
+def _parse_frame(data: str) -> dict | None:
+    try:
+        return json.loads(data)
+    except json.JSONDecodeError:
+        return None
+
+
+def _capture_choice(
+    choice: dict,
+    content: list[str],
+    reasoning: dict[str, list[str]],
+    tool_names: list[str],
+    finish: list[str],
+) -> None:
+    delta = choice.get("delta") or {}
+    text = delta.get("content")
+    if isinstance(text, str):
+        content.append(text)
+    _capture_reasoning(delta, reasoning)
+    _capture_tool_names(delta, tool_names)
+    if choice.get("finish_reason"):
+        finish.append(str(choice["finish_reason"]))
+
+
+def _capture_reasoning(delta: dict, reasoning: dict[str, list[str]]) -> None:
+    for key in reasoning:
+        value = delta.get(key)
+        if isinstance(value, str) and value:
+            reasoning[key].append(value)
+
+
+def _capture_tool_names(delta: dict, tool_names: list[str]) -> None:
+    for call in delta.get("tool_calls") or []:
+        name = ((call.get("function") or {}).get("name") or "").strip()
+        if name:
+            tool_names.append(name)
 
 
 def trace_for(correlation_id: str) -> tuple[int | None, bytes]:
@@ -77,7 +108,7 @@ def trace_for(correlation_id: str) -> tuple[int | None, bytes]:
         return getattr(exc, "code", None), str(exc).encode()
 
 
-def run(label: str, use_tool: bool) -> dict:
+def _capture_stream(label: str, use_tool: bool) -> tuple[bytes, int | None, str, str, float]:
     message = (
         "Call compliance_context for ref CIP-007-6 R2 Part 2.3 with mode material. "
         "After the tool returns, reply exactly STREAM_P0_TOOL_SENTINEL."
@@ -121,7 +152,11 @@ def run(label: str, use_tool: bool) -> dict:
             else ""
         )
         response_correlation_id = correlation_id
-    elapsed = round(time.monotonic() - started, 3)
+    return raw, status, route, response_correlation_id, round(time.monotonic() - started, 3)
+
+
+def run(label: str, use_tool: bool) -> dict:
+    raw, status, route, response_correlation_id, elapsed = _capture_stream(label, use_tool)
     raw_path = PRIVATE / f"{label}.raw.sse"
     raw_path.write_bytes(raw)
     raw_path.chmod(0o600)

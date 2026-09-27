@@ -64,36 +64,50 @@ def parse_contract_object(raw: str) -> tuple[dict[str, Any] | None, bool, str]:
     obj = parse_final_json(raw)
     if obj is None:
         return None, False, "not_one_json_object"
+    error = _contract_fields_error(obj)
+    if error:
+        return obj, False, error
+    error = _contract_confidence_error(obj)
+    if error:
+        return obj, False, error
+    return obj, True, ""
+
+
+def _contract_fields_error(obj: dict[str, Any]) -> str:
     allowed_keys = {"determination", "finding_type", "cited_refs", "rationale", "confidence"}
     required_keys = {"determination", "finding_type", "cited_refs", "rationale"}
     if not required_keys.issubset(obj) or not set(obj).issubset(allowed_keys):
-        return obj, False, "object_keys_do_not_match_contract"
+        return "object_keys_do_not_match_contract"
     determination_value = obj.get("determination")
     if not isinstance(determination_value, str):
-        return obj, False, "invalid_determination"
+        return "invalid_determination"
     determination = determination_value.upper()
     if determination not in LABELS:
-        return obj, False, "invalid_determination"
+        return "invalid_determination"
     finding_type = obj.get("finding_type")
     if finding_type is not None and (
         not isinstance(finding_type, str) or finding_type.upper() not in FINDING_TYPES
     ):
-        return obj, False, "invalid_finding_type"
+        return "invalid_finding_type"
     cited_refs = obj.get("cited_refs")
     if not isinstance(cited_refs, list) or any(
         not isinstance(ref, str) or not ref.strip() for ref in cited_refs
     ):
-        return obj, False, "cited_refs_not_a_string_array"
+        return "cited_refs_not_a_string_array"
     rationale = obj.get("rationale")
     if not isinstance(rationale, str) or not rationale.strip():
-        return obj, False, "missing_rationale"
+        return "missing_rationale"
+    return ""
+
+
+def _contract_confidence_error(obj: dict[str, Any]) -> str:
     if "confidence" in obj:
         confidence = obj["confidence"]
         if isinstance(confidence, bool) or not isinstance(confidence, (int, float)):
-            return obj, False, "invalid_confidence"
+            return "invalid_confidence"
         if not math.isfinite(float(confidence)) or not 0.0 <= float(confidence) <= 1.0:
-            return obj, False, "invalid_confidence"
-    return obj, True, ""
+            return "invalid_confidence"
+    return ""
 
 
 def _label_class(label: str) -> str:

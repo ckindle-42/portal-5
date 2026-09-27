@@ -158,43 +158,11 @@ def _parse_seat(seat_id: str, model: str, raw: str, allowlist: set[str]) -> Seat
     if obj is None:
         op.dropped = "no JSON object"
         return op
-    required = {"determination", "finding_type", "cited_refs", "confidence", "rationale"}
-    if not required.issubset(obj) or not set(obj).issubset(required):
-        op.dropped = "seat response does not match the declared schema"
+    parsed = _validated_seat_fields(obj)
+    if isinstance(parsed, str):
+        op.dropped = parsed
         return op
-    if not isinstance(obj.get("determination"), str):
-        op.dropped = "invalid determination"
-        return op
-    det = obj["determination"].strip().upper()
-    if det not in _DETERMINATIONS:
-        op.dropped = f"invalid determination {det!r}"
-        return op
-    raw_ft = obj.get("finding_type")
-    if raw_ft is not None and (
-        not isinstance(raw_ft, str) or raw_ft.strip().upper() not in _FINDING_TYPES[1:]
-    ):
-        op.dropped = "invalid finding_type"
-        return op
-    ft = raw_ft.strip().upper() if isinstance(raw_ft, str) else ""
-    raw_cited = obj.get("cited_refs")
-    if not isinstance(raw_cited, list) or any(
-        not isinstance(ref, str) or not ref.strip() for ref in raw_cited
-    ):
-        op.dropped = "cited_refs must be an array of exact reference IDs"
-        return op
-    cited = [ref.strip() for ref in raw_cited]
-    raw_confidence = obj.get("confidence")
-    if isinstance(raw_confidence, bool) or not isinstance(raw_confidence, (int, float)):
-        op.dropped = "invalid confidence"
-        return op
-    confidence = float(raw_confidence)
-    if not math.isfinite(confidence) or not 0.0 <= confidence <= 1.0:
-        op.dropped = "invalid confidence"
-        return op
-    rationale = obj.get("rationale")
-    if not isinstance(rationale, str) or not rationale.strip():
-        op.dropped = "missing rationale"
-        return op
+    det, ft, cited, confidence, rationale = parsed
     op.determination = det
     op.finding_type = ft
     op.cited_refs = cited
@@ -206,6 +174,59 @@ def _parse_seat(seat_id: str, model: str, raw: str, allowlist: set[str]) -> Seat
     if det in ("SUPPORTED", "PARTIAL", "CONTRADICTED") and (not cited or off):
         op.dropped = f"cite-or-drop: {'no citation' if not cited else f'off-packet {off}'}"
     return op
+
+
+def _validated_seat_fields(
+    obj: dict[str, Any],
+) -> tuple[str, str, list[str], float, str] | str:
+    required = {"determination", "finding_type", "cited_refs", "confidence", "rationale"}
+    if not required.issubset(obj) or not set(obj).issubset(required):
+        return "seat response does not match the declared schema"
+    decision = _seat_decision(obj)
+    if isinstance(decision, str):
+        return decision
+    cited = _seat_citations(obj.get("cited_refs"))
+    if isinstance(cited, str):
+        return cited
+    confidence = _seat_confidence(obj.get("confidence"))
+    if isinstance(confidence, str):
+        return confidence
+    rationale = obj.get("rationale")
+    if not isinstance(rationale, str) or not rationale.strip():
+        return "missing rationale"
+    return (*decision, cited, confidence, rationale)
+
+
+def _seat_decision(obj: dict[str, Any]) -> tuple[str, str] | str:
+    raw_det = obj.get("determination")
+    if not isinstance(raw_det, str):
+        return "invalid determination"
+    det = raw_det.strip().upper()
+    if det not in _DETERMINATIONS:
+        return f"invalid determination {det!r}"
+    raw_ft = obj.get("finding_type")
+    if raw_ft is not None and (
+        not isinstance(raw_ft, str) or raw_ft.strip().upper() not in _FINDING_TYPES[1:]
+    ):
+        return "invalid finding_type"
+    return det, raw_ft.strip().upper() if isinstance(raw_ft, str) else ""
+
+
+def _seat_citations(value: Any) -> list[str] | str:
+    if not isinstance(value, list) or any(
+        not isinstance(ref, str) or not ref.strip() for ref in value
+    ):
+        return "cited_refs must be an array of exact reference IDs"
+    return [ref.strip() for ref in value]
+
+
+def _seat_confidence(value: Any) -> float | str:
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        return "invalid confidence"
+    confidence = float(value)
+    if not math.isfinite(confidence) or not 0.0 <= confidence <= 1.0:
+        return "invalid confidence"
+    return confidence
 
 
 def _ref_in_allowlist(ref: str, allowlist: set[str]) -> bool:

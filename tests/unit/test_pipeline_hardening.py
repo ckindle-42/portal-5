@@ -323,6 +323,53 @@ async def test_chat_completions_route_dispatches_tool_and_synthesizes_without_re
 
     monkeypatch.setattr(handlers_mod, "_build_streaming_request", build_request)
 
+    responses = _reasoning_tool_turn_responses()
+    seen_requests: list[dict[str, typing.Any]] = []
+
+    class _QueuedClient:
+        def stream(self, _method, _url, *, json):
+            seen_requests.append(json)
+            return _Ctx(responses.pop(0))
+
+    monkeypatch.setattr(st, "_http_client", _QueuedClient())
+
+    async def dispatch(call, _allowed, _workspace, _persona, _request_id):
+        return {
+            "role": "tool",
+            "tool_call_id": call["id"],
+            "name": "lookup",
+            "content": f"TOOL_RESULT_{call['id']}_SENTINEL",
+        }
+
+    monkeypatch.setattr(st, "_dispatch_tool_call", dispatch)
+    response = api.post(
+        "/v1/chat/completions",
+        json={
+            "model": "auto-coding",
+            "messages": [{"role": "user", "content": "lookup"}],
+            "stream": True,
+        },
+        headers={"Authorization": f"Bearer {PIPELINE_API_KEY}"},
+    )
+    assert response.status_code == 200, response.text
+    assert response.headers["x-portal-route"] == "auto-coding;fake-omlx;served-model"
+    assert len(seen_requests) == 3
+    assert any(
+        m.get("role") == "tool" and "TOOL_RESULT_call-1_SENTINEL" in m.get("content", "")
+        for m in seen_requests[1]["messages"]
+    )
+    assert any(
+        m.get("role") == "tool" and "TOOL_RESULT_call-2_SENTINEL" in m.get("content", "")
+        for m in seen_requests[2]["messages"]
+    )
+    assert "POST_TOOL_REASONING_SENTINEL" not in response.text
+    assert "LATER_HOP_REASONING_SENTINEL" not in response.text
+    assert "FINAL_ANSWER_SENTINEL" in response.text
+    assert response.text.count("[DONE]") == 1
+    assert response.text.rstrip().endswith("data: [DONE]")
+
+
+def _reasoning_tool_turn_responses() -> list[_Resp]:
     tool_frame = _data(
         {
             "choices": [
@@ -377,49 +424,7 @@ async def test_chat_completions_route_dispatches_tool_and_synthesizes_without_re
         _Resp(200, synthesis),
         _Resp(200, final_synthesis),
     ]
-    seen_requests: list[dict[str, typing.Any]] = []
-
-    class _QueuedClient:
-        def stream(self, _method, _url, *, json):
-            seen_requests.append(json)
-            return _Ctx(responses.pop(0))
-
-    monkeypatch.setattr(st, "_http_client", _QueuedClient())
-
-    async def dispatch(call, _allowed, _workspace, _persona, _request_id):
-        return {
-            "role": "tool",
-            "tool_call_id": call["id"],
-            "name": "lookup",
-            "content": f"TOOL_RESULT_{call['id']}_SENTINEL",
-        }
-
-    monkeypatch.setattr(st, "_dispatch_tool_call", dispatch)
-    response = api.post(
-        "/v1/chat/completions",
-        json={
-            "model": "auto-coding",
-            "messages": [{"role": "user", "content": "lookup"}],
-            "stream": True,
-        },
-        headers={"Authorization": f"Bearer {PIPELINE_API_KEY}"},
-    )
-    assert response.status_code == 200, response.text
-    assert response.headers["x-portal-route"] == "auto-coding;fake-omlx;served-model"
-    assert len(seen_requests) == 3
-    assert any(
-        m.get("role") == "tool" and "TOOL_RESULT_call-1_SENTINEL" in m.get("content", "")
-        for m in seen_requests[1]["messages"]
-    )
-    assert any(
-        m.get("role") == "tool" and "TOOL_RESULT_call-2_SENTINEL" in m.get("content", "")
-        for m in seen_requests[2]["messages"]
-    )
-    assert "POST_TOOL_REASONING_SENTINEL" not in response.text
-    assert "LATER_HOP_REASONING_SENTINEL" not in response.text
-    assert "FINAL_ANSWER_SENTINEL" in response.text
-    assert response.text.count("[DONE]") == 1
-    assert response.text.rstrip().endswith("data: [DONE]")
+    return responses
 
 
 # ── stream fallback policy ───────────────────────────────────────────
