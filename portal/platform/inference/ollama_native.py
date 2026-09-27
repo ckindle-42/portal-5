@@ -80,6 +80,20 @@ _TOP_LEVEL_OPTIONS = (
 
 _CHAT_PATH = "/v1/chat/completions"
 
+#: Per Ollama RENDERER: the empty reasoning block a no-think turn must open
+#: with. Ollama's gemma4 renderer (every variant) and Google's canonical
+#: template emit it on a fresh model turn but NOT after a tool response, so a
+#: post-tool generation with thinking off is unanchored: measured raw on
+#: gemma4:26b (PIPELINE_ALIGNMENT_V1 §13), 5/8 seeds opened a thought channel
+#: and wrote the tool call inside it and 3/8 emitted malformed tool names —
+#: both parsed to an empty answer. Prefilled as a trailing assistant message
+#: (Ollama continues it), 8/8 produced a clean call.
+_NO_THINK_TOOL_TURN_PREFILL = {
+    "gemma4": "<|channel>thought\n<channel|>",
+    "gemma4-small": "<|channel>thought\n<channel|>",
+    "gemma4-large": "<|channel>thought\n<channel|>",
+}
+
 
 # ── request: OpenAI -> native ───────────────────────────────────────────────
 
@@ -178,7 +192,7 @@ def _tools_for_choice(tools: list[dict[str, Any]], choice: Any) -> list[dict[str
     return tools
 
 
-def to_native_request(body: dict[str, Any], can_think: bool) -> dict[str, Any]:
+def to_native_request(body: dict[str, Any], can_think: bool, renderer: str = "") -> dict[str, Any]:
     """Build the /api/chat body for an OpenAI chat body."""
     options = {k: v for k, v in (body.get("options") or {}).items() if k in _SAMPLING_OPTIONS}
     for key in _TOP_LEVEL_OPTIONS:
@@ -209,6 +223,10 @@ def to_native_request(body: dict[str, Any], can_think: bool) -> dict[str, Any]:
     # thinking") by a model without the capability; /v1 dropped it silently.
     if think is not None and can_think:
         native["think"] = think
+    prefill = _NO_THINK_TOOL_TURN_PREFILL.get(renderer)
+    messages = native["messages"]
+    if prefill and think is False and messages and messages[-1].get("role") == "tool":
+        native["messages"] = [*messages, {"role": "assistant", "content": prefill}]
     return native
 
 
@@ -417,12 +435,14 @@ class OllamaNativeTransport(httpx.AsyncBaseTransport):
     def __init__(self, inner: httpx.AsyncBaseTransport, is_ollama: Callable[[str], bool]) -> None:
         self._inner = inner
         self._is_ollama = is_ollama
-        self._thinking: dict[tuple[str, str], bool] = {}
+        self._shown: dict[tuple[str, str], tuple[bool, str]] = {}
 
-    async def _can_think(self, base: str, model: str, extensions: dict[str, Any]) -> bool:
+    async def _show(self, base: str, model: str, extensions: dict[str, Any]) -> tuple[bool, str]:
+        """``(can_think, renderer)`` from /api/show, cached per model. The
+        renderer is the Modelfile's RENDERER line ("" when it has none)."""
         key = (base, model)
-        if key not in self._thinking:
-            can = False
+        if key not in self._shown:
+            can, renderer = False, ""
             try:
                 req = httpx.Request(
                     "POST", f"{base}/api/show", json={"model": model}, extensions=extensions
@@ -431,12 +451,21 @@ class OllamaNativeTransport(httpx.AsyncBaseTransport):
                 raw = await resp.aread()
                 await resp.aclose()
                 if resp.status_code == 200:
-                    can = "thinking" in (json.loads(raw).get("capabilities") or [])
-                    self._thinking[key] = can
+                    shown = json.loads(raw)
+                    can = "thinking" in (shown.get("capabilities") or [])
+                    renderer = next(
+                        (
+                            line.split(None, 1)[1].strip()
+                            for line in str(shown.get("modelfile") or "").splitlines()
+                            if line.startswith("RENDERER ") and len(line.split(None, 1)) == 2
+                        ),
+                        "",
+                    )
+                    self._shown[key] = (can, renderer)
             except Exception as e:  # capability unknown: do not send think
                 logger.warning("ollama_native: /api/show %s failed: %s", model, e)
-            return can
-        return self._thinking[key]
+            return can, renderer
+        return self._shown[key]
 
     async def handle_async_request(self, request: httpx.Request) -> httpx.Response:
         url = str(request.url)
@@ -447,8 +476,8 @@ class OllamaNativeTransport(httpx.AsyncBaseTransport):
             return await self._inner.handle_async_request(request)
 
         body = json.loads(await request.aread() or b"{}")
-        can_think = await self._can_think(base, str(body.get("model", "")), request.extensions)
-        native = to_native_request(body, can_think)
+        can_think, renderer = await self._show(base, str(body.get("model", "")), request.extensions)
+        native = to_native_request(body, can_think, renderer)
         native_req = httpx.Request(
             "POST", f"{base}/api/chat", json=native, extensions=request.extensions
         )

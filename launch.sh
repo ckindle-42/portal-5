@@ -656,6 +656,9 @@ PYEOF
     if [ -d "$HOME/.omlx" ]; then
       "$PORTAL_ROOT/.venv/bin/python" "$PORTAL_ROOT/scripts/omlx_seat_defaults.py" \
         || echo "[portal-5] ⚠️  oMLX seat defaults sync failed (pipeline traffic unaffected)"
+      # Gemma 4 conversions: anchor a no-think turn after a tool response.
+      "$PORTAL_ROOT/.venv/bin/python" "$PORTAL_ROOT/scripts/omlx_chat_template_patch.py" \
+        || echo "[portal-5] ⚠️  oMLX chat-template patch failed (see scripts/omlx_chat_template_patch.py)"
     fi
     ;;
 

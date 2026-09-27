@@ -250,3 +250,31 @@ def test_orphans_with_a_run_uses_resolved_links(monkeypatch):
     out = compliance_mcp.compliance_orphans(run_id="run-1")
     assert out["basis"] == "assessment-run:run-1"
     assert out["orphan_sections"] == ["unlinked"]
+
+
+def test_compliance_context_material_is_json(monkeypatch):
+    """mode=material returned render()'s in-process AnswerContract and failed
+    serialization on every call (PIPELINE_ALIGNMENT_V1 §13)."""
+    import json
+
+    from portal.modules.compliance.core import conversation_window, reading_material, runtime_config
+
+    class _Contract:  # not JSON-serializable, like AnswerContract
+        pass
+
+    class _Repo:
+        def close(self) -> None:
+            pass
+
+    monkeypatch.setattr(compliance_mcp, "_repo", _Repo)
+    monkeypatch.setattr(
+        reading_material,
+        "render",
+        lambda repo, ref, **kw: {"ref": ref, "text": "material", "contract": _Contract()},
+    )
+    monkeypatch.setattr(runtime_config, "reading_seat", lambda: "seat")
+    monkeypatch.setattr(conversation_window, "fit_material", lambda payload, seat: {"fits": True})
+
+    out = compliance_mcp.compliance_context("CIP-007-6 R2 Part 2.3", mode="material")
+    assert out["mode"] == "material" and "contract" not in out
+    json.dumps(out)

@@ -458,7 +458,10 @@ def _consume_workspace_stream(  # noqa: PLR0912 - one linear pass over the SSE l
             "POST",
             f"{router}/v1/chat/completions{query}",
             headers={"Authorization": f"Bearer {_api_key()}"},
-            json={"model": workspace, "messages": messages, "stream": True, "temperature": 0.0},
+            # No caller sampling: the workspace's declared sampling governs, as
+            # it does for every OWUI turn. A harness-only 0.0 measured a greedy
+            # seat no user is served (PIPELINE_ALIGNMENT_V1 §13).
+            json={"model": workspace, "messages": messages, "stream": True},
             timeout=timeout,
         ) as response:
             out["http_status"] = response.status_code

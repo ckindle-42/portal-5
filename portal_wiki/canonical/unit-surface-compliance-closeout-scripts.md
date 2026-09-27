@@ -45,6 +45,8 @@ sources:
   path: scripts/compliance/pipeline_alignment_verify.py
 - type: code
   path: scripts/compliance/sweep_acceptance_ab.py
+- type: code
+  path: scripts/compliance/reading_loop_triage.py
 claims: []
 confidence: high
 tags:
@@ -143,3 +145,7 @@ pipeline's applied sampling and thinking per seat.
 gates — id resolves, operator side, sentence verbatim — so a mapping-prompt,
 route or transport change is compared on what the store would accept, not on
 a count of emitted edges.
+`reading_loop_triage` (§13) runs one compliance-reading turn direct to each
+engine, with the pipeline's own tool loop replayed outside it, and through the
+pipeline, under named sampling arms. A failure present direct is the engine's;
+one present only through the pipeline is the pipeline's.

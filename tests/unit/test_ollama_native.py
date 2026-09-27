@@ -271,3 +271,74 @@ async def test_final_done_chunk_fields_are_not_dropped():
     ]
     assert frames[0]["choices"][0]["delta"]["tool_calls"][0]["function"]["name"] == "f"
     assert frames[-1]["choices"][0]["finish_reason"] == "tool_calls"
+
+
+_POST_TOOL = [
+    {"role": "user", "content": "q"},
+    {
+        "role": "assistant",
+        "content": None,
+        "tool_calls": [
+            {"id": "c1", "type": "function", "function": {"name": "f", "arguments": "{}"}}
+        ],
+    },
+    {"role": "tool", "tool_call_id": "c1", "content": "r"},
+]
+
+
+def test_gemma4_no_think_post_tool_turn_opens_with_the_empty_block():
+    """PIPELINE_ALIGNMENT_V1 §13: the gemma4 renderer leaves a post-tool no-think
+    turn unanchored; the transport prefills the empty reasoning block."""
+    body = {"model": "g", "messages": _POST_TOOL, "think": False}
+    native = to_native_request(body, can_think=True, renderer="gemma4")
+    assert native["messages"][-1] == {
+        "role": "assistant",
+        "content": "<|channel>thought\n<channel|>",
+    }
+
+
+@pytest.mark.parametrize(
+    ("renderer", "think", "messages"),
+    [
+        ("gemma4", True, _POST_TOOL),  # reasoning allowed: the model opens the channel
+        ("gemma4", None, _POST_TOOL),  # no think policy sent: nothing to anchor
+        ("gemma4", False, [{"role": "user", "content": "q"}]),  # fresh turn: renderer's job
+        ("qwen3.5", False, _POST_TOOL),  # another renderer family: untouched
+        ("", False, _POST_TOOL),  # no RENDERER (template model): untouched
+    ],
+)
+def test_prefill_applies_only_to_a_no_think_post_tool_gemma4_turn(renderer, think, messages):
+    body = {"model": "g", "messages": messages, **({} if think is None else {"think": think})}
+    native = to_native_request(body, can_think=True, renderer=renderer)
+    assert native["messages"] == messages_to_native(messages)
+
+
+@pytest.mark.asyncio
+async def test_renderer_read_from_show_modelfile_drives_the_prefill():
+    def handler(req):
+        if req.url.path == "/api/show":
+            return httpx.Response(
+                200,
+                json={
+                    "capabilities": ["completion", "tools", "thinking"],
+                    "modelfile": "FROM /blob\nTEMPLATE {{ .Prompt }}\nRENDERER gemma4\nPARSER gemma4\n",
+                },
+            )
+        sent = json.loads(req.content)
+        assert sent["messages"][-1]["role"] == "assistant"
+        assert sent["messages"][-1]["content"] == "<|channel>thought\n<channel|>"
+        return httpx.Response(
+            200,
+            json={
+                "model": "g",
+                "message": {"role": "assistant", "content": "ok"},
+                "done_reason": "stop",
+            },
+        )
+
+    client, _ = _mock(handler)
+    r = await client.post(
+        f"{BASE}/v1/chat/completions",
+        json={"model": "g", "messages": _POST_TOOL, "reasoning_effort": "none"},
+    )
+    assert r.json()["choices"][0]["message"]["content"] == "ok"

@@ -37,8 +37,7 @@
      }
     },
     "required": [
-     "requirements",
-     "valid_at"
+     "requirements"
     ]
    }
   }
@@ -194,12 +193,19 @@
   "type": "function",
   "function": {
    "name": "compliance_context",
-   "description": "INDEX of a requirement's neighbourhood \u2014 section ids, sides, documents, paths, pages, NO text. Use it to learn what exists before deciding what to read. mode=packet assembles full text to budget_tokens (batch readers, not conversation turns).",
+   "description": "A requirement's neighbourhood. mode=\"material\" returns the whole neighbourhood WITH text in one payload \u2014 the standard's own body, then every operator section in scope with its standing; answer from it. mode=\"index\" (default) lists section ids, sides, documents, paths and pages with NO text.",
    "parameters": {
     "type": "object",
     "properties": {
      "ref": {
       "type": "string"
+     },
+     "mode": {
+      "type": "string",
+      "enum": [
+       "index",
+       "material"
+      ]
      },
      "budget_tokens": {
       "type": "string"
@@ -636,8 +642,7 @@
      }
     },
     "required": [
-     "requirement",
-     "valid_at"
+     "requirement"
     ]
    }
   }

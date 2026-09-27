@@ -1830,7 +1830,7 @@ workspaces:
     top_p: 0.95
     top_k: 20
     min_p: 0.0
-    repeat_penalty: 1.1 # same as compliance-reading; 1.1 vs 1.0 measured neutral on verbatim copy (PIPELINE_ALIGNMENT_V1 §12)
+    repeat_penalty: 1.1 # the value the mapping-v3 sweep was measured at (61/75, PIPELINE_ALIGNMENT_V1 §12); 1.1 vs 1.0 neutral on verbatim copy
     think: false # map readings are strict-JSON at reasoning off, measured (reading_transport DEFAULT_EFFORT)
     emits_reasoning: false
     tools: [] # callers bring their own schemas (portal_client_tools_only) or none (portal_no_tools)
@@ -1869,10 +1869,13 @@ workspaces:
     # reading transport's 0.0 governs only the nested batch engine; both are
     # within the lane, and the lane value is what /v1 serves).
     temperature: 0.3
+    # top_k / repeat_penalty: the google/gemma-4 card (top_p 0.95, top_k 64, no
+    # repetition penalty). The 20 / 1.1 here were the Ling seat's, carried over
+    # when 8866e7b9 rebound the hint to gemma4 (PIPELINE_ALIGNMENT_V1 §13).
     top_p: 0.95
-    top_k: 20
+    top_k: 64
     min_p: 0.0
-    repeat_penalty: 1.1
+    repeat_penalty: 1.0
     think: false
     emits_reasoning: false
     tools:
@@ -2041,7 +2044,7 @@ workspaces:
     top_p: 0.95
     top_k: 20
     min_p: 0.0
-    repeat_penalty: 1.1 # same as compliance-reading
+    repeat_penalty: 1.1 # as compliance-mapping (strict-JSON reads at the transport's 0.0)
     think: false # map readings are strict-JSON at reasoning off, measured (reading_transport DEFAULT_EFFORT)
     emits_reasoning: false
     tools: [] # map_read is tool-less; the dialect also sends portal_no_tools when it passes none

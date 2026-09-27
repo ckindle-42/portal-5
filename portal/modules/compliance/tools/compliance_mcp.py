@@ -2418,6 +2418,11 @@ def compliance_context(
     try:
         if mode == "material":
             payload = reading_material.render(repo, ref, valid_at=valid_at, citation="quote")
+            # render() also returns the in-process AnswerContract the sweep
+            # resolves handles through; it is not JSON, and every material
+            # response failed serialization with it — which the pipeline reported
+            # as "rejected the arguments" (PIPELINE_ALIGNMENT_V1 §13).
+            payload.pop("contract", None)
             if "error" not in payload:
                 # The conversation's window guard (MODULE_COMPLETE_V1 §P0.5):
                 # the sweep refuses oversize readings; the conversation used to
