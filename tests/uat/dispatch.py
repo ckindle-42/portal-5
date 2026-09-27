@@ -86,35 +86,24 @@ async def _fe_attach_file(page, file_path: Path) -> None:
 async def _extract_dom_response(page) -> str:
     """Extract the last assistant response text directly from the OWUI page DOM.
 
-    Used as a fallback when OWUI 0.9.5+ does not immediately commit thinking-model
-    responses to the chat history API. OWUI renders markdown content inside .prose
-    divs; reasoning blocks are in <details> elements that are stripped before return.
-    Returns '' if no suitable content is found (degrades gracefully).
+    Used as a fallback for delayed API persistence. OWUI 0.11.x renders assistant
+    markdown in ``.chat-assistant .markdown-prose``; older releases used ``.prose``.
+    Strip <details> reasoning blocks but preserve visible answer whitespace.
     """
     try:
         return await page.evaluate(
             """() => {
-            // OWUI 0.9.x renders markdown with Tailwind 'prose' class.
-            // The last .prose element holds the most recent assistant response.
-            const selectors = [
-                '.prose.dark\\\\:prose-invert',
-                '.prose',
-                '[data-role="assistant"] .prose',
-                '.message-content .prose',
-            ];
-            let best = '';
-            for (const sel of selectors) {
-                try {
-                    const els = document.querySelectorAll(sel);
-                    if (els.length === 0) continue;
-                    const el = els[els.length - 1];
-                    const clone = el.cloneNode(true);
-                    for (const d of clone.querySelectorAll('details')) d.remove();
-                    const text = (clone.innerText || '').trim();
-                    if (text.length > best.length) best = text;
-                } catch (_) {}
-            }
-            return best;
+            // Prefer OWUI 0.11.x .markdown-prose and keep older .prose fallbacks;
+            // the last matching node is the newest rendered response.
+            const nodes = document.querySelectorAll(
+                '.chat-assistant .markdown-prose, .chat-assistant .prose, ' +
+                '[data-role="assistant"] .markdown-prose, [data-role="assistant"] .prose, ' +
+                '.message-content .markdown-prose, .message-content .prose, .markdown-prose, .prose'
+            );
+            if (!nodes.length) return '';
+            const clone = nodes[nodes.length - 1].cloneNode(true);
+            for (const d of clone.querySelectorAll('details')) d.remove();
+            return clone.innerText || '';
         }"""
         )
     except Exception:

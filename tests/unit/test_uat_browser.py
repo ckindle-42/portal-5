@@ -2,9 +2,12 @@
 
 from __future__ import annotations
 
+from unittest.mock import AsyncMock
+
 import pytest
 
 from tests.uat.browser import _dismiss_startup_overlays
+from tests.uat.dispatch import _extract_dom_response
 from tests.uat.owui_api import _assistant_message_text, owui_response_complete
 
 
@@ -40,6 +43,15 @@ class _FakePage:
 
     async def wait_for_timeout(self, milliseconds: int) -> None:
         self.waits.append(milliseconds)
+
+
+@pytest.mark.asyncio
+async def test_dom_fallback_uses_current_owui_markup_and_preserves_prefix() -> None:
+    page = AsyncMock()
+    page.evaluate.return_value = "\nVisible answer\n"
+    assert await _extract_dom_response(page) == "\nVisible answer\n"
+    script = page.evaluate.call_args.args[0]
+    assert ".chat-assistant .markdown-prose" in script and ".trim()" not in script
 
 
 @pytest.mark.asyncio
