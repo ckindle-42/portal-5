@@ -395,7 +395,11 @@ class TestBlueModeNotClobberedByQueryProvenance:
 
         monkeypatch.setattr(blue_mod, "_stream_chain_turn", _fake_stream_chain_turn)
         monkeypatch.setattr(blue_mod, "_LAB_EXEC_AVAILABLE", True)
-        monkeypatch.setattr(blue_mod, "_BLUE_DIRECT_OLLAMA", True)
+        # P1.5: BLUE_DIRECT_OLLAMA alone no longer flips routing — the shared
+        # direct-engine diagnostic gate must also be set, and both are read
+        # per-call from the environment (no import-time flag to patch).
+        monkeypatch.setenv("BLUE_DIRECT_OLLAMA", "true")
+        monkeypatch.setenv("PORTAL_SECURITY_DIRECT_ENGINE_DIAGNOSTIC", "true")
         # query_live=True + _LAB_EXEC_AVAILABLE=True routes _fetch_blue_telemetry
         # into a real network call (_lab_mcp_call -> bench_lab_exec._mcp_call) —
         # hermetic-test violation found live 2026-07-21 (passed locally only
@@ -433,7 +437,8 @@ class TestBlueModeNotClobberedByQueryProvenance:
 
         monkeypatch.setattr(blue_mod, "_stream_chain_turn", _fake_stream_chain_turn)
         monkeypatch.setattr(blue_mod, "_LAB_EXEC_AVAILABLE", False)
-        monkeypatch.setattr(blue_mod, "_BLUE_DIRECT_OLLAMA", True)
+        monkeypatch.setenv("BLUE_DIRECT_OLLAMA", "true")
+        monkeypatch.setenv("PORTAL_SECURITY_DIRECT_ENGINE_DIAGNOSTIC", "true")
 
         scenario = {
             "name": "kerberoast_to_da",

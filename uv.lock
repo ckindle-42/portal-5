@@ -4487,6 +4487,7 @@ channels = [
     { name = "slack-bolt" },
 ]
 dev = [
+    { name = "jinja2" },
     { name = "lancedb" },
     { name = "mcp" },
     { name = "mypy" },
@@ -4546,6 +4547,7 @@ requires-dist = [
     { name = "httpx", specifier = ">=0.26.0" },
     { name = "httpx", marker = "extra == 'mcp'", specifier = ">=0.26.0" },
     { name = "huggingface-hub", marker = "extra == 'mcp'", specifier = ">=1.9.1" },
+    { name = "jinja2", marker = "extra == 'dev'", specifier = ">=3.1.0" },
     { name = "jsonschema", specifier = ">=4.20.0" },
     { name = "jsonschema", marker = "extra == 'cad'", specifier = ">=4.20.0" },
     { name = "kokoro-onnx", marker = "extra == 'mcp'", specifier = ">=0.4.0" },

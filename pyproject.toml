@@ -220,6 +220,11 @@ dev = [
     # test_compliance_nerc_source_sync.py parses a committed fixture of it.
     # Without it the dev-only extras CI installs fail with ModuleNotFoundError.
     "openpyxl>=3.1.0",
+    # jinja2 renders the oMLX chat-template fixtures: test_omlx_chat_template_patch.py
+    # imports it at module scope to assert the patched Gemma 4 template's rendered
+    # output, so the module fails collection without it under the dev-only extras
+    # CI installs (ModuleNotFoundError, first seen 2026-09-27).
+    "jinja2>=3.1.0",
 ]
 
 [project.scripts]

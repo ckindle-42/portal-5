@@ -136,6 +136,9 @@ class TestModelCanary:
 
     def test_run_canary_probe_mocked(self, monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.setenv("DRIFT_DIRECT_OLLAMA", "true")
+        # P1.5: the direct switch needs the shared diagnostic gate set too —
+        # both are read per-call from the environment.
+        monkeypatch.setenv("PORTAL_SECURITY_DIRECT_ENGINE_DIAGNOSTIC", "true")
         with patch("httpx.post") as mock_post:
             mock_post.return_value.raise_for_status = lambda: None
             mock_post.return_value.json.return_value = {
@@ -151,6 +154,7 @@ class TestModelCanary:
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         monkeypatch.delenv("DRIFT_DIRECT_OLLAMA", raising=False)
+        monkeypatch.delenv("PORTAL_SECURITY_DIRECT_ENGINE_DIAGNOSTIC", raising=False)
         with patch("httpx.post") as mock_post:
             mock_post.return_value.raise_for_status = lambda: None
             mock_post.return_value.json.return_value = {
@@ -170,6 +174,7 @@ class TestModelCanary:
 
     def test_flipped_probe_detected(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.setenv("DRIFT_DIRECT_OLLAMA", "true")
+        monkeypatch.setenv("PORTAL_SECURITY_DIRECT_ENGINE_DIAGNOSTIC", "true")
         model = "canary-test-model"
         with patch(
             "portal.modules.security.core.drift_gate._canary_baseline_path",
@@ -195,6 +200,7 @@ class TestModelCanary:
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         monkeypatch.setenv("DRIFT_DIRECT_OLLAMA", "true")
+        monkeypatch.setenv("PORTAL_SECURITY_DIRECT_ENGINE_DIAGNOSTIC", "true")
         model = "canary-stable-model"
         fixed_content = "T1558.003 CVE-2021-44228 A03 T1611 T1047 CVE-2017-0144 A10 T1557.001 T1550.002 T1558.004 T1558.001"
         with (
