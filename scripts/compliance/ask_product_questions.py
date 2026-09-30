@@ -62,7 +62,9 @@ DEFAULT_ANCHORS = {
     "CIP-007-6": "CIP-007-6 R2",
     "CIP-004-7": "CIP-004-7 R4",
     "CIP-010-4": "CIP-010-4 R1",
-    "CIP-003-8": "CIP-003-8 R1",
+    # CIP-003-9 governs from 2026-04-01 (READING_TRUTH_V1 P2.5); CIP-003-8 R1 answers
+    # survive only as re-judged history, never as a measured question.
+    "CIP-003-9": "CIP-003-9 R1",
     "CIP-002-5.1a": "CIP-002-5.1a R1",
 }
 

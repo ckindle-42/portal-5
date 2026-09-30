@@ -11,6 +11,7 @@ from . import (  # noqa: F401  (imports populate the check registry)
     compliance_acceptance,
     compliance_currency,
     compliance_public_text,
+    compliance_truth,
     config,
     doc_voice,
     inference,
