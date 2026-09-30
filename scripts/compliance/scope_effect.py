@@ -157,12 +157,14 @@ def main() -> int:
     ap.add_argument(
         "--adj",
         type=pathlib.Path,
-        default=REPO_ROOT / "reports/compliance/load_and_converse/p6/adjudication_v2.json",
+        default=REPO_ROOT
+        / "portal/modules/compliance/data/private/local/reports/compliance/load_and_converse/p6/adjudication_v2.json",
     )
     ap.add_argument(
         "--out",
         type=pathlib.Path,
-        default=REPO_ROOT / "reports/compliance/cite_and_scope/p2/scope_effect.json",
+        default=REPO_ROOT
+        / "portal/modules/compliance/data/private/runs/cite_and_scope/p2/scope_effect.json",
     )
     ap.add_argument("--standards", default="CIP-002-5.1a,CIP-007-6")
     args = ap.parse_args()

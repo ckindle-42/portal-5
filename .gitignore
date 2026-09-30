@@ -171,3 +171,6 @@ data/compliance/backups/
 
 # ZCode workspace ignore config (harness-local, like .zcode/)
 .zcodeignore
+# READING_TRUTH_V1 P1: run data stays local; outcome summaries are top-level md
+reports/compliance/*/
+reports/compliance/*.json

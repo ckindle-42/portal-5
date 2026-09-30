@@ -182,7 +182,7 @@ class TestTwoClocksOverTheRegulatoryCorpus:
             SourceDocument(
                 logical_id="NERC/CIP-007-6 internal lookalike",
                 title="lookalike",
-                issuer="the operator",
+                issuer="ACME",
                 source_kind="procedure",
                 jurisdiction="internal",
             )

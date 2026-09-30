@@ -9,7 +9,7 @@ window (resident after a ~20k-token prefill minus resident at load), prefill
 tok/s at that size, decode tok/s at length, the two-turn cache ratio (the
 P2.2 runnability gate), and host free/swap with the model loaded.
 
-Emits reports/compliance/window_and_seat/p3_measurements.json.
+Emits portal/modules/compliance/data/private/runs/window_and_seat/p3_measurements.json.
 """
 
 from __future__ import annotations
@@ -29,7 +29,8 @@ from tests.benchmarks.bench.lifecycle import (  # noqa: E402
 
 OLLAMA = "http://localhost:11434"
 OUT = (
-    Path(__file__).resolve().parents[1] / "reports/compliance/window_and_seat/p3_measurements.json"
+    Path(__file__).resolve().parents[1]
+    / "portal/modules/compliance/data/private/runs/window_and_seat/p3_measurements.json"
 )
 
 #: ~20.5k tokens of requirement-shaped filler — the §P1.4 high-water region.

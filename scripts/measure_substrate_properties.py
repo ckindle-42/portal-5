@@ -11,7 +11,7 @@ arguments:
 * recall at top_k in {5, 10, 15} with and without pushdown, against the §P5
   mapping ground truth (which sets the search default) and, when the mapping
   store is empty, against the hand-labelled probe discriminator from
-  ``reports/compliance/READING_SEAT_RESEARCH_V1.md`` §2.1 — labelled
+  ``portal/modules/compliance/data/private/runs/READING_SEAT_RESEARCH_V1.md`` §2.1 — labelled
   ``hand-judged, provisional``;
 * scorer validation against the four hand-judged seat-probe transcripts;
 * the count of untiered documents §P4.1 surfaced.
@@ -32,16 +32,14 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO_ROOT))
 
 from portal.modules.compliance.core import evaluation, section_index, tiers  # noqa: E402
+from portal.modules.compliance.core.operator_profile import require  # noqa: E402
 from portal.modules.compliance.core.repository import Repository  # noqa: E402
 from portal.modules.compliance.core.search_service import search_predicate  # noqa: E402
 from portal.platform.retrieval import store as _store  # noqa: E402
 
-PROBE_SECTIONS = {
-    # READING_SEAT_RESEARCH_V1 §2.1, hand-judged: the three sections that decide Q2
-    "standard_row": "csection-7700dd5499cead0994ec",
-    "procedure_3_3": "isection-00000000000000000000",
-    "operator_note": "csection-440a5cdf9a6b65292ef3",
-}
+# READING_SEAT_RESEARCH_V1 §2.1, hand-judged: the three sections that decide
+# Q2. The ids are operator-store constants; they live in the local profile.
+PROBE_SECTIONS = dict(require("section_pins.measure_substrate_properties"))
 PROBE_QUERY = (
     "Our own procedure evaluates security patches every thirty calendar days, not "
     "thirty-five. Are we stricter than we need to be, and does that matter?"

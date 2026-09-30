@@ -32,7 +32,8 @@ from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[1]
 PROBE = REPO / "tests" / "compliance_probe" / "judgment_probe_v6.jsonl"
-RESULTS = REPO / "tests" / "benchmarks" / "results"
+#: Run outputs are local-only (P1R): never written where a commit could carry them.
+RESULTS = REPO / "portal" / "modules" / "compliance" / "data" / "private" / "runs"
 
 _VIOLATION = {"PARTIAL", "CONTRADICTED", "ABSENT"}
 ARMS = (

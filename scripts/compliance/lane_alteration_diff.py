@@ -21,8 +21,9 @@ from typing import Any
 import yaml
 
 from portal.modules.compliance.core.repository import Repository
+from scripts.compliance.truth import _local  # noqa: E402
 
-OUT_DEFAULT = Path("reports/compliance/pipeline_alignment/p1/owned_workspaces.json")
+OUT_DEFAULT = _local.RUNS / "pipeline_alignment/p1/owned_workspaces.json"
 PORTAL_YAML = Path("config/portal.yaml")
 
 

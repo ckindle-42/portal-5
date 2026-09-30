@@ -233,7 +233,7 @@ class TestInternalCorpusTilesCompletely:
         from portal.modules.compliance.core.internal_corpus import sectionize
 
         pages = [
-            "the operator Procedure\nDocument Type: Procedure\n",
+            "ACME Procedure\nDocument Type: Procedure\n",
             "Table of Contents\n1.0 Purpose ...... 3\n2.0 Scope ...... 4\n",
             "trailing text nobody gave a heading\n1.0 Purpose\nThe purpose is to do the thing.\n",
             "2.0 Scope\nApplies to everything.\ntail matter after the last heading\n",

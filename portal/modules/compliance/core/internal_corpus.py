@@ -391,8 +391,8 @@ def _is_title_like(text: str, *, relaxed: bool = False) -> bool:
     """A plausible heading title: short, no terminal punctuation, not a
     sentence (no modals). Numbered content items ('Carries out tasks ...
     activities.') fail this and stay inside their parent section's text.
-    Same-line numbered headings may run long ('3.[operator text removed]
-[operator text removed]'); the next-line shape stays
+    Same-line numbered headings may run long ('3.2 Widget Handling
+    Device, Component, and Source Registers'); the next-line shape stays
     strict because a wrapped sentence begins exactly like a title."""
     stripped = text.strip()
     max_chars, max_words = (90, 14) if relaxed else (60, 8)

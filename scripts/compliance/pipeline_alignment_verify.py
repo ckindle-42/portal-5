@@ -26,13 +26,13 @@ import contextlib
 import json
 import time
 import urllib.request
-from pathlib import Path
 from typing import Any
 
 from portal.modules.compliance.core.repository import Repository
+from scripts.compliance.truth import _local  # noqa: E402
 
-P1_OUT = Path("reports/compliance/pipeline_alignment/p1/owned_workspaces_live.json")
-P2_OUT = Path("reports/compliance/pipeline_alignment/p2/overflow_route_live.json")
+P1_OUT = _local.RUNS / "pipeline_alignment/p1/owned_workspaces_live.json"
+P2_OUT = _local.RUNS / "pipeline_alignment/p2/overflow_route_live.json"
 SEAT = "gemma4:26b-a4b-it-q4_K_M-ctx32k"
 OVERFLOW_TAG = "gemma4:26b-a4b-it-q4_K_M-ctx64k"
 OLLAMA = "http://localhost:11434"

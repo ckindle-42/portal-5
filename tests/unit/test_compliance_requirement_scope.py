@@ -104,7 +104,7 @@ def _pin_native_transport(monkeypatch):
 def store(tmp_path: Path) -> Repository:
     repo = Repository(tmp_path / "store.db")
     regulatory = _document(repo, "NERC/CIP-007-6", "US", "regulatory_standard", PART_ROWS)
-    operator = _document(repo, "the operator/patching", "internal", "procedure", OPERATOR_ROWS)
+    operator = _document(repo, "ACME/patching", "internal", "procedure", OPERATOR_ROWS)
 
     # the register: the standard's own numbering, which is where the scope comes
     # from. Four Parts under R2 and one under R20, so a prefix match would be
@@ -153,7 +153,7 @@ def store(tmp_path: Path) -> Repository:
                 relation_type="IMPLEMENTS",
                 src_ref=f"CIP-007-6 R2 Part {part}",
                 src_revision_id=None,
-                dst_ref=f"the operator/patching::{section_id}",
+                dst_ref=f"ACME/patching::{section_id}",
                 dst_revision_id=None,
                 scope="",
                 citations=[],
@@ -292,7 +292,7 @@ class TestTheAssemblyAndTheClosureShareTheScope:
 
 class TestTheNoteIsPartOfThePopulation:
     """Found live: a Part 2.2 reading correctly engaged the operator's own note
-    — *we evaluate every 30 days, not the 35 the Part allows, and the extra
+    — *we evaluate every 30 days, not the interval the Part allows, and the extra
     strictness is deliberate* — and the receipt classified that citation as
     `outside` scope, because the population was anchors and edges only. A note
     is neither, and it travels in the assembly already."""
@@ -303,7 +303,7 @@ class TestTheNoteIsPartOfThePopulation:
         note = write_note(
             store,
             subject_ref="CIP-007-6 R2 Part 2.2",
-            body="We evaluate every 30 days, not the 35 the Part allows. Deliberate.",
+            body="We evaluate every 30 days, not the interval the Part allows, allows. Deliberate.",
             kind="intentional_strictness",
         )
         population = requirement_scope.population(store, "CIP-007-6 R2 Part 2.2")

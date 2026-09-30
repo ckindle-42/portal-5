@@ -38,7 +38,7 @@ _PREFIX_SIGNALS: list[tuple[re.Pattern[str], str, float]] = [
 ]
 _WORD_SIGNALS: list[tuple[re.Pattern[str], str, float]] = [
     (re.compile(r"\bwork instruction\b", re.I), "procedure", 0.9),
-    (re.compile(r"\bwi\b", re.I), "procedure", 0.85),  # "the operator's document.pdf"
+    (re.compile(r"\bwi\b", re.I), "procedure", 0.85),  # e.g. a "... WI v1.pdf" file name
     (re.compile(r"\bprocedure\b", re.I), "procedure", 0.9),
     (re.compile(r"\bpolicy\b", re.I), "policy", 0.9),
     (re.compile(r"\bstandard\b", re.I), "policy", 0.6),

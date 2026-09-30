@@ -208,26 +208,26 @@ def _conflict_population(make):
         )
         _doc(
             repo,
-            "the operator policy",
+            "ACME policy",
             "internal",
             "policy",
             [("1 Purpose", "Security patches are evaluated every 30 calendar days.")],
         )
         _doc(
             repo,
-            "the operator work instruction",
+            "ACME work instruction",
             "internal",
             "work_instruction",
             [("1 Steps", "Security patches are evaluated every 45 calendar days.")],
         )
         _doc(
             repo,
-            "the operator plan",
+            "ACME plan",
             "internal",
             "plan",  # not a class the tier table names — no recorded tier
             [("1 Plan", "Patching governance is documented here.")],
         )
-        _link_all(repo, ["the operator policy", "the operator work instruction", "the operator plan"])
+        _link_all(repo, ["ACME policy", "ACME work instruction", "ACME plan"])
         _project(repo, jurisdictions=("internal",))
     finally:
         repo.close()
@@ -259,12 +259,12 @@ def _measures_population(make):
         )
         _doc(
             repo,
-            "the operator procedure",
+            "ACME procedure",
             "internal",
             "procedure",
             [("4 Records", "Evaluation evidence is retained for 12 calendar months.")],
         )
-        _link_all(repo, ["the operator procedure"])
+        _link_all(repo, ["ACME procedure"])
         _project(repo, jurisdictions=("internal",))
     finally:
         repo.close()
@@ -326,7 +326,7 @@ class TestContradictionIsRetrievable:
             out = conflicts_for_requirement(repo, REF)
             plan_sections = repo._conn.execute(
                 "SELECT section_id FROM source_sections s "
-                "JOIN document_revisions r USING(revision_id) WHERE logical_id = 'the operator plan'"
+                "JOIN document_revisions r USING(revision_id) WHERE logical_id = 'ACME plan'"
             ).fetchall()
             resolved = si.resolve_sections(repo, [str(r[0]) for r in plan_sections])
             assert resolved, "fixture sanity: the plan document has projected sections"
@@ -338,15 +338,15 @@ class TestContradictionIsRetrievable:
 
     def test_recorded_tier_precedence(self, tmp_path, monkeypatch) -> None:
         sidecar = tmp_path / "sidecar.json"
-        sidecar.write_text(json.dumps({"the operator/doc.pdf": {"tier": 3}}))
+        sidecar.write_text(json.dumps({"ACME/doc.pdf": {"tier": 3}}))
         monkeypatch.setattr(ingest, "LAYER_SIDECAR", sidecar)
         # sidecar record wins
-        assert recorded_tier("the operator/doc.pdf", "policy") == "3"
+        assert recorded_tier("ACME/doc.pdf", "policy") == "3"
         # no sidecar entry: the doc-class table, exact hits only
-        assert recorded_tier("the operator/other.pdf", "policy") == "2"
+        assert recorded_tier("ACME/other.pdf", "policy") == "2"
         assert recorded_tier("NERC/x", "regulatory_standard") == "0"
         # a class the table does not name has NO recorded tier — never a default
-        assert recorded_tier("the operator/plan.pdf", "plan") == ""
+        assert recorded_tier("ACME/plan.pdf", "plan") == ""
         assert recorded_tier("x", "operator_note") == ""
 
 
@@ -401,7 +401,7 @@ class TestEdgesResolveInBothRecordedShapes:
         try:
             revision = _doc(
                 repo,
-                "the operator procedure",
+                "ACME procedure",
                 "internal",
                 "procedure",
                 [("4 Records", "Evaluation evidence is retained for 12 calendar months.")],
@@ -416,7 +416,7 @@ class TestEdgesResolveInBothRecordedShapes:
                     relation_type="IMPLEMENTS",
                     src_ref=REF,
                     src_revision_id=None,
-                    dst_ref=f"the operator procedure.pdf::{section_id}",
+                    dst_ref=f"ACME procedure.pdf::{section_id}",
                     dst_revision_id=None,
                     scope="",
                     citations=[],

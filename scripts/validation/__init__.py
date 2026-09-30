@@ -10,6 +10,7 @@ from . import (  # noqa: F401  (imports populate the check registry)
     bully_relate,
     compliance_acceptance,
     compliance_currency,
+    compliance_public_text,
     config,
     doc_voice,
     inference,

@@ -177,7 +177,7 @@ class TestAddressing:
 
     def test_a_non_address_is_not_forced_into_one(self) -> None:
         assert ra.parse_ref("csection-abc123") is None
-        assert ra.parse_ref("the operator Patching Procedure v3") is None
+        assert ra.parse_ref("ACME Patching Procedure v3") is None
 
 
 class TestTheWholeNeighbourhood:

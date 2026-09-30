@@ -33,7 +33,7 @@ Judged per turn, mechanically where possible:
               property, never hidden.
 
     uv run python scripts/compliance/session_proof.py \\
-        --out-dir reports/compliance/module_complete/p2
+        --out-dir portal/modules/compliance/data/private/runs/module_complete/p2
 """
 
 from __future__ import annotations

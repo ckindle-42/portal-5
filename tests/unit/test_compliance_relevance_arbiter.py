@@ -36,7 +36,7 @@ def _candidate(text="Patches are evaluated monthly by the OT team."):
         "text": text,
         "span": "evaluated monthly",
         "section_id": "sec-1",
-        "document_id": "[operator text removed] V11.pdf",
+        "document_id": "the operator's document.pdf",
     }
 
 

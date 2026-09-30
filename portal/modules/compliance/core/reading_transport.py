@@ -42,7 +42,7 @@ __all__ = [
 # The one reasoning knob for every compliance model call.
 #
 # Measured 2026-09-14 on the byte-exact live case-10 alignment packet, one
-# variable, same prompt and model (reports/compliance/THINKING_CONFOUND_V1.md):
+# variable, same prompt and model (portal/modules/compliance/data/private/local/reports/compliance/THINKING_CONFOUND_V1.md):
 #
 #     think:false    52.4s      0 thinking chars   A22 SAME, L22 SAME, 35/40
 #     think:low     179.5s   5206 thinking chars   A22 SAME, L22 SAME, 35/40
@@ -65,7 +65,7 @@ __all__ = [
 # prose answer over a ~27,000-token bilateral neighbourhood, which is a
 # different packet answering a different question from the JSON alignment
 # verdict above. Qwen3.8-27B, same packet, same question, one variable
-# (reports/compliance/seat_probe/20260916T134144Z-effort.json):
+# (portal/modules/compliance/data/private/local/reports/compliance/seat_probe/20260916T134144Z-effort.json):
 #
 #     think:false    432.0s      0 thinking chars   4,756-char answer, 7 citations
 #     think:low      449.8s  6,382 thinking chars   EMPTY answer, 0 citations
@@ -177,7 +177,7 @@ DEFAULT_TEMPERATURE = 0.0
 #: EXACTLY what the seat tag bakes, leaving zero margin.
 #:
 #: Two things were measured on Ollama 0.34.0 before changing it
-#: (reports/compliance/SETTINGS_PREFLIGHT_V1.md):
+#: (portal/modules/compliance/data/private/local/reports/compliance/SETTINGS_PREFLIGHT_V1.md):
 #:
 #: * A baked ``num_ctx`` is a DEFAULT, not a ceiling. ``/api/chat`` honours a
 #:   larger request-time ``options.num_ctx``: the same 140,000-character prompt

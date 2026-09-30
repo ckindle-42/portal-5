@@ -205,7 +205,7 @@ def _seeded_store(tmp_path):
     that asserted on ambient state.
     """
     store = MappingStore(tmp_path / "mappings.db")
-    mapping = store.propose("CIP-003-9 R1 Part 1.2.6", "the operator-CIP-003-POLICY", "4.2", "FULL")
+    mapping = store.propose("CIP-003-9 R1 Part 1.2.6", "ACME-CIP-003-POLICY", "4.2", "FULL")
     store.approve(mapping.id, "sme-fixture")
     return store
 

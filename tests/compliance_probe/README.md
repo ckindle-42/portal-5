@@ -18,7 +18,7 @@ pipeline; those labels are kept as-is with that caveat.
 Governing text is verbatim public NERC CIP standard text drawn from
 `portal/modules/compliance/data/nerc_cip_register.json` (itself extracted
 from the published PDFs). Candidate implementation snippets are authored for
-this probe — they are *not* drawn from the the operator-CIP private corpus, so this
+this probe — they are *not* drawn from the ACME-CIP private corpus, so this
 file carries no confidential material and is committed to the repo.
 
 ## Schema (one JSON object per line)
@@ -60,4 +60,4 @@ file carries no confidential material and is committed to the repo.
 ## Runner
 
 `bench_judgment_probe_v6.py` (added in D0-M) runs every candidate seat and
-emits `tests/benchmarks/results/judgment_probe_v6_<UTC>.json`.
+emits `judgment_probe_v6_<UTC>.json` under the compliance module's local private runs directory (run outputs are local-only).

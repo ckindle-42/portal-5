@@ -1,6 +1,6 @@
 """The vocabulary bridge (TASK_COMPLIANCE_REASONING_V6 P3).
 
-The principled replacement for the ``the operator|SME|OT|Security|Manager|Owner`` regex
+The principled replacement for the ``<org>|SME|OT|Security|Manager|Owner`` regex
 that ``assessment._compare`` used to decide actor alignment. Following
 GraphCompliance §1.5, an organization entity is mapped to policy vocabulary
 through **hypernym proposals**, each marked:

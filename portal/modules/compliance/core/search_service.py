@@ -101,7 +101,7 @@ def search_predicate(
 #: max 97. 500 sits five times above the observed maximum at 8.5 ms, so it never
 #: refuses a real requirement — it refuses a request that has stopped being a
 #: requirement and become a whole standard. Both numbers are in
-#: reports/compliance/ONE_REGULATORY_EXTRACTION_V1.md.
+#: portal/modules/compliance/data/private/runs/ONE_REGULATORY_EXTRACTION_V1.md.
 #:
 #: Above it the tool returns honest-BLOCKED naming the count, because a silent
 #: fallback to an unfiltered search would LOOK filtered, which is worse than

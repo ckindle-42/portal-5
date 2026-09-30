@@ -28,6 +28,17 @@ import pymupdf
 
 from portal.modules.compliance.core.authority import classify
 from portal.modules.compliance.core.cip_register import Register
+from portal.modules.compliance.core.operator_profile import profile as _operator_profile
+
+
+def _entity_id() -> str:
+    return str(_operator_profile()["entity"]["id"])
+
+
+def _entity_name() -> str:
+    return str(_operator_profile()["entity"]["name"])
+
+
 from portal.modules.compliance.core.engine import effective_parts
 from portal.modules.compliance.core.ingest import read_sidecar
 from portal.modules.compliance.core.internal_model import classify_document, extract_assertions
@@ -144,7 +155,7 @@ def materialize(
     with repo._lock, conn:
         conn.execute(
             "INSERT OR IGNORE INTO entity_profiles(entity_id,name,org_id) VALUES (?,?,?)",
-            ("entity-the operator", "the operator", "default"),
+            (f"entity-{_entity_id()}", _entity_name(), "default"),
         )
         conn.execute(
             """INSERT OR IGNORE INTO scope_revisions(
@@ -152,8 +163,8 @@ def materialize(
                    populations_json,status,valid_from,recorded_from,org_id)
                VALUES (?,?,?,?,?,?,?,?,?)""",
             (
-                "scope-the operator-v3",
-                "entity-the operator",
+                "scope-v3",
+                f"entity-{_entity_id()}",
                 json.dumps(["Transmission Owner", "Transmission Operator"]),
                 "NERC",
                 json.dumps(["high", "medium", "low"]),
@@ -166,7 +177,7 @@ def materialize(
         for standard in sorted(path.name for path in corpus.iterdir() if path.is_dir()):
             conn.execute(
                 "INSERT OR IGNORE INTO asset_groups(group_id,entity_id,category,org_id) VALUES (?,?,?,?)",
-                (_id("asset-group-", standard), "entity-the operator", standard, "default"),
+                (_id("asset-group-", standard), f"entity-{_entity_id()}", standard, "default"),
             )
 
     standard_revisions = {}
@@ -325,7 +336,7 @@ def materialize(
         else:
             kind = classify_document(text)
             repo.upsert_source_document(
-                SourceDocument(logical_id, path.stem, "the operator", kind, "internal")
+                SourceDocument(logical_id, path.stem, _entity_name(), kind, "internal")
             )
             revision = repo.add_document_revision(
                 logical_id,

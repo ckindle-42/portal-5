@@ -55,17 +55,17 @@ def store(tmp_path: Path) -> Repository:
     repo = Repository(tmp_path / "store.db")
     repo.upsert_source_document(
         SourceDocument(
-            logical_id="the operator/plan.pdf",
+            logical_id="ACME/plan.pdf",
             title="Plan",
             issuer="x",
             source_kind="procedure",
             jurisdiction="internal",
         )
     )
-    revision = repo.add_document_revision("the operator/plan.pdf", "/docs/plan.pdf", b"")
+    revision = repo.add_document_revision("ACME/plan.pdf", "/docs/plan.pdf", b"")
     bodies = [
         "Position sensors are required for all ACPs. Each door shall require a door position switch.",
-[operator text removed] \u201creason for retrieval\u201d field.",
+        "A shared account holder writes a log entry in the \u201creason for retrieval\u201d field.",
         "All physical security systems under CIP-\n006 R3 function properly.",
         "Boilerplate: this procedure applies to the bulk electric system.",
     ]
@@ -80,7 +80,7 @@ def test_a_verbatim_quote_resolves_to_its_section(store: Repository) -> None:
 
 def test_typography_in_transit_does_not_block_resolution(store: Repository) -> None:
     # curly quotes in the document, straight in the answer; case differs
-    hits = resolve_quote(store, 'creates a log entry in the "reason for retrieval" FIELD')
+    hits = resolve_quote(store, 'writes a log entry in the "reason for retrieval" FIELD')
     assert hits
 
 
@@ -139,7 +139,7 @@ def test_quoted_spans_extracts_double_quotes_only() -> None:
 
 
 def _candidate() -> Candidate:
-    return Candidate("isection-x", 0.45, "text", "h", "the operator/plan.pdf")
+    return Candidate("isection-x", 0.45, "text", "h", "ACME/plan.pdf")
 
 
 def test_filter_excludes_a_document_known_to_serve_other_standards() -> None:
@@ -199,7 +199,7 @@ def test_scope_round_trips_through_the_store(tmp_path: Path) -> None:
     repo = Repository(tmp_path / "scope.db")
     repo.upsert_source_document(
         SourceDocument(
-            logical_id="the operator/plan.pdf",
+            logical_id="ACME/plan.pdf",
             title="Plan",
             issuer="x",
             source_kind="procedure",
@@ -208,7 +208,7 @@ def test_scope_round_trips_through_the_store(tmp_path: Path) -> None:
     )
     document_scope.store_scope(
         repo,
-        logical_id="the operator/plan.pdf",
+        logical_id="ACME/plan.pdf",
         claims=[
             {
                 "standard": "CIP-006",
@@ -223,15 +223,15 @@ def test_scope_round_trips_through_the_store(tmp_path: Path) -> None:
         read_chars=100,
         raw={"ok": True},
     )
-    row = document_scope.scope_row(repo, "the operator/plan.pdf")
+    row = document_scope.scope_row(repo, "ACME/plan.pdf")
     assert row is not None and row["model"] == "test-seat"
     assert document_scope.families_for(row) == {"CIP-006"}
     mapped = document_scope.scope_map(repo)
-    assert mapped["the operator/plan.pdf"] == {"CIP-006"}
+    assert mapped["ACME/plan.pdf"] == {"CIP-006"}
     # a claim whose quote failed validation never reaches the population's scope
     document_scope.store_scope(
         repo,
-        logical_id="the operator/plan.pdf",
+        logical_id="ACME/plan.pdf",
         claims=[
             {
                 "standard": "CIP-002",
@@ -246,7 +246,7 @@ def test_scope_round_trips_through_the_store(tmp_path: Path) -> None:
         read_chars=100,
         raw={},
     )
-    assert document_scope.families_for(document_scope.scope_row(repo, "the operator/plan.pdf")) == set()
+    assert document_scope.families_for(document_scope.scope_row(repo, "ACME/plan.pdf")) == set()
     repo.close()
 
 

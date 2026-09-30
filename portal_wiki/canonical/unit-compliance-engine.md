@@ -366,7 +366,7 @@ a pre-analyzed problem.
   (max_interval / max_elapsed / min_interval).
 - `core/org_graph.py` — the second register: the operator's commitments,
   controls, roles, systems, activities and evidence specs extracted from the
-  the operator PDFs with the `cip_extract` discipline mirrored — verbatim spans that
+  ACME PDFs with the `cip_extract` discipline mirrored — verbatim spans that
   round-trip (fidelity 1.0), a completeness denominator from document-declared
   section headings, control-block dates read from the document not the filename.
   The persisted graph holds operator text and is **not** committed.

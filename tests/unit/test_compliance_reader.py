@@ -97,7 +97,7 @@ def store(tmp_path: Path) -> Repository:
     )
     _document(
         repo,
-        "the operator/patching",
+        "ACME/patching",
         "internal",
         "procedure",
         [("3 Patching", "The OT team evaluates patches once every 30 calendar days.")],
@@ -616,9 +616,7 @@ class TestQuantityAttribution:
         assert out["quantity_review_pointers"] == []
 
     def test_a_parenthesised_spelling_still_counts_as_stated(self) -> None:
-        assert reader._quantity_in(
-            "35", "day", "[operator text removed]"
-        )
+        assert reader._quantity_in("35", "day", "At least every 35 calendar days (thirty-five)")
 
     def test_a_claim_with_no_citation_nearby_is_unattributed_not_misattributed(
         self, store: Repository

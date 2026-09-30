@@ -143,7 +143,7 @@ def build_context(
     known_at: str = "",
     kb_id: str = "operator_corpus",
     scope_text: str = "",
-    corpus_dir: str = "coding_task/v9_compliance/the operator-CIP",
+    corpus_dir: str = "",
     revision_after: str = "CIP-007-7.1",
 ) -> SliceContext:
     """Pin ONE immutable analysis context: parts, governing bundles (with
@@ -154,6 +154,11 @@ def build_context(
         build_corpus_snapshot,
         resolve_governing_bundle,
     )
+
+    if not corpus_dir:
+        from portal.modules.compliance.core.operator_profile import require
+
+        corpus_dir = str(require("corpus_dirs.internal_v9"))
 
     part_ids = resolve_part_ids(requirement)
     if not part_ids:

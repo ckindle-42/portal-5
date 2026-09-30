@@ -30,7 +30,7 @@ inline here since these turns make no store writes to adjudicate against —
 this script judges SUPPORTED/UNSUPPORTED directly against the requirement
 and section text the same way).
 
-Live only. Writes reports/compliance/prove/p4b/single_vs_split.json.
+Live only. Writes portal/modules/compliance/data/private/runs/prove/p4b/single_vs_split.json.
 """
 
 from __future__ import annotations

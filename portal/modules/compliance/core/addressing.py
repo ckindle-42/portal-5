@@ -53,7 +53,7 @@ def resolve_cite_as(repo: Any, token: str) -> dict[str, Any] | None:
     everything else), not its id prefix. A resolver that read ``O`` as
     ``isection-`` could never resolve an operator note (stored ``csection-``)
     or any ``section-`` id, so a citation copied exactly from a tool's own
-    header failed the check (CITE_AND_SCOPE_V1 P1 probe: ``[cite O-000000]``
+    header failed the check (the CITE_AND_SCOPE_V1 P1 probe's ``[cite O-…]``
     on the operator's patch-cycle note). Unique or nothing — an ambiguous
     token resolves to None, never to a guess.
     """

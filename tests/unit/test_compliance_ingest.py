@@ -14,29 +14,34 @@ def test_prefix_signal_beats_word_signal():
 
 
 def test_policy_by_title_word():
-    d = derive_tier("the operator's document.pdf")
+    d = derive_tier("ACME CIP Cyber Security Policy V13.pdf")
     assert d["layer"] == "policy"
 
 
 def test_procedure_by_title_word():
-    d = derive_tier("the operator's document.pdf")
+    d = derive_tier("ACME Access Management Procedure v10.pdf")
     assert d["layer"] == "procedure"
 
 
 def test_work_instruction_and_its_wi_abbreviation_both_read_as_procedure():
-    assert derive_tier("the operator's document.pdf")["layer"] == "procedure"
-    assert derive_tier("the operator's document.pdf")["layer"] == "procedure"
+    assert derive_tier("ACME Account Management Work Instruction v4.pdf")["layer"] == "procedure"
+    assert (
+        derive_tier("OT Vulnerability Management Work Instruction v1.pdf")["layer"] == "procedure"
+    )
 
 
 def test_plan_and_process_read_as_procedure():
-    assert derive_tier("the operator's document.pdf")["layer"] == "procedure"
-    assert derive_tier("the operator's document.pdf")["layer"] == "procedure"
+    assert (
+        derive_tier("ACME Transient Cyber Asset and Removable Media Plan v11.pdf")["layer"]
+        == "procedure"
+    )
+    assert derive_tier("ACME BES Categorization Process V9.pdf")["layer"] == "procedure"
 
 
 def test_form_and_report_and_contact_list_read_as_evidence():
-    assert derive_tier("the operator's document.pdf")["layer"] == "evidence"
-    assert derive_tier("the operator's document.pdf")["layer"] == "evidence"
-    assert derive_tier("the operator's document.pdf")["layer"] == "evidence"
+    assert derive_tier("ACME CIP Exceptional Circumstance Form v5.pdf")["layer"] == "evidence"
+    assert derive_tier("ACME CIP-009 Recovery Summary Report Form v3.pdf")["layer"] == "evidence"
+    assert derive_tier("ACME Contact List v4.pdf")["layer"] == "evidence"
 
 
 def test_no_signal_defaults_low_confidence_not_dropped():

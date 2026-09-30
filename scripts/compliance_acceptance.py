@@ -46,7 +46,22 @@ import httpx
 import yaml
 
 REPO = Path(__file__).resolve().parents[1]
-CASES_PATH = REPO / "config" / "compliance" / "cases" / "cip_007_6.yaml"
+#: The acceptance case set is operator-specific and local under the data
+#: policy (READING_TRUTH_V1 P1); a clone without it simply cannot run this
+#: harness.
+CASES_PATH = (
+    REPO
+    / "portal"
+    / "modules"
+    / "compliance"
+    / "data"
+    / "private"
+    / "local"
+    / "config"
+    / "compliance"
+    / "cases"
+    / "cip_007_6.yaml"
+)
 LOCK = Path("/tmp/portal5-compliance-acceptance.lock")
 
 sys.path.insert(0, str(REPO))

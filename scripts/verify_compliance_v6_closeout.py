@@ -17,7 +17,8 @@ import sys
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[1]
-RESULTS = REPO / "tests" / "benchmarks" / "results"
+#: Run outputs are local-only (P1R): a missing directory means "no baseline".
+RESULTS = REPO / "portal" / "modules" / "compliance" / "data" / "private" / "runs"
 
 
 def _pytest(node: str) -> tuple[bool, str]:
@@ -112,7 +113,7 @@ def _y19_fidelity() -> tuple[str, str]:
 
 _SWEEP = sorted(RESULTS.glob("judgment_probe_v6_2*.json"))
 _RESCORE = sorted(RESULTS.glob("judgment_probe_v6_rescored_*.json"))
-_ABLATION = REPO / "tests" / "benchmarks" / "results" / "compliance_ablation.json"
+_ABLATION = RESULTS / "compliance_ablation.json"
 _ABLATION_RUN = (REPO / "coding_task" / "v9_compliance" / "private" / "runs").glob(
     "*/ablation.json"
 )

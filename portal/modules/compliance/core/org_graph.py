@@ -239,7 +239,7 @@ _EVIDENCE_RE = re.compile(
     re.I,
 )
 _SYSTEM_RE = re.compile(
-    r"\b(SCADA|EMS|Historian|jump[- ]host|an operator tool|Active Directory|SIEM|"
+    r"\b(SCADA|EMS|Historian|jump[- ]host|bastion|Active Directory|SIEM|"
     r"patch management (?:system|tool)|ticketing system|CMDB|firewall|"
     r"[A-Z][A-Za-z]+(?:DB|Sys|Track|Manager) )\b"
 )

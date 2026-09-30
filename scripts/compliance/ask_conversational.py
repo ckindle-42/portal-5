@@ -36,7 +36,7 @@ requirement address at all, on the deployed workspace, and judges each on:
 
     uv run python scripts/compliance/ask_conversational.py \\
         --workspace compliance-reading \\
-        --out-dir reports/compliance/load_and_converse/p4
+        --out-dir portal/modules/compliance/data/private/runs/load_and_converse/p4
 """
 
 from __future__ import annotations
@@ -68,6 +68,7 @@ from portal.modules.compliance.core.citation_by_quote import (  # noqa: E402
 )
 from portal.modules.compliance.core.repository import Repository  # noqa: E402
 from portal.modules.compliance.core.section_index import parent_section_id  # noqa: E402
+from scripts.compliance.truth import _local  # noqa: E402
 
 _SECTION_TOKEN = re.compile(rf"\b{SECTION_ID_PATTERN}\b", re.I)
 _REQUIREMENT_ADDRESS = re.compile(r"\bCIP-\d{3}-[A-Za-z0-9.]+(\s+R\d+)?\b")
@@ -373,6 +374,9 @@ def main() -> int:
     )
     args = ap.parse_args()
 
+    _bad = _local.refusal(args.out_dir, "--out-dir")
+    if _bad:
+        raise SystemExit(_bad)
     (args.out_dir / "transcripts").mkdir(parents=True, exist_ok=True)
     try:
         router = router_base_url()

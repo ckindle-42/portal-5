@@ -7,7 +7,7 @@ unit the §P4 sweep maps with. Every cell records wall time, prompt tokens,
 prompt-eval duration (the cache signal), whether the answer cited both sides,
 and the raw answer for the agent to judge by reading.
 
-Live only; writes JSON cells under reports/compliance/prove_then_scale/p1/.
+Live only; writes JSON cells under portal/modules/compliance/data/private/runs/prove_then_scale/p1/.
 
 Usage:
     uv run python scripts/prove_then_scale/p1_experiment.py [--seats gemma,nemotron,ling] [--cases all]

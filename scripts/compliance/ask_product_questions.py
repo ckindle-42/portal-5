@@ -51,6 +51,7 @@ from portal.modules.compliance.core.answer_contract import (  # noqa: E402
     build_contract,
 )
 from portal.modules.compliance.core.repository import Repository  # noqa: E402
+from scripts.compliance.truth import _local  # noqa: E402
 
 # One anchor requirement per standard — chosen to span the family: the
 # proven case, two healthy/high-corroboration standards, and the two dead
@@ -241,6 +242,9 @@ def main() -> int:
     ap.add_argument("--timeout", type=float, default=1800.0)
     args = ap.parse_args()
 
+    _bad = _local.refusal(args.out_dir, "--out-dir")
+    if _bad:
+        raise SystemExit(_bad)
     (args.out_dir / "transcripts").mkdir(parents=True, exist_ok=True)
 
     try:
@@ -298,7 +302,7 @@ def main() -> int:
             "_select_explicit_required_tool's nerc_cip_requirement narrowing "
             "(fixed in TASK_COMPLIANCE_PROVE_THE_MODULE_V1 §P4.1). Run 1 died "
             "at hop 1 on exactly these strings for CIP-007-6 R2; preserved at "
-            "reports/compliance/closeout/p8/product_questions_run1_blocked_by_router.json."
+            "the local runs tree (portal/modules/compliance/data/private/runs)."
         ),
         "verdict": "PASS" if passed == len(rows) else "FAIL",
     }

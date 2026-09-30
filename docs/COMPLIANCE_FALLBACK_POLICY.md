@@ -30,7 +30,7 @@ The source document presented the accept, borderline and reject thresholds as th
 
 ## Canonical baseline
 
-The accepted baseline for the compliance matrix is stored at `tests/benchmarks/results/persona_matrix_baseline_auto-compliance.json`, a `portal5.persona_matrix.v1` report produced by `tests/portal5_persona_matrix.py`. Without an explicit `--output`, the driver writes to `RESULTS_DIR` using the workspace-scoped name `persona_matrix_<workspace>_<utc-stamp>.json`; the baseline file keeps the same shape so `persona_matrix_diff` and `--baseline-compare` can diff against it. Re-baselining is warranted whenever any sweep input changes: a model added or upgraded in the `ollama-reasoning` or `ollama-general` groups (`config/backends.yaml`), a compliance persona system prompt edit (`config/personas/*.yaml`), a fixture scenario change (`tests/fixtures/compliance_scenarios.yaml`), or an assertion library change (`tests/lib/compliance_assertions.py`). The quarterly cadence is operator policy and is not enforced by any code.
+The accepted baseline for the compliance matrix is kept locally as `<local-baseline>.json` (run outputs are not published), a `portal5.persona_matrix.v1` report produced by `tests/portal5_persona_matrix.py`. Without an explicit `--output`, the driver writes to `RESULTS_DIR` using the workspace-scoped name `persona_matrix_<workspace>_<utc-stamp>.json`; the baseline file keeps the same shape so `persona_matrix_diff` and `--baseline-compare` can diff against it. Re-baselining is warranted whenever any sweep input changes: a model added or upgraded in the `ollama-reasoning` or `ollama-general` groups (`config/backends.yaml`), a compliance persona system prompt edit (`config/personas/*.yaml`), a fixture scenario change (`tests/fixtures/compliance_scenarios.yaml`), or an assertion library change (`tests/lib/compliance_assertions.py`). The quarterly cadence is operator policy and is not enforced by any code.
 
 ## Why
 
@@ -92,7 +92,7 @@ Both granite models are currently registered in the reasoning and general groups
 
 ```bash
 python3 tests/persona_matrix_diff.py \
-    tests/benchmarks/results/persona_matrix_baseline_auto-compliance.json \
+    <local-baseline>.json \
     tests/benchmarks/results/persona_matrix_<NEW>.json --threshold 10
 ```
 

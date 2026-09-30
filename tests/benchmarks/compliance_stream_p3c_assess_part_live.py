@@ -16,7 +16,9 @@ ROOT = Path.cwd().resolve()
 if not (ROOT / "pyproject.toml").is_file():
     raise RuntimeError("run this helper from the portal-5 repository root")
 
-PUBLIC_RUN = ROOT / "reports/compliance/stream_and_council_repair/20260927T095336Z"
+PUBLIC_RUN = (
+    ROOT / "portal/modules/compliance/data/private/runs/stream_and_council_repair/20260927T095336Z"
+)
 PRIVATE_RUN = (
     ROOT / "portal/modules/compliance/data/private/stream_and_council_repair/20260927T095336Z/p3c"
 )

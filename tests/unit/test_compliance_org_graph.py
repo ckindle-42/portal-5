@@ -16,23 +16,23 @@ from portal.modules.compliance.core.org_graph import (
 
 _DOC = """<!-- image -->
 
-## [operator text removed]
+## ACME Security Patch Management Procedure
 
-Effective Date:  July 31, 2026
+Effective Date: March 3, 2027
 
 Document Type: Procedure
 
-NERC Standard: CIP-007
+Document Number:  ACME-ADM-CIP007SPM
 
-[operator text removed]-CIP007SPM
+NERC Standard: CIP-007
 
 | APPROVALS | APPROVALS |
 |-----------|-----------|
-| Name: an operator approver | 7/24/2026 |
+| Name: Dana Reyes | 7/24/2026 |
 
 | DOCUMENTOWNER | DOCUMENTOWNER |
 |---------------|---------------|
-| an operator approver | Manager of OT Security Operations |
+| Alex Chen | Manager of OT Security Operations |
 
 ## 1.0 Introduction
 
@@ -42,7 +42,7 @@ This procedure applies to all high and medium impact BES Cyber Systems.
 
 ## 3.1 Security Patch Management Process
 
-The OT Security Team shall evaluate security patches for applicability at least once every 35 calendar days. The System Owner reviews the patch register monthly and documents the results in the evidence log.
+The OT Security Team shall evaluate security patches for applicability at least once each 35-day window. The System Owner reviews the patch register monthly and documents the results in the evidence log.
 
 ## 5.1 Appendix 1: Requirements Traceability
 
@@ -58,10 +58,10 @@ def test_iso_date_parsing():
 
 def test_control_block_reads_document_not_filename():
     cb = parse_control_block(_DOC)
-    assert cb["effective_date"] == "2026-07-31"
+    assert cb["effective_date"] == "2027-03-03"
     assert cb["nerc_standard"] == "CIP-007"
-    assert cb["document_number"] == "the operator-ADM-CIP007SPM"
-    assert cb.get("owner") == "an operator approver"
+    assert cb["document_number"] == "ACME-ADM-CIP007SPM"
+    assert cb.get("owner") == "Alex Chen"
     assert "effective_date" in cb["found"] and "nerc_standard" in cb["found"]
 
 
@@ -84,7 +84,7 @@ def test_extracted_nodes_round_trip_verbatim():
     kinds = {n.node_type for n in nodes}
     assert "commitment" in kinds or "activity" in kinds
     # the 35-calendar-day cadence sentence is picked up as an activity
-    assert any("35 calendar days" in n.text for n in nodes)
+    assert any("35-day window" in n.text for n in nodes)
 
 
 def test_definitional_section_becomes_a_premise():

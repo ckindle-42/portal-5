@@ -2,7 +2,7 @@
 
 # Portal 5 Architecture Map
 
-*Deterministic projection of 756 canonical units.*
+*Deterministic projection of 757 canonical units.*
 
 ## Knowledge Layer
 
@@ -281,7 +281,7 @@
 | `unit-corpus-injection-verify-lane-b` | what | 2 |
 | `unit-corpus-injection-verify-lane-c` | what | 2 |
 | `unit-corpus-injection-why-corpus-data-coexists-safely-with-bench-runs` | what | 3 |
-| `unit-design-ollama-native-dispatch` | why | 5 |
+| `unit-design-ollama-native-dispatch` | why | 6 |
 | `unit-design-omlx-dual-backend-plumbing` | mixed | 12 |
 | `unit-design-spine-drift-census` | mixed | 4 |
 | `unit-design-wiki-archive-mechanism` | mixed | 5 |
@@ -701,8 +701,9 @@
 | `unit-surface-archive-mlx` | mixed | 1 |
 | `unit-surface-benchmarks` | mixed | 3 |
 | `unit-surface-binary-research` | mixed | 1 |
-| `unit-surface-compliance-closeout-scripts` | mixed | 13 |
+| `unit-surface-compliance-closeout-scripts` | mixed | 20 |
 | `unit-surface-compliance-prove-then-scale-scripts` | mixed | 1 |
+| `unit-surface-compliance-reading-truth` | what | 2 |
 | `unit-surface-inference` | mixed | 1 |
 | `unit-surface-inference-cli` | mixed | 1 |
 | `unit-surface-investigation` | mixed | 1 |
@@ -765,12 +766,12 @@
 | `unit-wiki-tests-render` | mixed | 1 |
 | `unit-wiki-writeback` | mixed | 1 |
 
-**Total:** 756 units
+**Total:** 757 units
 
 ## Source Distribution
 
 - **bench-security**: 1 references
-- **code**: 1947 references
+- **code**: 1957 references
 - **config**: 1 references
 - **doc**: 1 references
 - **mitre**: 40 references

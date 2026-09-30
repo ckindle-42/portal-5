@@ -67,7 +67,7 @@ def store(tmp_path: Path) -> Repository:
             ],
         ),
         (
-            "the operator/patching",
+            "ACME/patching",
             "internal",
             "procedure",
             [
@@ -132,14 +132,14 @@ class TestSplittingIsNotANewIdentity:
         try:
             repo.upsert_source_document(
                 SourceDocument(
-                    logical_id="the operator/long",
+                    logical_id="ACME/long",
                     title="long",
                     issuer="x",
                     source_kind="procedure",
                     jurisdiction="internal",
                 )
             )
-            revision = repo.add_document_revision("the operator/long", "/docs/long.pdf", b"long")
+            revision = repo.add_document_revision("ACME/long", "/docs/long.pdf", b"long")
             body = ". ".join(f"sentence number {i} about patching" for i in range(900))
             store_capture(
                 repo, revision.revision_id, _capture(Path("/docs/long.pdf"), [("1", body)])
@@ -309,14 +309,14 @@ class TestTheProjectionCarriesWhatTheStoreMeans:
                 assert column in row, f"missing predicate column {column}"
                 assert row[column] is not None, f"None in predicate column {column}"
             assert unit.jurisdiction == "internal"
-            assert unit.logical_id == "the operator/patching"
+            assert unit.logical_id == "ACME/patching"
             assert unit.revision_id
             assert unit.source_kind == "procedure"
             assert unit.unit_kind == "prose"
 
     def test_clocks_are_date_shaped_with_explicit_open_bounds(self, store: Repository) -> None:
         revision_id = store._conn.execute(
-            "SELECT revision_id FROM document_revisions WHERE logical_id = 'the operator/patching'"
+            "SELECT revision_id FROM document_revisions WHERE logical_id = 'ACME/patching'"
         ).fetchone()[0]
         row = store._conn.execute(
             "SELECT recorded_from FROM document_revisions WHERE revision_id = ?",

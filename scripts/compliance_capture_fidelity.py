@@ -23,8 +23,9 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO_ROOT))
 
 from portal.modules.compliance.core import capture as cap  # noqa: E402
+from portal.modules.compliance.core.operator_profile import require  # noqa: E402
 
-INTERNAL_CORPUS = REPO_ROOT / "coding_task" / "v9_compliance" / "the operator-CIP"
+INTERNAL_CORPUS = REPO_ROOT / str(require("corpus_dirs.internal_v9"))
 
 
 def _internal_report(pdf: Path) -> dict:

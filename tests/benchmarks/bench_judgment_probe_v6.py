@@ -22,8 +22,8 @@ council contract. Output must be a single JSON object:
    "cited_refs": ["<register ref>", ...],
    "rationale": "<one sentence>"}
 
-Emits tests/benchmarks/results/judgment_probe_v6_<UTC>.json (harness prefix
-``judgment_probe_v6``).
+Emits judgment_probe_v6_<UTC>.json under the module's local private runs dir
+(harness prefix ``judgment_probe_v6``); run outputs are never public.
 
 Usage:
   uv run python tests/benchmarks/bench_judgment_probe_v6.py \
@@ -45,7 +45,8 @@ from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 OLLAMA_URL = "http://localhost:11434"
-RESULTS_DIR = REPO_ROOT / "tests" / "benchmarks" / "results"
+#: Run outputs are local-only (P1R): never written where a commit could carry them.
+RESULTS_DIR = REPO_ROOT / "portal" / "modules" / "compliance" / "data" / "private" / "runs"
 PROBE = REPO_ROOT / "tests" / "compliance_probe" / "judgment_probe_v6.jsonl"
 TIMEOUT = 300
 

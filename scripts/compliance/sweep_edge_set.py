@@ -27,8 +27,8 @@ This script reads ``reading_runs`` for the mapping readings asked at or after
 Writes nothing to the store.
 
     uv run python scripts/compliance/sweep_edge_set.py --since 2026-09-23T14:00:00 \\
-        --baseline reports/compliance/load_and_converse/p6/adjudication_v2.json \\
-        --out reports/compliance/cite_and_scope/p3/sweep_edge_set.json
+        --baseline portal/modules/compliance/data/private/local/reports/compliance/load_and_converse/p6/adjudication_v2.json \\
+        --out portal/modules/compliance/data/private/local/reports/compliance/cite_and_scope/p3/sweep_edge_set.json
 """
 
 from __future__ import annotations

@@ -33,13 +33,17 @@ from scripts.validation.registry import register
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 MODULE_PATH = "portal/modules/compliance"
-ACCEPTANCE_ROOT = REPO_ROOT / "reports" / "compliance" / "acceptance"
-CAMPAIGN_PIN = REPO_ROOT / "reports" / "compliance" / "SETTINGS_PREFLIGHT_V1.json"
+#: Run data is local under the operator's data policy (READING_TRUTH_V1 P1):
+#: the private tree carries it, CI simply finds no runs and the gate SKips
+#: pre-service anyway.
+LOCAL_DATA = REPO_ROOT / "portal" / "modules" / "compliance" / "data" / "private" / "local"
+ACCEPTANCE_ROOT = LOCAL_DATA / "reports" / "compliance" / "acceptance"
+CAMPAIGN_PIN = LOCAL_DATA / "reports" / "compliance" / "SETTINGS_PREFLIGHT_V1.json"
 #: The PIPELINE-era pin (PIPELINE_ALIGNMENT_V1 §P5): per seat, the route the
 #: pipeline takes with EACH engine's own template sha. Present it outranks the
 #: native-era V1 pin, whose shas were read through Ollama's /api/show while a
 #: different checkpoint on a different engine answers.
-CAMPAIGN_PIN_V2 = REPO_ROOT / "reports" / "compliance" / "SETTINGS_PREFLIGHT_V2.json"
+CAMPAIGN_PIN_V2 = LOCAL_DATA / "reports" / "compliance" / "SETTINGS_PREFLIGHT_V2.json"
 
 # The module is under active development (weeks in, not yet handling real
 # traffic): HG's live-run requirement — a multi-hour acceptance suite re-run

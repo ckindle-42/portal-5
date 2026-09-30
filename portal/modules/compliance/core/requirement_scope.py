@@ -126,8 +126,8 @@ def population(
     reading that cited the operator's own recorded decision about the very
     requirement it was reading had that citation classified ``outside`` scope.
     Measured on the live Part 2.2 reading: the answer correctly engaged the
-    note saying *we evaluate every 30 days, not the 35 the Part allows, and the
-    extra strictness is deliberate*, and the receipt called it out-of-scope. The
+    note recording an evaluation cycle deliberately stricter than the Part
+    allows, and the receipt called it out-of-scope. The
     note travels in the assembly already; it is eligible material by the
     module's own reckoning.
 

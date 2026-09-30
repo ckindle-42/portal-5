@@ -8,7 +8,7 @@ answers is not "is splash fast" but "does the engine change what the model
 says": flat 4-bit weights, an 8-bit KV cache and speculative decoding are
 three reasons it might.
 
-Live only; writes JSON cells under reports/compliance/prove_then_scale/b6/.
+Live only; writes JSON cells under portal/modules/compliance/data/private/runs/prove_then_scale/b6/.
 
 Usage:
     uv run python scripts/prove_then_scale/b6_splash_cells.py --seat qwen38   # on Qwen3.8-27B-Splash

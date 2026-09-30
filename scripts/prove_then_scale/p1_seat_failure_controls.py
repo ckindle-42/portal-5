@@ -12,7 +12,7 @@ known failure mode:
 2. DELIVERY (in the answers themselves): both disqualified seats quote and cite
    OPERATOR material from deep inside the message — Ling's no_operator_side
    quotes the operator policy's Part 5.2 bullet verbatim; Nemotron's read_check
-   names the the operator procedure's actual sections and its parent cites the
+   names the operator procedure's actual sections and its parent cites the
    operator traceability section. Material the model quotes, the model
    received. Delivery is refuted as the cause, per seat, by the cells.
 3. SIZE (this probe): the same questions over ONLY the sections each case
@@ -35,6 +35,7 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO_ROOT))
 
+from portal.modules.compliance.core.operator_profile import require  # noqa: E402
 from portal.modules.compliance.core.reading_transport import chat  # noqa: E402
 from portal.modules.compliance.core.repository import Repository  # noqa: E402
 from portal.modules.compliance.core.section_index import resolve_sections  # noqa: E402
@@ -42,38 +43,24 @@ from portal.modules.compliance.core.section_index import resolve_sections  # noq
 ART_DIR = REPO_ROOT / "reports" / "compliance" / "prove_then_scale" / "p1_controls"
 
 #: The minimal section set each case actually turns on, hand-picked from the
-#: case file's derived_from lists — the small-material control.
+#: case file's derived_from lists — the small-material control. The section
+#: ids are operator-store constants and live in the local profile.
+_PINS = require("section_pins.p1_seat_failure_controls")
 PROBES = [
     {
         "id": "interval_small",
         "question": "Is our 30-day evaluation cycle stricter than Part 2.2 requires?",
-        "sections": [
-            "csection-7700dd5499cead0994ec",  # Part 2.2 governing row (35 days)
-            "csection-285d8c24551776cb380d",  # GTB 2.2
-            "isection-00000000000000000000",  # operator 3.3.1 (35 days)
-            "csection-440a5cdf9a6b65292ef3",  # operator note (30 days, deliberate)
-        ],
+        "sections": _PINS["interval_small"],
     },
     {
         "id": "either_or_small",
         "question": "Does our account-lockout setup satisfy Part 5.7?",
-        "sections": [
-            "csection-98ce4ada99c0ad8c57dd",  # Part 5.7 governing (either/or)
-            "csection-f0bda2e1711f7a09b0b8",  # GTB 5.7 (threshold tuning)
-            "csection-f5df3655893798a35602",  # Rationale 5.7 (either branch; DoS caution)
-            "isection-00000000000000000000",  # operator 3.5.3.1 (limit AND/OR alerts)
-            "isection-00000000000000000000",  # operator policy 3.4.5.1 (either/or)
-        ],
+        "sections": _PINS["either_or_small"],
     },
     {
         "id": "read_check_small",
         "question": "Did you read our patch management procedure, or just the standard?",
-        "sections": [
-            "csection-7700dd5499cead0994ec",  # Part 2.2 governing row
-            "isection-00000000000000000000",  # operator 3.3.1
-            "isection-00000000000000000000",  # operator 3.5.1
-            "csection-440a5cdf9a6b65292ef3",  # operator note
-        ],
+        "sections": _PINS["read_check_small"],
     },
 ]
 

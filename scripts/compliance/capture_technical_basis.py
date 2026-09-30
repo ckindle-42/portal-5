@@ -26,7 +26,7 @@ This script, idempotent and non-destructive:
     uv run python scripts/compliance/capture_technical_basis.py --store /tmp/copy.sqlite --out r.json
     # live (snapshot first):
     uv run python scripts/compliance/capture_technical_basis.py \\
-        --out reports/compliance/cite_and_scope/p2/technical_basis.json
+        --out portal/modules/compliance/data/private/runs/cite_and_scope/p2/technical_basis.json
 """
 
 from __future__ import annotations

@@ -81,7 +81,7 @@ def _add_section(
     text: str,
     *,
     jurisdiction: str = "internal",
-    logical_id: str = "[operator text removed]",
+    logical_id: str = "ACME Security Patch Management Procedure",
 ) -> str:
     """Capture one section and return the id it actually carries."""
     from portal.modules.compliance.core.capture import CapturedDocument, CapturedUnit, store_capture
@@ -91,7 +91,7 @@ def _add_section(
         SourceDocument(
             logical_id=logical_id,
             title=logical_id,
-            issuer="the operator",
+            issuer="ACME",
             source_kind="procedure",
             jurisdiction=jurisdiction,
         )
@@ -132,7 +132,7 @@ class TestRecordDetermination:
     def test_a_determination_writes_machine_determined_with_provenance(
         self, repo: Repository
     ) -> None:
-        text = "[operator text removed] shall review all approved sources."
+        text = "At least once every thirty-five days, named reviewers shall review all approved sources."
         sid = _add_section(repo, "3.3.1 discovery", text)
         outcome = candidate_links.record_determination(
             repo,
@@ -140,7 +140,7 @@ class TestRecordDetermination:
             section_id=sid,
             relation_type="IMPLEMENTS",
             answer_id="answer-1",
-            sentence="[operator text removed] shall review",
+            sentence="At least once every thirty-five days, named reviewers shall review",
             confidence=0.9,
             read_ref="CIP-007-6 R2 Part 2.2",
             run_id="run-1",
@@ -195,7 +195,7 @@ class TestRecordDetermination:
         section_id = _add_section(
             repo,
             "3.3.1 review",
-            "[operator text removed].",
+            "The crew together with the integrator shall inspect every listed feed.",
         )
         first = candidate_links.record_determination(
             repo,
@@ -203,7 +203,7 @@ class TestRecordDetermination:
             section_id=section_id,
             relation_type="IMPLEMENTS",
             answer_id="answer-1",
-            sentence="[operator text removed].",
+            sentence="The crew together with the integrator shall inspect every listed feed.",
         )
         assert first["action"] == "determined"
         # a later reading sees the same pairing — corroborate, never re-create
@@ -213,7 +213,7 @@ class TestRecordDetermination:
             section_id=section_id,
             relation_type="IMPLEMENTS",
             answer_id="answer-2",
-            sentence="[operator text removed].",
+            sentence="The crew together with the integrator shall inspect every listed feed.",
         )
         assert second["action"] == "corroborated"
         assert second["assertion_id"] == first["assertion_id"]
@@ -281,7 +281,7 @@ class TestMappingStoreStatuses:
 
     def test_a_determined_row_is_decidable_but_never_redecidable(self, repo: Repository) -> None:
         section_id = _add_section(
-            repo, "3.4 evaluate", "the operator shall evaluate patches every 35 days."
+            repo, "3.4 evaluate", "ACME shall evaluate patches every 35 days."
         )
         outcome = candidate_links.record_determination(
             repo,
@@ -289,7 +289,7 @@ class TestMappingStoreStatuses:
             section_id=section_id,
             relation_type="IMPLEMENTS",
             answer_id="answer-1",
-            sentence="the operator shall evaluate patches every 35 days.",
+            sentence="ACME shall evaluate patches every 35 days.",
         )
         store = mapping_store_facade(repo)
         results = store.decide_batch(

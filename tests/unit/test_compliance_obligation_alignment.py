@@ -207,7 +207,7 @@ def _binding(value: int, unit: str = "day", qualifier: str = "calendar") -> dict
 
 
 def test_binding_uses_the_literal_digit_in_parentheses():
-    text = "Complete the evaluation [operator text removed]."
+    text = "Complete the evaluation at least every 35 calendar days."
     request = _request(_candidate("a", text))
     calls: list[tuple[str, str]] = []
     spec = {"a": {"relation": "SAME", "bindings": [_binding(35)]}}
@@ -221,7 +221,7 @@ def test_binding_uses_the_literal_digit_in_parentheses():
 
 
 def test_binding_with_absent_literal_is_unresolved_not_silently_dropped():
-    text = "Complete the evaluation [operator text removed]."
+    text = "Complete the evaluation at least every 35 calendar days."
     request = _request(_candidate("a", text))
     calls: list[tuple[str, str]] = []
     spec = {"a": {"relation": "SAME", "bindings": [_binding(40)]}}

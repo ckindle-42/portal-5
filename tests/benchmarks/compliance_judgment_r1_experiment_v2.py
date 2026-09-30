@@ -48,16 +48,14 @@ from tests.benchmarks.compliance_judgment_contract_v2 import (
 
 ROOT = Path(__file__).resolve().parents[2]
 RUN_ID = "20260927T095336Z"
-PUBLIC_RUN = ROOT / "reports/compliance/stream_and_council_repair" / RUN_ID
+PUBLIC_RUN = ROOT / "portal/modules/compliance/data/private/runs/stream_and_council_repair" / RUN_ID
 PRIVATE_RUN = (
     ROOT
     / "portal/modules/compliance/data/private/stream_and_council_repair"
     / RUN_ID
     / "council_experiment_v2"
 )
-R1_TEMPLATE_DIR = Path(
-    "/Volumes/data01/omlx-models/DeepSeek-R1-0528-Qwen3-8B-4bit"
-)
+R1_TEMPLATE_DIR = Path("/Volumes/data01/omlx-models/DeepSeek-R1-0528-Qwen3-8B-4bit")
 R1_CHAT_TEMPLATE = R1_TEMPLATE_DIR / "chat_template.jinja"
 R1_TOKENIZER_CONFIG = R1_TEMPLATE_DIR / "tokenizer_config.json"
 DEV_CASES = ROOT / "tests/compliance_probe/judgment_probe_v6.jsonl"
@@ -263,7 +261,7 @@ def frozen_manifest() -> dict[str, Any]:
             "v1_preflight_cells_excluded": {
                 "count": 4,
                 "receipt": "portal/modules/compliance/data/private/stream_and_council_repair/20260927T095336Z/council_experiment/dev_campaign.jsonl",
-                "public_summary": "reports/compliance/stream_and_council_repair/20260927T095336Z/phase-results/P3B-v1-preflight-invalid.json",
+                "public_summary": "portal/modules/compliance/data/private/runs/stream_and_council_repair/20260927T095336Z/phase-results/P3B-v1-preflight-invalid.json",
                 "reason": "The v1 manifest predicted 12288 tokens; live trace showed 8192 applied. They are preserved, not retried or included in v2 scores.",
             },
         },
@@ -301,7 +299,9 @@ def write_manifest() -> None:
         comparison = {k: v for k, v in existing.items() if k != "frozen_at_utc"}
         current = {k: v for k, v in manifest.items() if k != "frozen_at_utc"}
         if comparison != current:
-            raise RuntimeError("version 2 experiment manifest already exists with different frozen inputs")
+            raise RuntimeError(
+                "version 2 experiment manifest already exists with different frozen inputs"
+            )
         print(f"frozen manifest already matches: {target}")
         return
     PUBLIC_RUN.mkdir(parents=True, exist_ok=True)

@@ -200,15 +200,15 @@ def env(tmp_path, monkeypatch):
     # the operator's side of the bilateral corpus, and one recorded edge to it
     repo.upsert_source_document(
         SourceDocument(
-            logical_id="the operator/patching",
+            logical_id="ACME/patching",
             title="patching",
-            issuer="the operator",
+            issuer="ACME",
             source_kind="procedure",
             jurisdiction="internal",
         )
     )
     operator_revision = repo.add_document_revision(
-        "the operator/patching", "/docs/patching.pdf", b"patching"
+        "ACME/patching", "/docs/patching.pdf", b"patching"
     )
     store_capture(
         repo,
@@ -225,7 +225,7 @@ def env(tmp_path, monkeypatch):
             relation_type="IMPLEMENTS",
             src_ref="CIP-007-6 R2 Part 2.2",
             src_revision_id=None,
-            dst_ref=f"the operator/patching::{operator_section}",
+            dst_ref=f"ACME/patching::{operator_section}",
             dst_revision_id=None,
             scope="",
             citations=[],

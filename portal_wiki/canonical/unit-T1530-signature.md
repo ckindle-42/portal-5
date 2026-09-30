@@ -14,8 +14,8 @@ tags:
 - T1530
 - technique
 - signature
-created_at: 1790411311.681275
-updated_at: 1790411311.681275
+created_at: 1790651067.897465
+updated_at: 1790651067.897465
 ---
 
 # T1530 — Data from Cloud Storage — read or copy of data held in cloud object storage [KEY: CloudTrail S3/SecretsManager read or export API]

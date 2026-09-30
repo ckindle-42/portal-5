@@ -32,8 +32,13 @@ from pathlib import Path
 from typing import Any
 
 from portal.modules.compliance.core.repository import Repository
+from scripts.compliance.truth import _local  # noqa: E402
 
-OUT_DEFAULT = Path("reports/compliance/pipeline_alignment/p4/determinism.json")
+OUT_DEFAULT = (
+    _local.PRIVATE
+    / "local"
+    / "portal/modules/compliance/data/private/local/reports/compliance/pipeline_alignment/p4/determinism.json"
+)
 
 #: The seat the family campaigns pass (closeout_family_sweep.SEAT).
 SEAT = "gemma4:26b-a4b-it-q4_K_M-ctx32k"

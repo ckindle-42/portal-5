@@ -25,9 +25,18 @@ from pathlib import Path
 from typing import Any
 
 from portal.modules.compliance.core.repository import Repository
+from scripts.compliance.truth import _local  # noqa: E402
 
-OUT_DEFAULT = Path("reports/compliance/pipeline_alignment/p2/window_census.json")
-MEASURED_BPT_ARTIFACT = Path("reports/compliance/module_complete/p0_5/seat_bytes_per_token.json")
+OUT_DEFAULT = (
+    _local.PRIVATE
+    / "local"
+    / "portal/modules/compliance/data/private/local/reports/compliance/pipeline_alignment/p2/window_census.json"
+)
+MEASURED_BPT_ARTIFACT = (
+    _local.PRIVATE
+    / "local"
+    / "portal/modules/compliance/data/private/local/reports/compliance/module_complete/p0_5/seat_bytes_per_token.json"
+)
 
 #: The sweep's mapping-call answer budget (sweep.map_read default).
 ANSWER_BUDGET = 3072

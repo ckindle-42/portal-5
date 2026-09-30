@@ -394,11 +394,17 @@ def main() -> int:  # noqa: C901, PLR0912, PLR0915
             (ROOT / "KNOWN_LIMITATIONS.md").stat().st_mtime
             > (ROOT / "coding_task/v9_compliance/TASK_COMPLIANCE_REASONING_V3.md").stat().st_mtime
             and "native Python"
-            in (ROOT / "reports/compliance/REASONING_V2_REUSE_DECISIONS.md").read_text(),
+            in (
+                ROOT
+                / "portal/modules/compliance/data/private/local/reports/compliance/REASONING_V2_REUSE_DECISIONS.md"
+            ).read_text(),
             "KNOWN_LIMITATIONS and reuse decision updated",
         ),
     )
-    acceptance = ROOT / "reports/compliance/REASONING_V3_ACCEPTANCE.md"
+    acceptance = (
+        ROOT
+        / "portal/modules/compliance/data/private/local/reports/compliance/REASONING_V3_ACCEPTANCE.md"
+    )
     check(
         "V27",
         lambda: (

@@ -19,6 +19,19 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
+
+def _patch_procedure() -> str:
+    from portal.modules.compliance.core.operator_profile import require
+
+    return str(require("documents.patch_management_procedure_v11"))
+
+
+def _patch_document_number() -> str:
+    from portal.modules.compliance.core.operator_profile import require
+
+    return str(require("document_numbers.patch_management_procedure_v11"))
+
+
 BASE = "http://127.0.0.1:8937"
 RECEIPT_ROOT = Path("coding_task/v9_compliance/private/foundation_routed")
 
@@ -154,7 +167,7 @@ def _obs5_and_6_bundles(receipt: dict, results: dict[str, bool]) -> dict:
 def _obs7_source_functions(receipt: dict, results: dict[str, bool]) -> None:
     src = call(
         "compliance_sources",
-        logical_id="CIP-007/[operator text removed] V11.pdf",
+        logical_id=_patch_procedure(),
         include_sections=True,
     )
     rev = (src.get("revisions") or [{}])[0]
@@ -163,7 +176,7 @@ def _obs7_source_functions(receipt: dict, results: dict[str, bool]) -> None:
     traceability = [s for s in sections if s["role"] == "TRACEABILITY_ASSERTION"]
     ok = (
         src.get("found")
-        and rev.get("document_number") == "the operator-ADM-CIP007SPM"
+        and rev.get("document_number") == _patch_document_number()
         and rev.get("version") == "11.0"
         and rev.get("binding_effect") == "internally_mandatory"
         and {"3.1", "3.3", "3.5", "3.6"} <= operative

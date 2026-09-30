@@ -24,6 +24,13 @@ from pathlib import Path
 
 from portal.modules.compliance.core import internal_corpus as ic
 from portal.modules.compliance.core.internal_corpus import InternalSection
+from portal.modules.compliance.core.operator_profile import profile as _operator_profile
+
+
+def _entity_name() -> str:
+    return str(_operator_profile()["entity"]["issuer"])
+
+
 from portal.modules.compliance.core.internal_model import extract_assertions
 from portal.modules.compliance.core.models import SourceDocument, SourceSection
 from portal.modules.compliance.core.repository import Repository
@@ -133,7 +140,7 @@ def _update_logical_document(repo: Repository, conn, corpus: Path, pdf: Path, in
         SourceDocument(
             logical_id=logical_id,
             title=(inv["control"].title or (existing[0] if existing else "")) or pdf.stem,
-            issuer="the operator",
+            issuer=_entity_name(),
             source_kind=inv["source_kind"],
             jurisdiction=(existing[1] if existing else "") or "internal",
         )

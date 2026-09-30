@@ -129,7 +129,10 @@ def main() -> int:
         default=[],
         help="probe this model; repeatable. Default: the configured council roster.",
     )
-    parser.add_argument("--out", default="reports/compliance/THINKING_CONFOUND_V1.json")
+    parser.add_argument(
+        "--out",
+        default="portal/modules/compliance/data/private/local/reports/compliance/THINKING_CONFOUND_V1.json",
+    )
     args = parser.parse_args()
 
     models = args.model

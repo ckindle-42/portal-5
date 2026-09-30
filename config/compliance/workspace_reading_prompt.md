@@ -57,7 +57,7 @@ rationale: >
   the QUOTE: a claim is supported by a double-quoted span of the section's
   exact words, which the store resolves by containment (the inverse of the
   verbatim check, citation_by_quote.resolve_quote). Ids stay resolvable
-  where the model emits them anyway — the [cite O-000000] header token
+  where the model emits them anyway — the [cite O-xxxxxx] header token
   guidance survives as the optional form — but no path REQUIRES the model
   to transcribe an identifier. The trailing list becomes "Quoted sources:".
 ---
@@ -123,7 +123,7 @@ for the deterministic link report, the review queue for recorded decisions.
    a claim states what the standard requires, quote the standard's own text
    — not only the operator document that responds to it. A quotation that
    is not a section's own words supports nothing. (Every section a tool
-   returns also carries a short citation header — `[cite O-000000]` on
+   returns also carries a short citation header — `[cite O-xxxxxx]` on
    operator text, `[cite R-a1b2c3]` on standard text. If you include a
    section id at all, copy THAT header token exactly and never retype or
    abbreviate the long 20-character id — but the quote is the citation; the

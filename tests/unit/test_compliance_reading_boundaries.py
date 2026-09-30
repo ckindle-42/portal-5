@@ -53,14 +53,14 @@ def store(tmp_path: Path) -> Repository:
     repo = Repository(tmp_path / "store.db")
     repo.upsert_source_document(
         SourceDocument(
-            logical_id="the operator/patching",
+            logical_id="ACME/patching",
             title="patching",
-            issuer="the operator",
+            issuer="ACME",
             source_kind="procedure",
             jurisdiction="internal",
         )
     )
-    revision = repo.add_document_revision("the operator/patching", "/docs/patching", b"patching")
+    revision = repo.add_document_revision("ACME/patching", "/docs/patching", b"patching")
     store_capture(
         repo,
         revision.revision_id,
@@ -223,7 +223,7 @@ class TestTheBatchDecidesOnlyOpenMappings:
             "relation_type": "IMPLEMENTS",
             "src_ref": "CIP-007-6 R2 Part 2.2",
             "src_revision_id": None,
-            "dst_ref": "the operator/patching::" + _sections(store)[0],
+            "dst_ref": "ACME/patching::" + _sections(store)[0],
             "dst_revision_id": None,
             "scope": "",
             "citations": [],

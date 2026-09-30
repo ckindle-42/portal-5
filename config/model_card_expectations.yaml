@@ -48,7 +48,7 @@ models:
     behavioral_quirks:
       - "harmony format BREAKS under API 'format':'json' + think:false — returns empty/degenerate content (3-arm diagnostic, judgment 0.000 artifact). Use native settings; think:true works; strict-JSON tasks need the full council system prompt (abbreviated prompts degraded abstention)."
     verified: behavioral-only
-    source: tests/benchmarks/results/judgment_probe_v6_gptoss_native_20260907T043151Z.json
+    source: "local run output judgment_probe_v6_gptoss_native_20260907T043151Z.json (not published)"
     card_source: "https://huggingface.co/openai/gpt-oss-20b (README 'Recommended Sampling Parameters') (2026-09-25)"
     recommended_sampling: {temperature: 1.0, top_p: 1.0}
     prompt_contract: "Harmony format; reasoning effort set in the system prompt (low/medium/high). generation_config.json sets no sampling; the README recommends temperature 1.0, top_p 1.0."
@@ -61,7 +61,7 @@ models:
       - "4.2:8b-q8_0 and 4.2:3b-q8_0: system_honored=False across TWO independent runs (Sept-6 + Sept-7) while 4.2:30b honors with the SAME template_sha (f0ba43f79b3c) — quant-level instruction-following failure, not a template bug."
       - "4.2:30b-q4_K_M honored system and scored F2 0.6962 vs 4.1:30b 0.8434 on identical instrument — real gap, parameters standardized (temp 0)."
     verified: behavioral-only
-    source: tests/benchmarks/results/judgment_probe_v6_rescored_20260906T224306Z.json
+    source: "local run output judgment_probe_v6_rescored_20260906T224306Z.json (not published)"
     card_source: "https://huggingface.co/ibm-granite/granite-4.2-8b/resolve/main/generation_config.json (2026-09-25)"
     recommended_sampling: {temperature: 1.0, top_p: 0.95}
     prompt_contract: "Reasoning model (built-in <think>...</think>), base granite-4.1-8b-base. Unlike 4.1, a reasoning_uncontrolled flag DOES apply: a seat must set think explicitly."

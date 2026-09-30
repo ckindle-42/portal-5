@@ -2,7 +2,7 @@
 """CLOSEOUT_V1 P9.1 - the closing report generator.
 
 Reads every phase receipt under the receipts root and formats
-``reports/compliance/CLOSEOUT_V1.md``. Two rules carry the whole design:
+``portal/modules/compliance/data/private/runs/CLOSEOUT_V1.md``. Two rules carry the whole design:
 
   * no number is typed by hand - every figure in the report is read from a
     receipt at write time, and a section whose receipt is missing prints as
@@ -328,7 +328,9 @@ def _sec_questions(root: pathlib.Path) -> str:
         out.append("")
     out.append(f"> {pq.get('relation_asymmetry_note', '')}")
     out.append("")
-    out.append("Full transcripts: `reports/compliance/closeout/p8/transcripts/`.")
+    out.append(
+        "Full transcripts: `portal/modules/compliance/data/private/runs/closeout/p8/transcripts/`."
+    )
     return "\n".join(out)
 
 

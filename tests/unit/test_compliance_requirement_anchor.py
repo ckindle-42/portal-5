@@ -40,7 +40,7 @@ REQ_2_2 = (
     "At least once every 35 calendar days, evaluate security patches for "
     "applicability that have been released since the last evaluation."
 )
-SYSTEMS_2_2 = "High Impact BES Cyber Systems and their associated EACMS, PACS and PCA"
+SYSTEMS_2_2 = "High Impact BES Cyber Systems plus their associated EACMS, PACS and PCA"
 MEASURE_2_2 = "An example of evidence may include an evaluation conducted on behalf of the entity."
 ROW_2_2 = f"2.2 | {SYSTEMS_2_2} | {REQ_2_2} | {MEASURE_2_2}"
 

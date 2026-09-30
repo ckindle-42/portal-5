@@ -49,7 +49,7 @@ def test_unrelated_actor_does_not_align(vocab):
 
 def test_assessment_module_has_no_org_or_role_literal():
     src = __import__("pathlib").Path("portal/modules/compliance/core/assessment.py").read_text()
-    for banned in ("the operator", "Responsible Entity", "CIP Senior Manager", '"Manager"', "'Owner'"):
+    for banned in ("ACME", "Responsible Entity", "CIP Senior Manager", '"Manager"', "'Owner'"):
         assert banned not in src, banned
 
 

@@ -140,7 +140,7 @@ After the run completes, inspect:
 ```bash
 python3 -c "
 import json
-r = json.load(open('tests/benchmarks/results/persona_matrix_baseline_auto-compliance.json'))
+r = json.load(open('<local-baseline>.json'))
 for c in r['cells']:
     s = c['summary']
     total = s['PASS'] + s['WARN'] + s['FAIL']
@@ -305,7 +305,7 @@ When a cell shows FAIL, inspect:
 ```bash
 python3 -c "
 import json
-r = json.load(open('tests/benchmarks/results/persona_matrix_auto-compliance_<TS>.json'))
+r = json.load(open('persona_matrix_auto-compliance_<TS>.json'))
 for c in r['cells']:
     if c['summary']['FAIL'] > 0:
         print(f\"\\n=== {c['persona']} on {c['backend']}/{c['model']} ===\")
@@ -395,14 +395,14 @@ reports:
 
 ```bash
 python3 tests/persona_matrix_diff.py \
-    tests/benchmarks/results/persona_matrix_baseline_auto-compliance.json \
-    tests/benchmarks/results/persona_matrix_auto-compliance_<NEW>.json \
+    <local-baseline>.json \
+    persona_matrix_auto-compliance_<NEW>.json \
     --threshold 10
 
 # JSON output for tooling
 python3 tests/persona_matrix_diff.py \
-    tests/benchmarks/results/persona_matrix_baseline_auto-compliance.json \
-    tests/benchmarks/results/persona_matrix_auto-compliance_<NEW>.json \
+    <local-baseline>.json \
+    persona_matrix_auto-compliance_<NEW>.json \
     --json > /tmp/diff.json
 ```
 

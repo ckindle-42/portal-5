@@ -103,10 +103,10 @@ automatically belongs in `validate_system.py` or a Makefile target instead.
 ## Compliance product operations
 
 ```bash
-python3 scripts/materialize_internal_corpus.py --corpus coding_task/v9_compliance/the operator-CIP
+python3 scripts/materialize_internal_corpus.py --corpus coding_task/v9_compliance/ACME-CIP
                                     # P4: sourced control-block metadata + section functions onto
                                     # the canonical store, quarantines folder-derived proposals
-python3 scripts/rebuild_compliance_projections.py --corpus coding_task/v9_compliance/the operator-CIP
+python3 scripts/rebuild_compliance_projections.py --corpus coding_task/v9_compliance/ACME-CIP
                                     # P5/P6: rebuild retrieval+graph projections from one canonical
                                     # fingerprint, prove materialization, record index manifests
 python3 scripts/verify_foundation_routed.py --service-pid <pid> --served-commit <sha>

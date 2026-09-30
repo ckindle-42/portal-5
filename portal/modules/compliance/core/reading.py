@@ -20,7 +20,7 @@ one document the gap is about, and the Part came back UNRESOLVED with empty
 that was already correct.
 
 Measured on that same case with the same three models, asked to read instead
-(reports/compliance/READING_JUDGMENT_V1.md): every seat returned
+(portal/modules/compliance/data/private/runs/READING_JUDGMENT_V1.md): every seat returned
 ``documentary_coverage: PARTIAL`` with a WEAKER_COMMITMENT gap, and two of three
 were correct on every citation. The seats were never the defect.
 

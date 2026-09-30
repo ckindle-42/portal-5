@@ -16,14 +16,14 @@ Two family numbers, because the store only ever accumulates edges (see
   mixes every campaign's readings and is NOT the comparator for the scope fix.
 
     uv run python scripts/compliance/cite_and_scope_measure.py \\
-        --baseline reports/compliance/cite_and_scope/p0/baseline.json \\
-        --baseline-adjudication reports/compliance/load_and_converse/p6/adjudication_v2.json \\
-        --baseline-edge-set reports/compliance/cite_and_scope/p3/baseline_edge_set.json \\
-        --adjudication reports/compliance/cite_and_scope/p3/adjudication_p3.json \\
-        --edge-set reports/compliance/cite_and_scope/p3/sweep_edge_set.json \\
-        --conversational reports/compliance/cite_and_scope/p3/conversational/conversational_proof.json \\
-        --product reports/compliance/cite_and_scope/p3/product/product_questions_family.json \\
-        --out reports/compliance/cite_and_scope/p3/measured.json
+        --baseline portal/modules/compliance/data/private/local/reports/compliance/cite_and_scope/p0/baseline.json \\
+        --baseline-adjudication portal/modules/compliance/data/private/local/reports/compliance/load_and_converse/p6/adjudication_v2.json \\
+        --baseline-edge-set portal/modules/compliance/data/private/local/reports/compliance/cite_and_scope/p3/baseline_edge_set.json \\
+        --adjudication portal/modules/compliance/data/private/local/reports/compliance/cite_and_scope/p3/adjudication_p3.json \\
+        --edge-set portal/modules/compliance/data/private/local/reports/compliance/cite_and_scope/p3/sweep_edge_set.json \\
+        --conversational portal/modules/compliance/data/private/local/reports/compliance/cite_and_scope/p3/conversational/conversational_proof.json \\
+        --product portal/modules/compliance/data/private/runs/cite_and_scope/p3/product/product_questions_family.json \\
+        --out portal/modules/compliance/data/private/runs/cite_and_scope/p3/measured.json
 """
 
 from __future__ import annotations

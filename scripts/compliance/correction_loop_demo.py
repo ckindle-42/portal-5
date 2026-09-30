@@ -15,7 +15,7 @@ saw. The bridge files the note against the answer's own ``subject_ref``
 side).
 
     uv run python scripts/compliance/correction_loop_demo.py \\
-        --out-dir reports/compliance/module_complete/p3
+        --out-dir portal/modules/compliance/data/private/runs/module_complete/p3
 """
 
 from __future__ import annotations
@@ -42,7 +42,7 @@ QUESTION = (
 )
 CORRECTION = (
     "That answer states our practice as if it were the standard's cycle. The "
-    "operator's decision, recorded here: the operator evaluates applicable security "
+    "operator's decision, recorded here: ACME evaluates applicable security "
     "patches every 30 calendar days — deliberately stricter than the 35 the "
     "Part allows — because the monthly change window is when evaluations are "
     "scheduled. The 35-day figure is the regulatory ceiling only, and answers "

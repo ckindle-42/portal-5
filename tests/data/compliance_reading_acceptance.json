@@ -157,11 +157,11 @@
    "private_source": true
   },
   "S": {
-   "text": "[operator text removed]-2 R3).",
+   "text": "ACME will review this plan on its 15-month cycle and secure the approval of the CIP Senior Manager (or delegate), per CIP-013-2 R3).",
    "document_id": "CIP-013-plan",
    "chunk_id": "24",
    "section": "CIP-013 plan chunk 24 p6",
-   "sha256": "b47ea83c548381406b2c48fa6c99766fe0c261a60edc1a469cb4f8937e6a7ed2",
+   "sha256": "eedb7f13412e918c7406ec0f16c841b181f5ab5c257d0dd524efd57102cb4db3",
    "private_source": true
   },
   "C": {

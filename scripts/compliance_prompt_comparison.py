@@ -98,7 +98,9 @@ def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--seat", default="")
     parser.add_argument("--case", action="append", default=[])
-    parser.add_argument("--out", default=str(REPO / "reports/compliance/prompt_comparison"))
+    parser.add_argument(
+        "--out", default=str(REPO / "portal/modules/compliance/data/private/runs/prompt_comparison")
+    )
     args = parser.parse_args()
 
     seat = args.seat or reading_seat()

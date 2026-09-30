@@ -35,7 +35,7 @@ def _determined(
         relation_type=relation_type,
         src_ref=ref,
         src_revision_id=None,
-        dst_ref=f"the operator/procedure.pdf::{section_id}",
+        dst_ref=f"ACME/procedure.pdf::{section_id}",
         dst_revision_id=None,
         scope="",
         citations=[{"answer_id": "answer-test", "sentence": "test"}],

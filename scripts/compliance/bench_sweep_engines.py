@@ -29,7 +29,7 @@ Usage:
         --ollama-model gemma4:26b-a4b-it-q4_K_M-ctx32k \
         --splash-model incoai/Qwen3.6-35B-A3B-Splash \
         --concurrency 4 \
-        --out reports/compliance/splash_sweep/p3/arms.json
+        --out portal/modules/compliance/data/private/runs/splash_sweep/p3/arms.json
 """
 
 from __future__ import annotations

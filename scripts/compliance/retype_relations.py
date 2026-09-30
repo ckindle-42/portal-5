@@ -10,8 +10,8 @@ changes the relation, not the reading it rests on. The revoked original and the
 corrected edge both remain.
 
     uv run python scripts/compliance/retype_relations.py \\
-        --receipt reports/compliance/module_complete/p1/entailment_gap.json \\
-        --out reports/compliance/module_complete/p1/retyped.json
+        --receipt portal/modules/compliance/data/private/local/reports/compliance/module_complete/p1/entailment_gap.json \\
+        --out portal/modules/compliance/data/private/runs/module_complete/p1/retyped.json
 """
 
 from __future__ import annotations

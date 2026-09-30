@@ -30,16 +30,16 @@ pytestmark = pytest.mark.filterwarnings("ignore::DeprecationWarning")
 def _procedure_pages() -> list[str]:
     return [
         " \nPRIVATE – FOR INTERNAL USE ONLY \n"
-        "[operator text removed] \n"
+        "ACME Security Patch Management Procedure \n"
         "Effective Date:  July 31, 2026 \n"
-        "Document Type: Procedure \n[operator text removed]-X1 \n",
+        "Document Type: Procedure \nDocument Number:  ACME-ADM-X1 \n",
         "3.0 Procedure \n3.5 Patch Implementation Process \n"
         "The analyst shall install applicable patches. \n",
         (
             "5.0 Appendix \n"
             "5.1 Appendix 1: Requirements Traceability \n"
             "NERC Standard & Requirement | Procedure Sections \n"
-            "R2 Part 2.2 At least once every 35 calendar days, evaluate security "
+            "R2 Part 2.2 At least once each 35-day window, evaluate security "
             "patches for applicability. | Section 3.3 \n"
         ),
     ]
@@ -52,7 +52,7 @@ def repo_with_doc(tmp_path):
         SourceDocument(
             logical_id="CIP-007/Procedure.pdf",
             title="Procedure",
-            issuer="the operator",
+            issuer="ACME",
             source_kind="procedure",
             jurisdiction="internal",
         )
@@ -200,8 +200,7 @@ class TestRealProcedureIntegration:
     CI where the private corpus is absent)."""
 
     CORPUS = __import__("pathlib").Path(
-        "coding_task/v9_compliance/the operator-CIP/CIP-007/"
-        "[operator text removed] V11.pdf"
+        "coding_task/v9_compliance/ACME-CIP/CIP-007/the operator's document.pdf"
     )
 
     @pytest.mark.skipif(not CORPUS.is_file(), reason="operator corpus is private/local")

@@ -11,7 +11,7 @@ single place that maps every finding to its disposition and at least one
 direct reproduction, per P0's exit criterion ("every baseline finding has a
 disposition ... and a mapped implementation/test owner").
 
-Disposition legend (also recorded in reports/compliance/REASONING_V2_BASELINE.md):
+Disposition legend (also recorded in portal/modules/compliance/data/private/runs/REASONING_V2_BASELINE.md):
     FIXED_P1      — corrected in this task's P1 phase, verified below
     DEFERRED_P5   — the unsafe shortcut is disabled (never a false positive),
                     but the full correct semantics require P5's obligation-atom

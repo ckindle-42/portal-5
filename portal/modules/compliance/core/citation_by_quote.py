@@ -21,7 +21,7 @@ The honesty rules carry over from ids unchanged: an unresolvable quote stays
 unresolved and is reported as written — it is never mapped onto a near
 neighbour. A quote that matches SEVERAL sections is reported with every match;
 whether multi-match still grounds is the caller's policy, decided on the
-measured distribution (``reports/compliance/cite_and_scope/p1/``), not here.
+measured distribution (``portal/modules/compliance/data/private/runs/cite_and_scope/p1/``), not here.
 """
 
 from __future__ import annotations

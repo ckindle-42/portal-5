@@ -9,7 +9,7 @@ REASON from the store — genuine absence (no guidance section exists to place)
 versus a locate miss (guidance exists but nothing joined it).
 
     uv run python scripts/compliance/verify_technical_basis_coverage.py \\
-        --out reports/compliance/module_complete/p0_5/technical_basis_coverage.json
+        --out portal/modules/compliance/data/private/runs/module_complete/p0_5/technical_basis_coverage.json
 """
 
 from __future__ import annotations

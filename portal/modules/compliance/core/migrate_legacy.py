@@ -216,7 +216,7 @@ def import_document_directory(
     revision's hash?) must be able to open regardless of the caller's
     current working directory. A relative alias_path silently made every
     live drift check report "unverifiable" no matter what (found live during
-    P8-L verification against the real the operator-CIP corpus). No filename-date
+    P8-L verification against the operator's live corpus). No filename-date
     guessing: every date field stays ``None``, queued for review by a later
     phase, not invented here."""
     src = Path(source_dir).expanduser().resolve()

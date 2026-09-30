@@ -24,7 +24,7 @@ guess:
                          determined/corroborated in relationship_assertions —
                          the read produced nothing admissible. Reasons are
                          pulled from the existing refusal adjudication
-                         (reports/compliance/.../refusal_adjudication*.json)
+                         (portal/modules/compliance/data/private/local/reports/compliance/.../refusal_adjudication*.json)
                          when the requirement's parent appears there.
 
 Then, for every requirement in cause 1 or 2, the agent reads the operator
@@ -52,7 +52,7 @@ from portal.modules.compliance.core.repository import Repository  # noqa: E402
 
 
 def _latest_autosync() -> pathlib.Path | None:
-    d = REPO_ROOT / "reports/compliance/autosync"
+    d = REPO_ROOT / "portal/modules/compliance/data/private/runs/autosync"
     files = sorted(d.glob("*.json"))
     return files[-1] if files else None
 

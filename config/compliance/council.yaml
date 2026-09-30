@@ -1,7 +1,7 @@
 # Compliance review council roster (TASK_COMPLIANCE_REASONING_V6 D0-M).
 #
 # The original D0-M roster was selected from the 12-seat judgment-probe sweep
-# (tests/benchmarks/results/judgment_probe_v6_*.json, 2026-09-06): F2
+# (local judgment_probe_v6 run outputs, 2026-09-06): F2
 # {0.952, 0.843, 0.802}, with the then-selected seats meeting the stated bars.
 # The current R1 seat replaced Mistral on 2026-09-26 and is not covered by
 # those historical scores. Its controlled 2026-09-27 P3B holdout failed the

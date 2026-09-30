@@ -155,7 +155,7 @@ class TestSupersededCannotOutrankGoverning:
         try:
             repo.upsert_source_document(
                 SourceDocument(
-                    logical_id="the operator/patching",
+                    logical_id="ACME/patching",
                     title="patching",
                     issuer="x",
                     source_kind="procedure",
@@ -171,7 +171,7 @@ class TestSupersededCannotOutrankGoverning:
                 )
             ):
                 rev = repo.add_document_revision(
-                    "the operator/patching",
+                    "ACME/patching",
                     f"/docs/v{n}",
                     f"v{n}-bytes".encode(),
                     effective_date=eff,
@@ -180,7 +180,7 @@ class TestSupersededCannotOutrankGoverning:
                 store_capture(repo, rev.revision_id, _capture(Path(f"/docs/v{n}"), QUERY))
             # the governing revision phrases it differently
             new = repo.add_document_revision(
-                "the operator/patching", "/docs/v9", b"v9-bytes", effective_date="2025-01-01"
+                "ACME/patching", "/docs/v9", b"v9-bytes", effective_date="2025-01-01"
             )
             store_capture(
                 repo,
@@ -226,7 +226,7 @@ class TestTheClocksPushDown:
         try:
             repo.upsert_source_document(
                 SourceDocument(
-                    logical_id="the operator/patching",
+                    logical_id="ACME/patching",
                     title="patching",
                     issuer="x",
                     source_kind="procedure",
@@ -234,7 +234,7 @@ class TestTheClocksPushDown:
                 )
             )
             old = repo.add_document_revision(
-                "the operator/patching",
+                "ACME/patching",
                 "/docs/old",
                 b"old-revision",
                 effective_date="2024-01-01",
@@ -246,7 +246,7 @@ class TestTheClocksPushDown:
                 _capture(Path("/docs/old"), "The 2024 procedure: patches every 30 days."),
             )
             new = repo.add_document_revision(
-                "the operator/patching", "/docs/new", b"new-revision", effective_date="2025-06-01"
+                "ACME/patching", "/docs/new", b"new-revision", effective_date="2025-06-01"
             )
             store_capture(
                 repo,
@@ -280,7 +280,7 @@ class TestTheClocksPushDown:
         try:
             repo.upsert_source_document(
                 SourceDocument(
-                    logical_id="the operator/patching",
+                    logical_id="ACME/patching",
                     title="patching",
                     issuer="x",
                     source_kind="procedure",
@@ -288,13 +288,13 @@ class TestTheClocksPushDown:
                 )
             )
             early = repo.add_document_revision(
-                "the operator/patching", "/docs/early", b"early-bytes", effective_date="2025-01-01"
+                "ACME/patching", "/docs/early", b"early-bytes", effective_date="2025-01-01"
             )
             store_capture(
                 repo, early.revision_id, _capture(Path("/docs/early"), "Early procedure text.")
             )
             late = repo.add_document_revision(
-                "the operator/patching", "/docs/late", b"late-bytes", effective_date="2025-01-01"
+                "ACME/patching", "/docs/late", b"late-bytes", effective_date="2025-01-01"
             )
             store_capture(
                 repo, late.revision_id, _capture(Path("/docs/late"), "Late procedure text.")
@@ -335,19 +335,19 @@ class TestTheClocksPushDown:
             for n in range(12):
                 _doc(
                     repo,
-                    f"the operator/doc{n}",
+                    f"ACME/doc{n}",
                     "internal",
                     "procedure" if n % 2 else "policy",
                     f"Document number {n} about patching cadence.",
                 )
                 revision_id = repo._conn.execute(
                     "SELECT revision_id FROM document_revisions WHERE logical_id = ?",
-                    (f"the operator/doc{n}",),
+                    (f"ACME/doc{n}",),
                 ).fetchone()[0]
                 store_capture(
                     repo,
                     revision_id,
-                    _capture(Path(f"/docs/the operator/doc{n}"), f"Document number {n} about cadence."),
+                    _capture(Path(f"/docs/ACME/doc{n}"), f"Document number {n} about cadence."),
                 )
             _project(repo, jurisdictions=("internal",))
         finally:
@@ -357,11 +357,11 @@ class TestTheClocksPushDown:
             make,
             query="document number cadence",
             jurisdiction="internal",
-            standard="the operator/doc",  # matches all 12
+            standard="ACME/doc",  # matches all 12
             top_k=10,
         )
         assert out["num_results"] == 10
-        assert all("the operator/doc" in r["logical_id"] for r in out["results"])
+        assert all("ACME/doc" in r["logical_id"] for r in out["results"])
 
     def test_standard_narrows_the_search_instead_of_sieving_it(self, env, monkeypatch):
         make = env["make"]
@@ -387,7 +387,7 @@ class TestTheClocksPushDown:
                     revision.revision_id,
                     _capture(Path(f"/docs/{logical}"), f"Standard text number {n}."),
                 )
-                logical2 = f"the operator/other{n}"
+                logical2 = f"ACME/other{n}"
                 revision2 = _doc(
                     repo, logical2, "internal", "procedure", f"Operator text number {n}."
                 )
@@ -415,9 +415,9 @@ class TestTheCallerCanSeeWhatRan:
         make = env["make"]
         repo = make()
         try:
-            revision = _doc(repo, "the operator/doc0", "internal", "procedure", "Harmless text.")
+            revision = _doc(repo, "ACME/doc0", "internal", "procedure", "Harmless text.")
             store_capture(
-                repo, revision.revision_id, _capture(Path("/docs/the operator/doc0"), "Harmless text.")
+                repo, revision.revision_id, _capture(Path("/docs/ACME/doc0"), "Harmless text.")
             )
             _project(repo, jurisdictions=("internal",))
         finally:
@@ -427,20 +427,20 @@ class TestTheCallerCanSeeWhatRan:
             make,
             query="harmless",
             jurisdiction="internal",
-            standard="the operator/doc0' OR 1=1 --",
+            standard="ACME/doc0' OR 1=1 --",
             top_k=5,
         )
         # the call returned (no raise), and the fragment stayed a quoted value
         assert out["num_results"] == 0
-        assert "the operator/doc0'' OR 1=1 --" in out["filter_applied"]
+        assert "ACME/doc0'' OR 1=1 --" in out["filter_applied"]
 
     def test_filter_applied_is_the_clause_that_ran(self, env, monkeypatch) -> None:
         make = env["make"]
         repo = make()
         try:
-            revision = _doc(repo, "the operator/doc0", "internal", "procedure", "Some text.")
+            revision = _doc(repo, "ACME/doc0", "internal", "procedure", "Some text.")
             store_capture(
-                repo, revision.revision_id, _capture(Path("/docs/the operator/doc0"), "Some text.")
+                repo, revision.revision_id, _capture(Path("/docs/ACME/doc0"), "Some text.")
             )
             _project(repo, jurisdictions=("internal",))
         finally:
@@ -450,14 +450,14 @@ class TestTheCallerCanSeeWhatRan:
             make,
             query="text",
             jurisdiction="internal",
-            standard="the operator/doc0",
+            standard="ACME/doc0",
             layer="procedure",
             valid_at="2026-01-01",
             known_at="2026-06-01",
             top_k=5,
         )
         clause = out["filter_applied"]
-        assert "logical_id LIKE '%the operator/doc0%'" in clause
+        assert "logical_id LIKE '%ACME/doc0%'" in clause
         assert "source_kind LIKE '%procedure%'" in clause
         assert "effective_from <= '2026-01-01'" in clause
         assert "recorded_to > '2026-06-01'" in clause

@@ -874,7 +874,7 @@ MIGRATIONS: list[tuple[int, str, str]] = [
         # reading_assembly.linked_internal queries `derivation` and failed
         # loudly, and repaired by a forward migration plus a reconstruction of
         # the dropped values from the rationale/relation_type fingerprints the
-        # original writers left (see reports/compliance/PROVE_THEN_SCALE_V1.md
+        # original writers left (see portal/modules/compliance/data/private/runs/PROVE_THEN_SCALE_V1.md
         # §0-bis). Recorded here so the next table rebuild in this module
         # starts from the full column list, not the happy-path one.
         """

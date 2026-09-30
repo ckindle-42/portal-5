@@ -48,8 +48,13 @@ from typing import Any
 from portal.modules.compliance.core.repository import Repository
 from portal.modules.compliance.core.transport_dialects import _pipeline_api_key
 from portal.platform.inference.model_addressing import workspace_id_for_model
+from scripts.compliance.truth import _local  # noqa: E402
 
-OUT_DEFAULT = Path("reports/compliance/pipeline_alignment/p0/call_site_ledger.json")
+OUT_DEFAULT = (
+    _local.PRIVATE
+    / "local"
+    / "portal/modules/compliance/data/private/local/reports/compliance/pipeline_alignment/p0/call_site_ledger.json"
+)
 
 # The sweep seat the family campaigns pass (closeout_family_sweep.SEAT).
 SWEEP_SEAT = "gemma4:26b-a4b-it-q4_K_M-ctx32k"

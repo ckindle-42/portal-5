@@ -33,7 +33,7 @@ Both granite models are currently registered in the reasoning and general groups
 
 ```bash
 python3 tests/persona_matrix_diff.py \
-    tests/benchmarks/results/persona_matrix_baseline_auto-compliance.json \
+    <local-baseline>.json \
     tests/benchmarks/results/persona_matrix_<NEW>.json --threshold 10
 ```
 

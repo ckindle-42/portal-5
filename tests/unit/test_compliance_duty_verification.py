@@ -213,7 +213,7 @@ class TestSourceFunctionAdversaries:
         candidates = [
             {
                 "id": "TR",
-                "text": "R2 Part 2.2 At least once every 35 calendar days, "
+                "text": "R2 Part 2.2 At least once each 35-day window, "
                 "evaluate security patches. | Section 3.3",
                 "operative": False,
                 "source_function": "TRACEABILITY_ASSERTION",

@@ -27,17 +27,17 @@ def _procedure_pages() -> list[str]:
     return [
         (
             " \nPRIVATE – FOR INTERNAL USE ONLY \n \n \n"
-            "the operator Security Patch Management \nProcedure \n \n"
+            "ACME Security Patch Management \nProcedure \n \n"
             "Effective Date:  July 31, 2026 \n \n"
             "Document Type: Procedure \nNERC Standard: CIP-007 \n"
-            "[operator text removed]-CIP007SPM \n"
+            "Document Number:  ACME-ADM-CIP007SPM \n"
         ),
         (
             " \nPRIVATE – FOR INTERNAL USE ONLY \nPage 2 of 9 \n \n"
-            "DOCUMENT OWNER \nName \nTitle \nRyan Borg \n"
+            "DOCUMENT OWNER \nName \nTitle \nAlex Chen \n"
             "Manager of OT Security Operations \n \n"
             "APPROVALS \nName \nDate \n \n"
-            "Name: an operator approver \nTitle: Sr. Director, Operations Technology \n"
+            "Name: Dana Reyes \nTitle: Sr. Director, Operations Technology \n"
             "7/24/2026\n"
         ),
         (
@@ -50,7 +50,7 @@ def _procedure_pages() -> list[str]:
             "1.0 Introduction \n1.1 \nPurpose \n"
             "The purpose is patch tracking. \n"
             "1.2 \nApplicability \n"
-            "This applies to the operator registrations. \n"
+            "This applies to ACME registrations. \n"
             "1.4 Roles and Responsibilities \n"
             "1.4.1 \nOT \n"
             "1.4.1.1 \n"
@@ -72,13 +72,13 @@ def _procedure_pages() -> list[str]:
             "5.1 Appendix 1: Requirements Traceability \n"
             "NERC Standard & Requirement | Procedure Sections \n"
             "R2 Part 2.1 A patch management process for tracking. | Section 3.1 \n"
-            "R2 Part 2.2 At least once every 35 calendar days, evaluate. | Section 3.3 \n"
+            "R2 Part 2.2 At least once each 35-day window, evaluate. | Section 3.3 \n"
         ),
         (
             "REVISION HISTORY \n \n"
             "Date \nVersion \nRevised By \nComments \n"
-            "06/20/2025 \n6.0 \nR. Morgan \nAnnual Review \n"
-            "06/24/2026 \n7.0 \nR. Borg \nAnnual Review; updates throughout \n"
+            "06/20/2025 \n6.0 \nD. Reyes \nAnnual Review \n"
+            "06/24/2026 \n7.0 \nA. Chen \nAnnual Review; updates throughout \n"
         ),
     ]
 
@@ -90,8 +90,8 @@ def procedure() -> list[str]:
 
 def _form_pages() -> list[str]:
     return [
-        "the operator CIP Exceptional Circumstance Request Form \n"
-        "the operator will use a CIP Exceptional Circumstances in a situation that \n"
+        "ACME CIP Exceptional Circumstance Request Form \n"
+        "ACME will use a CIP Exceptional Circumstances in a situation that \n"
         "Event Start Date & Time: \n",
         "Approving CEC \nSignature Date \n",
     ]
@@ -103,14 +103,14 @@ def _form_pages() -> list[str]:
 class TestDocumentControl:
     def test_full_procedure_block(self, procedure):
         control = ic.parse_document_control(procedure)
-        assert control.title == "[operator text removed]"
-        assert control.document_number == "the operator-ADM-CIP007SPM"
+        assert control.title == "ACME Security Patch Management Procedure"
+        assert control.document_number == "ACME-ADM-CIP007SPM"
         assert control.stated_type == "Procedure"
         assert control.nerc_standard == "CIP-007"
         assert control.effective_date == "2026-07-31"
-        assert control.owner == "an operator approver"
+        assert control.owner == "Alex Chen"
         assert control.owner_title == "Manager of OT Security Operations"
-        assert control.approver == "an operator approver"
+        assert control.approver == "Dana Reyes"
         assert control.approval_date == "2026-07-24"
         assert control.version == "7.0"
         assert control.authored_date == "2026-06-24"
@@ -143,10 +143,10 @@ class TestDocumentControl:
     def test_document_id_label_variant(self):
         pages = [
             "Access Management \nEffective Date: August 31, 2026 \n"
-            "Document Type: Procedure \nDocument ID: the operator-OTSO-NERC-PCD-AcsMgmt \n"
+            "Document Type: Procedure \nDocument ID: ACME-OTSO-NERC-PCD-AcsMgmt \n"
         ]
         control = ic.parse_document_control(pages)
-        assert control.document_number == "the operator-OTSO-NERC-PCD-AcsMgmt"
+        assert control.document_number == "ACME-OTSO-NERC-PCD-AcsMgmt"
         assert control.effective_date == "2026-08-31"
 
     def test_slash_and_month_dates(self):
@@ -168,7 +168,7 @@ class TestClassifyKind:
 
     def test_filename_fallback_is_recorded_as_such(self):
         kind, _effect, role, evidence = ic.classify_kind(
-            None, "the operator's document.pdf"
+            None, "OT Vulnerability Management Work Instruction v1.pdf"
         )
         assert kind == "work_instruction"
         assert role == "WORK_INSTRUCTION"
@@ -210,7 +210,7 @@ class TestSectionize:
         operative_paths = [s.path for s in sections if s.role == "OPERATIVE_PROCEDURE"]
         assert operative_paths.count("3.5") == 1
         trace = next(s for s in sections if s.path == "5.1")
-        assert "R2 Part 2.2 At least once every 35 calendar days" in trace.text
+        assert "R2 Part 2.2 At least once each 35-day window, evaluate" in trace.text
         assert trace.page_start == 6 and trace.page_end == 6
 
     def test_revision_history_rows_stay_control_text(self, procedure):
@@ -218,7 +218,7 @@ class TestSectionize:
         '7.0'); the cutoff keeps them inside the control section."""
         sections = ic.sectionize(procedure, operative_role="OPERATIVE_PROCEDURE")
         history = next(s for s in sections if s.path == "REVISION HISTORY")
-        assert "06/24/2026" in history.text and "an operator approver" in history.text
+        assert "06/24/2026" in history.text and "A. Chen" in history.text
         numbered_after = [
             s.path
             for s in sections
@@ -294,7 +294,7 @@ class TestCommitmentGating:
 
     def test_copied_traceability_rows_yield_no_commitments(self):
         text = (
-            "R2 Part 2.2 At least once every 35 calendar days, evaluate security "
+            "R2 Part 2.2 At least once each 35-day window, evaluate security "
             "patches for applicability. | Section 3.3"
         )
         assert (
@@ -365,17 +365,17 @@ class TestMigrationAndRepository:
         assert repo.update_revision_control_metadata(
             rev.revision_id,
             binding_effect="internally_mandatory",
-            document_number="the operator-ADM-X1",
+            document_number="ACME-ADM-X1",
             version="7.0",
             effective_date="2026-07-31",
         )
         first = repo.get_revision(rev.revision_id)
         assert first.version == "7.0" and first.effective_date == "2026-07-31"
         # a re-run without the field must not erase it with an empty value
-        assert repo.update_revision_control_metadata(rev.revision_id, owner="an operator approver")
+        assert repo.update_revision_control_metadata(rev.revision_id, owner="Alex Chen")
         second = repo.get_revision(rev.revision_id)
         assert second.version == "7.0"
-        assert second.owner == "an operator approver"
+        assert second.owner == "Alex Chen"
         assert second.binding_effect == "internally_mandatory"
         assert repo.update_revision_control_metadata("missing-rev", version="1") is False
         repo.close()
@@ -393,7 +393,7 @@ class TestMigrationAndRepository:
         )
         reg_rev = repo.add_document_revision("NERC/CIP-007-6", "/x/cip.pdf", b"reg")
         repo.upsert_source_document(
-            SourceDocument("doc.pdf", "doc", "the operator", "procedure", "internal")
+            SourceDocument("doc.pdf", "doc", "ACME", "procedure", "internal")
         )
         int_rev = repo.add_document_revision("doc.pdf", "/x/doc.pdf", b"int")
         proposal = RelationshipAssertion(
@@ -437,7 +437,7 @@ class TestMigrationAndRepository:
 
 
 CORPUS = __import__("pathlib").Path(
-    "coding_task/v9_compliance/the operator-CIP/CIP-007/[operator text removed] V11.pdf"
+    "coding_task/v9_compliance/ACME-CIP/CIP-007/the operator's document.pdf"
 )
 
 
@@ -448,10 +448,10 @@ class TestRealPatchProcedure:
         control = inv["control"]
         assert inv["source_kind"] == "procedure"
         assert inv["document_role"] == "OPERATIVE_PROCEDURE"
-        assert control.document_number == "the operator-ADM-CIP007SPM"
+        assert control.document_number == "ACME-ADM-CIP007SPM"
         assert control.version == "11.0"
         assert control.effective_date == "2026-07-31"
-        assert control.owner == "an operator approver"
+        assert control.owner == "Alex Chen"
         paths = {s.path: s for s in inv["sections"]}
         # the sections the document's own traceability table references
         for referenced in ("3.1", "3.3", "3.5", "3.6"):

@@ -24,6 +24,12 @@ BASE = "http://127.0.0.1:8937"
 RECEIPT_ROOT = Path("coding_task/v9_compliance/private/seven_question")
 
 
+def _target_document() -> str:
+    from portal.modules.compliance.core.operator_profile import require
+
+    return str(require("documents.patch_management_wi_v7"))
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--valid-at", default="2026-09-14")
@@ -41,9 +47,7 @@ def main() -> int:
         body["scenario_edits"] = [
             {
                 "operation": "ADD",
-                "target_document": (
-                    "CIP-007/the operator's document.pdf"
-                ),
+                "target_document": _target_document(),
                 "label": "proposed-evaluation-record-clause",
                 "new_text": (
                     "The analyst shall record the completion date of each security "
