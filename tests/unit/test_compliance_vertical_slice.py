@@ -23,6 +23,10 @@ REQUIREMENT = "CIP-007-6 R2"
 
 @pytest.fixture(scope="module")
 def ctx(tmp_path_factory):
+    from portal.modules.compliance.core.operator_profile import PROFILE_PATH
+
+    if not PROFILE_PATH.exists():  # gitignored, operator's machine only (CI has none)
+        pytest.skip("the local operator profile is not present")
     return vs.build_context(REQUIREMENT, valid_at="2026-09-14")
 
 
@@ -46,6 +50,10 @@ class TestSharedContext:
         assert "seats" in ctx.model_config
 
     def test_defective_bundle_never_builds_a_plan(self, monkeypatch):
+        from portal.modules.compliance.core.operator_profile import PROFILE_PATH
+
+        if not PROFILE_PATH.exists():  # gitignored, operator's machine only (CI has none)
+            pytest.skip("the local operator profile is not present")
         from portal.modules.compliance.core.regulatory_bundle import SourceBundleIncompleteError
 
         def _resolve(requirement_id, **kwargs):

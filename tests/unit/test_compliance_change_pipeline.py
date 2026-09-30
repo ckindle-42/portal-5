@@ -11,6 +11,8 @@ from __future__ import annotations
 import hashlib
 from typing import Any
 
+import pytest
+
 from portal.modules.compliance.core.applicability import AssetScope
 from portal.modules.compliance.core.change_pipeline import (
     draft_revisions,
@@ -531,6 +533,10 @@ def test_materialize_default_emits_no_verdict(tmp_path, monkeypatch):
 
 def test_materialize_default_run_emits_no_claims(tmp_path, monkeypatch):
     from portal.modules.compliance.core.cip_register import Register, RegisterNode
+    from portal.modules.compliance.core.operator_profile import PROFILE_PATH
+
+    if not PROFILE_PATH.exists():  # gitignored, operator's machine only (CI has none)
+        pytest.skip("the local operator profile is not present")
     from portal.modules.compliance.core.repository import Repository
 
     module = _load_materializer()
