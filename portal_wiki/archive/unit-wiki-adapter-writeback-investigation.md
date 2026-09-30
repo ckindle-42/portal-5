@@ -5,8 +5,8 @@ title: "Wiki investigation write-back \u2014 validated-finding units"
 sources:
 - type: code
   path: portal/platform/wiki/adapters/writeback_investigation.py
-  commit: 66aa9fda
-last_generated_commit: 66aa9fda
+  commit: 94445e95
+last_generated_commit: 94445e95
 claims: []
 confidence: high
 tags:

@@ -42,7 +42,7 @@ not flag the config intent mismatch.
 
 **Fix**: `config/backends.yaml` — `auto-documents` workspace_routing changed to
 `[mlx, general, coding]`.  
-**Committed**: `4f4dbe9` — `fix(routing): wire auto-documents to MLX primary`  
+**Committed**: `f1b85aa` — `fix(routing): wire auto-documents to MLX primary`  
 **Verified**: Pipeline immediately confirmed `backend=mlx-apple-silicon model=huihui-ai/Huihui-Qwen3.5-9B-abliterated-mlx-4bit` after container restart.
 
 ---
@@ -119,7 +119,7 @@ model is:
 | auto-compliance | granite-4.1-30b (30GB) | 40-70s |
 
 **Fixed in execute doc**: Phase 4→5 pre-warm expanded to include an MLX pipeline
-warmup request + 30s sleep (committed `4f4dbe9`).
+warmup request + 30s sleep (committed `f1b85aa`).
 
 **Still needed**: Pre-warm for auto-agentic before its phase. The execute doc
 currently has no MLX pre-warm before Phase 2 (auto-agentic). Adding:
@@ -140,8 +140,8 @@ sleep 90
 
 | Fix | Commit | Status |
 |-----|--------|--------|
-| auto-documents workspace groups: add `mlx` | `4f4dbe9` | ✅ Done |
-| Phase 4→5 pre-warm: MLX auto-documents + 30s sleep | `4f4dbe9` | ✅ Done |
+| auto-documents workspace groups: add `mlx` | `f1b85aa` | ✅ Done |
+| Phase 4→5 pre-warm: MLX auto-documents + 30s sleep | `f1b85aa` | ✅ Done |
 | Routing validator: use Backend-succeeded log line | this session | ✅ Done |
 | auto-agentic pre-warm before Phase 2 | pending | ⏳ Needed |
 

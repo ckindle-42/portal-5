@@ -5,7 +5,7 @@ title: "UAT state \u2014 per-run mutable state"
 sources:
 - type: code
   path: tests/uat/state.py
-  commit: 85bb65bd
+  commit: d7dcc96a
 claims: []
 confidence: high
 tags:

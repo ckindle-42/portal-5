@@ -5,8 +5,8 @@ title: "Ablation attribution \u2014 multi-state failure attribution instrument"
 sources:
 - type: code
   path: portal/modules/security/eval/ablation_attribution.py
-  commit: 1d62c01d
-last_generated_commit: 1d62c01d
+  commit: 851ea193
+last_generated_commit: 851ea193
 claims: []
 confidence: high
 tags:

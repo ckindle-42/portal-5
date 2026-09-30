@@ -5,8 +5,8 @@ title: "Stage2 propose \u2014 coverage-gap proposal stage"
 sources:
 - type: code
   path: portal/modules/security/core/stage2_propose.py
-  commit: 11d83e41
-last_generated_commit: 11d83e41
+  commit: 699b6207
+last_generated_commit: 699b6207
 claims: []
 confidence: high
 tags:

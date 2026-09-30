@@ -79,11 +79,11 @@ correct, not a shortfall.
    `.get("workspace_model")` on a `PersonaSpec` pydantic instance instead of
    `.workspace_model`; confirmed live against the running pipeline
    (`POST /v1/chat/completions {"model":"adversarysimulator"}` → 500). Fixed
-   and regression-tested independently of the collapse work (`c4b07b6`).
+   and regression-tested independently of the collapse work (`0056a8e`).
 2. **`get_workspace_dict()` only gated `module: eval`** — every other module's
    `enabled:false` state was cosmetic (visible in `modules.generated.yaml` but
    had zero effect on the live `WORKSPACES` dict). Found and fixed in Phase 9
-   (`fc29dec`).
+   (`accf703`).
 
 ## Verification (final gate)
 
@@ -103,6 +103,6 @@ a live-integration test outside `tests/unit/` (the CI-gated suite, which is
 
 ## Commits
 
-`214a16f` (Phase 8 part 2, preferred_models chain) → `fc29dec` (Phase 9,
-CLI + general module gate) → `212e5ac` (Phase 10, doc reconciliation) → this
+`ad03064` (Phase 8 part 2, preferred_models chain) → `accf703` (Phase 9,
+CLI + general module gate) → `e70764e` (Phase 10, doc reconciliation) → this
 retrospective (Phase 11) → tag `collapse-v1-complete`.

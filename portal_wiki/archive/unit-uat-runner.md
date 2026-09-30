@@ -5,8 +5,8 @@ title: "UAT runner \u2014 section orchestration"
 sources:
 - type: code
   path: tests/uat/runner.py
-  commit: 85bb65bd
-last_generated_commit: 85bb65bd
+  commit: d7dcc96a
+last_generated_commit: d7dcc96a
 claims: []
 confidence: high
 tags:

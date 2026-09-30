@@ -5,9 +5,9 @@ workspace_model: bench-qwen35-abliterated
 preferred_models:
   - huihui_ai/qwen3.5-abliterated:9b
 module: eval
-# (was MLX chat tier, retired 3a0c58e; now Ollama GGUF — see config/backends.yaml)
+# (was MLX chat tier, retired 75c24a9; now Ollama GGUF — see config/backends.yaml)
 # Ollama: huihui_ai/qwen3.5-abliterated:9b (same model, same author)
-# Ollama-only inference (MLX chat tier retired 3a0c58e).
+# Ollama-only inference (MLX chat tier retired 75c24a9).
 # BENCHMARK NOTE: This is the AUTO path baseline. Use to evaluate the uncensored primary
 # directly, bypassing routing overhead. Check which backend served:
 #   ./launch.sh logs | grep "model_hint\|Switching to model"

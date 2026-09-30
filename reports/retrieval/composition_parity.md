@@ -1,7 +1,7 @@
 <!--
 evidence: TASK_RAG_COMPOSITION_SEAM_V1 Phase 4 — end-to-end composition parity
-before:   3de59b6c4ea5c417bb3e35a3a3dc18a45c8031f4  (P1 — pre-seam retrieval code)
-after:    a59d488f53b4733d9c43bf327e31a4bf62b1c368  (P3 — rag_multimodal composes the stage library)
+before:   9b7f1accef53b536139e3ceac81664a85095009a  (P1 — pre-seam retrieval code)
+after:    bd9395d7bcef7e25f59a1d86a901dd041ea5d3f5  (P3 — rag_multimodal composes the stage library)
 host:     darwin 25.6.0, Apple Silicon
 venv:     lancedb 0.37.1 · pyarrow 23.0.1 · httpx 0.28.1 · pymupdf 1.28.2 · docling 2.99.0 · transformers 5.16.1 · mlx-embeddings 0.1.0
 vl server: :8942 ready — mlx-community/Qwen3-VL-Embedding-2B-mxfp8 (dim 2048, normalize=true) + Qwen3-VL-Reranker-2B-mxfp8

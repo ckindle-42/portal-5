@@ -5,8 +5,8 @@ title: "Section C4 \u2014 Image generation: FLUX schnell"
 sources:
 - type: code
   path: tests/comfyui/c04_flux_schnell.py
-  commit: 441fd2a1
-last_generated_commit: 441fd2a1
+  commit: ee3590ba
+last_generated_commit: ee3590ba
 claims: []
 confidence: high
 tags:

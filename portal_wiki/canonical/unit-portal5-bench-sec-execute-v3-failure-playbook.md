@@ -33,7 +33,7 @@ updated_at: 1784946220.710026
 - Chain times out — confirm `_data.py`'s `PER_WORKSPACE_TIMEOUT` has a literal
   `::`-keyed entry for the workspace (for example `auto-security::redteam`); a
   folded variant that lost its cap falls back to `REQUEST_TIMEOUT` and may be
-  killed mid-chain. The edcaa8b fix keyed that dict on the literal `::` string
+  killed mid-chain. The 6c5d2cf fix keyed that dict on the literal `::` string
   precisely to stop this, so verify the key survived any later fold.
 
 ## Why

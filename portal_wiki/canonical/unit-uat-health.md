@@ -5,7 +5,7 @@ title: "UAT health \u2014 backend/memory/zombie checks"
 sources:
 - type: code
   path: tests/uat/health.py
-  commit: 85bb65bd
+  commit: d7dcc96a
 claims: []
 confidence: high
 tags:

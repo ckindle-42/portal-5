@@ -1,6 +1,6 @@
 # SPLASH_PREFIX_FANOUT_BAKEOFF_V1 — decision record
 
-**Date:** 2026-09-20 · **Task:** TASK_COMPLIANCE_DELIVER_AND_SETTLE_ENGINE_V1 §B · **Base:** `6ff98738` → `dd624404`
+**Date:** 2026-09-20 · **Task:** TASK_COMPLIANCE_DELIVER_AND_SETTLE_ENGINE_V1 §B · **Base:** `cbcc3434` → `1a6c0702`
 **Status:** evidence complete; **`[GATE]` is an operator decision — this record presents it and stops.** No workspace was created, `config/portal.yaml`'s engine tier is untouched, `config/backends.yaml` has no splash entry, `sweep.py`'s loop is unmodified (docstring text only).
 
 ---

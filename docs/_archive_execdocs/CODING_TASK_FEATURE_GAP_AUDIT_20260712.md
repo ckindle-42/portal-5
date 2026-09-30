@@ -4,7 +4,7 @@
 
 **Method:** security-heavy content (`loop/`, `F1-F3/`, `EXEC_SEC*`, root `TASK_SEC_*`) audited directly in the main session (subagents reliably trip the cyber-safety classifier on this content). Everything else covered by four parallel read-only subagents. For each file: triage by title/purpose (skip pure historical bench-result/model-intake/docstring-review records), then for anything describing a real new capability, grep/search the current codebase to confirm presence or absence.
 
-**Base commit for code verification:** `4c23473` (pre-M0-M8 state — one research worktree branched from a stale point; verified the underlying feature-presence findings still hold post-migration since M0-M8 was a pure move+path-fix, not a rewrite).
+**Base commit for code verification:** `daa75ff` (pre-M0-M8 state — one research worktree branched from a stale point; verified the underlying feature-presence findings still hold post-migration since M0-M8 was a pure move+path-fix, not a rewrite).
 
 ---
 

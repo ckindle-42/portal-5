@@ -5,8 +5,8 @@ title: "Wiki inference adapter \u2014 Ollama binding for seeding"
 sources:
 - type: code
   path: portal/platform/wiki/adapters/portal_inference.py
-  commit: 66aa9fda
-last_generated_commit: 66aa9fda
+  commit: 94445e95
+last_generated_commit: 94445e95
 claims: []
 confidence: high
 tags:

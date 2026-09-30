@@ -5,8 +5,8 @@ title: "Router subpackage \u2014 pipeline request engine split"
 sources:
 - type: code
   path: portal/platform/inference/router/__init__.py
-  commit: a234187e
-last_generated_commit: a234187e
+  commit: d7c1d4f4
+last_generated_commit: d7c1d4f4
 claims: []
 confidence: high
 tags:

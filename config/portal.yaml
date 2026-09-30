@@ -738,7 +738,7 @@ workspaces:
       reap288:
         name: 🧪 Portal Agentic Coder (REAP-288, heavy — IDE only)
         description: 'IDE-lane agentic coder direct to Qwen3.8-Flash-Next-REAP-288-MLX-4bit (oMLX, MLX 4-bit, REAP expert-pruned 512->288 of the 180B-class Qwen3.8-Flash-Next MoE, top-10 routing, 262K native ctx). Thinking model. Explicit pick only — NEVER an auto-* default / never OWUI (TASK_OMLX_QWEN38FN_REAP288_BRINGUP_V1 operator verdict). ~39GB resident with qwen4_ple_ssd_offload:true; a ~40.6GB oMLX admission gate cannot be met with the full Portal stack up (~10GB reclaimable then). RELIABLE PATH: `./launch.sh coder-reap288` — stops the stack, frees RAM, warm-loads the model, opens opencode straight against oMLX :8085 (not this pipeline path). Warm decode ~24-29 tok/s. Prefill ceiling: ~39GB resident leaves ~17GB under the 56GB Metal cap, so full agentic turns (~18-20K token repo context) trip oMLX''s prefill guard — bounded-context coding only; heavy repo-wide work stays on the laguna default. oMLX-only, no Ollama/GGUF fallback.'
-        # 2026-09-25: qwen3.8 instruct card + think pinned off — its bench seat ran think:false (code repair, not a reasoning task); the flag was lost when it became a variant (5703b5e8); A/B: docs/TASK_SEAT_SAMPLING_AB_V1.md B2
+        # 2026-09-25: qwen3.8 instruct card + think pinned off — its bench seat ran think:false (code repair, not a reasoning task); the flag was lost when it became a variant (091682f1); A/B: docs/TASK_SEAT_SAMPLING_AB_V1.md B2
         model_hint: Qwen3.8-Flash-Next-REAP-288-MLX-4bit
         think: false
         context_limit: 32768
@@ -1816,7 +1816,7 @@ workspaces:
   # not in the conversational lane — the pipeline appends a workspace's
   # system_prompt_append and offers its tools to every request, so every
   # strict-JSON map reading carried compliance-reading's conversational persona
-  # (its own citation-token rules) and 19 tool schemas from 40634132 on.
+  # (its own citation-token rules) and 19 tool schemas from e36364eb on.
   # Conversation addresses compliance-reading by id and is unaffected.
   # Guarded by tests/unit/test_compliance_machine_seat_isolation.py.
   compliance-mapping:
@@ -1871,7 +1871,7 @@ workspaces:
     temperature: 0.3
     # top_k / repeat_penalty: the google/gemma-4 card (top_p 0.95, top_k 64, no
     # repetition penalty). The 20 / 1.1 here were the Ling seat's, carried over
-    # when 8866e7b9 rebound the hint to gemma4 (PIPELINE_ALIGNMENT_V1 §13).
+    # when 60021a9d rebound the hint to gemma4 (PIPELINE_ALIGNMENT_V1 §13).
     top_p: 0.95
     top_k: 64
     min_p: 0.0
@@ -2218,7 +2218,7 @@ workspaces:
     module: eval
     name: 🔬 Bench · OmniCoder-2-9B
     description: |-
-      Benchmark: omnicoder2:9b-q4_k_m (Ollama, Qwen3.5-9B base SFT on 425K agentic trajectories from Claude Opus 4.6 / GPT-5.4 / Codex / Gemini 3.1 Pro). Apache 2.0, ~5.7GB. v2 fixes v1's repetition loops + bloated thinking + agentic-loop instability. Ollama-only stack (MLX inference tier retired 3a0c58e); served as omnicoder2:9b-q4_k_m.
+      Benchmark: omnicoder2:9b-q4_k_m (Ollama, Qwen3.5-9B base SFT on 425K agentic trajectories from Claude Opus 4.6 / GPT-5.4 / Codex / Gemini 3.1 Pro). Apache 2.0, ~5.7GB. v2 fixes v1's repetition loops + bloated thinking + agentic-loop instability. Ollama-only stack (MLX inference tier retired 75c24a9); served as omnicoder2:9b-q4_k_m.
     model_hint: omnicoder2:9b-q4_k_m
     predict_limit: 8192
     max_concurrent: 1

@@ -5,7 +5,7 @@ title: "Routing corpus builder \u2014 stable before/after router measurement"
 sources:
 - type: code
   path: tests/routing/build_corpus.py
-  commit: dfa74e2e
+  commit: 6f44673c
 claims: []
 confidence: high
 tags:
@@ -30,7 +30,7 @@ The corpus exists to answer a before/after question: did the collapse change
 which workspace a given message routes to? For that measurement to mean
 anything, the corpus must be *stable* across the two checkouts being compared
 — which is why the pre-collapse examples are asserted byte-identical at
-`45edb25` and HEAD, and why the fold-coverage prompts are written from the
+`60bf0a7` and HEAD, and why the fold-coverage prompts are written from the
 *pre-collapse* descriptions: a prompt authored from today's config would bake
 the collapse's answer into the question. The `expected_workspace` field is
 optional because the corpus measures observed routing, not asserted routing —

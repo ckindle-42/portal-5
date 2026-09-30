@@ -5,8 +5,8 @@ title: "ComfyUI acceptance runner \u2014 section sequencing"
 sources:
 - type: code
   path: tests/comfyui/runner.py
-  commit: 441fd2a1
-last_generated_commit: 441fd2a1
+  commit: ee3590ba
+last_generated_commit: ee3590ba
 claims: []
 confidence: high
 tags:

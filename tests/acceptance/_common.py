@@ -726,7 +726,7 @@ def _check_image_freshness() -> None:
 WS_IDS, WS_NAMES = _load_workspaces()
 PERSONAS = _load_personas()
 
-# All workspace IDs that route via Ollama (the full catalog — MLX proxy retired 3a0c58e).
+# All workspace IDs that route via Ollama (the full catalog — MLX proxy retired 75c24a9).
 OLLAMA_WORKSPACES: set[str] = set(WS_IDS) | {"huihui_ai/Qwen3.6-abliterated:27b"}
 
 

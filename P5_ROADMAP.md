@@ -53,14 +53,14 @@ work would extend, leaving the aspirational status explicit.
 
 ---
 
-### Speculative Decoding / MTP — RETIRED (commit 3a0c58e)
+### Speculative Decoding / MTP — RETIRED (commit 75c24a9)
 
 Speculative decoding and MTP support lived in the retired MLX proxy and are not
 part of the current serving stack. The archived
 `scripts/_archive/mlx-retired-3a0c58e/mlx-proxy.py` reads the draft-model map
 (`speculative_decoding.draft_models` in `config/backends.yaml`) into
 `DRAFT_MODEL_MAP` and passes `--draft-model` when the draft for a target model is
-present locally; that surface was deleted with the proxy at commit 3a0c58e. The
+present locally; that surface was deleted with the proxy at commit 75c24a9. The
 archive README confirms the scripts are not runnable at HEAD and that any future
 speculation work targets Ollama's native path rather than MLX — the archive exists
 as reference for the admission-control pattern and the draft-model mapping.
@@ -169,7 +169,7 @@ runs before any model switch, rejecting a load with an HTTP 503 and an
 operator-actionable message when required GB plus `MEMORY_HEADROOM_GB` exceeds
 free memory. The override env vars were `MLX_MEMORY_HEADROOM_GB` (default 10.0)
 and `MLX_MEMORY_UNKNOWN_DEFAULT_GB` (default 20.0). The proxy and its unit tests
-were deleted at commit 3a0c58e, which retired
+were deleted at commit 75c24a9, which retired
 the whole MLX inference tier; the archive README at
 `scripts/_archive/mlx-retired-3a0c58e/` documents recovering the tests
 via git. Memory pressure is now managed by Ollama itself through

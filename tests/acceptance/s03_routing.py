@@ -25,7 +25,7 @@ async def run() -> None:
     sec = "S3a"
 
     # All production workspaces route through Ollama (MLX inference retired
-    # in 3a0c58e). Groups are for readability/ordering only.
+    # in 75c24a9). Groups are for readability/ordering only.
     #
     # A list entry is either a plain workspace id string, or a
     # (workspace_id, prompts_label) tuple for a canonicalized former-alias

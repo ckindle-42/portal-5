@@ -5,7 +5,7 @@ title: 31 production + 22 eval workspaces
 sources:
 - type: code
   path: config/portal.yaml
-  commit: 6e6cab5dd06f
+  commit: 9e65e8b2b02e
 claims:
 - probe: workspaces.total
   pattern: '{value} total)'

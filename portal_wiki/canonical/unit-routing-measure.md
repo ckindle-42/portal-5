@@ -5,7 +5,7 @@ title: "Routing integrity measurement \u2014 keyword router before/after diff"
 sources:
 - type: code
   path: tests/routing/measure.py
-  commit: dfa74e2e
+  commit: 6f44673c
 claims: []
 confidence: high
 tags:

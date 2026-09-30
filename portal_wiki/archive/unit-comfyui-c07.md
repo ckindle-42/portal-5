@@ -5,8 +5,8 @@ title: "Section C7 \u2014 Image generation: parameter sweep"
 sources:
 - type: code
   path: tests/comfyui/c07_param_sweep.py
-  commit: 441fd2a1
-last_generated_commit: 441fd2a1
+  commit: ee3590ba
+last_generated_commit: ee3590ba
 claims: []
 confidence: high
 tags:

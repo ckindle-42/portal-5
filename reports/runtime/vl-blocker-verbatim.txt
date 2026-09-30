@@ -1,5 +1,5 @@
 # command: python -c 'from mlx_embeddings import load; load(<qwen3-vl repo>)'
-# inputs: V4 P0.4 — verbatim VL load traceback; header added retroactively (C3) (HEAD f1d6bf0f)
+# inputs: V4 P0.4 — verbatim VL load traceback; header added retroactively (C3) (HEAD 84139bd5)
 # resolved-versions: mlx==0.32.2, mlx-embeddings==0.1.0, mlx-vlm==0.6.17, transformers==5.16.1, torch==2.13.0, torchvision==0.28.0, phonemizer==3.4.0
 # timestamp: 2026-09-01T19:12:41+00:00
 # ---

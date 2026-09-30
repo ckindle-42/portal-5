@@ -5,7 +5,7 @@ title: 33 MCP fleet servers
 sources:
 - type: code
   path: config/portal.yaml
-  commit: 543d468adeee
+  commit: 5c347a762755
   section: mcp_fleet
 claims:
 - probe: mcp.fleet.entries

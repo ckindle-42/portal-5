@@ -5,8 +5,8 @@ title: "Wiki CLI \u2014 render/status/propose/drift/archive maintenance surface"
 sources:
 - type: code
   path: portal_wiki/__main__.py
-  commit: 831274f5
-last_generated_commit: 6afb262648d307376dfb4f839eeed69c02112d04
+  commit: c2f94bb3
+last_generated_commit: abe6f42ccd1cd1ce696800899e19dfc51821e0ef
 claims: []
 confidence: high
 tags:

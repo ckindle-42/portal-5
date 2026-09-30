@@ -5,7 +5,7 @@ title: "V5 ladder bench analyser \u2014 archived promotion decision input"
 sources:
 - type: code
   path: scripts/_archive/analyze_bench_v5.py
-  commit: c23c27d9
+  commit: 2fa4b6c3
 claims: []
 confidence: high
 tags:

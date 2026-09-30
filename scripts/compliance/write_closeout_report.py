@@ -59,7 +59,7 @@ def _sec_frame(root: pathlib.Path, now: str) -> str:
         return "\n".join(out)
     out.append(
         f"- **Base:** {pre.get('base_commit', '?')[:12]} (task authored against "
-        "`a242837`, 2026-09-20; the dialect seam `29665293` and the conjunction "
+        "`e9928d6`, 2026-09-20; the dialect seam `539b6cfb` and the conjunction "
         "adoption landed before the runs recorded here)"
     )
     out.append(f"- **Seat:** `{pre.get('seat', '?')}` — unchanged for the whole campaign")
@@ -160,7 +160,7 @@ def _sec_sweep(root: pathlib.Path) -> str:
     out.append(
         f"determined **{det}** · corroborated **{cor}** · rejected **{rej}** — "
         "and this time every rejection rides inside the closure receipt with "
-        "its reason (the 9077422 fix), so §6 could be mechanical instead of "
+        "its reason (the 57dd874 fix), so §6 could be mechanical instead of "
         "hand-done on two standards."
     )
     out.append("")
@@ -372,7 +372,7 @@ def _sec_open(root: pathlib.Path) -> str:
         "6. **The three historically-failing base-tree unit tests** "
         "(`test_cad_coverage_corpus`, `test_bench_cad_probe_think`, "
         "`test_compliance_obligation_alignment`) are listed as open in the task "
-        "text; at the commit this close ran from they PASS — the 035757cc "
+        "text; at the commit this close ran from they PASS — the 54e17551 "
         "corpus-independence fix landed first. Recorded as closed-by-another, "
         "not claimed by this close."
     )

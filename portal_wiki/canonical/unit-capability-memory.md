@@ -86,7 +86,7 @@ tuple never aborts a migration.
 
 ## Reconciliation (TASK_VL_RETRIEVAL_HARDENING_AND_CLOSEOUT_V2 C2)
 
-T8 (`433b56e8`) recorded **73/73 memories migrated, 216 entities, 193
+T8 (`21a76a09`) recorded **73/73 memories migrated, 216 entities, 193
 relations** — run *inside* `portal5-mcp-memory` as the container's `portal`
 user. That store is the **Docker named volume `portal-5_portal5-lance`**
 (mounted at `/app/data/portal5_lance`), not the host path. Queried live it holds

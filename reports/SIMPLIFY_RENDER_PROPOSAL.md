@@ -1,7 +1,7 @@
 # SIMPLIFY_RENDER_PROPOSAL — R5, TASK_PORTAL_SIMPLIFY_V1
 
 **Status:** Discovery + proposal only (R5.3 not implemented pending operator review).
-**Discovery date:** live reads at `cb5f261a` (R3 landed).
+**Discovery date:** live reads at `900ccae5` (R3 landed).
 
 ## R5.1 — Current behavior (established by reading the source)
 

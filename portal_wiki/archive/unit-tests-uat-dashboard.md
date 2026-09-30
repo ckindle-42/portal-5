@@ -5,8 +5,8 @@ title: "Tests UAT dashboard \u2014 results aggregation views"
 sources:
 - type: code
   path: tests/uat_dashboard.py
-  commit: 4900007a
-last_generated_commit: 4900007a
+  commit: 347dfc8a
+last_generated_commit: 347dfc8a
 claims: []
 confidence: high
 tags:

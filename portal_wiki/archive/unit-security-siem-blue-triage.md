@@ -5,8 +5,8 @@ title: "SIEM blue-triage loop \u2014 poll, enrich, P1-P4 report"
 sources:
 - type: code
   path: portal/modules/security/core/siem/blue_triage.py
-  commit: b6f05201
-last_generated_commit: b6f05201
+  commit: d493d44c
+last_generated_commit: d493d44c
 claims: []
 confidence: high
 tags:

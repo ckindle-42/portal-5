@@ -734,7 +734,7 @@ def read(  # noqa: PLR0912, PLR0915
         for note in notes_for(repo, identity)
     ]
     # WINDOW_AND_SEAT_V1 P1.3: the seed ships NO text-bearing regulatory
-    # component. `114b72a0` added the bootstrap (requirement packet + links)
+    # component. `6f9c289f` added the bootstrap (requirement packet + links)
     # for a correct measured reason and nothing removed the seed's first copy,
     # so the requirement's verbatim text, Measures and Technical Basis rode in
     # the thread TWICE on turn one — pure high-water-mark inflation on a fixed

@@ -5,8 +5,8 @@ title: "Persona matrix loaders \u2014 config/catalog/persona readers"
 sources:
 - type: code
   path: portal/modules/eval/persona_matrix/loaders.py
-  commit: 7954fafc
-last_generated_commit: 7954fafc
+  commit: db243698
+last_generated_commit: db243698
 claims: []
 confidence: high
 tags:

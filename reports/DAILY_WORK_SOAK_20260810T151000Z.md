@@ -3,7 +3,7 @@
 **Task:** TASK_DAILY_WORK_FLEET_SOAK_V1
 **Method:** bench_daily_soak.py. 10 real daily categories, deep tool-provoking banks,
 ~3h each, concurrency 3. Direct legs (omlx/ollama) = true 1:1; pipeline leg = full-system shape.
-**HEAD:** `33559917` (built on top of `TASK_OMLX_FULL_PIPELINE_COVERAGE_V1`, commits `50b73876`/`33559917`)
+**HEAD:** `ac0317f9` (built on top of `TASK_OMLX_FULL_PIPELINE_COVERAGE_V1`, commits `61369a08`/`ac0317f9`)
 
 ## 1:1 engine comparison (direct, same day of real work)
 
@@ -111,4 +111,4 @@ WindowServer (1 induced crashes) in 122 seconds
 - `results/daily_soak_direct_ollama_day_1to1_20260810T055938Z.json`
 - `results/daily_soak_pipeline_day_pipeline_20260810T150729Z.json` (+ checkpoints, shakedowns in the same directory)
 - Harness: `tests/benchmarks/bench_daily_soak.py`
-- HEAD: `33559917`
+- HEAD: `ac0317f9`

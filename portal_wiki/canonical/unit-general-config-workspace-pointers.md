@@ -5,7 +5,7 @@ title: "General config \u2014 portal.yaml pointer surface"
 sources:
 - type: code
   path: portal/modules/general/config/__init__.py
-  commit: 1a0e2df4
+  commit: 9c8e6dae
 claims: []
 confidence: high
 tags:

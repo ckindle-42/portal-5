@@ -12,7 +12,7 @@ pipeline smoke are all landed.
 
 ## What changed, and why this task exists
 
-Until `b76db906` (2026-09-25) no Ollama-served seat ever received its
+Until `19cea3c3` (2026-09-25) no Ollama-served seat ever received its
 `portal.yaml` sampling: Ollama's `/v1` forced temperature/top_p to 1.0 and dropped
 top_k/min_p/repeat_penalty. The 0.1–0.3 temperatures in `portal.yaml` were never
 what users got, and serving them for the first time put the fleet in the
@@ -46,7 +46,7 @@ revert the losers. The decision covered three points:
   pin, so they were thinking natively. Both now have **`think: false`** plus the
   card's **instruct** mode, as the project's evidence and history call for:
   - REAP-288's bench seat ran `think: false` on purpose ("code repair, not a
-    reasoning task"). The flag was lost when it became a variant (`5703b5e8`).
+    reasoning task"). The flag was lost when it became a variant (`091682f1`).
   - The Qwen3.x default `<think>` loops or exhausts the token budget on lanes
     that don't need reasoning. auto-compliance looped for 300+ lines on
     2026-08-31. See memory `feedback_thinking_model_needs_think_false`.
@@ -127,7 +127,7 @@ new 20; nothing else about it changed.
 2. **Back up any checkpoint before clearing or overwriting it** (`cp` to a dated
    name first, unconditionally).
 3. **One seat → one campaign → one decision → one commit.** Never batch config
-   changes across seats (the reverted `d51dd29a` did exactly that).
+   changes across seats (the reverted `aaf46397` did exactly that).
 4. **`auto-security*`: engine settings only.** Sampling A/B is B8. Do not change
    system prompts, models or tool lists. S3's `scan_code` comparison gates the
    chat-seat model, and `purpleteam-exec`'s `tools_unsupported` FAIL is the
@@ -232,7 +232,7 @@ below and on the card entry's `behavioral_quirks` in
       - `think: true` with the thinking card `{temperature: 1.0, top_p: 0.95, top_k: 20, min_p: 0.05, repeat_penalty: 1.05}`.
 
       Caveat: uncensored-fast's only WFE result (9/9 coding, `wfe_full_20260911`)
-      ran before `8ccaa84a`, when `think: false` was a silent no-op on Ollama
+      ran before `96ae11c1`, when `think: false` was a silent no-op on Ollama
       `/v1`. It was therefore measured *thinking* (and at 1.0/1.0). The think-on
       arm is a real contender there, not a formality. Flip the pin only on a clear
       win with no rise in `BUDGET_EXHAUSTED`. Also check the other seats with no

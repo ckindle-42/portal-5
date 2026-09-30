@@ -1,11 +1,11 @@
 {
   "timestamp_utc": "2026-09-22T01:55:00Z",
-  "head_commit": "1aefe218a68dadccca6663fb2000c566103f1013",
+  "head_commit": "a596108f0c8d3116acf569cabec870d0d5df2337",
   "head_subject": "docs(bench): mlx-serve engine bench — beats Ollama concurrency, may revive compliance-sweep speedup",
   "head_committed_at": "2026-09-21 20:26:43 -0500",
   "task_file": "coding_task/TASK_LANDSCAPE_2026Q3_BENCHES_V1.md",
   "ollama_version_expected": "0.34.2",
-  "task_file_base_commit": "e776b3a9",
+  "task_file_base_commit": "67606df2",
   "ollama_version_observed": "0.34.2",
   "free_port_chosen_for_auk": 8940,
   "audio_fixture_ok": true,
@@ -105,7 +105,7 @@
     "live_body": {"model": "kokoro|qwen3-tts-design", "input": "<text>", "voice": "af_heart|design:<description>"}
   },
   "discovered_disagreements": [
-    "HEAD is 1aefe218a68dadccca6663fb2000c566103f1013, not the task-file base e776b3a9. e776b3a9 is an ancestor (PROVE_THE_MODULE_V1). Two later commits sit on main. Later phases record this HEAD.",
+    "HEAD is a596108f0c8d3116acf569cabec870d0d5df2337, not the task-file base 67606df2. 67606df2 is an ancestor (PROVE_THE_MODULE_V1). Two later commits sit on main. Later phases record this HEAD.",
     "AuK feat/mlx-apple-silicon does not ship inference_mlx.py. The MLX CLI is `auk-mlx-infer` / `python -m auk_mlx.cli` with --instruction, --audio, --output/-o, --flash, --mlx_dir, --qwen_path, --config, --gen_seconds, --bits, --sequential. Tasks are instruction text, not a --task enum. Weights must be converted once via `python -m auk_mlx.convert` into ckpts/mlx. Branch tip 6943a1e967409e8c73139a7a345f2a611cfb3dd6. .python-version is 3.10.",
     "System python3 is 3.14.7. granite-switch 0.1.0 requires Python <3.14,>=3.11, so `python3 -m pip index versions granite-switch` reports no distribution and `python3 -m venv` cannot install it. P3 will use /opt/homebrew/bin/python3.11. PyPI latest is 0.1.0.",
     "mflux-generate-qwen-edit --help takes --image-paths (one or more), not --image. --model accepts a built-in name, an HF repo id, or a local path, plus --base-model for third-party checkpoints. The built-in list includes qwen-image-edit and does not include qwen-image-edit-2509. P2.1 still probes case (a) then (b).",

@@ -5,8 +5,8 @@ title: "Router correlation \u2014 per-request trace-id stamping"
 sources:
 - type: code
   path: portal/platform/inference/router/correlation.py
-  commit: a234187e
-last_generated_commit: a234187e
+  commit: d7c1d4f4
+last_generated_commit: d7c1d4f4
 claims: []
 confidence: high
 tags:

@@ -5,8 +5,8 @@ title: "S30 \u2014 Image and video"
 sources:
 - type: code
   path: tests/acceptance/s30_image_video.py
-  commit: a88ad75b
-last_generated_commit: a88ad75b
+  commit: e75dddd2
+last_generated_commit: e75dddd2
 claims: []
 confidence: high
 tags:

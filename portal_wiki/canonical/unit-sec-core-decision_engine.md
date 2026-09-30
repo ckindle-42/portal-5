@@ -5,7 +5,7 @@ title: "Decision engine \u2014 promoted to platform agent rank"
 sources:
 - type: code
   path: portal/modules/security/core/decision_engine.py
-  commit: 11d83e41
+  commit: 699b6207
 claims: []
 confidence: high
 tags:

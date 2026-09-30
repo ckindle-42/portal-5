@@ -42,7 +42,7 @@ async def S3a() -> None:
 
 
 async def S3() -> None:
-    """S3: Workspace routing tests (runs S3a). S3b (MLX) retired in 3a0c58e."""
+    """S3: Workspace routing tests (runs S3a). S3b (MLX) retired in 75c24a9."""
     await S3a()
 
 

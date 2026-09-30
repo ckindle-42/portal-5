@@ -17,7 +17,7 @@ Key decisions already locked in before this review cycle:
 
 - **3 Qwable-27B dense variants were removed** — all <15 TPS. Not candidates.
 - **Huihui-Qwen3.6-27B dense gate failed** — pipeline TPS 12.5, below 15 TPS threshold. Chain bench skipped; model out.
-- **Qwable-35B security chain = FAIL** — 0.64 coverage, below 2/2 WIN threshold. Per CANDIDATE_EVAL_V1 Step 0, this required removal. Commit `9d3a63f` promoted it instead — this review corrects that.
+- **Qwable-35B security chain = FAIL** — 0.64 coverage, below 2/2 WIN threshold. Per CANDIDATE_EVAL_V1 Step 0, this required removal. Commit `0b848be` promoted it instead — this review corrects that.
 - **devstral-small-2**: 15.5 TPS pipeline — below 20 TPS interactive floor. Stays in coding pool per Step 3. Chain bench (Run A) informs cross-listing only.
 
 ---
@@ -68,7 +68,7 @@ Understanding what each model was actually built for changes every placement dec
 | `hf.co/huihui-ai/Huihui-Qwen3.6-35B-A3B-abliterated-MTP-GGUF:latest` | 0.00 | Errors on every chain and tool probe. No path to recovery in current format. |
 | `baronllm:q6_k` | 0.00 | Tool template bug caused chain failures (TASK_TOOLCALL_FIX_LOCKIN_V1 fixed this in the abliterated variant, not the q6_k). The base model is not the problem — this quantization/template combination is. |
 | `deepseek-r1:32b-q4_k_m` | 0.00 | Cannot emit tool_calls — text_only on all probes. Not a model failure; it's a reasoning model in the wrong group. Already available to `auto-blueteam` through the reasoning group pathway. |
-| `hf.co/Mia-AiLab/Qwable-3.6-35b:Qwable-3.6-35b_q4_k_m.gguf` | 0.64 | Failed CANDIDATE_EVAL_V1 Step 0 threshold. Commit `9d3a63f` promoted it anyway — that decision is reversed here. Also: `ollama rm` this model. |
+| `hf.co/Mia-AiLab/Qwable-3.6-35b:Qwable-3.6-35b_q4_k_m.gguf` | 0.64 | Failed CANDIDATE_EVAL_V1 Step 0 threshold. Commit `0b848be` promoted it anyway — that decision is reversed here. Also: `ollama rm` this model. |
 
 ### Move (not remove)
 

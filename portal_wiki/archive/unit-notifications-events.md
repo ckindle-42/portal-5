@@ -5,8 +5,8 @@ title: "Notification events \u2014 typed alert/summary vocabulary"
 sources:
 - type: code
   path: portal/platform/inference/notifications/events.py
-  commit: 7b309b21
-last_generated_commit: 7b309b21
+  commit: 7383d070
+last_generated_commit: 7383d070
 claims: []
 confidence: high
 tags:

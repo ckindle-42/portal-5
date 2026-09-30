@@ -5,8 +5,8 @@ title: "Coding capability probe \u2014 execution-validated 7-dimension matrix"
 sources:
 - type: code
   path: tests/scripts/capability_probe.py
-  commit: dc13b2d5
-last_generated_commit: dc13b2d5
+  commit: 53110d10
+last_generated_commit: 53110d10
 claims: []
 confidence: high
 tags:

@@ -5,7 +5,7 @@ title: "UAT package \u2014 modularised UAT driver split"
 sources:
 - type: code
   path: tests/uat/__init__.py
-  commit: 85bb65bd
+  commit: d7dcc96a
 claims: []
 confidence: high
 tags:

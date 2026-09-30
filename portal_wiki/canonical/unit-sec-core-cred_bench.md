@@ -5,7 +5,7 @@ title: "Cred bench \u2014 folded into pentest/redteam scenarios"
 sources:
 - type: code
   path: portal/modules/security/core/cred_bench.py
-  commit: 11d83e41
+  commit: 699b6207
 claims: []
 confidence: high
 tags:

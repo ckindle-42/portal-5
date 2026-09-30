@@ -21,7 +21,7 @@ what happened:
    directly from Python via `_lab_mcp_call` — the model generates plan
    text, driver parses and dispatches. No model-side tool support
    needed.
-4. Commit `7fee599` correctly fixed the registry injection. Now
+4. Commit `71f0970` correctly fixed the registry injection. Now
    `_model_supports_tools()` returns True for supergemma4 — and
    tools ARE injected.
 5. supergemma4 then sees tool definitions and tries to dispatch
@@ -31,7 +31,7 @@ what happened:
 **The fix in Phase 2 sets `supports_tools: false` for
 supergemma4-26b-uncensored.** This restores the pre-refactor
 behavior for this specific model (no tools injected to it; driver
-dispatches; chain works) while preserving the `7fee599` registry
+dispatches; chain works) while preserving the `71f0970` registry
 fix for every other tool-supporting model.
 
 ## Blocking — addressed in this task

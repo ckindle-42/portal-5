@@ -1,7 +1,7 @@
 # SIMPLIFY_REPORT — TASK_PORTAL_SIMPLIFY_V1
 
 **Program:** Part I (regrain the documentation system) + Part II (reduce code complexity).
-**Derived against:** `bd59d4b9` · **Final HEAD:** `81d60f3b`
+**Derived against:** `5350df84` · **Final HEAD:** `4abd343f`
 **All numbers are live measurements at the final HEAD, not the derivation's.**
 
 ---

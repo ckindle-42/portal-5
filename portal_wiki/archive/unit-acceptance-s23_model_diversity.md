@@ -5,8 +5,8 @@ title: "S23 \u2014 Model diversity"
 sources:
 - type: code
   path: tests/acceptance/s23_model_diversity.py
-  commit: a88ad75b
-last_generated_commit: a88ad75b
+  commit: e75dddd2
+last_generated_commit: e75dddd2
 claims: []
 confidence: high
 tags:

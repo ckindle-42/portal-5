@@ -1002,7 +1002,7 @@
     "tools": []
   },
   "bench-omnicoder2": {
-    "description": "Benchmark: omnicoder2:9b-q4_k_m (Ollama, Qwen3.5-9B base SFT on 425K agentic trajectories from Claude Opus 4.6 / GPT-5.4 / Codex / Gemini 3.1 Pro). Apache 2.0, ~5.7GB. v2 fixes v1's repetition loops + bloated thinking + agentic-loop instability. Ollama-only stack (MLX inference tier retired 3a0c58e); served as omnicoder2:9b-q4_k_m.",
+    "description": "Benchmark: omnicoder2:9b-q4_k_m (Ollama, Qwen3.5-9B base SFT on 425K agentic trajectories from Claude Opus 4.6 / GPT-5.4 / Codex / Gemini 3.1 Pro). Apache 2.0, ~5.7GB. v2 fixes v1's repetition loops + bloated thinking + agentic-loop instability. Ollama-only stack (MLX inference tier retired 75c24a9); served as omnicoder2:9b-q4_k_m.",
     "keep_alive": "5m",
     "max_concurrent": 1,
     "model_hint": "omnicoder2:9b-q4_k_m",

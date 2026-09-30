@@ -1,6 +1,6 @@
 # PORTAL5_ACCEPTANCE_EXECUTE_V7 — Claude Code Prompt
 
-**V7 change from V6:** the MLX inference proxy was retired (commit 3a0c58e). The acceptance suite is **Ollama-only**. The MLX-proxy scenarios (S20 acceleration, S22 admission control, S03b MLX routing, S11 MLX personas, S24 specialist-MLX) were **archived** in prior cleanup and are no longer in the registry. Routing assertions match Ollama GGUF ids directly — there is no `/`-based MLX-vs-Ollama tier detection (GGUF ids legitimately contain `/` and `:`). There is no readiness watcher, no proxy log to tail, and no `:8081` health probe.
+**V7 change from V6:** the MLX inference proxy was retired (commit 75c24a9). The acceptance suite is **Ollama-only**. The MLX-proxy scenarios (S20 acceleration, S22 admission control, S03b MLX routing, S11 MLX personas, S24 specialist-MLX) were **archived** in prior cleanup and are no longer in the registry. Routing assertions match Ollama GGUF ids directly — there is no `/`-based MLX-vs-Ollama tier detection (GGUF ids legitimately contain `/` and `:`). There is no readiness watcher, no proxy log to tail, and no `:8081` health probe.
 
 ---
 

@@ -793,7 +793,7 @@ class TestTelemetryFailureReasonCode:
     def test_no_silent_pass_in_matrix(self) -> None:
         """matrix.py no longer has bare 'except: pass' in telemetry path.
 
-        The fix (commit 105ac97) replaced it with a reason-code string.
+        The fix (commit fe95e16) replaced it with a reason-code string.
         Verify the old pattern is gone.
         """
         matrix_py = (

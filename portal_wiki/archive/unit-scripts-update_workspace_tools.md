@@ -5,8 +5,8 @@ title: "Script \u2014 update_workspace_tools"
 sources:
 - type: code
   path: scripts/update_workspace_tools.py
-  commit: af437ebd
-last_generated_commit: af437ebd
+  commit: 94ecf393
+last_generated_commit: 94ecf393
 claims: []
 confidence: high
 tags:

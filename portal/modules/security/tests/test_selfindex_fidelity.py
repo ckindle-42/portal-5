@@ -211,7 +211,7 @@ class TestValidatorJsonParsing:
 
 class TestAntiRecursionGuard:
     def test_nested_env_var_still_passed(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        """Guards commit 605845d's fork bug: the nested-run env var must still be set."""
+        """Guards commit 4109019's fork bug: the nested-run env var must still be set."""
         captured: dict[str, Any] = {}
 
         def _fake_run(*args: Any, **kwargs: Any) -> _FakeCompletedProcess:

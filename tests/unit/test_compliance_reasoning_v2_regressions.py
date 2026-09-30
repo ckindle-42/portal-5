@@ -3,7 +3,7 @@
 Each test reproduces one numbered finding from
 ``coding_task/v9_compliance/DESIGN_COMPLIANCE_REASONING_V2.md`` §2.1 against
 the CURRENT (post-P1) code, and asserts the V2-safe behavior — not the
-observed-at-baseline (9006ae6c) unsafe behavior. Several findings are also
+observed-at-baseline (0905de7c) unsafe behavior. Several findings are also
 exercised more thoroughly in their owning module's own test file
 (test_compliance_engine.py, test_compliance_tiers.py,
 test_compliance_planted.py, test_compliance_propose.py); this file is the

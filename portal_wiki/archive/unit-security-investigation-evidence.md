@@ -5,8 +5,8 @@ title: "Investigation evidence \u2014 immutable append-only evidence unit"
 sources:
 - type: code
   path: portal/modules/security/core/investigation/evidence.py
-  commit: 573a2377
-last_generated_commit: 573a2377
+  commit: 29cbcd27
+last_generated_commit: 29cbcd27
 claims: []
 confidence: high
 tags:

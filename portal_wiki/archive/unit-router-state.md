@@ -5,8 +5,8 @@ title: "Router state \u2014 metrics persistence + event recorders"
 sources:
 - type: code
   path: portal/platform/inference/router/state.py
-  commit: a234187e
-last_generated_commit: a234187e
+  commit: d7c1d4f4
+last_generated_commit: d7c1d4f4
 claims: []
 confidence: high
 tags:

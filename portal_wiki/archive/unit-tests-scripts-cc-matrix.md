@@ -5,8 +5,8 @@ title: "CC-01 challenge matrix \u2014 comparative shootout aggregator"
 sources:
 - type: code
   path: tests/scripts/cc_challenge_matrix.py
-  commit: dc13b2d5
-last_generated_commit: dc13b2d5
+  commit: 53110d10
+last_generated_commit: 53110d10
 claims: []
 confidence: high
 tags:

@@ -5,7 +5,7 @@ title: "Inference router_pipe \u2014 OWUI contract compatibility shim"
 sources:
 - type: code
   path: portal/platform/inference/router_pipe.py
-  commit: 5fbf51f8
+  commit: 250150f6
 claims: []
 confidence: high
 tags:

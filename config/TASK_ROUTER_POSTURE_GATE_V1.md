@@ -44,7 +44,7 @@ work does NOT trip it (verified — `mimikatz`/`kerberoast` route via
 **Remaining for this item:** tune the keyword set against the real C1/C2 corpus
 rows; consider an LLM-layer posture dimension (below) for cases keywords miss.
 
-### 2. LLM-layer posture dimension — DONE 2026-08-31 (commit 1cf15ba5)
+### 2. LLM-layer posture dimension — DONE 2026-08-31 (commit 973f6f4b)
 
 `_ROUTER_JSON_SCHEMA` gained a `posture` enum (harmful/standard/permissive),
 the router prompt got POSTURE guidance + 3 few-shot examples, `num_predict`

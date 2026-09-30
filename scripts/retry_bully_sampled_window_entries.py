@@ -1,7 +1,7 @@
 """One-shot checkpoint surgery: drop the H5 sweep entries that ended in a
 SampledWindowError so the next `run_bully_hunt_sweep_h5.sh` resume re-attempts
 exactly those (and only those) under the new escalating-backoff retry
-(b93f8ba6), instead of skipping them forever as "already done".
+(2b64c3e8), instead of skipping them forever as "already done".
 
 `EntryProgress.record()` marks an entry done even when its result carries an
 `error` -- by design, so a crash mid-run never loses a graded entry -- but

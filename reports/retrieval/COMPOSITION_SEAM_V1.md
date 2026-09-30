@@ -1,7 +1,7 @@
 <!--
 evidence: TASK_RAG_COMPOSITION_SEAM_V1 — Phase 9 rollup
-range:    58f011ec (pre-seam) .. 31515507 (P8)
-seam commits: 3de59b6c P1 · fd3c9eab P2 · a59d488f P3 · 3adfe06b P4 · 8cdbf303 P5 · 7a8ea17c P6 · 491873ce P7 · 31515507 P8
+range:    88596e7f (pre-seam) .. c8837ae1 (P8)
+seam commits: 9b7f1acc P1 · a22b2dd2 P2 · bd9395d7 P3 · dc4480d5 P4 · f97169f5 P5 · 17261a9b P6 · 04a50e78 P7 · c8837ae1 P8
 host:     darwin 25.6.0, Apple Silicon
 venv:     lancedb 0.37.1 · pyarrow 23.0.1 · httpx 0.28.1 · pymupdf 1.28.2 · docling 2.99.0 · transformers 5.16.1 · mlx-embeddings 0.1.0
 vl server: :8942 — mlx-community/Qwen3-VL-Embedding-2B-mxfp8 (dim 2048) + Qwen3-VL-Reranker-2B-mxfp8
@@ -62,11 +62,11 @@ gate is answered.
 
 **Function-level (P2.2):** `chunk_fixed` / `chunk_structured` / `SECTION_BOUNDARY`
 / `figure_pages` / `chunk` dispatch — byte-identical to the pre-move bodies
-(`tests/fixtures/retrieval_legacy.py`, from `3de59b6c`) across boundary-dense,
+(`tests/fixtures/retrieval_legacy.py`, from `9b7f1acc`) across boundary-dense,
 oversized-unit, fixed-fallback and empty inputs. Retired in P5 after P4.
 
 **End-to-end on a live KB (P4):** identical 9-PDF deterministic corpus ingested
-as `kb_id="parity"` under `3de59b6c` and `a59d488f`, against the live VL server.
+as `kb_id="parity"` under `9b7f1acc` and `bd9395d7`, against the live VL server.
 Byte-identical on: text + visual `chunk_id` sets (12 / 18 rows), **all 30
 embedding vectors to full float64 precision**, text-row fields, the visual
 page/image set, **all 10 search queries** (order, `fused_score`, `reranker_prob`,

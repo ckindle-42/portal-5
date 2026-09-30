@@ -5,8 +5,8 @@ title: "Acceptance results \u2014 run summary writer"
 sources:
 - type: code
   path: tests/acceptance/results.py
-  commit: a88ad75b
-last_generated_commit: a88ad75b
+  commit: e75dddd2
+last_generated_commit: e75dddd2
 claims: []
 confidence: high
 tags:

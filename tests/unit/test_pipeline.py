@@ -524,7 +524,7 @@ class TestR17bModelExpansion:
     def test_documents_workspace_uses_fast_coding_model(self):
         """auto-documents workspace model_hint uses granite4.1:8b (tool-capable document model).
 
-        phi4:14b-q8_0 was demoted in commit 7376ba4: Ollama 0.30.x rejects tool injection
+        phi4:14b-q8_0 was demoted in commit 92f720b: Ollama 0.30.x rejects tool injection
         (HTTP 400) for phi4, but auto-documents requires MCP tools (create_word_document etc.).
         granite4.1:8b is verified tool-capable (BFCL V3 68.27) and already in fleet.
         """
@@ -572,7 +572,7 @@ class TestR18ModelCompleteness:
             "auto-coding should use qwen3-coder:30b-a3b-q4_K_M (Qwen3-Coder-30B MoE, primary coder, promoted V2 Phase 6)"
         )
         assert "granite4.1" in WORKSPACES["auto-documents"]["model_hint"].lower(), (
-            "auto-documents should use granite4.1:8b (tool-capable document model; phi4:14b-q8_0 rejected by Ollama 0.30.x for tool calls — see commit 7376ba4)"
+            "auto-documents should use granite4.1:8b (tool-capable document model; phi4:14b-q8_0 rejected by Ollama 0.30.x for tool calls — see commit 92f720b)"
         )
         # R23: VulnLLM-R-7B promoted to auto-security primary 2026-06-20
         assert "vulnllm-r-7b" in WORKSPACES["auto-security"]["model_hint"].lower(), (
@@ -1162,7 +1162,7 @@ class TestCodeHygiene:
         assert not hasattr(router_pipe, "_complete_from_backend")
 
     def test_no_duplicate_mlx_proxy_url(self):
-        """Verify _MLX_PROXY_HEALTH_URL was fully removed (MLX proxy retired 3a0c58e)."""
+        """Verify _MLX_PROXY_HEALTH_URL was fully removed (MLX proxy retired 75c24a9)."""
 
         dispatcher_path = Path("portal/platform/inference/notifications/dispatcher.py")
         if not dispatcher_path.exists():
@@ -1687,7 +1687,7 @@ class TestPersonasHaveToolFields:
 
 
 class TestModelSupportsToolsRealBackend:
-    """Regression for the 3a0c58e mlx_metadata removal.
+    """Regression for the 75c24a9 mlx_metadata removal.
 
     _model_supports_tools previously iterated Backend.mlx_metadata,
     a field deleted with the MLX proxy tier. Mocked tests missed it

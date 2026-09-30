@@ -5,8 +5,8 @@ title: "S41 \u2014 Production hardening"
 sources:
 - type: code
   path: tests/acceptance/s41_production_hardening.py
-  commit: a88ad75b
-last_generated_commit: a88ad75b
+  commit: e75dddd2
+last_generated_commit: e75dddd2
 claims: []
 confidence: high
 tags:

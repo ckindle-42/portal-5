@@ -41,7 +41,7 @@ MLX survives in four non-chat runtimes, each started by its own launcher:
 Chat model inference runs exclusively through Ollama on port 11434 — GGUF format,
 pulled via `ollama pull` and cataloged in `config/backends.yaml`. The MLX
 inference proxy that previously served ports 8081/18081/18082 was retired in
-commit 3a0c58e, so no MLX runtime participates in conversation routing.
+commit 75c24a9, so no MLX runtime participates in conversation routing.
 
 ## Why
 

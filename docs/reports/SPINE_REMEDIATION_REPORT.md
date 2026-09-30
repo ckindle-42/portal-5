@@ -1,6 +1,6 @@
 # Spine Remediation Report
 
-Safety tag: `spine-remediation-safety-c00c854` (baseline HEAD before this task).
+Safety tag: `spine-remediation-safety-dc768ec` (baseline HEAD before this task).
 Worked in place on `/Users/chris/projects/portal-5` (main branch, local machine) —
 adapted from the task's cloud-sandbox instructions (`/mnt/user-data/outputs`,
 fresh clone to `portal-5-spine`) since this is a local Darwin environment with
@@ -17,7 +17,7 @@ is BLOCKED or GATE-pending. Final gate (`bash scripts/ci_local.sh`) is green:
 
 **F1 — server-side CI gap (must-fix).** CONFIRMED: `validate_system.py` absent from
 `.github/workflows/*.yml`; present only in `.pre-commit-config.yaml` (bypassable).
-Fixed in `9859dbe` by wrapping the 4 spine-gate functions
+Fixed in `c8c9666` by wrapping the 4 spine-gate functions
 (`check_routing_regression`/AU, `check_wiki_core`/AJ, `check_wiki_facts_current`/AW,
 `check_doc_currency`/AK) in `tests/unit/test_spine_gates.py`, which rides the
 existing unbypassable `pytest tests/unit` CI lane (`.github/workflows/unit-tests.yml`).
@@ -31,7 +31,7 @@ docs are reconciled") is true without any prose edit. No CLAUDE.md change needed
 **F3 — writeback overwrite (major).** CONFIRMED on full read (review's excerpt was
 truncated, not wrong): `store.py`'s `save_unit()` does an unconditional
 `path.write_text()` with no existence check; `writeback.py`'s `confirm_unit()`
-calls it directly with zero collision guard. Fixed in `7690635`:
+calls it directly with zero collision guard. Fixed in `f3fa1cd`:
 - Added `WritebackCollisionError` and a `supersede: bool` flag on `ProposedUnit`/
   `propose_unit()`.
 - `confirm_unit()` now refuses to overwrite an existing canonical unit unless the
@@ -48,13 +48,13 @@ calls it directly with zero collision guard. Fixed in `7690635`:
   `supersede=True`, and that a refused confirm leaves canon untouched.
 
 **F4 — dead snapshot (minor).** CONFIRMED: zero non-JSON references to
-`routing_decision_snapshot`. Removed in `84301a7`
+`routing_decision_snapshot`. Removed in `7dde3bb`
 (`tests/fixtures/routing_decision_snapshot.json`); `pytest tests/unit -k rout`
 stayed green (69 passed).
 
 **F5 — docstring check-letters (nit).** CONFIRMED: `check_capability_graph`'s
 docstring said `AJ` but is registered as `AI`; `check_wiki_core`'s docstring said
-`AK` but is registered as `AJ`. Fixed in `9e30ae3` — docstrings now match
+`AK` but is registered as `AJ`. Fixed in `ce67efd` — docstrings now match
 registration exactly.
 
 **F6 — content_hash excludes sources (nit, explore-first).** CONFIRMED:
@@ -67,7 +67,7 @@ when impact is unbounded. Filed as a follow-up (see §4).
 **F7 — confidence unvalidated (nit).** CONFIRMED: `__post_init__` validated
 `sources` and `kind` but never `confidence`. Existing corpus check
 (`portal_wiki/canonical/*.md` + `config/personas/*.yaml`) found only
-`{high: 515, low: 1}` — fully in-vocabulary. Added validation in `9e30ae3`
+`{high: 515, low: 1}` — fully in-vocabulary. Added validation in `ce67efd`
 (`confidence not in ("high","medium","low")` raises `ValueError`, mirroring the
 `kind` check), plus 2 new tests (`test_reject_invalid_confidence`,
 `test_valid_confidences`) in `tests/unit/test_wiki_core.py`.
@@ -77,7 +77,7 @@ when impact is unbounded. Filed as a follow-up (see §4).
 `_WORKSPACE_ROUTING`/`_SCORER_VARIANT_MAP` only carries a dedicated entry for
 `redteam` — the other 6 (`blueteam`, `pentest`, `redteam-deep`, `purpleteam`,
 `purpleteam-deep`, `purpleteam-exec`) are consulted only by `_infer_variant()`,
-which is explicitly Layer-1 (LLM router)-only. Documented in `57bb7a4` — added a
+which is explicitly Layer-1 (LLM router)-only. Documented in `02f4e9b` — added a
 paragraph to `docs/ADMIN_GUIDE.md`'s "How the LLM Router Works" section explaining
 the degradation. Not hand-edited into any generated fact-unit;
 `./launch.sh sync-config` confirmed idempotent (no diff) after the edit, and AW
@@ -129,7 +129,7 @@ Red→green confirmed; the gate is real, not decorative.
   branch) rather than the task's prescribed fresh clone to
   `~/projects/portal-5-spine` and `/mnt/user-data/outputs/` — those paths are
   cloud-sandbox conventions that don't apply to this Darwin/local session. A git
-  tag (`spine-remediation-safety-c00c854`) was created on HEAD before any work as
+  tag (`spine-remediation-safety-dc768ec`) was created on HEAD before any work as
   the equivalent safety net.
 - `check_routing_regression` (AU) needed no special env handling from the test
   wrapper — it already scrubs `PROMETHEUS_MULTIPROC_DIR` internally via
@@ -168,17 +168,17 @@ bash scripts/ci_local.sh                     → 1950 passed, 34 skipped, 1 xpas
 Working tree clean; `portal/modules/security/core/field_journal/` side effects
 from the `ci_local.sh` run reverted per CLAUDE.md's documented procedure.
 
-## 7. Commits landed (baseline `c00c854` → HEAD)
+## 7. Commits landed (baseline `dc768ec` → HEAD)
 
 ```
-9859dbe test(spine): ratchet AU/AJ/AW/AK into pytest CI (server-side, unbypassable)
-7645ca5 docs: stamp doc ledger after Phase 2 spine-gate test addition
-7690635 fix(wiki): guard confirm-writeback against silent canonical overwrite
-7809132 docs: stamp doc ledger for Phase 3 writeback-guard commit
-84301a7 chore(tests): remove dead routing_decision_snapshot.json (unreferenced, stale slugs)
-142d89e docs: stamp doc ledger for Phase 4 fixture-removal commit
-9e30ae3 fix(wiki): align check-letter docstrings; validate confidence
-4bb8d68 docs: stamp doc ledger for Phase 5 check-letter/confidence commit
-57bb7a4 docs(router): note coarser variant routing on keyword-fallback path
+c8c9666 test(spine): ratchet AU/AJ/AW/AK into pytest CI (server-side, unbypassable)
+febff0e docs: stamp doc ledger after Phase 2 spine-gate test addition
+f3fa1cd fix(wiki): guard confirm-writeback against silent canonical overwrite
+c249273 docs: stamp doc ledger for Phase 3 writeback-guard commit
+7dde3bb chore(tests): remove dead routing_decision_snapshot.json (unreferenced, stale slugs)
+c13c11a docs: stamp doc ledger for Phase 4 fixture-removal commit
+ce67efd fix(wiki): align check-letter docstrings; validate confidence
+1f8f1af docs: stamp doc ledger for Phase 5 check-letter/confidence commit
+02f4e9b docs(router): note coarser variant routing on keyword-fallback path
 ```
 Pushed to `origin/main` alongside this report.

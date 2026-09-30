@@ -1,6 +1,6 @@
 # Landscape 2026Q3 three-bench spike — closeout (rejected, all three)
 
-**Base:** `e776b3a9` · **Closed:** 2026-09-22 · **Task:** `coding_task/TASK_LANDSCAPE_2026Q3_BENCHES_V1.md`
+**Base:** `67606df2` · **Closed:** 2026-09-22 · **Task:** `coding_task/TASK_LANDSCAPE_2026Q3_BENCHES_V1.md`
 
 All three landscape items probed under this task were evaluated and rejected.
 Every installed artifact (services, venvs, model checkpoints, config wiring,

@@ -5,8 +5,8 @@ title: "Security eval surface \u2014 re-export boundary for bench harnesses"
 sources:
 - type: code
   path: portal/modules/security/eval/__init__.py
-  commit: 1d62c01d
-last_generated_commit: 1d62c01d
+  commit: 851ea193
+last_generated_commit: 851ea193
 claims: []
 confidence: high
 tags:

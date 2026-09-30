@@ -5,8 +5,8 @@ title: "Tool-preselect acceptance runner \u2014 repped scenario bench"
 sources:
 - type: code
   path: tests/toolpreselect/run_bench.py
-  commit: 7c9c4031
-last_generated_commit: 7c9c4031
+  commit: c3244c5f
+last_generated_commit: c3244c5f
 claims: []
 confidence: high
 tags:

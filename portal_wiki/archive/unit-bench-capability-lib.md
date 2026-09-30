@@ -5,8 +5,8 @@ title: "Bench capability lib \u2014 shared reasoning-aware scoring"
 sources:
 - type: code
   path: tests/benchmarks/capability_lib.py
-  commit: f09fdb85
-last_generated_commit: f09fdb85
+  commit: 071aaf52
+last_generated_commit: 071aaf52
 claims: []
 confidence: high
 tags:

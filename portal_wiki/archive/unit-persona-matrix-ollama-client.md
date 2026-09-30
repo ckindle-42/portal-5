@@ -5,8 +5,8 @@ title: "Persona matrix Ollama client \u2014 pipeline-bypassing probe"
 sources:
 - type: code
   path: portal/modules/eval/persona_matrix/ollama_client.py
-  commit: 7954fafc
-last_generated_commit: 7954fafc
+  commit: db243698
+last_generated_commit: db243698
 claims: []
 confidence: high
 tags:

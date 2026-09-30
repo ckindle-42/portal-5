@@ -5,8 +5,8 @@ title: "Bench MBPTL \u2014 per-phase lab attack latency"
 sources:
 - type: code
   path: tests/benchmarks/bench_mbptl.py
-  commit: f09fdb85
-last_generated_commit: f09fdb85
+  commit: 071aaf52
+last_generated_commit: 071aaf52
 claims: []
 confidence: high
 tags:

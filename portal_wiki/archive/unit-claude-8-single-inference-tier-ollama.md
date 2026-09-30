@@ -19,7 +19,7 @@ updated_at: 1785458075
 
 Portal 5 runs one inference backend: **Ollama** (port 11434, Ollama 0.32.4+ with native MLX Metal backend on Apple Silicon). The minimum includes the upstream Metal-residency fix needed for pinned router and inference models to remain loaded together. GGUF models, pulled via `ollama pull` or `hf.co/`, registered in `config/backends.yaml` under backend groups (general / coding / security / reasoning / vision / creative).
 
-The MLX inference proxy (formerly :8081/:18081/:18082) was retired in commit `3a0c58e` — Ollama's MLX Metal backend reaches parity on this hardware without the thread-patch maintenance, admission-control complexity, and dual-stack overhead.
+The MLX inference proxy (formerly :8081/:18081/:18082) was retired in commit `75c24a9` — Ollama's MLX Metal backend reaches parity on this hardware without the thread-patch maintenance, admission-control complexity, and dual-stack overhead.
 
 **MLX is NOT gone from the project — only from chat inference.** It still serves: speech/TTS+ASR (`scripts/mlx-speech.py`, :8918), diarized transcription (`scripts/mlx-transcribe.py`, :8924), embeddings (:8917), and the RAG reranker (:8925, `mlx-community/Qwen3-Reranker-0.6B-mxfp8`). Do not remove those when "cleaning up MLX."
 

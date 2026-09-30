@@ -107,4 +107,4 @@ So this soak test (5-way concurrency, continuous random selection across all 10 
 - Result: `tests/benchmarks/results/omlx_fleet_soak_fleet_top10_20260806T014610Z.json`
 - 7 pulled MLX models: `granite-4.1-8b-mxfp8`, `granite-4.1-30b-4bit`, `VulnLLM-R-7B-4bit`, `DeepSeek-R1-0528-Qwen3-8B-4bit`, `Tongyi-DeepResearch-30B-A3B-abliterated-4bit`, `gemma-4-26b-a4b-it-QAT-4bit`, `Qwen3.6-35B-A3B-HauhauCS-Aggressive-4bit` (symlinked into `/Volumes/data01/omlx-models/`)
 - Notification: `tests/benchmarks/notify_soak_complete.py` (Slack/Telegram/Pushover via `NotificationDispatcher`, requires `uv run --env-file .env`)
-- HEAD at run time: `33055b4c` + uncommitted `bench_omlx_v3.py`/`bench_omlx_stress_extras.py`/`bench_omlx_soak.py`/`notify_soak_complete.py`
+- HEAD at run time: `7712b57c` + uncommitted `bench_omlx_v3.py`/`bench_omlx_stress_extras.py`/`bench_omlx_soak.py`/`notify_soak_complete.py`

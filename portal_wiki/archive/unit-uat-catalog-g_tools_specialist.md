@@ -5,8 +5,8 @@ title: "UAT catalog group \u2014 tools-specialist"
 sources:
 - type: code
   path: tests/uat_catalog/g_tools_specialist.py
-  commit: 832db546
-last_generated_commit: 832db546
+  commit: fe7f1e7c
+last_generated_commit: fe7f1e7c
 claims: []
 confidence: high
 tags:

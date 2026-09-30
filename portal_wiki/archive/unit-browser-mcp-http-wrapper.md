@@ -5,8 +5,8 @@ title: "Browser MCP \u2014 the guarded web-automation surface"
 sources:
 - type: code
   path: deploy/playwright-mcp/browser_mcp.py
-  commit: 9751c754
-last_generated_commit: 9751c754
+  commit: 5a68250b
+last_generated_commit: 5a68250b
 claims: []
 confidence: high
 tags:

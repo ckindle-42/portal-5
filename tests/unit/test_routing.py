@@ -237,7 +237,7 @@ class TestRouteWithLLM:
     @pytest.mark.asyncio
     async def test_llm_router_payload_includes_keep_alive(self):
         """_route_with_llm payload must include top-level keep_alive=-1 (int).
-        String '-1' was changed to int -1 in commit 3f20d51 (warmup keep_alive fix)."""
+        String '-1' was changed to int -1 in commit c427037 (warmup keep_alive fix)."""
         mock_resp = _mock_llm_response("auto-coding", 0.95)
         with patch(
             "portal.platform.inference.router.routing._http_client", new_callable=AsyncMock

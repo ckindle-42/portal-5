@@ -5,8 +5,8 @@ title: "Acceptance CLI \u2014 section entry point"
 sources:
 - type: code
   path: tests/acceptance/cli.py
-  commit: a88ad75b
-last_generated_commit: a88ad75b
+  commit: e75dddd2
+last_generated_commit: e75dddd2
 claims: []
 confidence: high
 tags:

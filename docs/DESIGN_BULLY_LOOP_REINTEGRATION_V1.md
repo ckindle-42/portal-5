@@ -37,7 +37,7 @@ Every pass — bake-off, RELATE, `cousin_relation`, `UNKNOWN_COUSIN`,
 `UNIVERSAL_INTAKE` — rebuilt the grader-and-intake organ better
 (`cousin_relation`, `artifact_graph`, `field_roles`, `unit_outcome`,
 `baseline`, `blend`, `inject_plane`) and measured it in a standalone script the
-orchestrator never calls. Proof, at HEAD `8de95f1a`:
+orchestrator never calls. Proof, at HEAD `6fa60a7d`:
 
 ```
 $ grep -n "from .cousin_engine import" portal/modules/security/core/bully/orchestrator.py

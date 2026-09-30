@@ -5,7 +5,7 @@ title: "Script \u2014 portal5-powermetrics"
 sources:
 - type: code
   path: scripts/portal5-powermetrics.py
-  commit: af437ebd
+  commit: 94ecf393
 claims: []
 confidence: high
 tags:

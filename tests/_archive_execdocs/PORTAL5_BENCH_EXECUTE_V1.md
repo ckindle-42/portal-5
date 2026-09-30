@@ -15,7 +15,7 @@ You are the **benchmark execution agent**, not the implementation agent. You exe
 ## What Gets Benchmarked
 
 Counts are derived at run time from `config/backends.yaml` and
-`config/personas/`. The current catalog (HEAD, 56eefd0, 2026-05-27) is:
+`config/personas/`. The current catalog (HEAD, 39148f5, 2026-05-27) is:
 
 | Tier | Count |
 |---|---|
@@ -81,7 +81,7 @@ operator flag needed.
 | bench-granite-speech | (skipped — speech) | granite-speech-4.1-2b MLX |
 
 > Historical note: `bench-llama4-scout` (Llama-4-Scout-17B MLX) was removed
-> at HEAD by commit `9c657b3` after 57 GB Metal OOM crashes on M4 Pro.
+> at HEAD by commit `9bcedf8` after 57 GB Metal OOM crashes on M4 Pro.
 > Do not re-add without a hardware-tier change.
 
 **3. Persona routing** — calls pipeline per persona, validates workspace routing, captures `routed_model` and `expected_model_match`.

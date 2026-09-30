@@ -5,8 +5,8 @@ title: "S2 \u2014 Service health"
 sources:
 - type: code
   path: tests/acceptance/s02_services.py
-  commit: a88ad75b
-last_generated_commit: a88ad75b
+  commit: e75dddd2
+last_generated_commit: e75dddd2
 claims: []
 confidence: high
 tags:

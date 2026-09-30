@@ -5,7 +5,7 @@ title: "CI guard suite \u2014 generated-fresh, no-identical-sources, no-duplicat
 sources:
 - type: code
   path: scripts/ci/*.py
-last_generated_commit: e649d2ecdca90ba62d0eb8230060f82bc6bb01ef
+last_generated_commit: 758673b57116f28ebd8c5fac90972dc7c414a797
 claims: []
 confidence: high
 tags:

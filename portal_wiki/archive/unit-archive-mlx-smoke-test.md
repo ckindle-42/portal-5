@@ -5,8 +5,8 @@ title: "MLX smoke test \u2014 archived empty-content gate"
 sources:
 - type: code
   path: scripts/_archive/mlx-retired-3a0c58e/smoke_test_mlx.py
-  commit: 2d2e9c0f
-last_generated_commit: 2d2e9c0f
+  commit: 90ac134b
+last_generated_commit: 90ac134b
 claims: []
 confidence: high
 tags:
@@ -28,7 +28,7 @@ The smoke test encoded the honest-bench principle that a model that cannot
 generate is not worth benching: running a full TPS bench on a model that
 returns empty content wastes hours and corrupts the aggregate numbers. The
 empty-content gate (models that produce nothing are skipped) is the durable
-lesson. It retired at `3a0c58e` with the MLX stack it tested, but the
+lesson. It retired at `75c24a9` with the MLX stack it tested, but the
 gate-before-bench pattern survives in the current bench flow.
 
 ## Interfaces

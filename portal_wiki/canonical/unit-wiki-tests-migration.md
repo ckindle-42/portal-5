@@ -5,7 +5,7 @@ title: "Wiki migration tests \u2014 V2 anti-gaming migration rules"
 sources:
 - type: code
   path: portal/platform/wiki/tests/test_migration.py
-  commit: dfa74e2e
+  commit: 6f44673c
 claims: []
 confidence: high
 tags:

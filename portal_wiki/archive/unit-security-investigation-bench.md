@@ -5,8 +5,8 @@ title: "Investigation bench \u2014 single-agent baseline honesty ruler"
 sources:
 - type: code
   path: portal/modules/security/core/investigation/bench_investigation.py
-  commit: 573a2377
-last_generated_commit: 573a2377
+  commit: 29cbcd27
+last_generated_commit: 29cbcd27
 claims: []
 confidence: high
 tags:

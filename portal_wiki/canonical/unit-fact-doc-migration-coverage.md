@@ -5,7 +5,7 @@ title: 3/23 docs migrated (13.0%)
 sources:
 - type: code
   path: portal/platform/wiki/render.py
-  commit: a5b8c895ff42
+  commit: 9970cd97b3ff
   section: render_report
 claims: []
 confidence: high

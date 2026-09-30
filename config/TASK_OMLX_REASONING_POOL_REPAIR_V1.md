@@ -1,6 +1,6 @@
 # Task: Repair the oMLX reasoning-pool exposure gap + fix the hollow-group health signal
 
-## STATUS — mostly DONE 2026-08-31 (commits 70064738, 648c4480)
+## STATUS — mostly DONE 2026-08-31 (commits ea876f1d, fac6ec77)
 
 - Health-check fix shipped (`Backend.live_models`, `resolve_model` skips
   unserved targets, WARN names the gap).

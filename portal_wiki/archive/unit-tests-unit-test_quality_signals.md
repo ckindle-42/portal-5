@@ -5,8 +5,8 @@ title: "Unit tests \u2014 test_quality_signals"
 sources:
 - type: code
   path: tests/unit/test_quality_signals.py
-  commit: 3e884375
-last_generated_commit: 3e884375
+  commit: d5234798
+last_generated_commit: d5234798
 claims: []
 confidence: high
 tags:

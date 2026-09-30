@@ -5,8 +5,8 @@ title: "Tool preselector CLI probe \u2014 legible ranking inspection"
 sources:
 - type: code
   path: portal/platform/inference/tool_preselect/cli_probe.py
-  commit: 50d41b55
-last_generated_commit: 50d41b55
+  commit: b9ca6f31
+last_generated_commit: b9ca6f31
 claims: []
 confidence: high
 tags:

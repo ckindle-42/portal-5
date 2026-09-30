@@ -5,8 +5,8 @@ title: "S6 \u2014 Security workspace tests"
 sources:
 - type: code
   path: tests/acceptance/s06_security_workspaces.py
-  commit: a88ad75b
-last_generated_commit: a88ad75b
+  commit: e75dddd2
+last_generated_commit: e75dddd2
 claims: []
 confidence: high
 tags:

@@ -5,8 +5,8 @@ title: "Pipeline MCP \u2014 coding-tool stack introspection (zero inference impo
 sources:
 - type: code
   path: portal/platform/mcp_host/pipeline_mcp.py
-  commit: ee7ca08a
-last_generated_commit: ee7ca08a
+  commit: 3d8cf6f5
+last_generated_commit: 3d8cf6f5
 claims: []
 confidence: high
 tags:

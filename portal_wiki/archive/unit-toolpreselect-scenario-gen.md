@@ -5,8 +5,8 @@ title: "Tool-preselect scenario generator \u2014 exhaustive adversarial corpus"
 sources:
 - type: code
   path: tests/toolpreselect/scenario_gen.py
-  commit: 7c9c4031
-last_generated_commit: 7c9c4031
+  commit: c3244c5f
+last_generated_commit: c3244c5f
 claims: []
 confidence: high
 tags:

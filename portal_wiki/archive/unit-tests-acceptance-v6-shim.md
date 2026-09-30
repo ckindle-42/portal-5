@@ -5,8 +5,8 @@ title: "Tests acceptance v6 \u2014 entry + section structure shim"
 sources:
 - type: code
   path: tests/portal5_acceptance_v6.py
-  commit: 4900007a
-last_generated_commit: 4900007a
+  commit: 347dfc8a
+last_generated_commit: 347dfc8a
 claims: []
 confidence: high
 tags:

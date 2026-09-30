@@ -10,7 +10,7 @@ The operator (correctly) challenged the first run: Ollama has been solid in prod
 
 1. **Cross-engine memory contention.** v1 never unloaded one engine before testing the other — oMLX had ~25-28GB of models resident (confirmed via its server log) throughout every "Ollama-only" run, both engines competing for the same unified-memory pool and the same system-wide `iogpu.wired_limit_mb` kernel cap. Fixed: both engines' model-unload APIs (`POST /v1/models/{id}/unload` for oMLX, `ollama stop <model>` for Ollama) are now used to verify **zero** models resident on the other side before every run.
 2. **Toy prompts, tiny token budget.** v1 reused `SINGLE_PROMPTS` (a few hundred tokens each) capped at `max_tokens=200` — not representative of real usage. Fixed: added `SHOOTOUT_PROMPTS`, five genuinely multi-step tasks (an LRU cache implementation, a debugging task with a real bug to find, a constraint-satisfaction scheduling puzzle, a cache-strategy tradeoff analysis, plus the original debugging prompt), `max_tokens` raised to 4096.
-3. **A real, unrelated production bug.** Chasing "are the settings actually equivalent" turned up that Ollama's `/v1/chat/completions` endpoint **silently ignores a runtime `options.num_ctx` override** (verified live with raw `curl`, no Portal code involved) — the model loads at its full trained context (131k-262k tokens) regardless. Portal 5's pipeline (`cluster_backends.py`'s `chat_url`) dispatches to Ollama exclusively through this endpoint, so `_inject_ollama_options`'s `num_ctx` injection has never actually taken effect for **any** workspace. The only mechanism that works is a Modelfile-baked `PARAMETER num_ctx` on a dedicated `-ctxNk` tagged model (already the pattern for most of the fleet). Scanning every workspace found exactly one real casualty: **`auto-security::pentest`** had been running at 262144 tokens of context instead of its configured 8192 since it was promoted 2026-07-16 — fixed by pointing its `model_hint` at the already-existing `...Q4-ctx8k` tag (commit `db75e444`). v1's bake-off itself was also affected: its Ollama-side context was never actually capped either.
+3. **A real, unrelated production bug.** Chasing "are the settings actually equivalent" turned up that Ollama's `/v1/chat/completions` endpoint **silently ignores a runtime `options.num_ctx` override** (verified live with raw `curl`, no Portal code involved) — the model loads at its full trained context (131k-262k tokens) regardless. Portal 5's pipeline (`cluster_backends.py`'s `chat_url`) dispatches to Ollama exclusively through this endpoint, so `_inject_ollama_options`'s `num_ctx` injection has never actually taken effect for **any** workspace. The only mechanism that works is a Modelfile-baked `PARAMETER num_ctx` on a dedicated `-ctxNk` tagged model (already the pattern for most of the fleet). Scanning every workspace found exactly one real casualty: **`auto-security::pentest`** had been running at 262144 tokens of context instead of its configured 8192 since it was promoted 2026-07-16 — fixed by pointing its `model_hint` at the already-existing `...Q4-ctx8k` tag (commit `eaf3108b`). v1's bake-off itself was also affected: its Ollama-side context was never actually capped either.
 
 Also corrected: concurrency dropped from an arbitrary 6 to **5**, matching `PORTAL5_DEFAULT_WORKSPACE_CONCURRENCY` — the real ceiling `auto-coding` (the production workspace for the coder model tested here) actually runs under.
 
@@ -20,7 +20,7 @@ Also corrected: concurrency dropped from an arbitrary 6 to **5**, matching `PORT
 - **Isolation enforced**: before each engine's run, the other engine's model-unload API was called for every resident model and re-checked to confirm zero loaded.
 - **Ollama model ids use the `-ctxNk`-tagged variants** (`qwen3-coder:30b-a3b-q4_K_M-ctx16k`, `gemma4:e4b-it-qat-ctx8k`, `llama3.2:3b-ctx8k` — the last created for this bake-off, matching the project's existing convention) so context is genuinely capped at 16384/8192, matching what `auto-coding`/`bench-gemma4-e4b-qat` are configured for.
 - oMLX gets no context override (matches production: `_inject_omlx_options` injects nothing either — its paged cache is managed server-side).
-- oMLX v0.5.7 (`:8085`), Ollama 0.32.5 (`:11434`). HEAD `fccb3052`.
+- oMLX v0.5.7 (`:8085`), Ollama 0.32.5 (`:11434`). HEAD `62872888`.
 
 ## Results — matched load (180s, concurrency 5)
 
@@ -59,7 +59,7 @@ Ollama's entire tail comes from **one model**: `gemma4:e4b-it-qat-ctx8k` (p50 TT
 
 ## Two real bugs found and fixed along the way
 
-1. **`auto-security::pentest` running at 30x its configured context** since 2026-07-16 (fixed, commit `db75e444`) — a materially different memory/behavior profile than what was validated at promotion time.
+1. **`auto-security::pentest` running at 30x its configured context** since 2026-07-16 (fixed, commit `eaf3108b`) — a materially different memory/behavior profile than what was validated at promotion time.
 2. **Ollama's OpenAI-compat endpoint silently drops `options.num_ctx`** — documented in `_inject_ollama_options`'s docstring (same commit) so this isn't rediscovered the hard way again. Every other workspace already worked around it correctly via `-ctxNk` tagged models; only the one above had drifted off that pattern.
 
 ## Provenance
@@ -67,5 +67,5 @@ Ollama's entire tail comes from **one model**: `gemma4:e4b-it-qat-ctx8k` (p50 TT
 - Ollama (isolated, v2): `results/omlx_v3_shootout_v3_isolated_ollama_20260805T182957Z.json`
 - oMLX (isolated, v2): `results/omlx_v3_shootout_v3_isolated_omlx_20260805T183617Z.json`
 - v1 (confounded, superseded): `results/omlx_v3_shootout_multimodel_{ollama,omlx}_20260805T15*.json`, `results/omlx_v3_shootout_isolated_*_20260805T17*.json` (transitional runs during the debugging process — the *_isolated_multimodel_* files still used the broken uncapped-context bare model tags; only *_v3_isolated_* is the final, correct methodology)
-- Commits: `db75e444` (context bug + pentest fix), `fccb3052` (harness fixes: prompts, concurrency, model tags)
-- HEAD at run time: `fccb3052`
+- Commits: `eaf3108b` (context bug + pentest fix), `62872888` (harness fixes: prompts, concurrency, model tags)
+- HEAD at run time: `62872888`

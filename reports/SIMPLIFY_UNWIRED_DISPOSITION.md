@@ -7,7 +7,7 @@ Each row: evidence (code refs, git history, docstring) and exactly one dispositi
 
 | Script | Evidence | Disposition |
 |---|---|---|
-| `scripts/_archive/mlx-retired-3a0c58e/mlx-readiness.py` | MLX chat-inference tier retired at `3a0c58e`; file lives under the explicit `_archive/mlx-retired-3a0c58e/` marker dir; zero code refs; unit archived in R2 | **DELETE** |
+| `scripts/_archive/mlx-retired-3a0c58e/mlx-readiness.py` | MLX chat-inference tier retired at `75c24a9`; file lives under the explicit `_archive/mlx-retired-3a0c58e/` marker dir; zero code refs; unit archived in R2 | **DELETE** |
 | `scripts/_archive/mlx-retired-3a0c58e/mlx-switch-benchmark.py` | same — retired MLX proxy measurement, zero code refs | **DELETE** |
 | `scripts/_archive/mlx-retired-3a0c58e/patch-mlx-templates.py` | same — retired MLX dependency patching, zero code refs | **DELETE** |
 | `scripts/_archive/mlx-retired-3a0c58e/patch-mlx-threads.py` | same — retired MLX thread-patch burden, zero code refs | **DELETE** |
@@ -21,7 +21,7 @@ Each row: evidence (code refs, git history, docstring) and exactly one dispositi
 |---|---|---|
 | `scripts/gen-image.py` | CLI for rapid image generation via the ComfyUI MCP; documented in canonical `unit-readme-image-generation…` and `unit-comfyui-setup-step-3-use` | **OPERATOR-INVOKED** |
 | `scripts/gen-video.py` | CLI for video generation via the video MCP; referenced by `unit-comfyui-setup-step-3-use` | **OPERATOR-INVOKED** |
-| `scripts/caldera_emulate.py` | live Caldera adversary-emulation lane; `git c26b84ad` wired it through collect→ship→wait; documented in the corpus-injection units | **OPERATOR-INVOKED** |
+| `scripts/caldera_emulate.py` | live Caldera adversary-emulation lane; `git b5b27e58` wired it through collect→ship→wait; documented in the corpus-injection units | **OPERATOR-INVOKED** |
 | `scripts/lab_splunkbase_install.py` | installs Splunkbase apps BOTS needs; referenced by `unit-corpus-injection-inside-lxc-301…` | **OPERATOR-INVOKED** |
 | `scripts/lab_discover.py` | read-only lab host discovery (Phase 0 of live-lab execution); referenced by `unit-SEC_BENCH-execution-transport` | **OPERATOR-INVOKED** |
 | `scripts/execute_preflight.py` | ground-truth preflight for bench/sec/acceptance sessions; referenced by five canonical bench-execute units (failure-playbook, non-negotiables, v4 ground-truth…) | **OPERATOR-INVOKED** |

@@ -1,6 +1,6 @@
 """S23: Model diversity availability checks (Ollama-only).
 
-MLX-proxy queries retired in commit 3a0c58e (TASK_MLX_RETIRE_TRUEUP_V1/V2).
+MLX-proxy queries retired in commit 75c24a9 (TASK_MLX_RETIRE_TRUEUP_V1/V2).
 All target models now live in the Ollama catalog; these checks verify
 registration via the Ollama /api/tags listing only (lightweight).
 """

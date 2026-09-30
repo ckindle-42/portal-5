@@ -46,7 +46,7 @@ quality delta clearly outweighs losing the DeepSeek lineage and the dedicated
 thinking specialist. If it does not, record the decision and close B3 for this
 slot.
 
-### 1. Tier-2 deep lane — DONE 2026-08-31 (commit 648c4480)
+### 1. Tier-2 deep lane — DONE 2026-08-31 (commit fac6ec77)
 
 `auto-reasoning?variant=deep` → dense Qwen3.8-27B. ctx32k Ollama tag +
 `hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k` → `Qwen3.8-27B-oQ4e-mtp` alias
@@ -75,7 +75,7 @@ depth/effort signal today**, so do NOT try to make the router pick it.
 - Confirm eviction behavior: when the deep variant loads, tier-1 (`qwen3.6:35b-a3b`)
   must be evicted first (`context_limit` for the deep lane at 32K fits once alone).
 
-### 2. `auto-compliance` — PROMOTED to Qwen3.8-27B 2026-08-31 (commit a17a58c3)
+### 2. `auto-compliance` — PROMOTED to Qwen3.8-27B 2026-08-31 (commit 4d702fb1)
 
 Two 10-question fabrication probes (NERC/HIPAA/GDPR/PCI-DSS/SOC2/NIST/ISO
 specifics + a fake-requirement trap) across granite-8b / nemotron-cascade-2 /
@@ -92,12 +92,12 @@ v2: 3000 tok, search still degraded):
 - **Qwen3.8-27B**: most correct answers, most nuanced, critically evaluates
   search results. **Promoted** (~18 t/s oMLX MTP; ctx32k). Fabricated only on
   the adversarial trap and then looped — fixed by `think: false` +
-  `repeat_penalty: 1.1` (commit c1f41f38); the `<think>` chain was where it
+  `repeat_penalty: 1.1` (commit 15cd46e4); the `<think>` chain was where it
   looped.
 
 **Also fixed:** every SearXNG default engine was captcha'd/rate-limited from
 this IP; `web_search` now Brave-primary (`WEB_SEARCH_PRIMARY`, key in `.env`),
-SearXNG fallback (commit d471b188). Verified: `auto-compliance` now answers
+SearXNG fallback (commit fa8394f0). Verified: `auto-compliance` now answers
 "93 controls … reduction from 114 in 2013" with real sources.
 
 **Still open:** run the 33 `DEFERRED_COMPLIANCE_RUN.txt` rows once on Qwen3.8-27B

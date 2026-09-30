@@ -64,7 +64,7 @@ from portal.modules.security.eval.ablation_attribution import (
     summarize,
 )
 
-# Locked V2 trio (b576439) — see task Appendix.
+# Locked V2 trio (01ee482) — see task Appendix.
 TOOL_MODEL = "granite4.1:8b-ctx8k"
 REASONING_MODEL = "bench-granite41-30b"
 EXPERT_MODEL = "hf.co/fdtn-ai/Foundation-Sec-8B-Reasoning-Q8_0-GGUF:Q8_0"

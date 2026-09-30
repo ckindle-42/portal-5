@@ -5,7 +5,7 @@ title: "Portal test-tree conftest \u2014 module-test CI posture"
 sources:
 - type: code
   path: portal/conftest.py
-  commit: 1a0e2df4
+  commit: 9c8e6dae
 claims: []
 confidence: high
 tags:

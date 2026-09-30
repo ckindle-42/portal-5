@@ -5,8 +5,8 @@ title: "Tests lib coding fixtures \u2014 scenario loader/parameterizer"
 sources:
 - type: code
   path: tests/lib/coding_fixtures.py
-  commit: f2f2516d
-last_generated_commit: f2f2516d
+  commit: bd66d80c
+last_generated_commit: bd66d80c
 claims: []
 confidence: high
 tags:

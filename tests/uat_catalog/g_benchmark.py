@@ -11,7 +11,7 @@ Two groups live here:
   every distinct installed bench model to see what each can actually build.
   The comparative matrix is the deliverable (see
   tests/scripts/cc_challenge_matrix.py); no verdict, no auto-promotion
-  (PROMOTE_POLICY). Restored from the pre-00ad696 inline driver catalog
+  (PROMOTE_POLICY). Restored from the pre-06929b3 inline driver catalog
   (TASK_UAT_CHALLENGE_RESTORE_V2). Run the group alone with
   ``--section challenge``.
 """
@@ -123,7 +123,7 @@ TESTS: list[dict] = [  # -------------------------------------------------------
     # operator-only (PROMOTE_POLICY). Domain specialists get domain
     # challenges (BT-01 SOC triage, EX-01 extraction) per model-card scope.
     #
-    # Restored from the pre-00ad696 inline catalog; fleet trued-up to HEAD +
+    # Restored from the pre-06929b3 inline catalog; fleet trued-up to HEAD +
     # live `ollama list`. Timeouts derive from measured V8 direct-bench TPS
     # (2026-06-10) — a capability challenge must give slow models room to
     # finish, or it grades the timeout, not the model.

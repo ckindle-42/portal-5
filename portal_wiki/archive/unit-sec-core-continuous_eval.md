@@ -5,8 +5,8 @@ title: "Continuous eval \u2014 ongoing capability evaluation"
 sources:
 - type: code
   path: portal/modules/security/core/continuous_eval.py
-  commit: 11d83e41
-last_generated_commit: 11d83e41
+  commit: 699b6207
+last_generated_commit: 699b6207
 claims: []
 confidence: high
 tags:

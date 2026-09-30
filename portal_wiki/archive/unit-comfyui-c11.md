@@ -5,8 +5,8 @@ title: "Section C11 \u2014 All LoRAs x FLUX schnell coverage"
 sources:
 - type: code
   path: tests/comfyui/c11_lora_coverage.py
-  commit: 441fd2a1
-last_generated_commit: 441fd2a1
+  commit: ee3590ba
+last_generated_commit: ee3590ba
 claims: []
 confidence: high
 tags:

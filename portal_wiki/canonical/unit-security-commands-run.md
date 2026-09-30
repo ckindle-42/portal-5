@@ -5,7 +5,7 @@ title: "Security bench runner \u2014 dual-pass execution with serial chain phase
 sources:
 - type: code
   path: portal/modules/security/core/commands/run.py
-  commit: 5b73259d
+  commit: c36595e1
 claims: []
 confidence: high
 tags:

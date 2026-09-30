@@ -5,8 +5,8 @@ title: "S10 \u2014 Personas over Ollama"
 sources:
 - type: code
   path: tests/acceptance/s10_personas_ollama.py
-  commit: a88ad75b
-last_generated_commit: a88ad75b
+  commit: e75dddd2
+last_generated_commit: e75dddd2
 claims: []
 confidence: high
 tags:

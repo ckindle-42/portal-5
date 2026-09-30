@@ -2,7 +2,7 @@
 
 Run the Portal 5 comprehensive TPS benchmark suite (Ollama-only). The live stack is expected to be running when you begin. At the end, update the Grafana benchmarks dashboard with the results and reload it.
 
-**V2 change from V1:** the MLX inference proxy was retired (commit 3a0c58e). All chat inference now runs through **Ollama (:11434)**; there is one backend tier, not two. `--mode direct` means "Ollama backends direct." MLX is retained only for audio/speech/embedding/rerank and is NOT exercised by this text-prompt bench (speech-modality bench workspaces are skipped via config).
+**V2 change from V1:** the MLX inference proxy was retired (commit 75c24a9). All chat inference now runs through **Ollama (:11434)**; there is one backend tier, not two. `--mode direct` means "Ollama backends direct." MLX is retained only for audio/speech/embedding/rerank and is NOT exercised by this text-prompt bench (speech-modality bench workspaces are skipped via config).
 
 ---
 

@@ -1,6 +1,6 @@
 # Portal 5 HEAD inventory — derived-assertion invariant
 
-HEAD: `7e690402aa02958b5724356eecb9b65366e86f39`
+HEAD: `da8e4574455a0f6c25036d78aeca684a1985f06f`
 Date: 2026-09-11T00:35Z
 
 Every question below is answered from the checkout at HEAD. The task's supplied

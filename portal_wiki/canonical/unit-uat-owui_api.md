@@ -5,7 +5,7 @@ title: "UAT OWUI API \u2014 REST helpers + chat archival"
 sources:
 - type: code
   path: tests/uat/owui_api.py
-  commit: 85bb65bd
+  commit: d7dcc96a
 claims: []
 confidence: high
 tags:

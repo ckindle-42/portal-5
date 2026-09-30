@@ -1,13 +1,13 @@
 # Security inference route ledger — TASK_AUTO_COUNCIL_PIPELINE_REVISIT_V1 P0/P1
 
-Generated 2026-09-26 at HEAD `1179539a` (compliance work landed just before this
+Generated 2026-09-26 at HEAD `3c9f8069` (compliance work landed just before this
 task started; unrelated). Re-verified against live code, not copied blind from
 the task doc — the task's own tables are the starting inventory (P0.2), each
 row below is grepped/read against current source. P1 fixes applied in this
 pass are marked `FIXED (this pass)`; everything else is `OPEN` (task's
 original finding still holds) or `NOT_APPLICABLE` with the reason inline.
 
-**Status as of the second pass (same day, HEAD still `1179539a`, no new
+**Status as of the second pass (same day, HEAD still `3c9f8069`, no new
 commits from the concurrent compliance agent): P0 and P1 are closed** except
 for the one deliberate, stated scope limitation (`portal_strict_seat` is
 opt-in, not a pipeline-wide default — see "Scope limitation" in the second

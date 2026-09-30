@@ -5,8 +5,8 @@ title: "S31 \u2014 Video generation"
 sources:
 - type: code
   path: tests/acceptance/s31_video_gen.py
-  commit: a88ad75b
-last_generated_commit: a88ad75b
+  commit: e75dddd2
+last_generated_commit: e75dddd2
 claims: []
 confidence: high
 tags:

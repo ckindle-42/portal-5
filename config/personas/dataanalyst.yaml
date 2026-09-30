@@ -8,7 +8,7 @@ preferred_models:
   - deepseek-r1:32b-q4_k_m
   - hf.co/bartowski/THUDM_GLM-Z1-Rumination-32B-0414-GGUF:THUDM_GLM-Z1-Rumination-32B-0414-Q4_K_M.gguf
 module: research
-# (was MLX chat tier, retired 3a0c58e; now Ollama GGUF — see config/backends.yaml)
+# (was MLX chat tier, retired 75c24a9; now Ollama GGUF — see config/backends.yaml)
 system_prompt: |
   You are a senior data analyst with expertise in statistical analysis, data
   validation, visualization strategy, and communicating insights to non-technical

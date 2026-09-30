@@ -3,13 +3,13 @@
 
 Sources (per the build program):
 1. config/routing_examples.json — all 44 entries, present on both sides of
-   the collapse (byte-identical at 45edb25 and HEAD — verified).
+   the collapse (byte-identical at 60bf0a7 and HEAD — verified).
 2. tests/benchmarks/bench/prompts.py — per-discipline TPS prompts.
 3. The corpus already assembled by scripts/routing_regression.py (s06/s21
    representative prompts + the 12 hand-authored variant/role discriminators).
 4. Fold-coverage additions — one unambiguous prompt per pre-collapse
    discipline that mapped to a workspace later folded or deleted, authored
-   from the pre-collapse routing_descriptions.json (45edb25) so each prompt
+   from the pre-collapse routing_descriptions.json (60bf0a7) so each prompt
    reflects what that lane was actually *for*.
 
 Writes tests/routing/corpus.json: a flat list of
@@ -85,7 +85,7 @@ def build() -> list[dict]:
         add(entry)
 
     # 4. Fold-coverage — one prompt per pre-collapse discipline that mapped
-    # to a now-folded/deleted workspace. Authored from 45edb25's
+    # to a now-folded/deleted workspace. Authored from 60bf0a7's
     # routing_descriptions.json so each is unambiguous for that lane's
     # actual intent (DESIGN_COLLAPSE_V1.md §D4/§D5 folds).
     fold_coverage = [

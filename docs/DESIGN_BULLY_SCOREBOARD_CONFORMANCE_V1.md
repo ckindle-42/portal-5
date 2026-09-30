@@ -84,7 +84,7 @@ this failure mode -- a block named after an organ that isn't that organ's
 output, a correctness axis never published, per-row fields dropped, the trust
 axis fed hardcoded nulls, an invented headline ratio, a declared ceiling
 exceeded and published anyway, or a precision/recall contradiction. Run
-against every run doc in-tree at `82b515d0`, `correctness_axis_not_published`
+against every run doc in-tree at `186f6bee`, `correctness_axis_not_published`
 fires on **all five**:
 
 - `BULLY_COUSIN_RELATION_RUN_C7_V1` -- C7.

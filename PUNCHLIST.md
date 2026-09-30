@@ -4,7 +4,7 @@ Generated at the close of the Phase-0 oMLX re-evaluation + context-inject fix
 session. Ordered by leverage. Each item has What / Why / Where / Acceptance so a
 fresh run can pick it up cold. Evidence paths are cited inline.
 
-**Session output landed (uncommitted at HEAD 0cb2ac61):**
+**Session output landed (uncommitted at HEAD 9be9146f):**
 - `tests/benchmarks/bench_omlx_v3.py` — Phase-0 gate harness (all six gates PASS)
 - `tests/benchmarks/results/omlx_v3_reeval_20260802T221435Z.md` + 10 gate JSONs
 - `OMLX_DECISION.md` v3 section; `portal_wiki/canonical/unit-p5-roadmap-p5-fut-013-...md`
@@ -23,8 +23,8 @@ fresh run can pick it up cold. Evidence paths are cited inline.
 ## A. Immediate (this week)
 
 ### A1. ✅ DONE (2026-08-02) — committed + live-verified end-to-end
-- Commits: `6c0c7440` (Phase-0 artifacts), `b7e09c07` (schema fields),
-  `b54113d9` (two latent contract failures found by the live probe:
+- Commits: `d785e39c` (Phase-0 artifacts), `c5c5d8b9` (schema fields),
+  `2a2a5ed0` (two latent contract failures found by the live probe:
   module-vs-instance `tool_registry` import masked by never-raises;
   `auto_writeback` category rejected by memory-server enum → now `fact` +
   provenance tag).
@@ -78,7 +78,7 @@ Full context: `OMLX_DECISION.md` §"Re-evaluation v3" +
 - Guardrails honored: group named `omlx` NOT `mlx` (retirement guard
   `test_backend_registry_loads_all_groups` intact); 7 `unit-model-catalog-*`
   units + MODEL_CATALOG.md section created (parity test intact);
-  `mlx_metadata`/`_MLX_PROXY_HEALTH_URL` still absent (3a0c58e guards intact).
+  `mlx_metadata`/`_MLX_PROXY_HEALTH_URL` still absent (75c24a9 guards intact).
 - Gates: 873 unit ✅ (13 new in `tests/unit/test_omlx_backend.py`),
   ruff ✅, pipeline rebuilt (7/7 backends healthy incl. omlx-local),
   `smoke_stream.sh` ✅, `ci_local.sh` 2652 ✅.
@@ -238,7 +238,7 @@ Full context: `OMLX_DECISION.md` §"Re-evaluation v3" +
    then make layout + validation mass (54% of 70 checks) reflect it.
 
 ## D. Explicit do-nots
-- Do NOT revive the retired mlx-proxy (regression guards; archived 3a0c58e).
+- Do NOT revive the retired mlx-proxy (regression guards; archived 75c24a9).
 - Do NOT enable `PORTAL_EMERGENT` / Stage-2 live actuation (deliberate gates).
 - Do NOT clear/overwrite bench checkpoints without a timestamped backup
   (CLAUDE.md non-negotiable; applies to `tests/benchmarks/results/` sweeps too).

@@ -78,7 +78,7 @@ def main() -> int:
         "finished_at": finished.isoformat(),
         "elapsed_seconds": (finished - started).total_seconds(),
         "route": f"{BASE}/tools/compliance_analyze",
-        "served_commit": "4a1b6694",
+        "served_commit": "f251330f",
         "service_pid": 82834,
         "request": body,
         "response": payload,

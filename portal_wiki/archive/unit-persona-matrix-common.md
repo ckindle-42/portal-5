@@ -5,8 +5,8 @@ title: "Persona matrix common \u2014 shared constants + registry loader"
 sources:
 - type: code
   path: portal/modules/eval/persona_matrix/_common.py
-  commit: 7954fafc
-last_generated_commit: baca992c674a3cbb36a619e8f62e7e88b8fccfff
+  commit: db243698
+last_generated_commit: f0b6e5a43439303b615e818fed6698038c4af0c6
 claims: []
 confidence: high
 tags:

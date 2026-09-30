@@ -5,8 +5,8 @@ title: "Notifications subsystem \u2014 operational alert surface"
 sources:
 - type: code
   path: portal/platform/inference/notifications/__init__.py
-  commit: 7b309b21
-last_generated_commit: 7b309b21
+  commit: 7383d070
+last_generated_commit: 7383d070
 claims: []
 confidence: high
 tags:

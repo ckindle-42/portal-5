@@ -5,7 +5,7 @@ title: "Script \u2014 openwebui_init"
 sources:
 - type: code
   path: scripts/openwebui_init.py
-  commit: af437ebd
+  commit: 94ecf393
 claims: []
 confidence: high
 tags:

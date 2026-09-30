@@ -5,7 +5,7 @@ title: "Security capability index \u2014 read-only arsenal query surface"
 sources:
 - type: code
   path: portal/modules/security/core/capability/__init__.py
-  commit: b0aa6770
+  commit: 4c3d1e89
 claims: []
 confidence: high
 tags:

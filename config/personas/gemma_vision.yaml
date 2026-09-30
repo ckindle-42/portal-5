@@ -6,7 +6,7 @@ module: general
 category: vision
 # scripts/persona_intent_audit.py Check 2 found this persona genuinely
 # served Qwen3-VL via auto-vision's pool, not Gemma. Its pre-collapse
-# workspace_model (git 8818b79~1) was auto-gemma-vision, whose model_hint
+# workspace_model (git bd63031~1) was auto-gemma-vision, whose model_hint
 # was gemma4:31b-it-qat-ctx8k — the plain (non-abliterated) Gemma-4-31B
 # QAT vision model, "In ollama-vision group" per MODEL_CATALOG.md. Fixed
 # via model_pin (consumed by _resolve_model_override), same mechanism as

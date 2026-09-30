@@ -131,7 +131,7 @@ completed and pushed in an earlier pass. Item 3 (legacy VM + mission recapture)
 is now complete: all 7 legacy-VM scenarios, 16 of 21 Meta3 scenarios (4
 deferred, see below), and all 5 mission scenarios were live-verified through
 `scripts/security_capture_recipes.py`, certified on 2 consecutive runs each,
-and pushed to `main` (commits `896ed501`…`30db5863`). Several pre-existing
+and pushed to `main` (commits `9d5d9a30`…`c6a298da`). Several pre-existing
 infra bugs were root-caused and fixed along the way rather than worked around:
 `collect.py`'s `since` UnboundLocalError (silently broke all AD-only
 `windows:security` collection), `blue.py`'s meta3 DHCP-drift telemetry

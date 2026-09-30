@@ -5,8 +5,8 @@ title: "S70 \u2014 Information access"
 sources:
 - type: code
   path: tests/acceptance/s70_information_access.py
-  commit: a88ad75b
-last_generated_commit: a88ad75b
+  commit: e75dddd2
+last_generated_commit: e75dddd2
 claims: []
 confidence: high
 tags:

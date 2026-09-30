@@ -5,8 +5,8 @@ title: "Objective oracles \u2014 path-independent end-state verifiers"
 sources:
 - type: code
   path: portal/modules/security/core/objective_oracles.py
-  commit: 11d83e41
-last_generated_commit: 11d83e41
+  commit: 699b6207
+last_generated_commit: 699b6207
 claims: []
 confidence: high
 tags:

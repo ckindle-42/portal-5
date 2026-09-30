@@ -39,7 +39,7 @@ _FINDING_TYPES = ("", "GAP", "CONTRADICTION", "OUTDATED_LANGUAGE", "WEAK_MAPPING
 
 # A judgment is a reasoning task. 900 tokens fitted a one-sentence rationale
 # with reasoning suppressed; it cannot hold a read of a Part plus its
-# candidates. Raised with the suppression removed (946196bb solved a /v1 leak by
+# candidates. Raised with the suppression removed (f350324a solved a /v1 leak by
 # disabling thought; /api/chat separates the channels).
 _SEAT_BUDGET = 8192
 
@@ -265,7 +265,7 @@ def _ollama_seat(model: str, system: str, user: str) -> str:
     nothing downstream changes shape. What changes is that the seat is allowed
     to reason: the previous transport sent ``think: false`` because a Qwen3 /
     DeepSeek / GLM-Z1 template opened ``<think>`` and leaked it into strict-JSON
-    content or ate a 900-token budget before the closing brace (946196bb). On
+    content or ate a 900-token budget before the closing brace (f350324a). On
     native ``/api/chat`` the trace comes back as ``message.thinking``, a
     separate field, so the leak is solved by reading the right field and sizing
     the budget — not by disabling reasoning on a task that is entirely reading

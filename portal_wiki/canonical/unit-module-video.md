@@ -49,7 +49,7 @@ Video is the heaviest media surface — LTX-2.3 int4 runs a ~20-24GB MLX
 working set, is thermally punishing on a 64GB box, and produces
 preview-grade clips practically capped at ~4-6s — so it is footprint-first
 and **off by default** (the design default, mirroring `eval`), but
-**shipped enabled** as of the video end-to-end wiring (`7f22baee`):
+**shipped enabled** as of the video end-to-end wiring (`3d15c417`):
 `config/modules.generated.yaml` currently carries `enabled: true` and the
 `auto-video` workspace is exposed to Open WebUI (`expose_to_owui: true`).
 An operator disables it with `portal module disable video`, after which

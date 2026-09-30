@@ -5,8 +5,8 @@ title: "Unit tests \u2014 test_council_review_bench"
 sources:
 - type: code
   path: tests/unit/test_council_review_bench.py
-  commit: 3e884375
-last_generated_commit: 3e884375
+  commit: d5234798
+last_generated_commit: d5234798
 claims: []
 confidence: high
 tags:

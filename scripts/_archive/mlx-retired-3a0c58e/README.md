@@ -1,7 +1,7 @@
-# Archived MLX inference stack (retired 2026-06-09, commit 3a0c58e)
+# Archived MLX inference stack (retired 2026-06-09, commit 75c24a9)
 
 These 9 scripts powered the standalone MLX inference proxy that ran
-alongside Ollama on the M4 Pro Mac Mini through commit `3a0c58e^`.
+alongside Ollama on the M4 Pro Mac Mini through commit `75c24a9^`.
 The MLX proxy tier was retired when Ollama 0.30.7 reached throughput
 parity (and often a small lead) using its native MLX Metal backend —
 eliminating the thread-patch maintenance burden, admission control
@@ -22,7 +22,7 @@ complexity, and dual-stack operational overhead that the proxy required.
 ## Status: archive-only
 
 These scripts are not runnable as-is at HEAD. They depend on surfaces
-removed in `3a0c58e`:
+removed in `75c24a9`:
 
 - `mlx-apple-silicon` backend type in `cluster_backends.py`
 - `Backend.mlx_metadata` field
@@ -61,9 +61,9 @@ explicitly assert the absence of those surfaces.
 
 The two unit-test files
 (`tests/unit/test_mlx_proxy.py`, `tests/unit/test_proxy_unload.py`) were
-also deleted in `3a0c58e`. They are intentionally NOT archived here
+also deleted in `75c24a9`. They are intentionally NOT archived here
 because they would not import against HEAD. Recover via
-`git show 3a0c58e^:tests/unit/test_mlx_proxy.py` if needed.
+`git show 75c24a9^:tests/unit/test_mlx_proxy.py` if needed.
 
 ## See also
 

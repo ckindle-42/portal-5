@@ -19,7 +19,7 @@ remove. `TASK_BULLY_DISCOVERY_FIRST_V1` supersedes it outright.
 
 ## The finding, from the code
 
-`unit_outcome.resolve_unit_outcome` as shipped (verified at `de10337e` and
+`unit_outcome.resolve_unit_outcome` as shipped (verified at `507b6a7f` and
 re-verified live at the HEAD this task built against):
 
 ```python

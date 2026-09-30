@@ -9,18 +9,18 @@ history.
 
 | Phase | Task file | Status | Merge commit |
 |---|---|---|---|
-| P0 | `TASK_BULLY_P0_SPINE_REDUCTION_V1.md` | ✅ done | `2a0680bc` |
-| P1 | `TASK_BULLY_P1_SPINE_V1.md` | ✅ done | `a7cd02dc` |
-| P2 | `TASK_BULLY_P2_BIN_HEART_V1.md` | ✅ done | `ea7e0dc3` |
-| P3 | `TASK_BULLY_P3_RED_DRIFT_V1.md` | ✅ done | `df593854` |
-| P4 | `TASK_BULLY_P4_DISCOVERY_V1.md` | ✅ done | `913ded64` |
-| P5 | `TASK_BULLY_P5_HANDOFF_V1.md` | ✅ done | `58aab19f` |
-| P6 | `TASK_BULLY_P6_FLYWHEEL_V1.md` | ✅ done | `03e24a05` |
-| P6.7 | `TASK_BULLY_P6_7_TRAIN_REFINEMENT_CORRECTION_V1.md` | ✅ done | `f7434c86` |
-| P6.8 | `TASK_BULLY_P6_8_COUSIN_CALIBRATION_BENCH_V1.md` | ✅ done | `a2a95837` |
+| P0 | `TASK_BULLY_P0_SPINE_REDUCTION_V1.md` | ✅ done | `da08d417` |
+| P1 | `TASK_BULLY_P1_SPINE_V1.md` | ✅ done | `f395fb37` |
+| P2 | `TASK_BULLY_P2_BIN_HEART_V1.md` | ✅ done | `93bd3e9e` |
+| P3 | `TASK_BULLY_P3_RED_DRIFT_V1.md` | ✅ done | `681145e0` |
+| P4 | `TASK_BULLY_P4_DISCOVERY_V1.md` | ✅ done | `2f09880d` |
+| P5 | `TASK_BULLY_P5_HANDOFF_V1.md` | ✅ done | `716d04e3` |
+| P6 | `TASK_BULLY_P6_FLYWHEEL_V1.md` | ✅ done | `279c010a` |
+| P6.7 | `TASK_BULLY_P6_7_TRAIN_REFINEMENT_CORRECTION_V1.md` | ✅ done | `adf68aee` |
+| P6.8 | `TASK_BULLY_P6_8_COUSIN_CALIBRATION_BENCH_V1.md` | ✅ done | `bbf725ac` |
 | P7 | `TASK_BULLY_P7_2_SPECIMEN_CORPUS_AND_BLIND_BENCH_V1.md` | ✅ done; cold real-specimen proof | branch proof |
-| P7.3 | `TASK_BULLY_P7_3_SPECIMEN_SCALE_AND_BASELINE_V1.md` | ✅ done; volume characterization frozen | `28dc9368` |
-| P7.4 | retrieval-validity correction | ✅ done; valid V3 reference frozen | `5ba409db` |
+| P7.3 | `TASK_BULLY_P7_3_SPECIMEN_SCALE_AND_BASELINE_V1.md` | ✅ done; volume characterization frozen | `4fa6e608` |
+| P7.4 | retrieval-validity correction | ✅ done; valid V3 reference frozen | `36aeb598` |
 | SA1 | `TASK_BULLY_SA1_CLASS_ONBOARDING_LOOP_V1.md` | ✅ done; System admitted, three classes honestly flagged | this commit |
 | SA2 | `TASK_BULLY_SA2_DISCOVERY_MEASUREMENT_V1.md` | ✅ done; `DISCOVERY_BASELINE_V1` frozen, first real product measurement | this commit |
 | SA3 | `TASK BULLY SA3 EMBEDDING BAKEOFF V1.md` | ✅ done; both arms built + bake-off recorded, decision deferred → resolved in SA5 P0.4 | — |

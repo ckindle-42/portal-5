@@ -5,8 +5,8 @@ title: "S12 \u2014 Web search"
 sources:
 - type: code
   path: tests/acceptance/s12_web_search.py
-  commit: a88ad75b
-last_generated_commit: a88ad75b
+  commit: e75dddd2
+last_generated_commit: e75dddd2
 claims: []
 confidence: high
 tags:

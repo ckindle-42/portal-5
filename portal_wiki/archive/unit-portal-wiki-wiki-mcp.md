@@ -5,8 +5,8 @@ title: "Wiki MCP server \u2014 HTTP transport for agent retrieval"
 sources:
 - type: code
   path: portal_wiki/wiki_mcp.py
-  commit: dc13b2d5
-last_generated_commit: dc13b2d5
+  commit: 53110d10
+last_generated_commit: 53110d10
 claims: []
 confidence: high
 tags:

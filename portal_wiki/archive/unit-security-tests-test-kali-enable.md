@@ -5,7 +5,7 @@ title: Kali enablement on the main-chain path
 sources:
 - type: code
   path: portal/modules/security/tests/test_kali_enable.py
-last_generated_commit: baca992c674a3cbb36a619e8f62e7e88b8fccfff
+last_generated_commit: f0b6e5a43439303b615e818fed6698038c4af0c6
 claims: []
 confidence: high
 tags:

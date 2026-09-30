@@ -5,8 +5,8 @@ title: "MLX template patcher \u2014 archived tokenizer packaging fix"
 sources:
 - type: code
   path: scripts/_archive/mlx-retired-3a0c58e/patch-mlx-templates.py
-  commit: 2d2e9c0f
-last_generated_commit: 2d2e9c0f
+  commit: 90ac134b
+last_generated_commit: 90ac134b
 claims: []
 confidence: high
 tags:
@@ -29,7 +29,7 @@ The patch existed because a subtle packaging gap in many MLX quantizations
 produced a silent capability failure: the template file was present but the
 config key was missing, so the tokenizer reported no tool-calling support
 and models lost tool use without any error. The patcher made the dependency
-explicit by embedding the template. It retired at `3a0c58e` with the MLX
+explicit by embedding the template. It retired at `75c24a9` with the MLX
 stack, and the archive preserves the failure mode — a missing config key
 silently disabling a capability — as a warning pattern for any future
 tokenizer packaging.

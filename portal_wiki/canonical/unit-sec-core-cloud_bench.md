@@ -5,7 +5,7 @@ title: "Cloud bench \u2014 no cloud lane"
 sources:
 - type: code
   path: portal/modules/security/core/cloud_bench.py
-  commit: 11d83e41
+  commit: 699b6207
 claims: []
 confidence: high
 tags:

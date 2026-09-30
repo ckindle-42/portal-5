@@ -5,8 +5,8 @@ title: "Blue orchestration ablation \u2014 GATE-D 1-vs-2-vs-3-section driver"
 sources:
 - type: code
   path: portal/modules/security/eval/blue_orchestration_ablation.py
-  commit: 1d62c01d
-last_generated_commit: 1d62c01d
+  commit: 851ea193
+last_generated_commit: 851ea193
 claims: []
 confidence: high
 tags:

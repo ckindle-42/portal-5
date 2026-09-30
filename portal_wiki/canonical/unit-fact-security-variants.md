@@ -5,7 +5,7 @@ title: 16 security canonical variants
 sources:
 - type: code
   path: config/portal.yaml
-  commit: 1179539abbf8
+  commit: 3c9f8069633a
   section: workspaces.auto-security.variants
 claims: []
 confidence: high

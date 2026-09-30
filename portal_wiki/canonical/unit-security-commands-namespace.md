@@ -5,7 +5,7 @@ title: "Security commands package \u2014 runner namespace"
 sources:
 - type: code
   path: portal/modules/security/core/commands/__init__.py
-  commit: 5b73259d
+  commit: c36595e1
 claims: []
 confidence: high
 tags:

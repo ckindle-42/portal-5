@@ -5,7 +5,7 @@ title: "Tests frontends \u2014 OWUI-only UAT helper namespace"
 sources:
 - type: code
   path: tests/frontends/__init__.py
-  commit: '96146826'
+  commit: '38123c31'
 claims: []
 confidence: high
 tags:

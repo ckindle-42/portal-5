@@ -5,8 +5,8 @@ title: "LLM redteam \u2014 OWASP LLM Top 10 probes"
 sources:
 - type: code
   path: portal/modules/security/core/llm_redteam.py
-  commit: 11d83e41
-last_generated_commit: 11d83e41
+  commit: 699b6207
+last_generated_commit: 699b6207
 claims: []
 confidence: high
 tags:

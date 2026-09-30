@@ -5,7 +5,7 @@ title: "Router streaming \u2014 policy-free SSE transport + tool loop"
 sources:
 - type: code
   path: portal/platform/inference/router/streaming.py
-  commit: 86e6f142c0069ca2d4824b4721a545e64bd585b3
+  commit: b1392f8efd4cbdaf0f760a1a023f67c494b14b7e
 claims: []
 confidence: high
 tags:

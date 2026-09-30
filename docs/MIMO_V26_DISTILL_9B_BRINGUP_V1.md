@@ -244,7 +244,7 @@ A win is reported only from VALID runs (rule 4).
 
 **Engine:** adding a new engine or replacing an existing one is on the table (operator, 2026-09-23), so a clear winner feeds a real integration task, not just a note. Before that task starts, it has to answer the history below.
 
-**History — don't repeat the dual-engine experience.** Portal ran `mlx_lm.server` behind an MLX proxy alongside Ollama (and a separate vision path) until commit `3a0c58e` (2026-06-09). Operator's account: the dual-engine setup gave a **terrible user experience**. `KNOWN_LIMITATIONS.md` records the failure surface that was deleted:
+**History — don't repeat the dual-engine experience.** Portal ran `mlx_lm.server` behind an MLX proxy alongside Ollama (and a separate vision path) until commit `75c24a9` (2026-06-09). Operator's account: the dual-engine setup gave a **terrible user experience**. `KNOWN_LIMITATIONS.md` records the failure surface that was deleted:
 - single-model eviction across engines
 - cold-boot 503 windows
 - admission-control conflicts

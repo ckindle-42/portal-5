@@ -5,8 +5,8 @@ title: "MLX model-aware proxy \u2014 retired dual-stack coordinator"
 sources:
 - type: code
   path: scripts/_archive/mlx-retired-3a0c58e/mlx-proxy.py
-  commit: 2d2e9c0f
-last_generated_commit: 2d2e9c0f
+  commit: 90ac134b
+last_generated_commit: 90ac134b
 claims: []
 confidence: high
 tags:
@@ -25,7 +25,7 @@ at a time under Apple Silicon's unified memory constraints.
 ## Why
 
 The proxy is the centerpiece of the MLX inference tier that was retired at
-`3a0c58e`. It existed because mlx-lm and mlx-vlm could not share VRAM, so a
+`75c24a9`. It existed because mlx-lm and mlx-vlm could not share VRAM, so a
 coordinator had to load one, serve, evict, and load the other — with switch
 times around thirty seconds. The retirement decision was that Ollama's
 native MLX backend reached parity without the thread-patch maintenance,

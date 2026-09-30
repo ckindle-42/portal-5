@@ -5,8 +5,8 @@ title: "Capability graph \u2014 technique coverage index"
 sources:
 - type: code
   path: portal/modules/security/core/capability_graph.py
-  commit: 11d83e41
-last_generated_commit: 11d83e41
+  commit: 699b6207
+last_generated_commit: 699b6207
 claims: []
 confidence: high
 tags:

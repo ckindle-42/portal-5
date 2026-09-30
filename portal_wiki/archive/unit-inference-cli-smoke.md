@@ -5,8 +5,8 @@ title: "Inference CLI smoke \u2014 live-stack end-to-end test"
 sources:
 - type: code
   path: portal/platform/inference/cli/smoke.py
-  commit: 5fbf51f8
-last_generated_commit: 5fbf51f8
+  commit: 250150f6
+last_generated_commit: 250150f6
 claims: []
 confidence: high
 tags:

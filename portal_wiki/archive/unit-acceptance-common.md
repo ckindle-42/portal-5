@@ -5,8 +5,8 @@ title: "Acceptance common \u2014 shared section infrastructure"
 sources:
 - type: code
   path: tests/acceptance/_common.py
-  commit: a88ad75b
-last_generated_commit: a88ad75b
+  commit: e75dddd2
+last_generated_commit: e75dddd2
 claims: []
 confidence: high
 tags:

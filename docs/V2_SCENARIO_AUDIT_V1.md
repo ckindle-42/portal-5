@@ -1,6 +1,6 @@
 # V2 Scenario Audit — Bias Check vs UAT Prompts
 
-**Source V2 task**: TASK_CODING_SHOOTOUT_V2.md (commit 4063dfc)
+**Source V2 task**: TASK_CODING_SHOOTOUT_V2.md (commit 63a060e)
 **Source V2 results**: tests/benchmarks/results/coding_shootout_v2_20260513T180038Z.json
 **Audit date**: 2026-05-13
 **Auditor**: Claude session (portal-5 coding task executor)

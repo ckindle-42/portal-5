@@ -5,8 +5,8 @@ title: "Section C9 \u2014 Pipeline round-trips (auto-video)"
 sources:
 - type: code
   path: tests/comfyui/c09_pipeline_roundtrip.py
-  commit: 441fd2a1
-last_generated_commit: 441fd2a1
+  commit: ee3590ba
+last_generated_commit: ee3590ba
 claims: []
 confidence: high
 tags:

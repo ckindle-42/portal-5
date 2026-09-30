@@ -5,8 +5,8 @@ title: "ComfyUI acceptance C5 \u2014 FLUX dev generation"
 sources:
 - type: code
   path: tests/comfyui/c05_flux_dev.py
-  commit: 441fd2a1
-last_generated_commit: 441fd2a1
+  commit: ee3590ba
+last_generated_commit: ee3590ba
 claims: []
 confidence: high
 tags:

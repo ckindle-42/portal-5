@@ -50,7 +50,7 @@
       "unit": "unit-readme-stop-the-conflicting-service-then-launch-sh-up"
     }
   ],
-  "authored_against": "117f407a",
+  "authored_against": "4e5172b1",
   "budget_max": 0.4,
   "capability_rollup_unit_exists": true,
   "chars_generated": 43442,

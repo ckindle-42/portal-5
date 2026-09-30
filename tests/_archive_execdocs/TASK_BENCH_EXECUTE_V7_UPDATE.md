@@ -5,7 +5,7 @@
 **Priority:** Normal — blocks the first post-V7 bench run from producing clean results
 **Category:** Documentation refresh + small mechanism add
 **Protected files touched:** None (`tests/PORTAL5_BENCH_EXECUTE_V1.md`, `tests/benchmarks/bench_tps.py`, `config/backends.yaml`)
-**Repo HEAD at audit time:** `d579f88` (2026-05-27)
+**Repo HEAD at audit time:** `195f906` (2026-05-27)
 **Estimated risk:** Low — doc edits + ~15 lines of additive Python + 1 new YAML block. No production behavior change.
 
 ---
@@ -16,14 +16,14 @@
 for `python3 tests/benchmarks/bench_tps.py --mode all`. It's the bridge
 from "task added bench workspaces" to "bench numbers exist in Grafana".
 
-Audit at HEAD `d579f88` shows the doc is **stale even before V7**:
+Audit at HEAD `195f906` shows the doc is **stale even before V7**:
 
 | Symptom | Doc claims | HEAD reality |
 |---|---|---|
 | Header total workspace count | "44 (19 auto-* + 25 bench-*)" | 43 (19 auto + 23 bench + 1 tools-specialist) |
 | Bench table row count | 25 | 24 |
-| `bench-llama4-scout` listed | ✓ in table (line 63), `--workspace` example (line 254), "Known Behavior Notes" bullet (line 364) | **REMOVED at HEAD** by commit `9c657b3` ("chore(fleet): remove Llama-4-Scout — 57GB Metal OOM crashes M4 Pro on bench") |
-| `tools-specialist` production workspace | Not mentioned | Promoted to production (TASK 12a912a, 2026-05-24) |
+| `bench-llama4-scout` listed | ✓ in table (line 63), `--workspace` example (line 254), "Known Behavior Notes" bullet (line 364) | **REMOVED at HEAD** by commit `9bcedf8` ("chore(fleet): remove Llama-4-Scout — 57GB Metal OOM crashes M4 Pro on bench") |
+| `tools-specialist` production workspace | Not mentioned | Promoted to production (TASK 906e6c1, 2026-05-24) |
 | Document audit date | "HEAD, 2026-05-23" | Last commit is 2026-05-27 |
 | Dry-run expected counts | "MLX models: 43 / Workspaces: 44" | At HEAD: 43 MLX / 43 workspaces |
 
@@ -101,7 +101,7 @@ Run BEFORE any edits land:
 2. Confirm Llama-4-Scout removal is in:
    ```bash
    grep -c "bench-llama4-scout\|llama4-scout\|Llama-4-Scout" config/backends.yaml portal_pipeline/router_pipe.py config/personas/*.yaml
-   # Expect 0 — model was removed at HEAD by commit 9c657b3
+   # Expect 0 — model was removed at HEAD by commit 9bcedf8
    grep -c "bench-llama4-scout\|llama4-scout\|Llama-4-Scout" tests/PORTAL5_BENCH_EXECUTE_V1.md
    # Expect ≥3 — those are the stale references this task removes
    ```
@@ -496,7 +496,7 @@ historical note above the table:
 
 ```markdown
 > Historical note: `bench-llama4-scout` (Llama-4-Scout-17B MLX) was removed
-> at HEAD by commit `9c657b3` after 57 GB Metal OOM crashes on M4 Pro.
+> at HEAD by commit `9bcedf8` after 57 GB Metal OOM crashes on M4 Pro.
 > Do not re-add without a hardware-tier change.
 ```
 
@@ -604,7 +604,7 @@ python3 tests/benchmarks/bench_tps.py --mode pipeline --workspace bench-voxtral-
 
 - **V7 speech workspaces** (`bench-voxtral-realtime`, `bench-voxtral-tts`, `bench-granite-speech`): listed in `config/backends.yaml` `pipeline_bench_skip:`. The default `--mode all` run **skips these workspaces in pipeline mode and skips their MLX model in direct mode** (`bench_skip: true` on the model entry). Operator can still probe them via `--workspace <id>` (overrides the skip list), but the text-prompt harness cannot exercise streaming ASR / TTS meaningfully — actual speech benchmarking is deferred to TASK_SPEECH_SHOOTOUT_V1 (see P5_ROADMAP.md P5-FUT-SPEECH-002).
 
-- **`tools-specialist` workspace**: production workspace promoted in commit 12a912a (2026-05-24). Wired to `ToolACE-2.5-Llama-3.1-8B-4bit-mlx`. In `WORKSPACE_PROMPT_MAP` as "coding" (closest match for the tool-calling CC-01 baseline). Earlier dashboard runs may show this workspace as "general" — that's a pre-V7 drift fix.
+- **`tools-specialist` workspace**: production workspace promoted in commit 906e6c1 (2026-05-24). Wired to `ToolACE-2.5-Llama-3.1-8B-4bit-mlx`. In `WORKSPACE_PROMPT_MAP` as "coding" (closest match for the tool-calling CC-01 baseline). Earlier dashboard runs may show this workspace as "general" — that's a pre-V7 drift fix.
 ```
 
 #### B5.7 — Document the new skip mechanism in a new subsection
@@ -762,11 +762,11 @@ MECHANISM:
 
 DOC REFRESH (tests/PORTAL5_BENCH_EXECUTE_V1.md):
 - Remove stale bench-llama4-scout references (model removed at HEAD
-  by commit 9c657b3, 57GB Metal OOM).
+  by commit 9bcedf8, 57GB Metal OOM).
 - Update header counts to v7.0.0 state.
 - Add V7 bench entries to the workspace table with correct dispositions.
 - Add tools-specialist to the auto-workspace section (promoted in
-  commit 12a912a, was previously missing from doc).
+  commit 906e6c1, was previously missing from doc).
 - Update dry-run plan expected output.
 - Replace stale --workspace example.
 - Add 'Skip Mechanism Reference' subsection documenting both flags.

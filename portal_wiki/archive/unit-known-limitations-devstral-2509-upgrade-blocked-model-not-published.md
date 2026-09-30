@@ -5,7 +5,7 @@ title: "KNOWN_LIMITATIONS \u2014 Devstral 2509 Upgrade Blocked \u2014 Model Not 
 sources:
 - type: code
   path: config/personas/bench_devstral.yaml
-last_generated_commit: f5987f1ea6b0cdb25b66e33a02b95183205d0605
+last_generated_commit: 800be8bfbbbd6238978cdfa9be7cfadf4bc68c8d
 claims: []
 confidence: high
 tags:

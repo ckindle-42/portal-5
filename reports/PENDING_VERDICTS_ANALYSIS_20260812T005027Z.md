@@ -124,7 +124,7 @@ Sorted biggest-reclaim-first below.
 
 ### Intake rationale
 
-- **Intake age:** 47d ago (first-seen commit `84c15f78`)
+- **Intake age:** 47d ago (first-seen commit `bb3fa1ba`)
 - **Mentioned in 4 doc file(s):**
   - `docs/ADMIN_GUIDE.md` — ## general (89)
     > - `portal5/deepwen-3.6:q4.5-moq-ctx32k` \ - `portal5/gemma4-12b:q4_K_M-ctx8k` \ - `portal5/qwen3.6-27b-mtp:q8_0-drafted` \ - `portal5/xyz-aquila-mini:Q4_K_M` \ - `portal5/xyz-aquila-mini:q4_k_m-ctx16k…
@@ -204,7 +204,7 @@ Sorted biggest-reclaim-first below.
 
 ### Intake rationale
 
-- **Intake age:** 47d ago (first-seen commit `84c15f78`)
+- **Intake age:** 47d ago (first-seen commit `bb3fa1ba`)
 - **Mentioned in 5 doc file(s):**
   - `docs/HOWTO.md` — ## 6. Security Analysis
     > | `redteam-deep` | Simulation | `supergemma4-26b-uncensored:Q4_K_M-ctx64k` | none | \ | `blueteam` | Research | `granite4.1:8b-ctx8k` | web_search, web_fetch, classify_vulnerability, kb_search, kb_lis…
@@ -291,7 +291,7 @@ Sorted biggest-reclaim-first below.
 
 ### Intake rationale
 
-- **Intake age:** 40d ago (first-seen commit `5dd51bb6`)
+- **Intake age:** 40d ago (first-seen commit `e5c3baf8`)
 - **Mentioned in 5 doc file(s):**
   - `docs/ROUTING_INTEGRITY_FINDINGS.md` — ### Finding 1 — Keyword layer: 0 regressions, 1 documented intended change
     > `auto-mistral`'s served model changes from \ `hf.co/unsloth/Magistral-Small-2509-GGUF:Q8_0-ctx64k` to \ `hf.co/unsloth/DeepSeek-R1-0528-Qwen3-8B-GGUF:Q4_K_XL-ctx64k`. This is the \ **documented, inten…
@@ -368,7 +368,7 @@ Sorted biggest-reclaim-first below.
 
 ### Intake rationale
 
-- **Intake age:** 47d ago (first-seen commit `84c15f78`)
+- **Intake age:** 47d ago (first-seen commit `bb3fa1ba`)
 - **Mentioned in 5 doc file(s):**
   - `docs/HOWTO.md` — ## 6. Security Analysis
     > | `redteam-deep` | Simulation | `supergemma4-26b-uncensored:Q4_K_M-ctx64k` | none | \ | `blueteam` | Research | `granite4.1:8b-ctx8k` | web_search, web_fetch, classify_vulnerability, kb_search, kb_lis…
@@ -457,7 +457,7 @@ Sorted biggest-reclaim-first below.
 
 ### Intake rationale
 
-- **Intake age:** 47d ago (first-seen commit `84c15f78`)
+- **Intake age:** 47d ago (first-seen commit `bb3fa1ba`)
 - **Mentioned in 4 doc file(s):**
   - `docs/ADMIN_GUIDE.md` — ## coding (41)
     > - `hf.co/unsloth/Qwen-AgentWorld-35B-A3B-GGUF:UD-Q4_K_XL` \ - `hf.co/unsloth/Qwen-AgentWorld-35B-A3B-GGUF:UD-Q4_K_XL-ctx64k` \ - `hf.co/unsloth/Qwen3.6-35B-A3B-GGUF:UD-Q4_K_XL` \ - `hf.co/yuxinlu1/gem…
@@ -554,7 +554,7 @@ Sorted biggest-reclaim-first below.
 
 ### Intake rationale
 
-- **Intake age:** 47d ago (first-seen commit `84c15f78`)
+- **Intake age:** 47d ago (first-seen commit `bb3fa1ba`)
 - **Mentioned in 4 doc file(s):**
   - `docs/ADMIN_GUIDE.md` — ## coding (41)
     > - `hf.co/deepreinforce-ai/Ornith-1.0-35B-GGUF:Q4_K_M-ctx64k` \ - `hf.co/mitkox/FastContext-1.0-4B-SFT-Q4_K_M-GGUF:Q4_K_M` \ - `hf.co/sjakek/Nex-N2-mini-GGUF:UD-Q4_K_M` \ - `hf.co/unsloth/GLM-4.7-Flash…
@@ -637,7 +637,7 @@ Sorted biggest-reclaim-first below.
 
 ### Intake rationale
 
-- **Intake age:** 42d ago (first-seen commit `ddcf7dff`)
+- **Intake age:** 42d ago (first-seen commit `e3413f4c`)
 - **Mentioned in 5 doc file(s):**
   - `docs/ADMIN_GUIDE.md` — ## general (89)
     > - `hf.co/Abiray/Agents-A1-Q4_K_M-GGUF:Q4_K_M` \ - `hf.co/Andycurrent/Mistral-7B-Uncensored-GGUF:Q4_K_M` \ - `hf.co/BugTraceAI/BugTraceAI-CORE-Ultra-27B-Q6:Q6_K` \ - `hf.co/Jackrong/DeepSeek-V4-Pro-Qwe…
@@ -723,7 +723,7 @@ Sorted biggest-reclaim-first below.
 
 ### Intake rationale
 
-- **Intake age:** 47d ago (first-seen commit `84c15f78`)
+- **Intake age:** 47d ago (first-seen commit `bb3fa1ba`)
 - **Mentioned in 3 doc file(s):**
   - `docs/ADMIN_GUIDE.md` — ## general (89)
     > - `hf.co/gaston-parravicini/LFM2.5-8B-A1B-Uncensored-Gaston-GGUF:Q4_K_M` \ - `hf.co/mitkox/FastContext-1.0-4B-SFT-Q4_K_M-GGUF:Q4_K_M` \ - `hf.co/mradermacher/Huihui-Qwen3.6-35B-A3B-abliterated-GGUF:Q4…
@@ -812,7 +812,7 @@ Sorted biggest-reclaim-first below.
 
 ### Intake rationale
 
-- **Intake age:** 1d ago (first-seen commit `d6603676`)
+- **Intake age:** 1d ago (first-seen commit `13b2c696`)
 - **Mentioned in 3 doc file(s):**
   - `docs/ADMIN_GUIDE.md` — ## general (89)
     > - `portal5/gemma4-12b:q4_K_M-ctx8k` \ - `portal5/qwen3.6-27b-mtp:q8_0-drafted` \ - `portal5/xyz-aquila-mini:Q4_K_M` \ - `portal5/xyz-aquila-mini:q4_k_m-ctx16k` \ - `qwen3-coder-next:latest` \ - `qwen3…
@@ -879,7 +879,7 @@ Sorted biggest-reclaim-first below.
 
 ### Intake rationale
 
-- **Intake age:** 1d ago (first-seen commit `1896bb7d`)
+- **Intake age:** 1d ago (first-seen commit `a433c8a0`)
 - **Mentioned in 3 doc file(s):**
   - `docs/ADMIN_GUIDE.md` — ## general (89)
     > - `portal5/qwen3.6-27b-mtp:q8_0-drafted` \ - `portal5/xyz-aquila-mini:Q4_K_M` \ - `portal5/xyz-aquila-mini:q4_k_m-ctx16k` \ - `qwen3-coder-next:latest` \ - `qwen3-coder:30b-a3b-q4_K_M` \ - `qwen3.6:27…
@@ -952,7 +952,7 @@ research-task rubric. Working-ctx preflight found 8k truncates conversation hist
 
 ### Intake rationale
 
-- **Intake age:** 1d ago (first-seen commit `fb9979b7`)
+- **Intake age:** 1d ago (first-seen commit `e81e3c16`)
 - **Mentioned in 5 doc file(s):**
   - `docs/ADMIN_GUIDE.md` — ## general (89)
     > - `meta-secalign-8b-q4_k_m:latest` \ - `mistral-small3.2:24b` \ - `muse-glimmer:30b-mlx` \ - `omnicoder2:9b-q4_k_m` \ - `phi4-mini` \ - `phi4:14b-q8_0`
@@ -1038,7 +1038,7 @@ BENCH RESULT 2026-08-10: TPS 25.6 t/s avg (5/5, clears 20 t/s floor). Tool-calli
 
 ### Intake rationale
 
-- **Intake age:** 42d ago (first-seen commit `ddcf7dff`)
+- **Intake age:** 42d ago (first-seen commit `e3413f4c`)
 - **Mentioned in 4 doc file(s):**
   - `docs/ADMIN_GUIDE.md` — ## coding (41)
     > - `gpt-oss:20b` \ - `hf.co/Abiray/Agents-A1-Q4_K_M-GGUF:Q4_K_M` \ - `hf.co/Jiunsong/SuperQwen-AgentWorld-35B-A3B-abliterated-gguf-4bit:Q4_K_M` \ - `hf.co/Mia-AiLab/Qwable-3.6-35b:Qwable-3.6-35b_q4_k_m…
@@ -1126,7 +1126,7 @@ BENCH RESULT 2026-08-10: TPS 25.6 t/s avg (5/5, clears 20 t/s floor). Tool-calli
 
 ### Intake rationale
 
-- **Intake age:** 1d ago (first-seen commit `0fec84d4`)
+- **Intake age:** 1d ago (first-seen commit `5bf33f71`)
 - **Mentioned in 5 doc file(s):**
   - `docs/ADMIN_GUIDE.md` — ## general (89)
     > - `phi4:14b-q8_0` \ - `portal5/deepwen-3.6:q4.5-moq` \ - `portal5/deepwen-3.6:q4.5-moq-ctx32k` \ - `portal5/gemma4-12b:q4_K_M-ctx8k` \ - `portal5/qwen3.6-27b-mtp:q8_0-drafted` \ - `portal5/xyz-aquila-…
@@ -1201,7 +1201,7 @@ BENCH RESULT 2026-08-10 (revised after root-causing an initial wrong verdict —
 
 ### Intake rationale
 
-- **Intake age:** 1d ago (first-seen commit `fb9979b7`)
+- **Intake age:** 1d ago (first-seen commit `e81e3c16`)
 - **Mentioned in 5 doc file(s):**
   - `docs/ADMIN_GUIDE.md` — ## general (89)
     > - `phi4-mini` \ - `phi4:14b-q8_0` \ - `portal5/deepwen-3.6:q4.5-moq` \ - `portal5/deepwen-3.6:q4.5-moq-ctx32k` \ - `portal5/gemma4-12b:q4_K_M-ctx8k` \ - `portal5/qwen3.6-27b-mtp:q8_0-drafted`
@@ -1273,7 +1273,7 @@ BENCH RESULT 2026-08-10 (revised after root-causing an initial wrong verdict —
 
 ### Intake rationale
 
-- **Intake age:** 47d ago (first-seen commit `84c15f78`)
+- **Intake age:** 47d ago (first-seen commit `bb3fa1ba`)
 - **Mentioned in 5 doc file(s):**
   - `docs/SECURITY_BENCH_EXEC.md` — ## Security models loaded
     > ``` \ hf.co/mradermacher/VulnLLM-R-7B-GGUF:Q4_K_M \ hf.co/Mia-AiLab/Qwable-3.6-35b:Qwable-3.6-35b_q4_k_m.gguf \ huihui_ai/baronllm-abliterated:latest \ hf.co/fdtn-ai/Foundation-Sec-8B-Reasoning-Q8_0-G…
@@ -1366,7 +1366,7 @@ Like all fine-tuned language models, Qwable 35b can produce incorrect, incomplet
 
 ### Intake rationale
 
-- **Intake age:** 42d ago (first-seen commit `26dc5832`)
+- **Intake age:** 42d ago (first-seen commit `f4c98955`)
 - **Mentioned in 3 doc file(s):**
   - `docs/ADMIN_GUIDE.md` — ## coding (41)
     > - `glm-4.7-flash:Q4_K_M` \ - `gpt-oss:20b` \ - `hf.co/Abiray/Agents-A1-Q4_K_M-GGUF:Q4_K_M` \ - `hf.co/Jiunsong/SuperQwen-AgentWorld-35B-A3B-abliterated-gguf-4bit:Q4_K_M` \ - `hf.co/Mia-AiLab/Qwable-3.…
@@ -1448,7 +1448,7 @@ Like all fine-tuned language models, Qwable 35b can produce incorrect, incomplet
 
 ### Intake rationale
 
-- **Intake age:** 40d ago (first-seen commit `5dd51bb6`)
+- **Intake age:** 40d ago (first-seen commit `e5c3baf8`)
 - **Mentioned in 5 doc file(s):**
   - `docs/ADMIN_GUIDE.md` — # Persona roster (138 personas)
     > | `githubexpert` | coding | `auto-coding` | — | \ | `glm-coder` | coding | `auto-coding` | `hf.co/unsloth/GLM-4.7-Flash-REAP-23B-A3B-GGUF:UD-Q4_K_XL-ctx64k` | \ | `glm-thinker` | general | `auto-reaso…
@@ -1525,7 +1525,7 @@ Like all fine-tuned language models, Qwable 35b can produce incorrect, incomplet
 
 ### Intake rationale
 
-- **Intake age:** 47d ago (first-seen commit `84c15f78`)
+- **Intake age:** 47d ago (first-seen commit `bb3fa1ba`)
 - **Mentioned in 5 doc file(s):**
   - `docs/ROUTING_INTEGRITY_FINDINGS.md` — ### Finding 1 — Keyword layer: 0 regressions, 1 documented intended change
     > `auto-mistral`'s served model changes from \ `hf.co/unsloth/Magistral-Small-2509-GGUF:Q8_0-ctx64k` to \ `hf.co/unsloth/DeepSeek-R1-0528-Qwen3-8B-GGUF:Q4_K_XL-ctx64k`. This is the \ **documented, inten…
@@ -1607,7 +1607,7 @@ Like all fine-tuned language models, Qwable 35b can produce incorrect, incomplet
 
 ### Intake rationale
 
-- **Intake age:** 47d ago (first-seen commit `84c15f78`)
+- **Intake age:** 47d ago (first-seen commit `bb3fa1ba`)
 - **Mentioned in 3 doc file(s):**
   - `docs/ADMIN_GUIDE.md` — ## general (89)
     > - `hf.co/Jackrong/DeepSeek-V4-Pro-Qwen3.5-4B-MTP-GGUF:Q4_K_M` \ - `hf.co/Jackrong/DeepSeek-V4-Pro-Qwen3.5-9B-MTP-GGUF:Q4_K_M` \ - `hf.co/Jackrong/Qwopus3.6-27B-v2-MTP-GGUF:Qwopus3.6-27B-v2-MTP-Q5_K_M.…
@@ -1687,7 +1687,7 @@ Like all fine-tuned language models, Qwable 35b can produce incorrect, incomplet
 
 ### Intake rationale
 
-- **Intake age:** 47d ago (first-seen commit `84c15f78`)
+- **Intake age:** 47d ago (first-seen commit `bb3fa1ba`)
 - **Mentioned in 5 doc file(s):**
   - `docs/ADMIN_GUIDE.md` — ## coding (41)
     > - `devstral-small-2:latest-ctx8k` \ - `devstral:24b` \ - `glm-4.7-flash:Q4_K_M` \ - `gpt-oss:20b` \ - `hf.co/Abiray/Agents-A1-Q4_K_M-GGUF:Q4_K_M` \ - `hf.co/Jiunsong/SuperQwen-AgentWorld-35B-A3B-ablit…
@@ -1761,7 +1761,7 @@ Like all fine-tuned language models, Qwable 35b can produce incorrect, incomplet
 
 ### Intake rationale
 
-- **Intake age:** 40d ago (first-seen commit `5dd51bb6`)
+- **Intake age:** 40d ago (first-seen commit `e5c3baf8`)
 - **Mentioned in 5 doc file(s):**
   - `docs/HOWTO.md` — ## 3. Workspaces
     > |---|---|---| \ | `auto` (Portal Auto Router) | `huihui_ai/qwen3.5-abliterated:9b-ctx8k` | LLM intent classifier routes onward | \ | `auto-daily` | `gemma4:26b-a4b-it-qat-ctx8k` | web_search, create_w…
@@ -1844,7 +1844,7 @@ Like all fine-tuned language models, Qwable 35b can produce incorrect, incomplet
 
 ### Intake rationale
 
-- **Intake age:** 47d ago (first-seen commit `84c15f78`)
+- **Intake age:** 47d ago (first-seen commit `bb3fa1ba`)
 - **Mentioned in 5 doc file(s):**
   - `docs/HOWTO.md` — ## 3. Workspaces
     > |---|---|---| \ | `auto` (Portal Auto Router) | `huihui_ai/qwen3.5-abliterated:9b-ctx8k` | LLM intent classifier routes onward | \ | `auto-daily` | `gemma4:26b-a4b-it-qat-ctx8k` | web_search, create_w…
@@ -1929,7 +1929,7 @@ Like all fine-tuned language models, Qwable 35b can produce incorrect, incomplet
 
 ### Intake rationale
 
-- **Intake age:** 47d ago (first-seen commit `84c15f78`)
+- **Intake age:** 47d ago (first-seen commit `bb3fa1ba`)
 - **Mentioned in 5 doc file(s):**
   - `docs/ADMIN_GUIDE.md` — # Persona roster (138 personas)
     > | `gdprdpoadvisor` | compliance | `auto-compliance` | — | \ | `gemma4e4bvision` | general | `auto-vision` | — | \ | `gemma4jangvision` | general | `auto-vision` | `hf.co/douyamv/Gemma-4-31B-JANG_4M-CR…
@@ -2008,7 +2008,7 @@ Like all fine-tuned language models, Qwable 35b can produce incorrect, incomplet
 
 ### Intake rationale
 
-- **Intake age:** 47d ago (first-seen commit `84c15f78`)
+- **Intake age:** 47d ago (first-seen commit `bb3fa1ba`)
 - **Mentioned in 5 doc file(s):**
   - `docs/HOWTO.md` — ## 3. Workspaces
     > |---|---|---| \ | `auto` (Portal Auto Router) | `huihui_ai/qwen3.5-abliterated:9b-ctx8k` | LLM intent classifier routes onward | \ | `auto-daily` | `gemma4:26b-a4b-it-qat-ctx8k` | web_search, create_w…
@@ -2096,7 +2096,7 @@ Like all fine-tuned language models, Qwable 35b can produce incorrect, incomplet
 
 ### Intake rationale
 
-- **Intake age:** 47d ago (first-seen commit `84c15f78`)
+- **Intake age:** 47d ago (first-seen commit `bb3fa1ba`)
 - **Mentioned in 3 doc file(s):**
   - `docs/ADMIN_GUIDE.md` — ## coding (41)
     > - `hf.co/Jiunsong/SuperQwen-AgentWorld-35B-A3B-abliterated-gguf-4bit:Q4_K_M` \ - `hf.co/Mia-AiLab/Qwable-3.6-35b:Qwable-3.6-35b_q4_k_m.gguf` \ - `hf.co/bartowski/Qwen_Qwen3.6-27B-GGUF:Q4_K_M` \ - `hf.…
@@ -2183,7 +2183,7 @@ Like all fine-tuned language models, Qwable 35b can produce incorrect, incomplet
 
 ### Intake rationale
 
-- **Intake age:** 1d ago (first-seen commit `d6603676`)
+- **Intake age:** 1d ago (first-seen commit `13b2c696`)
 - **Mentioned in 5 doc file(s):**
   - `docs/HOWTO.md` — ## 6. Security Analysis
     > | `redteam-deep` | Simulation | `supergemma4-26b-uncensored:Q4_K_M-ctx64k` | none | \ | `blueteam` | Research | `granite4.1:8b-ctx8k` | web_search, web_fetch, classify_vulnerability, kb_search, kb_lis…
@@ -2269,7 +2269,7 @@ Like all fine-tuned language models, Qwable 35b can produce incorrect, incomplet
 
 ### Intake rationale
 
-- **Intake age:** 1d ago (first-seen commit `d6603676`)
+- **Intake age:** 1d ago (first-seen commit `13b2c696`)
 - **Mentioned in 4 doc file(s):**
   - `docs/ADMIN_GUIDE.md` — ## general (89)
     > - `hf.co/mradermacher/Qwen3.5-9B-Claude-4.6-HighIQ-THINKING-HERETIC-UNCENSORED-GGUF:Q4_K_M` \ - `hf.co/mradermacher/VulnLLM-R-7B-GGUF:Q4_K_M` \ - `hf.co/mradermacher/gemma-4-26B-A4B-it-uncensored-here…
@@ -2355,7 +2355,7 @@ Like all fine-tuned language models, Qwable 35b can produce incorrect, incomplet
 
 ### Intake rationale
 
-- **Intake age:** 47d ago (first-seen commit `84c15f78`)
+- **Intake age:** 47d ago (first-seen commit `bb3fa1ba`)
 - **Mentioned in 5 doc file(s):**
   - `docs/ADMIN_GUIDE.md` — ## general (89)
     > - `qwen3.6:35b-a3b-q4_K_M` \ - `supergemma4-26b-uncensored:Q4_K_M` \ - `sylink/sylink:8b` \  \ ## omlx (2)
@@ -2436,7 +2436,7 @@ Like all fine-tuned language models, Qwable 35b can produce incorrect, incomplet
 
 ### Intake rationale
 
-- **Intake age:** 40d ago (first-seen commit `5dd51bb6`)
+- **Intake age:** 40d ago (first-seen commit `e5c3baf8`)
 - **Mentioned in 5 doc file(s):**
   - `docs/ADMIN_GUIDE.md` — ## security (32)
     > - `supergemma4-26b-uncensored:Q4_K_M-ctx64k` \ - `sylink/sylink:8b` \ - `sylink/sylink:8b-ctx8k` \  \ ## vision (16)
@@ -2513,7 +2513,7 @@ Like all fine-tuned language models, Qwable 35b can produce incorrect, incomplet
 
 ### Intake rationale
 
-- **Intake age:** 1d ago (first-seen commit `d6603676`)
+- **Intake age:** 1d ago (first-seen commit `13b2c696`)
 - **Mentioned in 3 doc file(s):**
   - `docs/ADMIN_GUIDE.md` — ## general (89)
     > - `omnicoder2:9b-q4_k_m` \ - `phi4-mini` \ - `phi4:14b-q8_0` \ - `portal5/deepwen-3.6:q4.5-moq` \ - `portal5/deepwen-3.6:q4.5-moq-ctx32k` \ - `portal5/gemma4-12b:q4_K_M-ctx8k`
@@ -2591,7 +2591,7 @@ Like all fine-tuned language models, Qwable 35b can produce incorrect, incomplet
 
 ### Intake rationale
 
-- **Intake age:** 20d ago (first-seen commit `d52d54c8`)
+- **Intake age:** 20d ago (first-seen commit `1cc53da9`)
 - **Mentioned in 3 doc file(s):**
   - `docs/ADMIN_GUIDE.md` — ## general (89)
     > - `llama3.2:3b-instruct-q8_0-ctx8k` \ - `meta-secalign-8b-q4_k_m:latest` \ - `mistral-small3.2:24b` \ - `muse-glimmer:30b-mlx` \ - `omnicoder2:9b-q4_k_m` \ - `phi4-mini`
@@ -2662,7 +2662,7 @@ Like all fine-tuned language models, Qwable 35b can produce incorrect, incomplet
 
 ### Intake rationale
 
-- **Intake age:** 40d ago (first-seen commit `5dd51bb6`)
+- **Intake age:** 40d ago (first-seen commit `e5c3baf8`)
 - **Mentioned in 5 doc file(s):**
   - `docs/ADMIN_GUIDE.md` — # Persona roster (138 personas)
     > | `devopsautomator` | coding | `auto-coding` | — | \ | `devopsengineer` | general | `auto-reasoning` | — | \ | `devstral_coder` | coding | `auto-coding` | `devstral-small-2:latest-ctx8k` | \ | `diagra…
@@ -2731,7 +2731,7 @@ Like all fine-tuned language models, Qwable 35b can produce incorrect, incomplet
 
 ### Intake rationale
 
-- **Intake age:** 40d ago (first-seen commit `5dd51bb6`)
+- **Intake age:** 40d ago (first-seen commit `e5c3baf8`)
 - **Mentioned in 5 doc file(s):**
   - `docs/ADMIN_GUIDE.md` — # Persona roster (138 personas)
     > | `devopsautomator` | coding | `auto-coding` | — | \ | `devopsengineer` | general | `auto-reasoning` | — | \ | `devstral_coder` | coding | `auto-coding` | `devstral-small-2:latest-ctx8k` | \ | `diagra…
@@ -2799,7 +2799,7 @@ Like all fine-tuned language models, Qwable 35b can produce incorrect, incomplet
 
 ### Intake rationale
 
-- **Intake age:** 47d ago (first-seen commit `84c15f78`)
+- **Intake age:** 47d ago (first-seen commit `bb3fa1ba`)
 - **Mentioned in 5 doc file(s):**
   - `docs/RESULTS_COLLAPSE_V1_20260712.md` — ## What moved where
     > workspaces) folded into `auto-security`'s `variants:` block. \ - **Deleted outright** (Phase 7, model-tied, no longer needed once `?model=` \   override + persona `preferred_models` chains exist): `au…
@@ -2869,7 +2869,7 @@ Like all fine-tuned language models, Qwable 35b can produce incorrect, incomplet
 
 ### Intake rationale
 
-- **Intake age:** 40d ago (first-seen commit `5dd51bb6`)
+- **Intake age:** 40d ago (first-seen commit `e5c3baf8`)
 - **Mentioned in 5 doc file(s):**
   - `docs/ADMIN_GUIDE.md` — # Persona roster (138 personas)
     > | `gemmaresearchanalyst` | research | `auto-research` | — | \ | `githubexpert` | coding | `auto-coding` | — | \ | `glm-coder` | coding | `auto-coding` | `hf.co/unsloth/GLM-4.7-Flash-REAP-23B-A3B-GGUF:…
@@ -2956,7 +2956,7 @@ Like all fine-tuned language models, Qwable 35b can produce incorrect, incomplet
 
 ### Intake rationale
 
-- **Intake age:** 47d ago (first-seen commit `84c15f78`)
+- **Intake age:** 47d ago (first-seen commit `bb3fa1ba`)
 - **Mentioned in 5 doc file(s):**
   - `docs/ADMIN_GUIDE.md` — ## coding (41)
     > - `devstral:24b` \ - `glm-4.7-flash:Q4_K_M` \ - `gpt-oss:20b` \ - `hf.co/Abiray/Agents-A1-Q4_K_M-GGUF:Q4_K_M` \ - `hf.co/Jiunsong/SuperQwen-AgentWorld-35B-A3B-abliterated-gguf-4bit:Q4_K_M` \ - `hf.co/…
@@ -3037,7 +3037,7 @@ Like all fine-tuned language models, Qwable 35b can produce incorrect, incomplet
 
 ### Intake rationale
 
-- **Intake age:** 32d ago (first-seen commit `b43d0819`)
+- **Intake age:** 32d ago (first-seen commit `250a09cf`)
 - **Mentioned in 4 doc file(s):**
   - `docs/ADMIN_GUIDE.md` — ## coding (41)
     > - `hf.co/unsloth/Qwen3.6-35B-A3B-GGUF:UD-Q4_K_XL` \ - `hf.co/yuxinlu1/gemma-4-12B-agentic-fable5-composer2.5-v2-3.5x-tau2-GGUF:Q4_K_M` \ - `huihui_ai/qwen3-abliterated:14b-v2` \ - `laguna-xs.2:Q4_K_M`…
@@ -3116,7 +3116,7 @@ Like all fine-tuned language models, Qwable 35b can produce incorrect, incomplet
 
 ### Intake rationale
 
-- **Intake age:** 47d ago (first-seen commit `84c15f78`)
+- **Intake age:** 47d ago (first-seen commit `bb3fa1ba`)
 - **Mentioned in 5 doc file(s):**
   - `docs/SECURITY_BENCH_EXEC.md` — ## Security models loaded
     > hf.co/Mia-AiLab/Qwable-3.6-35b:Qwable-3.6-35b_q4_k_m.gguf \ huihui_ai/baronllm-abliterated:latest \ hf.co/fdtn-ai/Foundation-Sec-8B-Reasoning-Q8_0-GGUF:Q8_0 \ ``` \  \ ## Why
@@ -3197,7 +3197,7 @@ Like all fine-tuned language models, Qwable 35b can produce incorrect, incomplet
 
 ### Intake rationale
 
-- **Intake age:** 1d ago (first-seen commit `fb9979b7`)
+- **Intake age:** 1d ago (first-seen commit `e81e3c16`)
 - **Mentioned in 3 doc file(s):**
   - `docs/ADMIN_GUIDE.md` — ## general (89)
     > - `hf.co/BugTraceAI/BugTraceAI-CORE-Ultra-27B-Q6:Q6_K` \ - `hf.co/Jackrong/DeepSeek-V4-Pro-Qwen3.5-4B-MTP-GGUF:Q4_K_M` \ - `hf.co/Jackrong/DeepSeek-V4-Pro-Qwen3.5-9B-MTP-GGUF:Q4_K_M` \ - `hf.co/Jackro…
@@ -3289,7 +3289,7 @@ BENCH RESULT 2026-08-10: TPS 35.6 t/s avg (5/5, clears 20 t/s floor; Q-score 0.6
 
 ### Intake rationale
 
-- **Intake age:** 1d ago (first-seen commit `d6603676`)
+- **Intake age:** 1d ago (first-seen commit `13b2c696`)
 - **Mentioned in 5 doc file(s):**
   - `docs/ADMIN_GUIDE.md` — ## general (89)
     > - `portal5/deepwen-3.6:q4.5-moq` \ - `portal5/deepwen-3.6:q4.5-moq-ctx32k` \ - `portal5/gemma4-12b:q4_K_M-ctx8k` \ - `portal5/qwen3.6-27b-mtp:q8_0-drafted` \ - `portal5/xyz-aquila-mini:Q4_K_M` \ - `po…
@@ -3360,7 +3360,7 @@ BENCH RESULT 2026-08-10: TPS 35.6 t/s avg (5/5, clears 20 t/s floor; Q-score 0.6
 
 ### Intake rationale
 
-- **Intake age:** 42d ago (first-seen commit `ddcf7dff`)
+- **Intake age:** 42d ago (first-seen commit `e3413f4c`)
 - **Mentioned in 3 doc file(s):**
   - `docs/ADMIN_GUIDE.md` — ## coding (41)
     > - `hf.co/unsloth/Qwen-AgentWorld-35B-A3B-GGUF:UD-Q4_K_XL-ctx64k` \ - `hf.co/unsloth/Qwen3.6-35B-A3B-GGUF:UD-Q4_K_XL` \ - `hf.co/yuxinlu1/gemma-4-12B-agentic-fable5-composer2.5-v2-3.5x-tau2-GGUF:Q4_K_M…
@@ -3447,7 +3447,7 @@ BENCH RESULT 2026-08-10: TPS 35.6 t/s avg (5/5, clears 20 t/s floor; Q-score 0.6
 
 ### Intake rationale
 
-- **Intake age:** 42d ago (first-seen commit `26dc5832`)
+- **Intake age:** 42d ago (first-seen commit `f4c98955`)
 - **Mentioned in 3 doc file(s):**
   - `docs/ADMIN_GUIDE.md` — ## general (89)
     > - `hf.co/mitkox/FastContext-1.0-4B-SFT-Q4_K_M-GGUF:Q4_K_M` \ - `hf.co/mradermacher/Huihui-Qwen3.6-35B-A3B-abliterated-GGUF:Q4_K_M` \ - `hf.co/mradermacher/Qwen3.5-9B-Claude-4.6-HighIQ-THINKING-HERETIC…
@@ -3534,7 +3534,7 @@ BENCH RESULT 2026-08-10: TPS 35.6 t/s avg (5/5, clears 20 t/s floor; Q-score 0.6
 
 ### Intake rationale
 
-- **Intake age:** 40d ago (first-seen commit `5dd51bb6`)
+- **Intake age:** 40d ago (first-seen commit `e5c3baf8`)
 - **Mentioned in 5 doc file(s):**
   - `docs/HOWTO.md` — ## 3. Workspaces
     > |---|---|---| \ | `auto` (Portal Auto Router) | `huihui_ai/qwen3.5-abliterated:9b-ctx8k` | LLM intent classifier routes onward | \ | `auto-daily` | `gemma4:26b-a4b-it-qat-ctx8k` | web_search, create_w…
@@ -3619,7 +3619,7 @@ BENCH RESULT 2026-08-10: TPS 35.6 t/s avg (5/5, clears 20 t/s floor; Q-score 0.6
 
 ### Intake rationale
 
-- **Intake age:** 47d ago (first-seen commit `84c15f78`)
+- **Intake age:** 47d ago (first-seen commit `bb3fa1ba`)
 - **Mentioned in 5 doc file(s):**
   - `docs/HOWTO.md` — ## 3. Workspaces
     > |---|---|---| \ | `auto` (Portal Auto Router) | `huihui_ai/qwen3.5-abliterated:9b-ctx8k` | LLM intent classifier routes onward | \ | `auto-daily` | `gemma4:26b-a4b-it-qat-ctx8k` | web_search, create_w…
@@ -3705,7 +3705,7 @@ BENCH RESULT 2026-08-10: TPS 35.6 t/s avg (5/5, clears 20 t/s floor; Q-score 0.6
 
 ### Intake rationale
 
-- **Intake age:** 24d ago (first-seen commit `fd9f4493`)
+- **Intake age:** 24d ago (first-seen commit `2d5159de`)
 - **Mentioned in 4 doc file(s):**
   - `docs/ADMIN_GUIDE.md` — ## general (89)
     > - `llama3.2:3b` \ - `llama3.2:3b-instruct-q8_0-ctx8k` \ - `meta-secalign-8b-q4_k_m:latest` \ - `mistral-small3.2:24b` \ - `muse-glimmer:30b-mlx` \ - `omnicoder2:9b-q4_k_m`
@@ -3774,7 +3774,7 @@ BENCH RESULT 2026-08-10: TPS 35.6 t/s avg (5/5, clears 20 t/s floor; Q-score 0.6
 
 ### Intake rationale
 
-- **Intake age:** 1d ago (first-seen commit `d6603676`)
+- **Intake age:** 1d ago (first-seen commit `13b2c696`)
 - **Mentioned in 5 doc file(s):**
   - `docs/ADMIN_GUIDE.md` — ## creative (11)
     > - `Qwen3.6-35B-A3B-HauhauCS-Aggressive-4bit` \ - `dolphin-llama3:8b` \ - `fredrezones55/Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive:Q4` \ - `fredrezones55/Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggres…
@@ -3853,7 +3853,7 @@ BENCH RESULT 2026-08-10: TPS 35.6 t/s avg (5/5, clears 20 t/s floor; Q-score 0.6
 
 ### Intake rationale
 
-- **Intake age:** 1d ago (first-seen commit `d6603676`)
+- **Intake age:** 1d ago (first-seen commit `13b2c696`)
 - **Mentioned in 5 doc file(s):**
   - `docs/ADMIN_GUIDE.md` — ## creative (11)
     > - `fredrezones55/Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive:Q4` \ - `fredrezones55/Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive:Q4-ctx8k` \ - `hermes3:8b` \ - `hf.co/gaston-parravicini/LFM2.5-8B…
@@ -3932,7 +3932,7 @@ BENCH RESULT 2026-08-10: TPS 35.6 t/s avg (5/5, clears 20 t/s floor; Q-score 0.6
 
 ### Intake rationale
 
-- **Intake age:** 40d ago (first-seen commit `5dd51bb6`)
+- **Intake age:** 40d ago (first-seen commit `e5c3baf8`)
 - **Mentioned in 5 doc file(s):**
   - `docs/HOWTO.md` — ## 6. Security Analysis
     > | `purpleteam-exec` | Execution, 4-hop | `supergemma4-26b-uncensored:Q4_K_M-ctx64k` → same chain | execute_bash, execute_python, web_search | \  \ The `pentest` variant runs inside the `portal5-attack…
@@ -4010,7 +4010,7 @@ BENCH RESULT 2026-08-10: TPS 35.6 t/s avg (5/5, clears 20 t/s floor; Q-score 0.6
 
 ### Intake rationale
 
-- **Intake age:** 47d ago (first-seen commit `84c15f78`)
+- **Intake age:** 47d ago (first-seen commit `bb3fa1ba`)
 - **Mentioned in 5 doc file(s):**
   - `docs/HOWTO.md` — ## 6. Security Analysis
     > | `purpleteam-exec` | Execution, 4-hop | `supergemma4-26b-uncensored:Q4_K_M-ctx64k` → same chain | execute_bash, execute_python, web_search | \  \ The `pentest` variant runs inside the `portal5-attack…
@@ -4093,7 +4093,7 @@ BENCH RESULT 2026-08-10: TPS 35.6 t/s avg (5/5, clears 20 t/s floor; Q-score 0.6
 
 ### Intake rationale
 
-- **Intake age:** 32d ago (first-seen commit `8face6b5`)
+- **Intake age:** 32d ago (first-seen commit `5f2e60e1`)
 - **Mentioned in 4 doc file(s):**
   - `docs/ADMIN_GUIDE.md` — ## general (89)
     > - `hermes3:8b` \ - `hf.co/Abiray/Agents-A1-Q4_K_M-GGUF:Q4_K_M` \ - `hf.co/Andycurrent/Mistral-7B-Uncensored-GGUF:Q4_K_M` \ - `hf.co/BugTraceAI/BugTraceAI-CORE-Ultra-27B-Q6:Q6_K` \ - `hf.co/Jackrong/De…
@@ -4181,7 +4181,7 @@ BENCH RESULT 2026-08-10: TPS 35.6 t/s avg (5/5, clears 20 t/s floor; Q-score 0.6
 
 ### Intake rationale
 
-- **Intake age:** 40d ago (first-seen commit `5dd51bb6`)
+- **Intake age:** 40d ago (first-seen commit `e5c3baf8`)
 - **Mentioned in 5 doc file(s):**
   - `docs/HOWTO.md` — ## 3. Workspaces
     > |---|---|---| \ | `auto` (Portal Auto Router) | `huihui_ai/qwen3.5-abliterated:9b-ctx8k` | LLM intent classifier routes onward | \ | `auto-daily` | `gemma4:26b-a4b-it-qat-ctx8k` | web_search, create_w…
@@ -4264,7 +4264,7 @@ BENCH RESULT 2026-08-10: TPS 35.6 t/s avg (5/5, clears 20 t/s floor; Q-score 0.6
 
 ### Intake rationale
 
-- **Intake age:** 47d ago (first-seen commit `84c15f78`)
+- **Intake age:** 47d ago (first-seen commit `bb3fa1ba`)
 - **Mentioned in 5 doc file(s):**
   - `docs/HOWTO.md` — ## 3. Workspaces
     > |---|---|---| \ | `auto` (Portal Auto Router) | `huihui_ai/qwen3.5-abliterated:9b-ctx8k` | LLM intent classifier routes onward | \ | `auto-daily` | `gemma4:26b-a4b-it-qat-ctx8k` | web_search, create_w…
@@ -4348,7 +4348,7 @@ BENCH RESULT 2026-08-10: TPS 35.6 t/s avg (5/5, clears 20 t/s floor; Q-score 0.6
 
 ### Intake rationale
 
-- **Intake age:** 1d ago (first-seen commit `de01e9b1`)
+- **Intake age:** 1d ago (first-seen commit `26e58e2c`)
 - **Mentioned in 3 doc file(s):**
   - `docs/ADMIN_GUIDE.md` — ## general (89)
     > - `hf.co/Andycurrent/Mistral-7B-Uncensored-GGUF:Q4_K_M` \ - `hf.co/BugTraceAI/BugTraceAI-CORE-Ultra-27B-Q6:Q6_K` \ - `hf.co/Jackrong/DeepSeek-V4-Pro-Qwen3.5-4B-MTP-GGUF:Q4_K_M` \ - `hf.co/Jackrong/Dee…
@@ -4435,7 +4435,7 @@ BENCH RESULT 2026-08-10: TPS 52.4 t/s avg (5/5, Q-s…
 
 ### Intake rationale
 
-- **Intake age:** 1d ago (first-seen commit `d6603676`)
+- **Intake age:** 1d ago (first-seen commit `13b2c696`)
 - **Mentioned in 5 doc file(s):**
   - `docs/ADMIN_GUIDE.md` — ## general (89)
     > - `lfm2.5:8b-ctx8k` \ - `llama3.2:3b` \ - `llama3.2:3b-instruct-q8_0-ctx8k` \ - `meta-secalign-8b-q4_k_m:latest` \ - `mistral-small3.2:24b` \ - `muse-glimmer:30b-mlx`
@@ -4509,7 +4509,7 @@ BENCH RESULT 2026-08-10: TPS 52.4 t/s avg (5/5, Q-s…
 
 ### Intake rationale
 
-- **Intake age:** 47d ago (first-seen commit `84c15f78`)
+- **Intake age:** 47d ago (first-seen commit `bb3fa1ba`)
 - **Mentioned in 5 doc file(s):**
   - `docs/MCP_DEV_TOOLING.md` — ### FastContext Repository Explorer
     > <!-- WIKI:GENERATED unit=unit-mcp-dev-tooling-fastcontext-repository-explorer --> \ `explore_repository` in `portal/platform/mcp_host/pipeline_mcp.py` runs the \ FastContext model (`hf.co/mitkox/FastC…
@@ -4580,7 +4580,7 @@ BENCH RESULT 2026-08-10: TPS 52.4 t/s avg (5/5, Q-s…
 
 ### Intake rationale
 
-- **Intake age:** 37d ago (first-seen commit `d15d4a64`)
+- **Intake age:** 37d ago (first-seen commit `31ce1ebf`)
 - **Mentioned in 5 doc file(s):**
   - `docs/ADMIN_GUIDE.md` — ## general (89)
     > ## general (89) \  \ - `cybersecqwen-4b-toolfix:latest` \ - `deepseek-r1:32b-q4_k_m` \ - `devstral-small-2:latest` \ - `devstral:24b`
@@ -4656,7 +4656,7 @@ BENCH RESULT 2026-08-10: TPS 52.4 t/s avg (5/5, Q-s…
 
 ### Intake rationale
 
-- **Intake age:** 1d ago (first-seen commit `d6603676`)
+- **Intake age:** 1d ago (first-seen commit `13b2c696`)
 - **Mentioned in 5 doc file(s):**
   - `docs/ADMIN_GUIDE.md` — ### Three-Tier Router Models
     > <!-- WIKI:GENERATED unit=unit-ADMIN_GUIDE-three-tier-router-models --> \ Three router tiers are documented in `.env.example` and the header of routing.py. PRIMARY is `hf.co/mradermacher/gemma-4-E4B-it…
@@ -4731,7 +4731,7 @@ BENCH RESULT 2026-08-10: TPS 52.4 t/s avg (5/5, Q-s…
 
 ### Intake rationale
 
-- **Intake age:** 1d ago (first-seen commit `d6603676`)
+- **Intake age:** 1d ago (first-seen commit `13b2c696`)
 - **Mentioned in 5 doc file(s):**
   - `docs/RESULTS_ALIAS_RETIRE_V1_20260713.md` — ## 3. The routing-regression proof (§9 safety gate)
     > reassignment above, not a regression. \ - **Layer 1 (LLM router), accuracy check against the real live router \   model** (`hf.co/QuantFactory/Llama-3.2-3B-Instruct-abliterated-GGUF`, the \   actual p…
@@ -4807,7 +4807,7 @@ BENCH RESULT 2026-08-10: TPS 52.4 t/s avg (5/5, Q-s…
 
 ### Intake rationale
 
-- **Intake age:** 37d ago (first-seen commit `d15d4a64`)
+- **Intake age:** 37d ago (first-seen commit `31ce1ebf`)
 - **Mentioned in 4 doc file(s):**
   - `docs/ADMIN_GUIDE.md` — ## general (89)
     > - `hf.co/LiquidAI/LFM2.5-230M-GGUF:Q4_K_M` \ - `hf.co/LiquidAI/LFM2.5-350M-GGUF:Q4_K_M` \ - `hf.co/Nguuma/security-slm-unsloth-1.5b:latest` \ - `hf.co/QuantFactory/Llama-3.2-3B-Instruct-abliterated-GG…
@@ -4891,7 +4891,7 @@ BENCH RESULT 2026-08-10: TPS 52.4 t/s avg (5/5, Q-s…
 
 ### Intake rationale
 
-- **Intake age:** 47d ago (first-seen commit `84c15f78`)
+- **Intake age:** 47d ago (first-seen commit `bb3fa1ba`)
 - **Mentioned in 3 doc file(s):**
   - `docs/ADMIN_GUIDE.md` — ## general (89)
     > - `hf.co/Jackrong/Qwopus3.6-27B-v2-MTP-GGUF:Qwopus3.6-27B-v2-MTP-Q5_K_M.gguf` \ - `hf.co/Jiunsong/SuperQwen-AgentWorld-35B-A3B-abliterated-gguf-4bit:Q4_K_M` \ - `hf.co/LiquidAI/LFM2.5-1.2B-Instruct-GG…
@@ -4969,7 +4969,7 @@ BENCH RESULT 2026-08-10: TPS 52.4 t/s avg (5/5, Q-s…
 
 ### Intake rationale
 
-- **Intake age:** 47d ago (first-seen commit `84c15f78`)
+- **Intake age:** 47d ago (first-seen commit `bb3fa1ba`)
 - **Mentioned in 3 doc file(s):**
   - `docs/ADMIN_GUIDE.md` — ## general (89)
     > - `hf.co/LiquidAI/LFM2.5-1.2B-Instruct-GGUF:Q4_K_M` \ - `hf.co/LiquidAI/LFM2.5-230M-GGUF:Q4_K_M` \ - `hf.co/LiquidAI/LFM2.5-350M-GGUF:Q4_K_M` \ - `hf.co/Nguuma/security-slm-unsloth-1.5b:latest` \ - `h…
@@ -5044,7 +5044,7 @@ BENCH RESULT 2026-08-10: TPS 52.4 t/s avg (5/5, Q-s…
 
 ### Intake rationale
 
-- **Intake age:** 47d ago (first-seen commit `84c15f78`)
+- **Intake age:** 47d ago (first-seen commit `bb3fa1ba`)
 - **Mentioned in 3 doc file(s):**
   - `docs/ADMIN_GUIDE.md` — ## general (89)
     > - `hf.co/Jiunsong/SuperQwen-AgentWorld-35B-A3B-abliterated-gguf-4bit:Q4_K_M` \ - `hf.co/LiquidAI/LFM2.5-1.2B-Instruct-GGUF:Q4_K_M` \ - `hf.co/LiquidAI/LFM2.5-230M-GGUF:Q4_K_M` \ - `hf.co/LiquidAI/LFM2…

@@ -5,7 +5,7 @@ title: "Telegram channel adapter \u2014 bounded-history pipeline bridge"
 sources:
 - type: code
   path: portal_channels/telegram/bot.py
-  commit: c23c27d9
+  commit: 2fa4b6c3
 claims: []
 confidence: high
 tags:

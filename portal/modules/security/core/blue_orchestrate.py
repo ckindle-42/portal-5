@@ -539,7 +539,7 @@ def run_tool_model(
         if req.prefer_broad:
             # Broaden: a summary-style broad query against the whole episode,
             # bypassing keyword filtering (mirrors _query_real_telemetry's own
-            # "no keywords -> summary" broadening, already landed f10fbee).
+            # "no keywords -> summary" broadening, already landed 84b64f6).
             has_any_telemetry = any(episode.telemetry.values())
             broad_text = _broad_retrieval_preview(episode)
             if has_any_telemetry and broad_text.strip():

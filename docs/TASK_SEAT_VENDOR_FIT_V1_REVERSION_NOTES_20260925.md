@@ -2,7 +2,7 @@
 
 **Date:** 2026-09-25  
 **Status:** task stopped and task changes reverted  
-**Reverted commit:** `d51dd29a5ff1e9ff39067e5c2cadb147083769af`
+**Reverted commit:** `aaf46397d30df724d7533039c341599ad82f5eb9`
 
 This note records the evidence gathered before the incomplete seat–vendor-fit
 attempt was stopped. The partial implementation, routing change, card edits,

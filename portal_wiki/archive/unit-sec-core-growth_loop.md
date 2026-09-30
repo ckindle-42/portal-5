@@ -5,8 +5,8 @@ title: "Growth loop \u2014 propose/prove/confirm capability growth"
 sources:
 - type: code
   path: portal/modules/security/core/growth_loop.py
-  commit: 11d83e41
-last_generated_commit: 11d83e41
+  commit: 699b6207
+last_generated_commit: 699b6207
 claims: []
 confidence: high
 tags:

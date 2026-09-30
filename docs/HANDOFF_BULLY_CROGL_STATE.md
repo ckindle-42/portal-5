@@ -1,7 +1,7 @@
 # HANDOFF — Bully / Crogl, state as of 2026-08-21
 
 **Repo HEAD at time of writing:** `TASK_BULLY_HUNT_SWEEP_V1` H.0–H.4 and H.6 are
-landed on top of K.5 (`0868ef33`); H.5 (the actual 27-entry sweep run) has not.
+landed on top of K.5 (`4f98ada5`); H.5 (the actual 27-entry sweep run) has not.
 See `docs/DESIGN_BULLY_HUNT_SWEEP_V1.md` for the errata on
 `BULLY_SCORER_FEED_RUN_K4_V1.md`: **K.4's loop is valid and was deliberately
 narrowed to one entry; its claim numbers describe that one six-event proof, not
@@ -19,7 +19,7 @@ commit — see `TASK_BULLY_HUNT_SWEEP_V1` H.5 for the exact command) is what wid
 that proof to all 27 answer-key entries. §2.1a below (F.4's result) still
 supersedes the "never assembled" framing further down this document.
 
-> **READ THIS FIRST.** If `git log` at HEAD is beyond `bf35d192`, **HEAD wins over
+> **READ THIS FIRST.** If `git log` at HEAD is beyond `1e56a7dd`, **HEAD wins over
 > every statement in this document.** This captures where things stood on
 > 2026-08-21. Anything since then supersedes it. **Code walks are required** —
 > do not act on any claim here without re-reading the relevant module and the
@@ -42,7 +42,7 @@ or it is just another definition-matching engine.
 
 ### The four pieces, and their honest status
 
-| piece | the claim | status at `bf35d192` |
+| piece | the claim | status at `1e56a7dd` |
 |---|---|---|
 | **Crogl** | the universal reviewer that ingests any source | proven on **40 invented schemas**; on real BOTS reached only **2 sourcetypes**, `cross_schema_fraction 0.25`. **The actual claim is unproven.** |
 | **Bully** | the hunt loop finding same/similar | proven **mechanically**; `reach_recall 0.0` on the real BOTSv3 chain, `max_reached_distance 0`. **Never run on a haystack big enough for "needle" to mean anything.** |

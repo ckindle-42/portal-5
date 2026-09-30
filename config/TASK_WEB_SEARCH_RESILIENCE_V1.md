@@ -15,7 +15,7 @@ tripped the thresholds; the bans persist for hours-to-days. Even Wikidata
 returns HTTP 403. This is the inherent tradeoff of SearXNG's scraping approach,
 not a compromise.
 
-## Shipped (commits a17a58c3, + this)
+## Shipped (commits 4d702fb1, + this)
 
 - `_searxng_search` pins `engines=bing,duckduckgo,google` (env `SEARXNG_ENGINES`).
 - **`BRAVE_API_KEY` set in `.env`** (operator-provided). `_search_with_fallback`

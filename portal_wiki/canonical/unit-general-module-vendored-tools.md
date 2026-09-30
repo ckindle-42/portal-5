@@ -5,7 +5,7 @@ title: "General module \u2014 config-only, vendored base tools"
 sources:
 - type: code
   path: portal/modules/general/__init__.py
-  commit: 1a0e2df4
+  commit: 9c8e6dae
 claims: []
 confidence: high
 tags:

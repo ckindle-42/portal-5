@@ -5,8 +5,8 @@ title: "Rescore \u2014 false-positive-corrected scoring"
 sources:
 - type: code
   path: portal/modules/security/core/rescore_run.py
-  commit: 11d83e41
-last_generated_commit: 11d83e41
+  commit: 699b6207
+last_generated_commit: 699b6207
 claims: []
 confidence: high
 tags:

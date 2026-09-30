@@ -1,4 +1,4 @@
-# Spine Remediation — Phase 1 Findings (re-confirmed at HEAD c00c854)
+# Spine Remediation — Phase 1 Findings (re-confirmed at HEAD dc768ec)
 
 All 8 findings CONFIRMED at HEAD. None STALE.
 

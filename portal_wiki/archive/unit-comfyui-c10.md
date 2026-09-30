@@ -5,8 +5,8 @@ title: "Section C10 \u2014 Output validation"
 sources:
 - type: code
   path: tests/comfyui/c10_output_validation.py
-  commit: 441fd2a1
-last_generated_commit: 441fd2a1
+  commit: ee3590ba
+last_generated_commit: ee3590ba
 claims: []
 confidence: high
 tags:

@@ -7,7 +7,7 @@
 An Open WebUI enhancement layer, not a replacement web stack. It extends Open WebUI through its Pipeline server (:9099) and MCP Tool Servers: a local AI platform for text, code, security, images, music, documents, voice — all on your hardware, one interface. Image generation is MLX-native (MFLUX, host layer); video generation is MLX-native (ltx-2-mlx) behind the `video` module, off by default and shipped enabled.
 
 **Architecture:** Open WebUI → Portal Pipeline (:9099) → Ollama (:11434) → local models. MCP servers (:8912–8935) provide tools (documents, code sandbox, TTS, research, memory, RAG, browser, proxmox, pipeline introspection, MLX image/video generation).
-**Inference:** Single tier — **Ollama** (GGUF, 0.32.4+ with native MLX Metal on Apple Silicon). MLX proxy retired (`3a0c58e`); MLX remains for speech (:8918), transcription (:8924), embeddings (:8917), reranking (:8925) — not chat. Host-native, not Docker.
+**Inference:** Single tier — **Ollama** (GGUF, 0.32.4+ with native MLX Metal on Apple Silicon). MLX proxy retired (`75c24a9`); MLX remains for speech (:8918), transcription (:8924), embeddings (:8917), reranking (:8925) — not chat. Host-native, not Docker.
 
 **Core values:** Privacy-first, fully local, zero cloud dependencies, launch in one command.
 

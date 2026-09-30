@@ -5,7 +5,7 @@ title: CLI flags for security bench
 sources:
 - type: code
   path: portal/modules/security/core/cli.py
-last_generated_commit: 0a5fcb6eea38bf284a96ceea702849491ba4d1c7
+last_generated_commit: e7933ecd3f471c6f30d6a0f2b7a43465ee820bf4
 claims: []
 confidence: high
 tags:

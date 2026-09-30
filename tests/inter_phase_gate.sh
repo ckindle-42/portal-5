@@ -3,7 +3,7 @@
 # Sleeps/recovers until system safe; exits 0 on PASS, exits 1 on UNRECOVERABLE.
 # Usage: bash tests/inter_phase_gate.sh <phase_num> <phase_test_count>
 #
-# OLLAMA-ONLY (rewritten after MLX inference-proxy retirement, commit 3a0c58e).
+# OLLAMA-ONLY (rewritten after MLX inference-proxy retirement, commit 75c24a9).
 # Chat inference runs entirely through Ollama (:11434). The memory gate reclaims
 # unified memory by evicting Ollama models (/api/ps + keep_alive:0) and reading
 # pressure from vm_stat — no MLX proxy, no /health/wired, no mlx_lm/mlx_vlm servers.

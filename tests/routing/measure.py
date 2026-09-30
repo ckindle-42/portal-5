@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Measure the keyword-layer (deterministic) router against the corpus.
 
-Run once against a checkout of 45edb25 (pre-collapse) and once against the
+Run once against a checkout of 60bf0a7 (pre-collapse) and once against the
 current tree, from their respective repo roots, each writing its own JSON
 output. See BUILD_PROGRAM_ROUTING_INTEGRITY_V1.md Phases R0/R1.
 

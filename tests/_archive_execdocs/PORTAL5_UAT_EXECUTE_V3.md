@@ -1,6 +1,6 @@
 # PORTAL5_UAT_EXECUTE_V3 — Claude Code Execution Prompt
 
-**V3 change from V2:** the MLX inference proxy was retired (commit 3a0c58e); the UAT driver and inter-phase gate are now **Ollama-only**. The tier taxonomy collapsed from `mlx_large → mlx_small → ollama → any → media_heavy` to **`ollama → any → media_heavy`**. There is no MLX proxy, no readiness watcher (`mlx-readiness.py` is gone), no proxy restart, and no `/health/wired` polling. Memory is reclaimed by evicting Ollama models (`/api/ps` + `keep_alive:0`) and read from `vm_stat`. Retained MLX **audio** (mlx-speech :8918) is a memory-pressure source only, never killed.
+**V3 change from V2:** the MLX inference proxy was retired (commit 75c24a9); the UAT driver and inter-phase gate are now **Ollama-only**. The tier taxonomy collapsed from `mlx_large → mlx_small → ollama → any → media_heavy` to **`ollama → any → media_heavy`**. There is no MLX proxy, no readiness watcher (`mlx-readiness.py` is gone), no proxy restart, and no `/health/wired` polling. Memory is reclaimed by evicting Ollama models (`/api/ps` + `keep_alive:0`) and read from `vm_stat`. Retained MLX **audio** (mlx-speech :8918) is a memory-pressure source only, never killed.
 
 The phased structure is preserved: **phased execution, one section group per invocation, with `--append` and a resume tracker.** Phasing still gives a clean checkpoint between memory transitions, easy failure bisection, and resumable runs. What changed is *why* the phases are ordered as they are (below).
 

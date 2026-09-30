@@ -1,7 +1,7 @@
 ---
 prompt_version: reading-v1-packet
 rationale: >
-  The prompt as it stood at 0db04c6f, preserved byte-for-byte (modulo the line
+  The prompt as it stood at bdae62ac, preserved byte-for-byte (modulo the line
   continuations the Python literal used) so that "did the prompt change help"
   is a measurement with a before, not an assertion. It is a fixture, never
   loaded in production: config/compliance/reading_prompt.md is the live one.

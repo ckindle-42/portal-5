@@ -6,7 +6,7 @@
 **Steadiness metric:** decode-TPS coefficient of variation (`tps_cv`, lower=steadier) + `ttft_p99` tail + failure rate.
 **Engines:** oMLX v0.5.7 (`:8085`, just upgraded from 0.5.4 — see Provenance), Ollama 0.32.5 (`:11434`).
 **Model set:** coder / gemma / 3B-general, matched across engines (oMLX native ids ↔ Ollama GGUF tags, `llama3.2:3b` newly registered in `config/backends.yaml` for this run).
-**HEAD:** `c1949a89`
+**HEAD:** `db6d5c20`
 
 ## Results — matched load (180s, concurrency 6)
 
@@ -52,7 +52,7 @@ means the standard deviation of decode-TPS *exceeds* the mean — wildly unstead
 
 `--url http://localhost:9099 --models auto-coding` (120s, concurrency 6) — the
 real production path: `auto-coding` routes to `omlx-coding` (priority 10) with
-Ollama fallback, per the shadow-shift landed in `ef9e7a3a`. This also exercises
+Ollama fallback, per the shadow-shift landed in `1a874da6`. This also exercises
 the F1/F5 routing fixes from `TASK_PIPELINE_OMLX_CORRECTIONS_V1` live.
 
 The harness initially failed outright (0/107,359, all HTTP 401 — `one_request`
@@ -115,7 +115,7 @@ routing) is unaffected, and this result is specific to forced multi-model
 eviction pressure at the concurrency levels tested here.
 
 **Recommendation:** given F4's deferred decision (`config/backends.yaml`, commit
-`86e6f142`) to promote `omlx-local` to a real workspace route "only if the
+`b1392f8e`) to promote `omlx-local` to a real workspace route "only if the
 bake-off shows it earns it" — this data supports that promotion, at least for
 workloads that mix multiple concurrently-hot models (e.g. `auto-coding` +
 `auto-daily` + a general workspace under real multi-user load). It does not by
@@ -129,8 +129,8 @@ itself justify moving Portal 5's single-model workspaces off Ollama.
   `results/omlx_v3_shootout_push_c{8,12,16}_omlx_*.json`
 - Shakedown: `results/omlx_v3_shootout_shakedown_omlx_20260805T153055Z.json`
 - Engines: oMLX upgraded 0.5.4 → 0.5.7 via `brew upgrade jundot/omlx/omlx` prior to
-  this run (see `TASK_PIPELINE_OMLX_CORRECTIONS_V1` commit `86e6f142` for the
+  this run (see `TASK_PIPELINE_OMLX_CORRECTIONS_V1` commit `b1392f8e` for the
   companion routing fixes); Ollama 0.32.5, unchanged.
-- `gate_shootout` added in commit `717b0e6c` (bundled with a spine re-pin —
+- `gate_shootout` added in commit `8b2ed531` (bundled with a spine re-pin —
   see that commit's message).
-- HEAD at run time: `c1949a89`.
+- HEAD at run time: `db6d5c20`.

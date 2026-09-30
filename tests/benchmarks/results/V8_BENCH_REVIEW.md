@@ -5,7 +5,7 @@
 **PROMOTE_POLICY: LOCKED — zero promotions applied. All decisions require operator action.**
 
 > **Note:** Pipeline results were re-run (v8b) after pipeline container was rebuilt with V8 catalog.
-> Original v8 pipeline bench was invalid — container started before the V8 catalog commit (477280b).
+> Original v8 pipeline bench was invalid — container started before the V8 catalog commit (0ca2787).
 
 ---
 

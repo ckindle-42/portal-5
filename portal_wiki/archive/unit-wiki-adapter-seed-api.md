@@ -5,8 +5,8 @@ title: "Wiki seed_api adapter \u2014 AST projection for the substance check"
 sources:
 - type: code
   path: portal/platform/wiki/adapters/seed_api.py
-  commit: 66aa9fda
-last_generated_commit: 66aa9fda
+  commit: 94445e95
+last_generated_commit: 94445e95
 claims: []
 confidence: high
 tags:

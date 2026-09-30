@@ -5,18 +5,18 @@ title: Portal 5 capability rollup
 sources:
 - type: code
   path: config/portal.yaml
-  commit: 6e6cab5dd06f
+  commit: 9e65e8b2b02e
   section: workspaces
 - type: code
   path: config/portal.yaml
-  commit: 6e6cab5dd06f
+  commit: 9e65e8b2b02e
   section: mcp_fleet
 - type: code
   path: config/personas/
-  commit: 6e6cab5dd06f
+  commit: 9e65e8b2b02e
 - type: code
   path: config/modules.generated.yaml
-  commit: 6e6cab5dd06f
+  commit: 9e65e8b2b02e
 claims:
 - probe: modules.enabled.count
   pattern: '{value} modules enabled'

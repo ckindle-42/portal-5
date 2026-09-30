@@ -5,8 +5,8 @@ title: "SIEM HEC shipper \u2014 telemetry ingestion to Splunk"
 sources:
 - type: code
   path: portal/modules/security/core/siem/hec_ship.py
-  commit: b6f05201
-last_generated_commit: b6f05201
+  commit: d493d44c
+last_generated_commit: d493d44c
 claims: []
 confidence: high
 tags:

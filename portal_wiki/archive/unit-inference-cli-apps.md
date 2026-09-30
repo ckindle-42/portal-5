@@ -5,8 +5,8 @@ title: "Inference CLI apps \u2014 shared typer app instances"
 sources:
 - type: code
   path: portal/platform/inference/cli/_apps.py
-  commit: 5fbf51f8
-last_generated_commit: 5fbf51f8
+  commit: 250150f6
+last_generated_commit: 250150f6
 claims: []
 confidence: high
 tags:

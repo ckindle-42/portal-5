@@ -5,8 +5,8 @@ title: "MLX watchdog \u2014 archived external supervisor"
 sources:
 - type: code
   path: scripts/_archive/mlx-retired-3a0c58e/mlx-watchdog.py
-  commit: 2d2e9c0f
-last_generated_commit: 2d2e9c0f
+  commit: 90ac134b
+last_generated_commit: 90ac134b
 claims: []
 confidence: high
 tags:
@@ -29,7 +29,7 @@ The watchdog encoded the operational lesson that a service cannot reliably
 recover its own supervisor: the proxy's zombie cleanup only ran when the
 proxy was healthy, so a wedged proxy let zombies accumulate unseen, and a
 dead proxy could not restart itself. The external daemon was the answer. It
-retired at `3a0c58e` with the proxy it supervised — Ollama's single tier has
+retired at `75c24a9` with the proxy it supervised — Ollama's single tier has
 its own residency management — but the supervisory principle (an external
 monitor for a self-supervising service) is the durable knowledge the archive
 preserves.

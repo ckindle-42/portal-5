@@ -2,7 +2,7 @@
 
 Native ``/api/chat`` returns ``message.thinking`` separately from
 ``message.content``, so a reasoning trace never contaminates strict JSON. The
-earlier suppression (946196bb) was introduced to stop ``<think>`` leaking into
+earlier suppression (f350324a) was introduced to stop ``<think>`` leaking into
 content and exhausting a 900-token budget; on this endpoint that is solved by
 reading the right field and sizing the budget, not by disabling reasoning on a
 task that is entirely reasoning.

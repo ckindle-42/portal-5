@@ -223,7 +223,7 @@ Nex-N2-mini on compliance_agentic. `else REMOVED` fires.
 
 ## 5a. gpt-oss:20b — fold VACATED, model re-pulled
 
-<a name="gpt-oss"></a>gpt-oss:20b was removed in `a90d11da` on a 16/30 = 0.53
+<a name="gpt-oss"></a>gpt-oss:20b was removed in `bd44c89e` on a 16/30 = 0.53
 auto-compliance rate, against a stop rule of "F2 < 0.80 → remove without further
 tests". **That evidence is invalid.** Checked per-row on 2026-09-12:
 

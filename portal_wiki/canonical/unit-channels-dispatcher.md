@@ -5,7 +5,7 @@ title: "Channels dispatcher \u2014 shared pipeline call + retry transport"
 sources:
 - type: code
   path: portal_channels/dispatcher.py
-  commit: 5b73259d
+  commit: c36595e1
 claims: []
 confidence: high
 tags:

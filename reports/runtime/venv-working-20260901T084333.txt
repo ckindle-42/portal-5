@@ -1,5 +1,5 @@
 # command: uv pip freeze  (hand-patched working venv, pre-reconcile)
-# inputs: V4 P0.1 — working-venv fingerprint; header added retroactively (C3) (HEAD f1d6bf0f)
+# inputs: V4 P0.1 — working-venv fingerprint; header added retroactively (C3) (HEAD 84139bd5)
 # resolved-versions: mlx==0.32.2, mlx-embeddings==0.1.0, mlx-vlm==0.6.17, transformers==5.16.1, torch==2.13.0, torchvision==0.28.0, phonemizer==3.4.0
 # timestamp: 2026-09-01T19:12:41+00:00
 # ---
@@ -146,7 +146,7 @@ pip-requirements-parser==32.0.1
 pip_audit==2.10.1
 platformdirs==4.11.3
 pluggy==1.6.0
--e git+https://github.com/ckindle-42/portal-5.git@433b56e85058df5521b25f6fe973242cfb71f8a0#egg=portal_5
+-e git+https://github.com/ckindle-42/portal-5.git@21a76a09b1829f410f7008487b4119a58aafb1f6#egg=portal_5
 posthog==7.39.1
 preshed==3.0.13
 primePy==1.3

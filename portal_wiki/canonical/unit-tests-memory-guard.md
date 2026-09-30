@@ -5,7 +5,7 @@ title: "Tests memory-guard \u2014 monitor re-export shim"
 sources:
 - type: code
   path: tests/memory_guard.py
-  commit: 4900007a
+  commit: 347dfc8a
 claims: []
 confidence: high
 tags:

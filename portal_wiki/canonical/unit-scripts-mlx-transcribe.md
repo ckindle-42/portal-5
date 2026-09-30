@@ -5,7 +5,7 @@ title: "Script \u2014 mlx-transcribe"
 sources:
 - type: code
   path: scripts/mlx-transcribe.py
-  commit: af437ebd
+  commit: 94ecf393
 claims: []
 confidence: high
 tags:

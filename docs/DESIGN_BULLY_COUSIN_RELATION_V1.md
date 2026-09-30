@@ -6,7 +6,7 @@ not the other way around.
 
 ## 1. The M.3 misattribution, and its disproof from the run's own JSON
 
-`docs/BULLY_RELATE_INVESTIGATE_RUN_M3_V1.{md,json}` (HEAD `bbf3c385`) reported
+`docs/BULLY_RELATE_INVESTIGATE_RUN_M3_V1.{md,json}` (HEAD `8770a880`) reported
 100/100 real seeds classified `ANOMALOUS_UNCLASSIFIED` and attributed this to
 anchor/adapter coverage gaps — implying the fix was more anchors, better
 adapters, or retuned thresholds.

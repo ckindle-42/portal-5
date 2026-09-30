@@ -333,7 +333,7 @@ async def _call_reviewer(
         "temperature": _MODEL_TEMPERATURE.get(model, 0.1),
         "max_tokens": max_tokens,
     }
-    # Same gap _synthesize already had fixed for it (946196bb): with no think
+    # Same gap _synthesize already had fixed for it (f350324a): with no think
     # control, a thinking-capable model (the Operator seat's DeepSeek-R1) opens
     # <think> by the template's own default and can spend the whole
     # reviewer_max_tokens budget reasoning, returning an empty opinion.

@@ -5,8 +5,8 @@ title: "Playbooks \u2014 bounded engagement programs"
 sources:
 - type: code
   path: portal/modules/security/core/playbooks.py
-  commit: 11d83e41
-last_generated_commit: 11d83e41
+  commit: 699b6207
+last_generated_commit: 699b6207
 claims: []
 confidence: high
 tags:

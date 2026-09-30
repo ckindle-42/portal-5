@@ -5,8 +5,8 @@ title: "Notification Telegram channel \u2014 Bot API sender"
 sources:
 - type: code
   path: portal/platform/inference/notifications/channels/telegram.py
-  commit: 7b309b21
-last_generated_commit: 7b309b21
+  commit: 7383d070
+last_generated_commit: 7383d070
 claims: []
 confidence: high
 tags:

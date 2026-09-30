@@ -5,22 +5,22 @@ title: 122 personas
 sources:
 - type: code
   path: config/personas/
-  commit: 2704ef21dfe7
+  commit: f3dc594ede4a
 - type: code
   path: config/personas/adversarysimulator.yaml
-  commit: 2704ef21dfe7
+  commit: f3dc594ede4a
 - type: code
   path: config/personas/agenticheavy.yaml
-  commit: 2704ef21dfe7
+  commit: f3dc594ede4a
 - type: code
   path: config/personas/agenticlite.yaml
-  commit: 2704ef21dfe7
+  commit: f3dc594ede4a
 - type: code
   path: config/personas/agentorchestrator.yaml
-  commit: 2704ef21dfe7
+  commit: f3dc594ede4a
 - type: code
   path: config/personas/bench_gemma4_26b_optiq.yaml
-  commit: 2704ef21dfe7
+  commit: f3dc594ede4a
 claims:
 - probe: personas.count
   pattern: Persona roster ({value} personas)

@@ -5,8 +5,8 @@ title: "Tool preselector parser \u2014 noisy ranker output to indices"
 sources:
 - type: code
   path: portal/platform/inference/tool_preselect/parser.py
-  commit: 50d41b55
-last_generated_commit: 50d41b55
+  commit: b9ca6f31
+last_generated_commit: b9ca6f31
 claims: []
 confidence: high
 tags:

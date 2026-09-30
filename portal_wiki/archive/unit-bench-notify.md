@@ -5,8 +5,8 @@ title: "Bench notify \u2014 fire-and-forget completion pings"
 sources:
 - type: code
   path: tests/benchmarks/bench/notify.py
-  commit: 4283b625
-last_generated_commit: 4283b625
+  commit: 381f217b
+last_generated_commit: 381f217b
 claims: []
 confidence: high
 tags:

@@ -128,24 +128,24 @@ async def run() -> None:
     except Exception as e:
         record(sec, "S1-07", "routing_examples.json", "FAIL", str(e)[:100], t0=t0)
 
-    # S1-08: MLX VLM routing — retired (MLX proxy deleted in 3a0c58e)
+    # S1-08: MLX VLM routing — retired (MLX proxy deleted in 75c24a9)
     t0 = time.time()
     record(
         sec,
         "S1-08",
         "MLX routing: VLM models (retired)",
         "INFO",
-        "MLX proxy retired in 3a0c58e",
+        "MLX proxy retired in 75c24a9",
         t0=t0,
     )
 
-    # S1-09: MLX text-only routing — retired (MLX proxy deleted in 3a0c58e)
+    # S1-09: MLX text-only routing — retired (MLX proxy deleted in 75c24a9)
     record(
         sec,
         "S1-09",
         "MLX routing: text-only models (retired)",
         "INFO",
-        "MLX proxy retired in 3a0c58e",
+        "MLX proxy retired in 75c24a9",
         t0=t0,
     )
 

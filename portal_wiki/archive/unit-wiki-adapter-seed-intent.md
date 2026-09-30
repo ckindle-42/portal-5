@@ -5,8 +5,8 @@ title: "Wiki intent seeder \u2014 WHY-unit ingestion from design docs"
 sources:
 - type: code
   path: portal/platform/wiki/adapters/seed_intent.py
-  commit: 66aa9fda
-last_generated_commit: 66aa9fda
+  commit: 94445e95
+last_generated_commit: 94445e95
 claims: []
 confidence: high
 tags:

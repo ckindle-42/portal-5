@@ -5,8 +5,8 @@ title: "MLX thread patch \u2014 archived dependency-upgrade burden"
 sources:
 - type: code
   path: scripts/_archive/mlx-retired-3a0c58e/patch-mlx-threads.py
-  commit: 2d2e9c0f
-last_generated_commit: 2d2e9c0f
+  commit: 90ac134b
+last_generated_commit: 90ac134b
 claims: []
 confidence: high
 tags:
@@ -29,7 +29,7 @@ mlx 0.31.2's thread-local stream change broke generation running on a worker
 thread (a stream created on the main thread was unusable there), and every
 mlx upgrade risked re-breaking the patch. This recurring maintenance burden,
 plus the admission-control complexity of the proxy, is precisely what the
-retirement decision at `3a0c58e` weighed — Ollama absorbed the model serving
+retirement decision at `75c24a9` weighed — Ollama absorbed the model serving
 and the patch disappeared. The archive records why the dual-stack was
 untenable: it required patching a third-party dependency on every upgrade.
 

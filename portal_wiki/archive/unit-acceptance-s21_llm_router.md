@@ -5,8 +5,8 @@ title: "S21 \u2014 LLM router"
 sources:
 - type: code
   path: tests/acceptance/s21_llm_router.py
-  commit: a88ad75b
-last_generated_commit: a88ad75b
+  commit: e75dddd2
+last_generated_commit: e75dddd2
 claims: []
 confidence: high
 tags:

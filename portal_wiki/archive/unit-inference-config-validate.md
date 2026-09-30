@@ -5,8 +5,8 @@ title: "Inference config validate \u2014 fast sync-config pre-gate"
 sources:
 - type: code
   path: portal/platform/inference/config_validate.py
-  commit: 5fbf51f8
-last_generated_commit: 5fbf51f8
+  commit: 250150f6
+last_generated_commit: 250150f6
 claims: []
 confidence: high
 tags:

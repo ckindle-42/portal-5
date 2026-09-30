@@ -5,8 +5,8 @@ title: "SIEM index-wait gate \u2014 block until telemetry is searchable"
 sources:
 - type: code
   path: portal/modules/security/core/siem/index_wait.py
-  commit: b6f05201
-last_generated_commit: b6f05201
+  commit: d493d44c
+last_generated_commit: d493d44c
 claims: []
 confidence: high
 tags:

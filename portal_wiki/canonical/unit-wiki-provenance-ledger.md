@@ -5,7 +5,7 @@ title: "Wiki provenance ledger \u2014 commit-recorded derivation"
 sources:
 - type: code
   path: portal/platform/wiki/provenance_ledger.py
-  commit: 649301d0f61c5bfcf00996b57c976122dd4f8e02
+  commit: e5c013b3dfd9e466a1964ca4832ddcc379b95488
 claims: []
 confidence: high
 tags:

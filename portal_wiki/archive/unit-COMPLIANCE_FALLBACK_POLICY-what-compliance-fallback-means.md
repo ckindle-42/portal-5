@@ -22,7 +22,7 @@ groups in that priority order. The primary model hint is `granite4.1:8b`
 When `granite4.1:8b` is evicted or under memory pressure, the pipeline
 falls through to other Ollama models in the reasoning and general groups.
 
-Note: the MLX inference proxy was retired at commit 3a0c58e — the former
+Note: the MLX inference proxy was retired at commit 75c24a9 — the former
 `[mlx, reasoning, general]` group priority and the MLX primary
 (`Jackrong/MLX-Qwen3.5-35B-A3B-Claude-...-8bit`) no longer apply.
 

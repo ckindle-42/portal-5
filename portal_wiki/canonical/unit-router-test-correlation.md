@@ -5,7 +5,7 @@ title: "Router correlation tests \u2014 trace-id stamping contract"
 sources:
 - type: code
   path: tests/unit/router/test_correlation.py
-  commit: dfa74e2e
+  commit: 6f44673c
 claims: []
 confidence: high
 tags:

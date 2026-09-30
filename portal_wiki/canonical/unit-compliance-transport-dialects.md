@@ -5,17 +5,17 @@ title: "Compliance transport dialects — the sweep's wire protocol seam"
 sources:
 - type: code
   path: portal/modules/compliance/core/transport_dialects.py
-  commit: 8720b60a
+  commit: 26f2ed03
 - type: code
   path: portal/modules/compliance/core/reading_transport.py
-  commit: 8720b60a
+  commit: 26f2ed03
 - type: code
   path: scripts/compliance/write_splash_report.py
 - type: code
   path: scripts/validation/splash_sweep_engine.py
 - type: code
   path: tests/unit/test_compliance_reading_transport.py
-  commit: 8720b60a
+  commit: 26f2ed03
 claims: []
 confidence: high
 tags:

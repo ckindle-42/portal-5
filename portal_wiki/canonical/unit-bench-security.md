@@ -5,7 +5,7 @@ title: "Bench security \u2014 backward-compat shim to security core"
 sources:
 - type: code
   path: tests/benchmarks/bench_security.py
-  commit: f09fdb85
+  commit: 071aaf52
 claims: []
 confidence: high
 tags:

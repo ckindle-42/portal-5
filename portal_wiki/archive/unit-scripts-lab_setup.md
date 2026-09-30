@@ -5,8 +5,8 @@ title: "Script \u2014 lab_setup"
 sources:
 - type: code
   path: scripts/lab_setup.py
-  commit: af437ebd
-last_generated_commit: af437ebd
+  commit: 94ecf393
+last_generated_commit: 94ecf393
 claims: []
 confidence: high
 tags:

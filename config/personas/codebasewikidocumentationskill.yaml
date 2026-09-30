@@ -9,7 +9,7 @@ preferred_models:
   - omnicoder2:9b-q4_k_m
   - omnicoder2:9b-q4_k_m-ctx8k
 module: coding
-# Qwen3-Coder-Next-4bit (80B MoE, 256K ctx) — was MLX chat tier, retired 3a0c58e; now Ollama GGUF
+# Qwen3-Coder-Next-4bit (80B MoE, 256K ctx) — was MLX chat tier, retired 75c24a9; now Ollama GGUF
 # LSP analysis + full-repo wiki generation benefits from maximum context
 system_prompt: |
   You are a codebase documentation specialist who generates comprehensive WIKI.md

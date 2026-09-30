@@ -17,7 +17,7 @@
       --output /tmp/diag_vulnllm.json
   ```
 - **Fixed scoring active**: P5-SCORING-BIAS-001 (zero-retry stall) and the new
-  `toolcall_reliability.py` instrument (P5-AUTOSEC-RESELECT Phase 1, commit `69e5859e`)
+  `toolcall_reliability.py` instrument (P5-AUTOSEC-RESELECT Phase 1, commit `5f0a5fdd`)
   were both live for this run.
 - **Elapsed**: 908.8s, 8/8 nominal chain-depth (11 total assistant turns), `lab_success: true`,
   `scenario_verdict: red_success` (the target infra behaved correctly — the model produced

@@ -640,9 +640,9 @@ The whole point of preselection is a cheap model deciding which schemas the expe
 
 ---
 
-## MLX Inference Proxy — RETIRED (commit 3a0c58e)
+## MLX Inference Proxy — RETIRED (commit 75c24a9)
 
-The MLX inference proxy (formerly ports 8081/18081/18082) was retired in commit `3a0c58e`, and all its limitations (single-model eviction, cold-boot 503 windows, admission control, deploy staleness) no longer apply. All chat inference runs through Ollama on port 11434, which reaches parity with standalone `mlx_lm` on this hardware without the dual-stack overhead. MLX is retained only outside chat inference: speech (`scripts/mlx-speech.py`, :8918), transcription (`scripts/mlx-transcribe.py` — Parakeet + Sortformer, :8924), embeddings (:8917), and the RAG reranker (:8925). Do not remove those when "cleaning up MLX".
+The MLX inference proxy (formerly ports 8081/18081/18082) was retired in commit `75c24a9`, and all its limitations (single-model eviction, cold-boot 503 windows, admission control, deploy staleness) no longer apply. All chat inference runs through Ollama on port 11434, which reaches parity with standalone `mlx_lm` on this hardware without the dual-stack overhead. MLX is retained only outside chat inference: speech (`scripts/mlx-speech.py`, :8918), transcription (`scripts/mlx-transcribe.py` — Parakeet + Sortformer, :8924), embeddings (:8917), and the RAG reranker (:8925). Do not remove those when "cleaning up MLX".
 
 ## Why
 
@@ -653,7 +653,7 @@ Retiring the proxy deleted an entire failure surface at once, so the residual li
 ## Model Parity — Specialist models lost in the MLX→Ollama migration
 
 Two production specialist models were MLX-only safetensor builds with no
-verified GGUF equivalent at migration time. The migration (3a0c58e) remapped
+verified GGUF equivalent at migration time. The migration (75c24a9) remapped
 their workspaces to GGUF substitutes:
 
 | Workspace(s) | Original (MLX) | Now served (Ollama GGUF) | Gap |
@@ -808,10 +808,10 @@ The catalog advertises devstral by its 14.3 GB file size, but the scheduler comp
 
 ---
 
-### Speculative Decoding / MTP — RETIRED with the MLX proxy (commit 3a0c58e)
+### Speculative Decoding / MTP — RETIRED with the MLX proxy (commit 75c24a9)
 
 - **IDs**: P5-SPEC-001, P5-MTP-001, P5-MTP-PATH (all moot)
-- **Status**: The MLX inference proxy that hosted `--draft-model` speculative decoding and the `speculative_decoding.draft_models` map was retired (commit `3a0c58e`); chat inference is Ollama-only. These limitations no longer apply because the infrastructure they described no longer exists — `coding_task/TASK_DOC_STEADY_STATE_V1.md` records the collapse of the three live MLX-proxy limitation sections into this single retirement note.
+- **Status**: The MLX inference proxy that hosted `--draft-model` speculative decoding and the `speculative_decoding.draft_models` map was retired (commit `75c24a9`); chat inference is Ollama-only. These limitations no longer apply because the infrastructure they described no longer exists — `coding_task/TASK_DOC_STEADY_STATE_V1.md` records the collapse of the three live MLX-proxy limitation sections into this single retirement note.
 - **If revisited**: any future speculative-decoding / MTP work targets Ollama's native path (llama.cpp b9180+), not MLX. Bench-only MTP GGUF candidates remain as bench entries in `config/portal.yaml` (e.g. `bench-qwen36-27b-mtp`, created via `./launch.sh apply-mtp-drafts`); there is no production MLX serving path to enable.
 - **P5-FUT**: evaluate `/api/chat` as the chat URL — it would allow full `options` passthrough but requires changing payload/response shapes.
 
@@ -868,8 +868,8 @@ The `/v1` compatibility surface is convenient but drops the `options` object, so
 - **ID**: P5-CODING-CTX256K-001
 - **Description**: `auto-coding`'s `model_hint` is `qwen3-coder:30b-a3b-q4_K_M-ctx256k` (`config/portal.yaml`, `context_limit: 262144`). Measured on this 64GB M4 Pro (2026-09-08, Ollama 0.33.2): **76.1GB resident, 59.0GB on GPU**, ~17GB past the 57,344MB `iogpu.wired_limit_mb`, driving **41.5GB of swap with 3% system memory free**. The same model's other baked tags measure 20.3GB (`-ctx8k`) and 22.2GB (`-ctx16k`), a linear ~226 KB/token of context — so `-ctx64k` projects to ~33GB and `-ctx128k` to ~47GB.
 - **Not a 256k problem**: `portal5/hauhaucs-qwen36-35b:q4_K_M-ctx256k` holds the same 262,144 window in **25.5GB, 100% GPU**, re-measured the same day. The cost is this model's KV geometry, not the window size.
-- **How it got here**: `89e15c60` and `77b53f68` (2026-08-26) justified full-native context with real measurement — *"~24GB footprint, still 100% GPU, no CPU offload"*, *"marginal memory cost … negligible (~1GB per model)"* — but on HauhauCS Qwen3.6-35B, gemma4-heretic, Ornith-1.5, qwen3-coder-**next**, AgentWorld and omnicoder2. Never on `qwen3-coder:30b-a3b-q4_K_M`. Those measurements still reproduce; they were generalised to a model they were not taken on. `240b3e75` (2026-08-29) then created this tag and pointed `auto-coding` at it, verifying routing plus two UAT coding challenges — but by its own text the default is oMLX-served and the Ollama tag is the fallback path, with its live check recording *"auto → Qwen3-Coder-30B (oMLX primary)"*. **The tag's memory footprint was never measured.** The WFE preflight is the first known load of it.
-- **Consequence**: the fallback path taken when the host oMLX server wedges — the exact failure `240b3e75` existed to fix — puts the machine into heavy swap. Ordinary operation is unaffected while oMLX is healthy.
+- **How it got here**: `ebd6d90a` and `6e950785` (2026-08-26) justified full-native context with real measurement — *"~24GB footprint, still 100% GPU, no CPU offload"*, *"marginal memory cost … negligible (~1GB per model)"* — but on HauhauCS Qwen3.6-35B, gemma4-heretic, Ornith-1.5, qwen3-coder-**next**, AgentWorld and omnicoder2. Never on `qwen3-coder:30b-a3b-q4_K_M`. Those measurements still reproduce; they were generalised to a model they were not taken on. `6501e6c5` (2026-08-29) then created this tag and pointed `auto-coding` at it, verifying routing plus two UAT coding challenges — but by its own text the default is oMLX-served and the Ollama tag is the fallback path, with its live check recording *"auto → Qwen3-Coder-30B (oMLX primary)"*. **The tag's memory footprint was never measured.** The WFE preflight is the first known load of it.
+- **Consequence**: the fallback path taken when the host oMLX server wedges — the exact failure `6501e6c5` existed to fix — puts the machine into heavy swap. Ordinary operation is unaffected while oMLX is healthy.
 - **Disposition (operator, 2026-09-08)**: production config **deliberately unchanged**; the arm is excluded from the WFE fitness sweep (`tests/wfe/workloads.yaml`, `auto-coding` has no incumbent) rather than spending 39 rows measuring paging. The accepted risk is that this fallback stays unmeasured and unfit. Fixing it later is a one-line `model_hint`/`context_limit` change plus an `ollama create` of a smaller baked tag.
 - **Related**: `P5-OLLAMA-OPTIONS-001` above — the reason a baked tag is the only lever, since `/v1` ignores request-time `options.num_ctx`.
 
@@ -1335,7 +1335,7 @@ Recording both gate failures with their specific numbers (49GB rung, no TurboQua
 ### CI-Only Deterministic Failure: test_draft_revisions_is_proposal_by_default
 
 - **ID**: P5-CI-DRAFT-REVISIONS-FLAKE-001
-- **Status**: RESOLVED TASK_COMPLIANCE_READING_IS_THE_PRODUCT_V1 Phase 1. Discovered 2026-09-14 during an unrelated CI-hardening pass (mypy strict-baseline, `pymupdf` dev-extras gap, NERC CIP PDF corpus hermeticity, LanceDB hermeticity — see commits `13bcbb61`..`1c9a44a0`).
+- **Status**: RESOLVED TASK_COMPLIANCE_READING_IS_THE_PRODUCT_V1 Phase 1. Discovered 2026-09-14 during an unrelated CI-hardening pass (mypy strict-baseline, `pymupdf` dev-extras gap, NERC CIP PDF corpus hermeticity, LanceDB hermeticity — see commits `c51834cb`..`801a8a73`).
 - **Description**: `tests/unit/test_compliance_change_pipeline.py::test_draft_revisions_is_proposal_by_default` fails deterministically on every GitHub Actions run (Linux, Python 3.12) with `assert dr["specifications"]` → `assert []` — no exception, no captured log, just an empty list where the test expects at least one drafted specification. `_OLD`/`_NEW` in that test file are built from `Register.load()` filtered to `CIP-003-8`/`CIP-003-9`; `Register.load()` reads only the committed `register.json` (no PDF, no LanceDB), and that JSON is identical between this machine and the CI checkout at the same commit.
 - **What was ruled out**: reproduced CI's exact invocation locally — full suite, `pytest-xdist -n auto`, both isolated and in the complete parallel run — under every combination of: real vs. broken `PORTAL5_LANCE_DIR`, present vs. absent `cip_pdfs/` corpus (both together, matching CI exactly), and a same-commit CI rerun (to rule out a one-off transient). Every local run passes (1/1 isolated, 3512/3512 in the full combined-broken-env run); CI fails 2/2 identical attempts. Since the register JSON is byte-identical between environments and `Register.load()` touches no other I/O, this isn't the corpus/LanceDB gap the surrounding commits fixed. That list is accurate and every item on it is genuinely excluded — it was simply the wrong axis. The runner difference (Linux vs. macOS, Python 3.12 vs. 3.13, `PYTHONHASHSEED`) was a live suspect and is now also excluded.
 - **Actual cause**: the assertion depended on an ambient `MappingStore` at `STORE_PATH` — gitignored, machine-local state — not on the register JSON. `impact_report` fills each row's `mapped_sections` from `store.all_for(...)`, and `change_pipeline.py` iterates `mapped_sections` to build specifications, so a store with no rows yields zero specifications and `assert dr["specifications"]` fails. The store on the operator's Mac holds 1067 rows; on any clean checkout it is empty. This is why the exhaustive local reproduction could not surface it: *every* local attempt, under every environment combination tried, read the same populated store. The variable that mattered was never varied.

@@ -24,7 +24,7 @@ The MLX media generators (MFLUX image :8933, video-mlx :8935, MiniMax music
 :8912) and Ollama share the same 64GB unified-memory pool on Apple Silicon,
 with **no cross-engine backpressure**: Ollama's `OLLAMA_MAX_LOADED_MODELS` /
 `OLLAMA_MEMORY_LIMIT` do not govern the MLX generators, and the retired
-MLX-proxy admission gate (`3a0c58e`) never covered media backends either. See
+MLX-proxy admission gate (`75c24a9`) never covered media backends either. See
 `unit-fact-media-memory-budget` for per-backend GB estimates.
 
 ## The guard

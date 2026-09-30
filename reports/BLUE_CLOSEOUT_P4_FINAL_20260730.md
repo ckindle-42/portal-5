@@ -2,8 +2,8 @@
 
 **Date:** 2026-07-30
 **Task:** `TASK_P4_P5_CLOSEOUT_V8_CUT_V1.md`
-**Tagged SHA:** `653c1847` (`v8.0.0`, annotated tag created locally — not yet pushed, pending explicit go-ahead)
-**Commits in this closeout:** `606bb49a` → `653c1847` (7 commits)
+**Tagged SHA:** `66633478` (`v8.0.0`, annotated tag created locally — not yet pushed, pending explicit go-ahead)
+**Commits in this closeout:** `54c60cd7` → `66633478` (7 commits)
 
 ---
 
@@ -16,7 +16,7 @@
 | UAT | **PASS, with triaged reds** | 195-case practical catalog (314 minus the 119-case challenge/game_challenge shootout, which the operator determined belongs to a separate dedicated bench, not the UAT release gate). Final: 133 PASS / 8 WARN / 42 FAIL / 11 SKIP / 1 MANUAL. Every non-PASS row triaged — see below. 6 execution-tier security rows (pentest/purple-team-exec) removed from the UAT catalog's scoring — that capability has its own dedicated bench. |
 | Corpus-replay security bench | **PASS** | Resumed the retained 51-cell checkpoint (backed up first); forced one live re-execution via a throwaway copy (real checkpoint untouched) — completed in 288.6s with a real verdict (`RULED_OUT`, T1552), proving the pipeline works end-to-end at HEAD. |
 | Notify/benign scoreboard | **PASS** | Re-scored both axes with current code against retained data. Attack-recall axes (1–3) scored cleanly against the corpus-replay checkpoint. Benign/alert-fatigue axis (4) reproduced the documented **33.3% precision / 66.7% false-flag rate** exactly against `reports/RBP_BENIGN_CORPUS_20260726.json` — the scoring code is stable and the figures are not stale. |
-| Platform council bench | **Same-day run accepted** | No council-review code has changed since the 2026-07-26 run (`git log 1f216f09..HEAD` on council files: empty), and `validate_system.py`'s council invariant checks (BE, BL, BO, BP) all pass at current HEAD. Accepted `reports/PLATFORM_COUNCIL_BENCH_20260726.{json,md}` rather than forcing a fresh live rerun, given the open router-eviction issue (below) would make a fresh multi-hour bench unreliable right now. |
+| Platform council bench | **Same-day run accepted** | No council-review code has changed since the 2026-07-26 run (`git log bad2b860..HEAD` on council files: empty), and `validate_system.py`'s council invariant checks (BE, BL, BO, BP) all pass at current HEAD. Accepted `reports/PLATFORM_COUNCIL_BENCH_20260726.{json,md}` rather than forcing a fresh live rerun, given the open router-eviction issue (below) would make a fresh multi-hour bench unreliable right now. |
 | Performance TPS | **Skipped, by explicit operator direction** | Deferred as a separate arc, not part of this closeout. |
 
 **P4 gate status: GREEN** on the rows in scope for this pass (system validation, UAT, corpus-replay, notify/benign, council). Acceptance and TPS are explicitly deferred, not silently dropped.
@@ -27,7 +27,7 @@
 
 ### Bucket 1 — Confirmed product defects, root-caused and fixed this session
 
-- **`T-08` (Image Generation)**: routed to `auto` instead of `auto-image`. Root cause: `auto-image` was completely missing from `config/routing_descriptions.json` (the LLM intent classifier had zero training signal for it). **Fixed** (entry added, rebuilt into the pipeline image). Separately found and fixed genuine `.env` drift: `LLM_ROUTER_MODEL`/`LLM_ROUTER_TIMEOUT_MS` had reverted to pre-bench values (`llama3.2:3b`/`500ms`) contradicting this project's own commit `e7e95d42` (2026-06-17), which benched and promoted `gemma-4-E4B-it-OBLITERATED-GGUF:Q4_K_M` (82.2% acc) with a `1000ms` timeout. Re-pulled the model, restored both values. **Live end-to-end re-verification blocked** by the router-eviction issue below (honest-BLOCKED, not a flaw in the fix — direct model-level probing confirms the classification itself works correctly, 0.95–0.98 confidence).
+- **`T-08` (Image Generation)**: routed to `auto` instead of `auto-image`. Root cause: `auto-image` was completely missing from `config/routing_descriptions.json` (the LLM intent classifier had zero training signal for it). **Fixed** (entry added, rebuilt into the pipeline image). Separately found and fixed genuine `.env` drift: `LLM_ROUTER_MODEL`/`LLM_ROUTER_TIMEOUT_MS` had reverted to pre-bench values (`llama3.2:3b`/`500ms`) contradicting this project's own commit `92093b7e` (2026-06-17), which benched and promoted `gemma-4-E4B-it-OBLITERATED-GGUF:Q4_K_M` (82.2% acc) with a `1000ms` timeout. Re-pulled the model, restored both values. **Live end-to-end re-verification blocked** by the router-eviction issue below (honest-BLOCKED, not a flaw in the fix — direct model-level probing confirms the classification itself works correctly, 0.95–0.98 confidence).
 - **`tests/uat/runner.py` metrics URL bug**: `_PIPELINE_METRICS_URL` was computed from raw `os.environ.get("PIPELINE_URL")` instead of `config.PIPELINE_URL` — same class of bug as the Phase 1 dispatcher fix. `.env`'s compose-internal hostname made `_snapshot_tool_calls()` silently return `0.0` unconditionally (bare except), making every `pipeline_tool_called` assertion's before/after delta trivially 0 regardless of whether a tool was actually dispatched. **Fixed**, with 9 hermetic regression tests. This directly invalidated `WS-PE01`/`WS-PE02`'s "tool not dispatched" assertions (moot now since those rows are out of UAT scope, but matters for the dedicated security bench that reuses this helper).
 - **`tools-specialist` workspace concurrency**: `max_concurrent: 1` was the only production granite4.1 workspace pinned to single-slot (every other production usage runs at the concurrency default of 5), with no attached rationale — looked like an unexamined bench-template carryover. **Fixed** (key removed).
 
@@ -86,4 +86,4 @@ Per explicit operator direction: not a priority this pass, warnings lower priori
 
 ## Release status
 
-`v8.0.0` tagged locally at `653c1847` (annotated: "Portal 5 v8.0.0 — RBP closeout complete, spine coverage gate, Ollama-only steady state"). **Not pushed** — `git push && git push --tags` requires separate explicit confirmation before affecting shared/remote history.
+`v8.0.0` tagged locally at `66633478` (annotated: "Portal 5 v8.0.0 — RBP closeout complete, spine coverage gate, Ollama-only steady state"). **Not pushed** — `git push && git push --tags` requires separate explicit confirmation before affecting shared/remote history.

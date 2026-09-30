@@ -5,13 +5,13 @@ title: "Compliance closeout scripts — the CLOSEOUT_V1 evidence instruments"
 sources:
 - type: code
   path: scripts/compliance/verify_conjunction_adoption.py
-  commit: 29665293
+  commit: 539b6cfb
 - type: code
   path: scripts/compliance/calibrate_cip007.py
-  commit: 29665293
+  commit: 539b6cfb
 - type: code
   path: scripts/compliance/adjudicate_refusals.py
-  commit: 29665293
+  commit: 539b6cfb
 - type: code
   path: scripts/compliance/closeout_family_sweep.py
 - type: code
@@ -22,7 +22,7 @@ sources:
   path: scripts/compliance/decide_sweep_engine.py
 - type: code
   path: scripts/compliance/ask_product_questions.py
-  commit: 29665293
+  commit: 539b6cfb
 - type: code
   path: scripts/compliance/adjudicate_determinations.py
 - type: code

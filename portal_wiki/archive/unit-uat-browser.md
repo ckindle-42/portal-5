@@ -5,8 +5,8 @@ title: "UAT browser \u2014 Playwright helpers"
 sources:
 - type: code
   path: tests/uat/browser.py
-  commit: 85bb65bd
-last_generated_commit: 85bb65bd
+  commit: d7dcc96a
+last_generated_commit: d7dcc96a
 claims: []
 confidence: high
 tags:

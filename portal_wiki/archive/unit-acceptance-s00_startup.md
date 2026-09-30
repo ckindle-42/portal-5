@@ -5,8 +5,8 @@ title: "S0 \u2014 Prerequisites and environment check"
 sources:
 - type: code
   path: tests/acceptance/s00_startup.py
-  commit: a88ad75b
-last_generated_commit: a88ad75b
+  commit: e75dddd2
+last_generated_commit: e75dddd2
 claims: []
 confidence: high
 tags:

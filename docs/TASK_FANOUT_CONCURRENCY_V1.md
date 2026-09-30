@@ -5,7 +5,7 @@ Status: **EXECUTED 2026-09-25** — W1–W5 landed, acceptance A1–A7 green
 
 ## Problem
 
-Commit 8d519995 set `OLLAMA_NUM_PARALLEL=1` because per-seat KV footprints at
+Commit 0497db2e set `OLLAMA_NUM_PARALLEL=1` because per-seat KV footprints at
 baked context only fit at one slot (auto-council reviewers 50.3 vs 60.2 GiB at
 2; compliance granite-30b at 98,304 tokens 29.7 vs 44.5 GiB). Known cost,
 recorded in P5-ROUTER-EVICTION-001: two requests to the same model now wait
@@ -19,7 +19,7 @@ compliance fan-out. Three directions were named for measurement:
 **Operator constraint (2026-09-25, binding): everything goes through the
 pipeline.** Actual usage runs through `portal-pipeline` (:9099), so fan-out
 does too — the same doctrine that moved WFE seat testing to
-`WFE_ENGINE=pipeline` (a5b8c895: "When a pipeline run exposes a gap, fix the
+`WFE_ENGINE=pipeline` (9970cd97: "When a pipeline run exposes a gap, fix the
 pipeline (it is the product), don't work around it in the harness"). Direct
 engine calls are for raw probes only, and must say so on the receipt. The
 compliance sweep/reader today posts straight to `:11434`, which is the exact

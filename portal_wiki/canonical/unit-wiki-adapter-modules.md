@@ -5,7 +5,7 @@ title: "Wiki module adapter \u2014 toggle resolver with wiki-as-state"
 sources:
 - type: code
   path: portal/platform/wiki/adapters/modules.py
-  commit: 66aa9fda
+  commit: 94445e95
 claims: []
 confidence: high
 tags:

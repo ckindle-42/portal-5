@@ -5,9 +5,9 @@ title: HOWTO -- 15. User Management
 sources:
 - type: doc
   path: docs/HOWTO.md
-  commit: ddb1cc61
+  commit: 455ec2f6
   section: 15. User Management
-last_generated_commit: 2f35b5ad508cd284e75ad0735ab7db02961001dd
+last_generated_commit: e4e79f1d894d33cf7c3dfb9340dde71bd401a6cb
 claims: []
 confidence: high
 tags:

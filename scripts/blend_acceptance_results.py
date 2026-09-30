@@ -3,9 +3,9 @@
 Blend ACCEPTANCE_RESULTS.md from git history + optional live file.
 
 Sources (in priority order):
-  - 798614d: original full run (baseline for non-rerun sections)
-  - 5c64a01: targeted rerun (S1, S3a, S6, S41, S60)
-  - f945eb6: standalone S10c run with [:8000] fix
+  - 3f4f75f: original full run (baseline for non-rerun sections)
+  - 0e1199f: targeted rerun (S1, S3a, S6, S41, S60)
+  - 59bf556: standalone S10c run with [:8000] fix
   - S10_SOURCE (file path or git commit): fresh S10 production-persona rerun
 
 Run with no args to rebuild from git history only.
@@ -17,9 +17,9 @@ import subprocess
 from collections import defaultdict
 from pathlib import Path
 
-ORIGINAL = "798614d"
-RERUN = "5c64a01"
-S10C_ONLY = "f945eb6"
+ORIGINAL = "3f4f75f"
+RERUN = "0e1199f"
+S10C_ONLY = "59bf556"
 
 # Sections taken from the targeted rerun (better than original)
 RERUN_SECTIONS = {"S1", "S3a", "S6", "S41", "S60"}
@@ -161,9 +161,9 @@ def main():
         "# Portal 5 Acceptance Test Results — V6",
         "",
         "**Date:** 2026-06-12 10:44:00",
-        "**Git SHA:** 2119738",
+        "**Git SHA:** 98d498a",
         f"**Sections:** {section_list}",
-        f"**Notes:** Blended — full run (798614d), targeted rerun (5c64a01), S10c standalone (f945eb6){s10_note}",
+        f"**Notes:** Blended — full run (3f4f75f), targeted rerun (0e1199f), S10c standalone (59bf556){s10_note}",
         "",
         "## Summary",
         "",

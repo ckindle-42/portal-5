@@ -5,8 +5,8 @@ title: "mcp_host workspace \u2014 canonical path resolution + upload safety"
 sources:
 - type: code
   path: portal/platform/mcp_host/workspace.py
-  commit: ee7ca08a
-last_generated_commit: ee7ca08a
+  commit: 3d8cf6f5
+last_generated_commit: 3d8cf6f5
 claims: []
 confidence: high
 tags:

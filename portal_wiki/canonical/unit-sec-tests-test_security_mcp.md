@@ -5,7 +5,7 @@ title: "Security tests \u2014 test_security_mcp"
 sources:
 - type: code
   path: portal/modules/security/tests/test_security_mcp.py
-  commit: bdbf509f
+  commit: 862c7b11
 claims: []
 confidence: high
 tags:

@@ -5,8 +5,8 @@ title: "Tests persona-matrix diff \u2014 gated report comparison"
 sources:
 - type: code
   path: tests/persona_matrix_diff.py
-  commit: 4900007a
-last_generated_commit: 4900007a
+  commit: 347dfc8a
+last_generated_commit: 347dfc8a
 claims: []
 confidence: high
 tags:

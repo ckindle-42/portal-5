@@ -5,8 +5,8 @@ title: "Tests package root \u2014 versioned test tree namespace"
 sources:
 - type: code
   path: tests/__init__.py
-  commit: 4900007a
-last_generated_commit: 4900007a
+  commit: 347dfc8a
+last_generated_commit: 347dfc8a
 claims: []
 confidence: high
 tags:

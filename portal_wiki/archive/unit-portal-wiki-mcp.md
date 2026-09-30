@@ -5,8 +5,8 @@ title: "Wiki MCP \u2014 agent retrieval with mandatory citations"
 sources:
 - type: code
   path: portal_wiki/mcp.py
-  commit: dc13b2d5
-last_generated_commit: 6fe71cca7b215f92e60675457af06859cfccf63f
+  commit: 53110d10
+last_generated_commit: 45a89f606a265b2d3486b0540570fb0e83eaaa6d
 claims: []
 confidence: high
 tags:

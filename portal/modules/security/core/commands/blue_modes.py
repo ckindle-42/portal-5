@@ -879,7 +879,7 @@ def run_chain_models(run: BenchRun) -> None:
             # red-only run fell back entirely to the old lossy post-hoc
             # scrape (collect_and_ship_scenario_telemetry's docker/access-log
             # read after the fact) -- the exact Hop 2/3 evidence-chain gap
-            # 993b6a97 built network_capture.py to fix, just never wired into
+            # 1c5568cd built network_capture.py to fix, just never wired into
             # this code path. Without it, a captured red run has no lossless
             # sensor-observed evidence for blue to ever detect, regardless of
             # whether the attack itself succeeded -- 52/68 full-depth

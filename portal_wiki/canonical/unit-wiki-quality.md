@@ -5,7 +5,7 @@ title: "Wiki quality gate \u2014 calibrated authored-unit coverage definition"
 sources:
 - type: code
   path: portal/platform/wiki/quality.py
-  commit: 4ca84409
+  commit: e100adbe
 claims: []
 confidence: high
 tags:

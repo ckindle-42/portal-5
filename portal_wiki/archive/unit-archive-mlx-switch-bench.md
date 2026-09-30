@@ -5,8 +5,8 @@ title: "MLX switch benchmark \u2014 archived proxy-vs-raw timing"
 sources:
 - type: code
   path: scripts/_archive/mlx-retired-3a0c58e/mlx-switch-benchmark.py
-  commit: 2d2e9c0f
-last_generated_commit: 2d2e9c0f
+  commit: 90ac134b
+last_generated_commit: 90ac134b
 claims: []
 confidence: high
 tags:
@@ -26,7 +26,7 @@ against raw mlx_lm/mlx_vlm startup.
 
 The benchmark existed to answer a cost question the proxy design depended on:
 is the proxy's model switching overhead worth it versus raw server starts?
-It retired with the stack at `3a0c58e` because the proxy it measured is gone
+It retired with the stack at `75c24a9` because the proxy it measured is gone
 and Ollama manages model residency itself. Its *why* is the record that the
 switch-cost measurement was made, the number informed the retirement
 decision, and the tool that made it is preserved rather than deleted so the

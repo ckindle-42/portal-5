@@ -5,8 +5,8 @@ title: "Bench empty-retry test \u2014 empty-only retry guard"
 sources:
 - type: code
   path: tests/benchmarks/test_empty_retry.py
-  commit: f09fdb85
-last_generated_commit: f09fdb85
+  commit: 071aaf52
+last_generated_commit: 071aaf52
 claims: []
 confidence: high
 tags:

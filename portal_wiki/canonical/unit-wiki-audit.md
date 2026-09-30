@@ -5,7 +5,7 @@ title: "Wiki audit \u2014 mechanical spine-integrity checks"
 sources:
 - type: code
   path: portal/platform/wiki/audit.py
-  commit: 4ca84409
+  commit: e100adbe
 claims: []
 confidence: high
 tags:

@@ -5,7 +5,7 @@ title: "Wiki maintain \u2014 self-maintenance loop + staleness doctrine"
 sources:
 - type: code
   path: portal/platform/wiki/maintain.py
-  commit: 649301d0f61c5bfcf00996b57c976122dd4f8e02
+  commit: e5c013b3dfd9e466a1964ca4832ddcc379b95488
 claims: []
 confidence: high
 tags:

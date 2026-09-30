@@ -3,7 +3,7 @@
 ``reading_material.render`` knows every section's id, side and address — it
 uses all of it to build the message — and then returns prose plus counts and
 discards the rest. Every component that later JUDGES an answer about that
-material re-derives those semantics from scratch. Counted at e45ee1f4:
+material re-derives those semantics from scratch. Counted at 1ee50cc5:
 
     7   independent regexes for "what is a section id", with three different
         definitions of the hex length ({8,}, {20}, +)
@@ -16,7 +16,7 @@ CLOSEOUT_V1 hit was one of those disagreements:
 * the renderer gives an operator note its own heading; the scorer decided a
   note was not operator, because it tested ``jurisdiction == "internal"`` and
   a note is ``"operator_note"``. The ``interval`` case has been scored FAIL
-  since 97330066 while the hand verdict recorded PASS.
+  since 29057604 while the hand verdict recorded PASS.
 * the standard writes ``R2.4`` in its own text; ``parse_ref`` rejected
   ``R2.4`` as "not a regulatory address".
 * the renderer emitted a 20-character id; one dropped character voided the

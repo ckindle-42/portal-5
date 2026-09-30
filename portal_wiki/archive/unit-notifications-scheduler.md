@@ -5,8 +5,8 @@ title: "Notification scheduler \u2014 daily summary cron driver"
 sources:
 - type: code
   path: portal/platform/inference/notifications/scheduler.py
-  commit: 7b309b21
-last_generated_commit: 7b309b21
+  commit: 7383d070
+last_generated_commit: 7383d070
 claims: []
 confidence: high
 tags:

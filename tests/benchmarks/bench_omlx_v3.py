@@ -3,7 +3,7 @@
 Re-runs the 2026-04-25 / 2026-05-28 bake-off protocol against oMLX 0.5.x with
 Ollama GGUF as the production baseline (mlx-proxy is retired). Protocol shapes
 are kept identical to the deleted bench_omlx.py (recovered from git history at
-10075f1c) so numbers are comparable across all three evaluation rounds.
+1198334b) so numbers are comparable across all three evaluation rounds.
 
 Gates (from the Phase-0 plan):
   kv        Gate 1 — warm TTFT must beat cold TTFT; cached_tokens must be >0 on
@@ -65,7 +65,7 @@ OLLAMA_BASELINES = {
     "3b": "llama3.2:3b-instruct-q8_0-ctx8k",
 }
 
-# ── Protocol constants (identical to bench_omlx.py @ 10075f1c) ───────────────
+# ── Protocol constants (identical to bench_omlx.py @ 1198334b) ───────────────
 
 SINGLE_PROMPTS = {
     "coding": (

@@ -115,7 +115,7 @@ Models are tested **one at a time** (sequential, blocking HTTP). Memory is manag
 Counts are derived at run time from `config/backends.yaml` + `config/personas/`
 and reported in the script's startup banner. The current catalog (HEAD, 2026-06-10) is
 **73 workspaces** (20 `auto-*` + 52 `bench-*` + 1 `tools-specialist`) and **~137 personas**.
-All inference is Ollama — the MLX inference proxy was retired in commit `3a0c58e`.
+All inference is Ollama — the MLX inference proxy was retired in commit `75c24a9`.
 
 Undownloaded Ollama models are reported with `available: false` in the results — not silently skipped.
 

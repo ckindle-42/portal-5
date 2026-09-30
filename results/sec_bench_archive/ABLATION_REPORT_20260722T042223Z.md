@@ -1,6 +1,6 @@
 # Blue-Orchestration Ablation Report (2026-07-22T04:22:23.069121+00:00)
 
-HEAD: `abef7f69`  reps=3  corpus_n=89  error_rate=0.006
+HEAD: `463bc276`  reps=3  corpus_n=89  error_rate=0.006
 
 ## Per-arm summary
 

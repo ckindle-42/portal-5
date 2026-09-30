@@ -5,7 +5,7 @@ title: "Router context-inject tests \u2014 snippet shape + merge contract"
 sources:
 - type: code
   path: tests/unit/router/test_context_inject.py
-  commit: dfa74e2e
+  commit: 6f44673c
 claims: []
 confidence: high
 tags:

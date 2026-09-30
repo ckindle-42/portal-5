@@ -5,8 +5,8 @@ title: Model catalog parity tests
 sources:
 - type: code
   path: tests/unit/test_model_catalog_parity.py
-  commit: 3e884375
-last_generated_commit: 2f35b5ad508cd284e75ad0735ab7db02961001dd
+  commit: d5234798
+last_generated_commit: e4e79f1d894d33cf7c3dfb9340dde71bd401a6cb
 claims: []
 confidence: high
 tags:

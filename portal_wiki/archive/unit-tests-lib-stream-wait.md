@@ -5,8 +5,8 @@ title: "Tests lib stream-wait \u2014 event-driven streaming wait"
 sources:
 - type: code
   path: tests/lib/stream_wait.py
-  commit: f2f2516d
-last_generated_commit: f2f2516d
+  commit: bd66d80c
+last_generated_commit: bd66d80c
 claims: []
 confidence: high
 tags:

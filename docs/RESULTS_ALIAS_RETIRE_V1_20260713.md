@@ -2,7 +2,7 @@
 
 **Program:** `coding_task/cleanup/BUILD_PROGRAM_ALIAS_RETIRE_V1.md`, per
 `DESIGN_ALIAS_RETIRE_V1.md` and `DESIGN_ROUTER_CANONICALIZATION_V1.md`.
-**Grounded against:** HEAD `f5d3a87` (pre-program baseline, 2026-07-12).
+**Grounded against:** HEAD `5fbd635` (pre-program baseline, 2026-07-12).
 **Completed:** 2026-07-13.
 **Status:** Complete, modulo 3 documented holdouts that keep the legacy
 shim live (see § Shim status).
@@ -113,14 +113,14 @@ concrete next step for each holdout.
 
 | Phase | Commit(s) | Summary |
 |---|---|---|
-| 0 | `0a4e139` | Census tool, routing-regression harness, deprecation trip |
-| 1 | `9fdc12b`, `9adc51a`, `fda7ee0` | Docs/wiki/Grafana — 3 stale reports archived, 47 orphaned wiki units deleted |
-| 2 | `74b6f53`, `7317888` | Config — portal.yaml, backends.yaml, promptfoo, personas |
-| 3+4 | `6671c60`, `831e854`, `fc0477d` | UAT catalog (25 tests) + bench config, check K → hard-fail |
-| 5 | `6d05f42` | Production integration — blue_triage, Slack/Telegram, deploy |
-| 6 | `0a02245` | Deprecation-trip gate — verified against live rebuilt pipeline |
-| 7 | `f58ae30` | Router two-layer output canonicalization (the §9 work) |
-| 8 | `5a8f366` | Growth-only ratchet in place of shim removal |
+| 0 | `d1adeff` | Census tool, routing-regression harness, deprecation trip |
+| 1 | `08fbf26`, `6228e18`, `c30ae9e` | Docs/wiki/Grafana — 3 stale reports archived, 47 orphaned wiki units deleted |
+| 2 | `07b7717`, `90b165d` | Config — portal.yaml, backends.yaml, promptfoo, personas |
+| 3+4 | `601e594`, `4f1e0a2`, `3ce3608` | UAT catalog (25 tests) + bench config, check K → hard-fail |
+| 5 | `3a30972` | Production integration — blue_triage, Slack/Telegram, deploy |
+| 6 | `15c252f` | Deprecation-trip gate — verified against live rebuilt pipeline |
+| 7 | `2a0709f` | Router two-layer output canonicalization (the §9 work) |
+| 8 | `1c64687` | Growth-only ratchet in place of shim removal |
 | 9 | *(this commit)* | Final green, retrospective, tag |
 
 ## 7. Not in scope (unchanged from the program's own charter)
@@ -228,14 +228,14 @@ than catching a regression. `config/.alias_retire_baseline.json` retired.
 ### Commits (this Finish pass)
 | Step | Commit | Summary |
 |---|---|---|
-| Holdout 1 | `36c30e6` | Incalmo canonical `::` default |
-| Holdout 2 (personas) | `5dd8523` | 8 new + 3 reused variant-personas |
-| Holdout 2 (`/v1/models`) | `0ffbe68` | Persona discovery endpoint |
-| Holdout 2 (jsonc) | `63c3683` | opencode.jsonc re-keyed |
-| Holdout 2 (mcp) | `1eb3d77` | pipeline_mcp recommendation + warmup |
-| Holdout 2 (CLI docs) | `40e3fd3` | MCP_DEV_TOOLING.md, cc-local.sh |
-| Holdout 3 | `edcaa8b` | Security bench harness canonical `::` |
-| Phase 4 | `6d4212d` | Live-traffic trip gate — zero hits |
-| Phases 5+6 | `86f61a7` | Shim removed; check AT hard zero-alias |
+| Holdout 1 | `bb7dc97` | Incalmo canonical `::` default |
+| Holdout 2 (personas) | `2eaf517` | 8 new + 3 reused variant-personas |
+| Holdout 2 (`/v1/models`) | `99c294d` | Persona discovery endpoint |
+| Holdout 2 (jsonc) | `a52e83f` | opencode.jsonc re-keyed |
+| Holdout 2 (mcp) | `4b0d46f` | pipeline_mcp recommendation + warmup |
+| Holdout 2 (CLI docs) | `ace2471` | MCP_DEV_TOOLING.md, cc-local.sh |
+| Holdout 3 | `6c5d2cf` | Security bench harness canonical `::` |
+| Phase 4 | `d73834e` | Live-traffic trip gate — zero hits |
+| Phases 5+6 | `ef0e73a` | Shim removed; check AT hard zero-alias |
 
 **Tag:** `alias-retire-complete`.

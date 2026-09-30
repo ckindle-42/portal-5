@@ -5,8 +5,8 @@ title: "CI guard \u2014 deploy/ and portal_mcp/ must not diverge"
 sources:
 - type: code
   path: scripts/ci/check_no_identical_sources.py
-  commit: '96146826'
-last_generated_commit: '96146826'
+  commit: '38123c31'
+last_generated_commit: '38123c31'
 claims: []
 confidence: high
 tags:

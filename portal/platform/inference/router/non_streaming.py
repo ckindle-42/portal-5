@@ -94,7 +94,7 @@ def _is_capacity_error(detail: str) -> bool:
     failure on every candidate), this one is cascadable.
 
     The 2026-09-25 hardening pass that introduced ``_REQUEST_ERROR_STATUSES``
-    (commit edcedc5a) didn't carry this distinction, which silently broke the
+    (commit ddd4726c) didn't carry this distinction, which silently broke the
     "automatic Ollama fallback on unhealthy/rejects" pattern the oMLX
     shadow-shift design (P5-FANOUT-001, docs/TASK_FANOUT_CONCURRENCY_V1.md)
     depends on for every priority-10 alias. Found in the P5-FANOUT-001 audit

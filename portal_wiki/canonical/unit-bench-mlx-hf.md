@@ -5,7 +5,7 @@ title: "Bench mlx-hf \u2014 HF safetensors staging for comparison"
 sources:
 - type: code
   path: tests/benchmarks/bench_mlx_hf.py
-  commit: f09fdb85
+  commit: 071aaf52
 claims: []
 confidence: high
 tags:

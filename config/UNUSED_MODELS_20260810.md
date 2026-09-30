@@ -40,7 +40,7 @@ explicit exclusion list.
 | Model | Size | Reason |
 |---|---|---|
 | `portal5/qwen36-27b-fable-fusion-heretic:Q4_K_M` | 18.0GB | Evaluated as an RBP EXPLOIT-slot candidate, verdict NEUTRAL, not promoted — see `unit-model-catalog-portal5-qwen36-27b-fable-fusion-heretic-q4-k-m-dropped.md`. Distinct from `qwen36-fable-fusion-711:Q4_K_M` (kept — different blob, separate untested candidate). |
-| `hf.co/DevQuasar/amd.Instella-MoE-16B-A3B-Think-GGUF:Q4_K_M` | 10.5GB | Arch-blocked — fails to load on this Ollama build with "unknown model architecture" (confirmed in the XYZ-Aquila-mini intake commit, 63cbca4c). Cannot run regardless of promotion decisions. |
+| `hf.co/DevQuasar/amd.Instella-MoE-16B-A3B-Think-GGUF:Q4_K_M` | 10.5GB | Arch-blocked — fails to load on this Ollama build with "unknown model architecture" (confirmed in the XYZ-Aquila-mini intake commit, 4eb061da). Cannot run regardless of promotion decisions. |
 | `hf.co/owao/Nanbeige4.2-3B-GGUF:Q4_K_M` | 2.6GB | Same arch-blocked family as above. |
 | `hf.co/bartowski/Llama-3.2-1B-Instruct-GGUF:Q4_K_M` | 0.8GB | No reference anywhere in the repo (checked config, code, docs, CHANGELOG); a retired-era MLX-draft-model leftover, unrelated to the still-live `mlx-community/Llama-3.2-1B-Instruct-4bit` mentions in CHANGELOG.md/test results. |
 

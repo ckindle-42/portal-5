@@ -162,7 +162,7 @@ def _refusals_from_store(repo: Any, sweep_data: dict[str, Any]) -> list[dict[str
 
     Adaptation, recorded: the task walked the sweep ARTIFACT for
     ``determinations.outcomes``, but the artifact holds per-ref COUNTS only —
-    the outcomes persist in ``reading_runs.closure_json`` (the 9077422 fix is
+    the outcomes persist in ``reading_runs.closure_json`` (the 57dd874 fix is
     precisely that they persist THERE). The artifact's per-ref ``run_id`` pins
     the exact retained runs, so nothing outside this sweep can leak in.
     """

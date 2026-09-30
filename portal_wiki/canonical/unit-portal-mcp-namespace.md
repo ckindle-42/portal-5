@@ -5,7 +5,7 @@ title: "portal_mcp \u2014 vendored MCP assets namespace"
 sources:
 - type: code
   path: portal_mcp/__init__.py
-  commit: b0aa6770
+  commit: 4c3d1e89
 claims: []
 confidence: high
 tags:

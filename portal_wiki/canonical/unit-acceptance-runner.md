@@ -5,7 +5,7 @@ title: "Acceptance runner \u2014 section sequencing"
 sources:
 - type: code
   path: tests/acceptance/runner.py
-  commit: a88ad75b
+  commit: e75dddd2
 claims: []
 confidence: high
 tags:

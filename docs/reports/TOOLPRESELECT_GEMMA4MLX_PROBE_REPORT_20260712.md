@@ -2,7 +2,7 @@
 
 **Date**: 2026-07-12T14:47:00Z
 **Task**: TASK TOOLPRESELECT GEMMA4MLX PROBE V1
-**HEAD at probe time**: 1d68fe1
+**HEAD at probe time**: 89ad29b
 
 ---
 

@@ -5,7 +5,7 @@ title: "Capability-context fixture \u2014 D4 probe sample module"
 sources:
 - type: code
   path: tests/fixtures/capability_context/sample_module.py
-  commit: c23c27d9
+  commit: 2fa4b6c3
 claims: []
 confidence: high
 tags:

@@ -5,8 +5,8 @@ title: "UAT catalog \u2014 assembled test-catalog package"
 sources:
 - type: code
   path: tests/uat_catalog/__init__.py
-  commit: 832db546
-last_generated_commit: 832db546
+  commit: fe7f1e7c
+last_generated_commit: fe7f1e7c
 claims: []
 confidence: high
 tags:

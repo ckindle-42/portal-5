@@ -5,8 +5,8 @@ title: "Router workspaces \u2014 catalog + persona tool whitelist"
 sources:
 - type: code
   path: portal/platform/inference/router/workspaces.py
-  commit: a234187e
-last_generated_commit: a234187e
+  commit: d7c1d4f4
+last_generated_commit: d7c1d4f4
 claims: []
 confidence: high
 tags:

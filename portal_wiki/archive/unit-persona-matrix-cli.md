@@ -5,8 +5,8 @@ title: "Persona matrix CLI \u2014 sweep entry point"
 sources:
 - type: code
   path: portal/modules/eval/persona_matrix/cli.py
-  commit: 7954fafc
-last_generated_commit: 7954fafc
+  commit: db243698
+last_generated_commit: db243698
 claims: []
 confidence: high
 tags:

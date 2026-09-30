@@ -5,8 +5,8 @@ title: "Tests lib compliance fixtures \u2014 YAML scenario parameterizer"
 sources:
 - type: code
   path: tests/lib/compliance_fixtures.py
-  commit: f2f2516d
-last_generated_commit: f2f2516d
+  commit: bd66d80c
+last_generated_commit: bd66d80c
 claims: []
 confidence: high
 tags:

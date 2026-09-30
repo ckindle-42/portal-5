@@ -6,7 +6,7 @@ through the DEPLOYED service, which loads whichever prompt is live. This
 isolates the prompt instead: the same seat, the same code, the same cases, the
 same store, one variable — `config/compliance/reading_prompt.md` (v2) against
 `tests/data/compliance/reading_prompt_v1.md`, the prompt as it stood at
-0db04c6f.
+bdae62ac.
 
 It runs IN PROCESS rather than through the MCP, because `compliance_ask` takes
 no prompt path and adding one would be a production surface that exists only for

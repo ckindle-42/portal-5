@@ -15,7 +15,7 @@ created_at: 1785887000.0
 updated_at: 1785887000.0
 ---
 
-Portal 5 ran a dual-stack inference arrangement until commit `3a0c58e`,
+Portal 5 ran a dual-stack inference arrangement until commit `75c24a9`,
 when the MLX tier was retired for a single Ollama tier. It spanned a
 model-aware proxy switching between `mlx_lm` and `mlx_vlm`, a custom
 Laguna model with a bespoke tool parser, patched mlx internals, plus

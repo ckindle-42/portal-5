@@ -1,7 +1,7 @@
 # TASK_VL_RETRIEVAL_HARDENING_AND_CLOSEOUT_V2 — rollup
 
 - **command**: the task's P0–P9 phases, executed with full authority against the live host stack
-- **inputs**: fresh clone at `7b0b1ae0`, HEAD-authoritative; M4 Pro, 64 GB, darwin arm64
+- **inputs**: fresh clone at `1b77fbf0`, HEAD-authoritative; M4 Pro, 64 GB, darwin arm64
 - **resolved-versions**: mlx 0.32.2, mlx-vlm 0.6.17, mlx-embeddings 0.1.0,
   transformers 5.16.1, torch 2.13.0, torchvision 0.28.0, phonemizer 3.4.0
 - **timestamp**: 2026-09-01
@@ -108,7 +108,7 @@ three are real misses left red so they keep measuring something.
 
 ## Still open / honest-BLOCKED
 
-- **VL server single-worker executor** — LANDED after closeout (`471220e3`).
+- **VL server single-worker executor** — LANDED after closeout (`a51ab906`).
   Soak-verified: 49 requests / 330 s, 0 failures, no Metal crash, `/health` p95
   8–27 s → 4 ms. P5-VL-RETR-001's liveness half is resolved; the throughput
   half is a GPU bound, not a bug.

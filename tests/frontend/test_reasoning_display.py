@@ -113,7 +113,7 @@ def test_pipeline_reasoning_response():
     assert actual, (
         "Pipeline content is non-empty but contains ONLY thinking blocks — "
         "the actual answer is missing. This indicates strip_think or model behaviour "
-        "may be stripping the answer (see 5fa1cd0 fix)."
+        "may be stripping the answer (see f7a50a7 fix)."
     )
     print(f"\n[pipeline] Response length: {len(full_content)} chars")
     print(

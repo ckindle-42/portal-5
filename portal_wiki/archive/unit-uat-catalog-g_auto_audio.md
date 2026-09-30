@@ -5,8 +5,8 @@ title: "UAT catalog group \u2014 auto-audio"
 sources:
 - type: code
   path: tests/uat_catalog/g_auto_audio.py
-  commit: 832db546
-last_generated_commit: 832db546
+  commit: fe7f1e7c
+last_generated_commit: fe7f1e7c
 claims: []
 confidence: high
 tags:

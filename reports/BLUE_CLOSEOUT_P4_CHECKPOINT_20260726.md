@@ -14,9 +14,9 @@ assertion. No model cleanup has started.
 
 | Phase | Commit | Evidence |
 |---|---|---|
-| P1 council reconciliation | `2bceecce` | Security full-roster quorum delegates to the platform council primitive; focused tests and validation green. |
-| P2 platform council bench | `1f216f09` | Council caught 2/2 known flaws, solo caught 2/2; no catch delta, no dead seats, council cost 9.33× latency and 5.44× estimated output tokens. Platform-only posture retained. |
-| P3 benign corpus | `d17a5012` | Attack recall 5/5; benign correct silence 2/6; false-flag rate 4/6 (66.7%). Limitation recorded rather than hidden. |
+| P1 council reconciliation | `e79bcb0c` | Security full-roster quorum delegates to the platform council primitive; focused tests and validation green. |
+| P2 platform council bench | `bad2b860` | Council caught 2/2 known flaws, solo caught 2/2; no catch delta, no dead seats, council cost 9.33× latency and 5.44× estimated output tokens. Platform-only posture retained. |
+| P3 benign corpus | `277f2c45` | Attack recall 5/5; benign correct silence 2/6; false-flag rate 4/6 (66.7%). Limitation recorded rather than hidden. |
 
 Committed evidence:
 
@@ -53,10 +53,10 @@ The 20 failure rows reduced to three defects:
 
 Fixes:
 
-- `e432ec5e` — prompt fixtures, full compliance system prompts, synthetic
+- `0092fd9d` — prompt fixtures, full compliance system prompts, synthetic
   backend-group resolution, council heartbeat/cancellation, and evidence-based
   transport windows.
-- `7b0dbd6c` — streaming candidate prioritization for model hints across
+- `e4fbb544` — streaming candidate prioritization for model hints across
   eligible backend groups.
 
 The targeted replacement rerun of S1, S3a, S10, and S10c completed with:
@@ -89,9 +89,9 @@ the product assertions could be trusted:
 
 Repairs:
 
-- `1f4f45d5` — dismiss only the explicit release acknowledgement and extract
+- `c3414a45` — dismiss only the explicit release acknowledgement and extract
   assistant text from both legacy and Responses-API storage.
-- `27bda478` — accept the explicit OWUI assistant `done=true` flag as a
+- `da6f11f9` — accept the explicit OWUI assistant `done=true` flag as a
   completion signal while retaining legacy DOM/stop-button fallbacks.
 
 Focused UAT tests and the full repository pre-commit suite passed for both

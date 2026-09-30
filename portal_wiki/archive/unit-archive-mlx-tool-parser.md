@@ -5,8 +5,8 @@ title: "Laguna MLX tool parser \u2014 archived custom tool-call format"
 sources:
 - type: code
   path: scripts/_archive/mlx-retired-3a0c58e/mlx-tool-parser-laguna.py
-  commit: 2d2e9c0f
-last_generated_commit: 2d2e9c0f
+  commit: 90ac134b
+last_generated_commit: 90ac134b
 claims: []
 confidence: high
 tags:
@@ -25,7 +25,7 @@ retired MLX stack: it parses Laguna's JSON tool calls, which are wrapped in
 
 The parser existed because Laguna's tool-call format differed from the
 models mlx-lm supported natively, and tool-calling support was a hard
-requirement for a coding model. It retired at `3a0c58e` with the rest of the
+requirement for a coding model. It retired at `75c24a9` with the rest of the
 Laguna/MLX stack — once Ollama served the coding tier, the custom parser
 lost its reason to exist. The archive preserves the format knowledge (JSON
 wrapped in tool_call tags) in case a future model uses the same convention.

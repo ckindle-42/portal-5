@@ -5,8 +5,8 @@ title: "S1 \u2014 Configuration consistency"
 sources:
 - type: code
   path: tests/acceptance/s01_static_config.py
-  commit: a88ad75b
-last_generated_commit: a88ad75b
+  commit: e75dddd2
+last_generated_commit: e75dddd2
 claims: []
 confidence: high
 tags:

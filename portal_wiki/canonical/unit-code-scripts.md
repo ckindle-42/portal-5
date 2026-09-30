@@ -5,19 +5,19 @@ title: scripts subsystem (197 files)
 sources:
 - type: code
   path: scripts/_archive/analyze_bench_v5.py
-  commit: a661edff49ec
+  commit: 4f0f6aaa75ff
 - type: code
   path: scripts/_archive/engine_h2h_20260924/bench_engine_h2h.py
-  commit: a661edff49ec
+  commit: 4f0f6aaa75ff
 - type: code
   path: scripts/_archive/engine_h2h_20260924/deep_lane/run_deep.py
-  commit: a661edff49ec
+  commit: 4f0f6aaa75ff
 - type: code
   path: scripts/_archive/engine_h2h_20260924/prismml_mlx_server.py
-  commit: a661edff49ec
+  commit: 4f0f6aaa75ff
 - type: code
   path: scripts/_archive/engine_h2h_20260924/tests/test_bench_engine_h2h.py
-  commit: a661edff49ec
+  commit: 4f0f6aaa75ff
 claims: []
 confidence: high
 tags:

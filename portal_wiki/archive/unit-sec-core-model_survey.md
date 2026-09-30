@@ -5,8 +5,8 @@ title: "Model survey \u2014 model behaviour inventory"
 sources:
 - type: code
   path: portal/modules/security/core/model_survey.py
-  commit: 11d83e41
-last_generated_commit: 11d83e41
+  commit: 699b6207
+last_generated_commit: 699b6207
 claims: []
 confidence: high
 tags:

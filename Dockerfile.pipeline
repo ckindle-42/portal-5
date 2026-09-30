@@ -18,7 +18,7 @@ RUN pip install --no-cache-dir \
 # Copy application code
 # portal_pipeline/ was a compat shim re-exporting from portal/platform/inference/;
 # it was removed once all internal/external importers were repointed
-# (BUILD-SPEC-PORTAL-MODULES-V1 Slice 8, commit 76314dd). Real code lives at
+# (BUILD-SPEC-PORTAL-MODULES-V1 Slice 8, commit d101f7a). Real code lives at
 # portal/platform/inference/ only. Only portal/platform/ (not portal/modules/) is
 # needed here — keeps the image lean.
 COPY portal/__init__.py ./portal/__init__.py

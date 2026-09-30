@@ -1,7 +1,7 @@
 ---
 id: unit-known-limitations-mlx-inference-proxy-retired-commit-3a0c58e
 kind: what
-title: "KNOWN_LIMITATIONS \u2014 MLX Inference Proxy \u2014 RETIRED (commit 3a0c58e)"
+title: "KNOWN_LIMITATIONS \u2014 MLX Inference Proxy \u2014 RETIRED (commit 75c24a9)"
 sources:
 - type: code
   path: CLAUDE.md
@@ -18,7 +18,7 @@ created_at: 1784946220.667773
 updated_at: 1784946220.667773
 ---
 
-The MLX inference proxy (formerly ports 8081/18081/18082) was retired in commit `3a0c58e`, and all its limitations (single-model eviction, cold-boot 503 windows, admission control, deploy staleness) no longer apply. All chat inference runs through Ollama on port 11434, which reaches parity with standalone `mlx_lm` on this hardware without the dual-stack overhead. MLX is retained only outside chat inference: speech (`scripts/mlx-speech.py`, :8918), diarized transcription (`scripts/mlx-transcribe.py`, :8924), embeddings (:8917), and the RAG reranker (:8925). Do not remove those when "cleaning up MLX".
+The MLX inference proxy (formerly ports 8081/18081/18082) was retired in commit `75c24a9`, and all its limitations (single-model eviction, cold-boot 503 windows, admission control, deploy staleness) no longer apply. All chat inference runs through Ollama on port 11434, which reaches parity with standalone `mlx_lm` on this hardware without the dual-stack overhead. MLX is retained only outside chat inference: speech (`scripts/mlx-speech.py`, :8918), diarized transcription (`scripts/mlx-transcribe.py`, :8924), embeddings (:8917), and the RAG reranker (:8925). Do not remove those when "cleaning up MLX".
 
 ## Why
 

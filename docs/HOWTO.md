@@ -532,7 +532,7 @@ Exposing the same router as a plain HTTP API is what lets Open WebUI, the Telegr
 ## 22. MLX Acceleration (Apple Silicon) — RETIRED
 
 <!-- WIKI:GENERATED unit=unit-HOWTO-22-mlx-acceleration-apple-silicon-retired -->
-**Retired (commit 3a0c58e).** The MLX inference proxy was removed; all chat inference now runs through Ollama (port 11434) with its native MLX Metal backend on Apple Silicon. This is a standing decision, not a gap: Ollama 0.32.4+ carries the Metal-residency fix that keeps pinned router and inference models loaded together, reaching parity with standalone `mlx_lm` throughput while removing the dual-stack operational overhead. The Ollama-only inference tier is recorded in `config/backends.yaml` (every backend is `type: ollama`) and enforced as a project rule; see the MLX notes in `KNOWN_LIMITATIONS.md`.
+**Retired (commit 75c24a9).** The MLX inference proxy was removed; all chat inference now runs through Ollama (port 11434) with its native MLX Metal backend on Apple Silicon. This is a standing decision, not a gap: Ollama 0.32.4+ carries the Metal-residency fix that keeps pinned router and inference models loaded together, reaching parity with standalone `mlx_lm` throughput while removing the dual-stack operational overhead. The Ollama-only inference tier is recorded in `config/backends.yaml` (every backend is `type: ollama`) and enforced as a project rule; see the MLX notes in `KNOWN_LIMITATIONS.md`.
 
 The MLX speech (port 8918), transcription (port 8924), embedding (port 8917), and reranker (port 8925) servers documented elsewhere in this guide are unaffected and remain in use — MLX is not gone from the project, only from chat inference. `COMPUTE_BACKEND=mps` in `.env.example` records the Apple Silicon Metal target.
 
@@ -756,7 +756,7 @@ The MLX media generators (MFLUX image :8933, video-mlx :8935, MiniMax music
 :8912) and Ollama share the same 64GB unified-memory pool on Apple Silicon,
 with **no cross-engine backpressure**: Ollama's `OLLAMA_MAX_LOADED_MODELS` /
 `OLLAMA_MEMORY_LIMIT` do not govern the MLX generators, and the retired
-MLX-proxy admission gate (`3a0c58e`) never covered media backends either. See
+MLX-proxy admission gate (`75c24a9`) never covered media backends either. See
 `unit-fact-media-memory-budget` for per-backend GB estimates.
 
 #### The guard

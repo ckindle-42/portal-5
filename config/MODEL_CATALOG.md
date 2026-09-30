@@ -404,7 +404,7 @@ Grounding anchors the model to its two backends.yaml group registrations with th
 
 Grounding anchors the tag to the general-group registration and to the auto-council wiring in portal.yaml — the `model_hint`, the matching `context_limit`, and the `synthesizer_model` role. The eviction rationale is kept because it is the institutional reason this derived id exists at all; the tag is not a parity artifact but the fix for a specific routing problem.
 
-**CAD bench (Phase 8) — DEFERRED, no dense-arm data.** The first `bench-qwen36-cad` attempt was invalidated by a missing `think: false` pin (fixed in `6be44014`, matching `auto-council`'s own precedent for this same model) and discarded, not reported. The corrected re-run was never completed — killed mid-run rather than fabricated — so this arm has **no valid completed data**. The operator intends to run the full what-was/what-is/could-be-dense/could-be-MoE gauntlet directly at a later session, not via an automated fork. Do not treat this as a negative finding; it is simply not yet measured.
+**CAD bench (Phase 8) — DEFERRED, no dense-arm data.** The first `bench-qwen36-cad` attempt was invalidated by a missing `think: false` pin (fixed in `86c8f38a`, matching `auto-council`'s own precedent for this same model) and discarded, not reported. The corrected re-run was never completed — killed mid-run rather than fabricated — so this arm has **no valid completed data**. The operator intends to run the full what-was/what-is/could-be-dense/could-be-MoE gauntlet directly at a later session, not via an automated fork. Do not treat this as a negative finding; it is simply not yet measured.
 
 ---
 
@@ -1622,7 +1622,7 @@ The `-ctx64k` cap was undersized for real opencode agentic requests (observed up
 
 ## Why
 
-`77b53f68` raised every `auto-coding` *variant* to full native context but left the *default* variant at `-ctx16k` — normally masked because the default is oMLX-served at native context, but the 16k cap silently truncated agentic tool-loop sessions on the Ollama fallback path (the path taken when the host oMLX server wedges, per `4b7b9a6`). This tag closes that gap, matching the rest of the lineup; the grounding is the coding-group registration plus the `auto-coding` `model_hint`/`context_limit` pin and the omlx alias.
+`6e950785` raised every `auto-coding` *variant* to full native context but left the *default* variant at `-ctx16k` — normally masked because the default is oMLX-served at native context, but the 16k cap silently truncated agentic tool-loop sessions on the Ollama fallback path (the path taken when the host oMLX server wedges, per `fb37b93`). This tag closes that gap, matching the rest of the lineup; the grounding is the coding-group registration plus the `auto-coding` `model_hint`/`context_limit` pin and the omlx alias.
 
 ---
 
@@ -2031,7 +2031,7 @@ Kept separate from the existing `fredrezones55` repack entry because they're dif
 
 The bare (undecorated) pull tag for the model documented below as `portal5/gemma4-26b-heretic:q4_K_M-ctx256k`. Same registration/provenance rationale as the HauhauCS bare-tag entry above: kept in `config/backends.yaml`'s `general` group 2026-08-27 for the `bench-gemma4-heretic-coder` bench workspace (which the completed bench_repair run actually used) and as an `auto-uncensored-throwaway` variant backend; the ctx256k tag is used for the workspace's primary/default routing. Also this bare tag is the `model_hint` for `bench-moecad` (TASK_CAD_MODULE_OVERHAUL_V1 Phase 8's MoE CAD challenger, cloning `auto-cad`'s full tool loop incl. `generate_scad`) — the 2026-08-26/27 local-dev IDE MoE-vs-dense track's leader, tested here on whether that lead transfers to CAD.
 
-**CAD bench (Phase 8) — the only arm with completed data; the rest of the matrix is deferred.** This MoE arm's gauntlet run (`6be44014`, `tests/benchmarks/results/cap_cad-overhaul_20260827T164110Z.moe-only.txt`) is the sole completed dataset from Phase 8: `t3_bracket` and `t4_spur_gear` (direct OpenSCAD path) passed cleanly (watertight, plausible bbox); `t2_grommet_plate` (generate_scad Tier-A) called the right tool but produced a genuine model dimension error (built a 4mm-deep plate against an 80x30x4mm spec — wrong dimension mapping); `t1_enclosure` and `t5_gyroid_panel` returned inconclusive results (a since-fixed raw-tool-response capture gap). The what-was (`bench-cad-prior`), what-is (`auto-cad` incumbent), and could-be-dense (`bench-qwen36-cad`) arms were never run to completion — no dense-vs-MoE-vs-incumbent verdict exists. The operator intends to run the full gauntlet directly in a later session.
+**CAD bench (Phase 8) — the only arm with completed data; the rest of the matrix is deferred.** This MoE arm's gauntlet run (`86c8f38a`, `tests/benchmarks/results/cap_cad-overhaul_20260827T164110Z.moe-only.txt`) is the sole completed dataset from Phase 8: `t3_bracket` and `t4_spur_gear` (direct OpenSCAD path) passed cleanly (watertight, plausible bbox); `t2_grommet_plate` (generate_scad Tier-A) called the right tool but produced a genuine model dimension error (built a 4mm-deep plate against an 80x30x4mm spec — wrong dimension mapping); `t1_enclosure` and `t5_gyroid_panel` returned inconclusive results (a since-fixed raw-tool-response capture gap). The what-was (`bench-cad-prior`), what-is (`auto-cad` incumbent), and could-be-dense (`bench-qwen36-cad`) arms were never run to completion — no dense-vs-MoE-vs-incumbent verdict exists. The operator intends to run the full gauntlet directly in a later session.
 
 ### `hf.co/mradermacher/gemma-4-26B-A4B-it-heretic-GGUF:Q4_K_M-ctx16k`
 
@@ -2149,7 +2149,7 @@ The slate's mid-weight hybrid: 9B active puts its decode between the incumbent d
 
 ## Why
 
-The overflow FALLBACK's window is not academic: `01d4176b` made capacity-specific 400s cascade to the Ollama fallback, so a 65k oMLX primary in front of a 32k Ollama tag would be one capacity cascade away from the old silent-truncation era. The tag gives the cascade a genuine 65k on both engines.
+The overflow FALLBACK's window is not academic: `dfa08c0d` made capacity-specific 400s cascade to the Ollama fallback, so a 65k oMLX primary in front of a 32k Ollama tag would be one capacity cascade away from the old silent-truncation era. The tag gives the cascade a genuine 65k on both engines.
 
 ---
 

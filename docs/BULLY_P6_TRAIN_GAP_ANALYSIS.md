@@ -5,7 +5,7 @@
 > proposed harness. Current policy: `docs/BULLY_REFINEMENT_POLICY_V1.md`.
 
 Written 2026-08-15 after independent re-verification of the merged
-`bully/P6-flywheel` branch (`03e24a05`) surfaced that the acceptance gate's
+`bully/P6-flywheel` branch (`279c010a`) surfaced that the acceptance gate's
 core measurement — not just a live-demo nicety — was left as a permanent
 stub. This doc traces exactly what's real, what's missing, why it's missing
 (a genuine unresolved design question, not an oversight), and what

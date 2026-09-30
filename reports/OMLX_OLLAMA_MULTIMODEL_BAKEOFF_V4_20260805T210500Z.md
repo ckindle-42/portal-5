@@ -62,5 +62,5 @@ Across four independent tests now — the original coder/gemma/3B trio (matched-
 - Thinking off: `results/omlx_v3_shootout_think_off_{ollama,omlx}_*.json`
 - Thinking on (gemma only): `results/omlx_v3_shootout_think_on_gemma_only_{ollama,omlx}_*.json`
 - Broader model set: `results/omlx_v3_shootout_broad_set_b_{ollama,omlx}_*.json`
-- Commits: `778def71` (settings-parity audit), `33055b4c` (think toggle + 2nd-pair sampling)
-- HEAD at run time: `33055b4c`
+- Commits: `f3f5c2a9` (settings-parity audit), `7712b57c` (think toggle + 2nd-pair sampling)
+- HEAD at run time: `7712b57c`

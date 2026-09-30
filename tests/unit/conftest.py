@@ -30,7 +30,7 @@ import pytest
 # The list covers only the swallowers. A test that lets the FileNotFoundError
 # out is skipped automatically by `_skip_when_the_cip_pdf_corpus_is_absent`
 # below, so a newly added one does not have to be remembered here — the list
-# going stale is what broke CI on 82854d0c (`test_alignment_invalid_no_longer_
+# going stale is what broke CI on 49181447 (`test_alignment_invalid_no_longer_
 # gates_the_verdict`). Regenerate it with:
 #   mv portal/modules/compliance/data/cip_pdfs /tmp/backup && mkdir -p portal/modules/compliance/data/cip_pdfs
 #   uv run pytest tests/unit -k compliance -q --tb=no | grep '^FAILED ' | awk '{print $2}' | sort -u

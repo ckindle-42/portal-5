@@ -30,7 +30,7 @@ commit at 20:01 that added the trip). Corrected by actually using the live
 stack:
 
 1. `./launch.sh rebuild` — rebuilt the pipeline image against current HEAD
-   (`fc0477d`), confirmed fresh build timestamp (21:45) postdates all six
+   (`3ce3608`), confirmed fresh build timestamp (21:45) postdates all six
    merged phase commits.
 2. `docker exec portal5-pipeline python3 -c '...'` — confirmed the
    deprecation-trip code path itself fires correctly inside the rebuilt

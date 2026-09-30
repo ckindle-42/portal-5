@@ -5,8 +5,8 @@ title: "S42 \u2014 Browser automation"
 sources:
 - type: code
   path: tests/acceptance/s42_browser_automation.py
-  commit: a88ad75b
-last_generated_commit: a88ad75b
+  commit: e75dddd2
+last_generated_commit: e75dddd2
 claims: []
 confidence: high
 tags:

@@ -157,7 +157,7 @@ The backup is only as good as the volume inventory behind it. Personal data is c
 ## Inference Health Monitoring
 
 <!-- WIKI:GENERATED unit=unit-ADMIN_GUIDE-inference-health-monitoring -->
-The inference tier is a single Ollama backend on port 11434, reached by the pipeline through `OLLAMA_URL` (default `http://host.docker.internal:11434`) and by the router through `LLM_ROUTER_OLLAMA_URL`. The MLX chat-inference proxy (ports 8081/18081/18082) was retired in commit 3a0c58e; its code remains only under `scripts/_archive/mlx-retired-3a0c58e/`. MLX survives strictly outside chat inference (speech, transcription, embeddings, reranking). Health monitoring is therefore `_cmd_status` in scripts/lib/util.sh: the `OLLAMA` row confirms the native server responds, and the pipeline block reports `backends_healthy` / `backends_total`.
+The inference tier is a single Ollama backend on port 11434, reached by the pipeline through `OLLAMA_URL` (default `http://host.docker.internal:11434`) and by the router through `LLM_ROUTER_OLLAMA_URL`. The MLX chat-inference proxy (ports 8081/18081/18082) was retired in commit 75c24a9; its code remains only under `scripts/_archive/mlx-retired-3a0c58e/`. MLX survives strictly outside chat inference (speech, transcription, embeddings, reranking). Health monitoring is therefore `_cmd_status` in scripts/lib/util.sh: the `OLLAMA` row confirms the native server responds, and the pipeline block reports `backends_healthy` / `backends_total`.
 
 ### Why
 

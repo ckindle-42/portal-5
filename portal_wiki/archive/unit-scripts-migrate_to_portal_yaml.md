@@ -5,8 +5,8 @@ title: "Script \u2014 migrate_to_portal_yaml"
 sources:
 - type: code
   path: scripts/migrate_to_portal_yaml.py
-  commit: af437ebd
-last_generated_commit: af437ebd
+  commit: 94ecf393
+last_generated_commit: 94ecf393
 claims: []
 confidence: high
 tags:

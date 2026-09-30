@@ -124,7 +124,7 @@ def _workspace_is_single_slot(model_slug: str) -> bool:
     """Return True only if model_slug resolves to a workspace with
     max_concurrent <= 1 — the only case where an abandoned generation left
     running server-side can actually block the next request (single-permit
-    semaphore exhaustion; see fixes 899f3a0b/00f001a3). For workspaces with
+    semaphore exhaustion; see fixes f5772d22/185b9079). For workspaces with
     concurrency headroom (the default is 5), a stuck prior attempt never
     blocks a fresh one, so force-unloading buys no protection — it only
     costs a needless cold reload when the next test happens to want the

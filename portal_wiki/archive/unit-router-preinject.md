@@ -5,8 +5,8 @@ title: "Router preinject \u2014 persona/routing/vision pre-dispatch transforms"
 sources:
 - type: code
   path: portal/platform/inference/router/preinject.py
-  commit: a234187e
-last_generated_commit: a234187e
+  commit: d7c1d4f4
+last_generated_commit: d7c1d4f4
 claims: []
 confidence: high
 tags:

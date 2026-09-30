@@ -198,9 +198,9 @@ On 2026-09-24 and 2026-09-25, five apparent model failures turned out to be fail
 
 | Apparent failure | Real cause |
 |---|---|
-| Laguna "never worth its weight" | the XS.2 build cannot stop after a tool call on this stack (fixed: XS-2.1, `a84782ff`) |
+| Laguna "never worth its weight" | the XS.2 build cannot stop after a tool call on this stack (fixed: XS-2.1, `3e91fe69`) |
 | MiMo tool calls "broken" | Ollama's llama.cpp template path mis-parses its GGUF; oMLX is clean |
-| WFE non-Ollama arms "loop" | the runner dropped `repeat_penalty`/`top_k`/`min_p` and never applied `system_prompt_append` (fixed, `a84782ff`) |
+| WFE non-Ollama arms "loop" | the runner dropped `repeat_penalty`/`top_k`/`min_p` and never applied `system_prompt_append` (fixed, `3e91fe69`) |
 | granite 4.2 "worse than 4.1" | probed at temperature 0 against a card that ships 1.0; its reasoning was invisible on `/v1`; on the fixed harness it tied |
 | VulnLLM "invents CWEs on clean code" | we used a targeted detector as a free-form chat model. With its trained prompt and card sampling it scored 17/18 with 0/3 false positives, against 15/18 and 3/3 with ours |
 
@@ -280,7 +280,7 @@ Qwen's guidance warns that near-greedy decoding on Qwen3.x causes performance lo
 
 ## 2026-09-25 — reversion, S1 completion, and re-plan before any further run
 
-A same-day attempt (`d51dd29a`) was reverted (`97f915b8`,
+A same-day attempt (`aaf46397`) was reverted (`f921a834`,
 `docs/TASK_SEAT_VENDOR_FIT_V1_REVERSION_NOTES_20260925.md`). Root cause: it
 skipped straight to a config edit for `auto-security` — retagging the chat
 seat from VulnLLM-R to `glm-4.7-flash:Q4_K_M` on generic tool-reliability

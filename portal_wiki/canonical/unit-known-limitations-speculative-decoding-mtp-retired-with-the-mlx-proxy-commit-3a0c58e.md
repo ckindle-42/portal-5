@@ -2,7 +2,7 @@
 id: unit-known-limitations-speculative-decoding-mtp-retired-with-the-mlx-proxy-commit-3a0c58e
 kind: what
 title: "KNOWN_LIMITATIONS \u2014 Speculative Decoding / MTP \u2014 RETIRED with the\
-  \ MLX proxy (commit 3a0c58e)"
+  \ MLX proxy (commit 75c24a9)"
 sources:
 - type: code
   path: config/portal.yaml
@@ -20,7 +20,7 @@ updated_at: 1784946220.673012
 ---
 
 - **IDs**: P5-SPEC-001, P5-MTP-001, P5-MTP-PATH (all moot)
-- **Status**: The MLX inference proxy that hosted `--draft-model` speculative decoding and the `speculative_decoding.draft_models` map was retired (commit `3a0c58e`); chat inference is Ollama-only. These limitations no longer apply because the infrastructure they described no longer exists — `coding_task/TASK_DOC_STEADY_STATE_V1.md` records the collapse of the three live MLX-proxy limitation sections into this single retirement note.
+- **Status**: The MLX inference proxy that hosted `--draft-model` speculative decoding and the `speculative_decoding.draft_models` map was retired (commit `75c24a9`); chat inference is Ollama-only. These limitations no longer apply because the infrastructure they described no longer exists — `coding_task/TASK_DOC_STEADY_STATE_V1.md` records the collapse of the three live MLX-proxy limitation sections into this single retirement note.
 - **If revisited**: any future speculative-decoding / MTP work targets Ollama's native path (llama.cpp b9180+), not MLX. Bench-only MTP GGUF candidates remain as bench entries in `config/portal.yaml` (e.g. `bench-qwen36-27b-mtp`, created via `./launch.sh apply-mtp-drafts`); there is no production MLX serving path to enable.
 - **P5-FUT**: evaluate `/api/chat` as the chat URL — it would allow full `options` passthrough but requires changing payload/response shapes.
 

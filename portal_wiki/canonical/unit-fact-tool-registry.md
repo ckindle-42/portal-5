@@ -5,7 +5,7 @@ title: 168 MCP tools across 33 servers
 sources:
 - type: code
   path: portal/modules/*/tools/*_mcp.py
-  commit: ede1ae59168e
+  commit: 7c57f48a77c4
 claims: []
 confidence: high
 tags:

@@ -5,7 +5,7 @@ title: "Security module CLI \u2014 argv pass-through to core"
 sources:
 - type: code
   path: portal/modules/security/cli/__init__.py
-  commit: b0aa6770
+  commit: 4c3d1e89
 claims: []
 confidence: high
 tags:

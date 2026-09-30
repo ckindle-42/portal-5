@@ -1,9 +1,9 @@
-# Routing Integrity Findings — pre-collapse (`45edb25`) vs current (`00635aa`)
+# Routing Integrity Findings — pre-collapse (`60bf0a7`) vs current (`3b87987`)
 
 **Stage:** R (Routing integrity), Phase R2. **Program:** `BUILD_PROGRAM_ROUTING_INTEGRITY_V1.md`.
 **Corpus:** `tests/routing/corpus.json` (86 prompts — see provenance below).
-**Baselines:** `/tmp/routing-precollapse-baseline.json` (45edb25),
-`/tmp/routing-current.json` (00635aa). Reproduce with
+**Baselines:** `/tmp/routing-precollapse-baseline.json` (60bf0a7),
+`/tmp/routing-current.json` (3b87987). Reproduce with
 `tests/routing/build_corpus.py` + `tests/routing/measure.py` (see each
 file's docstring).
 
@@ -92,8 +92,8 @@ divergence anywhere in 86 prompts.
 
 **Verdict: REGRESSION.**
 
-`config/routing_examples.json` is **byte-identical** between `45edb25` and
-`00635aa` (`diff` confirms zero changes). This file feeds
+`config/routing_examples.json` is **byte-identical** between `60bf0a7` and
+`3b87987` (`diff` confirms zero changes). This file feeds
 `_build_router_prompt`'s few-shot block directly — the first 9 entries
 (`examples[:9]`) are injected verbatim into every LLM-router classification
 call.
@@ -160,7 +160,7 @@ to `("auto-reasoning", None)` to match the documented decision.
 `auto-gemma-fast`, `auto-gemma-vision` were confirmed **absent from both**
 the pre-collapse keyword scorer (`_WORKSPACE_ROUTING`) **and** the
 pre-collapse LLM-router descriptions (`routing_descriptions.json`) at
-`45edb25` — they were reachable only via direct/manual workspace selection,
+`60bf0a7` — they were reachable only via direct/manual workspace selection,
 never via either auto-routing layer, before the collapse. Their deletion as
 standalone workspaces is explicitly **intended** per
 `DESIGN_COLLAPSE_V1.md` §D5 ("model choice moves to router param /

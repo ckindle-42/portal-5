@@ -5,8 +5,8 @@ title: "Tool-call reliability \u2014 well-formed tool-call axis"
 sources:
 - type: code
   path: portal/modules/security/core/toolcall_reliability.py
-  commit: 11d83e41
-last_generated_commit: 11d83e41
+  commit: 699b6207
+last_generated_commit: 699b6207
 claims: []
 confidence: high
 tags:

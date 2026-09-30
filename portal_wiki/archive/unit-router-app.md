@@ -5,8 +5,8 @@ title: "Router app \u2014 FastAPI wiring and route binding"
 sources:
 - type: code
   path: portal/platform/inference/router/app.py
-  commit: a234187e
-last_generated_commit: a234187e
+  commit: d7c1d4f4
+last_generated_commit: d7c1d4f4
 claims: []
 confidence: high
 tags:

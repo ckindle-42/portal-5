@@ -2,15 +2,15 @@
 
 **Task:** `coding_task/TASK_README_VOICE_V1.md` (critical path of
 `BUILD_PROGRAM_PORTAL5_VOICE_V1.md`).
-**Range:** `117f407a..e3eba52e` on `main` (6 commits) + `HF` guard.
-**Authored against:** `117f407a` (2026-09-08). Every §2 figure re-measured in Phase R
+**Range:** `4e5172b1..3288635b` on `main` (6 commits) + `HF` guard.
+**Authored against:** `4e5172b1` (2026-09-08). Every §2 figure re-measured in Phase R
 matched the task file exactly — no divergence, no silent payload adaptation.
 
 ---
 
 ## 1. Before / after
 
-| Measure | Before (`117f407a`) | After |
+| Measure | Before (`4e5172b1`) | After |
 |---|---|---|
 | README chars machine-rendered | 91.3% | **71.4%** |
 | Generated blocks | 31 | 24 (+1 hand-placed rollup marker = 25 markers) |
@@ -42,7 +42,7 @@ projected body to projected body and stays exact. `host_section_depth` blanks pr
 blocks from the prefix so a rendered body never parents the next block — that is what keeps
 `render_all_generated_blocks` idempotent. 10 new tests in
 `portal/platform/wiki/tests/test_render.py` (21 pass total), including the symmetry property and
-idempotency. Commit `11261e52`.
+idempotency. Commit `346adf87`.
 
 **Spillover (expected, §1 of the task):** the renderer fix is global code, so re-rendering also
 cleared inversions in `KNOWN_LIMITATIONS.md`, `docs/HOWTO.md`, `docs/ADMIN_GUIDE.md`,
@@ -58,7 +58,7 @@ messaging channels`, `Backup and restore`, `Update…`, `Cleanup`) were content-
 stranded by the same lift, with no fence to return to and no body beneath them — **deleted**,
 not wrapped, per the `KNOWN_ISSUES.md` duplicate-title precedent the task cites. The three
 Troubleshooting item headings were demoted `#` → `###`. Command order inside every fence
-unchanged. Commit `f2cfb3d7`.
+unchanged. Commit `cf11db55`.
 
 ### R-D3 — 7 comment-derived units → **MERGED into 2**
 
@@ -67,9 +67,9 @@ unchanged. Commit `f2cfb3d7`.
 `project_body`), 3 into `unit-readme-troubleshooting`. Sources unioned; absorbed units archived
 via `archive.py` with `--superseded-by` (not `rm`), so `BT` holds. Bodies **rewritten, not
 concatenated**, to stay under `MAX_PROSE_SIMILARITY` 0.80. No absorbed unit carried a claim
-(verified before merging). README blocks 31 → 24. Commit `0da12570`.
+(verified before merging). README blocks 31 → 24. Commit `bd0f0cd6`.
 
-### Device 4 — the capability rollup — **derived, not asserted** (Phase D, commit `82a65e97`)
+### Device 4 — the capability rollup — **derived, not asserted** (Phase D, commit `62b53630`)
 
 `derive_capability_rollup` in `portal/platform/wiki/adapters/seed_facts.py` emits counts by kind
 (modules enabled/total, functional + benchmark + total workspaces, personas, MCP fleet) from
@@ -147,7 +147,7 @@ models)`) returned **zero hits** inside `WIKI:HUMAN-OWNED` fences. Nothing to re
 
 ## 7. Phase F — the `HF` guard
 
-`scripts/validation/doc_voice.py`, check **`HF`** (`CG` was already taken at `117f407a` by the
+`scripts/validation/doc_voice.py`, check **`HF`** (`CG` was already taken at `4e5172b1` by the
 canary-set check — the task's fallback was invoked and the next slug in sequence used). Five
 hard-fail axes — inversion, duplication, structure (one H1), editorial (device headings only in
 README), reasons (no `reason` > 2×) — **scoped to `README.md`**, because the other Tier-1 docs
@@ -173,7 +173,7 @@ units"; live is 738). `docs/SPINE_P0_MANIFEST.md` is not a Tier-1 doc, is not ch
 a provisional classification from a separate task. The merge proceeded rather than blocking on a
 stale artifact; the manifest was **left untouched** rather than regenerated into a different
 classification shape (which would muddy that other task's decision record). Flagged in commit
-`0da12570` and here for operator review — Phase C is isolated and revertible if the call is
+`bd0f0cd6` and here for operator review — Phase C is isolated and revertible if the call is
 wrong.
 
 ---

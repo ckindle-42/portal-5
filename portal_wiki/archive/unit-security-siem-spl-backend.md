@@ -5,8 +5,8 @@ title: "SIEM Splunk backend \u2014 oneshot export query adapter"
 sources:
 - type: code
   path: portal/modules/security/core/siem/spl_backend.py
-  commit: b6f05201
-last_generated_commit: b6f05201
+  commit: d493d44c
+last_generated_commit: d493d44c
 claims: []
 confidence: high
 tags:

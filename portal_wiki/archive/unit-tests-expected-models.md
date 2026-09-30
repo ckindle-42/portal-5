@@ -5,8 +5,8 @@ title: "Tests expected-models \u2014 config-derived routing ground truth"
 sources:
 - type: code
   path: tests/expected_models.py
-  commit: 4900007a
-last_generated_commit: 4900007a
+  commit: 347dfc8a
+last_generated_commit: 347dfc8a
 claims: []
 confidence: high
 tags:

@@ -5,8 +5,8 @@ title: "Security investigation surface \u2014 evidence + case notebook"
 sources:
 - type: code
   path: portal/modules/security/core/investigation/__init__.py
-  commit: 573a2377
-last_generated_commit: 573a2377
+  commit: 29cbcd27
+last_generated_commit: 29cbcd27
 claims: []
 confidence: high
 tags:

@@ -5,7 +5,7 @@ title: memory budget for 10 media backend/model combinations
 sources:
 - type: code
   path: portal/platform/wiki/adapters/seed_facts.py
-  commit: 38cdbb1fcea0
+  commit: d700dd7cca0c
   section: MEDIA_MODEL_MEMORY_GB
 claims: []
 confidence: high

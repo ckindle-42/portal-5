@@ -1,7 +1,7 @@
 # WFE Fitness Report — `wfe_full_20260911`
 
 Generated 2026-09-12T05:03:46.463276+00:00
-Environment: git `7e690402` · Ollama `0.33.2` · fingerprint `bee67a5c0bcd`
+Environment: git `da8e4574` · Ollama `0.33.2` · fingerprint `bee67a5c0bcd`
 
 ## 1. Instrument health
 

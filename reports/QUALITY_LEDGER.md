@@ -8,7 +8,7 @@ Row schema: `| ID | file:line | cat | evidence | proposed fix | decision | statu
 
 - `status` — `OPEN` → `DONE` | `BLOCKED: <reason>` | `RECORDED` | `OSCILLATION`
 
-## P0 — Seed (at `3c03cc6d`, verbatim from task §4)
+## P0 — Seed (at `8284ad43`, verbatim from task §4)
 
 | ID | file:line | cat | evidence | proposed fix | decision | status |
 |---|---|---|---|---|---|---|

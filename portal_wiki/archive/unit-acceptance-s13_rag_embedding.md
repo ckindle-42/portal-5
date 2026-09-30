@@ -5,8 +5,8 @@ title: "S13 \u2014 RAG embedding"
 sources:
 - type: code
   path: tests/acceptance/s13_rag_embedding.py
-  commit: a88ad75b
-last_generated_commit: a88ad75b
+  commit: e75dddd2
+last_generated_commit: e75dddd2
 claims: []
 confidence: high
 tags:

@@ -2,7 +2,7 @@
 
 <!-- evidence header (C3 standard) -->
 - **command**: manual discovery session — probes recorded inline below
-- **inputs**: HEAD `764197c1`→`1052e5a6` (this task's commits), live host stack
+- **inputs**: HEAD `5b3e2c42`→`1adcdf69` (this task's commits), live host stack
 - **resolved versions**: mlx 0.32.2, mlx-vlm 0.6.17, mlx-embeddings 0.1.0,
   transformers 5.16.1, torch 2.13.0, torchvision 0.28.0, phonemizer 3.4.0,
   lancedb (installed), Python 3.13.12
@@ -17,7 +17,7 @@
 | `:8942` VL server | **UP** — `/ready` `{ready:true, embed_model: mlx-community/Qwen3-VL-Embedding-2B-mxfp8, dim:2048}`. (V4's P0 found it down; it has since been started.) |
 | `:8917` embedding | UP — `/health` `{status:ok, loaded:true, backend:mlx}` |
 | `PORTAL5_LANCE_DIR` | unset → default `/Volumes/data01/portal5_lance`; `/Volumes/data01` **is** mounted (`os.path.ismount` True) |
-| venv vs uv.lock | **no drift** — `uv sync --all-extras --frozen --check` exit 0, 182 packages. The V4-era 133-undeclared-package fork is resolved (`e62d3dca`). |
+| venv vs uv.lock | **no drift** — `uv sync --all-extras --frozen --check` exit 0, 182 packages. The V4-era 133-undeclared-package fork is resolved (`019cd9dc`). |
 | Ollama `/api/ps` | no models loaded |
 
 ## C1 — import sweep of the reconciled venv → **`matplotlib` is NOT a real gap**
@@ -53,7 +53,7 @@ check, so a stray `/Volumes/<vol>/portal5_lance` tree on the boot disk passed
 silently; a bare `/Volumes/<vol>` dir also passed (`and not volume.is_dir()`).
 Host repro of the stray-tree case needs `mkdir` under root-owned `/Volumes`
 (operator `!` step) — the unit test reproduces the exact state by patching
-`os.path.ismount` / `Path.is_dir`. Fixed in `764197c1`: mount check is now first
+`os.path.ismount` / `Path.is_dir`. Fixed in `5b3e2c42`: mount check is now first
 and unconditional. `tests/unit/test_lance_guard.py` (6 cases).
 
 ## Remaining P0 items (carried into the measurement phase)

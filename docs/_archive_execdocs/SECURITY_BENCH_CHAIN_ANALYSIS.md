@@ -107,11 +107,11 @@ Pentest 0.97: Same pattern — VulnLLM recon, Qwable kerberoast in R2, BaronLLM 
 
 **Steps**: `suid_enum → sudo_check → exploit → confirm`
 
-Pentest 1.00: VulnLLM covers suid_enum + confirm (find / -perm -4000); Qwable covers sudo_check (sudo -l); BaronLLM covers exploit via `/bin/bash` or `sudo bash` (keyword broadening from acd6917 fix).
+Pentest 1.00: VulnLLM covers suid_enum + confirm (find / -perm -4000); Qwable covers sudo_check (sudo -l); BaronLLM covers exploit via `/bin/bash` or `sudo bash` (keyword broadening from ba84484 fix).
 
 Purpleteam 0.97: Same coverage — Qwable R2 FAIL on sudo_check brings tools slightly down (5/6) but all 4 steps hit.
 
-**Keyword fix from acd6917 is working** (adding `/bin/bash`, `sudo bash`, `su -` to exploit keywords).
+**Keyword fix from ba84484 is working** (adding `/bin/bash`, `sudo bash`, `su -` to exploit keywords).
 
 ---
 
@@ -211,7 +211,7 @@ Purpleteam 1.00: All 4 steps covered across both rounds.
 | beuopr0e9 | T041517Z | 4 | 0.67/0.00 | 0.74/0.74 | 0.00/0.93 | 0.48/0.93 |
 | brigip8s4 | T050128Z | 4 (baronllm only, indent bug) | 0.37/0.37 | 0.48/0.03 | 0.55/0.74 | 0.03/0.33 |
 | bc2ufxj22 | T055620Z | 4 (3×2 rounds fixed) | 0.37/0.97 | **1.00**/0.52 | 0.07/0.29 | 0.52/0.26 |
-| acd6917 validation | T185533Z | 10 | **0.97/0.97** | **1.00/0.97** | **0.93/0.93** | 0.74/**1.00** |
+| ba84484 validation | T185533Z | 10 | **0.97/0.97** | **1.00/0.97** | **0.93/0.93** | 0.74/**1.00** |
 
 Scores shown as pentest/purpleteam.
 

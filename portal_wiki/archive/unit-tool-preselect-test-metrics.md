@@ -5,8 +5,8 @@ title: "Preselector metrics tests \u2014 outcome counter contract"
 sources:
 - type: code
   path: portal/platform/inference/tool_preselect/tests/test_metrics.py
-  commit: 50d41b55
-last_generated_commit: 50d41b55
+  commit: b9ca6f31
+last_generated_commit: b9ca6f31
 claims: []
 confidence: high
 tags:

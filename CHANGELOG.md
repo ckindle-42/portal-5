@@ -121,7 +121,7 @@ weights were also reclaimed from disk.
 - Unit tests: `tests/unit/test_rag.py`, `tests/unit/test_promptfoo_configs.py`
 
 ### Fixed
-- **Rule 6 repair**: completed the Apriel-Nemotron removal (84cf26e left stale
+- **Rule 6 repair**: completed the Apriel-Nemotron removal (99c65ea left stale
   refs in `workspaces.py`, `dispatcher.py`, persona YAML, Open WebUI import
   JSONs, CLAUDE.md counts); workspace count 74 → 73, personas 140 → 139
 
@@ -129,7 +129,7 @@ weights were also reclaimed from disk.
 
 ### Added
 - UAT `challenge` section: the CC-01 coding challenge shootout restored
-  (lost in the 00ad696 → uat_catalog split) — 39 entries: one identical
+  (lost in the 06929b3 → uat_catalog split) — 39 entries: one identical
   CC-01 Asteroids task per distinct installed bench model, plus BT-01
   SOC-triage (Foundation-Sec Q8 GGUF) and EX-01 extraction (LFM2.5).
   Not a benchmark: bench_tps owns throughput; the comparative matrix is
@@ -177,7 +177,7 @@ weights were also reclaimed from disk.
   corpora/, update_grafana_recall, portal5_recall dashboard), the qwen-template
   patcher pair, convert_jang_keys, the five archived MLX acceptance scenarios,
   and the completed TASK_BENCH_MLX_ONLY / TASK_OMLX_* docs (OMLX_DECISION.md
-  retained as the decision record). Recoverable at 476de27.
+  retained as the decision record). Recoverable at 753eb30.
 - persona matrix driver is Ollama-only: MLX backend mode, --mlx-warmup, and
   :8081 plumbing removed; nightly CI workflow MLX branch removed.
 - ComfyUI acceptance memory-freeing is Ollama-eviction-only; UAT driver dead
@@ -244,7 +244,7 @@ weights were also reclaimed from disk.
 
 ### Fixed — MLX inference-proxy retirement true-up (TASK_MLX_RETIRE_TRUEUP_V1/V2)
 - **P0:** `_model_supports_tools` no longer reads the removed `Backend.mlx_metadata`
-  field — was raising `AttributeError` on every tool-bearing request after commit 3a0c58e.
+  field — was raising `AttributeError` on every tool-bearing request after commit 75c24a9.
 - Removed dead `mlx_proxy` probe + `MLX_PROXY_URL` from `/health/all`; scrubbed
   MLX-inference references from pipeline docstrings/comments.
 - Trued up CLAUDE.md (Rule 8 → single Ollama tier), README, HOWTO, ADMIN_GUIDE,

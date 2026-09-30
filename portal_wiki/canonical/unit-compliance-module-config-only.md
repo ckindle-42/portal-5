@@ -5,7 +5,7 @@ title: "Compliance module \u2014 config-only discipline namespace"
 sources:
 - type: code
   path: portal/modules/compliance/__init__.py
-  commit: 1a0e2df4
+  commit: 9c8e6dae
 claims: []
 confidence: high
 tags:

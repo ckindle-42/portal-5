@@ -51,7 +51,7 @@ speech (`scripts/mlx-speech.py`, port 8918), diarized transcription
 (`scripts/mlx-transcribe.py`, port 8924), embeddings
 (`scripts/embedding-server.py`, port 8917) and retrieval reranking (port 8925).
 Chat inference is Ollama-only: the MLX inference proxy that once listened on
-ports 8081/18081/18082 was retired in commit 3a0c58e.
+ports 8081/18081/18082 was retired in commit 75c24a9.
 
 ## Why
 

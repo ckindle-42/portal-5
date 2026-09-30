@@ -5,8 +5,8 @@ title: "Unit tests \u2014 test_spine_coverage"
 sources:
 - type: code
   path: tests/unit/test_spine_coverage.py
-  commit: 3e884375
-last_generated_commit: 6afb262648d307376dfb4f839eeed69c02112d04
+  commit: d5234798
+last_generated_commit: abe6f42ccd1cd1ce696800899e19dfc51821e0ef
 claims: []
 confidence: high
 tags:

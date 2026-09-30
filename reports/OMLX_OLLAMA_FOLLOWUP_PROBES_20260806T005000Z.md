@@ -80,4 +80,4 @@ Three of four follow-ups reinforce or extend the V4 verdict: the pipeline path h
 - Vision (corrected, max_tokens=500): `results/omlx_v3_vision_followup2v2_{omlx,ollama}_*.json`; superseded max_tokens=100 run kept for the record at `results/omlx_v3_vision_followup2_*.json`
 - Vision test assets: `tests/benchmarks/assets/vision_probe_{shape,bars,text}.png`
 - New harness: `tests/benchmarks/bench_omlx_stress_extras.py`
-- HEAD at run time: `33055b4c` (tool-calling/livelock/pipeline sections); vision section added same session, harness fix included
+- HEAD at run time: `7712b57c` (tool-calling/livelock/pipeline sections); vision section added same session, harness fix included

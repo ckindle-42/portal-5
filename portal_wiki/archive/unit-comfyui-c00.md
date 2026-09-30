@@ -5,8 +5,8 @@ title: "Section C0 \u2014 Prerequisites (memory, deps, ComfyUI process)"
 sources:
 - type: code
   path: tests/comfyui/c00_prereqs.py
-  commit: 441fd2a1
-last_generated_commit: 441fd2a1
+  commit: ee3590ba
+last_generated_commit: ee3590ba
 claims: []
 confidence: high
 tags:

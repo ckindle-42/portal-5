@@ -1,6 +1,6 @@
 # SIMPLIFY_SURFACE_MANIFEST — TASK_PORTAL_SIMPLIFY_V1 R1
 
-**Generated:** live reads at `bd59d4b9` + session start (`02c6e8b2`).
+**Generated:** live reads at `5350df84` + session start (`336992f1`).
 **Input:** `python3 scripts/spine_census.py --surfaces` (36 proposed groups), 8 parallel reader agents over all 571 member units, verified against the coverage machinery (`portal/platform/wiki/coverage.py`), the archive machinery (`archive.py::verify_superseded`), and the spine-intent families (`unit-router-*`, `unit-inference-*`, `unit-sec-core-*`).
 
 ## Design principle

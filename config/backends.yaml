@@ -555,7 +555,7 @@ backends:
     # and 3/3 multi-turn exec-shaped runs (call -> result -> answer, 2 turns, no
     # loop) at purpleteam-exec's served sampling. The earlier false came from a
     # reasoning loop with tools in context (UAT WS-PE03, 2026-06-27, commit
-    # 7fee599), measured when /v1 served every Ollama seat at 1.0/1.0 with no
+    # 71f0970), measured when /v1 served every Ollama seat at 1.0/1.0 with no
     # top_k/min_p/repeat_penalty; confirm in the next lab UAT (taskfile B8).
     supports_tools: true
   - id: hf.co/douyamv/Gemma-4-31B-JANG_4M-CRACK-GGUF:gemma-4-31b-jang-crack-Q4_K_M.gguf
@@ -587,7 +587,7 @@ backends:
     # supports_tools=false: offensive tooling model — per supergemma4 precedent,
     # offensive models given tool definitions enter reasoning loops.
     # Scored on artifact CONTENT (CVE PoCs, Nuclei templates, JWT crackers),
-    # not tool dispatch. Reference: UAT 20260627 + commit 7fee599.
+    # not tool dispatch. Reference: UAT 20260627 + commit 71f0970.
     supports_tools: false
   # Multi-seat V2 bench blue-seat candidates (2026-07-05) — bench-only, PROMOTE_POLICY=confirm
   - id: hf.co/Nguuma/security-slm-unsloth-1.5b:latest
@@ -652,7 +652,7 @@ backends:
     # and 3/3 multi-turn exec-shaped runs (call -> result -> answer, 2 turns, no
     # loop) at purpleteam-exec's served sampling. The earlier false came from a
     # reasoning loop with tools in context (UAT WS-PE03, 2026-06-27, commit
-    # 7fee599), measured when /v1 served every Ollama seat at 1.0/1.0 with no
+    # 71f0970), measured when /v1 served every Ollama seat at 1.0/1.0 with no
     # top_k/min_p/repeat_penalty; confirm in the next lab UAT (taskfile B8).
     supports_tools: true
   - id: granite4.1:30b

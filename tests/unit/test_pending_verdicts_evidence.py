@@ -1,4 +1,4 @@
-"""mine_closeout_verdict()'s retracted-verdict bug, fixed 477d7646."""
+"""mine_closeout_verdict()'s retracted-verdict bug, fixed bca0955f."""
 
 from __future__ import annotations
 

@@ -5,8 +5,8 @@ title: "S40 \u2014 Metrics"
 sources:
 - type: code
   path: tests/acceptance/s40_metrics.py
-  commit: a88ad75b
-last_generated_commit: a88ad75b
+  commit: e75dddd2
+last_generated_commit: e75dddd2
 claims: []
 confidence: high
 tags:

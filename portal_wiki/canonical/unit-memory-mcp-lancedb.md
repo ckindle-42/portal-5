@@ -5,7 +5,7 @@ title: "Memory MCP \u2014 cross-conversation LanceDB recall"
 sources:
 - type: code
   path: portal/platform/memory/memory_mcp.py
-  commit: b0aa6770
+  commit: 4c3d1e89
 claims: []
 confidence: high
 tags:

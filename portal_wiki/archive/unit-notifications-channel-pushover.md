@@ -5,8 +5,8 @@ title: "Notification Pushover channel \u2014 push sender"
 sources:
 - type: code
   path: portal/platform/inference/notifications/channels/pushover.py
-  commit: 7b309b21
-last_generated_commit: 7b309b21
+  commit: 7383d070
+last_generated_commit: 7383d070
 claims: []
 confidence: high
 tags:

@@ -5,8 +5,8 @@ title: "S4 \u2014 Document generation"
 sources:
 - type: code
   path: tests/acceptance/s04_documents.py
-  commit: a88ad75b
-last_generated_commit: a88ad75b
+  commit: e75dddd2
+last_generated_commit: e75dddd2
 claims: []
 confidence: high
 tags:

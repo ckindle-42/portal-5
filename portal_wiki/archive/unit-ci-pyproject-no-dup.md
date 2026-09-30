@@ -5,8 +5,8 @@ title: "CI guard \u2014 no duplicate dependency pins"
 sources:
 - type: code
   path: scripts/ci/check_pyproject_no_dup.py
-  commit: '96146826'
-last_generated_commit: '96146826'
+  commit: '38123c31'
+last_generated_commit: '38123c31'
 claims: []
 confidence: high
 tags:

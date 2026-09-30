@@ -5,7 +5,7 @@ title: "Script \u2014 mlx-speech"
 sources:
 - type: code
   path: scripts/mlx-speech.py
-  commit: af437ebd
+  commit: 94ecf393
 claims: []
 confidence: high
 tags:

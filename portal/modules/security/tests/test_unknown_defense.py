@@ -315,7 +315,7 @@ class TestSimilarityReferenceCatalog:
         assert len(broad) > 500  # full MITRE Enterprise catalog, not a curated subset
         # Techniques absent from this project's own answer-key set must still
         # be covered by the broad catalog. T1078.004 moved into the project's
-        # own set (SA5.3 cloud/identity detections, commit ebd89696) so it no
+        # own set (SA5.3 cloud/identity detections, commit d506bbda) so it no
         # longer serves as an example here; T1537 remains a recorded blue-gap
         # (needs cloud storage access logs not ingested in the lab).
         assert "T1537" not in narrow
@@ -325,7 +325,7 @@ class TestSimilarityReferenceCatalog:
         # narrow set is the project's own answer key, not a stale subset.
         assert "T1558.003" in narrow  # Kerberoasting — spl_detections.yaml, EventCode 4769
         assert "T1558.003" in broad
-        assert "T1078.004" in narrow  # moved in via SA5.3 cloud/identity detections (ebd89696)
+        assert "T1078.004" in narrow  # moved in via SA5.3 cloud/identity detections (d506bbda)
 
     def test_merged_reference_prefers_project_specific_detail(self) -> None:
         from portal.modules.security.core.blue import (

@@ -5,7 +5,7 @@ title: "Script \u2014 embedding-server"
 sources:
 - type: code
   path: scripts/embedding-server.py
-  commit: af437ebd
+  commit: 94ecf393
 claims: []
 confidence: high
 tags:

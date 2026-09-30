@@ -5,8 +5,8 @@ title: "Script \u2014 blend_acceptance_results"
 sources:
 - type: code
   path: scripts/blend_acceptance_results.py
-  commit: af437ebd
-last_generated_commit: af437ebd
+  commit: 94ecf393
+last_generated_commit: 94ecf393
 claims: []
 confidence: high
 tags:

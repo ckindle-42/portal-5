@@ -5,7 +5,7 @@ title: "Section-table regenerator \u2014 marker-delimited derived table"
 sources:
 - type: code
   path: tests/scripts/regen_section_table.py
-  commit: dc13b2d5
+  commit: 53110d10
 claims: []
 confidence: high
 tags:

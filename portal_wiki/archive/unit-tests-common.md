@@ -5,8 +5,8 @@ title: "Tests common \u2014 shared refusal-phrase vocabulary"
 sources:
 - type: code
   path: tests/common.py
-  commit: 4900007a
-last_generated_commit: 4900007a
+  commit: 347dfc8a
+last_generated_commit: 347dfc8a
 claims: []
 confidence: high
 tags:

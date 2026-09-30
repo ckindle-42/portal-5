@@ -52,7 +52,7 @@ via the tier-3 absolute-fallback net).
 
 - `Backend.type = "omlx"` (`cluster_backends.py`) — third-party oMLX server
   over plain OpenAI HTTP, health-probed via `/v1/models`. Explicitly NOT the
-  retired in-house MLX proxy (3a0c58e): no custom process/watchdog management
+  retired in-house MLX proxy (75c24a9): no custom process/watchdog management
   lives here, and the regression guards (`mlx_metadata`, proxy URL, group
   named `mlx`) all stay intact — the holding group is named `omlx` for that
   reason.
@@ -86,7 +86,7 @@ via the tier-3 absolute-fallback net).
   the admin API: reachable ⇒ busy, unreachable ⇒ down.
 - Evidence + tests: `tests/benchmarks/bench_omlx_v3.py` is the Phase-0 gate
   harness (protocol shapes preserved from the deleted bench_omlx.py @
-  10075f1c); `tests/unit/test_omlx_backend.py` (13 tests) covers health URLs,
+  1198334b); `tests/unit/test_omlx_backend.py` (13 tests) covers health URLs,
   overrides, alias resolution, priority ordering, injection surface, and the
   introspector seam.
 
@@ -187,7 +187,7 @@ migration; ~1 week of Prometheus TTFT/TPS comparison before expanding to
 ## Why
 
 oMLX is a third-party OpenAI-compatible server, not the in-house MLX proxy
-that was retired at `3a0c58e`, so the two must not be conflated in the
+that was retired at `75c24a9`, so the two must not be conflated in the
 docs: the retired proxy's regression guards (group never named `mlx`,
 no custom process/watchdog management) are exactly why the holding group
 is `omlx` and why B1 shipped with zero traffic shift. Every mechanism

@@ -5,8 +5,8 @@ title: "Tests recall scorer \u2014 LCS line-alignment reproduction score"
 sources:
 - type: code
   path: tests/recall_scorer.py
-  commit: 4900007a
-last_generated_commit: 4900007a
+  commit: 347dfc8a
+last_generated_commit: 347dfc8a
 claims: []
 confidence: high
 tags:

@@ -11,7 +11,7 @@ The operator pushed back twice more on v2, and both times the pushback found som
 1. *"Doesn't Ollama's tail latency contradict our production experience — what exactly differed?"* → Found a **measurement bug**: `one_request`'s TTFT only counted `content` stream deltas. `gemma4:e4b-it-qat` streams extended "thinking" tokens via a separate `reasoning` field with `content` empty until thinking finishes. The harness was measuring "time until thinking ends," not "time until the model starts working" — an actively-computing model was being reported as silently stalled for up to 193s. **This fully explains v2's entire "Ollama tail latency" finding.**
 2. *"Are quant/sampling/concurrency actually matched — verify before running, don't discover after."* → A full settings audit (not spot-checks) found: coder and gemma already matched exactly (traced to byte-identical upstream `generation_config.json` on both engines) — but **`llama3.2:3b` did not**: Ollama's default pull is Q4_K_M (2.0GB) while oMLX's `Llama-3.2-3B-Instruct-8bit` runs at 8-bit (3.6GB), an unmatched ~2x precision gap. Also confirmed live that Ollama's `/v1/chat/completions` endpoint silently ignores **`top_k`** in addition to the already-known `num_ctx`/`think` — three separate parameters that appear to work (no error, no rejection) but have zero effect.
 
-Both are now fixed (commit `778def71`): TTFT counts the first token of any kind (content or reasoning); a new `llama3.2:3b-instruct-q8_0-ctx8k` Ollama tag matches oMLX's 8-bit precision; `temperature`/`top_p` (confirmed-functional standard OpenAI fields) are pinned identically for the 3B model on both engines; `top_k` is deliberately left unset on both since it can't be forced on Ollama's side anyway.
+Both are now fixed (commit `f3f5c2a9`): TTFT counts the first token of any kind (content or reasoning); a new `llama3.2:3b-instruct-q8_0-ctx8k` Ollama tag matches oMLX's 8-bit precision; `temperature`/`top_p` (confirmed-functional standard OpenAI fields) are pinned identically for the 3B model on both engines; `top_k` is deliberately left unset on both since it can't be forced on Ollama's side anyway.
 
 ## What is and isn't matched — full accounting
 
@@ -92,5 +92,5 @@ This is oMLX's real limit: not a hard failure boundary, but the same class of th
 - Matched load: `results/omlx_v3_shootout_v4_final_{ollama,omlx}_*.json`
 - Push sweep: `results/omlx_v3_shootout_v4_push_c{8,12,16}_{ollama,omlx}_*.json`
 - oMLX model-count stress: `results/omlx_v3_shootout_v4_5model_omlx_*.json`, `results/omlx_v3_shootout_v4_6model_heavy_omlx_*.json`
-- Commits: `db75e444` (Ollama context bug + pentest fix), `fccb3052` (harness: prompts/concurrency/context tags), `778def71` (settings-parity audit: TTFT metric, quant match, sampling match)
-- HEAD at run time: `778def71`
+- Commits: `eaf3108b` (Ollama context bug + pentest fix), `62872888` (harness: prompts/concurrency/context tags), `f3f5c2a9` (settings-parity audit: TTFT metric, quant match, sampling match)
+- HEAD at run time: `f3f5c2a9`

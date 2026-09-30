@@ -5,7 +5,7 @@ title: "UAT config \u2014 env/constants/result paths"
 sources:
 - type: code
   path: tests/uat/config.py
-  commit: 85bb65bd
+  commit: d7dcc96a
 claims: []
 confidence: high
 tags:

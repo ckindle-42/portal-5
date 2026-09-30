@@ -5,8 +5,8 @@ title: "Persona matrix sweep \u2014 cell grid with memory discipline"
 sources:
 - type: code
   path: portal/modules/eval/persona_matrix/sweep.py
-  commit: 7954fafc
-last_generated_commit: 7954fafc
+  commit: db243698
+last_generated_commit: db243698
 claims: []
 confidence: high
 tags:

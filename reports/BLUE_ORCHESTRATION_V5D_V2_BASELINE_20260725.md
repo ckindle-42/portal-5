@@ -18,12 +18,12 @@ the lost confirmation.
 ## Baseline identity
 
 The true V2 baseline used here is commit
-`c7c6df8799635149856332a9dff0c26e6b83bca9`, the direct parent of V3A commit
-`1eced069078db397ab5b30a1e4b33a142c5065fe`. It is the mature three-section
+`64a37f3282ac207cb0dac02bdc2c330bb308aecc`, the direct parent of V3A commit
+`eb3faa87ca2784438f179651a82b702986025f93`. It is the mature three-section
 Retriever → Hunter → Expert implementation immediately before Mentor,
 per-role budgets, and barrier tools were added.
 
-The run imported code from a detached checkout of `c7c6df8` and enforced that
+The run imported code from a detached checkout of `64a37f3` and enforced that
 SHA before starting. It supplied only V2 `SectionSpec` fields:
 
 - tool: `granite4.1:8b`
@@ -45,10 +45,10 @@ current knobs-off run would therefore be an approximation, not V2.
 - Every cell queried the same lab source,
   `evidence_origin=corpus:*`, through the technique's pre-pipe SPL and
   completed with corpus data present.
-- All 17 relevant SPL strings are byte-identical between `c7c6df8` and V5
+- All 17 relevant SPL strings are byte-identical between `64a37f3` and V5
   HEAD; V5's discriminator additions did not alter a search.
 - `agentic_blue_eval.py`, including `score_findings_tiered`, is unchanged
-  between `c7c6df8` and HEAD.
+  between `64a37f3` and HEAD.
 - All V2/V3/V4 columns were recomputed with the same confirm-only rule:
   technique IDs score only when `verdict == "CONFIRMED"`.
 
@@ -81,8 +81,8 @@ do in the V3/V4 recomputation.
 ## Earlier single-model candidate
 
 An older single-model blue chain exists in `blue.py` before the section
-pipeline was introduced (`a53b88b9` began the reasoning section;
-`2459cb97` landed the deterministic pipeline). It is not the V2 predecessor
+pipeline was introduced (`f415e539` began the reasoning section;
+`e63af143` landed the deterministic pipeline). It is not the V2 predecessor
 replaced by V3 and was not labeled as V2 here. Measuring it would answer the
 broader “did the whole section pipeline help?” question, but would require a
 separate adapter to the 17-cell corpus and is outside this V3-contribution

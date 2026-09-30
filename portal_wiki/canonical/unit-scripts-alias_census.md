@@ -5,7 +5,7 @@ title: "Script \u2014 alias_census"
 sources:
 - type: code
   path: scripts/alias_census.py
-  commit: af437ebd
+  commit: 94ecf393
 claims: []
 confidence: high
 tags:

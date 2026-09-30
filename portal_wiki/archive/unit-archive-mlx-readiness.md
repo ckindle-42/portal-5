@@ -5,8 +5,8 @@ title: "MLX readiness watcher \u2014 archived health-to-file poller"
 sources:
 - type: code
   path: scripts/_archive/mlx-retired-3a0c58e/mlx-readiness.py
-  commit: 2d2e9c0f
-last_generated_commit: 2d2e9c0f
+  commit: 90ac134b
+last_generated_commit: 90ac134b
 claims: []
 confidence: high
 tags:
@@ -27,7 +27,7 @@ implementing their own wait-and-see timer loops.
 The watcher encoded a real testing lesson: timing-based readiness checks in
 each test are fragile and duplicated, so decoupling readiness into a
 background poller that writes one state file let every consumer read the same
-truth. It was retired with the proxy at `3a0c58e` because the thing it
+truth. It was retired with the proxy at `75c24a9` because the thing it
 polled no longer exists — the archive records that the pattern itself (a
 shared readiness state file decoupling polling from consumers) was sound and
 could be reused if a future subsystem needs the same decoupling.

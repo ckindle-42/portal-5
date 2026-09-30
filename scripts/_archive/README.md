@@ -4,10 +4,10 @@
 
 `bench_v5_ladders.sh` and `analyze_bench_v5.py` orchestrated the V5 quant-ladder
 bench (TASK_MODEL_REFRESH_V5) against the MLX inference proxy. They are inoperable
-after commit 3a0c58e:
+after commit 75c24a9:
 
 - probe `http://localhost:8081/health/wired` (proxy retired)
-- require `scripts/smoke_test_mlx.py` (deleted in 3a0c58e)
+- require `scripts/smoke_test_mlx.py` (deleted in 75c24a9)
 - look up the `mlx-apple-silicon` backend and its `mlx_models` key (both removed
   from config/backends.yaml)
 
@@ -20,6 +20,6 @@ CANCELED P5-FUT-013 decision (see OMLX_DECISION.md).
 ## MLX inference stack (archived after MLX-proxy retirement)
 
 See `mlx-retired-3a0c58e/` for the 8 scripts that powered the standalone
-MLX inference proxy through commit `3a0c58e^`. Retired 2026-06-09 with
+MLX inference proxy through commit `75c24a9^`. Retired 2026-06-09 with
 the Ollama-only migration. Archive-only — see the subdirectory's README
 for status and revival sketch.

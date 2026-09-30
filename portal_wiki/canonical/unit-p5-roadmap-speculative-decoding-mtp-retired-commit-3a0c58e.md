@@ -1,7 +1,7 @@
 ---
 id: unit-p5-roadmap-speculative-decoding-mtp-retired-commit-3a0c58e
 kind: what
-title: "P5_ROADMAP \u2014 Speculative Decoding / MTP \u2014 RETIRED (commit 3a0c58e)"
+title: "P5_ROADMAP \u2014 Speculative Decoding / MTP \u2014 RETIRED (commit 75c24a9)"
 sources:
 - type: code
   path: scripts/_archive/mlx-retired-3a0c58e/mlx-proxy.py
@@ -21,7 +21,7 @@ part of the current serving stack. The archived
 `scripts/_archive/mlx-retired-3a0c58e/mlx-proxy.py` reads the draft-model map
 (`speculative_decoding.draft_models` in `config/backends.yaml`) into
 `DRAFT_MODEL_MAP` and passes `--draft-model` when the draft for a target model is
-present locally; that surface was deleted with the proxy at commit 3a0c58e. The
+present locally; that surface was deleted with the proxy at commit 75c24a9. The
 archive README confirms the scripts are not runnable at HEAD and that any future
 speculation work targets Ollama's native path rather than MLX — the archive exists
 as reference for the admission-control pattern and the draft-model mapping.

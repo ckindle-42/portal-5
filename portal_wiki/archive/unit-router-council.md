@@ -5,8 +5,8 @@ title: "Router council \u2014 multi-model quorum cross-check"
 sources:
 - type: code
   path: portal/platform/inference/router/council.py
-  commit: a234187e
-last_generated_commit: a234187e
+  commit: d7c1d4f4
+last_generated_commit: d7c1d4f4
 claims: []
 confidence: high
 tags:

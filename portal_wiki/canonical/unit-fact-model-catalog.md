@@ -5,7 +5,7 @@ title: 273 model ids, 7 backend groups
 sources:
 - type: code
   path: config/backends.yaml
-  commit: a28a76a04d5b
+  commit: cb47ed8c6745
 claims:
 - probe: backends.groups.count
   pattern: '{value} backend groups)'

@@ -5,8 +5,8 @@ title: "Sweep driver \u2014 security bench orchestration"
 sources:
 - type: code
   path: portal/modules/security/core/_sweep_driver.py
-  commit: 11d83e41
-last_generated_commit: 11d83e41
+  commit: 699b6207
+last_generated_commit: 699b6207
 claims: []
 confidence: high
 tags:

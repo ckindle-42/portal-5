@@ -8,7 +8,7 @@ a reasoning trace. Nothing is promoted. This script supplies the part that arm
 A/B execution cannot: **which seats can actually reason**, and the case
 inventory the two arms are compared over.
 
-Why this exists: every compliance capability measurement taken before 8ccaa84a
+Why this exists: every compliance capability measurement taken before 96ae11c1
 was made by a model that was reasoning despite declaring ``think:false`` (that
 commit found the flag was being dropped by the OpenAI-compat layer and names
 auto-compliance among the twelve affected workspaces). The live 26-case

@@ -5,8 +5,8 @@ title: "Tests UAT driver \u2014 operator entry shim"
 sources:
 - type: code
   path: tests/portal5_uat_driver.py
-  commit: 4900007a
-last_generated_commit: 4900007a
+  commit: 347dfc8a
+last_generated_commit: 347dfc8a
 claims: []
 confidence: high
 tags:

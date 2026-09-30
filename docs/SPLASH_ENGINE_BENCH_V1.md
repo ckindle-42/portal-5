@@ -70,7 +70,7 @@ Our ratios come in lower across the board (1.3–2.1× vs their 1.7–3.9×). Pl
 ## Relevance to the Compliance Module
 
 - `auto-compliance` (`config/portal.yaml`) currently runs `model_hint: hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k` — the identical weights/quant family benched here. `context_limit: 32768`, `predict_limit: 24576`, `think: false` (required — Qwen3.8's chat template opens `<think>` by default and degenerates on hard compliance questions without this), `temperature: 0.3`, `repeat_penalty: 1.1`.
-- Documented speed problem, `reports/compliance/PROVE_THEN_SCALE_V1.md` (current uncommitted work, based on `513ce96d`, 2026-09-17):
+- Documented speed problem, `reports/compliance/PROVE_THEN_SCALE_V1.md` (current uncommitted work, based on `9af2834b`, 2026-09-17):
   - P7 "family sweep" (one full CIP standard, register nodes + addressable Parts): **72 minutes wall**, 17.0s/register-node, 23.4s/ADDRESSABLE-node, run **cacheless** by design.
   - Full-register sweep (all 14 NERC CIP standards): projected **≈4.9 hours**.
   - `sweep.py` (line ~310) is **deliberately sequential** — "a single operator has no concurrent traffic" — so this is a hard architectural choice, not a missing optimization. **Splash's concurrency win (2–2.1× on 27B) does not apply here**; only the single-request decode win (~1.5–1.6×) is relevant.

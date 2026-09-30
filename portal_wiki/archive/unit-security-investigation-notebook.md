@@ -5,8 +5,8 @@ title: "Investigation case notebook \u2014 shared per-case memory"
 sources:
 - type: code
   path: portal/modules/security/core/investigation/case_notebook.py
-  commit: 573a2377
-last_generated_commit: 573a2377
+  commit: 29cbcd27
+last_generated_commit: 29cbcd27
 claims: []
 confidence: high
 tags:

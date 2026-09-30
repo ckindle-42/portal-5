@@ -5,7 +5,7 @@ title: "Channels package \u2014 Slack/Telegram adapter namespace"
 sources:
 - type: code
   path: portal_channels/__init__.py
-  commit: 5b73259d
+  commit: c36595e1
 claims: []
 confidence: high
 tags:

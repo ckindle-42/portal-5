@@ -1,7 +1,7 @@
 # Bonsai Family Probe V1 — safe resume checkpoint
 
 **State:** Paused at the user's request on 2026-09-24 12:54 UTC. The working branch was
-`main` at `07706a6d`, equal to `origin/main` before this local checkpoint.
+`main` at `a3145299`, equal to `origin/main` before this local checkpoint.
 
 ## Stopped lane
 

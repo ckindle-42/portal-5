@@ -16,7 +16,7 @@ updated_at: 1783195000.882566
 ---
 
 
-**MLX inference is retired (commit 3a0c58e).** All chat inference runs through
+**MLX inference is retired (commit 75c24a9).** All chat inference runs through
 Ollama (:11434). The `--mlx-warmup` flag and `mlx_models:` key in `backends.yaml`
 described here no longer exist — they were part of the pre-retirement MLX proxy.
 

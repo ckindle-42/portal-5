@@ -5,8 +5,8 @@ title: "Script \u2014 update_grafana_uat"
 sources:
 - type: code
   path: scripts/update_grafana_uat.py
-  commit: af437ebd
-last_generated_commit: af437ebd
+  commit: 94ecf393
+last_generated_commit: 94ecf393
 claims: []
 confidence: high
 tags:

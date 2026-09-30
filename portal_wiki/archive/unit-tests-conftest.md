@@ -5,8 +5,8 @@ title: "Tests conftest \u2014 deterministic environment posture"
 sources:
 - type: code
   path: tests/conftest.py
-  commit: 4900007a
-last_generated_commit: 4900007a
+  commit: 347dfc8a
+last_generated_commit: 347dfc8a
 claims: []
 confidence: high
 tags:

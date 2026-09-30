@@ -5,8 +5,8 @@ title: "Laguna MLX model \u2014 archived custom-architecture candidate"
 sources:
 - type: code
   path: scripts/_archive/mlx-retired-3a0c58e/mlx-model-laguna.py
-  commit: 2d2e9c0f
-last_generated_commit: 2d2e9c0f
+  commit: 90ac134b
+last_generated_commit: 90ac134b
 claims: []
 confidence: high
 tags:
@@ -24,7 +24,7 @@ per-layer head counts, per-head gating, and YaRN RoPE for the full layers.
 
 ## Why
 
-The archive exists to record what was tried and retired at `3a0c58e`, when
+The archive exists to record what was tried and retired at `75c24a9`, when
 the MLX inference proxy was replaced by Ollama's native MLX Metal backend.
 Laguna was a candidate coding model whose custom architecture required a
 patched mlx-lm; once Ollama served the coding tier with equivalent or better

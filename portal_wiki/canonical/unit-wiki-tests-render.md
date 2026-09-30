@@ -5,7 +5,7 @@ title: "Wiki render tests \u2014 HUMAN-OWNED awareness + report contract"
 sources:
 - type: code
   path: portal/platform/wiki/tests/test_render.py
-  commit: dfa74e2e
+  commit: 6f44673c
 claims: []
 confidence: high
 tags:

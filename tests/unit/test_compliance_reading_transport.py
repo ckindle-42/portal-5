@@ -1,6 +1,6 @@
 """The compliance reading transport: reasoning is a channel, not a leak.
 
-The suppression this transport removes (946196bb) was introduced because a
+The suppression this transport removes (f350324a) was introduced because a
 thinking seat leaked ``<think>`` into strict-JSON content or ran out of predict
 budget before the closing brace. That is a ``/v1``/inline-template phenomenon;
 on native ``/api/chat`` the trace arrives as ``message.thinking``, separate from
@@ -215,7 +215,7 @@ def test_inline_think_block_is_stripped_from_content(monkeypatch):
 
     result = chat("some-non-native-template", "sys", "user")
 
-    # exactly the 946196bb failure, now handled by parsing rather than by
+    # exactly the f350324a failure, now handled by parsing rather than by
     # disabling the model's reasoning
     assert result.content == '{"relation": "SAME"}'
     assert json.loads(result.content) == {"relation": "SAME"}

@@ -1,4 +1,4 @@
-# Bench coverage audit — HEAD 6d98b97 (2026-06-26)
+# Bench coverage audit — HEAD be20f14 (2026-06-26)
 
 Snapshot of bench-instrument coverage against the live workspace catalog.
 Run when counts drift; supersedes prior date-stamped audits.

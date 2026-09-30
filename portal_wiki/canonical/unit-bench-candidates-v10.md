@@ -5,7 +5,7 @@ title: "Bench V10 candidates \u2014 claim-targeted capability probes"
 sources:
 - type: code
   path: tests/benchmarks/bench_candidates_v10.py
-  commit: f09fdb85
+  commit: 071aaf52
 claims: []
 confidence: high
 tags:

@@ -5,8 +5,8 @@ title: "portal_wiki package \u2014 knowledge-layer entry surface"
 sources:
 - type: code
   path: portal_wiki/__init__.py
-  commit: dc13b2d5
-last_generated_commit: dc13b2d5
+  commit: 53110d10
+last_generated_commit: 53110d10
 claims: []
 confidence: high
 tags:

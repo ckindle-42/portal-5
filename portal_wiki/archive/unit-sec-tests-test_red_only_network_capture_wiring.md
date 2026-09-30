@@ -5,8 +5,8 @@ title: "Security tests \u2014 test_red_only_network_capture_wiring"
 sources:
 - type: code
   path: portal/modules/security/tests/test_red_only_network_capture_wiring.py
-  commit: bdbf509f
-last_generated_commit: bdbf509f
+  commit: 862c7b11
+last_generated_commit: 862c7b11
 claims: []
 confidence: high
 tags:

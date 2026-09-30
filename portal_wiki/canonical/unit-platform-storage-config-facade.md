@@ -5,10 +5,10 @@ title: "Platform storage \u2014 config loader facade"
 sources:
 - type: code
   path: portal/platform/storage/__init__.py
-  commit: b0aa6770
+  commit: 4c3d1e89
 - type: code
   path: portal/platform/data_loader.py
-  commit: b0aa6770
+  commit: 4c3d1e89
 claims: []
 confidence: high
 tags:

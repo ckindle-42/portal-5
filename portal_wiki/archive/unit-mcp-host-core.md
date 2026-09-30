@@ -5,8 +5,8 @@ title: "mcp_host core \u2014 shared workspace path helpers"
 sources:
 - type: code
   path: portal/platform/mcp_host/__init__.py
-  commit: ee7ca08a
-last_generated_commit: ee7ca08a
+  commit: 3d8cf6f5
+last_generated_commit: 3d8cf6f5
 claims: []
 confidence: high
 tags:

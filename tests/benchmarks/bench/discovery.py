@@ -101,7 +101,7 @@ def _config_ollama_models_by_group() -> dict[str, list[str]]:
     """Ollama models grouped by backend group from backends.yaml.
 
     Handles both legacy flat-string entries and the current dict form
-    (`{id, supports_tools, notes, …}`) introduced in commit 1af5b3c.
+    (`{id, supports_tools, notes, …}`) introduced in commit 3f80165.
     """
     cfg = _load_backends_config()
     groups: dict[str, list[str]] = {}

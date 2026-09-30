@@ -21,7 +21,7 @@ created_at: 1784946220.704969
 updated_at: 1784946220.704969
 ---
 
-The collapse (commit a7d9dcc8) folded nine security workspaces into one
+The collapse (commit b5f2a052) folded nine security workspaces into one
 `auto-security` base with `variants:` blocks, and the alias shim that let old
 ids keep working was removed. `scripts/execute_preflight.py` hard-codes the 23
 retired aliases in `RETIRED_ALIASES` and its `check_no_retired_aliases` gate
@@ -32,7 +32,7 @@ canonical `auto-security::<variant>` form.
 
 The bench's internal vocabulary is already canonical: `_data.py`'s
 `PER_WORKSPACE_TIMEOUT` and `EXECUTION_WORKSPACES` are keyed on the literal
-`::` strings (the edcaa8b fix). Because `call_pipeline` forwards the workspace
+`::` strings (the 6c5d2cf fix). Because `call_pipeline` forwards the workspace
 string as the pipeline `model` field, a retired id such as `auto-pentest` is
 not a registered workspace and the request fails rather than silently running;
 use `auto-security::pentest`. The exact set of live variants is printed by the
