@@ -219,3 +219,14 @@ def test_obligation_attribution_inside_a_quote_is_not_an_attribution():
     assert not pattern.search(conv.QUOTED_SPAN.sub(" ", quoted))
     assert not pattern.search("CIP-011 requirements were updated")
     assert pattern.search("CIP-011 requires an information protection program")
+
+
+def test_restating_the_question_in_quotes_is_not_a_claim(store):
+    question = "Where do the standards overlap in what they ask of us?"
+    answer = (
+        f'The question "{question}" is broad.\n'
+        'We say "evaluates every released patch within thirty days".'
+    )
+    res = integrity(store, answer, question=question)
+    assert res["n_claims"] == 1 and res["grounded"] is True
+    assert res["quotes"][0]["status"] == "question_quote"

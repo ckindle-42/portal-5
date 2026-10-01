@@ -696,7 +696,7 @@ def check_workspace_cell(case: dict[str, Any], record: dict[str, Any]) -> list[d
 
     repo = Repository()
     try:
-        result = integrity(repo, answer)
+        result = integrity(repo, answer, question=str(record.get("question") or ""))
     finally:
         repo.close()
     # P5: a missing section id is no longer a failure — quote-grounded answers

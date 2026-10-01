@@ -125,7 +125,7 @@ def _checks(repo, spec: dict, record: dict) -> tuple[dict[str, bool], dict]:
     from scripts.compliance.truth.citation_integrity import integrity
 
     answer = str(record.get("answer") or "")
-    result = integrity(repo, answer)
+    result = integrity(repo, answer, question=spec.get("question", ""))
     checks = {
         "answered": bool(answer.strip())
         and not record.get("turn_budget_exceeded")

@@ -97,7 +97,9 @@ def _section_side(store: Any, section_id: str) -> str | None:
     return _side_of(str(row[0][0])) if row else None
 
 
-def integrity(store: Any, answer: str, *, min_quote_words: int = MIN_QUOTE_WORDS) -> dict:
+def integrity(
+    store: Any, answer: str, *, min_quote_words: int = MIN_QUOTE_WORDS, question: str = ""
+) -> dict:
     """Claim-line citation integrity of ``answer`` against ``store``."""
 
     answer = str(answer or "")
@@ -107,7 +109,7 @@ def integrity(store: Any, answer: str, *, min_quote_words: int = MIN_QUOTE_WORDS
     sides: set[str] = set()
     lines: list[dict] = []
     for raw_line in answer.splitlines():
-        measured = _measure_line(store, raw_line, min_quote_words)
+        measured = _measure_line(store, raw_line, min_quote_words, _question_fold(question))
         if measured is None:
             continue
         quote_records.extend(measured["quotes"])
@@ -139,9 +141,25 @@ def _token_record(store: Any, token: str) -> dict:
     return {"token": token, "resolved": True, "section_id": entry.get("section_id")}
 
 
-def _quote_record(store: Any, quote: str, min_quote_words: int) -> dict:
+def _question_fold(question: str) -> str:
+    from portal.modules.compliance.core.citation_by_quote import _fold
+
+    return _fold(question) if question.strip() else ""
+
+
+def _is_question_quote(quote: str, question_fold: str) -> bool:
+    """A span that restates the user's own question cites nothing in the store."""
+    from portal.modules.compliance.core.citation_by_quote import _fold
+
+    folded = _fold(quote)
+    return bool(question_fold and folded and folded in question_fold)
+
+
+def _quote_record(store: Any, quote: str, min_quote_words: int, question_fold: str = "") -> dict:
     from portal.modules.compliance.core.citation_by_quote import resolve_quote
 
+    if _is_question_quote(quote, question_fold):
+        return {"quote": quote, "status": "question_quote", "sections": []}
     if len(quote.split()) < min_quote_words:
         return {"quote": quote, "status": "not_evidence", "sections": []}
     hits = resolve_quote(store, quote)
@@ -163,14 +181,18 @@ def _forgive_mistyped(lines: list[dict]) -> None:
             line["grounded"] = any(_mistyped_variant_of(raw, resolving) for raw in unresolved)
 
 
-def _measure_line(store: Any, raw_line: str, min_quote_words: int) -> dict | None:
+def _measure_line(
+    store: Any, raw_line: str, min_quote_words: int, question_fold: str = ""
+) -> dict | None:
     """One line's integrity, or None when it carries no token and no quote.
 
     A line whose only quoted spans are under ``min_quote_words`` and which
     carries no token is NOT a citing line (``citing: False``): its spans are
     reported as ``not_evidence`` but it is neither a claim nor ungrounded — a
     scare-quoted term ("stricter", "need to know") cites nothing, so it cannot
-    fail to ground. B0 measured 9 lines failed on exactly that."""
+    fail to ground. B0 measured 9 lines failed on exactly that. A span that
+    restates the user's question (``question``) is ``question_quote`` and
+    likewise cites nothing."""
     from portal.modules.compliance.core.answer_contract import SECTION_ID_PATTERN
     from portal.modules.compliance.core.citation_by_quote import quoted_spans
 
@@ -184,15 +206,22 @@ def _measure_line(store: Any, raw_line: str, min_quote_words: int) -> dict | Non
     quotes_here = quoted_spans(stripped)
     if not tokens_here and not quotes_here:
         return None
-    if not tokens_here and all(len(q.split()) < min_quote_words for q in quotes_here):
+    if not tokens_here and all(
+        len(q.split()) < min_quote_words or _is_question_quote(q, question_fold)
+        for q in quotes_here
+    ):
         return {
             "claim": stripped,
             "citing": False,
-            "quotes": [{"quote": q, "status": "not_evidence", "sections": []} for q in quotes_here],
+            "quotes": [
+                _quote_record(store, q, min_quote_words, question_fold) for q in quotes_here
+            ],
         }
 
     tokens = [_token_record(store, token) for token in tokens_here]
-    line_quotes = [_quote_record(store, quote, min_quote_words) for quote in quotes_here]
+    line_quotes = [
+        _quote_record(store, quote, min_quote_words, question_fold) for quote in quotes_here
+    ]
     line_ids = [str(t["section_id"]) for t in tokens if t["resolved"]]
     line_ids += [sid for q in line_quotes for sid in q["sections"]]
     line_sides = {side for sid in line_ids if (side := _section_side(store, sid))}
