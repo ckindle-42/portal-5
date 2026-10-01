@@ -118,6 +118,13 @@ fi
   || say "WARNING: could not sync oMLX seat defaults — sampling falls back to oMLX globals."
 for _ in $(seq 1 30); do curl -sf "$OMLX_BASE/health" >/dev/null && break; sleep 2; done
 
+# ── 2c. aggressive memory guard for this session ─────────────────────────────
+# On oMLX 0.7.0 `balanced` rejects REAP-288's ~39.97GB peak even with the stack
+# down (ceiling ~39.8GB). `./launch.sh up` restores `balanced`.
+"$REPO/.venv/bin/python" "$REPO/scripts/omlx_memory_tier.py" aggressive \
+  || say "WARNING: could not set the aggressive memory tier — the warm load may be rejected."
+for _ in $(seq 1 30); do curl -sf "$OMLX_BASE/health" >/dev/null && break; sleep 2; done
+
 # ── 3. warm-load REAP-288 ────────────────────────────────────────────────────
 say "Warm-loading $MODEL_ID (first load ~22s)…"
 code="$(curl -s -o "$CONF_DIR.warm.json" -w '%{http_code}' --max-time 300 \

@@ -47,6 +47,10 @@ case "${1:-up}" in
     cd "$COMPOSE_DIR"
     docker compose pull || echo "[portal-5] ⚠️  Some images could not be pulled — using cached versions."
 
+    # Daily operation runs oMLX's balanced memory guard (coder-reap288 sets aggressive)
+    "$PORTAL_ROOT/.venv/bin/python" "$PORTAL_ROOT/scripts/omlx_memory_tier.py" balanced \
+      || echo "[portal-5] ⚠️  could not set the oMLX balanced memory tier."
+
     # Auto-start native services first so _check_hardware sees them as running
     _ensure_native_services
 
