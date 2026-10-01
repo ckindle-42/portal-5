@@ -163,3 +163,59 @@ def test_harness_parity_imports_integrity(rel):
 
 def test_min_quote_words_is_a_calibration_value():
     assert MIN_QUOTE_WORDS in (1, 2, 3, 4, 5, 6, 8)
+
+
+# ── B0 (P6.0) check corrections ──────────────────────────────────────────────
+
+
+def test_scare_quote_only_line_is_not_a_claim(store):
+    answer = (
+        'Our practice is "stricter" than the floor.\n'
+        'We say "evaluates every released patch within thirty days".'
+    )
+    res = integrity(store, answer)
+    assert res["n_claims"] == 1
+    assert res["grounded"] is True
+    assert {"quote": "stricter", "status": "not_evidence", "sections": []} in res["quotes"]
+
+
+def test_both_persona_placeholders_are_placeholder_tokens(store):
+    res = integrity(store, "Standard [cite R-a1b2c3]; ours [cite O-xxxxxx].")
+    assert res["placeholder_tokens"] == ["O-xxxxxx", "R-a1b2c3"]
+    assert set(res["fabricated_tokens"]) == {"O-xxxxxx", "R-a1b2c3"}
+
+
+def test_mistyped_restatement_of_a_resolving_id_stays_grounded(store):
+    real = _section_id(store, "ACME/patching")
+    typo = real[:-1] + ("0" if real[-1] != "0" else "1")
+    res = integrity(store, f"Our rule is {real}.\nAs {typo} says, we patch.")
+    assert res["grounded"] is True
+    assert res["fabricated_tokens"] == [typo]
+
+
+def _product():
+    import importlib
+
+    return importlib.import_module("scripts.compliance.ask_product_questions")
+
+
+def test_product_checks_count_a_quote_and_not_an_address(store):
+    product = _product()
+    spec = {"requires_side": "operator"}
+    quoted = {"answer": 'We say "evaluates every released patch within thirty days".'}
+    checks, _ = product._checks(store, spec, quoted)
+    assert checks["required_side_present"] and checks["cited_something"]
+    address_only = {"answer": "CIP-007-6 R2 Part 2.2 is covered by our procedure."}
+    checks, _ = product._checks(store, spec, address_only)
+    assert not checks["cited_something"] and not checks["required_side_present"]
+
+
+def test_obligation_attribution_inside_a_quote_is_not_an_attribution():
+    import importlib
+
+    conv = importlib.import_module("scripts.compliance.ask_conversational")
+    pattern = conv._STANDARD_ATTRIBUTION
+    quoted = '- "Updated CIP-004 and CIP-011 requirements for standards effective 1/1/2024"'
+    assert not pattern.search(conv.QUOTED_SPAN.sub(" ", quoted))
+    assert not pattern.search("CIP-011 requirements were updated")
+    assert pattern.search("CIP-011 requires an information protection program")

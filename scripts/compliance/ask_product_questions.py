@@ -46,10 +46,6 @@ sys.path.insert(0, str(REPO_ROOT / "scripts"))
 import httpx  # noqa: E402
 from compliance_acceptance import WorkspaceThread, router_base_url  # noqa: E402
 
-from portal.modules.compliance.core.answer_contract import (  # noqa: E402
-    AnswerContract,
-    build_contract,
-)
 from portal.modules.compliance.core.repository import Repository  # noqa: E402
 from scripts.compliance.truth import _local  # noqa: E402
 from scripts.compliance.truth.provenance import (  # noqa: E402
@@ -115,40 +111,54 @@ def _question_specs(ref: str) -> list[dict]:
     ]
 
 
-def _requirement_contract(repo, requirement: str) -> AnswerContract:
-    """The union contract over every Part of one requirement — this script
-    asks about the requirement as a whole (e.g. CIP-007-6 R2), not one Part,
-    so no single ``reading_material.render`` call covers the citations an
-    answer may use. Built the same way ``render`` builds its own: from the
-    population's own rows, never from a regex over the id."""
-    from portal.modules.compliance.core import reading_material
-    from portal.modules.compliance.core.cip_register import node_index
-    from portal.modules.compliance.core.reading_assembly import parse_ref
+def _checks(repo, spec: dict, record: dict) -> tuple[dict[str, bool], dict]:
+    """Citation-integrity checks for one answer, all from the ONE diagnostic
+    (``citation_integrity.integrity``): a quote of a section's own words or a
+    resolving id is a citation; a requirement address is not (it evidences no
+    side); a sub-threshold scare quote is not. These are mechanical
+    diagnostics — never a correctness verdict (READING_TRUTH_V1 P5).
 
-    parsed = parse_ref(requirement)
-    standard = parsed.standard if parsed else requirement
-    parts = sorted(
-        k for k in node_index() if k == requirement or k.startswith(f"{requirement} Part ")
-    )
-    if not parts:
-        parts = [requirement]
+    B0 (P6.0) measured the previous checks wrong both ways: ``required_side``
+    counted only section-id tokens scoped to the requirement's material, so an
+    answer quoting the operator's text failed it, while a bare requirement
+    address counted as a regulatory citation."""
+    from scripts.compliance.truth.citation_integrity import integrity
 
-    fixed = reading_material.fixed_body(repo, standard)
-    sections: list[dict] = []
-    addresses: dict[str, str] = {requirement: requirement}
-    for part_ref in parts:
-        material = reading_material.render(
-            repo, part_ref, fixed=fixed if "error" not in fixed else None
-        )
-        if "error" in material:
-            continue
-        part_contract: AnswerContract = material["contract"]
-        for section_id, token in part_contract.by_section_id.items():
-            sections.append(
-                {"section_id": section_id, "side": token.kind, "document_title": token.document}
-            )
-        addresses.update(part_contract.addresses)
-    return build_contract(requirement, requirement, sections, addresses=addresses)
+    answer = str(record.get("answer") or "")
+    result = integrity(repo, answer)
+    checks = {
+        "answered": bool(answer.strip())
+        and not record.get("turn_budget_exceeded")
+        and record.get("http_status") in (200, None),
+        "cited_something": any(line["grounded"] for line in result["lines"]),
+        "grounding_per_claim": result["grounded"],
+        "required_side_present": spec["requires_side"] in result["sides_evidenced"],
+        "no_fabricated_ids": not result["fabricated_tokens"],
+    }
+    return checks, result
+
+
+def _row(repo, standard: str, ref: str, spec: dict, record: dict) -> dict:
+    checks, result = _checks(repo, spec, record)
+    answer = str(record.get("answer") or "")
+    verdict = "PASS" if all(checks.values()) else "FAIL"
+    failed = [k for k, v in checks.items() if not v]
+    return {
+        "standard": standard,
+        "requirement": ref,
+        **{k: spec[k] for k in ("key", "requires_side", "has_stored_relation", "cross_check")},
+        "question": spec["question"],
+        "answer": answer,
+        "answer_chars": len(answer),
+        "wall_s": record.get("wall_s"),
+        "first_token_s": record.get("first_token_s"),
+        "citation_integrity": {k: v for k, v in result.items() if k != "lines"},
+        "pipeline_errors": record.get("pipeline_errors") or {},
+        "sides_cited": result["sides_evidenced"],
+        "checks": checks,
+        "verdict": verdict,
+        "reason": "all checks passed" if verdict == "PASS" else f"failed: {', '.join(failed)}",
+    }
 
 
 def _ask_one(
@@ -162,7 +172,6 @@ def _ask_one(
     out_dir: pathlib.Path,
     only: frozenset[str] = frozenset(),
 ) -> list[dict]:
-    contract = _requirement_contract(repo, ref)
     rows: list[dict] = []
     for spec in _question_specs(ref):
         if only and f"{standard}:{spec['key']}" not in only:
@@ -183,73 +192,57 @@ def _ask_one(
             )
             continue
 
-        answer = str(record.get("answer") or "")
         (out_dir / "transcripts" / f"{standard}__{spec['key']}.json").write_text(
             json.dumps(record, indent=2, default=str)
         )
-
-        cited = contract.cited(answer)
-        ids = cited["resolved"] + cited["unresolved"]
-        sides = set(cited["by_side"])
-        # LOAD_AND_CONVERSE_V1 §P5: grounding is per CLAIM, not per token — an
-        # answer whose every claim carries a resolving citation passes; a claim
-        # standing only on a citation that resolves to nothing fails. The
-        # mistyped-restatement case (CIP-007-6 unused_latitude) no longer voids
-        # a grounded answer, and the strict half is unchanged: an unresolved id
-        # with no resolving counterpart anywhere still fails, and no unresolved
-        # id is ever mapped to a near neighbour to make it resolve.
-        claims = contract.cited_claims(answer)
-        from scripts.compliance.truth.citation_integrity import integrity
-
-        integrity_result = integrity(repo, answer)
-
-        checks = {
-            "answered": bool(answer.strip())
-            and not record.get("turn_budget_exceeded")
-            and record.get("http_status") in (200, None),
-            "cited_something": bool(ids),
-            "grounding_per_claim": claims["grounded"],
-            "required_side_present": spec["requires_side"] in sides,
-        }
-        verdict = "PASS" if all(checks.values()) else "FAIL"
-        failed = [k for k, v in checks.items() if not v]
-
-        rows.append(
-            {
-                "standard": standard,
-                "requirement": ref,
-                **{
-                    k: spec[k]
-                    for k in ("key", "requires_side", "has_stored_relation", "cross_check")
-                },
-                "question": spec["question"],
-                "answer": answer,
-                "answer_chars": len(answer),
-                "wall_s": record.get("wall_s"),
-                "first_token_s": record.get("first_token_s"),
-                "cited_ids": ids,
-                "resolved_ids": cited["resolved"],
-                "unresolved_ids": cited["unresolved"],
-                "citation_integrity": {
-                    "fabricated_tokens": integrity_result["fabricated_tokens"],
-                    "sides_evidenced": integrity_result["sides_evidenced"],
-                    "ungrounded_lines": integrity_result["ungrounded_lines"],
-                },
-                "grounding": {
-                    "n_claims": claims["n_claims"],
-                    "n_ungrounded": claims["n_ungrounded"],
-                    "unsupported_lines": claims["unsupported_lines"],
-                },
-                "pipeline_errors": record.get("pipeline_errors") or {},
-                "sides_cited": sorted(sides),
-                "checks": checks,
-                "verdict": verdict,
-                "reason": "all checks passed"
-                if verdict == "PASS"
-                else f"failed: {', '.join(failed)}",
-            }
-        )
+        rows.append(_row(repo, standard, ref, spec, record))
     return rows
+
+
+def _rescore_receipt(out_dir: pathlib.Path, receipt_name: str, rescore_row) -> int:
+    """Recompute every row's mechanical checks from its saved transcript with
+    the CURRENT check code, in place. The as-run verdict and checks are kept on
+    each row (``as_run``), and the receipt records when, at which commit and
+    why it was rescored — the model is not asked again."""
+    import subprocess
+
+    path = out_dir / receipt_name
+    receipt = json.loads(path.read_text())
+    rows = []
+    for row in receipt["rows"]:
+        as_run = row.get("as_run") or {"verdict": row.get("verdict"), "checks": row.get("checks")}
+        new = rescore_row(row)
+        rows.append({**(new or row), "as_run": as_run})
+    receipt["rows"] = rows
+    receipt["n_passed"] = sum(1 for r in rows if r.get("verdict") == "PASS")
+    receipt["verdict"] = "PASS" if receipt["n_passed"] == len(rows) else "FAIL"
+    receipt["rescored"] = {
+        "utc": _dt.datetime.now(_dt.UTC).isoformat(),
+        "git_head": subprocess.run(
+            ["git", "rev-parse", "HEAD"], cwd=REPO_ROOT, capture_output=True, text=True, check=False
+        ).stdout.strip(),
+        "reason": "mechanical checks recomputed from saved transcripts with the current check code",
+    }
+    path.write_text(json.dumps(receipt, indent=2, default=str))
+    print(f"RESCORED {path}: {receipt['n_passed']}/{len(rows)} pass")
+    return 0
+
+
+def _rescore(out_dir: pathlib.Path) -> int:
+    repo = Repository()
+
+    def rescore_row(row: dict) -> dict | None:
+        transcript = out_dir / "transcripts" / f"{row['standard']}__{row['key']}.json"
+        if not transcript.is_file():
+            return None
+        spec = next(s for s in _question_specs(row["requirement"]) if s["key"] == row["key"])
+        record = json.loads(transcript.read_text())
+        return _row(repo, row["standard"], row["requirement"], spec, record)
+
+    try:
+        return _rescore_receipt(out_dir, "product_questions_family.json", rescore_row)
+    finally:
+        repo.close()
 
 
 def main() -> int:
@@ -261,11 +254,16 @@ def main() -> int:
     ap.add_argument(
         "--only", default="", help="comma-separated <standard>:<key> questions (e.g. one split)"
     )
+    ap.add_argument(
+        "--rescore", action="store_true", help="recompute checks for an existing --out-dir"
+    )
     args = ap.parse_args()
 
     _bad = _local.refusal(args.out_dir, "--out-dir")
     if _bad:
         raise SystemExit(_bad)
+    if args.rescore:
+        return _rescore(args.out_dir)
     (args.out_dir / "transcripts").mkdir(parents=True, exist_ok=True)
 
     try:

@@ -61,6 +61,7 @@ from portal.modules.compliance.core.answer_contract import (  # noqa: E402
     _mistyped_variant_of,
 )
 from portal.modules.compliance.core.candidate_links import classify_assertion  # noqa: E402
+from portal.modules.compliance.core.citation_by_quote import QUOTED_SPAN  # noqa: E402
 from portal.modules.compliance.core.repository import Repository  # noqa: E402
 from portal.modules.compliance.core.section_index import parent_section_id  # noqa: E402
 from scripts.compliance.truth import _local  # noqa: E402
@@ -87,8 +88,8 @@ _OBLIGATION_LANGUAGE = re.compile(
 #: is labelled truth-telling, not a violation.
 _STANDARD_ATTRIBUTION = re.compile(
     r"(the\s+(?:standard|requirement|requirements|regulation|regulations|rule|clause|part)\b[^.]{0,60}?"
-    r"\b(requires?|required|mandat\w+|obligat\w+|demands?|states?|says))"
-    r"|((?:CIP-\d{3}(?:-[A-Za-z0-9.]+)?(?:\s+R\d[\w.]*)?)\s+(?:requires?|mandat\w+|obligat\w+|demands?))"
+    r"\b(requires?|required|mandat\w+|obligat\w+|demands?|states?|says)\b)"
+    r"|((?:CIP-\d{3}(?:-[A-Za-z0-9.]+)?(?:\s+R\d[\w.]*)?)\s+(?:requires?|mandat\w+|obligat\w+|demands?)\b)"
     r"|(the\s+standard\s+(?:is\s+that|is\s+clear))",
     re.I,
 )
@@ -317,7 +318,12 @@ def obligation_normative_check(store: Repository, grounding: dict) -> dict:
     violations: list[dict] = []
     checked = 0
     for claim in grounding["claims"]:
-        if not claim["section_ids"] or not _STANDARD_ATTRIBUTION.search(claim["claim"]):
+        # the attribution must be the ANSWER's own words: a quotation that
+        # happens to contain "requirements" attributes nothing (B0 measured
+        # "Updated CIP-004 and CIP-011 requirements" quoted from a revision
+        # history failing here, with "requires?" matching inside "requirements")
+        own_words = QUOTED_SPAN.sub(" ", claim["claim"])
+        if not claim["section_ids"] or not _STANDARD_ATTRIBUTION.search(own_words):
             continue
         checked += 1
         if not any(normative.get(sid) for sid in claim["section_ids"]):
@@ -337,6 +343,51 @@ def obligation_normative_check(store: Repository, grounding: dict) -> dict:
         "violations": violations,
         "ok": not violations,
     }
+
+
+def _rescore_receipt(out_dir: pathlib.Path, receipt_name: str, rescore_row) -> int:
+    """Recompute every row's mechanical checks from its saved transcript with
+    the CURRENT check code, in place. The as-run verdict and checks are kept on
+    each row (``as_run``), and the receipt records when, at which commit and
+    why it was rescored — the model is not asked again."""
+    import subprocess
+
+    path = out_dir / receipt_name
+    receipt = json.loads(path.read_text())
+    rows = []
+    for row in receipt["rows"]:
+        as_run = row.get("as_run") or {"verdict": row.get("verdict"), "checks": row.get("checks")}
+        new = rescore_row(row)
+        rows.append({**(new or row), "as_run": as_run})
+    receipt["rows"] = rows
+    receipt["n_passed"] = sum(1 for r in rows if r.get("verdict") == "PASS")
+    receipt["verdict"] = "PASS" if receipt["n_passed"] == len(rows) else "FAIL"
+    receipt["rescored"] = {
+        "utc": _dt.datetime.now(_dt.UTC).isoformat(),
+        "git_head": subprocess.run(
+            ["git", "rev-parse", "HEAD"], cwd=REPO_ROOT, capture_output=True, text=True, check=False
+        ).stdout.strip(),
+        "reason": "mechanical checks recomputed from saved transcripts with the current check code",
+    }
+    path.write_text(json.dumps(receipt, indent=2, default=str))
+    print(f"RESCORED {path}: {receipt['n_passed']}/{len(rows)} pass")
+    return 0
+
+
+def _rescore(out_dir: pathlib.Path) -> int:
+    store = Repository()
+    by_key = {q["key"]: q for q in QUESTIONS}
+
+    def rescore_row(row: dict) -> dict | None:
+        transcript = out_dir / "transcripts" / f"{row['key']}.json"
+        if not transcript.is_file() or row["key"] not in by_key:
+            return None
+        return _judge(store, by_key[row["key"]], json.loads(transcript.read_text()))
+
+    try:
+        return _rescore_receipt(out_dir, "conversational_proof.json", rescore_row)
+    finally:
+        store.close()
 
 
 def _apply_overrides(rows: list[dict], path: pathlib.Path | None) -> None:
@@ -364,11 +415,15 @@ def main() -> int:
         help="JSON {key: {verdict, reading}} — the agent's absence-question "
         "judgments, folded into the final verdicts and recorded verbatim",
     )
+    ap.add_argument(
+        "--rescore", action="store_true", help="recompute checks for an existing --out-dir"
+    )
     args = ap.parse_args()
 
-    _bad = _local.refusal(args.out_dir, "--out-dir")
-    if _bad:
+    if _bad := _local.refusal(args.out_dir, "--out-dir"):
         raise SystemExit(_bad)
+    if args.rescore:
+        return _rescore(args.out_dir)
     (args.out_dir / "transcripts").mkdir(parents=True, exist_ok=True)
     try:
         router = router_base_url()

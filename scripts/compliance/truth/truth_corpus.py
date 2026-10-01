@@ -39,7 +39,8 @@ REPO = _local.REPO
 DEFAULT_ROOTS = (_local.RUNS,)
 RECEIPT_NAMES = ("conversational_proof.json", "product_questions_family.json")
 #: the persona's literal example token - a value no tool ever prints
-PLACEHOLDER = re.compile(r"\b[OR]-xxxxxx\b")  # the persona's placeholder since P1 scrubbed a1b2c3
+#: the persona's literal example tokens, both sides (R-a1b2c3 survived the P1 scrub)
+PLACEHOLDER = re.compile(r"\b(?:[OR]-xxxxxx|[OR]-a1b2c3)\b")
 QUOTE = re.compile(r'"[^"\n]{2,}?"|\u201c[^\u201c\u201d\n]{2,}?\u201d')
 
 

@@ -41,7 +41,10 @@ import sys
 from typing import Any
 
 MIN_QUOTE_WORDS = 4
-_PLACEHOLDER = re.compile(r"\b[OR]-xxxxxx\b", re.I)
+#: the persona's literal example tokens (both sides): copying one is never a
+#: citation. ``R-a1b2c3`` survived P1's scrub of the operator-side example and
+#: B0 measured it copied into answers.
+_PLACEHOLDER = re.compile(r"\b(?:[OR]-xxxxxx|[OR]-a1b2c3)\b", re.I)
 
 __all__ = ["integrity", "MIN_QUOTE_WORDS", "resolve_token"]
 
@@ -102,23 +105,25 @@ def integrity(store: Any, answer: str, *, min_quote_words: int = MIN_QUOTE_WORDS
     token_records: list[dict] = []
     fabricated: list[str] = []
     sides: set[str] = set()
-    ungrounded: list[str] = []
     lines: list[dict] = []
     for raw_line in answer.splitlines():
         measured = _measure_line(store, raw_line, min_quote_words)
         if measured is None:
             continue
         quote_records.extend(measured["quotes"])
+        if not measured["citing"]:
+            continue
         token_records.extend(measured["tokens"])
         fabricated.extend(measured["fabricated"])
         sides.update(measured["sides"])
-        if not measured["grounded"]:
-            ungrounded.append(measured["claim"])
         lines.append(measured)
+    _forgive_mistyped(lines)
+    ungrounded = [line["claim"] for line in lines if not line["grounded"]]
     return {
         "quotes": quote_records,
         "tokens": token_records,
         "fabricated_tokens": sorted(set(fabricated)),
+        "placeholder_tokens": sorted({t for t in fabricated if _PLACEHOLDER.fullmatch(t)}),
         "sides_evidenced": sorted(sides),
         "ungrounded_lines": ungrounded,
         "n_claims": len(lines),
@@ -127,10 +132,47 @@ def integrity(store: Any, answer: str, *, min_quote_words: int = MIN_QUOTE_WORDS
     }
 
 
+def _token_record(store: Any, token: str) -> dict:
+    entry = resolve_token(store, token)
+    if entry is None:
+        return {"token": token, "resolved": False}
+    return {"token": token, "resolved": True, "section_id": entry.get("section_id")}
+
+
+def _quote_record(store: Any, quote: str, min_quote_words: int) -> dict:
+    from portal.modules.compliance.core.citation_by_quote import resolve_quote
+
+    if len(quote.split()) < min_quote_words:
+        return {"quote": quote, "status": "not_evidence", "sections": []}
+    hits = resolve_quote(store, quote)
+    return {"quote": quote, "status": "resolved" if hits else "unresolved", "sections": hits or []}
+
+
+def _forgive_mistyped(lines: list[dict]) -> None:
+    """A line whose only support is an id that is a small-edit copy of an id
+    that DID resolve elsewhere in the answer restates present support, so it
+    stays grounded (the token itself stays reported as fabricated, as typed).
+    Moved from ``ask_conversational._grounding`` so all three harnesses apply
+    the same rule."""
+    from portal.modules.compliance.core.answer_contract import _mistyped_variant_of
+
+    resolving = [t["token"] for line in lines for t in line["tokens"] if t["resolved"]]
+    for line in lines:
+        if not line["grounded"]:
+            unresolved = [t["token"] for t in line["tokens"] if not t["resolved"]]
+            line["grounded"] = any(_mistyped_variant_of(raw, resolving) for raw in unresolved)
+
+
 def _measure_line(store: Any, raw_line: str, min_quote_words: int) -> dict | None:
-    """One citing line's integrity, or None when the line cites nothing."""
+    """One line's integrity, or None when it carries no token and no quote.
+
+    A line whose only quoted spans are under ``min_quote_words`` and which
+    carries no token is NOT a citing line (``citing: False``): its spans are
+    reported as ``not_evidence`` but it is neither a claim nor ungrounded — a
+    scare-quoted term ("stricter", "need to know") cites nothing, so it cannot
+    fail to ground. B0 measured 9 lines failed on exactly that."""
     from portal.modules.compliance.core.answer_contract import SECTION_ID_PATTERN
-    from portal.modules.compliance.core.citation_by_quote import quoted_spans, resolve_quote
+    from portal.modules.compliance.core.citation_by_quote import quoted_spans
 
     stripped = raw_line.strip()
     if not stripped:
@@ -138,47 +180,29 @@ def _measure_line(store: Any, raw_line: str, min_quote_words: int) -> dict | Non
     tokens_here = re.findall(rf"\b{SECTION_ID_PATTERN}\b", stripped, re.I)
     tokens_here += re.findall(r"\b[OR]-[0-9a-f]{6}\b", stripped, re.I)
     tokens_here += _PLACEHOLDER.findall(stripped)  # the placeholder always counts as fabricated
+    tokens_here = list(dict.fromkeys(tokens_here))
     quotes_here = quoted_spans(stripped)
     if not tokens_here and not quotes_here:
         return None
+    if not tokens_here and all(len(q.split()) < min_quote_words for q in quotes_here):
+        return {
+            "claim": stripped,
+            "citing": False,
+            "quotes": [{"quote": q, "status": "not_evidence", "sections": []} for q in quotes_here],
+        }
 
-    line_ids: list[str] = []
-    line_sides: set[str] = set()
-    resolved_tokens: list[str] = []
-    tokens: list[dict] = []
-    fabricated: list[str] = []
-    for token in tokens_here:
-        entry = resolve_token(store, token)
-        if entry is not None:
-            resolved_tokens.append(token)
-            line_ids.append(str(entry.get("section_id")))
-            side = _section_side(store, str(entry.get("section_id")))
-            if side:
-                line_sides.add(side)
-            tokens.append({"token": token, "resolved": True, "section_id": entry.get("section_id")})
-        else:
-            fabricated.append(token)
-            tokens.append({"token": token, "resolved": False})
-
-    line_quotes: list[dict] = []
-    for quote in quotes_here:
-        if len(quote.split()) < min_quote_words:
-            line_quotes.append({"quote": quote, "status": "not_evidence", "sections": []})
-            continue
-        hits = resolve_quote(store, quote)
-        if hits:
-            line_quotes.append({"quote": quote, "status": "resolved", "sections": hits})
-            line_ids.extend(hits)
-            for sid in hits:
-                side = _section_side(store, sid)
-                if side:
-                    line_sides.add(side)
-        else:
-            line_quotes.append({"quote": quote, "status": "unresolved", "sections": []})
+    tokens = [_token_record(store, token) for token in tokens_here]
+    line_quotes = [_quote_record(store, quote, min_quote_words) for quote in quotes_here]
+    line_ids = [str(t["section_id"]) for t in tokens if t["resolved"]]
+    line_ids += [sid for q in line_quotes for sid in q["sections"]]
+    line_sides = {side for sid in line_ids if (side := _section_side(store, sid))}
+    resolved_tokens = [t["token"] for t in tokens if t["resolved"]]
+    fabricated = [t["token"] for t in tokens if not t["resolved"]]
 
     grounded = bool(line_ids)
     return {
         "claim": stripped,
+        "citing": True,
         "resolved_tokens": sorted(set(resolved_tokens)),
         "quotes": line_quotes,
         "tokens": tokens,
