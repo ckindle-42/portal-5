@@ -160,10 +160,13 @@ def _ask_one(
     ref: str,
     timeout: float,
     out_dir: pathlib.Path,
+    only: frozenset[str] = frozenset(),
 ) -> list[dict]:
     contract = _requirement_contract(repo, ref)
     rows: list[dict] = []
     for spec in _question_specs(ref):
+        if only and f"{standard}:{spec['key']}" not in only:
+            continue
         thread = WorkspaceThread(session, workspace, router)
         try:
             record = thread.turn(spec["question"], timeout=timeout)
@@ -255,6 +258,9 @@ def main() -> int:
     ap.add_argument("--standards", default="CIP-007-6", help="comma-separated standard ids")
     ap.add_argument("--out-dir", required=True, type=pathlib.Path)
     ap.add_argument("--timeout", type=float, default=1800.0)
+    ap.add_argument(
+        "--only", default="", help="comma-separated <standard>:<key> questions (e.g. one split)"
+    )
     args = ap.parse_args()
 
     _bad = _local.refusal(args.out_dir, "--out-dir")
@@ -291,6 +297,7 @@ def main() -> int:
                         ref,
                         args.timeout,
                         args.out_dir,
+                        frozenset(q.strip() for q in args.only.split(",") if q.strip()),
                     )
                 )
     finally:
