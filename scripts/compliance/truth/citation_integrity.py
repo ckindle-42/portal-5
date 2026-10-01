@@ -40,7 +40,23 @@ import re
 import sys
 from typing import Any
 
-MIN_QUOTE_WORDS = 4
+#: calibrated on B0 (P6.0 step 2, predeclared rule): the smallest N in
+#: {1,2,3,4,5,6,8} at which <=5% of still-resolving spans are scare/question
+#: quotes — N=2 gives 2.2% (N=1: 7.7%); N=4 dropped 18 genuine short verbatim
+#: quotes, N=2 drops 1. Labels: …/reading_truth/p6/calibration/labels.json.
+MIN_QUOTE_WORDS = 2
+#: fold extensions adopted by the same calibration: each resolves only
+#: capture_artifact spans and no paraphrase, splice or fabricated span —
+#: markdown emphasis the model wraps inside a quote, and PDF page furniture
+#: the extractor left inside a section ("PRIVATE – FOR INTERNAL USE ONLY Page
+#: 9 of 28"). Bullet-glyph and section-boundary folds resolved none and were
+#: not adopted. These live in the diagnostic only: the store-write verbatim
+#: check is unchanged.
+_MARKDOWN_EMPHASIS = re.compile(r"\*+")
+_PAGE_FURNITURE = re.compile(
+    r"private\s*[-\u2013\u2014]\s*for internal use only\s*page \d+ of \d+", re.I
+)
+_FURNITURE_INDEX_ATTR = "_citation_integrity_furniture_index"
 #: the persona's literal example tokens (both sides): copying one is never a
 #: citation. ``R-a1b2c3`` survived P1's scrub of the operator-side example and
 #: B0 measured it copied into answers.
@@ -163,7 +179,31 @@ def _quote_record(store: Any, quote: str, min_quote_words: int, question_fold: s
     if len(quote.split()) < min_quote_words:
         return {"quote": quote, "status": "not_evidence", "sections": []}
     hits = resolve_quote(store, quote)
-    return {"quote": quote, "status": "resolved" if hits else "unresolved", "sections": hits or []}
+    if hits:
+        return {"quote": quote, "status": "resolved", "sections": hits}
+    stripped = _MARKDOWN_EMPHASIS.sub("", quote)
+    hits = resolve_quote(store, stripped) if stripped != quote else []
+    if hits:
+        return {"quote": quote, "status": "resolved", "sections": hits, "fold": "markdown"}
+    hits = _resolve_without_furniture(store, stripped)
+    if hits:
+        return {"quote": quote, "status": "resolved", "sections": hits, "fold": "page_furniture"}
+    return {"quote": quote, "status": "unresolved", "sections": []}
+
+
+def _resolve_without_furniture(store: Any, quote: str) -> list[str]:
+    """Sections whose text, with page furniture removed, holds the folded quote."""
+    from portal.modules.compliance.core.citation_by_quote import _fold, _folded_index
+
+    index = getattr(store, _FURNITURE_INDEX_ATTR, None)
+    if index is None:
+        index = {}
+        for sid, (text, _doc) in _folded_index(store).items():
+            if _PAGE_FURNITURE.search(text):
+                index[sid] = " ".join(_PAGE_FURNITURE.sub(" ", text).split())
+        setattr(store, _FURNITURE_INDEX_ATTR, index)
+    folded = " ".join(_fold(quote).split())
+    return [sid for sid, text in index.items() if folded and folded in text]
 
 
 def _forgive_mistyped(lines: list[dict]) -> None:

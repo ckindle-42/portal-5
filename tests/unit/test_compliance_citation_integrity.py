@@ -106,10 +106,21 @@ def test_address_only_mention_evidences_no_side(store):
 
 def test_sub_threshold_scare_quote_is_not_evidence(store):
     sid = _section_id(store, "NERC/CIP-007-6")
-    res = integrity(store, f'A "35 calendar days" mention, and {sid} resolves.')
+    res = integrity(store, f'A "patches" mention, and {sid} resolves.')
     quote = res["lines"][0]["quotes"][0]
     assert quote["status"] == "not_evidence"
     assert len(quote["quote"].split()) < MIN_QUOTE_WORDS
+
+
+def test_markdown_emphasis_inside_a_quote_is_folded(store):
+    res = integrity(store, 'We say "evaluates **every released patch** within thirty days".')
+    assert res["quotes"][0]["status"] == "resolved"
+    assert res["quotes"][0]["fold"] == "markdown"
+
+
+def test_markdown_fold_never_repairs_a_changed_word(store):
+    res = integrity(store, 'We say "evaluates **every released patchs** within thirty days".')
+    assert res["quotes"][0]["status"] == "unresolved"
 
 
 def test_fabricated_id_is_reported_among_resolving_ones(store):
@@ -161,8 +172,8 @@ def test_harness_parity_imports_integrity(rel):
     assert "integrity" in imported
 
 
-def test_min_quote_words_is_a_calibration_value():
-    assert MIN_QUOTE_WORDS in (1, 2, 3, 4, 5, 6, 8)
+def test_min_quote_words_is_the_b0_calibrated_value():
+    assert MIN_QUOTE_WORDS == 2
 
 
 # ── B0 (P6.0) check corrections ──────────────────────────────────────────────
