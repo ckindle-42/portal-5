@@ -1,0 +1,15 @@
+# Engine A/B: same seats, same models, only the oMLX version differs (0.6.4 vs 0.7.0).
+# Run once per version with a distinct --campaign-id; WFE_ENGINE=pipeline.
+workloads:
+  auto-coding::laguna:
+    home: coding
+    discovery: [compliance_agentic]
+    arms:
+      incumbent: Laguna-XS-2.1-4bit
+      challengers: []
+  auto-coding:
+    home: coding
+    discovery: [compliance_agentic]
+    arms:
+      incumbent: Qwen3-Coder-30B-A3B-Instruct-4bit
+      challengers: []

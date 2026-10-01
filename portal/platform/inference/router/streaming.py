@@ -213,6 +213,12 @@ def _thinking_enabled(body: dict[str, Any]) -> bool:
     return not (isinstance(options, dict) and options.get("think") is False)
 
 
+def _indexed_tool_calls(tool_calls: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Streamed tool_call deltas must carry ``index``: an OpenAI-style client
+    defaults a missing one to 0 and merges every call in the turn into one."""
+    return [{**tc, "index": tc.get("index", i)} for i, tc in enumerate(tool_calls)]
+
+
 def _completion_finish_chunk(reason: str) -> bytes:
     return f"data: {json.dumps({'choices': [{'delta': {}, 'finish_reason': reason}]})}\n\n".encode()
 
@@ -240,7 +246,7 @@ def _json_completion_to_sse(
         yield f"data: {json.dumps({'choices': [{'delta': delta}]})}\n\n".encode()
     tool_calls = message.get("tool_calls")
     if tool_calls:
-        yield f"data: {json.dumps({'choices': [{'delta': {'tool_calls': tool_calls}}]})}\n\n".encode()
+        yield f"data: {json.dumps({'choices': [{'delta': {'tool_calls': _indexed_tool_calls(tool_calls)}}]})}\n\n".encode()
     finish_reason = choice.get("finish_reason", "stop")
     if not visible.strip() and not tool_calls:
         yield _content_chunk(str(data.get("id", "chatcmpl")), workspace_id, NO_ANSWER_MESSAGE)
@@ -861,7 +867,7 @@ async def _tool_loop_frames(
                     "choices": [
                         {
                             "index": 0,
-                            "delta": {"tool_calls": all_tool_calls},
+                            "delta": {"tool_calls": _indexed_tool_calls(all_tool_calls)},
                             "finish_reason": None,
                         }
                     ],

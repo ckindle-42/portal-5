@@ -562,3 +562,34 @@ class TestStreamContractRegression:
         assert reasoning == "Let me think..."
         assert payloads[-1]["choices"][0]["finish_reason"] == "length"
         assert "Backend connection error" not in _decode_chunks(chunks)
+
+
+# ── tool_call deltas carry an index ─────────────────────────────────────────
+
+
+def test_indexed_tool_calls_numbers_each_call():
+    from portal.platform.inference.router import streaming
+
+    calls = [{"id": "a", "function": {"name": "f"}}, {"id": "b", "function": {"name": "g"}}]
+    assert [c["index"] for c in streaming._indexed_tool_calls(calls)] == [0, 1]
+    assert "index" not in calls[0]
+
+
+def test_json_to_sse_fallback_indexes_parallel_tool_calls():
+    from portal.platform.inference.router import streaming
+
+    calls = [
+        {"id": "a", "type": "function", "function": {"name": "file_write", "arguments": "{}"}},
+        {"id": "b", "type": "function", "function": {"name": "pytest_run", "arguments": "{}"}},
+    ]
+    frames = streaming._json_completion_to_sse(
+        {"choices": [{"message": {"role": "assistant", "tool_calls": calls}}]}, "ws"
+    )
+    deltas = [json.loads(f.decode().split("data: ", 1)[1]) for f in frames if b"[DONE]" not in f]
+    emitted = [
+        tc
+        for d in deltas
+        for ch in d.get("choices", [])
+        for tc in ch.get("delta", {}).get("tool_calls", [])
+    ]
+    assert [tc["index"] for tc in emitted] == [0, 1]
