@@ -1,0 +1,27 @@
+# Engine A/B: same Ollama seats/models, only the Ollama version differs (0.34.4 vs 0.35.0).
+# Run once per version with a distinct --campaign-id; WFE_ENGINE=pipeline.
+workloads:
+  auto-coding::fast-repair:
+    home: coding
+    discovery: []
+    arms:
+      incumbent: kat-coder-v2.5-dev:Q4_K_M-ctx32k
+      challengers: []
+  auto-coding::uncensored:
+    home: coding
+    discovery: []
+    arms:
+      incumbent: portal5/omnicoder2-9b:q4_k_m-ctx256k
+      challengers: []
+  tools-specialist::fast:
+    home: coding
+    discovery: []
+    arms:
+      incumbent: gemma4:e4b-it-qat-ctx8k
+      challengers: []
+  auto-research:
+    home: research
+    discovery: []
+    arms:
+      incumbent: hf.co/sjakek/Nex-N2-mini-GGUF:UD-Q4_K_M-ctx16k
+      challengers: []
