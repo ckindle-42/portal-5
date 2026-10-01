@@ -1,0 +1,8 @@
+# Compliance seat on the upgraded engines (Ollama 0.35.0 / oMLX 0.7.0), through the pipeline. The pipeline serves it from oMLX (Lightning MTP).
+workloads:
+  auto-compliance:
+    home: compliance_agentic
+    discovery: []
+    arms:
+      incumbent: Qwen3.8-27B-oQ4e-mtp
+      challengers: []

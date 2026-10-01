@@ -72,6 +72,42 @@ Native (`omlx.patches.mlx_lm_mtp`, 93–98% draft acceptance); no MTPLX side-car
 nemotron, reasoning::deep, documents, research, data, vision, general-uncensored). `auto-compliance`
 is served by `Qwen3.8-27B-oQ4e-mtp` and passed its WFE smoke.
 
+## Follow-up verification (2026-10-01, later run)
+
+**Memory tier, REAP-288, stack down (re-measured).** Short prompt: `balanced` loads and answers.
+A 14.3K-token prefill under `balanced` is aborted mid-prefill (usage 44.8 GB vs hard watermark
+44.7 GB, dynamic ceiling 47.1 GB). Under `aggressive` a 22.4K-token prefill is served (101.7 s).
+Live ceilings with the stack up and nothing loaded: safe 34.1, balanced 41.7, aggressive 51.5 GiB
+(Metal cap 56.1, so `aggressive` stays under it). Decision unchanged: `balanced` daily, `aggressive`
+only for the REAP session. The regular oMLX models (16-18 GB) never hit a guard refusal in any
+0.7.0 campaign.
+
+**Concurrency (Nemotron-3.5-Lightning, 200-token completions, direct to oMLX).** Aggregate
+tok/s at 1/2/4/8 requests in flight: 78.5 / 107.9 / 144.5 / 158.0. Nemotron's Lightning MTP is
+single-request only (log: "MTP inactive for 2-row batch"), so multi-request scaling there is plain
+batching. The live `max_concurrent_requests` change (`apply_max_concurrent_requests`) exists in
+0.7.0 but was not exercised (admin API needs auth); production keeps `max_concurrent_requests: 8`.
+
+**MTPLX side-car: not needed.** No MTPLX process runs; the `-oQ4e-mtp` checkpoints are served by
+oMLX's native Lightning MTP. Remaining "MTPLX" mentions are historical comments and the
+checkpoint format name.
+
+**Compliance seats (through the pipeline, `auto-compliance` served by Qwen3.8-27B-oQ4e-mtp,
+22 rows = 11 tasks x 2).**
+
+| oMLX | PASS | BUDGET_EXHAUSTED | FAIL | REFUSED | HARNESS_ERROR | wall |
+|---|---|---|---|---|---|---|
+| 0.6.4 | 13 | 5 | 1 | 3 | 0 | 3152 s |
+| 0.7.0 | 12 | 8 | 1 | 0 | 1 | 1209 s |
+
+Equivalent within noise at n=2, and 2.6x faster wall time on 0.7.0. The one HARNESS_ERROR is the
+harness's own contamination check on `comp-p6j-14` (answer key in tool output), a task issue.
+`comp-reading-contract-01` exhausts its budget on both versions. Plan:
+`tests/wfe/plans/engine_ab_compliance.yaml`.
+
+`compliance-reading` (Ollama gemma4), `compliance-mapping` and `auto-compliance` each answered a
+CIP-007-6 R2 control question correctly (35 calendar days, Part 2.2) with no leaked thinking.
+
 ## Not tested
 
-Open WebUI itself, and the long compliance_agentic suite on the new engines.
+Open WebUI itself, and the live `max_concurrent_requests` change.
