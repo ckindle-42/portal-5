@@ -58,12 +58,14 @@ REPO = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(REPO))
 
 from portal.platform.inference.ollama_native import OllamaNativeTransport  # noqa: E402
+from portal.platform.inference.omlx_auth import omlx_headers  # noqa: E402
 from portal.platform.inference.router import validation  # noqa: E402
 
 # Host-side URLs. Deliberately NOT OLLAMA_URL/OMLX_URL: .env sets those to the
 # container-facing host.docker.internal, which a host process cannot resolve.
 OLLAMA = os.environ.get("ENGINE_CONTRACT_OLLAMA_URL", "http://localhost:11434").rstrip("/")
 OMLX = os.environ.get("ENGINE_CONTRACT_OMLX_URL", "http://localhost:8085").rstrip("/")
+_OMLX_AUTH = omlx_headers()
 STATE = Path.home() / ".portal5" / "engine_contract.json"
 PROBES = REPO / "config" / "engine_contract.yaml"
 MAX_AGE_DAYS = 7
@@ -360,7 +362,7 @@ def _omlx_version() -> str:
 
 
 async def check_omlx(models: dict[str, str]) -> list[Result]:
-    async with httpx.AsyncClient(timeout=600) as client:
+    async with httpx.AsyncClient(timeout=600, headers=_OMLX_AUTH) as client:
         served = {m["id"] for m in (await client.get(f"{OMLX}/v1/models")).json()["data"]}
         missing = sorted(set(models.values()) - served)
         if missing:

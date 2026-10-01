@@ -22,6 +22,8 @@ from typing import Any
 
 import httpx
 
+from portal.platform.inference.omlx_auth import OmlxKeyAuth
+
 from ._config import BenchConfig
 from ._data import (
     _LAB_ADMIN_PASS,
@@ -2624,7 +2626,9 @@ def _call_via_pipeline(
 
     try:
         with (
-            httpx.Client(timeout=httpx.Timeout(CHAIN_MODEL_TURN_TIMEOUT_S, connect=5.0)) as _client,
+            httpx.Client(
+                auth=OmlxKeyAuth(), timeout=httpx.Timeout(CHAIN_MODEL_TURN_TIMEOUT_S, connect=5.0)
+            ) as _client,
             _client.stream(
                 "POST",
                 f"{PIPELINE_URL}/v1/chat/completions",
@@ -2826,7 +2830,9 @@ def _run_model_turn(
         _parts: list[str] = []
         _tcbufs: dict[int, dict[str, Any]] = {}
         with (
-            httpx.Client(timeout=httpx.Timeout(REQUEST_TIMEOUT, connect=5.0)) as _client,
+            httpx.Client(
+                auth=OmlxKeyAuth(), timeout=httpx.Timeout(REQUEST_TIMEOUT, connect=5.0)
+            ) as _client,
             _client.stream(
                 "POST",
                 f"{ollama_url}/v1/chat/completions",
@@ -2880,7 +2886,9 @@ def _run_model_turn(
         _fallback_max_tokens = 2000
         if not _tcs:
             try:
-                with httpx.Client(timeout=httpx.Timeout(REQUEST_TIMEOUT, connect=5.0)) as _nc:
+                with httpx.Client(
+                    auth=OmlxKeyAuth(), timeout=httpx.Timeout(REQUEST_TIMEOUT, connect=5.0)
+                ) as _nc:
                     _nr = _nc.post(
                         f"{ollama_url}/v1/chat/completions",
                         json=_apply_candidate_sampling(

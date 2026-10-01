@@ -9,7 +9,7 @@ from __future__ import annotations
 import time
 from typing import Any
 
-import httpx
+from portal.platform.inference.omlx_auth import omlx_post
 
 from ._config import BenchConfig
 from ._data import PIPELINE_API_KEY, PIPELINE_URL, resolve_pipeline_model
@@ -33,7 +33,7 @@ def _refusal_chat(
     from ._direct_engine_diagnostic import direct_engine_diagnostic_enabled
 
     if direct_engine_diagnostic_enabled("REFUSAL_DIRECT_OLLAMA"):
-        resp = httpx.post(
+        resp = omlx_post(
             f"{ollama_url}/api/chat",
             json={
                 "model": model,
@@ -49,7 +49,7 @@ def _refusal_chat(
     headers = {"Content-Type": "application/json"}
     if PIPELINE_API_KEY:
         headers["Authorization"] = f"Bearer {PIPELINE_API_KEY}"
-    resp = httpx.post(
+    resp = omlx_post(
         f"{PIPELINE_URL}/v1/chat/completions",
         headers=headers,
         json={
@@ -164,7 +164,7 @@ def _audit_tools_probe(model: str, dry_run: bool = False, engine: str = "ollama"
 
     try:
         if engine == "omlx":
-            resp = httpx.post(
+            resp = omlx_post(
                 f"{OMLX_URL}/v1/chat/completions",
                 json={
                     "model": model,
@@ -177,7 +177,7 @@ def _audit_tools_probe(model: str, dry_run: bool = False, engine: str = "ollama"
             resp.raise_for_status()
             raw_msg = (resp.json().get("choices") or [{}])[0].get("message", {})
         else:
-            resp = httpx.post(
+            resp = omlx_post(
                 f"{OLLAMA_URL}/api/chat",
                 json={
                     "model": model,

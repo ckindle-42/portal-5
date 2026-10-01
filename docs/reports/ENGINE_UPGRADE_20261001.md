@@ -114,8 +114,27 @@ Signed in with the `.env` admin account (279 models visible) and streamed three 
 through Open WebUI -> pipeline -> engine: `auto-coding` (9.0 s), `compliance-reading` (16.9 s,
 correct 35-day answer with quoted sources), `auto-general-uncensored` (14.0 s). No leaked thinking.
 
+## oMLX API key (pipeline wired)
+
+oMLX now requires a key (`auth.api_key` in `~/.omlx/settings.json`, mirrored as `OMLX_API_KEY` in
+`.env`; `.env.example` documents it, empty = keyless). Unauthenticated `/v1/models` returns 401;
+`/health` stays open. `portal/platform/inference/omlx_auth.py` adds the Bearer token to requests
+bound for oMLX only (never Ollama or the MCP servers): the pipeline's shared client, the health
+client and backend introspection, the host-side security chain, the WFE `omlx` engine mode, the
+contract check, `check_model_bindings`, the watchdog, `launch.sh status` and `coder-reap288`
+(including the generated opencode config). Compose passes `OMLX_API_KEY` to the pipeline container.
+
+Verified with the key enforced: 12/12 backends healthy, `smoke_stream.sh` PASS, both contract
+checks pass, Qwen3-Coder and Laguna smokes PASS through the pipeline, `auto-compliance` and
+`auto-security::redteam` answer, status row healthy, watchdog probe authenticated.
+
+**Live concurrency change (now tested).** Admin login works with the key. `POST
+/admin/api/global-settings {max_concurrent_requests: 4}` applied at runtime in 0.01 s: same
+process, same resident model (22.9 GB), no unload. 8 requests in flight at limit 4 vs 8 gave
+77-148 tok/s with no consistent difference (the first runs after a change are the slow ones), so
+production stays at 8; the setting was restored to 8 and persisted.
+
 ## Not tested
 
-The live `max_concurrent_requests` change. oMLX has no API key configured, so its admin login
-returns 400 by design; exercising it would mean setting a key (forcing auth on every client) or
-minting a session from the local secret, neither of which was warranted for a read-only check.
+Bench scripts under `tests/benchmarks/` and the UAT harness still call oMLX directly without the
+key; they need `OMLX_API_KEY` support before their next direct-oMLX run.

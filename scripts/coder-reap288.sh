@@ -49,6 +49,9 @@ cd "$REPO"
 OMLX_HOST="${OMLX_HOST:-127.0.0.1}"
 OMLX_PORT="${OMLX_PORT:-8085}"
 OMLX_BASE="http://${OMLX_HOST}:${OMLX_PORT}"
+# oMLX API key (set in .env as OMLX_API_KEY); empty means a keyless oMLX.
+OMLX_API_KEY="${OMLX_API_KEY:-$(grep -m1 '^OMLX_API_KEY=' "$REPO/.env" 2>/dev/null | cut -d= -f2-)}"
+OMLX_AUTH=(${OMLX_API_KEY:+-H "Authorization: Bearer $OMLX_API_KEY"})
 OLLAMA_URL="${OLLAMA_URL:-http://127.0.0.1:11434}"
 MODEL_ID="Qwen3.8-Flash-Next-REAP-288-MLX-4bit"
 OPENCODE="${OPENCODE_BIN:-$HOME/.opencode/bin/opencode}"
@@ -73,9 +76,9 @@ die() { printf '\033[1;31m[reap288] BLOCKED:\033[0m %s\n' "$*" >&2; exit 1; }
 
 # ── Preconditions ─────────────────────────────────────────────────────────────
 command -v curl >/dev/null || die "curl not on PATH"
-curl -sf "$OMLX_BASE/v1/models" >/dev/null 2>&1 \
+curl -sf ${OMLX_AUTH[@]+"${OMLX_AUTH[@]}"} "$OMLX_BASE/v1/models" >/dev/null 2>&1 \
   || die "oMLX not answering on $OMLX_BASE — check 'brew services list' / omlx-watchdog.log"
-curl -sf "$OMLX_BASE/v1/models" | grep -q "$MODEL_ID" \
+curl -sf ${OMLX_AUTH[@]+"${OMLX_AUTH[@]}"} "$OMLX_BASE/v1/models" | grep -q "$MODEL_ID" \
   || die "$MODEL_ID not in oMLX /v1/models — is it under /Volumes/data01/omlx-models? 'omlx restart' to rescan"
 if [ "$WARM_ONLY" -eq 0 ]; then
   [ -x "$OPENCODE" ] || die "opencode not found at $OPENCODE (set OPENCODE_BIN=)"
@@ -128,7 +131,7 @@ for _ in $(seq 1 30); do curl -sf "$OMLX_BASE/health" >/dev/null && break; sleep
 # ── 3. warm-load REAP-288 ────────────────────────────────────────────────────
 say "Warm-loading $MODEL_ID (first load ~22s)…"
 code="$(curl -s -o "$CONF_DIR.warm.json" -w '%{http_code}' --max-time 300 \
-  "$OMLX_BASE/v1/chat/completions" -H 'Content-Type: application/json' \
+  ${OMLX_AUTH[@]+"${OMLX_AUTH[@]}"} "$OMLX_BASE/v1/chat/completions" -H 'Content-Type: application/json' \
   -d "{\"model\":\"$MODEL_ID\",\"messages\":[{\"role\":\"user\",\"content\":\"ready\"}],\"max_tokens\":8,\"temperature\":0}" 2>/dev/null || true)"
 mkdir -p "$CONF_DIR"
 if [ "$code" != "200" ]; then
@@ -148,7 +151,7 @@ cat > "$CONF" <<EOF
     "omlx": {
       "name": "oMLX (local, direct)",
       "api": "openai",
-      "options": { "baseURL": "$OMLX_BASE/v1", "apiKey": "omlx-local" },
+      "options": { "baseURL": "$OMLX_BASE/v1", "apiKey": "${OMLX_API_KEY:-omlx-local}" },
       "models": { "$MODEL_ID": { "name": "REAP-288 (Qwen3.8-Flash-Next, oMLX direct)" } }
     }
   },

@@ -42,6 +42,9 @@ import httpx
 import yaml
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(REPO_ROOT))
+
+from portal.platform.inference.omlx_auth import omlx_headers  # noqa: E402
 
 
 def live_model_tags(ollama_url: str) -> set[str]:
@@ -54,7 +57,11 @@ def live_omlx_models(omlx_url: str) -> set[str]:
     """oMLX-served model ids (:8085/v1/models). Empty set if oMLX is unreachable —
     a bench box may run Ollama only, and an omlx-* binding is not an error there."""
     try:
-        resp = httpx.get(f"{omlx_url}/v1/models", timeout=10)
+        resp = httpx.get(
+            f"{omlx_url}/v1/models",
+            headers=omlx_headers(),
+            timeout=10,
+        )
         resp.raise_for_status()
         return {m["id"] for m in resp.json().get("data", [])}
     except httpx.HTTPError:

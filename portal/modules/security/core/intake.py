@@ -10,6 +10,8 @@ from typing import Any
 
 import httpx
 
+from portal.platform.inference.omlx_auth import OmlxKeyAuth
+
 from .exec_chain import OLLAMA_URL, OMLX_URL
 from .refusal import _audit_tools_probe
 
@@ -29,7 +31,9 @@ def _pull_model(model: str, ollama_url: str = OLLAMA_URL) -> dict[str, Any]:
     print(f"  pulling  {model} ...", end="", flush=True)
     try:
         with (
-            httpx.Client(timeout=httpx.Timeout(PULL_TIMEOUT_S, connect=10.0)) as _c,
+            httpx.Client(
+                auth=OmlxKeyAuth(), timeout=httpx.Timeout(PULL_TIMEOUT_S, connect=10.0)
+            ) as _c,
             _c.stream(
                 "POST",
                 f"{ollama_url}/api/pull",
@@ -83,7 +87,7 @@ def _tps_warmup(
         )
         if engine == "omlx":
             with (
-                httpx.Client(timeout=httpx.Timeout(120.0, connect=5.0)) as _c2,
+                httpx.Client(auth=OmlxKeyAuth(), timeout=httpx.Timeout(120.0, connect=5.0)) as _c2,
                 _c2.stream(
                     "POST",
                     f"{OMLX_URL}/v1/chat/completions",
@@ -107,7 +111,7 @@ def _tps_warmup(
                         pass
         else:
             with (
-                httpx.Client(timeout=httpx.Timeout(120.0, connect=5.0)) as _c2,
+                httpx.Client(auth=OmlxKeyAuth(), timeout=httpx.Timeout(120.0, connect=5.0)) as _c2,
                 _c2.stream(
                     "POST",
                     f"{ollama_url}/api/generate",

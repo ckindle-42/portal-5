@@ -34,6 +34,8 @@ from typing import Any
 import httpx
 import yaml
 
+from portal.platform.inference.omlx_auth import OmlxKeyAuth
+
 logger = logging.getLogger(__name__)
 
 # Pre-compiled regex — avoid re-compiling on every string expansion.
@@ -547,6 +549,7 @@ class BackendRegistry:
         if cls._health_client is None:
             cls._health_client = httpx.AsyncClient(
                 timeout=health_timeout,
+                auth=OmlxKeyAuth(),
                 limits=httpx.Limits(
                     max_keepalive_connections=10,
                     max_connections=20,

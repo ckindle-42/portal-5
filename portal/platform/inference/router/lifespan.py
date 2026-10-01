@@ -23,6 +23,7 @@ import portal.platform.inference.router.council as _council_mod
 import portal.platform.inference.router.streaming as _streaming_mod
 from portal.platform.inference.cluster_backends import BackendRegistry
 from portal.platform.inference.ollama_native import OllamaNativeTransport
+from portal.platform.inference.omlx_auth import OmlxKeyAuth
 from portal.platform.inference.router.power import _power_polling_loop
 from portal.platform.inference.router.routing import (
     _LLM_ROUTER_ENABLED,
@@ -295,6 +296,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     # custom transport is supplied.
     _http_client = httpx.AsyncClient(
         timeout=httpx.Timeout(600.0, connect=5.0),
+        auth=OmlxKeyAuth(),
         transport=OllamaNativeTransport(
             httpx.AsyncHTTPTransport(
                 limits=httpx.Limits(max_keepalive_connections=20, max_connections=100)

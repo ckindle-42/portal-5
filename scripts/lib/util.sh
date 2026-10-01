@@ -1035,7 +1035,8 @@ for key, label, url in rows:
 
         # oMLX inference server — serves the six omlx-* backend groups
         if command -v brew &>/dev/null && brew services list 2>/dev/null | grep -q '^omlx'; then
-            if python3 -c "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8085/v1/models', timeout=3)" &>/dev/null 2>&1; then
+            _OMK="${OMLX_API_KEY:-$(grep -m1 '^OMLX_API_KEY=' "${PORTAL_ROOT:-.}/.env" 2>/dev/null | cut -d= -f2-)}"
+            if curl -sf -m 3 ${_OMK:+-H "Authorization: Bearer $_OMK"} -o /dev/null http://127.0.0.1:8085/v1/models 2>/dev/null; then
                 _OMV=$(brew list --versions omlx 2>/dev/null | awk '{print $2}')
                 printf "    ✅  %-28s %s\n" "oMLX" ":8085  (v${_OMV:-?})"
             else

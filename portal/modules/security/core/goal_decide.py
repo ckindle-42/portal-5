@@ -18,6 +18,7 @@ from typing import Any
 import httpx
 
 from portal.platform.agent.decide import decide_next_action as _platform_decide
+from portal.platform.inference.omlx_auth import omlx_post
 
 from .capability.index import Capability, query
 from .exec_chain import OLLAMA_URL, OMLX_URL
@@ -62,7 +63,7 @@ def _call_model_direct(engine: str, model: str, prompt: str) -> str | None:
     """
     base = OMLX_URL if engine == "omlx" else OLLAMA_URL
     try:
-        resp = httpx.post(
+        resp = omlx_post(
             f"{base}/v1/chat/completions",
             json={
                 "model": model,

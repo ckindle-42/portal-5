@@ -96,6 +96,7 @@ services:
       - pipeline-metrics-state:/app/data
     environment:
       - PIPELINE_API_KEY=${PIPELINE_API_KEY}
+      - OMLX_API_KEY=${OMLX_API_KEY:-}
       - PIPELINE_WORKERS=${PIPELINE_WORKERS:-2}
       - PIPELINE_PORT=9099
       - LOG_LEVEL=${LOG_LEVEL:-INFO}

@@ -14,6 +14,8 @@
 set -u
 
 HEALTH_URL="${OMLX_HEALTH_URL:-http://127.0.0.1:8085/v1/models}"
+# launchd gives this script no .env; read the oMLX key from it when not exported.
+OMLX_API_KEY="${OMLX_API_KEY:-$(grep -m1 '^OMLX_API_KEY=' "$(cd "$(dirname "$0")/.." && pwd)/.env" 2>/dev/null | cut -d= -f2-)}"
 BREW_SERVICE="${OMLX_BREW_SERVICE:-jundot/omlx/omlx}"
 STATE_FILE="${OMLX_WATCHDOG_STATE:-${TMPDIR:-/tmp}/portal5-omlx-watchdog.state}"
 LOG_DIR="${HOME}/.portal5/logs"
@@ -90,7 +92,7 @@ _run_parser_check() {
     fi
 }
 
-code="$(curl -fsS -o /dev/null -m "$PROBE_TIMEOUT" -w '%{http_code}' "$HEALTH_URL" 2>/dev/null || true)"
+code="$(curl -fsS -o /dev/null -m "$PROBE_TIMEOUT" ${OMLX_API_KEY:+-H "Authorization: Bearer $OMLX_API_KEY"} -w '%{http_code}' "$HEALTH_URL" 2>/dev/null || true)"
 
 if [ "$code" = "200" ]; then
     if [ -f "$STATE_FILE" ] && [ "$(cat "$STATE_FILE" 2>/dev/null || echo 0)" != "0" ]; then

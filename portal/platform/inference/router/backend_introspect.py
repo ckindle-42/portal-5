@@ -20,6 +20,8 @@ import logging
 
 import httpx
 
+from portal.platform.inference.omlx_auth import OmlxKeyAuth
+
 logger = logging.getLogger(__name__)
 
 
@@ -88,7 +90,7 @@ async def _omlx_engine_reachable(base_url: str, timeout_s: float) -> bool:
     cascades to the next candidate.
     """
     try:
-        async with httpx.AsyncClient(timeout=timeout_s) as client:
+        async with httpx.AsyncClient(timeout=timeout_s, auth=OmlxKeyAuth()) as client:
             resp = await client.get(f"{base_url}/v1/models")
             return resp.status_code == 200
     except Exception:

@@ -50,6 +50,7 @@ from pathlib import Path
 import yaml
 
 from portal.platform.inference.ollama_native import to_native_request
+from portal.platform.inference.omlx_auth import omlx_headers
 from portal.platform.inference.router.text_tool_calls import salvage_text_tool_calls
 from tests.wfe.checkers import CheckContext, apply_checkers
 from tests.wfe.schema import Economics, Outcome, ResultRow, env_fingerprint, sha12
@@ -858,6 +859,8 @@ def chat(
     if ENGINE == "pipeline":
         cid = f"wfe-{os.urandom(6).hex()}"
         headers |= _pipeline_headers() | {"X-Correlation-ID": cid}
+    elif ENGINE == "omlx":
+        headers |= omlx_headers()
     req = urllib.request.Request(url, data=json.dumps(payload).encode(), headers=headers)
     try:
         with urllib.request.urlopen(req, timeout=stall_s) as r:

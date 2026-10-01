@@ -23,7 +23,7 @@ updated_at: 1788030600.446044
 # Environment variables — the .env.example families
 
 The operator's runtime configuration lives in `.env`, copied from
-`.env.example` on first `up`; the example file declares 255 env vars, grouped
+`.env.example` on first `up`; the example file declares 256 env vars, grouped
 by what they tune. Every var carries an inline or section comment so a knob is
 never a bare secret.
 
@@ -32,6 +32,8 @@ never a bare secret.
 - `PIPELINE_API_KEY`, `WEBUI_SECRET_KEY`, `SEARXNG_SECRET_KEY`,
   `GRAFANA_PASSWORD` — auto-generated on first run; the secrets the stack signs
   and authenticates with.
+- `OMLX_API_KEY` — the oMLX server's API key (mirrors `auth.api_key` in `~/.omlx/settings.json`);
+  the pipeline and host tools send it only to oMLX. Empty means a keyless oMLX.
 - `OPENWEBUI_ADMIN_*` — the first-run admin account.
 
 ## Media and speech
