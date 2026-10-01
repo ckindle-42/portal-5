@@ -44,7 +44,6 @@ import datetime as dt
 import json
 import os
 import struct
-import subprocess
 import sys
 import zlib
 from collections.abc import Awaitable, Callable
@@ -130,8 +129,16 @@ async def _delivery(
     lst = {"messages": [{"role": "user", "content": _LIST}], "max_tokens": 80}
     base_txt = _text(await send(build({"temperature": 0.0, "think": False}) | lst))
     for key in ("repeat_penalty", "presence_penalty"):
-        pen = _text(await send(build({"temperature": 0.0, key: 2.0, "think": False}) | lst))
-        changed = pen != base_txt
+        # Escalate: an additive penalty only flips a greedy output once it beats the
+        # model's margin, which shifts with engine numerics (oMLX 0.7.0 needed >2.0).
+        changed = False
+        for strength in (2.0, 5.0, 10.0):
+            pen = _text(
+                await send(build({"temperature": 0.0, key: strength, "think": False}) | lst)
+            )
+            if pen != base_txt:
+                changed = True
+                break
         if key in unimplemented:
             # Reaches the engine but its sampler does nothing with it — a known
             # engine limitation (KNOWN_LIMITATIONS.md), not a delivery failure.
@@ -150,7 +157,7 @@ async def _delivery(
         Result("max_tokens delivered", ct is not None and ct <= 5, f"completion_tokens={ct}")
     )
 
-    think_q = {"messages": [{"role": "user", "content": "What is 17*23?"}], "max_tokens": 600}
+    think_q = {"messages": [{"role": "user", "content": "What is 17*23?"}], "max_tokens": 2000}
     off = _reasoning(await send(build({"temperature": 0.0, "think": False}) | think_q))
     on = _reasoning(await send(build({"temperature": 0.0, "think": True}) | think_q))
     out.append(Result("think:false delivered", not off, f"{len(off)} reasoning chars"))
@@ -345,14 +352,10 @@ def _omlx_version() -> str:
     except Exception as e:
         raise CannotRunError(f"oMLX unreachable at {OMLX}: {e}") from e
     try:
-        out = subprocess.run(
-            ["brew", "list", "--versions", "jundot/omlx/omlx"],
-            capture_output=True,
-            text=True,
-            timeout=30,
-        ).stdout.split()
-        return out[-1] if out else "unknown"
-    except Exception:
+        # The keg the service runs, not `brew list --versions` (which lists every
+        # kept keg, so after an upgrade its last word can be the old one).
+        return os.readlink("/opt/homebrew/opt/omlx").rstrip("/").rsplit("/", 1)[-1]
+    except OSError:
         return "unknown"
 
 
