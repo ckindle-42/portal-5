@@ -108,6 +108,14 @@ harness's own contamination check on `comp-p6j-14` (answer key in tool output), 
 `compliance-reading` (Ollama gemma4), `compliance-mapping` and `auto-compliance` each answered a
 CIP-007-6 R2 control question correctly (35 calendar days, Part 2.2) with no leaked thinking.
 
+## Open WebUI end to end
+
+Signed in with the `.env` admin account (279 models visible) and streamed three workspaces
+through Open WebUI -> pipeline -> engine: `auto-coding` (9.0 s), `compliance-reading` (16.9 s,
+correct 35-day answer with quoted sources), `auto-general-uncensored` (14.0 s). No leaked thinking.
+
 ## Not tested
 
-Open WebUI itself, and the live `max_concurrent_requests` change.
+The live `max_concurrent_requests` change. oMLX has no API key configured, so its admin login
+returns 400 by design; exercising it would mean setting a key (forcing auth on every client) or
+minting a session from the local secret, neither of which was warranted for a read-only check.
