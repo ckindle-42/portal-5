@@ -70,3 +70,25 @@ sections. `require("dotted.path")` raises a clear error naming the missing file
 when a machine without the profile calls for it (CI, a fresh clone), so the
 public tree stays free of the constants and live runs still work where the
 profile exists.
+
+## Measurement hygiene
+
+Three guards keep a measured run honest about what it measured:
+
+- **One split per queue** — `truth_corpus.py queue --key … --split dev` queues
+  only the questions of one key split, and refuses any transcript whose
+  question the key does not hold (an unkeyed item can never be judged).
+  Holdout questions are never judged while the system is being changed.
+- **Store guard** — `provenance.store_counts` records, at the start and end
+  of every harness run, the row counts of each store table a reading turn can
+  write (the workspace's note, correction, review and standing-question
+  tools). The receipt's `store_guard.changed` names any table that moved, so
+  a run whose answers could feed the next run's material is visible.
+- **Served config** — `config/portal.yaml` is baked into the pipeline image,
+  so `provenance.served_config` hashes the copy inside the running container
+  and records whether it matches the host file. A persona edit without a
+  rebuild and restart shows as `matches_host: false`.
+
+`citation_integrity.py` also runs as a CLI that recomputes the diagnostic over
+finished run dirs at a given `--min-quote-words`, so a calibrated threshold
+applies to every earlier run without re-asking the model.

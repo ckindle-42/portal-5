@@ -58,16 +58,18 @@ from compliance_acceptance import WorkspaceThread, router_base_url  # noqa: E402
 from portal.modules.compliance.core.addressing import resolve_cite_as  # noqa: E402
 from portal.modules.compliance.core.answer_contract import (  # noqa: E402
     _CITEAS_TOKEN,
-    SECTION_ID_PATTERN,
     _mistyped_variant_of,
 )
 from portal.modules.compliance.core.candidate_links import classify_assertion  # noqa: E402
 from portal.modules.compliance.core.repository import Repository  # noqa: E402
 from portal.modules.compliance.core.section_index import parent_section_id  # noqa: E402
 from scripts.compliance.truth import _local  # noqa: E402
-from scripts.compliance.truth.provenance import receipt_provenance  # noqa: E402
+from scripts.compliance.truth.provenance import (  # noqa: E402
+    receipt_provenance,
+    store_counts,
+    store_guard,
+)
 
-_SECTION_TOKEN = re.compile(rf"\b{SECTION_ID_PATTERN}\b", re.I)
 _REQUIREMENT_ADDRESS = re.compile(r"\bCIP-\d{3}-[A-Za-z0-9.]+(\s+R\d+)?\b")
 
 #: obligation language — a line saying what the standard DEMANDS. The
@@ -237,8 +239,6 @@ def _grounding(store: Repository, answer: str) -> dict:
     ]
     claims = []
     for line in result["lines"]:
-        tokens_here = [m.group(0) for m in _SECTION_TOKEN.finditer(line["claim"])]
-        tokens_here += [m.group(0) for m in _CITEAS_TOKEN.finditer(line["claim"])]
         unresolved_here = [t["token"] for t in line.get("tokens", []) if not t["resolved"]]
         resolved_here = list(line["resolved_tokens"])
         claims.append(
@@ -255,12 +255,6 @@ def _grounding(store: Repository, answer: str) -> dict:
                     q["quote"] for q in line["quotes"] if q["status"] != "resolved"
                 ],
                 "section_ids": line["section_ids"],
-                "grounded": line["grounded"]
-                or any(
-                    _mistyped_variant_of(raw, resolving_raw)
-                    for raw in line.get("unresolved_tokens", [])
-                    for raw in [raw]
-                ),
             }
         )
     for line in claims:
@@ -345,6 +339,18 @@ def obligation_normative_check(store: Repository, grounding: dict) -> dict:
     }
 
 
+def _apply_overrides(rows: list[dict], path: pathlib.Path | None) -> None:
+    overrides: dict = {}
+    if path and path.is_file():
+        overrides = json.loads(path.read_text())
+    for row in rows:
+        override = overrides.get(row.get("key", ""))
+        if override:
+            row["mechanical_verdict"] = row["verdict"]
+            row["verdict"] = override["verdict"]
+            row["agent_reading"] = override["reading"]
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--workspace", default="compliance-reading")
@@ -376,6 +382,7 @@ def main() -> int:
         questions = [q for q in QUESTIONS if q["key"] in wanted]
 
     store = Repository()
+    counts_before = store_counts(store)
     rows: list[dict] = []
     try:
         with httpx.Client(timeout=httpx.Timeout(args.timeout, connect=10.0)) as session:
@@ -397,17 +404,10 @@ def main() -> int:
                 )
                 rows.append(_judge(store, spec, record))
     finally:
+        counts_after = store_counts(store)
         store.close()
 
-    overrides: dict = {}
-    if args.overrides and args.overrides.is_file():
-        overrides = json.loads(args.overrides.read_text())
-    for row in rows:
-        override = overrides.get(row.get("key", ""))
-        if override:
-            row["mechanical_verdict"] = row["verdict"]
-            row["verdict"] = override["verdict"]
-            row["agent_reading"] = override["reading"]
+    _apply_overrides(rows, args.overrides)
 
     receipt = {
         "run_id": _dt.datetime.now(_dt.UTC).isoformat(),
@@ -415,6 +415,7 @@ def main() -> int:
         "router": router,
         "verdict_basis": "mechanical",
         "provenance": receipt_provenance(args.workspace, harness_file=__file__),
+        "store_guard": store_guard(counts_before, counts_after),
         "n_questions": len(rows),
         "n_passed": sum(1 for r in rows if r.get("verdict") == "PASS"),
         "n_used_search": sum(1 for r in rows if r.get("used_search")),

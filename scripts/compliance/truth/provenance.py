@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import datetime as _dt
 import hashlib
+import os
 import pathlib
 import subprocess
 import sys
@@ -82,6 +83,7 @@ def receipt_provenance(workspace: str, *, harness_file: str = "") -> dict[str, A
         out["n_tools"] = len(tools)
     except Exception as exc:  # noqa: BLE001 - provenance never breaks a run
         out["errors"].append(f"portal.yaml: {exc}")
+    out["served_config"] = served_config()
     shas: dict[str, str] = {}
     for rel in (*HASHED_FILES, harness_file):
         if not rel:
@@ -96,3 +98,63 @@ def receipt_provenance(workspace: str, *, harness_file: str = "") -> dict[str, A
             shas[rel] = "absent"
     out["file_sha256"] = shas
     return out
+
+
+def served_config() -> dict[str, Any]:
+    """The persona the pipeline actually serves. ``config/portal.yaml`` is baked
+    into the pipeline image (not mounted), so the host file can differ from what
+    runs until the image is rebuilt and restarted; a receipt that hashed only the
+    host file would vouch for a persona nothing served."""
+    container = os.environ.get("PORTAL_PIPELINE_CONTAINER", "portal5-pipeline")
+    info: dict[str, Any] = {"container": container}
+    try:
+        served = subprocess.run(
+            ["docker", "exec", container, "sha256sum", "/app/config/portal.yaml"],
+            capture_output=True,
+            text=True,
+            timeout=30,
+            check=False,
+        ).stdout.split()
+        info["portal_yaml_sha256"] = served[0] if served else ""
+        info["started_at"] = subprocess.run(
+            ["docker", "inspect", "-f", "{{.State.StartedAt}}", container],
+            capture_output=True,
+            text=True,
+            timeout=30,
+            check=False,
+        ).stdout.strip()
+        info["matches_host"] = info["portal_yaml_sha256"] == _sha(PORTAL_YAML.read_bytes())
+    except (OSError, subprocess.SubprocessError) as exc:
+        info["error"] = str(exc)
+    return info
+
+
+#: what a reading turn could write through the workspace's write tools
+#: (compliance_note, compliance_correct, compliance_review_decide*,
+#: compliance_standing_questions run=True) - a rep that moves any of these
+#: changes what the next rep reads.
+_GUARDED = (
+    ("source_documents", "SELECT jurisdiction, count(*) FROM source_documents GROUP BY 1"),
+    ("operator_notes", "SELECT 'n', count(*) FROM operator_notes"),
+    ("conversation_answers", "SELECT 'n', count(*) FROM conversation_answers"),
+    ("reading_runs", "SELECT 'n', count(*) FROM reading_runs"),
+    ("review_events", "SELECT 'n', count(*) FROM review_events"),
+    ("relationship_assertions", "SELECT status, count(*) FROM relationship_assertions GROUP BY 1"),
+)
+
+
+def store_counts(repo: Any) -> dict[str, Any]:
+    """Row counts of every store table a reading turn can write. Best-effort:
+    a table that cannot be read is recorded as an error string."""
+    out: dict[str, Any] = {}
+    for name, sql in _GUARDED:
+        try:
+            out[name] = {str(k): int(v) for k, v in repo._conn.execute(sql).fetchall()}
+        except Exception as exc:  # noqa: BLE001 - provenance never breaks a run
+            out[name] = f"error: {exc}"
+    return out
+
+
+def store_guard(before: dict[str, Any], after: dict[str, Any]) -> dict[str, Any]:
+    changed = sorted(k for k in set(before) | set(after) if before.get(k) != after.get(k))
+    return {"before": before, "after": after, "changed": changed}

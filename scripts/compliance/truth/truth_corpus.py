@@ -275,6 +275,23 @@ def build_queue(
     return items, unblind
 
 
+def split_filter(
+    items: list[dict], unblind: dict[str, dict], key_path: pathlib.Path, split: str
+) -> tuple[list[dict], dict[str, dict], list[str]]:
+    """Keep only items whose question is in ``split`` of the key; name every
+    question id the key does not hold (an unkeyed item can never be judged)."""
+    import answer_key
+
+    splits = {
+        str(e["question_id"]): e.get("split")
+        for e in answer_key.load(key_path).get("entries") or []
+    }
+    unkeyed = sorted({i["question_id"] for i in items if i["question_id"] not in splits})
+    kept = [i for i in items if splits.get(i["question_id"]) == split]
+    ids = {i["item_id"] for i in kept}
+    return kept, {k: v for k, v in unblind.items() if k in ids}, unkeyed
+
+
 def _roots(args: argparse.Namespace) -> tuple[pathlib.Path, ...]:
     return tuple(args.root) if args.root else tuple(r for r in DEFAULT_ROOTS if r.is_dir())
 
@@ -308,6 +325,14 @@ def _cmd_queue(args: argparse.Namespace) -> int:
         return 2
     dirs, roots = _selected(args)
     items, unblind = build_queue(dirs, args.salt, roots)
+    if args.split:
+        if args.key is None:
+            print("--split needs --key", file=sys.stderr)
+            return 2
+        items, unblind, unkeyed = split_filter(items, unblind, args.key, args.split)
+        if unkeyed:
+            print(f"REFUSED: question ids not in the key: {unkeyed}", file=sys.stderr)
+            return 1
     args.out.mkdir(parents=True, exist_ok=True)
     with (args.out / "queue.jsonl").open("w", encoding="utf-8") as fh:
         for item in items:
@@ -337,6 +362,8 @@ def main(argv: list[str] | None = None) -> int:
     )
     queue.add_argument("--only", action="append", help="run-name prefix, relative to its root")
     queue.add_argument("--salt", required=True)
+    queue.add_argument("--key", type=pathlib.Path, help="answer key (needed for --split)")
+    queue.add_argument("--split", choices=["dev", "holdout"], help="queue only this split")
     queue.add_argument("--out", type=pathlib.Path, required=True)
     queue.set_defaults(func=_cmd_queue)
     args = ap.parse_args(argv)

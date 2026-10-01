@@ -96,6 +96,26 @@ def test_queue_is_blind_and_resolves_questions(tmp_path):
     assert {i["item_id"] for i in again}.isdisjoint({i["item_id"] for i in items})
 
 
+def test_queue_split_filter_keeps_one_split_and_names_unkeyed(tmp_path):
+    items, unblind = corpus.build_queue([_run_dir(tmp_path)], salt="s1")
+    key = _key()
+    for entry in key["entries"]:
+        entry["split"] = "dev" if entry["question_id"].endswith("coverage_gap") else "holdout"
+    key_path = tmp_path / "key.yaml"
+    key_path.write_text(yaml.safe_dump(key))
+    kept, kept_unblind, unkeyed = corpus.split_filter(items, unblind, key_path, "dev")
+    assert {i["question_id"] for i in kept} == {"product:CIP-007-6:coverage_gap"}
+    assert set(kept_unblind) == {i["item_id"] for i in kept}
+    keyed = {e["question_id"] for e in key["entries"]}
+    assert unkeyed == sorted({i["question_id"] for i in items} - keyed)
+
+
+def test_store_guard_names_changed_tables():
+    provenance = _load("provenance", TRUTH / "provenance.py")
+    guard = provenance.store_guard({"a": {"n": 1}, "b": {"n": 2}}, {"a": {"n": 1}, "b": {"n": 3}})
+    assert guard["changed"] == ["b"]
+
+
 def test_queue_refuses_public_output(tmp_path):
     code = corpus.main(
         [

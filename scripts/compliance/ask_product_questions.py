@@ -52,7 +52,11 @@ from portal.modules.compliance.core.answer_contract import (  # noqa: E402
 )
 from portal.modules.compliance.core.repository import Repository  # noqa: E402
 from scripts.compliance.truth import _local  # noqa: E402
-from scripts.compliance.truth.provenance import receipt_provenance  # noqa: E402
+from scripts.compliance.truth.provenance import (  # noqa: E402
+    receipt_provenance,
+    store_counts,
+    store_guard,
+)
 
 # One anchor requirement per standard — chosen to span the family: the
 # proven case, two healthy/high-corroboration standards, and the two dead
@@ -271,6 +275,7 @@ def main() -> int:
         return 3
 
     repo = Repository()
+    counts_before = store_counts(repo)
     rows: list[dict] = []
     try:
         with httpx.Client(timeout=httpx.Timeout(args.timeout, connect=10.0)) as session:
@@ -289,6 +294,7 @@ def main() -> int:
                     )
                 )
     finally:
+        counts_after = store_counts(repo)
         repo.close()
 
     passed = sum(1 for r in rows if r["verdict"] == "PASS")
@@ -298,6 +304,7 @@ def main() -> int:
         "router": router,
         "verdict_basis": "mechanical",
         "provenance": receipt_provenance(args.workspace, harness_file=__file__),
+        "store_guard": store_guard(counts_before, counts_after),
         "standards": standards,
         "anchors": {s: DEFAULT_ANCHORS[s] for s in standards},
         "n_questions": len(rows),

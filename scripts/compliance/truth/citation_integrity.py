@@ -24,11 +24,20 @@ The three harnesses (``ask_conversational._judge``,
 derive their citation booleans from this one result — parity is asserted by
 test — and every receipt says ``verdict_basis: "mechanical"``: these are
 citation-integrity checks, never correctness verdicts.
+
+``recompute`` (CLI) re-derives integrity for every transcript under one or
+more run dirs at a given ``--min-quote-words`` - after the P6.0 calibration,
+every run's diagnostics are recomputed with the calibrated value. Output is
+local only.
 """
 
 from __future__ import annotations
 
+import argparse
+import json
+import pathlib
 import re
+import sys
 from typing import Any
 
 MIN_QUOTE_WORDS = 4
@@ -178,3 +187,55 @@ def _measure_line(store: Any, raw_line: str, min_quote_words: int) -> dict | Non
         "sides": sorted(line_sides),
         "grounded": grounded,
     }
+
+
+def recompute(store: Any, run_dirs: list[pathlib.Path], min_quote_words: int) -> list[dict]:
+    """Integrity for every ``transcripts/*.json`` answer under ``run_dirs``."""
+    rows: list[dict] = []
+    for run_dir in run_dirs:
+        for transcript in sorted((run_dir / "transcripts").glob("*.json")):
+            try:
+                data = json.loads(transcript.read_text(encoding="utf-8"))
+            except (OSError, ValueError):
+                continue
+            if not isinstance(data, dict):
+                continue
+            result = integrity(
+                store, str(data.get("answer") or ""), min_quote_words=min_quote_words
+            )
+            result.pop("lines", None)
+            rows.append({"run_dir": str(run_dir), "transcript": transcript.name, **result})
+    return rows
+
+
+def main(argv: list[str] | None = None) -> int:
+    from scripts.compliance.truth import _local
+
+    ap = argparse.ArgumentParser(description="Recompute citation integrity over run dirs.")
+    ap.add_argument("run_dirs", nargs="+", type=pathlib.Path)
+    ap.add_argument("--min-quote-words", type=int, default=MIN_QUOTE_WORDS)
+    ap.add_argument("--out", type=pathlib.Path, required=True, help="a .jsonl file (local only)")
+    args = ap.parse_args(argv)
+    refused = _local.refusal(args.out, "recomputed integrity")
+    if refused:
+        print(refused, file=sys.stderr)
+        return 2
+    from portal.modules.compliance.core.repository import Repository
+
+    repo = Repository()
+    try:
+        rows = recompute(repo, args.run_dirs, args.min_quote_words)
+    finally:
+        repo.close()
+    args.out.parent.mkdir(parents=True, exist_ok=True)
+    with args.out.open("w", encoding="utf-8") as fh:
+        for row in rows:
+            fh.write(json.dumps(row, ensure_ascii=False) + "\n")
+    print(f"WROTE {args.out} ({len(rows)} transcripts, min_quote_words={args.min_quote_words})")
+    return 0
+
+
+if __name__ == "__main__":
+    if __package__ in (None, ""):
+        sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[3]))
+    raise SystemExit(main())
