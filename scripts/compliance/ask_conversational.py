@@ -62,13 +62,10 @@ from portal.modules.compliance.core.answer_contract import (  # noqa: E402
     _mistyped_variant_of,
 )
 from portal.modules.compliance.core.candidate_links import classify_assertion  # noqa: E402
-from portal.modules.compliance.core.citation_by_quote import (  # noqa: E402
-    quoted_spans,
-    resolve_quote,
-)
 from portal.modules.compliance.core.repository import Repository  # noqa: E402
 from portal.modules.compliance.core.section_index import parent_section_id  # noqa: E402
 from scripts.compliance.truth import _local  # noqa: E402
+from scripts.compliance.truth.provenance import receipt_provenance  # noqa: E402
 
 _SECTION_TOKEN = re.compile(rf"\b{SECTION_ID_PATTERN}\b", re.I)
 _REQUIREMENT_ADDRESS = re.compile(r"\bCIP-\d{3}-[A-Za-z0-9.]+(\s+R\d+)?\b")
@@ -222,76 +219,65 @@ def _sentence_around(answer: str, needle: str) -> str:
 
 
 def _grounding(store: Repository, answer: str) -> dict:
-    """Per-claim grounding against the STORE (the conversational answers have
-    no render contract in scope — the store is what the tools read from).
+    """Per-claim grounding against the STORE, via the one integrity module.
 
-    The citation is the QUOTE (CITE_AND_SCOPE_V1 §P1): a line's double-quoted
-    spans are resolved by containment over the whole store
-    (``citation_by_quote.resolve_quote`` — the verbatim check inverted), and
-    any identifier the answer also carries resolves as before (full id,
-    ``cite_as`` token, unique prefix). A line is grounded when at least one of
-    its quotes or tokens resolves, or its only unresolved tokens are mistyped
-    restatements of ids that resolved elsewhere in the same answer. A quote
-    matching several sections grounds with EVERY match recorded — the words
-    demonstrably exist in the store; the multi-match policy was decided on the
-    measured distribution in p1/quote_resolution.json (27% multi-match, tail
-    to 88, all repeated boilerplate — a floor would not fix it). Everything
-    unresolved is reported as written, never repaired: an unresolvable quote
-    stays unresolvable exactly as an unresolvable id does, and a claim
-    supported by nothing still fails."""
-    resolving_raw: list[str] = []
-    lines: list[dict] = []
-    for raw_line in answer.splitlines():
-        stripped = raw_line.strip()
-        if not stripped:
-            continue
-        tokens_here = [m.group(0) for m in _SECTION_TOKEN.finditer(stripped)]
-        tokens_here += [m.group(0) for m in _CITEAS_TOKEN.finditer(stripped)]
-        quotes_here = quoted_spans(stripped)
-        if not tokens_here and not quotes_here:
-            continue
-        resolved_here, unresolved_here = [], []
-        section_ids_here: list[str] = []
-        quoted_resolved: list[dict] = []
-        quoted_unresolved: list[str] = []
-        for token in tokens_here:
-            entry = _resolve_token(store, token)
-            if entry is not None:
-                resolved_here.append(token)
-                resolving_raw.append(token)
-                section_ids_here.append(str(entry["section_id"]))
-            else:
-                unresolved_here.append(token)
-        for quote in quotes_here:
-            hits = resolve_quote(store, quote)
-            if hits:
-                quoted_resolved.append({"quote": quote, "sections": hits})
-                section_ids_here.extend(hits)
-            else:
-                quoted_unresolved.append(quote)
-        lines.append(
+    P5 migration: the per-claim logic (quoted spans resolved by containment,
+    tokens through ``_resolve_token``) moved to
+    ``scripts.compliance.truth.citation_integrity.integrity``; this wrapper
+    keeps the shape ``_judge`` consumes and adds the mistyped-id forgiveness
+    rule (a line whose only unresolved tokens are mistyped restatements of ids
+    that resolved elsewhere in the same answer stays grounded). The integrity
+    result rides along verbatim under ``citation_integrity`` so every receipt
+    carries the one diagnostic."""
+    from scripts.compliance.truth.citation_integrity import MIN_QUOTE_WORDS, integrity
+
+    result = integrity(store, answer, min_quote_words=MIN_QUOTE_WORDS)
+    resolving_raw = [
+        t["token"] for line in result["lines"] for t in line.get("tokens", []) if t["resolved"]
+    ]
+    claims = []
+    for line in result["lines"]:
+        tokens_here = [m.group(0) for m in _SECTION_TOKEN.finditer(line["claim"])]
+        tokens_here += [m.group(0) for m in _CITEAS_TOKEN.finditer(line["claim"])]
+        unresolved_here = [t["token"] for t in line.get("tokens", []) if not t["resolved"]]
+        resolved_here = list(line["resolved_tokens"])
+        claims.append(
             {
-                "claim": stripped,
+                "claim": line["claim"],
                 "resolved": sorted(dict.fromkeys(resolved_here)),
                 "unresolved": sorted(dict.fromkeys(unresolved_here)),
-                "quoted": quoted_resolved,
-                "quoted_unresolved": quoted_unresolved,
-                "section_ids": sorted(dict.fromkeys(section_ids_here)),
+                "quoted": [
+                    {"quote": q["quote"], "sections": q["sections"]}
+                    for q in line["quotes"]
+                    if q["status"] == "resolved"
+                ],
+                "quoted_unresolved": [
+                    q["quote"] for q in line["quotes"] if q["status"] != "resolved"
+                ],
+                "section_ids": line["section_ids"],
+                "grounded": line["grounded"]
+                or any(
+                    _mistyped_variant_of(raw, resolving_raw)
+                    for raw in line.get("unresolved_tokens", [])
+                    for raw in [raw]
+                ),
             }
         )
-    for line in lines:
+    for line in claims:
         line["grounded"] = bool(line["section_ids"]) or any(
             _mistyped_variant_of(raw, resolving_raw) for raw in line["unresolved"]
         )
-    unsupported = [line for line in lines if not line["grounded"]]
+    unsupported = [line for line in claims if not line["grounded"]]
     return {
-        "claims": lines,
-        "n_claims": len(lines),
+        "claims": claims,
+        "n_claims": len(claims),
         "n_ungrounded": len(unsupported),
         "unsupported_lines": [c["claim"] for c in unsupported],
-        "n_quotes_resolved": sum(len(c["quoted"]) for c in lines),
-        "n_quotes_unresolved": sum(len(c["quoted_unresolved"]) for c in lines),
-        "grounded": bool(lines) and not unsupported,
+        "n_quotes_resolved": len(result["quotes"])
+        - sum(1 for q in result["quotes"] if q["status"] != "resolved"),
+        "n_quotes_unresolved": sum(1 for q in result["quotes"] if q["status"] != "resolved"),
+        "grounded": bool(claims) and not unsupported,
+        "citation_integrity": result,
     }
 
 
@@ -427,6 +413,8 @@ def main() -> int:
         "run_id": _dt.datetime.now(_dt.UTC).isoformat(),
         "workspace": args.workspace,
         "router": router,
+        "verdict_basis": "mechanical",
+        "provenance": receipt_provenance(args.workspace, harness_file=__file__),
         "n_questions": len(rows),
         "n_passed": sum(1 for r in rows if r.get("verdict") == "PASS"),
         "n_used_search": sum(1 for r in rows if r.get("used_search")),

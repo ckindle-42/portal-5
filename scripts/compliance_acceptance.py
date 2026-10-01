@@ -691,22 +691,25 @@ def check_workspace_cell(case: dict[str, Any], record: dict[str, Any]) -> list[d
 
     # Every cited id resolves — post-hoc on the transcript, the one
     # deterministic check the task keeps from P6.4.
-    from portal.modules.compliance.core.reader import _DASHES, CITATION_RE
     from portal.modules.compliance.core.repository import Repository
-    from portal.modules.compliance.core.section_index import resolve_sections
+    from scripts.compliance.truth.citation_integrity import integrity
 
-    normalised = answer.translate(_DASHES)
-    cited = list(dict.fromkeys(CITATION_RE.findall(normalised)))
-    if cited:
-        repo = Repository()
-        try:
-            resolved = resolve_sections(repo, cited)
-            unresolved = [ref for ref in cited if not resolved]
-            add("cited_ids_resolve", not unresolved, unresolved or f"all {len(cited)} resolve")
-        finally:
-            repo.close()
+    repo = Repository()
+    try:
+        result = integrity(repo, answer)
+    finally:
+        repo.close()
+    # P5: a missing section id is no longer a failure — quote-grounded answers
+    # with zero ids are legitimate; fabrication and ungrounded lines are the
+    # failure surface now.
+    if result["lines"]:
+        add(
+            "cited_ids_resolve",
+            not result["fabricated_tokens"] and result["grounded"],
+            result["fabricated_tokens"] or f"all {result['n_claims']} claim(s) ground",
+        )
     else:
-        add("cited_ids_resolve", False, "no section id cited in the answer")
+        add("cited_ids_resolve", False, "no citation in the answer")
     return rows
 
 

@@ -52,6 +52,7 @@ from portal.modules.compliance.core.answer_contract import (  # noqa: E402
 )
 from portal.modules.compliance.core.repository import Repository  # noqa: E402
 from scripts.compliance.truth import _local  # noqa: E402
+from scripts.compliance.truth.provenance import receipt_provenance  # noqa: E402
 
 # One anchor requirement per standard — chosen to span the family: the
 # proven case, two healthy/high-corroboration standards, and the two dead
@@ -191,6 +192,9 @@ def _ask_one(
         # with no resolving counterpart anywhere still fails, and no unresolved
         # id is ever mapped to a near neighbour to make it resolve.
         claims = contract.cited_claims(answer)
+        from scripts.compliance.truth.citation_integrity import integrity
+
+        integrity_result = integrity(repo, answer)
 
         checks = {
             "answered": bool(answer.strip())
@@ -219,6 +223,11 @@ def _ask_one(
                 "cited_ids": ids,
                 "resolved_ids": cited["resolved"],
                 "unresolved_ids": cited["unresolved"],
+                "citation_integrity": {
+                    "fabricated_tokens": integrity_result["fabricated_tokens"],
+                    "sides_evidenced": integrity_result["sides_evidenced"],
+                    "ungrounded_lines": integrity_result["ungrounded_lines"],
+                },
                 "grounding": {
                     "n_claims": claims["n_claims"],
                     "n_ungrounded": claims["n_ungrounded"],
@@ -287,6 +296,8 @@ def main() -> int:
         "run_id": _dt.datetime.now(_dt.UTC).isoformat(),
         "workspace": args.workspace,
         "router": router,
+        "verdict_basis": "mechanical",
+        "provenance": receipt_provenance(args.workspace, harness_file=__file__),
         "standards": standards,
         "anchors": {s: DEFAULT_ANCHORS[s] for s in standards},
         "n_questions": len(rows),
