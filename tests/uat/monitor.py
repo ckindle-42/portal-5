@@ -15,6 +15,7 @@ from typing import Any
 
 import httpx
 
+from portal.platform.inference.omlx_auth import omlx_headers
 from tests.memory_guard import free_ram_gb as _get_free_ram_gb
 from tests.memory_guard import memory_pct as _get_memory_pct
 from tests.uat.config import (
@@ -177,7 +178,7 @@ class MemoryMonitor:
         try:
             omlx_pool: dict[str, Any] = {}
             try:
-                resp = httpx.get(f"{OMLX_URL}/health", timeout=3)
+                resp = httpx.get(f"{OMLX_URL}/health", headers=omlx_headers(), timeout=3)
                 if resp.status_code == 200:
                     omlx_pool = resp.json().get("engine_pool", {})
             except Exception:

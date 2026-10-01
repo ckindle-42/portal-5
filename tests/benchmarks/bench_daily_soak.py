@@ -33,6 +33,7 @@ import argparse
 import json
 import os
 import random
+import sys
 import threading
 import time
 from datetime import UTC, datetime
@@ -40,6 +41,9 @@ from pathlib import Path
 
 import bench_omlx_v3 as base
 import httpx
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+from portal.platform.inference.omlx_auth import omlx_headers  # noqa: E402
 
 RESULTS_DIR = Path(__file__).parent / "results"
 PIPELINE_URL = os.environ.get("PIPELINE_URL", "http://localhost:9099")
@@ -168,14 +172,14 @@ def _unload_omlx_all() -> None:
     unload is logged and skipped, never fatal — the run should still attempt to
     proceed, but the operator sees exactly what wasn't cleared."""
     try:
-        r = httpx.get(f"{OMLX_URL}/v1/models/status", timeout=10)
+        r = httpx.get(f"{OMLX_URL}/v1/models/status", headers=omlx_headers(), timeout=10)
         loaded = [m["id"] for m in r.json().get("models", []) if m.get("loaded")]
     except Exception as exc:
         print(f"  [preflight] omlx status check failed (non-fatal): {exc}", flush=True)
         return
     for mid in loaded:
         try:
-            httpx.post(f"{OMLX_URL}/v1/models/{mid}/unload", timeout=30)
+            httpx.post(f"{OMLX_URL}/v1/models/{mid}/unload", headers=omlx_headers(), timeout=30)
             print(f"  [preflight] unloaded omlx model: {mid}", flush=True)
         except Exception as exc:
             print(f"  [preflight] failed to unload omlx/{mid}: {exc}", flush=True)
@@ -250,6 +254,8 @@ class DailySoak:
         headers = {}
         if self.path == "pipeline" and self.api_key:
             headers["Authorization"] = f"Bearer {self.api_key}"
+        elif "8085" in url:
+            headers |= omlx_headers()
         payload = {
             "model": model,
             "messages": [{"role": "user", "content": prompt}],

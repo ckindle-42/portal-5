@@ -33,6 +33,7 @@ from pathlib import Path
 
 import yaml
 
+from portal.platform.inference.omlx_auth import omlx_headers
 from tests.wfe.runner import card_entry as _card_entry_matched
 
 REPO = Path(__file__).resolve().parents[2]
@@ -107,7 +108,9 @@ OMLX = "http://localhost:8085"
 def omlx_served_ids() -> set[str]:
     with (
         contextlib.suppress(Exception),
-        urllib.request.urlopen(f"{OMLX}/v1/models", timeout=10) as r,
+        urllib.request.urlopen(
+            urllib.request.Request(f"{OMLX}/v1/models", headers=omlx_headers()), timeout=10
+        ) as r,
     ):
         return {m["id"] for m in json.load(r).get("data", [])}
     return set()

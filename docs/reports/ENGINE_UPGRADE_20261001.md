@@ -134,7 +134,13 @@ process, same resident model (22.9 GB), no unload. 8 requests in flight at limit
 77-148 tok/s with no consistent difference (the first runs after a change are the slow ones), so
 production stays at 8; the setting was restored to 8 and persisted.
 
+## Bench and UAT tooling
+
+Direct-oMLX callers now authenticate as well: the oMLX bench scripts (v3, concurrency, daily
+soak), `settings_audit`, `omlx_chat_template_patch`, the `prove_then_scale` tool probe and the UAT
+monitor. Checked against the secured server: `/v1/models` and `/v1/models/status` answer 200
+when authenticated and 401 when not. The UAT harness itself drives the pipeline (already keyed) and only reads oMLX `/health`, which stays open.
+
 ## Not tested
 
-Bench scripts under `tests/benchmarks/` and the UAT harness still call oMLX directly without the
-key; they need `OMLX_API_KEY` support before their next direct-oMLX run.
+Full bench runs on the new key path (only the call sites were exercised).

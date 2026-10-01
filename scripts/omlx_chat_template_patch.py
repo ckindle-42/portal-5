@@ -32,6 +32,9 @@ import sys
 import urllib.request
 from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from portal.platform.inference.omlx_auth import omlx_headers  # noqa: E402
+
 SETTINGS = Path.home() / ".omlx" / "settings.json"
 OMLX_URL = "http://localhost:8085"
 MARKER = "{#- portal5: no-think post-tool anchor (PIPELINE_ALIGNMENT_V1 §13) -#}"
@@ -68,7 +71,9 @@ def _model_dirs() -> list[Path]:
 
 
 def _unload(model_id: str) -> None:
-    req = urllib.request.Request(f"{OMLX_URL}/v1/models/{model_id}/unload", method="POST")
+    req = urllib.request.Request(
+        f"{OMLX_URL}/v1/models/{model_id}/unload", method="POST", headers=omlx_headers()
+    )
     try:
         urllib.request.urlopen(req, timeout=30)  # noqa: S310 - fixed localhost URL
     except Exception:  # noqa: BLE001 - not loaded / server down: next load reads the file

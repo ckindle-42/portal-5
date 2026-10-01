@@ -31,11 +31,15 @@ import argparse
 import concurrent.futures
 import json
 import os
+import sys
 import time
 from datetime import UTC, datetime
 from pathlib import Path
 
 import httpx
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+from portal.platform.inference.omlx_auth import omlx_headers  # noqa: E402
 
 OMLX_URL = "http://localhost:8085"
 OLLAMA_URL = "http://localhost:11434"
@@ -366,6 +370,8 @@ def one_request(
     _api_key = os.environ.get("PIPELINE_API_KEY", "")
     if _api_key and "9099" in url:
         headers["Authorization"] = f"Bearer {_api_key}"
+    if "8085" in url:
+        headers |= omlx_headers()
 
     try:
         with (
@@ -594,7 +600,7 @@ def _restart_omlx() -> bool:
     for _ in range(30):
         time.sleep(2)
         try:
-            r = httpx.get(f"{OMLX_URL}/v1/models", timeout=3)
+            r = httpx.get(f"{OMLX_URL}/v1/models", headers=omlx_headers(), timeout=3)
             if r.status_code == 200:
                 return True
         except Exception:

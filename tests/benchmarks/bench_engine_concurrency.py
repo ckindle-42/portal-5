@@ -81,6 +81,9 @@ from pathlib import Path
 
 import httpx
 
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+from portal.platform.inference.omlx_auth import omlx_headers  # noqa: E402
+
 RESULTS_DIR = Path(__file__).parent / "results"
 
 # All three speak OpenAI /v1/chat/completions, which is what makes one protocol
@@ -259,7 +262,14 @@ def memory_snapshot() -> dict:
     resident = {}
     for name, url in ENGINES.items():
         try:
-            resident[name] = httpx.get(f"{url}/v1/models", timeout=4.0).status_code == 200
+            resident[name] = (
+                httpx.get(
+                    f"{url}/v1/models",
+                    headers=omlx_headers() if ":8085" in url else {},
+                    timeout=4.0,
+                ).status_code
+                == 200
+            )
         except Exception:
             resident[name] = False
     out["engines_reachable"] = resident
@@ -286,6 +296,7 @@ def one_request(
     pkey = os.environ.get("PIPELINE_API_KEY")
     if pkey and ":9099" in url:
         headers["Authorization"] = f"Bearer {pkey}"
+    headers |= omlx_headers() if ":8085" in url else {}
 
     stamps: list[float] = []
     text_len = 0

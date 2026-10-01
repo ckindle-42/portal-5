@@ -26,10 +26,14 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import sys
 from datetime import UTC, datetime
 from pathlib import Path
 
 import httpx
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+from portal.platform.inference.omlx_auth import omlx_headers  # noqa: E402
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 ART = REPO_ROOT / "reports" / "compliance" / "prove_then_scale" / "b5"
@@ -181,6 +185,8 @@ def probe(engine: str, model: str) -> dict:
     key = os.environ.get("SPLASH_API_KEY")
     if key and engine == "splash":
         headers["Authorization"] = f"Bearer {key}"
+    if "8085" in base:
+        headers |= omlx_headers()
     body = {
         "model": model,
         "messages": [{"role": "user", "content": QUESTION}],
