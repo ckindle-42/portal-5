@@ -123,7 +123,8 @@ def run_rep(out: pathlib.Path, key: pathlib.Path, build: str) -> dict:
                 stderr=subprocess.STDOUT,
                 check=False,
             ).returncode
-        if code:
+        # Exit 1 is a non-PASS receipt verdict, which the judge scores; only a crash invalidates.
+        if code not in (0, 1):
             problems.append(f"{suite}: harness exit {code}")
     problems.extend(_receipt_problems(out, [suite for suite, _args in commands]))
     turns = [json.loads(p.read_text()) for p in out.glob("*/transcripts/*.json")]

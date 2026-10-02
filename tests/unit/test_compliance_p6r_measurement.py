@@ -315,3 +315,23 @@ def test_corrupted_bullet_is_reported_without_claiming_whole_list_match():
     assert record["sections"] == []
     assert record["near_matches"][0]["distance"] == 3
     assert record["near_matches"][0]["span"] != quote
+
+
+def test_campaign_treats_non_pass_receipt_exit_as_valid_but_crash_as_invalid(tmp_path, monkeypatch):
+    import subprocess
+
+    from scripts.compliance.truth import run_campaign
+
+    key = tmp_path / "key.yaml"
+    key.write_text(
+        "status: AGENT_FINAL\nentries:\n- {question_id: 'product:CIP-007-6:exceedance', split: dev}\n"
+    )
+
+    def problems(code):
+        monkeypatch.setattr(subprocess, "run", lambda *a, **k: subprocess.CompletedProcess(a, code))
+        out = tmp_path / f"out{code}"
+        out.mkdir()
+        return run_campaign.run_rep(out, key, "build")["problems"]
+
+    assert not any("harness exit" in p for p in problems(1))
+    assert any("harness exit 2" in p for p in problems(2))
