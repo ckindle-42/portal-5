@@ -37,6 +37,7 @@ import argparse
 import json
 import pathlib
 import re
+import string
 import sys
 from typing import Any
 
@@ -57,9 +58,11 @@ _PAGE_FURNITURE = re.compile(
     r"private\s*[-\u2013\u2014]\s*for internal use only\s*page \d+ of \d+", re.I
 )
 _FURNITURE_INDEX_ATTR = "_citation_integrity_furniture_index"
+_VOCABULARY_ATTR = "_citation_integrity_vocabulary"
 #: the persona's literal example tokens (both sides): copying one is never a
 #: citation. ``R-a1b2c3`` survived P1's scrub of the operator-side example and
 #: B0 measured it copied into answers.
+_EDGE_CHARS = string.punctuation + "\u201c\u201d\u2018\u2019"
 _PLACEHOLDER = re.compile(r"\b(?:[OR]-xxxxxx|[OR]-a1b2c3)\b", re.I)
 
 __all__ = ["integrity", "MIN_QUOTE_WORDS", "resolve_token"]
@@ -143,6 +146,10 @@ def integrity(
             status: sum(q["status"] == status for q in quote_records)
             for status in sorted({q["status"] for q in quote_records})
         },
+        "near_verbatim_split": {
+            kind: sum(q.get("near_kind") == kind for q in quote_records)
+            for kind in ("garbled", "altered")
+        },
         "tokens": token_records,
         "fabricated_tokens": sorted(set(fabricated)),
         "placeholder_tokens": sorted({t for t in fabricated if _PLACEHOLDER.fullmatch(t)}),
@@ -204,9 +211,22 @@ def _near_quote_record(store: Any, quote: str) -> dict:
     for sid, (text, _document) in _folded_index(store).items():
         hit = near_verbatim(quote, text, fold=_fold)
         if hit is not None:
-            matches.append({"section_id": sid, "distance": hit.distance, "ratio": hit.ratio})
+            matches.append(
+                {
+                    "section_id": sid,
+                    "distance": hit.distance,
+                    "ratio": hit.ratio,
+                    "kind": _edit_kind(store, hit),
+                }
+            )
     if matches:
-        return {"quote": quote, "status": "near_verbatim", "sections": [], "near_matches": matches}
+        return {
+            "quote": quote,
+            "status": "near_verbatim",
+            "near_kind": _record_kind(matches),
+            "sections": [],
+            "near_matches": matches,
+        }
     # A single quoted list can span several captured sections. Keep the whole
     # quote ungrounded, but identify a corrupted bullet clause at the same
     # fixed edit budget; never claim the whole assembled list matched a source.
@@ -225,6 +245,7 @@ def _near_quote_record(store: Any, quote: str) -> dict:
                             "section_id": sid,
                             "distance": hit.distance,
                             "ratio": hit.ratio,
+                            "kind": _edit_kind(store, hit),
                             "span": segment,
                         }
                     )
@@ -232,11 +253,42 @@ def _near_quote_record(store: Any, quote: str) -> dict:
             return {
                 "quote": quote,
                 "status": "near_verbatim",
+                "near_kind": _record_kind(matches),
                 "match_scope": "bullet_segment",
                 "sections": [],
                 "near_matches": matches,
             }
     return {"quote": quote, "status": "unresolved", "sections": []}
+
+
+def _vocabulary(store: Any) -> frozenset[str]:
+    """Every word of the store's folded text, built once per store."""
+    from portal.modules.compliance.core.citation_by_quote import _folded_index
+
+    vocab = getattr(store, _VOCABULARY_ATTR, None)
+    if vocab is None:
+        vocab = frozenset(
+            word
+            for text, _doc in _folded_index(store).values()
+            for raw in text.split()
+            if (word := raw.strip(_EDGE_CHARS))
+        )
+        setattr(store, _VOCABULARY_ATTR, vocab)
+    return vocab
+
+
+def _edit_kind(store: Any, hit: Any) -> str:
+    from portal.modules.compliance.core.citation_by_quote import _fold
+    from scripts.compliance.truth.quote_fidelity import edit_kind
+
+    return edit_kind(hit.span, hit.window, _vocabulary(store), fold=_fold)
+
+
+def _record_kind(matches: list[dict]) -> str:
+    """The closest match names the record; a tie with any garbled match is garbled."""
+    best = min(m["distance"] for m in matches)
+    kinds = {m["kind"] for m in matches if m["distance"] == best}
+    return "garbled" if "garbled" in kinds else "altered"
 
 
 def _resolve_without_furniture(store: Any, quote: str) -> list[str]:

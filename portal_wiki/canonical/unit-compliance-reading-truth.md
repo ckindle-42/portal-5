@@ -133,6 +133,15 @@ It does not claim the whole assembled quotation matched. The retained
 calibration passes without changing the default edit budget. `quote_classes`
 reports near-verbatim occurrences separately from unresolved spans.
 
+Each near-verbatim record also carries `near_kind`: `garbled` when a differing
+token is not a word in the store's vocabulary or the edit lies inside a word,
+`altered` for whole-word substitution; the result's `near_verbatim_split`
+counts both. They are diagnostics. Seat fidelity of a build or cache setting is
+measured by `copy_probe.py` instead, which asks the model to reproduce store
+passages exactly at fixed window pressure and scores character errors per 1,000
+and meaning-changing errors (negation, number, modal), holding reading
+behaviour fixed.
+
 The corrected substrate instrument selects coverage rows through the module's
 requirement scope and compares each Part only with that Part's linked sections.
 It cannot pool another Part's evidence or discard Part rows of a parent query.

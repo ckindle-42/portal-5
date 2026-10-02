@@ -117,4 +117,35 @@ def near_verbatim(
     return best
 
 
-__all__ = ["NearVerbatim", "default_budget", "levenshtein", "near_verbatim"]
+def edit_kind(
+    span: str,
+    window: str,
+    vocabulary: set[str] | frozenset[str],
+    *,
+    fold: Callable[[str], str] = _default_fold,
+) -> str:
+    """Name a near-verbatim edit: ``garbled`` or ``altered``.
+
+    A_AMENDMENT_1 split. ``garbled``: a differing token of the span is not a word
+    in the store's vocabulary, or the edit lies inside a word (the differing
+    tokens still share most of their characters). ``altered``: every difference
+    is a whole-word substitution by another real word. Both are diagnostics -
+    neither grounds a quote."""
+    spans = [w.strip(_EDGE) for w in fold(span).split()]
+    wins = [w.strip(_EDGE) for w in fold(window).split()]
+    matcher = difflib.SequenceMatcher(None, spans, wins, autojunk=False)
+    for op, i1, i2, j1, j2 in matcher.get_opcodes():
+        if op == "equal":
+            continue
+        for word in spans[i1:i2]:
+            if word and word not in vocabulary:
+                return "garbled"
+        if op == "replace" and i2 - i1 == j2 - j1:
+            for a, b in zip(spans[i1:i2], wins[j1:j2], strict=True):
+                longer = max(len(a), len(b))
+                if longer > 3 and levenshtein(a, b, longer) <= longer // 3:
+                    return "garbled"
+    return "altered"
+
+
+__all__ = ["NearVerbatim", "default_budget", "edit_kind", "levenshtein", "near_verbatim"]
