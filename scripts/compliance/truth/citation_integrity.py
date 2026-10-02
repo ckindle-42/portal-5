@@ -139,6 +139,10 @@ def integrity(
     ungrounded = [line["claim"] for line in lines if not line["grounded"]]
     return {
         "quotes": quote_records,
+        "quote_classes": {
+            status: sum(q["status"] == status for q in quote_records)
+            for status in sorted({q["status"] for q in quote_records})
+        },
         "tokens": token_records,
         "fabricated_tokens": sorted(set(fabricated)),
         "placeholder_tokens": sorted({t for t in fabricated if _PLACEHOLDER.fullmatch(t)}),
@@ -188,6 +192,50 @@ def _quote_record(store: Any, quote: str, min_quote_words: int, question_fold: s
     hits = _resolve_without_furniture(store, stripped)
     if hits:
         return {"quote": quote, "status": "resolved", "sections": hits, "fold": "page_furniture"}
+    return _near_quote_record(store, quote)
+
+
+def _near_quote_record(store: Any, quote: str) -> dict:
+    """Whole-source windows first; named list segments at the same budget second."""
+    from portal.modules.compliance.core.citation_by_quote import _fold, _folded_index, resolve_quote
+    from scripts.compliance.truth.quote_fidelity import near_verbatim
+
+    matches = []
+    for sid, (text, _document) in _folded_index(store).items():
+        hit = near_verbatim(quote, text, fold=_fold)
+        if hit is not None:
+            matches.append({"section_id": sid, "distance": hit.distance, "ratio": hit.ratio})
+    if matches:
+        return {"quote": quote, "status": "near_verbatim", "sections": [], "near_matches": matches}
+    # A single quoted list can span several captured sections. Keep the whole
+    # quote ungrounded, but identify a corrupted bullet clause at the same
+    # fixed edit budget; never claim the whole assembled list matched a source.
+    segments = re.split(r"[•\uf0b7]", quote)
+    if len(segments) > 1:
+        matches = []
+        for segment in segments:
+            segment = segment.strip().rstrip(",;")
+            if resolve_quote(store, segment):
+                continue
+            for sid, (text, _document) in _folded_index(store).items():
+                hit = near_verbatim(segment, text, fold=_fold)
+                if hit is not None:
+                    matches.append(
+                        {
+                            "section_id": sid,
+                            "distance": hit.distance,
+                            "ratio": hit.ratio,
+                            "span": segment,
+                        }
+                    )
+        if matches:
+            return {
+                "quote": quote,
+                "status": "near_verbatim",
+                "match_scope": "bullet_segment",
+                "sections": [],
+                "near_matches": matches,
+            }
     return {"quote": quote, "status": "unresolved", "sections": []}
 
 

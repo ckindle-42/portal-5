@@ -460,10 +460,13 @@ def _consume_workspace_stream(  # noqa: PLR0912 - one linear pass over the SSE l
     out: dict[str, Any] = {
         "http_status": 0,
         "route_header": "",
+        "correlation_id": "",
         "finish_reason": "",
         "error": "",
         "first_token_s": None,
         "usage_hops": [],
+        "tool_outputs": [],
+        "tool_audit_seen": False,
         "content_parts": [],
         "reasoning_parts": [],
         "budget_exceeded": False,
@@ -476,11 +479,17 @@ def _consume_workspace_stream(  # noqa: PLR0912 - one linear pass over the SSE l
             # No caller sampling: the workspace's declared sampling governs, as
             # it does for every OWUI turn. A harness-only 0.0 measured a greedy
             # seat no user is served (PIPELINE_ALIGNMENT_V1 §13).
-            json={"model": workspace, "messages": messages, "stream": True},
+            json={
+                "model": workspace,
+                "messages": messages,
+                "stream": True,
+                "exec_audit": "compliance" in workspace,
+            },
             timeout=timeout,
         ) as response:
             out["http_status"] = response.status_code
             out["route_header"] = response.headers.get("x-portal-route", "")
+            out["correlation_id"] = response.headers.get("x-correlation-id", "")
             if response.status_code != 200:
                 out["error"] = response.read().decode()[:500]
                 return out
@@ -501,6 +510,10 @@ def _consume_workspace_stream(  # noqa: PLR0912 - one linear pass over the SSE l
                 try:
                     chunk = json.loads(payload_text)
                 except json.JSONDecodeError:
+                    continue
+                if chunk.get("type") == "exec_audit":
+                    out["tool_outputs"].extend(chunk.get("tool_calls") or [])
+                    out["tool_audit_seen"] = True
                     continue
                 if out["first_token_s"] is None:
                     out["first_token_s"] = time.monotonic() - started
@@ -553,8 +566,27 @@ class WorkspaceThread:
         self.session = session
         self.workspace = workspace
         self.router = router
-        self.model_override = model_override
-        self.messages: list[dict[str, str]] = []
+        self.model_override = model_override or os.environ.get("COMPLIANCE_MEASUREMENT_MODEL", "")
+        from portal.platform.inference.config import load_portal_config
+        from portal.platform.inference.sync_config import _owui_preset
+
+        config = load_portal_config()
+        spec = config.workspaces.get(workspace)
+        self.preset = _owui_preset(workspace, spec) if spec is not None else {"params": {}}
+        system = self.preset["params"].get("system", "")
+        self.messages: list[dict[str, str]] = (
+            [{"role": "system", "content": system}] if system else []
+        )
+        # Compute the same append as the pipeline without sending it twice.
+        import hashlib
+
+        from portal.platform.inference.router.preinject import append_text_to_content
+
+        persona = (spec.system_prompt_append or "") if spec is not None else ""
+        served_system = (
+            append_text_to_content(system, persona) if system and persona else system or persona
+        )
+        self.system_text_sha256 = hashlib.sha256(str(served_system).encode()).hexdigest()
         self.rng = __import__("random").Random()
 
     def turn(self, question: str, *, timeout: float = 1800.0) -> dict[str, Any]:
@@ -586,6 +618,9 @@ class WorkspaceThread:
         record: dict[str, Any] = {
             "question": question,
             "answer": content,
+            "system_text_sha256": self.system_text_sha256,
+            "preset_params": self.preset["params"],
+            "preset_tool_ids": self.preset.get("meta", {}).get("toolIds", []),
             "reasoning_chars": len("".join(stream["reasoning_parts"])),
             "wall_s": wall,
             "turn_budget_s": turn_budget_s,
@@ -615,6 +650,44 @@ class WorkspaceThread:
             "output_tokens_all_hops": sum(deltas["output"].values()),
             "error": stream["error"],
         }
+        if "compliance" in self.workspace:
+            from scripts.compliance.truth.served_turn import capture
+
+            record["serving"] = capture(
+                self.session,
+                self.router,
+                stream.get("correlation_id", ""),
+                stream["route_header"],
+                record["prompt_tokens_high_water"] if stream["usage_hops"] else None,
+                headers={"Authorization": f"Bearer {_api_key()}"},
+            )
+            if record["serving"].get("served_model"):
+                record["served_model"] = record["serving"]["served_model"]
+            record["declared_build"] = self.model_override or None
+            record["build_matches_declaration"] = (
+                record["served_model"] == self.model_override if self.model_override else None
+            )
+            record["tool_outputs"] = stream.get("tool_outputs", [])
+            from collections import Counter
+
+            record["tool_calls_from_counters"] = record["tool_calls"]
+            if stream.get("tool_audit_seen"):
+                record["tool_calls"] = dict(Counter(t["tool"] for t in record["tool_outputs"]))
+            elif record["serving"].get("trace"):
+                record["tool_calls"] = dict(
+                    Counter(
+                        event["tool"]
+                        for event in record["serving"]["trace"].get("spans", [])
+                        if event.get("name") == "tool.completed"
+                    )
+                )
+            record["tool_outputs_status"] = (
+                "captured"
+                if stream.get("tool_audit_seen")
+                else "unavailable"
+                if record["tool_calls"]
+                else "no tools called"
+            )
         if content:
             self.messages.append({"role": "assistant", "content": content})
         return record
@@ -673,12 +746,9 @@ def check_workspace_cell(case: dict[str, Any], record: dict[str, Any]) -> list[d
         },
     )
 
-    # Truncation: applied window (from the served tag) must exceed what the
-    # turn actually evaluated. A tag with no -ctxNk suffix reads as UNKNOWN
-    # and FAILs — an unmeasurable window is not a safe one.
-    from tests.wfe.settings_audit import ctx_from_tag
-
-    applied_ctx = ctx_from_tag(served)
+    # Use the measured serving window; model names do not establish the
+    # context actually applied by the backend. Missing measurements fail.
+    applied_ctx = (record.get("serving") or {}).get("serving_window")
     add(
         "applied_window_known_and_not_exceeded",
         applied_ctx is not None and input_tokens < applied_ctx,

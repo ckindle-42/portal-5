@@ -22,7 +22,7 @@ Metrics per entry and aggregate:
   key's cited operator section is among the coverage tool's linked sections.
 
 Predeclared (task P4.3): material recall below 0.95 on any dev entry confirms
-S2 and triggers P6.2.
+S2. P6R measures store completion later as navigation, after pull-based reading.
 
 Everything written goes through ``scripts.compliance.truth._local`` (local
 only). No model inference: store + deterministic tools.
@@ -52,15 +52,6 @@ def _clean_ref(ref: str) -> str:
     return re.sub(r"\s*\([^)]*\)\s*$", "", ref.strip()).strip()
 
 
-def _ref_parts(ref: str) -> tuple[str, str]:
-    """'CIP-007-6 R2 Part 2.2' -> ('CIP-007-6', 'R2'); unparseable -> (cleaned, '')."""
-    cleaned = _clean_ref(ref)
-    m = re.match(r"^(CIP-\d+(?:-\d+(?:\.[0-9a-z]+)*)?)\s+R(\d+)(?:\s+Part\s+(.*))?$", cleaned)
-    if not m:
-        return cleaned, ""
-    return m.group(1), f"R{m.group(2)}"
-
-
 def _population_surface(repo, requirement_scope, render, ref):
     """(edges ids with statuses, material ids) for one regulatory ref."""
     edges: dict[str, str] = {}
@@ -78,12 +69,21 @@ def _population_surface(repo, requirement_scope, render, ref):
     return edges, material
 
 
-def _coverage_surface(compliance_coverage, std: str, req: str) -> set[str]:
-    cov = compliance_coverage(standard=std, requirement=req)
+def _coverage_surface(repo, requirement_scope, compliance_coverage, ref: str) -> set[str]:
+    """Read exactly the module's scope, including Part rows of a parent query."""
+    from portal.modules.compliance.core.reading_assembly import parse_ref
+
+    scope = requirement_scope.resolve(repo, ref)
+    parsed = parse_ref(scope.ref)
+    if parsed is None or not parsed.requirement:
+        return set()
+    identities = [parse_ref(identity) for identity in scope.refs]
+    cov = compliance_coverage(standard=parsed.standard, requirement=f"R{parsed.requirement}")
     ids: set[str] = set()
     for block in cov.get("requirements") or []:
-        if block.get("requirement") == f"{std} {req}":
-            ids |= {str(x.get("section_id")) for x in block.get("linked_sections") or []}
+        identity = parse_ref(str(block.get("requirement") or ""))
+        if identity is not None and identity in identities:
+            ids.update(str(x["section_id"]) for x in block.get("linked_sections") or [])
     return ids
 
 
@@ -112,11 +112,6 @@ def _measure_entry(entry, repo, requirement_scope, render, compliance_coverage, 
     qid = entry["question_id"]
     key_ops = {str(i["section_id"]) for i in entry.get("operator_evidence") or []}
     refs = sorted({_clean_ref(str(g["ref"])) for g in entry.get("governing") or [] if g.get("ref")})
-    requirements: dict[str, set[str]] = {}
-    for ref in refs:
-        std, req = _ref_parts(ref)
-        if req:
-            requirements.setdefault(std, set()).add(req)
 
     edges: dict[str, str] = {}
     material: set[str] = set()
@@ -130,14 +125,19 @@ def _measure_entry(entry, repo, requirement_scope, render, compliance_coverage, 
             continue
         edges.update(e_ids)
         material.update(m_ids)
-    for std, reqs in requirements.items():
-        for req in sorted(reqs):
-            try:
-                coverage |= _coverage_surface(compliance_coverage, std, req)
-            except Exception as exc:  # noqa: BLE001
-                errors.append(
-                    {"question_id": qid, "ref": f"{std} {req}", "error": f"coverage: {exc}"}
-                )
+    coverage_by_part: dict[str, set[str]] = {}
+    # Facts may name Parts that governing entries only name by parent.
+    coverage_refs = set(refs) | {
+        _clean_ref(str(f["part"])) for f in entry.get("facts") or [] if f.get("part")
+    }
+    for ref in sorted(coverage_refs):
+        try:
+            ids = _coverage_surface(repo, requirement_scope, compliance_coverage, ref)
+            coverage_by_part[requirement_scope.resolve(repo, ref).ref] = ids
+            if ref in refs:
+                coverage.update(ids)
+        except Exception as exc:  # noqa: BLE001
+            errors.append({"question_id": qid, "ref": ref, "error": f"coverage: {exc}"})
 
     search_surface, search_runs = _search_surface(
         compliance_search, str(entry.get("question") or "")
@@ -166,16 +166,19 @@ def _measure_entry(entry, repo, requirement_scope, render, compliance_coverage, 
         row["search_n"] = len(search_surface)
         row["search_missing"] = sorted(key_ops - search_surface)
     row["edge_statuses"] = dict(sorted(edges.items()))
-    return errors, row, _verdict_checks(entry, requirements, linked_by_req := coverage, key_ops)
+    return errors, row, _verdict_checks(entry, coverage_by_part, repo, requirement_scope)
 
 
-def _verdict_checks(entry, requirements, coverage_ids: set[str], key_ops: set[str]) -> list[dict]:
+def _verdict_checks(entry, coverage_by_part, repo, requirement_scope) -> list[dict]:
     """Per-Part coverage facts vs the coverage tool's recorded links."""
     checks: list[dict] = []
     for fact in entry.get("facts") or []:
         part = fact.get("part")
         if not part or "coverage" not in fact:
             continue
+        coverage_ids = coverage_by_part.get(
+            requirement_scope.resolve(repo, _clean_ref(str(part))).ref, set()
+        )
         cited = [str(x) for x in fact.get("evidence") or [] if str(x).startswith("isection")]
         if cited:
             if fact["coverage"] == "covered":

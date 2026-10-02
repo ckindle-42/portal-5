@@ -24,6 +24,9 @@ HASHED_FILES = (
     "scripts/compliance/ask_conversational.py",
     "scripts/compliance/ask_product_questions.py",
     "scripts/compliance/truth/citation_integrity.py",
+    "scripts/compliance/truth/quote_fidelity.py",
+    "scripts/compliance/truth/served_turn.py",
+    "scripts/compliance/truth/store_snapshot.py",
     "portal/modules/compliance/core/citation_by_quote.py",
     "portal/modules/compliance/core/answer_contract.py",
     "portal/modules/compliance/core/reading_material.py",
@@ -57,6 +60,7 @@ def receipt_provenance(workspace: str, *, harness_file: str = "") -> dict[str, A
         "generated_utc": _dt.datetime.now(_dt.UTC).isoformat(),
         "python": sys.version.split()[0],
         "workspace": workspace,
+        "declared_build": os.environ.get("COMPLIANCE_MEASUREMENT_MODEL") or None,
         "errors": [],
     }
     try:
@@ -77,6 +81,9 @@ def receipt_provenance(workspace: str, *, harness_file: str = "") -> dict[str, A
         out["workspace_settings"] = {k: ws.get(k) for k in SETTINGS}
         persona = str(ws.get("system_prompt_append") or "")
         out["persona_sha256"] = _sha(persona.encode()) if persona else ""
+        preset_system = str(ws.get("owui_system_prompt") or "")
+        out["system_text_sha256"] = _sha((preset_system + persona).encode())
+        out["preset_system_sha256"] = _sha(preset_system.encode())
         out["persona_chars"] = len(persona)
         tools = [str(t) for t in ws.get("tools") or []]
         out["tools_sha256"] = _sha("\n".join(tools).encode())
@@ -84,6 +91,7 @@ def receipt_provenance(workspace: str, *, harness_file: str = "") -> dict[str, A
     except Exception as exc:  # noqa: BLE001 - provenance never breaks a run
         out["errors"].append(f"portal.yaml: {exc}")
     out["served_config"] = served_config()
+    out["system_text_verified_against_served_config"] = out["served_config"].get("matches_host")
     shas: dict[str, str] = {}
     for rel in (*HASHED_FILES, harness_file):
         if not rel:
