@@ -1876,8 +1876,19 @@ workspaces:
     top_k: 64
     min_p: 0.0
     repeat_penalty: 1.0
-    think: false
-    emits_reasoning: false
+    # A4 (READING_TRUTH_V1 P6, ARCHITECTURE: pending measurement): reasoning on.
+    # think:false had stood since the workspace was created (92a07e13, 2026-09-16)
+    # — a parsing workaround elevated to policy. The A4 preflight (2026-10-02,
+    # direct, pinned build mlx-community--gemma-4-26b-a4b-it-4bit on omlx-general)
+    # showed the seat returns SEPARATED thinking on the served path: the router
+    # injects chat_template_kwargs.enable_thinking for a think:true workspace and
+    # oMLX answers with a distinct reasoning_content (measured: 442 reasoning
+    # chars, content intact; bare `think:` and `reasoning_effort:` are ignored by
+    # oMLX — the router injects the field that works). reasoning stays out of the
+    # answer through the existing channel separation; predict_limit 24576 sizes
+    # reasoning plus answer on the 262,144 window.
+    think: true
+    emits_reasoning: true
     tools:
     - nerc_cip_requirement
     - compliance_requirement
