@@ -77,3 +77,46 @@ def test_whole_tree_collection_ignores_only_graded_wfe_fixtures():
     assert "--ignore=tests/wfe/graded" in addopts
     # the WFE grader copies these into its own tmp dir, so the ignore cannot hide them from it
     assert "shutil.copy2(gf, tmp / gf.name)" in (root / "tests/wfe/checkers.py").read_text()
+
+
+def test_copy_probe_builds_padding_off_the_worker_threads(monkeypatch):
+    import threading
+
+    main = threading.get_ident()
+    monkeypatch.setattr(
+        cp,
+        "sample_passages",
+        lambda store, n, seed: [
+            {"section_id": f"s{i}", "side": "operator", "text": "a b"} for i in range(4)
+        ],
+    )
+
+    def pad(store, need, sid, seed):
+        assert threading.get_ident() == main  # the store connection is not thread-safe
+        return "x"
+
+    monkeypatch.setattr(cp, "padding", pad)
+    monkeypatch.setattr(
+        cp,
+        "ask",
+        lambda *a, **k: {
+            "text": "<<<BEGIN PASSAGE>>>\na b\n<<<END PASSAGE>>>",
+            "route": "r",
+            "wall_s": 0,
+        },
+    )
+    out = cp.run(
+        None,
+        None,
+        router="",
+        key="",
+        workspace="w",
+        build="b",
+        mode="t0",
+        pressure=0.01,
+        window=1000,
+        n=4,
+        seed=0,
+        concurrency=4,
+    )
+    assert out["summary"]["n_scored"] == 4

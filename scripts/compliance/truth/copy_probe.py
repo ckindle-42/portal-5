@@ -193,11 +193,15 @@ def run(
     passages = sample_passages(store, n, seed)
     target = int(pressure * window * CHARS_PER_TOKEN)
 
+    # the store connection is not thread-safe: build every pad before the pool starts
+    pads = [
+        padding(store, max(0, target - len(p["text"])), p["section_id"], seed + i)
+        for i, p in enumerate(passages)
+    ]
+
     def one(item: tuple[int, dict]) -> dict:
         idx, passage = item
-        pad = padding(
-            store, max(0, target - len(passage["text"])), passage["section_id"], seed + idx
-        )
+        pad = pads[idx]
         got = ask(session, router, key, workspace, build, build_prompt(passage["text"], pad), mode)
         reply = got["text"].strip()
         match = re.search(r"<<<BEGIN PASSAGE>>>\s*(.*?)\s*(?:<<<END PASSAGE>>>|$)", reply, re.S)
