@@ -6,10 +6,10 @@ Decision artifact for TASK_BULLY_P0_SPINE_REDUCTION_V1.md P0.1. `[GATE]`:
 produced read-only, best-evidenced classification made without a live
 operator sign-off in this run — flagged for review before P0.2+ acted on it.
 
-- Total canonical units at generation time: **756**
+- Total canonical units at generation time: **757**
 - KEEP-FACT: **54**
 - RELEASE: **77**
-- ARCHIVE: **625**
+- ARCHIVE: **626**
 
 ## KEEP-FACT
 
@@ -740,6 +740,7 @@ P0.4 candidates for the archive bridge rule.
 | `unit-surface-binary-research` | prose-only: no claim, no fact, not referenced by a live doc block |
 | `unit-surface-compliance-closeout-scripts` | prose-only: no claim, no fact, not referenced by a live doc block |
 | `unit-surface-compliance-prove-then-scale-scripts` | prose-only: no claim, no fact, not referenced by a live doc block |
+| `unit-surface-compliance-reading-truth` | prose-only: no claim, no fact, not referenced by a live doc block |
 | `unit-surface-inference` | prose-only: no claim, no fact, not referenced by a live doc block |
 | `unit-surface-inference-cli` | prose-only: no claim, no fact, not referenced by a live doc block |
 | `unit-surface-investigation` | prose-only: no claim, no fact, not referenced by a live doc block |

@@ -92,3 +92,47 @@ Three guards keep a measured run honest about what it measured:
 `citation_integrity.py` also runs as a CLI that recomputes the diagnostic over
 finished run dirs at a given `--min-quote-words`, so a calibrated threshold
 applies to every earlier run without re-asking the model.
+
+## P6R measurement design
+
+The harness starts with the Open WebUI preset's system message. The pipeline
+appends the workspace persona once, using its existing append operation. The
+receipt hashes that combined system text and records the preset parameters and
+tool ids. Sampling continues to come from the workspace configuration.
+
+Every compliance turn records its correlation id and authenticated pipeline
+trace, the final backend and model, and the serving engine's window metadata.
+For oMLX the window comes from `max_model_len` in `/v1/models`; for Ollama it
+comes from `context_length` in `/api/ps`. A workspace context limit or a tag
+suffix is not evidence of the applied window. Unknown measurements stay
+unknown. Window pressure divides prompt tokens by the serving window;
+exceedance includes equality. Declared pins are compared with the final model.
+
+The harness requests the existing `exec_audit` stream event and saves its exact
+tool arguments and outputs locally. A turn that called tools but has no audit
+event records capture as unavailable, rather than fabricating an empty result.
+
+A campaign must pin one store snapshot and restore it before every arm and rep,
+verifying the logical digest. `store_snapshot.py` provides SQLite online backup
+and restore; its digest excludes page layout. External retrieval indexes also
+need isolation or an explicit record of unrestored writes. `run_campaign.py` pins one SQLite snapshot and a shared external-index
+manifest, restores and verifies SQLite before every arm/rep, preserves changed
+post-rep stores locally, and records index versions, row counts and sidecar
+hashes. External-index restoration is not implemented; a changed external
+state halts the campaign before another rep. A run with a mismatched final
+build, unknown serving facts or unavailable tool outputs is invalid.
+
+`near_verbatim` is a separate diagnostic class for quoted text that fails exact
+containment but matches a source window within the calibrated character edit
+budget. It never makes a quote grounded or repairs the answer. Matching uses
+the store's own fold. Calibration must catch every retained corruption while
+flagging none of the calibration's verbatim spans. A quoted list may span several captured sections. After whole-span matching
+fails, the diagnostic checks its bullet clauses independently at the same edit
+budget and records `match_scope: bullet_segment` and the clause that matched.
+It does not claim the whole assembled quotation matched. The retained
+calibration passes without changing the default edit budget. `quote_classes`
+reports near-verbatim occurrences separately from unresolved spans.
+
+The corrected substrate instrument selects coverage rows through the module's
+requirement scope and compares each Part only with that Part's linked sections.
+It cannot pool another Part's evidence or discard Part rows of a parent query.
