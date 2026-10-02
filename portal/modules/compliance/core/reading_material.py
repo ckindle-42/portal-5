@@ -4,7 +4,9 @@ A requirement's scope is a deterministic fact — ``requirement_scope.population
 states it — and this module renders that fact as the material a reading reads.
 No search, no tool loop, no hop ceiling: the model is handed the neighbourhood
 and asked the question, which is the whole of §P1's proof and the map unit the
-sweep later runs at family scale.
+sweep later runs at family scale. ``render_brief`` is the conversation's
+rendering (READING_TRUTH_V1 P6 arm A5): the same scope as a requirement brief
+plus a text-free index — the model pulls the full text it needs.
 
 **Shared body first, and why the order is load-bearing.** A CIP-007-6
 population is ~two-thirds the standard's own fixed body — Section 4
@@ -40,6 +42,19 @@ FIXED_COMPONENTS = (
     "version_history",
     "implementation_plan",
     "technical_rationale_document",
+)
+
+#: The components a requirement BRIEF carries in full (A5 pull-based reading):
+#: the requirement's own text and Parts, the Measures, applicability, and the
+#: intent side (GTB + rationale). Everything else — version history, effective
+#: dates, the implementation plan, background, retention, the glossary — is
+#: readable on request instead of opening every payload.
+BRIEF_COMPONENTS = (
+    "requirement",
+    "measures",
+    "applicability",
+    "technical_basis",
+    "rationale",
 )
 
 #: The heading a population side travels under — the label that says what a
@@ -375,6 +390,110 @@ def _standing_instruction(extra: str, citation: str = "handle") -> str:
     return f"{base} {extra.strip()}" if extra else base
 
 
+def _brief_instruction() -> str:
+    """The brief's standing instruction (A5 pull-based reading). It states what
+    the payload is and is not, and names the pull: an index row is unread until
+    it is read. It never says the material is complete, never forbids a search,
+    never limits the answer to this payload — the packet-era text those phrases
+    carried is exactly what A5 removes."""
+    return (
+        "This is the requirement's brief, not the whole reading. It carries the "
+        "requirement's own text, its Parts, the Measures, applicability, and the "
+        "Guidelines and Technical Basis and rationale (intent), plus an index of "
+        "the sections the standard's own join and the operator's recorded edges "
+        "place in this requirement's scope. An index row names what exists — it "
+        "is NOT the text, and a row is unread until you read it with "
+        "compliance_read. Read the sections your answer rests on; search with "
+        "compliance_search when the question reaches beyond this requirement's "
+        "scope. Support every claim that rests on a section by quoting, in "
+        "double quotes, the exact words it rests on — the quoted words ARE the "
+        "citation. Name what you have not read. Version history, effective "
+        "dates, the implementation plan and the rest of the standard's fixed "
+        "body stay readable on request (compliance_read by id, or "
+        "compliance_context mode=packet for the whole standard at an explicit "
+        "budget)."
+    )
+
+
+def render_brief(repo: Any, ref: str, *, valid_at: str = "") -> dict[str, Any]:
+    """One requirement's BRIEF (A5 pull-based reading) — the requirement's own
+    text, Parts, Measures, applicability and intent (GTB + rationale) in full,
+    plus an INDEX of every section in scope; no operator section text travels
+    in this payload.
+
+    The 2026-09-19 decision this renders: judgment happens in the conversation
+    — retrieve from both sides, read the actual text, compare, cite — and a
+    pre-assembled bundle has to be guessed in advance and compressed for the
+    model instead of the model pulling what it needs. The brief is what the
+    model needs to decide WHAT to pull: the requirement block says what the
+    standard requires here, the index says what exists to read about it — each
+    row carrying the id compliance_read takes, the document, the heading and
+    the standing. Full operator text arrives through compliance_read and
+    compliance_search; version history, effective dates and the implementation
+    plan stay readable on request.
+
+    Index rows print the section id, not a bracketed handle: a handle is a
+    citation device for text already in the message, while an index row's job
+    is to be READ — its id is the argument compliance_read takes, and the
+    quote-citation contract means no id has to reach the answer.
+    """
+    from portal.modules.compliance.core.reading_assembly import assemble, parse_ref
+
+    parsed = parse_ref(ref)
+    if parsed is None:
+        return {"error": f"{ref!r} is not a regulatory address", "ref": ref}
+    payload = assemble(
+        repo,
+        ref,
+        budget_tokens=2**31,
+        include=list(BRIEF_COMPONENTS),
+        valid_at=valid_at,
+    )
+    if "error" in payload:
+        return {"error": payload["error"], "ref": ref}
+    grouped, sections, population = _population_blocks(repo, ref, valid_at=valid_at)
+
+    lines: list[str] = [f"# Requirement brief: {ref}", "", _brief_instruction(), ""]
+    for component in payload.get("components", []):
+        if component["component"] not in BRIEF_COMPONENTS:
+            continue
+        lines.append(f"## {component['component']} — {component['why']}")
+        for section in component.get("sections", []):
+            lines.append("")
+            lines.append(_fixed_section_line(section))
+            lines.append(str(section.get("text", "")).strip())
+    lines.append("")
+    lines.append("## Sections in scope — the index (no text here; read with compliance_read)")
+    for side, entries in grouped:
+        lines.append("")
+        lines.append(f"### {_side_heading(side)} ({len(entries)} section(s))")
+        for entry in entries:
+            line = _section_line(entry)
+            if entry["standing"]:
+                line += f" — standing: {entry['standing']}"
+            lines.append("")
+            lines.append(line)
+            if entry.get("scope_line"):
+                lines.append(entry["scope_line"])
+    text = "\n".join(lines).rstrip() + "\n"
+    return {
+        "ref": ref,
+        "text": text,
+        "chars": len(text),
+        "n_sections": len(sections),
+        "by_side": {side: len(entries) for side, entries in grouped},
+        "components": sorted(
+            {
+                str(c["component"])
+                for c in payload.get("components", [])
+                if c["component"] in BRIEF_COMPONENTS
+            }
+        ),
+        "population_detail": population.get("detail", ""),
+        "population_method": population.get("population_method", ""),
+    }
+
+
 def render(
     repo: Any,
     ref: str,
@@ -511,4 +630,4 @@ def render(
     }
 
 
-__all__ = ["FIXED_COMPONENTS", "fixed_body", "render"]
+__all__ = ["BRIEF_COMPONENTS", "FIXED_COMPONENTS", "fixed_body", "render", "render_brief"]

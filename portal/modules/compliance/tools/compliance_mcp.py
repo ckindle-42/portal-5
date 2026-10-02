@@ -2388,16 +2388,18 @@ def compliance_context(
     needs to decide what to read next; the text itself is one
     ``compliance_read`` (or ``compliance_requirement``) call away.
 
-    ``mode=material``: THE PROVEN READING MATERIAL — the exact
-    ``reading_material.render()`` unit PROVE_THEN_SCALE_V1 §P1 used to prove
-    the reading seat: the standard's fixed body first (byte-identical for
-    every requirement of the revision), then the requirement's own scope —
-    regulatory anchors, operator edges, notes, each labelled with its side
-    and standing, operator sections with their document neighbourhood — and
-    the standing instruction. One message; nothing is missing from it; answer
-    from what it returns and support each claim by quoting the exact words it
-    rests on. This is the same primitive the
-    proof used, exposed — not a second renderer.
+    ``mode=material``: THE REQUIREMENT BRIEF (A5 pull-based reading) — the
+    requirement's own text, its Parts, the Measures, applicability, and the
+    Guidelines and Technical Basis and rationale (intent) in full, plus an
+    INDEX of every section the standard's own join and the operator's recorded
+    edges place in scope (document, heading, standing, the id
+    ``compliance_read`` takes). No operator section text travels in this
+    payload: an index row is unread until you read it. The full text arrives
+    through ``compliance_read`` and ``compliance_search``; version history,
+    effective dates and the implementation plan stay readable on request. The
+    brief is priced against the serving engine's own window before it is
+    returned — an oversize brief is refused as one message and routed to the
+    Part-level refs instead, never clipped.
 
     ``mode=packet`` assembles full text — the requirement and its lead-in,
     every Part row, the Measures, the Guidelines and Technical Basis, the
@@ -2417,18 +2419,15 @@ def compliance_context(
     repo = _repo()
     try:
         if mode == "material":
-            payload = reading_material.render(repo, ref, valid_at=valid_at, citation="quote")
-            # render() also returns the in-process AnswerContract the sweep
-            # resolves handles through; it is not JSON, and every material
-            # response failed serialization with it — which the pipeline reported
-            # as "rejected the arguments" (PIPELINE_ALIGNMENT_V1 §13).
-            payload.pop("contract", None)
+            payload = reading_material.render_brief(repo, ref, valid_at=valid_at)
             if "error" not in payload:
                 # The conversation's window guard (MODULE_COMPLETE_V1 §P0.5):
                 # the sweep refuses oversize readings; the conversation used to
                 # return this payload unbudgeted, and Ollama truncates silently.
-                # An oversize material is REFUSED as one message and routed to
-                # the Part-level refs instead — never clipped.
+                # An oversize brief is REFUSED as one message and routed to the
+                # Part-level refs instead — never clipped. Priced against the
+                # serving engine's own window when it can be read (the Q1b M8
+                # fix): the tag's baked -ctxNk went stale against the engine.
                 from portal.modules.compliance.core import conversation_window
                 from portal.modules.compliance.core.runtime_config import reading_seat
 
@@ -2441,8 +2440,8 @@ def compliance_context(
                         "window": fitted,
                         "route": conversation_window.route(repo, ref, seat),
                         "note": (
-                            f"the whole material for {ref} is {fitted['prompt_bytes']} bytes "
-                            f"~ {fitted['estimated_tokens']} tokens against this seat's "
+                            f"the whole brief for {ref} is {fitted['prompt_bytes']} bytes "
+                            f"~ {fitted['estimated_tokens']} tokens against this turn's "
                             f"{fitted['num_ctx']}-token window; returning it would be truncated "
                             "silently by the engine, so it is NOT returned. Read it per Part "
                             "instead: compliance_context(mode=material, ref=<part ref>) for "
@@ -2452,10 +2451,11 @@ def compliance_context(
                 payload["window"] = fitted
             payload["mode"] = "material"
             payload["note"] = (
-                "the proven reading material (reading_material.render) — the whole "
-                "neighbourhood for this ref, fixed body first; answer from what this "
-                "returns and support each claim by quoting, in double quotes, the "
-                "exact words it rests on"
+                "the requirement brief (reading_material.render_brief) — the "
+                "requirement's own text, Parts, Measures, applicability and intent, "
+                "plus the index of sections in scope; an index row is unread until "
+                "you read it with compliance_read, and support each claim by "
+                "quoting, in double quotes, the exact words it rests on"
             )
             return payload
         if mode == "packet":

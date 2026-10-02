@@ -335,3 +335,36 @@ def test_campaign_treats_non_pass_receipt_exit_as_valid_but_crash_as_invalid(tmp
 
     assert not any("harness exit" in p for p in problems(1))
     assert any("harness exit 2" in p for p in problems(2))
+
+
+def test_reading_persona_no_longer_forces_the_packet():
+    """A5: the persona and the OWUI preset state the pull-based reading — the
+    packet-era forcing ("complete / do not search / answer only from this
+    material") has left the served text, and the brief tool is named."""
+    config = load_portal_config()
+    spec = config.workspaces["compliance-reading"]
+    text = f"{spec.system_prompt_append or ''}\n{spec.owui_system_prompt or ''}"
+    for phrase in (
+        "Do not search",
+        "nothing is missing from it",
+        "answer only from",
+        "THE MATERIAL TOOL",
+        "the whole neighbourhood in one payload",
+    ):
+        assert phrase not in text, phrase
+    assert "THE BRIEF TOOL" in spec.system_prompt_append
+    assert 'mode="material"' in spec.system_prompt_append
+
+
+def test_prompt_artifact_and_inline_copy_agree_on_version():
+    """The artifact is the record, the inline copy is what serves — they move
+    together, and the version says so in both places."""
+    import re
+    from pathlib import Path
+
+    root = Path(__file__).resolve().parents[2]
+    artifact = (root / "config/compliance/workspace_reading_prompt.md").read_text()
+    match = re.search(r"^prompt_version:\s*(\S+)", artifact, re.M)
+    assert match, "the artifact declares no prompt_version"
+    inline = (root / "config/portal.yaml").read_text()
+    assert match.group(1) in inline, "portal.yaml's prompt_version comment drifted"
