@@ -45,19 +45,3 @@ def test_machine_address_lands_in_a_bare_compliance_workspace(address: str) -> N
 def test_reading_tag_does_not_resolve_to_the_conversational_lane() -> None:
     hint = model_addressing.workspaces()["compliance-reading"]["model_hint"]
     assert model_addressing.workspace_id_for_model(hint) == "compliance-mapping"
-
-
-def test_reading_seat_cannot_write_and_review_seat_owns_the_write_surface() -> None:
-    """A6 (READING_TRUTH_V1 P6): the review-decision and correction tools leave
-    the reading seat — the model that reads for an analyst must not be able to
-    change the store the next turn reads. compliance_note stays by design
-    (dialogue-as-source); compliance_review_list stays (evidence reading)."""
-    workspaces = model_addressing.workspaces()
-    reading = set(workspaces["compliance-reading"].get("tools") or [])
-    review = set(workspaces["compliance-review"].get("tools") or [])
-    moved = {"compliance_review_decide", "compliance_review_decide_batch", "compliance_correct"}
-    assert not moved & reading, f"reading seat still offers write tools: {moved & reading}"
-    assert moved <= review, f"review workspace missing the write surface: {moved - review}"
-    assert "compliance_review_list" in review
-    assert "compliance_note" in reading
-    assert workspaces["compliance-review"].get("module") == "compliance"

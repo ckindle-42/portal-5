@@ -55,8 +55,6 @@ VALID_WORKSPACES = frozenset(
         "compliance-council-deepseek-r1",
         "compliance-reading-overflow",
         "compliance-mapping",
-        # A6 (READING_TRUTH_V1 P6): the review surface is its own analyst lane.
-        "compliance-review",
         "auto-math",
         "auto-audio",
         "auto-uncensored-throwaway",

@@ -538,7 +538,7 @@ The roster is derived from the persona YAML files under `config/personas/`, one 
 ### Workspaces
 
 <!-- WIKI:GENERATED unit=unit-fact-workspace-roster -->
-#### Workspace roster (32 production, 22 eval, 54 total)
+#### Workspace roster (31 production, 22 eval, 53 total)
 
 ##### Production workspaces (acceptance/UAT scope, eval OFF)
 
@@ -574,7 +574,6 @@ The roster is derived from the persona YAML files under `config/personas/`, one 
 | `compliance-mapping` | compliance | `gemma4:26b-a4b-it-q4_K_M-ctx32k` |
 | `compliance-reading` | compliance | `gemma4:26b-a4b-it-q4_K_M-ctx32k` |
 | `compliance-reading-overflow` | compliance | `gemma4:26b-a4b-it-q4_K_M-ctx64k` |
-| `compliance-review` | compliance | `gemma4:26b-a4b-it-q4_K_M-ctx32k` |
 | `tools-specialist` | general | `granite4.1:8b-ctx8k` |
 
 ##### Eval/bench workspaces (need PORTAL_ENABLE_EVAL=1)
@@ -651,7 +650,6 @@ default.
 | `compliance-mapping` | `gemma4:26b-a4b-it-q4_K_M-ctx32k` | yes |
 | `compliance-reading` | `gemma4:26b-a4b-it-q4_K_M-ctx32k` | yes |
 | `compliance-reading-overflow` | `gemma4:26b-a4b-it-q4_K_M-ctx64k` | yes |
-| `compliance-review` | `gemma4:26b-a4b-it-q4_K_M-ctx32k` | yes |
 | `tools-specialist` | `granite4.1:8b-ctx8k` | yes |
 
 ##### Persona model_pin reachability

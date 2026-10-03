@@ -1262,8 +1262,6 @@ workspace_routing:
   - general
   compliance-reading-overflow:
   - general
-  compliance-review:
-  - general
   auto-math:
   - reasoning
   - general
