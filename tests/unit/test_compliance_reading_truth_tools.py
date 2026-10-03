@@ -388,3 +388,44 @@ def test_every_output_refuses_the_public_tree(tmp_path):
     assert code == 2
     assert not public.exists()
     assert answer_key.main(["manifest", str(key_path), "--out", str(tmp_path / "m.json")]) == 0
+
+
+def test_compare_counts_pass_c_records_in_a_final_set():
+    """A final set is A with C substituted; a bare pass=="A" filter dropped
+    exactly the contested items pass C settled and hid a keep-rule trip (A6)."""
+    key = _key()
+    key["entries"][0]["split"] = "dev"
+    entries = judgments.key_entries(key)
+    ok = {"F1": "correct", "F2": "correct", "F3": "correct"}
+    records = (
+        [_rec(f"b{n}", "A", ok) for n in range(3)]
+        + [_rec("a0", "A", ok), _rec("a1", "A", ok)]
+        + [_rec("a2", "C", {**ok, "F1": "wrong"})]
+    )
+    unblind = {
+        **{f"b{n}": {"run_dir": f"p6/A3/rep{n}"} for n in range(3)},
+        "a0": {"run_dir": "p6/A6/rep0"},
+        "a1": {"run_dir": "p6/A6/rep1"},
+        "a2": {"run_dir": "p6/A6/rep2"},
+    }
+    result = judgments.compare(records, unblind, entries, ["p6/A3"], ["p6/A6"])
+    assert result["regressions_correct_to_wrong"] == ["product:CIP-007-6:coverage_gap"]
+    assert result["keep_if_truth_fix"] is False
+
+
+def test_aggregate_final_set_counts_c_records_in_the_headline():
+    entries = judgments.key_entries(_key())
+    ok = {"F1": "correct", "F2": "correct", "F3": "correct"}
+    records = [
+        _rec("i1", "A", ok),
+        _rec("i2", "A", {**ok, "F1": "wrong"}),
+        _rec("i3", "C", {**ok, "F2": "omitted"}),
+    ]
+    unblind = {
+        "i1": {"run_dir": "r", "suite": "product", "mechanical_verdict": "PASS"},
+        "i2": {"run_dir": "r", "suite": "product", "mechanical_verdict": "PASS"},
+        "i3": {"run_dir": "r", "suite": "product", "mechanical_verdict": "PASS"},
+    }
+    result = judgments.aggregate(records, unblind, entries)
+    assert result["overall"]["n"] == 3
+    assert result["overall"]["counts"]["PARTIAL"] == 1

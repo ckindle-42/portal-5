@@ -190,8 +190,16 @@ def aggregate(
     unblind: dict[str, dict[str, Any]],
     entries: dict[str, dict[str, Any]],
 ) -> dict[str, Any]:
-    scored = score(records, entries)
-    primary = [s for s in scored if s["pass"] == "A"]
+    # The primary set is the A pass with C arbitrating where it ran: in a final
+    # set (A with C substituted) every record is primary; in a double-judged
+    # A/B round the B records stay out of the headline. Feeding a final set
+    # through a bare pass=="A" filter would silently drop exactly the
+    # contested items pass C settled (A6: it hid a keep-rule regression).
+    has_b = any(r.get("pass") == "B" for r in records)
+    primary_records = [
+        r for r in records if r.get("pass") == "A" or (r.get("pass") == "C" and not has_b)
+    ]
+    primary = score(primary_records, entries)
     by_group: dict[str, list[dict[str, Any]]] = collections.defaultdict(list)
     by_split: dict[str, list[dict[str, Any]]] = collections.defaultdict(list)
     confusion: collections.Counter = collections.Counter()
@@ -203,7 +211,7 @@ def aggregate(
         if mech in ("PASS", "FAIL"):
             confusion[f"mechanical_{mech}__judged_{s['overall']}"] += 1
     passes: dict[str, dict[str, str]] = collections.defaultdict(dict)
-    for s in scored:
+    for s in score(records, entries):
         passes[s["item_id"]][s["pass"]] = s["overall"]
     pairs = [(p["A"], p["B"]) for p in passes.values() if "A" in p and "B" in p]
     disagreements = sorted(
@@ -257,7 +265,11 @@ def compare(
     baseline reps were all CORRECT may show a WRONG rep in the arm. A TRUTH
     FIX (a false statement removed) is kept unless it regresses: the second
     condition alone. The caller says which kind the change is."""
-    scored = [s for s in score(records, entries) if s["pass"] == "A" and s["split"] == split]
+    # The caller is expected to pass a final set (A with C substituted) or a
+    # single-pass set. Filtering to pass=="A" here dropped exactly the
+    # contested items pass C settled, biasing every comparison toward the
+    # pass-A status quo (A6: it hid a keep-rule regression on the arm side).
+    scored = [s for s in score(records, entries) if s["split"] == split]
 
     def reps(prefixes: list[str]) -> dict[str, list[str]]:
         out: dict[str, list[str]] = collections.defaultdict(list)
