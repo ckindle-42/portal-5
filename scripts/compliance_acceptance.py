@@ -536,8 +536,16 @@ def _consume_workspace_stream(  # noqa: PLR0912 - one linear pass over the SSE l
                 delta = choices[0].get("delta") or {}
                 if delta.get("content"):
                     out["content_parts"].append(str(delta["content"]))
-                if delta.get("reasoning"):
-                    out["reasoning_parts"].append(str(delta["reasoning"]))
+                # the router re-emits engine reasoning as reasoning_content on
+                # streamed deltas (measured live 2026-10-02); `reasoning` alone
+                # recorded zeros on think:true turns
+                reasoning_delta = (
+                    delta.get("reasoning")
+                    or delta.get("reasoning_content")
+                    or delta.get("thinking")
+                )
+                if reasoning_delta:
+                    out["reasoning_parts"].append(str(reasoning_delta))
                 if choices[0].get("finish_reason"):
                     out["finish_reason"] = str(choices[0]["finish_reason"])
     except Exception as exc:  # noqa: BLE001 - a transport failure is a recorded result
