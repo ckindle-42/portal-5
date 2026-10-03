@@ -278,3 +278,57 @@ def test_compliance_context_material_is_json(monkeypatch):
     out = compliance_mcp.compliance_context("CIP-007-6 R2 Part 2.3", mode="material")
     assert out["mode"] == "material" and "contract" not in out
     json.dumps(out)
+
+
+class _FakeConn:
+    """Dispatches the two relationship_assertions queries compliance_coverage makes."""
+
+
+class _FakeCursor(list):
+    def fetchall(self):
+        return list(self)
+
+
+class _FakeConn:
+    """Dispatches the two relationship_assertions queries compliance_coverage makes."""
+
+    def execute(self, sql: str, params: tuple = ()):
+        if "SELECT DISTINCT src_ref" in sql:
+            return _FakeCursor([("CIP-007-6 R2 Part 2.1",), ("CIP-007-6 R2 Part 2.2",)])
+        if "dst_ref" in sql:
+            edge = ("isection-1", "approved", "recorded", 1.0)
+            return _FakeCursor([edge] if params[0] == "CIP-007-6 R2 Part 2.1" else [])
+        raise AssertionError(f"unexpected SQL: {sql}")
+
+
+class _FakeRepo:
+    _conn = _FakeConn()
+
+    def close(self) -> None:
+        pass
+
+
+def test_coverage_reports_links_not_verdicts(monkeypatch):
+    """A6: the payload carries evidence — linked sections with their standing —
+    and never a coverage verdict. has_link and requirements_with_no_link let a
+    model restate a gap answer without reading (F4/M7)."""
+    import portal.modules.compliance.core.section_index as section_index
+
+    monkeypatch.setattr(compliance_mcp, "_repo", _FakeRepo)
+    monkeypatch.setattr(section_index, "sections_in_scope", lambda repo, logical_id: ["cs-1"])
+    monkeypatch.setattr(
+        section_index,
+        "resolve_sections",
+        lambda repo, ids: {"isection-1": {"section_id": "isection-1", "document_title": "Op Doc"}},
+    )
+    out = compliance_mcp.compliance_coverage(standard="CIP-007-6", requirement="R2")
+    assert "error" not in out
+    assert [r["requirement"] for r in out["requirements"]] == [
+        "CIP-007-6 R2 Part 2.1",
+        "CIP-007-6 R2 Part 2.2",
+    ]
+    linked = out["requirements"][0]["linked_sections"]
+    assert linked and linked[0]["section_id"] == "isection-1"
+    assert linked[0]["status"] == "approved"
+    assert all("has_link" not in r for r in out["requirements"])
+    assert "requirements_with_no_link" not in out

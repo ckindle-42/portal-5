@@ -2223,12 +2223,15 @@ def compliance_timeline(ref: str) -> dict[str, Any]:
 def compliance_coverage(
     standard: str = "", requirement: str = "", valid_at: str = "", known_at: str = ""
 ) -> dict[str, Any]:
-    """Per requirement: the internal sections linked to it, and explicitly those
-    with none. **Deterministic — no model call, no background job.**
+    """Per requirement: the internal sections linked to it, with the standing
+    each link carries. **Deterministic — no model call, no background job.**
 
     This is what replaces ``compliance_gaps``'s job queue for the question
-    "where are we not covered". It reports recorded links, not verdicts: what a
-    link MEANS is read at question time.
+    "where are we not covered". It reports recorded links, never a verdict:
+    what a link MEANS is read at question time (A6: has_link and
+    requirements_with_no_link were removed — a coverage verdict computed from
+    whether an edge exists is a conclusion the reading seat must reach from
+    evidence, not restate).
     """
     from portal.modules.compliance.core import reading_assembly, section_index
 
@@ -2271,7 +2274,6 @@ def compliance_coverage(
                         for sid, entry in linked.items()
                     ],
                     "unresolvable_links": [str(e[0]) for e in edges if str(e[0]) not in linked],
-                    "has_link": bool(linked),
                 }
             )
         return {
@@ -2281,7 +2283,6 @@ def compliance_coverage(
             "known_at": known_at or "latest recorded knowledge",
             "sections_in_standard": len(assembly_ids),
             "requirements": rows,
-            "requirements_with_no_link": [r["requirement"] for r in rows if not r["has_link"]],
             "deterministic": True,
         }
     finally:
