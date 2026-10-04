@@ -7,9 +7,9 @@
         "jurisdiction": "US",
         "logical_id_regex": " RSAW$"
       },
-      "decision": "pending",
-      "reason": "undecided at D1: RSAWs describe the evidence auditors expect, which evidence-type questions ask about; D4 decides inclusion vs exclusion from measured recall and decoy rank (F1: ~7.3k sections, the bulk of the 8,753 unindexed).",
-      "decided_in": null
+      "decision": "excluded",
+      "reason": "decided at D4 from measurement (L12): (1) evidence containment — 0 of the answer key's 189 evidence quotes live in RSAW sections, so exclusion cannot cost delivery; (2) including the 7,731 RSAW rows REDUCES dev governing recall@20 (2/24 -> 1/24, d4_coverage_report.json) — audit-worksheet rows displace governing text at the same topic; (3) RSAWs describe the evidence an auditor expects, not what the operator does — the operator corpus carries that, and where an RSAW question is asked the standard's own Measures examples (indexed, Tier 0) answer it. The store keeps them addressable; the index does not retrieve them.",
+      "decided_in": "D4"
     },
     {
       "id": "glossary_of_terms",
@@ -18,7 +18,7 @@
         "logical_id_regex": "glossary-of-terms"
       },
       "decision": "indexed",
-      "reason": "reclassified at D2 (measured): the document holds NINE captures of 330 sections each; SEVEN revisions (2,310 sections) were already indexed, only the two newest captures (660) were never projected — re-capture duplication, not a deliberate exclusion. Default scope (is_superseded=0) carries exactly one governing copy of 330 either way, so D4 measures those 330 for recall and decoy behaviour without an exclusion decision.",
+      "reason": "reclassified at D2 (measured): the document holds NINE captures of 330 sections each; SEVEN revisions (2,310 sections) were already indexed, only the two newest captures (660) were never projected — re-capture duplication, not a deliberate exclusion. Default scope (is_superseded=0) carries exactly one governing copy of 330 either way, so D4 measures those 330 for recall and decoy behaviour without an exclusion decision. D4 measurement: dev governing recall identical with the default-scope glossary included vs excluded (2/24 @20 both, d4_glossary_report.json), 0 of 189 key evidence quotes are glossary text, and the term-query decoy's top hit is the glossary's own definition row (a correct answer to a definition query, not pollution) — the glossary stays indexed; its nine-capture duplication is a capture-policy fact that default scope already shields (only the governing revision's 330 rows are in scope; D6 hardens the clock).",
       "decided_in": "D2"
     },
     {
@@ -29,9 +29,9 @@
           ""
         ]
       },
-      "decision": "pending",
-      "reason": "undecided at D1: 68 internal sections with no unit_kind (heading-only or furniture rows); D3's operator re-cut decides whether they merge into body units or stay out with this recorded reason.",
-      "decided_in": null
+      "decision": "excluded",
+      "reason": "decided at D4: all 68 internal sections with no unit_kind are short (span<120) rows already unprojected — they predate the current extractor and none is indexed; D3's built-in fragment/furniture rules cover their shapes for future captures. Recorded so the coverage check sees a decided class.",
+      "decided_in": "D4"
     },
     {
       "id": "table_of_contents_sections",
@@ -71,9 +71,9 @@
           ""
         ]
       },
-      "decision": "pending",
-      "reason": "undecided at D1: 68 internal sections with no unit_kind (heading-only or furniture rows); D3's operator re-cut decides whether they merge into body units or stay out with this recorded reason.",
-      "decided_in": null
+      "decision": "excluded",
+      "reason": "decided at D4: all 68 internal sections with no unit_kind are short (span<120) rows already unprojected — they predate the current extractor and none is indexed; D3's built-in fragment/furniture rules cover their shapes for future captures. Recorded so the coverage check sees a decided class.",
+      "decided_in": "D4"
     }
   ]
 }

@@ -157,6 +157,9 @@ class ProjectionPlan:
     #: committed exclusion table keeps their class out of the index, by class
     #: id. Distinct from ``unprojectable``: these are decisions, not failures.
     excluded_by_class: dict[str, int] = field(default_factory=dict)
+    #: the same population as section ids (class id -> ids), so a coverage
+    #: audit can explain the unindexed population from the plan's own receipt.
+    excluded_sections: dict[str, list[str]] = field(default_factory=dict)
 
     @property
     def examined_sections(self) -> list[str]:
@@ -714,6 +717,7 @@ def build_plan(repo: Any, *, jurisdiction: str, kb_id: str = "") -> ProjectionPl
             plan.superseded_sections.append(section_id)
         elif verdict == "excluded":
             plan.excluded_by_class[detail] = plan.excluded_by_class.get(detail, 0) + 1
+            plan.excluded_sections.setdefault(detail, []).append(section_id)
         else:
             _plan_ok(
                 plan,

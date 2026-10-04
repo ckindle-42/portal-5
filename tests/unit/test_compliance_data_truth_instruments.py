@@ -229,32 +229,36 @@ def test_exclusion_table_loader_tolerates_missing_file(
     assert di._load_exclusion_table() == []
 
 
-def test_coverage_counts_pending_as_unexplained(
-    memory_store: sqlite3.Connection, monkeypatch: pytest.MonkeyPatch
+class _UnprojectablePlan:
+    """A plan whose only receipt is one unprojectable section."""
+
+    def __init__(self, section_id: str) -> None:
+        self.excluded_sections: dict = {}
+        self.excluded_by_class: dict = {}
+        self.superseded_sections: list = []
+        self.unprojectable: list = [
+            {"section_id": section_id, "reason": "span [0, 1) does not resolve"}
+        ]
+        self.eligible_sections: list = []
+        self.units: list = []
+        self.kb_id = "nerc_corpus"
+        self.jurisdiction = "US"
+
+
+def test_coverage_explains_unprojectable_from_plan_receipt(
+    memory_store: sqlite3.Connection,
 ) -> None:
-    monkeypatch.setattr(
-        di,
-        "_load_exclusion_table",
-        lambda: [
-            {
-                "id": "pending_class",
-                "applies": {"jurisdiction": "US", "logical_id_regex": "X-1$"},
-                "decision": "pending",
-            },
-            {
-                "id": "decided_class",
-                "applies": {"jurisdiction": "internal"},
-                "decision": "excluded",
-            },
-        ],
+    rows = {"t": [{"chunk_id": "csection-c#0"}]}
+    result = di.check_coverage(
+        memory_store,
+        rows,
+        build=lambda repo, jurisdiction: _UnprojectablePlan("csection-b"),
     )
-    rows = {
-        "t": [{"chunk_id": "csection-c#0"}]
-    }  # an indexed id the store lacks: coverage is about the store side
-    result = di.check_coverage(memory_store, rows)
-    # csection-a and csection-b are both unindexed; csection-b's doc is US X-1 -> pending
+    # csection-a is unindexed with no verdict and no class: real drift
     assert result.status == "fail"
-    assert result.findings[0]["pending_classes"].get("pending_class", 0) >= 1
+    assert result.findings[0]["unexplained_count"] == 1
+    # build runs per jurisdiction, so the fake plan's one row counts twice
+    assert result.findings[0]["plan_verdicts"]["unprojectable"] == 2
 
 
 # ── DATA_TRUTH D2: requirement-first unit composition ────────────────────────

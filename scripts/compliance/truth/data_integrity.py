@@ -179,158 +179,82 @@ def _class_matches(
     return not (role_pattern and not re.search(role_pattern, role))
 
 
-def _is_revision_row(conn: sqlite3.Connection, row: sqlite3.Row) -> bool:
-    """The D3 revision-log shape: operator side, short, dated, change verb."""
-    from portal.modules.compliance.core.jurisdiction import is_operator_side
-
-    if not is_operator_side(row["jurisdiction"]):
-        return False
-    span = row["span"]
-    if span is None or int(span) > 500:
-        return False
-    text_row = conn.execute(
-        "select revision_id, char_start, char_end from source_sections where section_id=?",
-        (str(row["section_id"]),),
-    ).fetchone()
-    if text_row is None:
-        return False
-    full = conn.execute(
-        "select full_text from document_texts where revision_id=?",
-        (str(text_row["revision_id"]),),
-    ).fetchone()
-    if full is None:
-        return False
-    start, end = int(text_row["char_start"] or 0), int(text_row["char_end"] or 0)
-    if not (0 <= start < end <= len(full[0])):
-        return False
-    body = full[0][start:end]
-    import re as _re
-
-    return bool(
-        _re.search(r"\b\d{1,2}/\d{1,2}/\d{2,4}\b", body)
-        and _re.search(r"\b(Added|Removed|Updated|Revised|Changed|Performed|Corrected)\b", body)
-    )
-
-
-def _classify_unindexed(
+def check_coverage(
     conn: sqlite3.Connection,
-    row: sqlite3.Row,
-    classes: list[dict[str, Any]],
-) -> tuple[str, str | None, str | None]:
-    """(outcome, class_id) for one unindexed section.
+    rows: dict[str, list[dict[str, Any]]],
+    *,
+    build: Any = None,
+) -> CheckResult:
+    """Store↔index coverage, explained from the CURRENT plan's own receipts.
 
-    outcome is ``explained`` (a decided exclusion class owns it, or the section
-    matches the built-in heading-only fragment rule), ``pending`` (an undecided
-    class matches — still unexplained until D4 decides), ``deferred`` (an
-    'indexed' class owns it: the projection brings it in, D4 owns the reason —
-    neutral), or ``unexplained``.
+    L11: the plan receipt IS the recorded exclusion reason. An unindexed
+    section is explained when the plan's gate verdict for it was excluded
+    (a decided class, a fragment/furniture/revision-row rule), superseded
+    (a pre-capture duplicate), or unprojectable (a span that does not
+    resolve, recorded with its reason). What remains unexplained is real
+    drift: a section the plan WOULD index that the lance tables lack.
     """
-    # the built-in fragment rule (plan _plan_gate): the section's whole span is
-    # its own title line, under the fragment floor. Verified from metadata —
-    # the span hugs the title's length — because slicing store text here would
-    # double the check's cost.
-    title = str(row["title"] or "").strip()
-    span = row["span"]
-    if title and span is not None and 0 < int(span) < 120 and abs(int(span) - len(title)) <= 2:
-        return "explained", "regulatory_heading_only_fragments", None
-    matched_decided = None
-    matched_pending = None
-    matched_indexed = None
-    for entry_class in classes:
-        if _class_matches(
-            entry_class,
-            str(row["jurisdiction"]),
-            str(row["logical_id"]),
-            str(row["unit_kind"] or ""),
-            role=str(row["role"] or ""),
-        ):
-            decision = entry_class.get("decision")
-            if decision == "excluded":
-                matched_decided = entry_class
-            elif decision == "indexed":
-                matched_indexed = entry_class
-            else:
-                matched_pending = entry_class
-    if matched_decided is not None:
-        return "explained", str(matched_decided["id"]), None
-    if matched_pending is not None:
-        return "pending", str(matched_pending["id"]), None
-    if matched_indexed is not None:
-        return "deferred", str(matched_indexed["id"]), None
-    return "unexplained", None, None
-
-
-def check_coverage(conn: sqlite3.Connection, rows: dict[str, list[dict[str, Any]]]) -> CheckResult:
     indexed: set[str] = set()
     for name, table_rows in rows.items():
         if name.startswith("__error__"):
             continue
         for row in table_rows:
             indexed.add(str(row["chunk_id"]).split("#")[0])
-    store_rows = conn.execute(
-        """select s.section_id, s.unit_kind, s.title, s.role,
-                  s.char_end - s.char_start as span,
-                  d.jurisdiction, r.logical_id
-           from source_sections s
-           join document_revisions r on r.revision_id = s.revision_id
-           join source_documents d on d.logical_id = r.logical_id"""
-    ).fetchall()
-    unindexed = [r for r in store_rows if str(r["section_id"]) not in indexed]
-    classes = _load_exclusion_table()
-    by_class: dict[str, int] = {}
-    unexplained: list[sqlite3.Row] = []
-    pending: dict[str, int] = {}
-    for row in unindexed:
-        outcome, class_id, _ = _classify_unindexed(conn, row, classes)
-        if outcome == "explained":
-            by_class[class_id] = by_class.get(class_id, 0) + 1
-        elif outcome == "pending":
-            pending[class_id] = pending.get(class_id, 0) + 1
-            unexplained.append(row)
-        elif outcome == "unexplained":
-            unexplained.append(row)
+
+    from portal.modules.compliance.core.repository import Repository
+    from portal.modules.compliance.core.section_index import build_plan
+
+    build = build or build_plan
+    explained: set[str] = set()
+    class_counts: dict[str, int] = {}
+    plan_notes: dict[str, int] = {}
+    repo = Repository()
+    try:
+        for jurisdiction in ("US", "internal"):
+            plan = build(repo, jurisdiction=jurisdiction)
+            for class_id, ids in plan.excluded_sections.items():
+                explained.update(ids)
+                class_counts[class_id] = class_counts.get(class_id, 0) + len(ids)
+            explained.update(plan.superseded_sections)
+            plan_notes["superseded"] = plan_notes.get("superseded", 0) + len(
+                plan.superseded_sections
+            )
+            explained.update(entry["section_id"] for entry in plan.unprojectable)
+            plan_notes["unprojectable"] = plan_notes.get("unprojectable", 0) + len(
+                plan.unprojectable
+            )
+    finally:
+        repo.close()
+
+    store_ids = {
+        str(r["section_id"]) for r in conn.execute("select section_id from source_sections")
+    }
+    unexplained_ids = sorted(store_ids - indexed - explained)
     findings = [
         {
-            "unindexed_total": len(unindexed),
-            "explained_by_class": by_class,
-            "pending_classes": pending,
-            "unexplained_by_jurisdiction": _count_by(unexplained, "jurisdiction"),
-            "unexplained_examples": [
-                {
-                    "section_id": str(r["section_id"]),
-                    "logical_id": str(r["logical_id"]),
-                    "unit_kind": str(r["unit_kind"] or ""),
-                }
-                for r in unexplained[:5]
-            ],
+            "unindexed_total": len(store_ids - indexed),
+            "explained_by_class": class_counts,
+            "plan_verdicts": plan_notes,
+            "unexplained_count": len(unexplained_ids),
+            "unexplained_examples": [{"section_id": s} for s in unexplained_ids[:5]],
         }
     ]
-    if unexplained:
+    if unexplained_ids:
         return CheckResult(
             "store_index_coverage",
             "fail",
-            f"{len(unexplained)} unindexed section(s) without a decided exclusion class "
-            f"({sum(pending.values())} in pending classes) — record the class and its reason "
-            f"in {EXCLUSION_TABLE_PATH.name}",
+            f"{len(unexplained_ids)} section(s) the plan would index are missing from the lance "
+            "tables, or carry no plan verdict and no decided class — re-run "
+            "scripts/project_compliance_sections.py or record the exclusion",
             findings,
         )
     return CheckResult(
         "store_index_coverage",
         "pass",
-        f"every one of {len(unindexed)} unindexed section(s) is covered by a decided exclusion class",
+        "every unindexed section carries the current plan's verdict (decided class, superseded, "
+        "or unprojectable with reason)",
         findings,
     )
-
-
-def _count_by(rows: list[sqlite3.Row], key: str) -> dict[str, int]:
-    out: dict[str, int] = {}
-    for row in rows:
-        value = str(row[key])
-        out[value] = out.get(value, 0) + 1
-    return out
-
-
-# ── check 3: unit-shape census (report-only) ─────────────────────────────────
 
 
 def check_unit_shapes(rows: dict[str, list[dict[str, Any]]]) -> CheckResult:
