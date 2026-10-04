@@ -1,0 +1,26 @@
+{
+  "_comment": "TASK_COMPLIANCE_DATA_TRUTH_V1 D1b/D4: classes of canonical sections deliberately left out of the retrieval index. Each class carries the measured reason for its decision; 'pending' means observed but not yet decided (D4 decides from measured recall and decoy behaviour — L12). A section left unindexed and uncovered by a decided class fails scripts/compliance/truth/data_integrity.py.",
+  "classes": [
+    {
+      "id": "rsaw_audit_worksheets",
+      "applies": {"jurisdiction": "US", "logical_id_regex": " RSAW$"},
+      "decision": "pending",
+      "reason": "undecided at D1: RSAWs describe the evidence auditors expect, which evidence-type questions ask about; D4 decides inclusion vs exclusion from measured recall and decoy rank (F1: ~7.3k sections, the bulk of the 8,753 unindexed).",
+      "decided_in": null
+    },
+    {
+      "id": "glossary_of_terms",
+      "applies": {"jurisdiction": "US", "logical_id_regex": "glossary-of-terms"},
+      "decision": "pending",
+      "reason": "undecided at D1: 660 definition sections; D4 decides from measured recall and decoy behaviour (definitions can answer 'what does X mean' questions or flood rank with generic terms).",
+      "decided_in": null
+    },
+    {
+      "id": "internal_empty_unit_kind",
+      "applies": {"jurisdiction": "internal", "unit_kind": [""]},
+      "decision": "pending",
+      "reason": "undecided at D1: 68 internal sections with no unit_kind (heading-only or furniture rows); D3's operator re-cut decides whether they merge into body units or stay out with this recorded reason.",
+      "decided_in": null
+    }
+  ]
+}

@@ -342,6 +342,14 @@ def _probe_compliance_capture_unit_kinds(root: Path) -> list[str]:
     return sorted(_re.findall(r'"([a-z_]+)"', m.group(1))) if m else []
 
 
+def _probe_compliance_served_window_tag(root: Path) -> int | None:
+    """The window the reading seat's tag declares (DATA_TRUTH F8). Read from
+    the module's own parser, so a change in tag shape shows up here."""
+    from portal.modules.compliance.core.served_window import tag_window
+
+    return tag_window("gemma4:26b-a4b-it-q4_K_M-ctx32k")
+
+
 def _probe_compliance_store_tables(root: Path) -> list[str]:
     """Tables the compliance store's migrations create. Derived from the DDL,
     never from a live database file."""
@@ -503,6 +511,7 @@ PROBES: dict[str, Callable[[Path], Any]] = {
     "compliance.workspace_tools": _probe_compliance_workspace_tools,
     "compliance.capture.unit_kinds": _probe_compliance_capture_unit_kinds,
     "compliance.store.tables": _probe_compliance_store_tables,
+    "compliance.served_window.tag_window": _probe_compliance_served_window_tag,
     "retrieval.stage_set": _probe_retrieval_stage_set,
 }
 
