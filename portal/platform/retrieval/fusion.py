@@ -121,6 +121,13 @@ _PTR_NOTE = (
 
 
 def _text_payload(r: dict[str, Any]) -> dict[str, Any]:
+    # DATA_TRUTH D5: the arm's dense similarity rides with the row so a
+    # multi-corpus consumer can merge corpora on a COMPARABLE score — RRF
+    # ranks are per-corpus ordinals, and sorting their union interleaves by
+    # corpus size, not relevance (the operator_notes single-row corpus placed
+    # its one note at rank ~3 of every fused query). L2² between unit vectors
+    # is 2*(1-cos), so 1 - d/2 is the cosine in [0, 1].
+    distance = r.get("_distance")
     return {
         "chunk_id": r["chunk_id"],
         "source_file": r["source_file"],
@@ -128,6 +135,9 @@ def _text_payload(r: dict[str, Any]) -> dict[str, Any]:
         "text": r["text"],
         "kind": "text",
         "content_available": True,
+        "dense_score": round(max(0.0, 1.0 - float(distance) / 2.0), 5)
+        if distance is not None
+        else None,
         "page": r["page"] if r.get("page") not in (None, 0) else None,
         "char_start": int(r["char_start"]) if r.get("char_start") is not None else None,
         "char_end": int(r["char_end"]) if r.get("char_end") is not None else None,

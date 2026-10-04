@@ -230,6 +230,41 @@ def clock_addressed(
     return kept, excluded
 
 
+def _merge_corpora(
+    query: str, hits: list[dict[str, Any]], top_k: int
+) -> tuple[list[dict[str, Any]], str]:
+    """Order the pooled per-corpus hits by reranker score over the pool.
+
+    Returns the ordered hits and, when the reranker was unavailable, the
+    fallback note (the dense cosine merge). Never raises: an unavailable
+    reranker degrades the merge, it does not fail the search.
+    """
+    if not hits:
+        return hits, ""
+    try:
+        from portal.platform.retrieval import embedding as _embedding
+
+        order = asyncio.run(
+            _embedding.vl_rerank(
+                query,
+                [{"text": str(hit.get("text") or "")} for hit in hits],
+                min(len(hits), max(top_k, 3)),
+            )
+        )
+    except Exception as exc:  # noqa: BLE001 - rerank unavailability is a finding
+        hits.sort(
+            key=lambda r: (
+                -float(r.get("dense_score", 0) or 0),
+                -float(r.get("fused_score", 0) or 0),
+            )
+        )
+        return hits, f"unavailable, dense-merge fallback: {exc}"
+    ranked = [hits[item["index"]] for item in order]
+    for hit, item in zip(ranked, order, strict=True):
+        hit["rerank_score"] = item["score"]
+    return ranked, ""
+
+
 def search(
     repo: Any,
     query: str,
@@ -321,7 +356,14 @@ def search(
         for row in body.get("results", []):
             row["kb_id"] = kb_id
             hits.append(row)
-    hits.sort(key=lambda r: -float(r.get("fused_score", 0) or 0))
+    # DATA_TRUTH D5: merge corpora on a COMPARABLE, query-aware score — the
+    # VL reranker over the pooled candidates — never on corpus-local RRF
+    # rank scores (the one-row operator_notes corpus placed its single note
+    # at rank ~3 of every fused query). The dense cosine merge is the
+    # fallback when the reranker is unavailable.
+    hits, rerank_note = _merge_corpora(query, hits, top_k)
+    if rerank_note:
+        filter_report["rerank"] = rerank_note
 
     resolved = section_index.resolve_sections(repo, [str(h.get("chunk_id", "")) for h in hits])
     out: list[dict[str, Any]] = []
@@ -346,7 +388,15 @@ def search(
                 **_provenance(entry),
                 "kb_id": hit.get("kb_id"),
                 "match": "retrieval",
-                "score": hit.get("fused_score"),
+                "score": (
+                    hit.get("rerank_score")
+                    if hit.get("rerank_score") is not None
+                    else (
+                        hit.get("dense_score")
+                        if hit.get("dense_score") is not None
+                        else hit.get("fused_score")
+                    )
+                ),
                 "text": _with_cite_header(entry, text),
                 **note,
             }

@@ -350,7 +350,7 @@ async def search(kb_id: str, query: str, top_k: int = 5, *, where: str = "") -> 
     tool builds from its ``standard`` / ``layer`` / clock arguments — the
     filter runs INSIDE the arms, before ranking, instead of sieving the
     results afterwards."""
-    return await _pipeline.search(_composition(), kb_id, query, min(int(top_k), 20), where=where)
+    return await _pipeline.search(_composition(), kb_id, query, min(int(top_k), 50), where=where)
 
 
 async def _search(request: Request) -> JSONResponse:
