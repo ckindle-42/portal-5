@@ -257,6 +257,136 @@ def test_coverage_counts_pending_as_unexplained(
     assert result.findings[0]["pending_classes"].get("pending_class", 0) >= 1
 
 
+# ── DATA_TRUTH D2: requirement-first unit composition ────────────────────────
+
+
+def test_normative_field_parses_pipe_rows_and_prose() -> None:
+    from portal.modules.compliance.core.section_index import normative_field
+
+    row = "5.3 | High Impact BES Cyber Systems | Identify individuals who have authorized access."
+    assert normative_field(row) == "Identify individuals who have authorized access."
+    assert normative_field("R1. Each Responsible Entity shall implement a process.") == (
+        "Each Responsible Entity shall implement a process."
+    )
+    assert normative_field("Free-standing text stays whole.") == "Free-standing text stays whole."
+
+
+def _fixture_standard_store(tmp_path: pathlib.Path):
+    """A one-standard store whose R1 Part 1.1 is an applicability-first row."""
+    from portal.modules.compliance.core.capture import CapturedDocument, CapturedUnit, store_capture
+    from portal.modules.compliance.core.models import SourceDocument
+    from portal.modules.compliance.core.repository import Repository
+
+    repo = Repository(tmp_path / "dt2.db")
+    repo.upsert_source_document(
+        SourceDocument(
+            logical_id="NERC/CIP-TEST-1",
+            title="NERC/CIP-TEST-1",
+            issuer="x",
+            source_kind="regulatory_standard",
+            jurisdiction="US",
+        )
+    )
+    revision = repo.add_document_revision("NERC/CIP-TEST-1", "/docs/cip-test-1.pdf", b"cip-test-1")
+    row_text = (
+        "1.1 | High Impact BES Cyber Systems and associated EACMS | "
+        "Identify each high impact BES Cyber System. | "
+        "An example of evidence may include a listing of identified systems."
+    )
+    measure_text = "M1. Acceptable evidence includes a listing of identified systems."
+    full = row_text + "\n" + measure_text + "\n"
+    row_len, measure_len = len(row_text) + 1, len(measure_text) + 1
+    units = [
+        CapturedUnit(
+            ordinal=0,
+            unit_kind="table_row",
+            heading_path="B. Requirements and Measures",
+            title="1.1",
+            page_start=1,
+            page_end=1,
+            char_start=0,
+            char_end=row_len,
+            text=row_text + "\n",
+        ),
+        CapturedUnit(
+            ordinal=1,
+            unit_kind="table_row",
+            heading_path="B. Requirements and Measures",
+            title="1.1 Measures",
+            page_start=1,
+            page_end=1,
+            char_start=row_len,
+            char_end=row_len + measure_len,
+            text=measure_text + "\n",
+        ),
+    ]
+    document = CapturedDocument(
+        path=pathlib.Path("cip-test-1.pdf"),
+        page_count=1,
+        full_text=full,
+        units=units,
+        extractor="docling",
+        reader_strings=(row_text,),
+    )
+    store_capture(repo, revision.revision_id, document)
+    part_id = repo._conn.execute(
+        "select section_id from source_sections where title='1.1'"
+    ).fetchone()["section_id"]
+    measure_id = repo._conn.execute(
+        "select section_id from source_sections where title='1.1 Measures'"
+    ).fetchone()["section_id"]
+    for anchor_id, relation in (
+        (part_id, "governing"),
+        (part_id, "applicable_systems"),
+        (measure_id, "measure"),
+    ):
+        repo._conn.execute(
+            "insert into requirement_sections (requirement_id, revision_id, section_id, relation,"
+            " char_start, char_end, occurrences, anchor_method, anchored_at, extractor_version)"
+            " values (?,?,?,?,0,1,1,'exact','2026-10-04','fixture')",
+            ("CIP-TEST-1 R1 Part 1.1", revision.revision_id, anchor_id, relation),
+        )
+    repo._conn.commit()
+    return repo
+
+
+def test_requirement_first_texts_composes_identity(tmp_path: pathlib.Path) -> None:
+    from portal.modules.compliance.core.section_index import requirement_first_texts
+
+    repo = _fixture_standard_store(tmp_path)
+    try:
+        composed = requirement_first_texts(repo)
+        assert len(composed) == 1
+        (text,) = composed.values()
+        assert text.startswith("CIP-TEST-1 R1 Part 1.1 — ")
+        assert "Identify each high impact BES Cyber System." in text
+        assert "Applies to: High Impact BES Cyber Systems and associated EACMS." in text
+        assert "Measures: M1. Acceptable evidence" in text
+    finally:
+        repo.close()
+
+
+def _part_ids(repo) -> set[str]:
+    rows = repo._conn.execute("select section_id from source_sections where title='1.1'").fetchall()
+    return {str(row["section_id"]) for row in rows}
+
+
+def test_build_plan_emits_identity_bearing_part_units(tmp_path: pathlib.Path) -> None:
+    from portal.modules.compliance.core.section_index import build_plan
+
+    repo = _fixture_standard_store(tmp_path)
+    try:
+        plan = build_plan(repo, jurisdiction="US")
+        parts = [u for u in plan.units if u.section_id in _part_ids(repo)]
+        assert parts, "the Part row must be projected"
+        for unit in parts:
+            assert unit.text.startswith("CIP-TEST-1 R1 Part 1.1"), unit.text[:60]
+            assert unit.unit_kind == "table_row"
+        assert plan.requirement_first_units >= 1
+    finally:
+        repo.close()
+
+
 # ── served_window ────────────────────────────────────────────────────────────
 
 

@@ -149,6 +149,9 @@ class ProjectionPlan:
     unprojectable: list[dict[str, str]] = field(default_factory=list)
     superseded_sections: list[str] = field(default_factory=list)
     uncaptured_revisions: list[dict[str, str]] = field(default_factory=list)
+    #: DATA_TRUTH D2: how many units were re-cut into identity-bearing,
+    #: requirement-first text (the count is a receipt fact, not decoration).
+    requirement_first_units: int = 0
 
     @property
     def examined_sections(self) -> list[str]:
@@ -222,7 +225,6 @@ def _date_of(value: Any) -> str:
 
 def _governing_revisions(repo: Any, jurisdiction: str) -> set[str]:
     """The revision_id of each document that governs its document *now*.
-
     The index holds every captured revision — history is answerable — so the
     row needs a cheap marker for "this revision has been replaced".
     ``plan.superseded_sections`` names pre-capture sections duplicating bytes
@@ -266,6 +268,170 @@ def _today() -> str:
     return now_iso()[:10]
 
 
+# ── DATA_TRUTH D2: identity-bearing, requirement-first Part units ────────────
+#
+# F2: a normative Part is stored as a docling table row that opens with the
+# applicability column — "5.3 | High Impact BES Cyber Systems … | Identify
+# individuals …" — and the embedded text carried no standard, requirement or
+# Part identity, so the governing Part of its own topic ranked 12–739 of
+# 12,837. The fix composes the Part's EMBEDDED text from canonical fields
+# (the ``requirement_sections`` anchors plus the section's own text):
+#
+#     "<requirement id> — <requirement text>. Applies to: <applicable
+#      systems>. Measures: <measures>."
+#
+# where the requirement id already reads "<standard> <Rn> Part <n.n>". The
+# store is untouched (R3): the composition changes only what the index embeds
+# and BM25-matches — a hit still resolves to the store's verbatim row, and the
+# answer key's section-id citations are unaffected.
+
+_PART_FIELD_SPLIT = " | "
+
+
+def normative_field(section_text: str) -> str:
+    """The requirement sentence of a Part section's verbatim text.
+
+    Applicability-first table rows carry it as the third pipe field; prose
+    requirement units open with the requirement token (``R1. …``). Anything
+    else is returned whole.
+    """
+    text = section_text.strip()
+    if _PART_FIELD_SPLIT in text:
+        fields = [f.strip() for f in text.split(_PART_FIELD_SPLIT)]
+        if len(fields) >= 3 and fields[2]:
+            return fields[2]
+    if len(text) > 2 and text[0] == "R" and text[1].isdigit():
+        _, _, rest = text.partition(".")
+        return rest.strip() or text
+    return text
+
+
+def _requirement_anchors(repo: Any) -> tuple[dict[str, str], dict[str, list[str]], dict[str, str]]:
+    """The requirement_sections anchors, grouped by relation.
+
+    Returns (governing section per requirement, measure sections per
+    requirement, first applicable-systems section per requirement).
+    """
+    rows = repo._conn.execute(
+        """select requirement_id, section_id, relation
+           from requirement_sections
+           where relation in ('governing', 'measure', 'applicable_systems')"""
+    ).fetchall()
+    governing: dict[str, str] = {}
+    measures: dict[str, list[str]] = {}
+    applies: dict[str, str] = {}
+    for row in rows:
+        requirement_id = str(row["requirement_id"])
+        section_id = str(row["section_id"])
+        relation = str(row["relation"])
+        if relation == "governing":
+            governing[requirement_id] = section_id
+        elif relation == "measure":
+            measures.setdefault(requirement_id, []).append(section_id)
+        elif relation == "applicable_systems" and requirement_id not in applies:
+            applies[requirement_id] = section_id
+    return governing, measures, applies
+
+
+def _section_spans(repo: Any, section_ids: set[str]) -> dict[str, tuple[str, int, int]]:
+    spans: dict[str, tuple[str, int, int]] = {}
+    for section_id in section_ids:
+        row = repo._conn.execute(
+            "select revision_id, char_start, char_end from source_sections where section_id=?",
+            (section_id,),
+        ).fetchone()
+        if row is not None:
+            spans[section_id] = (
+                str(row["revision_id"]),
+                int(row["char_start"] or 0),
+                int(row["char_end"] or 0),
+            )
+    return spans
+
+
+def requirement_first_texts(repo: Any) -> dict[str, str]:
+    """``governing section_id -> composed requirement-first text``.
+
+    One entry per ``requirement_sections`` requirement carrying a governing
+    anchor. Measure and applicable-systems anchors join in when present. A
+    requirement with no governing anchor cannot be keyed to a section and is
+    left out.
+    """
+    governing, measures, applies = _requirement_anchors(repo)
+    wanted = (
+        set(governing.values())
+        | {s for ids in measures.values() for s in ids}
+        | set(applies.values())
+    )
+    spans = _section_spans(repo, wanted)
+    full_cache: dict[str, str] = {}
+
+    def section_text(section_id: str) -> str:
+        span = spans.get(section_id)
+        if span is None:
+            return ""
+        revision_id, start, end = span
+        if revision_id not in full_cache:
+            full_cache[revision_id] = repo.get_document_text(revision_id) or ""
+        full = full_cache[revision_id]
+        if not full or not (0 <= start < end <= len(full)):
+            return ""
+        return full[start:end]
+
+    def applicable_of(requirement_id: str, raw: str, governing_id: str) -> str:
+        # The Part's OWN applicability column is the canonical field. The
+        # applicable_systems anchors are not: on the live store they resolve to
+        # other Parts' rows (measured, D2 dry-run — the anchor join names
+        # whichever applicability row was anchored first, not this Part's), so
+        # the composed text inherited another requirement's systems.
+        if _PART_FIELD_SPLIT in raw:
+            fields = [f.strip() for f in raw.split(_PART_FIELD_SPLIT)]
+            if len(fields) >= 2 and fields[1]:
+                return fields[1]
+        applies_id = applies.get(requirement_id)
+        if applies_id and applies_id != governing_id:
+            return section_text(applies_id).strip()
+        return ""
+
+    composed: dict[str, str] = {}
+    for requirement_id, section_id in governing.items():
+        raw = section_text(section_id)
+        if not raw:
+            continue
+        parts = [f"{requirement_id} — {normative_field(raw)}"]
+        applicable = applicable_of(requirement_id, raw, section_id)
+        if applicable:
+            parts.append(f"Applies to: {applicable}.")
+        measure_bits = [
+            bit
+            for bit in (section_text(m).strip() for m in measures.get(requirement_id, []))
+            if bit
+        ]
+        if measure_bits:
+            parts.append(f"Measures: {' '.join(measure_bits)}")
+        composed[section_id] = " ".join(parts)
+    return composed
+
+
+def _unit_pieces(body: str, composed: str) -> list[str]:
+    """The pieces one section projects as.
+
+    DATA_TRUTH D2: a composed Part's identity replaces the raw body as the
+    embedded text. The unit stays keyed to the same canonical section id;
+    split sub-units (only for an over-long composition) repeat the identity
+    line so no piece embeds as a headless fragment.
+    """
+    if not composed:
+        return split_text(body)
+    pieces = split_text(composed)
+    if len(pieces) <= 1:
+        return pieces
+    identity = composed.split(" — ", 1)[0]
+    return [
+        piece if n == 0 else f"{identity} (continued) {piece}" for n, piece in enumerate(pieces)
+    ]
+
+
 def build_plan(repo: Any, *, jurisdiction: str, kb_id: str = "") -> ProjectionPlan:
     """Every canonical section of one jurisdiction, as indexable units.
 
@@ -282,6 +448,9 @@ def build_plan(repo: Any, *, jurisdiction: str, kb_id: str = "") -> ProjectionPl
     kb_id = kb_id or CORPUS_FOR_JURISDICTION.get(jurisdiction, jurisdiction)
     plan = ProjectionPlan(kb_id=kb_id, jurisdiction=jurisdiction)
     governing = _governing_revisions(repo, jurisdiction)
+    requirement_first: dict[str, str] = (
+        requirement_first_texts(repo) if jurisdiction == "US" else {}
+    )
     from portal.modules.compliance.core.tiers import recorded_tier
 
     tier_of: dict[str, str] = {}
@@ -339,9 +508,18 @@ def build_plan(repo: Any, *, jurisdiction: str, kb_id: str = "") -> ProjectionPl
             plan.unprojectable.append({"section_id": section_id, "reason": "span is whitespace"})
             continue
         headings = _heading_of(entry)
-        pieces = split_text(body)
+        composed = requirement_first.get(section_id, "")
+        pieces = _unit_pieces(body, composed)
+        if composed:
+            plan.requirement_first_units += 1
         for n, piece in enumerate(pieces):
-            offset = sum(len(p) for p in pieces[:n])
+            if composed:
+                # the composition is not store text: the span stays the
+                # section's real store coordinates, never the composed piece's
+                piece_start, piece_end = start, end
+            else:
+                offset = sum(len(p) for p in pieces[:n])
+                piece_start, piece_end = start + offset, start + offset + len(piece)
             plan.units.append(
                 IndexableUnit(
                     chunk_id=section_id if len(pieces) == 1 else f"{section_id}#{n}",
@@ -352,8 +530,8 @@ def build_plan(repo: Any, *, jurisdiction: str, kb_id: str = "") -> ProjectionPl
                     text=piece,
                     headings=headings,
                     page=int(entry["page_start"] or 0),
-                    char_start=start + offset,
-                    char_end=start + offset + len(piece),
+                    char_start=piece_start,
+                    char_end=piece_end,
                     jurisdiction=str(entry["jurisdiction"] or ""),
                     logical_id=str(entry["logical_id"] or ""),
                     revision_id=revision_id,

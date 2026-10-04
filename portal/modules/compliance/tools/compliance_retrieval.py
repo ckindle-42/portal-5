@@ -225,10 +225,46 @@ async def project_sections(
         _PROJECTION_IN_FLIGHT = False
 
 
+def _load_embed_cache(cache_path: Path) -> dict[str, list[float]]:
+    """The per-model embed checkpoint (L3), tolerating a truncated last line."""
+    import contextlib
+    import json
+
+    cache: dict[str, list[float]] = {}
+    if not cache_path.is_file():
+        return cache
+    with contextlib.suppress(Exception), open(cache_path, encoding="utf-8") as handle:
+        for line in handle:
+            try:
+                entry = json.loads(line)
+            except ValueError:
+                continue
+            cache[str(entry.get("k"))] = entry["v"]
+    return cache
+
+
+def _split_cached(
+    cache: dict[str, list[float]], keys: list[str]
+) -> tuple[list[list[float]], list[int]]:
+    """Per-batch cache merge: the vectors found, plus the indexes to embed."""
+    vectors: list[list[float]] = []
+    missing: list[int] = []
+    for index, key in enumerate(keys):
+        cached = cache.get(key)
+        if cached is not None:
+            vectors.append(cached)
+        else:
+            vectors.append([])
+            missing.append(index)
+    return vectors, missing
+
+
 async def _project_sections_locked(
     kb_id: str, units: list[Any], *, rebuild: bool
 ) -> dict[str, Any]:
     import contextlib
+    import hashlib
+    import json
     import time
 
     comp = _composition()
@@ -243,23 +279,50 @@ async def _project_sections_locked(
         comp.assert_embedding_space(kb_id, live_model, comp.stage_set or None)
     ttbl = comp.text_table(kb_id, create=True)
 
+    # DATA_TRUTH L3: the VL embed server wedges after ~2.5h of sustained load
+    # while its health endpoint stays green. Every embed is checkpointed to a
+    # per-model JSONL cache keyed by sha1(model + text), appended after each
+    # batch: a wedged run is killed, the worker restarted between batches, and
+    # the rerun re-embeds only what the cache lacks.
+    cache_dir = Path(
+        os.environ.get("PORTAL5_EMBED_CACHE_DIR", os.path.join(_store.RAG_DIR, "embed_cache"))
+    )
+    cache_dir.mkdir(parents=True, exist_ok=True)
+    model_slug = "".join(c if c.isalnum() else "-" for c in live_model)[:60]
+    cache_path = cache_dir / f"{model_slug}.jsonl"
+    cache = _load_embed_cache(cache_path)
+
+    def cache_key(embed_text: str) -> str:
+        return hashlib.sha1(f"{live_model}\n{embed_text}".encode()).hexdigest()
+
     added = 0
+    cache_hits = 0
     batch = 64
-    for start in range(0, len(units), batch):
-        window = units[start : start + batch]
-        embed_texts = [
-            f"{u.headings}\n\n{u.text}" if (comp.contextualize and u.headings) else u.text
-            for u in window
-        ]
-        vectors = await comp.vl_embed_batch([{"text": t} for t in embed_texts])
-        now = time.time()
-        ttbl.add(
-            [
-                {**u.as_row(), "vector": vec, "ingested_at": now}
-                for u, vec in zip(window, vectors, strict=True)
+    with contextlib.ExitStack() as stack:
+        cache_handle = stack.enter_context(open(cache_path, "a", encoding="utf-8"))
+        for start in range(0, len(units), batch):
+            window = units[start : start + batch]
+            embed_texts = [
+                f"{u.headings}\n\n{u.text}" if (comp.contextualize and u.headings) else u.text
+                for u in window
             ]
-        )
-        added += len(window)
+            keys = [cache_key(t) for t in embed_texts]
+            vectors, missing = _split_cached(cache, keys)
+            cache_hits += len(window) - len(missing)
+            if missing:
+                fresh = await comp.vl_embed_batch([{"text": embed_texts[i]} for i in missing])
+                for position, index in enumerate(missing):
+                    vectors[index] = fresh[position]
+                    cache_handle.write(json.dumps({"k": keys[index], "v": fresh[position]}) + "\n")
+                cache_handle.flush()
+            now = time.time()
+            ttbl.add(
+                [
+                    {**u.as_row(), "vector": vec, "ingested_at": now}
+                    for u, vec in zip(window, vectors, strict=True)
+                ]
+            )
+            added += len(window)
 
     fts_built = False
     if comp.fts and added:
@@ -270,10 +333,11 @@ async def _project_sections_locked(
     return {
         "kb_id": kb_id,
         "units_indexed": added,
-        "fts_index": fts_built,
+        "embed_cache_hits": cache_hits,
         "embed_model": live_model,
         "table": comp.tname(kb_id),
         "table_version": int(getattr(ttbl, "version", 0) or 0),
+        "fts_index": fts_built,
     }
 
 
