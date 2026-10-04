@@ -603,3 +603,24 @@ def _tmpdir_name() -> str:
     handle = tempfile.NamedTemporaryFile(suffix=".pdf", delete=False)
     handle.close()
     return handle.name
+
+
+# ── DATA_TRUTH D6: default scope is effective-on-the-asked-date ──────────────
+
+
+def test_search_predicate_default_excludes_future_and_inactive() -> None:
+    from portal.modules.compliance.core import search_service as ss
+
+    clause = ss.search_predicate(standard="", layer="", valid_at="", known_at="")
+    assert "is_superseded" in clause
+    assert "effective_from" in clause and "effective_to" in clause
+    today = __import__("datetime").date.today().isoformat()
+    assert today in clause
+
+
+def test_search_predicate_explicit_clock_skips_the_default() -> None:
+    from portal.modules.compliance.core import search_service as ss
+
+    clause = ss.search_predicate(standard="", layer="", valid_at="2028-07-01", known_at="")
+    assert "2028-07-01" in clause
+    assert "is_superseded" not in clause

@@ -216,8 +216,14 @@ def _normalise(vector: list[float]) -> list[float]:
     return [component / magnitude for component in vector]
 
 
-def _corpus_rows(kb_id: str) -> tuple[list[str], Any]:
-    """chunk ids and the (unnormalised) vector matrix of one corpus."""
+def _corpus_rows(kb_id: str, default_scope: bool = False) -> tuple[list[str], Any]:
+    """chunk ids and the (unnormalised) vector matrix of one corpus.
+
+    ``default_scope`` restricts to what a production search can return
+    (is_superseded = 0 AND effective on today) — DATA_TRUTH D6: the gate
+    measures the corpus as the retrieval path serves it, not the raw table
+    that also carries history and future states.
+    """
     import lancedb
     import numpy as np
 
@@ -227,7 +233,21 @@ def _corpus_rows(kb_id: str) -> tuple[list[str], Any]:
     if not (Path(lance_store.RAG_DIR) / f"{full_name}.lance").exists():
         raise SystemExit(f"unknown kb {kb_id!r}: no lance table {full_name}")
     db = lancedb.connect(str(lance_store.RAG_DIR))
-    rows = db.open_table(full_name).to_arrow().select(["chunk_id", "vector"]).to_pylist()
+    columns = ["chunk_id", "vector"] + (
+        ["is_superseded", "effective_from", "effective_to"] if default_scope else []
+    )
+    rows = db.open_table(full_name).to_arrow().select(columns).to_pylist()
+    if default_scope:
+        from portal.modules.compliance.core.section_index import _today
+
+        today = _today()
+        rows = [
+            r
+            for r in rows
+            if int(r["is_superseded"] or 0) == 0
+            and (not r["effective_from"] or r["effective_from"] <= today)
+            and (not r["effective_to"] or r["effective_to"] > today)
+        ]
     chunk_ids = [str(row["chunk_id"]) for row in rows]
     matrix = np.array([row["vector"] for row in rows], dtype=np.float32)
     return chunk_ids, matrix
@@ -265,7 +285,7 @@ def measure(
     if sample and sample < len(population):
         random.Random(seed).shuffle(population)
         population = population[:sample]
-    chunk_ids, matrix = _corpus_rows(kb_id)
+    chunk_ids, matrix = _corpus_rows(kb_id, default_scope=True)
     matrix = _normalise_rows(matrix)
     vectors = _embed_queries([item["query"] for item in population])
     rows = []

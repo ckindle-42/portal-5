@@ -243,6 +243,13 @@ def _governing_revisions(repo: Any, jurisdiction: str) -> set[str]:
     newest live revision by ``(effective_date, retrieved_at)``, else the newest
     revision at all — derived from the store's columns, never re-derived from
     filenames or section text.
+
+    DATA_TRUTH D6 (F5): "governs now" includes currency — a revision whose
+    effective_date is in the future does not govern yet, however new it is.
+    The pre-D6 rule marked the 2028 future-enforcement revisions governing,
+    the index flagged their rows ``is_superseded = 0``, and the default
+    search answered future text as current. History and future states stay
+    answerable through the explicit clocks.
     """
     rows = repo._conn.execute(
         """SELECT r.revision_id, r.logical_id, r.effective_date, r.inactive_date, r.retrieved_at
@@ -255,18 +262,52 @@ def _governing_revisions(repo: Any, jurisdiction: str) -> set[str]:
     today = _today()
     governing: dict[str, str] = {}
     latest: dict[str, str] = {}
+    latest_blank: dict[str, str] = {}
+    has_dated: set[str] = set()
     live: dict[str, str] = {}
     for row in rows:
         revision_id, logical_id = str(row[0]), str(row[1])
         effective = str(row[2] or "")
         inactive = str(row[3] or "")
         latest[logical_id] = revision_id
-        if effective and not (inactive and inactive <= today):
+        if effective:
+            has_dated.add(logical_id)
+        else:
+            latest_blank[logical_id] = revision_id
+        if effective and effective <= today and not (inactive and inactive <= today):
             live[logical_id] = revision_id
+        # a blank-dated revision can still be RETIRED (inactive_date set): the
+        # CIP-x-7 lifecycle documents carry no effective date and an inactive
+        # date of 2026-03-19 — they do not govern now on either clock.
+        if not effective and inactive and inactive <= today:
+            latest_blank.pop(logical_id, None)
     for logical_id, revision_id in live.items():
         governing[logical_id] = revision_id
-    for logical_id, revision_id in latest.items():
+    for logical_id, revision_id in latest_blank.items():
+        # a document with no RECORDED effective dates anywhere: its newest
+        # capture still governs it (a missing date is never read as future).
+        # A blank-dated capture of a DATED document (a re-capture that lost
+        # its control block) does not govern — the dated revisions decide.
+        if logical_id in has_dated:
+            continue
+        # a blank-dated COMPANION ("<standard> technical rationale",
+        # "<standard> implementation plan") inherits its base document's
+        # currency: the CIP-010-5 technical rationale carried no dates and
+        # answered future-enforcement text as current (F5's own example).
+        base = next(
+            (
+                dated
+                for dated in sorted(has_dated, key=len, reverse=True)
+                if logical_id.startswith(dated + " ")
+            ),
+            None,
+        )
+        if base is not None and base not in live:
+            continue
         governing.setdefault(logical_id, revision_id)
+    # documents whose every revision is future-dated: nothing governs now.
+    # History and the future state stay answerable through the explicit
+    # clocks (DATA_TRUTH D6).
     return set(governing.values())
 
 

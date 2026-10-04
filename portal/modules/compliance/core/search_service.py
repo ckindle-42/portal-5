@@ -60,25 +60,32 @@ def search_predicate(
       AND (effective_to = '' OR effective_to > V)``
     * transaction-time at ``known_at``: ``(recorded_from = '' OR recorded_from
       <= K) AND (recorded_to = '' OR recorded_to > K)``
-    * neither given: ``is_superseded = 0`` — a search with no clock asks about
-      what governs NOW, and superseded revisions must not spend top-k slots by
-      default. A caller who wants history says so.
+    * neither given: ``is_superseded = 0`` AND the valid-time bounds at
+      TODAY — a search with no clock asks about what governs NOW (DATA_TRUTH
+      D6, F5: "latest effective" means effective on the asked date; the 2028
+      future-enforcement revisions carried ``is_superseded = 0`` and answered
+      as current). A caller who wants history or a future state says so with
+      an explicit clock — ``valid_at = 2028-07-01`` still reaches CIP-010-5.
     """
-    from portal.modules.compliance.core.section_index import _date_of
+    from portal.modules.compliance.core.section_index import _date_of, _today
 
     v, k = _date_of(valid_at), _date_of(known_at)
+    default_clock = not v and not k
     entries: list[Any] = []
     if standard:
         entries.append(_contains_group("logical_id", standard))
     if layer:
         entries.append(_contains_group("source_kind", layer))
+    if default_clock:
+        # the default clock: what governs on the asked date (DATA_TRUTH D6).
+        v = _today()
     if v:
         entries.append([("effective_from", "=", ""), ("effective_from", "<=", v)])
         entries.append([("effective_to", "=", ""), ("effective_to", ">", v)])
     if k:
         entries.append([("recorded_from", "=", ""), ("recorded_from", "<=", k)])
         entries.append([("recorded_to", "=", ""), ("recorded_to", ">", k)])
-    if not v and not k:
+    if default_clock:
         entries.append(("is_superseded", "=", 0))
     if extra is not None:
         # P4.1: the requirement's exact section ids, composed with the clocks by
