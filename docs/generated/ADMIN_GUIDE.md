@@ -2,7 +2,7 @@
 
 # Portal 5 Admin Guide
 
-*Deterministic projection of 757 canonical units.*
+*Deterministic projection of 758 canonical units.*
 
 ## Architecture Overview
 
@@ -75,4 +75,4 @@ Every `auto` request goes through two layers in routing.py. Layer 1 `_route_with
 - **AGENT_LOOP — Record path (writing enabled, CI-gated)**: 2 source(s)
 
 ---
-*757 knowledge units referenced.*
+*758 knowledge units referenced.*

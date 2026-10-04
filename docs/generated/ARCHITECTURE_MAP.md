@@ -2,7 +2,7 @@
 
 # Portal 5 Architecture Map
 
-*Deterministic projection of 757 canonical units.*
+*Deterministic projection of 758 canonical units.*
 
 ## Knowledge Layer
 
@@ -260,6 +260,7 @@
 | `unit-compliance-module-config-only` | mixed | 1 |
 | `unit-compliance-prove-then-scale` | mixed | 3 |
 | `unit-compliance-requirement-join` | mixed | 8 |
+| `unit-compliance-served-window` | mixed | 3 |
 | `unit-compliance-substrate-properties` | mixed | 4 |
 | `unit-compliance-technical-basis-coverage` | what | 1 |
 | `unit-compliance-transport-dialects` | mixed | 5 |
@@ -766,12 +767,12 @@
 | `unit-wiki-tests-render` | mixed | 1 |
 | `unit-wiki-writeback` | mixed | 1 |
 
-**Total:** 757 units
+**Total:** 758 units
 
 ## Source Distribution
 
 - **bench-security**: 1 references
-- **code**: 1957 references
+- **code**: 1960 references
 - **config**: 1 references
 - **doc**: 1 references
 - **mitre**: 40 references
