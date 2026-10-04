@@ -152,6 +152,10 @@ class ProjectionPlan:
     #: DATA_TRUTH D2: how many units were re-cut into identity-bearing,
     #: requirement-first text (the count is a receipt fact, not decoration).
     requirement_first_units: int = 0
+    #: DATA_TRUTH D1b/D4: sections deliberately not projected because the
+    #: committed exclusion table keeps their class out of the index, by class
+    #: id. Distinct from ``unprojectable``: these are decisions, not failures.
+    excluded_by_class: dict[str, int] = field(default_factory=dict)
 
     @property
     def examined_sections(self) -> list[str]:
@@ -266,6 +270,55 @@ def _today() -> str:
     from portal.modules.compliance.core.temporal import now_iso
 
     return now_iso()[:10]
+
+
+# ── DATA_TRUTH D1b/D4: the committed exclusion table drives the plan ─────────
+#
+# The plan is "what will be indexed", so the classes deliberately kept out of
+# the index live HERE and nowhere else: the same table the integrity check
+# audits (scripts/compliance/truth/data_integrity.py). A class whose decision
+# is ``excluded`` is out for a recorded reason; ``pending`` means observed but
+# undecided (D4 decides from measured recall and decoy behaviour, L12) and
+# until then it also stays out — the D2 rebuild must not bundle an undecided
+# population change into its text change (L13). Flipping a class to
+# ``indexed`` and re-projecting brings it in.
+
+
+def exclusion_classes() -> list[dict[str, Any]]:
+    """The committed index-exclusion classes, as plain dicts."""
+    import json
+    from pathlib import Path
+
+    path = Path(__file__).resolve().parents[1] / "data" / "index_exclusions.json"
+    if not path.is_file():
+        return []
+    return json.loads(path.read_text(encoding="utf-8")).get("classes", [])
+
+
+def _matching_class(
+    classes: list[dict[str, Any]], jurisdiction: str, logical_id: str, unit_kind: str
+) -> str:
+    """The id of the first class that KEEPS this section out, or ``""``.
+
+    Only ``excluded`` and ``pending`` decisions keep a class out; ``indexed``
+    means the class projects like everything else.
+    """
+    import re
+
+    for entry_class in classes:
+        if entry_class.get("decision") not in (None, "excluded", "pending"):
+            continue
+        applies = entry_class.get("applies") or {}
+        if applies.get("jurisdiction") and applies["jurisdiction"] != jurisdiction:
+            continue
+        pattern = applies.get("logical_id_regex")
+        if pattern and not re.search(pattern, logical_id):
+            continue
+        kinds = applies.get("unit_kind")
+        if kinds and unit_kind not in kinds:
+            continue
+        return str(entry_class.get("id", ""))
+    return ""
 
 
 # ── DATA_TRUTH D2: identity-bearing, requirement-first Part units ────────────
@@ -432,6 +485,76 @@ def _unit_pieces(body: str, composed: str) -> list[str]:
     ]
 
 
+def _unit_row(
+    plan: ProjectionPlan,
+    entry: dict[str, Any],
+    *,
+    section_id: str,
+    revision_id: str,
+    piece: str,
+    headings: str,
+    piece_start: int,
+    piece_end: int,
+    single: bool,
+    n: int,
+    is_governing: bool,
+    tier: str,
+) -> IndexableUnit:
+    """One index row, carrying the store's predicate columns verbatim."""
+    return IndexableUnit(
+        chunk_id=section_id if single else f"{section_id}#{n}",
+        section_id=section_id,
+        kb_id=plan.kb_id,
+        source_file=str(entry["alias_path"] or entry["logical_id"]),
+        chunk_index=len(plan.units),
+        text=piece,
+        headings=headings,
+        page=int(entry["page_start"] or 0),
+        char_start=piece_start,
+        char_end=piece_end,
+        jurisdiction=str(entry["jurisdiction"] or ""),
+        logical_id=str(entry["logical_id"] or ""),
+        revision_id=revision_id,
+        source_kind=str(entry["source_kind"] or ""),
+        effective_from=_date_of(entry["effective_date"]),
+        effective_to=_date_of(entry["inactive_date"]),
+        recorded_from=_date_of(entry["recorded_from"]),
+        recorded_to=_date_of(entry["recorded_to"]),
+        is_superseded=0 if is_governing else 1,
+        unit_kind=str(entry["unit_kind"] or ""),
+        authority_tier=tier,
+    )
+
+
+def _plan_gate(entry: dict[str, Any], full: str, classes: list[dict[str, Any]]) -> tuple[str, Any]:
+    """Whether a section projects, and if not, which population records it.
+
+    Verdicts: ``uncaptured`` (revision has no capture — the document is not in
+    the corpus yet), ``superseded`` (a pre-capture row on a revision that now
+    has one: the capture covers the same bytes, so the row is a duplicate, not
+    a gap), ``excluded`` (an exclusion class owns it; detail = class id),
+    ``unprojectable`` (detail = the recorded reason), ``ok`` (project).
+    """
+    if not full:
+        return "uncaptured", None
+    start, end = _span_of(entry)
+    if start < 0:
+        return "superseded", None
+    excluded_class = _matching_class(
+        classes,
+        str(entry["jurisdiction"] or ""),
+        str(entry["logical_id"] or ""),
+        str(entry["unit_kind"] or ""),
+    )
+    if excluded_class:
+        return "excluded", excluded_class
+    if end <= start or end > len(full):
+        return "unprojectable", f"span [{start}, {end}) does not resolve in the captured text"
+    if not full[start:end].strip():
+        return "unprojectable", "span is whitespace"
+    return "ok", None
+
+
 def build_plan(repo: Any, *, jurisdiction: str, kb_id: str = "") -> ProjectionPlan:
     """Every canonical section of one jurisdiction, as indexable units.
 
@@ -451,6 +574,7 @@ def build_plan(repo: Any, *, jurisdiction: str, kb_id: str = "") -> ProjectionPl
     requirement_first: dict[str, str] = (
         requirement_first_texts(repo) if jurisdiction == "US" else {}
     )
+    classes = exclusion_classes()
     from portal.modules.compliance.core.tiers import recorded_tier
 
     tier_of: dict[str, str] = {}
@@ -483,30 +607,22 @@ def build_plan(repo: Any, *, jurisdiction: str, kb_id: str = "") -> ProjectionPl
         if revision_id not in texts:
             texts[revision_id] = repo.get_document_text(revision_id) or ""
         full = texts[revision_id]
-        start, end = _span_of(entry)
-        if not full:
-            # the revision has no capture: the DOCUMENT is not in the corpus yet
+        verdict, detail = _plan_gate(entry, full, classes)
+        if verdict == "uncaptured":
             uncaptured[revision_id] = str(entry["logical_id"])
             continue
-        if start < 0:
-            # a pre-capture section on a revision that now has one. The capture
-            # covers the same bytes completely, so this row is superseded, not
-            # missing.
+        if verdict == "superseded":
             plan.superseded_sections.append(section_id)
             continue
+        if verdict == "excluded":
+            plan.excluded_by_class[detail] = plan.excluded_by_class.get(detail, 0) + 1
+            continue
         plan.eligible_sections.append(section_id)
-        if end <= start or end > len(full):
-            plan.unprojectable.append(
-                {
-                    "section_id": section_id,
-                    "reason": f"span [{start}, {end}) does not resolve in the captured text",
-                }
-            )
+        if verdict == "unprojectable":
+            plan.unprojectable.append({"section_id": section_id, "reason": detail})
             continue
+        start, end = _span_of(entry)
         body = full[start:end]
-        if not body.strip():
-            plan.unprojectable.append({"section_id": section_id, "reason": "span is whitespace"})
-            continue
         headings = _heading_of(entry)
         composed = requirement_first.get(section_id, "")
         pieces = _unit_pieces(body, composed)
@@ -521,30 +637,19 @@ def build_plan(repo: Any, *, jurisdiction: str, kb_id: str = "") -> ProjectionPl
                 offset = sum(len(p) for p in pieces[:n])
                 piece_start, piece_end = start + offset, start + offset + len(piece)
             plan.units.append(
-                IndexableUnit(
-                    chunk_id=section_id if len(pieces) == 1 else f"{section_id}#{n}",
+                _unit_row(
+                    plan,
+                    entry,
                     section_id=section_id,
-                    kb_id=kb_id,
-                    source_file=str(entry["alias_path"] or entry["logical_id"]),
-                    chunk_index=len(plan.units),
-                    text=piece,
-                    headings=headings,
-                    page=int(entry["page_start"] or 0),
-                    char_start=piece_start,
-                    char_end=piece_end,
-                    jurisdiction=str(entry["jurisdiction"] or ""),
-                    logical_id=str(entry["logical_id"] or ""),
                     revision_id=revision_id,
-                    source_kind=str(entry["source_kind"] or ""),
-                    effective_from=_date_of(entry["effective_date"]),
-                    effective_to=_date_of(entry["inactive_date"]),
-                    recorded_from=_date_of(entry["recorded_from"]),
-                    recorded_to=_date_of(entry["recorded_to"]),
-                    is_superseded=0 if revision_id in governing else 1,
-                    unit_kind=str(entry["unit_kind"] or ""),
-                    authority_tier=_tier(
-                        str(entry["logical_id"] or ""), str(entry["source_kind"] or "")
-                    ),
+                    piece=piece,
+                    headings=headings,
+                    piece_start=piece_start,
+                    piece_end=piece_end,
+                    single=len(pieces) == 1,
+                    n=n,
+                    is_governing=revision_id in governing,
+                    tier=_tier(str(entry["logical_id"] or ""), str(entry["source_kind"] or "")),
                 )
             )
     plan.uncaptured_revisions = [

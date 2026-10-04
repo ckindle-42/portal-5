@@ -11,8 +11,15 @@
     {
       "id": "glossary_of_terms",
       "applies": {"jurisdiction": "US", "logical_id_regex": "glossary-of-terms"},
+      "decision": "indexed",
+      "reason": "reclassified at D2 (measured): the document holds NINE captures of 330 sections each; SEVEN revisions (2,310 sections) were already indexed, only the two newest captures (660) were never projected — re-capture duplication, not a deliberate exclusion. Default scope (is_superseded=0) carries exactly one governing copy of 330 either way, so D4 measures those 330 for recall and decoy behaviour without an exclusion decision.",
+      "decided_in": "D2"
+    },
+    {
+      "id": "us_empty_unit_kind",
+      "applies": {"jurisdiction": "US", "unit_kind": [""]},
       "decision": "pending",
-      "reason": "undecided at D1: 660 definition sections; D4 decides from measured recall and decoy behaviour (definitions can answer 'what does X mean' questions or flood rank with generic terms).",
+      "reason": "undecided at D1: 362 regulatory sections with no unit_kind — the standards' own TOC and page-furniture rows (D7 rules TOC/furniture never eligible as evidence). Until D7 records the standing rule they stay out with this class.",
       "decided_in": null
     },
     {

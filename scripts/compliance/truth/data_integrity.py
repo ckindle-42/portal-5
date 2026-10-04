@@ -172,6 +172,42 @@ def _class_matches(
     return not (kinds and unit_kind not in kinds)
 
 
+def _classify_unindexed(
+    row: sqlite3.Row, classes: list[dict[str, Any]]
+) -> tuple[str, str | None, str | None]:
+    """(outcome, class_id) for one unindexed section.
+
+    outcome is ``explained`` (a decided exclusion class owns it), ``pending``
+    (an undecided class matches — still unexplained until D4 decides),
+    ``deferred`` (an 'indexed' class owns it: the projection brings it in,
+    D4 owns the reason — neutral), or ``unexplained``.
+    """
+    matched_decided = None
+    matched_pending = None
+    matched_indexed = None
+    for entry_class in classes:
+        if _class_matches(
+            entry_class,
+            str(row["jurisdiction"]),
+            str(row["logical_id"]),
+            str(row["unit_kind"] or ""),
+        ):
+            decision = entry_class.get("decision")
+            if decision == "excluded":
+                matched_decided = entry_class
+            elif decision == "indexed":
+                matched_indexed = entry_class
+            else:
+                matched_pending = entry_class
+    if matched_decided is not None:
+        return "explained", str(matched_decided["id"]), None
+    if matched_pending is not None:
+        return "pending", str(matched_pending["id"]), None
+    if matched_indexed is not None:
+        return "deferred", str(matched_indexed["id"]), None
+    return "unexplained", None, None
+
+
 def check_coverage(conn: sqlite3.Connection, rows: dict[str, list[dict[str, Any]]]) -> CheckResult:
     indexed: set[str] = set()
     for name, table_rows in rows.items():
@@ -191,25 +227,13 @@ def check_coverage(conn: sqlite3.Connection, rows: dict[str, list[dict[str, Any]
     unexplained: list[sqlite3.Row] = []
     pending: dict[str, int] = {}
     for row in unindexed:
-        matched_decided = None
-        matched_pending = None
-        for entry_class in classes:
-            if _class_matches(
-                entry_class,
-                str(row["jurisdiction"]),
-                str(row["logical_id"]),
-                str(row["unit_kind"] or ""),
-            ):
-                if entry_class.get("decision") == "excluded":
-                    matched_decided = entry_class
-                else:
-                    matched_pending = entry_class
-        if matched_decided is not None:
-            by_class[str(matched_decided["id"])] = by_class.get(str(matched_decided["id"]), 0) + 1
-        elif matched_pending is not None:
-            pending[str(matched_pending["id"])] = pending.get(str(matched_pending["id"]), 0) + 1
+        outcome, class_id, _ = _classify_unindexed(row, classes)
+        if outcome == "explained":
+            by_class[class_id] = by_class.get(class_id, 0) + 1
+        elif outcome == "pending":
+            pending[class_id] = pending.get(class_id, 0) + 1
             unexplained.append(row)
-        else:
+        elif outcome == "unexplained":
             unexplained.append(row)
     findings = [
         {
