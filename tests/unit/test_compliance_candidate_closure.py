@@ -124,7 +124,11 @@ class TestClosure:
         repo, _rev = repo_with_doc
         neighbors = neighbor_closure(repo, "CIP-007/Procedure.pdf")
         paths = {n["path"] for n in neighbors}
-        assert "5.0" in paths or "3.5" in paths  # siblings around operative hits
+        # DATA_TRUTH D3: heading-only sections fold into the body that follows
+        # ('3.0 Procedure' leads the 3.5 section, '5.0 Appendix' leads 5.1), so
+        # the operative section's neighbours are the sections adjacent to it
+        # now — front matter before it, the traceability appendix after it.
+        assert "5.1" in paths
         assert all(n["relation"] == "sibling" for n in neighbors)
 
     def test_mapping_metadata_is_labeled_discovery(self, repo_with_doc):

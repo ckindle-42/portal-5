@@ -160,7 +160,11 @@ def _load_exclusion_table() -> list[dict[str, Any]]:
 
 
 def _class_matches(
-    entry_class: dict[str, Any], jurisdiction: str, logical_id: str, unit_kind: str
+    entry_class: dict[str, Any],
+    jurisdiction: str,
+    logical_id: str,
+    unit_kind: str,
+    role: str = "",
 ) -> bool:
     applies = entry_class.get("applies") or {}
     if applies.get("jurisdiction") and applies["jurisdiction"] != jurisdiction:
@@ -169,11 +173,47 @@ def _class_matches(
     if pattern and not re.search(pattern, logical_id):
         return False
     kinds = applies.get("unit_kind")
-    return not (kinds and unit_kind not in kinds)
+    if kinds and unit_kind not in kinds:
+        return False
+    role_pattern = applies.get("role")
+    return not (role_pattern and not re.search(role_pattern, role))
+
+
+def _is_revision_row(conn: sqlite3.Connection, row: sqlite3.Row) -> bool:
+    """The D3 revision-log shape: internal, short, dated, change verb."""
+    if str(row["jurisdiction"]) != "internal":
+        return False
+    span = row["span"]
+    if span is None or int(span) > 500:
+        return False
+    text_row = conn.execute(
+        "select revision_id, char_start, char_end from source_sections where section_id=?",
+        (str(row["section_id"]),),
+    ).fetchone()
+    if text_row is None:
+        return False
+    full = conn.execute(
+        "select full_text from document_texts where revision_id=?",
+        (str(text_row["revision_id"]),),
+    ).fetchone()
+    if full is None:
+        return False
+    start, end = int(text_row["char_start"] or 0), int(text_row["char_end"] or 0)
+    if not (0 <= start < end <= len(full[0])):
+        return False
+    body = full[0][start:end]
+    import re as _re
+
+    return bool(
+        _re.search(r"\b\d{1,2}/\d{1,2}/\d{2,4}\b", body)
+        and _re.search(r"\b(Added|Removed|Updated|Revised|Changed|Performed|Corrected)\b", body)
+    )
 
 
 def _classify_unindexed(
-    row: sqlite3.Row, classes: list[dict[str, Any]]
+    conn: sqlite3.Connection,
+    row: sqlite3.Row,
+    classes: list[dict[str, Any]],
 ) -> tuple[str, str | None, str | None]:
     """(outcome, class_id) for one unindexed section.
 
@@ -200,6 +240,7 @@ def _classify_unindexed(
             str(row["jurisdiction"]),
             str(row["logical_id"]),
             str(row["unit_kind"] or ""),
+            role=str(row["role"] or ""),
         ):
             decision = entry_class.get("decision")
             if decision == "excluded":
@@ -225,7 +266,7 @@ def check_coverage(conn: sqlite3.Connection, rows: dict[str, list[dict[str, Any]
         for row in table_rows:
             indexed.add(str(row["chunk_id"]).split("#")[0])
     store_rows = conn.execute(
-        """select s.section_id, s.unit_kind, s.title,
+        """select s.section_id, s.unit_kind, s.title, s.role,
                   s.char_end - s.char_start as span,
                   d.jurisdiction, r.logical_id
            from source_sections s
@@ -238,7 +279,7 @@ def check_coverage(conn: sqlite3.Connection, rows: dict[str, list[dict[str, Any]
     unexplained: list[sqlite3.Row] = []
     pending: dict[str, int] = {}
     for row in unindexed:
-        outcome, class_id, _ = _classify_unindexed(row, classes)
+        outcome, class_id, _ = _classify_unindexed(conn, row, classes)
         if outcome == "explained":
             by_class[class_id] = by_class.get(class_id, 0) + 1
         elif outcome == "pending":

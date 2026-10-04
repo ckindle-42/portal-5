@@ -3,28 +3,61 @@
   "classes": [
     {
       "id": "rsaw_audit_worksheets",
-      "applies": {"jurisdiction": "US", "logical_id_regex": " RSAW$"},
+      "applies": {
+        "jurisdiction": "US",
+        "logical_id_regex": " RSAW$"
+      },
       "decision": "pending",
       "reason": "undecided at D1: RSAWs describe the evidence auditors expect, which evidence-type questions ask about; D4 decides inclusion vs exclusion from measured recall and decoy rank (F1: ~7.3k sections, the bulk of the 8,753 unindexed).",
       "decided_in": null
     },
     {
       "id": "glossary_of_terms",
-      "applies": {"jurisdiction": "US", "logical_id_regex": "glossary-of-terms"},
+      "applies": {
+        "jurisdiction": "US",
+        "logical_id_regex": "glossary-of-terms"
+      },
       "decision": "indexed",
       "reason": "reclassified at D2 (measured): the document holds NINE captures of 330 sections each; SEVEN revisions (2,310 sections) were already indexed, only the two newest captures (660) were never projected — re-capture duplication, not a deliberate exclusion. Default scope (is_superseded=0) carries exactly one governing copy of 330 either way, so D4 measures those 330 for recall and decoy behaviour without an exclusion decision.",
       "decided_in": "D2"
     },
     {
-      "id": "us_empty_unit_kind",
-      "applies": {"jurisdiction": "US", "unit_kind": [""]},
+      "id": "internal_empty_unit_kind",
+      "applies": {
+        "jurisdiction": "internal",
+        "unit_kind": [
+          ""
+        ]
+      },
       "decision": "pending",
-      "reason": "undecided at D1: 362 regulatory sections with no unit_kind — the standards' own TOC and page-furniture rows (D7 rules TOC/furniture never eligible as evidence). Until D7 records the standing rule they stay out with this class.",
+      "reason": "undecided at D1: 68 internal sections with no unit_kind (heading-only or furniture rows); D3's operator re-cut decides whether they merge into body units or stay out with this recorded reason.",
       "decided_in": null
     },
     {
+      "id": "table_of_contents_sections",
+      "applies": {
+        "jurisdiction": "internal",
+        "role": "^TABLE_OF_CONTENTS$"
+      },
+      "decision": "excluded",
+      "reason": "decided at D3, applying the task's own D7 eligibility rule (TOC sections are never evidence): the internal extractor emits each ToC page as TABLE_OF_CONTENTS; indexed, one carried an IMPLEMENTS edge to CIP-007-6 R2 Part 2.1 (F6) and its dotted-leader listing pollutes every lexical arm. DOCUMENT_CONTROL sections were also excluded at first and then RESTORED: the answer key cites an APPROVALS block as operator evidence (product:CIP-003-9:coverage_gap) — approval signatures are citable content, so the control-block class stays retrievable and its findability misses are accepted (measured: ~120 of 2,365).",
+      "decided_in": "D3 (D7 rule, corrected in D3)"
+    },
+    {
+      "id": "revision_log_rows",
+      "applies": {
+        "jurisdiction": "internal"
+      },
+      "decision": "excluded_builtin",
+      "_applies_note": "NOT applied by class match: the plan and the integrity check apply the built-in dated-change-row shape (internal, <=500 chars, date + change verb). This entry records the decision and its reason.",
+      "reason": "decided at D3, applying the task's own D7 eligibility rule (document machinery is never evidence): a dated change entry (date + change verb, under 500 chars) under the operative role is a revision-log row from a headingless history table — the store extractor's cutoff needs the history heading, and documents without one leak these rows into the operative population. Measured: the largest unique-heading findability miss class (rows like '1.1 G. Macias — Added CIP-002 Visio flow chart process … 05/04/2016' competing with their own siblings). The store keeps them addressable; the index does not retrieve them. The ingest side (internal_corpus) classifies them REVISION_LOG for new captures.",
+      "decided_in": "D3 (D7 rule)"
+    },
+    {
       "id": "regulatory_heading_only_fragments",
-      "applies": {"jurisdiction": "US"},
+      "applies": {
+        "jurisdiction": "US"
+      },
       "decision": "excluded_builtin",
       "_applies_note": "NOT applied by class match (no kind/pattern constraints here): the plan applies the built-in rule (whole text == title, under 120 chars); the integrity check verifies the same rule from section metadata. This entry records the decision and its reason.",
       "reason": "decided at D2, applying the task's own D7 eligibility rule (heading-only sections are never evidence): a section whose whole text is its own title under 120 chars is a heading-only fragment. Measured shadow: a 39-char '1.1.1 Personnel and training (CIP-004)' fragment scores 0.895 against the requirement's own sentence while the composed Part scores 0.60 — the fragment outranks the unit it duplicates. The parent document carries the content; the unit is the heading line.",
@@ -32,7 +65,12 @@
     },
     {
       "id": "internal_empty_unit_kind",
-      "applies": {"jurisdiction": "internal", "unit_kind": [""]},
+      "applies": {
+        "jurisdiction": "internal",
+        "unit_kind": [
+          ""
+        ]
+      },
       "decision": "pending",
       "reason": "undecided at D1: 68 internal sections with no unit_kind (heading-only or furniture rows); D3's operator re-cut decides whether they merge into body units or stay out with this recorded reason.",
       "decided_in": null

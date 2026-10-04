@@ -297,12 +297,17 @@ def exclusion_classes() -> list[dict[str, Any]]:
 
 
 def _matching_class(
-    classes: list[dict[str, Any]], jurisdiction: str, logical_id: str, unit_kind: str
+    classes: list[dict[str, Any]],
+    jurisdiction: str,
+    logical_id: str,
+    unit_kind: str,
+    role: str = "",
 ) -> str:
     """The id of the first class that KEEPS this section out, or ``""``.
 
     Only ``excluded`` and ``pending`` decisions keep a class out; ``indexed``
-    means the class projects like everything else.
+    means the class projects like everything else; ``excluded_builtin`` records
+    a decision the plan applies through its own built-in rule.
     """
     for entry_class in classes:
         if entry_class.get("decision") not in (None, "excluded", "pending"):
@@ -315,6 +320,9 @@ def _matching_class(
             continue
         kinds = applies.get("unit_kind")
         if kinds and unit_kind not in kinds:
+            continue
+        role_pattern = applies.get("role")
+        if role_pattern and not re.search(role_pattern, role):
             continue
         return str(entry_class.get("id", ""))
     return ""
@@ -359,6 +367,25 @@ _LEADING_PART_TOKEN = re.compile(r"^(?:R\d+(?:\.\d+)*|\d+(?:\.\d+)*)\.?\s+")
 #: a section whose whole text is its own title, under this floor, is a
 #: heading-only fragment (see _plan_gate).
 FRAGMENT_MAX_CHARS = 120
+
+#: the repeated page-furniture lines (banner, page counter), matched as whole
+#: lines — the pre-D3 captures keep them inside section spans.
+_FURNITURE_LINE_RE = re.compile(
+    r"^\s*(?:PRIVATE\s+[–-]\s+FOR INTERNAL USE ONLY|Page \d+ of \d+)\s*$",
+    re.MULTILINE | re.IGNORECASE,
+)
+
+#: a revision-log row: a dated change entry ("1.1 G. Macias — Added CIP-002
+#: Visio flow chart process. ... 05/04/2016"). The extractor's revision-history
+#: cutoff needs the history heading; documents whose log is a headingless
+#: table leak these rows into the operative population (measured, D3: the
+#: largest unique-heading miss class). Change logs are document machinery,
+#: not governing content.
+_REVISION_ROW_DATE_RE = re.compile(r"\b\d{1,2}/\d{1,2}/\d{2,4}\b")
+_REVISION_ROW_VERB_RE = re.compile(
+    r"\b(Added|Removed|Updated|Revised|Changed|Performed|Corrected)\b"
+)
+_REVISION_ROW_MAX_CHARS = 500
 
 
 def _bounded(text: str, limit: int) -> str:
@@ -587,6 +614,7 @@ def _plan_gate(entry: dict[str, Any], full: str, classes: list[dict[str, Any]]) 
         str(entry["jurisdiction"] or ""),
         str(entry["logical_id"] or ""),
         str(entry["unit_kind"] or ""),
+        role=str(entry["role"] or ""),
     )
     if excluded_class:
         return "excluded", excluded_class
@@ -595,16 +623,34 @@ def _plan_gate(entry: dict[str, Any], full: str, classes: list[dict[str, Any]]) 
     body = full[start:end]
     if not body.strip():
         return "unprojectable", "span is whitespace"
-    # DATA_TRUTH D2, measured: heading-only fragments — the section's whole
-    # text is its own title, under the fragment floor — indexed as standalone
-    # units shadowed the requirement Parts at their own sentence (a 39-char
-    # "1.1.1 Personnel and training (CIP-004)" fragment scores 0.895 against
-    # the sentence; the composed Part 0.60). D7's eligibility rule (heading-only
-    # sections are never evidence) applies: the parent document carries the
-    # content, the unit duplicates the heading line.
+    # DATA_TRUTH D2/D3, measured: heading-only fragments — the section's whole
+    # text is its own heading line, under the fragment floor — shadow every
+    # real unit at their own heading: a 39-char "1.1.1 Personnel and training
+    # (CIP-004)" fragment scored 0.895 against the sentence while the composed
+    # Part scored 0.60, and the operator corpus's "1.0 Introduction \n"
+    # fragments beat their own documents' body sections. The heading line is
+    # number + words ("3.1.3 Shared Accounts") or just the words — match both.
+    # D7's eligibility rule applies: the parent document carries the content;
+    # the unit duplicates the heading.
     title = str(entry["title"] or "").strip()
-    if title and len(body) < FRAGMENT_MAX_CHARS and body.strip() == title:
+    path = str(entry["path"] or "").strip()
+    heading_line = f"{path} {title}".strip()
+    if title and len(body) < FRAGMENT_MAX_CHARS and body.strip() in (title, heading_line):
         return "excluded", "regulatory_heading_only_fragments"
+    # a section whose whole text is page furniture (the pre-D3 captures keep
+    # the banner/counter lines inside the section span) is the same furniture
+    # class: nothing survives the furniture strip.
+    if not _FURNITURE_LINE_RE.sub("", body).strip():
+        return "excluded", "regulatory_heading_only_fragments"
+    # a revision-log row is document machinery, not evidence: a dated change
+    # entry under the operative role is the headingless-log leak.
+    if (
+        str(entry["jurisdiction"] or "") == "internal"
+        and len(body) <= _REVISION_ROW_MAX_CHARS
+        and _REVISION_ROW_DATE_RE.search(body)
+        and _REVISION_ROW_VERB_RE.search(body)
+    ):
+        return "excluded", "revision_log_rows"
     return "ok", None
 
 
@@ -638,11 +684,11 @@ def build_plan(repo: Any, *, jurisdiction: str, kb_id: str = "") -> ProjectionPl
         return tier_of[logical_id]
 
     rows = repo._conn.execute(
-        """SELECT s.section_id, s.revision_id, s.path, s.title, s.heading_path,
+        """SELECT s.section_id, s.revision_id, s.path, s.title, s.heading_path, s.role,
                   s.page_start, s.char_start, s.char_end, s.unit_kind, s.ordinal,
                   r.alias_path, r.effective_date, r.inactive_date,
                   r.recorded_from, r.recorded_to,
-                  d.logical_id, d.source_kind, d.jurisdiction
+                  d.logical_id, d.source_kind, d.jurisdiction, d.title AS document_title
            FROM source_sections s
            JOIN document_revisions r ON r.revision_id = s.revision_id
            JOIN source_documents d ON d.logical_id = r.logical_id
@@ -659,56 +705,89 @@ def build_plan(repo: Any, *, jurisdiction: str, kb_id: str = "") -> ProjectionPl
         revision_id = str(entry["revision_id"])
         if revision_id not in texts:
             texts[revision_id] = repo.get_document_text(revision_id) or ""
-        full = texts[revision_id]
-        verdict, detail = _plan_gate(entry, full, classes)
+        verdict, detail = _plan_gate(entry, texts[revision_id], classes)
         if verdict == "uncaptured":
             uncaptured[revision_id] = str(entry["logical_id"])
-            continue
-        if verdict == "superseded":
+        elif verdict == "superseded":
             plan.superseded_sections.append(section_id)
-            continue
-        if verdict == "excluded":
+        elif verdict == "excluded":
             plan.excluded_by_class[detail] = plan.excluded_by_class.get(detail, 0) + 1
-            continue
-        plan.eligible_sections.append(section_id)
-        if verdict == "unprojectable":
-            plan.unprojectable.append({"section_id": section_id, "reason": detail})
-            continue
-        start, end = _span_of(entry)
-        body = full[start:end]
-        headings = _heading_of(entry)
-        composed = requirement_first.get(section_id, "")
-        pieces = _unit_pieces(body, composed)
-        if composed:
-            plan.requirement_first_units += 1
-        for n, piece in enumerate(pieces):
-            if composed:
-                # the composition is not store text: the span stays the
-                # section's real store coordinates, never the composed piece's
-                piece_start, piece_end = start, end
-            else:
-                offset = sum(len(p) for p in pieces[:n])
-                piece_start, piece_end = start + offset, start + offset + len(piece)
-            plan.units.append(
-                _unit_row(
-                    plan,
-                    entry,
-                    section_id=section_id,
-                    revision_id=revision_id,
-                    piece=piece,
-                    headings=headings,
-                    piece_start=piece_start,
-                    piece_end=piece_end,
-                    single=len(pieces) == 1,
-                    n=n,
-                    is_governing=revision_id in governing,
-                    tier=_tier(str(entry["logical_id"] or ""), str(entry["source_kind"] or "")),
-                )
+        else:
+            _plan_ok(
+                plan,
+                entry,
+                section_id,
+                revision_id,
+                texts[revision_id],
+                verdict,
+                detail,
+                governing,
+                requirement_first,
             )
     plan.uncaptured_revisions = [
         {"revision_id": rid, "logical_id": logical} for rid, logical in sorted(uncaptured.items())
     ]
     return plan
+
+
+def _plan_ok(
+    plan: ProjectionPlan,
+    entry: dict[str, Any],
+    section_id: str,
+    revision_id: str,
+    full: str,
+    verdict: str,
+    detail: str,
+    governing: set[str],
+    requirement_first: dict[str, str],
+) -> None:
+    """Project one section that passed the gate ('ok') or record why not ('unprojectable')."""
+    if verdict == "unprojectable":
+        plan.unprojectable.append({"section_id": section_id, "reason": detail})
+        return
+    plan.eligible_sections.append(section_id)
+    start, end = _span_of(entry)
+    body = full[start:end]
+    headings = _heading_of(entry)
+    # DATA_TRUTH D3 (F3): the operator corpus's embedded text carried no
+    # document title — sections embed as bare heading paths, so "Shared
+    # Accounts" from one procedure competes with every other document's
+    # identically-titled section and the document itself is unretrievable.
+    if str(entry["jurisdiction"] or "") == "internal":
+        document_title = str(entry.get("document_title") or "").strip()
+        if document_title:
+            headings = f"{document_title} > {headings}" if headings else document_title
+    composed = requirement_first.get(section_id, "")
+    pieces = _unit_pieces(body, composed)
+    if composed:
+        plan.requirement_first_units += 1
+    from portal.modules.compliance.core.tiers import recorded_tier
+
+    tier = recorded_tier(str(entry["logical_id"] or ""), str(entry["source_kind"] or ""))
+    for n, piece in enumerate(pieces):
+        if composed:
+            # the composition is not store text: the span stays the
+            # section's real store coordinates, never the composed piece's
+            piece_start, piece_end = start, end
+        else:
+            offset = sum(len(p) for p in pieces[:n])
+            piece_start, piece_end = start + offset, start + offset + len(piece)
+        plan.units.append(
+            _unit_row(
+                plan,
+                entry,
+                section_id=section_id,
+                revision_id=revision_id,
+                piece=piece,
+                headings=headings,
+                piece_start=piece_start,
+                piece_end=piece_end,
+                single=len(pieces) == 1,
+                n=n,
+                is_governing=revision_id in governing,
+                tier=tier,
+            )
+        )
 
 
 def boundary_receipt(

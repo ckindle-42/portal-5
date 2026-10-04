@@ -568,7 +568,74 @@ def _span_sections(
                 heading=f"{path} {title}".strip(),
             )
         )
-    return sections
+    return _merge_heading_only(sections, full_text)
+
+
+#: a section whose whole text is its heading line carries no content of its
+#: own: fold it into the following section (DATA_TRUTH D3, F3). The heading
+#: line is kept as the merged section's lead so the number+title still embeds
+#: with the body it introduces, and the merged span stays contiguous, so the
+#: capture's complete-tiling claim holds.
+_HEADING_ONLY_FLOOR = 120
+
+#: a revision-log row: a dated change entry. Documents whose history is a
+#: headingless table leak these rows past the history cutoff; classified
+#: REVISION_LOG so they are never operative content (DATA_TRUTH D3).
+_REVISION_ROW_DATE_RE = re.compile(r"\b\d{1,2}/\d{1,2}/\d{2,4}\b")
+_REVISION_ROW_VERB_RE = re.compile(
+    r"\b(Added|Removed|Updated|Revised|Changed|Performed|Corrected)\b"
+)
+_REVISION_ROW_MAX_CHARS = 500
+
+
+def _merge_heading_only(sections: list[InternalSection], full_text: str) -> list[InternalSection]:
+    folded = 0
+    out: list[InternalSection] = []
+    index = 0
+    while index < len(sections):
+        section = sections[index]
+        body = section.text.strip()
+        following = sections[index + 1] if index + 1 < len(sections) else None
+        foldable = (
+            following is not None
+            and section.role not in ("TABLE_OF_CONTENTS", "DOCUMENT_CONTROL")
+            and following.role not in ("TABLE_OF_CONTENTS", "DOCUMENT_CONTROL")
+            and body == section.heading.strip()
+            and len(body) < _HEADING_ONLY_FLOOR
+            and following.char_start >= section.char_end - 1
+        )
+        if foldable:
+            out.append(
+                InternalSection(
+                    path=following.path,
+                    title=following.title,
+                    role=following.role,
+                    page_start=section.page_start,
+                    page_end=following.page_end,
+                    char_start=section.char_start,
+                    char_end=following.char_end,
+                    text=full_text[section.char_start : following.char_end],
+                    heading=section.heading,
+                )
+            )
+            folded += 1
+            index += 2
+            continue
+        if (
+            section.role == "OPERATIVE_PROCEDURE"
+            and len(section.text) <= _REVISION_ROW_MAX_CHARS
+            and _REVISION_ROW_DATE_RE.search(section.text)
+            and _REVISION_ROW_VERB_RE.search(section.text)
+        ):
+            section.role = "REVISION_LOG"
+        out.append(section)
+        index += 1
+    merge_stats["heading_only_folded"] = folded
+    return out
+
+
+#: folds performed by the last _merge_heading_only call (receipt census).
+merge_stats = {"heading_only_folded": 0}
 
 
 def _fallback_page_sections(
@@ -752,15 +819,34 @@ def _line_index_of_heading(page: str, number: str, title: str) -> int:
 EXTRACTOR = "pymupdf"
 
 
+_FURNITURE_RE = re.compile(
+    r"^\s*(?:PRIVATE\s+[–-]\s+FOR INTERNAL USE ONLY|Page \d+ of \d+)\s*$", re.MULTILINE
+)
+
+
+def strip_furniture(pages: list[str]) -> list[str]:
+    """Drop repeated page-furniture lines from every page (DATA_TRUTH D3, F3).
+
+    The controlled documents repeat a confidentiality banner and a page
+    counter on every page; docling keeps them inside section text, where they
+    are 30% of the sub-120-char chunks the operator corpus indexed. Stripping
+    happens HERE, at capture, so the stripped join stays the span coordinate
+    space and every downstream span hash-verifies.
+    """
+    return [_FURNITURE_RE.sub("", page) for page in pages]
+
+
 def extract_pages(path: Path) -> tuple[list[str], str]:
     """Deterministic page texts for a PDF plus the joined full text. The
     joined text is the span coordinate space: char offsets from sectionize
-    resolve against ``full_text`` and hash-verify against section text."""
+    resolve against ``full_text`` and hash-verify against section text.
+    Repeated page furniture is stripped before the join (D3)."""
     import pymupdf
 
     open_document: Any = pymupdf.open  # untyped C-extension entry point
     with open_document(path) as document:
         pages = [page.get_text("text") for page in document]
+    pages = strip_furniture(pages)
     return pages, "\n".join(pages)
 
 

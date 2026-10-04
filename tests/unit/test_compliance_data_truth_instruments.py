@@ -493,3 +493,109 @@ def test_resolver_never_raises_on_unreachable(
     result = served_window_for_hint("gemma4:26b-a4b-it-q4_K_M-ctx32k", config, groups=["general"])
     assert result.applied_window is None
     assert "no in-group candidate backend answered a probe" in result.notes
+
+
+# ── DATA_TRUTH D3: operator ingest units (strip furniture, merge headings) ───
+
+
+def _procedure_pages() -> list[str]:
+    """A synthetic controlled document shaped like the real corpus: repeated
+    furniture, a ToC page, heading-only fragments before their bodies."""
+    return [
+        (
+            " \nPRIVATE – FOR INTERNAL USE ONLY \n \n"
+            "ACME Security Patch Management Procedure \n \n"
+            "Effective Date:  July 31, 2026 \n"
+            "Document Type: Procedure \nNERC Standard: CIP-007 \n"
+        ),
+        (
+            " \nPRIVATE – FOR INTERNAL USE ONLY \nPage 2 of 9 \n \n"
+            "1.0 Introduction \n1.1 \nPurpose \n"
+            "The purpose is patch tracking across the fleet. \n"
+            "1.2 \nApplicability \n"
+            "This applies to all ACME registrations. \n"
+        ),
+        (
+            " \nPRIVATE – FOR INTERNAL USE ONLY \nPage 3 of 9 \n \n"
+            "2.0 Patch Evaluation \n2.1 \n"
+            "Patches are evaluated every thirty days by the OT team. \n"
+        ),
+    ]
+
+
+def test_strip_furniture_removes_repeated_lines() -> None:
+    from portal.modules.compliance.core.internal_corpus import strip_furniture
+
+    pages = _procedure_pages()
+    stripped = strip_furniture(pages)
+    joined = "\n".join(stripped)
+    assert "PRIVATE – FOR INTERNAL USE ONLY" not in joined
+    assert "Page 2 of 9" not in joined
+    assert "Patch Evaluation" in joined  # content survives
+
+
+def test_sectionize_merges_heading_only_into_body() -> None:
+    from portal.modules.compliance.core import internal_corpus as ic
+
+    pages = ic.strip_furniture(_procedure_pages())
+    full = "\n".join(pages)
+    sections = ic.sectionize(pages)
+    texts = {s.path: s.text.strip() for s in sections}
+    # the bare-number line '2.1' introduces the body directly: no heading-only
+    # section may survive with the number as its whole content
+    assert not any(t.strip() == "2.1" for t in texts.values()), sorted(texts)
+    body = texts.get("2.0", "")
+    assert "2.1" in body
+    assert "evaluated every thirty days" in body
+    # spans stay contiguous with the stripped full text
+    for section in sections:
+        assert full[section.char_start : section.char_end] == section.text
+
+
+def test_fresh_upload_yields_furniture_free_findable_units() -> None:
+    """The D3 fresh-upload proof: a synthetic document through the REAL ingest
+    path (extract_pages -> parse control -> sectionize) yields furniture-free
+    units whose headings are the section titles."""
+    from portal.modules.compliance.core import internal_corpus as ic
+
+    pdf = _make_pdf()
+    got_pages, got_full = ic.extract_pages(pdf)
+    assert "PRIVATE – FOR INTERNAL USE ONLY" not in got_full
+    assert "Page 1 of 1" not in got_full
+    sections = ic.sectionize(got_pages)
+    operative = [s for s in sections if s.path.startswith(("1.", "2."))]
+    assert operative, [s.path for s in sections]
+    for section in operative:
+        assert "PRIVATE" not in section.text
+        assert section.heading.strip() in section.text
+
+
+def _make_pdf() -> pathlib.Path:
+    """A one-page synthetic PDF carrying the controlled-document shape."""
+    import fitz  # noqa: PLC0415 - pymupdf's stable import name
+
+    document = fitz.open()
+    page = document.new_page()
+    text = (
+        "PRIVATE - FOR INTERNAL USE ONLY\n"
+        "ACME Security Patch Management Procedure\n"
+        "Effective Date:  July 31, 2026\n"
+        "Document Type: Procedure\n"
+        "NERC Standard: CIP-007\n"
+        "1.0 Introduction\n"
+        "The purpose is patch tracking across the fleet.\n"
+        "Page 1 of 1\n"
+    )
+    page.insert_text((72, 72), text, fontsize=11)
+    path = pathlib.Path(_tmpdir_name())
+    document.save(str(path))
+    document.close()
+    return path
+
+
+def _tmpdir_name() -> str:
+    import tempfile
+
+    handle = tempfile.NamedTemporaryFile(suffix=".pdf", delete=False)
+    handle.close()
+    return handle.name

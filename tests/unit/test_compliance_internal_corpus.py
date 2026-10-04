@@ -227,13 +227,25 @@ class TestSectionize:
         assert numbered_after == []
 
     def test_parent_sibling_closure(self, procedure):
+        """DATA_TRUTH D3: a heading-only section ('1.4', its heading is its
+        whole text) folds into the following body section — the heading line
+        leads that section's text, and the standalone fragment is gone."""
         sections = ic.sectionize(procedure, operative_role="OPERATIVE_PROCEDURE")
         paths = [s.path for s in sections]
-        assert "1.4" in paths and "1.4.1" in paths
-        # siblings share the parent prefix
+        assert "1.4.1" in paths
+        heading_only = [s for s in sections if s.text.strip() == s.heading.strip()]
+        assert "1.4" not in paths
+        assert all(s.path != "1.4" for s in heading_only)
+        merged = next(s for s in sections if s.path == "1.4.1")
+        assert "1.4" in merged.text
+        # siblings share the parent prefix — as a path, or as the folded
+        # heading line that leads the body section it introduces (DATA_TRUTH D3)
         for path in ("1.4.1", "1.4.2"):
             if path in paths:
-                assert any(p == path.rsplit(".", 1)[0] for p in paths)
+                parent = path.rsplit(".", 1)[0]
+                assert any(
+                    p == parent or sections[paths.index(p)].text.startswith(parent) for p in paths
+                )
 
     def test_numbered_content_items_are_not_sections(self, procedure):
         sections = ic.sectionize(procedure, operative_role="OPERATIVE_PROCEDURE")

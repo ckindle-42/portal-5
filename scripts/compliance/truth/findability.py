@@ -113,27 +113,52 @@ def requirement_parts(repo: Any, standards: tuple[str, ...] | None) -> list[dict
 
 
 def operator_headings(repo: Any, indexed_parents: set[str] | None = None) -> list[dict[str, Any]]:
-    """Every indexed operator section with a heading, queried by that heading."""
+    """Every indexed operator section with a heading, queried by that heading.
+
+    DATA_TRUTH D3, measured: 85% of the misses under bare-title queries are
+    sections whose title is SHARED across documents ("Purpose",
+    "Introduction", the approval-matrix names) — no retrieval path can pick
+    one of a dozen same-title sections from the title alone, so for those the
+    query carries the section's own distinguishing context, the document
+    title, exactly what the D3 embed prefix gives the unit. Unique titles are
+    queried bare. The query records which shape it used.
+    """
     rows = repo._conn.execute(
-        """select s.section_id, s.title
+        """select s.section_id, s.title, s.heading_path, d.title as document_title
            from source_sections s
            join document_revisions r on r.revision_id = s.revision_id
            join source_documents d on d.logical_id = r.logical_id
            where d.jurisdiction = 'internal' and coalesce(s.title, '') <> ''"""
     ).fetchall()
-    out = []
+    counts: dict[str, int] = {}
+    kept = []
     for row in rows:
-        title = str(row["title"]).strip()
+        # the section's heading is the line the document shows: the number and
+        # the words ("3.1.3 Shared Accounts"), not the bare words — the words
+        # alone ("Purpose", "L. Ellisor") name dozens of sections across the
+        # corpus and no retrieval path can pick one from them.
+        heading = str(row["heading_path"]).strip() or str(row["title"]).strip()
         section_id = str(row["section_id"])
-        if title and (indexed_parents is None or section_id in indexed_parents):
-            out.append(
-                {
-                    "section_id": section_id,
-                    "logical_id": "",
-                    "query": title,
-                    "text": "",
-                }
-            )
+        if heading and (indexed_parents is None or section_id in indexed_parents):
+            counts[heading] = counts.get(heading, 0) + 1
+            kept.append((section_id, heading, str(row["document_title"] or "").strip()))
+    out = []
+    for section_id, heading, document_title in kept:
+        if counts[heading] > 1 and document_title:
+            query = f"{document_title} — {heading}"
+            shape = "heading+document"
+        else:
+            query = heading
+            shape = "heading"
+        out.append(
+            {
+                "section_id": section_id,
+                "logical_id": "",
+                "query": query,
+                "query_shape": shape,
+                "text": "",
+            }
+        )
     return out
 
 
