@@ -267,14 +267,59 @@ def test_compare_applies_the_predeclared_keep_rules():
     key["entries"][0]["split"] = "dev"
     entries = judgments.key_entries(key)
     ok = {"F1": "correct", "F2": "correct", "F3": "correct"}
-    records = [_rec(f"b{n}", "A", ok) for n in range(3)] + [_rec("a0", "A", {**ok, "F1": "wrong"})]
+    wrong = {**ok, "F1": "wrong"}
+    records = [_rec(f"b{n}", "A", ok) for n in range(6)] + [
+        _rec(f"a{n}", "A", wrong if n < 2 else ok) for n in range(6)
+    ]
     unblind = {
-        **{f"b{n}": {"run_dir": f"p6/B0/rep{n}"} for n in range(3)},
-        "a0": {"run_dir": "p6/B1/rep0"},
+        **{f"b{n}": {"run_dir": f"p6/B0/rep{n}"} for n in range(6)},
+        **{f"a{n}": {"run_dir": f"p6/B1/rep{n}"} for n in range(6)},
     }
     result = judgments.compare(records, unblind, entries, ["p6/B0"], ["p6/B1"])
-    assert result["regressions_correct_to_wrong"] == ["product:CIP-007-6:coverage_gap"]
+    assert result["regressions"] == ["product:CIP-007-6:coverage_gap"]
     assert result["keep_if_truth_fix"] is False and result["keep_if_optimisation"] is False
+
+
+def test_compare_p6m_one_wrong_rep_is_not_a_regression():
+    """The legacy rule tripped on one WRONG rep — on identical A3 answers judged
+    in two rounds it did so in 3 of 12 null comparisons. P6M needs two."""
+    key = _key()
+    key["entries"][0]["split"] = "dev"
+    entries = judgments.key_entries(key)
+    ok = {"F1": "correct", "F2": "correct", "F3": "correct"}
+    records = [_rec(f"b{n}", "A", ok) for n in range(6)] + [
+        _rec(f"a{n}", "A", {**ok, "F1": "wrong"} if n == 0 else ok) for n in range(6)
+    ]
+    unblind = {
+        **{f"b{n}": {"run_dir": f"p6/B0/rep{n}"} for n in range(6)},
+        **{f"a{n}": {"run_dir": f"p6/B1/rep{n}"} for n in range(6)},
+    }
+    result = judgments.compare(records, unblind, entries, ["p6/B0"], ["p6/B1"])
+    assert result["regressions"] == []
+    assert result["legacy_any_wrong_trips"] == ["product:CIP-007-6:coverage_gap"]
+    assert result["keep_if_truth_fix"] is True
+
+
+def test_compare_p6m_unstable_baseline_cannot_regress_and_short_reps_cannot_keep():
+    key = _key()
+    key["entries"][0]["split"] = "dev"
+    entries = judgments.key_entries(key)
+    ok = {"F1": "correct", "F2": "correct", "F3": "correct"}
+    part = {**ok, "F2": "omitted"}
+    wrong = {**ok, "F1": "wrong"}
+    # baseline C C P P C C (two non-CORRECT) is not stable-correct
+    records = [_rec(f"b{n}", "A", part if n in (2, 3) else ok) for n in range(6)] + [
+        _rec(f"a{n}", "A", wrong if n < 3 else ok) for n in range(6)
+    ]
+    unblind = {
+        **{f"b{n}": {"run_dir": f"p6/B0/rep{n}"} for n in range(6)},
+        **{f"a{n}": {"run_dir": f"p6/B1/rep{n}"} for n in range(6)},
+    }
+    result = judgments.compare(records, unblind, entries, ["p6/B0"], ["p6/B1"])
+    assert result["regressions"] == [] and result["insufficient_reps"] == []
+    three = judgments.compare(records[:3] + records[6:9], unblind, entries, ["p6/B0"], ["p6/B1"])
+    assert three["insufficient_reps"] == ["product:CIP-007-6:coverage_gap"]
+    assert three["keep_if_truth_fix"] is False
 
 
 def test_wilson_and_kappa_edges():
@@ -397,19 +442,18 @@ def test_compare_counts_pass_c_records_in_a_final_set():
     key["entries"][0]["split"] = "dev"
     entries = judgments.key_entries(key)
     ok = {"F1": "correct", "F2": "correct", "F3": "correct"}
+    wrong = {**ok, "F1": "wrong"}
     records = (
-        [_rec(f"b{n}", "A", ok) for n in range(3)]
-        + [_rec("a0", "A", ok), _rec("a1", "A", ok)]
-        + [_rec("a2", "C", {**ok, "F1": "wrong"})]
+        [_rec(f"b{n}", "A", ok) for n in range(6)]
+        + [_rec(f"a{n}", "A", ok) for n in range(4)]
+        + [_rec("a4", "C", wrong), _rec("a5", "C", wrong)]
     )
     unblind = {
-        **{f"b{n}": {"run_dir": f"p6/A3/rep{n}"} for n in range(3)},
-        "a0": {"run_dir": "p6/A6/rep0"},
-        "a1": {"run_dir": "p6/A6/rep1"},
-        "a2": {"run_dir": "p6/A6/rep2"},
+        **{f"b{n}": {"run_dir": f"p6/A3/rep{n}"} for n in range(6)},
+        **{f"a{n}": {"run_dir": f"p6/A6/rep{n}"} for n in range(6)},
     }
     result = judgments.compare(records, unblind, entries, ["p6/A3"], ["p6/A6"])
-    assert result["regressions_correct_to_wrong"] == ["product:CIP-007-6:coverage_gap"]
+    assert result["regressions"] == ["product:CIP-007-6:coverage_gap"]
     assert result["keep_if_truth_fix"] is False
 
 

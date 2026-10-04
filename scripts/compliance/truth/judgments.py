@@ -257,14 +257,22 @@ def compare(
     *,
     split: str = "dev",
     min_net: int = 3,
+    min_reps: int = 6,
 ) -> dict[str, Any]:
     """Paired per-question comparison of two arms (run-dir prefixes), on one split.
 
-    Predeclared keep rule for an OPTIMISATION: net improved questions must reach
-    max(min_net, ceil(noisy_baseline_questions / 2)), and no question whose
-    baseline reps were all CORRECT may show a WRONG rep in the arm. A TRUTH
-    FIX (a false statement removed) is kept unless it regresses: the second
-    condition alone. The caller says which kind the change is."""
+    Keep rule P6M (D-P6M-1, predeclared before its data). A question is
+    stable-correct when its baseline reps hold no WRONG and at most one
+    non-CORRECT; it regresses when it is stable-correct and the arm shows at
+    least two WRONG reps. A TRUTH FIX is kept unless a question regresses; an
+    OPTIMISATION also needs net improved questions to reach
+    max(min_net, ceil(noisy_baseline_questions / 2)). No keep is reported while
+    any compared question has fewer than ``min_reps`` reps on either side.
+
+    Why: the earlier rule (all-CORRECT baseline -> any WRONG arm rep, on 3
+    reps) tripped in 3 of 12 null comparisons of identical A3 answers judged
+    in different rounds — it decided on judge noise. The old trip list is
+    still reported as ``legacy_any_wrong_trips`` for continuity only."""
     # The caller is expected to pass a final set (A with C substituted) or a
     # single-pass set. Filtering to pass=="A" here dropped exactly the
     # contested items pass C settled, biasing every comparison toward the
@@ -289,20 +297,31 @@ def compare(
 
     base, cand = reps(baseline), reps(arm)
     shared = sorted(set(base) & set(cand))
-    improved, worsened, regressions = [], [], []
+    improved, worsened, regressions, legacy, short = [], [], [], [], []
     noisy = sum(1 for q in base.values() if len({v == "CORRECT" for v in q}) > 1)
     for qid in shared:
-        b = sum(v == "CORRECT" for v in base[qid]) / len(base[qid])
-        c = sum(v == "CORRECT" for v in cand[qid]) / len(cand[qid])
+        bv, cv = base[qid], cand[qid]
+        b = sum(v == "CORRECT" for v in bv) / len(bv)
+        c = sum(v == "CORRECT" for v in cv) / len(cv)
         if c > b:
             improved.append(qid)
         elif c < b:
             worsened.append(qid)
-        if all(v == "CORRECT" for v in base[qid]) and any(v == "WRONG" for v in cand[qid]):
+        if min(len(bv), len(cv)) < min_reps:
+            short.append(qid)
+        stable = "WRONG" not in bv and sum(v == "CORRECT" for v in bv) >= len(bv) - 1
+        if stable and cv.count("WRONG") >= 2:
             regressions.append(qid)
+        if all(v == "CORRECT" for v in bv) and "WRONG" in cv:
+            legacy.append(qid)
     threshold = max(min_net, math.ceil(noisy / 2))
     net = len(improved) - len(worsened)
+    decidable = not short
     return {
+        "rule": "P6M",
+        "min_reps": min_reps,
+        "insufficient_reps": short,
+        "legacy_any_wrong_trips": legacy,
         "split": split,
         "questions_compared": len(shared),
         "missing_in_arm": sorted(set(base) - set(cand)),
@@ -311,9 +330,9 @@ def compare(
         "net_improved": net,
         "noisy_baseline_questions": noisy,
         "optimisation_threshold": threshold,
-        "regressions_correct_to_wrong": regressions,
-        "keep_if_optimisation": net >= threshold and not regressions,
-        "keep_if_truth_fix": not regressions,
+        "regressions": regressions,
+        "keep_if_optimisation": decidable and net >= threshold and not regressions,
+        "keep_if_truth_fix": decidable and not regressions,
     }
 
 
