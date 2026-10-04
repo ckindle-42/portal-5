@@ -269,6 +269,13 @@ def compare(
     # single-pass set. Filtering to pass=="A" here dropped exactly the
     # contested items pass C settled, biasing every comparison toward the
     # pass-A status quo (A6: it hid a keep-rule regression on the arm side).
+    # Scoring the set as given is only sound for a final set, so refuse the
+    # shapes that would silently count a rep twice.
+    if any(r.get("pass") == "B" for r in records):
+        raise ValueError("compare takes a final set (A with C substituted), not a pass-B set")
+    ids = [r["item_id"] for r in records]
+    if len(ids) != len(set(ids)):
+        raise ValueError("compare takes a final set: an item_id appears more than once")
     scored = [s for s in score(records, entries) if s["split"] == split]
 
     def reps(prefixes: list[str]) -> dict[str, list[str]]:
@@ -359,7 +366,11 @@ def main(argv: list[str] | None = None) -> int:
     if args.command == "aggregate":
         result = aggregate(records, unblind, entries)
     else:
-        result = compare(records, unblind, entries, args.baseline, args.arm, split=args.split)
+        try:
+            result = compare(records, unblind, entries, args.baseline, args.arm, split=args.split)
+        except ValueError as exc:
+            print(f"JUDGMENTS INVALID: {exc}", file=sys.stderr)
+            return 1
     result["key_manifest_sha256"] = answer_key.manifest(key, args.key.read_bytes())["key_sha256"]
     result["key_status"] = key.get("status")
     text = json.dumps(result, indent=2) + "\n"

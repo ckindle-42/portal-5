@@ -429,3 +429,21 @@ def test_aggregate_final_set_counts_c_records_in_the_headline():
     result = judgments.aggregate(records, unblind, entries)
     assert result["overall"]["n"] == 3
     assert result["overall"]["counts"]["PARTIAL"] == 1
+
+
+@pytest.mark.parametrize(
+    "extra",
+    [
+        lambda ok: _rec("b1", "B", ok),  # a double-judged B record
+        lambda ok: _rec("a0", "C", ok),  # A and C both present for one item
+    ],
+)
+def test_compare_refuses_a_set_that_is_not_final(extra):
+    """compare scores the set as given, so a B record or a repeated item_id
+    would silently count a rep twice; it refuses instead."""
+    entries = judgments.key_entries(_key())
+    ok = {"F1": "correct", "F2": "correct", "F3": "correct"}
+    records = [_rec("b0", "A", ok), _rec("a0", "A", ok), extra(ok)]
+    unblind = {"b0": {"run_dir": "p6/A3/rep0"}, "a0": {"run_dir": "p6/A6/rep0"}}
+    with pytest.raises(ValueError):
+        judgments.compare(records, unblind, entries, ["p6/A3"], ["p6/A6"])
