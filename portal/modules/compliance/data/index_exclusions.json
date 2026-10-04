@@ -23,6 +23,14 @@
       "decided_in": null
     },
     {
+      "id": "regulatory_heading_only_fragments",
+      "applies": {"jurisdiction": "US"},
+      "decision": "excluded_builtin",
+      "_applies_note": "NOT applied by class match (no kind/pattern constraints here): the plan applies the built-in rule (whole text == title, under 120 chars); the integrity check verifies the same rule from section metadata. This entry records the decision and its reason.",
+      "reason": "decided at D2, applying the task's own D7 eligibility rule (heading-only sections are never evidence): a section whose whole text is its own title under 120 chars is a heading-only fragment. Measured shadow: a 39-char '1.1.1 Personnel and training (CIP-004)' fragment scores 0.895 against the requirement's own sentence while the composed Part scores 0.60 — the fragment outranks the unit it duplicates. The parent document carries the content; the unit is the heading line.",
+      "decided_in": "D2 (D7 rule)"
+    },
+    {
       "id": "internal_empty_unit_kind",
       "applies": {"jurisdiction": "internal", "unit_kind": [""]},
       "decision": "pending",

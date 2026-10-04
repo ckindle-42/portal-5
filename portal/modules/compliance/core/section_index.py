@@ -28,6 +28,7 @@ absence claim, which is the whole reason this phase exists.
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -303,8 +304,6 @@ def _matching_class(
     Only ``excluded`` and ``pending`` decisions keep a class out; ``indexed``
     means the class projects like everything else.
     """
-    import re
-
     for entry_class in classes:
         if entry_class.get("decision") not in (None, "excluded", "pending"):
             continue
@@ -340,13 +339,42 @@ def _matching_class(
 
 _PART_FIELD_SPLIT = " | "
 
+#: DATA_TRUTH D2, measured: the composed unit must keep the requirement
+#: sentence dominant. Parts whose requirement is short and whose applicability
+#: block is long and SHARED (CIP-003-9 R1's 1.1.x family — five Parts whose
+#: only distinctive text is which standard they point at) collapsed to rank
+#: 120-261 under their own requirement sentence when the full applicability
+#: and Measures text rode along: every Part of the family embedded almost
+#: identically. The canonical fields stay in the unit, bounded.
+_APPLIES_MAX_CHARS = 400
+_MEASURES_MAX_CHARS = 600
+
+#: below this, the requirement sentence is the unit's whole content and the
+#: Applies/Measures tails are omitted from the composed embedding (measured,
+#: D2: see requirement_first_texts).
+SHORT_REQUIREMENT_CHARS = 120
+
+_LEADING_PART_TOKEN = re.compile(r"^(?:R\d+(?:\.\d+)*|\d+(?:\.\d+)*)\.?\s+")
+
+#: a section whose whole text is its own title, under this floor, is a
+#: heading-only fragment (see _plan_gate).
+FRAGMENT_MAX_CHARS = 120
+
+
+def _bounded(text: str, limit: int) -> str:
+    cleaned = " ".join(text.split())
+    if len(cleaned) <= limit:
+        return cleaned
+    return cleaned[: limit - 1].rstrip() + "…"
+
 
 def normative_field(section_text: str) -> str:
     """The requirement sentence of a Part section's verbatim text.
 
     Applicability-first table rows carry it as the third pipe field; prose
-    requirement units open with the requirement token (``R1. …``). Anything
-    else is returned whole.
+    requirement units open with the requirement token (``R1. …``) and
+    list-item Parts with the part number (``1.2.6. …``) — both are stripped
+    so the sentence itself leads. Anything else is returned whole.
     """
     text = section_text.strip()
     if _PART_FIELD_SPLIT in text:
@@ -355,7 +383,13 @@ def normative_field(section_text: str) -> str:
             return fields[2]
     if len(text) > 2 and text[0] == "R" and text[1].isdigit():
         _, _, rest = text.partition(".")
-        return rest.strip() or text
+        if rest.strip():
+            return rest.strip()
+    match = _LEADING_PART_TOKEN.match(text)
+    if match:
+        rest = text[match.end() :].strip()
+        if rest:
+            return rest
     return text
 
 
@@ -451,17 +485,25 @@ def requirement_first_texts(repo: Any) -> dict[str, str]:
         raw = section_text(section_id)
         if not raw:
             continue
-        parts = [f"{requirement_id} — {normative_field(raw)}"]
-        applicable = applicable_of(requirement_id, raw, section_id)
-        if applicable:
-            parts.append(f"Applies to: {applicable}.")
-        measure_bits = [
-            bit
-            for bit in (section_text(m).strip() for m in measures.get(requirement_id, []))
-            if bit
-        ]
-        if measure_bits:
-            parts.append(f"Measures: {' '.join(measure_bits)}")
+        requirement = normative_field(raw)
+        parts = [f"{requirement_id} — {requirement}"]
+        # DATA_TRUTH D2, measured: when the requirement sentence is short, the
+        # Applies/Measures tails bury the unit's only content — Part 1.1.1
+        # ("Personnel and training (CIP-004)", 34 chars) scored 0.70 against
+        # its own sentence with tails and 0.86 without; the sentence-only
+        # clone-chunks score 0.95 and were the only things beating it. A short
+        # requirement's identity + sentence IS the unit.
+        if len(requirement) >= SHORT_REQUIREMENT_CHARS:
+            applicable = applicable_of(requirement_id, raw, section_id)
+            if applicable:
+                parts.append(f"Applies to: {_bounded(applicable, _APPLIES_MAX_CHARS)}.")
+            measure_bits = [
+                bit
+                for bit in (section_text(m).strip() for m in measures.get(requirement_id, []))
+                if bit
+            ]
+            if measure_bits:
+                parts.append(f"Measures: {_bounded(' '.join(measure_bits), _MEASURES_MAX_CHARS)}")
         composed[section_id] = " ".join(parts)
     return composed
 
@@ -550,8 +592,19 @@ def _plan_gate(entry: dict[str, Any], full: str, classes: list[dict[str, Any]]) 
         return "excluded", excluded_class
     if end <= start or end > len(full):
         return "unprojectable", f"span [{start}, {end}) does not resolve in the captured text"
-    if not full[start:end].strip():
+    body = full[start:end]
+    if not body.strip():
         return "unprojectable", "span is whitespace"
+    # DATA_TRUTH D2, measured: heading-only fragments — the section's whole
+    # text is its own title, under the fragment floor — indexed as standalone
+    # units shadowed the requirement Parts at their own sentence (a 39-char
+    # "1.1.1 Personnel and training (CIP-004)" fragment scores 0.895 against
+    # the sentence; the composed Part 0.60). D7's eligibility rule (heading-only
+    # sections are never evidence) applies: the parent document carries the
+    # content, the unit duplicates the heading line.
+    title = str(entry["title"] or "").strip()
+    if title and len(body) < FRAGMENT_MAX_CHARS and body.strip() == title:
+        return "excluded", "regulatory_heading_only_fragments"
     return "ok", None
 
 

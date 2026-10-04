@@ -288,9 +288,13 @@ def _fixture_standard_store(tmp_path: pathlib.Path):
         )
     )
     revision = repo.add_document_revision("NERC/CIP-TEST-1", "/docs/cip-test-1.pdf", b"cip-test-1")
+    # the requirement sentence stays above SHORT_REQUIREMENT_CHARS so the full
+    # composition (identity + sentence + Applies to + Measures) is exercised
     row_text = (
         "1.1 | High Impact BES Cyber Systems and associated EACMS | "
-        "Identify each high impact BES Cyber System. | "
+        "Identify each high impact BES Cyber System according to the asset groups "
+        "recorded in the facility's asset inventory, including each EACMS and PACS "
+        "associated with those systems. | "
         "An example of evidence may include a listing of identified systems."
     )
     measure_text = "M1. Acceptable evidence includes a listing of identified systems."
@@ -359,7 +363,7 @@ def test_requirement_first_texts_composes_identity(tmp_path: pathlib.Path) -> No
         assert len(composed) == 1
         (text,) = composed.values()
         assert text.startswith("CIP-TEST-1 R1 Part 1.1 — ")
-        assert "Identify each high impact BES Cyber System." in text
+        assert "Identify each high impact BES Cyber System according to the asset" in text
         assert "Applies to: High Impact BES Cyber Systems and associated EACMS." in text
         assert "Measures: M1. Acceptable evidence" in text
     finally:

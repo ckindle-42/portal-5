@@ -177,11 +177,20 @@ def _classify_unindexed(
 ) -> tuple[str, str | None, str | None]:
     """(outcome, class_id) for one unindexed section.
 
-    outcome is ``explained`` (a decided exclusion class owns it), ``pending``
-    (an undecided class matches — still unexplained until D4 decides),
-    ``deferred`` (an 'indexed' class owns it: the projection brings it in,
-    D4 owns the reason — neutral), or ``unexplained``.
+    outcome is ``explained`` (a decided exclusion class owns it, or the section
+    matches the built-in heading-only fragment rule), ``pending`` (an undecided
+    class matches — still unexplained until D4 decides), ``deferred`` (an
+    'indexed' class owns it: the projection brings it in, D4 owns the reason —
+    neutral), or ``unexplained``.
     """
+    # the built-in fragment rule (plan _plan_gate): the section's whole span is
+    # its own title line, under the fragment floor. Verified from metadata —
+    # the span hugs the title's length — because slicing store text here would
+    # double the check's cost.
+    title = str(row["title"] or "").strip()
+    span = row["span"]
+    if title and span is not None and 0 < int(span) < 120 and abs(int(span) - len(title)) <= 2:
+        return "explained", "regulatory_heading_only_fragments", None
     matched_decided = None
     matched_pending = None
     matched_indexed = None
@@ -216,7 +225,9 @@ def check_coverage(conn: sqlite3.Connection, rows: dict[str, list[dict[str, Any]
         for row in table_rows:
             indexed.add(str(row["chunk_id"]).split("#")[0])
     store_rows = conn.execute(
-        """select s.section_id, s.unit_kind, d.jurisdiction, r.logical_id
+        """select s.section_id, s.unit_kind, s.title,
+                  s.char_end - s.char_start as span,
+                  d.jurisdiction, r.logical_id
            from source_sections s
            join document_revisions r on r.revision_id = s.revision_id
            join source_documents d on d.logical_id = r.logical_id"""
