@@ -180,8 +180,10 @@ def _class_matches(
 
 
 def _is_revision_row(conn: sqlite3.Connection, row: sqlite3.Row) -> bool:
-    """The D3 revision-log shape: internal, short, dated, change verb."""
-    if str(row["jurisdiction"]) != "internal":
+    """The D3 revision-log shape: operator side, short, dated, change verb."""
+    from portal.modules.compliance.core.jurisdiction import is_operator_side
+
+    if not is_operator_side(row["jurisdiction"]):
         return False
     span = row["span"]
     if span is None or int(span) > 500:

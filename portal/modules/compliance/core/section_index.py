@@ -375,8 +375,8 @@ _FURNITURE_LINE_RE = re.compile(
     re.MULTILINE | re.IGNORECASE,
 )
 
-#: a revision-log row: a dated change entry ("1.1 G. Macias — Added CIP-002
-#: Visio flow chart process. ... 05/04/2016"). The extractor's revision-history
+#: a revision-log row: a dated change entry ("1.1 <operator name> — Added
+#: CIP-002 Visio flow chart process. ... 05/04/2016"). The extractor's revision-history
 #: cutoff needs the history heading; documents whose log is a headingless
 #: table leak these rows into the operative population (measured, D3: the
 #: largest unique-heading miss class). Change logs are document machinery,
@@ -644,8 +644,10 @@ def _plan_gate(entry: dict[str, Any], full: str, classes: list[dict[str, Any]]) 
         return "excluded", "regulatory_heading_only_fragments"
     # a revision-log row is document machinery, not evidence: a dated change
     # entry under the operative role is the headingless-log leak.
+    from portal.modules.compliance.core.jurisdiction import is_operator_side
+
     if (
-        str(entry["jurisdiction"] or "") == "internal"
+        is_operator_side(entry["jurisdiction"])
         and len(body) <= _REVISION_ROW_MAX_CHARS
         and _REVISION_ROW_DATE_RE.search(body)
         and _REVISION_ROW_VERB_RE.search(body)
@@ -753,7 +755,9 @@ def _plan_ok(
     # document title — sections embed as bare heading paths, so "Shared
     # Accounts" from one procedure competes with every other document's
     # identically-titled section and the document itself is unretrievable.
-    if str(entry["jurisdiction"] or "") == "internal":
+    from portal.modules.compliance.core.jurisdiction import is_operator_side
+
+    if is_operator_side(entry["jurisdiction"]):
         document_title = str(entry.get("document_title") or "").strip()
         if document_title:
             headings = f"{document_title} > {headings}" if headings else document_title

@@ -50,7 +50,7 @@
       },
       "decision": "excluded_builtin",
       "_applies_note": "NOT applied by class match: the plan and the integrity check apply the built-in dated-change-row shape (internal, <=500 chars, date + change verb). This entry records the decision and its reason.",
-      "reason": "decided at D3, applying the task's own D7 eligibility rule (document machinery is never evidence): a dated change entry (date + change verb, under 500 chars) under the operative role is a revision-log row from a headingless history table — the store extractor's cutoff needs the history heading, and documents without one leak these rows into the operative population. Measured: the largest unique-heading findability miss class (rows like '1.1 G. Macias — Added CIP-002 Visio flow chart process … 05/04/2016' competing with their own siblings). The store keeps them addressable; the index does not retrieve them. The ingest side (internal_corpus) classifies them REVISION_LOG for new captures.",
+      "reason": "decided at D3, applying the task's own D7 eligibility rule (document machinery is never evidence): a dated change entry (date + change verb, under 500 chars) under the operative role is a revision-log row from a headingless history table — the store extractor's cutoff needs the history heading, and documents without one leak these rows into the operative population. Measured: the largest unique-heading findability miss class (rows like '1.1 <operator name> — Added CIP-002 Visio flow chart process … 05/04/2016' competing with their own siblings). The store keeps them addressable; the index does not retrieve them. The ingest side (internal_corpus) classifies them REVISION_LOG for new captures.",
       "decided_in": "D3 (D7 rule)"
     },
     {
