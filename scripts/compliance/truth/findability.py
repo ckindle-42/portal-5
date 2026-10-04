@@ -135,7 +135,7 @@ def operator_headings(repo: Any, indexed_parents: set[str] | None = None) -> lis
     for row in rows:
         # the section's heading is the line the document shows: the number and
         # the words ("3.1.3 Shared Accounts"), not the bare words — the words
-        # alone ("Purpose", "L. Ellisor") name dozens of sections across the
+        # alone ("Purpose", "Introduction") name dozens of sections across the
         # corpus and no retrieval path can pick one from them.
         heading = str(row["heading_path"]).strip() or str(row["title"]).strip()
         section_id = str(row["section_id"])
