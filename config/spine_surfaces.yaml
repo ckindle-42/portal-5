@@ -152,6 +152,10 @@ surfaces:
   globs:
   - portal/modules/compliance/core/document_scope.py
   unit: unit-compliance-cite-and-scope
+- name: file-portal-modules-compliance-core-dual_document
+  globs:
+  - portal/modules/compliance/core/dual_document.py
+  unit: unit-compliance-dual-document
 - name: file-portal-modules-compliance-core-duty_lineage
   globs:
   - portal/modules/compliance/core/duty_lineage.py

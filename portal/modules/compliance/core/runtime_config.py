@@ -98,6 +98,31 @@ def council_quorum() -> float:
     return _DEFAULT_QUORUM
 
 
+def reading_context_limits() -> dict[str, int]:
+    """The compliance-reading workspace's declared window and predict budget.
+
+    DATA_TRUTH Amendment 1: the payload's pricing uses the DECLARED limits the
+    workspace binds (context_limit 131072, predict_limit 24576) — the same
+    numbers the window guard checks against the served routes (DD4).
+    """
+    import os
+
+    limits = {"context_limit": 131_072, "predict_limit": 24_576}
+    if _PORTAL_CONFIG.exists():
+        try:
+            import yaml
+
+            portal = yaml.safe_load(_PORTAL_CONFIG.read_text()) or {}
+            binding = (portal.get("workspaces") or {}).get("compliance-reading") or {}
+            limits["context_limit"] = int(binding.get("context_limit") or limits["context_limit"])
+            limits["predict_limit"] = int(binding.get("predict_limit") or limits["predict_limit"])
+        except Exception:  # noqa: BLE001 - defaults stand when config cannot be read
+            pass
+    if os.environ.get("COMPLIANCE_READING_CONTEXT_LIMIT"):
+        limits["context_limit"] = int(os.environ["COMPLIANCE_READING_CONTEXT_LIMIT"])
+    return limits
+
+
 def reading_seat() -> str:
     """Resolve the single workspace-bound seat that has measured tool support.
 

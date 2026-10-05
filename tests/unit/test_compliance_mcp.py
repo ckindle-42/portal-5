@@ -253,14 +253,12 @@ def test_orphans_with_a_run_uses_resolved_links(monkeypatch):
 
 
 def test_compliance_context_material_is_json(monkeypatch):
-    """mode=material returned render()'s in-process AnswerContract and failed
-    serialization on every call (PIPELINE_ALIGNMENT_V1 §13)."""
+    """mode=material once returned render()'s in-process AnswerContract and
+    failed serialization on every call (PIPELINE_ALIGNMENT_V1 §13); the DD3
+    builder is JSON by construction and its payload passes through whole."""
     import json
 
-    from portal.modules.compliance.core import conversation_window, reading_material, runtime_config
-
-    class _Contract:  # not JSON-serializable, like AnswerContract
-        pass
+    from portal.modules.compliance.core import dual_document, runtime_config
 
     class _Repo:
         def close(self) -> None:
@@ -268,13 +266,20 @@ def test_compliance_context_material_is_json(monkeypatch):
 
     monkeypatch.setattr(compliance_mcp, "_repo", _Repo)
     monkeypatch.setattr(
-        reading_material,
-        "render",
-        lambda repo, ref, **kw: {"ref": ref, "text": "material", "contract": _Contract()},
+        runtime_config,
+        "reading_context_limits",
+        lambda: {"context_limit": 131072, "predict_limit": 24576},
     )
-    monkeypatch.setattr(runtime_config, "reading_seat", lambda: "seat")
-    monkeypatch.setattr(conversation_window, "fit_material", lambda payload, seat: {"fits": True})
+    monkeypatch.setattr(
+        dual_document,
+        "build",
+        lambda repo, **kw: {
+            "mode": "dual_document",
+            "ref": kw["requirement_ref"],
+            "text": "payload",
+        },
+    )
 
     out = compliance_mcp.compliance_context("CIP-007-6 R2 Part 2.3", mode="material")
-    assert out["mode"] == "material" and "contract" not in out
+    assert out["mode"] == "dual_document" and out["text"] == "payload"
     json.dumps(out)

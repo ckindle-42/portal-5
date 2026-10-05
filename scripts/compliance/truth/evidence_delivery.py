@@ -347,6 +347,26 @@ def offline_entry(repo: Any, entry: dict[str, Any]) -> dict[str, Any]:
         "fixed_chars": material_fixed,
         "errors": material_errors,
     }
+
+    # the DD3 dual-document payload — the delivery path whose in-run numbers
+    # DD5 compares against (the legacy material above stays as a diagnostic)
+    from portal.modules.compliance.core import dual_document
+
+    payload_blob = ""
+    payload_windows: list[dict[str, Any]] = []
+    payload_errors: list[str] = []
+    for ref in governing_refs:
+        built = dual_document.build(repo, requirement_ref=ref)
+        if built.get("error"):
+            payload_errors.append(f"{ref}: {built['error']}")
+            continue
+        payload_blob += " " + norm(str(built.get("text") or ""))
+        payload_windows.append(built.get("window") or {})
+    out["dd3_payload"] = {
+        "blob": payload_blob,
+        "windows": payload_windows,
+        "errors": payload_errors,
+    }
     out["anchor_spans"] = normative_anchor_spans(repo, governing_refs)
     return out
 
@@ -415,10 +435,26 @@ def score_offline(entry: dict[str, Any], measured: dict[str, Any]) -> dict[str, 
             len(norm(_section_quote(entry, section_id)).split()) for section_id in operator_ids
         ),
     }
+    payload_blob = (measured.get("dd3_payload") or {}).get("blob", "")
+    for side, ids in (("operator", operator_ids), ("governing", governing_ids)):
+        hits, total = material_hits(payload_blob, entry, ids)
+        rows[f"payload.{side}"] = {"hits": hits, "total": total}
+    hits, total = material_anchor_hits(payload_blob, entry, anchor_spans)
+    rows["payload.governing_anchor"] = {"hits": hits, "total": total}
+    rows["payload.operator_run_words"] = {
+        "delivered_run_words": sum(
+            longest_run_words(norm(_section_quote(entry, section_id)), payload_blob)
+            for section_id in operator_ids
+        ),
+        "quote_words": sum(
+            len(norm(_section_quote(entry, section_id)).split()) for section_id in operator_ids
+        ),
+    }
     rows["material_chars"] = (measured.get("material") or {}).get("chars", 0)
     rows["material_fixed_chars"] = (measured.get("material") or {}).get("fixed_chars", 0)
     errors = (measured.get("material") or {}).get("errors") or []
     errors += measured.get("search_scoped_errors") or []
+    errors += (measured.get("dd3_payload") or {}).get("errors") or []
     missing_anchors = sorted(
         {
             str(item.get("ref") or "")

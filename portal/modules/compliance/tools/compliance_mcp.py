@@ -2085,7 +2085,7 @@ def compliance_search(
     """
     repo = _repo()
     try:
-        return _search_service.search(
+        result = _search_service.search(
             repo,
             query,
             jurisdiction=jurisdiction,
@@ -2098,6 +2098,26 @@ def compliance_search(
             top_k=top_k,
             max_chars=max_chars,
         )
+        # DATA_TRUTH Amendment 1 DD3: a question with no requirement scope is a
+        # dual-document request — resolve the top-2 standards through the
+        # governing-anchor lane and deliver the standard's normative text plus
+        # the operator's own document set alongside the ranked list (which
+        # stays, never replaced).
+        if not requirement.strip():
+            from portal.modules.compliance.core import dual_document
+            from portal.modules.compliance.core.runtime_config import reading_context_limits
+
+            limits = reading_context_limits()
+            payload = dual_document.build(
+                repo,
+                query=query,
+                context_limit=limits["context_limit"],
+                predict_limit=limits["predict_limit"],
+            )
+            if payload.get("resolved"):
+                payload.pop("mode", None)
+                result["dual_document"] = payload
+        return result
     finally:
         repo.close()
 
@@ -2388,16 +2408,19 @@ def compliance_context(
     needs to decide what to read next; the text itself is one
     ``compliance_read`` (or ``compliance_requirement``) call away.
 
-    ``mode=material``: THE PROVEN READING MATERIAL — the exact
-    ``reading_material.render()`` unit PROVE_THEN_SCALE_V1 §P1 used to prove
-    the reading seat: the standard's fixed body first (byte-identical for
-    every requirement of the revision), then the requirement's own scope —
-    regulatory anchors, operator edges, notes, each labelled with its side
-    and standing, operator sections with their document neighbourhood — and
-    the standing instruction. One message; nothing is missing from it; answer
-    from what it returns and support each claim by quoting the exact words it
-    rests on. This is the same primitive the
-    proof used, exposed — not a second renderer.
+    ``mode=material``: THE DUAL-DOCUMENT PAYLOAD (DATA_TRUTH Amendment 1
+    DD3) — a question is a dual-document request, so this returns (a) the
+    resolved requirement's normative text, every Part, from the governing
+    anchors (no fixed body — ``compliance_read`` it on request), (b) the
+    operator's own documents for that standard — filing folder plus every
+    document whose traceability appendix names the standard — whole, in
+    document order, structure stripped, every section labelled
+    ``[document § heading] (section_id)``, (c) the operator's notes, and (d)
+    the operator's traceability facts as labelled declarations. Priced against
+    the declared window before it is returned: a document that does not fit
+    whole is deferred and listed by title with a ``compliance_read``
+    instruction — nothing is clipped and the engine is never allowed to
+    truncate.
 
     ``mode=packet`` assembles full text — the requirement and its lead-in,
     every Part row, the Measures, the Guidelines and Technical Basis, the
@@ -2410,53 +2433,26 @@ def compliance_context(
     ``intent``, ``conformance``, ``audit``, ``timeline``. Measured on
     CIP-007-6 R2 Part 2.2: full is ~29,900 tokens, ``intent`` ~6,500.
     """
-    from portal.modules.compliance.core import reading_material
     from portal.modules.compliance.core.notes import notes_for
     from portal.modules.compliance.core.reading_assembly import assemble
 
     repo = _repo()
     try:
         if mode == "material":
-            payload = reading_material.render(repo, ref, valid_at=valid_at, citation="quote")
-            # render() also returns the in-process AnswerContract the sweep
-            # resolves handles through; it is not JSON, and every material
-            # response failed serialization with it — which the pipeline reported
-            # as "rejected the arguments" (PIPELINE_ALIGNMENT_V1 §13).
-            payload.pop("contract", None)
-            if "error" not in payload:
-                # The conversation's window guard (MODULE_COMPLETE_V1 §P0.5):
-                # the sweep refuses oversize readings; the conversation used to
-                # return this payload unbudgeted, and Ollama truncates silently.
-                # An oversize material is REFUSED as one message and routed to
-                # the Part-level refs instead — never clipped.
-                from portal.modules.compliance.core import conversation_window
-                from portal.modules.compliance.core.runtime_config import reading_seat
+            from portal.modules.compliance.core import dual_document
+            from portal.modules.compliance.core.runtime_config import reading_context_limits
 
-                seat = reading_seat()
-                fitted = conversation_window.fit_material(payload, seat)
-                if not fitted["fits"]:
-                    return {
-                        "mode": "material_routed",
-                        "ref": ref,
-                        "window": fitted,
-                        "route": conversation_window.route(repo, ref, seat),
-                        "note": (
-                            f"the whole material for {ref} is {fitted['prompt_bytes']} bytes "
-                            f"~ {fitted['estimated_tokens']} tokens against this seat's "
-                            f"{fitted['num_ctx']}-token window; returning it would be truncated "
-                            "silently by the engine, so it is NOT returned. Read it per Part "
-                            "instead: compliance_context(mode=material, ref=<part ref>) for "
-                            "each ref in route — nothing here was clipped or summarised."
-                        ),
-                    }
-                payload["window"] = fitted
-            payload["mode"] = "material"
-            payload["note"] = (
-                "the proven reading material (reading_material.render) — the whole "
-                "neighbourhood for this ref, fixed body first; answer from what this "
-                "returns and support each claim by quoting, in double quotes, the "
-                "exact words it rests on"
+            limits = reading_context_limits()
+            payload = dual_document.build(
+                repo,
+                requirement_ref=ref,
+                context_limit=limits["context_limit"],
+                predict_limit=limits["predict_limit"],
             )
+            if payload.get("error"):
+                payload.pop("error", None)
+                payload.update({"mode": "material", "ref": ref, "resolved": False})
+                return payload
             return payload
         if mode == "packet":
             payload = assemble(
