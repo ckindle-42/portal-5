@@ -514,8 +514,11 @@ def tool_output_blob(transcript: dict[str, Any]) -> str:
 
 def transcript_question_id(path: Path) -> str:
     stem = path.stem
-    if "/product/" in str(path) or "\\product\\" in str(path):
-        standard, kind = stem.split("__")
+    # product transcripts are named <standard>__<kind> — by filename, not by
+    # directory (the harnesses' layouts differ: <rep>/product/transcripts/ in
+    # the A3-era runs, <rep>/transcripts/ in the DD5 runs)
+    if "__" in stem:
+        standard, kind = stem.split("__", 1)
         return f"product:{standard}:{kind}"
     return f"conversational:{stem}"
 

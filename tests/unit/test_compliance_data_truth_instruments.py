@@ -91,6 +91,10 @@ def test_transcript_question_id_maps_suites() -> None:
     assert ed.transcript_question_id(
         pathlib.Path("/r/rep1/conversational/transcripts/baselines.json")
     ) == ("conversational:baselines")
+    # the DD5 layout: product transcripts sit beside conversational ones
+    assert ed.transcript_question_id(
+        pathlib.Path("/r/rep1/transcripts/CIP-010-4__exceedance.json")
+    ) == ("product:CIP-010-4:exceedance")
 
 
 # ── DATA_TRUTH DD1: normative-span scoring, longest run, use ─────────────────
