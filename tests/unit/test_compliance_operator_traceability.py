@@ -442,9 +442,13 @@ def edge_store() -> sqlite3.Connection:
     conn.row_factory = sqlite3.Row
     conn.executescript(
         """
+        create table source_documents (logical_id text primary key, jurisdiction text);
+        create table document_revisions (
+            revision_id text primary key, logical_id text, effective_date text,
+            inactive_date text, retrieved_at text);
         create table source_sections (
             section_id text primary key, revision_id text, path text, title text,
-            char_start int, char_end int);
+            char_start int, char_end int, role text);
         create table document_texts (revision_id text primary key, full_text text);
         create table relationship_assertions (
             assertion_id text primary key, relation_type text, src_ref text,
@@ -452,13 +456,15 @@ def edge_store() -> sqlite3.Connection:
             rationale text, decided_at text);
         """
     )
+    conn.execute("insert into source_documents values ('NERC/X-1', 'US')")
+    conn.execute("insert into document_revisions values ('r1', 'NERC/X-1', '2020-01-01', '', '')")
     full = "X" * 40 + "PRIVATE – FOR INTERNAL USE ONLY Page 3 of 14" + "Y" * 20
     conn.execute("insert into document_texts values ('r1', ?)", (full,))
     conn.execute(
-        "insert into source_sections values ('csection-toc', 'r1', 'toc.p3', 'Table of Contents', 40, 60)"
+        "insert into source_sections values ('csection-toc', 'r1', 'toc.p3', 'Table of Contents', 40, 60, 'TABLE_OF_CONTENTS')"
     )
     conn.execute(
-        "insert into source_sections values ('csection-ok', 'r1', '3.1 Body', '3.1', 60, 61)"
+        "insert into source_sections values ('csection-ok', 'r1', '3.1 Body', '3.1', 60, 61, 'B_REQUIREMENTS_AND_MEASURES')"
     )
     for assertion_id, dst, status in (
         ("e1", "csection-toc", "proposed"),

@@ -476,28 +476,42 @@ def check_edges(conn: sqlite3.Connection, full: dict[str, str]) -> CheckResult:
 
 
 def _ineligible_reason(conn: sqlite3.Connection, full: dict[str, str], ref: str) -> str:
+    """ONE eligibility rule for projection, delivery, the integrity census and
+    revocation (D-DT-19 F-R-1): the TOC class by role, then the shared
+    ``section_index.section_body_exclusion`` body rule — the same predicates
+    the projection and the payload apply, never a copy of them. Returns the
+    exclusion class ("toc", or the shared rule's class) or "" when the
+    section is deliverable."""
     base = ref.split("::")[0]
     if not re.match(r"^(isection|csection|section)-", base):
         return ""
     row = conn.execute(
-        "select path, title, char_start, char_end, revision_id from source_sections where section_id=?",
+        "select ss.path, ss.title, ss.role, ss.char_start, ss.char_end, ss.revision_id,"
+        " sd.jurisdiction from source_sections ss"
+        " join document_revisions dr on dr.revision_id = ss.revision_id"
+        " join source_documents sd on sd.logical_id = dr.logical_id"
+        " where ss.section_id=?",
         (base,),
     ).fetchone()
     if row is None:
         return ""
+    if str(row["role"] or "") == "TABLE_OF_CONTENTS":
+        return "toc"
     text = ""
     rev = str(row["revision_id"])
     if rev in full:
         start, end = int(row["char_start"] or 0), int(row["char_end"] or 0)
         if 0 <= start < end <= len(full[rev]):
             text = full[rev][start:end]
-    if TOC_PATH_RE.search(str(row["path"] or "")) or TOC_TITLE_RE.search(str(row["title"] or "")):
-        return "toc"
-    if FURNITURE_RE.search(text):
-        return "furniture"
-    if text and len(text) < FRAGMENT_CHARS and not text.strip():
-        return "blank_fragment"
-    return ""
+    from portal.modules.compliance.core.jurisdiction import is_operator_side
+    from portal.modules.compliance.core.section_index import section_body_exclusion
+
+    return section_body_exclusion(
+        str(row["title"] or ""),
+        str(row["path"] or ""),
+        text,
+        operator_side=is_operator_side(str(row["jurisdiction"] or "internal")),
+    )
 
 
 # ── the report ───────────────────────────────────────────────────────────────

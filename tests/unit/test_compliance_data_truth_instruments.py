@@ -371,7 +371,7 @@ def memory_store() -> sqlite3.Connection:
         "insert into source_sections values ('csection-a', 'r1', 'B. R / 1.1', '1.1', 0, 40, 'table_row', 'B_REQUIREMENTS_AND_MEASURES')"
     )
     conn.execute(
-        "insert into source_sections values ('csection-b', 'r1', 'toc.p3', 'Table of Contents', 40, 60, 'prose', '')"
+        "insert into source_sections values ('csection-b', 'r1', 'toc.p3', 'Table of Contents', 40, 60, 'prose', 'TABLE_OF_CONTENTS')"
     )
     conn.execute("insert into document_texts values ('r1', 'X' * 40 + 'TOC' + 'Y' * 17)")
     conn.execute(
@@ -395,6 +395,94 @@ def test_edge_census_fails_on_toc_endpoint(memory_store: sqlite3.Connection) -> 
     result = di.check_edges(memory_store, full)
     assert result.status == "fail"
     assert result.findings[0]["ineligible_count"] == 1
+
+
+def test_one_furniture_line_is_eligible_in_all_four_consumers(tmp_path) -> None:
+    """D-DT-19 F-R-1: ONE eligibility rule. A body of real content carrying
+    ONE furniture line is deliverable — the shared rule excludes furniture-
+    ONLY bodies. Pinned in all four consumers: the projection's shared body
+    rule, the payload renderer (the line strips from the delivered text),
+    the integrity census, and the revocation pass. The old integrity rule
+    flagged ANY furniture line and revoked 135 deliverable operator
+    declarations."""
+    from portal.modules.compliance.core import dual_document as dd
+    from portal.modules.compliance.core.models import SourceDocument, SourceSection
+    from portal.modules.compliance.core.repository import Repository
+    from portal.modules.compliance.core.section_index import section_body_exclusion
+    from scripts.compliance.truth import revoke_ineligible_edges as rev
+
+    body = (
+        "The operations recorder files each asset report every week.\n"
+        "PRIVATE – FOR INTERNAL USE ONLY\n"
+        "Page 3 of 14\n"
+        "The recorder retains the report for three years.\n"
+    )
+    store = Repository(tmp_path / "one-rule.db")
+    try:
+        conn = store._conn
+        store.upsert_source_document(
+            SourceDocument(
+                logical_id="CIP-901/ACME Asset Procedure v1.pdf",
+                title="ACME Asset Procedure",
+                issuer="ACME",
+                source_kind="operating_procedure",
+                jurisdiction="internal",
+            )
+        )
+        revision = store.add_document_revision(
+            "CIP-901/ACME Asset Procedure v1.pdf",
+            "/docs/acme-asset.pdf",
+            body.encode("utf-8"),
+            binding_effect="internally_mandatory",
+        )
+        store.put_document_text(
+            revision.revision_id,
+            body,
+            page_count=1,
+            extractor="fixture",
+            extractor_version="0",
+        )
+        store.add_source_section(
+            SourceSection(
+                section_id="isection-one-rule",
+                revision_id=revision.revision_id,
+                path="3.1 Reporting",
+                extractor="fixture",
+                role="OPERATIVE_PROCEDURE",
+                title="3.1 Reporting",
+                unit_kind="prose",
+                ordinal=0,
+                char_start=0,
+                char_end=len(body),
+                heading_path="3.1 Reporting",
+            )
+        )
+        conn.execute(
+            "insert into relationship_assertions (assertion_id, relation_type, src_ref,"
+            " dst_ref, status, derivation, recorded_from)"
+            " values ('e-one-rule', 'IMPLEMENTS', 'CIP-901-1 R1', 'isection-one-rule',"
+            " 'machine_determined', 'operator_traceability', '2026-10-05')"
+        )
+        conn.commit()
+        full = {revision.revision_id: body}
+
+        # 1. the projection's shared body rule: deliverable
+        assert (
+            section_body_exclusion("3.1 Reporting", "3.1 Reporting", body, operator_side=True) == ""
+        )
+        # 2. delivery: the payload renders the block, the furniture lines stripped
+        rendered = dd._render_document(store, "CIP-901/ACME Asset Procedure v1.pdf", "folder")
+        assert rendered is not None
+        assert "isection-one-rule" in rendered["text"]
+        assert "operations recorder" in rendered["text"]
+        assert "PRIVATE" not in rendered["text"] and "Page 3 of 14" not in rendered["text"]
+        # 3. the integrity census: eligible, and the whole edge census passes
+        assert di._ineligible_reason(conn, full, "isection-one-rule") == ""
+        assert di.check_edges(conn, full).status == "pass"
+        # 4. the revocation pass: nothing to revoke
+        assert rev.find_ineligible(conn, full) == []
+    finally:
+        store.close()
 
 
 def test_revision_currency_flags_future_and_inactive() -> None:
