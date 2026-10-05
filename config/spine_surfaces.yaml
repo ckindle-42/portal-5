@@ -824,6 +824,10 @@ surfaces:
   globs:
   - scripts/compliance/lane_alteration_diff.py
   unit: unit-surface-compliance-closeout-scripts
+- name: file-scripts-compliance-measure_payload_turn
+  globs:
+  - scripts/compliance/measure_payload_turn.py
+  unit: unit-surface-compliance-closeout-scripts
 - name: file-scripts-compliance-pipeline_alignment_verify
   globs:
   - scripts/compliance/pipeline_alignment_verify.py

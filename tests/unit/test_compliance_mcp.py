@@ -270,6 +270,7 @@ def test_compliance_context_material_is_json(monkeypatch):
         "reading_context_limits",
         lambda: {"context_limit": 131072, "predict_limit": 24576},
     )
+    monkeypatch.setattr(runtime_config, "reading_route_ceiling", lambda: 262144)
     monkeypatch.setattr(
         dual_document,
         "build",
@@ -277,6 +278,12 @@ def test_compliance_context_material_is_json(monkeypatch):
             "mode": "dual_document",
             "ref": kw["requirement_ref"],
             "text": "payload",
+            "window": {
+                "context_limit": kw["context_limit"],
+                "served_ceiling": kw["served_ceiling"],
+                "fits": True,
+            },
+            "documents_included": [{"title": "doc"}],
         },
     )
 

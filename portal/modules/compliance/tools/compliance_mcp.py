@@ -2105,14 +2105,19 @@ def compliance_search(
         # stays, never replaced).
         if not requirement.strip():
             from portal.modules.compliance.core import dual_document
-            from portal.modules.compliance.core.runtime_config import reading_context_limits
+            from portal.modules.compliance.core.runtime_config import (
+                reading_context_limits,
+                reading_route_ceiling,
+            )
 
             limits = reading_context_limits()
+            ceiling = reading_route_ceiling()
             payload = dual_document.build(
                 repo,
                 query=query,
-                context_limit=limits["context_limit"],
+                context_limit=min(limits["context_limit"], ceiling or limits["context_limit"]),
                 predict_limit=limits["predict_limit"],
+                served_ceiling=ceiling,
             )
             if payload.get("resolved"):
                 payload.pop("mode", None)
@@ -2440,19 +2445,41 @@ def compliance_context(
     try:
         if mode == "material":
             from portal.modules.compliance.core import dual_document
-            from portal.modules.compliance.core.runtime_config import reading_context_limits
+            from portal.modules.compliance.core.runtime_config import (
+                reading_context_limits,
+                reading_route_ceiling,
+            )
 
             limits = reading_context_limits()
+            ceiling = reading_route_ceiling()
             payload = dual_document.build(
                 repo,
                 requirement_ref=ref,
-                context_limit=limits["context_limit"],
+                context_limit=min(limits["context_limit"], ceiling or limits["context_limit"]),
                 predict_limit=limits["predict_limit"],
+                served_ceiling=ceiling,
             )
             if payload.get("error"):
                 payload.pop("error", None)
                 payload.update({"mode": "material", "ref": ref, "resolved": False})
                 return payload
+            if not payload["window"]["fits"] and not payload["documents_included"]:
+                # the guard's last line: even (a)+(c)+(d) exceed the smallest
+                # reachable route's window — refuse as one message, route to
+                # per-Part reads, never let the engine truncate (DD4)
+                return {
+                    "mode": "material_routed",
+                    "ref": ref,
+                    "window": payload["window"],
+                    "note": (
+                        f"the payload for {ref} needs {payload['window']['estimated_tokens']} "
+                        "tokens against a "
+                        f"{payload['window']['context_limit']}-token route ceiling; nothing "
+                        "was clipped or summarised. Read it per Part: "
+                        "compliance_context(mode=material, ref=<part ref>) for each ref, "
+                        "or compliance_read(ref) for any section."
+                    ),
+                }
             return payload
         if mode == "packet":
             payload = assemble(

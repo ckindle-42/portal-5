@@ -24,6 +24,8 @@ sources:
   path: scripts/compliance/ask_product_questions.py
   commit: 539b6cfb
 - type: code
+  path: scripts/compliance/measure_payload_turn.py
+- type: code
   path: scripts/compliance/adjudicate_determinations.py
 - type: code
   path: scripts/compliance/diagnose_dead_standards.py

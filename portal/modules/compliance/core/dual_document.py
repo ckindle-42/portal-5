@@ -41,9 +41,11 @@ from typing import Any
 BYTES_PER_TOKEN = 3.17
 
 #: persona + tool schemas + conversation overhead on the reading seat,
-#: recorded for the window block; re-measured against the live pipeline in
-#: DD4's step 4
-PERSONA_TOOLS_RESERVE_TOKENS = 6_000
+#: MEASURED at DD4's pipeline turn (CIP-007-6 R2 payload, oMLX): 86,969 real
+#: prompt tokens for a payload the 3.17 floor prices at 91,944 — at the 3.28
+#: median the payload alone accounts for the whole prompt, so the true
+#: overhead is ~0; 2,000 is kept as headroom
+PERSONA_TOOLS_RESERVE_TOKENS = 2_000
 
 #: roles whose sections are structure, never the operator's operative material
 STRIPPED_ROLES = frozenset(
@@ -69,11 +71,16 @@ def build(
     query: str = "",
     context_limit: int = 131_072,
     predict_limit: int = 24_576,
+    served_ceiling: int | None = None,
 ) -> dict[str, Any]:
     """Assemble the dual-document payload for one question.
 
     Give exactly one of ``requirement_ref`` (an address) or ``query`` (free
     text; the top-2 standards are resolved from the governing-anchor lane).
+    ``served_ceiling`` is the minimum window a reachable tier-1 route actually
+    serves (runtime_config.reading_route_ceiling); when it is below the
+    declared limit the payload is priced under it — the guard refuses or
+    routes rather than let any route truncate (DD4).
     """
     if requirement_ref:
         resolution = _resolve_by_address(repo, requirement_ref)
@@ -124,6 +131,7 @@ def build(
         "notes_count": notes.count("\n[") if notes else 0,
         "window": {
             "context_limit": context_limit,
+            "served_ceiling": served_ceiling,
             "predict_limit": predict_limit,
             "persona_tools_reserve": PERSONA_TOOLS_RESERVE_TOKENS,
             "budget_tokens": budget_tokens,

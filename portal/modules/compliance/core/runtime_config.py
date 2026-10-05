@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import time
 from pathlib import Path
 from typing import Any
 
@@ -121,6 +122,44 @@ def reading_context_limits() -> dict[str, int]:
     if os.environ.get("COMPLIANCE_READING_CONTEXT_LIMIT"):
         limits["context_limit"] = int(os.environ["COMPLIANCE_READING_CONTEXT_LIMIT"])
     return limits
+
+
+_ROUTE_CACHE: tuple[float, int | None] | None = None
+_ROUTE_CACHE_TTL_S = 600.0
+
+
+def reading_route_ceiling() -> int | None:
+    """The minimum served window across compliance-reading's tier-1 routes,
+    probed live and cached per process (DATA_TRUTH DD4). ``None`` means no
+    in-group route answered a probe: the declared limit stands and the
+    payload's window block records the gap."""
+    global _ROUTE_CACHE
+    now = time.monotonic()
+    if _ROUTE_CACHE is not None and now - _ROUTE_CACHE[0] < _ROUTE_CACHE_TTL_S:
+        return _ROUTE_CACHE[1]
+    ceiling: int | None = None
+    try:
+        import yaml
+
+        raw = yaml.safe_load(_PORTAL_CONFIG.read_text()) or {}
+        binding = (raw.get("workspaces") or {}).get("compliance-reading") or {}
+        hint = str(binding.get("model_hint") or "")
+        backends_path = _PORTAL_CONFIG.parent / "backends.yaml"
+        routing = {}
+        if backends_path.exists():
+            routing = (yaml.safe_load(backends_path.read_text()) or {}).get(
+                "workspace_routing"
+            ) or {}
+        if hint:
+            from portal.modules.compliance.core.served_window import served_window_for_hint
+
+            served = served_window_for_hint(hint, groups=routing.get("compliance-reading"))
+            windows = [int(w) for _backend, w in served.route_windows if w]
+            ceiling = min(windows) if windows else None
+    except Exception:  # noqa: BLE001 - an unreachable probe is a recorded gap
+        ceiling = None
+    _ROUTE_CACHE = (now, ceiling)
+    return ceiling
 
 
 def reading_seat() -> str:
