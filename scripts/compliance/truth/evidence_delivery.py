@@ -1,6 +1,6 @@
-"""DATA_TRUTH D1a — did the fact-bearing evidence reach the reader?
+"""DATA_TRUTH D1a / Amendment 1 DD1 — did the fact-bearing evidence reach the reader?
 
-Two measurements over one evidence set, per key entry:
+Three measurements over one evidence set, per key entry:
 
 * **Offline recall** — the fraction of required-fact evidence sections that a
   retrieval path returns, operator and governing sides separately, at
@@ -9,12 +9,25 @@ Two measurements over one evidence set, per key entry:
   no ranking). This is the data path measured without a reader.
 * **In-run delivery** — the same fraction inside a campaign run's tool
   outputs, parsed as JSON first (raw strings carry escaped ``\\n``), so the
-  number matches what the model actually saw.
+  number matches what the model actually saw. This is the task's GATE metric.
+* **Use** — the answer quotes delivered text exactly (a contiguous
+  normalised run of at least ``USE_MIN_QUOTE_WORDS`` words) and names the
+  right document. Reported, never gated (delivery is not use).
+
+Scoring (Amendment 1 DD1, after the G7 probe lessons):
+
+* governing items are scored on the **strict probe** (first 120 normalised
+  characters of the key's quote — which opens with the applicability column,
+  so it under-counts) *and* on the **normative anchor span** (the
+  ``requirement_sections`` ``relation='governing'`` slice for the item's
+  ref — the requirement's own normative words). Both are reported; the
+  DD6 gate reads the normative-span number.
+* operator items are scored on the strict probe *and* on the **longest
+  delivered run** — the longest contiguous run of the quote's words found in
+  the delivered text — so partial delivery is visible instead of a bare 0.
 
 Every number is a LOWER BOUND (task L1): a key fact cites one valid section
-set; other sections may support the same fact. The probe is the first 120
-normalised characters of the key's own quote, the same probe
-``p6/review/material_reach.py`` used, so numbers stay comparable.
+set; other sections may support the same fact.
 """
 
 from __future__ import annotations
@@ -39,6 +52,10 @@ KEY_PATH = (
 )
 K_VALUES = (5, 10, 20)
 PROBE_CHARS = 120
+# A contiguous normalised run of at least this many quote words in the answer
+# counts as "the answer quotes delivered text exactly" (DD1 (d)). Below this a
+# match is a stray phrase, not a quotation.
+USE_MIN_QUOTE_WORDS = 8
 
 
 def norm(text: str) -> str:
@@ -57,8 +74,13 @@ def load_key(path: Path | None = None) -> dict[str, dict[str, Any]]:
     return {entry["question_id"]: entry for entry in key["entries"]}
 
 
-def evidence_sets(entry: dict[str, Any]) -> tuple[list[str], list[str]]:
-    """(operator evidence ids, governing evidence ids) among REQUIRED facts."""
+def required_items(entry: dict[str, Any]) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    """(operator evidence items, governing items) among REQUIRED facts.
+
+    The key's evidence blocks may list the same section twice (cited under two
+    facts); one section is one evidence item, so repeats are dropped — the
+    gate denominators (27 operator / 24 governing on dev) are deduplicated.
+    """
     required_ids: list[str] = []
     for fact in entry.get("facts") or []:
         if not fact.get("required", True):
@@ -66,17 +88,187 @@ def evidence_sets(entry: dict[str, Any]) -> tuple[list[str], list[str]]:
         for section_id in fact.get("evidence") or []:
             if section_id not in required_ids:
                 required_ids.append(section_id)
-    operator_ids = []
-    for item in entry.get("operator_evidence") or []:
-        section_id = item["section_id"]
-        if section_id in required_ids and section_id not in operator_ids:
-            operator_ids.append(section_id)
-    governing_ids = []
-    for item in entry.get("governing") or []:
-        section_id = item["section_id"]
-        if section_id in required_ids and section_id not in governing_ids:
-            governing_ids.append(section_id)
-    return operator_ids, governing_ids
+
+    def _items(side: str) -> list[dict[str, Any]]:
+        items: list[dict[str, Any]] = []
+        seen: set[str] = set()
+        for item in entry.get(side) or []:
+            section_id = item["section_id"]
+            if section_id in required_ids and section_id not in seen:
+                seen.add(section_id)
+                items.append(item)
+        return items
+
+    return _items("operator_evidence"), _items("governing")
+
+
+def evidence_sets(entry: dict[str, Any]) -> tuple[list[str], list[str]]:
+    """(operator evidence ids, governing evidence ids) among REQUIRED facts."""
+    operator_items, governing_items = required_items(entry)
+    return (
+        [item["section_id"] for item in operator_items],
+        [item["section_id"] for item in governing_items],
+    )
+
+
+# ── text-in-text scoring ─────────────────────────────────────────────────────
+
+
+def longest_run_words(quote_norm: str, blob_norm: str) -> int:
+    """The longest contiguous run of the quote's words present in the blob.
+
+    Binary search on the run length: if some window of L quote words appears
+    in the blob, so does every shorter window, so containment is monotone.
+    """
+    words = quote_norm.split()
+    if not words:
+        return 0
+
+    def has_run(length: int) -> bool:
+        if length == 0:
+            return True
+        for start in range(len(words) - length + 1):
+            if " ".join(words[start : start + length]) in blob_norm:
+                return True
+        return False
+
+    low, high = 0, len(words)
+    while low < high:
+        mid = (low + high + 1) // 2
+        if has_run(mid):
+            low = mid
+        else:
+            high = mid - 1
+    return low
+
+
+def normative_anchor_spans(repo: Any, refs: list[str]) -> dict[str, list[str]]:
+    """ref -> normalised governing-anchor span texts (every anchor row).
+
+    The span is the ``requirement_sections`` ``relation='governing'`` slice of
+    the source document's full text — the requirement's own normative words,
+    without the applicability column the key's quote opens with.
+    """
+    refs = sorted({ref for ref in refs if ref})
+    if not refs:
+        return {}
+    placeholders = ",".join("?" * len(refs))
+    rows = repo._conn.execute(
+        "SELECT requirement_id, revision_id, char_start, char_end FROM requirement_sections"
+        f" WHERE relation='governing' AND requirement_id IN ({placeholders})",
+        refs,
+    ).fetchall()
+    texts: dict[str, str] = {}
+    spans: dict[str, list[str]] = {ref: [] for ref in refs}
+    for requirement_id, revision_id, char_start, char_end in rows:
+        if revision_id not in texts:
+            texts[revision_id] = repo.get_document_text(revision_id) or ""
+        span = norm(texts[revision_id][char_start:char_end])
+        if span and span not in spans[requirement_id]:
+            spans[requirement_id].append(span)
+    return spans
+
+
+def use_hit(answer_norm: str, text_norm: str, document: str) -> dict[str, Any]:
+    """Did the answer quote this text exactly and name its document? (DD1 d)"""
+    quote_words = longest_run_words(text_norm, answer_norm)
+    quote_used = text_norm in answer_norm or quote_words >= USE_MIN_QUOTE_WORDS
+    document_norm = norm(document)
+    document_named = bool(document_norm) and document_norm in answer_norm
+    return {
+        "quote_words": quote_words,
+        "quote_used": quote_used,
+        "document_named": document_named,
+        "use": quote_used and document_named,
+    }
+
+
+def score_evidence(
+    entry: dict[str, Any],
+    blob: str,
+    anchor_spans: dict[str, list[str]],
+    answer_norm: str = "",
+) -> dict[str, Any]:
+    """Score one entry's required evidence against one delivered-text blob.
+
+    Pure: no store, no index. ``anchor_spans`` comes from
+    ``normative_anchor_spans`` (callers cache it across entries).
+    """
+    operator_items, governing_items = required_items(entry)
+    operator_rows: list[dict[str, Any]] = []
+    governing_rows: list[dict[str, Any]] = []
+    for item in operator_items:
+        text_norm = norm(str(item.get("text") or ""))
+        strict = bool(text_norm) and probe_of(str(item.get("text") or "")) in blob
+        row: dict[str, Any] = {
+            "section_id": item["section_id"],
+            "delivered": strict,
+            "strict": strict,
+            "run_words": longest_run_words(text_norm, blob),
+            "quote_words": len(text_norm.split()),
+        }
+        if answer_norm:
+            use = use_hit(answer_norm, text_norm, str(item.get("document") or ""))
+            use["use"] = use["use"] and row["delivered"]  # use presupposes delivery
+            row["use"] = use
+        operator_rows.append(row)
+    for item in governing_items:
+        text = str(item.get("text") or "")
+        text_norm = norm(text)
+        ref = str(item.get("ref") or "")
+        spans = anchor_spans.get(ref) or []
+        anchor = any(span and span in blob for span in spans)
+        strict = bool(text_norm) and probe_of(text) in blob
+        row = {
+            "section_id": item["section_id"],
+            "ref": ref,
+            "delivered": strict or anchor,
+            "strict": strict,
+            "anchor": anchor,
+            "anchor_spans": len(spans),
+        }
+        if answer_norm:
+            standard = ref.split()[0] if ref else ""
+            # the answer quotes the delivered text: for an anchor-delivered
+            # governing item that is the normative span, not the applicability
+            # column the key's own quote opens with
+            quote_text = spans[0] if spans else text_norm
+            use = use_hit(answer_norm, quote_text, standard)
+            use["use"] = use["use"] and row["delivered"]  # use presupposes delivery
+            row["use"] = use
+        governing_rows.append(row)
+    return {"operator": operator_rows, "governing": governing_rows}
+
+
+def summarize_scored(scored: dict[str, Any]) -> dict[str, Any]:
+    """Counting summary over ``score_evidence`` output (one blob)."""
+    summary: dict[str, Any] = {}
+    operator_rows = scored["operator"]
+    governing_rows = scored["governing"]
+    summary["operator"] = _count(operator_rows, "delivered")
+    summary["operator_run_words"] = {
+        "delivered_run_words": sum(row["run_words"] for row in operator_rows),
+        "quote_words": sum(row["quote_words"] for row in operator_rows),
+    }
+    summary["governing_strict"] = _count(governing_rows, "strict")
+    summary["governing_anchor"] = _count(governing_rows, "anchor")
+    summary["governing_delivered"] = _count(governing_rows, "delivered")
+    summary["refs_without_anchor"] = sorted(
+        {row["ref"] for row in governing_rows if row["ref"] and row["anchor_spans"] == 0}
+    )
+    for side, rows in (("operator", operator_rows), ("governing", governing_rows)):
+        delivered = [row for row in rows if row["delivered"] and "use" in row]
+        summary[f"use_{side}"] = {
+            "delivered": len(delivered),
+            "quoted": sum(1 for row in delivered if row["use"]["quote_used"]),
+            "document_named": sum(1 for row in delivered if row["use"]["document_named"]),
+            "use": sum(1 for row in delivered if row["use"]["use"]),
+        }
+    return summary
+
+
+def _count(rows: list[dict[str, Any]], field: str) -> dict[str, int]:
+    return {"hits": sum(1 for row in rows if row[field]), "total": len(rows)}
 
 
 # ── retrieval paths ──────────────────────────────────────────────────────────
@@ -155,6 +347,7 @@ def offline_entry(repo: Any, entry: dict[str, Any]) -> dict[str, Any]:
         "fixed_chars": material_fixed,
         "errors": material_errors,
     }
+    out["anchor_spans"] = normative_anchor_spans(repo, governing_refs)
     return out
 
 
@@ -172,6 +365,19 @@ def material_hits(blob: str, entry: dict[str, Any], ids: list[str]) -> tuple[int
         if text and probe_of(text) in blob:
             hits += 1
     return hits, len(ids)
+
+
+def material_anchor_hits(
+    blob: str, entry: dict[str, Any], anchor_spans: dict[str, list[str]]
+) -> tuple[int, int]:
+    """Governing items whose normative anchor span appears in the blob."""
+    _operator_items, governing_items = required_items(entry)
+    hits = 0
+    for item in governing_items:
+        spans = anchor_spans.get(str(item.get("ref") or "")) or []
+        if any(span and span in blob for span in spans):
+            hits += 1
+    return hits, len(governing_items)
 
 
 def _section_quote(entry: dict[str, Any], section_id: str) -> str:
@@ -195,10 +401,33 @@ def score_offline(entry: dict[str, Any], measured: dict[str, Any]) -> dict[str, 
     for side, ids in (("operator", operator_ids), ("governing", governing_ids)):
         hits, total = material_hits(blob, entry, ids)
         rows[f"material.{side}"] = {"hits": hits, "total": total}
+    anchor_spans = measured.get("anchor_spans") or {}
+    hits, total = material_anchor_hits(blob, entry, anchor_spans)
+    rows["material.governing_anchor"] = {"hits": hits, "total": total}
+    _operator_items, governing_items = required_items(entry)
+    operator_runs = [
+        longest_run_words(norm(_section_quote(entry, section_id)), blob)
+        for section_id in operator_ids
+    ]
+    rows["material.operator_run_words"] = {
+        "delivered_run_words": sum(operator_runs),
+        "quote_words": sum(
+            len(norm(_section_quote(entry, section_id)).split()) for section_id in operator_ids
+        ),
+    }
     rows["material_chars"] = (measured.get("material") or {}).get("chars", 0)
     rows["material_fixed_chars"] = (measured.get("material") or {}).get("fixed_chars", 0)
     errors = (measured.get("material") or {}).get("errors") or []
     errors += measured.get("search_scoped_errors") or []
+    missing_anchors = sorted(
+        {
+            str(item.get("ref") or "")
+            for item in governing_items
+            if item.get("ref") and not (anchor_spans.get(str(item["ref"])) or [])
+        }
+    )
+    if missing_anchors:
+        errors += [f"no governing anchor row: {ref}" for ref in missing_anchors]
     if errors:
         rows["errors"] = errors
     return rows
@@ -255,40 +484,138 @@ def transcript_question_id(path: Path) -> str:
     return f"conversational:{stem}"
 
 
-def run_inrun(runs_dir: Path, split: str, key_path: Path | None = None) -> list[dict[str, Any]]:
+def transcript_rep(path: Path) -> str:
+    """The rep directory a transcript sits in.
+
+    Both run layouts are supported: ``<runs>/rep1/<suite>/transcripts/x.json``
+    (ask_conversational / ask_product_questions --out-dir) and the probe
+    layout ``<runs>/rep1/transcripts/x.json``.
+    """
+    for parent in path.parents[1:3]:
+        if parent.name.startswith("rep"):
+            return parent.name
+    return ""
+
+
+def score_transcript(
+    entry: dict[str, Any],
+    transcript: dict[str, Any],
+    anchor_spans: dict[str, list[str]],
+) -> dict[str, Any]:
+    """Score one transcript: tool-output delivery plus answer use."""
+    blob = tool_output_blob(transcript)
+    answer_norm = norm(str(transcript.get("answer") or ""))
+    scored = score_evidence(entry, blob, anchor_spans, answer_norm=answer_norm)
+    return {
+        "summary": summarize_scored(scored),
+        "detail": scored,
+        "tool_output_chars": len(blob),
+        "answer_chars": len(answer_norm),
+    }
+
+
+def run_inrun(
+    runs_dir: Path,
+    split: str,
+    key_path: Path | None = None,
+    repo: Any = None,
+) -> list[dict[str, Any]]:
     entries = load_key(key_path)
-    per_question: dict[str, list[dict[str, Any]]] = {}
-    for transcript_path in sorted(runs_dir.glob("rep*/*/transcripts/*.json")):
-        question_id = transcript_question_id(transcript_path)
-        entry = entries.get(question_id)
-        if entry is None or entry.get("split") != split:
+    owns_repo = repo is None
+    if owns_repo:
+        from portal.modules.compliance.core.repository import Repository
+
+        repo = Repository()
+    try:
+        anchor_cache: dict[tuple[str, ...], dict[str, list[str]]] = {}
+        per_question: dict[str, list[dict[str, Any]]] = {}
+        transcripts = sorted(
+            {
+                *runs_dir.glob("rep*/*/transcripts/*.json"),
+                *runs_dir.glob("rep*/transcripts/*.json"),
+            }
+        )
+        for transcript_path in transcripts:
+            question_id = transcript_question_id(transcript_path)
+            entry = entries.get(question_id)
+            if entry is None or entry.get("split") != split:
+                continue
+            _operator_items, governing_items = required_items(entry)
+            refs = sorted({str(item.get("ref") or "") for item in governing_items} - {""})
+            cache_key = tuple(refs)
+            if cache_key not in anchor_cache:
+                anchor_cache[cache_key] = normative_anchor_spans(repo, refs)
+            spans = anchor_cache[cache_key]
+            transcript = json.loads(transcript_path.read_text(encoding="utf-8"))
+            scored = score_transcript(entry, transcript, spans)
+            per_question.setdefault(question_id, []).append(
+                {
+                    "transcript": str(transcript_path),
+                    "rep": transcript_rep(transcript_path),
+                    **scored["summary"],
+                    "detail": scored["detail"],
+                }
+            )
+        out = []
+        for question_id, reps in sorted(per_question.items()):
+            out.append(
+                {
+                    "question_id": question_id,
+                    "reps": len(reps),
+                    **_summarize_reps(reps),
+                }
+            )
+        return out
+    finally:
+        if owns_repo:
+            repo.close()
+
+
+def _summarize_reps(reps: list[dict[str, Any]]) -> dict[str, Any]:
+    """Totals over a question's rep rows, plus the per-rep rows verbatim."""
+
+    def _add_counts(target: dict[str, int], source: dict[str, Any]) -> None:
+        for key, value in source.items():
+            if isinstance(value, int):
+                target[key] = target.get(key, 0) + value
+
+    totals: dict[str, Any] = {}
+    for field in (
+        "operator",
+        "operator_run_words",
+        "governing_strict",
+        "governing_anchor",
+        "governing_delivered",
+        "use_operator",
+        "use_governing",
+    ):
+        if field == "operator":
+            totals[field] = {
+                "hits": sum(r["operator"]["hits"] for r in reps),
+                "total": sum(r["operator"]["total"] for r in reps),
+            }
             continue
-        blob = tool_output_blob(json.loads(transcript_path.read_text(encoding="utf-8")))
-        operator_ids, governing_ids = evidence_sets(entry)
-        operator_hits = sum(1 for s in operator_ids if probe_of(_section_quote(entry, s)) in blob)
-        governing_hits = sum(1 for s in governing_ids if probe_of(_section_quote(entry, s)) in blob)
-        per_question.setdefault(question_id, []).append(
-            {
-                "transcript": str(transcript_path),
-                "operator_hits": operator_hits,
-                "operator_total": len(operator_ids),
-                "governing_hits": governing_hits,
-                "governing_total": len(governing_ids),
-            }
-        )
-    out = []
-    for question_id, reps in sorted(per_question.items()):
-        out.append(
-            {
-                "question_id": question_id,
-                "reps": len(reps),
-                "operator_hits": sum(r["operator_hits"] for r in reps),
-                "operator_total": sum(r["operator_total"] for r in reps),
-                "governing_hits": sum(r["governing_hits"] for r in reps),
-                "governing_total": sum(r["governing_total"] for r in reps),
-            }
-        )
-    return out
+        merged: dict[str, int] = {}
+        for rep in reps:
+            _add_counts(merged, rep[field])
+        totals[field] = merged
+    totals["refs_without_anchor"] = sorted(
+        {ref for rep in reps for ref in rep["refs_without_anchor"]}
+    )
+    totals["by_rep"] = [
+        {
+            "rep": rep["rep"],
+            "transcript": rep["transcript"],
+            "operator": rep["operator"],
+            "governing_strict": rep["governing_strict"],
+            "governing_anchor": rep["governing_anchor"],
+            "governing_delivered": rep["governing_delivered"],
+            "use_operator": rep["use_operator"],
+            "use_governing": rep["use_governing"],
+        }
+        for rep in reps
+    ]
+    return totals
 
 
 # ── aggregation and CLI ──────────────────────────────────────────────────────
@@ -309,15 +636,56 @@ def aggregate_offline(rows: list[dict[str, Any]]) -> dict[str, Any]:
 
 
 def aggregate_inrun(rows: list[dict[str, Any]]) -> dict[str, Any]:
-    summary = {}
-    for side in ("operator", "governing"):
-        hits = sum(row[f"{side}_hits"] for row in rows)
-        total = sum(row[f"{side}_total"] for row in rows)
-        summary[side] = {
+    def _side_summary(rows: list[dict[str, Any]], field: str, hits_key: str = "hits") -> dict:
+        hits = sum(row[field]["hits"] for row in rows)
+        total = sum(row[field]["total"] for row in rows)
+        return {
             "hits": hits,
             "total": total,
             "recall": round(hits / total, 4) if total else None,
         }
+
+    summary: dict[str, Any] = {
+        "operator": _side_summary(rows, "operator"),
+        "operator_run_words": {
+            key: sum(row["operator_run_words"][key] for row in rows)
+            for key in ("delivered_run_words", "quote_words")
+        },
+        "governing_strict": _side_summary(rows, "governing_strict"),
+        "governing_anchor": _side_summary(rows, "governing_anchor"),
+        "governing_delivered": _side_summary(rows, "governing_delivered"),
+    }
+    for side in ("operator", "governing"):
+        summary[f"use_{side}"] = {
+            key: sum(row[f"use_{side}"][key] for row in rows)
+            for key in ("delivered", "quoted", "document_named", "use")
+        }
+    # per-rep totals: the DD6 gate is evaluated per rep (>=5 of 6 reps)
+    rep_names = sorted(
+        {rep["rep"] for row in rows for rep in row["by_rep"]},
+        key=lambda name: (len(name), name),
+    )
+    by_rep: dict[str, Any] = {}
+    for rep_name in rep_names:
+        rep_rows: list[dict[str, Any]] = []
+        for row in rows:
+            matching = [rep for rep in row["by_rep"] if rep["rep"] == rep_name]
+            rep_rows.extend(matching)
+        by_rep[rep_name] = {
+            "operator": _side_summary(rep_rows, "operator"),
+            "governing_strict": _side_summary(rep_rows, "governing_strict"),
+            "governing_anchor": _side_summary(rep_rows, "governing_anchor"),
+            "governing_delivered": _side_summary(rep_rows, "governing_delivered"),
+            "use_operator": {
+                key: sum(rep["use_operator"][key] for rep in rep_rows)
+                for key in ("delivered", "quoted", "document_named", "use")
+            },
+            "use_governing": {
+                key: sum(rep["use_governing"][key] for rep in rep_rows)
+                for key in ("delivered", "quoted", "document_named", "use")
+            },
+        }
+    summary["by_rep"] = by_rep
     return summary
 
 
@@ -361,14 +729,6 @@ def main() -> int:
         args.out.write_text(json.dumps(result, indent=1), encoding="utf-8")
     if not args.quiet:
         print(json.dumps(result["summary"], indent=1))
-        per_entry = [
-            {
-                "question_id": row["question_id"],
-                **{k: v for k, v in row.items() if isinstance(v, dict) and v.get("total")},
-            }
-            for row in rows
-        ]
-        print(json.dumps(per_entry, indent=1))
     return 0
 
 

@@ -93,6 +93,222 @@ def test_transcript_question_id_maps_suites() -> None:
     ) == ("conversational:baselines")
 
 
+# ── DATA_TRUTH DD1: normative-span scoring, longest run, use ─────────────────
+
+
+class _AnchorRepo:
+    """A stub store: requirement_sections rows plus their document texts."""
+
+    def __init__(self, rows: list[tuple[str, str, int, int]], texts: dict[str, str]) -> None:
+        # rows: (requirement_id, revision_id, char_start, char_end)
+        self._rows = rows
+        self._texts = texts
+
+    @property
+    def _conn(self):  # noqa: ANN202 - test stub
+        stub = self
+
+        class _Cursor:
+            @staticmethod
+            def execute(sql: str, params: list):  # noqa: ANN001
+                wanted = set(params)
+
+                class _Result:
+                    @staticmethod
+                    def fetchall():
+                        return [row for row in stub._rows if row[0] in wanted]
+
+                return _Result()
+
+        return _Cursor()
+
+    def get_document_text(self, revision_id: str) -> str | None:
+        return self._texts.get(revision_id)
+
+
+_ANCHOR_TEXT = "Identify each asset with high impact ratings every reporting period."
+
+
+def _anchor_repo() -> _AnchorRepo:
+    start = 40
+    end = start + len(_ANCHOR_TEXT)
+    full = "x" * start + _ANCHOR_TEXT + "y" * 10
+    return _AnchorRepo([("STD R1 Part 1.1", "r1", start, end)], {"r1": full})
+
+
+def test_required_items_takes_required_facts_only() -> None:
+    operator_items, governing_items = ed.required_items(_entry())
+    assert [item["section_id"] for item in operator_items] == ["isection-b"]
+    assert [item["section_id"] for item in governing_items] == ["csection-a"]
+
+
+def test_longest_run_words_finds_longest_contiguous_window() -> None:
+    quote = ed.norm("alpha beta gamma delta")
+    assert ed.longest_run_words(quote, ed.norm("nothing here at all")) == 0
+    assert ed.longest_run_words(quote, ed.norm("we value gamma delta highly")) == 2
+    assert ed.longest_run_words(quote, ed.norm("alpha beta then gamma delta")) == 2
+    assert ed.longest_run_words(quote, quote + " plus more") == 4
+
+
+def test_longest_run_words_handles_empty_inputs() -> None:
+    assert ed.longest_run_words("", "blob") == 0
+    assert ed.longest_run_words(ed.norm("some words"), "") == 0
+
+
+def test_normative_anchor_spans_reads_governing_slice() -> None:
+    spans = ed.normative_anchor_spans(_anchor_repo(), ["STD R1 Part 1.1", "STD R9 Part 9.9"])
+    assert spans["STD R1 Part 1.1"] == [ed.norm(_ANCHOR_TEXT)]
+    assert spans["STD R9 Part 9.9"] == []  # no governing row: reported, not invented
+
+
+def test_normative_anchor_spans_empty_refs_needs_no_store() -> None:
+    assert ed.normative_anchor_spans(_anchor_repo(), []) == {}
+
+
+def test_score_evidence_strict_anchor_and_use() -> None:
+    entry = _entry()
+    # the governing key quote opens with the applicability column (strict probe
+    # fails); the blob carries only the normative anchor words (anchor passes)
+    entry["governing"][0]["text"] = "1.1 | High Impact Systems | " + _ANCHOR_TEXT
+    operator_text = "The team applies patches every thirty days with verification."
+    entry["operator_evidence"][0]["text"] = operator_text
+    entry["operator_evidence"][0]["document"] = "Delta Patch Procedure"
+    blob = ed.norm("preamble " + _ANCHOR_TEXT + " " + operator_text + " epilogue")
+    answer = (
+        "Per Delta Patch Procedure, STD R1 Part 1.1 says: " + _ANCHOR_TEXT + " The team applies "
+        "patches every thirty days with verification, per the procedure."
+    )
+    spans = {"STD R1 Part 1.1": [ed.norm(_ANCHOR_TEXT)]}
+    scored = ed.score_evidence(entry, blob, spans, answer_norm=ed.norm(answer))
+    gov = scored["governing"][0]
+    assert gov["strict"] is False  # applicability-first probe misses
+    assert gov["anchor"] is True  # the normative span is present
+    assert gov["delivered"] is True
+    op = scored["operator"][0]
+    assert op["strict"] is True
+    assert op["run_words"] == op["quote_words"]
+    # use: the answer quotes delivered text (>= 8 words) and names each document
+    assert gov["use"]["use"] is True
+    assert op["use"]["use"] is True
+
+
+def test_score_evidence_use_requires_delivery_and_document() -> None:
+    entry = _entry()
+    operator_text = "The team applies patches every thirty days with verification."
+    entry["operator_evidence"][0]["text"] = operator_text
+    entry["governing"][0]["text"] = "1.1 | High Impact Systems | " + _ANCHOR_TEXT
+    answer = ed.norm(
+        "The team applies patches every thirty days with verification. Std R1 Part 1.1 "
+        "applies: identify each asset with high impact ratings every reporting period."
+    )
+    scored = ed.score_evidence(entry, blob="", anchor_spans={}, answer_norm=answer)
+    # nothing was delivered, so quoting it in the answer is NOT use
+    assert scored["operator"][0]["use"]["quote_used"] is True
+    assert scored["operator"][0]["use"]["use"] is False
+    assert ed.summarize_scored(scored)["use_operator"]["delivered"] == 0
+    # delivered (anchor) and both documents named: quoted and used
+    spans = {"STD R1 Part 1.1": [ed.norm(_ANCHOR_TEXT)]}
+    blob = ed.norm(_ANCHOR_TEXT)
+    scored = ed.score_evidence(entry, blob, spans, answer_norm=answer)
+    assert scored["governing"][0]["delivered"] is True
+    assert scored["governing"][0]["use"]["quote_used"] is True
+    assert scored["governing"][0]["use"]["document_named"] is True
+    summary = ed.summarize_scored(scored)
+    assert summary["governing_anchor"] == {"hits": 1, "total": 1}
+    assert summary["governing_delivered"]["hits"] == 1
+    assert summary["refs_without_anchor"] == []
+
+
+def _write_run(tmp_path: pathlib.Path) -> tuple[pathlib.Path, pathlib.Path]:
+    """A two-rep run tree: rep1 delivers and uses; rep2 delivers nothing."""
+    key = tmp_path / "key.yaml"
+    key.write_text(
+        """
+entries:
+  - question_id: conversational:x
+    question: What about X?
+    split: dev
+    governing:
+      - section_id: csection-a
+        ref: STD R1 Part 1.1
+        text: 1.1 | High Impact Systems | Identify each asset with high impact.
+    operator_evidence:
+      - section_id: isection-b
+        document: Delta Patch Procedure
+        locator: 1
+        text: The team applies patches every thirty days with verification.
+    facts:
+      - id: F1
+        statement: s
+        required: true
+        evidence: [csection-a, isection-b]
+""",
+        encoding="utf-8",
+    )
+    operator_text = "The team applies patches every thirty days with verification."
+    full_answer = (
+        "Per Delta Patch Procedure and STD: the standard says identify each asset with high "
+        "impact. The team applies patches every thirty days with verification."
+    )
+    rep1 = {
+        "answer": full_answer,
+        "tool_outputs": [{"output": json.dumps({"text": _ANCHOR_TEXT + " " + operator_text})}],
+    }
+    rep2 = {"answer": full_answer, "tool_outputs": [{"output": "nothing relevant"}]}
+    for rep, transcript in (("rep1", rep1), ("rep2", rep2)):
+        suite = tmp_path / "arm" / rep / "conversational" / "transcripts"
+        suite.mkdir(parents=True)
+        (suite / "x.json").write_text(json.dumps(transcript), encoding="utf-8")
+    return tmp_path / "arm", key
+
+
+def test_run_inrun_scores_per_rep_and_use(tmp_path: pathlib.Path) -> None:
+    runs_dir, key = _write_run(tmp_path)
+    rows = ed.run_inrun(runs_dir, "dev", key, repo=_anchor_repo())
+    assert len(rows) == 1
+    row = rows[0]
+    assert row["operator"]["hits"] == 1 and row["operator"]["total"] == 2
+    assert row["governing_anchor"]["hits"] == 1
+    assert row["use_operator"] == {
+        "delivered": 1,
+        "quoted": 1,
+        "document_named": 1,
+        "use": 1,
+    }
+    by_rep = {entry["rep"]: entry for entry in row["by_rep"]}
+    assert by_rep["rep1"]["operator"]["hits"] == 1
+    assert by_rep["rep2"]["operator"]["hits"] == 0  # nothing delivered
+    assert by_rep["rep2"]["governing_anchor"]["hits"] == 0
+
+    summary = ed.aggregate_inrun(rows)
+    assert summary["by_rep"]["rep1"]["operator"]["hits"] == 1
+    assert summary["by_rep"]["rep2"]["operator"]["hits"] == 0
+    assert summary["operator"]["recall"] == 0.5
+    assert summary["use_operator"]["use"] == 1
+    # holdout entries in the tree are never scored
+    assert summary["governing_strict"]["total"] == 2
+
+
+def test_score_offline_reports_material_governing_anchor() -> None:
+    entry = _entry()
+    entry["governing"][0]["text"] = "1.1 | High Impact Systems | " + _ANCHOR_TEXT
+    measured = {
+        "search_unscoped": {},
+        "search_scoped": {},
+        "material": {"blob": ed.norm(_ANCHOR_TEXT), "chars": 10, "fixed_chars": 0, "errors": []},
+        "anchor_spans": {},
+    }
+    rows = ed.score_offline(entry, measured)
+    # strict probe misses the applicability-first quote; the anchor span hits
+    assert rows["material.governing"] == {"hits": 0, "total": 1}
+    assert rows["material.governing_anchor"] == {"hits": 0, "total": 1}
+    assert rows["errors"] == ["no governing anchor row: STD R1 Part 1.1"]
+    measured["anchor_spans"] = {"STD R1 Part 1.1": [ed.norm(_ANCHOR_TEXT)]}
+    rows = ed.score_offline(entry, measured)
+    assert rows["material.governing_anchor"] == {"hits": 1, "total": 1}
+    assert "errors" not in rows
+
+
 # ── findability ──────────────────────────────────────────────────────────────
 
 
