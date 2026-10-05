@@ -10,6 +10,7 @@ Cartesian proposals out of established impact.
 from __future__ import annotations
 
 import hashlib
+import pathlib
 
 import pytest
 
@@ -18,7 +19,7 @@ from portal.modules.compliance.core.internal_model import extract_assertions
 from portal.modules.compliance.core.migrations import CURRENT_SCHEMA_VERSION
 from portal.modules.compliance.core.models import RelationshipAssertion, SourceDocument
 from portal.modules.compliance.core.repository import Repository
-from portal.modules.compliance.core.result_contract import is_source_role
+from portal.modules.compliance.core.result_contract import SOURCE_ROLES, is_source_role
 
 # ── hermetic corpus fixtures (mimic the observed controlled-document shapes) ─
 
@@ -318,6 +319,115 @@ class TestCommitmentGating:
         text = "The analyst shall install applicable patches."
         for role in ("TABLE_OF_CONTENTS", "DOCUMENT_CONTROL", "COMMENTARY", "DEFINITION"):
             assert extract_assertions("rev", text, anchor_id="a", section_role=role) == [], role
+
+
+# ── D-DT-19 F-R-1: the ingest accepts its own D3 role end to end ────────────
+
+
+def _write_revision_table_pdf() -> pathlib.Path:
+    """A synthetic controlled document whose revision history is a
+    HEADINGLESS table: a bare number line with an author-like title line on
+    the next line passes the heading guard, so each dated change row leaks
+    past any history cutoff as an operative section and D3's rule must
+    re-classify it REVISION_LOG."""
+    import tempfile
+
+    import fitz  # noqa: PLC0415 - pymupdf's stable import name
+
+    document = fitz.open()
+    control = document.new_page()
+    control.insert_text(
+        (72, 72),
+        (
+            "PRIVATE - FOR INTERNAL USE ONLY\n"
+            "ACME Asset Procedure\n"
+            "Effective Date:  July 31, 2026\n"
+            "Document Type: Procedure\n"
+            "NERC Standard: CIP-901\n"
+        ),
+        fontsize=11,
+    )
+    body = document.new_page()
+    body.insert_text(
+        (72, 72),
+        (
+            "1.0 Introduction\n"
+            "The process covers asset records.\n"
+            "1.1 Purpose\n"
+            "The purpose is asset tracking.\n"
+            "2.0\n"
+            "A. Chen\n"
+            "Updated the asset list with the new substation. 7/24/2026\n"
+            "3.0\n"
+            "B. Ruiz\n"
+            "Removed the retired transformer from the asset list. 6/12/2026\n"
+        ),
+        fontsize=11,
+    )
+    handle = tempfile.NamedTemporaryFile(suffix=".pdf", delete=False, dir=tempfile.gettempdir())
+    document.save(str(handle.name))
+    document.close()
+    handle.close()
+    return pathlib.Path(handle.name)
+
+
+def test_ingest_accepts_revision_log_rows_end_to_end(tmp_path) -> None:
+    """D-DT-19 F-R-1: D3 classifies headingless revision-table rows as
+    REVISION_LOG, so the end-to-end ingest must accept that role — it used to
+    raise ``classified outside the controlled vocabulary`` and crash on any
+    document carrying such a table. Hermetic: synthetic text only."""
+    from portal.modules.compliance.core.operator_profile import PROFILE_PATH
+
+    if not PROFILE_PATH.exists():  # gitignored, operator's machine only (CI has none)
+        pytest.skip("the local operator profile is not present")
+
+    from portal.modules.compliance.core.models import SourceDocument
+    from portal.modules.compliance.core.repository import Repository
+    from scripts.materialize_internal_corpus import _materialize_document
+
+    pdf_path = _write_revision_table_pdf()
+    repo = Repository(tmp_path / "f-r1.db")
+    try:
+        logical_id = "CIP-901/ACME Asset Procedure v1.pdf"
+        repo.upsert_source_document(
+            SourceDocument(
+                logical_id=logical_id,
+                title="ACME Asset Procedure",
+                issuer="ACME",
+                source_kind="operating_procedure",
+                jurisdiction="internal",
+            )
+        )
+        repo.add_document_revision(
+            logical_id,
+            str(pdf_path),
+            pdf_path.read_bytes(),
+            binding_effect="internally_mandatory",
+        )
+        inv = ic.inventory_file(pdf_path)
+        _materialize_document(repo, pdf_path.parent, pdf_path, inv)
+        rows = repo._conn.execute(
+            "select path, role, title from source_sections where revision_id=?",
+            (inv["sha256"],),
+        ).fetchall()
+        roles = {str(r[1]) for r in rows}
+        assert roles <= set(SOURCE_ROLES), roles - set(SOURCE_ROLES)
+        revision_rows = [r for r in rows if r[1] == "REVISION_LOG"]
+        assert revision_rows, "the headingless revision table must classify REVISION_LOG"
+        operative = [r for r in rows if r[1] == "OPERATIVE_PROCEDURE"]
+        assert operative, "the operative sections still materialize"
+        # a revision-log row is never a commitment source (internal_model gate)
+        assert (
+            extract_assertions(
+                "rev",
+                "The analyst shall update the asset list.",
+                anchor_id="a",
+                section_role="REVISION_LOG",
+            )
+            == []
+        )
+    finally:
+        repo.close()
 
 
 # ── migration 10 and the repository methods ─────────────────────────────────

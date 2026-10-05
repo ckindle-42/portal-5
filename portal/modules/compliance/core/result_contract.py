@@ -120,6 +120,10 @@ SOURCE_ROLES: dict[str, str] = {
     "TABLE_OF_CONTENTS": "Structural navigation text; never operative content.",
     "DOCUMENT_CONTROL": "Document-control metadata (owner, approvals, revision history); "
     "sources effectivity/version facts, never operative text.",
+    # DATA_TRUTH D3 / D-DT-19: a revision-log row — a dated change entry under
+    # an operative role (documents whose history is a headingless table leak
+    # these rows past the history cutoff). History, not operative content.
+    "REVISION_LOG": "A dated change-history entry; never operative content.",
 }
 
 
