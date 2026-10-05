@@ -118,7 +118,7 @@ def repo(tmp_path: pathlib.Path) -> Repository:
             (
                 "isection-revlog",
                 "OPERATIVE_PROCEDURE",
-                "1.0 L. Ellisor",
+                "1.0 T. Exampleperson",
                 "Added CIP-002 Visio flow chart process. 05/04/2016",
             ),
             (
