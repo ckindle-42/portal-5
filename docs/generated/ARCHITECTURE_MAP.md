@@ -2,7 +2,7 @@
 
 # Portal 5 Architecture Map
 
-*Deterministic projection of 758 canonical units.*
+*Deterministic projection of 759 canonical units.*
 
 ## Knowledge Layer
 

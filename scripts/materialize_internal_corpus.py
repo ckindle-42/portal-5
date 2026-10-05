@@ -125,6 +125,11 @@ def _materialize_document(repo: Repository, corpus: Path, pdf: Path, inv: dict) 
     _update_logical_document(repo, conn, corpus, pdf, inv)
     _rederive_sections(repo, conn, pdf, inv)
     _type_legacy_document_section(repo, conn, revision_id, inv["document_role"])
+    # DATA_TRUTH DD2: a new upload carries its own traceability appendix —
+    # record its operator_traceability assertions in the same ingest pass.
+    from portal.modules.compliance.core.operator_traceability import record_traceability
+
+    entry["traceability"] = record_traceability(repo, revision_id)
     return entry
 
 

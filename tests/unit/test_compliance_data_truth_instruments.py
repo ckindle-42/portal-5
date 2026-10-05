@@ -357,7 +357,8 @@ def memory_store() -> sqlite3.Connection:
         create table document_texts (revision_id text primary key, full_text text);
         create table relationship_assertions (
             assertion_id text primary key, relation_type text, src_ref text,
-            dst_ref text, derivation text, review_state text);
+            dst_ref text, derivation text, review_state text,
+            status text default 'proposed');
         """
     )
     conn.execute("insert into source_documents values ('NERC/X-1', 'US')")
@@ -370,7 +371,7 @@ def memory_store() -> sqlite3.Connection:
     )
     conn.execute("insert into document_texts values ('r1', 'X' * 40 + 'TOC' + 'Y' * 17)")
     conn.execute(
-        "insert into relationship_assertions values ('e1', 'IMPLEMENTS', 'STD R1 Part 1.1', 'csection-b', 'projection_rerank', 'proposed')"
+        "insert into relationship_assertions values ('e1', 'IMPLEMENTS', 'STD R1 Part 1.1', 'csection-b', 'projection_rerank', 'proposed', 'proposed')"
     )
     conn.commit()
     return conn

@@ -2,7 +2,7 @@
 
 # Portal 5 Admin Guide
 
-*Deterministic projection of 758 canonical units.*
+*Deterministic projection of 759 canonical units.*
 
 ## Architecture Overview
 

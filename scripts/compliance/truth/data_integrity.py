@@ -420,8 +420,11 @@ def check_windows() -> CheckResult:
 
 
 def check_edges(conn: sqlite3.Connection, full: dict[str, str]) -> CheckResult:
+    # DD2: the census covers LIVE edges only — revoked/rejected assertions are
+    # inert (they stop feeding delivery) and no longer count as findings.
     edges = conn.execute(
-        "select assertion_id, relation_type, src_ref, dst_ref, derivation, review_state from relationship_assertions"
+        "select assertion_id, relation_type, src_ref, dst_ref, derivation, review_state"
+        " from relationship_assertions where status not in ('revoked','rejected')"
     ).fetchall()
     by_relation: dict[str, int] = {}
     by_derivation: dict[str, int] = {}

@@ -248,6 +248,10 @@ surfaces:
   globs:
   - portal/modules/compliance/core/operator_profile.py
   unit: unit-surface-compliance-reading-truth
+- name: file-portal-modules-compliance-core-operator_traceability
+  globs:
+  - portal/modules/compliance/core/operator_traceability.py
+  unit: unit-compliance-operator-traceability
 - name: file-portal-modules-compliance-core-org_graph
   globs:
   - portal/modules/compliance/core/org_graph.py
