@@ -639,6 +639,38 @@ def _unit_row(
     )
 
 
+def section_body_exclusion(title: str, path: str, body: str, *, operator_side: bool) -> str:
+    """The eligibility rule for one section's BODY, shared by the projection
+    and by delivery-time consumers (the dual-document payload, DATA_TRUTH
+    Amendment 2 DD3b): ``""`` when the body is deliverable, otherwise the
+    exclusion class that owns it — heading-only fragments (the whole text is
+    its own heading line, under the fragment floor), furniture-only bodies
+    (nothing survives the furniture strip), or revision-log rows (a dated
+    change entry under an operative role).
+
+    The TOC role is not body rule: it is the committed
+    ``table_of_contents_sections`` exclusion class, applied by role.
+    """
+    stripped = body.strip()
+    if not stripped:
+        return ""
+    title = (title or "").strip()
+    path = (path or "").strip()
+    heading_line = f"{path} {title}".strip()
+    if title and len(body) < FRAGMENT_MAX_CHARS and stripped in (title, heading_line):
+        return "regulatory_heading_only_fragments"
+    if not _FURNITURE_LINE_RE.sub("", body).strip():
+        return "regulatory_heading_only_fragments"
+    if (
+        operator_side
+        and len(body) <= _REVISION_ROW_MAX_CHARS
+        and _REVISION_ROW_DATE_RE.search(body)
+        and _REVISION_ROW_VERB_RE.search(body)
+    ):
+        return "revision_log_rows"
+    return ""
+
+
 def _plan_gate(entry: dict[str, Any], full: str, classes: list[dict[str, Any]]) -> tuple[str, Any]:
     """Whether a section projects, and if not, which population records it.
 
@@ -678,25 +710,15 @@ def _plan_gate(entry: dict[str, Any], full: str, classes: list[dict[str, Any]]) 
     # the unit duplicates the heading.
     title = str(entry["title"] or "").strip()
     path = str(entry["path"] or "").strip()
-    heading_line = f"{path} {title}".strip()
-    if title and len(body) < FRAGMENT_MAX_CHARS and body.strip() in (title, heading_line):
-        return "excluded", "regulatory_heading_only_fragments"
-    # a section whose whole text is page furniture (the pre-D3 captures keep
-    # the banner/counter lines inside the section span) is the same furniture
-    # class: nothing survives the furniture strip.
-    if not _FURNITURE_LINE_RE.sub("", body).strip():
-        return "excluded", "regulatory_heading_only_fragments"
-    # a revision-log row is document machinery, not evidence: a dated change
-    # entry under the operative role is the headingless-log leak.
+    # D2/D3's body rules — heading-only fragments, furniture-only, revision-log
+    # rows — live in ONE predicate shared with delivery time (Amendment 2 DD3b)
     from portal.modules.compliance.core.jurisdiction import is_operator_side
 
-    if (
-        is_operator_side(entry["jurisdiction"])
-        and len(body) <= _REVISION_ROW_MAX_CHARS
-        and _REVISION_ROW_DATE_RE.search(body)
-        and _REVISION_ROW_VERB_RE.search(body)
-    ):
-        return "excluded", "revision_log_rows"
+    body_class = section_body_exclusion(
+        title, path, body, operator_side=is_operator_side(entry["jurisdiction"])
+    )
+    if body_class:
+        return "excluded", body_class
     return "ok", None
 
 

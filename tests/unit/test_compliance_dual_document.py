@@ -17,6 +17,7 @@ from portal.modules.compliance.core import dual_document as dd
 from portal.modules.compliance.core.models import SourceDocument, SourceSection
 from portal.modules.compliance.core.repository import Repository
 
+_LEAD = "Each Responsible Entity shall carry out the asset process as follows."
 _REQUIREMENT = "Record each asset in the operations register every week."
 _PART_1_2 = "Review the register with the operations manager every month."
 
@@ -39,50 +40,59 @@ def repo(tmp_path: pathlib.Path) -> Repository:
     standard = store.add_document_revision(
         "NERC/CIP-901-1",
         "/docs/cip-901-1.pdf",
-        (_REQUIREMENT + _PART_1_2).encode("utf-8"),
+        (_LEAD + _REQUIREMENT + _PART_1_2).encode("utf-8"),
         binding_effect="regulatory",
         effective_date="2026-01-01",
     )
     store.put_document_text(
         standard.revision_id,
-        _REQUIREMENT + _PART_1_2,
+        _LEAD + _REQUIREMENT + _PART_1_2,
         page_count=1,
         extractor="fixture",
         extractor_version="0",
     )
-    store.add_source_section(
-        SourceSection(
-            section_id="csection-reg-11",
-            revision_id=standard.revision_id,
-            path="B. Requirements / 1.1",
-            extractor="fixture",
-            role="B_REQUIREMENTS_AND_MEASURES",
-            title="1.1",
-            unit_kind="table_row",
-            ordinal=0,
-            char_start=0,
-            char_end=len(_REQUIREMENT),
-            heading_path="1.1",
+    registry_sections = [
+        ("csection-reg-r1", "B. Requirements / R1", "R1", 0, len(_LEAD)),
+        (
+            "csection-reg-11",
+            "B. Requirements / 1.1",
+            "1.1",
+            len(_LEAD),
+            len(_LEAD) + len(_REQUIREMENT),
+        ),
+        (
+            "csection-reg-12",
+            "B. Requirements / 1.2",
+            "1.2",
+            len(_LEAD) + len(_REQUIREMENT),
+            len(_LEAD) + len(_REQUIREMENT) + len(_PART_1_2),
+        ),
+    ]
+    for ordinal, (sid, spath, stitle, cs, ce) in enumerate(registry_sections):
+        store.add_source_section(
+            SourceSection(
+                section_id=sid,
+                revision_id=standard.revision_id,
+                path=spath,
+                extractor="fixture",
+                role="B_REQUIREMENTS_AND_MEASURES",
+                title=stitle,
+                unit_kind="table_row",
+                ordinal=ordinal,
+                char_start=cs,
+                char_end=ce,
+                heading_path=stitle,
+            )
         )
-    )
-    store.add_source_section(
-        SourceSection(
-            section_id="csection-reg-12",
-            revision_id=standard.revision_id,
-            path="B. Requirements / 1.2",
-            extractor="fixture",
-            role="B_REQUIREMENTS_AND_MEASURES",
-            title="1.2",
-            unit_kind="table_row",
-            ordinal=1,
-            char_start=len(_REQUIREMENT),
-            char_end=len(_REQUIREMENT) + len(_PART_1_2),
-            heading_path="1.2",
-        )
-    )
-    for requirement_id, offset, text in (
-        ("CIP-901-1 R1 Part 1.1", 0, _REQUIREMENT),
-        ("CIP-901-1 R1 Part 1.2", len(_REQUIREMENT), _PART_1_2),
+    for requirement_id, sid, offset, text in (
+        ("CIP-901-1 R1", "csection-reg-r1", 0, _LEAD),
+        ("CIP-901-1 R1 Part 1.1", "csection-reg-11", len(_LEAD), _REQUIREMENT),
+        (
+            "CIP-901-1 R1 Part 1.2",
+            "csection-reg-12",
+            len(_LEAD) + len(_REQUIREMENT),
+            _PART_1_2,
+        ),
     ):
         conn.execute(
             "insert into requirement_sections (requirement_id, revision_id, section_id,"
@@ -91,7 +101,7 @@ def repo(tmp_path: pathlib.Path) -> Repository:
             (
                 requirement_id,
                 standard.revision_id,
-                "csection-reg-11",
+                sid,
                 "governing",
                 offset,
                 offset + len(text),
@@ -106,10 +116,18 @@ def repo(tmp_path: pathlib.Path) -> Repository:
             ("isection-doc-ctl", "DOCUMENT_CONTROL", "Document control", "Owner: ACME."),
             ("isection-toc", "TABLE_OF_CONTENTS", "Table of Contents", "1.0 ... 3.0 ..."),
             (
+                "isection-revlog",
+                "OPERATIVE_PROCEDURE",
+                "1.0 L. Ellisor",
+                "Added CIP-002 Visio flow chart process. 05/04/2016",
+            ),
+            (
                 "isection-31",
                 "OPERATIVE_PROCEDURE",
                 "3.1 Record assets",
-                "The team records each asset. " * 120,
+                "PRIVATE - FOR INTERNAL USE ONLY\n"
+                + "The team records each asset.\n" * 120
+                + "Page 1 of 9",
             ),
             (
                 "isection-app",
@@ -222,16 +240,28 @@ def test_address_path_delivers_standard_parts_and_document_set(repo: Repository)
     )
     print("DOCS DEFERRED:", payload["documents_deferred"])
     print("STANDARDS:", payload["standards"])
-    assert payload["requirement_refs"] == ["CIP-901-1 R1 Part 1.1", "CIP-901-1 R1 Part 1.2"]
-    # (a) the standard: both Parts' normative text, no fixed body
+    assert payload["requirement_refs"] == [
+        "CIP-901-1 R1",
+        "CIP-901-1 R1 Part 1.1",
+        "CIP-901-1 R1 Part 1.2",
+    ]
+    # (a) the standard: the requirement's lead sentence FIRST, then both Parts
+    assert payload["requirement_refs"][0] == "CIP-901-1 R1"
+    assert _LEAD in payload["text"]
     assert _REQUIREMENT in payload["text"] and _PART_1_2 in payload["text"]
     assert "== CIP-901-1 R1 ==" in payload["text"]
-    # (b) the folder document, whole, labelled, structure stripped
+    # (b) the folder document, whole, labelled; TOC and revision-log rows
+    # stripped by the projection's shared rule; furniture lines stripped from
+    # delivered text; the approval block and the appendix KEPT (F-A2-4)
     assert "[ACME Asset Procedure § 3.1 Record assets] (isection-31)" in payload["text"]
     assert "The team records each asset." in payload["text"]
-    assert "Document control" not in payload["text"]
+    assert "PRIVATE - FOR INTERNAL USE ONLY" not in payload["text"]
+    assert "Page 1 of 9" not in payload["text"]
+    assert "isection-revlog" not in payload["text"]
+    assert "Added CIP-002 Visio flow chart process" not in payload["text"]
     assert "Table of Contents" not in payload["text"]
-    assert "Appendix 1" not in payload["text"]
+    assert "Owner: ACME." in payload["text"]  # the approval/owner block is citable
+    assert "Appendix 1" in payload["text"]  # the operator's own declaration, verbatim
     # the traceability-named document travels with the folder's
     assert "Cross Procedure" in payload["text"]
     origins = {doc["logical_id"]: doc["origin"] for doc in payload["documents_included"]}

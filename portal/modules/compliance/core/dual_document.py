@@ -47,10 +47,13 @@ BYTES_PER_TOKEN = 3.17
 #: overhead is ~0; 2,000 is kept as headroom
 PERSONA_TOOLS_RESERVE_TOKENS = 2_000
 
-#: roles whose sections are structure, never the operator's operative material
-STRIPPED_ROLES = frozenset(
-    {"TABLE_OF_CONTENTS", "REVISION_LOG", "DOCUMENT_CONTROL", "TRACEABILITY_ASSERTION"}
-)
+#: the only ROLE the payload strips outright — the committed
+#: table_of_contents_sections exclusion class. Revision-log rows,
+#: heading-only fragments and furniture-only bodies are excluded by the
+#: projection's shared body rule (section_index.section_body_exclusion), and
+#: the traceability appendix + approval/owner blocks are KEPT: they are the
+#: operator's own citable content (Amendment 2 F-A2-4, per D-DT-3 + L4)
+STRIPPED_ROLES = frozenset({"TABLE_OF_CONTENTS"})
 
 _STD_TOKEN_RE = re.compile(r"CIP-\d{2,3}(?:-\d+(?:\.\d+)?[a-z]?)?")
 _ID_STANDARD_RE = re.compile(r"^(CIP-\d{2,3}(?:-\d+(?:\.\d+)?[a-z]?)?)")
@@ -171,21 +174,31 @@ def _resolve_by_address(repo: Any, ref: str) -> dict[str, Any]:
     standard_only = _standard_of(standard)
     register = _register_ids(repo)
     if parsed.part:
-        requirement_ids = [canonical for canonical in register if canonical == standard]
+        # the Part, and its parent requirement's lead sentence when the
+        # register anchors one — every Part depends on it grammatically
+        # ("…each of the following"); unanchored ids render nothing
+        parent = standard.rsplit(" Part ", 1)[0]
+        requirement_ids = [parent] if parent != standard else []
+        requirement_ids.append(standard)
         return {
             "requirement_ids": requirement_ids,
             "standards": [standard_only],
             "detail": "addressed Part",
         }
     if parsed.requirement:
-        requirement_ids = sorted(rid for rid in register if rid.startswith(f"{standard} "))
+        # the addressed requirement itself — its own governing anchor is the
+        # requirement's lead sentence ("R1. Each Responsible Entity shall…"),
+        # normative text Amendment 2 F-A2-1 found missing — then its Parts
+        requirement_ids = [standard] + sorted(
+            rid for rid in register if rid.startswith(f"{standard} ")
+        )
         return {
             "requirement_ids": requirement_ids,
             "standards": [standard_only],
-            "detail": "addressed requirement: every Part",
+            "detail": "addressed requirement: lead + every Part",
         }
-    # a whole standard: every in-force requirement
-    requirement_ids = sorted(rid for rid in register if rid.startswith(f"{standard} R"))
+    # a whole standard: every register id under it
+    requirement_ids = sorted(rid for rid in register if rid.startswith(f"{standard} "))
     return {
         "requirement_ids": requirement_ids,
         "standards": [standard_only],
@@ -431,19 +444,47 @@ def _render_document(repo: Any, logical_id: str, origin: str) -> dict[str, Any] 
     if not live:
         return None
     sections = repo._conn.execute(
-        "select section_id, heading_path, path, role, char_start, char_end, ordinal"
+        "select section_id, heading_path, path, role, title, char_start, char_end, ordinal"
         " from source_sections where revision_id = ? order by ordinal",
         (live[0],),
     ).fetchall()
     full = repo.get_document_text(live[0]) or ""
+    from portal.modules.compliance.core.jurisdiction import is_operator_side
+    from portal.modules.compliance.core.section_index import (
+        _FURNITURE_LINE_RE,
+        section_body_exclusion,
+    )
+
+    jur = repo._conn.execute(
+        "select jurisdiction from source_documents where logical_id = ?", (logical_id,)
+    ).fetchone()
+    operator_side = is_operator_side(str(jur[0]) if jur and jur[0] else "internal")
     blocks: list[str] = []
-    for section_id, heading_path, path, role, char_start, char_end, _ordinal in sections:
-        if role in STRIPPED_ROLES:
+    for (
+        section_id,
+        heading_path,
+        path,
+        role,
+        section_title,
+        char_start,
+        char_end,
+        _ordinal,
+    ) in sections:
+        # Amendment 2 DD3b: the projection's OWN eligibility, one shared rule
+        # (TOC by role — the committed table_of_contents_sections class;
+        # heading-only fragments, furniture-only, revision-log rows by body)
+        if role == "TABLE_OF_CONTENTS":
             continue
         start, end = int(char_start or 0), int(char_end or 0)
         if not (0 <= start < end <= len(full)):
             continue
-        text = full[start:end].strip()
+        body = full[start:end]
+        if section_body_exclusion(
+            str(section_title or ""), str(path or ""), body, operator_side=operator_side
+        ):
+            continue
+        # furniture LINES inside an otherwise-content span never deliver
+        text = _FURNITURE_LINE_RE.sub("", body).strip()
         if not text:
             continue
         heading = str(heading_path or path or "").strip()

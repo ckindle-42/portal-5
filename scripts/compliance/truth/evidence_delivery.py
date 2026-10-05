@@ -142,6 +142,22 @@ def longest_run_words(quote_norm: str, blob_norm: str) -> int:
     return low
 
 
+_ANNOTATION_RE = re.compile(r"\s*\([^()]*\)\s*$")
+
+
+def _address_of(ref: str) -> str:
+    """The regulatory address under a key's governing ref.
+
+    The key annotates special roles in the ref itself — 'CIP-003-9 R1 (lead)',
+    'CIP-003-8 R1 Part 1.2.6 (predecessor)' — and no store address contains a
+    parenthetical, so the annotation is stripped before resolution. Without
+    this the instrument under-measures exactly the entries it annotates
+    (measured: 2 of the 3 pre-DD3b governing misses were unreachable refs,
+    not undelivered text).
+    """
+    return _ANNOTATION_RE.sub("", ref.strip()).strip()
+
+
 def normative_anchor_spans(repo: Any, refs: list[str]) -> dict[str, list[str]]:
     """ref -> normalised governing-anchor span texts (every anchor row).
 
@@ -216,7 +232,7 @@ def score_evidence(
         text = str(item.get("text") or "")
         text_norm = norm(text)
         ref = str(item.get("ref") or "")
-        spans = anchor_spans.get(ref) or []
+        spans = anchor_spans.get(_address_of(ref)) or []
         anchor = any(span and span in blob for span in spans)
         strict = bool(text_norm) and probe_of(text) in blob
         row = {
@@ -299,7 +315,7 @@ def offline_entry(repo: Any, entry: dict[str, Any]) -> dict[str, Any]:
 
     question = str(entry["question"])
     operator_ids, governing_ids = evidence_sets(entry)
-    governing_refs = sorted({str(g["ref"]) for g in entry.get("governing") or []})
+    governing_refs = sorted({_address_of(str(g["ref"])) for g in entry.get("governing") or []})
 
     out: dict[str, Any] = {
         "operator_ids": operator_ids,
@@ -394,7 +410,7 @@ def material_anchor_hits(
     _operator_items, governing_items = required_items(entry)
     hits = 0
     for item in governing_items:
-        spans = anchor_spans.get(str(item.get("ref") or "")) or []
+        spans = anchor_spans.get(_address_of(str(item.get("ref") or ""))) or []
         if any(span and span in blob for span in spans):
             hits += 1
     return hits, len(governing_items)
@@ -459,7 +475,7 @@ def score_offline(entry: dict[str, Any], measured: dict[str, Any]) -> dict[str, 
         {
             str(item.get("ref") or "")
             for item in governing_items
-            if item.get("ref") and not (anchor_spans.get(str(item["ref"])) or [])
+            if item.get("ref") and not (anchor_spans.get(_address_of(str(item["ref"]))) or [])
         }
     )
     if missing_anchors:
@@ -580,7 +596,9 @@ def run_inrun(
             if entry is None or entry.get("split") != split:
                 continue
             _operator_items, governing_items = required_items(entry)
-            refs = sorted({str(item.get("ref") or "") for item in governing_items} - {""})
+            refs = sorted(
+                {_address_of(str(item.get("ref") or "")) for item in governing_items} - {""}
+            )
             cache_key = tuple(refs)
             if cache_key not in anchor_cache:
                 anchor_cache[cache_key] = normative_anchor_spans(repo, refs)
