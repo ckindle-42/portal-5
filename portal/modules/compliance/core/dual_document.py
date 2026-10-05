@@ -91,9 +91,85 @@ def build(
         resolution = _resolve_by_query(repo, query)
     if resolution.get("error"):
         return resolution
-    requirement_ids: list[str] = resolution["requirement_ids"]
-    standards: list[str] = resolution["standards"]
+    return _build_from_ids(
+        repo,
+        requirement_ids=resolution["requirement_ids"],
+        standards=resolution["standards"],
+        detail=resolution.get("detail", ""),
+        context_limit=context_limit,
+        predict_limit=predict_limit,
+        served_ceiling=served_ceiling,
+    )
 
+
+def build_cross_revision(
+    repo: Any,
+    ref: str,
+    *,
+    context_limit: int = 131_072,
+    predict_limit: int = 24_576,
+    served_ceiling: int | None = None,
+) -> dict[str, Any]:
+    """The payload for a revision-COMPARISON question (DATA_TRUTH DD3c): part
+    (a) carries the normative text of EVERY revision's anchors for the
+    addressed requirement — CIP-003-8's Part 1.2.6 beside CIP-003-9's — since
+    no current-revision payload can carry a predecessor's words. Falls back to
+    the plain address payload when the ref is not a requirement address."""
+    from portal.modules.compliance.core.reading_assembly import parse_ref
+
+    parsed = parse_ref(ref)
+    if parsed is None or not parsed.requirement:
+        return build(
+            repo,
+            requirement_ref=ref,
+            context_limit=context_limit,
+            predict_limit=predict_limit,
+            served_ceiling=served_ceiling,
+        )
+    standard = str(parsed)
+    family = re.match(r"^(CIP-\d{2,3})", standard)
+    family = family.group(1) if family else standard.split("-")[0]
+    register = _register_ids(repo)
+    requirement_ids = sorted(
+        rid
+        for rid in register
+        if rid.startswith(f"{family}-")
+        and re.match(rf"^{re.escape(family)}-\d+[^ ]*\s+R{parsed.requirement}(\s|$| Part )", rid)
+    )
+    if not requirement_ids:
+        return build(
+            repo,
+            requirement_ref=ref,
+            context_limit=context_limit,
+            predict_limit=predict_limit,
+            served_ceiling=served_ceiling,
+        )
+    standards: list[str] = []
+    for rid in requirement_ids:
+        s = _standard_of(rid)
+        if s not in standards:
+            standards.append(s)
+    return _build_from_ids(
+        repo,
+        requirement_ids=requirement_ids,
+        standards=standards[:2],
+        detail=f"revision comparison: every revision's R{parsed.requirement}",
+        context_limit=context_limit,
+        predict_limit=predict_limit,
+        served_ceiling=served_ceiling,
+    )
+
+
+def _build_from_ids(
+    repo: Any,
+    *,
+    requirement_ids: list[str],
+    standards: list[str],
+    detail: str,
+    context_limit: int,
+    predict_limit: int,
+    served_ceiling: int | None,
+) -> dict[str, Any]:
     standard_text = _standard_side(repo, requirement_ids)
     notes = _notes_side(repo, requirement_ids)
     facts = _traceability_facts(repo, requirement_ids)
@@ -127,7 +203,7 @@ def build(
         "resolved": True,
         "requirement_refs": requirement_ids,
         "standards": standards,
-        "resolution": resolution.get("detail", ""),
+        "resolution": detail,
         "text": text,
         "documents_included": included,
         "documents_deferred": deferred,

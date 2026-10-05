@@ -200,6 +200,23 @@ def _register_part(
     }
 
 
+def _payload_pricing() -> dict[str, Any]:
+    """The declared limits and the served ceiling, as the payload guard prices
+    them (DATA_TRUTH DD3c: every payload-bearing tool uses this one helper)."""
+    from portal.modules.compliance.core.runtime_config import (
+        reading_context_limits,
+        reading_route_ceiling,
+    )
+
+    limits = reading_context_limits()
+    ceiling = reading_route_ceiling()
+    return {
+        "context_limit": min(limits["context_limit"], ceiling or limits["context_limit"]),
+        "predict_limit": limits["predict_limit"],
+        "served_ceiling": ceiling,
+    }
+
+
 @mcp.tool()
 def compliance_requirement(
     requirement: str,
@@ -314,6 +331,17 @@ def compliance_requirement(
                         "truncation": truncation,
                     }
                 )
+            # DATA_TRUTH DD3c: the atoms travel with the dual-document payload
+            # for the addressed requirement — the register's atom clauses plus
+            # the standard's normative text and the operator's document set
+            try:
+                from portal.modules.compliance.core import dual_document
+
+                response["dual_document"] = dual_document.build(
+                    repo, requirement_ref=requirement, **_payload_pricing()
+                )
+            except Exception as e:  # noqa: BLE001 - the atoms stand alone
+                response["dual_document"] = {"resolved": False, "error": str(e)}
             return response
         return {
             "requirement": requirement,
@@ -2105,20 +2133,8 @@ def compliance_search(
         # stays, never replaced).
         if not requirement.strip():
             from portal.modules.compliance.core import dual_document
-            from portal.modules.compliance.core.runtime_config import (
-                reading_context_limits,
-                reading_route_ceiling,
-            )
 
-            limits = reading_context_limits()
-            ceiling = reading_route_ceiling()
-            payload = dual_document.build(
-                repo,
-                query=query,
-                context_limit=min(limits["context_limit"], ceiling or limits["context_limit"]),
-                predict_limit=limits["predict_limit"],
-                served_ceiling=ceiling,
-            )
+            payload = dual_document.build(repo, query=query, **_payload_pricing())
             if payload.get("resolved"):
                 payload.pop("mode", None)
                 result["dual_document"] = payload
@@ -2236,10 +2252,22 @@ def compliance_links(
 @mcp.tool()
 def compliance_timeline(ref: str) -> dict[str, Any]:
     """Every revision of either side, with its dates — plus the semantic delta
-    between consecutive regulatory revisions."""
+    between consecutive regulatory revisions.
+
+    DATA_TRUTH DD3c: the result carries ``dual_document`` built for the whole
+    revision family of the addressed requirement — part (a) holds EVERY
+    revision's normative anchors (CIP-003-8's words beside CIP-003-9's), since
+    a revision-comparison question needs the predecessor's text no
+    current-revision payload can carry."""
     repo = _repo()
     try:
-        return _graph_timeline(repo, ref)
+        result = _graph_timeline(repo, ref)
+        from portal.modules.compliance.core import dual_document
+
+        result["dual_document"] = dual_document.build_cross_revision(
+            repo, ref, **_payload_pricing()
+        )
+        return result
     finally:
         repo.close()
 
@@ -2254,6 +2282,19 @@ def compliance_coverage(
     This is what replaces ``compliance_gaps``'s job queue for the question
     "where are we not covered". It reports recorded links, not verdicts: what a
     link MEANS is read at question time.
+
+    Link standing (DATA_TRUTH Amendment 2 DD3c): ``linked_sections`` counts
+    APPROVED links and ``operator_declared_sections`` carries the operator's
+    own traceability declarations (``operator_traceability`` IMPLEMENTS rows,
+    labelled as declarations) — either sets ``has_link``. Similarity
+    ``proposed`` edges are listed under ``unverified_proposals``, labelled
+    unverified, and never set ``has_link``.
+
+    The result also carries ``dual_document``: the dual-document payload for
+    the addressed requirement (the standard's normative Parts and the
+    operator's document set, priced and guarded like
+    ``compliance_context(mode=material)``), so a coverage question reads the
+    material it reports on.
     """
     from portal.modules.compliance.core import reading_assembly, section_index
 
@@ -2278,28 +2319,53 @@ def compliance_coverage(
         rows: list[dict[str, Any]] = []
         for ref in refs:
             edges = repo._conn.execute(
-                """SELECT dst_ref, status, derivation, confidence FROM relationship_assertions
-                   WHERE src_ref = ? AND status IN ('approved','proposed')""",
+                """SELECT dst_ref, status, derivation FROM relationship_assertions
+                   WHERE src_ref = ? AND (
+                     status IN ('approved','machine_determined')
+                     OR (status = 'proposed' AND derivation <> 'operator_traceability')
+                   )""",
                 (ref,),
             ).fetchall()
-            linked = section_index.resolve_sections(repo, [str(e[0]) for e in edges])
+            approved: list[tuple[str, str]] = []
+            declared: list[str] = []
+            proposals: list[str] = []
+            for dst, status, derivation in edges:
+                dst, derivation = str(dst), str(derivation or "")
+                if derivation == "operator_traceability":
+                    declared.append(dst)
+                elif status == "proposed":
+                    proposals.append(dst)
+                else:
+                    approved.append((dst, status))
+            linked = section_index.resolve_sections(repo, [d for d, _ in approved])
+            declared_linked = section_index.resolve_sections(repo, declared)
             rows.append(
                 {
                     "requirement": ref,
                     "linked_sections": [
                         {
                             **_provenance(entry),
-                            "status": dict(
-                                zip([e[0] for e in edges], [e[1] for e in edges], strict=True)
-                            ).get(sid, ""),
+                            "status": dict(approved).get(sid, ""),
                         }
                         for sid, entry in linked.items()
                     ],
-                    "unresolvable_links": [str(e[0]) for e in edges if str(e[0]) not in linked],
-                    "has_link": bool(linked),
+                    "operator_declared_sections": [
+                        {
+                            **_provenance(entry),
+                            "standing": "the operator's own traceability declaration",
+                        }
+                        for sid, entry in declared_linked.items()
+                    ],
+                    "unverified_proposals": [
+                        {"dst_ref": dst, "standing": "unverified similarity proposal"}
+                        for dst in proposals
+                        if dst not in linked
+                    ],
+                    "unresolvable_links": [str(d) for d, _ in approved if str(d) not in linked],
+                    "has_link": bool(linked or declared_linked),
                 }
             )
-        return {
+        result = {
             "standard": parsed.standard,
             "requirement": parsed.requirement,
             "valid_at": valid_at or "latest effective",
@@ -2309,6 +2375,12 @@ def compliance_coverage(
             "requirements_with_no_link": [r["requirement"] for r in rows if not r["has_link"]],
             "deterministic": True,
         }
+        from portal.modules.compliance.core import dual_document
+
+        result["dual_document"] = dual_document.build(
+            repo, requirement_ref=target, **_payload_pricing()
+        )
+        return result
     finally:
         repo.close()
 
@@ -2445,20 +2517,8 @@ def compliance_context(
     try:
         if mode == "material":
             from portal.modules.compliance.core import dual_document
-            from portal.modules.compliance.core.runtime_config import (
-                reading_context_limits,
-                reading_route_ceiling,
-            )
 
-            limits = reading_context_limits()
-            ceiling = reading_route_ceiling()
-            payload = dual_document.build(
-                repo,
-                requirement_ref=ref,
-                context_limit=min(limits["context_limit"], ceiling or limits["context_limit"]),
-                predict_limit=limits["predict_limit"],
-                served_ceiling=ceiling,
-            )
+            payload = dual_document.build(repo, requirement_ref=ref, **_payload_pricing())
             if payload.get("error"):
                 payload.pop("error", None)
                 payload.update({"mode": "material", "ref": ref, "resolved": False})
