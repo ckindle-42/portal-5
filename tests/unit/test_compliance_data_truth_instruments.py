@@ -614,8 +614,11 @@ def test_search_predicate_default_excludes_future_and_inactive() -> None:
     clause = ss.search_predicate(standard="", layer="", valid_at="", known_at="")
     assert "is_superseded" in clause
     assert "effective_from" in clause and "effective_to" in clause
-    today = __import__("datetime").date.today().isoformat()
-    assert today in clause
+    # the module's one clock (temporal.now_iso, UTC) — never the local date,
+    # which disagrees every evening west of UTC
+    from portal.modules.compliance.core.section_index import _today
+
+    assert _today() in clause
 
 
 def test_search_predicate_explicit_clock_skips_the_default() -> None:
