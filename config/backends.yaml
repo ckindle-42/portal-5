@@ -35,6 +35,12 @@ backends:
   # 65,536 request window on this tag in the P2 verification.
   - id: gemma4:26b-a4b-it-q4_K_M-ctx64k
     supports_tools: true
+  # DATA_TRUTH Amendment 1 (2026-10-04, operator-approved): compliance-reading's
+  # seat — same weights, PARAMETER num_ctx 131072 baked so the Ollama fallback
+  # holds the dual-document payload without silent truncation. Tool-call
+  # probed live before registration.
+  - id: gemma4:26b-a4b-it-q4_K_M-ctx128k
+    supports_tools: true
   - id: granite4:tiny-h-ctx32k
     supports_tools: true
   - id: granite4:small-h-ctx32k
@@ -1006,6 +1012,9 @@ backends:
     # conversion (max_model_len 262,144 — the conversion holds the 65k window
     # with room; the 90,041-token needle passed under the balanced guard).
     gemma4:26b-a4b-it-q4_K_M-ctx64k: mlx-community--gemma-4-26b-a4b-it-4bit
+    # DATA_TRUTH Amendment 1: the 128k seat tag, same MLX conversion (124.7k-
+    # token real-document read measured 2026-10-04).
+    gemma4:26b-a4b-it-q4_K_M-ctx128k: mlx-community--gemma-4-26b-a4b-it-4bit
     hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k: Qwen3.8-27B-oQ4e-mtp
   type: omlx
   url: ${OMLX_URL:-http://host.docker.internal:8085}

@@ -343,11 +343,14 @@ def _probe_compliance_capture_unit_kinds(root: Path) -> list[str]:
 
 
 def _probe_compliance_served_window_tag(root: Path) -> int | None:
-    """The window the reading seat's tag declares (DATA_TRUTH F8). Read from
-    the module's own parser, so a change in tag shape shows up here."""
+    """The window compliance-reading's bound tag declares (DATA_TRUTH F8), read
+    from the live ``model_hint`` through the module's own parser — a rebinding
+    or a change in tag shape shows up here."""
     from portal.modules.compliance.core.served_window import tag_window
 
-    return tag_window("gemma4:26b-a4b-it-q4_K_M-ctx32k")
+    workspaces = _load_portal_yaml(root).get("workspaces") or {}
+    hint = str((workspaces.get("compliance-reading") or {}).get("model_hint") or "")
+    return tag_window(hint) if hint else None
 
 
 def _probe_compliance_store_tables(root: Path) -> list[str]:

@@ -1823,8 +1823,13 @@ workspaces:
     module: compliance
     name: ⚖️ Compliance Mapping (machine seat)
     description: The compliance module's own machine calls — sweep map readings, standard reduce, the batch reader. Same gemma-4-26b-a4b-it weights as compliance-reading, with no persona and no workspace tools, because each caller brings its complete prompt and (reader) its own tool schemas.
-    model_hint: gemma4:26b-a4b-it-q4_K_M-ctx32k
-    context_limit: 32768 # the tag's baked window; the overflow route is compliance-reading-overflow
+    # DATA_TRUTH Amendment 1 (2026-10-04): follows compliance-reading's
+    # rebinding to the ctx128k tag — this bare lane exists to CATCH the
+    # reading tag, so machine calls (sweep map_read/reduce, reader.read) that
+    # address compliance-reading's model_hint never land in the persona+tools
+    # lane (test_compliance_machine_seat_isolation).
+    model_hint: gemma4:26b-a4b-it-q4_K_M-ctx128k
+    context_limit: 131072 # the tag's baked window; the overflow route is compliance-reading-overflow
     predict_limit: 24576 # matches compliance-reading: one mapping answer's room
     temperature: 0.0 # the reading transport sends 0.0 (DEFAULT_TEMPERATURE); declared so the lane says what runs
     top_p: 0.95
@@ -1861,8 +1866,14 @@ workspaces:
     # that: hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k (dense 27B, 12.0
     # tok/s decode, 94 tok/s prefill — turn one 397.8 s on the old prompt/
     # tool surface, and the 32k window overflowed there).
-    model_hint: gemma4:26b-a4b-it-q4_K_M-ctx32k
-    context_limit: 32768
+    # DATA_TRUTH Amendment 1 (operator-approved PROMOTE_POLICY=confirm,
+    # 2026-10-04): same weights, window 32k -> 128k. The dual-document payload
+    # (standard + the operator's document set, 6k-86k tokens) cannot fit 32k;
+    # the oMLX conversion served a 124.7k-token real-document read (211 s,
+    # 59% memory free, deep facts quoted exactly) and the Ollama fallback tag
+    # bakes num_ctx 131072 so neither route truncates silently.
+    model_hint: gemma4:26b-a4b-it-q4_K_M-ctx128k
+    context_limit: 131072
     predict_limit: 24576
     # compliance is a deterministic lane (settings_audit LANE_SAMPLING ceiling
     # 0.3, settled WINDOW_AND_SEAT_V1 §P4.4: 0.3 IS the workspace policy — the

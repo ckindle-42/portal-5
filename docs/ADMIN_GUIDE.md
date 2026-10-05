@@ -571,8 +571,8 @@ The roster is derived from the persona YAML files under `config/personas/`, one 
 | `compliance-council-deepseek-r1` | compliance | `hf.co/unsloth/DeepSeek-R1-0528-Qwen3-8B-GGUF:Q4_K_XL-ctx64k` |
 | `compliance-council-granite41` | compliance | `granite4.1:30b-ctx16k` |
 | `compliance-council-qwen38` | compliance | `hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k` |
-| `compliance-mapping` | compliance | `gemma4:26b-a4b-it-q4_K_M-ctx32k` |
-| `compliance-reading` | compliance | `gemma4:26b-a4b-it-q4_K_M-ctx32k` |
+| `compliance-mapping` | compliance | `gemma4:26b-a4b-it-q4_K_M-ctx128k` |
+| `compliance-reading` | compliance | `gemma4:26b-a4b-it-q4_K_M-ctx128k` |
 | `compliance-reading-overflow` | compliance | `gemma4:26b-a4b-it-q4_K_M-ctx64k` |
 | `tools-specialist` | general | `granite4.1:8b-ctx8k` |
 
@@ -647,8 +647,8 @@ default.
 | `compliance-council-deepseek-r1` | `hf.co/unsloth/DeepSeek-R1-0528-Qwen3-8B-GGUF:Q4_K_XL-ctx64k` | yes |
 | `compliance-council-granite41` | `granite4.1:30b-ctx16k` | yes |
 | `compliance-council-qwen38` | `hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k` | yes |
-| `compliance-mapping` | `gemma4:26b-a4b-it-q4_K_M-ctx32k` | yes |
-| `compliance-reading` | `gemma4:26b-a4b-it-q4_K_M-ctx32k` | yes |
+| `compliance-mapping` | `gemma4:26b-a4b-it-q4_K_M-ctx128k` | yes |
+| `compliance-reading` | `gemma4:26b-a4b-it-q4_K_M-ctx128k` | yes |
 | `compliance-reading-overflow` | `gemma4:26b-a4b-it-q4_K_M-ctx64k` | yes |
 | `tools-specialist` | `granite4.1:8b-ctx8k` | yes |
 
@@ -724,7 +724,7 @@ The fleet table is the `mcp_fleet` list in `config/portal.yaml`, the single sour
 ### Model Catalog
 
 <!-- WIKI:GENERATED unit=unit-fact-model-catalog -->
-#### Model catalog (273 model ids across 7 backend groups)
+#### Model catalog (274 model ids across 7 backend groups)
 
 ##### coding (56)
 
@@ -800,7 +800,7 @@ The fleet table is the `mcp_fleet` list in `config/portal.yaml`, the single sour
 - `huihui_ai/baronllm-abliterated`
 - `huihui_ai/baronllm-abliterated:latest-ctx8k`
 
-##### general (121)
+##### general (122)
 
 - `NVIDIA-Nemotron-3.5-Lightning-30B-A3B-oQ4e-mtp`
 - `cybersecqwen-4b-toolfix:latest`
@@ -812,6 +812,7 @@ The fleet table is the `mcp_fleet` list in `config/portal.yaml`, the single sour
 - `gemma-4-26b-a4b-it-QAT-4bit`
 - `gemma4:12b-it-qat`
 - `gemma4:26b-a4b-it-q4_K_M`
+- `gemma4:26b-a4b-it-q4_K_M-ctx128k`
 - `gemma4:26b-a4b-it-q4_K_M-ctx32k`
 - `gemma4:26b-a4b-it-q4_K_M-ctx64k`
 - `gemma4:26b-a4b-it-qat`

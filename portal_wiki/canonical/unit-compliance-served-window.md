@@ -11,7 +11,7 @@ sources:
   path: tests/unit/test_compliance_data_truth_instruments.py
 claims:
 - probe: compliance.served_window.tag_window
-  equals: 32768
+  equals: 131072
 confidence: high
 tags:
 - compliance
@@ -29,7 +29,11 @@ It exists because of TASK_COMPLIANCE_DATA_TRUTH_V1 (F8): `compliance-reading`
 declared `context_limit: 32768` while the `ctx32k` alias served the 262,144-token
 MLX conversion on oMLX, so `compliance_context` refused whole material that fit
 and nothing could see the fiction. The drift was invisible because no code
-compared the two numbers.
+compared the two numbers. DATA_TRUTH Amendment 1 (2026-10-04, operator-approved)
+rebound the seat to the `ctx128k` tag (`context_limit: 131072`): the dual-document
+payload needs it, the oMLX conversion served a 124.7k-token real-document read,
+and the Ollama fallback tag bakes `num_ctx 131072` (`/api/ps` context_length
+131072 at a 124,663-token prompt) so neither route truncates silently.
 
 A hint can be servable by more than one backend — listed natively on the Ollama
 backend and aliased to an MLX conversion on oMLX — and the routes need not agree
