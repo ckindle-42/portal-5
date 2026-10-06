@@ -36,3 +36,7 @@ Artifacts: `tests/benchmarks/results/cad_gauntlet_v2_B0_20261006T160659Z.{json,m
 - plate_4holes via cad_build -> cad_finalize: ok, printability 0 findings, step/stl/script/png URLs published through OWUI (`/api/v1/files/...`); STL graded PASS by `grade_mesh`.
 - Pipeline `/admin/refresh-tools`: 153 tools registered, includes cad_build/execute/measure/find_holes/render/finalize.
 - mypy: 161 pre-existing errors elsewhere in portal/, unchanged by this phase.
+
+### P2 security review (automated, post-commit) — dispositions
+- Engine inherited the server env (incl. `OWUI_API_KEY`) while running model-authored code: **fixed** — engine now spawns with an explicit allowlist (`_ENGINE_ENV_ALLOWLIST`), unit-tested.
+- `/tools/cad_*` routes unauthenticated: **acknowledged, unchanged** — same convention as every fleet MCP `/tools/*` route (host port bound to 127.0.0.1; reachable only from the compose network). The engine additionally rejects `os`/`subprocess`/socket/pathlib imports in executed code (verified live: `import os` -> SecurityError). Residual: the parent process still holds `OWUI_API_KEY` in its own environment.

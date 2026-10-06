@@ -43,6 +43,15 @@ import httpx
 logger = logging.getLogger(__name__)
 
 ENGINE_HOST = "127.0.0.1"
+_ENGINE_ENV_ALLOWLIST = (
+    "PATH",
+    "HOME",
+    "LANG",
+    "LC_ALL",
+    "TMPDIR",
+    "PYOPENGL_PLATFORM",
+    "VTK_DEFAULT_OPENGL_WINDOW",
+)
 ENGINE_PORT = int(os.getenv("CAD_B3D_ENGINE_PORT", "18123"))
 ENGINE_URL = f"http://{ENGINE_HOST}:{ENGINE_PORT}/mcp"
 ENGINE_MAX_SESSIONS = int(os.getenv("CAD_B3D_MAX_SESSIONS", "4"))
@@ -80,7 +89,9 @@ def start_engine(workdir: Path, wait_s: float = 90.0) -> bool:
         logger.error("build123d-mcp binary not found on PATH; cad_* tools disabled")
         return False
     workdir.mkdir(parents=True, exist_ok=True)
-    env = dict(os.environ)
+    # The engine executes model-authored Python: hand it an explicit allowlist, never
+    # the server's environment (which carries OWUI_API_KEY and other credentials).
+    env = {k: os.environ[k] for k in _ENGINE_ENV_ALLOWLIST if k in os.environ}
     env.update(
         {
             "BUILD123D_TRANSPORT": "http",

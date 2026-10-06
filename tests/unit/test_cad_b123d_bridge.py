@@ -178,3 +178,29 @@ def test_engine_unreachable_is_an_error_not_a_raise(monkeypatch, tmp_path):
     b._live.clear()
     r = asyncio.run(b.engine_call("measure", {}, "s1"))
     assert r["is_error"] is True and "unreachable" in r["texts"][0]
+
+
+def test_engine_env_is_allowlisted_not_inherited(monkeypatch, tmp_path):
+    from portal.modules.cad.tools import b123d_bridge as b
+
+    seen: dict = {}
+
+    class _Proc:
+        returncode = None
+
+        def poll(self):
+            return None
+
+    def fake_popen(argv, **kw):
+        seen.update(kw["env"])
+        return _Proc()
+
+    monkeypatch.setenv("OWUI_API_KEY", "secret")
+    monkeypatch.setenv("PATH", "/usr/bin")
+    monkeypatch.setattr(b, "engine_binary", lambda: "/bin/true")
+    monkeypatch.setattr(b.subprocess, "Popen", fake_popen)
+    monkeypatch.setattr(b, "engine_alive", lambda: bool(seen))
+    monkeypatch.setattr(b.atexit, "register", lambda *_a, **_k: None)
+    assert b.start_engine(tmp_path, wait_s=2.0) is True
+    assert "OWUI_API_KEY" not in seen and seen["PATH"] == "/usr/bin"
+    assert seen["BUILD123D_HOST"] == b.ENGINE_HOST
