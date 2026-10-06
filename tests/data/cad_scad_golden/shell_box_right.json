@@ -1,0 +1,14 @@
+{
+ "base": {
+  "type": "box",
+  "dimensions": {
+   "width": 40,
+   "depth": 30,
+   "height": 20
+  }
+ },
+ "shell": {
+  "wall_thickness": 2,
+  "open_face": "right"
+ }
+}

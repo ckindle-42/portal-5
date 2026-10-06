@@ -1,0 +1,26 @@
+{
+ "base": {
+  "type": "box",
+  "dimensions": {
+   "width": 60,
+   "depth": 60,
+   "height": 5
+  }
+ },
+ "holes": [
+  {
+   "diameter": 4,
+   "face": "top",
+   "offset_from": "corner",
+   "offset_x": 45,
+   "offset_y": 30
+  }
+ ],
+ "pattern": {
+  "type": "circular",
+  "feature_kind": "holes",
+  "feature_index": 0,
+  "count": 6,
+  "angle": 360
+ }
+}

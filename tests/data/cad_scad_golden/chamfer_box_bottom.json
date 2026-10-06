@@ -1,0 +1,16 @@
+{
+ "base": {
+  "type": "box",
+  "dimensions": {
+   "width": 40,
+   "depth": 30,
+   "height": 10
+  }
+ },
+ "chamfers": [
+  {
+   "size": 1.5,
+   "edges": "bottom"
+  }
+ ]
+}

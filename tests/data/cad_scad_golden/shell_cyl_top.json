@@ -1,0 +1,13 @@
+{
+ "base": {
+  "type": "cylinder",
+  "dimensions": {
+   "radius": 15,
+   "height": 12
+  }
+ },
+ "shell": {
+  "wall_thickness": 2,
+  "open_face": "top"
+ }
+}

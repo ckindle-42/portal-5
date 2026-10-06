@@ -1,0 +1,28 @@
+{
+ "base": {
+  "type": "box",
+  "dimensions": {
+   "width": 50,
+   "depth": 30,
+   "height": 3
+  }
+ },
+ "pockets": [
+  {
+   "width": 3,
+   "depth_dim": 20,
+   "cut_depth": 3,
+   "face": "top",
+   "offset_from": "edge",
+   "offset_x": 8,
+   "offset_y": 5
+  }
+ ],
+ "pattern": {
+  "type": "linear",
+  "feature_kind": "pockets",
+  "feature_index": 0,
+  "count": 5,
+  "spacing": 8
+ }
+}

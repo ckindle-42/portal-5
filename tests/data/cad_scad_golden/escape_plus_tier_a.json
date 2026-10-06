@@ -1,0 +1,63 @@
+{
+ "base": {
+  "type": "box",
+  "dimensions": {
+   "width": 40,
+   "depth": 30,
+   "height": 10
+  }
+ },
+ "holes": [
+  {
+   "diameter": 4,
+   "face": "top",
+   "offset_from": "corner",
+   "offset_x": 10,
+   "offset_y": 6
+  }
+ ],
+ "escape_hatch": {
+  "csg": {
+   "op": "union",
+   "children": [
+    {
+     "op": "translate",
+     "vector": [
+      5,
+      5,
+      10
+     ],
+     "child": {
+      "op": "sphere",
+      "dimensions": {
+       "radius": 3
+      }
+     }
+    },
+    {
+     "op": "rotate",
+     "vector": [
+      0,
+      90,
+      0
+     ],
+     "child": {
+      "op": "scale",
+      "vector": [
+       1,
+       2,
+       1
+      ],
+      "child": {
+       "op": "cylinder",
+       "dimensions": {
+        "radius": 2,
+        "height": 6
+       }
+      }
+     }
+    }
+   ]
+  }
+ }
+}

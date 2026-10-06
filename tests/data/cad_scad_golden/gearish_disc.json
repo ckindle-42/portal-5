@@ -1,0 +1,25 @@
+{
+ "base": {
+  "type": "cylinder",
+  "dimensions": {
+   "radius": 18,
+   "height": 6
+  }
+ },
+ "holes": [
+  {
+   "diameter": 3,
+   "face": "top",
+   "offset_from": "corner",
+   "offset_x": 28,
+   "offset_y": 18
+  }
+ ],
+ "pattern": {
+  "type": "circular",
+  "feature_kind": "holes",
+  "feature_index": 0,
+  "count": 8,
+  "angle": 360
+ }
+}

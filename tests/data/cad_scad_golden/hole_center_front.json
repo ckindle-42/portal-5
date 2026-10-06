@@ -1,0 +1,20 @@
+{
+ "base": {
+  "type": "box",
+  "dimensions": {
+   "width": 40,
+   "depth": 30,
+   "height": 10
+  }
+ },
+ "holes": [
+  {
+   "diameter": 4,
+   "face": "front",
+   "offset_from": "center",
+   "offset_x": 2,
+   "offset_y": -1,
+   "depth": 3
+  }
+ ]
+}

@@ -1,0 +1,21 @@
+{
+ "base": {
+  "type": "box",
+  "dimensions": {
+   "width": 40,
+   "depth": 30,
+   "height": 10
+  }
+ },
+ "pockets": [
+  {
+   "width": 6,
+   "depth_dim": 5,
+   "cut_depth": 2,
+   "face": "right",
+   "offset_from": "corner",
+   "offset_x": 8,
+   "offset_y": 4
+  }
+ ]
+}

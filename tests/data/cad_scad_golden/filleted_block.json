@@ -1,0 +1,16 @@
+{
+ "base": {
+  "type": "box",
+  "dimensions": {
+   "width": 35,
+   "depth": 25,
+   "height": 8
+  }
+ },
+ "fillets": [
+  {
+   "radius": 1,
+   "edges": "all"
+  }
+ ]
+}

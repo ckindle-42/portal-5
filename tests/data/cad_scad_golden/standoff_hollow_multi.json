@@ -1,0 +1,48 @@
+{
+ "base": {
+  "type": "box",
+  "dimensions": {
+   "width": 50,
+   "depth": 40,
+   "height": 3
+  }
+ },
+ "standoffs": [
+  {
+   "outer_diameter": 6,
+   "inner_diameter": 2.5,
+   "height": 6,
+   "face": "top",
+   "offset_from": "corner",
+   "offset_x": 7,
+   "offset_y": 7
+  },
+  {
+   "outer_diameter": 6,
+   "inner_diameter": 2.5,
+   "height": 6,
+   "face": "top",
+   "offset_from": "corner",
+   "offset_x": 7,
+   "offset_y": 33
+  },
+  {
+   "outer_diameter": 6,
+   "inner_diameter": 2.5,
+   "height": 6,
+   "face": "top",
+   "offset_from": "corner",
+   "offset_x": 43,
+   "offset_y": 7
+  },
+  {
+   "outer_diameter": 6,
+   "inner_diameter": 2.5,
+   "height": 6,
+   "face": "top",
+   "offset_from": "corner",
+   "offset_x": 43,
+   "offset_y": 33
+  }
+ ]
+}

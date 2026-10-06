@@ -1,0 +1,28 @@
+{
+ "base": {
+  "type": "box",
+  "dimensions": {
+   "width": 40,
+   "depth": 30,
+   "height": 10
+  }
+ },
+ "holes": [
+  {
+   "diameter": 4,
+   "face": "top",
+   "offset_from": "corner",
+   "offset_x": 10,
+   "offset_y": 6,
+   "chamfer": 0.5,
+   "counterbore": {
+    "diameter": 8,
+    "depth": 2
+   },
+   "countersink": {
+    "diameter": 9,
+    "angle": 82
+   }
+  }
+ ]
+}

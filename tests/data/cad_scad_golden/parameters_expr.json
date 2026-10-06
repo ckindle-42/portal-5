@@ -1,0 +1,28 @@
+{
+ "parameters": {
+  "w": 50,
+  "d": "w * 0.6",
+  "t": 4,
+  "hole_d": "t + 1"
+ },
+ "base": {
+  "type": "box",
+  "dimensions": {
+   "width": "w",
+   "depth": "d",
+   "height": "t"
+  }
+ },
+ "holes": [
+  {
+   "diameter": "hole_d",
+   "face": "top",
+   "offset_from": "center",
+   "offset_x": 0,
+   "offset_y": 0
+  }
+ ],
+ "metadata": {
+  "part_name": "param part"
+ }
+}

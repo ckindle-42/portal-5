@@ -1,0 +1,13 @@
+{
+ "metadata": {
+  "part_name": "plain_plate"
+ },
+ "base": {
+  "type": "box",
+  "dimensions": {
+   "width": 40,
+   "depth": 30,
+   "height": 5
+  }
+ }
+}

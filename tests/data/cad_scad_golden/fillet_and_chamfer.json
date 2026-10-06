@@ -1,0 +1,21 @@
+{
+ "base": {
+  "type": "box",
+  "dimensions": {
+   "width": 40,
+   "depth": 30,
+   "height": 10
+  }
+ },
+ "fillets": [
+  {
+   "radius": 1
+  }
+ ],
+ "chamfers": [
+  {
+   "size": 0.5,
+   "edges": "top"
+  }
+ ]
+}

@@ -1,0 +1,68 @@
+{
+ "base": {
+  "type": "box",
+  "dimensions": {
+   "width": 60,
+   "depth": 40,
+   "height": 25
+  }
+ },
+ "shell": {
+  "wall_thickness": 2,
+  "open_face": "top"
+ },
+ "standoffs": [
+  {
+   "outer_diameter": 6,
+   "inner_diameter": 2.5,
+   "height": 6,
+   "face": "bottom",
+   "offset_from": "corner",
+   "offset_x": 7,
+   "offset_y": 7
+  }
+ ],
+ "holes": [
+  {
+   "diameter": 4,
+   "face": "front",
+   "offset_from": "corner",
+   "offset_x": 10,
+   "offset_y": 6
+  },
+  {
+   "diameter": 4,
+   "face": "left",
+   "offset_from": "corner",
+   "offset_x": 10,
+   "offset_y": 6
+  }
+ ],
+ "pockets": [
+  {
+   "width": 6,
+   "depth_dim": 5,
+   "cut_depth": 2,
+   "face": "back",
+   "offset_from": "center",
+   "offset_x": 0,
+   "offset_y": 0
+  }
+ ],
+ "ribs": [
+  {
+   "thickness": 2,
+   "height": 4,
+   "face": "right",
+   "offset_from": "center",
+   "offset_x": 0,
+   "offset_y": 0
+  }
+ ],
+ "fillets": [
+  {
+   "radius": 1,
+   "edges": "top"
+  }
+ ]
+}

@@ -1,0 +1,27 @@
+{
+ "base": {
+  "type": "box",
+  "dimensions": {
+   "width": 80,
+   "depth": 30,
+   "height": 4
+  }
+ },
+ "holes": [
+  {
+   "diameter": 10,
+   "chamfer": 1,
+   "face": "top",
+   "offset_from": "edge",
+   "offset_x": 15,
+   "offset_y": 15
+  }
+ ],
+ "pattern": {
+  "type": "linear",
+  "feature_kind": "holes",
+  "feature_index": 0,
+  "count": 3,
+  "spacing": 25
+ }
+}

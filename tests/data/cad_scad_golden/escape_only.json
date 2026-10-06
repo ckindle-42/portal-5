@@ -1,0 +1,40 @@
+{
+ "base": {
+  "type": "box",
+  "dimensions": {
+   "width": 10,
+   "depth": 10,
+   "height": 10
+  }
+ },
+ "escape_hatch": {
+  "csg": {
+   "op": "difference",
+   "children": [
+    {
+     "op": "box",
+     "dimensions": {
+      "width": 20,
+      "depth": 20,
+      "height": 5
+     }
+    },
+    {
+     "op": "translate",
+     "vector": [
+      10,
+      10,
+      -1
+     ],
+     "child": {
+      "op": "cylinder",
+      "dimensions": {
+       "radius": 3,
+       "height": 8
+      }
+     }
+    }
+   ]
+  }
+ }
+}

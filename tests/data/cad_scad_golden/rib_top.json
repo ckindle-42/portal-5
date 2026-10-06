@@ -1,0 +1,20 @@
+{
+ "base": {
+  "type": "box",
+  "dimensions": {
+   "width": 40,
+   "depth": 30,
+   "height": 10
+  }
+ },
+ "ribs": [
+  {
+   "thickness": 2,
+   "height": 6,
+   "face": "top",
+   "offset_from": "corner",
+   "offset_x": 12,
+   "offset_y": 0
+  }
+ ]
+}
