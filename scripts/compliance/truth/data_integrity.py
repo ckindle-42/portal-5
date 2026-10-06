@@ -464,7 +464,7 @@ def check_edges(conn: sqlite3.Connection, full: dict[str, str]) -> CheckResult:
             "edge_census",
             "fail",
             f"{len(bad_endpoints)} edge endpoint(s) resolve to TOC/furniture/fragment sections — "
-            "never eligible as evidence or edge endpoints",
+            "never eligible as evidence or edge endpoints (or no longer exist: dangling)",
             findings,
         )
     return CheckResult(
@@ -488,13 +488,15 @@ def _ineligible_reason(conn: sqlite3.Connection, full: dict[str, str], ref: str)
     row = conn.execute(
         "select ss.path, ss.title, ss.role, ss.char_start, ss.char_end, ss.revision_id,"
         " sd.jurisdiction from source_sections ss"
-        " join document_revisions dr on dr.revision_id = ss.revision_id"
-        " join source_documents sd on sd.logical_id = dr.logical_id"
+        " left join document_revisions dr on dr.revision_id = ss.revision_id"
+        " left join source_documents sd on sd.logical_id = dr.logical_id"
         " where ss.section_id=?",
         (base,),
     ).fetchone()
     if row is None:
-        return ""
+        # a section-shaped endpoint with no section row: a re-capture re-cut
+        # it (D-DT-19 review 2 — the census passed 19 such edges as eligible)
+        return "dangling"
     if str(row["role"] or "") == "TABLE_OF_CONTENTS":
         return "toc"
     text = ""

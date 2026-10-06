@@ -390,6 +390,14 @@ def test_ineligible_reason_flags_toc(memory_store: sqlite3.Connection) -> None:
     assert di._ineligible_reason(memory_store, full, "doc.pdf::S4.2") == ""
 
 
+def test_ineligible_reason_flags_dangling_endpoint(memory_store: sqlite3.Connection) -> None:
+    """D-DT-19 review 2: a section-shaped endpoint whose row a re-capture
+    re-cut is not eligible — the census used to pass it."""
+    full = {"r1": "X" * 40 + "TOC" + "Y" * 17}
+    assert di._ineligible_reason(memory_store, full, "csection-gone") == "dangling"
+    assert di._ineligible_reason(memory_store, full, "isection-gone") == "dangling"
+
+
 def test_edge_census_fails_on_toc_endpoint(memory_store: sqlite3.Connection) -> None:
     full = {"r1": "X" * 40 + "TOC" + "Y" * 17}
     result = di.check_edges(memory_store, full)
