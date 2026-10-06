@@ -514,6 +514,81 @@ async def test_fallback_on_omlx_capacity_400(monkeypatch) -> None:
     assert _content(chunks) == "rescued"
 
 
+def _omlx_backend(bid: str) -> typing.Any:
+    be = _backend(bid)
+    be.type = "omlx"
+    return be
+
+
+_CAPACITY_ERR = (
+    b'data: {"error": "Backend returned HTTP 400: prefill memory guard: '
+    b'projected memory would exceed ceiling", "status": 400}\n\n'
+)
+
+
+@pytest.mark.anyio
+async def test_omlx_capacity_400_frees_ollama_and_retries_omlx(monkeypatch) -> None:
+    """oMLX cannot reclaim memory Ollama holds, so after a capacity rejection the
+    pipeline frees Ollama's idle models and retries oMLX once — it does not
+    cascade to the slower engine."""
+    streams = [[_CAPACITY_ERR], [(_delta(content="served by omlx") + "\n\n").encode(), DONE]]
+    freed_calls: list[int] = []
+
+    async def fake_free() -> list[str]:
+        freed_calls.append(1)
+        return ["ollama-model"]
+
+    async def fake_ns(*_a, **_k):
+        raise AssertionError("must not cascade after a successful retry")
+
+    async def _gen(chunks):
+        for c in chunks:
+            yield c
+
+    monkeypatch.setattr(st, "_select_stream_fn", lambda *a, **k: _gen(streams.pop(0)))
+    monkeypatch.setattr(st, "free_ollama_for_omlx", fake_free)
+    monkeypatch.setattr(st, "_try_non_streaming", fake_ns)
+    gen = st._stream_with_fallback(
+        _omlx_backend("b0"), {}, "ws", "m", "p", [], 0.0, False, [], False, "", "",
+        [_backend("b1")], MagicMock(), {},
+    )  # fmt: skip
+    chunks = await _drain(gen)
+    assert freed_calls == [1]
+    assert _content(chunks) == "served by omlx"
+
+
+@pytest.mark.anyio
+async def test_omlx_capacity_400_cascades_when_nothing_to_free(monkeypatch) -> None:
+    from fastapi.responses import JSONResponse
+
+    ok = JSONResponse(
+        {"choices": [{"message": {"role": "assistant", "content": "rescued"}}]},
+        headers={"x-portal-route": "ws;b1;m"},
+    )
+    freed_calls: list[int] = []
+
+    async def fake_free() -> list[str]:
+        freed_calls.append(1)
+        return []
+
+    async def inner(*_a, **_k):
+        yield _CAPACITY_ERR
+
+    async def fake_ns(backend, *_a, **_kw):
+        return ok
+
+    monkeypatch.setattr(st, "_select_stream_fn", lambda *a, **k: inner())
+    monkeypatch.setattr(st, "free_ollama_for_omlx", fake_free)
+    monkeypatch.setattr(st, "_try_non_streaming", fake_ns)
+    gen = st._stream_with_fallback(
+        _omlx_backend("b0"), {}, "ws", "m", "p", [], 0.0, False, [], False, "", "",
+        [_backend("b1")], MagicMock(), {},
+    )  # fmt: skip
+    chunks = await _drain(gen)
+    assert freed_calls == [1]  # tried once, found nothing, then cascaded
+    assert _content(chunks) == "rescued"
+
+
 @pytest.mark.anyio
 async def test_fallback_done_not_leaked_before_answer(monkeypatch) -> None:
     from fastapi.responses import JSONResponse
@@ -624,6 +699,38 @@ async def test_omlx_capacity_400_cascades_instead_of_surfacing(monkeypatch, ns_e
     )
     result = await ns._try_non_streaming(_backend("a"), {"messages": []}, ns_env, 0.0)
     assert result is None  # cascades — caller tries the next candidate
+
+
+@pytest.mark.anyio
+async def test_omlx_capacity_400_frees_ollama_and_retries_non_streaming(
+    monkeypatch, ns_env
+) -> None:
+    capacity = httpx.Response(
+        400, json={"error": "prefill memory guard: projected memory would exceed ceiling"}
+    )
+    ok = httpx.Response(200, json={"choices": [{"message": {"content": "ok"}}]})
+    client = _set_client(monkeypatch, capacity, ok)
+
+    async def fake_free() -> list[str]:
+        return ["ollama-model"]
+
+    import portal.platform.inference.router.backend_introspect as bi
+
+    monkeypatch.setattr(bi, "free_ollama_for_omlx", fake_free)
+    result = await ns._try_non_streaming(
+        _omlx_backend("a"), {"messages": []}, ns_env, 0.0, tried={}
+    )
+    assert result is not None
+    assert len(client.posts) == 2  # rejected, then retried on the same engine
+
+
+@pytest.mark.anyio
+async def test_free_ollama_for_omlx_without_registry_is_a_noop(monkeypatch) -> None:
+    import portal.platform.inference.router.backend_introspect as bi
+    from portal.platform.inference.router import validation
+
+    monkeypatch.setattr(validation, "registry", None)
+    assert await bi.free_ollama_for_omlx() == []
 
 
 def test_is_capacity_error_matches_known_omlx_wording() -> None:
@@ -830,3 +937,22 @@ async def test_router_timeout_schedules_one_uncancelled_reload(monkeypatch) -> N
     assert len(reloads) == 1 and reloads[0]["keep_alive"] == -1
     release.set()
     await routing._router_reload_task
+
+
+@pytest.mark.anyio
+async def test_make_room_for_omlx_only_for_large_omlx_prompts(monkeypatch) -> None:
+    import portal.platform.inference.router.backend_introspect as bi
+
+    freed: list[int] = []
+
+    async def fake_free() -> list[str]:
+        freed.append(1)
+        return ["m"]
+
+    monkeypatch.setattr(bi, "free_ollama_for_omlx", fake_free)
+    small = {"messages": [{"role": "user", "content": "hi"}]}
+    large = {"messages": [{"role": "user", "content": "x" * 60_000}]}
+    assert await bi.make_room_for_omlx(_omlx_backend("a"), small) == []
+    assert await bi.make_room_for_omlx(_backend("a"), large) == []  # Ollama target: leave alone
+    assert await bi.make_room_for_omlx(_omlx_backend("a"), large) == ["m"]
+    assert freed == [1]

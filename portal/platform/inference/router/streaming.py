@@ -39,6 +39,10 @@ import httpx
 from fastapi import HTTPException
 
 from portal.platform.inference.config import PersonaSpec
+from portal.platform.inference.router.backend_introspect import (
+    free_ollama_for_omlx,
+    make_room_for_omlx,
+)
 from portal.platform.inference.router.correlation import (
     get_correlation_id as _corr_id,
 )
@@ -1893,38 +1897,67 @@ async def _stream_with_fallback(
 
     _output_sent = False  # any content/reasoning/tool call reached the client
     _error_status: int | None = None
-    try:
-        _inner_stream = _select_stream_fn(
-            backend,
-            backend_body,
-            slot,
-            workspace_id,
-            target_model,
-            persona,
-            effective_tools,
-            start_time,
-            chain,
-            secondary_model,
-            tertiary_model,
-            portal_no_tools,
-            has_tools,
-        )
-        async for chunk in _inner_stream:
-            if stream_failed:
-                # Drain after an error: a trailing [DONE] forwarded here would
-                # end the client's read before any fallback answer arrives.
+    _freed_ollama = False
+    await make_room_for_omlx(backend, backend_body)
+    while True:
+        try:
+            _inner_stream = _select_stream_fn(
+                backend,
+                backend_body,
+                slot,
+                workspace_id,
+                target_model,
+                persona,
+                effective_tools,
+                start_time,
+                chain,
+                secondary_model,
+                tertiary_model,
+                portal_no_tools,
+                has_tools,
+            )
+            async for chunk in _inner_stream:
+                if stream_failed:
+                    # Drain after an error: a trailing [DONE] forwarded here would
+                    # end the client's read before any fallback answer arrives.
+                    continue
+                _err = _stream_error(chunk)
+                if _err is not None:
+                    stream_failed = True
+                    _error_buffer = chunk
+                    _error_status = _err
+                    continue
+                if not _output_sent and _chunk_has_output(chunk):
+                    _output_sent = True
+                yield chunk
+        except Exception:
+            stream_failed = True
+        # oMLX rejected the prompt for memory it cannot reclaim from Ollama:
+        # free Ollama's idle models and retry oMLX once before cascading to the
+        # slower engine. The first attempt has already released the slot, and
+        # release is idempotent, so the retry runs unslotted for those moments.
+        if (
+            stream_failed
+            and not _output_sent
+            and not _freed_ollama
+            and getattr(backend, "type", "") == "omlx"
+            and _error_status == 400
+            and _error_buffer
+            and _is_capacity_error(_stream_error_detail(_error_buffer))
+        ):
+            _freed_ollama = True
+            _freed = await free_ollama_for_omlx()
+            if _freed:
+                logger.info(
+                    "oMLX capacity rejection for workspace=%s; freed Ollama %s, retrying oMLX",
+                    workspace_id,
+                    _freed,
+                )
+                stream_failed = False
+                _error_buffer = None
+                _error_status = None
                 continue
-            _err = _stream_error(chunk)
-            if _err is not None:
-                stream_failed = True
-                _error_buffer = chunk
-                _error_status = _err
-                continue
-            if not _output_sent and _chunk_has_output(chunk):
-                _output_sent = True
-            yield chunk
-    except Exception:
-        stream_failed = True
+        break
 
     if stream_failed and (
         _output_sent or _is_noncascadable_stream_error(_error_status, _error_buffer)

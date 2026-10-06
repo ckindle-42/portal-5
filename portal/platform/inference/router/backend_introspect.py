@@ -16,7 +16,11 @@ the note in ``_omlx_engine_reachable``).
 
 from __future__ import annotations
 
+import asyncio
 import logging
+import os
+import time
+from typing import Any
 
 import httpx
 
@@ -95,3 +99,75 @@ async def _omlx_engine_reachable(base_url: str, timeout_s: float) -> bool:
             return resp.status_code == 200
     except Exception:
         return False
+
+
+async def free_ollama_for_omlx(wait_s: float = 15.0) -> list[str]:
+    """Unload Ollama's resident models (the intent router excepted); return their names.
+
+    oMLX sizes its prefill ceiling from free memory and cannot reclaim what
+    Ollama holds, so a model Ollama is still keeping warm (default 5 min) makes
+    oMLX's memory guard reject a long prompt that would otherwise fit — and the
+    request then cascades to the slower engine. Called only after such a
+    rejection, so the cost (a reload if the user returns to that model) is paid
+    only when the alternative is the fallback. The router model stays: it is
+    small, pinned on purpose and evicting it breaks auto-routing.
+    """
+    from portal.platform.inference.router import validation
+    from portal.platform.inference.router.routing import _LLM_ROUTER_MODEL
+
+    reg = validation.registry
+    if reg is None:
+        return []
+    urls = {b.url.rstrip("/") for b in reg.list_backends() if b.type == "ollama"}
+    freed: list[str] = []
+    async with httpx.AsyncClient(timeout=10.0) as client:
+        for url in sorted(urls):
+            try:
+                ps = (await client.get(f"{url}/api/ps")).json().get("models", [])
+                names = [m["name"] for m in ps if m.get("name") != _LLM_ROUTER_MODEL]
+                for name in names:
+                    await client.post(f"{url}/api/generate", json={"model": name, "keep_alive": 0})
+                deadline = time.monotonic() + wait_s
+                while names and time.monotonic() < deadline:
+                    ps = (await client.get(f"{url}/api/ps")).json().get("models", [])
+                    if not {m["name"] for m in ps} & set(names):
+                        break
+                    await asyncio.sleep(0.5)
+                freed.extend(names)
+            except Exception as exc:
+                logger.warning("Could not free Ollama memory at %s: %s", url, exc)
+    return freed
+
+
+#: Prompts at or above this size free Ollama's idle models before an oMLX
+#: dispatch. The two engines share one unified-memory pool and oMLX cannot
+#: reclaim what Ollama holds: measured 2026-10-06, an idle Ollama 35B shrank
+#: oMLX's prefill ceiling to ~21 GB, so a ~24K-token prompt was rejected and a
+#: ~38K one was admitted, then killed mid-prefill by the process-memory
+#: enforcer — an error the client has already started receiving, so it cannot
+#: be retried. Short prompts leave Ollama's models alone.
+_FREE_OLLAMA_ABOVE_TOKENS = int(os.environ.get("OMLX_FREE_OLLAMA_ABOVE_TOKENS", "12000"))
+
+
+def _approx_prompt_tokens(body: dict[str, Any]) -> int:
+    """Cheap token estimate (about 3.5 characters per token, erring high)."""
+    chars = 0
+    for msg in body.get("messages") or []:
+        content = msg.get("content") if isinstance(msg, dict) else None
+        if isinstance(content, str):
+            chars += len(content)
+        elif isinstance(content, list):
+            chars += sum(len(p.get("text", "")) for p in content if isinstance(p, dict))
+    return int(chars / 3.5)
+
+
+async def make_room_for_omlx(backend: Any, body: dict[str, Any]) -> list[str]:
+    """Free Ollama's idle models before a large prompt goes to oMLX; return what was freed."""
+    if getattr(backend, "type", "") != "omlx":
+        return []
+    if _approx_prompt_tokens(body) < _FREE_OLLAMA_ABOVE_TOKENS:
+        return []
+    freed = await free_ollama_for_omlx()
+    if freed:
+        logger.info("Freed Ollama %s ahead of a large oMLX prompt", freed)
+    return freed

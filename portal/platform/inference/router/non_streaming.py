@@ -702,7 +702,27 @@ async def _try_non_streaming(
             return None
 
     try:
+        from portal.platform.inference.router.backend_introspect import make_room_for_omlx
+
+        await make_room_for_omlx(backend, body)
         result = await _run_request()
+        if (
+            result is None
+            and getattr(backend, "type", "") == "omlx"
+            and _is_capacity_error((tried or {}).get((backend.chat_url, target_model), ""))
+        ):
+            # oMLX rejected the prompt for memory held by idle Ollama models it
+            # cannot reclaim: free them and retry oMLX once before cascading.
+            from portal.platform.inference.router.backend_introspect import free_ollama_for_omlx
+
+            freed = await free_ollama_for_omlx()
+            if freed:
+                logger.info(
+                    "oMLX capacity rejection for workspace=%s; freed Ollama %s, retrying oMLX",
+                    workspace_id,
+                    freed,
+                )
+                result = await _run_request()
         if result is not None:
             return result
         # Non-timeout failure (HTTP error, JSON parse, etc.) — cascade immediately.
