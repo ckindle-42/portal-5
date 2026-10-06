@@ -40,3 +40,27 @@ Artifacts: `tests/benchmarks/results/cad_gauntlet_v2_B0_20261006T160659Z.{json,m
 ### P2 security review (automated, post-commit) — dispositions
 - Engine inherited the server env (incl. `OWUI_API_KEY`) while running model-authored code: **fixed** — engine now spawns with an explicit allowlist (`_ENGINE_ENV_ALLOWLIST`), unit-tested.
 - `/tools/cad_*` routes unauthenticated: **acknowledged, unchanged** — same convention as every fleet MCP `/tools/*` route (host port bound to 127.0.0.1; reachable only from the compose network). The engine additionally rejects `os`/`subprocess`/socket/pathlib imports in executed code (verified live: `import os` -> SecurityError). Residual: the parent process still holds `OWUI_API_KEY` in its own environment.
+
+## P3 — generate_part: same IR, BREP backend: PASS
+- Goldens first: 82 IR inputs (the 10 CORPUS items + one per face/feature/edge/CSG/parameter variant, all 6 faces) captured from unchanged HEAD into `tests/data/cad_scad_golden/` (commit d4805a2e). After the split, **all 82 emit byte-identical SCAD** (`tests/unit/test_scad_golden.py`).
+- Split: `part_plan.py` (EmitError, validation, parameters, face frames, pattern expansion, plan dataclasses, `plan_part`) — moved mechanically, not rewritten; `scad_emitter.py` is now a thin `render_scad` backend that re-exports the public names; `b123d_emitter.py` is the BREP backend. Pocket/rib/shell cutters and hole/standoff positions are resolved once in the plan.
+- Parity (container, OpenSCAD nightly Manifold; volumes mm^3, genus b3d/scad):
+
+| part | vol b3d | vol scad | dV % | genus |
+|---|---|---|---|---|
+| plain_plate | 6000.0 | 6000.0 | 0.00 | 0/0 |
+| grommet_plate | 8607.9 | 8627.5 | -0.23 | 3/3 |
+| drilled_standoff | 8345.4 | 8344.6 | 0.01 | 0/0 |
+| open_enclosure | 13632.0 | 13632.0 | 0.00 | 0/0 |
+| mounting_bracket | 2880.0 | 2880.0 | 0.00 | 0/0 |
+| vented_panel | 3600.0 | 3600.0 | 0.00 | 5/5 |
+| cylindrical_adapter | 7687.4 | 7668.7 | 0.24 | 1/1 |
+| chamfered_block | 6926.5 | 6927.7 | -0.02 | 0/0 |
+| filleted_block | 6942.9 | 6907.6 | 0.51 | 0/0 |
+| gearish_disc | 5765.6 | 5751.5 | 0.24 | 8/8 |
+
+  Extents match the corpus expectation within 0.05 mm; 96 emitter+golden tests pass inside the arm64 container too. Tolerances were not loosened.
+- Sweep of all 82 golden inputs through the BREP backend: 80 build to one valid solid. The 2 exceptions are declared **kernel_gap** (error points the model at `cad_build`): Tier-B `linear_extrude`/`rotate_extrude` (IR has no 2D primitives, so the SCAD form is also degenerate) and a base carrying both fillets and chamfers (second op would target the first op's blended edges). To record in KNOWN_LIMITATIONS (P6).
+- Semantics note: the SCAD fillet envelope always rounds a box's vertical edges (any `edges` value); the BREP backend matches that for fillets, not for chamfers. The schema's `edges` enum is `all|top|bottom` (no `vertical`).
+- Mesh artifact: OCC tessellation of an all-edges-filleted box leaves 8 zero-area sliver triangles in the STL, so trimesh reports it non-watertight although the BREP solid is valid. The parity test drops degenerate faces; the sealed grader does not, so a fillet-all part could grade INVALID from the engine's STL. Watch in P5.
+- `generate_part` tool + route + manifest entry; `sync_cad_geometry_schema.py` now keeps one schema for `generate_scad` and `generate_part` (parity test extended). Live: `grommet_plate` IR -> `/tools/generate_part` -> step/stl/png/script URLs, graded by `grade_mesh` = **PASS** (volume 8609.7, genus 3).

@@ -33,6 +33,7 @@ from starlette.requests import Request
 from starlette.responses import JSONResponse, Response
 
 from portal.modules.cad.tools import b123d_bridge
+from portal.modules.cad.tools.b123d_emitter import emit_build123d
 from portal.modules.cad.tools.capabilities import cad_capabilities, cad_status
 from portal.modules.cad.tools.mesh_validator import validate_mesh
 from portal.modules.cad.tools.scad_emitter import FN_DEFAULT, EmitError, emit_scad
@@ -655,6 +656,48 @@ async def generate_scad_endpoint(request: Request) -> JSONResponse:
         resolution=int(args.get("resolution", 1024)),
         max_retries=int(args.get("max_retries", 2)),
     )
+    return JSONResponse(result)
+
+
+async def generate_part(geometry: dict[str, Any], request_id: str | None = None) -> dict[str, Any]:
+    """Same JSON IR as generate_scad, built as an exact build123d BREP solid.
+
+    validate -> plan -> emit a build123d script -> cad_build -> cad_finalize
+    (STEP + STL + PNG + printability). One CAD session per request (`request_id`).
+    Design errors come back in generate_scad's structured error shape so the
+    model's correction loop is unchanged; `kernel_gap` means "use cad_build".
+    """
+    try:
+        script = emit_build123d(geometry)
+    except EmitError as e:
+        detail = {"category": e.category, "message": str(e), "suggestion": str(e)}
+        return {
+            "error": f"geometry validation failed: {e}",
+            "error_category": e.category,
+            "error_detail": detail,
+        }
+    session = b123d_bridge.session_handle(request_id)
+    built = await b123d_bridge.cad_build(script, session, _out_dir())
+    if not built.get("ok"):
+        return {
+            **built,
+            "error": built.get("error") or f"build did not validate: {built.get('validate')}",
+            "script": script,
+        }
+    final = await b123d_bridge.cad_finalize("part", "part", session, _out_dir(), _publish_url)
+    return {
+        **final,
+        "script": script,
+        "validate": built.get("validate"),
+        "measure": final.get("measure") or built.get("measure"),
+    }
+
+
+@_route("/tools/generate_part", methods=["POST"])
+async def generate_part_endpoint(request: Request) -> JSONResponse:
+    body = await request.json()
+    args = body.get("arguments", {})
+    result = await generate_part(args.get("geometry", {}), body.get("request_id"))
     return JSONResponse(result)
 
 

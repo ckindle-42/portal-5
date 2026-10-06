@@ -9,6 +9,8 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 SCHEMA_PATH = ROOT / "config/inference/cad_geometry_schema.json"
 MANIFEST_PATH = ROOT / "config/inference/tools_manifest_cad_render_mcp.json"
+# One canonical IR schema, two tools: OpenSCAD (generate_scad) and build123d BREP (generate_part).
+GEOMETRY_TOOLS = ("generate_scad", "generate_part")
 
 
 def expected_manifest() -> list[dict]:
@@ -18,12 +20,14 @@ def expected_manifest() -> list[dict]:
     generated.pop("$schema", None)
     generated.pop("title", None)
     generated.pop("examples", None)
+    seen = set()
     for tool in manifest:
-        if tool["name"] == "generate_scad":
-            tool["parameters"]["properties"]["geometry"] = generated
-            break
-    else:
-        raise SystemExit("generate_scad missing from CAD tool manifest")
+        if tool["name"] in GEOMETRY_TOOLS:
+            tool["parameters"]["properties"]["geometry"] = copy.deepcopy(generated)
+            seen.add(tool["name"])
+    missing = set(GEOMETRY_TOOLS) - seen
+    if missing:
+        raise SystemExit(f"{sorted(missing)} missing from CAD tool manifest")
     return manifest
 
 

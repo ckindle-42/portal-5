@@ -12,6 +12,10 @@ sources:
   path: config/inference/tools_manifest_cad_render_mcp.json
 - type: code
   path: portal/modules/cad/tools/b123d_bridge.py
+- type: code
+  path: portal/modules/cad/tools/b123d_emitter.py
+- type: code
+  path: portal/modules/cad/tools/part_plan.py
 claims: []
 confidence: high
 tags:

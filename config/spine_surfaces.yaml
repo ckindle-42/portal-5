@@ -12,6 +12,10 @@ surfaces:
   globs:
   - portal/modules/cad/tools/b123d_bridge.py
   unit: unit-capability-cad-render
+- name: file-portal-modules-cad-tools-b123d_emitter
+  globs:
+  - portal/modules/cad/tools/b123d_emitter.py
+  unit: unit-capability-cad-render
 - name: file-portal-modules-cad-tools-cad_render_mcp
   globs:
   - portal/modules/cad/tools/cad_render_mcp.py
@@ -24,6 +28,10 @@ surfaces:
   globs:
   - portal/modules/cad/tools/mesh_validator.py
   unit: unit-module-cad
+- name: file-portal-modules-cad-tools-part_plan
+  globs:
+  - portal/modules/cad/tools/part_plan.py
+  unit: unit-capability-cad-render
 - name: file-portal-modules-cad-tools-scad_emitter
   globs:
   - portal/modules/cad/tools/scad_emitter.py

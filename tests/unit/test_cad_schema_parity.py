@@ -16,7 +16,8 @@ ROOT = Path(__file__).resolve().parents[2]
 
 
 def _geometry_get_keys() -> set[str]:
-    tree = ast.parse((ROOT / "portal/modules/cad/tools/scad_emitter.py").read_text())
+    # the IR vocabulary is consumed once, in the kernel-neutral plan stage
+    tree = ast.parse((ROOT / "portal/modules/cad/tools/part_plan.py").read_text())
     keys: set[str] = set()
     for node in ast.walk(tree):
         if (
@@ -40,13 +41,14 @@ def test_manifest_geometry_is_derived_from_schema():
     manifest = json.loads(
         (ROOT / "config/inference/tools_manifest_cad_render_mcp.json").read_text()
     )
-    actual = next(tool for tool in manifest if tool["name"] == "generate_scad")["parameters"][
-        "properties"
-    ]["geometry"]
     expected = copy.deepcopy(geometry_schema())
     for key in ("$schema", "title", "examples"):
         expected.pop(key, None)
-    assert actual == expected
+    for name in ("generate_scad", "generate_part"):
+        actual = next(tool for tool in manifest if tool["name"] == name)["parameters"][
+            "properties"
+        ]["geometry"]
+        assert actual == expected, name
 
 
 def test_schema_sync_script_reports_manifest_current():
