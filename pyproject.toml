@@ -86,10 +86,10 @@ mcp = [
 ]
 generation = []
 cad = [
-    # CAD render MCP (portal/modules/cad/). These are the pip-installable half of
-    # what Dockerfile.mcp installs for the module; cadquery/build123d/ocp are
-    # conda-forge-only (osx-arm64 / linux-aarch64) and live in an isolated
-    # micromamba env, not here — see Dockerfile.mcp and portal/modules/cad/PLATFORM.md.
+    # CAD render MCP (portal/modules/cad/). build123d/OCP are pip-installed arm64
+    # wheels (macosx_11_0_arm64 / manylinux_2_28_aarch64), pinned for build123d-mcp
+    # compatibility (build123d-mcp 0.3.90 requires build123d>=0.10,<0.12) — see
+    # Dockerfile.cad and portal/modules/cad/PLATFORM.md.
     #
     # matplotlib is NOT optional decoration: cad_render_mcp.py's _render_mesh()
     # falls back to a pure-CPU matplotlib 3D trisurf when the trimesh/pyrender GL
@@ -103,6 +103,10 @@ cad = [
     "matplotlib>=3.8.0",
     "numpy-stl>=3.0.0",
     "jsonschema>=4.20.0",
+    # Exact pins: build123d-mcp 0.3.90 requires build123d>=0.10,<0.12 (hard coupling);
+    # build123d-mcp needs Python>=3.11, hence the marker. Keep in sync with Dockerfile.cad.
+    "build123d==0.11.1; python_version >= '3.11'",
+    "build123d-mcp[http]==0.3.90; python_version >= '3.11'",
 ]
 rag = [
     # MLX-native embeddings + reranking (Qwen3-Embedding/Reranker family)

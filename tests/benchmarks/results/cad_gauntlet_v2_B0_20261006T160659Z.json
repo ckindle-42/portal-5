@@ -1,0 +1,1475 @@
+{
+ "label": "B0",
+ "generated": "20261006T160659Z",
+ "reps": 3,
+ "arms": [
+  {
+   "key": "b0",
+   "workspace": "auto-cad",
+   "model": "qwen3-coder:30b-a3b-q4_K_M-ctx16k",
+   "tool_choice": "required",
+   "think": null,
+   "context_limit": 16384,
+   "tools": [
+    "execute_python",
+    "execute_bash",
+    "sandbox_status",
+    "read_pdf",
+    "read_word_document",
+    "web_search",
+    "web_fetch",
+    "remember",
+    "recall",
+    "kb_search",
+    "render_mesh",
+    "render_openscad",
+    "convert_cad",
+    "generate_scad"
+   ],
+   "cells": [
+    {
+     "task": "plate_4holes",
+     "request_id": "gauntlet-c493923a2bf0",
+     "elapsed_s": 32.8,
+     "turns": 1,
+     "tool_calls": [
+      {
+       "tool": "generate_scad",
+       "ok": true,
+       "arg_chars": 565
+      }
+     ],
+     "error": null,
+     "artifact": "/Users/chris/AI_Output/generated/models3d/gen_35527ca3_0.stl",
+     "verdict": "PASS",
+     "score": 1.0,
+     "checks": {
+      "valid": true,
+      "bbox": true,
+      "volume": true,
+      "genus": true
+     },
+     "measured": {
+      "bbox": [
+       5.0,
+       50.0,
+       80.0
+      ],
+      "volume": 19608.4,
+      "genus": 4,
+      "bodies": 1,
+      "watertight": true
+     },
+     "truth": {
+      "bbox": [
+       5.0,
+       50.0,
+       80.0
+      ],
+      "volume": 19607.3,
+      "vol_tol": 0.03,
+      "genus": 4
+     },
+     "rep": 0
+    },
+    {
+     "task": "plate_4holes",
+     "request_id": "gauntlet-56bf6f800ac1",
+     "elapsed_s": 23.7,
+     "turns": 1,
+     "tool_calls": [
+      {
+       "tool": "generate_scad",
+       "ok": true,
+       "arg_chars": 565
+      }
+     ],
+     "error": null,
+     "artifact": "/Users/chris/AI_Output/generated/models3d/gen_f7f3ced5_0.stl",
+     "verdict": "PASS",
+     "score": 1.0,
+     "checks": {
+      "valid": true,
+      "bbox": true,
+      "volume": true,
+      "genus": true
+     },
+     "measured": {
+      "bbox": [
+       5.0,
+       50.0,
+       80.0
+      ],
+      "volume": 19608.4,
+      "genus": 4,
+      "bodies": 1,
+      "watertight": true
+     },
+     "truth": {
+      "bbox": [
+       5.0,
+       50.0,
+       80.0
+      ],
+      "volume": 19607.3,
+      "vol_tol": 0.03,
+      "genus": 4
+     },
+     "rep": 1
+    },
+    {
+     "task": "plate_4holes",
+     "request_id": "gauntlet-983a94a706f4",
+     "elapsed_s": 18.2,
+     "turns": 1,
+     "tool_calls": [
+      {
+       "tool": "generate_scad",
+       "ok": true,
+       "arg_chars": 565
+      }
+     ],
+     "error": null,
+     "artifact": "/Users/chris/AI_Output/generated/models3d/gen_ec599420_0.stl",
+     "verdict": "PASS",
+     "score": 1.0,
+     "checks": {
+      "valid": true,
+      "bbox": true,
+      "volume": true,
+      "genus": true
+     },
+     "measured": {
+      "bbox": [
+       5.0,
+       50.0,
+       80.0
+      ],
+      "volume": 19608.4,
+      "genus": 4,
+      "bodies": 1,
+      "watertight": true
+     },
+     "truth": {
+      "bbox": [
+       5.0,
+       50.0,
+       80.0
+      ],
+      "volume": 19607.3,
+      "vol_tol": 0.03,
+      "genus": 4
+     },
+     "rep": 2
+    },
+    {
+     "task": "grommet_plate",
+     "request_id": "gauntlet-c15fbe8a8590",
+     "elapsed_s": 25.5,
+     "turns": 1,
+     "tool_calls": [
+      {
+       "tool": "generate_scad",
+       "ok": true,
+       "arg_chars": 486
+      }
+     ],
+     "error": null,
+     "artifact": "/Users/chris/AI_Output/generated/models3d/gen_25d2e49a_0.stl",
+     "verdict": "PASS",
+     "score": 1.0,
+     "checks": {
+      "valid": true,
+      "bbox": true,
+      "volume": true,
+      "genus": true
+     },
+     "measured": {
+      "bbox": [
+       4.0,
+       30.0,
+       80.0
+      ],
+      "volume": 8627.5,
+      "genus": 3,
+      "bodies": 1,
+      "watertight": true
+     },
+     "truth": {
+      "bbox": [
+       4.0,
+       30.0,
+       80.0
+      ],
+      "volume": 8607.3,
+      "vol_tol": 0.03,
+      "genus": 3
+     },
+     "rep": 0
+    },
+    {
+     "task": "grommet_plate",
+     "request_id": "gauntlet-f826778ac13c",
+     "elapsed_s": 16.0,
+     "turns": 1,
+     "tool_calls": [
+      {
+       "tool": "generate_scad",
+       "ok": true,
+       "arg_chars": 506
+      }
+     ],
+     "error": null,
+     "artifact": "/Users/chris/AI_Output/generated/models3d/gen_38817c33_0.stl",
+     "verdict": "PASS",
+     "score": 1.0,
+     "checks": {
+      "valid": true,
+      "bbox": true,
+      "volume": true,
+      "genus": true
+     },
+     "measured": {
+      "bbox": [
+       4.0,
+       30.0,
+       80.0
+      ],
+      "volume": 8553.7,
+      "genus": 3,
+      "bodies": 1,
+      "watertight": true
+     },
+     "truth": {
+      "bbox": [
+       4.0,
+       30.0,
+       80.0
+      ],
+      "volume": 8607.3,
+      "vol_tol": 0.03,
+      "genus": 3
+     },
+     "rep": 1
+    },
+    {
+     "task": "grommet_plate",
+     "request_id": "gauntlet-f7c2458d339b",
+     "elapsed_s": 26.6,
+     "turns": 1,
+     "tool_calls": [
+      {
+       "tool": "generate_scad",
+       "ok": true,
+       "arg_chars": 628
+      }
+     ],
+     "error": null,
+     "artifact": "/Users/chris/AI_Output/generated/models3d/gen_fc1a845e_0.stl",
+     "verdict": "PASS",
+     "score": 1.0,
+     "checks": {
+      "valid": true,
+      "bbox": true,
+      "volume": true,
+      "genus": true
+     },
+     "measured": {
+      "bbox": [
+       4.0,
+       30.0,
+       80.0
+      ],
+      "volume": 8627.5,
+      "genus": 3,
+      "bodies": 1,
+      "watertight": true
+     },
+     "truth": {
+      "bbox": [
+       4.0,
+       30.0,
+       80.0
+      ],
+      "volume": 8607.3,
+      "vol_tol": 0.03,
+      "genus": 3
+     },
+     "rep": 2
+    },
+    {
+     "task": "enclosure",
+     "request_id": "gauntlet-14a200989ea8",
+     "elapsed_s": 149.1,
+     "turns": 7,
+     "tool_calls": [
+      {
+       "tool": "generate_scad",
+       "ok": true,
+       "arg_chars": 1559
+      },
+      {
+       "tool": "generate_scad",
+       "ok": true,
+       "arg_chars": 1344
+      },
+      {
+       "tool": "generate_scad",
+       "ok": true,
+       "arg_chars": 917
+      },
+      {
+       "tool": "generate_scad",
+       "ok": true,
+       "arg_chars": 362
+      },
+      {
+       "tool": "generate_scad",
+       "ok": true,
+       "arg_chars": 1344
+      },
+      {
+       "tool": "generate_scad",
+       "ok": true,
+       "arg_chars": 825
+      },
+      {
+       "tool": "render_mesh",
+       "ok": true,
+       "arg_chars": 133
+      }
+     ],
+     "error": null,
+     "artifact": "/Users/chris/AI_Output/generated/models3d/gen_13455a04_0.stl",
+     "verdict": "WRONGSIZE",
+     "score": 0.75,
+     "checks": {
+      "valid": true,
+      "bbox": false,
+      "volume": true,
+      "genus": true
+     },
+     "measured": {
+      "bbox": [
+       31.0,
+       40.0,
+       60.0
+      ],
+      "volume": 14308.6,
+      "genus": 0,
+      "bodies": 1,
+      "watertight": true
+     },
+     "truth": {
+      "bbox": [
+       25.0,
+       40.0,
+       60.0
+      ],
+      "volume": 14212.4,
+      "vol_tol": 0.05,
+      "genus": 0
+     },
+     "rep": 0
+    },
+    {
+     "task": "enclosure",
+     "request_id": "gauntlet-aca873e3607a",
+     "elapsed_s": 141.8,
+     "turns": 8,
+     "tool_calls": [
+      {
+       "tool": "generate_scad",
+       "ok": true,
+       "arg_chars": 1432
+      },
+      {
+       "tool": "generate_scad",
+       "ok": true,
+       "arg_chars": 1524
+      },
+      {
+       "tool": "generate_scad",
+       "ok": true,
+       "arg_chars": 1097
+      },
+      {
+       "tool": "generate_scad",
+       "ok": true,
+       "arg_chars": 542
+      },
+      {
+       "tool": "generate_scad",
+       "ok": true,
+       "arg_chars": 786
+      },
+      {
+       "tool": "generate_scad",
+       "ok": true,
+       "arg_chars": 1115
+      },
+      {
+       "tool": "execute_bash",
+       "ok": true,
+       "arg_chars": 157
+      },
+      {
+       "tool": "execute_bash",
+       "ok": true,
+       "arg_chars": 75
+      }
+     ],
+     "error": null,
+     "artifact": "/Users/chris/AI_Output/generated/models3d/gen_23f4341c_0.stl",
+     "verdict": "INVALID",
+     "score": 0.0,
+     "checks": {
+      "valid": false,
+      "bbox": false,
+      "volume": false,
+      "genus": false
+     },
+     "measured": {
+      "bbox": [
+       29.0,
+       40.0,
+       60.0
+      ],
+      "volume": 9926.2,
+      "genus": null,
+      "bodies": 5,
+      "watertight": true
+     },
+     "truth": {
+      "bbox": [
+       25.0,
+       40.0,
+       60.0
+      ],
+      "volume": 14212.4,
+      "vol_tol": 0.05,
+      "genus": 0
+     },
+     "rep": 1
+    },
+    {
+     "task": "enclosure",
+     "request_id": "gauntlet-63238843647f",
+     "elapsed_s": 35.2,
+     "turns": 2,
+     "tool_calls": [
+      {
+       "tool": "generate_scad",
+       "ok": true,
+       "arg_chars": 1724
+      },
+      {
+       "tool": "convert_cad",
+       "ok": false,
+       "arg_chars": 87
+      }
+     ],
+     "error": null,
+     "artifact": "/Users/chris/AI_Output/generated/models3d/gen_82ee33f4_0.stl",
+     "verdict": "WRONGSIZE",
+     "score": 0.75,
+     "checks": {
+      "valid": true,
+      "bbox": false,
+      "volume": true,
+      "genus": true
+     },
+     "measured": {
+      "bbox": [
+       31.0,
+       40.0,
+       60.0
+      ],
+      "volume": 14308.6,
+      "genus": 0,
+      "bodies": 1,
+      "watertight": true
+     },
+     "truth": {
+      "bbox": [
+       25.0,
+       40.0,
+       60.0
+      ],
+      "volume": 14212.4,
+      "vol_tol": 0.05,
+      "genus": 0
+     },
+     "rep": 2
+    },
+    {
+     "task": "l_bracket",
+     "request_id": "gauntlet-9d9afe4a7a53",
+     "elapsed_s": 95.7,
+     "turns": 8,
+     "tool_calls": [
+      {
+       "tool": "generate_scad",
+       "ok": false,
+       "arg_chars": 807
+      },
+      {
+       "tool": "generate_scad",
+       "ok": false,
+       "arg_chars": 809
+      },
+      {
+       "tool": "generate_scad",
+       "ok": true,
+       "arg_chars": 809
+      },
+      {
+       "tool": "generate_scad",
+       "ok": true,
+       "arg_chars": 648
+      },
+      {
+       "tool": "generate_scad",
+       "ok": true,
+       "arg_chars": 648
+      },
+      {
+       "tool": "generate_scad",
+       "ok": true,
+       "arg_chars": 648
+      },
+      {
+       "tool": "convert_cad",
+       "ok": false,
+       "arg_chars": 87
+      },
+      {
+       "tool": "render_mesh",
+       "ok": true,
+       "arg_chars": 159
+      }
+     ],
+     "error": null,
+     "artifact": "/Users/chris/AI_Output/generated/models3d/gen_70cb1e5b_0.stl",
+     "verdict": "WRONGSIZE",
+     "score": 0.5,
+     "checks": {
+      "valid": true,
+      "bbox": false,
+      "volume": false,
+      "genus": true
+     },
+     "measured": {
+      "bbox": [
+       3.0,
+       30.0,
+       40.0
+      ],
+      "volume": 3409.7,
+      "genus": 4,
+      "bodies": 1,
+      "watertight": true
+     },
+     "truth": {
+      "bbox": [
+       25.0,
+       30.0,
+       40.0
+      ],
+      "volume": 6126.4,
+      "vol_tol": 0.04,
+      "genus": 4
+     },
+     "rep": 0
+    },
+    {
+     "task": "l_bracket",
+     "request_id": "gauntlet-5d0a22368673",
+     "elapsed_s": 105.5,
+     "turns": 8,
+     "tool_calls": [
+      {
+       "tool": "generate_scad",
+       "ok": false,
+       "arg_chars": 811
+      },
+      {
+       "tool": "generate_scad",
+       "ok": false,
+       "arg_chars": 813
+      },
+      {
+       "tool": "generate_scad",
+       "ok": true,
+       "arg_chars": 706
+      },
+      {
+       "tool": "generate_scad",
+       "ok": true,
+       "arg_chars": 583
+      },
+      {
+       "tool": "generate_scad",
+       "ok": true,
+       "arg_chars": 636
+      },
+      {
+       "tool": "generate_scad",
+       "ok": true,
+       "arg_chars": 583
+      },
+      {
+       "tool": "render_mesh",
+       "ok": true,
+       "arg_chars": 160
+      },
+      {
+       "tool": "execute_python",
+       "ok": false,
+       "arg_chars": 2100
+      }
+     ],
+     "error": null,
+     "artifact": "/Users/chris/AI_Output/generated/models3d/gen_30fb3479_0.stl",
+     "verdict": "WRONGSIZE",
+     "score": 0.5,
+     "checks": {
+      "valid": true,
+      "bbox": false,
+      "volume": false,
+      "genus": true
+     },
+     "measured": {
+      "bbox": [
+       3.0,
+       30.0,
+       40.0
+      ],
+      "volume": 3409.7,
+      "genus": 4,
+      "bodies": 1,
+      "watertight": true
+     },
+     "truth": {
+      "bbox": [
+       25.0,
+       30.0,
+       40.0
+      ],
+      "volume": 6126.4,
+      "vol_tol": 0.04,
+      "genus": 4
+     },
+     "rep": 1
+    },
+    {
+     "task": "l_bracket",
+     "request_id": "gauntlet-ef2d128b3446",
+     "elapsed_s": 85.9,
+     "turns": 8,
+     "tool_calls": [
+      {
+       "tool": "generate_scad",
+       "ok": false,
+       "arg_chars": 807
+      },
+      {
+       "tool": "generate_scad",
+       "ok": false,
+       "arg_chars": 809
+      },
+      {
+       "tool": "generate_scad",
+       "ok": true,
+       "arg_chars": 568
+      },
+      {
+       "tool": "generate_scad",
+       "ok": true,
+       "arg_chars": 519
+      },
+      {
+       "tool": "execute_python",
+       "ok": true,
+       "arg_chars": 1258
+      },
+      {
+       "tool": "generate_scad",
+       "ok": false,
+       "arg_chars": 436
+      },
+      {
+       "tool": "render_openscad",
+       "ok": true,
+       "arg_chars": 1138
+      },
+      {
+       "tool": "generate_scad",
+       "ok": true,
+       "arg_chars": 337
+      }
+     ],
+     "error": null,
+     "artifact": "/Users/chris/AI_Output/generated/models3d/gen_566f7f14_0.stl",
+     "verdict": "WRONGSIZE",
+     "score": 0.25,
+     "checks": {
+      "valid": true,
+      "bbox": false,
+      "volume": false,
+      "genus": false
+     },
+     "measured": {
+      "bbox": [
+       3.0,
+       30.0,
+       40.0
+      ],
+      "volume": 3504.8,
+      "genus": 2,
+      "bodies": 1,
+      "watertight": true
+     },
+     "truth": {
+      "bbox": [
+       25.0,
+       30.0,
+       40.0
+      ],
+      "volume": 6126.4,
+      "vol_tol": 0.04,
+      "genus": 4
+     },
+     "rep": 2
+    },
+    {
+     "task": "flanged_bushing",
+     "request_id": "gauntlet-0800df1ccf6b",
+     "elapsed_s": 21.5,
+     "turns": 2,
+     "tool_calls": [
+      {
+       "tool": "generate_scad",
+       "ok": true,
+       "arg_chars": 372
+      },
+      {
+       "tool": "render_mesh",
+       "ok": true,
+       "arg_chars": 187
+      }
+     ],
+     "error": null,
+     "artifact": "/Users/chris/AI_Output/generated/models3d/gen_aaee6c58_0.stl",
+     "verdict": "WRONGSIZE",
+     "score": 0.75,
+     "checks": {
+      "valid": true,
+      "bbox": true,
+      "volume": false,
+      "genus": true
+     },
+     "measured": {
+      "bbox": [
+       20.0,
+       30.0,
+       30.0
+      ],
+      "volume": 16433.7,
+      "genus": 1,
+      "bodies": 1,
+      "watertight": true
+     },
+     "truth": {
+      "bbox": [
+       20.0,
+       30.0,
+       30.0
+      ],
+      "volume": 3967.8,
+      "vol_tol": 0.03,
+      "genus": 1
+     },
+     "rep": 0
+    },
+    {
+     "task": "flanged_bushing",
+     "request_id": "gauntlet-9e97fa55e780",
+     "elapsed_s": 67.3,
+     "turns": 8,
+     "tool_calls": [
+      {
+       "tool": "generate_scad",
+       "ok": true,
+       "arg_chars": 488
+      },
+      {
+       "tool": "generate_scad",
+       "ok": true,
+       "arg_chars": 549
+      },
+      {
+       "tool": "generate_scad",
+       "ok": true,
+       "arg_chars": 469
+      },
+      {
+       "tool": "generate_scad",
+       "ok": true,
+       "arg_chars": 375
+      },
+      {
+       "tool": "generate_scad",
+       "ok": true,
+       "arg_chars": 375
+      },
+      {
+       "tool": "generate_scad",
+       "ok": true,
+       "arg_chars": 382
+      },
+      {
+       "tool": "generate_scad",
+       "ok": true,
+       "arg_chars": 451
+      },
+      {
+       "tool": "generate_scad",
+       "ok": true,
+       "arg_chars": 375
+      }
+     ],
+     "error": null,
+     "artifact": "/Users/chris/AI_Output/generated/models3d/gen_329b0cf2_0.stl",
+     "verdict": "WRONGSIZE",
+     "score": 0.75,
+     "checks": {
+      "valid": true,
+      "bbox": true,
+      "volume": false,
+      "genus": true
+     },
+     "measured": {
+      "bbox": [
+       20.0,
+       30.0,
+       30.0
+      ],
+      "volume": 10942.3,
+      "genus": 1,
+      "bodies": 1,
+      "watertight": true
+     },
+     "truth": {
+      "bbox": [
+       20.0,
+       30.0,
+       30.0
+      ],
+      "volume": 3967.8,
+      "vol_tol": 0.03,
+      "genus": 1
+     },
+     "rep": 1
+    },
+    {
+     "task": "flanged_bushing",
+     "request_id": "gauntlet-86588f590a4e",
+     "elapsed_s": 78.0,
+     "turns": 8,
+     "tool_calls": [
+      {
+       "tool": "generate_scad",
+       "ok": true,
+       "arg_chars": 547
+      },
+      {
+       "tool": "generate_scad",
+       "ok": true,
+       "arg_chars": 564
+      },
+      {
+       "tool": "generate_scad",
+       "ok": true,
+       "arg_chars": 525
+      },
+      {
+       "tool": "generate_scad",
+       "ok": true,
+       "arg_chars": 466
+      },
+      {
+       "tool": "generate_scad",
+       "ok": true,
+       "arg_chars": 518
+      },
+      {
+       "tool": "generate_scad",
+       "ok": true,
+       "arg_chars": 473
+      },
+      {
+       "tool": "generate_scad",
+       "ok": true,
+       "arg_chars": 525
+      },
+      {
+       "tool": "generate_scad",
+       "ok": true,
+       "arg_chars": 466
+      }
+     ],
+     "error": null,
+     "artifact": "/Users/chris/AI_Output/generated/models3d/gen_0203c236_0.stl",
+     "verdict": "WRONGSIZE",
+     "score": 0.75,
+     "checks": {
+      "valid": true,
+      "bbox": true,
+      "volume": false,
+      "genus": true
+     },
+     "measured": {
+      "bbox": [
+       20.0,
+       30.0,
+       30.0
+      ],
+      "volume": 11908.6,
+      "genus": 1,
+      "bodies": 1,
+      "watertight": true
+     },
+     "truth": {
+      "bbox": [
+       20.0,
+       30.0,
+       30.0
+      ],
+      "volume": 3967.8,
+      "vol_tol": 0.03,
+      "genus": 1
+     },
+     "rep": 2
+    },
+    {
+     "task": "countersunk_plate",
+     "request_id": "gauntlet-859ad190c323",
+     "elapsed_s": 36.1,
+     "turns": 3,
+     "tool_calls": [
+      {
+       "tool": "generate_scad",
+       "ok": true,
+       "arg_chars": 661
+      },
+      {
+       "tool": "convert_cad",
+       "ok": false,
+       "arg_chars": 87
+      },
+      {
+       "tool": "render_mesh",
+       "ok": true,
+       "arg_chars": 174
+      }
+     ],
+     "error": null,
+     "artifact": "/Users/chris/AI_Output/generated/models3d/gen_a77b870b_0.stl",
+     "verdict": "PASS",
+     "score": 1.0,
+     "checks": {
+      "valid": true,
+      "bbox": true,
+      "volume": true,
+      "genus": true
+     },
+     "measured": {
+      "bbox": [
+       6.0,
+       30.0,
+       60.0
+      ],
+      "volume": 10535.4,
+      "genus": 2,
+      "bodies": 1,
+      "watertight": true
+     },
+     "truth": {
+      "bbox": [
+       6.0,
+       30.0,
+       60.0
+      ],
+      "volume": 10499.4,
+      "vol_tol": 0.03,
+      "genus": 2
+     },
+     "rep": 0
+    },
+    {
+     "task": "countersunk_plate",
+     "request_id": "gauntlet-ab941de45b46",
+     "elapsed_s": 22.3,
+     "turns": 1,
+     "tool_calls": [
+      {
+       "tool": "generate_scad",
+       "ok": true,
+       "arg_chars": 661
+      }
+     ],
+     "error": null,
+     "artifact": "/Users/chris/AI_Output/generated/models3d/gen_5ba4f203_0.stl",
+     "verdict": "PASS",
+     "score": 1.0,
+     "checks": {
+      "valid": true,
+      "bbox": true,
+      "volume": true,
+      "genus": true
+     },
+     "measured": {
+      "bbox": [
+       6.0,
+       30.0,
+       60.0
+      ],
+      "volume": 10535.4,
+      "genus": 2,
+      "bodies": 1,
+      "watertight": true
+     },
+     "truth": {
+      "bbox": [
+       6.0,
+       30.0,
+       60.0
+      ],
+      "volume": 10499.4,
+      "vol_tol": 0.03,
+      "genus": 2
+     },
+     "rep": 1
+    },
+    {
+     "task": "countersunk_plate",
+     "request_id": "gauntlet-a90fa480ce3f",
+     "elapsed_s": 27.5,
+     "turns": 2,
+     "tool_calls": [
+      {
+       "tool": "generate_scad",
+       "ok": true,
+       "arg_chars": 661
+      },
+      {
+       "tool": "render_mesh",
+       "ok": true,
+       "arg_chars": 174
+      }
+     ],
+     "error": null,
+     "artifact": "/Users/chris/AI_Output/generated/models3d/gen_c3dc2cb6_0.stl",
+     "verdict": "PASS",
+     "score": 1.0,
+     "checks": {
+      "valid": true,
+      "bbox": true,
+      "volume": true,
+      "genus": true
+     },
+     "measured": {
+      "bbox": [
+       6.0,
+       30.0,
+       60.0
+      ],
+      "volume": 10535.4,
+      "genus": 2,
+      "bodies": 1,
+      "watertight": true
+     },
+     "truth": {
+      "bbox": [
+       6.0,
+       30.0,
+       60.0
+      ],
+      "volume": 10499.4,
+      "vol_tol": 0.03,
+      "genus": 2
+     },
+     "rep": 2
+    },
+    {
+     "task": "hex_standoff",
+     "request_id": "gauntlet-30f8836ca007",
+     "elapsed_s": 12.1,
+     "turns": 1,
+     "tool_calls": [
+      {
+       "tool": "generate_scad",
+       "ok": true,
+       "arg_chars": 375
+      }
+     ],
+     "error": null,
+     "artifact": "/Users/chris/AI_Output/generated/models3d/gen_01a87d4d_0.stl",
+     "verdict": "WRONGSIZE",
+     "score": 0.25,
+     "checks": {
+      "valid": true,
+      "bbox": false,
+      "volume": false,
+      "genus": false
+     },
+     "measured": {
+      "bbox": [
+       8.0,
+       8.0,
+       30.0
+      ],
+      "volume": 1583.9,
+      "genus": 0,
+      "bodies": 1,
+      "watertight": true
+     },
+     "truth": {
+      "bbox": [
+       8.0,
+       9.238,
+       15.0
+      ],
+      "volume": 703.1,
+      "vol_tol": 0.04,
+      "genus": 1
+     },
+     "rep": 0
+    },
+    {
+     "task": "hex_standoff",
+     "request_id": "gauntlet-ef1d491c4c0b",
+     "elapsed_s": 11.9,
+     "turns": 1,
+     "tool_calls": [
+      {
+       "tool": "generate_scad",
+       "ok": true,
+       "arg_chars": 375
+      }
+     ],
+     "error": null,
+     "artifact": "/Users/chris/AI_Output/generated/models3d/gen_50d8f9f8_0.stl",
+     "verdict": "WRONGSIZE",
+     "score": 0.25,
+     "checks": {
+      "valid": true,
+      "bbox": false,
+      "volume": false,
+      "genus": false
+     },
+     "measured": {
+      "bbox": [
+       8.0,
+       8.0,
+       30.0
+      ],
+      "volume": 1583.9,
+      "genus": 0,
+      "bodies": 1,
+      "watertight": true
+     },
+     "truth": {
+      "bbox": [
+       8.0,
+       9.238,
+       15.0
+      ],
+      "volume": 703.1,
+      "vol_tol": 0.04,
+      "genus": 1
+     },
+     "rep": 1
+    },
+    {
+     "task": "hex_standoff",
+     "request_id": "gauntlet-fcf177fffc6e",
+     "elapsed_s": 12.2,
+     "turns": 1,
+     "tool_calls": [
+      {
+       "tool": "generate_scad",
+       "ok": true,
+       "arg_chars": 375
+      }
+     ],
+     "error": null,
+     "artifact": "/Users/chris/AI_Output/generated/models3d/gen_bbce22c9_0.stl",
+     "verdict": "WRONGSIZE",
+     "score": 0.25,
+     "checks": {
+      "valid": true,
+      "bbox": false,
+      "volume": false,
+      "genus": false
+     },
+     "measured": {
+      "bbox": [
+       8.0,
+       8.0,
+       30.0
+      ],
+      "volume": 1583.9,
+      "genus": 0,
+      "bodies": 1,
+      "watertight": true
+     },
+     "truth": {
+      "bbox": [
+       8.0,
+       9.238,
+       15.0
+      ],
+      "volume": 703.1,
+      "vol_tol": 0.04,
+      "genus": 1
+     },
+     "rep": 2
+    },
+    {
+     "task": "spur_gear",
+     "request_id": "gauntlet-4757a2ea9825",
+     "elapsed_s": 65.7,
+     "turns": 5,
+     "tool_calls": [
+      {
+       "tool": "generate_scad",
+       "ok": false,
+       "arg_chars": 348
+      },
+      {
+       "tool": "execute_python",
+       "ok": false,
+       "arg_chars": 1466
+      },
+      {
+       "tool": "execute_python",
+       "ok": false,
+       "arg_chars": 1503
+      },
+      {
+       "tool": "render_openscad",
+       "ok": false,
+       "arg_chars": 896
+      },
+      {
+       "tool": "generate_scad",
+       "ok": true,
+       "arg_chars": 353
+      }
+     ],
+     "error": null,
+     "artifact": "/Users/chris/AI_Output/generated/models3d/gen_ca3ee0d9_0.stl",
+     "verdict": "WRONGSIZE",
+     "score": 0.5,
+     "checks": {
+      "valid": true,
+      "bbox": false,
+      "volume": false,
+      "genus": true
+     },
+     "measured": {
+      "bbox": [
+       8.0,
+       24.0,
+       24.0
+      ],
+      "volume": 4451.4,
+      "genus": 1,
+      "bodies": 1,
+      "watertight": true
+     },
+     "truth": {
+      "bbox": [
+       8.0,
+       28.0,
+       28.0
+      ],
+      "volume": 3312.9,
+      "vol_tol": 0.15,
+      "genus": 1
+     },
+     "rep": 0
+    },
+    {
+     "task": "spur_gear",
+     "request_id": "gauntlet-afc49f5b3b34",
+     "elapsed_s": 56.1,
+     "turns": 8,
+     "tool_calls": [
+      {
+       "tool": "execute_python",
+       "ok": true,
+       "arg_chars": 1969
+      },
+      {
+       "tool": "generate_scad",
+       "ok": false,
+       "arg_chars": 468
+      },
+      {
+       "tool": "execute_python",
+       "ok": true,
+       "arg_chars": 1569
+      },
+      {
+       "tool": "execute_bash",
+       "ok": true,
+       "arg_chars": 852
+      },
+      {
+       "tool": "execute_python",
+       "ok": true,
+       "arg_chars": 1234
+      },
+      {
+       "tool": "generate_scad",
+       "ok": false,
+       "arg_chars": 297
+      },
+      {
+       "tool": "generate_scad",
+       "ok": true,
+       "arg_chars": 185
+      },
+      {
+       "tool": "render_mesh",
+       "ok": true,
+       "arg_chars": 161
+      }
+     ],
+     "error": null,
+     "artifact": "/Users/chris/AI_Output/generated/models3d/gen_ce9d0f5b_0.stl",
+     "verdict": "WRONGSIZE",
+     "score": 0.75,
+     "checks": {
+      "valid": true,
+      "bbox": true,
+      "volume": false,
+      "genus": true
+     },
+     "measured": {
+      "bbox": [
+       8.0,
+       28.0,
+       28.0
+      ],
+      "volume": 4755.3,
+      "genus": 1,
+      "bodies": 1,
+      "watertight": true
+     },
+     "truth": {
+      "bbox": [
+       8.0,
+       28.0,
+       28.0
+      ],
+      "volume": 3312.9,
+      "vol_tol": 0.15,
+      "genus": 1
+     },
+     "rep": 1
+    },
+    {
+     "task": "spur_gear",
+     "request_id": "gauntlet-f7a1180b4460",
+     "elapsed_s": 77.6,
+     "turns": 8,
+     "tool_calls": [
+      {
+       "tool": "generate_scad",
+       "ok": false,
+       "arg_chars": 286
+      },
+      {
+       "tool": "execute_python",
+       "ok": false,
+       "arg_chars": 1438
+      },
+      {
+       "tool": "execute_python",
+       "ok": false,
+       "arg_chars": 1475
+      },
+      {
+       "tool": "render_openscad",
+       "ok": false,
+       "arg_chars": 823
+      },
+      {
+       "tool": "execute_python",
+       "ok": true,
+       "arg_chars": 1626
+      },
+      {
+       "tool": "generate_scad",
+       "ok": false,
+       "arg_chars": 286
+      },
+      {
+       "tool": "render_openscad",
+       "ok": false,
+       "arg_chars": 753
+      },
+      {
+       "tool": "render_openscad",
+       "ok": true,
+       "arg_chars": 814
+      }
+     ],
+     "error": null,
+     "artifact": "/Users/chris/AI_Output/generated/models3d/model_e0f3fff0.stl",
+     "verdict": "WRONGSIZE",
+     "score": 0.5,
+     "checks": {
+      "valid": true,
+      "bbox": false,
+      "volume": false,
+      "genus": true
+     },
+     "measured": {
+      "bbox": [
+       8.0,
+       24.0,
+       24.0
+      ],
+      "volume": 2703.5,
+      "genus": 1,
+      "bodies": 1,
+      "watertight": true
+     },
+     "truth": {
+      "bbox": [
+       8.0,
+       28.0,
+       28.0
+      ],
+      "volume": 3312.9,
+      "vol_tol": 0.15,
+      "genus": 1
+     },
+     "rep": 2
+    }
+   ],
+   "summary": {
+    "n": 24,
+    "mean_score": 0.688,
+    "pass_rate": 0.375,
+    "validity_rate": 0.958,
+    "median_s": 34.0
+   }
+  }
+ ]
+}
