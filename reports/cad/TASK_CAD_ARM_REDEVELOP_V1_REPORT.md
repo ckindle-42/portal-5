@@ -28,3 +28,11 @@ Artifacts: `tests/benchmarks/results/cad_gauntlet_v2_B0_20261006T160659Z.{json,m
 - capabilities.py: conda hooks removed; probes added (`openscad_bin/version/backend`, `build123d_mcp`, `arch`; `platform` key renamed, nothing read it); `engine` added via uncached `cad_status()` (served by `/capabilities`).
 - Fact unit `unit-fact-dockerfile-index` updated (8 Dockerfiles; check BS claim).
 - Unit tests `-k "cad or scad or mesh"`: 77 passed.
+
+## P2 — build123d engine bridge on :8926: PASS
+- Payloads P2-A/B/C written (checksums match); fragment merged into the cad_render manifest (4 -> 10 entries) and deleted. `sync_cad_geometry_schema.py` preserves `cad_*` entries (no script change needed).
+- Wired: 6 POST routes via factory, `start_engine` in `__main__`, `--backend=manifold` when `CAD_OPENSCAD_BACKEND=manifold`, docstring updated.
+- Live: `/capabilities` -> engine:true, build123d:true, arch:aarch64, openscad_backend:manifold. Tools list shows the 6 cad_* tools.
+- plate_4holes via cad_build -> cad_finalize: ok, printability 0 findings, step/stl/script/png URLs published through OWUI (`/api/v1/files/...`); STL graded PASS by `grade_mesh`.
+- Pipeline `/admin/refresh-tools`: 153 tools registered, includes cad_build/execute/measure/find_holes/render/finalize.
+- mypy: 161 pre-existing errors elsewhere in portal/, unchanged by this phase.

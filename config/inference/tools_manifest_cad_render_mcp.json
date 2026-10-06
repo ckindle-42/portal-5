@@ -752,5 +752,105 @@
       ],
       "type": "object"
     }
+  },
+  {
+    "name": "cad_build",
+    "description": "PRIMARY CAD PATH. Build a part from a complete build123d Python script in a fresh session (reset, execute, measure, validate in one call). Units mm, Z-up. Start with `from build123d import *`; end with show(part, 'part'). Returns ok, measure (volume/bbox/topology), validate (validity gate). On failure returns error, last_error (line + excerpt) and repair_hints: fix the script and call cad_build again. When ok, call cad_finalize.",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "code": {
+          "type": "string",
+          "description": "Complete build123d script."
+        }
+      },
+      "required": [
+        "code"
+      ]
+    },
+    "timeout_s": 300
+  },
+  {
+    "name": "cad_execute",
+    "description": "Run additional build123d code in the CURRENT session (incremental edit after cad_build; previous variables remain defined). Returns ok or error + last_error + repair_hints.",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "code": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "code"
+      ]
+    },
+    "timeout_s": 300
+  },
+  {
+    "name": "cad_measure",
+    "description": "Measure the current (or named) shape: volume mm^3, area, bbox per-axis sizes, face/edge counts. Use to verify dimensions against the request.",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "object_name": {
+          "type": "string",
+          "default": ""
+        }
+      }
+    },
+    "timeout_s": 120
+  },
+  {
+    "name": "cad_find_holes",
+    "description": "Recognise drilled holes on the current (or named) shape: count, axis, location, diameter, depth, through/blind, counterbore. Use to verify hole count, size and placement.",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "object_name": {
+          "type": "string",
+          "default": ""
+        }
+      }
+    },
+    "timeout_s": 120
+  },
+  {
+    "name": "cad_render",
+    "description": "Render the current (or named) shape to a PNG and return its URL. direction: iso, top, front, right, left, back, bottom.",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "direction": {
+          "type": "string",
+          "default": "iso"
+        },
+        "object_name": {
+          "type": "string",
+          "default": ""
+        }
+      }
+    },
+    "timeout_s": 180
+  },
+  {
+    "name": "cad_finalize",
+    "description": "Deliver the part: validity gate, export STEP + STL, FDM printability analysis, iso render and the full build123d script. Returns step_url, stl_url, script_url, png_url, measure and printability findings. Call once the part is correct.",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "basename": {
+          "type": "string",
+          "description": "Short file name for the part, e.g. sensor_enclosure."
+        },
+        "object_name": {
+          "type": "string",
+          "default": ""
+        }
+      },
+      "required": [
+        "basename"
+      ]
+    },
+    "timeout_s": 300
   }
 ]

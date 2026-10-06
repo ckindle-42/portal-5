@@ -8,6 +8,10 @@ surfaces:
   globs:
   - portal/conftest.py
   unit: unit-portal-conftest
+- name: file-portal-modules-cad-tools-b123d_bridge
+  globs:
+  - portal/modules/cad/tools/b123d_bridge.py
+  unit: unit-capability-cad-render
 - name: file-portal-modules-cad-tools-cad_render_mcp
   globs:
   - portal/modules/cad/tools/cad_render_mcp.py

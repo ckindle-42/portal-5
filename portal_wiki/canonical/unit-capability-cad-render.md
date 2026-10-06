@@ -10,6 +10,8 @@ sources:
   path: portal/modules/cad/tools/cad_render_mcp.py
 - type: code
   path: config/inference/tools_manifest_cad_render_mcp.json
+- type: code
+  path: portal/modules/cad/tools/b123d_bridge.py
 claims: []
 confidence: high
 tags:
@@ -25,7 +27,8 @@ updated_at: 1788030600.446044
 ## What
 
 The CAD Render MCP (`portal/modules/cad/tools/cad_render_mcp.py`, port 8926)
-renders and converts CAD/mesh artifacts. It is pipeline-exposed
+renders and converts CAD/mesh artifacts, and fronts a build123d engine
+(`b123d_bridge.py`: six `cad_*` BREP tools — build/execute/measure/find_holes/render/finalize). It is pipeline-exposed
 (`expose_to_pipeline: true`) but not IDE-exposed, so it is invoked by the
 `auto-cad` workspace rather than from an editing session.
 

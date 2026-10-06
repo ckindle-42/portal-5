@@ -7,8 +7,11 @@ Exposes: render_mesh, render_openscad, convert_cad
 Backend design (see task file §0): mesh-level rendering via trimesh + an offscreen
 rasterizer (pyrender/OSMesa/EGL) with a pure-CPU matplotlib fallback, so a PNG is
 always produced even when no GL context initializes in the container. OpenSCAD source
-is rendered via the openscad binary in headless --render mode. STEP read is best-effort
-(build123d/OCP if importable). This server deliberately avoids OCP+VTK offscreen.
+is rendered via the openscad binary in headless --render mode (Manifold backend when
+CAD_OPENSCAD_BACKEND=manifold). STEP read is best-effort (build123d/OCP if importable).
+The mesh render path (render_mesh) avoids OCP+VTK offscreen; the build123d BREP path
+(cad_build/cad_execute/cad_measure/cad_find_holes/cad_render/cad_finalize) runs through
+an in-container build123d-mcp engine managed by b123d_bridge.
 
 Artifacts are written to the shared workspace generated/models3d directory.
 Start with: python -m portal.modules.cad.tools.cad_render_mcp
@@ -29,6 +32,7 @@ from mcp.server import MCPServer
 from starlette.requests import Request
 from starlette.responses import JSONResponse, Response
 
+from portal.modules.cad.tools import b123d_bridge
 from portal.modules.cad.tools.capabilities import cad_capabilities, cad_status
 from portal.modules.cad.tools.mesh_validator import validate_mesh
 from portal.modules.cad.tools.scad_emitter import FN_DEFAULT, EmitError, emit_scad
@@ -196,6 +200,31 @@ async def capabilities_route(request: Request) -> JSONResponse:
 TOOLS_MANIFEST = load_data("config/inference", "tools_manifest_cad_render_mcp")
 
 
+def _b3d_route(tool_name: str) -> None:
+    """Register POST /tools/<tool_name> for one build123d bridge tool.
+
+    Always 200: tool-level failure is carried in the result's ok/error fields so a
+    model mistake never trips the pipeline's circuit breaker.
+    """
+
+    async def endpoint(request: Request) -> JSONResponse:
+        body = await request.json()
+        result = await b123d_bridge.dispatch(
+            tool_name,
+            body.get("arguments", {}) or {},
+            body.get("request_id"),
+            _out_dir(),
+            _publish_url,
+        )
+        return JSONResponse(result)
+
+    _route(f"/tools/{tool_name}", methods=["POST"])(endpoint)
+
+
+for _name in b123d_bridge.TOOL_NAMES:
+    _b3d_route(_name)
+
+
 @_route("/tools", methods=["GET"])
 async def list_tools(request: Request) -> JSONResponse:
     return JSONResponse({"tools": TOOLS_MANIFEST})
@@ -290,7 +319,8 @@ def _compile_scad(
     """Run openscad --render. Returns (ok, stderr, timed_out)."""
     scad_path.write_text(code)
     openscad = os.getenv("OPENSCAD_BIN", "openscad")
-    cmd = [openscad, "--render", "-o", str(stl_path), str(scad_path)]
+    backend = ["--backend=manifold"] if os.getenv("CAD_OPENSCAD_BACKEND") == "manifold" else []
+    cmd = [openscad, *backend, "--render", "-o", str(stl_path), str(scad_path)]
     try:
         proc = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout, check=False)  # noqa: S603
     except FileNotFoundError:
@@ -629,4 +659,8 @@ async def generate_scad_endpoint(request: Request) -> JSONResponse:
 
 
 if __name__ == "__main__":
+    if not b123d_bridge.start_engine(_out_dir()):
+        logger.error(
+            "build123d engine failed to start; cad_* tools will return 'engine unreachable'"
+        )
     mcp.run(transport="streamable-http", host="0.0.0.0", port=port)
