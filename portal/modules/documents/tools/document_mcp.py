@@ -199,6 +199,28 @@ def _safe_remote_image(source: str) -> Path:
     return destination
 
 
+def _resolve_input_path(file_path: str) -> Path:
+    """Resolve a read tool's ``file_path``.
+
+    An existing path is used as given. A bare filename (what a user says when
+    they hand over "sales.xlsx") is looked up in OUTPUT_DIR, then OUTPUT_DIR/
+    uploads (exact name, or OWUI's ``<uuid>_<name>`` form). Falls back to the
+    given path so the caller's not-found error is unchanged.
+    """
+    given = Path(file_path)
+    if given.exists() or given.name != file_path:
+        return given.resolve()
+    uploads = OUTPUT_DIR / "uploads"
+    for candidate in (OUTPUT_DIR / file_path, uploads / file_path):
+        if candidate.is_file():
+            return candidate.resolve()
+    if uploads.is_dir():
+        matches = sorted(uploads.glob(f"*_{file_path}"), key=lambda m: m.stat().st_mtime)
+        if matches:
+            return matches[-1].resolve()
+    return given.resolve()
+
+
 def _resolve_image(source: str) -> Path:
     if source.startswith(("http://", "https://")):
         return _safe_remote_image(source)
@@ -400,7 +422,10 @@ def create_powerpoint(
             tf = body.text_frame
             tf.clear()
 
-            for i, line in enumerate(slide_data.get("content", "").splitlines()):
+            body_text = slide_data.get("content", "")
+            if isinstance(body_text, (list, tuple)):  # models often send bullets as a list
+                body_text = "\n".join(str(item) for item in body_text)
+            for i, line in enumerate(str(body_text).splitlines()):
                 stripped = line.strip()
                 if not stripped:
                     continue
@@ -739,7 +764,7 @@ def read_word_document(
             "error": "python-docx not installed. Run: pip install python-docx",
         }
 
-    src = Path(file_path).resolve()
+    src = _resolve_input_path(file_path)
     if not src.exists():
         return {"success": False, "error": f"File not found: {file_path}"}
     if src.suffix.lower() != ".docx":
@@ -800,7 +825,7 @@ def read_excel(
     except ImportError:
         return {"success": False, "error": "openpyxl not installed. Run: pip install openpyxl"}
 
-    src = Path(file_path).resolve()
+    src = _resolve_input_path(file_path)
     if not src.exists():
         return {"success": False, "error": f"File not found: {file_path}"}
     if src.suffix.lower() not in {".xlsx", ".xlsm"}:
@@ -859,7 +884,7 @@ def read_powerpoint(
             "error": "python-pptx not installed. Run: pip install python-pptx",
         }
 
-    src = Path(file_path).resolve()
+    src = _resolve_input_path(file_path)
     if not src.exists():
         return {"success": False, "error": f"File not found: {file_path}"}
     if src.suffix.lower() != ".pptx":
@@ -936,7 +961,7 @@ def read_pdf(
             "error": "pdfplumber not installed. Run: pip install pdfplumber",
         }
 
-    src = Path(file_path).resolve()
+    src = _resolve_input_path(file_path)
     if not src.exists():
         return {"success": False, "error": f"File not found: {file_path}"}
     if src.suffix.lower() != ".pdf":

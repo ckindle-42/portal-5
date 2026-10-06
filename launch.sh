@@ -372,6 +372,9 @@ case "${1:-up}" in
     docker build -t portal5-pwsh:latest -f "$PORTAL_ROOT/Dockerfile.pwsh" "$PORTAL_ROOT"
     echo "[portal-5] Loading pwsh image into DinD..."
     docker save portal5-pwsh:latest | docker exec -i portal5-dind docker load
+    echo "[portal-5] Building data sandbox image (python + pandas/openpyxl) and loading into DinD..."
+    printf 'FROM python:3.11-slim\nRUN pip install --no-cache-dir pandas openpyxl\n' | docker build -t portal5-sandbox-data:latest -
+    docker save portal5-sandbox-data:latest | docker exec -i portal5-dind docker load
     echo "[portal-5] Restarting all rebuilt containers..."
     docker compose up -d --no-deps portal-pipeline $MCP_SERVICES
     echo "[portal-5] Done. Check status: ./launch.sh status"
@@ -388,6 +391,9 @@ case "${1:-up}" in
     docker build -t portal5-pwsh:latest -f "$PORTAL_ROOT/Dockerfile.pwsh" "$PORTAL_ROOT"
     echo "[portal-5] Loading pwsh image into DinD..."
     docker save portal5-pwsh:latest | docker exec -i portal5-dind docker load
+    echo "[portal-5] Building data sandbox image (python + pandas/openpyxl) and loading into DinD..."
+    printf 'FROM python:3.11-slim\nRUN pip install --no-cache-dir pandas openpyxl\n' | docker build -t portal5-sandbox-data:latest -
+    docker save portal5-sandbox-data:latest | docker exec -i portal5-dind docker load
     echo "[portal-5] Restarting MCP containers..."
     docker compose up -d --no-deps $MCP_SERVICES
     echo "[portal-5] Done. Check status: ./launch.sh status"

@@ -1,11 +1,11 @@
 ---
 id: unit-fact-tool-authorizations
 kind: what
-title: tool authorizations for 31 production workspaces
+title: tool authorizations for 33 production workspaces
 sources:
 - type: code
   path: config/portal.yaml
-  commit: 9e65e8b2b02e
+  commit: 459cd1f71ba1
   section: workspaces[].tools
 claims: []
 confidence: high
@@ -14,7 +14,7 @@ tags:
 - tools
 - workspaces
 created_at: 1784049584.703768
-updated_at: 1790467406.333298
+updated_at: 1791247345.3706188
 ---
 
 # Tool authorizations (per-workspace `tools:` whitelist)
@@ -53,6 +53,8 @@ The pipeline strips any tool a workspace does not authorize (metric `portal5_too
 | `compliance-mapping` | compliance | _(none)_ |
 | `compliance-reading` | compliance | `nerc_cip_requirement`, `compliance_requirement`, `nerc_cip_currency`, `compliance_search`, `compliance_read`, `compliance_links`, `compliance_timeline`, `compliance_note`, `compliance_notes`, `compliance_answers`, `compliance_correct`, `compliance_context`, `compliance_coverage`, `compliance_conflicts`, `compliance_standing_questions`, `compliance_review_list`, `compliance_review_decide`, `compliance_review_decide_batch`, `compliance_sources` |
 | `compliance-reading-overflow` | compliance | _(none)_ |
+| `general-deep` | general | `web_search`!, `web_fetch`!, `kb_search`!, `kb_list`!, `read_pdf`, `read_word_document`, `read_excel`, `create_word_document`, `create_excel`, `create_powerpoint`, `execute_python`, `remember`!, `recall`! |
+| `general-fast` | general | `web_search`!, `web_fetch`!, `kb_search`!, `kb_list`!, `read_pdf`, `read_word_document`, `read_excel`, `create_word_document`, `create_excel`, `create_powerpoint`, `execute_python`, `remember`!, `recall`! |
 | `tools-specialist` | general | `execute_python`, `remember`!, `recall`! |
 
 ## Why

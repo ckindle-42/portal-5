@@ -1,11 +1,11 @@
 ---
 id: unit-fact-model-catalog
 kind: what
-title: 274 model ids, 7 backend groups
+title: 278 model ids, 7 backend groups
 sources:
 - type: code
   path: config/backends.yaml
-  commit: f4ea2ecb23dd
+  commit: 459cd1f71ba1
 claims:
 - probe: backends.groups.count
   pattern: '{value} backend groups)'
@@ -14,10 +14,10 @@ tags:
 - fact
 - models
 created_at: 1784000421.487881
-updated_at: 1791162086.128587
+updated_at: 1791256927.674144
 ---
 
-# Model catalog (274 model ids across 7 backend groups)
+# Model catalog (278 model ids across 7 backend groups)
 
 ## coding (56)
 
@@ -93,9 +93,10 @@ updated_at: 1791162086.128587
 - `huihui_ai/baronllm-abliterated`
 - `huihui_ai/baronllm-abliterated:latest-ctx8k`
 
-## general (122)
+## general (126)
 
 - `NVIDIA-Nemotron-3.5-Lightning-30B-A3B-oQ4e-mtp`
+- `Qwen3.8-27B-oQ4e-mtp`
 - `cybersecqwen-4b-toolfix:latest`
 - `deepseek-r1:32b-q4_k_m`
 - `devstral-small-2:latest`
@@ -172,8 +173,10 @@ updated_at: 1791162086.128587
 - `hf.co/unsloth/Qwen-AgentWorld-35B-A3B-GGUF:UD-Q4_K_XL-ctx64k`
 - `hf.co/unsloth/Qwen3.6-35B-A3B-GGUF:UD-Q4_K_XL`
 - `hf.co/unsloth/Qwen3.6-35B-A3B-GGUF:UD-Q4_K_XL-ctx48k`
+- `hf.co/unsloth/Qwen3.6-35B-A3B-GGUF:UD-Q4_K_XL-ctx96k`
 - `hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M`
 - `hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k`
+- `hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx96k`
 - `hf.co/yuxinlu1/gemma-4-12B-agentic-fable5-composer2.5-v2-3.5x-tau2-GGUF:Q4_K_M`
 - `huihui_ai/Qwen3.6-abliterated:27b`
 - `huihui_ai/Qwen3.6-abliterated:27b-ctx8k`
@@ -217,6 +220,7 @@ updated_at: 1791162086.128587
 - `supergemma4-26b-uncensored:Q4_K_M`
 - `sylink/sylink:8b`
 - `unsloth--Qwen3.6-27B-UD-MLX-4bit`
+- `unsloth--Qwen3.6-35B-A3B-UD-MLX-4bit`
 
 ## omlx (2)
 

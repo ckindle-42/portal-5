@@ -432,6 +432,86 @@ workspaces:
     enable_web_search: true
     owui_system_prompt: |-
       You are Portal's daily driver — fast, capable, local. Use for everyday chat, writing, summarization, and planning. Escalate to specialist workspaces for heavy coding, deep reasoning, document generation, or regulatory work.
+  general-fast:
+    module: general
+    name: ⚡ General · Fast
+    description: |-
+      Everyday general assistant: chat, writing, summaries, light analysis, document, spreadsheet and web tasks. Qwen3.6-35B-A3B (MoE, ~3B active) on oMLX, ~58 tok/s. Context 96K, 98,304 (matched with General · Deep), thinking off. Pick General · Deep in the same chat when the answer needs more care.
+    # Matched-context rule: General · Fast and General · Deep MUST carry the same context_limit (Deep >= Fast), so a Fast chat switched to Deep in the picker is never truncated. Change both in one commit. Served by oMLX; the engine serves the model's native window, so context_limit is the pipeline-declared budget (TASK_GENERAL_FAST_DEEP_WORKSPACES_V2).
+    # Sampling = vendor/Unsloth instruct (non-thinking) profile, read 2026-10-05: huggingface.co/Qwen/Qwen3.8-27B, unsloth.ai/docs/models/qwen3.8, bundled README.
+    model_hint: hf.co/unsloth/Qwen3.6-35B-A3B-GGUF:UD-Q4_K_XL-ctx96k
+    inject_memory: true
+    memory_writeback: true
+    context_limit: 98304
+    predict_limit: 4096
+    max_concurrent: 1
+    keep_alive: 5m
+    temperature: 0.7
+    top_p: 0.8
+    top_k: 20
+    min_p: 0.0
+    presence_penalty: 1.5
+    repeat_penalty: 1.0
+    think: false
+    tools:
+    - web_search
+    - web_fetch
+    - kb_search
+    - kb_list
+    - read_pdf
+    - read_word_document
+    - read_excel
+    - create_word_document
+    - create_excel
+    - create_powerpoint
+    - execute_python
+    - remember
+    - recall
+    expose_to_owui: true
+    enable_web_search: true
+    owui_system_prompt: |-
+      You are Portal's fast general assistant. Use for everyday chat, writing, summarization, document, spreadsheet and web tasks. If your answer is not good enough the user can switch this chat to General · Deep.
+      Spreadsheets: read_excel costs about 6 tokens per cell and returns at most 500 rows. Above about 2,500 cells (roughly 300 rows x 8 columns) do not read the whole sheet into the conversation: analyse and modify it with execute_python (pandas, openpyxl). The user's files are readable at /workspace (uploads in /workspace/uploads, names may carry a uuid_ prefix; list the folder to find them). For changes, write a script and save the result under /out (it is returned to the user as a download) rather than regenerating cells.
+  general-deep:
+    module: general
+    name: 🧠 General · Deep
+    description: |-
+      Same general-purpose job as General · Fast when the answer matters more than the wait. Qwen3.8-27B dense with MTP on oMLX, ~18 tok/s. Context 96K, 98,304 (matched with General · Fast), thinking off. Switching a Fast chat here re-reads the whole conversation (cold prefill).
+    # Matched-context rule: General · Fast and General · Deep MUST carry the same context_limit (Deep >= Fast), so a Fast chat switched to Deep in the picker is never truncated. Change both in one commit. Served by oMLX; the engine serves the model's native window, so context_limit is the pipeline-declared budget (TASK_GENERAL_FAST_DEEP_WORKSPACES_V2).
+    # Sampling = vendor/Unsloth instruct (non-thinking) profile, read 2026-10-05: huggingface.co/Qwen/Qwen3.8-27B, unsloth.ai/docs/models/qwen3.8, bundled README.
+    model_hint: hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx96k
+    inject_memory: true
+    memory_writeback: true
+    context_limit: 98304
+    predict_limit: 4096
+    max_concurrent: 1
+    keep_alive: 5m
+    temperature: 0.7
+    top_p: 0.8
+    top_k: 20
+    min_p: 0.0
+    presence_penalty: 1.5
+    repeat_penalty: 1.0
+    think: false
+    tools:
+    - web_search
+    - web_fetch
+    - kb_search
+    - kb_list
+    - read_pdf
+    - read_word_document
+    - read_excel
+    - create_word_document
+    - create_excel
+    - create_powerpoint
+    - execute_python
+    - remember
+    - recall
+    expose_to_owui: true
+    enable_web_search: true
+    owui_system_prompt: |-
+      You are Portal's deep general assistant. The user often switches to you from General · Fast because its answer was not good enough: re-read the whole conversation and give a more careful, better answer.
+      Spreadsheets: read_excel costs about 6 tokens per cell and returns at most 500 rows. Above about 2,500 cells (roughly 300 rows x 8 columns) do not read the whole sheet into the conversation: analyse and modify it with execute_python (pandas, openpyxl). The user's files are readable at /workspace (uploads in /workspace/uploads, names may carry a uuid_ prefix; list the folder to find them). For changes, write a script and save the result under /out (it is returned to the user as a download) rather than regenerating cells.
   auto-nemotron:
     module: general
     name: "⚡ Nemotron Lightning"

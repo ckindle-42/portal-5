@@ -2229,3 +2229,11 @@ The Synthesizer was the council's last tool-capable Ollama member; with this ali
 ## Why
 
 The compliance-reading seat is the §P8.1-bound production seat; moving it to oMLX rests on three verified contract points (json, tools, window) rather than checkpoint-name matching, because the reading loop exercises all three. The standard-vs-QAT distinction is recorded so the two gemma-4-26b conversions are never cross-aliased.
+
+### `hf.co/unsloth/Qwen3.6-35B-A3B-GGUF:UD-Q4_K_XL-ctx96k`
+
+`hf.co/unsloth/Qwen3.6-35B-A3B-GGUF:UD-Q4_K_XL-ctx96k` bakes a 98304-token context onto the Qwen3.6-35B-A3B UD-Q4_K_XL GGUF and is the `model_hint` of the `general-fast` workspace. `config/backends.yaml` registers it in the `general` group with `supports_tools: true`; the `omlx-general` group aliases it to `unsloth--Qwen3.6-35B-A3B-UD-MLX-4bit`, which serves it (the Ollama tag is only the fallback).
+
+### `hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx96k`
+
+`hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx96k` bakes a 98304-token context onto the Qwen3.8-27B Q4_K_M GGUF and is the `model_hint` of the `general-deep` workspace. `config/backends.yaml` registers it in the `general` group with `supports_tools: true`; the `omlx-general` group aliases it to `Qwen3.8-27B-oQ4e-mtp`, which serves it (the Ollama tag is only the fallback).

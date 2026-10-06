@@ -5,23 +5,23 @@ title: portal_channels subsystem (4 files)
 sources:
 - type: code
   path: portal_channels/__init__.py
-  commit: 4f0f6aaa75ff
+  commit: 459cd1f71ba1
 - type: code
   path: portal_channels/dispatcher.py
-  commit: 4f0f6aaa75ff
+  commit: 459cd1f71ba1
 - type: code
   path: portal_channels/slack/bot.py
-  commit: 4f0f6aaa75ff
+  commit: 459cd1f71ba1
 - type: code
   path: portal_channels/telegram/bot.py
-  commit: 4f0f6aaa75ff
+  commit: 459cd1f71ba1
 claims: []
 confidence: high
 tags:
 - code
 - portal_channels
-created_at: 1790651067.799346
-updated_at: 1790651067.799346
+created_at: 1791260400.665958
+updated_at: 1791260400.665958
 ---
 
 # portal_channels subsystem

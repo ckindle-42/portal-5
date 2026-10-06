@@ -17,6 +17,13 @@ backends:
   # the prior campaign's preflight probes.
   - id: hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k
     supports_tools: true
+  # TASK_GENERAL_FAST_DEEP_WORKSPACES_V2: general-fast / general-deep seats.
+  # Ollama fallback tags with num_ctx 98304 baked; oMLX
+  # shadows them via the omlx-general aliases. Matched-context rule: both 96k (64k start, upgraded by W5 data).
+  - id: hf.co/unsloth/Qwen3.6-35B-A3B-GGUF:UD-Q4_K_XL-ctx96k
+    supports_tools: true
+  - id: hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx96k
+    supports_tools: true
   # WINDOW_AND_SEAT_V1 P4.2: candidate tags registered so the live tool-loop
   # test can address them through compliance-reading's ?model= override. Each
   # was probed (settings_audit.probe_tag) before registration; supports_tools
@@ -977,6 +984,12 @@ backends:
     supports_tools: true
   - id: granite-4.1-30b-4bit
     supports_tools: true
+  # general-fast / general-deep (TASK_GENERAL_FAST_DEEP_WORKSPACES_V2); tool
+  # flags are per id, global, last wins — confirmed by W3 probes.
+  - id: unsloth--Qwen3.6-35B-A3B-UD-MLX-4bit
+    supports_tools: true
+  - id: Qwen3.8-27B-oQ4e-mtp
+    supports_tools: true
   # P5-FANOUT-001 lane-alignment audit (2026-09-25): granite4.1:30b-ctx98k is
   # deliberately NOT aliased here — the granite-4.1-30b-4bit conversion
   # returned EMPTY output on an 85k-token needle probe (400 correctly at 132k,
@@ -1016,6 +1029,9 @@ backends:
     # token real-document read measured 2026-10-04).
     gemma4:26b-a4b-it-q4_K_M-ctx128k: mlx-community--gemma-4-26b-a4b-it-4bit
     hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k: Qwen3.8-27B-oQ4e-mtp
+    # general-fast / general-deep (matched 96k; oMLX serves the native window)
+    hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx96k: Qwen3.8-27B-oQ4e-mtp
+    hf.co/unsloth/Qwen3.6-35B-A3B-GGUF:UD-Q4_K_XL-ctx96k: unsloth--Qwen3.6-35B-A3B-UD-MLX-4bit
   type: omlx
   url: ${OMLX_URL:-http://host.docker.internal:8085}
 # omlx-reasoning: reasoning-group workspaces (auto-research, auto-compliance,
@@ -1211,6 +1227,10 @@ workspace_routing:
   auto-uncensored-throwaway:
   - general
   auto-daily:
+  - general
+  general-fast:
+  - general
+  general-deep:
   - general
   auto-nemotron:
   - general

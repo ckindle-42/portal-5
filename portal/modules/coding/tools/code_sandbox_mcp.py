@@ -71,6 +71,10 @@ SANDBOX_DIR.mkdir(parents=True, exist_ok=True)
 
 DEFAULT_TIMEOUT = int(os.getenv("SANDBOX_TIMEOUT", "30"))
 PYTHON_IMAGE = os.getenv("SANDBOX_DOCKER_IMAGE", "python:3.11-slim")
+# Read-only view of the shared workspace (${AI_OUTPUT_DIR}) inside every sandbox
+# run, so execute_python can open the user's spreadsheets/files. Like the vulhub
+# clone, the path is a DinD-side bind mount (docker-compose), not this container's.
+SANDBOX_WORKSPACE_DIR = os.getenv("SANDBOX_WORKSPACE_DIR", "/workspace-src")
 NODE_IMAGE = os.getenv("SANDBOX_NODE_IMAGE", "node:20-alpine")
 BASH_IMAGE = os.getenv("SANDBOX_BASH_IMAGE", "alpine:latest")
 MAX_OUTPUT_BYTES = 50_000  # 50KB output cap
@@ -317,6 +321,9 @@ async def _run_in_docker(
     work_dir.mkdir(parents=True, exist_ok=True)
     out_dir = work_dir / "out"
     out_dir.mkdir()
+    out_dir.chmod(
+        0o777
+    )  # the container drops DAC_OVERRIDE: root there cannot write a dir another uid owns
     sess = _session_dir(session_id) if session_id else None
     if sess and _directory_size(sess) > SANDBOX_SESSION_MAX_BYTES:
         shutil.rmtree(work_dir, ignore_errors=True)
@@ -454,6 +461,7 @@ async def _run_in_docker(
             # container can't see DinD's filesystem to check it.
             ["-v", f"{SANDBOX_LAB_VULHUB_DIR}:/vulhub:ro"] if SANDBOX_LAB_EXEC else []
         )
+        + (["-v", f"{SANDBOX_WORKSPACE_DIR}:/workspace:ro"] if SANDBOX_WORKSPACE_DIR else [])
         + (extra_args or [])
         + (["-v", f"{sess.absolute()}:/session", "--workdir", "/session"] if sess else [])
         + (["--env", "PYTHONPATH=/session/.pylibs"] if sess else [])

@@ -509,6 +509,9 @@ services:
       # side -- DinD bind-mount sources resolve against the daemon's fs, not
       # the client (mcp-sandbox) container's. See code_sandbox_mcp.py.
       - ${AI_OUTPUT_DIR:-${HOME}/AI_Output}/lab/vulhub:/vulhub-src:ro
+      # Shared workspace, read-only, so execute_python can open the user's files
+      # (same DinD-side bind-mount rationale as vulhub; see code_sandbox_mcp.py).
+      - ${AI_OUTPUT_DIR:-${HOME}/AI_Output}:/workspace-src:ro
       # Binary research projects root, bind-mounted into DinD read-write so
       # `docker run -v /binresearch-projects/<name>:/work` (issued by the
       # binresearch MCP) resolves on the daemon fs. Same rationale as vulhub.
@@ -540,12 +543,16 @@ services:
       - MCP_PORT=8914
       - SANDBOX_TIMEOUT=${SANDBOX_TIMEOUT:-30}
       - SANDBOX_ENABLED=true
+      # Files the code writes to /out are handed back via Open WebUI's files API.
+      - OPENWEBUI_URL=http://open-webui:8080
+      - OWUI_API_KEY=${OWUI_API_KEY:-}
+      - PORTAL_PUBLIC_URL=${PORTAL_PUBLIC_URL:-}
       - SANDBOX_DIR=/app/data/sandbox
       # Point at DinD instead of host Docker
       - DOCKER_HOST=tcp://dind:2375
       - WORKSPACE_DIR=/workspace
       - SANDBOX_ALLOW_NETWORK=${SANDBOX_ALLOW_NETWORK:-false}
-      - SANDBOX_DOCKER_IMAGE=${SANDBOX_DOCKER_IMAGE:-python:3.11-slim}
+      - SANDBOX_DOCKER_IMAGE=${SANDBOX_DOCKER_IMAGE:-portal5-sandbox-data:latest}
       # Lab-exec lane — live *-exec workspaces against a routable remote lab.
       # Off by default; set these in .env to enable. See docs/LAB_SETUP.md.
       - SANDBOX_LAB_EXEC=${SANDBOX_LAB_EXEC:-false}

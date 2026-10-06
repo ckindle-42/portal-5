@@ -2,7 +2,7 @@
 
 # Portal 5 Architecture Map
 
-*Deterministic projection of 760 canonical units.*
+*Deterministic projection of 761 canonical units.*
 
 ## Knowledge Layer
 
@@ -246,6 +246,7 @@
 | `unit-compliance-cite-and-scope` | mixed | 7 |
 | `unit-compliance-config-workspace-pointers` | mixed | 1 |
 | `unit-compliance-conversation-window` | what | 1 |
+| `unit-compliance-dual-document` | what | 1 |
 | `unit-compliance-engine` | mixed | 87 |
 | `unit-compliance-fallback-policy-canonical-baseline` | what | 5 |
 | `unit-compliance-fallback-policy-compliance-fallback-policy` | what | 4 |
@@ -258,6 +259,7 @@
 | `unit-compliance-fallback-policy-what-compliance-fallback-means` | what | 5 |
 | `unit-compliance-module-complete-instruments` | what | 3 |
 | `unit-compliance-module-config-only` | mixed | 1 |
+| `unit-compliance-operator-traceability` | what | 1 |
 | `unit-compliance-prove-then-scale` | mixed | 3 |
 | `unit-compliance-requirement-join` | mixed | 8 |
 | `unit-compliance-served-window` | mixed | 3 |
@@ -302,6 +304,7 @@
 | `unit-fact-workspace-roster` | what | 1 |
 | `unit-fixture-capability-context-sample` | mixed | 1 |
 | `unit-general-config-workspace-pointers` | mixed | 1 |
+| `unit-general-fast-deep-workspaces` | mixed | 3 |
 | `unit-general-module-vendored-tools` | mixed | 1 |
 | `unit-general-tools-vendored-fleet` | mixed | 1 |
 | `unit-inference-router-pipe` | mixed | 1 |
@@ -702,7 +705,7 @@
 | `unit-surface-archive-mlx` | mixed | 1 |
 | `unit-surface-benchmarks` | mixed | 3 |
 | `unit-surface-binary-research` | mixed | 1 |
-| `unit-surface-compliance-closeout-scripts` | mixed | 20 |
+| `unit-surface-compliance-closeout-scripts` | mixed | 21 |
 | `unit-surface-compliance-prove-then-scale-scripts` | mixed | 1 |
 | `unit-surface-compliance-reading-truth` | what | 2 |
 | `unit-surface-inference` | mixed | 1 |
@@ -767,14 +770,14 @@
 | `unit-wiki-tests-render` | mixed | 1 |
 | `unit-wiki-writeback` | mixed | 1 |
 
-**Total:** 758 units
+**Total:** 761 units
 
 ## Source Distribution
 
 - **bench-security**: 1 references
-- **code**: 1960 references
+- **code**: 1965 references
 - **config**: 1 references
-- **doc**: 1 references
+- **doc**: 2 references
 - **mitre**: 40 references
 - **scenario**: 54 references
 - **spl**: 40 references

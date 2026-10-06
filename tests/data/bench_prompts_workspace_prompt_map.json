@@ -8,6 +8,8 @@
   "auto-council": "reasoning",
   "auto-creative": "creative",
   "auto-daily": "general",
+  "general-fast": "general",
+  "general-deep": "general",
   "auto-data": "reasoning",
   "auto-documents": "coding",
   "auto-extract-uncensored": "general",

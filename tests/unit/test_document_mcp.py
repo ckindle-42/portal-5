@@ -377,3 +377,37 @@ class TestDocumentCreationOverhaul:
         monkeypatch.setattr(subprocess, "run", missing)
         result = document_mcp.export_pdf(str(source))
         assert "without LibreOffice" in result["error"]
+
+
+class TestCreatePowerpointListContent:
+    """Models often send slide bullets as a list; that crashed on .splitlines()."""
+
+    def test_list_content_is_joined_not_crashing(self, tmp_path, monkeypatch):
+        pytest.importorskip("pptx")
+        from portal.modules.documents.tools import document_mcp
+
+        monkeypatch.setattr(document_mcp, "OUTPUT_DIR", tmp_path, raising=False)
+        result = document_mcp.create_powerpoint(
+            "Backups",
+            [{"title": "Why", "content": ["Recover data", "Meet compliance"]}],
+        )
+        # publishing needs OWUI_API_KEY (absent in unit tests); the slide build must not crash
+        assert "splitlines" not in str(result.get("error", "")), result
+
+
+class TestReadBareFilename:
+    """A bare filename resolves against OUTPUT_DIR and OUTPUT_DIR/uploads."""
+
+    def test_bare_name_in_output_dir_and_uploads(self, tmp_path, monkeypatch):
+        from portal.modules.documents.tools import document_mcp
+
+        monkeypatch.setattr(document_mcp, "OUTPUT_DIR", tmp_path)
+        (tmp_path / "uploads").mkdir()
+        (tmp_path / "a.xlsx").write_bytes(b"x")
+        (tmp_path / "uploads" / "1234_b.xlsx").write_bytes(b"x")
+        assert document_mcp._resolve_input_path("a.xlsx") == (tmp_path / "a.xlsx").resolve()
+        assert (
+            document_mcp._resolve_input_path("b.xlsx")
+            == (tmp_path / "uploads" / "1234_b.xlsx").resolve()
+        )
+        assert document_mcp._resolve_input_path("nope.xlsx").name == "nope.xlsx"
