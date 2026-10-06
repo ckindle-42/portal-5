@@ -15,6 +15,7 @@
     "parameters": {
       "type": "object",
       "description": "Named variables: name -> number or arithmetic expression string referencing other parameters (e.g. \"width - 2*wall_thickness\"). Resolved by a restricted evaluator, never eval().",
+      "propertyNames": { "pattern": "^[A-Za-z_][A-Za-z0-9_]{0,63}$" },
       "additionalProperties": {
         "type": ["number", "string"]
       }

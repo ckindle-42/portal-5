@@ -8,7 +8,6 @@ import sys
 from pathlib import Path
 
 import jsonschema
-import yaml
 
 from portal.modules.cad.tools.scad_emitter import geometry_schema, validate_geometry
 
@@ -58,14 +57,14 @@ def test_schema_sync_script_reports_manifest_current():
     )
 
 
-def test_auto_cad_prompt_example_validates_against_schema():
-    portal = yaml.safe_load((ROOT / "config/portal.yaml").read_text())
-    prompt = portal["workspaces"]["auto-cad"]["system_prompt_append"]
-    marker = "Example: `"
-    start = prompt.index(marker) + len(marker)
-    example, _ = json.JSONDecoder().raw_decode(prompt[start:])
-    jsonschema.validate(example, geometry_schema())
-    assert validate_geometry(example) == []
+def test_schema_examples_validate_against_schema():
+    # The auto-cad prompt (P4-A) no longer inlines a JSON example; the schema's own
+    # `examples` are the canonical ones the model sees via the tool manifest.
+    examples = geometry_schema()["examples"]
+    assert examples
+    for example in examples:
+        jsonschema.validate(example, geometry_schema())
+        assert validate_geometry(example) == []
 
 
 def test_real_phase8_payloads_are_actionably_rejected():

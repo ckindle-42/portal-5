@@ -19,6 +19,7 @@ import difflib
 import json
 import math
 import operator
+import re
 from dataclasses import dataclass
 from functools import lru_cache
 from pathlib import Path
@@ -26,6 +27,7 @@ from typing import Any, TypedDict, cast
 
 from jsonschema import Draft7Validator  # type: ignore[import-untyped]  # no py.typed marker
 
+_PARAM_NAME = re.compile(r"[A-Za-z_][A-Za-z0-9_]{0,63}")
 EPSILON = 0.5  # mm — coincident-face overshoot so subtract/union never leaves a knife-edge
 
 
@@ -101,6 +103,12 @@ def resolve_parameters(parameters: dict[str, Any] | None) -> dict[str, float]:
     fine); a genuine cycle or undefined reference is a structured EmitError.
     """
     raw = dict(parameters or {})
+    for name in raw:
+        if not _PARAM_NAME.fullmatch(str(name)):
+            raise EmitError(
+                f"parameter name {str(name)[:40]!r} is not a valid identifier "
+                "(letters, digits, underscore; must not start with a digit)"
+            )
     resolved: dict[str, float] = {}
     pending = dict(raw)
     for _ in range(len(raw) + 1):

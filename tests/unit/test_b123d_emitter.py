@@ -119,3 +119,24 @@ def test_mixed_fillet_and_chamfer_is_a_kernel_gap():
     with pytest.raises(EmitError) as err:
         emit_build123d(geometry)
     assert err.value.category == "kernel_gap"
+
+
+def test_user_strings_cannot_inject_script_lines():
+    geometry = {
+        "metadata": {"part_name": "x\nimport os\r\nos.system('id') import sys"},
+        "base": {"type": "box", "dimensions": {"width": 5, "depth": 5, "height": 5}},
+    }
+    script = emit_build123d(geometry)
+    assert "\nimport os" not in script and " " not in script and "\r" not in script
+    assert [ln for ln in script.splitlines() if ln.startswith("import ")] == []
+
+
+def test_parameter_names_must_be_identifiers():
+    geometry = {
+        "parameters": {"w\nimport os": 5},
+        "base": {"type": "box", "dimensions": {"width": 5, "depth": 5, "height": 5}},
+    }
+    with pytest.raises(EmitError):
+        emit_build123d(geometry)
+    with pytest.raises(EmitError):
+        emit_scad(geometry)
