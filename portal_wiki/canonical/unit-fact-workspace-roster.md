@@ -1,11 +1,11 @@
 ---
 id: unit-fact-workspace-roster
 kind: what
-title: 33 production + 22 eval workspaces
+title: 33 production + 23 eval workspaces
 sources:
 - type: code
   path: config/portal.yaml
-  commit: 459cd1f71ba1
+  commit: dddfc009ef2d
 claims:
 - probe: workspaces.total
   pattern: '{value} total)'
@@ -14,10 +14,10 @@ tags:
 - fact
 - workspaces
 created_at: 1784000421.2630541
-updated_at: 1791256927.36505
+updated_at: 1791291652.183669
 ---
 
-# Workspace roster (33 production, 22 eval, 55 total)
+# Workspace roster (33 production, 23 eval, 56 total)
 
 ## Production workspaces (acceptance/UAT scope, eval OFF)
 
@@ -81,6 +81,7 @@ updated_at: 1791256927.36505
 - `bench-qwen36-cad`
 - `bench-qwen38-27b`
 - `bench-qwen38-flash-next-reap288`
+- `task-router`
 
 ## Why
 

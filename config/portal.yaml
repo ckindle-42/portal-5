@@ -2419,6 +2419,21 @@ workspaces:
     enable_web_search: false
     owui_system_prompt: |-
       You are a creative coder. Ship complete, working, single-file HTML. No TODOs. No framework questions. Build the most interesting version.
+  task-router:
+    module: eval
+    name: Task model (titles, tags, follow-ups)
+    description: |-
+      Open WebUI task model: chat titles, tags and follow-up suggestions. Runs on the resident intent-router model at the router's own num_ctx 2048 and the pipeline's keep_alive -1, so a task request never loads a second model, evicts the router, or queues behind a 96K General chat. Long inputs are tail-truncated by the engine, which is fine for a title.
+    model_hint: hf.co/mradermacher/gemma-4-E4B-it-OBLITERATED-GGUF:Q4_K_M-ctx2k
+    context_limit: 2048
+    predict_limit: 128
+    ctx_validated: true
+    temperature: 0.2
+    max_concurrent: 1
+    think: false
+    tools: []
+    expose_to_owui: false
+    enable_web_search: false
   bench-gemma4-e4b-qat:
     module: eval
     name: 🔬 Bench · Gemma 4 E4B QAT (Google)

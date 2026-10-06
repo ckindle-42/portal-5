@@ -352,7 +352,7 @@ def _last_user_text(messages: list[dict[str, Any]], limit: int) -> str:
 
 _LLM_ROUTER_ENABLED: bool = os.environ.get("LLM_ROUTER_ENABLED", "true").lower() == "true"
 _LLM_ROUTER_MODEL: str = os.environ.get(
-    "LLM_ROUTER_MODEL", "hf.co/mradermacher/gemma-4-E4B-it-OBLITERATED-GGUF:Q4_K_M"
+    "LLM_ROUTER_MODEL", "hf.co/mradermacher/gemma-4-E4B-it-OBLITERATED-GGUF:Q4_K_M-ctx2k"
 )
 _LLM_ROUTER_CONFIDENCE_THRESHOLD: float = float(
     os.environ.get("LLM_ROUTER_CONFIDENCE_THRESHOLD", "0.5")

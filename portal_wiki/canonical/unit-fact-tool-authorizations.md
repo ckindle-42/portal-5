@@ -5,7 +5,7 @@ title: tool authorizations for 33 production workspaces
 sources:
 - type: code
   path: config/portal.yaml
-  commit: 459cd1f71ba1
+  commit: dddfc009ef2d
   section: workspaces[].tools
 claims: []
 confidence: high
@@ -14,7 +14,7 @@ tags:
 - tools
 - workspaces
 created_at: 1784049584.703768
-updated_at: 1791247345.3706188
+updated_at: 1791291652.5596511
 ---
 
 # Tool authorizations (per-workspace `tools:` whitelist)

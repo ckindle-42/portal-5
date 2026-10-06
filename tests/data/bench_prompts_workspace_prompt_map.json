@@ -10,6 +10,7 @@
   "auto-daily": "general",
   "general-fast": "general",
   "general-deep": "general",
+  "task-router": "general",
   "auto-data": "reasoning",
   "auto-documents": "coding",
   "auto-extract-uncensored": "general",

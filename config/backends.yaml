@@ -48,6 +48,8 @@ backends:
   # probed live before registration.
   - id: gemma4:26b-a4b-it-q4_K_M-ctx128k
     supports_tools: true
+  - id: hf.co/mradermacher/gemma-4-E4B-it-OBLITERATED-GGUF:Q4_K_M-ctx2k
+    supports_tools: false
   - id: granite4:tiny-h-ctx32k
     supports_tools: true
   - id: granite4:small-h-ctx32k
@@ -1321,6 +1323,8 @@ workspace_routing:
   bench-gemma4-26b-optiq:
   - general
   bench-huihui-qwen36-27b:
+  - general
+  task-router:
   - general
   bench-gemma4-e4b-qat:
   - general

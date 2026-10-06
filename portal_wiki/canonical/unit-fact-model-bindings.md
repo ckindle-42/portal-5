@@ -5,13 +5,13 @@ title: "model bindings \u2014 0 reachability gap(s)"
 sources:
 - type: code
   path: config/backends.yaml
-  commit: 459cd1f71ba1
+  commit: dddfc009ef2d
 - type: code
   path: config/portal.yaml
-  commit: 459cd1f71ba1
+  commit: dddfc009ef2d
 - type: code
   path: config/personas/
-  commit: 459cd1f71ba1
+  commit: dddfc009ef2d
 claims: []
 confidence: high
 tags:
@@ -19,7 +19,7 @@ tags:
 - model-bindings
 - reachability
 created_at: 1784000421.433863
-updated_at: 1791256927.5856798
+updated_at: 1791291652.400639
 ---
 
 # Model bindings (reachability-resolved)

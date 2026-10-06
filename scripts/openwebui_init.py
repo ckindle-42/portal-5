@@ -683,6 +683,35 @@ def configure_user_settings(client: httpx.Client, token: str) -> None:
     print(f"        {OPENWEBUI_URL}/admin/users")
 
 
+TASK_MODEL_ID = "task-router"
+
+
+def configure_task_model(client: httpx.Client, token: str) -> None:
+    """Point OWUI's title/tags/follow-up generation at the small resident router model.
+
+    With the task model unset, OWUI sends those requests to the chat's own model,
+    where they queue behind (or evict) a large workspace. TASK_MODEL_EXTERNAL
+    applies because the pipeline is an OpenAI-type connection. Global setting;
+    config/portal.yaml `task-router` defines the model.
+    """
+    print("\nConfiguring task model...")
+    try:
+        url = f"{OPENWEBUI_URL}/api/v1/tasks/config"
+        resp = client.get(url, headers=auth_headers(token), timeout=10.0)
+        if resp.status_code != 200:
+            print(f"  Warning: could not fetch task config: HTTP {resp.status_code}")
+            return
+        cfg = resp.json()
+        cfg["TASK_MODEL_EXTERNAL"] = TASK_MODEL_ID
+        resp = client.post(f"{url}/update", json=cfg, headers=auth_headers(token), timeout=10.0)
+        if resp.status_code in (200, 201):
+            print(f"  Task model (external): {TASK_MODEL_ID}")
+        else:
+            print(f"  Warning: could not set task model: HTTP {resp.status_code}")
+    except Exception as e:
+        print(f"  Warning: task model config failed: {e}")
+
+
 def configure_audio_settings(client: httpx.Client, token: str) -> None:
     """Audio TTS/STT is configured via Open WebUI environment variables.
 
@@ -872,6 +901,7 @@ async def main() -> int:
     verify_persona_tool_bindings(client, token)
 
     configure_user_settings(client, token)
+    configure_task_model(client, token)
     configure_audio_settings(client, token)
     configure_tool_settings(client, token)
 
