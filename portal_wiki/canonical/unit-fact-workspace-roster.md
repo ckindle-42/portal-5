@@ -1,11 +1,11 @@
 ---
 id: unit-fact-workspace-roster
 kind: what
-title: 33 production + 23 eval workspaces
+title: 33 production + 24 eval workspaces
 sources:
 - type: code
   path: config/portal.yaml
-  commit: dddfc009ef2d
+  commit: 95f6e9006c8b
 claims:
 - probe: workspaces.total
   pattern: '{value} total)'
@@ -14,10 +14,10 @@ tags:
 - fact
 - workspaces
 created_at: 1784000421.2630541
-updated_at: 1791291652.183669
+updated_at: 1791307306.1961741
 ---
 
-# Workspace roster (33 production, 23 eval, 56 total)
+# Workspace roster (33 production, 24 eval, 57 total)
 
 ## Production workspaces (acceptance/UAT scope, eval OFF)
 
@@ -26,7 +26,7 @@ updated_at: 1791291652.183669
 | `auto` | general | `huihui_ai/qwen3.5-abliterated:9b-ctx8k` |
 | `auto-audio` | media | `gemma4:12b-it-qat-ctx8k` |
 | `auto-bigfix` | general | `qwen3-coder:30b-a3b-q4_K_M-ctx16k` |
-| `auto-cad` | cad | `qwen3-coder:30b-a3b-q4_K_M-ctx16k` |
+| `auto-cad` | cad | `qwen3-coder:30b-a3b-q4_K_M-ctx32k` |
 | `auto-coding` | coding | `qwen3-coder:30b-a3b-q4_K_M-ctx256k` |
 | `auto-compliance` | compliance | `hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k` |
 | `auto-council` | general | `qwen3.6:27b-q4_K_M-ctx16k` |
@@ -80,6 +80,7 @@ updated_at: 1791291652.183669
 - `bench-qwen35-abliterated`
 - `bench-qwen36-cad`
 - `bench-qwen38-27b`
+- `bench-qwen38-cad`
 - `bench-qwen38-flash-next-reap288`
 - `task-router`
 

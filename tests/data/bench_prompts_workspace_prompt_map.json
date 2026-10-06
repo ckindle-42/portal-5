@@ -46,6 +46,7 @@
   "bench-qwen3-coder-30b": "coding",
   "bench-qwen35-abliterated": "general",
   "bench-qwen36-cad": "coding",
+  "bench-qwen38-cad": "coding",
   "bench-qwen38-27b": "coding",
   "bench-qwen38-flash-next-reap288": "coding",
   "compliance-council-deepseek-r1": "reasoning",

@@ -538,7 +538,7 @@ The roster is derived from the persona YAML files under `config/personas/`, one 
 ### Workspaces
 
 <!-- WIKI:GENERATED unit=unit-fact-workspace-roster -->
-#### Workspace roster (33 production, 23 eval, 56 total)
+#### Workspace roster (33 production, 24 eval, 57 total)
 
 ##### Production workspaces (acceptance/UAT scope, eval OFF)
 
@@ -547,7 +547,7 @@ The roster is derived from the persona YAML files under `config/personas/`, one 
 | `auto` | general | `huihui_ai/qwen3.5-abliterated:9b-ctx8k` |
 | `auto-audio` | media | `gemma4:12b-it-qat-ctx8k` |
 | `auto-bigfix` | general | `qwen3-coder:30b-a3b-q4_K_M-ctx16k` |
-| `auto-cad` | cad | `qwen3-coder:30b-a3b-q4_K_M-ctx16k` |
+| `auto-cad` | cad | `qwen3-coder:30b-a3b-q4_K_M-ctx32k` |
 | `auto-coding` | coding | `qwen3-coder:30b-a3b-q4_K_M-ctx256k` |
 | `auto-compliance` | compliance | `hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k` |
 | `auto-council` | general | `qwen3.6:27b-q4_K_M-ctx16k` |
@@ -601,6 +601,7 @@ The roster is derived from the persona YAML files under `config/personas/`, one 
 - `bench-qwen35-abliterated`
 - `bench-qwen36-cad`
 - `bench-qwen38-27b`
+- `bench-qwen38-cad`
 - `bench-qwen38-flash-next-reap288`
 - `task-router`
 
@@ -626,7 +627,7 @@ default.
 | `auto` | `huihui_ai/qwen3.5-abliterated:9b-ctx8k` | yes |
 | `auto-audio` | `gemma4:12b-it-qat-ctx8k` | yes |
 | `auto-bigfix` | `qwen3-coder:30b-a3b-q4_K_M-ctx16k` | yes |
-| `auto-cad` | `qwen3-coder:30b-a3b-q4_K_M-ctx16k` | yes |
+| `auto-cad` | `qwen3-coder:30b-a3b-q4_K_M-ctx32k` | yes |
 | `auto-coding` | `qwen3-coder:30b-a3b-q4_K_M-ctx256k` | yes |
 | `auto-compliance` | `hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k` | yes |
 | `auto-council` | `qwen3.6:27b-q4_K_M-ctx16k` | yes |
@@ -729,9 +730,9 @@ The fleet table is the `mcp_fleet` list in `config/portal.yaml`, the single sour
 ### Model Catalog
 
 <!-- WIKI:GENERATED unit=unit-fact-model-catalog -->
-#### Model catalog (279 model ids across 7 backend groups)
+#### Model catalog (280 model ids across 7 backend groups)
 
-##### coding (56)
+##### coding (57)
 
 - `Laguna-XS-2.1-4bit`
 - `Qwen3-Coder-30B-A3B-Instruct-4bit`
@@ -786,6 +787,7 @@ The fleet table is the `mcp_fleet` list in `config/portal.yaml`, the single sour
 - `qwen3-coder:30b-a3b-q4_K_M`
 - `qwen3-coder:30b-a3b-q4_K_M-ctx16k`
 - `qwen3-coder:30b-a3b-q4_K_M-ctx256k`
+- `qwen3-coder:30b-a3b-q4_K_M-ctx32k`
 - `qwen3-coder:30b-a3b-q4_K_M-ctx8k`
 - `qwen3.6:27b-q4_K_M`
 - `qwen3.6:35b-a3b-q4_K_M`

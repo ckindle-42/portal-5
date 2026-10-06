@@ -659,6 +659,7 @@ async def generate_scad_endpoint(request: Request) -> JSONResponse:
     return JSONResponse(result)
 
 
+@mcp.tool()
 async def generate_part(geometry: dict[str, Any], request_id: str | None = None) -> dict[str, Any]:
     """Same JSON IR as generate_scad, built as an exact build123d BREP solid.
 

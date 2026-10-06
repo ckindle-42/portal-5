@@ -69,7 +69,7 @@
     ],
     "id": "WS-CAD-01",
     "model_slug": "auto-cad",
-    "name": "CAD Workspace \u2014 Parametric Mounting Bracket",
+    "name": "CAD Workspace \u2014 explicit OpenSCAD request (SCAD fallback path)",
     "prompt": "Design a parametric mounting bracket in OpenSCAD. The bracket should have a 60\u00d740mm base with two M4 mounting holes (3mm clearance), a 90\u00b0 upright arm 30mm tall and 4mm thick, and a 2mm fillet on the inner corner. All dimensions must be named variables. Render it and show me the preview.",
     "section": "auto-cad",
     "timeout": 300,
@@ -79,69 +79,72 @@
     "assertions": [
       {
         "critical": true,
+        "type": "any_of",
+        "label": "build123d BREP path used (tool or script evidence)",
         "keywords": [
-          "```openscad",
-          "```scad",
-          "module ",
-          "difference(",
-          "cube("
-        ],
-        "label": "OpenSCAD code block present",
-        "type": "any_of"
+          "generate_part",
+          "cad_build",
+          "cad_finalize",
+          "from build123d",
+          "build123d",
+          "step_url",
+          ".step",
+          "Box(",
+          "Cylinder(",
+          "offset("
+        ]
       },
       {
         "critical": true,
+        "type": "any_of",
+        "label": "Wall thickness variable declared",
         "keywords": [
           "wall",
           "wall_t",
           "thickness",
           "wall_thickness",
           "wall ="
-        ],
-        "label": "Wall thickness variable declared",
-        "type": "any_of"
+        ]
       },
       {
+        "type": "any_of",
+        "label": "Clearance/tolerance variable declared",
         "keywords": [
           "clearance",
           "tolerance",
           "fit",
           "0.2"
-        ],
-        "label": "Clearance/tolerance variable declared",
-        "type": "any_of"
+        ]
       },
       {
         "critical": false,
+        "type": "any_of",
+        "label": "Two parts (box + lid)",
         "keywords": [
-          "module lid",
-          "module box",
-          "module enclosure",
-          "module top",
-          "module cover"
-        ],
-        "label": "Two modules (box + lid)",
-        "type": "any_of"
+          "lid",
+          "cover",
+          "top part",
+          "two parts"
+        ]
       },
       {
         "critical": false,
+        "type": "any_of",
+        "label": "STEP/STL artifact referenced",
         "keywords": [
+          "step_url",
+          "stl_url",
+          ".step",
           "png_url",
-          ".png",
           ".stl",
-          "rendered",
-          "preview",
-          "/files/models3d/",
-          "stl_path"
-        ],
-        "label": "Render called \u2014 artifact referenced",
-        "type": "any_of"
+          "/files/models3d/"
+        ]
       }
     ],
     "id": "WS-CAD-02",
     "model_slug": "auto-cad",
-    "name": "CAD Workspace \u2014 Hex Enclosure with Lid",
-    "prompt": "Create an OpenSCAD script for a simple electronics enclosure: 80\u00d750\u00d730mm rectangular box, 2mm wall thickness, open top for a snap-fit lid. The lid should be a separate module that fits over the box with 0.2mm clearance. Use named variables throughout. Render the box and show me the preview.",
+    "name": "CAD Workspace \u2014 enclosure + lid as BREP (generate_part / cad_build)",
+    "prompt": "Design a simple electronics enclosure: 80\u00d750\u00d730mm rectangular box, 2mm wall thickness, open top for a snap-fit lid. The lid should be a separate part that fits over the box with 0.2mm clearance. Deliver STEP and STL files.",
     "section": "auto-cad",
     "timeout": 300,
     "workspace_tier": "ollama"
@@ -191,9 +194,13 @@
           "module spur",
           "teeth",
           "module =",
-          "modul ="
+          "modul =",
+          "SpurGear",
+          "from build123d",
+          "cad_build",
+          "bd_warehouse"
         ],
-        "label": "OpenSCAD or parametric geometry code present",
+        "label": "Parametric geometry code present (build123d primary, OpenSCAD acceptable)",
         "type": "any_of"
       },
       {
@@ -218,7 +225,10 @@
           ".stl",
           "rendered",
           "preview",
-          "/files/models3d/"
+          "/files/models3d/",
+          "step_url",
+          "stl_url",
+          ".step"
         ],
         "label": "Render called \u2014 PNG or STL referenced",
         "type": "any_of"
@@ -226,8 +236,8 @@
       {
         "keywords": [
           "import cadquery",
-          "import build123d",
-          "cq.Workplane"
+          "cq.Workplane",
+          "from cadquery"
         ],
         "label": "No CadQuery import",
         "type": "not_contains"
@@ -251,9 +261,15 @@
           "module ",
           "linear_extrude",
           "cube(",
-          "cylinder("
+          "cylinder(",
+          "generate_part",
+          "cad_build",
+          "cad_finalize",
+          "from build123d",
+          "Box(",
+          "Cylinder("
         ],
-        "label": "OpenSCAD code block present",
+        "label": "Parametric geometry code or BREP tool call present (build123d primary)",
         "type": "any_of"
       },
       {
@@ -300,7 +316,11 @@
           ".stl",
           "rendered",
           "preview",
-          "/files/models3d/"
+          "/files/models3d/",
+          "step_url",
+          "stl_url",
+          ".step",
+          "printability"
         ],
         "label": "Render called \u2014 artifact referenced",
         "type": "any_of"

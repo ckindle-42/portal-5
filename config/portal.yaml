@@ -2537,28 +2537,28 @@ workspaces:
     module: cad
     name: 📐 Portal CAD / 3D-Print Designer
     description: |-
-      Parametric 3D-model generation via code-CAD: constrained structured-intermediate generation (generate_scad — feature-level JSON in, validated OpenSCAD+STL+PNG out, self-correcting on failure) for parts with holes/pockets/patterns/shells; direct render_openscad for trivial single-primitive parts; Python+trimesh for procedural geometry. Produces STL/3MF for FDM/SLA printing. Qwen3-Coder 30B-A3B MoE (Ollama, tool-capable, >20 t/s). Every render is mesh-validated (watertight/volume/bbox) and CadQuery/build123d/OCP are now available via conda-forge (capability-gated, not platform-hardcoded — see PLATFORM.md).
+      Parametric 3D-model generation as exact build123d BREP solids (arm64-native CAD image, STEP + STL + PNG out): generate_part turns a feature-level JSON description (base + holes/pockets/standoffs/ribs/shell/patterns/fillets/chamfers) into a validated solid in one call; cad_build/cad_execute/cad_measure/cad_find_holes/cad_render/cad_finalize drive a free-form build123d script with a measure-and-verify loop for everything else (brackets, revolves, gears, lofts). OpenSCAD (render_openscad, Manifold backend) remains as a fallback only on explicit request; Python+trimesh for procedural meshes. Every result is BREP- or mesh-validated (watertight, volume, bbox, FDM printability). Qwen3-Coder 30B-A3B MoE (Ollama, tool-capable, >20 t/s).
     # 2026-09-25: card sampling (0.7/0.8/20) REVERTED same day — on oMLX it breaks tool calls (2-4 of 6 returned as text: the qwen3_coder parser misses a call preceded by text); prior values restored, 6/6. KNOWN_LIMITATIONS P5-OMLX-QWEN3CODER-TOOLTEXT-001 (resolved same day: the pipeline recovers text-written calls; the loss was prompt-shaped, so low temperature never covered it. Card A/B is unblocked.)
-    model_hint: qwen3-coder:30b-a3b-q4_K_M-ctx16k
-    context_limit: 16384
+    model_hint: qwen3-coder:30b-a3b-q4_K_M-ctx32k
+    context_limit: 32768  # 2026-10-06: fixed overhead (system+20 tool schemas) measured 5193 tok = 31.7% of 16384
     predict_limit: 16384
     temperature: 0.2
     top_p: 0.9
     top_k: 40  # bounded: with oMLX's unbounded default the qwen3_coder parser dropped 1/6 tool calls
     repeat_penalty: 1.1
-    # Observed hallucinating tool names that don't exist ("write_note",
-    # "render_3d" instead of the real render_openscad) rather than not
-    # calling a tool at all — forcing a real call at least keeps it inside
-    # the actual tool schema instead of free-form fabrication. generate_scad
-    # is now the preferred target for anything beyond a trivial primitive;
-    # re-evaluate `auto` only if a bench shows reliable convergence on it
-    # with the current prompt (TASK_CAD_MODULE_OVERHAUL_V1 Phase 7/8).
+    # Kept `required` (B0-comparable; the gauntlet driver relaxes it to auto once an
+    # artifact exists). 2026-10-06 pipeline preflight under request-level
+    # tool_choice=auto, "40x20x5 plate with two 4 mm holes": 6/6 delivered through
+    # real generate_part/cad_* calls (STEP+STL URLs), no hallucinated tool names
+    # (2 of the first 6 attempts were aborted by oMLX's memory guard before any
+    # tool call and re-run) — auto is viable here; revisit after the REDEVELOP gauntlet.
+    # Earlier history: the old toolset hallucinated names ("write_note", "render_3d").
     tool_choice: required
     tool_choice_verified: true
     system_prompt_append: |2-
 
 
-      CAD OUTPUT RULE: For any part with holes, pockets, patterns, shells, standoffs, or multiple features — PRIMARY PATH is the generate_scad tool. The coordinate convention is right-handed, Z-up, and millimetres: `width`=X, `depth`=Y, `height`=Z; for a flat plate, thickness is `height`, never `depth`. Describe the part as feature-level JSON: a `base` solid plus named features (holes/pockets/standoffs/ribs/shell/pattern) positioned by face + anchor + offset — NEVER compute 3D translate/rotate coordinates yourself, the tool's deterministic emitter owns all coordinate-frame math. Example: `{"parameters": {"width": 60, "depth": 40, "height": 25}, "base": {"type": "box", "dimensions": {"width": "width", "depth": "depth", "height": "height"}}, "holes": [{"diameter": 3, "face": "top", "offset_from": "center", "offset_x": 0, "offset_y": 0}]}`. generate_scad validates, compiles, mesh-validates, renders, and self-corrects (auto-retries deterministic fixes) in one call — read `manifold_ok`, advisory `printability` warnings, `problems`, and `retry_log`; correct genuine design errors in a new call. For a Tier-A vocabulary gap, an `escape_hatch.csg` subtree is available (bounded CSG primitives/booleans) — steer to Tier-A features first. For trivial single-primitive parts or quick iteration, write complete OpenSCAD source in a fenced ```openscad block and call render_openscad. State all dimensions as named variables at the top (units=mm). For procedural geometry (arrays, math-driven surfaces), use Python with trimesh in execute_python — trimesh is available. Do not leave stubs.
+      CAD OUTPUT RULE: You design parts as exact BREP solids with build123d. Units mm, right-handed, Z-up (width=X, depth=Y, height=Z; plate thickness is height). PATH 1 — box/plate/cylinder parts whose features are holes (incl. chamfer/counterbore/countersink), pockets, standoffs, ribs, shells, linear/circular patterns, edge fillets or chamfers: call generate_part with feature-level JSON (a base plus named features positioned by face + anchor + offset; never compute 3D coordinates — the emitter owns them). It builds, validates and delivers STEP+STL in one call; on error read the structured error and call it again corrected. PATH 2 — anything else (L-brackets and multi-body unions, revolved parts, gears, lofts, sweeps, threads): write ONE complete build123d script and call cad_build. Script rules: start `from build123d import *`; parameters as named variables at the top; algebra mode, e.g. `part = Box(80, 50, 5) - Pos(32, 17) * Cylinder(2.5, 5)`; Box/Cylinder are centred unless `align=(Align.CENTER, Align.CENTER, Align.MIN)`; `fillet(part.edges().filter_by(Axis.Z), r)` / `chamfer(edges, d)` take selected edges; revolve: `revolve(make_face(Plane.XZ * Polyline(p1, p2, ..., close=True)), Axis.Z)`; prisms: `extrude(RegularPolygon(r, 6), h)`; fastener holes: `Pos(x, y, top_z) * CounterSinkHole(radius, counter_sink_radius, depth=d)` or `CounterBoreHole`/`Hole`; gears: `from bd_warehouse.gear import SpurGear`; end with `show(part, 'part')`. If cad_build returns ok:false, read error, last_error and repair_hints, fix the script and call cad_build again (cad_execute appends code to the current session for small edits). VERIFY before delivering: compare cad_measure bbox/volume and cad_find_holes count/diameters against every number in the request; fix mismatches. DELIVER with cad_finalize (basename = short part name) and report the overall dimensions plus the step_url, stl_url and png_url. Use render_openscad only when the user explicitly asks for OpenSCAD/.scad; use execute_python+trimesh only for procedural meshes (lattices, TPMS) that BREP cannot express. Do not leave stubs.
     tools:
     - execute_python
     - execute_bash
@@ -2573,7 +2573,64 @@ workspaces:
     - render_mesh
     - render_openscad
     - convert_cad
-    - generate_scad
+    - generate_part
+    - cad_build
+    - cad_execute
+    - cad_measure
+    - cad_find_holes
+    - cad_render
+    - cad_finalize
+    expose_to_owui: true
+    enable_web_search: false
+  bench-qwen38-cad:
+    module: eval
+    name: 🔬 Bench · Qwen3.8-27B Dense (CAD challenger)
+    description: |-
+      TASK_CAD_ARM_REDEVELOP_V1 dense challenger: the redeveloped auto-cad tool loop (generate_part +
+      cad_* build123d BREP tools) on Qwen3.8-27B dense (the seated compliance tag, ctx32k) instead of
+      the qwen3-coder MoE incumbent. PROMOTE_POLICY=confirm — nothing here promotes a model.
+    model_hint: hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k
+    # The compliance seat's live production tag for this model — real track record, not a fresh bake.
+    ctx_validated: true
+    context_limit: 32768  # 2026-10-06: fixed overhead (system+20 tool schemas) measured 5193 tok = 31.7% of 16384
+    predict_limit: 16384
+    temperature: 0.2
+    top_p: 0.9
+    top_k: 40
+    repeat_penalty: 1.1
+    # think=false matches this model's proven seats. 2026-10-06 pipeline preflight, 6x "40x20x5
+    # plate with two 4 mm holes" under auto: 6/6 valid tool names, none hallucinated; 2/6 went
+    # straight to a build (generate_part/cad_*) and delivered, 4/6 opened with cad_find_holes on
+    # an empty session (premature inspect, not a hallucination) — the gauntlet measures whether
+    # that costs it. See reports/cad/TASK_CAD_ARM_REDEVELOP_V1_REPORT.md.
+    think: false
+    tool_choice: auto
+    tool_choice_verified: true
+    system_prompt_append: |2-
+
+
+      CAD OUTPUT RULE: You design parts as exact BREP solids with build123d. Units mm, right-handed, Z-up (width=X, depth=Y, height=Z; plate thickness is height). PATH 1 — box/plate/cylinder parts whose features are holes (incl. chamfer/counterbore/countersink), pockets, standoffs, ribs, shells, linear/circular patterns, edge fillets or chamfers: call generate_part with feature-level JSON (a base plus named features positioned by face + anchor + offset; never compute 3D coordinates — the emitter owns them). It builds, validates and delivers STEP+STL in one call; on error read the structured error and call it again corrected. PATH 2 — anything else (L-brackets and multi-body unions, revolved parts, gears, lofts, sweeps, threads): write ONE complete build123d script and call cad_build. Script rules: start `from build123d import *`; parameters as named variables at the top; algebra mode, e.g. `part = Box(80, 50, 5) - Pos(32, 17) * Cylinder(2.5, 5)`; Box/Cylinder are centred unless `align=(Align.CENTER, Align.CENTER, Align.MIN)`; `fillet(part.edges().filter_by(Axis.Z), r)` / `chamfer(edges, d)` take selected edges; revolve: `revolve(make_face(Plane.XZ * Polyline(p1, p2, ..., close=True)), Axis.Z)`; prisms: `extrude(RegularPolygon(r, 6), h)`; fastener holes: `Pos(x, y, top_z) * CounterSinkHole(radius, counter_sink_radius, depth=d)` or `CounterBoreHole`/`Hole`; gears: `from bd_warehouse.gear import SpurGear`; end with `show(part, 'part')`. If cad_build returns ok:false, read error, last_error and repair_hints, fix the script and call cad_build again (cad_execute appends code to the current session for small edits). VERIFY before delivering: compare cad_measure bbox/volume and cad_find_holes count/diameters against every number in the request; fix mismatches. DELIVER with cad_finalize (basename = short part name) and report the overall dimensions plus the step_url, stl_url and png_url. Use render_openscad only when the user explicitly asks for OpenSCAD/.scad; use execute_python+trimesh only for procedural meshes (lattices, TPMS) that BREP cannot express. Do not leave stubs.
+    tools:
+    - execute_python
+    - execute_bash
+    - sandbox_status
+    - read_pdf
+    - read_word_document
+    - web_search
+    - web_fetch
+    - remember
+    - recall
+    - kb_search
+    - render_mesh
+    - render_openscad
+    - convert_cad
+    - generate_part
+    - cad_build
+    - cad_execute
+    - cad_measure
+    - cad_find_holes
+    - cad_render
+    - cad_finalize
     expose_to_owui: true
     enable_web_search: false
   bench-qwen36-cad:

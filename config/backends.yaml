@@ -458,6 +458,8 @@ backends:
     supports_tools: true
   - id: qwen3-coder:30b-a3b-q4_K_M-ctx16k
     supports_tools: true
+  - id: qwen3-coder:30b-a3b-q4_K_M-ctx32k
+    supports_tools: true
   - id: qwen3-coder:30b-a3b-q4_K_M-ctx8k
     supports_tools: true
   - id: hf.co/unsloth/Qwen3.6-35B-A3B-GGUF:UD-Q4_K_XL
@@ -920,6 +922,7 @@ backends:
   aliases:
     qwen3-coder:30b-a3b-q4_K_M-ctx256k: Qwen3-Coder-30B-A3B-Instruct-4bit
     qwen3-coder:30b-a3b-q4_K_M-ctx16k: Qwen3-Coder-30B-A3B-Instruct-4bit
+    qwen3-coder:30b-a3b-q4_K_M-ctx32k: Qwen3-Coder-30B-A3B-Instruct-4bit
     portal5/laguna-xs21:q4_K_M-ctx128k: Laguna-XS-2.1-4bit
     hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M: Qwen3.8-27B-oQ4e-mtp
   type: omlx
@@ -1336,6 +1339,8 @@ workspace_routing:
   - general
   auto-cad:
   - coding
+  - general
+  bench-qwen38-cad:
   - general
   bench-qwen36-cad:
   - coding

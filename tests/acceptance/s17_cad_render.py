@@ -78,11 +78,23 @@ async def run() -> None:
     t0 = time.time()
     code, body = await _get(f"http://localhost:{_CAD_RENDER_PORT}/tools")
     tools = {t["name"] for t in body.get("tools", [])} if isinstance(body, dict) else set()
-    expected = {"render_mesh", "render_openscad", "convert_cad", "generate_scad"}
+    expected = {
+        "render_mesh",
+        "render_openscad",
+        "convert_cad",
+        "generate_scad",  # SCAD fallback
+        "generate_part",  # build123d BREP primary
+        "cad_build",
+        "cad_execute",
+        "cad_measure",
+        "cad_find_holes",
+        "cad_render",
+        "cad_finalize",
+    }
     record(
         sec,
         "S17-02",
-        "Tools manifest — render_mesh / render_openscad / convert_cad",
+        "Tools manifest — BREP primary (generate_part, cad_*) + SCAD fallback + mesh tools",
         "PASS" if expected <= tools else "FAIL",
         f"found: {sorted(tools)}",
         t0=t0,
@@ -305,4 +317,61 @@ async def run() -> None:
         ),
         detail_fn=lambda t: t[:200],
         timeout=90,
+    )
+
+    # ── S17-13: generate_part — build123d BREP primary path ──────────────────
+    await _mcp(
+        _CAD_RENDER_PORT,
+        "generate_part",
+        {
+            "geometry": {
+                "base": {"type": "box", "dimensions": {"width": 40, "depth": 20, "height": 5}},
+                "holes": [
+                    {
+                        "diameter": 4,
+                        "face": "top",
+                        "offset_from": "center",
+                        "offset_x": -12.5,
+                        "offset_y": 0,
+                    },
+                    {
+                        "diameter": 4,
+                        "face": "top",
+                        "offset_from": "center",
+                        "offset_x": 12.5,
+                        "offset_y": 0,
+                    },
+                ],
+            }
+        },
+        section=sec,
+        tid="S17-13",
+        name="generate_part — BREP plate with two holes → STEP + STL + PNG",
+        ok_fn=lambda t: (
+            all(k in t for k in ("step_url", "stl_url", "png_url")) and "error" not in t[:60]
+        ),
+        detail_fn=lambda t: t[:200],
+        timeout=120,
+    )
+
+    # ── S17-14: cad_build — free-form build123d script, verify gate (HTTP-only tool) ──
+    t0 = time.time()
+    code_b, body_b = await _post(
+        f"http://localhost:{_CAD_RENDER_PORT}/tools/cad_build",
+        {
+            "request_id": "s17-14",
+            "arguments": {
+                "code": "from build123d import *\npart = Box(30, 20, 5) - Pos(0, 0) * Cylinder(3, 5)\nshow(part, 'part')\n"
+            },
+        },
+        timeout=120,
+    )
+    built = isinstance(body_b, dict) and body_b.get("ok") is True and "measure" in body_b
+    record(
+        sec,
+        "S17-14",
+        "cad_build — build123d script validates (measure + validate reported)",
+        "PASS" if code_b == 200 and built else "FAIL",
+        str(body_b)[:200],
+        t0=t0,
     )
