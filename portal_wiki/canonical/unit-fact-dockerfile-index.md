@@ -10,6 +10,8 @@ sources:
 - type: code
   path: Dockerfile.mcp.x86
 - type: code
+  path: Dockerfile.cad
+- type: code
   path: Dockerfile.attack
 - type: code
   path: Dockerfile.binresearch
@@ -30,13 +32,16 @@ updated_at: 1788030600.446044
 
 # Dockerfiles — the image-build index
 
-7 Dockerfiles define the image surface; each builds a deliberately
+8 Dockerfiles define the image surface; each builds a deliberately
 different kind of image, and the split is intentional, not incidental.
 
 - `Dockerfile.pipeline` — minimal (fastapi/uvicorn/httpx/pyyaml): the portal
   pipeline only, so it stays small and rebuilds fast.
 - `Dockerfile.mcp` — the heavier MCP tool-server image (documents, sandbox,
   music, and the other Docker-based MCPs).
+- `Dockerfile.cad` — the arm64-native CAD image (`mcp-cad-render`): pip build123d +
+  build123d-mcp, VTK/OCP, and OpenSCAD (Manifold nightly), kept out of the shared MCP
+  image so heavy geometry deps don't tax the other tool servers.
 - `Dockerfile.mcp.x86` — the x86 variant of the MCP image for non-Apple-Silicon
   hosts.
 - `Dockerfile.attack` — the arm64 lab attacker image (`portal5-attack`,

@@ -17,3 +17,14 @@
 mean 0.688 · PASS rate 0.375 · validity 0.958 · median 34.0 s.
 PASS 3/3: plate_4holes, grommet_plate, countersunk_plate. 0/3: enclosure, l_bracket, flanged_bushing, hex_standoff, spur_gear.
 Artifacts: `tests/benchmarks/results/cad_gauntlet_v2_B0_20261006T160659Z.{json,md}`.
+
+## P1 — dedicated arm64 CAD image: PASS
+- OpenSCAD branch: **nightly-manifold**. OBS `home:t-paul/Debian_13/arm64/` serves `openscad-nightly_20261005T003339...arm64.deb`; installed via signed-by keyring. `openscad-nightly --version` = `2026.10.05.nightly`; `--backend` lists CGAL/Manifold (Manifold default).
+- Arch: image `Architecture`=arm64; `uname -m`=aarch64; OCP `.so` = `OCP.cpython-311-aarch64-linux-gnu.so`; build123d 0.11.1, vtk 9.7.1, build123d-mcp 0.3.90.
+- Oracles in container: 8/8 PASS (machine=aarch64 system=Linux).
+- Manifold vs CGAL (64-sphere difference on 60x60x20 cube, same binary): CGAL 68.1 s, Manifold 0.53 s.
+- `PYOPENGL_PLATFORM=osmesa` kept in compose; `VTK_DEFAULT_OPENGL_WINDOW` not added (no VTK render path exercised until P2).
+- Dockerfile.mcp: removed `openscad`, `libosmesa6`, CAD pip layers, micromamba block. Grep of portal/portal_mcp/portal_channels outside portal/modules/cad for trimesh|pyrender|matplotlib|stl|numpy_stl|jsonschema imports: none.
+- capabilities.py: conda hooks removed; probes added (`openscad_bin/version/backend`, `build123d_mcp`, `arch`; `platform` key renamed, nothing read it); `engine` added via uncached `cad_status()` (served by `/capabilities`).
+- Fact unit `unit-fact-dockerfile-index` updated (8 Dockerfiles; check BS claim).
+- Unit tests `-k "cad or scad or mesh"`: 77 passed.

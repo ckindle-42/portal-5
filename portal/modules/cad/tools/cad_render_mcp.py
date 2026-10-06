@@ -29,7 +29,7 @@ from mcp.server import MCPServer
 from starlette.requests import Request
 from starlette.responses import JSONResponse, Response
 
-from portal.modules.cad.tools.capabilities import cad_capabilities
+from portal.modules.cad.tools.capabilities import cad_capabilities, cad_status
 from portal.modules.cad.tools.mesh_validator import validate_mesh
 from portal.modules.cad.tools.scad_emitter import FN_DEFAULT, EmitError, emit_scad
 from portal.platform.data_loader import load_data
@@ -190,7 +190,7 @@ async def health_check(request: Request) -> JSONResponse:
 
 @_route("/capabilities", methods=["GET"])
 async def capabilities_route(request: Request) -> JSONResponse:
-    return JSONResponse(cad_capabilities())
+    return JSONResponse(cad_status())
 
 
 TOOLS_MANIFEST = load_data("config/inference", "tools_manifest_cad_render_mcp")

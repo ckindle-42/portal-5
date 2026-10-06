@@ -1,0 +1,75 @@
+# Dedicated CAD image (mcp-cad-render, :8926) — linux/arm64 native.
+# OCP + VTK + scipy + OpenSCAD do not belong in the shared Dockerfile.mcp that
+# the other MCP services build from (TASK_CAD_ARM_REDEVELOP_V1 P1).
+FROM python:3.11-slim
+
+# Standing rule: native means arm64. Never build or run this under emulation.
+RUN test "$(uname -m)" = aarch64 || (echo "CAD image must be built natively for linux/arm64" && exit 1)
+
+WORKDIR /app
+
+# curl/ca-certificates: healthcheck + OpenSCAD repo key fetch.
+# libgl1/libegl1/libosmesa6/...: VTK offscreen (build123d-mcp render) + trimesh/pyrender.
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    curl \
+    ca-certificates \
+    gnupg \
+    libgl1 \
+    libegl1 \
+    libosmesa6 \
+    libglib2.0-0 \
+    libxrender1 \
+    libxt6 \
+    libx11-6 \
+    && rm -rf /var/lib/apt/lists/*
+
+# OpenSCAD with the Manifold backend: openscad.org's nightly package from the
+# openSUSE OBS repo home:t-paul (Debian_13) — it publishes an arm64 build. Debian's
+# own openscad is 2021.01 (CGAL only). Branch taken: nightly-manifold.
+RUN curl -fsSL https://download.opensuse.org/repositories/home:/t-paul/Debian_13/Release.key \
+        | gpg --dearmor -o /usr/share/keyrings/openscad-nightly.gpg \
+    && echo "deb [signed-by=/usr/share/keyrings/openscad-nightly.gpg arch=arm64] https://download.opensuse.org/repositories/home:/t-paul/Debian_13/ /" \
+        > /etc/apt/sources.list.d/openscad-nightly.list \
+    && apt-get update && apt-get install -y --no-install-recommends openscad-nightly \
+    && rm -rf /var/lib/apt/lists/*
+ENV OPENSCAD_BIN=openscad-nightly CAD_OPENSCAD_BACKEND=manifold
+
+# Core deps
+RUN pip install --no-cache-dir \
+    "fastapi>=0.109.0" \
+    "uvicorn[standard]>=0.27.0" \
+    "httpx>=0.26.0" \
+    "pyyaml>=6.0.1" \
+    "starlette>=0.35.0"
+
+# MCP SDK — required by all Portal MCP servers
+RUN pip install --no-cache-dir \
+    "mcp>=2.0.0,<3.0.0"
+
+# CAD runtime set (mirrors the `cad` extra in pyproject.toml; keep the pins in sync).
+# build123d-mcp 0.3.90 requires build123d>=0.10,<0.12, hence the 0.11.1 pin.
+RUN pip install --no-cache-dir \
+    "trimesh[easy]>=4.0.0" \
+    "pyrender>=0.1.45" \
+    "matplotlib>=3.8.0" \
+    "numpy>=1.26.0" \
+    "numpy-stl>=3.0.0" \
+    "jsonschema>=4.20.0" \
+    "build123d==0.11.1" \
+    "build123d-mcp[http]==0.3.90"
+
+COPY portal/__init__.py ./portal/__init__.py
+COPY portal/platform/ ./portal/platform/
+COPY portal/modules/ ./portal/modules/
+COPY config/ ./config/
+COPY scripts/mcp-entrypoint.sh /usr/local/bin/mcp-entrypoint.sh
+
+RUN groupadd -r portal && useradd -r -m -g portal portal \
+    && mkdir -p /app/data/generated \
+    && chown -R portal:portal /app /home/portal \
+    && chmod +x /usr/local/bin/mcp-entrypoint.sh
+
+# No HEALTHCHECK here — defined per-service in docker-compose.yml
+
+ENTRYPOINT ["/usr/local/bin/mcp-entrypoint.sh"]
+CMD ["python", "-m", "portal.modules.cad.tools.cad_render_mcp"]

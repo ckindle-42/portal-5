@@ -907,7 +907,8 @@ services:
   mcp-cad-render:
     build:
       context: ../..
-      dockerfile: Dockerfile.mcp
+      dockerfile: Dockerfile.cad
+    platform: linux/arm64
     container_name: portal5-mcp-cad-render
     restart: unless-stopped
     ports:
@@ -923,6 +924,9 @@ services:
       - CAD_RENDER_REVIEW_MODEL=${CAD_RENDER_REVIEW_MODEL:-qwen3-vl:32b}
       - PORTAL_PIPELINE_URL=http://portal5-pipeline:9099
       - WORKSPACE_DIR=/workspace
+      - CAD_B3D_MAX_SESSIONS=${CAD_B3D_MAX_SESSIONS:-4}
+      - CAD_B3D_IDLE_TIMEOUT_S=${CAD_B3D_IDLE_TIMEOUT_S:-900}
+      - CAD_B3D_MEMORY_LIMIT_MB=${CAD_B3D_MEMORY_LIMIT_MB:-3072}
     command: ["python", "-m", "portal.modules.cad.tools.cad_render_mcp"]
     volumes:
       - ${AI_OUTPUT_DIR:-${HOME}/AI_Output}:/workspace
