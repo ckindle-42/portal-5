@@ -615,7 +615,11 @@ def _merge_heading_only(sections: list[InternalSection], full_text: str) -> list
                     char_start=section.char_start,
                     char_end=following.char_end,
                     text=full_text[section.char_start : following.char_end],
-                    heading=section.heading,
+                    # the label is the FOLLOWING section's own heading — it
+                    # already owns path/title; the parent's heading line rides
+                    # in the text as the lead (D-DT-19 review 2: labelling the
+                    # merge with the parent's heading relabelled 241 sections)
+                    heading=following.heading,
                 )
             )
             folded += 1

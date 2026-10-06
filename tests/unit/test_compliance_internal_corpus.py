@@ -581,3 +581,46 @@ class TestRealPatchProcedure:
             assert paths[referenced].role == "OPERATIVE_PROCEDURE"
         trace = [s for s in inv["sections"] if s.role == "TRACEABILITY_ASSERTION"]
         assert trace and any("R2 Part 2.2" in s.text for s in trace)
+
+
+# ── D-DT-19 review 2: a heading-only fold keeps the child's label ───────────
+
+
+def test_heading_only_fold_keeps_the_following_sections_heading() -> None:
+    """A heading-only parent ('3.0 Introduction') folds into the section that
+    follows it. The merged section owns the child's path and title, so its
+    label (``heading`` → ``heading_path``) must be the child's too; the
+    parent's heading line stays in the text as the lead. Labelling it with
+    the parent's heading made every folded section read '§ 3.0 Introduction'."""
+    full = "3.0 Introduction\n3.1 Exceptions\nExceptions are approved by the owner.\n"
+    parent_end = full.index("3.1")
+    sections = [
+        ic.InternalSection(
+            path="3.0",
+            title="Introduction",
+            role="OPERATIVE_PROCEDURE",
+            page_start=2,
+            page_end=2,
+            char_start=0,
+            char_end=parent_end,
+            text=full[:parent_end],
+            heading="3.0 Introduction",
+        ),
+        ic.InternalSection(
+            path="3.1",
+            title="Exceptions",
+            role="OPERATIVE_PROCEDURE",
+            page_start=2,
+            page_end=2,
+            char_start=parent_end,
+            char_end=len(full),
+            text=full[parent_end:],
+            heading="3.1 Exceptions",
+        ),
+    ]
+    merged = ic._merge_heading_only(sections, full)
+    assert len(merged) == 1
+    only = merged[0]
+    assert (only.path, only.title, only.heading) == ("3.1", "Exceptions", "3.1 Exceptions")
+    assert only.text.startswith("3.0 Introduction")
+    assert (only.char_start, only.char_end) == (0, len(full))
