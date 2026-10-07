@@ -33,7 +33,6 @@ from .contracts import RecallReceipt
 from .store import Store
 
 DEFAULT_EMBED_URL = "http://localhost:8917/v1/embeddings"
-DEFAULT_RERANK_URL = "http://localhost:8925/rerank"
 PROJECTION_VERSION = "hunt-memory-v1"
 # Adopted embedding backend (TASK_BULLY_SA5 P0.4): Arm A, MLX Qwen3-Embedding
 # 0.6B mxfp8 at :8917. The retired CPU harrier path (sentence-transformers-v1)
@@ -139,7 +138,7 @@ class Organ:
         store: Store,
         db_path: Path,
         embed_url: str = DEFAULT_EMBED_URL,
-        rerank_url: str | None = DEFAULT_RERANK_URL,
+        rerank_url: str | None = None,
         embed_client: httpx.Client | None = None,
         projection_version: str = PROJECTION_VERSION,
         embedding_version: str = EMBEDDING_VERSION,
@@ -362,7 +361,9 @@ class Organ:
                 source_health=source_health,
                 projection_version=self.projection_version,
                 embedding_version=self.embedding_version,
-                reranker_version=self.rerank_url and "rerank-v1",
+                # recall() performs no rerank stage; the old stamp claimed one
+                # whenever rerank_url was set (F-RECEIPT).
+                reranker_version=None,
                 candidates=[{"record": rec, "distance": dist} for rec, dist in candidates],
                 exclusions=[],
                 selected_context=[{"record": rec} for rec, _ in candidates[:k]],
