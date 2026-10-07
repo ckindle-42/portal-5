@@ -226,7 +226,7 @@ async def owui_attachment_rag(ctx: ProbeContext) -> ProbeResult:  # noqa: C901, 
     # incumbent rerank: OWUI's in-container bge-reranker-v2-m3 over the :8917 top-20 chunks
     bge: dict[str, Any] = {}
     try:
-        if ctx.live:
+        if ctx.live and ctx.opt("owui_bge") == "1":
             payload = [
                 {"q": q["query"], "docs": [texts[int(k.split("#")[1])] for k in pool]}
                 for q, pool in zip(qs, inc_pool, strict=True)
@@ -295,6 +295,10 @@ async def owui_attachment_rag(ctx: ProbeContext) -> ProbeResult:  # noqa: C901, 
             bge["bge_cache_in_container"] = size
     except Exception as e:  # noqa: BLE001
         notes.append(f"bge rerank arm not run: {type(e).__name__}: {str(e)[:160]}")
+    if not bge:
+        notes.append(
+            "bge arm not run: the OWUI container is capped at 2 GiB and bge-reranker-v2-m3 needs ~2.3 GB, so loading it there risks OOM-killing Open WebUI; enable with --opt owui_bge=1"
+        )
     # candidate rerank: EG2 pool through /v1/rerank (forwards to the VL reranker)
     vl: dict[str, Any] = {}
     try:

@@ -2,7 +2,7 @@
 
 # Portal 5 Architecture Map
 
-*Deterministic projection of 767 canonical units.*
+*Deterministic projection of 768 canonical units.*
 
 ## Knowledge Layer
 
@@ -204,6 +204,7 @@
 | `unit-capability-detections` | mixed | 2 |
 | `unit-capability-docker` | mixed | 2 |
 | `unit-capability-documents` | mixed | 3 |
+| `unit-capability-eg2-embedding` | mixed | 7 |
 | `unit-capability-execution` | mixed | 3 |
 | `unit-capability-fetch` | mixed | 2 |
 | `unit-capability-filesystem` | mixed | 2 |
@@ -218,7 +219,6 @@
 | `unit-capability-pipeline` | mixed | 3 |
 | `unit-capability-proxmox` | mixed | 3 |
 | `unit-capability-rag` | mixed | 8 |
-| `unit-capability-reranker` | mixed | 2 |
 | `unit-capability-research` | mixed | 3 |
 | `unit-capability-security` | mixed | 2 |
 | `unit-capability-serena` | mixed | 3 |
@@ -285,6 +285,7 @@
 | `unit-corpus-injection-verify-lane-c` | what | 2 |
 | `unit-corpus-injection-why-corpus-data-coexists-safely-with-bench-runs` | what | 3 |
 | `unit-design-client-disconnect-cancellation` | mixed | 15 |
+| `unit-design-embedding-consumers-harness` | mixed | 21 |
 | `unit-design-ollama-native-dispatch` | why | 7 |
 | `unit-design-omlx-dual-backend-plumbing` | mixed | 12 |
 | `unit-design-spine-drift-census` | mixed | 4 |
@@ -776,12 +777,12 @@
 | `unit-wiki-tests-render` | mixed | 1 |
 | `unit-wiki-writeback` | mixed | 1 |
 
-**Total:** 767 units
+**Total:** 768 units
 
 ## Source Distribution
 
 - **bench-security**: 1 references
-- **code**: 2025 references
+- **code**: 2051 references
 - **config**: 1 references
 - **doc**: 1 references
 - **mitre**: 40 references

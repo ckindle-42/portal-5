@@ -27,6 +27,11 @@ def service_url() -> str:
     return os.environ.get("EG2_EMBEDDING_URL", DEFAULT_URL).rstrip("/")
 
 
+#: Items per HTTP request. A large corpus in one POST outlives the client timeout while the
+#: server is still working through it; chunking keeps every request short and resumable.
+MAX_REQUEST_ITEMS = 64
+
+
 class EmbeddingUnavailableError(Exception):
     """The service is down, not ready, or serving something other than asked."""
 
@@ -121,10 +126,14 @@ class EmbeddingClient:
             {"text": t, **({"title": titles[i]} if titles and titles[i] else {})}
             for i, t in enumerate(texts)
         ]
-        body = await self._post(
-            "/embed", {"inputs": inputs, "task": task.value, "role": role.value, "dim": dim}
-        )
-        return self._check(body, dim, len(texts))
+        out: list[list[float]] = []
+        for s in range(0, len(inputs), MAX_REQUEST_ITEMS):
+            chunk = inputs[s : s + MAX_REQUEST_ITEMS]
+            body = await self._post(
+                "/embed", {"inputs": chunk, "task": task.value, "role": role.value, "dim": dim}
+            )
+            out.extend(self._check(body, dim, len(chunk)))
+        return out
 
     async def embed_items(
         self,
@@ -141,8 +150,12 @@ class EmbeddingClient:
             raise ValueError(f"dim {dim} not in {MRL_DIMS}")
         if not items:
             return []
-        body = await self._post(
-            "/embed_items",
-            {"items": list(items), "task": task.value, "role": role.value, "dim": dim},
-        )
-        return self._check(body, dim, len(items))
+        out: list[list[float]] = []
+        for s in range(0, len(items), MAX_REQUEST_ITEMS):
+            chunk = list(items[s : s + MAX_REQUEST_ITEMS])
+            body = await self._post(
+                "/embed_items",
+                {"items": chunk, "task": task.value, "role": role.value, "dim": dim},
+            )
+            out.extend(self._check(body, dim, len(chunk)))
+        return out

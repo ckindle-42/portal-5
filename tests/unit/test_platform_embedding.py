@@ -119,6 +119,21 @@ async def test_client_embeds_with_server_side_prefix() -> None:
     assert await c.version_tag(256) == "google/embeddinggemma-2@rev123:256d"
 
 
+async def test_client_splits_large_requests_and_keeps_order() -> None:
+    from portal.platform.embedding.client import MAX_REQUEST_ITEMS
+
+    n = MAX_REQUEST_ITEMS * 2 + 5
+    texts = [f"t{i}" for i in range(n)]
+    c = EmbeddingClient("http://svc", transport=_service())
+    got = await c.embed_texts(texts, task=ec.Task.SEARCH, role=ec.Role.DOCUMENT, dim=128)
+    assert len(got) == n
+    for i in (0, MAX_REQUEST_ITEMS, n - 1):
+        [one] = await c.embed_texts([texts[i]], task=ec.Task.SEARCH, role=ec.Role.DOCUMENT, dim=128)
+        assert got[i] == one
+    items = [{"text": t} for t in texts]
+    assert len(await c.embed_items(items, dim=128)) == n
+
+
 async def test_client_rejects_wrong_model_and_wrong_dim() -> None:
     c = EmbeddingClient(
         "http://svc",

@@ -52,7 +52,7 @@ async def media_alignment(ctx: ProbeContext) -> ProbeResult:
     if man is None:
         return blocked(
             "media_alignment",
-            "no generated media: run `python -m tests.benchmarks.embedding_consumers.gen_media` first",
+            "media generation out of scope by operator decision (2026-10-07: not needed); no generated artifacts exist. `gen_media` is available if wanted later",
         )
     per: dict[str, Any] = {}
     missing = []
@@ -366,7 +366,10 @@ async def audio_recordings(ctx: ProbeContext) -> ProbeResult:
 async def unified_recall(ctx: ProbeContext) -> ProbeResult:  # noqa: C901, PLR0912, PLR0915
     man = _manifest()
     if man is None:
-        return blocked("unified_recall", "no generated media: run gen_media first")
+        return blocked(
+            "unified_recall",
+            "media generation out of scope by operator decision (2026-10-07: not needed); no generated artifacts exist",
+        )
     media = json.loads((DATA / "media_prompts.json").read_text())["media"]
     corpus_ids: list[str] = []
     items: list[dict[str, Any]] = []

@@ -52,7 +52,14 @@ def _p04() -> Any:
 def _embed(url: str, texts: list[str]) -> list[list[float]]:
     out: list[list[float]] = []
     for i in range(0, len(texts), 32):
-        r = httpx.post(url, json={"input": texts[i : i + 32], "model": "x"}, timeout=600)
+        r = httpx.post(
+            url,
+            json={
+                "input": texts[i : i + 32],
+                "model": "google/embeddinggemma-2" if ":8946" in url else "x",
+            },
+            timeout=600,
+        )
         r.raise_for_status()
         out += [d["embedding"] for d in sorted(r.json()["data"], key=lambda d: d["index"])]
     return out
