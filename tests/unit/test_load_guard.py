@@ -392,3 +392,61 @@ async def test_a_load_waiting_for_memory_does_not_block_loads_that_fit():
     release = await asyncio.wait_for(big, 2)
     assert release is not None
     release()
+
+
+async def test_a_cancelled_admit_never_leaks_the_cold_load_lock():
+    """W3: a client disconnect cancels a request mid-admission. The host-wide
+    lock it held must be released, or every later cold load deadlocks."""
+    e = Engines(tags={"big": 8 * GIB})
+    blocked = asyncio.Event()
+    never = asyncio.Event()
+
+    async def handler(req: httpx.Request) -> httpx.Response:
+        if req.url.path == "/v1/models/status":  # read with the lock held
+            blocked.set()
+            await never.wait()
+        return e.handler(req)
+
+    g = lg.LoadGuard(
+        omlx_url=lambda: OMLX_URL,
+        pinned=lambda: "router",
+        client=lambda: httpx.AsyncClient(transport=httpx.MockTransport(handler)),
+    )
+    task = asyncio.ensure_future(g.admit(OLLAMA_URL, "big"))
+    await asyncio.wait_for(blocked.wait(), 2)
+    assert g._lock.locked()
+
+    task.cancel()
+    with pytest.raises(asyncio.CancelledError):
+        await task
+    assert not g._lock.locked()
+
+
+async def test_a_cancelled_omlx_admit_never_leaks_the_cold_load_lock():
+    e = Engines(omlx={"m": {"size": 4 * GIB}})
+    polls = 0
+    never = asyncio.Event()
+    blocked = asyncio.Event()
+
+    async def handler(req: httpx.Request) -> httpx.Response:
+        nonlocal polls
+        if req.url.path == "/v1/models/status":
+            polls += 1
+            if polls == 2:  # the re-check after the lock is taken
+                blocked.set()
+                await never.wait()
+        return e.handler(req)
+
+    g = lg.LoadGuard(
+        omlx_url=lambda: OMLX_URL,
+        pinned=lambda: "router",
+        client=lambda: httpx.AsyncClient(transport=httpx.MockTransport(handler)),
+    )
+    task = asyncio.ensure_future(g.admit_omlx("m"))
+    await asyncio.wait_for(blocked.wait(), 2)
+    assert g._lock.locked()
+
+    task.cancel()
+    with pytest.raises(asyncio.CancelledError):
+        await task
+    assert not g._lock.locked()

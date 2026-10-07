@@ -158,3 +158,54 @@ async def test_read_only_routes_proxy_auth_and_show_body(passthrough):
     assert calls[2].content == show_body
     assert all(response.status_code == 200 for response in (ps, tags, show))
     assert guard.admitted == guard.begun == []
+
+
+async def test_client_disconnect_while_waiting_for_upstream_cancels_and_releases(monkeypatch):
+    """A non-streaming Ollama call sends headers only when generation ends; a
+    client that leaves before then must cancel it and release the guard (W3)."""
+    import asyncio
+
+    from starlette.requests import Request
+
+    from portal.platform.inference.router import disconnect
+
+    monkeypatch.setattr(disconnect, "POLL_S", 0.02)
+    monkeypatch.setattr(auth, "_verify_key", lambda authorization: None)
+    upstream_cancelled = asyncio.Event()
+
+    async def upstream(request: httpx.Request) -> httpx.Response:
+        try:
+            await asyncio.sleep(30)  # generating; no headers yet
+        except asyncio.CancelledError:
+            upstream_cancelled.set()
+            raise
+        return httpx.Response(200)  # pragma: no cover
+
+    guard = _Guard()
+    monkeypatch.setattr(load_guard, "GUARD", guard)
+    monkeypatch.setattr(ollama_passthrough, "_verify_key", lambda authorization: None)
+    client = httpx.AsyncClient(transport=httpx.MockTransport(upstream))
+    ollama_passthrough.configure(_Registry(), client)
+    body = json.dumps({"model": "m", "stream": False}).encode()
+    messages = [{"type": "http.request", "body": body, "more_body": False}]
+
+    async def receive():
+        return messages.pop(0) if messages else {"type": "http.disconnect"}
+
+    scope = {
+        "type": "http",
+        "method": "POST",
+        "path": "/ollama/api/chat",
+        "headers": [(b"content-type", b"application/json")],
+        "query_string": b"",
+    }
+    try:
+        response = await ollama_passthrough.chat(Request(scope, receive), authorization="x")
+    finally:
+        ollama_passthrough.configure(None, None)
+        await client.aclose()
+
+    assert response.status_code == disconnect.CLIENT_CLOSED
+    assert upstream_cancelled.is_set()
+    assert guard.released == 1
+    assert guard.ended == 1

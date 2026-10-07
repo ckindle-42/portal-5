@@ -325,6 +325,25 @@ class LoadGuard:
         if not self.enabled() or not model:
             return None
         deadline = time.monotonic() + load_wait_s()
+        held: list[_Release] = []
+        try:
+            release = await self._admit_ollama(base, model, deadline, held)
+        except asyncio.CancelledError:
+            # The caller gave up (client disconnect, W3): never leak the
+            # host-wide cold-load lock, or every later cold load deadlocks.
+            for r in held:
+                r()
+            raise
+        if release is None:
+            return None
+        asyncio.get_running_loop().create_task(
+            self._release_when_resident(OLLAMA, base, model, release)
+        )
+        return release
+
+    async def _admit_ollama(
+        self, base: str, model: str, deadline: float, held: list[_Release]
+    ) -> _Release | None:
         async with self._client() as client:
             try:
                 if model in await self._resident(client, base):
@@ -332,6 +351,7 @@ class LoadGuard:
             except Exception:
                 return None  # cannot see Ollama's state: fail open
             release = await self._acquire(deadline, model)
+            held.append(release)
             try:
                 while True:
                     resident = await self._resident(client, base)
@@ -369,14 +389,12 @@ class LoadGuard:
                     release()
                     await self._wait_change(min(5.0, remaining))
                     release = await self._acquire(deadline, model)
+                    held.append(release)
             except LoadRefusedError:
                 release()
                 raise
             except Exception as e:
                 logger.warning("load_guard: measurement failed for %s, admitting: %s", model, e)
-        asyncio.get_running_loop().create_task(
-            self._release_when_resident(OLLAMA, base, model, release)
-        )
         return release
 
     async def admit_omlx(self, model: str) -> Callable[[], None] | None:
@@ -385,15 +403,21 @@ class LoadGuard:
         if not self.enabled() or not model:
             return None
         deadline = time.monotonic() + load_wait_s()
-        async with self._client() as client:
-            entry = _omlx_entry(await self._omlx_status(client), model)
-            if entry is None or entry.get("loaded"):
-                return None
-            release = await self._acquire(deadline, model)
-            entry = _omlx_entry(await self._omlx_status(client), model)
-            if entry is None or entry.get("loaded"):
-                release()
-                return None
+        release: _Release | None = None
+        try:
+            async with self._client() as client:
+                entry = _omlx_entry(await self._omlx_status(client), model)
+                if entry is None or entry.get("loaded"):
+                    return None
+                release = await self._acquire(deadline, model)
+                entry = _omlx_entry(await self._omlx_status(client), model)
+                if entry is None or entry.get("loaded"):
+                    release()
+                    return None
+        except asyncio.CancelledError:
+            if release is not None:
+                release()  # never leak the cold-load lock to a cancelled caller
+            raise
         asyncio.get_running_loop().create_task(
             self._release_when_resident(OMLX, "", model, release)
         )

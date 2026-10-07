@@ -28,6 +28,8 @@ import urllib.error
 import urllib.request
 from typing import Any, Protocol
 
+from portal.modules.compliance.core import cancellation
+
 __all__ = [
     "DIALECTS",
     "Dialect",
@@ -578,6 +580,7 @@ class PipelineCompat(OpenAICompat):
         import httpx  # noqa: PLC0415
 
         from portal.platform.inference.streaming_client import (  # noqa: PLC0415
+            StreamTurnCancelledError,
             StreamTurnStalledError,
             stream_chat_turn,
         )
@@ -592,7 +595,10 @@ class PipelineCompat(OpenAICompat):
                 payload,
                 is_pipeline_mode=True,
                 idle_timeout_s=timeout,
+                should_cancel=cancellation.cancelled,
             )
+        except StreamTurnCancelledError as exc:
+            raise cancellation.TurnCancelled(str(exc)) from exc
         except StreamTurnStalledError as exc:
             raise urllib.error.URLError(f"pipeline stream stalled: {exc}") from exc
         except httpx.TimeoutException as exc:

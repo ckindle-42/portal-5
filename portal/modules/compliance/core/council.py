@@ -31,6 +31,8 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 from typing import Any
 
+from portal.modules.compliance.core import cancellation
+
 SeatFn = Callable[[str, str, str], str]  # (model, system, user) -> raw text
 
 _DETERMINATIONS = ("SUPPORTED", "PARTIAL", "CONTRADICTED", "ABSENT", "INSUFFICIENT")
@@ -332,6 +334,7 @@ def run_council(
 
     opinions: list[SeatOpinion] = []
     for seat in seats:
+        cancellation.check()  # stop between seats once the client has gone
         try:
             raw = fn(_seat_address(seat), _SEAT_SYSTEM, user)
         except Exception as exc:  # noqa: BLE001 - a failed seat is a non-vote, not a crash
@@ -409,6 +412,7 @@ def _run_override(
     ref = None
     n = 0
     for seat in seats:
+        cancellation.check()
         try:
             obj = _json_object(fn(_seat_address(seat), _OVERRIDE_SYSTEM, user))
         except Exception:  # noqa: BLE001

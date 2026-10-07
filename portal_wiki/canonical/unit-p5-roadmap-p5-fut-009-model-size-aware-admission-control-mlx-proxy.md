@@ -85,3 +85,6 @@ native calls in-process, and migrates production memory, RAG, compliance, and
 wiki clients to the guarded path. Operator probes and explicitly gated engine
 diagnostics retain raw access only with a reasoned entry in
 `config/ollama_direct_allowlist.yaml`, enforced by `validate_system`.
+A caller cancelled during admission (a client disconnect, W3) releases the
+cold-load lock: `admit` and `admit_omlx` release it on `CancelledError`, so an
+abandoned request can never deadlock later cold loads.

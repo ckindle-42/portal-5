@@ -80,6 +80,13 @@ _requests_total = Counter(
     registry=_REGISTRY,
 )
 
+_client_disconnect_cancel_total = Counter(
+    "portal5_client_disconnect_cancel_total",
+    "Non-streaming requests whose backend work was cancelled because the client disconnected",
+    ["path"],
+    registry=_REGISTRY,
+)
+
 _errors_total = Counter(
     "portal_errors_total",
     "Total failed requests by workspace and error type",

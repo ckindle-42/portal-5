@@ -16,11 +16,12 @@ from typing import Any
 
 import httpx
 from fastapi import Header, HTTPException, Request
-from fastapi.responses import JSONResponse, StreamingResponse
+from fastapi.responses import JSONResponse, Response, StreamingResponse
 
 import portal.platform.inference.load_guard as load_guard
 from portal.platform.inference.load_guard import OLLAMA, LoadRefusedError, set_load_wait
 from portal.platform.inference.router.auth import _verify_key
+from portal.platform.inference.router.disconnect import cancel_on_disconnect
 
 logger = logging.getLogger(__name__)
 
@@ -81,7 +82,7 @@ async def _proxy(
     native_path: str,
     *,
     inference: bool,
-) -> StreamingResponse | JSONResponse:
+) -> Response:
     _verify_key(authorization)
     if _client is None:
         raise HTTPException(status_code=503, detail="Native Ollama client not initialised")
@@ -102,28 +103,43 @@ async def _proxy(
 
     release: Callable[[], None] | None = None
     end: Callable[[], None] | None = None
-    if inference:
-        guard = load_guard.GUARD
-        if guard is None:
-            raise HTTPException(status_code=503, detail="Host memory guard not initialised")
-        set_load_wait(request.headers.get("x-portal-load-wait"))
-        model = _model(body)
-        if model:
-            try:
-                release = await guard.admit(base, model)
-            except LoadRefusedError as exc:
-                return JSONResponse(status_code=507, content={"error": str(exc)})
-            end = guard.begin(OLLAMA, model)
 
-    try:
-        upstream_request = _client.build_request(**request_args)
-        upstream = await _client.send(upstream_request, stream=True)
-    except httpx.HTTPError as exc:
-        _close_callbacks(release, end)
-        return JSONResponse(
-            status_code=502,
-            content={"error": f"native Ollama request failed: {exc}"},
-        )
+    async def _open() -> httpx.Response | JSONResponse:
+        """Admit, then wait for upstream headers. A non-streaming Ollama call
+        sends its headers only when generation ends, so this phase must be
+        disconnect-aware or abandoned work runs to completion (W3)."""
+        nonlocal release, end
+        if inference:
+            guard = load_guard.GUARD
+            if guard is None:
+                raise HTTPException(status_code=503, detail="Host memory guard not initialised")
+            set_load_wait(request.headers.get("x-portal-load-wait"))
+            model = _model(body)
+            if model:
+                try:
+                    release = await guard.admit(base, model)
+                except LoadRefusedError as exc:
+                    return JSONResponse(status_code=507, content={"error": str(exc)})
+                end = guard.begin(OLLAMA, model)
+        try:
+            upstream_request = _client.build_request(**request_args)
+            return await _client.send(upstream_request, stream=True)
+        except httpx.HTTPError as exc:
+            _close_callbacks(release, end)
+            return JSONResponse(
+                status_code=502,
+                content={"error": f"native Ollama request failed: {exc}"},
+            )
+        except BaseException:
+            _close_callbacks(release, end)
+            raise
+
+    opened: httpx.Response | Response = await cancel_on_disconnect(
+        request, _open(), "ollama_passthrough"
+    )
+    if not isinstance(opened, httpx.Response):
+        return opened  # 507/502/499: _open already released what it took
+    upstream = opened
 
     response_headers = {
         key: value for key, value in upstream.headers.items() if key.lower() in _RESPONSE_HEADERS

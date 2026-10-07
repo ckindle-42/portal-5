@@ -39,13 +39,16 @@ reading loop's tools travel as ``portal_client_tools_only`` client schemas.
 
 from __future__ import annotations
 
+import contextlib
 import json
+import socket
+import threading
 from collections.abc import Callable
 from typing import Any
 
 import httpx
 
-__all__ = ["StreamTurnStalledError", "stream_chat_turn"]
+__all__ = ["StreamTurnCancelledError", "StreamTurnStalledError", "stream_chat_turn"]
 
 
 class StreamTurnStalledError(RuntimeError):
@@ -53,6 +56,64 @@ class StreamTurnStalledError(RuntimeError):
     timeout. Attributed to the engine, never used as a control-flow signal for
     "model is still working" — that is precisely what this client exists to not
     do."""
+
+
+class StreamTurnCancelledError(RuntimeError):
+    """``should_cancel`` turned true: the stream was closed, which the server
+    sees as a client disconnect."""
+
+
+#: How often the cancel watcher polls ``should_cancel`` (seconds).
+_CANCEL_POLL_S = 0.25
+
+
+def _shutdown_on_cancel(
+    should_cancel: Callable[[], bool], resp: httpx.Response, done: threading.Event
+) -> None:
+    """Wake a read blocked in prefill: shutting the socket down returns EOF to
+    the reading thread on macOS and Linux (closing it from here does not)."""
+    while not done.wait(_CANCEL_POLL_S):
+        if should_cancel():
+            stream = resp.extensions.get("network_stream")
+            sock = stream.get_extra_info("socket") if stream is not None else None
+            if isinstance(sock, socket.socket):
+                with contextlib.suppress(OSError):
+                    sock.shutdown(socket.SHUT_RDWR)
+            return
+
+
+def _read_turn(
+    resp: httpx.Response,
+    turn: _Turn,
+    take_line: Callable[[str, _Turn], bool],
+    should_cancel: Callable[[], bool] | None,
+) -> bool:
+    """Feed streamed lines into ``turn``; return whether any data arrived."""
+    got_any_chunk = False
+    watcher_done = threading.Event()
+    if should_cancel is not None:
+        threading.Thread(
+            target=_shutdown_on_cancel, args=(should_cancel, resp, watcher_done), daemon=True
+        ).start()
+    try:
+        for line in resp.iter_lines():
+            if should_cancel is not None and should_cancel():
+                raise StreamTurnCancelledError("cancelled while streaming")
+            if not line:
+                continue
+            got_any_chunk = True
+            if take_line(line, turn):
+                break
+    except httpx.HTTPError as exc:
+        if should_cancel is not None and should_cancel():
+            raise StreamTurnCancelledError("cancelled while streaming") from exc
+        raise
+    finally:
+        watcher_done.set()
+    if should_cancel is not None and should_cancel():
+        # The watcher's socket shutdown can end the read as a clean EOF.
+        raise StreamTurnCancelledError("cancelled while streaming")
+    return got_any_chunk
 
 
 def _accumulate_tool_call_deltas(
@@ -152,6 +213,7 @@ def stream_chat_turn(
     connect_timeout_s: float = 10.0,
     expected_model_hint: str | set[str] | None = None,
     recover_tool_calls: Callable[[dict[str, Any]], dict[str, Any]] | None = None,
+    should_cancel: Callable[[], bool] | None = None,
 ) -> dict[str, Any]:
     """One turn, streamed, aggregated to a plain message dict.
 
@@ -170,11 +232,17 @@ def stream_chat_turn(
     ``recover_tool_calls``: optional last-step wrapper for a message that ended
     with no tool_calls (model drift from its own chat template). Receives and
     returns the message dict; never called when tool_calls are present.
+
+    ``should_cancel``: checked before the request, per streamed line, and by a
+    watcher thread while a read is blocked. When it turns true the stream is
+    closed (the server sees a disconnect and stops the work) and
+    ``StreamTurnCancelledError`` is raised.
     """
+    if should_cancel is not None and should_cancel():
+        raise StreamTurnCancelledError("cancelled before the request was sent")
     payload = dict(payload, stream=True)
     timeout = httpx.Timeout(idle_timeout_s, connect=connect_timeout_s, write=connect_timeout_s)
     turn = _Turn()
-    got_any_chunk = False
     served_model = ""
     take_line = _take_pipeline_line if is_pipeline_mode else _take_native_line
 
@@ -193,12 +261,7 @@ def stream_chat_turn(
         route_header = resp.headers.get("x-portal-route", "")
         if route_header.count(";") == 2:
             served_model = route_header.rsplit(";", 1)[1]
-        for line in resp.iter_lines():
-            if not line:
-                continue
-            got_any_chunk = True
-            if take_line(line, turn):
-                break
+        got_any_chunk = _read_turn(resp, turn, take_line, should_cancel)
 
     if not got_any_chunk:
         raise StreamTurnStalledError(f"no data received within {idle_timeout_s}s")

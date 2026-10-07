@@ -618,22 +618,19 @@ def _router_payload(prompt: str) -> dict[str, Any]:
 
 
 async def _guarded_router_post(payload: dict[str, Any]) -> httpx.Response:
-    """Track the pinned router model while it uses Ollama's native endpoint."""
-    release = None
-    end = None
+    """Track the pinned router model as busy while it uses Ollama's native
+    endpoint. Tracked, not admitted: the router is resident and pinned, and an
+    admission check would add an /api/ps round-trip inside every routing
+    deadline (HOST_MEMORY_SAFETY W2.2)."""
     guard = _load_guard.GUARD
+    end = guard.begin(_load_guard.OLLAMA, _LLM_ROUTER_MODEL) if guard is not None else None
     try:
-        if guard is not None:
-            release = await guard.admit(_LLM_ROUTER_OLLAMA_URL, _LLM_ROUTER_MODEL)
-            end = guard.begin(_load_guard.OLLAMA, _LLM_ROUTER_MODEL)
         return await _http_client.post(  # type: ignore[union-attr]
             f"{_LLM_ROUTER_OLLAMA_URL}/api/generate", json=payload
         )
     finally:
         if end is not None:
             end()
-        if release is not None:
-            release()
 
 
 _router_reload_task: asyncio.Task[None] | None = None

@@ -21,12 +21,15 @@ twenty calls.
 from __future__ import annotations
 
 import concurrent.futures
+import contextvars
 import json
 import os
 import re
 import time
 from pathlib import Path
 from typing import Any
+
+from portal.modules.compliance.core import cancellation
 
 
 def _sweep_concurrency() -> int:
@@ -496,6 +499,7 @@ def sweep_standard(
     started = time.time()
 
     def _run(ref: str) -> dict[str, Any]:
+        cancellation.check()  # stop between readings once the client has gone
         payload = map_read(
             repo,
             ref,
@@ -531,8 +535,11 @@ def sweep_standard(
         # Order-preserving fan-out: results report in sweep order regardless of
         # completion order, so downstream consumers of `rows` see the same
         # sequence the sequential loop produced.
+        # One context copy per reading, taken on this thread, so each worker
+        # sees the caller's cancel token (a worker thread's own context is empty).
+        runs = [(contextvars.copy_context(), ref) for ref in refs]
         with concurrent.futures.ThreadPoolExecutor(max_workers=workers) as pool:
-            rows = list(pool.map(_run, refs))
+            rows = list(pool.map(lambda item: item[0].run(_run, item[1]), runs))
         for row in rows:
             if "error" in row:
                 print(f"  {row['ref']:<28} ERROR {row['error']}")

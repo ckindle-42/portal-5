@@ -10,6 +10,7 @@ Port: 8937 (COMPLIANCE_MCP_PORT or MCP_PORT env override).
 from __future__ import annotations
 
 import asyncio
+import contextvars
 import dataclasses
 import datetime
 import functools
@@ -17,6 +18,7 @@ import json
 import logging
 import os
 import re
+import time
 import urllib.request
 from collections.abc import Awaitable, Callable
 from pathlib import Path
@@ -26,6 +28,7 @@ from mcp.server import MCPServer
 from starlette.requests import Request
 from starlette.responses import JSONResponse, Response
 
+from portal.modules.compliance.core import cancellation as _cancellation
 from portal.modules.compliance.core import search_service as _search_service
 from portal.modules.compliance.core.addressing import (
     clip as _clip,
@@ -2828,6 +2831,10 @@ async def list_tools(request: Request) -> JSONResponse:
     return JSONResponse({"tools": TOOLS_MANIFEST})
 
 
+#: How often invoke_tool checks for a disconnected client (seconds).
+_DISCONNECT_POLL_S = 0.5
+
+
 @_route("/tools/{tool_name}", methods=["POST"])
 async def invoke_tool(request: Request) -> JSONResponse:
     name = request.path_params.get("tool_name", "")
@@ -2847,10 +2854,35 @@ async def invoke_tool(request: Request) -> JSONResponse:
         # time out for its whole duration. run_in_executor moves the blocking
         # call off the loop so concurrent requests (including this server's
         # own health check) keep being served while a slow tool runs.
-        result = await asyncio.get_running_loop().run_in_executor(
-            None, functools.partial(fn, **args)
+        #
+        # The tool runs under a copy of this context carrying a cancel token;
+        # a client that disconnects cancels it (HOST_MEMORY_SAFETY W3.4), so
+        # model calls stop instead of running on server-side after a timeout.
+        token = _cancellation.CancelToken()
+        context = contextvars.copy_context()
+        context.run(_cancellation.bind, token)
+        started = time.monotonic()
+        future = asyncio.get_running_loop().run_in_executor(
+            None, functools.partial(context.run, fn, **args)
         )
+        while True:
+            done, _ = await asyncio.wait({future}, timeout=_DISCONNECT_POLL_S)
+            if done:
+                break
+            if not token.is_set() and await request.is_disconnected():
+                token.cancel()
+                logger.info("compliance tool %s: client disconnected; cancelling", name)
+        result = future.result()
         return JSONResponse(result)
+    except _cancellation.TurnCancelled as e:
+        receipt = {
+            "tool": name,
+            "status": "cancelled",
+            "reason": str(e) or "client disconnected",
+            "elapsed_s": round(time.monotonic() - started, 2),
+        }
+        logger.info("compliance tool %s cancelled after %.1fs", name, receipt["elapsed_s"])
+        return JSONResponse({"error": "cancelled", "receipt": receipt}, status_code=499)
     except TypeError as e:
         return JSONResponse({"error": f"bad params: {e}"}, status_code=400)
 

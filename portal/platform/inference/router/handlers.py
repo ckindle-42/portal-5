@@ -43,6 +43,7 @@ from portal.platform.inference.router.council import (
     run_council_review,
     stream_council_review,
 )
+from portal.platform.inference.router.disconnect import cancel_on_disconnect
 from portal.platform.inference.router.lifespan import (
     _startup_time,
 )
@@ -831,18 +832,27 @@ async def chat_completions(
             request, slot
         )
 
+        if not stream:
+            # Non-streaming: try each backend until one succeeds; enforce the
+            # model hint except on the last candidate. A client disconnect
+            # cancels the work (W3.1).
+            async def _non_streaming() -> Any:
+                council_resp = await _dispatch_council(
+                    workspace_id, body, stream, persona, slot, start_time
+                )
+                if council_resp is not None:
+                    return council_resp
+                return await _dispatch_non_streaming(
+                    candidates, body, workspace_id, persona, stream, start_time
+                )
+
+            return await cancel_on_disconnect(request, _non_streaming(), "chat_completions")
+
         council_resp = await _dispatch_council(
             workspace_id, body, stream, persona, slot, start_time
         )
         if council_resp is not None:
             return council_resp
-
-        if not stream:
-            # Non-streaming: try each backend until one succeeds; enforce the
-            # model hint except on the last candidate.
-            return await _dispatch_non_streaming(
-                candidates, body, workspace_id, persona, stream, start_time
-            )
 
         backend, target_model, _model_hint, _chain, _secondary_model, _tertiary_model = (
             _select_streaming_backend(workspace_id, candidates)

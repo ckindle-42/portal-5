@@ -24,6 +24,7 @@ import urllib.error
 import urllib.request
 from typing import Any
 
+from portal.modules.compliance.core import cancellation as _cancellation
 from portal.modules.compliance.core.transport_dialects import (
     native_ollama_auth_headers as _native_auth_headers,
 )
@@ -128,6 +129,7 @@ def strip_inline_reasoning(text: str) -> str:
 
 
 def _post(payload: dict[str, Any], timeout: int, dialect: Any = None) -> dict[str, Any]:
+    _cancellation.check()  # a disconnected client's work stops before the next call
     dialect = dialect if dialect is not None else _resolve_dialect()
     # A dialect that owns its transport (the pipeline dialect must stream —
     # the pipeline's non-streaming branch kills at a 300 s total timeout,

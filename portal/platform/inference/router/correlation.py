@@ -15,10 +15,8 @@ import logging
 import uuid
 from contextvars import ContextVar
 
-from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoint
-from starlette.requests import Request
-from starlette.responses import Response
-from starlette.types import ASGIApp
+from starlette.datastructures import Headers, MutableHeaders
+from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
 _correlation_id: ContextVar[str] = ContextVar("correlation_id", default="")
 
@@ -38,22 +36,33 @@ def get_correlation_id() -> str:
     return _correlation_id.get()
 
 
-class CorrelationIdMiddleware(BaseHTTPMiddleware):
-    def __init__(self, app: ASGIApp) -> None:
-        super().__init__(app)
+class CorrelationIdMiddleware:
+    """Pure ASGI, not ``BaseHTTPMiddleware``: the latter wraps ``receive`` in a
+    task group that never yields the disconnect message inside
+    ``Request.is_disconnected()``'s pre-cancelled scope, so a handler behind it
+    can never see its client leave (HOST_MEMORY_SAFETY W3.1, measured live)."""
 
-    async def dispatch(self, request: Request, call_next: RequestResponseEndpoint) -> Response:
-        cid = (
-            request.headers.get(_HEADER) or request.headers.get(_ALT_HEADER) or new_correlation_id()
-        )
+    def __init__(self, app: ASGIApp) -> None:
+        self.app = app
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        if scope["type"] != "http":
+            await self.app(scope, receive, send)
+            return
+        headers = Headers(scope=scope)
+        cid = headers.get(_HEADER) or headers.get(_ALT_HEADER) or new_correlation_id()
+
+        async def send_with_id(message: Message) -> None:
+            if message["type"] == "http.response.start":
+                with contextlib.suppress(Exception):
+                    MutableHeaders(scope=message)[_HEADER] = cid
+            await send(message)
+
         token = _correlation_id.set(cid)
         try:
-            response = await call_next(request)
+            await self.app(scope, receive, send_with_id)
         finally:
             _correlation_id.reset(token)
-        with contextlib.suppress(Exception):
-            response.headers[_HEADER] = cid
-        return response
 
 
 class CorrelationIdLogFilter(logging.Filter):

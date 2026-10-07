@@ -68,8 +68,11 @@ Ollama's `{"error": "..."}` shape. This preserves `think`, `format`, `images`,
 
 The memory extractor, RAG page transcription, compliance `ollama-native`
 rollback, and wiki seeding adapter default to this route and send
-`PIPELINE_API_KEY`. Tool preselection and the pinned intent-router model stay
-inside the pipeline process and call `LoadGuard` directly. The AST-based
+`PIPELINE_API_KEY`. Tool preselection and startup warmup stay inside the
+pipeline process and call `LoadGuard.admit` directly. The pinned intent-router
+call is only tracked as busy (`LoadGuard.begin`), never admitted: it is resident,
+and an admission check would put an `/api/ps` round-trip inside every routing
+deadline. The AST-based
 `validate_system` check scans runtime `portal/**` code and requires a reasoned
 entry in `config/ollama_direct_allowlist.yaml` for operator probes, gated
 engine diagnostics, or guarded pipeline internals that still construct native
