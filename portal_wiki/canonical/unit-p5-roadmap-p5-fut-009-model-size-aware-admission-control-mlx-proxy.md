@@ -13,6 +13,10 @@ sources:
   path: deploy/portal-5/docker-compose.yml
 - type: code
   path: portal/platform/inference/load_guard.py
+- type: code
+  path: portal/platform/inference/router/concurrency.py
+- type: code
+  path: portal/platform/inference/cluster_backends.py
 claims: []
 confidence: high
 tags:
@@ -88,3 +92,8 @@ diagnostics retain raw access only with a reasoned entry in
 A caller cancelled during admission (a client disconnect, W3) releases the
 cold-load lock: `admit` and `admit_omlx` release it on `CancelledError`, so an
 abandoned request can never deadlock later cold loads.
+The pipeline's admission gate now reads the guard too (W6): every health cycle
+pushes `LoadGuard.host_free_bytes` (oMLX headroom plus idle Ollama residents),
+and `acquire_global` returns 503 below `MEMORY_GATE_MIN_FREE_GB`. `MEMORY_GATE_PCT`
+applies only where `vm_stat` exists. The active source is logged once; an
+unmeasurable host fails open with an error log.

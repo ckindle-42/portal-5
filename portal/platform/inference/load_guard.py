@@ -196,6 +196,21 @@ class LoadGuard:
                 )
             await asyncio.sleep(1.0)
 
+    async def host_free_bytes(self, base: str) -> float | None:
+        """Memory a new load could use without waiting: oMLX's headroom plus idle
+        Ollama residents. None when oMLX's status is unreadable. Feeds the
+        pipeline's admission gate (MEMORY_GATE_MIN_FREE_GB)."""
+        async with self._client() as client:
+            st = await self._omlx_status(client)
+            if st is None or st.get("final_ceiling") is None:
+                return None
+            headroom = float(st["final_ceiling"]) - float(st.get("current_model_memory") or 0)
+            try:
+                resident = await self._resident(client, base)
+            except Exception:
+                resident = {}
+            return headroom + self._ollama_idle(resident)
+
     def _ollama_idle(
         self, resident: dict[str, int], exclude: frozenset[str] | set[str] = frozenset()
     ) -> float:

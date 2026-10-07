@@ -25,6 +25,7 @@ import logging
 import os
 import random
 import re
+import shutil
 import time
 from collections.abc import Callable
 from dataclasses import dataclass, field
@@ -286,6 +287,7 @@ class BackendRegistry:
         self._tool_support: dict[str, bool] = {}
         self._last_healthy_count: int = -1
         self._last_memory_pct: float = 0.0
+        self._memory_gate_source: str | None = None  # logged when it changes
 
         self._load_config()
 
@@ -585,24 +587,50 @@ class BackendRegistry:
                 len(self._backends),
             )
         try:
+            await self._update_memory_gate(cached_healthy)
+        except Exception:
+            logger.debug("Memory poller error — skipping this tick", exc_info=True)
+
+    async def _update_memory_gate(self, healthy: list[Backend]) -> None:
+        """Push the admission gate's inputs (no measurement per request).
+
+        Host headroom comes from the load guard; vm_stat used% only where vm_stat
+        exists. The pipeline container has no vm_stat, so the old used% source
+        always read 0 and the gate could never fire."""
+        import portal.platform.inference.router.concurrency as _conc
+        from portal.platform.inference import load_guard as _lg
+
+        sources = []
+        free_gb = None
+        ollama = next((b for b in healthy if b.type == "ollama"), None)
+        if _lg.GUARD is not None and ollama is not None:
+            free = await _lg.GUARD.host_free_bytes(ollama.url)
+            if free is not None:
+                free_gb = free / 1024**3
+                sources.append("host headroom (oMLX ceiling + idle Ollama)")
+        _conc._last_free_gb = free_gb
+        if shutil.which("vm_stat"):
             from portal.platform.inference.router.monitor import memory_pct as _mp
 
             # Offload vm_stat to a thread so it doesn't block the event loop.
             _mem = await asyncio.get_running_loop().run_in_executor(None, _mp)
             self._last_memory_pct = _mem
+            _conc._last_memory_pct = _mem
+            sources.append("vm_stat used%")
             if _mem >= 90.0:
                 logger.error("System memory critical: %.0f%% — OOM risk, backends may fail", _mem)
             elif _mem >= 80.0:
                 logger.warning("System memory high: %.0f%%", _mem)
-            # Push to admission gate — no subprocess call per request
-            try:
-                import portal.platform.inference.router.concurrency as _conc
-
-                _conc._last_memory_pct = _mem
-            except Exception:
-                pass  # concurrency gate update is best-effort; poller continues
-        except Exception:
-            logger.debug("Memory poller error — skipping this tick", exc_info=True)
+        source = " + ".join(sources)
+        if source != self._memory_gate_source:
+            self._memory_gate_source = source
+            if source:
+                logger.info("Memory gate source: %s", source)
+            else:
+                logger.error(
+                    "Memory gate: no measurable source (oMLX status unreadable, no vm_stat) "
+                    "— the gate is OPEN; the load guard still admits cold loads"
+                )
 
     def _update_omlx_live_models(self, backend: Backend, resp: httpx.Response) -> None:
         """Refresh ``backend.live_models`` from an oMLX ``/v1/models`` response.

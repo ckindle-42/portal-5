@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import importlib.metadata
 import logging
+import os
 
 from fastapi import FastAPI
 from fastapi.responses import PlainTextResponse
@@ -35,6 +36,11 @@ from portal.platform.inference.router.correlation import (  # noqa: E402
 # so even a body-limit rejection receives the request correlation header.
 app.add_middleware(RequestBodyLimitMiddleware, max_bytes=MAX_REQUEST_BYTES)
 app.add_middleware(CorrelationIdMiddleware)
+# uvicorn's spawned workers do not inherit __main__'s basicConfig. With no root
+# handler, every portal.* INFO line from a worker was dropped (only WARNING+
+# reached the last-resort handler), which hid routing, health and cancel logs.
+if not logging.getLogger().handlers:
+    logging.basicConfig(level=os.environ.get("LOG_LEVEL", "INFO").upper())
 install_log_filter()
 
 app.get("/health")(handlers.health)

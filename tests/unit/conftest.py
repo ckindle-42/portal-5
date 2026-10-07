@@ -122,10 +122,17 @@ def _the_admission_gate_never_reads_this_machine(monkeypatch):
     stubbed too. The gate itself still runs, and a test that wants to exercise
     it can set the value itself.
     """
+    from portal.platform.inference import load_guard
     from portal.platform.inference.router import concurrency, monitor
+
+    async def _unmeasured(self, base):
+        return None
 
     monkeypatch.setattr(monitor, "memory_pct", lambda: 0.0)
     monkeypatch.setattr(concurrency, "_last_memory_pct", 0.0)
+    # The headroom source reads the live oMLX and Ollama: pin it too.
+    monkeypatch.setattr(load_guard.LoadGuard, "host_free_bytes", _unmeasured)
+    monkeypatch.setattr(concurrency, "_last_free_gb", None)
 
 
 @pytest.fixture(autouse=True)

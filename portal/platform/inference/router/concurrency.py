@@ -27,8 +27,14 @@ _MAX_CONCURRENT = int(os.environ.get("MAX_CONCURRENT_REQUESTS", "20"))
 # Memory gate — updated by BackendRegistry.health_check_all() every ~30s.
 # acquire_global() rejects requests before the semaphore when memory is critical,
 # preventing work from being queued that would OOM mid-stream.
+# Primary source: host headroom from the load guard (oMLX's live ceiling minus
+# its resident memory, plus idle Ollama residents). MEMORY_GATE_PCT is the
+# vm_stat used% and only applies where vm_stat exists (a natively run pipeline).
+# Unmeasurable (None) fails open.
 _MEMORY_GATE_THRESHOLD = float(os.environ.get("MEMORY_GATE_PCT", "90.0"))
+_MEMORY_GATE_MIN_FREE_GB = float(os.environ.get("MEMORY_GATE_MIN_FREE_GB", "1.5"))
 _last_memory_pct: float = 0.0  # pushed here by cluster_backends.py health cycle
+_last_free_gb: float | None = None  # ditto; None = headroom not measurable
 
 try:
     _SEMAPHORE_TIMEOUT = float(os.environ.get("SEMAPHORE_TIMEOUT_MS", "50")) / 1000.0
@@ -185,6 +191,15 @@ class RequestSlot:
         Raises:
             HTTPException 503: memory critical, semaphore not initialised, or timeout.
         """
+        if _last_free_gb is not None and _last_free_gb < _MEMORY_GATE_MIN_FREE_GB:
+            raise HTTPException(
+                status_code=503,
+                detail=(
+                    f"Host memory headroom {_last_free_gb:.1f} GiB is below "
+                    f"{_MEMORY_GATE_MIN_FREE_GB:.1f} GiB — please retry in a moment."
+                ),
+                headers={"Retry-After": "30"},
+            )
         if _last_memory_pct >= _MEMORY_GATE_THRESHOLD:
             raise HTTPException(
                 status_code=503,
