@@ -22,6 +22,7 @@ import portal.platform.inference.router.concurrency as _concurrency_mod
 import portal.platform.inference.router.council as _council_mod
 import portal.platform.inference.router.streaming as _streaming_mod
 from portal.platform.inference.cluster_backends import BackendRegistry
+from portal.platform.inference.load_guard import LoadGuard
 from portal.platform.inference.ollama_native import OllamaNativeTransport
 from portal.platform.inference.omlx_auth import OmlxKeyAuth
 from portal.platform.inference.router.power import _power_polling_loop
@@ -302,6 +303,12 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
                 limits=httpx.Limits(max_keepalive_connections=20, max_connections=100)
             ),
             is_ollama=lambda base: _is_ollama_backend(registry, base),
+            # Host-memory admission for cold Ollama loads (load_guard.py).
+            guard=LoadGuard(
+                omlx_url=lambda: next(
+                    (b.url for b in registry.list_backends() if b.type == "omlx"), None
+                )
+            ),
         ),
     )
     # Propagate shared client to the routing module (needed by _route_with_llm)

@@ -39,6 +39,8 @@ from typing import Any
 
 import httpx
 
+from portal.platform.inference.load_guard import LoadGuard, LoadRefusedError
+
 logger = logging.getLogger(__name__)
 
 #: Per-request sampling options /api/chat honours. Load-time options are left
@@ -412,16 +414,26 @@ def _error_body(status: int, raw: bytes) -> bytes:
 
 
 class _TranslatedStream(httpx.AsyncByteStream):
-    def __init__(self, inner: httpx.Response, include_usage: bool) -> None:
+    def __init__(
+        self,
+        inner: httpx.Response,
+        include_usage: bool,
+        release: Callable[[], None] | None = None,
+    ) -> None:
         self._inner = inner
         self._include_usage = include_usage
+        self._release = release
 
     async def __aiter__(self) -> AsyncIterator[bytes]:
         async for out in native_stream_to_sse(self._inner.aiter_lines(), self._include_usage):
             yield out
 
     async def aclose(self) -> None:
-        await self._inner.aclose()
+        try:
+            await self._inner.aclose()
+        finally:
+            if self._release is not None:
+                self._release()
 
 
 class OllamaNativeTransport(httpx.AsyncBaseTransport):
@@ -432,9 +444,15 @@ class OllamaNativeTransport(httpx.AsyncBaseTransport):
     and unknown URLs pass through unchanged.
     """
 
-    def __init__(self, inner: httpx.AsyncBaseTransport, is_ollama: Callable[[str], bool]) -> None:
+    def __init__(
+        self,
+        inner: httpx.AsyncBaseTransport,
+        is_ollama: Callable[[str], bool],
+        guard: LoadGuard | None = None,
+    ) -> None:
         self._inner = inner
         self._is_ollama = is_ollama
+        self._guard = guard
         self._shown: dict[tuple[str, str], tuple[bool, str]] = {}
 
     async def _show(self, base: str, model: str, extensions: dict[str, Any]) -> tuple[bool, str]:
@@ -481,28 +499,45 @@ class OllamaNativeTransport(httpx.AsyncBaseTransport):
         native_req = httpx.Request(
             "POST", f"{base}/api/chat", json=native, extensions=request.extensions
         )
-        resp = await self._inner.handle_async_request(native_req)
-
-        if resp.status_code != 200:
+        release: Callable[[], None] | None = None
+        if self._guard is not None:
+            try:
+                release = await self._guard.admit(base, str(native.get("model", "")))
+            except LoadRefusedError as e:
+                logger.warning("ollama_native: %s", e)
+                return httpx.Response(
+                    507,
+                    headers={"content-type": "application/json"},
+                    content=_error_body(507, json.dumps({"error": str(e)}).encode()),
+                    request=request,
+                )
+        try:
+            resp = await self._inner.handle_async_request(native_req)
+            if resp.status_code != 200:
+                raw = await resp.aread()
+                await resp.aclose()
+                return httpx.Response(
+                    resp.status_code,
+                    headers={"content-type": "application/json"},
+                    content=_error_body(resp.status_code, raw),
+                    request=request,
+                )
+            if native["stream"]:
+                include_usage = bool((body.get("stream_options") or {}).get("include_usage"))
+                inner = httpx.Response(resp.status_code, stream=resp.stream, request=native_req)
+                stream = _TranslatedStream(inner, include_usage, release)
+                release = None  # the stream owns it now; released on close
+                return httpx.Response(
+                    200,
+                    headers={"content-type": "text/event-stream"},
+                    stream=stream,
+                    request=request,
+                )
             raw = await resp.aread()
             await resp.aclose()
-            return httpx.Response(
-                resp.status_code,
-                headers={"content-type": "application/json"},
-                content=_error_body(resp.status_code, raw),
-                request=request,
-            )
-        if native["stream"]:
-            include_usage = bool((body.get("stream_options") or {}).get("include_usage"))
-            inner = httpx.Response(resp.status_code, stream=resp.stream, request=native_req)
-            return httpx.Response(
-                200,
-                headers={"content-type": "text/event-stream"},
-                stream=_TranslatedStream(inner, include_usage),
-                request=request,
-            )
-        raw = await resp.aread()
-        await resp.aclose()
+        finally:
+            if release is not None:
+                release()
         return httpx.Response(
             200,
             headers={"content-type": "application/json"},
