@@ -39,7 +39,7 @@ from typing import Any
 
 import httpx
 
-from portal.platform.inference.load_guard import LoadGuard, LoadRefusedError
+from portal.platform.inference.load_guard import OLLAMA, OMLX, LoadGuard, LoadRefusedError
 
 logger = logging.getLogger(__name__)
 
@@ -413,16 +413,22 @@ def _error_body(status: int, raw: bytes) -> bytes:
 # ── transport ───────────────────────────────────────────────────────────────
 
 
+def _run_all(callbacks: tuple[Callable[[], None] | None, ...]) -> None:
+    for cb in callbacks:
+        if cb is not None:
+            cb()
+
+
 class _TranslatedStream(httpx.AsyncByteStream):
     def __init__(
         self,
         inner: httpx.Response,
         include_usage: bool,
-        release: Callable[[], None] | None = None,
+        *on_close: Callable[[], None] | None,
     ) -> None:
         self._inner = inner
         self._include_usage = include_usage
-        self._release = release
+        self._on_close = on_close
 
     async def __aiter__(self) -> AsyncIterator[bytes]:
         async for out in native_stream_to_sse(self._inner.aiter_lines(), self._include_usage):
@@ -432,8 +438,25 @@ class _TranslatedStream(httpx.AsyncByteStream):
         try:
             await self._inner.aclose()
         finally:
-            if self._release is not None:
-                self._release()
+            _run_all(self._on_close)
+
+
+class _NotifyingStream(httpx.AsyncByteStream):
+    """A response stream passed through unchanged, with callbacks on close."""
+
+    def __init__(self, inner: Any, *on_close: Callable[[], None] | None) -> None:
+        self._inner = inner
+        self._on_close = on_close
+
+    async def __aiter__(self) -> AsyncIterator[bytes]:
+        async for chunk in self._inner:
+            yield chunk
+
+    async def aclose(self) -> None:
+        try:
+            await self._inner.aclose()
+        finally:
+            _run_all(self._on_close)
 
 
 class OllamaNativeTransport(httpx.AsyncBaseTransport):
@@ -449,10 +472,12 @@ class OllamaNativeTransport(httpx.AsyncBaseTransport):
         inner: httpx.AsyncBaseTransport,
         is_ollama: Callable[[str], bool],
         guard: LoadGuard | None = None,
+        is_omlx: Callable[[str], bool] = lambda base: False,
     ) -> None:
         self._inner = inner
         self._is_ollama = is_ollama
         self._guard = guard
+        self._is_omlx = is_omlx
         self._shown: dict[tuple[str, str], tuple[bool, str]] = {}
 
     async def _show(self, base: str, model: str, extensions: dict[str, Any]) -> tuple[bool, str]:
@@ -491,6 +516,8 @@ class OllamaNativeTransport(httpx.AsyncBaseTransport):
             return await self._inner.handle_async_request(request)
         base = url.split(_CHAT_PATH)[0].rstrip("/")
         if not self._is_ollama(base):
+            if self._guard is not None and self._is_omlx(base):
+                return await self._omlx_request(request, self._guard)
             return await self._inner.handle_async_request(request)
 
         body = json.loads(await request.aread() or b"{}")
@@ -499,18 +526,15 @@ class OllamaNativeTransport(httpx.AsyncBaseTransport):
         native_req = httpx.Request(
             "POST", f"{base}/api/chat", json=native, extensions=request.extensions
         )
+        model = str(native.get("model", ""))
         release: Callable[[], None] | None = None
+        end: Callable[[], None] | None = None
         if self._guard is not None:
             try:
-                release = await self._guard.admit(base, str(native.get("model", "")))
+                release = await self._guard.admit(base, model)
             except LoadRefusedError as e:
-                logger.warning("ollama_native: %s", e)
-                return httpx.Response(
-                    507,
-                    headers={"content-type": "application/json"},
-                    content=_error_body(507, json.dumps({"error": str(e)}).encode()),
-                    request=request,
-                )
+                return _refused(request, e)
+            end = self._guard.begin(OLLAMA, model)
         try:
             resp = await self._inner.handle_async_request(native_req)
             if resp.status_code != 200:
@@ -525,8 +549,8 @@ class OllamaNativeTransport(httpx.AsyncBaseTransport):
             if native["stream"]:
                 include_usage = bool((body.get("stream_options") or {}).get("include_usage"))
                 inner = httpx.Response(resp.status_code, stream=resp.stream, request=native_req)
-                stream = _TranslatedStream(inner, include_usage, release)
-                release = None  # the stream owns it now; released on close
+                stream = _TranslatedStream(inner, include_usage, release, end)
+                release = end = None  # the stream owns them now; run on close
                 return httpx.Response(
                     200,
                     headers={"content-type": "text/event-stream"},
@@ -536,8 +560,7 @@ class OllamaNativeTransport(httpx.AsyncBaseTransport):
             raw = await resp.aread()
             await resp.aclose()
         finally:
-            if release is not None:
-                release()
+            _run_all((release, end))
         return httpx.Response(
             200,
             headers={"content-type": "application/json"},
@@ -545,5 +568,40 @@ class OllamaNativeTransport(httpx.AsyncBaseTransport):
             request=request,
         )
 
+    async def _omlx_request(self, request: httpx.Request, guard: LoadGuard) -> httpx.Response:
+        """Pass an oMLX chat request through unchanged, counted as in flight and,
+        when its model is not loaded, serialised with every other cold load."""
+        try:
+            model = str(json.loads(await request.aread() or b"{}").get("model", ""))
+        except Exception:
+            model = ""
+        try:
+            release = await guard.admit_omlx(model)
+        except LoadRefusedError as e:
+            return _refused(request, e)
+        end = guard.begin(OMLX, model)
+        try:
+            resp = await self._inner.handle_async_request(request)
+        except BaseException:
+            _run_all((release, end))
+            raise
+        return httpx.Response(
+            resp.status_code,
+            headers=resp.headers,
+            stream=_NotifyingStream(resp.stream, release, end),
+            extensions=resp.extensions,
+            request=request,
+        )
+
     async def aclose(self) -> None:
         await self._inner.aclose()
+
+
+def _refused(request: httpx.Request, e: LoadRefusedError) -> httpx.Response:
+    logger.warning("ollama_native: %s", e)
+    return httpx.Response(
+        507,
+        headers={"content-type": "application/json"},
+        content=_error_body(507, json.dumps({"error": str(e)}).encode()),
+        request=request,
+    )

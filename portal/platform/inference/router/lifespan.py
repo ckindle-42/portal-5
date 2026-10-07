@@ -18,6 +18,7 @@ from typing import Any
 import httpx
 from fastapi import FastAPI
 
+import portal.platform.inference.load_guard as _load_guard_mod
 import portal.platform.inference.router.concurrency as _concurrency_mod
 import portal.platform.inference.router.council as _council_mod
 import portal.platform.inference.router.streaming as _streaming_mod
@@ -246,8 +247,12 @@ async def _run_startup_warmups(registry: BackendRegistry) -> None:
 
 def _is_ollama_backend(registry: BackendRegistry, base_url: str) -> bool:
     """True only for a base URL the registry positively knows is Ollama."""
+    return _is_backend_type(registry, base_url, "ollama")
+
+
+def _is_backend_type(registry: BackendRegistry, base_url: str, kind: str) -> bool:
     needle = base_url.rstrip("/")
-    return any(b.type == "ollama" and b.url.rstrip("/") == needle for b in registry.list_backends())
+    return any(b.type == kind and b.url.rstrip("/") == needle for b in registry.list_backends())
 
 
 @asynccontextmanager
@@ -291,6 +296,10 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     # workspaces get 600s per-request. Connect stays 5s — local backends should
     # bind immediately.
     registry = BackendRegistry()
+    _guard = LoadGuard(
+        omlx_url=lambda: next((b.url for b in registry.list_backends() if b.type == "omlx"), None)
+    )
+    _load_guard_mod.GUARD = _guard
     # Ollama backends are served from native /api/chat behind the unchanged
     # OpenAI surface: /v1 drops most sampling and `think` (ollama_native.py).
     # The limits live on the transport, which is what enforces them once a
@@ -303,12 +312,9 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
                 limits=httpx.Limits(max_keepalive_connections=20, max_connections=100)
             ),
             is_ollama=lambda base: _is_ollama_backend(registry, base),
-            # Host-memory admission for cold Ollama loads (load_guard.py).
-            guard=LoadGuard(
-                omlx_url=lambda: next(
-                    (b.url for b in registry.list_backends() if b.type == "omlx"), None
-                )
-            ),
+            # Host-memory admission across both engines (load_guard.py).
+            guard=_guard,
+            is_omlx=lambda base: _is_backend_type(registry, base, "omlx"),
         ),
     )
     # Propagate shared client to the routing module (needed by _route_with_llm)

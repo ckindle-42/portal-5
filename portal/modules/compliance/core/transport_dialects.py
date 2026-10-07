@@ -462,6 +462,9 @@ class PipelineCompat(OpenAICompat):
         key = _pipeline_api_key()
         if key:
             head["Authorization"] = f"Bearer {key}"
+        # Batch work: a cold seat may queue for host memory instead of being
+        # refused at the pipeline's interactive default (load_guard.py).
+        head["X-Portal-Load-Wait"] = os.environ.get("COMPLIANCE_LOAD_WAIT_S", "900")
         return head
 
     def context_source(self) -> str:

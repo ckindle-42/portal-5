@@ -182,6 +182,31 @@ async def health_all() -> dict[str, Any]:
 PORTAL5_ADMIN_KEY = os.environ.get("PORTAL5_ADMIN_KEY", os.environ.get("PIPELINE_API_KEY", ""))
 
 
+async def admin_load_plan(
+    request: Request, authorization: str | None = Header(None)
+) -> dict[str, Any]:
+    """POST /admin/load-plan — would these models fit in host memory together now?
+
+    Body: ``{"models": [{"engine": "ollama"|"omlx", "model": "<id>"}, ...]}``.
+    Batch callers (council, sweeps, eval harnesses) ask before fanning out and run
+    in fit-sized waves instead of meeting load refusals. Pure measurement; see
+    ``load_guard.LoadGuard.plan``. Regular API key.
+    """
+    _verify_key(authorization)
+    from portal.platform.inference import load_guard
+
+    body = await request.json()
+    models = [(str(m.get("engine", "")), str(m.get("model", ""))) for m in body.get("models") or []]
+    ollama = (
+        next((b.url for b in registry.list_backends() if b.type == "ollama"), None)
+        if registry
+        else None
+    )
+    if load_guard.GUARD is None or not ollama:
+        raise HTTPException(status_code=503, detail="load guard not initialised")
+    return await load_guard.GUARD.plan(ollama.rstrip("/"), models)
+
+
 async def admin_refresh_tools(authorization: str | None = Header(None)) -> dict[str, Any]:
     """POST /admin/refresh-tools — force a tool-registry refresh.
 
@@ -784,6 +809,10 @@ async def chat_completions(
             large), 429 (semaphore timeout), 502 (all backends failed), 503
             (registry not initialised; no healthy backends).
     """
+    from portal.platform.inference.load_guard import set_load_wait
+
+    # How long this request's cold model loads may queue for memory (load_guard).
+    set_load_wait(request.headers.get("x-portal-load-wait"))
     _verify_key(authorization)
 
     start_trace(get_correlation_id())
