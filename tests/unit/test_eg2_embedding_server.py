@@ -154,6 +154,12 @@ def test_embed_items_missing_file_is_400(client: TestClient) -> None:
     assert r.status_code == 400
 
 
+def test_embed_items_path_outside_media_roots_is_400(client: TestClient) -> None:
+    r = client.post("/embed_items", json={"items": [{"image_path": "/etc/hosts"}]})
+    assert r.status_code == 400
+    assert "allowed media root" in r.text
+
+
 def test_vl_compat_surface(
     client: TestClient, fake: FakeBackend, monkeypatch: pytest.MonkeyPatch
 ) -> None:

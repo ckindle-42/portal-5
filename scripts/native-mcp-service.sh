@@ -83,9 +83,6 @@ case "$SERVICE" in
         fi
         # launchd: HF revalidation HEADs hang; the model is pre-fetched by setup.
         export HF_HUB_OFFLINE="${HF_HUB_OFFLINE:-1}"
-        # Home-dir cache: launchd processes cannot read /Volumes/data01 (open() blocks).
-        export HF_HOME="${EG2_HF_HOME:-$HOME/.portal5/hf-cache}"
-        unset HF_HUB_CACHE HUGGINGFACE_HUB_CACHE
         # ffmpeg (audio/video decode) lives here; launchd starts with a bare PATH.
         export PATH="/opt/homebrew/bin:/usr/local/bin:$PATH"
         exec "$EG2_PY" "$PORTAL_ROOT/scripts/eg2-embedding-server.py" --port "${EG2_PORT:-8946}"

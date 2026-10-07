@@ -7,16 +7,15 @@ set -euo pipefail
 PORTAL_ROOT="${PORTAL_ROOT:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
 EG2_VENV="${EG2_VENV:-$HOME/.portal5/eg2-venv}"
 EG2_MODEL="${EG2_MODEL:-google/embeddinggemma-2}"
-# The launchd service cannot read /Volumes/data01 (TCC; the process blocks in open()),
-# so the model lives under $HOME. The service sets the same HF_HOME.
-export HF_HOME="${EG2_HF_HOME:-$HOME/.portal5/hf-cache}"
-unset HF_HUB_CACHE HUGGINGFACE_HUB_CACHE
 UV_BIN="${UV_BIN:-$(command -v uv || echo "$HOME/.local/bin/uv")}"
 
 [ "$(uname -m)" = "arm64" ] || { echo "eg2-venv-setup: arm64 only (got $(uname -m))" >&2; exit 1; }
 [ -x "$UV_BIN" ] || { echo "eg2-venv-setup: uv not found" >&2; exit 1; }
 
 if [ ! -x "$EG2_VENV/bin/python3" ]; then
+    # The macOS TCC grant for /Volumes/data01 (model cache) is per interpreter BINARY. This
+    # interpreter (uv cpython-3.12.12) was approved by the operator on 2026-10-07; changing the
+    # version or the uv patch level yields a new binary that needs approval again.
     "$UV_BIN" venv --python 3.12 "$EG2_VENV"
 fi
 "$EG2_VENV/bin/python3" -c 'import platform,sys; assert platform.machine()=="arm64", platform.machine(); print("venv python", sys.version.split()[0], platform.machine())'
@@ -25,8 +24,10 @@ fi
 # transformers 5.19.0 is the first release that ships models/embedding_gemma2
 # (5.18.0 does not; the card was exported from 5.18.0.dev0). Pin the floor so a
 # resolver backtrack fails here, not at model load.
+# Media decoders are listed explicitly (the sentence-transformers[audio] extra drags in
+# pyctcdecode -> kenlm, which fails to build on newer interpreters).
 "$UV_BIN" pip install --python "$EG2_VENV/bin/python3" \
-    "sentence-transformers[audio,video,image]>=6.1.0" "transformers>=5.19.0" "torch" "torchvision" "torchcodec" "huggingface_hub" \
+    "sentence-transformers>=6.1.0" "transformers>=5.19.0" "torch" "torchvision" "torchcodec" "librosa" "soundfile" "av" "huggingface_hub" \
     "fastapi" "uvicorn" "httpx" "pillow" "numpy"
 
 "$EG2_VENV/bin/python3" - <<'PY'

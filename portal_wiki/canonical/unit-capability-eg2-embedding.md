@@ -48,8 +48,14 @@ installed.
 * The client library `portal/platform/embedding/` is stdlib + httpx only (Rule 8: nothing under
   `portal/platform/` imports numpy/torch/transformers).
 * Runtime dependencies the model card does not list: `torchvision` (processor import), `librosa` + `soundfile`
-  (audio), `torchcodec` (video). `scripts/eg2-venv-setup.sh` installs them.
-* launchd processes block in `open()` on `/Volumes/data01`, so the model cache is `HF_HOME=$HOME/.portal5/hf-cache`.
+  (audio), `torchcodec` + `av` (video). `scripts/eg2-venv-setup.sh` installs them explicitly; the
+  sentence-transformers `[audio]` extra is avoided because it pulls `kenlm`, which fails to build on cpython-3.13.
+* The venv is on uv cpython-3.12.12. macOS TCC grants `/Volumes/data01` access per interpreter binary; the first
+  launch of this fresh interpreter was denied (`kTCCServiceSystemPolicyAllFiles authValue=0`) and `/ready` hung in
+  `open()` on the model cache until the operator approved the binary on 2026-10-07. Changing the Python version or
+  uv patch level creates a new binary needing approval again. The model cache is the standard
+  `~/.cache/huggingface` -> `/Volumes/data01/hf-cache`.
+* `*_path` inputs are only honoured under `EG2_MEDIA_ROOTS` (default AI_Output, data01, temp dir); otherwise send `*_b64`.
 * bf16 or fp32 only; fp16 yields NaN.
 * Ollama also serves the model (`embeddinggemma-2:740m-mxfp8`); it applies no task prefixes and rejects video.
   Measured parity and throughput are in `reports/embedding_consumers/RUNTIME.md`. Runtime choice between the

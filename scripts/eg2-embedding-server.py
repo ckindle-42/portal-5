@@ -224,6 +224,28 @@ def _decode_b64(data: str, suffix: str) -> str:
     return path
 
 
+# Server-side `*_path` inputs are only honoured under these roots (default: the shared
+# AI_Output workspace, the data01 volume, and the temp dir). Everything else must arrive
+# as `*_b64`. Override with EG2_MEDIA_ROOTS (os.pathsep-separated).
+_MEDIA_ROOTS = tuple(
+    os.path.realpath(r)
+    for r in (
+        os.environ.get("EG2_MEDIA_ROOTS", "").split(os.pathsep)
+        if os.environ.get("EG2_MEDIA_ROOTS")
+        else [
+            os.environ.get("AI_OUTPUT_DIR") or os.path.expanduser("~/AI_Output"),
+            "/Volumes/data01",
+            tempfile.gettempdir(),
+        ]
+    )
+)
+
+
+def _path_allowed(path: str) -> bool:
+    real = os.path.realpath(path)
+    return any(os.path.commonpath([real, root]) == root for root in _MEDIA_ROOTS)
+
+
 def _prepare_item(
     obj: dict[str, Any], task: ec.Task, role: ec.Role
 ) -> tuple[dict[str, Any], list[str]]:
@@ -239,6 +261,8 @@ def _prepare_item(
             tmp.append(p)
             item[key] = p
         elif path:
+            if not _path_allowed(path):
+                raise ValueError(f"{key} path not under an allowed media root")
             if not Path(path).is_file():
                 raise ValueError(f"{key} not found: {path}")
             if key not in MODALITIES:
