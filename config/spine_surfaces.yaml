@@ -920,6 +920,42 @@ surfaces:
   globs:
   - scripts/omlx/deepseek_r1_tool_parser.py
   unit: unit-surface-omlx-tool-parsers
+- name: file-tests-benchmarks-embedding_consumers-__init__
+  globs:
+  - tests/benchmarks/embedding_consumers/__init__.py
+  unit: unit-design-embedding-consumers-harness
+- name: file-tests-benchmarks-embedding_consumers-__main__
+  globs:
+  - tests/benchmarks/embedding_consumers/__main__.py
+  unit: unit-design-embedding-consumers-harness
+- name: file-tests-benchmarks-embedding_consumers-cli
+  globs:
+  - tests/benchmarks/embedding_consumers/cli.py
+  unit: unit-design-embedding-consumers-harness
+- name: file-tests-benchmarks-embedding_consumers-framework
+  globs:
+  - tests/benchmarks/embedding_consumers/framework.py
+  unit: unit-design-embedding-consumers-harness
+- name: file-tests-benchmarks-embedding_consumers-probes-__init__
+  globs:
+  - tests/benchmarks/embedding_consumers/probes/__init__.py
+  unit: unit-design-embedding-consumers-harness
+- name: file-tests-benchmarks-embedding_consumers-probes-attack_mapping
+  globs:
+  - tests/benchmarks/embedding_consumers/probes/attack_mapping.py
+  unit: unit-design-embedding-consumers-harness
+- name: file-tests-benchmarks-embedding_consumers-probes-router
+  globs:
+  - tests/benchmarks/embedding_consumers/probes/router.py
+  unit: unit-design-embedding-consumers-harness
+- name: file-tests-benchmarks-embedding_consumers-probes-tool_preselect
+  globs:
+  - tests/benchmarks/embedding_consumers/probes/tool_preselect.py
+  unit: unit-design-embedding-consumers-harness
+- name: file-tests-benchmarks-embedding_consumers-probes-wiki_search
+  globs:
+  - tests/benchmarks/embedding_consumers/probes/wiki_search.py
+  unit: unit-design-embedding-consumers-harness
 - name: file-tests-fixtures-capability_context-sample_module
   globs:
   - tests/fixtures/capability_context/sample_module.py

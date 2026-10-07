@@ -1,0 +1,18 @@
+"""Probe modules. Importing this package registers every probe with the
+framework registry. Reference probes are implemented here; the remaining ledger
+consumers are implemented by the executor in Phase 3 against the spec cards in
+the task file, each as its own module added to ``_MODULES``."""
+
+from __future__ import annotations
+
+import importlib
+
+_MODULES = (
+    "router",
+    "tool_preselect",
+    "wiki_search",
+    "attack_mapping",
+)
+
+for _m in _MODULES:
+    importlib.import_module(f"{__name__}.{_m}")
