@@ -226,7 +226,7 @@ services:
       # ── API keys ────────────────────────────────────────────────────────────
       # Lets you mint an "sk-..." key (Settings -> Account) for OWUI_API_KEY, so
       # the media MCPs can publish generated files back through this server.
-      - ENABLE_API_KEY=true
+      - ENABLE_API_KEYS=true
 
       # ── Image generation — off in OWUI; Portal drives it via the mflux MCP
       # (generate_image / edit_image tools on the auto-image workspace), not
@@ -234,11 +234,10 @@ services:
       - ENABLE_IMAGE_GENERATION=False
 
       # ── Web Search (SearXNG) ─────────────────────────────────────────────────
-      - ENABLE_RAG_WEB_SEARCH=true
-      - RAG_WEB_SEARCH_ENGINE=searxng
+      # Web search is OFF in the running image (ENABLE_WEB_SEARCH=False). The former
+      # RAG_WEB_SEARCH_* names are not read by this image; the live names are
+      # WEB_SEARCH_*. Renaming them would turn web search on (G-OWUI decision).
       - SEARXNG_QUERY_URL=http://searxng:8080/search?q=<query>&format=json&language=en
-      - RAG_WEB_SEARCH_RESULT_COUNT=5
-      - RAG_WEB_SEARCH_CONCURRENT_REQUESTS=10
 
       # ── RAG / Knowledge Base ────────────────────────────────────────────────
       # Harrier-0.6B embedding (Microsoft, SOTA MTEB-v2, 32K context, MIT license)
@@ -259,8 +258,8 @@ services:
       - ENABLE_RAG_HYBRID_SEARCH=true
 
       # ── Cross-Session Memory ────────────────────────────────────────────────
-      - ENABLE_MEMORY_FEATURE=true
-      - MEMORY_EMBEDDING_MODEL=microsoft/harrier-oss-v1-0.6b
+      # (ENABLE_MEMORY_FEATURE / MEMORY_EMBEDDING_MODEL were unread by this image; the
+      # image reads ENABLE_MEMORIES, whose effective value is unchanged by this removal.)
 
       # ── Authentication & Session Security ───────────────────────────────────
       - WEBUI_AUTH=true
@@ -278,9 +277,7 @@ services:
       - ENABLE_LOGIN_FORM=true
 
       # ── User Permissions ────────────────────────────────────────────────────
-      # Users can delete their own chats, edit their own messages
-      - USER_PERMISSIONS_CHAT_DELETION=true
-      - USER_PERMISSIONS_CHAT_EDITING=true
+      # (USER_PERMISSIONS_CHAT_DELETION/EDITING were unread by this image; removed.)
       # Users cannot share chats publicly or access admin features
       - ENABLE_COMMUNITY_SHARING=false
 
@@ -291,16 +288,17 @@ services:
 
       # ── Features ────────────────────────────────────────────────────────────
       - ENABLE_MESSAGE_RATING=true
-      - ENABLE_WORKSPACE=true
       - ENABLE_CHANNELS=false         # Disable public channels (private chats only)
       - SAFE_MODE=false               # Allow full tool access for approved users
 
       # ── Speech (MLX-native on host via mlx-audio) ───────────────────────────
       # Primary: mlx-speech server on host (:8918) — Qwen3-TTS + Kokoro for TTS
-      # TTS still goes through mlx-speech; STT is DISABLED globally (TASK-WORKSPACE-001).
-      # Audio uploads in chat stay as attachments — personas handle them via the
-      # transcribe_with_speakers MCP tool. Side effect: voice-input via microphone
-      # is also disabled. See KNOWN_LIMITATIONS.md.
+      # TTS goes through mlx-speech. STT: measured 2026-10-07 on the running image —
+      # an EMPTY AUDIO_STT_ENGINE is NOT "disabled"; it selects Open WebUI's built-in
+      # local faster-whisper (model "base") with SUPPORTED_CONTENT_TYPES empty, so mic
+      # input and audio uploads may be transcribed in-container. Portal's own
+      # transcription is the transcribe_with_speakers MCP tool. Whether to repoint or
+      # truly disable STT is the G-OWUI decision.
       - AUDIO_TTS_ENGINE=openai
       - AUDIO_TTS_OPENAI_API_BASE_URL=${MLX_SPEECH_URL:-http://host.docker.internal:8918}
       - AUDIO_TTS_OPENAI_API_KEY=portal-speech
