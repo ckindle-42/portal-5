@@ -261,7 +261,8 @@ def route_one(
                 "prompt": prompt,
                 "stream": False,
                 "keep_alive": -1,
-                "options": {"temperature": 0, "num_predict": 40, "num_ctx": 2048},
+                "think": False,  # match production _router_payload
+                "options": {"temperature": 0, "num_predict": 64, "num_ctx": 2048},
                 "format": schema,
             },
             timeout=httpx.Timeout(timeout_s + 2.0, connect=5.0),

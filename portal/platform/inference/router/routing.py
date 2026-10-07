@@ -604,6 +604,9 @@ def _router_payload(prompt: str) -> dict[str, Any]:
         "prompt": prompt,
         "stream": False,
         "keep_alive": -1,  # Keep model warm — int not string (Ollama 0.30+ rejects "-1")
+        # Gemma 4 may think by default; unset, the JSON grammar was not reliably
+        # applied (malformed keys, length stops) and thinking ate num_predict.
+        "think": False,
         "options": {
             "temperature": 0,
             "num_predict": 64,  # room for the added "posture" field
