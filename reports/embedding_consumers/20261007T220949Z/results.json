@@ -1,0 +1,1604 @@
+[
+  {
+    "consumer": "router",
+    "status": "MEASURED",
+    "incumbent": {
+      "keyword_accuracy": 0.4247,
+      "keyword_macro_f1": 0.2427,
+      "keyword_p50_ms": 0.02,
+      "keyword_p95_ms": 0.02,
+      "llm_bench_router": {
+        "model": "hf.co/mradermacher/gemma-4-E4B-it-OBLITERATED-GGUF:Q4_K_M-ctx2k",
+        "accuracy": 0.9041095890410958,
+        "security_accuracy": 1.0,
+        "p50_ms": 528.8,
+        "p95_ms": 561.1
+      },
+      "primary": 0.9041095890410958
+    },
+    "candidate": {
+      "primary": 0.7945,
+      "best": {
+        "margin": 0.02,
+        "accuracy": 0.7671,
+        "chain_accuracy_eg2_then_keywords": 0.7945,
+        "macro_f1": 0.7339,
+        "abstain_rate": 0.2055,
+        "p50_ms": 72.69,
+        "p95_ms": 86.35
+      },
+      "sweep": {
+        "margin=0.0": {
+          "accuracy": 0.7808,
+          "chain_accuracy_eg2_then_keywords": 0.7808,
+          "macro_f1": 0.7206,
+          "abstain_rate": 0.0,
+          "p50_ms": 71.19,
+          "p95_ms": 84.9
+        },
+        "margin=0.01": {
+          "accuracy": 0.7671,
+          "chain_accuracy_eg2_then_keywords": 0.7808,
+          "macro_f1": 0.748,
+          "abstain_rate": 0.137,
+          "p50_ms": 64.26,
+          "p95_ms": 81.74
+        },
+        "margin=0.02": {
+          "accuracy": 0.7671,
+          "chain_accuracy_eg2_then_keywords": 0.7945,
+          "macro_f1": 0.7339,
+          "abstain_rate": 0.2055,
+          "p50_ms": 72.69,
+          "p95_ms": 86.35
+        },
+        "margin=0.04": {
+          "accuracy": 0.6575,
+          "chain_accuracy_eg2_then_keywords": 0.7945,
+          "macro_f1": 0.6473,
+          "abstain_rate": 0.3699,
+          "p50_ms": 73.04,
+          "p95_ms": 83.83
+        }
+      },
+      "dim": 256,
+      "version": "google/embeddinggemma-2@914f7f89142e:256d"
+    },
+    "hint": "WORSE",
+    "notes": [
+      "candidate needs no resident LLM (incumbent pins the router model with keep_alive=-1)"
+    ],
+    "blocked_reason": "",
+    "fixture": {
+      "golden_sha": "2ec980cf43070cea",
+      "n": 73,
+      "labels_without_anchors": []
+    },
+    "identity": "google/embeddinggemma-2@914f7f89142e:256d",
+    "seconds": 31.85
+  },
+  {
+    "consumer": "harmful_intent",
+    "status": "MEASURED",
+    "incumbent": {
+      "primary": 0.1143,
+      "recall_all": 0.1143,
+      "recall_direct": 0.2667,
+      "recall_paraphrase": 0.0,
+      "fp_benign_security": 0.0,
+      "fp_benign_general": 0.1,
+      "extra_positives_hit": 1,
+      "llm_posture": "not measured: needs the abliterated router model on the request path (rule 10 keeps it resident); counted as incumbent cost in the router row"
+    },
+    "candidate": {
+      "fp0": {
+        "threshold": 0.0163,
+        "eg2_recall": 0.9143,
+        "eg2_recall_paraphrase": 0.875,
+        "union_recall": 0.9143,
+        "union_recall_paraphrase": 0.875,
+        "union_fp_benign_security": 0.0,
+        "fp_benign_general": 0.2333,
+        "extra_positives_hit": 2
+      },
+      "fp<=incumbent": {
+        "threshold": 0.0163,
+        "eg2_recall": 0.9143,
+        "eg2_recall_paraphrase": 0.875,
+        "union_recall": 0.9143,
+        "union_recall_paraphrase": 0.875,
+        "union_fp_benign_security": 0.0,
+        "fp_benign_general": 0.2333,
+        "extra_positives_hit": 2
+      },
+      "fp<=5pct": {
+        "threshold": -0.0097,
+        "eg2_recall": 1.0,
+        "eg2_recall_paraphrase": 1.0,
+        "union_recall": 1.0,
+        "union_recall_paraphrase": 1.0,
+        "union_fp_benign_security": 0.0333,
+        "fp_benign_general": 0.5,
+        "extra_positives_hit": 2
+      },
+      "fp<=10pct": {
+        "threshold": -0.0097,
+        "eg2_recall": 1.0,
+        "eg2_recall_paraphrase": 1.0,
+        "union_recall": 1.0,
+        "union_recall_paraphrase": 1.0,
+        "union_fp_benign_security": 0.0333,
+        "fp_benign_general": 0.5,
+        "extra_positives_hit": 2
+      },
+      "primary": 0.9143
+    },
+    "hint": "BETTER",
+    "notes": [
+      "FP budget is the incumbent's FP rate on benign-security asks (0 when it flags none); union = EG2 OR keyword gate",
+      "threshold chosen on the eval set (optimistic); anchors are disjoint from it (leakage-checked)"
+    ],
+    "blocked_reason": "",
+    "fixture": {
+      "rows": 130,
+      "sha": "0785033c6547508f",
+      "anchors": {
+        "harmful": 25,
+        "standard": 25
+      }
+    },
+    "identity": "google/embeddinggemma-2@914f7f89142e:256d",
+    "seconds": 1.1
+  },
+  {
+    "consumer": "tool_preselect",
+    "status": "MEASURED",
+    "incumbent": {
+      "primary": "no preselection: all 61 schemas every turn",
+      "llm_preselector": "exhausted (KNOWN_LIMITATIONS P5-TOOLPRESELECT-001)"
+    },
+    "candidate": {
+      "primary": 0.9247,
+      "recall@1": 0.7419,
+      "recall@3": 0.8602,
+      "recall@5": 0.9247,
+      "recall@8": 0.9462,
+      "recall@12": 0.9677,
+      "by_category": {
+        "compound": {
+          "recall@3": 1.0,
+          "recall@5": 1.0,
+          "recall@8": 1.0
+        },
+        "decoy": {
+          "recall@3": 0.75,
+          "recall@5": 0.75,
+          "recall@8": 0.8333
+        },
+        "positive": {
+          "recall@3": 0.8689,
+          "recall@5": 0.9344,
+          "recall@8": 0.9508
+        },
+        "reorder": {
+          "recall@3": 0.8,
+          "recall@5": 1.0,
+          "recall@8": 1.0
+        }
+      },
+      "smallest_k_at_recall_0.95": 12,
+      "schema_reduction_at_that_k": 0.803,
+      "p50_ms": 70.51,
+      "p95_ms": 81.88
+    },
+    "hint": "WORSE",
+    "notes": [
+      "preselect() keeps its fallback invariant: on any miss or abstain the full set ships"
+    ],
+    "blocked_reason": "",
+    "fixture": {
+      "scenarios_sha": "c15788c368aeec29",
+      "n": 93,
+      "tools": 61
+    },
+    "identity": "google/embeddinggemma-2@914f7f89142e:768d",
+    "seconds": 7.23
+  },
+  {
+    "consumer": "memory_recall_floor",
+    "status": "MEASURED",
+    "incumbent": {
+      "primary": 0.215,
+      "precision": 0.215,
+      "recall_any": 0.975,
+      "injected_per_turn": 4.0,
+      "words_injected_per_turn": 45.6,
+      "irrelevant_injection_rate_on_no_memory_turns": 1.0
+    },
+    "candidate": {
+      "primary": 0.235,
+      "chosen_floor": "0.60",
+      "at_chosen": {
+        "precision": 0.235,
+        "recall_any": 0.975,
+        "injected_per_turn": 3.66,
+        "words_injected_per_turn": 41.8,
+        "irrelevant_injection_rate_on_no_memory_turns": 0.7
+      },
+      "sweep": {
+        "0.20": {
+          "precision": 0.215,
+          "recall_any": 0.975,
+          "injected_per_turn": 4.0,
+          "words_injected_per_turn": 45.6,
+          "irrelevant_injection_rate_on_no_memory_turns": 1.0
+        },
+        "0.30": {
+          "precision": 0.215,
+          "recall_any": 0.975,
+          "injected_per_turn": 4.0,
+          "words_injected_per_turn": 45.6,
+          "irrelevant_injection_rate_on_no_memory_turns": 1.0
+        },
+        "0.40": {
+          "precision": 0.215,
+          "recall_any": 0.975,
+          "injected_per_turn": 4.0,
+          "words_injected_per_turn": 45.6,
+          "irrelevant_injection_rate_on_no_memory_turns": 1.0
+        },
+        "0.50": {
+          "precision": 0.215,
+          "recall_any": 0.975,
+          "injected_per_turn": 4.0,
+          "words_injected_per_turn": 45.6,
+          "irrelevant_injection_rate_on_no_memory_turns": 1.0
+        },
+        "0.60": {
+          "precision": 0.235,
+          "recall_any": 0.975,
+          "injected_per_turn": 3.66,
+          "words_injected_per_turn": 41.8,
+          "irrelevant_injection_rate_on_no_memory_turns": 0.7
+        },
+        "0.65": {
+          "precision": 0.3475,
+          "recall_any": 0.95,
+          "injected_per_turn": 2.36,
+          "words_injected_per_turn": 27.0,
+          "irrelevant_injection_rate_on_no_memory_turns": 0.2
+        },
+        "0.70": {
+          "precision": 0.6667,
+          "recall_any": 0.825,
+          "injected_per_turn": 1.02,
+          "words_injected_per_turn": 11.4,
+          "irrelevant_injection_rate_on_no_memory_turns": 0.0
+        },
+        "0.75": {
+          "precision": 1.0,
+          "recall_any": 0.2,
+          "injected_per_turn": 0.16,
+          "words_injected_per_turn": 1.8,
+          "irrelevant_injection_rate_on_no_memory_turns": 0.0
+        },
+        "0.80": {
+          "precision": 0.0,
+          "recall_any": 0.0,
+          "injected_per_turn": 0.0,
+          "words_injected_per_turn": 0.0,
+          "irrelevant_injection_rate_on_no_memory_turns": 0.0
+        },
+        "0.85": {
+          "precision": 0.0,
+          "recall_any": 0.0,
+          "injected_per_turn": 0.0,
+          "words_injected_per_turn": 0.0,
+          "irrelevant_injection_rate_on_no_memory_turns": 0.0
+        },
+        "0.90": {
+          "precision": 0.0,
+          "recall_any": 0.0,
+          "injected_per_turn": 0.0,
+          "words_injected_per_turn": 0.0,
+          "irrelevant_injection_rate_on_no_memory_turns": 0.0
+        }
+      },
+      "tokens_saved_pct": 8.3
+    },
+    "hint": "PARITY",
+    "notes": [
+      "sweep extends past the 0.2-0.6 in the spec because EG2 SEARCH cosines for on-topic pairs sit at 0.6-0.9; floor = highest sweep value that keeps recall_any >= the incumbent's; decides whether AUTO_RAG_ENABLED can turn on"
+    ],
+    "blocked_reason": "",
+    "fixture": {
+      "turns": 50,
+      "no_memory_turns": 10,
+      "sha": "137470e4e954e3c6"
+    },
+    "identity": "google/embeddinggemma-2@914f7f89142e:768d",
+    "seconds": 0.91
+  },
+  {
+    "consumer": "memory_salience",
+    "status": "MEASURED",
+    "incumbent": {
+      "primary": 0.1395,
+      "f1": 0.1395,
+      "precision": 1.0,
+      "recall": 0.075,
+      "implicit_facts": 37
+    },
+    "candidate": {
+      "primary": 0.9595,
+      "best_threshold_f1": {
+        "f1": 0.9873,
+        "precision": 1.0,
+        "recall": 0.975,
+        "threshold": 0.0209
+      },
+      "union_with_markers": {
+        "f1": 0.9744,
+        "precision": 1.0,
+        "recall": 0.95
+      },
+      "recall_on_implicit_facts": 0.9459,
+      "auc": 0.9972
+    },
+    "hint": "BETTER",
+    "notes": [
+      "candidate primary = 2-fold cross-validated F1; markers kept as an OR in 'union_with_markers'"
+    ],
+    "blocked_reason": "",
+    "fixture": {
+      "rows": 76,
+      "durable": 40,
+      "sha": "dd0de08cf1f46076"
+    },
+    "identity": "google/embeddinggemma-2@914f7f89142e:256d",
+    "seconds": 0.7
+  },
+  {
+    "consumer": "memory_dedup",
+    "status": "MEASURED",
+    "incumbent": {
+      "primary": 0.0,
+      "note": "no dedup exists today (memory_writeback_all's comment assumes one); every restatement is stored"
+    },
+    "candidate": {
+      "primary": 0.75,
+      "sweep": {
+        "fp<=0pct": {
+          "recall": 0.75,
+          "fp_rate": 0.0,
+          "threshold": 0.9684
+        },
+        "fp<=2pct": {
+          "recall": 0.75,
+          "fp_rate": 0.0,
+          "threshold": 0.9684
+        },
+        "fp<=5pct": {
+          "recall": 0.85,
+          "fp_rate": 0.05,
+          "threshold": 0.9527
+        }
+      },
+      "auc_dup_vs_nondup": 0.985,
+      "auc_dup_vs_related": 0.97,
+      "legacy_8917_at_fp<=2pct": {
+        "recall": 0.75,
+        "fp_rate": 0.0,
+        "threshold": 0.8893
+      },
+      "legacy_8917_auc": 0.9838,
+      "min_dup_sim": 0.9485,
+      "max_related_sim": 0.9641,
+      "false_merge_budget_pairs": 0.8
+    },
+    "hint": "BETTER",
+    "notes": [
+      "metric = duplicate suppression (recall) at <=2% false merges across related+unrelated pairs"
+    ],
+    "blocked_reason": "",
+    "fixture": {
+      "pairs": 60,
+      "sha": "909929fc959b5aaa"
+    },
+    "identity": "google/embeddinggemma-2@914f7f89142e:768d",
+    "seconds": 1.19
+  },
+  {
+    "consumer": "memory_entities",
+    "status": "MEASURED",
+    "incumbent": {
+      "primary": 0.0,
+      "exact_name_false_merges": 0
+    },
+    "candidate": {
+      "primary": 0.2333,
+      "sweep": {
+        "fp<=0pct": {
+          "recall": 0.1667,
+          "fp_rate": 0.0,
+          "threshold": 0.9756
+        },
+        "fp<=5pct": {
+          "recall": 0.2333,
+          "fp_rate": 0.0333,
+          "threshold": 0.966
+        },
+        "fp<=10pct": {
+          "recall": 0.4667,
+          "fp_rate": 0.1,
+          "threshold": 0.9517
+        }
+      },
+      "precision_at_fp5": 0.8751,
+      "auc": 0.7322,
+      "note": "candidates only: a merge needs the gated threshold; never auto-merge on this evidence alone"
+    },
+    "hint": "BETTER",
+    "notes": [
+      "alias recall at <=5% false merges; incumbent = exact normalized name equality (graph_memory._upsert_entity)"
+    ],
+    "blocked_reason": "",
+    "fixture": {
+      "aliases": 30,
+      "distinct": 30,
+      "sha": "1229906a3445e44f"
+    },
+    "identity": "google/embeddinggemma-2@914f7f89142e:768d",
+    "seconds": 0.56
+  },
+  {
+    "consumer": "memory_recall",
+    "status": "MEASURED",
+    "incumbent": {
+      "primary": 0.925,
+      "recall@1": 0.8,
+      "recall@4": 0.925,
+      "recall@5": 0.975,
+      "mrr": 0.8683
+    },
+    "candidate": {
+      "primary": 0.975,
+      "recall@1": 0.85,
+      "recall@4": 0.975,
+      "recall@5": 1.0,
+      "mrr": 0.9092
+    },
+    "hint": "BETTER",
+    "notes": [
+      "incumbent = live :8917 embedder (MLX Qwen3-Embedding-0.6B, raw text); candidate = EG2 SEARCH 768d"
+    ],
+    "blocked_reason": "",
+    "fixture": {
+      "memories": 60,
+      "queries": 40,
+      "max_query_overlap": 0.286,
+      "sha": "9d36b38e64ebea44"
+    },
+    "identity": "google/embeddinggemma-2@914f7f89142e:768d",
+    "seconds": 1.24
+  },
+  {
+    "consumer": "rag_first_stage",
+    "status": "MEASURED",
+    "incumbent": {
+      "primary": 0.9562,
+      "recall@1": 0.9562,
+      "recall@5": 1.0,
+      "mrr": 0.9781,
+      "by_category": {
+        "diagram_only": {
+          "n": 21,
+          "recall@1": 0.952,
+          "recall@5": 1.0,
+          "mrr": 0.976,
+          "latency_s_median": 26.86,
+          "latency_s_mean": 27.11
+        },
+        "mixed": {
+          "n": 2,
+          "recall@1": 1.0,
+          "recall@5": 1.0,
+          "mrr": 1.0,
+          "latency_s_median": 26.69,
+          "latency_s_mean": 26.66
+        }
+      },
+      "ingest_s": 44.6,
+      "chunks": 12,
+      "pages": 18,
+      "queries": 23
+    },
+    "candidate": {
+      "primary": 0.391,
+      "recall@1": 0.391,
+      "recall@5": 1.0,
+      "mrr": 0.696,
+      "by_category": {
+        "diagram_only": {
+          "n": 21,
+          "recall@1": 0.333,
+          "recall@5": 1.0,
+          "mrr": 0.667,
+          "latency_s_median": 26.8,
+          "latency_s_mean": 26.67
+        },
+        "mixed": {
+          "n": 2,
+          "recall@1": 1.0,
+          "recall@5": 1.0,
+          "mrr": 1.0,
+          "latency_s_median": 26.84,
+          "latency_s_mean": 26.81
+        }
+      },
+      "ingest_s": 18.9,
+      "chunks": 12,
+      "pages": 18,
+      "queries": 23
+    },
+    "hint": "WORSE",
+    "notes": [
+      "primary = recall@1 over diagram-only+mixed synthetic queries, the category the fusion/text-gate work was built for; final ranking is after the VL rerank in both arms (the reranker is unchanged)",
+      "ingest wall time is reported per arm"
+    ],
+    "blocked_reason": "",
+    "fixture": {
+      "docs": 9,
+      "queries": 23,
+      "corpus": "9 synthetic figure-only PDFs (the public NERC/NIST PDFs and the operator procedures are not on this host)",
+      "sha": "43d4df114d85a6d7"
+    },
+    "identity": "google/embeddinggemma-2@914f7f89142e:768d",
+    "seconds": 1302.94
+  },
+  {
+    "consumer": "compliance_retrieval",
+    "status": "MEASURED",
+    "incumbent": {
+      "primary": 0.816,
+      "requirements": {
+        "targets": 102,
+        "corpus": 102,
+        "incumbent_top3": 1.0,
+        "candidate_top3": 1.0,
+        "incumbent_mrr": 0.9902,
+        "candidate_mrr": 0.9951,
+        "dense_pool40_overlap_mean": 0.6691
+      },
+      "operator": {
+        "targets": 250,
+        "corpus": 650,
+        "incumbent_top5": 0.632,
+        "candidate_top5": 0.62,
+        "incumbent_mrr": 0.5676,
+        "candidate_mrr": 0.5137
+      },
+      "metric_note": "mean of requirement top-3 and operator top-5 findability"
+    },
+    "candidate": {
+      "primary": 0.81,
+      "requirements": {
+        "candidate_top3": 1.0,
+        "candidate_mrr": 0.9951
+      },
+      "operator": {
+        "candidate_top5": 0.62,
+        "candidate_mrr": 0.5137
+      }
+    },
+    "hint": "PARITY",
+    "notes": [
+      "A/B on a scratch corpus built from the compliance store's own section text (both embedders index identical text; the production lance tables compliance_nerc_corpus / compliance_operator_corpus are not built on this host)",
+      "candidate_links.DEFAULT_THRESHOLD (0.5) is a VL RERANK-score threshold; the reranker stays on :8942, so the threshold does not move with the embedder. Only the dense pool changes: see dense_pool40_overlap_mean"
+    ],
+    "blocked_reason": "",
+    "fixture": {
+      "requirements_sample": 250,
+      "operator_sample": 250,
+      "sha": "04bf99b2410ef59e"
+    },
+    "identity": "google/embeddinggemma-2@914f7f89142e:768d",
+    "seconds": 197.07
+  },
+  {
+    "consumer": "compliance_crosswalk",
+    "status": "MEASURED",
+    "incumbent": {
+      "primary": 1.0,
+      "note": "the hand-curated 35-row seed is the reference (recall 1.0 by definition); it covers a small part of CSF 2.0"
+    },
+    "candidate": {
+      "primary": 0.4571,
+      "recall@5_parent_credit": 0.4571,
+      "mrr": 0.3652,
+      "recall@1": 0.2857,
+      "proposals_written": 172,
+      "proposals_path": "reports/embedding_consumers/crosswalk_proposals.json"
+    },
+    "hint": "INCONCLUSIVE",
+    "notes": [
+      "seed recall@5 measures whether EG2 would have found the curated mappings; proposals are for human review"
+    ],
+    "blocked_reason": "",
+    "fixture": {
+      "seed_rows": 35,
+      "targets": 1196,
+      "sha": "fe131d408379687f"
+    },
+    "identity": "google/embeddinggemma-2@914f7f89142e:768d",
+    "seconds": 25.2
+  },
+  {
+    "consumer": "owui_attachment_rag",
+    "status": "MEASURED",
+    "incumbent": {
+      "primary": 0.617,
+      "dense_8917": {
+        "recall@1": 0.3191,
+        "recall@5": 0.617
+      },
+      "dense_plus_bge_reranker": {}
+    },
+    "candidate": {
+      "primary": 0.8298,
+      "dense_eg2": {
+        "recall@1": 0.4468,
+        "recall@5": 0.7234
+      },
+      "dense_plus_vl_rerank": {
+        "recall@1": 0.5532,
+        "recall@5": 0.8298
+      }
+    },
+    "hint": "BETTER",
+    "notes": [
+      "PROXY, not a scratch-Open-WebUI A/B: the retrieval pipeline OWUI runs (chunk 900 chars -> embed -> top-20 -> rerank) is re-run in-process on the wiki corpus with the 47 authored wiki queries; the incumbent bge reranker runs inside the portal5-open-webui container, the candidate reranker is the VL reranker behind :8946/v1/rerank. A scratch OWUI container on :8081 would add only OWUI's own prompt assembly",
+      "bge arm not run: the OWUI container is capped at 2 GiB and bge-reranker-v2-m3 needs ~2.3 GB, so loading it there risks OOM-killing Open WebUI; enable with --opt owui_bge=1"
+    ],
+    "blocked_reason": "",
+    "fixture": {
+      "queries": 47,
+      "chunks": 1722,
+      "units": 768
+    },
+    "identity": "google/embeddinggemma-2@914f7f89142e:768d",
+    "seconds": 303.46
+  },
+  {
+    "consumer": "unified_recall",
+    "status": "BLOCKED",
+    "incumbent": {},
+    "candidate": {},
+    "hint": "INCONCLUSIVE",
+    "notes": [],
+    "blocked_reason": "media generation out of scope by operator decision (2026-10-07: not needed); no generated artifacts exist",
+    "fixture": {},
+    "identity": "",
+    "seconds": 0.0
+  },
+  {
+    "consumer": "audio_recordings",
+    "status": "MEASURED",
+    "incumbent": {
+      "primary": 1.0,
+      "transcript_embedding": 1.0,
+      "lexical_transcript": 0.3333
+    },
+    "candidate": {
+      "primary": 1.0,
+      "native_audio_only": 1.0,
+      "rrf_native_plus_transcript": 1.0,
+      "identifier_queries": {
+        "n": 8,
+        "native": 1.0,
+        "transcript_embedding": 1.0,
+        "lexical_transcript": 0.25,
+        "rrf": 1.0
+      }
+    },
+    "hint": "PARITY",
+    "notes": [
+      "clips are TTS (Kokoro via :8918) and transcripts Parakeet (:8924); no operator recordings are available on this host",
+      "sample transcripts: [('The breaker at the north substation tripped on overcurrent right after the storm.', 'The breaker at the North Substation tripped on overcurrent right after the storm.'), ('We need to reschedule the quarterly patch review to the second week of November.', 'We need to reschedule the quarterly patch review to the second week of November.'), ('The new analyst should shadow the incident response rotation for two weeks.', 'The new analyst should shadow the incident response rotation for two weeks.')]"
+    ],
+    "blocked_reason": "",
+    "fixture": {
+      "clips": 24,
+      "identifier_clips": 8,
+      "sha": "acf9759252c6e1d7"
+    },
+    "identity": "google/embeddinggemma-2@914f7f89142e:768d",
+    "seconds": 2.84
+  },
+  {
+    "consumer": "wiki_search",
+    "status": "MEASURED",
+    "incumbent": {
+      "primary": 0.4255,
+      "self_retrieval_by_title": {
+        "recall@5": 1.0,
+        "mrr": 0.9833
+      },
+      "natural_language": {
+        "recall@5": 0.4255,
+        "mrr": 0.2998
+      }
+    },
+    "candidate": {
+      "primary": 0.8298,
+      "self_retrieval_by_title": {
+        "recall@5": 0.904,
+        "mrr": 0.7699
+      },
+      "natural_language": {
+        "recall@5": 0.8298,
+        "mrr": 0.6279
+      }
+    },
+    "hint": "BETTER",
+    "notes": [],
+    "blocked_reason": "",
+    "fixture": {
+      "units": 768,
+      "self_retrieval_sample": 250,
+      "units_sha": "39daec722d69d7f4"
+    },
+    "identity": "google/embeddinggemma-2@914f7f89142e:768d",
+    "seconds": 135.06
+  },
+  {
+    "consumer": "refusal_classifier",
+    "status": "MEASURED",
+    "incumbent": {
+      "primary": 0.5402,
+      "best_single_list": "tests.common.REFUSAL_PHRASES",
+      "per_list": {
+        "tests.common.REFUSAL_PHRASES": {
+          "f1": 0.5402,
+          "precision": 0.7121,
+          "recall": 0.4352
+        },
+        "scoring.REFUSAL_PATTERNS": {
+          "f1": 0.2985,
+          "precision": 0.7692,
+          "recall": 0.1852
+        },
+        "exec_chain._REFUSAL_PATTERNS": {
+          "f1": 0.2985,
+          "precision": 0.7692,
+          "recall": 0.1852
+        },
+        "toolcall_reliability._REFUSAL_MARKERS": {
+          "f1": 0.2222,
+          "precision": 0.7778,
+          "recall": 0.1296
+        },
+        "wfe.checkers.REFUSAL_PATTERNS": {
+          "f1": 0.3586,
+          "precision": 0.7027,
+          "recall": 0.2407
+        },
+        "union_of_five": {
+          "f1": 0.6044,
+          "precision": 0.7432,
+          "recall": 0.5093
+        },
+        "toolcall_reliability._SPIRAL_MARKERS(spiral)": {
+          "f1": 1.0,
+          "precision": 1.0,
+          "recall": 1.0
+        }
+      },
+      "pairwise_disagreement_rate": {
+        "tests~scoring": 0.2251,
+        "tests~exec_chain": 0.2251,
+        "tests~toolcall_reliability": 0.2251,
+        "tests~wfe": 0.1429,
+        "scoring~exec_chain": 0.0,
+        "scoring~toolcall_reliability": 0.0693,
+        "scoring~wfe": 0.1602,
+        "exec_chain~toolcall_reliability": 0.0693,
+        "exec_chain~wfe": 0.1602,
+        "toolcall_reliability~wfe": 0.1169
+      },
+      "historical_sixth_copy": "tests/benchmarks/bench_candidates_v10.py REFUSAL_PATTERNS (not migrated, not measured)"
+    },
+    "candidate": {
+      "refusal": {
+        "f1": 0.8724,
+        "precision": 0.7852,
+        "recall": 0.9815
+      },
+      "spiral": {
+        "f1": 0.8696,
+        "precision": 0.7692,
+        "recall": 1.0
+      },
+      "macro_f1_3class": 0.834,
+      "refusal_recall_on_paraphrases": 1.0,
+      "false_refusals_on_mentions_refusal_words": 0.4127,
+      "primary": 0.8724
+    },
+    "hint": "BETTER",
+    "notes": [
+      "any M-security change to the WFE checker must keep its adversarial fixtures (dimension 20) passing"
+    ],
+    "blocked_reason": "",
+    "fixture": {
+      "rows": 231,
+      "sha": "0bac82a5a060dcb3"
+    },
+    "identity": "google/embeddinggemma-2@914f7f89142e:256d",
+    "seconds": 1.74
+  },
+  {
+    "consumer": "field_journal",
+    "status": "BLOCKED",
+    "incumbent": {},
+    "candidate": {},
+    "hint": "INCONCLUSIVE",
+    "notes": [],
+    "blocked_reason": "only 3 journal entries exist (floor is 20); revisit once the journal has grown",
+    "fixture": {
+      "entries": 3
+    },
+    "identity": "",
+    "seconds": 0.0
+  },
+  {
+    "consumer": "attack_mapping",
+    "status": "MEASURED",
+    "incumbent": {
+      "primary": 0.0,
+      "ics_name_self_retrieval": {
+        "recall@1": 0.4227,
+        "recall@5": 0.5773
+      },
+      "behaviors": {
+        "recall@1": 0.0,
+        "recall@5": 0.0
+      }
+    },
+    "candidate": {
+      "primary": 0.88,
+      "ics_name_self_retrieval": {
+        "recall@1": 0.5979,
+        "recall@5": 0.9175
+      },
+      "behaviors": {
+        "recall@1": 0.62,
+        "recall@5": 0.88
+      }
+    },
+    "hint": "BETTER",
+    "notes": [],
+    "blocked_reason": "",
+    "fixture": {
+      "techniques": 137,
+      "corpus_sha": "d79640d2562b7b33"
+    },
+    "identity": "google/embeddinggemma-2@914f7f89142e:768d",
+    "seconds": 3.31
+  },
+  {
+    "consumer": "spl_library",
+    "status": "MEASURED",
+    "incumbent": {
+      "primary": 0.025,
+      "recall@1": 0.025,
+      "recall@4": 0.025,
+      "recall@5": 0.025,
+      "mrr": 0.025,
+      "diff_auc_word_overlap": 0.8778
+    },
+    "candidate": {
+      "primary": 0.95,
+      "recall@1": 0.9,
+      "recall@4": 0.95,
+      "recall@5": 0.95,
+      "mrr": 0.9321,
+      "diff_auc_cosine": 0.9956
+    },
+    "hint": "BETTER",
+    "notes": [
+      "queries are analyst phrasings; incumbent = spl_search_library substring/ID rule; diff = AUC matched vs unmatched"
+    ],
+    "blocked_reason": "",
+    "fixture": {
+      "queries": 40,
+      "library": 40,
+      "pairs": 30,
+      "sha": "b170925c878f2d03"
+    },
+    "identity": "google/embeddinggemma-2@914f7f89142e:768d",
+    "seconds": 1.17
+  },
+  {
+    "consumer": "ics_advisories",
+    "status": "BLOCKED",
+    "incumbent": {},
+    "candidate": {},
+    "hint": "INCONCLUSIVE",
+    "notes": [],
+    "blocked_reason": "asset_inventory emits only host/protocol/role hints (no vendor or product string field); 40 lab pcaps tried, 0 ICS-protocol assets, 0 with a product string. The only pcaps on this host are IT attack-episode captures",
+    "fixture": {
+      "pcaps_tried": 40
+    },
+    "identity": "",
+    "seconds": 0.82
+  },
+  {
+    "consumer": "bully_projection",
+    "status": "MEASURED",
+    "incumbent": {
+      "primary": 0.717391,
+      "status": "VALID",
+      "discovery_precision": 0.717391,
+      "discovery_recall_proxy": 0.846154,
+      "controls_passed": true,
+      "identity_failures": 25,
+      "thresholds": {
+        "schema": "EMBEDDING_SPACE_THRESHOLDS_V1",
+        "embedding_version": "mlx-qwen3-embed-0.6b-mxfp8",
+        "thresholds_version": "bully-cousin-thresholds-mlx-qwen3-embed-0.6b-mxfp8",
+        "same_max_distance": 0.05,
+        "similar_max_distance": 0.4,
+        "new_max_distance": 0.85
+      }
+    },
+    "candidate": {
+      "primary": 0.565217,
+      "status": "VALID",
+      "discovery_precision": 0.565217,
+      "discovery_recall_proxy": 0.8125,
+      "controls_passed": true,
+      "identity_failures": 25,
+      "thresholds": {
+        "schema": "EMBEDDING_SPACE_THRESHOLDS_V1",
+        "embedding_version": "google/embeddinggemma-2@914f7f89142e:768d",
+        "thresholds_version": "bully-cousin-thresholds-google/embeddinggemma-2@914f7f89142e:768d",
+        "same_max_distance": 0.05,
+        "similar_max_distance": 0.4,
+        "new_max_distance": 0.85
+      },
+      "near_twin_4719_vs_4688_cosine": {
+        "arm-a": 0.9803,
+        "arm-d": 0.9221
+      }
+    },
+    "hint": "WORSE",
+    "notes": [
+      "EG2 embeds the canonical record text raw through /v1/embeddings (no task prefix), as the Organ's embed client does for every arm"
+    ],
+    "blocked_reason": "",
+    "fixture": {
+      "deduplicated_parents": 882,
+      "corpus": "specimen_corpus_v2.json",
+      "sha": "44b72af50bfaf153"
+    },
+    "identity": "google/embeddinggemma-2@914f7f89142e:768d",
+    "seconds": 203.3
+  },
+  {
+    "consumer": "bully_novelty",
+    "status": "MEASURED",
+    "incumbent": {
+      "primary": null,
+      "note": "no novelty channel exists (ANOMALOUS_UNCLASSIFIED has no ranking signal)"
+    },
+    "candidate": {
+      "primary": 1.0,
+      "metric": "mean leave-one-source-class-out AUC of nearest-neighbour distance",
+      "centroid_distance_mean_auc": 0.8307,
+      "per_class_auc": {
+        "OktaIM2:log": 1.0,
+        "linux:auditd": 1.0,
+        "web:access": 1.0,
+        "windows:powershell": 1.0,
+        "windows:security": 1.0,
+        "windows:sysmon": 1.0,
+        "windows:system": 1.0
+      }
+    },
+    "hint": "INCONCLUSIVE",
+    "notes": [
+      "proposes a ranking channel for ANOMALOUS_UNCLASSIFIED, never a verdict; 'novel' = an entire telemetry source class the index has not seen (the corpus has no benign/attack split)"
+    ],
+    "blocked_reason": "",
+    "fixture": {
+      "deduplicated_parents": 882,
+      "source_classes": 7,
+      "sha": "4e2fab9151f04875"
+    },
+    "identity": "google/embeddinggemma-2@914f7f89142e:768d",
+    "seconds": 3.92
+  },
+  {
+    "consumer": "vuln_severity",
+    "status": "MEASURED",
+    "incumbent": {
+      "primary": 0.8777,
+      "accuracy": 0.875,
+      "model": "CIRCL/vulnerability-severity-classification-roberta-base"
+    },
+    "candidate": {
+      "primary": 0.378,
+      "accuracy": 0.3958,
+      "head": "softmax regression on EG2 CLASSIFICATION 768d, trained on a disjoint 60% split",
+      "train": 144,
+      "test": 96
+    },
+    "hint": "WORSE",
+    "notes": [
+      "labels = NVD CVSS v3.1 baseSeverity (stratified, 3 NVD publication windows); the fine-tuned RoBERTa was trained on CVE data that may overlap this sample, which favours the incumbent"
+    ],
+    "blocked_reason": "",
+    "fixture": {
+      "cves": 240,
+      "per_class": {
+        "LOW": 60,
+        "MEDIUM": 60,
+        "HIGH": 60,
+        "CRITICAL": 60
+      },
+      "sha": "66cc5b8439f2235d"
+    },
+    "identity": "google/embeddinggemma-2@914f7f89142e:768d",
+    "seconds": 13.62
+  },
+  {
+    "consumer": "binary_similarity",
+    "status": "MEASURED",
+    "incumbent": {
+      "primary": 0.5,
+      "note": "no similarity search exists; value is a mnemonic bag-of-tokens cosine reference",
+      "O0->O2": {
+        "recall@1": 0.1304,
+        "recall@4": 0.3913,
+        "recall@5": 0.4348,
+        "mrr": 0.2629
+      },
+      "O2->O0": {
+        "recall@1": 0.1739,
+        "recall@4": 0.5652,
+        "recall@5": 0.5652,
+        "mrr": 0.3484
+      }
+    },
+    "candidate": {
+      "primary": 0.5,
+      "O0->O2": {
+        "recall@1": 0.1304,
+        "recall@4": 0.3913,
+        "recall@5": 0.3913,
+        "mrr": 0.2781
+      },
+      "O2->O0": {
+        "recall@1": 0.2609,
+        "recall@4": 0.5652,
+        "recall@5": 0.6087,
+        "mrr": 0.3783
+      }
+    },
+    "hint": "PARITY",
+    "notes": [
+      "arm64 objdump disassembly (addresses, immediates, symbols masked) stands in for decompiler pseudocode: the binresearch module's Ghidra path needs its 7 GB container and the examples ship no function pairs; matched across -O0/-O2 of the same source"
+    ],
+    "blocked_reason": "",
+    "fixture": {
+      "functions": 23,
+      "sha": "98ddeb9c91c037e2",
+      "arch": "arm64"
+    },
+    "identity": "google/embeddinggemma-2@914f7f89142e:768d",
+    "seconds": 18.33
+  },
+  {
+    "consumer": "media_alignment",
+    "status": "BLOCKED",
+    "incumbent": {},
+    "candidate": {},
+    "hint": "INCONCLUSIVE",
+    "notes": [],
+    "blocked_reason": "media generation out of scope by operator decision (2026-10-07: not needed); no generated artifacts exist. `gen_media` is available if wanted later",
+    "fixture": {},
+    "identity": "",
+    "seconds": 0.0
+  },
+  {
+    "consumer": "cad_resemblance",
+    "status": "MEASURED",
+    "incumbent": {
+      "primary": 0.4667,
+      "metric": "sealed spec-derived grader pass rate on the sampled renders (tests/benchmarks/cad_grader.py verdicts stored in the gauntlet JSON); the grader stays authoritative"
+    },
+    "candidate": {
+      "primary": 0.3333,
+      "metric": "rank-1-vs-shuffled task (8 distinct tasks)",
+      "chance": 0.125,
+      "mean_cos_true": 0.6023,
+      "mean_cos_shuffled": 0.5786,
+      "auc_pass_vs_nonpass_by_cosine": 0.4643,
+      "pass_renders": 7,
+      "nonpass_renders": 8
+    },
+    "hint": "INCONCLUSIVE",
+    "notes": [
+      "renders come from stored production-path artifacts (auto-cad build123d/generate_part); resemblance is a WARN-level axis beside the grader, never a replacement",
+      "render path: rendered via matplotlib CPU fallback (no GL context)"
+    ],
+    "blocked_reason": "",
+    "fixture": {
+      "renders": 15,
+      "tasks": 8,
+      "paths": [
+        ".stl"
+      ],
+      "sha": "04a7c5e79260818e"
+    },
+    "identity": "google/embeddinggemma-2@914f7f89142e:768d",
+    "seconds": 5.47
+  },
+  {
+    "consumer": "assertion_coverage",
+    "status": "MEASURED",
+    "incumbent": {
+      "primary": 1.0,
+      "note": "the stored verdict IS the phrase-assertion/regex grader output, so agreement with it is 1.0 by construction; the question is whether a semantic channel adds signal"
+    },
+    "candidate": {
+      "primary": 0.7649,
+      "metric": "AUC: similarity-to-PASS-centroid (leave-one-out) separating PASS from FAIL answers",
+      "tasks": 17,
+      "pass_answers": 85,
+      "fail_answers": 61,
+      "mean_sim_pass": 0.9636,
+      "mean_sim_fail": 0.9451
+    },
+    "hint": "INCONCLUSIVE",
+    "notes": [
+      "WFE rows keep only final_text_head (truncated) and regex graders; there are no expected-concept statements to score coverage against, so this measures answer-vs-passing-answers similarity as a proxy"
+    ],
+    "blocked_reason": "",
+    "fixture": {
+      "tasks": 17,
+      "rows": 146
+    },
+    "identity": "google/embeddinggemma-2@914f7f89142e:768d",
+    "seconds": 3.48
+  },
+  {
+    "consumer": "fleet_behavior",
+    "status": "MEASURED",
+    "incumbent": {
+      "primary": null,
+      "note": "metadata net-new (pending_verdicts_report.py) compares outcomes only"
+    },
+    "candidate": {
+      "primary": 0.8096,
+      "metric": "AUC: behavioural similarity separating arm-pairs with the same outcome from different outcomes",
+      "per_workspace": {
+        "auto-coding": {
+          "arm_pairs": 34,
+          "mean_behavioural_similarity": 0.9267,
+          "outcome_agreement": 0.6471
+        },
+        "auto-compliance": {
+          "arm_pairs": 39,
+          "mean_behavioural_similarity": 0.954,
+          "outcome_agreement": 0.7436
+        },
+        "auto-documents": {
+          "arm_pairs": 3,
+          "mean_behavioural_similarity": 0.962,
+          "outcome_agreement": 0.6667
+        },
+        "auto-general-uncensored": {
+          "arm_pairs": 18,
+          "mean_behavioural_similarity": 0.9814,
+          "outcome_agreement": 1.0
+        },
+        "auto-research": {
+          "arm_pairs": 33,
+          "mean_behavioural_similarity": 0.9451,
+          "outcome_agreement": 0.6667
+        },
+        "tools-specialist": {
+          "arm_pairs": 33,
+          "mean_behavioural_similarity": 0.9297,
+          "outcome_agreement": 0.9394
+        }
+      },
+      "evidence_only": true
+    },
+    "hint": "INCONCLUSIVE",
+    "notes": [
+      "EVIDENCE ONLY for the WFE fitness matrix \u2014 never a removal verdict (WFE doctrine: short probes cannot judge fitness)"
+    ],
+    "blocked_reason": "",
+    "fixture": {
+      "cells": 50,
+      "arm_pairs": 160
+    },
+    "identity": "google/embeddinggemma-2@914f7f89142e:256d",
+    "seconds": 2.73
+  },
+  {
+    "consumer": "failure_clustering",
+    "status": "MEASURED",
+    "incumbent": {
+      "primary": 0.8413,
+      "note": "no clustering exists; value is the majority-class baseline"
+    },
+    "candidate": {
+      "primary": 0.9683,
+      "metric": "k-means (k=3) cluster purity over 63 labelled failures",
+      "majority_baseline": 0.8413,
+      "suite_prompts": 656,
+      "suite_mean_pairwise_distance": 0.1267,
+      "suite_near_duplicate_pairs_cos>=0.97": 524
+    },
+    "hint": "BETTER",
+    "notes": [
+      "labels come from the failing check family in the stored acceptance row; the clustered text has those check names masked, so purity measures whether persona/test-name semantics alone recover the mode (a weak instrument: most failures here are one repeated seat)"
+    ],
+    "blocked_reason": "",
+    "fixture": {
+      "labelled_failures": 63,
+      "modes": {
+        "anti_fabrication": 8,
+        "timeout_http": 2,
+        "missing_prompt_fixture": 53
+      },
+      "sha": "f9e235ac56600060"
+    },
+    "identity": "google/embeddinggemma-2@914f7f89142e:768d",
+    "seconds": 13.11
+  },
+  {
+    "consumer": "config_lint",
+    "status": "MEASURED",
+    "incumbent": {
+      "primary": null,
+      "note": "no lint exists"
+    },
+    "candidate": {
+      "primary": 0.2,
+      "metric": "of the 10 most-similar workspace pairs, the share that the router actually confuses on the golden set",
+      "top_confusable_workspace_pairs": [
+        [
+          0.869,
+          [
+            "auto-image",
+            "auto-video"
+          ]
+        ],
+        [
+          0.867,
+          [
+            "auto-bigfix",
+            "auto-coding"
+          ]
+        ],
+        [
+          0.862,
+          [
+            "auto-data",
+            "auto-spl"
+          ]
+        ],
+        [
+          0.862,
+          [
+            "auto-data",
+            "auto-vision"
+          ]
+        ],
+        [
+          0.859,
+          [
+            "auto-daily",
+            "auto-reasoning"
+          ]
+        ],
+        [
+          0.858,
+          [
+            "auto-bigfix",
+            "auto-spl"
+          ]
+        ],
+        [
+          0.856,
+          [
+            "auto-daily",
+            "auto-vision"
+          ]
+        ],
+        [
+          0.855,
+          [
+            "auto-audio",
+            "auto-documents"
+          ]
+        ],
+        [
+          0.855,
+          [
+            "auto-data",
+            "auto-reasoning"
+          ]
+        ],
+        [
+          0.854,
+          [
+            "auto-daily",
+            "auto-math"
+          ]
+        ]
+      ],
+      "router_confusions_on_those": [
+        [
+          [
+            "auto-image",
+            "auto-video"
+          ],
+          0
+        ],
+        [
+          [
+            "auto-bigfix",
+            "auto-coding"
+          ],
+          0
+        ],
+        [
+          [
+            "auto-data",
+            "auto-spl"
+          ],
+          0
+        ],
+        [
+          [
+            "auto-data",
+            "auto-vision"
+          ],
+          0
+        ],
+        [
+          [
+            "auto-daily",
+            "auto-reasoning"
+          ],
+          1
+        ],
+        [
+          [
+            "auto-bigfix",
+            "auto-spl"
+          ],
+          0
+        ],
+        [
+          [
+            "auto-daily",
+            "auto-vision"
+          ],
+          0
+        ],
+        [
+          [
+            "auto-audio",
+            "auto-documents"
+          ],
+          1
+        ],
+        [
+          [
+            "auto-data",
+            "auto-reasoning"
+          ],
+          0
+        ],
+        [
+          [
+            "auto-daily",
+            "auto-math"
+          ],
+          0
+        ]
+      ],
+      "pearson_similarity_vs_confusions": 0.137,
+      "top_confusable_persona_pairs": [
+        [
+          0.993,
+          "bench-granite41-30b",
+          "bench-granite41-8b"
+        ],
+        [
+          0.992,
+          "qwen38coder",
+          "qwen38coder-dflash"
+        ],
+        [
+          0.991,
+          "bench-huihui-qwen36-27b",
+          "bench-huihui-qwen36-35b-a3b"
+        ],
+        [
+          0.99,
+          "hauhaucs-coder",
+          "ornith15-coder"
+        ],
+        [
+          0.98,
+          "gemma4-heretic-coder",
+          "hauhaucs-coder"
+        ],
+        [
+          0.979,
+          "gemma4-heretic-coder",
+          "ornith15-coder"
+        ],
+        [
+          0.976,
+          "hauhaucs-coder",
+          "qwen38coder"
+        ],
+        [
+          0.975,
+          "ornith15-coder",
+          "qwen38coder"
+        ],
+        [
+          0.975,
+          "devstral_coder",
+          "hauhaucs-coder"
+        ],
+        [
+          0.975,
+          "devstral_coder",
+          "gemma4-heretic-coder"
+        ],
+        [
+          0.974,
+          "gemmaresearchanalyst",
+          "researchanalyst"
+        ],
+        [
+          0.974,
+          "hauhaucs-coder",
+          "qwen38coder-dflash"
+        ],
+        [
+          0.974,
+          "ornith15-coder",
+          "qwen38coder-dflash"
+        ],
+        [
+          0.974,
+          "devstral_coder",
+          "ornith15-coder"
+        ],
+        [
+          0.973,
+          "bench-huihui-qwen36-27b",
+          "bench-qwen3-coder-30b"
+        ]
+      ],
+      "workspaces": 20,
+      "personas": 122
+    },
+    "hint": "INCONCLUSIVE",
+    "notes": [
+      "tool manifests are not linted: tool descriptions are discovered live from the MCP servers and have no static source (tool-schema similarity is measured in the tool_preselect probe)"
+    ],
+    "blocked_reason": "",
+    "fixture": {
+      "workspace_descriptions": 20,
+      "personas": 122,
+      "golden": 73
+    },
+    "identity": "google/embeddinggemma-2@914f7f89142e:768d",
+    "seconds": 6.36
+  },
+  {
+    "consumer": "doc_affinity",
+    "status": "MEASURED",
+    "incumbent": {
+      "primary": 0.0,
+      "note": "cited-path binding cannot name a unit whose sources do not cite the changed path",
+      "gold_found_by_binding": 234,
+      "unbound_gold": 285
+    },
+    "candidate": {
+      "primary": 0.0316,
+      "metric": "recall@5 of later-edited units NOT bound by path",
+      "commits": 80,
+      "unbound_gold": 285,
+      "near_duplicate_unit_pairs_cos>=0.97": [
+        [
+          0.9752,
+          "unit-ADMIN_GUIDE-approve-pending-users",
+          "unit-HOWTO-user-management"
+        ]
+      ],
+      "near_duplicate_count": 1
+    },
+    "hint": "INCONCLUSIVE",
+    "notes": [
+      "gold = units edited in the same commit as the code change (the only 'later edit' signal git offers without human labelling)"
+    ],
+    "blocked_reason": "",
+    "fixture": {
+      "commits": 80,
+      "units": 768,
+      "sha": "bfe4e6b128d0a18a"
+    },
+    "identity": "google/embeddinggemma-2@914f7f89142e:768d",
+    "seconds": 59.8
+  },
+  {
+    "consumer": "data_schema_linking",
+    "status": "MEASURED",
+    "incumbent": {
+      "primary": 0.175,
+      "note": "no linker exists (the model reads schemas); this is a lexical name-overlap reference"
+    },
+    "candidate": {
+      "primary": 0.85,
+      "metric": "recall@3 (any gold column in top 3)"
+    },
+    "hint": "BETTER",
+    "notes": [
+      "the Data MCP ships no sample tables; fixture = five authored tables, questions avoid the column names"
+    ],
+    "blocked_reason": "",
+    "fixture": {
+      "columns": 35,
+      "questions": 40,
+      "sha": "027f4f3d006c88d5"
+    },
+    "identity": "google/embeddinggemma-2@914f7f89142e:768d",
+    "seconds": 0.58
+  },
+  {
+    "consumer": "generation_dedup",
+    "status": "MEASURED",
+    "incumbent": {
+      "primary": null,
+      "note": "no pre-generation check exists today"
+    },
+    "candidate": {
+      "primary": 1.0,
+      "threshold_catching_80pct": 0.9619,
+      "paraphrase_recall": 0.8276,
+      "false_flags": 0,
+      "negative_pairs": 2552,
+      "sweep_fp0": {
+        "recall": 1.0,
+        "fp_rate": 0.0,
+        "threshold": 0.9401
+      },
+      "auc": 1.0
+    },
+    "hint": "BETTER",
+    "notes": [
+      "precision = TP/(TP+FP) at the threshold that catches >=80% of paraphrases, over all cross-prompt pairs; prompt<->existing-artifact cosine is covered by unified_recall/media_alignment"
+    ],
+    "blocked_reason": "",
+    "fixture": {
+      "paraphrase_pairs": 29,
+      "negative_pairs": 2552,
+      "sha": "a9eb7caac511bb58"
+    },
+    "identity": "google/embeddinggemma-2@914f7f89142e:768d",
+    "seconds": 0.68
+  }
+]

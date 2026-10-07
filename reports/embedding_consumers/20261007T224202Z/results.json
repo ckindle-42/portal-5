@@ -1,0 +1,41 @@
+[
+  {
+    "consumer": "memory_salience",
+    "status": "MEASURED",
+    "incumbent": {
+      "primary": 0.1395,
+      "f1": 0.1395,
+      "precision": 1.0,
+      "recall": 0.075,
+      "implicit_facts": 37
+    },
+    "candidate": {
+      "primary": 0.9595,
+      "best_threshold_f1": {
+        "f1": 0.9873,
+        "precision": 1.0,
+        "recall": 0.975,
+        "threshold": 0.0209
+      },
+      "union_with_markers": {
+        "f1": 0.9744,
+        "precision": 1.0,
+        "recall": 0.95
+      },
+      "recall_on_implicit_facts": 0.9459,
+      "auc": 0.9972
+    },
+    "hint": "BETTER",
+    "notes": [
+      "candidate primary = 2-fold cross-validated F1; markers kept as an OR in 'union_with_markers'"
+    ],
+    "blocked_reason": "",
+    "fixture": {
+      "rows": 76,
+      "durable": 40,
+      "sha": "b508b05c85bcaadf"
+    },
+    "identity": "google/embeddinggemma-2@914f7f89142e:256d",
+    "seconds": 0.94
+  }
+]

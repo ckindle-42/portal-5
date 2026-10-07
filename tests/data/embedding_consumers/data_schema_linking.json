@@ -26,7 +26,7 @@
   "tickets.opened_at": "2026-03-01 09:14, 2026-03-02 17:40",
   "tickets.closed_at": "2026-03-01 11:02, NULL",
   "tickets.priority": "low, high, urgent",
-  "tickets.agent_name": "Priya, Marcus, Jo",
+  "tickets.agent_name": "Riley, Marcus, Jo",
   "tickets.satisfaction_score": "5, 3, 1",
   "tickets.issue_category": "billing, login, delivery",
   "sensors.sensor_id": "PT-101, TT-205, FT-310",

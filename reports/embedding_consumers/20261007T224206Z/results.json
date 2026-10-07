@@ -1,0 +1,26 @@
+[
+  {
+    "consumer": "data_schema_linking",
+    "status": "MEASURED",
+    "incumbent": {
+      "primary": 0.175,
+      "note": "no linker exists (the model reads schemas); this is a lexical name-overlap reference"
+    },
+    "candidate": {
+      "primary": 0.85,
+      "metric": "recall@3 (any gold column in top 3)"
+    },
+    "hint": "BETTER",
+    "notes": [
+      "the Data MCP ships no sample tables; fixture = five authored tables, questions avoid the column names"
+    ],
+    "blocked_reason": "",
+    "fixture": {
+      "columns": 35,
+      "questions": 40,
+      "sha": "76ec9ab8a3e95f55"
+    },
+    "identity": "google/embeddinggemma-2@914f7f89142e:768d",
+    "seconds": 0.68
+  }
+]

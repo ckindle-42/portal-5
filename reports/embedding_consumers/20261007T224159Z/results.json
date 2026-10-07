@@ -1,0 +1,45 @@
+[
+  {
+    "consumer": "memory_entities",
+    "status": "MEASURED",
+    "incumbent": {
+      "primary": 0.0,
+      "exact_name_false_merges": 0
+    },
+    "candidate": {
+      "primary": 0.2333,
+      "sweep": {
+        "fp<=0pct": {
+          "recall": 0.1333,
+          "fp_rate": 0.0,
+          "threshold": 0.9756
+        },
+        "fp<=5pct": {
+          "recall": 0.2333,
+          "fp_rate": 0.0333,
+          "threshold": 0.9636
+        },
+        "fp<=10pct": {
+          "recall": 0.5333,
+          "fp_rate": 0.1,
+          "threshold": 0.9425
+        }
+      },
+      "precision_at_fp5": 0.8751,
+      "auc": 0.7356,
+      "note": "candidates only: a merge needs the gated threshold; never auto-merge on this evidence alone"
+    },
+    "hint": "BETTER",
+    "notes": [
+      "alias recall at <=5% false merges; incumbent = exact normalized name equality (graph_memory._upsert_entity)"
+    ],
+    "blocked_reason": "",
+    "fixture": {
+      "aliases": 30,
+      "distinct": 30,
+      "sha": "2aeca258ba8072e4"
+    },
+    "identity": "google/embeddinggemma-2@914f7f89142e:768d",
+    "seconds": 0.62
+  }
+]

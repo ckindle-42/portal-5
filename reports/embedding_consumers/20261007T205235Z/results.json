@@ -1,0 +1,35 @@
+[
+  {
+    "consumer": "spl_library",
+    "status": "MEASURED",
+    "incumbent": {
+      "primary": 0.025,
+      "recall@1": 0.025,
+      "recall@4": 0.025,
+      "recall@5": 0.025,
+      "mrr": 0.025,
+      "diff_auc_word_overlap": 0.8778
+    },
+    "candidate": {
+      "primary": 0.95,
+      "recall@1": 0.9,
+      "recall@4": 0.95,
+      "recall@5": 0.95,
+      "mrr": 0.9321,
+      "diff_auc_cosine": 0.9956
+    },
+    "hint": "BETTER",
+    "notes": [
+      "queries are analyst phrasings; incumbent = spl_search_library substring/ID rule; diff = AUC matched vs unmatched"
+    ],
+    "blocked_reason": "",
+    "fixture": {
+      "queries": 40,
+      "library": 40,
+      "pairs": 30,
+      "sha": "b170925c878f2d03"
+    },
+    "identity": "google/embeddinggemma-2@914f7f89142e:768d",
+    "seconds": 1.48
+  }
+]

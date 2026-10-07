@@ -2,8 +2,8 @@
  "_provenance": "authored by Claude Sonnet 5.5 in session 018aJ1P8 on 2026-10-07 (prompt: write paraphrase-duplicate / related-distinct / unrelated memory pairs; and alias/distinct entity-name pairs for a graph-memory evaluation); not derived from real user data",
  "pairs": [
   {
-   "a": "The user has a dog named Biscuit.",
-   "b": "Their dog is called Biscuit.",
+   "a": "The user has a dog named Pepper.",
+   "b": "Their dog is called Pepper.",
    "label": "duplicate"
   },
   {
@@ -12,13 +12,13 @@
    "label": "duplicate"
   },
   {
-   "a": "The user moved to Conway last month.",
-   "b": "Last month the user relocated to Conway.",
+   "a": "The user moved to Fairview last month.",
+   "b": "Last month the user relocated to Fairview.",
    "label": "duplicate"
   },
   {
-   "a": "The user's daughter is named Maya.",
-   "b": "Maya is the user's daughter.",
+   "a": "The user's daughter is named Nora.",
+   "b": "Nora is the user's daughter.",
    "label": "duplicate"
   },
   {
@@ -72,8 +72,8 @@
    "label": "duplicate"
   },
   {
-   "a": "The user's manager is Priya.",
-   "b": "Priya is the user's manager.",
+   "a": "The user's manager is Riley.",
+   "b": "Riley is the user's manager.",
    "label": "duplicate"
   },
   {
@@ -97,13 +97,13 @@
    "label": "duplicate"
   },
   {
-   "a": "The user lives in Conway, Arkansas.",
-   "b": "The user's home is in Conway, Arkansas.",
+   "a": "The user lives in Fairview, Ohio.",
+   "b": "The user's home is in Fairview, Ohio.",
    "label": "duplicate"
   },
   {
-   "a": "The user has a dog named Biscuit.",
-   "b": "The user's dog Biscuit is afraid of thunderstorms.",
+   "a": "The user has a dog named Pepper.",
+   "b": "The user's dog Pepper is afraid of thunderstorms.",
    "label": "related"
   },
   {
@@ -112,12 +112,12 @@
    "label": "related"
   },
   {
-   "a": "The user moved to Conway last month.",
-   "b": "The user moved to Conway in 2019 and then left.",
+   "a": "The user moved to Fairview last month.",
+   "b": "The user moved to Fairview in 2019 and then left.",
    "label": "related"
   },
   {
-   "a": "The user's daughter is named Maya.",
+   "a": "The user's daughter is named Nora.",
    "b": "The user's son is named Leo.",
    "label": "related"
   },
@@ -172,7 +172,7 @@
    "label": "related"
   },
   {
-   "a": "The user's manager is Priya.",
+   "a": "The user's manager is Riley.",
    "b": "The user's mentor calls on Thursdays.",
    "label": "related"
   },
@@ -197,13 +197,13 @@
    "label": "related"
   },
   {
-   "a": "The user lives in Conway, Arkansas.",
+   "a": "The user lives in Fairview, Ohio.",
    "b": "The user's mother lives in Tulsa, Oklahoma.",
    "label": "related"
   },
   {
-   "a": "The user has a dog named Biscuit.",
-   "b": "The user's tax accountant is Gloria Hendricks.",
+   "a": "The user has a dog named Pepper.",
+   "b": "The user's tax accountant is Helen Marlowe.",
    "label": "unrelated"
   },
   {
@@ -212,12 +212,12 @@
    "label": "unrelated"
   },
   {
-   "a": "The user moved to Conway last month.",
+   "a": "The user moved to Fairview last month.",
    "b": "The user's telescope is a Dobsonian.",
    "label": "unrelated"
   },
   {
-   "a": "The user's daughter is named Maya.",
+   "a": "The user's daughter is named Nora.",
    "b": "The user's mortgage pre-approval expires in December.",
    "label": "unrelated"
   },
@@ -272,8 +272,8 @@
    "label": "unrelated"
   },
   {
-   "a": "The user's manager is Priya.",
-   "b": "The user roots for the Wichita State Shockers.",
+   "a": "The user's manager is Riley.",
+   "b": "The user roots for the Ridgemont State Falcons.",
    "label": "unrelated"
   },
   {
@@ -297,7 +297,7 @@
    "label": "unrelated"
   },
   {
-   "a": "The user lives in Conway, Arkansas.",
+   "a": "The user lives in Fairview, Ohio.",
    "b": "The user volunteers at the food bank.",
    "label": "unrelated"
   }

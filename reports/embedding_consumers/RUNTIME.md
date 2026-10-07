@@ -26,3 +26,46 @@ text document / query prefixed (80 each): mean cos 0.9992, min 0.9984 / 0.9982 Â
 
 ## G-RUNTIME input
 Recommendation: **split** â€” Ollama `/api/embed` for text/image/audio (Rule-8 tier, same vectors to 0.999, no extra service RAM beyond 1.3 GB) and keep `:8946` for video only; :8946 alone is also viable (faster on text batches, 3.4x the old reference). Ollama's throughput falls at batch 64 (55/s); :8946 does not. Decision is the operator's at Phase 4.
+
+## Post-fix memory log (1f82362f), 2026-10-07 resume
+
+- 15:52:33 [pre-spl_library] :8917=1220MB :8946=2157MB swap_used=8021.00M
+- 15:52:35 [post-spl_library] :8917=1220MB :8946=2265MB swap_used=8013.00M
+- 15:52:47 [pre-rag_first_stage] :8917=1220MB :8946=2159MB swap_used=7981.00M
+- 16:02:53 [mid-rag_first_stage] :8917=1220MB :8946=2159MB swap_used=6836.81M
+- 16:03:27 [pre-rag_first_stage-retry] :8917=1220MB :8946=2159MB swap_used=6828.81M
+- 16:25:10 [post-rag_first_stage] :8917=1220MB :8946=2302MB swap_used=6120.56M
+- 16:25:20 [pre-owui_attachment_rag] :8917=1220MB :8946=2196MB swap_used=6096.56M
+- 16:30:30 [post-owui_attachment_rag] :8917=1234MB :8946=2309MB swap_used=5584.56M
+- 16:30:39 [pre-sweep] :8917=1234MB :8946=2203MB swap_used=5584.56M
+- 16:32:39 [mid-sweep] :8917=1235MB :8946=2211MB swap_used=5552.56M
+- 16:34:39 [mid-sweep] :8917=1235MB :8946=2211MB swap_used=5544.56M
+- 16:36:39 [mid-sweep] :8917=1235MB :8946=2211MB swap_used=5544.56M
+- 16:38:40 [mid-sweep] :8917=1235MB :8946=2211MB swap_used=5512.56M
+- 16:40:40 [mid-sweep] :8917=1235MB :8946=2211MB swap_used=5512.56M
+- 16:42:40 [mid-sweep] :8917=1235MB :8946=3382MB swap_used=5512.56M
+- 16:44:40 [mid-sweep] :8917=1235MB :8946=2211MB swap_used=5512.56M
+- 16:46:40 [mid-sweep] :8917=1235MB :8946=2212MB swap_used=5504.56M
+- 16:48:41 [mid-sweep] :8917=1235MB :8946=2212MB swap_used=5504.56M
+- 16:50:41 [mid-sweep] :8917=1235MB :8946=2212MB swap_used=5504.56M
+- 16:52:41 [mid-sweep] :8917=1235MB :8946=2212MB swap_used=5504.56M
+- 16:54:41 [mid-sweep] :8917=1235MB :8946=2216MB swap_used=5504.56M
+- 16:56:41 [mid-sweep] :8917=1235MB :8946=3373MB swap_used=5504.56M
+- 16:58:42 [mid-sweep] :8917=3105MB :8946=2222MB swap_used=5496.56M
+- 17:00:42 [mid-sweep] :8917=1239MB :8946=2222MB swap_used=5496.56M
+- 17:02:42 [mid-sweep] :8917=1239MB :8946=2335MB swap_used=5496.56M
+- 17:04:42 [mid-sweep] :8917=3218MB :8946=2250MB swap_used=5496.56M
+- 17:06:42 [mid-sweep] :8917=1245MB :8946=2360MB swap_used=5496.56M
+- 17:08:43 [mid-sweep] :8917=1258MB :8946=3157MB swap_used=5488.56M
+- 17:10:43 [mid-sweep] :8917=1258MB :8946=2295MB swap_used=5488.56M
+- 17:10:43 [post-sweep] :8917=1258MB :8946=2295MB swap_used=5488.56M
+- 17:41:58 [pre-memory_entities] :8917=1258MB :8946=2295MB swap_used=5242.94M
+- 17:41:59 [post-memory_entities] :8917=1258MB :8946=2401MB swap_used=5242.94M
+- 17:41:59 [pre-memory_dedup] :8917=1258MB :8946=2401MB swap_used=5242.94M
+- 17:42:01 [post-memory_dedup] :8917=1338MB :8946=2402MB swap_used=5242.94M
+- 17:42:01 [pre-memory_salience] :8917=1338MB :8946=2402MB swap_used=5242.94M
+- 17:42:03 [post-memory_salience] :8917=1245MB :8946=2402MB swap_used=5242.94M
+- 17:42:03 [pre-memory_recall] :8917=1245MB :8946=2402MB swap_used=5242.94M
+- 17:42:05 [post-memory_recall] :8917=1338MB :8946=2402MB swap_used=5242.94M
+- 17:42:05 [pre-data_schema_linking] :8917=1338MB :8946=2402MB swap_used=5242.94M
+- 17:42:06 [post-data_schema_linking] :8917=1245MB :8946=2402MB swap_used=5242.94M

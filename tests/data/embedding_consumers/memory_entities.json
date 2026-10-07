@@ -2,8 +2,8 @@
  "_provenance": "authored by Claude Sonnet 5.5 in session 018aJ1P8 on 2026-10-07 (prompt: write paraphrase-duplicate / related-distinct / unrelated memory pairs; and alias/distinct entity-name pairs for a graph-memory evaluation); not derived from real user data; plus live entity names are read at probe time from the memory MCP when reachable",
  "aliases": [
   {
-   "a": "LS Power",
-   "b": "LS Power Grid"
+   "a": "Northwind Grid",
+   "b": "Northwind Grid Co"
   },
   {
    "a": "CIP-007",
@@ -30,24 +30,24 @@
    "b": "Synology DiskStation"
   },
   {
-   "a": "Conway",
-   "b": "Conway, Arkansas"
+   "a": "Fairview",
+   "b": "Fairview, Ohio"
   },
   {
-   "a": "Priya",
-   "b": "Priya (manager)"
+   "a": "Riley",
+   "b": "Riley (manager)"
   },
   {
-   "a": "Dana",
-   "b": "Dana Kindle"
+   "a": "Sam",
+   "b": "Sam Brightwell"
   },
   {
-   "a": "the Shockers",
-   "b": "Wichita State Shockers"
+   "a": "the Falcons",
+   "b": "Ridgemont State Falcons"
   },
   {
-   "a": "Little Rock half marathon",
-   "b": "Little Rock Half"
+   "a": "Springfield half marathon",
+   "b": "Springfield Half"
   },
   {
    "a": "UniFi gateway",
@@ -79,19 +79,19 @@
   },
   {
    "a": "the food bank",
-   "b": "Conway food bank"
+   "b": "Fairview food bank"
   },
   {
-   "a": "Subaru Outback",
-   "b": "2019 Outback"
+   "a": "Honda Civic",
+   "b": "2019 Civic"
   },
   {
    "a": "ThinkPad X1",
    "b": "ThinkPad X1 Carbon"
   },
   {
-   "a": "Gloria Hendricks",
-   "b": "Gloria H."
+   "a": "Helen Marlowe",
+   "b": "Helen M."
   },
   {
    "a": "Kubernetes",
@@ -114,12 +114,12 @@
    "b": "BCS"
   },
   {
-   "a": "Wichita",
-   "b": "Wichita, Kansas"
+   "a": "Ridgemont",
+   "b": "Ridgemont, Kansas"
   },
   {
-   "a": "Maya",
-   "b": "Maya (daughter)"
+   "a": "Nora",
+   "b": "Nora (daughter)"
   }
  ],
  "distinct": [
@@ -128,12 +128,12 @@
    "b": "CIP-005"
   },
   {
-   "a": "Conway",
-   "b": "Conwy"
+   "a": "Fairview",
+   "b": "Fairvue"
   },
   {
-   "a": "Priya",
-   "b": "Dana"
+   "a": "Riley",
+   "b": "Sam"
   },
   {
    "a": "Mistral",
@@ -148,7 +148,7 @@
    "b": "Elastic"
   },
   {
-   "a": "Biscuit",
+   "a": "Pepper",
    "b": "Pixel"
   },
   {
@@ -156,20 +156,20 @@
    "b": "Dallas"
   },
   {
-   "a": "Maya",
+   "a": "Nora",
    "b": "Leo"
   },
   {
    "a": "Tulsa",
-   "b": "Wichita"
+   "b": "Ridgemont"
   },
   {
    "a": "NERC",
    "b": "FERC"
   },
   {
-   "a": "Little Rock",
-   "b": "Little Rock Central High"
+   "a": "Springfield",
+   "b": "Springfield Central High"
   },
   {
    "a": "UniFi",
@@ -192,16 +192,16 @@
    "b": "LibreChat"
   },
   {
-   "a": "Gloria Hendricks",
-   "b": "Gloria Estefan"
+   "a": "Helen Marlowe",
+   "b": "Helen Ostrander"
   },
   {
    "a": "Kubernetes",
    "b": "Docker Swarm"
   },
   {
-   "a": "Subaru Outback",
-   "b": "Subaru Forester"
+   "a": "Honda Civic",
+   "b": "Honda Accord"
   },
   {
    "a": "HA",
@@ -212,8 +212,8 @@
    "b": "Azure AD"
   },
   {
-   "a": "LS Power",
-   "b": "LS Cable"
+   "a": "Northwind Grid",
+   "b": "Northwind Cable"
   },
   {
    "a": "Obsidian",
@@ -228,7 +228,7 @@
    "b": "Spain"
   },
   {
-   "a": "Shockers",
+   "a": "Falcons",
    "b": "Wildcats"
   },
   {

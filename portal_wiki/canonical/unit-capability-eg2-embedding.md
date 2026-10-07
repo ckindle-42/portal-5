@@ -36,6 +36,8 @@ updated_at: 1791388800
 (`com.portal5.eg2-embedding` via `scripts/native-mcp-service.sh eg2-embedding`). One 768-d space for
 text, code, images, audio and video, with Matryoshka truncation (512/256/128) and task-steered prefixes.
 
+Memory: both host embedders free Metal memory per request. `:8946` calls `torch.mps.empty_cache()` after every encode; the legacy `:8917` MLX server (`scripts/embedding-server-mlx.py`) runs micro-batches (`EMBEDDING_MLX_MICRO_BATCH`, default 8), clears the MLX cache after each, and caps it with `EMBEDDING_MLX_CACHE_LIMIT_MB` (default 512). Before this (fixed `1f82362f`) both grew to 55+ GB and caused watchdog resets.
+
 Surfaces: `/health` (never loads the model), `/ready` (loads, probes NaN-freedom, prefix asymmetry and
 MRL renormalisation, returns the served identity), `/embed` and `/embed_items` (Portal contract; prefixes
 applied server-side from `portal/platform/embedding/contract.py`), `/v1/embeddings` (OpenAI-compatible, raw,

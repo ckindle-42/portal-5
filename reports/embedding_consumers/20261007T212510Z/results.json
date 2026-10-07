@@ -1,0 +1,76 @@
+[
+  {
+    "consumer": "rag_first_stage",
+    "status": "MEASURED",
+    "incumbent": {
+      "primary": 0.9562,
+      "recall@1": 0.9562,
+      "recall@5": 1.0,
+      "mrr": 0.9781,
+      "by_category": {
+        "diagram_only": {
+          "n": 21,
+          "recall@1": 0.952,
+          "recall@5": 1.0,
+          "mrr": 0.976,
+          "latency_s_median": 26.91,
+          "latency_s_mean": 26.95
+        },
+        "mixed": {
+          "n": 2,
+          "recall@1": 1.0,
+          "recall@5": 1.0,
+          "mrr": 1.0,
+          "latency_s_median": 26.74,
+          "latency_s_mean": 26.71
+        }
+      },
+      "ingest_s": 49.3,
+      "chunks": 12,
+      "pages": 18,
+      "queries": 23
+    },
+    "candidate": {
+      "primary": 0.391,
+      "recall@1": 0.391,
+      "recall@5": 1.0,
+      "mrr": 0.696,
+      "by_category": {
+        "diagram_only": {
+          "n": 21,
+          "recall@1": 0.333,
+          "recall@5": 1.0,
+          "mrr": 0.667,
+          "latency_s_median": 26.65,
+          "latency_s_mean": 26.58
+        },
+        "mixed": {
+          "n": 2,
+          "recall@1": 1.0,
+          "recall@5": 1.0,
+          "mrr": 1.0,
+          "latency_s_median": 26.81,
+          "latency_s_mean": 26.77
+        }
+      },
+      "ingest_s": 19.1,
+      "chunks": 12,
+      "pages": 18,
+      "queries": 23
+    },
+    "hint": "WORSE",
+    "notes": [
+      "primary = recall@1 over diagram-only+mixed synthetic queries, the category the fusion/text-gate work was built for; final ranking is after the VL rerank in both arms (the reranker is unchanged)",
+      "ingest wall time is reported per arm"
+    ],
+    "blocked_reason": "",
+    "fixture": {
+      "docs": 9,
+      "queries": 23,
+      "corpus": "9 synthetic figure-only PDFs (the public NERC/NIST PDFs and the operator procedures are not on this host)",
+      "sha": "3aa7d73ca01a8dbf"
+    },
+    "identity": "google/embeddinggemma-2@914f7f89142e:768d",
+    "seconds": 1302.69
+  }
+]

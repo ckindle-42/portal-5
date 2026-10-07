@@ -1,0 +1,33 @@
+[
+  {
+    "consumer": "memory_recall",
+    "status": "MEASURED",
+    "incumbent": {
+      "primary": 0.95,
+      "recall@1": 0.8,
+      "recall@4": 0.95,
+      "recall@5": 0.975,
+      "mrr": 0.8696
+    },
+    "candidate": {
+      "primary": 0.975,
+      "recall@1": 0.85,
+      "recall@4": 0.975,
+      "recall@5": 1.0,
+      "mrr": 0.9092
+    },
+    "hint": "BETTER",
+    "notes": [
+      "incumbent = live :8917 embedder (MLX Qwen3-Embedding-0.6B, raw text); candidate = EG2 SEARCH 768d"
+    ],
+    "blocked_reason": "",
+    "fixture": {
+      "memories": 60,
+      "queries": 40,
+      "max_query_overlap": 0.286,
+      "sha": "314eb7c141e8c168"
+    },
+    "identity": "google/embeddinggemma-2@914f7f89142e:768d",
+    "seconds": 1.49
+  }
+]

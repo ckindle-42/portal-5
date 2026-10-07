@@ -1,15 +1,15 @@
 {
  "_provenance": "authored by Claude Sonnet 5.5 in session 018aJ1P8 on 2026-10-07 (prompt: write companion-style user memories/turns for a memory-layer evaluation; queries written to share <=50% content words with the target memory); not derived from real user data",
  "memories": {
-  "m01": "The user's daughter Maya is starting kindergarten in September.",
+  "m01": "The user's daughter Nora is starting kindergarten in September.",
   "m02": "The user is allergic to shellfish and carries an epinephrine pen.",
-  "m03": "The user moved to Conway, Arkansas last month for a new job.",
+  "m03": "The user moved to Fairview, Ohio last month for a new job.",
   "m04": "The user works as a protection engineer at a regional utility.",
-  "m05": "The user's dog is a rescue greyhound named Biscuit.",
+  "m05": "The user's dog is a rescue greyhound named Pepper.",
   "m06": "The user prefers metric units and 24-hour time.",
-  "m07": "The user is training for the Little Rock half marathon in March.",
-  "m08": "The user's wife Dana teaches high school chemistry.",
-  "m09": "The user drives a 2019 Subaru Outback with a failing wheel bearing.",
+  "m07": "The user is training for the Springfield half marathon in March.",
+  "m08": "The user's wife Sam teaches high school chemistry.",
+  "m09": "The user drives a 2019 Honda Civic with a failing wheel bearing.",
   "m10": "The user is learning Spanish and practices every morning for 20 minutes.",
   "m11": "The user's mother lives in Tulsa and has a knee replacement scheduled in November.",
   "m12": "The user dislikes cilantro and avoids spicy food.",
@@ -39,7 +39,7 @@
   "m36": "The user's home network uses a UniFi gateway with VLANs for IoT and guests.",
   "m37": "The user cooks Sunday dinner for the extended family every week.",
   "m38": "The user gave up alcohol eight months ago.",
-  "m39": "The user's manager is named Priya and prefers written status updates on Fridays.",
+  "m39": "The user's manager is named Riley and prefers written status updates on Fridays.",
   "m40": "The user owns a telescope and photographs Saturn from the backyard.",
   "m41": "The user's grandmother's recipe for pierogi is their signature dish.",
   "m42": "The user is taking an evening course on machine learning at the community college.",
@@ -54,8 +54,8 @@
   "m51": "The user is the on-call engineer the week of the 20th.",
   "m52": "The user's wedding anniversary is 3 June, ten years this time.",
   "m53": "The user avoids caffeine after 2 pm because of insomnia.",
-  "m54": "The user grew up in Wichita and still roots for the Shockers.",
-  "m55": "The user's tax accountant is named Gloria Hendricks.",
+  "m54": "The user grew up in Ridgemont and still roots for the Falcons.",
+  "m55": "The user's tax accountant is named Helen Marlowe.",
   "m56": "The user keeps bees: two hives, harvest in late August.",
   "m57": "The user uses Obsidian for notes and syncs it with a self-hosted server.",
   "m58": "The user's daughter is learning to ride a bike without training wheels.",
@@ -64,7 +64,7 @@
  },
  "queries": [
   {
-   "query": "what can I give Maya for her first day of school",
+   "query": "what can I give Nora for her first day of school",
    "gold": [
     "m01"
    ]

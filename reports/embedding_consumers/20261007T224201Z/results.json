@@ -1,0 +1,52 @@
+[
+  {
+    "consumer": "memory_dedup",
+    "status": "MEASURED",
+    "incumbent": {
+      "primary": 0.0,
+      "note": "no dedup exists today (memory_writeback_all's comment assumes one); every restatement is stored"
+    },
+    "candidate": {
+      "primary": 0.75,
+      "sweep": {
+        "fp<=0pct": {
+          "recall": 0.75,
+          "fp_rate": 0.0,
+          "threshold": 0.9684
+        },
+        "fp<=2pct": {
+          "recall": 0.75,
+          "fp_rate": 0.0,
+          "threshold": 0.9684
+        },
+        "fp<=5pct": {
+          "recall": 0.85,
+          "fp_rate": 0.05,
+          "threshold": 0.9527
+        }
+      },
+      "auc_dup_vs_nondup": 0.985,
+      "auc_dup_vs_related": 0.97,
+      "legacy_8917_at_fp<=2pct": {
+        "recall": 0.7,
+        "fp_rate": 0.0,
+        "threshold": 0.8922
+      },
+      "legacy_8917_auc": 0.9838,
+      "min_dup_sim": 0.9506,
+      "max_related_sim": 0.9641,
+      "false_merge_budget_pairs": 0.8
+    },
+    "hint": "BETTER",
+    "notes": [
+      "metric = duplicate suppression (recall) at <=2% false merges across related+unrelated pairs"
+    ],
+    "blocked_reason": "",
+    "fixture": {
+      "pairs": 60,
+      "sha": "a4b7d9c3d401a8c3"
+    },
+    "identity": "google/embeddinggemma-2@914f7f89142e:768d",
+    "seconds": 1.25
+  }
+]

@@ -1,0 +1,38 @@
+[
+  {
+    "consumer": "owui_attachment_rag",
+    "status": "MEASURED",
+    "incumbent": {
+      "primary": 0.617,
+      "dense_8917": {
+        "recall@1": 0.3191,
+        "recall@5": 0.617
+      },
+      "dense_plus_bge_reranker": {}
+    },
+    "candidate": {
+      "primary": 0.8298,
+      "dense_eg2": {
+        "recall@1": 0.4468,
+        "recall@5": 0.7234
+      },
+      "dense_plus_vl_rerank": {
+        "recall@1": 0.5532,
+        "recall@5": 0.8298
+      }
+    },
+    "hint": "BETTER",
+    "notes": [
+      "PROXY, not a scratch-Open-WebUI A/B: the retrieval pipeline OWUI runs (chunk 900 chars -> embed -> top-20 -> rerank) is re-run in-process on the wiki corpus with the 47 authored wiki queries; the incumbent bge reranker runs inside the portal5-open-webui container, the candidate reranker is the VL reranker behind :8946/v1/rerank. A scratch OWUI container on :8081 would add only OWUI's own prompt assembly",
+      "bge arm not run: the OWUI container is capped at 2 GiB and bge-reranker-v2-m3 needs ~2.3 GB, so loading it there risks OOM-killing Open WebUI; enable with --opt owui_bge=1"
+    ],
+    "blocked_reason": "",
+    "fixture": {
+      "queries": 47,
+      "chunks": 1722,
+      "units": 768
+    },
+    "identity": "google/embeddinggemma-2@914f7f89142e:768d",
+    "seconds": 309.8
+  }
+]
