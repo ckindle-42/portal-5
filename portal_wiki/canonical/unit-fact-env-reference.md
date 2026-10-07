@@ -23,7 +23,7 @@ updated_at: 1791376709
 # Environment variables — the .env.example families
 
 The operator's runtime configuration lives in `.env`, copied from
-`.env.example` on first `up`; the example file declares 271 env vars, grouped
+`.env.example` on first `up`; the example file declares 275 env vars, grouped
 by what they tune. Every var carries an inline or section comment so a knob is
 never a bare secret.
 
@@ -55,6 +55,12 @@ never a bare secret.
 
 - `RAG_RERANK_ENABLED`, `RAG_CANDIDATE_POOL_SIZE`, `RERANKER_URL`,
   `RERANKER_MODEL` — the two-stage rerank pipeline.
+- `OLLAMA_BASE`, `OLLAMA_CHAT_URL`, `RAG_OLLAMA_URL`, `WIKI_OLLAMA_URL` —
+  optional base/endpoint overrides for native-protocol calls through the
+  authenticated pipeline passthrough. Defaults use the Docker service name for
+  MCP containers and the published localhost port for host-side tools.
+- `WATCH_SWAP_FLOOR_MB` — free-swap floor for the host-memory safety watchdog
+  during multi-model live tests (default 1024 MiB).
 
 ## Lab, Proxmox, and MBPTL
 

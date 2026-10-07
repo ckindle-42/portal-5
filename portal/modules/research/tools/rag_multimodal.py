@@ -68,7 +68,8 @@ TRANSCRIBE_FIGURES = os.environ.get("RAG_TRANSCRIBE_FIGURES", "0") not in ("0", 
 CONTEXTUALIZE = os.environ.get("RAG_CONTEXTUALIZE", "0") not in ("0", "false", "")
 FTS_INDEX = os.environ.get("RAG_FTS", "0") not in ("0", "false", "")
 TRANSCRIBE_MODEL = os.environ.get("RAG_TRANSCRIBE_MODEL", "qwen3-vl:4b-instruct-q4_K_M")
-OLLAMA_URL = os.environ.get("OLLAMA_URL", "http://localhost:11434")
+RAG_OLLAMA_URL = os.environ.get("RAG_OLLAMA_URL", "http://portal-pipeline:9099/ollama").rstrip("/")
+PIPELINE_API_KEY = os.environ.get("PIPELINE_API_KEY", "")
 _TRANSCRIBE_PROMPT = (
     "This is a page from an engineering / compliance document. Transcribe every "
     "piece of information visible in any figure, diagram, table, or screenshot on "
@@ -87,7 +88,8 @@ async def _transcribe_page(img_path: str) -> str:
     try:
         async with httpx.AsyncClient(timeout=180) as c:
             r = await c.post(
-                f"{OLLAMA_URL}/api/generate",
+                f"{RAG_OLLAMA_URL}/api/generate",
+                headers={"Authorization": f"Bearer {PIPELINE_API_KEY}"},
                 json={
                     "model": TRANSCRIBE_MODEL,
                     "prompt": _TRANSCRIBE_PROMPT,

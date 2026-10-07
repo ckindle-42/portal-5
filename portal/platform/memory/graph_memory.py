@@ -30,7 +30,7 @@ DEFAULT_USER = "default"
 MEMORY_TABLE = "memory"
 ENTITIES_TABLE = "memory_entities"
 RELATIONS_TABLE = "memory_relations"
-OLLAMA_CHAT = os.environ.get("OLLAMA_CHAT_URL", "http://localhost:11434/api/chat")
+OLLAMA_CHAT = os.environ.get("OLLAMA_CHAT_URL", "http://portal-pipeline:9099/ollama/api/chat")
 # Small, fast, installed — entity/relation extraction runs on every write.
 EXTRACT_MODEL = os.environ.get("MEMORY_EXTRACT_MODEL", "gemma4:e4b-it-qat-ctx8k")
 _MAX_NODES = int(os.environ.get("MEMORY_GRAPH_MAX_NODES", "200"))
@@ -175,6 +175,7 @@ async def _extract(text: str) -> dict[str, Any]:
         async with httpx.AsyncClient(timeout=30) as c:
             r = await c.post(
                 OLLAMA_CHAT,
+                headers={"Authorization": f"Bearer {os.environ.get('PIPELINE_API_KEY', '')}"},
                 json={
                     "model": EXTRACT_MODEL,
                     "stream": False,

@@ -15,7 +15,7 @@ from portal.platform.wiki.interfaces import InferenceBackend
 
 logger = logging.getLogger(__name__)
 
-DEFAULT_OLLAMA_URL = "http://localhost:11434"
+DEFAULT_OLLAMA_URL = os.environ.get("WIKI_OLLAMA_URL", "http://localhost:9099/ollama")
 DEFAULT_MODEL = "gemma3:4b"
 
 
@@ -31,12 +31,8 @@ class PortalInference(InferenceBackend):
         model: str = "",
         timeout_s: float = 120.0,
     ) -> None:
-        self.ollama_url = (
-            ollama_url
-            or os.environ.get("OLLAMA_URL", "")
-            or os.environ.get("OLLAMA_BASE_URL", "")
-            or DEFAULT_OLLAMA_URL
-        )
+        self.ollama_url = ollama_url or os.environ.get("WIKI_OLLAMA_URL", DEFAULT_OLLAMA_URL)
+        self.api_key = os.environ.get("PIPELINE_API_KEY", "")
         self.model = model or os.environ.get("WIKI_INFERENCE_MODEL", DEFAULT_MODEL)
         self.timeout_s = timeout_s
 
@@ -46,6 +42,7 @@ class PortalInference(InferenceBackend):
         try:
             r = httpx.post(
                 f"{self.ollama_url}/api/generate",
+                headers={"Authorization": f"Bearer {self.api_key}"},
                 json={
                     "model": model,
                     "prompt": prompt,
@@ -67,7 +64,11 @@ class PortalInference(InferenceBackend):
     def is_available(self) -> bool:
         """Check if Ollama is reachable."""
         try:
-            r = httpx.get(f"{self.ollama_url}/api/tags", timeout=5)
+            r = httpx.get(
+                f"{self.ollama_url}/api/tags",
+                headers={"Authorization": f"Bearer {self.api_key}"},
+                timeout=5,
+            )
             return r.status_code == 200
         except Exception:
             return False

@@ -6,6 +6,8 @@ sources:
 - type: code
   path: portal/platform/inference/ollama_native.py
 - type: code
+  path: portal/platform/inference/router/ollama_passthrough.py
+- type: code
   path: scripts/engine_contract_check.py
 - type: code
   path: scripts/engine_autoupdate.py
@@ -29,6 +31,12 @@ updated_at: 1790333591
 The pipeline speaks OpenAI end to end, but Ollama's OpenAI endpoint cannot carry the settings Portal configures (see P5-OLLAMA-V1-SAMPLING-001), so Ollama backends are answered from native `/api/chat` by `OllamaNativeTransport`, mounted on the shared httpx client in `router/lifespan.py`. It intercepts only POST `/v1/chat/completions` to a base URL the registry positively knows is an Ollama backend; oMLX, vLLM and every other URL pass through untouched. It translates the request (sampling from `options` and top-level, `max_tokens` -> `num_predict`, content parts split one message per part as `/v1` does, tool-call arguments to objects, `think` only for models whose `/api/show` capabilities include thinking) and returns the byte-for-byte `/v1` shape (`reasoning`, string tool arguments, `finish_reason: tool_calls`, trailing usage chunk). Model-lifecycle fields (`num_ctx`, `num_batch`, `keep_alive`) are deliberately not forwarded — `/v1` never delivered them and honouring them would change memory behaviour, not fix delivery.
 
 Maintenance is mechanical because Ollama ships often and oMLX has major versions ahead: `scripts/engine_contract_check.py` proves, for the running version of each engine, that every sampling key and the think control change the model's output through production's own request builders (`_inject_ollama_options` / `_inject_omlx_options`), and that the adapter answers identically to `/v1`. `scripts/engine_autoupdate.py` (daily launchd job) re-runs it whenever a version changes and gates weekly engine updates on it, rolling back on failure. The WFE harness serves Ollama arms through the same `to_native_request` translation so a benchmark measures exactly what production serves. Clients that talk to oMLX directly (IDE paths) receive a seat's sampling through oMLX's per-model defaults, written by `scripts/omlx_seat_defaults.py` from `config/portal.yaml` when exactly one production seat maps to the model. Gemma 4's no-think marker (`<|channel>thought\n<channel|>`) is absent after a tool response in every template in play (the MLX conversions, Google's canonical template, Ollama's `gemma4*` renderers), which left post-tool turns unanchored: a thought channel holding the answer, a tool call written inside it, a malformed tool name, or a runaway (PIPELINE_ALIGNMENT_V1 §13). The adapter pre-fills the block as a trailing assistant message for a no-think post-tool turn on a `gemma4*` RENDERER, and `scripts/omlx_chat_template_patch.py` (run by `sync-config`) adds the same branch to the served Gemma 4 conversions' templates.
+
+Native-protocol MCP callers use the separate
+`portal/platform/inference/router/ollama_passthrough.py` routes. They
+authenticate with the pipeline key and forward original Ollama bytes through
+`LoadGuard` without `/v1` translation, preserving native-only fields such as
+`think`, `format`, `images`, and `message.thinking`.
 
 ## Why
 

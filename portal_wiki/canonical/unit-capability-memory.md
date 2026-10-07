@@ -47,7 +47,12 @@ unmounted-then-remounted path is worse than refusing to start, so
 
 `remember` embeds a memory into the `memory` table AND runs a local model
 (`MEMORY_EXTRACT_MODEL`, default `gemma4:e4b-it-qat-ctx8k`, via
-`OLLAMA_CHAT_URL`) to extract entities and relations, populating the
+`OLLAMA_CHAT_URL`, defaulting to the authenticated
+`portal-pipeline:9099/ollama/api/chat` passthrough) to extract entities and
+relations. `PIPELINE_API_KEY` authenticates the request, and the pipeline's
+load guard admits and tracks the model before forwarding the native body. The
+extraction still preserves Ollama's `think` field and native response shape,
+populating the
 `memory_entities` and `memory_relations` tables on write. `recall` is
 graph-aware: it vector-seeds memories and entities from the query, expands
 relations up to `hops` deep, and returns the matched memories plus a

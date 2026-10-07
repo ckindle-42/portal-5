@@ -125,10 +125,24 @@ async def preselect(
             },
         }
 
-        resp = await asyncio.wait_for(
-            _client().post(f"{ollama_url}/api/generate", json=payload),
-            timeout=_TIMEOUT_S,
-        )
+        async def _guarded_generate() -> httpx.Response:
+            from portal.platform.inference import load_guard
+
+            guard = load_guard.GUARD
+            release = None
+            end = None
+            try:
+                if guard is not None:
+                    release = await guard.admit(ollama_url, payload["model"])
+                    end = guard.begin(load_guard.OLLAMA, payload["model"])
+                return await _client().post(f"{ollama_url}/api/generate", json=payload)
+            finally:
+                if end is not None:
+                    end()
+                if release is not None:
+                    release()
+
+        resp = await asyncio.wait_for(_guarded_generate(), timeout=_TIMEOUT_S)
         resp.raise_for_status()
         raw_response = resp.json().get("response", "")
 

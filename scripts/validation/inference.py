@@ -62,6 +62,12 @@ def check_pipeline_assembles() -> tuple[str, str, list[dict]]:
         ("/health/all", "GET"),
         ("/metrics", "GET"),
         ("/admin/refresh-tools", "POST"),
+        ("/ollama/api/chat", "POST"),
+        ("/ollama/api/generate", "POST"),
+        ("/ollama/api/embed", "POST"),
+        ("/ollama/api/show", "POST"),
+        ("/ollama/api/ps", "GET"),
+        ("/ollama/api/tags", "GET"),
         ("/notifications/test", "POST"),
         ("/v1/models", "GET"),
         ("/v1/backends", "GET"),
@@ -80,7 +86,7 @@ def check_pipeline_assembles() -> tuple[str, str, list[dict]]:
     missing = expected_routes - actual_routes
     if missing:
         return "FAIL", f"missing routes: {missing}", []
-    return "PASS", "FastAPI app + all 11 routes registered", []
+    return "PASS", f"FastAPI app + all {len(expected_routes)} required routes registered", []
 
 
 @register("hint_validator", "E. hint validator", order=4)

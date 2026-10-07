@@ -2,7 +2,7 @@
 
 # Portal 5 Architecture Map
 
-*Deterministic projection of 763 canonical units.*
+*Deterministic projection of 765 canonical units.*
 
 ## Knowledge Layer
 
@@ -284,11 +284,11 @@
 | `unit-corpus-injection-verify-lane-b` | what | 2 |
 | `unit-corpus-injection-verify-lane-c` | what | 2 |
 | `unit-corpus-injection-why-corpus-data-coexists-safely-with-bench-runs` | what | 3 |
-| `unit-design-ollama-native-dispatch` | why | 6 |
+| `unit-design-ollama-native-dispatch` | why | 7 |
 | `unit-design-omlx-dual-backend-plumbing` | mixed | 12 |
 | `unit-design-spine-drift-census` | mixed | 4 |
 | `unit-design-wiki-archive-mechanism` | mixed | 5 |
-| `unit-fact-config-index` | mixed | 11 |
+| `unit-fact-config-index` | mixed | 12 |
 | `unit-fact-doc-migration-coverage` | what | 1 |
 | `unit-fact-dockerfile-index` | mixed | 8 |
 | `unit-fact-env-reference` | mixed | 3 |
@@ -307,6 +307,7 @@
 | `unit-general-fast-deep-workspaces` | mixed | 2 |
 | `unit-general-module-vendored-tools` | mixed | 1 |
 | `unit-general-tools-vendored-fleet` | mixed | 1 |
+| `unit-host-log-rotation` | what | 5 |
 | `unit-inference-router-pipe` | mixed | 1 |
 | `unit-known-issues-known-issues` | what | 2 |
 | `unit-known-limitations-70b-dense-models-unusable-for-daily-routing-on-m4-pro-64gb` | what | 3 |
@@ -582,10 +583,11 @@
 | `unit-module-security` | mixed | 5 |
 | `unit-module-video` | mixed | 4 |
 | `unit-module-vulnintel` | mixed | 3 |
+| `unit-ollama-native-passthrough` | mixed | 20 |
 | `unit-p5-roadmap-future-considerations-not-yet-implemented` | what | 5 |
 | `unit-p5-roadmap-p5-fut-004-webhook-based-event-notifications` | what | 2 |
 | `unit-p5-roadmap-p5-fut-006-llm-based-intent-routing` | what | 5 |
-| `unit-p5-roadmap-p5-fut-009-model-size-aware-admission-control-mlx-proxy` | what | 4 |
+| `unit-p5-roadmap-p5-fut-009-model-size-aware-admission-control-mlx-proxy` | what | 5 |
 | `unit-p5-roadmap-p5-fut-013-omlx-evaluation-canceled` | what | 3 |
 | `unit-p5-roadmap-p5-fut-014-v7-model-refresh-waterline` | what | 5 |
 | `unit-p5-roadmap-p5-fut-embed-001-embeddinggemma-migration-seed` | what | 4 |
@@ -772,12 +774,12 @@
 | `unit-wiki-tests-render` | mixed | 1 |
 | `unit-wiki-writeback` | mixed | 1 |
 
-**Total:** 763 units
+**Total:** 765 units
 
 ## Source Distribution
 
 - **bench-security**: 1 references
-- **code**: 1977 references
+- **code**: 2005 references
 - **config**: 1 references
 - **doc**: 1 references
 - **mitre**: 40 references

@@ -37,6 +37,18 @@ __all__ = [
     "resolve_dialect",
 ]
 
+OLLAMA_BASE_DEFAULT = "http://localhost:9099/ollama"
+
+
+def native_ollama_base() -> str:
+    """Base path for the authenticated native Ollama pipeline passthrough."""
+    return os.environ.get("OLLAMA_BASE", OLLAMA_BASE_DEFAULT).rstrip("/")
+
+
+def native_ollama_auth_headers() -> dict[str, str]:
+    key = os.environ.get("PIPELINE_API_KEY", "")
+    return {"Authorization": f"Bearer {key}"} if key else {}
+
 
 class Dialect(Protocol):
     """One wire protocol. Stateless; one instance per engine is enough."""
@@ -93,13 +105,13 @@ class OllamaNative:
     name = "ollama-native"
 
     def __init__(self, base: str = "") -> None:
-        self.base = (base or os.environ.get("OLLAMA_BASE", "http://localhost:11434")).rstrip("/")
+        self.base = (base or native_ollama_base()).rstrip("/")
         self.endpoint = f"{self.base}/api/chat"
         self._ceiling: dict[str, int] = {}
         self._window: dict[str, int] = {}
 
     def headers(self) -> dict[str, str]:
-        return {"Content-Type": "application/json"}
+        return {"Content-Type": "application/json", **native_ollama_auth_headers()}
 
     def build(
         self,
@@ -175,7 +187,9 @@ class OllamaNative:
 
     def applied_context_length(self, model: str) -> int:
         try:
-            models = (_get(f"{self.base}/api/ps", 10) or {}).get("models") or []
+            models = (_get(f"{self.base}/api/ps", 10, native_ollama_auth_headers()) or {}).get(
+                "models"
+            ) or []
         except Exception:  # noqa: BLE001 - an unreadable runner is reported as unknown
             return 0
         for entry in models:

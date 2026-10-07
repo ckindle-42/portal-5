@@ -21,6 +21,7 @@ from typing import Any
 
 import httpx
 
+from portal.platform.inference import load_guard as _load_guard
 from portal.platform.inference.router.metrics import _router_latency_seconds
 from portal.platform.inference.router.workspaces import WORKSPACES
 
@@ -616,6 +617,25 @@ def _router_payload(prompt: str) -> dict[str, Any]:
     }
 
 
+async def _guarded_router_post(payload: dict[str, Any]) -> httpx.Response:
+    """Track the pinned router model while it uses Ollama's native endpoint."""
+    release = None
+    end = None
+    guard = _load_guard.GUARD
+    try:
+        if guard is not None:
+            release = await guard.admit(_LLM_ROUTER_OLLAMA_URL, _LLM_ROUTER_MODEL)
+            end = guard.begin(_load_guard.OLLAMA, _LLM_ROUTER_MODEL)
+        return await _http_client.post(  # type: ignore[union-attr]
+            f"{_LLM_ROUTER_OLLAMA_URL}/api/generate", json=payload
+        )
+    finally:
+        if end is not None:
+            end()
+        if release is not None:
+            release()
+
+
 _router_reload_task: asyncio.Task[None] | None = None
 
 
@@ -630,10 +650,7 @@ async def warm_router_model() -> int:
     first real request make the deadline. No client deadline here; never raises.
     """
     try:
-        resp = await _http_client.post(  # type: ignore[union-attr]
-            f"{_LLM_ROUTER_OLLAMA_URL}/api/generate",
-            json=_router_payload(_build_router_prompt("warmup")),
-        )
+        resp = await _guarded_router_post(_router_payload(_build_router_prompt("warmup")))
         return resp.status_code
     except Exception as e:
         logger.warning("LLM router warm-up failed: %s", e)
@@ -735,13 +752,7 @@ async def _route_with_llm(messages: list[dict[str, Any]]) -> str | None:
             _router_latency_seconds.labels(outcome="disabled").observe(0.0)
             return None
         payload = _router_payload(prompt)
-        resp = await asyncio.wait_for(
-            _http_client.post(
-                f"{_LLM_ROUTER_OLLAMA_URL}/api/generate",
-                json=payload,
-            ),
-            timeout=timeout_s,
-        )
+        resp = await asyncio.wait_for(_guarded_router_post(payload), timeout=timeout_s)
         resp.raise_for_status()
         data = resp.json()
         raw_response = data.get("response", "").strip()

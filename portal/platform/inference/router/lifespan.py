@@ -50,6 +50,7 @@ _startup_time = time.time()
 
 # Mutable module-level singletons — set by lifespan, used by routes
 _http_client: httpx.AsyncClient | None = None
+_ollama_native_client: httpx.AsyncClient | None = None
 registry: BackendRegistry | None = None
 _health_task: asyncio.Task[Any] | None = None
 _state_save_task: asyncio.Task[Any] | None = None
@@ -179,7 +180,22 @@ async def _warmup_auto_model(registry: BackendRegistry) -> None:
                 "options": {"num_predict": 1, "num_ctx": 8192},
             }
 
-        resp = await _http_client.post(warmup_url, json=warmup_payload)
+        async def _guarded_warmup() -> httpx.Response:
+            release = None
+            end = None
+            guard = _load_guard_mod.GUARD
+            try:
+                if backend.type == "ollama" and guard is not None:
+                    release = await guard.admit(backend.url, warmup_payload["model"])
+                    end = guard.begin(_load_guard_mod.OLLAMA, warmup_payload["model"])
+                return await _http_client.post(warmup_url, json=warmup_payload)
+            finally:
+                if end is not None:
+                    end()
+                if release is not None:
+                    release()
+
+        resp = await _guarded_warmup()
         if resp.status_code == 200:
             logger.info(
                 "Warmup complete: %s model '%s' pre-loaded",
@@ -285,7 +301,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         Nothing. The yield separates startup from shutdown; request handling
         runs while it is suspended.
     """
-    global registry, _health_task, _http_client
+    global registry, _health_task, _http_client, _ollama_native_client
     global _notification_dispatcher, _notification_scheduler, _state_save_task
     _concurrency_mod._request_semaphore = asyncio.Semaphore(_concurrency_mod._MAX_CONCURRENT)
     # Pre-create Prometheus multiproc dir at startup so workers don't race.
@@ -317,6 +333,15 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
             is_omlx=lambda base: _is_backend_type(registry, base, "omlx"),
         ),
     )
+    # Native MCP callers preserve Ollama's exact HTTP schema here; this client
+    # intentionally bypasses the /v1 translating transport above.
+    _ollama_native_client = httpx.AsyncClient(
+        timeout=httpx.Timeout(600.0, connect=5.0),
+        limits=httpx.Limits(max_keepalive_connections=20, max_connections=100),
+    )
+    from portal.platform.inference.router import ollama_passthrough as _ollama_passthrough
+
+    _ollama_passthrough.configure(registry, _ollama_native_client)
     # Propagate shared client to the routing module (needed by _route_with_llm)
     import portal.platform.inference.router.routing as _routing_mod
 
@@ -407,6 +432,9 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     yield
 
     if _in_test_mode:
+        if _ollama_native_client:
+            await _ollama_native_client.aclose()
+        _ollama_passthrough.configure(None, None)
         return
 
     # Final state save on shutdown
@@ -417,6 +445,9 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         _health_task.cancel()
     if _http_client:
         await _http_client.aclose()
+    if _ollama_native_client:
+        await _ollama_native_client.aclose()
+    _ollama_passthrough.configure(None, None)
     if _notification_scheduler:
         _notification_scheduler.stop()
     await BackendRegistry.close_health_client()

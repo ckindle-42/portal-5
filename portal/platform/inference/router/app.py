@@ -8,7 +8,7 @@ import logging
 from fastapi import FastAPI
 from fastapi.responses import PlainTextResponse
 
-from portal.platform.inference.router import handlers
+from portal.platform.inference.router import handlers, ollama_passthrough
 from portal.platform.inference.router.lifespan import lifespan
 from portal.platform.inference.router.request_limits import (
     MAX_REQUEST_BYTES,
@@ -41,6 +41,12 @@ app.get("/health")(handlers.health)
 app.get("/health/all")(handlers.health_all)
 app.post("/admin/refresh-tools")(handlers.admin_refresh_tools)
 app.post("/admin/load-plan")(handlers.admin_load_plan)
+app.post("/ollama/api/chat")(ollama_passthrough.chat)
+app.post("/ollama/api/generate")(ollama_passthrough.generate)
+app.post("/ollama/api/embed")(ollama_passthrough.embed)
+app.get("/ollama/api/ps")(ollama_passthrough.ps)
+app.get("/ollama/api/tags")(ollama_passthrough.tags)
+app.post("/ollama/api/show")(ollama_passthrough.show)
 app.post("/notifications/test")(handlers.test_notifications)
 app.get("/metrics", response_class=PlainTextResponse)(handlers.metrics)
 app.get("/v1/models")(handlers.list_models)

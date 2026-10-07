@@ -54,6 +54,48 @@ class _FakeClient:
         return _FakeResp(n)
 
 
+class _TranscribeResp:
+    def raise_for_status(self):
+        pass
+
+    def json(self):
+        return {"response": "A detailed page transcript with more than twenty chars."}
+
+
+class _TranscribeClient:
+    calls = []
+
+    def __init__(self, *a, **k):
+        pass
+
+    async def __aenter__(self):
+        return self
+
+    async def __aexit__(self, *a):
+        pass
+
+    async def post(self, url, json, headers):
+        self.calls.append((url, json, headers))
+        return _TranscribeResp()
+
+
+async def test_page_transcription_uses_authenticated_pipeline_passthrough(tmp_path, monkeypatch):
+    image = tmp_path / "page.png"
+    image.write_bytes(b"test-image")
+    _TranscribeClient.calls = []
+    monkeypatch.setattr(rm, "RAG_OLLAMA_URL", "http://portal-pipeline.test/ollama")
+    monkeypatch.setattr(rm, "PIPELINE_API_KEY", "rag-test-key")
+    monkeypatch.setattr(rm.httpx, "AsyncClient", _TranscribeClient)
+
+    result = await rm._transcribe_page(str(image))
+
+    assert result.startswith("A detailed page transcript")
+    url, body, headers = _TranscribeClient.calls[0]
+    assert url == "http://portal-pipeline.test/ollama/api/generate"
+    assert headers["Authorization"] == "Bearer rag-test-key"
+    assert body["model"] == rm.TRANSCRIBE_MODEL
+
+
 async def test_vl_embed_batch_caps_request_size(monkeypatch):
     monkeypatch.setattr(_embedding, "VL_EMBED_MAX_ITEMS", 4)
     monkeypatch.setattr(rm.httpx, "AsyncClient", _FakeClient)

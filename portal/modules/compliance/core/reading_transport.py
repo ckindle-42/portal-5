@@ -24,6 +24,16 @@ import urllib.error
 import urllib.request
 from typing import Any
 
+from portal.modules.compliance.core.transport_dialects import (
+    native_ollama_auth_headers as _native_auth_headers,
+)
+from portal.modules.compliance.core.transport_dialects import (
+    native_ollama_base as _native_ollama_base,
+)
+from portal.modules.compliance.core.transport_dialects import (
+    resolve_dialect as _resolve_dialect,
+)
+
 __all__ = [
     "DEFAULT_ANSWER_BUDGET",
     "DEFAULT_EFFORT",
@@ -80,11 +90,7 @@ DEFAULT_EFFORT: bool | str = False
 # it; the dialect layer is what actually decides where a call goes now. See
 # transport_dialects: the sweep's endpoint was hardcoded here, which is why
 # registering an engine with the PIPELINE never changed the sweep.
-_ENDPOINT = "http://localhost:11434/api/chat"
-
-from portal.modules.compliance.core.transport_dialects import (  # noqa: E402
-    resolve_dialect as _resolve_dialect,
-)
+_ENDPOINT = f"{_native_ollama_base()}/api/chat"
 
 _THINK_CAPABLE: dict[str, bool] = {}
 _INLINE_THINK = re.compile(r"<think>.*?</think>\s*", re.S | re.I)
@@ -213,8 +219,8 @@ DEFAULT_TEMPERATURE = 0.0
 #: not fit, which turns a runner-side failure into a named stop_reason.
 DEFAULT_NUM_CTX = 98304
 
-_SHOW_ENDPOINT = "http://localhost:11434/api/show"
-_PS_ENDPOINT = "http://localhost:11434/api/ps"
+_SHOW_ENDPOINT = f"{_native_ollama_base()}/api/show"
+_PS_ENDPOINT = f"{_native_ollama_base()}/api/ps"
 _CEILING: dict[str, int] = {}
 
 
@@ -245,7 +251,7 @@ def seat_ceiling(model: str) -> int:
         request = urllib.request.Request(
             _SHOW_ENDPOINT,
             data=json.dumps({"model": model}).encode(),
-            headers={"Content-Type": "application/json"},
+            headers={"Content-Type": "application/json", **_native_auth_headers()},
         )
         with urllib.request.urlopen(request, timeout=30) as response:  # noqa: S310
             info = (json.load(response) or {}).get("model_info") or {}
@@ -267,7 +273,8 @@ def applied_context_length(model: str) -> int:
     one rather than the number it asked for.
     """
     try:
-        with urllib.request.urlopen(_PS_ENDPOINT, timeout=10) as response:  # noqa: S310
+        request = urllib.request.Request(_PS_ENDPOINT, headers=_native_auth_headers())
+        with urllib.request.urlopen(request, timeout=10) as response:  # noqa: S310
             models = (json.load(response) or {}).get("models") or []
     except Exception:  # noqa: BLE001 - an unreadable runner is reported as unknown
         return 0

@@ -17,6 +17,7 @@ from . import (  # noqa: F401  (imports populate the check registry)
     doc_voice,
     inference,
     lab,
+    ollama_direct,
     personas,
     platform,
     rag_runtime,

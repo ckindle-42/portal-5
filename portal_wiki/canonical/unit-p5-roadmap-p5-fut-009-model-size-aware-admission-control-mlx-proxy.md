@@ -79,5 +79,9 @@ idle Ollama residents. Verified live: two cold Ollama seats loaded in turn and
 generated concurrently; two cold oMLX seats were serialised; an oMLX cold load
 followed by an Ollama cold load was serialised across engines; no refusals, and swap
 stayed above the watchdog floor. Resident models (the router, `task-router`) are
-never delayed. Calls that reach Ollama without the pipeline are not covered:
-`TASK_HOST_MEMORY_SAFETY_V1` W2 routes them through it.
+never delayed. `TASK_HOST_MEMORY_SAFETY_V1` W2 adds authenticated native
+`/ollama/api/*` routes for MCP callers, tracks the router and tool-preselector
+native calls in-process, and migrates production memory, RAG, compliance, and
+wiki clients to the guarded path. Operator probes and explicitly gated engine
+diagnostics retain raw access only with a reasoned entry in
+`config/ollama_direct_allowlist.yaml`, enforced by `validate_system`.

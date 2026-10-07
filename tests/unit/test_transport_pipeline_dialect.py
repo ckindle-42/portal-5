@@ -17,6 +17,7 @@ P5-FANOUT-001 W1/W2. The load-bearing properties pinned here:
 
 from __future__ import annotations
 
+import importlib
 import urllib.error
 from typing import Any
 
@@ -24,7 +25,7 @@ import httpx
 import pytest
 
 import portal.platform.inference.streaming_client as streaming_client_module
-from portal.modules.compliance.core import reading_transport
+from portal.modules.compliance.core import reading_transport, transport_dialects
 from portal.modules.compliance.core.reading_transport import chat
 from portal.modules.compliance.core.transport_dialects import (
     OllamaNative,
@@ -64,6 +65,36 @@ def test_resolve_dialect_explicit_still_works():
     assert resolve_dialect("ollama-native").name == "ollama-native"
     with pytest.raises(ValueError, match="unknown transport dialect"):
         resolve_dialect("carrier-pigeon")
+
+
+def test_native_rollback_uses_guarded_passthrough_and_auth(monkeypatch):
+    monkeypatch.setenv("OLLAMA_BASE", "http://pipeline.test/ollama")
+    monkeypatch.setenv("PIPELINE_API_KEY", "native-test-key")
+    dialect = OllamaNative()
+    assert dialect.endpoint == "http://pipeline.test/ollama/api/chat"
+    assert dialect.headers()["Authorization"] == "Bearer native-test-key"
+
+    importlib.reload(reading_transport)
+    assert reading_transport._SHOW_ENDPOINT == "http://pipeline.test/ollama/api/show"
+    assert reading_transport._PS_ENDPOINT == "http://pipeline.test/ollama/api/ps"
+
+    monkeypatch.undo()
+    importlib.reload(reading_transport)
+
+
+def test_native_applied_context_reads_ps_with_auth(monkeypatch):
+    monkeypatch.setenv("OLLAMA_BASE", "http://pipeline.test/ollama")
+    monkeypatch.setenv("PIPELINE_API_KEY", "native-test-key")
+    seen = {}
+
+    def fake_get(url, timeout, headers=None):
+        seen.update(url=url, headers=headers)
+        return {"models": [{"name": "m", "context_length": 8192}]}
+
+    monkeypatch.setattr(transport_dialects, "_get", fake_get)
+    assert OllamaNative().applied_context_length("m") == 8192
+    assert seen["url"] == "http://pipeline.test/ollama/api/ps"
+    assert seen["headers"] == {"Authorization": "Bearer native-test-key"}
 
 
 # ── build shape ──────────────────────────────────────────────────────────────

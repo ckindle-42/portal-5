@@ -26,6 +26,8 @@ updated_at: 1783195000.860634
 - `POST /v1/messages` — Anthropic-compatible message passthrough
 - `GET /v1/backends` — registry health
 - `GET /health` — liveness
+- `POST /ollama/api/chat`, `/generate`, `/embed` — authenticated, native Ollama requests; inference calls pass through the host-memory guard
+- `GET /ollama/api/ps`, `/tags`, `POST /ollama/api/show` — authenticated read-only Ollama probes
 
 **Auth:** requests need `Authorization: Bearer ${PIPELINE_API_KEY}`; `PIPELINE_API_KEY` is in `.env` (auto-generated on first `./launch.sh up`). Open WebUI itself connects this way: `OPENAI_API_BASE_URL=http://portal-pipeline:9099/v1` in `deploy/portal-5/docker-compose.yml`. The port maps to `0.0.0.0:9099:9099`, so remote clients can reach it if the host is reachable.
 

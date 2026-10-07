@@ -73,6 +73,11 @@ text+image space). `rag_mcp.py` keeps the KB-lifecycle tools (`kb_list` /
 `kb_optimize` / `kb_versions` / `kb_restore`) and registers the multimodal
 routes.
 
+When `RAG_TRANSCRIBE_FIGURES` enables the S0 per-page vision transcript,
+`RAG_OLLAMA_URL` defaults to `http://portal-pipeline:9099/ollama` and the MCP
+sends `PIPELINE_API_KEY`. Ollama-native `/api/generate` options and image bytes
+then pass through the pipeline's host-memory guard before reaching the engine.
+
 ## How it's used
 
 `kb_ingest` reads a source directory: text is chunked and VL-embedded, and for

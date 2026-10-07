@@ -13,7 +13,7 @@ created_at: 1784946220.509268
 updated_at: 1784946220.509268
 ---
 
-`_warmup_llm_router()` in `portal/platform/inference/router/lifespan.py` fires at pipeline startup (as a background task from `_run_startup_warmups`) to pre-load the LLM intent-classifier model into Ollama before the first `auto`-routed request arrives. It posts a minimal `num_predict: 1` generate call to `${LLM_ROUTER_OLLAMA_URL}/api/generate`.
+`_warmup_llm_router()` in `portal/platform/inference/router/lifespan.py` fires at pipeline startup (as a background task from `_run_startup_warmups`) to pre-load the LLM intent-classifier model into Ollama before the first `auto`-routed request arrives. It posts a minimal `num_predict: 1` generate call to `${LLM_ROUTER_OLLAMA_URL}/api/generate`. Both this warmup and each live router classification call use `LoadGuard.admit` and busy tracking, so a warmup cannot race a separate cold model load and the router stays visible as active while it generates.
 
 The load-bearing option is `keep_alive: -1` sent as a JSON integer. Ollama 0.30.8+ rejects the string form `"-1"`, so the payload pins the classifier model in memory indefinitely rather than letting a larger inference model evict it. `options.num_ctx` is set to `2048` to match the routing call in `_route_with_llm`, preventing the warmup from reserving tens of GiB via an over-wide context window. The warmup is skipped entirely when `LLM_ROUTER_ENABLED=false` — those deployments fall back to `_detect_workspace` keyword scoring and need no pin.
 

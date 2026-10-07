@@ -54,11 +54,16 @@ receipt can never claim a window its engine did not set.
 ## Interfaces
 
 `resolve_dialect(dialect)` resolves an explicit name, then the
-`COMPLIANCE_TRANSPORT` env var, then `ollama-native`; the default is
-byte-identical to the pre-seam transport. `OllamaNative` speaks
+`COMPLIANCE_TRANSPORT` env var, and defaults to `pipeline`. The
+`ollama-native` rollback speaks
 `/api/chat` with `options.{temperature,num_predict,num_ctx}` and top-level
 `keep_alive`/`think`. `OpenAICompat` speaks splash 1.0.1's
 `/v1/chat/completions`: `max_tokens`/`temperature` top-level, no
 `keep_alive`, `num_ctx` and `keep_alive` deliberately dropped,
 `reasoning_effort` in place of `think`, and Bearer auth from
 `SPLASH_API_KEY`.
+
+`OllamaNative` defaults `OLLAMA_BASE` to the pipeline's `/ollama` passthrough,
+and authenticates with `PIPELINE_API_KEY`. Its `/api/show` and `/api/ps` reads
+use the same base and auth headers, so native rollback calls retain their
+request-time `num_ctx` behavior while still going through host-memory admission.
