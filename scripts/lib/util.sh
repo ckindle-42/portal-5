@@ -569,6 +569,17 @@ sys.exit(0 if all(u.find_spec(m) for m in
             echo "[portal-5]   ⚠️  VL retrieval deps missing (need mlx-embeddings>=0.1.0 + torchvision) — RAG multimodal retrieval will 503"
         fi
     fi
+
+    # ── EmbeddingGemma 2 platform embedder (host-native, :8946) ───────────
+    # The single embedding backend for every consumer
+    # (TASK_EMBEDDINGGEMMA2_PLATFORM_V1). Own venv; launchd-supervised.
+    if [ -x "${EG2_VENV:-$HOME/.portal5/eg2-venv}/bin/python3" ]; then
+        _ensure_native_mcp_service \
+            "eg2-embedding" "com.portal5.eg2-embedding" \
+            "${EG2_PORT:-8946}" "eg2-embedding"
+    else
+        echo "[portal-5]   ⚠️  EG2 embedder venv missing — run scripts/eg2-venv-setup.sh"
+    fi
 }
 
 # ── Teardown helper (shared by 'down' and the pre-start phase of 'up') ────────
@@ -622,6 +633,17 @@ _do_down() {
             echo "[portal-5] VL retrieval stopped."
         else
             echo "[portal-5] VL retrieval: not running (nothing to stop)."
+        fi
+
+        # EmbeddingGemma 2 platform embedder (:8946) — launchd KeepAlive must be
+        # torn down or it restarts the server the moment it is killed.
+        if launchctl print "gui/$(id -u)/com.portal5.eg2-embedding" &>/dev/null 2>&1; then
+            launchctl bootout "gui/$(id -u)/com.portal5.eg2-embedding" 2>/dev/null || true
+            rm -f /tmp/portal-eg2-embedding.pid
+            echo "[portal-5] EG2 embedder stopped (launchd)."
+        elif pgrep -f "scripts/eg2-embedding-server.py" >/dev/null 2>&1; then
+            pkill -f "scripts/eg2-embedding-server.py" 2>/dev/null || true
+            echo "[portal-5] EG2 embedder stopped."
         fi
 
         # MLX Transcribe (:8924)

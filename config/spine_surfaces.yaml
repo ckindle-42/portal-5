@@ -632,6 +632,22 @@ surfaces:
   globs:
   - portal/platform/data_loader.py
   unit: unit-platform-storage-config-facade
+- name: file-portal-platform-embedding-__init__
+  globs:
+  - portal/platform/embedding/__init__.py
+  unit: unit-capability-eg2-embedding
+- name: file-portal-platform-embedding-classifier
+  globs:
+  - portal/platform/embedding/classifier.py
+  unit: unit-capability-eg2-embedding
+- name: file-portal-platform-embedding-client
+  globs:
+  - portal/platform/embedding/client.py
+  unit: unit-capability-eg2-embedding
+- name: file-portal-platform-embedding-contract
+  globs:
+  - portal/platform/embedding/contract.py
+  unit: unit-capability-eg2-embedding
 - name: file-portal-platform-lance_guard
   globs:
   - portal/platform/lance_guard.py

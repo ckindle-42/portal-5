@@ -72,6 +72,24 @@ case "$SERVICE" in
         exec "$PY" "$PORTAL_ROOT/scripts/vl-retrieval-server.py" \
             --port "${VL_PORT:-8942}"
         ;;
+    eg2-embedding)
+        # EmbeddingGemma 2 platform embedder (:8946), TASK_EMBEDDINGGEMMA2_PLATFORM_V1.
+        # Its OWN venv (scripts/eg2-venv-setup.sh) — never the project .venv, so
+        # the fragile MLX runtime behind drift gate D1 is untouched.
+        EG2_PY="${EG2_VENV:-$HOME/.portal5/eg2-venv}/bin/python3"
+        if [ ! -x "$EG2_PY" ]; then
+            echo "eg2-embedding: venv missing — run scripts/eg2-venv-setup.sh" >&2
+            exit 1
+        fi
+        # launchd: HF revalidation HEADs hang; the model is pre-fetched by setup.
+        export HF_HUB_OFFLINE="${HF_HUB_OFFLINE:-1}"
+        # Home-dir cache: launchd processes cannot read /Volumes/data01 (open() blocks).
+        export HF_HOME="${EG2_HF_HOME:-$HOME/.portal5/hf-cache}"
+        unset HF_HUB_CACHE HUGGINGFACE_HUB_CACHE
+        # ffmpeg (audio/video decode) lives here; launchd starts with a bare PATH.
+        export PATH="/opt/homebrew/bin:/usr/local/bin:$PATH"
+        exec "$EG2_PY" "$PORTAL_ROOT/scripts/eg2-embedding-server.py" --port "${EG2_PORT:-8946}"
+        ;;
     pipeline-mcp)
         export PIPELINE_URL="${PIPELINE_URL:-http://localhost:9099}"
         export OLLAMA_URL="${OLLAMA_URL:-http://localhost:11434}"

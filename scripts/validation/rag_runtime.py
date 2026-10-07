@@ -255,3 +255,51 @@ def check_contextualize_not_on_security_kb() -> tuple[str, str, list[dict]]:
             violations,
         )
     return "PASS", "no security-readable KB has contextualize enabled", []
+
+
+@register("eg2_embedding_ready", "HN. EG2 platform embedder", order=48)
+def check_eg2_embedding_ready() -> tuple[str, str, list[dict]]:
+    """HN — the EmbeddingGemma 2 platform embedder (:8946) answers /ready
+    with the expected model and native dim and all readiness probes passing
+    (NaN-free, prefix asymmetry, Matryoshka renormalization). WARN when nothing
+    is listening (stack down); FAIL when it answers wrongly — a wrong model or
+    dim is the silent-space-swap class TASK_EMBEDDINGGEMMA2_PLATFORM_V1 retires.
+    """
+    port = os.environ.get("EG2_PORT", "8946")
+    want_model = os.environ.get("EG2_MODEL", "google/embeddinggemma-2")
+    url = f"http://localhost:{port}/ready"
+    try:
+        with urllib.request.urlopen(url, timeout=120) as r:  # noqa: S310 - fixed localhost
+            body = json.loads(r.read().decode())
+    except urllib.error.HTTPError as e:
+        try:
+            body = json.loads(e.read().decode())
+        except Exception:  # noqa: BLE001
+            return "FAIL", f"{url} returned HTTP {e.code} with no JSON body", []
+    except (urllib.error.URLError, TimeoutError, ConnectionError):
+        return "WARN", f"nothing listening on :{port} (stack down — not a failure)", []
+    ident = body.get("identity") or {}
+    checks = body.get("checks") or {}
+    subs = [
+        {
+            "name": "ready",
+            "status": "PASS" if body.get("ready") else "FAIL",
+            "detail": str(body.get("ready")),
+        },
+        {
+            "name": f"model == {want_model}",
+            "status": "PASS" if ident.get("model") == want_model else "FAIL",
+            "detail": str(ident.get("model")),
+        },
+        {
+            "name": "native_dim == 768",
+            "status": "PASS" if ident.get("native_dim") == 768 else "FAIL",
+            "detail": str(ident.get("native_dim")),
+        },
+        *(
+            {"name": k, "status": "PASS" if v else "FAIL", "detail": str(v)}
+            for k, v in checks.items()
+        ),
+    ]
+    ok = all(s["status"] == "PASS" for s in subs)
+    return ("PASS" if ok else "FAIL", f"{url}: {body.get('version_tag', body.get('error'))}", subs)
