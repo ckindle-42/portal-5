@@ -318,9 +318,10 @@ async def check_ollama(models: dict[str, str]) -> list[Result]:
             _probe_workspace(cfg)
             return validation._inject_ollama_options({"model": models["thinking_tools"]}, _WS)
 
-        # Ollama's sampler accepts presence_penalty and applies nothing — measured
-        # on /api/chat itself (2026-09-25, 0.34.2), so no transport can fix it.
-        results = await _delivery(send, build, frozenset({"presence_penalty"}))
+        # presence_penalty: ignored by Ollama's sampler through 0.34.x (measured
+        # 2026-09-25, 0.34.2); applied since 0.35.0 (this check, 2026-10-07 on
+        # 0.40.0) — now a required delivery so a regression fails the contract.
+        results = await _delivery(send, build)
         results += await _parity(raw, nat, models)
         # Informational: if Ollama's /v1 ever starts honouring top_k natively the
         # adapter's reason to exist has shrunk — worth knowing, not a failure.

@@ -1581,7 +1581,8 @@ class TestSamplingDelivery:
 
         s = {"temperature": 0.7, "top_p": 0.8, "top_k": 20, "min_p": 0.0, "repeat_penalty": 1.05}
         assert rn.undeliverable_keys(s, "ollama") == []
-        assert rn.undeliverable_keys({"presence_penalty": 1.5}, "ollama") == ["presence_penalty"]
+        # applied by Ollama since 0.35.0 (engine contract, 2026-10-07)
+        assert rn.undeliverable_keys({"presence_penalty": 1.5}, "ollama") == []
         assert rn.undeliverable_keys(s, "omlx") == []
         assert rn.undeliverable_keys({"max_tokens": 5, "seed": 1}, "ollama") == []
 

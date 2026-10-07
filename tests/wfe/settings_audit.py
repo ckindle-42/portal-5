@@ -360,14 +360,6 @@ def _served_sampling_check(
     from portal.platform.inference.router.validation import _resolve_sampling_values
 
     declared = _resolve_sampling_values(ws)
-    if engine == "ollama" and "presence_penalty" in declared:
-        _v(
-            violations,
-            ws_id,
-            "presence_ignored_by_ollama",
-            f"declares presence_penalty={declared['presence_penalty']} but Ollama's sampler "
-            "applies nothing for it (measured 2026-09-25; KNOWN_LIMITATIONS.md)",
-        )
     hit = _expectations_for(hint, registry)
     if hit is None or hit[1].get("status") == "research-debt":
         return
@@ -376,10 +368,6 @@ def _served_sampling_check(
     def _diffs(card: dict) -> list[str]:
         out = []
         for k, want in card.items():
-            if engine == "ollama" and k == "presence_penalty":
-                continue  # undeliverable on Ollama; not a seat choice to A/B
-            if engine == "ollama" and k == "repeat_penalty" and card.get("presence_penalty"):
-                continue  # the seat's repeat_penalty substitutes the card's presence_penalty
             got, src = (
                 (declared[k], "seat") if k in declared else (defaults.get(k), f"{engine} default")
             )

@@ -600,11 +600,11 @@ SAMPLING_KEYS = (
 #: A key outside an engine's set would run as a no-op, so the campaign refuses
 #: an override that depends on one (campaign.py).
 DELIVERABLE_KEYS = {
-    "ollama": frozenset(SAMPLING_KEYS) - {"presence_penalty"},
+    # presence_penalty: a no-op in Ollama's sampler through 0.34.x; applied since
+    # 0.35.0 (engine_contract_check, now a required delivery).
+    "ollama": frozenset(SAMPLING_KEYS),
     "omlx": frozenset(SAMPLING_KEYS),
-    # The seat behind the pipeline may be on Ollama, so assume the narrower set;
-    # a presence_penalty arm for an oMLX seat runs in direct omlx mode.
-    "pipeline": frozenset(SAMPLING_KEYS) - {"presence_penalty"},
+    "pipeline": frozenset(SAMPLING_KEYS),
 }
 
 
