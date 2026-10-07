@@ -176,6 +176,25 @@ def ollama_install(version: str) -> Path:
     return target
 
 
+def _repin_router() -> None:
+    """An Ollama restart drops the router model's keep_alive:-1 pin. The pipeline
+    only re-warms it on the next routed request, so until then OWUI's task model
+    (`task-router`, same tag) loads cold. Load it pinned now; the routing prompt
+    prefix still warms on the first routed request."""
+    model = os.environ.get("LLM_ROUTER_MODEL", "")
+    if not model:
+        return
+    body = json.dumps({"model": model, "keep_alive": -1}).encode()
+    req = urllib.request.Request(
+        f"{OLLAMA_URL}/api/generate", data=body, headers={"Content-Type": "application/json"}
+    )
+    try:
+        urllib.request.urlopen(req, timeout=300).read()  # noqa: S310 - localhost
+        log(f"ollama: router model re-pinned ({model})")
+    except Exception as e:
+        log(f"ollama: router re-pin failed — pipeline re-warms on the next request: {e}")
+
+
 def _await_visible(engine: str, count, expected: int, version: str, restart) -> bool:
     """macOS asks the user before a NEW binary may read the external data01
     volume (the popup seen on every Ollama upgrade, and on oMLX upgrades that
@@ -364,6 +383,8 @@ def update_engine(engine: str, state: dict, dry_run: bool, allow_prerelease: boo
     rc = contract(engine) if switched else 2
     entry = {"utc": tag, "from": old, "to": new, "contract_rc": rc}
     if rc == 0:
+        if engine == "ollama":
+            _repin_router()
         state.setdefault("history", []).append(entry | {"result": "updated"})
         _alert(
             f"{engine} updated {old} -> {new}", "engine contract passed — values reach the model"
@@ -375,6 +396,8 @@ def update_engine(engine: str, state: dict, dry_run: bool, allow_prerelease: boo
         omlx_restore(tag)
         back = _omlx_restart() and back
     rc_old = contract(engine) if back else 2
+    if engine == "ollama":
+        _repin_router()
     if tcc:
         # Nobody clicked Allow — not a verdict on the release. Retry tomorrow.
         state.setdefault("history", []).append(entry | {"result": "awaiting_approval"})
