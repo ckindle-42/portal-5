@@ -52,3 +52,38 @@ def test_empty_omlx_does_not_break_ollama_only_box():
     live = {"qwen3-coder:30b-a3b-q4_K_M-ctx256k"}
     bindings = [("src", "model_hint", "qwen3-coder:30b-a3b-Q4_K_M-ctx256k")]
     assert cmb.find_orphans(bindings, live) == []
+
+
+def test_environment_model_bindings_prefer_dotenv_then_example(tmp_path):
+    (tmp_path / ".env.example").write_text(
+        "MEMORY_EXTRACT_MODEL=gemma4:e4b-it-qat-ctx8k\n"
+        "# RAG_TRANSCRIBE_MODEL=qwen3-vl:4b-instruct-q4_K_M\n"
+        "LLM_ROUTER_MODEL=router:latest\n"
+        "# PORTAL5_TOOL_PRESELECT_MODEL=preselect:latest\n"
+    )
+    (tmp_path / ".env").write_text("MEMORY_EXTRACT_MODEL=custom:tag\n")
+
+    bindings = cmb._env_model_bindings(tmp_path, environ={})
+
+    assert bindings == [
+        (".env", "MEMORY_EXTRACT_MODEL", "custom:tag"),
+        (".env.example", "RAG_TRANSCRIBE_MODEL", "qwen3-vl:4b-instruct-q4_K_M"),
+        (".env.example", "LLM_ROUTER_MODEL", "router:latest"),
+        (".env.example", "PORTAL5_TOOL_PRESELECT_MODEL", "preselect:latest"),
+    ]
+
+
+def test_collect_bindings_includes_compliance_roster_models(tmp_path):
+    config = tmp_path / "config" / "compliance"
+    config.mkdir(parents=True)
+    (config / "council.yaml").write_text(
+        "seats:\n  - id: reviewer\n    model: reviewer-model:latest\n"
+    )
+    bindings = cmb._compliance_roster_bindings(tmp_path)
+    assert bindings == [
+        (
+            "config/compliance/council.yaml",
+            "seats[reviewer].model",
+            "reviewer-model:latest",
+        )
+    ]

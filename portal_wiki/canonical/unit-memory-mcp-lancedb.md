@@ -46,6 +46,9 @@ a `YES_DELETE_ALL` token. Embeddings come from the local MLX embedding
 service (`MLX_EMBEDDING_URL`), so no text ever leaves the machine to be
 vectorised.
 
+The MCP exposes Prometheus metrics at `/metrics`; extraction failures are
+counted by reason so best-effort graph extraction does not fail silently.
+
 ## Gotchas
 
 `_get_table` lazily creates the LanceDB table with a fixed 1024-dimension

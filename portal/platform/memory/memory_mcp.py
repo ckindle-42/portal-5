@@ -20,6 +20,7 @@ from collections.abc import Awaitable, Callable
 
 import lancedb
 from mcp.server import MCPServer
+from prometheus_client import CONTENT_TYPE_LATEST, generate_latest
 from starlette.requests import Request
 from starlette.responses import JSONResponse, Response
 
@@ -71,6 +72,11 @@ async def health(request: Request) -> JSONResponse:
         )
     except Exception as e:  # noqa: BLE001
         return JSONResponse({"status": "degraded", "error": str(e)})
+
+
+@_route("/metrics", methods=["GET"])
+async def metrics(request: Request) -> Response:
+    return Response(generate_latest(), media_type=CONTENT_TYPE_LATEST)
 
 
 TOOLS_MANIFEST = load_data("config/inference", "tools_manifest_memory_mcp")

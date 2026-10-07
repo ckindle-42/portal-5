@@ -35,6 +35,7 @@ from __future__ import annotations
 
 import argparse
 import glob
+import os
 import sys
 from pathlib import Path
 
@@ -123,13 +124,82 @@ def _promptfoo_bindings(repo_root: Path) -> list[Binding]:
     return out
 
 
-def collect_bindings(repo_root: Path = REPO_ROOT) -> list[Binding]:
+_ENV_MODEL_VARS = (
+    "MEMORY_EXTRACT_MODEL",
+    "RAG_TRANSCRIBE_MODEL",
+    "LLM_ROUTER_MODEL",
+    "PORTAL5_TOOL_PRESELECT_MODEL",
+)
+
+
+def _parse_env_file(path: Path, *, allow_commented: bool) -> dict[str, str]:
+    values: dict[str, str] = {}
+    if not path.is_file():
+        return values
+    for raw_line in path.read_text(encoding="utf-8").splitlines():
+        line = raw_line.strip()
+        if line.startswith("#"):
+            if not allow_commented:
+                continue
+            line = line[1:].strip()
+        if "=" not in line:
+            continue
+        name, raw_value = line.split("=", 1)
+        if not name or not name.replace("_", "").isalnum() or not name[0].isalpha():
+            continue
+        value = raw_value.split("#", 1)[0].strip()
+        if len(value) >= 2 and value[0] == value[-1] and value[0] in "\"'":
+            value = value[1:-1]
+        if value:
+            values[name] = value
+    return values
+
+
+def _env_model_bindings(repo_root: Path, environ: dict[str, str] | None = None) -> list[Binding]:
+    """Resolve model env vars from process env, then .env, then .env.example."""
+    env_values = _parse_env_file(repo_root / ".env", allow_commented=False)
+    defaults = _parse_env_file(repo_root / ".env.example", allow_commented=True)
+    process = os.environ if environ is None else environ
+    out: list[Binding] = []
+    for name in _ENV_MODEL_VARS:
+        value = process.get(name) or env_values.get(name) or defaults.get(name, "")
+        if not value:
+            continue
+        source = (
+            "process environment"
+            if process.get(name)
+            else ".env"
+            if env_values.get(name)
+            else ".env.example"
+        )
+        out.append((source, name, value))
+    return out
+
+
+def _compliance_roster_bindings(repo_root: Path) -> list[Binding]:
+    """Include each model named by the compliance council runtime roster."""
+    roster_path = repo_root / "config" / "compliance" / "council.yaml"
+    if not roster_path.is_file():
+        return []
+    data = yaml.safe_load(roster_path.read_text(encoding="utf-8")) or {}
+    return [
+        ("config/compliance/council.yaml", f"seats[{seat.get('id', '?')}].model", seat["model"])
+        for seat in data.get("seats", [])
+        if isinstance(seat, dict) and isinstance(seat.get("model"), str) and seat["model"]
+    ]
+
+
+def collect_bindings(
+    repo_root: Path = REPO_ROOT, environ: dict[str, str] | None = None
+) -> list[Binding]:
     """Return (source_file, field, tag) for every live model-tag binding."""
     return [
         *_workspace_bindings(repo_root),
         *_persona_bindings(repo_root),
         *_backend_alias_bindings(repo_root),
         *_promptfoo_bindings(repo_root),
+        *_env_model_bindings(repo_root, environ),
+        *_compliance_roster_bindings(repo_root),
     ]
 
 

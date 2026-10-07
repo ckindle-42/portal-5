@@ -29,6 +29,9 @@ that store. Memories are embedded and indexed locally with the Harrier model
 in LanceDB. In the Open WebUI interface you can view or edit stored memories
 under Settings → Personalization → Memory.
 
+Operators can inspect graph-extraction failures through the Memory MCP's
+Prometheus endpoint at `/metrics`.
+
 ## Why
 
 The guide's account of memory was a description of a UI surface; the feature's

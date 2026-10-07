@@ -46,7 +46,7 @@ unmounted-then-remounted path is worse than refusing to start, so
 ## How it's used
 
 `remember` embeds a memory into the `memory` table AND runs a local model
-(`MEMORY_EXTRACT_MODEL`, default `gemma4:e4b-it-q4_K_M`, via
+(`MEMORY_EXTRACT_MODEL`, default `gemma4:e4b-it-qat-ctx8k`, via
 `OLLAMA_CHAT_URL`) to extract entities and relations, populating the
 `memory_entities` and `memory_relations` tables on write. `recall` is
 graph-aware: it vector-seeds memories and entities from the query, expands
@@ -54,6 +54,10 @@ relations up to `hops` deep, and returns the matched memories plus a
 `graph_context` of connected nodes and edges — the flat top-K response keys
 (`query` / `num_results` / `memories`) are preserved so callers don't break.
 `forget` / `list_memories` / `clear_memories` keep their contracts.
+
+Extraction remains best-effort so a memory write succeeds when the model is
+unavailable. Failures are logged with the HTTP status and counted as
+`portal5_memory_extract_failures_total{reason}` on the MCP's `/metrics` route.
 
 New graph tools: `link` (add an explicit edge between two entities),
 `neighbors` (entities within N hops of a named entity), `entity_timeline` (the

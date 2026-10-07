@@ -151,6 +151,7 @@ services:
       - LLM_ROUTER_CONFIDENCE_THRESHOLD=${LLM_ROUTER_CONFIDENCE_THRESHOLD:-0.5}
       - LLM_ROUTER_TIMEOUT_MS=${LLM_ROUTER_TIMEOUT_MS:-2000}
       - LLM_ROUTER_OLLAMA_URL=${LLM_ROUTER_OLLAMA_URL:-http://host.docker.internal:11434}
+      - PORTAL5_TOOL_PRESELECT_MODEL=${PORTAL5_TOOL_PRESELECT_MODEL:-hf.co/openbmb/MiniCPM5-1B-GGUF:Q4_K_M}
       # Request tuning
       - MAX_REQUEST_BYTES=${MAX_REQUEST_BYTES:-4194304}
       - OLLAMA_KEEP_ALIVE_REQUEST=${OLLAMA_KEEP_ALIVE_REQUEST:--1}
@@ -837,7 +838,7 @@ services:
       - MLX_EMBEDDING_URL=http://host.docker.internal:8917/v1/embeddings
       # temporal knowledge-graph memory: entity/relation extraction on write
       - OLLAMA_CHAT_URL=${OLLAMA_CHAT_URL:-http://host.docker.internal:11434/api/chat}
-      - MEMORY_EXTRACT_MODEL=${MEMORY_EXTRACT_MODEL:-gemma4:e4b-it-q4_K_M}
+      - MEMORY_EXTRACT_MODEL=${MEMORY_EXTRACT_MODEL:-gemma4:e4b-it-qat-ctx8k}
     command: ["python", "-m", "portal.platform.memory.memory_mcp"]
     volumes:
       - portal5-lance:/app/data/portal5_lance
@@ -869,6 +870,7 @@ services:
       - VL_EMBEDDING_DIM=${VL_EMBEDDING_DIM:-2048}
       - RAG_RERANK_ENABLED=${RAG_RERANK_ENABLED:-true}
       - RAG_CANDIDATE_POOL_SIZE=${RAG_CANDIDATE_POOL_SIZE:-20}
+      - RAG_TRANSCRIBE_MODEL=${RAG_TRANSCRIBE_MODEL:-qwen3-vl:4b-instruct-q4_K_M}
     command: ["python", "-m", "portal.modules.research.tools.rag_mcp"]
     volumes:
       - portal5-lance:/app/data/portal5_lance

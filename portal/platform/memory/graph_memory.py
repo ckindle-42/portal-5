@@ -9,6 +9,7 @@ flat-vector recall logic.
 from __future__ import annotations
 
 import json
+import logging
 import os
 import re
 import time
@@ -18,6 +19,7 @@ from typing import Any, cast
 import httpx
 import lancedb
 import pyarrow as pa  # type: ignore[import-untyped]  # pyarrow ships no stubs/py.typed
+from prometheus_client import Counter
 from starlette.requests import Request
 from starlette.responses import JSONResponse
 
@@ -30,9 +32,15 @@ ENTITIES_TABLE = "memory_entities"
 RELATIONS_TABLE = "memory_relations"
 OLLAMA_CHAT = os.environ.get("OLLAMA_CHAT_URL", "http://localhost:11434/api/chat")
 # Small, fast, installed — entity/relation extraction runs on every write.
-EXTRACT_MODEL = os.environ.get("MEMORY_EXTRACT_MODEL", "gemma4:e4b-it-q4_K_M")
+EXTRACT_MODEL = os.environ.get("MEMORY_EXTRACT_MODEL", "gemma4:e4b-it-qat-ctx8k")
 _MAX_NODES = int(os.environ.get("MEMORY_GRAPH_MAX_NODES", "200"))
 _NAME_RE = re.compile(r"^[^'\"\\]{1,200}$")
+logger = logging.getLogger(__name__)
+_EXTRACT_FAILURES = Counter(
+    "portal5_memory_extract_failures",
+    "Graph-memory extraction failures by reason.",
+    ("reason",),
+)
 
 _db: Any = None
 _tables: dict[str, Any] = {}
@@ -182,7 +190,25 @@ async def _extract(text: str) -> dict[str, Any]:
             "entities": [_norm_entity(e) for e in data.get("entities", []) or []],
             "relations": [_norm_relation(r) for r in data.get("relations", []) or []],
         }
-    except Exception:  # extraction is best-effort; the write still succeeds
+    except Exception as exc:  # extraction is best-effort; the write still succeeds
+        status = (
+            exc.response.status_code if isinstance(exc, httpx.HTTPStatusError) else "unavailable"
+        )
+        if isinstance(exc, httpx.HTTPStatusError):
+            reason = f"http_{status}"
+        elif isinstance(exc, httpx.TimeoutException):
+            reason = "timeout"
+        elif isinstance(exc, (json.JSONDecodeError, KeyError, ValueError)):
+            reason = "invalid_response"
+        else:
+            reason = "request_error"
+        logger.warning(
+            "Graph-memory extraction failed model=%s status=%s reason=%s",
+            EXTRACT_MODEL,
+            status,
+            reason,
+        )
+        _EXTRACT_FAILURES.labels(reason=reason).inc()
         return {"entities": [], "relations": []}
 
 
