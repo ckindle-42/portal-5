@@ -51,6 +51,12 @@ def _upload(path: Path) -> dict[str, str]:
             r = client.post(
                 f"{_owui_url()}/api/v1/files/",
                 headers={"Authorization": f"Bearer {api_key}"},
+                # process=false: this upload only mints a download link. With
+                # OWUI's default (process=true) every generated audio file was
+                # transcribed and every document chunked + embedded into OWUI's
+                # vector store as a side effect (TASK_EMBEDDINGGEMMA2_PLATFORM_V1
+                # F-PUBLISH).
+                params={"process": "false"},
                 files={"file": (path.name, path.read_bytes(), ctype)},
             )
         r.raise_for_status()
