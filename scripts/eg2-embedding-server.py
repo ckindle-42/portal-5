@@ -109,6 +109,7 @@ class SentenceTransformersBackend:
             model_kwargs={"torch_dtype": dtype},
             config_kwargs=_config_kwargs(modalities),
         )
+        self._torch, self._device = torch, device
         self._identity = ec.Identity(
             model=model_id,
             revision=_resolve_revision(model_id),
@@ -122,19 +123,33 @@ class SentenceTransformersBackend:
     def identity(self) -> ec.Identity:
         return self._identity
 
+    def _release(self) -> None:
+        # The MPS caching allocator keeps every buffer it has ever handed out (a new size per
+        # padded batch shape) and never returns it to the OS: a long seed run grew this
+        # process to 55 GB and, with :8917 doing the same, ran the Mac out of swap into a
+        # watchdog reset (2026-10-07 13:29). Free the cache after every encode.
+        if self._device == "mps":
+            self._torch.mps.empty_cache()
+
     def encode_texts(self, texts: list[str]) -> list[list[float]]:
-        out = self._model.encode(
-            texts, batch_size=MAX_BATCH, normalize_embeddings=True, convert_to_numpy=True
-        )
+        try:
+            out = self._model.encode(
+                texts, batch_size=MAX_BATCH, normalize_embeddings=True, convert_to_numpy=True
+            )
+        finally:
+            self._release()
         return [list(map(float, row)) for row in out]
 
     def encode_items(self, items: list[dict[str, Any]]) -> list[list[float]]:
         rows = []
-        for it in items:
-            v = self._model.encode(
-                _to_st_input(it), normalize_embeddings=True, convert_to_numpy=True
-            )
-            rows.append(list(map(float, v)))
+        try:
+            for it in items:
+                v = self._model.encode(
+                    _to_st_input(it), normalize_embeddings=True, convert_to_numpy=True
+                )
+                rows.append(list(map(float, v)))
+        finally:
+            self._release()
         return rows
 
 

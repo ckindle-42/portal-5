@@ -51,6 +51,14 @@ parser.add_argument(
 )
 args, _ = parser.parse_known_args()
 
+# Texts per generate() call, and the MLX buffer cache kept between calls. Without both,
+# MLX caches a Metal buffer for every padded batch shape it has seen and never frees it:
+# five 32-text batches took this process from 0.04 to 13 GB, and a bully seed run took it
+# to 57 GB, which (with :8946 doing the same) exhausted swap into a watchdog reset
+# (2026-10-07 13:29).
+MICRO_BATCH = max(1, int(os.environ.get("EMBEDDING_MLX_MICRO_BATCH", "8")))
+CACHE_LIMIT_BYTES = int(os.environ.get("EMBEDDING_MLX_CACHE_LIMIT_MB", "512")) * 1024 * 1024
+
 _model = None
 _processor = None
 
@@ -58,8 +66,10 @@ _processor = None
 def _ensure_loaded():
     global _model, _processor
     if _model is None:
+        import mlx.core as mx  # noqa: PLC0415
         from mlx_embeddings import load
 
+        mx.set_cache_limit(CACHE_LIMIT_BYTES)
         log.info(f"Loading MLX embedding model: {args.model}")
         _model, _processor = load(args.model)
         log.info("MLX embedding model loaded")
@@ -103,18 +113,24 @@ async def create_embeddings(req: EmbeddingRequest):
     try:
         # Direct call on the event loop -- NO run_in_executor (the pattern that
         # crashed MPS in the CPU server's thread pool).
-        output = generate(model, processor, texts=texts)
-        if hasattr(output, "text_embeds"):
-            vectors = mx.array(output.text_embeds).tolist()
-        elif hasattr(output, "last_hidden_state"):
-            vectors = mx.array(output.last_hidden_state[:, -1, :]).tolist()
-        else:
-            raise RuntimeError(
-                f"MLX embedding output has no text_embeds/last_hidden_state; got: {dir(output)}"
-            )
+        vectors = []
+        for s in range(0, len(texts), MICRO_BATCH):
+            output = generate(model, processor, texts=texts[s : s + MICRO_BATCH])
+            if hasattr(output, "text_embeds"):
+                vectors.extend(mx.array(output.text_embeds).tolist())
+            elif hasattr(output, "last_hidden_state"):
+                vectors.extend(mx.array(output.last_hidden_state[:, -1, :]).tolist())
+            else:
+                raise RuntimeError(
+                    f"MLX embedding output has no text_embeds/last_hidden_state; got: {dir(output)}"
+                )
+            del output
+            mx.clear_cache()
     except Exception as e:
         log.error(f"Embedding error: {e}")
         raise HTTPException(status_code=500, detail=str(e)) from e
+    finally:
+        mx.clear_cache()
 
     elapsed = time.perf_counter() - t0
     log.info(f"Embedded {len(texts)} text(s) in {elapsed:.3f}s")
