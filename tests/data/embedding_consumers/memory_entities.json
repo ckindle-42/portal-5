@@ -1,0 +1,247 @@
+{
+ "_provenance": "authored by Claude Sonnet 5.5 in session 018aJ1P8 on 2026-10-07 (prompt: write paraphrase-duplicate / related-distinct / unrelated memory pairs; and alias/distinct entity-name pairs for a graph-memory evaluation); not derived from real user data; plus live entity names are read at probe time from the memory MCP when reachable",
+ "aliases": [
+  {
+   "a": "LS Power",
+   "b": "LS Power Grid"
+  },
+  {
+   "a": "CIP-007",
+   "b": "CIP-007-6"
+  },
+  {
+   "a": "NERC",
+   "b": "North American Electric Reliability Corporation"
+  },
+  {
+   "a": "Proxmox",
+   "b": "Proxmox VE"
+  },
+  {
+   "a": "OWUI",
+   "b": "Open WebUI"
+  },
+  {
+   "a": "Ollama",
+   "b": "ollama server"
+  },
+  {
+   "a": "Synology NAS",
+   "b": "Synology DiskStation"
+  },
+  {
+   "a": "Conway",
+   "b": "Conway, Arkansas"
+  },
+  {
+   "a": "Priya",
+   "b": "Priya (manager)"
+  },
+  {
+   "a": "Dana",
+   "b": "Dana Kindle"
+  },
+  {
+   "a": "the Shockers",
+   "b": "Wichita State Shockers"
+  },
+  {
+   "a": "Little Rock half marathon",
+   "b": "Little Rock Half"
+  },
+  {
+   "a": "UniFi gateway",
+   "b": "Ubiquiti UniFi Dream Machine"
+  },
+  {
+   "a": "Mistral",
+   "b": "Mistral AI"
+  },
+  {
+   "a": "MITRE ATT&CK",
+   "b": "ATT&CK framework"
+  },
+  {
+   "a": "Splunk",
+   "b": "Splunk Enterprise"
+  },
+  {
+   "a": "CIP-005",
+   "b": "CIP-005-7"
+  },
+  {
+   "a": "Active Directory",
+   "b": "AD"
+  },
+  {
+   "a": "Home Assistant",
+   "b": "HA"
+  },
+  {
+   "a": "the food bank",
+   "b": "Conway food bank"
+  },
+  {
+   "a": "Subaru Outback",
+   "b": "2019 Outback"
+  },
+  {
+   "a": "ThinkPad X1",
+   "b": "ThinkPad X1 Carbon"
+  },
+  {
+   "a": "Gloria Hendricks",
+   "b": "Gloria H."
+  },
+  {
+   "a": "Kubernetes",
+   "b": "k8s"
+  },
+  {
+   "a": "PostgreSQL",
+   "b": "Postgres"
+  },
+  {
+   "a": "GitHub",
+   "b": "github.com"
+  },
+  {
+   "a": "EACMS",
+   "b": "Electronic Access Control or Monitoring Systems"
+  },
+  {
+   "a": "BES Cyber System",
+   "b": "BCS"
+  },
+  {
+   "a": "Wichita",
+   "b": "Wichita, Kansas"
+  },
+  {
+   "a": "Maya",
+   "b": "Maya (daughter)"
+  }
+ ],
+ "distinct": [
+  {
+   "a": "CIP-007",
+   "b": "CIP-005"
+  },
+  {
+   "a": "Conway",
+   "b": "Conwy"
+  },
+  {
+   "a": "Priya",
+   "b": "Dana"
+  },
+  {
+   "a": "Mistral",
+   "b": "Mixtral"
+  },
+  {
+   "a": "Proxmox",
+   "b": "VMware"
+  },
+  {
+   "a": "Splunk",
+   "b": "Elastic"
+  },
+  {
+   "a": "Biscuit",
+   "b": "Pixel"
+  },
+  {
+   "a": "Denver",
+   "b": "Dallas"
+  },
+  {
+   "a": "Maya",
+   "b": "Leo"
+  },
+  {
+   "a": "Tulsa",
+   "b": "Wichita"
+  },
+  {
+   "a": "NERC",
+   "b": "FERC"
+  },
+  {
+   "a": "Little Rock",
+   "b": "Little Rock Central High"
+  },
+  {
+   "a": "UniFi",
+   "b": "Unifi Mobile"
+  },
+  {
+   "a": "Ollama",
+   "b": "Llama"
+  },
+  {
+   "a": "Synology",
+   "b": "Qnap"
+  },
+  {
+   "a": "CIP-010",
+   "b": "CIP-013"
+  },
+  {
+   "a": "Open WebUI",
+   "b": "LibreChat"
+  },
+  {
+   "a": "Gloria Hendricks",
+   "b": "Gloria Estefan"
+  },
+  {
+   "a": "Kubernetes",
+   "b": "Docker Swarm"
+  },
+  {
+   "a": "Subaru Outback",
+   "b": "Subaru Forester"
+  },
+  {
+   "a": "HA",
+   "b": "HAProxy"
+  },
+  {
+   "a": "AD",
+   "b": "Azure AD"
+  },
+  {
+   "a": "LS Power",
+   "b": "LS Cable"
+  },
+  {
+   "a": "Obsidian",
+   "b": "Notion"
+  },
+  {
+   "a": "Japan",
+   "b": "Jordan"
+  },
+  {
+   "a": "Spanish",
+   "b": "Spain"
+  },
+  {
+   "a": "Shockers",
+   "b": "Wildcats"
+  },
+  {
+   "a": "Home Assistant",
+   "b": "Home Depot"
+  },
+  {
+   "a": "ThinkPad",
+   "b": "MacBook"
+  },
+  {
+   "a": "PostgreSQL",
+   "b": "MySQL"
+  }
+ ]
+}

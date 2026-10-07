@@ -12,6 +12,16 @@ _MODULES = (
     "tool_preselect",
     "wiki_search",
     "attack_mapping",
+    "harmful_intent",
+    "memory",
+    "refusal_classifier",
+    "security_text",
+    "hygiene",
+    "compliance",
+    "bully",
+    "seccode",
+    "rag",
+    "media",
 )
 
 for _m in _MODULES:

@@ -936,17 +936,65 @@ surfaces:
   globs:
   - tests/benchmarks/embedding_consumers/framework.py
   unit: unit-design-embedding-consumers-harness
+- name: file-tests-benchmarks-embedding_consumers-gen_media
+  globs:
+  - tests/benchmarks/embedding_consumers/gen_media.py
+  unit: unit-design-embedding-consumers-harness
 - name: file-tests-benchmarks-embedding_consumers-probes-__init__
   globs:
   - tests/benchmarks/embedding_consumers/probes/__init__.py
+  unit: unit-design-embedding-consumers-harness
+- name: file-tests-benchmarks-embedding_consumers-probes-_common
+  globs:
+  - tests/benchmarks/embedding_consumers/probes/_common.py
   unit: unit-design-embedding-consumers-harness
 - name: file-tests-benchmarks-embedding_consumers-probes-attack_mapping
   globs:
   - tests/benchmarks/embedding_consumers/probes/attack_mapping.py
   unit: unit-design-embedding-consumers-harness
+- name: file-tests-benchmarks-embedding_consumers-probes-bully
+  globs:
+  - tests/benchmarks/embedding_consumers/probes/bully.py
+  unit: unit-design-embedding-consumers-harness
+- name: file-tests-benchmarks-embedding_consumers-probes-compliance
+  globs:
+  - tests/benchmarks/embedding_consumers/probes/compliance.py
+  unit: unit-design-embedding-consumers-harness
+- name: file-tests-benchmarks-embedding_consumers-probes-harmful_intent
+  globs:
+  - tests/benchmarks/embedding_consumers/probes/harmful_intent.py
+  unit: unit-design-embedding-consumers-harness
+- name: file-tests-benchmarks-embedding_consumers-probes-hygiene
+  globs:
+  - tests/benchmarks/embedding_consumers/probes/hygiene.py
+  unit: unit-design-embedding-consumers-harness
+- name: file-tests-benchmarks-embedding_consumers-probes-media
+  globs:
+  - tests/benchmarks/embedding_consumers/probes/media.py
+  unit: unit-design-embedding-consumers-harness
+- name: file-tests-benchmarks-embedding_consumers-probes-memory
+  globs:
+  - tests/benchmarks/embedding_consumers/probes/memory.py
+  unit: unit-design-embedding-consumers-harness
+- name: file-tests-benchmarks-embedding_consumers-probes-rag
+  globs:
+  - tests/benchmarks/embedding_consumers/probes/rag.py
+  unit: unit-design-embedding-consumers-harness
+- name: file-tests-benchmarks-embedding_consumers-probes-refusal_classifier
+  globs:
+  - tests/benchmarks/embedding_consumers/probes/refusal_classifier.py
+  unit: unit-design-embedding-consumers-harness
 - name: file-tests-benchmarks-embedding_consumers-probes-router
   globs:
   - tests/benchmarks/embedding_consumers/probes/router.py
+  unit: unit-design-embedding-consumers-harness
+- name: file-tests-benchmarks-embedding_consumers-probes-seccode
+  globs:
+  - tests/benchmarks/embedding_consumers/probes/seccode.py
+  unit: unit-design-embedding-consumers-harness
+- name: file-tests-benchmarks-embedding_consumers-probes-security_text
+  globs:
+  - tests/benchmarks/embedding_consumers/probes/security_text.py
   unit: unit-design-embedding-consumers-harness
 - name: file-tests-benchmarks-embedding_consumers-probes-tool_preselect
   globs:

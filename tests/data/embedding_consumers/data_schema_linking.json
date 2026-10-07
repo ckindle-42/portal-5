@@ -1,0 +1,287 @@
+{
+ "_provenance": "authored by Claude Sonnet 5.5 in session 018aJ1P8 on 2026-10-07 (prompt: invent five small analytics tables with sample values, then write questions whose phrasing avoids the column names)",
+ "columns": {
+  "orders.order_id": "1001, 1002, 1003",
+  "orders.customer_id": "C-204, C-117, C-330",
+  "orders.order_date": "2026-01-14, 2026-02-02, 2026-02-19",
+  "orders.total_amount": "249.90, 18.50, 1320.00",
+  "orders.status": "shipped, pending, refunded",
+  "orders.shipping_country": "US, DE, JP",
+  "orders.discount_code": "WINTER10, NONE, VIP25",
+  "customers.customer_id": "C-204, C-117, C-330",
+  "customers.full_name": "Ada Ortiz, Ben Lau, Chloe Dray",
+  "customers.signup_date": "2023-05-02, 2024-11-19, 2025-07-30",
+  "customers.email": "ada@example.com, ben@example.org",
+  "customers.loyalty_tier": "gold, silver, bronze",
+  "customers.birth_year": "1988, 1994, 1976",
+  "customers.city": "Austin, Berlin, Osaka",
+  "products.sku": "KB-100, MS-220, MN-340",
+  "products.product_name": "mechanical keyboard, wireless mouse, 27 inch monitor",
+  "products.unit_price": "89.00, 34.99, 329.00",
+  "products.stock_on_hand": "120, 0, 18",
+  "products.category": "peripherals, displays, cables",
+  "products.supplier": "Keycorp, ViewTech, CableWorks",
+  "products.weight_kg": "0.9, 0.1, 5.2",
+  "tickets.ticket_id": "T-9001, T-9002",
+  "tickets.opened_at": "2026-03-01 09:14, 2026-03-02 17:40",
+  "tickets.closed_at": "2026-03-01 11:02, NULL",
+  "tickets.priority": "low, high, urgent",
+  "tickets.agent_name": "Priya, Marcus, Jo",
+  "tickets.satisfaction_score": "5, 3, 1",
+  "tickets.issue_category": "billing, login, delivery",
+  "sensors.sensor_id": "PT-101, TT-205, FT-310",
+  "sensors.reading_time": "2026-04-01 00:00:05, 2026-04-01 00:00:10",
+  "sensors.pressure_kpa": "101.3, 99.8, 250.1",
+  "sensors.temperature_c": "21.4, 85.0, -4.2",
+  "sensors.flow_lpm": "12.5, 0.0, 88.1",
+  "sensors.site": "Plant-North, Plant-South, Depot",
+  "sensors.alarm_state": "normal, high, low"
+ },
+ "questions": [
+  {
+   "question": "how much money did we make from each shipment on average",
+   "gold": [
+    "orders.total_amount"
+   ]
+  },
+  {
+   "question": "which nations do our parcels go to",
+   "gold": [
+    "orders.shipping_country"
+   ]
+  },
+  {
+   "question": "are there any promo coupons people redeemed",
+   "gold": [
+    "orders.discount_code"
+   ]
+  },
+  {
+   "question": "what day did the buyer place the purchase",
+   "gold": [
+    "orders.order_date"
+   ]
+  },
+  {
+   "question": "has this purchase been sent out yet",
+   "gold": [
+    "orders.status"
+   ]
+  },
+  {
+   "question": "who are our most loyal shoppers by membership level",
+   "gold": [
+    "customers.loyalty_tier"
+   ]
+  },
+  {
+   "question": "how old are the people who bought from us",
+   "gold": [
+    "customers.birth_year"
+   ]
+  },
+  {
+   "question": "when did each person first join us",
+   "gold": [
+    "customers.signup_date"
+   ]
+  },
+  {
+   "question": "which towns do our shoppers live in",
+   "gold": [
+    "customers.city"
+   ]
+  },
+  {
+   "question": "how can we contact the buyer by mail",
+   "gold": [
+    "customers.email"
+   ]
+  },
+  {
+   "question": "what are the names of the people on the list",
+   "gold": [
+    "customers.full_name"
+   ]
+  },
+  {
+   "question": "how many units of each item are left in the warehouse",
+   "gold": [
+    "products.stock_on_hand"
+   ]
+  },
+  {
+   "question": "what does one item cost",
+   "gold": [
+    "products.unit_price"
+   ]
+  },
+  {
+   "question": "who makes the goods we sell",
+   "gold": [
+    "products.supplier"
+   ]
+  },
+  {
+   "question": "which things are heaviest to ship",
+   "gold": [
+    "products.weight_kg"
+   ]
+  },
+  {
+   "question": "what kind of goods do we stock",
+   "gold": [
+    "products.category"
+   ]
+  },
+  {
+   "question": "what are the goods called",
+   "gold": [
+    "products.product_name"
+   ]
+  },
+  {
+   "question": "how long did it take support to resolve each problem",
+   "gold": [
+    "tickets.opened_at",
+    "tickets.closed_at"
+   ]
+  },
+  {
+   "question": "are customers happy with the help they got",
+   "gold": [
+    "tickets.satisfaction_score"
+   ]
+  },
+  {
+   "question": "which staff member handled the case",
+   "gold": [
+    "tickets.agent_name"
+   ]
+  },
+  {
+   "question": "how urgent was the request",
+   "gold": [
+    "tickets.priority"
+   ]
+  },
+  {
+   "question": "what were people complaining about",
+   "gold": [
+    "tickets.issue_category"
+   ]
+  },
+  {
+   "question": "which cases are still unresolved",
+   "gold": [
+    "tickets.closed_at"
+   ]
+  },
+  {
+   "question": "what was the pipe pressure at each moment",
+   "gold": [
+    "sensors.pressure_kpa"
+   ]
+  },
+  {
+   "question": "how hot did the equipment get",
+   "gold": [
+    "sensors.temperature_c"
+   ]
+  },
+  {
+   "question": "how fast was liquid moving through the line",
+   "gold": [
+    "sensors.flow_lpm"
+   ]
+  },
+  {
+   "question": "which facility produced the measurement",
+   "gold": [
+    "sensors.site"
+   ]
+  },
+  {
+   "question": "did any instrument go into an alert condition",
+   "gold": [
+    "sensors.alarm_state"
+   ]
+  },
+  {
+   "question": "when was each measurement taken",
+   "gold": [
+    "sensors.reading_time"
+   ]
+  },
+  {
+   "question": "which gauge reported the value",
+   "gold": [
+    "sensors.sensor_id"
+   ]
+  },
+  {
+   "question": "join purchases to the people who made them",
+   "gold": [
+    "orders.customer_id",
+    "customers.customer_id"
+   ]
+  },
+  {
+   "question": "what do we know about the sensors' physical locations",
+   "gold": [
+    "sensors.site"
+   ]
+  },
+  {
+   "question": "which refunds happened last quarter",
+   "gold": [
+    "orders.status",
+    "orders.order_date"
+   ]
+  },
+  {
+   "question": "who is the oldest shopper",
+   "gold": [
+    "customers.birth_year"
+   ]
+  },
+  {
+   "question": "what is the cheapest item in the catalogue",
+   "gold": [
+    "products.unit_price",
+    "products.product_name"
+   ]
+  },
+  {
+   "question": "which items are out of stock",
+   "gold": [
+    "products.stock_on_hand"
+   ]
+  },
+  {
+   "question": "what share of cases got a low rating",
+   "gold": [
+    "tickets.satisfaction_score"
+   ]
+  },
+  {
+   "question": "how many tickets were opened per day",
+   "gold": [
+    "tickets.opened_at"
+   ]
+  },
+  {
+   "question": "which orders had a coupon applied",
+   "gold": [
+    "orders.discount_code"
+   ]
+  },
+  {
+   "question": "what temperature spikes happened overnight",
+   "gold": [
+    "sensors.temperature_c",
+    "sensors.reading_time"
+   ]
+  }
+ ]
+}

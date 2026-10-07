@@ -1,0 +1,309 @@
+{
+ "_provenance": "authored by Claude Sonnet 5.5 in session 018aJ1P8 on 2026-10-07 (prompt: write companion-style user memories/turns for a memory-layer evaluation; queries written to share <=50% content words with the target memory); not derived from real user data",
+ "rows": [
+  {
+   "text": "I'm allergic to penicillin, so never suggest it.",
+   "durable": true
+  },
+  {
+   "text": "Remember that my daughter's name is Maya.",
+   "durable": true
+  },
+  {
+   "text": "I moved to Conway last month.",
+   "durable": true
+  },
+  {
+   "text": "My wife is expecting our second child in May.",
+   "durable": true
+  },
+  {
+   "text": "I'm vegetarian now, so skip any meat recipes.",
+   "durable": true
+  },
+  {
+   "text": "I work night shifts on Mondays and Tuesdays.",
+   "durable": true
+  },
+  {
+   "text": "For future reference, I use Python 3.12 on macOS.",
+   "durable": true
+  },
+  {
+   "text": "My dog's name is Biscuit and she is a greyhound.",
+   "durable": true
+  },
+  {
+   "text": "We just bought a house on Elm Street.",
+   "durable": true
+  },
+  {
+   "text": "I got promoted to senior engineer last week.",
+   "durable": true
+  },
+  {
+   "text": "I can't eat gluten because of celiac disease.",
+   "durable": true
+  },
+  {
+   "text": "My mother's birthday is on 9 October.",
+   "durable": true
+  },
+  {
+   "text": "Please call me Sam rather than Samuel.",
+   "durable": true
+  },
+  {
+   "text": "I'm training for a half marathon in March.",
+   "durable": true
+  },
+  {
+   "text": "I quit drinking eight months ago.",
+   "durable": true
+  },
+  {
+   "text": "My brother lives in Denver and flies for a living.",
+   "durable": true
+  },
+  {
+   "text": "I'm colour blind, so avoid red-green charts.",
+   "durable": true
+  },
+  {
+   "text": "Our team standup is at 9:15 every weekday.",
+   "durable": true
+  },
+  {
+   "text": "I'm learning Spanish and I'm at about B1.",
+   "durable": true
+  },
+  {
+   "text": "I graduated from Wichita State in 2011.",
+   "durable": true
+  },
+  {
+   "text": "My son has a peanut allergy.",
+   "durable": true
+  },
+  {
+   "text": "I switched to a standing desk because of back pain.",
+   "durable": true
+  },
+  {
+   "text": "Don't forget I'm travelling to Japan in April.",
+   "durable": true
+  },
+  {
+   "text": "I am the on-call engineer the week of the 20th.",
+   "durable": true
+  },
+  {
+   "text": "I prefer answers in metric units.",
+   "durable": true
+  },
+  {
+   "text": "My manager is Priya and she wants Friday written updates.",
+   "durable": true
+  },
+  {
+   "text": "My cat is fourteen and eats a kidney diet.",
+   "durable": true
+  },
+  {
+   "text": "We're planning to adopt another dog next year.",
+   "durable": true
+  },
+  {
+   "text": "I live in a duplex and share a wall with a noisy neighbour.",
+   "durable": true
+  },
+  {
+   "text": "I use Obsidian for all my notes.",
+   "durable": true
+  },
+  {
+   "text": "I get migraines from fluorescent lights.",
+   "durable": true
+  },
+  {
+   "text": "My partner and I celebrate our anniversary on June 3rd.",
+   "durable": true
+  },
+  {
+   "text": "I'm saving 60k for a down payment.",
+   "durable": true
+  },
+  {
+   "text": "I grew up in Wichita.",
+   "durable": true
+  },
+  {
+   "text": "I keep two beehives in the backyard.",
+   "durable": true
+  },
+  {
+   "text": "I'm afraid of heights.",
+   "durable": true
+  },
+  {
+   "text": "My home network runs UniFi gear.",
+   "durable": true
+  },
+  {
+   "text": "I take the 6:40 train every weekday.",
+   "durable": true
+  },
+  {
+   "text": "I only drink light roast coffee.",
+   "durable": true
+  },
+  {
+   "text": "I'm studying machine learning in an evening class.",
+   "durable": true
+  },
+  {
+   "text": "what's the weather like tomorrow",
+   "durable": false
+  },
+  {
+   "text": "thanks, that helps",
+   "durable": false
+  },
+  {
+   "text": "can you explain how DNS works",
+   "durable": false
+  },
+  {
+   "text": "write me a poem about autumn",
+   "durable": false
+  },
+  {
+   "text": "ok",
+   "durable": false
+  },
+  {
+   "text": "what is 15 times 12",
+   "durable": false
+  },
+  {
+   "text": "show me an example of a Python decorator",
+   "durable": false
+  },
+  {
+   "text": "great, now do the same for the second table",
+   "durable": false
+  },
+  {
+   "text": "how do I reverse a linked list",
+   "durable": false
+  },
+  {
+   "text": "summarize this paragraph",
+   "durable": false
+  },
+  {
+   "text": "who painted the Mona Lisa",
+   "durable": false
+  },
+  {
+   "text": "can you make that shorter",
+   "durable": false
+  },
+  {
+   "text": "is that correct?",
+   "durable": false
+  },
+  {
+   "text": "let's try a different approach",
+   "durable": false
+  },
+  {
+   "text": "explain the CAP theorem",
+   "durable": false
+  },
+  {
+   "text": "what's the difference between TCP and UDP",
+   "durable": false
+  },
+  {
+   "text": "give me five names for a coffee shop",
+   "durable": false
+  },
+  {
+   "text": "convert 70 fahrenheit to celsius",
+   "durable": false
+  },
+  {
+   "text": "how do I center a div",
+   "durable": false
+  },
+  {
+   "text": "hmm, I'm not sure that works",
+   "durable": false
+  },
+  {
+   "text": "rewrite this email to sound friendlier",
+   "durable": false
+  },
+  {
+   "text": "what year did the Berlin Wall fall",
+   "durable": false
+  },
+  {
+   "text": "list the planets in order",
+   "durable": false
+  },
+  {
+   "text": "tell me a joke about programmers",
+   "durable": false
+  },
+  {
+   "text": "how many ounces are in a pound",
+   "durable": false
+  },
+  {
+   "text": "fix the indentation in this code",
+   "durable": false
+  },
+  {
+   "text": "that was wrong, try again",
+   "durable": false
+  },
+  {
+   "text": "what does idempotent mean",
+   "durable": false
+  },
+  {
+   "text": "I wonder if the meeting will run long today.",
+   "durable": false
+  },
+  {
+   "text": "I think this approach is slow.",
+   "durable": false
+  },
+  {
+   "text": "This is annoying, the build failed again.",
+   "durable": false
+  },
+  {
+   "text": "I'm curious how rockets steer.",
+   "durable": false
+  },
+  {
+   "text": "Maybe we should look at the logs.",
+   "durable": false
+  },
+  {
+   "text": "I need to look at that chart again.",
+   "durable": false
+  },
+  {
+   "text": "Today I'm just debugging a flaky test.",
+   "durable": false
+  },
+  {
+   "text": "I am looking at this error message.",
+   "durable": false
+  }
+ ]
+}

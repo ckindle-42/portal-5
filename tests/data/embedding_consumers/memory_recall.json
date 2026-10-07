@@ -1,0 +1,351 @@
+{
+ "_provenance": "authored by Claude Sonnet 5.5 in session 018aJ1P8 on 2026-10-07 (prompt: write companion-style user memories/turns for a memory-layer evaluation; queries written to share <=50% content words with the target memory); not derived from real user data",
+ "memories": {
+  "m01": "The user's daughter Maya is starting kindergarten in September.",
+  "m02": "The user is allergic to shellfish and carries an epinephrine pen.",
+  "m03": "The user moved to Conway, Arkansas last month for a new job.",
+  "m04": "The user works as a protection engineer at a regional utility.",
+  "m05": "The user's dog is a rescue greyhound named Biscuit.",
+  "m06": "The user prefers metric units and 24-hour time.",
+  "m07": "The user is training for the Little Rock half marathon in March.",
+  "m08": "The user's wife Dana teaches high school chemistry.",
+  "m09": "The user drives a 2019 Subaru Outback with a failing wheel bearing.",
+  "m10": "The user is learning Spanish and practices every morning for 20 minutes.",
+  "m11": "The user's mother lives in Tulsa and has a knee replacement scheduled in November.",
+  "m12": "The user dislikes cilantro and avoids spicy food.",
+  "m13": "The user keeps a home lab with three Proxmox nodes and a Synology NAS.",
+  "m14": "The user's birthday is on 14 February.",
+  "m15": "The user is saving for a down payment on a house, target 60000 dollars.",
+  "m16": "The user plays acoustic guitar and is working on fingerstyle arrangements.",
+  "m17": "The user takes the 6:40 train into the city on weekdays.",
+  "m18": "The user's brother Theo is a pilot who lives in Denver.",
+  "m19": "The user is vegetarian except for fish on weekends.",
+  "m20": "The user uses a standing desk and gets migraines from fluorescent lighting.",
+  "m21": "The user's team is migrating a SCADA historian from Windows Server 2012 to 2022.",
+  "m22": "The user reads science fiction, currently halfway through The Dispossessed.",
+  "m23": "The user is planning a trip to Japan in April for two weeks.",
+  "m24": "The user's favourite coffee is a light roast Ethiopian pour-over.",
+  "m25": "The user has a standing Thursday call with their mentor at 4 pm.",
+  "m26": "The user's older laptop is a ThinkPad X1 Carbon with 16 GB of RAM.",
+  "m27": "The user is colour blind and cannot tell red from green reliably.",
+  "m28": "The user volunteers at the food bank on the first Saturday of the month.",
+  "m29": "The user's mortgage pre-approval expires at the end of the year.",
+  "m30": "The user is writing a conference talk on NERC CIP patch management evidence.",
+  "m31": "The user's son Leo has a peanut allergy and starts swim lessons on Tuesdays.",
+  "m32": "The user's preferred programming language is Python, with some Rust for tools.",
+  "m33": "The user suffers from seasonal allergies in spring, mostly oak pollen.",
+  "m34": "The user's partner and the user are planning to adopt a second dog next year.",
+  "m35": "The user is afraid of heights and avoids glass walkways.",
+  "m36": "The user's home network uses a UniFi gateway with VLANs for IoT and guests.",
+  "m37": "The user cooks Sunday dinner for the extended family every week.",
+  "m38": "The user gave up alcohol eight months ago.",
+  "m39": "The user's manager is named Priya and prefers written status updates on Fridays.",
+  "m40": "The user owns a telescope and photographs Saturn from the backyard.",
+  "m41": "The user's grandmother's recipe for pierogi is their signature dish.",
+  "m42": "The user is taking an evening course on machine learning at the community college.",
+  "m43": "The user needs to renew their passport before the Japan trip.",
+  "m44": "The user's car insurance renews in June with the premium around 1100 dollars.",
+  "m45": "The user wears glasses for astigmatism and gets an eye exam each August.",
+  "m46": "The user's cat Pixel is 14 years old and on kidney diet food.",
+  "m47": "The user is thinking of switching from Android to an iPhone.",
+  "m48": "The user has a bad left shoulder from a cycling accident two years ago.",
+  "m49": "The user's neighborhood association meets on the second Wednesday.",
+  "m50": "The user budgets 400 dollars a month for groceries.",
+  "m51": "The user is the on-call engineer the week of the 20th.",
+  "m52": "The user's wedding anniversary is 3 June, ten years this time.",
+  "m53": "The user avoids caffeine after 2 pm because of insomnia.",
+  "m54": "The user grew up in Wichita and still roots for the Shockers.",
+  "m55": "The user's tax accountant is named Gloria Hendricks.",
+  "m56": "The user keeps bees: two hives, harvest in late August.",
+  "m57": "The user uses Obsidian for notes and syncs it with a self-hosted server.",
+  "m58": "The user's daughter is learning to ride a bike without training wheels.",
+  "m59": "The user wants to repaint the living room a warm grey.",
+  "m60": "The user has a fear of flying only on turbulent flights."
+ },
+ "queries": [
+  {
+   "query": "what can I give Maya for her first day of school",
+   "gold": [
+    "m01"
+   ]
+  },
+  {
+   "query": "anything I should double check on a restaurant menu for me",
+   "gold": [
+    "m02"
+   ]
+  },
+  {
+   "query": "how long has it been since we relocated for the job",
+   "gold": [
+    "m03"
+   ]
+  },
+  {
+   "query": "suggest a talk topic that fits my day job in power systems",
+   "gold": [
+    "m04"
+   ]
+  },
+  {
+   "query": "what's a good name tag for the greyhound's collar",
+   "gold": [
+    "m05"
+   ]
+  },
+  {
+   "query": "give me tomorrow's schedule in the format I like",
+   "gold": [
+    "m06"
+   ]
+  },
+  {
+   "query": "plan a long run for next weekend for my race prep",
+   "gold": [
+    "m07"
+   ]
+  },
+  {
+   "query": "a gift idea for my spouse who teaches science",
+   "gold": [
+    "m08"
+   ]
+  },
+  {
+   "query": "why does the car hum when I turn right",
+   "gold": [
+    "m09"
+   ]
+  },
+  {
+   "query": "what should I study before my morning language session",
+   "gold": [
+    "m10"
+   ]
+  },
+  {
+   "query": "when do I need to be in Oklahoma to help my mom",
+   "gold": [
+    "m11"
+   ]
+  },
+  {
+   "query": "find a recipe for dinner that works with my taste",
+   "gold": [
+    "m12",
+    "m19"
+   ]
+  },
+  {
+   "query": "what's the best way to back up my homelab",
+   "gold": [
+    "m13"
+   ]
+  },
+  {
+   "query": "what day should the party be for the one with Valentine's",
+   "gold": [
+    "m14"
+   ]
+  },
+  {
+   "query": "how much more do I need before I can buy property",
+   "gold": [
+    "m15"
+   ]
+  },
+  {
+   "query": "recommend a song to arrange on the six string",
+   "gold": [
+    "m16"
+   ]
+  },
+  {
+   "query": "what time must I leave the house for work",
+   "gold": [
+    "m17"
+   ]
+  },
+  {
+   "query": "what's a good airline to book for visiting my sibling",
+   "gold": [
+    "m18"
+   ]
+  },
+  {
+   "query": "pick a restaurant for Saturday dinner",
+   "gold": [
+    "m19"
+   ]
+  },
+  {
+   "query": "which office lamp should I buy",
+   "gold": [
+    "m20"
+   ]
+  },
+  {
+   "query": "help me draft a cutover plan for the historian server upgrade",
+   "gold": [
+    "m21"
+   ]
+  },
+  {
+   "query": "recommend a novel similar to what I'm reading now",
+   "gold": [
+    "m22"
+   ]
+  },
+  {
+   "query": "make a packing list for my upcoming Asia vacation",
+   "gold": [
+    "m23",
+    "m43"
+   ]
+  },
+  {
+   "query": "what beans should I order",
+   "gold": [
+    "m24"
+   ]
+  },
+  {
+   "query": "prepare an agenda for my Thursday afternoon meeting",
+   "gold": [
+    "m25"
+   ]
+  },
+  {
+   "query": "is my current computer enough to run a local model",
+   "gold": [
+    "m26"
+   ]
+  },
+  {
+   "query": "check if this chart is readable for me",
+   "gold": [
+    "m27"
+   ]
+  },
+  {
+   "query": "when is my next shift handing out groceries",
+   "gold": [
+    "m28"
+   ]
+  },
+  {
+   "query": "what do I need to finalize before the lender paperwork lapses",
+   "gold": [
+    "m29"
+   ]
+  },
+  {
+   "query": "outline the slides for the speech I'm preparing",
+   "gold": [
+    "m30"
+   ]
+  },
+  {
+   "query": "what snacks are safe for my boy's swim practice",
+   "gold": [
+    "m31"
+   ]
+  },
+  {
+   "query": "which language should I write the new CLI in",
+   "gold": [
+    "m32"
+   ]
+  },
+  {
+   "query": "why are my eyes itchy this time of year",
+   "gold": [
+    "m33"
+   ]
+  },
+  {
+   "query": "what breed would suit a household that already has a greyhound",
+   "gold": [
+    "m34",
+    "m05"
+   ]
+  },
+  {
+   "query": "recommend a hike with good views",
+   "gold": [
+    "m35"
+   ]
+  },
+  {
+   "query": "how do I put the thermostat on a separate network segment",
+   "gold": [
+    "m36"
+   ]
+  },
+  {
+   "query": "what should I cook for the big family meal",
+   "gold": [
+    "m37",
+    "m41"
+   ]
+  },
+  {
+   "query": "suggest a nonalcoholic drink for the party",
+   "gold": [
+    "m38"
+   ]
+  },
+  {
+   "query": "how should I phrase the weekly update for my boss",
+   "gold": [
+    "m39"
+   ]
+  },
+  {
+   "query": "what's the best time to see the ringed planet this month",
+   "gold": [
+    "m40"
+   ]
+  },
+  {
+   "query": "what's the capital of Australia",
+   "gold": []
+  },
+  {
+   "query": "explain how a bloom filter works",
+   "gold": []
+  },
+  {
+   "query": "translate 'good morning' into German",
+   "gold": []
+  },
+  {
+   "query": "what's 17 percent of 2300",
+   "gold": []
+  },
+  {
+   "query": "write a haiku about rain",
+   "gold": []
+  },
+  {
+   "query": "how does TCP slow start work",
+   "gold": []
+  },
+  {
+   "query": "who won the 1998 World Cup",
+   "gold": []
+  },
+  {
+   "query": "summarize the French Revolution in three sentences",
+   "gold": []
+  },
+  {
+   "query": "what is the difference between a virus and a bacterium",
+   "gold": []
+  },
+  {
+   "query": "write a regex that matches IPv4 addresses",
+   "gold": []
+  }
+ ]
+}

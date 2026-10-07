@@ -1,0 +1,322 @@
+{
+ "_provenance": "authored by Claude Sonnet 5.5 in session 018aJ1P8 on 2026-10-07 (prompt: write analyst-style behaviour descriptions that name the technique's observable without using its ATT&CK name); technique ids exist in the corpus the MITRE MCP serves",
+ "rows": [
+  {
+   "behavior": "a service account suddenly requested many service tickets encrypted with the weak legacy cipher",
+   "technique_ids": [
+    "T1558.003"
+   ]
+  },
+  {
+   "behavior": "accounts without pre-authentication were asked for tickets and the replies were captured offline",
+   "technique_ids": [
+    "T1558.004"
+   ]
+  },
+  {
+   "behavior": "a workstation pretended to be a domain controller to pull password data replication",
+   "technique_ids": [
+    "T1003.006"
+   ]
+  },
+  {
+   "behavior": "one address tried the same few passwords across hundreds of different accounts",
+   "technique_ids": [
+    "T1110.003"
+   ]
+  },
+  {
+   "behavior": "someone hammered a single login with many wrong secrets in a row",
+   "technique_ids": [
+    "T1110.001"
+   ]
+  },
+  {
+   "behavior": "a job was registered to run a payload every morning on a Windows server",
+   "technique_ids": [
+    "T1053.005"
+   ]
+  },
+  {
+   "behavior": "a process read the memory of the local security authority to harvest secrets",
+   "technique_ids": [
+    "T1003.001"
+   ]
+  },
+  {
+   "behavior": "the directory database file was copied out with a built-in snapshot utility",
+   "technique_ids": [
+    "T1003.003"
+   ]
+  },
+  {
+   "behavior": "commands ran remotely through the management instrumentation interface",
+   "technique_ids": [
+    "T1047"
+   ]
+  },
+  {
+   "behavior": "a web request carried a path with dot-dot sequences to read system files",
+   "technique_ids": [
+    "T1083",
+    "T1190"
+   ]
+  },
+  {
+   "behavior": "a script landed in the web root and was invoked right after being written",
+   "technique_ids": [
+    "T1505.003"
+   ]
+  },
+  {
+   "behavior": "a new container appeared on the host from an unexpected image",
+   "technique_ids": [
+    "T1610"
+   ]
+  },
+  {
+   "behavior": "a container process touched the host's filesystem outside its mount",
+   "technique_ids": [
+    "T1611"
+   ]
+  },
+  {
+   "behavior": "a request from the application to the link-local address returned instance credentials",
+   "technique_ids": [
+    "T1552.005"
+   ]
+  },
+  {
+   "behavior": "a setuid program was run by an ordinary user to get a root shell",
+   "technique_ids": [
+    "T1548.001"
+   ]
+  },
+  {
+   "behavior": "remote interactive logons appeared from a machine that never connected before",
+   "technique_ids": [
+    "T1021.001"
+   ]
+  },
+  {
+   "behavior": "files were copied to the hidden administrative shares of another host",
+   "technique_ids": [
+    "T1021.002"
+   ]
+  },
+  {
+   "behavior": "the attacker authenticated with a captured hash rather than the cleartext secret",
+   "technique_ids": [
+    "T1550.002"
+   ]
+  },
+  {
+   "behavior": "name resolution poisoning tools answered broadcast lookups to capture credentials",
+   "technique_ids": [
+    "T1557.001"
+   ]
+  },
+  {
+   "behavior": "a new Windows service with a random name pointed at an odd binary",
+   "technique_ids": [
+    "T1543.003"
+   ]
+  },
+  {
+   "behavior": "push notifications for sign-in approval flooded one employee until they accepted",
+   "technique_ids": [
+    "T1621"
+   ]
+  },
+  {
+   "behavior": "the cloud console showed a sign in from an unusual country using a valid key",
+   "technique_ids": [
+    "T1078.004"
+   ]
+  },
+  {
+   "behavior": "a new access key and administrator policy were attached to an unfamiliar principal",
+   "technique_ids": [
+    "T1098"
+   ]
+  },
+  {
+   "behavior": "a large amount of data was read from object storage by a rarely used identity",
+   "technique_ids": [
+    "T1530"
+   ]
+  },
+  {
+   "behavior": "many describe and list calls enumerated the cloud account's resources",
+   "technique_ids": [
+    "T1526"
+   ]
+  },
+  {
+   "behavior": "a web page redirected visitors to a malicious site via injected script",
+   "technique_ids": [
+    "T1189"
+   ]
+  },
+  {
+   "behavior": "port sweeps and SNMP walks across a subnet from one internal host",
+   "technique_ids": [
+    "T1046"
+   ]
+  },
+  {
+   "behavior": "encoded commands were executed by the Windows scripting host with script block logging",
+   "technique_ids": [
+    "T1059.001"
+   ]
+  },
+  {
+   "behavior": "an interpreter was launched from a web server worker on a Linux target",
+   "technique_ids": [
+    "T1059.004"
+   ]
+  },
+  {
+   "behavior": "the attacker logged in using the factory default username and password",
+   "technique_ids": [
+    "T1078"
+   ]
+  },
+  {
+   "behavior": "an engineer's remote session pushed an unauthorised logic change to a controller",
+   "technique_ids": [
+    "T0843",
+    "T0889",
+    "T0821"
+   ]
+  },
+  {
+   "behavior": "an attacker switched a PLC from run mode to program mode",
+   "technique_ids": [
+    "T0858"
+   ]
+  },
+  {
+   "behavior": "operators lost their screens showing the process while the plant kept running",
+   "technique_ids": [
+    "T0829",
+    "T0815"
+   ]
+  },
+  {
+   "behavior": "safety instrumented functions were disabled before the incident",
+   "technique_ids": [
+    "T0837",
+    "T0880"
+   ]
+  },
+  {
+   "behavior": "alarms stopped being raised on the control system during the attack",
+   "technique_ids": [
+    "T0878",
+    "T0838"
+   ]
+  },
+  {
+   "behavior": "a malicious message pretending to come from the master station was sent to field devices",
+   "technique_ids": [
+    "T0848",
+    "T1692"
+   ]
+  },
+  {
+   "behavior": "firmware on a protection relay was replaced with a modified image",
+   "technique_ids": [
+    "T0800",
+    "T1693"
+   ]
+  },
+  {
+   "behavior": "a scan enumerated Modbus devices on the control network",
+   "technique_ids": [
+    "T0846",
+    "T0846.001"
+   ]
+  },
+  {
+   "behavior": "packets on the OT network were captured passively to learn the process",
+   "technique_ids": [
+    "T0842"
+   ]
+  },
+  {
+   "behavior": "a phishing mail with a project file attachment hit an engineering workstation",
+   "technique_ids": [
+    "T0865",
+    "T0873"
+   ]
+  },
+  {
+   "behavior": "vendor default passwords on a field device were used to log in",
+   "technique_ids": [
+    "T1694.001",
+    "T0859"
+   ]
+  },
+  {
+   "behavior": "an attacker proxied commands through a jump host into the control zone",
+   "technique_ids": [
+    "T0884",
+    "T0822"
+   ]
+  },
+  {
+   "behavior": "valve positions displayed to the operator were falsified",
+   "technique_ids": [
+    "T0832"
+   ]
+  },
+  {
+   "behavior": "the attacker stopped a process service on the historian to hide activity",
+   "technique_ids": [
+    "T0881"
+   ]
+  },
+  {
+   "behavior": "a removable drive carried an autorun payload into the plant network",
+   "technique_ids": [
+    "T0847",
+    "T0895"
+   ]
+  },
+  {
+   "behavior": "input and output values were forced to different values than the sensors read",
+   "technique_ids": [
+    "T0835",
+    "T0836"
+   ]
+  },
+  {
+   "behavior": "a wireless link to a remote site was attacked to gain access",
+   "technique_ids": [
+    "T0860"
+   ]
+  },
+  {
+   "behavior": "communications between the controller and the field bus were cut",
+   "technique_ids": [
+    "T0813",
+    "T1695"
+   ]
+  },
+  {
+   "behavior": "commands to a breaker were blocked so a trip could not be sent",
+   "technique_ids": [
+    "T1691.001",
+    "T0813"
+   ]
+  },
+  {
+   "behavior": "a trusted contractor's laptop introduced malware into the OT zone",
+   "technique_ids": [
+    "T0864",
+    "T0862"
+   ]
+  }
+ ]
+}

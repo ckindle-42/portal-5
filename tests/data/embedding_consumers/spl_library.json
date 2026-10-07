@@ -1,0 +1,255 @@
+{
+ "_provenance": "authored by Claude Sonnet 5.5 in session 018aJ1P8 on 2026-10-07 (prompt: write analyst-style behaviour descriptions that name the technique's observable without using its ATT&CK name); analyst phrasings over the SPL detection library technique ids",
+ "rows": [
+  {
+   "query": "forged ticket granting ticket usage on the domain",
+   "technique_ids": [
+    "T1558.003",
+    "T1558.004",
+    "T1550.002"
+   ]
+  },
+  {
+   "query": "service ticket requests for SPN accounts",
+   "technique_ids": [
+    "T1558.003"
+   ]
+  },
+  {
+   "query": "accounts that do not require preauth being roasted",
+   "technique_ids": [
+    "T1558.004"
+   ]
+  },
+  {
+   "query": "replication rights abused to dump hashes",
+   "technique_ids": [
+    "T1003.006"
+   ]
+  },
+  {
+   "query": "spraying one password across many users",
+   "technique_ids": [
+    "T1110.003"
+   ]
+  },
+  {
+   "query": "brute forcing a single account",
+   "technique_ids": [
+    "T1110.001"
+   ]
+  },
+  {
+   "query": "scheduled task created for persistence",
+   "technique_ids": [
+    "T1053.005"
+   ]
+  },
+  {
+   "query": "someone reading lsass memory",
+   "technique_ids": [
+    "T1003.001"
+   ]
+  },
+  {
+   "query": "ntds.dit copied off a domain controller",
+   "technique_ids": [
+    "T1003.003"
+   ]
+  },
+  {
+   "query": "registry hive extraction of local account hashes remotely",
+   "technique_ids": [
+    "T1003.002"
+   ]
+  },
+  {
+   "query": "WMI remote command execution",
+   "technique_ids": [
+    "T1047"
+   ]
+  },
+  {
+   "query": "webshell dropped and executed",
+   "technique_ids": [
+    "T1505.003"
+   ]
+  },
+  {
+   "query": "docker daemon starting an unknown image",
+   "technique_ids": [
+    "T1610"
+   ]
+  },
+  {
+   "query": "breakout from a container to the host",
+   "technique_ids": [
+    "T1611"
+   ]
+  },
+  {
+   "query": "metadata service SSRF",
+   "technique_ids": [
+    "T1552.005",
+    "T1552"
+   ]
+  },
+  {
+   "query": "setuid binary privilege escalation",
+   "technique_ids": [
+    "T1548.001"
+   ]
+  },
+  {
+   "query": "rdp logon from unusual machine",
+   "technique_ids": [
+    "T1021.001"
+   ]
+  },
+  {
+   "query": "admin share file copy",
+   "technique_ids": [
+    "T1021.002"
+   ]
+  },
+  {
+   "query": "pass the hash NTLM logon",
+   "technique_ids": [
+    "T1550.002"
+   ]
+  },
+  {
+   "query": "LLMNR poisoning with Responder",
+   "technique_ids": [
+    "T1557.001",
+    "T1557"
+   ]
+  },
+  {
+   "query": "new service installed with suspicious binary path",
+   "technique_ids": [
+    "T1543.003"
+   ]
+  },
+  {
+   "query": "MFA fatigue prompts",
+   "technique_ids": [
+    "T1621"
+   ]
+  },
+  {
+   "query": "cloud sign in with valid credentials from a new location",
+   "technique_ids": [
+    "T1078.004",
+    "T1078"
+   ]
+  },
+  {
+   "query": "IAM policy or key creation by an unusual identity",
+   "technique_ids": [
+    "T1098"
+   ]
+  },
+  {
+   "query": "bulk read of S3 or blob storage",
+   "technique_ids": [
+    "T1530"
+   ]
+  },
+  {
+   "query": "cloud resource enumeration through Describe and List",
+   "technique_ids": [
+    "T1526"
+   ]
+  },
+  {
+   "query": "port and service scanning",
+   "technique_ids": [
+    "T1046",
+    "T1595",
+    "T1592"
+   ]
+  },
+  {
+   "query": "encoded PowerShell commands",
+   "technique_ids": [
+    "T1059.001"
+   ]
+  },
+  {
+   "query": "shell spawned by a web server on Linux",
+   "technique_ids": [
+    "T1059.004",
+    "T1059"
+   ]
+  },
+  {
+   "query": "default credentials on a service",
+   "technique_ids": [
+    "T1078"
+   ]
+  },
+  {
+   "query": "path traversal reading system files",
+   "technique_ids": [
+    "T1083"
+   ]
+  },
+  {
+   "query": "log4j or SQL injection signatures in access logs",
+   "technique_ids": [
+    "T1190"
+   ]
+  },
+  {
+   "query": "kernel exploit for local privilege escalation",
+   "technique_ids": [
+    "T1068"
+   ]
+  },
+  {
+   "query": "binary overflow exploiting a network service",
+   "technique_ids": [
+    "T1203",
+    "T1210"
+   ]
+  },
+  {
+   "query": "SMB service exploitation for lateral movement",
+   "technique_ids": [
+    "T1210",
+    "T1021.002"
+   ]
+  },
+  {
+   "query": "reflected XSS and malicious redirect",
+   "technique_ids": [
+    "T1189"
+   ]
+  },
+  {
+   "query": "gathering host fingerprint info before attacking",
+   "technique_ids": [
+    "T1592"
+   ]
+  },
+  {
+   "query": "vulnerability scanner traffic and directory brute forcing",
+   "technique_ids": [
+    "T1595"
+   ]
+  },
+  {
+   "query": "exposed .env and .git files with credentials",
+   "technique_ids": [
+    "T1552"
+   ]
+  },
+  {
+   "query": "adversary in the middle on NTLM",
+   "technique_ids": [
+    "T1557"
+   ]
+  }
+ ]
+}

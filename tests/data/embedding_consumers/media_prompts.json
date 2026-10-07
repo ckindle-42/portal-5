@@ -1,0 +1,124 @@
+{
+ "_provenance": "prompts reuse tests/data/embedding_consumers/generation_dedup.json (authored by Claude Sonnet 5.5, session 018aJ1P8, 2026-10-07); edit instructions authored the same way",
+ "media": {
+  "images": [
+   {
+    "prompt": "a red fox sitting in fresh snow at sunrise, soft golden light",
+    "paraphrase": "a fox with a red coat resting on new snow while the dawn glows gold"
+   },
+   {
+    "prompt": "isometric illustration of a tiny cozy bookstore at night with warm windows",
+    "paraphrase": "a small snug book shop in isometric view, lit windows against the night"
+   },
+   {
+    "prompt": "a cyberpunk street market in the rain with neon signs reflected on wet asphalt",
+    "paraphrase": "rainy futuristic bazaar, neon lettering mirrored in the puddled pavement"
+   },
+   {
+    "prompt": "watercolor of a lighthouse on a cliff during a storm",
+    "paraphrase": "storm-battered lighthouse on a rocky headland painted in watercolour"
+   },
+   {
+    "prompt": "close-up macro photo of a dewdrop on a spider web at dawn",
+    "paraphrase": "dawn macro shot of a drop of dew hanging on a spiderweb"
+   },
+   {
+    "prompt": "an astronaut floating above a blue planet, cinematic lighting",
+    "paraphrase": "cinematic scene of a spacefarer drifting over a blue world"
+   },
+   {
+    "prompt": "a medieval castle on a hill surrounded by fog, matte painting",
+    "paraphrase": "matte painting of a castle on a misty hilltop in the middle ages"
+   },
+   {
+    "prompt": "a steaming bowl of ramen with a soft-boiled egg, overhead food photo",
+    "paraphrase": "top-down picture of hot ramen topped with a jammy egg"
+   },
+   {
+    "prompt": "pixel art of a knight fighting a dragon in a cave",
+    "paraphrase": "retro pixel-style knight battling a dragon inside a cavern"
+   },
+   {
+    "prompt": "a vintage red bicycle leaning on a blue door in a cobblestone alley",
+    "paraphrase": "old-fashioned crimson bike resting against an azure door on a cobbled lane"
+   },
+   {
+    "prompt": "an old man playing chess in a park in autumn",
+    "paraphrase": "elderly gentleman at a chessboard under autumn trees in a park"
+   },
+   {
+    "prompt": "aerial view of a winding river through a green valley",
+    "paraphrase": "bird's-eye shot of a river snaking across a verdant valley"
+   }
+  ],
+  "videos": [
+   {
+    "prompt": "slow drone shot over a coastal town at golden hour",
+    "paraphrase": "gentle drone flyover of a seaside town in golden-hour light"
+   },
+   {
+    "prompt": "time-lapse of clouds rolling over a desert canyon",
+    "paraphrase": "clouds time-lapsed drifting across a desert gorge"
+   },
+   {
+    "prompt": "a cat jumping onto a kitchen counter in slow motion",
+    "paraphrase": "slow-motion clip of a cat leaping up onto the kitchen worktop"
+   },
+   {
+    "prompt": "waves crashing on black sand beach, cinematic",
+    "paraphrase": "cinematic crashing surf on a dark volcanic beach"
+   },
+   {
+    "prompt": "a paper boat floating on a puddle with raindrops",
+    "paraphrase": "origami boat adrift on a rain-dotted puddle"
+   },
+   {
+    "prompt": "a child flying a kite on a windy hill",
+    "paraphrase": "kid with a kite on a gusty hillside"
+   }
+  ],
+  "music": [
+   {
+    "prompt": "lo-fi chill beat with soft piano and vinyl crackle",
+    "paraphrase": "mellow lofi track with gentle piano and record crackle"
+   },
+   {
+    "prompt": "epic orchestral trailer music with big drums and rising strings",
+    "paraphrase": "grand cinematic orchestral piece with booming percussion and swelling strings"
+   },
+   {
+    "prompt": "upbeat 80s synthwave with driving bass and arpeggios",
+    "paraphrase": "energetic eighties synth-wave track with a pulsing bassline and arps"
+   },
+   {
+    "prompt": "acoustic folk song about a long road home with harmonica",
+    "paraphrase": "folk tune on acoustic guitar and harmonica about the road back home"
+   },
+   {
+    "prompt": "jazz quartet playing a smoky late night club piece",
+    "paraphrase": "smoky after-hours jazz by a four-piece band"
+   },
+   {
+    "prompt": "ambient space music with slow evolving pads",
+    "paraphrase": "quiet cosmic soundscape made of long drifting synthesizer pads"
+   }
+  ],
+  "edits": [
+   {
+    "source_image_index": 0,
+    "instruction": "make it night time with a full moon",
+    "opposite": "make it a bright sunny afternoon"
+   },
+   {
+    "source_image_index": 3,
+    "instruction": "turn the sky orange and add a flock of birds",
+    "opposite": "turn the sky grey and add heavy rain"
+   },
+   {
+    "source_image_index": 7,
+    "instruction": "replace the soup with a plate of sushi",
+    "opposite": "add chopsticks and more broth"
+   }
+  ]
+ }
+}

@@ -83,7 +83,8 @@ async def run(ctx: ProbeContext) -> ProbeResult:
     result: dict[str, Any] = {"self_retrieval_by_title": self_ret}
     notes = []
     if QUERIES.is_file():
-        qs = json.loads(QUERIES.read_text())
+        raw = json.loads(QUERIES.read_text())
+        qs = raw["rows"] if isinstance(raw, dict) else raw
         result["natural_language"] = await _score(
             ctx, [q["query"] for q in qs], [q["expected_unit_ids"] for q in qs], docs, dim
         )

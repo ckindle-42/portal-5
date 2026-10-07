@@ -1,0 +1,125 @@
+{
+ "_provenance": "authored by Claude Sonnet 5.5 in session 018aJ1P8 on 2026-10-07; clips are TTS-rendered by the platform's mlx-speech (Kokoro) at probe time; transcripts by Parakeet via the mlx-transcribe MCP",
+ "rows": [
+  {
+   "text": "The breaker at the north substation tripped on overcurrent right after the storm.",
+   "query": "a protective device opened at the northern power station following severe weather",
+   "identifier": false
+  },
+  {
+   "text": "We need to reschedule the quarterly patch review to the second week of November.",
+   "query": "move the three-month update meeting to the middle of next month",
+   "identifier": false
+  },
+  {
+   "text": "The new analyst should shadow the incident response rotation for two weeks.",
+   "query": "have the junior person observe the on-call security team for a fortnight",
+   "identifier": false
+  },
+  {
+   "text": "Backups for the file server completed successfully but the offsite copy is lagging.",
+   "query": "the nightly copy finished yet the remote replica is behind",
+   "identifier": false
+  },
+  {
+   "text": "The vendor confirmed the firmware update fixes the intermittent communication fault.",
+   "query": "the supplier says the new software cures the sporadic link failures",
+   "identifier": false
+  },
+  {
+   "text": "Please remind everyone that badge access to the control room is reviewed every month.",
+   "query": "staff should know entry permissions for the operations center get audited monthly",
+   "identifier": false
+  },
+  {
+   "text": "The training budget for next year has been approved at forty thousand dollars.",
+   "query": "funding for courses in the coming year was signed off",
+   "identifier": false
+  },
+  {
+   "text": "A phishing email impersonating the payroll team reached about two hundred mailboxes.",
+   "query": "a fake message pretending to be from pay administration landed in many inboxes",
+   "identifier": false
+  },
+  {
+   "text": "Water temperature at the intake rose three degrees over the weekend.",
+   "query": "the cooling supply got warmer by a few degrees during Saturday and Sunday",
+   "identifier": false
+  },
+  {
+   "text": "The customer asked for a refund after the shipment arrived damaged.",
+   "query": "the buyer wants their money back since the parcel came broken",
+   "identifier": false
+  },
+  {
+   "text": "Our retention policy keeps security logs for ninety days online and a year in archive.",
+   "query": "log storage rules: three months hot and twelve months cold",
+   "identifier": false
+  },
+  {
+   "text": "The pump station alarm was acknowledged but the root cause is still unknown.",
+   "query": "the pumping facility alert was cleared by an operator without an explanation",
+   "identifier": false
+  },
+  {
+   "text": "The migration of the historian server will happen during the Sunday maintenance window.",
+   "query": "moving the data archive machine is planned for the weekend downtime",
+   "identifier": false
+  },
+  {
+   "text": "The conference talk on patch evidence got accepted and is scheduled for March.",
+   "query": "my presentation about proof of updates was approved for early spring",
+   "identifier": false
+  },
+  {
+   "text": "Someone left the cabinet door open and the humidity sensor flagged it.",
+   "query": "an unlatched enclosure triggered the moisture monitor",
+   "identifier": false
+  },
+  {
+   "text": "The load test showed the gateway handles about five thousand requests per second.",
+   "query": "benchmarking indicates the entry point manages roughly five thousand queries each second",
+   "identifier": false
+  },
+  {
+   "text": "Ticket T-9002 about the login failure was reopened by the customer this morning.",
+   "query": "the case numbered nine thousand two on sign-in problems came back to life today",
+   "identifier": true
+  },
+  {
+   "text": "The exploited vulnerability was CVE-2024-3094 in the compression library.",
+   "query": "the attacked flaw was the twenty twenty-four thirty ninety-four entry in the archiving software",
+   "identifier": true
+  },
+  {
+   "text": "Block traffic from 10.20.8.30 to the engineering subnet until further notice.",
+   "query": "stop packets from that ten dot twenty dot eight dot thirty host reaching the engineers' network",
+   "identifier": true
+  },
+  {
+   "text": "Rule CIP-007-6 R2 requires evaluating security patches within thirty five days.",
+   "query": "the seven dash six requirement two needs patch assessment inside five weeks",
+   "identifier": true
+  },
+  {
+   "text": "The relay model SEL-351 was updated to firmware version R400.",
+   "query": "the protection device SEL three five one received software revision R four hundred",
+   "identifier": true
+  },
+  {
+   "text": "Open change request CR-2231 for the firewall rule on port 8443.",
+   "query": "raise the modification ticket two two three one for the filter on eighty four forty three",
+   "identifier": true
+  },
+  {
+   "text": "The sensor tag PT-101 reported 101.3 kilopascals before the alarm.",
+   "query": "the instrument labelled P T one oh one read about a hundred one kilopascals before alerting",
+   "identifier": true
+  },
+  {
+   "text": "Invoice 40718 was paid on the fifteenth of September.",
+   "query": "bill number forty thousand seven hundred eighteen was settled mid September",
+   "identifier": true
+  }
+ ]
+}

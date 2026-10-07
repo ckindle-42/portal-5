@@ -1,0 +1,182 @@
+{
+ "_provenance": "authored by Claude Sonnet 5.5 in session 018aJ1P8 on 2026-10-07 (prompt: write image/video/music generation prompts, one paraphrase each that keeps the content but changes the wording, plus distinct prompts)",
+ "pairs": [
+  {
+   "id": 0,
+   "prompt": "a red fox sitting in fresh snow at sunrise, soft golden light",
+   "paraphrase": "a fox with a red coat resting on new snow while the dawn glows gold"
+  },
+  {
+   "id": 1,
+   "prompt": "isometric illustration of a tiny cozy bookstore at night with warm windows",
+   "paraphrase": "a small snug book shop in isometric view, lit windows against the night"
+  },
+  {
+   "id": 2,
+   "prompt": "a cyberpunk street market in the rain with neon signs reflected on wet asphalt",
+   "paraphrase": "rainy futuristic bazaar, neon lettering mirrored in the puddled pavement"
+  },
+  {
+   "id": 3,
+   "prompt": "watercolor of a lighthouse on a cliff during a storm",
+   "paraphrase": "storm-battered lighthouse on a rocky headland painted in watercolour"
+  },
+  {
+   "id": 4,
+   "prompt": "close-up macro photo of a dewdrop on a spider web at dawn",
+   "paraphrase": "dawn macro shot of a drop of dew hanging on a spiderweb"
+  },
+  {
+   "id": 5,
+   "prompt": "an astronaut floating above a blue planet, cinematic lighting",
+   "paraphrase": "cinematic scene of a spacefarer drifting over a blue world"
+  },
+  {
+   "id": 6,
+   "prompt": "a medieval castle on a hill surrounded by fog, matte painting",
+   "paraphrase": "matte painting of a castle on a misty hilltop in the middle ages"
+  },
+  {
+   "id": 7,
+   "prompt": "a steaming bowl of ramen with a soft-boiled egg, overhead food photo",
+   "paraphrase": "top-down picture of hot ramen topped with a jammy egg"
+  },
+  {
+   "id": 8,
+   "prompt": "pixel art of a knight fighting a dragon in a cave",
+   "paraphrase": "retro pixel-style knight battling a dragon inside a cavern"
+  },
+  {
+   "id": 9,
+   "prompt": "a vintage red bicycle leaning on a blue door in a cobblestone alley",
+   "paraphrase": "old-fashioned crimson bike resting against an azure door on a cobbled lane"
+  },
+  {
+   "id": 10,
+   "prompt": "a minimalist logo of a mountain and sun in two colours",
+   "paraphrase": "simple two-tone emblem showing a peak and the sun"
+  },
+  {
+   "id": 11,
+   "prompt": "an old man playing chess in a park in autumn",
+   "paraphrase": "elderly gentleman at a chessboard under autumn trees in a park"
+  },
+  {
+   "id": 12,
+   "prompt": "aerial view of a winding river through a green valley",
+   "paraphrase": "bird's-eye shot of a river snaking across a verdant valley"
+  },
+  {
+   "id": 13,
+   "prompt": "a robot barista making latte art in a futuristic cafe",
+   "paraphrase": "automaton making a latte design in a sci-fi coffee shop"
+  },
+  {
+   "id": 14,
+   "prompt": "a field of sunflowers under a stormy purple sky",
+   "paraphrase": "sunflowers filling a meadow beneath a violet thunderous sky"
+  },
+  {
+   "id": 15,
+   "prompt": "underwater scene with a sea turtle and sunbeams through the water",
+   "paraphrase": "a sea turtle swimming as light rays pierce the ocean"
+  },
+  {
+   "id": 16,
+   "prompt": "a snowy mountain cabin with smoke from the chimney, evening",
+   "paraphrase": "evening view of a cabin in the snowy mountains with chimney smoke"
+  },
+  {
+   "id": 17,
+   "prompt": "lo-fi chill beat with soft piano and vinyl crackle",
+   "paraphrase": "mellow lofi track with gentle piano and record crackle"
+  },
+  {
+   "id": 18,
+   "prompt": "epic orchestral trailer music with big drums and rising strings",
+   "paraphrase": "grand cinematic orchestral piece with booming percussion and swelling strings"
+  },
+  {
+   "id": 19,
+   "prompt": "upbeat 80s synthwave with driving bass and arpeggios",
+   "paraphrase": "energetic eighties synth-wave track with a pulsing bassline and arps"
+  },
+  {
+   "id": 20,
+   "prompt": "acoustic folk song about a long road home with harmonica",
+   "paraphrase": "folk tune on acoustic guitar and harmonica about the road back home"
+  },
+  {
+   "id": 21,
+   "prompt": "slow drone shot over a coastal town at golden hour",
+   "paraphrase": "gentle drone flyover of a seaside town in golden-hour light"
+  },
+  {
+   "id": 22,
+   "prompt": "time-lapse of clouds rolling over a desert canyon",
+   "paraphrase": "clouds time-lapsed drifting across a desert gorge"
+  },
+  {
+   "id": 23,
+   "prompt": "a cat jumping onto a kitchen counter in slow motion",
+   "paraphrase": "slow-motion clip of a cat leaping up onto the kitchen worktop"
+  },
+  {
+   "id": 24,
+   "prompt": "waves crashing on black sand beach, cinematic",
+   "paraphrase": "cinematic crashing surf on a dark volcanic beach"
+  },
+  {
+   "id": 25,
+   "prompt": "jazz quartet playing a smoky late night club piece",
+   "paraphrase": "smoky after-hours jazz by a four-piece band"
+  },
+  {
+   "id": 26,
+   "prompt": "a bustling night market in Taipei with steam and lanterns",
+   "paraphrase": "busy Taipei evening bazaar full of steam and paper lanterns"
+  },
+  {
+   "id": 27,
+   "prompt": "a paper boat floating on a puddle with raindrops",
+   "paraphrase": "origami boat adrift on a rain-dotted puddle"
+  },
+  {
+   "id": 28,
+   "prompt": "a child flying a kite on a windy hill",
+   "paraphrase": "kid with a kite on a gusty hillside"
+  }
+ ],
+ "distinct": [
+  "a detailed technical blueprint of a steam locomotive",
+  "a neon-lit boxing gym with a heavy bag in the foreground",
+  "portrait of a woman in a 1920s flapper dress, art deco style",
+  "a giant tree house village connected by rope bridges",
+  "a bowl of fresh strawberries with cream on a rustic table",
+  "the interior of a gothic cathedral with stained glass light",
+  "a samurai standing in a bamboo forest at dusk",
+  "a modern kitchen with marble countertops and pendant lights",
+  "a herd of elephants crossing a river in Africa",
+  "a futuristic motorcycle racing through a tunnel of light",
+  "stormy ocean waves hitting a ship's bow",
+  "a library with floor-to-ceiling shelves and a rolling ladder",
+  "a vaporwave sunset with palm trees and a grid horizon",
+  "a hummingbird feeding on a pink hibiscus",
+  "ambient space music with slow evolving pads",
+  "punk rock song with fast drums and shouted vocals",
+  "a skateboarder doing a kickflip in an empty pool",
+  "an abandoned amusement park overgrown with vines",
+  "a hot air balloon festival over a desert valley",
+  "macro shot of a snowflake on a dark glove",
+  "a cozy living room with a fireplace and a sleeping dog",
+  "a Viking longship sailing through fjords",
+  "bossa nova track with nylon guitar and brush drums",
+  "a chef flamb\u00e9ing in a busy restaurant kitchen",
+  "a retro diner at night with a neon sign",
+  "cherry blossoms drifting over a quiet temple pond",
+  "a mechanical clock with exposed gears close up",
+  "a wolf howling at a full moon on a ridge",
+  "an alien marketplace on a desert planet",
+  "trap beat with heavy 808s and hi-hat rolls"
+ ]
+}

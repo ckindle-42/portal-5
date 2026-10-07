@@ -59,10 +59,15 @@ def test_metrics() -> None:
 
 async def test_missing_probe_is_not_implemented_and_fails_gate() -> None:
     ctx = fw.ProbeContext(client=BagOfWordsClient())
-    res = await fw.run(["generation_dedup"], ctx)
-    assert res[0].status in (fw.NOT_IMPLEMENTED, fw.MEASURED, fw.BLOCKED)
-    if res[0].status == fw.NOT_IMPLEMENTED:
-        assert not fw.gate_ok(res)
+    res = await fw.run(["no_such_consumer"], ctx)
+    assert res[0].status == fw.NOT_IMPLEMENTED
+    assert not fw.gate_ok(res)
+
+
+def test_every_ledger_consumer_has_a_registered_probe() -> None:
+    from tests.benchmarks.embedding_consumers import probes  # noqa: F401  (registers probes)
+
+    assert sorted(set(fw.CONSUMER_IDS) - set(fw.registry())) == []
 
 
 @pytest.mark.parametrize("cid", ["tool_preselect", "attack_mapping", "wiki_search"])

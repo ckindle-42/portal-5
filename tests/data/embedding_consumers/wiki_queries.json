@@ -1,0 +1,302 @@
+{
+ "_provenance": "authored by Claude Sonnet 5.5 in session 018aJ1P8 on 2026-10-07 from unit titles/ids (paraphrase rule: <=50% content-word overlap with the target title, checked mechanically)",
+ "overlap_max": 0.67,
+ "overlap_mean": 0.2,
+ "rows": [
+  {
+   "query": "which server lets agents pull apart compiled executables",
+   "expected_unit_ids": [
+    "unit-capability-binresearch"
+   ]
+  },
+  {
+   "query": "how does the assistant drive a headless web page for me",
+   "expected_unit_ids": [
+    "unit-capability-browser"
+   ]
+  },
+  {
+   "query": "tool for turning a CAD model into a picture",
+   "expected_unit_ids": [
+    "unit-capability-cad-render"
+   ]
+  },
+  {
+   "query": "where do I find official control catalogs for power-grid security rules",
+   "expected_unit_ids": [
+    "unit-capability-compliance",
+    "unit-module-compliance"
+   ]
+  },
+  {
+   "query": "run SQL on a spreadsheet inside the chat without touching the network",
+   "expected_unit_ids": [
+    "unit-capability-data"
+   ]
+  },
+  {
+   "query": "convert detection rules between SIEM query dialects",
+   "expected_unit_ids": [
+    "unit-capability-detection",
+    "unit-module-detection"
+   ]
+  },
+  {
+   "query": "how does the platform create Word and PowerPoint files",
+   "expected_unit_ids": [
+    "unit-capability-documents",
+    "unit-module-documents"
+   ]
+  },
+  {
+   "query": "what runs untrusted code safely for the assistant",
+   "expected_unit_ids": [
+    "unit-capability-execution"
+   ]
+  },
+  {
+   "query": "where does the assistant remember facts about me between sessions",
+   "expected_unit_ids": [
+    "unit-capability-memory"
+   ]
+  },
+  {
+   "query": "how are pictures made locally on Apple chips",
+   "expected_unit_ids": [
+    "unit-capability-mflux",
+    "unit-module-image"
+   ]
+  },
+  {
+   "query": "lookup of adversary tactics by identifier",
+   "expected_unit_ids": [
+    "unit-capability-mitre"
+   ]
+  },
+  {
+   "query": "which component separates speakers in recorded audio",
+   "expected_unit_ids": [
+    "unit-capability-mlx-transcribe",
+    "unit-capability-whisper"
+   ]
+  },
+  {
+   "query": "generate a whole song with vocals from a prompt",
+   "expected_unit_ids": [
+    "unit-capability-music-minimax",
+    "unit-module-media"
+   ]
+  },
+  {
+   "query": "analyse packet captures with Wireshark's command line",
+   "expected_unit_ids": [
+    "unit-capability-netforensics",
+    "unit-module-netforensics"
+   ]
+  },
+  {
+   "query": "how can the assistant look at the stack's own health and source tree",
+   "expected_unit_ids": [
+    "unit-capability-pipeline"
+   ]
+  },
+  {
+   "query": "control virtual machines and containers in the lab",
+   "expected_unit_ids": [
+    "unit-capability-proxmox"
+   ]
+  },
+  {
+   "query": "build a searchable document library that also understands page images",
+   "expected_unit_ids": [
+    "unit-capability-rag"
+   ]
+  },
+  {
+   "query": "search the internet and fetch pages for answers",
+   "expected_unit_ids": [
+    "unit-capability-research",
+    "unit-module-research"
+   ]
+  },
+  {
+   "query": "which service scores how severe a software flaw is",
+   "expected_unit_ids": [
+    "unit-capability-security"
+   ]
+  },
+  {
+   "query": "code navigation by language server inside the editor",
+   "expected_unit_ids": [
+    "unit-capability-serena"
+   ]
+  },
+  {
+   "query": "record of what happened during each conversation turn",
+   "expected_unit_ids": [
+    "unit-capability-turn-trace"
+   ]
+  },
+  {
+   "query": "making short clips from text on the host GPU",
+   "expected_unit_ids": [
+    "unit-capability-video-mlx",
+    "unit-module-video"
+   ]
+  },
+  {
+   "query": "live feeds of exploited vulnerabilities and exploit probability",
+   "expected_unit_ids": [
+    "unit-capability-vulnintel",
+    "unit-module-vulnintel"
+   ]
+  },
+  {
+   "query": "how do agents query the knowledge base of project facts",
+   "expected_unit_ids": [
+    "unit-capability-wiki"
+   ]
+  },
+  {
+   "query": "why does a request to a local model sometimes get retried through the native protocol",
+   "expected_unit_ids": [
+    "unit-design-ollama-native-dispatch"
+   ]
+  },
+  {
+   "query": "how are docs tied to the code so they cannot go stale",
+   "expected_unit_ids": [
+    "unit-design-spine-drift-census"
+   ]
+  },
+  {
+   "query": "how are retired documentation pages kept but hidden",
+   "expected_unit_ids": [
+    "unit-design-wiki-archive-mechanism"
+   ]
+  },
+  {
+   "query": "list of every launch subcommand an operator can type",
+   "expected_unit_ids": [
+    "unit-fact-launch-commands"
+   ]
+  },
+  {
+   "query": "how many model entries does the catalogue hold per backend",
+   "expected_unit_ids": [
+    "unit-fact-model-catalog"
+   ]
+  },
+  {
+   "query": "how many characters can the assistant take on",
+   "expected_unit_ids": [
+    "unit-fact-persona-roster"
+   ]
+  },
+  {
+   "query": "which tools may each workspace call",
+   "expected_unit_ids": [
+    "unit-fact-tool-authorizations"
+   ]
+  },
+  {
+   "query": "every tool exposed by the servers and their count",
+   "expected_unit_ids": [
+    "unit-fact-tool-registry"
+   ]
+  },
+  {
+   "query": "which workspaces are production and which are evaluation only",
+   "expected_unit_ids": [
+    "unit-fact-workspace-roster"
+   ]
+  },
+  {
+   "query": "parametric solid modelling with a fallback to a scripting language",
+   "expected_unit_ids": [
+    "unit-module-cad"
+   ]
+  },
+  {
+   "query": "what the evaluation apparatus covers and why it is off by default",
+   "expected_unit_ids": [
+    "unit-module-eval"
+   ]
+  },
+  {
+   "query": "which base servers are always on regardless of module",
+   "expected_unit_ids": [
+    "unit-module-general"
+   ]
+  },
+  {
+   "query": "how do the red and blue team benchmark runs work",
+   "expected_unit_ids": [
+    "unit-module-security",
+    "unit-surface-sec-core"
+   ]
+  },
+  {
+   "query": "industrial protocol capture without sending packets",
+   "expected_unit_ids": [
+    "unit-module-icsot",
+    "unit-capability-icsot"
+   ]
+  },
+  {
+   "query": "how are requests spread to the right workspace and model",
+   "expected_unit_ids": [
+    "unit-surface-router"
+   ]
+  },
+  {
+   "query": "how does the operator command line tool type its commands",
+   "expected_unit_ids": [
+    "unit-surface-inference-cli"
+   ]
+  },
+  {
+   "query": "how do alerts get delivered over different channels",
+   "expected_unit_ids": [
+    "unit-surface-notifications"
+   ]
+  },
+  {
+   "query": "which tool exercises every character against every model to find gaps",
+   "expected_unit_ids": [
+    "unit-surface-persona-matrix"
+   ]
+  },
+  {
+   "query": "how does an agent retrieve knowledge and how is it maintained from the command line",
+   "expected_unit_ids": [
+    "unit-surface-portal-wiki"
+   ]
+  },
+  {
+   "query": "what automated checks drive the live acceptance runs",
+   "expected_unit_ids": [
+    "unit-surface-uat",
+    "unit-surface-uat-catalog"
+   ]
+  },
+  {
+   "query": "how do we measure how fast models generate and how well they route",
+   "expected_unit_ids": [
+    "unit-surface-benchmarks"
+   ]
+  },
+  {
+   "query": "where are the evidence and notebook structures for investigations",
+   "expected_unit_ids": [
+    "unit-surface-investigation"
+   ]
+  },
+  {
+   "query": "how is the Splunk connection isolated from the rest of the security code",
+   "expected_unit_ids": [
+    "unit-surface-siem"
+   ]
+  }
+ ]
+}

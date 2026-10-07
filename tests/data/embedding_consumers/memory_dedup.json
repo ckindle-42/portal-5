@@ -1,0 +1,305 @@
+{
+ "_provenance": "authored by Claude Sonnet 5.5 in session 018aJ1P8 on 2026-10-07 (prompt: write paraphrase-duplicate / related-distinct / unrelated memory pairs; and alias/distinct entity-name pairs for a graph-memory evaluation); not derived from real user data",
+ "pairs": [
+  {
+   "a": "The user has a dog named Biscuit.",
+   "b": "Their dog is called Biscuit.",
+   "label": "duplicate"
+  },
+  {
+   "a": "The user is allergic to shellfish.",
+   "b": "Shellfish gives the user an allergic reaction.",
+   "label": "duplicate"
+  },
+  {
+   "a": "The user moved to Conway last month.",
+   "b": "Last month the user relocated to Conway.",
+   "label": "duplicate"
+  },
+  {
+   "a": "The user's daughter is named Maya.",
+   "b": "Maya is the user's daughter.",
+   "label": "duplicate"
+  },
+  {
+   "a": "The user works as a protection engineer.",
+   "b": "The user's job is protection engineering.",
+   "label": "duplicate"
+  },
+  {
+   "a": "The user prefers metric units.",
+   "b": "The user likes to use the metric system.",
+   "label": "duplicate"
+  },
+  {
+   "a": "The user is training for a half marathon.",
+   "b": "The user is preparing to run a half marathon.",
+   "label": "duplicate"
+  },
+  {
+   "a": "The user's wife teaches chemistry.",
+   "b": "The user's wife is a chemistry teacher.",
+   "label": "duplicate"
+  },
+  {
+   "a": "The user takes the 6:40 train on weekdays.",
+   "b": "On weekdays the user catches the 6:40 train.",
+   "label": "duplicate"
+  },
+  {
+   "a": "The user is learning Spanish.",
+   "b": "The user is studying the Spanish language.",
+   "label": "duplicate"
+  },
+  {
+   "a": "The user does not drink alcohol.",
+   "b": "The user has stopped drinking alcohol.",
+   "label": "duplicate"
+  },
+  {
+   "a": "The user's birthday is February 14.",
+   "b": "The user was born on 14 February.",
+   "label": "duplicate"
+  },
+  {
+   "a": "The user plays acoustic guitar.",
+   "b": "The user is an acoustic guitar player.",
+   "label": "duplicate"
+  },
+  {
+   "a": "The user is colour blind.",
+   "b": "The user cannot see colours normally (colour blindness).",
+   "label": "duplicate"
+  },
+  {
+   "a": "The user's manager is Priya.",
+   "b": "Priya is the user's manager.",
+   "label": "duplicate"
+  },
+  {
+   "a": "The user keeps two beehives.",
+   "b": "The user has two hives of bees.",
+   "label": "duplicate"
+  },
+  {
+   "a": "The user owns a Synology NAS.",
+   "b": "A Synology NAS is part of the user's home lab.",
+   "label": "duplicate"
+  },
+  {
+   "a": "The user is vegetarian.",
+   "b": "The user does not eat meat.",
+   "label": "duplicate"
+  },
+  {
+   "a": "The user's cat is fourteen.",
+   "b": "The user has a fourteen year old cat.",
+   "label": "duplicate"
+  },
+  {
+   "a": "The user lives in Conway, Arkansas.",
+   "b": "The user's home is in Conway, Arkansas.",
+   "label": "duplicate"
+  },
+  {
+   "a": "The user has a dog named Biscuit.",
+   "b": "The user's dog Biscuit is afraid of thunderstorms.",
+   "label": "related"
+  },
+  {
+   "a": "The user is allergic to shellfish.",
+   "b": "The user is allergic to peanuts.",
+   "label": "related"
+  },
+  {
+   "a": "The user moved to Conway last month.",
+   "b": "The user moved to Conway in 2019 and then left.",
+   "label": "related"
+  },
+  {
+   "a": "The user's daughter is named Maya.",
+   "b": "The user's son is named Leo.",
+   "label": "related"
+  },
+  {
+   "a": "The user works as a protection engineer.",
+   "b": "The user's manager is a protection engineer.",
+   "label": "related"
+  },
+  {
+   "a": "The user prefers metric units.",
+   "b": "The user prefers 24-hour time.",
+   "label": "related"
+  },
+  {
+   "a": "The user is training for a half marathon in March.",
+   "b": "The user ran a marathon in 2021.",
+   "label": "related"
+  },
+  {
+   "a": "The user's wife teaches chemistry.",
+   "b": "The user's wife has a master's degree in chemistry.",
+   "label": "related"
+  },
+  {
+   "a": "The user takes the 6:40 train.",
+   "b": "The user takes the 7:20 train on Fridays.",
+   "label": "related"
+  },
+  {
+   "a": "The user is learning Spanish.",
+   "b": "The user is learning Japanese for a trip.",
+   "label": "related"
+  },
+  {
+   "a": "The user does not drink alcohol.",
+   "b": "The user does not drink coffee after 2 pm.",
+   "label": "related"
+  },
+  {
+   "a": "The user's birthday is February 14.",
+   "b": "The user's wife's birthday is February 24.",
+   "label": "related"
+  },
+  {
+   "a": "The user plays acoustic guitar.",
+   "b": "The user is thinking of buying an electric guitar.",
+   "label": "related"
+  },
+  {
+   "a": "The user is colour blind.",
+   "b": "The user wears glasses for astigmatism.",
+   "label": "related"
+  },
+  {
+   "a": "The user's manager is Priya.",
+   "b": "The user's mentor calls on Thursdays.",
+   "label": "related"
+  },
+  {
+   "a": "The user keeps two beehives.",
+   "b": "The user plans to add a third beehive next spring.",
+   "label": "related"
+  },
+  {
+   "a": "The user owns a Synology NAS.",
+   "b": "The user's Synology NAS has four drive bays.",
+   "label": "related"
+  },
+  {
+   "a": "The user is vegetarian.",
+   "b": "The user's wife is vegetarian.",
+   "label": "related"
+  },
+  {
+   "a": "The user's cat is fourteen.",
+   "b": "The user's dog is four.",
+   "label": "related"
+  },
+  {
+   "a": "The user lives in Conway, Arkansas.",
+   "b": "The user's mother lives in Tulsa, Oklahoma.",
+   "label": "related"
+  },
+  {
+   "a": "The user has a dog named Biscuit.",
+   "b": "The user's tax accountant is Gloria Hendricks.",
+   "label": "unrelated"
+  },
+  {
+   "a": "The user is allergic to shellfish.",
+   "b": "The user is writing a conference talk.",
+   "label": "unrelated"
+  },
+  {
+   "a": "The user moved to Conway last month.",
+   "b": "The user's telescope is a Dobsonian.",
+   "label": "unrelated"
+  },
+  {
+   "a": "The user's daughter is named Maya.",
+   "b": "The user's mortgage pre-approval expires in December.",
+   "label": "unrelated"
+  },
+  {
+   "a": "The user works as a protection engineer.",
+   "b": "The user likes light roast coffee.",
+   "label": "unrelated"
+  },
+  {
+   "a": "The user prefers metric units.",
+   "b": "The user's car has a failing wheel bearing.",
+   "label": "unrelated"
+  },
+  {
+   "a": "The user is training for a half marathon.",
+   "b": "The user uses Obsidian for notes.",
+   "label": "unrelated"
+  },
+  {
+   "a": "The user's wife teaches chemistry.",
+   "b": "The user's passport expires next year.",
+   "label": "unrelated"
+  },
+  {
+   "a": "The user takes the 6:40 train.",
+   "b": "The user is afraid of heights.",
+   "label": "unrelated"
+  },
+  {
+   "a": "The user is learning Spanish.",
+   "b": "The user's neighbourhood association meets monthly.",
+   "label": "unrelated"
+  },
+  {
+   "a": "The user does not drink alcohol.",
+   "b": "The user wants to repaint the living room.",
+   "label": "unrelated"
+  },
+  {
+   "a": "The user's birthday is February 14.",
+   "b": "The user runs three Proxmox nodes.",
+   "label": "unrelated"
+  },
+  {
+   "a": "The user plays acoustic guitar.",
+   "b": "The user budgets 400 dollars for groceries.",
+   "label": "unrelated"
+  },
+  {
+   "a": "The user is colour blind.",
+   "b": "The user's insurance renews in June.",
+   "label": "unrelated"
+  },
+  {
+   "a": "The user's manager is Priya.",
+   "b": "The user roots for the Wichita State Shockers.",
+   "label": "unrelated"
+  },
+  {
+   "a": "The user keeps two beehives.",
+   "b": "The user is saving for a down payment.",
+   "label": "unrelated"
+  },
+  {
+   "a": "The user owns a Synology NAS.",
+   "b": "The user cooks pierogi from a family recipe.",
+   "label": "unrelated"
+  },
+  {
+   "a": "The user is vegetarian.",
+   "b": "The user is on call the week of the 20th.",
+   "label": "unrelated"
+  },
+  {
+   "a": "The user's cat is fourteen.",
+   "b": "The user has a standing desk.",
+   "label": "unrelated"
+  },
+  {
+   "a": "The user lives in Conway, Arkansas.",
+   "b": "The user volunteers at the food bank.",
+   "label": "unrelated"
+  }
+ ]
+}
