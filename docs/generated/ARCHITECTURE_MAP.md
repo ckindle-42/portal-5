@@ -2,7 +2,7 @@
 
 # Portal 5 Architecture Map
 
-*Deterministic projection of 761 canonical units.*
+*Deterministic projection of 763 canonical units.*
 
 ## Knowledge Layer
 
@@ -196,7 +196,7 @@
 | `unit-blue-orchestration-v3-council-of-agreement` | why | 3 |
 | `unit-capability-binresearch` | mixed | 3 |
 | `unit-capability-browser` | mixed | 3 |
-| `unit-capability-cad-render` | mixed | 3 |
+| `unit-capability-cad-render` | mixed | 6 |
 | `unit-capability-compliance` | mixed | 4 |
 | `unit-capability-context7` | mixed | 3 |
 | `unit-capability-data` | mixed | 4 |
@@ -290,7 +290,7 @@
 | `unit-design-wiki-archive-mechanism` | mixed | 5 |
 | `unit-fact-config-index` | mixed | 11 |
 | `unit-fact-doc-migration-coverage` | what | 1 |
-| `unit-fact-dockerfile-index` | mixed | 7 |
+| `unit-fact-dockerfile-index` | mixed | 8 |
 | `unit-fact-env-reference` | mixed | 3 |
 | `unit-fact-launch-commands` | mixed | 3 |
 | `unit-fact-mcp-fleet` | what | 1 |
@@ -304,7 +304,7 @@
 | `unit-fact-workspace-roster` | what | 1 |
 | `unit-fixture-capability-context-sample` | mixed | 1 |
 | `unit-general-config-workspace-pointers` | mixed | 1 |
-| `unit-general-fast-deep-workspaces` | mixed | 3 |
+| `unit-general-fast-deep-workspaces` | mixed | 2 |
 | `unit-general-module-vendored-tools` | mixed | 1 |
 | `unit-general-tools-vendored-fleet` | mixed | 1 |
 | `unit-inference-router-pipe` | mixed | 1 |
@@ -316,6 +316,8 @@
 | `unit-known-limitations-auto-math-workspace-reasoning-block-support` | what | 1 |
 | `unit-known-limitations-auto-rag-silent-miss` | what | 3 |
 | `unit-known-limitations-baronllm-text-only-tool-output-auto-security-mcp-tools-non-functional` | what | 6 |
+| `unit-known-limitations-cad-b3d-session` | what | 2 |
+| `unit-known-limitations-cad-brep-kernel-gaps` | what | 2 |
 | `unit-known-limitations-cadquery-and-build123d-unusable-on-linux-arm64` | what | 4 |
 | `unit-known-limitations-cip-register-behind-published-versions` | what | 3 |
 | `unit-known-limitations-code-sandbox-requires-privileged-container` | what | 2 |
@@ -564,7 +566,7 @@
 | `unit-model-catalog-sylink-sylink-8b-ctx8k` | what | 2 |
 | `unit-model-catalog-tongyi-deepresearch-30b-a3b-abliterated-4bit` | what | 1 |
 | `unit-model-catalog-vulnllm-r-7b-4bit` | what | 1 |
-| `unit-module-cad` | mixed | 6 |
+| `unit-module-cad` | mixed | 10 |
 | `unit-module-coding` | mixed | 5 |
 | `unit-module-compliance` | mixed | 4 |
 | `unit-module-data` | mixed | 3 |
@@ -770,14 +772,14 @@
 | `unit-wiki-tests-render` | mixed | 1 |
 | `unit-wiki-writeback` | mixed | 1 |
 
-**Total:** 761 units
+**Total:** 763 units
 
 ## Source Distribution
 
 - **bench-security**: 1 references
-- **code**: 1965 references
+- **code**: 1977 references
 - **config**: 1 references
-- **doc**: 2 references
+- **doc**: 1 references
 - **mitre**: 40 references
 - **scenario**: 54 references
 - **spl**: 40 references
