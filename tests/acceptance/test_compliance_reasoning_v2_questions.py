@@ -13,6 +13,14 @@ PART = "CIP-007-6 R2 Part 2.2"
 
 @pytest.fixture(scope="module", autouse=True)
 def live_server():
+    # Opt-in only. These calls drive the live multi-model council (27-30B
+    # seats on oMLX and Ollama); running them whenever :8937 answered meant the
+    # pre-push `pytest tests/` fired them on the production Mac, and abandoned
+    # 90 s client timeouts left the council running server-side. On 2026-10-07
+    # two engines loaded 27B models at once, exhausted memory and hung the Mac
+    # (watchdog reset).
+    if os.environ.get("COMPLIANCE_LIVE") != "1":
+        pytest.skip("live compliance council not requested (set COMPLIANCE_LIVE=1)")
     try:
         response = httpx.get(f"{BASE}/health", timeout=3)
         response.raise_for_status()
