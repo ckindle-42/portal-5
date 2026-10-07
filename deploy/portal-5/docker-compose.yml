@@ -453,38 +453,6 @@ services:
       start_period: 60s
       retries: 3
 
-  # ── Embedding + Reranker Service ─────────────────────────────────────────
-  # Microsoft Harrier-0.6B (SOTA embedding, 32K ctx, MIT license)
-  # Serves OpenAI-compatible /v1/embeddings endpoint for Open WebUI RAG
-  # NOTE: TEI cpu image is x86-only. On Apple Silicon, launch.sh auto-starts
-  #   the native ARM64 Python server on port 8917 instead.
-  #   Activate this profile manually: docker compose --profile embedding up -d
-  portal5-embedding:
-    image: ghcr.io/huggingface/text-embeddings-inference:cpu-1.7
-    profiles:
-      - embedding
-    container_name: portal5-embedding
-    ports:
-      - "127.0.0.1:${EMBEDDING_HOST_PORT:-8917}:8917"
-    environment:
-      - MODEL_ID=microsoft/harrier-oss-v1-0.6b
-      - PORT=8917
-      - MAX_CLIENT_BATCH_SIZE=32
-      - MAX_BATCH_TOKENS=32768
-    volumes:
-      - portal5-hf-cache:/data
-    restart: unless-stopped
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8917/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 120s
-    deploy:
-      resources:
-        limits:
-          memory: 4G
-
   # ── Docker-in-Docker (isolated execution environment for code sandbox) ──────
   dind:
     # docker:dind-rootless requires kernel user-namespace support unavailable in
@@ -866,8 +834,8 @@ services:
       - MCP_PORT=8921
       - PORTAL5_LANCE_DIR=/app/data/portal5_lance
       - PORTAL5_KB_SOURCES_DIR=/app/data/portal5_kb_sources
-      # Retrieval is multimodal (Qwen3-VL retrieval server); :8917/:8925 stay
-      # for other subsystems (memory, Bully ORG projection), not RAG retrieval.
+      # Retrieval is multimodal (Qwen3-VL retrieval server); :8917 stays for
+      # memory and the Bully ORG projection until the EG2 migration (Phase 5).
       - VL_RETRIEVAL_URL=${VL_RETRIEVAL_URL:-http://host.docker.internal:8942}
       - VL_EMBEDDING_DIM=${VL_EMBEDDING_DIM:-2048}
       - RAG_RERANK_ENABLED=${RAG_RERANK_ENABLED:-true}
@@ -887,29 +855,6 @@ services:
       start_period: 60s
       retries: 3
 
-  mcp-reranker:
-    build:
-      context: ../..
-      dockerfile: Dockerfile.mcp
-    container_name: portal5-mcp-reranker
-    restart: unless-stopped
-    ports:
-      - "127.0.0.1:${RERANKER_MCP_HOST_PORT:-8925}:8925"
-    environment:
-      - RERANKER_MODEL=${RERANKER_MODEL:-mlx-community/Qwen3-Reranker-0.6B-mxfp8}
-      - RERANKER_MCP_PORT=8925
-    volumes:
-      - ${AI_OUTPUT_DIR:-${HOME}/AI_Output}:/workspace
-    command: ["python", "-m", "portal.modules.research.tools.reranker_mcp"]
-    depends_on: []
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8925/health"]
-      interval: 30s
-      timeout: 5s
-      start_period: 60s
-      retries: 3
-
-  # ── MCP: CAD Render (headless STL/mesh→PNG + format conversion) ─────────────
   mcp-cad-render:
     build:
       context: ../..

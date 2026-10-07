@@ -1206,18 +1206,18 @@ defaults:
   health_timeout: 3
   request_timeout: 300
 embedding_candidates:
-- id: google/embeddinggemma-300M
-  notes: Google EmbeddingGemma 300M (~0.3GB, Gemma3 lineage, Aug 2025+). Best-in-class under 500M parameters. On the larger
-    MTEB v2 field the incumbent Harrier family (27B tier MTEB v2 74.3) is competitive with Qwen3-Embedding-8B (70.58) — EmbeddingGemma's
-    advantage is at the small end only. Migration is not a clear win; needs the shadow-index A/B to justify, given LanceDB
-    re-ingestion cost. V8 corrected premise.
+- id: google/embeddinggemma-2
+  notes: 'EmbeddingGemma 2 (740M total; 270M text backbone + selectable 170M vision / 300M audio encoders; Apache 2.0;
+    Oct 2026). One 768-d space for text, code, images, video and audio; Matryoshka 512/256/128. Served as the platform
+    embedder on :8946 (TASK_EMBEDDINGGEMMA2_PLATFORM_V1); per-consumer adoption is gated on measurement, see
+    reports/embedding_consumers/.'
 - id: Qwen/Qwen3-Embedding-0.6B
-  notes: 'Qwen3-Embedding 0.6B (~0.6GB, Apache 2.0, Jun 2025). MTEB multilingual leaderboard #1 in <1B class. Same lineage
-    as production Qwen3-Reranker-0.6B on :8925 — aligning embedding and reranker lineage is desirable for cross-encoder calibration.
-    Already in MLX_MODELS pull list as mlx-community/Qwen3-Embedding-0.6B-4bit-DWQ (pre-positioned for future swap).'
+  notes: 'Qwen3-Embedding 0.6B (Apache 2.0). Adopted Bully ORG default on :8917 as MLX mxfp8 (Bully SA5 P0.4); incumbent
+    for the bully_projection consumer.'
+- id: google/embeddinggemma-300M
+  notes: EmbeddingGemma 1 (300M). Bully SA3 Arm B (llama.cpp); superseded by EmbeddingGemma 2 — its experiment server was retired.
 - id: Qwen/Qwen3-Embedding-8B
-  notes: 'Qwen3-Embedding 8B (~8GB, Apache 2.0). MTEB multilingual #1 overall (70.58). Memory cost significant if loaded alongside
-    an auto-coding MoE — likely too large for production. Bench-eval only.'
+  notes: 'Qwen3-Embedding 8B (~8GB, Apache 2.0). Bench-eval only; too large to co-reside with the chat seats.'
 pipeline_bench_skip: []
 workspace_routing:
   auto:

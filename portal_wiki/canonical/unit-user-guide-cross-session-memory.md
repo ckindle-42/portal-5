@@ -24,9 +24,8 @@ Portal 5 keeps a persistent memory of facts you share across conversations.
 `ENABLE_MEMORY_FEATURE=true` turns on Open WebUI's native memory store, and the
 pipeline's `remember`/`recall` tools let workspaces such as `auto-daily`
 (explicitly flagged `inject_memory` and `memory_writeback`) both read and write
-that store. Memories are embedded and indexed locally with the Harrier model
-(`MEMORY_EMBEDDING_MODEL`), the same indexer the RAG pipeline uses, and persisted
-in LanceDB. In the Open WebUI interface you can view or edit stored memories
+that store. Memories are embedded and indexed locally by the host-native embedder on port 8917
+(MLX Qwen3-Embedding-0.6B) and persisted in the memory MCP's graph store. In the Open WebUI interface you can view or edit stored memories
 under Settings → Personalization → Memory.
 
 Operators can inspect graph-extraction failures through the Memory MCP's

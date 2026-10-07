@@ -59,7 +59,7 @@ _SECTION_DESCRIPTIONS: dict[str, str] = {
     "S10": "Personas (Ollama) — 86 non-bench personas grouped by Ollama model, behavioral signal",
     "S10c": "Compliance personas — 7 NERC/CIP compliance scenarios via fixture",
     "S12": "Web search — SearXNG integration, search result quality",
-    "S13": "RAG/Embedding — MLX embedding (:8917) + Qwen3-Reranker (:8925) two-stage retrieval",
+    "S13": "RAG/Embedding — embedding service health + embed round-trip",
     "S15": "Shared workspace — /workspace mounts, OWUI uploads bind, AUDIO_STT_ENGINE gate",
     "S16": "Security MCP (CIRCL VLAI) — vulnerability classification end-to-end (:8919)",
     "S21": "LLM Intent Router — Llama-3.2-3B intent classifier accuracy across workspace categories",

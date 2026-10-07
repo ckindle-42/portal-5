@@ -143,12 +143,12 @@ list verifiable rather than anecdotal.
 <!-- WIKI:GENERATED unit=unit-user-guide-knowledge-base-document-rag -->
 Knowledge features are built on Open WebUI's RAG plus the pipeline's own
 knowledge bases. The Open WebUI container is configured with
-`RAG_EMBEDDING_ENGINE=openai` backed by the local Harrier embedding server,
+`RAG_EMBEDDING_ENGINE=openai` backed by the local host-native embedding server (:8917),
 `ENABLE_RAG_HYBRID_SEARCH=true`, and `CHUNK_SIZE`/`CHUNK_OVERLAP`; chat
 attachments are chunked, embedded, and retrieved so answers are grounded in the
 uploaded content. Persistent knowledge collections are managed through the
 pipeline RAG MCP server (`kb_ingest`, `kb_search`, `kb_list`), which stores
-vectors in LanceDB and reranks candidates via the MLX reranker. Nothing here
+vectors in LanceDB and reranks candidates via the Qwen3-VL reranker on the VL retrieval server (:8942). Nothing here
 contacts a cloud service.
 
 ### Why
@@ -178,7 +178,7 @@ to both lets a reader see which file governs each retrieval path.
 Open the chat interface at the Open WebUI address (bound to `127.0.0.1:8080` by
 default in the compose manifest), click the paperclip to attach a file, and
 upload one of the supported formats. The attachment is automatically chunked per
-`CHUNK_SIZE`/`CHUNK_OVERLAP`, embedded with the Harrier model on port 8917, and
+`CHUNK_SIZE`/`CHUNK_OVERLAP`, embedded by the host-native embedder on port 8917, and
 indexed so the chat can ground answers in it. For a persistent library, create a
 knowledge collection from the workspace knowledge panel and upload documents
 there; the pipeline's RAG server stores them in LanceDB, and you can reference
@@ -243,8 +243,9 @@ statement testable against the code instead of a stale doc paragraph.
 When you attach a document, Open WebUI chunks it at `CHUNK_SIZE` (1500
 characters) with `CHUNK_OVERLAP` (100 characters) and embeds each chunk locally.
 The embedding engine is not a chat model in Ollama: `RAG_EMBEDDING_ENGINE=openai`
-points at the host-native embedding server on port 8917 running the Harrier model
-(`RAG_EMBEDDING_MODEL`). Search is hybrid — `ENABLE_RAG_HYBRID_SEARCH=true` fuses
+points at the host-native embedding server on port 8917 (`RAG_EMBEDDING_MODEL`
+is still named `microsoft/harrier-oss-v1-0.6b` in the compose file, but the server on
+:8917 now serves MLX Qwen3-Embedding-0.6B). Search is hybrid — `ENABLE_RAG_HYBRID_SEARCH=true` fuses
 semantic and keyword results. Because every endpoint (`host.docker.internal:8917`
 and the local Ollama host) is on your machine, no document content leaves it.
 
@@ -252,7 +253,7 @@ and the local Ollama host) is on your machine, no document content leaves it.
 
 The original unit credited `nomic-embed-text` in Ollama as the embedding model,
 which the generated guide copied from an older stack. The deployment manifest
-shows the RAG engine is the Harrier model served on port 8917, so the claim had
+shows the RAG engine is the host-native embedder on port 8917, so the claim had
 to be corrected against the manifest rather than preserved. Grounding the chunk
 sizes to `CHUNK_SIZE` and `CHUNK_OVERLAP` makes this unit's numbers enforceable
 against the actual configuration.
@@ -263,7 +264,7 @@ against the actual configuration.
 <!-- WIKI:HUMAN-OWNED reason="rationale — design intent, not a live fact" -->
 The original unit credited `nomic-embed-text` in Ollama as the embedding model,
 which the generated guide copied from an older stack. The deployment manifest
-shows the RAG engine is the Harrier model served on port 8917, so the claim had
+shows the RAG engine is the host-native embedder on port 8917, so the claim had
 to be corrected against the manifest rather than preserved. Grounding the chunk
 sizes to `CHUNK_SIZE` and `CHUNK_OVERLAP` makes this unit's numbers enforceable
 against the actual configuration.
@@ -278,9 +279,8 @@ Portal 5 keeps a persistent memory of facts you share across conversations.
 `ENABLE_MEMORY_FEATURE=true` turns on Open WebUI's native memory store, and the
 pipeline's `remember`/`recall` tools let workspaces such as `auto-daily`
 (explicitly flagged `inject_memory` and `memory_writeback`) both read and write
-that store. Memories are embedded and indexed locally with the Harrier model
-(`MEMORY_EMBEDDING_MODEL`), the same indexer the RAG pipeline uses, and persisted
-in LanceDB. In the Open WebUI interface you can view or edit stored memories
+that store. Memories are embedded and indexed locally by the host-native embedder on port 8917
+(MLX Qwen3-Embedding-0.6B) and persisted in the memory MCP's graph store. In the Open WebUI interface you can view or edit stored memories
 under Settings → Personalization → Memory.
 
 Operators can inspect graph-extraction failures through the Memory MCP's

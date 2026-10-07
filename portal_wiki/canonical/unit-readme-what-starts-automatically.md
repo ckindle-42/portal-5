@@ -35,15 +35,15 @@ without restarting their writers.
 | Portal Pipeline | Routing, auth, metrics, MCP dispatch | :9099 |
 | Ollama | Local GGUF models via Metal | :11434 |
 | SearXNG | Private web search | :8088 |
-| MCP fleet | MFLUX image :8933, video-mlx :8935, Music-MiniMax :8912, Documents :8913, Sandbox :8914, Whisper :8915, TTS :8916, Security :8919, Memory :8920, RAG :8921, Research :8922, Browser :8923, MLX Transcribe :8924, Reranker :8925, CAD :8926, Proxmox :8927, Pipeline MCP :8928, MITRE ATT&CK :8929, BinResearch :8930, Wiki :8931, Detections :8932 | config/portal.yaml |
+| MCP fleet | MFLUX image :8933, video-mlx :8935, Music-MiniMax :8912, Documents :8913, Sandbox :8914, Whisper :8915, TTS :8916, Security :8919, Memory :8920, RAG :8921, Research :8922, Browser :8923, MLX Transcribe :8924, CAD :8926, Proxmox :8927, Pipeline MCP :8928, MITRE ATT&CK :8929, BinResearch :8930, Wiki :8931, Detections :8932 | config/portal.yaml |
 | Pipeline MCP | Stack introspection + FastContext explorer | :8928 |
 | MITRE ATT&CK MCP | Technique lookup, data sources, detections | :8929 |
 | Detections MCP | SPL library search, validate_syntax, explain | :8932 |
 | Wiki MCP | Canonical knowledge layer — search, get_unit | :8931 |
 | MLX Transcribe | Diarized transcription (Apple Silicon) | :8924 |
 | MLX Speech | Kokoro TTS + Higgs Audio v2 voice clone + Qwen3-TTS/ASR (Apple Silicon) | :8918 |
-| Embedding | Harrier-0.6B text embeddings | :8917 |
-| Reranker | Qwen3-Reranker-0.6B two-stage RAG | :8925 |
+| Embedding | MLX Qwen3-Embedding-0.6B text embeddings | :8917 |
+| VL retrieval | Qwen3-VL embedder + reranker for RAG | :8942 |
 | Prometheus | Metrics collection | http://localhost:9090 |
 | Grafana | Metrics dashboard | http://localhost:3000 |
 | Host log rotator | Gzip archives for oversized Ollama, oMLX, and Portal logs | hourly |

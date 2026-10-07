@@ -540,8 +540,8 @@ PY
     # ── Qwen3-VL retrieval server (host-native, :8942) ─────────────────────
     # The RAG stack's multimodal embed/rerank backend (text+image joint space).
     # Not an MCP — a FastAPI service (scripts/vl-retrieval-server.py) in the
-    # project .venv. The shared text embedder :8917 and reranker :8925 stay up
-    # for memory / the Bully ORG projection.
+    # project .venv. The shared text embedder :8917 stays up for memory / the
+    # Bully ORG projection until the EG2 migration (Phase 5).
     #
     # Runtime (TASK_VL_RUNTIME_LANDING_V4): mlx-embeddings 0.1.0 ships the
     # `qwen3_vl` module; the model loads once transformers 5.x's torchvision-

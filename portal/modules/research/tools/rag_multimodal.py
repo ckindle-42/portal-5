@@ -4,8 +4,8 @@ TASK_RAG_VISUAL_OVERHAUL_V1 — the ComfyUI pattern: `kb_search` is multimodal b
 default (RRF fusion of text-chunk and page-image retrieval), `kb_ingest` renders
 PDF pages to images and embeds them alongside text chunks in one pass, and the
 Qwen3-VL retrieval server replaces the RAG stack's use of the text embedder
-(:8917) / reranker (:8925) *for retrieval*. Those shared servers stay up for
-other subsystems (memory, the Bully ORG projection).
+(:8917) *for retrieval*. The text embedder stays up for other subsystems
+(memory, the Bully ORG projection).
 
 This module owns the `kb_ingest` / `kb_search` / `kb_search_all` routes. The
 KB-lifecycle tools (`kb_list` / `kb_optimize` / `kb_versions` / `kb_restore`)

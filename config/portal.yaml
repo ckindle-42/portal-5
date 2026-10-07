@@ -159,12 +159,6 @@ mcp_fleet:
     port: 8924
     expose_to_pipeline: true
     expose_to_ide: true
-  - id: reranker
-    module: research
-    name: portal-reranker
-    port: 8925
-    expose_to_pipeline: false
-    expose_to_ide: false
   - id: cad_render
     module: cad
     name: portal-cad-render

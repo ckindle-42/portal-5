@@ -22,7 +22,7 @@ updated_at: 1788030600.446044
 
 # Operator commands — the launch.sh surface
 
-The operator's command surface is `./launch.sh <subcommand>` — 65 subcommands
+The operator's command surface is `./launch.sh <subcommand>` — 63 subcommands
 as of the current usage string, grouped below by what they act on.
 
 ## Lifecycle

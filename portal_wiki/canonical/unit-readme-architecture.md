@@ -49,7 +49,7 @@ tool servers for documents, code sandboxing, TTS, research, memory, RAG, browser
 automation, CAD, Proxmox and the canonical wiki. Host-native MLX runtimes serve
 speech (`scripts/mlx-speech.py`, port 8918), diarized transcription
 (`scripts/mlx-transcribe.py`, port 8924), embeddings
-(`scripts/embedding-server.py`, port 8917) and retrieval reranking (port 8925).
+(`scripts/embedding-server-mlx.py`, port 8917) and VL retrieval/reranking (port 8942).
 Chat inference is Ollama-only: the MLX inference proxy that once listened on
 ports 8081/18081/18082 was retired in commit 75c24a9.
 

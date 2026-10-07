@@ -1,8 +1,8 @@
 """Portal 5 — Qwen3-VL retrieval server (embedding + rerank, text & image).
 
 One joint text+image space for the RAG stack's *retrieval* path. The shared text
-embedder (:8917) and reranker (:8925) stay up for other subsystems (memory, the
-Bully ORG projection).
+embedder (:8917) stays up for other subsystems (memory, the Bully ORG
+projection).
 
 Usage: python3 scripts/vl-retrieval-server.py --port 8942
 

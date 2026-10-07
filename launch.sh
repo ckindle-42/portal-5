@@ -143,46 +143,19 @@ case "${1:-up}" in
     docker compose $_PROFILES up -d
 
 
-    # Auto-start ARM64 native embedding server on Apple Silicon (TEI image is x86-only)
+    # :8917 legacy embedder — ONE launch path, the adopted backend (Bully P0.4:
+    # MLX Qwen3-Embedding-0.6B). The inline start of the retired CPU/Harrier
+    # server is gone: two launch paths served two different models into the same
+    # 1024-d tables (TASK_EMBEDDINGGEMMA2_PLATFORM_V1 F-8917-IDENTITY). Retired
+    # outright when the EG2 migration lands (Phase 5).
     if [ "$(uname -m)" = "arm64" ]; then
-        # If the launchd service is installed it manages the server — don't double-start.
         if launchctl list com.portal5.embedding 2>/dev/null | grep -q '"PID"'; then
-            echo "[portal-5]   ✅ ARM64 embedding server managed by launchd (auto-restart on crash)"
+            echo "[portal-5]   ✅ :8917 embedding server managed by launchd"
+        elif curl -fsS "http://localhost:${EMBEDDING_HOST_PORT:-8917}/health" &>/dev/null; then
+            echo "[portal-5]   ✅ :8917 embedding server already running"
         else
-            _PID_FILE="/tmp/portal-embedding-arm.pid"
-            if [ -f "$_PID_FILE" ] && kill -0 "$(cat "$_PID_FILE")" 2>/dev/null; then
-                echo "[portal-5]   ✅ ARM64 embedding server already running (PID $(cat "$_PID_FILE"))"
-                echo "[portal-5]   💡 Tip: run './launch.sh install-embedding-service' to start at login automatically"
-            else
-                # Use a dedicated venv so packages don't collide with the project venv
-                # or the Homebrew-managed system Python (PEP 668).
-                _EM_VENV="${HOME}/.portal5/embedding-venv"
-                _EM_PY="${_EM_VENV}/bin/python3"
-                if [ ! -x "$_EM_PY" ]; then
-                    python3 -m venv "$_EM_VENV" --without-pip 2>/dev/null || python3 -m venv "$_EM_VENV"
-                    "$_EM_PY" -m ensurepip --upgrade &>/dev/null || true
-                fi
-                if ! "$_EM_PY" -c "import sentence_transformers, fastapi, uvicorn" &>/dev/null 2>&1; then
-                    echo "[portal-5]   Installing ARM64 embedding server deps..."
-                    "$_EM_PY" -m pip install --quiet sentence-transformers fastapi uvicorn 2>&1 | tail -1 || true
-                fi
-                if "$_EM_PY" -c "import sentence_transformers, fastapi, uvicorn" &>/dev/null 2>&1; then
-                    echo "[portal-5]   Starting ARM64 native embedding server (port 8917)..."
-                    _EM_MODEL="${EMBEDDING_MODEL:-microsoft/harrier-oss-v1-0.6b}"
-                    _EM_PORT="${EMBEDDING_HOST_PORT:-8917}"
-                    _EM_LOG="${HOME}/.portal5/logs/embedding-server.log"
-                    mkdir -p "$(dirname "$_EM_LOG")"
-                    nohup "$_EM_PY" "$PORTAL_ROOT/scripts/embedding-server.py" \
-                        --model "$_EM_MODEL" \
-                        --port "$_EM_PORT" \
-                        > "$_EM_LOG" 2>&1 &
-                    echo $! > "$_PID_FILE"
-                    echo "[portal-5]   ✅ ARM64 embedding server started (PID $!)"
-                    echo "[portal-5]   💡 Tip: run './launch.sh install-embedding-service' to start at login automatically"
-                else
-                    echo "[portal-5]   ⚠️  ARM64 embedding server deps install failed — skipping"
-                fi
-            fi
+            # subshell: the start function calls `exit` on its early-return path
+            ( _launch_start_embedding_arm_a )
         fi
     fi
 
@@ -363,7 +336,7 @@ case "${1:-up}" in
     # Rebuild and restart all Docker images (pipeline + MCP servers)
     set -a; source "$ENV_FILE" 2>/dev/null || true; set +a
     cd "$COMPOSE_DIR"
-    MCP_SERVICES="mcp-documents mcp-tts mcp-whisper mcp-sandbox mcp-security mcp-research mcp-memory mcp-rag browser-mcp mcp-cad-render mcp-proxmox mcp-reranker mcp-binresearch"
+    MCP_SERVICES="mcp-documents mcp-tts mcp-whisper mcp-sandbox mcp-security mcp-research mcp-memory mcp-rag browser-mcp mcp-cad-render mcp-proxmox mcp-binresearch"
     echo "[portal-5] Rebuilding portal-pipeline..."
     docker compose build portal-pipeline
     echo "[portal-5] Rebuilding MCP images..."
@@ -384,7 +357,7 @@ case "${1:-up}" in
     # Rebuild and restart all MCP containers (e.g. after a docker-compose.yml or Dockerfile.mcp change)
     set -a; source "$ENV_FILE" 2>/dev/null || true; set +a
     cd "$COMPOSE_DIR"
-    MCP_SERVICES="mcp-documents mcp-tts mcp-whisper mcp-sandbox mcp-security mcp-research mcp-memory mcp-rag browser-mcp mcp-cad-render mcp-proxmox mcp-reranker mcp-binresearch"
+    MCP_SERVICES="mcp-documents mcp-tts mcp-whisper mcp-sandbox mcp-security mcp-research mcp-memory mcp-rag browser-mcp mcp-cad-render mcp-proxmox mcp-binresearch"
     echo "[portal-5] Rebuilding MCP images..."
     docker compose build $MCP_SERVICES
     echo "[portal-5] Building native arm64 PowerShell sandbox image..."
@@ -597,14 +570,6 @@ PYEOF
 
   stop-embedding-arm-a)
     _launch_stop_embedding_arm_a
-    ;;
-
-  start-embedding-arm-b)
-    _launch_start_embedding_arm_b
-    ;;
-
-  stop-embedding-arm-b)
-    _launch_stop_embedding_arm_b
     ;;
 
   install-embedding-service)

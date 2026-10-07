@@ -123,8 +123,8 @@ re-ingest.
 Text-only retrieval discards the charts, one-line diagrams, HMI screenshots,
 and table layout that carry the answer in P&IDs and NERC/CVE PDFs. A joint
 text+image retrieval space — the Qwen3-VL embedding/reranker family — recovers
-that. The shared text embedder (:8917) and reranker (:8925) stay up because the
-memory subsystem and the Bully ORG projection still use them; only RAG's
+that. The shared text embedder (:8917) stays up because the
+memory subsystem and the Bully ORG projection still use it; only RAG's
 *retrieval* moved to VL.
 
 ## Value

@@ -59,7 +59,6 @@ launched_mcp_ids:
 - pipeline
 - proxmox
 - rag
-- reranker
 - research
 - security
 - serena

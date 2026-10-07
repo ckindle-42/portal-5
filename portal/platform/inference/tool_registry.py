@@ -8,8 +8,8 @@ A module-level singleton ``tool_registry = ToolRegistry()`` is used by
 ``router_pipe.py``; discovery runs lazily on the first ``refresh()`` and on
 demand via ``POST /admin/refresh-tools``.
 
-``MCP_SERVERS`` is not the full fleet — internal infrastructure (reranker :8925,
-browser :8923) is excluded. Failure isolation is by design: one MCP's discovery
+``MCP_SERVERS`` is not the full fleet — internal infrastructure (browser :8923)
+is excluded. Failure isolation is by design: one MCP's discovery
 failure doesn't affect others, and ``dispatch`` returns error dicts rather than
 raising so a tool failure can't break the SSE stream.
 

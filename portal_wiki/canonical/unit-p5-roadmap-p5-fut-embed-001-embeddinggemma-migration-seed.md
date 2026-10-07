@@ -20,6 +20,8 @@ created_at: 1784946220.593046
 updated_at: 1784946220.593046
 ---
 
+> **Superseded (2026-10-07):** this EmbeddingGemma-1 seed is replaced by `coding_task/TASK_EMBEDDINGGEMMA2_PLATFORM_V1.md` (EmbeddingGemma 2, `:8946`). The text below is the historical state: `:8917` has since moved to MLX Qwen3-Embedding-0.6B and the Harrier CPU server is retired.
+
 P5-FUT-EMBED-001 is an open migration. Current production embedding is
 `scripts/embedding-server.py`, which serves a sentence-transformers model —
 `microsoft/harrier-oss-v1-0.6b` by default — on CPU on port 8917; the same

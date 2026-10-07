@@ -696,7 +696,7 @@ Model bindings are the reachability-resolved view of what each workspace `model_
 ### MCP Fleet
 
 <!-- WIKI:GENERATED unit=unit-fact-mcp-fleet -->
-#### MCP fleet (33 servers)
+#### MCP fleet (32 servers)
 
 | ID | Name | Port |
 |---|---|---|
@@ -717,7 +717,6 @@ Model bindings are the reachability-resolved view of what each workspace `model_
 | `research` | portal-research | 8922 |
 | `browser` | portal-browser | 8923 |
 | `mlx_transcribe` | portal-mlx-transcribe | 8924 |
-| `reranker` | portal-reranker | 8925 |
 | `cad_render` | portal-cad-render | 8926 |
 | `proxmox` | portal-proxmox | 8927 |
 | `pipeline` | portal-pipeline | 8928 |

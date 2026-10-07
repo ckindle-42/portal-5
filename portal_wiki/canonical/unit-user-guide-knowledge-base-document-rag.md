@@ -18,12 +18,12 @@ updated_at: 1784946220.515291
 
 Knowledge features are built on Open WebUI's RAG plus the pipeline's own
 knowledge bases. The Open WebUI container is configured with
-`RAG_EMBEDDING_ENGINE=openai` backed by the local Harrier embedding server,
+`RAG_EMBEDDING_ENGINE=openai` backed by the local host-native embedding server (:8917),
 `ENABLE_RAG_HYBRID_SEARCH=true`, and `CHUNK_SIZE`/`CHUNK_OVERLAP`; chat
 attachments are chunked, embedded, and retrieved so answers are grounded in the
 uploaded content. Persistent knowledge collections are managed through the
 pipeline RAG MCP server (`kb_ingest`, `kb_search`, `kb_list`), which stores
-vectors in LanceDB and reranks candidates via the MLX reranker. Nothing here
+vectors in LanceDB and reranks candidates via the Qwen3-VL reranker on the VL retrieval server (:8942). Nothing here
 contacts a cloud service.
 
 ## Why

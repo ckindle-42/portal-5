@@ -32,11 +32,10 @@ MLX survives in four non-chat runtimes, each started by its own launcher:
   Parakeet-TDT-v3 (transcript + word timestamps); `transcribe_with_speakers` adds
   Sortformer speaker diarization merged at the word level (up to 4 speakers, no HF
   token), host-native.
-- **Embedding:** Harrier-0.6B on port 8917 (`scripts/embedding-server.py`, default
-  `EMBEDDING_MODEL=microsoft/harrier-oss-v1-0.6b`) — the RAG/memory embedding
-  endpoint (`MLX_EMBEDDING_URL` in `rag_mcp.py`).
-- **Reranker:** Qwen3-Reranker-0.6B on port 8925 (`RERANKER_MODEL` in `.env.example`,
-  `mlx-community/Qwen3-Reranker-0.6B-mxfp8`) for two-stage RAG.
+- **Embedding:** MLX Qwen3-Embedding-0.6B on port 8917 (`scripts/embedding-server-mlx.py`)
+  — the memory/Bully embedding endpoint (`MLX_EMBEDDING_URL`).
+- **Retrieval:** Qwen3-VL embedder + reranker on port 8942 (`scripts/vl-retrieval-server.py`)
+  for RAG and compliance retrieval.
 
 Chat model inference runs exclusively through Ollama on port 11434 — GGUF format,
 pulled via `ollama pull` and cataloged in `config/backends.yaml`. The MLX
