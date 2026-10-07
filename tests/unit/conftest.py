@@ -12,6 +12,23 @@ from pathlib import Path
 
 import pytest
 
+# A git hook (pre-commit runs this suite) exports the repository's location;
+# from a linked worktree GIT_DIR points into the SHARED .git. Tests that build a
+# throwaway repo with `git init` / `git config` then re-initialised the real
+# repository instead: measured 2026-10-07, core.bare=true and user.name=t were
+# written to portal-5/.git/config, breaking git for every session. Unit tests
+# never act on the enclosing repository, so the locating variables are dropped.
+for _var in (
+    "GIT_DIR",
+    "GIT_WORK_TREE",
+    "GIT_INDEX_FILE",
+    "GIT_COMMON_DIR",
+    "GIT_OBJECT_DIRECTORY",
+    "GIT_ALTERNATE_OBJECT_DIRECTORIES",
+    "GIT_PREFIX",
+):
+    os.environ.pop(_var, None)
+
 # NERC CIP standard PDFs are deliberately gitignored (cip_register.py's
 # fetch_pdfs: "Public record; not committed (the register JSON is the
 # committed artifact)"). Operators fetch them locally; CI never does. These
@@ -159,3 +176,33 @@ def _never_write_the_live_compliance_store(tmp_path, monkeypatch):
     monkeypatch.setattr(_repo.Repository.__init__, "__defaults__", (scratch,))
     if _ms.MappingStore.__init__.__defaults__:
         monkeypatch.setattr(_ms.MappingStore.__init__, "__defaults__", (scratch,))
+
+
+@pytest.fixture(autouse=True)
+def _window_probes_never_reach_a_live_engine(monkeypatch):
+    """Tests that mock the compliance transport's `_post` still reached a live
+    engine through `chat()`'s window probes: `OllamaNative.seat_ceiling`
+    (`/api/show`) and `applied_context_length` (`/api/ps`). Before
+    HOST_MEMORY_SAFETY W2 they hit Ollama on :11434; after it, the pipeline
+    on :9099, which answered 401. Either way `tests/unit` touched the network,
+    and the result depended on what this machine had loaded.
+
+    Both are pinned to 0, the value the code already treats as "unknown" (the
+    ceiling check is skipped, the applied window is reported as unmeasured).
+    A test that exercises a probe sets its own transport (`_get`, `urlopen`)
+    or restores the method with its own monkeypatch.
+    """
+    from portal.modules.compliance.core import served_window
+    from portal.modules.compliance.core.transport_dialects import OllamaNative
+
+    monkeypatch.setattr(OllamaNative, "seat_ceiling", lambda self, model: 0)
+    monkeypatch.setattr(OllamaNative, "applied_context_length", lambda self, model: 0)
+
+    # The served-window probe (`reading_route_ceiling` -> `_probe_ollama` /
+    # `_probe_omlx`) also reached the live engines. An unreachable engine is
+    # what `_http_json` already reports: a note and None.
+    def _unreachable(result, method, url, **_kwargs):
+        result.notes.append(f"probe {url} skipped: unit tests do not reach live engines")
+        return None
+
+    monkeypatch.setattr(served_window, "_http_json", _unreachable)

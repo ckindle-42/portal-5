@@ -82,7 +82,12 @@ def test_native_rollback_uses_guarded_passthrough_and_auth(monkeypatch):
     importlib.reload(reading_transport)
 
 
+#: Captured at import, before the conftest fixture pins the window probes.
+_REAL_APPLIED_CONTEXT_LENGTH = OllamaNative.applied_context_length
+
+
 def test_native_applied_context_reads_ps_with_auth(monkeypatch):
+    monkeypatch.setattr(OllamaNative, "applied_context_length", _REAL_APPLIED_CONTEXT_LENGTH)
     monkeypatch.setenv("OLLAMA_BASE", "http://pipeline.test/ollama")
     monkeypatch.setenv("PIPELINE_API_KEY", "native-test-key")
     seen = {}

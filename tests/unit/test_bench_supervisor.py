@@ -319,7 +319,14 @@ class TestHandlerTableIntegrity:
             assert callable(handler), f"{name} handler not callable"
             assert isinstance(name, str)
 
-    def test_handlers_return_valid_action(self):
+    def test_handlers_return_valid_action(self, monkeypatch):
+        import urllib.request
+
+        def _no_engine(*_args, **_kwargs):
+            raise OSError("unit tests do not reach a live Ollama")
+
+        # handle_load_model GETs Ollama's /api/tags; keep it off the network.
+        monkeypatch.setattr(urllib.request, "urlopen", _no_engine)
         state = sup.SupervisorState()
         handlers = sup.build_state_handlers(15)
         valid_actions = {"retry", "continue", "skip", "escalate"}
