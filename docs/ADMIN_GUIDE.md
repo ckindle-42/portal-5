@@ -398,6 +398,18 @@ Router quality is a measured property, not an assumption — the bench pins the 
 
 ---
 
+## CAD (auto-cad)
+
+`mcp-cad-render` (:8926) builds from its own image, `Dockerfile.cad`, native `linux/arm64`
+(compose pins `platform: linux/arm64`). `curl localhost:8926/capabilities` is the health view:
+`engine: true` (the in-container build123d engine is up), `arch: aarch64`, `openscad_backend:
+manifold`, `build123d: true`. If `engine` is false, `cad_*` calls return `engine unreachable` while
+`generate_scad`/`render_*` keep working; check the container logs and `CAD_B3D_*` in `.env`
+(`.env.example` has the knobs). Rebuild after any CAD code or `config/` change:
+`cd deploy/portal-5 && docker compose build mcp-cad-render && docker compose up -d --no-deps
+mcp-cad-render`. Evaluate CAD changes with `tests/benchmarks/bench_cad_gauntlet_v2.py --arm
+key=workspace` (sealed grader; run one at a time). Details: `portal/modules/cad/PLATFORM.md`.
+
 ## Live Facts (Generated)
 
 ### Personas

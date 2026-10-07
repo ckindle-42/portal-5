@@ -360,10 +360,16 @@ Vec3 = tuple[float, float, float]
 
 @dataclass(frozen=True)
 class BasePlan:
-    kind: str  # "box" | "cylinder"
+    kind: str  # "box" | "cylinder" | "prism" | "revolve" | "angle"
     width: float
     depth: float
     height: float  # for a cylinder width == depth == 2 * radius
+    thickness: float = 0.0  # angle: leg thickness
+    inner_radius: float = 0.0  # angle: inside-corner fillet
+    # prism: footprint polygon, shifted so its bounding box starts at the origin.
+    # revolve: (radius, z) profile, z shifted to start at 0.
+    # angle: the (y, z) L outline, inner-corner arc included.
+    points: tuple[tuple[float, float], ...] = ()
 
 
 @dataclass(frozen=True)
@@ -439,20 +445,126 @@ class PartPlan:
     has_tier_a_features: bool
 
 
+_ARC_SEGMENTS = 8  # inside-corner arc of an `angle` base, in SCAD (BREP uses a true fillet)
+
+
+def _plan_prism(dims: dict[str, Any], params: dict[str, float]) -> BasePlan:
+    sides = int(dims["sides"])
+    height = resolve_value(dims["height"], params)
+    has_flats, has_circ = dims.get("across_flats") is not None, dims.get("circumradius") is not None
+    if has_flats == has_circ:
+        raise EmitError(
+            "prism needs exactly one of dimensions.across_flats or dimensions.circumradius",
+            category="intent_error",
+        )
+    if has_flats:
+        circ = resolve_value(dims["across_flats"], params) / (2 * math.cos(math.pi / sides))
+    else:
+        circ = resolve_value(dims["circumradius"], params)
+    if circ <= 0 or height <= 0:
+        raise EmitError("prism size must be positive", category="intent_error")
+    raw = [
+        (circ * math.cos(2 * math.pi * k / sides), circ * math.sin(2 * math.pi * k / sides))
+        for k in range(sides)
+    ]
+    min_x, min_y = min(x for x, _ in raw), min(y for _, y in raw)
+    pts = tuple((x - min_x, y - min_y) for x, y in raw)
+    return BasePlan(
+        "prism",
+        max(x for x, _ in pts),
+        max(y for _, y in pts),
+        height,
+        points=pts,
+    )
+
+
+def _plan_revolve(dims: dict[str, Any], params: dict[str, float]) -> BasePlan:
+    raw = [(resolve_value(r, params), resolve_value(z, params)) for r, z in dims["profile"]]
+    if any(r < 0 for r, _ in raw):
+        raise EmitError("revolve profile radii must be >= 0", category="intent_error")
+    max_r = max(r for r, _ in raw)
+    if max_r <= 0:
+        raise EmitError("revolve profile needs a radius > 0", category="intent_error")
+    min_z = min(z for _, z in raw)
+    pts = tuple((r, z - min_z) for r, z in raw)
+    return BasePlan("revolve", max_r * 2, max_r * 2, max(z for _, z in pts), points=pts)
+
+
+def _plan_angle(dims: dict[str, Any], params: dict[str, float]) -> BasePlan:
+    width = resolve_value(dims["width"], params)
+    depth = resolve_value(dims["depth"], params)
+    height = resolve_value(dims["height"], params)
+    t = resolve_value(dims["thickness"], params)
+    r = resolve_value(dims["inner_radius"], params) if dims.get("inner_radius") else 0.0
+    if t <= 0 or t >= min(depth, height) or r < 0 or r > min(depth, height) - t:
+        raise EmitError(
+            f"angle thickness {t:g} / inner_radius {r:g} do not fit legs {depth:g} x {height:g}",
+            category="intent_error",
+        )
+    pts: list[tuple[float, float]] = [(0.0, 0.0), (depth, 0.0), (depth, t)]
+    if r > 0:
+        cy = cz = t + r
+        for k in range(_ARC_SEGMENTS + 1):
+            a = math.radians(-90.0 - 90.0 * k / _ARC_SEGMENTS)
+            pts.append((cy + r * math.cos(a), cz + r * math.sin(a)))
+    else:
+        pts.append((t, t))
+    pts += [(t, height), (0.0, height)]
+    return BasePlan("angle", width, depth, height, thickness=t, inner_radius=r, points=tuple(pts))
+
+
 def _plan_base(geometry: dict[str, Any], params: dict[str, float]) -> BasePlan:
     base = geometry.get("base")
     if not isinstance(base, dict):
         raise EmitError("missing 'base' geometry block")
     dims = base["dimensions"]
-    if base["type"] == "box":
+    kind = base["type"]
+    if kind == "box":
         return BasePlan(
             "box",
             resolve_value(dims["width"], params),
             resolve_value(dims["depth"], params),
             resolve_value(dims["height"], params),
         )
+    if kind == "prism":
+        return _plan_prism(dims, params)
+    if kind == "revolve":
+        return _plan_revolve(dims, params)
+    if kind == "angle":
+        return _plan_angle(dims, params)
     radius = resolve_value(dims["radius"], params)
     return BasePlan("cylinder", radius * 2, radius * 2, resolve_value(dims["height"], params))
+
+
+# Which Tier-A features each non-box base supports (everything else would be
+# positioned against a bounding box that is not the real surface).
+_PRISM_FACES = {"top", "bottom"}
+_ANGLE_FACES = {"bottom", "front"}
+_REVOLVE_FACES = {"top", "bottom"}
+
+
+def _check_base_features(geometry: dict[str, Any], base: BasePlan) -> None:
+    if base.kind not in {"prism", "revolve", "angle"}:
+        return
+    unsupported = [
+        key
+        for key in ("shell", "pockets", "standoffs", "ribs", "fillets", "chamfers")
+        if geometry.get(key)
+    ]
+    if unsupported:
+        raise EmitError(
+            f"base type {base.kind!r} does not support {', '.join(unsupported)}; "
+            "keep only holes (and patterns of holes) on this base, or build the part with cad_build",
+            category="intent_error",
+        )
+    faces = {"prism": _PRISM_FACES, "angle": _ANGLE_FACES, "revolve": _REVOLVE_FACES}[base.kind]
+    for index, hole in enumerate(geometry.get("holes") or []):
+        if hole["face"] not in faces:
+            raise EmitError(
+                f"holes[{index}].face={hole['face']!r} is not a real surface of a {base.kind} base; "
+                f"use one of {sorted(faces)}",
+                category="intent_error",
+            )
 
 
 def _plan_edge_treatments(
@@ -585,6 +697,8 @@ def _plan_hole(item: dict[str, Any], params: dict[str, float], base: BasePlan) -
         "left": width,
         "right": width,
     }[face]
+    if base.kind == "angle":
+        axis_extent = base.thickness  # both legs are `thickness` thick
     depth_val = (
         resolve_value(item["depth"], params) if item.get("depth") is not None else axis_extent
     )
@@ -728,6 +842,7 @@ def plan_part(geometry: dict[str, Any]) -> PartPlan:
 
     params = resolve_parameters(geometry.get("parameters"))
     base = _plan_base(geometry, params)
+    _check_base_features(geometry, base)
     edge_treatments = _plan_edge_treatments(geometry, params, base)
     geometry = _expand_pattern(geometry, params, base.width, base.depth, base.height)
 

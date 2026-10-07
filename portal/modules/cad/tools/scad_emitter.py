@@ -129,6 +129,10 @@ def _emit_prim(prim: PrimBox | PrimCylinder) -> str:
     )
 
 
+def _poly(points: tuple[tuple[float, float], ...]) -> str:
+    return "[" + ", ".join(f"[{_fmt(x)}, {_fmt(y)}]" for x, y in points) + "]"
+
+
 def _box_profile(width: float, depth: float, z: float, inset: float, radius: float = 0) -> str:
     inner_w = max(width - 2 * (inset + radius), 0.01)
     inner_d = max(depth - 2 * (inset + radius), 0.01)
@@ -169,6 +173,20 @@ def _emit_base(base: BasePlan, treatments: tuple[EdgeTreatment, ...]) -> str:
     width, depth, height = base.width, base.depth, base.height
     if base.kind == "box":
         solid = f"cube({_vec((width, depth, height))});"
+    elif base.kind == "prism":
+        solid = f"linear_extrude(height={_fmt(height)}) polygon({_poly(base.points)});"
+    elif base.kind == "revolve":
+        radius = width / 2
+        solid = (
+            f"translate([{_fmt(radius)}, {_fmt(radius)}, 0]) "
+            f"rotate_extrude($fn=$fn) polygon({_poly(base.points)});"
+        )
+    elif base.kind == "angle":
+        # (y, z) outline extruded along X: map (u, v, w) -> (x=w, y=u, z=v)
+        solid = (
+            "multmatrix([[0, 0, 1, 0], [1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 0, 1]]) "
+            f"linear_extrude(height={_fmt(width)}) polygon({_poly(base.points)});"
+        )
     else:  # cylinder
         radius = width / 2
         solid = (

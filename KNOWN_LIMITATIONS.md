@@ -16,9 +16,9 @@ The register is a rendered view, not an independent ledger, which is the whole p
 - **Status**: RESOLVED (TASK_CAD_MODULE_OVERHAUL_V1 Phase 0, 2026-08-27). See
   `portal/modules/cad/PLATFORM.md` for the full empirical record.
 - **Original claim (now known wrong)**: "CadQuery and build123d both require OCP (OpenCASCADE Python bindings), which has no pre-built wheels for `linux/arm64` — cannot install on arm64, use OpenSCAD only." This was a **pip-wheel artifact**, not a platform ceiling: true for *pip* wheels of OCP as of early 2024, but conda-forge's `ocp`/`occt` packages ship for `linux-aarch64` and `osx-arm64` (also linux-64/osx-64/win-64).
-- **Resolution**: A micromamba/conda-forge layer in `Dockerfile.mcp` installs `cadquery`/`build123d`/`ocp` on the arm64 MCP image. Verified empirically on an osx-arm64 host: `occt-7.8.1`/`ocp-7.8.1.2`/`cadquery-2.7.0`/`build123d-0.9.1` installed cleanly, all imported, and a CadQuery box exported to a valid STL. `portal.modules.cad.tools.capabilities.cad_capabilities()` now probes `cadquery`/`build123d`/`ocp`/`step_read` at runtime instead of hardcoding platform assumptions, and `convert_cad`'s STEP path gates on that probe.
+- **Resolution**: pip-installed arm64 wheels in the dedicated `Dockerfile.cad` image: `build123d==0.11.1` (pulls `cadquery-ocp-novtk`, which ships `manylinux_2_28_aarch64` and `macosx_11_0_arm64`) and `build123d-mcp==0.3.90`. The earlier conda-forge/micromamba layer in `Dockerfile.mcp` is **gone** — it was only needed while pip had no arm64 OCP wheels. CadQuery is intentionally not installed (its OCP variant conflicts with build123d's). `capabilities.py` probes `build123d`/`ocp`/`step_read` (and the live engine) at runtime instead of hardcoding platform assumptions.
 - **Do not reinstate** the "no arm64 wheels, OpenSCAD only" wording — it is factually wrong regardless of pip's continued arm64 gap. If a future session hits a *different* install failure, record the specific new failure as its own entry rather than reviving this one.
-- **Residual verification note**: the empirical check above ran in a throwaway micromamba env on the host, proving package resolution and import; independently confirming the same result inside the rebuilt `Dockerfile.mcp` container image (via its `/capabilities` route) is tracked as a follow-up in `PLATFORM.md`.
+- **In-container verification (2026-10-06)**: image `Architecture` = `arm64`, container `uname -m` = `aarch64`; `build123d 0.11.1`, `vtk 9.7.1`, OCP `OCP.cpython-311-aarch64-linux-gnu.so`, `build123d-mcp 0.3.90`; the eight gauntlet oracle parts all grade PASS in the container (`machine=aarch64`); `/capabilities` reports `build123d: true`, `ocp: true`, `engine: true`, `arch: aarch64`. The host (macOS arm64) passes the same oracles. This closes the residual-verification item the original entry carried.
 
 ## Why
 
@@ -1573,3 +1573,35 @@ the record of what the system said before the correction.
 <!-- /WIKI:GENERATED -->
 
 ---
+
+---
+
+<!-- WIKI:GENERATED unit=unit-known-limitations-cad-b3d-session -->
+- **ID**: P5-CAD-B3D-SESSION-001
+- **Status**: ACTIVE (by design)
+- **Description**: The `cad_*` tools run against an in-container `build123d-mcp` engine, and the CAD session handle is the pipeline request id: one isolated CAD session per request. Live session state (shapes registered with `show()`, variables) does not persist across chat turns or requests; the engine caps concurrent sessions (`CAD_B3D_MAX_SESSIONS`, default 4, LRU eviction by the bridge) and expires idle ones (`CAD_B3D_IDLE_TIMEOUT_S`, default 900 s).
+- **Impact**: A follow-up turn ("make the holes 5 mm") cannot `cad_execute` against the previous turn's live shape.
+- **Mitigation**: Continuity is carried by the saved artifacts: every `cad_finalize` publishes the build123d script (`script_url`) and the STEP; the model re-sends the (edited) script to `cad_build`. `generate_part` is stateless by construction.
+
+#### Why
+
+Binding sessions to requests keeps the stateless-pipeline rule (CLAUDE.md rule 4) and lets the bridge bound memory (`CAD_B3D_MEMORY_LIMIT_MB`) without a session registry the pipeline would have to own.
+<!-- /WIKI:GENERATED -->
+
+---
+
+<!-- WIKI:GENERATED unit=unit-known-limitations-cad-brep-kernel-gaps -->
+- **ID**: P5-CAD-BREP-KERNEL-GAP-001
+- **Status**: ACTIVE — explicit errors, no silent degradation
+- **Description**: `generate_part` renders the same JSON IR as `generate_scad` on the build123d BREP kernel, with SCAD-parity gates (volume, genus, bbox on the corpus). Two feature sets are not expressible and return `error_category: "kernel_gap"` pointing the model at `cad_build`: (1) Tier-B `linear_extrude`/`rotate_extrude` escape-hatch nodes (the IR has no 2D primitives, so the SCAD form is degenerate too); (2) a base carrying both `fillets` and `chamfers` (the second operation would select the first one's blended edges). `generate_scad` is unaffected.
+- **Vocabulary note**: polygon prisms, stepped/revolved bodies and L-brackets are now
+  first-class bases (`prism`, `revolve`, `angle`) and are NOT gaps; they accept holes only.
+  Gears, T/U shapes, multi-body assemblies, lofts, and features inside a shelled box still
+  need `cad_build`.
+- **Also**: the SCAD fillet envelope always rounds a box's vertical edges whatever `edges` says; the BREP backend matches that for fillets only. OCC's STL tessellation of an all-edges-filleted box can leave a few zero-area sliver triangles, so a strict watertight mesh check may flag it although the BREP solid is valid.
+- **Mitigation**: write such parts with `cad_build`, or use `generate_scad`.
+
+#### Why
+
+Failing loudly at emit time keeps the model's correction loop honest: a silent approximation would pass validation while building the wrong part, and the structured `kernel_gap` category tells the model exactly which tool to switch to instead of guessing.
+<!-- /WIKI:GENERATED -->

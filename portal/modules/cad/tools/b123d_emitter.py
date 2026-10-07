@@ -158,6 +158,41 @@ def _header(plan: PartPlan) -> list[str]:
     return lines
 
 
+def _poly(points: tuple[tuple[float, float], ...]) -> str:
+    return ", ".join(_v(p) for p in points)
+
+
+def _base_solid_lines(base: BasePlan) -> list[str]:
+    if base.kind == "box":
+        return [f"part = Box({_n(base.width)}, {_n(base.depth)}, {_n(base.height)}, {_MIN})"]
+    if base.kind == "prism":
+        return [
+            f"part = extrude(make_face(Polyline({_poly(base.points)}, close=True)), "
+            f"amount={_n(base.height)})"
+        ]
+    if base.kind == "revolve":
+        r = _n(base.width / 2)
+        return [
+            f"part = Pos({r}, {r}, 0) * revolve("
+            f"make_face(Plane.XZ * Polyline({_poly(base.points)}, close=True)), Axis.Z)"
+        ]
+    if base.kind == "angle":
+        t = _n(base.thickness)
+        lines = [
+            f"part = Box({_n(base.width)}, {_n(base.depth)}, {t}, {_MIN}) + "
+            f"Box({_n(base.width)}, {t}, {_n(base.height)}, {_MIN})"
+        ]
+        if base.inner_radius > 0:
+            lo, hi = _n(base.thickness - 0.01), _n(base.thickness + 0.01)
+            lines.append(
+                "part = fillet(part.edges().filter_by(Axis.X)"
+                f".filter_by_position(Axis.Y, {lo}, {hi}).filter_by_position(Axis.Z, {lo}, {hi}), "
+                f"{_n(base.inner_radius)})"
+            )
+        return lines
+    return [f"part = Cylinder({_n(base.width / 2)}, {_n(base.height)}, {_MIN})"]
+
+
 def _base_lines(plan: PartPlan) -> list[str]:
     base = plan.base
     kinds = {t.kind for t in plan.edge_treatments}
@@ -168,10 +203,7 @@ def _base_lines(plan: PartPlan) -> list[str]:
             "build this part with cad_build",
             category="kernel_gap",
         )
-    if base.kind == "box":
-        lines = [f"part = Box({_n(base.width)}, {_n(base.depth)}, {_n(base.height)}, {_MIN})"]
-    else:
-        lines = [f"part = Cylinder({_n(base.width / 2)}, {_n(base.height)}, {_MIN})"]
+    lines = _base_solid_lines(base)
     for treatment in plan.edge_treatments:
         op = "fillet" if treatment.kind == "fillet" else "chamfer"
         lines.append(f"part = {op}({_edge_selection(base, treatment)}, {_n(treatment.size)})")

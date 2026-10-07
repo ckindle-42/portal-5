@@ -347,10 +347,12 @@ async def cad_build(code: str, session: str, out_dir: Path) -> dict[str, Any]:
         return {
             "ok": not failed(val) and "PASS" in vtext.split("\n", 1)[0],
             "stage": "validated",
+            # Build success is not delivery: the user receives no files until cad_finalize.
+            "delivered": False,
             "execute": _text(ex),
             "measure": _json_tail(_text(meas)) or _text(meas),
             "validate": _json_tail(vtext) or vtext,
-            "next": "call cad_finalize to export STEP/STL, or fix and call cad_build again",
+            "next": "NOT DELIVERED YET — the user has no files until you call cad_finalize now (or fix and call cad_build again)",
         }
 
 

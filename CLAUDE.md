@@ -60,6 +60,9 @@ Docs couple to code mechanically where mechanized: fact-unit currency is check `
 ### 13 — Fact-Units Are the Discovery Index
 Before grepping, query the wiki: `wiki_search` / `wiki_get_unit` / `wiki_explain`. Verify every edit anchor `count==1` against HEAD before editing.
 
+### 14 — Native Means arm64
+Anything executed natively on the Mac host (binaries, wheels, `.so`) or in Docker on it (images built/pulled for `linux/arm64`) must be the ARM build; verify with `uname -m` / `platform.machine()` / `file` / `docker image inspect …Architecture`. x86_64 builds under Rosetta or emulation are not acceptable fallbacks — record a known limitation instead.
+
 ## Testing Rules
 
 - `tests/unit/` must pass with no network, no real Ollama/OWUI/Docker; `tmp_path` for I/O; mock `httpx.AsyncClient`.

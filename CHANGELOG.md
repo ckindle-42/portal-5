@@ -5,6 +5,22 @@ All notable changes to Portal 5 will be documented in this file.
 ## [Unreleased]
 
 ### Changed
+- **CAD arm redeveloped: build123d BREP primary, arm64-native.** `auto-cad` now builds exact
+  BREP solids with build123d (STEP + STL + PNG out) through `generate_part` (the same feature-level
+  JSON IR as `generate_scad`, rendered on the BREP kernel) and six `cad_*` tools
+  (`cad_build`/`cad_execute`/`cad_measure`/`cad_find_holes`/`cad_render`/`cad_finalize`) fronting an
+  in-container `build123d-mcp` engine, with a measure-and-verify loop; OpenSCAD is a fallback on
+  explicit request. New dedicated arm64 image `Dockerfile.cad` (pip `build123d==0.11.1` +
+  `build123d-mcp==0.3.90`, OpenSCAD nightly with the Manifold backend — 0.53 s vs 68 s for CGAL on a
+  64-sphere boolean — and no micromamba layer); `Dockerfile.mcp` no longer carries CAD deps.
+  `scad_emitter` was split into a kernel-neutral `part_plan` plus two backends, SCAD output pinned
+  byte-for-byte by 82 golden fixtures and the BREP backend checked against the SCAD meshes.
+  `auto-cad` moved to a ctx32k tag (tool schemas + prompt are ~5.2K tokens); new eval workspace
+  `bench-qwen38-cad`. New sealed spec-graded gauntlet (`tests/benchmarks/bench_cad_gauntlet_v2.py`,
+  `cad_grader.py`). The geometry IR gained `prism`, `revolve` and `angle` bases (hex bars,
+  stepped/flanged bodies, L-brackets), rendered by both backends. New standing rule
+  (CLAUDE.md #14): native means arm64. See
+  `reports/cad/TASK_CAD_ARM_REDEVELOP_V1_REPORT.md`, `portal/modules/cad/PLATFORM.md`.
 - **Voice-cloning engine replaced**: fish-speech (Docker, never-functional) and Qwen3-TTS Base
   (host) → **Higgs Audio v2** (`mlx-community/higgs-audio-v2-3B-mlx-q8`, Boson AI), selected
   over Chatterbox in the operator fidelity gate (`MLX_CLONE_MODEL` swaps it back to

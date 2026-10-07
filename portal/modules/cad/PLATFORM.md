@@ -1,78 +1,77 @@
-# CAD Module — Platform Tiers
+# CAD Module — Platform
 
-## arm64/OSX tier (built + verified here — the default)
+## Standing rule: native means arm64
 
-OpenSCAD + trimesh + **CadQuery/build123d/OCP via conda-forge**. This is the fullest
-geometry stack achievable on Apple Silicon and it is what `Dockerfile.mcp` builds by
-default.
+Anything executed natively on the Mac host (binaries, wheels, `.so`) or in Docker on it
+(images built/pulled for `linux/arm64`) must be the ARM build. Verify with `uname -m` /
+`platform.machine()` / `file` / `docker image inspect … --format '{{.Architecture}}'`.
+x86_64 builds under Rosetta or emulation are not acceptable fallbacks — record a known
+limitation instead. `Dockerfile.cad` enforces it at build time (`uname -m` must be
+`aarch64`) and the compose service pins `platform: linux/arm64`.
 
-**The old limitation was a pip-wheel artifact, not a platform ceiling.**
-`P5-CAD-ARM64-001` claimed "CadQuery/build123d require OCP which has no arm64
-wheels — cannot install on arm64, use OpenSCAD only." That was true for *pip*
-wheels of OCP as of early 2024. It is no longer true: conda-forge's `ocp` (the
-OCCT pybind11 bindings CadQuery/build123d sit on) ships for `linux-aarch64` and
-`osx-arm64` (also linux-64/osx-64/win-64), and conda-forge's `occt` kernel
-package lists `macOS-arm64` and `linux-aarch64` as supported platforms.
+## arm64 tier — the shipped image (`Dockerfile.cad`, service `mcp-cad-render`, :8926)
 
-**Empirical verification (2026-08-27, TASK_CAD_MODULE_OVERHAUL_V1 Phase 0):**
-ran a standalone micromamba probe directly on this machine's osx-arm64 host
-(not yet re-run inside the container image — see "residual verification" below):
+`mcp-cad-render` has its own image; OCP + VTK + scipy + OpenSCAD do not belong in the
+shared `Dockerfile.mcp` that the other tool servers build from.
+
+| Component | How it is installed | Why |
+|---|---|---|
+| build123d `0.11.1` | pip (`cadquery-ocp-novtk`, `manylinux_2_28_aarch64` wheel) | BREP kernel (OCCT) |
+| build123d-mcp `0.3.90` `[http]` | pip | closed-loop CAD engine (execute / measure / validate / hole recognition / FDM printability / VTK render / STEP+STL export / per-handle sessions) |
+| trimesh, pyrender, matplotlib, numpy-stl, jsonschema | pip | mesh validation + the CPU render fallback |
+| OpenSCAD | `openscad-nightly` from the openSUSE OBS repo `home:t-paul/Debian_13` (arm64 build) | Manifold backend; Debian's own `openscad` is 2021.01, CGAL-only |
+
+**Pins.** `build123d-mcp 0.3.90` requires `build123d>=0.10,<0.12`, so build123d is pinned
+`0.11.1` (not 0.13). The same pins live in `pyproject.toml` (`cad` extra, with a
+`python_version >= '3.11'` marker because build123d-mcp needs 3.11+) and in
+`Dockerfile.cad`; keep them in sync. CadQuery is intentionally not installed: its OCP
+variant conflicts with build123d's `cadquery-ocp-novtk`.
+
+**The conda/micromamba layer is gone.** The old `P5-CAD-ARM64-001` limitation
+("OCP has no arm64 wheels") was a pip-wheel artifact and is resolved: `cadquery-ocp`
+now ships `manylinux_2_28_aarch64` and `macosx_11_0_arm64` wheels. The full dependency
+closure resolves with arm64 wheels on both targets (on linux/aarch64 build123d swaps
+`lib3mf` for `py-lib3mf` by marker; the macOS `lib3mf` wheel is universal2).
+
+**OpenSCAD branch taken: nightly + Manifold.** The OBS repo publishes an arm64
+`openscad-nightly`; the image sets `OPENSCAD_BIN=openscad-nightly` and
+`CAD_OPENSCAD_BACKEND=manifold`, and `_compile_scad` adds `--backend=manifold`. Measured
+in-container (same binary, 64-sphere boolean on a 60x60x20 cube): CGAL 68.1 s vs
+Manifold 0.53 s. If a future image build finds no arm64 nightly, the fallback is Debian
+`openscad` on CGAL with `P5-CAD-OPENSCAD-MANIFOLD-001` recorded — never an x86_64
+AppImage or emulation.
+
+### Verified in the container (2026-10-06)
 
 ```
-micromamba create -y -n cadtest -c conda-forge python=3.11 cadquery build123d ocp
+image Architecture = arm64 · container uname -m = aarch64
+build123d 0.11.1 · vtk 9.7.1 · OCP.cpython-311-aarch64-linux-gnu.so
+build123d-mcp 0.3.90 · OpenSCAD 2026.10.05.nightly (--backend CGAL|Manifold)
+tests/benchmarks/cad_gauntlet_v2_oracles.py: 8/8 oracle parts PASS (machine=aarch64)
 ```
 
-Resolved and installed cleanly: `occt-7.8.1`, `ocp-7.8.1.2`, `cadquery-2.7.0`,
-`build123d-0.9.1`. Then:
+## Tool surface
 
-```python
-import cadquery as cq
+- **Primary (BREP):** `generate_part` (JSON IR -> build123d script -> build -> STEP+STL+PNG)
+  and `cad_build` / `cad_execute` / `cad_measure` / `cad_find_holes` / `cad_render` /
+  `cad_finalize` (free-form build123d with a measure-and-verify loop). Bridge:
+  `tools/b123d_bridge.py`; one CAD session per pipeline request (LRU eviction, idle TTL).
+- **Fallback:** `generate_scad` / `render_openscad` (OpenSCAD, Manifold), `render_mesh`,
+  `convert_cad`.
+- **IR:** `tools/part_plan.py` (`plan_part`) does all coordinate math once; `scad_emitter`
+  and `b123d_emitter` are the two backends. SCAD output is pinned byte-for-byte by
+  `tests/data/cad_scad_golden/`; the BREP backend is checked against the SCAD meshes
+  (volume, genus, bbox) in `tests/unit/test_b123d_emitter.py`.
 
-r = cq.Workplane("XY").box(10, 10, 5)
-from cadquery import exporters
-
-exporters.export(r, "/tmp/_cq_smoke.stl")  # -> wrote a valid STL
-import build123d  # -> imports clean
-import OCP  # -> imports clean
-```
-
-All three passed. This overturns the stale claim: CadQuery/build123d/OCP **do**
-run on arm64 via conda-forge. The real constraint was never "arm64 the
-platform" — it was "pip-wheel install in a pip-only environment."
-
-**Residual verification — do before relying on this in production.** The probe
-above ran in a throwaway micromamba env on the macOS host, which proves the
-package resolution and import path. `Dockerfile.mcp`'s conda layer (installing
-the same trio into `/opt/conda/envs/cad` inside the `python:3.11-slim`
-linux/arm64 image) has **not yet been rebuilt and independently re-verified in
-this session** — that image build was not exercised here (it's a large, slow
-image; doing so was out of scope for this pass). Before treating
-`cad_capabilities()["ocp"]` as reliably True in the deployed MCP container, run:
-
-```bash
-./launch.sh rebuild   # or the equivalent MCP-image rebuild target
-docker exec <cad-mcp-container> curl -s http://localhost:8926/capabilities
-```
-
-and confirm `cadquery`/`build123d`/`ocp`/`step_read` are all `true`. If that
-rebuild surfaces a genuine dependency conflict with the rest of the shared MCP
-image, record the specific failure here and fall back to OpenSCAD-primary —
-but do not reinstate the "no arm64 wheels" wording, which is factually wrong
-regardless of whether this particular image build succeeds.
-
-**Runtime wiring.** `capabilities.py`'s `cad_capabilities()` never hardcodes a
-platform → capability mapping — it probes what's actually importable, adding
-`CAD_CONDA_ENV_SITE_PACKAGES` (set by `Dockerfile.mcp` to
-`/opt/conda/envs/cad/lib/python3.11/site-packages`) to `sys.path` first so the
-base pip interpreter can reach the conda-installed packages. `convert_cad`'s
-STEP read/write path gates on `cad_capabilities()["step_read"]` rather than
-asserting availability.
+**Runtime wiring.** `capabilities.py` never hardcodes a platform -> capability mapping; it
+probes what is actually there (`/capabilities`: `openscad_bin|version|backend`,
+`build123d`, `ocp`, `build123d_mcp`, `engine` (live), `arch`, `step_read/write`).
 
 ## x86/CUDA tier (stub, UNBUILT)
 
-`Dockerfile.mcp.x86` is a present-but-unbuilt placeholder for the later
-dual-platform focus (the P40 box). Its genuine addition over the arm64/OSX
-tier is **CUDA-class model execution** (e.g. a Vicuna-13B VLM like
-CAD-Coder(LLaVA) is comfortable on a P40 with CUDA, loadable-but-slower on
-Apple Silicon Metal) — **not** OCP/CadQuery/build123d, which are already
-available on both tiers via conda-forge. Not built, not exercised by CI.
+`Dockerfile.mcp.x86` is a present-but-unbuilt placeholder for the later dual-platform
+focus (the P40 box). It predates `Dockerfile.cad`, still describes the old shared-image
+layout, and is not built or exercised by CI; it would need a `Dockerfile.cad`-style
+split before use. Its genuine addition over the arm64 tier is CUDA-class model execution,
+not OCP/build123d (pip wheels exist for both). Per the standing rule above, nothing x86
+runs on the Mac.

@@ -123,7 +123,7 @@
             },
             "base": {
               "type": "object",
-              "description": "Tier A primary solid. Z-up/right-handed: box width=X, depth=Y, height=Z. For a flat plate, thickness is height.",
+              "description": "Tier A primary solid. Z-up/right-handed: box width=X, depth=Y, height=Z. For a flat plate, thickness is height. Types: box, cylinder, prism (regular N-sided prism: hexagon/octagon bars, nuts, standoffs), revolve (stepped/flanged/revolved body from a radius-height profile: bushings, pulleys, spacers), angle (L-bracket: two legs at 90 degrees with optional inner fillet).",
               "required": [
                 "type",
                 "dimensions"
@@ -134,12 +134,15 @@
                   "type": "string",
                   "enum": [
                     "box",
-                    "cylinder"
+                    "cylinder",
+                    "prism",
+                    "revolve",
+                    "angle"
                   ]
                 },
                 "dimensions": {
                   "type": "object",
-                  "description": "box: width=X, depth=Y, height=Z; cylinder: radius in XY, axis at (radius,radius), and height=Z. Millimetres. For a flat plate thickness is height.",
+                  "description": "box: width=X, depth=Y, height=Z; cylinder: radius in XY, axis at (radius,radius), and height=Z; prism: sides (3-32) + exactly one of across_flats or circumradius + height, axis along Z, one vertex on +X, bounding box starts at the origin; revolve: profile = list of [radius, z] points describing the closed cross-section revolved about the Z axis (include the bore: its radius is the smallest r), axis at the bounding-box centre, z starts at 0; angle: L-bracket with width=X (length of both legs), depth=Y (horizontal leg, outer), height=Z (vertical leg, outer, measured from the bottom of the horizontal leg), thickness (both legs), inner_radius (optional fillet in the inside corner); the vertical leg stands at y=0..thickness. Millimetres. For a flat plate thickness is height.",
                   "properties": {
                     "width": {
                       "type": [
@@ -168,6 +171,56 @@
                         "string"
                       ],
                       "description": "Cylinder radius in the XY plane, in millimetres."
+                    },
+                    "sides": {
+                      "type": "integer",
+                      "minimum": 3,
+                      "maximum": 32,
+                      "description": "prism: number of sides of the regular polygon."
+                    },
+                    "across_flats": {
+                      "type": [
+                        "number",
+                        "string"
+                      ],
+                      "description": "prism: distance between two opposite flats, in millimetres (use this for hex stock / nuts / standoffs)."
+                    },
+                    "circumradius": {
+                      "type": [
+                        "number",
+                        "string"
+                      ],
+                      "description": "prism: distance from the axis to a vertex, in millimetres (alternative to across_flats)."
+                    },
+                    "profile": {
+                      "type": "array",
+                      "minItems": 3,
+                      "description": "revolve: closed cross-section as [radius, z] points in order around the outline (radius >= 0, never crossing the axis). Example flanged bushing: [[5,0],[15,0],[15,3],[8,3],[8,20],[5,20]].",
+                      "items": {
+                        "type": "array",
+                        "minItems": 2,
+                        "maxItems": 2,
+                        "items": {
+                          "type": [
+                            "number",
+                            "string"
+                          ]
+                        }
+                      }
+                    },
+                    "thickness": {
+                      "type": [
+                        "number",
+                        "string"
+                      ],
+                      "description": "angle: thickness of both legs, in millimetres."
+                    },
+                    "inner_radius": {
+                      "type": [
+                        "number",
+                        "string"
+                      ],
+                      "description": "angle: radius of the fillet in the inside corner (0 or omitted for a sharp corner)."
                     }
                   },
                   "additionalProperties": false
@@ -208,6 +261,64 @@
                         "required": [
                           "radius",
                           "height"
+                        ]
+                      }
+                    }
+                  }
+                },
+                {
+                  "if": {
+                    "properties": {
+                      "type": {
+                        "const": "prism"
+                      }
+                    }
+                  },
+                  "then": {
+                    "properties": {
+                      "dimensions": {
+                        "required": [
+                          "sides",
+                          "height"
+                        ]
+                      }
+                    }
+                  }
+                },
+                {
+                  "if": {
+                    "properties": {
+                      "type": {
+                        "const": "revolve"
+                      }
+                    }
+                  },
+                  "then": {
+                    "properties": {
+                      "dimensions": {
+                        "required": [
+                          "profile"
+                        ]
+                      }
+                    }
+                  }
+                },
+                {
+                  "if": {
+                    "properties": {
+                      "type": {
+                        "const": "angle"
+                      }
+                    }
+                  },
+                  "then": {
+                    "properties": {
+                      "dimensions": {
+                        "required": [
+                          "width",
+                          "depth",
+                          "height",
+                          "thickness"
                         ]
                       }
                     }
@@ -757,7 +868,7 @@
     }
   },
   {
-    "description": "PRIMARY tool for parts with holes/pockets/patterns/shells/standoffs. Generate a parametric part from a constrained feature-level JSON geometry description (base solid + named features positioned by face+anchor+offset, never raw 3D coordinates) as an exact build123d BREP solid. Validates, emits a build123d script, builds, measures, validates, and exports STEP + STL + PNG in one call. Returns script, measure, validate, printability, step_url, stl_url, png_url, script_url, stl_path. On a design error it returns error/error_category/error_detail (fix and call again); error_category 'kernel_gap' means this feature set is not expressible here — use cad_build.",
+    "description": "Build a part as an exact build123d BREP solid from a feature-level JSON description, in one call that validates, builds, measures and exports STEP + STL + PNG. Base types: box (plate/block), cylinder (disc/tube), prism (regular N-sided bar: hex stock, nut, hex standoff — give across_flats or circumradius), revolve (stepped/flanged/revolved body from a [radius, z] profile — bushing, spacer, pulley, include the bore in the profile), angle (L-bracket: width, depth, height, thickness, inner_radius). Features positioned by face + anchor + offset, never raw 3D coordinates: holes (incl. chamfer/counterbore/countersink), and on box/cylinder bases also pockets, ribs, standoffs on OUTER faces, an open-top shell, patterns and outer-edge fillets/chamfers. prism/revolve/angle bases take holes only (prism and revolve on top/bottom; angle on bottom = horizontal leg, front = vertical leg). NOT for gears, lofts, multi-body assemblies, or features inside a shelled box — use cad_build. Returns script, measure, validate, printability, step_url, stl_url, png_url, script_url, stl_path; on a design error it returns error/error_category/error_detail (fix and call again); error_category 'kernel_gap' means use cad_build.",
     "name": "generate_part",
     "parameters": {
       "properties": {
@@ -807,7 +918,7 @@
             },
             "base": {
               "type": "object",
-              "description": "Tier A primary solid. Z-up/right-handed: box width=X, depth=Y, height=Z. For a flat plate, thickness is height.",
+              "description": "Tier A primary solid. Z-up/right-handed: box width=X, depth=Y, height=Z. For a flat plate, thickness is height. Types: box, cylinder, prism (regular N-sided prism: hexagon/octagon bars, nuts, standoffs), revolve (stepped/flanged/revolved body from a radius-height profile: bushings, pulleys, spacers), angle (L-bracket: two legs at 90 degrees with optional inner fillet).",
               "required": [
                 "type",
                 "dimensions"
@@ -818,12 +929,15 @@
                   "type": "string",
                   "enum": [
                     "box",
-                    "cylinder"
+                    "cylinder",
+                    "prism",
+                    "revolve",
+                    "angle"
                   ]
                 },
                 "dimensions": {
                   "type": "object",
-                  "description": "box: width=X, depth=Y, height=Z; cylinder: radius in XY, axis at (radius,radius), and height=Z. Millimetres. For a flat plate thickness is height.",
+                  "description": "box: width=X, depth=Y, height=Z; cylinder: radius in XY, axis at (radius,radius), and height=Z; prism: sides (3-32) + exactly one of across_flats or circumradius + height, axis along Z, one vertex on +X, bounding box starts at the origin; revolve: profile = list of [radius, z] points describing the closed cross-section revolved about the Z axis (include the bore: its radius is the smallest r), axis at the bounding-box centre, z starts at 0; angle: L-bracket with width=X (length of both legs), depth=Y (horizontal leg, outer), height=Z (vertical leg, outer, measured from the bottom of the horizontal leg), thickness (both legs), inner_radius (optional fillet in the inside corner); the vertical leg stands at y=0..thickness. Millimetres. For a flat plate thickness is height.",
                   "properties": {
                     "width": {
                       "type": [
@@ -852,6 +966,56 @@
                         "string"
                       ],
                       "description": "Cylinder radius in the XY plane, in millimetres."
+                    },
+                    "sides": {
+                      "type": "integer",
+                      "minimum": 3,
+                      "maximum": 32,
+                      "description": "prism: number of sides of the regular polygon."
+                    },
+                    "across_flats": {
+                      "type": [
+                        "number",
+                        "string"
+                      ],
+                      "description": "prism: distance between two opposite flats, in millimetres (use this for hex stock / nuts / standoffs)."
+                    },
+                    "circumradius": {
+                      "type": [
+                        "number",
+                        "string"
+                      ],
+                      "description": "prism: distance from the axis to a vertex, in millimetres (alternative to across_flats)."
+                    },
+                    "profile": {
+                      "type": "array",
+                      "minItems": 3,
+                      "description": "revolve: closed cross-section as [radius, z] points in order around the outline (radius >= 0, never crossing the axis). Example flanged bushing: [[5,0],[15,0],[15,3],[8,3],[8,20],[5,20]].",
+                      "items": {
+                        "type": "array",
+                        "minItems": 2,
+                        "maxItems": 2,
+                        "items": {
+                          "type": [
+                            "number",
+                            "string"
+                          ]
+                        }
+                      }
+                    },
+                    "thickness": {
+                      "type": [
+                        "number",
+                        "string"
+                      ],
+                      "description": "angle: thickness of both legs, in millimetres."
+                    },
+                    "inner_radius": {
+                      "type": [
+                        "number",
+                        "string"
+                      ],
+                      "description": "angle: radius of the fillet in the inside corner (0 or omitted for a sharp corner)."
                     }
                   },
                   "additionalProperties": false
@@ -892,6 +1056,64 @@
                         "required": [
                           "radius",
                           "height"
+                        ]
+                      }
+                    }
+                  }
+                },
+                {
+                  "if": {
+                    "properties": {
+                      "type": {
+                        "const": "prism"
+                      }
+                    }
+                  },
+                  "then": {
+                    "properties": {
+                      "dimensions": {
+                        "required": [
+                          "sides",
+                          "height"
+                        ]
+                      }
+                    }
+                  }
+                },
+                {
+                  "if": {
+                    "properties": {
+                      "type": {
+                        "const": "revolve"
+                      }
+                    }
+                  },
+                  "then": {
+                    "properties": {
+                      "dimensions": {
+                        "required": [
+                          "profile"
+                        ]
+                      }
+                    }
+                  }
+                },
+                {
+                  "if": {
+                    "properties": {
+                      "type": {
+                        "const": "angle"
+                      }
+                    }
+                  },
+                  "then": {
+                    "properties": {
+                      "dimensions": {
+                        "required": [
+                          "width",
+                          "depth",
+                          "height",
+                          "thickness"
                         ]
                       }
                     }
