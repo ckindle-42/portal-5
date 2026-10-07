@@ -27,7 +27,7 @@ tags:
 - docs
 - verified-v1
 created_at: 1784946220.680423
-updated_at: 1784946220.680423
+updated_at: 1791376709
 ---
 
 The operator surface is one dispatcher: `./launch.sh <command>`. The `case`
@@ -56,6 +56,18 @@ default `http://localhost:9099`) with the configured `PIPELINE_API_KEY`, then th
 Open WebUI URL (`OPENWEBUI_URL`), and prints a per-check pass/fail summary that
 exits nonzero on any failure. It is the quick post-`up` check, separate from the
 heavier acceptance suite.
+
+## Host log rotation
+
+On Apple Silicon, `./launch.sh up` installs the hourly `com.portal5.log-rotate`
+user agent. Preview the configured files and threshold with:
+
+```bash
+.venv/bin/python scripts/rotate_logs.py --dry-run
+```
+
+`LOG_ROTATE_MAX_MB`, `LOG_ROTATE_KEEP`, and the optional
+`LOG_ROTATE_FILES` in `.env` configure the threshold, archive count, and paths.
 
 ## Pull specialized models (security, coding, reasoning — 30–90 min)
 

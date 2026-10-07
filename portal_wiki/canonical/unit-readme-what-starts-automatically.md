@@ -15,7 +15,7 @@ tags:
 - docs
 - verified-v1
 created_at: 1784946220.678988
-updated_at: 1784946220.678988
+updated_at: 1791376709
 ---
 
 `./launch.sh up` starts the core Docker stack (compose services plus profiles
@@ -24,6 +24,10 @@ start when their launchd agent has been installed — `_ensure_native_services` 
 `scripts/lib/util.sh` checks each registered launchd label (MFLUX image, music backend,
 MLX Speech, MLX Transcribe, embedding) and boots the service via `launchctl` or a
 background `nohup` fallback.
+
+On Apple Silicon, `up` also installs the `com.portal5.log-rotate` user agent.
+It runs `scripts/rotate_logs.py` hourly and bounds the configured host logs
+without restarting their writers.
 
 | Service | What it does | URL/port |
 |---|---|---|
@@ -42,6 +46,7 @@ background `nohup` fallback.
 | Reranker | Qwen3-Reranker-0.6B two-stage RAG | :8925 |
 | Prometheus | Metrics collection | http://localhost:9090 |
 | Grafana | Metrics dashboard | http://localhost:3000 |
+| Host log rotator | Gzip archives for oversized Ollama, oMLX, and Portal logs | hourly |
 
 The MCP fleet and its ports are defined in `config/portal.yaml` (`mcp_fleet:`);
 the compose container names and health checks are in

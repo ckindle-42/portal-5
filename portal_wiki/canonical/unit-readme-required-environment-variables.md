@@ -17,7 +17,7 @@ tags:
 - docs
 - verified-v1
 created_at: 1784946220.689932
-updated_at: 1784946220.689932
+updated_at: 1791376709
 ---
 
 | Variable | Required | Description |
@@ -36,6 +36,10 @@ do not carry a matching token.
 `OPENWEBUI_ADMIN_PASSWORD`, `SEARXNG_SECRET_KEY` and `GRAFANA_PASSWORD`, so a key
 left at `CHANGEME` or missing is replaced with a generated secret before the stack
 starts.
+
+The optional `LOG_ROTATE_MAX_MB` and `LOG_ROTATE_KEEP` settings control hourly
+host-log rotation. `LOG_ROTATE_FILES` can override its default log paths with
+semicolon-separated patterns.
 
 ## Why
 

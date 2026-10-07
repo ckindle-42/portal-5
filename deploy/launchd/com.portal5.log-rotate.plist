@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
+  "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.portal5.log-rotate</string>
+    <key>ProgramArguments</key>
+    <array>
+        <string>__PORTAL_ROOT__/.venv/bin/python</string>
+        <string>__PORTAL_ROOT__/scripts/rotate_logs.py</string>
+    </array>
+    <key>WorkingDirectory</key>
+    <string>__PORTAL_ROOT__</string>
+    <key>StartInterval</key>
+    <integer>3600</integer>
+    <key>RunAtLoad</key>
+    <false/>
+    <key>StandardOutPath</key>
+    <string>__LOG_DIR__/log-rotate.launchd.log</string>
+    <key>StandardErrorPath</key>
+    <string>__LOG_DIR__/log-rotate.launchd.log</string>
+</dict>
+</plist>

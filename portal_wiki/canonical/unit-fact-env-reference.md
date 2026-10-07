@@ -17,13 +17,13 @@ tags:
 - fact
 - operator
 created_at: 1788030600.446044
-updated_at: 1788030600.446044
+updated_at: 1791376709
 ---
 
 # Environment variables — the .env.example families
 
 The operator's runtime configuration lives in `.env`, copied from
-`.env.example` on first `up`; the example file declares 268 env vars, grouped
+`.env.example` on first `up`; the example file declares 271 env vars, grouped
 by what they tune. Every var carries an inline or section comment so a knob is
 never a bare secret.
 
@@ -62,6 +62,9 @@ never a bare secret.
   Splunkbase account.
 - `LAB_MBPTL_*`, `PROXMOX_URL`, `PROXMOX_TOKEN_ID`, `PROXMOX_TOKEN_SECRET`,
   `PROXMOX_VERIFY_SSL` — the MBPTL CTF lab and Proxmox control plane.
+- `LOG_ROTATE_MAX_MB`, `LOG_ROTATE_KEEP` — the hourly host-log size threshold
+  and retained gzip-generation count. `LOG_ROTATE_FILES` can override the
+  default log paths with semicolon-separated glob patterns.
 
 ## Ports, channels, and loops
 

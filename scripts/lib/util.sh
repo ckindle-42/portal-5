@@ -245,6 +245,27 @@ PLIST
     fi
 }
 
+# ── Install bounded host-log rotation agent ────────────────────────────────
+_install_log_rotation_agent() {
+    local ARCH _lr_label _lr_src _lr_dst _lr_domain
+    ARCH=$(uname -m)
+    _lr_label="com.portal5.log-rotate"
+    _lr_src="$PORTAL_ROOT/deploy/launchd/${_lr_label}.plist"
+    _lr_dst="$HOME/Library/LaunchAgents/${_lr_label}.plist"
+    _lr_domain="gui/$(id -u)"
+    if [ -f "$_lr_src" ] && [ "$(uname -s)" = "Darwin" ] && [ "$ARCH" = "arm64" ]; then
+        mkdir -p "$HOME/.portal5/logs" "$HOME/Library/LaunchAgents"
+        sed -e "s#__PORTAL_ROOT__#${PORTAL_ROOT}#g" \
+            -e "s#__LOG_DIR__#${HOME}/.portal5/logs#g" \
+            "$_lr_src" > "$_lr_dst"
+        if ! launchctl print "${_lr_domain}/${_lr_label}" &>/dev/null 2>&1; then
+            launchctl bootstrap "$_lr_domain" "$_lr_dst" &>/dev/null \
+                && echo "[portal-5]   ✅ host log rotation: hourly launchd job enabled" \
+                || echo "[portal-5]   ⚠️  host log rotation: launchd registration failed"
+        fi
+    fi
+}
+
 # ── Auto-start native services if installed but not running ─────────────────
 _ensure_native_services() {
     local ARCH
@@ -382,6 +403,8 @@ PY
                 || echo "[portal-5]   ⚠️  engine auto-update: launchd registration failed"
         fi
     fi
+
+    _install_log_rotation_agent
 
     # ── MFLUX image MCP (native MLX on Apple Silicon) ──────────────────────
     if [ "$ARCH" = "arm64" ]; then
