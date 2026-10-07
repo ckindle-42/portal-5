@@ -1,0 +1,764 @@
+{
+ "label": "GLMN",
+ "generated": "20261006T225704Z",
+ "reps": 2,
+ "arms": [
+  {
+   "key": "glm",
+   "workspace": "auto-cad",
+   "model": "glm-4.7-flash:Q4_K_M-ctx64k",
+   "tool_choice": "required",
+   "think": null,
+   "context_limit": 65536,
+   "tools": [
+    "execute_python",
+    "execute_bash",
+    "sandbox_status",
+    "read_pdf",
+    "read_word_document",
+    "web_search",
+    "web_fetch",
+    "remember",
+    "recall",
+    "kb_search",
+    "render_mesh",
+    "render_openscad",
+    "convert_cad",
+    "generate_part",
+    "cad_build",
+    "cad_execute",
+    "cad_measure",
+    "cad_find_holes",
+    "cad_render",
+    "cad_finalize"
+   ],
+   "cells": [
+    {
+     "task": "plate_4holes",
+     "request_id": "gauntlet-e1790572ac23",
+     "elapsed_s": 132.5,
+     "turns": 3,
+     "tool_calls": [
+      {
+       "tool": "generate_part",
+       "ok": true,
+       "arg_chars": 457
+      },
+      {
+       "tool": "cad_finalize",
+       "ok": true,
+       "arg_chars": 61
+      }
+     ],
+     "error": null,
+     "ended": "final_text",
+     "last_text": "Flat mounting plate \u2014 80 x 50 x 5 mm \u2014 four 5 mm through-holes positioned 8 mm in from adjacent edges on the top face.\n\n### Overall dimensions (mm)\n- Width (X): 80.0 mm\n- Depth (Y): 50.0 mm\n- Height (Z): 5.0 mm\n- Volume: \u2248 19,607 mm\u00b3\n\n### Output files\n- STEP: https://chat.intoodeep.systems/api/v1/files/c66a3b69-0d81-4252-8dea-61850401a9fe/content/mounting_plate_80x50x5_6a6288.step\n- STL: https://c",
+     "artifact": "/Users/chris/AI_Output/generated/models3d/mounting_plate_80x50x5_6a6288.stl",
+     "verdict": "PASS",
+     "score": 1.0,
+     "checks": {
+      "valid": true,
+      "bbox": true,
+      "volume": true,
+      "genus": true
+     },
+     "measured": {
+      "bbox": [
+       5.0,
+       50.0,
+       80.0
+      ],
+      "volume": 19607.5,
+      "genus": 4,
+      "bodies": 1,
+      "watertight": true
+     },
+     "truth": {
+      "bbox": [
+       5.0,
+       50.0,
+       80.0
+      ],
+      "volume": 19607.3,
+      "vol_tol": 0.03,
+      "genus": 4
+     },
+     "rep": 0
+    },
+    {
+     "task": "plate_4holes",
+     "request_id": "gauntlet-733fd6308796",
+     "elapsed_s": 69.2,
+     "turns": 2,
+     "tool_calls": [
+      {
+       "tool": "generate_part",
+       "ok": true,
+       "arg_chars": 584
+      }
+     ],
+     "error": null,
+     "ended": "final_text",
+     "last_text": "The mounting plate has been successfully designed and delivered. Here are the details:\n\n## Overall Dimensions\n- **Width:** 80 mm\n- **Depth:** 50 mm  \n- **Height (Thickness):** 5 mm\n- **Hole Diameter:** 5 mm (through-holes)\n- **Hole Placement:** Each hole located 8 mm from both adjacent edges\n\n## Printable Solid Files\n| File Type | Download URL |\n|-----------|--------------|\n| **STEP** | [part_4493",
+     "artifact": "/Users/chris/AI_Output/generated/models3d/part_44934f.stl",
+     "verdict": "PASS",
+     "score": 1.0,
+     "checks": {
+      "valid": true,
+      "bbox": true,
+      "volume": true,
+      "genus": true
+     },
+     "measured": {
+      "bbox": [
+       5.0,
+       50.0,
+       80.0
+      ],
+      "volume": 19607.5,
+      "genus": 4,
+      "bodies": 1,
+      "watertight": true
+     },
+     "truth": {
+      "bbox": [
+       5.0,
+       50.0,
+       80.0
+      ],
+      "volume": 19607.3,
+      "vol_tol": 0.03,
+      "genus": 4
+     },
+     "rep": 1
+    },
+    {
+     "task": "grommet_plate",
+     "request_id": "gauntlet-642fe8b2a80f",
+     "elapsed_s": 174.3,
+     "turns": 7,
+     "tool_calls": [
+      {
+       "tool": "generate_part",
+       "ok": true,
+       "arg_chars": 430
+      },
+      {
+       "tool": "cad_build",
+       "ok": false,
+       "arg_chars": 827
+      },
+      {
+       "tool": "cad_build",
+       "ok": false,
+       "arg_chars": 1146
+      },
+      {
+       "tool": "cad_build",
+       "ok": false,
+       "arg_chars": 1055
+      },
+      {
+       "tool": "cad_build",
+       "ok": false,
+       "arg_chars": 1055
+      },
+      {
+       "tool": "cad_build",
+       "ok": false,
+       "arg_chars": 1094
+      }
+     ],
+     "error": null,
+     "ended": "final_text",
+     "last_text": "**Plate dimensions:** 80.0 mm width \u00d7 30.0 mm depth \u00d7 4.0 mm height.  \n**Features:** Three 10 mm diameter through-holes centred 25 mm apart on the long edge, with the middle hole at the plate\u2019s centre. Each hole has a 1 mm chamfer on the top flat edge.\n\n**Deliverables:**\n- STEP: https://chat.intoodeep.systems/api/v1/files/771c015f-190f-4fc0-8d10-5bae0445dfd0/content/part_016338.step\n- STL: https:/",
+     "artifact": "/Users/chris/AI_Output/generated/models3d/part_016338.stl",
+     "verdict": "PASS",
+     "score": 1.0,
+     "checks": {
+      "valid": true,
+      "bbox": true,
+      "volume": true,
+      "genus": true
+     },
+     "measured": {
+      "bbox": [
+       4.0,
+       30.0,
+       80.0
+      ],
+      "volume": 8551.4,
+      "genus": 3,
+      "bodies": 1,
+      "watertight": true
+     },
+     "truth": {
+      "bbox": [
+       4.0,
+       30.0,
+       80.0
+      ],
+      "volume": 8607.3,
+      "vol_tol": 0.03,
+      "genus": 3
+     },
+     "rep": 0
+    },
+    {
+     "task": "grommet_plate",
+     "request_id": "gauntlet-d39fad81e879",
+     "elapsed_s": 84.3,
+     "turns": 2,
+     "tool_calls": [
+      {
+       "tool": "generate_part",
+       "ok": true,
+       "arg_chars": 427
+      }
+     ],
+     "error": null,
+     "ended": "final_text",
+     "last_text": "## Cable Grommet Plate - Completed\n\n### Overall Dimensions\n| Dimension | Value |\n|-----------|-------|\n| Length (X) | 80.0 mm |\n| Width (Y) | 30.0 mm |\n| Thickness (Z) | 4.0 mm |\n| Volume | 8,435 mm\u00b3 |\n\n### Design Verification\n| Requirement | Status |\n|-------------|--------|\n| 80 \u00d7 30 \u00d7 4 mm plate | \u2713 |\n| Three 10 mm diameter through-holes | \u2713 |\n| 25 mm centre-to-centre spacing | \u2713 (15, 40, 65 po",
+     "artifact": "/Users/chris/AI_Output/generated/models3d/part_95e0af.stl",
+     "verdict": "PASS",
+     "score": 1.0,
+     "checks": {
+      "valid": true,
+      "bbox": true,
+      "volume": true,
+      "genus": true
+     },
+     "measured": {
+      "bbox": [
+       4.0,
+       30.0,
+       80.0
+      ],
+      "volume": 8437.4,
+      "genus": 3,
+      "bodies": 1,
+      "watertight": true
+     },
+     "truth": {
+      "bbox": [
+       4.0,
+       30.0,
+       80.0
+      ],
+      "volume": 8607.3,
+      "vol_tol": 0.03,
+      "genus": 3
+     },
+     "rep": 1
+    },
+    {
+     "task": "enclosure",
+     "request_id": "gauntlet-21a9326cc9f8",
+     "elapsed_s": 561.1,
+     "turns": 10,
+     "tool_calls": [
+      {
+       "tool": "cad_build",
+       "ok": false,
+       "arg_chars": 1288
+      },
+      {
+       "tool": "cad_build",
+       "ok": false,
+       "arg_chars": 1255
+      },
+      {
+       "tool": "cad_build",
+       "ok": true,
+       "arg_chars": 1206
+      },
+      {
+       "tool": "cad_execute",
+       "ok": true,
+       "arg_chars": 50
+      },
+      {
+       "tool": "cad_build",
+       "ok": true,
+       "arg_chars": 1270
+      },
+      {
+       "tool": "cad_finalize",
+       "ok": true,
+       "arg_chars": 60
+      },
+      {
+       "tool": "cad_render",
+       "ok": true,
+       "arg_chars": 43
+      },
+      {
+       "tool": "cad_render",
+       "ok": true,
+       "arg_chars": 43
+      },
+      {
+       "tool": "render_mesh",
+       "ok": false,
+       "arg_chars": 301
+      }
+     ],
+     "error": null,
+     "ended": "final_text",
+     "last_text": "\u2713 STEP and STL are now ready. \n\nHere is the rendered view from the top (via cad_render) with its contents described:\n\n- The rectangular floor covers the interior space (open-top box shell).\n- Four 6 mm diameter standouts are visible on the floor.\n- Each standout has a small pilot hole drilled into its center.\n\nCAD file outputs:\n\n- STEP file: https://chat.intoodeep.systems/api/v1/files/4f2111c0-e6b",
+     "artifact": "/Users/chris/AI_Output/generated/models3d/electronics_enclosure_57360a.stl",
+     "verdict": "PASS",
+     "score": 1.0,
+     "checks": {
+      "valid": true,
+      "bbox": true,
+      "volume": true,
+      "genus": true
+     },
+     "measured": {
+      "bbox": [
+       25.0,
+       40.0,
+       60.0
+      ],
+      "volume": 13632.0,
+      "genus": 0,
+      "bodies": 1,
+      "watertight": true
+     },
+     "truth": {
+      "bbox": [
+       25.0,
+       40.0,
+       60.0
+      ],
+      "volume": 14212.4,
+      "vol_tol": 0.05,
+      "genus": 0
+     },
+     "rep": 0
+    },
+    {
+     "task": "enclosure",
+     "request_id": "gauntlet-43d3205d8e4d",
+     "elapsed_s": 548.4,
+     "turns": 14,
+     "tool_calls": [
+      {
+       "tool": "cad_build",
+       "ok": false,
+       "arg_chars": 2012
+      },
+      {
+       "tool": "cad_build",
+       "ok": false,
+       "arg_chars": 2026
+      },
+      {
+       "tool": "cad_build",
+       "ok": false,
+       "arg_chars": 2012
+      },
+      {
+       "tool": "cad_build",
+       "ok": false,
+       "arg_chars": 1945
+      },
+      {
+       "tool": "cad_build",
+       "ok": true,
+       "arg_chars": 1840
+      },
+      {
+       "tool": "cad_execute",
+       "ok": false,
+       "arg_chars": 89
+      },
+      {
+       "tool": "cad_execute",
+       "ok": false,
+       "arg_chars": 1972
+      },
+      {
+       "tool": "cad_execute",
+       "ok": false,
+       "arg_chars": 1989
+      },
+      {
+       "tool": "cad_execute",
+       "ok": false,
+       "arg_chars": 1904
+      },
+      {
+       "tool": "cad_execute",
+       "ok": true,
+       "arg_chars": 1976
+      },
+      {
+       "tool": "cad_execute",
+       "ok": false,
+       "arg_chars": 2022
+      },
+      {
+       "tool": "cad_execute",
+       "ok": true,
+       "arg_chars": 1954
+      },
+      {
+       "tool": "cad_execute",
+       "ok": false,
+       "arg_chars": 1946
+      },
+      {
+       "tool": "cad_execute",
+       "ok": true,
+       "arg_chars": 1919
+      }
+     ],
+     "error": null,
+     "ended": "turn_cap",
+     "last_text": "",
+     "artifact": null,
+     "verdict": "MISSING",
+     "score": 0.0,
+     "rep": 1
+    },
+    {
+     "task": "l_bracket",
+     "request_id": "gauntlet-a6ceeac0611e",
+     "elapsed_s": 861.0,
+     "turns": 14,
+     "tool_calls": [
+      {
+       "tool": "cad_build",
+       "ok": false,
+       "arg_chars": 1545
+      },
+      {
+       "tool": "cad_build",
+       "ok": false,
+       "arg_chars": 1468
+      },
+      {
+       "tool": "cad_build",
+       "ok": false,
+       "arg_chars": 1468
+      },
+      {
+       "tool": "cad_build",
+       "ok": false,
+       "arg_chars": 1422
+      },
+      {
+       "tool": "cad_build",
+       "ok": false,
+       "arg_chars": 1422
+      },
+      {
+       "tool": "cad_build",
+       "ok": false,
+       "arg_chars": 1408
+      },
+      {
+       "tool": "cad_build",
+       "ok": false,
+       "arg_chars": 1468
+      },
+      {
+       "tool": "cad_build",
+       "ok": false,
+       "arg_chars": 1490
+      },
+      {
+       "tool": "cad_build",
+       "ok": false,
+       "arg_chars": 1790
+      },
+      {
+       "tool": "cad_build",
+       "ok": false,
+       "arg_chars": 1709
+      },
+      {
+       "tool": "cad_build",
+       "ok": false,
+       "arg_chars": 1554
+      },
+      {
+       "tool": "cad_build",
+       "ok": false,
+       "arg_chars": 1803
+      },
+      {
+       "tool": "cad_build",
+       "ok": false,
+       "arg_chars": 1463
+      },
+      {
+       "tool": "cad_build",
+       "ok": false,
+       "arg_chars": 1534
+      }
+     ],
+     "error": null,
+     "ended": "turn_cap",
+     "last_text": "",
+     "artifact": null,
+     "verdict": "MISSING",
+     "score": 0.0,
+     "rep": 0
+    },
+    {
+     "task": "l_bracket",
+     "request_id": "gauntlet-3cedb491a30a",
+     "elapsed_s": 748.4,
+     "turns": 5,
+     "tool_calls": [
+      {
+       "tool": "cad_build",
+       "ok": false,
+       "arg_chars": 1713
+      },
+      {
+       "tool": "cad_build",
+       "ok": true,
+       "arg_chars": 1713
+      },
+      {
+       "tool": "cad_finalize",
+       "ok": true,
+       "arg_chars": 54
+      },
+      {
+       "tool": "cad_render",
+       "ok": true,
+       "arg_chars": 43
+      }
+     ],
+     "error": null,
+     "ended": "final_text",
+     "last_text": "## L-Bracket Design Complete\n\nThe 90\u00b0 L-bracket has been successfully designed and is ready for printing. Below are the key details and download links:\n\n### Overall Dimensions\n| Dimension | Value |\n|-----------|-------|\n| Width (X-axis) | 30 mm |\n| Depth (Y-axis) | 3 mm |\n| Height (Z-axis) | 25 mm |\n| Plate Thickness | 3 mm |\n| Fillet Radius | 3 mm (inner corner) |\n\n### Features\n- **4\u00d7 4.5 mm thro",
+     "artifact": "/Users/chris/AI_Output/generated/models3d/l_bracket_90deg_5c5422.stl",
+     "verdict": "WRONGSIZE",
+     "score": 0.25,
+     "checks": {
+      "valid": true,
+      "bbox": false,
+      "volume": false,
+      "genus": false
+     },
+     "measured": {
+      "bbox": [
+       3.0,
+       25.0,
+       30.0
+      ],
+      "volume": 2159.2,
+      "genus": 0,
+      "bodies": 1,
+      "watertight": true
+     },
+     "truth": {
+      "bbox": [
+       25.0,
+       30.0,
+       40.0
+      ],
+      "volume": 6126.4,
+      "vol_tol": 0.04,
+      "genus": 4
+     },
+     "rep": 1
+    },
+    {
+     "task": "flanged_bushing",
+     "request_id": "gauntlet-70c4cb22ab94",
+     "elapsed_s": 142.8,
+     "turns": 5,
+     "tool_calls": [
+      {
+       "tool": "cad_build",
+       "ok": false,
+       "arg_chars": 982
+      },
+      {
+       "tool": "cad_build",
+       "ok": true,
+       "arg_chars": 1006
+      },
+      {
+       "tool": "cad_measure",
+       "ok": true,
+       "arg_chars": 34
+      },
+      {
+       "tool": "cad_finalize",
+       "ok": true,
+       "arg_chars": 65
+      }
+     ],
+     "error": null,
+     "ended": "final_text",
+     "last_text": "## Flanged Bushing - Design Complete\n\nThe flanged bushing has been successfully designed and delivered as a printable solid part.\n\n### Overall Dimensions\n| Dimension | Value | Notes |\n|-----------|-------|-------|\n| **Flange Outer Diameter** | 30 mm | Flat face at base |\n| **Flange Thickness** | 3 mm | Adds to total length |\n| **Body Outer Diameter** | 16 mm | Main cylindrical body |\n| **Overall L",
+     "artifact": "/Users/chris/AI_Output/generated/models3d/flanged_bushing_bf6e03.stl",
+     "verdict": "WRONGSIZE",
+     "score": 0.5,
+     "checks": {
+      "valid": true,
+      "bbox": true,
+      "volume": false,
+      "genus": false
+     },
+     "measured": {
+      "bbox": [
+       20.0,
+       29.994,
+       29.997
+      ],
+      "volume": 4710.9,
+      "genus": 0,
+      "bodies": 1,
+      "watertight": true
+     },
+     "truth": {
+      "bbox": [
+       20.0,
+       30.0,
+       30.0
+      ],
+      "volume": 3967.8,
+      "vol_tol": 0.03,
+      "genus": 1
+     },
+     "rep": 0
+    },
+    {
+     "task": "flanged_bushing",
+     "request_id": "gauntlet-a22a7a4de0b7",
+     "elapsed_s": 206.3,
+     "turns": 7,
+     "tool_calls": [
+      {
+       "tool": "cad_build",
+       "ok": false,
+       "arg_chars": 1136
+      },
+      {
+       "tool": "cad_build",
+       "ok": false,
+       "arg_chars": 898
+      },
+      {
+       "tool": "cad_build",
+       "ok": true,
+       "arg_chars": 805
+      },
+      {
+       "tool": "cad_render",
+       "ok": true,
+       "arg_chars": 54
+      },
+      {
+       "tool": "cad_find_holes",
+       "ok": true,
+       "arg_chars": 34
+      },
+      {
+       "tool": "cad_finalize",
+       "ok": true,
+       "arg_chars": 65
+      }
+     ],
+     "error": null,
+     "ended": "final_text",
+     "last_text": "## Flanged Bushing \u2014 Design Complete\n\nThe flanged bushing has been successfully designed and is ready for 3D printing. Here's a summary:\n\n---\n\n### **Overall Dimensions**\n\n| Dimension | Specification |\n|-----------|---------------|\n| **Flange OD** | 30.0 mm |\n| **Flange Thickness** | 3.0 mm |\n| **Body OD** | 16.0 mm |\n| **Overall Length** | 20.0 mm |\n| **Through-bore Diameter** | 10.0 mm |\n| **Volu",
+     "artifact": "/Users/chris/AI_Output/generated/models3d/flanged_bushing_c78682.stl",
+     "verdict": "WRONGSIZE",
+     "score": 0.5,
+     "checks": {
+      "valid": true,
+      "bbox": false,
+      "volume": false,
+      "genus": true
+     },
+     "measured": {
+      "bbox": [
+       17.0,
+       29.989,
+       30.0
+      ],
+      "volume": 3598.6,
+      "genus": 1,
+      "bodies": 1,
+      "watertight": true
+     },
+     "truth": {
+      "bbox": [
+       20.0,
+       30.0,
+       30.0
+      ],
+      "volume": 3967.8,
+      "vol_tol": 0.03,
+      "genus": 1
+     },
+     "rep": 1
+    },
+    {
+     "task": "countersunk_plate",
+     "request_id": "gauntlet-971ca18993ed",
+     "elapsed_s": 88.0,
+     "turns": 2,
+     "tool_calls": [
+      {
+       "tool": "generate_part",
+       "ok": true,
+       "arg_chars": 416
+      }
+     ],
+     "error": null,
+     "ended": "final_text",
+     "last_text": "## Part Design Complete\n\nYour **60 x 30 x 6 mm plate** with M4 countersunk screw holes has been designed and delivered. Here are the details:\n\n### Overall Dimensions\n- **Width:** 60 mm\n- **Depth:** 30 mm\n- **Height:** 6 mm\n\n### Hole Configuration\n- **Quantity:** 2 holes\n- **Through-hole diameter:** 4.5 mm\n- **Countersink angle:** 90\u00b0\n- **Countersink diameter:** 9 mm (at top face)\n- **Spacing:** 40",
+     "artifact": "/Users/chris/AI_Output/generated/models3d/part_d7cf3b.stl",
+     "verdict": "PASS",
+     "score": 1.0,
+     "checks": {
+      "valid": true,
+      "bbox": true,
+      "volume": true,
+      "genus": true
+     },
+     "measured": {
+      "bbox": [
+       6.0,
+       30.0,
+       60.0
+      ],
+      "volume": 10514.0,
+      "genus": 2,
+      "bodies": 1,
+      "watertight": true
+     },
+     "truth": {
+      "bbox": [
+       6.0,
+       30.0,
+       60.0
+      ],
+      "volume": 10499.4,
+      "vol_tol": 0.03,
+      "genus": 2
+     },
+     "rep": 0
+    }
+   ],
+   "summary": {
+    "n": 11,
+    "mean_score": 0.659,
+    "pass_rate": 0.545,
+    "validity_rate": 0.818,
+    "median_s": 174.3
+   }
+  }
+ ]
+}

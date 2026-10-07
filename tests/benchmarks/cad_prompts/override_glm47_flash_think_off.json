@@ -1,0 +1,1 @@
+{"model_hint": "glm-4.7-flash:Q4_K_M-ctx64k", "temperature": 1.0, "top_p": 0.95, "top_k": null, "repeat_penalty": 1.0, "context_limit": 65536, "think": false}

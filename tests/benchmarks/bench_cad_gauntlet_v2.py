@@ -18,11 +18,14 @@ Usage:
       --arm b0=auto-cad --arm prior=bench-cad-prior --reps 3 --label B0
 Results: tests/benchmarks/results/cad_gauntlet_v2_<label>_<ts>.{json,md}
 Resumable: --resume <json> skips (arm, task, rep) cells already recorded.
+Set CAD_GAUNTLET_TRACE_DIR=<dir> to write one full transcript per cell. Each cell also
+records `ended` (final_text | turn_cap | error) and the model's last text.
 """
 
 from __future__ import annotations
 
 import argparse
+import asyncio
 import json
 import os
 import statistics
@@ -47,7 +50,7 @@ OLLAMA_URL = os.environ.get("OLLAMA_URL", "http://localhost:11434")
 # Container paths in tool results are under /workspace; on the host that is AI_OUTPUT_DIR.
 CONTAINER_WS = "/workspace"
 HOST_WS = Path(os.environ.get("AI_OUTPUT_DIR", str(Path.home() / "AI_Output")))
-MAX_TURNS = int(os.environ.get("CAD_GAUNTLET_MAX_TURNS", "8"))
+MAX_TURNS = int(os.environ.get("CAD_GAUNTLET_MAX_TURNS", "14"))
 INACTIVITY_S = int(os.environ.get("CAD_GAUNTLET_INACTIVITY_S", "180"))
 TOOL_TIMEOUT_S = 600
 
@@ -148,19 +151,29 @@ def unload(model: str) -> None:
         pass
 
 
-def stream_chat(payload: dict) -> dict:
-    """Ollama /v1/chat/completions streaming; per-read inactivity timeout."""
+async def _stream_chat_async(payload: dict) -> dict:
+    """Chat through the SAME transport production uses for Ollama.
+
+    Raw POST /v1/chat/completions silently drops `think`, top_k, min_p and
+    repeat_penalty (KNOWN_LIMITATIONS P5-OLLAMA-V1-SAMPLING-001), so a thinking model
+    ran with thinking on and every arm ran off its configured sampling. The pipeline
+    fixes this with OllamaNativeTransport (answers /v1 from native /api/chat); using it
+    here keeps the gauntlet production-like. Per-read inactivity timeout as before.
+    """
+    from portal.platform.inference.ollama_native import OllamaNativeTransport
+
     parts: list[str] = []
     acc: dict[int, dict] = {}
+    transport = OllamaNativeTransport(httpx.AsyncHTTPTransport(), lambda _base: True)
     timeout = httpx.Timeout(30.0, read=INACTIVITY_S)
-    with (
-        httpx.Client(timeout=timeout) as c,
+    async with (
+        httpx.AsyncClient(transport=transport, timeout=timeout) as c,
         c.stream(
             "POST", f"{OLLAMA_URL}/v1/chat/completions", json={**payload, "stream": True}
         ) as resp,
     ):
         resp.raise_for_status()
-        for line in resp.iter_lines():
+        async for line in resp.aiter_lines():
             if not line.startswith("data:"):
                 continue
             data = line[5:].strip()
@@ -188,12 +201,53 @@ def stream_chat(payload: dict) -> dict:
     return msg
 
 
+def stream_chat(payload: dict) -> dict:
+    return asyncio.run(_stream_chat_async(payload))
+
+
 def host_path(p: str | None) -> Path | None:
     if not p:
         return None
     if p.startswith(CONTAINER_WS + "/"):
         return HOST_WS / p[len(CONTAINER_WS) + 1 :]
     return Path(p)
+
+
+def _write_trace(task_id: str, rid: str, ended: str, messages: list[dict[str, Any]]) -> None:
+    """Full transcript (tool results clipped) so a failure can be read, not guessed at."""
+    trace_dir = os.environ.get("CAD_GAUNTLET_TRACE_DIR")
+    if not trace_dir:
+        return
+    clipped = [
+        {**m, "content": (m.get("content") or "")[:3000]} if m.get("role") == "tool" else m
+        for m in messages
+    ]
+    Path(trace_dir).mkdir(parents=True, exist_ok=True)
+    (Path(trace_dir) / f"{task_id}_{rid}.json").write_text(
+        json.dumps({"task": task_id, "ended": ended, "messages": clipped}, indent=1)
+    )
+
+
+def _build_payload(
+    ws_cfg: dict, messages: list[dict[str, Any]], tools: list[dict], tc: str, have_artifact: bool
+) -> dict[str, Any]:
+    payload: dict[str, Any] = {
+        "model": ws_cfg["model_hint"],
+        "messages": messages,
+        "tools": tools,
+        # tool_choice=required is only meaningful until a deliverable exists;
+        # after that the model must be allowed to answer in prose.
+        "tool_choice": "auto" if (have_artifact or tc not in ("auto", "required")) else tc,
+        "temperature": ws_cfg.get("temperature", 0.2),
+        "top_p": ws_cfg.get("top_p", 0.9),
+        "max_tokens": ws_cfg.get("predict_limit", 8192),
+    }
+    if "think" in ws_cfg:
+        payload["think"] = ws_cfg["think"]
+    for key in ("top_k", "min_p", "repeat_penalty", "presence_penalty"):
+        if ws_cfg.get(key) is not None:
+            payload[key] = ws_cfg[key]
+    return payload
 
 
 def run_one(ws_cfg: dict, task: dict, schemas: dict, routes: dict) -> dict:
@@ -208,27 +262,21 @@ def run_one(ws_cfg: dict, task: dict, schemas: dict, routes: dict) -> dict:
     artifact: str | None = None
     t0 = time.monotonic()
     error = None
+    ended = "turn_cap"
+    last_text = ""
     for turn in range(MAX_TURNS):
-        payload: dict[str, Any] = {
-            "model": ws_cfg["model_hint"],
-            "messages": messages,
-            "tools": tools,
-            # tool_choice=required is only meaningful until a deliverable exists;
-            # after that the model must be allowed to answer in prose.
-            "tool_choice": "auto" if (artifact or tc not in ("auto", "required")) else tc,
-            "temperature": ws_cfg.get("temperature", 0.2),
-            "top_p": ws_cfg.get("top_p", 0.9),
-            "max_tokens": ws_cfg.get("predict_limit", 8192),
-        }
-        if "think" in ws_cfg:
-            payload["think"] = ws_cfg["think"]
+        payload = _build_payload(ws_cfg, messages, tools, tc, bool(artifact))
         try:
             msg = stream_chat(payload)
         except Exception as e:  # noqa: BLE001
             error = f"chat failed on turn {turn}: {type(e).__name__}: {e}"
+            ended = "error"
             break
         tcs = msg.get("tool_calls") or []
         if not tcs:
+            ended = "final_text"
+            last_text = (msg.get("content") or "")[:400]
+            messages.append(msg)
             break
         messages.append(msg)
         for call in tcs:
@@ -270,6 +318,7 @@ def run_one(ws_cfg: dict, task: dict, schemas: dict, routes: dict) -> dict:
                 }
             )
     grade = grade_mesh(task["id"], host_path(artifact))
+    _write_trace(task["id"], rid, ended, messages)
     return {
         "task": task["id"],
         "request_id": rid,
@@ -277,6 +326,8 @@ def run_one(ws_cfg: dict, task: dict, schemas: dict, routes: dict) -> dict:
         "turns": len([m for m in messages if m["role"] == "assistant"]),
         "tool_calls": calls,
         "error": error,
+        "ended": ended,
+        "last_text": last_text,
         **grade,
     }
 
@@ -341,9 +392,18 @@ def main() -> int:
     ap.add_argument("--task", action="append", help="limit to task id(s)")
     ap.add_argument("--label", default="run")
     ap.add_argument("--resume", type=Path)
+    ap.add_argument(
+        "--override",
+        action="append",
+        default=[],
+        metavar="KEY=JSON",
+        help="merge JSON into an arm's workspace config (repeatable), "
+        'e.g. moe={"model_hint": "tag", "think": false}',
+    )
     args = ap.parse_args()
 
     schemas, routes = load_tool_routes()
+    overrides = {k: json.loads(v) for k, v in (o.split("=", 1) for o in args.override)}
     tasks = [t for t in TASKS if not args.task or t["id"] in args.task]
     ts = datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ")
     out_json = args.resume or RESULTS_DIR / f"cad_gauntlet_v2_{args.label}_{ts}.json"
@@ -355,7 +415,7 @@ def main() -> int:
 
     for spec in args.arm:
         key, ws_id = spec.split("=", 1)
-        ws = load_workspace(ws_id)
+        ws = {**load_workspace(ws_id), **overrides.get(key, {})}
         arm = next((a for a in run["arms"] if a["key"] == key), None)
         if arm is None:
             arm = {

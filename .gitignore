@@ -174,3 +174,7 @@ data/compliance/backups/
 # READING_TRUTH_V1 P1: run data stays local; outcome summaries are top-level md
 reports/compliance/*/
 reports/compliance/*.json
+
+# CAD gauntlet transcripts and run logs (large, local)
+reports/cad/traces/
+reports/cad/matrix_*.log

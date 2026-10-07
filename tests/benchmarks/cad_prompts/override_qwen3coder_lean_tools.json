@@ -1,0 +1,11 @@
+{
+ "tools": [
+  "generate_part",
+  "cad_build",
+  "cad_execute",
+  "cad_measure",
+  "cad_find_holes",
+  "cad_render",
+  "cad_finalize"
+ ]
+}
