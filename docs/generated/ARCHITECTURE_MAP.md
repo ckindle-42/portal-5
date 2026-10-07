@@ -2,7 +2,7 @@
 
 # Portal 5 Architecture Map
 
-*Deterministic projection of 766 canonical units.*
+*Deterministic projection of 767 canonical units.*
 
 ## Knowledge Layer
 
@@ -325,6 +325,7 @@
 | `unit-known-limitations-code-sandbox-requires-privileged-container` | what | 2 |
 | `unit-known-limitations-compliance-engine-had-no-route` | what | 3 |
 | `unit-known-limitations-compliance-implicit-change-recall` | what | 3 |
+| `unit-known-limitations-compliance-mcp-protocol-calls-not-cancelled` | what | 3 |
 | `unit-known-limitations-compliance-review-queue-not-a-gate` | what | 2 |
 | `unit-known-limitations-compliance-scope-was-gated-on-data-the-corpus-already-answers` | what | 2 |
 | `unit-known-limitations-devstral-24b-runtime-vram-footprint-25-7-gb` | what | 3 |
@@ -588,7 +589,7 @@
 | `unit-p5-roadmap-future-considerations-not-yet-implemented` | what | 5 |
 | `unit-p5-roadmap-p5-fut-004-webhook-based-event-notifications` | what | 2 |
 | `unit-p5-roadmap-p5-fut-006-llm-based-intent-routing` | what | 5 |
-| `unit-p5-roadmap-p5-fut-009-model-size-aware-admission-control-mlx-proxy` | what | 5 |
+| `unit-p5-roadmap-p5-fut-009-model-size-aware-admission-control-mlx-proxy` | what | 7 |
 | `unit-p5-roadmap-p5-fut-013-omlx-evaluation-canceled` | what | 3 |
 | `unit-p5-roadmap-p5-fut-014-v7-model-refresh-waterline` | what | 5 |
 | `unit-p5-roadmap-p5-fut-embed-001-embeddinggemma-migration-seed` | what | 4 |
@@ -775,12 +776,12 @@
 | `unit-wiki-tests-render` | mixed | 1 |
 | `unit-wiki-writeback` | mixed | 1 |
 
-**Total:** 766 units
+**Total:** 767 units
 
 ## Source Distribution
 
 - **bench-security**: 1 references
-- **code**: 2020 references
+- **code**: 2025 references
 - **config**: 1 references
 - **doc**: 1 references
 - **mitre**: 40 references

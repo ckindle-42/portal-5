@@ -186,8 +186,8 @@ async def _warmup_auto_model(registry: BackendRegistry) -> None:
             guard = _load_guard_mod.GUARD
             try:
                 if backend.type == "ollama" and guard is not None:
-                    release = await guard.admit(backend.url, warmup_payload["model"])
-                    end = guard.begin(_load_guard_mod.OLLAMA, warmup_payload["model"])
+                    release = await guard.admit(backend.url, str(warmup_payload["model"]))
+                    end = guard.begin(_load_guard_mod.OLLAMA, str(warmup_payload["model"]))
                 return await _http_client.post(warmup_url, json=warmup_payload)
             finally:
                 if end is not None:

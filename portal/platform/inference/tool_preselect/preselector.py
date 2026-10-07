@@ -133,8 +133,8 @@ async def preselect(
             end = None
             try:
                 if guard is not None:
-                    release = await guard.admit(ollama_url, payload["model"])
-                    end = guard.begin(load_guard.OLLAMA, payload["model"])
+                    release = await guard.admit(ollama_url, str(payload["model"]))
+                    end = guard.begin(load_guard.OLLAMA, str(payload["model"]))
                 return await _client().post(f"{ollama_url}/api/generate", json=payload)
             finally:
                 if end is not None:
