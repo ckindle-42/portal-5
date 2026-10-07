@@ -49,51 +49,51 @@
   ],
   [
     "write an exploit for an authorized buffer overflow test",
-    "auto-redteam",
+    "auto-security",
     "security",
-    "offensive"
+    "offensive; was auto-redteam; variant=redteam"
   ],
   [
     "explain how to perform pass-the-hash in an AD environment",
-    "auto-redteam",
+    "auto-security",
     "security",
-    "offensive"
+    "offensive; was auto-redteam; variant=redteam"
   ],
   [
     "generate a reverse shell payload for a red team exercise",
-    "auto-redteam",
+    "auto-security",
     "security",
-    "offensive"
+    "offensive; was auto-redteam; variant=redteam"
   ],
   [
     "what AV evasion techniques work on current EDR products",
-    "auto-redteam",
+    "auto-security",
     "security",
-    "offensive"
+    "offensive; was auto-redteam; variant=redteam"
   ],
   [
-    "full kill-chain analysis for a supply chain compromise \u2014 ATT&CK mapped",
-    "auto-redteam-deep",
+    "full kill-chain analysis for a supply chain compromise — ATT&CK mapped",
+    "auto-security",
     "security",
-    "depth signal"
+    "depth signal; was auto-redteam-deep; variant=redteam-deep"
   ],
   [
     "detailed kerberoasting walkthrough with OPSEC considerations",
-    "auto-redteam-deep",
+    "auto-security",
     "security",
-    "depth signal"
+    "depth signal; was auto-redteam-deep; variant=redteam-deep"
   ],
   [
     "authorized engagement: enumerate AD kerberoastable accounts and crack hashes",
-    "auto-pentest",
+    "auto-security",
     "security",
-    "execution mode"
+    "execution mode; was auto-pentest; variant=pentest"
   ],
   [
     "run sqlmap against the authorized target at 10.0.0.50",
-    "auto-pentest",
+    "auto-security",
     "security",
-    "execution mode"
+    "execution mode; was auto-pentest; variant=pentest"
   ],
   [
     "analyze this YARA rule for potential false positives",
@@ -114,40 +114,40 @@
     "defensive creation"
   ],
   [
-    "we detected ransomware on WS-42 \u2014 what do we isolate first",
-    "auto-blueteam",
+    "we detected ransomware on WS-42 — what do we isolate first",
+    "auto-security",
     "standard",
-    ""
+    "was auto-blueteam; variant=blueteam"
   ],
   [
     "write an incident response playbook for a phishing campaign",
-    "auto-blueteam",
+    "auto-security",
     "standard",
-    ""
+    "was auto-blueteam; variant=blueteam"
   ],
   [
     "harden our Windows Server 2022 baseline per CIS benchmarks",
-    "auto-blueteam",
+    "auto-security",
     "standard",
-    ""
+    "was auto-blueteam; variant=blueteam"
   ],
   [
     "attack chain for cobalt strike beacon plus matching detection rules",
-    "auto-purpleteam",
+    "auto-security",
     "standard",
-    "red+blue signal"
+    "red+blue signal; was auto-purpleteam; variant=purpleteam"
   ],
   [
     "purple team analysis: credential dumping TTPs and SIEM detections",
-    "auto-purpleteam-deep",
+    "auto-security",
     "standard",
-    "deep chain"
+    "deep chain; was auto-purpleteam-deep; variant=purpleteam-deep"
   ],
   [
     "authorized lab: scan 192.168.100.0/24 and identify vulnerable services",
-    "auto-purpleteam-exec",
+    "auto-security",
     "security",
-    "execution mode"
+    "execution mode; was auto-purpleteam-exec; variant=purpleteam-exec"
   ],
   [
     "is our patch management process compliant with NERC CIP-007-6 R4",
@@ -264,10 +264,10 @@
     ""
   ],
   [
-    "summarize the key points from this podcast episode",
+    "what were the main takeaways from this recorded interview audio",
     "auto-audio",
     "standard",
-    ""
+    "held-out replacement (was a routing_examples few-shot)"
   ],
   [
     "what topics were discussed in this interview recording",
@@ -325,33 +325,33 @@
   ],
   [
     "refactor this entire 8000-line monolith to use async/await throughout",
-    "auto-agentic",
+    "auto-coding",
     "standard",
-    "scale signal"
+    "scale signal; was auto-agentic; variant=heavy"
   ],
   [
     "analyze and document every function in this 200-file codebase",
-    "auto-agentic",
+    "auto-coding",
     "standard",
-    "scale signal"
+    "scale signal; was auto-agentic; variant=heavy"
   ],
   [
     "use Magistral to walk through this strategic partnership decision",
-    "auto-mistral",
+    "auto-reasoning",
     "standard",
-    "model-name signal"
+    "model-name signal; was auto-mistral"
   ],
   [
     "structured Mistral reasoning: evaluate these three architecture options",
-    "auto-mistral",
+    "auto-reasoning",
     "standard",
-    "model-name signal"
+    "model-name signal; was auto-mistral"
   ],
   [
     "use Phi-4 to reason through this STEM problem",
-    "auto-phi4",
+    "auto-daily",
     "standard",
-    "model-name signal"
+    "model-name signal; was auto-phi4"
   ],
   [
     "can you help me draft a quick reply to this email",
@@ -387,7 +387,7 @@
     "what is 2 + 2",
     "auto",
     "abstain",
-    "trivial \u2014 no workspace needed"
+    "trivial — no workspace needed"
   ],
   [
     "who invented the telephone",
@@ -405,7 +405,7 @@
     "write a Splunk search to detect Mimikatz",
     "auto-spl",
     "standard",
-    "security + SPL overlap \u2014 SPL should win"
+    "security + SPL overlap — SPL should win"
   ],
   [
     "CIP-007 requirements for patching ICS systems",
