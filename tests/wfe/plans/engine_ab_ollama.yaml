@@ -1,4 +1,4 @@
-# Engine A/B: same Ollama seats/models, only the Ollama version differs (0.34.4 vs 0.35.0).
+# Engine A/B: same Ollama seats/models, only the Ollama version differs (0.34.4 vs 0.35.0; 0.35.0 vs 0.40.0 on 2026-10-07).
 # Run once per version with a distinct --campaign-id; WFE_ENGINE=pipeline.
 workloads:
   auto-coding::fast-repair:
