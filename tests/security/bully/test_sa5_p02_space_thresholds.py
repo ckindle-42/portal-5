@@ -93,4 +93,4 @@ def test_measure_distances_computes_self_near_far_from_embed_fn():
 def test_semantic_weight_matches_engine():
     """The derivation's composite-scale conversion must use the engine's own
     semantic channel weight -- otherwise the scale model is wrong."""
-    assert cousin_engine._WEIGHTS["semantic"] == 0.25
+    assert cousin_engine._WEIGHTS["semantic"] == 0.40

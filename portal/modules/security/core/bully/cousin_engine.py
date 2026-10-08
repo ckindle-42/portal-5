@@ -12,14 +12,23 @@ from . import signatures as sig_mod
 from .contracts import CousinAssessment, Decomposition
 from .signatures import BehaviorSignature
 
-ALGORITHM_VERSION = "cousin-v1"
+ALGORITHM_VERSION = "cousin-v2"
 
 # Missing dimensions contribute no distance or confidence weight; weights are
 # never renormalized (I-6 failure semantics).
+#
+# Weights v2 (TASK_EG2_FOLLOWUPS_AND_BULLY_ENGINE_V1 B1, run reports/bully_b1/20261008T195439Z):
+# v1 gave telemetry (0.20) + context (0.10) as much pull as behavior (0.30), so a same-log-source
+# record outranked a cross-source cousin sharing the behavior — blind cross-source discovery was
+# 1/988 with 965-981 same-source references. v2 moves the freed mass to behavior+semantic; on the
+# same 988 probes and the same seeded EG2 projection (paired exact McNemar vs v1): related 154 ->
+# 241 (p<1e-4), cross-source related 1 -> 16 (p=6e-5), twins reported separately, hand-checked
+# sample genuine (gacutil IIS install, appcmd log-disable, netsh firewall, WMI account
+# manipulation, certutil -backupdb — each through two log sources).
 _WEIGHTS: dict[str, float] = {
-    "behavior": 0.30,
-    "telemetry": 0.20,
-    "semantic": 0.25,
+    "behavior": 0.40,
+    "telemetry": 0.10,
+    "semantic": 0.40,
     "attack": 0.15,
     "context": 0.10,
 }
@@ -300,11 +309,29 @@ def _decompose(
         reference.get("action_sequence") or reference.get("behavior_sequence", "").split()
     )
     subj_action = set(subject_actions)
-    behavior = (
-        _jaccard_distance(subj_action, ref_action)
-        if available("action_sequence", subject_actions, ref_action)
-        else None
-    )
+
+    # Behavior channel v2 (B1): the value terms (`bully.behavior_values` -- which process,
+    # command, file, registry key, service, syscall, URI) are what a cross-source cousin
+    # actually shares; action_sequence carries event codes and field NAMES, which are
+    # source-schema and differ across log sources even for the same behavior. When both
+    # sides carry values the channel compares them; pairs where either side predates the
+    # values capture fall back to the action-sequence Jaccard, the same graceful
+    # degradation `semantic_query` applies to its `content:` section.
+    subject_values = {
+        str(value)
+        for value in ((getattr(subject, "artifacts", None) or {}).get("behavior_values") or ())
+    }
+    reference_values = {
+        str(value) for value in ((reference.get("artifacts") or {}).get("behavior_values") or ())
+    }
+    if subject_values and reference_values:
+        behavior = _jaccard_distance(subject_values, reference_values)
+    else:
+        behavior = (
+            _jaccard_distance(subj_action, ref_action)
+            if available("action_sequence", subject_actions, ref_action)
+            else None
+        )
 
     ref_telemetry = _flatten(reference.get("telemetry_shape") or {})
     subject_telemetry = getattr(subject, "telemetry_shape", None) or {}

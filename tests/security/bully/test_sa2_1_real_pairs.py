@@ -4,7 +4,7 @@ import ast
 import inspect
 
 from portal.modules.security.core.bully import discovery_bench
-from tests.security.bully._discovery_fixtures import TRUTH_LEAK_XFAIL, build_corpus, build_snapshot
+from tests.security.bully._discovery_fixtures import build_corpus, build_snapshot
 
 
 def test_real_probe_specimens_draws_attack_data_lane_only():
@@ -77,7 +77,6 @@ def test_grade_real_pair_engine_receives_no_truth_labels(monkeypatch):
     assert len(seen_kwargs) == len(probes)
 
 
-@TRUTH_LEAK_XFAIL
 def test_pairs_span_classes():
     corpus = build_corpus()
     snapshot = build_snapshot(corpus)

@@ -84,7 +84,11 @@ def test_same_tactic_variant_grades_new():
         ["scheduled_task_create", "payload_drop"], ["T1053.005"], ["process", "file"]
     )
     reference = _reference(["net_use", "wmic_process_call_create"], ["T1021.002"], ["wmi", "smb"])
-    assessment = ce.grade(subject, _candidates(reference, semantic_distance=0.55), MISSED)
+    # v2 weights (behavior+semantic 0.40 each): behavior/telemetry/attack all fully
+    # disjoint contribute 0.65, so semantic 0.45 puts the composite at 0.83 -- inside the
+    # NEW band (0.40, 0.85] instead of the silent DIFFERENT the v1 fixture (0.55) now
+    # earns honestly (0.87).
+    assessment = ce.grade(subject, _candidates(reference, semantic_distance=0.45), MISSED)
     assert assessment.relationship == "NEW"
 
 
@@ -138,7 +142,9 @@ def test_calibration_agreement_floor_on_the_five_fixtures():
                 ["scheduled_task_create", "payload_drop"], ["T1053.005"], ["process", "file"]
             ),
             _reference(["net_use", "wmic_process_call_create"], ["T1021.002"], ["wmi", "smb"]),
-            0.55,
+            # v2 weights: 0.65 of fully-disjoint behavior/telemetry/attack + 0.40*0.45
+            # -> 0.83, inside NEW; 0.55 would honestly grade DIFFERENT (0.87).
+            0.45,
             MISSED,
             "NEW",
         ),
@@ -162,7 +168,11 @@ def test_calibration_agreement_floor_on_the_five_fixtures():
                 ["wmi", "smb"],
                 target_host="host-1",
             ),
-            0.95,
+            # v2 weights: missing attack contributes nothing (never fabricated); behavior
+            # 1.0 + telemetry 1.0 + context 0.667 + 0.40*0.70 -> 0.847, inside NEW. If
+            # attack WERE fabricated into max distance the composite would cross new_max
+            # (0.997) -- the fixture still discriminates the claim.
+            0.70,
             COVERED,
             # A missing ATT&CK dimension contributes no weight and is never
             # fabricated into maximum distance (SA1/X3).

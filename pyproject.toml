@@ -296,6 +296,7 @@ max-complexity = 15
 "portal/modules/security/core/bully/correlation.py" = ["C90", "PLR0912"]
 "portal/modules/security/core/bully/series_cousin.py" = ["C90", "PLR0912"]
 "scripts/bully_loop_milestone_run.py" = ["C90", "PLR0912", "PLR0915"]
+"scripts/bully_b1_engine_variants.py" = ["C90", "PLR0912", "PLR0915"] # one retrieval pass, per-variant grading
 "scripts/bully_analyst_loop_run.py" = ["C90", "PLR0912", "PLR0915"]
 "scripts/bully_truth_acceptance_run.py" = ["C90", "PLR0912", "PLR0915"]
 "scripts/bully_corpus_hunt_run.py" = ["C90", "PLR0912", "PLR0915"]

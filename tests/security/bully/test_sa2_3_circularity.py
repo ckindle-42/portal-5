@@ -12,7 +12,6 @@ def _run():
     return probes, verdicts
 
 
-@TRUTH_LEAK_XFAIL
 def test_shuffled_labels_collapse_score_toward_chance():
     probes, verdicts = _run()
     probes_by_id = {p["specimen_id"]: p for p in probes}
