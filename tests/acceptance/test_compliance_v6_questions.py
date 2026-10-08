@@ -64,6 +64,60 @@ def _seat(determination: str, cite: str, finding: str | None = None):
     return fn if not _LIVE else None
 
 
+def _reading_seat(determination: str, cite: str, finding: str | None = None):
+    """A seat that also answers the reading pass (fdd56bf8 made it the
+    authoritative path: `propose` re-judges through `assess_part`, whose
+    documentary coverage comes from a per-duty reading JSON, not the council
+    vote). The reading response cites one governing slice and every candidate
+    slice the packet offers, which is exactly what FULL verification needs."""
+
+    def fn(model, system, user):
+        if "checking one thing only" in system:
+            return '{"overrides": false, "exception_ref": null}'
+        if '"documentary_coverage"' in system and '"duties"' in system:
+            packet = json.loads(user)
+            gov_ids = [
+                s.get("slice_id")
+                for s in ((packet.get("governing") or {}).get("source_slices") or [])
+                if s.get("role") == "governing" and s.get("slice_id")
+            ]
+            cand_ids = [
+                sid
+                for c in (packet.get("candidates") or [])
+                for sid in (c.get("selectable_slice_ids") or [])
+            ]
+            duty = {
+                "duty_id": "d1",
+                "statement": (packet.get("governing") or {}).get("part_text") or cite,
+                "finding": "COVERED",
+                "governing_slice_ids": gov_ids[:1],
+                "candidate_slice_ids": cand_ids,
+                "governing_operand": "",
+                "candidate_operand": "",
+                "rationale": "scripted reading",
+            }
+            return json.dumps(
+                {
+                    "duties": [duty],
+                    "documentary_coverage": "FULL",
+                    "rationale": "scripted reading",
+                    "gaps": [],
+                    "uncertainties": [],
+                }
+            )
+        return json.dumps(
+            {
+                "determination": determination,
+                "finding_type": finding,
+                "cited_refs": [cite],
+                "confidence": 0.85,
+                "rationale": "scripted",
+            }
+        )
+
+    return fn if not _LIVE else None
+
+
 # ── Q01 — what does the current requirement require ────────────────────────
 
 
@@ -83,7 +137,9 @@ def test_q01_X_before_effective_date_returns_predecessor_labelled(g):
 def test_q01_U_undeclared_asset_fact_names_it(g):
     gs = resolve("CIP-005-7 R2 Part 2.1", valid_at="2026-09-06", scope=AssetScope(), policy_graph=g)
     # scope undeclared -> the resolve still returns the duty, but a downstream
-    # judge would be UNKNOWN, not a silent N/A
+    # judge would be UNKNOWN, not a silent N/A. Since fdd56bf8 (one authoritative
+    # reading assessment path) the council's ESCALATE/INSUFFICIENT projects to
+    # UNRESOLVED -- the same loud-not-silent semantics this test checks.
     d = judge(
         "CIP-005-7 R2 Part 2.1",
         scope=AssetScope(),
@@ -92,7 +148,7 @@ def test_q01_U_undeclared_asset_fact_names_it(g):
         policy_graph=g,
         seat_fn=_seat("SUPPORTED", "CIP-005-7 R2 Part 2.1"),
     )
-    assert d.determination in {"ESCALATE", "SUPPORTED", "ABSENT", "NOT_APPLICABLE"}
+    assert d.determination in {"UNRESOLVED", "SUPPORTED", "ABSENT", "NOT_APPLICABLE"}
     # the applicability reason must name the undeclared scope
     from portal.modules.compliance.core.gate import run_gate
     from portal.modules.compliance.core.vocabulary_bridge import derive_vocabulary
@@ -147,7 +203,9 @@ def test_q03_U_truncated_reading_returns_unresolved_not_gap(g):
         policy_graph=g,
         seat_fn=_seat("INSUFFICIENT", "CIP-007-6 R2 Part 2.2"),
     )
-    assert d.determination == "ESCALATE"  # no vote reached quorum; not ABSENT
+    assert d.determination == "UNRESOLVED"  # no vote reached quorum; not ABSENT
+    # (ESCALATE was the pre-fdd56bf8 vocabulary; the authoritative reading
+    # assessment path projects council INSUFFICIENT/ESCALATE to UNRESOLVED.)
 
 
 # ── Q04 — gaps / contradictions / outdated / weak mapping ─────────────────
@@ -255,7 +313,7 @@ def test_q07_C_proposal_flips_target_to_supported(g):
         org_commitments=[],
         seats=_SEATS,
         policy_graph=g,
-        seat_fn=_seat("SUPPORTED", "CIP-007-6 R2 Part 2.2"),
+        seat_fn=_reading_seat("SUPPORTED", "CIP-007-6 R2 Part 2.2"),
     )
     assert pkg.rejudged.determination == "SUPPORTED"
     assert pkg.closes_fields == ["constraint"]
