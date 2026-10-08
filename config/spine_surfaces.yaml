@@ -660,6 +660,10 @@ surfaces:
   globs:
   - portal/platform/memory/memory_mcp.py
   unit: unit-capability-memory
+- name: file-portal-platform-memory-reembed
+  globs:
+  - portal/platform/memory/reembed.py
+  unit: unit-capability-memory
 - name: file-portal-platform-memory-test_graph_memory
   globs:
   - portal/platform/memory/test_graph_memory.py

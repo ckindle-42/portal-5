@@ -14,7 +14,7 @@ import os
 import re
 import time
 import uuid
-from typing import Any, cast
+from typing import Any
 
 import httpx
 import lancedb
@@ -23,9 +23,16 @@ from prometheus_client import Counter
 from starlette.requests import Request
 from starlette.responses import JSONResponse
 
+from portal.platform.embedding.client import EmbeddingClient
+from portal.platform.embedding.contract import NATIVE_DIM, Role, Task
+
 LANCE_DIR = os.environ.get("PORTAL5_LANCE_DIR", "/Volumes/data01/portal5_lance")
-EMBEDDING_URL = os.environ.get("MLX_EMBEDDING_URL", "http://localhost:8917/v1/embeddings")
-EMBEDDING_DIM = 1024
+# EmbeddingGemma 2 (:8946; containers set EG2_EMBEDDING_URL). Memory recall is asymmetric
+# retrieval: stored memories and entity names embed as SEARCH documents, lookups as queries.
+EMBEDDING_DIM = NATIVE_DIM
+# Cosine floor for recalled memories, measured by the memory_recall_floor probe on EG2 SEARCH
+# vectors: the highest floor that keeps every query's gold memory (recall_any 0.975 at top-4).
+RECALL_FLOOR = float(os.environ.get("MEMORY_RECALL_FLOOR", "0.60"))
 DEFAULT_USER = "default"
 MEMORY_TABLE = "memory"
 ENTITIES_TABLE = "memory_entities"
@@ -44,6 +51,26 @@ _EXTRACT_FAILURES = Counter(
 
 _db: Any = None
 _tables: dict[str, Any] = {}
+_client = EmbeddingClient()
+
+
+class StoreSpaceMismatchError(RuntimeError):
+    """The stored vectors are not in the space this module embeds into."""
+
+
+def _open_checked(db: Any, name: str) -> Any:
+    """Open an existing table, refusing one whose vectors are another dimension: a store left at
+    1024d by the retired :8917 embedder must be re-embedded, never queried with 768d vectors."""
+    tbl = db.open_table(name)
+    if "vector" not in tbl.schema.names:
+        return tbl
+    vec = tbl.schema.field("vector").type
+    if getattr(vec, "list_size", EMBEDDING_DIM) != EMBEDDING_DIM:
+        raise StoreSpaceMismatchError(
+            f"{name} holds {vec.list_size}d vectors, this build embeds {EMBEDDING_DIM}d: "
+            "run `python -m portal.platform.memory.reembed`"
+        )
+    return tbl
 
 
 def _conn() -> Any:
@@ -68,6 +95,7 @@ def _memory_table() -> Any:
                 pa.field("category", pa.string()),
                 pa.field("tags", pa.list_(pa.string())),
                 pa.field("vector", pa.list_(pa.float32(), EMBEDDING_DIM)),
+                pa.field("embedding_version", pa.string()),
                 pa.field("created_at", pa.float64()),
                 pa.field("last_accessed_at", pa.float64()),
                 pa.field("access_count", pa.int64()),
@@ -76,7 +104,7 @@ def _memory_table() -> Any:
         _tables["mem"] = (
             db.create_table(MEMORY_TABLE, schema=schema)
             if MEMORY_TABLE not in db.table_names()
-            else db.open_table(MEMORY_TABLE)
+            else _open_checked(db, MEMORY_TABLE)
         )
     return _tables["mem"]
 
@@ -91,6 +119,7 @@ def _entities() -> Any:
                 pa.field("name", pa.string()),
                 pa.field("etype", pa.string()),
                 pa.field("vector", pa.list_(pa.float32(), EMBEDDING_DIM)),
+                pa.field("embedding_version", pa.string()),
                 pa.field("first_seen", pa.float64()),
                 pa.field("last_seen", pa.float64()),
                 pa.field("mention_count", pa.int64()),
@@ -99,7 +128,7 @@ def _entities() -> Any:
         _tables["ent"] = (
             db.create_table(ENTITIES_TABLE, schema=schema)
             if ENTITIES_TABLE not in db.table_names()
-            else db.open_table(ENTITIES_TABLE)
+            else _open_checked(db, ENTITIES_TABLE)
         )
     return _tables["ent"]
 
@@ -155,11 +184,13 @@ def _safe(name: str) -> str:
     return str(name)
 
 
-async def _embed(text: str) -> list[float]:
-    async with httpx.AsyncClient(timeout=10) as c:
-        r = await c.post(EMBEDDING_URL, json={"input": text})
-        r.raise_for_status()
-        return cast(list[float], r.json()["data"][0]["embedding"])
+async def _embed(text: str, role: Role) -> list[float]:
+    return (await _client.embed_texts([text], task=Task.SEARCH, role=role, dim=EMBEDDING_DIM))[0]
+
+
+async def _version() -> str:
+    """Served model + revision + dim, stamped on every stored vector so a swap is detectable."""
+    return await _client.version_tag(EMBEDDING_DIM)
 
 
 async def _extract(text: str) -> dict[str, Any]:
@@ -266,7 +297,7 @@ async def _upsert_entity(name: str, etype: str = "concept") -> None:
         e.pop("_distance", None)
         tbl.add([e])
         return
-    vec = await _embed(f"{name} ({etype})")
+    vec = await _embed(f"{name} ({etype})", Role.DOCUMENT)
     tbl.add(
         [
             {
@@ -275,6 +306,7 @@ async def _upsert_entity(name: str, etype: str = "concept") -> None:
                 "name": name,
                 "etype": etype,
                 "vector": vec,
+                "embedding_version": await _version(),
                 "first_seen": now,
                 "last_seen": now,
                 "mention_count": 1,
@@ -342,7 +374,8 @@ async def _remember(request: Request) -> JSONResponse:
     if len(text) > 4000:
         return JSONResponse({"error": "text too long (max 4000 chars)"}, status_code=400)
     try:
-        vec = await _embed(text)
+        vec = await _embed(text, Role.DOCUMENT)
+        version = await _version()
     except Exception as e:  # noqa: BLE001
         return JSONResponse({"error": f"embedding failed: {e}"}, status_code=503)
     now = time.time()
@@ -357,6 +390,7 @@ async def _remember(request: Request) -> JSONResponse:
                 "category": category,
                 "tags": args.get("tags", []),
                 "vector": vec,
+                "embedding_version": version,
                 "created_at": now,
                 "last_accessed_at": now,
                 "access_count": 0,
@@ -379,12 +413,16 @@ async def _recall(request: Request) -> JSONResponse:
     tags = args.get("tags", [])
     hops = min(int(args.get("hops", 2)), 3)
     try:
-        qvec = await _embed(query)
+        qvec = await _embed(query, Role.QUERY)
     except Exception as e:  # noqa: BLE001
         return JSONResponse({"error": f"embedding failed: {e}"}, status_code=503)
     mtbl = _memory_table()
     where = f"user_id = '{DEFAULT_USER}'" + (f" AND category = '{category}'" if category else "")
-    seed_mem = mtbl.search(qvec).where(where).limit(min(top_k * 3, 60)).to_list()
+    seed_mem = [
+        r
+        for r in mtbl.search(qvec).metric("cosine").where(where).limit(min(top_k * 3, 60)).to_list()
+        if 1 - r.get("_distance", 1.0) >= RECALL_FLOOR
+    ]
     if tags:
         ts = set(tags)
         seed_mem = [r for r in seed_mem if ts & set(r.get("tags", []))]
@@ -406,7 +444,14 @@ async def _recall(request: Request) -> JSONResponse:
     ]
     # graph expansion from entities near the query
     try:
-        seed_ent = _entities().search(qvec).where(f"user_id = '{DEFAULT_USER}'").limit(3).to_list()
+        seed_ent = (
+            _entities()
+            .search(qvec)
+            .metric("cosine")
+            .where(f"user_id = '{DEFAULT_USER}'")
+            .limit(3)
+            .to_list()
+        )
     except Exception:  # noqa: BLE001
         seed_ent = []
     frontier = {e["name"] for e in seed_ent}

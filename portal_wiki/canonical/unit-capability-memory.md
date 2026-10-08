@@ -13,6 +13,8 @@ sources:
 - type: code
   path: portal/platform/memory/test_graph_memory.py
 - type: code
+  path: portal/platform/memory/reembed.py
+- type: code
   path: portal/platform/lance_guard.py
 - type: code
   path: config/inference/tools_manifest_memory_mcp.json
@@ -59,6 +61,15 @@ relations up to `hops` deep, and returns the matched memories plus a
 `graph_context` of connected nodes and edges — the flat top-K response keys
 (`query` / `num_results` / `memories`) are preserved so callers don't break.
 `forget` / `list_memories` / `clear_memories` keep their contracts.
+
+Vectors come from EmbeddingGemma 2 on :8946 (`EG2_EMBEDDING_URL`) as 768d
+asymmetric SEARCH embeddings: memories and entity names are documents, the
+recall query is a query. Each stored vector carries an `embedding_version`
+stamp, recall ranks by cosine, and matches below `MEMORY_RECALL_FLOOR`
+(default 0.60) are dropped. The table guard refuses a store whose vectors are
+another dimension. `python -m portal.platform.memory.reembed` (run in the
+memory container) rewrites such a store; it backs up first, checkpoints every
+batch and is safe to rerun.
 
 Extraction remains best-effort so a memory write succeeds when the model is
 unavailable. Failures are logged with the HTTP status and counted as

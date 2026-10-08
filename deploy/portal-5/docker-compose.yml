@@ -802,7 +802,8 @@ services:
       - MEMORY_MCP_PORT=8920
       - MCP_PORT=8920
       - PORTAL5_LANCE_DIR=/app/data/portal5_lance
-      - MLX_EMBEDDING_URL=http://host.docker.internal:8917/v1/embeddings
+      - EG2_EMBEDDING_URL=${EG2_EMBEDDING_URL:-http://host.docker.internal:8946}
+      - EG2_EXPECTED_MODEL=${EG2_EXPECTED_MODEL:-google/embeddinggemma-2}
       # temporal knowledge-graph memory: entity/relation extraction on write
       - OLLAMA_CHAT_URL=${OLLAMA_CHAT_URL:-http://portal-pipeline:9099/ollama/api/chat}
       - PIPELINE_API_KEY=${PIPELINE_API_KEY}

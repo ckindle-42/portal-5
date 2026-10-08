@@ -30,8 +30,11 @@ def _iso(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     gm._db = None  # type: ignore[attr-defined]  # reset module-private graph state
     gm._tables.clear()
 
-    async def _emb(t: str) -> list[float]:
-        return [0.0] * gm.EMBEDDING_DIM
+    async def _emb(t: str, role: Any) -> list[float]:
+        return [1.0] + [0.0] * (gm.EMBEDDING_DIM - 1)
+
+    async def _ver() -> str:
+        return "test-embedder@0:768d"
 
     async def _ext(t: str) -> dict[str, Any]:
         return {
@@ -40,6 +43,7 @@ def _iso(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
         }
 
     monkeypatch.setattr(gm, "_embed", _emb)
+    monkeypatch.setattr(gm, "_version", _ver)
     monkeypatch.setattr(gm, "_extract", _ext)
 
 

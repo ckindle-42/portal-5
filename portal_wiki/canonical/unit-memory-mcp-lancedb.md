@@ -6,6 +6,10 @@ sources:
 - type: code
   path: portal/platform/memory/memory_mcp.py
   commit: 4c3d1e89
+- type: code
+  path: portal/platform/memory/graph_memory.py
+- type: code
+  path: portal/platform/memory/reembed.py
 claims: []
 confidence: high
 tags:
@@ -42,9 +46,15 @@ future conversation if it only makes sense in the one that wrote it.
 `recall` embeds the query, searches with the recency-adjusted score, and
 returns the top matches. `forget` deletes by id, `list_memories` inventories
 with optional filters, and `clear_memories` is the admin bulk delete gated on
-a `YES_DELETE_ALL` token. Embeddings come from the local MLX embedding
-service (`MLX_EMBEDDING_URL`), so no text ever leaves the machine to be
-vectorised.
+a `YES_DELETE_ALL` token. Embeddings come from the local EmbeddingGemma 2
+service on :8946 (`EG2_EMBEDDING_URL`), so no text ever leaves the machine to be
+vectorised. Memories and entity names embed as 768d SEARCH documents and the
+recall query as a SEARCH query; every stored vector carries an
+`embedding_version` stamp. Recall searches by cosine and drops matches below
+`MEMORY_RECALL_FLOOR` (default 0.60, measured by the `memory_recall_floor`
+probe). A store in another dimension is refused until
+`python -m portal.platform.memory.reembed` rewrites it (resumable, backs up
+first).
 
 The MCP exposes Prometheus metrics at `/metrics`; extraction failures are
 counted by reason so best-effort graph extraction does not fail silently.
