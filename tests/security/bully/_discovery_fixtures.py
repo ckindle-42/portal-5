@@ -22,7 +22,17 @@ from __future__ import annotations
 
 from typing import Any
 
+import pytest
+
 from portal.modules.security.core.bully import signatures
+
+# These fixture assertions found the cross-class cousin only through the truth labels the
+# engine used to see (see unit-known-limitations-bully-discovery-truth-leak). Blind, the
+# composite distance prefers same-source records. Strict, so they flip red when it stops.
+TRUTH_LEAK_XFAIL = pytest.mark.xfail(
+    strict=True,
+    reason="BULLY-DISCOVERY-TRUTH-LEAK-001: blind engine does not find cross-source cousins",
+)
 
 
 class FixtureSnapshot:

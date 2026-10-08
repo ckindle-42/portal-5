@@ -1,0 +1,98 @@
+[
+  {
+    "consumer": "bully_projection",
+    "status": "MEASURED",
+    "incumbent": {
+      "primary": 43,
+      "status": "INVALID",
+      "discovery_precision": null,
+      "discovery_recall_proxy": null,
+      "controls_passed": false,
+      "identity_failures": 25,
+      "thresholds": {
+        "schema": "EMBEDDING_SPACE_THRESHOLDS_V1",
+        "embedding_version": "mlx-qwen3-embed-0.6b-mxfp8",
+        "thresholds_version": "bully-cousin-thresholds-mlx-qwen3-embed-0.6b-mxfp8",
+        "same_max_distance": 0.05,
+        "similar_max_distance": 0.4,
+        "new_max_distance": 0.85
+      }
+    },
+    "candidate": {
+      "primary": 66,
+      "status": "VALID",
+      "discovery_precision": 0.230769,
+      "discovery_recall_proxy": 1.0,
+      "controls_passed": true,
+      "identity_failures": 25,
+      "thresholds": {
+        "schema": "EMBEDDING_SPACE_THRESHOLDS_V1",
+        "embedding_version": "google/embeddinggemma-2@914f7f89142e:768d",
+        "thresholds_version": "bully-cousin-thresholds-google/embeddinggemma-2@914f7f89142e:768d",
+        "same_max_distance": 0.05,
+        "similar_max_distance": 0.4,
+        "new_max_distance": 0.85
+      },
+      "raw_no_prefix": {
+        "status": "VALID",
+        "discovery_precision": 0.25,
+        "discovery_recall_proxy": 1.0,
+        "controls_passed": true,
+        "identity_failures": 25,
+        "thresholds": {
+          "schema": "EMBEDDING_SPACE_THRESHOLDS_V1",
+          "embedding_version": "google/embeddinggemma-2@914f7f89142e:768d",
+          "thresholds_version": "bully-cousin-thresholds-google/embeddinggemma-2@914f7f89142e:768d",
+          "same_max_distance": 0.05,
+          "similar_max_distance": 0.4,
+          "new_max_distance": 0.85
+        },
+        "related_all": 63,
+        "paired_vs_incumbent": {
+          "shared_probes": 988,
+          "incumbent_only_related": 17,
+          "candidate_only_related": 37,
+          "both_related": 26,
+          "neither_related": 908,
+          "mcnemar_exact_p": 0.0091
+        }
+      },
+      "paired_vs_incumbent": {
+        "shared_probes": 988,
+        "incumbent_only_related": 17,
+        "candidate_only_related": 40,
+        "both_related": 26,
+        "neither_related": 905,
+        "mcnemar_exact_p": 0.0032
+      },
+      "paired_discovery_band_only": {
+        "shared_probes": 52,
+        "incumbent_only_related": 1,
+        "candidate_only_related": 6,
+        "both_related": 6,
+        "neither_related": 39,
+        "mcnemar_exact_p": 0.125
+      },
+      "near_twin_4719_vs_4688_cosine": {
+        "arm-a": 0.9395,
+        "arm-d-sim": 0.9529,
+        "arm-d": 0.9433
+      }
+    },
+    "hint": "BETTER",
+    "notes": [
+      "primary candidate = EG2 with the contract 'sentence similarity' prefix (proxy over the Organ's raw /v1/embeddings calls); raw_no_prefix = a bare URL repoint",
+      "thresholds are derived per space by run_arm (embedding_spaces.derive_thresholds)",
+      "primary = probes whose chosen reference is truth-related, over all graded probes; the engine sees each probe with its truth labels stripped (discovery_bench.probe_signature)",
+      "hint = exact McNemar on per-probe truth_related over all shared graded probes (paired: both arms grade the same probes)"
+    ],
+    "blocked_reason": "",
+    "fixture": {
+      "deduplicated_parents": 882,
+      "corpus": "specimen_corpus_v2.json",
+      "sha": "44b72af50bfaf153"
+    },
+    "identity": "google/embeddinggemma-2@914f7f89142e:768d",
+    "seconds": 364.39
+  }
+]

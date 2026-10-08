@@ -2,7 +2,7 @@
 
 # Portal 5 Architecture Map
 
-*Deterministic projection of 768 canonical units.*
+*Deterministic projection of 769 canonical units.*
 
 ## Knowledge Layer
 
@@ -285,7 +285,7 @@
 | `unit-corpus-injection-verify-lane-c` | what | 2 |
 | `unit-corpus-injection-why-corpus-data-coexists-safely-with-bench-runs` | what | 3 |
 | `unit-design-client-disconnect-cancellation` | mixed | 15 |
-| `unit-design-embedding-consumers-harness` | mixed | 21 |
+| `unit-design-embedding-consumers-harness` | mixed | 22 |
 | `unit-design-ollama-native-dispatch` | why | 7 |
 | `unit-design-omlx-dual-backend-plumbing` | mixed | 12 |
 | `unit-design-spine-drift-census` | mixed | 4 |
@@ -319,6 +319,7 @@
 | `unit-known-limitations-auto-math-workspace-reasoning-block-support` | what | 1 |
 | `unit-known-limitations-auto-rag-silent-miss` | what | 3 |
 | `unit-known-limitations-baronllm-text-only-tool-output-auto-security-mcp-tools-non-functional` | what | 6 |
+| `unit-known-limitations-bully-discovery-truth-leak` | what | 3 |
 | `unit-known-limitations-cad-b3d-session` | what | 2 |
 | `unit-known-limitations-cad-brep-kernel-gaps` | what | 2 |
 | `unit-known-limitations-cadquery-and-build123d-unusable-on-linux-arm64` | what | 4 |
@@ -777,13 +778,14 @@
 | `unit-wiki-tests-render` | mixed | 1 |
 | `unit-wiki-writeback` | mixed | 1 |
 
-**Total:** 768 units
+**Total:** 769 units
 
 ## Source Distribution
 
 - **bench-security**: 1 references
-- **code**: 2051 references
+- **code**: 2054 references
 - **config**: 1 references
+- **data**: 1 references
 - **doc**: 1 references
 - **mitre**: 40 references
 - **scenario**: 54 references

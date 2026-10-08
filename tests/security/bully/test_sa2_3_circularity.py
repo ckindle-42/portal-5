@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from portal.modules.security.core.bully import discovery_bench
-from tests.security.bully._discovery_fixtures import build_corpus, build_snapshot
+from tests.security.bully._discovery_fixtures import TRUTH_LEAK_XFAIL, build_corpus, build_snapshot
 
 
 def _run():
@@ -12,6 +12,7 @@ def _run():
     return probes, verdicts
 
 
+@TRUTH_LEAK_XFAIL
 def test_shuffled_labels_collapse_score_toward_chance():
     probes, verdicts = _run()
     probes_by_id = {p["specimen_id"]: p for p in probes}
@@ -21,6 +22,7 @@ def test_shuffled_labels_collapse_score_toward_chance():
         assert result["mean_shuffled_precision"] <= result["real_precision"]
 
 
+@TRUTH_LEAK_XFAIL
 def test_all_p74_style_controls_pass_on_fixture_corpus():
     corpus = build_corpus()
     snapshot = build_snapshot(corpus)

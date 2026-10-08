@@ -125,6 +125,27 @@ def independent_truth_related(
     return bool(probe_family and reference_family and probe_family == reference_family)
 
 
+# Scorer-only truth carried on the specimen. The truth join reads both; the
+# engine must read neither. `attack_mappings` IS the data.yml technique set, and
+# `context_topology.family` is the scenario label (`attack:<technique>` on the
+# attack_data lane), so leaving either in the probe's view hands the engine the
+# answer key through its ATT&CK and family retrieval axes.
+_TRUTH_TOPOLOGY_KEYS = ("family", "scenario_family")
+
+
+def probe_signature(probe: dict[str, Any]) -> signatures.BehaviorSignature:
+    """The probe's signature as the engine may see it: telemetry only, truth stripped."""
+    engine_view = probe["engine_view"]
+    telemetry = dict(engine_view["telemetry_view"])
+    telemetry["attack_mappings"] = []
+    telemetry["context_topology"] = {
+        k: v
+        for k, v in (telemetry.get("context_topology") or {}).items()
+        if k not in _TRUTH_TOPOLOGY_KEYS
+    }
+    return signatures.build_signature(engine_view["episode_view"], telemetry)
+
+
 def _exclude_self(
     candidates: cousin_engine.CandidateSetReceipt, specimen_id: str
 ) -> cousin_engine.CandidateSetReceipt:
@@ -196,10 +217,7 @@ def grade_real_pair(
     SIEM query results captured at corpus-build time, per SA1) -- never a
     label describing whether the pair is "really" related.
     """
-    engine_view = probe["engine_view"]
-    signature = signatures.build_signature(
-        engine_view["episode_view"], engine_view["telemetry_view"]
-    )
+    signature = probe_signature(probe)
     candidates = _exclude_self(
         cousin_engine.retrieve_candidate_axes(signature, snapshot), probe["specimen_id"]
     )
@@ -277,12 +295,7 @@ def run_real_pairs(
     index_by_id = {s["specimen_id"]: s for s in specimens}
     prepare_knn = getattr(snapshot, "prepare_knn", None)
     if callable(prepare_knn):
-        probe_signatures = [
-            signatures.build_signature(
-                p["engine_view"]["episode_view"], p["engine_view"]["telemetry_view"]
-            )
-            for p in probes
-        ]
+        probe_signatures = [probe_signature(p) for p in probes]
         prepare_knn(
             [q for sig in probe_signatures for q in cousin_engine.candidate_axis_queries(sig)],
             k=8,
@@ -351,10 +364,7 @@ def _identity_control(
     sample = probes[:sample_size]
     failures = []
     for probe in sample:
-        engine_view = probe["engine_view"]
-        signature = signatures.build_signature(
-            engine_view["episode_view"], engine_view["telemetry_view"]
-        )
+        signature = probe_signature(probe)
         candidates = cousin_engine.retrieve_candidate_axes(signature, snapshot)
         outcomes = _specimen_detector_outcomes(probe)
         coverage = cousin_engine.CoverageView(

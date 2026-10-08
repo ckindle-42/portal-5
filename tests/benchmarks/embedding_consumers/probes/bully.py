@@ -114,8 +114,12 @@ def mcnemar_exact(a_only: int, b_only: int) -> float:
     return min(1.0, 2 * tail / 2**n)
 
 
-def _eligible_truth(arm_dir: Path, url: str, version: str, corpus: dict) -> dict[str, bool]:
-    """Per-probe truth_related on the DISCOVERY set, re-graded against an arm's seeded projection.
+def _eligible_truth(
+    arm_dir: Path, url: str, version: str, corpus: dict
+) -> tuple[dict[str, bool], dict[str, bool]]:
+    """Per-probe truth_related, re-graded against an arm's seeded projection: (DISCOVERY set, all
+    graded probes). The engine sees each probe blind (``discovery_bench.probe_signature``), so the
+    all-probes set is a fair paired comparison and the hint uses it; DISCOVERY alone is ~50 probes.
 
     ``run_discovery_bench`` persists only aggregate counts, and both arms grade the SAME probes
     (coverage outcomes are embedder-independent), so the comparison is paired and needs the
@@ -142,11 +146,15 @@ def _eligible_truth(arm_dir: Path, url: str, version: str, corpus: dict) -> dict
             verdicts = run_real_pairs(real_probe_specimens(corpus), snap, corpus=corpus)
         finally:
             snap.close()
-    return {
-        v.specimen_id: bool(v.truth_related)
+    graded = [
+        v
         for v in verdicts
-        if v.discovery_band == "DISCOVERY" and v.relationship != "ANOMALOUS_UNCLASSIFIED"
-    }
+        if v.relationship != "ANOMALOUS_UNCLASSIFIED" and v.reference_signature_id
+    ]
+    return (
+        {v.specimen_id: bool(v.truth_related) for v in graded if v.discovery_band == "DISCOVERY"},
+        {v.specimen_id: bool(v.truth_related) for v in graded},
+    )
 
 
 def _paired(inc: dict[str, bool], cand: dict[str, bool]) -> dict[str, Any]:
@@ -230,15 +238,21 @@ async def projection(ctx: ProbeContext) -> ProbeResult:
         arm: _eligible_truth(SCRATCH / arm, url, ver, corpus) for arm, (url, ver) in arms.items()
     }
     stack.close()
-    paired = _paired(truth["arm-a"], truth["arm-d-sim"])
-    paired_raw = _paired(truth["arm-a"], truth["arm-d"])
+    paired = _paired(truth["arm-a"][1], truth["arm-d-sim"][1])
+    paired_raw = _paired(truth["arm-a"][1], truth["arm-d"][1])
+    paired_disc = _paired(truth["arm-a"][0], truth["arm-d-sim"][0])
     ra, rd = results["arm-a"], results["arm-d-sim"]
-    inc = {"primary": ra["discovery_precision"], **ra}
+    inc = {"primary": sum(truth["arm-a"][1].values()), **ra}
     cand = {
-        "primary": rd["discovery_precision"],
+        "primary": sum(truth["arm-d-sim"][1].values()),
         **rd,
-        "raw_no_prefix": {**results["arm-d"], "paired_vs_incumbent": paired_raw},
+        "raw_no_prefix": {
+            **results["arm-d"],
+            "related_all": sum(truth["arm-d"][1].values()),
+            "paired_vs_incumbent": paired_raw,
+        },
         "paired_vs_incumbent": paired,
+        "paired_discovery_band_only": paired_disc,
         "near_twin_4719_vs_4688_cosine": twin,
     }
     # The hint comes from the paired test, not a precision band: the arms grade the same probes.
@@ -265,7 +279,8 @@ async def projection(ctx: ProbeContext) -> ProbeResult:
         notes=[
             "primary candidate = EG2 with the contract 'sentence similarity' prefix (proxy over the Organ's raw /v1/embeddings calls); raw_no_prefix = a bare URL repoint",
             "thresholds are derived per space by run_arm (embedding_spaces.derive_thresholds)",
-            "hint = exact McNemar on per-probe truth_related over the shared DISCOVERY probes (both arms grade the same probes; coverage outcomes are embedder-independent)",
+            "primary = probes whose chosen reference is truth-related, over all graded probes; the engine sees each probe with its truth labels stripped (discovery_bench.probe_signature)",
+            "hint = exact McNemar on per-probe truth_related over all shared graded probes (paired: both arms grade the same probes)",
         ],
     )
 

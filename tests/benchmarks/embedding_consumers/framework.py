@@ -203,7 +203,7 @@ CONSUMERS: tuple[Consumer, ...] = (
         "security",
         "Bully hunt-memory projection",
         "Arm A MLX Qwen3-Embedding-0.6B (adopted P0.4)",
-        "discovery precision (identity diagnostic classified)",
+        "related references, all graded probes, engine blind to truth labels",
         "collapse",
     ),
     Consumer(
