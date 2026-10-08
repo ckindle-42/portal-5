@@ -494,7 +494,7 @@ _port = int(os.environ.get("BROWSER_MCP_PORT", "8923"))
 
 mcp = MCPServer(
     "Portal Browser Tools",
-    instructions="Playwright browser automation: navigate, click, fill forms, screenshot, and inspect page content.",
+    instructions="Obscura headless browser automation: navigate, click, fill forms, screenshot, and inspect page content.",
 )
 
 # mcp.custom_route() has no return annotation upstream — bind the concrete
