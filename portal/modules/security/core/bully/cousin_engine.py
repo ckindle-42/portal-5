@@ -34,12 +34,19 @@ _WEIGHTS: dict[str, float] = {
 }
 
 MIN_CONFIDENCE_FOR_CLASSIFICATION = 0.6
+# B1.4 (2026-10-08): re-fit to the adopted EG2+V3 space under v2 weights. The true self-pair
+# composite on the discovery lane is `semantic_weight * self_distance` plus the truth-strip's
+# context asymmetry (the probe's `family` is stripped, the indexed record keeps it): measured
+# over 100 real probes on the seeded arm-d-sim projection, median 0.0387, p95 0.0497,
+# max 0.0621 -- the frozen 0.05 failed 2/100 identity checks (reports/bully_b1/20261008T195439Z
+# THRESHOLDS_B1_4). 0.063 covers the measured maximum; on the same 988 probes it leaves
+# ranking untouched (241 related before and after) and moves 4 chosen pairs into the SAME band.
 DEFAULT_THRESHOLDS: dict[str, float] = {
-    "same_max_distance": 0.05,
+    "same_max_distance": 0.063,
     "similar_max_distance": 0.40,
     "new_max_distance": 0.85,
 }
-THRESHOLDS_VERSION = "bully-cousin-thresholds-v1"
+THRESHOLDS_VERSION = "bully-cousin-thresholds-v2"
 
 
 def build_signature(

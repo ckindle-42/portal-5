@@ -19,7 +19,17 @@ from portal.modules.security.core.bully.embedding_spaces import (
     measure_distances,
 )
 
+# The reference space's measured shape: EG2 over the deduplicated SPECIMEN_CORPUS_V3 parents
+# (64-text symmetric sample, 2026-10-08) -- self p95 0, near p95 0.1336, far p95 0.1630.
 _INCUMBENT_LIKE = {
+    "self": {"p95": 0.0, "p50": 0.0, "n": 64},
+    "near": {"p95": 0.1336, "p50": 0.0448, "n": 32},
+    "far": {"p95": 0.163, "p50": 0.0905, "n": 10},
+}
+
+# A legacy-space shape (the retired harrier reference: near 0.073 / far 0.064) sits below the
+# EG2 reference on every band, so the upward-only clamp inherits the frozen values for it.
+_HARRIER_LIKE = {
     "self": {"p95": 0.0, "p50": 0.0, "n": 64},
     "near": {"p95": 0.073, "p50": 0.047, "n": 32},
     "far": {"p95": 0.064, "p50": 0.054, "n": 10},
@@ -33,15 +43,25 @@ _ASYMMETRIC = {
 
 
 def test_incumbent_space_reproduces_frozen_thresholds_within_tolerance():
-    """P0.2: the incumbent harrier space (symmetric, self-distance ~0) must
-    reproduce its frozen thresholds within tolerance -- a portability fix,
-    never a re-tune."""
+    """P0.2: the reference space (EG2+V3, measured 2026-10-08) must reproduce
+    its frozen thresholds within tolerance -- a portability fix, never a
+    re-tune."""
     derived = derive_thresholds(_INCUMBENT_LIKE, embedding_version="sentence-transformers-v1")
     assert derived.schema == DERIVED_THRESHOLDS_SCHEMA
     assert derived.incumbent_reproduced is True
     for key in ("same_max_distance", "similar_max_distance", "new_max_distance"):
         assert abs(getattr(derived, key) - FROZEN_THRESHOLDS[key]) <= TOLERANCE
     assert derived.thresholds_version == "bully-cousin-thresholds-sentence-transformers-v1"
+
+
+def test_tighter_legacy_space_inherits_frozen_thresholds_via_the_clamp():
+    """The upward-only clamp: a space narrower than the reference (the retired
+    harrier shape) derives no downward shift -- it inherits the frozen values,
+    never tightens (the anti-tuning stance the clamp encodes)."""
+    derived = derive_thresholds(_HARRIER_LIKE, embedding_version="legacy-harrier")
+    for key in ("same_max_distance", "similar_max_distance", "new_max_distance"):
+        assert derived.to_dict()[key] == FROZEN_THRESHOLDS[key]
+    assert derived.incumbent_reproduced is True
 
 
 def test_asymmetric_space_raises_same_max_distance_for_own_record():

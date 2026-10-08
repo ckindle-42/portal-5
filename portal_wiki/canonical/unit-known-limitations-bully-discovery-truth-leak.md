@@ -24,10 +24,10 @@ tags:
 ### Bully discovery scored its own answer key; blind, it rarely finds cross-source cousins (NARROWED)
 
 - **ID**: BULLY-DISCOVERY-TRUTH-LEAK-001
-- **Status**: NARROWED (2026-10-08). The leak is fixed, the value-less corpus is fixed, and the
-  source-dominated composite weighting is fixed (cousin-v2, B1). Still open: the retrieval axes
-  surface a truth-related candidate for only 430/988 probes, and the per-space threshold clamp
-  (`embedding_spaces.derive_thresholds` only shifts upward) is re-derived under B1.4.
+- **Status**: NARROWED (2026-10-08). The leak is fixed, the value-less corpus is fixed, the
+  source-dominated composite weighting is fixed (cousin-v2, B1), and the thresholds are re-fit
+  to the adopted space (B1.4). Still open: the retrieval axes surface a truth-related candidate
+  for only 430/988 probes.
 - **Leak**: `independent_truth_related` judges a discovery correct when probe and reference share
   a `data.yml` ATT&CK technique or a scenario family. Both of those labels sat in the probe's
   `engine_view.telemetry_view` (`attack_mappings`, `context_topology.family`, which is
@@ -76,11 +76,19 @@ tags:
   identity changes none of it (p≥0.29), and 10–22 hits per arm are evidence twins (one log
   published under two techniques). A hand-checked sample of the rest is genuinely related
   (plink tunnels, gdrive exfiltration across OSes, sudo GTFOBins, `[adsisearcher]` ≈ `Get-ADGroup`).
+- **Thresholds (re-fit 2026-10-08, B1.4)**: `same_max_distance` 0.05 -> 0.063 — under v2 weights
+  the true self-pair composite carries the truth-strip's context asymmetry (~0.033; the probe's
+  `family` is stripped, the indexed record keeps it) and measured 0.0387 median / 0.0621 max
+  over 100 real probes, so the frozen 0.05 failed 2/100 identity checks. On the same 988 probes
+  the raise leaves ranking untouched (241 related) and moves 4 chosen pairs into the SAME band
+  (DISCOVERY -> REGRESSION). The reference constants in `embedding_spaces` are re-measured on
+  EG2+V3 (self 0 / near 0.1336 / far 0.1630); the upward-only clamp stays — EG2+V3 sits above
+  the retired harrier constants on every band, so the clamp never binds for the primary space
+  and remains the anti-tuning guard for tighter future spaces
+  (`reports/bully_b1/20261008T195439Z/THRESHOLDS_B1_4.md`).
 - **Still open**: 558/988 probes retrieve no truth-related candidate at all (the semantic axis's
   k=8 pool and the family axis, which is dead for probes because the probe's family is stripped
-  to its source-class fallback, cap cross-source reach); the per-space thresholds
-  (`derive_thresholds` only shifts upward, so every space inherits the incumbent's frozen
-  constants) are re-measured on EG2 + V3 under B1.4.
+  to its source-class fallback, cap cross-source reach).
 ## Why
 
 A scorer that shares its inputs with the thing it scores stops measuring the engine and measures

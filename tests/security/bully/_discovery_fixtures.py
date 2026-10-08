@@ -22,22 +22,7 @@ from __future__ import annotations
 
 from typing import Any
 
-import pytest
-
 from portal.modules.security.core.bully import signatures
-
-# The composite arithmetic (cousin-v2: behavior+semantic 0.40 each, the behavior channel on
-# behavior_values with an action-sequence fallback) finds the cross-class cousin on the fixture,
-# so the five discovery tests above it run unmarked since the B1 adoption. The one test still
-# marked fails for an adjacent, orthogonal reason: the identity control grades the probe against
-# its own record through the family-stripped context channel (the record side keeps
-# `family`), which adds a fixed offset that outruns the frozen `same_max_distance` 0.05 --
-# a threshold-scale question (B1.4 re-derives the thresholds on EG2+V3), not a truth-leak one.
-TRUTH_LEAK_XFAIL = pytest.mark.xfail(
-    strict=True,
-    reason="BULLY-DISCOVERY-TRUTH-LEAK-001 follow-up: identity control needs the re-derived "
-    "same-band threshold (B1.4); the cross-source discovery itself is fixed",
-)
 
 
 class FixtureSnapshot:

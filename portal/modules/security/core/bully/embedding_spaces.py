@@ -1,23 +1,22 @@
 """bully.embedding_spaces -- per-embedding-space threshold derivation (P0.2).
 
-``cousin_engine.DEFAULT_THRESHOLDS["same_max_distance"] = 0.05`` is a bare
-constant fit to the incumbent harrier space's cosine scale.  Arm B failed
-identity 25/25 purely on scale mismatch: EmbeddingGemma's asymmetric task
-prefixes put query-form-vs-doc-form self-distance at ~0.3-0.45, so the
-semantic channel contributes ``0.25 * d_self ~ 0.11`` to the composite even
-for a probe's own record -- above the frozen 0.05 regardless of retrieval
-quality.
+``cousin_engine.DEFAULT_THRESHOLDS["same_max_distance"]`` was a bare
+constant fit to the retired harrier space's cosine scale (re-fit to EG2+V3
+under B1.4, 2026-10-08).  Arm B failed identity 25/25 purely on scale
+mismatch: EmbeddingGemma's asymmetric task prefixes put query-form-vs-doc-form
+self-distance at ~0.3-0.45, so the semantic channel's contribution to the
+composite outran the frozen threshold regardless of retrieval quality.
 
 This module derives same/similar/new per embedding space from that space's
 self-distance and near/far distributions, expressed on the engine's composite
-scale (the semantic channel carries ``_WEIGHTS["semantic"] = 0.25``).  The
-incumbent space must reproduce its frozen thresholds within tolerance -- the
-derivation is a portability fix, not a tuning pass (A7, P0.2).
+scale (the semantic channel carries ``_WEIGHTS["semantic"]``).  The reference
+space must reproduce the frozen thresholds within tolerance -- the derivation
+is a portability fix, not a tuning pass (A7, P0.2).
 
-The composite for a self-pair is ``0.25 * d_self`` (all other channels are
+The composite for a self-pair is ``semantic_weight * d_self`` (all other channels are
 identical for a probe and its own record, so they contribute zero distance).
 Near/far pairs differ in the semantic channel too, so the derived thresholds
-shift by ``0.25 * (d - incumbent_reference)`` relative to the frozen values.
+shift by ``semantic_weight * (d - reference)`` relative to the frozen values.
 """
 
 from __future__ import annotations
@@ -34,15 +33,16 @@ Vector = Sequence[float]
 # Frozen thresholds calibrated on the incumbent (harrier, symmetric) space.
 FROZEN_THRESHOLDS = dict(cousin_engine.DEFAULT_THRESHOLDS)
 
-# Incumbent space's measured self/near/far p95 raw cosine distances (the
-# semantic channel's reference scale).  Measured against the real harrier
-# service on the real corpus embed texts (see P0.2 -- portability anchor, not
-# tuning).  For the symmetric incumbent, self-distance is 0 (doc-form and
-# query-form are the same call), so the same_max_distance stays at the frozen
-# 0.05 exactly.
+# Reference self/near/far p95 raw cosine distances (the semantic channel's scale anchor),
+# re-measured 2026-10-08 on the primary space -- EG2 (`:8946/embed`, sentence-similarity,
+# symmetric query-role on both sides) over the deduplicated SPECIMEN_CORPUS_V3 parents
+# (64-text sample, `measure_distances`; reports/bully_b1/20261008T195439Z/THRESHOLDS_B1_4.md).
+# self p95 is 0 (the space is symmetric), near p95 0.1336, far p95 0.1630 -- both above the
+# retired harrier space's 0.073/0.064, so the upward-only clamp below never binds for the
+# primary space; it stays as the anti-tuning guard for hypothetical tighter future spaces.
 _INCUMBENT_SELF_P95 = 0.0
-_INCUMBENT_NEAR_P95 = 0.073
-_INCUMBENT_FAR_P95 = 0.064
+_INCUMBENT_NEAR_P95 = 0.1336
+_INCUMBENT_FAR_P95 = 0.1630
 
 # A derived threshold may only move the frozen values upward (the portability
 # fix rescues scale mismatches; it never tightens a space that happens to be
