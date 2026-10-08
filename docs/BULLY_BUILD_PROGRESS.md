@@ -351,7 +351,16 @@ profiles.
   evidence is under
   `/Volumes/data01/portal5_hunt/artifacts/calibration/SA1_CLASS_ONBOARDING_V1/`.
 
-- **SA2** — first measurement of the actual product: everything through SA1
+- **SA2** — **SUPERSEDED (2026-10-08, BULLY-DISCOVERY-TRUTH-LEAK-001):** every
+  discovery precision, cross-class and joint-outcome number below was graded by an engine that
+  saw each probe's truth labels (`attack_mappings`, `context_topology.family`) through its
+  retrieval axes and attack channel until `c082c808` — 0.794872 leaky vs about 4-6% of 988
+  probes related once blind. Re-run blind on SPECIMEN_CORPUS_V3: run
+  `reports/embedding_consumers/20261008T164221Z` (988 probes, EG2+prefix 154 / Qwen3 139 /
+  TF-IDF 148 related; DISCOVERY-band precision 0.404/0.423) and, after the cousin-v2 weighting
+  adoption, `reports/bully_b1/20261008T195439Z` (241 related, 16 cross-source, paired exact
+  McNemar vs the v1 engine p<1e-4 / p=6e-5). The numbers below are kept for history, not
+  edited in place. First measurement of the actual product: everything through SA1
   measured the recognition **floor** (a manufactured variant graded against
   the real parent it was forged from) and never the discovery **product**
   (two independently-collected real findings that are actually related and

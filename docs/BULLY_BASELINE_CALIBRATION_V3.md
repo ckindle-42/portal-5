@@ -12,6 +12,11 @@ parent) a row came from, not of the specimen. See
 real-vs-real product measurement, and `cousin_calibration_bench.per_rung_band_accuracy`
 for the per-rung breakdown that replaces this aggregate as this lane's
 headline. Figures below are kept for history, not superseded in place.
+That successor measurement was itself leak-inflated (the discovery engine
+read the probe's truth labels until `c082c808`) — the blind re-runs on
+SPECIMEN_CORPUS_V3 are `reports/embedding_consumers/20261008T164221Z` and
+`reports/bully_b1/20261008T195439Z`; see KNOWN_LIMITATIONS
+`BULLY-DISCOVERY-TRUTH-LEAK-001`.
 
 `BASELINE_CALIBRATION_V3` is the first trustworthy cold redesign reference.
 It uses semantic behavior queries, all four candidate axes, complete corpus
