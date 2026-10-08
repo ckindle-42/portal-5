@@ -44,7 +44,7 @@ from ..framework import (
     probe,
     recall_at_k,
 )
-from ._common import DATA, legacy_embed
+from ._common import DATA, historical_incumbent
 
 SCRATCH = Path("/Volumes/data01/portal5_scratch_eg2")
 FIX = REPO_ROOT / "tests" / "fixtures" / "rag_eval_corpus"
@@ -460,22 +460,15 @@ async def owui_attachment_rag(ctx: ProbeContext) -> ProbeResult:  # noqa: C901, 
 
     import numpy as np
 
-    arms: dict[str, Any] = {}
-    pools: dict[str, list[list[int]]] = {}
-    for name, (dv, qv) in {
-        "qwen3_8917": (await legacy_embed(texts), await legacy_embed(queries)),
-        "eg2": (
-            await _eg2_owui_embed(texts, Role.DOCUMENT),
-            await _eg2_owui_embed(queries, Role.QUERY),
-        ),
-    }.items():
-        d = np.asarray(dv, dtype=np.float32)
-        d /= np.linalg.norm(d, axis=1, keepdims=True) + 1e-9
-        qm = np.asarray(qv, dtype=np.float32)
-        qm /= np.linalg.norm(qm, axis=1, keepdims=True) + 1e-9
-        dense = [np.argsort(-(d @ qm[i]))[:OWUI_TOP_K].tolist() for i in range(len(queries))]
-        pools[name] = [_ensemble(b, dd, OWUI_BM25_W) for b, dd in zip(bm_top, dense, strict=True)]
-        arms[name] = {"dense_only": dense}
+    dense = None
+    dv = await _eg2_owui_embed(texts, Role.DOCUMENT)
+    qv = await _eg2_owui_embed(queries, Role.QUERY)
+    d = np.asarray(dv, dtype=np.float32)
+    d /= np.linalg.norm(d, axis=1, keepdims=True) + 1e-9
+    qm = np.asarray(qv, dtype=np.float32)
+    qm /= np.linalg.norm(qm, axis=1, keepdims=True) + 1e-9
+    dense = [np.argsort(-(d @ qm[i]))[:OWUI_TOP_K].tolist() for i in range(len(queries))]
+    pool = [_ensemble(b, dd, OWUI_BM25_W) for b, dd in zip(bm_top, dense, strict=True)]
 
     def units_of(idx: list[int]) -> list[str]:
         seen: list[str] = []
@@ -489,60 +482,59 @@ async def owui_attachment_rag(ctx: ProbeContext) -> ProbeResult:  # noqa: C901, 
         return {"recall@3": round(recall_at_k(u, gold, OWUI_TOP_K_RERANK), 4)}
 
     notes: list[str] = []
-    res: dict[str, dict[str, Any]] = {}
+    r: dict[str, Any] = {
+        "dense_only": score(dense),
+        "hybrid_no_rerank": score(pool),
+    }
     bge = ctx.live and ctx.opt("owui_bge", "1") == "1"
-    for name, pool in pools.items():
-        r: dict[str, Any] = {
-            "dense_only": score(arms[name]["dense_only"]),
-            "hybrid_no_rerank": score(pool),
-        }
-        if bge:
-            try:
-                sc = _bge_scores(
-                    [
-                        {"q": q, "docs": [texts[i] for i in p]}
-                        for q, p in zip(queries, pool, strict=True)
-                    ]
+    if bge:
+        try:
+            sc = _bge_scores(
+                [
+                    {"q": q, "docs": [texts[i] for i in p]}
+                    for q, p in zip(queries, pool, strict=True)
+                ]
+            )
+            r["hybrid_bge"] = score(
+                [[p[j] for j in np.argsort(-np.asarray(s))] for p, s in zip(pool, sc, strict=True)]
+            )
+        except Exception as e:  # noqa: BLE001
+            notes.append(f"bge arm failed: {type(e).__name__}: {str(e)[:200]}")
+    if ctx.live:
+        rer = []
+        async with httpx.AsyncClient(timeout=600) as c:
+            for q, p in zip(queries, pool, strict=True):
+                rr = await c.post(
+                    "http://localhost:8946/v1/rerank",
+                    json={
+                        "model": "x",
+                        "query": q,
+                        "documents": [texts[i] for i in p],
+                        "top_n": len(p),
+                    },
                 )
-                r["hybrid_bge"] = score(
-                    [
-                        [p[j] for j in np.argsort(-np.asarray(s))]
-                        for p, s in zip(pool, sc, strict=True)
-                    ]
-                )
-            except Exception as e:  # noqa: BLE001
-                notes.append(f"bge arm failed: {type(e).__name__}: {str(e)[:200]}")
-        if ctx.live:
-            rer = []
-            async with httpx.AsyncClient(timeout=600) as c:
-                for q, p in zip(queries, pool, strict=True):
-                    rr = await c.post(
-                        "http://localhost:8946/v1/rerank",
-                        json={
-                            "model": "x",
-                            "query": q,
-                            "documents": [texts[i] for i in p],
-                            "top_n": len(p),
-                        },
-                    )
-                    rr.raise_for_status()
-                    order = sorted(rr.json()["results"], key=lambda x: -x["relevance_score"])
-                    rer.append([p[x["index"]] for x in order])
-            r["hybrid_vl_rerank"] = score(rer)
-        res[name] = r
-    key = "hybrid_bge" if all("hybrid_bge" in v for v in res.values()) else "hybrid_no_rerank"
-    inc_primary = res["qwen3_8917"][key]["recall@3"]
-    cand_primary = res["eg2"][key]["recall@3"]
+                rr.raise_for_status()
+                order = sorted(rr.json()["results"], key=lambda x: -x["relevance_score"])
+                rer.append([p[x["index"]] for x in order])
+        r["hybrid_vl_rerank"] = score(rer)
+    # the :8917 arm is retired; its committed scorecard block is the incumbent
+    hist = {
+        k: v for k, v in historical_incumbent("owui_attachment_rag").items() if k != "provenance"
+    }
+    key = "hybrid_bge" if "hybrid_bge" in r else "hybrid_no_rerank"
+    inc_primary = hist[key]["recall@3"]
+    cand_primary = r[key]["recall@3"]
     return ProbeResult(
         "owui_attachment_rag",
         MEASURED,
-        {"primary": inc_primary, **res["qwen3_8917"]},
-        {"primary": cand_primary, **res["eg2"]},
+        {"primary": inc_primary, **hist},
+        {"primary": cand_primary, **r},
         compare(inc_primary, cand_primary),
         fixture={"queries": len(qs), "chunks": len(texts), "units": len(units)},
         identity=await ctx.client.version_tag(768),
         notes=[
             f"primary = {key} recall@3 in both arms (OWUI production pipeline: header split, 1500/100 chunks, BM25+dense ensemble w=0.5, top_k 3, rerank to 3)",
+            "incumbent = FIXED historical :8917 arm (reports/embedding_consumers/20261008T021720Z, service retired at the EG2 cutover) — same-fixture comparison, not a fresh paired run",
             "corpus = wiki canonical units with the 47 authored wiki queries (no operator attachments on this host); bge-reranker-v2-m3 runs on the host (same model OWUI loads in-container)",
             "EG2 arm = :8946 OpenAI endpoint with contract prefixes applied as OWUI's RAG_EMBEDDING_*_PREFIX settings would",
             *notes,

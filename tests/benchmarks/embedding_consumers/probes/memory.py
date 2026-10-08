@@ -17,7 +17,7 @@ from ._common import (
     best_f1,
     binary_prf,
     cos,
-    legacy_embed,
+    historical_incumbent,
     load_fixture,
     overlap,
     retrieval_ab,
@@ -158,22 +158,18 @@ async def dedup(ctx: ProbeContext) -> ProbeResult:
     dup = [s for s, p in zip(sims, pairs, strict=True) if p["label"] == "duplicate"]
     non = [s for s, p in zip(sims, pairs, strict=True) if p["label"] != "duplicate"]
     rel = [s for s, p in zip(sims, pairs, strict=True) if p["label"] == "related"]
-    la = await legacy_embed([p["a"] for p in pairs])
-    lb = await legacy_embed([p["b"] for p in pairs])
-    ls = [cos(x, y) for x, y in zip(la, lb, strict=True)]
-    ldup = [s for s, p in zip(ls, pairs, strict=True) if p["label"] == "duplicate"]
-    lnon = [s for s, p in zip(ls, pairs, strict=True) if p["label"] != "duplicate"]
     n = len(non)
     sweep = {
         f"fp<={int(f * 100)}pct": threshold_sweep(dup, non, fp_budget=f) for f in (0.0, 0.02, 0.05)
     }
+    hist = historical_incumbent("memory_dedup")
     cand = {
         "primary": sweep["fp<=2pct"]["recall"],
         "sweep": sweep,
         "auc_dup_vs_nondup": auc_roc(dup, non),
         "auc_dup_vs_related": auc_roc(dup, rel),
-        "legacy_8917_at_fp<=2pct": threshold_sweep(ldup, lnon, fp_budget=0.02),
-        "legacy_8917_auc": auc_roc(ldup, lnon),
+        "legacy_8917_at_fp<=2pct": hist["legacy_8917_at_fp<=2pct"],
+        "legacy_8917_auc": hist["legacy_8917_auc"],
         "min_dup_sim": round(min(dup), 4),
         "max_related_sim": round(max(rel), 4),
         "false_merge_budget_pairs": round(0.02 * n, 2),
@@ -264,9 +260,10 @@ async def recall(ctx: ProbeContext) -> ProbeResult:
         [q["gold"] for q in qs],
         list(mems),
         list(mems.values()),
-        legacy=True,
     )
-    inc, cand = res["incumbent"], res["candidate"]
+    # the :8917 arm is retired; its committed scorecard block is the incumbent
+    inc = {k: v for k, v in historical_incumbent("memory_recall").items() if k != "provenance"}
+    cand = res["candidate"]
     return ProbeResult(
         "memory_recall",
         MEASURED,
@@ -281,7 +278,8 @@ async def recall(ctx: ProbeContext) -> ProbeResult:
         },
         identity=await ctx.client.version_tag(768),
         notes=[
-            "incumbent = live :8917 embedder (MLX Qwen3-Embedding-0.6B, raw text); candidate = EG2 SEARCH 768d"
+            "incumbent = FIXED historical :8917 arm (reports/embedding_consumers/20261007T224205Z, "
+            "service retired at the EG2 cutover); candidate = EG2 SEARCH 768d, live",
         ],
     )
 

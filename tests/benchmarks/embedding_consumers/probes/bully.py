@@ -2,8 +2,8 @@
 
 ``bully_projection`` re-runs the adopted SA5 machinery (scripts/defensive_bully_p04_adoption.py
 ``run_arm``: dedup corpus -> version-tagged projection -> derived thresholds -> SA2 discovery lane
-with identity as a diagnostic) for the incumbent (Arm A, MLX Qwen3 on :8917) and EG2 as Arm D
-on the frozen SPECIMEN_CORPUS_V3. Arm D runs twice: with the EG2 contract's ``sentence similarity``
+with identity as a diagnostic) for EG2 as Arm D on the frozen SPECIMEN_CORPUS_V3; the retired
+:8917 Arm A is a frozen historical block (``_common.HISTORICAL_ARMS``). Arm D runs twice: with the EG2 contract's ``sentence similarity``
 prefix (primary; a local proxy prefixes the Organ's raw ``/v1/embeddings`` calls) and raw
 (diagnostic: what a bare repoint of the Organ's URL would give). ``bully_novelty`` asks whether
 distance-to-known-centroid separates a telemetry source the index has never seen (leave-one-
@@ -35,7 +35,7 @@ from ..framework import (
     fixture_digest,
     probe,
 )
-from ._common import auc_roc, cos
+from ._common import auc_roc, cos, historical_incumbent
 
 # SPECIMEN_CORPUS_V3: V2 plus the behavior values each parent's source dataset carries
 # (scripts/build_specimen_corpus_v3.py --attack-data-root ... --window 2000). V2 kept field
@@ -44,7 +44,6 @@ CORPUS = Path(
     "/Volumes/data01/portal5_hunt/artifacts/specimen_corpus_sa1_v1/specimen_corpus_v3_final.json"
 )
 SCRATCH = Path("/Volumes/data01/portal5_scratch_eg2/bully")
-A_URL = "http://localhost:8917/v1/embeddings"
 D_URL = "http://localhost:8946/v1/embeddings"
 
 
@@ -69,7 +68,7 @@ def _prefix_proxy(upstream: str, task: Task) -> Iterator[str]:
             raw = body.get("input")
             texts = [raw] if isinstance(raw, str) else list(raw or [])
             body["input"] = [format_text(str(t), task, Role.QUERY) for t in texts]
-            body.pop("model", None)  # the upstream serves one model; callers' names are for :8917
+            body.pop("model", None)  # the upstream serves one model
             r = httpx.post(upstream, json=body, timeout=600)
             out = r.content
             self.send_response(r.status_code)
@@ -179,7 +178,7 @@ async def projection(ctx: ProbeContext) -> ProbeResult:
     if not CORPUS.is_file():
         return blocked("bully_projection", f"SPECIMEN_CORPUS_V2 not found at {CORPUS}")
     if not ctx.live:
-        return blocked("bully_projection", "needs --live (embedders :8917 and :8946)")
+        return blocked("bully_projection", "needs --live (the :8946 embedder)")
     p04 = _p04()
     from portal.modules.security.core.bully.cousin_calibration_bench import (
         corpus_parent_reference_record,
@@ -195,8 +194,9 @@ async def projection(ctx: ProbeContext) -> ProbeResult:
         p04.ARM_SPECS[arm] = {"label": label, "embedding_version": version_d, "batch_size": 32}
     stack = contextlib.ExitStack()
     sim_url = stack.enter_context(_prefix_proxy(D_URL, Task.SENTENCE_SIMILARITY))
+    # arm-a (:8917) is retired; its committed V3-blind block is the frozen incumbent
+    # (reports/embedding_consumers/20261008T164221Z), including that run's paired test.
     arms = {
-        "arm-a": (A_URL, p04.ARM_SPECS["arm-a"]["embedding_version"]),
         "arm-d-sim": (sim_url, version_d),
         "arm-d": (D_URL, version_d),
     }
@@ -236,37 +236,27 @@ async def projection(ctx: ProbeContext) -> ProbeResult:
         for arm, (url, _) in arms.items():
             va, vb = _embed(url, [a, b])
             twin[arm] = round(cos(va, vb), 4)
-    # paired significance on the shared DISCOVERY probes (the proxy must still be up for arm-d-sim)
+    # paired significance between the two live EG2 arms (the proxy must still be up)
     truth = {
         arm: _eligible_truth(SCRATCH / arm, url, ver, corpus) for arm, (url, ver) in arms.items()
     }
     stack.close()
-    paired = _paired(truth["arm-a"][1], truth["arm-d-sim"][1])
-    paired_raw = _paired(truth["arm-a"][1], truth["arm-d"][1])
-    paired_disc = _paired(truth["arm-a"][0], truth["arm-d-sim"][0])
-    ra, rd = results["arm-a"], results["arm-d-sim"]
-    inc = {"primary": sum(truth["arm-a"][1].values()), **ra}
+    paired_eg2 = _paired(truth["arm-d-sim"][1], truth["arm-d"][1])
+    inc = historical_incumbent("bully_projection")
     cand = {
         "primary": sum(truth["arm-d-sim"][1].values()),
-        **rd,
+        **results["arm-d-sim"],
         "raw_no_prefix": {
             **results["arm-d"],
             "related_all": sum(truth["arm-d"][1].values()),
-            "paired_vs_incumbent": paired_raw,
+            "paired_vs_arm_d_sim": paired_eg2,
         },
-        "paired_vs_incumbent": paired,
-        "paired_discovery_band_only": paired_disc,
         "near_twin_4719_vs_4688_cosine": twin,
     }
-    # The hint comes from the paired test, not a precision band: the arms grade the same probes.
-    if paired["mcnemar_exact_p"] < 0.05:
-        hint = (
-            "WORSE"
-            if paired["incumbent_only_related"] > paired["candidate_only_related"]
-            else "BETTER"
-        )
-    else:
-        hint = "INCONCLUSIVE"
+    # The incumbent-vs-candidate paired test is frozen in the cutover stamp (53 vs 68
+    # discordant, p=0.20): the retired arm's per-probe verdicts are not recomputable, so
+    # the live hint stays INCONCLUSIVE rather than wearing an unpaired band comparison.
+    hint = "INCONCLUSIVE"
     return ProbeResult(
         "bully_projection",
         MEASURED,
@@ -280,10 +270,11 @@ async def projection(ctx: ProbeContext) -> ProbeResult:
         },
         identity=version_d,
         notes=[
+            "incumbent = FIXED historical :8917 arm-a (reports/embedding_consumers/20261008T164221Z, service retired at the EG2 cutover); that stamp also holds the paired vs-incumbent McNemar",
             "primary candidate = EG2 with the contract 'sentence similarity' prefix (proxy over the Organ's raw /v1/embeddings calls); raw_no_prefix = a bare URL repoint",
             "thresholds are derived per space by run_arm (embedding_spaces.derive_thresholds)",
             "primary = probes whose chosen reference is truth-related, over all graded probes; the engine sees each probe with its truth labels stripped (discovery_bench.probe_signature)",
-            "hint = exact McNemar on per-probe truth_related over all shared graded probes (paired: both arms grade the same probes)",
+            "live paired test = arm-d-sim vs raw arm-d (same probes); the vs-incumbent pairing is historical",
         ],
     )
 
