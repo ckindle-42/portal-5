@@ -32,7 +32,6 @@ from ..framework import (
     ProbeContext,
     ProbeResult,
     blocked,
-    compare,
     fixture_digest,
     probe,
 )
@@ -104,6 +103,66 @@ def _embed(url: str, texts: list[str]) -> list[list[float]]:
     return out
 
 
+def mcnemar_exact(a_only: int, b_only: int) -> float:
+    """Two-sided exact McNemar (binomial on the discordant pairs)."""
+    import math
+
+    n = a_only + b_only
+    if n == 0:
+        return 1.0
+    tail = sum(math.comb(n, k) for k in range(min(a_only, b_only) + 1))
+    return min(1.0, 2 * tail / 2**n)
+
+
+def _eligible_truth(arm_dir: Path, url: str, version: str, corpus: dict) -> dict[str, bool]:
+    """Per-probe truth_related on the DISCOVERY set, re-graded against an arm's seeded projection.
+
+    ``run_discovery_bench`` persists only aggregate counts, and both arms grade the SAME probes
+    (coverage outcomes are embedder-independent), so the comparison is paired and needs the
+    per-probe outcomes. An unpaired two-proportion test on the two precisions is the wrong test:
+    it under-reported this consumer's regression as p = 0.13 when the paired p is 0.039.
+    """
+    from portal.modules.security.core.bully.discovery_bench import (
+        real_probe_specimens,
+        run_real_pairs,
+    )
+    from portal.modules.security.core.bully.organ import Organ
+    from portal.modules.security.core.bully.store import Store
+
+    with Store(arm_dir / "snapshot_state.db") as store:
+        snap = Organ(
+            store=store,
+            db_path=arm_dir / "organ_snapshot",
+            embed_url=url,
+            query_embed_url=None,
+            embedding_version=version,
+            embed_client=httpx.Client(timeout=600.0),
+        )
+        try:
+            verdicts = run_real_pairs(real_probe_specimens(corpus), snap, corpus=corpus)
+        finally:
+            snap.close()
+    return {
+        v.specimen_id: bool(v.truth_related)
+        for v in verdicts
+        if v.discovery_band == "DISCOVERY" and v.relationship != "ANOMALOUS_UNCLASSIFIED"
+    }
+
+
+def _paired(inc: dict[str, bool], cand: dict[str, bool]) -> dict[str, Any]:
+    shared = sorted(set(inc) & set(cand))
+    a_only = sum(inc[k] and not cand[k] for k in shared)
+    c_only = sum(cand[k] and not inc[k] for k in shared)
+    return {
+        "shared_probes": len(shared),
+        "incumbent_only_related": a_only,
+        "candidate_only_related": c_only,
+        "both_related": sum(inc[k] and cand[k] for k in shared),
+        "neither_related": sum(not inc[k] and not cand[k] for k in shared),
+        "mcnemar_exact_p": round(mcnemar_exact(a_only, c_only), 4),
+    }
+
+
 @probe("bully_projection")
 async def projection(ctx: ProbeContext) -> ProbeResult:
     if not CORPUS.is_file():
@@ -166,21 +225,37 @@ async def projection(ctx: ProbeContext) -> ProbeResult:
         for arm, (url, _) in arms.items():
             va, vb = _embed(url, [a, b])
             twin[arm] = round(cos(va, vb), 4)
+    # paired significance on the shared DISCOVERY probes (the proxy must still be up for arm-d-sim)
+    truth = {
+        arm: _eligible_truth(SCRATCH / arm, url, ver, corpus) for arm, (url, ver) in arms.items()
+    }
     stack.close()
+    paired = _paired(truth["arm-a"], truth["arm-d-sim"])
+    paired_raw = _paired(truth["arm-a"], truth["arm-d"])
     ra, rd = results["arm-a"], results["arm-d-sim"]
     inc = {"primary": ra["discovery_precision"], **ra}
     cand = {
         "primary": rd["discovery_precision"],
         **rd,
-        "raw_no_prefix": results["arm-d"],
+        "raw_no_prefix": {**results["arm-d"], "paired_vs_incumbent": paired_raw},
+        "paired_vs_incumbent": paired,
         "near_twin_4719_vs_4688_cosine": twin,
     }
+    # The hint comes from the paired test, not a precision band: the arms grade the same probes.
+    if paired["mcnemar_exact_p"] < 0.05:
+        hint = (
+            "WORSE"
+            if paired["incumbent_only_related"] > paired["candidate_only_related"]
+            else "BETTER"
+        )
+    else:
+        hint = "INCONCLUSIVE"
     return ProbeResult(
         "bully_projection",
         MEASURED,
         inc,
         cand,
-        compare(float(inc["primary"]), float(cand["primary"]), parity_band=0.03),
+        hint,
         fixture={
             "deduplicated_parents": len(parents),
             "corpus": str(CORPUS.name),
@@ -190,6 +265,7 @@ async def projection(ctx: ProbeContext) -> ProbeResult:
         notes=[
             "primary candidate = EG2 with the contract 'sentence similarity' prefix (proxy over the Organ's raw /v1/embeddings calls); raw_no_prefix = a bare URL repoint",
             "thresholds are derived per space by run_arm (embedding_spaces.derive_thresholds)",
+            "hint = exact McNemar on per-probe truth_related over the shared DISCOVERY probes (both arms grade the same probes; coverage outcomes are embedder-independent)",
         ],
     )
 

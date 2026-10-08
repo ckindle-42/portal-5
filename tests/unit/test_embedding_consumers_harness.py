@@ -109,3 +109,17 @@ def test_rag_gate_quantile_match_gates_the_same_share() -> None:
     assert sum(s < tau for s in cand) == 3
     assert _matched_gate([0.9], [0.8], 0.72) < 0.8  # gates none
     assert _matched_gate([0.1], [0.8], 0.72) > 0.8  # gates all
+
+
+def test_bully_mcnemar_is_paired_exact() -> None:
+    from tests.benchmarks.embedding_consumers.probes.bully import _paired, mcnemar_exact
+
+    # 2026-10-08 bully_projection: 8 probes related only under the incumbent, 1 only under EG2.
+    assert round(mcnemar_exact(8, 1), 4) == 0.0391
+    assert mcnemar_exact(0, 0) == 1.0
+    assert mcnemar_exact(3, 3) == 1.0
+    inc = {"p1": True, "p2": True, "p3": False, "p4": True}
+    cand = {"p1": True, "p2": False, "p3": True, "p5": True}  # p4/p5 unshared -> ignored
+    r = _paired(inc, cand)
+    assert r["shared_probes"] == 3
+    assert (r["incumbent_only_related"], r["candidate_only_related"]) == (1, 1)
