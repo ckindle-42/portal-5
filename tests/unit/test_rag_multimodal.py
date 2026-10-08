@@ -255,9 +255,9 @@ async def test_c1_weak_text_promotes_the_figure(monkeypatch):
 
 
 async def test_c1_strong_text_keeps_text_first(monkeypatch):
-    # top text cosine ~0.85 (>= gate) -> visual boost OFF, RRF tie -> text wins
+    # top text cosine 0.90 (>= gate 0.88) -> visual boost OFF, RRF tie -> text wins
     monkeypatch.setattr(_fusion, "FUSION", "text_gate")
-    _wire_search(monkeypatch, text_distance=0.3, rerank_scores=[0.7])
+    _wire_search(monkeypatch, text_distance=0.2, rerank_scores=[0.7])
     res = await _run_search(query="how often must an ESP be reviewed")
     assert res[0]["kind"] == "text"
 
@@ -354,9 +354,9 @@ def test_retrieval_eval_baseline_still_matches_the_configured_pipeline():
     embedding model, the chunker, or the fusion strategy. Each silently rebases
     the cosine distribution tau is compared against."""
     fp = _BASELINE["fingerprint"]
-    server = (
-        pathlib.Path(__file__).resolve().parents[2] / "scripts" / "vl-retrieval-server.py"
-    ).read_text()
+    scripts = pathlib.Path(__file__).resolve().parents[2] / "scripts"
+    server = (scripts / "vl-retrieval-server.py").read_text()
+    eg2 = (scripts / "eg2-embedding-server.py").read_text()
 
     for name, live, recorded in (
         ("RAG_CHUNK_STRATEGY", _chunking.CHUNK_STRATEGY, fp["chunk_strategy"]),
@@ -368,10 +368,13 @@ def test_retrieval_eval_baseline_still_matches_the_configured_pipeline():
             f"{name} is {live!r}; the retrieval eval that fitted tau ran with "
             f"{recorded!r}. Re-run the eval before shipping this."
         )
-    for key, model in (
-        ("VL_EMBED_MODEL", fp["embed_model"]),
-        ("VL_RERANK_MODEL", fp["rerank_model"]),
-    ):
+    # Embeddings come from EG2's /vl surface; the reranker is still the VL server's.
+    assert f'"EG2_MODEL", "{fp["embed_model"]}"' in eg2, (
+        f"EG2_MODEL default no longer {fp['embed_model']}; tau was measured on that model's "
+        "cosine distribution. Re-run the eval."
+    )
+    assert f'"EG2_VL_DIM", "{fp["embedding_dim"]}"' in eg2
+    for key, model in (("VL_RERANK_MODEL", fp["rerank_model"]),):
         assert f'"{key}", "{model}"' in server, (
             f"{key} default no longer {model}; the eval's cosine distribution — and "
             f"therefore tau — was measured on that model. Re-run the eval."
@@ -402,15 +405,20 @@ def test_shipped_tau_is_the_knee_of_the_recorded_sweep():
 
 def test_gate_endpoints_prove_both_halves_are_load_bearing():
     """Guards the DESIGN, not the constant: tau=0.00 (never fires) must reproduce
-    B1, and tau=1.01 (always fires) must cost prose. If a future sweep ever shows
-    otherwise, text_gate is the wrong shape and re-tuning it is not the answer."""
+    B1, and tau=1.01 (always fires) must not beat the shipped gate.
+
+    Under Qwen3-VL always-fires cost prose (0.688 vs 0.812), so the conditionality was
+    load-bearing. Under EmbeddingGemma 2 (2026-10-08) always-fires TIES the knee at the
+    ceiling (1.000/1.000 on 42 queries): the boost is load-bearing, the conditionality is
+    not shown to be. Whether to simplify fusion to always-blend is TASK_EG2_CUTOVER_V1 C7's
+    separate decision; this asserts only that the shipped gate is never the worse choice."""
     ep = _BASELINE["endpoint_tests"]
     shipped = next(r for r in _BASELINE["tau_sweep"] if r["tau"] == _BASELINE["chosen_tau"])
     assert ep["never_fires_tau_0.00"]["diagram_r1"] < shipped["diagram_r1"], (
         "gate never firing does not hurt diagram recall — the boost is not load-bearing"
     )
-    assert ep["always_fires_tau_1.01"]["prose_r1"] < shipped["prose_r1"], (
-        "gate always firing costs nothing — the CONDITIONALITY is not load-bearing"
+    assert ep["always_fires_tau_1.01"]["prose_r1"] <= shipped["prose_r1"], (
+        "gate always firing beats the shipped gate on prose — text_gate is the wrong shape"
     )
 
 

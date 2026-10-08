@@ -79,9 +79,11 @@ Pure (Phase 2 — no services):
 
 Service-touching (Phase 3):
 
-- `embedding` — the Qwen3-VL retrieval-server client (`vl_embed` / `vl_embed_batch`
+- `embedding` — the retrieval-surface client (`vl_embed` / `vl_embed_batch`
   / `vl_rerank` / `vl_model_id`), the request-size cap, the `_MODEL_ID_CACHE` TTL,
-  the dim guard, and `VLUnavailableError`.
+  the dim guard, and `VLUnavailableError`. `VL_RETRIEVAL_URL` defaults to EmbeddingGemma 2's
+  VL-compatible surface (`:8946/vl`, `VL_EMBEDDING_DIM` 768, SEARCH prefixes applied
+  server-side); its `/rerank` forwards to the Qwen3-VL reranker on :8942.
 - `store` — LanceDB table open/create, the KB list, and the model + stage-set
   stamp sidecar (`read_stamp` / `write_stamp` / `assert_embedding_space`). The
   stamp records the embedding model AND the stage set (chunker, chunk
@@ -91,7 +93,7 @@ Service-touching (Phase 3):
   half-migrated fleet.
 - `fusion` — `rrf_fuse` (RRF text/visual with the gated visual boost),
   `search_unified` (one cross-encoder pass), and `fuse` dispatch on the mode.
-  `VL_TEXT_GATE` τ=0.72 and the mode constants live here.
+  `VL_TEXT_GATE` τ=0.88 (EG2 knee; 0.72 on Qwen3-VL) and the mode constants live here.
 - `predicates` — the ONE clause builder behind the filter seam
   (SUBSTRATE_PROPERTIES_V1 P2): `dict` equalities, `(column, op, value)`
   comparisons, `("in", column, values)` lists, and nested OR-groups for clock

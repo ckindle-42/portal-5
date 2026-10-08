@@ -42,8 +42,9 @@ without restarting their writers.
 | Wiki MCP | Canonical knowledge layer — search, get_unit | :8931 |
 | MLX Transcribe | Diarized transcription (Apple Silicon) | :8924 |
 | MLX Speech | Kokoro TTS + Higgs Audio v2 voice clone + Qwen3-TTS/ASR (Apple Silicon) | :8918 |
-| Embedding | MLX Qwen3-Embedding-0.6B text embeddings | :8917 |
-| VL retrieval | Qwen3-VL embedder + reranker for RAG | :8942 |
+| EmbeddingGemma 2 | Platform embedder: memory, Open WebUI RAG, RAG MCP and compliance retrieval | :8946 |
+| Embedding (legacy) | MLX Qwen3-Embedding-0.6B, serving only the Bully hunt-memory projection | :8917 |
+| VL retrieval | Qwen3-VL reranker for RAG and compliance (embedding moved to :8946) | :8942 |
 | Prometheus | Metrics collection | http://localhost:9090 |
 | Grafana | Metrics dashboard | http://localhost:3000 |
 | Host log rotator | Gzip archives for oversized Ollama, oMLX, and Portal logs | hourly |

@@ -1,8 +1,10 @@
 """VL retrieval-server client stage — moved verbatim from ``rag_multimodal``
 (SEAM V1 P3).
 
-Embedding + rerank + live-model identity against the Qwen3-VL retrieval server
-(:8942). Single-flight discipline, the ``_MODEL_ID_CACHE`` TTL, the dim guard,
+Embedding + rerank + live-model identity against the retrieval surface at
+``VL_RETRIEVAL_URL``: EmbeddingGemma 2's VL-compatible surface (``:8946/vl``, 768d,
+TASK_EG2_CUTOVER_V1 C4), which embeds itself and forwards ``/rerank`` to the Qwen3-VL
+reranker on :8942. Single-flight discipline, the ``_MODEL_ID_CACHE`` TTL, the dim guard,
 and the ``VLUnavailableError`` → 503 / everything-else → 500 error mapping are
 all preserved. ``rag_multimodal`` keeps thin aliases for the transition.
 """
@@ -16,8 +18,8 @@ from typing import Any, cast
 
 import httpx
 
-VL_URL = os.environ.get("VL_RETRIEVAL_URL", "http://localhost:8942")
-VL_DIM = int(os.environ.get("VL_EMBEDDING_DIM", "2048"))
+VL_URL = os.environ.get("VL_RETRIEVAL_URL", "http://localhost:8946/vl")
+VL_DIM = int(os.environ.get("VL_EMBEDDING_DIM", "768"))
 VL_EMBED_MAX_ITEMS = max(1, int(os.environ.get("VL_EMBED_MAX_ITEMS", "24")))
 
 _MODEL_ID_CACHE: dict[str, Any] = {"value": None, "at": 0.0}
@@ -25,7 +27,7 @@ _MODEL_ID_TTL = float(os.environ.get("VL_MODEL_ID_TTL", "300"))
 
 
 class VLUnavailableError(Exception):
-    """The VL retrieval server is not serving a working model (see :8942/ready)."""
+    """The retrieval surface is not serving a working model (see ``VL_RETRIEVAL_URL``/ready)."""
 
 
 def vl_error(exc: Exception) -> VLUnavailableError:

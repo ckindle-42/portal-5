@@ -838,10 +838,10 @@ services:
       - MCP_PORT=8921
       - PORTAL5_LANCE_DIR=/app/data/portal5_lance
       - PORTAL5_KB_SOURCES_DIR=/app/data/portal5_kb_sources
-      # Retrieval is multimodal (Qwen3-VL retrieval server); :8917 stays for
-      # memory and the Bully ORG projection until the EG2 migration (Phase 5).
-      - VL_RETRIEVAL_URL=${VL_RETRIEVAL_URL:-http://host.docker.internal:8942}
-      - VL_EMBEDDING_DIM=${VL_EMBEDDING_DIM:-2048}
+      # Retrieval embeds with EmbeddingGemma 2's VL-compatible surface (:8946/vl, 768d);
+      # its /rerank forwards to the Qwen3-VL reranker on :8942.
+      - VL_RETRIEVAL_URL=${VL_RETRIEVAL_URL:-http://host.docker.internal:8946/vl}
+      - VL_EMBEDDING_DIM=${VL_EMBEDDING_DIM:-768}
       - RAG_RERANK_ENABLED=${RAG_RERANK_ENABLED:-true}
       - RAG_CANDIDATE_POOL_SIZE=${RAG_CANDIDATE_POOL_SIZE:-20}
       - RAG_TRANSCRIBE_MODEL=${RAG_TRANSCRIBE_MODEL:-qwen3-vl:4b-instruct-q4_K_M}

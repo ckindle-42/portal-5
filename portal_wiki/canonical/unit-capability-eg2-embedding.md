@@ -45,6 +45,19 @@ rejects a foreign `model`), `/v1/rerank` and `/vl/*` (forwarded to the Qwen3-VL 
 the reranker). Readiness check `HN` in `scripts/validation/rag_runtime.py` asserts `/ready` when the service is
 installed.
 
+## Consumers (TASK_EG2_CUTOVER_V1, 2026-10-08)
+
+| consumer | path | task / role | dim | shipped thresholds |
+|---|---|---|---|---|
+| graph memory (`:8920`) | `EmbeddingClient` `/embed` | SEARCH; memories + entity names = document, recall query = query | 768 | `MEMORY_RECALL_FLOOR` 0.60 cosine |
+| Open WebUI RAG | `/v1/embeddings` (raw) | SEARCH prefixes via `RAG_EMBEDDING_{QUERY,CONTENT}_PREFIX` | 768 | Open WebUI's own (top_k 3, bge rerank) |
+| RAG MCP + compliance retrieval | `/vl/*` | SEARCH; `is_query` items = query | 768 (`EG2_VL_DIM`) | `VL_TEXT_GATE` 0.88 |
+| Bully hunt-memory projection | `:8917` Qwen3 (unchanged) | — | 1024 | measured not-worse on EG2 (p=0.20), switch pending |
+
+Kept off EG2 on evidence: the auto-router (LLM beats the anchor classifier, p=0.039) and
+`classify_vulnerability` (CIRCL RoBERTa, p=0.0009). The Qwen3-VL reranker on :8942 stays
+behind `/vl/rerank` and `/v1/rerank`.
+
 ## Why / gotchas
 
 * The client library `portal/platform/embedding/` is stdlib + httpx only (Rule 8: nothing under

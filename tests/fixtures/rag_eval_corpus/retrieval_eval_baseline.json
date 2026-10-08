@@ -9,9 +9,9 @@
     "impossible to miss, which is the actual defect: tau did not change when",
     "diagram recall@1 fell 1.000 -> 0.714. The DATA changed underneath it."
   ],
-  "task": "TASK_VL_RETRIEVAL_HARDENING_AND_CLOSEOUT_V2 / P9",
-  "report": "reports/runtime/HARDENING_V2_P4_MEASUREMENTS.md",
-  "run_date": "2026-09-02",
+  "task": "TASK_EG2_CUTOVER_V1 / C4",
+  "report": "reports/embedding_consumers/EG2_CUTOVER.md",
+  "run_date": "2026-10-08",
   "fingerprint": {
     "_note": "Declared pins, not the installed venv -- tests/unit/test_dependency_drift.py already asserts venv == uv.lock, so the two together cover the live environment while this stays runnable on a CI box with no rag extra.",
     "pyproject_pins": {
@@ -21,67 +21,172 @@
     "dockerfile_mcp_pins": {
       "docling": "==2.99.0"
     },
-    "embed_model": "mlx-community/Qwen3-VL-Embedding-2B-mxfp8",
+    "embed_model": "google/embeddinggemma-2",
     "rerank_model": "mlx-community/Qwen3-VL-Reranker-2B-mxfp8",
-    "embedding_dim": 2048,
+    "embedding_dim": 768,
     "chunk_strategy": "fixed",
     "fusion": "text_gate",
-    "gate_mode": "absolute"
+    "gate_mode": "absolute",
+    "embed_server": "scripts/eg2-embedding-server.py (/vl surface)"
   },
   "corpus": {
-    "docs": 35,
-    "chunks": 2132,
-    "page_images": 480,
-    "ingest_s": 1289,
-    "queries_scored": 37,
-    "note": "operator's private NERC CIP + OT policy PDFs; NOT committed"
+    "docs": 32,
+    "chunks": 2054,
+    "page_images": 561,
+    "ingest_s": 429.3,
+    "queries_scored": 42,
+    "note": "13 public CIP standards + NIST SP 800-82r3 slice + 9 synthetic figure docs + 9 operator OT procedures (distractors; not committed)"
   },
-  "chosen_tau": 0.72,
+  "chosen_tau": 0.88,
   "tau_sweep": [
     {
-      "tau": 0.67,
-      "diagram_r1": 0.714,
-      "diagram_mrr": 0.857,
-      "prose_r1": 0.812,
-      "prose_r5": 0.938,
-      "prose_mrr": 0.865
+      "tau": 0.6,
+      "diagram_r1": 0.0,
+      "diagram_mrr": 0.5,
+      "prose_r1": 0.75,
+      "prose_r5": 1.0,
+      "prose_mrr": 0.875
+    },
+    {
+      "tau": 0.65,
+      "diagram_r1": 0.0,
+      "diagram_mrr": 0.5,
+      "prose_r1": 0.75,
+      "prose_r5": 1.0,
+      "prose_mrr": 0.875
     },
     {
       "tau": 0.7,
-      "diagram_r1": 0.81,
-      "diagram_mrr": 0.905,
-      "prose_r1": 0.812,
-      "prose_r5": 0.938,
-      "prose_mrr": 0.865
+      "diagram_r1": 0.286,
+      "diagram_mrr": 0.643,
+      "prose_r1": 0.75,
+      "prose_r5": 1.0,
+      "prose_mrr": 0.875
     },
     {
       "tau": 0.72,
-      "diagram_r1": 0.952,
-      "diagram_mrr": 0.976,
-      "prose_r1": 0.812,
-      "prose_r5": 0.938,
-      "prose_mrr": 0.865
+      "diagram_r1": 0.333,
+      "diagram_mrr": 0.667,
+      "prose_r1": 0.75,
+      "prose_r5": 1.0,
+      "prose_mrr": 0.875
     },
     {
-      "tau": 0.75,
+      "tau": 0.74,
+      "diagram_r1": 0.429,
+      "diagram_mrr": 0.714,
+      "prose_r1": 0.75,
+      "prose_r5": 1.0,
+      "prose_mrr": 0.875
+    },
+    {
+      "tau": 0.76,
+      "diagram_r1": 0.619,
+      "diagram_mrr": 0.81,
+      "prose_r1": 0.75,
+      "prose_r5": 1.0,
+      "prose_mrr": 0.875
+    },
+    {
+      "tau": 0.78,
+      "diagram_r1": 0.81,
+      "diagram_mrr": 0.905,
+      "prose_r1": 0.75,
+      "prose_r5": 1.0,
+      "prose_mrr": 0.875
+    },
+    {
+      "tau": 0.8,
+      "diagram_r1": 0.857,
+      "diagram_mrr": 0.929,
+      "prose_r1": 0.875,
+      "prose_r5": 1.0,
+      "prose_mrr": 0.938
+    },
+    {
+      "tau": 0.82,
       "diagram_r1": 0.952,
       "diagram_mrr": 0.976,
-      "prose_r1": 0.75,
-      "prose_r5": 0.938,
-      "prose_mrr": 0.833
+      "prose_r1": 0.938,
+      "prose_r5": 1.0,
+      "prose_mrr": 0.969
+    },
+    {
+      "tau": 0.84,
+      "diagram_r1": 0.952,
+      "diagram_mrr": 0.976,
+      "prose_r1": 0.938,
+      "prose_r5": 1.0,
+      "prose_mrr": 0.969
+    },
+    {
+      "tau": 0.86,
+      "diagram_r1": 1.0,
+      "diagram_mrr": 1.0,
+      "prose_r1": 0.938,
+      "prose_r5": 1.0,
+      "prose_mrr": 0.969
+    },
+    {
+      "tau": 0.88,
+      "diagram_r1": 1.0,
+      "diagram_mrr": 1.0,
+      "prose_r1": 1.0,
+      "prose_r5": 1.0,
+      "prose_mrr": 1.0
+    },
+    {
+      "tau": 0.9,
+      "diagram_r1": 1.0,
+      "diagram_mrr": 1.0,
+      "prose_r1": 1.0,
+      "prose_r5": 1.0,
+      "prose_mrr": 1.0
+    },
+    {
+      "tau": 0.92,
+      "diagram_r1": 1.0,
+      "diagram_mrr": 1.0,
+      "prose_r1": 1.0,
+      "prose_r5": 1.0,
+      "prose_mrr": 1.0
+    },
+    {
+      "tau": 0.94,
+      "diagram_r1": 1.0,
+      "diagram_mrr": 1.0,
+      "prose_r1": 1.0,
+      "prose_r5": 1.0,
+      "prose_mrr": 1.0
+    },
+    {
+      "tau": 0.96,
+      "diagram_r1": 1.0,
+      "diagram_mrr": 1.0,
+      "prose_r1": 1.0,
+      "prose_r5": 1.0,
+      "prose_mrr": 1.0
+    },
+    {
+      "tau": 0.98,
+      "diagram_r1": 1.0,
+      "diagram_mrr": 1.0,
+      "prose_r1": 1.0,
+      "prose_r5": 1.0,
+      "prose_mrr": 1.0
     }
   ],
   "endpoint_tests": {
-    "_note": "Both halves of the gate proven load-bearing on the docling index.",
+    "_note": "EG2: the boost is load-bearing (never fires -> diagram 0.0); the conditionality is not shown to be (always fires ties the knee at the ceiling). Under Qwen3-VL always-fires cost prose (0.688).",
     "never_fires_tau_0.00": {
       "diagram_r1": 0.0,
       "diagram_mrr": 0.5,
-      "prose_r1": 0.875
+      "prose_r1": 0.75
     },
     "always_fires_tau_1.01": {
       "diagram_r1": 1.0,
       "diagram_mrr": 1.0,
-      "prose_r1": 0.688
+      "prose_r1": 1.0
     }
   },
   "scope_and_validity": {
@@ -125,5 +230,81 @@
       "aggregate_diagram_r1": "0.619 vs 0.714",
       "but": "prose-cip-07 rank 1 at text depth 3"
     }
+  },
+  "previous_baseline_qwen3_vl": {
+    "fingerprint": {
+      "_note": "Declared pins, not the installed venv -- tests/unit/test_dependency_drift.py already asserts venv == uv.lock, so the two together cover the live environment while this stays runnable on a CI box with no rag extra.",
+      "pyproject_pins": {
+        "docling": ">=2.99.0",
+        "transformers": ">=5.16.1"
+      },
+      "dockerfile_mcp_pins": {
+        "docling": "==2.99.0"
+      },
+      "embed_model": "google/embeddinggemma-2",
+      "rerank_model": "mlx-community/Qwen3-VL-Reranker-2B-mxfp8",
+      "embedding_dim": 768,
+      "chunk_strategy": "fixed",
+      "fusion": "text_gate",
+      "gate_mode": "absolute",
+      "embed_server": "scripts/eg2-embedding-server.py (/vl surface)"
+    },
+    "corpus": {
+      "docs": 35,
+      "chunks": 2132,
+      "page_images": 480,
+      "ingest_s": 1289,
+      "queries_scored": 37,
+      "note": "operator's private NERC CIP + OT policy PDFs; NOT committed"
+    },
+    "chosen_tau": 0.72,
+    "tau_sweep": [
+      {
+        "tau": 0.67,
+        "diagram_r1": 0.714,
+        "diagram_mrr": 0.857,
+        "prose_r1": 0.812,
+        "prose_r5": 0.938,
+        "prose_mrr": 0.865
+      },
+      {
+        "tau": 0.7,
+        "diagram_r1": 0.81,
+        "diagram_mrr": 0.905,
+        "prose_r1": 0.812,
+        "prose_r5": 0.938,
+        "prose_mrr": 0.865
+      },
+      {
+        "tau": 0.72,
+        "diagram_r1": 0.952,
+        "diagram_mrr": 0.976,
+        "prose_r1": 0.812,
+        "prose_r5": 0.938,
+        "prose_mrr": 0.865
+      },
+      {
+        "tau": 0.75,
+        "diagram_r1": 0.952,
+        "diagram_mrr": 0.976,
+        "prose_r1": 0.75,
+        "prose_r5": 0.938,
+        "prose_mrr": 0.833
+      }
+    ],
+    "endpoint_tests": {
+      "_note": "Both halves of the gate proven load-bearing on the docling index.",
+      "never_fires_tau_0.00": {
+        "diagram_r1": 0.0,
+        "diagram_mrr": 0.5,
+        "prose_r1": 0.875
+      },
+      "always_fires_tau_1.01": {
+        "diagram_r1": 1.0,
+        "diagram_mrr": 1.0,
+        "prose_r1": 0.688
+      }
+    },
+    "run_date": "2026-09-02"
   }
 }

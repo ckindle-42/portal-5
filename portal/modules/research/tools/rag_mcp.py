@@ -37,7 +37,7 @@ RAG_DIR = os.path.join(LANCE_DIR, "rag")
 # Retrieval (embedding + rerank) is now the Qwen3-VL retrieval server — see
 # rag_multimodal. kb_ingest/kb_search/kb_search_all are owned there. The
 # lifecycle tools below (kb_optimize/versions/restore/list) stay here.
-EMBEDDING_DIM = int(os.environ.get("VL_EMBEDDING_DIM", "2048"))
+EMBEDDING_DIM = int(os.environ.get("VL_EMBEDDING_DIM", "768"))
 CHUNK_SIZE = int(os.environ.get("RAG_CHUNK_SIZE", "1000"))
 CHUNK_OVERLAP = int(os.environ.get("RAG_CHUNK_OVERLAP", "150"))
 

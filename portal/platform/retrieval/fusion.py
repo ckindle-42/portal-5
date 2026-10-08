@@ -24,7 +24,15 @@ RRF_K = 60
 # queries in the eval set must exist before this is raised above 0.
 BM25_WEIGHT = float(os.environ.get("RAG_BM25_WEIGHT", "0.0"))
 
-# τ = 0.72 is the knee ON THE FIXED CHUNKER'S text-similarity distribution,
+# τ = 0.88 is the knee for EmbeddingGemma 2 (TASK_EG2_CUTOVER_V1 C4): swept 0.00-1.01 on the
+# production eval corpus (CIP standards, NIST SP 800-82r3 slice, synthetic figure docs, 9
+# operator procedures; 42 queries), the smallest τ with diagram AND prose recall@1 at 1.000.
+# EG2's text cosines sit higher than Qwen3-VL's, so the old 0.72 left diagram r@1 at 0.333.
+# Under EG2 every τ >= 0.88 (including 1.01, "always blend") scores the same: the boost is
+# load-bearing, the conditionality is not shown to be. Recorded in
+# tests/fixtures/rag_eval_corpus/retrieval_eval_baseline.json.
+#
+# History (Qwen3-VL, 2048d): τ = 0.72 was the knee ON THE FIXED CHUNKER'S text-similarity distribution,
 # measured on an index that also double-indexed every prose page (O7). Its
 # *range* does not transfer: SUBSTRATE_MIGRATION_V1 swept 0.72 / 0.80 / 0.86 /
 # 0.92 on the figure-scoped docling index and found that raising τ to close the
@@ -33,7 +41,7 @@ BM25_WEIGHT = float(os.environ.get("RAG_BM25_WEIGHT", "0.0"))
 # BM25 arm); the diagram-lane loss at 0.72 is a synthetic-corpus artifact. See
 # reports/retrieval/SUBSTRATE_MIGRATION_V1.md; `unified` was tested and loses to
 # text_gate+BM25 because search_unified has no BM25 arm.
-VL_TEXT_GATE = float(os.environ.get("VL_TEXT_GATE", "0.72"))
+VL_TEXT_GATE = float(os.environ.get("VL_TEXT_GATE", "0.88"))
 # `absolute` = the cosine threshold above. `relative` = the top text hit's margin
 # over the median of its own candidate pool. MEASURED AND REJECTED as a default:
 # dominated on both axes because the margin is ANTI-correlated with need.

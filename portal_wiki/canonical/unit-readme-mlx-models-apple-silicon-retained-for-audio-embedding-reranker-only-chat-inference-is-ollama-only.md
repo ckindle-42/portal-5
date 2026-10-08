@@ -33,9 +33,11 @@ MLX survives in four non-chat runtimes, each started by its own launcher:
   Sortformer speaker diarization merged at the word level (up to 4 speakers, no HF
   token), host-native.
 - **Embedding:** MLX Qwen3-Embedding-0.6B on port 8917 (`scripts/embedding-server-mlx.py`)
-  — the memory/Bully embedding endpoint (`MLX_EMBEDDING_URL`).
-- **Retrieval:** Qwen3-VL embedder + reranker on port 8942 (`scripts/vl-retrieval-server.py`)
-  for RAG and compliance retrieval.
+  — now only the Bully hunt-memory projection. Memory, Open WebUI RAG, the RAG MCP and
+  compliance embed with EmbeddingGemma 2 on :8946 (sentence-transformers, its own venv).
+- **Retrieval:** Qwen3-VL reranker on port 8942 (`scripts/vl-retrieval-server.py`) for
+  RAG and compliance retrieval; their embeddings come from EG2's `:8946/vl` surface,
+  which forwards `/rerank` here.
 
 Chat model inference runs exclusively through Ollama on port 11434 — GGUF format,
 pulled via `ollama pull` and cataloged in `config/backends.yaml`. The MLX

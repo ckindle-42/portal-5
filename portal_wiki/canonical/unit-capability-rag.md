@@ -67,9 +67,10 @@ The RAG MCP (`portal/modules/research/tools/rag_mcp.py`, port 8921) manages
 persistent knowledge bases in LanceDB. TASK_RAG_VISUAL_OVERHAUL_V1 replaced the
 text-only retrieval stack with a multimodal one: the retrieval routes
 (`kb_ingest` / `kb_search` / `kb_search_all`) live in `rag_multimodal.py` and
-run on the Qwen3-VL retrieval server (`scripts/vl-retrieval-server.py`, a
-FastAPI service exposing `/embed`, `/embed_batch`, and `/rerank` over a joint
-text+image space). `rag_mcp.py` keeps the KB-lifecycle tools (`kb_list` /
+embed through EmbeddingGemma 2's VL-compatible surface (`VL_RETRIEVAL_URL`, default
+`:8946/vl`; 768d, one joint text+image space, SEARCH prefixes applied server-side). Its
+`/rerank` forwards to the Qwen3-VL reranker (`scripts/vl-retrieval-server.py`, :8942),
+which no longer embeds for RAG (TASK_EG2_CUTOVER_V1 C4). `rag_mcp.py` keeps the KB-lifecycle tools (`kb_list` /
 `kb_optimize` / `kb_versions` / `kb_restore`) and registers the multimodal
 routes.
 
@@ -87,13 +88,17 @@ separate visual opt-in. `kb_search` is multimodal by default: it retrieves
 text chunks and page images for the query and fuses them with Reciprocal Rank
 Fusion (the visual side is reranked by the VL reranker first), returning
 results in the preserved shape plus a `kind` (`text` | `visual`) and `page`.
-The fusion is **text-gated** (`VL_TEXT_GATE`, default 0.72 cosine): plain RRF
+The fusion is **text-gated** (`VL_TEXT_GATE`, default 0.88 cosine for EG2; it was 0.72 on
+Qwen3-VL's lower-sitting scale): plain RRF
 ties a top text chunk and a top page image at exactly `1/60` and text always
 wins on insertion order, so a diagram-only query never surfaced its figure. The
 VL reranker's calibrated probability is added to the visual arm's score **only
 when the top text chunk's own similarity is below the gate** — i.e. only when
 the query is not answerable from prose. Measured: diagram-only recall@1
-0.00 → 1.00, prose recall unchanged.
+0.00 → 1.00, prose recall unchanged. On EG2 (production eval corpus incl. 9 operator
+procedures, 42 queries) τ 0.88 gives diagram and prose recall@1 1.000; the old 0.72 left
+diagram at 0.333, and every τ ≥ 0.88 (even "always blend") scores the same — the boost is
+load-bearing, the gate's conditionality is not shown to be under EG2.
 `kb_search_all` does the same across every KB. The tool contracts (args and
 response keys) are unchanged so the ~10 caller workspaces keep working.
 
@@ -123,9 +128,8 @@ re-ingest.
 Text-only retrieval discards the charts, one-line diagrams, HMI screenshots,
 and table layout that carry the answer in P&IDs and NERC/CVE PDFs. A joint
 text+image retrieval space — the Qwen3-VL embedding/reranker family — recovers
-that. The shared text embedder (:8917) stays up because the
-memory subsystem and the Bully ORG projection still use it; only RAG's
-*retrieval* moved to VL.
+that. Embedding moved again in TASK_EG2_CUTOVER_V1 to EmbeddingGemma 2, which embeds
+text, images, audio and video in one space; the Qwen3-VL reranker stays.
 
 ## Value
 
@@ -151,7 +155,8 @@ The VL retrieval server loads and serves. `TASK_VL_RUNTIME_LANDING_V4` landed it
 - **Resolved versions:** `mlx-embeddings 0.1.0` (ships the `qwen3_vl` module),
   `mlx 0.32.2`, `mlx-vlm 0.6.17`, `transformers 5.16.1`, `torch 2.13.0`,
   `torchvision 0.28.0`.
-- **Measured:** embedding dim **2048** (`VL_EMBEDDING_DIM`);
+- **Measured (VL server):** its own embedding dim **2048**; RAG no longer uses it —
+  `VL_EMBEDDING_DIM` is now 768 (EG2's `/vl` surface);
   `model.args.normalize` is **True**, so `/embed*` returns unit vectors and the
   server never re-normalizes. `/ready` reports `ready`, `dim`, and `normalize`;
   `/health` is non-empty.
@@ -169,7 +174,7 @@ The VL retrieval server loads and serves. `TASK_VL_RUNTIME_LANDING_V4` landed it
   (`_UnsupportedVideoProcessor.__call__` raises); do not inherit the model
   card's video claim.
 - If retrieval is down, `kb_ingest` / `kb_search` return a plain **503** quoting
-  the upstream error and pointing at `:8942/ready`.
+  the upstream error and pointing at `VL_RETRIEVAL_URL`/ready (`:8946/vl/ready`).
 - The `_embed_items` / `_score_documents` seams in
   `scripts/vl-retrieval-server.py` isolate the mlx-embeddings API; a version
   bump touches only them.

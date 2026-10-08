@@ -31,9 +31,10 @@ three `ollama pull` calls before reporting that core models are ready:
   which is the default of `_LLM_ROUTER_MODEL` in
   `portal/platform/inference/router/routing.py` and the value of
   `LLM_ROUTER_MODEL` in `.env.example`.
-- `nomic-embed-text:latest` — pulled as part of the core set. RAG embeddings are
-  now served by the :8917 embedding server: `rag_mcp.py` and `memory_mcp.py` read
-  `MLX_EMBEDDING_URL`, defaulting to `http://localhost:8917/v1/embeddings`.
+- `nomic-embed-text:latest` — pulled as part of the core set. RAG, memory and Open
+  WebUI embeddings are served by the EmbeddingGemma 2 service on :8946, not by an
+  Ollama model: memory reads `EG2_EMBEDDING_URL`, RAG and compliance read
+  `VL_RETRIEVAL_URL` (default `http://localhost:8946/vl`).
 
 The init service is the Docker-compose equivalent of the `_DEFAULT_MODELS` list in
 `portal/platform/inference/cli/update.py`, which also opens with

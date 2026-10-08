@@ -117,7 +117,7 @@ def _patch_fusion(rm, strategy: str) -> None:  # noqa: C901, PLR0915
     gate = float(os.environ.get("VL_FUSION_GATE", "0.0"))
     text_gate = float(os.environ.get("VL_TEXT_GATE", "0.72"))
 
-    def _fuse(rrf, prob, top_k, top_text_sim):
+    def _fuse(rrf, prob, top_k, top_text_sim, text_gate=text_gate):
         if strategy == "rerank_tiebreak":
             # visual wins a tie only if its prob clears the gate (0.0 == always)
             return sorted(
@@ -145,16 +145,24 @@ def _patch_fusion(rm, strategy: str) -> None:  # noqa: C901, PLR0915
             return sorted(blended.items(), key=lambda kv: -kv[1])[:top_k]
         raise ValueError(strategy)
 
+    # The arms (both retrievals + reranker scores) do not depend on tau, so a tau sweep
+    # computes them once per query and only re-fuses.
+    arms_cache: dict = rm.__dict__.setdefault("_eval_arms_cache", {})
+
     async def _search(request):
         args = (await request.json()).get("arguments", {})
         kb_id, query = args.get("kb_id", ""), args.get("query", "")
         top_k = min(int(args.get("top_k", 5)), 20)
+        tg = float(args.get("text_gate", text_gate))
         try:
-            arms = await _arms(kb_id, query, top_k)
+            key = (kb_id, query, top_k)
+            if key not in arms_cache:
+                arms_cache[key] = await _arms(kb_id, query, top_k)
+            arms = arms_cache[key]
             if arms is None:
                 return JSONResponse({"error": f"unknown kb_id '{kb_id}'"}, status_code=404)
             rrf, prob, payload, top_text_sim = arms
-            fused = _fuse(rrf, prob, top_k, top_text_sim)
+            fused = _fuse(rrf, prob, top_k, top_text_sim, tg)
             results = [{**payload[k], "fused_score": round(s, 5)} for k, s in fused]
             return JSONResponse(
                 {"kb_id": kb_id, "query": query, "num_results": len(results), "results": results}
@@ -178,8 +186,13 @@ async def _ingest(rm, kb_id: str, corpus: Path) -> dict:
     return json.loads(r.body)
 
 
-async def _search(rm, kb_id: str, query: str, top_k: int = 10) -> list[dict]:
-    r = await rm._search(_Req({"kb_id": kb_id, "query": query, "top_k": top_k}))
+async def _search(
+    rm, kb_id: str, query: str, top_k: int = 10, text_gate: float | None = None
+) -> list[dict]:
+    args = {"kb_id": kb_id, "query": query, "top_k": top_k}
+    if text_gate is not None:
+        args["text_gate"] = text_gate
+    r = await rm._search(_Req(args))
     body = json.loads(r.body)
     if "results" not in body:
         raise RuntimeError(body.get("error", body))
@@ -207,11 +220,11 @@ def _rank_of(results: list[dict], targets: list[str], target_page, category: str
     return None
 
 
-async def _run_query(rm, kb_id: str, q: dict, top_k: int) -> dict:
+async def _run_query(rm, kb_id: str, q: dict, top_k: int, text_gate: float | None = None) -> dict:
     t0 = time.time()
     for attempt in range(4):  # tolerate a VL-server restart mid-run
         try:
-            results = await _search(rm, kb_id, q["query"], top_k=top_k)
+            results = await _search(rm, kb_id, q["query"], top_k=top_k, text_gate=text_gate)
             break
         except RuntimeError as e:
             if attempt == 3 or "unavailable" not in str(e):
@@ -235,6 +248,43 @@ async def _run_query(rm, kb_id: str, q: dict, top_k: int) -> dict:
     return row
 
 
+def _arms_cache(rm, path: str, *, save: bool) -> None:
+    """Load (before the run) or write (after it) the tau-independent arms, if a path is given."""
+    import pickle
+
+    if not path:
+        return
+    if save:
+        Path(path).write_bytes(pickle.dumps(rm.__dict__.get("_eval_arms_cache", {})))
+    elif Path(path).is_file():
+        rm._eval_arms_cache = pickle.loads(Path(path).read_bytes())  # noqa: S301 - own file
+
+
+async def _tau_sweep(rm, kb_id: str, qset: list, top_k: int, taus: list[float]) -> list[dict]:
+    """Score every tau on the same arms (cached per query by the patched _search)."""
+
+    def _m(xs: list, k: str) -> float:
+        return round(sum(x[k] for x in xs) / len(xs), 3) if xs else 0.0
+
+    sweep = []
+    for tau in taus:
+        rs = [await _run_query(rm, kb_id, q, top_k, text_gate=tau) for q in qset]
+        dia = [r for r in rs if r["category"] == "diagram_only"]
+        pro = [r for r in rs if r["category"] == "prose_only"]
+        sweep.append(
+            {
+                "tau": tau,
+                "diagram_r1": _m(dia, "hit@1"),
+                "diagram_mrr": _m(dia, "rr"),
+                "prose_r1": _m(pro, "hit@1"),
+                "prose_r5": _m(pro, "hit@5"),
+                "prose_mrr": _m(pro, "rr"),
+                "all_r1": _m(rs, "hit@1"),
+            }
+        )
+    return sweep
+
+
 async def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("corpus")
@@ -252,9 +302,19 @@ async def main() -> None:
         "--top-k", type=int, default=10, help="search depth; drives coarse limit + rerank width"
     )
     ap.add_argument("--categories", default="", help="comma-list to restrict the query set")
+    ap.add_argument(
+        "--tau-sweep",
+        default="",
+        help="text_gate only: comma-list of VL_TEXT_GATE values, scored on one set of arms",
+    )
+    ap.add_argument(
+        "--arms-cache",
+        default="",
+        help="pickle of the tau-independent arms; loaded if present, written after the run",
+    )
     a = ap.parse_args()
 
-    os.environ.setdefault("VL_RETRIEVAL_URL", "http://localhost:8942")
+    os.environ.setdefault("VL_RETRIEVAL_URL", "http://localhost:8946/vl")
     Path(a.lance_dir).mkdir(parents=True, exist_ok=True)
 
     import portal.modules.research.tools.rag_multimodal as rm
@@ -266,6 +326,7 @@ async def main() -> None:
     _store.RAG_DIR = os.path.join(a.lance_dir, "rag")
     _store._db = None
     rm._PAGES_DIR = Path(a.lance_dir) / "rag_pages"
+    _arms_cache(rm, a.arms_cache, save=False)
     _patch_fusion(rm, a.fusion)
 
     qset = yaml.safe_load(Path(a.queries).read_text())["queries"]
@@ -305,6 +366,11 @@ async def main() -> None:
         "summary": summary,
         "rows": rows,
     }
+    if a.tau_sweep and a.fusion == "text_gate":
+        taus = [float(t) for t in a.tau_sweep.split(",")]
+        out["tau_sweep"] = await _tau_sweep(rm, a.kb_id, qset, a.top_k, taus)
+        print("\n" + json.dumps(out["tau_sweep"], indent=2))
+    _arms_cache(rm, a.arms_cache, save=True)
     print("\n" + json.dumps(summary, indent=2))
     if a.out:
         Path(a.out).write_text(json.dumps(out, indent=2))

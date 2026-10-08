@@ -23,15 +23,17 @@ from .registry import register
 
 @register("vl_retrieval_ready", "GY. VL retrieval server", order=47)
 def check_vl_retrieval_ready() -> tuple[str, str, list[dict]]:
-    """GY — the Qwen3-VL retrieval server (:8942) answers /ready with the
+    """GY — the retrieval surface RAG and compliance embed through
+    (``VL_RETRIEVAL_URL``, default EG2's ``:8946/vl``) answers /ready with the
     expected embedding dim. WARN (not FAIL) when nothing is listening at all —
     that is "stack down", the convention used by the fleet-health check — but
     FAIL when it answers wrongly (wrong dim, ready:false), which is the T9-shape
     failure this gate exists to catch.
     """
-    port = os.environ.get("VL_PORT", "8942")
-    want_dim = int(os.environ.get("VL_EMBEDDING_DIM", "2048"))
-    url = f"http://localhost:{port}/ready"
+    base = os.environ.get("VL_RETRIEVAL_URL", "http://localhost:8946/vl")
+    base = base.replace("host.docker.internal", "localhost").rstrip("/")
+    want_dim = int(os.environ.get("VL_EMBEDDING_DIM", "768"))
+    url = f"{base}/ready"
     try:
         with urllib.request.urlopen(url, timeout=5) as r:  # noqa: S310 - fixed localhost
             body = json.loads(r.read().decode())
@@ -43,7 +45,7 @@ def check_vl_retrieval_ready() -> tuple[str, str, list[dict]]:
         except Exception:  # noqa: BLE001
             return "FAIL", f"{url} returned HTTP {e.code} with no JSON body", []
     except (urllib.error.URLError, TimeoutError, ConnectionError):
-        return "WARN", f"nothing listening on :{port} (stack down — not a failure)", []
+        return "WARN", f"nothing listening at {base} (stack down — not a failure)", []
 
     subs = [
         {

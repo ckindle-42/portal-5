@@ -143,12 +143,13 @@ list verifiable rather than anecdotal.
 <!-- WIKI:GENERATED unit=unit-user-guide-knowledge-base-document-rag -->
 Knowledge features are built on Open WebUI's RAG plus the pipeline's own
 knowledge bases. The Open WebUI container is configured with
-`RAG_EMBEDDING_ENGINE=openai` backed by the local host-native embedding server (:8917),
+`RAG_EMBEDDING_ENGINE=openai` backed by the local EmbeddingGemma 2 service (:8946),
 `ENABLE_RAG_HYBRID_SEARCH=true`, and `CHUNK_SIZE`/`CHUNK_OVERLAP`; chat
 attachments are chunked, embedded, and retrieved so answers are grounded in the
 uploaded content. Persistent knowledge collections are managed through the
-pipeline RAG MCP server (`kb_ingest`, `kb_search`, `kb_list`), which stores
-vectors in LanceDB and reranks candidates via the Qwen3-VL reranker on the VL retrieval server (:8942). Nothing here
+pipeline RAG MCP server (`kb_ingest`, `kb_search`, `kb_list`), which embeds with
+EmbeddingGemma 2 (`:8946/vl`), stores vectors in LanceDB and reranks candidates via the
+Qwen3-VL reranker on the VL retrieval server (:8942). Nothing here
 contacts a cloud service.
 
 ### Why
