@@ -114,7 +114,9 @@ queries:
   # The 42-query set sat at ceiling for the text-gate decision; these ask real operator-document
   # questions where the governing NERC standard and the operator procedure that implements it
   # both state the answer (also_accept, each justified inline — the harness treats either as a
-  # hit, so a pair link is only written when both documents genuinely answer).
+  # hit, so a pair link is only written when both documents genuinely answer). Questions too
+  # operator-internal for the public tree (identity terms down to the target file name) live in
+  # the operator-local query set beside the production corpus, not here.
   - {id: op-train-review, category: prose_only, target_file: OT_Cyber_Security_Training_and_Awareness_Procedure_v6.pdf, target_page: null,
      query: "How often is the OT cyber security training and awareness procedure reviewed and approved?"}
   # also_accept: the training procedure's CIP Exceptional Circumstance section names CIP-004-7
@@ -132,9 +134,10 @@ queries:
      query: "What must the last rule in any OT firewall policy do?"}
   - {id: op-eac-esp-reclass, category: prose_only, target_file: OT_Electronic_Access_Controls_v6.pdf, target_page: null,
      query: "Who completes final approval when reclassifying an ESP or ESP subnet as non-ESP?"}
-  # also_accept: the EAC procedure updates subnet designations in the OTAM and the IPAM work
-  # instruction is the OTAM's instruction sheet — both answer where the records live.
-  - {id: op-eac-otam, category: prose_only, target_file: OT_Electronic_Access_Controls_v6.pdf, target_page: null,
+  # also_accept: the electronic-access procedure updates subnet designations in the operator's
+  # address-management record and the address-management work instruction is that record's
+  # instruction sheet — both answer where the records live.
+  - {id: op-eac-ip-records, category: prose_only, target_file: OT_Electronic_Access_Controls_v6.pdf, target_page: null,
      also_accept: [OT_IP_Address_Management_Work_Instruction_v4.pdf],
      query: "Where are OT subnet designations and IP address records maintained?"}
   - {id: op-ids-dest, category: prose_only, target_file: OT_Intrusion_Detection-Prevention_Systems_Work_Instruction_V7.1.pdf, target_page: null,
@@ -150,7 +153,8 @@ queries:
   - {id: op-ir-notify, category: prose_only, target_file: cip-008-6.pdf, target_page: null,
      also_accept: [OT_Security_Incident_Response_V14.pdf],
      query: "Who must be notified, and within what time, after a reportable cyber security incident is determined?"}
-  - {id: op-cmlap-standard, category: prose_only, target_file: OT_CMLAP_Verification_WI_v6.pdf, target_page: null,
-     query: "Which NERC standard is the CMLAP verification work instruction written against?"}
+  # A twelfth question (which NERC standard the verification work instruction for the patch
+  # management report is written against) is operator-internal down to its target file name and
+  # lives in the operator-local query set (rag_prod/queries_local.yaml), not in this public file.
   - {id: op-netsvc-validation, category: prose_only, target_file: OT_Network_External_Service_Activation_v4.pdf, target_page: null,
      query: "What must be validated before a new external network service is activated on the OT network?"}

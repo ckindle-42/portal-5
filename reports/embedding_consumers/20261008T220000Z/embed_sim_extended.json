@@ -11,24 +11,24 @@
       "recall@1": 0.952,
       "recall@5": 1.0,
       "mrr": 0.968,
-      "latency_s_median": 0.09,
-      "latency_s_mean": 0.09
+      "latency_s_median": 0.0,
+      "latency_s_mean": 0.0
     },
     "mixed": {
       "n": 5,
       "recall@1": 0.8,
       "recall@5": 1.0,
       "mrr": 0.9,
-      "latency_s_median": 0.08,
-      "latency_s_mean": 0.08
+      "latency_s_median": 0.0,
+      "latency_s_mean": 0.0
     },
     "prose_only": {
-      "n": 27,
-      "recall@1": 0.778,
-      "recall@5": 0.963,
-      "mrr": 0.857,
-      "latency_s_median": 0.08,
-      "latency_s_mean": 0.08
+      "n": 26,
+      "recall@1": 0.769,
+      "recall@5": 0.962,
+      "mrr": 0.852,
+      "latency_s_median": 0.0,
+      "latency_s_mean": 0.0
     }
   },
   "rows": [
@@ -39,7 +39,7 @@
       "hit@1": true,
       "hit@5": true,
       "rr": 1.0,
-      "latency_s": 0.15,
+      "latency_s": 0.0,
       "top": [
         [
           "visual",
@@ -65,7 +65,7 @@
       "hit@1": true,
       "hit@5": true,
       "rr": 1.0,
-      "latency_s": 0.07,
+      "latency_s": 0.0,
       "top": [
         [
           "visual",
@@ -91,7 +91,7 @@
       "hit@1": false,
       "hit@5": true,
       "rr": 0.333,
-      "latency_s": 0.08,
+      "latency_s": 0.0,
       "top": [
         [
           "visual",
@@ -117,7 +117,7 @@
       "hit@1": true,
       "hit@5": true,
       "rr": 1.0,
-      "latency_s": 0.08,
+      "latency_s": 0.0,
       "top": [
         [
           "visual",
@@ -143,7 +143,7 @@
       "hit@1": true,
       "hit@5": true,
       "rr": 1.0,
-      "latency_s": 0.08,
+      "latency_s": 0.0,
       "top": [
         [
           "visual",
@@ -169,7 +169,7 @@
       "hit@1": true,
       "hit@5": true,
       "rr": 1.0,
-      "latency_s": 0.09,
+      "latency_s": 0.0,
       "top": [
         [
           "visual",
@@ -195,7 +195,7 @@
       "hit@1": true,
       "hit@5": true,
       "rr": 1.0,
-      "latency_s": 0.09,
+      "latency_s": 0.0,
       "top": [
         [
           "visual",
@@ -221,7 +221,7 @@
       "hit@1": true,
       "hit@5": true,
       "rr": 1.0,
-      "latency_s": 0.09,
+      "latency_s": 0.0,
       "top": [
         [
           "visual",
@@ -247,7 +247,7 @@
       "hit@1": true,
       "hit@5": true,
       "rr": 1.0,
-      "latency_s": 0.1,
+      "latency_s": 0.0,
       "top": [
         [
           "visual",
@@ -273,7 +273,7 @@
       "hit@1": true,
       "hit@5": true,
       "rr": 1.0,
-      "latency_s": 0.1,
+      "latency_s": 0.0,
       "top": [
         [
           "visual",
@@ -299,7 +299,7 @@
       "hit@1": true,
       "hit@5": true,
       "rr": 1.0,
-      "latency_s": 0.1,
+      "latency_s": 0.0,
       "top": [
         [
           "visual",
@@ -325,7 +325,7 @@
       "hit@1": true,
       "hit@5": true,
       "rr": 1.0,
-      "latency_s": 0.08,
+      "latency_s": 0.0,
       "top": [
         [
           "visual",
@@ -351,7 +351,7 @@
       "hit@1": true,
       "hit@5": true,
       "rr": 1.0,
-      "latency_s": 0.07,
+      "latency_s": 0.0,
       "top": [
         [
           "visual",
@@ -377,7 +377,7 @@
       "hit@1": true,
       "hit@5": true,
       "rr": 1.0,
-      "latency_s": 0.08,
+      "latency_s": 0.0,
       "top": [
         [
           "visual",
@@ -403,7 +403,7 @@
       "hit@1": true,
       "hit@5": true,
       "rr": 1.0,
-      "latency_s": 0.1,
+      "latency_s": 0.0,
       "top": [
         [
           "visual",
@@ -429,7 +429,7 @@
       "hit@1": true,
       "hit@5": true,
       "rr": 1.0,
-      "latency_s": 0.1,
+      "latency_s": 0.0,
       "top": [
         [
           "visual",
@@ -455,7 +455,7 @@
       "hit@1": true,
       "hit@5": true,
       "rr": 1.0,
-      "latency_s": 0.1,
+      "latency_s": 0.0,
       "top": [
         [
           "visual",
@@ -481,7 +481,7 @@
       "hit@1": true,
       "hit@5": true,
       "rr": 1.0,
-      "latency_s": 0.11,
+      "latency_s": 0.0,
       "top": [
         [
           "visual",
@@ -507,7 +507,7 @@
       "hit@1": true,
       "hit@5": true,
       "rr": 1.0,
-      "latency_s": 0.1,
+      "latency_s": 0.0,
       "top": [
         [
           "visual",
@@ -533,7 +533,7 @@
       "hit@1": true,
       "hit@5": true,
       "rr": 1.0,
-      "latency_s": 0.1,
+      "latency_s": 0.0,
       "top": [
         [
           "visual",
@@ -559,7 +559,7 @@
       "hit@1": true,
       "hit@5": true,
       "rr": 1.0,
-      "latency_s": 0.09,
+      "latency_s": 0.0,
       "top": [
         [
           "visual",
@@ -585,7 +585,7 @@
       "hit@1": false,
       "hit@5": true,
       "rr": 0.5,
-      "latency_s": 0.08,
+      "latency_s": 0.0,
       "top": [
         [
           "visual",
@@ -611,7 +611,7 @@
       "hit@1": true,
       "hit@5": true,
       "rr": 1.0,
-      "latency_s": 0.08,
+      "latency_s": 0.0,
       "top": [
         [
           "visual",
@@ -637,7 +637,7 @@
       "hit@1": true,
       "hit@5": true,
       "rr": 1.0,
-      "latency_s": 0.09,
+      "latency_s": 0.0,
       "top": [
         [
           "visual",
@@ -663,7 +663,7 @@
       "hit@1": true,
       "hit@5": true,
       "rr": 1.0,
-      "latency_s": 0.1,
+      "latency_s": 0.0,
       "top": [
         [
           "visual",
@@ -689,7 +689,7 @@
       "hit@1": true,
       "hit@5": true,
       "rr": 1.0,
-      "latency_s": 0.1,
+      "latency_s": 0.0,
       "top": [
         [
           "visual",
@@ -715,7 +715,7 @@
       "hit@1": true,
       "hit@5": true,
       "rr": 1.0,
-      "latency_s": 0.1,
+      "latency_s": 0.0,
       "top": [
         [
           "visual",
@@ -741,7 +741,7 @@
       "hit@1": true,
       "hit@5": true,
       "rr": 1.0,
-      "latency_s": 0.1,
+      "latency_s": 0.0,
       "top": [
         [
           "visual",
@@ -767,7 +767,7 @@
       "hit@1": false,
       "hit@5": true,
       "rr": 0.5,
-      "latency_s": 0.09,
+      "latency_s": 0.0,
       "top": [
         [
           "visual",
@@ -793,7 +793,7 @@
       "hit@1": true,
       "hit@5": true,
       "rr": 1.0,
-      "latency_s": 0.09,
+      "latency_s": 0.0,
       "top": [
         [
           "visual",
@@ -819,7 +819,7 @@
       "hit@1": true,
       "hit@5": true,
       "rr": 1.0,
-      "latency_s": 0.09,
+      "latency_s": 0.0,
       "top": [
         [
           "visual",
@@ -845,7 +845,7 @@
       "hit@1": true,
       "hit@5": true,
       "rr": 1.0,
-      "latency_s": 0.09,
+      "latency_s": 0.0,
       "top": [
         [
           "visual",
@@ -871,7 +871,7 @@
       "hit@1": false,
       "hit@5": true,
       "rr": 0.333,
-      "latency_s": 0.09,
+      "latency_s": 0.0,
       "top": [
         [
           "visual",
@@ -897,7 +897,7 @@
       "hit@1": true,
       "hit@5": true,
       "rr": 1.0,
-      "latency_s": 0.08,
+      "latency_s": 0.0,
       "top": [
         [
           "visual",
@@ -923,7 +923,7 @@
       "hit@1": true,
       "hit@5": true,
       "rr": 1.0,
-      "latency_s": 0.09,
+      "latency_s": 0.0,
       "top": [
         [
           "visual",
@@ -949,7 +949,7 @@
       "hit@1": true,
       "hit@5": true,
       "rr": 1.0,
-      "latency_s": 0.08,
+      "latency_s": 0.0,
       "top": [
         [
           "visual",
@@ -975,7 +975,7 @@
       "hit@1": true,
       "hit@5": true,
       "rr": 1.0,
-      "latency_s": 0.08,
+      "latency_s": 0.0,
       "top": [
         [
           "visual",
@@ -1001,7 +1001,7 @@
       "hit@1": true,
       "hit@5": true,
       "rr": 1.0,
-      "latency_s": 0.08,
+      "latency_s": 0.0,
       "top": [
         [
           "visual",
@@ -1027,7 +1027,7 @@
       "hit@1": true,
       "hit@5": true,
       "rr": 1.0,
-      "latency_s": 0.08,
+      "latency_s": 0.0,
       "top": [
         [
           "visual",
@@ -1053,7 +1053,7 @@
       "hit@1": false,
       "hit@5": true,
       "rr": 0.5,
-      "latency_s": 0.07,
+      "latency_s": 0.0,
       "top": [
         [
           "visual",
@@ -1079,7 +1079,7 @@
       "hit@1": true,
       "hit@5": true,
       "rr": 1.0,
-      "latency_s": 0.08,
+      "latency_s": 0.0,
       "top": [
         [
           "visual",
@@ -1105,7 +1105,7 @@
       "hit@1": true,
       "hit@5": true,
       "rr": 1.0,
-      "latency_s": 0.08,
+      "latency_s": 0.0,
       "top": [
         [
           "visual",
@@ -1131,7 +1131,7 @@
       "hit@1": false,
       "hit@5": true,
       "rr": 0.333,
-      "latency_s": 0.07,
+      "latency_s": 0.0,
       "top": [
         [
           "visual",
@@ -1157,7 +1157,7 @@
       "hit@1": true,
       "hit@5": true,
       "rr": 1.0,
-      "latency_s": 0.08,
+      "latency_s": 0.0,
       "top": [
         [
           "visual",
@@ -1183,7 +1183,7 @@
       "hit@1": false,
       "hit@5": true,
       "rr": 0.333,
-      "latency_s": 0.08,
+      "latency_s": 0.0,
       "top": [
         [
           "visual",
@@ -1209,7 +1209,7 @@
       "hit@1": true,
       "hit@5": true,
       "rr": 1.0,
-      "latency_s": 0.07,
+      "latency_s": 0.0,
       "top": [
         [
           "visual",
@@ -1235,7 +1235,7 @@
       "hit@1": true,
       "hit@5": true,
       "rr": 1.0,
-      "latency_s": 0.08,
+      "latency_s": 0.0,
       "top": [
         [
           "visual",
@@ -1255,13 +1255,13 @@
       ]
     },
     {
-      "id": "op-eac-otam",
+      "id": "op-eac-ip-records",
       "category": "prose_only",
       "rank": 1,
       "hit@1": true,
       "hit@5": true,
       "rr": 1.0,
-      "latency_s": 0.08,
+      "latency_s": 0.0,
       "top": [
         [
           "visual",
@@ -1287,7 +1287,7 @@
       "hit@1": true,
       "hit@5": true,
       "rr": 1.0,
-      "latency_s": 0.09,
+      "latency_s": 0.0,
       "top": [
         [
           "visual",
@@ -1313,7 +1313,7 @@
       "hit@1": false,
       "hit@5": false,
       "rr": 0.143,
-      "latency_s": 0.08,
+      "latency_s": 0.0,
       "top": [
         [
           "visual",
@@ -1339,7 +1339,7 @@
       "hit@1": true,
       "hit@5": true,
       "rr": 1.0,
-      "latency_s": 0.08,
+      "latency_s": 0.0,
       "top": [
         [
           "visual",
@@ -1359,39 +1359,13 @@
       ]
     },
     {
-      "id": "op-cmlap-standard",
-      "category": "prose_only",
-      "rank": 1,
-      "hit@1": true,
-      "hit@5": true,
-      "rr": 1.0,
-      "latency_s": 0.07,
-      "top": [
-        [
-          "visual",
-          "OT_CMLAP_Verification_WI_v6.pdf",
-          0
-        ],
-        [
-          "visual",
-          "OT_CMLAP_Verification_WI_v6.pdf",
-          3
-        ],
-        [
-          "visual",
-          "OT_CMLAP_Verification_WI_v6.pdf",
-          4
-        ]
-      ]
-    },
-    {
       "id": "op-netsvc-validation",
       "category": "prose_only",
       "rank": 1,
       "hit@1": true,
       "hit@5": true,
       "rr": 1.0,
-      "latency_s": 0.06,
+      "latency_s": 0.0,
       "top": [
         [
           "visual",

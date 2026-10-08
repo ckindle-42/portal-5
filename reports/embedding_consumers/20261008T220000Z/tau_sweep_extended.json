@@ -23,12 +23,12 @@
       "latency_s_mean": 0.0
     },
     "prose_only": {
-      "n": 27,
-      "recall@1": 0.815,
+      "n": 26,
+      "recall@1": 0.808,
       "recall@5": 1.0,
-      "mrr": 0.901,
+      "mrr": 0.897,
       "latency_s_median": 0.0,
-      "latency_s_mean": 22.62
+      "latency_s_mean": 0.0
     }
   },
   "rows": [
@@ -1131,7 +1131,7 @@
       "hit@1": true,
       "hit@5": true,
       "rr": 1.0,
-      "latency_s": 55.19,
+      "latency_s": 0.0,
       "top": [
         [
           "text",
@@ -1157,7 +1157,7 @@
       "hit@1": true,
       "hit@5": true,
       "rr": 1.0,
-      "latency_s": 57.78,
+      "latency_s": 0.0,
       "top": [
         [
           "text",
@@ -1183,7 +1183,7 @@
       "hit@1": true,
       "hit@5": true,
       "rr": 1.0,
-      "latency_s": 56.92,
+      "latency_s": 0.0,
       "top": [
         [
           "text",
@@ -1209,7 +1209,7 @@
       "hit@1": true,
       "hit@5": true,
       "rr": 1.0,
-      "latency_s": 55.65,
+      "latency_s": 0.0,
       "top": [
         [
           "text",
@@ -1235,7 +1235,7 @@
       "hit@1": true,
       "hit@5": true,
       "rr": 1.0,
-      "latency_s": 55.4,
+      "latency_s": 0.0,
       "top": [
         [
           "text",
@@ -1255,13 +1255,13 @@
       ]
     },
     {
-      "id": "op-eac-otam",
+      "id": "op-eac-ip-records",
       "category": "prose_only",
       "rank": 1,
       "hit@1": true,
       "hit@5": true,
       "rr": 1.0,
-      "latency_s": 55.07,
+      "latency_s": 0.0,
       "top": [
         [
           "text",
@@ -1287,7 +1287,7 @@
       "hit@1": true,
       "hit@5": true,
       "rr": 1.0,
-      "latency_s": 55.02,
+      "latency_s": 0.0,
       "top": [
         [
           "text",
@@ -1313,7 +1313,7 @@
       "hit@1": false,
       "hit@5": true,
       "rr": 0.333,
-      "latency_s": 54.97,
+      "latency_s": 0.0,
       "top": [
         [
           "text",
@@ -1339,7 +1339,7 @@
       "hit@1": true,
       "hit@5": true,
       "rr": 1.0,
-      "latency_s": 54.97,
+      "latency_s": 0.0,
       "top": [
         [
           "text",
@@ -1359,39 +1359,13 @@
       ]
     },
     {
-      "id": "op-cmlap-standard",
-      "category": "prose_only",
-      "rank": 1,
-      "hit@1": true,
-      "hit@5": true,
-      "rr": 1.0,
-      "latency_s": 54.9,
-      "top": [
-        [
-          "text",
-          "OT_CMLAP_Verification_WI_v6.pdf",
-          null
-        ],
-        [
-          "visual",
-          "OT_CMLAP_Verification_WI_v6.pdf",
-          0
-        ],
-        [
-          "text",
-          "OT_CMLAP_Verification_WI_v6.pdf",
-          null
-        ]
-      ]
-    },
-    {
       "id": "op-netsvc-validation",
       "category": "prose_only",
       "rank": 1,
       "hit@1": true,
       "hit@5": true,
       "rr": 1.0,
-      "latency_s": 54.77,
+      "latency_s": 0.0,
       "top": [
         [
           "text",
@@ -1416,90 +1390,90 @@
       "tau": 0.72,
       "diagram_r1": 0.333,
       "diagram_mrr": 0.667,
-      "prose_r1": 0.815,
+      "prose_r1": 0.808,
       "prose_r5": 1.0,
-      "prose_mrr": 0.901,
-      "all_r1": 0.623
+      "prose_mrr": 0.897,
+      "all_r1": 0.615
     },
     {
       "tau": 0.78,
       "diagram_r1": 0.81,
       "diagram_mrr": 0.905,
-      "prose_r1": 0.815,
+      "prose_r1": 0.808,
       "prose_r5": 1.0,
-      "prose_mrr": 0.901,
-      "all_r1": 0.83
+      "prose_mrr": 0.897,
+      "all_r1": 0.827
     },
     {
       "tau": 0.8,
       "diagram_r1": 0.857,
       "diagram_mrr": 0.929,
-      "prose_r1": 0.889,
+      "prose_r1": 0.885,
       "prose_r5": 1.0,
-      "prose_mrr": 0.938,
-      "all_r1": 0.887
+      "prose_mrr": 0.936,
+      "all_r1": 0.885
     },
     {
       "tau": 0.84,
       "diagram_r1": 0.952,
       "diagram_mrr": 0.976,
-      "prose_r1": 0.889,
+      "prose_r1": 0.885,
       "prose_r5": 1.0,
-      "prose_mrr": 0.935,
-      "all_r1": 0.925
+      "prose_mrr": 0.933,
+      "all_r1": 0.923
     },
     {
       "tau": 0.86,
       "diagram_r1": 1.0,
       "diagram_mrr": 1.0,
-      "prose_r1": 0.889,
+      "prose_r1": 0.885,
       "prose_r5": 1.0,
-      "prose_mrr": 0.935,
-      "all_r1": 0.943
+      "prose_mrr": 0.933,
+      "all_r1": 0.942
     },
     {
       "tau": 0.88,
       "diagram_r1": 1.0,
       "diagram_mrr": 1.0,
-      "prose_r1": 0.926,
+      "prose_r1": 0.923,
       "prose_r5": 1.0,
-      "prose_mrr": 0.954,
+      "prose_mrr": 0.952,
       "all_r1": 0.962
     },
     {
       "tau": 0.9,
       "diagram_r1": 1.0,
       "diagram_mrr": 1.0,
-      "prose_r1": 0.926,
+      "prose_r1": 0.923,
       "prose_r5": 1.0,
-      "prose_mrr": 0.954,
+      "prose_mrr": 0.952,
       "all_r1": 0.962
     },
     {
       "tau": 0.92,
       "diagram_r1": 1.0,
       "diagram_mrr": 1.0,
-      "prose_r1": 0.926,
+      "prose_r1": 0.923,
       "prose_r5": 1.0,
-      "prose_mrr": 0.954,
+      "prose_mrr": 0.952,
       "all_r1": 0.962
     },
     {
       "tau": 0.96,
       "diagram_r1": 1.0,
       "diagram_mrr": 1.0,
-      "prose_r1": 0.926,
+      "prose_r1": 0.923,
       "prose_r5": 1.0,
-      "prose_mrr": 0.954,
+      "prose_mrr": 0.952,
       "all_r1": 0.962
     },
     {
       "tau": 1.01,
       "diagram_r1": 1.0,
       "diagram_mrr": 1.0,
-      "prose_r1": 0.926,
+      "prose_r1": 0.923,
       "prose_r5": 1.0,
-      "prose_mrr": 0.954,
+      "prose_mrr": 0.952,
       "all_r1": 0.962
     }
   ]
