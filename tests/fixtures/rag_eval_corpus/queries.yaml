@@ -109,3 +109,48 @@ queries:
      query: "Describe the electronic security perimeter at Plant B and the addresses of the assets inside it."}
   - {id: mixed-syn-02, category: mixed, target_file: hmi_alarm_summary.pdf, target_page: null,
      query: "What alarms are standing on Unit 2 and what does the alarm management philosophy say about rationalization?"}
+
+  # ── operator documents · standard-and-procedure pairs (TASK_EG2_FOLLOWUPS_AND_BULLY_ENGINE_V1 R1) ──
+  # The 42-query set sat at ceiling for the text-gate decision; these ask real operator-document
+  # questions where the governing NERC standard and the operator procedure that implements it
+  # both state the answer (also_accept, each justified inline — the harness treats either as a
+  # hit, so a pair link is only written when both documents genuinely answer).
+  - {id: op-train-review, category: prose_only, target_file: OT_Cyber_Security_Training_and_Awareness_Procedure_v6.pdf, target_page: null,
+     query: "How often is the OT cyber security training and awareness procedure reviewed and approved?"}
+  # also_accept: the training procedure's CIP Exceptional Circumstance section names CIP-004-7
+  # R2.2 verbatim, and the standard's Parts carry the except-during-exceptional-circumstances
+  # clause — both documents state the suspension condition.
+  - {id: op-train-suspend, category: prose_only, target_file: cip-004-7.pdf, target_page: null,
+     also_accept: [OT_Cyber_Security_Training_and_Awareness_Procedure_v6.pdf],
+     query: "Under what declared condition can the CIP-004-7 access and training requirement be temporarily suspended?"}
+  # also_accept: the firewall WI restates CIP-005-7 Part 3's ESP rule operationally — both
+  # documents state the deny-all-other-access-by-default requirement.
+  - {id: op-fw-default-deny, category: prose_only, target_file: OT_Firewall_Management_Work_Instruction_v8.pdf, target_page: null,
+     also_accept: [cip-005-7.pdf],
+     query: "In the OT firewall standard policy, how is traffic that is not explicitly allowed handled?"}
+  - {id: op-fw-last-rule, category: prose_only, target_file: OT_Firewall_Management_Work_Instruction_v8.pdf, target_page: null,
+     query: "What must the last rule in any OT firewall policy do?"}
+  - {id: op-eac-esp-reclass, category: prose_only, target_file: OT_Electronic_Access_Controls_v6.pdf, target_page: null,
+     query: "Who completes final approval when reclassifying an ESP or ESP subnet as non-ESP?"}
+  # also_accept: the EAC procedure updates subnet designations in the OTAM and the IPAM work
+  # instruction is the OTAM's instruction sheet — both answer where the records live.
+  - {id: op-eac-otam, category: prose_only, target_file: OT_Electronic_Access_Controls_v6.pdf, target_page: null,
+     also_accept: [OT_IP_Address_Management_Work_Instruction_v4.pdf],
+     query: "Where are OT subnet designations and IP address records maintained?"}
+  - {id: op-ids-dest, category: prose_only, target_file: OT_Intrusion_Detection-Prevention_Systems_Work_Instruction_V7.1.pdf, target_page: null,
+     query: "Where must OT IDS/IPS alert events be delivered for monitoring?"}
+  # also_accept: the document-control clause is identical boilerplate in every controlled
+  # OT security procedure — firewall WI, training procedure and IDS/IPS WI all answer "five
+  # minor changes" with the same words.
+  - {id: op-doccontrol-minor, category: prose_only, target_file: OT_Firewall_Management_Work_Instruction_v8.pdf, target_page: null,
+     also_accept: [OT_Cyber_Security_Training_and_Awareness_Procedure_v6.pdf, OT_Intrusion_Detection-Prevention_Systems_Work_Instruction_V7.1.pdf],
+     query: "How many minor revisions to a controlled OT security document are allowed without signatory approval?"}
+  # also_accept: the incident-response plan operationalizes CIP-008-6 — both state the
+  # E-ISAC/NCCIC initial notification duty and the agencies involved.
+  - {id: op-ir-notify, category: prose_only, target_file: cip-008-6.pdf, target_page: null,
+     also_accept: [OT_Security_Incident_Response_V14.pdf],
+     query: "Who must be notified, and within what time, after a reportable cyber security incident is determined?"}
+  - {id: op-cmlap-standard, category: prose_only, target_file: OT_CMLAP_Verification_WI_v6.pdf, target_page: null,
+     query: "Which NERC standard is the CMLAP verification work instruction written against?"}
+  - {id: op-netsvc-validation, category: prose_only, target_file: OT_Network_External_Service_Activation_v4.pdf, target_page: null,
+     query: "What must be validated before a new external network service is activated on the OT network?"}

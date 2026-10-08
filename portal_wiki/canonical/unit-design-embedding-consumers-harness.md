@@ -100,3 +100,10 @@ rules, each of which a probe in this harness got wrong once and now encodes:
 * **Degeneracy is a measurement, not a block.** When a corpus is smaller than the consumer's own
   result limit every query returns everything, so both arms are provably identical; `field_journal`
   reports that with the identity verified rather than declining to measure.
+* **A retired incumbent arm is a frozen block, not a re-run.** After the EG2 cutover retired
+  :8917, the probes that embedded a live incumbent arm there stopped working; `_common.HISTORICAL_ARMS`
+  freezes each arm's committed scorecard block (per-entry provenance stamp) so the probes still run
+  and still report the comparison — explicitly a same-fixture comparison against a fixed arm, not a
+  fresh paired run. A paired test against a frozen arm is not recomputable (its per-probe verdicts
+  died with the service), so `bully_projection`'s live hint stays INCONCLUSIVE and the vs-incumbent
+  pairing lives in the cutover stamp.

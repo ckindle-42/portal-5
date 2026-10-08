@@ -1,0 +1,1414 @@
+{
+  "fusion": "embed_sim",
+  "corpus": "/Volumes/data01/portal5_scratch_eg2/rag_prod/corpus",
+  "n_docs": null,
+  "ingest": {
+    "skipped": true
+  },
+  "summary": {
+    "diagram_only": {
+      "n": 21,
+      "recall@1": 0.952,
+      "recall@5": 1.0,
+      "mrr": 0.968,
+      "latency_s_median": 0.09,
+      "latency_s_mean": 0.09
+    },
+    "mixed": {
+      "n": 5,
+      "recall@1": 0.8,
+      "recall@5": 1.0,
+      "mrr": 0.9,
+      "latency_s_median": 0.08,
+      "latency_s_mean": 0.08
+    },
+    "prose_only": {
+      "n": 27,
+      "recall@1": 0.778,
+      "recall@5": 0.963,
+      "mrr": 0.857,
+      "latency_s_median": 0.08,
+      "latency_s_mean": 0.08
+    }
+  },
+  "rows": [
+    {
+      "id": "syn-pid-01",
+      "category": "diagram_only",
+      "rank": 1,
+      "hit@1": true,
+      "hit@5": true,
+      "rr": 1.0,
+      "latency_s": 0.15,
+      "top": [
+        [
+          "visual",
+          "pid_reactor_feed.pdf",
+          1
+        ],
+        [
+          "visual",
+          "locked_valve_schedule.pdf",
+          1
+        ],
+        [
+          "visual",
+          "cip-002-5.1a.pdf",
+          19
+        ]
+      ]
+    },
+    {
+      "id": "syn-pid-02",
+      "category": "diagram_only",
+      "rank": 1,
+      "hit@1": true,
+      "hit@5": true,
+      "rr": 1.0,
+      "latency_s": 0.07,
+      "top": [
+        [
+          "visual",
+          "pid_reactor_feed.pdf",
+          1
+        ],
+        [
+          "visual",
+          "cip-002-5.1a.pdf",
+          19
+        ],
+        [
+          "visual",
+          "nist_800_82r3_arch_slice.pdf",
+          9
+        ]
+      ]
+    },
+    {
+      "id": "syn-pid-03",
+      "category": "diagram_only",
+      "rank": 3,
+      "hit@1": false,
+      "hit@5": true,
+      "rr": 0.333,
+      "latency_s": 0.08,
+      "top": [
+        [
+          "visual",
+          "nist_800_82r3_arch_slice.pdf",
+          18
+        ],
+        [
+          "visual",
+          "nist_800_82r3_arch_slice.pdf",
+          9
+        ],
+        [
+          "visual",
+          "pid_reactor_feed.pdf",
+          1
+        ]
+      ]
+    },
+    {
+      "id": "syn-pid-04",
+      "category": "diagram_only",
+      "rank": 1,
+      "hit@1": true,
+      "hit@5": true,
+      "rr": 1.0,
+      "latency_s": 0.08,
+      "top": [
+        [
+          "visual",
+          "pid_recycle_compressor.pdf",
+          1
+        ],
+        [
+          "visual",
+          "pid_reactor_feed.pdf",
+          1
+        ],
+        [
+          "visual",
+          "locked_valve_schedule.pdf",
+          1
+        ]
+      ]
+    },
+    {
+      "id": "syn-pid-05",
+      "category": "diagram_only",
+      "rank": 1,
+      "hit@1": true,
+      "hit@5": true,
+      "rr": 1.0,
+      "latency_s": 0.08,
+      "top": [
+        [
+          "visual",
+          "pid_recycle_compressor.pdf",
+          1
+        ],
+        [
+          "visual",
+          "locked_valve_schedule.pdf",
+          1
+        ],
+        [
+          "visual",
+          "nist_800_82r3_arch_slice.pdf",
+          9
+        ]
+      ]
+    },
+    {
+      "id": "syn-pid-06",
+      "category": "diagram_only",
+      "rank": 1,
+      "hit@1": true,
+      "hit@5": true,
+      "rr": 1.0,
+      "latency_s": 0.09,
+      "top": [
+        [
+          "visual",
+          "pid_recycle_compressor.pdf",
+          1
+        ],
+        [
+          "visual",
+          "locked_valve_schedule.pdf",
+          1
+        ],
+        [
+          "visual",
+          "OT_Security_Incident_Response_V14.pdf",
+          33
+        ]
+      ]
+    },
+    {
+      "id": "syn-net-01",
+      "category": "diagram_only",
+      "rank": 1,
+      "hit@1": true,
+      "hit@5": true,
+      "rr": 1.0,
+      "latency_s": 0.09,
+      "top": [
+        [
+          "visual",
+          "esp_plant_b.pdf",
+          1
+        ],
+        [
+          "visual",
+          "nist_800_82r3_arch_slice.pdf",
+          12
+        ],
+        [
+          "visual",
+          "nist_800_82r3_arch_slice.pdf",
+          76
+        ]
+      ]
+    },
+    {
+      "id": "syn-net-02",
+      "category": "diagram_only",
+      "rank": 1,
+      "hit@1": true,
+      "hit@5": true,
+      "rr": 1.0,
+      "latency_s": 0.09,
+      "top": [
+        [
+          "visual",
+          "esp_plant_b.pdf",
+          1
+        ],
+        [
+          "visual",
+          "OT_Firewall_Management_Work_Instruction_v8.pdf",
+          0
+        ],
+        [
+          "visual",
+          "OT_IP_Address_Management_Work_Instruction_v4.pdf",
+          0
+        ]
+      ]
+    },
+    {
+      "id": "syn-net-03",
+      "category": "diagram_only",
+      "rank": 1,
+      "hit@1": true,
+      "hit@5": true,
+      "rr": 1.0,
+      "latency_s": 0.1,
+      "top": [
+        [
+          "visual",
+          "control_center_arch.pdf",
+          1
+        ],
+        [
+          "visual",
+          "nist_800_82r3_arch_slice.pdf",
+          64
+        ],
+        [
+          "visual",
+          "nist_800_82r3_arch_slice.pdf",
+          9
+        ]
+      ]
+    },
+    {
+      "id": "syn-net-04",
+      "category": "diagram_only",
+      "rank": 1,
+      "hit@1": true,
+      "hit@5": true,
+      "rr": 1.0,
+      "latency_s": 0.1,
+      "top": [
+        [
+          "visual",
+          "control_center_arch.pdf",
+          1
+        ],
+        [
+          "visual",
+          "nist_800_82r3_arch_slice.pdf",
+          64
+        ],
+        [
+          "visual",
+          "nist_800_82r3_arch_slice.pdf",
+          78
+        ]
+      ]
+    },
+    {
+      "id": "syn-net-05",
+      "category": "diagram_only",
+      "rank": 1,
+      "hit@1": true,
+      "hit@5": true,
+      "rr": 1.0,
+      "latency_s": 0.1,
+      "top": [
+        [
+          "visual",
+          "control_center_arch.pdf",
+          1
+        ],
+        [
+          "visual",
+          "OT_Managing_Centralized_Electronic_Access_Control_v6.pdf",
+          4
+        ],
+        [
+          "visual",
+          "OT_Network_External_Service_Activation_v4.pdf",
+          5
+        ]
+      ]
+    },
+    {
+      "id": "syn-hmi-01",
+      "category": "diagram_only",
+      "rank": 1,
+      "hit@1": true,
+      "hit@5": true,
+      "rr": 1.0,
+      "latency_s": 0.08,
+      "top": [
+        [
+          "visual",
+          "hmi_alarm_summary.pdf",
+          1
+        ],
+        [
+          "visual",
+          "cip-002-5.1a.pdf",
+          13
+        ],
+        [
+          "visual",
+          "esp_plant_b.pdf",
+          1
+        ]
+      ]
+    },
+    {
+      "id": "syn-hmi-02",
+      "category": "diagram_only",
+      "rank": 1,
+      "hit@1": true,
+      "hit@5": true,
+      "rr": 1.0,
+      "latency_s": 0.07,
+      "top": [
+        [
+          "visual",
+          "hmi_alarm_summary.pdf",
+          1
+        ],
+        [
+          "visual",
+          "relay_settings_12l4.pdf",
+          1
+        ],
+        [
+          "visual",
+          "esp_plant_b.pdf",
+          1
+        ]
+      ]
+    },
+    {
+      "id": "syn-hmi-03",
+      "category": "diagram_only",
+      "rank": 1,
+      "hit@1": true,
+      "hit@5": true,
+      "rr": 1.0,
+      "latency_s": 0.08,
+      "top": [
+        [
+          "visual",
+          "hmi_trend_group.pdf",
+          1
+        ],
+        [
+          "visual",
+          "hmi_alarm_summary.pdf",
+          1
+        ],
+        [
+          "visual",
+          "relay_settings_12l4.pdf",
+          1
+        ]
+      ]
+    },
+    {
+      "id": "syn-hmi-04",
+      "category": "diagram_only",
+      "rank": 1,
+      "hit@1": true,
+      "hit@5": true,
+      "rr": 1.0,
+      "latency_s": 0.1,
+      "top": [
+        [
+          "visual",
+          "hmi_trend_group.pdf",
+          1
+        ],
+        [
+          "visual",
+          "hmi_alarm_summary.pdf",
+          1
+        ],
+        [
+          "visual",
+          "relay_settings_12l4.pdf",
+          1
+        ]
+      ]
+    },
+    {
+      "id": "syn-ele-01",
+      "category": "diagram_only",
+      "rank": 1,
+      "hit@1": true,
+      "hit@5": true,
+      "rr": 1.0,
+      "latency_s": 0.1,
+      "top": [
+        [
+          "visual",
+          "relay_settings_12l4.pdf",
+          1
+        ],
+        [
+          "visual",
+          "pid_reactor_feed.pdf",
+          1
+        ],
+        [
+          "visual",
+          "OT_Security_Incident_Response_V14.pdf",
+          39
+        ]
+      ]
+    },
+    {
+      "id": "syn-ele-02",
+      "category": "diagram_only",
+      "rank": 1,
+      "hit@1": true,
+      "hit@5": true,
+      "rr": 1.0,
+      "latency_s": 0.1,
+      "top": [
+        [
+          "visual",
+          "relay_settings_12l4.pdf",
+          1
+        ],
+        [
+          "visual",
+          "cip-005-7.pdf",
+          1
+        ],
+        [
+          "visual",
+          "cip-002-5.1a.pdf",
+          18
+        ]
+      ]
+    },
+    {
+      "id": "syn-leg-01",
+      "category": "diagram_only",
+      "rank": 1,
+      "hit@1": true,
+      "hit@5": true,
+      "rr": 1.0,
+      "latency_s": 0.11,
+      "top": [
+        [
+          "visual",
+          "plot_plan_legend.pdf",
+          1
+        ],
+        [
+          "visual",
+          "esp_plant_b.pdf",
+          1
+        ],
+        [
+          "visual",
+          "locked_valve_schedule.pdf",
+          1
+        ]
+      ]
+    },
+    {
+      "id": "syn-leg-02",
+      "category": "diagram_only",
+      "rank": 1,
+      "hit@1": true,
+      "hit@5": true,
+      "rr": 1.0,
+      "latency_s": 0.1,
+      "top": [
+        [
+          "visual",
+          "plot_plan_legend.pdf",
+          1
+        ],
+        [
+          "visual",
+          "nist_800_82r3_arch_slice.pdf",
+          5
+        ],
+        [
+          "visual",
+          "nist_800_82r3_arch_slice.pdf",
+          9
+        ]
+      ]
+    },
+    {
+      "id": "syn-tab-01",
+      "category": "diagram_only",
+      "rank": 1,
+      "hit@1": true,
+      "hit@5": true,
+      "rr": 1.0,
+      "latency_s": 0.1,
+      "top": [
+        [
+          "visual",
+          "locked_valve_schedule.pdf",
+          1
+        ],
+        [
+          "visual",
+          "pid_reactor_feed.pdf",
+          1
+        ],
+        [
+          "visual",
+          "OT_Security_Incident_Response_V14.pdf",
+          41
+        ]
+      ]
+    },
+    {
+      "id": "syn-tab-02",
+      "category": "diagram_only",
+      "rank": 1,
+      "hit@1": true,
+      "hit@5": true,
+      "rr": 1.0,
+      "latency_s": 0.09,
+      "top": [
+        [
+          "visual",
+          "locked_valve_schedule.pdf",
+          1
+        ],
+        [
+          "visual",
+          "pid_recycle_compressor.pdf",
+          1
+        ],
+        [
+          "visual",
+          "pid_reactor_feed.pdf",
+          1
+        ]
+      ]
+    },
+    {
+      "id": "prose-cip-01",
+      "category": "prose_only",
+      "rank": 2,
+      "hit@1": false,
+      "hit@5": true,
+      "rr": 0.5,
+      "latency_s": 0.08,
+      "top": [
+        [
+          "visual",
+          "OT_Cyber_Security_Training_and_Awareness_Procedure_v6.pdf",
+          6
+        ],
+        [
+          "visual",
+          "cip-005-7.pdf",
+          12
+        ],
+        [
+          "visual",
+          "OT_Electronic_Access_Controls_v6.pdf",
+          0
+        ]
+      ]
+    },
+    {
+      "id": "prose-cip-02",
+      "category": "prose_only",
+      "rank": 1,
+      "hit@1": true,
+      "hit@5": true,
+      "rr": 1.0,
+      "latency_s": 0.08,
+      "top": [
+        [
+          "visual",
+          "cip-005-7.pdf",
+          7
+        ],
+        [
+          "visual",
+          "OT_Intrusion_Detection-Prevention_Systems_Work_Instruction_V7.1.pdf",
+          9
+        ],
+        [
+          "visual",
+          "OT_Electronic_Access_Controls_v6.pdf",
+          6
+        ]
+      ]
+    },
+    {
+      "id": "prose-cip-03",
+      "category": "prose_only",
+      "rank": 1,
+      "hit@1": true,
+      "hit@5": true,
+      "rr": 1.0,
+      "latency_s": 0.09,
+      "top": [
+        [
+          "visual",
+          "cip-007-6.pdf",
+          9
+        ],
+        [
+          "visual",
+          "cip-007-6.pdf",
+          25
+        ],
+        [
+          "visual",
+          "cip-007-6.pdf",
+          27
+        ]
+      ]
+    },
+    {
+      "id": "prose-cip-04",
+      "category": "prose_only",
+      "rank": 1,
+      "hit@1": true,
+      "hit@5": true,
+      "rr": 1.0,
+      "latency_s": 0.1,
+      "top": [
+        [
+          "visual",
+          "cip-007-6.pdf",
+          6
+        ],
+        [
+          "visual",
+          "cip-007-6.pdf",
+          39
+        ],
+        [
+          "visual",
+          "cip-007-6.pdf",
+          1
+        ]
+      ]
+    },
+    {
+      "id": "prose-cip-05",
+      "category": "prose_only",
+      "rank": 1,
+      "hit@1": true,
+      "hit@5": true,
+      "rr": 1.0,
+      "latency_s": 0.1,
+      "top": [
+        [
+          "visual",
+          "OT_Security_Incident_Response_V14.pdf",
+          0
+        ],
+        [
+          "visual",
+          "OT_Security_Incident_Response_V14.pdf",
+          26
+        ],
+        [
+          "visual",
+          "cip-008-6.pdf",
+          2
+        ]
+      ]
+    },
+    {
+      "id": "prose-cip-06",
+      "category": "prose_only",
+      "rank": 1,
+      "hit@1": true,
+      "hit@5": true,
+      "rr": 1.0,
+      "latency_s": 0.1,
+      "top": [
+        [
+          "visual",
+          "cip-010-4.pdf",
+          8
+        ],
+        [
+          "visual",
+          "cip-010-4.pdf",
+          0
+        ],
+        [
+          "visual",
+          "cip-010-4.pdf",
+          1
+        ]
+      ]
+    },
+    {
+      "id": "prose-cip-07",
+      "category": "prose_only",
+      "rank": 1,
+      "hit@1": true,
+      "hit@5": true,
+      "rr": 1.0,
+      "latency_s": 0.1,
+      "top": [
+        [
+          "visual",
+          "cip-002-5.1a.pdf",
+          10
+        ],
+        [
+          "visual",
+          "OT_Security_Incident_Response_V14.pdf",
+          28
+        ],
+        [
+          "visual",
+          "OT_Security_Incident_Response_V14.pdf",
+          32
+        ]
+      ]
+    },
+    {
+      "id": "prose-cip-08",
+      "category": "prose_only",
+      "rank": 2,
+      "hit@1": false,
+      "hit@5": true,
+      "rr": 0.5,
+      "latency_s": 0.09,
+      "top": [
+        [
+          "visual",
+          "OT_Cyber_Security_Training_and_Awareness_Procedure_v6.pdf",
+          6
+        ],
+        [
+          "visual",
+          "cip-004-7.pdf",
+          0
+        ],
+        [
+          "visual",
+          "OT_Cyber_Security_Training_and_Awareness_Procedure_v6.pdf",
+          0
+        ]
+      ]
+    },
+    {
+      "id": "prose-cip-09",
+      "category": "prose_only",
+      "rank": 1,
+      "hit@1": true,
+      "hit@5": true,
+      "rr": 1.0,
+      "latency_s": 0.09,
+      "top": [
+        [
+          "visual",
+          "cip-009-6.pdf",
+          5
+        ],
+        [
+          "visual",
+          "cip-009-6.pdf",
+          1
+        ],
+        [
+          "visual",
+          "cip-009-6.pdf",
+          10
+        ]
+      ]
+    },
+    {
+      "id": "prose-cip-10",
+      "category": "prose_only",
+      "rank": 1,
+      "hit@1": true,
+      "hit@5": true,
+      "rr": 1.0,
+      "latency_s": 0.09,
+      "top": [
+        [
+          "visual",
+          "cip-013-2.pdf",
+          5
+        ],
+        [
+          "visual",
+          "cip-013-2.pdf",
+          7
+        ],
+        [
+          "visual",
+          "cip-013-2.pdf",
+          3
+        ]
+      ]
+    },
+    {
+      "id": "prose-cip-11",
+      "category": "prose_only",
+      "rank": 1,
+      "hit@1": true,
+      "hit@5": true,
+      "rr": 1.0,
+      "latency_s": 0.09,
+      "top": [
+        [
+          "visual",
+          "cip-014-3.pdf",
+          1
+        ],
+        [
+          "visual",
+          "cip-014-3.pdf",
+          0
+        ],
+        [
+          "visual",
+          "cip-011-3.pdf",
+          1
+        ]
+      ]
+    },
+    {
+      "id": "prose-cip-12",
+      "category": "prose_only",
+      "rank": 3,
+      "hit@1": false,
+      "hit@5": true,
+      "rr": 0.333,
+      "latency_s": 0.09,
+      "top": [
+        [
+          "visual",
+          "cip-007-6.pdf",
+          39
+        ],
+        [
+          "visual",
+          "OT_Cyber_Security_Training_and_Awareness_Procedure_v6.pdf",
+          9
+        ],
+        [
+          "visual",
+          "cip-011-3.pdf",
+          0
+        ]
+      ]
+    },
+    {
+      "id": "prose-cip-13",
+      "category": "prose_only",
+      "rank": 1,
+      "hit@1": true,
+      "hit@5": true,
+      "rr": 1.0,
+      "latency_s": 0.08,
+      "top": [
+        [
+          "visual",
+          "cip-006-6.pdf",
+          23
+        ],
+        [
+          "visual",
+          "cip-006-6.pdf",
+          24
+        ],
+        [
+          "visual",
+          "cip-006-6.pdf",
+          6
+        ]
+      ]
+    },
+    {
+      "id": "prose-cip-14",
+      "category": "prose_only",
+      "rank": 1,
+      "hit@1": true,
+      "hit@5": true,
+      "rr": 1.0,
+      "latency_s": 0.09,
+      "top": [
+        [
+          "visual",
+          "cip-012-2.pdf",
+          0
+        ],
+        [
+          "visual",
+          "cip-012-2.pdf",
+          1
+        ],
+        [
+          "visual",
+          "cip-014-3.pdf",
+          1
+        ]
+      ]
+    },
+    {
+      "id": "prose-nist-01",
+      "category": "prose_only",
+      "rank": 1,
+      "hit@1": true,
+      "hit@5": true,
+      "rr": 1.0,
+      "latency_s": 0.08,
+      "top": [
+        [
+          "visual",
+          "nist_800_82r3_arch_slice.pdf",
+          24
+        ],
+        [
+          "visual",
+          "nist_800_82r3_arch_slice.pdf",
+          20
+        ],
+        [
+          "visual",
+          "nist_800_82r3_arch_slice.pdf",
+          21
+        ]
+      ]
+    },
+    {
+      "id": "prose-nist-02",
+      "category": "prose_only",
+      "rank": 1,
+      "hit@1": true,
+      "hit@5": true,
+      "rr": 1.0,
+      "latency_s": 0.08,
+      "top": [
+        [
+          "visual",
+          "nist_800_82r3_arch_slice.pdf",
+          58
+        ],
+        [
+          "visual",
+          "nist_800_82r3_arch_slice.pdf",
+          43
+        ],
+        [
+          "visual",
+          "nist_800_82r3_arch_slice.pdf",
+          40
+        ]
+      ]
+    },
+    {
+      "id": "mixed-nist-01",
+      "category": "mixed",
+      "rank": 1,
+      "hit@1": true,
+      "hit@5": true,
+      "rr": 1.0,
+      "latency_s": 0.08,
+      "top": [
+        [
+          "visual",
+          "nist_800_82r3_arch_slice.pdf",
+          80
+        ],
+        [
+          "visual",
+          "nist_800_82r3_arch_slice.pdf",
+          7
+        ],
+        [
+          "visual",
+          "nist_800_82r3_arch_slice.pdf",
+          9
+        ]
+      ]
+    },
+    {
+      "id": "mixed-nist-02",
+      "category": "mixed",
+      "rank": 1,
+      "hit@1": true,
+      "hit@5": true,
+      "rr": 1.0,
+      "latency_s": 0.08,
+      "top": [
+        [
+          "visual",
+          "nist_800_82r3_arch_slice.pdf",
+          9
+        ],
+        [
+          "visual",
+          "nist_800_82r3_arch_slice.pdf",
+          5
+        ],
+        [
+          "visual",
+          "nist_800_82r3_arch_slice.pdf",
+          7
+        ]
+      ]
+    },
+    {
+      "id": "mixed-cip-01",
+      "category": "mixed",
+      "rank": 2,
+      "hit@1": false,
+      "hit@5": true,
+      "rr": 0.5,
+      "latency_s": 0.07,
+      "top": [
+        [
+          "visual",
+          "OT_Cyber_Security_Training_and_Awareness_Procedure_v6.pdf",
+          6
+        ],
+        [
+          "visual",
+          "cip-014-3.pdf",
+          1
+        ],
+        [
+          "visual",
+          "cip-014-3.pdf",
+          32
+        ]
+      ]
+    },
+    {
+      "id": "mixed-syn-01",
+      "category": "mixed",
+      "rank": 1,
+      "hit@1": true,
+      "hit@5": true,
+      "rr": 1.0,
+      "latency_s": 0.08,
+      "top": [
+        [
+          "visual",
+          "esp_plant_b.pdf",
+          1
+        ],
+        [
+          "visual",
+          "cip-002-5.1a.pdf",
+          5
+        ],
+        [
+          "visual",
+          "OT_Electronic_Access_Controls_v6.pdf",
+          7
+        ]
+      ]
+    },
+    {
+      "id": "mixed-syn-02",
+      "category": "mixed",
+      "rank": 1,
+      "hit@1": true,
+      "hit@5": true,
+      "rr": 1.0,
+      "latency_s": 0.08,
+      "top": [
+        [
+          "visual",
+          "hmi_alarm_summary.pdf",
+          1
+        ],
+        [
+          "visual",
+          "cip-002-5.1a.pdf",
+          13
+        ],
+        [
+          "visual",
+          "nist_800_82r3_arch_slice.pdf",
+          8
+        ]
+      ]
+    },
+    {
+      "id": "op-train-review",
+      "category": "prose_only",
+      "rank": 3,
+      "hit@1": false,
+      "hit@5": true,
+      "rr": 0.333,
+      "latency_s": 0.07,
+      "top": [
+        [
+          "visual",
+          "nist_800_82r3_arch_slice.pdf",
+          33
+        ],
+        [
+          "visual",
+          "nist_800_82r3_arch_slice.pdf",
+          30
+        ],
+        [
+          "visual",
+          "OT_Cyber_Security_Training_and_Awareness_Procedure_v6.pdf",
+          4
+        ]
+      ]
+    },
+    {
+      "id": "op-train-suspend",
+      "category": "prose_only",
+      "rank": 1,
+      "hit@1": true,
+      "hit@5": true,
+      "rr": 1.0,
+      "latency_s": 0.08,
+      "top": [
+        [
+          "visual",
+          "OT_Cyber_Security_Training_and_Awareness_Procedure_v6.pdf",
+          4
+        ],
+        [
+          "visual",
+          "cip-004-7.pdf",
+          18
+        ],
+        [
+          "visual",
+          "cip-004-7.pdf",
+          10
+        ]
+      ]
+    },
+    {
+      "id": "op-fw-default-deny",
+      "category": "prose_only",
+      "rank": 3,
+      "hit@1": false,
+      "hit@5": true,
+      "rr": 0.333,
+      "latency_s": 0.08,
+      "top": [
+        [
+          "visual",
+          "nist_800_82r3_arch_slice.pdf",
+          65
+        ],
+        [
+          "visual",
+          "OT_Electronic_Access_Controls_v6.pdf",
+          6
+        ],
+        [
+          "visual",
+          "OT_Firewall_Management_Work_Instruction_v8.pdf",
+          6
+        ]
+      ]
+    },
+    {
+      "id": "op-fw-last-rule",
+      "category": "prose_only",
+      "rank": 1,
+      "hit@1": true,
+      "hit@5": true,
+      "rr": 1.0,
+      "latency_s": 0.07,
+      "top": [
+        [
+          "visual",
+          "OT_Firewall_Management_Work_Instruction_v8.pdf",
+          6
+        ],
+        [
+          "visual",
+          "OT_Firewall_Management_Work_Instruction_v8.pdf",
+          0
+        ],
+        [
+          "visual",
+          "OT_Electronic_Access_Controls_v6.pdf",
+          6
+        ]
+      ]
+    },
+    {
+      "id": "op-eac-esp-reclass",
+      "category": "prose_only",
+      "rank": 1,
+      "hit@1": true,
+      "hit@5": true,
+      "rr": 1.0,
+      "latency_s": 0.08,
+      "top": [
+        [
+          "visual",
+          "OT_Electronic_Access_Controls_v6.pdf",
+          5
+        ],
+        [
+          "visual",
+          "OT_Electronic_Access_Controls_v6.pdf",
+          4
+        ],
+        [
+          "visual",
+          "OT_Firewall_Management_Work_Instruction_v8.pdf",
+          4
+        ]
+      ]
+    },
+    {
+      "id": "op-eac-otam",
+      "category": "prose_only",
+      "rank": 1,
+      "hit@1": true,
+      "hit@5": true,
+      "rr": 1.0,
+      "latency_s": 0.08,
+      "top": [
+        [
+          "visual",
+          "OT_IP_Address_Management_Work_Instruction_v4.pdf",
+          0
+        ],
+        [
+          "visual",
+          "OT_IP_Address_Management_Work_Instruction_v4.pdf",
+          4
+        ],
+        [
+          "visual",
+          "OT_Managing_Centralized_Electronic_Access_Control_v6.pdf",
+          4
+        ]
+      ]
+    },
+    {
+      "id": "op-ids-dest",
+      "category": "prose_only",
+      "rank": 1,
+      "hit@1": true,
+      "hit@5": true,
+      "rr": 1.0,
+      "latency_s": 0.09,
+      "top": [
+        [
+          "visual",
+          "OT_Intrusion_Detection-Prevention_Systems_Work_Instruction_V7.1.pdf",
+          6
+        ],
+        [
+          "visual",
+          "OT_Electronic_Access_Controls_v6.pdf",
+          6
+        ],
+        [
+          "visual",
+          "OT_Intrusion_Detection-Prevention_Systems_Work_Instruction_V7.1.pdf",
+          0
+        ]
+      ]
+    },
+    {
+      "id": "op-doccontrol-minor",
+      "category": "prose_only",
+      "rank": 7,
+      "hit@1": false,
+      "hit@5": false,
+      "rr": 0.143,
+      "latency_s": 0.08,
+      "top": [
+        [
+          "visual",
+          "OT_Electronic_Access_Controls_v6.pdf",
+          5
+        ],
+        [
+          "visual",
+          "OT_Network_External_Service_Activation_v4.pdf",
+          4
+        ],
+        [
+          "visual",
+          "OT_Security_Incident_Response_V14.pdf",
+          6
+        ]
+      ]
+    },
+    {
+      "id": "op-ir-notify",
+      "category": "prose_only",
+      "rank": 1,
+      "hit@1": true,
+      "hit@5": true,
+      "rr": 1.0,
+      "latency_s": 0.08,
+      "top": [
+        [
+          "visual",
+          "cip-008-6.pdf",
+          10
+        ],
+        [
+          "visual",
+          "OT_Security_Incident_Response_V14.pdf",
+          32
+        ],
+        [
+          "visual",
+          "OT_Security_Incident_Response_V14.pdf",
+          24
+        ]
+      ]
+    },
+    {
+      "id": "op-cmlap-standard",
+      "category": "prose_only",
+      "rank": 1,
+      "hit@1": true,
+      "hit@5": true,
+      "rr": 1.0,
+      "latency_s": 0.07,
+      "top": [
+        [
+          "visual",
+          "OT_CMLAP_Verification_WI_v6.pdf",
+          0
+        ],
+        [
+          "visual",
+          "OT_CMLAP_Verification_WI_v6.pdf",
+          3
+        ],
+        [
+          "visual",
+          "OT_CMLAP_Verification_WI_v6.pdf",
+          4
+        ]
+      ]
+    },
+    {
+      "id": "op-netsvc-validation",
+      "category": "prose_only",
+      "rank": 1,
+      "hit@1": true,
+      "hit@5": true,
+      "rr": 1.0,
+      "latency_s": 0.06,
+      "top": [
+        [
+          "visual",
+          "OT_Network_External_Service_Activation_v4.pdf",
+          0
+        ],
+        [
+          "visual",
+          "OT_Network_External_Service_Activation_v4.pdf",
+          3
+        ],
+        [
+          "visual",
+          "OT_Network_External_Service_Activation_v4.pdf",
+          8
+        ]
+      ]
+    }
+  ]
+}
