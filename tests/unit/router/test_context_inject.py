@@ -103,3 +103,30 @@ def test_writeback_dispatch_args_match_memory_contract(monkeypatch):
     )
     assert "ws-wb" in captured["args"]["tags"]
     assert "auto_writeback" in captured["args"]["tags"]
+
+
+def test_recall_dispatch_args_match_memory_contract(monkeypatch):
+    """The recall tool's schema names the limit `top_k` (default 5, max 20);
+    the original `"k"` arg was silently dropped so _TOP_K never reached the
+    tool — the same contract-mismatch class as SEAM-V1-AUTORAG-001. Guard the
+    dispatch contract the same way the remember test does."""
+    from portal.platform.inference.router.workspaces import WORKSPACES
+    from portal.platform.inference.tool_registry import tool_registry
+
+    captured = {}
+
+    async def fake_dispatch(tool, args, request_id=None):
+        captured["tool"] = tool
+        captured["args"] = args
+        return {"memories": [{"content": "m"}]}
+
+    monkeypatch.setattr(tool_registry, "dispatch", fake_dispatch)
+    monkeypatch.setattr(ci, "_AUTO_MEMORY_ENABLED", True)
+    monkeypatch.setitem(WORKSPACES, "ws-mem", {"inject_memory": True})
+
+    body = {"messages": [{"role": "user", "content": "where did we leave the splash pin?"}]}
+    asyncio.run(ci.inject_recalled_memory("ws-mem", body, "cid"))
+    assert captured["tool"] == "recall"
+    assert set(captured["args"]) == {"query", "top_k"}, captured["args"]
+    assert 1 <= captured["args"]["top_k"] <= 20
+    assert captured["args"]["top_k"] == ci._TOP_K

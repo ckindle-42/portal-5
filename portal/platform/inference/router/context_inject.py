@@ -190,7 +190,10 @@ async def inject_recalled_memory(
     if not query:
         return body
     t0 = asyncio.get_event_loop().time()
-    result = await _dispatch_bounded("recall", {"query": query, "k": _TOP_K}, cid)
+    # The recall tool's schema names the limit `top_k` (default 5, max 20); the
+    # original `"k"` was silently dropped, so _TOP_K never reached the tool
+    # (same contract-mismatch class as SEAM-V1-AUTORAG-001).
+    result = await _dispatch_bounded("recall", {"query": query, "top_k": _TOP_K}, cid)
     snippets = _extract_snippets(result)
     _auto_context_latency_seconds.labels(source="memory").observe(
         asyncio.get_event_loop().time() - t0
