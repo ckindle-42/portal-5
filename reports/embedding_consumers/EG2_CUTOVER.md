@@ -18,7 +18,7 @@ Every comparison is paired (same probes, both arms) unless stated.
 | auto-router | LLM 66/73 vs EG2 anchor classifier 58/73, exact McNemar p=0.039 (`20261007T220949Z`) |
 | `classify_vulnerability` | CIRCL RoBERTa macro-F1 0.504 vs 0.367 on post-cutoff CVEs, p=0.0009 (`20261008T023549Z`); both arms weak |
 
-## Bully hunt-memory projection — corrected, switch pending
+## Bully hunt-memory projection — corrected, switched to EG2
 
 The earlier "Qwen3 wins, p=0.039" (`20261008T025427Z`) was an artifact: the discovery engine saw
 each probe's truth labels (ATT&CK technique on 988/988 probes, scenario family on 672) — fixed in
@@ -31,9 +31,23 @@ each probe's truth labels (ATT&CK technique on 988/988 probes, scenario family o
 | V3 (behavior values from the source datasets) | 139 | 154 | 148 |
 | V3 excluding evidence twins | 111 | 132 | 123 |
 
-`bully_projection` on V3 (`20261008T164221Z`): 53 vs 68 discordant, p=0.20 — EG2 is not worse.
+`bully_projection` on V3 (`20261008T164221Z`): 53 vs 68 discordant, p=0.20 — EG2 is not worse,
+which meets the cutover's adoption rule. The Organ now embeds through `:8946/embed` with the
+sentence-similarity task (identity-checked, 768d, `embedding_version`
+`google/embeddinggemma-2:768d:sentence-similarity`). Production `hunt_memory` was empty, so nothing
+needed re-seeding.
 Masking lab identity changes nothing (p≥0.29). Open: cross-source discovery is 0–1/988 in every
 arm (engine weighting), see KNOWN_LIMITATIONS BULLY-DISCOVERY-TRUTH-LEAK-001.
+
+## Retired
+
+`:8917` (MLX Qwen3-Embedding) after its last consumer moved: launchd service unloaded and removed
+(plist backed up under `/Volumes/data01/portal5_backups/retired_8917_*`), its server, launchd
+wrapper, CPU fallback server, parity probe and their tests deleted, launch/status/smoke wiring and
+docs repointed to `:8946`. `:8942` stays as the reranker only.
+
+Long-running follow-ups (Bully engine weighting, leak-invalidated run reports, fusion and hybrid
+decisions, compliance corpora) are in `coding_task/TASK_EG2_FOLLOWUPS_AND_BULLY_ENGINE_V1.md`.
 
 ## Findings outside the embedder decision
 

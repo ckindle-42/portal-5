@@ -66,7 +66,7 @@ OLLAMA_URL = os.environ.get("OLLAMA_URL", "http://localhost:11434").replace(
 SEARXNG_URL = "http://localhost:8088"
 PROMETHEUS_URL = "http://localhost:9090"
 GRAFANA_URL = "http://localhost:3000"
-EMBEDDING_URL = os.environ.get("EMBEDDING_URL", "http://localhost:8917")
+EMBEDDING_URL = os.environ.get("EMBEDDING_URL", "http://localhost:8946")
 
 # ── API credentials ──────────────────────────────────────────────────────────
 API_KEY = os.environ.get("PIPELINE_API_KEY", "")
@@ -85,7 +85,7 @@ MCP = {
     "sandbox": int(os.environ.get("SANDBOX_HOST_PORT", "8914")),
     "whisper": int(os.environ.get("WHISPER_HOST_PORT", "8915")),
     "tts": int(os.environ.get("TTS_HOST_PORT", "8916")),
-    "embedding": int(os.environ.get("EMBEDDING_HOST_PORT", "8917")),
+    "embedding": int(os.environ.get("EG2_PORT", "8946")),
     "security": int(os.environ.get("SECURITY_HOST_PORT", "8919")),
     "cad_render": int(os.environ.get("CAD_RENDER_HOST_PORT", "8926")),
 }

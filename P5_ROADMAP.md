@@ -246,7 +246,7 @@ would measure them.
 ### P5-FUT-EMBED-001: EmbeddingGemma Migration Seed
 
 P5-FUT-EMBED-001 is an open migration. Current production embedding is
-`scripts/embedding-server.py`, which serves a sentence-transformers model —
+the since-retired `embedding-server.py`, which served a sentence-transformers model —
 `microsoft/harrier-oss-v1-0.6b` by default — on CPU on port 8917; the same
 default is set in `scripts/lib/services.sh` and the launchd wrapper. The RAG MCP
 (`portal/modules/research/tools/rag_mcp.py`) consumes the endpoint via

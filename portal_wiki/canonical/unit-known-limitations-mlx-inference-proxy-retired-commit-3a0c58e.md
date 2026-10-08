@@ -18,7 +18,7 @@ created_at: 1784946220.667773
 updated_at: 1784946220.667773
 ---
 
-The MLX inference proxy (formerly ports 8081/18081/18082) was retired in commit `75c24a9`, and all its limitations (single-model eviction, cold-boot 503 windows, admission control, deploy staleness) no longer apply. All chat inference runs through Ollama on port 11434, which reaches parity with standalone `mlx_lm` on this hardware without the dual-stack overhead. MLX is retained only outside chat inference: speech (`scripts/mlx-speech.py`, :8918), diarized transcription (`scripts/mlx-transcribe.py`, :8924), embeddings (:8917), and the VL retrieval/reranker (:8942). Do not remove those when "cleaning up MLX".
+The MLX inference proxy (formerly ports 8081/18081/18082) was retired in commit `75c24a9`, and all its limitations (single-model eviction, cold-boot 503 windows, admission control, deploy staleness) no longer apply. All chat inference runs through Ollama on port 11434, which reaches parity with standalone `mlx_lm` on this hardware without the dual-stack overhead. MLX is retained only outside chat inference: speech (`scripts/mlx-speech.py`, :8918), diarized transcription (`scripts/mlx-transcribe.py`, :8924) and the VL reranker (:8942); the :8917 MLX embedder was retired for EmbeddingGemma 2 (:8946). Do not remove those when "cleaning up MLX".
 
 ## Why
 

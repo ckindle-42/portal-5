@@ -6,7 +6,7 @@ sources:
 - type: code
   path: deploy/portal-5/docker-compose.yml
 - type: code
-  path: scripts/embedding-launchd-wrapper.sh
+  path: scripts/eg2-embedding-server.py
 claims: []
 confidence: high
 tags:

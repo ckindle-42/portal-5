@@ -34,7 +34,7 @@ async def run() -> None:
             c = _get_acc_client()
             r = await c.post(
                 f"http://localhost:{MCP['embedding']}/v1/embeddings",
-                json={"input": "test embedding text", "model": "microsoft/harrier-oss-v1-0.6b"},
+                json={"input": "test embedding text", "model": "google/embeddinggemma-2"},
                 timeout=30,
             )
             if r.status_code == 200:

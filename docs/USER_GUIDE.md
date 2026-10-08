@@ -179,7 +179,7 @@ to both lets a reader see which file governs each retrieval path.
 Open the chat interface at the Open WebUI address (bound to `127.0.0.1:8080` by
 default in the compose manifest), click the paperclip to attach a file, and
 upload one of the supported formats. The attachment is automatically chunked per
-`CHUNK_SIZE`/`CHUNK_OVERLAP`, embedded by the host-native embedder on port 8917, and
+`CHUNK_SIZE`/`CHUNK_OVERLAP`, embedded by the host-native EmbeddingGemma 2 service on port 8946, and
 indexed so the chat can ground answers in it. For a persistent library, create a
 knowledge collection from the workspace knowledge panel and upload documents
 there; the pipeline's RAG server stores them in LanceDB, and you can reference

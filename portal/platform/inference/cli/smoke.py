@@ -119,7 +119,7 @@ def cmd_test(
             (8933, "MFLUX image"),
             (8935, "video-mlx (optional)"),
             (8914, "Sandbox"),
-            (8917, "Embedding"),
+            (8946, "EG2 embedding"),
             (8919, "Security"),
         ]
         for port, name in mcp_checks:

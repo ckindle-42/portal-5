@@ -88,6 +88,7 @@ def _seed_projection(tmp_path: Path, corpus_path: Path, version: str) -> Path:
         organ = Organ(
             store=store,
             db_path=out / "organ_snapshot",
+            embed_url="http://localhost:8941/v1/embeddings",
             embed_client=_mock_embed_client(),
             embedding_version=version,
         )

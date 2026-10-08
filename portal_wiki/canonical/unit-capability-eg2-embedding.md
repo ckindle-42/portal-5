@@ -36,7 +36,7 @@ updated_at: 1791388800
 (`com.portal5.eg2-embedding` via `scripts/native-mcp-service.sh eg2-embedding`). One 768-d space for
 text, code, images, audio and video, with Matryoshka truncation (512/256/128) and task-steered prefixes.
 
-Memory: both host embedders free Metal memory per request. `:8946` calls `torch.mps.empty_cache()` after every encode; the legacy `:8917` MLX server (`scripts/embedding-server-mlx.py`) runs micro-batches (`EMBEDDING_MLX_MICRO_BATCH`, default 8), clears the MLX cache after each, and caps it with `EMBEDDING_MLX_CACHE_LIMIT_MB` (default 512). Before this (fixed `1f82362f`) both grew to 55+ GB and caused watchdog resets.
+Memory: `:8946` calls `torch.mps.empty_cache()` after every encode. Before `1f82362f` it (and the since-retired `:8917` MLX embedder) grew to 55+ GB and caused watchdog resets. The :8917 service was retired in TASK_EG2_CUTOVER_V1 once its last consumer, Bully, measured not-worse on EG2.
 
 Surfaces: `/health` (never loads the model), `/ready` (loads, probes NaN-freedom, prefix asymmetry and
 MRL renormalisation, returns the served identity), `/embed` and `/embed_items` (Portal contract; prefixes
@@ -52,7 +52,7 @@ installed.
 | graph memory (`:8920`) | `EmbeddingClient` `/embed` | SEARCH; memories + entity names = document, recall query = query | 768 | `MEMORY_RECALL_FLOOR` 0.60 cosine |
 | Open WebUI RAG | `/v1/embeddings` (raw) | SEARCH prefixes via `RAG_EMBEDDING_{QUERY,CONTENT}_PREFIX` | 768 | Open WebUI's own (top_k 3, bge rerank) |
 | RAG MCP + compliance retrieval | `/vl/*` | SEARCH; `is_query` items = query | 768 (`EG2_VL_DIM`) | `VL_TEXT_GATE` 0.88 |
-| Bully hunt-memory projection | `:8917` Qwen3 (unchanged) | — | 1024 | measured not-worse on EG2 (p=0.20), switch pending |
+| Bully hunt-memory projection | `Organ` → `/embed` | SENTENCE_SIMILARITY (symmetric) | 768 | engine's own (`cousin_engine.DEFAULT_THRESHOLDS`) |
 
 Kept off EG2 on evidence: the auto-router (LLM beats the anchor classifier, p=0.039) and
 `classify_vulnerability` (CIRCL RoBERTa, p=0.0009). The Qwen3-VL reranker on :8942 stays

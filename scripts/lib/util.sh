@@ -540,8 +540,8 @@ PY
     # ── Qwen3-VL retrieval server (host-native, :8942) ─────────────────────
     # The RAG stack's multimodal embed/rerank backend (text+image joint space).
     # Not an MCP — a FastAPI service (scripts/vl-retrieval-server.py) in the
-    # project .venv. The shared text embedder :8917 stays up for memory / the
-    # Bully ORG projection until the EG2 migration (Phase 5).
+    # project .venv. Since TASK_EG2_CUTOVER_V1 it only RERANKS for the platform; embeddings
+    # come from EmbeddingGemma 2 (:8946), whose /vl/rerank forwards here.
     #
     # Runtime (TASK_VL_RUNTIME_LANDING_V4): mlx-embeddings 0.1.0 ships the
     # `qwen3_vl` module; the model loads once transformers 5.x's torchvision-
@@ -789,18 +789,6 @@ _do_down() {
             echo "[portal-5] Network Forensics MCP: not running (nothing to stop)."
         fi
 
-        # ARM64 embedding server (:8917)
-        # launchd-managed: leave the service running (it manages its own lifecycle),
-        # just print a note so the operator knows it's still up.
-        if launchctl list com.portal5.embedding 2>/dev/null | grep -q '"PID"'; then
-            echo "[portal-5] Embedding server: still running (launchd-managed — use './launch.sh uninstall-embedding-service' to stop permanently)."
-        elif [ -f /tmp/portal-embedding-arm.pid ] && kill -0 "$(cat /tmp/portal-embedding-arm.pid)" 2>/dev/null; then
-            kill "$(cat /tmp/portal-embedding-arm.pid)" 2>/dev/null || true
-            rm -f /tmp/portal-embedding-arm.pid
-            echo "[portal-5] ARM64 embedding server stopped."
-        else
-            echo "[portal-5] Embedding server: not running (nothing to stop)."
-        fi
     fi
 }
 
@@ -878,12 +866,11 @@ _check_ports() {
             _port_check "${VIDEO_MLX_MCP_PORT:-8935}" "MCP video-mlx"
         fi
     fi
-    # On ARM64 the native embedding server is launchd-managed and intentionally
-    # owns this port — skip the conflict check when it's our own service.
-    if [ "$(uname -m)" = "arm64" ] && launchctl list com.portal5.embedding 2>/dev/null | grep -q '"PID"'; then
-        echo "  ✅ Port ${EMBEDDING_HOST_PORT:-8917} (MCP Embedding) — launchd-managed native server"
+    # The EmbeddingGemma 2 embedder is launchd-managed and intentionally owns its port.
+    if [ "$(uname -m)" = "arm64" ] && launchctl list com.portal5.eg2-embedding 2>/dev/null | grep -q '"PID"'; then
+        echo "  ✅ Port ${EG2_PORT:-8946} (EG2 embedding) — launchd-managed native server"
     else
-        _port_check "${EMBEDDING_HOST_PORT:-8917}"  "MCP Embedding"
+        _port_check "${EG2_PORT:-8946}"  "EG2 embedding"
     fi
     _port_check "${SECURITY_HOST_PORT:-8919}"   "MCP Security"
 
@@ -1142,13 +1129,13 @@ for key, label, url in rows:
             printf "    ❌  %-28s %s\n" "MLX Transcribe" "installed but not running — ./launch.sh start-transcribe"
         fi
 
-        # Embedding server
-        if python3 -c "import urllib.request; urllib.request.urlopen('http://localhost:${EMBEDDING_HOST_PORT:-8917}/health', timeout=2)" &>/dev/null 2>&1; then
-            printf "    ✅  %-28s %s\n" "Embedding" ":${EMBEDDING_HOST_PORT:-8917}"
-        elif launchctl list com.portal5.embedding 2>/dev/null | grep -q '"PID"'; then
-            printf "    ⏳  %-28s %s\n" "Embedding" "starting (launchd-managed)"
+        # EmbeddingGemma 2 embedder (the platform's only embedder)
+        if python3 -c "import urllib.request; urllib.request.urlopen('http://localhost:${EG2_PORT:-8946}/health', timeout=2)" &>/dev/null 2>&1; then
+            printf "    ✅  %-28s %s\n" "Embedding (EG2)" ":${EG2_PORT:-8946}"
+        elif launchctl list com.portal5.eg2-embedding 2>/dev/null | grep -q '"PID"'; then
+            printf "    ⏳  %-28s %s\n" "Embedding (EG2)" "starting (launchd-managed)"
         else
-            printf "    ❌  %-28s %s\n" "Embedding" "not running — ./launch.sh up"
+            printf "    ❌  %-28s %s\n" "Embedding (EG2)" "not running — ./launch.sh up"
         fi
 
         # Powermetrics daemon

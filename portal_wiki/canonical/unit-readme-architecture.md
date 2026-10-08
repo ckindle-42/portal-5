@@ -10,7 +10,7 @@ sources:
 - type: code
   path: scripts/mlx-speech.py
 - type: code
-  path: scripts/embedding-server.py
+  path: scripts/eg2-embedding-server.py
 claims: []
 confidence: high
 tags:
@@ -48,8 +48,9 @@ The MCP fleet, defined in the `mcp_fleet:` block of `config/portal.yaml`, expose
 tool servers for documents, code sandboxing, TTS, research, memory, RAG, browser
 automation, CAD, Proxmox and the canonical wiki. Host-native MLX runtimes serve
 speech (`scripts/mlx-speech.py`, port 8918), diarized transcription
-(`scripts/mlx-transcribe.py`, port 8924), embeddings
-(`scripts/embedding-server-mlx.py`, port 8917) and VL retrieval/reranking (port 8942).
+(`scripts/mlx-transcribe.py`, port 8924) and VL reranking (port 8942). Embeddings for
+every consumer come from EmbeddingGemma 2 (`scripts/eg2-embedding-server.py`, port 8946,
+sentence-transformers in its own venv).
 Chat inference is Ollama-only: the MLX inference proxy that once listened on
 ports 8081/18081/18082 was retired in commit 75c24a9.
 

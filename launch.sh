@@ -143,22 +143,6 @@ case "${1:-up}" in
     docker compose $_PROFILES up -d
 
 
-    # :8917 legacy embedder — ONE launch path, the adopted backend (Bully P0.4:
-    # MLX Qwen3-Embedding-0.6B). The inline start of the retired CPU/Harrier
-    # server is gone: two launch paths served two different models into the same
-    # 1024-d tables (TASK_EMBEDDINGGEMMA2_PLATFORM_V1 F-8917-IDENTITY). Retired
-    # outright when the EG2 migration lands (Phase 5).
-    if [ "$(uname -m)" = "arm64" ]; then
-        if launchctl list com.portal5.embedding 2>/dev/null | grep -q '"PID"'; then
-            echo "[portal-5]   ✅ :8917 embedding server managed by launchd"
-        elif curl -fsS "http://localhost:${EMBEDDING_HOST_PORT:-8917}/health" &>/dev/null; then
-            echo "[portal-5]   ✅ :8917 embedding server already running"
-        else
-            # subshell: the start function calls `exit` on its early-return path
-            ( _launch_start_embedding_arm_a )
-        fi
-    fi
-
     # Re-run openwebui-init in the background to pick up any new personas/workspaces
     # added since the last run (idempotent — skips existing, only creates new ones).
     # Only runs if open-webui is already healthy (first-run init is handled by depends_on).
@@ -556,30 +540,6 @@ PYEOF
     _launch_start_speech
     ;;
 
-  start-embedding-cpu-arm)
-    _launch_start_embedding_cpu_arm
-    ;;
-
-  stop-embedding-cpu-arm)
-    _launch_stop_embedding_cpu_arm
-    ;;
-
-  start-embedding-arm-a)
-    _launch_start_embedding_arm_a
-    ;;
-
-  stop-embedding-arm-a)
-    _launch_stop_embedding_arm_a
-    ;;
-
-  install-embedding-service)
-    _launch_install_embedding_service
-    ;;
-
-  uninstall-embedding-service)
-    _launch_uninstall_embedding_service
-    ;;
-
   install-powermetrics)
     _launch_install_powermetrics
     ;;
@@ -639,7 +599,7 @@ PYEOF
 
 
     *)
-    echo "Usage: ./launch.sh [up|down|clean|clean-all|seed|reseed|logs|status|sync-config|update|pull-models|refresh-models|import-gguf|test|promptfoo|add-user|list-users|backup|restore|up-telegram|up-slack|up-channels|install-ollama|install-music-minimax|install-mflux|start-mflux|stop-mflux|pull-mflux-models|install-video-mlx|start-video-mlx|stop-video-mlx|pull-video-mlx-models|install-music-ace|stop-music-ace|start-speech|stop-speech|start-transcribe|stop-transcribe|start-embedding-cpu-arm|stop-embedding-cpu-arm|install-embedding-service|uninstall-embedding-service|install-powermetrics|uninstall-powermetrics|rebuild|workspace-init|workspace-status|workspace-show|apply-mtp-drafts|build-lab-attack|build-binresearch|coder-reap288]"
+    echo "Usage: ./launch.sh [up|down|clean|clean-all|seed|reseed|logs|status|sync-config|update|pull-models|refresh-models|import-gguf|test|promptfoo|add-user|list-users|backup|restore|up-telegram|up-slack|up-channels|install-ollama|install-music-minimax|install-mflux|start-mflux|stop-mflux|pull-mflux-models|install-video-mlx|start-video-mlx|stop-video-mlx|pull-video-mlx-models|install-music-ace|stop-music-ace|start-speech|stop-speech|start-transcribe|stop-transcribe|install-powermetrics|uninstall-powermetrics|rebuild|workspace-init|workspace-status|workspace-show|apply-mtp-drafts|build-lab-attack|build-binresearch|coder-reap288]"
     echo ""
     echo "  up                    Start all services (first run auto-generates secrets)"
     echo "  install-ollama        Install Ollama natively via brew (Apple Silicon recommended)"
@@ -662,10 +622,6 @@ PYEOF
     echo "  workspace-init        Create shared workspace directory structure (uploads, generated/*)"
     echo "  workspace-status      Show file counts and disk usage per category"
     echo "  workspace-show        Print resolved paths for the current configuration"
-    echo "  start-embedding-cpu-arm  Start native ARM64 embedding server (Apple Silicon, no Rosetta)"
-    echo "  stop-embedding-cpu-arm   Stop ARM64 embedding server"
-    echo "  install-embedding-service   Install launchd agent — embedding starts at login, auto-restarts on crash"
-    echo "  uninstall-embedding-service Remove launchd agent"
     echo "  install-powermetrics        Install powermetrics daemon (sudo) — power telemetry for cost tracking"
     echo "  uninstall-powermetrics      Remove powermetrics daemon (sudo)"
     echo "  rebuild               Rebuild all Docker images (pipeline + MCP) + restart (after git pull)"

@@ -1209,11 +1209,11 @@ embedding_candidates:
 - id: google/embeddinggemma-2
   notes: 'EmbeddingGemma 2 (740M total; 270M text backbone + selectable 170M vision / 300M audio encoders; Apache 2.0;
     Oct 2026). One 768-d space for text, code, images, video and audio; Matryoshka 512/256/128. Served as the platform
-    embedder on :8946 (TASK_EMBEDDINGGEMMA2_PLATFORM_V1); per-consumer adoption is gated on measurement, see
-    reports/embedding_consumers/.'
+    embedder on :8946 (TASK_EMBEDDINGGEMMA2_PLATFORM_V1) and, since TASK_EG2_CUTOVER_V1, the only one: see
+    reports/embedding_consumers/EG2_CUTOVER.md.'
 - id: Qwen/Qwen3-Embedding-0.6B
-  notes: 'Qwen3-Embedding 0.6B (Apache 2.0). Adopted Bully ORG default on :8917 as MLX mxfp8 (Bully SA5 P0.4); incumbent
-    for the bully_projection consumer.'
+  notes: 'Qwen3-Embedding 0.6B (Apache 2.0). Was the Bully ORG embedder on :8917 (MLX mxfp8, Bully SA5 P0.4); retired
+    with :8917 in TASK_EG2_CUTOVER_V1 — EG2 measured not worse for bully_projection on SPECIMEN_CORPUS_V3 (p=0.20).'
 - id: google/embeddinggemma-300M
   notes: EmbeddingGemma 1 (300M). Bully SA3 Arm B (llama.cpp); superseded by EmbeddingGemma 2 — its experiment server was retired.
 - id: Qwen/Qwen3-Embedding-8B

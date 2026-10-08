@@ -2,7 +2,7 @@
 impacts.
 
 Hermetic: LanceDB itself is embedded/local (no server), so tests use a real
-`tmp_path` table; only the :8917 embed HTTP call is faked (`Organ._embed`
+`tmp_path` table; only the embed HTTP call is faked (`Organ._embed`
 monkeypatched per-instance -- no real network). FINAL_VALIDATION C3
 (organ side): outbox->projection round trip, mandatory recall receipt,
 embed-down honest block (never a silent lexical fallback), rebuild-by-
@@ -10,6 +10,8 @@ replay determinism.
 """
 
 from __future__ import annotations
+
+import json
 
 import httpx
 import pytest
@@ -138,10 +140,58 @@ def test_embed_restores_openai_response_index_order(tmp_path, store):
     projection = Organ(
         store=store,
         db_path=tmp_path / "ordered-embedding-projection",
+        embed_url="http://bench.test/v1/embeddings",
         embed_client=httpx.Client(transport=httpx.MockTransport(handler)),
     )
     try:
         assert projection._embed(["first", "second"]) == [[1.0], [2.0]]
+    finally:
+        projection.close()
+
+
+def test_default_embed_is_eg2_contract_with_sentence_similarity_and_identity_check(tmp_path, store):
+    seen: list[dict] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path == "/ready":
+            return httpx.Response(200, json={"identity": {"model": "google/embeddinggemma-2"}})
+        body = json.loads(request.content)
+        seen.append(body)
+        return httpx.Response(200, json={"embeddings": [[0.1] * 768 for _ in body["inputs"]]})
+
+    projection = Organ(
+        store=store,
+        db_path=tmp_path / "eg2-projection",
+        embed_url="http://eg2.test/embed",
+        embed_client=httpx.Client(transport=httpx.MockTransport(handler)),
+    )
+    try:
+        assert len(projection._embed(["a", "b"])[0]) == 768
+        assert seen == [
+            {
+                "inputs": [{"text": "a"}, {"text": "b"}],
+                "task": "sentence similarity",
+                "role": "query",
+                "dim": 768,
+            }
+        ]
+    finally:
+        projection.close()
+
+
+def test_a_swapped_embed_model_is_fatal_not_a_silent_new_space(tmp_path, store):
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, json={"identity": {"model": "some/other-model"}})
+
+    projection = Organ(
+        store=store,
+        db_path=tmp_path / "swapped",
+        embed_url="http://eg2.test/embed",
+        embed_client=httpx.Client(transport=httpx.MockTransport(handler)),
+    )
+    try:
+        with pytest.raises(OrganUnavailable, match="expected 'google/embeddinggemma-2'"):
+            projection._embed(["a"])
     finally:
         projection.close()
 

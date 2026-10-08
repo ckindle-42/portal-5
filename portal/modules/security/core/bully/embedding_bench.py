@@ -256,7 +256,7 @@ def run_cli(argv: list[str] | None = None) -> int:
 
     Usage:
         uv run python -m portal.modules.security.core.bully.embedding_bench \
-            --embed-url http://localhost:8917/v1/embeddings \
+            --embed-url http://localhost:8946/v1/embeddings \
             --corpus /Volumes/data01/portal5_hunt/artifacts/specimen_corpus_v2/specimen_corpus_v2.json \
             --out /tmp/embed_bench_cpu.json
     """
@@ -266,7 +266,7 @@ def run_cli(argv: list[str] | None = None) -> int:
     import httpx
 
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--embed-url", default="http://localhost:8917/v1/embeddings")
+    parser.add_argument("--embed-url", default="http://localhost:8946/v1/embeddings")
     parser.add_argument(
         "--corpus",
         type=Path,
@@ -278,7 +278,7 @@ def run_cli(argv: list[str] | None = None) -> int:
     parser.add_argument("--repeats", type=int, default=DEFAULT_REPEATS)
     parser.add_argument("--model-label", default="cpu-sentence-transformers")
     parser.add_argument("--batch-sizes", type=int, nargs="+", default=list(DEFAULT_BATCH_SIZES))
-    parser.add_argument("--port", type=int, default=8917, help="port to read RSS from")
+    parser.add_argument("--port", type=int, default=8946, help="port to read RSS from")
     parser.add_argument("--out", type=Path)
     args = parser.parse_args(argv)
 

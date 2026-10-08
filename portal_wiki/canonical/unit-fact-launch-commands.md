@@ -22,7 +22,7 @@ updated_at: 1788030600.446044
 
 # Operator commands — the launch.sh surface
 
-The operator's command surface is `./launch.sh <subcommand>` — 63 subcommands
+The operator's command surface is `./launch.sh <subcommand>` — 57 subcommands
 as of the current usage string, grouped below by what they act on.
 
 ## Lifecycle
@@ -60,13 +60,10 @@ as of the current usage string, grouped below by what they act on.
 - `install-music-minimax`, `install-music-ace`, `stop-music-ace` — music
   backends.
 
-## Speech / transcription / embedding arms
+## Speech / transcription
 
 - `start-speech`, `stop-speech` — the host MLX speech server.
 - `start-transcribe`, `stop-transcribe` — the host MLX transcribe server.
-- `start-embedding-cpu-arm`, `stop-embedding-cpu-arm`,
-  `install-embedding-service`, `uninstall-embedding-service` — the native ARM
-  embedding server plus its launchd agent.
 - `install-powermetrics`, `uninstall-powermetrics` — the sudo power-telemetry
   daemon.
 

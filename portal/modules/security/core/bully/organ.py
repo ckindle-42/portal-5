@@ -27,19 +27,24 @@ from typing import Any, cast
 
 import httpx
 
+from portal.platform.embedding.client import service_url
+from portal.platform.embedding.contract import Role, Task
 from portal.platform.retrieval import predicates
 
 from .contracts import RecallReceipt
 from .store import Store
 
-DEFAULT_EMBED_URL = "http://localhost:8917/v1/embeddings"
+# EmbeddingGemma 2 via the Portal contract endpoint (TASK_EG2_CUTOVER_V1 C5): measured on
+# SPECIMEN_CORPUS_V3 with the engine blind to truth labels, EG2 with the sentence-similarity
+# task is not worse than the retired :8917 Qwen3 arm (154 vs 139 related of 988, p=0.20).
+# Older projections stay readable under their own version tags.
+DEFAULT_EMBED_URL = f"{service_url()}/embed"
+EMBED_MODEL = "google/embeddinggemma-2"
+EMBED_TASK = Task.SENTENCE_SIMILARITY
+VECTOR_DIM = 768
 PROJECTION_VERSION = "hunt-memory-v1"
-# Adopted embedding backend (TASK_BULLY_SA5 P0.4): Arm A, MLX Qwen3-Embedding
-# 0.6B mxfp8 at :8917. The retired CPU harrier path (sentence-transformers-v1)
-# stays readable on old projections via their own version tag.
-EMBEDDING_VERSION = "mlx-qwen3-embed-0.6b-mxfp8"
+EMBEDDING_VERSION = f"{EMBED_MODEL}:{VECTOR_DIM}d:{EMBED_TASK.value.replace(' ', '-')}"
 TABLE_NAME = "hunt_memory"
-VECTOR_DIM = 1024
 _SINGLE_EMBED_INPUT_LENGTH = 2_000
 
 
@@ -153,6 +158,7 @@ class Organ:
         self._http = embed_client or httpx.Client(timeout=10.0)
         self.projection_version = projection_version
         self.embedding_version = embedding_version
+        self._identity_ok = False
         self._db = lancedb.connect(str(db_path))
         self._prepared_knn: dict[tuple[str, int], tuple[tuple[dict[str, Any], float], ...]] = {}
         self._prepared_vectors: dict[str, list[float]] = {}
@@ -160,50 +166,62 @@ class Organ:
     def close(self) -> None:
         self._http.close()
 
-    # ── embedding client (:8917) ─────────────────────────────────────────
+    # ── embedding client (EG2 contract /embed; OpenAI form for bench arms) ──────
+
+    def _check_identity(self, url: str) -> None:
+        """Once per Organ: the contract endpoint must serve the model this projection is
+        stamped for. A swapped or unready model is fatal (I-4), never a silent new space."""
+        if self._identity_ok or not url.endswith("/embed"):
+            return
+        base = url[: -len("/embed")]
+        try:
+            ident = self._http.get(f"{base}/ready").json().get("identity") or {}
+        except (httpx.HTTPError, ValueError) as exc:
+            raise OrganUnavailable(f"embed service unreachable at {base}/ready: {exc}") from exc
+        if ident.get("model") != EMBED_MODEL:
+            raise OrganUnavailable(
+                f"{base} serves {ident.get('model')!r}, expected {EMBED_MODEL!r}"
+            )
+        self._identity_ok = True
+
+    def _post_embed(self, url: str, texts: list[str]) -> list[list[float]]:
+        self._check_identity(url)
+        body: dict[str, Any] = (
+            {
+                "inputs": [{"text": t} for t in texts],
+                "task": EMBED_TASK.value,
+                "role": Role.QUERY.value,
+                "dim": VECTOR_DIM,
+            }
+            if url.endswith("/embed")
+            else {"input": texts}
+        )
+        try:
+            resp = self._http.post(url, json=body)
+            resp.raise_for_status()
+        except httpx.HTTPError as exc:
+            raise OrganUnavailable(f"embed service unreachable at {url}: {exc}") from exc
+        data = resp.json()
+        vectors = data.get("embeddings")
+        if not vectors:
+            items = data.get("data", [])
+            if items and all(isinstance(item.get("index"), int) for item in items):
+                items = sorted(items, key=lambda item: item["index"])
+            vectors = [item["embedding"] for item in items]
+        if not vectors:
+            raise OrganUnavailable("embed service returned no vectors")
+        return cast(list[list[float]], vectors)
 
     def _embed(self, texts: list[str]) -> list[list[float]]:
-        try:
-            resp = self._http.post(self.embed_url, json={"input": texts})
-            resp.raise_for_status()
-        except httpx.HTTPError as exc:
-            raise OrganUnavailable(f"embed service unreachable at {self.embed_url}: {exc}") from exc
-        data = resp.json()
-        vectors = data.get("embeddings")
-        if not vectors:
-            items = data.get("data", [])
-            if items and all(isinstance(item.get("index"), int) for item in items):
-                items = sorted(items, key=lambda item: item["index"])
-            vectors = [item["embedding"] for item in items]
-        if not vectors:
-            raise OrganUnavailable("embed service returned no vectors")
-        return cast(list[list[float]], vectors)
+        return self._post_embed(self.embed_url, texts)
 
     def _embed_query(self, texts: list[str]) -> list[list[float]]:
-        """Query-form embedding for knn (SA3.3): EmbeddingGemma's asymmetric
-        task prefixes mean query embedding must use the query form, not the
-        document form used for upserts. When no separate query endpoint is
-        configured (arms without asymmetry), this delegates to the document
-        path so behavior is unchanged."""
+        """Query-form embedding for knn (SA3.3). Sentence similarity is symmetric, so with the
+        default contract endpoint both sides share one form; a separately configured query URL
+        (an asymmetric bench arm) is honoured."""
         if self.query_embed_url == self.embed_url:
             return self._embed(texts)
-        try:
-            resp = self._http.post(self.query_embed_url, json={"input": texts})
-            resp.raise_for_status()
-        except httpx.HTTPError as exc:
-            raise OrganUnavailable(
-                f"embed service unreachable at {self.query_embed_url}: {exc}"
-            ) from exc
-        data = resp.json()
-        vectors = data.get("embeddings")
-        if not vectors:
-            items = data.get("data", [])
-            if items and all(isinstance(item.get("index"), int) for item in items):
-                items = sorted(items, key=lambda item: item["index"])
-            vectors = [item["embedding"] for item in items]
-        if not vectors:
-            raise OrganUnavailable("embed service returned no vectors")
-        return cast(list[list[float]], vectors)
+        return self._post_embed(self.query_embed_url, texts)
 
     def _table(self) -> Any:
         if TABLE_NAME in self._db.list_tables().tables:
