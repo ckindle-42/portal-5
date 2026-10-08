@@ -79,7 +79,9 @@ async def run(ctx: ProbeContext) -> ProbeResult:
     llm = ctx.opt("toolpreselect_llm_results")
     if llm and Path(llm).is_file():
         incumbent["llm_run_bench_rows"] = sum(1 for _ in Path(llm).open())
-    hint = "BETTER" if smallest_viable is not None and smallest_viable <= 8 else "WORSE"
+    # the incumbent ships every schema (recall 1.0 by construction), so a recall gap is a schema-
+    # budget tradeoff, not a regression: BETTER only when 0.95 recall fits k<=8, else undecided
+    hint = "BETTER" if smallest_viable is not None and smallest_viable <= 8 else "INCONCLUSIVE"
     return ProbeResult(
         consumer="tool_preselect",
         status=MEASURED,

@@ -3,21 +3,28 @@
 ``bully_projection`` re-runs the adopted SA5 machinery (scripts/defensive_bully_p04_adoption.py
 ``run_arm``: dedup corpus -> version-tagged projection -> derived thresholds -> SA2 discovery lane
 with identity as a diagnostic) for the incumbent (Arm A, MLX Qwen3 on :8917) and EG2 as Arm D
-(:8946 /v1/embeddings, raw text), on the frozen SPECIMEN_CORPUS_V2. ``bully_novelty`` asks whether
+on the frozen SPECIMEN_CORPUS_V2. Arm D runs twice: with the EG2 contract's ``sentence similarity``
+prefix (primary; a local proxy prefixes the Organ's raw ``/v1/embeddings`` calls) and raw
+(diagnostic: what a bare repoint of the Organ's URL would give). ``bully_novelty`` asks whether
 distance-to-known-centroid separates a telemetry source the index has never seen (leave-one-
 source-class-out) from held-out records of known classes.
 """
 
 from __future__ import annotations
 
+import contextlib
 import importlib.util
+import json
 import sys
+import threading
+from collections.abc import Iterator
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from typing import Any
 
 import httpx
 
-from portal.platform.embedding.contract import Task
+from portal.platform.embedding.contract import Role, Task, format_text
 
 from ..framework import (
     MEASURED,
@@ -47,6 +54,38 @@ def _p04() -> Any:
     sys.modules["p5_p04"] = m
     spec.loader.exec_module(m)
     return m
+
+
+@contextlib.contextmanager
+def _prefix_proxy(upstream: str, task: Task) -> Iterator[str]:
+    """Loopback proxy for the Organ's ``{"input": [...]}`` calls: applies the EG2 contract prefix
+    for ``task`` and forwards to ``upstream`` (the raw passthrough endpoint)."""
+
+    class H(BaseHTTPRequestHandler):
+        def do_POST(self) -> None:  # noqa: N802
+            body = json.loads(self.rfile.read(int(self.headers["Content-Length"])))
+            raw = body.get("input")
+            texts = [raw] if isinstance(raw, str) else list(raw or [])
+            body["input"] = [format_text(str(t), task, Role.QUERY) for t in texts]
+            body.pop("model", None)  # the upstream serves one model; callers' names are for :8917
+            r = httpx.post(upstream, json=body, timeout=600)
+            out = r.content
+            self.send_response(r.status_code)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Content-Length", str(len(out)))
+            self.end_headers()
+            self.wfile.write(out)
+
+        def log_message(self, *a: object) -> None:
+            pass
+
+    srv = ThreadingHTTPServer(("127.0.0.1", 0), H)
+    t = threading.Thread(target=srv.serve_forever, daemon=True)
+    t.start()
+    try:
+        yield f"http://127.0.0.1:{srv.server_address[1]}/v1/embeddings"
+    finally:
+        srv.shutdown()
 
 
 def _embed(url: str, texts: list[str]) -> list[list[float]]:
@@ -82,9 +121,13 @@ async def projection(ctx: ProbeContext) -> ProbeResult:
     corpus["_path"] = CORPUS
     parents = p04._dedupe_parents(corpus)
     version_d = await ctx.client.version_tag(768)
-    p04.ARM_SPECS["arm-d"] = {"label": "eg2-768d", "embedding_version": version_d, "batch_size": 32}
+    for arm, label in (("arm-d", "eg2-768d-raw"), ("arm-d-sim", "eg2-768d-sentence-similarity")):
+        p04.ARM_SPECS[arm] = {"label": label, "embedding_version": version_d, "batch_size": 32}
+    stack = contextlib.ExitStack()
+    sim_url = stack.enter_context(_prefix_proxy(D_URL, Task.SENTENCE_SIMILARITY))
     arms = {
         "arm-a": (A_URL, p04.ARM_SPECS["arm-a"]["embedding_version"]),
+        "arm-d-sim": (sim_url, version_d),
         "arm-d": (D_URL, version_d),
     }
     results: dict[str, Any] = {}
@@ -123,9 +166,15 @@ async def projection(ctx: ProbeContext) -> ProbeResult:
         for arm, (url, _) in arms.items():
             va, vb = _embed(url, [a, b])
             twin[arm] = round(cos(va, vb), 4)
-    ra, rd = results["arm-a"], results["arm-d"]
+    stack.close()
+    ra, rd = results["arm-a"], results["arm-d-sim"]
     inc = {"primary": ra["discovery_precision"], **ra}
-    cand = {"primary": rd["discovery_precision"], **rd, "near_twin_4719_vs_4688_cosine": twin}
+    cand = {
+        "primary": rd["discovery_precision"],
+        **rd,
+        "raw_no_prefix": results["arm-d"],
+        "near_twin_4719_vs_4688_cosine": twin,
+    }
     return ProbeResult(
         "bully_projection",
         MEASURED,
@@ -139,7 +188,8 @@ async def projection(ctx: ProbeContext) -> ProbeResult:
         },
         identity=version_d,
         notes=[
-            "EG2 embeds the canonical record text raw through /v1/embeddings (no task prefix), as the Organ's embed client does for every arm"
+            "primary candidate = EG2 with the contract 'sentence similarity' prefix (proxy over the Organ's raw /v1/embeddings calls); raw_no_prefix = a bare URL repoint",
+            "thresholds are derived per space by run_arm (embedding_spaces.derive_thresholds)",
         ],
     )
 

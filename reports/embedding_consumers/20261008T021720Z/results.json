@@ -1,0 +1,50 @@
+[
+  {
+    "consumer": "owui_attachment_rag",
+    "status": "MEASURED",
+    "incumbent": {
+      "primary": 0.6383,
+      "dense_only": {
+        "recall@3": 0.7021
+      },
+      "hybrid_no_rerank": {
+        "recall@3": 0.6383
+      },
+      "hybrid_bge": {
+        "recall@3": 0.6383
+      },
+      "hybrid_vl_rerank": {
+        "recall@3": 0.7021
+      }
+    },
+    "candidate": {
+      "primary": 0.8085,
+      "dense_only": {
+        "recall@3": 0.8298
+      },
+      "hybrid_no_rerank": {
+        "recall@3": 0.6596
+      },
+      "hybrid_bge": {
+        "recall@3": 0.8085
+      },
+      "hybrid_vl_rerank": {
+        "recall@3": 0.8511
+      }
+    },
+    "hint": "BETTER",
+    "notes": [
+      "primary = hybrid_bge recall@3 in both arms (OWUI production pipeline: header split, 1500/100 chunks, BM25+dense ensemble w=0.5, top_k 3, rerank to 3)",
+      "corpus = wiki canonical units with the 47 authored wiki queries (no operator attachments on this host); bge-reranker-v2-m3 runs on the host (same model OWUI loads in-container)",
+      "EG2 arm = :8946 OpenAI endpoint with contract prefixes applied as OWUI's RAG_EMBEDDING_*_PREFIX settings would"
+    ],
+    "blocked_reason": "",
+    "fixture": {
+      "queries": 47,
+      "chunks": 2427,
+      "units": 768
+    },
+    "identity": "google/embeddinggemma-2@914f7f89142e:768d",
+    "seconds": 359.96
+  }
+]

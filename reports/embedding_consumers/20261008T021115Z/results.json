@@ -1,0 +1,56 @@
+[
+  {
+    "consumer": "tool_preselect",
+    "status": "MEASURED",
+    "incumbent": {
+      "primary": "no preselection: all 61 schemas every turn",
+      "llm_preselector": "exhausted (KNOWN_LIMITATIONS P5-TOOLPRESELECT-001)"
+    },
+    "candidate": {
+      "primary": 0.9247,
+      "recall@1": 0.7419,
+      "recall@3": 0.8602,
+      "recall@5": 0.9247,
+      "recall@8": 0.9462,
+      "recall@12": 0.9677,
+      "by_category": {
+        "compound": {
+          "recall@3": 1.0,
+          "recall@5": 1.0,
+          "recall@8": 1.0
+        },
+        "decoy": {
+          "recall@3": 0.75,
+          "recall@5": 0.75,
+          "recall@8": 0.8333
+        },
+        "positive": {
+          "recall@3": 0.8689,
+          "recall@5": 0.9344,
+          "recall@8": 0.9508
+        },
+        "reorder": {
+          "recall@3": 0.8,
+          "recall@5": 1.0,
+          "recall@8": 1.0
+        }
+      },
+      "smallest_k_at_recall_0.95": 12,
+      "schema_reduction_at_that_k": 0.803,
+      "p50_ms": 68.91,
+      "p95_ms": 80.35
+    },
+    "hint": "INCONCLUSIVE",
+    "notes": [
+      "preselect() keeps its fallback invariant: on any miss or abstain the full set ships"
+    ],
+    "blocked_reason": "",
+    "fixture": {
+      "scenarios_sha": "c15788c368aeec29",
+      "n": 93,
+      "tools": 61
+    },
+    "identity": "google/embeddinggemma-2@914f7f89142e:768d",
+    "seconds": 7.18
+  }
+]

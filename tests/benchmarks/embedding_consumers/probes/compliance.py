@@ -14,19 +14,17 @@ from portal.platform.embedding.contract import Role, Task
 from ..framework import (
     MEASURED,
     REPO_ROOT,
-    REPORTS_DIR,
     ProbeContext,
     ProbeResult,
     blocked,
     compare,
     fixture_digest,
-    mrr,
     probe,
-    recall_at_k,
     top_k_by_cosine,
 )
 
 DATA = REPO_ROOT / "portal" / "modules" / "compliance" / "data"
+TEST_DATA = REPO_ROOT / "tests" / "data" / "embedding_consumers"
 _PARAM = re.compile(r"\{\{[^}]*\}\}")
 
 
@@ -36,9 +34,16 @@ def _clean(t: str) -> str:
 
 @probe("compliance_crosswalk")
 async def crosswalk(ctx: ProbeContext) -> ProbeResult:
+    """Both arms scored against NIST's official CSF 2.0 -> SP 800-53 Rev 5 informative references
+    (tests/data/embedding_consumers/csf2_to_80053r5_official.json): the incumbent is the hand seed in
+    crosswalk.json, the candidate is EG2 SEARCH top-k over the 800-53 catalog."""
     cw = json.loads((DATA / "crosswalk.json").read_text())["mappings"]
     csf = json.loads((DATA / "csf_2_0.json").read_text())["controls"]
     nist = json.loads((DATA / "nist_800_53_rev5.json").read_text())["controls"]
+    official = json.loads((TEST_DATA / "csf2_to_80053r5_official.json").read_text())["mappings"]
+    subs = [c for c in sorted(official) if c in csf and csf[c].get("statement")]
+    gold = [set(official[c]) for c in subs]
+    seed = {k.split(":", 1)[1]: set(v["nist_800_53"]) for k, v in cw.items()}
     ids = list(nist)
     texts = [
         f"{k} {nist[k].get('title', '')} {nist[k].get('family', '')}: {_clean(nist[k].get('statement', ''))}"[
@@ -48,68 +53,47 @@ async def crosswalk(ctx: ProbeContext) -> ProbeResult:
     ]
     dv = await ctx.client.embed_texts(texts, task=Task.SEARCH, role=Role.DOCUMENT, dim=768)
     docs = dict(zip(ids, dv, strict=True))
-    seeded = [
-        (k.split(":", 1)[1], v["nist_800_53"]) for k, v in cw.items() if k.split(":", 1)[1] in csf
-    ]
-    q = [f"{csf[c].get('title', '')}: {csf[c].get('statement', '')}" for c, _ in seeded]
-    qv = await ctx.client.embed_texts(q, task=Task.SEARCH, role=Role.QUERY, dim=768)
+    qv = await ctx.client.embed_texts(
+        [f"{c}: {csf[c]['statement']}" for c in subs], task=Task.SEARCH, role=Role.QUERY, dim=768
+    )
     ranked = [top_k_by_cosine(v, docs, 10) for v in qv]
-    gold = [[g for g in tg if g in nist] for _, tg in seeded]
 
-    # a seeded target may be a control enhancement/parent: also credit family-parent matches
-    def parent(c: str) -> str:
-        return c.split("(", 1)[0]
-
-    ranked_parent = [[parent(x) for x in r] for r in ranked]
-    gold_parent = [[parent(g) for g in gs] for gs in gold]
-    r5 = round(recall_at_k(ranked, gold, 5), 4)
-    r5p = round(recall_at_k(ranked_parent, gold_parent, 5), 4)
-    # proposals for CSF subcategories the seed does not cover (never written to crosswalk.json)
-    seeded_ids = {c for c, _ in seeded}
-    todo = [c for c, v in csf.items() if c not in seeded_ids and "." in c and v.get("statement")][
-        :400
-    ]
-    pq = await ctx.client.embed_texts(
-        [f"{csf[c].get('title', '')}: {csf[c]['statement']}" for c in todo],
-        task=Task.SEARCH,
-        role=Role.QUERY,
-        dim=768,
-    )
-    proposals = {
-        c: [{"nist_800_53": t, "rank": i + 1} for i, t in enumerate(top_k_by_cosine(v, docs, 5))]
-        for c, v in zip(todo, pq, strict=True)
-    }
-    out = REPORTS_DIR / "crosswalk_proposals.json"
-    out.parent.mkdir(parents=True, exist_ok=True)
-    out.write_text(
-        json.dumps(
-            {
-                "_note": "PROPOSALS ONLY - never merged into crosswalk.json; EG2 SEARCH top-5 per unmapped CSF 2.0 subcategory",
-                "proposals": proposals,
-            },
-            indent=1,
+    def arm(pred: list[set[str]]) -> dict[str, float]:
+        n = len(subs)
+        hit = sum(bool(p & g) for p, g in zip(pred, gold, strict=True)) / n
+        offered = [p for p in pred if p]
+        prec = (
+            sum(len(p & g) / len(p) for p, g in zip(pred, gold, strict=True) if p) / len(offered)
+            if offered
+            else 0.0
         )
-    )
+        rec = sum(len(p & g) / len(g) for p, g in zip(pred, gold, strict=True)) / n
+        return {
+            "subcategory_hit_rate": round(hit, 4),
+            "coverage": round(len(offered) / n, 4),
+            "precision": round(prec, 4),
+            "pair_recall": round(rec, 4),
+        }
+
+    inc = arm([seed.get(c, set()) for c in subs])
+    cand5 = arm([set(r[:5]) for r in ranked])
+    cand10 = arm([set(r[:10]) for r in ranked])
     return ProbeResult(
         "compliance_crosswalk",
         MEASURED,
-        {
-            "primary": 1.0,
-            "note": "the hand-curated 35-row seed is the reference (recall 1.0 by definition); it covers a small part of CSF 2.0",
+        {"primary": inc["subcategory_hit_rate"], **inc, "seed_rows": len(seed)},
+        {"primary": cand5["subcategory_hit_rate"], "top5": cand5, "top10": cand10},
+        compare(inc["subcategory_hit_rate"], cand5["subcategory_hit_rate"]),
+        fixture={
+            "subcategories": len(subs),
+            "official_pairs": sum(map(len, gold)),
+            "catalog": len(ids),
+            "sha": fixture_digest(official),
         },
-        {
-            "primary": r5,
-            "recall@5_parent_credit": r5p,
-            "mrr": round(mrr(ranked, gold), 4),
-            "recall@1": round(recall_at_k(ranked, gold, 1), 4),
-            "proposals_written": len(proposals),
-            "proposals_path": str(out.relative_to(REPO_ROOT)),
-        },
-        "INCONCLUSIVE",
-        fixture={"seed_rows": len(seeded), "targets": len(ids), "sha": fixture_digest(seeded)},
         identity=await ctx.client.version_tag(768),
         notes=[
-            "seed recall@5 measures whether EG2 would have found the curated mappings; proposals are for human review"
+            "primary = share of CSF 2.0 subcategories (with official 800-53 references) for which the arm offers at least one officially mapped control: seed rows vs EG2 top-5",
+            "precision = share of offered controls that NIST maps; EG2 proposals stay review-only (never merged into crosswalk.json)",
         ],
     )
 
@@ -233,6 +217,21 @@ async def retrieval(ctx: ProbeContext) -> ProbeResult:  # noqa: C901, PLR0912, P
             "incumbent_mrr": round(sum(1 / r for r in inc_ranks) / len(inc_ranks), 4),
             "candidate_mrr": round(sum(1 / r for r in cand_ranks) / len(cand_ranks), 4),
         }
+        # reranker retirement: EG2 dense top-20 re-ordered by the VL reranker vs EG2 dense alone,
+        # on a sample (the rerank is ~seconds per query)
+        n_rr = min(len(targets), int(ctx.opt("compliance_rerank_sample", 100)))
+        rr_dense, rr_rerank = [], []
+        for i in range(n_rr):
+            pool = np.argsort(-(cd @ cq[i]))[:20].tolist()
+            order = await vl.vl_rerank(qtext[i], [{"text": ctext[j]} for j in pool], len(pool))
+            reranked = [ids[pool[o["index"]]] for o in order]
+            rr_rerank.append(targets[i]["section_id"] in reranked[:top])
+            rr_dense.append(targets[i]["section_id"] in [ids[j] for j in pool[:top]])
+        out[name]["eg2_dense_vs_dense_plus_vl_rerank"] = {
+            "queries": n_rr,
+            f"dense_top{top}": round(sum(rr_dense) / n_rr, 4),
+            f"dense_plus_rerank_top{top}": round(sum(rr_rerank) / n_rr, 4),
+        }
         if name == "requirements":
             # candidate_links pool overlap: dense top-40 pool (RERANK_POOL) of each embedder, per requirement query
             ov = []
@@ -254,7 +253,11 @@ async def retrieval(ctx: ProbeContext) -> ProbeResult:  # noqa: C901, PLR0912, P
         {
             "primary": cand_p,
             **{
-                k: {kk: vv for kk, vv in v.items() if kk.startswith("candidate")}
+                k: {
+                    kk: vv
+                    for kk, vv in v.items()
+                    if kk.startswith("candidate") or kk.startswith("eg2_")
+                }
                 for k, v in out.items()
             },
         },

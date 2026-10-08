@@ -1,0 +1,71 @@
+[
+  {
+    "consumer": "compliance_retrieval",
+    "status": "MEASURED",
+    "incumbent": {
+      "primary": 0.816,
+      "requirements": {
+        "targets": 102,
+        "corpus": 102,
+        "incumbent_top3": 1.0,
+        "candidate_top3": 1.0,
+        "incumbent_mrr": 0.9902,
+        "candidate_mrr": 0.9951,
+        "eg2_dense_vs_dense_plus_vl_rerank": {
+          "queries": 60,
+          "dense_top3": 1.0,
+          "dense_plus_rerank_top3": 0.9833
+        },
+        "dense_pool40_overlap_mean": 0.6691
+      },
+      "operator": {
+        "targets": 250,
+        "corpus": 650,
+        "incumbent_top5": 0.632,
+        "candidate_top5": 0.62,
+        "incumbent_mrr": 0.5676,
+        "candidate_mrr": 0.5137,
+        "eg2_dense_vs_dense_plus_vl_rerank": {
+          "queries": 60,
+          "dense_top5": 0.5833,
+          "dense_plus_rerank_top5": 0.7167
+        }
+      },
+      "metric_note": "mean of requirement top-3 and operator top-5 findability"
+    },
+    "candidate": {
+      "primary": 0.81,
+      "requirements": {
+        "candidate_top3": 1.0,
+        "candidate_mrr": 0.9951,
+        "eg2_dense_vs_dense_plus_vl_rerank": {
+          "queries": 60,
+          "dense_top3": 1.0,
+          "dense_plus_rerank_top3": 0.9833
+        }
+      },
+      "operator": {
+        "candidate_top5": 0.62,
+        "candidate_mrr": 0.5137,
+        "eg2_dense_vs_dense_plus_vl_rerank": {
+          "queries": 60,
+          "dense_top5": 0.5833,
+          "dense_plus_rerank_top5": 0.7167
+        }
+      }
+    },
+    "hint": "PARITY",
+    "notes": [
+      "A/B on a scratch corpus built from the compliance store's own section text (both embedders index identical text; the production lance tables compliance_nerc_corpus / compliance_operator_corpus are not built on this host)",
+      "candidate_links.DEFAULT_THRESHOLD (0.5) is a VL RERANK-score threshold; the reranker stays on :8942, so the threshold does not move with the embedder. Only the dense pool changes: see dense_pool40_overlap_mean"
+    ],
+    "blocked_reason": "",
+    "fixture": {
+      "requirements_sample": 250,
+      "operator_sample": 250,
+      "sha": "c1b8ef387516cd3d"
+    },
+    "identity": "google/embeddinggemma-2@914f7f89142e:768d",
+    "seconds": 573.09
+  }
+]

@@ -1,0 +1,46 @@
+[
+  {
+    "consumer": "ics_advisories",
+    "status": "MEASURED",
+    "incumbent": {
+      "primary": 0.5282,
+      "product_string": {
+        "recall@1": 0.4615,
+        "recall@5": 0.9231,
+        "mrr": 0.6199
+      },
+      "description_only": {
+        "recall@1": 0.0,
+        "recall@5": 0.1333,
+        "mrr": 0.0283
+      }
+    },
+    "candidate": {
+      "primary": 1.0,
+      "product_string": {
+        "recall@1": 0.9615,
+        "recall@5": 1.0,
+        "mrr": 0.9808
+      },
+      "description_only": {
+        "recall@1": 0.9667,
+        "recall@5": 1.0,
+        "mrr": 0.9833
+      }
+    },
+    "hint": "BETTER",
+    "notes": [
+      "primary = mean recall@5 over both query forms; corpus is only 30 advisories (the feed's cap), so treat absolute values as indicative and the product_string/description_only SPLIT as the finding",
+      "DEFECT FOUND (independent of the embedder): the feed vulnintel_mcp.ics_advisories pulls, https://www.cisa.gov/cybersecurity-advisories/all.json, returns HTTP 404 \u2014 the live tool returns an error for every call. The ICS RSS feed (https://www.cisa.gov/cybersecurity-advisories/ics-advisories.xml) is the working source",
+      "the asset side still has no product field: icsot asset_inventory emits host/protocol/role hints only, which is why description_only (identity tokens stripped) is the production-realistic form"
+    ],
+    "blocked_reason": "",
+    "fixture": {
+      "advisories": 30,
+      "corpus": "live CISA ICS advisory feed (RSS caps at 30 most recent)",
+      "sha": "c623f9744d301d6e"
+    },
+    "identity": "google/embeddinggemma-2@914f7f89142e:768d",
+    "seconds": 3.61
+  }
+]

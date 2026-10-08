@@ -19,6 +19,7 @@ import time
 from collections.abc import Awaitable, Callable
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
+from xml.etree import ElementTree
 
 from mcp.server import MCPServer
 from starlette.requests import Request
@@ -52,7 +53,9 @@ _route: Callable[
 _NVD = "https://services.nvd.nist.gov/rest/json/cves/2.0"
 _EPSS = "https://api.first.org/data/v1/epss"
 _KEV = "https://www.cisa.gov/sites/default/files/feeds/known_exploited_vulnerabilities.json"
-_ICSA = "https://www.cisa.gov/cybersecurity-advisories/all.json"
+# CISA retired the JSON advisory index (all.json returns 404); the ICS advisory RSS feed is
+# the live source. It carries the 30 most recent advisories, titled "<vendor> <product>".
+_ICSA = "https://www.cisa.gov/cybersecurity-advisories/ics-advisories.xml"
 _OSV = "https://api.osv.dev/v1/query"
 _THREATFOX = "https://threatfox-api.abuse.ch/api/v1/"
 _GREYNOISE = "https://api.greynoise.io/v3/community/"
@@ -260,28 +263,33 @@ def ics_advisories(vendor: str = "", days: int = 30) -> dict[str, Any]:
     """
     t0 = time.time()
     try:
-        r = _http().get(_ICSA)
+        # CISA's WAF 403s this feed unless the request carries conventional content-negotiation
+        # headers; it also 403s a browser-claiming User-Agent from a non-browser client, so the
+        # module's own honest UA is kept and only Accept/Accept-Language are added.
+        r = _http().get(
+            _ICSA,
+            headers={
+                "Accept": "application/rss+xml,application/xml;q=0.9,*/*;q=0.8",
+                "Accept-Language": "en-US,en;q=0.9",
+            },
+        )
         r.raise_for_status()
-        items = r.json()
-        rows = items if isinstance(items, list) else items.get("advisories", items.get("data", []))
+        root = ElementTree.fromstring(r.text)
         out = []
-        for a in rows:
-            if not isinstance(a, dict):
-                continue
-            atype = str(a.get("type") or a.get("advisoryType") or "")
-            title = a.get("title") or a.get("name") or ""
-            is_ics = "ics" in atype.lower() or str(a.get("id", "")).upper().startswith("ICS")
-            # when the feed is the combined advisories list, keep only the ICS family
-            if atype and not is_ics:
-                continue
+        for item in root.findall(".//item"):
+            title = (item.findtext("title") or "").strip()
+            link = (item.findtext("link") or "").strip()
             if vendor and vendor.lower() not in title.lower():
                 continue
+            summary = re.sub(r"<[^>]+>", " ", item.findtext("description") or "")
+            summary = re.sub(r"\s+", " ", summary).replace("View CSAF", "").strip()
             out.append(
                 {
-                    "id": a.get("id") or a.get("advisoryId"),
+                    "id": link.rstrip("/").split("/")[-1].upper(),
                     "title": title[:160],
-                    "released": a.get("released") or a.get("date") or a.get("published"),
-                    "url": a.get("url") or a.get("link"),
+                    "released": (item.findtext("pubDate") or "").strip(),
+                    "url": link,
+                    "summary": summary[:400],
                 }
             )
         _audit("ics_advisories", {"vendor": vendor, "days": days}, time.time() - t0, "ok")

@@ -98,3 +98,14 @@ async def test_router_probe_runs_or_blocks_honestly() -> None:
     assert res.status in (fw.MEASURED, fw.BLOCKED), res.notes
     if res.status == fw.BLOCKED:
         assert "retired workspace ids" in res.blocked_reason or "leakage" in res.blocked_reason
+
+
+def test_rag_gate_quantile_match_gates_the_same_share() -> None:
+    from tests.benchmarks.embedding_consumers.probes.rag import _matched_gate
+
+    inc = [0.50, 0.60, 0.70, 0.80]  # 0.72 gates 3 of 4
+    cand = [0.65, 0.74, 0.78, 0.90]  # shifted scale
+    tau = _matched_gate(inc, cand, 0.72)
+    assert sum(s < tau for s in cand) == 3
+    assert _matched_gate([0.9], [0.8], 0.72) < 0.8  # gates none
+    assert _matched_gate([0.1], [0.8], 0.72) > 0.8  # gates all

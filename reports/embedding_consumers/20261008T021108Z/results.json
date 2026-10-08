@@ -1,0 +1,43 @@
+[
+  {
+    "consumer": "compliance_crosswalk",
+    "status": "MEASURED",
+    "incumbent": {
+      "primary": 0.3019,
+      "subcategory_hit_rate": 0.3019,
+      "coverage": 0.3302,
+      "precision": 0.6857,
+      "pair_recall": 0.116,
+      "seed_rows": 35
+    },
+    "candidate": {
+      "primary": 0.5755,
+      "top5": {
+        "subcategory_hit_rate": 0.5755,
+        "coverage": 1.0,
+        "precision": 0.1623,
+        "pair_recall": 0.2202
+      },
+      "top10": {
+        "subcategory_hit_rate": 0.6981,
+        "coverage": 1.0,
+        "precision": 0.1283,
+        "pair_recall": 0.312
+      }
+    },
+    "hint": "BETTER",
+    "notes": [
+      "primary = share of CSF 2.0 subcategories (with official 800-53 references) for which the arm offers at least one officially mapped control: seed rows vs EG2 top-5",
+      "precision = share of offered controls that NIST maps; EG2 proposals stay review-only (never merged into crosswalk.json)"
+    ],
+    "blocked_reason": "",
+    "fixture": {
+      "subcategories": 106,
+      "official_pairs": 738,
+      "catalog": 1196,
+      "sha": "5ee97ef222118ce8"
+    },
+    "identity": "google/embeddinggemma-2@914f7f89142e:768d",
+    "seconds": 22.5
+  }
+]

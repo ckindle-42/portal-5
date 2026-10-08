@@ -1,0 +1,46 @@
+[
+  {
+    "consumer": "vuln_severity",
+    "status": "MEASURED",
+    "incumbent": {
+      "primary": 0.5183,
+      "accuracy": 0.5333,
+      "model": "CIRCL/vulnerability-severity-classification-roberta-base",
+      "revision": "321fe6288a43"
+    },
+    "candidate": {
+      "primary": 0.428,
+      "accuracy": 0.4292,
+      "head": "standardized logistic regression (C by 5-fold CV) on EG2 CLASSIFICATION 768d",
+      "train": 1200,
+      "test": 240
+    },
+    "hint": "WORSE",
+    "notes": [
+      "test CVEs published after the incumbent's training data ends (2026-08-28), so neither arm has seen them; EG2 head trained on 2024-2025 NVD CVEs",
+      "labels = NVD cvssMetricV31 baseSeverity (primary or CNA score); the incumbent was fine-tuned on ~600k CVEs, the EG2 head on the train split only"
+    ],
+    "blocked_reason": "",
+    "fixture": {
+      "train_per_class": {
+        "LOW": 300,
+        "MEDIUM": 300,
+        "HIGH": 300,
+        "CRITICAL": 300
+      },
+      "test_per_class": {
+        "LOW": 60,
+        "MEDIUM": 60,
+        "HIGH": 60,
+        "CRITICAL": 60
+      },
+      "test_window": [
+        "2026-08-29T00:00:00.000",
+        "2026-10-06T00:00:00.000"
+      ],
+      "sha": "a0266430d1f8b7ce"
+    },
+    "identity": "google/embeddinggemma-2@914f7f89142e:768d",
+    "seconds": 752.27
+  }
+]

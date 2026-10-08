@@ -1,0 +1,73 @@
+[
+  {
+    "consumer": "field_journal",
+    "status": "MEASURED",
+    "incumbent": {
+      "primary": 1.0,
+      "arm": "field_journal.recall keyword-occurrence count over the entry JSON blob",
+      "returned_sets": [
+        [
+          "sec-bench-20260701T092527Z",
+          "sec-bench-20260701T095603Z",
+          "sec-bench-20260701T103132Z"
+        ],
+        [
+          "sec-bench-20260701T092527Z",
+          "sec-bench-20260701T095603Z",
+          "sec-bench-20260701T103132Z"
+        ],
+        [
+          "sec-bench-20260701T092527Z",
+          "sec-bench-20260701T095603Z",
+          "sec-bench-20260701T103132Z"
+        ]
+      ]
+    },
+    "candidate": {
+      "primary": 1.0,
+      "arm": "EG2 SEARCH 768d cosine over the same entry JSON",
+      "returned_sets": [
+        [
+          "sec-bench-20260701T095603Z",
+          "sec-bench-20260701T103132Z",
+          "sec-bench-20260701T092527Z"
+        ],
+        [
+          "sec-bench-20260701T103132Z",
+          "sec-bench-20260701T095603Z",
+          "sec-bench-20260701T092527Z"
+        ],
+        [
+          "sec-bench-20260701T095603Z",
+          "sec-bench-20260701T103132Z",
+          "sec-bench-20260701T092527Z"
+        ]
+      ],
+      "result_sets_identical_to_incumbent": true
+    },
+    "hint": "PARITY",
+    "notes": [
+      "DEGENERATE BY SIZE: 3 entries <= limit 5, so every query returns every entry under both arms (verified identical: True). Recall@5 is 1.0 for both by construction, and discrimination is undefined",
+      "the entries also carry no retrievable content: {'execution_chain': 0, 'pitfalls': 0, 'reusable': 0, 'verified_findings': 0} \u2014 the write-back path has recorded only failed engagements with empty chains",
+      "consequence for the Phase 4 decision: this consumer can neither support nor block the swap. The transformation it would adopt (substring/keyword -> embedding retrieval over short security text records) is measured under spl_library and attack_mapping on real corpora",
+      "re-measure once the journal exceeds the recall limit with non-empty execution_chain/pitfalls entries"
+    ],
+    "blocked_reason": "",
+    "fixture": {
+      "entries": 3,
+      "limit": 5,
+      "categories": [
+        "general"
+      ],
+      "retrievable_content_items": {
+        "execution_chain": 0,
+        "pitfalls": 0,
+        "reusable": 0,
+        "verified_findings": 0
+      },
+      "sha": "c7ac9a1c3531ebb8"
+    },
+    "identity": "google/embeddinggemma-2@914f7f89142e:768d",
+    "seconds": 0.42
+  }
+]

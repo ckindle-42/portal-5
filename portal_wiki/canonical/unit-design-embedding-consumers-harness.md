@@ -45,6 +45,8 @@ sources:
   path: tests/benchmarks/embedding_consumers/probes/tool_preselect.py
 - type: code
   path: tests/benchmarks/embedding_consumers/probes/wiki_search.py
+- type: data
+  path: tests/data/embedding_consumers/csf2_to_80053r5_official.json
 claims: []
 confidence: high
 tags:
@@ -73,3 +75,28 @@ Fixtures live under `tests/data/embedding_consumers/` and follow the no-leakage,
 paraphrase-overlap and provenance rules from the task file; a probe with leakage is BLOCKED. The harness exists because the migration decision is per consumer and
 evidence-based: each consumer is adopted, rejected or deferred only after its own measured comparison, so a
 single shared yardstick keeps the incumbent and the candidate on identical inputs.
+
+## Comparison validity
+
+A measured number is only evidence about the embedder if the two arms differ in nothing else. Six
+rules, each of which a probe in this harness got wrong once and now encodes:
+
+* **Re-derive every calibrated threshold per space.** A cutoff fitted to the incumbent's score
+  distribution measures the cutoff, not the candidate. `rag_first_stage` reusing the incumbent's
+  `VL_TEXT_GATE` suppressed the visual boost for most diagram queries; the candidate gets a
+  label-free quantile-matched gate (same share of queries gated) and the incumbent-gate run is kept
+  as a diagnostic. `bully_projection`'s derived thresholds are reported per arm for the same reason.
+* **Compare the same pipeline stage.** Dense-vs-dense or reranked-vs-reranked, never one of each —
+  `owui_attachment_rag` scored EG2-with-rerank against the incumbent-without.
+* **A fine-tuned incumbent needs a post-training test sample.** `vuln_severity`'s incumbent is
+  retrained on public CVE data continuously, so the test window opens after the pinned local
+  revision's training cutoff and the probe BLOCKS if that revision moves.
+* **Call the incumbent as production calls it.** Where production sends raw text (graph memory, the
+  Bully Organ), the incumbent arm sends raw text; adding a prefix the live caller does not send
+  measures a hypothetical, not the thing being replaced.
+* **Prefer external gold over the artifact under test.** `compliance_crosswalk` scores both arms
+  against NIST's own CSF 2.0 -> SP 800-53 Rev 5 informative references, so the hand-curated seed is
+  no longer its own reference at 1.0.
+* **Degeneracy is a measurement, not a block.** When a corpus is smaller than the consumer's own
+  result limit every query returns everything, so both arms are provably identical; `field_journal`
+  reports that with the identity verified rather than declining to measure.

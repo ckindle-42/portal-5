@@ -1,0 +1,232 @@
+[
+  {
+    "consumer": "rag_first_stage",
+    "status": "MEASURED",
+    "incumbent": {
+      "primary": 0.9044,
+      "recall@1": 0.9044,
+      "recall@5": 0.9764,
+      "mrr": 0.9438,
+      "by_category": {
+        "diagram_only": {
+          "n": 21,
+          "recall@1": 0.952,
+          "recall@5": 1.0,
+          "mrr": 0.976,
+          "latency_s_median": 26.61,
+          "latency_s_mean": 26.61
+        },
+        "mixed": {
+          "n": 5,
+          "recall@1": 1.0,
+          "recall@5": 1.0,
+          "mrr": 1.0,
+          "latency_s_median": 26.84,
+          "latency_s_mean": 26.84
+        },
+        "prose_only": {
+          "n": 16,
+          "recall@1": 0.812,
+          "recall@5": 0.938,
+          "mrr": 0.884,
+          "latency_s_median": 26.76,
+          "latency_s_mean": 26.76
+        }
+      },
+      "ingest_s": 1080.0,
+      "chunks": 1628,
+      "pages": 435,
+      "queries": 42,
+      "gate": 0.72,
+      "first_stage": {
+        "top_text_sims": [
+          0.5931,
+          0.6237,
+          0.6036,
+          0.7191,
+          0.5925,
+          0.6525,
+          0.5848,
+          0.555,
+          0.6732,
+          0.6257,
+          0.6916,
+          0.5085,
+          0.539,
+          0.4774,
+          0.4806,
+          0.711,
+          0.714,
+          0.5832,
+          0.4981,
+          0.7684,
+          0.6474,
+          0.7085,
+          0.7592,
+          0.7779,
+          0.7291,
+          0.8009,
+          0.8183,
+          0.8008,
+          0.7363,
+          0.7712,
+          0.7303,
+          0.7516,
+          0.7398,
+          0.7744,
+          0.7828,
+          0.7571,
+          0.715,
+          0.7776,
+          0.671,
+          0.7305,
+          0.7146,
+          0.5211
+        ],
+        "recall@5_by_category": {
+          "diagram_only": 1.0,
+          "prose_only": 1.0,
+          "mixed": 1.0
+        }
+      }
+    },
+    "candidate": {
+      "primary": 0.8814,
+      "recall@1": 0.8814,
+      "recall@5": 1.0,
+      "mrr": 0.9407,
+      "by_category": {
+        "diagram_only": {
+          "n": 21,
+          "recall@1": 0.81,
+          "recall@5": 1.0,
+          "mrr": 0.905,
+          "latency_s_median": 26.76,
+          "latency_s_mean": 26.71
+        },
+        "mixed": {
+          "n": 5,
+          "recall@1": 1.0,
+          "recall@5": 1.0,
+          "mrr": 1.0,
+          "latency_s_median": 27.04,
+          "latency_s_mean": 27.06
+        },
+        "prose_only": {
+          "n": 16,
+          "recall@1": 0.938,
+          "recall@5": 1.0,
+          "mrr": 0.969,
+          "latency_s_median": 26.82,
+          "latency_s_mean": 26.85
+        }
+      },
+      "ingest_s": null,
+      "chunks": null,
+      "pages": null,
+      "queries": 42,
+      "gate": 0.7881,
+      "first_stage": {
+        "top_text_sims": [
+          0.775,
+          0.8039,
+          0.7573,
+          0.7479,
+          0.732,
+          0.7649,
+          0.6874,
+          0.6748,
+          0.8015,
+          0.7328,
+          0.7625,
+          0.7032,
+          0.6751,
+          0.6546,
+          0.6733,
+          0.758,
+          0.777,
+          0.745,
+          0.6956,
+          0.8476,
+          0.7908,
+          0.7855,
+          0.7672,
+          0.8305,
+          0.8106,
+          0.843,
+          0.8158,
+          0.8772,
+          0.7825,
+          0.8317,
+          0.8257,
+          0.832,
+          0.8209,
+          0.8223,
+          0.843,
+          0.798,
+          0.8433,
+          0.7506,
+          0.756,
+          0.7646,
+          0.7756,
+          0.6828
+        ],
+        "recall@5_by_category": {
+          "diagram_only": 1.0,
+          "prose_only": 1.0,
+          "mixed": 1.0
+        }
+      },
+      "at_incumbent_gate_0.72": {
+        "recall@1": 0.5951,
+        "recall@5": 1.0,
+        "mrr": 0.798,
+        "by_category": {
+          "diagram_only": {
+            "n": 21,
+            "recall@1": 0.333,
+            "recall@5": 1.0,
+            "mrr": 0.667,
+            "latency_s_median": 26.84,
+            "latency_s_mean": 26.95
+          },
+          "mixed": {
+            "n": 5,
+            "recall@1": 0.8,
+            "recall@5": 1.0,
+            "mrr": 0.9,
+            "latency_s_median": 26.88,
+            "latency_s_mean": 26.88
+          },
+          "prose_only": {
+            "n": 16,
+            "recall@1": 0.875,
+            "recall@5": 1.0,
+            "mrr": 0.938,
+            "latency_s_median": 26.85,
+            "latency_s_mean": 26.85
+          }
+        },
+        "ingest_s": 315.5,
+        "chunks": 1628,
+        "pages": 435,
+        "queries": 42
+      }
+    },
+    "hint": "WORSE",
+    "notes": [
+      "primary = fused recall@1 over all categories; final ranking is after the VL rerank in both arms (the reranker is unchanged)",
+      "candidate gate = label-free quantile match of the incumbent's 0.72 onto EG2's top-text-sim distribution; the 0.72 run is kept as a diagnostic",
+      "first_stage = target file in the raw top-5 text or visual rows, before fusion/rerank"
+    ],
+    "blocked_reason": "",
+    "fixture": {
+      "docs": 23,
+      "queries": 42,
+      "corpus": "manifest public (13 NERC CIP + NIST 800-82r3 arch slice) + 9 synthetic figure-only PDFs; operator internal distractors not on this host",
+      "sha": "8334366711976113"
+    },
+    "identity": "google/embeddinggemma-2@914f7f89142e:768d",
+    "seconds": 4782.75
+  }
+]
