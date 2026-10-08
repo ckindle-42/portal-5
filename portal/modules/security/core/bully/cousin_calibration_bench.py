@@ -740,7 +740,12 @@ def load_specimen_corpus(path: Path) -> dict[str, Any]:
     corpus = json.loads(path.read_text(encoding="utf-8"))
     if not isinstance(corpus, dict):
         raise ValueError("not a JSON-object SPECIMEN_CORPUS artifact")
-    if corpus.get("schema") not in {"SPECIMEN_CORPUS_V1", "SPECIMEN_CORPUS_V2"}:
+    # V3 is V2 plus artifacts.behavior_values (scripts/build_specimen_corpus_v3.py).
+    if corpus.get("schema") not in {
+        "SPECIMEN_CORPUS_V1",
+        "SPECIMEN_CORPUS_V2",
+        "SPECIMEN_CORPUS_V3",
+    }:
         raise ValueError("not a supported SPECIMEN_CORPUS artifact")
     observed_hash = hashlib.sha256(_canonical(corpus.get("specimens") or []).encode()).hexdigest()
     if observed_hash != corpus.get("snapshot_hash"):
@@ -1489,7 +1494,7 @@ def score_baseline(
             by_parent.setdefault(row["parent_id"], []).append(row)
     failures["non_monotonic"] = _find_non_monotonic(by_parent, monotonic_tolerance)
     passed = not any(failures.values()) and not unresolved and not indeterminate
-    is_v2 = corpus["schema"] == "SPECIMEN_CORPUS_V2"
+    is_v2 = corpus["schema"] in {"SPECIMEN_CORPUS_V2", "SPECIMEN_CORPUS_V3"}
     characterization = _characterize_baseline(rows, failures) if is_v2 else {}
     controls = controls or {"passed": True}
     controls_passed = bool(controls.get("passed"))

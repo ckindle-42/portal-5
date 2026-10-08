@@ -12,6 +12,8 @@ from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
 from typing import Any, Protocol
 
+from .behavior_values import behavior_values
+
 Record = dict[str, Any] | str
 
 _EVENT_CODE = re.compile(r"(?:EventCode|EventID)\s*[=:]\s*([A-Za-z0-9_.-]+)")
@@ -478,7 +480,13 @@ def adapt(
     without a flag day while the canonical contract is now ``records``.
     """
     meta = source_meta or {}
-    return adapter_for(
+    recs = _records(records, raw_events)
+    view = adapter_for(
         str(meta.get("sourcetype") or meta.get("source_id") or ""),
         record_class=meta.get("record_class") or meta.get("source_class"),
-    ).adapt(_records(records, raw_events), meta)
+    ).adapt(recs, meta)
+    # Every class carries the values that describe its behavior, not only its schema.
+    terms = behavior_values(recs)
+    if terms:
+        view["artifacts"] = {**(view.get("artifacts") or {}), "behavior_values": terms}
+    return view

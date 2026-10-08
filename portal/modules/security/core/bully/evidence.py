@@ -25,6 +25,7 @@ from ..telemetry import (
     OBSERVED_EVIDENCE_ORIGINS,
     evidence_trust_tier,
 )
+from .behavior_values import behavior_values
 
 SHADOW_FLAGS = ("off", "shadow", "authoritative")
 
@@ -234,6 +235,7 @@ def adapt_episode_telemetry(episode: Any) -> dict[str, Any]:
         if isinstance(event, dict):
             observed_fields.update(str(key) for key in event)
     techniques = sorted({item for payload in payloads for item in _technique_ids(payload)})
+    terms = behavior_values(event for _source, event in flattened)
 
     detector_outcomes: dict[str, str] = {}
     detection_status = str(getattr(episode, "detection_status", ""))
@@ -255,7 +257,10 @@ def adapt_episode_telemetry(episode: Any) -> dict[str, Any]:
             "family": scenario,
             "source_classes": sorted(telemetry),
         },
-        "artifacts": {"observed_fields": sorted(observed_fields)[:24]} if observed_fields else {},
+        "artifacts": {
+            **({"observed_fields": sorted(observed_fields)[:24]} if observed_fields else {}),
+            **({"behavior_values": terms} if terms else {}),
+        },
         "attack_mappings": [{"technique_id": item} for item in techniques],
         "telemetry_shape": {
             "sourcetypes": sorted(telemetry),

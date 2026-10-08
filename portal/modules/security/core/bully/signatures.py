@@ -174,14 +174,26 @@ def semantic_query(signature: BehaviorSignature) -> str:
 
     The canonical fingerprint is an identity digest and deliberately never
     appears here: cryptographic hashes have no useful embedding locality.
+
+    ``content`` leads: the normalized behavior values (``bully.behavior_values``: which
+    process, command, file, registry key, service, syscall, URI) are the only part of a
+    signature an embedder can read as behavior; the action/field tokens after it are schema.
+    Signatures built before the values were captured have no ``content`` section, so their
+    text is unchanged.
     """
+    content = [str(t) for t in (signature.artifacts or {}).get("behavior_values") or ()]
     sections = (
+        ("content", content),
         ("actions", _semantic_tokens(signature.action_sequence)[:64]),
         ("parameters", _semantic_tokens(signature.parameter_families)[:64]),
         ("attack", list(attack_ids(signature))),
         ("family", [signature_family(signature)] if signature_family(signature) else []),
     )
-    query = " | ".join(f"{name}: {' '.join(tokens)}" for name, tokens in sections if tokens)
+    query = " | ".join(
+        f"{name}: {'; '.join(tokens) if name == 'content' else ' '.join(tokens)}"
+        for name, tokens in sections
+        if tokens
+    )
     return query or "behavior: unclassified telemetry"
 
 

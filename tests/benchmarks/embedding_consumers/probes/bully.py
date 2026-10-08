@@ -3,7 +3,7 @@
 ``bully_projection`` re-runs the adopted SA5 machinery (scripts/defensive_bully_p04_adoption.py
 ``run_arm``: dedup corpus -> version-tagged projection -> derived thresholds -> SA2 discovery lane
 with identity as a diagnostic) for the incumbent (Arm A, MLX Qwen3 on :8917) and EG2 as Arm D
-on the frozen SPECIMEN_CORPUS_V2. Arm D runs twice: with the EG2 contract's ``sentence similarity``
+on the frozen SPECIMEN_CORPUS_V3. Arm D runs twice: with the EG2 contract's ``sentence similarity``
 prefix (primary; a local proxy prefixes the Organ's raw ``/v1/embeddings`` calls) and raw
 (diagnostic: what a bare repoint of the Organ's URL would give). ``bully_novelty`` asks whether
 distance-to-known-centroid separates a telemetry source the index has never seen (leave-one-
@@ -37,8 +37,11 @@ from ..framework import (
 )
 from ._common import auc_roc, cos
 
+# SPECIMEN_CORPUS_V3: V2 plus the behavior values each parent's source dataset carries
+# (scripts/build_specimen_corpus_v3.py --attack-data-root ... --window 2000). V2 kept field
+# names only, so every arm was comparing schema.
 CORPUS = Path(
-    "/Volumes/data01/portal5_hunt/artifacts/specimen_corpus_sa1_v1/specimen_corpus_v2.json"
+    "/Volumes/data01/portal5_hunt/artifacts/specimen_corpus_sa1_v1/specimen_corpus_v3_final.json"
 )
 SCRATCH = Path("/Volumes/data01/portal5_scratch_eg2/bully")
 A_URL = "http://localhost:8917/v1/embeddings"

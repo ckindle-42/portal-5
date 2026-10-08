@@ -1,0 +1,132 @@
+[
+  {
+    "consumer": "bully_projection",
+    "status": "MEASURED",
+    "incumbent": {
+      "primary": 139,
+      "status": "VALID",
+      "discovery_precision": 0.403846,
+      "discovery_recall_proxy": 1.0,
+      "controls_passed": true,
+      "identity_failures": 25,
+      "thresholds": {
+        "schema": "EMBEDDING_SPACE_THRESHOLDS_V1",
+        "embedding_version": "mlx-qwen3-embed-0.6b-mxfp8",
+        "thresholds_version": "bully-cousin-thresholds-mlx-qwen3-embed-0.6b-mxfp8",
+        "same_max_distance": 0.05,
+        "similar_max_distance": 0.4799,
+        "new_max_distance": 0.931
+      }
+    },
+    "candidate": {
+      "primary": 154,
+      "status": "VALID",
+      "discovery_precision": 0.423077,
+      "discovery_recall_proxy": 1.0,
+      "controls_passed": true,
+      "identity_failures": 25,
+      "thresholds": {
+        "schema": "EMBEDDING_SPACE_THRESHOLDS_V1",
+        "embedding_version": "google/embeddinggemma-2@914f7f89142e:768d",
+        "thresholds_version": "bully-cousin-thresholds-google/embeddinggemma-2@914f7f89142e:768d",
+        "same_max_distance": 0.05,
+        "similar_max_distance": 0.4152,
+        "new_max_distance": 0.8748
+      },
+      "raw_no_prefix": {
+        "status": "VALID",
+        "discovery_precision": 0.403846,
+        "discovery_recall_proxy": 1.0,
+        "controls_passed": true,
+        "identity_failures": 25,
+        "thresholds": {
+          "schema": "EMBEDDING_SPACE_THRESHOLDS_V1",
+          "embedding_version": "google/embeddinggemma-2@914f7f89142e:768d",
+          "thresholds_version": "bully-cousin-thresholds-google/embeddinggemma-2@914f7f89142e:768d",
+          "same_max_distance": 0.05,
+          "similar_max_distance": 0.4266,
+          "new_max_distance": 0.8842
+        },
+        "related_all": 152,
+        "paired_vs_incumbent": {
+          "shared_probes": 988,
+          "incumbent_only_related": 54,
+          "candidate_only_related": 67,
+          "both_related": 85,
+          "neither_related": 782,
+          "mcnemar_exact_p": 0.2753
+        }
+      },
+      "paired_vs_incumbent": {
+        "shared_probes": 988,
+        "incumbent_only_related": 53,
+        "candidate_only_related": 68,
+        "both_related": 86,
+        "neither_related": 781,
+        "mcnemar_exact_p": 0.2029
+      },
+      "paired_discovery_band_only": {
+        "shared_probes": 52,
+        "incumbent_only_related": 5,
+        "candidate_only_related": 6,
+        "both_related": 16,
+        "neither_related": 25,
+        "mcnemar_exact_p": 1.0
+      },
+      "near_twin_4719_vs_4688_cosine": {
+        "arm-a": 0.7842,
+        "arm-d-sim": 0.8921,
+        "arm-d": 0.8551
+      }
+    },
+    "hint": "INCONCLUSIVE",
+    "notes": [
+      "primary candidate = EG2 with the contract 'sentence similarity' prefix (proxy over the Organ's raw /v1/embeddings calls); raw_no_prefix = a bare URL repoint",
+      "thresholds are derived per space by run_arm (embedding_spaces.derive_thresholds)",
+      "primary = probes whose chosen reference is truth-related, over all graded probes; the engine sees each probe with its truth labels stripped (discovery_bench.probe_signature)",
+      "hint = exact McNemar on per-probe truth_related over all shared graded probes (paired: both arms grade the same probes)"
+    ],
+    "blocked_reason": "",
+    "fixture": {
+      "deduplicated_parents": 972,
+      "corpus": "specimen_corpus_v3_final.json",
+      "sha": "a6d8041c20427a7e"
+    },
+    "identity": "google/embeddinggemma-2@914f7f89142e:768d",
+    "seconds": 761.05
+  },
+  {
+    "consumer": "bully_novelty",
+    "status": "MEASURED",
+    "incumbent": {
+      "primary": null,
+      "note": "no novelty channel exists (ANOMALOUS_UNCLASSIFIED has no ranking signal)"
+    },
+    "candidate": {
+      "primary": 1.0,
+      "metric": "mean leave-one-source-class-out AUC of nearest-neighbour distance",
+      "centroid_distance_mean_auc": 0.8704,
+      "per_class_auc": {
+        "OktaIM2:log": 1.0,
+        "linux:auditd": 1.0,
+        "web:access": 1.0,
+        "windows:powershell": 1.0,
+        "windows:security": 1.0,
+        "windows:sysmon": 1.0,
+        "windows:system": 1.0
+      }
+    },
+    "hint": "INCONCLUSIVE",
+    "notes": [
+      "proposes a ranking channel for ANOMALOUS_UNCLASSIFIED, never a verdict; 'novel' = an entire telemetry source class the index has not seen (the corpus has no benign/attack split)"
+    ],
+    "blocked_reason": "",
+    "fixture": {
+      "deduplicated_parents": 972,
+      "source_classes": 7,
+      "sha": "914371ff344affb6"
+    },
+    "identity": "google/embeddinggemma-2@914f7f89142e:768d",
+    "seconds": 4.31
+  }
+]

@@ -210,7 +210,7 @@
 | `unit-capability-filesystem` | mixed | 2 |
 | `unit-capability-git` | mixed | 2 |
 | `unit-capability-icsot` | mixed | 4 |
-| `unit-capability-memory` | mixed | 6 |
+| `unit-capability-memory` | mixed | 7 |
 | `unit-capability-mflux` | mixed | 3 |
 | `unit-capability-mitre` | mixed | 3 |
 | `unit-capability-mlx-transcribe` | mixed | 3 |
@@ -319,7 +319,7 @@
 | `unit-known-limitations-auto-math-workspace-reasoning-block-support` | what | 1 |
 | `unit-known-limitations-auto-rag-silent-miss` | what | 3 |
 | `unit-known-limitations-baronllm-text-only-tool-output-auto-security-mcp-tools-non-functional` | what | 6 |
-| `unit-known-limitations-bully-discovery-truth-leak` | what | 3 |
+| `unit-known-limitations-bully-discovery-truth-leak` | what | 5 |
 | `unit-known-limitations-cad-b3d-session` | what | 2 |
 | `unit-known-limitations-cad-brep-kernel-gaps` | what | 2 |
 | `unit-known-limitations-cadquery-and-build123d-unusable-on-linux-arm64` | what | 4 |
@@ -415,7 +415,7 @@
 | `unit-mcp-dev-tooling-tools` | what | 2 |
 | `unit-mcp-dev-tooling-what-opencode-gets` | what | 3 |
 | `unit-mcp-dev-tooling-workspace-selection` | what | 3 |
-| `unit-memory-mcp-lancedb` | mixed | 1 |
+| `unit-memory-mcp-lancedb` | mixed | 3 |
 | `unit-model-catalog-alicankiraz0-cybersecurity-baronllm-offensive-security-llm-q6-k-gguf-dropped-hf-id-only-see-baronllm-q6-k-below-for-the-fleet-entry` | what | 2 |
 | `unit-model-catalog-baronllm-q6-k` | what | 2 |
 | `unit-model-catalog-blue-red-candidate-batch-evaluated-2026-07-03-none-promoted` | what | 2 |
@@ -783,7 +783,7 @@
 ## Source Distribution
 
 - **bench-security**: 1 references
-- **code**: 2054 references
+- **code**: 2059 references
 - **config**: 1 references
 - **data**: 1 references
 - **doc**: 1 references
