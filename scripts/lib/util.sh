@@ -537,6 +537,14 @@ PY
         "netforensics-mcp" "com.portal5.netforensics-mcp" \
         "${NETFORENSICS_MCP_PORT:-8941}" "netforensics-mcp"
 
+    # ── Review MCP (host-native, :8943) ────────────────────────────────────
+    # Grounded security-review lifecycle. Host-native because it needs the lab
+    # Splunk env, the loopback embedder (:8946) and private durable storage,
+    # none of which the Docker security MCP has.
+    _ensure_native_mcp_service \
+        "review-mcp" "com.portal5.review-mcp" \
+        "${REVIEW_MCP_PORT:-8943}" "review-mcp"
+
     # ── Qwen3-VL retrieval server (host-native, :8942) ─────────────────────
     # The RAG stack's multimodal embed/rerank backend (text+image joint space).
     # Not an MCP — a FastAPI service (scripts/vl-retrieval-server.py) in the
