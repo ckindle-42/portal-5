@@ -60,8 +60,22 @@ class IntakeResult:
     blind_sources: list[str] = field(default_factory=list)
 
 
+#: The event's own identity: its content, its partition, and Splunk's stable bucket address
+#: (``_cd``). Hashing the whole record instead made the id depend on search-job metadata
+#: (``_serial`` is a per-result ordinal, ``_si``/``_bkt``/``_indextime`` vary by server and
+#: bucket state) and on search-time field extraction, so the same event came back with a
+#: different id in a later export: D-T2-TRUTH-STRATIFICATION reconciled 804 of 22,397 ids at
+#: identical row counts and rejected a stratification on that evidence.
+_IDENTITY_FIELDS = ("index", "sourcetype", "host", "source", "_time", "_raw", "_cd")
+
+
 def event_id_for(source_id: str, record: Mapping[str, Any]) -> str:
-    body = {k: v for k, v in record.items() if not str(k).startswith("__")}
+    if "_raw" in record and "_time" in record:
+        body: Mapping[str, Any] = {k: record[k] for k in _IDENTITY_FIELDS if k in record}
+    else:
+        # Not a telemetry-shaped record (capture rows, corpus-derived twins): the whole body
+        # is the identity, as before.
+        body = {k: v for k, v in record.items() if not str(k).startswith("__")}
     digest = hashlib.sha1(
         json.dumps(body, sort_keys=True, default=str).encode("utf-8"), usedforsecurity=False
     ).hexdigest()[:12]
