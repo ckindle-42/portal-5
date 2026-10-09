@@ -1,0 +1,153 @@
+{
+  "created_at": 1791553374.484849,
+  "extra": {
+    "arm_runs": [],
+    "benign_corpus_bench": {
+      "cell_count": 12,
+      "index": "portal5_lab",
+      "raw_telemetry_persisted": false,
+      "same_index_botsv_background_cells": 0
+    },
+    "decision_ids": [
+      "D-T4-SUPPRESS",
+      "D-T4-MATURE",
+      "D-T4-DEFENSE"
+    ],
+    "eligible_pairs": 0,
+    "embedder": "not used; no product review arm ran",
+    "executed": false,
+    "indexed_interval_audit": [
+      {
+        "answer_key_margin_union_outside_seconds": 0.0,
+        "corpus_event_count": 33413837,
+        "derived_answer_key_scenario_count": 5,
+        "eligible_pair_count": 0,
+        "index": "botsv1",
+        "reason": "retained answer-key interval union plus margin covers the full indexed time range"
+      },
+      {
+        "answer_key_margin_union_outside_seconds": 0.0,
+        "corpus_event_count": 226317840,
+        "derived_answer_key_scenario_count": 2,
+        "eligible_pair_count": 0,
+        "index": "botsv2",
+        "reason": "retained answer-key interval union plus margin covers the full indexed time range"
+      },
+      {
+        "answer_key_margin_union_outside_seconds": 348234441.000001,
+        "corpus_event_count": 1944677,
+        "derived_answer_key_scenario_count": 0,
+        "eligible_pair_count": 0,
+        "index": "botsv3",
+        "reason": "no fully derived answer-key interval supplies a malicious pair side"
+      }
+    ],
+    "ledger": {
+      "reason": "0/20 valid pairs; all arms were skipped before product execution",
+      "status": "not_measured"
+    },
+    "minimum_pairs": 20,
+    "raw_telemetry_persisted": false,
+    "source_artifacts": {
+      "t1_report": "reports/review_eval/6a29bc97d0fd3b97/truth_derivation.json",
+      "t2_report": "reports/review_eval/90890b3c9418457c/truth_stratification.json",
+      "truth_manifest": "reports/review_eval/bots_truth_manifest.json",
+      "truth_manifest_sha256": "4bf90b1a9ab892a8b7ae80f7c55707605f478bc5861d4a04d0958fe2e37ac9b5"
+    },
+    "status": "INCONCLUSIVE",
+    "unavailable_metrics": [
+      "cycle_two_false_raise_per_1000_benign_units",
+      "malicious_cousin_recall",
+      "cycle_two_concerns_per_1000_units",
+      "defense_answer_key_agreement"
+    ],
+    "workload_B": null
+  },
+  "metrics": [
+    {
+      "can_fail": "fails when fewer than 20 answer-key and same-index routine-use pairs can be independently labelled",
+      "denominator": 20,
+      "n": 3,
+      "name": "eligible_pairs",
+      "value": 0.0
+    },
+    {
+      "can_fail": "fails when any indexed time remains outside every retained answer-key interval plus the 24-hour margin, requiring a routine-use search before a no-run result",
+      "denominator": 2,
+      "n": 2,
+      "name": "botsv1_botsv2_unexcluded_index_seconds",
+      "value": 0.0
+    },
+    {
+      "can_fail": "fails when portal5_lab benign benchmark cells are counted as same-index BOTSv background",
+      "denominator": 12,
+      "n": 12,
+      "name": "same_index_benign_benchmark_cells",
+      "value": 0.0
+    }
+  ],
+  "rows": 4,
+  "rows_digest": "246b6e804b0503f7",
+  "selftest": {
+    "checks": {
+      "benign_quiet": {
+        "bound": 0.07756809750418045,
+        "passed": true,
+        "realized": 0.049
+      },
+      "constant": {
+        "measured": {
+          "auroc": 0.5,
+          "precision_at_npos": 1.0,
+          "recall_at_5pct_fpr": 0.0
+        },
+        "passed": true
+      },
+      "inverted": {
+        "measured": {
+          "auroc": 0.0,
+          "precision_at_npos": 0.0,
+          "recall_at_5pct_fpr": 0.0
+        },
+        "passed": true
+      },
+      "oracle": {
+        "measured": {
+          "auroc": 1.0,
+          "precision_at_npos": 1.0,
+          "recall_at_5pct_fpr": 1.0
+        },
+        "passed": true
+      },
+      "planted": {
+        "measured": {
+          "auroc": 0.998825,
+          "precision_at_npos": 0.965,
+          "recall_at_5pct_fpr": 1.0
+        },
+        "passed": true
+      },
+      "random": {
+        "auc_bound": 0.09133272505880172,
+        "measured": {
+          "auroc": 0.50456875,
+          "precision_at_npos": 0.17,
+          "recall_at_5pct_fpr": 0.06
+        },
+        "passed": true
+      }
+    },
+    "passed": true
+  },
+  "stamp": {
+    "commit": "31ddefc13a037afcd4778ea0baaea05f68f87a96",
+    "config_hash": "f800d9617cb4b136",
+    "corpus_snapshot": "real:bots_truth_manifest:4bf90b1a9ab892a8b7ae80f7c55707605f478bc5861d4a04d0958fe2e37ac9b5",
+    "dirty": false,
+    "embedder_id": "not_used;T4_precondition_only",
+    "harness_version": "review-eval-v1",
+    "model_digests": [],
+    "policy": "T4-pair-precondition"
+  },
+  "stamp_digest": "4de03bca93e183d8"
+}
