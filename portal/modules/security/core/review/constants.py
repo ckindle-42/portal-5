@@ -1,0 +1,61 @@
+"""review.constants -- every number in the product, and what KIND of number it is.
+
+Root cause this exists for: constants decided answers (a distance cap, a 0.6 gate, a 0.05
+identity threshold, weights summing to 1.15), and every embedder change silently moved the
+scale under them. The lab's rule -- "no fixed constant decides the answer" -- was written down
+three times and violated each time, because nothing checked it.
+
+Here the check is mechanical. ``tests/security/review/test_invariants.py`` finds every
+module-level ALL_CAPS number, numeric dataclass default and numeric function default in this
+package and requires it to be registered below with a kind:
+
+  budget    a resource or workload budget (rounds, tokens, candidates read). Recorded in the
+            evaluation stamp; chosen against the workload the reader and analyst can afford.
+  bound     a size or presentation bound that does not change what is concluded.
+  protocol  a minimum a wire/format rule needs (a quote shorter than this proves nothing).
+
+``threshold``, ``cutoff`` and ``weight`` are deliberately NOT kinds. A number that decides an
+answer is fit from benign data (``calibration``) or it does not exist.
+"""
+
+from __future__ import annotations
+
+ALLOWED_KINDS = frozenset({"budget", "bound", "protocol"})
+
+REGISTRY: dict[str, tuple[str, str]] = {
+    "content.DEFAULT_LIMIT": ("bound", "terms on a unit card; card size, not a decision"),
+    "content.DEFAULT_PER_FIELD_CAP": (
+        "bound",
+        "terms one field may add, so background cannot crowd a card",
+    ),
+    "grounding.MIN_QUOTE_CHARS": (
+        "protocol",
+        "a shorter quote occurs somewhere by chance and proves nothing",
+    ),
+    "intake.compress_classes.max_runs": ("bound", "runs shown in a card's class sequence"),
+    "intake.render_event.max_chars": (
+        "bound",
+        "characters of an event shown to a reader; quotes check against the same text",
+    ),
+    "judge.run_judge.max_events": (
+        "budget",
+        "events shown to the reader; recorded as evidence_shown/evidence_total",
+    ),
+    "judge.run_judge.max_rounds": ("budget", "pivot rounds the reader may spend"),
+    "judge.run_judge.max_tokens": ("budget", "reply budget per model call"),
+    "knowledge.AnchorIndex.search.k": (
+        "budget",
+        "anchors retrieved per unit; the reader's candidate budget",
+    ),
+    "knowledge.embed_texts.batch": ("bound", "texts per embedding request; transport only"),
+    "panel.run_panel.max_events": ("budget", "as judge.run_judge.max_events"),
+    "panel.run_panel.max_rounds": ("budget", "as judge.run_judge.max_rounds"),
+    "panel.run_panel.max_tokens": ("budget", "as judge.run_judge.max_tokens"),
+    "pipeline.EVIDENCE_REFS_SHOWN": (
+        "bound",
+        "evidence refs a concern carries; the total is stated in the brief",
+    ),
+    "pipeline.ReviewConfig.top_k_anchors": ("budget", "anchors explained per concern"),
+    "runs.RunStore.list.limit": ("bound", "rows returned by a listing"),
+    "store.ReviewStore.queue.limit": ("bound", "rows returned by a queue listing"),
+}
