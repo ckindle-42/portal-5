@@ -1004,11 +1004,22 @@ def _receipt_stages(
     window_id: str, summary: Mapping[str, Any], elapsed: float
 ) -> list[dict[str, Any]]:
     receipts = [row for row in summary.get("receipts", []) if isinstance(row, Mapping)]
+    intake_sources = next((row for row in receipts if row.get("name") == "intake.sources"), {})
+    intake_source_note = str(intake_sources.get("note") or "")
     per_stage = max(elapsed / max(len(receipts), 1), 0.001)
     out: list[dict[str, Any]] = []
     for row in receipts:
         examined = int(row.get("examined") or 0)
         resolved = int(row.get("resolved") or 0)
+        cause = str(row.get("note") or "")
+        if examined != resolved and not cause:
+            if row.get("name") == "intake.events" and intake_source_note:
+                cause = f"intake.sources receipt: {intake_source_note}"
+            elif row.get("name") == "funnel.scored":
+                cause = (
+                    "review policy scores only levels "
+                    f"{', '.join(DEFAULT_CONFIG.policy.levels)}; other intake levels are excluded"
+                )
         out.append(
             {
                 "claim": "C3_STAGE",
@@ -1018,7 +1029,7 @@ def _receipt_stages(
                 "resolved": resolved,
                 "duration_seconds": per_stage,
                 "duration_method": "equal_share_of_end_to_end_runtime_estimate",
-                "cause": str(row.get("note") or ""),
+                "cause": cause,
             }
         )
     return out
@@ -1258,6 +1269,7 @@ def _run_main(args: argparse.Namespace) -> int:  # noqa: C901, PLR0912, PLR0915 
     truth_exclusions: list[dict[str, Any]] = []
     candidate_summaries: dict[str, dict[str, Any]] = {}
     control_summaries: dict[str, dict[str, Any]] = {}
+    reader_sample_order = [proof_slice.window_id for proof_slice in PLAN]
 
     try:
         for proof_slice in PLAN:
@@ -1310,6 +1322,8 @@ def _run_main(args: argparse.Namespace) -> int:  # noqa: C901, PLR0912, PLR0915 
             first = min(float(row["_time"]) for row in batch.records_by_source[source_id])
             end = max(float(row["_time"]) for row in batch.records_by_source[source_id]) + 1.0
             window_id = f"portal5_lab_{label}_20260616"
+            test_batches[window_id] = batch
+            reader_sample_order.append(window_id)
             source_hash = hashlib.sha256("|".join(_event_ids(batch)).encode()).hexdigest()
             digest = window_digest(
                 window_id=window_id,
@@ -1562,37 +1576,55 @@ def _run_main(args: argparse.Namespace) -> int:  # noqa: C901, PLR0912, PLR0915 
             unavailable_client,
             "auto-security::security-expert-foundation-sec-8b",
         )
-        reader_slice = next(
+        reader_window_id = next(
             (
-                item
-                for item in PLAN
-                if _top_concerns(candidate_summaries[item.window_id], PROOF_WORKLOAD_B)
+                window_id
+                for window_id in reader_sample_order
+                if _top_concerns(candidate_summaries[window_id], PROOF_WORKLOAD_B)
             ),
             None,
         )
         reader_drill: dict[str, Any]
-        if reader_slice is None:
+        if reader_window_id is None:
             reader_drill = {
                 "status": "FAIL",
                 "reason": "no proof window produced a deterministic concern to exercise fallback",
                 "model_transport": "local connection refused before any model response",
             }
         else:
-            reader_candidate = candidate_summaries[reader_slice.window_id]
+            reader_candidate = candidate_summaries[reader_window_id]
             base_concern_ids = {
                 str(row.get("unit_id"))
                 for row in reader_candidate.get("concerns", [])
                 if isinstance(row, Mapping) and row.get("group") == "concerns"
             }
-            reader_batch = test_batches[reader_slice.window_id]
+            reader_batch = test_batches[reader_window_id]
+            reader_sources = [
+                SourceSpec(*source_id.split(":", 1)) for source_id in reader_batch.records_by_source
+            ]
+            reader_records = [
+                row for records in reader_batch.records_by_source.values() for row in records
+            ]
+            plan_slice = next((item for item in PLAN if item.window_id == reader_window_id), None)
+            reader_start = (
+                plan_slice.start
+                if plan_slice is not None
+                else min(float(row["_time"]) for row in reader_records)
+            )
+            reader_end = (
+                plan_slice.end
+                if plan_slice is not None
+                else max(float(row["_time"]) for row in reader_records) + 1.0
+            )
+            reader_environment = plan_slice.environment if plan_slice is not None else "portal5_lab"
             try:
                 fallback_run_id, fallback_result, fallback_elapsed = _run_review_runtime(
                     batch=reader_batch,
-                    sources=[reader_slice.source],
-                    start=reader_slice.start,
-                    end=reader_slice.end,
-                    environment=reader_slice.environment,
-                    reference=references[reader_slice.environment],
+                    sources=reader_sources,
+                    start=reader_start,
+                    end=reader_end,
+                    environment=reader_environment,
+                    reference=references[reader_environment],
                     embedder=embedder,
                     index=index,
                     runtime_dir=args.runtime_dir / "runtime" / "reader_unavailable",
@@ -1614,7 +1646,7 @@ def _run_main(args: argparse.Namespace) -> int:  # noqa: C901, PLR0912, PLR0915 
                     if no_invented_verdicts and deterministic_preserved
                     else "FAIL",
                     "run_id": fallback_run_id,
-                    "sample_window": reader_slice.window_id,
+                    "sample_window": reader_window_id,
                     "elapsed_seconds": fallback_elapsed,
                     "concern_count": len(unavailable_concerns),
                     "all_judged_unsure_and_degraded": no_invented_verdicts,
@@ -1628,7 +1660,7 @@ def _run_main(args: argparse.Namespace) -> int:  # noqa: C901, PLR0912, PLR0915 
             except Exception as exc:  # noqa: BLE001 -- keep the failed drill visible in the report
                 reader_drill = {
                     "status": "FAIL",
-                    "sample_window": reader_slice.window_id,
+                    "sample_window": reader_window_id,
                     "error_type": type(exc).__name__,
                     "error": str(exc)[:240],
                     "model_transport": "local connection refused before any model response",

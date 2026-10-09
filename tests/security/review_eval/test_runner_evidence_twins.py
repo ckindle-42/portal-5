@@ -6,7 +6,7 @@ from typing import Any
 
 from portal.modules.security.core.review.intake import event_id_for
 from portal.modules.security.core.review.window import WindowBatch
-from scripts.review_eval_proof import _evidence_twin_rows
+from scripts.review_eval_proof import _evidence_twin_rows, _receipt_stages
 
 
 def _truth_pair(event_ids: list[str]) -> list[dict[str, Any]]:
@@ -67,3 +67,29 @@ def test_evidence_twin_outside_processed_windows_is_reported_but_not_scored() ->
 
     assert rows == []
     assert dispositions[0]["status"] == "not_in_processed_windows"
+
+
+def test_stage_differences_name_the_known_filter_or_blind_source_cause() -> None:
+    stages = _receipt_stages(
+        "window-1",
+        {
+            "receipts": [
+                {
+                    "name": "intake.sources",
+                    "examined": 1,
+                    "resolved": 0,
+                    "note": "blind: ['botsv2:winregistry']",
+                },
+                {"name": "intake.events", "examined": 101, "resolved": 0, "note": ""},
+                {"name": "funnel.scored", "examined": 20, "resolved": 2, "note": ""},
+            ]
+        },
+        3.0,
+    )
+    by_name = {row["stage"]: row for row in stages}
+
+    assert "blind:" in by_name["intake.events"]["cause"]
+    assert "L2_ENTITY, L3_CHAIN" in by_name["funnel.scored"]["cause"]
+    assert all(
+        row["duration_method"] == "equal_share_of_end_to_end_runtime_estimate" for row in stages
+    )
