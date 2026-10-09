@@ -1,0 +1,350 @@
+{
+  "schema": "bully_review.lab_readiness.v1",
+  "generated_at_utc": "2026-10-09T04:20:42Z",
+  "status": "READY_WITH_CAVEATS",
+  "git": {
+    "head": "8ccd07edfb17708c804974843c22c9653be5e891",
+    "branch": "codex/bully-review-ground",
+    "initial_worktree_clean": true
+  },
+  "lab": {
+    "proxmox_host": "10.0.0.203",
+    "splunk_lxc": {
+      "id": 301,
+      "address": "10.0.1.30",
+      "status": "running"
+    },
+    "splunk": {
+      "management_api": {
+        "endpoint": "https://10.0.1.30:8089/services/server/info",
+        "status_code": 200,
+        "version": "10.2.5",
+        "license_state": "OK"
+      },
+      "web_ui": {
+        "endpoint": "http://10.0.1.30:8000/",
+        "status_code": 200
+      },
+      "health": {
+        "status": "red",
+        "cause": "IOWait indicators above configured red thresholds; search scheduler and index processor green",
+        "operational_search_succeeded": true
+      },
+      "kv_store": {
+        "status": "ready",
+        "storage_engine": "wiredTiger",
+        "version_upgrade_in_progress": false,
+        "server_version": "4.2",
+        "supported_by_splunk_9_4_plus": false,
+        "warning": "Splunk 9.4+ no longer supports KV Store server 4.2; upgrade to 8.0 for continued support and security.",
+        "blocking": false
+      },
+      "index_counts": {
+        "botsv1": 33413837,
+        "botsv2": 226337781,
+        "botsv3": 2030855,
+        "portal5_lab": 17782893
+      },
+      "prior_counts_from_R1": {
+        "botsv1": 33413777,
+        "botsv2": 226317740,
+        "botsv3": 1944092,
+        "portal5_lab_floor": 13350000
+      },
+      "botsv3_open_caveat": "Current botsv3 eventcount is 2,030,855 versus the previously recorded 1,944,092 (+86,763, +4.46%). Cause remains unexplained; every botsv3 claim must carry this caveat.",
+      "index_counts_caveats": {
+        "botsv3": "Current botsv3 eventcount is 2,030,855 versus the previously recorded 1,944,092 (+86,763, +4.46%). Cause remains unexplained; every botsv3 claim must carry this caveat."
+      },
+      "prior_counts_caveats": {
+        "botsv3": "Current botsv3 eventcount is 2,030,855 versus the previously recorded 1,944,092 (+86,763, +4.46%). Cause remains unexplained; every botsv3 claim must carry this caveat."
+      }
+    },
+    "snapshot": {
+      "created": true,
+      "name": "review-baseline-20261008",
+      "command": "pct snapshot 301 review-baseline-20261008",
+      "verified_in_snapshot_list": true,
+      "existing_restore_point_preserved": "corpus-loaded"
+    }
+  },
+  "services": {
+    "embedder": {
+      "endpoint": "http://127.0.0.1:8946/ready",
+      "status_code": 200,
+      "ready": true,
+      "identity": {
+        "model": "google/embeddinggemma-2",
+        "revision": "914f7f89142e33e77833254d9c9b90c3cef7303b",
+        "native_dim": 768,
+        "dtype": "bfloat16",
+        "device": "mps",
+        "backend": "sentence-transformers"
+      }
+    },
+    "reranker": {
+      "endpoint": "http://127.0.0.1:8942/health",
+      "status_code": 200,
+      "status": "ok",
+      "service": "vl-retrieval",
+      "embedding_model": "mlx-community/Qwen3-VL-Embedding-2B-mxfp8",
+      "reranker_model": "mlx-community/Qwen3-VL-Reranker-2B-mxfp8",
+      "embedding_dim": 2048
+    },
+    "ollama": {
+      "endpoint": "http://127.0.0.1:11434/api/tags",
+      "status_code": 200
+    }
+  },
+  "judge_candidates": [
+    {
+      "seat": "auto-security reasoning role",
+      "workspace_id": "auto-security::security-council-granite41-30b",
+      "model": "granite4.1:30b-ctx16k",
+      "digest": "ba729eaac2d298e2d336ba4f86653ffad171876222cc932936584656db43e92b",
+      "present": true,
+      "direct_api_preflight": {
+        "request": "think=true",
+        "status": "rejected_by_model_http_400",
+        "reasoning_field_present": false,
+        "note": "Model reports that it does not support thinking."
+      }
+    },
+    {
+      "seat": "Qwen3.8-27B deep",
+      "workspace_id": "auto-reasoning::deep",
+      "model": "hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k",
+      "digest": "71936e26c83aabf99c7cfe1805c098a24684f91a0d132542952b9975a518c937",
+      "present": true,
+      "direct_api_preflight": {
+        "request": "think=true",
+        "max_tokens": 128,
+        "status": "completed",
+        "reasoning_field_present": true,
+        "reasoning_chars": 289,
+        "content_chars": 54,
+        "done_reason": "stop"
+      }
+    },
+    {
+      "seat": "Qwen3.6-35B-A3B fast",
+      "workspace_id": "general-fast",
+      "model": "hf.co/unsloth/Qwen3.6-35B-A3B-GGUF:UD-Q4_K_XL-ctx96k",
+      "digest": "1c2cccfaf67ddf01d887a5966e9d29f26f0f2d50a3a3a7724a0c1426371c41cf",
+      "present": true,
+      "direct_api_preflight": {
+        "request": "think=true",
+        "max_tokens": 512,
+        "status": "reasoning_observed_but_truncated",
+        "reasoning_field_present": true,
+        "reasoning_chars": 1779,
+        "content_chars": 0,
+        "done_reason": "length"
+      }
+    },
+    {
+      "seat": "auto-security expert role",
+      "workspace_id": "auto-security::security-expert-foundation-sec-8b",
+      "model": "hf.co/fdtn-ai/Foundation-Sec-8B-Reasoning-Q8_0-GGUF:Q8_0",
+      "digest": "351b8a598d876204ce00aa4b9caae2c3e210100dd2b9fbcc48f7f9fc3ced55a5",
+      "present": true,
+      "direct_api_preflight": {
+        "request": "think=true",
+        "max_tokens": 512,
+        "status": "completed_without_separate_thinking_field",
+        "reasoning_field_present": false,
+        "content_explanation_signal": true,
+        "content_chars": 394,
+        "done_reason": "stop"
+      }
+    }
+  ],
+  "replay_inventory": {
+    "answer_key": {
+      "entries": 27,
+      "confirmed_at_none": 27,
+      "confirmed_at_total": 27
+    },
+    "captures": {
+      "ad_full_compromise": {
+        "count": 252,
+        "issue_counts": {
+          "CAPTURE_GROUND_TRUTH_INVALID": 250,
+          "LEGACY_CAPTURE_UNSCOPED": 6,
+          "MISSING_EPISODE_ID": 6
+        }
+      },
+      "capture_count": 1127,
+      "current_validator_fail": 1031,
+      "current_validator_pass": 96,
+      "issue_counts": {
+        "CAPTURE_GROUND_TRUTH_INVALID": 1004,
+        "LEGACY_CAPTURE_UNSCOPED": 653,
+        "MISSING_EPISODE_ID": 718,
+        "UNVERIFIED_GROUND_TRUTH:T1078.004,T1537,T1552.005": 8
+      },
+      "rejection_by_technique": {
+        "T1003.001": {
+          "CAPTURE_GROUND_TRUTH_INVALID": 250,
+          "LEGACY_CAPTURE_UNSCOPED": 6,
+          "MISSING_EPISODE_ID": 6
+        },
+        "T1003.002": {
+          "CAPTURE_GROUND_TRUTH_INVALID": 10,
+          "LEGACY_CAPTURE_UNSCOPED": 10,
+          "MISSING_EPISODE_ID": 10
+        },
+        "T1003.006": {
+          "CAPTURE_GROUND_TRUTH_INVALID": 329,
+          "LEGACY_CAPTURE_UNSCOPED": 82,
+          "MISSING_EPISODE_ID": 82
+        },
+        "T1021.001": {
+          "CAPTURE_GROUND_TRUTH_INVALID": 1
+        },
+        "T1021.002": {
+          "CAPTURE_GROUND_TRUTH_INVALID": 26,
+          "LEGACY_CAPTURE_UNSCOPED": 25,
+          "MISSING_EPISODE_ID": 25
+        },
+        "T1046": {
+          "CAPTURE_GROUND_TRUTH_INVALID": 10,
+          "LEGACY_CAPTURE_UNSCOPED": 9,
+          "MISSING_EPISODE_ID": 9
+        },
+        "T1047": {
+          "CAPTURE_GROUND_TRUTH_INVALID": 250,
+          "LEGACY_CAPTURE_UNSCOPED": 6,
+          "MISSING_EPISODE_ID": 6
+        },
+        "T1053.005": {
+          "CAPTURE_GROUND_TRUTH_INVALID": 89,
+          "LEGACY_CAPTURE_UNSCOPED": 86,
+          "MISSING_EPISODE_ID": 86
+        },
+        "T1059": {
+          "CAPTURE_GROUND_TRUTH_INVALID": 259,
+          "LEGACY_CAPTURE_UNSCOPED": 193,
+          "MISSING_EPISODE_ID": 210
+        },
+        "T1059.004": {
+          "CAPTURE_GROUND_TRUTH_INVALID": 67,
+          "LEGACY_CAPTURE_UNSCOPED": 56,
+          "MISSING_EPISODE_ID": 66
+        },
+        "T1078": {
+          "CAPTURE_GROUND_TRUTH_INVALID": 145,
+          "LEGACY_CAPTURE_UNSCOPED": 116,
+          "MISSING_EPISODE_ID": 121
+        },
+        "T1078.004": {
+          "CAPTURE_GROUND_TRUTH_INVALID": 8,
+          "LEGACY_CAPTURE_UNSCOPED": 7,
+          "MISSING_EPISODE_ID": 8,
+          "UNVERIFIED_GROUND_TRUTH:T1078.004,T1537,T1552.005": 8
+        },
+        "T1083": {
+          "CAPTURE_GROUND_TRUTH_INVALID": 33,
+          "LEGACY_CAPTURE_UNSCOPED": 27,
+          "MISSING_EPISODE_ID": 32
+        },
+        "T1110.003": {
+          "CAPTURE_GROUND_TRUTH_INVALID": 26,
+          "LEGACY_CAPTURE_UNSCOPED": 26,
+          "MISSING_EPISODE_ID": 26
+        },
+        "T1189": {
+          "CAPTURE_GROUND_TRUTH_INVALID": 12,
+          "LEGACY_CAPTURE_UNSCOPED": 10,
+          "MISSING_EPISODE_ID": 12
+        },
+        "T1190": {
+          "CAPTURE_GROUND_TRUTH_INVALID": 531,
+          "LEGACY_CAPTURE_UNSCOPED": 416,
+          "MISSING_EPISODE_ID": 469
+        },
+        "T1203": {
+          "CAPTURE_GROUND_TRUTH_INVALID": 17,
+          "LEGACY_CAPTURE_UNSCOPED": 15,
+          "MISSING_EPISODE_ID": 17
+        },
+        "T1210": {
+          "CAPTURE_GROUND_TRUTH_INVALID": 12,
+          "LEGACY_CAPTURE_UNSCOPED": 12,
+          "MISSING_EPISODE_ID": 12
+        },
+        "T1505.003": {
+          "CAPTURE_GROUND_TRUTH_INVALID": 24,
+          "LEGACY_CAPTURE_UNSCOPED": 22,
+          "MISSING_EPISODE_ID": 24
+        },
+        "T1537": {
+          "CAPTURE_GROUND_TRUTH_INVALID": 8,
+          "LEGACY_CAPTURE_UNSCOPED": 7,
+          "MISSING_EPISODE_ID": 8,
+          "UNVERIFIED_GROUND_TRUTH:T1078.004,T1537,T1552.005": 8
+        },
+        "T1548.001": {
+          "CAPTURE_GROUND_TRUTH_INVALID": 24,
+          "LEGACY_CAPTURE_UNSCOPED": 19,
+          "MISSING_EPISODE_ID": 24
+        },
+        "T1552": {
+          "CAPTURE_GROUND_TRUTH_INVALID": 13,
+          "LEGACY_CAPTURE_UNSCOPED": 11,
+          "MISSING_EPISODE_ID": 13
+        },
+        "T1552.005": {
+          "CAPTURE_GROUND_TRUTH_INVALID": 8,
+          "LEGACY_CAPTURE_UNSCOPED": 7,
+          "MISSING_EPISODE_ID": 8,
+          "UNVERIFIED_GROUND_TRUTH:T1078.004,T1537,T1552.005": 8
+        },
+        "T1557.001": {
+          "CAPTURE_GROUND_TRUTH_INVALID": 10,
+          "LEGACY_CAPTURE_UNSCOPED": 10,
+          "MISSING_EPISODE_ID": 10
+        },
+        "T1558.003": {
+          "CAPTURE_GROUND_TRUTH_INVALID": 329,
+          "LEGACY_CAPTURE_UNSCOPED": 82,
+          "MISSING_EPISODE_ID": 82
+        },
+        "T1558.004": {
+          "CAPTURE_GROUND_TRUTH_INVALID": 14,
+          "LEGACY_CAPTURE_UNSCOPED": 14,
+          "MISSING_EPISODE_ID": 14
+        },
+        "T1592": {
+          "CAPTURE_GROUND_TRUTH_INVALID": 23,
+          "LEGACY_CAPTURE_UNSCOPED": 20,
+          "MISSING_EPISODE_ID": 23
+        },
+        "T1595": {
+          "CAPTURE_GROUND_TRUTH_INVALID": 25,
+          "LEGACY_CAPTURE_UNSCOPED": 17,
+          "MISSING_EPISODE_ID": 19
+        }
+      },
+      "replayable_pair_scenarios": {
+        "vuln_struts2_rce": 1
+      },
+      "replayable_pairs": 1,
+      "rejection_counts_are_non_exclusive": true,
+      "validator": "portal.modules.security.core.siem.capture_store.capture_replay_issues at HEAD",
+      "baseline_result": "96 of 1127 pass all current replay checks; 1 capture has a matched replayable red/capture pair."
+    }
+  },
+  "hunt_state": {
+    "database": "/Volumes/data01/portal5_hunt/hunt_state.db",
+    "prior_R1_total": 38,
+    "current_total": 45,
+    "current_status": "all 45 status=running",
+    "stage_counts": {
+      "DRAFT": 33,
+      "BLOCKED": 12
+    },
+    "current_additional_BLOCKED_since_R1": 7,
+    "cancelled_or_deleted": false
+  },
+  "scope_note": "Recorded-data and health checks only; no target reachability check, target VM start, attack, chain, tool against a target, or emulation operation was performed."
+}
