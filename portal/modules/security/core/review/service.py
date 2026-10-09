@@ -15,6 +15,8 @@ from .reference import stale
 from .wall import assert_label_free
 from .window import SourceSpec, WindowSource
 
+DEFAULT_READER: JudgeFn | None = None
+
 
 @dataclass(frozen=True)
 class ReviewRequest:
@@ -33,9 +35,9 @@ def run_review(
     index: AnchorIndex | None,
     reference: Reference,
     config: ReviewConfig | None = None,
-    judge: JudgeFn | None = None,
+    judge: JudgeFn | None = DEFAULT_READER,
 ) -> ReviewResult:
-    """Fetch, intake, and review a complete request; source or embedding errors propagate."""
+    """Run the deterministic default reader path unless a caller supplies an adopted judge."""
     if request.end <= request.start:
         raise ValueError("request.end must be greater than request.start")
     chosen_config = config or request.config

@@ -13,7 +13,7 @@ tags:
 - review
 - evaluation
 created_at: 1791527057.0
-updated_at: 1791527057.0
+updated_at: 1791551211.0
 ---
 
 `portal/modules/security/core/review_eval/` contains scorer-plane truth,
@@ -26,7 +26,10 @@ intake and checks event-ID isolation. `attribution` records the last stage where
 independently sourced truth survived and identifies the greatest loss, breaking
 ties toward the earliest stage. `decisions` checks that experiments target the
 binding stage and are pre-registered before their resolving report. The package
-is the measurement plane; product code must not import it.
+is the measurement plane; product code must not import it. T3 currently keeps
+`arms.DEFAULT_READER_ARM` at `no_reader`; the product's
+`service.DEFAULT_READER` is `None`, so an unadopted reader leaves deterministic
+review as the default.
 
 ## Interfaces
 
@@ -35,7 +38,8 @@ scorer can query the real corpus without loading it into memory. Its manifest
 stores intervals, counts, hashes, and product event IDs; raw events stay in
 memory. `captures.derive_capture_truth` re-hashes and revalidates each admitted
 capture before creating product-shaped records. `arms.ARMS` freezes the
-`legacy_funnel` and installed `review_d0` configurations. `attribution.ledger`
+`legacy_funnel`, installed `review_d0`, and explicit `no_reader` configurations.
+`attribution.ledger`
 builds stage counts from traces and rejects empty or unknown-stage inputs.
 `decisions.parse` validates record front matter, and `decisions.problems` checks
 status, stage choice, report presence, and commit ordering.

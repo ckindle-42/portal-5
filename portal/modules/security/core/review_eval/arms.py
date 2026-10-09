@@ -1,4 +1,4 @@
-"""review_eval.arms -- pre-registered, immutable arm selection for the T1 measurement."""
+"""review_eval.arms -- pre-registered, immutable review arms and reader default."""
 
 from __future__ import annotations
 
@@ -31,7 +31,12 @@ REVIEW_D0_CONFIG = ReviewConfig(
 ARMS: dict[str, ArmSpec] = {
     "legacy_funnel": ArmSpec("legacy_funnel", config=None, legacy=True),
     "review_d0": ArmSpec("review_d0", config=REVIEW_D0_CONFIG),
+    "no_reader": ArmSpec("no_reader", config=REVIEW_D0_CONFIG),
 }
+
+# T3's reader comparisons are inconclusive without an alpha curve and workload B.
+# Keep the deterministic product path explicit until a reader arm is adopted.
+DEFAULT_READER_ARM = "no_reader"
 
 
 def get_arm(name: str) -> ArmSpec:
