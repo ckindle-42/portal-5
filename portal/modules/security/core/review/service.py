@@ -10,7 +10,7 @@ from dataclasses import dataclass
 from .contracts import ReviewResult, StageReceipt
 from .intake import build_window_units
 from .knowledge import AnchorIndex, Embedder
-from .pipeline import Reference, ReviewConfig, review_window
+from .pipeline import JudgeFn, Reference, ReviewConfig, review_window
 from .reference import stale
 from .wall import assert_label_free
 from .window import SourceSpec, WindowSource
@@ -33,6 +33,7 @@ def run_review(
     index: AnchorIndex | None,
     reference: Reference,
     config: ReviewConfig | None = None,
+    judge: JudgeFn | None = None,
 ) -> ReviewResult:
     """Fetch, intake, and review a complete request; source or embedding errors propagate."""
     if request.end <= request.start:
@@ -68,6 +69,7 @@ def run_review(
         index=index,
         embedder=embedder,
         config=chosen_config,
+        judge=judge,
     )
     result.degraded.extend(notes)
     source_digest = hashlib.sha256(

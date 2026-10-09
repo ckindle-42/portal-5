@@ -43,6 +43,35 @@ REGISTRY: dict[str, tuple[str, str]] = {
     ),
     "judge.run_judge.max_rounds": ("budget", "pivot rounds the reader may spend"),
     "judge.run_judge.max_tokens": ("budget", "reply budget per model call"),
+    "model_client.CONNECT_TIMEOUT_S": ("budget", "connection setup budget for the shared pipeline"),
+    "model_client.STREAM_IDLE_TIMEOUT_S": ("budget", "maximum idle interval for one model stream"),
+    "model_client.TRACE_TIMEOUT_S": ("budget", "trace lookup budget after a model response"),
+    "model_client.CATALOG_TIMEOUT_S": (
+        "budget",
+        "model identity lookup budget after a model response",
+    ),
+    "model_client.REASONING_PROBE_MAX_TOKENS": (
+        "budget",
+        "output budget for a non-sensitive reasoning capability probe",
+    ),
+    "model_client.MAX_ATTEMPTS": ("budget", "one initial model request plus one transport retry"),
+    "model_client.CORRELATION_ID_HEX_CHARS": (
+        "protocol",
+        "hex characters retained in a reader trace correlation id",
+    ),
+    "reader.DEFAULT_CONCERN_TIMEOUT_S": ("budget", "total time budget for one judged concern"),
+    "reader.MAX_EVENTS": ("budget", "events shown to each reader call and pivot result"),
+    "reader.MAX_ROUNDS": ("budget", "reader and challenger turns allowed per concern"),
+    "reader.MAX_TOKENS": ("budget", "reply budget per reader model call"),
+    "reader.P95_PERCENTILE": (
+        "protocol",
+        "nearest-rank latency percentile used for measured reader depth",
+    ),
+    "tools.MAX_TERM_CHARS": ("bound", "maximum literal search term length accepted from a model"),
+    "tools.MAX_PIVOT_RESULTS": (
+        "budget",
+        "events shown for one pivot call; truncation is receipted",
+    ),
     "knowledge.AnchorIndex.search.k": (
         "budget",
         "anchors retrieved per unit; the reader's candidate budget",

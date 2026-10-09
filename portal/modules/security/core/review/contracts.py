@@ -147,6 +147,7 @@ class JudgeRecord:
     note: str = ""
     evidence_shown: int = 0
     evidence_total: int = 0
+    reader_receipt: dict[str, Any] = field(default_factory=dict)
 
 
 @dataclass
