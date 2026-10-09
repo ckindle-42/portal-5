@@ -21,6 +21,7 @@ from . import (  # noqa: F401  (imports populate the check registry)
     personas,
     platform,
     rag_runtime,
+    review_program,
     security_bench,
     splash_sweep_engine,
     telemetry,
