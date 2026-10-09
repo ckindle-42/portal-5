@@ -1,0 +1,320 @@
+{
+  "created_at": 1791551307.271667,
+  "extra": {
+    "alpha_open": null,
+    "arm": "t3_prerequisites",
+    "arms_run": [],
+    "candidate_reasoning_probes": [
+      {
+        "attempts": 1,
+        "backend": "omlx-general",
+        "completion_tokens": 69,
+        "digest_source": "omlx_catalog_identity_sha256",
+        "error": "",
+        "kind": "reasoning_probe",
+        "latency_ms": 13949.115915980656,
+        "model": "hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx96k",
+        "model_digest": "442c0e498f932a64fa2480aaffe75b91bfc3228aff28751390cde5c6948a9ef8",
+        "prompt_tokens": 446,
+        "reasoning_chars": 161,
+        "reasoning_produced": true,
+        "role": "general_deep",
+        "served_model": "Qwen3.8-27B-oQ4e-mtp"
+      },
+      {
+        "attempts": 1,
+        "backend": "omlx-general",
+        "completion_tokens": 128,
+        "digest_source": "omlx_catalog_identity_sha256",
+        "error": "",
+        "kind": "reasoning_probe",
+        "latency_ms": 13630.36320800893,
+        "model": "hf.co/unsloth/Qwen3.6-35B-A3B-GGUF:UD-Q4_K_XL-ctx96k",
+        "model_digest": "24ba2fea389d7183b3c29e00f4674c699153bb14051037c2c7f1d1798dd70f7e",
+        "prompt_tokens": 408,
+        "reasoning_chars": 478,
+        "reasoning_produced": true,
+        "role": "general_fast",
+        "served_model": "unsloth--Qwen3.6-35B-A3B-UD-MLX-4bit"
+      },
+      {
+        "attempts": 1,
+        "backend": "omlx-general",
+        "completion_tokens": 51,
+        "digest_source": "omlx_catalog_identity_sha256",
+        "error": "",
+        "kind": "reasoning_probe",
+        "latency_ms": 20321.137541992357,
+        "model": "auto-security::security-council-mistral-small32-24b",
+        "model_digest": "c3c35d409533aaca056dc292e603d4c6e3c2a2c958cd122c1899956bcc5f547a",
+        "prompt_tokens": 130,
+        "reasoning_chars": 0,
+        "reasoning_produced": false,
+        "role": "panel_seat_2_mistral",
+        "served_model": "mlx-community--Mistral-Small-3.2-24B-Instruct-2506-4bit"
+      },
+      {
+        "attempts": 1,
+        "backend": "ollama-general",
+        "completion_tokens": 128,
+        "digest_source": "ollama_artifact_digest",
+        "error": "",
+        "kind": "reasoning_probe",
+        "latency_ms": 28330.49204197596,
+        "model": "auto-security::security-council-qwen36-27b",
+        "model_digest": "48213e5bcdf8565619c2981a379faaaeb0ac7ca6efa6ec5fefc776488bd5eab0",
+        "prompt_tokens": 42,
+        "reasoning_chars": 378,
+        "reasoning_produced": true,
+        "role": "panel_seat_3_qwen",
+        "served_model": "qwen3.6:27b-q4_K_M"
+      },
+      {
+        "attempts": 1,
+        "backend": "ollama-reasoning",
+        "completion_tokens": 79,
+        "digest_source": "ollama_artifact_digest",
+        "error": "",
+        "kind": "reasoning_probe",
+        "latency_ms": 10174.622833001195,
+        "model": "auto-security::security-expert-foundation-sec-8b",
+        "model_digest": "d9df9289cf2a30cb1ea53167564f8c182790129d8ce16ca413c07a76a165d6f7",
+        "prompt_tokens": 31,
+        "reasoning_chars": 0,
+        "reasoning_produced": false,
+        "role": "expert_role",
+        "served_model": "hf.co/fdtn-ai/Foundation-Sec-8B-Reasoning-Q8_0-GGUF:Q8_0"
+      },
+      {
+        "attempts": 1,
+        "backend": "omlx-general",
+        "completion_tokens": 32,
+        "digest_source": "omlx_catalog_identity_sha256",
+        "error": "",
+        "kind": "reasoning_probe",
+        "latency_ms": 12721.483666013228,
+        "model": "auto-security::security-council-granite41-30b",
+        "model_digest": "f1882d96fca8b7bf4d8e7bb377d3a15146f8984cc62638767c63d96f907ed977",
+        "prompt_tokens": 156,
+        "reasoning_chars": 0,
+        "reasoning_produced": false,
+        "role": "auto_security_reasoning",
+        "served_model": "granite-4.1-30b-4bit"
+      }
+    ],
+    "concern_p95_latency_ms": null,
+    "decision_ids": [
+      "D-T3-READER",
+      "D-T3-CHALLENGER",
+      "D-T3-PIVOT",
+      "D-T3-PANEL"
+    ],
+    "executed": false,
+    "live_probe_fingerprint": "1debff03b79b039716cbd464a63cc089847f6aaf56e71c4dc4de4f5f2218b833",
+    "panel_reasoning_probes": [
+      {
+        "attempts": 1,
+        "backend": "omlx-general",
+        "completion_tokens": 51,
+        "digest_source": "omlx_catalog_identity_sha256",
+        "error": "",
+        "kind": "reasoning_probe",
+        "latency_ms": 20321.137541992357,
+        "model": "auto-security::security-council-mistral-small32-24b",
+        "model_digest": "c3c35d409533aaca056dc292e603d4c6e3c2a2c958cd122c1899956bcc5f547a",
+        "prompt_tokens": 130,
+        "reasoning_chars": 0,
+        "reasoning_produced": false,
+        "role": "panel_seat_2_mistral",
+        "served_model": "mlx-community--Mistral-Small-3.2-24B-Instruct-2506-4bit"
+      },
+      {
+        "attempts": 1,
+        "backend": "ollama-general",
+        "completion_tokens": 128,
+        "digest_source": "ollama_artifact_digest",
+        "error": "",
+        "kind": "reasoning_probe",
+        "latency_ms": 28330.49204197596,
+        "model": "auto-security::security-council-qwen36-27b",
+        "model_digest": "48213e5bcdf8565619c2981a379faaaeb0ac7ca6efa6ec5fefc776488bd5eab0",
+        "prompt_tokens": 42,
+        "reasoning_chars": 378,
+        "reasoning_produced": true,
+        "role": "panel_seat_3_qwen",
+        "served_model": "qwen3.6:27b-q4_K_M"
+      },
+      {
+        "attempts": 1,
+        "backend": "omlx-general",
+        "completion_tokens": 32,
+        "digest_source": "omlx_catalog_identity_sha256",
+        "error": "",
+        "kind": "reasoning_probe",
+        "latency_ms": 12721.483666013228,
+        "model": "auto-security::security-council-granite41-30b",
+        "model_digest": "f1882d96fca8b7bf4d8e7bb377d3a15146f8984cc62638767c63d96f907ed977",
+        "prompt_tokens": 156,
+        "reasoning_chars": 0,
+        "reasoning_produced": false,
+        "role": "auto_security_reasoning",
+        "served_model": "granite-4.1-30b-4bit"
+      }
+    ],
+    "raw_model_responses_persisted": false,
+    "reader_depth_R": null,
+    "reason": "T1 has no workload B and zero of three eligible paired slices; T2 records no measured product binding stage; no alpha_open curve or per-concern p95 is available.",
+    "source_reports": {
+      "T1": {
+        "path": "reports/review_eval/6a29bc97d0fd3b97/truth_derivation.json",
+        "sha256": "597be51822925094df09fc1a3875537a81ce7c381856bce3f9edea1a8a660da6",
+        "stamp_digest": "6a29bc97d0fd3b97"
+      },
+      "T2": {
+        "path": "reports/review_eval/90890b3c9418457c/truth_stratification.json",
+        "sha256": "59d5f0b6aa61e45699b9e6aa60ea3e26ba746031c63a7d1d2d55691b5e9582b2",
+        "stamp_digest": "90890b3c9418457c"
+      },
+      "truth_manifest": {
+        "path": "reports/review_eval/bots_truth_manifest.json",
+        "sha256": "4bf90b1a9ab892a8b7ae80f7c55707605f478bc5861d4a04d0958fe2e37ac9b5"
+      }
+    },
+    "status": "INCONCLUSIVE",
+    "window_duration_s": null,
+    "workload_B": null
+  },
+  "metrics": [
+    {
+      "can_fail": "fails when no configured single-reader candidate produces a reasoning channel",
+      "denominator": 4,
+      "n": 4,
+      "name": "core_reasoning_candidate_rate",
+      "value": 0.5
+    },
+    {
+      "can_fail": "fails when the configured panel has no reasoning-capable seat",
+      "denominator": 3,
+      "n": 3,
+      "name": "panel_reasoning_seat_rate",
+      "value": 0.3333333333333333
+    },
+    {
+      "can_fail": "fails when no registered index has an eligible paired truth slice",
+      "denominator": 3,
+      "n": 3,
+      "name": "paired_truth_slice_yield",
+      "value": 0.0
+    },
+    {
+      "can_fail": "fails when T2 has no candidate-recall-versus-alpha curve from which to derive alpha_open",
+      "denominator": 1,
+      "n": 1,
+      "name": "alpha_open_available",
+      "value": 0.0
+    },
+    {
+      "can_fail": "fails when T1 did not establish workload budget B",
+      "denominator": 1,
+      "n": 1,
+      "name": "workload_B_available",
+      "value": 0.0
+    },
+    {
+      "can_fail": "fails when evaluation window duration and measured concern p95 latency are unavailable",
+      "denominator": 1,
+      "n": 1,
+      "name": "reader_depth_R_available",
+      "value": 0.0
+    }
+  ],
+  "rows": 14,
+  "rows_digest": "398c59b8175da7d2",
+  "selftest": {
+    "checks": {
+      "benign_quiet": {
+        "bound": 0.07756809750418045,
+        "passed": true,
+        "realized": 0.049
+      },
+      "constant": {
+        "measured": {
+          "auroc": 0.5,
+          "precision_at_npos": 1.0,
+          "recall_at_5pct_fpr": 0.0
+        },
+        "passed": true
+      },
+      "inverted": {
+        "measured": {
+          "auroc": 0.0,
+          "precision_at_npos": 0.0,
+          "recall_at_5pct_fpr": 0.0
+        },
+        "passed": true
+      },
+      "oracle": {
+        "measured": {
+          "auroc": 1.0,
+          "precision_at_npos": 1.0,
+          "recall_at_5pct_fpr": 1.0
+        },
+        "passed": true
+      },
+      "planted": {
+        "measured": {
+          "auroc": 0.998825,
+          "precision_at_npos": 0.965,
+          "recall_at_5pct_fpr": 1.0
+        },
+        "passed": true
+      },
+      "random": {
+        "auc_bound": 0.09133272505880172,
+        "measured": {
+          "auroc": 0.50456875,
+          "precision_at_npos": 0.17,
+          "recall_at_5pct_fpr": 0.06
+        },
+        "passed": true
+      }
+    },
+    "passed": true
+  },
+  "stamp": {
+    "commit": "4a6eeb9ccd019d6cbc3b00795d3f68e1549450ca",
+    "config_hash": "ab8750b4530f4783",
+    "corpus_snapshot": "real:reader-prerequisites:f56783be88f2f963a32f3f8a52701da15e8a705fe18f73257116328410f35500",
+    "dirty": false,
+    "embedder_id": "google/embeddinggemma-2;dim=768;task=sentence similarity;role=query",
+    "harness_version": "review-eval-v1",
+    "model_digests": [
+      [
+        "auto-security::security-council-granite41-30b",
+        "f1882d96fca8b7bf4d8e7bb377d3a15146f8984cc62638767c63d96f907ed977"
+      ],
+      [
+        "auto-security::security-council-mistral-small32-24b",
+        "c3c35d409533aaca056dc292e603d4c6e3c2a2c958cd122c1899956bcc5f547a"
+      ],
+      [
+        "auto-security::security-council-qwen36-27b",
+        "48213e5bcdf8565619c2981a379faaaeb0ac7ca6efa6ec5fefc776488bd5eab0"
+      ],
+      [
+        "auto-security::security-expert-foundation-sec-8b",
+        "d9df9289cf2a30cb1ea53167564f8c182790129d8ce16ca413c07a76a165d6f7"
+      ],
+      [
+        "hf.co/unsloth/Qwen3.6-35B-A3B-GGUF:UD-Q4_K_XL-ctx96k",
+        "24ba2fea389d7183b3c29e00f4674c699153bb14051037c2c7f1d1798dd70f7e"
+      ],
+      [
+        "hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx96k",
+        "442c0e498f932a64fa2480aaffe75b91bfc3228aff28751390cde5c6948a9ef8"
+      ]
+    ],
+    "policy": "T3-prerequisite-gate"
+  },
+  "stamp_digest": "41eaed5720a9844f"
+}
