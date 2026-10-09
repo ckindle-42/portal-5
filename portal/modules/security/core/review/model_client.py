@@ -140,7 +140,7 @@ class PortalModelClient(ModelClient):
         self.omlx_api_key = omlx_api_key if omlx_api_key is not None else _setting("OMLX_API_KEY")
         self.endpoint = f"{self.base_url}/v1/chat/completions"
         self._streamer = streamer
-        self._trace_reader = trace_reader or self._read_trace
+        self._trace_reader = trace_reader or self._fetch_turn_trace
         self._digest_resolver = digest_resolver or self._resolve_digest
         self._receipts: list[CallReceipt] = []
         self._receipt_lock = threading.Lock()
@@ -313,7 +313,7 @@ class PortalModelClient(ModelClient):
         elapsed_ms = (time.monotonic() - started) * 1000
         return message, attempts, elapsed_ms, error
 
-    def _read_trace(self, correlation_id: str) -> Mapping[str, Any]:
+    def _fetch_turn_trace(self, correlation_id: str) -> Mapping[str, Any]:
         try:
             headers = {"Authorization": f"Bearer {self.api_key}"} if self.api_key else {}
             response = httpx.get(
