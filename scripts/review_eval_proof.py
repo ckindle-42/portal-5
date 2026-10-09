@@ -1178,6 +1178,7 @@ def _run_main(args: argparse.Namespace) -> int:  # noqa: C901, PLR0912, PLR0915 
                 != datetime.fromtimestamp(proof_slice.calibration_start, UTC).date().isoformat(),
                 "expected": calibration_batch.expected,
                 "fetched": calibration_batch.fetched,
+                "count_method": "bounded raw-search stats count plus uncapped event export",
             }
         )
         test_batch = source.fetch([proof_slice.source], proof_slice.start, proof_slice.end)
@@ -1458,6 +1459,7 @@ def _run_main(args: argparse.Namespace) -> int:  # noqa: C901, PLR0912, PLR0915 
                 "different_utc_day": True,
                 "expected": len(records),
                 "fetched": len(records),
+                "count_method": "T5-certified exact raw-text local corpus slice",
                 "provenance": "T5 36/36 exact raw-text match held out by UTC day",
             }
             for source_id, records in sorted(lab_cal.items())
