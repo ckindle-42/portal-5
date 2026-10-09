@@ -335,10 +335,16 @@ def _t6_proof(document: Mapping[str, Any] | None, problems: Sequence[str]) -> li
     c2_control += f"; false-raise/1k={c2['false_raise']['per_1000']}"
     lines.append(f"| C2 same or similar | {c2['status']} | {c2_summary} | {c2_control} |")
     c3 = claim_rows["C3"]
+    projected_seconds = c3["projected_full_corpus_seconds"]
+    projected_text = (
+        f"{float(projected_seconds):.3f}"
+        if projected_seconds is not None
+        else f"not estimable; bottleneck {c3['bottleneck_stage'] or 'unknown'} has zero throughput"
+    )
     lines.append(
         f"| C3 corpus is ground | {c3['status']} | windows n={len(c3['windows'])}; "
         f"stages n={len(c3['stages'])} | fetched {c3['events_fetched']}/{c3['events_expected']}; "
-        f"projected full corpus seconds={c3['projected_full_corpus_seconds']} |"
+        f"projected full corpus seconds={projected_text} |"
     )
     c4 = claim_rows["C4"]
     c4_classes = c4["by_class"]

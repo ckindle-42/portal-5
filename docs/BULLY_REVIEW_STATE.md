@@ -45,7 +45,7 @@ Reachability of the engine package (static import closure):
 | D-T4-DEFENSE | raised | INCONCLUSIVE | reports/review_eval/4de03bca93e183d8/t4_pair_gate.json | none |
 | D-T4-MATURE | raised | INCONCLUSIVE | reports/review_eval/4de03bca93e183d8/t4_pair_gate.json | none |
 | D-T4-SUPPRESS | raised | INCONCLUSIVE | reports/review_eval/4de03bca93e183d8/t4_pair_gate.json | none |
-| D-T6-PROOF | window | PREREGISTERED | - | none |
+| D-T6-PROOF | window | INCONCLUSIVE | reports/review_eval/e2e/t6_proof.json | both the record and its report must be committed |
 
 ## Measured (stamped, real corpora only)
 
@@ -91,6 +91,16 @@ commit `53ed4f0cce04`, embedder `google/embeddinggemma-2;dim=768;task=sentence s
 | metric | value | n | reads as failure when |
 |---|---|---|---|
 | phase_d_e2e_case_success | 1 | 4 | value is below 1.0 when any required Phase D case is not evidenced as passing |
+
+### arm `T6-real-corpus-proof` stamp `725bebcc8911ba4b`
+
+commit `fcce4bf3dc9b`, embedder `google/embeddinggemma-2;dim=768;task=sentence similarity;role=query`, corpus `real:t6-proof:d2bbad0d80f3ce74a465f6626be714e0560496a5124fe4317eab7861cfec692f`
+
+| metric | value | n | reads as failure when |
+|---|---|---|---|
+| claim_proven_fraction | 0.25 | 4 | fails when any standing claim is not PROVEN under the task rule |
+| processed_corpus_fraction | 1.27305e-05 | 9 | fails when the processed real-event fraction is omitted or recomputes differently |
+| drill_pass_fraction | 1 | 3 | fails when any required phase-C drill does not pass |
 
 ### arm `legacy_funnel` stamp `2921d3691e815b53`
 
@@ -155,6 +165,25 @@ commit `4a6eeb9ccd01`, embedder `google/embeddinggemma-2;dim=768;task=sentence s
 
 binding stage: `unmeasured` (all pre-registered paired slices were excluded before product execution)
 
+
+## T6 proof claims (validated report)
+
+Processed corpus: `0.001273%`. Stop rule: stopped at the certified truth-yield ceiling: T2 admitted one cousin capture, and the T1/T2 evidence manifests contain no additional independent cousin items; the last-20-percent bootstrap-SE plateau cannot be estimated at n=1, so no synthetic substitute or repeated truth item was added.
+
+| claim | status | n and estimate (95% CI) | control / completeness |
+|---|---|---|---|
+| C1 any source | UNPROVEN | review n=9; 0.667 [0.333, 1.000] | legacy n=9; 0.667 [0.333, 1.000]; blind: botsv1:WinEventLog:Application, botsv2:winregistry, botsv3:stream:http |
+| C2 same or similar | UNPROVEN | known review n=5; 0.000 [0.000, 0.000]; cousin review n=1; 0.000; CI unavailable; novel review n=0; no estimate; benign n=33 | known legacy n=5; 0.000 [0.000, 0.000]; cousin legacy n=1; 0.000; CI unavailable; novel legacy n=0; no estimate; false-raise/1k=60.60606060606061 |
+| C3 corpus is ground | PROVEN | windows n=9; stages n=69 | fetched 3559/3559; projected full corpus seconds=not estimable; bottleneck funnel.flagged has zero throughput |
+| C4 recorded truth | UNPROVEN | cousin review n=1; 0.000; CI unavailable; novel review n=0; no estimate; evidence_twin review n=0; no estimate | cousin legacy n=1; 0.000; CI unavailable; novel legacy n=0; no estimate; evidence_twin legacy n=0; no estimate; captures admitted=1/1127, rejected=1126, reasons={'CAPTURE_GROUND_TRUTH_INVALID': 1126, 'LEGACY_CAPTURE_UNSCOPED': 653, 'MISSING_EPISODE_ID': 718, 'NO_SIGNAL_RULE': 8, 'NO_TIMED_EVENTS_IN_INTERVAL': 726, 'SIGNAL_MISSING_IN_INTERVAL': 1073, 'SIGNAL_PRESENT_ONLY_OUTSIDE_INTERVAL': 1, 'SIGNAL_PRESENT_WITHOUT_EVENT_TIMESTAMP': 178} |
+
+### Phase-C drills
+
+| drill | status | evidence |
+|---|---|---|
+| recovery | PASS | interrupted_status=INTERRUPTED |
+| embedder_change | PASS | changed_run_id=run-866e07c1c56e; doctor_fix_applied=True; elapsed_seconds=0.21147199999541044; false_raise_alpha_plus_3se_per_1000=295.2005245492835; false_raise_per_1000=32.25806451612903; false_raise_within_tolerance=True; false_raised_units=1; final_stale_calibrations=[]; from_identity=google/embeddinggemma-2;dim=768;task=sentence similarity;role=query; return_to_default_fix_applied=True; return_to_default_identity=google/embeddinggemma-2;dim=768;task=sentence similarity;role=query; sample_benign_unit_count=31; sample_event_count=18; sample_window=portal5_lab_20260616; stale_after_fix=[]; stale_before_fix=['known_similar|L2_ENTITY']; temporary_identity=google/embeddinggemma-2;dim=256;task=sentence similarity;role=query |
+| reader_unreachable | PASS | all_judged_unsure_and_degraded=True; concern_count=1; deterministic_concerns_preserved=True; elapsed_seconds=0.10535304201766849; model_transport=local connection refused before any model response; no_invented_claims=True; run_id=run-dd04ec4cbab9; sample_window=portal5_lab_auditd_20260616 |
 
 ## Ownership (one owner per capability)
 
