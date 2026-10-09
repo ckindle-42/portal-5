@@ -27,18 +27,86 @@ Reachability of the engine package (static import closure):
 | class | modules | lines |
 |---|---|---|
 | orphan | 0 | 0 |
-| production | 0 | 0 |
-| production-lazy | 27 | 12634 |
-| script-only | 56 | 21081 |
+| production | 11 | 4232 |
+| production-lazy | 25 | 12187 |
+| script-only | 47 | 17296 |
 | tests-only | 7 | 1652 |
 
 ## Decisions
 
-No decision records.
+| id | stage | status | report | problems |
+|---|---|---|---|---|
+| D-T1-BASELINE | raised | INCONCLUSIVE | reports/review_eval/6a29bc97d0fd3b97/truth_derivation.json | none |
 
 ## Measured (stamped, real corpora only)
 
-No real-data report exists yet.
+### arm `?` stamp `6382ecb3d97f4cee`
+
+commit `d6145c276260`, embedder `google/embeddinggemma-2;dim=768;task=sentence similarity;role=query`, corpus `real:recorded-captures:5445bf316cfc1c065f6d61c69858a3464ff10892831113e2797a68dea1c772b0`
+
+| metric | value | n | reads as failure when |
+|---|---|---|---|
+| capture_admission_rate | 0.000887311 | 1127 | fails when the self-tested validator admits no recorded capture |
+
+### arm `?` stamp `6a29bc97d0fd3b97`
+
+commit `d6145c276260`, embedder `google/embeddinggemma-2;dim=768;task=sentence similarity;role=query`, corpus `real:botsv1,botsv2,botsv3:4bf90b1a9ab892a8b7ae80f7c55707605f478bc5861d4a04d0958fe2e37ac9b5`
+
+| metric | value | n | reads as failure when |
+|---|---|---|---|
+| answer_key_entry_yield | 0.259259 | 27 | fails when declared entities cannot be independently located and reconciled |
+| usable_index_slice_yield | 0 | 3 | fails when none of the three pre-registered indexes has a paired real slice |
+
+### arm `legacy_funnel` stamp `2921d3691e815b53`
+
+commit `d6145c276260`, embedder `google/embeddinggemma-2;dim=768;task=sentence similarity;role=query`, corpus `real:botsv3:25e5d654c29bc747ced0c52e759b22d4a9e82d1c06d29d1d2008801ff3949ac0`
+
+| metric | value | n | reads as failure when |
+|---|---|---|---|
+| slice_eligibility | 0 | 1 | fails when the pre-registered index has no usable attack and benign pair |
+
+### arm `legacy_funnel` stamp `5e3e806b2f815dc8`
+
+commit `d6145c276260`, embedder `google/embeddinggemma-2;dim=768;task=sentence similarity;role=query`, corpus `real:botsv1:64b8b2f6043fa9373a8bc6356081ae8efebd6da065a4e90350da691b0d568abb`
+
+| metric | value | n | reads as failure when |
+|---|---|---|---|
+| slice_eligibility | 0 | 1 | fails when the pre-registered index has no usable attack and benign pair |
+
+### arm `legacy_funnel` stamp `81ae0e963b3a499a`
+
+commit `d6145c276260`, embedder `google/embeddinggemma-2;dim=768;task=sentence similarity;role=query`, corpus `real:botsv2:8c4fea104572cf48e00b1f73c001e1edfb6c8f9e3cb2475980cf7c7fc157aebc`
+
+| metric | value | n | reads as failure when |
+|---|---|---|---|
+| slice_eligibility | 0 | 1 | fails when the pre-registered index has no usable attack and benign pair |
+
+### arm `review_d0` stamp `cf5bfa97e417c12a`
+
+commit `d6145c276260`, embedder `google/embeddinggemma-2;dim=768;task=sentence similarity;role=query`, corpus `real:botsv1:64b8b2f6043fa9373a8bc6356081ae8efebd6da065a4e90350da691b0d568abb`
+
+| metric | value | n | reads as failure when |
+|---|---|---|---|
+| slice_eligibility | 0 | 1 | fails when the pre-registered index has no usable attack and benign pair |
+
+### arm `review_d0` stamp `d03e05d3725798a9`
+
+commit `d6145c276260`, embedder `google/embeddinggemma-2;dim=768;task=sentence similarity;role=query`, corpus `real:botsv3:25e5d654c29bc747ced0c52e759b22d4a9e82d1c06d29d1d2008801ff3949ac0`
+
+| metric | value | n | reads as failure when |
+|---|---|---|---|
+| slice_eligibility | 0 | 1 | fails when the pre-registered index has no usable attack and benign pair |
+
+### arm `review_d0` stamp `ea8a1330837e2913`
+
+commit `d6145c276260`, embedder `google/embeddinggemma-2;dim=768;task=sentence similarity;role=query`, corpus `real:botsv2:8c4fea104572cf48e00b1f73c001e1edfb6c8f9e3cb2475980cf7c7fc157aebc`
+
+| metric | value | n | reads as failure when |
+|---|---|---|---|
+| slice_eligibility | 0 | 1 | fails when the pre-registered index has no usable attack and benign pair |
+
+binding stage: `unmeasured` (all pre-registered paired slices were excluded before product execution)
+
 
 ## Ownership (one owner per capability)
 

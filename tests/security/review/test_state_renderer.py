@@ -85,6 +85,15 @@ def test_empty_evidence_renders_honestly() -> None:
         assert sentence in text
 
 
+def test_render_names_binding_stage_unmeasured_when_no_arm_ran() -> None:
+    state = _load()
+    doc = _report("real:botsv1", "review_d0", "")
+    doc["extra"] = {"arm": "review_d0", "ledger": {"status": "not_measured"}}
+    text = state.render(census=None, decisions=[], reports=[doc], ownership=None)
+    assert "binding stage: `unmeasured`" in text
+    assert "excluded before product execution" in text
+
+
 def test_check_fails_when_stale_or_a_record_is_invalid(tmp_path: Path) -> None:
     state = _load()
     (tmp_path / "reports" / "bully_review").mkdir(parents=True)

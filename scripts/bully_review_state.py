@@ -66,6 +66,15 @@ def _decisions(items: Sequence[tuple[decisions_mod.Decision, list[str]]]) -> lis
 def _measured(reports: Sequence[Mapping[str, Any]]) -> list[str]:
     real = [r for r in reports if str(r["stamp"]["corpus_snapshot"]).startswith("real:")]
     lines = ["## Measured (stamped, real corpora only)", ""]
+
+    def ledger_for(doc: Mapping[str, Any]) -> Mapping[str, Any]:
+        extra = doc.get("extra")
+        if not isinstance(extra, Mapping):
+            return {}
+        ledger = extra.get("ledger")
+        return ledger if isinstance(ledger, Mapping) else {}
+
+    binding_reported = any("binding" in ledger_for(doc) for doc in real)
     if not real:
         lines.append("No real-data report exists yet.")
     for r in sorted(real, key=lambda r: (str(r["extra"].get("arm", "")), r["stamp_digest"])):
@@ -85,6 +94,13 @@ def _measured(reports: Sequence[Mapping[str, Any]]) -> list[str]:
         if binding is not None:
             lines += ["", f"binding stage: `{binding or 'none (nothing lost)'}`"]
         lines.append("")
+    if not binding_reported and any(
+        ledger_for(doc).get("status") == "not_measured" for doc in real
+    ):
+        lines += [
+            "binding stage: `unmeasured` (all pre-registered paired slices were excluded before product execution)",
+            "",
+        ]
     if len(real) != len(reports):
         lines += [f"Proxy runs (not evidence for any claim): {len(reports) - len(real)}", ""]
     return lines

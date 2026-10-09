@@ -1,0 +1,216 @@
+{
+  "census": {
+    "by_module": {
+      "adaptive_scope": "script-only",
+      "adversary": "tests-only",
+      "advisories": "script-only",
+      "analyst_corpus": "script-only",
+      "analyst_loop": "script-only",
+      "anchors": "production-lazy",
+      "artifact_graph": "production",
+      "asset_identity": "script-only",
+      "baseline": "production",
+      "behavior_classifier": "script-only",
+      "behavior_inference": "script-only",
+      "behavior_values": "production",
+      "blend": "script-only",
+      "bots_answer_key": "production",
+      "calibration": "script-only",
+      "canary": "script-only",
+      "case_history": "script-only",
+      "class_onboarding": "script-only",
+      "compounding": "script-only",
+      "config": "production-lazy",
+      "connectors": "script-only",
+      "contracts": "production-lazy",
+      "corpus_bed": "production",
+      "correlation": "production",
+      "costing": "production-lazy",
+      "cousin_calibration_bench": "script-only",
+      "cousin_engine": "production-lazy",
+      "cousin_forge": "script-only",
+      "cousin_inject": "script-only",
+      "cousin_relation": "script-only",
+      "coverage": "script-only",
+      "cutover": "production-lazy",
+      "data_plane": "script-only",
+      "degeneracy": "script-only",
+      "discovery": "production",
+      "discovery_bench": "script-only",
+      "drift_engine": "production-lazy",
+      "embedding_bench": "tests-only",
+      "embedding_spaces": "script-only",
+      "events": "production-lazy",
+      "evidence": "production-lazy",
+      "field_roles": "production",
+      "full_pipeline": "script-only",
+      "handoff": "production-lazy",
+      "harvest": "script-only",
+      "inject_plane": "script-only",
+      "investigation": "production-lazy",
+      "investigation_pivot": "script-only",
+      "live_census": "script-only",
+      "live_connect": "script-only",
+      "live_profiles": "script-only",
+      "loop_grader": "production-lazy",
+      "measurement": "script-only",
+      "mutation": "production-lazy",
+      "observed_mode": "tests-only",
+      "orchestrator": "production-lazy",
+      "organ": "production-lazy",
+      "outbox": "production-lazy",
+      "phase0_gate": "script-only",
+      "planner_proof": "script-only",
+      "plateau": "production-lazy",
+      "playbooks": "production-lazy",
+      "portal.modules.security.core.bully": "production",
+      "promotion": "production-lazy",
+      "provenance": "script-only",
+      "pyramid": "production-lazy",
+      "relation": "script-only",
+      "relation_investigation": "tests-only",
+      "relation_promotion": "tests-only",
+      "roster": "tests-only",
+      "run_preflight": "script-only",
+      "score_sample": "script-only",
+      "scoreboard": "production-lazy",
+      "scoreboard_conformance": "script-only",
+      "seed_scope": "script-only",
+      "series_cousin": "production-lazy",
+      "signatures": "production-lazy",
+      "soc": "tests-only",
+      "source_adapters": "script-only",
+      "specimen_ledger": "script-only",
+      "store": "production-lazy",
+      "targeting": "production-lazy",
+      "telemetry_behavior": "production",
+      "training": "script-only",
+      "truth_acceptance": "script-only",
+      "unit_ladder": "script-only",
+      "unit_measurement": "script-only",
+      "unit_outcome": "script-only",
+      "unit_relation": "production",
+      "universe": "script-only"
+    },
+    "modules": 90,
+    "note": "production = reachable through module-level imports; production-lazy = only through function-level imports (reached only if that function is called)",
+    "summary": {
+      "orphan": {
+        "curated_literal_lines": 0,
+        "lines": 0,
+        "modules": 0
+      },
+      "production": {
+        "curated_literal_lines": 514,
+        "lines": 4232,
+        "modules": 11
+      },
+      "production-lazy": {
+        "curated_literal_lines": 74,
+        "lines": 12187,
+        "modules": 25
+      },
+      "script-only": {
+        "curated_literal_lines": 70,
+        "lines": 17296,
+        "modules": 47
+      },
+      "tests-only": {
+        "curated_literal_lines": 25,
+        "lines": 1652,
+        "modules": 7
+      }
+    }
+  },
+  "created_at": 1791537490.7424378,
+  "findings": [
+    {
+      "evidence": "700 artifacts -> 512 L1 units by default",
+      "id": "D-UNITS-CAP",
+      "status": "present",
+      "title": "enumerate_units silently caps units per level"
+    },
+    {
+      "evidence": "cross-source shared_entity edges for the same host values: 0",
+      "id": "D-ENTITY-FIELDNAME",
+      "status": "present",
+      "title": "the same host under two field names never links across sources"
+    },
+    {
+      "evidence": "behavior_spine=() actions=['event-0:4624', 'event-1:4769', 'event-2:4688']",
+      "id": "D-SIG-WIN-SPINE",
+      "status": "present",
+      "title": "Windows EventCode telemetry yields an empty behavior spine"
+    },
+    {
+      "evidence": "actions=['event-0:record', 'event-1:record']",
+      "id": "D-SIG-DICT-NOCONTENT",
+      "status": "present",
+      "title": "dict-shaped records collapse to event-N:record"
+    },
+    {
+      "evidence": "behavior_spine=('enumerate', 'c2_exfil', 'enumerate')",
+      "id": "D-SIG-WEB-HTTPVERB",
+      "status": "present",
+      "title": "web 'behaviors' come from HTTP verb substrings"
+    },
+    {
+      "evidence": "signature family='kerberoast_chain' (the Red scenario name)",
+      "id": "D-LABEL-IN-SIGNATURE",
+      "status": "present",
+      "title": "the Red scenario name is the signature's family"
+    },
+    {
+      "evidence": "_defense_response(observable, healthy) -> 'COVERED' with no detection consulted",
+      "id": "D-DEFENSE-CONSTANT",
+      "status": "present",
+      "title": "defense_response is COVERED without consulting a detection"
+    },
+    {
+      "evidence": "_search_table distance-value comparisons: none",
+      "id": "D-NOVEL-UNREACHABLE",
+      "status": "present",
+      "title": "retrieval has no 'too far to count' cutoff"
+    },
+    {
+      "evidence": "hunt.yaml has thresholds block=True; loop_grader reads hunt config=False",
+      "id": "D-DEAD-DIAL",
+      "status": "present",
+      "title": "hunt.yaml thresholds are never read by the product grader"
+    },
+    {
+      "evidence": "modules consuming investigation_verdict besides orchestrator: none",
+      "id": "D-VERDICT-DEADEND",
+      "status": "present",
+      "title": "the investigation verdict is consumed by nothing"
+    },
+    {
+      "evidence": "hardcoded checklist=True; makes model/tool calls=False",
+      "id": "D-AGENTS-STUB",
+      "status": "present",
+      "title": "investigation/agents.py is a scaffold with a hardcoded checklist"
+    },
+    {
+      "evidence": "run_hunt reports iterations=1 / 'single-iteration P1 proof'",
+      "id": "D-SINGLE-ITERATION",
+      "status": "present",
+      "title": "the 'hunt' is one iteration"
+    },
+    {
+      "evidence": "behavior_values._FIELDS hand-listed field names: 64",
+      "id": "D-NAME-TABLE",
+      "status": "present",
+      "title": "behavior terms come from a hand-listed field-name table"
+    },
+    {
+      "evidence": "R.3 signature tests feed AWS API verbs the production adapter never emits",
+      "id": "D-CIRCULAR-FIXTURES",
+      "status": "present",
+      "title": "tests feed the classifier its own vocabulary"
+    }
+  ],
+  "schema": "bully-review-defect-census-v1",
+  "tally": {
+    "present": 14
+  }
+}
