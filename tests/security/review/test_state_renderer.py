@@ -63,6 +63,8 @@ def test_render_is_deterministic_and_separates_real_from_proxy() -> None:
             _report("proxy:universe", "P0", "unit"),
         ],
         "ownership": {"capabilities": {"funnel": "review.funnel", "intake": "review.intake"}},
+        "proof_report": None,
+        "proof_problems": [],
     }
     one, two = state.render(**kwargs), state.render(**kwargs)
     assert one == two
@@ -75,7 +77,14 @@ def test_render_is_deterministic_and_separates_real_from_proxy() -> None:
 
 def test_empty_evidence_renders_honestly() -> None:
     state = _load()
-    text = state.render(census=None, decisions=[], reports=[], ownership=None)
+    text = state.render(
+        census=None,
+        decisions=[],
+        reports=[],
+        ownership=None,
+        proof_report=None,
+        proof_problems=[],
+    )
     for sentence in (
         "No census has been run.",
         "No decision records.",
@@ -89,7 +98,14 @@ def test_render_names_binding_stage_unmeasured_when_no_arm_ran() -> None:
     state = _load()
     doc = _report("real:botsv1", "review_d0", "")
     doc["extra"] = {"arm": "review_d0", "ledger": {"status": "not_measured"}}
-    text = state.render(census=None, decisions=[], reports=[doc], ownership=None)
+    text = state.render(
+        census=None,
+        decisions=[],
+        reports=[doc],
+        ownership=None,
+        proof_report=None,
+        proof_problems=[],
+    )
     assert "binding stage: `unmeasured`" in text
     assert "excluded before product execution" in text
 
