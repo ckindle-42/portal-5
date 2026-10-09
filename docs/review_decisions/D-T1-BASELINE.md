@@ -9,7 +9,9 @@ anti_goals:
   - tune no constant, weight, cutoff or prompt on this harness; review_d0 runs exactly as installed
   - modify no deprecated module; the legacy arm runs the old defaults as shipped
   - report nothing that did not pass the known-answer self-test for the same stamp
-status: PREREGISTERED
+status: INCONCLUSIVE
+report: reports/review_eval/6a29bc97d0fd3b97/truth_derivation.json
+result: "Seven of 27 answer-key entries derived, one of 1,127 recorded captures admitted, and 0 of 3 indexes yielded a same-size separate-day benign interval; neither arm ran and no comparison or workload budget can be established."
 ---
 Workload budget B: chosen on a validation split (disjoint from the test split by host and by day) as
 the Youden point subject to a false-raise rate of at most 10 per 1,000 benign units. B is an
