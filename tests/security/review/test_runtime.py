@@ -19,6 +19,24 @@ from ._fakes import HashEmbedder
 from .test_service_knowledge import _fixture
 
 
+def test_configured_embedding_dim_defaults_and_accepts_matryoshka_override(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.delenv("PORTAL5_REVIEW_EMBEDDING_DIM", raising=False)
+    assert service._configured_embedding_dim() == 768
+
+    monkeypatch.setenv("PORTAL5_REVIEW_EMBEDDING_DIM", "256")
+    assert service._configured_embedding_dim() == 256
+
+
+def test_configured_embedding_dim_rejects_unsupported_dimensions(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("PORTAL5_REVIEW_EMBEDDING_DIM", "384")
+    with pytest.raises(ValueError, match="must be one of"):
+        service._configured_embedding_dim()
+
+
 class NamedHashEmbedder(Embedder):
     def __init__(self, identity: str) -> None:
         self.identity = identity

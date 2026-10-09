@@ -16,6 +16,7 @@ from typing import Any
 # parser only enters tool mode on the opener, so the call arrives as plain
 # content. These helpers recover such calls when tools were offered.
 TEXT_TOOL_CALL_MARKERS = ("<tool_call>", "<function=")
+_TOOL_CALL_WRAPPER_RE = re.compile(r"<tool_call>(.*?)</tool_call>", re.DOTALL)
 _XML_FUNCTION_RE = re.compile(r"<function=([^>\s]+)>(.*?)</function>", re.DOTALL)
 _XML_PARAMETER_RE = re.compile(r"<parameter=([^>\s]+)>(.*?)</parameter>", re.DOTALL)
 
@@ -32,10 +33,37 @@ def _xml_param_value(raw: str, schema: dict[str, Any]) -> Any:
         return value
 
 
+def _decode_json_call(raw_payload: str) -> tuple[str, dict[str, Any]] | None:
+    try:
+        payload, end = json.JSONDecoder().raw_decode(raw_payload)
+    except json.JSONDecodeError:
+        return None
+    # The live Granite/oMLX path was observed to append one unmatched closing
+    # brace after an otherwise valid wrapped call. Accept only that single
+    # terminal character; other trailing content remains an unparsed answer.
+    if raw_payload[end:].strip() not in ("", "}") or not isinstance(payload, dict):
+        return None
+    function = payload.get("function")
+    if isinstance(function, dict):
+        name = function.get("name")
+        arguments = function.get("arguments", {})
+    else:
+        name = payload.get("name")
+        arguments = payload.get("arguments", {})
+    if isinstance(arguments, str):
+        try:
+            arguments = json.loads(arguments)
+        except json.JSONDecodeError:
+            return None
+    if not isinstance(name, str) or not isinstance(arguments, dict):
+        return None
+    return name, arguments
+
+
 def salvage_text_tool_calls(
     content: str, tools: list[dict[str, Any]] | None
 ) -> tuple[str, list[dict[str, Any]]]:
-    """Recover Qwen3-Coder XML tool calls written into ``content``.
+    """Recover JSON or XML tool calls written into ``content``.
 
     Only calls naming an offered tool count; anything else returns no calls so
     the text is delivered unchanged. Returns ``(text_before_the_call, calls)``
@@ -45,24 +73,40 @@ def salvage_text_tool_calls(
         (t.get("function") or {}).get("name"): (t.get("function") or {}).get("parameters") or {}
         for t in tools or []
     }
-    matches = list(_XML_FUNCTION_RE.finditer(content or ""))
-    if not matches or any(m.group(1) not in offered for m in matches):
-        return content, []
-    calls: list[dict[str, Any]] = []
-    for i, m in enumerate(matches):
-        props = offered[m.group(1)].get("properties") or {}
-        args = {
-            name: _xml_param_value(raw, props.get(name) or {})
-            for name, raw in _XML_PARAMETER_RE.findall(m.group(2))
+    text = content or ""
+    matches: list[tuple[int, str, dict[str, Any]]] = []
+    for match in _TOOL_CALL_WRAPPER_RE.finditer(text):
+        raw_payload = match.group(1).strip()
+        if not raw_payload.startswith("{"):
+            continue  # The legacy <function=name> form is parsed below.
+        decoded = _decode_json_call(raw_payload)
+        if decoded is None:
+            return content, []
+        name, arguments = decoded
+        matches.append((match.start(), name, arguments))
+
+    for match in _XML_FUNCTION_RE.finditer(text):
+        name = match.group(1)
+        props = offered.get(name, {}).get("properties") or {}
+        arguments = {
+            key: _xml_param_value(raw, props.get(key) or {})
+            for key, raw in _XML_PARAMETER_RE.findall(match.group(2))
         }
+        matches.append((match.start(), name, arguments))
+
+    if not matches or any(name not in offered for _, name, _ in matches):
+        return content, []
+    matches.sort(key=lambda item: item[0])
+    calls: list[dict[str, Any]] = []
+    for i, (_start, name, args) in enumerate(matches):
         calls.append(
             {
                 "id": f"call_text_{i}",
                 "type": "function",
-                "function": {"name": m.group(1), "arguments": json.dumps(args)},
+                "function": {"name": name, "arguments": json.dumps(args)},
             }
         )
-    prefix = content[: matches[0].start()].replace("<tool_call>", "").strip()
+    prefix = text[: matches[0][0]].replace("<tool_call>", "").strip()
     return prefix, calls
 
 

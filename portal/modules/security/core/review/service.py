@@ -31,6 +31,24 @@ DEFAULT_READER: JudgeFn | None = None
 DEFAULT_STORE = ReviewStore()
 
 
+def _configured_embedding_dim() -> int:
+    """Return the configured EG2 Matryoshka dimension for the review identity."""
+    from portal.platform.embedding.contract import MRL_DIMS, NATIVE_DIM
+
+    raw = os.environ.get("PORTAL5_REVIEW_EMBEDDING_DIM")
+    if raw is None:
+        return NATIVE_DIM
+    try:
+        dimension = int(raw)
+    except ValueError:
+        raise ValueError(
+            f"PORTAL5_REVIEW_EMBEDDING_DIM must be one of {MRL_DIMS}, got {raw!r}"
+        ) from None
+    if dimension not in MRL_DIMS:
+        raise ValueError(f"PORTAL5_REVIEW_EMBEDDING_DIM must be one of {MRL_DIMS}, got {dimension}")
+    return dimension
+
+
 @dataclass(frozen=True)
 class ReviewRequest:
     sources: Sequence[SourceSpec]
@@ -616,7 +634,7 @@ class ReviewRuntime:
 
 def build_default_runtime(*, review_dir: str | Path | None = None) -> ReviewRuntime:
     """Build the host-native product runtime from durable review state and Portal services."""
-    from portal.platform.embedding.contract import NATIVE_DIM, Role, Task
+    from portal.platform.embedding.contract import Role, Task
 
     from .embedding import PlatformEmbedder
     from .funnel import FunnelPolicy
@@ -634,7 +652,7 @@ def build_default_runtime(*, review_dir: str | Path | None = None) -> ReviewRunt
     )
     embedder = PlatformEmbedder(
         task=Task.SENTENCE_SIMILARITY,
-        dim=NATIVE_DIM,
+        dim=_configured_embedding_dim(),
         role=Role.QUERY,
     )
     temporary_store = ReviewStore(root / "review.sqlite3")

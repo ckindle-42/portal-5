@@ -61,11 +61,33 @@ def test_typed_parameters_and_multiple_calls():
     assert calls[0]["id"] != calls[1]["id"]
 
 
+def test_salvages_json_tool_call_wrapper() -> None:
+    content = (
+        '<tool_call>\n{"name":"get_weather","arguments":{"city":"Oslo","days":3}}\n</tool_call>'
+    )
+    text, calls = salvage_text_tool_calls(content, TOOLS)
+    assert text == ""
+    assert len(calls) == 1
+    assert calls[0]["function"]["name"] == "get_weather"
+    assert json.loads(calls[0]["function"]["arguments"]) == {"city": "Oslo", "days": 3}
+
+
+def test_salvages_json_wrapper_with_one_extra_closing_brace() -> None:
+    content = '<tool_call>{"name":"get_weather","arguments":{"city":"Oslo"}}}</tool_call>'
+    text, calls = salvage_text_tool_calls(content, TOOLS)
+    assert text == ""
+    assert len(calls) == 1
+    assert json.loads(calls[0]["function"]["arguments"]) == {"city": "Oslo"}
+
+
 @pytest.mark.parametrize(
     "content,tools",
     [
         (OBSERVED, None),
         (OBSERVED.replace("get_weather", "rm_rf"), TOOLS),
+        ('<tool_call>{"name":"rm_rf","arguments":{}}</tool_call>', TOOLS),
+        ("<tool_call>{not json}</tool_call>", TOOLS),
+        ('<tool_call>{"name":"get_weather","arguments":{}}}}</tool_call>', TOOLS),
         ("Plain answer with no call.", TOOLS),
         ("<function=get_weather> never closed", TOOLS),
     ],
@@ -164,6 +186,28 @@ async def test_stream_dispatches_text_call_and_hides_xml(monkeypatch):
     assert "<function" not in out and "</tool_call>" not in out
     assert "sunny" in out
     assert out.count("[DONE]") == 1
+
+
+@pytest.mark.anyio
+async def test_stream_dispatches_json_tool_call_wrapper(monkeypatch: pytest.MonkeyPatch) -> None:
+    hop1 = [
+        _frame(
+            {
+                "content": (
+                    '<tool_call>\n{"name":"get_weather","arguments":{"city":"Oslo"}}}\n</tool_call>'
+                )
+            }
+        ),
+        _frame({}, "stop"),
+        "data: [DONE]",
+    ]
+    hop2 = [_frame({"content": "It is 18 C and sunny."}), _frame({}, "stop"), "data: [DONE]"]
+    out, dispatched = await _run(monkeypatch, [hop1, hop2])
+    assert len(dispatched) == 1
+    assert dispatched[0][0]["function"]["name"] == "get_weather"
+    assert json.loads(dispatched[0][0]["function"]["arguments"]) == {"city": "Oslo"}
+    assert "<tool_call>" not in out
+    assert "sunny" in out
 
 
 @pytest.mark.anyio
