@@ -1,0 +1,24 @@
+# One owner per capability. A capability with two owners is how four similarity engines, three
+# grading vocabularies and a discarded LLM verdict ended up in one loop.
+# Rendered into docs/BULLY_REVIEW_STATE.md; changed only by a task that moves ownership.
+capabilities:
+  window_source: "review.window"
+  intake_and_units: "review.intake (engine: bully.field_roles, bully.artifact_graph, bully.correlation)"
+  content_cards: "review.content"
+  candidate_funnel: "review.funnel + review.calibration"
+  knowledge_retrieval: "review.knowledge (anchors persisted by review.store)"
+  relation_reading: "review.judge + review.panel, gated by review.grounding"
+  defense_coverage: "review.defense (runs the detection library over a concern's window)"
+  verdict_and_learning: "review.verdicts + review.store"
+  durable_runs: "review.runs"
+  measurement: "review_eval (stamp, metrics, selftest, attribution, decisions, report)"
+  replay_corpus: "already-indexed telemetry (BOTS indexes, portal5_lab) + previously recorded
+    exercise captures, read through siem.capture_store and bully.live_connect / bully.data_plane
+    (replay plane; read-only; never product). NOTHING IN THIS PROGRAM EXECUTES: exec_chain,
+    blue.collect_and_ship_scenario_telemetry, scripts/caldera_emulate.py and bully.inject_plane are
+    OUT OF SCOPE as runnable paths and are owned by no capability here."
+retired_or_frozen:
+  deprecated_graders: "bully.cousin_engine + relation + cousin_relation + loop_grader + signatures (retired in the consolidation task)"
+  hunt_loop: "bully.orchestrator + store + organ + promotion + handoff + training + playbooks (retired unless the trace proves a dependency)"
+  blue_purple_harness: "unknown_defense + blue_orchestrate (frozen; no extension)"
+  agents_stub: "investigation/agents.py (scaffold with a hardcoded checklist; removed)"
