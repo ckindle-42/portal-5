@@ -1178,6 +1178,10 @@ surfaces:
   globs:
   - portal/modules/security/core/review_eval/*.py
   unit: unit-surface-security-review-eval
+- name: unit-surface-security-review-product
+  globs:
+  - portal/modules/security/core/review/*.py
+  unit: unit-surface-security-review-product
 - name: unit-surface-siem
   globs:
   - portal/modules/security/core/siem/*.py
