@@ -1,11 +1,11 @@
 ---
 id: unit-fact-tool-registry
 kind: what
-title: 168 MCP tools across 32 servers
+title: 176 MCP tools across 33 servers
 sources:
 - type: code
   path: portal/modules/*/tools/*_mcp.py
-  commit: ceb4b82915ff
+  commit: 8813e0589d6a
 claims: []
 confidence: high
 tags:
@@ -13,7 +13,7 @@ tags:
 - tools
 - mcp
 created_at: 1784049584.748966
-updated_at: 1791387631.20056
+updated_at: 1791554376.130809
 ---
 
 # MCP tool registry
@@ -47,6 +47,7 @@ What each MCP server actually registers — `@mcp.tool()` defs, or `@mcp.custom_
 | `proxmox` | `proxmox_clone_vm`, `proxmox_cluster_status`, `proxmox_container_exec`, `proxmox_container_shutdown`, `proxmox_container_start`, `proxmox_container_status`, `proxmox_container_stop`, `proxmox_create_snapshot`, `proxmox_delete_snapshot`, `proxmox_delete_vm`, `proxmox_deploy_ctf_lab`, `proxmox_exec_vm`, `proxmox_find_vm`, `proxmox_list_all_vms`, `proxmox_list_containers`, `proxmox_list_networks`, `proxmox_list_nodes`, `proxmox_list_snapshots`, `proxmox_list_storage`, `proxmox_list_storage_content`, `proxmox_list_tasks`, `proxmox_list_vms`, `proxmox_node_exec`, `proxmox_node_status`, `proxmox_rollback_snapshot`, `proxmox_task_status`, `proxmox_vm_agent_info`, `proxmox_vm_config`, `proxmox_vm_reboot`, `proxmox_vm_reset`, `proxmox_vm_resume`, `proxmox_vm_shutdown`, `proxmox_vm_start`, `proxmox_vm_status`, `proxmox_vm_stop`, `proxmox_vm_suspend` |
 | `rag` | _(unresolved — server file not found)_ |
 | `research` | _(unresolved — server file not found)_ |
+| `review` | `review_cancel`, `review_doctor`, `review_explain`, `review_queue`, `review_result`, `review_start`, `review_status`, `review_verdict` |
 | `security` | `classify_vulnerability`, `lab_perception` |
 | `serena` | _(unresolved — server file not found)_ |
 | `tts` | `clone_voice`, `list_voices`, `register_voice`, `speak` |

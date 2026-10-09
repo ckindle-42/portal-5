@@ -1,0 +1,92 @@
+[
+  {
+    "name": "review_start",
+    "description": "Start an asynchronous, read-only review of already-indexed Splunk telemetry. Concerns are candidates; the analyst decides.",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "sources": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "index": {"type": "string"},
+              "sourcetype": {"type": "string"}
+            },
+            "required": ["index", "sourcetype"]
+          }
+        },
+        "start": {"type": "number", "description": "Inclusive epoch start time."},
+        "end": {"type": "number", "description": "Exclusive epoch end time."},
+        "environment_id": {"type": "string", "default": "portal5_lab"}
+      },
+      "required": ["sources", "start", "end"]
+    }
+  },
+  {
+    "name": "review_status",
+    "description": "Read persisted status and progress for a review run.",
+    "parameters": {
+      "type": "object",
+      "properties": {"run_id": {"type": "string"}},
+      "required": ["run_id"]
+    }
+  },
+  {
+    "name": "review_result",
+    "description": "Read a completed review result, or status while the run is unfinished.",
+    "parameters": {
+      "type": "object",
+      "properties": {"run_id": {"type": "string"}},
+      "required": ["run_id"]
+    }
+  },
+  {
+    "name": "review_cancel",
+    "description": "Request cancellation at the review's next checkpoint.",
+    "parameters": {
+      "type": "object",
+      "properties": {"run_id": {"type": "string"}},
+      "required": ["run_id"]
+    }
+  },
+  {
+    "name": "review_verdict",
+    "description": "Record an analyst verdict for a concern and update the review queue.",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "concern_id": {"type": "string"},
+        "verdict": {"type": "string", "enum": ["something", "nothing", "unsure"]},
+        "actor": {"type": "string"},
+        "note": {"type": "string", "default": ""}
+      },
+      "required": ["concern_id", "verdict", "actor"]
+    }
+  },
+  {
+    "name": "review_queue",
+    "description": "List concerns that still need an analyst decision.",
+    "parameters": {
+      "type": "object",
+      "properties": {"limit": {"type": "integer"}}
+    }
+  },
+  {
+    "name": "review_explain",
+    "description": "Return claims with verbatim reviewer-visible text for every cited event.",
+    "parameters": {
+      "type": "object",
+      "properties": {"concern_id": {"type": "string"}},
+      "required": ["concern_id"]
+    }
+  },
+  {
+    "name": "review_doctor",
+    "description": "Check Splunk reachability and index counts, reasoning models, durable databases, and embedder-bound calibrations; optionally re-project anchors and recalibrate from the recorded benign slice.",
+    "parameters": {
+      "type": "object",
+      "properties": {"fix": {"type": "boolean", "default": false}}
+    }
+  }
+]

@@ -1,35 +1,35 @@
 ---
 id: unit-code-portal
 kind: what
-title: portal subsystem (578 files)
+title: portal subsystem (614 files)
 sources:
 - type: code
   path: portal/conftest.py
-  commit: 6d6d86af261b
+  commit: 8813e0589d6a
 - type: code
   path: portal/modules/binary_research/harness/__main__.py
-  commit: 6d6d86af261b
+  commit: 8813e0589d6a
 - type: code
   path: portal/modules/binary_research/harness/cli.py
-  commit: 6d6d86af261b
+  commit: 8813e0589d6a
 - type: code
   path: portal/modules/binary_research/harness/llm.py
-  commit: 6d6d86af261b
+  commit: 8813e0589d6a
 - type: code
   path: portal/modules/binary_research/harness/loop.py
-  commit: 6d6d86af261b
+  commit: 8813e0589d6a
 claims: []
 confidence: high
 tags:
 - code
 - portal
-created_at: 1791527559.358211
-updated_at: 1791527559.358211
+created_at: 1791554783.692687
+updated_at: 1791554783.692687
 ---
 
 # portal subsystem
 
-**Files:** 578
+**Files:** 614
 
 - `portal/conftest.py`
 - `portal/modules/binary_research/harness/__main__.py`
@@ -51,4 +51,4 @@ updated_at: 1791527559.358211
 - `portal/modules/binary_research/tests/test_workspace.py`
 - `portal/modules/binary_research/tools/binresearch_mcp.py`
 - `portal/modules/cad/tools/b123d_bridge.py`
-- ... and 558 more
+- ... and 594 more

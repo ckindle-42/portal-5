@@ -61,6 +61,10 @@ if __name__ == "__main__":
         from portal.modules.security.core.commands.hunt_modes import hunt_main
 
         sys.exit(hunt_main(sys.argv[2:]))
+    if len(sys.argv) > 1 and sys.argv[1] == "review":
+        from portal.modules.security.core.review_cli import main as review_main
+
+        sys.exit(review_main(sys.argv[2:]))
     from portal.modules.security.core import main
 
     sys.exit(main())

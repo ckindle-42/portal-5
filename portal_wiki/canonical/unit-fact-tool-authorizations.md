@@ -1,11 +1,11 @@
 ---
 id: unit-fact-tool-authorizations
 kind: what
-title: tool authorizations for 33 production workspaces
+title: tool authorizations for 34 production workspaces
 sources:
 - type: code
   path: config/portal.yaml
-  commit: 95f6e9006c8b
+  commit: 8813e0589d6a
   section: workspaces[].tools
 claims: []
 confidence: high
@@ -14,7 +14,7 @@ tags:
 - tools
 - workspaces
 created_at: 1784049584.703768
-updated_at: 1791308516.590851
+updated_at: 1791554376.062481
 ---
 
 # Tool authorizations (per-workspace `tools:` whitelist)
@@ -55,6 +55,7 @@ The pipeline strips any tool a workspace does not authorize (metric `portal5_too
 | `compliance-reading-overflow` | compliance | _(none)_ |
 | `general-deep` | general | `web_search`!, `web_fetch`!, `kb_search`!, `kb_list`!, `read_pdf`, `read_word_document`, `read_excel`, `create_word_document`, `create_excel`, `create_powerpoint`, `execute_python`, `remember`!, `recall`! |
 | `general-fast` | general | `web_search`!, `web_fetch`!, `kb_search`!, `kb_list`!, `read_pdf`, `read_word_document`, `read_excel`, `create_word_document`, `create_excel`, `create_powerpoint`, `execute_python`, `remember`!, `recall`! |
+| `security-reviewer` | security | `review_start`, `review_status`, `review_result`, `review_cancel`, `review_verdict`, `review_queue`, `review_explain`, `review_doctor` |
 | `tools-specialist` | general | `execute_python`, `remember`!, `recall`! |
 
 ## Why

@@ -145,6 +145,10 @@
     "portal-netforensics": {
       "type": "http",
       "url": "http://localhost:8941/mcp"
+    },
+    "portal-review": {
+      "type": "http",
+      "url": "http://localhost:8943/mcp"
     }
   }
 }

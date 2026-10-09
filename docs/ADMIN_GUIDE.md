@@ -415,7 +415,7 @@ key=workspace` (sealed grader; run one at a time). Details: `portal/modules/cad/
 ### Personas
 
 <!-- WIKI:GENERATED unit=unit-fact-persona-roster -->
-#### Persona roster (122 personas)
+#### Persona roster (123 personas)
 
 | Slug | Module | Workspace | Model Pin |
 |---|---|---|---|
@@ -522,6 +522,7 @@ key=workspace` (sealed grader; run one at a time). Details: `portal/modules/cad/
 | `redteamoperator` | security | `auto-security` | — |
 | `researchanalyst` | research | `auto-research` | — |
 | `rustengineer` | coding | `auto-coding` | — |
+| `securityreviewer` | security | `security-reviewer` | — |
 | `securityuncensored` | security | `auto-security` | — |
 | `seniorfrontenddeveloper` | coding | `auto-coding` | — |
 | `seniorsoftwareengineersoftwarearchitectrules` | general | `auto-reasoning` | — |
@@ -550,7 +551,7 @@ The roster is derived from the persona YAML files under `config/personas/`, one 
 ### Workspaces
 
 <!-- WIKI:GENERATED unit=unit-fact-workspace-roster -->
-#### Workspace roster (33 production, 24 eval, 57 total)
+#### Workspace roster (34 production, 24 eval, 58 total)
 
 ##### Production workspaces (acceptance/UAT scope, eval OFF)
 
@@ -588,6 +589,7 @@ The roster is derived from the persona YAML files under `config/personas/`, one 
 | `compliance-reading-overflow` | compliance | `gemma4:26b-a4b-it-q4_K_M-ctx64k` |
 | `general-deep` | general | `hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx96k` |
 | `general-fast` | general | `hf.co/unsloth/Qwen3.6-35B-A3B-GGUF:UD-Q4_K_XL-ctx96k` |
+| `security-reviewer` | security | `granite4.1:8b-ctx8k` |
 | `tools-specialist` | general | `granite4.1:8b-ctx8k` |
 
 ##### Eval/bench workspaces (need PORTAL_ENABLE_EVAL=1)
@@ -668,6 +670,7 @@ default.
 | `compliance-reading-overflow` | `gemma4:26b-a4b-it-q4_K_M-ctx64k` | yes |
 | `general-deep` | `hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx96k` | yes |
 | `general-fast` | `hf.co/unsloth/Qwen3.6-35B-A3B-GGUF:UD-Q4_K_XL-ctx96k` | yes |
+| `security-reviewer` | `granite4.1:8b-ctx8k` | yes |
 | `tools-specialist` | `granite4.1:8b-ctx8k` | yes |
 
 ##### Persona model_pin reachability
@@ -696,7 +699,7 @@ Model bindings are the reachability-resolved view of what each workspace `model_
 ### MCP Fleet
 
 <!-- WIKI:GENERATED unit=unit-fact-mcp-fleet -->
-#### MCP fleet (32 servers)
+#### MCP fleet (33 servers)
 
 | ID | Name | Port |
 |---|---|---|
@@ -732,6 +735,7 @@ Model bindings are the reachability-resolved view of what each workspace `model_
 | `detection` | portal-detection | 8938 |
 | `data` | portal-data | 8939 |
 | `netforensics` | portal-netforensics | 8941 |
+| `review` | portal-review | 8943 |
 
 ##### Why
 

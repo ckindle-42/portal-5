@@ -1,26 +1,26 @@
 ---
 id: unit-fact-persona-roster
 kind: what
-title: 122 personas
+title: 123 personas
 sources:
 - type: code
   path: config/personas/
-  commit: f3dc594ede4a
+  commit: 8813e0589d6a
 - type: code
   path: config/personas/adversarysimulator.yaml
-  commit: f3dc594ede4a
+  commit: 8813e0589d6a
 - type: code
   path: config/personas/agenticheavy.yaml
-  commit: f3dc594ede4a
+  commit: 8813e0589d6a
 - type: code
   path: config/personas/agenticlite.yaml
-  commit: f3dc594ede4a
+  commit: 8813e0589d6a
 - type: code
   path: config/personas/agentorchestrator.yaml
-  commit: f3dc594ede4a
+  commit: 8813e0589d6a
 - type: code
   path: config/personas/bench_gemma4_26b_optiq.yaml
-  commit: f3dc594ede4a
+  commit: 8813e0589d6a
 claims:
 - probe: personas.count
   pattern: Persona roster ({value} personas)
@@ -29,10 +29,10 @@ tags:
 - fact
 - personas
 created_at: 1784000421.217775
-updated_at: 1789193921.19621
+updated_at: 1791554375.6245172
 ---
 
-# Persona roster (122 personas)
+# Persona roster (123 personas)
 
 | Slug | Module | Workspace | Model Pin |
 |---|---|---|---|
@@ -139,6 +139,7 @@ updated_at: 1789193921.19621
 | `redteamoperator` | security | `auto-security` | — |
 | `researchanalyst` | research | `auto-research` | — |
 | `rustengineer` | coding | `auto-coding` | — |
+| `securityreviewer` | security | `security-reviewer` | — |
 | `securityuncensored` | security | `auto-security` | — |
 | `seniorfrontenddeveloper` | coding | `auto-coding` | — |
 | `seniorsoftwareengineersoftwarearchitectrules` | general | `auto-reasoning` | — |

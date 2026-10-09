@@ -21,7 +21,7 @@ from .pipeline import (
     build_reference,
     review_window,
 )
-from .reference import recalibrate, save_reference, stale
+from .reference import load_reference, recalibrate, reference_path, save_reference, stale
 from .runs import RunContext, RunRecord, RunStore, RunWorker
 from .store import ReviewStore, StoredConcern
 from .wall import assert_label_free
@@ -344,6 +344,7 @@ class ReviewRuntime:
         self.judge = judge
         self.splunk_health_probe = splunk_health
         self.reasoning_model_probe = reasoning_model_probe
+        self._calibration_refresh_error: str | None = None
         self._calibration_path = self.review_dir / "calibration_slice.json"
         self.calibration_window = reference.calibration_window
         if calibration_records_by_source is not None:
@@ -410,13 +411,15 @@ class ReviewRuntime:
         actor: str,
         note: str = "",
     ) -> verdicts.WriteBack:
-        return record_verdict(
+        writeback = record_verdict(
             concern_id,
             verdict,
             actor=actor,
             store=self.review_store,
             note=note,
         )
+        self._refresh_reference_after_verdict()
+        return writeback
 
     def queue(self, *, limit: int | None = None) -> list[StoredConcern]:
         return self.review_store.queue() if limit is None else self.review_store.queue(limit=limit)
@@ -519,6 +522,7 @@ class ReviewRuntime:
                 "runs": self.run_store.health(),
                 "verdicts": self.review_store.health(),
             },
+            "calibration_refresh_error": self._calibration_refresh_error,
             "last_run": (
                 {
                     "run_id": last_run.run_id,
@@ -531,6 +535,38 @@ class ReviewRuntime:
             ),
             "fix": fix_result,
         }
+
+    def _refresh_reference_after_verdict(self) -> None:
+        """Persist current-identity calibrations after new analyst knowledge arrives."""
+        cards = verdicts.cards_from_store(self.review_store)
+        if not cards or self.calibration_window is None or self.embedder is None:
+            return
+        try:
+            index = _combined_index(self.index, cards, self.embedder)
+            if index is None or not index.population:
+                return
+            benign_event_ids = {
+                str(event_id)
+                for anchor in self.review_store.anchors()
+                if anchor.malice == "benign"
+                for event_id in anchor.record.get("event_ids", [])
+            }
+            calibration_slice = disjoint_calibration_slice(
+                self.calibration_window, benign_event_ids
+            )
+            self.reference = build_reference(
+                calibration_slice,
+                policy=self.config.policy,
+                index=index,
+                embedder=self.embedder,
+                environment_id=self.environment_id,
+                basis=self.reference.basis,
+            )
+            self.index = index
+            save_reference(self.reference, review_dir=self.review_dir)
+            self._calibration_refresh_error = None
+        except Exception as exc:  # noqa: BLE001 -- verdict remains durable; doctor shows repair error
+            self._calibration_refresh_error = f"{type(exc).__name__}: {exc}"
 
     def _source_health(self) -> dict[str, Any]:
         probe = self.splunk_health_probe or getattr(self.source, "health", None)
@@ -571,3 +607,98 @@ class ReviewRuntime:
         if not isinstance(plain, Mapping):
             raise TypeError("review result did not serialize to an object")
         return plain
+
+
+def build_default_runtime(*, review_dir: str | Path | None = None) -> ReviewRuntime:
+    """Build the host-native product runtime from durable review state and Portal services."""
+    from portal.platform.embedding.contract import NATIVE_DIM, Role, Task
+
+    from .embedding import PlatformEmbedder
+    from .funnel import FunnelPolicy
+    from .window import SplunkWindowSource
+
+    root = _runtime_root(review_dir)
+    root.mkdir(parents=True, exist_ok=True)
+    environment_id = os.environ.get("PORTAL5_REVIEW_ENVIRONMENT_ID", "portal5_lab")
+    config = ReviewConfig(
+        policy=FunnelPolicy(
+            alpha_unusual=0.2,
+            alpha_similar=0.2,
+            levels=("L2_ENTITY", "L3_CHAIN"),
+        )
+    )
+    embedder = PlatformEmbedder(
+        task=Task.SENTENCE_SIMILARITY,
+        dim=NATIVE_DIM,
+        role=Role.QUERY,
+    )
+    temporary_store = ReviewStore(root / "review.sqlite3")
+    try:
+        cards = verdicts.cards_from_store(temporary_store)
+    finally:
+        temporary_store.close()
+    index = AnchorIndex.build(cards, embedder) if cards else None
+    reference_file = reference_path(review_dir=root)
+    calibration_path = root / "calibration_slice.json"
+    if reference_file.is_file():
+        reference = load_reference(review_dir=root)
+    else:
+        if not calibration_path.is_file():
+            raise FileNotFoundError(
+                f"review reference and recorded benign slice are missing under {root}"
+            )
+        raw = json.loads(calibration_path.read_text(encoding="utf-8"))
+        if not isinstance(raw, Mapping):
+            raise ValueError("recorded benign calibration slice must be an object") from None
+        reference = build_reference(
+            build_window_units(raw),
+            policy=config.policy,
+            index=index,
+            embedder=embedder,
+            environment_id=environment_id,
+        )
+        save_reference(reference, review_dir=root)
+    return ReviewRuntime(
+        source=SplunkWindowSource(),
+        embedder=embedder,
+        index=index,
+        reference=reference,
+        config=config,
+        environment_id=environment_id,
+        review_dir=root,
+        reasoning_model_probe=lambda: _probe_reasoning_models(),
+    )
+
+
+def _probe_reasoning_models() -> Sequence[str]:
+    """Intersect configured reasoning seats with models currently served by host Ollama."""
+    import httpx
+    import yaml
+
+    repo_root = Path(__file__).resolve().parents[5]
+    config_path = repo_root / "config" / "backends.yaml"
+    configuration = yaml.safe_load(config_path.read_text(encoding="utf-8")) or {}
+    configured = {
+        str(model["id"])
+        for backend in configuration.get("backends", [])
+        if isinstance(backend, Mapping) and backend.get("group") == "reasoning"
+        for model in backend.get("models", [])
+        if isinstance(model, Mapping) and model.get("id")
+    }
+    base_url = (
+        os.environ.get("PORTAL_REVIEW_OLLAMA_URL")
+        or os.environ.get("OLLAMA_URL")
+        or "http://127.0.0.1:11434"
+    ).rstrip("/")
+    if "host.docker.internal" in base_url:
+        base_url = base_url.replace("host.docker.internal", "localhost")
+    response = httpx.get(f"{base_url}/api/tags", timeout=10.0)
+    response.raise_for_status()
+    payload = response.json()
+    models = payload.get("models", []) if isinstance(payload, Mapping) else []
+    installed = {
+        str(model.get("name"))
+        for model in models
+        if isinstance(model, Mapping) and model.get("name")
+    }
+    return sorted(configured & installed)

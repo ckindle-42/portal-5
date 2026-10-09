@@ -2,7 +2,7 @@
 
 # Portal 5 Architecture Map
 
-*Deterministic projection of 770 canonical units.*
+*Deterministic projection of 772 canonical units.*
 
 ## Knowledge Layer
 
@@ -221,6 +221,7 @@
 | `unit-capability-rag` | mixed | 8 |
 | `unit-capability-research` | mixed | 3 |
 | `unit-capability-security` | mixed | 2 |
+| `unit-capability-security-review` | mixed | 10 |
 | `unit-capability-serena` | mixed | 3 |
 | `unit-capability-tts` | mixed | 3 |
 | `unit-capability-turn-trace` | mixed | 4 |
@@ -730,6 +731,7 @@
 | `unit-surface-sec-tests` | mixed | 1 |
 | `unit-surface-security-eval` | mixed | 1 |
 | `unit-surface-security-review-eval` | mixed | 1 |
+| `unit-surface-security-review-product` | mixed | 1 |
 | `unit-surface-siem` | mixed | 1 |
 | `unit-surface-tests-bully` | mixed | 1 |
 | `unit-surface-tests-harness` | mixed | 2 |
@@ -779,12 +781,12 @@
 | `unit-wiki-tests-render` | mixed | 1 |
 | `unit-wiki-writeback` | mixed | 1 |
 
-**Total:** 770 units
+**Total:** 772 units
 
 ## Source Distribution
 
 - **bench-security**: 1 references
-- **code**: 2061 references
+- **code**: 2072 references
 - **config**: 1 references
 - **data**: 1 references
 - **doc**: 1 references

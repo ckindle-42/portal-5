@@ -1280,6 +1280,8 @@ workspace_routing:
   auto-data:
   - reasoning
   - general
+  security-reviewer:
+  - general
   auto-compliance:
   - reasoning
   - general

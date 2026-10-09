@@ -128,6 +128,10 @@ case "$SERVICE" in
         export PATH="/opt/homebrew/bin:/usr/local/bin:/Applications/Wireshark.app/Contents/MacOS:$PATH"
         exec "$PY" -m portal.modules.netforensics.tools.netforensics_mcp
         ;;
+    review-mcp)
+        export REVIEW_MCP_PORT="${REVIEW_MCP_PORT:-8943}"
+        exec "$PY" -m portal.modules.security.tools.review_mcp
+        ;;
     wiki-mcp)
         export OLLAMA_URL="${OLLAMA_URL:-http://localhost:11434}"
         export WIKI_MCP_PORT="${WIKI_MCP_PORT:-8931}"
