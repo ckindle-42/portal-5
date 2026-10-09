@@ -15,7 +15,7 @@ tags:
 - review
 - product
 created_at: 1791551882.0
-updated_at: 1791552334.0
+updated_at: 1791561222.0
 ---
 
 `portal/modules/security/core/review/` is the label-blind product path. The
@@ -38,6 +38,10 @@ replay. The default store is in-memory; callers may inject a store, with
 the host-native MCP runtime supplying durable run and verdict stores for the
 analyst-facing product. The MCP exposes start, status, result, cancel, verdict,
 queue, explain, and doctor operations through the same `ReviewRuntime`.
+
+For each Splunk partition, `SplunkWindowSource` obtains `expected` from an
+independent bounded `search index=... sourcetype=... | stats count` export and
+compares it with the rows returned by the uncapped event export.
 
 `defense` reads the configured technique-to-SPL library from the knowledge
 plane's top resemblance label and selects source-applicable detections. It adds the concern's entities before each

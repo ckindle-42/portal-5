@@ -1,7 +1,7 @@
 """review.window -- uncapped, receipted windows over real or in-memory sources.
 
 The product sees only extracted event fields. Search and count use separate Splunk exports;
-the indexed-field count is the denominator for every fetched partition.
+the bounded raw-search count is the denominator for every fetched partition.
 """
 
 from __future__ import annotations
@@ -141,7 +141,7 @@ def _result_objects(chunks: Iterable[str]) -> list[Mapping[str, Any]]:
 
 
 class SplunkWindowSource:
-    """Read-only Splunk REST export source with an indexed-field count per partition."""
+    """Read-only Splunk REST export source with an independent raw-search count per partition."""
 
     def __init__(
         self,
@@ -198,19 +198,20 @@ class SplunkWindowSource:
 
     def _count(self, source: SourceSpec, start: float, end: float) -> int:
         search = (
-            "| tstats count where "
-            f"index={_quote(source.index)} sourcetype={_quote(source.sourcetype)} "
-            f"earliest={_epoch(start)} latest={_epoch(end)}"
+            f"search index={_quote(source.index)} sourcetype={_quote(source.sourcetype)} "
+            "| stats count"
         )
         rows = self._post(search, start, end)
         if len(rows) != 1 or "count" not in rows[0]:
-            raise WindowFetchError(f"tstats count returned {len(rows)} rows for {source.source_id}")
+            raise WindowFetchError(
+                f"raw-search count returned {len(rows)} rows for {source.source_id}"
+            )
         try:
             count = int(str(rows[0]["count"]))
         except (TypeError, ValueError) as exc:
-            raise WindowFetchError(f"invalid tstats count for {source.source_id}") from exc
+            raise WindowFetchError(f"invalid raw-search count for {source.source_id}") from exc
         if count < 0:
-            raise WindowFetchError(f"negative tstats count for {source.source_id}")
+            raise WindowFetchError(f"negative raw-search count for {source.source_id}")
         return count
 
     def _events(self, source: SourceSpec, start: float, end: float) -> list[dict[str, Any]]:

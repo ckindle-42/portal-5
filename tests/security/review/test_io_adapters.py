@@ -55,7 +55,7 @@ def test_splunk_window_uses_uncapped_exports_and_receipts_counts() -> None:
         params = parse_qs(request.content.decode())
         search = params["search"][0]
         calls.append((search, params))
-        body = '{"result":{"count":"2"}}' if search.startswith("| tstats") else _events()
+        body = '{"result":{"count":"2"}}' if "| stats count" in search else _events()
         return httpx.Response(200, text=body)
 
     source = SplunkWindowSource(
@@ -75,7 +75,9 @@ def test_splunk_window_uses_uncapped_exports_and_receipts_counts() -> None:
     assert len(calls) == 2
     count_search, count_params = calls[0]
     event_search, event_params = calls[1]
-    assert 'tstats count where index="botsv3" sourcetype="XmlWinEventLog:Security"' in count_search
+    assert (
+        count_search == 'search index="botsv3" sourcetype="XmlWinEventLog:Security" | stats count'
+    )
     assert "earliest_time" in count_params and "latest_time" in count_params
     assert 'index="botsv3"' in event_search and "sourcetype=" in event_search
     assert "head" not in event_search.lower() and "limit" not in event_params
@@ -85,9 +87,7 @@ def test_splunk_window_uses_uncapped_exports_and_receipts_counts() -> None:
 def test_splunk_count_mismatch_is_degraded_and_label_keys_fail_closed() -> None:
     def mismatch_handler(request: httpx.Request) -> httpx.Response:
         params = parse_qs(request.content.decode())
-        body = (
-            '{"result":{"count":"3"}}' if params["search"][0].startswith("| tstats") else _events(1)
-        )
+        body = '{"result":{"count":"3"}}' if "| stats count" in params["search"][0] else _events(1)
         return httpx.Response(200, text=body)
 
     source = SplunkWindowSource(
@@ -101,7 +101,7 @@ def test_splunk_count_mismatch_is_degraded_and_label_keys_fail_closed() -> None:
 
     def label_handler(request: httpx.Request) -> httpx.Response:
         params = parse_qs(request.content.decode())
-        if params["search"][0].startswith("| tstats"):
+        if "| stats count" in params["search"][0]:
             return httpx.Response(200, text='{"result":{"count":"1"}}')
         return httpx.Response(
             200,
@@ -270,5 +270,5 @@ def test_splunk_json_count_errors_fail_instead_of_looking_empty() -> None:
         url="https://splunk.test:8089",
         transport=httpx.MockTransport(lambda _request: httpx.Response(200, text="{}")),
     )
-    with pytest.raises(WindowFetchError, match="tstats count returned"):
+    with pytest.raises(WindowFetchError, match="raw-search count returned"):
         source.fetch([SourceSpec("i", "s")], 0, 1)
