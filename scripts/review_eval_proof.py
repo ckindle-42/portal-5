@@ -882,6 +882,79 @@ def _answer_key_rows(
     return rows, excluded
 
 
+def _evidence_twin_rows(
+    manifest_items: Sequence[Mapping[str, Any]],
+    *,
+    test_batches: Mapping[str, WindowBatch],
+    candidate_summaries: Mapping[str, Mapping[str, Any]],
+    control_summaries: Mapping[str, Mapping[str, Any]],
+    window_order: Sequence[str],
+    workload_b: int,
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    """Score each corpus-derived duplicate event set once, only inside a fixed proof window."""
+    grouped: dict[tuple[str, ...], list[Mapping[str, Any]]] = {}
+    for item in manifest_items:
+        event_ids = tuple(sorted(str(value) for value in item.get("event_ids", [])))
+        if event_ids:
+            grouped.setdefault(event_ids, []).append(item)
+
+    rows: list[dict[str, Any]] = []
+    dispositions: list[dict[str, Any]] = []
+    for event_ids, items in sorted(grouped.items()):
+        techniques = sorted({str(item.get("technique") or "") for item in items})
+        datasets = sorted({str(item.get("dataset") or "") for item in items})
+        if len(techniques) < 2 or len(datasets) != 1:
+            continue
+        truth_events = set(event_ids)
+        event_set_hash = hashlib.sha256("|".join(event_ids).encode()).hexdigest()
+        selected: tuple[str, WindowBatch, set[str]] | None = None
+        for window_id in window_order:
+            batch = test_batches.get(window_id)
+            if batch is None:
+                continue
+            available = set(_event_ids(batch))
+            overlap = truth_events & available
+            if overlap:
+                selected = (window_id, batch, available)
+                break
+        disposition: dict[str, Any] = {
+            "event_set_hash": event_set_hash,
+            "techniques": techniques,
+            "truth_item_count": len(items),
+            "truth_event_count": len(truth_events),
+            "status": "matched_to_processed_window" if selected else "not_in_processed_windows",
+        }
+        if selected is not None:
+            window_id, batch, available = selected
+            candidate = candidate_summaries[window_id]
+            control = control_summaries[window_id]
+            overlap_count = len(truth_events & available)
+            row_id = hashlib.sha256(f"evidence-twin|{event_set_hash}".encode()).hexdigest()[:16]
+            rows.append(
+                {
+                    "claim": "C4",
+                    "row_id": row_id,
+                    "class": "evidence_twin",
+                    "evidence_twin_source": "corpus",
+                    "workload_B": workload_b,
+                    "review_hit": _truth_hit(candidate, truth_events, workload_b),
+                    "control_hit": _truth_hit(control, truth_events, workload_b),
+                    "review_raised": False,
+                    "grounding_resolved": _grounded(candidate, available),
+                    "absence_receipt_verified": False,
+                    "alpha": DEFAULT_CONFIG.policy.alpha_unusual,
+                    "truth_event_count": len(truth_events),
+                    "processed_overlap_event_count": overlap_count,
+                    "window_id": window_id,
+                }
+            )
+            disposition["sample_window"] = window_id
+            disposition["processed_overlap_event_count"] = overlap_count
+            disposition["window_event_count"] = batch.fetched
+        dispositions.append(disposition)
+    return rows, dispositions
+
+
 def _source_claim_row(
     proof_slice: ProofSlice,
     batch: WindowBatch,
@@ -1183,6 +1256,7 @@ def _run_main(args: argparse.Namespace) -> int:  # noqa: C901, PLR0912, PLR0915 
     window_reports: list[dict[str, Any]] = []
     truth_exclusions: list[dict[str, Any]] = []
     candidate_summaries: dict[str, dict[str, Any]] = {}
+    control_summaries: dict[str, dict[str, Any]] = {}
 
     try:
         for proof_slice in PLAN:
@@ -1198,6 +1272,7 @@ def _run_main(args: argparse.Namespace) -> int:  # noqa: C901, PLR0912, PLR0915 
                 manifest_digest=manifest_digest,
             )
             candidate_summaries[proof_slice.window_id] = review_summary
+            control_summaries[proof_slice.window_id] = control_summary
             metadata["count_method"] = "bounded raw-search stats count plus uncapped event export"
             intake = build_window_units(batch.records_by_source)
             elapsed = float(review_summary.get("duration_seconds") or 0.001)
@@ -1279,6 +1354,8 @@ def _run_main(args: argparse.Namespace) -> int:  # noqa: C901, PLR0912, PLR0915 
                     summary=control_summary,
                 )
             control_summary = dict(saved_control.summary)
+            candidate_summaries[window_id] = review_summary
+            control_summaries[window_id] = control_summary
             rows.append(
                 {
                     "claim": "C1",
@@ -1401,22 +1478,16 @@ def _run_main(args: argparse.Namespace) -> int:  # noqa: C901, PLR0912, PLR0915 
             rows.append(capture_row)
             rows.append(capture_run["c2_row"])
             window_reports.append(capture_meta)
-        evidence_twin_pairs: list[dict[str, Any]] = []
         truth_doc = json.loads(TRUTH_MANIFEST.read_text(encoding="utf-8"))
-        grouped: dict[str, list[Mapping[str, Any]]] = {}
-        for item in truth_doc.get("items", []):
-            key = hashlib.sha256("|".join(sorted(item.get("event_ids", []))).encode()).hexdigest()
-            grouped.setdefault(key, []).append(item)
-        for digest, group in grouped.items():
-            if len(group) > 1 and len({row.get("technique") for row in group}) > 1:
-                evidence_twin_pairs.append(
-                    {
-                        "event_set_hash": digest,
-                        "techniques": sorted(str(row.get("technique")) for row in group),
-                        "truth_item_count": len(group),
-                        "status": "identified_in_manifest_not_in_processed_windows",
-                    }
-                )
+        evidence_twin_rows, evidence_twin_pairs = _evidence_twin_rows(
+            truth_doc.get("items", []),
+            test_batches=test_batches,
+            candidate_summaries=candidate_summaries,
+            control_summaries=control_summaries,
+            window_order=[item.window_id for item in PLAN],
+            workload_b=PROOF_WORKLOAD_B,
+        )
+        rows.extend(evidence_twin_rows)
         claims_doc = claims.evaluate_claims(
             rows,
             corpus_snapshots=[
