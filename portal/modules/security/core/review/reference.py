@@ -141,4 +141,4 @@ def recalibrate(
             )
         except CalibrationInsufficient as exc:
             degraded.append(f"{CHANNEL_SIMILAR}/{level}: {exc}")
-    return Reference(reference.baseline, replacement, reference.basis, degraded)
+    return Reference(reference.baseline, replacement, reference.basis, degraded, benign)

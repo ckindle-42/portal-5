@@ -84,6 +84,7 @@ class Reference:
     calibrations: CalibrationSet
     basis: str
     degraded: list[str] = field(default_factory=list)
+    calibration_window: IntakeResult | None = None
 
 
 def _by_level(units: Sequence[IntakeUnit], levels: Sequence[str]) -> dict[str, list[IntakeUnit]]:
@@ -143,7 +144,7 @@ def build_reference(
             )
         except CalibrationInsufficient as exc:
             degraded.append(f"known_similar/{level}: {exc}")
-    return Reference(model, cals, basis, degraded)
+    return Reference(model, cals, basis, degraded, benign)
 
 
 def _best_similarities(

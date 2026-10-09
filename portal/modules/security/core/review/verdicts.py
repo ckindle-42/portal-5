@@ -53,6 +53,9 @@ def persist_run(store: ReviewStore, result: ReviewResult, window: IntakeResult) 
     for concern in [*result.concerns, *result.suppressed]:
         unit = by_unit.get(concern.unit_id)
         record = record_from_unit(unit.unit, unit.terms, unit.card) if unit is not None else {}
+        if unit is not None:
+            record["unit_id"] = unit.unit.unit_id
+            record["event_ids"] = list(unit.event_ids)
         store.put_concern(
             result.run_id,
             concern.concern_id,
@@ -61,6 +64,7 @@ def persist_run(store: ReviewStore, result: ReviewResult, window: IntakeResult) 
             concern.priority_p,
             to_plain(concern),
             record,
+            at=result.finished_at or None,
         )
         stored.append(concern.concern_id)
     return stored
