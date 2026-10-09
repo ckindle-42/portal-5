@@ -64,6 +64,32 @@ def test_event_id_ignores_internal_keys_and_is_stable() -> None:
     assert a == b and intake.event_id_for("s", {"x": 2}) != a
 
 
+def test_event_id_survives_a_second_export_of_the_same_event() -> None:
+    # The same Splunk event exported by two search jobs: the search-job metadata and the
+    # search-time extractions differ, the event does not. D-T2 reconciled 804 of 22,397 ids
+    # because the id once hashed the whole row.
+    event = {
+        "index": "botsv1",
+        "sourcetype": "WinEventLog:Security",
+        "host": "we8105desk",
+        "source": "WinEventLog:Security",
+        "_time": "2016-08-24T16:48:12.000+00:00",
+        "_raw": "EventCode=4688 New_Process_Name=C:\\Windows\\System32\\cmd.exe",
+        "_cd": "12:345678",
+    }
+    first = {**event, "_serial": "0", "_si": ["idx1", "botsv1"], "_bkt": "botsv1~12~A"}
+    second = {
+        **event,
+        "_serial": "917",
+        "_si": ["idx2", "botsv1"],
+        "_bkt": "botsv1~12~B",
+        "_indextime": "1472057292",
+        "EventCode": "4688",
+    }
+    assert intake.event_id_for("s", first) == intake.event_id_for("s", second)
+    assert intake.event_id_for("s", first) != intake.event_id_for("s", {**first, "_cd": "12:9"})
+
+
 def test_anchor_index_search_and_exclusion() -> None:
     embedder = HashEmbedder()
     cards = [
