@@ -42,8 +42,21 @@ Reachability of the engine package (static import closure):
 | D-T3-PANEL | raised | REJECTED | reports/review_eval/41eaed5720a9844f/t3_prerequisites.json | none |
 | D-T3-PIVOT | raised | INCONCLUSIVE | reports/review_eval/41eaed5720a9844f/t3_prerequisites.json | none |
 | D-T3-READER | raised | INCONCLUSIVE | reports/review_eval/41eaed5720a9844f/t3_prerequisites.json | none |
+| D-T4-DEFENSE | raised | INCONCLUSIVE | reports/review_eval/4de03bca93e183d8/t4_pair_gate.json | none |
+| D-T4-MATURE | raised | INCONCLUSIVE | reports/review_eval/4de03bca93e183d8/t4_pair_gate.json | none |
+| D-T4-SUPPRESS | raised | INCONCLUSIVE | reports/review_eval/4de03bca93e183d8/t4_pair_gate.json | none |
 
 ## Measured (stamped, real corpora only)
+
+### arm `?` stamp `4de03bca93e183d8`
+
+commit `31ddefc13a03`, embedder `not_used;T4_precondition_only`, corpus `real:bots_truth_manifest:4bf90b1a9ab892a8b7ae80f7c55707605f478bc5861d4a04d0958fe2e37ac9b5`
+
+| metric | value | n | reads as failure when |
+|---|---|---|---|
+| eligible_pairs | 0 | 3 | fails when fewer than 20 answer-key and same-index routine-use pairs can be independently labelled |
+| botsv1_botsv2_unexcluded_index_seconds | 0 | 2 | fails when any indexed time remains outside every retained answer-key interval plus the 24-hour margin, requiring a routine-use search before a no-run result |
+| same_index_benign_benchmark_cells | 0 | 12 | fails when portal5_lab benign benchmark cells are counted as same-index BOTSv background |
 
 ### arm `?` stamp `6382ecb3d97f4cee`
 
