@@ -1,0 +1,187 @@
+{
+  "census": {
+    "by_module": {
+      "adaptive_scope": "script-only",
+      "analyst_loop": "script-only",
+      "anchors": "production-lazy",
+      "artifact_graph": "production",
+      "baseline": "production",
+      "behavior_classifier": "script-only",
+      "behavior_inference": "script-only",
+      "behavior_values": "production",
+      "blend": "script-only",
+      "bots_answer_key": "production",
+      "calibration": "script-only",
+      "canary": "script-only",
+      "compounding": "script-only",
+      "config": "production-lazy",
+      "connectors": "script-only",
+      "contracts": "script-only",
+      "corpus_bed": "production",
+      "correlation": "production",
+      "cousin_calibration_bench": "script-only",
+      "cousin_engine": "script-only",
+      "cousin_inject": "script-only",
+      "cousin_relation": "script-only",
+      "data_plane": "script-only",
+      "degeneracy": "script-only",
+      "discovery": "production",
+      "discovery_bench": "script-only",
+      "embedding_spaces": "script-only",
+      "events": "script-only",
+      "evidence": "script-only",
+      "field_roles": "production",
+      "full_pipeline": "script-only",
+      "handoff": "script-only",
+      "inject_plane": "script-only",
+      "investigation": "script-only",
+      "investigation_pivot": "script-only",
+      "live_connect": "script-only",
+      "loop_grader": "script-only",
+      "measurement": "script-only",
+      "mutation": "script-only",
+      "organ": "script-only",
+      "outbox": "script-only",
+      "portal.modules.security.core.bully": "production",
+      "provenance": "script-only",
+      "pyramid": "production-lazy",
+      "run_preflight": "script-only",
+      "score_sample": "script-only",
+      "scoreboard": "script-only",
+      "scoreboard_conformance": "script-only",
+      "series_cousin": "production-lazy",
+      "signatures": "script-only",
+      "specimen_ledger": "script-only",
+      "store": "script-only",
+      "telemetry_behavior": "production",
+      "truth_acceptance": "script-only",
+      "unit_ladder": "script-only",
+      "unit_measurement": "script-only",
+      "unit_outcome": "script-only",
+      "unit_relation": "production",
+      "universe": "script-only"
+    },
+    "modules": 59,
+    "note": "production = reachable through module-level imports; production-lazy = only through function-level imports (reached only if that function is called)",
+    "summary": {
+      "orphan": {
+        "curated_literal_lines": 0,
+        "lines": 0,
+        "modules": 0
+      },
+      "production": {
+        "curated_literal_lines": 514,
+        "lines": 4167,
+        "modules": 11
+      },
+      "production-lazy": {
+        "curated_literal_lines": 0,
+        "lines": 1256,
+        "modules": 4
+      },
+      "script-only": {
+        "curated_literal_lines": 132,
+        "lines": 19898,
+        "modules": 44
+      },
+      "tests-only": {
+        "curated_literal_lines": 0,
+        "lines": 0,
+        "modules": 0
+      }
+    }
+  },
+  "created_at": 1791576796.107251,
+  "findings": [
+    {
+      "evidence": "700 artifacts -> 512 L1 units by default",
+      "id": "D-UNITS-CAP",
+      "status": "present",
+      "title": "enumerate_units silently caps units per level"
+    },
+    {
+      "evidence": "cross-source shared_entity edges for the same host values: 0",
+      "id": "D-ENTITY-FIELDNAME",
+      "status": "present",
+      "title": "the same host under two field names never links across sources"
+    },
+    {
+      "evidence": "behavior_spine=() actions=['event-0:4624', 'event-1:4769', 'event-2:4688']",
+      "id": "D-SIG-WIN-SPINE",
+      "status": "present",
+      "title": "Windows EventCode telemetry yields an empty behavior spine"
+    },
+    {
+      "evidence": "actions=['event-0:record', 'event-1:record']",
+      "id": "D-SIG-DICT-NOCONTENT",
+      "status": "present",
+      "title": "dict-shaped records collapse to event-N:record"
+    },
+    {
+      "evidence": "behavior_spine=('enumerate', 'c2_exfil', 'enumerate')",
+      "id": "D-SIG-WEB-HTTPVERB",
+      "status": "present",
+      "title": "web 'behaviors' come from HTTP verb substrings"
+    },
+    {
+      "evidence": "signature family='kerberoast_chain' (the Red scenario name)",
+      "id": "D-LABEL-IN-SIGNATURE",
+      "status": "present",
+      "title": "the Red scenario name is the signature's family"
+    },
+    {
+      "evidence": "_defense_response(observable, healthy) -> 'COVERED' with no detection consulted",
+      "id": "D-DEFENSE-CONSTANT",
+      "status": "present",
+      "title": "defense_response is COVERED without consulting a detection"
+    },
+    {
+      "evidence": "_search_table distance-value comparisons: none",
+      "id": "D-NOVEL-UNREACHABLE",
+      "status": "present",
+      "title": "retrieval has no 'too far to count' cutoff"
+    },
+    {
+      "evidence": "hunt.yaml has thresholds block=False; loop_grader reads hunt config=False",
+      "id": "D-DEAD-DIAL",
+      "status": "absent",
+      "title": "hunt.yaml thresholds are never read by the product grader"
+    },
+    {
+      "evidence": "ModuleNotFoundError: bully.orchestrator",
+      "id": "D-VERDICT-DEADEND",
+      "status": "module_absent",
+      "title": "the investigation verdict is consumed by nothing"
+    },
+    {
+      "evidence": "ModuleNotFoundError: investigation.agents",
+      "id": "D-AGENTS-STUB",
+      "status": "module_absent",
+      "title": "investigation/agents.py is a scaffold with a hardcoded checklist"
+    },
+    {
+      "evidence": "ModuleNotFoundError: bully.orchestrator",
+      "id": "D-SINGLE-ITERATION",
+      "status": "module_absent",
+      "title": "the 'hunt' is one iteration"
+    },
+    {
+      "evidence": "behavior_values._FIELDS hand-listed field names: 64",
+      "id": "D-NAME-TABLE",
+      "status": "present",
+      "title": "behavior terms come from a hand-listed field-name table"
+    },
+    {
+      "evidence": "R.3 signature tests feed AWS API verbs the production adapter never emits",
+      "id": "D-CIRCULAR-FIXTURES",
+      "status": "present",
+      "title": "tests feed the classifier its own vocabulary"
+    }
+  ],
+  "schema": "bully-review-defect-census-v1",
+  "tally": {
+    "absent": 1,
+    "module_absent": 3,
+    "present": 10
+  }
+}

@@ -7,9 +7,9 @@ evaluation reports and decision records; `--check` fails if this file is stale.
 
 | id | status | evidence |
 |---|---|---|
-| D-AGENTS-STUB | present | hardcoded checklist=True; makes model/tool calls=False |
+| D-AGENTS-STUB | module_absent | ModuleNotFoundError: investigation.agents |
 | D-CIRCULAR-FIXTURES | present | R.3 signature tests feed AWS API verbs the production adapter never emits |
-| D-DEAD-DIAL | present | hunt.yaml has thresholds block=True; loop_grader reads hunt config=False |
+| D-DEAD-DIAL | absent | hunt.yaml has thresholds block=False; loop_grader reads hunt config=False |
 | D-DEFENSE-CONSTANT | present | _defense_response(observable, healthy) -> 'COVERED' with no detection consulted |
 | D-ENTITY-FIELDNAME | present | cross-source shared_entity edges for the same host values: 0 |
 | D-LABEL-IN-SIGNATURE | present | signature family='kerberoast_chain' (the Red scenario name) |
@@ -18,19 +18,19 @@ evaluation reports and decision records; `--check` fails if this file is stale.
 | D-SIG-DICT-NOCONTENT | present | actions=['event-0:record', 'event-1:record'] |
 | D-SIG-WEB-HTTPVERB | present | behavior_spine=('enumerate', 'c2_exfil', 'enumerate') |
 | D-SIG-WIN-SPINE | present | behavior_spine=() actions=['event-0:4624', 'event-1:4769', 'event-2:4688'] |
-| D-SINGLE-ITERATION | present | run_hunt reports iterations=1 / 'single-iteration P1 proof' |
+| D-SINGLE-ITERATION | module_absent | ModuleNotFoundError: bully.orchestrator |
 | D-UNITS-CAP | present | 700 artifacts -> 512 L1 units by default |
-| D-VERDICT-DEADEND | present | modules consuming investigation_verdict besides orchestrator: none |
+| D-VERDICT-DEADEND | module_absent | ModuleNotFoundError: bully.orchestrator |
 
 Reachability of the engine package (static import closure):
 
 | class | modules | lines |
 |---|---|---|
 | orphan | 0 | 0 |
-| production | 11 | 4232 |
-| production-lazy | 25 | 12187 |
-| script-only | 47 | 17296 |
-| tests-only | 7 | 1652 |
+| production | 11 | 4167 |
+| production-lazy | 4 | 1256 |
+| script-only | 44 | 19898 |
+| tests-only | 0 | 0 |
 
 ## Decisions
 
