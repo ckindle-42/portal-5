@@ -1,7 +1,4 @@
-"""Investigation layer — agents, evidence, case notebook.
-
-Phase 6 of BUILD_PROGRAM_SEC_RBP_V1.
-"""
+"""Investigation evidence, case notebook, and single-agent baseline benchmark."""
 
 from .case_notebook import CaseNotebook
 from .evidence import (

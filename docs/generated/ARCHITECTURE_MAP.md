@@ -2,7 +2,7 @@
 
 # Portal 5 Architecture Map
 
-*Deterministic projection of 772 canonical units.*
+*Deterministic projection of 771 canonical units.*
 
 ## Knowledge Layer
 
@@ -78,7 +78,6 @@
 | `unit-SEC_BENCH-execution-transport` | what | 3 |
 | `unit-SEC_BENCH-exercises` | what | 1 |
 | `unit-SEC_BENCH-lab-topology` | what | 2 |
-| `unit-SEC_BENCH-multiseat-v2-results-2026-07-05` | mixed | 2 |
 | `unit-SEC_BENCH-prerequisites` | what | 2 |
 | `unit-SEC_BENCH-quick-start-tiers` | what | 2 |
 | `unit-SEC_BENCH-scoring` | what | 3 |
@@ -781,12 +780,12 @@
 | `unit-wiki-tests-render` | mixed | 1 |
 | `unit-wiki-writeback` | mixed | 1 |
 
-**Total:** 772 units
+**Total:** 771 units
 
 ## Source Distribution
 
 - **bench-security**: 1 references
-- **code**: 2073 references
+- **code**: 2071 references
 - **config**: 1 references
 - **data**: 1 references
 - **doc**: 1 references

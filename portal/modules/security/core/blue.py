@@ -49,7 +49,6 @@ from .unknown_defense import (
     BaselineProfile,
     MatchGrade,
     compute_similarity,
-    route_to_investigation,
     score_anomaly,
 )
 
@@ -1455,11 +1454,9 @@ def _load_baseline_profile(host: str | None) -> BaselineProfile | None:
         return None
 
 
-def _run_unknown_defense(
-    blue_result: dict[str, Any], scenario: dict[str, Any], episode_id: str
-) -> dict[str, Any]:
-    """Wire U1 (similarity) + U3/U4 (anomaly, if a baseline exists) + U2/U5
-    (investigation bridge on SIMILAR/anomaly) into the purple scoring path.
+def _run_unknown_defense(blue_result: dict[str, Any], scenario: dict[str, Any]) -> dict[str, Any]:
+    """Wire U1 (similarity) + U3/U4 (anomaly, if a baseline exists) into
+    the purple scoring path.
 
     Returns flags ONLY — separate from capability_verdict (the truth plane).
     A SIMILAR match or an anomaly flag is never a PROVEN detection; synthetic
@@ -1495,29 +1492,6 @@ def _run_unknown_defense(
         # else: stays "no-baseline" — U3 has not been run for this host yet,
         # reported honestly rather than faked (task instruction: don't fake it).
 
-        if similarity.grade == MatchGrade.SIMILAR or anomaly_flagged:
-            intake = route_to_investigation(
-                similarity=similarity if similarity.grade == MatchGrade.SIMILAR else None,
-                anomaly_score=anomaly_score if anomaly_flagged else 0.0,
-                episode_id=episode_id,
-            )
-            try:
-                from .investigation.agents import InvestigationGraph, InvestigationState
-
-                graph = InvestigationGraph(state=InvestigationState(case_id=intake.intake_id))
-                final_state = graph.run_investigation(intake.alert_text)
-                result["investigation"] = {
-                    "intake_id": intake.intake_id,
-                    "source": intake.source,
-                    "status": final_state.get("status"),
-                    "findings": len(final_state.get("findings", [])),
-                }
-            except Exception as exc:
-                result["investigation"] = {
-                    "intake_id": intake.intake_id,
-                    "source": intake.source,
-                    "error": str(exc),
-                }
     except Exception as exc:
         result["similarity_detail"] = f"unknown-defense error: {exc}"
     return result
@@ -1671,7 +1645,7 @@ def _score_purple(
     # FLAGS, deliberately kept separate from capability_verdict above — a SIMILAR
     # match or an anomaly flag is never a PROVEN detection; synthetic telemetry
     # still never scores PROVEN regardless of what unknown-defense reports here.
-    unk = _run_unknown_defense(blue_result, scenario, ep.episode_id)
+    unk = _run_unknown_defense(blue_result, scenario)
 
     return {
         "scenario": scenario["name"],

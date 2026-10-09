@@ -20,11 +20,11 @@ The investigation subpackage is the investigation layer of the RBP engine: the i
 
 ## Why
 
-The pieces share one discipline: nothing an agent concludes may outlive the evidence behind it, so evidence is immutable and notebook mutations are recorded, never destructive. Promotion to the prior-incident library is analyst-confirm-only, so a case conclusion never silently becomes institutional knowledge. The multi-agent stack must beat a single-agent baseline on all three metrics, or the honest move is to simplify back toward baseline.
+The pieces share one discipline: nothing an agent concludes may outlive the evidence behind it, so evidence is immutable and notebook mutations are recorded, never destructive. Promotion to the prior-incident library is analyst-confirm-only, so a case conclusion never silently becomes institutional knowledge. The retained honesty bench measures the single-agent baseline against planted contradictions, missing-evidence traps, and evidence completeness.
 
 ## Interfaces
 
-The public surface is pinned by `__all__` in the package init: `EvidenceStore`, `EvidenceRecord`, `SourceAuthority`, and `new_evidence_id` from evidence, `CaseNotebook` from the notebook. The bench exposes `run_comparison`, `run_benchmark`, and the metric functions `compute_hallucination_rate`, `compute_contradiction_detection_rate`, and `compute_evidence_completeness`.
+The public surface is pinned by `__all__` in the package init: `EvidenceStore`, `EvidenceRecord`, `SourceAuthority`, and `new_evidence_id` from evidence, `CaseNotebook` from the notebook. The bench exposes run_benchmark and the metric functions compute_hallucination_rate, compute_contradiction_detection_rate, and compute_evidence_completeness.
 
 ## Gotchas
 

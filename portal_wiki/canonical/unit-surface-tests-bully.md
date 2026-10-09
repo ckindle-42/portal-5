@@ -25,7 +25,7 @@ updated_at: 1786751207.0
 
 ## Interfaces
 
-Test modules only; no runtime code. Imports `portal.modules.security.core.bully.*` and `portal.modules.security.core.commands.hunt_modes`.
+Test modules only; no runtime code. They import the surviving Bully modules used by their integration lanes.
 
 ## Gotchas
 

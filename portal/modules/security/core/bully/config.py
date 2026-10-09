@@ -1,9 +1,4 @@
-"""bully.config -- hunt.yaml / heart.yaml loading + per-hunt frozen snapshot.
-
-P1.0. No SQL I/O, no network. Pure config loading + a role-alias resolver
-that mirrors the `blueteam-council` resolution path (config/portal.yaml) so
-that no bully module ever hardcodes a model tag (MASTER SS3, SS11).
-"""
+"""Configuration helpers retained by the review reader and data-plane modules."""
 
 from __future__ import annotations
 
@@ -15,15 +10,6 @@ from pathlib import Path
 from typing import Any, cast
 
 import yaml
-
-# HARV corpus roles whose learned behavior is actually consumed by the
-# investigation arm. The deterministic cousin classifier is intentionally
-# absent: its weights/thresholds are calibrated, never LoRA-trained (P6.7/A5).
-REFINEMENT_ROLE_MAP: dict[str, str] = {
-    "hunter": "tool",
-    "analyst": "reasoning",
-    "disprover": "expert",
-}
 
 _REPO_ROOT = Path(__file__).resolve().parents[5]
 _HUNT_YAML = _REPO_ROOT / "config" / "security" / "hunt.yaml"
@@ -45,12 +31,12 @@ def _load_yaml(path: Path) -> dict[str, Any]:
 
 
 def load_hunt_config(path: Path | None = None) -> dict[str, Any]:
-    """Load ``config/security/hunt.yaml`` (operator dials for LOOP/MUT/TGT/PLT)."""
+    """Load model aliases used by the surviving review reader."""
     return _load_yaml(path or _HUNT_YAML)
 
 
 def load_heart_config(path: Path | None = None) -> dict[str, Any]:
-    """Load ``config/security/heart.yaml`` (council floors + roster + waiver policy)."""
+    """Load the retained legacy configuration shape."""
     return _load_yaml(path or _HEART_YAML)
 
 
@@ -133,37 +119,8 @@ def resolve_investigation_models(*, hunt_config: dict[str, Any] | None = None) -
     }
 
 
-def resolve_council_models(*, hunt_config: dict[str, Any] | None = None) -> list[str]:
-    """Resolve HEART's council seat roster to a list of concrete Ollama
-    model tags via ``hunt.yaml::models.council_workspace``/``council_field``
-    (default ``blueteam-council``/``council_models``) -- same
-    config-resolved-alias discipline as `resolve_role_model` (MASTER SS3/
-    SS11: no hardcoded model id anywhere in the bully package)."""
-    cfg = hunt_config or load_hunt_config()
-    models_cfg = cfg.get("models") or {}
-    workspace_id = models_cfg.get("council_workspace", "blueteam-council")
-    field = models_cfg.get("council_field", "council_models")
-
-    from portal.platform.inference.config import load_portal_config
-
-    portal_cfg = load_portal_config()
-    value = _lookup_workspace_field(portal_cfg, workspace_id, field)
-    if not value:
-        raise ConfigError(
-            f"workspace/variant {workspace_id!r} referenced by hunt.yaml::models.council_workspace "
-            f"not found in portal.yaml, or has no {field!r} configured"
-        )
-    if not isinstance(value, list):
-        raise ConfigError(f"{workspace_id!r}.{field!r} must be a list of model tags")
-    return list(value)
-
-
 def content_hash(*payloads: dict[str, Any]) -> str:
-    """Deterministic content hash of one or more JSON-serializable payloads.
-
-    Used as the hunt row's ``config_version`` (DATA_MODEL SS1.1): the frozen
-    per-hunt snapshot is identified by its own content, not a mutable path.
-    """
+    """Return a deterministic hash for JSON-serializable payloads."""
     h = hashlib.sha256()
     for payload in payloads:
         h.update(json.dumps(payload, sort_keys=True, default=str).encode("utf-8"))
@@ -172,11 +129,7 @@ def content_hash(*payloads: dict[str, Any]) -> str:
 
 @dataclass(frozen=True)
 class HuntConfigSnapshot:
-    """A per-hunt frozen copy of hunt.yaml + heart.yaml (I-3 / I-5 `config_version`).
-
-    Immutable: once a hunt is authorized, later edits to the YAML files on
-    disk never retroactively change a running/closed hunt's behavior.
-    """
+    """Frozen copy of the retained configuration values."""
 
     hunt: dict[str, Any]
     heart: dict[str, Any]
