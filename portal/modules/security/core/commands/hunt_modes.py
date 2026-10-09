@@ -21,6 +21,11 @@ def _build_parser() -> argparse.ArgumentParser:
     run_p.add_argument("--budget-class", default="default")
     run_p.add_argument("--dry-run", action="store_true")
     run_p.add_argument("--actor", required=True, help='authorized actor, e.g. "operator:alice"')
+    run_p.add_argument(
+        "--live-red",
+        action="store_true",
+        help="execute the live red chain against lab targets (off by default: the product replays recorded exercises)",
+    )
     run_p.add_argument("--json", action="store_true")
 
     resume_p = sub.add_parser("resume", help="resume a blocked/interrupted hunt")
@@ -68,6 +73,7 @@ def hunt_main(argv: list[str]) -> int:
                 budget_class=args.budget_class,
                 dry_run=args.dry_run,
                 actor=args.actor,
+                live_red=args.live_red,
             )
         elif args.mode == "resume":
             report = orchestrator.resume_hunt(args.hunt_id, actor=args.actor)

@@ -101,6 +101,78 @@ def _require_operator(actor: str) -> None:
         )
 
 
+def _replay_lab_driver(target_cell: dict[str, Any], *, dry_run: bool) -> Any:
+    """Product default: builds the `Episode` from a recorded lab exercise. Nothing executes
+    against a lab target. The red side is the recorded, replay-validated evidence pair
+    (`blue.load_latest_red_capture`); its telemetry is re-shipped to Splunk with fresh
+    timestamps (`siem.capture_store.replay_capture`); blue queries that window. The recorded
+    answer key never reaches the Episode, the investigation or the engine.
+
+    A dry run writes nothing: no re-ship, so blue sees no evidence and the verdict is
+    INDETERMINATE, as the episode rules require.
+    """
+    from .. import episode as episode_mod
+    from ..blue import _run_blue_chain_test, load_latest_red_capture
+    from ..episode import derive_detection_status
+    from ..exec_chain import SCENARIOS
+    from ..siem.capture_store import replay_capture
+
+    scenario_name = target_cell.get("scenario") or next(iter(SCENARIOS))
+    scenario = SCENARIOS[scenario_name]
+    red, capture_path = load_latest_red_capture(scenario_name)
+    if red is None or capture_path is None:
+        raise HonestBlockedError(f"no replayable recorded exercise for scenario {scenario_name!r}")
+
+    resolved_model = target_cell.get("model") or bully_config.resolve_role_model("tool")
+    model = resolved_model if isinstance(resolved_model, str) else str(resolved_model)
+
+    if dry_run:
+        blue_result: dict[str, Any] = {"synthetic_fallback": True, "reported": False}
+        replay: dict[str, Any] = {"indexed_confirmed": False, "episode_id": None}
+        episode_id = episode_mod.new_episode_id(scenario_name)
+        scenario_start = time.time()
+    else:
+        replay = replay_capture(capture_path)
+        if not replay.get("ok"):
+            raise HonestBlockedError(f"replay of {capture_path} did not complete: {replay}")
+        episode_id = str(replay["episode_id"])
+        scenario_start = float(replay.get("replay_start") or time.time())
+        blue_result = _run_blue_chain_test(
+            model,
+            scenario,
+            dry_run=False,
+            lab_exec=False,
+            scenario_start=scenario_start,
+            query_live=True,
+            episode_id=episode_id,
+        )
+
+    observed = bool(replay.get("indexed_confirmed"))
+    used_synthetic = bool(blue_result.get("synthetic_fallback")) or dry_run
+    episode_match = blue_result.get("episode_id") == episode_id
+    has_spl_hit = bool(blue_result.get("reported")) and observed and episode_match
+    detection_status = derive_detection_status(
+        has_spl_hit=has_spl_hit,
+        used_synthetic=used_synthetic,
+        within_window=episode_match,
+        target_match=episode_match,
+        has_detection_rule=bool(scenario.get("detect_ground_truth")),
+    )
+    return episode_mod.Episode(
+        episode_id=episode_id,
+        scenario=scenario_name,
+        target_host=scenario.get("target_host"),
+        started_at=scenario_start,
+        telemetry_cutoff_at=time.time(),
+        # Replay-validated pair: the recorded red activity passed ground-truth revalidation.
+        red_status="RED_LANDED" if not dry_run else "RED_NOT_RUN",
+        telemetry_status="TELEMETRY_OBSERVED" if observed else "TELEMETRY_NOT_INDEXED",
+        detection_status=detection_status,
+        used_synthetic=used_synthetic,
+        evidence_refs=[str(capture_path)],
+    )
+
+
 def _default_lab_driver(target_cell: dict[str, Any], *, dry_run: bool) -> Any:
     """Real driver: unchanged `exec_chain._prepare_scenario` + `_run_chain_test`
     -> `blue.collect_and_ship_scenario_telemetry` -> `episode.Episode`.
@@ -182,7 +254,11 @@ def _default_lab_driver(target_cell: dict[str, Any], *, dry_run: bool) -> Any:
         scenario=scenario_name,
         target_host=gate.get("host"),
         started_at=scenario_start,
-        red_status="RED_LANDED" if red_landed else "RED_EXECUTION_FAILED",
+        # A dry run never executes Red: RED_NOT_RUN, not a lab execution failure (blue.py derives
+        # red_status the same way from the mode).
+        red_status=(
+            ("RED_LANDED" if red_landed else "RED_EXECUTION_FAILED") if lab_exec else "RED_NOT_RUN"
+        ),
         telemetry_status=telemetry_status,
         detection_status=detection_status,
         used_synthetic=used_synthetic,
@@ -791,7 +867,7 @@ def run_hunt_iteration(
     passthrough plan so every iteration still goes through the same
     validated/compiled/recorded MUT path.
     """
-    lab_driver = lab_driver or _default_lab_driver
+    lab_driver = lab_driver or _replay_lab_driver
     investigation_arm = investigation_arm or investigation_mod.run_arm
     target_cell = target_cell or {}
 
@@ -983,9 +1059,11 @@ def run_hunt(
     target_cell: dict[str, Any] | None = None,
     lab_driver: LabDriver | None = None,
     investigation_arm: Callable[..., Any] | None = None,
+    live_red: bool = False,
 ) -> dict[str, Any]:
     """`hunt run` -- authorize + drive a new hunt through the LOOP stage
-    machine. [GATE] operator-only."""
+    machine. [GATE] operator-only. The red side is replay unless `live_red` is set,
+    which executes the live red chain against lab targets."""
     _require_operator(actor)
 
     owns_store = store is None
@@ -1025,7 +1103,7 @@ def run_hunt(
                 actor=actor,
                 neighborhood=neighborhood,
                 target_cell=target_cell,
-                lab_driver=lab_driver,
+                lab_driver=(lab_driver or _default_lab_driver) if live_red else lab_driver,
                 investigation_arm=investigation_arm,
                 dry_run=dry_run,
             )
