@@ -45,6 +45,7 @@ Reachability of the engine package (static import closure):
 | D-T4-DEFENSE | raised | INCONCLUSIVE | reports/review_eval/4de03bca93e183d8/t4_pair_gate.json | none |
 | D-T4-MATURE | raised | INCONCLUSIVE | reports/review_eval/4de03bca93e183d8/t4_pair_gate.json | none |
 | D-T4-SUPPRESS | raised | INCONCLUSIVE | reports/review_eval/4de03bca93e183d8/t4_pair_gate.json | none |
+| D-T6-PROOF | window | PREREGISTERED | - | none |
 
 ## Measured (stamped, real corpora only)
 
