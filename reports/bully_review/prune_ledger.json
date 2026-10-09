@@ -1,9 +1,9 @@
 {
-  "created_at": 1791564850.912703,
+  "created_at": 1791568149.540123,
   "cut_edges": [
     "portal.modules.security.core.bully => portal.modules.security.core.bully.orchestrator"
   ],
-  "delete_lines": 173,
+  "delete_lines": 12958,
   "docs_to_review": [
     "docs/BULLY_ADAPTIVE_REACH_RUN_A6_V1.json",
     "docs/BULLY_ADAPTIVE_REACH_RUN_A6_V1.md",
@@ -106,7 +106,6 @@
         "portal.modules.security.core.bully.promotion",
         "portal.modules.security.core.bully.relation",
         "portal.modules.security.core.bully.relation_promotion",
-        "portal.modules.security.core.bully.roster",
         "portal.modules.security.core.bully.series_cousin",
         "portal.modules.security.core.bully.signatures",
         "portal.modules.security.core.bully.specimen_ledger",
@@ -206,7 +205,6 @@
         "tests.security.bully.test_p6_2_harvest",
         "tests.security.bully.test_p6_3_playbooks",
         "tests.security.bully.test_p6_4_training",
-        "tests.security.bully.test_p6_5_roster",
         "tests.security.bully.test_p6_8_cousin_calibration",
         "tests.security.bully.test_p7_4_retrieval_validity",
         "tests.security.bully.test_p7_cutover",
@@ -295,7 +293,7 @@
       "reason": "imported in a traced run; no static path"
     },
     {
-      "decision": "KEEP",
+      "decision": "DELETE",
       "importers": [
         "tests.security.bully.test_p2_3_adversary",
         "tests.security.bully.test_p2_e2e_demonstration"
@@ -303,10 +301,10 @@
       "lines": 486,
       "module": "portal.modules.security.core.bully.adversary",
       "path": "portal/modules/security/core/bully/adversary.py",
-      "reason": "reachable from a keep root"
+      "reason": "unreachable statically and never imported in a traced run"
     },
     {
-      "decision": "KEEP",
+      "decision": "DELETE",
       "importers": [
         "portal.modules.security.core.bully.live_census",
         "tests.security.bully.test_sa7_l10_phase0_gate",
@@ -315,10 +313,10 @@
       "lines": 151,
       "module": "portal.modules.security.core.bully.advisories",
       "path": "portal/modules/security/core/bully/advisories.py",
-      "reason": "reachable from a keep root"
+      "reason": "unreachable statically and never imported in a traced run"
     },
     {
-      "decision": "KEEP",
+      "decision": "DELETE",
       "importers": [
         "scripts.analyst_corpus_real_ingest",
         "scripts.analyst_corpus_snapshot_v2",
@@ -338,10 +336,10 @@
       "lines": 1192,
       "module": "portal.modules.security.core.bully.analyst_corpus",
       "path": "portal/modules/security/core/bully/analyst_corpus.py",
-      "reason": "reachable from a keep root"
+      "reason": "unreachable statically and never imported in a traced run"
     },
     {
-      "decision": "KEEP",
+      "decision": "KEEP_DYNAMIC",
       "importers": [
         "portal.modules.security.core.bully.observed_mode",
         "scripts.bully_analyst_loop_run",
@@ -357,7 +355,7 @@
       "lines": 399,
       "module": "portal.modules.security.core.bully.analyst_loop",
       "path": "portal/modules/security/core/bully/analyst_loop.py",
-      "reason": "reachable from a keep root"
+      "reason": "imported in a traced run; no static path"
     },
     {
       "decision": "KEEP",
@@ -465,7 +463,7 @@
       "reason": "reachable from a keep root"
     },
     {
-      "decision": "KEEP",
+      "decision": "DELETE",
       "importers": [
         "portal.modules.security.core.bully.live_census",
         "tests.security.bully.test_sa7_l5_asset_identity"
@@ -473,7 +471,7 @@
       "lines": 268,
       "module": "portal.modules.security.core.bully.asset_identity",
       "path": "portal/modules/security/core/bully/asset_identity.py",
-      "reason": "reachable from a keep root"
+      "reason": "unreachable statically and never imported in a traced run"
     },
     {
       "decision": "KEEP",
@@ -612,7 +610,7 @@
       "reason": "imported in a traced run; no static path"
     },
     {
-      "decision": "KEEP",
+      "decision": "DELETE",
       "importers": [
         "portal.modules.security.core.bully.live_census",
         "tests.security.bully.test_sa7_l4_case_history"
@@ -620,10 +618,10 @@
       "lines": 176,
       "module": "portal.modules.security.core.bully.case_history",
       "path": "portal/modules/security/core/bully/case_history.py",
-      "reason": "reachable from a keep root"
+      "reason": "unreachable statically and never imported in a traced run"
     },
     {
-      "decision": "KEEP",
+      "decision": "DELETE",
       "importers": [
         "scripts.analyst_corpus_real_ingest",
         "scripts.defensive_bully_calibrate",
@@ -633,10 +631,10 @@
       "lines": 410,
       "module": "portal.modules.security.core.bully.class_onboarding",
       "path": "portal/modules/security/core/bully/class_onboarding.py",
-      "reason": "reachable from a keep root"
+      "reason": "unreachable statically and never imported in a traced run"
     },
     {
-      "decision": "KEEP",
+      "decision": "KEEP_DYNAMIC",
       "importers": [
         "portal.modules.security.core.bully.analyst_loop",
         "portal.modules.security.core.bully.observed_mode",
@@ -653,7 +651,7 @@
       "lines": 85,
       "module": "portal.modules.security.core.bully.compounding",
       "path": "portal/modules/security/core/bully/compounding.py",
-      "reason": "reachable from a keep root"
+      "reason": "imported in a traced run; no static path"
     },
     {
       "decision": "KEEP",
@@ -665,7 +663,6 @@
         "portal.modules.security.core.bully.harvest",
         "portal.modules.security.core.bully.orchestrator",
         "portal.modules.security.core.bully.playbooks",
-        "portal.modules.security.core.bully.roster",
         "portal.modules.security.core.bully.specimen_ledger",
         "portal.modules.security.core.bully.training",
         "portal.modules.security.core.review.reader",
@@ -845,7 +842,7 @@
       "reason": "reachable from a keep root"
     },
     {
-      "decision": "KEEP",
+      "decision": "DELETE",
       "importers": [
         "portal.modules.security.core.bully.orchestrator",
         "tests.security.bully.test_p4_1_costing",
@@ -855,10 +852,10 @@
       "lines": 144,
       "module": "portal.modules.security.core.bully.costing",
       "path": "portal/modules/security/core/bully/costing.py",
-      "reason": "reachable from a keep root"
+      "reason": "unreachable statically and never imported in a traced run"
     },
     {
-      "decision": "KEEP",
+      "decision": "DELETE",
       "importers": [
         "portal.modules.security.core.bully.class_onboarding",
         "portal.modules.security.core.bully.cousin_forge",
@@ -886,10 +883,10 @@
       "lines": 1796,
       "module": "portal.modules.security.core.bully.cousin_calibration_bench",
       "path": "portal/modules/security/core/bully/cousin_calibration_bench.py",
-      "reason": "reachable from a keep root"
+      "reason": "unreachable statically and never imported in a traced run"
     },
     {
-      "decision": "KEEP",
+      "decision": "KEEP_DYNAMIC",
       "importers": [
         "portal.modules.security.core.bully.class_onboarding",
         "portal.modules.security.core.bully.cousin_calibration_bench",
@@ -911,10 +908,10 @@
       "lines": 665,
       "module": "portal.modules.security.core.bully.cousin_engine",
       "path": "portal/modules/security/core/bully/cousin_engine.py",
-      "reason": "reachable from a keep root"
+      "reason": "imported in a traced run; no static path"
     },
     {
-      "decision": "KEEP",
+      "decision": "DELETE",
       "importers": [
         "scripts.build_specimen_corpus",
         "tests.security.bully.test_p7_2_specimen_corpus"
@@ -922,7 +919,7 @@
       "lines": 281,
       "module": "portal.modules.security.core.bully.cousin_forge",
       "path": "portal/modules/security/core/bully/cousin_forge.py",
-      "reason": "reachable from a keep root"
+      "reason": "unreachable statically and never imported in a traced run"
     },
     {
       "decision": "KEEP_DYNAMIC",
@@ -940,7 +937,7 @@
       "reason": "imported in a traced run; no static path"
     },
     {
-      "decision": "KEEP",
+      "decision": "KEEP_DYNAMIC",
       "importers": [
         "portal.modules.security.core.bully.observed_mode",
         "scripts.bully_cousin_ladder",
@@ -954,10 +951,10 @@
       "lines": 605,
       "module": "portal.modules.security.core.bully.cousin_relation",
       "path": "portal/modules/security/core/bully/cousin_relation.py",
-      "reason": "reachable from a keep root"
+      "reason": "imported in a traced run; no static path"
     },
     {
-      "decision": "KEEP",
+      "decision": "DELETE",
       "importers": [
         "portal.modules.security.core.bully.live_census",
         "scripts.bully_relate_run",
@@ -967,10 +964,10 @@
       "lines": 104,
       "module": "portal.modules.security.core.bully.coverage",
       "path": "portal/modules/security/core/bully/coverage.py",
-      "reason": "reachable from a keep root"
+      "reason": "unreachable statically and never imported in a traced run"
     },
     {
-      "decision": "KEEP",
+      "decision": "DELETE",
       "importers": [
         "portal.modules.security.core.bully.orchestrator",
         "scripts.defensive_bully_closeout",
@@ -981,7 +978,7 @@
       "lines": 68,
       "module": "portal.modules.security.core.bully.cutover",
       "path": "portal/modules/security/core/bully/cutover.py",
-      "reason": "reachable from a keep root"
+      "reason": "unreachable statically and never imported in a traced run"
     },
     {
       "decision": "KEEP",
@@ -1025,7 +1022,7 @@
       "reason": "reachable from a keep root"
     },
     {
-      "decision": "KEEP",
+      "decision": "KEEP_DYNAMIC",
       "importers": [
         "portal.modules.security.core.bully.relation",
         "scripts.bully_cousin_run_c7",
@@ -1037,7 +1034,7 @@
       "lines": 153,
       "module": "portal.modules.security.core.bully.degeneracy",
       "path": "portal/modules/security/core/bully/degeneracy.py",
-      "reason": "reachable from a keep root"
+      "reason": "imported in a traced run; no static path"
     },
     {
       "decision": "KEEP",
@@ -1059,7 +1056,7 @@
       "reason": "reachable from a keep root"
     },
     {
-      "decision": "KEEP",
+      "decision": "DELETE",
       "importers": [
         "scripts.bully_b1_engine_variants",
         "scripts.bully_v3_threshold_validation",
@@ -1079,10 +1076,10 @@
       "lines": 835,
       "module": "portal.modules.security.core.bully.discovery_bench",
       "path": "portal/modules/security/core/bully/discovery_bench.py",
-      "reason": "reachable from a keep root"
+      "reason": "unreachable statically and never imported in a traced run"
     },
     {
-      "decision": "KEEP",
+      "decision": "DELETE",
       "importers": [
         "portal.modules.security.core.bully.orchestrator",
         "tests.security.bully.test_p3_2_drift"
@@ -1090,20 +1087,20 @@
       "lines": 276,
       "module": "portal.modules.security.core.bully.drift_engine",
       "path": "portal/modules/security/core/bully/drift_engine.py",
-      "reason": "reachable from a keep root"
+      "reason": "unreachable statically and never imported in a traced run"
     },
     {
-      "decision": "KEEP",
+      "decision": "DELETE",
       "importers": [
         "tests.security.bully.test_sa3_1_embedding_bench"
       ],
       "lines": 316,
       "module": "portal.modules.security.core.bully.embedding_bench",
       "path": "portal/modules/security/core/bully/embedding_bench.py",
-      "reason": "reachable from a keep root"
+      "reason": "unreachable statically and never imported in a traced run"
     },
     {
-      "decision": "KEEP",
+      "decision": "DELETE",
       "importers": [
         "scripts.defensive_bully_p04_adoption",
         "tests.security.bully.test_sa5_p02_space_thresholds",
@@ -1112,7 +1109,7 @@
       "lines": 183,
       "module": "portal.modules.security.core.bully.embedding_spaces",
       "path": "portal/modules/security/core/bully/embedding_spaces.py",
-      "reason": "reachable from a keep root"
+      "reason": "unreachable statically and never imported in a traced run"
     },
     {
       "decision": "KEEP",
@@ -1127,7 +1124,7 @@
       "reason": "reachable from a keep root"
     },
     {
-      "decision": "KEEP",
+      "decision": "KEEP_DYNAMIC",
       "importers": [
         "portal.modules.security.core.bully.handoff",
         "portal.modules.security.core.bully.orchestrator",
@@ -1139,7 +1136,7 @@
       "lines": 296,
       "module": "portal.modules.security.core.bully.evidence",
       "path": "portal/modules/security/core/bully/evidence.py",
-      "reason": "reachable from a keep root"
+      "reason": "imported in a traced run; no static path"
     },
     {
       "decision": "KEEP",
@@ -1178,7 +1175,7 @@
       "reason": "imported in a traced run; no static path"
     },
     {
-      "decision": "KEEP",
+      "decision": "KEEP_DYNAMIC",
       "importers": [
         "portal.modules.security.core.bully.class_onboarding",
         "portal.modules.security.core.bully.orchestrator",
@@ -1192,10 +1189,10 @@
       "lines": 801,
       "module": "portal.modules.security.core.bully.handoff",
       "path": "portal/modules/security/core/bully/handoff.py",
-      "reason": "reachable from a keep root"
+      "reason": "imported in a traced run; no static path"
     },
     {
-      "decision": "KEEP",
+      "decision": "DELETE",
       "importers": [
         "scripts.defensive_bully_train",
         "tests.security.bully.test_p6_2_harvest"
@@ -1203,7 +1200,7 @@
       "lines": 470,
       "module": "portal.modules.security.core.bully.harvest",
       "path": "portal/modules/security/core/bully/harvest.py",
-      "reason": "reachable from a keep root"
+      "reason": "unreachable statically and never imported in a traced run"
     },
     {
       "decision": "KEEP_DYNAMIC",
@@ -1229,7 +1226,7 @@
       "reason": "imported in a traced run; no static path"
     },
     {
-      "decision": "KEEP",
+      "decision": "KEEP_DYNAMIC",
       "importers": [
         "portal.modules.security.core.bully.orchestrator",
         "scripts.bully_loop_milestone_run",
@@ -1246,7 +1243,7 @@
       "lines": 202,
       "module": "portal.modules.security.core.bully.investigation",
       "path": "portal/modules/security/core/bully/investigation.py",
-      "reason": "reachable from a keep root"
+      "reason": "imported in a traced run; no static path"
     },
     {
       "decision": "KEEP_DYNAMIC",
@@ -1271,7 +1268,7 @@
       "reason": "imported in a traced run; no static path"
     },
     {
-      "decision": "KEEP",
+      "decision": "DELETE",
       "importers": [
         "scripts.bully_cousin_run_c7",
         "scripts.bully_relate_run",
@@ -1282,7 +1279,7 @@
       "lines": 104,
       "module": "portal.modules.security.core.bully.live_census",
       "path": "portal/modules/security/core/bully/live_census.py",
-      "reason": "reachable from a keep root"
+      "reason": "unreachable statically and never imported in a traced run"
     },
     {
       "decision": "KEEP",
@@ -1308,7 +1305,7 @@
       "reason": "reachable from a keep root"
     },
     {
-      "decision": "KEEP",
+      "decision": "DELETE",
       "importers": [
         "portal.modules.security.core.bully.live_census",
         "tests.security.bully.test_sa7_l10_phase0_gate",
@@ -1317,10 +1314,10 @@
       "lines": 71,
       "module": "portal.modules.security.core.bully.live_profiles",
       "path": "portal/modules/security/core/bully/live_profiles.py",
-      "reason": "reachable from a keep root"
+      "reason": "unreachable statically and never imported in a traced run"
     },
     {
-      "decision": "KEEP",
+      "decision": "KEEP_DYNAMIC",
       "importers": [
         "portal.modules.security.core.bully.orchestrator",
         "scripts.bully_full_assembly_run",
@@ -1333,7 +1330,7 @@
       "lines": 394,
       "module": "portal.modules.security.core.bully.loop_grader",
       "path": "portal/modules/security/core/bully/loop_grader.py",
-      "reason": "reachable from a keep root"
+      "reason": "imported in a traced run; no static path"
     },
     {
       "decision": "KEEP_DYNAMIC",
@@ -1350,7 +1347,7 @@
       "reason": "imported in a traced run; no static path"
     },
     {
-      "decision": "KEEP",
+      "decision": "DELETE",
       "importers": [
         "portal.modules.security.core.bully.cousin_calibration_bench",
         "portal.modules.security.core.bully.orchestrator",
@@ -1360,10 +1357,10 @@
       "lines": 383,
       "module": "portal.modules.security.core.bully.mutation",
       "path": "portal/modules/security/core/bully/mutation.py",
-      "reason": "reachable from a keep root"
+      "reason": "unreachable statically and never imported in a traced run"
     },
     {
-      "decision": "KEEP",
+      "decision": "DELETE",
       "importers": [
         "tests.security.bully.test_analyst_x3_observed_wiring",
         "tests.security.bully.test_cousin_c2_observed_wiring",
@@ -1373,10 +1370,10 @@
       "lines": 271,
       "module": "portal.modules.security.core.bully.observed_mode",
       "path": "portal/modules/security/core/bully/observed_mode.py",
-      "reason": "reachable from a keep root"
+      "reason": "unreachable statically and never imported in a traced run"
     },
     {
-      "decision": "KEEP",
+      "decision": "DELETE",
       "importers": [
         "portal.modules.security.core.commands.hunt_modes",
         "tests.security.bully.test_p1_0_skeleton",
@@ -1397,7 +1394,7 @@
       "lines": 1393,
       "module": "portal.modules.security.core.bully.orchestrator",
       "path": "portal/modules/security/core/bully/orchestrator.py",
-      "reason": "reachable from a keep root"
+      "reason": "unreachable statically and never imported in a traced run"
     },
     {
       "decision": "KEEP",
@@ -1445,7 +1442,7 @@
       "reason": "reachable from a keep root"
     },
     {
-      "decision": "KEEP",
+      "decision": "DELETE",
       "importers": [
         "scripts.sa7_phase0_gate",
         "tests.security.bully.test_sa7_l10_phase0_gate"
@@ -1453,10 +1450,10 @@
       "lines": 83,
       "module": "portal.modules.security.core.bully.phase0_gate",
       "path": "portal/modules/security/core/bully/phase0_gate.py",
-      "reason": "reachable from a keep root"
+      "reason": "unreachable statically and never imported in a traced run"
     },
     {
-      "decision": "KEEP",
+      "decision": "DELETE",
       "importers": [
         "portal.modules.security.core.bully.live_census",
         "tests.security.bully.test_sa7_l10_phase0_gate",
@@ -1465,10 +1462,10 @@
       "lines": 56,
       "module": "portal.modules.security.core.bully.planner_proof",
       "path": "portal/modules/security/core/bully/planner_proof.py",
-      "reason": "reachable from a keep root"
+      "reason": "unreachable statically and never imported in a traced run"
     },
     {
-      "decision": "KEEP",
+      "decision": "DELETE",
       "importers": [
         "portal.modules.security.core.bully.orchestrator",
         "tests.security.bully.test_p4_4_plateau"
@@ -1476,10 +1473,10 @@
       "lines": 209,
       "module": "portal.modules.security.core.bully.plateau",
       "path": "portal/modules/security/core/bully/plateau.py",
-      "reason": "reachable from a keep root"
+      "reason": "unreachable statically and never imported in a traced run"
     },
     {
-      "decision": "KEEP",
+      "decision": "DELETE",
       "importers": [
         "portal.modules.security.core.bully.orchestrator",
         "tests.security.bully.test_p6_3_playbooks"
@@ -1487,10 +1484,10 @@
       "lines": 247,
       "module": "portal.modules.security.core.bully.playbooks",
       "path": "portal/modules/security/core/bully/playbooks.py",
-      "reason": "reachable from a keep root"
+      "reason": "unreachable statically and never imported in a traced run"
     },
     {
-      "decision": "KEEP",
+      "decision": "DELETE",
       "importers": [
         "portal.modules.security.core.bully.harvest",
         "portal.modules.security.core.bully.orchestrator",
@@ -1504,7 +1501,7 @@
       "lines": 721,
       "module": "portal.modules.security.core.bully.promotion",
       "path": "portal/modules/security/core/bully/promotion.py",
-      "reason": "reachable from a keep root"
+      "reason": "unreachable statically and never imported in a traced run"
     },
     {
       "decision": "KEEP_DYNAMIC",
@@ -1541,7 +1538,7 @@
       "reason": "reachable from a keep root"
     },
     {
-      "decision": "KEEP",
+      "decision": "DELETE",
       "importers": [
         "scripts.bully_cousin_ladder",
         "tests.security.bully.test_analyst_x1_loop",
@@ -1557,10 +1554,10 @@
       "lines": 246,
       "module": "portal.modules.security.core.bully.relation",
       "path": "portal/modules/security/core/bully/relation.py",
-      "reason": "reachable from a keep root"
+      "reason": "unreachable statically and never imported in a traced run"
     },
     {
-      "decision": "KEEP",
+      "decision": "DELETE",
       "importers": [
         "portal.modules.security.core.bully.observed_mode",
         "tests.security.bully.test_relate_j1_relation_investigation"
@@ -1568,26 +1565,16 @@
       "lines": 86,
       "module": "portal.modules.security.core.bully.relation_investigation",
       "path": "portal/modules/security/core/bully/relation_investigation.py",
-      "reason": "reachable from a keep root"
+      "reason": "unreachable statically and never imported in a traced run"
     },
     {
-      "decision": "KEEP",
+      "decision": "DELETE",
       "importers": [
         "tests.security.bully.test_relate_j2_bin_gates_on_relation"
       ],
       "lines": 95,
       "module": "portal.modules.security.core.bully.relation_promotion",
       "path": "portal/modules/security/core/bully/relation_promotion.py",
-      "reason": "reachable from a keep root"
-    },
-    {
-      "decision": "DELETE",
-      "importers": [
-        "tests.security.bully.test_p6_5_roster"
-      ],
-      "lines": 173,
-      "module": "portal.modules.security.core.bully.roster",
-      "path": "portal/modules/security/core/bully/roster.py",
       "reason": "unreachable statically and never imported in a traced run"
     },
     {
@@ -1618,7 +1605,7 @@
       "reason": "imported in a traced run; no static path"
     },
     {
-      "decision": "KEEP",
+      "decision": "KEEP_DYNAMIC",
       "importers": [
         "portal.modules.security.core.bully.orchestrator",
         "scripts.bully_analyst_loop_run",
@@ -1637,7 +1624,7 @@
       "lines": 199,
       "module": "portal.modules.security.core.bully.scoreboard",
       "path": "portal/modules/security/core/bully/scoreboard.py",
-      "reason": "reachable from a keep root"
+      "reason": "imported in a traced run; no static path"
     },
     {
       "decision": "KEEP_DYNAMIC",
@@ -1658,7 +1645,7 @@
       "reason": "imported in a traced run; no static path"
     },
     {
-      "decision": "KEEP",
+      "decision": "DELETE",
       "importers": [
         "portal.modules.security.core.bully.observed_mode",
         "scripts.bully_relate_run",
@@ -1671,7 +1658,7 @@
       "lines": 135,
       "module": "portal.modules.security.core.bully.seed_scope",
       "path": "portal/modules/security/core/bully/seed_scope.py",
-      "reason": "reachable from a keep root"
+      "reason": "unreachable statically and never imported in a traced run"
     },
     {
       "decision": "KEEP",
@@ -1690,7 +1677,7 @@
       "reason": "reachable from a keep root"
     },
     {
-      "decision": "KEEP",
+      "decision": "KEEP_DYNAMIC",
       "importers": [
         "portal.modules.security.core.bully.analyst_corpus",
         "portal.modules.security.core.bully.class_onboarding",
@@ -1732,20 +1719,20 @@
       "lines": 317,
       "module": "portal.modules.security.core.bully.signatures",
       "path": "portal/modules/security/core/bully/signatures.py",
-      "reason": "reachable from a keep root"
+      "reason": "imported in a traced run; no static path"
     },
     {
-      "decision": "KEEP",
+      "decision": "DELETE",
       "importers": [
         "tests.security.bully.test_p2_4_soc"
       ],
       "lines": 225,
       "module": "portal.modules.security.core.bully.soc",
       "path": "portal/modules/security/core/bully/soc.py",
-      "reason": "reachable from a keep root"
+      "reason": "unreachable statically and never imported in a traced run"
     },
     {
-      "decision": "KEEP",
+      "decision": "DELETE",
       "importers": [
         "portal.modules.security.core.bully.analyst_corpus",
         "portal.modules.security.core.bully.class_onboarding",
@@ -1758,10 +1745,10 @@
       "lines": 492,
       "module": "portal.modules.security.core.bully.source_adapters",
       "path": "portal/modules/security/core/bully/source_adapters.py",
-      "reason": "reachable from a keep root"
+      "reason": "unreachable statically and never imported in a traced run"
     },
     {
-      "decision": "KEEP",
+      "decision": "KEEP_DYNAMIC",
       "importers": [
         "portal.modules.security.core.bully.cousin_calibration_bench",
         "portal.modules.security.core.bully.cousin_forge",
@@ -1777,7 +1764,7 @@
       "lines": 155,
       "module": "portal.modules.security.core.bully.specimen_ledger",
       "path": "portal/modules/security/core/bully/specimen_ledger.py",
-      "reason": "reachable from a keep root"
+      "reason": "imported in a traced run; no static path"
     },
     {
       "decision": "KEEP",
@@ -1848,7 +1835,7 @@
       "reason": "reachable from a keep root"
     },
     {
-      "decision": "KEEP",
+      "decision": "DELETE",
       "importers": [
         "portal.modules.security.core.bully.orchestrator",
         "tests.security.bully.test_p4_3_targeting",
@@ -1857,7 +1844,7 @@
       "lines": 247,
       "module": "portal.modules.security.core.bully.targeting",
       "path": "portal/modules/security/core/bully/targeting.py",
-      "reason": "reachable from a keep root"
+      "reason": "unreachable statically and never imported in a traced run"
     },
     {
       "decision": "KEEP",
@@ -1879,7 +1866,7 @@
       "reason": "reachable from a keep root"
     },
     {
-      "decision": "KEEP",
+      "decision": "DELETE",
       "importers": [
         "scripts.defensive_bully_train",
         "tests.security.bully.test_p6_4_training"
@@ -1887,7 +1874,7 @@
       "lines": 738,
       "module": "portal.modules.security.core.bully.training",
       "path": "portal/modules/security/core/bully/training.py",
-      "reason": "reachable from a keep root"
+      "reason": "unreachable statically and never imported in a traced run"
     },
     {
       "decision": "KEEP_DYNAMIC",
@@ -1991,7 +1978,7 @@
   "schema": "bully-review-prune-ledger-v1",
   "scripts": [
     {
-      "decision": "KEEP",
+      "decision": "DELETE",
       "imports": [
         "portal.modules.security.core.bully.analyst_corpus",
         "portal.modules.security.core.bully.class_onboarding"
@@ -2000,7 +1987,7 @@
       "path": "scripts/analyst_corpus_real_ingest.py"
     },
     {
-      "decision": "KEEP",
+      "decision": "DELETE",
       "imports": [
         "portal.modules.security.core.bully.analyst_corpus"
       ],
@@ -2295,7 +2282,7 @@
       "path": "scripts/bully_v3_threshold_validation.py"
     },
     {
-      "decision": "KEEP",
+      "decision": "DELETE",
       "imports": [
         "portal.modules.security.core.bully.analyst_corpus"
       ],
@@ -2404,7 +2391,7 @@
       "path": "scripts/review_eval_proof.py"
     },
     {
-      "decision": "KEEP",
+      "decision": "DELETE",
       "imports": [
         "portal.modules.security.core.bully.live_census"
       ],
@@ -2412,7 +2399,7 @@
       "path": "scripts/sa7_live_census.py"
     },
     {
-      "decision": "KEEP",
+      "decision": "DELETE",
       "imports": [
         "portal.modules.security.core.bully.live_census",
         "portal.modules.security.core.bully.phase0_gate"
@@ -2469,9 +2456,9 @@
     }
   ],
   "tally": {
-    "DELETE": 1,
-    "KEEP": 69,
-    "KEEP_DYNAMIC": 20
+    "DELETE": 34,
+    "KEEP": 23,
+    "KEEP_DYNAMIC": 32
   },
   "tests": [
     {
@@ -2932,7 +2919,7 @@
       "path": "tests/security/bully/test_p1_0_config.py"
     },
     {
-      "decision": "KEEP",
+      "decision": "DELETE",
       "imports": [
         "portal.modules.security.core.bully.orchestrator"
       ],
@@ -3076,7 +3063,7 @@
       "path": "tests/security/bully/test_p3_1_mutation.py"
     },
     {
-      "decision": "KEEP",
+      "decision": "DELETE",
       "imports": [
         "portal.modules.security.core.bully.drift_engine"
       ],
@@ -3130,7 +3117,7 @@
       "path": "tests/security/bully/test_p4_2_scoreboard.py"
     },
     {
-      "decision": "KEEP",
+      "decision": "DELETE",
       "imports": [
         "portal.modules.security.core.bully.costing",
         "portal.modules.security.core.bully.targeting"
@@ -3151,7 +3138,7 @@
       "path": "tests/security/bully/test_p4_3_targeting_wiring.py"
     },
     {
-      "decision": "KEEP",
+      "decision": "DELETE",
       "imports": [
         "portal.modules.security.core.bully.plateau"
       ],
@@ -3240,14 +3227,6 @@
     {
       "decision": "DELETE",
       "imports": [
-        "portal.modules.security.core.bully.roster"
-      ],
-      "lines": 188,
-      "path": "tests/security/bully/test_p6_5_roster.py"
-    },
-    {
-      "decision": "KEEP",
-      "imports": [
         "portal.modules.security.core.bully.cousin_calibration_bench"
       ],
       "lines": 141,
@@ -3299,7 +3278,7 @@
       "path": "tests/security/bully/test_p7_cutover.py"
     },
     {
-      "decision": "KEEP",
+      "decision": "DELETE",
       "imports": [
         "portal.modules.security.core.bully.orchestrator"
       ],
@@ -3307,7 +3286,7 @@
       "path": "tests/security/bully/test_r1_dry_run_red_status.py"
     },
     {
-      "decision": "KEEP",
+      "decision": "DELETE",
       "imports": [
         "portal.modules.security.core.bully.orchestrator"
       ],
@@ -3570,7 +3549,7 @@
       "path": "tests/security/bully/test_relate_m2_ci_invariants.py"
     },
     {
-      "decision": "KEEP",
+      "decision": "DELETE",
       "imports": [
         "portal.modules.security.core.bully.class_onboarding",
         "portal.modules.security.core.bully.cousin_calibration_bench",
@@ -3598,7 +3577,7 @@
       "path": "tests/security/bully/test_sa2_1_real_pairs.py"
     },
     {
-      "decision": "KEEP",
+      "decision": "DELETE",
       "imports": [
         "portal.modules.security.core.bully.discovery_bench"
       ],
@@ -3606,7 +3585,7 @@
       "path": "tests/security/bully/test_sa2_2_taxonomy.py"
     },
     {
-      "decision": "KEEP",
+      "decision": "DELETE",
       "imports": [
         "portal.modules.security.core.bully.discovery_bench"
       ],
@@ -3614,7 +3593,7 @@
       "path": "tests/security/bully/test_sa2_3_circularity.py"
     },
     {
-      "decision": "KEEP",
+      "decision": "DELETE",
       "imports": [
         "portal.modules.security.core.bully.discovery_bench"
       ],
@@ -3622,7 +3601,7 @@
       "path": "tests/security/bully/test_sa2_4_cross_class.py"
     },
     {
-      "decision": "KEEP",
+      "decision": "DELETE",
       "imports": [
         "portal.modules.security.core.bully.cousin_calibration_bench"
       ],
@@ -3661,7 +3640,7 @@
       "path": "tests/security/bully/test_sa3_5_discovery_bakeoff.py"
     },
     {
-      "decision": "KEEP",
+      "decision": "DELETE",
       "imports": [
         "portal.modules.security.core.bully.analyst_corpus"
       ],
@@ -3669,7 +3648,7 @@
       "path": "tests/security/bully/test_sa4_1_source_evaluation.py"
     },
     {
-      "decision": "KEEP",
+      "decision": "DELETE",
       "imports": [
         "portal.modules.security.core.bully.analyst_corpus"
       ],
@@ -3677,7 +3656,7 @@
       "path": "tests/security/bully/test_sa4_2_broad_ingestion.py"
     },
     {
-      "decision": "KEEP",
+      "decision": "DELETE",
       "imports": [
         "portal.modules.security.core.bully.analyst_corpus"
       ],
@@ -3685,7 +3664,7 @@
       "path": "tests/security/bully/test_sa4_3_benign.py"
     },
     {
-      "decision": "KEEP",
+      "decision": "DELETE",
       "imports": [
         "portal.modules.security.core.bully.analyst_corpus"
       ],
@@ -3693,7 +3672,7 @@
       "path": "tests/security/bully/test_sa4_4_pivot_pairs.py"
     },
     {
-      "decision": "KEEP",
+      "decision": "DELETE",
       "imports": [
         "portal.modules.security.core.bully.analyst_corpus"
       ],
@@ -3712,7 +3691,7 @@
       "path": "tests/security/bully/test_sa4_6_snapshot_integration.py"
     },
     {
-      "decision": "KEEP",
+      "decision": "DELETE",
       "imports": [
         "portal.modules.security.core.bully.analyst_corpus"
       ],
@@ -3738,7 +3717,7 @@
       "path": "tests/security/bully/test_sa5_3_cloud_detections.py"
     },
     {
-      "decision": "KEEP",
+      "decision": "DELETE",
       "imports": [
         "portal.modules.security.core.bully.analyst_corpus",
         "portal.modules.security.core.bully.class_onboarding"
@@ -3747,7 +3726,7 @@
       "path": "tests/security/bully/test_sa5_5_real_ingest.py"
     },
     {
-      "decision": "KEEP",
+      "decision": "DELETE",
       "imports": [
         "portal.modules.security.core.bully.analyst_corpus"
       ],
@@ -3755,7 +3734,7 @@
       "path": "tests/security/bully/test_sa5_6_snapshot_v2.py"
     },
     {
-      "decision": "KEEP",
+      "decision": "DELETE",
       "imports": [
         "portal.modules.security.core.bully.analyst_corpus",
         "portal.modules.security.core.bully.discovery_bench"
