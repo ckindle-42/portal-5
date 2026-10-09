@@ -56,6 +56,16 @@ def persist_run(store: ReviewStore, result: ReviewResult, window: IntakeResult) 
         if unit is not None:
             record["unit_id"] = unit.unit.unit_id
             record["event_ids"] = list(unit.event_ids)
+            record["evidence_events"] = {
+                event_id: {
+                    "event_id": window.events[event_id].event_id,
+                    "source_id": window.events[event_id].source_id,
+                    "time": window.events[event_id].time,
+                    "text": window.events[event_id].text,
+                }
+                for event_id in unit.event_ids
+                if event_id in window.events
+            }
         store.put_concern(
             result.run_id,
             concern.concern_id,

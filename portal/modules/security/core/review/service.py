@@ -4,11 +4,14 @@ from __future__ import annotations
 
 import hashlib
 import json
-from collections.abc import Sequence
+import os
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
+from pathlib import Path
+from typing import Any
 
 from . import defense, verdicts
-from .contracts import ReviewResult, StageReceipt, Verdict
+from .contracts import ReviewResult, StageReceipt, Verdict, to_plain
 from .intake import IntakeResult, build_window_units
 from .knowledge import AnchorCard, AnchorIndex, Embedder
 from .pipeline import (
@@ -18,7 +21,8 @@ from .pipeline import (
     build_reference,
     review_window,
 )
-from .reference import stale
+from .reference import recalibrate, save_reference, stale
+from .runs import RunContext, RunRecord, RunStore, RunWorker
 from .store import ReviewStore, StoredConcern
 from .wall import assert_label_free
 from .window import SourceSpec, WindowSource
@@ -92,6 +96,9 @@ def run_review(  # noqa: PLR0912 -- this is the sole path orchestration boundary
     as_of: float | None = None,
     calibration_window: IntakeResult | None = None,
     defense_search: defense.ReadOnlySearcher | None = None,
+    run_id: str | None = None,
+    cancel: Callable[[], None] | None = None,
+    progress: Callable[[str, int, int], None] | None = None,
 ) -> ReviewResult:
     """Run the deterministic default path, with replayable verdict knowledge and write-back."""
     if request.end <= request.start:
@@ -164,6 +171,9 @@ def run_review(  # noqa: PLR0912 -- this is the sole path orchestration boundary
         embedder=embedder,
         config=chosen_config,
         judge=judge,
+        run_id=run_id,
+        cancel=cancel,
+        progress=progress,
     )
     searcher = defense_search or defense.source_searcher(source)
     defense_receipt, defense_errors = defense.apply_to_result(
@@ -231,3 +241,333 @@ def queue(*, store: ReviewStore = DEFAULT_STORE, limit: int | None = None) -> li
 def contradictions(*, store: ReviewStore = DEFAULT_STORE) -> list[dict[str, object]]:
     """Return reversals and disagreements in the recorded review knowledge."""
     return verdicts.contradictions(store)
+
+
+STALE_CALIBRATION_INSTRUCTION = (
+    "Run `python -m portal.modules.security.core review doctor --fix` before starting a review."
+)
+
+
+def _runtime_root(review_dir: str | Path | None) -> Path:
+    if review_dir is not None:
+        return Path(review_dir).expanduser()
+    configured = os.environ.get("PORTAL5_REVIEW_DIR")
+    return Path(configured).expanduser() if configured else Path.home() / "AI_Output" / "review"
+
+
+def _encode_request(request: ReviewRequest) -> dict[str, Any]:
+    return {
+        "sources": [
+            {"index": item.index, "sourcetype": item.sourcetype} for item in request.sources
+        ],
+        "start": request.start,
+        "end": request.end,
+        "environment_id": request.environment_id,
+        "config": {
+            "policy": {
+                "alpha_unusual": request.config.policy.alpha_unusual,
+                "alpha_similar": request.config.policy.alpha_similar,
+                "levels": list(request.config.policy.levels),
+            },
+            "suppress_benign": request.config.suppress_benign,
+            "top_k_anchors": request.config.top_k_anchors,
+            "judge_max": request.config.judge_max,
+        },
+    }
+
+
+def _decode_request(payload: Mapping[str, Any]) -> ReviewRequest:
+    from .funnel import FunnelPolicy
+
+    raw_sources = payload.get("sources")
+    raw_config = payload.get("config")
+    if not isinstance(raw_sources, list) or not isinstance(raw_config, Mapping):
+        raise ValueError("stored review request is malformed")
+    raw_policy = raw_config.get("policy")
+    if not isinstance(raw_policy, Mapping):
+        raise ValueError("stored review request has no funnel policy")
+    sources = [
+        SourceSpec(str(row["index"]), str(row["sourcetype"]))
+        for row in raw_sources
+        if isinstance(row, Mapping) and "index" in row and "sourcetype" in row
+    ]
+    if len(sources) != len(raw_sources):
+        raise ValueError("stored review request contains an invalid source")
+    policy = FunnelPolicy(
+        alpha_unusual=float(raw_policy["alpha_unusual"]),
+        alpha_similar=float(raw_policy["alpha_similar"]),
+        levels=tuple(str(level) for level in raw_policy["levels"]),
+    )
+    config = ReviewConfig(
+        policy=policy,
+        suppress_benign=str(raw_config.get("suppress_benign", "exact_only")),
+        top_k_anchors=int(raw_config.get("top_k_anchors", 3)),
+        judge_max=(
+            int(raw_config["judge_max"]) if raw_config.get("judge_max") is not None else None
+        ),
+    )
+    return ReviewRequest(
+        sources=sources,
+        start=float(payload["start"]),
+        end=float(payload["end"]),
+        environment_id=str(payload["environment_id"]),
+        config=config,
+    )
+
+
+class ReviewRuntime:
+    """Durable analyst-facing lifecycle around the sole ``run_review`` product path."""
+
+    def __init__(
+        self,
+        *,
+        source: WindowSource,
+        embedder: Embedder | None,
+        index: AnchorIndex | None,
+        reference: Reference,
+        config: ReviewConfig,
+        environment_id: str,
+        review_dir: str | Path | None = None,
+        judge: JudgeFn | None = DEFAULT_READER,
+        calibration_records_by_source: Mapping[str, Sequence[Mapping[str, Any]]] | None = None,
+        splunk_health: Callable[[], Mapping[str, Any]] | None = None,
+        reasoning_model_probe: Callable[[], Sequence[str]] | None = None,
+    ) -> None:
+        self.review_dir = _runtime_root(review_dir)
+        self.review_dir.mkdir(parents=True, exist_ok=True)
+        self.source = source
+        self.embedder = embedder
+        self.index = index
+        self.reference = reference
+        self.config = config
+        self.environment_id = environment_id
+        self.judge = judge
+        self.splunk_health_probe = splunk_health
+        self.reasoning_model_probe = reasoning_model_probe
+        self._calibration_path = self.review_dir / "calibration_slice.json"
+        self.calibration_window = reference.calibration_window
+        if calibration_records_by_source is not None:
+            self._write_calibration_records(calibration_records_by_source)
+            self.calibration_window = build_window_units(calibration_records_by_source)
+        elif self._calibration_path.exists():
+            raw = json.loads(self._calibration_path.read_text(encoding="utf-8"))
+            if not isinstance(raw, dict):
+                raise ValueError("recorded calibration slice must be a JSON object")
+            self.calibration_window = build_window_units(raw)
+
+        self.run_store = RunStore(self.review_dir / "runs.sqlite3")
+        self.review_store = ReviewStore(self.review_dir / "review.sqlite3")
+        self.interrupted_at_startup = self.run_store.mark_interrupted()
+        self.worker = RunWorker(self.run_store, self._run_request)
+
+    def _write_calibration_records(
+        self, records: Mapping[str, Sequence[Mapping[str, Any]]]
+    ) -> None:
+        self._calibration_path.parent.mkdir(parents=True, exist_ok=True)
+        temporary = self._calibration_path.with_suffix(".json.tmp")
+        temporary.write_text(json.dumps(records, sort_keys=True, default=str), encoding="utf-8")
+        temporary.replace(self._calibration_path)
+
+    def close(self) -> None:
+        self.run_store.close()
+        self.review_store.close()
+
+    def _stale_calibrations(self) -> list[str]:
+        if self.embedder is None:
+            return []
+        return self.reference.calibrations.stale_for(self.embedder.identity)
+
+    def start(self, request: ReviewRequest) -> str:
+        stale_keys = self._stale_calibrations()
+        stale_index = (
+            self.index is not None
+            and self.embedder is not None
+            and self.index.embedder_id != self.embedder.identity
+        )
+        if stale_keys or stale_index:
+            details = ", ".join(stale_keys) if stale_keys else "anchor index identity"
+            raise ValueError(
+                f"review refused: stale embedder calibration/index ({details}). "
+                f"{STALE_CALIBRATION_INSTRUCTION}"
+            )
+        return self.worker.start(_encode_request(request))
+
+    def status(self, run_id: str) -> RunRecord | None:
+        return self.run_store.get(run_id)
+
+    def result(self, run_id: str) -> dict[str, Any] | None:
+        record = self.run_store.get(run_id)
+        return record.result if record is not None else None
+
+    def cancel(self, run_id: str) -> bool:
+        return self.run_store.request_cancel(run_id)
+
+    def verdict(
+        self,
+        concern_id: str,
+        verdict: Verdict,
+        *,
+        actor: str,
+        note: str = "",
+    ) -> verdicts.WriteBack:
+        return record_verdict(
+            concern_id,
+            verdict,
+            actor=actor,
+            store=self.review_store,
+            note=note,
+        )
+
+    def queue(self, *, limit: int | None = None) -> list[StoredConcern]:
+        return self.review_store.queue() if limit is None else self.review_store.queue(limit=limit)
+
+    def explain(self, concern_id: str) -> dict[str, Any]:
+        concern = self.review_store.get_concern(concern_id)
+        if concern is None:
+            raise ValueError(f"unknown concern {concern_id!r}")
+        judge = concern.payload.get("judge") or {}
+        claims = judge.get("claims") or [] if isinstance(judge, Mapping) else []
+        cited_ids = sorted(
+            {
+                str(event_id)
+                for claim in claims
+                if isinstance(claim, Mapping)
+                for event_id in claim.get("evidence_ids", [])
+            }
+        )
+        stored_events = concern.record.get("evidence_events") or {}
+        missing = [event_id for event_id in cited_ids if event_id not in stored_events]
+        if missing:
+            raise ValueError(f"verbatim evidence text is unavailable for cited events: {missing}")
+        return {
+            "concern_id": concern_id,
+            "claims": claims,
+            "events": {event_id: stored_events[event_id] for event_id in cited_ids},
+        }
+
+    def doctor(self, *, fix: bool = False) -> dict[str, Any]:
+        fix_result: dict[str, Any] = {"attempted": fix, "applied": False}
+        stale_before = self._stale_calibrations()
+        index_stale = (
+            self.index is not None
+            and self.embedder is not None
+            and self.index.embedder_id != self.embedder.identity
+        )
+        if fix and (stale_before or index_stale):
+            try:
+                if self.embedder is None:
+                    raise ValueError("no configured embedder is available for re-projection")
+                if self.calibration_window is None:
+                    raise ValueError("recorded benign calibration slice is unavailable")
+                cards: list[AnchorCard] = []
+                seen: set[str] = set()
+                source_cards = [
+                    *(self.index.cards if self.index is not None else []),
+                    *verdicts.cards_from_store(self.review_store),
+                ]
+                for card in source_cards:
+                    if card.anchor_id not in seen:
+                        cards.append(card)
+                        seen.add(card.anchor_id)
+                rebuilt_index = AnchorIndex.build(cards, self.embedder)
+                if stale_before:
+                    if not rebuilt_index.population:
+                        raise ValueError("no stored anchor text is available to re-project")
+                    self.reference = recalibrate(
+                        self.reference,
+                        benign=self.calibration_window,
+                        policy=self.config.policy,
+                        index=rebuilt_index,
+                        embedder=self.embedder,
+                        environment_id=self.environment_id,
+                    )
+                    save_reference(self.reference, review_dir=self.review_dir)
+                self.index = rebuilt_index
+                fix_result["applied"] = True
+            except Exception as exc:  # noqa: BLE001 -- returned as explicit health evidence
+                fix_result["error"] = f"{type(exc).__name__}: {exc}"
+
+        after_stale = self._stale_calibrations()
+        source_health = self._source_health()
+        models, model_error = self._reasoning_models()
+        latest = self.run_store.list(limit=1)
+        calibrations = [
+            {
+                "key": key,
+                "embedder_id": calibration.embedder_id,
+                "stale": bool(
+                    self.embedder is not None
+                    and calibration.embedder_id
+                    and calibration.embedder_id != self.embedder.identity
+                ),
+                "calibration_id": calibration.calibration_id,
+            }
+            for key, calibration in sorted(self.reference.calibrations.items.items())
+        ]
+        last_run = latest[0] if latest else None
+        return {
+            "embedder": {
+                "identity": self.embedder.identity if self.embedder is not None else None,
+                "calibrations": calibrations,
+                "stale_calibrations": after_stale,
+                "anchor_index_stale": index_stale and not bool(fix_result.get("applied")),
+                "stale": bool(after_stale) or (index_stale and not bool(fix_result.get("applied"))),
+            },
+            "splunk": source_health,
+            "reasoning_models": {"models": models, "error": model_error},
+            "databases": {
+                "runs": self.run_store.health(),
+                "verdicts": self.review_store.health(),
+            },
+            "last_run": (
+                {
+                    "run_id": last_run.run_id,
+                    "status": last_run.status.value,
+                    "progress": last_run.progress,
+                    "updated_at": last_run.updated_at,
+                }
+                if last_run is not None
+                else None
+            ),
+            "fix": fix_result,
+        }
+
+    def _source_health(self) -> dict[str, Any]:
+        probe = self.splunk_health_probe or getattr(self.source, "health", None)
+        if not callable(probe):
+            return {"reachable": None, "indexes": {}, "error": "no Splunk health probe configured"}
+        try:
+            return dict(probe())
+        except Exception as exc:  # noqa: BLE001 -- health reports unavailable dependency
+            return {"reachable": False, "indexes": {}, "error": f"{type(exc).__name__}: {exc}"}
+
+    def _reasoning_models(self) -> tuple[list[str], str | None]:
+        if self.reasoning_model_probe is None:
+            return [], "reasoning model probe is not configured"
+        try:
+            return sorted({str(model) for model in self.reasoning_model_probe()}), None
+        except Exception as exc:  # noqa: BLE001 -- health reports unavailable dependency
+            return [], f"{type(exc).__name__}: {exc}"
+
+    def _run_request(self, payload: Mapping[str, Any], ctx: RunContext) -> Mapping[str, Any]:
+        ctx.check_cancel()
+        request = _decode_request(payload)
+        result = run_review(
+            request,
+            source=self.source,
+            embedder=self.embedder,
+            index=self.index,
+            reference=self.reference,
+            config=request.config,
+            judge=self.judge,
+            store=self.review_store,
+            calibration_window=self.calibration_window,
+            run_id=ctx.run_id,
+            cancel=ctx.check_cancel,
+            progress=ctx.report,
+        )
+        ctx.report("complete", 1, 1)
+        plain = to_plain(result)
+        if not isinstance(plain, Mapping):
+            raise TypeError("review result did not serialize to an object")
+        return plain

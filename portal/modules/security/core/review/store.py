@@ -110,6 +110,16 @@ class ReviewStore:
         with self._lock:
             self._db.close()
 
+    def health(self) -> dict[str, Any]:
+        """Return database integrity and aggregate row counts, without telemetry content."""
+        with self._lock:
+            integrity = self._db.execute("PRAGMA integrity_check").fetchone()[0]
+            counts = {
+                table: int(self._db.execute(f"SELECT COUNT(*) FROM {table}").fetchone()[0])
+                for table in ("concerns", "verdicts", "anchors")
+            }
+        return {"ok": integrity == "ok", "integrity": str(integrity), **counts}
+
     # ── concerns ─────────────────────────────────────────────────────────────
 
     def put_concern(

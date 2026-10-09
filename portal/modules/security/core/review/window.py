@@ -223,6 +223,41 @@ class SplunkWindowSource:
             records.append(record)
         return records
 
+    def health(self) -> dict[str, Any]:
+        """Probe Splunk's read-only index catalog and return aggregate index counts."""
+        try:
+            with httpx.Client(
+                verify=False,
+                timeout=self.timeout_seconds,
+                transport=self.transport,
+            ) as client:
+                response = client.get(
+                    f"{self.url}/services/data/indexes",
+                    auth=(self.user, self.password),
+                    params={"output_mode": "json", "count": 0},
+                )
+                response.raise_for_status()
+                payload = response.json()
+        except (httpx.HTTPError, ValueError) as exc:
+            raise WindowFetchError(f"Splunk index health probe failed: {exc}") from exc
+        if not isinstance(payload, Mapping) or not isinstance(payload.get("entry"), list):
+            raise WindowFetchError("Splunk index catalog response has no entry list")
+        counts: dict[str, int | None] = {}
+        for entry in payload["entry"]:
+            if not isinstance(entry, Mapping):
+                continue
+            name = str(entry.get("name") or "")
+            content = entry.get("content")
+            if not name or not isinstance(content, Mapping):
+                continue
+            raw_count = content.get("totalEventCount")
+            try:
+                count = int(raw_count) if raw_count is not None else None
+            except (TypeError, ValueError):
+                count = None
+            counts[name] = count
+        return {"reachable": True, "index_count": len(counts), "indexes": counts}
+
     def fetch(self, sources: Sequence[SourceSpec], start: float, end: float) -> WindowBatch:
         if end <= start:
             raise ValueError("end must be greater than start")

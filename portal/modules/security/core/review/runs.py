@@ -88,6 +88,13 @@ class RunStore:
         with self._lock:
             self._db.close()
 
+    def health(self) -> dict[str, Any]:
+        """Return an integrity receipt without exposing run payloads."""
+        with self._lock:
+            result = self._db.execute("PRAGMA integrity_check").fetchone()[0]
+            count = self._db.execute("SELECT COUNT(*) FROM review_runs").fetchone()[0]
+        return {"ok": result == "ok", "integrity": str(result), "runs": int(count)}
+
     def _row(self, row: sqlite3.Row) -> RunRecord:
         return RunRecord(
             run_id=row["run_id"],
