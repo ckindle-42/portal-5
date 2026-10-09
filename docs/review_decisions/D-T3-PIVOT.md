@@ -12,6 +12,8 @@ anti_goals:
   - tune no threshold, weight, cutoff, or prompt against the headline metric
   - run no attack, chain, target tool, or emulation operation
   - treat an incomplete or truncated pivot as a complete evidence set
-status: PREREGISTERED
+status: INCONCLUSIVE
+report: reports/review_eval/41eaed5720a9844f/t3_prerequisites.json
+result: T1 had 0/3 eligible paired slices and no workload B, while per-concern p95 latency and window duration are unavailable, so no pivot arm ran.
 ---
 The control permits three pull pivots per concern; the candidate permits one. Both use the same reasoning-capable single reader, alpha_open, truth slices, and workload B. No pivot arm runs without those shared inputs.
