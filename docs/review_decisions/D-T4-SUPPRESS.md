@@ -13,6 +13,8 @@ anti_goals:
   - Do not invent truth labels, use engine output as truth, or relabel a near-miss.
   - Do not run an attack, chain, target tool, emulation, or other operation to create a pair.
   - Do not tune thresholds, weights, cutoffs, or prompts against the result.
-status: PREREGISTERED
+status: INCONCLUSIVE
+report: reports/review_eval/4de03bca93e183d8/t4_pair_gate.json
+result: "0/20 valid same-index pairs were available: the 24-hour-expanded answer-key intervals cover the indexed time in both retained BOTSv indexes, and all 12/12 benign benchmark cells are in portal5_lab, so no suppression arm ran."
 ---
 The control suppresses only an exact benign anchor. The `never` arm suppresses nothing; the `similar_or_exact` arm also suppresses units similar to a benign anchor. Cycle two reuses identical recorded telemetry. The malicious-cousin gate protects against quieting a known malicious pattern merely because it resembles benign knowledge.
