@@ -25,6 +25,12 @@
   the measured identity-composite distribution (median 0.0387, max 0.0621; frozen 0.05 failed
   2/100 self-pairs); ranking untouched (241 before/after), 4 chosen pairs move DISCOVERY →
   REGRESSION. `THRESHOLDS_VERSION` → v2; all six former xfails now pass unmarked.
+- **F1 (review, 2026-10-09)** — DONE: `reports/bully_b1/20261009T010139Z/SCORECARD.md`. The B1.3
+  weights summed to 1.15 (not mass-preserving), so `confidence` exceeded its [0, 1] contract and
+  the 0.6 gate was loosened. cousin-v3 = v2 / 1.15: identical ranking (240 vs 241, cross 16 vs 16,
+  p=1.0); the 90 semantic-and-attack-absent chosen pairs now abstain (89/90 were not related);
+  same_max 0.063 -> 0.055 (linear rescale), thresholds v3. The harness's base arm was silently
+  running v2 after 1ee68f4b and is now pinned to v1 (reproduces 154/1).
 - **Still open (recorded, not this task):** 558/988 probes retrieve no truth-related candidate —
   retrieval-axis coverage is the next binding constraint (in KNOWN_LIMITATIONS).
 

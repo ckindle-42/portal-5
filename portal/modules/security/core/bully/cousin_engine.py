@@ -12,7 +12,7 @@ from . import signatures as sig_mod
 from .contracts import CousinAssessment, Decomposition
 from .signatures import BehaviorSignature
 
-ALGORITHM_VERSION = "cousin-v2"
+ALGORITHM_VERSION = "cousin-v3"
 
 # Missing dimensions contribute no distance or confidence weight; weights are
 # never renormalized (I-6 failure semantics).
@@ -25,12 +25,22 @@ ALGORITHM_VERSION = "cousin-v2"
 # 241 (p<1e-4), cross-source related 1 -> 16 (p=6e-5), twins reported separately, hand-checked
 # sample genuine (gacutil IIS install, appcmd log-disable, netsh firewall, WMI account
 # manipulation, certutil -backupdb — each through two log sources).
-_WEIGHTS: dict[str, float] = {
+#
+# v3 (review follow-up F1, run reports/bully_b1/20261009T010139Z): the v2 proportions summed to
+# 1.15, so `confidence` (= present mass) could exceed 1 and MIN_CONFIDENCE_FOR_CLASSIFICATION
+# was 15% easier to pass than designed. v3 is v2 divided by its total -- identical ranking
+# (related 240 vs 241, cross-source 16 vs 16, paired p=1.0); the only change is that pairs
+# with semantic + attack absent (present mass 0.52) abstain as ANOMALOUS instead of passing
+# at exactly 0.60 -- 89 of the 90 such chosen pairs on the blind set were not truth-related.
+_V2_PROPORTIONS: dict[str, float] = {
     "behavior": 0.40,
     "telemetry": 0.10,
     "semantic": 0.40,
     "attack": 0.15,
     "context": 0.10,
+}
+_WEIGHTS: dict[str, float] = {
+    dim: weight / sum(_V2_PROPORTIONS.values()) for dim, weight in _V2_PROPORTIONS.items()
 }
 
 MIN_CONFIDENCE_FOR_CLASSIFICATION = 0.6
@@ -41,12 +51,15 @@ MIN_CONFIDENCE_FOR_CLASSIFICATION = 0.6
 # max 0.0621 -- the frozen 0.05 failed 2/100 identity checks (reports/bully_b1/20261008T195439Z
 # THRESHOLDS_B1_4). 0.063 covers the measured maximum; on the same 988 probes it leaves
 # ranking untouched (241 related before and after) and moves 4 chosen pairs into the SAME band.
+# v3 (F1): composites are linear in the weights, so the unit-mass weights scale every composite
+# by 1/1.15 -- the measured identity maximum becomes 0.0540 and same_max rescales 0.063 -> 0.055
+# (same margin). similar/new stay at their frozen unit-mass-scale values.
 DEFAULT_THRESHOLDS: dict[str, float] = {
-    "same_max_distance": 0.063,
+    "same_max_distance": 0.055,
     "similar_max_distance": 0.40,
     "new_max_distance": 0.85,
 }
-THRESHOLDS_VERSION = "bully-cousin-thresholds-v2"
+THRESHOLDS_VERSION = "bully-cousin-thresholds-v3"
 
 
 def build_signature(

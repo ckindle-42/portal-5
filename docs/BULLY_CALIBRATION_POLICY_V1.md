@@ -30,3 +30,9 @@ operator-gated `bully-cousin-thresholds-v2-proposal`:
 
 The proposal is not applied to this reported set. If an operator adopts it,
 it becomes a new policy version and must be evaluated on a fresh frozen sweep.
+
+**Name note (2026-10-09).** This never-adopted proposal is not the adopted
+`bully-cousin-thresholds-v2` set in `cousin_engine.py` (0.063 / 0.40 / 0.85, B1.4 of
+TASK_EG2_FOLLOWUPS_AND_BULLY_ENGINE_V1), which is itself superseded by
+`bully-cousin-thresholds-v3` (same_max 0.055 on cousin-v3's unit-mass weights). Neither was
+evaluated on a fresh frozen sweep; that remains open.

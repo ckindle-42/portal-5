@@ -14,7 +14,8 @@ Per probe the script records, per variant:
   * twin flagging (identical raw evidence under two labels).
 
 Variants:
-  base             today's `_WEIGHTS`, behavior = Jaccard on action_sequence
+  base             cousin-v1 weights (pinned), behavior = Jaccard on action_sequence
+  f1_*             review F1: unit-mass (1.00) variants of the adopted cousin-v2
   down_tele_ctx    telemetry/context at 0.05 instead of 0.20/0.10
   behavior_values  behavior = Jaccard on artifacts.behavior_values value terms
   down_plus_values down_tele_ctx + behavior_values combined
@@ -51,7 +52,26 @@ from portal.modules.security.core.bully.cousin_calibration_bench import (  # noq
 from portal.modules.security.core.bully.organ import Organ  # noqa: E402
 from portal.modules.security.core.bully.store import Store  # noqa: E402
 
-BASE_WEIGHTS = dict(cousin_engine._WEIGHTS)  # noqa: SLF001 -- same-package read
+# Pinned cousin-v1 weights: the base arm must stay v1 after the engine adopted v2 (reading
+# `cousin_engine._WEIGHTS` here would silently turn "base" into the adopted variant).
+BASE_WEIGHTS = {
+    "behavior": 0.30,
+    "telemetry": 0.20,
+    "semantic": 0.25,
+    "attack": 0.15,
+    "context": 0.10,
+}
+# cousin-v2 as adopted in 1ee68f4b (total mass 1.15), and the review follow-up F1 arms that
+# hold total mass at 1.00 -- separating the ranking gain from the confidence-mass inflation.
+V2_WEIGHTS = {
+    "behavior": 0.40,
+    "semantic": 0.40,
+    "telemetry": 0.10,
+    "context": 0.10,
+    "attack": 0.15,
+}
+V2_MASS = sum(V2_WEIGHTS.values())
+ADOPTED = "values_fallback_mass_preserving"
 
 VARIANTS: dict[str, dict[str, Any]] = {
     "base": {"weights": dict(BASE_WEIGHTS), "behavior_channel": "action_sequence"},
@@ -110,7 +130,61 @@ VARIANTS: dict[str, dict[str, Any]] = {
         },
         "behavior_channel": "values_fallback",
     },
+    # F1: v2 scaled to unit mass -- identical ranking to v2 (every composite / 1.15), so any
+    # difference is classification only (confidence gate + band scale).
+    "f1_v2_unit_scaled": {
+        "weights": {k: v / V2_MASS for k, v in V2_WEIGHTS.items()},
+        "behavior_channel": "values_fallback",
+    },
+    "f1_unit_35_35_10_05": {
+        "weights": {
+            "behavior": 0.35,
+            "semantic": 0.35,
+            "telemetry": 0.10,
+            "context": 0.05,
+            "attack": 0.15,
+        },
+        "behavior_channel": "values_fallback",
+    },
+    "f1_unit_35_35_05_10": {
+        "weights": {
+            "behavior": 0.35,
+            "semantic": 0.35,
+            "telemetry": 0.05,
+            "context": 0.10,
+            "attack": 0.15,
+        },
+        "behavior_channel": "values_fallback",
+    },
+    "f1_unit_375_375_05_05": {
+        "weights": {
+            "behavior": 0.375,
+            "semantic": 0.375,
+            "telemetry": 0.05,
+            "context": 0.05,
+            "attack": 0.15,
+        },
+        "behavior_channel": "values_fallback",
+    },
 }
+
+
+def _action_sequence_behavior(subject: Any, reference: dict[str, Any]) -> float | None:
+    """cousin-v1's behavior channel: Jaccard over action_sequence, None when unavailable.
+
+    Re-implemented here because the engine's `_decompose` is values-first since cousin-v2;
+    mirrors its `available("action_sequence", ...)` presence rule exactly."""
+    subject_actions = getattr(subject, "action_sequence", None) or []
+    ref_action = set(
+        reference.get("action_sequence") or reference.get("behavior_sequence", "").split()
+    )
+    declared = getattr(subject, "present_dimensions", None)
+    ref_declared = reference.get("present_dimensions")
+    subject_ok = "action_sequence" in declared if declared is not None else bool(subject_actions)
+    ref_ok = "action_sequence" in ref_declared if ref_declared is not None else bool(ref_action)
+    if not (subject_ok and ref_ok):
+        return None
+    return cousin_engine._jaccard_distance(set(subject_actions), ref_action)  # noqa: SLF001
 
 
 def _behavior_values_set(obj: dict[str, Any] | None) -> set[str]:
@@ -137,6 +211,7 @@ def decompose_variant(
         subject, reference, semantic_distance=semantic_distance
     )
     if behavior_channel == "action_sequence":
+        decomp["behavior"] = _action_sequence_behavior(subject, reference)
         return decomp
     subj_values = _behavior_values_set(getattr(subject, "artifacts", None) or {})
     ref_values = _behavior_values_set(reference.get("artifacts") or {})
@@ -147,10 +222,11 @@ def decompose_variant(
             else None
         )
     elif behavior_channel == "values_fallback":
-        if subj_values and ref_values:
-            decomp["behavior"] = cousin_engine._jaccard_distance(  # noqa: SLF001
-                subj_values, ref_values
-            )
+        decomp["behavior"] = (
+            cousin_engine._jaccard_distance(subj_values, ref_values)  # noqa: SLF001
+            if subj_values and ref_values
+            else _action_sequence_behavior(subject, reference)
+        )
     return decomp
 
 
@@ -508,6 +584,19 @@ def _summary(per_variant: dict[str, list[dict[str, Any]]]) -> dict[str, Any]:
             "related_graded": _paired_block(base_graded_rel, grel, shared),
             "cross_source_related": _paired_block(base_cross, cro, shared),
         }
+        if name != ADOPTED and ADOPTED in per_variant:
+            adopted = per_variant[ADOPTED]
+            a_rel = {v["specimen_id"]: v["related"] for v in adopted}
+            a_grel = {
+                v["specimen_id"]: v["related"] and v.get("relationship") != "ANOMALOUS_UNCLASSIFIED"
+                for v in adopted
+            }
+            a_cro = {v["specimen_id"]: v["cross_source_related"] for v in adopted}
+            out[name]["paired_vs_adopted"] = {
+                "related_all": _paired_block(a_rel, rel, shared),
+                "related_graded": _paired_block(a_grel, grel, shared),
+                "cross_source_related": _paired_block(a_cro, cro, shared),
+            }
     return out
 
 

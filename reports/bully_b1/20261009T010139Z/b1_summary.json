@@ -1,0 +1,661 @@
+{
+  "arm_dir": "/Volumes/data01/portal5_scratch_eg2/bully/arm-d-sim",
+  "corpus": "/Volumes/data01/portal5_hunt/artifacts/specimen_corpus_sa1_v1/specimen_corpus_v3_final.json",
+  "embed_url": "http://localhost:8946/embed",
+  "probes": 988,
+  "summary": {
+    "base": {
+      "cross_source_chosen": 11,
+      "cross_source_related": 1,
+      "graded": 988,
+      "related_all": 154,
+      "related_graded": 154,
+      "relationship_distribution": {
+        "NEW": 17,
+        "SAME": 314,
+        "SIMILAR": 657
+      },
+      "same_source_related": 153,
+      "twin_hits": 87
+    },
+    "behavior_values": {
+      "cross_source_chosen": 14,
+      "cross_source_related": 4,
+      "graded": 988,
+      "paired_vs_adopted": {
+        "cross_source_related": {
+          "base_only": 12,
+          "mcnemar_exact_p": 0.00049,
+          "variant_only": 0
+        },
+        "related_all": {
+          "base_only": 65,
+          "mcnemar_exact_p": 0.0,
+          "variant_only": 1
+        },
+        "related_graded": {
+          "base_only": 71,
+          "mcnemar_exact_p": 0.0,
+          "variant_only": 0
+        }
+      },
+      "paired_vs_base": {
+        "cross_source_related": {
+          "base_only": 0,
+          "mcnemar_exact_p": 0.25,
+          "variant_only": 3
+        },
+        "related_all": {
+          "base_only": 56,
+          "mcnemar_exact_p": 0.05789,
+          "variant_only": 79
+        },
+        "related_graded": {
+          "base_only": 62,
+          "mcnemar_exact_p": 0.20473,
+          "variant_only": 78
+        }
+      },
+      "related_all": 177,
+      "related_graded": 170,
+      "relationship_distribution": {
+        "ANOMALOUS_UNCLASSIFIED": 261,
+        "NEW": 66,
+        "SAME": 51,
+        "SIMILAR": 610
+      },
+      "same_source_related": 173,
+      "twin_hits": 94
+    },
+    "down_plus_values": {
+      "cross_source_chosen": 21,
+      "cross_source_related": 9,
+      "graded": 988,
+      "paired_vs_adopted": {
+        "cross_source_related": {
+          "base_only": 7,
+          "mcnemar_exact_p": 0.01562,
+          "variant_only": 0
+        },
+        "related_all": {
+          "base_only": 43,
+          "mcnemar_exact_p": 0.0,
+          "variant_only": 9
+        },
+        "related_graded": {
+          "base_only": 51,
+          "mcnemar_exact_p": 0.0,
+          "variant_only": 8
+        }
+      },
+      "paired_vs_base": {
+        "cross_source_related": {
+          "base_only": 0,
+          "mcnemar_exact_p": 0.00781,
+          "variant_only": 8
+        },
+        "related_all": {
+          "base_only": 60,
+          "mcnemar_exact_p": 7e-05,
+          "variant_only": 113
+        },
+        "related_graded": {
+          "base_only": 66,
+          "mcnemar_exact_p": 0.00113,
+          "variant_only": 110
+        }
+      },
+      "related_all": 207,
+      "related_graded": 198,
+      "relationship_distribution": {
+        "ANOMALOUS_UNCLASSIFIED": 292,
+        "SAME": 65,
+        "SIMILAR": 631
+      },
+      "same_source_related": 198,
+      "twin_hits": 86
+    },
+    "down_tele_ctx": {
+      "cross_source_chosen": 14,
+      "cross_source_related": 1,
+      "graded": 988,
+      "paired_vs_adopted": {
+        "cross_source_related": {
+          "base_only": 15,
+          "mcnemar_exact_p": 6e-05,
+          "variant_only": 0
+        },
+        "related_all": {
+          "base_only": 116,
+          "mcnemar_exact_p": 0.0,
+          "variant_only": 34
+        },
+        "related_graded": {
+          "base_only": 116,
+          "mcnemar_exact_p": 0.0,
+          "variant_only": 32
+        }
+      },
+      "paired_vs_base": {
+        "cross_source_related": {
+          "base_only": 0,
+          "mcnemar_exact_p": 1.0,
+          "variant_only": 0
+        },
+        "related_all": {
+          "base_only": 2,
+          "mcnemar_exact_p": 0.17969,
+          "variant_only": 7
+        },
+        "related_graded": {
+          "base_only": 4,
+          "mcnemar_exact_p": 0.54883,
+          "variant_only": 7
+        }
+      },
+      "related_all": 159,
+      "related_graded": 157,
+      "relationship_distribution": {
+        "ANOMALOUS_UNCLASSIFIED": 100,
+        "SAME": 373,
+        "SIMILAR": 515
+      },
+      "same_source_related": 158,
+      "twin_hits": 90
+    },
+    "f1_unit_35_35_05_10": {
+      "cross_source_chosen": 27,
+      "cross_source_related": 16,
+      "graded": 988,
+      "paired_vs_adopted": {
+        "cross_source_related": {
+          "base_only": 0,
+          "mcnemar_exact_p": 1.0,
+          "variant_only": 0
+        },
+        "related_all": {
+          "base_only": 7,
+          "mcnemar_exact_p": 1.0,
+          "variant_only": 8
+        },
+        "related_graded": {
+          "base_only": 9,
+          "mcnemar_exact_p": 1.0,
+          "variant_only": 8
+        }
+      },
+      "paired_vs_base": {
+        "cross_source_related": {
+          "base_only": 0,
+          "mcnemar_exact_p": 6e-05,
+          "variant_only": 15
+        },
+        "related_all": {
+          "base_only": 40,
+          "mcnemar_exact_p": 0.0,
+          "variant_only": 128
+        },
+        "related_graded": {
+          "base_only": 40,
+          "mcnemar_exact_p": 0.0,
+          "variant_only": 126
+        }
+      },
+      "related_all": 242,
+      "related_graded": 240,
+      "relationship_distribution": {
+        "ANOMALOUS_UNCLASSIFIED": 109,
+        "NEW": 31,
+        "SAME": 98,
+        "SIMILAR": 750
+      },
+      "same_source_related": 226,
+      "twin_hits": 95
+    },
+    "f1_unit_35_35_10_05": {
+      "cross_source_chosen": 28,
+      "cross_source_related": 17,
+      "graded": 988,
+      "paired_vs_adopted": {
+        "cross_source_related": {
+          "base_only": 0,
+          "mcnemar_exact_p": 1.0,
+          "variant_only": 1
+        },
+        "related_all": {
+          "base_only": 1,
+          "mcnemar_exact_p": 1.0,
+          "variant_only": 1
+        },
+        "related_graded": {
+          "base_only": 2,
+          "mcnemar_exact_p": 1.0,
+          "variant_only": 1
+        }
+      },
+      "paired_vs_base": {
+        "cross_source_related": {
+          "base_only": 0,
+          "mcnemar_exact_p": 3e-05,
+          "variant_only": 16
+        },
+        "related_all": {
+          "base_only": 33,
+          "mcnemar_exact_p": 0.0,
+          "variant_only": 120
+        },
+        "related_graded": {
+          "base_only": 33,
+          "mcnemar_exact_p": 0.0,
+          "variant_only": 119
+        }
+      },
+      "related_all": 241,
+      "related_graded": 240,
+      "relationship_distribution": {
+        "ANOMALOUS_UNCLASSIFIED": 88,
+        "NEW": 36,
+        "SAME": 65,
+        "SIMILAR": 799
+      },
+      "same_source_related": 224,
+      "twin_hits": 102
+    },
+    "f1_unit_375_375_05_05": {
+      "cross_source_chosen": 36,
+      "cross_source_related": 23,
+      "graded": 988,
+      "paired_vs_adopted": {
+        "cross_source_related": {
+          "base_only": 0,
+          "mcnemar_exact_p": 0.01562,
+          "variant_only": 7
+        },
+        "related_all": {
+          "base_only": 7,
+          "mcnemar_exact_p": 0.18925,
+          "variant_only": 14
+        },
+        "related_graded": {
+          "base_only": 9,
+          "mcnemar_exact_p": 0.40487,
+          "variant_only": 14
+        }
+      },
+      "paired_vs_base": {
+        "cross_source_related": {
+          "base_only": 0,
+          "mcnemar_exact_p": 0.0,
+          "variant_only": 22
+        },
+        "related_all": {
+          "base_only": 40,
+          "mcnemar_exact_p": 0.0,
+          "variant_only": 134
+        },
+        "related_graded": {
+          "base_only": 40,
+          "mcnemar_exact_p": 0.0,
+          "variant_only": 132
+        }
+      },
+      "related_all": 248,
+      "related_graded": 246,
+      "relationship_distribution": {
+        "ANOMALOUS_UNCLASSIFIED": 110,
+        "NEW": 62,
+        "SAME": 100,
+        "SIMILAR": 716
+      },
+      "same_source_related": 225,
+      "twin_hits": 94
+    },
+    "f1_v2_unit_scaled": {
+      "cross_source_chosen": 27,
+      "cross_source_related": 16,
+      "graded": 988,
+      "paired_vs_adopted": {
+        "cross_source_related": {
+          "base_only": 0,
+          "mcnemar_exact_p": 1.0,
+          "variant_only": 0
+        },
+        "related_all": {
+          "base_only": 0,
+          "mcnemar_exact_p": 1.0,
+          "variant_only": 0
+        },
+        "related_graded": {
+          "base_only": 1,
+          "mcnemar_exact_p": 1.0,
+          "variant_only": 0
+        }
+      },
+      "paired_vs_base": {
+        "cross_source_related": {
+          "base_only": 0,
+          "mcnemar_exact_p": 6e-05,
+          "variant_only": 15
+        },
+        "related_all": {
+          "base_only": 33,
+          "mcnemar_exact_p": 0.0,
+          "variant_only": 120
+        },
+        "related_graded": {
+          "base_only": 33,
+          "mcnemar_exact_p": 0.0,
+          "variant_only": 119
+        }
+      },
+      "related_all": 241,
+      "related_graded": 240,
+      "relationship_distribution": {
+        "ANOMALOUS_UNCLASSIFIED": 90,
+        "NEW": 37,
+        "SAME": 64,
+        "SIMILAR": 797
+      },
+      "same_source_related": 225,
+      "twin_hits": 97
+    },
+    "mass_preserving_down": {
+      "cross_source_chosen": 12,
+      "cross_source_related": 1,
+      "graded": 988,
+      "paired_vs_adopted": {
+        "cross_source_related": {
+          "base_only": 15,
+          "mcnemar_exact_p": 6e-05,
+          "variant_only": 0
+        },
+        "related_all": {
+          "base_only": 115,
+          "mcnemar_exact_p": 0.0,
+          "variant_only": 34
+        },
+        "related_graded": {
+          "base_only": 115,
+          "mcnemar_exact_p": 0.0,
+          "variant_only": 34
+        }
+      },
+      "paired_vs_base": {
+        "cross_source_related": {
+          "base_only": 0,
+          "mcnemar_exact_p": 1.0,
+          "variant_only": 0
+        },
+        "related_all": {
+          "base_only": 1,
+          "mcnemar_exact_p": 0.07031,
+          "variant_only": 7
+        },
+        "related_graded": {
+          "base_only": 1,
+          "mcnemar_exact_p": 0.07031,
+          "variant_only": 7
+        }
+      },
+      "related_all": 160,
+      "related_graded": 160,
+      "relationship_distribution": {
+        "NEW": 43,
+        "SAME": 258,
+        "SIMILAR": 687
+      },
+      "same_source_related": 159,
+      "twin_hits": 90
+    },
+    "values_fallback_base": {
+      "cross_source_chosen": 15,
+      "cross_source_related": 6,
+      "graded": 988,
+      "paired_vs_adopted": {
+        "cross_source_related": {
+          "base_only": 10,
+          "mcnemar_exact_p": 0.00195,
+          "variant_only": 0
+        },
+        "related_all": {
+          "base_only": 35,
+          "mcnemar_exact_p": 0.00011,
+          "variant_only": 9
+        },
+        "related_graded": {
+          "base_only": 35,
+          "mcnemar_exact_p": 0.00011,
+          "variant_only": 9
+        }
+      },
+      "paired_vs_base": {
+        "cross_source_related": {
+          "base_only": 0,
+          "mcnemar_exact_p": 0.0625,
+          "variant_only": 5
+        },
+        "related_all": {
+          "base_only": 24,
+          "mcnemar_exact_p": 0.0,
+          "variant_only": 85
+        },
+        "related_graded": {
+          "base_only": 24,
+          "mcnemar_exact_p": 0.0,
+          "variant_only": 85
+        }
+      },
+      "related_all": 215,
+      "related_graded": 215,
+      "relationship_distribution": {
+        "NEW": 74,
+        "SAME": 67,
+        "SIMILAR": 847
+      },
+      "same_source_related": 209,
+      "twin_hits": 113
+    },
+    "values_fallback_mass_preserving": {
+      "cross_source_chosen": 27,
+      "cross_source_related": 16,
+      "graded": 988,
+      "paired_vs_base": {
+        "cross_source_related": {
+          "base_only": 0,
+          "mcnemar_exact_p": 6e-05,
+          "variant_only": 15
+        },
+        "related_all": {
+          "base_only": 33,
+          "mcnemar_exact_p": 0.0,
+          "variant_only": 120
+        },
+        "related_graded": {
+          "base_only": 33,
+          "mcnemar_exact_p": 0.0,
+          "variant_only": 120
+        }
+      },
+      "related_all": 241,
+      "related_graded": 241,
+      "relationship_distribution": {
+        "NEW": 241,
+        "SAME": 61,
+        "SIMILAR": 686
+      },
+      "same_source_related": 225,
+      "twin_hits": 97
+    },
+    "values_mass_preserving": {
+      "cross_source_chosen": 21,
+      "cross_source_related": 9,
+      "graded": 988,
+      "paired_vs_adopted": {
+        "cross_source_related": {
+          "base_only": 7,
+          "mcnemar_exact_p": 0.01562,
+          "variant_only": 0
+        },
+        "related_all": {
+          "base_only": 42,
+          "mcnemar_exact_p": 0.0,
+          "variant_only": 1
+        },
+        "related_graded": {
+          "base_only": 42,
+          "mcnemar_exact_p": 0.0,
+          "variant_only": 0
+        }
+      },
+      "paired_vs_base": {
+        "cross_source_related": {
+          "base_only": 0,
+          "mcnemar_exact_p": 0.00781,
+          "variant_only": 8
+        },
+        "related_all": {
+          "base_only": 59,
+          "mcnemar_exact_p": 0.00041,
+          "variant_only": 105
+        },
+        "related_graded": {
+          "base_only": 59,
+          "mcnemar_exact_p": 0.00053,
+          "variant_only": 104
+        }
+      },
+      "related_all": 200,
+      "related_graded": 199,
+      "relationship_distribution": {
+        "ANOMALOUS_UNCLASSIFIED": 204,
+        "NEW": 209,
+        "SAME": 68,
+        "SIMILAR": 507
+      },
+      "same_source_related": 191,
+      "twin_hits": 88
+    }
+  },
+  "variants": {
+    "base": {
+      "behavior_channel": "action_sequence",
+      "weights": {
+        "attack": 0.15,
+        "behavior": 0.3,
+        "context": 0.1,
+        "semantic": 0.25,
+        "telemetry": 0.2
+      }
+    },
+    "behavior_values": {
+      "behavior_channel": "behavior_values",
+      "weights": {
+        "attack": 0.15,
+        "behavior": 0.3,
+        "context": 0.1,
+        "semantic": 0.25,
+        "telemetry": 0.2
+      }
+    },
+    "down_plus_values": {
+      "behavior_channel": "behavior_values",
+      "weights": {
+        "attack": 0.15,
+        "behavior": 0.3,
+        "context": 0.05,
+        "semantic": 0.25,
+        "telemetry": 0.05
+      }
+    },
+    "down_tele_ctx": {
+      "behavior_channel": "action_sequence",
+      "weights": {
+        "attack": 0.15,
+        "behavior": 0.3,
+        "context": 0.05,
+        "semantic": 0.25,
+        "telemetry": 0.05
+      }
+    },
+    "f1_unit_35_35_05_10": {
+      "behavior_channel": "values_fallback",
+      "weights": {
+        "attack": 0.15,
+        "behavior": 0.35,
+        "context": 0.1,
+        "semantic": 0.35,
+        "telemetry": 0.05
+      }
+    },
+    "f1_unit_35_35_10_05": {
+      "behavior_channel": "values_fallback",
+      "weights": {
+        "attack": 0.15,
+        "behavior": 0.35,
+        "context": 0.05,
+        "semantic": 0.35,
+        "telemetry": 0.1
+      }
+    },
+    "f1_unit_375_375_05_05": {
+      "behavior_channel": "values_fallback",
+      "weights": {
+        "attack": 0.15,
+        "behavior": 0.375,
+        "context": 0.05,
+        "semantic": 0.375,
+        "telemetry": 0.05
+      }
+    },
+    "f1_v2_unit_scaled": {
+      "behavior_channel": "values_fallback",
+      "weights": {
+        "attack": 0.13043478260869562,
+        "behavior": 0.34782608695652173,
+        "context": 0.08695652173913043,
+        "semantic": 0.34782608695652173,
+        "telemetry": 0.08695652173913043
+      }
+    },
+    "mass_preserving_down": {
+      "behavior_channel": "action_sequence",
+      "weights": {
+        "attack": 0.15,
+        "behavior": 0.4,
+        "context": 0.1,
+        "semantic": 0.4,
+        "telemetry": 0.1
+      }
+    },
+    "values_fallback_base": {
+      "behavior_channel": "values_fallback",
+      "weights": {
+        "attack": 0.15,
+        "behavior": 0.3,
+        "context": 0.1,
+        "semantic": 0.25,
+        "telemetry": 0.2
+      }
+    },
+    "values_fallback_mass_preserving": {
+      "behavior_channel": "values_fallback",
+      "weights": {
+        "attack": 0.15,
+        "behavior": 0.4,
+        "context": 0.1,
+        "semantic": 0.4,
+        "telemetry": 0.1
+      }
+    },
+    "values_mass_preserving": {
+      "behavior_channel": "behavior_values",
+      "weights": {
+        "attack": 0.15,
+        "behavior": 0.4,
+        "context": 0.1,
+        "semantic": 0.4,
+        "telemetry": 0.1
+      }
+    }
+  }
+}

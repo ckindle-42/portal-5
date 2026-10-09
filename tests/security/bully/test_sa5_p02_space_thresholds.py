@@ -10,7 +10,9 @@ holds for pathological distributions.
 
 from __future__ import annotations
 
-from portal.modules.security.core.bully import cousin_engine
+import pytest
+
+from portal.modules.security.core.bully import cousin_engine, embedding_spaces
 from portal.modules.security.core.bully.embedding_spaces import (
     DERIVED_THRESHOLDS_SCHEMA,
     FROZEN_THRESHOLDS,
@@ -113,4 +115,11 @@ def test_measure_distances_computes_self_near_far_from_embed_fn():
 def test_semantic_weight_matches_engine():
     """The derivation's composite-scale conversion must use the engine's own
     semantic channel weight -- otherwise the scale model is wrong."""
-    assert cousin_engine._WEIGHTS["semantic"] == 0.40
+    assert cousin_engine._WEIGHTS["semantic"] == embedding_spaces._SEMANTIC_WEIGHT
+    assert cousin_engine._WEIGHTS["semantic"] == pytest.approx(0.40 / 1.15)
+
+
+def test_cousin_weights_are_unit_mass():
+    """`confidence` is the present weight mass and is documented as in [0, 1]; the
+    MIN_CONFIDENCE_FOR_CLASSIFICATION gate is only meaningful on that scale (F1)."""
+    assert sum(cousin_engine._WEIGHTS.values()) == pytest.approx(1.0)

@@ -1613,7 +1613,7 @@ Failing loudly at emit time keeps the model's correction loop honest: a silent a
 
 - **ID**: BULLY-DISCOVERY-TRUTH-LEAK-001
 - **Status**: NARROWED (2026-10-08). The leak is fixed, the value-less corpus is fixed, the
-  source-dominated composite weighting is fixed (cousin-v2, B1), and the thresholds are re-fit
+  source-dominated composite weighting is fixed (cousin-v2, B1; unit-mass cousin-v3, F1), and the thresholds are re-fit
   to the adopted space (B1.4). Still open: the retrieval axes surface a truth-related candidate
   for only 430/988 probes.
 - **Leak**: `independent_truth_related` judges a discovery correct when probe and reference share
@@ -1635,9 +1635,13 @@ Failing loudly at emit time keeps the model's correction loop honest: a silent a
   `artifacts.behavior_values` value terms (Jaccard) with an action-sequence fallback for
   signatures that predate the values capture. Measured on the same 988 probes over the same
   seeded EG2 projection (`reports/bully_b1/20261008T195439Z`, paired exact McNemar vs v1):
-  related 154 -> 241 (p<1e-4), cross-source related 1 -> 16 (p=6e-5), 0 ANOMALOUS_UNCLASSIFIED
-  (the raw down-weight without the mass redistribution pushes total weight to 0.40, under
-  `MIN_CONFIDENCE_FOR_CLASSIFICATION`, and classifies everything ANOMALOUS — rejected). Twins
+  related 154 -> 241 (p<1e-4), cross-source related 1 -> 16 (p=6e-5). Corrected 2026-10-09
+  (review F1, `reports/bully_b1/20261009T010139Z`): the v2 proportions summed to 1.15, not 1.00,
+  so `confidence` could exceed 1 and the 0.6 classification gate was loosened; v2's
+  "0 ANOMALOUS" rested on that. cousin-v3 divides v2 by its total — identical ranking (related
+  240 vs 241, cross-source 16 vs 16, paired p=1.0); the 90 chosen pairs with semantic and attack
+  both absent (present mass 0.52) now abstain as ANOMALOUS, and 89 of them were not
+  truth-related. Twins
   (identical evidence under two labels: identical event streams or identical value sets) are
   reported separately, 97 of the 241; a hand-checked sample of the cross-source hits is genuine
   (gacutil IIS dll install, appcmd log-disable, netsh firewall allow, WMI account manipulation,
@@ -1664,7 +1668,9 @@ Failing loudly at emit time keeps the model's correction loop honest: a silent a
   identity changes none of it (p≥0.29), and 10–22 hits per arm are evidence twins (one log
   published under two techniques). A hand-checked sample of the rest is genuinely related
   (plink tunnels, gdrive exfiltration across OSes, sudo GTFOBins, `[adsisearcher]` ≈ `Get-ADGroup`).
-- **Thresholds (re-fit 2026-10-08, B1.4)**: `same_max_distance` 0.05 -> 0.063 — under v2 weights
+- **Thresholds (re-fit 2026-10-08, B1.4; rescaled 2026-10-09, F1)**: `same_max_distance` 0.05 -> 0.063
+  (v2 scale) -> 0.055 under cousin-v3's unit-mass weights (composites scale by 1/1.15; measured
+  identity max 0.0621 -> 0.0540; `bully-cousin-thresholds-v3`) — under v2 weights
   the true self-pair composite carries the truth-strip's context asymmetry (~0.033; the probe's
   `family` is stripped, the indexed record keeps it) and measured 0.0387 median / 0.0621 max
   over 100 real probes, so the frozen 0.05 failed 2/100 identity checks. On the same 988 probes
