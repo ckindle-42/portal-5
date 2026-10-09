@@ -12,7 +12,9 @@ anti_goals:
   - tune no threshold, weight, cutoff, prompt, or sample after seeing a headline metric
   - add no proxy, synthetic, injected, or newly executed exercise truth
   - emit no attack, chain, target tool, or emulation operation
-status: PREREGISTERED
+status: INCONCLUSIVE
+report: reports/review_eval/e2e/t6_proof.json
+result: "INCONCLUSIVE: C1/C2/C4 are UNPROVEN and C3 is PROVEN on 9 windows (3,559/3,559; 0.001273% of 279,565,366 events); the single cousin item had no bootstrap CI, and all 3 drills passed."
 ---
 The control is the shipped legacy funnel. The candidate is the T3 default `review_d0` configuration
 with `no_reader`; the configuration is unchanged. The same windows and independent truth items are
