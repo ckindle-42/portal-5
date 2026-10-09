@@ -1,0 +1,437 @@
+{
+  "generated_at_utc": "2026-10-09T16:45:05.209221+00:00",
+  "runs": [
+    {
+      "command": "uv run pytest tests/security/review tests/security/review_eval -q",
+      "exit_code": 1,
+      "label": "review_suites_initial_attempt",
+      "outcome": "202 passed; 3 stale state-renderer calls failed before proof kwargs were added",
+      "traces": [
+        {
+          "module_count": 0,
+          "path": "trace_46582.json",
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        },
+        {
+          "module_count": 94,
+          "path": "trace_46576.json",
+          "sha256": "86f2a5f096ebf44d65c13fd6bf74d4a37da8e80bc144c4e21674cb71b97a2839"
+        }
+      ]
+    },
+    {
+      "command": "uv run pytest tests/security/review tests/security/review_eval -q",
+      "exit_code": 0,
+      "label": "review_suites",
+      "outcome": "205 passed",
+      "traces": [
+        {
+          "module_count": 0,
+          "path": "trace_46765.json",
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        },
+        {
+          "module_count": 94,
+          "path": "trace_46734.json",
+          "sha256": "86f2a5f096ebf44d65c13fd6bf74d4a37da8e80bc144c4e21674cb71b97a2839"
+        }
+      ]
+    },
+    {
+      "command": "uv run python scripts/review_eval_run.py --arm review_d0 --slice botsv1",
+      "exit_code": 0,
+      "label": "review_eval_default_initial",
+      "outcome": "INCONCLUSIVE exclusion report; stamp dirty because the renderer test correction was not yet committed",
+      "traces": [
+        {
+          "module_count": 64,
+          "path": "trace_46801.json",
+          "sha256": "5ff447cc8f0ad2ba35e8fd8c51d99bf935a0053789a97f4dc54ee85db4af2e15"
+        }
+      ]
+    },
+    {
+      "command": "ReviewRuntime and legacy_funnel on the T6 held-out portal5_lab linux:auditd sample",
+      "exit_code": 0,
+      "label": "proof_window_sample",
+      "outcome": "6 expected and fetched events; 0 concerns in each arm; runtime output used a temporary directory",
+      "traces": [
+        {
+          "module_count": 72,
+          "path": "trace_46879.json",
+          "sha256": "f1123190826da71ab17768bd6388218a8abd8859d220c22a1884d5cec642be36"
+        }
+      ]
+    },
+    {
+      "command": "capture_store.list_captures plus live_connect.register_staged_source and DataPlane.query",
+      "exit_code": 0,
+      "label": "replay_read",
+      "outcome": "1127 saved captures; one capture read; six held-out records staged; two records queried; one audit entry",
+      "traces": [
+        {
+          "module_count": 57,
+          "path": "trace_46972.json",
+          "sha256": "94dc15dbbaa7991aac2e6d659091a318172c2eedc0dba1ac7568428db9d2f648"
+        }
+      ]
+    },
+    {
+      "command": "review MCP in-process GET /tools and local service GET /tools",
+      "exit_code": 0,
+      "label": "review_mcp_tools",
+      "outcome": "both returned HTTP 200 and 8 tools",
+      "traces": [
+        {
+          "module_count": 35,
+          "path": "trace_47018.json",
+          "sha256": "4b902c1414e5e3ebceb48f5a83d4b917704d5fe950a2d551a9918d672a7ad98b"
+        }
+      ]
+    },
+    {
+      "command": "uv run python scripts/validate_system.py",
+      "exit_code": 1,
+      "label": "validate_system",
+      "outcome": "218 pass, 2 fail, 3 warn, 3 skip; BU complexity is pre-consolidation; HI flags review/model_client.py:_read_trace by substring",
+      "traces": [
+        {
+          "module_count": 205,
+          "path": "trace_47045.json",
+          "sha256": "94da40505ad8fdbf5399bb53d14199a9ff307eb74a771cfa93feaf082d1e54dc"
+        },
+        {
+          "module_count": 17,
+          "path": "trace_47047.json",
+          "sha256": "ce21b912b7a651e2f6462f388072c801a9b6e311e3f72799e504b908dafb622b"
+        },
+        {
+          "module_count": 17,
+          "path": "trace_47048.json",
+          "sha256": "ce21b912b7a651e2f6462f388072c801a9b6e311e3f72799e504b908dafb622b"
+        },
+        {
+          "module_count": 17,
+          "path": "trace_47049.json",
+          "sha256": "ce21b912b7a651e2f6462f388072c801a9b6e311e3f72799e504b908dafb622b"
+        },
+        {
+          "module_count": 17,
+          "path": "trace_47050.json",
+          "sha256": "ce21b912b7a651e2f6462f388072c801a9b6e311e3f72799e504b908dafb622b"
+        },
+        {
+          "module_count": 268,
+          "path": "trace_47051.json",
+          "sha256": "6f0afcf134f0bbdbb0b3dbd865a424ae30ca69b2c9dd3b8003eccbdbd0c6e6ef"
+        },
+        {
+          "module_count": 2,
+          "path": "trace_47079.json",
+          "sha256": "6cd1fee6df951a22ea788c236678276d1971d5506bd667807fc99d8808d12bbd"
+        },
+        {
+          "module_count": 2,
+          "path": "trace_47080.json",
+          "sha256": "6cd1fee6df951a22ea788c236678276d1971d5506bd667807fc99d8808d12bbd"
+        },
+        {
+          "module_count": 2,
+          "path": "trace_47081.json",
+          "sha256": "6cd1fee6df951a22ea788c236678276d1971d5506bd667807fc99d8808d12bbd"
+        },
+        {
+          "module_count": 2,
+          "path": "trace_47084.json",
+          "sha256": "6cd1fee6df951a22ea788c236678276d1971d5506bd667807fc99d8808d12bbd"
+        },
+        {
+          "module_count": 0,
+          "path": "trace_47085.json",
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        },
+        {
+          "module_count": 0,
+          "path": "trace_47086.json",
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        },
+        {
+          "module_count": 0,
+          "path": "trace_47087.json",
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        },
+        {
+          "module_count": 0,
+          "path": "trace_47088.json",
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        },
+        {
+          "module_count": 0,
+          "path": "trace_47096.json",
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        },
+        {
+          "module_count": 0,
+          "path": "trace_47098.json",
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        },
+        {
+          "module_count": 0,
+          "path": "trace_47099.json",
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        },
+        {
+          "module_count": 0,
+          "path": "trace_47100.json",
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        },
+        {
+          "module_count": 0,
+          "path": "trace_47101.json",
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        },
+        {
+          "module_count": 0,
+          "path": "trace_47105.json",
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        },
+        {
+          "module_count": 0,
+          "path": "trace_47111.json",
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        },
+        {
+          "module_count": 0,
+          "path": "trace_47112.json",
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        },
+        {
+          "module_count": 0,
+          "path": "trace_47113.json",
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        },
+        {
+          "module_count": 0,
+          "path": "trace_47114.json",
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        },
+        {
+          "module_count": 0,
+          "path": "trace_47120.json",
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        },
+        {
+          "module_count": 0,
+          "path": "trace_47124.json",
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        },
+        {
+          "module_count": 0,
+          "path": "trace_47125.json",
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        },
+        {
+          "module_count": 0,
+          "path": "trace_47126.json",
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        },
+        {
+          "module_count": 0,
+          "path": "trace_47241.json",
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        },
+        {
+          "module_count": 0,
+          "path": "trace_47242.json",
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        },
+        {
+          "module_count": 0,
+          "path": "trace_47253.json",
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        },
+        {
+          "module_count": 0,
+          "path": "trace_47257.json",
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        },
+        {
+          "module_count": 30,
+          "path": "trace_47277.json",
+          "sha256": "330fa84ebeb2dc353609359c1fb4b1d07cc8380d15752fee1759ced0336cf1f3"
+        },
+        {
+          "module_count": 12,
+          "path": "trace_47537.json",
+          "sha256": "2798ddb17a239833855a8a517a11c31a2e0c47cadeaadc21ac48d7c5fd26878a"
+        },
+        {
+          "module_count": 12,
+          "path": "trace_47551.json",
+          "sha256": "2798ddb17a239833855a8a517a11c31a2e0c47cadeaadc21ac48d7c5fd26878a"
+        },
+        {
+          "module_count": 12,
+          "path": "trace_47563.json",
+          "sha256": "2798ddb17a239833855a8a517a11c31a2e0c47cadeaadc21ac48d7c5fd26878a"
+        },
+        {
+          "module_count": 30,
+          "path": "trace_47585.json",
+          "sha256": "2ba1e47621529119143966d0db84b0762373fb6ea02b6c80cf2a1520eec24e2b"
+        },
+        {
+          "module_count": 0,
+          "path": "trace_47602.json",
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        },
+        {
+          "module_count": 17,
+          "path": "trace_47619.json",
+          "sha256": "ce21b912b7a651e2f6462f388072c801a9b6e311e3f72799e504b908dafb622b"
+        },
+        {
+          "module_count": 17,
+          "path": "trace_47620.json",
+          "sha256": "ce21b912b7a651e2f6462f388072c801a9b6e311e3f72799e504b908dafb622b"
+        },
+        {
+          "module_count": 17,
+          "path": "trace_47621.json",
+          "sha256": "ce21b912b7a651e2f6462f388072c801a9b6e311e3f72799e504b908dafb622b"
+        },
+        {
+          "module_count": 17,
+          "path": "trace_47622.json",
+          "sha256": "ce21b912b7a651e2f6462f388072c801a9b6e311e3f72799e504b908dafb622b"
+        },
+        {
+          "module_count": 17,
+          "path": "trace_47623.json",
+          "sha256": "ce21b912b7a651e2f6462f388072c801a9b6e311e3f72799e504b908dafb622b"
+        },
+        {
+          "module_count": 0,
+          "path": "trace_47624.json",
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        },
+        {
+          "module_count": 0,
+          "path": "trace_47627.json",
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        },
+        {
+          "module_count": 0,
+          "path": "trace_47636.json",
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        },
+        {
+          "module_count": 15,
+          "path": "trace_47670.json",
+          "sha256": "310ce3a0cf53c96fb533b6440339a4d9bff1dbe1b6867e673e3022fcfdcf11b7"
+        },
+        {
+          "module_count": 17,
+          "path": "trace_47792.json",
+          "sha256": "ce21b912b7a651e2f6462f388072c801a9b6e311e3f72799e504b908dafb622b"
+        },
+        {
+          "module_count": 17,
+          "path": "trace_47793.json",
+          "sha256": "ce21b912b7a651e2f6462f388072c801a9b6e311e3f72799e504b908dafb622b"
+        },
+        {
+          "module_count": 17,
+          "path": "trace_47794.json",
+          "sha256": "ce21b912b7a651e2f6462f388072c801a9b6e311e3f72799e504b908dafb622b"
+        },
+        {
+          "module_count": 17,
+          "path": "trace_47795.json",
+          "sha256": "ce21b912b7a651e2f6462f388072c801a9b6e311e3f72799e504b908dafb622b"
+        },
+        {
+          "module_count": 15,
+          "path": "trace_47823.json",
+          "sha256": "310ce3a0cf53c96fb533b6440339a4d9bff1dbe1b6867e673e3022fcfdcf11b7"
+        },
+        {
+          "module_count": 16,
+          "path": "trace_47824.json",
+          "sha256": "76f8fb36994580c3f16db6617300862b7440362e0bf4c32efe968870c353d462"
+        },
+        {
+          "module_count": 17,
+          "path": "trace_47857.json",
+          "sha256": "ce21b912b7a651e2f6462f388072c801a9b6e311e3f72799e504b908dafb622b"
+        },
+        {
+          "module_count": 17,
+          "path": "trace_47858.json",
+          "sha256": "ce21b912b7a651e2f6462f388072c801a9b6e311e3f72799e504b908dafb622b"
+        },
+        {
+          "module_count": 17,
+          "path": "trace_47859.json",
+          "sha256": "ce21b912b7a651e2f6462f388072c801a9b6e311e3f72799e504b908dafb622b"
+        },
+        {
+          "module_count": 17,
+          "path": "trace_47862.json",
+          "sha256": "ce21b912b7a651e2f6462f388072c801a9b6e311e3f72799e504b908dafb622b"
+        },
+        {
+          "module_count": 15,
+          "path": "trace_47892.json",
+          "sha256": "310ce3a0cf53c96fb533b6440339a4d9bff1dbe1b6867e673e3022fcfdcf11b7"
+        },
+        {
+          "module_count": 16,
+          "path": "trace_47893.json",
+          "sha256": "76f8fb36994580c3f16db6617300862b7440362e0bf4c32efe968870c353d462"
+        },
+        {
+          "module_count": 15,
+          "path": "trace_47926.json",
+          "sha256": "310ce3a0cf53c96fb533b6440339a4d9bff1dbe1b6867e673e3022fcfdcf11b7"
+        },
+        {
+          "module_count": 16,
+          "path": "trace_47929.json",
+          "sha256": "76f8fb36994580c3f16db6617300862b7440362e0bf4c32efe968870c353d462"
+        },
+        {
+          "module_count": 94,
+          "path": "trace_48058.json",
+          "sha256": "86f2a5f096ebf44d65c13fd6bf74d4a37da8e80bc144c4e21674cb71b97a2839"
+        },
+        {
+          "module_count": 0,
+          "path": "trace_48061.json",
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        },
+        {
+          "module_count": 41,
+          "path": "trace_48094.json",
+          "sha256": "e6cc4a5d5df0c5e6f96e5afda54910a8e1c6e94a3bab783cd6c2d16ccfe592dd"
+        }
+      ]
+    },
+    {
+      "command": "uv run python scripts/review_eval_run.py --arm review_d0 --slice botsv1",
+      "exit_code": 0,
+      "label": "review_eval_default_clean",
+      "outcome": "INCONCLUSIVE exclusion report; clean stamp at the current task commit",
+      "traces": [
+        {
+          "module_count": 64,
+          "path": "trace_48425.json",
+          "sha256": "5ff447cc8f0ad2ba35e8fd8c51d99bf935a0053789a97f4dc54ee85db4af2e15"
+        }
+      ]
+    }
+  ],
+  "schema": "bully-review-trace-manifest-v1",
+  "trace_directory": "reports/bully_review/trace",
+  "trace_file_count": 73
+}

@@ -1,0 +1,111 @@
+{
+  "created_at": 1791564247.360161,
+  "extra": {
+    "arm": "review_d0",
+    "by_class": {},
+    "embedder_adapter": "portal.modules.security.core.review.embedding",
+    "exclusion": {
+      "attack_interval": {
+        "duration_seconds": 2414155.8443460464,
+        "end_exclusive_epoch": 1472425560.320122,
+        "start_epoch": 1470011404.475776
+      },
+      "attack_interval_digest": "037750379be1d2388829b264d73acf965d9e37bb77e5d75315f03fc076db1f56",
+      "benign_candidates": [],
+      "benign_margin_seconds": 86400.0,
+      "derived_entry_count": 5,
+      "reason": "no_same_size_utc_day_aligned_background_window_outside_answer_key_spans_plus_margin",
+      "status": "excluded"
+    },
+    "executed": false,
+    "ledger": {
+      "reason": "the paired slice was excluded before either arm ran",
+      "status": "not_measured"
+    },
+    "policy": "review_d0",
+    "product_service": "portal.modules.security.core.review.service.run_review",
+    "slice": "botsv1",
+    "status": "INCONCLUSIVE",
+    "truth_manifest_sha256": "4bf90b1a9ab892a8b7ae80f7c55707605f478bc5861d4a04d0958fe2e37ac9b5",
+    "unavailable_metrics": [
+      "recall_at_B",
+      "false_raise_per_1000_benign_units",
+      "concerns_per_1000_units",
+      "stage_examined_resolved"
+    ],
+    "workload_B": null
+  },
+  "metrics": [
+    {
+      "can_fail": "fails when the pre-registered index has no usable attack and benign pair",
+      "denominator": 1,
+      "n": 1,
+      "name": "slice_eligibility",
+      "value": 0.0
+    }
+  ],
+  "rows": 1,
+  "rows_digest": "0ddfc0b7c9bd1ee4",
+  "selftest": {
+    "checks": {
+      "benign_quiet": {
+        "bound": 0.07756809750418045,
+        "passed": true,
+        "realized": 0.049
+      },
+      "constant": {
+        "measured": {
+          "auroc": 0.5,
+          "precision_at_npos": 1.0,
+          "recall_at_5pct_fpr": 0.0
+        },
+        "passed": true
+      },
+      "inverted": {
+        "measured": {
+          "auroc": 0.0,
+          "precision_at_npos": 0.0,
+          "recall_at_5pct_fpr": 0.0
+        },
+        "passed": true
+      },
+      "oracle": {
+        "measured": {
+          "auroc": 1.0,
+          "precision_at_npos": 1.0,
+          "recall_at_5pct_fpr": 1.0
+        },
+        "passed": true
+      },
+      "planted": {
+        "measured": {
+          "auroc": 0.998825,
+          "precision_at_npos": 0.965,
+          "recall_at_5pct_fpr": 1.0
+        },
+        "passed": true
+      },
+      "random": {
+        "auc_bound": 0.09133272505880172,
+        "measured": {
+          "auroc": 0.50456875,
+          "precision_at_npos": 0.17,
+          "recall_at_5pct_fpr": 0.06
+        },
+        "passed": true
+      }
+    },
+    "passed": true
+  },
+  "stamp": {
+    "commit": "4be8f382e95dfe0f7c175a687cef9cbb0ce33c28",
+    "config_hash": "06884308c9979df9",
+    "corpus_snapshot": "real:botsv1:64b8b2f6043fa9373a8bc6356081ae8efebd6da065a4e90350da691b0d568abb",
+    "dirty": false,
+    "embedder_id": "google/embeddinggemma-2;dim=768;task=sentence similarity;role=query",
+    "harness_version": "review-eval-v1",
+    "model_digests": [],
+    "policy": "review_d0"
+  },
+  "stamp_digest": "258901c86e939eae"
+}
