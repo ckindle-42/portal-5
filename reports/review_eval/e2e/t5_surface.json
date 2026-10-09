@@ -1,0 +1,255 @@
+{
+  "created_at": 1791559779.13799,
+  "extra": {
+    "arm": "T5-surface-e2e",
+    "artifacts_are_aggregate_only": true,
+    "case_details": {
+      "additional_attempts": [
+        {
+          "cause": "manual restart omitted .env; hostname resolution failed",
+          "error_class": "WindowFetchError",
+          "resolution": "restarted through native-mcp-service.sh with the current worktree and configured lab environment",
+          "run_id": "run-696a98dd24cb",
+          "status": "FAILED"
+        },
+        {
+          "direct_result_concerns": 4,
+          "note": "A separate earlier natural-language result request did return all four concern IDs; retained above as the accepted transcript receipt.",
+          "pipeline_followup_returned_concern_ids": false,
+          "run_id": "run-7c82e02d0950",
+          "status": "COMPLETE"
+        },
+        {
+          "oversized_probe": "A 4.6-day benign request was stopped after partitioning was observed at 600 seconds per Splunk query; no acceptance claim uses it."
+        }
+      ],
+      "embedder_change": {
+        "benign_slice": {
+          "alpha_unusual": 0.2,
+          "exact_raw_text_matches": 36,
+          "expected_events": 36,
+          "false_raise_rate": 0.043478260869565216,
+          "fetched_events": 36,
+          "flagged_units": 1,
+          "matching_historic_manifest_event_ids": 0,
+          "product_intake_units": 60,
+          "qualification": "same calibration slice resubstitution smoke; not a held-out estimate",
+          "scored_units": 23,
+          "status": "12_of_12_cells_live_indexed_and_event_id_reconciled"
+        },
+        "doctor_fix_applied": true,
+        "final_calibration_stale": false,
+        "return_to_default_fix_applied": true,
+        "return_to_default_identity": "google/embeddinggemma-2;dim=768;task=sentence similarity;role=query",
+        "stale_before_fix": [
+          "known_similar|L2_ENTITY",
+          "known_similar|L3_CHAIN"
+        ],
+        "temporary_identity": "google/embeddinggemma-2;dim=256;task=sentence similarity;role=query",
+        "temporary_identity_fresh_after_fix": true
+      },
+      "explain_evidence": {
+        "concern_id": "cn-72a7eca471b2",
+        "event_text_span_matched_raw_splunk": true,
+        "raw_event_text_in_report": false,
+        "span_sha256": "45e743fdebe6163e079986f88076468805d9f6e95d2fbd233bfd581f7b06bc30"
+      },
+      "mcp_http": {
+        "analyst_verdict": {
+          "actor": "analyst:codex",
+          "verdict": "something"
+        },
+        "first_novel_concern_id": "cn-5fe2a9a714b3",
+        "first_novel_evidence_refs": 157,
+        "initial_concern_count": 4,
+        "initial_run_id": "run-66ca8338ef6f",
+        "queue_count_before_after": [
+          4,
+          3
+        ],
+        "repeat_concern_count": 4,
+        "repeat_concern_ids_reconciled_to_legacy_manifest": false,
+        "repeat_outcomes": {
+          "KNOWN_INSTANCE": 4
+        },
+        "repeat_run_id": "run-a6bc5ddd3dc9",
+        "repeat_suppressed": 0
+      },
+      "openwebui_pipeline": {
+        "assistant_summary_chars": 1503,
+        "assistant_summary_sha256": "0d515343b55dd4267ec83a273e91fd1436b7a6e5ed955ff6bf80268080cb2afb",
+        "concern_ids": [
+          "cn-72a7eca471b2",
+          "cn-18cc2eac3120",
+          "cn-00ff0b54a2e1",
+          "cn-6440a0e3f1a9"
+        ],
+        "initial_start_request_had_no_assistant_summary": true,
+        "outcomes": {
+          "KNOWN_INSTANCE": 4
+        },
+        "result_request_http_status": 200,
+        "result_run_id": "run-02c5abcfe6e7",
+        "workflow_note": "The async start and natural-language result retrieval were separate requests.",
+        "workspace": "security-reviewer"
+      },
+      "restart_recovery": {
+        "interrupted_run_id": "run-f99bc3d2bcbd",
+        "interrupted_status": "INTERRUPTED",
+        "recovery_concerns": 4,
+        "recovery_outcomes": {
+          "KNOWN_INSTANCE": 4
+        },
+        "recovery_run_id": "run-15243bf00b26",
+        "recovery_status": "COMPLETE"
+      }
+    },
+    "evidence_rows": [
+      {
+        "case": "mcp_http_lifecycle_evidence_verdict_repeat",
+        "passed": true,
+        "run_ids": [
+          "run-66ca8338ef6f",
+          "run-a6bc5ddd3dc9"
+        ]
+      },
+      {
+        "assistant_chars": 1503,
+        "assistant_sha256": "0d515343b55dd4267ec83a273e91fd1436b7a6e5ed955ff6bf80268080cb2afb",
+        "case": "openwebui_pipeline_natural_language_concern_result",
+        "passed": true,
+        "run_id": "run-02c5abcfe6e7"
+      },
+      {
+        "case": "restart_marks_interrupted_and_resubmit_completes",
+        "interrupted_run_id": "run-f99bc3d2bcbd",
+        "passed": true,
+        "recovery_run_id": "run-15243bf00b26"
+      },
+      {
+        "case": "embedder_change_detects_stale_repairs_and_returns_to_768",
+        "final_dimension": 768,
+        "passed": true,
+        "temporary_dimension": 256
+      }
+    ],
+    "system_validator": {
+      "fail": [
+        {
+          "check": "BU",
+          "data_lines": [
+            11602,
+            11506
+          ],
+          "expected_resolution": "T7 consolidation removes legacy code and re-baselines downward",
+          "god_funcs": [
+            535,
+            518
+          ],
+          "god_lines": [
+            66146,
+            64832
+          ],
+          "prose_lines": [
+            58943,
+            58217
+          ],
+          "summary": "complexity census ratchet exceeds its recorded budget"
+        },
+        {
+          "check": "HI",
+          "classification": "likely false positive per user direction; left unchanged",
+          "evidence": "ModelClient.complete calls _trace_reader only after _send returns a model reply; trace fields populate CallReceipt metadata and do not route or score the reply.",
+          "summary": "trace read-surface static check flags post-response receipt metadata access in model_client.py"
+        }
+      ],
+      "pass": 218,
+      "skip": 3,
+      "status": "FAIL",
+      "unit_suite": {
+        "passed": 2942,
+        "skipped": 116
+      },
+      "warn": 3
+    },
+    "task": "TASK REVIEW 05 SURFACE V1 Phase D"
+  },
+  "metrics": [
+    {
+      "can_fail": "value is below 1.0 when any required Phase D case is not evidenced as passing",
+      "denominator": 4,
+      "n": 4,
+      "name": "phase_d_e2e_case_success",
+      "value": 1.0
+    }
+  ],
+  "rows": 4,
+  "rows_digest": "733bbf88d826a000",
+  "selftest": {
+    "checks": {
+      "benign_quiet": {
+        "bound": 0.07756809750418045,
+        "passed": true,
+        "realized": 0.049
+      },
+      "constant": {
+        "measured": {
+          "auroc": 0.5,
+          "precision_at_npos": 1.0,
+          "recall_at_5pct_fpr": 0.0
+        },
+        "passed": true
+      },
+      "inverted": {
+        "measured": {
+          "auroc": 0.0,
+          "precision_at_npos": 0.0,
+          "recall_at_5pct_fpr": 0.0
+        },
+        "passed": true
+      },
+      "oracle": {
+        "measured": {
+          "auroc": 1.0,
+          "precision_at_npos": 1.0,
+          "recall_at_5pct_fpr": 1.0
+        },
+        "passed": true
+      },
+      "planted": {
+        "measured": {
+          "auroc": 0.998825,
+          "precision_at_npos": 0.965,
+          "recall_at_5pct_fpr": 1.0
+        },
+        "passed": true
+      },
+      "random": {
+        "auc_bound": 0.09133272505880172,
+        "measured": {
+          "auroc": 0.50456875,
+          "precision_at_npos": 0.17,
+          "recall_at_5pct_fpr": 0.06
+        },
+        "passed": true
+      }
+    },
+    "passed": true
+  },
+  "stamp": {
+    "commit": "53ed4f0cce04721a196887b3c6db0e041ec3a2f1",
+    "config_hash": "370e3cec52c92316",
+    "corpus_snapshot": "real:botsv2/stream:dns/1501784416-1501784577",
+    "dirty": false,
+    "embedder_id": "google/embeddinggemma-2;dim=768;task=sentence similarity;role=query",
+    "harness_version": "review-eval-v1",
+    "model_digests": [
+      [
+        "granite4.1:8b-ctx8k",
+        "2ee9becf2bbbfcfea378e66516610a2345c17353357085da08ace216766379fe"
+      ]
+    ],
+    "policy": "T3 default no_reader; live analyst-review surfaces; alpha_unusual=0.2"
+  },
+  "stamp_digest": "d000a7c8502c9e9c"
+}

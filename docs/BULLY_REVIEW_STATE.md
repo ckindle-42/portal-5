@@ -83,6 +83,14 @@ commit `83ddaa0bd53a`, embedder `google/embeddinggemma-2;dim=768;task=sentence s
 |---|---|---|---|
 | exact_parent_reconciliation_rate | 0 | 5 | fails when any completed current source replay differs from the T1 product event-id set |
 
+### arm `T5-surface-e2e` stamp `d000a7c8502c9e9c`
+
+commit `53ed4f0cce04`, embedder `google/embeddinggemma-2;dim=768;task=sentence similarity;role=query`, corpus `real:botsv2/stream:dns/1501784416-1501784577`
+
+| metric | value | n | reads as failure when |
+|---|---|---|---|
+| phase_d_e2e_case_success | 1 | 4 | value is below 1.0 when any required Phase D case is not evidenced as passing |
+
 ### arm `legacy_funnel` stamp `2921d3691e815b53`
 
 commit `d6145c276260`, embedder `google/embeddinggemma-2;dim=768;task=sentence similarity;role=query`, corpus `real:botsv3:25e5d654c29bc747ced0c52e759b22d4a9e82d1c06d29d1d2008801ff3949ac0`
