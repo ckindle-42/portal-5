@@ -15,6 +15,8 @@ anti_goals:
   - tune no threshold, weight, cutoff, or prompt against the headline metric
   - run no attack, chain, target tool, or emulation operation
   - infer alpha_open, workload B, or missing truth from an unmeasured slice
-status: PREREGISTERED
+status: INCONCLUSIVE
+report: reports/review_eval/41eaed5720a9844f/t3_prerequisites.json
+result: Two of four core candidates passed reasoning probes, but T1 had 0/3 eligible paired slices and no workload B, so recall at B is unmeasured.
 ---
 The control is the deterministic `no_reader` arm. Each configured T3 candidate is represented as a single-reader arm; candidates failing the reasoning capability probe are excluded from adoption. Reader arms would open the funnel to alpha_open, read the top-R candidates by p, keep `something` and `unsure`, drop `nothing`, append unread candidates by p, and take top-B. R is computed from the measured p95 latency per concern and the evaluation window duration.
