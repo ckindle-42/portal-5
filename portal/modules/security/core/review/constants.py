@@ -76,6 +76,10 @@ REGISTRY: dict[str, tuple[str, str]] = {
         "budget",
         "anchors retrieved per unit; the reader's candidate budget",
     ),
+    "review_eval.PROOF_WORKLOAD_B": (
+        "budget",
+        "concerns admitted per proof window for paired workload-B recall",
+    ),
     "knowledge.embed_texts.batch": ("bound", "texts per embedding request; transport only"),
     "panel.run_panel.max_events": ("budget", "as judge.run_judge.max_events"),
     "panel.run_panel.max_rounds": ("budget", "as judge.run_judge.max_rounds"),
@@ -108,3 +112,6 @@ REGISTRY: dict[str, tuple[str, str]] = {
         "one Splunk epoch tick because bounded search windows serialize to six decimals",
     ),
 }
+
+# D-T6-PROOF preregisters a single concern per replay window for both arms.
+PROOF_WORKLOAD_B = 1

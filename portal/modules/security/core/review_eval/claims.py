@@ -224,6 +224,7 @@ def _c3(rows: Sequence[Mapping[str, Any]]) -> dict[str, Any]:
                 "resolved": resolved,
                 "duration_seconds": duration,
                 "throughput_per_second": throughput,
+                "duration_method": str(row.get("duration_method") or "measured_stage_duration"),
                 "cause": cause,
                 "unexplained_difference": unexplained,
             }
