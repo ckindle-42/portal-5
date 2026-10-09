@@ -16,21 +16,29 @@ created_at: 1791527057.0
 updated_at: 1791527057.0
 ---
 
-`portal/modules/security/core/review_eval/` contains offline evaluation contracts
-for the review program. `attribution` records the last stage where independently
-sourced truth survived and identifies the stage with the greatest loss, breaking
-ties toward the earliest stage. `decisions` parses experiment records and checks
-that a record targets the binding stage, names its arms and stop rule, and is
-committed before the report that resolves it. The package is the measurement
-plane; it is not a product-path import.
+`portal/modules/security/core/review_eval/` contains scorer-plane truth,
+capture certification, folds, pre-registered arms, attribution, and validated
+report contracts. `truth` derives BOTS intervals from declared entities and
+sourcetypes, computes event IDs with product intake identity, and records drops
+with receipts. `captures` self-tests its temporal validator before certifying
+the recorded corpus. `folds` builds leave-one-family-out anchors through product
+intake and checks event-ID isolation. `attribution` records the last stage where
+independently sourced truth survived and identifies the greatest loss, breaking
+ties toward the earliest stage. `decisions` checks that experiments target the
+binding stage and are pre-registered before their resolving report. The package
+is the measurement plane; product code must not import it.
 
 ## Interfaces
 
-`attribution.ledger` builds stage counts from truth traces and rejects empty or
-unknown-stage inputs. `attribution.by_class` and `render_markdown` group and
-publish those counts. `decisions.parse` validates the record front matter, and
-`decisions.problems` checks status, stage choice, report presence, and commit
-ordering.
+`truth.derive_bots_truth` accepts aggregate and streamed-record fetchers so the
+scorer can query the real corpus without loading it into memory. Its manifest
+stores intervals, counts, hashes, and product event IDs; raw events stay in
+memory. `captures.derive_capture_truth` re-hashes and revalidates each admitted
+capture before creating product-shaped records. `arms.ARMS` freezes the
+`legacy_funnel` and installed `review_d0` configurations. `attribution.ledger`
+builds stage counts from traces and rejects empty or unknown-stage inputs.
+`decisions.parse` validates record front matter, and `decisions.problems` checks
+status, stage choice, report presence, and commit ordering.
 
 ## Why
 
@@ -42,6 +50,8 @@ preserves independent measurement.
 
 ## Boundaries
 
-These contracts do not run experiments or access lab targets. Evaluation data
-remains outside the review product path; the package defines how recorded truth
-and pre-registered decisions are measured.
+The scorer may read indexed data through injected read-only search callbacks and
+may inspect the already-recorded capture corpus. It has no attack, emulation, or
+target-control path. Evaluation truth remains outside the review product path;
+the runner calls the public service and stores only aggregate evidence, IDs, and
+hashes in reports.

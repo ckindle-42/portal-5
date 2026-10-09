@@ -19,16 +19,20 @@ updated_at: 1791527057.0
 ---
 
 `tests/security/review/` and `tests/security/review_eval/` hold focused tests
-for the review program's derived-state renderer, truth ledger, and pre-registered
-decision validation. The cases use temporary repositories and in-memory traces
-to verify deterministic output, invalid records, and stage attribution.
+for the review product and scorer plane. Product tests cover the truth wall,
+intake, knowledge, calibrated funnel, service, and Splunk/embedder adapters with
+fake I/O. Scorer tests cover capture-validator known answers, answer-key drops
+and product event IDs, leave-one-family-out leakage, stage traces, report
+validation, and pre-registered decision rules.
 
 ## Why
 
 These tests pin the conditions that make offline evaluation trustworthy: empty
 truth cannot imply success, novel items skip retrieval, ties select the earliest
-loss, and invalid or premature decision records are rejected. Temporary repos
-keep renderer checks isolated from live state.
+loss, incomplete entity matches receive a drop receipt, an admitted capture
+must match its recorded hash, seeded fold leakage fails, and invalid or premature
+decision records are rejected. Temporary repositories and fake transports keep
+adapter checks isolated from live state.
 
 ## Boundaries
 
