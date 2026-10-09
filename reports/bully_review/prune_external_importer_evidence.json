@@ -1,0 +1,1407 @@
+{
+  "cut_edges": [
+    "portal.modules.security.core.bully => portal.modules.security.core.bully.orchestrator"
+  ],
+  "keep_roots": [
+    "portal.modules.security.core.review",
+    "portal.modules.security.core.review_eval",
+    "portal.modules.security.core.bully.live_connect",
+    "portal.modules.security.core.bully.data_plane"
+  ],
+  "promoted_module_count": 32,
+  "promotions": [
+    {
+      "decision": "KEEP",
+      "importers": [
+        {
+          "classification": "retained tests/scripts",
+          "imports": [
+            "portal.modules.security.core.bully.adversary",
+            "portal.modules.security.core.bully.contracts",
+            "portal.modules.security.core.bully.store"
+          ],
+          "path": "tests/security/bully/test_p2_3_adversary.py"
+        },
+        {
+          "classification": "retained tests/scripts",
+          "imports": [
+            "portal.modules.security.core.bully.adversary",
+            "portal.modules.security.core.bully.contracts",
+            "portal.modules.security.core.bully.investigation",
+            "portal.modules.security.core.bully.orchestrator",
+            "portal.modules.security.core.bully.organ",
+            "portal.modules.security.core.bully.promotion",
+            "portal.modules.security.core.bully.store"
+          ],
+          "path": "tests/security/bully/test_p2_e2e_demonstration.py"
+        }
+      ],
+      "module": "portal.modules.security.core.bully.adversary",
+      "reason": "one or more retained tests/scripts still import this module"
+    },
+    {
+      "decision": "KEEP",
+      "importers": [
+        {
+          "classification": "retained tests/scripts",
+          "imports": [
+            "portal.modules.security.core.bully.advisories",
+            "portal.modules.security.core.bully.connectors",
+            "portal.modules.security.core.bully.coverage",
+            "portal.modules.security.core.bully.data_plane",
+            "portal.modules.security.core.bully.live_profiles",
+            "portal.modules.security.core.bully.phase0_gate",
+            "portal.modules.security.core.bully.planner_proof"
+          ],
+          "path": "tests/security/bully/test_sa7_l10_phase0_gate.py"
+        },
+        {
+          "classification": "retained tests/scripts",
+          "imports": [
+            "portal.modules.security.core.bully.advisories",
+            "portal.modules.security.core.bully.connectors",
+            "portal.modules.security.core.bully.data_plane"
+          ],
+          "path": "tests/security/bully/test_sa7_l6_advisories.py"
+        }
+      ],
+      "module": "portal.modules.security.core.bully.advisories",
+      "reason": "one or more retained tests/scripts still import this module"
+    },
+    {
+      "decision": "KEEP",
+      "importers": [
+        {
+          "classification": "retained tests/scripts",
+          "imports": [
+            "portal.modules.security.core.bully.analyst_corpus",
+            "portal.modules.security.core.bully.costing",
+            "portal.modules.security.core.bully.store",
+            "portal.modules.security.core.bully.targeting"
+          ],
+          "path": "tests/security/bully/test_sa4_6_snapshot_integration.py"
+        },
+        {
+          "classification": "retained tests/scripts",
+          "imports": [
+            "portal.modules.security.core.bully.analyst_corpus",
+            "portal.modules.security.core.bully.signatures",
+            "portal.modules.security.core.bully.source_adapters"
+          ],
+          "path": "tests/security/bully/test_sa5_2_cloudtrail_parsers.py"
+        }
+      ],
+      "module": "portal.modules.security.core.bully.analyst_corpus",
+      "reason": "one or more retained tests/scripts still import this module"
+    },
+    {
+      "decision": "KEEP",
+      "importers": [
+        {
+          "classification": "retained tests/scripts",
+          "imports": [
+            "portal.modules.security.core.bully.asset_identity",
+            "portal.modules.security.core.bully.connectors",
+            "portal.modules.security.core.bully.data_plane"
+          ],
+          "path": "tests/security/bully/test_sa7_l5_asset_identity.py"
+        }
+      ],
+      "module": "portal.modules.security.core.bully.asset_identity",
+      "reason": "one or more retained tests/scripts still import this module"
+    },
+    {
+      "decision": "KEEP",
+      "importers": [
+        {
+          "classification": "retained tests/scripts",
+          "imports": [
+            "portal.modules.security.core.bully.case_history",
+            "portal.modules.security.core.bully.connectors",
+            "portal.modules.security.core.bully.contracts",
+            "portal.modules.security.core.bully.data_plane",
+            "portal.modules.security.core.bully.store"
+          ],
+          "path": "tests/security/bully/test_sa7_l4_case_history.py"
+        }
+      ],
+      "module": "portal.modules.security.core.bully.case_history",
+      "reason": "one or more retained tests/scripts still import this module"
+    },
+    {
+      "decision": "KEEP",
+      "importers": [
+        {
+          "classification": "retained tests/scripts",
+          "imports": [
+            "portal.modules.security.core.bully.class_onboarding",
+            "portal.modules.security.core.bully.config",
+            "portal.modules.security.core.bully.cousin_calibration_bench",
+            "portal.modules.security.core.bully.organ",
+            "portal.modules.security.core.bully.specimen_ledger",
+            "portal.modules.security.core.bully.store"
+          ],
+          "path": "scripts/defensive_bully_calibrate.py"
+        }
+      ],
+      "module": "portal.modules.security.core.bully.class_onboarding",
+      "reason": "one or more retained tests/scripts still import this module"
+    },
+    {
+      "decision": "KEEP",
+      "importers": [
+        {
+          "classification": "retained tests/scripts",
+          "imports": [
+            "portal.modules.security.core.bully.contracts",
+            "portal.modules.security.core.bully.costing",
+            "portal.modules.security.core.bully.store"
+          ],
+          "path": "tests/security/bully/test_p4_1_costing.py"
+        },
+        {
+          "classification": "retained tests/scripts",
+          "imports": [
+            "portal.modules.security.core.bully.analyst_corpus",
+            "portal.modules.security.core.bully.costing",
+            "portal.modules.security.core.bully.store",
+            "portal.modules.security.core.bully.targeting"
+          ],
+          "path": "tests/security/bully/test_sa4_6_snapshot_integration.py"
+        }
+      ],
+      "module": "portal.modules.security.core.bully.costing",
+      "reason": "one or more retained tests/scripts still import this module"
+    },
+    {
+      "decision": "KEEP",
+      "importers": [
+        {
+          "classification": "retained tests/scripts",
+          "imports": [
+            "portal.modules.security.core.bully.config",
+            "portal.modules.security.core.bully.contracts",
+            "portal.modules.security.core.bully.cousin_calibration_bench",
+            "portal.modules.security.core.bully.cousin_forge",
+            "portal.modules.security.core.bully.source_adapters",
+            "portal.modules.security.core.bully.specimen_ledger"
+          ],
+          "path": "scripts/build_specimen_corpus.py"
+        },
+        {
+          "classification": "retained tests/scripts",
+          "imports": [
+            "portal.modules.security.core.bully.cousin_calibration_bench",
+            "portal.modules.security.core.bully.cousin_engine",
+            "portal.modules.security.core.bully.discovery_bench",
+            "portal.modules.security.core.bully.organ",
+            "portal.modules.security.core.bully.store"
+          ],
+          "path": "scripts/bully_b1_engine_variants.py"
+        },
+        {
+          "classification": "retained tests/scripts",
+          "imports": [
+            "portal.modules.security.core.bully.cousin_calibration_bench",
+            "portal.modules.security.core.bully.cousin_engine",
+            "portal.modules.security.core.bully.discovery_bench",
+            "portal.modules.security.core.bully.organ",
+            "portal.modules.security.core.bully.store"
+          ],
+          "path": "scripts/bully_v3_threshold_validation.py"
+        },
+        {
+          "classification": "retained tests/scripts",
+          "imports": [
+            "portal.modules.security.core.bully.class_onboarding",
+            "portal.modules.security.core.bully.config",
+            "portal.modules.security.core.bully.cousin_calibration_bench",
+            "portal.modules.security.core.bully.organ",
+            "portal.modules.security.core.bully.specimen_ledger",
+            "portal.modules.security.core.bully.store"
+          ],
+          "path": "scripts/defensive_bully_calibrate.py"
+        },
+        {
+          "classification": "retained tests/scripts",
+          "imports": [
+            "portal.modules.security.core.bully.cousin_calibration_bench",
+            "portal.modules.security.core.bully.organ",
+            "portal.modules.security.core.bully.store"
+          ],
+          "path": "scripts/defensive_bully_discovery_seed.py"
+        },
+        {
+          "classification": "retained tests/scripts",
+          "imports": [
+            "portal.modules.security.core.bully.cousin_calibration_bench",
+            "portal.modules.security.core.bully.discovery_bench",
+            "portal.modules.security.core.bully.organ",
+            "portal.modules.security.core.bully.store"
+          ],
+          "path": "scripts/defensive_bully_discovery_v3.py"
+        },
+        {
+          "classification": "retained tests/scripts",
+          "imports": [
+            "portal.modules.security.core.bully.cousin_calibration_bench",
+            "portal.modules.security.core.bully.discovery_bench",
+            "portal.modules.security.core.bully.embedding_spaces",
+            "portal.modules.security.core.bully.organ",
+            "portal.modules.security.core.bully.store"
+          ],
+          "path": "scripts/defensive_bully_p04_adoption.py"
+        },
+        {
+          "classification": "retained tests/scripts",
+          "imports": [
+            "portal.modules.security.core.bully.contracts",
+            "portal.modules.security.core.bully.cousin_calibration_bench",
+            "portal.modules.security.core.bully.cutover",
+            "portal.modules.security.core.bully.handoff",
+            "portal.modules.security.core.bully.promotion",
+            "portal.modules.security.core.bully.specimen_ledger",
+            "portal.modules.security.core.bully.store"
+          ],
+          "path": "scripts/defensive_bully_specimen_e2e.py"
+        },
+        {
+          "classification": "retained tests/scripts",
+          "imports": [
+            "portal.modules.security.core.bully.cousin_calibration_bench",
+            "portal.modules.security.core.bully.discovery_bench",
+            "portal.modules.security.core.bully.organ",
+            "portal.modules.security.core.bully.store"
+          ],
+          "path": "tests/benchmarks/embedding_consumers/probes/bully.py"
+        },
+        {
+          "classification": "retained tests/scripts",
+          "imports": [
+            "portal.modules.security.core.bully.contracts",
+            "portal.modules.security.core.bully.cousin_calibration_bench",
+            "portal.modules.security.core.bully.cousin_forge",
+            "portal.modules.security.core.bully.specimen_ledger"
+          ],
+          "path": "tests/security/bully/test_p7_2_specimen_corpus.py"
+        },
+        {
+          "classification": "retained tests/scripts",
+          "imports": [
+            "portal.modules.security.core.bully.cousin_calibration_bench",
+            "portal.modules.security.core.bully.organ",
+            "portal.modules.security.core.bully.specimen_ledger"
+          ],
+          "path": "tests/security/bully/test_p7_3_specimen_scale.py"
+        },
+        {
+          "classification": "retained tests/scripts",
+          "imports": [
+            "portal.modules.security.core.bully.cousin_calibration_bench",
+            "portal.modules.security.core.bully.cousin_engine",
+            "portal.modules.security.core.bully.evidence",
+            "portal.modules.security.core.bully.signatures"
+          ],
+          "path": "tests/security/bully/test_p7_4_retrieval_validity.py"
+        },
+        {
+          "classification": "retained tests/scripts",
+          "imports": [
+            "portal.modules.security.core.bully.cousin_calibration_bench",
+            "portal.modules.security.core.bully.embedding_bench",
+            "portal.modules.security.core.bully.organ"
+          ],
+          "path": "tests/security/bully/test_sa3_1_embedding_bench.py"
+        },
+        {
+          "classification": "retained tests/scripts",
+          "imports": [
+            "portal.modules.security.core.bully.cousin_calibration_bench",
+            "portal.modules.security.core.bully.organ",
+            "portal.modules.security.core.bully.store"
+          ],
+          "path": "tests/security/bully/test_sa3_4_discovery_seed.py"
+        },
+        {
+          "classification": "retained tests/scripts",
+          "imports": [
+            "portal.modules.security.core.bully.cousin_calibration_bench",
+            "portal.modules.security.core.bully.discovery_bench",
+            "portal.modules.security.core.bully.organ",
+            "portal.modules.security.core.bully.store"
+          ],
+          "path": "tests/security/bully/test_sa3_5_discovery_bakeoff.py"
+        }
+      ],
+      "module": "portal.modules.security.core.bully.cousin_calibration_bench",
+      "reason": "one or more retained tests/scripts still import this module"
+    },
+    {
+      "decision": "KEEP",
+      "importers": [
+        {
+          "classification": "retained tests/scripts",
+          "imports": [
+            "portal.modules.security.core.bully.config",
+            "portal.modules.security.core.bully.contracts",
+            "portal.modules.security.core.bully.cousin_calibration_bench",
+            "portal.modules.security.core.bully.cousin_forge",
+            "portal.modules.security.core.bully.source_adapters",
+            "portal.modules.security.core.bully.specimen_ledger"
+          ],
+          "path": "scripts/build_specimen_corpus.py"
+        },
+        {
+          "classification": "retained tests/scripts",
+          "imports": [
+            "portal.modules.security.core.bully.contracts",
+            "portal.modules.security.core.bully.cousin_calibration_bench",
+            "portal.modules.security.core.bully.cousin_forge",
+            "portal.modules.security.core.bully.specimen_ledger"
+          ],
+          "path": "tests/security/bully/test_p7_2_specimen_corpus.py"
+        }
+      ],
+      "module": "portal.modules.security.core.bully.cousin_forge",
+      "reason": "one or more retained tests/scripts still import this module"
+    },
+    {
+      "decision": "KEEP",
+      "importers": [
+        {
+          "classification": "retained tests/scripts",
+          "imports": [
+            "portal.modules.security.core.bully.anchors",
+            "portal.modules.security.core.bully.compounding",
+            "portal.modules.security.core.bully.cousin_relation",
+            "portal.modules.security.core.bully.coverage",
+            "portal.modules.security.core.bully.degeneracy",
+            "portal.modules.security.core.bully.live_census",
+            "portal.modules.security.core.bully.measurement",
+            "portal.modules.security.core.bully.seed_scope",
+            "portal.modules.security.core.bully.signatures"
+          ],
+          "path": "scripts/bully_relate_run.py"
+        },
+        {
+          "classification": "retained tests/scripts",
+          "imports": [
+            "portal.modules.security.core.bully.advisories",
+            "portal.modules.security.core.bully.connectors",
+            "portal.modules.security.core.bully.coverage",
+            "portal.modules.security.core.bully.data_plane",
+            "portal.modules.security.core.bully.live_profiles",
+            "portal.modules.security.core.bully.phase0_gate",
+            "portal.modules.security.core.bully.planner_proof"
+          ],
+          "path": "tests/security/bully/test_sa7_l10_phase0_gate.py"
+        },
+        {
+          "classification": "retained tests/scripts",
+          "imports": [
+            "portal.modules.security.core.bully.coverage",
+            "portal.modules.security.core.bully.data_plane"
+          ],
+          "path": "tests/security/bully/test_sa7_l3_coverage.py"
+        }
+      ],
+      "module": "portal.modules.security.core.bully.coverage",
+      "reason": "one or more retained tests/scripts still import this module"
+    },
+    {
+      "decision": "KEEP",
+      "importers": [
+        {
+          "classification": "retained tests/scripts",
+          "imports": [
+            "portal.modules.security.core.bully.config",
+            "portal.modules.security.core.bully.cutover",
+            "portal.modules.security.core.bully.store"
+          ],
+          "path": "scripts/defensive_bully_closeout.py"
+        },
+        {
+          "classification": "retained tests/scripts",
+          "imports": [
+            "portal.modules.security.core.bully.contracts",
+            "portal.modules.security.core.bully.cousin_calibration_bench",
+            "portal.modules.security.core.bully.cutover",
+            "portal.modules.security.core.bully.handoff",
+            "portal.modules.security.core.bully.promotion",
+            "portal.modules.security.core.bully.specimen_ledger",
+            "portal.modules.security.core.bully.store"
+          ],
+          "path": "scripts/defensive_bully_specimen_e2e.py"
+        },
+        {
+          "classification": "retained tests/scripts",
+          "imports": [
+            "portal.modules.security.core.bully.config",
+            "portal.modules.security.core.bully.contracts",
+            "portal.modules.security.core.bully.cutover",
+            "portal.modules.security.core.bully.harvest",
+            "portal.modules.security.core.bully.store",
+            "portal.modules.security.core.bully.training"
+          ],
+          "path": "scripts/defensive_bully_train.py"
+        },
+        {
+          "classification": "retained tests/scripts",
+          "imports": [
+            "portal.modules.security.core.bully.config",
+            "portal.modules.security.core.bully.contracts",
+            "portal.modules.security.core.bully.cutover",
+            "portal.modules.security.core.bully.orchestrator",
+            "portal.modules.security.core.bully.organ",
+            "portal.modules.security.core.bully.store"
+          ],
+          "path": "tests/security/bully/test_p7_cutover.py"
+        }
+      ],
+      "module": "portal.modules.security.core.bully.cutover",
+      "reason": "one or more retained tests/scripts still import this module"
+    },
+    {
+      "decision": "KEEP",
+      "importers": [
+        {
+          "classification": "retained tests/scripts",
+          "imports": [
+            "portal.modules.security.core.bully.cousin_calibration_bench",
+            "portal.modules.security.core.bully.cousin_engine",
+            "portal.modules.security.core.bully.discovery_bench",
+            "portal.modules.security.core.bully.organ",
+            "portal.modules.security.core.bully.store"
+          ],
+          "path": "scripts/bully_b1_engine_variants.py"
+        },
+        {
+          "classification": "retained tests/scripts",
+          "imports": [
+            "portal.modules.security.core.bully.cousin_calibration_bench",
+            "portal.modules.security.core.bully.cousin_engine",
+            "portal.modules.security.core.bully.discovery_bench",
+            "portal.modules.security.core.bully.organ",
+            "portal.modules.security.core.bully.store"
+          ],
+          "path": "scripts/bully_v3_threshold_validation.py"
+        },
+        {
+          "classification": "retained tests/scripts",
+          "imports": [
+            "portal.modules.security.core.bully.discovery_bench",
+            "portal.modules.security.core.bully.organ",
+            "portal.modules.security.core.bully.store"
+          ],
+          "path": "scripts/defensive_bully_discovery_bakeoff.py"
+        },
+        {
+          "classification": "retained tests/scripts",
+          "imports": [
+            "portal.modules.security.core.bully.cousin_calibration_bench",
+            "portal.modules.security.core.bully.discovery_bench",
+            "portal.modules.security.core.bully.organ",
+            "portal.modules.security.core.bully.store"
+          ],
+          "path": "scripts/defensive_bully_discovery_v3.py"
+        },
+        {
+          "classification": "retained tests/scripts",
+          "imports": [
+            "portal.modules.security.core.bully.cousin_calibration_bench",
+            "portal.modules.security.core.bully.discovery_bench",
+            "portal.modules.security.core.bully.embedding_spaces",
+            "portal.modules.security.core.bully.organ",
+            "portal.modules.security.core.bully.store"
+          ],
+          "path": "scripts/defensive_bully_p04_adoption.py"
+        },
+        {
+          "classification": "retained tests/scripts",
+          "imports": [
+            "portal.modules.security.core.bully.cousin_calibration_bench",
+            "portal.modules.security.core.bully.discovery_bench",
+            "portal.modules.security.core.bully.organ",
+            "portal.modules.security.core.bully.store"
+          ],
+          "path": "tests/benchmarks/embedding_consumers/probes/bully.py"
+        },
+        {
+          "classification": "retained tests/scripts",
+          "imports": [
+            "portal.modules.security.core.bully.cousin_engine",
+            "portal.modules.security.core.bully.discovery_bench"
+          ],
+          "path": "tests/security/bully/test_sa2_1_real_pairs.py"
+        },
+        {
+          "classification": "retained tests/scripts",
+          "imports": [
+            "portal.modules.security.core.bully.cousin_calibration_bench",
+            "portal.modules.security.core.bully.discovery_bench",
+            "portal.modules.security.core.bully.organ",
+            "portal.modules.security.core.bully.store"
+          ],
+          "path": "tests/security/bully/test_sa3_5_discovery_bakeoff.py"
+        },
+        {
+          "classification": "retained tests/scripts",
+          "imports": [
+            "portal.modules.security.core.bully.cousin_engine",
+            "portal.modules.security.core.bully.discovery_bench"
+          ],
+          "path": "tests/security/bully/test_sa5_p03_identity_diagnostic.py"
+        },
+        {
+          "classification": "retained tests/scripts",
+          "imports": [
+            "portal.modules.security.core.bully.cousin_engine",
+            "portal.modules.security.core.bully.discovery_bench",
+            "portal.modules.security.core.bully.embedding_spaces"
+          ],
+          "path": "tests/security/bully/test_sa5_p04_adoption.py"
+        }
+      ],
+      "module": "portal.modules.security.core.bully.discovery_bench",
+      "reason": "one or more retained tests/scripts still import this module"
+    },
+    {
+      "decision": "KEEP",
+      "importers": [
+        {
+          "classification": "retained tests/scripts",
+          "imports": [
+            "portal.modules.security.core.bully.cousin_calibration_bench",
+            "portal.modules.security.core.bully.embedding_bench",
+            "portal.modules.security.core.bully.organ"
+          ],
+          "path": "tests/security/bully/test_sa3_1_embedding_bench.py"
+        }
+      ],
+      "module": "portal.modules.security.core.bully.embedding_bench",
+      "reason": "one or more retained tests/scripts still import this module"
+    },
+    {
+      "decision": "KEEP",
+      "importers": [
+        {
+          "classification": "retained tests/scripts",
+          "imports": [
+            "portal.modules.security.core.bully.cousin_calibration_bench",
+            "portal.modules.security.core.bully.discovery_bench",
+            "portal.modules.security.core.bully.embedding_spaces",
+            "portal.modules.security.core.bully.organ",
+            "portal.modules.security.core.bully.store"
+          ],
+          "path": "scripts/defensive_bully_p04_adoption.py"
+        },
+        {
+          "classification": "retained tests/scripts",
+          "imports": [
+            "portal.modules.security.core.bully.cousin_engine",
+            "portal.modules.security.core.bully.embedding_spaces"
+          ],
+          "path": "tests/security/bully/test_sa5_p02_space_thresholds.py"
+        },
+        {
+          "classification": "retained tests/scripts",
+          "imports": [
+            "portal.modules.security.core.bully.cousin_engine",
+            "portal.modules.security.core.bully.discovery_bench",
+            "portal.modules.security.core.bully.embedding_spaces"
+          ],
+          "path": "tests/security/bully/test_sa5_p04_adoption.py"
+        }
+      ],
+      "module": "portal.modules.security.core.bully.embedding_spaces",
+      "reason": "one or more retained tests/scripts still import this module"
+    },
+    {
+      "decision": "KEEP",
+      "importers": [
+        {
+          "classification": "retained tests/scripts",
+          "imports": [
+            "portal.modules.security.core.bully.config",
+            "portal.modules.security.core.bully.contracts",
+            "portal.modules.security.core.bully.cutover",
+            "portal.modules.security.core.bully.harvest",
+            "portal.modules.security.core.bully.store",
+            "portal.modules.security.core.bully.training"
+          ],
+          "path": "scripts/defensive_bully_train.py"
+        },
+        {
+          "classification": "retained tests/scripts",
+          "imports": [
+            "portal.modules.security.core.bully.contracts",
+            "portal.modules.security.core.bully.harvest",
+            "portal.modules.security.core.bully.store"
+          ],
+          "path": "tests/security/bully/test_p6_2_harvest.py"
+        }
+      ],
+      "module": "portal.modules.security.core.bully.harvest",
+      "reason": "one or more retained tests/scripts still import this module"
+    },
+    {
+      "decision": "KEEP",
+      "importers": [
+        {
+          "classification": "retained tests/scripts",
+          "imports": [
+            "portal.modules.security.core.bully.calibration",
+            "portal.modules.security.core.bully.data_plane",
+            "portal.modules.security.core.bully.degeneracy",
+            "portal.modules.security.core.bully.live_census"
+          ],
+          "path": "scripts/bully_cousin_run_c7.py"
+        },
+        {
+          "classification": "retained tests/scripts",
+          "imports": [
+            "portal.modules.security.core.bully.anchors",
+            "portal.modules.security.core.bully.compounding",
+            "portal.modules.security.core.bully.cousin_relation",
+            "portal.modules.security.core.bully.coverage",
+            "portal.modules.security.core.bully.degeneracy",
+            "portal.modules.security.core.bully.live_census",
+            "portal.modules.security.core.bully.measurement",
+            "portal.modules.security.core.bully.seed_scope",
+            "portal.modules.security.core.bully.signatures"
+          ],
+          "path": "scripts/bully_relate_run.py"
+        },
+        {
+          "classification": "retained tests/scripts",
+          "imports": [
+            "portal.modules.security.core.bully.connectors",
+            "portal.modules.security.core.bully.data_plane",
+            "portal.modules.security.core.bully.live_census"
+          ],
+          "path": "tests/security/bully/test_sa7_l9_live_census.py"
+        }
+      ],
+      "module": "portal.modules.security.core.bully.live_census",
+      "reason": "one or more retained tests/scripts still import this module"
+    },
+    {
+      "decision": "KEEP",
+      "importers": [
+        {
+          "classification": "retained tests/scripts",
+          "imports": [
+            "portal.modules.security.core.bully.advisories",
+            "portal.modules.security.core.bully.connectors",
+            "portal.modules.security.core.bully.coverage",
+            "portal.modules.security.core.bully.data_plane",
+            "portal.modules.security.core.bully.live_profiles",
+            "portal.modules.security.core.bully.phase0_gate",
+            "portal.modules.security.core.bully.planner_proof"
+          ],
+          "path": "tests/security/bully/test_sa7_l10_phase0_gate.py"
+        },
+        {
+          "classification": "retained tests/scripts",
+          "imports": [
+            "portal.modules.security.core.bully.connectors",
+            "portal.modules.security.core.bully.data_plane",
+            "portal.modules.security.core.bully.live_profiles"
+          ],
+          "path": "tests/security/bully/test_sa7_l7_live_profiles.py"
+        }
+      ],
+      "module": "portal.modules.security.core.bully.live_profiles",
+      "reason": "one or more retained tests/scripts still import this module"
+    },
+    {
+      "decision": "KEEP",
+      "importers": [
+        {
+          "classification": "retained tests/scripts",
+          "imports": [
+            "portal.modules.security.core.bully.contracts",
+            "portal.modules.security.core.bully.mutation"
+          ],
+          "path": "tests/security/bully/test_p3_1_mutation.py"
+        },
+        {
+          "classification": "retained tests/scripts",
+          "imports": [
+            "portal.modules.security.core.bully.contracts",
+            "portal.modules.security.core.bully.investigation",
+            "portal.modules.security.core.bully.mutation",
+            "portal.modules.security.core.bully.orchestrator",
+            "portal.modules.security.core.bully.organ",
+            "portal.modules.security.core.bully.store"
+          ],
+          "path": "tests/security/bully/test_p3_3_mutation_wiring.py"
+        }
+      ],
+      "module": "portal.modules.security.core.bully.mutation",
+      "reason": "one or more retained tests/scripts still import this module"
+    },
+    {
+      "decision": "KEEP",
+      "importers": [
+        {
+          "classification": "retained tests/scripts",
+          "imports": [
+            "portal.modules.security.core.bully.analyst_loop",
+            "portal.modules.security.core.bully.anchors",
+            "portal.modules.security.core.bully.compounding",
+            "portal.modules.security.core.bully.connectors",
+            "portal.modules.security.core.bully.contracts",
+            "portal.modules.security.core.bully.data_plane",
+            "portal.modules.security.core.bully.observed_mode",
+            "portal.modules.security.core.bully.seed_scope",
+            "portal.modules.security.core.bully.signatures"
+          ],
+          "path": "tests/security/bully/test_analyst_x3_observed_wiring.py"
+        },
+        {
+          "classification": "retained tests/scripts",
+          "imports": [
+            "portal.modules.security.core.bully.anchors",
+            "portal.modules.security.core.bully.connectors",
+            "portal.modules.security.core.bully.cousin_relation",
+            "portal.modules.security.core.bully.data_plane",
+            "portal.modules.security.core.bully.observed_mode",
+            "portal.modules.security.core.bully.relation",
+            "portal.modules.security.core.bully.seed_scope",
+            "portal.modules.security.core.bully.signatures"
+          ],
+          "path": "tests/security/bully/test_cousin_c2_observed_wiring.py"
+        },
+        {
+          "classification": "retained tests/scripts",
+          "imports": [
+            "portal.modules.security.core.bully.contracts",
+            "portal.modules.security.core.bully.observed_mode"
+          ],
+          "path": "tests/security/bully/test_relate_b3_observed_mode.py"
+        },
+        {
+          "classification": "retained tests/scripts",
+          "imports": [
+            "portal.modules.security.core.bully.anchors",
+            "portal.modules.security.core.bully.connectors",
+            "portal.modules.security.core.bully.data_plane",
+            "portal.modules.security.core.bully.observed_mode",
+            "portal.modules.security.core.bully.relation",
+            "portal.modules.security.core.bully.relation_investigation",
+            "portal.modules.security.core.bully.seed_scope",
+            "portal.modules.security.core.bully.signatures"
+          ],
+          "path": "tests/security/bully/test_relate_j1_relation_investigation.py"
+        }
+      ],
+      "module": "portal.modules.security.core.bully.observed_mode",
+      "reason": "one or more retained tests/scripts still import this module"
+    },
+    {
+      "decision": "KEEP",
+      "importers": [
+        {
+          "classification": "retained tests/scripts",
+          "imports": [
+            "portal.modules.security.core.bully.investigation",
+            "portal.modules.security.core.bully.orchestrator",
+            "portal.modules.security.core.bully.organ",
+            "portal.modules.security.core.bully.store"
+          ],
+          "path": "tests/security/bully/test_p1_7_orchestrator.py"
+        },
+        {
+          "classification": "retained tests/scripts",
+          "imports": [
+            "portal.modules.security.core.bully.contracts",
+            "portal.modules.security.core.bully.orchestrator",
+            "portal.modules.security.core.bully.promotion",
+            "portal.modules.security.core.bully.store"
+          ],
+          "path": "tests/security/bully/test_p2_5_queue.py"
+        },
+        {
+          "classification": "retained tests/scripts",
+          "imports": [
+            "portal.modules.security.core.bully.adversary",
+            "portal.modules.security.core.bully.contracts",
+            "portal.modules.security.core.bully.investigation",
+            "portal.modules.security.core.bully.orchestrator",
+            "portal.modules.security.core.bully.organ",
+            "portal.modules.security.core.bully.promotion",
+            "portal.modules.security.core.bully.store"
+          ],
+          "path": "tests/security/bully/test_p2_e2e_demonstration.py"
+        },
+        {
+          "classification": "retained tests/scripts",
+          "imports": [
+            "portal.modules.security.core.bully.contracts",
+            "portal.modules.security.core.bully.investigation",
+            "portal.modules.security.core.bully.mutation",
+            "portal.modules.security.core.bully.orchestrator",
+            "portal.modules.security.core.bully.organ",
+            "portal.modules.security.core.bully.store"
+          ],
+          "path": "tests/security/bully/test_p3_3_mutation_wiring.py"
+        },
+        {
+          "classification": "retained tests/scripts",
+          "imports": [
+            "portal.modules.security.core.bully.investigation",
+            "portal.modules.security.core.bully.orchestrator",
+            "portal.modules.security.core.bully.organ",
+            "portal.modules.security.core.bully.store"
+          ],
+          "path": "tests/security/bully/test_p3_4_drift_wiring.py"
+        },
+        {
+          "classification": "retained tests/scripts",
+          "imports": [
+            "portal.modules.security.core.bully.investigation",
+            "portal.modules.security.core.bully.orchestrator",
+            "portal.modules.security.core.bully.organ",
+            "portal.modules.security.core.bully.scoreboard",
+            "portal.modules.security.core.bully.store"
+          ],
+          "path": "tests/security/bully/test_p4_2_scoreboard.py"
+        },
+        {
+          "classification": "retained tests/scripts",
+          "imports": [
+            "portal.modules.security.core.bully.contracts",
+            "portal.modules.security.core.bully.investigation",
+            "portal.modules.security.core.bully.orchestrator",
+            "portal.modules.security.core.bully.organ",
+            "portal.modules.security.core.bully.store"
+          ],
+          "path": "tests/security/bully/test_p4_3_targeting_wiring.py"
+        },
+        {
+          "classification": "retained tests/scripts",
+          "imports": [
+            "portal.modules.security.core.bully.investigation",
+            "portal.modules.security.core.bully.orchestrator",
+            "portal.modules.security.core.bully.organ",
+            "portal.modules.security.core.bully.store"
+          ],
+          "path": "tests/security/bully/test_p4_4_plateau_wiring.py"
+        },
+        {
+          "classification": "retained tests/scripts",
+          "imports": [
+            "portal.modules.security.core.bully.contracts",
+            "portal.modules.security.core.bully.handoff",
+            "portal.modules.security.core.bully.orchestrator",
+            "portal.modules.security.core.bully.promotion",
+            "portal.modules.security.core.bully.store"
+          ],
+          "path": "tests/security/bully/test_p5_3_deploy.py"
+        },
+        {
+          "classification": "retained tests/scripts",
+          "imports": [
+            "portal.modules.security.core.bully.config",
+            "portal.modules.security.core.bully.contracts",
+            "portal.modules.security.core.bully.cutover",
+            "portal.modules.security.core.bully.orchestrator",
+            "portal.modules.security.core.bully.organ",
+            "portal.modules.security.core.bully.store"
+          ],
+          "path": "tests/security/bully/test_p7_cutover.py"
+        },
+        {
+          "classification": "retained tests/scripts",
+          "imports": [
+            "portal.modules.security.core.bully.investigation",
+            "portal.modules.security.core.bully.orchestrator",
+            "portal.modules.security.core.bully.organ",
+            "portal.modules.security.core.bully.store"
+          ],
+          "path": "tests/security/bully/test_reintegration_r4_cutover.py"
+        }
+      ],
+      "module": "portal.modules.security.core.bully.orchestrator",
+      "reason": "one or more retained tests/scripts still import this module"
+    },
+    {
+      "decision": "KEEP",
+      "importers": [
+        {
+          "classification": "retained tests/scripts",
+          "imports": [
+            "portal.modules.security.core.bully.advisories",
+            "portal.modules.security.core.bully.connectors",
+            "portal.modules.security.core.bully.coverage",
+            "portal.modules.security.core.bully.data_plane",
+            "portal.modules.security.core.bully.live_profiles",
+            "portal.modules.security.core.bully.phase0_gate",
+            "portal.modules.security.core.bully.planner_proof"
+          ],
+          "path": "tests/security/bully/test_sa7_l10_phase0_gate.py"
+        }
+      ],
+      "module": "portal.modules.security.core.bully.phase0_gate",
+      "reason": "one or more retained tests/scripts still import this module"
+    },
+    {
+      "decision": "KEEP",
+      "importers": [
+        {
+          "classification": "retained tests/scripts",
+          "imports": [
+            "portal.modules.security.core.bully.advisories",
+            "portal.modules.security.core.bully.connectors",
+            "portal.modules.security.core.bully.coverage",
+            "portal.modules.security.core.bully.data_plane",
+            "portal.modules.security.core.bully.live_profiles",
+            "portal.modules.security.core.bully.phase0_gate",
+            "portal.modules.security.core.bully.planner_proof"
+          ],
+          "path": "tests/security/bully/test_sa7_l10_phase0_gate.py"
+        },
+        {
+          "classification": "retained tests/scripts",
+          "imports": [
+            "portal.modules.security.core.bully.connectors",
+            "portal.modules.security.core.bully.data_plane",
+            "portal.modules.security.core.bully.planner_proof"
+          ],
+          "path": "tests/security/bully/test_sa7_l8_planner_proof.py"
+        }
+      ],
+      "module": "portal.modules.security.core.bully.planner_proof",
+      "reason": "one or more retained tests/scripts still import this module"
+    },
+    {
+      "decision": "KEEP",
+      "importers": [
+        {
+          "classification": "retained tests/scripts",
+          "imports": [
+            "portal.modules.security.core.bully.contracts",
+            "portal.modules.security.core.bully.playbooks",
+            "portal.modules.security.core.bully.store"
+          ],
+          "path": "tests/security/bully/test_p6_3_playbooks.py"
+        }
+      ],
+      "module": "portal.modules.security.core.bully.playbooks",
+      "reason": "one or more retained tests/scripts still import this module"
+    },
+    {
+      "decision": "KEEP",
+      "importers": [
+        {
+          "classification": "retained tests/scripts",
+          "imports": [
+            "portal.modules.security.core.bully.contracts",
+            "portal.modules.security.core.bully.cousin_calibration_bench",
+            "portal.modules.security.core.bully.cutover",
+            "portal.modules.security.core.bully.handoff",
+            "portal.modules.security.core.bully.promotion",
+            "portal.modules.security.core.bully.specimen_ledger",
+            "portal.modules.security.core.bully.store"
+          ],
+          "path": "scripts/defensive_bully_specimen_e2e.py"
+        },
+        {
+          "classification": "retained tests/scripts",
+          "imports": [
+            "portal.modules.security.core.bully.contracts",
+            "portal.modules.security.core.bully.promotion",
+            "portal.modules.security.core.bully.store"
+          ],
+          "path": "tests/security/bully/test_p2_2_promotion.py"
+        },
+        {
+          "classification": "retained tests/scripts",
+          "imports": [
+            "portal.modules.security.core.bully.contracts",
+            "portal.modules.security.core.bully.orchestrator",
+            "portal.modules.security.core.bully.promotion",
+            "portal.modules.security.core.bully.store"
+          ],
+          "path": "tests/security/bully/test_p2_5_queue.py"
+        },
+        {
+          "classification": "retained tests/scripts",
+          "imports": [
+            "portal.modules.security.core.bully.adversary",
+            "portal.modules.security.core.bully.contracts",
+            "portal.modules.security.core.bully.investigation",
+            "portal.modules.security.core.bully.orchestrator",
+            "portal.modules.security.core.bully.organ",
+            "portal.modules.security.core.bully.promotion",
+            "portal.modules.security.core.bully.store"
+          ],
+          "path": "tests/security/bully/test_p2_e2e_demonstration.py"
+        },
+        {
+          "classification": "retained tests/scripts",
+          "imports": [
+            "portal.modules.security.core.bully.contracts",
+            "portal.modules.security.core.bully.handoff",
+            "portal.modules.security.core.bully.orchestrator",
+            "portal.modules.security.core.bully.promotion",
+            "portal.modules.security.core.bully.store"
+          ],
+          "path": "tests/security/bully/test_p5_3_deploy.py"
+        }
+      ],
+      "module": "portal.modules.security.core.bully.promotion",
+      "reason": "one or more retained tests/scripts still import this module"
+    },
+    {
+      "decision": "KEEP",
+      "importers": [
+        {
+          "classification": "retained tests/scripts",
+          "imports": [
+            "portal.modules.security.core.bully.anchors",
+            "portal.modules.security.core.bully.cousin_relation",
+            "portal.modules.security.core.bully.data_plane",
+            "portal.modules.security.core.bully.relation",
+            "portal.modules.security.core.bully.signatures"
+          ],
+          "path": "scripts/bully_cousin_ladder.py"
+        },
+        {
+          "classification": "retained tests/scripts",
+          "imports": [
+            "portal.modules.security.core.bully.analyst_loop",
+            "portal.modules.security.core.bully.anchors",
+            "portal.modules.security.core.bully.compounding",
+            "portal.modules.security.core.bully.relation",
+            "portal.modules.security.core.bully.signatures"
+          ],
+          "path": "tests/security/bully/test_analyst_x1_loop.py"
+        },
+        {
+          "classification": "retained tests/scripts",
+          "imports": [
+            "portal.modules.security.core.bully.anchors",
+            "portal.modules.security.core.bully.connectors",
+            "portal.modules.security.core.bully.cousin_relation",
+            "portal.modules.security.core.bully.data_plane",
+            "portal.modules.security.core.bully.observed_mode",
+            "portal.modules.security.core.bully.relation",
+            "portal.modules.security.core.bully.seed_scope",
+            "portal.modules.security.core.bully.signatures"
+          ],
+          "path": "tests/security/bully/test_cousin_c2_observed_wiring.py"
+        },
+        {
+          "classification": "retained tests/scripts",
+          "imports": [
+            "portal.modules.security.core.bully.anchors",
+            "portal.modules.security.core.bully.relation",
+            "portal.modules.security.core.bully.signatures"
+          ],
+          "path": "tests/security/bully/test_relate_a2_relation_engine.py"
+        },
+        {
+          "classification": "retained tests/scripts",
+          "imports": [
+            "portal.modules.security.core.bully.anchors",
+            "portal.modules.security.core.bully.relation",
+            "portal.modules.security.core.bully.signatures"
+          ],
+          "path": "tests/security/bully/test_relate_a3_anomaly_success.py"
+        },
+        {
+          "classification": "retained tests/scripts",
+          "imports": [
+            "portal.modules.security.core.bully.anchors",
+            "portal.modules.security.core.bully.degeneracy",
+            "portal.modules.security.core.bully.relation",
+            "portal.modules.security.core.bully.signatures"
+          ],
+          "path": "tests/security/bully/test_relate_g4_anti_degeneracy.py"
+        },
+        {
+          "classification": "retained tests/scripts",
+          "imports": [
+            "portal.modules.security.core.bully.anchors",
+            "portal.modules.security.core.bully.connectors",
+            "portal.modules.security.core.bully.data_plane",
+            "portal.modules.security.core.bully.observed_mode",
+            "portal.modules.security.core.bully.relation",
+            "portal.modules.security.core.bully.relation_investigation",
+            "portal.modules.security.core.bully.seed_scope",
+            "portal.modules.security.core.bully.signatures"
+          ],
+          "path": "tests/security/bully/test_relate_j1_relation_investigation.py"
+        },
+        {
+          "classification": "retained tests/scripts",
+          "imports": [
+            "portal.modules.security.core.bully.anchors",
+            "portal.modules.security.core.bully.contracts",
+            "portal.modules.security.core.bully.relation",
+            "portal.modules.security.core.bully.relation_promotion",
+            "portal.modules.security.core.bully.signatures",
+            "portal.modules.security.core.bully.store"
+          ],
+          "path": "tests/security/bully/test_relate_j2_bin_gates_on_relation.py"
+        },
+        {
+          "classification": "retained tests/scripts",
+          "imports": [
+            "portal.modules.security.core.bully.anchors",
+            "portal.modules.security.core.bully.compounding",
+            "portal.modules.security.core.bully.relation",
+            "portal.modules.security.core.bully.signatures"
+          ],
+          "path": "tests/security/bully/test_relate_j3_outcome_to_anchor.py"
+        },
+        {
+          "classification": "retained tests/scripts",
+          "imports": [
+            "portal.modules.security.core.bully.anchors",
+            "portal.modules.security.core.bully.data_plane",
+            "portal.modules.security.core.bully.measurement",
+            "portal.modules.security.core.bully.relation",
+            "portal.modules.security.core.bully.signatures"
+          ],
+          "path": "tests/security/bully/test_relate_m1_measurement_plane.py"
+        }
+      ],
+      "module": "portal.modules.security.core.bully.relation",
+      "reason": "one or more retained tests/scripts still import this module"
+    },
+    {
+      "decision": "KEEP",
+      "importers": [
+        {
+          "classification": "retained tests/scripts",
+          "imports": [
+            "portal.modules.security.core.bully.anchors",
+            "portal.modules.security.core.bully.connectors",
+            "portal.modules.security.core.bully.data_plane",
+            "portal.modules.security.core.bully.observed_mode",
+            "portal.modules.security.core.bully.relation",
+            "portal.modules.security.core.bully.relation_investigation",
+            "portal.modules.security.core.bully.seed_scope",
+            "portal.modules.security.core.bully.signatures"
+          ],
+          "path": "tests/security/bully/test_relate_j1_relation_investigation.py"
+        }
+      ],
+      "module": "portal.modules.security.core.bully.relation_investigation",
+      "reason": "one or more retained tests/scripts still import this module"
+    },
+    {
+      "decision": "KEEP",
+      "importers": [
+        {
+          "classification": "retained tests/scripts",
+          "imports": [
+            "portal.modules.security.core.bully.anchors",
+            "portal.modules.security.core.bully.contracts",
+            "portal.modules.security.core.bully.relation",
+            "portal.modules.security.core.bully.relation_promotion",
+            "portal.modules.security.core.bully.signatures",
+            "portal.modules.security.core.bully.store"
+          ],
+          "path": "tests/security/bully/test_relate_j2_bin_gates_on_relation.py"
+        }
+      ],
+      "module": "portal.modules.security.core.bully.relation_promotion",
+      "reason": "one or more retained tests/scripts still import this module"
+    },
+    {
+      "decision": "KEEP",
+      "importers": [
+        {
+          "classification": "retained tests/scripts",
+          "imports": [
+            "portal.modules.security.core.bully.anchors",
+            "portal.modules.security.core.bully.compounding",
+            "portal.modules.security.core.bully.cousin_relation",
+            "portal.modules.security.core.bully.coverage",
+            "portal.modules.security.core.bully.degeneracy",
+            "portal.modules.security.core.bully.live_census",
+            "portal.modules.security.core.bully.measurement",
+            "portal.modules.security.core.bully.seed_scope",
+            "portal.modules.security.core.bully.signatures"
+          ],
+          "path": "scripts/bully_relate_run.py"
+        },
+        {
+          "classification": "retained tests/scripts",
+          "imports": [
+            "portal.modules.security.core.bully.analyst_loop",
+            "portal.modules.security.core.bully.anchors",
+            "portal.modules.security.core.bully.compounding",
+            "portal.modules.security.core.bully.connectors",
+            "portal.modules.security.core.bully.contracts",
+            "portal.modules.security.core.bully.data_plane",
+            "portal.modules.security.core.bully.observed_mode",
+            "portal.modules.security.core.bully.seed_scope",
+            "portal.modules.security.core.bully.signatures"
+          ],
+          "path": "tests/security/bully/test_analyst_x3_observed_wiring.py"
+        },
+        {
+          "classification": "retained tests/scripts",
+          "imports": [
+            "portal.modules.security.core.bully.anchors",
+            "portal.modules.security.core.bully.connectors",
+            "portal.modules.security.core.bully.cousin_relation",
+            "portal.modules.security.core.bully.data_plane",
+            "portal.modules.security.core.bully.observed_mode",
+            "portal.modules.security.core.bully.relation",
+            "portal.modules.security.core.bully.seed_scope",
+            "portal.modules.security.core.bully.signatures"
+          ],
+          "path": "tests/security/bully/test_cousin_c2_observed_wiring.py"
+        },
+        {
+          "classification": "retained tests/scripts",
+          "imports": [
+            "portal.modules.security.core.bully.anchors",
+            "portal.modules.security.core.bully.connectors",
+            "portal.modules.security.core.bully.data_plane",
+            "portal.modules.security.core.bully.seed_scope"
+          ],
+          "path": "tests/security/bully/test_cousin_c4_seed_entity_scope.py"
+        },
+        {
+          "classification": "retained tests/scripts",
+          "imports": [
+            "portal.modules.security.core.bully.connectors",
+            "portal.modules.security.core.bully.data_plane",
+            "portal.modules.security.core.bully.seed_scope"
+          ],
+          "path": "tests/security/bully/test_relate_b2_seed_scope.py"
+        },
+        {
+          "classification": "retained tests/scripts",
+          "imports": [
+            "portal.modules.security.core.bully.anchors",
+            "portal.modules.security.core.bully.connectors",
+            "portal.modules.security.core.bully.data_plane",
+            "portal.modules.security.core.bully.observed_mode",
+            "portal.modules.security.core.bully.relation",
+            "portal.modules.security.core.bully.relation_investigation",
+            "portal.modules.security.core.bully.seed_scope",
+            "portal.modules.security.core.bully.signatures"
+          ],
+          "path": "tests/security/bully/test_relate_j1_relation_investigation.py"
+        }
+      ],
+      "module": "portal.modules.security.core.bully.seed_scope",
+      "reason": "one or more retained tests/scripts still import this module"
+    },
+    {
+      "decision": "KEEP",
+      "importers": [
+        {
+          "classification": "retained tests/scripts",
+          "imports": [
+            "portal.modules.security.core.bully.contracts",
+            "portal.modules.security.core.bully.soc",
+            "portal.modules.security.core.bully.store"
+          ],
+          "path": "tests/security/bully/test_p2_4_soc.py"
+        }
+      ],
+      "module": "portal.modules.security.core.bully.soc",
+      "reason": "one or more retained tests/scripts still import this module"
+    },
+    {
+      "decision": "KEEP",
+      "importers": [
+        {
+          "classification": "retained tests/scripts",
+          "imports": [
+            "portal.modules.security.core.bully.config",
+            "portal.modules.security.core.bully.contracts",
+            "portal.modules.security.core.bully.cousin_calibration_bench",
+            "portal.modules.security.core.bully.cousin_forge",
+            "portal.modules.security.core.bully.source_adapters",
+            "portal.modules.security.core.bully.specimen_ledger"
+          ],
+          "path": "scripts/build_specimen_corpus.py"
+        },
+        {
+          "classification": "retained tests/scripts",
+          "imports": [
+            "portal.modules.security.core.bully.signatures",
+            "portal.modules.security.core.bully.source_adapters"
+          ],
+          "path": "tests/security/bully/test_sa1_source_adapters.py"
+        },
+        {
+          "classification": "retained tests/scripts",
+          "imports": [
+            "portal.modules.security.core.bully.analyst_corpus",
+            "portal.modules.security.core.bully.signatures",
+            "portal.modules.security.core.bully.source_adapters"
+          ],
+          "path": "tests/security/bully/test_sa5_2_cloudtrail_parsers.py"
+        },
+        {
+          "classification": "retained tests/scripts",
+          "imports": [
+            "portal.modules.security.core.bully.connectors",
+            "portal.modules.security.core.bully.data_plane",
+            "portal.modules.security.core.bully.source_adapters"
+          ],
+          "path": "tests/security/bully/test_sa7_data_plane.py"
+        }
+      ],
+      "module": "portal.modules.security.core.bully.source_adapters",
+      "reason": "one or more retained tests/scripts still import this module"
+    },
+    {
+      "decision": "KEEP",
+      "importers": [
+        {
+          "classification": "retained tests/scripts",
+          "imports": [
+            "portal.modules.security.core.bully.analyst_corpus",
+            "portal.modules.security.core.bully.costing",
+            "portal.modules.security.core.bully.store",
+            "portal.modules.security.core.bully.targeting"
+          ],
+          "path": "tests/security/bully/test_sa4_6_snapshot_integration.py"
+        }
+      ],
+      "module": "portal.modules.security.core.bully.targeting",
+      "reason": "one or more retained tests/scripts still import this module"
+    },
+    {
+      "decision": "KEEP",
+      "importers": [
+        {
+          "classification": "retained tests/scripts",
+          "imports": [
+            "portal.modules.security.core.bully.config",
+            "portal.modules.security.core.bully.contracts",
+            "portal.modules.security.core.bully.cutover",
+            "portal.modules.security.core.bully.harvest",
+            "portal.modules.security.core.bully.store",
+            "portal.modules.security.core.bully.training"
+          ],
+          "path": "scripts/defensive_bully_train.py"
+        },
+        {
+          "classification": "retained tests/scripts",
+          "imports": [
+            "portal.modules.security.core.bully.store",
+            "portal.modules.security.core.bully.training"
+          ],
+          "path": "tests/security/bully/test_p6_4_training.py"
+        }
+      ],
+      "module": "portal.modules.security.core.bully.training",
+      "reason": "one or more retained tests/scripts still import this module"
+    }
+  ],
+  "rule": "A DELETE candidate with an importer classified KEEP by the generated ledger is promoted to KEEP. The modules below are the direct promotions; static dependencies are then retained by normal graph closure.",
+  "schema": "bully-review-prune-external-importers-v1"
+}

@@ -1,0 +1,4240 @@
+{
+  "created_at": 1791564850.912703,
+  "cut_edges": [
+    "portal.modules.security.core.bully => portal.modules.security.core.bully.orchestrator"
+  ],
+  "delete_lines": 173,
+  "docs_to_review": [
+    "docs/BULLY_ADAPTIVE_REACH_RUN_A6_V1.json",
+    "docs/BULLY_ADAPTIVE_REACH_RUN_A6_V1.md",
+    "docs/BULLY_ANALYST_LOOP_RUN_X6_V1.json",
+    "docs/BULLY_ANALYST_LOOP_RUN_X6_V1.md",
+    "docs/BULLY_BASELINE_CALIBRATION_V2.md",
+    "docs/BULLY_BASELINE_CALIBRATION_V3.md",
+    "docs/BULLY_BUILD_PROGRESS.md",
+    "docs/BULLY_CALIBRATION_POLICY_V1.md",
+    "docs/BULLY_CORPUS_BED_LANE_A_VERIFY_C2_V1.md",
+    "docs/BULLY_CORPUS_BED_RUN_C6_V1.json",
+    "docs/BULLY_CORPUS_BED_RUN_C6_V1.md",
+    "docs/BULLY_COUSIN_RELATION_RUN_C7_V1.json",
+    "docs/BULLY_COUSIN_RELATION_RUN_C7_V1.md",
+    "docs/BULLY_DATA_PLANE_CENSUS_LIVE_V1.json",
+    "docs/BULLY_DATA_PLANE_CENSUS_V1.md",
+    "docs/BULLY_DISCOVERY_FIRST_RUN_D4_V1.json",
+    "docs/BULLY_DISCOVERY_FIRST_RUN_D4_V1.md",
+    "docs/BULLY_FULL_ASSEMBLY_RUN_F4_V1.json",
+    "docs/BULLY_FULL_ASSEMBLY_RUN_F4_V1.md",
+    "docs/BULLY_HUNT_SWEEP_RUN_H5_V1.json",
+    "docs/BULLY_HUNT_SWEEP_RUN_H5_V1.md",
+    "docs/BULLY_INVESTIGATION_RUN_I6_V1.json",
+    "docs/BULLY_INVESTIGATION_RUN_I6_V1.md",
+    "docs/BULLY_LEGACY_RETIREMENT_V1.md",
+    "docs/BULLY_LOOP_MILESTONE_RUN_R6_V1.json",
+    "docs/BULLY_LOOP_MILESTONE_RUN_R6_V1.md",
+    "docs/BULLY_P6_TRAIN_GAP_ANALYSIS.md",
+    "docs/BULLY_PRODUCT_GROUND_R1.md",
+    "docs/BULLY_REAL_TELEMETRY_RUN_T3_V1.json",
+    "docs/BULLY_REAL_TELEMETRY_RUN_T3_V1.md",
+    "docs/BULLY_REFINEMENT_POLICY_V1.md",
+    "docs/BULLY_RELATE_INVESTIGATE_RUN_M3_V1.json",
+    "docs/BULLY_RELATE_INVESTIGATE_RUN_M3_V1.md",
+    "docs/BULLY_REVIEW_PROGRAM.md",
+    "docs/BULLY_REVIEW_STATE.md",
+    "docs/BULLY_SA7_P0_GATE_L10.md",
+    "docs/BULLY_SCOREBOARD_CONFORMANCE_RUN_W6_V1.json",
+    "docs/BULLY_SCOREBOARD_CONFORMANCE_RUN_W6_V1.md",
+    "docs/BULLY_SCORER_FEED_RUN_K4_V1.json",
+    "docs/BULLY_SCORER_FEED_RUN_K4_V1.md",
+    "docs/BULLY_STATE_REVIEW_20261008.md",
+    "docs/BULLY_TRUTH_ACCEPTANCE_RUN_Y6_V1.json",
+    "docs/BULLY_TRUTH_ACCEPTANCE_RUN_Y6_V1.md",
+    "docs/BULLY_UNIVERSAL_INTAKE_RUN_M6_V1.json",
+    "docs/BULLY_UNIVERSAL_INTAKE_RUN_M6_V1.md",
+    "docs/BULLY_UNKNOWN_COUSIN_RUN_M3_V1.json",
+    "docs/BULLY_UNKNOWN_COUSIN_RUN_M3_V1.md",
+    "docs/DESIGN_BULLY_ADAPTIVE_REACH_V1.md",
+    "docs/DESIGN_BULLY_ANALYST_LOOP_V1.md",
+    "docs/DESIGN_BULLY_CORPUS_BED_V1.md",
+    "docs/DESIGN_BULLY_COUSIN_RELATION_V1.md",
+    "docs/DESIGN_BULLY_DISCOVERY_FIRST_V1.md",
+    "docs/DESIGN_BULLY_FULL_ASSEMBLY_V1.md",
+    "docs/DESIGN_BULLY_HUNT_SWEEP_V1.md",
+    "docs/DESIGN_BULLY_INVESTIGATION_V1.md",
+    "docs/DESIGN_BULLY_LOOP_REINTEGRATION_V1.md",
+    "docs/DESIGN_BULLY_REAL_TELEMETRY_V1.md",
+    "docs/DESIGN_BULLY_SCOREBOARD_CONFORMANCE_V1.md",
+    "docs/DESIGN_BULLY_TRUTH_ACCEPTANCE_V1.md",
+    "docs/DESIGN_BULLY_UNIVERSAL_INTAKE_V1.md",
+    "docs/DESIGN_BULLY_UNKNOWN_COUSIN_V1.md",
+    "docs/HANDOFF_BULLY_CROGL_STATE.md"
+  ],
+  "keep_roots": [
+    "portal.modules.security.core.bully.data_plane",
+    "portal.modules.security.core.bully.live_connect",
+    "portal.modules.security.core.review",
+    "portal.modules.security.core.review_eval"
+  ],
+  "modules": [
+    {
+      "decision": "KEEP",
+      "importers": [
+        "portal.modules.security.core.bully.adversary",
+        "portal.modules.security.core.bully.analyst_corpus",
+        "portal.modules.security.core.bully.analyst_loop",
+        "portal.modules.security.core.bully.anchors",
+        "portal.modules.security.core.bully.artifact_graph",
+        "portal.modules.security.core.bully.behavior_classifier",
+        "portal.modules.security.core.bully.case_history",
+        "portal.modules.security.core.bully.class_onboarding",
+        "portal.modules.security.core.bully.compounding",
+        "portal.modules.security.core.bully.cousin_calibration_bench",
+        "portal.modules.security.core.bully.cousin_engine",
+        "portal.modules.security.core.bully.cousin_forge",
+        "portal.modules.security.core.bully.cousin_inject",
+        "portal.modules.security.core.bully.discovery_bench",
+        "portal.modules.security.core.bully.embedding_bench",
+        "portal.modules.security.core.bully.embedding_spaces",
+        "portal.modules.security.core.bully.handoff",
+        "portal.modules.security.core.bully.harvest",
+        "portal.modules.security.core.bully.inject_plane",
+        "portal.modules.security.core.bully.investigation_pivot",
+        "portal.modules.security.core.bully.loop_grader",
+        "portal.modules.security.core.bully.measurement",
+        "portal.modules.security.core.bully.observed_mode",
+        "portal.modules.security.core.bully.orchestrator",
+        "portal.modules.security.core.bully.playbooks",
+        "portal.modules.security.core.bully.promotion",
+        "portal.modules.security.core.bully.relation",
+        "portal.modules.security.core.bully.relation_promotion",
+        "portal.modules.security.core.bully.roster",
+        "portal.modules.security.core.bully.series_cousin",
+        "portal.modules.security.core.bully.signatures",
+        "portal.modules.security.core.bully.specimen_ledger",
+        "portal.modules.security.core.bully.store",
+        "portal.modules.security.core.bully.training",
+        "portal.modules.security.core.commands.hunt_modes",
+        "portal.modules.security.core.review.funnel",
+        "portal.modules.security.core.review.intake",
+        "portal.modules.security.core.review.knowledge",
+        "portal.modules.security.core.review.pipeline",
+        "portal.modules.security.core.review_eval.legacy_arm",
+        "scripts.build_specimen_corpus",
+        "scripts.bully_analyst_loop_run",
+        "scripts.bully_b1_engine_variants",
+        "scripts.bully_corpus_hunt_run",
+        "scripts.bully_cousin_ladder",
+        "scripts.bully_cousin_run_c7",
+        "scripts.bully_full_assembly_run",
+        "scripts.bully_inject_capture",
+        "scripts.bully_investigation_run_a6",
+        "scripts.bully_investigation_run_i6",
+        "scripts.bully_loop_milestone_run",
+        "scripts.bully_relate_run",
+        "scripts.bully_review_defect_census",
+        "scripts.bully_truth_acceptance_run",
+        "scripts.bully_universal_intake_run",
+        "scripts.bully_unknown_cousin_run",
+        "scripts.bully_v3_threshold_validation",
+        "scripts.defensive_bully_calibrate",
+        "scripts.defensive_bully_closeout",
+        "scripts.defensive_bully_specimen_e2e",
+        "scripts.defensive_bully_train",
+        "scripts.validation.bully_relate",
+        "tests.security.bully._discovery_fixtures",
+        "tests.security.bully.test_adaptive_scope_a1",
+        "tests.security.bully.test_analyst_x1_loop",
+        "tests.security.bully.test_analyst_x2_store",
+        "tests.security.bully.test_analyst_x3_observed_wiring",
+        "tests.security.bully.test_analyst_x4_concern_event",
+        "tests.security.bully.test_analyst_x5_generator_classes",
+        "tests.security.bully.test_behavior_inference_i1b",
+        "tests.security.bully.test_behavior_values",
+        "tests.security.bully.test_conformance_w1",
+        "tests.security.bully.test_conformance_w2",
+        "tests.security.bully.test_conformance_w3",
+        "tests.security.bully.test_conformance_w5",
+        "tests.security.bully.test_corpus_bed_a4_distance_planting",
+        "tests.security.bully.test_corpus_bed_a5_bed_guard",
+        "tests.security.bully.test_corpus_bed_c1",
+        "tests.security.bully.test_corpus_bed_c3_capture",
+        "tests.security.bully.test_corpus_bed_c4_fit_wide",
+        "tests.security.bully.test_corpus_bed_c5_cousin_inject",
+        "tests.security.bully.test_corpus_bed_i4_cousin_time_range",
+        "tests.security.bully.test_corpus_bed_t2_guard_holes",
+        "tests.security.bully.test_cousin_c1_relation",
+        "tests.security.bully.test_cousin_c2_observed_wiring",
+        "tests.security.bully.test_cousin_c3_measurement_guards",
+        "tests.security.bully.test_cousin_c6_ladder",
+        "tests.security.bully.test_discovery_d1",
+        "tests.security.bully.test_discovery_first_d2",
+        "tests.security.bully.test_discovery_first_d3",
+        "tests.security.bully.test_hunt_sweep_h2",
+        "tests.security.bully.test_hunt_sweep_h3",
+        "tests.security.bully.test_i6_live_fidelity_fixes",
+        "tests.security.bully.test_inject_plane_i3_capture_investigation",
+        "tests.security.bully.test_investigation_a2_adaptive_pivot",
+        "tests.security.bully.test_investigation_a3_reach_chain",
+        "tests.security.bully.test_investigation_i1",
+        "tests.security.bully.test_investigation_i7_ci_invariants",
+        "tests.security.bully.test_p1_0_config",
+        "tests.security.bully.test_p1_0_skeleton",
+        "tests.security.bully.test_p1_1_contracts",
+        "tests.security.bully.test_p1_2_store",
+        "tests.security.bully.test_p1_3_evidence",
+        "tests.security.bully.test_p1_5_cousin_engine",
+        "tests.security.bully.test_p1_6_investigation",
+        "tests.security.bully.test_p1_7_orchestrator",
+        "tests.security.bully.test_p2_1_bin_tables",
+        "tests.security.bully.test_p2_2_promotion",
+        "tests.security.bully.test_p2_3_adversary",
+        "tests.security.bully.test_p2_4_soc",
+        "tests.security.bully.test_p2_5_queue",
+        "tests.security.bully.test_p2_e2e_demonstration",
+        "tests.security.bully.test_p3_1_mutation",
+        "tests.security.bully.test_p3_2_drift",
+        "tests.security.bully.test_p3_3_mutation_wiring",
+        "tests.security.bully.test_p3_4_drift_wiring",
+        "tests.security.bully.test_p4_1_costing",
+        "tests.security.bully.test_p4_2_scoreboard",
+        "tests.security.bully.test_p4_3_targeting",
+        "tests.security.bully.test_p4_3_targeting_wiring",
+        "tests.security.bully.test_p4_4_plateau",
+        "tests.security.bully.test_p4_4_plateau_wiring",
+        "tests.security.bully.test_p5_1_store",
+        "tests.security.bully.test_p5_2_handoff",
+        "tests.security.bully.test_p5_3_deploy",
+        "tests.security.bully.test_p6_2_harvest",
+        "tests.security.bully.test_p6_3_playbooks",
+        "tests.security.bully.test_p6_4_training",
+        "tests.security.bully.test_p6_5_roster",
+        "tests.security.bully.test_p6_8_cousin_calibration",
+        "tests.security.bully.test_p7_4_retrieval_validity",
+        "tests.security.bully.test_p7_cutover",
+        "tests.security.bully.test_r1_dry_run_red_status",
+        "tests.security.bully.test_r1_replay_driver",
+        "tests.security.bully.test_real_telemetry_t1",
+        "tests.security.bully.test_reintegration_r1_pyramid",
+        "tests.security.bully.test_reintegration_r2_loop_grader",
+        "tests.security.bully.test_reintegration_r3_behavioral_signatures",
+        "tests.security.bully.test_reintegration_r3c_series",
+        "tests.security.bully.test_reintegration_r4_cutover",
+        "tests.security.bully.test_reintegration_r5_universe",
+        "tests.security.bully.test_reintegration_r5a_live_chains",
+        "tests.security.bully.test_reintegration_r5c_behavior_classifier",
+        "tests.security.bully.test_relate_a1_anchors",
+        "tests.security.bully.test_relate_a2_relation_engine",
+        "tests.security.bully.test_relate_a3_anomaly_success",
+        "tests.security.bully.test_relate_b3_observed_mode",
+        "tests.security.bully.test_relate_g1_confidence_calibration",
+        "tests.security.bully.test_relate_g2_provenance_tiers",
+        "tests.security.bully.test_relate_g3_contamination_canary",
+        "tests.security.bully.test_relate_g4_anti_degeneracy",
+        "tests.security.bully.test_relate_j1_relation_investigation",
+        "tests.security.bully.test_relate_j2_bin_gates_on_relation",
+        "tests.security.bully.test_relate_j3_outcome_to_anchor",
+        "tests.security.bully.test_relate_m1_measurement_plane",
+        "tests.security.bully.test_relate_m2_ci_invariants",
+        "tests.security.bully.test_sa1_source_adapters",
+        "tests.security.bully.test_sa2_1_real_pairs",
+        "tests.security.bully.test_sa2_2_taxonomy",
+        "tests.security.bully.test_sa2_3_circularity",
+        "tests.security.bully.test_sa2_4_cross_class",
+        "tests.security.bully.test_sa3_1_embedding_bench",
+        "tests.security.bully.test_sa4_6_snapshot_integration",
+        "tests.security.bully.test_sa5_2_cloudtrail_parsers",
+        "tests.security.bully.test_sa5_p02_space_thresholds",
+        "tests.security.bully.test_sa5_p03_identity_diagnostic",
+        "tests.security.bully.test_sa5_p04_adoption",
+        "tests.security.bully.test_scorer_feed_k2",
+        "tests.security.bully.test_telemetry_behavior_i5_concentration",
+        "tests.security.bully.test_truth_y1_acceptance",
+        "tests.security.bully.test_truth_y4_quarantine_and_guard",
+        "tests.security.bully.test_universal_e1_field_roles",
+        "tests.security.bully.test_universal_e3_blend",
+        "tests.security.bully.test_universal_e4_baseline",
+        "tests.security.bully.test_universal_e5_inject_plane",
+        "tests.security.bully.test_universal_m4_honest_metrics",
+        "tests.security.bully.test_universal_m5_ci_invariants",
+        "tests.security.bully.test_universal_u3_cross_vocabulary_ladder",
+        "tests.security.bully.test_unknown_l1_writeback_suppression",
+        "tests.security.bully.test_unknown_m1_falsification_ladder",
+        "tests.security.bully.test_unknown_m2_ci_invariants",
+        "tests.security.bully.test_unknown_n1_benign_types",
+        "tests.security.bully.test_unknown_n2_baseline",
+        "tests.security.bully.test_unknown_n3_likelihood_ratio",
+        "tests.security.bully.test_unknown_t1_grading_plane_legend",
+        "tests.security.bully.test_unknown_t2_held_out_split",
+        "tests.security.bully.test_unknown_t3_precision_recall",
+        "tests.security.bully.test_unknown_t4_leave_one_family_out",
+        "tests.security.bully.test_unknown_u1_artifact_graph",
+        "tests.security.bully.test_unknown_u2_unit_signature",
+        "tests.security.bully.test_unknown_u3_action_classifier",
+        "tests.security.bully.test_unknown_v1_unit_relation",
+        "tests.security.bully.test_unknown_v2_unit_outcome",
+        "tests.security.review.test_intake_knowledge",
+        "tests.security.review_eval.test_arms"
+      ],
+      "lines": 68,
+      "module": "portal.modules.security.core.bully",
+      "path": "portal/modules/security/core/bully/__init__.py",
+      "reason": "reachable from a keep root"
+    },
+    {
+      "decision": "KEEP_DYNAMIC",
+      "importers": [
+        "portal.modules.security.core.bully.investigation_pivot",
+        "scripts.bully_full_assembly_run",
+        "scripts.bully_investigation_run_a6",
+        "scripts.validation.bully_relate",
+        "tests.security.bully.test_adaptive_scope_a1",
+        "tests.security.bully.test_corpus_bed_a4_distance_planting"
+      ],
+      "lines": 259,
+      "module": "portal.modules.security.core.bully.adaptive_scope",
+      "path": "portal/modules/security/core/bully/adaptive_scope.py",
+      "reason": "imported in a traced run; no static path"
+    },
+    {
+      "decision": "KEEP",
+      "importers": [
+        "tests.security.bully.test_p2_3_adversary",
+        "tests.security.bully.test_p2_e2e_demonstration"
+      ],
+      "lines": 486,
+      "module": "portal.modules.security.core.bully.adversary",
+      "path": "portal/modules/security/core/bully/adversary.py",
+      "reason": "reachable from a keep root"
+    },
+    {
+      "decision": "KEEP",
+      "importers": [
+        "portal.modules.security.core.bully.live_census",
+        "tests.security.bully.test_sa7_l10_phase0_gate",
+        "tests.security.bully.test_sa7_l6_advisories"
+      ],
+      "lines": 151,
+      "module": "portal.modules.security.core.bully.advisories",
+      "path": "portal/modules/security/core/bully/advisories.py",
+      "reason": "reachable from a keep root"
+    },
+    {
+      "decision": "KEEP",
+      "importers": [
+        "scripts.analyst_corpus_real_ingest",
+        "scripts.analyst_corpus_snapshot_v2",
+        "scripts.corpus_acquire",
+        "tests.security.bully.test_sa4_1_source_evaluation",
+        "tests.security.bully.test_sa4_2_broad_ingestion",
+        "tests.security.bully.test_sa4_3_benign",
+        "tests.security.bully.test_sa4_4_pivot_pairs",
+        "tests.security.bully.test_sa4_5_hypotheses",
+        "tests.security.bully.test_sa4_6_snapshot_integration",
+        "tests.security.bully.test_sa5_1_acquisition",
+        "tests.security.bully.test_sa5_2_cloudtrail_parsers",
+        "tests.security.bully.test_sa5_5_real_ingest",
+        "tests.security.bully.test_sa5_6_snapshot_v2",
+        "tests.security.bully.test_sa5_7_discovery_v3"
+      ],
+      "lines": 1192,
+      "module": "portal.modules.security.core.bully.analyst_corpus",
+      "path": "portal/modules/security/core/bully/analyst_corpus.py",
+      "reason": "reachable from a keep root"
+    },
+    {
+      "decision": "KEEP",
+      "importers": [
+        "portal.modules.security.core.bully.observed_mode",
+        "scripts.bully_analyst_loop_run",
+        "scripts.bully_full_assembly_run",
+        "scripts.bully_truth_acceptance_run",
+        "scripts.validation.bully_relate",
+        "tests.security.bully.test_analyst_x1_loop",
+        "tests.security.bully.test_analyst_x2_store",
+        "tests.security.bully.test_analyst_x3_observed_wiring",
+        "tests.security.bully.test_analyst_x4_concern_event",
+        "tests.security.bully.test_truth_y4_quarantine_and_guard"
+      ],
+      "lines": 399,
+      "module": "portal.modules.security.core.bully.analyst_loop",
+      "path": "portal/modules/security/core/bully/analyst_loop.py",
+      "reason": "reachable from a keep root"
+    },
+    {
+      "decision": "KEEP",
+      "importers": [
+        "portal.modules.security.core.bully.compounding",
+        "portal.modules.security.core.bully.measurement",
+        "portal.modules.security.core.bully.provenance",
+        "portal.modules.security.core.bully.relation",
+        "portal.modules.security.core.bully.unit_ladder",
+        "portal.modules.security.core.bully.unit_measurement",
+        "portal.modules.security.core.bully.unit_outcome",
+        "portal.modules.security.core.review.pipeline",
+        "scripts.bully_analyst_loop_run",
+        "scripts.bully_corpus_hunt_run",
+        "scripts.bully_cousin_ladder",
+        "scripts.bully_full_assembly_run",
+        "scripts.bully_relate_run",
+        "scripts.bully_universal_intake_run",
+        "scripts.bully_unknown_cousin_run",
+        "scripts.validation.bully_relate",
+        "tests.security.bully.test_analyst_x1_loop",
+        "tests.security.bully.test_analyst_x3_observed_wiring",
+        "tests.security.bully.test_analyst_x5_generator_classes",
+        "tests.security.bully.test_cousin_c2_observed_wiring",
+        "tests.security.bully.test_cousin_c3_measurement_guards",
+        "tests.security.bully.test_cousin_c4_seed_entity_scope",
+        "tests.security.bully.test_discovery_first_d2",
+        "tests.security.bully.test_discovery_first_d3",
+        "tests.security.bully.test_reintegration_r3c_series",
+        "tests.security.bully.test_relate_a1_anchors",
+        "tests.security.bully.test_relate_a2_relation_engine",
+        "tests.security.bully.test_relate_a3_anomaly_success",
+        "tests.security.bully.test_relate_g2_provenance_tiers",
+        "tests.security.bully.test_relate_g3_contamination_canary",
+        "tests.security.bully.test_relate_g4_anti_degeneracy",
+        "tests.security.bully.test_relate_j1_relation_investigation",
+        "tests.security.bully.test_relate_j2_bin_gates_on_relation",
+        "tests.security.bully.test_relate_j3_outcome_to_anchor",
+        "tests.security.bully.test_relate_m1_measurement_plane",
+        "tests.security.bully.test_relate_m2_ci_invariants",
+        "tests.security.bully.test_truth_y4_quarantine_and_guard",
+        "tests.security.bully.test_universal_m4_honest_metrics",
+        "tests.security.bully.test_unknown_l1_writeback_suppression",
+        "tests.security.bully.test_unknown_m1_falsification_ladder",
+        "tests.security.bully.test_unknown_n1_benign_types",
+        "tests.security.bully.test_unknown_t1_grading_plane_legend",
+        "tests.security.bully.test_unknown_t3_precision_recall",
+        "tests.security.bully.test_unknown_t4_leave_one_family_out",
+        "tests.security.bully.test_unknown_v2_unit_outcome"
+      ],
+      "lines": 436,
+      "module": "portal.modules.security.core.bully.anchors",
+      "path": "portal/modules/security/core/bully/anchors.py",
+      "reason": "reachable from a keep root"
+    },
+    {
+      "decision": "KEEP",
+      "importers": [
+        "portal.modules.security.core.bully.anchors",
+        "portal.modules.security.core.bully.baseline",
+        "portal.modules.security.core.bully.discovery",
+        "portal.modules.security.core.bully.unit_ladder",
+        "portal.modules.security.core.bully.unit_measurement",
+        "portal.modules.security.core.bully.unit_outcome",
+        "portal.modules.security.core.bully.unit_relation",
+        "portal.modules.security.core.review.funnel",
+        "portal.modules.security.core.review.intake",
+        "portal.modules.security.core.review.knowledge",
+        "portal.modules.security.core.review_eval.legacy_arm",
+        "scripts.bully_analyst_loop_run",
+        "scripts.bully_full_assembly_run",
+        "scripts.bully_inject_capture",
+        "scripts.bully_review_defect_census",
+        "scripts.bully_universal_intake_run",
+        "scripts.bully_unknown_cousin_run",
+        "scripts.validation.bully_relate",
+        "tests.security.bully.test_corpus_bed_c4_fit_wide",
+        "tests.security.bully.test_discovery_d1",
+        "tests.security.bully.test_real_telemetry_t1",
+        "tests.security.bully.test_universal_e3_blend",
+        "tests.security.bully.test_universal_e4_baseline",
+        "tests.security.bully.test_universal_m4_honest_metrics",
+        "tests.security.bully.test_universal_m5_ci_invariants",
+        "tests.security.bully.test_universal_u3_cross_vocabulary_ladder",
+        "tests.security.bully.test_unknown_l1_writeback_suppression",
+        "tests.security.bully.test_unknown_m1_falsification_ladder",
+        "tests.security.bully.test_unknown_m2_ci_invariants",
+        "tests.security.bully.test_unknown_n2_baseline",
+        "tests.security.bully.test_unknown_t1_grading_plane_legend",
+        "tests.security.bully.test_unknown_t3_precision_recall",
+        "tests.security.bully.test_unknown_t4_leave_one_family_out",
+        "tests.security.bully.test_unknown_u1_artifact_graph",
+        "tests.security.bully.test_unknown_u2_unit_signature",
+        "tests.security.bully.test_unknown_u3_action_classifier",
+        "tests.security.bully.test_unknown_v1_unit_relation",
+        "tests.security.bully.test_unknown_v2_unit_outcome",
+        "tests.security.review.test_intake_knowledge",
+        "tests.security.review_eval.test_arms",
+        "tests.security.review_eval.test_folds",
+        "tests.security.review_eval.test_traces"
+      ],
+      "lines": 681,
+      "module": "portal.modules.security.core.bully.artifact_graph",
+      "path": "portal/modules/security/core/bully/artifact_graph.py",
+      "reason": "reachable from a keep root"
+    },
+    {
+      "decision": "KEEP",
+      "importers": [
+        "portal.modules.security.core.bully.live_census",
+        "tests.security.bully.test_sa7_l5_asset_identity"
+      ],
+      "lines": 268,
+      "module": "portal.modules.security.core.bully.asset_identity",
+      "path": "portal/modules/security/core/bully/asset_identity.py",
+      "reason": "reachable from a keep root"
+    },
+    {
+      "decision": "KEEP",
+      "importers": [
+        "portal.modules.security.core.bully.discovery",
+        "portal.modules.security.core.bully.unit_ladder",
+        "portal.modules.security.core.bully.unit_measurement",
+        "portal.modules.security.core.bully.unit_outcome",
+        "portal.modules.security.core.review.funnel",
+        "portal.modules.security.core.review.pipeline",
+        "portal.modules.security.core.review_eval.legacy_arm",
+        "scripts.bully_analyst_loop_run",
+        "scripts.bully_corpus_hunt_run",
+        "scripts.bully_full_assembly_run",
+        "scripts.bully_universal_intake_run",
+        "scripts.bully_unknown_cousin_run",
+        "scripts.validation.bully_relate",
+        "tests.security.bully.test_corpus_bed_c4_fit_wide",
+        "tests.security.bully.test_discovery_d1",
+        "tests.security.bully.test_discovery_first_d2",
+        "tests.security.bully.test_universal_e4_baseline",
+        "tests.security.bully.test_universal_m4_honest_metrics",
+        "tests.security.bully.test_unknown_l1_writeback_suppression",
+        "tests.security.bully.test_unknown_m1_falsification_ladder",
+        "tests.security.bully.test_unknown_n2_baseline",
+        "tests.security.bully.test_unknown_t1_grading_plane_legend",
+        "tests.security.bully.test_unknown_t3_precision_recall",
+        "tests.security.bully.test_unknown_t4_leave_one_family_out",
+        "tests.security.bully.test_unknown_v2_unit_outcome"
+      ],
+      "lines": 157,
+      "module": "portal.modules.security.core.bully.baseline",
+      "path": "portal/modules/security/core/bully/baseline.py",
+      "reason": "reachable from a keep root"
+    },
+    {
+      "decision": "KEEP_DYNAMIC",
+      "importers": [
+        "scripts.bully_loop_milestone_run",
+        "scripts.bully_truth_acceptance_run",
+        "tests.security.bully.test_reintegration_r5c_behavior_classifier",
+        "tests.security.bully.test_truth_y5_output_distribution"
+      ],
+      "lines": 262,
+      "module": "portal.modules.security.core.bully.behavior_classifier",
+      "path": "portal/modules/security/core/bully/behavior_classifier.py",
+      "reason": "imported in a traced run; no static path"
+    },
+    {
+      "decision": "KEEP_DYNAMIC",
+      "importers": [
+        "scripts.bully_full_assembly_run",
+        "scripts.bully_investigation_run_a6",
+        "scripts.bully_investigation_run_i6",
+        "scripts.validation.bully_relate",
+        "tests.security.bully.test_behavior_inference_i1b"
+      ],
+      "lines": 324,
+      "module": "portal.modules.security.core.bully.behavior_inference",
+      "path": "portal/modules/security/core/bully/behavior_inference.py",
+      "reason": "imported in a traced run; no static path"
+    },
+    {
+      "decision": "KEEP",
+      "importers": [
+        "portal.modules.security.core.bully.evidence",
+        "portal.modules.security.core.bully.source_adapters",
+        "portal.modules.security.core.review.content",
+        "scripts.build_specimen_corpus_v3",
+        "scripts.bully_review_defect_census",
+        "tests.security.bully.test_behavior_values"
+      ],
+      "lines": 298,
+      "module": "portal.modules.security.core.bully.behavior_values",
+      "path": "portal/modules/security/core/bully/behavior_values.py",
+      "reason": "reachable from a keep root"
+    },
+    {
+      "decision": "KEEP_DYNAMIC",
+      "importers": [
+        "portal.modules.security.core.bully.inject_plane",
+        "scripts.bully_inject_capture",
+        "scripts.bully_universal_intake_run",
+        "scripts.validation.bully_relate",
+        "tests.security.bully.test_universal_e3_blend"
+      ],
+      "lines": 273,
+      "module": "portal.modules.security.core.bully.blend",
+      "path": "portal/modules/security/core/bully/blend.py",
+      "reason": "imported in a traced run; no static path"
+    },
+    {
+      "decision": "KEEP",
+      "importers": [
+        "portal.modules.security.core.review_eval.captures",
+        "portal.modules.security.core.review_eval.truth",
+        "scripts.bully_corpus_hunt_run",
+        "scripts.bully_full_assembly_run",
+        "scripts.bully_investigation_run_a6",
+        "scripts.bully_investigation_run_i6",
+        "scripts.review_eval_proof",
+        "scripts.validation.bully_relate",
+        "tests.security.bully.test_corpus_bed_c5_cousin_inject",
+        "tests.security.bully.test_corpus_bed_i4_cousin_time_range",
+        "tests.security.bully.test_full_assembly_f3",
+        "tests.security.bully.test_real_telemetry_t1"
+      ],
+      "lines": 305,
+      "module": "portal.modules.security.core.bully.bots_answer_key",
+      "path": "portal/modules/security/core/bully/bots_answer_key.py",
+      "reason": "reachable from a keep root"
+    },
+    {
+      "decision": "KEEP_DYNAMIC",
+      "importers": [
+        "scripts.bully_cousin_run_c7",
+        "scripts.validation.bully_relate",
+        "tests.security.bully.test_cousin_c3_measurement_guards",
+        "tests.security.bully.test_relate_g1_confidence_calibration"
+      ],
+      "lines": 126,
+      "module": "portal.modules.security.core.bully.calibration",
+      "path": "portal/modules/security/core/bully/calibration.py",
+      "reason": "imported in a traced run; no static path"
+    },
+    {
+      "decision": "KEEP_DYNAMIC",
+      "importers": [
+        "scripts.validation.bully_relate",
+        "tests.security.bully.test_relate_g3_contamination_canary",
+        "tests.security.bully.test_relate_m2_ci_invariants"
+      ],
+      "lines": 95,
+      "module": "portal.modules.security.core.bully.canary",
+      "path": "portal/modules/security/core/bully/canary.py",
+      "reason": "imported in a traced run; no static path"
+    },
+    {
+      "decision": "KEEP",
+      "importers": [
+        "portal.modules.security.core.bully.live_census",
+        "tests.security.bully.test_sa7_l4_case_history"
+      ],
+      "lines": 176,
+      "module": "portal.modules.security.core.bully.case_history",
+      "path": "portal/modules/security/core/bully/case_history.py",
+      "reason": "reachable from a keep root"
+    },
+    {
+      "decision": "KEEP",
+      "importers": [
+        "scripts.analyst_corpus_real_ingest",
+        "scripts.defensive_bully_calibrate",
+        "tests.security.bully.test_sa1_class_onboarding",
+        "tests.security.bully.test_sa5_5_real_ingest"
+      ],
+      "lines": 410,
+      "module": "portal.modules.security.core.bully.class_onboarding",
+      "path": "portal/modules/security/core/bully/class_onboarding.py",
+      "reason": "reachable from a keep root"
+    },
+    {
+      "decision": "KEEP",
+      "importers": [
+        "portal.modules.security.core.bully.analyst_loop",
+        "portal.modules.security.core.bully.observed_mode",
+        "scripts.bully_analyst_loop_run",
+        "scripts.bully_relate_run",
+        "scripts.validation.bully_relate",
+        "tests.security.bully.test_analyst_x1_loop",
+        "tests.security.bully.test_analyst_x3_observed_wiring",
+        "tests.security.bully.test_discovery_first_d3",
+        "tests.security.bully.test_relate_g3_contamination_canary",
+        "tests.security.bully.test_relate_j3_outcome_to_anchor",
+        "tests.security.bully.test_truth_y4_quarantine_and_guard"
+      ],
+      "lines": 85,
+      "module": "portal.modules.security.core.bully.compounding",
+      "path": "portal/modules/security/core/bully/compounding.py",
+      "reason": "reachable from a keep root"
+    },
+    {
+      "decision": "KEEP",
+      "importers": [
+        "portal.modules.security.core.bully.adversary",
+        "portal.modules.security.core.bully.analyst_corpus",
+        "portal.modules.security.core.bully.cousin_forge",
+        "portal.modules.security.core.bully.handoff",
+        "portal.modules.security.core.bully.harvest",
+        "portal.modules.security.core.bully.orchestrator",
+        "portal.modules.security.core.bully.playbooks",
+        "portal.modules.security.core.bully.roster",
+        "portal.modules.security.core.bully.specimen_ledger",
+        "portal.modules.security.core.bully.training",
+        "portal.modules.security.core.review.reader",
+        "scripts.build_specimen_corpus",
+        "scripts.bully_analyst_loop_run",
+        "scripts.bully_corpus_hunt_run",
+        "scripts.bully_loop_milestone_run",
+        "scripts.bully_truth_acceptance_run",
+        "scripts.defensive_bully_calibrate",
+        "scripts.defensive_bully_closeout",
+        "scripts.defensive_bully_train",
+        "tests.security.bully.test_p1_0_config",
+        "tests.security.bully.test_p7_cutover"
+      ],
+      "lines": 207,
+      "module": "portal.modules.security.core.bully.config",
+      "path": "portal/modules/security/core/bully/config.py",
+      "reason": "reachable from a keep root"
+    },
+    {
+      "decision": "KEEP",
+      "importers": [
+        "portal.modules.security.core.bully.advisories",
+        "portal.modules.security.core.bully.asset_identity",
+        "portal.modules.security.core.bully.case_history",
+        "portal.modules.security.core.bully.coverage",
+        "portal.modules.security.core.bully.data_plane",
+        "portal.modules.security.core.bully.inject_plane",
+        "portal.modules.security.core.bully.live_census",
+        "portal.modules.security.core.bully.live_connect",
+        "portal.modules.security.core.bully.live_profiles",
+        "portal.modules.security.core.bully.planner_proof",
+        "portal.modules.security.core.bully.seed_scope",
+        "scripts.bully_full_assembly_run",
+        "scripts.validation.bully_relate",
+        "tests.security.bully.test_analyst_x3_observed_wiring",
+        "tests.security.bully.test_corpus_bed_c3_capture",
+        "tests.security.bully.test_cousin_c2_observed_wiring",
+        "tests.security.bully.test_cousin_c4_seed_entity_scope",
+        "tests.security.bully.test_hunt_sweep_h3",
+        "tests.security.bully.test_inject_plane_i3_capture_investigation",
+        "tests.security.bully.test_investigation_i7_ci_invariants",
+        "tests.security.bully.test_live_connect_i2_bounded_spl",
+        "tests.security.bully.test_relate_b1_ungated_intake",
+        "tests.security.bully.test_relate_b2_seed_scope",
+        "tests.security.bully.test_relate_j1_relation_investigation",
+        "tests.security.bully.test_relate_m2_ci_invariants",
+        "tests.security.bully.test_sa7_data_plane",
+        "tests.security.bully.test_sa7_l10_phase0_gate",
+        "tests.security.bully.test_sa7_l1_live_connect",
+        "tests.security.bully.test_sa7_l4_case_history",
+        "tests.security.bully.test_sa7_l5_asset_identity",
+        "tests.security.bully.test_sa7_l6_advisories",
+        "tests.security.bully.test_sa7_l7_live_profiles",
+        "tests.security.bully.test_sa7_l8_planner_proof",
+        "tests.security.bully.test_sa7_l9_live_census",
+        "tests.security.bully.test_scorer_feed_k2",
+        "tests.security.bully.test_universal_e5_inject_plane"
+      ],
+      "lines": 302,
+      "module": "portal.modules.security.core.bully.connectors",
+      "path": "portal/modules/security/core/bully/connectors.py",
+      "reason": "reachable from a keep root"
+    },
+    {
+      "decision": "KEEP",
+      "importers": [
+        "portal.modules.security.core.bully.adversary",
+        "portal.modules.security.core.bully.costing",
+        "portal.modules.security.core.bully.cousin_calibration_bench",
+        "portal.modules.security.core.bully.cousin_engine",
+        "portal.modules.security.core.bully.cousin_forge",
+        "portal.modules.security.core.bully.discovery_bench",
+        "portal.modules.security.core.bully.drift_engine",
+        "portal.modules.security.core.bully.events",
+        "portal.modules.security.core.bully.handoff",
+        "portal.modules.security.core.bully.harvest",
+        "portal.modules.security.core.bully.loop_grader",
+        "portal.modules.security.core.bully.mutation",
+        "portal.modules.security.core.bully.orchestrator",
+        "portal.modules.security.core.bully.organ",
+        "portal.modules.security.core.bully.plateau",
+        "portal.modules.security.core.bully.playbooks",
+        "portal.modules.security.core.bully.promotion",
+        "portal.modules.security.core.bully.relation",
+        "portal.modules.security.core.bully.relation_promotion",
+        "portal.modules.security.core.bully.soc",
+        "portal.modules.security.core.bully.store",
+        "portal.modules.security.core.bully.targeting",
+        "portal.modules.security.core.bully.training",
+        "scripts.build_specimen_corpus",
+        "scripts.bully_analyst_loop_run",
+        "scripts.bully_corpus_hunt_run",
+        "scripts.bully_full_assembly_run",
+        "scripts.bully_loop_milestone_run",
+        "scripts.bully_truth_acceptance_run",
+        "scripts.defensive_bully_specimen_e2e",
+        "scripts.defensive_bully_train",
+        "scripts.validation.bully_relate",
+        "tests.security.bully.test_analyst_x3_observed_wiring",
+        "tests.security.bully.test_conformance_w2",
+        "tests.security.bully.test_p1_1_contracts",
+        "tests.security.bully.test_p1_2_store",
+        "tests.security.bully.test_p2_1_bin_tables",
+        "tests.security.bully.test_p2_2_promotion",
+        "tests.security.bully.test_p2_3_adversary",
+        "tests.security.bully.test_p2_4_soc",
+        "tests.security.bully.test_p2_5_queue",
+        "tests.security.bully.test_p2_e2e_demonstration",
+        "tests.security.bully.test_p3_1_mutation",
+        "tests.security.bully.test_p3_3_mutation_wiring",
+        "tests.security.bully.test_p4_1_costing",
+        "tests.security.bully.test_p4_3_targeting_wiring",
+        "tests.security.bully.test_p5_1_store",
+        "tests.security.bully.test_p5_2_handoff",
+        "tests.security.bully.test_p5_3_deploy",
+        "tests.security.bully.test_p6_2_harvest",
+        "tests.security.bully.test_p6_3_playbooks",
+        "tests.security.bully.test_p7_2_specimen_corpus",
+        "tests.security.bully.test_p7_cutover",
+        "tests.security.bully.test_reintegration_r2_loop_grader",
+        "tests.security.bully.test_relate_b3_observed_mode",
+        "tests.security.bully.test_relate_j2_bin_gates_on_relation",
+        "tests.security.bully.test_sa7_l4_case_history"
+      ],
+      "lines": 1041,
+      "module": "portal.modules.security.core.bully.contracts",
+      "path": "portal/modules/security/core/bully/contracts.py",
+      "reason": "reachable from a keep root"
+    },
+    {
+      "decision": "KEEP",
+      "importers": [
+        "portal.modules.security.core.bully.bots_answer_key",
+        "portal.modules.security.core.bully.cousin_inject",
+        "portal.modules.security.core.bully.inject_plane",
+        "portal.modules.security.core.review_eval.truth",
+        "scripts.bully_analyst_loop_run",
+        "scripts.bully_corpus_hunt_run",
+        "scripts.bully_full_assembly_run",
+        "scripts.bully_investigation_run_a6",
+        "scripts.bully_investigation_run_i6",
+        "scripts.validation.bully_relate",
+        "tests.security.bully.test_corpus_bed_a4_distance_planting",
+        "tests.security.bully.test_corpus_bed_a5_bed_guard",
+        "tests.security.bully.test_corpus_bed_c1",
+        "tests.security.bully.test_corpus_bed_c3_capture",
+        "tests.security.bully.test_corpus_bed_c5_cousin_inject",
+        "tests.security.bully.test_corpus_bed_i4_cousin_time_range",
+        "tests.security.bully.test_corpus_bed_t2_guard_holes",
+        "tests.security.bully.test_hunt_sweep_h2",
+        "tests.security.bully.test_hunt_sweep_h2_anchor_time",
+        "tests.security.bully.test_hunt_sweep_h3",
+        "tests.security.bully.test_universal_e5_inject_plane",
+        "tests.security.review_eval.test_truth"
+      ],
+      "lines": 600,
+      "module": "portal.modules.security.core.bully.corpus_bed",
+      "path": "portal/modules/security/core/bully/corpus_bed.py",
+      "reason": "reachable from a keep root"
+    },
+    {
+      "decision": "KEEP",
+      "importers": [
+        "portal.modules.security.core.review.intake",
+        "scripts.bully_analyst_loop_run",
+        "scripts.bully_corpus_hunt_run",
+        "scripts.bully_full_assembly_run",
+        "scripts.bully_loop_milestone_run",
+        "scripts.bully_truth_acceptance_run",
+        "tests.security.bully.test_reintegration_r3b_correlation",
+        "tests.security.bully.test_truth_y3_priority_selection"
+      ],
+      "lines": 366,
+      "module": "portal.modules.security.core.bully.correlation",
+      "path": "portal/modules/security/core/bully/correlation.py",
+      "reason": "reachable from a keep root"
+    },
+    {
+      "decision": "KEEP",
+      "importers": [
+        "portal.modules.security.core.bully.orchestrator",
+        "tests.security.bully.test_p4_1_costing",
+        "tests.security.bully.test_p4_3_targeting",
+        "tests.security.bully.test_sa4_6_snapshot_integration"
+      ],
+      "lines": 144,
+      "module": "portal.modules.security.core.bully.costing",
+      "path": "portal/modules/security/core/bully/costing.py",
+      "reason": "reachable from a keep root"
+    },
+    {
+      "decision": "KEEP",
+      "importers": [
+        "portal.modules.security.core.bully.class_onboarding",
+        "portal.modules.security.core.bully.cousin_forge",
+        "portal.modules.security.core.bully.discovery_bench",
+        "portal.modules.security.core.bully.embedding_bench",
+        "scripts.build_specimen_corpus",
+        "scripts.bully_b1_engine_variants",
+        "scripts.bully_v3_threshold_validation",
+        "scripts.defensive_bully_calibrate",
+        "scripts.defensive_bully_discovery_seed",
+        "scripts.defensive_bully_discovery_v3",
+        "scripts.defensive_bully_p04_adoption",
+        "scripts.defensive_bully_specimen_e2e",
+        "tests.benchmarks.embedding_consumers.probes.bully",
+        "tests.security.bully.test_p6_8_cousin_calibration",
+        "tests.security.bully.test_p7_2_specimen_corpus",
+        "tests.security.bully.test_p7_3_specimen_scale",
+        "tests.security.bully.test_p7_4_retrieval_validity",
+        "tests.security.bully.test_sa1_class_onboarding",
+        "tests.security.bully.test_sa2_5_forge_demotion",
+        "tests.security.bully.test_sa3_1_embedding_bench",
+        "tests.security.bully.test_sa3_4_discovery_seed",
+        "tests.security.bully.test_sa3_5_discovery_bakeoff"
+      ],
+      "lines": 1796,
+      "module": "portal.modules.security.core.bully.cousin_calibration_bench",
+      "path": "portal/modules/security/core/bully/cousin_calibration_bench.py",
+      "reason": "reachable from a keep root"
+    },
+    {
+      "decision": "KEEP",
+      "importers": [
+        "portal.modules.security.core.bully.class_onboarding",
+        "portal.modules.security.core.bully.cousin_calibration_bench",
+        "portal.modules.security.core.bully.discovery_bench",
+        "portal.modules.security.core.bully.embedding_spaces",
+        "portal.modules.security.core.bully.loop_grader",
+        "portal.modules.security.core.bully.orchestrator",
+        "portal.modules.security.core.bully.relation",
+        "scripts.bully_b1_engine_variants",
+        "scripts.bully_v3_threshold_validation",
+        "tests.security.bully.test_p1_5_cousin_engine",
+        "tests.security.bully.test_p7_4_retrieval_validity",
+        "tests.security.bully.test_reintegration_r3_behavioral_signatures",
+        "tests.security.bully.test_sa2_1_real_pairs",
+        "tests.security.bully.test_sa5_p02_space_thresholds",
+        "tests.security.bully.test_sa5_p03_identity_diagnostic",
+        "tests.security.bully.test_sa5_p04_adoption"
+      ],
+      "lines": 665,
+      "module": "portal.modules.security.core.bully.cousin_engine",
+      "path": "portal/modules/security/core/bully/cousin_engine.py",
+      "reason": "reachable from a keep root"
+    },
+    {
+      "decision": "KEEP",
+      "importers": [
+        "scripts.build_specimen_corpus",
+        "tests.security.bully.test_p7_2_specimen_corpus"
+      ],
+      "lines": 281,
+      "module": "portal.modules.security.core.bully.cousin_forge",
+      "path": "portal/modules/security/core/bully/cousin_forge.py",
+      "reason": "reachable from a keep root"
+    },
+    {
+      "decision": "KEEP_DYNAMIC",
+      "importers": [
+        "scripts.bully_corpus_hunt_run",
+        "scripts.bully_full_assembly_run",
+        "scripts.bully_investigation_run_a6",
+        "scripts.bully_investigation_run_i6",
+        "tests.security.bully.test_corpus_bed_c5_cousin_inject",
+        "tests.security.bully.test_corpus_bed_i4_cousin_time_range"
+      ],
+      "lines": 165,
+      "module": "portal.modules.security.core.bully.cousin_inject",
+      "path": "portal/modules/security/core/bully/cousin_inject.py",
+      "reason": "imported in a traced run; no static path"
+    },
+    {
+      "decision": "KEEP",
+      "importers": [
+        "portal.modules.security.core.bully.observed_mode",
+        "scripts.bully_cousin_ladder",
+        "scripts.bully_relate_run",
+        "scripts.validation.bully_relate",
+        "tests.security.bully.test_cousin_c1_relation",
+        "tests.security.bully.test_cousin_c2_observed_wiring",
+        "tests.security.bully.test_cousin_c6_ladder",
+        "tests.security.bully.test_unknown_n3_likelihood_ratio"
+      ],
+      "lines": 605,
+      "module": "portal.modules.security.core.bully.cousin_relation",
+      "path": "portal/modules/security/core/bully/cousin_relation.py",
+      "reason": "reachable from a keep root"
+    },
+    {
+      "decision": "KEEP",
+      "importers": [
+        "portal.modules.security.core.bully.live_census",
+        "scripts.bully_relate_run",
+        "tests.security.bully.test_sa7_l10_phase0_gate",
+        "tests.security.bully.test_sa7_l3_coverage"
+      ],
+      "lines": 104,
+      "module": "portal.modules.security.core.bully.coverage",
+      "path": "portal/modules/security/core/bully/coverage.py",
+      "reason": "reachable from a keep root"
+    },
+    {
+      "decision": "KEEP",
+      "importers": [
+        "portal.modules.security.core.bully.orchestrator",
+        "scripts.defensive_bully_closeout",
+        "scripts.defensive_bully_specimen_e2e",
+        "scripts.defensive_bully_train",
+        "tests.security.bully.test_p7_cutover"
+      ],
+      "lines": 68,
+      "module": "portal.modules.security.core.bully.cutover",
+      "path": "portal/modules/security/core/bully/cutover.py",
+      "reason": "reachable from a keep root"
+    },
+    {
+      "decision": "KEEP",
+      "importers": [
+        "portal.modules.security.core.bully.advisories",
+        "portal.modules.security.core.bully.asset_identity",
+        "portal.modules.security.core.bully.case_history",
+        "portal.modules.security.core.bully.coverage",
+        "portal.modules.security.core.bully.inject_plane",
+        "portal.modules.security.core.bully.live_census",
+        "portal.modules.security.core.bully.live_connect",
+        "portal.modules.security.core.bully.live_profiles",
+        "portal.modules.security.core.bully.phase0_gate",
+        "portal.modules.security.core.bully.planner_proof",
+        "portal.modules.security.core.bully.seed_scope",
+        "scripts.bully_cousin_ladder",
+        "scripts.bully_cousin_run_c7",
+        "scripts.validation.bully_relate",
+        "tests.security.bully.test_analyst_x3_observed_wiring",
+        "tests.security.bully.test_cousin_c2_observed_wiring",
+        "tests.security.bully.test_cousin_c4_seed_entity_scope",
+        "tests.security.bully.test_relate_b1_ungated_intake",
+        "tests.security.bully.test_relate_b2_seed_scope",
+        "tests.security.bully.test_relate_j1_relation_investigation",
+        "tests.security.bully.test_relate_m1_measurement_plane",
+        "tests.security.bully.test_relate_m2_ci_invariants",
+        "tests.security.bully.test_sa7_data_plane",
+        "tests.security.bully.test_sa7_l10_phase0_gate",
+        "tests.security.bully.test_sa7_l1_live_connect",
+        "tests.security.bully.test_sa7_l3_coverage",
+        "tests.security.bully.test_sa7_l4_case_history",
+        "tests.security.bully.test_sa7_l5_asset_identity",
+        "tests.security.bully.test_sa7_l6_advisories",
+        "tests.security.bully.test_sa7_l7_live_profiles",
+        "tests.security.bully.test_sa7_l8_planner_proof",
+        "tests.security.bully.test_sa7_l9_live_census"
+      ],
+      "lines": 842,
+      "module": "portal.modules.security.core.bully.data_plane",
+      "path": "portal/modules/security/core/bully/data_plane.py",
+      "reason": "reachable from a keep root"
+    },
+    {
+      "decision": "KEEP",
+      "importers": [
+        "portal.modules.security.core.bully.relation",
+        "scripts.bully_cousin_run_c7",
+        "scripts.bully_relate_run",
+        "scripts.validation.bully_relate",
+        "tests.security.bully.test_cousin_c3_measurement_guards",
+        "tests.security.bully.test_relate_g4_anti_degeneracy"
+      ],
+      "lines": 153,
+      "module": "portal.modules.security.core.bully.degeneracy",
+      "path": "portal/modules/security/core/bully/degeneracy.py",
+      "reason": "reachable from a keep root"
+    },
+    {
+      "decision": "KEEP",
+      "importers": [
+        "portal.modules.security.core.bully.compounding",
+        "portal.modules.security.core.bully.unit_outcome",
+        "portal.modules.security.core.review.funnel",
+        "portal.modules.security.core.review_eval.legacy_arm",
+        "scripts.bully_analyst_loop_run",
+        "scripts.bully_full_assembly_run",
+        "scripts.validation.bully_relate",
+        "tests.security.bully.test_corpus_bed_c4_fit_wide",
+        "tests.security.bully.test_discovery_d1",
+        "tests.security.review_eval.test_arms"
+      ],
+      "lines": 410,
+      "module": "portal.modules.security.core.bully.discovery",
+      "path": "portal/modules/security/core/bully/discovery.py",
+      "reason": "reachable from a keep root"
+    },
+    {
+      "decision": "KEEP",
+      "importers": [
+        "scripts.bully_b1_engine_variants",
+        "scripts.bully_v3_threshold_validation",
+        "scripts.defensive_bully_discovery_bakeoff",
+        "scripts.defensive_bully_discovery_v3",
+        "scripts.defensive_bully_p04_adoption",
+        "tests.benchmarks.embedding_consumers.probes.bully",
+        "tests.security.bully.test_sa2_1_real_pairs",
+        "tests.security.bully.test_sa2_2_taxonomy",
+        "tests.security.bully.test_sa2_3_circularity",
+        "tests.security.bully.test_sa2_4_cross_class",
+        "tests.security.bully.test_sa3_5_discovery_bakeoff",
+        "tests.security.bully.test_sa5_7_discovery_v3",
+        "tests.security.bully.test_sa5_p03_identity_diagnostic",
+        "tests.security.bully.test_sa5_p04_adoption"
+      ],
+      "lines": 835,
+      "module": "portal.modules.security.core.bully.discovery_bench",
+      "path": "portal/modules/security/core/bully/discovery_bench.py",
+      "reason": "reachable from a keep root"
+    },
+    {
+      "decision": "KEEP",
+      "importers": [
+        "portal.modules.security.core.bully.orchestrator",
+        "tests.security.bully.test_p3_2_drift"
+      ],
+      "lines": 276,
+      "module": "portal.modules.security.core.bully.drift_engine",
+      "path": "portal/modules/security/core/bully/drift_engine.py",
+      "reason": "reachable from a keep root"
+    },
+    {
+      "decision": "KEEP",
+      "importers": [
+        "tests.security.bully.test_sa3_1_embedding_bench"
+      ],
+      "lines": 316,
+      "module": "portal.modules.security.core.bully.embedding_bench",
+      "path": "portal/modules/security/core/bully/embedding_bench.py",
+      "reason": "reachable from a keep root"
+    },
+    {
+      "decision": "KEEP",
+      "importers": [
+        "scripts.defensive_bully_p04_adoption",
+        "tests.security.bully.test_sa5_p02_space_thresholds",
+        "tests.security.bully.test_sa5_p04_adoption"
+      ],
+      "lines": 183,
+      "module": "portal.modules.security.core.bully.embedding_spaces",
+      "path": "portal/modules/security/core/bully/embedding_spaces.py",
+      "reason": "reachable from a keep root"
+    },
+    {
+      "decision": "KEEP",
+      "importers": [
+        "portal.modules.security.core.bully.case_history",
+        "portal.modules.security.core.bully.store",
+        "tests.security.bully.test_p1_2_store"
+      ],
+      "lines": 62,
+      "module": "portal.modules.security.core.bully.events",
+      "path": "portal/modules/security/core/bully/events.py",
+      "reason": "reachable from a keep root"
+    },
+    {
+      "decision": "KEEP",
+      "importers": [
+        "portal.modules.security.core.bully.handoff",
+        "portal.modules.security.core.bully.orchestrator",
+        "portal.modules.security.core.bully.promotion",
+        "scripts.bully_review_defect_census",
+        "tests.security.bully.test_p1_3_evidence",
+        "tests.security.bully.test_p7_4_retrieval_validity"
+      ],
+      "lines": 296,
+      "module": "portal.modules.security.core.bully.evidence",
+      "path": "portal/modules/security/core/bully/evidence.py",
+      "reason": "reachable from a keep root"
+    },
+    {
+      "decision": "KEEP",
+      "importers": [
+        "portal.modules.security.core.bully.artifact_graph",
+        "scripts.bully_full_assembly_run",
+        "scripts.bully_loop_milestone_run",
+        "scripts.bully_universal_intake_run",
+        "tests.security.bully.test_reintegration_r5_universe",
+        "tests.security.bully.test_universal_e1_field_roles"
+      ],
+      "lines": 557,
+      "module": "portal.modules.security.core.bully.field_roles",
+      "path": "portal/modules/security/core/bully/field_roles.py",
+      "reason": "reachable from a keep root"
+    },
+    {
+      "decision": "KEEP_DYNAMIC",
+      "importers": [
+        "scripts.bully_full_assembly_run",
+        "scripts.validation.bully_relate",
+        "tests.security.bully.test_full_assembly_f1",
+        "tests.security.bully.test_full_assembly_f2",
+        "tests.security.bully.test_hunt_sweep_h2",
+        "tests.security.bully.test_hunt_sweep_h2_anchor_time",
+        "tests.security.bully.test_hunt_sweep_h3",
+        "tests.security.bully.test_hunt_sweep_h4",
+        "tests.security.bully.test_hunt_sweep_h6_ci_invariants",
+        "tests.security.bully.test_scorer_feed_k2",
+        "tests.security.bully.test_scorer_feed_k5_ci_invariants",
+        "tests.security.bully.test_starvation_k3"
+      ],
+      "lines": 500,
+      "module": "portal.modules.security.core.bully.full_pipeline",
+      "path": "portal/modules/security/core/bully/full_pipeline.py",
+      "reason": "imported in a traced run; no static path"
+    },
+    {
+      "decision": "KEEP",
+      "importers": [
+        "portal.modules.security.core.bully.class_onboarding",
+        "portal.modules.security.core.bully.orchestrator",
+        "scripts.bully_loop_milestone_run",
+        "scripts.defensive_bully_specimen_e2e",
+        "scripts.validation.bully_relate",
+        "tests.security.bully.test_p5_2_handoff",
+        "tests.security.bully.test_p5_3_deploy",
+        "tests.security.bully.test_sa5_3_cloud_detections"
+      ],
+      "lines": 801,
+      "module": "portal.modules.security.core.bully.handoff",
+      "path": "portal/modules/security/core/bully/handoff.py",
+      "reason": "reachable from a keep root"
+    },
+    {
+      "decision": "KEEP",
+      "importers": [
+        "scripts.defensive_bully_train",
+        "tests.security.bully.test_p6_2_harvest"
+      ],
+      "lines": 470,
+      "module": "portal.modules.security.core.bully.harvest",
+      "path": "portal/modules/security/core/bully/harvest.py",
+      "reason": "reachable from a keep root"
+    },
+    {
+      "decision": "KEEP_DYNAMIC",
+      "importers": [
+        "scripts.bully_analyst_loop_run",
+        "scripts.bully_corpus_hunt_run",
+        "scripts.bully_full_assembly_run",
+        "scripts.bully_inject_capture",
+        "scripts.bully_investigation_run_a6",
+        "scripts.bully_investigation_run_i6",
+        "scripts.bully_loop_milestone_run",
+        "scripts.bully_truth_acceptance_run",
+        "scripts.bully_universal_intake_run",
+        "scripts.validation.bully_relate",
+        "tests.security.bully.test_corpus_bed_c3_capture",
+        "tests.security.bully.test_inject_plane_i3_capture_investigation",
+        "tests.security.bully.test_reintegration_r5a_live_chains",
+        "tests.security.bully.test_universal_e5_inject_plane"
+      ],
+      "lines": 818,
+      "module": "portal.modules.security.core.bully.inject_plane",
+      "path": "portal/modules/security/core/bully/inject_plane.py",
+      "reason": "imported in a traced run; no static path"
+    },
+    {
+      "decision": "KEEP",
+      "importers": [
+        "portal.modules.security.core.bully.orchestrator",
+        "scripts.bully_loop_milestone_run",
+        "tests.security.bully.test_p1_6_investigation",
+        "tests.security.bully.test_p1_7_orchestrator",
+        "tests.security.bully.test_p2_e2e_demonstration",
+        "tests.security.bully.test_p3_3_mutation_wiring",
+        "tests.security.bully.test_p3_4_drift_wiring",
+        "tests.security.bully.test_p4_2_scoreboard",
+        "tests.security.bully.test_p4_3_targeting_wiring",
+        "tests.security.bully.test_p4_4_plateau_wiring",
+        "tests.security.bully.test_reintegration_r4_cutover"
+      ],
+      "lines": 202,
+      "module": "portal.modules.security.core.bully.investigation",
+      "path": "portal/modules/security/core/bully/investigation.py",
+      "reason": "reachable from a keep root"
+    },
+    {
+      "decision": "KEEP_DYNAMIC",
+      "importers": [
+        "portal.modules.security.core.bully.inject_plane",
+        "scripts.bully_full_assembly_run",
+        "scripts.bully_investigation_run_a6",
+        "scripts.bully_investigation_run_i6",
+        "scripts.validation.bully_relate",
+        "tests.security.bully.test_corpus_bed_a4_distance_planting",
+        "tests.security.bully.test_corpus_bed_i4_cousin_time_range",
+        "tests.security.bully.test_inject_plane_i3_capture_investigation",
+        "tests.security.bully.test_investigation_a2_adaptive_pivot",
+        "tests.security.bully.test_investigation_a3_reach_chain",
+        "tests.security.bully.test_investigation_i1",
+        "tests.security.bully.test_investigation_i7_ci_invariants",
+        "tests.security.bully.test_live_connect_i2_bounded_spl"
+      ],
+      "lines": 491,
+      "module": "portal.modules.security.core.bully.investigation_pivot",
+      "path": "portal/modules/security/core/bully/investigation_pivot.py",
+      "reason": "imported in a traced run; no static path"
+    },
+    {
+      "decision": "KEEP",
+      "importers": [
+        "scripts.bully_cousin_run_c7",
+        "scripts.bully_relate_run",
+        "scripts.sa7_live_census",
+        "scripts.sa7_phase0_gate",
+        "tests.security.bully.test_sa7_l9_live_census"
+      ],
+      "lines": 104,
+      "module": "portal.modules.security.core.bully.live_census",
+      "path": "portal/modules/security/core/bully/live_census.py",
+      "reason": "reachable from a keep root"
+    },
+    {
+      "decision": "KEEP",
+      "importers": [
+        "portal.modules.security.core.bully.inject_plane",
+        "portal.modules.security.core.bully.live_census",
+        "scripts.bully_corpus_hunt_run",
+        "scripts.bully_full_assembly_run",
+        "scripts.bully_investigation_run_a6",
+        "scripts.bully_investigation_run_i6",
+        "scripts.validation.bully_relate",
+        "tests.security.bully.test_corpus_bed_c3_capture",
+        "tests.security.bully.test_hunt_sweep_h3",
+        "tests.security.bully.test_inject_plane_i3_capture_investigation",
+        "tests.security.bully.test_live_connect_i2_bounded_spl",
+        "tests.security.bully.test_sa7_l1_live_connect",
+        "tests.security.bully.test_scorer_feed_k2",
+        "tests.security.bully.test_universal_e5_inject_plane"
+      ],
+      "lines": 345,
+      "module": "portal.modules.security.core.bully.live_connect",
+      "path": "portal/modules/security/core/bully/live_connect.py",
+      "reason": "reachable from a keep root"
+    },
+    {
+      "decision": "KEEP",
+      "importers": [
+        "portal.modules.security.core.bully.live_census",
+        "tests.security.bully.test_sa7_l10_phase0_gate",
+        "tests.security.bully.test_sa7_l7_live_profiles"
+      ],
+      "lines": 71,
+      "module": "portal.modules.security.core.bully.live_profiles",
+      "path": "portal/modules/security/core/bully/live_profiles.py",
+      "reason": "reachable from a keep root"
+    },
+    {
+      "decision": "KEEP",
+      "importers": [
+        "portal.modules.security.core.bully.orchestrator",
+        "scripts.bully_full_assembly_run",
+        "scripts.bully_loop_milestone_run",
+        "scripts.bully_review_defect_census",
+        "scripts.validation.bully_relate",
+        "tests.security.bully.test_reintegration_r2_loop_grader",
+        "tests.security.bully.test_reintegration_r3c_series"
+      ],
+      "lines": 394,
+      "module": "portal.modules.security.core.bully.loop_grader",
+      "path": "portal/modules/security/core/bully/loop_grader.py",
+      "reason": "reachable from a keep root"
+    },
+    {
+      "decision": "KEEP_DYNAMIC",
+      "importers": [
+        "scripts.bully_relate_run",
+        "scripts.validation.bully_relate",
+        "tests.security.bully.test_cousin_c3_measurement_guards",
+        "tests.security.bully.test_relate_m1_measurement_plane",
+        "tests.security.bully.test_relate_m2_ci_invariants"
+      ],
+      "lines": 224,
+      "module": "portal.modules.security.core.bully.measurement",
+      "path": "portal/modules/security/core/bully/measurement.py",
+      "reason": "imported in a traced run; no static path"
+    },
+    {
+      "decision": "KEEP",
+      "importers": [
+        "portal.modules.security.core.bully.cousin_calibration_bench",
+        "portal.modules.security.core.bully.orchestrator",
+        "tests.security.bully.test_p3_1_mutation",
+        "tests.security.bully.test_p3_3_mutation_wiring"
+      ],
+      "lines": 383,
+      "module": "portal.modules.security.core.bully.mutation",
+      "path": "portal/modules/security/core/bully/mutation.py",
+      "reason": "reachable from a keep root"
+    },
+    {
+      "decision": "KEEP",
+      "importers": [
+        "tests.security.bully.test_analyst_x3_observed_wiring",
+        "tests.security.bully.test_cousin_c2_observed_wiring",
+        "tests.security.bully.test_relate_b3_observed_mode",
+        "tests.security.bully.test_relate_j1_relation_investigation"
+      ],
+      "lines": 271,
+      "module": "portal.modules.security.core.bully.observed_mode",
+      "path": "portal/modules/security/core/bully/observed_mode.py",
+      "reason": "reachable from a keep root"
+    },
+    {
+      "decision": "KEEP",
+      "importers": [
+        "portal.modules.security.core.commands.hunt_modes",
+        "tests.security.bully.test_p1_0_skeleton",
+        "tests.security.bully.test_p1_7_orchestrator",
+        "tests.security.bully.test_p2_5_queue",
+        "tests.security.bully.test_p2_e2e_demonstration",
+        "tests.security.bully.test_p3_3_mutation_wiring",
+        "tests.security.bully.test_p3_4_drift_wiring",
+        "tests.security.bully.test_p4_2_scoreboard",
+        "tests.security.bully.test_p4_3_targeting_wiring",
+        "tests.security.bully.test_p4_4_plateau_wiring",
+        "tests.security.bully.test_p5_3_deploy",
+        "tests.security.bully.test_p7_cutover",
+        "tests.security.bully.test_r1_dry_run_red_status",
+        "tests.security.bully.test_r1_replay_driver",
+        "tests.security.bully.test_reintegration_r4_cutover"
+      ],
+      "lines": 1393,
+      "module": "portal.modules.security.core.bully.orchestrator",
+      "path": "portal/modules/security/core/bully/orchestrator.py",
+      "reason": "reachable from a keep root"
+    },
+    {
+      "decision": "KEEP",
+      "importers": [
+        "portal.modules.security.core.bully",
+        "portal.modules.security.core.bully.analyst_corpus",
+        "portal.modules.security.core.bully.embedding_bench",
+        "portal.modules.security.core.bully.orchestrator",
+        "scripts.bully_b1_engine_variants",
+        "scripts.bully_v3_threshold_validation",
+        "scripts.defensive_bully_calibrate",
+        "scripts.defensive_bully_discovery_bakeoff",
+        "scripts.defensive_bully_discovery_seed",
+        "scripts.defensive_bully_discovery_v3",
+        "scripts.defensive_bully_p04_adoption",
+        "tests.benchmarks.embedding_consumers.probes.bully",
+        "tests.security.bully.test_p1_4_organ",
+        "tests.security.bully.test_p1_7_orchestrator",
+        "tests.security.bully.test_p2_e2e_demonstration",
+        "tests.security.bully.test_p3_3_mutation_wiring",
+        "tests.security.bully.test_p3_4_drift_wiring",
+        "tests.security.bully.test_p4_2_scoreboard",
+        "tests.security.bully.test_p4_3_targeting_wiring",
+        "tests.security.bully.test_p4_4_plateau_wiring",
+        "tests.security.bully.test_p7_3_specimen_scale",
+        "tests.security.bully.test_p7_cutover",
+        "tests.security.bully.test_reintegration_r4_cutover",
+        "tests.security.bully.test_sa3_1_embedding_bench",
+        "tests.security.bully.test_sa3_4_discovery_seed",
+        "tests.security.bully.test_sa3_5_discovery_bakeoff"
+      ],
+      "lines": 470,
+      "module": "portal.modules.security.core.bully.organ",
+      "path": "portal/modules/security/core/bully/organ.py",
+      "reason": "reachable from a keep root"
+    },
+    {
+      "decision": "KEEP",
+      "importers": [
+        "portal.modules.security.core.bully.store"
+      ],
+      "lines": 29,
+      "module": "portal.modules.security.core.bully.outbox",
+      "path": "portal/modules/security/core/bully/outbox.py",
+      "reason": "reachable from a keep root"
+    },
+    {
+      "decision": "KEEP",
+      "importers": [
+        "scripts.sa7_phase0_gate",
+        "tests.security.bully.test_sa7_l10_phase0_gate"
+      ],
+      "lines": 83,
+      "module": "portal.modules.security.core.bully.phase0_gate",
+      "path": "portal/modules/security/core/bully/phase0_gate.py",
+      "reason": "reachable from a keep root"
+    },
+    {
+      "decision": "KEEP",
+      "importers": [
+        "portal.modules.security.core.bully.live_census",
+        "tests.security.bully.test_sa7_l10_phase0_gate",
+        "tests.security.bully.test_sa7_l8_planner_proof"
+      ],
+      "lines": 56,
+      "module": "portal.modules.security.core.bully.planner_proof",
+      "path": "portal/modules/security/core/bully/planner_proof.py",
+      "reason": "reachable from a keep root"
+    },
+    {
+      "decision": "KEEP",
+      "importers": [
+        "portal.modules.security.core.bully.orchestrator",
+        "tests.security.bully.test_p4_4_plateau"
+      ],
+      "lines": 209,
+      "module": "portal.modules.security.core.bully.plateau",
+      "path": "portal/modules/security/core/bully/plateau.py",
+      "reason": "reachable from a keep root"
+    },
+    {
+      "decision": "KEEP",
+      "importers": [
+        "portal.modules.security.core.bully.orchestrator",
+        "tests.security.bully.test_p6_3_playbooks"
+      ],
+      "lines": 247,
+      "module": "portal.modules.security.core.bully.playbooks",
+      "path": "portal/modules/security/core/bully/playbooks.py",
+      "reason": "reachable from a keep root"
+    },
+    {
+      "decision": "KEEP",
+      "importers": [
+        "portal.modules.security.core.bully.harvest",
+        "portal.modules.security.core.bully.orchestrator",
+        "portal.modules.security.core.bully.relation_promotion",
+        "scripts.defensive_bully_specimen_e2e",
+        "tests.security.bully.test_p2_2_promotion",
+        "tests.security.bully.test_p2_5_queue",
+        "tests.security.bully.test_p2_e2e_demonstration",
+        "tests.security.bully.test_p5_3_deploy"
+      ],
+      "lines": 721,
+      "module": "portal.modules.security.core.bully.promotion",
+      "path": "portal/modules/security/core/bully/promotion.py",
+      "reason": "reachable from a keep root"
+    },
+    {
+      "decision": "KEEP_DYNAMIC",
+      "importers": [
+        "portal.modules.security.core.bully.measurement",
+        "scripts.validation.bully_relate",
+        "tests.security.bully.test_relate_g2_provenance_tiers",
+        "tests.security.bully.test_relate_m2_ci_invariants"
+      ],
+      "lines": 78,
+      "module": "portal.modules.security.core.bully.provenance",
+      "path": "portal/modules/security/core/bully/provenance.py",
+      "reason": "imported in a traced run; no static path"
+    },
+    {
+      "decision": "KEEP",
+      "importers": [
+        "portal.modules.security.core.bully.behavior_classifier",
+        "portal.modules.security.core.bully.loop_grader",
+        "portal.modules.security.core.bully.series_cousin",
+        "portal.modules.security.core.bully.signatures",
+        "scripts.bully_full_assembly_run",
+        "scripts.validation.bully_relate",
+        "tests.security.bully.test_discovery_first_d3",
+        "tests.security.bully.test_real_telemetry_t1",
+        "tests.security.bully.test_reintegration_r1_pyramid",
+        "tests.security.bully.test_reintegration_r2_loop_grader",
+        "tests.security.bully.test_reintegration_r3_behavioral_signatures",
+        "tests.security.bully.test_reintegration_r5c_behavior_classifier"
+      ],
+      "lines": 295,
+      "module": "portal.modules.security.core.bully.pyramid",
+      "path": "portal/modules/security/core/bully/pyramid.py",
+      "reason": "reachable from a keep root"
+    },
+    {
+      "decision": "KEEP",
+      "importers": [
+        "scripts.bully_cousin_ladder",
+        "tests.security.bully.test_analyst_x1_loop",
+        "tests.security.bully.test_cousin_c2_observed_wiring",
+        "tests.security.bully.test_relate_a2_relation_engine",
+        "tests.security.bully.test_relate_a3_anomaly_success",
+        "tests.security.bully.test_relate_g4_anti_degeneracy",
+        "tests.security.bully.test_relate_j1_relation_investigation",
+        "tests.security.bully.test_relate_j2_bin_gates_on_relation",
+        "tests.security.bully.test_relate_j3_outcome_to_anchor",
+        "tests.security.bully.test_relate_m1_measurement_plane"
+      ],
+      "lines": 246,
+      "module": "portal.modules.security.core.bully.relation",
+      "path": "portal/modules/security/core/bully/relation.py",
+      "reason": "reachable from a keep root"
+    },
+    {
+      "decision": "KEEP",
+      "importers": [
+        "portal.modules.security.core.bully.observed_mode",
+        "tests.security.bully.test_relate_j1_relation_investigation"
+      ],
+      "lines": 86,
+      "module": "portal.modules.security.core.bully.relation_investigation",
+      "path": "portal/modules/security/core/bully/relation_investigation.py",
+      "reason": "reachable from a keep root"
+    },
+    {
+      "decision": "KEEP",
+      "importers": [
+        "tests.security.bully.test_relate_j2_bin_gates_on_relation"
+      ],
+      "lines": 95,
+      "module": "portal.modules.security.core.bully.relation_promotion",
+      "path": "portal/modules/security/core/bully/relation_promotion.py",
+      "reason": "reachable from a keep root"
+    },
+    {
+      "decision": "DELETE",
+      "importers": [
+        "tests.security.bully.test_p6_5_roster"
+      ],
+      "lines": 173,
+      "module": "portal.modules.security.core.bully.roster",
+      "path": "portal/modules/security/core/bully/roster.py",
+      "reason": "unreachable statically and never imported in a traced run"
+    },
+    {
+      "decision": "KEEP_DYNAMIC",
+      "importers": [
+        "scripts.bully_full_assembly_run",
+        "scripts.validation.bully_relate",
+        "tests.security.bully.test_hunt_sweep_h1",
+        "tests.security.bully.test_hunt_sweep_h2",
+        "tests.security.bully.test_hunt_sweep_h3"
+      ],
+      "lines": 409,
+      "module": "portal.modules.security.core.bully.run_preflight",
+      "path": "portal/modules/security/core/bully/run_preflight.py",
+      "reason": "imported in a traced run; no static path"
+    },
+    {
+      "decision": "KEEP_DYNAMIC",
+      "importers": [
+        "scripts.bully_full_assembly_run",
+        "scripts.validation.bully_relate",
+        "tests.security.bully.test_score_sample_k1",
+        "tests.security.bully.test_scorer_feed_k2"
+      ],
+      "lines": 206,
+      "module": "portal.modules.security.core.bully.score_sample",
+      "path": "portal/modules/security/core/bully/score_sample.py",
+      "reason": "imported in a traced run; no static path"
+    },
+    {
+      "decision": "KEEP",
+      "importers": [
+        "portal.modules.security.core.bully.orchestrator",
+        "scripts.bully_analyst_loop_run",
+        "scripts.bully_corpus_hunt_run",
+        "scripts.bully_full_assembly_run",
+        "scripts.bully_investigation_run_a6",
+        "scripts.bully_investigation_run_i6",
+        "scripts.bully_loop_milestone_run",
+        "scripts.bully_truth_acceptance_run",
+        "scripts.validation.bully_relate",
+        "tests.security.bully.test_conformance_w1",
+        "tests.security.bully.test_conformance_w2",
+        "tests.security.bully.test_conformance_w3",
+        "tests.security.bully.test_p4_2_scoreboard"
+      ],
+      "lines": 199,
+      "module": "portal.modules.security.core.bully.scoreboard",
+      "path": "portal/modules/security/core/bully/scoreboard.py",
+      "reason": "reachable from a keep root"
+    },
+    {
+      "decision": "KEEP_DYNAMIC",
+      "importers": [
+        "scripts.bully_analyst_loop_run",
+        "scripts.bully_corpus_hunt_run",
+        "scripts.bully_loop_milestone_run",
+        "scripts.bully_truth_acceptance_run",
+        "scripts.validation.bully_relate",
+        "tests.security.bully.test_conformance_w1",
+        "tests.security.bully.test_conformance_w4",
+        "tests.security.bully.test_conformance_w5",
+        "tests.security.bully.test_corpus_bed_c6_blocked_conformance"
+      ],
+      "lines": 355,
+      "module": "portal.modules.security.core.bully.scoreboard_conformance",
+      "path": "portal/modules/security/core/bully/scoreboard_conformance.py",
+      "reason": "imported in a traced run; no static path"
+    },
+    {
+      "decision": "KEEP",
+      "importers": [
+        "portal.modules.security.core.bully.observed_mode",
+        "scripts.bully_relate_run",
+        "tests.security.bully.test_analyst_x3_observed_wiring",
+        "tests.security.bully.test_cousin_c2_observed_wiring",
+        "tests.security.bully.test_cousin_c4_seed_entity_scope",
+        "tests.security.bully.test_relate_b2_seed_scope",
+        "tests.security.bully.test_relate_j1_relation_investigation"
+      ],
+      "lines": 135,
+      "module": "portal.modules.security.core.bully.seed_scope",
+      "path": "portal/modules/security/core/bully/seed_scope.py",
+      "reason": "reachable from a keep root"
+    },
+    {
+      "decision": "KEEP",
+      "importers": [
+        "portal.modules.security.core.bully.anchors",
+        "portal.modules.security.core.bully.loop_grader",
+        "scripts.bully_full_assembly_run",
+        "scripts.bully_loop_milestone_run",
+        "scripts.validation.bully_relate",
+        "tests.security.bully.test_reintegration_r3c_series",
+        "tests.security.bully.test_truth_y2_observed_coverage"
+      ],
+      "lines": 365,
+      "module": "portal.modules.security.core.bully.series_cousin",
+      "path": "portal/modules/security/core/bully/series_cousin.py",
+      "reason": "reachable from a keep root"
+    },
+    {
+      "decision": "KEEP",
+      "importers": [
+        "portal.modules.security.core.bully.analyst_corpus",
+        "portal.modules.security.core.bully.class_onboarding",
+        "portal.modules.security.core.bully.compounding",
+        "portal.modules.security.core.bully.cousin_calibration_bench",
+        "portal.modules.security.core.bully.cousin_engine",
+        "portal.modules.security.core.bully.discovery_bench",
+        "portal.modules.security.core.bully.loop_grader",
+        "portal.modules.security.core.bully.orchestrator",
+        "portal.modules.security.core.bully.relation",
+        "scripts.bully_analyst_loop_run",
+        "scripts.bully_cousin_ladder",
+        "scripts.bully_full_assembly_run",
+        "scripts.bully_loop_milestone_run",
+        "scripts.bully_relate_run",
+        "scripts.bully_review_defect_census",
+        "scripts.validation.bully_relate",
+        "tests.security.bully._discovery_fixtures",
+        "tests.security.bully.test_analyst_x1_loop",
+        "tests.security.bully.test_analyst_x3_observed_wiring",
+        "tests.security.bully.test_behavior_values",
+        "tests.security.bully.test_cousin_c2_observed_wiring",
+        "tests.security.bully.test_p1_5_cousin_engine",
+        "tests.security.bully.test_p7_4_retrieval_validity",
+        "tests.security.bully.test_reintegration_r3_behavioral_signatures",
+        "tests.security.bully.test_reintegration_r3c_series",
+        "tests.security.bully.test_relate_a2_relation_engine",
+        "tests.security.bully.test_relate_a3_anomaly_success",
+        "tests.security.bully.test_relate_g3_contamination_canary",
+        "tests.security.bully.test_relate_g4_anti_degeneracy",
+        "tests.security.bully.test_relate_j1_relation_investigation",
+        "tests.security.bully.test_relate_j2_bin_gates_on_relation",
+        "tests.security.bully.test_relate_j3_outcome_to_anchor",
+        "tests.security.bully.test_relate_m1_measurement_plane",
+        "tests.security.bully.test_sa1_source_adapters",
+        "tests.security.bully.test_sa5_2_cloudtrail_parsers",
+        "tests.security.bully.test_truth_y4_quarantine_and_guard"
+      ],
+      "lines": 317,
+      "module": "portal.modules.security.core.bully.signatures",
+      "path": "portal/modules/security/core/bully/signatures.py",
+      "reason": "reachable from a keep root"
+    },
+    {
+      "decision": "KEEP",
+      "importers": [
+        "tests.security.bully.test_p2_4_soc"
+      ],
+      "lines": 225,
+      "module": "portal.modules.security.core.bully.soc",
+      "path": "portal/modules/security/core/bully/soc.py",
+      "reason": "reachable from a keep root"
+    },
+    {
+      "decision": "KEEP",
+      "importers": [
+        "portal.modules.security.core.bully.analyst_corpus",
+        "portal.modules.security.core.bully.class_onboarding",
+        "scripts.build_specimen_corpus",
+        "tests.security.bully.test_sa1_class_onboarding",
+        "tests.security.bully.test_sa1_source_adapters",
+        "tests.security.bully.test_sa5_2_cloudtrail_parsers",
+        "tests.security.bully.test_sa7_data_plane"
+      ],
+      "lines": 492,
+      "module": "portal.modules.security.core.bully.source_adapters",
+      "path": "portal/modules/security/core/bully/source_adapters.py",
+      "reason": "reachable from a keep root"
+    },
+    {
+      "decision": "KEEP",
+      "importers": [
+        "portal.modules.security.core.bully.cousin_calibration_bench",
+        "portal.modules.security.core.bully.cousin_forge",
+        "portal.modules.security.core.bully.inject_plane",
+        "scripts.build_specimen_corpus",
+        "scripts.defensive_bully_calibrate",
+        "scripts.defensive_bully_specimen_e2e",
+        "scripts.validation.bully_relate",
+        "tests.security.bully.test_p7_2_specimen_corpus",
+        "tests.security.bully.test_p7_3_specimen_scale",
+        "tests.security.bully.test_universal_e5_inject_plane"
+      ],
+      "lines": 155,
+      "module": "portal.modules.security.core.bully.specimen_ledger",
+      "path": "portal/modules/security/core/bully/specimen_ledger.py",
+      "reason": "reachable from a keep root"
+    },
+    {
+      "decision": "KEEP",
+      "importers": [
+        "portal.modules.security.core.bully",
+        "portal.modules.security.core.bully.adversary",
+        "portal.modules.security.core.bully.case_history",
+        "portal.modules.security.core.bully.handoff",
+        "portal.modules.security.core.bully.harvest",
+        "portal.modules.security.core.bully.live_census",
+        "portal.modules.security.core.bully.orchestrator",
+        "portal.modules.security.core.bully.organ",
+        "portal.modules.security.core.bully.playbooks",
+        "portal.modules.security.core.bully.promotion",
+        "portal.modules.security.core.bully.relation_promotion",
+        "portal.modules.security.core.bully.soc",
+        "portal.modules.security.core.bully.training",
+        "scripts.bully_analyst_loop_run",
+        "scripts.bully_b1_engine_variants",
+        "scripts.bully_corpus_hunt_run",
+        "scripts.bully_loop_milestone_run",
+        "scripts.bully_truth_acceptance_run",
+        "scripts.bully_v3_threshold_validation",
+        "scripts.defensive_bully_calibrate",
+        "scripts.defensive_bully_closeout",
+        "scripts.defensive_bully_discovery_bakeoff",
+        "scripts.defensive_bully_discovery_seed",
+        "scripts.defensive_bully_discovery_v3",
+        "scripts.defensive_bully_p04_adoption",
+        "scripts.defensive_bully_specimen_e2e",
+        "scripts.defensive_bully_train",
+        "tests.benchmarks.embedding_consumers.probes.bully",
+        "tests.security.bully.test_analyst_x2_store",
+        "tests.security.bully.test_conformance_w2",
+        "tests.security.bully.test_p1_2_store",
+        "tests.security.bully.test_p1_4_organ",
+        "tests.security.bully.test_p1_7_orchestrator",
+        "tests.security.bully.test_p2_1_bin_tables",
+        "tests.security.bully.test_p2_2_promotion",
+        "tests.security.bully.test_p2_3_adversary",
+        "tests.security.bully.test_p2_4_soc",
+        "tests.security.bully.test_p2_5_queue",
+        "tests.security.bully.test_p2_e2e_demonstration",
+        "tests.security.bully.test_p3_3_mutation_wiring",
+        "tests.security.bully.test_p3_4_drift_wiring",
+        "tests.security.bully.test_p4_1_costing",
+        "tests.security.bully.test_p4_2_scoreboard",
+        "tests.security.bully.test_p4_3_targeting_wiring",
+        "tests.security.bully.test_p4_4_plateau_wiring",
+        "tests.security.bully.test_p5_1_store",
+        "tests.security.bully.test_p5_2_handoff",
+        "tests.security.bully.test_p5_3_deploy",
+        "tests.security.bully.test_p6_1_store",
+        "tests.security.bully.test_p6_2_harvest",
+        "tests.security.bully.test_p6_3_playbooks",
+        "tests.security.bully.test_p6_4_training",
+        "tests.security.bully.test_p7_cutover",
+        "tests.security.bully.test_reintegration_r4_cutover",
+        "tests.security.bully.test_relate_j2_bin_gates_on_relation",
+        "tests.security.bully.test_sa3_4_discovery_seed",
+        "tests.security.bully.test_sa3_5_discovery_bakeoff",
+        "tests.security.bully.test_sa4_6_snapshot_integration",
+        "tests.security.bully.test_sa7_l4_case_history"
+      ],
+      "lines": 2720,
+      "module": "portal.modules.security.core.bully.store",
+      "path": "portal/modules/security/core/bully/store.py",
+      "reason": "reachable from a keep root"
+    },
+    {
+      "decision": "KEEP",
+      "importers": [
+        "portal.modules.security.core.bully.orchestrator",
+        "tests.security.bully.test_p4_3_targeting",
+        "tests.security.bully.test_sa4_6_snapshot_integration"
+      ],
+      "lines": 247,
+      "module": "portal.modules.security.core.bully.targeting",
+      "path": "portal/modules/security/core/bully/targeting.py",
+      "reason": "reachable from a keep root"
+    },
+    {
+      "decision": "KEEP",
+      "importers": [
+        "portal.modules.security.core.bully.artifact_graph",
+        "portal.modules.security.core.bully.series_cousin",
+        "scripts.bully_corpus_hunt_run",
+        "scripts.bully_full_assembly_run",
+        "scripts.bully_investigation_run_a6",
+        "scripts.bully_investigation_run_i6",
+        "scripts.validation.bully_relate",
+        "tests.security.bully.test_i6_live_fidelity_fixes",
+        "tests.security.bully.test_real_telemetry_t1",
+        "tests.security.bully.test_telemetry_behavior_i5_concentration"
+      ],
+      "lines": 517,
+      "module": "portal.modules.security.core.bully.telemetry_behavior",
+      "path": "portal/modules/security/core/bully/telemetry_behavior.py",
+      "reason": "reachable from a keep root"
+    },
+    {
+      "decision": "KEEP",
+      "importers": [
+        "scripts.defensive_bully_train",
+        "tests.security.bully.test_p6_4_training"
+      ],
+      "lines": 738,
+      "module": "portal.modules.security.core.bully.training",
+      "path": "portal/modules/security/core/bully/training.py",
+      "reason": "reachable from a keep root"
+    },
+    {
+      "decision": "KEEP_DYNAMIC",
+      "importers": [
+        "scripts.bully_corpus_hunt_run",
+        "scripts.bully_truth_acceptance_run",
+        "scripts.validation.bully_relate",
+        "tests.security.bully.test_truth_y1_acceptance"
+      ],
+      "lines": 362,
+      "module": "portal.modules.security.core.bully.truth_acceptance",
+      "path": "portal/modules/security/core/bully/truth_acceptance.py",
+      "reason": "imported in a traced run; no static path"
+    },
+    {
+      "decision": "KEEP_DYNAMIC",
+      "importers": [
+        "scripts.bully_universal_intake_run",
+        "scripts.bully_unknown_cousin_run",
+        "scripts.validation.bully_relate",
+        "tests.security.bully.test_universal_m5_ci_invariants",
+        "tests.security.bully.test_universal_u3_cross_vocabulary_ladder",
+        "tests.security.bully.test_unknown_m1_falsification_ladder"
+      ],
+      "lines": 266,
+      "module": "portal.modules.security.core.bully.unit_ladder",
+      "path": "portal/modules/security/core/bully/unit_ladder.py",
+      "reason": "imported in a traced run; no static path"
+    },
+    {
+      "decision": "KEEP_DYNAMIC",
+      "importers": [
+        "scripts.bully_universal_intake_run",
+        "scripts.bully_unknown_cousin_run",
+        "scripts.validation.bully_relate",
+        "tests.security.bully.test_universal_m4_honest_metrics",
+        "tests.security.bully.test_unknown_t1_grading_plane_legend",
+        "tests.security.bully.test_unknown_t2_held_out_split",
+        "tests.security.bully.test_unknown_t3_precision_recall",
+        "tests.security.bully.test_unknown_t4_leave_one_family_out"
+      ],
+      "lines": 501,
+      "module": "portal.modules.security.core.bully.unit_measurement",
+      "path": "portal/modules/security/core/bully/unit_measurement.py",
+      "reason": "imported in a traced run; no static path"
+    },
+    {
+      "decision": "KEEP_DYNAMIC",
+      "importers": [
+        "portal.modules.security.core.bully.unit_ladder",
+        "portal.modules.security.core.bully.unit_measurement",
+        "scripts.bully_full_assembly_run",
+        "scripts.bully_universal_intake_run",
+        "scripts.bully_unknown_cousin_run",
+        "scripts.validation.bully_relate",
+        "tests.security.bully.test_discovery_first_d2",
+        "tests.security.bully.test_universal_m4_honest_metrics",
+        "tests.security.bully.test_universal_m5_ci_invariants",
+        "tests.security.bully.test_unknown_l1_writeback_suppression",
+        "tests.security.bully.test_unknown_t1_grading_plane_legend",
+        "tests.security.bully.test_unknown_t3_precision_recall",
+        "tests.security.bully.test_unknown_v2_unit_outcome"
+      ],
+      "lines": 425,
+      "module": "portal.modules.security.core.bully.unit_outcome",
+      "path": "portal/modules/security/core/bully/unit_outcome.py",
+      "reason": "imported in a traced run; no static path"
+    },
+    {
+      "decision": "KEEP",
+      "importers": [
+        "portal.modules.security.core.bully.unit_ladder",
+        "portal.modules.security.core.bully.unit_outcome",
+        "portal.modules.security.core.review.knowledge",
+        "scripts.validation.bully_relate",
+        "tests.security.bully.test_unknown_m1_falsification_ladder",
+        "tests.security.bully.test_unknown_m2_ci_invariants",
+        "tests.security.bully.test_unknown_v1_unit_relation"
+      ],
+      "lines": 273,
+      "module": "portal.modules.security.core.bully.unit_relation",
+      "path": "portal/modules/security/core/bully/unit_relation.py",
+      "reason": "reachable from a keep root"
+    },
+    {
+      "decision": "KEEP_DYNAMIC",
+      "importers": [
+        "scripts.bully_analyst_loop_run",
+        "scripts.bully_loop_milestone_run",
+        "scripts.bully_truth_acceptance_run",
+        "tests.security.bully.test_analyst_x5_generator_classes",
+        "tests.security.bully.test_reintegration_r5_universe",
+        "tests.security.bully.test_reintegration_r5c_behavior_classifier"
+      ],
+      "lines": 480,
+      "module": "portal.modules.security.core.bully.universe",
+      "path": "portal/modules/security/core/bully/universe.py",
+      "reason": "imported in a traced run; no static path"
+    }
+  ],
+  "schema": "bully-review-prune-ledger-v1",
+  "scripts": [
+    {
+      "decision": "KEEP",
+      "imports": [
+        "portal.modules.security.core.bully.analyst_corpus",
+        "portal.modules.security.core.bully.class_onboarding"
+      ],
+      "lines": 261,
+      "path": "scripts/analyst_corpus_real_ingest.py"
+    },
+    {
+      "decision": "KEEP",
+      "imports": [
+        "portal.modules.security.core.bully.analyst_corpus"
+      ],
+      "lines": 114,
+      "path": "scripts/analyst_corpus_snapshot_v2.py"
+    },
+    {
+      "decision": "KEEP",
+      "imports": [
+        "portal.modules.security.core.bully.config",
+        "portal.modules.security.core.bully.contracts",
+        "portal.modules.security.core.bully.cousin_calibration_bench",
+        "portal.modules.security.core.bully.cousin_forge",
+        "portal.modules.security.core.bully.source_adapters",
+        "portal.modules.security.core.bully.specimen_ledger"
+      ],
+      "lines": 1064,
+      "path": "scripts/build_specimen_corpus.py"
+    },
+    {
+      "decision": "KEEP",
+      "imports": [
+        "portal.modules.security.core.bully.behavior_values"
+      ],
+      "lines": 135,
+      "path": "scripts/build_specimen_corpus_v3.py"
+    },
+    {
+      "decision": "KEEP",
+      "imports": [
+        "portal.modules.security.core.bully.analyst_loop",
+        "portal.modules.security.core.bully.anchors",
+        "portal.modules.security.core.bully.artifact_graph",
+        "portal.modules.security.core.bully.baseline",
+        "portal.modules.security.core.bully.compounding",
+        "portal.modules.security.core.bully.config",
+        "portal.modules.security.core.bully.contracts",
+        "portal.modules.security.core.bully.corpus_bed",
+        "portal.modules.security.core.bully.correlation",
+        "portal.modules.security.core.bully.discovery",
+        "portal.modules.security.core.bully.inject_plane",
+        "portal.modules.security.core.bully.scoreboard",
+        "portal.modules.security.core.bully.scoreboard_conformance",
+        "portal.modules.security.core.bully.signatures",
+        "portal.modules.security.core.bully.store",
+        "portal.modules.security.core.bully.universe"
+      ],
+      "lines": 1013,
+      "path": "scripts/bully_analyst_loop_run.py"
+    },
+    {
+      "decision": "KEEP",
+      "imports": [
+        "portal.modules.security.core.bully.cousin_calibration_bench",
+        "portal.modules.security.core.bully.cousin_engine",
+        "portal.modules.security.core.bully.discovery_bench",
+        "portal.modules.security.core.bully.organ",
+        "portal.modules.security.core.bully.store"
+      ],
+      "lines": 608,
+      "path": "scripts/bully_b1_engine_variants.py"
+    },
+    {
+      "decision": "KEEP",
+      "imports": [
+        "portal.modules.security.core.bully.anchors",
+        "portal.modules.security.core.bully.baseline",
+        "portal.modules.security.core.bully.bots_answer_key",
+        "portal.modules.security.core.bully.config",
+        "portal.modules.security.core.bully.contracts",
+        "portal.modules.security.core.bully.corpus_bed",
+        "portal.modules.security.core.bully.correlation",
+        "portal.modules.security.core.bully.cousin_inject",
+        "portal.modules.security.core.bully.inject_plane",
+        "portal.modules.security.core.bully.live_connect",
+        "portal.modules.security.core.bully.scoreboard",
+        "portal.modules.security.core.bully.scoreboard_conformance",
+        "portal.modules.security.core.bully.store",
+        "portal.modules.security.core.bully.telemetry_behavior",
+        "portal.modules.security.core.bully.truth_acceptance"
+      ],
+      "lines": 609,
+      "path": "scripts/bully_corpus_hunt_run.py"
+    },
+    {
+      "decision": "KEEP",
+      "imports": [
+        "portal.modules.security.core.bully.anchors",
+        "portal.modules.security.core.bully.cousin_relation",
+        "portal.modules.security.core.bully.data_plane",
+        "portal.modules.security.core.bully.relation",
+        "portal.modules.security.core.bully.signatures"
+      ],
+      "lines": 419,
+      "path": "scripts/bully_cousin_ladder.py"
+    },
+    {
+      "decision": "KEEP",
+      "imports": [
+        "portal.modules.security.core.bully.calibration",
+        "portal.modules.security.core.bully.data_plane",
+        "portal.modules.security.core.bully.degeneracy",
+        "portal.modules.security.core.bully.live_census"
+      ],
+      "lines": 675,
+      "path": "scripts/bully_cousin_run_c7.py"
+    },
+    {
+      "decision": "KEEP",
+      "imports": [
+        "portal.modules.security.core.bully.adaptive_scope",
+        "portal.modules.security.core.bully.analyst_loop",
+        "portal.modules.security.core.bully.anchors",
+        "portal.modules.security.core.bully.artifact_graph",
+        "portal.modules.security.core.bully.baseline",
+        "portal.modules.security.core.bully.behavior_inference",
+        "portal.modules.security.core.bully.bots_answer_key",
+        "portal.modules.security.core.bully.connectors",
+        "portal.modules.security.core.bully.contracts",
+        "portal.modules.security.core.bully.corpus_bed",
+        "portal.modules.security.core.bully.correlation",
+        "portal.modules.security.core.bully.cousin_inject",
+        "portal.modules.security.core.bully.discovery",
+        "portal.modules.security.core.bully.field_roles",
+        "portal.modules.security.core.bully.full_pipeline",
+        "portal.modules.security.core.bully.inject_plane",
+        "portal.modules.security.core.bully.investigation_pivot",
+        "portal.modules.security.core.bully.live_connect",
+        "portal.modules.security.core.bully.loop_grader",
+        "portal.modules.security.core.bully.pyramid",
+        "portal.modules.security.core.bully.run_preflight",
+        "portal.modules.security.core.bully.score_sample",
+        "portal.modules.security.core.bully.scoreboard",
+        "portal.modules.security.core.bully.series_cousin",
+        "portal.modules.security.core.bully.signatures",
+        "portal.modules.security.core.bully.telemetry_behavior",
+        "portal.modules.security.core.bully.unit_outcome"
+      ],
+      "lines": 1413,
+      "path": "scripts/bully_full_assembly_run.py"
+    },
+    {
+      "decision": "KEEP",
+      "imports": [
+        "portal.modules.security.core.bully.artifact_graph",
+        "portal.modules.security.core.bully.blend",
+        "portal.modules.security.core.bully.inject_plane"
+      ],
+      "lines": 67,
+      "path": "scripts/bully_inject_capture.py"
+    },
+    {
+      "decision": "KEEP",
+      "imports": [
+        "portal.modules.security.core.bully.adaptive_scope",
+        "portal.modules.security.core.bully.behavior_inference",
+        "portal.modules.security.core.bully.bots_answer_key",
+        "portal.modules.security.core.bully.corpus_bed",
+        "portal.modules.security.core.bully.cousin_inject",
+        "portal.modules.security.core.bully.inject_plane",
+        "portal.modules.security.core.bully.investigation_pivot",
+        "portal.modules.security.core.bully.live_connect",
+        "portal.modules.security.core.bully.scoreboard",
+        "portal.modules.security.core.bully.telemetry_behavior"
+      ],
+      "lines": 431,
+      "path": "scripts/bully_investigation_run_a6.py"
+    },
+    {
+      "decision": "KEEP",
+      "imports": [
+        "portal.modules.security.core.bully.behavior_inference",
+        "portal.modules.security.core.bully.bots_answer_key",
+        "portal.modules.security.core.bully.corpus_bed",
+        "portal.modules.security.core.bully.cousin_inject",
+        "portal.modules.security.core.bully.inject_plane",
+        "portal.modules.security.core.bully.investigation_pivot",
+        "portal.modules.security.core.bully.live_connect",
+        "portal.modules.security.core.bully.scoreboard",
+        "portal.modules.security.core.bully.telemetry_behavior"
+      ],
+      "lines": 341,
+      "path": "scripts/bully_investigation_run_i6.py"
+    },
+    {
+      "decision": "KEEP",
+      "imports": [
+        "portal.modules.security.core.bully.behavior_classifier",
+        "portal.modules.security.core.bully.config",
+        "portal.modules.security.core.bully.contracts",
+        "portal.modules.security.core.bully.correlation",
+        "portal.modules.security.core.bully.field_roles",
+        "portal.modules.security.core.bully.handoff",
+        "portal.modules.security.core.bully.inject_plane",
+        "portal.modules.security.core.bully.investigation",
+        "portal.modules.security.core.bully.loop_grader",
+        "portal.modules.security.core.bully.scoreboard",
+        "portal.modules.security.core.bully.scoreboard_conformance",
+        "portal.modules.security.core.bully.series_cousin",
+        "portal.modules.security.core.bully.signatures",
+        "portal.modules.security.core.bully.store",
+        "portal.modules.security.core.bully.universe"
+      ],
+      "lines": 810,
+      "path": "scripts/bully_loop_milestone_run.py"
+    },
+    {
+      "decision": "KEEP",
+      "imports": [
+        "portal.modules.security.core.bully.anchors",
+        "portal.modules.security.core.bully.compounding",
+        "portal.modules.security.core.bully.cousin_relation",
+        "portal.modules.security.core.bully.coverage",
+        "portal.modules.security.core.bully.degeneracy",
+        "portal.modules.security.core.bully.live_census",
+        "portal.modules.security.core.bully.measurement",
+        "portal.modules.security.core.bully.seed_scope",
+        "portal.modules.security.core.bully.signatures"
+      ],
+      "lines": 454,
+      "path": "scripts/bully_relate_run.py"
+    },
+    {
+      "decision": "KEEP",
+      "imports": [
+        "portal.modules.security.core.bully.artifact_graph",
+        "portal.modules.security.core.bully.behavior_values",
+        "portal.modules.security.core.bully.evidence",
+        "portal.modules.security.core.bully.loop_grader",
+        "portal.modules.security.core.bully.signatures"
+      ],
+      "lines": 585,
+      "path": "scripts/bully_review_defect_census.py"
+    },
+    {
+      "decision": "KEEP",
+      "imports": [
+        "portal.modules.security.core.bully.analyst_loop",
+        "portal.modules.security.core.bully.behavior_classifier",
+        "portal.modules.security.core.bully.config",
+        "portal.modules.security.core.bully.contracts",
+        "portal.modules.security.core.bully.correlation",
+        "portal.modules.security.core.bully.inject_plane",
+        "portal.modules.security.core.bully.scoreboard",
+        "portal.modules.security.core.bully.scoreboard_conformance",
+        "portal.modules.security.core.bully.store",
+        "portal.modules.security.core.bully.truth_acceptance",
+        "portal.modules.security.core.bully.universe"
+      ],
+      "lines": 701,
+      "path": "scripts/bully_truth_acceptance_run.py"
+    },
+    {
+      "decision": "KEEP",
+      "imports": [
+        "portal.modules.security.core.bully.anchors",
+        "portal.modules.security.core.bully.artifact_graph",
+        "portal.modules.security.core.bully.baseline",
+        "portal.modules.security.core.bully.blend",
+        "portal.modules.security.core.bully.field_roles",
+        "portal.modules.security.core.bully.inject_plane",
+        "portal.modules.security.core.bully.unit_ladder",
+        "portal.modules.security.core.bully.unit_measurement",
+        "portal.modules.security.core.bully.unit_outcome"
+      ],
+      "lines": 254,
+      "path": "scripts/bully_universal_intake_run.py"
+    },
+    {
+      "decision": "KEEP",
+      "imports": [
+        "portal.modules.security.core.bully.anchors",
+        "portal.modules.security.core.bully.artifact_graph",
+        "portal.modules.security.core.bully.baseline",
+        "portal.modules.security.core.bully.unit_ladder",
+        "portal.modules.security.core.bully.unit_measurement",
+        "portal.modules.security.core.bully.unit_outcome"
+      ],
+      "lines": 454,
+      "path": "scripts/bully_unknown_cousin_run.py"
+    },
+    {
+      "decision": "KEEP",
+      "imports": [
+        "portal.modules.security.core.bully.cousin_calibration_bench",
+        "portal.modules.security.core.bully.cousin_engine",
+        "portal.modules.security.core.bully.discovery_bench",
+        "portal.modules.security.core.bully.organ",
+        "portal.modules.security.core.bully.store"
+      ],
+      "lines": 461,
+      "path": "scripts/bully_v3_threshold_validation.py"
+    },
+    {
+      "decision": "KEEP",
+      "imports": [
+        "portal.modules.security.core.bully.analyst_corpus"
+      ],
+      "lines": 360,
+      "path": "scripts/corpus_acquire.py"
+    },
+    {
+      "decision": "KEEP",
+      "imports": [
+        "portal.modules.security.core.bully.class_onboarding",
+        "portal.modules.security.core.bully.config",
+        "portal.modules.security.core.bully.cousin_calibration_bench",
+        "portal.modules.security.core.bully.organ",
+        "portal.modules.security.core.bully.specimen_ledger",
+        "portal.modules.security.core.bully.store"
+      ],
+      "lines": 246,
+      "path": "scripts/defensive_bully_calibrate.py"
+    },
+    {
+      "decision": "KEEP",
+      "imports": [
+        "portal.modules.security.core.bully.config",
+        "portal.modules.security.core.bully.cutover",
+        "portal.modules.security.core.bully.store"
+      ],
+      "lines": 354,
+      "path": "scripts/defensive_bully_closeout.py"
+    },
+    {
+      "decision": "KEEP",
+      "imports": [
+        "portal.modules.security.core.bully.discovery_bench",
+        "portal.modules.security.core.bully.organ",
+        "portal.modules.security.core.bully.store"
+      ],
+      "lines": 76,
+      "path": "scripts/defensive_bully_discovery_bakeoff.py"
+    },
+    {
+      "decision": "KEEP",
+      "imports": [
+        "portal.modules.security.core.bully.cousin_calibration_bench",
+        "portal.modules.security.core.bully.organ",
+        "portal.modules.security.core.bully.store"
+      ],
+      "lines": 130,
+      "path": "scripts/defensive_bully_discovery_seed.py"
+    },
+    {
+      "decision": "KEEP",
+      "imports": [
+        "portal.modules.security.core.bully.cousin_calibration_bench",
+        "portal.modules.security.core.bully.discovery_bench",
+        "portal.modules.security.core.bully.organ",
+        "portal.modules.security.core.bully.store"
+      ],
+      "lines": 173,
+      "path": "scripts/defensive_bully_discovery_v3.py"
+    },
+    {
+      "decision": "KEEP",
+      "imports": [
+        "portal.modules.security.core.bully.cousin_calibration_bench",
+        "portal.modules.security.core.bully.discovery_bench",
+        "portal.modules.security.core.bully.embedding_spaces",
+        "portal.modules.security.core.bully.organ",
+        "portal.modules.security.core.bully.store"
+      ],
+      "lines": 342,
+      "path": "scripts/defensive_bully_p04_adoption.py"
+    },
+    {
+      "decision": "KEEP",
+      "imports": [
+        "portal.modules.security.core.bully.contracts",
+        "portal.modules.security.core.bully.cousin_calibration_bench",
+        "portal.modules.security.core.bully.cutover",
+        "portal.modules.security.core.bully.handoff",
+        "portal.modules.security.core.bully.promotion",
+        "portal.modules.security.core.bully.specimen_ledger",
+        "portal.modules.security.core.bully.store"
+      ],
+      "lines": 350,
+      "path": "scripts/defensive_bully_specimen_e2e.py"
+    },
+    {
+      "decision": "KEEP",
+      "imports": [
+        "portal.modules.security.core.bully.config",
+        "portal.modules.security.core.bully.contracts",
+        "portal.modules.security.core.bully.cutover",
+        "portal.modules.security.core.bully.harvest",
+        "portal.modules.security.core.bully.store",
+        "portal.modules.security.core.bully.training"
+      ],
+      "lines": 263,
+      "path": "scripts/defensive_bully_train.py"
+    },
+    {
+      "decision": "KEEP",
+      "imports": [
+        "portal.modules.security.core.bully.bots_answer_key"
+      ],
+      "lines": 1791,
+      "path": "scripts/review_eval_proof.py"
+    },
+    {
+      "decision": "KEEP",
+      "imports": [
+        "portal.modules.security.core.bully.live_census"
+      ],
+      "lines": 65,
+      "path": "scripts/sa7_live_census.py"
+    },
+    {
+      "decision": "KEEP",
+      "imports": [
+        "portal.modules.security.core.bully.live_census",
+        "portal.modules.security.core.bully.phase0_gate"
+      ],
+      "lines": 72,
+      "path": "scripts/sa7_phase0_gate.py"
+    },
+    {
+      "decision": "KEEP",
+      "imports": [
+        "portal.modules.security.core.bully.adaptive_scope",
+        "portal.modules.security.core.bully.analyst_loop",
+        "portal.modules.security.core.bully.anchors",
+        "portal.modules.security.core.bully.artifact_graph",
+        "portal.modules.security.core.bully.baseline",
+        "portal.modules.security.core.bully.behavior_inference",
+        "portal.modules.security.core.bully.blend",
+        "portal.modules.security.core.bully.bots_answer_key",
+        "portal.modules.security.core.bully.calibration",
+        "portal.modules.security.core.bully.canary",
+        "portal.modules.security.core.bully.compounding",
+        "portal.modules.security.core.bully.connectors",
+        "portal.modules.security.core.bully.contracts",
+        "portal.modules.security.core.bully.corpus_bed",
+        "portal.modules.security.core.bully.cousin_relation",
+        "portal.modules.security.core.bully.data_plane",
+        "portal.modules.security.core.bully.degeneracy",
+        "portal.modules.security.core.bully.discovery",
+        "portal.modules.security.core.bully.full_pipeline",
+        "portal.modules.security.core.bully.handoff",
+        "portal.modules.security.core.bully.inject_plane",
+        "portal.modules.security.core.bully.investigation_pivot",
+        "portal.modules.security.core.bully.live_connect",
+        "portal.modules.security.core.bully.loop_grader",
+        "portal.modules.security.core.bully.measurement",
+        "portal.modules.security.core.bully.provenance",
+        "portal.modules.security.core.bully.pyramid",
+        "portal.modules.security.core.bully.run_preflight",
+        "portal.modules.security.core.bully.score_sample",
+        "portal.modules.security.core.bully.scoreboard",
+        "portal.modules.security.core.bully.scoreboard_conformance",
+        "portal.modules.security.core.bully.series_cousin",
+        "portal.modules.security.core.bully.signatures",
+        "portal.modules.security.core.bully.specimen_ledger",
+        "portal.modules.security.core.bully.telemetry_behavior",
+        "portal.modules.security.core.bully.truth_acceptance",
+        "portal.modules.security.core.bully.unit_ladder",
+        "portal.modules.security.core.bully.unit_measurement",
+        "portal.modules.security.core.bully.unit_outcome",
+        "portal.modules.security.core.bully.unit_relation"
+      ],
+      "lines": 3787,
+      "path": "scripts/validation/bully_relate.py"
+    }
+  ],
+  "tally": {
+    "DELETE": 1,
+    "KEEP": 69,
+    "KEEP_DYNAMIC": 20
+  },
+  "tests": [
+    {
+      "decision": "KEEP",
+      "imports": [
+        "portal.modules.security.core.bully.cousin_calibration_bench",
+        "portal.modules.security.core.bully.discovery_bench",
+        "portal.modules.security.core.bully.organ",
+        "portal.modules.security.core.bully.store"
+      ],
+      "lines": 356,
+      "path": "tests/benchmarks/embedding_consumers/probes/bully.py"
+    },
+    {
+      "decision": "KEEP",
+      "imports": [
+        "portal.modules.security.core.bully.signatures"
+      ],
+      "lines": 186,
+      "path": "tests/security/bully/_discovery_fixtures.py"
+    },
+    {
+      "decision": "KEEP",
+      "imports": [
+        "portal.modules.security.core.bully.adaptive_scope"
+      ],
+      "lines": 201,
+      "path": "tests/security/bully/test_adaptive_scope_a1.py"
+    },
+    {
+      "decision": "KEEP",
+      "imports": [
+        "portal.modules.security.core.bully.analyst_loop",
+        "portal.modules.security.core.bully.anchors",
+        "portal.modules.security.core.bully.compounding",
+        "portal.modules.security.core.bully.relation",
+        "portal.modules.security.core.bully.signatures"
+      ],
+      "lines": 138,
+      "path": "tests/security/bully/test_analyst_x1_loop.py"
+    },
+    {
+      "decision": "KEEP",
+      "imports": [
+        "portal.modules.security.core.bully.analyst_loop",
+        "portal.modules.security.core.bully.store"
+      ],
+      "lines": 79,
+      "path": "tests/security/bully/test_analyst_x2_store.py"
+    },
+    {
+      "decision": "KEEP",
+      "imports": [
+        "portal.modules.security.core.bully.analyst_loop",
+        "portal.modules.security.core.bully.anchors",
+        "portal.modules.security.core.bully.compounding",
+        "portal.modules.security.core.bully.connectors",
+        "portal.modules.security.core.bully.contracts",
+        "portal.modules.security.core.bully.data_plane",
+        "portal.modules.security.core.bully.observed_mode",
+        "portal.modules.security.core.bully.seed_scope",
+        "portal.modules.security.core.bully.signatures"
+      ],
+      "lines": 154,
+      "path": "tests/security/bully/test_analyst_x3_observed_wiring.py"
+    },
+    {
+      "decision": "KEEP",
+      "imports": [
+        "portal.modules.security.core.bully.analyst_loop"
+      ],
+      "lines": 73,
+      "path": "tests/security/bully/test_analyst_x4_concern_event.py"
+    },
+    {
+      "decision": "KEEP",
+      "imports": [
+        "portal.modules.security.core.bully.anchors",
+        "portal.modules.security.core.bully.universe"
+      ],
+      "lines": 79,
+      "path": "tests/security/bully/test_analyst_x5_generator_classes.py"
+    },
+    {
+      "decision": "KEEP",
+      "imports": [
+        "portal.modules.security.core.bully.behavior_inference"
+      ],
+      "lines": 147,
+      "path": "tests/security/bully/test_behavior_inference_i1b.py"
+    },
+    {
+      "decision": "KEEP",
+      "imports": [
+        "portal.modules.security.core.bully.behavior_values",
+        "portal.modules.security.core.bully.signatures"
+      ],
+      "lines": 104,
+      "path": "tests/security/bully/test_behavior_values.py"
+    },
+    {
+      "decision": "KEEP",
+      "imports": [
+        "portal.modules.security.core.bully.scoreboard",
+        "portal.modules.security.core.bully.scoreboard_conformance"
+      ],
+      "lines": 176,
+      "path": "tests/security/bully/test_conformance_w1.py"
+    },
+    {
+      "decision": "KEEP",
+      "imports": [
+        "portal.modules.security.core.bully.contracts",
+        "portal.modules.security.core.bully.scoreboard",
+        "portal.modules.security.core.bully.store"
+      ],
+      "lines": 221,
+      "path": "tests/security/bully/test_conformance_w2.py"
+    },
+    {
+      "decision": "KEEP",
+      "imports": [
+        "portal.modules.security.core.bully.scoreboard"
+      ],
+      "lines": 71,
+      "path": "tests/security/bully/test_conformance_w3.py"
+    },
+    {
+      "decision": "KEEP",
+      "imports": [
+        "portal.modules.security.core.bully.scoreboard_conformance"
+      ],
+      "lines": 82,
+      "path": "tests/security/bully/test_conformance_w4.py"
+    },
+    {
+      "decision": "KEEP",
+      "imports": [
+        "portal.modules.security.core.bully.scoreboard_conformance"
+      ],
+      "lines": 77,
+      "path": "tests/security/bully/test_conformance_w5.py"
+    },
+    {
+      "decision": "KEEP",
+      "imports": [
+        "portal.modules.security.core.bully.adaptive_scope",
+        "portal.modules.security.core.bully.corpus_bed",
+        "portal.modules.security.core.bully.investigation_pivot"
+      ],
+      "lines": 133,
+      "path": "tests/security/bully/test_corpus_bed_a4_distance_planting.py"
+    },
+    {
+      "decision": "KEEP",
+      "imports": [
+        "portal.modules.security.core.bully.corpus_bed"
+      ],
+      "lines": 71,
+      "path": "tests/security/bully/test_corpus_bed_a5_bed_guard.py"
+    },
+    {
+      "decision": "KEEP",
+      "imports": [
+        "portal.modules.security.core.bully.corpus_bed"
+      ],
+      "lines": 160,
+      "path": "tests/security/bully/test_corpus_bed_c1.py"
+    },
+    {
+      "decision": "KEEP",
+      "imports": [
+        "portal.modules.security.core.bully.connectors",
+        "portal.modules.security.core.bully.corpus_bed",
+        "portal.modules.security.core.bully.inject_plane",
+        "portal.modules.security.core.bully.live_connect"
+      ],
+      "lines": 77,
+      "path": "tests/security/bully/test_corpus_bed_c3_capture.py"
+    },
+    {
+      "decision": "KEEP",
+      "imports": [
+        "portal.modules.security.core.bully.artifact_graph",
+        "portal.modules.security.core.bully.baseline",
+        "portal.modules.security.core.bully.discovery"
+      ],
+      "lines": 84,
+      "path": "tests/security/bully/test_corpus_bed_c4_fit_wide.py"
+    },
+    {
+      "decision": "KEEP",
+      "imports": [
+        "portal.modules.security.core.bully.bots_answer_key",
+        "portal.modules.security.core.bully.corpus_bed",
+        "portal.modules.security.core.bully.cousin_inject"
+      ],
+      "lines": 149,
+      "path": "tests/security/bully/test_corpus_bed_c5_cousin_inject.py"
+    },
+    {
+      "decision": "KEEP",
+      "imports": [
+        "portal.modules.security.core.bully.scoreboard_conformance"
+      ],
+      "lines": 92,
+      "path": "tests/security/bully/test_corpus_bed_c6_blocked_conformance.py"
+    },
+    {
+      "decision": "KEEP",
+      "imports": [
+        "portal.modules.security.core.bully.bots_answer_key",
+        "portal.modules.security.core.bully.corpus_bed",
+        "portal.modules.security.core.bully.cousin_inject",
+        "portal.modules.security.core.bully.investigation_pivot"
+      ],
+      "lines": 150,
+      "path": "tests/security/bully/test_corpus_bed_i4_cousin_time_range.py"
+    },
+    {
+      "decision": "KEEP",
+      "imports": [
+        "portal.modules.security.core.bully.corpus_bed"
+      ],
+      "lines": 162,
+      "path": "tests/security/bully/test_corpus_bed_t2_guard_holes.py"
+    },
+    {
+      "decision": "KEEP",
+      "imports": [
+        "portal.modules.security.core.bully.cousin_relation"
+      ],
+      "lines": 212,
+      "path": "tests/security/bully/test_cousin_c1_relation.py"
+    },
+    {
+      "decision": "KEEP",
+      "imports": [
+        "portal.modules.security.core.bully.anchors",
+        "portal.modules.security.core.bully.connectors",
+        "portal.modules.security.core.bully.cousin_relation",
+        "portal.modules.security.core.bully.data_plane",
+        "portal.modules.security.core.bully.observed_mode",
+        "portal.modules.security.core.bully.relation",
+        "portal.modules.security.core.bully.seed_scope",
+        "portal.modules.security.core.bully.signatures"
+      ],
+      "lines": 156,
+      "path": "tests/security/bully/test_cousin_c2_observed_wiring.py"
+    },
+    {
+      "decision": "KEEP",
+      "imports": [
+        "portal.modules.security.core.bully.anchors",
+        "portal.modules.security.core.bully.calibration",
+        "portal.modules.security.core.bully.degeneracy",
+        "portal.modules.security.core.bully.measurement"
+      ],
+      "lines": 148,
+      "path": "tests/security/bully/test_cousin_c3_measurement_guards.py"
+    },
+    {
+      "decision": "KEEP",
+      "imports": [
+        "portal.modules.security.core.bully.anchors",
+        "portal.modules.security.core.bully.connectors",
+        "portal.modules.security.core.bully.data_plane",
+        "portal.modules.security.core.bully.seed_scope"
+      ],
+      "lines": 109,
+      "path": "tests/security/bully/test_cousin_c4_seed_entity_scope.py"
+    },
+    {
+      "decision": "KEEP",
+      "imports": [
+        "portal.modules.security.core.bully.cousin_relation"
+      ],
+      "lines": 147,
+      "path": "tests/security/bully/test_cousin_c6_ladder.py"
+    },
+    {
+      "decision": "KEEP",
+      "imports": [
+        "portal.modules.security.core.bully.artifact_graph",
+        "portal.modules.security.core.bully.baseline",
+        "portal.modules.security.core.bully.discovery"
+      ],
+      "lines": 147,
+      "path": "tests/security/bully/test_discovery_d1.py"
+    },
+    {
+      "decision": "KEEP",
+      "imports": [
+        "portal.modules.security.core.bully.anchors",
+        "portal.modules.security.core.bully.baseline",
+        "portal.modules.security.core.bully.unit_outcome"
+      ],
+      "lines": 80,
+      "path": "tests/security/bully/test_discovery_first_d2.py"
+    },
+    {
+      "decision": "KEEP",
+      "imports": [
+        "portal.modules.security.core.bully.anchors",
+        "portal.modules.security.core.bully.compounding",
+        "portal.modules.security.core.bully.pyramid"
+      ],
+      "lines": 52,
+      "path": "tests/security/bully/test_discovery_first_d3.py"
+    },
+    {
+      "decision": "KEEP",
+      "imports": [
+        "portal.modules.security.core.bully.full_pipeline"
+      ],
+      "lines": 189,
+      "path": "tests/security/bully/test_full_assembly_f1.py"
+    },
+    {
+      "decision": "KEEP",
+      "imports": [
+        "portal.modules.security.core.bully.full_pipeline"
+      ],
+      "lines": 56,
+      "path": "tests/security/bully/test_full_assembly_f2.py"
+    },
+    {
+      "decision": "KEEP",
+      "imports": [
+        "portal.modules.security.core.bully.bots_answer_key"
+      ],
+      "lines": 54,
+      "path": "tests/security/bully/test_full_assembly_f3.py"
+    },
+    {
+      "decision": "KEEP",
+      "imports": [
+        "portal.modules.security.core.bully.run_preflight"
+      ],
+      "lines": 213,
+      "path": "tests/security/bully/test_hunt_sweep_h1.py"
+    },
+    {
+      "decision": "KEEP",
+      "imports": [
+        "portal.modules.security.core.bully.corpus_bed",
+        "portal.modules.security.core.bully.full_pipeline",
+        "portal.modules.security.core.bully.run_preflight"
+      ],
+      "lines": 327,
+      "path": "tests/security/bully/test_hunt_sweep_h2.py"
+    },
+    {
+      "decision": "KEEP",
+      "imports": [
+        "portal.modules.security.core.bully.corpus_bed",
+        "portal.modules.security.core.bully.full_pipeline"
+      ],
+      "lines": 135,
+      "path": "tests/security/bully/test_hunt_sweep_h2_anchor_time.py"
+    },
+    {
+      "decision": "KEEP",
+      "imports": [
+        "portal.modules.security.core.bully.connectors",
+        "portal.modules.security.core.bully.corpus_bed",
+        "portal.modules.security.core.bully.full_pipeline",
+        "portal.modules.security.core.bully.live_connect",
+        "portal.modules.security.core.bully.run_preflight"
+      ],
+      "lines": 302,
+      "path": "tests/security/bully/test_hunt_sweep_h3.py"
+    },
+    {
+      "decision": "KEEP",
+      "imports": [
+        "portal.modules.security.core.bully.full_pipeline"
+      ],
+      "lines": 117,
+      "path": "tests/security/bully/test_hunt_sweep_h4.py"
+    },
+    {
+      "decision": "KEEP",
+      "imports": [
+        "portal.modules.security.core.bully.full_pipeline"
+      ],
+      "lines": 57,
+      "path": "tests/security/bully/test_hunt_sweep_h6_ci_invariants.py"
+    },
+    {
+      "decision": "KEEP",
+      "imports": [
+        "portal.modules.security.core.bully.telemetry_behavior"
+      ],
+      "lines": 99,
+      "path": "tests/security/bully/test_i6_live_fidelity_fixes.py"
+    },
+    {
+      "decision": "KEEP",
+      "imports": [
+        "portal.modules.security.core.bully.connectors",
+        "portal.modules.security.core.bully.inject_plane",
+        "portal.modules.security.core.bully.investigation_pivot",
+        "portal.modules.security.core.bully.live_connect"
+      ],
+      "lines": 139,
+      "path": "tests/security/bully/test_inject_plane_i3_capture_investigation.py"
+    },
+    {
+      "decision": "KEEP",
+      "imports": [
+        "portal.modules.security.core.bully.investigation_pivot"
+      ],
+      "lines": 91,
+      "path": "tests/security/bully/test_investigation_a2_adaptive_pivot.py"
+    },
+    {
+      "decision": "KEEP",
+      "imports": [
+        "portal.modules.security.core.bully.investigation_pivot"
+      ],
+      "lines": 67,
+      "path": "tests/security/bully/test_investigation_a3_reach_chain.py"
+    },
+    {
+      "decision": "KEEP",
+      "imports": [
+        "portal.modules.security.core.bully.investigation_pivot"
+      ],
+      "lines": 220,
+      "path": "tests/security/bully/test_investigation_i1.py"
+    },
+    {
+      "decision": "KEEP",
+      "imports": [
+        "portal.modules.security.core.bully.connectors",
+        "portal.modules.security.core.bully.investigation_pivot"
+      ],
+      "lines": 71,
+      "path": "tests/security/bully/test_investigation_i7_ci_invariants.py"
+    },
+    {
+      "decision": "KEEP",
+      "imports": [
+        "portal.modules.security.core.bully.connectors",
+        "portal.modules.security.core.bully.investigation_pivot",
+        "portal.modules.security.core.bully.live_connect"
+      ],
+      "lines": 95,
+      "path": "tests/security/bully/test_live_connect_i2_bounded_spl.py"
+    },
+    {
+      "decision": "KEEP",
+      "imports": [
+        "portal.modules.security.core.bully.config"
+      ],
+      "lines": 42,
+      "path": "tests/security/bully/test_p1_0_config.py"
+    },
+    {
+      "decision": "KEEP",
+      "imports": [
+        "portal.modules.security.core.bully.orchestrator"
+      ],
+      "lines": 93,
+      "path": "tests/security/bully/test_p1_0_skeleton.py"
+    },
+    {
+      "decision": "KEEP",
+      "imports": [
+        "portal.modules.security.core.bully.contracts"
+      ],
+      "lines": 164,
+      "path": "tests/security/bully/test_p1_1_contracts.py"
+    },
+    {
+      "decision": "KEEP",
+      "imports": [
+        "portal.modules.security.core.bully.contracts",
+        "portal.modules.security.core.bully.events",
+        "portal.modules.security.core.bully.store"
+      ],
+      "lines": 323,
+      "path": "tests/security/bully/test_p1_2_store.py"
+    },
+    {
+      "decision": "KEEP",
+      "imports": [
+        "portal.modules.security.core.bully.evidence"
+      ],
+      "lines": 178,
+      "path": "tests/security/bully/test_p1_3_evidence.py"
+    },
+    {
+      "decision": "KEEP",
+      "imports": [
+        "portal.modules.security.core.bully.organ",
+        "portal.modules.security.core.bully.store"
+      ],
+      "lines": 264,
+      "path": "tests/security/bully/test_p1_4_organ.py"
+    },
+    {
+      "decision": "KEEP",
+      "imports": [
+        "portal.modules.security.core.bully.cousin_engine",
+        "portal.modules.security.core.bully.signatures"
+      ],
+      "lines": 316,
+      "path": "tests/security/bully/test_p1_5_cousin_engine.py"
+    },
+    {
+      "decision": "KEEP",
+      "imports": [
+        "portal.modules.security.core.bully.investigation"
+      ],
+      "lines": 102,
+      "path": "tests/security/bully/test_p1_6_investigation.py"
+    },
+    {
+      "decision": "KEEP",
+      "imports": [
+        "portal.modules.security.core.bully.investigation",
+        "portal.modules.security.core.bully.orchestrator",
+        "portal.modules.security.core.bully.organ",
+        "portal.modules.security.core.bully.store"
+      ],
+      "lines": 329,
+      "path": "tests/security/bully/test_p1_7_orchestrator.py"
+    },
+    {
+      "decision": "KEEP",
+      "imports": [
+        "portal.modules.security.core.bully.contracts",
+        "portal.modules.security.core.bully.store"
+      ],
+      "lines": 409,
+      "path": "tests/security/bully/test_p2_1_bin_tables.py"
+    },
+    {
+      "decision": "KEEP",
+      "imports": [
+        "portal.modules.security.core.bully.contracts",
+        "portal.modules.security.core.bully.promotion",
+        "portal.modules.security.core.bully.store"
+      ],
+      "lines": 415,
+      "path": "tests/security/bully/test_p2_2_promotion.py"
+    },
+    {
+      "decision": "KEEP",
+      "imports": [
+        "portal.modules.security.core.bully.adversary",
+        "portal.modules.security.core.bully.contracts",
+        "portal.modules.security.core.bully.store"
+      ],
+      "lines": 428,
+      "path": "tests/security/bully/test_p2_3_adversary.py"
+    },
+    {
+      "decision": "KEEP",
+      "imports": [
+        "portal.modules.security.core.bully.contracts",
+        "portal.modules.security.core.bully.soc",
+        "portal.modules.security.core.bully.store"
+      ],
+      "lines": 261,
+      "path": "tests/security/bully/test_p2_4_soc.py"
+    },
+    {
+      "decision": "KEEP",
+      "imports": [
+        "portal.modules.security.core.bully.contracts",
+        "portal.modules.security.core.bully.orchestrator",
+        "portal.modules.security.core.bully.promotion",
+        "portal.modules.security.core.bully.store"
+      ],
+      "lines": 299,
+      "path": "tests/security/bully/test_p2_5_queue.py"
+    },
+    {
+      "decision": "KEEP",
+      "imports": [
+        "portal.modules.security.core.bully.adversary",
+        "portal.modules.security.core.bully.contracts",
+        "portal.modules.security.core.bully.investigation",
+        "portal.modules.security.core.bully.orchestrator",
+        "portal.modules.security.core.bully.organ",
+        "portal.modules.security.core.bully.promotion",
+        "portal.modules.security.core.bully.store"
+      ],
+      "lines": 363,
+      "path": "tests/security/bully/test_p2_e2e_demonstration.py"
+    },
+    {
+      "decision": "KEEP",
+      "imports": [
+        "portal.modules.security.core.bully.contracts",
+        "portal.modules.security.core.bully.mutation"
+      ],
+      "lines": 268,
+      "path": "tests/security/bully/test_p3_1_mutation.py"
+    },
+    {
+      "decision": "KEEP",
+      "imports": [
+        "portal.modules.security.core.bully.drift_engine"
+      ],
+      "lines": 189,
+      "path": "tests/security/bully/test_p3_2_drift.py"
+    },
+    {
+      "decision": "KEEP",
+      "imports": [
+        "portal.modules.security.core.bully.contracts",
+        "portal.modules.security.core.bully.investigation",
+        "portal.modules.security.core.bully.mutation",
+        "portal.modules.security.core.bully.orchestrator",
+        "portal.modules.security.core.bully.organ",
+        "portal.modules.security.core.bully.store"
+      ],
+      "lines": 182,
+      "path": "tests/security/bully/test_p3_3_mutation_wiring.py"
+    },
+    {
+      "decision": "KEEP",
+      "imports": [
+        "portal.modules.security.core.bully.investigation",
+        "portal.modules.security.core.bully.orchestrator",
+        "portal.modules.security.core.bully.organ",
+        "portal.modules.security.core.bully.store"
+      ],
+      "lines": 105,
+      "path": "tests/security/bully/test_p3_4_drift_wiring.py"
+    },
+    {
+      "decision": "KEEP",
+      "imports": [
+        "portal.modules.security.core.bully.contracts",
+        "portal.modules.security.core.bully.costing",
+        "portal.modules.security.core.bully.store"
+      ],
+      "lines": 108,
+      "path": "tests/security/bully/test_p4_1_costing.py"
+    },
+    {
+      "decision": "KEEP",
+      "imports": [
+        "portal.modules.security.core.bully.investigation",
+        "portal.modules.security.core.bully.orchestrator",
+        "portal.modules.security.core.bully.organ",
+        "portal.modules.security.core.bully.scoreboard",
+        "portal.modules.security.core.bully.store"
+      ],
+      "lines": 226,
+      "path": "tests/security/bully/test_p4_2_scoreboard.py"
+    },
+    {
+      "decision": "KEEP",
+      "imports": [
+        "portal.modules.security.core.bully.costing",
+        "portal.modules.security.core.bully.targeting"
+      ],
+      "lines": 192,
+      "path": "tests/security/bully/test_p4_3_targeting.py"
+    },
+    {
+      "decision": "KEEP",
+      "imports": [
+        "portal.modules.security.core.bully.contracts",
+        "portal.modules.security.core.bully.investigation",
+        "portal.modules.security.core.bully.orchestrator",
+        "portal.modules.security.core.bully.organ",
+        "portal.modules.security.core.bully.store"
+      ],
+      "lines": 227,
+      "path": "tests/security/bully/test_p4_3_targeting_wiring.py"
+    },
+    {
+      "decision": "KEEP",
+      "imports": [
+        "portal.modules.security.core.bully.plateau"
+      ],
+      "lines": 172,
+      "path": "tests/security/bully/test_p4_4_plateau.py"
+    },
+    {
+      "decision": "KEEP",
+      "imports": [
+        "portal.modules.security.core.bully.investigation",
+        "portal.modules.security.core.bully.orchestrator",
+        "portal.modules.security.core.bully.organ",
+        "portal.modules.security.core.bully.store"
+      ],
+      "lines": 134,
+      "path": "tests/security/bully/test_p4_4_plateau_wiring.py"
+    },
+    {
+      "decision": "KEEP",
+      "imports": [
+        "portal.modules.security.core.bully.contracts",
+        "portal.modules.security.core.bully.store"
+      ],
+      "lines": 347,
+      "path": "tests/security/bully/test_p5_1_store.py"
+    },
+    {
+      "decision": "KEEP",
+      "imports": [
+        "portal.modules.security.core.bully.contracts",
+        "portal.modules.security.core.bully.handoff",
+        "portal.modules.security.core.bully.store"
+      ],
+      "lines": 370,
+      "path": "tests/security/bully/test_p5_2_handoff.py"
+    },
+    {
+      "decision": "KEEP",
+      "imports": [
+        "portal.modules.security.core.bully.contracts",
+        "portal.modules.security.core.bully.handoff",
+        "portal.modules.security.core.bully.orchestrator",
+        "portal.modules.security.core.bully.promotion",
+        "portal.modules.security.core.bully.store"
+      ],
+      "lines": 481,
+      "path": "tests/security/bully/test_p5_3_deploy.py"
+    },
+    {
+      "decision": "KEEP",
+      "imports": [
+        "portal.modules.security.core.bully.store"
+      ],
+      "lines": 380,
+      "path": "tests/security/bully/test_p6_1_store.py"
+    },
+    {
+      "decision": "KEEP",
+      "imports": [
+        "portal.modules.security.core.bully.contracts",
+        "portal.modules.security.core.bully.harvest",
+        "portal.modules.security.core.bully.store"
+      ],
+      "lines": 343,
+      "path": "tests/security/bully/test_p6_2_harvest.py"
+    },
+    {
+      "decision": "KEEP",
+      "imports": [
+        "portal.modules.security.core.bully.contracts",
+        "portal.modules.security.core.bully.playbooks",
+        "portal.modules.security.core.bully.store"
+      ],
+      "lines": 166,
+      "path": "tests/security/bully/test_p6_3_playbooks.py"
+    },
+    {
+      "decision": "KEEP",
+      "imports": [
+        "portal.modules.security.core.bully.store",
+        "portal.modules.security.core.bully.training"
+      ],
+      "lines": 500,
+      "path": "tests/security/bully/test_p6_4_training.py"
+    },
+    {
+      "decision": "DELETE",
+      "imports": [
+        "portal.modules.security.core.bully.roster"
+      ],
+      "lines": 188,
+      "path": "tests/security/bully/test_p6_5_roster.py"
+    },
+    {
+      "decision": "KEEP",
+      "imports": [
+        "portal.modules.security.core.bully.cousin_calibration_bench"
+      ],
+      "lines": 141,
+      "path": "tests/security/bully/test_p6_8_cousin_calibration.py"
+    },
+    {
+      "decision": "KEEP",
+      "imports": [
+        "portal.modules.security.core.bully.contracts",
+        "portal.modules.security.core.bully.cousin_calibration_bench",
+        "portal.modules.security.core.bully.cousin_forge",
+        "portal.modules.security.core.bully.specimen_ledger"
+      ],
+      "lines": 357,
+      "path": "tests/security/bully/test_p7_2_specimen_corpus.py"
+    },
+    {
+      "decision": "KEEP",
+      "imports": [
+        "portal.modules.security.core.bully.cousin_calibration_bench",
+        "portal.modules.security.core.bully.organ",
+        "portal.modules.security.core.bully.specimen_ledger"
+      ],
+      "lines": 289,
+      "path": "tests/security/bully/test_p7_3_specimen_scale.py"
+    },
+    {
+      "decision": "KEEP",
+      "imports": [
+        "portal.modules.security.core.bully.cousin_calibration_bench",
+        "portal.modules.security.core.bully.cousin_engine",
+        "portal.modules.security.core.bully.evidence",
+        "portal.modules.security.core.bully.signatures"
+      ],
+      "lines": 167,
+      "path": "tests/security/bully/test_p7_4_retrieval_validity.py"
+    },
+    {
+      "decision": "KEEP",
+      "imports": [
+        "portal.modules.security.core.bully.config",
+        "portal.modules.security.core.bully.contracts",
+        "portal.modules.security.core.bully.cutover",
+        "portal.modules.security.core.bully.orchestrator",
+        "portal.modules.security.core.bully.organ",
+        "portal.modules.security.core.bully.store"
+      ],
+      "lines": 318,
+      "path": "tests/security/bully/test_p7_cutover.py"
+    },
+    {
+      "decision": "KEEP",
+      "imports": [
+        "portal.modules.security.core.bully.orchestrator"
+      ],
+      "lines": 58,
+      "path": "tests/security/bully/test_r1_dry_run_red_status.py"
+    },
+    {
+      "decision": "KEEP",
+      "imports": [
+        "portal.modules.security.core.bully.orchestrator"
+      ],
+      "lines": 108,
+      "path": "tests/security/bully/test_r1_replay_driver.py"
+    },
+    {
+      "decision": "KEEP",
+      "imports": [
+        "portal.modules.security.core.bully.artifact_graph",
+        "portal.modules.security.core.bully.bots_answer_key",
+        "portal.modules.security.core.bully.pyramid",
+        "portal.modules.security.core.bully.telemetry_behavior"
+      ],
+      "lines": 175,
+      "path": "tests/security/bully/test_real_telemetry_t1.py"
+    },
+    {
+      "decision": "KEEP",
+      "imports": [
+        "portal.modules.security.core.bully.pyramid"
+      ],
+      "lines": 71,
+      "path": "tests/security/bully/test_reintegration_r1_pyramid.py"
+    },
+    {
+      "decision": "KEEP",
+      "imports": [
+        "portal.modules.security.core.bully.contracts",
+        "portal.modules.security.core.bully.loop_grader",
+        "portal.modules.security.core.bully.pyramid"
+      ],
+      "lines": 81,
+      "path": "tests/security/bully/test_reintegration_r2_loop_grader.py"
+    },
+    {
+      "decision": "KEEP",
+      "imports": [
+        "portal.modules.security.core.bully.cousin_engine",
+        "portal.modules.security.core.bully.pyramid",
+        "portal.modules.security.core.bully.signatures"
+      ],
+      "lines": 63,
+      "path": "tests/security/bully/test_reintegration_r3_behavioral_signatures.py"
+    },
+    {
+      "decision": "KEEP",
+      "imports": [
+        "portal.modules.security.core.bully.correlation"
+      ],
+      "lines": 140,
+      "path": "tests/security/bully/test_reintegration_r3b_correlation.py"
+    },
+    {
+      "decision": "KEEP",
+      "imports": [
+        "portal.modules.security.core.bully.anchors",
+        "portal.modules.security.core.bully.loop_grader",
+        "portal.modules.security.core.bully.series_cousin",
+        "portal.modules.security.core.bully.signatures"
+      ],
+      "lines": 180,
+      "path": "tests/security/bully/test_reintegration_r3c_series.py"
+    },
+    {
+      "decision": "KEEP",
+      "imports": [
+        "portal.modules.security.core.bully.investigation",
+        "portal.modules.security.core.bully.orchestrator",
+        "portal.modules.security.core.bully.organ",
+        "portal.modules.security.core.bully.store"
+      ],
+      "lines": 115,
+      "path": "tests/security/bully/test_reintegration_r4_cutover.py"
+    },
+    {
+      "decision": "KEEP",
+      "imports": [
+        "portal.modules.security.core.bully.field_roles",
+        "portal.modules.security.core.bully.universe"
+      ],
+      "lines": 122,
+      "path": "tests/security/bully/test_reintegration_r5_universe.py"
+    },
+    {
+      "decision": "KEEP",
+      "imports": [
+        "portal.modules.security.core.bully.inject_plane"
+      ],
+      "lines": 107,
+      "path": "tests/security/bully/test_reintegration_r5a_live_chains.py"
+    },
+    {
+      "decision": "KEEP",
+      "imports": [
+        "portal.modules.security.core.bully.behavior_classifier",
+        "portal.modules.security.core.bully.pyramid",
+        "portal.modules.security.core.bully.universe"
+      ],
+      "lines": 122,
+      "path": "tests/security/bully/test_reintegration_r5c_behavior_classifier.py"
+    },
+    {
+      "decision": "KEEP",
+      "imports": [
+        "portal.modules.security.core.bully.anchors"
+      ],
+      "lines": 93,
+      "path": "tests/security/bully/test_relate_a1_anchors.py"
+    },
+    {
+      "decision": "KEEP",
+      "imports": [
+        "portal.modules.security.core.bully.anchors",
+        "portal.modules.security.core.bully.relation",
+        "portal.modules.security.core.bully.signatures"
+      ],
+      "lines": 95,
+      "path": "tests/security/bully/test_relate_a2_relation_engine.py"
+    },
+    {
+      "decision": "KEEP",
+      "imports": [
+        "portal.modules.security.core.bully.anchors",
+        "portal.modules.security.core.bully.relation",
+        "portal.modules.security.core.bully.signatures"
+      ],
+      "lines": 76,
+      "path": "tests/security/bully/test_relate_a3_anomaly_success.py"
+    },
+    {
+      "decision": "KEEP",
+      "imports": [
+        "portal.modules.security.core.bully.connectors",
+        "portal.modules.security.core.bully.data_plane"
+      ],
+      "lines": 66,
+      "path": "tests/security/bully/test_relate_b1_ungated_intake.py"
+    },
+    {
+      "decision": "KEEP",
+      "imports": [
+        "portal.modules.security.core.bully.connectors",
+        "portal.modules.security.core.bully.data_plane",
+        "portal.modules.security.core.bully.seed_scope"
+      ],
+      "lines": 69,
+      "path": "tests/security/bully/test_relate_b2_seed_scope.py"
+    },
+    {
+      "decision": "KEEP",
+      "imports": [
+        "portal.modules.security.core.bully.contracts",
+        "portal.modules.security.core.bully.observed_mode"
+      ],
+      "lines": 72,
+      "path": "tests/security/bully/test_relate_b3_observed_mode.py"
+    },
+    {
+      "decision": "KEEP",
+      "imports": [
+        "portal.modules.security.core.bully.calibration"
+      ],
+      "lines": 61,
+      "path": "tests/security/bully/test_relate_g1_confidence_calibration.py"
+    },
+    {
+      "decision": "KEEP",
+      "imports": [
+        "portal.modules.security.core.bully.anchors",
+        "portal.modules.security.core.bully.provenance"
+      ],
+      "lines": 108,
+      "path": "tests/security/bully/test_relate_g2_provenance_tiers.py"
+    },
+    {
+      "decision": "KEEP",
+      "imports": [
+        "portal.modules.security.core.bully.anchors",
+        "portal.modules.security.core.bully.canary",
+        "portal.modules.security.core.bully.compounding",
+        "portal.modules.security.core.bully.signatures"
+      ],
+      "lines": 79,
+      "path": "tests/security/bully/test_relate_g3_contamination_canary.py"
+    },
+    {
+      "decision": "KEEP",
+      "imports": [
+        "portal.modules.security.core.bully.anchors",
+        "portal.modules.security.core.bully.degeneracy",
+        "portal.modules.security.core.bully.relation",
+        "portal.modules.security.core.bully.signatures"
+      ],
+      "lines": 84,
+      "path": "tests/security/bully/test_relate_g4_anti_degeneracy.py"
+    },
+    {
+      "decision": "KEEP",
+      "imports": [
+        "portal.modules.security.core.bully.anchors",
+        "portal.modules.security.core.bully.connectors",
+        "portal.modules.security.core.bully.data_plane",
+        "portal.modules.security.core.bully.observed_mode",
+        "portal.modules.security.core.bully.relation",
+        "portal.modules.security.core.bully.relation_investigation",
+        "portal.modules.security.core.bully.seed_scope",
+        "portal.modules.security.core.bully.signatures"
+      ],
+      "lines": 117,
+      "path": "tests/security/bully/test_relate_j1_relation_investigation.py"
+    },
+    {
+      "decision": "KEEP",
+      "imports": [
+        "portal.modules.security.core.bully.anchors",
+        "portal.modules.security.core.bully.contracts",
+        "portal.modules.security.core.bully.relation",
+        "portal.modules.security.core.bully.relation_promotion",
+        "portal.modules.security.core.bully.signatures",
+        "portal.modules.security.core.bully.store"
+      ],
+      "lines": 177,
+      "path": "tests/security/bully/test_relate_j2_bin_gates_on_relation.py"
+    },
+    {
+      "decision": "KEEP",
+      "imports": [
+        "portal.modules.security.core.bully.anchors",
+        "portal.modules.security.core.bully.compounding",
+        "portal.modules.security.core.bully.relation",
+        "portal.modules.security.core.bully.signatures"
+      ],
+      "lines": 98,
+      "path": "tests/security/bully/test_relate_j3_outcome_to_anchor.py"
+    },
+    {
+      "decision": "KEEP",
+      "imports": [
+        "portal.modules.security.core.bully.anchors",
+        "portal.modules.security.core.bully.data_plane",
+        "portal.modules.security.core.bully.measurement",
+        "portal.modules.security.core.bully.relation",
+        "portal.modules.security.core.bully.signatures"
+      ],
+      "lines": 128,
+      "path": "tests/security/bully/test_relate_m1_measurement_plane.py"
+    },
+    {
+      "decision": "KEEP",
+      "imports": [
+        "portal.modules.security.core.bully.anchors",
+        "portal.modules.security.core.bully.canary",
+        "portal.modules.security.core.bully.connectors",
+        "portal.modules.security.core.bully.data_plane",
+        "portal.modules.security.core.bully.measurement",
+        "portal.modules.security.core.bully.provenance"
+      ],
+      "lines": 94,
+      "path": "tests/security/bully/test_relate_m2_ci_invariants.py"
+    },
+    {
+      "decision": "KEEP",
+      "imports": [
+        "portal.modules.security.core.bully.class_onboarding",
+        "portal.modules.security.core.bully.cousin_calibration_bench",
+        "portal.modules.security.core.bully.source_adapters"
+      ],
+      "lines": 178,
+      "path": "tests/security/bully/test_sa1_class_onboarding.py"
+    },
+    {
+      "decision": "KEEP",
+      "imports": [
+        "portal.modules.security.core.bully.signatures",
+        "portal.modules.security.core.bully.source_adapters"
+      ],
+      "lines": 93,
+      "path": "tests/security/bully/test_sa1_source_adapters.py"
+    },
+    {
+      "decision": "KEEP",
+      "imports": [
+        "portal.modules.security.core.bully.cousin_engine",
+        "portal.modules.security.core.bully.discovery_bench"
+      ],
+      "lines": 97,
+      "path": "tests/security/bully/test_sa2_1_real_pairs.py"
+    },
+    {
+      "decision": "KEEP",
+      "imports": [
+        "portal.modules.security.core.bully.discovery_bench"
+      ],
+      "lines": 52,
+      "path": "tests/security/bully/test_sa2_2_taxonomy.py"
+    },
+    {
+      "decision": "KEEP",
+      "imports": [
+        "portal.modules.security.core.bully.discovery_bench"
+      ],
+      "lines": 57,
+      "path": "tests/security/bully/test_sa2_3_circularity.py"
+    },
+    {
+      "decision": "KEEP",
+      "imports": [
+        "portal.modules.security.core.bully.discovery_bench"
+      ],
+      "lines": 38,
+      "path": "tests/security/bully/test_sa2_4_cross_class.py"
+    },
+    {
+      "decision": "KEEP",
+      "imports": [
+        "portal.modules.security.core.bully.cousin_calibration_bench"
+      ],
+      "lines": 62,
+      "path": "tests/security/bully/test_sa2_5_forge_demotion.py"
+    },
+    {
+      "decision": "KEEP",
+      "imports": [
+        "portal.modules.security.core.bully.cousin_calibration_bench",
+        "portal.modules.security.core.bully.embedding_bench",
+        "portal.modules.security.core.bully.organ"
+      ],
+      "lines": 206,
+      "path": "tests/security/bully/test_sa3_1_embedding_bench.py"
+    },
+    {
+      "decision": "KEEP",
+      "imports": [
+        "portal.modules.security.core.bully.cousin_calibration_bench",
+        "portal.modules.security.core.bully.organ",
+        "portal.modules.security.core.bully.store"
+      ],
+      "lines": 200,
+      "path": "tests/security/bully/test_sa3_4_discovery_seed.py"
+    },
+    {
+      "decision": "KEEP",
+      "imports": [
+        "portal.modules.security.core.bully.cousin_calibration_bench",
+        "portal.modules.security.core.bully.discovery_bench",
+        "portal.modules.security.core.bully.organ",
+        "portal.modules.security.core.bully.store"
+      ],
+      "lines": 164,
+      "path": "tests/security/bully/test_sa3_5_discovery_bakeoff.py"
+    },
+    {
+      "decision": "KEEP",
+      "imports": [
+        "portal.modules.security.core.bully.analyst_corpus"
+      ],
+      "lines": 127,
+      "path": "tests/security/bully/test_sa4_1_source_evaluation.py"
+    },
+    {
+      "decision": "KEEP",
+      "imports": [
+        "portal.modules.security.core.bully.analyst_corpus"
+      ],
+      "lines": 196,
+      "path": "tests/security/bully/test_sa4_2_broad_ingestion.py"
+    },
+    {
+      "decision": "KEEP",
+      "imports": [
+        "portal.modules.security.core.bully.analyst_corpus"
+      ],
+      "lines": 118,
+      "path": "tests/security/bully/test_sa4_3_benign.py"
+    },
+    {
+      "decision": "KEEP",
+      "imports": [
+        "portal.modules.security.core.bully.analyst_corpus"
+      ],
+      "lines": 210,
+      "path": "tests/security/bully/test_sa4_4_pivot_pairs.py"
+    },
+    {
+      "decision": "KEEP",
+      "imports": [
+        "portal.modules.security.core.bully.analyst_corpus"
+      ],
+      "lines": 100,
+      "path": "tests/security/bully/test_sa4_5_hypotheses.py"
+    },
+    {
+      "decision": "KEEP",
+      "imports": [
+        "portal.modules.security.core.bully.analyst_corpus",
+        "portal.modules.security.core.bully.costing",
+        "portal.modules.security.core.bully.store",
+        "portal.modules.security.core.bully.targeting"
+      ],
+      "lines": 194,
+      "path": "tests/security/bully/test_sa4_6_snapshot_integration.py"
+    },
+    {
+      "decision": "KEEP",
+      "imports": [
+        "portal.modules.security.core.bully.analyst_corpus"
+      ],
+      "lines": 158,
+      "path": "tests/security/bully/test_sa5_1_acquisition.py"
+    },
+    {
+      "decision": "KEEP",
+      "imports": [
+        "portal.modules.security.core.bully.analyst_corpus",
+        "portal.modules.security.core.bully.signatures",
+        "portal.modules.security.core.bully.source_adapters"
+      ],
+      "lines": 136,
+      "path": "tests/security/bully/test_sa5_2_cloudtrail_parsers.py"
+    },
+    {
+      "decision": "KEEP",
+      "imports": [
+        "portal.modules.security.core.bully.handoff"
+      ],
+      "lines": 123,
+      "path": "tests/security/bully/test_sa5_3_cloud_detections.py"
+    },
+    {
+      "decision": "KEEP",
+      "imports": [
+        "portal.modules.security.core.bully.analyst_corpus",
+        "portal.modules.security.core.bully.class_onboarding"
+      ],
+      "lines": 133,
+      "path": "tests/security/bully/test_sa5_5_real_ingest.py"
+    },
+    {
+      "decision": "KEEP",
+      "imports": [
+        "portal.modules.security.core.bully.analyst_corpus"
+      ],
+      "lines": 108,
+      "path": "tests/security/bully/test_sa5_6_snapshot_v2.py"
+    },
+    {
+      "decision": "KEEP",
+      "imports": [
+        "portal.modules.security.core.bully.analyst_corpus",
+        "portal.modules.security.core.bully.discovery_bench"
+      ],
+      "lines": 88,
+      "path": "tests/security/bully/test_sa5_7_discovery_v3.py"
+    },
+    {
+      "decision": "KEEP",
+      "imports": [
+        "portal.modules.security.core.bully.cousin_engine",
+        "portal.modules.security.core.bully.embedding_spaces"
+      ],
+      "lines": 125,
+      "path": "tests/security/bully/test_sa5_p02_space_thresholds.py"
+    },
+    {
+      "decision": "KEEP",
+      "imports": [
+        "portal.modules.security.core.bully.cousin_engine",
+        "portal.modules.security.core.bully.discovery_bench"
+      ],
+      "lines": 93,
+      "path": "tests/security/bully/test_sa5_p03_identity_diagnostic.py"
+    },
+    {
+      "decision": "KEEP",
+      "imports": [
+        "portal.modules.security.core.bully.cousin_engine",
+        "portal.modules.security.core.bully.discovery_bench",
+        "portal.modules.security.core.bully.embedding_spaces"
+      ],
+      "lines": 75,
+      "path": "tests/security/bully/test_sa5_p04_adoption.py"
+    },
+    {
+      "decision": "KEEP",
+      "imports": [
+        "portal.modules.security.core.bully.connectors",
+        "portal.modules.security.core.bully.data_plane",
+        "portal.modules.security.core.bully.source_adapters"
+      ],
+      "lines": 162,
+      "path": "tests/security/bully/test_sa7_data_plane.py"
+    },
+    {
+      "decision": "KEEP",
+      "imports": [
+        "portal.modules.security.core.bully.advisories",
+        "portal.modules.security.core.bully.connectors",
+        "portal.modules.security.core.bully.coverage",
+        "portal.modules.security.core.bully.data_plane",
+        "portal.modules.security.core.bully.live_profiles",
+        "portal.modules.security.core.bully.phase0_gate",
+        "portal.modules.security.core.bully.planner_proof"
+      ],
+      "lines": 66,
+      "path": "tests/security/bully/test_sa7_l10_phase0_gate.py"
+    },
+    {
+      "decision": "KEEP",
+      "imports": [
+        "portal.modules.security.core.bully.connectors",
+        "portal.modules.security.core.bully.data_plane",
+        "portal.modules.security.core.bully.live_connect"
+      ],
+      "lines": 101,
+      "path": "tests/security/bully/test_sa7_l1_live_connect.py"
+    },
+    {
+      "decision": "KEEP",
+      "imports": [
+        "portal.modules.security.core.bully.coverage",
+        "portal.modules.security.core.bully.data_plane"
+      ],
+      "lines": 35,
+      "path": "tests/security/bully/test_sa7_l3_coverage.py"
+    },
+    {
+      "decision": "KEEP",
+      "imports": [
+        "portal.modules.security.core.bully.case_history",
+        "portal.modules.security.core.bully.connectors",
+        "portal.modules.security.core.bully.contracts",
+        "portal.modules.security.core.bully.data_plane",
+        "portal.modules.security.core.bully.store"
+      ],
+      "lines": 91,
+      "path": "tests/security/bully/test_sa7_l4_case_history.py"
+    },
+    {
+      "decision": "KEEP",
+      "imports": [
+        "portal.modules.security.core.bully.asset_identity",
+        "portal.modules.security.core.bully.connectors",
+        "portal.modules.security.core.bully.data_plane"
+      ],
+      "lines": 45,
+      "path": "tests/security/bully/test_sa7_l5_asset_identity.py"
+    },
+    {
+      "decision": "KEEP",
+      "imports": [
+        "portal.modules.security.core.bully.advisories",
+        "portal.modules.security.core.bully.connectors",
+        "portal.modules.security.core.bully.data_plane"
+      ],
+      "lines": 49,
+      "path": "tests/security/bully/test_sa7_l6_advisories.py"
+    },
+    {
+      "decision": "KEEP",
+      "imports": [
+        "portal.modules.security.core.bully.connectors",
+        "portal.modules.security.core.bully.data_plane",
+        "portal.modules.security.core.bully.live_profiles"
+      ],
+      "lines": 40,
+      "path": "tests/security/bully/test_sa7_l7_live_profiles.py"
+    },
+    {
+      "decision": "KEEP",
+      "imports": [
+        "portal.modules.security.core.bully.connectors",
+        "portal.modules.security.core.bully.data_plane",
+        "portal.modules.security.core.bully.planner_proof"
+      ],
+      "lines": 50,
+      "path": "tests/security/bully/test_sa7_l8_planner_proof.py"
+    },
+    {
+      "decision": "KEEP",
+      "imports": [
+        "portal.modules.security.core.bully.connectors",
+        "portal.modules.security.core.bully.data_plane",
+        "portal.modules.security.core.bully.live_census"
+      ],
+      "lines": 32,
+      "path": "tests/security/bully/test_sa7_l9_live_census.py"
+    },
+    {
+      "decision": "KEEP",
+      "imports": [
+        "portal.modules.security.core.bully.score_sample"
+      ],
+      "lines": 137,
+      "path": "tests/security/bully/test_score_sample_k1.py"
+    },
+    {
+      "decision": "KEEP",
+      "imports": [
+        "portal.modules.security.core.bully.connectors",
+        "portal.modules.security.core.bully.full_pipeline",
+        "portal.modules.security.core.bully.live_connect",
+        "portal.modules.security.core.bully.score_sample"
+      ],
+      "lines": 116,
+      "path": "tests/security/bully/test_scorer_feed_k2.py"
+    },
+    {
+      "decision": "KEEP",
+      "imports": [
+        "portal.modules.security.core.bully.full_pipeline"
+      ],
+      "lines": 56,
+      "path": "tests/security/bully/test_scorer_feed_k5_ci_invariants.py"
+    },
+    {
+      "decision": "KEEP",
+      "imports": [
+        "portal.modules.security.core.bully.full_pipeline"
+      ],
+      "lines": 97,
+      "path": "tests/security/bully/test_starvation_k3.py"
+    },
+    {
+      "decision": "KEEP",
+      "imports": [
+        "portal.modules.security.core.bully.telemetry_behavior"
+      ],
+      "lines": 86,
+      "path": "tests/security/bully/test_telemetry_behavior_i5_concentration.py"
+    },
+    {
+      "decision": "KEEP",
+      "imports": [
+        "portal.modules.security.core.bully.truth_acceptance"
+      ],
+      "lines": 106,
+      "path": "tests/security/bully/test_truth_y1_acceptance.py"
+    },
+    {
+      "decision": "KEEP",
+      "imports": [
+        "portal.modules.security.core.bully.series_cousin"
+      ],
+      "lines": 98,
+      "path": "tests/security/bully/test_truth_y2_observed_coverage.py"
+    },
+    {
+      "decision": "KEEP",
+      "imports": [
+        "portal.modules.security.core.bully.correlation"
+      ],
+      "lines": 90,
+      "path": "tests/security/bully/test_truth_y3_priority_selection.py"
+    },
+    {
+      "decision": "KEEP",
+      "imports": [
+        "portal.modules.security.core.bully.analyst_loop",
+        "portal.modules.security.core.bully.anchors",
+        "portal.modules.security.core.bully.compounding",
+        "portal.modules.security.core.bully.signatures"
+      ],
+      "lines": 166,
+      "path": "tests/security/bully/test_truth_y4_quarantine_and_guard.py"
+    },
+    {
+      "decision": "KEEP",
+      "imports": [
+        "portal.modules.security.core.bully.behavior_classifier"
+      ],
+      "lines": 77,
+      "path": "tests/security/bully/test_truth_y5_output_distribution.py"
+    },
+    {
+      "decision": "KEEP",
+      "imports": [
+        "portal.modules.security.core.bully.field_roles"
+      ],
+      "lines": 190,
+      "path": "tests/security/bully/test_universal_e1_field_roles.py"
+    },
+    {
+      "decision": "KEEP",
+      "imports": [
+        "portal.modules.security.core.bully.artifact_graph",
+        "portal.modules.security.core.bully.blend"
+      ],
+      "lines": 87,
+      "path": "tests/security/bully/test_universal_e3_blend.py"
+    },
+    {
+      "decision": "KEEP",
+      "imports": [
+        "portal.modules.security.core.bully.artifact_graph",
+        "portal.modules.security.core.bully.baseline"
+      ],
+      "lines": 72,
+      "path": "tests/security/bully/test_universal_e4_baseline.py"
+    },
+    {
+      "decision": "KEEP",
+      "imports": [
+        "portal.modules.security.core.bully.connectors",
+        "portal.modules.security.core.bully.corpus_bed",
+        "portal.modules.security.core.bully.inject_plane",
+        "portal.modules.security.core.bully.live_connect",
+        "portal.modules.security.core.bully.specimen_ledger"
+      ],
+      "lines": 267,
+      "path": "tests/security/bully/test_universal_e5_inject_plane.py"
+    },
+    {
+      "decision": "KEEP",
+      "imports": [
+        "portal.modules.security.core.bully.anchors",
+        "portal.modules.security.core.bully.artifact_graph",
+        "portal.modules.security.core.bully.baseline",
+        "portal.modules.security.core.bully.unit_measurement",
+        "portal.modules.security.core.bully.unit_outcome"
+      ],
+      "lines": 190,
+      "path": "tests/security/bully/test_universal_m4_honest_metrics.py"
+    },
+    {
+      "decision": "KEEP",
+      "imports": [
+        "portal.modules.security.core.bully.artifact_graph",
+        "portal.modules.security.core.bully.unit_ladder",
+        "portal.modules.security.core.bully.unit_outcome"
+      ],
+      "lines": 78,
+      "path": "tests/security/bully/test_universal_m5_ci_invariants.py"
+    },
+    {
+      "decision": "KEEP",
+      "imports": [
+        "portal.modules.security.core.bully.artifact_graph",
+        "portal.modules.security.core.bully.unit_ladder"
+      ],
+      "lines": 81,
+      "path": "tests/security/bully/test_universal_u3_cross_vocabulary_ladder.py"
+    },
+    {
+      "decision": "KEEP",
+      "imports": [
+        "portal.modules.security.core.bully.anchors",
+        "portal.modules.security.core.bully.artifact_graph",
+        "portal.modules.security.core.bully.baseline",
+        "portal.modules.security.core.bully.unit_outcome"
+      ],
+      "lines": 92,
+      "path": "tests/security/bully/test_unknown_l1_writeback_suppression.py"
+    },
+    {
+      "decision": "KEEP",
+      "imports": [
+        "portal.modules.security.core.bully.anchors",
+        "portal.modules.security.core.bully.artifact_graph",
+        "portal.modules.security.core.bully.baseline",
+        "portal.modules.security.core.bully.unit_ladder",
+        "portal.modules.security.core.bully.unit_relation"
+      ],
+      "lines": 126,
+      "path": "tests/security/bully/test_unknown_m1_falsification_ladder.py"
+    },
+    {
+      "decision": "KEEP",
+      "imports": [
+        "portal.modules.security.core.bully.artifact_graph",
+        "portal.modules.security.core.bully.unit_relation"
+      ],
+      "lines": 99,
+      "path": "tests/security/bully/test_unknown_m2_ci_invariants.py"
+    },
+    {
+      "decision": "KEEP",
+      "imports": [
+        "portal.modules.security.core.bully.anchors"
+      ],
+      "lines": 69,
+      "path": "tests/security/bully/test_unknown_n1_benign_types.py"
+    },
+    {
+      "decision": "KEEP",
+      "imports": [
+        "portal.modules.security.core.bully.artifact_graph",
+        "portal.modules.security.core.bully.baseline"
+      ],
+      "lines": 94,
+      "path": "tests/security/bully/test_unknown_n2_baseline.py"
+    },
+    {
+      "decision": "KEEP",
+      "imports": [
+        "portal.modules.security.core.bully.cousin_relation"
+      ],
+      "lines": 57,
+      "path": "tests/security/bully/test_unknown_n3_likelihood_ratio.py"
+    },
+    {
+      "decision": "KEEP",
+      "imports": [
+        "portal.modules.security.core.bully.anchors",
+        "portal.modules.security.core.bully.artifact_graph",
+        "portal.modules.security.core.bully.baseline",
+        "portal.modules.security.core.bully.unit_measurement",
+        "portal.modules.security.core.bully.unit_outcome"
+      ],
+      "lines": 73,
+      "path": "tests/security/bully/test_unknown_t1_grading_plane_legend.py"
+    },
+    {
+      "decision": "KEEP",
+      "imports": [
+        "portal.modules.security.core.bully.unit_measurement"
+      ],
+      "lines": 38,
+      "path": "tests/security/bully/test_unknown_t2_held_out_split.py"
+    },
+    {
+      "decision": "KEEP",
+      "imports": [
+        "portal.modules.security.core.bully.anchors",
+        "portal.modules.security.core.bully.artifact_graph",
+        "portal.modules.security.core.bully.baseline",
+        "portal.modules.security.core.bully.unit_measurement",
+        "portal.modules.security.core.bully.unit_outcome"
+      ],
+      "lines": 81,
+      "path": "tests/security/bully/test_unknown_t3_precision_recall.py"
+    },
+    {
+      "decision": "KEEP",
+      "imports": [
+        "portal.modules.security.core.bully.anchors",
+        "portal.modules.security.core.bully.artifact_graph",
+        "portal.modules.security.core.bully.baseline",
+        "portal.modules.security.core.bully.unit_measurement"
+      ],
+      "lines": 160,
+      "path": "tests/security/bully/test_unknown_t4_leave_one_family_out.py"
+    },
+    {
+      "decision": "KEEP",
+      "imports": [
+        "portal.modules.security.core.bully.artifact_graph"
+      ],
+      "lines": 215,
+      "path": "tests/security/bully/test_unknown_u1_artifact_graph.py"
+    },
+    {
+      "decision": "KEEP",
+      "imports": [
+        "portal.modules.security.core.bully.artifact_graph"
+      ],
+      "lines": 51,
+      "path": "tests/security/bully/test_unknown_u2_unit_signature.py"
+    },
+    {
+      "decision": "KEEP",
+      "imports": [
+        "portal.modules.security.core.bully.artifact_graph"
+      ],
+      "lines": 75,
+      "path": "tests/security/bully/test_unknown_u3_action_classifier.py"
+    },
+    {
+      "decision": "KEEP",
+      "imports": [
+        "portal.modules.security.core.bully.artifact_graph",
+        "portal.modules.security.core.bully.unit_relation"
+      ],
+      "lines": 91,
+      "path": "tests/security/bully/test_unknown_v1_unit_relation.py"
+    },
+    {
+      "decision": "KEEP",
+      "imports": [
+        "portal.modules.security.core.bully.anchors",
+        "portal.modules.security.core.bully.artifact_graph",
+        "portal.modules.security.core.bully.baseline",
+        "portal.modules.security.core.bully.unit_outcome"
+      ],
+      "lines": 196,
+      "path": "tests/security/bully/test_unknown_v2_unit_outcome.py"
+    },
+    {
+      "decision": "KEEP",
+      "imports": [
+        "portal.modules.security.core.bully.artifact_graph"
+      ],
+      "lines": 111,
+      "path": "tests/security/review/test_intake_knowledge.py"
+    },
+    {
+      "decision": "KEEP",
+      "imports": [
+        "portal.modules.security.core.bully.artifact_graph",
+        "portal.modules.security.core.bully.discovery"
+      ],
+      "lines": 53,
+      "path": "tests/security/review_eval/test_arms.py"
+    },
+    {
+      "decision": "KEEP",
+      "imports": [
+        "portal.modules.security.core.bully.artifact_graph"
+      ],
+      "lines": 62,
+      "path": "tests/security/review_eval/test_folds.py"
+    },
+    {
+      "decision": "KEEP",
+      "imports": [
+        "portal.modules.security.core.bully.artifact_graph"
+      ],
+      "lines": 78,
+      "path": "tests/security/review_eval/test_traces.py"
+    },
+    {
+      "decision": "KEEP",
+      "imports": [
+        "portal.modules.security.core.bully.corpus_bed"
+      ],
+      "lines": 184,
+      "path": "tests/security/review_eval/test_truth.py"
+    }
+  ]
+}
