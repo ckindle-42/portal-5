@@ -1,3 +1,4 @@
+> NOT EVIDENCE: written before the review program and unstamped. Current state: docs/BULLY_REVIEW_STATE.md (derived). Program: docs/BULLY_REVIEW_PROGRAM.md.
 # HANDOFF — Bully / Crogl, state as of 2026-08-21
 
 **Repo HEAD at time of writing:** `TASK_BULLY_HUNT_SWEEP_V1` H.0–H.4 and H.6 are

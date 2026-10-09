@@ -1,3 +1,4 @@
+> NOT EVIDENCE: written before the review program and unstamped. Current state: docs/BULLY_REVIEW_STATE.md (derived). Program: docs/BULLY_REVIEW_PROGRAM.md.
 # BULLY_ADAPTIVE_REACH_RUN_A6_V1.md
 
 

@@ -1,3 +1,4 @@
+> NOT EVIDENCE: written before the review program and unstamped. Current state: docs/BULLY_REVIEW_STATE.md (derived). Program: docs/BULLY_REVIEW_PROGRAM.md.
 # DESIGN_BULLY_REAL_TELEMETRY_V1
 
 Design note for `TASK_BULLY_REAL_TELEMETRY_V1`, which makes the behaviour

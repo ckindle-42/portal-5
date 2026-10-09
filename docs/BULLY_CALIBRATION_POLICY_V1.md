@@ -1,3 +1,4 @@
+> NOT EVIDENCE: written before the review program and unstamped. Current state: docs/BULLY_REVIEW_STATE.md (derived). Program: docs/BULLY_REVIEW_PROGRAM.md.
 # Defensive Bully cousin-calibration policy v1
 
 `CALIB_DISTANCE_POLICY_V1` is the frozen construction-distance x-axis for

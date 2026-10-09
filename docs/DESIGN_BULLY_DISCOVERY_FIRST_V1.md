@@ -1,3 +1,4 @@
+> NOT EVIDENCE: written before the review program and unstamped. Current state: docs/BULLY_REVIEW_STATE.md (derived). Program: docs/BULLY_REVIEW_PROGRAM.md.
 # DESIGN_BULLY_DISCOVERY_FIRST_V1
 
 Full-scope design doc for `TASK_BULLY_DISCOVERY_FIRST_V1`, which inverts the

@@ -1,3 +1,4 @@
+> NOT EVIDENCE: written before the review program and unstamped. Current state: docs/BULLY_REVIEW_STATE.md (derived). Program: docs/BULLY_REVIEW_PROGRAM.md.
 # DESIGN_BULLY_HUNT_SWEEP_V1
 
 `TASK_BULLY_HUNT_SWEEP_V1`. Widens K.4's proven locate-plant-hunt loop from

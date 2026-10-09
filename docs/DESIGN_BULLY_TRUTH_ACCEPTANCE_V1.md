@@ -1,3 +1,4 @@
+> NOT EVIDENCE: written before the review program and unstamped. Current state: docs/BULLY_REVIEW_STATE.md (derived). Program: docs/BULLY_REVIEW_PROGRAM.md.
 # DESIGN_BULLY_TRUTH_ACCEPTANCE_V1
 
 TASK_BULLY_TRUTH_ACCEPTANCE_V1 (Y). Every acceptance number becomes a join

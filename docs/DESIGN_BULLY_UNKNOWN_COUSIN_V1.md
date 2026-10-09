@@ -1,3 +1,4 @@
+> NOT EVIDENCE: written before the review program and unstamped. Current state: docs/BULLY_REVIEW_STATE.md (derived). Program: docs/BULLY_REVIEW_PROGRAM.md.
 # DESIGN_BULLY_UNKNOWN_COUSIN_V1
 
 > **2026-08-20 — wired into the loop.** The organ this doc designs is no longer

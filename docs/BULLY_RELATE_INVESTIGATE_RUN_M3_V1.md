@@ -1,3 +1,4 @@
+> NOT EVIDENCE: written before the review program and unstamped. Current state: docs/BULLY_REVIEW_STATE.md (derived). Program: docs/BULLY_REVIEW_PROGRAM.md.
 # TASK_BULLY_RELATE_AND_INVESTIGATE_V1 — M.3 run and record
 
 

@@ -1,3 +1,4 @@
+> NOT EVIDENCE: written before the review program and unstamped. Current state: docs/BULLY_REVIEW_STATE.md (derived). Program: docs/BULLY_REVIEW_PROGRAM.md.
 # BULLY_FULL_ASSEMBLY_RUN_F4_V1
 
 ## assembly_verdict: **PROXY_SCALE**

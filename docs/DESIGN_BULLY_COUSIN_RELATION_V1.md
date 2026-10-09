@@ -1,3 +1,4 @@
+> NOT EVIDENCE: written before the review program and unstamped. Current state: docs/BULLY_REVIEW_STATE.md (derived). Program: docs/BULLY_REVIEW_PROGRAM.md.
 # DESIGN_BULLY_COUSIN_RELATION_V1.md
 
 Reference document for `TASK_BULLY_COUSIN_RELATION_V1`. Written before the

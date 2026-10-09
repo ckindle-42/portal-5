@@ -1,3 +1,4 @@
+> NOT EVIDENCE: written before the review program and unstamped. Current state: docs/BULLY_REVIEW_STATE.md (derived). Program: docs/BULLY_REVIEW_PROGRAM.md.
 # Defensive Bully `BASELINE_CALIBRATION_V3` reference
 
 **Superseded as the product metric (SA2, A3):** this document characterizes

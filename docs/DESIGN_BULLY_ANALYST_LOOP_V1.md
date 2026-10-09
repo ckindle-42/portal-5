@@ -1,3 +1,4 @@
+> NOT EVIDENCE: written before the review program and unstamped. Current state: docs/BULLY_REVIEW_STATE.md (derived). Program: docs/BULLY_REVIEW_PROGRAM.md.
 # DESIGN_BULLY_ANALYST_LOOP_V1
 
 Design doc for `TASK_BULLY_ANALYST_LOOP_V1`. Inherits `TASK_BULLY_00_MASTER_V1`,

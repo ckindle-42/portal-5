@@ -1,3 +1,4 @@
+> NOT EVIDENCE: written before the review program and unstamped. Current state: docs/BULLY_REVIEW_STATE.md (derived). Program: docs/BULLY_REVIEW_PROGRAM.md.
 # Defensive Bully `BASELINE_CALIBRATION_V2` provenance (invalid as reference)
 
 `BASELINE_CALIBRATION_V2` is retained unchanged for provenance, but it is
