@@ -83,18 +83,18 @@ def test_service_persists_runs_exposes_verdict_queue_and_replays_as_of() -> None
         store=store,
     )
     assert first.concerns
-    assert service.queue(store)
+    assert service.queue(store=store)
 
     concern_id = first.concerns[0].concern_id
     service.record_verdict(
-        store,
         concern_id,
         Verdict.NOTHING,
         actor="analyst:test",
+        store=store,
         at=first.finished_at + 1.0,
     )
-    assert all(item.concern_id != concern_id for item in service.queue(store))
-    assert not service.contradictions(store)
+    assert all(item.concern_id != concern_id for item in service.queue(store=store))
+    assert not service.contradictions(store=store)
 
     replay = service.run_review(
         request,
@@ -124,10 +124,10 @@ def test_benign_verdict_anchor_events_are_excluded_from_calibration_null(
     )
     concern_id = first.concerns[0].concern_id
     writeback = service.record_verdict(
-        store,
         concern_id,
         Verdict.NOTHING,
         actor="analyst:test",
+        store=store,
         at=first.finished_at + 1.0,
     )
     assert writeback.anchor_id is not None

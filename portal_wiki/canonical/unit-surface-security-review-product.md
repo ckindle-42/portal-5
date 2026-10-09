@@ -13,7 +13,7 @@ tags:
 - review
 - product
 created_at: 1791551882.0
-updated_at: 1791551882.0
+updated_at: 1791552334.0
 ---
 
 `portal/modules/security/core/review/` is the label-blind product path. The
@@ -25,13 +25,24 @@ learned anchors recalibrates from a recorded benign window after excluding any
 unit that overlaps events used by a benign verdict anchor.
 
 `ReviewStore` keeps concerns, append-only analyst verdicts, and learned anchors.
-`service.record_verdict`, `service.queue`, and `service.contradictions` expose
+`service.DEFAULT_STORE` is the in-memory store used when a caller does not
+inject a store; `service.record_verdict`, `service.queue`, and
+`service.contradictions` expose
 the analyst loop. A `nothing` verdict adds a benign pattern, a `something`
 verdict adds a confirmed finding, `unsure` adds no anchor, and a reversal
 quarantines the earlier anchor. `run_review(as_of=...)` builds knowledge from
 records known at that time, so a later verdict does not alter an earlier
 replay. The default store is in-memory; callers may inject a store, with
 durable runs and MCP exposure owned by the next task.
+
+`defense` reads the configured technique-to-SPL library from the knowledge
+plane's top resemblance label and selects source-applicable detections. It adds the concern's entities before each
+SPL pipeline and bounds the read-only export to the concern's event times; a
+wider request-window search can identify a `NEAR_MISS` only when returned rows
+carry timestamps outside the concern interval. Rows inside the interval mean
+`COVERED`, applicable detections with no rows mean `MISSED`, and a missing
+detection, unavailable searcher, or unresolved time means `INDETERMINATE`.
+Nothing defaults to `COVERED`, and only aggregate query counts are receipted.
 
 ## Why
 

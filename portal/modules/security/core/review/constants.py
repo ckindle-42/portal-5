@@ -103,4 +103,8 @@ REGISTRY: dict[str, tuple[str, str]] = {
     ),
     "runs.RunStore.list.limit": ("bound", "rows returned by a listing"),
     "store.ReviewStore.queue.limit": ("bound", "rows returned by a queue listing"),
+    "defense.SPLUNK_EPOCH_PRECISION_S": (
+        "protocol",
+        "one Splunk epoch tick because bounded search windows serialize to six decimals",
+    ),
 }

@@ -7,7 +7,7 @@ import json
 from collections.abc import Sequence
 from dataclasses import dataclass
 
-from . import verdicts
+from . import defense, verdicts
 from .contracts import ReviewResult, StageReceipt, Verdict
 from .intake import IntakeResult, build_window_units
 from .knowledge import AnchorCard, AnchorIndex, Embedder
@@ -24,7 +24,7 @@ from .wall import assert_label_free
 from .window import SourceSpec, WindowSource
 
 DEFAULT_READER: JudgeFn | None = None
-_DEFAULT_STORE = ReviewStore()
+DEFAULT_STORE = ReviewStore()
 
 
 @dataclass(frozen=True)
@@ -91,12 +91,13 @@ def run_review(  # noqa: PLR0912 -- this is the sole path orchestration boundary
     store: ReviewStore | None = None,
     as_of: float | None = None,
     calibration_window: IntakeResult | None = None,
+    defense_search: defense.ReadOnlySearcher | None = None,
 ) -> ReviewResult:
     """Run the deterministic default path, with replayable verdict knowledge and write-back."""
     if request.end <= request.start:
         raise ValueError("request.end must be greater than request.start")
     chosen_config = config or request.config
-    active_store = store if store is not None else _DEFAULT_STORE
+    active_store = store if store is not None else DEFAULT_STORE
 
     if index is not None:
         if embedder is None:
@@ -164,6 +165,19 @@ def run_review(  # noqa: PLR0912 -- this is the sole path orchestration boundary
         config=chosen_config,
         judge=judge,
     )
+    searcher = defense_search or defense.source_searcher(source)
+    defense_receipt, defense_errors = defense.apply_to_result(
+        result,
+        intake,
+        request_start=request.start,
+        request_end=request.end,
+        searcher=searcher,
+    )
+    result.receipts.append(defense_receipt)
+    if defense_errors:
+        result.degraded.append(
+            f"defense searches had {defense_errors} error(s); affected responses are INDETERMINATE"
+        )
     result.degraded.extend(notes)
     if calibration_slice is not None and calibration_source is not None:
         null_receipt = calibration_slice.receipts[-1]
@@ -188,11 +202,11 @@ def run_review(  # noqa: PLR0912 -- this is the sole path orchestration boundary
 
 
 def record_verdict(
-    store: ReviewStore,
     concern_id: str,
     verdict: Verdict,
     *,
     actor: str,
+    store: ReviewStore = DEFAULT_STORE,
     note: str = "",
     scripted: bool = False,
     at: float | None = None,
@@ -209,11 +223,11 @@ def record_verdict(
     )
 
 
-def queue(store: ReviewStore, *, limit: int | None = None) -> list[StoredConcern]:
+def queue(*, store: ReviewStore = DEFAULT_STORE, limit: int | None = None) -> list[StoredConcern]:
     """Return concerns awaiting an analyst verdict."""
     return store.queue() if limit is None else store.queue(limit=limit)
 
 
-def contradictions(store: ReviewStore) -> list[dict[str, object]]:
+def contradictions(*, store: ReviewStore = DEFAULT_STORE) -> list[dict[str, object]]:
     """Return reversals and disagreements in the recorded review knowledge."""
     return verdicts.contradictions(store)

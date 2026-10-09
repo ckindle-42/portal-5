@@ -15,13 +15,14 @@ tags:
 - review
 - tests
 created_at: 1791527057.0
-updated_at: 1791527057.0
+updated_at: 1791552192.0
 ---
 
 `tests/security/review/` and `tests/security/review_eval/` hold focused tests
 for the review product and scorer plane. Product tests cover the truth wall,
-intake, knowledge, calibrated funnel, service, and Splunk/embedder adapters with
-fake I/O. Scorer tests cover capture-validator known answers, answer-key drops
+intake, knowledge, calibrated funnel, verdict replay and null-slice isolation,
+defense response mapping, service, and Splunk/embedder adapters with fake I/O.
+Scorer tests cover capture-validator known answers, answer-key drops
 and product event IDs, leave-one-family-out leakage, stage traces, report
 validation, and pre-registered decision rules.
 
