@@ -12,6 +12,8 @@ anti_goals:
   - tune no threshold, weight, cutoff, or prompt against the headline metric
   - run no attack, chain, target tool, or emulation operation
   - select a winning single reader without a measured reader comparison
-status: PREREGISTERED
+status: INCONCLUSIVE
+report: reports/review_eval/41eaed5720a9844f/t3_prerequisites.json
+result: Two of four single-reader candidates passed reasoning probes, but 0/3 eligible paired slices and no workload B leave challenger recall unmeasured.
 ---
 The control assigns the same model to read and challenge. The candidate assigns the challenger to a different configured seat whose reasoning probe passes; the current roster comes from `resolve_council_models()` in `bully/config.py`. The comparison is not executable until the truth slices and workload B are available and a single-reader model has been selected by the reader decision.
