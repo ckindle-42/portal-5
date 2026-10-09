@@ -261,6 +261,8 @@ services:
       - CHUNK_OVERLAP=100
       - PDF_EXTRACT_IMAGES=true
       - ENABLE_RAG_HYBRID_SEARCH=true
+      # bm25 weight 0.5 regressed dense-only 0.81 -> 0.64; 0.0-0.4 ties dense (EG2 followups R1)
+      - RAG_HYBRID_BM25_WEIGHT=0.2
 
       # ── Cross-Session Memory ────────────────────────────────────────────────
       # (ENABLE_MEMORY_FEATURE / MEMORY_EMBEDDING_MODEL were unread by this image; the

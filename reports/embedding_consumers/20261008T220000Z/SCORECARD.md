@@ -22,8 +22,8 @@ operator PDFs), cached Lance + arms from the EG2 cutover.
 always-blend (1.01) — scores identically on the extended set, so the gate's conditionality is
 still not shown to be load-bearing; but the tie means simplification buys nothing measured,
 while the gate remains the conservative guard for a confident-but-wrong text arm on unseen
-queries, and switching costs a pipeline rebuild. 0.88 is confirmed as the knee (0.86 loses 4
-prose hits).
+queries, and switching costs a pipeline rebuild. 0.88 is confirmed as the knee (0.86 loses 1
+prose hit).
 
 ## embed_sim vs the reranked arm on 52 public queries (`embed_sim_extended.json`)
 
@@ -32,15 +32,20 @@ prose hits).
 | text_gate 0.88 (reranker live) | 1.000 | 0.923 | 1.000 | 0.962 |
 | embed_sim (no reranker) | 0.952 | 0.769 | 0.962 | 0.846 |
 
-18 queries flip hit@1 between the arms, 15 in favor of the reranked arm, 3 in favor of
-embed_sim — exact McNemar p = 0.008. **The cutover's first-stage finding does not hold on the
-extended set: REJECT dropping the :8942 reranker from RAG.** (Compliance's operator lane keeps
+8 queries flip hit@1 between the arms, 7 in favor of the reranked arm, 1 in favor of
+embed_sim — exact McNemar p = 0.070 (paired over `text_gate_088_rows.json`, text_gate re-scored
+at τ 0.88 from the cached arms). **Corrected 2026-10-08:** this section first reported "15 vs 3,
+p = 0.008", computed against `tau_sweep_extended.json`'s per-query rows, which were scored at the
+run's τ 0.72, not 0.88 — at 0.72 the flips run the other way (embed_sim 15, text_gate 3). The
+direction at 0.88 favours the reranker (50 vs 44 hits) but is not significant. **The cutover's
+first-stage finding does not hold on the extended set; dropping the :8942 reranker from RAG is
+not shown — the incumbent stays.** (Compliance's operator lane keeps
 its reranker regardless — dense 0.583 vs reranked 0.717 there.)
 
 ## OWUI hybrid_bm25_weight sweep (`owui_hybrid_sweep.json`)
 
 Dense-only recall@3 = 0.8085 on the wiki fixture; hybrid is **identical at every bm25 weight
 0.0–0.4** (the lexical arm never displaces the dense top-3 units) and harmful only at 0.5
-(0.6383, the cutover's measured regression). **Applied `HYBRID_BM25_WEIGHT = 0.2` live** via
+(0.6383, the cutover's measured regression). **Applied `RAG_HYBRID_BM25_WEIGHT = 0.2` live** via
 `POST /api/v1/retrieval/config/update` (was 0.5): removes the regression, keeps the lexical arm
 for exact-token queries, reversible by the same API. Hybrid stays enabled.

@@ -55,16 +55,18 @@
   operator-local query set beside the production corpus — operator-internal down to its target
   file name, so HK keeps it out of the public tree.
 - **text_gate vs always-blend** — **REJECTED always-blend (evidence: ties)**: on the extended
-  set every τ ≥ 0.88 including 1.01 scores identically (all r@1 0.962; 0.86 loses 4 prose hits),
+  set every τ ≥ 0.88 including 1.01 scores identically (all r@1 0.962; 0.86 loses 1 prose hit),
   so 0.88 stays and the gate keeps its guard role; the tie gives simplification no measured
   gain and a switch costs a pipeline rebuild.
-- **Drop the :8942 reranker from RAG?** — **REJECTED (evidence: embed_sim loses)**: on 53
-  queries embed_sim 0.846 all r@1 vs reranked 0.962 (prose 0.769 vs 0.923; paired 15 vs 3
-  flips, exact McNemar p=0.008). The cutover's first-stage finding did not survive the extended
-  set. Compliance's operator lane keeps its reranker regardless.
+- **Drop the :8942 reranker from RAG?** — **REJECTED (evidence: not shown; incumbent stays)**:
+  on 52 public queries embed_sim 0.846 all r@1 vs reranked 0.962 (prose 0.769 vs 0.923; paired
+  7 vs 1 flips, exact McNemar p=0.070 — `text_gate_088_rows.json`). Corrected 2026-10-08: first
+  recorded as "53 queries, 15 vs 3, p=0.008", which paired against rows scored at τ 0.72. The cutover's
+  first-stage finding did not survive the extended set. Compliance's operator lane keeps its reranker regardless.
 - **OWUI hybrid weight** — DONE: dense-only 0.8085; hybrid identical at every bm25 weight
-  0.0–0.4, harmful only at 0.5 (0.6383). `HYBRID_BM25_WEIGHT` 0.5 → 0.2 applied live via
-  `POST /api/v1/retrieval/config/update`; hybrid stays enabled.
+  0.0–0.4, harmful only at 0.5 (0.6383). `RAG_HYBRID_BM25_WEIGHT` 0.5 → 0.2 applied live via
+  `POST /api/v1/retrieval/config/update`; hybrid stays enabled. Persisted for fresh installs in
+  `deploy/portal-5/docker-compose.yml` (the live value lived only in the OWUI DB).
 
 ## R2 — compliance retrieval on the operator corpora
 

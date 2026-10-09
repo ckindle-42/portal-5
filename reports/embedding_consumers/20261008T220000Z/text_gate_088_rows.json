@@ -1,0 +1,397 @@
+{
+  "fusion": "text_gate",
+  "vl_text_gate": 0.88,
+  "note": "per-query hit flags only; full rows (with retrieved file names) stay local beside the production corpus",
+  "summary": {
+    "diagram_only": {
+      "n": 21,
+      "recall@1": 1.0,
+      "recall@5": 1.0,
+      "mrr": 1.0,
+      "latency_s_median": 0.0,
+      "latency_s_mean": 0.0
+    },
+    "mixed": {
+      "n": 5,
+      "recall@1": 1.0,
+      "recall@5": 1.0,
+      "mrr": 1.0,
+      "latency_s_median": 0.0,
+      "latency_s_mean": 0.0
+    },
+    "prose_only": {
+      "n": 26,
+      "recall@1": 0.923,
+      "recall@5": 1.0,
+      "mrr": 0.952,
+      "latency_s_median": 0.0,
+      "latency_s_mean": 0.0
+    }
+  },
+  "rows": [
+    {
+      "id": "syn-pid-01",
+      "category": "diagram_only",
+      "rank": 1,
+      "hit@1": true,
+      "hit@5": true
+    },
+    {
+      "id": "syn-pid-02",
+      "category": "diagram_only",
+      "rank": 1,
+      "hit@1": true,
+      "hit@5": true
+    },
+    {
+      "id": "syn-pid-03",
+      "category": "diagram_only",
+      "rank": 1,
+      "hit@1": true,
+      "hit@5": true
+    },
+    {
+      "id": "syn-pid-04",
+      "category": "diagram_only",
+      "rank": 1,
+      "hit@1": true,
+      "hit@5": true
+    },
+    {
+      "id": "syn-pid-05",
+      "category": "diagram_only",
+      "rank": 1,
+      "hit@1": true,
+      "hit@5": true
+    },
+    {
+      "id": "syn-pid-06",
+      "category": "diagram_only",
+      "rank": 1,
+      "hit@1": true,
+      "hit@5": true
+    },
+    {
+      "id": "syn-net-01",
+      "category": "diagram_only",
+      "rank": 1,
+      "hit@1": true,
+      "hit@5": true
+    },
+    {
+      "id": "syn-net-02",
+      "category": "diagram_only",
+      "rank": 1,
+      "hit@1": true,
+      "hit@5": true
+    },
+    {
+      "id": "syn-net-03",
+      "category": "diagram_only",
+      "rank": 1,
+      "hit@1": true,
+      "hit@5": true
+    },
+    {
+      "id": "syn-net-04",
+      "category": "diagram_only",
+      "rank": 1,
+      "hit@1": true,
+      "hit@5": true
+    },
+    {
+      "id": "syn-net-05",
+      "category": "diagram_only",
+      "rank": 1,
+      "hit@1": true,
+      "hit@5": true
+    },
+    {
+      "id": "syn-hmi-01",
+      "category": "diagram_only",
+      "rank": 1,
+      "hit@1": true,
+      "hit@5": true
+    },
+    {
+      "id": "syn-hmi-02",
+      "category": "diagram_only",
+      "rank": 1,
+      "hit@1": true,
+      "hit@5": true
+    },
+    {
+      "id": "syn-hmi-03",
+      "category": "diagram_only",
+      "rank": 1,
+      "hit@1": true,
+      "hit@5": true
+    },
+    {
+      "id": "syn-hmi-04",
+      "category": "diagram_only",
+      "rank": 1,
+      "hit@1": true,
+      "hit@5": true
+    },
+    {
+      "id": "syn-ele-01",
+      "category": "diagram_only",
+      "rank": 1,
+      "hit@1": true,
+      "hit@5": true
+    },
+    {
+      "id": "syn-ele-02",
+      "category": "diagram_only",
+      "rank": 1,
+      "hit@1": true,
+      "hit@5": true
+    },
+    {
+      "id": "syn-leg-01",
+      "category": "diagram_only",
+      "rank": 1,
+      "hit@1": true,
+      "hit@5": true
+    },
+    {
+      "id": "syn-leg-02",
+      "category": "diagram_only",
+      "rank": 1,
+      "hit@1": true,
+      "hit@5": true
+    },
+    {
+      "id": "syn-tab-01",
+      "category": "diagram_only",
+      "rank": 1,
+      "hit@1": true,
+      "hit@5": true
+    },
+    {
+      "id": "syn-tab-02",
+      "category": "diagram_only",
+      "rank": 1,
+      "hit@1": true,
+      "hit@5": true
+    },
+    {
+      "id": "prose-cip-01",
+      "category": "prose_only",
+      "rank": 1,
+      "hit@1": true,
+      "hit@5": true
+    },
+    {
+      "id": "prose-cip-02",
+      "category": "prose_only",
+      "rank": 1,
+      "hit@1": true,
+      "hit@5": true
+    },
+    {
+      "id": "prose-cip-03",
+      "category": "prose_only",
+      "rank": 1,
+      "hit@1": true,
+      "hit@5": true
+    },
+    {
+      "id": "prose-cip-04",
+      "category": "prose_only",
+      "rank": 1,
+      "hit@1": true,
+      "hit@5": true
+    },
+    {
+      "id": "prose-cip-05",
+      "category": "prose_only",
+      "rank": 1,
+      "hit@1": true,
+      "hit@5": true
+    },
+    {
+      "id": "prose-cip-06",
+      "category": "prose_only",
+      "rank": 1,
+      "hit@1": true,
+      "hit@5": true
+    },
+    {
+      "id": "prose-cip-07",
+      "category": "prose_only",
+      "rank": 1,
+      "hit@1": true,
+      "hit@5": true
+    },
+    {
+      "id": "prose-cip-08",
+      "category": "prose_only",
+      "rank": 1,
+      "hit@1": true,
+      "hit@5": true
+    },
+    {
+      "id": "prose-cip-09",
+      "category": "prose_only",
+      "rank": 1,
+      "hit@1": true,
+      "hit@5": true
+    },
+    {
+      "id": "prose-cip-10",
+      "category": "prose_only",
+      "rank": 1,
+      "hit@1": true,
+      "hit@5": true
+    },
+    {
+      "id": "prose-cip-11",
+      "category": "prose_only",
+      "rank": 1,
+      "hit@1": true,
+      "hit@5": true
+    },
+    {
+      "id": "prose-cip-12",
+      "category": "prose_only",
+      "rank": 1,
+      "hit@1": true,
+      "hit@5": true
+    },
+    {
+      "id": "prose-cip-13",
+      "category": "prose_only",
+      "rank": 1,
+      "hit@1": true,
+      "hit@5": true
+    },
+    {
+      "id": "prose-cip-14",
+      "category": "prose_only",
+      "rank": 1,
+      "hit@1": true,
+      "hit@5": true
+    },
+    {
+      "id": "prose-nist-01",
+      "category": "prose_only",
+      "rank": 1,
+      "hit@1": true,
+      "hit@5": true
+    },
+    {
+      "id": "prose-nist-02",
+      "category": "prose_only",
+      "rank": 1,
+      "hit@1": true,
+      "hit@5": true
+    },
+    {
+      "id": "mixed-nist-01",
+      "category": "mixed",
+      "rank": 1,
+      "hit@1": true,
+      "hit@5": true
+    },
+    {
+      "id": "mixed-nist-02",
+      "category": "mixed",
+      "rank": 1,
+      "hit@1": true,
+      "hit@5": true
+    },
+    {
+      "id": "mixed-cip-01",
+      "category": "mixed",
+      "rank": 1,
+      "hit@1": true,
+      "hit@5": true
+    },
+    {
+      "id": "mixed-syn-01",
+      "category": "mixed",
+      "rank": 1,
+      "hit@1": true,
+      "hit@5": true
+    },
+    {
+      "id": "mixed-syn-02",
+      "category": "mixed",
+      "rank": 1,
+      "hit@1": true,
+      "hit@5": true
+    },
+    {
+      "id": "op-train-review",
+      "category": "prose_only",
+      "rank": 1,
+      "hit@1": true,
+      "hit@5": true
+    },
+    {
+      "id": "op-train-suspend",
+      "category": "prose_only",
+      "rank": 1,
+      "hit@1": true,
+      "hit@5": true
+    },
+    {
+      "id": "op-fw-default-deny",
+      "category": "prose_only",
+      "rank": 1,
+      "hit@1": true,
+      "hit@5": true
+    },
+    {
+      "id": "op-fw-last-rule",
+      "category": "prose_only",
+      "rank": 2,
+      "hit@1": false,
+      "hit@5": true
+    },
+    {
+      "id": "op-eac-esp-reclass",
+      "category": "prose_only",
+      "rank": 1,
+      "hit@1": true,
+      "hit@5": true
+    },
+    {
+      "id": "op-eac-ip-records",
+      "category": "prose_only",
+      "rank": 1,
+      "hit@1": true,
+      "hit@5": true
+    },
+    {
+      "id": "op-ids-dest",
+      "category": "prose_only",
+      "rank": 1,
+      "hit@1": true,
+      "hit@5": true
+    },
+    {
+      "id": "op-doccontrol-minor",
+      "category": "prose_only",
+      "rank": 4,
+      "hit@1": false,
+      "hit@5": true
+    },
+    {
+      "id": "op-ir-notify",
+      "category": "prose_only",
+      "rank": 1,
+      "hit@1": true,
+      "hit@5": true
+    },
+    {
+      "id": "op-netsvc-validation",
+      "category": "prose_only",
+      "rank": 1,
+      "hit@1": true,
+      "hit@5": true
+    }
+  ]
+}
