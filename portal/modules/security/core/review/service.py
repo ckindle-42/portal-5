@@ -430,22 +430,27 @@ class ReviewRuntime:
             raise ValueError(f"unknown concern {concern_id!r}")
         judge = concern.payload.get("judge") or {}
         claims = judge.get("claims") or [] if isinstance(judge, Mapping) else []
-        cited_ids = sorted(
-            {
-                str(event_id)
-                for claim in claims
-                if isinstance(claim, Mapping)
-                for event_id in claim.get("evidence_ids", [])
-            }
+        cited_ids = {
+            str(event_id)
+            for claim in claims
+            if isinstance(claim, Mapping)
+            for event_id in claim.get("evidence_ids", [])
+        }
+        evidence = concern.payload.get("evidence") or []
+        cited_ids.update(
+            str(item["event_id"])
+            for item in evidence
+            if isinstance(item, Mapping) and item.get("event_id")
         )
+        event_ids = sorted(cited_ids)
         stored_events = concern.record.get("evidence_events") or {}
-        missing = [event_id for event_id in cited_ids if event_id not in stored_events]
+        missing = [event_id for event_id in event_ids if event_id not in stored_events]
         if missing:
             raise ValueError(f"verbatim evidence text is unavailable for cited events: {missing}")
         return {
             "concern_id": concern_id,
             "claims": claims,
-            "events": {event_id: stored_events[event_id] for event_id in cited_ids},
+            "events": {event_id: stored_events[event_id] for event_id in event_ids},
         }
 
     def doctor(self, *, fix: bool = False) -> dict[str, Any]:

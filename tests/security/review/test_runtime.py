@@ -103,6 +103,30 @@ def test_runtime_lifecycle_explain_verdict_and_doctor(tmp_path: Path) -> None:
         runtime.close()
 
 
+def test_explain_includes_concern_evidence_without_reader_claims(tmp_path: Path) -> None:
+    runtime, request, _training = _runtime_for_fixture(tmp_path)
+    try:
+        run_id = runtime.start(request)
+        runtime.worker.join(run_id, timeout=10)
+        status = runtime.status(run_id)
+        assert status is not None and status.status.value == "COMPLETE"
+        result = runtime.result(run_id)
+        assert result is not None and result["concerns"]
+
+        concern = result["concerns"][0]
+        concern_id = str(concern["concern_id"])
+        expected_ids = {
+            str(item["event_id"]) for item in concern["evidence"] if item.get("event_id")
+        }
+        explanation = runtime.explain(concern_id)
+
+        assert explanation["claims"] == []
+        assert set(explanation["events"]) == expected_ids
+        assert all(event["text"] for event in explanation["events"].values())
+    finally:
+        runtime.close()
+
+
 def test_stale_embedder_refuses_run_then_doctor_reprojects_and_recalibrates(
     tmp_path: Path,
 ) -> None:
