@@ -19,7 +19,7 @@ tags:
 - mcp
 - platform
 created_at: 1788030600.446044
-updated_at: 1791376709
+updated_at: 1791527150
 ---
 
 # Wiki MCP — canonical knowledge layer
@@ -27,7 +27,7 @@ updated_at: 1791376709
 ## What
 
 The Wiki MCP (`portal_wiki/wiki_mcp.py`, port 8931) is a host-native service
-that serves the canonical knowledge layer in `portal_wiki/canonical/` — 768 canonical units. It is pipeline- and IDE-exposed and is the discovery index
+that serves the canonical knowledge layer in `portal_wiki/canonical/` — 770 canonical units. It is pipeline- and IDE-exposed and is the discovery index
 the whole documentation system is built on.
 
 ## How it's used

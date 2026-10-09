@@ -21,19 +21,20 @@ tags:
 - verified-v1
 - wiki
 created_at: 1785825842.272556
-updated_at: 1787350304.737129
+updated_at: 1791527128.0
 ---
 
 Three gates guarded the spine and none of them objected while README asserted 60
 benchmark workspaces against a live 65 and 22 MCP servers against a live 21:
- `AW` passes by comparing a generated block with its own unit body, `BR` passes by
+`AW` passes by comparing a generated block with its own unit body, `BR` passes by
 proving a new code surface is cited by *some* unit without asking whether the
 citation is true, and the retired `AK` ledger check bound zero docs —
 honestly, but leaving no doc-currency signal in the harness at all.
 Of 567 generated blocks across 25 Tier-1 docs, 7 came from a machine-derived
 `unit-fact-*` unit; the remaining 560 were authored prose with no executable link
-to code. Check `BS` closes that gap; the harness now carries 225 validate checks
-(`BT` later asserting archived units stay unreachable from the live store, `BU`
+to code. Check `BS` closes that gap; the harness now carries 226 validate checks,
+including `HO` (review-program derived state); `BT` asserts archived units stay
+unreachable from the live store, `BU`
 the complexity-census advisory, `BX` the pending-model-verdicts backlog cap,
 `BY`-`CI` the TASK_BULLY_RELATE_AND_INVESTIGATE_V1 operating/measurement
 invariants, `CJ`-`CQ` the TASK_BULLY_COUSIN_RELATION_V1 cousin-relation
