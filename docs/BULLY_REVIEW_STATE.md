@@ -37,6 +37,7 @@ Reachability of the engine package (static import closure):
 | id | stage | status | report | problems |
 |---|---|---|---|---|
 | D-T1-BASELINE | raised | INCONCLUSIVE | reports/review_eval/6a29bc97d0fd3b97/truth_derivation.json | none |
+| D-T2-TRUTH-STRATIFICATION | window | REJECTED | reports/review_eval/90890b3c9418457c/truth_stratification.md | none |
 
 ## Measured (stamped, real corpora only)
 
@@ -56,6 +57,14 @@ commit `d6145c276260`, embedder `google/embeddinggemma-2;dim=768;task=sentence s
 |---|---|---|---|
 | answer_key_entry_yield | 0.259259 | 27 | fails when declared entities cannot be independently located and reconciled |
 | usable_index_slice_yield | 0 | 3 | fails when none of the three pre-registered indexes has a paired real slice |
+
+### arm `?` stamp `90890b3c9418457c`
+
+commit `83ddaa0bd53a`, embedder `google/embeddinggemma-2;dim=768;task=sentence similarity;role=query`, corpus `real:bots_truth_manifest:4bf90b1a9ab892a8b7ae80f7c55707605f478bc5861d4a04d0958fe2e37ac9b5`
+
+| metric | value | n | reads as failure when |
+|---|---|---|---|
+| exact_parent_reconciliation_rate | 0 | 5 | fails when any completed current source replay differs from the T1 product event-id set |
 
 ### arm `legacy_funnel` stamp `2921d3691e815b53`
 
