@@ -79,6 +79,15 @@ TOOL_TO_SERVER: dict[str, str] = {
     # portal_security
     "classify_vulnerability": "portal_security",
     "lab_perception": "portal_security",
+    # Host-native grounded review MCP (config/portal.yaml mcp_fleet id=review).
+    "review_start": "portal_review",
+    "review_status": "portal_review",
+    "review_result": "portal_review",
+    "review_cancel": "portal_review",
+    "review_verdict": "portal_review",
+    "review_queue": "portal_review",
+    "review_explain": "portal_review",
+    "review_doctor": "portal_review",
     # portal_memory
     "remember": "portal_memory",
     "recall": "portal_memory",

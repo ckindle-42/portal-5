@@ -1,7 +1,7 @@
 """Tests that OWUI seeding payloads match the M3 oracle snapshots.
 
 Verifies:
-- All 150 persona preset payloads are byte-equal to the snapshot.
+- All persona preset payloads are byte-equal to the snapshot.
 - All existing workspace preset IDs are present in imports/openwebui/workspaces/.
 - No new preset IDs have appeared that aren't in either the snapshot or the
   21 previously-missing non-bench workspaces.
@@ -119,5 +119,5 @@ def test_persona_count_matches_snapshot() -> None:
     yaml_count = len(list(PERSONAS_DIR.glob("*.yaml")))
     assert yaml_count == len(snap), (
         f"Persona count mismatch: {yaml_count} YAMLs vs {len(snap)} in snapshot "
-        f"(130 valid personas — 20 orphan bench-* personas were removed in M3)"
+        "(snapshot must include every current persona)"
     )

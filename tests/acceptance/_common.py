@@ -759,6 +759,9 @@ PERSONA_PROMPTS_EXCLUDED: set[str] = {
     # workspace personas: dailydriver/auto-daily, nemotronlightning/auto-nemotron)
     "dailydriver",
     "nemotronlightning",
+    # The reviewer is exercised through the T5 MCP and Open WebUI end-to-end
+    # contract; a text-only persona smoke would not verify its tool path.
+    "securityreviewer",
 }
 PERSONA_PROMPTS = {
     k: tuple(v) for k, v in load_data("tests/data", "acceptance_common_persona_prompts").items()

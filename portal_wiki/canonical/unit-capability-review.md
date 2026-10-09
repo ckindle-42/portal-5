@@ -1,5 +1,5 @@
 ---
-id: unit-capability-security-review
+id: unit-capability-review
 kind: mixed
 title: "Security Review MCP — durable, evidence-grounded analyst review"
 sources:
@@ -53,6 +53,13 @@ tools to a read-only analyst workflow. T3's installed reviewer default is
 `no_reader`: the review engine does not make a model verdict. The chat model
 helps the analyst use the tools; the analyst owns every verdict.
 
+## Value
+
+An analyst can start a review, check its progress, inspect candidate evidence,
+record a verdict, and see unresolved work through the same Portal workspace,
+CLI, and MCP lifecycle. Durable state survives process restarts, while an
+unfinished run is explicitly marked `INTERRUPTED` instead of appearing live.
+
 ## Evidence contract
 
 `review_explain` returns a concern's claims and the exact event text the
@@ -69,6 +76,18 @@ last run's status. When the embedder identity changes, `review_doctor(fix=true)`
 rebuilds anchor vectors from stored card text and refits similarity nulls from
 the private recorded benign slice. A run refuses stale calibrations and gives
 the analyst the doctor repair command.
+
+`PORTAL5_REVIEW_EMBEDDING_DIM` selects the EG2 Matryoshka dimension used by the
+review embedder (default 768; supported dimensions are 768, 512, 256, and 128).
+Changing it changes the embedder identity; `review_doctor(fix=true)` reprojects
+the anchor index and refits the benign null before new runs are accepted.
+
+## Why
+
+The earlier hunt loop could leave work marked `running` without a process that
+owned its lifecycle. A durable run store gives each request a terminal state,
+progress record, result, and restart boundary. Separating candidate evidence
+from analyst verdicts keeps machine output from silently becoming ground truth.
 
 The MCP is host-native because it needs Splunk, the loopback embedding service,
 and the private local review directory. Its only telemetry reads are indexed

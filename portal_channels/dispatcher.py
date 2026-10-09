@@ -10,6 +10,7 @@ import asyncio
 import logging
 import os
 import time
+from typing import Any
 
 import httpx
 
@@ -37,6 +38,7 @@ VALID_WORKSPACES = frozenset(
         "auto-nemotron",
         "auto-spl",
         "auto-security",
+        "security-reviewer",
         "auto-creative",
         "auto-reasoning",
         "auto-council",
@@ -104,7 +106,7 @@ VALID_WORKSPACES = frozenset(
 )
 
 
-def _build_payload(messages: list[dict], workspace: str) -> dict:
+def _build_payload(messages: list[dict[str, Any]], workspace: str) -> dict[str, Any]:
     """Build the OpenAI-compatible chat completion payload."""
     return {
         "model": workspace,
@@ -120,7 +122,7 @@ def _auth_headers() -> dict[str, str]:
 async def call_pipeline_async(
     text: str,
     workspace: str,
-    history: list[dict] | None = None,
+    history: list[dict[str, Any]] | None = None,
     variant: str | None = None,
 ) -> str:
     """Call the Portal Pipeline asynchronously with retry on transient errors.

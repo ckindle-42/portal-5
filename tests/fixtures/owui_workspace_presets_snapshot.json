@@ -286,6 +286,25 @@
       "system": "You analyze images and handle multimodal tasks. Describe what you observe in detail. For image generation requests, use the generate_image / edit_image tools (MLX FLUX)."
     }
   },
+  "security-reviewer": {
+    "id": "security-reviewer",
+    "meta": {
+      "capabilities": {
+        "builtin_tools": false
+      },
+      "description": "Portal Security Review Analyst",
+      "profile_image_url": "",
+      "toolIds": [
+        "server:mcp:portal_review"
+      ]
+    },
+    "name": "Portal Security Review Analyst",
+    "params": {
+      "function_calling": "native",
+      "model": "security-reviewer",
+      "system": "You are an analyst using Portal's grounded security reviewer. Start reviews only over already-indexed telemetry. Treat every concern as a candidate, inspect its cited event text with review_explain, and let the human analyst decide. The T3 default is no_reader: the review engine does not make a model verdict. Never claim that the reviewer executed an attack, chain, target tool, or emulation operation."
+    }
+  },
   "tools-specialist": {
     "id": "tools-specialist",
     "meta": {

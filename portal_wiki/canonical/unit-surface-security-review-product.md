@@ -5,6 +5,8 @@ title: "Security review product path and analyst knowledge"
 sources:
 - type: code
   path: portal/modules/security/core/review/*.py
+- type: code
+  path: portal/modules/security/tools/review_mcp.py
 claims: []
 confidence: high
 tags:
@@ -33,7 +35,9 @@ verdict adds a confirmed finding, `unsure` adds no anchor, and a reversal
 quarantines the earlier anchor. `run_review(as_of=...)` builds knowledge from
 records known at that time, so a later verdict does not alter an earlier
 replay. The default store is in-memory; callers may inject a store, with
-durable runs and MCP exposure owned by the next task.
+the host-native MCP runtime supplying durable run and verdict stores for the
+analyst-facing product. The MCP exposes start, status, result, cancel, verdict,
+queue, explain, and doctor operations through the same `ReviewRuntime`.
 
 `defense` reads the configured technique-to-SPL library from the knowledge
 plane's top resemblance label and selects source-applicable detections. It adds the concern's entities before each

@@ -183,6 +183,7 @@ services:
       - MCP_DETECTION_URL=http://host.docker.internal:8938
       - MCP_DATA_URL=http://host.docker.internal:8939
       - MCP_NETFORENSICS_URL=http://host.docker.internal:8941
+      - MCP_REVIEW_URL=http://host.docker.internal:8943
       - TOOL_DISPATCH_TIMEOUT_S=${TOOL_DISPATCH_TIMEOUT_S:-180}
       - TOOL_REGISTRY_REFRESH_S=${TOOL_REGISTRY_REFRESH_S:-300}
     extra_hosts:

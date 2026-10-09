@@ -608,7 +608,7 @@ class TestDispatcher:
         assert callable(call_pipeline_sync)
         assert callable(is_valid_workspace)
 
-    def test_valid_workspaces_covers_all_16(self):
+    def test_valid_workspaces_covers_pipeline_workspaces(self):
         """Dispatcher knows all canonical workspace IDs."""
         import sys
 

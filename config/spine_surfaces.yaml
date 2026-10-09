@@ -584,6 +584,10 @@ surfaces:
   globs:
   - portal/modules/security/tools/proxmox_mcp.py
   unit: unit-capability-proxmox
+- name: file-portal-modules-security-tools-review_mcp
+  globs:
+  - portal/modules/security/tools/review_mcp.py
+  unit: unit-capability-review
 - name: file-portal-modules-security-tools-security_mcp
   globs:
   - portal/modules/security/tools/security_mcp.py
