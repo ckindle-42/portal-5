@@ -167,3 +167,86 @@ def test_maturation_silences_the_exact_repeat_but_not_the_cousin() -> None:
     assert cousins, "a unit that merely resembles the benign pattern must still surface"
     assert all(c.unit_id != closed.unit_id for c in second.concerns)
     assert cousins[0].resembles[0].malice == "benign"
+
+
+def test_poisoned_benign_knowledge_is_quarantined_and_cycle_three_raises_again() -> None:
+    embedder = HashEmbedder()
+    window = intake.build_window_units(
+        three_source_window(seed=141, n=300, attacker="attacker-account")
+    )
+    baseline = funnel.fit_baseline([u.unit for u in window.units], "t")
+    store = ReviewStore()
+    config = pipeline.ReviewConfig(policy=POLICY)
+
+    cycle_one_null = cal.CalibrationSet()
+    cycle_one_null.put(_flat(funnel.CHANNEL_UNUSUAL, -1.0))
+    cycle_one = pipeline.review_window(
+        window,
+        reference=pipeline.Reference(baseline, cycle_one_null, "benign_slice"),
+        index=None,
+        embedder=None,
+        config=config,
+    )
+    malicious = next(
+        (
+            concern
+            for concern in cycle_one.concerns
+            if any(
+                "certutil -urlcache" in window.events[ref.event_id].text.lower()
+                for ref in concern.evidence
+            )
+        ),
+        None,
+    )
+    assert malicious is not None  # fixture truth: this unit contains the planted attack sequence
+    verdicts.persist_run(store, cycle_one, window)
+
+    wrong = verdicts.record_verdict(
+        store,
+        malicious.concern_id,
+        Verdict.NOTHING,
+        actor="analyst:incorrect-close",
+        at=cycle_one.finished_at + 1.0,
+    )
+    assert wrong.anchor_id is not None
+    cycle_two_cards = verdicts.cards_from_store(store)
+    cycle_two_index = knowledge.AnchorIndex.build(cycle_two_cards, embedder)
+    cycle_two_null = cal.CalibrationSet()
+    cycle_two_null.put(_flat(funnel.CHANNEL_UNUSUAL, 9.0))
+    cycle_two_null.put(_flat(funnel.CHANNEL_SIMILAR, -1.0, embedder.identity))
+    cycle_two = pipeline.review_window(
+        window,
+        reference=pipeline.Reference(baseline, cycle_two_null, "benign_slice"),
+        index=cycle_two_index,
+        embedder=embedder,
+        config=config,
+    )
+    assert malicious.unit_id in {concern.unit_id for concern in cycle_two.suppressed}
+
+    reversal = verdicts.record_verdict(
+        store,
+        malicious.concern_id,
+        Verdict.SOMETHING,
+        actor="analyst:corrected-review",
+        at=cycle_one.finished_at + 2.0,
+    )
+    assert reversal.quarantined == [wrong.anchor_id]
+    assert wrong.anchor_id not in {card.anchor_id for card in verdicts.cards_from_store(store)}
+    assert wrong.anchor_id in {
+        row.anchor_id for row in store.anchors(include_quarantined=True) if row.quarantined
+    }
+
+    cycle_three_index = knowledge.AnchorIndex.build(verdicts.cards_from_store(store), embedder)
+    cycle_three = pipeline.review_window(
+        window,
+        reference=pipeline.Reference(baseline, cycle_two_null, "benign_slice"),
+        index=cycle_three_index,
+        embedder=embedder,
+        config=config,
+    )
+    reopened = [concern for concern in cycle_three.concerns if concern.unit_id == malicious.unit_id]
+    assert reopened and reopened[0].outcome == Outcome.KNOWN_INSTANCE
+    assert any(
+        item["kind"] == "analyst_reversal" and item["concern_ids"] == [malicious.concern_id]
+        for item in verdicts.contradictions(store)
+    )
