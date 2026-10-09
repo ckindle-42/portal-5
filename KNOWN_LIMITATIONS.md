@@ -1680,6 +1680,14 @@ Failing loudly at emit time keeps the model's correction loop honest: a silent a
   the retired harrier constants on every band, so the clamp never binds for the primary space
   and remains the anti-tuning guard for tighter future spaces
   (`reports/bully_b1/20261008T195439Z/THRESHOLDS_B1_4.md`).
+- **Thresholds T1 check (2026-10-08, TASK_BULLY_V3_THRESHOLD_VALIDATION_V1)**: `same_max_distance`
+  stays 0.055 (`bully-cousin-thresholds-v3`). With `family` removed from both sides, the self-pair
+  composite is max 0.0250 (p95 0.0142), and 0.026 would be the right band in isolation. But the blind
+  path (`probe_signature`) keeps the truth-strip asymmetry, so 68/100 blind self-pairs compose above
+  0.026 and fail the identity control. Lowering the band is valid only after the blind path is
+  symmetric. Evidence: `reports/bully_v3_threshold_validation/t1_same_band/t1_summary.json`.
+  SAME-band precision is ~26% at every cut-off; 43 of the 45 not-related SAME pairs at 0.026 are
+  evidence twins, so the false-SAME rate is label noise, not the threshold.
 - **Still open**: 558/988 probes retrieve no truth-related candidate at all (the semantic axis's
   k=8 pool and the family axis, which is dead for probes because the probe's family is stripped
   to its source-class fallback, cap cross-source reach).
