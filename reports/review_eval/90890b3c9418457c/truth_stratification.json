@@ -1,0 +1,89 @@
+{
+  "created_at": 1791538996.339584,
+  "extra": {
+    "additional_cells_over_T1_coarse_count": 0,
+    "baseline_manifest_sha256": "4bf90b1a9ab892a8b7ae80f7c55707605f478bc5861d4a04d0958fe2e37ac9b5",
+    "completed_unique_parent_replays": 5,
+    "decision_record": "D-T2-TRUTH-STRATIFICATION",
+    "exactly_reconciled_parent_replays": 0,
+    "raw_telemetry_persisted": false,
+    "reason": "current parent product event IDs fail the preregistered reconciliation gate; incomplete BOTSv2 T1190 export cannot support a cell",
+    "retained_entity_complete_disjoint_cells": 0,
+    "status": "REJECTED",
+    "stratified_manifest_path": "reports/review_eval/bots_truth_stratified_manifest.json",
+    "stratified_manifest_sha256": "2ca58ef98148068b1b0cefdf678046cf23e00b0e1cf3942d51e244c38afbd228"
+  },
+  "metrics": [
+    {
+      "can_fail": "fails when any completed current source replay differs from the T1 product event-id set",
+      "denominator": 5,
+      "n": 5,
+      "name": "exact_parent_reconciliation_rate",
+      "value": 0.0
+    }
+  ],
+  "rows": 7,
+  "rows_digest": "d52a2f40d9abcfa7",
+  "selftest": {
+    "checks": {
+      "benign_quiet": {
+        "bound": 0.07756809750418045,
+        "passed": true,
+        "realized": 0.049
+      },
+      "constant": {
+        "measured": {
+          "auroc": 0.5,
+          "precision_at_npos": 1.0,
+          "recall_at_5pct_fpr": 0.0
+        },
+        "passed": true
+      },
+      "inverted": {
+        "measured": {
+          "auroc": 0.0,
+          "precision_at_npos": 0.0,
+          "recall_at_5pct_fpr": 0.0
+        },
+        "passed": true
+      },
+      "oracle": {
+        "measured": {
+          "auroc": 1.0,
+          "precision_at_npos": 1.0,
+          "recall_at_5pct_fpr": 1.0
+        },
+        "passed": true
+      },
+      "planted": {
+        "measured": {
+          "auroc": 0.998825,
+          "precision_at_npos": 0.965,
+          "recall_at_5pct_fpr": 1.0
+        },
+        "passed": true
+      },
+      "random": {
+        "auc_bound": 0.09133272505880172,
+        "measured": {
+          "auroc": 0.50456875,
+          "precision_at_npos": 0.17,
+          "recall_at_5pct_fpr": 0.06
+        },
+        "passed": true
+      }
+    },
+    "passed": true
+  },
+  "stamp": {
+    "commit": "83ddaa0bd53a382f3880bb902adb6ce8b2507ef4",
+    "config_hash": "fec89e8ce2825a92",
+    "corpus_snapshot": "real:bots_truth_manifest:4bf90b1a9ab892a8b7ae80f7c55707605f478bc5861d4a04d0958fe2e37ac9b5",
+    "dirty": false,
+    "embedder_id": "google/embeddinggemma-2;dim=768;task=sentence similarity;role=query",
+    "harness_version": "review-eval-v1",
+    "model_digests": [],
+    "policy": "T2-truth-stratification"
+  },
+  "stamp_digest": "90890b3c9418457c"
+}
