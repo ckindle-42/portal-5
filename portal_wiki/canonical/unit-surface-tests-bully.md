@@ -1,7 +1,7 @@
 ---
 id: unit-surface-tests-bully
 kind: mixed
-title: "Defensive Bully integration test lane"
+title: "Retained Defensive Bully integration tests"
 sources:
 - type: code
   path: tests/security/bully/*.py
@@ -17,16 +17,16 @@ created_at: 1786751207.0
 updated_at: 1786751207.0
 ---
 
-`tests/security/bully/` holds the Defensive Bully integration test lanes -- P1's boundary/import-scan tests, end-to-end LOOP-iteration tests, and later phases' council/gate/handoff integration tests -- as distinct from the package's own hermetic unit tests, which live alongside `portal/modules/security/tests/` per the existing security test surface (`unit-surface-sec-tests`).
+`tests/security/bully/` contains integration and contract tests for retained Bully corpus, intake, discovery, and data-plane behavior. Tests for the removed hunt orchestrator and multi-agent investigation path have been deleted; module-focused tests remain alongside the security modules.
 
 ## Why
 
-`FINAL_VALIDATION_DEFENSIVE_BULLY.md`'s conventions split hermetic unit tests (existing security test surface) from integration lanes that exercise more than one bully module together (this directory) -- the same tree shape `FINAL_ARCHITECTURE_DEFENSIVE_BULLY.md` SS1 declares for the package itself.
+This directory is a test surface only and contains no runtime entry points. Its tests check interactions among retained Bully modules and keep their supported behavior distinct from retired hunt and training phases.
 
 ## Interfaces
 
-Test modules only; no runtime code. They import the surviving Bully modules used by their integration lanes.
+The tests exercise retained modules through their Python interfaces. Current filenames describe the module or behavior under test rather than a historical phase number.
 
 ## Gotchas
 
-Hermetic per the project testing rules: `tmp_path` for any I/O, mocked `httpx`, no network/lab/Splunk/Ollama. Live/operator-invoked behavioral proofs (FINAL_VALIDATION SS3) are out of scope for this lane.
+Hermetic tests use temporary paths and mocked transports where applicable. Live lab, Splunk, and model behavior requires its own operator-invoked evidence.

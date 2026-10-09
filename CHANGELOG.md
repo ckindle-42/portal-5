@@ -5,6 +5,7 @@ All notable changes to Portal 5 will be documented in this file.
 ## [Unreleased]
 
 ### Changed
+- **Defensive Bully consolidation.** Removed the retired autonomous hunt CLI and orchestrator, the multi-agent investigation scaffold, and unreachable Bully modules, tests, and one-off scripts. The retained review, data-plane, corpus, discovery, and evaluation code remains documented in the current Wiki surfaces.
 - **CAD arm redeveloped: build123d BREP primary, arm64-native.** `auto-cad` now builds exact
   BREP solids with build123d (STEP + STL + PNG out) through `generate_part` (the same feature-level
   JSON IR as `generate_scad`, rendered on the BREP kernel) and six `cad_*` tools

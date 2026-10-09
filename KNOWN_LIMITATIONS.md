@@ -1698,4 +1698,6 @@ the overlap. Here the embedder's job became string-matching the answer key, whic
 leaky numbers looked strong and why they picked the wrong embedder. Recording the blind numbers
 and pinning the cross-class tests as strict-xfail keeps the real gap visible until a corpus with
 field values gives the engine actual behavior to compare.
+
+This limitation applies to the retained offline discovery and evaluation paths. The autonomous hunt CLI and orchestrator have been retired.
 <!-- /WIKI:GENERATED -->

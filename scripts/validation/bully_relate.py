@@ -1100,52 +1100,25 @@ def check_injected_artifacts_carry_labels() -> tuple[str, str, list[dict]]:
     return "PASS", "", []
 
 
-# ── DL-DS: TASK_BULLY_LOOP_REINTEGRATION_V1 (R.7) -- loop reintegration and
-# pyramid-of-pain invariants. Each seeds a violation, confirms rejection,
-# then confirms clean input passes. ──────────────────────────────────────────
+# ── DL-DS: retired hunt-orchestrator guard and pyramid-of-pain invariants. ──
 
 
 @register(
-    "bully_loop_reintegration_orchestrator_uses_loop_grader",
-    "DL. orchestrator's grade path uses loop_grader, never cousin_engine (R1)",
+    "bully_retired_hunt_orchestrator_absent",
+    "DL. retired hunt orchestrator and CLI remain absent after consolidation",
     order=113,
 )
-def check_orchestrator_grades_via_loop_grader() -> tuple[str, str, list[dict]]:
-    import ast
+def check_retired_hunt_orchestrator_absent() -> tuple[str, str, list[dict]]:
     from pathlib import Path
 
-    path = (
-        Path(__file__).resolve().parents[2]
-        / "portal"
-        / "modules"
-        / "security"
-        / "core"
-        / "bully"
-        / "orchestrator.py"
+    core = Path(__file__).resolve().parents[2] / "portal" / "modules" / "security" / "core"
+    retired = (
+        core / "bully" / "orchestrator.py",
+        core / "commands" / "hunt_modes.py",
     )
-    tree = ast.parse(path.read_text())
-    imported_from_cousin_engine: set[str] = set()
-    imported_loop_grader = False
-    for node in ast.walk(tree):
-        if (
-            isinstance(node, ast.ImportFrom)
-            and node.module
-            and node.module.endswith("cousin_engine")
-        ):
-            imported_from_cousin_engine.update(alias.name for alias in node.names)
-        if (
-            isinstance(node, ast.ImportFrom)
-            and node.module is None
-            and node.level >= 1
-            and any(alias.name == "loop_grader" for alias in node.names)
-        ):
-            imported_loop_grader = True
-    # seeded violation: a `grade` re-import would put cousin_engine back on
-    # the call path -- confirm it is rejected by this very assertion.
-    if "grade" in imported_from_cousin_engine:
-        return "FAIL", "orchestrator.py imports cousin_engine.grade -- R1 violated", []
-    if not imported_loop_grader:
-        return "FAIL", "orchestrator.py does not import loop_grader", []
+    existing = [str(path.relative_to(core)) for path in retired if path.exists()]
+    if existing:
+        return "FAIL", f"retired hunt surfaces were restored: {', '.join(existing)}", []
     return "PASS", "", []
 
 
@@ -3448,21 +3421,21 @@ def check_scorer_feed_head_or_tail_slice_fails() -> tuple[str, str, list[dict]]:
 
 
 @register(
-    "bully_scorer_feed_handoff_doc_exists_with_head_pin",
-    "GI. docs/HANDOFF_BULLY_CROGL_STATE.md exists and its HEAD pin is present (K4)",
+    "bully_scorer_feed_review_program_exists_with_derived_state",
+    "GI. docs/BULLY_REVIEW_PROGRAM.md defines the product and derived state (Phase F)",
     order=188,
 )
-def check_scorer_feed_handoff_doc_exists() -> tuple[str, str, list[dict]]:
+def check_scorer_feed_review_program_exists() -> tuple[str, str, list[dict]]:
     from pathlib import Path
 
-    path = Path(__file__).resolve().parents[2] / "docs" / "HANDOFF_BULLY_CROGL_STATE.md"
+    path = Path(__file__).resolve().parents[2] / "docs" / "BULLY_REVIEW_PROGRAM.md"
     if not path.exists():
         return "FAIL", f"{path} does not exist", []
     text = path.read_text()
-    if "Repo HEAD at time of writing" not in text:
-        return "FAIL", "handoff doc is missing its HEAD pin header", []
-    if "HEAD wins over" not in text:
-        return "FAIL", "handoff doc is missing its HEAD-wins-over-every-statement warning", []
+    if "This file defines the program. It holds no numbers and no status" not in text:
+        return "FAIL", "review program does not declare status as derived", []
+    if "docs/BULLY_REVIEW_STATE.md" not in text:
+        return "FAIL", "review program does not identify the derived state artifact", []
     return "PASS", "", []
 
 

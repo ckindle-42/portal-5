@@ -12,7 +12,7 @@ _SLUGS = (
     "bully_scorer_feed_records_received_published_per_stage",
     "bully_scorer_feed_f4_profile_permanent_starved_regression",
     "bully_scorer_feed_head_or_tail_slice_fails_stratification",
-    "bully_scorer_feed_handoff_doc_exists_with_head_pin",
+    "bully_scorer_feed_review_program_exists_with_derived_state",
 )
 
 
