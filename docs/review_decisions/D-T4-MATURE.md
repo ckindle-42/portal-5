@@ -12,6 +12,8 @@ anti_goals:
   - Do not present the scripted analyst as a human or use analyst output as truth.
   - Do not invent truth labels, use engine output as truth, or relabel a near-miss.
   - Do not run an attack, chain, target tool, emulation, or other operation to create a pair.
-status: PREREGISTERED
+status: INCONCLUSIVE
+report: reports/review_eval/4de03bca93e183d8/t4_pair_gate.json
+result: "0/20 valid same-index pairs were available: botsv1 and botsv2 have 0 seconds outside their answer-key intervals plus margin, and botsv3 has 0 derived answer-key scenarios, so cycle one and cycle two did not run."
 ---
 The cycle-one scripted actor is exactly `scripted:truth`, labelled as scripted in the records and report. The candidate cycle reuses the cycle-one telemetry byte-for-byte so only learned knowledge changes. A run is not eligible unless the same-index routine-use and answer-key pair gate reaches 20.
