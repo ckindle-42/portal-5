@@ -12,6 +12,8 @@ anti_goals:
   - Do not treat health, rule presence, HTTP status, or query submission as COVERED evidence.
   - Do not use engine output to label truth or relabel a near-miss.
   - Do not execute an attack, chain, target tool, emulation, or host operation.
-status: PREREGISTERED
+status: INCONCLUSIVE
+report: reports/review_eval/4de03bca93e183d8/t4_pair_gate.json
+result: "0/20 valid same-index pairs were available, so no read-only SPL arm ran; false-COVERED count and answer-key agreement remain unmeasured."
 ---
 The searched arm runs only the already-configured SPL detections as bounded, read-only searches over recorded answer-key windows and entities. Expected detections come from the library's `expected_signal` field; returned rows must overlap the concern events to count as COVERED. No default state is promoted to COVERED.
