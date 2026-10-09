@@ -12,6 +12,8 @@ anti_goals:
   - tune no threshold, weight, cutoff, or prompt against the headline metric
   - run no attack, chain, target tool, or emulation operation
   - infer a winning single reader or panel consensus from unmeasured truth slices
-status: PREREGISTERED
+status: REJECTED
+report: reports/review_eval/41eaed5720a9844f/t3_prerequisites.json
+result: Only 1/3 configured seats passed the reasoning gate, so the panel fails its preregistered all-seats adoption gate; efficacy remains unmeasured with 0/3 eligible slices.
 ---
 The candidate uses the three-seat roster from `resolve_council_models()` in `bully/config.py`, which reads `hunt.yaml` and `config/portal.yaml` only. The roster snapshot is `auto-security::security-council-granite41-30b`, `auto-security::security-council-mistral-small32-24b`, and `auto-security::security-council-qwen36-27b`, aggregated with `panel.panel_verdict`. The single-reader control is selected by D-T3-READER; neither arm runs without alpha_open, eligible truth slices, and workload B.
