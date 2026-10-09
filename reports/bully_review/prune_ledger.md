@@ -1,11 +1,13 @@
 # Bully prune ledger
 
 keep roots: portal.modules.security.core.bully.data_plane, portal.modules.security.core.bully.live_connect, portal.modules.security.core.review, portal.modules.security.core.review_eval
-tally: {'KEEP': 23, 'KEEP_DYNAMIC': 32, 'DELETE': 34} -- deletable lines: 12958
+tally: {'KEEP': 30, 'KEEP_DYNAMIC': 29, 'DELETE': 30} -- deletable lines: 9761
 
 ## Phase C notes
 
-Deleted modules' tests and one-off run scripts go with those modules in the same batch. An importer promotes a candidate to KEEP only when it survives for an independent reason; a test or script whose purpose is exercising deleted code does not promote that code.
+Delete a candidate module's tests and one-off run scripts in the same batch. An importer promotes a candidate to KEEP only when the importer survives for an independent reason; tests and scripts whose purpose is exercising deleted reviewer code do not promote that code.
+
+The live EG2 embedding-consumer probe at `tests/benchmarks/embedding_consumers/probes/bully.py` dynamically loads `scripts/defensive_bully_p04_adoption.py` with `spec_from_file_location`. That script imports `cousin_calibration_bench`, `discovery_bench`, and `embedding_spaces` (along with `organ` and `store`). The probe survives as an independent embedding-consumer benchmark, so it justifies KEEP for those three protected modules. `mutation` is KEEP by graph closure.
 
 | module | lines | decision | importers (any) |
 |---|---|---|---|
@@ -35,8 +37,8 @@ Deleted modules' tests and one-off run scripts go with those modules in the same
 | corpus_bed | 600 | KEEP | bots_answer_key, cousin_inject, inject_plane, truth |
 | correlation | 366 | KEEP | intake, bully_analyst_loop_run, bully_corpus_hunt_run, bully_full_assembly_run |
 | costing | 144 | DELETE | orchestrator, test_p4_1_costing, test_p4_3_targeting, test_sa4_6_snapshot_integration |
-| cousin_calibration_bench | 1796 | DELETE | class_onboarding, cousin_forge, discovery_bench, embedding_bench |
-| cousin_engine | 665 | KEEP_DYNAMIC | class_onboarding, cousin_calibration_bench, discovery_bench, embedding_spaces |
+| cousin_calibration_bench | 1796 | KEEP | class_onboarding, cousin_forge, discovery_bench, embedding_bench |
+| cousin_engine | 665 | KEEP | class_onboarding, cousin_calibration_bench, discovery_bench, embedding_spaces |
 | cousin_forge | 281 | DELETE | build_specimen_corpus, test_p7_2_specimen_corpus |
 | cousin_inject | 165 | KEEP_DYNAMIC | bully_corpus_hunt_run, bully_full_assembly_run, bully_investigation_run_a6, bully_investigation_run_i6 |
 | cousin_relation | 605 | KEEP_DYNAMIC | observed_mode, bully_cousin_ladder, bully_relate_run, bully_relate |
@@ -45,10 +47,10 @@ Deleted modules' tests and one-off run scripts go with those modules in the same
 | data_plane | 842 | KEEP | advisories, asset_identity, case_history, coverage |
 | degeneracy | 153 | KEEP_DYNAMIC | relation, bully_cousin_run_c7, bully_relate_run, bully_relate |
 | discovery | 410 | KEEP | compounding, unit_outcome, funnel, legacy_arm |
-| discovery_bench | 835 | DELETE | bully_b1_engine_variants, bully_v3_threshold_validation, defensive_bully_discovery_bakeoff, defensive_bully_discovery_v3 |
+| discovery_bench | 835 | KEEP | bully_b1_engine_variants, bully_v3_threshold_validation, defensive_bully_discovery_bakeoff, defensive_bully_discovery_v3 |
 | drift_engine | 276 | DELETE | orchestrator, test_p3_2_drift |
 | embedding_bench | 316 | DELETE | test_sa3_1_embedding_bench |
-| embedding_spaces | 183 | DELETE | defensive_bully_p04_adoption, test_sa5_p02_space_thresholds, test_sa5_p04_adoption |
+| embedding_spaces | 183 | KEEP | defensive_bully_p04_adoption, test_sa5_p02_space_thresholds, test_sa5_p04_adoption |
 | events | 62 | KEEP | case_history, store, test_p1_2_store |
 | evidence | 296 | KEEP_DYNAMIC | handoff, orchestrator, promotion, bully_review_defect_census |
 | field_roles | 557 | KEEP | artifact_graph, bully_full_assembly_run, bully_loop_milestone_run, bully_universal_intake_run |
@@ -63,7 +65,7 @@ Deleted modules' tests and one-off run scripts go with those modules in the same
 | live_profiles | 71 | DELETE | live_census, test_sa7_l10_phase0_gate, test_sa7_l7_live_profiles |
 | loop_grader | 394 | KEEP_DYNAMIC | orchestrator, bully_full_assembly_run, bully_loop_milestone_run, bully_review_defect_census |
 | measurement | 224 | KEEP_DYNAMIC | bully_relate_run, bully_relate, test_cousin_c3_measurement_guards, test_relate_m1_measurement_plane |
-| mutation | 383 | DELETE | cousin_calibration_bench, orchestrator, test_p3_1_mutation, test_p3_3_mutation_wiring |
+| mutation | 383 | KEEP | cousin_calibration_bench, orchestrator, test_p3_1_mutation, test_p3_3_mutation_wiring |
 | observed_mode | 271 | DELETE | test_analyst_x3_observed_wiring, test_cousin_c2_observed_wiring, test_relate_b3_observed_mode, test_relate_j1_relation_investigation |
 | orchestrator | 1393 | DELETE | hunt_modes, test_p1_0_skeleton, test_p1_7_orchestrator, test_p2_5_queue |
 | organ | 470 | KEEP | bully, analyst_corpus, embedding_bench, orchestrator |
@@ -84,10 +86,10 @@ Deleted modules' tests and one-off run scripts go with those modules in the same
 | scoreboard_conformance | 355 | KEEP_DYNAMIC | bully_analyst_loop_run, bully_corpus_hunt_run, bully_loop_milestone_run, bully_truth_acceptance_run |
 | seed_scope | 135 | DELETE | observed_mode, bully_relate_run, test_analyst_x3_observed_wiring, test_cousin_c2_observed_wiring |
 | series_cousin | 365 | KEEP | anchors, loop_grader, bully_full_assembly_run, bully_loop_milestone_run |
-| signatures | 317 | KEEP_DYNAMIC | analyst_corpus, class_onboarding, compounding, cousin_calibration_bench |
+| signatures | 317 | KEEP | analyst_corpus, class_onboarding, compounding, cousin_calibration_bench |
 | soc | 225 | DELETE | test_p2_4_soc |
 | source_adapters | 492 | DELETE | analyst_corpus, class_onboarding, build_specimen_corpus, test_sa1_class_onboarding |
-| specimen_ledger | 155 | KEEP_DYNAMIC | cousin_calibration_bench, cousin_forge, inject_plane, build_specimen_corpus |
+| specimen_ledger | 155 | KEEP | cousin_calibration_bench, cousin_forge, inject_plane, build_specimen_corpus |
 | store | 2720 | KEEP | bully, adversary, case_history, handoff |
 | targeting | 247 | DELETE | orchestrator, test_p4_3_targeting, test_sa4_6_snapshot_integration |
 | telemetry_behavior | 517 | KEEP | artifact_graph, series_cousin, bully_corpus_hunt_run, bully_full_assembly_run |
@@ -99,20 +101,14 @@ Deleted modules' tests and one-off run scripts go with those modules in the same
 | unit_relation | 273 | KEEP | unit_ladder, unit_outcome, knowledge, bully_relate |
 | universe | 480 | KEEP_DYNAMIC | bully_analyst_loop_run, bully_loop_milestone_run, bully_truth_acceptance_run, test_analyst_x5_generator_classes |
 
-## Tests that only exercise deletable modules (21)
+## Tests that only exercise deletable modules (14)
 
 - tests/security/bully/test_p1_0_skeleton.py
 - tests/security/bully/test_p3_2_drift.py
 - tests/security/bully/test_p4_3_targeting.py
 - tests/security/bully/test_p4_4_plateau.py
-- tests/security/bully/test_p6_8_cousin_calibration.py
 - tests/security/bully/test_r1_dry_run_red_status.py
 - tests/security/bully/test_r1_replay_driver.py
-- tests/security/bully/test_sa1_class_onboarding.py
-- tests/security/bully/test_sa2_2_taxonomy.py
-- tests/security/bully/test_sa2_3_circularity.py
-- tests/security/bully/test_sa2_4_cross_class.py
-- tests/security/bully/test_sa2_5_forge_demotion.py
 - tests/security/bully/test_sa4_1_source_evaluation.py
 - tests/security/bully/test_sa4_2_broad_ingestion.py
 - tests/security/bully/test_sa4_3_benign.py
@@ -121,7 +117,6 @@ Deleted modules' tests and one-off run scripts go with those modules in the same
 - tests/security/bully/test_sa5_1_acquisition.py
 - tests/security/bully/test_sa5_5_real_ingest.py
 - tests/security/bully/test_sa5_6_snapshot_v2.py
-- tests/security/bully/test_sa5_7_discovery_v3.py
 
 ## Scripts that only exercise deletable modules (5)
 
