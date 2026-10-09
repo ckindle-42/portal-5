@@ -128,7 +128,8 @@ def run_exclusion_report(*, arm_name: str, slice_name: str, out: Path, manifest_
             "embedder_adapter": embedding.PlatformEmbedder.__module__,
         },
     )
-    report_path, _ = report.write_report(document, out, f"{slice_name}_{arm_name}")
+    output_directory = out if out.name == run_stamp.digest else out / run_stamp.digest
+    report_path, _ = report.write_report(document, output_directory, f"{slice_name}_{arm_name}")
     return report_path
 
 
