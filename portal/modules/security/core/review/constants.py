@@ -56,6 +56,22 @@ REGISTRY: dict[str, tuple[str, str]] = {
         "evidence refs a concern carries; the total is stated in the brief",
     ),
     "pipeline.ReviewConfig.top_k_anchors": ("budget", "anchors explained per concern"),
+    "window.DEFAULT_PARTITION_SECONDS": (
+        "budget",
+        "maximum duration of one fully fetched Splunk partition; adjacent partitions cover the full request",
+    ),
+    "window.DEFAULT_TIMEOUT_SECONDS": (
+        "budget",
+        "maximum duration for one Splunk HTTP request before it fails visibly",
+    ),
+    "embedding.DEFAULT_BATCH_SIZE": (
+        "bound",
+        "texts per embedding request; transport bound only, not an answer cutoff",
+    ),
+    "embedding.DEFAULT_TIMEOUT_SECONDS": (
+        "budget",
+        "maximum duration for one embedding HTTP request before it fails visibly",
+    ),
     "runs.RunStore.list.limit": ("bound", "rows returned by a listing"),
     "store.ReviewStore.queue.limit": ("bound", "rows returned by a queue listing"),
 }
