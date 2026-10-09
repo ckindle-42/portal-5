@@ -1,0 +1,228 @@
+{
+  "admission_manifest_sha256": "99a335e0c76b88deda1145aa3616a4d763ca19e1212ffaf14cdaf3e344e2cef1",
+  "admitted": [
+    {
+      "capture_id": "meta3_ftp_backdoor_20260801T041525Z_79167dc5",
+      "capture_sha256": "fe76a3a681faad9728e2f6dcf389101eb096561c3ca684c0bb11a47e6430c7d5",
+      "host_token": "7460cbb42ba9fbae",
+      "interval": {
+        "end_epoch": 1785557725.3968031,
+        "start_epoch": 1785557719.2873468
+      },
+      "scenario": "meta3_ftp_backdoor",
+      "techniques": [
+        "T1078"
+      ],
+      "time_unscoped_events": 0,
+      "timed_events": 169,
+      "truth_class_by_technique": {
+        "T1078": "cousin"
+      }
+    }
+  ],
+  "admitted_count": 1,
+  "capture_store_file_count": 1127,
+  "capture_store_sha256": "5445bf316cfc1c065f6d61c69858a3464ff10892831113e2797a68dea1c772b0",
+  "certification_stamp": {
+    "commit": "b05f78eda9056452e31b7b98502f6e726560e198",
+    "config_hash": "9ca9e2c55753ca10",
+    "corpus_snapshot": "real:recorded-captures:5445bf316cfc1c065f6d61c69858a3464ff10892831113e2797a68dea1c772b0",
+    "digest": "25361c00d8b108b3",
+    "dirty": false,
+    "embedder_id": "google/embeddinggemma-2;dim=768;task=sentence similarity;role=query",
+    "harness_version": "review-eval-v1",
+    "model_digests": [],
+    "policy": "self-tested-whole-store-certification"
+  },
+  "raw_telemetry_persisted": false,
+  "rejected_count": 1126,
+  "rejection_reason_histogram_by_technique": {
+    "<unknown>": {
+      "CAPTURE_GROUND_TRUTH_INVALID": 45,
+      "LEGACY_CAPTURE_UNSCOPED": 37,
+      "MISSING_EPISODE_ID": 44,
+      "NO_TIMED_EVENTS_IN_INTERVAL": 11
+    },
+    "T1003.001": {
+      "LEGACY_CAPTURE_UNSCOPED": 6,
+      "MISSING_EPISODE_ID": 6,
+      "SIGNAL_MISSING_IN_INTERVAL": 252,
+      "SIGNAL_PRESENT_WITHOUT_EVENT_TIMESTAMP": 5
+    },
+    "T1003.002": {
+      "LEGACY_CAPTURE_UNSCOPED": 10,
+      "MISSING_EPISODE_ID": 10,
+      "SIGNAL_MISSING_IN_INTERVAL": 12,
+      "SIGNAL_PRESENT_WITHOUT_EVENT_TIMESTAMP": 2
+    },
+    "T1003.006": {
+      "LEGACY_CAPTURE_UNSCOPED": 82,
+      "MISSING_EPISODE_ID": 82,
+      "SIGNAL_MISSING_IN_INTERVAL": 334,
+      "SIGNAL_PRESENT_WITHOUT_EVENT_TIMESTAMP": 13
+    },
+    "T1021.001": {
+      "SIGNAL_MISSING_IN_INTERVAL": 3,
+      "SIGNAL_PRESENT_WITHOUT_EVENT_TIMESTAMP": 2
+    },
+    "T1021.002": {
+      "LEGACY_CAPTURE_UNSCOPED": 25,
+      "MISSING_EPISODE_ID": 25,
+      "SIGNAL_MISSING_IN_INTERVAL": 32,
+      "SIGNAL_PRESENT_WITHOUT_EVENT_TIMESTAMP": 7
+    },
+    "T1046": {
+      "LEGACY_CAPTURE_UNSCOPED": 9,
+      "MISSING_EPISODE_ID": 9,
+      "SIGNAL_MISSING_IN_INTERVAL": 17,
+      "SIGNAL_PRESENT_WITHOUT_EVENT_TIMESTAMP": 8
+    },
+    "T1047": {
+      "CAPTURE_GROUND_TRUTH_INVALID": 4,
+      "LEGACY_CAPTURE_UNSCOPED": 6,
+      "MISSING_EPISODE_ID": 6,
+      "SIGNAL_MISSING_IN_INTERVAL": 252,
+      "SIGNAL_PRESENT_WITHOUT_EVENT_TIMESTAMP": 6
+    },
+    "T1053.005": {
+      "LEGACY_CAPTURE_UNSCOPED": 86,
+      "MISSING_EPISODE_ID": 86,
+      "SIGNAL_MISSING_IN_INTERVAL": 92,
+      "SIGNAL_PRESENT_WITHOUT_EVENT_TIMESTAMP": 3
+    },
+    "T1059": {
+      "CAPTURE_GROUND_TRUTH_INVALID": 3,
+      "LEGACY_CAPTURE_UNSCOPED": 193,
+      "MISSING_EPISODE_ID": 210,
+      "SIGNAL_MISSING_IN_INTERVAL": 314,
+      "SIGNAL_PRESENT_ONLY_OUTSIDE_INTERVAL": 1,
+      "SIGNAL_PRESENT_WITHOUT_EVENT_TIMESTAMP": 66
+    },
+    "T1059.004": {
+      "CAPTURE_GROUND_TRUTH_INVALID": 2,
+      "LEGACY_CAPTURE_UNSCOPED": 56,
+      "MISSING_EPISODE_ID": 66,
+      "SIGNAL_MISSING_IN_INTERVAL": 74,
+      "SIGNAL_PRESENT_WITHOUT_EVENT_TIMESTAMP": 7
+    },
+    "T1078": {
+      "LEGACY_CAPTURE_UNSCOPED": 116,
+      "MISSING_EPISODE_ID": 121,
+      "SIGNAL_MISSING_IN_INTERVAL": 166,
+      "SIGNAL_PRESENT_WITHOUT_EVENT_TIMESTAMP": 24
+    },
+    "T1078.004": {
+      "LEGACY_CAPTURE_UNSCOPED": 7,
+      "MISSING_EPISODE_ID": 8,
+      "NO_SIGNAL_RULE": 8
+    },
+    "T1083": {
+      "LEGACY_CAPTURE_UNSCOPED": 27,
+      "MISSING_EPISODE_ID": 32,
+      "SIGNAL_MISSING_IN_INTERVAL": 37,
+      "SIGNAL_PRESENT_WITHOUT_EVENT_TIMESTAMP": 4
+    },
+    "T1110.003": {
+      "LEGACY_CAPTURE_UNSCOPED": 26,
+      "MISSING_EPISODE_ID": 26,
+      "SIGNAL_MISSING_IN_INTERVAL": 31,
+      "SIGNAL_PRESENT_WITHOUT_EVENT_TIMESTAMP": 5
+    },
+    "T1189": {
+      "LEGACY_CAPTURE_UNSCOPED": 10,
+      "MISSING_EPISODE_ID": 12,
+      "SIGNAL_MISSING_IN_INTERVAL": 12
+    },
+    "T1190": {
+      "CAPTURE_GROUND_TRUTH_INVALID": 1,
+      "LEGACY_CAPTURE_UNSCOPED": 416,
+      "MISSING_EPISODE_ID": 469,
+      "SIGNAL_MISSING_IN_INTERVAL": 605,
+      "SIGNAL_PRESENT_WITHOUT_EVENT_TIMESTAMP": 111
+    },
+    "T1203": {
+      "LEGACY_CAPTURE_UNSCOPED": 15,
+      "MISSING_EPISODE_ID": 17,
+      "SIGNAL_MISSING_IN_INTERVAL": 21,
+      "SIGNAL_PRESENT_WITHOUT_EVENT_TIMESTAMP": 4
+    },
+    "T1210": {
+      "LEGACY_CAPTURE_UNSCOPED": 12,
+      "MISSING_EPISODE_ID": 12,
+      "SIGNAL_MISSING_IN_INTERVAL": 13,
+      "SIGNAL_PRESENT_WITHOUT_EVENT_TIMESTAMP": 1
+    },
+    "T1505.003": {
+      "CAPTURE_GROUND_TRUTH_INVALID": 2,
+      "LEGACY_CAPTURE_UNSCOPED": 22,
+      "MISSING_EPISODE_ID": 24,
+      "SIGNAL_MISSING_IN_INTERVAL": 29,
+      "SIGNAL_PRESENT_WITHOUT_EVENT_TIMESTAMP": 5
+    },
+    "T1537": {
+      "LEGACY_CAPTURE_UNSCOPED": 7,
+      "MISSING_EPISODE_ID": 8,
+      "NO_SIGNAL_RULE": 8
+    },
+    "T1548.001": {
+      "LEGACY_CAPTURE_UNSCOPED": 19,
+      "MISSING_EPISODE_ID": 24,
+      "SIGNAL_MISSING_IN_INTERVAL": 26,
+      "SIGNAL_PRESENT_WITHOUT_EVENT_TIMESTAMP": 2
+    },
+    "T1552": {
+      "LEGACY_CAPTURE_UNSCOPED": 11,
+      "MISSING_EPISODE_ID": 13,
+      "SIGNAL_MISSING_IN_INTERVAL": 14,
+      "SIGNAL_PRESENT_WITHOUT_EVENT_TIMESTAMP": 1
+    },
+    "T1552.005": {
+      "LEGACY_CAPTURE_UNSCOPED": 7,
+      "MISSING_EPISODE_ID": 8,
+      "NO_SIGNAL_RULE": 8
+    },
+    "T1557.001": {
+      "LEGACY_CAPTURE_UNSCOPED": 10,
+      "MISSING_EPISODE_ID": 10,
+      "SIGNAL_MISSING_IN_INTERVAL": 12,
+      "SIGNAL_PRESENT_WITHOUT_EVENT_TIMESTAMP": 2
+    },
+    "T1558.003": {
+      "LEGACY_CAPTURE_UNSCOPED": 82,
+      "MISSING_EPISODE_ID": 82,
+      "SIGNAL_MISSING_IN_INTERVAL": 334,
+      "SIGNAL_PRESENT_WITHOUT_EVENT_TIMESTAMP": 48
+    },
+    "T1558.004": {
+      "LEGACY_CAPTURE_UNSCOPED": 14,
+      "MISSING_EPISODE_ID": 14,
+      "SIGNAL_MISSING_IN_INTERVAL": 16,
+      "SIGNAL_PRESENT_WITHOUT_EVENT_TIMESTAMP": 2
+    },
+    "T1592": {
+      "CAPTURE_GROUND_TRUTH_INVALID": 1,
+      "LEGACY_CAPTURE_UNSCOPED": 20,
+      "MISSING_EPISODE_ID": 23,
+      "SIGNAL_MISSING_IN_INTERVAL": 24,
+      "SIGNAL_PRESENT_WITHOUT_EVENT_TIMESTAMP": 1
+    },
+    "T1595": {
+      "LEGACY_CAPTURE_UNSCOPED": 17,
+      "MISSING_EPISODE_ID": 19,
+      "SIGNAL_MISSING_IN_INTERVAL": 26,
+      "SIGNAL_PRESENT_WITHOUT_EVENT_TIMESTAMP": 2
+    }
+  },
+  "schema": "review.capture-admission.v1",
+  "selftest": {
+    "cases": {
+      "empty_capture": true,
+      "events_shifted_outside_interval": true,
+      "signal_present": true,
+      "signal_removed": true
+    },
+    "fixture_sha256": "d5bfe3bdb7f6eca0f5b5da3d508263fb4baf664c754f92f8ab15763b32abab21",
+    "passed": true
+  },
+  "stamp_digest": "25361c00d8b108b3"
+}

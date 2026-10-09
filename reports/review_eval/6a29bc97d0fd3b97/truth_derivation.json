@@ -1,0 +1,662 @@
+{
+  "created_at": 1791537333.3405912,
+  "extra": {
+    "adoption_status": "INCONCLUSIVE",
+    "answer_key_entry_count": 27,
+    "benign_corpus_bench": {
+      "cells": [
+        {
+          "cell_id": "p5n001",
+          "class": "benign_lookalike",
+          "event_count": 3,
+          "event_ids": [
+            "portal5_lab:windows:security:165eec0ef884",
+            "portal5_lab:windows:security:bc071e1394d9",
+            "portal5_lab:windows:security:e14c4a8cfa08"
+          ],
+          "item_id": "portal5_lab:benign:p5n001",
+          "sourcetype": "windows:security"
+        },
+        {
+          "cell_id": "p5n002",
+          "class": "benign_lookalike",
+          "event_count": 3,
+          "event_ids": [
+            "portal5_lab:windows:security:32e8cb4dd24d",
+            "portal5_lab:windows:security:60f4a629681a",
+            "portal5_lab:windows:security:e515d5c06ad0"
+          ],
+          "item_id": "portal5_lab:benign:p5n002",
+          "sourcetype": "windows:security"
+        },
+        {
+          "cell_id": "p5n003",
+          "class": "benign_lookalike",
+          "event_count": 3,
+          "event_ids": [
+            "portal5_lab:web:access:795949ece83e",
+            "portal5_lab:web:access:8549dd3e0603",
+            "portal5_lab:web:access:ad0cc9c02be5"
+          ],
+          "item_id": "portal5_lab:benign:p5n003",
+          "sourcetype": "web:access"
+        },
+        {
+          "cell_id": "p5n004",
+          "class": "benign_lookalike",
+          "event_count": 3,
+          "event_ids": [
+            "portal5_lab:web:access:732b7b606e2e",
+            "portal5_lab:web:access:953edaa99862",
+            "portal5_lab:web:access:b3d418054637"
+          ],
+          "item_id": "portal5_lab:benign:p5n004",
+          "sourcetype": "web:access"
+        },
+        {
+          "cell_id": "p5n005",
+          "class": "benign_lookalike",
+          "event_count": 3,
+          "event_ids": [
+            "portal5_lab:linux:auditd:09816d4d0035",
+            "portal5_lab:linux:auditd:c1097e47ff49",
+            "portal5_lab:linux:auditd:e32f6387df09"
+          ],
+          "item_id": "portal5_lab:benign:p5n005",
+          "sourcetype": "linux:auditd"
+        },
+        {
+          "cell_id": "p5n006",
+          "class": "benign_lookalike",
+          "event_count": 3,
+          "event_ids": [
+            "portal5_lab:linux:auditd:8831cc6789c2",
+            "portal5_lab:linux:auditd:c79c9e5e3414",
+            "portal5_lab:linux:auditd:d441a16502f9"
+          ],
+          "item_id": "portal5_lab:benign:p5n006",
+          "sourcetype": "linux:auditd"
+        },
+        {
+          "cell_id": "p5n007",
+          "class": "benign_lookalike",
+          "event_count": 3,
+          "event_ids": [
+            "portal5_lab:windows:security:3eedb168962f",
+            "portal5_lab:windows:security:41eaa51ebf3e",
+            "portal5_lab:windows:security:4de767933cda"
+          ],
+          "item_id": "portal5_lab:benign:p5n007",
+          "sourcetype": "windows:security"
+        },
+        {
+          "cell_id": "p5n008",
+          "class": "benign_lookalike",
+          "event_count": 3,
+          "event_ids": [
+            "portal5_lab:windows:security:496745ebeded",
+            "portal5_lab:windows:security:80d548950d2d",
+            "portal5_lab:windows:security:926218c5b9a3"
+          ],
+          "item_id": "portal5_lab:benign:p5n008",
+          "sourcetype": "windows:security"
+        },
+        {
+          "cell_id": "p5n009",
+          "class": "benign_lookalike",
+          "event_count": 3,
+          "event_ids": [
+            "portal5_lab:web:access:3fbe59e37292",
+            "portal5_lab:web:access:85c0eccbdfe0",
+            "portal5_lab:web:access:9cdd2c104daa"
+          ],
+          "item_id": "portal5_lab:benign:p5n009",
+          "sourcetype": "web:access"
+        },
+        {
+          "cell_id": "p5n010",
+          "class": "benign_lookalike",
+          "event_count": 3,
+          "event_ids": [
+            "portal5_lab:web:access:32f8f1544fe1",
+            "portal5_lab:web:access:4c8540954361",
+            "portal5_lab:web:access:8237fa512f82"
+          ],
+          "item_id": "portal5_lab:benign:p5n010",
+          "sourcetype": "web:access"
+        },
+        {
+          "cell_id": "p5n011",
+          "class": "benign_lookalike",
+          "event_count": 3,
+          "event_ids": [
+            "portal5_lab:linux:auditd:07f250a97c3b",
+            "portal5_lab:linux:auditd:2c7966d43e6e",
+            "portal5_lab:linux:auditd:8e18a05a775c"
+          ],
+          "item_id": "portal5_lab:benign:p5n011",
+          "sourcetype": "linux:auditd"
+        },
+        {
+          "cell_id": "p5n012",
+          "class": "benign_lookalike",
+          "event_count": 3,
+          "event_ids": [
+            "portal5_lab:linux:auditd:4a9640fee93a",
+            "portal5_lab:linux:auditd:501df973bff6",
+            "portal5_lab:linux:auditd:9ed6dfe78a63"
+          ],
+          "item_id": "portal5_lab:benign:p5n012",
+          "sourcetype": "linux:auditd"
+        }
+      ],
+      "index": "portal5_lab",
+      "raw_telemetry_persisted": false,
+      "status": "12_of_12_cells_live_indexed_and_event_id_reconciled",
+      "truth_class": "benign_lookalike"
+    },
+    "derived_item_count": 7,
+    "dropped_entry_count": 20,
+    "index_exclusions": {
+      "botsv1": {
+        "attack_interval": {
+          "duration_seconds": 2414155.8443460464,
+          "end_exclusive_epoch": 1472425560.320122,
+          "start_epoch": 1470011404.475776
+        },
+        "attack_interval_digest": "037750379be1d2388829b264d73acf965d9e37bb77e5d75315f03fc076db1f56",
+        "benign_candidates": [],
+        "benign_margin_seconds": 86400.0,
+        "derived_entry_count": 5,
+        "reason": "no_same_size_utc_day_aligned_background_window_outside_answer_key_spans_plus_margin",
+        "status": "excluded"
+      },
+      "botsv2": {
+        "attack_interval": {
+          "duration_seconds": 2674614.832000971,
+          "end_exclusive_epoch": 1504220386.634001,
+          "start_epoch": 1501545771.802
+        },
+        "attack_interval_digest": "e9ce65ad147e9354737999f568c439816f709e602984c182c8dd660b1a5b38e9",
+        "benign_candidates": [],
+        "benign_margin_seconds": 86400.0,
+        "derived_entry_count": 2,
+        "reason": "no_same_size_utc_day_aligned_background_window_outside_answer_key_spans_plus_margin",
+        "status": "excluded"
+      },
+      "botsv3": {
+        "attack_interval": null,
+        "attack_interval_digest": null,
+        "benign_candidates": [],
+        "derived_entry_count": 0,
+        "reason": "no_fully_derived_answer_key_interval",
+        "status": "excluded"
+      }
+    },
+    "raw_telemetry_persisted": false,
+    "recorded_captures": {
+      "admission_manifest_sha256": "99a335e0c76b88deda1145aa3616a4d763ca19e1212ffaf14cdaf3e344e2cef1",
+      "admitted_capture_count": 1,
+      "capture_store_file_count": 1127,
+      "certification_stamp": {
+        "commit": "b05f78eda9056452e31b7b98502f6e726560e198",
+        "config_hash": "9ca9e2c55753ca10",
+        "corpus_snapshot": "real:recorded-captures:5445bf316cfc1c065f6d61c69858a3464ff10892831113e2797a68dea1c772b0",
+        "digest": "25361c00d8b108b3",
+        "dirty": false,
+        "embedder_id": "google/embeddinggemma-2;dim=768;task=sentence similarity;role=query",
+        "harness_version": "review-eval-v1",
+        "model_digests": [],
+        "policy": "self-tested-whole-store-certification"
+      },
+      "product_records_by_source": {
+        "recorded_captures:network:packet": 169
+      },
+      "raw_telemetry_persisted": false,
+      "rejected_count": 1126,
+      "rejection_reason_histogram_by_technique": {
+        "<unknown>": {
+          "CAPTURE_GROUND_TRUTH_INVALID": 45,
+          "LEGACY_CAPTURE_UNSCOPED": 37,
+          "MISSING_EPISODE_ID": 44,
+          "NO_TIMED_EVENTS_IN_INTERVAL": 11
+        },
+        "T1003.001": {
+          "LEGACY_CAPTURE_UNSCOPED": 6,
+          "MISSING_EPISODE_ID": 6,
+          "SIGNAL_MISSING_IN_INTERVAL": 252,
+          "SIGNAL_PRESENT_WITHOUT_EVENT_TIMESTAMP": 5
+        },
+        "T1003.002": {
+          "LEGACY_CAPTURE_UNSCOPED": 10,
+          "MISSING_EPISODE_ID": 10,
+          "SIGNAL_MISSING_IN_INTERVAL": 12,
+          "SIGNAL_PRESENT_WITHOUT_EVENT_TIMESTAMP": 2
+        },
+        "T1003.006": {
+          "LEGACY_CAPTURE_UNSCOPED": 82,
+          "MISSING_EPISODE_ID": 82,
+          "SIGNAL_MISSING_IN_INTERVAL": 334,
+          "SIGNAL_PRESENT_WITHOUT_EVENT_TIMESTAMP": 13
+        },
+        "T1021.001": {
+          "SIGNAL_MISSING_IN_INTERVAL": 3,
+          "SIGNAL_PRESENT_WITHOUT_EVENT_TIMESTAMP": 2
+        },
+        "T1021.002": {
+          "LEGACY_CAPTURE_UNSCOPED": 25,
+          "MISSING_EPISODE_ID": 25,
+          "SIGNAL_MISSING_IN_INTERVAL": 32,
+          "SIGNAL_PRESENT_WITHOUT_EVENT_TIMESTAMP": 7
+        },
+        "T1046": {
+          "LEGACY_CAPTURE_UNSCOPED": 9,
+          "MISSING_EPISODE_ID": 9,
+          "SIGNAL_MISSING_IN_INTERVAL": 17,
+          "SIGNAL_PRESENT_WITHOUT_EVENT_TIMESTAMP": 8
+        },
+        "T1047": {
+          "CAPTURE_GROUND_TRUTH_INVALID": 4,
+          "LEGACY_CAPTURE_UNSCOPED": 6,
+          "MISSING_EPISODE_ID": 6,
+          "SIGNAL_MISSING_IN_INTERVAL": 252,
+          "SIGNAL_PRESENT_WITHOUT_EVENT_TIMESTAMP": 6
+        },
+        "T1053.005": {
+          "LEGACY_CAPTURE_UNSCOPED": 86,
+          "MISSING_EPISODE_ID": 86,
+          "SIGNAL_MISSING_IN_INTERVAL": 92,
+          "SIGNAL_PRESENT_WITHOUT_EVENT_TIMESTAMP": 3
+        },
+        "T1059": {
+          "CAPTURE_GROUND_TRUTH_INVALID": 3,
+          "LEGACY_CAPTURE_UNSCOPED": 193,
+          "MISSING_EPISODE_ID": 210,
+          "SIGNAL_MISSING_IN_INTERVAL": 314,
+          "SIGNAL_PRESENT_ONLY_OUTSIDE_INTERVAL": 1,
+          "SIGNAL_PRESENT_WITHOUT_EVENT_TIMESTAMP": 66
+        },
+        "T1059.004": {
+          "CAPTURE_GROUND_TRUTH_INVALID": 2,
+          "LEGACY_CAPTURE_UNSCOPED": 56,
+          "MISSING_EPISODE_ID": 66,
+          "SIGNAL_MISSING_IN_INTERVAL": 74,
+          "SIGNAL_PRESENT_WITHOUT_EVENT_TIMESTAMP": 7
+        },
+        "T1078": {
+          "LEGACY_CAPTURE_UNSCOPED": 116,
+          "MISSING_EPISODE_ID": 121,
+          "SIGNAL_MISSING_IN_INTERVAL": 166,
+          "SIGNAL_PRESENT_WITHOUT_EVENT_TIMESTAMP": 24
+        },
+        "T1078.004": {
+          "LEGACY_CAPTURE_UNSCOPED": 7,
+          "MISSING_EPISODE_ID": 8,
+          "NO_SIGNAL_RULE": 8
+        },
+        "T1083": {
+          "LEGACY_CAPTURE_UNSCOPED": 27,
+          "MISSING_EPISODE_ID": 32,
+          "SIGNAL_MISSING_IN_INTERVAL": 37,
+          "SIGNAL_PRESENT_WITHOUT_EVENT_TIMESTAMP": 4
+        },
+        "T1110.003": {
+          "LEGACY_CAPTURE_UNSCOPED": 26,
+          "MISSING_EPISODE_ID": 26,
+          "SIGNAL_MISSING_IN_INTERVAL": 31,
+          "SIGNAL_PRESENT_WITHOUT_EVENT_TIMESTAMP": 5
+        },
+        "T1189": {
+          "LEGACY_CAPTURE_UNSCOPED": 10,
+          "MISSING_EPISODE_ID": 12,
+          "SIGNAL_MISSING_IN_INTERVAL": 12
+        },
+        "T1190": {
+          "CAPTURE_GROUND_TRUTH_INVALID": 1,
+          "LEGACY_CAPTURE_UNSCOPED": 416,
+          "MISSING_EPISODE_ID": 469,
+          "SIGNAL_MISSING_IN_INTERVAL": 605,
+          "SIGNAL_PRESENT_WITHOUT_EVENT_TIMESTAMP": 111
+        },
+        "T1203": {
+          "LEGACY_CAPTURE_UNSCOPED": 15,
+          "MISSING_EPISODE_ID": 17,
+          "SIGNAL_MISSING_IN_INTERVAL": 21,
+          "SIGNAL_PRESENT_WITHOUT_EVENT_TIMESTAMP": 4
+        },
+        "T1210": {
+          "LEGACY_CAPTURE_UNSCOPED": 12,
+          "MISSING_EPISODE_ID": 12,
+          "SIGNAL_MISSING_IN_INTERVAL": 13,
+          "SIGNAL_PRESENT_WITHOUT_EVENT_TIMESTAMP": 1
+        },
+        "T1505.003": {
+          "CAPTURE_GROUND_TRUTH_INVALID": 2,
+          "LEGACY_CAPTURE_UNSCOPED": 22,
+          "MISSING_EPISODE_ID": 24,
+          "SIGNAL_MISSING_IN_INTERVAL": 29,
+          "SIGNAL_PRESENT_WITHOUT_EVENT_TIMESTAMP": 5
+        },
+        "T1537": {
+          "LEGACY_CAPTURE_UNSCOPED": 7,
+          "MISSING_EPISODE_ID": 8,
+          "NO_SIGNAL_RULE": 8
+        },
+        "T1548.001": {
+          "LEGACY_CAPTURE_UNSCOPED": 19,
+          "MISSING_EPISODE_ID": 24,
+          "SIGNAL_MISSING_IN_INTERVAL": 26,
+          "SIGNAL_PRESENT_WITHOUT_EVENT_TIMESTAMP": 2
+        },
+        "T1552": {
+          "LEGACY_CAPTURE_UNSCOPED": 11,
+          "MISSING_EPISODE_ID": 13,
+          "SIGNAL_MISSING_IN_INTERVAL": 14,
+          "SIGNAL_PRESENT_WITHOUT_EVENT_TIMESTAMP": 1
+        },
+        "T1552.005": {
+          "LEGACY_CAPTURE_UNSCOPED": 7,
+          "MISSING_EPISODE_ID": 8,
+          "NO_SIGNAL_RULE": 8
+        },
+        "T1557.001": {
+          "LEGACY_CAPTURE_UNSCOPED": 10,
+          "MISSING_EPISODE_ID": 10,
+          "SIGNAL_MISSING_IN_INTERVAL": 12,
+          "SIGNAL_PRESENT_WITHOUT_EVENT_TIMESTAMP": 2
+        },
+        "T1558.003": {
+          "LEGACY_CAPTURE_UNSCOPED": 82,
+          "MISSING_EPISODE_ID": 82,
+          "SIGNAL_MISSING_IN_INTERVAL": 334,
+          "SIGNAL_PRESENT_WITHOUT_EVENT_TIMESTAMP": 48
+        },
+        "T1558.004": {
+          "LEGACY_CAPTURE_UNSCOPED": 14,
+          "MISSING_EPISODE_ID": 14,
+          "SIGNAL_MISSING_IN_INTERVAL": 16,
+          "SIGNAL_PRESENT_WITHOUT_EVENT_TIMESTAMP": 2
+        },
+        "T1592": {
+          "CAPTURE_GROUND_TRUTH_INVALID": 1,
+          "LEGACY_CAPTURE_UNSCOPED": 20,
+          "MISSING_EPISODE_ID": 23,
+          "SIGNAL_MISSING_IN_INTERVAL": 24,
+          "SIGNAL_PRESENT_WITHOUT_EVENT_TIMESTAMP": 1
+        },
+        "T1595": {
+          "LEGACY_CAPTURE_UNSCOPED": 17,
+          "MISSING_EPISODE_ID": 19,
+          "SIGNAL_MISSING_IN_INTERVAL": 26,
+          "SIGNAL_PRESENT_WITHOUT_EVENT_TIMESTAMP": 2
+        }
+      },
+      "skipped_unparseable_event_count": 854,
+      "status": "certified",
+      "truth_item_count": 1,
+      "truth_items": [
+        {
+          "anchor_ids": [],
+          "class": "cousin",
+          "dataset": "recorded_captures",
+          "event_count": 169,
+          "event_ids": [
+            "recorded_captures:network:packet:00aa82292c39",
+            "recorded_captures:network:packet:047171de2177",
+            "recorded_captures:network:packet:066d92771ae5",
+            "recorded_captures:network:packet:08a70bec1b26",
+            "recorded_captures:network:packet:0a6bd5e734d6",
+            "recorded_captures:network:packet:0b8f20a40831",
+            "recorded_captures:network:packet:0ba0742ec9ec",
+            "recorded_captures:network:packet:0c4f27796bee",
+            "recorded_captures:network:packet:13ef1d72d59c",
+            "recorded_captures:network:packet:1482f13e1afa",
+            "recorded_captures:network:packet:150216d8a6aa",
+            "recorded_captures:network:packet:1648498e73c6",
+            "recorded_captures:network:packet:18e5e48d8a08",
+            "recorded_captures:network:packet:1a7777149ec8",
+            "recorded_captures:network:packet:1e22af2ffb2b",
+            "recorded_captures:network:packet:1eaf76ec47b6",
+            "recorded_captures:network:packet:1faf4696b87a",
+            "recorded_captures:network:packet:209e4f329056",
+            "recorded_captures:network:packet:221b61a60aa0",
+            "recorded_captures:network:packet:22d556c8d30f",
+            "recorded_captures:network:packet:250f5fd87530",
+            "recorded_captures:network:packet:2744dd1b49ed",
+            "recorded_captures:network:packet:2825a72f9474",
+            "recorded_captures:network:packet:291ba1e033e8",
+            "recorded_captures:network:packet:29b7fc578623",
+            "recorded_captures:network:packet:2bee092c5a4e",
+            "recorded_captures:network:packet:2c458abddf18",
+            "recorded_captures:network:packet:2ceb33d25b77",
+            "recorded_captures:network:packet:2ced8b4633c7",
+            "recorded_captures:network:packet:321f0b5ba135",
+            "recorded_captures:network:packet:3543009ac580",
+            "recorded_captures:network:packet:355708cc1f46",
+            "recorded_captures:network:packet:368b2ddb4fac",
+            "recorded_captures:network:packet:36f5450e449b",
+            "recorded_captures:network:packet:375cd4badd95",
+            "recorded_captures:network:packet:37a41e839c95",
+            "recorded_captures:network:packet:39f427e85de4",
+            "recorded_captures:network:packet:3ba4e049ead3",
+            "recorded_captures:network:packet:3c9a8a265598",
+            "recorded_captures:network:packet:3d68226ea91d",
+            "recorded_captures:network:packet:3eb8a129aeb4",
+            "recorded_captures:network:packet:41c856138554",
+            "recorded_captures:network:packet:426335aab438",
+            "recorded_captures:network:packet:42996730e791",
+            "recorded_captures:network:packet:429bc41183c7",
+            "recorded_captures:network:packet:42aa5ce4463f",
+            "recorded_captures:network:packet:45afb8569151",
+            "recorded_captures:network:packet:45ee824f9570",
+            "recorded_captures:network:packet:4874d4023148",
+            "recorded_captures:network:packet:497d727d4f58",
+            "recorded_captures:network:packet:4a5691cd49fe",
+            "recorded_captures:network:packet:4b26deb0683d",
+            "recorded_captures:network:packet:4b71c9538ab8",
+            "recorded_captures:network:packet:4d9097294e1f",
+            "recorded_captures:network:packet:51c051f0a0d1",
+            "recorded_captures:network:packet:54a30b295211",
+            "recorded_captures:network:packet:59253c8c27ec",
+            "recorded_captures:network:packet:5a9976455708",
+            "recorded_captures:network:packet:5b306142e5a8",
+            "recorded_captures:network:packet:5c94588fce51",
+            "recorded_captures:network:packet:5d3bf44e794e",
+            "recorded_captures:network:packet:5eacf404e2ab",
+            "recorded_captures:network:packet:61d3b8acc5f5",
+            "recorded_captures:network:packet:633f93d3d002",
+            "recorded_captures:network:packet:63fb5dd44bae",
+            "recorded_captures:network:packet:64decef23592",
+            "recorded_captures:network:packet:65058bb4db34",
+            "recorded_captures:network:packet:6a9f706cc1c8",
+            "recorded_captures:network:packet:6aa7428517d8",
+            "recorded_captures:network:packet:6ccd691c17e5",
+            "recorded_captures:network:packet:70b6506bde15",
+            "recorded_captures:network:packet:735e876c02f2",
+            "recorded_captures:network:packet:75575897fdd7",
+            "recorded_captures:network:packet:78dc158de3b6",
+            "recorded_captures:network:packet:78e45093022c",
+            "recorded_captures:network:packet:79897993fcec",
+            "recorded_captures:network:packet:7b0b9f95bea8",
+            "recorded_captures:network:packet:7c3f8ee4c598",
+            "recorded_captures:network:packet:7e0e2fd5f691",
+            "recorded_captures:network:packet:80afe16d6670",
+            "recorded_captures:network:packet:80d64f11653f",
+            "recorded_captures:network:packet:86a2f60957aa",
+            "recorded_captures:network:packet:88a3b9efaaea",
+            "recorded_captures:network:packet:88c771870425",
+            "recorded_captures:network:packet:896868305a5e",
+            "recorded_captures:network:packet:8b45acec9752",
+            "recorded_captures:network:packet:8c079f3adc34",
+            "recorded_captures:network:packet:8ebfb45befa8",
+            "recorded_captures:network:packet:9145a5a0aae6",
+            "recorded_captures:network:packet:92644a1bc668",
+            "recorded_captures:network:packet:9266c388a156",
+            "recorded_captures:network:packet:9324f624b228",
+            "recorded_captures:network:packet:93e36c6061dc",
+            "recorded_captures:network:packet:964c5b651230",
+            "recorded_captures:network:packet:96fb2325cb70",
+            "recorded_captures:network:packet:9a4593ac143c",
+            "recorded_captures:network:packet:9c2c72871205",
+            "recorded_captures:network:packet:a47852d69008",
+            "recorded_captures:network:packet:a587eadcc0f2",
+            "recorded_captures:network:packet:a5c8ce7109d7",
+            "recorded_captures:network:packet:a674d81fea93",
+            "recorded_captures:network:packet:a766d3bfce9b",
+            "recorded_captures:network:packet:a81dd5c92132",
+            "recorded_captures:network:packet:a87dfb4257b1",
+            "recorded_captures:network:packet:ac1ad3bfc3b6",
+            "recorded_captures:network:packet:acae22153217",
+            "recorded_captures:network:packet:ad30d36e1f8e",
+            "recorded_captures:network:packet:b0a3f9e3c3f4",
+            "recorded_captures:network:packet:b21e4edf1d75",
+            "recorded_captures:network:packet:b446296f598a",
+            "recorded_captures:network:packet:b46b72540424",
+            "recorded_captures:network:packet:b49018cec2d8",
+            "recorded_captures:network:packet:b495ae6f71fb",
+            "recorded_captures:network:packet:b4e82dd1fbb6",
+            "recorded_captures:network:packet:b5f85d4d7921",
+            "recorded_captures:network:packet:b6b43db4f210",
+            "recorded_captures:network:packet:b82fec3eb3cf",
+            "recorded_captures:network:packet:b89e57c67dd3",
+            "recorded_captures:network:packet:bd40589e1bbc",
+            "recorded_captures:network:packet:be75f308d7f2",
+            "recorded_captures:network:packet:bf06467aad02",
+            "recorded_captures:network:packet:bfe7516ec19e",
+            "recorded_captures:network:packet:c149ecf133c4",
+            "recorded_captures:network:packet:c391a22472af",
+            "recorded_captures:network:packet:c51c7d1f5de8",
+            "recorded_captures:network:packet:c577da9b8c61",
+            "recorded_captures:network:packet:c903df71b303",
+            "recorded_captures:network:packet:cd4838768378",
+            "recorded_captures:network:packet:d065f9132572",
+            "recorded_captures:network:packet:d263d15a1951",
+            "recorded_captures:network:packet:d390170193c6",
+            "recorded_captures:network:packet:d5056c3c4021",
+            "recorded_captures:network:packet:d67a536a8e82",
+            "recorded_captures:network:packet:d6f3938f208a",
+            "recorded_captures:network:packet:d746977ce603",
+            "recorded_captures:network:packet:d79d38ac6b7f",
+            "recorded_captures:network:packet:d80ef6b9c33a",
+            "recorded_captures:network:packet:d88c6ae92bbc",
+            "recorded_captures:network:packet:d9eef5faf382",
+            "recorded_captures:network:packet:dae2d3c3b588",
+            "recorded_captures:network:packet:dd0eda7e1d3c",
+            "recorded_captures:network:packet:de074baa3b71",
+            "recorded_captures:network:packet:dea5e2bf563a",
+            "recorded_captures:network:packet:df2a629f4cb7",
+            "recorded_captures:network:packet:e0c5c4fa827f",
+            "recorded_captures:network:packet:e109232fc47f",
+            "recorded_captures:network:packet:e5079a3f7462",
+            "recorded_captures:network:packet:e5e4fadfc071",
+            "recorded_captures:network:packet:e67ca4058f49",
+            "recorded_captures:network:packet:e993b0edb3f6",
+            "recorded_captures:network:packet:e9fb08065e5e",
+            "recorded_captures:network:packet:ea2d23dcd9e9",
+            "recorded_captures:network:packet:ea661348b49a",
+            "recorded_captures:network:packet:ec50fba184a0",
+            "recorded_captures:network:packet:ee175e1cd359",
+            "recorded_captures:network:packet:ee8d1a231bb0",
+            "recorded_captures:network:packet:eef9bef63f3a",
+            "recorded_captures:network:packet:ef9710fda9c2",
+            "recorded_captures:network:packet:f0d2e31354d0",
+            "recorded_captures:network:packet:f1bb4ba6fa77",
+            "recorded_captures:network:packet:f77c8e18310e",
+            "recorded_captures:network:packet:f86ea7c97510",
+            "recorded_captures:network:packet:f9d34c6eec6c",
+            "recorded_captures:network:packet:fba47d07b284",
+            "recorded_captures:network:packet:fc1e0d35adb3",
+            "recorded_captures:network:packet:fc30616becb4",
+            "recorded_captures:network:packet:fc33177978a3",
+            "recorded_captures:network:packet:fdb60f692b46",
+            "recorded_captures:network:packet:feb61984a366"
+          ],
+          "item_id": "capture:meta3_ftp_backdoor_20260801T041525Z_79167dc5:T1078",
+          "technique": "T1078"
+        }
+      ]
+    },
+    "truth_manifest": "reports/review_eval/bots_truth_manifest.json",
+    "truth_manifest_sha256": "4bf90b1a9ab892a8b7ae80f7c55707605f478bc5861d4a04d0958fe2e37ac9b5"
+  },
+  "metrics": [
+    {
+      "can_fail": "fails when declared entities cannot be independently located and reconciled",
+      "denominator": 27,
+      "n": 27,
+      "name": "answer_key_entry_yield",
+      "value": 0.25925925925925924
+    },
+    {
+      "can_fail": "fails when none of the three pre-registered indexes has a paired real slice",
+      "denominator": 3,
+      "n": 3,
+      "name": "usable_index_slice_yield",
+      "value": 0.0
+    }
+  ],
+  "rows": 30,
+  "rows_digest": "1ab05cf3987d355b",
+  "selftest": {
+    "checks": {
+      "benign_quiet": {
+        "bound": 0.07756809750418045,
+        "passed": true,
+        "realized": 0.049
+      },
+      "constant": {
+        "measured": {
+          "auroc": 0.5,
+          "precision_at_npos": 1.0,
+          "recall_at_5pct_fpr": 0.0
+        },
+        "passed": true
+      },
+      "inverted": {
+        "measured": {
+          "auroc": 0.0,
+          "precision_at_npos": 0.0,
+          "recall_at_5pct_fpr": 0.0
+        },
+        "passed": true
+      },
+      "oracle": {
+        "measured": {
+          "auroc": 1.0,
+          "precision_at_npos": 1.0,
+          "recall_at_5pct_fpr": 1.0
+        },
+        "passed": true
+      },
+      "planted": {
+        "measured": {
+          "auroc": 0.998825,
+          "precision_at_npos": 0.965,
+          "recall_at_5pct_fpr": 1.0
+        },
+        "passed": true
+      },
+      "random": {
+        "auc_bound": 0.09133272505880172,
+        "measured": {
+          "auroc": 0.50456875,
+          "precision_at_npos": 0.17,
+          "recall_at_5pct_fpr": 0.06
+        },
+        "passed": true
+      }
+    },
+    "passed": true
+  },
+  "stamp": {
+    "commit": "d6145c276260cf0475abb6f014657614b9d3d27a",
+    "config_hash": "ee0facde61b221d7",
+    "corpus_snapshot": "real:botsv1,botsv2,botsv3:4bf90b1a9ab892a8b7ae80f7c55707605f478bc5861d4a04d0958fe2e37ac9b5",
+    "dirty": false,
+    "embedder_id": "google/embeddinggemma-2;dim=768;task=sentence similarity;role=query",
+    "harness_version": "review-eval-v1",
+    "model_digests": [],
+    "policy": "independent-truth-derivation"
+  },
+  "stamp_digest": "6a29bc97d0fd3b97"
+}
