@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import json
 import os
-from collections.abc import Iterable, Mapping, Sequence
+from collections.abc import Iterable, Iterator, Mapping, Sequence
 from dataclasses import dataclass, field
 from typing import Any, Protocol
 
@@ -66,6 +66,26 @@ class WindowSource(Protocol):
     def fetch(self, sources: Sequence[SourceSpec], start: float, end: float) -> WindowBatch: ...
 
 
+def normalize_splunk_record(source: SourceSpec, row: Mapping[str, Any]) -> dict[str, Any]:
+    """Normalize one Splunk result exactly as the product window reader does."""
+    raw_time = row.get("_time")
+    raw_event = row.get("_raw")
+    if raw_time is None or raw_event is None:
+        raise WindowFetchError(f"Splunk event omitted _time or _raw for {source.source_id}")
+    try:
+        event_time = float(raw_time)
+    except (TypeError, ValueError) as exc:
+        raise WindowFetchError(f"invalid _time for {source.source_id}") from exc
+    record = dict(row)
+    record["_time"] = event_time
+    record["_raw"] = str(raw_event)
+    record["index"] = source.index
+    record["sourcetype"] = source.sourcetype
+    record["host"] = str(row.get("host") or "")
+    record["source"] = str(row.get("source") or "")
+    return record
+
+
 def _epoch(value: float) -> str:
     return f"{value:.6f}".rstrip("0").rstrip(".")
 
@@ -74,8 +94,7 @@ def _quote(value: str) -> str:
     return '"' + value.replace("\\", "\\\\").replace('"', '\\"') + '"'
 
 
-def _result_objects(chunks: Iterable[str]) -> list[Mapping[str, Any]]:
-    rows: list[Mapping[str, Any]] = []
+def _iter_result_objects(chunks: Iterable[str]) -> Iterator[Mapping[str, Any]]:
     decoder = json.JSONDecoder()
     remainder = ""
     for chunk in chunks:
@@ -92,6 +111,11 @@ def _result_objects(chunks: Iterable[str]) -> list[Mapping[str, Any]]:
             remainder = remainder[end:]
             if not isinstance(obj, Mapping):
                 raise WindowFetchError("Splunk export returned a non-object JSON item")
+            # The export endpoint can emit an interim aggregate result followed by the final
+            # result. Counting both inflates entity-event scans and can trigger false degraded
+            # receipts, so only final rows enter the product window.
+            if obj.get("preview") is True:
+                continue
             messages = obj.get("messages")
             if isinstance(messages, list):
                 errors = [
@@ -107,10 +131,13 @@ def _result_objects(chunks: Iterable[str]) -> list[Mapping[str, Any]]:
                 continue
             if not isinstance(result, Mapping):
                 raise WindowFetchError("Splunk export result is not a JSON object")
-            rows.append(result)
+            yield result
     if remainder.strip():
         raise WindowFetchError("Splunk export ended with incomplete or invalid JSON")
-    return rows
+
+
+def _result_objects(chunks: Iterable[str]) -> list[Mapping[str, Any]]:
+    return list(_iter_result_objects(chunks))
 
 
 class SplunkWindowSource:
@@ -138,7 +165,8 @@ class SplunkWindowSource:
         if partition_seconds <= 0:
             raise ValueError("partition_seconds must be positive")
 
-    def _post(self, search: str, start: float, end: float) -> list[Mapping[str, Any]]:
+    def iter_post(self, search: str, start: float, end: float) -> Iterator[Mapping[str, Any]]:
+        """Stream final rows from a read-only export without materializing a full corpus slice."""
         try:
             with (
                 httpx.Client(
@@ -161,9 +189,12 @@ class SplunkWindowSource:
                 ) as response,
             ):
                 response.raise_for_status()
-                return _result_objects(response.iter_text())
+                yield from _iter_result_objects(response.iter_text())
         except httpx.HTTPError as exc:
             raise WindowFetchError(f"Splunk export failed: {exc}") from exc
+
+    def _post(self, search: str, start: float, end: float) -> list[Mapping[str, Any]]:
+        return list(self.iter_post(search, start, end))
 
     def _count(self, source: SourceSpec, start: float, end: float) -> int:
         search = (
@@ -187,21 +218,7 @@ class SplunkWindowSource:
         rows = self._post(search, start, end)
         records: list[dict[str, Any]] = []
         for row in rows:
-            raw_time = row.get("_time")
-            raw_event = row.get("_raw")
-            if raw_time is None or raw_event is None:
-                raise WindowFetchError(f"Splunk event omitted _time or _raw for {source.source_id}")
-            try:
-                event_time = float(raw_time)
-            except (TypeError, ValueError) as exc:
-                raise WindowFetchError(f"invalid _time for {source.source_id}") from exc
-            record = dict(row)
-            record["_time"] = event_time
-            record["_raw"] = str(raw_event)
-            record["index"] = source.index
-            record["sourcetype"] = source.sourcetype
-            record["host"] = str(row.get("host") or "")
-            record["source"] = str(row.get("source") or "")
+            record = normalize_splunk_record(source, row)
             assert_label_free(record, where=f"splunk:{source.source_id}")
             records.append(record)
         return records

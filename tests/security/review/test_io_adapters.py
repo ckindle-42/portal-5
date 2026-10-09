@@ -124,6 +124,12 @@ def test_splunk_stream_parser_handles_json_objects_split_across_chunks() -> None
     assert [row["_raw"] for row in decoded] == ["a\nb", "c"]
 
 
+def test_splunk_stream_parser_ignores_interim_preview_rows() -> None:
+    preview = '{"preview":true,"result":{"count":"5"}}'
+    final = '{"preview":false,"result":{"count":"5"}}'
+    assert _result_objects([preview + final]) == [{"count": "5"}]
+
+
 def test_in_memory_window_filters_partitions_and_receipts_mismatch() -> None:
     spec = SourceSpec("i", "s")
     source = InMemoryWindowSource(
