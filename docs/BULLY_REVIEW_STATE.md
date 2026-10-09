@@ -38,6 +38,10 @@ Reachability of the engine package (static import closure):
 |---|---|---|---|---|
 | D-T1-BASELINE | raised | INCONCLUSIVE | reports/review_eval/6a29bc97d0fd3b97/truth_derivation.json | none |
 | D-T2-TRUTH-STRATIFICATION | window | REJECTED | reports/review_eval/90890b3c9418457c/truth_stratification.md | none |
+| D-T3-CHALLENGER | raised | INCONCLUSIVE | reports/review_eval/41eaed5720a9844f/t3_prerequisites.json | none |
+| D-T3-PANEL | raised | REJECTED | reports/review_eval/41eaed5720a9844f/t3_prerequisites.json | none |
+| D-T3-PIVOT | raised | INCONCLUSIVE | reports/review_eval/41eaed5720a9844f/t3_prerequisites.json | none |
+| D-T3-READER | raised | INCONCLUSIVE | reports/review_eval/41eaed5720a9844f/t3_prerequisites.json | none |
 
 ## Measured (stamped, real corpora only)
 
@@ -113,6 +117,19 @@ commit `d6145c276260`, embedder `google/embeddinggemma-2;dim=768;task=sentence s
 | metric | value | n | reads as failure when |
 |---|---|---|---|
 | slice_eligibility | 0 | 1 | fails when the pre-registered index has no usable attack and benign pair |
+
+### arm `t3_prerequisites` stamp `41eaed5720a9844f`
+
+commit `4a6eeb9ccd01`, embedder `google/embeddinggemma-2;dim=768;task=sentence similarity;role=query`, corpus `real:reader-prerequisites:f56783be88f2f963a32f3f8a52701da15e8a705fe18f73257116328410f35500`
+
+| metric | value | n | reads as failure when |
+|---|---|---|---|
+| core_reasoning_candidate_rate | 0.5 | 4 | fails when no configured single-reader candidate produces a reasoning channel |
+| panel_reasoning_seat_rate | 0.333333 | 3 | fails when the configured panel has no reasoning-capable seat |
+| paired_truth_slice_yield | 0 | 3 | fails when no registered index has an eligible paired truth slice |
+| alpha_open_available | 0 | 1 | fails when T2 has no candidate-recall-versus-alpha curve from which to derive alpha_open |
+| workload_B_available | 0 | 1 | fails when T1 did not establish workload budget B |
+| reader_depth_R_available | 0 | 1 | fails when evaluation window duration and measured concern p95 latency are unavailable |
 
 binding stage: `unmeasured` (all pre-registered paired slices were excluded before product execution)
 
