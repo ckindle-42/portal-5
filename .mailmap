@@ -1,4 +1,4 @@
 # Canonical identities for `git log`/`shortlog`/`blame`.
-# 8ccd07ed..7be1bdc3 (Bully review T0-T7) were committed under an identity a unit test
+# The Bully review T0-T7 commits after 8ccd07ed were committed under an identity a unit test
 # wrote into .git/config from a linked worktree (fixed by the tests/unit conftest).
 Chris <ckindle@gmail.com> t <t@t>
