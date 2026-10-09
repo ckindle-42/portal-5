@@ -9,6 +9,8 @@ Delete a candidate module's tests and one-off run scripts in the same batch. An 
 
 The live EG2 embedding-consumer probe at `tests/benchmarks/embedding_consumers/probes/bully.py` dynamically loads `scripts/defensive_bully_p04_adoption.py` with `spec_from_file_location`. That script imports `cousin_calibration_bench`, `discovery_bench`, and `embedding_spaces` (along with `organ` and `store`). The probe survives as an independent embedding-consumer benchmark, so it justifies KEEP for those three protected modules. `mutation` is KEEP by graph closure.
 
+After Phase D Batch 2, the defect census reports 22 orphan modules; every one is a Rev 2 DELETE candidate scheduled for Batch 3. The surviving KEEP module `outbox` has no direct test importer in the surviving tree; its only recorded importer is `store`. It remains KEEP as classified, and no test or module is restored to manufacture coverage.
+
 | module | lines | decision | importers (any) |
 |---|---|---|---|
 | bully | 68 | KEEP | adversary, analyst_corpus, analyst_loop, anchors |
