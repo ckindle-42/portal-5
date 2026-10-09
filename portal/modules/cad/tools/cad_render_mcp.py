@@ -384,13 +384,11 @@ async def convert_cad(input_path: str, to_format: str) -> dict[str, Any]:
                 "sandbox instead, or install the conda-forge OCP layer (see PLATFORM.md)."
             }
         try:
-            from build123d import (  # type: ignore[import-not-found]  # conda-only OCP layer
-                import_step,
-            )
+            from build123d import import_step
 
             shape = import_step(str(src))
             mesh = shape.tessellate(0.1)
-            geom = trimesh.Trimesh(vertices=mesh[0], faces=mesh[1])
+            geom = trimesh.Trimesh(vertices=[v.to_tuple() for v in mesh[0]], faces=mesh[1])
         except Exception as e:  # noqa: BLE001
             return {
                 "error": f"STEP read requires build123d/OCP and failed: {e}. Export STL from the sandbox instead."

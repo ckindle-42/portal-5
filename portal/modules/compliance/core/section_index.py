@@ -337,7 +337,8 @@ def exclusion_classes() -> list[dict[str, Any]]:
     path = Path(__file__).resolve().parents[1] / "data" / "index_exclusions.json"
     if not path.is_file():
         return []
-    return json.loads(path.read_text(encoding="utf-8")).get("classes", [])
+    classes: list[dict[str, Any]] = json.loads(path.read_text(encoding="utf-8")).get("classes", [])
+    return classes
 
 
 def _matching_class(

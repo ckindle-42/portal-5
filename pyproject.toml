@@ -403,6 +403,8 @@ max-complexity = 15
 "tests/uat/runner.py" = ["C90", "PLR0912", "PLR0915"]
 
 [tool.mypy]
+# The operator's gitignored compliance scratch tree is not repo code.
+exclude = ["^portal/modules/compliance/data/private/"]
 # python_version must track the real toolchain: ruff target-version is py312
 # and scripts/ci_local.sh builds a Python 3.12 venv. The previous 3.10 floor
 # manufactured a false debt class (e.g. datetime.UTC, added in 3.11) that

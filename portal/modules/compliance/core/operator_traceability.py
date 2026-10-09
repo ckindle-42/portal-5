@@ -160,7 +160,7 @@ def resolve_row(
     register: Register,
     sections_by_number: dict[str, list[str]],
     section_bodies: dict[str, str],
-    stats: Counter | None = None,
+    stats: Counter[str] | None = None,
 ) -> ResolvedRow:
     """Resolve one row exactly as the validated probe did (D-DT-8 G5):
 
@@ -230,7 +230,7 @@ def resolve_row(
     return resolved
 
 
-def _structural_resolve(row: TraceRow, register: Register, stats: Counter) -> list[str]:
+def _structural_resolve(row: TraceRow, register: Register, stats: Counter[str]) -> list[str]:
     """The probe's structural resolution: contextual standard (+ version when
     the appendix states one), parent-trimmed Part tokens, currency-preferred."""
     if not row.standard or not row.r:
@@ -282,7 +282,7 @@ def _resolve_sections(
     row: TraceRow,
     sections_by_number: dict[str, list[str]],
     section_bodies: dict[str, str],
-    stats: Counter,
+    stats: Counter[str],
 ) -> list[str]:
     targets: list[str] = []
     for number in row.section_numbers:
@@ -317,7 +317,9 @@ def _sections_for_number(number: str, sections_by_number: dict[str, list[str]]) 
     ]
 
 
-def _undotted(number: str, sections_by_number: dict[str, list[str]], stats: Counter) -> list[str]:
+def _undotted(
+    number: str, sections_by_number: dict[str, list[str]], stats: Counter[str]
+) -> list[str]:
     """Hazard fix (G5, counted): undotted appendix numbers over dotted
     document sections — "Section 3" may be stored as 3.0."""
     hits = list(sections_by_number.get(f"{number}.0", []))
@@ -427,7 +429,7 @@ def resolve_revision(repo: Any, revision_id: str) -> dict[str, Any]:
         return {"resolved": [], "stats": Counter(), "has_appendix": False}
     register = load_register(repo)
     by_number, bodies = load_sections(repo, revision_id)
-    stats: Counter = Counter()
+    stats: Counter[str] = Counter()
     resolved = [
         resolve_row(row, register, by_number, bodies, stats) for row in parse_rows(appendix)
     ]
@@ -445,7 +447,7 @@ def record_traceability(repo: Any, revision_id: str) -> dict[str, Any]:
     ).fetchone()
     logical_id = str(logical_row[0]) if logical_row else ""
     result = resolve_revision(repo, revision_id)
-    stats: Counter = Counter(result["stats"])
+    stats: Counter[str] = Counter(result["stats"])
     stats["no_appendix"] = 0 if result["has_appendix"] else 1
     stamp = now_iso()
     addresses: list[tuple[str, str, float, str]] = []
@@ -560,7 +562,7 @@ def record_all_traceability(repo: Any) -> dict[str, Any]:
         ).fetchall()
     ]
     receipts = [record_traceability(repo, revision_id) for revision_id in sorted(revisions)]
-    totals: Counter = Counter()
+    totals: Counter[str] = Counter()
     for receipt in receipts:
         for key, value in receipt["stats"].items():
             totals[key] += value

@@ -207,8 +207,10 @@ def _thinking_enabled(body: dict[str, Any]) -> bool:
     if isinstance(direct, bool):
         return direct
     ctk = body.get("chat_template_kwargs")
-    if isinstance(ctk, dict) and isinstance(ctk.get("enable_thinking"), bool):
-        return ctk["enable_thinking"]
+    if isinstance(ctk, dict):
+        nested = ctk.get("enable_thinking")
+        if isinstance(nested, bool):
+            return nested
     if body.get("reasoning_effort") == "none":
         return False
     if body.get("think") is False:

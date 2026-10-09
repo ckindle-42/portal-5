@@ -604,7 +604,7 @@ def _merge_heading_only(sections: list[InternalSection], full_text: str) -> list
             and len(body) < _HEADING_ONLY_FLOOR
             and following.char_start >= section.char_end - 1
         )
-        if foldable:
+        if foldable and following is not None:
             out.append(
                 InternalSection(
                     path=following.path,

@@ -172,10 +172,10 @@ def _decide_via_model(
 
         if model is None:
             return None
-        raw_text = _call_model_direct(engine, model, prompt)
-        if not raw_text:
+        direct_text = _call_model_direct(engine, model, prompt)
+        if not direct_text:
             return None
-        return _parse_model_decision(raw_text, candidates)
+        return _parse_model_decision(direct_text, candidates)
     except Exception:
         return None
 

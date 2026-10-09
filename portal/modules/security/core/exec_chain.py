@@ -2580,9 +2580,10 @@ def _candidate_sampling_override() -> dict[str, Any] | None:
     if not raw:
         return None
     try:
-        return json.loads(raw)
+        parsed = json.loads(raw)
     except Exception:
         return None
+    return parsed if isinstance(parsed, dict) else None
 
 
 def _apply_candidate_sampling(model: str, payload: dict[str, Any]) -> dict[str, Any]:

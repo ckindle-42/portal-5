@@ -127,8 +127,8 @@ def build_cross_revision(
             served_ceiling=served_ceiling,
         )
     standard = str(parsed)
-    family = re.match(r"^(CIP-\d{2,3})", standard)
-    family = family.group(1) if family else standard.split("-")[0]
+    family_match = re.match(r"^(CIP-\d{2,3})", standard)
+    family = family_match.group(1) if family_match else standard.split("-")[0]
     register = _register_ids(repo)
     requirement_ids = sorted(
         rid
@@ -315,9 +315,9 @@ def _resolve_by_query(repo: Any, query: str) -> dict[str, Any]:
         # a query that names its standards outright ("CIP-003 and CIP-004")
         seen: list[str] = []
         for match in _STD_TOKEN_RE.finditer(query):
-            standard = _current_standard(repo, match.group(0))
-            if standard and standard not in seen:
-                seen.append(standard)
+            named = _current_standard(repo, match.group(0))
+            if named and named not in seen:
+                seen.append(named)
         standards = seen[:2]
     if not standards:
         return {

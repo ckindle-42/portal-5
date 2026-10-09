@@ -145,7 +145,7 @@ def reading_route_ceiling() -> int | None:
         binding = (raw.get("workspaces") or {}).get("compliance-reading") or {}
         hint = str(binding.get("model_hint") or "")
         backends_path = _PORTAL_CONFIG.parent / "backends.yaml"
-        routing = {}
+        routing: dict[str, Any] = {}
         if backends_path.exists():
             routing = (yaml.safe_load(backends_path.read_text()) or {}).get(
                 "workspace_routing"
