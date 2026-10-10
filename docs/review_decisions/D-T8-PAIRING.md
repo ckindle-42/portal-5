@@ -11,7 +11,9 @@ anti_goals:
   - do not add, re-index, inject or synthesize telemetry to make an index long enough
   - do not treat an adopted pairing arm as a product result; it re-enables T1, it does not answer it
   - do not tune any threshold, weight, cutoff or prompt, and do not edit a deprecated module
-status: PREREGISTERED
+status: ADOPTED
+report: reports/review_eval/15a35aa1fcbcbfb7/truth_derivation.json
+result: "cross_index is the only qualifying arm and is adopted proxy-paired (benign index portal5_lab): hull, per_entry and matched_set each paired 0 of 3 indexes because the complements outside the answer-key spans plus the 86,400 s margin are empty in botsv1 and botsv2 and botsv3 derives no interval, while cross_index yields a UTC-day-aligned benign comparator of the full attack duration for 2 of 3 indexes (botsv1 and botsv2), event-id disjoint by namespace, at an unchanged answer-key yield of 7 of 27 in every arm."
 ---
 
 ## Why this record exists

@@ -1,0 +1,154 @@
+{
+  "created_at": 1791599345.5396092,
+  "extra": {
+    "answer_key_entry_count": 27,
+    "derived_item_count": 7,
+    "dropped_entry_count": 20,
+    "fetch_census": {
+      "distinct_ids": 639786,
+      "id_collisions": 90300,
+      "rows": 730086,
+      "rows_without_cd": 0
+    },
+    "index_pairings": [
+      {
+        "arm": "hull",
+        "attack_span_count": 1,
+        "attack_spans": [
+          {
+            "end_exclusive_epoch": 1472425560.320122,
+            "start_epoch": 1470011404.475776
+          }
+        ],
+        "benign_candidate_count": 0,
+        "benign_candidates": [],
+        "corpus_interval": {
+          "end_exclusive_epoch": 1472450339.000001,
+          "first_epoch": 1470009600.0
+        },
+        "derived_entry_count": 5,
+        "index": "botsv1",
+        "paired": false,
+        "reason": "no_same_size_utc_day_aligned_background_window_outside_answer_key_spans_plus_margin",
+        "target_duration_seconds": 2414155.8443460464
+      },
+      {
+        "arm": "hull",
+        "attack_span_count": 1,
+        "attack_spans": [
+          {
+            "end_exclusive_epoch": 1504220386.634001,
+            "start_epoch": 1501545771.802
+          }
+        ],
+        "benign_candidate_count": 0,
+        "benign_candidates": [],
+        "corpus_interval": {
+          "end_exclusive_epoch": 1504223999.000001,
+          "first_epoch": 1501545600.0
+        },
+        "derived_entry_count": 2,
+        "index": "botsv2",
+        "paired": false,
+        "reason": "no_same_size_utc_day_aligned_background_window_outside_answer_key_spans_plus_margin",
+        "target_duration_seconds": 2674614.832000971
+      },
+      {
+        "arm": "hull",
+        "attack_span_count": 0,
+        "attack_spans": [],
+        "benign_candidate_count": 0,
+        "benign_candidates": [],
+        "corpus_interval": null,
+        "derived_entry_count": 0,
+        "index": "botsv3",
+        "paired": false,
+        "reason": "no_fully_derived_answer_key_interval",
+        "target_duration_seconds": null
+      }
+    ],
+    "pairing_arm": "hull",
+    "raw_telemetry_persisted": false,
+    "truth_manifest_sha256": "82bae32d62afd64a490ac86d6fa5da5973505fa7a58f2e731cc64e78394ca7fc"
+  },
+  "metrics": [
+    {
+      "can_fail": "fails when declared entities cannot be independently located and reconciled",
+      "denominator": 27,
+      "n": 27,
+      "name": "answer_key_entry_yield",
+      "value": 0.25925925925925924
+    },
+    {
+      "can_fail": "fails when no pre-registered index yields a benign comparator under this arm",
+      "denominator": 3,
+      "n": 3,
+      "name": "usable_index_slice_yield",
+      "value": 0.0
+    }
+  ],
+  "rows": 30,
+  "rows_digest": "709cce5e54456519",
+  "selftest": {
+    "checks": {
+      "benign_quiet": {
+        "bound": 0.07756809750418045,
+        "passed": true,
+        "realized": 0.049
+      },
+      "constant": {
+        "measured": {
+          "auroc": 0.5,
+          "precision_at_npos": 1.0,
+          "recall_at_5pct_fpr": 0.0
+        },
+        "passed": true
+      },
+      "inverted": {
+        "measured": {
+          "auroc": 0.0,
+          "precision_at_npos": 0.0,
+          "recall_at_5pct_fpr": 0.0
+        },
+        "passed": true
+      },
+      "oracle": {
+        "measured": {
+          "auroc": 1.0,
+          "precision_at_npos": 1.0,
+          "recall_at_5pct_fpr": 1.0
+        },
+        "passed": true
+      },
+      "planted": {
+        "measured": {
+          "auroc": 0.998825,
+          "precision_at_npos": 0.965,
+          "recall_at_5pct_fpr": 1.0
+        },
+        "passed": true
+      },
+      "random": {
+        "auc_bound": 0.09133272505880172,
+        "measured": {
+          "auroc": 0.50456875,
+          "precision_at_npos": 0.17,
+          "recall_at_5pct_fpr": 0.06
+        },
+        "passed": true
+      }
+    },
+    "passed": true
+  },
+  "stamp": {
+    "commit": "27006b24719f924d3582dd8cb9343f6da5b62b7d",
+    "config_hash": "315222c012441aae",
+    "corpus_snapshot": "real:bots-answer-key:82bae32d62afd64a490ac86d6fa5da5973505fa7a58f2e731cc64e78394ca7fc",
+    "dirty": false,
+    "embedder_id": "google/embeddinggemma-2;dim=768;task=sentence similarity;role=query",
+    "harness_version": "review-eval-v1",
+    "model_digests": [],
+    "policy": "D-T8-PAIRING; truth derivation with the hull benign-pairing arm"
+  },
+  "stamp_digest": "f1678c4c2e7b67a9"
+}

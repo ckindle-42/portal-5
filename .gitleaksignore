@@ -1,0 +1,12 @@
+# The corpus_snapshot in these review_eval truth reports is a sha256 of the
+# derivation manifest (bots_truth_manifest.json), recorded next to the label
+# "bots-answer-key". The word "key" in the label trips generic-api-key; the
+# digest is a content hash of committed aggregate data, not a credential.
+reports/review_eval/f1678c4c2e7b67a9/truth_derivation.md:generic-api-key:4
+reports/review_eval/f1678c4c2e7b67a9/truth_derivation.json:generic-api-key:146
+reports/review_eval/fb80197354f28435/truth_derivation.md:generic-api-key:4
+reports/review_eval/fb80197354f28435/truth_derivation.json:generic-api-key:166
+reports/review_eval/76cbcd8784b2b7fd/truth_derivation.md:generic-api-key:4
+reports/review_eval/76cbcd8784b2b7fd/truth_derivation.json:generic-api-key:166
+reports/review_eval/15a35aa1fcbcbfb7/truth_derivation.md:generic-api-key:4
+reports/review_eval/15a35aa1fcbcbfb7/truth_derivation.json:generic-api-key:156
