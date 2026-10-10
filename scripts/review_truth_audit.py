@@ -10,7 +10,9 @@ entries can be found where they say they are. This reads aggregates only (``tsta
 * the UTC days each entity appears on in the declared sourcetypes, beside the days those
   sourcetypes hold data at all (an entity present whenever its sensor reports is background, not
   an attack marker);
-* entries that declare the same entity set as another entry.
+* entries that declare the same entity set as another entry;
+* for an entry with more than one entity, whether they ever appear together in one event of the
+  declared sourcetypes, outside Portal-written sources (D-T11 matches an entry's entities with AND).
 
 It decides nothing and edits nothing. Raw telemetry is never read or written.
 """
@@ -32,6 +34,7 @@ if str(REPO) not in sys.path:
 from portal.modules.security.core.bully.bots_answer_key import BOTS_ANSWER_KEY  # noqa: E402
 from portal.modules.security.core.bully.corpus_bed import AnswerKeyEntry  # noqa: E402
 from portal.modules.security.core.review.window import SplunkWindowSource  # noqa: E402
+from portal.modules.security.core.review_eval import bots_truth_key  # noqa: E402
 
 PORTAL_SOURCE_PREFIX = "portal5:"
 
@@ -82,6 +85,14 @@ class Probe:
         )
         return {key[0]: count for key, count in rows.items()}
 
+    def joint_events(self, index: str, sourcetype: str, entities: Iterable[str]) -> int:
+        terms = "".join(f" {_q(entity)}" for entity in entities)
+        rows = self._rows(
+            f'search index={index} sourcetype={_q(sourcetype)} NOT source="{PORTAL_SOURCE_PREFIX}*"'
+            f"{terms} | stats count as count"
+        )
+        return int(float(str(rows[-1].get("count", 0)))) if rows else 0
+
     def entity_elsewhere(self, index: str, entity: str) -> dict[str, int]:
         rows = self._keyed(
             f"| tstats count where index={index} TERM({_q(entity)}) by sourcetype", "sourcetype"
@@ -128,6 +139,14 @@ def audit_entry(entry: AnswerKeyEntry, probe: Probe, duplicates: list[str]) -> d
             )
         elif len(sensor_days) > 1 and sensor_days <= set(days):
             problems.append(f"entity_on_every_sensor_day:{entity}")
+    joint = None
+    if len(entry.entities) > 1 and all(e["events_in_declared"] for e in entities.values()):
+        joint = sum(
+            probe.joint_events(entry.dataset, sourcetype, entry.entities)
+            for sourcetype in entry.sourcetypes
+        )
+        if not joint:
+            problems.append("entities_never_share_an_event")
     if duplicates:
         problems.append("same_entity_set_as:" + ",".join(duplicates))
     return {
@@ -136,6 +155,7 @@ def audit_entry(entry: AnswerKeyEntry, probe: Probe, duplicates: list[str]) -> d
         "sourcetypes": sourcetypes,
         "entities": entities,
         "sensor_days": len(sensor_days),
+        "joint_events": joint,
         "problems": problems,
         "usable": not problems,
     }
@@ -180,15 +200,25 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--timeout-seconds", type=float, default=900.0)
     parser.add_argument(
+        "--key", choices=("bots_answer_key", "bots_truth_key"), default="bots_answer_key"
+    )
+    parser.add_argument(
         "--out", type=Path, default=REPO / "reports" / "review_eval" / "truth_audit"
     )
     args = parser.parse_args(argv)
-    doc = audit(BOTS_ANSWER_KEY, Probe(SplunkWindowSource(timeout_seconds=args.timeout_seconds)))
+    entries = (
+        [entry.answer_key_entry() for entry in bots_truth_key.load()]
+        if args.key == "bots_truth_key"
+        else list(BOTS_ANSWER_KEY)
+    )
+    doc = audit(entries, Probe(SplunkWindowSource(timeout_seconds=args.timeout_seconds)))
+    doc["key"] = args.key
     args.out.mkdir(parents=True, exist_ok=True)
-    (args.out / "answer_key_audit.json").write_text(
+    name = "answer_key_audit" if args.key == "bots_answer_key" else "truth_key_audit"
+    (args.out / f"{name}.json").write_text(
         json.dumps(doc, indent=1, sort_keys=True), encoding="utf-8"
     )
-    (args.out / "answer_key_audit.md").write_text(render(doc), encoding="utf-8")
+    (args.out / f"{name}.md").write_text(render(doc), encoding="utf-8")
     print(json.dumps({"entries": doc["entry_count"], "usable": doc["usable_entry_count"]}))
     return 0
 

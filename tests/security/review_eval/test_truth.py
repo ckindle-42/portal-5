@@ -250,3 +250,33 @@ def test_day_scoped_span_drops_entities_that_never_share_a_day() -> None:
     assert receipt.status == "dropped"
     assert receipt.reason == "answer_key_entities_share_no_utc_day"
     assert fetched == []
+
+
+def test_match_all_keeps_only_events_carrying_every_entity() -> None:
+    both = _http(10 * DAY + 120, "Host: web.example dst=10.0.0.5")
+    records = [_http(10 * DAY + 60, "dst=10.0.0.5"), both]
+    days = {
+        ("web.example",): {10 * DAY: 1},
+        ("10.0.0.5",): {d * DAY: 1 for d in range(28)},
+        ("web.example", "10.0.0.5"): {10 * DAY: 1},
+    }
+
+    def fetch(
+        _index: str, _sourcetype: str, _entities: Sequence[str], start: float, end: float
+    ) -> list[dict[str, Any]]:
+        return [row for row in records if start <= row["_time"] < end]
+
+    def stats(_index: str, _sourcetype: str, _entities: Sequence[str]) -> EntitySearchStat:
+        raise AssertionError("not used with query_days")
+
+    derived = derive_bots_truth(
+        fetch,
+        stats,
+        entries=[entry(entities=("web.example", "10.0.0.5"))],
+        query_days=lambda _i, _s, entities: days.get(tuple(entities), {}),
+        match_all=True,
+    )
+    receipt = derived.receipts[0]
+    assert receipt.status == "derived"
+    assert (receipt.start_epoch, receipt.end_exclusive_epoch) == (10 * DAY, 11 * DAY)
+    assert derived.items[0].event_ids == (event_id_for("botsv3:wineventlog:security", both),)

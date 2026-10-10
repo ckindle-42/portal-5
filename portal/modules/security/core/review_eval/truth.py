@@ -324,6 +324,7 @@ def derive_bots_truth(
     *,
     entries: Sequence[AnswerKeyEntry] = BOTS_ANSWER_KEY,
     query_days: DayCountFetcher | None = None,
+    match_all: bool = False,
 ) -> TruthDerivation:
     """Search every declared entity/source pair and keep only fully located entries.
 
@@ -336,11 +337,14 @@ def derive_bots_truth(
     present (first such day to the end of the last): the "all entities located" condition applied
     per day instead of per index, so an entity that is also everyday background (a victim
     server's own address) no longer stretches the entry across the whole index.
+
+    With ``match_all`` an event is truth only if it contains every declared entity (the fetchers
+    must filter the same way), and the day-scoped span uses the days those events fall on.
     """
     items: list[TruthItem] = []
     receipts: list[EntryReceipt] = []
     for entry in entries:
-        item, receipt = _derive_entry(entry, fetch_records, query_stats, query_days)
+        item, receipt = _derive_entry(entry, fetch_records, query_stats, query_days, match_all)
         if item is not None:
             items.append(item)
         receipts.append(receipt)
@@ -352,6 +356,7 @@ def _derive_entry(
     fetch_records: RecordFetcher,
     query_stats: StatsFetcher,
     query_days: DayCountFetcher | None = None,
+    match_all: bool = False,
 ) -> tuple[TruthItem | None, EntryReceipt]:
     index = _index_for(entry)
     item_id = _item_id_for(entry, index)
@@ -363,15 +368,9 @@ def _derive_entry(
     population = (
         _entry_population(index, sourcetypes, entities, query_stats)
         if query_days is None
-        else _entry_population_by_day(index, sourcetypes, entities, query_days)
+        else _entry_population_by_day(index, sourcetypes, entities, query_days, match_all)
     )
-    evidence = _fetch_evidence(
-        index,
-        sourcetypes,
-        entities,
-        population,
-        fetch_records,
-    )
+    evidence = _fetch_evidence(index, sourcetypes, entities, population, fetch_records, match_all)
     expected_count_matches = len(evidence.event_times) == population.event_count
     entities_match = len(evidence.located_entities) == len(entities)
     keep = (
@@ -491,23 +490,23 @@ def _entry_population_by_day(
     sourcetypes: Sequence[str],
     entities: Sequence[str],
     query_days: DayCountFetcher,
+    match_all: bool = False,
 ) -> _EntryPopulation:
     entity_days = {
         entity: {day for source in sourcetypes for day in query_days(index, source, (entity,))}
         for entity in entities
     }
     located = frozenset(entity for entity, days in entity_days.items() if days)
-    shared = set.intersection(*entity_days.values()) if entity_days else set()
+    joint: dict[float, int] = {}
+    for source in sourcetypes:
+        for day, count in query_days(index, source, entities).items():
+            joint[day] = joint.get(day, 0) + count
+    shared = set(joint) if match_all else set.intersection(*entity_days.values())
     if not shared:
         return _EntryPopulation(0, None, None, located)
     first = min(shared)
     end_exclusive = max(shared) + _SECONDS_PER_DAY
-    event_count = sum(
-        count
-        for source in sourcetypes
-        for day, count in query_days(index, source, entities).items()
-        if first <= day < end_exclusive
-    )
+    event_count = sum(count for day, count in joint.items() if first <= day < end_exclusive)
     return _EntryPopulation(event_count, first, end_exclusive, located)
 
 
@@ -517,6 +516,7 @@ def _fetch_evidence(
     entities: Sequence[str],
     population: _EntryPopulation,
     fetch_records: RecordFetcher,
+    match_all: bool = False,
 ) -> _FetchedEvidence:
     if (
         len(population.located_entities) != len(entities)
@@ -538,7 +538,7 @@ def _fetch_evidence(
         ):
             matches = _matching_entities(record, entities)
             timestamp = _record_epoch(record)
-            if not matches or timestamp is None:
+            if not matches or timestamp is None or (match_all and len(matches) < len(entities)):
                 continue
             located.update(matches)
             event_times[event_id_for(source_id, record)] = timestamp

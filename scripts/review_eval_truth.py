@@ -41,6 +41,7 @@ from portal.modules.security.core.review.window import (  # noqa: E402
     WindowFetchError,
     normalize_splunk_record,
 )
+from portal.modules.security.core.review_eval import bots_truth_key  # noqa: E402
 from portal.modules.security.core.review_eval import report as report_mod  # noqa: E402
 from portal.modules.security.core.review_eval import selftest as selftest_mod  # noqa: E402
 from portal.modules.security.core.review_eval import stamp as stamp_mod  # noqa: E402
@@ -62,6 +63,9 @@ class ExtentSource(Protocol):
 
 PAIRINGS = ("hull", "per_entry", "matched_set", "cross_index", "cross_index_benign")
 TRUTH_SPANS = ("index", "entity_days")
+# The rebuilt key (D-T11) is AND-matched and never reads Portal-written sources; the control key
+# keeps the semantics every report before D-T11 used.
+KEYS = ("bots_answer_key", "bots_truth_key")
 DEFAULT_MARGIN_SECONDS = 86_400.0
 SECONDS_PER_DAY = 86_400.0
 
@@ -158,18 +162,26 @@ class SplunkTruthSource:
     window that way), and a timeout there is indistinguishable from absent truth.
     """
 
-    def __init__(self, source: SplunkWindowSource, *, partition_seconds: float) -> None:
+    def __init__(
+        self, source: SplunkWindowSource, *, partition_seconds: float, match_all: bool = False
+    ) -> None:
         if partition_seconds <= 0:
             raise ValueError("partition_seconds must be positive")
         self.source = source
         self.partition_seconds = partition_seconds
+        self.match_all = match_all
         self.census = FetchCensus()
         self._seen_ids: set[str] = set()
+
+    def _entity_filter(self, entities: Sequence[str]) -> str:
+        if not self.match_all:
+            return _entity_clause(entities)
+        return ' NOT source="portal5:*"' + "".join(f" {_quote(e)}" for e in entities)
 
     def query_stats(self, index: str, sourcetype: str, entities: Sequence[str]) -> EntitySearchStat:
         search = (
             f"search index={_quote(index)} sourcetype={_quote(sourcetype)}"
-            f"{_entity_clause(entities)}"
+            f"{self._entity_filter(entities)}"
             " | stats count as count, min(_time) as first, max(_time) as last"
         )
         rows = list(self.source.iter_post(search, 0.0, time.time() + 1.0))
@@ -187,7 +199,7 @@ class SplunkTruthSource:
         """Matching event counts per UTC day; the same filter as ``query_stats``, bucketed."""
         search = (
             f"search index={_quote(index)} sourcetype={_quote(sourcetype)}"
-            f"{_entity_clause(entities)}"
+            f"{self._entity_filter(entities)}"
             " | eval day=floor(_time/86400)*86400 | stats count as count by day"
         )
         out: dict[float, int] = {}
@@ -211,7 +223,7 @@ class SplunkTruthSource:
         spec = SourceSpec(index, sourcetype)
         search = (
             f"search index={_quote(index)} sourcetype={_quote(sourcetype)}"
-            f"{_entity_clause(entities)}"
+            f"{self._entity_filter(entities)}"
         )
         cursor = start
         while cursor < end:
@@ -560,6 +572,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--pairing", choices=PAIRINGS, default="hull")
     parser.add_argument("--truth-span", choices=TRUTH_SPANS, default="index")
+    parser.add_argument("--key", choices=KEYS, default="bots_answer_key")
     parser.add_argument("--benign-index", default="portal5_lab")
     parser.add_argument("--margin-seconds", type=float, default=DEFAULT_MARGIN_SECONDS)
     parser.add_argument("--partition-seconds", type=float, default=600.0)
@@ -574,13 +587,22 @@ def main(argv: Sequence[str] | None = None) -> int:
     health = window_source.health()
     if not health.get("reachable"):
         raise RuntimeError("Splunk health did not confirm a reachable read-only source")
-    source = SplunkTruthSource(window_source, partition_seconds=args.partition_seconds)
+    match_all = args.key == "bots_truth_key"
+    source = SplunkTruthSource(
+        window_source, partition_seconds=args.partition_seconds, match_all=match_all
+    )
+    entries = (
+        [entry.answer_key_entry() for entry in bots_truth_key.load()]
+        if match_all
+        else list(BOTS_ANSWER_KEY)
+    )
 
     derivation = derive_bots_truth(
         source.fetch_records,
         source.query_stats,
-        entries=BOTS_ANSWER_KEY,
+        entries=entries,
         query_days=source.query_day_counts if args.truth_span == "entity_days" else None,
+        match_all=match_all,
     )
     source.census.distinct_ids = len(
         {event_id for item in derivation.items for event_id in item.event_ids}
@@ -611,12 +633,13 @@ def main(argv: Sequence[str] | None = None) -> int:
     config_payload: dict[str, Any] = {
         "pairing_arm": args.pairing,
         "truth_span": args.truth_span,
+        "key": args.key,
         "benign_index": args.benign_index,
         "margin_seconds": args.margin_seconds,
         "partition_seconds": args.partition_seconds,
         "timeout_seconds": args.timeout_seconds,
         "indexes": list(BOTS_INDEXES),
-        "answer_key_entry_count": len(BOTS_ANSWER_KEY),
+        "answer_key_entry_count": len(entries),
     }
     run_stamp = stamp_mod.build_stamp(
         repo=REPO,
@@ -626,7 +649,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         corpus_snapshot=f"real:bots-answer-key:{manifest_sha256}",
         policy=(
             f"{args.record}; truth derivation with the {args.pairing} benign-pairing arm"
-            f" and the {args.truth_span} truth span"
+            f" and the {args.truth_span} truth span on {args.key}"
         ),
     )
     known_answer = selftest_mod.run_selftest(stamp_digest=run_stamp.digest)
@@ -664,6 +687,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         extra={
             "pairing_arm": args.pairing,
             "truth_span": args.truth_span,
+            "key": args.key,
             "answer_key_entry_count": len(derivation.receipts),
             "derived_item_count": len(derivation.items),
             "dropped_entry_count": sum(r.status == "dropped" for r in derivation.receipts),

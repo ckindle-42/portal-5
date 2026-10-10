@@ -243,3 +243,11 @@ def test_day_counts_use_the_entity_filter_and_keep_the_final_row() -> None:
     assert source.query_day_counts("botsv1", "stream:http", ("a.example",)) == {864000.0: 7}
     assert '("a.example")' in rows.searches[0]
     assert "floor(_time/86400)*86400" in rows.searches[0]
+
+
+def test_the_rebuilt_key_filter_is_and_matched_and_skips_portal_sources() -> None:
+    rows = _Rows([{"day": "864000", "count": "2"}])
+    source = runner.SplunkTruthSource(rows, partition_seconds=600.0, match_all=True)
+    source.query_day_counts("botsv1", "stream:http", ("a.example", "10.0.0.1"))
+    assert 'NOT source="portal5:*" "a.example" "10.0.0.1"' in rows.searches[0]
+    assert " OR " not in rows.searches[0]

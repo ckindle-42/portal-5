@@ -23,8 +23,9 @@ _SPEC.loader.exec_module(audit_mod)
 class _Fake:
     """Answers the probe's four query shapes from a small table."""
 
-    def __init__(self) -> None:
+    def __init__(self, joint: str = "1") -> None:
         self.days = 3
+        self.joint = joint
 
     def iter_post(self, search: str, start: float, end: float) -> Iterator[Mapping[str, Any]]:
         if "TERM(" in search:
@@ -41,6 +42,8 @@ class _Fake:
                 yield from ({"day": str(d * 86400), "count": "2"} for d in range(self.days))
             elif '"web.example"' in search:
                 yield {"day": "86400", "count": "1"}
+        elif search.endswith("| stats count as count"):
+            yield {"count": self.joint}
 
 
 def _entry(entities: tuple[str, ...], sourcetype: str, technique: str = "T1") -> AnswerKeyEntry:
@@ -77,3 +80,12 @@ def test_a_clean_entry_is_usable() -> None:
     doc = audit_mod.audit([_entry(("web.example",), "stream:http")], audit_mod.Probe(_Fake()))
     assert doc["entries"][0]["problems"] == []
     assert doc["usable_entry_count"] == 1
+
+
+def test_audit_rejects_entities_that_never_share_an_event() -> None:
+    entry = _entry(("web.example", "10.0.0.5"), "stream:http")
+    together = audit_mod.audit([entry], audit_mod.Probe(_Fake(joint="1")))["entries"][0]
+    apart = audit_mod.audit([entry], audit_mod.Probe(_Fake(joint="0")))["entries"][0]
+    assert together["joint_events"] == 1
+    assert "entities_never_share_an_event" not in together["problems"]
+    assert "entities_never_share_an_event" in apart["problems"]
