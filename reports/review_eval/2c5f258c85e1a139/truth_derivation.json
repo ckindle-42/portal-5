@@ -1,0 +1,167 @@
+{
+  "created_at": 1791663539.6228611,
+  "extra": {
+    "answer_key_entry_count": 27,
+    "derived_item_count": 7,
+    "dropped_entry_count": 20,
+    "fetch_census": {
+      "distinct_ids": 149625,
+      "id_collisions": 89353,
+      "rows": 238978,
+      "rows_without_cd": 0
+    },
+    "index_pairings": [
+      {
+        "arm": "hull",
+        "attack_span_count": 1,
+        "attack_spans": [
+          {
+            "end_exclusive_epoch": 1470873600.0,
+            "start_epoch": 1470787200.0
+          }
+        ],
+        "benign_candidate_count": 2,
+        "benign_candidates": [
+          {
+            "end_exclusive_epoch": 1470096000.0,
+            "start_epoch": 1470009600.0
+          },
+          {
+            "end_exclusive_epoch": 1471046400.0,
+            "start_epoch": 1470960000.0
+          }
+        ],
+        "corpus_interval": {
+          "end_exclusive_epoch": 1472450339.000001,
+          "first_epoch": 1470009600.0
+        },
+        "covariates": null,
+        "derived_entry_count": 5,
+        "index": "botsv1",
+        "paired": true,
+        "reason": "same_size_window_outside_the_answer_key_hull_plus_margin",
+        "target_duration_seconds": 86400.0
+      },
+      {
+        "arm": "hull",
+        "attack_span_count": 1,
+        "attack_spans": [
+          {
+            "end_exclusive_epoch": 1502928000.0,
+            "start_epoch": 1501718400.0
+          }
+        ],
+        "benign_candidate_count": 0,
+        "benign_candidates": [],
+        "corpus_interval": {
+          "end_exclusive_epoch": 1504223999.000001,
+          "first_epoch": 1501545600.0
+        },
+        "covariates": null,
+        "derived_entry_count": 2,
+        "index": "botsv2",
+        "paired": false,
+        "reason": "no_same_size_utc_day_aligned_background_window_outside_answer_key_spans_plus_margin",
+        "target_duration_seconds": 1209600.0
+      },
+      {
+        "arm": "hull",
+        "attack_span_count": 0,
+        "attack_spans": [],
+        "benign_candidate_count": 0,
+        "benign_candidates": [],
+        "corpus_interval": null,
+        "covariates": null,
+        "derived_entry_count": 0,
+        "index": "botsv3",
+        "paired": false,
+        "reason": "no_fully_derived_answer_key_interval",
+        "target_duration_seconds": null
+      }
+    ],
+    "pairing_arm": "hull",
+    "raw_telemetry_persisted": false,
+    "truth_manifest_sha256": "7405f881b56146de71fe2ea691b942a47b64d05c93dbd54cbdff18eaa3790fa5",
+    "truth_span": "entity_days"
+  },
+  "metrics": [
+    {
+      "can_fail": "fails when declared entities cannot be independently located and reconciled",
+      "denominator": 27,
+      "n": 27,
+      "name": "answer_key_entry_yield",
+      "value": 0.25925925925925924
+    },
+    {
+      "can_fail": "fails when no pre-registered index yields a benign comparator under this arm",
+      "denominator": 3,
+      "n": 3,
+      "name": "usable_index_slice_yield",
+      "value": 0.3333333333333333
+    }
+  ],
+  "rows": 30,
+  "rows_digest": "30b8dfc93d84b73c",
+  "selftest": {
+    "checks": {
+      "benign_quiet": {
+        "bound": 0.07756809750418045,
+        "passed": true,
+        "realized": 0.049
+      },
+      "constant": {
+        "measured": {
+          "auroc": 0.5,
+          "precision_at_npos": 1.0,
+          "recall_at_5pct_fpr": 0.0
+        },
+        "passed": true
+      },
+      "inverted": {
+        "measured": {
+          "auroc": 0.0,
+          "precision_at_npos": 0.0,
+          "recall_at_5pct_fpr": 0.0
+        },
+        "passed": true
+      },
+      "oracle": {
+        "measured": {
+          "auroc": 1.0,
+          "precision_at_npos": 1.0,
+          "recall_at_5pct_fpr": 1.0
+        },
+        "passed": true
+      },
+      "planted": {
+        "measured": {
+          "auroc": 0.998825,
+          "precision_at_npos": 0.965,
+          "recall_at_5pct_fpr": 1.0
+        },
+        "passed": true
+      },
+      "random": {
+        "auc_bound": 0.09133272505880172,
+        "measured": {
+          "auroc": 0.50456875,
+          "precision_at_npos": 0.17,
+          "recall_at_5pct_fpr": 0.06
+        },
+        "passed": true
+      }
+    },
+    "passed": true
+  },
+  "stamp": {
+    "commit": "212a9eb42d71f099d5d8e0e21893e845bbab5533",
+    "config_hash": "800f04b292128517",
+    "corpus_snapshot": "real:bots-answer-key:7405f881b56146de71fe2ea691b942a47b64d05c93dbd54cbdff18eaa3790fa5",
+    "dirty": false,
+    "embedder_id": "google/embeddinggemma-2;dim=768;task=sentence similarity;role=query",
+    "harness_version": "review-eval-v1",
+    "model_digests": [],
+    "policy": "D-T10-TRUTH-SPAN; truth derivation with the hull benign-pairing arm and the entity_days truth span"
+  },
+  "stamp_digest": "2c5f258c85e1a139"
+}
