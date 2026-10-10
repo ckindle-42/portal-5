@@ -4,6 +4,9 @@ useDefault = true
 
 [allowlist]
 description = "Portal 5 known non-secrets (test fixtures, placeholders)"
+# Match the whole rule match, not only the extracted secret, so an entry can name the label that
+# precedes a digest. Every existing entry still applies: a match always contains its secret.
+regexTarget = "match"
 regexes = [
   '''sk-abcdefghijklmnopqrstuvwx''',   # dummy key in redaction unit test
   '''691c78e9eb1c120acbc85f68d1c21b8848c391d773c13adce963d313be6bf4ae''',  # SHA-256 of the served R1 tokenizer_config.json, not a credential
@@ -15,6 +18,7 @@ regexes = [
   '''vagrant:vagrant''',                # Metasploitable3's own documented default Windows account (lab target, not a secret)
   '''sploit:sploit''',                  # this meta3 box's actual Tomcat Manager creds, read from its own committed tomcat-users.xml over WinRM -- not a secret, a known weak lab credential
   '''http://\$TARGET_HOST/detail\.php\?id=1''', # web_to_root capture recipe's sqlmap target URL -- curl-auth-user false-positives on sqlmap's own -u <url> flag, not a curl -u user:pass credential
+  '''answer-key:[0-9a-f]{64}''',  # review-eval corpus snapshot label: sha256 of the derived BOTS truth manifest, not a credential (stamped reports + docs/BULLY_REVIEW_STATE.md)
 ]
 paths = [
   '''\.env\.example$''',
