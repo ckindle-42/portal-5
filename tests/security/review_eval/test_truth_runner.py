@@ -154,3 +154,74 @@ def test_entity_clause_quotes_every_entity() -> None:
 def test_fetch_census_reports_id_collisions() -> None:
     census = runner.FetchCensus(rows=10, rows_without_cd=2, distinct_ids=8)
     assert census.to_dict()["id_collisions"] == 2
+
+
+def _pair_benign(derivation: TruthDerivation, daily: dict[float, dict[str, int]]) -> Any:
+    return runner.pair_index(
+        "botsv1",
+        derivation,
+        _FixedExtentSource(0.0, 400 * DAY),
+        arm="cross_index_benign",
+        margin_seconds=DAY,
+        benign_index="portal5_lab",
+        benign_daily=daily,
+    )
+
+
+def test_portal_written_sources_are_never_benign() -> None:
+    for denied in (
+        "portal5:corpus:mordor:compound/apt29/day1/apt29_evals_day1_manual",
+        "portal5:corpus:attack_data:malware/trickbot/infection/windows-sysmon",
+        "portal5:imported_observed",
+        "portal5:observed_packet",
+        "http:portal5_hec",
+    ):
+        assert not runner.benign_source_eligible(denied), denied
+    assert runner.benign_source_eligible("WinEventLog:Security")
+
+
+def test_occupied_window_skips_a_window_with_an_empty_day() -> None:
+    daily = {d * DAY: 5 for d in range(10) if d != 1}
+    assert runner.occupied_window(daily, 3 * DAY) == (2 * DAY, 5 * DAY)
+    assert runner.occupied_window({0.0: 1, DAY: 1}, 3 * DAY) is None
+
+
+def test_cross_index_control_still_pairs_on_an_empty_window() -> None:
+    # D-T8's defect, kept as the control: extent alone, no occupancy, no provenance.
+    derivation = _derivation(_receipt("botsv1", 0.0, 2 * DAY))
+    assert _pair(derivation, _FixedExtentSource(0.0, 10 * DAY), "cross_index").paired
+
+
+def test_cross_index_benign_refuses_an_attack_only_index() -> None:
+    derivation = _derivation(_receipt("botsv1", 0.0, 2 * DAY))
+    daily = {d * DAY: {"portal5:corpus:attack_data:x": 100} for d in range(30)}
+    pairing = _pair_benign(derivation, daily)
+    assert not pairing.paired
+    assert pairing.reason == "no_window_in_portal5_lab_with_eligible_events_on_every_utc_day"
+    assert pairing.covariates["denied_source_event_count"] == 3000
+    assert pairing.covariates["eligible_event_count"] == 0
+
+
+def test_cross_index_benign_pairs_only_on_eligible_occupied_days() -> None:
+    derivation = _derivation(_receipt("botsv1", 0.0, 2 * DAY))
+    daily: dict[float, dict[str, int]] = {
+        0.0: {"WinEventLog:Security": 4},
+        DAY: {"portal5:imported_observed": 9},
+        5 * DAY: {"WinEventLog:Security": 2, "portal5:observed_packet": 7},
+        6 * DAY: {"stream:dns": 3},
+    }
+    pairing = _pair_benign(derivation, daily)
+    assert pairing.paired
+    assert pairing.candidates == ((5 * DAY, 7 * DAY),)
+    assert pairing.covariates["window_eligible_event_count"] == 5
+    assert pairing.covariates["window_min_daily_eligible_count"] == 2
+    assert pairing.covariates["window_eligible_sources"] == {
+        "WinEventLog:Security": 2,
+        "stream:dns": 3,
+    }
+
+
+def test_cross_index_benign_needs_the_daily_counts() -> None:
+    derivation = _derivation(_receipt("botsv1", 0.0, 2 * DAY))
+    with pytest.raises(ValueError, match="daily source counts"):
+        _pair(derivation, _FixedExtentSource(0.0, 10 * DAY), "cross_index_benign")

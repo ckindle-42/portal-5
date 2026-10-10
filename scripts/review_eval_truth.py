@@ -60,7 +60,7 @@ class ExtentSource(Protocol):
     def index_extent(self, index: str) -> tuple[float | None, float | None]: ...
 
 
-PAIRINGS = ("hull", "per_entry", "matched_set", "cross_index")
+PAIRINGS = ("hull", "per_entry", "matched_set", "cross_index", "cross_index_benign")
 DEFAULT_MARGIN_SECONDS = 86_400.0
 SECONDS_PER_DAY = 86_400.0
 
@@ -74,6 +74,44 @@ PER_ENTRY_NO_CANDIDATE = "no_entry_sized_window_outside_the_entry_spans_plus_mar
 MATCHED_CANDIDATE = "day_slices_in_the_complement_reach_the_attack_duration"
 MATCHED_NO_CANDIDATE = "the_complement_cannot_reach_the_attack_duration"
 NO_DERIVED_INTERVAL = "no_fully_derived_answer_key_interval"
+
+#: D-T9: sources that cannot count as benign. Everything Portal writes into the lab index carries a
+#: ``portal5:`` source -- the published attack corpora (``portal5:corpus:mordor:*``,
+#: ``portal5:corpus:attack_data:*``) and Bully's emulation-run evidence origins
+#: (``portal5:observed_packet``, ``portal5:imported_observed``, ...) -- and the Bully HEC shipper
+#: writes ``http:portal5_hec``. None of it is a benign population. Any other source is unlabeled
+#: background: eligible, and reported by name as a covariate.
+BENIGN_DENIED_SOURCE_PREFIXES = ("portal5:",)
+BENIGN_DENIED_SOURCES = frozenset({"http:portal5_hec"})
+
+
+def benign_source_eligible(source: str) -> bool:
+    return source not in BENIGN_DENIED_SOURCES and not source.startswith(
+        BENIGN_DENIED_SOURCE_PREFIXES
+    )
+
+
+def occupied_window(
+    daily_eligible: Mapping[float, int], duration_seconds: float
+) -> tuple[float, float] | None:
+    """The earliest UTC-day-aligned window of ``duration_seconds`` with eligible events every day.
+
+    D-T8's ``cross_index`` arm placed its window from the benign index's min/max extent alone and
+    landed on two empty 2010 days. A comparator must hold a population, so every UTC day the
+    window touches needs at least one eligible event. Earliest-first is the only selection: no
+    window is preferred for its content.
+    """
+    if duration_seconds <= 0:
+        raise ValueError("duration_seconds must be positive")
+    for start in sorted(day for day, count in daily_eligible.items() if count > 0):
+        day = start
+        while day < start + duration_seconds:
+            if daily_eligible.get(day, 0) <= 0:
+                break
+            day += SECONDS_PER_DAY
+        else:
+            return start, start + duration_seconds
+    return None
 
 
 def _quote(value: str) -> str:
@@ -188,6 +226,27 @@ class SplunkTruthSource:
         last = _as_float(row.get("last"))
         return first, (last + 0.000001 if last is not None else None)
 
+    def daily_source_counts(self, index: str) -> dict[float, dict[str, int]]:
+        """Event counts per UTC day and source, from tsidx metadata (aggregates only).
+
+        Hourly buckets floored to the UTC day keep the result independent of the search head's
+        timezone. Preview rows stream before the final ones, so a later row for the same
+        (day, source) replaces an earlier one.
+        """
+        search = (
+            f"| tstats count as count where index={_quote(index)} by source _time span=1h"
+            " | eval day=floor(_time/86400)*86400"
+            " | stats sum(count) as count by day source"
+        )
+        out: dict[float, dict[str, int]] = {}
+        for row in self.source.iter_post(search, 0.0, time.time() + 1.0):
+            day = _as_float(row.get("day"))
+            count = _as_float(row.get("count"))
+            if day is None or count is None:
+                continue
+            out.setdefault(day, {})[str(row.get("source", ""))] = int(count)
+        return out
+
 
 def matched_set_candidates(
     corpus_start: float,
@@ -241,6 +300,7 @@ class IndexPairing:
     corpus_end_exclusive: float | None
     candidates: tuple[tuple[float, float], ...]
     reason: str
+    covariates: Mapping[str, Any] | None = None
 
     @property
     def paired(self) -> bool:
@@ -269,6 +329,7 @@ class IndexPairing:
             ],
             "paired": self.paired,
             "reason": self.reason,
+            "covariates": dict(self.covariates) if self.covariates is not None else None,
         }
 
 
@@ -292,13 +353,14 @@ def pair_index(
     arm: str,
     margin_seconds: float,
     benign_index: str,
+    benign_daily: Mapping[float, Mapping[str, int]] | None = None,
 ) -> IndexPairing:
     spans = _derived_spans(derivation.receipts, index)
     if not spans:
         return IndexPairing(index, arm, 0, (), None, None, None, (), NO_DERIVED_INTERVAL)
     hull = (min(start for start, _ in spans), max(end for _, end in spans))
     hull_duration = hull[1] - hull[0]
-    extent_index = benign_index if arm == "cross_index" else index
+    extent_index = benign_index if arm.startswith("cross_index") else index
     corpus_first, corpus_end = source.index_extent(extent_index)
 
     def pairing(
@@ -306,6 +368,7 @@ def pair_index(
         duration: float | None,
         candidates: Sequence[tuple[float, float]],
         reason: str,
+        covariates: Mapping[str, Any] | None = None,
     ) -> IndexPairing:
         return IndexPairing(
             index=index,
@@ -317,6 +380,7 @@ def pair_index(
             corpus_end_exclusive=corpus_end,
             candidates=tuple(candidates),
             reason=reason,
+            covariates=covariates,
         )
 
     if corpus_first is None or corpus_end is None:
@@ -360,6 +424,11 @@ def pair_index(
             matched,
             MATCHED_CANDIDATE if matched else MATCHED_NO_CANDIDATE,
         )
+    if arm == "cross_index_benign":
+        if benign_daily is None:
+            raise ValueError("cross_index_benign needs the benign index's daily source counts")
+        window, reason, covariates = benign_window(benign_index, hull_duration, benign_daily)
+        return pairing([hull], hull_duration, [window] if window else [], reason, covariates)
     cross = benign_interval_candidates(
         corpus_first,
         corpus_end,
@@ -375,6 +444,53 @@ def pair_index(
         if cross
         else f"benign_index_{benign_index}_is_shorter_than_the_attack_duration",
     )
+
+
+def benign_window(
+    benign_index: str,
+    duration_seconds: float,
+    benign_daily: Mapping[float, Mapping[str, int]],
+) -> tuple[tuple[float, float] | None, str, dict[str, Any]]:
+    """D-T9's ``cross_index_benign`` arm: an occupied window of eligible-source events only."""
+    eligible = {
+        day: sum(n for source, n in sources.items() if benign_source_eligible(source))
+        for day, sources in benign_daily.items()
+    }
+    total = sum(n for sources in benign_daily.values() for n in sources.values())
+    denied = total - sum(eligible.values())
+    window = occupied_window(eligible, duration_seconds)
+    covariates: dict[str, Any] = {
+        "benign_index": benign_index,
+        "benign_index_event_count": total,
+        "denied_source_event_count": denied,
+        "eligible_event_count": total - denied,
+        "eligible_day_count": sum(1 for n in eligible.values() if n > 0),
+        "denied_source_rule": {
+            "prefixes": list(BENIGN_DENIED_SOURCE_PREFIXES),
+            "sources": sorted(BENIGN_DENIED_SOURCES),
+        },
+    }
+    if window is None:
+        return (
+            None,
+            f"no_window_in_{benign_index}_with_eligible_events_on_every_utc_day",
+            covariates,
+        )
+    days = [d for d in sorted(eligible) if window[0] <= d < window[1]]
+    by_source: dict[str, int] = {}
+    for day in days:
+        for source, n in benign_daily[day].items():
+            if benign_source_eligible(source):
+                by_source[source] = by_source.get(source, 0) + n
+    covariates.update(
+        {
+            "window_day_count": len(days),
+            "window_eligible_event_count": sum(eligible[d] for d in days),
+            "window_min_daily_eligible_count": min(eligible[d] for d in days),
+            "window_eligible_sources": dict(sorted(by_source.items())),
+        }
+    )
+    return window, f"occupied_eligible_window_in_{benign_index}_is_a_declared_covariate", covariates
 
 
 def build_rows(
@@ -432,6 +548,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--embed-dim", type=int, default=768)
     parser.add_argument("--out", type=Path, default=REPO / "reports" / "review_eval")
     parser.add_argument("--name", default="truth_derivation")
+    parser.add_argument("--record", default="D-T8-PAIRING")
     args = parser.parse_args(argv)
 
     window_source = SplunkWindowSource(timeout_seconds=args.timeout_seconds)
@@ -446,6 +563,11 @@ def main(argv: Sequence[str] | None = None) -> int:
     source.census.distinct_ids = len(
         {event_id for item in derivation.items for event_id in item.event_ids}
     )
+    benign_daily = (
+        source.daily_source_counts(args.benign_index)
+        if args.pairing == "cross_index_benign"
+        else None
+    )
     pairings = [
         pair_index(
             index,
@@ -454,6 +576,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             arm=args.pairing,
             margin_seconds=args.margin_seconds,
             benign_index=args.benign_index,
+            benign_daily=benign_daily,
         )
         for index in BOTS_INDEXES
     ]
@@ -478,7 +601,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         model_digests={},
         config=config_payload,
         corpus_snapshot=f"real:bots-answer-key:{manifest_sha256}",
-        policy=f"D-T8-PAIRING; truth derivation with the {args.pairing} benign-pairing arm",
+        policy=f"{args.record}; truth derivation with the {args.pairing} benign-pairing arm",
     )
     known_answer = selftest_mod.run_selftest(stamp_digest=run_stamp.digest)
     if not known_answer.passed:
