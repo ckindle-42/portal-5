@@ -170,14 +170,20 @@ class SplunkTruthSource:
             cursor = boundary
 
     def index_extent(self, index: str) -> tuple[float | None, float | None]:
+        # tsidx metadata, not a raw scan: `search index=X | stats min(_time), max(_time)` over
+        # botsv1's 33.4M events dispatched for 45+ minutes without answering, which would make
+        # every arm a multi-day run. tstats answers the same extent in seconds; its botsv1
+        # count (33,413,837) matches the index probe exactly and its extent is the dataset's
+        # documented coverage. tstats streams partial preview rows before the final one, so
+        # the extent is read from the last row.
         search = (
-            f"search index={_quote(index)}"
-            " | stats count as count, min(_time) as first, max(_time) as last"
+            f"| tstats count as count, min(_time) as first, max(_time) as last"
+            f" where index={_quote(index)}"
         )
         rows = list(self.source.iter_post(search, 0.0, time.time() + 1.0))
         if not rows:
             return None, None
-        row = rows[0]
+        row = rows[-1]
         first = _as_float(row.get("first"))
         last = _as_float(row.get("last"))
         return first, (last + 0.000001 if last is not None else None)
