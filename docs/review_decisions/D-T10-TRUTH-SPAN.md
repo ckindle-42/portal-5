@@ -13,7 +13,9 @@ anti_goals:
   - do not add, re-index, inject or synthesize telemetry
   - do not treat an adopted arm as a product result; it re-enables T1, it does not answer it
   - do not tune any threshold, weight, cutoff or prompt, and do not edit a deprecated module
-status: PREREGISTERED
+status: ADOPTED
+report: reports/review_eval/931f78ea19fa21c0/truth_derivation.json
+result: "entity_days with per_entry pairing qualified (hull paired 1 of 3, botsv1 only; per_entry paired 2 of 3): botsv1 paired with candidate windows 2016-08-01 and 2016-08-12 (one UTC day each), botsv2 with candidate windows 2017-08-01, 2017-08-05, 2017-08-18 and 2017-08-18 to 08-24, botsv3 unpaired; entry yield stays 7 of 27 under both spans, but the index span dated the 7 derived entries over whole months (botsv1 T1071.001 and T1190 from 2016-08-01 to 08-28, 23438 events; botsv2 T1190 from 2017-08-01 to 08-31, 616196 events), and entity_days narrows them to their attack days (2016-08-10, 22491 events; 2017-08-11 to 08-17, 127114 events), dropping no derived entry and changing only the reasons of three dropped entries (botsv1 T1592, botsv3 T1071.001 and T1190)."
 ---
 
 ## Why this record exists
