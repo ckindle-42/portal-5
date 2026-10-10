@@ -1,0 +1,77 @@
+{
+ "corrects_report": "reports/review_eval/15a35aa1fcbcbfb7/truth_derivation.json",
+ "measured_at": "2026-10-10T13:08:15Z",
+ "portal5_lab_events_by_year": {
+  "rows": [
+   {
+    "event_count": 8,
+    "year": "2010"
+   },
+   {
+    "event_count": 1000,
+    "year": "2014"
+   },
+   {
+    "event_count": 67,
+    "year": "2017"
+   },
+   {
+    "event_count": 48,
+    "year": "2018"
+   },
+   {
+    "event_count": 1351708,
+    "year": "2019"
+   },
+   {
+    "event_count": 3283860,
+    "year": "2020"
+   },
+   {
+    "event_count": 6142223,
+    "year": "2021"
+   },
+   {
+    "event_count": 1177246,
+    "year": "2022"
+   },
+   {
+    "event_count": 1149306,
+    "year": "2023"
+   },
+   {
+    "event_count": 34514,
+    "year": "2024"
+   },
+   {
+    "event_count": 50481,
+    "year": "2025"
+   },
+   {
+    "event_count": 1925541,
+    "year": "2026"
+   }
+  ],
+  "spl": "| tstats count where index=portal5_lab earliest=0 latest=1800000000 by _time span=1y"
+ },
+ "purpose": "D-T8-PAIRING correction: occupancy of the adopted cross_index benign windows",
+ "source": "lab Splunk, read-only tstats",
+ "windows": [
+  {
+   "attack_index": "botsv1",
+   "benign_index": "portal5_lab",
+   "end_exclusive_epoch": 1288305355.844346,
+   "event_count": 0,
+   "spl": "| tstats count where index=portal5_lab earliest=1285891200.0 latest=1288305355.844346",
+   "start_epoch": 1285891200.0
+  },
+  {
+   "attack_index": "botsv2",
+   "benign_index": "portal5_lab",
+   "end_exclusive_epoch": 1288565814.832001,
+   "event_count": 0,
+   "spl": "| tstats count where index=portal5_lab earliest=1285891200.0 latest=1288565814.832001",
+   "start_epoch": 1285891200.0
+  }
+ ]
+}

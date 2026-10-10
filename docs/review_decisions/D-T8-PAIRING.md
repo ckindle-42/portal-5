@@ -11,9 +11,9 @@ anti_goals:
   - do not add, re-index, inject or synthesize telemetry to make an index long enough
   - do not treat an adopted pairing arm as a product result; it re-enables T1, it does not answer it
   - do not tune any threshold, weight, cutoff or prompt, and do not edit a deprecated module
-status: ADOPTED
+status: INCONCLUSIVE
 report: reports/review_eval/15a35aa1fcbcbfb7/truth_derivation.json
-result: "cross_index is the only qualifying arm and is adopted proxy-paired (benign index portal5_lab): hull, per_entry and matched_set each paired 0 of 3 indexes because the complements outside the answer-key spans plus the 86,400 s margin are empty in botsv1 and botsv2 and botsv3 derives no interval, while cross_index yields a UTC-day-aligned benign comparator of the full attack duration for 2 of 3 indexes (botsv1 and botsv2), event-id disjoint by namespace, at an unchanged answer-key yield of 7 of 27 in every arm."
+result: "No arm qualifies (corrected; first resolved ADOPTED in e700404c): hull, per_entry and matched_set each paired 0 of 3 indexes because the complements outside the answer-key spans plus the 86,400 s margin are empty in botsv1 and botsv2 and botsv3 derives no interval; cross_index placed its botsv1 and botsv2 windows at 2010-10-01, the first day of portal5_lab's min/max extent, and both windows hold 0 events (reports/review_eval/d_t8_correction/occupancy.json), so it yields no benign comparator either; answer-key yield 7 of 27 in every arm; the corpus as read cannot furnish a benign comparator."
 ---
 
 ## Why this record exists
@@ -70,3 +70,17 @@ re-run as code for the first time, and only if T1 then produces a workload budge
 questions become answerable at all. If every arm fails, the result is a corpus statement — this
 program cannot measure a false-raise rate against a benign population that its corpus does not
 contain — and the next task is telemetry acquisition, not another rule.
+
+## Correction (after resolution)
+
+This record was first resolved ADOPTED for `cross_index` (`e700404c`). That resolution was wrong
+on the record's own terms. `scripts/review_eval_truth.py` places a `cross_index` window from the
+benign index's `min(_time)`/`max(_time)` alone and never checks that the window holds events.
+`portal5_lab`'s earliest timestamps are a handful of stray 2010 events, so both windows landed on
+2010-10-01. A read-only `tstats` count finds **0 events** in each
+(`reports/review_eval/d_t8_correction/occupancy.json`). An empty window is not a benign comparator,
+so `cross_index` does not meet `adopt_if`, no arm qualifies, and the resolution is INCONCLUSIVE.
+
+Only `status` and `result` changed. `arms`, `metric`, `adopt_if` and `anti_goals` are exactly as
+pre-registered. Picking a different, occupied `portal5_lab` window is a new rule chosen after
+seeing this data, so it is not done here. It is pre-registered separately as D-T9.
