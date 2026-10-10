@@ -1,0 +1,167 @@
+{
+  "created_at": 1791645939.996162,
+  "extra": {
+    "answer_key_entry_count": 27,
+    "derived_item_count": 7,
+    "dropped_entry_count": 20,
+    "fetch_census": {
+      "distinct_ids": 639786,
+      "id_collisions": 90300,
+      "rows": 730086,
+      "rows_without_cd": 0
+    },
+    "index_pairings": [
+      {
+        "arm": "cross_index",
+        "attack_span_count": 1,
+        "attack_spans": [
+          {
+            "end_exclusive_epoch": 1472425560.320122,
+            "start_epoch": 1470011404.475776
+          }
+        ],
+        "benign_candidate_count": 1,
+        "benign_candidates": [
+          {
+            "end_exclusive_epoch": 1288305355.844346,
+            "start_epoch": 1285891200.0
+          }
+        ],
+        "corpus_interval": {
+          "end_exclusive_epoch": 1791512653.000001,
+          "first_epoch": 1285858417.0
+        },
+        "covariates": null,
+        "derived_entry_count": 5,
+        "index": "botsv1",
+        "paired": true,
+        "reason": "same_size_window_in_portal5_lab_is_a_declared_covariate",
+        "target_duration_seconds": 2414155.8443460464
+      },
+      {
+        "arm": "cross_index",
+        "attack_span_count": 1,
+        "attack_spans": [
+          {
+            "end_exclusive_epoch": 1504220386.634001,
+            "start_epoch": 1501545771.802
+          }
+        ],
+        "benign_candidate_count": 1,
+        "benign_candidates": [
+          {
+            "end_exclusive_epoch": 1288565814.832001,
+            "start_epoch": 1285891200.0
+          }
+        ],
+        "corpus_interval": {
+          "end_exclusive_epoch": 1791512653.000001,
+          "first_epoch": 1285858417.0
+        },
+        "covariates": null,
+        "derived_entry_count": 2,
+        "index": "botsv2",
+        "paired": true,
+        "reason": "same_size_window_in_portal5_lab_is_a_declared_covariate",
+        "target_duration_seconds": 2674614.832000971
+      },
+      {
+        "arm": "cross_index",
+        "attack_span_count": 0,
+        "attack_spans": [],
+        "benign_candidate_count": 0,
+        "benign_candidates": [],
+        "corpus_interval": null,
+        "covariates": null,
+        "derived_entry_count": 0,
+        "index": "botsv3",
+        "paired": false,
+        "reason": "no_fully_derived_answer_key_interval",
+        "target_duration_seconds": null
+      }
+    ],
+    "pairing_arm": "cross_index",
+    "raw_telemetry_persisted": false,
+    "truth_manifest_sha256": "82bae32d62afd64a490ac86d6fa5da5973505fa7a58f2e731cc64e78394ca7fc"
+  },
+  "metrics": [
+    {
+      "can_fail": "fails when declared entities cannot be independently located and reconciled",
+      "denominator": 27,
+      "n": 27,
+      "name": "answer_key_entry_yield",
+      "value": 0.25925925925925924
+    },
+    {
+      "can_fail": "fails when no pre-registered index yields a benign comparator under this arm",
+      "denominator": 3,
+      "n": 3,
+      "name": "usable_index_slice_yield",
+      "value": 0.6666666666666666
+    }
+  ],
+  "rows": 30,
+  "rows_digest": "705772548a281a6d",
+  "selftest": {
+    "checks": {
+      "benign_quiet": {
+        "bound": 0.07756809750418045,
+        "passed": true,
+        "realized": 0.049
+      },
+      "constant": {
+        "measured": {
+          "auroc": 0.5,
+          "precision_at_npos": 1.0,
+          "recall_at_5pct_fpr": 0.0
+        },
+        "passed": true
+      },
+      "inverted": {
+        "measured": {
+          "auroc": 0.0,
+          "precision_at_npos": 0.0,
+          "recall_at_5pct_fpr": 0.0
+        },
+        "passed": true
+      },
+      "oracle": {
+        "measured": {
+          "auroc": 1.0,
+          "precision_at_npos": 1.0,
+          "recall_at_5pct_fpr": 1.0
+        },
+        "passed": true
+      },
+      "planted": {
+        "measured": {
+          "auroc": 0.998825,
+          "precision_at_npos": 0.965,
+          "recall_at_5pct_fpr": 1.0
+        },
+        "passed": true
+      },
+      "random": {
+        "auc_bound": 0.09133272505880172,
+        "measured": {
+          "auroc": 0.50456875,
+          "precision_at_npos": 0.17,
+          "recall_at_5pct_fpr": 0.06
+        },
+        "passed": true
+      }
+    },
+    "passed": true
+  },
+  "stamp": {
+    "commit": "dcb901fc7d54539ed32fc7e14343f46d5085832d",
+    "config_hash": "ff7de6980b7681f1",
+    "corpus_snapshot": "real:bots-answer-key:82bae32d62afd64a490ac86d6fa5da5973505fa7a58f2e731cc64e78394ca7fc",
+    "dirty": false,
+    "embedder_id": "google/embeddinggemma-2;dim=768;task=sentence similarity;role=query",
+    "harness_version": "review-eval-v1",
+    "model_digests": [],
+    "policy": "D-T9-BENIGN-POPULATION; truth derivation with the cross_index benign-pairing arm"
+  },
+  "stamp_digest": "95ecfb4bb3d266bd"
+}
