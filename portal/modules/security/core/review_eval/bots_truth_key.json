@@ -1,0 +1,91 @@
+[
+  {
+    "dataset": "botsv2",
+    "technique": "T1190",
+    "entities": ["45.77.65.211", "/member.php"],
+    "sourcetypes": ["stream:http"],
+    "citations": [
+      "https://github.com/wm171/Splunk-Boss-the-SOC — Task 4 Q3 (IP used to run a web vulnerability scan: 45.77.65.211)",
+      "https://github.com/wm171/Splunk-Boss-the-SOC — Task 4 Q4 (URI path attacked: /member.php, sourcetype stream:http)",
+      "https://www.samsclass.info/50/proj/botsv2.htm — BOTS2 201 and 202 (hints: all HTTP traffic from the scanner to www.brewertalk.com)"
+    ],
+    "note": "Write-up attributes a web vulnerability scan on www.brewertalk.com to 45.77.65.211 and names /member.php as the attacked path. Its Task 4 Q4 ties the path to the server IP 52.42.208.228 (the victim), so the attacker-to-path pairing is the write-up's scanner attribution and may not co-occur in one event. The audit decides. The victim IP is not in this entry."
+  },
+  {
+    "dataset": "botsv2",
+    "technique": "T1190",
+    "entities": ["/member.php", "updatexml"],
+    "sourcetypes": ["stream:http"],
+    "citations": [
+      "https://github.com/wm171/Splunk-Boss-the-SOC — Task 4 Q5 (SQL function abused on /member.php: updatexml, sourcetype stream:http)",
+      "https://www.samsclass.info/50/proj/botsv2.htm — BOTS2 203 (hint: XML-updating function that leaks errors, XPATH syntax error)"
+    ],
+    "note": "SQL injection on /member.php using updatexml, per the write-up's Task 4 Q5. The function name is a payload string, so co-occurrence with the path in one stream:http event is checked by the audit."
+  },
+  {
+    "dataset": "botsv2",
+    "technique": "T1566.001",
+    "entities": ["invoice.zip"],
+    "sourcetypes": ["stream:smtp"],
+    "citations": [
+      "https://github.com/wm171/Splunk-Boss-the-SOC — Task 6 Q1 (zip attachment sent to Frothly: invoice.zip, stream:smtp)",
+      "https://www.samsclass.info/50/proj/botsv2.htm — BOTS2 400 (hint: stream:smtp; .zip attachments)"
+    ],
+    "note": "Taedonggang actor sent invoice.zip to Frothly by email. The write-up's Task 6 Q2 password (912345678) appears in the message body, not an attachment field, so it is not in this entry."
+  },
+  {
+    "dataset": "botsv2",
+    "technique": "T1566.002",
+    "entities": ["kIagerfield"],
+    "sourcetypes": ["stream:http"],
+    "citations": [
+      "https://github.com/wm171/Splunk-Boss-the-SOC — Task 4 Q7 (username created by spear phishing: kIagerfield, form_data, user kevin, sourcetype stream:http)",
+      "https://www.samsclass.info/50/proj/botsv2.htm — BOTS2 209 (username created by spearphishing, homograph attack)"
+    ],
+    "note": "Homograph spearphishing that created the kIagerfield account on brewertalk.com, per the write-up's Task 4 Q7. The technique label is my classification (phishing link), not the write-up's. Only the single username is declared here."
+  },
+  {
+    "dataset": "botsv2",
+    "technique": "T1071.001",
+    "entities": ["eidk.duckdns.org"],
+    "sourcetypes": ["stream:dns"],
+    "citations": [
+      "https://github.com/wm171/Splunk-Boss-the-SOC — Task 5 Q6 (first alphabetical C&C FQDN: eidk.duckdns.org)",
+      "https://www.samsclass.info/50/proj/botsv2.htm — BOTS2 310 (hint: stream:dns from kutekitten; dynamic DNS lookup)"
+    ],
+    "note": "First alphabetical dynamic-DNS C&C destination from kutekitten, per the write-up's Task 5 Q6."
+  },
+  {
+    "dataset": "botsv2",
+    "technique": "T1071.001",
+    "entities": ["eidk.hopto.org"],
+    "sourcetypes": ["stream:dns"],
+    "citations": [
+      "https://github.com/wm171/Splunk-Boss-the-SOC — Task 5 Q7 (second alphabetical C&C FQDN: eidk.hopto.org)",
+      "https://www.samsclass.info/50/proj/botsv2.htm — BOTS2 311 (hint: see 310, stream:dns from kutekitten)"
+    ],
+    "note": "Second alphabetical C&C FQDN, per the write-up's Task 5 Q7."
+  },
+  {
+    "dataset": "botsv2",
+    "technique": "T1091",
+    "entities": ["kutekitten", "/Users/mkraeusen/Downloads/Important_HR_INFO_for_mkraeusen"],
+    "sourcetypes": ["osquery_results"],
+    "citations": [
+      "https://github.com/wm171/Splunk-Boss-the-SOC — Task 5 Q3 (USB drive used on kutekitten: host kutekitten, vendor_id 058f, path /Users/mkraeusen/Downloads/Important_HR_INFO_for_mkraeusen, sourcetype osquery_results)",
+      "https://www.samsclass.info/50/proj/botsv2.htm — BOTS2 307 (hint: osquery_results; ps; USB vendor database)"
+    ],
+    "note": "USB removable media on kutekitten, per the write-up's Task 5 Q3. The vendor is a lookup result, not a declared entity."
+  },
+  {
+    "dataset": "botsv2",
+    "technique": "T1053.005",
+    "entities": ["process.php", "HKLM:\\Software\\Microsoft\\Network debug"],
+    "sourcetypes": ["xmlwineventlog:microsoft-windows-sysmon/operational", "winregistry"],
+    "citations": [
+      "https://github.com/wm171/Splunk-Boss-the-SOC — Task 6 Q7 (most contacted webpage by Scheduled Tasks: process.php; registry key HKLM:\\Software\\Microsoft\\Network debug; sourcetypes xmlwineventlog:microsoft-windows-sysmon/operational and winregistry)",
+      "https://www.samsclass.info/50/proj/botsv2.htm — BOTS2 407 (hint: Sysmon XmlWinEventLog:Microsoft-Windows-Sysmon/Operational; WinRegistry)"
+    ],
+    "note": "Scheduled-task beaconing to process.php, with the registry key the write-up names, per its Task 6 Q7. The sourcetype string is the write-up's lowercase form. The audit will report whether it exists in botsv2."
+  }
+]
