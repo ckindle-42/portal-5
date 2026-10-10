@@ -14,8 +14,19 @@ anti_goals:
   - do not change the admission rule, the power inputs (d = 0.10, discordance 0.3, two-sided alpha 0.05, 80% power), the pairing order or the arm ordering after seeing a number; any change is a new record
   - do not re-run T1 under this record; re-running T1 is the next task
   - do not tune any threshold, weight, cutoff or prompt, and do not edit a deprecated module; BOTS_ANSWER_KEY is imported by deprecated Bully modules and stays in place
-status: PREREGISTERED
+status: INCONCLUSIVE
+report: reports/review_eval/truth_audit/truth_key_audit.json
+result: "The rebuilt key admits 4 of 8 cited entries, all in botsv2 (T1566.001 invoice.zip with 4 events, T1566.002 kIagerfield with 85, and two T1071.001 C2 domains, eidk.duckdns.org with 12 and eidk.hopto.org with 8, each on one day), and none in botsv1 or botsv3, so the admission rule (at least 1 entry in each of at least 2 indexes) fails and the pairing run was not made; both rejected T1190 entries were rejected only by the per-entity background rule, since /member.php appears on all 31 sensor days, although under AND-matching their entities co-occur on 3 days (45.77.65.211 with /member.php, 1,409 events) and on 1 day (updatexml with /member.php, 136 events), and any change to that rule needs a new record; the control key re-audited under the co-occurrence check admits 1 of 27 (2 of 27 before it); BOTS v1 and v3 have no public answer source (answers are sent on request by email), so BOTS alone cannot supply the 233 truth items T1's comparison needs at d 0.10 and discordance 0.3, and T1's headline needs the second labelled corpus, the candidate in coding_task/BULLY_TRUTH_REDESIGN_V1.md, which awaits operator review."
 ---
+
+## Resolution note
+
+The key was transcribed from public community write-ups only: the wm171 v2 write-up
+(github.com/wm171/Splunk-Boss-the-SOC) and Sam's Class BOTS hint pages (samsclass.info). No v1 or v3
+answer is public. The four admitted entries are botsv2-only and each is cited to a source that names
+the entity and its sourcetype. The result counts entries admitted by the audit, not the transcription.
+Under the audit's new co-occurrence check the control key's count fell from 2 of 27 to 1 of 27.
+No entry was added to or removed from BOTS_ANSWER_KEY.
 
 ## Corrections and disclosures carried into this record
 
