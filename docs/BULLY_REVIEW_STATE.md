@@ -46,8 +46,18 @@ Reachability of the engine package (static import closure):
 | D-T4-MATURE | raised | INCONCLUSIVE | reports/review_eval/4de03bca93e183d8/t4_pair_gate.json | none |
 | D-T4-SUPPRESS | raised | INCONCLUSIVE | reports/review_eval/4de03bca93e183d8/t4_pair_gate.json | none |
 | D-T6-PROOF | window | INCONCLUSIVE | reports/review_eval/e2e/t6_proof.json | none |
+| D-T8-PAIRING | window | ADOPTED | reports/review_eval/15a35aa1fcbcbfb7/truth_derivation.json | none |
 
 ## Measured (stamped, real corpora only)
+
+### arm `?` stamp `15a35aa1fcbcbfb7`
+
+commit `0c8d97e77a4e`, embedder `google/embeddinggemma-2;dim=768;task=sentence similarity;role=query`, corpus `real:bots-answer-key:82bae32d62afd64a490ac86d6fa5da5973505fa7a58f2e731cc64e78394ca7fc`
+
+| metric | value | n | reads as failure when |
+|---|---|---|---|
+| answer_key_entry_yield | 0.259259 | 27 | fails when declared entities cannot be independently located and reconciled |
+| usable_index_slice_yield | 0.666667 | 3 | fails when no pre-registered index yields a benign comparator under this arm |
 
 ### arm `?` stamp `4de03bca93e183d8`
 
@@ -76,6 +86,15 @@ commit `d6145c276260`, embedder `google/embeddinggemma-2;dim=768;task=sentence s
 | answer_key_entry_yield | 0.259259 | 27 | fails when declared entities cannot be independently located and reconciled |
 | usable_index_slice_yield | 0 | 3 | fails when none of the three pre-registered indexes has a paired real slice |
 
+### arm `?` stamp `76cbcd8784b2b7fd`
+
+commit `0c8d97e77a4e`, embedder `google/embeddinggemma-2;dim=768;task=sentence similarity;role=query`, corpus `real:bots-answer-key:82bae32d62afd64a490ac86d6fa5da5973505fa7a58f2e731cc64e78394ca7fc`
+
+| metric | value | n | reads as failure when |
+|---|---|---|---|
+| answer_key_entry_yield | 0.259259 | 27 | fails when declared entities cannot be independently located and reconciled |
+| usable_index_slice_yield | 0 | 3 | fails when no pre-registered index yields a benign comparator under this arm |
+
 ### arm `?` stamp `90890b3c9418457c`
 
 commit `83ddaa0bd53a`, embedder `google/embeddinggemma-2;dim=768;task=sentence similarity;role=query`, corpus `real:bots_truth_manifest:4bf90b1a9ab892a8b7ae80f7c55707605f478bc5861d4a04d0958fe2e37ac9b5`
@@ -83,6 +102,24 @@ commit `83ddaa0bd53a`, embedder `google/embeddinggemma-2;dim=768;task=sentence s
 | metric | value | n | reads as failure when |
 |---|---|---|---|
 | exact_parent_reconciliation_rate | 0 | 5 | fails when any completed current source replay differs from the T1 product event-id set |
+
+### arm `?` stamp `f1678c4c2e7b67a9`
+
+commit `27006b24719f`, embedder `google/embeddinggemma-2;dim=768;task=sentence similarity;role=query`, corpus `real:bots-answer-key:82bae32d62afd64a490ac86d6fa5da5973505fa7a58f2e731cc64e78394ca7fc`
+
+| metric | value | n | reads as failure when |
+|---|---|---|---|
+| answer_key_entry_yield | 0.259259 | 27 | fails when declared entities cannot be independently located and reconciled |
+| usable_index_slice_yield | 0 | 3 | fails when no pre-registered index yields a benign comparator under this arm |
+
+### arm `?` stamp `fb80197354f28435`
+
+commit `0c8d97e77a4e`, embedder `google/embeddinggemma-2;dim=768;task=sentence similarity;role=query`, corpus `real:bots-answer-key:82bae32d62afd64a490ac86d6fa5da5973505fa7a58f2e731cc64e78394ca7fc`
+
+| metric | value | n | reads as failure when |
+|---|---|---|---|
+| answer_key_entry_yield | 0.259259 | 27 | fails when declared entities cannot be independently located and reconciled |
+| usable_index_slice_yield | 0 | 3 | fails when no pre-registered index yields a benign comparator under this arm |
 
 ### arm `T5-surface-e2e` stamp `d000a7c8502c9e9c`
 
