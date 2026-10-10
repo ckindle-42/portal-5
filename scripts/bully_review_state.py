@@ -430,7 +430,6 @@ def _git_commit_time(repo: Path) -> Callable[[str], float | None]:
                 str(repo),
                 "log",
                 "--diff-filter=A",
-                "--follow",
                 "--format=%ct",
                 "--",
                 path,
