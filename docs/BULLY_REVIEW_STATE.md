@@ -38,6 +38,7 @@ Reachability of the engine package (static import closure):
 |---|---|---|---|---|
 | D-T1-BASELINE | raised | INCONCLUSIVE | reports/review_eval/6a29bc97d0fd3b97/truth_derivation.json | none |
 | D-T10-TRUTH-SPAN | window | ADOPTED | reports/review_eval/931f78ea19fa21c0/truth_derivation.json | none |
+| D-T11-ANSWER-KEY | window | INCONCLUSIVE | reports/review_eval/truth_audit/truth_key_audit.json | none |
 | D-T2-TRUTH-STRATIFICATION | window | REJECTED | reports/review_eval/90890b3c9418457c/truth_stratification.md | none |
 | D-T3-CHALLENGER | raised | INCONCLUSIVE | reports/review_eval/41eaed5720a9844f/t3_prerequisites.json | none |
 | D-T3-PANEL | raised | REJECTED | reports/review_eval/41eaed5720a9844f/t3_prerequisites.json | none |
