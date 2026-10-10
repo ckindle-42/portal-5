@@ -523,9 +523,15 @@ def main(argv: Sequence[str] | None = None) -> int:
             "raw_telemetry_persisted": False,
         },
     )
-    json_path, md_path = report_mod.write_report(doc, args.out, args.name)
-    # Beside its own report, never over the committed manifest: a derivation is evidence for the
-    # run that produced it, and the stamp in the report is what says which run that was.
+    # Into the run's own stamp directory, the review_eval_run.py convention. Writing straight
+    # into reports/review_eval/ put the first hull run's manifest exactly over the committed
+    # reports/review_eval/bots_truth_manifest.json; a stamp-named directory cannot.
+    output_directory = (
+        args.out if args.out.name == run_stamp.digest else args.out / run_stamp.digest
+    )
+    json_path, md_path = report_mod.write_report(doc, output_directory, args.name)
+    # Beside its own report: a derivation is evidence for the run that produced it, and the
+    # stamp in the report is what says which run that was.
     manifest_path = json_path.parent / "bots_truth_manifest.json"
     manifest_path.write_text(json.dumps(manifest, indent=1, sort_keys=True), encoding="utf-8")
     print(
