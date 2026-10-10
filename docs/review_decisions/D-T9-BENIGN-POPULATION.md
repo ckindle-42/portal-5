@@ -12,7 +12,9 @@ anti_goals:
   - do not add, re-index, inject or synthesize telemetry
   - do not treat an adopted arm as a product result; it re-enables T1, it does not answer it
   - do not tune any threshold, weight, cutoff or prompt, and do not edit a deprecated module
-status: PREREGISTERED
+status: INCONCLUSIVE
+report: reports/review_eval/f20234ad672d300d/truth_derivation.json
+result: "cross_index_benign paired 0 of 3 indexes (botsv1 and botsv2: no_window_in_portal5_lab_with_eligible_events_on_every_utc_day; botsv3: no_fully_derived_answer_key_interval). portal5_lab holds 15,116,002 events, 15,116,001 from denied sources and 1 eligible event on 1 UTC day, so it holds no benign population; the next task is benign telemetry acquisition. The control reproduced D-T8 (botsv1 and botsv2 on 1285891200.0, 7 of 27, corpus_snapshot 82bae32d)."
 ---
 
 ## Why this record exists
