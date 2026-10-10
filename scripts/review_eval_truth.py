@@ -61,6 +61,7 @@ class ExtentSource(Protocol):
 
 
 PAIRINGS = ("hull", "per_entry", "matched_set", "cross_index", "cross_index_benign")
+TRUTH_SPANS = ("index", "entity_days")
 DEFAULT_MARGIN_SECONDS = 86_400.0
 SECONDS_PER_DAY = 86_400.0
 
@@ -179,6 +180,23 @@ class SplunkTruthSource:
         row = rows[0]
         count = int(_as_float(row.get("count")) or 0)
         return EntitySearchStat(count, _as_float(row.get("first")), _as_float(row.get("last")))
+
+    def query_day_counts(
+        self, index: str, sourcetype: str, entities: Sequence[str]
+    ) -> dict[float, int]:
+        """Matching event counts per UTC day; the same filter as ``query_stats``, bucketed."""
+        search = (
+            f"search index={_quote(index)} sourcetype={_quote(sourcetype)}"
+            f"{_entity_clause(entities)}"
+            " | eval day=floor(_time/86400)*86400 | stats count as count by day"
+        )
+        out: dict[float, int] = {}
+        for row in self.source.iter_post(search, 0.0, time.time() + 1.0):
+            day = _as_float(row.get("day"))
+            count = _as_float(row.get("count"))
+            if day is not None and count is not None:
+                out[day] = int(count)  # preview rows precede the final row for a day
+        return out
 
     def fetch_records(
         self,
@@ -541,6 +559,7 @@ def _slice_yield(rows: Sequence[Mapping[str, Any]]) -> float:
 def main(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--pairing", choices=PAIRINGS, default="hull")
+    parser.add_argument("--truth-span", choices=TRUTH_SPANS, default="index")
     parser.add_argument("--benign-index", default="portal5_lab")
     parser.add_argument("--margin-seconds", type=float, default=DEFAULT_MARGIN_SECONDS)
     parser.add_argument("--partition-seconds", type=float, default=600.0)
@@ -558,7 +577,10 @@ def main(argv: Sequence[str] | None = None) -> int:
     source = SplunkTruthSource(window_source, partition_seconds=args.partition_seconds)
 
     derivation = derive_bots_truth(
-        source.fetch_records, source.query_stats, entries=BOTS_ANSWER_KEY
+        source.fetch_records,
+        source.query_stats,
+        entries=BOTS_ANSWER_KEY,
+        query_days=source.query_day_counts if args.truth_span == "entity_days" else None,
     )
     source.census.distinct_ids = len(
         {event_id for item in derivation.items for event_id in item.event_ids}
@@ -588,6 +610,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     embedder = PlatformEmbedder(task=Task.SENTENCE_SIMILARITY, dim=args.embed_dim, role=Role.QUERY)
     config_payload: dict[str, Any] = {
         "pairing_arm": args.pairing,
+        "truth_span": args.truth_span,
         "benign_index": args.benign_index,
         "margin_seconds": args.margin_seconds,
         "partition_seconds": args.partition_seconds,
@@ -601,7 +624,10 @@ def main(argv: Sequence[str] | None = None) -> int:
         model_digests={},
         config=config_payload,
         corpus_snapshot=f"real:bots-answer-key:{manifest_sha256}",
-        policy=f"{args.record}; truth derivation with the {args.pairing} benign-pairing arm",
+        policy=(
+            f"{args.record}; truth derivation with the {args.pairing} benign-pairing arm"
+            f" and the {args.truth_span} truth span"
+        ),
     )
     known_answer = selftest_mod.run_selftest(stamp_digest=run_stamp.digest)
     if not known_answer.passed:
@@ -637,6 +663,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         },
         extra={
             "pairing_arm": args.pairing,
+            "truth_span": args.truth_span,
             "answer_key_entry_count": len(derivation.receipts),
             "derived_item_count": len(derivation.items),
             "dropped_entry_count": sum(r.status == "dropped" for r in derivation.receipts),

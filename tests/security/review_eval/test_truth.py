@@ -182,3 +182,71 @@ def test_capture_truth_uses_only_the_hashed_admitted_population(tmp_path: Any) -
         population.items[0].event_ids
     )
     assert "_raw" in next(iter(population.records_by_source.values()))[0]
+
+
+DAY = 86_400.0
+
+
+def _day_scoped(
+    days: dict[tuple[str, ...], dict[float, int]],
+    records: list[dict[str, Any]],
+) -> tuple[Any, list[tuple[float, float]]]:
+    fetched: list[tuple[float, float]] = []
+
+    def fetch(
+        _index: str, _sourcetype: str, _entities: Sequence[str], start: float, end: float
+    ) -> list[dict[str, Any]]:
+        fetched.append((start, end))
+        return [row for row in records if start <= row["_time"] < end]
+
+    def stats(_index: str, _sourcetype: str, _entities: Sequence[str]) -> EntitySearchStat:
+        raise AssertionError("the day-scoped span never reads whole-index stats")
+
+    def query_days(_index: str, _sourcetype: str, entities: Sequence[str]) -> dict[float, int]:
+        return days.get(tuple(entities), {})
+
+    derived = derive_bots_truth(
+        fetch, stats, entries=[entry(entities=("web.example", "10.0.0.5"))], query_days=query_days
+    )
+    return derived, fetched
+
+
+def _http(when: float, raw: str) -> dict[str, Any]:
+    return {
+        "_time": when,
+        "_raw": raw,
+        "host": "web",
+        "source": "stream",
+        "index": "botsv3",
+        "sourcetype": "wineventlog:security",
+    }
+
+
+def test_day_scoped_span_ignores_an_entity_that_is_everyday_background() -> None:
+    # The server address appears every day; the attacked name only on day 10. The entry is day 10.
+    records = [_http(d * DAY + 60, "dst=10.0.0.5") for d in range(28)]
+    records.append(_http(10 * DAY + 120, "Host: web.example dst=10.0.0.5"))
+    days = {
+        ("web.example",): {10 * DAY: 1},
+        ("10.0.0.5",): {d * DAY: 1 + (d == 10) for d in range(28)},
+        ("web.example", "10.0.0.5"): {d * DAY: 1 + (d == 10) for d in range(28)},
+    }
+    derived, fetched = _day_scoped(days, records)
+    receipt = derived.receipts[0]
+    assert receipt.status == "derived"
+    assert (receipt.start_epoch, receipt.end_exclusive_epoch) == (10 * DAY, 11 * DAY)
+    assert fetched == [(10 * DAY, 11 * DAY)]
+    assert receipt.event_count == 2
+
+
+def test_day_scoped_span_drops_entities_that_never_share_a_day() -> None:
+    days = {
+        ("web.example",): {3 * DAY: 1},
+        ("10.0.0.5",): {4 * DAY: 1},
+        ("web.example", "10.0.0.5"): {3 * DAY: 1, 4 * DAY: 1},
+    }
+    derived, fetched = _day_scoped(days, [])
+    receipt = derived.receipts[0]
+    assert receipt.status == "dropped"
+    assert receipt.reason == "answer_key_entities_share_no_utc_day"
+    assert fetched == []

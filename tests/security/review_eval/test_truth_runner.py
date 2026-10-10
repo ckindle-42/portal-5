@@ -225,3 +225,21 @@ def test_cross_index_benign_needs_the_daily_counts() -> None:
     derivation = _derivation(_receipt("botsv1", 0.0, 2 * DAY))
     with pytest.raises(ValueError, match="daily source counts"):
         _pair(derivation, _FixedExtentSource(0.0, 10 * DAY), "cross_index_benign")
+
+
+class _Rows:
+    def __init__(self, rows: list[dict[str, Any]]) -> None:
+        self.rows = rows
+        self.searches: list[str] = []
+
+    def iter_post(self, search: str, start: float, end: float) -> Any:
+        self.searches.append(search)
+        return iter(self.rows)
+
+
+def test_day_counts_use_the_entity_filter_and_keep_the_final_row() -> None:
+    rows = _Rows([{"day": "864000", "count": "3"}, {"day": "864000", "count": "7"}, {"day": None}])
+    source = runner.SplunkTruthSource(rows, partition_seconds=600.0)
+    assert source.query_day_counts("botsv1", "stream:http", ("a.example",)) == {864000.0: 7}
+    assert '("a.example")' in rows.searches[0]
+    assert "floor(_time/86400)*86400" in rows.searches[0]

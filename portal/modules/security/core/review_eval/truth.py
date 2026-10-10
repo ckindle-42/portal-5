@@ -43,6 +43,9 @@ class EntitySearchStat:
 
 
 StatsFetcher = Callable[[str, str, Sequence[str]], EntitySearchStat]
+# (index, sourcetype, entities) -> {UTC day start epoch: matching event count}
+DayCountFetcher = Callable[[str, str, Sequence[str]], Mapping[float, int]]
+_SECONDS_PER_DAY = 86_400.0
 
 
 @dataclass(frozen=True)
@@ -320,6 +323,7 @@ def derive_bots_truth(
     query_stats: StatsFetcher,
     *,
     entries: Sequence[AnswerKeyEntry] = BOTS_ANSWER_KEY,
+    query_days: DayCountFetcher | None = None,
 ) -> TruthDerivation:
     """Search every declared entity/source pair and keep only fully located entries.
 
@@ -327,11 +331,16 @@ def derive_bots_truth(
     fetched only when every declared entity exists, and only inside that derived span. Each
     result's ``event_id`` is computed with ``review.intake.event_id_for`` over product-normalized
     records; no funnel, classifier, unit grouping, anchor, or model result participates.
+
+    With ``query_days`` the span is narrowed to the UTC days on which every declared entity is
+    present (first such day to the end of the last): the "all entities located" condition applied
+    per day instead of per index, so an entity that is also everyday background (a victim
+    server's own address) no longer stretches the entry across the whole index.
     """
     items: list[TruthItem] = []
     receipts: list[EntryReceipt] = []
     for entry in entries:
-        item, receipt = _derive_entry(entry, fetch_records, query_stats)
+        item, receipt = _derive_entry(entry, fetch_records, query_stats, query_days)
         if item is not None:
             items.append(item)
         receipts.append(receipt)
@@ -342,6 +351,7 @@ def _derive_entry(
     entry: AnswerKeyEntry,
     fetch_records: RecordFetcher,
     query_stats: StatsFetcher,
+    query_days: DayCountFetcher | None = None,
 ) -> tuple[TruthItem | None, EntryReceipt]:
     index = _index_for(entry)
     item_id = _item_id_for(entry, index)
@@ -350,7 +360,11 @@ def _derive_entry(
     if not entities or not sourcetypes:
         return None, _empty_receipt(item_id, index, entry.technique, sourcetypes, len(entities))
 
-    population = _entry_population(index, sourcetypes, entities, query_stats)
+    population = (
+        _entry_population(index, sourcetypes, entities, query_stats)
+        if query_days is None
+        else _entry_population_by_day(index, sourcetypes, entities, query_days)
+    )
     evidence = _fetch_evidence(
         index,
         sourcetypes,
@@ -380,12 +394,7 @@ def _derive_entry(
         status = "derived"
     else:
         item = None
-        if not population.event_count:
-            reason = "no_matching_events_in_declared_sourcetypes"
-        elif not entities_match:
-            reason = "answer_key_entity_count_mismatch"
-        else:
-            reason = "entity_event_fetch_count_mismatch"
+        reason = _drop_reason(population, entities_match, len(entities))
         status = "dropped"
     receipt = EntryReceipt(
         item_id=item_id,
@@ -412,6 +421,16 @@ def _derive_entry(
         event_ids=tuple(sorted(evidence.event_times)),
     )
     return item, receipt
+
+
+def _drop_reason(population: _EntryPopulation, entities_match: bool, entity_count: int) -> str:
+    if not population.event_count and len(population.located_entities) == entity_count:
+        return "answer_key_entities_share_no_utc_day"
+    if not population.event_count:
+        return "no_matching_events_in_declared_sourcetypes"
+    if not entities_match:
+        return "answer_key_entity_count_mismatch"
+    return "entity_event_fetch_count_mismatch"
 
 
 def _empty_receipt(
@@ -465,6 +484,31 @@ def _entry_population(
         end_exclusive_epoch=end_exclusive,
         located_entities=located,
     )
+
+
+def _entry_population_by_day(
+    index: str,
+    sourcetypes: Sequence[str],
+    entities: Sequence[str],
+    query_days: DayCountFetcher,
+) -> _EntryPopulation:
+    entity_days = {
+        entity: {day for source in sourcetypes for day in query_days(index, source, (entity,))}
+        for entity in entities
+    }
+    located = frozenset(entity for entity, days in entity_days.items() if days)
+    shared = set.intersection(*entity_days.values()) if entity_days else set()
+    if not shared:
+        return _EntryPopulation(0, None, None, located)
+    first = min(shared)
+    end_exclusive = max(shared) + _SECONDS_PER_DAY
+    event_count = sum(
+        count
+        for source in sourcetypes
+        for day, count in query_days(index, source, entities).items()
+        if first <= day < end_exclusive
+    )
+    return _EntryPopulation(event_count, first, end_exclusive, located)
 
 
 def _fetch_evidence(
