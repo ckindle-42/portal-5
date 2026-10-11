@@ -1063,7 +1063,9 @@ def workspace_context(ws_id: str, persona: str | None = None) -> dict:
         ws = {**ws, **ws["variants"][variant]}
     slug, sp = resolve_persona(base_id, persona)
     if not sp:
-        sp = (ws.get("description") or "") + "\nPerform the user's task faithfully."
+        sp = ws.get("owui_system_prompt") or (
+            (ws.get("description") or "") + "\nPerform the user's task faithfully."
+        )
     # Production appends this to the system message on every request
     # (router/preinject.py `_inject_system_prompt_append`). Until 2026-09-24 WFE
     # never did, so auto-coding / auto-compliance / auto-documents /

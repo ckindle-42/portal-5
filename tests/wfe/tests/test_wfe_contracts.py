@@ -697,6 +697,16 @@ class TestOfflineRescore:
             base["system_prompt_append"]
         )
 
+    def test_personaless_workspace_uses_the_owui_preset_prompt(self):
+        import yaml
+
+        from tests.wfe.runner import REPO, workspace_context
+
+        ws = yaml.safe_load((REPO / "config/portal.yaml").read_text())["workspaces"]
+        wsc = workspace_context("general-deep")
+        assert wsc["persona_slug"] is None
+        assert wsc["system_prompt_base"] == ws["general-deep"]["owui_system_prompt"]
+
 
 class _FakeResp:
     """Minimal stand-in for an http.client.HTTPResponse line stream."""
