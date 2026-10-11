@@ -173,6 +173,26 @@ def _restore(name: str) -> bool:
     )
 
 
+def _rollback(old_id: str, old_rev: str, bad: str, name: str, state: dict) -> tuple[bool, str]:
+    """Restore the data + previous image after a build failed its health gate."""
+    tail = _docker("logs", "--tail", "15", OWUI_CONTAINER, timeout=60)
+    log(f"open-webui: {bad} did not come up healthy — rolling back\n{tail.stderr[-1200:]}")
+    _compose("stop", OWUI_SVC)
+    restored = (
+        _restore(name)
+        and _docker("tag", old_id, OWUI_IMAGE, timeout=60).returncode == 0
+        and _compose("up", "-d", "--no-deps", OWUI_SVC).returncode == 0
+        and _wait_healthy(OWUI_SVC, 900)
+    )
+    state.setdefault("rejected", {}).setdefault("open-webui", []).append(bad)
+    _save(state)
+    outcome = "(healthy)" if restored else f"BUT ROLLBACK IS NOT HEALTHY (backup {BACKUPS / name})"
+    return False, (
+        f"open-webui: build {bad} unhealthy — rolled back to {old_rev} {outcome}; "
+        f"skipped until upstream ships a new build (or clear it from {STATE})"
+    )
+
+
 def owui_update(dry_run: bool = False) -> tuple[bool, str]:
     """Apply a new ``:main`` build if there is one. Returns (ok, summary); ok is
     False only when Open WebUI is left unhealthy or the update was rolled back."""
@@ -207,26 +227,7 @@ def owui_update(dry_run: bool = False) -> tuple[bool, str]:
     if _compose("up", "-d", "--no-deps", OWUI_SVC).returncode == 0 and _wait_healthy(OWUI_SVC, 900):
         return True, f"open-webui: updated to {rev or new_id[:19]} (data backup {name})"
 
-    tail = _docker("logs", "--tail", "15", OWUI_CONTAINER, timeout=60)
-    log(f"open-webui: {rev} did not come up healthy — rolling back\n{tail.stderr[-1200:]}")
-    _compose("stop", OWUI_SVC)
-    restored = (
-        _restore(name)
-        and _docker("tag", old_id, OWUI_IMAGE, timeout=60).returncode == 0
-        and _compose("up", "-d", "--no-deps", OWUI_SVC).returncode == 0
-        and _wait_healthy(OWUI_SVC, 900)
-    )
-    state.setdefault("rejected", {}).setdefault("open-webui", []).append(rev or new_id)
-    _save(state)
-    return False, (
-        f"open-webui: build {rev} unhealthy — rolled back to {old_rev} "
-        + (
-            "(healthy)"
-            if restored
-            else f"BUT ROLLBACK IS NOT HEALTHY (data backup {BACKUPS / name})"
-        )
-        + f"; skipped until upstream ships a new build (or clear it from {STATE})"
-    )
+    return _rollback(old_id, old_rev, rev or new_id, name, state)
 
 
 def main(argv: list[str]) -> int:
