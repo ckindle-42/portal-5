@@ -422,6 +422,24 @@ PY
         fi
     fi
 
+    # ── Weekly security upgrades: vulnerable locked deps + pinned image patches ──
+    # (scripts/security_autoupdate.py; commits uv.lock / compose, never pushes)
+    local _su_label="com.portal5.security-update"
+    local _su_src="$PORTAL_ROOT/deploy/launchd/${_su_label}.plist"
+    local _su_dst="$HOME/Library/LaunchAgents/${_su_label}.plist"
+    if [ -f "$_su_src" ] && [ "$(uname -s)" = "Darwin" ]; then
+        mkdir -p "$HOME/.portal5/logs" "$HOME/Library/LaunchAgents"
+        sed -e "s#__PORTAL_ROOT__#${PORTAL_ROOT}#g" \
+            -e "s#__LOG_DIR__#${HOME}/.portal5/logs#g" \
+            -e "s#__HOME__#${HOME}#g" \
+            "$_su_src" > "$_su_dst"
+        if ! launchctl print "gui/$(id -u)/${_su_label}" &>/dev/null 2>&1; then
+            launchctl bootstrap "gui/$(id -u)" "$_su_dst" &>/dev/null \
+                && echo "[portal-5]   ✅ security upgrades: weekly job enabled" \
+                || echo "[portal-5]   ⚠️  security upgrades: launchd registration failed"
+        fi
+    fi
+
     _install_log_rotation_agent
 
     # ── MFLUX image MCP (native MLX on Apple Silicon) ──────────────────────

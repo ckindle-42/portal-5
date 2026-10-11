@@ -72,10 +72,10 @@ def test_python_vulns_flags_only_fixable_as_actionable(monkeypatch):
         "_post_json",
         lambda url, body: {"results": [{"vulns": [{"id": "GHSA-1"}]}, {}]},
     )
-    monkeypatch.setattr(cu, "_osv_detail", lambda i, p: ("HIGH", "1.1", "bad"))
+    monkeypatch.setattr(cu, "_osv_detail", lambda i, p, v="0": ("HIGH", "1.1", "bad"))
     rep = cu.check_python_vulns()
     assert rep.status == "behind" and rep.security and not rep.security_in_gap
-    monkeypatch.setattr(cu, "_osv_detail", lambda i, p: ("LOW", "", "bad"))
+    monkeypatch.setattr(cu, "_osv_detail", lambda i, p, v="0": ("LOW", "", "bad"))
     assert cu.check_python_vulns().status == "current"
 
 
@@ -87,3 +87,10 @@ def test_python_vulns_osv_failure_is_error(monkeypatch):
 
     monkeypatch.setattr(cu, "_post_json", boom)
     assert cu.check_python_vulns().status == "error"
+
+
+def test_vuln_fixes_takes_highest_per_vuln_lowest_fix(monkeypatch):
+    fixed = {"A": ("LOW", "1.2", "a"), "B": ("HIGH", "1.5", "b"), "C": ("HIGH", "", "c")}
+    monkeypatch.setattr(cu, "_osv_detail", lambda i, p, v: fixed[i])
+    out = cu.vuln_fixes({("pkg", "1.0"): ["A", "B", "C"]})
+    assert out[("pkg", "1.0")][:2] == ("HIGH", "1.5")

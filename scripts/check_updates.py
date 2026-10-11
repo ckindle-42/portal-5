@@ -348,47 +348,76 @@ def _locked_packages() -> list[tuple[str, str]]:
     return out
 
 
-def _osv_detail(vuln_id: str, pkg: str) -> tuple[str, str, str]:
-    """(severity, fixed-version, summary) for one OSV record."""
+def _osv_detail(vuln_id: str, pkg: str, installed: str = "0") -> tuple[str, str, str]:
+    """(severity, lowest fixed version above `installed`, summary) for one OSV record."""
     with urllib.request.urlopen(  # noqa: S310 - fixed api.osv.dev host
         f"{_OSV}/vulns/{urllib.parse.quote(vuln_id)}", timeout=20
     ) as r:
         v = json.loads(r.read().decode())
     sev = (v.get("database_specific") or {}).get("severity", "?")
-    fixed = ""
+    fixes = []
     for aff in v.get("affected", []):
         if aff.get("package", {}).get("name", "").lower() != pkg.lower():
             continue
         for rng in aff.get("ranges", []):
-            for ev in rng.get("events", []):
-                fixed = ev.get("fixed", fixed)
-    return sev, fixed, (v.get("summary") or "")[:80]
+            fixes += [e["fixed"] for e in rng.get("events", []) if e.get("fixed")]
+    above = [f for f in fixes if _semver(f) > _semver(installed)]
+    return sev, min(above, key=_semver) if above else "", (v.get("summary") or "")[:80]
+
+
+def osv_query(pkgs: list[tuple[str, str]]) -> dict[tuple[str, str], list[str]]:
+    """{(name, version): [vuln ids]} for the packages OSV.dev knows a vuln for."""
+    hits: dict[tuple[str, str], list[str]] = {}
+    for i in range(0, len(pkgs), 500):
+        chunk = pkgs[i : i + 500]
+        res = _post_json(
+            f"{_OSV}/querybatch",
+            {
+                "queries": [
+                    {"package": {"name": n, "ecosystem": "PyPI"}, "version": v} for n, v in chunk
+                ]
+            },
+        )["results"]
+        for key, r in zip(chunk, res, strict=True):
+            if r.get("vulns"):
+                hits[key] = [x["id"] for x in r["vulns"]]
+    return hits
+
+
+def vuln_fixes(
+    hits: dict[tuple[str, str], list[str]],
+) -> dict[tuple[str, str], tuple[str, str, str]]:
+    """{(name, version): (worst severity, version that fixes every fixable vuln, top summary)}.
+
+    The fix is the highest per-vuln lowest-fixed version; "" when none is published.
+    """
+    order = {"CRITICAL": 4, "HIGH": 3, "MODERATE": 2, "LOW": 1}
+    out = {}
+    for (name, ver), ids in hits.items():
+        sev, fixed, summ = "?", "", ""
+        for vid in ids:
+            try:
+                s, f, t = _osv_detail(vid, name, ver)
+            except (OSError, ValueError):
+                continue
+            if order.get(s, 0) > order.get(sev, 0):
+                sev, summ = s, t
+            if f and (not fixed or _semver(f) > _semver(fixed)):
+                fixed = f
+        out[(name, ver)] = (sev, fixed, summ)
+    return out
 
 
 def check_python_vulns() -> Report:
     """Known vulnerabilities (OSV.dev) in every PyPI package pinned by uv.lock.
 
     Only a vuln with a published fix makes this actionable; an unfixed one is
-    listed but cannot be bumped away.
+    listed but cannot be bumped away. ``security_autoupdate.py deps`` applies them.
     """
     rep = Report("python-vulns")
     try:
         pkgs = _locked_packages()
-        hits: dict[tuple[str, str], list[str]] = {}
-        for i in range(0, len(pkgs), 500):
-            chunk = pkgs[i : i + 500]
-            res = _post_json(
-                f"{_OSV}/querybatch",
-                {
-                    "queries": [
-                        {"package": {"name": n, "ecosystem": "PyPI"}, "version": v}
-                        for n, v in chunk
-                    ]
-                },
-            )["results"]
-            for key, r in zip(chunk, res, strict=True):
-                if r.get("vulns"):
-                    hits[key] = [x["id"] for x in r["vulns"]]
+        hits = osv_query(pkgs)
     except (OSError, KeyError, ValueError) as e:
         rep.status = "error"  # a check that cannot run must not read as healthy
         rep.lines.append(f"OSV query FAILED to run: {e}")
@@ -399,20 +428,14 @@ def check_python_vulns() -> Report:
         rep.status = "current"
         rep.lines.append("no known vulnerabilities in uv.lock")
         return rep
-    fixable = 0
-    detail: list[str] = []
-    for (name, ver), ids in sorted(hits.items()):
-        try:
-            sev, fixed, summ = _osv_detail(ids[0], name)
-        except (OSError, ValueError):
-            sev, fixed, summ = "?", "", ""
-        fixable += bool(fixed)
-        more = f" +{len(ids) - 1} more" if len(ids) > 1 else ""
-        detail.append(
-            f"  - {name} {ver}: {ids[0]}{more} [{sev}]"
-            + (f" fixed in {fixed}" if fixed else " (no fix yet)")
-            + (f" — {summ}" if summ else "")
-        )
+    fixes = vuln_fixes(hits)
+    fixable = sum(bool(f) for _, f, _ in fixes.values())
+    detail = [
+        f"  - {name} {ver}: {len(hits[(name, ver)])} vuln(s) [{sev}]"
+        + (f" fixed in {fixed}" if fixed else " (no fix yet)")
+        + (f" — {summ}" if summ else "")
+        for (name, ver), (sev, fixed, summ) in sorted(fixes.items())
+    ]
     rep.security = True
     rep.status = "behind" if fixable else "current"
     rep.security_in_gap = False  # engine_autoupdate keys off this; deps are not engines
