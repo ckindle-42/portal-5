@@ -1,0 +1,325 @@
+{
+  "probe": "parallel",
+  "started_utc": "2026-10-11T22:05:27Z",
+  "arm": "omlx_deep",
+  "kind": "v1",
+  "base": "http://127.0.0.1:8085",
+  "model": "Qwen3.8-27B-oQ4e-mtp",
+  "ctx": 98304,
+  "rows": [
+    {
+      "mode": "card_t0",
+      "run": 0,
+      "verdict": "clean",
+      "n_calls": 3,
+      "cities": [
+        "lima",
+        "paris",
+        "tokyo"
+      ],
+      "bad_calls": 0,
+      "content_leak": false,
+      "content_head": "",
+      "wall_s": 14.33
+    },
+    {
+      "mode": "card_t0",
+      "run": 1,
+      "verdict": "clean",
+      "n_calls": 3,
+      "cities": [
+        "lima",
+        "paris",
+        "tokyo"
+      ],
+      "bad_calls": 0,
+      "content_leak": false,
+      "content_head": "",
+      "wall_s": 5.5
+    },
+    {
+      "mode": "card_t0",
+      "run": 2,
+      "verdict": "clean",
+      "n_calls": 3,
+      "cities": [
+        "lima",
+        "paris",
+        "tokyo"
+      ],
+      "bad_calls": 0,
+      "content_leak": false,
+      "content_head": "",
+      "wall_s": 3.0
+    },
+    {
+      "mode": "card_t0",
+      "run": 3,
+      "verdict": "clean",
+      "n_calls": 3,
+      "cities": [
+        "lima",
+        "paris",
+        "tokyo"
+      ],
+      "bad_calls": 0,
+      "content_leak": false,
+      "content_head": "",
+      "wall_s": 3.01
+    },
+    {
+      "mode": "card_t0",
+      "run": 4,
+      "verdict": "clean",
+      "n_calls": 3,
+      "cities": [
+        "lima",
+        "paris",
+        "tokyo"
+      ],
+      "bad_calls": 0,
+      "content_leak": false,
+      "content_head": "",
+      "wall_s": 3.04
+    },
+    {
+      "mode": "card_t0",
+      "run": 5,
+      "verdict": "clean",
+      "n_calls": 3,
+      "cities": [
+        "lima",
+        "paris",
+        "tokyo"
+      ],
+      "bad_calls": 0,
+      "content_leak": false,
+      "content_head": "",
+      "wall_s": 3.0
+    },
+    {
+      "mode": "card_t0",
+      "run": 6,
+      "verdict": "clean",
+      "n_calls": 3,
+      "cities": [
+        "lima",
+        "paris",
+        "tokyo"
+      ],
+      "bad_calls": 0,
+      "content_leak": false,
+      "content_head": "",
+      "wall_s": 3.02
+    },
+    {
+      "mode": "card_t0",
+      "run": 7,
+      "verdict": "clean",
+      "n_calls": 3,
+      "cities": [
+        "lima",
+        "paris",
+        "tokyo"
+      ],
+      "bad_calls": 0,
+      "content_leak": false,
+      "content_head": "",
+      "wall_s": 3.02
+    },
+    {
+      "mode": "card_t0",
+      "run": 8,
+      "verdict": "clean",
+      "n_calls": 3,
+      "cities": [
+        "lima",
+        "paris",
+        "tokyo"
+      ],
+      "bad_calls": 0,
+      "content_leak": false,
+      "content_head": "",
+      "wall_s": 3.03
+    },
+    {
+      "mode": "card_t0",
+      "run": 9,
+      "verdict": "clean",
+      "n_calls": 3,
+      "cities": [
+        "lima",
+        "paris",
+        "tokyo"
+      ],
+      "bad_calls": 0,
+      "content_leak": false,
+      "content_head": "",
+      "wall_s": 3.01
+    },
+    {
+      "mode": "seat",
+      "run": 0,
+      "verdict": "clean",
+      "n_calls": 3,
+      "cities": [
+        "lima",
+        "paris",
+        "tokyo"
+      ],
+      "bad_calls": 0,
+      "content_leak": false,
+      "content_head": "",
+      "wall_s": 3.04
+    },
+    {
+      "mode": "seat",
+      "run": 1,
+      "verdict": "clean",
+      "n_calls": 3,
+      "cities": [
+        "lima",
+        "paris",
+        "tokyo"
+      ],
+      "bad_calls": 0,
+      "content_leak": false,
+      "content_head": "",
+      "wall_s": 3.05
+    },
+    {
+      "mode": "seat",
+      "run": 2,
+      "verdict": "clean",
+      "n_calls": 3,
+      "cities": [
+        "lima",
+        "paris",
+        "tokyo"
+      ],
+      "bad_calls": 0,
+      "content_leak": false,
+      "content_head": "",
+      "wall_s": 3.06
+    },
+    {
+      "mode": "seat",
+      "run": 3,
+      "verdict": "clean",
+      "n_calls": 3,
+      "cities": [
+        "lima",
+        "paris",
+        "tokyo"
+      ],
+      "bad_calls": 0,
+      "content_leak": false,
+      "content_head": "",
+      "wall_s": 3.07
+    },
+    {
+      "mode": "seat",
+      "run": 4,
+      "verdict": "clean",
+      "n_calls": 3,
+      "cities": [
+        "lima",
+        "paris",
+        "tokyo"
+      ],
+      "bad_calls": 0,
+      "content_leak": false,
+      "content_head": "",
+      "wall_s": 3.06
+    },
+    {
+      "mode": "seat",
+      "run": 5,
+      "verdict": "clean",
+      "n_calls": 3,
+      "cities": [
+        "lima",
+        "paris",
+        "tokyo"
+      ],
+      "bad_calls": 0,
+      "content_leak": false,
+      "content_head": "",
+      "wall_s": 3.05
+    },
+    {
+      "mode": "seat",
+      "run": 6,
+      "verdict": "clean",
+      "n_calls": 3,
+      "cities": [
+        "lima",
+        "paris",
+        "tokyo"
+      ],
+      "bad_calls": 0,
+      "content_leak": false,
+      "content_head": "",
+      "wall_s": 3.06
+    },
+    {
+      "mode": "seat",
+      "run": 7,
+      "verdict": "clean",
+      "n_calls": 3,
+      "cities": [
+        "lima",
+        "paris",
+        "tokyo"
+      ],
+      "bad_calls": 0,
+      "content_leak": false,
+      "content_head": "",
+      "wall_s": 3.12
+    },
+    {
+      "mode": "seat",
+      "run": 8,
+      "verdict": "clean",
+      "n_calls": 3,
+      "cities": [
+        "lima",
+        "paris",
+        "tokyo"
+      ],
+      "bad_calls": 0,
+      "content_leak": false,
+      "content_head": "",
+      "wall_s": 3.05
+    },
+    {
+      "mode": "seat",
+      "run": 9,
+      "verdict": "clean",
+      "n_calls": 3,
+      "cities": [
+        "lima",
+        "paris",
+        "tokyo"
+      ],
+      "bad_calls": 0,
+      "content_leak": false,
+      "content_head": "",
+      "wall_s": 3.07
+    }
+  ],
+  "summary": {
+    "card_t0": {
+      "clean": 10,
+      "slip": 0,
+      "no_call": 0,
+      "error": 0
+    },
+    "seat": {
+      "clean": 10,
+      "slip": 0,
+      "no_call": 0,
+      "error": 0
+    }
+  }
+}

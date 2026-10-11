@@ -1,0 +1,110 @@
+{
+  "results": [
+    {
+      "model": "portal5/underdog-saluki-27b:iq2-mix-ctx96k",
+      "avg_tps": 14.54,
+      "quality_score": 1.0,
+      "runs_success": 4,
+      "runs_total": 4,
+      "prompt_category": "agent-toolcall",
+      "tools_supported": true,
+      "cases": [
+        {
+          "id": "single_call",
+          "ok": true,
+          "matched": true,
+          "emitted_calls": [
+            "get_weather"
+          ],
+          "response_preview": "The user is asking about the current weather in Tokyo. I have a tool called get_weather that can retrieve the current weather for a city. Let's use it.\n",
+          "tps": 14.889252323196038,
+          "wall_s": 12.737616958038416
+        },
+        {
+          "id": "arg_fidelity",
+          "ok": true,
+          "matched": true,
+          "emitted_calls": [
+            "convert_units"
+          ],
+          "response_preview": "We need answer user: Convert 100 kilometers to miles. Need use convert_units tool. We can call convert_units value 100 to_unit miles. Then final answer.\n",
+          "tps": 14.700298114961292,
+          "wall_s": 9.056486792047508
+        },
+        {
+          "id": "tool_select",
+          "ok": true,
+          "matched": true,
+          "emitted_calls": [
+            "search_flights"
+          ],
+          "response_preview": "The user is asking for a flight from Boston to Denver on May 3rd. I have a search_flights function that takes origin, destination, and date. Let me call it.\n\nTh",
+          "tps": 14.217026886987991,
+          "wall_s": 21.2784480000264
+        },
+        {
+          "id": "capability_check",
+          "ok": true,
+          "matched": true,
+          "emitted_calls": [],
+          "response_preview": "Two plus two equals four.",
+          "tps": 14.334169493220438,
+          "wall_s": 6.621171167003922
+        }
+      ]
+    },
+    {
+      "model": "hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx96k",
+      "avg_tps": 12.44,
+      "quality_score": 1.0,
+      "runs_success": 4,
+      "runs_total": 4,
+      "prompt_category": "agent-toolcall",
+      "tools_supported": true,
+      "cases": [
+        {
+          "id": "single_call",
+          "ok": true,
+          "matched": true,
+          "emitted_calls": [
+            "get_weather"
+          ],
+          "response_preview": "The user is asking about the current weather in Tokyo. I have a tool called get_weather that takes a city name as a parameter. Let's use it.\n",
+          "tps": 12.805324371258573,
+          "wall_s": 18.06016312498832
+        },
+        {
+          "id": "arg_fidelity",
+          "ok": true,
+          "matched": true,
+          "emitted_calls": [
+            "convert_units"
+          ],
+          "response_preview": "We need answer user asks convert 100 kilometers to miles. Need use convert_units. Then final.\n",
+          "tps": 12.401652122181817,
+          "wall_s": 9.347725333005656
+        },
+        {
+          "id": "tool_select",
+          "ok": true,
+          "matched": true,
+          "emitted_calls": [
+            "search_flights"
+          ],
+          "response_preview": "The user is asking for a flight from Boston to Denver on May 3rd. I should use the search_flights function. The date format isn't specified, but I'll use \"May 3",
+          "tps": 12.0750931748951,
+          "wall_s": 20.79675329098245
+        },
+        {
+          "id": "capability_check",
+          "ok": true,
+          "matched": true,
+          "emitted_calls": [],
+          "response_preview": "2 plus 2 equals 4.",
+          "tps": 12.459749418465158,
+          "wall_s": 6.899799040984362
+        }
+      ]
+    }
+  ]
+}
