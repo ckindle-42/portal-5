@@ -404,6 +404,24 @@ PY
         fi
     fi
 
+    # ── Image security re-pull (daily launchd job) ─────────────────────────
+    # Re-pulls floating-tag compose images (Open WebUI, SearXNG) when an
+    # advisory is newer than the local build (scripts/image_security_update.py).
+    local _iu_label="com.portal5.image-update"
+    local _iu_src="$PORTAL_ROOT/deploy/launchd/${_iu_label}.plist"
+    local _iu_dst="$HOME/Library/LaunchAgents/${_iu_label}.plist"
+    if [ -f "$_iu_src" ] && [ "$(uname -s)" = "Darwin" ]; then
+        mkdir -p "$HOME/.portal5/logs" "$HOME/Library/LaunchAgents"
+        sed -e "s#__PORTAL_ROOT__#${PORTAL_ROOT}#g" \
+            -e "s#__LOG_DIR__#${HOME}/.portal5/logs#g" \
+            "$_iu_src" > "$_iu_dst"
+        if ! launchctl print "gui/$(id -u)/${_iu_label}" &>/dev/null 2>&1; then
+            launchctl bootstrap "gui/$(id -u)" "$_iu_dst" &>/dev/null \
+                && echo "[portal-5]   ✅ image security update: daily job enabled" \
+                || echo "[portal-5]   ⚠️  image security update: launchd registration failed"
+        fi
+    fi
+
     _install_log_rotation_agent
 
     # ── MFLUX image MCP (native MLX on Apple Silicon) ──────────────────────

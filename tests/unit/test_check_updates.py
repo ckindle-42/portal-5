@@ -53,3 +53,37 @@ def test_check_run_failure_is_not_healthy(monkeypatch):
     rep = cu.check_python_deps()
     assert rep.status == "error"
     assert rep.actionable
+
+
+def test_locked_packages_skips_non_pypi(monkeypatch, tmp_path):
+    lock = (
+        '[[package]]\nname = "a"\nversion = "1.0"\nsource = { registry = "https://pypi.org/simple" }\n\n'
+        '[[package]]\nname = "portal"\nversion = "9"\nsource = { editable = "." }\n'
+    )
+    (tmp_path / "uv.lock").write_text(lock)
+    monkeypatch.setattr(cu, "REPO_ROOT", tmp_path)
+    assert cu._locked_packages() == [("a", "1.0")]
+
+
+def test_python_vulns_flags_only_fixable_as_actionable(monkeypatch):
+    monkeypatch.setattr(cu, "_locked_packages", lambda: [("a", "1.0"), ("b", "2.0")])
+    monkeypatch.setattr(
+        cu,
+        "_post_json",
+        lambda url, body: {"results": [{"vulns": [{"id": "GHSA-1"}]}, {}]},
+    )
+    monkeypatch.setattr(cu, "_osv_detail", lambda i, p: ("HIGH", "1.1", "bad"))
+    rep = cu.check_python_vulns()
+    assert rep.status == "behind" and rep.security and not rep.security_in_gap
+    monkeypatch.setattr(cu, "_osv_detail", lambda i, p: ("LOW", "", "bad"))
+    assert cu.check_python_vulns().status == "current"
+
+
+def test_python_vulns_osv_failure_is_error(monkeypatch):
+    monkeypatch.setattr(cu, "_locked_packages", lambda: [("a", "1.0")])
+
+    def boom(url, body):
+        raise OSError("down")
+
+    monkeypatch.setattr(cu, "_post_json", boom)
+    assert cu.check_python_vulns().status == "error"

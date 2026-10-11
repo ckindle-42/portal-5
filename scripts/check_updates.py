@@ -19,6 +19,7 @@ from __future__ import annotations
 import json
 import os
 import re
+import shutil
 import subprocess
 import sys
 import urllib.error
@@ -31,6 +32,20 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 DOCKERFILE = REPO_ROOT / "deploy" / "browser-mcp" / "Dockerfile"
 OLLAMA_CURRENT = Path.home() / "ollama-current"
 _API = "https://api.github.com"
+_OSV = "https://api.osv.dev/v1"
+COMPOSE_FILES = (
+    REPO_ROOT / "deploy" / "portal-5" / "docker-compose.yml",
+    REPO_ROOT / "deploy" / "portal-5" / "docker-compose.lab.yml",
+)
+# image repo (no registry/tag) -> GitHub repo carrying its releases + advisories.
+_IMAGE_REPOS = {
+    "open-webui/open-webui": "open-webui/open-webui",
+    "searxng/searxng": "searxng/searxng",
+    "grafana/grafana": "grafana/grafana",
+    "prom/prometheus": "prometheus/prometheus",
+    "wazuh/wazuh-manager": "wazuh/wazuh",
+}
+_FLOATING_TAGS = {"latest", "main", "master", "stable"}
 
 # Substrings that mark a changelog / release-notes line as security-relevant.
 _SECURITY_RE = re.compile(
@@ -53,6 +68,9 @@ class Report:
     #: engine update on its own (engine_autoupdate.py uses this field).
     security_in_gap: bool = False
     lines: list[str] = field(default_factory=list)
+    #: Floating-tag compose images with an advisory published since they were
+    #: built (image repo names) — image_security_update.py re-pulls these.
+    stale_images: list[str] = field(default_factory=list)
 
     @property
     def actionable(self) -> bool:
@@ -239,7 +257,7 @@ def check_python_deps() -> Report:
     # 1 — venv vs lock (authoritative; a mismatch is actionable)
     try:
         r = subprocess.run(
-            ["uv", "sync", "--all-extras", "--frozen", "--check"],
+            [_uv(), "sync", "--all-extras", "--frozen", "--check"],
             capture_output=True,
             text=True,
             timeout=120,
@@ -306,11 +324,203 @@ def check_python_deps() -> Report:
     return rep
 
 
+def _uv() -> str:
+    # launchd's PATH omits ~/.local/bin, where uv lives.
+    return shutil.which("uv") or str(Path.home() / ".local" / "bin" / "uv")
+
+
+def _post_json(url: str, body: dict) -> dict:
+    req = urllib.request.Request(
+        url, data=json.dumps(body).encode(), headers={"Content-Type": "application/json"}
+    )
+    with urllib.request.urlopen(req, timeout=60) as r:  # noqa: S310 - fixed api.osv.dev host
+        return json.loads(r.read().decode())
+
+
+def _locked_packages() -> list[tuple[str, str]]:
+    """(name, version) of every PyPI-sourced package in uv.lock."""
+    text = (REPO_ROOT / "uv.lock").read_text()
+    out = []
+    for block in text.split("[[package]]")[1:]:
+        m = re.match(r'\s*name = "([^"]+)"\nversion = "([^"]+)"', block)
+        if m and 'source = { registry = "https://pypi.org/simple" }' in block.split("\n\n")[0]:
+            out.append((m.group(1), m.group(2)))
+    return out
+
+
+def _osv_detail(vuln_id: str, pkg: str) -> tuple[str, str, str]:
+    """(severity, fixed-version, summary) for one OSV record."""
+    with urllib.request.urlopen(  # noqa: S310 - fixed api.osv.dev host
+        f"{_OSV}/vulns/{urllib.parse.quote(vuln_id)}", timeout=20
+    ) as r:
+        v = json.loads(r.read().decode())
+    sev = (v.get("database_specific") or {}).get("severity", "?")
+    fixed = ""
+    for aff in v.get("affected", []):
+        if aff.get("package", {}).get("name", "").lower() != pkg.lower():
+            continue
+        for rng in aff.get("ranges", []):
+            for ev in rng.get("events", []):
+                fixed = ev.get("fixed", fixed)
+    return sev, fixed, (v.get("summary") or "")[:80]
+
+
+def check_python_vulns() -> Report:
+    """Known vulnerabilities (OSV.dev) in every PyPI package pinned by uv.lock.
+
+    Only a vuln with a published fix makes this actionable; an unfixed one is
+    listed but cannot be bumped away.
+    """
+    rep = Report("python-vulns")
+    try:
+        pkgs = _locked_packages()
+        hits: dict[tuple[str, str], list[str]] = {}
+        for i in range(0, len(pkgs), 500):
+            chunk = pkgs[i : i + 500]
+            res = _post_json(
+                f"{_OSV}/querybatch",
+                {
+                    "queries": [
+                        {"package": {"name": n, "ecosystem": "PyPI"}, "version": v}
+                        for n, v in chunk
+                    ]
+                },
+            )["results"]
+            for key, r in zip(chunk, res, strict=True):
+                if r.get("vulns"):
+                    hits[key] = [x["id"] for x in r["vulns"]]
+    except (OSError, KeyError, ValueError) as e:
+        rep.status = "error"  # a check that cannot run must not read as healthy
+        rep.lines.append(f"OSV query FAILED to run: {e}")
+        return rep
+    rep.current = f"{len(pkgs)} locked pkgs"
+    rep.latest = f"{len(hits)} vulnerable"
+    if not hits:
+        rep.status = "current"
+        rep.lines.append("no known vulnerabilities in uv.lock")
+        return rep
+    fixable = 0
+    detail: list[str] = []
+    for (name, ver), ids in sorted(hits.items()):
+        try:
+            sev, fixed, summ = _osv_detail(ids[0], name)
+        except (OSError, ValueError):
+            sev, fixed, summ = "?", "", ""
+        fixable += bool(fixed)
+        more = f" +{len(ids) - 1} more" if len(ids) > 1 else ""
+        detail.append(
+            f"  - {name} {ver}: {ids[0]}{more} [{sev}]"
+            + (f" fixed in {fixed}" if fixed else " (no fix yet)")
+            + (f" — {summ}" if summ else "")
+        )
+    rep.security = True
+    rep.status = "behind" if fixable else "current"
+    rep.security_in_gap = False  # engine_autoupdate keys off this; deps are not engines
+    rep.lines.append(f"{len(hits)} package(s) with known vulns, {fixable} with a fix available")
+    rep.lines.extend(detail[:12])
+    if len(detail) > 12:
+        rep.lines.append(f"  ... {len(detail) - 12} more")
+    return rep
+
+
+def _image_refs() -> dict[str, str]:
+    """{image repo: tag} for compose images we have a GitHub repo mapping for."""
+    refs = {}
+    for f in COMPOSE_FILES:
+        try:
+            text = f.read_text()
+        except OSError:
+            continue
+        for m in re.finditer(r"^\s*image:\s*(\S+)", text, re.MULTILINE):
+            ref = re.sub(r"^(ghcr\.io|docker\.io)/", "", m.group(1))
+            repo, _, tag = ref.partition(":")
+            if repo in _IMAGE_REPOS:
+                refs[repo] = tag or "latest"
+    return refs
+
+
+def _local_image_created(ref: str) -> str:
+    docker = shutil.which("docker") or "/usr/local/bin/docker"
+    try:
+        out = subprocess.run(
+            [docker, "image", "inspect", ref, "--format", "{{.Created}}"],
+            capture_output=True,
+            text=True,
+            timeout=20,
+        )
+        return out.stdout.strip()[:10] if out.returncode == 0 else ""
+    except (OSError, subprocess.SubprocessError):
+        return ""
+
+
+def check_images() -> Report:
+    """Compose images: pinned tags vs upstream releases; floating tags vs advisories
+    published after the local image was built."""
+    rep = Report("images")
+    refs = _image_refs()
+    if not refs:
+        rep.status = "error"
+        rep.lines.append("no mapped images found in compose files")
+        return rep
+    rep.current = f"{len(refs)} images"
+    rep.status = "current"
+    for repo, tag in sorted(refs.items()):
+        gh = _IMAGE_REPOS[repo]
+        sub = Report(repo)
+        if tag in _FLOATING_TAGS:
+            built = _local_image_created(
+                f"{repo if '/' in repo else repo}:{tag}"
+            ) or _local_image_created(f"ghcr.io/{repo}:{tag}")
+            _advisories(gh, sub)
+            newer = []
+            if built:
+                try:
+                    adv = _get(f"{_API}/repos/{gh}/security-advisories")
+                    newer = [
+                        a
+                        for a in adv
+                        if a.get("state") == "published"
+                        and str(a.get("published_at", ""))[:10] > built
+                    ]
+                except (urllib.error.URLError, json.JSONDecodeError):
+                    pass
+            if newer:
+                rep.status = "behind"
+                rep.security = True
+                rep.stale_images.append(repo)
+                rep.lines.append(
+                    f"{repo}:{tag} built {built}: {len(newer)} advisory(ies) published since — "
+                    "pull + `./launch.sh rebuild`"
+                )
+                rep.lines.extend(
+                    f"  - {a.get('ghsa_id')}: {a.get('summary', '')[:100]}" for a in newer[:3]
+                )
+            else:
+                rep.lines.append(
+                    f"{repo}:{tag} (floating) built {built or 'unknown'}: no advisories since"
+                )
+        else:
+            _release_gap(gh, _semver(tag), sub)
+            if sub.status == "behind":
+                rep.status = "behind"
+                rep.security |= sub.security_in_gap
+                rep.lines.append(
+                    f"{repo}:{tag} -> {sub.latest}"
+                    + ("  [SECURITY]" if sub.security_in_gap else "")
+                )
+                rep.lines.extend(ln for ln in sub.lines[1:4])
+            else:
+                rep.lines.append(f"{repo}:{tag} up to date ({sub.latest})")
+    return rep
+
+
 CHECKERS = {
     "obscura": check_obscura,
     "ollama": check_ollama,
     "omlx": check_omlx,
     "python-deps": check_python_deps,
+    "python-vulns": check_python_vulns,
+    "images": check_images,
 }
 
 
