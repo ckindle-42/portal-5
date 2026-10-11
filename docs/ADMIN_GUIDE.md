@@ -745,7 +745,7 @@ The fleet table is the `mcp_fleet` list in `config/portal.yaml`, the single sour
 ### Model Catalog
 
 <!-- WIKI:GENERATED unit=unit-fact-model-catalog -->
-#### Model catalog (280 model ids across 7 backend groups)
+#### Model catalog (281 model ids across 7 backend groups)
 
 ##### coding (57)
 
@@ -992,7 +992,7 @@ The fleet table is the `mcp_fleet` list in `config/portal.yaml`, the single sour
 - `supergemma4-26b-uncensored:Q4_K_M-ctx64k`
 - `unsloth--Qwen3.6-35B-A3B-UD-MLX-4bit`
 
-##### security (34)
+##### security (35)
 
 - `Jiunsong--supergemma4-26b-uncensored-mlx-4bit-v2`
 - `Nex-N2.5-mini-Uncensored-MLX-4bit`
@@ -1010,6 +1010,7 @@ The fleet table is the `mcp_fleet` list in `config/portal.yaml`, the single sour
 - `hf.co/BugTraceAI/BugTraceAI-CORE-Ultra-27B-Q6:Q6_K`
 - `hf.co/Nguuma/security-slm-unsloth-1.5b:latest`
 - `hf.co/douyamv/Gemma-4-31B-JANG_4M-CRACK-GGUF:gemma-4-31b-jang-crack-Q4_K_M.gguf`
+- `hf.co/fdtn-ai/Foundation-Sec-8B-Reasoning-Q8_0-GGUF:Q8_0`
 - `hf.co/mradermacher/CyberSecQwen-4B-GGUF:Q4_K_M`
 - `hf.co/mradermacher/VulnLLM-R-7B-GGUF:Q4_K_M`
 - `hf.co/mradermacher/VulnLLM-R-7B-GGUF:q4_K_M-ctx8k`

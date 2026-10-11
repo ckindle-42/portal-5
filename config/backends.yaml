@@ -639,6 +639,12 @@ backends:
     # the model's actual designed defense — compliance here does not confirm
     # or refute the paper's claim, it reflects a harness/role-support gap.
     supports_tools: true
+  # auto-security::security-expert-foundation-sec-8b routes through the
+  # security/general groups; registered only under ollama-reasoning, the seat
+  # was hint_unroutable and silently served backend.models[0] (settings gate,
+  # 2026-10-11). Same supports_tools as the reasoning entry (one flag per id).
+  - id: hf.co/fdtn-ai/Foundation-Sec-8B-Reasoning-Q8_0-GGUF:Q8_0
+    supports_tools: false
   type: ollama
   url: ${OLLAMA_URL:-http://host.docker.internal:11434}
 - group: reasoning
