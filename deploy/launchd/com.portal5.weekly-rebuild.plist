@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
+  "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.portal5.weekly-rebuild</string>
+    <key>ProgramArguments</key>
+    <array>
+        <string>/bin/bash</string>
+        <string>-lc</string>
+        <string>cd __PORTAL_ROOT__ &amp;&amp; set -a &amp;&amp; . ./.env 2&gt;/dev/null; set +a; exec .venv/bin/python scripts/weekly_rebuild.py</string>
+    </array>
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>PATH</key>
+        <string>__HOME__/.local/bin:/opt/homebrew/bin:/opt/homebrew/sbin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
+    </dict>
+    <!-- Weekly, Sunday 05:47 local — after security-update (03:17, commits pin/dep
+         bumps), engine-update (04:37) and image-update (05:07). Rebuilds every
+         image from fresh bases (no cache), refreshes pulled images, then
+         launch.sh down/up. See scripts/weekly_rebuild.py. -->
+    <key>StartCalendarInterval</key>
+    <dict>
+        <key>Weekday</key>
+        <integer>0</integer>
+        <key>Hour</key>
+        <integer>5</integer>
+        <key>Minute</key>
+        <integer>47</integer>
+    </dict>
+    <key>RunAtLoad</key>
+    <false/>
+    <key>StandardOutPath</key>
+    <string>__LOG_DIR__/weekly-rebuild.launchd.log</string>
+    <key>StandardErrorPath</key>
+    <string>__LOG_DIR__/weekly-rebuild.launchd.log</string>
+</dict>
+</plist>

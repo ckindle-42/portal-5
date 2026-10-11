@@ -440,6 +440,24 @@ PY
         fi
     fi
 
+    # ── Weekly full rebuild: fresh bases, no-cache build, stack down/up ──────
+    # (scripts/weekly_rebuild.py; runs after the Sunday security-update job)
+    local _wr_label="com.portal5.weekly-rebuild"
+    local _wr_src="$PORTAL_ROOT/deploy/launchd/${_wr_label}.plist"
+    local _wr_dst="$HOME/Library/LaunchAgents/${_wr_label}.plist"
+    if [ -f "$_wr_src" ] && [ "$(uname -s)" = "Darwin" ]; then
+        mkdir -p "$HOME/.portal5/logs" "$HOME/Library/LaunchAgents"
+        sed -e "s#__PORTAL_ROOT__#${PORTAL_ROOT}#g" \
+            -e "s#__LOG_DIR__#${HOME}/.portal5/logs#g" \
+            -e "s#__HOME__#${HOME}#g" \
+            "$_wr_src" > "$_wr_dst"
+        if ! launchctl print "gui/$(id -u)/${_wr_label}" &>/dev/null 2>&1; then
+            launchctl bootstrap "gui/$(id -u)" "$_wr_dst" &>/dev/null \
+                && echo "[portal-5]   ✅ weekly rebuild: Sunday down/up job enabled" \
+                || echo "[portal-5]   ⚠️  weekly rebuild: launchd registration failed"
+        fi
+    fi
+
     _install_log_rotation_agent
 
     # ── MFLUX image MCP (native MLX on Apple Silicon) ──────────────────────

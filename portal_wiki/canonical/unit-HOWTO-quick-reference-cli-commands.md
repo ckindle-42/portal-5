@@ -60,6 +60,7 @@ All commands below are the actual `case` branches in `launch.sh` (or dispatch in
 ./launch.sh clean           # Stop + wipe Open WebUI data (keeps Ollama model weights)
 ./launch.sh clean-all       # Stop + wipe everything including models
 ./launch.sh rebuild         # Rebuild portal-pipeline + MCP images, restart
+# Weekly auto-rebuild (Sun 05:47, launchd com.portal5.weekly-rebuild): scripts/weekly_rebuild.py
 
 # Workspace
 ./launch.sh workspace-init     # Create shared workspace tree (uploads, generated/*)
