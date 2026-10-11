@@ -45,7 +45,10 @@ case "${1:-up}" in
     # Pull latest Docker images before bringing the stack up
     echo "[portal-5] Pulling latest Docker images..."
     cd "$COMPOSE_DIR"
-    docker compose pull || echo "[portal-5] ⚠️  Some images could not be pulled — using cached versions."
+    # Open WebUI is excluded: a new :main build is applied only behind the data
+    # backup + health gate in scripts/image_security_update.py (daily job).
+    docker compose pull $(docker compose config --services | grep -vx open-webui) \
+      || echo "[portal-5] ⚠️  Some images could not be pulled — using cached versions."
 
     # Daily operation runs oMLX's balanced memory guard (coder-reap288 sets aggressive)
     "$PORTAL_ROOT/.venv/bin/python" "$PORTAL_ROOT/scripts/omlx_memory_tier.py" balanced \

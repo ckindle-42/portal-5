@@ -9,11 +9,14 @@ any pinned-image/dependency bumps:
 
 1. ``compose build --pull --no-cache`` — every buildable service, fresh bases.
 2. ``compose pull --ignore-buildable`` — refresh pulled images (pinned tags are
-   a no-op; floating tags move).
+   a no-op; floating tags move) — except Open WebUI, see 4.
 3. ``./launch.sh down`` + ``./launch.sh up`` — only if 1 and 2 succeeded, so a
    failed build never takes the running stack down.
-4. Rebuild the DinD sandbox images (pwsh, data) and load them, as ``rebuild`` does.
-5. Health-gate the pipeline, prune dangling images, push a summary.
+4. Open WebUI's new ``:main`` build, if any, via ``image_security_update.owui_update``
+   (data backup + health gate + rollback) — never by the bulk pull/up.
+5. Rebuild the DinD sandbox images (pwsh, data) and load them, as ``rebuild`` does.
+6. Health-gate the pipeline, prune dangling images (only on success, so a
+   broken upgrade can be rolled back), push a summary.
 
 Runs from launchd (``deploy/launchd/com.portal5.weekly-rebuild.plist``).
 ``--dry-run`` prints the plan. Defers while a WFE/UAT/bench run is in flight.
@@ -33,6 +36,7 @@ sys.path.insert(0, str(REPO))
 
 from scripts.check_updates import _pushover  # noqa: E402
 from scripts.engine_autoupdate import busy, log  # noqa: E402
+from scripts.image_security_update import owui_update  # noqa: E402
 
 COMPOSE = REPO / "deploy" / "portal-5" / "docker-compose.yml"
 DOCKER = shutil.which("docker") or "/usr/local/bin/docker"
@@ -56,6 +60,13 @@ def _run(cmd: list[str], timeout: int, input_: str | None = None) -> subprocess.
 
 def _compose(*args: str, timeout: int = 900) -> subprocess.CompletedProcess:
     return _run([DOCKER, "compose", "-f", str(COMPOSE), *args], timeout)
+
+
+def _pull_services() -> list[str]:
+    """Every active-profile service except Open WebUI (updated by ``owui_update``)."""
+    r = _compose("config", "--services", timeout=120)
+    # An empty list would make `compose pull` take every service, Open WebUI included.
+    return [s for s in r.stdout.split() if s != "open-webui"] if r.returncode == 0 else []
 
 
 def _pipeline_healthy(timeout_s: int = 600) -> bool:
@@ -120,8 +131,9 @@ def main(argv: list[str]) -> int:
         return 0
     if dry_run:
         log(
-            "[dry-run] compose build --pull --no-cache; compose pull --ignore-buildable; "
-            "launch.sh down; launch.sh up; DinD sandbox images; health gate; image prune"
+            "[dry-run] compose build --pull --no-cache; compose pull --ignore-buildable (minus open-webui); "
+            "launch.sh down; launch.sh up; guarded open-webui update; DinD sandbox images; "
+            "health gate; image prune"
         )
         return 0
 
@@ -131,7 +143,8 @@ def main(argv: list[str]) -> int:
             "Weekly rebuild FAILED", "image build failed — stack left running untouched", high=True
         )
         return 1
-    if _compose("pull", "--ignore-buildable", timeout=3600).returncode != 0:
+    services = _pull_services()
+    if not services or _compose("pull", "--ignore-buildable", *services, timeout=3600).returncode:
         _pushover(
             "Weekly rebuild FAILED", "image pull failed — stack left running untouched", high=True
         )
@@ -140,14 +153,18 @@ def main(argv: list[str]) -> int:
     _run(["bash", "./launch.sh", "down"], 900)
     up = _run(["bash", "./launch.sh", "up"], 3600)
     healthy = _pipeline_healthy()
+    owui_ok, owui_msg = owui_update() if healthy else (False, "open-webui: skipped")
+    log(owui_msg)
     sandbox = _sandbox_images() if healthy else False
-    _run([DOCKER, "image", "prune", "-f"], 600)
+    ok = up.returncode == 0 and healthy and sandbox and owui_ok
+    if ok:  # a failed up keeps the previous (now dangling) images for rollback
+        _run([DOCKER, "image", "prune", "-f"], 600)
 
     mins = (time.monotonic() - t0) / 60
-    ok = up.returncode == 0 and healthy and sandbox
     msg = (
         f"{'OK' if ok else 'PROBLEM'} in {mins:.0f} min — up rc={up.returncode}, "
-        f"pipeline {'healthy' if healthy else 'NOT healthy'}, sandbox images {'ok' if sandbox else 'FAILED'}"
+        f"pipeline {'healthy' if healthy else 'NOT healthy'}, sandbox images {'ok' if sandbox else 'FAILED'}; "
+        + owui_msg
     )
     log(msg)
     _pushover("Weekly rebuild" + ("" if ok else " NEEDS ATTENTION"), msg, high=not ok)

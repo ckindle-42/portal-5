@@ -205,7 +205,10 @@ services:
   # ── Open WebUI — Chat Interface ───────────────────────────────────────────
   open-webui:
     image: ghcr.io/open-webui/open-webui:main
-    pull_policy: always
+    # Stays on upstream :main, but a new build is applied ONLY by
+    # scripts/image_security_update.py (data backup + health gate + rollback) —
+    # never by a bare `compose pull`/`up` (2026-10-11 migration crash-loop).
+    pull_policy: missing
     container_name: portal5-open-webui
     restart: unless-stopped
     ports:

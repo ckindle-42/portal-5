@@ -32,6 +32,8 @@ def _patch(monkeypatch, calls, fail_on=None):
     monkeypatch.setattr(wr, "_run", _fake_run(calls, fail_on))
     monkeypatch.setattr(wr, "_pipeline_healthy", lambda: True)
     monkeypatch.setattr(wr, "_sandbox_images", lambda: True)
+    monkeypatch.setattr(wr, "owui_update", lambda: (True, "open-webui: current"))
+    monkeypatch.setattr(wr, "_pull_services", lambda: ["searxng", "portal-pipeline"])
 
 
 def test_failed_build_never_takes_the_stack_down(monkeypatch):
@@ -66,3 +68,40 @@ def test_defers_while_a_sweep_runs(monkeypatch):
     monkeypatch.setattr(wr, "busy", lambda: "bench_tps.py")
     assert wr.main([]) == 0
     assert calls == []
+
+
+def test_unhealthy_up_keeps_previous_images_for_rollback(monkeypatch):
+    calls: list = []
+    _patch(monkeypatch, calls, fail_on="up")
+    assert wr.main([]) == 1
+    assert not any("prune" in c for c in calls)
+
+
+def test_healthy_up_prunes_dangling_images(monkeypatch):
+    calls: list = []
+    _patch(monkeypatch, calls)
+    assert wr.main([]) == 0
+    assert any("prune" in c for c in calls)
+
+
+def test_bulk_pull_never_includes_open_webui(monkeypatch):
+    calls: list = []
+    _patch(monkeypatch, calls)
+    assert wr.main([]) == 0
+    pull = next(c for c in calls if "pull" in c and "--ignore-buildable" in c)
+    assert "open-webui" not in pull
+
+
+def test_pull_services_failure_never_falls_back_to_pulling_everything(monkeypatch):
+    calls: list = []
+    _patch(monkeypatch, calls)
+    monkeypatch.setattr(wr, "_pull_services", lambda: [])
+    assert wr.main([]) == 1
+    assert not any("pull" in c for c in calls)
+
+
+def test_rolled_back_open_webui_update_is_reported_as_a_problem(monkeypatch):
+    calls: list = []
+    _patch(monkeypatch, calls)
+    monkeypatch.setattr(wr, "owui_update", lambda: (False, "open-webui: rolled back"))
+    assert wr.main([]) == 1

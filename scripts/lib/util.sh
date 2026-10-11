@@ -405,8 +405,9 @@ PY
     fi
 
     # ── Image security re-pull (daily launchd job) ─────────────────────────
-    # Re-pulls floating-tag compose images (Open WebUI, SearXNG) when an
-    # advisory is newer than the local build (scripts/image_security_update.py).
+    # Applies new Open WebUI :main builds behind a data backup + health gate +
+    # rollback, and re-pulls SearXNG when an advisory is newer than the local
+    # build (scripts/image_security_update.py).
     local _iu_label="com.portal5.image-update"
     local _iu_src="$PORTAL_ROOT/deploy/launchd/${_iu_label}.plist"
     local _iu_dst="$HOME/Library/LaunchAgents/${_iu_label}.plist"

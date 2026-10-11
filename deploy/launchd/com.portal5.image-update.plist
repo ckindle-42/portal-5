@@ -16,8 +16,9 @@
         <key>PATH</key>
         <string>/opt/homebrew/bin:/opt/homebrew/sbin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
     </dict>
-    <!-- Daily 05:07 local. Re-pulls floating-tag compose images (Open WebUI, SearXNG)
-         when an upstream security advisory is newer than the local build. See
+    <!-- Daily 05:07 local. Applies a new Open WebUI :main build behind a data
+         backup + health gate + rollback, and re-pulls SearXNG when an upstream
+         security advisory is newer than the local build. See
          scripts/image_security_update.py. -->
     <key>StartCalendarInterval</key>
     <dict>
