@@ -1,0 +1,609 @@
+{
+  "blind_probes": 988,
+  "channel": "values_fallback",
+  "identity": {
+    "asymmetric": {
+      "max": 0.057307,
+      "median": 0.033477,
+      "n": 970,
+      "p95": 0.043607,
+      "p99": 0.047502
+    },
+    "missing_self_in_candidates": 18,
+    "symmetric": {
+      "max": 0.028322,
+      "median": 0.005749,
+      "n": 970,
+      "p95": 0.015101,
+      "p99": 0.01951
+    },
+    "symmetric_top5": [
+      {
+        "composite": 0.028322,
+        "source_class": "windows:system",
+        "specimen_id": "specimen-parent-a1f8be72f140aed9754d"
+      },
+      {
+        "composite": 0.025037,
+        "source_class": "windows:sysmon",
+        "specimen_id": "specimen-parent-1876152a1c8a6cb0ea43"
+      },
+      {
+        "composite": 0.024804,
+        "source_class": "web:access",
+        "specimen_id": "specimen-parent-c3a971ef3ee1a3af3dc1"
+      },
+      {
+        "composite": 0.02239,
+        "source_class": "web:access",
+        "specimen_id": "specimen-parent-78599a4a4abcf1b08b36"
+      },
+      {
+        "composite": 0.021903,
+        "source_class": "windows:sysmon",
+        "specimen_id": "specimen-parent-6b2d8ad611f7a64e304d"
+      }
+    ],
+    "symmetric_top5_source_mix": {
+      "web:access": 2,
+      "windows:sysmon": 2,
+      "windows:system": 1
+    }
+  },
+  "same_max_values": [
+    0.015,
+    0.02,
+    0.026,
+    0.029,
+    0.0435,
+    0.05,
+    0.055
+  ],
+  "schema": "BULLY_V3_T1_SAME_BAND_V1",
+  "sweep": {
+    "asymmetric@0.015": {
+      "cross_source_related_graded": 16,
+      "related_graded": 240,
+      "same_band_chosen": 27,
+      "same_band_not_truth_related": 18,
+      "same_band_truth_related": 9,
+      "vs_same_mode_0.055": {
+        "same_gained": {
+          "related": 0,
+          "unrelated": 0
+        },
+        "same_lost": {
+          "related": 9,
+          "unrelated": 29
+        }
+      }
+    },
+    "asymmetric@0.02": {
+      "cross_source_related_graded": 16,
+      "related_graded": 240,
+      "same_band_chosen": 27,
+      "same_band_not_truth_related": 18,
+      "same_band_truth_related": 9,
+      "vs_same_mode_0.055": {
+        "same_gained": {
+          "related": 0,
+          "unrelated": 0
+        },
+        "same_lost": {
+          "related": 9,
+          "unrelated": 29
+        }
+      }
+    },
+    "asymmetric@0.026": {
+      "cross_source_related_graded": 16,
+      "related_graded": 240,
+      "same_band_chosen": 27,
+      "same_band_not_truth_related": 18,
+      "same_band_truth_related": 9,
+      "vs_same_mode_0.055": {
+        "same_gained": {
+          "related": 0,
+          "unrelated": 0
+        },
+        "same_lost": {
+          "related": 9,
+          "unrelated": 29
+        }
+      }
+    },
+    "asymmetric@0.029": {
+      "cross_source_related_graded": 16,
+      "related_graded": 240,
+      "same_band_chosen": 29,
+      "same_band_not_truth_related": 18,
+      "same_band_truth_related": 11,
+      "vs_same_mode_0.055": {
+        "same_gained": {
+          "related": 0,
+          "unrelated": 0
+        },
+        "same_lost": {
+          "related": 7,
+          "unrelated": 29
+        }
+      }
+    },
+    "asymmetric@0.0435": {
+      "cross_source_related_graded": 16,
+      "related_graded": 240,
+      "same_band_chosen": 61,
+      "same_band_not_truth_related": 47,
+      "same_band_truth_related": 14,
+      "vs_same_mode_0.055": {
+        "same_gained": {
+          "related": 0,
+          "unrelated": 0
+        },
+        "same_lost": {
+          "related": 4,
+          "unrelated": 0
+        }
+      }
+    },
+    "asymmetric@0.05": {
+      "cross_source_related_graded": 16,
+      "related_graded": 240,
+      "same_band_chosen": 64,
+      "same_band_not_truth_related": 47,
+      "same_band_truth_related": 17,
+      "vs_same_mode_0.055": {
+        "same_gained": {
+          "related": 0,
+          "unrelated": 0
+        },
+        "same_lost": {
+          "related": 1,
+          "unrelated": 0
+        }
+      }
+    },
+    "asymmetric@0.055": {
+      "cross_source_related_graded": 16,
+      "related_graded": 240,
+      "same_band_chosen": 65,
+      "same_band_not_truth_related": 47,
+      "same_band_truth_related": 18,
+      "vs_same_mode_0.055": {
+        "same_gained": {
+          "related": 0,
+          "unrelated": 0
+        },
+        "same_lost": {
+          "related": 0,
+          "unrelated": 0
+        }
+      }
+    },
+    "same_band_breakdown": {
+      "asymmetric@0.015": {
+        "not_related": {
+          "dominant": {
+            "semantic": 18
+          },
+          "identical_events": 16,
+          "identical_values": 18,
+          "n": 18,
+          "trivial": 0
+        },
+        "related": {
+          "dominant": {
+            "semantic": 9
+          },
+          "identical_events": 7,
+          "identical_values": 8,
+          "n": 9,
+          "trivial": 0
+        }
+      },
+      "asymmetric@0.02": {
+        "not_related": {
+          "dominant": {
+            "semantic": 18
+          },
+          "identical_events": 16,
+          "identical_values": 18,
+          "n": 18,
+          "trivial": 0
+        },
+        "related": {
+          "dominant": {
+            "semantic": 9
+          },
+          "identical_events": 7,
+          "identical_values": 8,
+          "n": 9,
+          "trivial": 0
+        }
+      },
+      "asymmetric@0.026": {
+        "not_related": {
+          "dominant": {
+            "semantic": 18
+          },
+          "identical_events": 16,
+          "identical_values": 18,
+          "n": 18,
+          "trivial": 0
+        },
+        "related": {
+          "dominant": {
+            "semantic": 9
+          },
+          "identical_events": 7,
+          "identical_values": 8,
+          "n": 9,
+          "trivial": 0
+        }
+      },
+      "asymmetric@0.029": {
+        "not_related": {
+          "dominant": {
+            "semantic": 18
+          },
+          "identical_events": 16,
+          "identical_values": 18,
+          "n": 18,
+          "trivial": 0
+        },
+        "related": {
+          "dominant": {
+            "behavior": 2,
+            "semantic": 9
+          },
+          "identical_events": 9,
+          "identical_values": 8,
+          "n": 11,
+          "trivial": 0
+        }
+      },
+      "asymmetric@0.0435": {
+        "not_related": {
+          "dominant": {
+            "context": 27,
+            "semantic": 20
+          },
+          "identical_events": 35,
+          "identical_values": 43,
+          "n": 47,
+          "trivial": 0
+        },
+        "related": {
+          "dominant": {
+            "behavior": 2,
+            "context": 3,
+            "semantic": 9
+          },
+          "identical_events": 12,
+          "identical_values": 11,
+          "n": 14,
+          "trivial": 0
+        }
+      },
+      "asymmetric@0.05": {
+        "not_related": {
+          "dominant": {
+            "context": 27,
+            "semantic": 20
+          },
+          "identical_events": 35,
+          "identical_values": 43,
+          "n": 47,
+          "trivial": 0
+        },
+        "related": {
+          "dominant": {
+            "behavior": 2,
+            "context": 6,
+            "semantic": 9
+          },
+          "identical_events": 15,
+          "identical_values": 12,
+          "n": 17,
+          "trivial": 0
+        }
+      },
+      "asymmetric@0.055": {
+        "not_related": {
+          "dominant": {
+            "context": 27,
+            "semantic": 20
+          },
+          "identical_events": 35,
+          "identical_values": 43,
+          "n": 47,
+          "trivial": 0
+        },
+        "related": {
+          "dominant": {
+            "behavior": 2,
+            "context": 7,
+            "semantic": 9
+          },
+          "identical_events": 16,
+          "identical_values": 12,
+          "n": 18,
+          "trivial": 0
+        }
+      },
+      "symmetric@0.015": {
+        "not_related": {
+          "dominant": {
+            "semantic": 45
+          },
+          "identical_events": 35,
+          "identical_values": 43,
+          "n": 45,
+          "trivial": 0
+        },
+        "related": {
+          "dominant": {
+            "semantic": 12
+          },
+          "identical_events": 10,
+          "identical_values": 11,
+          "n": 12,
+          "trivial": 0
+        }
+      },
+      "symmetric@0.02": {
+        "not_related": {
+          "dominant": {
+            "semantic": 45
+          },
+          "identical_events": 35,
+          "identical_values": 43,
+          "n": 45,
+          "trivial": 0
+        },
+        "related": {
+          "dominant": {
+            "semantic": 15
+          },
+          "identical_events": 13,
+          "identical_values": 12,
+          "n": 15,
+          "trivial": 0
+        }
+      },
+      "symmetric@0.026": {
+        "not_related": {
+          "dominant": {
+            "semantic": 45
+          },
+          "identical_events": 35,
+          "identical_values": 43,
+          "n": 45,
+          "trivial": 0
+        },
+        "related": {
+          "dominant": {
+            "semantic": 16
+          },
+          "identical_events": 14,
+          "identical_values": 12,
+          "n": 16,
+          "trivial": 0
+        }
+      },
+      "symmetric@0.029": {
+        "not_related": {
+          "dominant": {
+            "semantic": 45
+          },
+          "identical_events": 35,
+          "identical_values": 43,
+          "n": 45,
+          "trivial": 0
+        },
+        "related": {
+          "dominant": {
+            "behavior": 2,
+            "semantic": 16
+          },
+          "identical_events": 16,
+          "identical_values": 12,
+          "n": 18,
+          "trivial": 0
+        }
+      },
+      "symmetric@0.0435": {
+        "not_related": {
+          "dominant": {
+            "behavior": 3,
+            "semantic": 47
+          },
+          "identical_events": 36,
+          "identical_values": 43,
+          "n": 50,
+          "trivial": 0
+        },
+        "related": {
+          "dominant": {
+            "behavior": 2,
+            "semantic": 16
+          },
+          "identical_events": 16,
+          "identical_values": 12,
+          "n": 18,
+          "trivial": 0
+        }
+      },
+      "symmetric@0.05": {
+        "not_related": {
+          "dominant": {
+            "behavior": 5,
+            "semantic": 47
+          },
+          "identical_events": 38,
+          "identical_values": 43,
+          "n": 52,
+          "trivial": 0
+        },
+        "related": {
+          "dominant": {
+            "behavior": 2,
+            "semantic": 16
+          },
+          "identical_events": 16,
+          "identical_values": 12,
+          "n": 18,
+          "trivial": 0
+        }
+      },
+      "symmetric@0.055": {
+        "not_related": {
+          "dominant": {
+            "behavior": 5,
+            "semantic": 47
+          },
+          "identical_events": 38,
+          "identical_values": 43,
+          "n": 52,
+          "trivial": 0
+        },
+        "related": {
+          "dominant": {
+            "behavior": 2,
+            "semantic": 16
+          },
+          "identical_events": 16,
+          "identical_values": 12,
+          "n": 18,
+          "trivial": 0
+        }
+      }
+    },
+    "symmetric@0.015": {
+      "cross_source_related_graded": 12,
+      "related_graded": 238,
+      "same_band_chosen": 57,
+      "same_band_not_truth_related": 45,
+      "same_band_truth_related": 12,
+      "vs_same_mode_0.055": {
+        "same_gained": {
+          "related": 0,
+          "unrelated": 0
+        },
+        "same_lost": {
+          "related": 6,
+          "unrelated": 7
+        }
+      }
+    },
+    "symmetric@0.02": {
+      "cross_source_related_graded": 12,
+      "related_graded": 238,
+      "same_band_chosen": 60,
+      "same_band_not_truth_related": 45,
+      "same_band_truth_related": 15,
+      "vs_same_mode_0.055": {
+        "same_gained": {
+          "related": 0,
+          "unrelated": 0
+        },
+        "same_lost": {
+          "related": 3,
+          "unrelated": 7
+        }
+      }
+    },
+    "symmetric@0.026": {
+      "cross_source_related_graded": 12,
+      "related_graded": 238,
+      "same_band_chosen": 61,
+      "same_band_not_truth_related": 45,
+      "same_band_truth_related": 16,
+      "vs_same_mode_0.055": {
+        "same_gained": {
+          "related": 0,
+          "unrelated": 0
+        },
+        "same_lost": {
+          "related": 2,
+          "unrelated": 7
+        }
+      }
+    },
+    "symmetric@0.029": {
+      "cross_source_related_graded": 12,
+      "related_graded": 238,
+      "same_band_chosen": 63,
+      "same_band_not_truth_related": 45,
+      "same_band_truth_related": 18,
+      "vs_same_mode_0.055": {
+        "same_gained": {
+          "related": 0,
+          "unrelated": 0
+        },
+        "same_lost": {
+          "related": 0,
+          "unrelated": 7
+        }
+      }
+    },
+    "symmetric@0.0435": {
+      "cross_source_related_graded": 12,
+      "related_graded": 238,
+      "same_band_chosen": 68,
+      "same_band_not_truth_related": 50,
+      "same_band_truth_related": 18,
+      "vs_same_mode_0.055": {
+        "same_gained": {
+          "related": 0,
+          "unrelated": 0
+        },
+        "same_lost": {
+          "related": 0,
+          "unrelated": 2
+        }
+      }
+    },
+    "symmetric@0.05": {
+      "cross_source_related_graded": 12,
+      "related_graded": 238,
+      "same_band_chosen": 70,
+      "same_band_not_truth_related": 52,
+      "same_band_truth_related": 18,
+      "vs_same_mode_0.055": {
+        "same_gained": {
+          "related": 0,
+          "unrelated": 0
+        },
+        "same_lost": {
+          "related": 0,
+          "unrelated": 0
+        }
+      }
+    },
+    "symmetric@0.055": {
+      "cross_source_related_graded": 12,
+      "related_graded": 238,
+      "same_band_chosen": 70,
+      "same_band_not_truth_related": 52,
+      "same_band_truth_related": 18,
+      "vs_same_mode_0.055": {
+        "same_gained": {
+          "related": 0,
+          "unrelated": 0
+        },
+        "same_lost": {
+          "related": 0,
+          "unrelated": 0
+        }
+      }
+    }
+  },
+  "weights": {
+    "attack": 0.13043478260869562,
+    "behavior": 0.34782608695652173,
+    "context": 0.08695652173913043,
+    "semantic": 0.34782608695652173,
+    "telemetry": 0.08695652173913043
+  }
+}

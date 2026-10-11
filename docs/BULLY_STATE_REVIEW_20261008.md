@@ -128,8 +128,8 @@ rule 8.
 
 - `TASK_BULLY_V3_THRESHOLD_VALIDATION_V1` — **paused**; T1 v4 edits stashed
   (`stash@{0}`, not committed; `eca990fd` is the docs-only "0.055 kept" note). Evidence about
-  the bench, kept uncommitted under `reports/bully_v3_threshold_validation/t1_same_band_v2/`
-  and `reports/bully_calibration/`:
+  the bench, committed 2026-10-11 under `reports/bully_v3_threshold_validation/t1_same_band_v2/`
+  and `reports/bully_calibration/` (runner `scripts/bully_v3_t2_calibration.py`):
   - Identity over all 988 probes (970 retrieve their own record; 18 never do): symmetric max
     0.0283 / p95 0.0151; asymmetric max 0.0573 (the 100-probe sample's 0.0540 underestimated it).
   - SAME-band precision ~26% at every cut-off; 43 of 45 unrelated SAME pairs are evidence
