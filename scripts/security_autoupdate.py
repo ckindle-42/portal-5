@@ -143,10 +143,9 @@ def deps(dry_run: bool) -> int:
         return 0
     before = _fixable_count(None)
     with tempfile.TemporaryDirectory(prefix="portal-secdeps-") as tmp:
+        # A real clone, not `git archive`: repo-introspecting tests need .git.
         work = Path(tmp) / "src"
-        work.mkdir()
-        arc = subprocess.run(["git", "archive", "HEAD"], cwd=REPO, capture_output=True, check=True)
-        subprocess.run(["tar", "-x", "-C", str(work)], input=arc.stdout, check=True)
+        subprocess.run(["git", "clone", "-q", "--no-hardlinks", str(REPO), str(work)], check=True)
         applied = _resolve(work, floors)
         skipped = sorted(set(floors) - set(applied))
         if not applied or (work / "uv.lock").read_text() == (REPO / "uv.lock").read_text():
