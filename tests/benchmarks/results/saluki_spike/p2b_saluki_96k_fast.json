@@ -1,0 +1,94 @@
+{
+  "probe": "speed",
+  "arm": "omlx_fast",
+  "scenario": "p2b_saluki_96k",
+  "started_utc": "2026-10-11T21:36:44Z",
+  "outcome": "BLOCKED: oMLX admission refused General \u00b7 Fast with HTTP 507 Insufficient Storage",
+  "context": {
+    "resident_at_attempt": {
+      "router(gemma4-ctx2k, keep_alive -1)": 5.43,
+      "portal5/underdog-saluki-27b:iq2-mix-ctx96k": 12.27,
+      "docker stack (production-like)": "up"
+    },
+    "attempt": "speed --arm omlx_fast --no-evict --sizes 16384 --decode-runs 1",
+    "error": "urllib.error.HTTPError: HTTP Error 507: Insufficient Storage (oMLX admission gate)",
+    "note": "probe crashed before writing this receipt; the 507 traceback is in the run transcript. s1 snapshot captured the post-refusal state.",
+    "omlx_log": "2026-10-11 16:34:14 omlx.server WARNING: POST /v1/chat/completions \u2192 507: Model 'unsloth--Qwen3.6-35B-A3B-UD-MLX-4bit' (21.16GB) does not fit under the dynamic memory ceiling (18.80GB). Close other apps to free RAM (static cap is 58.88GB but only 18.68GB is reclaimable right now), raise memory_guard_tier (safe \u2192 balanced \u2192 aggressive), or use a smaller model."
+  },
+  "s1": {
+    "t": 1791754454.791509,
+    "swap_used_mb": 1198.69,
+    "vm_gb": {
+      "free": 0.11,
+      "active": 21.28,
+      "inactive": 25.45,
+      "speculative": 0.0,
+      "wired": 20.4,
+      "compressor": 0.72,
+      "used_core": 42.4
+    },
+    "mem_free_pct": 68,
+    "ollama_ps": [
+      {
+        "name": "hf.co/mradermacher/gemma-4-E4B-it-OBLITERATED-GGUF:Q4_K_M-ctx2k",
+        "size": 5425437080,
+        "size_vram": 5425437080,
+        "context_length": 2048,
+        "expires_at": "2319-01-21T15:14:11.632673807-06:00"
+      },
+      {
+        "name": "portal5/underdog-saluki-27b:iq2-mix-ctx96k",
+        "size": 12273225563,
+        "size_vram": 12273225563,
+        "context_length": 98304,
+        "expires_at": "2026-10-11T16:49:07.340487-05:00"
+      }
+    ],
+    "omlx_models": [
+      "DeepSeek-R1-0528-Qwen3-8B-4bit",
+      "Jiunsong--supergemma4-26b-uncensored-mlx-4bit-v2",
+      "Laguna-XS-2.1-4bit",
+      "MiMo-V2.6-Distill-Qwen-9B-MLX-4bit",
+      "NVIDIA-Nemotron-3.5-Lightning-30B-A3B-oQ4e-mtp",
+      "Nex-N2.5-mini-Uncensored-MLX-4bit",
+      "Qwen3-Coder-30B-A3B-Instruct-4bit",
+      "Qwen3.6-35B-A3B-HauhauCS-Aggressive-4bit",
+      "Qwen3.8-27B-4bit",
+      "Qwen3.8-27B-DFlash2",
+      "Qwen3.8-27B-Uncensored-MLX-4bit",
+      "Qwen3.8-27B-oQ4e-mtp",
+      "Qwen3.8-Flash-Next-REAP-288-MLX-4bit",
+      "RavenX-Chaos-Agent-Qwen3.8-27B-MLX-4bit",
+      "Tongyi-DeepResearch-30B-A3B-abliterated-4bit",
+      "VulnLLM-R-7B-4bit",
+      "dawncr0w--Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive-OptiQ-4bit-MLX",
+      "gemma-4-26b-a4b-it-QAT-4bit",
+      "granite-4.1-30b-4bit",
+      "granite-4.1-8b-mxfp8",
+      "huihui-ai--Huihui-Qwen3.5-9B-abliterated-mlx-4bit",
+      "incoai--Qwen3.8-27B-DFlash2",
+      "jurejaklic--Huihui-Tongyi-DeepResearch-30B-A3B-abliterated-mlx-4Bit",
+      "mlx-community--DeepSeek-R1-0528-Qwen3-8B-4bit",
+      "mlx-community--Mistral-Small-3.2-24B-Instruct-2506-4bit",
+      "mlx-community--Nanonets-OCR2-3B-8bit",
+      "mlx-community--PaddleOCR-VL-8bit",
+      "mlx-community--Phi-4-mini-reasoning-4bit",
+      "mlx-community--Qwen3-TTS-12Hz-1.7B-CustomVoice-8bit",
+      "mlx-community--Qwen3-TTS-12Hz-1.7B-VoiceDesign-8bit",
+      "mlx-community--Qwen3-VL-Embedding-2B-mxfp8",
+      "mlx-community--Qwen3-VL-Reranker-2B-mxfp8",
+      "mlx-community--Qwen3.8-27B-4bit",
+      "mlx-community--VulnLLM-R-7B-4bit",
+      "mlx-community--diar_sortformer_4spk-v1-fp32",
+      "mlx-community--dots.ocr-4bit",
+      "mlx-community--gemma-3-12b-it-4bit",
+      "mlx-community--gemma-4-26B-A4B-it-qat-4bit",
+      "mlx-community--gemma-4-26b-a4b-it-4bit",
+      "mlx-community--granite-4.1-30b-4bit",
+      "mlx-community--parakeet-tdt-0.6b-v3",
+      "nightmedia--granite-4.1-8b-mxfp8-mlx",
+      "unsloth--Qwen3.6-27B-UD-MLX-4bit",
+      "unsloth--Qwen3.6-35B-A3B-UD-MLX-4bit"
+    ]
+  }
+}
