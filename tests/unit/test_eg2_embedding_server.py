@@ -194,3 +194,24 @@ def test_config_kwargs_selective_loading() -> None:
     assert srv._config_kwargs(("text", "video")) == {"audio_config": None}
     assert srv._config_kwargs(("text", "audio")) == {"vision_config": None}
     assert srv._config_kwargs(("text", "image", "audio")) == {}
+
+
+def test_concurrent_first_requests_build_one_backend():
+    import asyncio
+    import time
+
+    built: list[int] = []
+
+    def factory() -> FakeBackend:
+        built.append(1)
+        time.sleep(0.05)
+        return FakeBackend()
+
+    srv.set_backend_factory(factory)
+
+    async def both():
+        return await asyncio.gather(srv._get_backend(), srv._get_backend())
+
+    a, b = asyncio.run(both())
+    assert len(built) == 1
+    assert a is b

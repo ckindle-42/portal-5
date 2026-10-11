@@ -189,6 +189,7 @@ def _resolve_revision(model_id: str) -> str:
 _backend: Backend | None = None
 _backend_factory: Any = None
 _lock = asyncio.Lock()
+_init_lock = asyncio.Lock()
 _ready_report: dict[str, Any] | None = None
 _STATS = {"requests": 0, "items": 0, "errors": 0, "started": time.time()}
 
@@ -202,8 +203,12 @@ def set_backend_factory(factory: Any) -> None:
 async def _get_backend() -> Backend:
     global _backend
     if _backend is None:
-        factory = _backend_factory or (lambda: SentenceTransformersBackend(MODEL_ID, MODALITIES))
-        _backend = await asyncio.to_thread(factory)
+        async with _init_lock:
+            if _backend is None:
+                factory = _backend_factory or (
+                    lambda: SentenceTransformersBackend(MODEL_ID, MODALITIES)
+                )
+                _backend = await asyncio.to_thread(factory)
     return _backend
 
 
