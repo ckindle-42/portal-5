@@ -1,9 +1,3 @@
-"""The WFE sandbox must not expose answer-key files through file_read or repo_search.
-
-Regression for comp-p6j-09 (2026-10-12): repo_search grepped the tracked suite
-files, so the model received gold_label / gold_finding_type in tool output.
-"""
-
 from __future__ import annotations
 
 from pathlib import Path

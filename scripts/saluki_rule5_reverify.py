@@ -1,20 +1,7 @@
-#!/usr/bin/env python3
-"""Rule-5 re-verify for the Saluki spike (TASK_SALUKI_27B_SPIKE_V1 follow-up).
-
-Minimal file_read loop (6-turn cap) per cell; Step 0 audits each cell's post-tool
-prompt against the official template render. Results go to
-tests/benchmarks/results/saluki_spike/p4_rule5_reverify.json (cells and
-step0_delivery_audit); the pre-registration block is not touched. Design and
-results: docs/SALUKI_27B_SPIKE_CLOSEOUT.md (Rule-5 amendment).
-
-Usage: uv run python scripts/saluki_rule5_reverify.py [--cells S1,I1] [--seeds 3] [--audit-only]
-"""
-
 from __future__ import annotations
 
 import argparse
 import json
-import sys
 import tempfile
 from pathlib import Path
 from typing import Any
@@ -23,9 +10,8 @@ import httpx
 import jinja2
 
 REPO = Path(__file__).resolve().parent.parent
-sys.path.insert(0, str(REPO))
 
-from portal.platform.inference.ollama_native import to_native_request  # noqa: E402
+from portal.platform.inference.ollama_native import to_native_request
 
 RESULTS = REPO / "tests/benchmarks/results/saluki_spike"
 RECEIPT = RESULTS / "p4_rule5_reverify.json"
@@ -76,8 +62,6 @@ CELLS: dict[str, dict[str, Any]] = {
     "S6": _cell(SALUKI, "saluki", LANE, False, True, system="consistent"),
 }
 
-# Minimal packet: the candidate is supported by the governing text, so a
-# correct answer exists inside the file the model is told to read.
 PACKET = {
     "governing_refs": {
         "CIP-009-6 R1 Part 1.1": "Recovery plans shall include the conditions for activation."
@@ -104,7 +88,6 @@ TOOLS = [
 
 
 def load_wfe_texts() -> tuple[str, str]:
-    """System prompt and user instruction from the first committed WFE row that carries the JSON clause."""
     for line in WFE_DEBUG.open():
         row = json.loads(line)
         if row.get("workspace") == "auto-compliance" and CLAUSE_MARK in row.get("instruction", ""):
@@ -115,9 +98,6 @@ def load_wfe_texts() -> tuple[str, str]:
 SYSTEM, USER_WITH = load_wfe_texts()
 USER_WITHOUT = USER_WITH[: USER_WITH.index(CLAUSE_MARK)].strip()
 
-# S6 (reviewer finding): the WFE system prompt's tail names tools the harness does
-# not offer (nerc_cip_requirement, compliance_ask, ...) and carries a taxonomy line
-# that contradicts the OUTPUT CONTRACT. S6 removes that tail and nothing else.
 SYSTEM_TOOL_TAIL = "PRIMARY SOURCES:"
 assert SYSTEM.count(SYSTEM_TOOL_TAIL) == 1
 SYSTEM_CONSISTENT = SYSTEM[: SYSTEM.index(SYSTEM_TOOL_TAIL)].rstrip() + "\n"
@@ -169,7 +149,6 @@ def unload(model: str) -> None:
 
 
 def to_template_messages(messages: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    """OpenAI-shaped history -> the shape the jinja template expects (arguments as dicts)."""
     out: list[dict[str, Any]] = []
     for m in messages:
         if m["role"] == "assistant" and m.get("tool_calls"):
@@ -205,7 +184,6 @@ def official_render(tmpl: str, messages: list[dict[str, Any]], think: bool) -> s
 
 
 def raw_prompt_tokens(model: str, rendered: str) -> int:
-    """Token count the engine assigns to a raw prompt (no template applied)."""
     r = httpx.post(
         f"{OLLAMA}/api/generate",
         json={
@@ -224,12 +202,8 @@ def raw_prompt_tokens(model: str, rendered: str) -> int:
 def capture_audit(
     cell: dict[str, Any], messages: list[dict[str, Any]], data: dict[str, Any]
 ) -> dict[str, Any]:
-    """Step 0 for one cell: engine token count vs the official render, render saved to rendered/."""
     think = bool(cell["think"])
     rendered = official_render(cell["tmpl"], messages, think)
-    # Ollama's chat path drops the render's trailing newlines (observed: a one-token
-    # gap that is exactly the final "\n\n" after </think>), so the match is judged
-    # against the whitespace-stripped render too.
     audit: dict[str, Any] = {
         "engine_prompt_tokens": data.get("prompt_eval_count"),
         "official_render_tokens": raw_prompt_tokens(cell["model"], rendered),
@@ -273,7 +247,6 @@ def run_one(cell: dict[str, Any], seed: int, workdir: Path, capture: bool) -> di
             }
         )
         if capture and t == 1:
-            # The post-tool turn: the one the audit is about.
             audit = capture_audit(cell, messages, data)
         if not calls:
             final_text = msg.get("content") or ""

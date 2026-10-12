@@ -1,5 +1,3 @@
-"""Prompt/tool-surface consistency checks (tests/wfe/prompt_surface.py)."""
-
 from __future__ import annotations
 
 from tests.wfe.prompt_surface import prompt_tool_mismatches, suite_warnings, taxonomy_conflicts

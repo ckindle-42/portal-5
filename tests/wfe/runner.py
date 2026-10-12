@@ -171,10 +171,6 @@ TOOL_SCHEMAS = [
 TOOL_NAMES = [t["function"]["name"] for t in TOOL_SCHEMAS]
 
 
-# Repository trees the sandbox must never expose: the suite files carry the
-# checker answer keys (gold_label / gold_finding_type / forbid_in_tool_output),
-# the probe tree and the committed WFE receipts (debug rows) carry the same labels. Exposing them let repo_search
-# return the answer key (comp-p6j-09, 2026-10-12 — HARNESS_ERROR rows).
 REPO_DENY_PREFIXES = ("tests/wfe/", "tests/compliance_probe/", "tests/benchmarks/results/")
 
 
