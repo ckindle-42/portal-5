@@ -1128,8 +1128,6 @@ def workspace_context(ws_id: str, persona: str | None = None) -> dict:
         "system_prompt": sp,
         # What Open WebUI sends; the pipeline adds the append itself.
         "system_prompt_base": sp_base,
-        # What a pipeline-mode run sends: the pipeline adds the append, the
-        # harness note must still travel with the request.
         "system_prompt_pipeline": sp_base + note,
         "persona_slug": slug,
         "persona_candidates": len(
@@ -1399,8 +1397,6 @@ def run_task(
         )
     missing = sorted(set(task.get("requires_tools") or []) - set(tool_surface or TOOL_NAMES))
     if missing:
-        # The task's checker scores a production tool's receipt (compliance_ask)
-        # that the harness cannot offer: every run would loop to the turn cap.
         return _empty_result(
             Outcome.BLOCKED, f"requires tools the harness does not offer: {missing}"
         )

@@ -260,8 +260,6 @@ class TestOutcomeClassification:
         assert apply_checkers(task, ctx).outcome == Outcome.REFUSED
 
     def test_answered_abstain_with_cannot_is_a_fail_not_a_refusal(self, tmp_path):
-        """2026-10-12 rebaseline: an ABSTAIN rationale ("I cannot make a coverage
-        determination") in a completed answer was relabelled REFUSED."""
         task = {
             "completion_signal": "DETERMINATION COMPLETE",
             "checkers": [{"type": "answer_contains", "patterns": ["ABSENT"]}],

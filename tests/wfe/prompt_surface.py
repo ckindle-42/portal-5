@@ -74,11 +74,6 @@ def suite_warnings(
 
 
 def task_tool_mismatches(task: dict, harness_tools: set[str], known_tools: set[str]) -> list[str]:
-    """Production tools a task's user turn demands that the harness does not offer.
-
-    The harness note covers the system prompt only; a user turn that requires
-    `compliance_ask` still loops. A task that declares `requires_tools` is
-    BLOCKED by the runner instead, so it is not a warning."""
     if task.get("requires_tools"):
         return []
     text = str(task.get("instruction", ""))

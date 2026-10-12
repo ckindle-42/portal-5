@@ -71,7 +71,6 @@ def test_auto_compliance_is_served_with_the_note() -> None:
 
 
 def test_pipeline_mode_carries_the_note() -> None:
-    """The pipeline adds system_prompt_append itself; the note must still be sent."""
     ctx = workspace_context("auto-compliance")
     assert HARNESS_NOTE_MARKER in ctx["system_prompt_pipeline"]
     assert ctx["system_prompt_pipeline"].startswith(ctx["system_prompt_base"])

@@ -565,9 +565,6 @@ def apply_checkers(task: dict, ctx: CheckContext) -> CheckResult:
     notes = " | ".join(r.notes for r in results)
     for level in (Outcome.HARNESS_ERROR, Outcome.PENDING_REVIEW, Outcome.FAIL):
         if any(r.outcome == level for r in results):
-            # A reply that delivers the task's completion signal answered in the
-            # task's format; "I cannot determine X" inside it is reasoning (an
-            # ABSTAIN rationale), not a refusal, so it stays a FAIL.
             signal = task.get("completion_signal")
             answered = bool(signal) and signal in (ctx.final_text or "")
             if level == Outcome.FAIL and not answered and detect_refusal(ctx.final_text):
