@@ -144,20 +144,23 @@ Phase 0; fitness matrix drives disposition decisions.
 
 ## Measurement caveats (added 2026-10-12)
 
-- **Prompt/tool-surface mismatch (fixed and re-baselined 2026-10-12).**
+- **Prompt/tool-surface mismatch (fixed 2026-10-12; pipeline re-baseline pending).**
   Persona prompts and `system_prompt_append` name production tools the harness
   does not offer (auto-compliance: `nerc_cip_requirement`, `compliance_ask`, …),
   and auto-compliance's output taxonomy conflicted with the suite's JSON labels.
-  `workspace_context` now appends the `WFE HARNESS TOOLS:` note from
+  `workspace_context` appends the `WFE HARNESS TOOLS:` note from
   `tests/wfe/prompt_surface.py`, naming the six-tool proxy surface and giving the
-  user turn's output format precedence; the campaign warns if a served prompt
-  still mismatches. The seven affected incumbent workspaces were re-baselined
-  on their home suites at n=3 in
-  `wfe_prompt_surface_rebaseline_20261012` (87 rows, zero prompt/tool-surface
-  warnings). See `docs/WFE_PROMPT_SURFACE_REBASELINE_V1.CLOSEOUT.md` for the
-  before/after table and R6 loop review. Results taken before the prompt fix are
-  not comparable with this campaign; the closeout also records engine/version
-  differences in some historical baselines.
+  user turn's output format precedence. Until 2026-10-12 pipeline mode sent
+  `system_prompt_base` without the note, so the fix only reached direct-engine
+  runs; `system_prompt_pipeline` now carries it. `wfe_prompt_surface_rebaseline_20261012`
+  (direct Ollama, 87 rows) is a direct-engine measurement, not the seat baseline;
+  its "zero warnings" receipt was vacuous (the audit skipped any prompt carrying
+  the note and never read user turns — it now flags a task demanding a tool the
+  surface lacks). A task that needs a production tool declares `requires_tools`
+  and is BLOCKED (comp-reading-contract-01). A FAIL that carries the task's
+  completion signal is no longer relabelled REFUSED. Pipeline re-baseline:
+  TASK_WFE_PROMPT_SURFACE_REBASELINE_V2; corrections in
+  `docs/WFE_PROMPT_SURFACE_REBASELINE_V1.CLOSEOUT.md`.
 - **Card-think arms.** A model whose card reasons (think on by default) must
   ALSO be measured at its card think + sampling setting, not only at the lane's
   forced think-off policy. Report both, and attribute "lane fit" (the lane's
