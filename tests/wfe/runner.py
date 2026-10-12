@@ -171,6 +171,18 @@ TOOL_SCHEMAS = [
 TOOL_NAMES = [t["function"]["name"] for t in TOOL_SCHEMAS]
 
 
+# Repository trees the sandbox must never expose: the suite files carry the
+# checker answer keys (gold_label / gold_finding_type / forbid_in_tool_output),
+# the probe tree and the committed WFE receipts (debug rows) carry the same labels. Exposing them let repo_search
+# return the answer key (comp-p6j-09, 2026-10-12 — HARNESS_ERROR rows).
+REPO_DENY_PREFIXES = ("tests/wfe/", "tests/compliance_probe/", "tests/benchmarks/results/")
+
+
+def _repo_denied(rel: str) -> bool:
+    rel = rel.replace("\\", "/").lstrip("./")
+    return any(rel.startswith(prefix) for prefix in REPO_DENY_PREFIXES)
+
+
 class Sandbox:
     """Root for all file tools. Writes are confined to the sandbox; reads may
     fall back to the repository (read-only) so in-repo tasks are possible.
@@ -200,7 +212,11 @@ class Sandbox:
             return sp
         if self.allow_repo_read:
             rp = (REPO / path).resolve()
-            if self._under(rp, REPO) and rp.exists():
+            if (
+                self._under(rp, REPO)
+                and rp.exists()
+                and not _repo_denied(str(rp.relative_to(REPO)))
+            ):
                 return rp
         return sp if in_sandbox else None
 
@@ -240,7 +256,19 @@ class Sandbox:
         over the repo root walks .claude/worktrees/*/.venv and times out."""
         try:
             r = subprocess.run(
-                ["git", "-C", str(REPO), "grep", "-nEI", "--no-color", "-e", pattern],
+                [
+                    "git",
+                    "-C",
+                    str(REPO),
+                    "grep",
+                    "-nEI",
+                    "--no-color",
+                    "-e",
+                    pattern,
+                    "--",
+                    ".",
+                    *(f":(exclude){prefix.rstrip('/')}" for prefix in REPO_DENY_PREFIXES),
+                ],
                 capture_output=True,
                 text=True,
                 timeout=20,

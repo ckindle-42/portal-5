@@ -1419,6 +1419,7 @@ def _cmd_dry_run(matrix: list[dict], repeats: int) -> int:
 
     c = collections.Counter(r["arm"] for r in matrix)
     print(f"matrix rows: {len(matrix)}   arms: {len(c)}   repeats: {repeats}")
+    _warn_prompt_surface(matrix)
     for a, n in sorted(c.items()):
         print(f"  {n:>4}  {a}")
     return 0
@@ -1511,6 +1512,37 @@ def _ready(campaign_dir: Path) -> bool:
         _log(campaign_dir, f"ABORT: campaign created on engine {started_on}, now {ENGINE}")
         return False
     return True
+
+
+def _warn_prompt_surface(matrix: list[dict]) -> None:
+    """WARN (never block) when a workspace's persona prompt names tools the harness
+    does not offer or contradicts its suite's output labels. See tests/wfe/prompt_surface.py."""
+    import yaml
+
+    from tests.wfe.prompt_surface import audit_workspace
+    from tests.wfe.runner import REPO as _REPO
+    from tests.wfe.runner import TOOL_NAMES
+
+    seen: set[tuple[str, str]] = set()
+    for row in matrix:
+        key = (row.get("workspace", ""), row.get("suite_path", ""))
+        if key in seen or not key[0] or not key[1]:
+            continue
+        seen.add(key)
+        personas = [
+            yaml.safe_load(pf.read_text()) or {}
+            for pf in sorted((_REPO / "config/personas").glob("*.yaml"))
+        ]
+        personas = [pe for pe in personas if pe.get("workspace_model") == key[0]]
+        portal = yaml.safe_load((_REPO / "config/portal.yaml").read_text()) or {}
+        ws = (portal.get("workspaces") or {}).get(key[0]) or {}
+        if not personas or not Path(key[1]).is_file():
+            continue
+        served = str(personas[0].get("system_prompt") or "") + str(
+            ws.get("system_prompt_append") or ""
+        )
+        for w in audit_workspace(served, Path(key[1]).read_text(), set(TOOL_NAMES)):
+            print(f"WARN prompt/tool surface [{key[0]}]: {w}", flush=True)
 
 
 def main() -> int:

@@ -1064,6 +1064,10 @@ surfaces:
   globs:
   - tests/wfe/graded/code_kv/test_parse_kv.py
   unit: unit-wfe-workspace-fitness
+- name: file-tests-wfe-prompt_surface
+  globs:
+  - tests/wfe/prompt_surface.py
+  unit: unit-wfe-loop-attribution-protocol
 - name: file-tests-wfe-report
   globs:
   - tests/wfe/report.py
@@ -1087,6 +1091,14 @@ surfaces:
 - name: file-tests-wfe-tests-test_wfe_contracts
   globs:
   - tests/wfe/tests/test_wfe_contracts.py
+  unit: unit-wfe-workspace-fitness
+- name: file-tests-wfe-tests-test_wfe_gold_isolation
+  globs:
+  - tests/wfe/tests/test_wfe_gold_isolation.py
+  unit: unit-wfe-workspace-fitness
+- name: file-tests-wfe-tests-test_wfe_prompt_surface
+  globs:
+  - tests/wfe/tests/test_wfe_prompt_surface.py
   unit: unit-wfe-workspace-fitness
 - name: file-tests-wfe-tools-build_compliance_suite
   globs:

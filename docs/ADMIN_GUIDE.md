@@ -551,7 +551,7 @@ The roster is derived from the persona YAML files under `config/personas/`, one 
 ### Workspaces
 
 <!-- WIKI:GENERATED unit=unit-fact-workspace-roster -->
-#### Workspace roster (34 production, 25 eval, 59 total)
+#### Workspace roster (34 production, 24 eval, 58 total)
 
 ##### Production workspaces (acceptance/UAT scope, eval OFF)
 
@@ -617,7 +617,6 @@ The roster is derived from the persona YAML files under `config/personas/`, one 
 - `bench-qwen38-27b`
 - `bench-qwen38-cad`
 - `bench-qwen38-flash-next-reap288`
-- `bench-saluki-27b`
 - `task-router`
 
 ##### Why
@@ -746,7 +745,7 @@ The fleet table is the `mcp_fleet` list in `config/portal.yaml`, the single sour
 ### Model Catalog
 
 <!-- WIKI:GENERATED unit=unit-fact-model-catalog -->
-#### Model catalog (282 model ids across 7 backend groups)
+#### Model catalog (281 model ids across 7 backend groups)
 
 ##### coding (57)
 
@@ -823,7 +822,7 @@ The fleet table is the `mcp_fleet` list in `config/portal.yaml`, the single sour
 - `huihui_ai/baronllm-abliterated`
 - `huihui_ai/baronllm-abliterated:latest-ctx8k`
 
-##### general (128)
+##### general (127)
 
 - `NVIDIA-Nemotron-3.5-Lightning-30B-A3B-oQ4e-mtp`
 - `Qwen3.8-27B-oQ4e-mtp`
@@ -940,7 +939,6 @@ The fleet table is the `mcp_fleet` list in `config/portal.yaml`, the single sour
 - `portal5/hauhaucs-qwen36-35b:q4_K_M-ctx256k`
 - `portal5/ornith15-35b:q4_K_M-ctx256k`
 - `portal5/qwen3.6-27b-mtp:q8_0-drafted`
-- `portal5/underdog-saluki-27b:iq2-mix-ctx32k`
 - `portal5/xyz-aquila-mini:Q4_K_M`
 - `portal5/xyz-aquila-mini:q4_k_m-ctx16k`
 - `qwen3-coder-next:latest`

@@ -9,6 +9,8 @@ sources:
   path: tests/wfe/runner.py
 - type: code
   path: tests/wfe/**/*.py
+- type: code
+  path: tests/wfe/prompt_surface.py
 - type: doc
   path: docs/TASK_WORKSPACE_FITNESS_EVAL_V1.md
 claims: []
@@ -139,3 +141,30 @@ The harness (`tests/wfe/`):
 Governing task: docs/TASK_WORKSPACE_FITNESS_EVAL_V1.md. Removals across the
 fleet are HELD until its register v4. Gate: settings audit exits 0 FAIL at
 Phase 0; fitness matrix drives disposition decisions.
+
+## Measurement caveats (added 2026-10-12)
+
+- **auto-compliance prompt/tool-surface mismatch (defect, not fixed).** The
+  served system prompt (persona + the auto-compliance `system_prompt_append` in
+  `config/portal.yaml`) names `nerc_cip_requirement`, `compliance_ask`,
+  `nerc_cip_currency` and others the harness does not offer, and its output
+  taxonomy (Full/Partial/None/Ambiguous) conflicts with the suite's JSON
+  determination labels. `tests/wfe/prompt_surface.py` detects both; the campaign
+  prints them as `WARN prompt/tool surface` at startup (never blocks). Every
+  auto-compliance result measured before the suite is fixed (all seats, incumbent
+  included) has **understated absolute PASS rates**. Relative comparisons on the
+  same suite remain like-for-like. Re-baseline after the fix; do not rerun fleet
+  campaigns for this alone.
+- **Card-think arms.** A model whose card reasons (think on by default) must
+  ALSO be measured at its card think + sampling setting, not only at the lane's
+  forced think-off policy. Report both, and attribute "lane fit" (the lane's
+  think-off policy plus its output-format clause) separately from "model
+  capability". The Saluki re-verify showed the two can differ: the same model
+  looped under think-off and answered under think-on.
+- **Answer-key isolation.** The sandbox must never expose the suite files or
+  `tests/compliance_probe/` or committed WFE receipts through `file_read` or
+  `repo_search`; `REPO_DENY_PREFIXES` in `tests/wfe/runner.py` enforces this
+  (regression: `tests/wfe/tests/test_wfe_gold_isolation.py`).
+- **Loop attribution.** Before naming a model as the cause of a turn-cap loop,
+  follow the protocol in [[unit-wfe-loop-attribution-protocol]].
+
