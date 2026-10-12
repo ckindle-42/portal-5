@@ -833,7 +833,7 @@ def run_row(
         pipe = ENGINE == "pipeline"
         out = run_task(
             r["workspace"] if pipe else row_model(r),
-            wsc["system_prompt_base"] if pipe else wsc["system_prompt"],
+            wsc["system_prompt_pipeline"] if pipe else wsc["system_prompt"],
             task,
             sandbox,
             max_turns,

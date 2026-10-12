@@ -33,10 +33,10 @@ def harness_note(system_prompt: str, harness_tools: list[str], known_tools: set[
         return ""
     return (
         f"\n\n{HARNESS_NOTE_MARKER} the only tools available here are "
-        f"{', '.join(harness_tools)}. Any other tool named above does not exist in this "
-        "environment: work from the material you are given using these tools. If the "
-        "user's request specifies an output format, follow it instead of any output "
-        "format described above."
+        f"{', '.join(harness_tools)}. Any other tool named in these instructions does not "
+        "exist in this environment: work from the material you are given using these "
+        "tools. If the user's request specifies an output format, follow it instead of "
+        "any output format these instructions describe."
     )
 
 
@@ -73,6 +73,18 @@ def suite_warnings(
     return out
 
 
+def task_tool_mismatches(task: dict, harness_tools: set[str], known_tools: set[str]) -> list[str]:
+    """Production tools a task's user turn demands that the harness does not offer.
+
+    The harness note covers the system prompt only; a user turn that requires
+    `compliance_ask` still loops. A task that declares `requires_tools` is
+    BLOCKED by the runner instead, so it is not a warning."""
+    if task.get("requires_tools"):
+        return []
+    text = str(task.get("instruction", ""))
+    return sorted(t for t in known_tools - harness_tools if re.search(rf"\b{re.escape(t)}\b", text))
+
+
 def audit_workspace(
     system_prompt: str, suite_jsonl: str, harness_tools: set[str], known_tools: set[str]
 ) -> list[str]:
@@ -82,7 +94,12 @@ def audit_workspace(
             continue
         row = json.loads(line)
         instruction = str(row.get("instruction", ""))
-        for w in suite_warnings(system_prompt, instruction, harness_tools, known_tools):
+        found = suite_warnings(system_prompt, instruction, harness_tools, known_tools)
+        found += [
+            f"task {row.get('id')} demands tool not in harness surface: {t}"
+            for t in task_tool_mismatches(row, harness_tools, known_tools)
+        ]
+        for w in found:
             if w not in warnings:
                 warnings.append(w)
     return warnings

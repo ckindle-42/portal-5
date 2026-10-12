@@ -6,6 +6,7 @@ from tests.wfe.prompt_surface import (
     production_tool_names,
     prompt_tool_mismatches,
     suite_warnings,
+    task_tool_mismatches,
     taxonomy_conflicts,
 )
 from tests.wfe.runner import TOOL_NAMES, workspace_context
@@ -65,5 +66,85 @@ def test_suite_warnings_reports_both_kinds() -> None:
 def test_auto_compliance_is_served_with_the_note() -> None:
     ctx = workspace_context("auto-compliance")
     assert ctx["harness_note"] is True
-    assert ctx["system_prompt"].rstrip().endswith("described above.")
+    assert ctx["system_prompt"].rstrip().endswith("these instructions describe.")
     assert set(ctx["tool_surface"]) <= set(TOOL_NAMES)
+
+
+def test_pipeline_mode_carries_the_note() -> None:
+    """The pipeline adds system_prompt_append itself; the note must still be sent."""
+    ctx = workspace_context("auto-compliance")
+    assert HARNESS_NOTE_MARKER in ctx["system_prompt_pipeline"]
+    assert ctx["system_prompt_pipeline"].startswith(ctx["system_prompt_base"])
+
+
+def test_pipeline_run_row_sends_the_note(tmp_path, monkeypatch) -> None:
+    from tests.wfe import campaign
+
+    class _Sent(BaseException):
+        pass
+
+    def fake_run_task(model, system_prompt, *a, **k):
+        raise _Sent(system_prompt)
+
+    monkeypatch.setattr(campaign, "ENGINE", "pipeline")
+    monkeypatch.setattr(campaign, "run_task", fake_run_task)
+    monkeypatch.setattr(campaign, "make_sandbox", lambda *a, **k: None)
+    wsc = workspace_context("auto-compliance")
+    row = {
+        "run_id": "r1",
+        "workspace": "auto-compliance",
+        "arm": wsc["model"],
+        "arm_role": "incumbent",
+        "suite": "compliance_agentic",
+        "task_id": "t",
+        "repeat": 0,
+        "overrides": {},
+    }
+    manifest = {"campaign_id": "test_pipeline_note", "env": {}}
+    try:
+        campaign.run_row(tmp_path, manifest, row, wsc, {"id": "t"}, 1, 1, None, False)
+    except _Sent as sent:
+        assert HARNESS_NOTE_MARKER in str(sent)
+    else:
+        raise AssertionError("run_task was not called")
+
+
+def test_task_demanding_a_production_tool_warns() -> None:
+    task = {"id": "t", "instruction": "Call compliance_ask, then file_read."}
+    assert task_tool_mismatches(task, HARNESS, KNOWN) == ["compliance_ask"]
+
+
+def test_task_declaring_requires_tools_is_blocked_not_warned() -> None:
+    task = {"id": "t", "instruction": "Call compliance_ask.", "requires_tools": ["compliance_ask"]}
+    assert task_tool_mismatches(task, HARNESS, KNOWN) == []
+
+
+def test_home_compliance_suite_has_no_unblocked_tool_demand() -> None:
+    import json
+    from pathlib import Path
+
+    suite = Path(__file__).resolve().parents[1] / "suites" / "compliance_agentic.jsonl"
+    rows = [json.loads(line) for line in suite.read_text().splitlines() if line.strip()]
+    known = production_tool_names(
+        __import__("yaml").safe_load(
+            (Path(__file__).resolve().parents[3] / "config/portal.yaml").read_text()
+        )
+    )
+    assert [t["id"] for t in rows if task_tool_mismatches(t, HARNESS, known)] == []
+
+
+def test_task_requiring_absent_tools_is_blocked(tmp_path) -> None:
+    from tests.wfe import runner as rn
+    from tests.wfe.schema import Outcome
+
+    task = {
+        "id": "c",
+        "instruction": "Call compliance_ask.",
+        "requires_tools": ["compliance_ask"],
+        "checkers": [{"type": "answer_contains", "patterns": ["x"]}],
+    }
+    out = rn.run_task(
+        "m", "sys", task, rn.Sandbox(tmp_path), max_turns=3, budget_s=60, use_tools=True
+    )
+    assert out["outcome"] == Outcome.BLOCKED.value
+    assert out["tool_calls"] == 0

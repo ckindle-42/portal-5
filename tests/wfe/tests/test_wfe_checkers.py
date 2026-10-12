@@ -259,6 +259,20 @@ class TestOutcomeClassification:
         )
         assert apply_checkers(task, ctx).outcome == Outcome.REFUSED
 
+    def test_answered_abstain_with_cannot_is_a_fail_not_a_refusal(self, tmp_path):
+        """2026-10-12 rebaseline: an ABSTAIN rationale ("I cannot make a coverage
+        determination") in a completed answer was relabelled REFUSED."""
+        task = {
+            "completion_signal": "DETERMINATION COMPLETE",
+            "checkers": [{"type": "answer_contains", "patterns": ["ABSENT"]}],
+        }
+        ctx = CheckContext(
+            final_text='I cannot make a coverage determination.\n{"determination": "ABSTAIN"}'
+            "\nDETERMINATION COMPLETE",
+            sandbox_root=tmp_path,
+        )
+        assert apply_checkers(task, ctx).outcome == Outcome.FAIL
+
     def test_truncation_is_distinguished_from_a_wrong_answer(self, tmp_path):
         task = {"checkers": [{"type": "answer_contains", "patterns": ["FizzBuzz"]}]}
         ctx = CheckContext(
