@@ -79,40 +79,31 @@ THINK_BLOCK = "<think>\n\n</think>\n\n"
 LANE = {"temperature": 0.3, "top_p": 0.95, "top_k": 20, "min_p": 0.0, "repeat_penalty": 1.1}
 CARD = {"temperature": 0.6, "top_p": 0.95, "top_k": 20, "min_p": 0.0, "repeat_penalty": 1.0}
 
+
+def _cell(
+    model: str, tmpl: str, sampling: dict[str, Any], think: bool, clause: bool, system: str = ""
+) -> dict[str, Any]:
+    cell: dict[str, Any] = {
+        "model": model,
+        "tmpl": tmpl,
+        "sampling": sampling,
+        "think": think,
+        "clause": clause,
+    }
+    if system:
+        cell["system"] = system
+    return cell
+
+
 CELLS: dict[str, dict[str, Any]] = {
-    "S1": {"model": SALUKI, "tmpl": "saluki", "sampling": LANE, "think": False, "clause": True},
-    "S2": {
-        "model": SALUKI,
-        "tmpl": "saluki",
-        "sampling": {**LANE, "repeat_penalty": 1.0},
-        "think": False,
-        "clause": True,
-    },
-    "S3": {"model": SALUKI, "tmpl": "saluki", "sampling": CARD, "think": False, "clause": True},
-    "S4": {"model": SALUKI, "tmpl": "saluki", "sampling": CARD, "think": True, "clause": True},
-    "S5": {"model": SALUKI, "tmpl": "saluki", "sampling": LANE, "think": False, "clause": False},
-    "I1": {
-        "model": INCUMBENT,
-        "tmpl": "incumbent",
-        "sampling": LANE,
-        "think": False,
-        "clause": True,
-    },
-    "I2": {
-        "model": INCUMBENT,
-        "tmpl": "incumbent",
-        "sampling": LANE,
-        "think": False,
-        "clause": False,
-    },
-    "S6": {
-        "model": SALUKI,
-        "tmpl": "saluki",
-        "sampling": LANE,
-        "think": False,
-        "clause": True,
-        "system": "consistent",
-    },
+    "S1": _cell(SALUKI, "saluki", LANE, False, True),
+    "S2": _cell(SALUKI, "saluki", {**LANE, "repeat_penalty": 1.0}, False, True),
+    "S3": _cell(SALUKI, "saluki", CARD, False, True),
+    "S4": _cell(SALUKI, "saluki", CARD, True, True),
+    "S5": _cell(SALUKI, "saluki", LANE, False, False),
+    "I1": _cell(INCUMBENT, "incumbent", LANE, False, True),
+    "I2": _cell(INCUMBENT, "incumbent", LANE, False, False),
+    "S6": _cell(SALUKI, "saluki", LANE, False, True, system="consistent"),
 }
 
 # Minimal packet: the candidate is supported by the governing text, so a
@@ -260,6 +251,30 @@ def raw_prompt_tokens(model: str, rendered: str) -> int:
     return int(r.json()["prompt_eval_count"])
 
 
+def capture_audit(
+    cell: dict[str, Any], messages: list[dict[str, Any]], data: dict[str, Any]
+) -> dict[str, Any]:
+    """Step 0 for one cell: engine token count vs the official render, render saved to rendered/."""
+    think = bool(cell["think"])
+    rendered = official_render(cell["tmpl"], messages, think)
+    # Ollama's chat path drops the render's trailing newlines (observed: a one-token
+    # gap that is exactly the final "\n\n" after </think>), so the match is judged
+    # against the whitespace-stripped render too.
+    audit: dict[str, Any] = {
+        "engine_prompt_tokens": data.get("prompt_eval_count"),
+        "official_render_tokens": raw_prompt_tokens(cell["model"], rendered),
+        "official_render_tokens_rstrip": raw_prompt_tokens(cell["model"], rendered.rstrip()),
+        "think_flag_sent": think,
+        "think_block_in_render": THINK_BLOCK in rendered[-200:],
+    }
+    RENDERED.mkdir(parents=True, exist_ok=True)
+    flags = f"{'think' if think else 'nothink'}_{'clause' if cell['clause'] else 'noclause'}"
+    name = f"{cell['model'].split(':')[-1]}_{flags}.txt"
+    (RENDERED / name).write_text(rendered)
+    audit["rendered_file"] = str(Path("rule5_reverify_rendered") / name)
+    return audit
+
+
 def run_one(cell: dict[str, Any], seed: int, workdir: Path, capture: bool) -> dict[str, Any]:
     user = USER_WITH if cell["clause"] else USER_WITHOUT
     system = SYSTEM_CONSISTENT if cell.get("system") == "consistent" else SYSTEM
@@ -289,25 +304,7 @@ def run_one(cell: dict[str, Any], seed: int, workdir: Path, capture: bool) -> di
         )
         if capture and t == 1:
             # The post-tool turn: the one the audit is about.
-            think = bool(cell["think"])
-            rendered = official_render(cell["tmpl"], messages, think)
-            audit = {
-                "engine_prompt_tokens": data.get("prompt_eval_count"),
-                "official_render_tokens": raw_prompt_tokens(cell["model"], rendered),
-                # Ollama's chat path drops the render's trailing newlines (observed: a
-                # one-token gap that is exactly the final "\n\n" after </think>), so the
-                # match is judged against the whitespace-stripped render too.
-                "official_render_tokens_rstrip": raw_prompt_tokens(
-                    cell["model"], rendered.rstrip()
-                ),
-                "think_flag_sent": think,
-                "think_block_in_render": THINK_BLOCK in rendered[-200:],
-                "rendered_file": None,
-            }
-            RENDERED.mkdir(parents=True, exist_ok=True)
-            name = f"{cell['model'].split(':')[-1]}_{'think' if think else 'nothink'}_{'clause' if cell['clause'] else 'noclause'}.txt"
-            (RENDERED / name).write_text(rendered)
-            audit["rendered_file"] = str(Path("rule5_reverify_rendered") / name)
+            audit = capture_audit(cell, messages, data)
         if not calls:
             final_text = msg.get("content") or ""
             outcome = "answered"

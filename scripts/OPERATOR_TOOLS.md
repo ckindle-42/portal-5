@@ -68,6 +68,7 @@ python3 scripts/check_model_bindings.py             # live gate: every model_pin
 python3 scripts/check_updates.py                    # report upstream drift + GitHub security advisories for the Obscura pin, Ollama, and oMLX (weekly launchd: com.portal5.update-check); accepts a component subset, e.g. `check_updates.py ollama`
 python3 scripts/verify_proxmox_mcp.py              # quick Proxmox MCP check (no Docker)
 python3 scripts/spine_census.py                    # wiki granularity census (mirror/surface/orphan)
+python3 scripts/saluki_rule5_reverify.py          # Rule-5 loop re-verify (Ollama, one request in flight; cell tags must exist, rewrites p4_rule5_reverify.json)
 python3 scripts/spine_p0_manifest.py               # TASK_BULLY_P0 P0.1 keep/release/archive classification (docs/SPINE_P0_MANIFEST.md)
 python3 scripts/spine_p0_strip_pins.py             # TASK_BULLY_P0 A1 one-shot last_generated_commit stripper (already run; kept for reproducibility)
 python3 scripts/spine_p0_release_prose.py          # TASK_BULLY_P0 A4 one-shot RELEASE-block un-fencer (already run; kept for reproducibility)
