@@ -1,0 +1,136 @@
+{
+ "schema": "wfe-result-2",
+ "run_id": "auto-compliance|hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k|compliance_agentic|comp-p6j-03|r2",
+ "campaign_id": "wfe_prompt_surface_rebaseline_20261012",
+ "stage": "full",
+ "workspace": "auto-compliance",
+ "arm": "hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k",
+ "arm_role": "incumbent",
+ "suite": "compliance_agentic",
+ "task_id": "comp-p6j-03",
+ "repeat": 2,
+ "outcome": "PASS",
+ "notes": "answer patterns matched",
+ "evidence": {},
+ "persona_slug": "cippolicywriter",
+ "prompt_sha": "7f77286c6bb7",
+ "tool_surface": [
+  "file_read",
+  "file_list",
+  "repo_search",
+  "pytest_run",
+  "file_write",
+  "http_get"
+ ],
+ "tool_surface_proxy": true,
+ "harness": {
+  "endpoint": "v1",
+  "stream": false,
+  "think": "false",
+  "format": "none"
+ },
+ "sampling": {
+  "max_tokens": 24576,
+  "temperature": 0.3,
+  "top_p": 0.95,
+  "top_k": 20,
+  "min_p": 0.0,
+  "repeat_penalty": 1.1,
+  "max_tokens_source": "predict_limit",
+  "seed": 1002
+ },
+ "baked_params": {
+  "num_ctx": 32768
+ },
+ "seed": 1002,
+ "turns": 4,
+ "tool_calls": 3,
+ "tool_errors": 0,
+ "finish_reason": "stop",
+ "economics": {
+  "prompt_tokens": 8905,
+  "completion_tokens": 405,
+  "total_tokens": 9310,
+  "load_ms": 41,
+  "wall_s": 36.0,
+  "cold_load": false
+ },
+ "env": {
+  "git_sha": "2c2fd0cd",
+  "ollama_version": "0.40.0",
+  "python": "3.13.12",
+  "platform": "macOS-27.0.1-arm64-arm-64bit-Mach-O",
+  "fingerprint": "a5d8d95e71f9"
+ },
+ "final_text_head": "{\n  \"determination\": \"CONTRADICTED\",\n  \"cited_refs\": [\"CIP-007-6 R2 Part 2.2\"],\n  \"rationale\": \"The governing text requires security patch applicability evaluation at least once every 35 calendar days, establishing a maximum interval of 35 days. The candidate's quarterly cadence of every 90 calendar days exceeds that maximum by more than two and a half times, directly violating the requirement.\"\n}\n\nDETERMINATION COMPLETE",
+ "transcript": [
+  {
+   "turn": 0,
+   "content": "",
+   "tool_calls": [
+    {
+     "name": "file_read",
+     "args_raw": "{\"path\": \"packet.json\"}"
+    }
+   ]
+  },
+  {
+   "turn": 1,
+   "content": "",
+   "tool_calls": [
+    {
+     "name": "file_list",
+     "args_raw": "{}"
+    }
+   ]
+  },
+  {
+   "turn": 2,
+   "content": "The candidate's 90-day quarterly cadence exceeds the governing maximum interval of every 35 calendar days, so it fails to meet CIP-007-6 R2 Part 2.2. The premise confirms calendar days are used consistently in both texts, making the comparison direct and unambiguous.\n\n",
+   "tool_calls": [
+    {
+     "name": "file_write",
+     "args_raw": "{\"path\": \"determination.json\", \"content\": \"{\\n \\\"id\\\": \\\"P6J-03\\\",\\n \\\"governing_ref\\\": \\\"CIP-007-6 R2 Part 2.2\\\",\\n \\\"governing_text\\\": \\\"At least once every 35 calendar days, evaluate security patches for applicability that have been released since the last evaluation from the source or sources identified in Part 2.1.\\\",\\n \\\"premises\\\": [\\n  \\\"cadence is a maximum interval; calendar days are not business days\\\"\\n ],\\n \\\"candidate_text\\\": \\\"Security patches are evaluated for applicability on a "
+    }
+   ]
+  },
+  {
+   "turn": 3,
+   "content": "{\n  \"determination\": \"CONTRADICTED\",\n  \"cited_refs\": [\"CIP-007-6 R2 Part 2.2\"],\n  \"rationale\": \"The governing text requires security patch applicability evaluation at least once every 35 calendar days, establishing a maximum interval of 35 days. The candidate's quarterly cadence of every 90 calendar days exceeds that maximum by more than two and a half times, directly violating the requirement.\"\n}\n\nDETERMINATION COMPLETE",
+   "tool_calls": []
+  }
+ ],
+ "tool_call_log": [
+  {
+   "name": "file_read",
+   "args": {
+    "path": "packet.json"
+   },
+   "raw_args": "{\"path\": \"packet.json\"}",
+   "output": "{\n \"id\": \"P6J-03\",\n \"governing_ref\": \"CIP-007-6 R2 Part 2.2\",\n \"governing_text\": \"At least once every 35 calendar days, evaluate security patches for applicability that have been released since the last evaluation from the source or sources identified in Part 2.1.\",\n \"premises\": [\n  \"cadence is a maximum interval; calendar days are not business days\"\n ],\n \"candidate_text\": \"Security patches are evaluated for applicability on a quarterly basis (every 90 calendar days).\",\n \"packet_complete\": true,\n \"must_not_flag\": false\n}",
+   "error": false
+  },
+  {
+   "name": "file_list",
+   "args": {},
+   "raw_args": "{}",
+   "output": "packet.json",
+   "error": false
+  },
+  {
+   "name": "file_write",
+   "args": {
+    "path": "determination.json",
+    "content": "{\n \"id\": \"P6J-03\",\n \"governing_ref\": \"CIP-007-6 R2 Part 2.2\",\n \"governing_text\": \"At least once every 35 calendar days, evaluate security patches for applicability that have been released since the last evaluation from the source or sources identified in Part 2.1.\",\n \"premises\": [\n  \"cadence is a maximum interval; calendar days are not business days\"\n ],\n \"candidate_text\": \"Security patches are evaluated for applicability on a quarterly basis (every 90 calendar days).\",\n \"packet_complete\": true,\n \"must_not_flag\": false\n}\n"
+   },
+   "raw_args": "{\"path\": \"determination.json\", \"content\": \"{\\n \\\"id\\\": \\\"P6J-03\\\",\\n \\\"governing_ref\\\": \\\"CIP-007-6 R2 Part 2.2\\\",\\n \\\"governing_text\\\": \\\"At least once every 35 calendar days, evaluate security patches for applicability that have been released since the last evaluation from the source or sources identified in Part 2.1.\\\",\\n \\\"premises\\\": [\\n  \\\"cadence is a maximum interval; calendar days are not business days\\\"\\n ],\\n \\\"candidate_text\\\": \\\"Security patches are evaluated for applicability on a ",
+   "output": "wrote 527 chars to determination.json",
+   "error": false
+  }
+ ],
+ "final_text": "{\n  \"determination\": \"CONTRADICTED\",\n  \"cited_refs\": [\"CIP-007-6 R2 Part 2.2\"],\n  \"rationale\": \"The governing text requires security patch applicability evaluation at least once every 35 calendar days, establishing a maximum interval of 35 days. The candidate's quarterly cadence of every 90 calendar days exceeds that maximum by more than two and a half times, directly violating the requirement.\"\n}\n\nDETERMINATION COMPLETE",
+ "repeat_degeneracy": null,
+ "model": "hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k",
+ "overrides": {},
+ "sampling_undelivered": []
+}

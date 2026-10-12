@@ -1,0 +1,176 @@
+{
+ "schema": "wfe-result-2",
+ "run_id": "tools-specialist|granite4.1:8b-ctx8k|coding|code-fix-fizz|r1",
+ "campaign_id": "wfe_prompt_surface_rebaseline_20261012",
+ "stage": "full",
+ "workspace": "tools-specialist",
+ "arm": "granite4.1:8b-ctx8k",
+ "arm_role": "incumbent",
+ "suite": "coding",
+ "task_id": "code-fix-fizz",
+ "repeat": 1,
+ "outcome": "PASS",
+ "notes": "seeded fixtures intact | hidden-suite code_fizz: passed=4 failed=0 errors=0 min_passed=4 :: 4 passed in 0.02s",
+ "evidence": {
+  "pytest_tail": "....                                                                     [100%]\n4 passed in 0.02s\n"
+ },
+ "persona_slug": "toolcomposer",
+ "prompt_sha": "fd7ea9c40629",
+ "tool_surface": [
+  "file_read",
+  "file_list",
+  "repo_search",
+  "pytest_run",
+  "file_write",
+  "http_get"
+ ],
+ "tool_surface_proxy": true,
+ "harness": {
+  "endpoint": "v1",
+  "stream": false,
+  "think": "native",
+  "format": "none"
+ },
+ "sampling": {
+  "max_tokens": 32768,
+  "temperature": 0.0,
+  "top_p": 0.95,
+  "repeat_penalty": 1.0,
+  "max_tokens_source": "harness_runaway_cap",
+  "seed": 1001
+ },
+ "baked_params": {
+  "num_ctx": 8192
+ },
+ "seed": 1001,
+ "turns": 6,
+ "tool_calls": 5,
+ "tool_errors": 0,
+ "finish_reason": "stop",
+ "economics": {
+  "prompt_tokens": 6700,
+  "completion_tokens": 186,
+  "total_tokens": 6886,
+  "load_ms": 23,
+  "wall_s": 6.3,
+  "cold_load": false
+ },
+ "env": {
+  "git_sha": "2c2fd0cd",
+  "ollama_version": "0.40.0",
+  "python": "3.13.12",
+  "platform": "macOS-27.0.1-arm64-arm-64bit-Mach-O",
+  "fingerprint": "a5d8d95e71f9"
+ },
+ "final_text_head": "TASK COMPLETE",
+ "transcript": [
+  {
+   "turn": 0,
+   "content": "",
+   "tool_calls": [
+    {
+     "name": "file_list",
+     "args_raw": "{\"path\": \".\"}"
+    }
+   ]
+  },
+  {
+   "turn": 1,
+   "content": "",
+   "tool_calls": [
+    {
+     "name": "file_read",
+     "args_raw": "{\"path\": \"fizz.py\"}"
+    }
+   ]
+  },
+  {
+   "turn": 2,
+   "content": "",
+   "tool_calls": [
+    {
+     "name": "file_read",
+     "args_raw": "{\"path\": \"test_fizz.py\"}"
+    }
+   ]
+  },
+  {
+   "turn": 3,
+   "content": "",
+   "tool_calls": [
+    {
+     "name": "file_write",
+     "args_raw": "{\"path\": \"fizz.py\", \"content\": \"def fizzbuzz(n):\\n    if n % 3 == 0 and n % 5 == 0:\\n        return 'FizzBuzz'\\n    elif n % 3 == 0:\\n        return 'Fizz'\\n    elif n % 5 == 0:\\n        return 'Buzz'\\n    else:\\n        return str(n)\\n\"}"
+    }
+   ]
+  },
+  {
+   "turn": 4,
+   "content": "",
+   "tool_calls": [
+    {
+     "name": "pytest_run",
+     "args_raw": "{\"args\": \"\"}"
+    }
+   ]
+  },
+  {
+   "turn": 5,
+   "content": "TASK COMPLETE",
+   "tool_calls": []
+  }
+ ],
+ "tool_call_log": [
+  {
+   "name": "file_list",
+   "args": {
+    "path": "."
+   },
+   "raw_args": "{\"path\": \".\"}",
+   "output": "fizz.py\ntest_fizz.py",
+   "error": false
+  },
+  {
+   "name": "file_read",
+   "args": {
+    "path": "fizz.py"
+   },
+   "raw_args": "{\"path\": \"fizz.py\"}",
+   "output": "def fizz(n):\n    return 'Fizz' if n % 3 == 0 else str(n)\n",
+   "error": false
+  },
+  {
+   "name": "file_read",
+   "args": {
+    "path": "test_fizz.py"
+   },
+   "raw_args": "{\"path\": \"test_fizz.py\"}",
+   "output": "from fizz import fizzbuzz\n\ndef test_fifteen():\n    assert fizzbuzz(15) == 'FizzBuzz'\ndef test_three():\n    assert fizzbuzz(3) == 'Fizz'\ndef test_five():\n    assert fizzbuzz(5) == 'Buzz'\ndef test_seven():\n    assert fizzbuzz(7) == '7'\n",
+   "error": false
+  },
+  {
+   "name": "file_write",
+   "args": {
+    "path": "fizz.py",
+    "content": "def fizzbuzz(n):\n    if n % 3 == 0 and n % 5 == 0:\n        return 'FizzBuzz'\n    elif n % 3 == 0:\n        return 'Fizz'\n    elif n % 5 == 0:\n        return 'Buzz'\n    else:\n        return str(n)\n"
+   },
+   "raw_args": "{\"path\": \"fizz.py\", \"content\": \"def fizzbuzz(n):\\n    if n % 3 == 0 and n % 5 == 0:\\n        return 'FizzBuzz'\\n    elif n % 3 == 0:\\n        return 'Fizz'\\n    elif n % 5 == 0:\\n        return 'Buzz'\\n    else:\\n        return str(n)\\n\"}",
+   "output": "wrote 195 chars to fizz.py",
+   "error": false
+  },
+  {
+   "name": "pytest_run",
+   "args": {
+    "args": ""
+   },
+   "raw_args": "{\"args\": \"\"}",
+   "output": "....                                                                     [100%]\n4 passed in 0.02s\n",
+   "error": false
+  }
+ ],
+ "final_text": "TASK COMPLETE",
+ "repeat_degeneracy": "workspace declares temperature 0 \u2014 repeats are deterministic",
+ "model": "granite4.1:8b-ctx8k",
+ "overrides": {},
+ "sampling_undelivered": []
+}

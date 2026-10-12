@@ -1,0 +1,226 @@
+{
+ "schema": "wfe-result-2",
+ "run_id": "auto-coding::fast-repair|kat-coder-v2.5-dev:Q4_K_M-ctx32k|coding|code-kv|r2",
+ "campaign_id": "wfe_prompt_surface_rebaseline_20261012",
+ "stage": "full",
+ "workspace": "auto-coding::fast-repair",
+ "arm": "kat-coder-v2.5-dev:Q4_K_M-ctx32k",
+ "arm_role": "incumbent",
+ "suite": "coding",
+ "task_id": "code-kv",
+ "repeat": 2,
+ "outcome": "PASS",
+ "notes": "hidden-suite code_kv: passed=7 failed=0 errors=0 min_passed=7 :: 7 passed in 0.02s",
+ "evidence": {
+  "pytest_tail": ".......                                                                  [100%]\n7 passed in 0.02s\n"
+ },
+ "persona_slug": "agenticheavy",
+ "prompt_sha": "759e6f0279e5",
+ "tool_surface": [
+  "file_read",
+  "file_list",
+  "repo_search",
+  "pytest_run",
+  "file_write",
+  "http_get"
+ ],
+ "tool_surface_proxy": true,
+ "harness": {
+  "endpoint": "v1",
+  "stream": false,
+  "think": "native",
+  "format": "none"
+ },
+ "sampling": {
+  "max_tokens": 16384,
+  "temperature": 1.0,
+  "top_p": 0.95,
+  "top_k": 20,
+  "min_p": 0.05,
+  "repeat_penalty": 1.05,
+  "max_tokens_source": "predict_limit",
+  "seed": 1002
+ },
+ "baked_params": {
+  "num_ctx": 32768
+ },
+ "seed": 1002,
+ "turns": 4,
+ "tool_calls": 9,
+ "tool_errors": 0,
+ "finish_reason": "stop",
+ "economics": {
+  "prompt_tokens": 10684,
+  "completion_tokens": 1808,
+  "total_tokens": 12492,
+  "load_ms": 57,
+  "wall_s": 37.7,
+  "cold_load": false
+ },
+ "env": {
+  "git_sha": "2c2fd0cd",
+  "ollama_version": "0.40.0",
+  "python": "3.13.12",
+  "platform": "macOS-27.0.1-arm64-arm-64bit-Mach-O",
+  "fingerprint": "a5d8d95e71f9"
+ },
+ "final_text_head": "TASK COMPLETE",
+ "transcript": [
+  {
+   "turn": 0,
+   "content": "",
+   "tool_calls": [
+    {
+     "name": "file_write",
+     "args_raw": "{\"path\": \"parse_kv.py\", \"content\": \"def parse_kv(s):\\n    if not s:\\n        return {}\\n    pairs = s.split(';')\\n    result = {}\\n    for pair in pairs:\\n        pair = pair.strip()\\n        if not pair:\\n            continue\\n        idx = pair.find('=')\\n        if idx == -1:\\n            continue\\n        key = pair[:idx].strip()\\n        value = pair[idx + 1:].strip()\\n        # unescape backslash-escaped semicolons in the value\\n        value = value.replace('\\\\\\\\;', ';')\\n        result[k"
+    },
+    {
+     "name": "file_write",
+     "args_raw": "{\"path\": \"test_parse_kv.py\", \"content\": \"from parse_kv import parse_kv\\n\\n\\ndef test_empty_string():\\n    assert parse_kv(\\\"\\\") == {}\\n\\n\\ndef test_single_pair():\\n    assert parse_kv(\\\"key1=value1\\\") == {\\\"key1\\\": \\\"value1\\\"}\\n\\n\\ndef test_multiple_pairs():\\n    assert parse_kv(\\\"key1=value1; key2=value2\\\") == {\\\"key1\\\": \\\"value1\\\", \\\"key2\\\": \\\"value2\\\"}\\n\\n\\ndef test_whitespace_trimmed():\\n    assert parse_kv(\\\"  key1  =  value1  ;  key2  =  value2  \\\") == {\\\"key1\\\": \\\"value1\\\", \\\"key2\\\": \\\"va"
+    }
+   ],
+   "reasoning_chars": 75
+  },
+  {
+   "turn": 1,
+   "content": "",
+   "tool_calls": [
+    {
+     "name": "pytest_run",
+     "args_raw": "{\"args\": \"test_parse_kv.py -v\"}"
+    },
+    {
+     "name": "pytest_run",
+     "args_raw": "{\"args\": \"test_parse_kv.py -v\"}"
+    }
+   ],
+   "reasoning_chars": 33
+  },
+  {
+   "turn": 2,
+   "content": "The issue is that I'm splitting on `;` before handling escaped semicolons. I need to parse smarter \u2014 only splitting on unescaped semicolons.\n\n",
+   "tool_calls": [
+    {
+     "name": "file_write",
+     "args_raw": "{\"path\": \"parse_kv.py\", \"content\": \"def parse_kv(s):\\n    if not s:\\n        return {}\\n    pairs = []\\n    current = []\\n    i = 0\\n    while i < len(s):\\n        ch = s[i]\\n        if ch == '\\\\\\\\' and i + 1 < len(s) and s[i + 1] == ';':\\n            current.append(';')\\n            i += 2\\n        elif ch == ';':\\n            pairs.append(''.join(current))\\n            current = []\\n            i += 1\\n        else:\\n            current.append(ch)\\n            i += 1\\n    pairs.append(''.join("
+    },
+    {
+     "name": "pytest_run",
+     "args_raw": "{\"args\": \"test_parse_kv.py -v\"}"
+    },
+    {
+     "name": "file_write",
+     "args_raw": "{\"path\": \"parse_kv.py\", \"content\": \"def parse_kv(s):\\n    if not s:\\n        return {}\\n    pairs = []\\n    current = []\\n    i = 0\\n    while i < len(s):\\n        ch = s[i]\\n        if ch == '\\\\\\\\' and i + 1 < len(s) and s[i + 1] == ';':\\n            current.append(';')\\n            i += 2\\n        elif ch == ';':\\n            pairs.append(''.join(current))\\n            current = []\\n            i += 1\\n        else:\\n            current.append(ch)\\n            i += 1\\n    pairs.append(''.join("
+    },
+    {
+     "name": "file_write",
+     "args_raw": "{\"path\": \"test_parse_kv.py\", \"content\": \"from parse_kv import parse_kv\\n\\n\\ndef test_empty_string():\\n    assert parse_kv(\\\"\\\") == {}\\n\\n\\ndef test_single_pair():\\n    assert parse_kv(\\\"key1=value1\\\") == {\\\"key1\\\": \\\"value1\\\"}\\n\\n\\ndef test_multiple_pairs():\\n    assert parse_kv(\\\"key1=value1; key2=value2\\\") == {\\\"key1\\\": \\\"value1\\\", \\\"key2\\\": \\\"value2\\\"}\\n\\n\\ndef test_whitespace_trimmed():\\n    assert parse_kv(\\\"  key1  =  value1  ;  key2  =  value2  \\\") == {\\\"key1\\\": \\\"value1\\\", \\\"key2\\\": \\\"va"
+    },
+    {
+     "name": "pytest_run",
+     "args_raw": "{\"args\": \"test_parse_kv.py -v\"}"
+    }
+   ],
+   "reasoning_chars": 854
+  },
+  {
+   "turn": 3,
+   "content": "TASK COMPLETE",
+   "tool_calls": [],
+   "reasoning_chars": 51
+  }
+ ],
+ "tool_call_log": [
+  {
+   "name": "file_write",
+   "args": {
+    "path": "parse_kv.py",
+    "content": "def parse_kv(s):\n    if not s:\n        return {}\n    pairs = s.split(';')\n    result = {}\n    for pair in pairs:\n        pair = pair.strip()\n        if not pair:\n            continue\n        idx = pair.find('=')\n        if idx == -1:\n            continue\n        key = pair[:idx].strip()\n        value = pair[idx + 1:].strip()\n        # unescape backslash-escaped semicolons in the value\n        value = value.replace('\\\\;', ';')\n        result[key] = value\n    return result\n"
+   },
+   "raw_args": "{\"path\": \"parse_kv.py\", \"content\": \"def parse_kv(s):\\n    if not s:\\n        return {}\\n    pairs = s.split(';')\\n    result = {}\\n    for pair in pairs:\\n        pair = pair.strip()\\n        if not pair:\\n            continue\\n        idx = pair.find('=')\\n        if idx == -1:\\n            continue\\n        key = pair[:idx].strip()\\n        value = pair[idx + 1:].strip()\\n        # unescape backslash-escaped semicolons in the value\\n        value = value.replace('\\\\\\\\;', ';')\\n        result[k",
+   "output": "wrote 476 chars to parse_kv.py",
+   "error": false
+  },
+  {
+   "name": "file_write",
+   "args": {
+    "path": "test_parse_kv.py",
+    "content": "from parse_kv import parse_kv\n\n\ndef test_empty_string():\n    assert parse_kv(\"\") == {}\n\n\ndef test_single_pair():\n    assert parse_kv(\"key1=value1\") == {\"key1\": \"value1\"}\n\n\ndef test_multiple_pairs():\n    assert parse_kv(\"key1=value1; key2=value2\") == {\"key1\": \"value1\", \"key2\": \"value2\"}\n\n\ndef test_whitespace_trimmed():\n    assert parse_kv(\"  key1  =  value1  ;  key2  =  value2  \") == {\"key1\": \"value1\", \"key2\": \"value2\"}\n\n\ndef test_escaped_semicolon():\n    assert parse_kv(\"key=hello\\\\;world\") == {\"key\": \"hello;world\"}\n\n\ndef test_escaped_semicolon_with_multiple_pairs():\n    assert parse_kv(\"a=1; b=x\\\\;y; c=3\") == {\"a\": \"1\", \"b\": \"x;y\", \"c\": \"3\"}\n\n\ndef test_value_with_equals():\n    assert parse_kv(\"key=a=b\") == {\"key\": \"a=b\"}\n\n\ndef test_multiple_escaped_semicolons():\n    assert parse_kv(\"key=a\\\\;b\\\\;c\") == {\"key\": \"a;b;c\"}\n\n\ndef test_empty_key():\n    assert parse_kv(\"=value\") == {\"\": \"value\"}\n\n\ndef test_empty_value():\n    assert parse_kv(\"key=\") == {\"key\": \"\"}\n"
+   },
+   "raw_args": "{\"path\": \"test_parse_kv.py\", \"content\": \"from parse_kv import parse_kv\\n\\n\\ndef test_empty_string():\\n    assert parse_kv(\\\"\\\") == {}\\n\\n\\ndef test_single_pair():\\n    assert parse_kv(\\\"key1=value1\\\") == {\\\"key1\\\": \\\"value1\\\"}\\n\\n\\ndef test_multiple_pairs():\\n    assert parse_kv(\\\"key1=value1; key2=value2\\\") == {\\\"key1\\\": \\\"value1\\\", \\\"key2\\\": \\\"value2\\\"}\\n\\n\\ndef test_whitespace_trimmed():\\n    assert parse_kv(\\\"  key1  =  value1  ;  key2  =  value2  \\\") == {\\\"key1\\\": \\\"value1\\\", \\\"key2\\\": \\\"va",
+   "output": "wrote 971 chars to test_parse_kv.py",
+   "error": false
+  },
+  {
+   "name": "pytest_run",
+   "args": {
+    "args": "test_parse_kv.py -v"
+   },
+   "raw_args": "{\"args\": \"test_parse_kv.py -v\"}",
+   "output": "============================= test session starts ==============================\nplatform darwin -- Python 3.13.12, pytest-9.0.3, pluggy-1.6.0\nrootdir: /private/tmp/wfe/wfe_prompt_surface_rebaseline_20261012/a1c85df409cb/code-kv__r2\nplugins: cov-7.1.0, Faker-40.38.0, xdist-3.8.0, asyncio-1.3.0, anyio-4.15.1\nasyncio: mode=Mode.STRICT, debug=False, asyncio_default_fixture_loop_scope=None, asyncio_default_test_loop_scope=function\ncollected 10 items\n\ntest_parse_kv.py ....FF.F..                                              [100%]\n\n=================================== FAILURES ===================================\n____________________________ test_escaped_semicolon ____________________________\n\n    def test_escaped_semicolon():\n>       assert parse_kv(\"key=hello\\\\;world\") == {\"key\": \"hello;world\"}\nE       AssertionError: assert {'key': 'hello\\\\'} == {'key': 'hello;world'}\nE         \nE         Differing items:\nE         {'key': 'hello\\\\'} != {'key': 'hello;world'}\nE         Use -v to get more diff\n\ntest_parse_kv.py:21: AssertionError\n__________________ test_escaped_semicolon_with_multiple_pairs __________________\n\n    def test_escaped_semicolon_with_multiple_pairs():\n>       assert parse_kv(\"a=1; b=x\\\\;y; c=3\") == {\"a\": \"1\", \"b\": \"x;y\", \"c\": \"3\"}\nE       AssertionError: assert {'a': '1', 'b...\\\\', 'c': '3'} == {'a': '1', 'b...;y', 'c': '3'}\nE         \nE         Omitting 2 identical items, use -vv to show\nE         Differing items:\nE         {'b': 'x\\\\'} != {'b': 'x;y'}\nE         Use -v to get more diff\n\ntest_parse_kv.py:25: AssertionError\n_______________________ test_multiple_escaped_semicolons _______________________\n\n    def test_multiple_escaped_semicolons():\n>       assert parse_kv(\"key=a\\\\;b\\\\;c\") == {\"key\": \"a;b;c\"}\nE       AssertionError: assert {'key': 'a\\\\'} == {'key': 'a;b;c'}\nE         \nE         Differing items:\nE         {'key': 'a\\\\'} != {'key': 'a;b;c'}\nE         Use -v to get more diff\n\ntest_parse_kv.py:33: AssertionError\n=========================== short test summary info ============================\nFAILED test_parse_kv.py::test_escaped_semicolon - AssertionError: assert {'ke...\nFAILED test_parse_kv.py::test_escaped_semicolon_with_multiple_pairs - Asserti...\nFAILED test_parse_kv.py::test_multiple_escaped_semicolons - AssertionError: a...\n========================= 3 failed, 7 passed in 0.03s ==========================\n",
+   "error": false
+  },
+  {
+   "name": "pytest_run",
+   "args": {
+    "args": "test_parse_kv.py -v"
+   },
+   "raw_args": "{\"args\": \"test_parse_kv.py -v\"}",
+   "output": "============================= test session starts ==============================\nplatform darwin -- Python 3.13.12, pytest-9.0.3, pluggy-1.6.0\nrootdir: /private/tmp/wfe/wfe_prompt_surface_rebaseline_20261012/a1c85df409cb/code-kv__r2\nplugins: cov-7.1.0, Faker-40.38.0, xdist-3.8.0, asyncio-1.3.0, anyio-4.15.1\nasyncio: mode=Mode.STRICT, debug=False, asyncio_default_fixture_loop_scope=None, asyncio_default_test_loop_scope=function\ncollected 10 items\n\ntest_parse_kv.py ....FF.F..                                              [100%]\n\n=================================== FAILURES ===================================\n____________________________ test_escaped_semicolon ____________________________\n\n    def test_escaped_semicolon():\n>       assert parse_kv(\"key=hello\\\\;world\") == {\"key\": \"hello;world\"}\nE       AssertionError: assert {'key': 'hello\\\\'} == {'key': 'hello;world'}\nE         \nE         Differing items:\nE         {'key': 'hello\\\\'} != {'key': 'hello;world'}\nE         Use -v to get more diff\n\ntest_parse_kv.py:21: AssertionError\n__________________ test_escaped_semicolon_with_multiple_pairs __________________\n\n    def test_escaped_semicolon_with_multiple_pairs():\n>       assert parse_kv(\"a=1; b=x\\\\;y; c=3\") == {\"a\": \"1\", \"b\": \"x;y\", \"c\": \"3\"}\nE       AssertionError: assert {'a': '1', 'b...\\\\', 'c': '3'} == {'a': '1', 'b...;y', 'c': '3'}\nE         \nE         Omitting 2 identical items, use -vv to show\nE         Differing items:\nE         {'b': 'x\\\\'} != {'b': 'x;y'}\nE         Use -v to get more diff\n\ntest_parse_kv.py:25: AssertionError\n_______________________ test_multiple_escaped_semicolons _______________________\n\n    def test_multiple_escaped_semicolons():\n>       assert parse_kv(\"key=a\\\\;b\\\\;c\") == {\"key\": \"a;b;c\"}\nE       AssertionError: assert {'key': 'a\\\\'} == {'key': 'a;b;c'}\nE         \nE         Differing items:\nE         {'key': 'a\\\\'} != {'key': 'a;b;c'}\nE         Use -v to get more diff\n\ntest_parse_kv.py:33: AssertionError\n=========================== short test summary info ============================\nFAILED test_parse_kv.py::test_escaped_semicolon - AssertionError: assert {'ke...\nFAILED test_parse_kv.py::test_escaped_semicolon_with_multiple_pairs - Asserti...\nFAILED test_parse_kv.py::test_multiple_escaped_semicolons - AssertionError: a...\n========================= 3 failed, 7 passed in 0.03s ==========================\n",
+   "error": false
+  },
+  {
+   "name": "file_write",
+   "args": {
+    "path": "parse_kv.py",
+    "content": "def parse_kv(s):\n    if not s:\n        return {}\n    pairs = []\n    current = []\n    i = 0\n    while i < len(s):\n        ch = s[i]\n        if ch == '\\\\' and i + 1 < len(s) and s[i + 1] == ';':\n            current.append(';')\n            i += 2\n        elif ch == ';':\n            pairs.append(''.join(current))\n            current = []\n            i += 1\n        else:\n            current.append(ch)\n            i += 1\n    pairs.append(''.join(current))\n\n    result = {}\n    for pair in pairs:\n        pair = pair.strip()\n        if not pair:\n            continue\n        idx = pair.find('=')\n        if idx == -1:\n            continue\n        key = pair[:idx].strip()\n        value = pair[idx + 1:].strip()\n        result[key] = value\n    return result\n"
+   },
+   "raw_args": "{\"path\": \"parse_kv.py\", \"content\": \"def parse_kv(s):\\n    if not s:\\n        return {}\\n    pairs = []\\n    current = []\\n    i = 0\\n    while i < len(s):\\n        ch = s[i]\\n        if ch == '\\\\\\\\' and i + 1 < len(s) and s[i + 1] == ';':\\n            current.append(';')\\n            i += 2\\n        elif ch == ';':\\n            pairs.append(''.join(current))\\n            current = []\\n            i += 1\\n        else:\\n            current.append(ch)\\n            i += 1\\n    pairs.append(''.join(",
+   "output": "wrote 754 chars to parse_kv.py",
+   "error": false
+  },
+  {
+   "name": "pytest_run",
+   "args": {
+    "args": "test_parse_kv.py -v"
+   },
+   "raw_args": "{\"args\": \"test_parse_kv.py -v\"}",
+   "output": "============================= test session starts ==============================\nplatform darwin -- Python 3.13.12, pytest-9.0.3, pluggy-1.6.0\nrootdir: /private/tmp/wfe/wfe_prompt_surface_rebaseline_20261012/a1c85df409cb/code-kv__r2\nplugins: cov-7.1.0, Faker-40.38.0, xdist-3.8.0, asyncio-1.3.0, anyio-4.15.1\nasyncio: mode=Mode.STRICT, debug=False, asyncio_default_fixture_loop_scope=None, asyncio_default_test_loop_scope=function\ncollected 10 items\n\ntest_parse_kv.py ..........                                              [100%]\n\n============================== 10 passed in 0.02s ==============================\n",
+   "error": false
+  },
+  {
+   "name": "file_write",
+   "args": {
+    "path": "parse_kv.py",
+    "content": "def parse_kv(s):\n    if not s:\n        return {}\n    pairs = []\n    current = []\n    i = 0\n    while i < len(s):\n        ch = s[i]\n        if ch == '\\\\' and i + 1 < len(s) and s[i + 1] == ';':\n            current.append(';')\n            i += 2\n        elif ch == ';':\n            pairs.append(''.join(current))\n            current = []\n            i += 1\n        else:\n            current.append(ch)\n            i += 1\n    pairs.append(''.join(current))\n\n    result = {}\n    for pair in pairs:\n        pair = pair.strip()\n        if not pair:\n            continue\n        idx = pair.find('=')\n        if idx == -1:\n            continue\n        key = pair[:idx].strip()\n        value = pair[idx + 1:].strip()\n        result[key] = value\n    return result\n"
+   },
+   "raw_args": "{\"path\": \"parse_kv.py\", \"content\": \"def parse_kv(s):\\n    if not s:\\n        return {}\\n    pairs = []\\n    current = []\\n    i = 0\\n    while i < len(s):\\n        ch = s[i]\\n        if ch == '\\\\\\\\' and i + 1 < len(s) and s[i + 1] == ';':\\n            current.append(';')\\n            i += 2\\n        elif ch == ';':\\n            pairs.append(''.join(current))\\n            current = []\\n            i += 1\\n        else:\\n            current.append(ch)\\n            i += 1\\n    pairs.append(''.join(",
+   "output": "wrote 754 chars to parse_kv.py",
+   "error": false
+  },
+  {
+   "name": "file_write",
+   "args": {
+    "path": "test_parse_kv.py",
+    "content": "from parse_kv import parse_kv\n\n\ndef test_empty_string():\n    assert parse_kv(\"\") == {}\n\n\ndef test_single_pair():\n    assert parse_kv(\"key1=value1\") == {\"key1\": \"value1\"}\n\n\ndef test_multiple_pairs():\n    assert parse_kv(\"key1=value1; key2=value2\") == {\"key1\": \"value1\", \"key2\": \"value2\"}\n\n\ndef test_whitespace_trimmed():\n    assert parse_kv(\"  key1  =  value1  ;  key2  =  value2  \") == {\"key1\": \"value1\", \"key2\": \"value2\"}\n\n\ndef test_escaped_semicolon():\n    assert parse_kv(\"key=hello\\\\;world\") == {\"key\": \"hello;world\"}\n\n\ndef test_escaped_semicolon_with_multiple_pairs():\n    assert parse_kv(\"a=1; b=x\\\\;y; c=3\") == {\"a\": \"1\", \"b\": \"x;y\", \"c\": \"3\"}\n\n\ndef test_value_with_equals():\n    assert parse_kv(\"key=a=b\") == {\"key\": \"a=b\"}\n\n\ndef test_multiple_escaped_semicolons():\n    assert parse_kv(\"key=a\\\\;b\\\\;c\") == {\"key\": \"a;b;c\"}\n\n\ndef test_empty_key():\n    assert parse_kv(\"=value\") == {\"\": \"value\"}\n\n\ndef test_empty_value():\n    assert parse_kv(\"key=\") == {\"key\": \"\"}\n"
+   },
+   "raw_args": "{\"path\": \"test_parse_kv.py\", \"content\": \"from parse_kv import parse_kv\\n\\n\\ndef test_empty_string():\\n    assert parse_kv(\\\"\\\") == {}\\n\\n\\ndef test_single_pair():\\n    assert parse_kv(\\\"key1=value1\\\") == {\\\"key1\\\": \\\"value1\\\"}\\n\\n\\ndef test_multiple_pairs():\\n    assert parse_kv(\\\"key1=value1; key2=value2\\\") == {\\\"key1\\\": \\\"value1\\\", \\\"key2\\\": \\\"value2\\\"}\\n\\n\\ndef test_whitespace_trimmed():\\n    assert parse_kv(\\\"  key1  =  value1  ;  key2  =  value2  \\\") == {\\\"key1\\\": \\\"value1\\\", \\\"key2\\\": \\\"va",
+   "output": "wrote 971 chars to test_parse_kv.py",
+   "error": false
+  },
+  {
+   "name": "pytest_run",
+   "args": {
+    "args": "test_parse_kv.py -v"
+   },
+   "raw_args": "{\"args\": \"test_parse_kv.py -v\"}",
+   "output": "============================= test session starts ==============================\nplatform darwin -- Python 3.13.12, pytest-9.0.3, pluggy-1.6.0\nrootdir: /private/tmp/wfe/wfe_prompt_surface_rebaseline_20261012/a1c85df409cb/code-kv__r2\nplugins: cov-7.1.0, Faker-40.38.0, xdist-3.8.0, asyncio-1.3.0, anyio-4.15.1\nasyncio: mode=Mode.STRICT, debug=False, asyncio_default_fixture_loop_scope=None, asyncio_default_test_loop_scope=function\ncollected 10 items\n\ntest_parse_kv.py ..........                                              [100%]\n\n============================== 10 passed in 0.02s ==============================\n",
+   "error": false
+  }
+ ],
+ "final_text": "TASK COMPLETE",
+ "repeat_degeneracy": null,
+ "model": "kat-coder-v2.5-dev:Q4_K_M-ctx32k",
+ "overrides": {},
+ "sampling_undelivered": []
+}

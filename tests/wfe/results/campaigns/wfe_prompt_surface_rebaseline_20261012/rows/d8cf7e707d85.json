@@ -1,0 +1,107 @@
+{
+ "schema": "wfe-result-2",
+ "run_id": "tools-specialist::fast|gemma4:e4b-it-qat-ctx8k|coding|code-cli-args|r2",
+ "campaign_id": "wfe_prompt_surface_rebaseline_20261012",
+ "stage": "full",
+ "workspace": "tools-specialist::fast",
+ "arm": "gemma4:e4b-it-qat-ctx8k",
+ "arm_role": "incumbent",
+ "suite": "coding",
+ "task_id": "code-cli-args",
+ "repeat": 2,
+ "outcome": "PASS",
+ "notes": "sandbox file summarize.py exists=True | patterns matched=True",
+ "evidence": {
+  "completion_signal_missing": true
+ },
+ "persona_slug": "toolcomposer",
+ "prompt_sha": "fd7ea9c40629",
+ "tool_surface": [
+  "file_read",
+  "file_list",
+  "repo_search",
+  "pytest_run",
+  "file_write",
+  "http_get"
+ ],
+ "tool_surface_proxy": true,
+ "harness": {
+  "endpoint": "v1",
+  "stream": false,
+  "think": "native",
+  "format": "none"
+ },
+ "sampling": {
+  "max_tokens": 32768,
+  "temperature": 1.0,
+  "top_p": 0.95,
+  "top_k": 64,
+  "repeat_penalty": 1.0,
+  "max_tokens_source": "harness_runaway_cap",
+  "seed": 1002
+ },
+ "baked_params": {
+  "top_p": 0.95,
+  "num_ctx": 8192,
+  "temperature": 1,
+  "top_k": 64
+ },
+ "seed": 1002,
+ "turns": 2,
+ "tool_calls": 1,
+ "tool_errors": 0,
+ "finish_reason": "stop",
+ "economics": {
+  "prompt_tokens": 2040,
+  "completion_tokens": 895,
+  "total_tokens": 2935,
+  "load_ms": 10,
+  "wall_s": 16.5,
+  "cold_load": false
+ },
+ "env": {
+  "git_sha": "2c2fd0cd",
+  "ollama_version": "0.40.0",
+  "python": "3.13.12",
+  "platform": "macOS-27.0.1-arm64-arm-64bit-Mach-O",
+  "fingerprint": "a5d8d95e71f9"
+ },
+ "final_text_head": "The `summarize.py` script has been successfully created. The next step is to write corresponding tests to ensure the function meets the requirements and then run `pytest` until the tests pass.\n\n1. Write `test_summarize.py`.\n2. Run `pytest`.\n3. Repeat until the test suite is green.",
+ "transcript": [
+  {
+   "turn": 0,
+   "content": "",
+   "tool_calls": [
+    {
+     "name": "file_write",
+     "args_raw": "{\"content\": \"def summarize(rows):\\n    \\\"\\\"\\\"\\n    Summarizes revenue by region from a list of row dictionaries.\\n\\n    Args:\\n        rows (list): A list of dictionaries, each containing 'region' and 'revenue'.\\n                     'revenue' can be a numeric type or a numeric string.\\n\\n    Returns:\\n        dict: A dictionary mapping region (str) to total revenue (float).\\n    \\\"\\\"\\\"\\n    summary = {}\\n    for row in rows:\\n        region = row.get('region')\\n        revenue_raw = row.get('re"
+    }
+   ],
+   "reasoning_chars": 1680
+  },
+  {
+   "turn": 1,
+   "content": "The `summarize.py` script has been successfully created. The next step is to write corresponding tests to ensure the function meets the requirements and then run `pytest` until the tests pass.\n\n1. Write `test_summarize.py`.\n2. Run `pytest`.\n3. Repeat until the test suite is green.",
+   "tool_calls": [],
+   "reasoning_chars": 466,
+   "completion_signal_missing": true
+  }
+ ],
+ "tool_call_log": [
+  {
+   "name": "file_write",
+   "args": {
+    "content": "def summarize(rows):\n    \"\"\"\n    Summarizes revenue by region from a list of row dictionaries.\n\n    Args:\n        rows (list): A list of dictionaries, each containing 'region' and 'revenue'.\n                     'revenue' can be a numeric type or a numeric string.\n\n    Returns:\n        dict: A dictionary mapping region (str) to total revenue (float).\n    \"\"\"\n    summary = {}\n    for row in rows:\n        region = row.get('region')\n        revenue_raw = row.get('revenue')\n        \n        # Ignore rows missing required keys\n        if region is None or revenue_raw is None:\n            continue\n            \n        try:\n            # Attempt to convert revenue to float\n            revenue = float(revenue_raw)\n        except (ValueError, TypeError):\n            # Ignore rows with unparseable revenue\n            continue\n        \n        # Aggregate revenue by region\n        summary[region] = summary.get(region, 0.0) + revenue\n            \n    return summary",
+    "path": "summarize.py"
+   },
+   "raw_args": "{\"content\": \"def summarize(rows):\\n    \\\"\\\"\\\"\\n    Summarizes revenue by region from a list of row dictionaries.\\n\\n    Args:\\n        rows (list): A list of dictionaries, each containing 'region' and 'revenue'.\\n                     'revenue' can be a numeric type or a numeric string.\\n\\n    Returns:\\n        dict: A dictionary mapping region (str) to total revenue (float).\\n    \\\"\\\"\\\"\\n    summary = {}\\n    for row in rows:\\n        region = row.get('region')\\n        revenue_raw = row.get('re",
+   "output": "wrote 967 chars to summarize.py",
+   "error": false
+  }
+ ],
+ "final_text": "The `summarize.py` script has been successfully created. The next step is to write corresponding tests to ensure the function meets the requirements and then run `pytest` until the tests pass.\n\n1. Write `test_summarize.py`.\n2. Run `pytest`.\n3. Repeat until the test suite is green.",
+ "repeat_degeneracy": null,
+ "model": "gemma4:e4b-it-qat-ctx8k",
+ "overrides": {},
+ "sampling_undelivered": []
+}

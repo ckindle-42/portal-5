@@ -1,0 +1,98 @@
+{
+ "schema": "wfe-result-2",
+ "run_id": "auto-research|hf.co/sjakek/Nex-N2-mini-GGUF:UD-Q4_K_M-ctx16k|research|res-ollama-ctx|r0",
+ "campaign_id": "wfe_prompt_surface_rebaseline_20261012",
+ "stage": "full",
+ "workspace": "auto-research",
+ "arm": "hf.co/sjakek/Nex-N2-mini-GGUF:UD-Q4_K_M-ctx16k",
+ "arm_role": "incumbent",
+ "suite": "research",
+ "task_id": "res-ollama-ctx",
+ "repeat": 0,
+ "outcome": "PASS",
+ "notes": "answer patterns matched",
+ "evidence": {},
+ "persona_slug": "factchecker",
+ "prompt_sha": "765fa5367f7d",
+ "tool_surface": [
+  "file_read",
+  "file_list",
+  "repo_search",
+  "pytest_run",
+  "file_write",
+  "http_get"
+ ],
+ "tool_surface_proxy": true,
+ "harness": {
+  "endpoint": "v1",
+  "stream": false,
+  "think": "native",
+  "format": "none"
+ },
+ "sampling": {
+  "max_tokens": 16384,
+  "temperature": 0.7,
+  "top_p": 0.95,
+  "top_k": 40,
+  "min_p": 0.02,
+  "max_tokens_source": "predict_limit",
+  "seed": 1000
+ },
+ "baked_params": {
+  "num_ctx": 16384
+ },
+ "seed": 1000,
+ "turns": 2,
+ "tool_calls": 1,
+ "tool_errors": 0,
+ "finish_reason": "stop",
+ "economics": {
+  "prompt_tokens": 2462,
+  "completion_tokens": 196,
+  "total_tokens": 2658,
+  "load_ms": 10,
+  "wall_s": 4.4,
+  "cold_load": false
+ },
+ "env": {
+  "git_sha": "2c2fd0cd",
+  "ollama_version": "0.40.0",
+  "python": "3.13.12",
+  "platform": "macOS-27.0.1-arm64-arm-64bit-Mach-O",
+  "fingerprint": "a5d8d95e71f9"
+ },
+ "final_text_head": "In Ollama\u2019s OpenAI-compatible API endpoint `/v1/chat/completions`, a request-time `num_ctx` is ignored because the endpoint\u2019s OpenAI request schema has no field for context length.\n\nDocumented workaround: create a `Modelfile` that pins the desired context window, for example:\n\n```dockerfile\nFROM <base-model>\nPARAMETER num_ctx 32768\n```\n\nThen run:\n\n```bash\nollama create mymodel -f Modelfile\n```\n\nand call the API using `\"mymodel\"` instead of the base model name. The derived model shares the original weights and always serves requests at the pinned context length.\n\nExact file path: `ollama_num_ct",
+ "transcript": [
+  {
+   "turn": 0,
+   "content": "",
+   "tool_calls": [
+    {
+     "name": "file_read",
+     "args_raw": "{\"path\": \"ollama_num_ctx_notes.md\"}"
+    }
+   ]
+  },
+  {
+   "turn": 1,
+   "content": "In Ollama\u2019s OpenAI-compatible API endpoint `/v1/chat/completions`, a request-time `num_ctx` is ignored because the endpoint\u2019s OpenAI request schema has no field for context length.\n\nDocumented workaround: create a `Modelfile` that pins the desired context window, for example:\n\n```dockerfile\nFROM <base-model>\nPARAMETER num_ctx 32768\n```\n\nThen run:\n\n```bash\nollama create mymodel -f Modelfile\n```\n\nand call the API using `\"mymodel\"` instead of the base model name. The derived model shares the original weights and always serves requests at the pinned context length.\n\nExact file path: `ollama_num_ctx_notes.md`\n\nRESEARCH COMPLETE",
+   "tool_calls": []
+  }
+ ],
+ "tool_call_log": [
+  {
+   "name": "file_read",
+   "args": {
+    "path": "ollama_num_ctx_notes.md"
+   },
+   "raw_args": "{\"path\": \"ollama_num_ctx_notes.md\"}",
+   "output": "# Ollama /v1/chat/completions and num_ctx (fixture, verified 2026-09-11)\n\nOllama's OpenAI-compatible endpoint (/v1/chat/completions) has no field in\nthe OpenAI request schema for context length, so a request-time num_ctx is\nignored on that endpoint. This has been an open request since 2024; no PR\nadding it has landed.\n\nDocumented workaround: create a Modelfile that pins the desired window,\ne.g.:\n\n    FROM <base-model>\n    PARAMETER num_ctx 32768\n\nthen run `ollama create mymodel -f Modelfile` and call the API using\n\"mymodel\" instead of the base model name. The derived model shares the\noriginal weights (no extra disk cost) and always serves requests at the\npinned context length.\n",
+   "error": false
+  }
+ ],
+ "final_text": "In Ollama\u2019s OpenAI-compatible API endpoint `/v1/chat/completions`, a request-time `num_ctx` is ignored because the endpoint\u2019s OpenAI request schema has no field for context length.\n\nDocumented workaround: create a `Modelfile` that pins the desired context window, for example:\n\n```dockerfile\nFROM <base-model>\nPARAMETER num_ctx 32768\n```\n\nThen run:\n\n```bash\nollama create mymodel -f Modelfile\n```\n\nand call the API using `\"mymodel\"` instead of the base model name. The derived model shares the original weights and always serves requests at the pinned context length.\n\nExact file path: `ollama_num_ctx_notes.md`\n\nRESEARCH COMPLETE",
+ "repeat_degeneracy": null,
+ "model": "hf.co/sjakek/Nex-N2-mini-GGUF:UD-Q4_K_M-ctx16k",
+ "overrides": {},
+ "sampling_undelivered": []
+}

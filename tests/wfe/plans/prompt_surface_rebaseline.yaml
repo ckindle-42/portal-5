@@ -1,0 +1,48 @@
+# Post-fix incumbent baseline for TASK_WFE_PROMPT_SURFACE_REBASELINE_V1.
+# Affected workspaces are derived from workspace_context(ws)["harness_note"]
+# across tests/wfe/workloads.yaml and tests/wfe/plans/*.yaml at HEAD 2c2fd0c.
+# Incumbents only; challengers belong in a later task. Future card-reasoning
+# candidates must also run at card think + sampling settings (R5).
+workloads:
+  auto-compliance:
+    home: compliance_agentic
+    discovery: []
+    arms:
+      incumbent: hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k
+      challengers: []
+  general-deep:
+    home: research
+    discovery: []
+    arms:
+      incumbent: hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx96k
+      challengers: []
+  tools-specialist:
+    home: coding
+    discovery: []
+    arms:
+      incumbent: granite4.1:8b-ctx8k
+      challengers: []
+  tools-specialist::fast:
+    home: coding
+    discovery: []
+    arms:
+      incumbent: gemma4:e4b-it-qat-ctx8k
+      challengers: []
+  auto-research:
+    home: research
+    discovery: []
+    arms:
+      incumbent: hf.co/sjakek/Nex-N2-mini-GGUF:UD-Q4_K_M-ctx16k
+      challengers: []
+  auto-coding::fast-repair:
+    home: coding
+    discovery: []
+    arms:
+      incumbent: kat-coder-v2.5-dev:Q4_K_M-ctx32k
+      challengers: []
+  auto-coding::laguna:
+    home: coding
+    discovery: []
+    arms:
+      incumbent: portal5/laguna-xs21:q4_K_M-ctx128k
+      challengers: []

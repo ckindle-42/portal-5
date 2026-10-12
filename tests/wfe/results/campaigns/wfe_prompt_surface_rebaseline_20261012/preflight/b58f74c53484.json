@@ -1,0 +1,42 @@
+{
+ "model": "portal5/laguna-xs21:q4_K_M-ctx128k",
+ "resolved_think_policy": "false",
+ "card_format_json_safe": null,
+ "notes": [],
+ "api_native": {
+  "content": "",
+  "finish_reason": "length",
+  "caveats": []
+ },
+ "api_strict_json": {
+  "content": "{\"ok\": true}",
+  "finish_reason": "stop",
+  "caveats": []
+ },
+ "stream_nonstream": {
+  "ns": {
+   "content": "",
+   "finish_reason": "length",
+   "caveats": []
+  },
+  "stream": {
+   "content": "",
+   "finish_reason": "length",
+   "caveats": []
+  }
+ },
+ "v1": {
+  "content": "",
+  "finish_reason": "length",
+  "caveats": []
+ },
+ "v1_tools": {
+  "emitted_call": true,
+  "parsed_ok": true,
+  "arg_type": "str",
+  "error": null
+ },
+ "stream_parity": "OK",
+ "findings": [],
+ "verdict": "OK"
+}

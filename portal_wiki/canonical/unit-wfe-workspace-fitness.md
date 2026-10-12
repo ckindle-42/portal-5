@@ -144,17 +144,20 @@ Phase 0; fitness matrix drives disposition decisions.
 
 ## Measurement caveats (added 2026-10-12)
 
-- **Prompt/tool-surface mismatch (fixed 2026-10-12; re-baseline pending).**
+- **Prompt/tool-surface mismatch (fixed and re-baselined 2026-10-12).**
   Persona prompts and `system_prompt_append` name production tools the harness
   does not offer (auto-compliance: `nerc_cip_requirement`, `compliance_ask`, …),
-  and auto-compliance's output taxonomy (Full/Partial/None/Ambiguous) conflicted
-  with the suite's JSON determination labels. `workspace_context` now appends a
-  `WFE HARNESS TOOLS:` note (`tests/wfe/prompt_surface.py` `harness_note`) naming
-  the real surface and giving the user turn's output format precedence; the
-  campaign WARNs if any served prompt still mismatches. Results taken before the
-  fix for auto-compliance, auto-research, general-deep, tools-specialist(::fast)
-  and auto-coding::laguna / ::fast-repair are not comparable with results after
-  it. Re-baseline: operator task TASK_WFE_PROMPT_SURFACE_REBASELINE_V1.
+  and auto-compliance's output taxonomy conflicted with the suite's JSON labels.
+  `workspace_context` now appends the `WFE HARNESS TOOLS:` note from
+  `tests/wfe/prompt_surface.py`, naming the six-tool proxy surface and giving the
+  user turn's output format precedence; the campaign warns if a served prompt
+  still mismatches. The seven affected incumbent workspaces were re-baselined
+  on their home suites at n=3 in
+  `wfe_prompt_surface_rebaseline_20261012` (87 rows, zero prompt/tool-surface
+  warnings). See `docs/WFE_PROMPT_SURFACE_REBASELINE_V1.CLOSEOUT.md` for the
+  before/after table and R6 loop review. Results taken before the prompt fix are
+  not comparable with this campaign; the closeout also records engine/version
+  differences in some historical baselines.
 - **Card-think arms.** A model whose card reasons (think on by default) must
   ALSO be measured at its card think + sampling setting, not only at the lane's
   forced think-off policy. Report both, and attribute "lane fit" (the lane's

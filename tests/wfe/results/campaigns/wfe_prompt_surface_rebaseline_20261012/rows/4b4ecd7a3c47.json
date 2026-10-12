@@ -1,0 +1,98 @@
+{
+ "schema": "wfe-result-2",
+ "run_id": "auto-research|hf.co/sjakek/Nex-N2-mini-GGUF:UD-Q4_K_M-ctx16k|research|res-granite-ctx|r1",
+ "campaign_id": "wfe_prompt_surface_rebaseline_20261012",
+ "stage": "full",
+ "workspace": "auto-research",
+ "arm": "hf.co/sjakek/Nex-N2-mini-GGUF:UD-Q4_K_M-ctx16k",
+ "arm_role": "incumbent",
+ "suite": "research",
+ "task_id": "res-granite-ctx",
+ "repeat": 1,
+ "outcome": "PASS",
+ "notes": "answer patterns matched",
+ "evidence": {},
+ "persona_slug": "factchecker",
+ "prompt_sha": "765fa5367f7d",
+ "tool_surface": [
+  "file_read",
+  "file_list",
+  "repo_search",
+  "pytest_run",
+  "file_write",
+  "http_get"
+ ],
+ "tool_surface_proxy": true,
+ "harness": {
+  "endpoint": "v1",
+  "stream": false,
+  "think": "native",
+  "format": "none"
+ },
+ "sampling": {
+  "max_tokens": 16384,
+  "temperature": 0.7,
+  "top_p": 0.95,
+  "top_k": 40,
+  "min_p": 0.02,
+  "max_tokens_source": "predict_limit",
+  "seed": 1001
+ },
+ "baked_params": {
+  "num_ctx": 16384
+ },
+ "seed": 1001,
+ "turns": 2,
+ "tool_calls": 1,
+ "tool_errors": 0,
+ "finish_reason": "stop",
+ "economics": {
+  "prompt_tokens": 2419,
+  "completion_tokens": 107,
+  "total_tokens": 2526,
+  "load_ms": 8,
+  "wall_s": 2.5,
+  "cold_load": false
+ },
+ "env": {
+  "git_sha": "2c2fd0cd",
+  "ollama_version": "0.40.0",
+  "python": "3.13.12",
+  "platform": "macOS-27.0.1-arm64-arm-64bit-Mach-O",
+  "fingerprint": "a5d8d95e71f9"
+ },
+ "final_text_head": "Quote the file path exactly: `granite_4x_notes.md`\n\n- Context window documented: Granite 4.0 models were trained on sequences up to 512K tokens, with performance validated for context windows up to 128K tokens.\n- Release year: 2025\n\nRESEARCH COMPLETE",
+ "transcript": [
+  {
+   "turn": 0,
+   "content": "",
+   "tool_calls": [
+    {
+     "name": "file_read",
+     "args_raw": "{\"path\": \"granite_4x_notes.md\"}"
+    }
+   ]
+  },
+  {
+   "turn": 1,
+   "content": "Quote the file path exactly: `granite_4x_notes.md`\n\n- Context window documented: Granite 4.0 models were trained on sequences up to 512K tokens, with performance validated for context windows up to 128K tokens.\n- Release year: 2025\n\nRESEARCH COMPLETE",
+   "tool_calls": []
+  }
+ ],
+ "tool_call_log": [
+  {
+   "name": "file_read",
+   "args": {
+    "path": "granite_4x_notes.md"
+   },
+   "raw_args": "{\"path\": \"granite_4x_notes.md\"}",
+   "output": "# IBM Granite 4.0 \u2014 Release & Context Window Notes (fixture, verified 2026-09-11)\n\nThe Granite 4.0 family (Nano, Micro, Tiny, Small) was released by IBM in\nOctober 2025. The Granite 4.0 models were trained on sequences up to 512K\ntokens, and their performance has been validated for context windows up to\n128K tokens.\n\nGranite 4.0 Nano \u2014 the smallest variants, at 350M and roughly 1.5B\nparameters \u2014 followed shortly after the initial October 2025 release,\naimed at running locally, including in-browser.\n",
+   "error": false
+  }
+ ],
+ "final_text": "Quote the file path exactly: `granite_4x_notes.md`\n\n- Context window documented: Granite 4.0 models were trained on sequences up to 512K tokens, with performance validated for context windows up to 128K tokens.\n- Release year: 2025\n\nRESEARCH COMPLETE",
+ "repeat_degeneracy": null,
+ "model": "hf.co/sjakek/Nex-N2-mini-GGUF:UD-Q4_K_M-ctx16k",
+ "overrides": {},
+ "sampling_undelivered": []
+}

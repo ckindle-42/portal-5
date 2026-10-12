@@ -1,0 +1,118 @@
+{
+ "schema": "wfe-result-2",
+ "run_id": "auto-compliance|hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k|compliance_agentic|comp-p6j-06|r0",
+ "campaign_id": "wfe_prompt_surface_rebaseline_20261012",
+ "stage": "full",
+ "workspace": "auto-compliance",
+ "arm": "hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k",
+ "arm_role": "incumbent",
+ "suite": "compliance_agentic",
+ "task_id": "comp-p6j-06",
+ "repeat": 0,
+ "outcome": "REFUSED",
+ "notes": "model refused | answer missing patterns=['\"?determination\"?\\\\s*[:=]\\\\s*\"?ABSENT\\\\b']",
+ "evidence": {},
+ "persona_slug": "cippolicywriter",
+ "prompt_sha": "7f77286c6bb7",
+ "tool_surface": [
+  "file_read",
+  "file_list",
+  "repo_search",
+  "pytest_run",
+  "file_write",
+  "http_get"
+ ],
+ "tool_surface_proxy": true,
+ "harness": {
+  "endpoint": "v1",
+  "stream": false,
+  "think": "false",
+  "format": "none"
+ },
+ "sampling": {
+  "max_tokens": 24576,
+  "temperature": 0.3,
+  "top_p": 0.95,
+  "top_k": 20,
+  "min_p": 0.0,
+  "repeat_penalty": 1.1,
+  "max_tokens_source": "predict_limit",
+  "seed": 1000
+ },
+ "baked_params": {
+  "num_ctx": 32768
+ },
+ "seed": 1000,
+ "turns": 3,
+ "tool_calls": 2,
+ "tool_errors": 0,
+ "finish_reason": "stop",
+ "economics": {
+  "prompt_tokens": 6336,
+  "completion_tokens": 192,
+  "total_tokens": 6528,
+  "load_ms": 40,
+  "wall_s": 17.7,
+  "cold_load": false
+ },
+ "env": {
+  "git_sha": "2c2fd0cd",
+  "ollama_version": "0.40.0",
+  "python": "3.13.12",
+  "platform": "macOS-27.0.1-arm64-arm-64bit-Mach-O",
+  "fingerprint": "a5d8d95e71f9"
+ },
+ "final_text_head": "The packet contains a governing reference and text but `candidate_text` is null \u2014 there is no candidate policy language to evaluate against the requirement, so I cannot make a coverage determination.\n\n{\"determination\": \"ABSTAIN\", \"cited_refs\": [\"CIP-007-6 R4 Part 4.4\"], \"rationale\": \"The packet's candidate_text field is null, providing no policy language to compare against the governing requirement text on review of summarized or sampled logged events at intervals no greater than 15 calendar days. Without a candidate statement to evaluate, any coverage classification would be guesswork rather ",
+ "transcript": [
+  {
+   "turn": 0,
+   "content": "",
+   "tool_calls": [
+    {
+     "name": "file_read",
+     "args_raw": "{\"path\": \"packet.json\"}"
+    }
+   ]
+  },
+  {
+   "turn": 1,
+   "content": "",
+   "tool_calls": [
+    {
+     "name": "file_list",
+     "args_raw": "{\"path\": \".\"}"
+    }
+   ]
+  },
+  {
+   "turn": 2,
+   "content": "The packet contains a governing reference and text but `candidate_text` is null \u2014 there is no candidate policy language to evaluate against the requirement, so I cannot make a coverage determination.\n\n{\"determination\": \"ABSTAIN\", \"cited_refs\": [\"CIP-007-6 R4 Part 4.4\"], \"rationale\": \"The packet's candidate_text field is null, providing no policy language to compare against the governing requirement text on review of summarized or sampled logged events at intervals no greater than 15 calendar days. Without a candidate statement to evaluate, any coverage classification would be guesswork rather than an evidence-based determination.\"}\n\nDETERMINATION COMPLETE",
+   "tool_calls": []
+  }
+ ],
+ "tool_call_log": [
+  {
+   "name": "file_read",
+   "args": {
+    "path": "packet.json"
+   },
+   "raw_args": "{\"path\": \"packet.json\"}",
+   "output": "{\n \"id\": \"P6J-06\",\n \"governing_ref\": \"CIP-007-6 R4 Part 4.4\",\n \"governing_text\": \"Review a summarization or sampling of logged events as determined by the Responsible Entity at intervals no greater than 15 calendar days to identify undetected Cyber Security Incidents.\",\n \"premises\": [],\n \"candidate_text\": null,\n \"packet_complete\": true,\n \"must_not_flag\": false\n}",
+   "error": false
+  },
+  {
+   "name": "file_list",
+   "args": {
+    "path": "."
+   },
+   "raw_args": "{\"path\": \".\"}",
+   "output": "packet.json",
+   "error": false
+  }
+ ],
+ "final_text": "The packet contains a governing reference and text but `candidate_text` is null \u2014 there is no candidate policy language to evaluate against the requirement, so I cannot make a coverage determination.\n\n{\"determination\": \"ABSTAIN\", \"cited_refs\": [\"CIP-007-6 R4 Part 4.4\"], \"rationale\": \"The packet's candidate_text field is null, providing no policy language to compare against the governing requirement text on review of summarized or sampled logged events at intervals no greater than 15 calendar days. Without a candidate statement to evaluate, any coverage classification would be guesswork rather than an evidence-based determination.\"}\n\nDETERMINATION COMPLETE",
+ "repeat_degeneracy": null,
+ "model": "hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k",
+ "overrides": {},
+ "sampling_undelivered": []
+}

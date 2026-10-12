@@ -1,0 +1,136 @@
+{
+ "schema": "wfe-result-2",
+ "run_id": "auto-coding::fast-repair|kat-coder-v2.5-dev:Q4_K_M-ctx32k|coding|code-cli-args|r0",
+ "campaign_id": "wfe_prompt_surface_rebaseline_20261012",
+ "stage": "full",
+ "workspace": "auto-coding::fast-repair",
+ "arm": "kat-coder-v2.5-dev:Q4_K_M-ctx32k",
+ "arm_role": "incumbent",
+ "suite": "coding",
+ "task_id": "code-cli-args",
+ "repeat": 0,
+ "outcome": "PASS",
+ "notes": "sandbox file summarize.py exists=True | patterns matched=True",
+ "evidence": {},
+ "persona_slug": "agenticheavy",
+ "prompt_sha": "759e6f0279e5",
+ "tool_surface": [
+  "file_read",
+  "file_list",
+  "repo_search",
+  "pytest_run",
+  "file_write",
+  "http_get"
+ ],
+ "tool_surface_proxy": true,
+ "harness": {
+  "endpoint": "v1",
+  "stream": false,
+  "think": "native",
+  "format": "none"
+ },
+ "sampling": {
+  "max_tokens": 16384,
+  "temperature": 1.0,
+  "top_p": 0.95,
+  "top_k": 20,
+  "min_p": 0.05,
+  "repeat_penalty": 1.05,
+  "max_tokens_source": "predict_limit",
+  "seed": 1000
+ },
+ "baked_params": {
+  "num_ctx": 32768
+ },
+ "seed": 1000,
+ "turns": 3,
+ "tool_calls": 3,
+ "tool_errors": 0,
+ "finish_reason": "stop",
+ "economics": {
+  "prompt_tokens": 5113,
+  "completion_tokens": 807,
+  "total_tokens": 5920,
+  "load_ms": 19,
+  "wall_s": 17.1,
+  "cold_load": true
+ },
+ "env": {
+  "git_sha": "2c2fd0cd",
+  "ollama_version": "0.40.0",
+  "python": "3.13.12",
+  "platform": "macOS-27.0.1-arm64-arm-64bit-Mach-O",
+  "fingerprint": "a5d8d95e71f9"
+ },
+ "final_text_head": "TASK COMPLETE\n\n`summarize.py` exposes `summarize(rows)` which aggregates `'revenue'` by `'region'`, coerces numeric strings via `float()`, and skips rows with missing or unparseable revenue. All 8 tests pass.",
+ "transcript": [
+  {
+   "turn": 0,
+   "content": "",
+   "tool_calls": [
+    {
+     "name": "file_write",
+     "args_raw": "{\"path\": \"summarize.py\", \"content\": \"def summarize(rows):\\n    result = {}\\n    for row in rows:\\n        region = row.get('region')\\n        revenue_raw = row.get('revenue')\\n        if region is None or revenue_raw is None:\\n            continue\\n        try:\\n            revenue = float(revenue_raw)\\n        except (TypeError, ValueError):\\n            continue\\n        result[region] = result.get(region, 0.0) + revenue\\n    return result\\n\"}"
+    },
+    {
+     "name": "file_write",
+     "args_raw": "{\"path\": \"test_summarize.py\", \"content\": \"from summarize import summarize\\n\\n\\ndef test_basic():\\n    rows = [\\n        {'region': 'NA', 'revenue': 100},\\n        {'region': 'EU', 'revenue': 200},\\n        {'region': 'NA', 'revenue': 50},\\n    ]\\n    assert summarize(rows) == {'NA': 150.0, 'EU': 200.0}\\n\\n\\ndef test_numeric_strings():\\n    rows = [\\n        {'region': 'AP', 'revenue': '30.5'},\\n        {'region': 'AP', 'revenue': '19.5'},\\n    ]\\n    assert summarize(rows) == {'AP': 50.0}\\n\\n\\nd"
+    }
+   ],
+   "reasoning_chars": 86
+  },
+  {
+   "turn": 1,
+   "content": "",
+   "tool_calls": [
+    {
+     "name": "pytest_run",
+     "args_raw": "{\"args\": \"test_summarize.py -v\"}"
+    }
+   ],
+   "reasoning_chars": 48
+  },
+  {
+   "turn": 2,
+   "content": "TASK COMPLETE\n\n`summarize.py` exposes `summarize(rows)` which aggregates `'revenue'` by `'region'`, coerces numeric strings via `float()`, and skips rows with missing or unparseable revenue. All 8 tests pass.",
+   "tool_calls": [],
+   "reasoning_chars": 42
+  }
+ ],
+ "tool_call_log": [
+  {
+   "name": "file_write",
+   "args": {
+    "path": "summarize.py",
+    "content": "def summarize(rows):\n    result = {}\n    for row in rows:\n        region = row.get('region')\n        revenue_raw = row.get('revenue')\n        if region is None or revenue_raw is None:\n            continue\n        try:\n            revenue = float(revenue_raw)\n        except (TypeError, ValueError):\n            continue\n        result[region] = result.get(region, 0.0) + revenue\n    return result\n"
+   },
+   "raw_args": "{\"path\": \"summarize.py\", \"content\": \"def summarize(rows):\\n    result = {}\\n    for row in rows:\\n        region = row.get('region')\\n        revenue_raw = row.get('revenue')\\n        if region is None or revenue_raw is None:\\n            continue\\n        try:\\n            revenue = float(revenue_raw)\\n        except (TypeError, ValueError):\\n            continue\\n        result[region] = result.get(region, 0.0) + revenue\\n    return result\\n\"}",
+   "output": "wrote 397 chars to summarize.py",
+   "error": false
+  },
+  {
+   "name": "file_write",
+   "args": {
+    "path": "test_summarize.py",
+    "content": "from summarize import summarize\n\n\ndef test_basic():\n    rows = [\n        {'region': 'NA', 'revenue': 100},\n        {'region': 'EU', 'revenue': 200},\n        {'region': 'NA', 'revenue': 50},\n    ]\n    assert summarize(rows) == {'NA': 150.0, 'EU': 200.0}\n\n\ndef test_numeric_strings():\n    rows = [\n        {'region': 'AP', 'revenue': '30.5'},\n        {'region': 'AP', 'revenue': '19.5'},\n    ]\n    assert summarize(rows) == {'AP': 50.0}\n\n\ndef test_missing_revenue():\n    rows = [\n        {'region': 'NA', 'revenue': None},\n        {'region': 'EU', 'revenue': 100},\n    ]\n    assert summarize(rows) == {'EU': 100.0}\n\n\ndef test_unparseable_revenue():\n    rows = [\n        {'region': 'NA', 'revenue': 'foo'},\n        {'region': 'EU', 'revenue': 100},\n    ]\n    assert summarize(rows) == {'EU': 100.0}\n\n\ndef test_missing_region():\n    rows = [\n        {'region': None, 'revenue': 100},\n        {'region': 'EU', 'revenue': 200},\n    ]\n    assert summarize(rows) == {'EU': 200.0}\n\n\ndef test_empty_input():\n    assert summarize([]) == {}\n\n\ndef test_all_invalid():\n    rows = [\n        {'region': 'NA', 'revenue': None},\n        {'region': None, 'revenue': 100},\n        {'region': 'EU', 'revenue': 'bad'},\n    ]\n    assert summarize(rows) == {}\n\n\ndef test_negative_revenue():\n    rows = [\n        {'region': 'NA', 'revenue': -10},\n        {'region': 'NA', 'revenue': 5},\n    ]\n    assert summarize(rows) == {'NA': -5.0}\n"
+   },
+   "raw_args": "{\"path\": \"test_summarize.py\", \"content\": \"from summarize import summarize\\n\\n\\ndef test_basic():\\n    rows = [\\n        {'region': 'NA', 'revenue': 100},\\n        {'region': 'EU', 'revenue': 200},\\n        {'region': 'NA', 'revenue': 50},\\n    ]\\n    assert summarize(rows) == {'NA': 150.0, 'EU': 200.0}\\n\\n\\ndef test_numeric_strings():\\n    rows = [\\n        {'region': 'AP', 'revenue': '30.5'},\\n        {'region': 'AP', 'revenue': '19.5'},\\n    ]\\n    assert summarize(rows) == {'AP': 50.0}\\n\\n\\nd",
+   "output": "wrote 1411 chars to test_summarize.py",
+   "error": false
+  },
+  {
+   "name": "pytest_run",
+   "args": {
+    "args": "test_summarize.py -v"
+   },
+   "raw_args": "{\"args\": \"test_summarize.py -v\"}",
+   "output": "============================= test session starts ==============================\nplatform darwin -- Python 3.13.12, pytest-9.0.3, pluggy-1.6.0\nrootdir: /private/tmp/wfe/wfe_prompt_surface_rebaseline_20261012/afebc97be31c/code-cli-args__r0\nplugins: cov-7.1.0, Faker-40.38.0, xdist-3.8.0, asyncio-1.3.0, anyio-4.15.1\nasyncio: mode=Mode.STRICT, debug=False, asyncio_default_fixture_loop_scope=None, asyncio_default_test_loop_scope=function\ncollected 8 items\n\ntest_summarize.py ........                                               [100%]\n\n============================== 8 passed in 0.03s ===============================\n",
+   "error": false
+  }
+ ],
+ "final_text": "TASK COMPLETE\n\n`summarize.py` exposes `summarize(rows)` which aggregates `'revenue'` by `'region'`, coerces numeric strings via `float()`, and skips rows with missing or unparseable revenue. All 8 tests pass.",
+ "repeat_degeneracy": null,
+ "model": "kat-coder-v2.5-dev:Q4_K_M-ctx32k",
+ "overrides": {},
+ "sampling_undelivered": []
+}

@@ -1,0 +1,42 @@
+{
+ "model": "hf.co/sjakek/Nex-N2-mini-GGUF:UD-Q4_K_M-ctx16k",
+ "resolved_think_policy": "default",
+ "card_format_json_safe": null,
+ "notes": [],
+ "api_native": {
+  "content": "OK",
+  "finish_reason": "stop",
+  "caveats": []
+ },
+ "api_strict_json": {
+  "content": "{\"ok\": true}",
+  "finish_reason": "stop",
+  "caveats": []
+ },
+ "stream_nonstream": {
+  "ns": {
+   "content": "OK",
+   "finish_reason": "stop",
+   "caveats": []
+  },
+  "stream": {
+   "content": "OK",
+   "finish_reason": "stop",
+   "caveats": []
+  }
+ },
+ "v1": {
+  "content": "OK",
+  "finish_reason": "stop",
+  "caveats": []
+ },
+ "v1_tools": {
+  "emitted_call": true,
+  "parsed_ok": true,
+  "arg_type": "str",
+  "error": null
+ },
+ "stream_parity": "OK",
+ "findings": [],
+ "verdict": "OK"
+}
