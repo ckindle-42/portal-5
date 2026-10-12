@@ -1701,3 +1701,12 @@ field values gives the engine actual behavior to compare.
 
 This limitation applies to the retained offline discovery and evaluation paths. The autonomous hunt CLI and orchestrator have been retired.
 <!-- /WIKI:GENERATED -->
+
+## Why
+
+The WFE auto-compliance suite serves a system prompt whose tool references and output labels do not match the harness it runs in. Results on that suite understate absolute PASS rates for every seat.
+
+### WFE auto-compliance — prompt/tool-surface mismatch (open; relative comparisons stand)
+
+The served prompt (persona `system_prompt` plus the auto-compliance workspace `system_prompt_append`) instructs the model to use `nerc_cip_requirement`, `compliance_ask`, `nerc_cip_currency` and related tools the WFE harness does not offer, and sets an output taxonomy (Full/Partial/None/Ambiguous) that conflicts with the suite's determination labels. The model then hunts for files with the only tools it has (`repo_search` on the map and register files). `tests/wfe/prompt_surface.py` detects this; the campaign prints a `WARN prompt/tool surface` line at startup and does not block. Until the suite serves a consistent prompt or the real tool surface, absolute auto-compliance PASS rates are understated for all seats, the incumbent included. Relative comparisons on the same suite are like-for-like. Re-baseline after the fix. Record: docs/SALUKI_27B_SPIKE_CLOSEOUT.md (Rule-5 amendment).
+

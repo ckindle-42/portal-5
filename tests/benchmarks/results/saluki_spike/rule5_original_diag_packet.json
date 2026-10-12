@@ -1,0 +1,9 @@
+{
+  "id": "DIAG-01",
+  "governing_ref": "CIP-009-6 R1 Part 4.1",
+  "governing_text": "Each entity shall conduct a tabletop exercise at least once every 15 calendar quarters.",
+  "premises": ["the exercise interval is a maximum, not a target"],
+  "candidate_text": "The OT Exercise Procedure schedules tabletop exercises on a 12-quarter cycle.",
+  "packet_complete": true,
+  "must_not_flag": false
+}
