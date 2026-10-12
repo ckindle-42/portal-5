@@ -2,7 +2,7 @@
 
 # Portal 5 Architecture Map
 
-*Deterministic projection of 771 canonical units.*
+*Deterministic projection of 772 canonical units.*
 
 ## Knowledge Layer
 
@@ -766,7 +766,8 @@
 | `unit-user-guide-tools-mcp-servers` | what | 7 |
 | `unit-user-guide-uploading-documents` | what | 2 |
 | `unit-user-guide-workspaces` | what | 3 |
-| `unit-wfe-workspace-fitness` | mixed | 4 |
+| `unit-wfe-loop-attribution-protocol` | mixed | 3 |
+| `unit-wfe-workspace-fitness` | mixed | 5 |
 | `unit-wiki-adapter-modules` | mixed | 1 |
 | `unit-wiki-audit` | mixed | 1 |
 | `unit-wiki-interfaces` | mixed | 1 |
@@ -780,15 +781,15 @@
 | `unit-wiki-tests-render` | mixed | 1 |
 | `unit-wiki-writeback` | mixed | 1 |
 
-**Total:** 771 units
+**Total:** 772 units
 
 ## Source Distribution
 
 - **bench-security**: 1 references
-- **code**: 2071 references
+- **code**: 2074 references
 - **config**: 1 references
 - **data**: 1 references
-- **doc**: 1 references
+- **doc**: 2 references
 - **mitre**: 40 references
 - **scenario**: 54 references
 - **spl**: 40 references
