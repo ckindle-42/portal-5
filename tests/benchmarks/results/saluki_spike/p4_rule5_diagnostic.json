@@ -1,0 +1,24 @@
+{
+  "probe": "rule5_loop_attribution",
+  "started_utc": "2026-10-12T01:32:54Z",
+  "question": "Is the WFE turn-cap loop a harness/template/setting fault or a model fault?",
+  "setup": "identical minimal multi-turn tool loop (file_read packet.json -> answer; the packet contains the answer) on two engines: Ollama 0.40.0 (Ollama parser + GGUF-embedded official template) and brew llama-server 9950/961e4b26a --jinja (llama.cpp parser + same embedded template). Sampling = auto-compliance lane policy (0.3/0.95/20/0/rep 1.1), think off.",
+  "harness_checks_cleared": [
+    "render parity 5/5 (all five shapes incl. tool round-trip) on both Ollama tags against the official template \u2014 p1_render_*.json",
+    "sampling keys delivered (engine_contract_check PASS on Ollama 0.40.0, 2026-10-11; targets /v1)",
+    "think:false honored on /v1 (contract check think:false delivered, reasoning absent)",
+    "tool calls executed 160/160 without error in the WFE runs; no bad-args feedback",
+    "the WFE debug transcripts show the model received its own prior calls and results (it derived the governing_ref string it later hunts for, from the packet it just read)"
+  ],
+  "results": {
+    "system_prompt_WITH 'Answer with JSON: {determination, rationale}' clause": {
+      "ollama_T32": "looped all 6 turns: file_read of hallucinated CIP-009-6_R1_Part_4.1.{md,txt,pdf,docx,html}",
+      "llama_server_jinja": "looped 5/5 seeds (7-11): same hallucinated-filename hunt, e.g. file_read CIP-009-6_R1_Part_4.1.md",
+      "note": "the hunted string exists only INSIDE packet.json \u2014 proof the tool result reached the model"
+    },
+    "system_prompt_WITHOUT the JSON clause": {
+      "llama_server_jinja": "ANSWERED 10/10 across seeds (7-11) and max_tokens (256/4096), both sampling variants"
+    }
+  },
+  "verdict": "MODEL fault, not harness: the loop reproduces on stock llama.cpp with Saluki's own embedded template and parser under an output-format instruction + tools; templates render identically; sampling and think control verified delivered; tool execution clean. A 2-bit instruction-following collapse under tool-calling. Mitigation (drop explicit format clauses when tools are offered) is integration work behind the operator gate."
+}

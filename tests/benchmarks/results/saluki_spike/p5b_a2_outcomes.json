@@ -1,0 +1,54 @@
+{
+  "probe": "a2_six_case_read_test",
+  "started_utc": "2026-10-12T02:48:25Z",
+  "instrument": "scripts/prove_then_scale/p1_experiment.py via run_a2_saluki.py (runtime seat injection, no tracked file edited)",
+  "conditions": "both seats run under identical conditions this run (no pre-existing qwen38 cells and no local rubric copy; per task, side-by-side judging with identical criteria would apply \u2014 moot for the challenger, below)",
+  "qwen38_reference_cells_produced": [
+    {
+      "case": "choice",
+      "wall_s": 65.3,
+      "prompt_tokens": 21433,
+      "cited": null,
+      "answer_chars": 1907
+    },
+    {
+      "case": "either_or",
+      "wall_s": 103.5,
+      "prompt_tokens": 22792,
+      "cited": null,
+      "answer_chars": 4635
+    },
+    {
+      "case": "interval",
+      "wall_s": 71.5,
+      "prompt_tokens": 21252,
+      "cited": null,
+      "answer_chars": 2673
+    },
+    {
+      "case": "no_operator_side",
+      "wall_s": 85.5,
+      "prompt_tokens": 22335,
+      "cited": null,
+      "answer_chars": 3541
+    },
+    {
+      "case": "parent",
+      "wall_s": 297.1,
+      "prompt_tokens": 23891,
+      "cited": null,
+      "answer_chars": 7194
+    },
+    {
+      "case": "read_check",
+      "wall_s": 73.2,
+      "prompt_tokens": 23881,
+      "cited": null,
+      "answer_chars": 4222
+    }
+  ],
+  "saluki_outcome": "BLOCKED \u2014 the instrument's pipeline-transport guard refused the unregistered model:",
+  "saluki_error": "ValueError: 'portal5/underdog-saluki-27b:iq2-mix-ctx32k' is neither a portal.yaml workspace id nor any workspace's model_hint \u2014 the pipeline would silently serve it on the group's first model. Register the tag (apply-params / config/backends.yaml) or address the workspace by id.",
+  "reading": "The \u00a7A2 instrument addresses models ONLY through the pipeline registry by design (transport_dialects.py build(): an unmapped name must fail loudly). Measuring Saluki here requires registering a bench seat (backends.yaml tag + portal.yaml bench workspace + sync-config + pipeline rebuild) \u2014 integration prep this spike deliberately does not perform (operator: run the file as written; write only the report). Compliance-reader candidacy is therefore UNMEASURED by this spike, not failed.",
+  "privacy": "no standard text, operator documents or model answers in this record; operator-local cells stay under reports/compliance/ (gitignored)"
+}

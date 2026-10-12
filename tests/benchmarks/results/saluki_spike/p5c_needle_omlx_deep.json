@@ -1,0 +1,124 @@
+{
+  "probe": "needle",
+  "started_utc": "2026-10-12T06:51:36Z",
+  "arm": "omlx_deep",
+  "kind": "v1",
+  "base": "http://127.0.0.1:8085",
+  "model": "Qwen3.8-27B-oQ4e-mtp",
+  "ctx": 98304,
+  "rows": [
+    {
+      "target": 32768,
+      "depth": 0.1,
+      "asked": "KESTREL-7",
+      "correct": true,
+      "distractor_hit": [],
+      "answer": "4417-AMBER",
+      "prompt_tokens": 34012,
+      "off_target": false,
+      "window_hit": false,
+      "wall_s": 326.91
+    },
+    {
+      "target": 32768,
+      "depth": 0.5,
+      "asked": "HERON-3",
+      "correct": true,
+      "distractor_hit": [],
+      "answer": "9012-SLATE",
+      "prompt_tokens": 34014,
+      "off_target": false,
+      "window_hit": false,
+      "wall_s": 322.88
+    },
+    {
+      "target": 32768,
+      "depth": 0.9,
+      "asked": "OSPREY-5",
+      "correct": true,
+      "distractor_hit": [],
+      "answer": "2280-OLIVE",
+      "prompt_tokens": 34015,
+      "off_target": false,
+      "window_hit": false,
+      "wall_s": 322.95
+    },
+    {
+      "target": 65536,
+      "depth": 0.1,
+      "asked": "KESTREL-7",
+      "correct": true,
+      "distractor_hit": [],
+      "answer": "4417-AMBER",
+      "prompt_tokens": 68977,
+      "off_target": false,
+      "window_hit": false,
+      "wall_s": 756.98
+    },
+    {
+      "target": 65536,
+      "depth": 0.5,
+      "asked": "HERON-3",
+      "correct": true,
+      "distractor_hit": [],
+      "answer": "9012-SLATE",
+      "prompt_tokens": 68971,
+      "off_target": false,
+      "window_hit": false,
+      "wall_s": 757.11
+    },
+    {
+      "target": 65536,
+      "depth": 0.9,
+      "asked": "OSPREY-5",
+      "correct": true,
+      "distractor_hit": [],
+      "answer": "2280-OLIVE",
+      "prompt_tokens": 68974,
+      "off_target": false,
+      "window_hit": false,
+      "wall_s": 757.37
+    },
+    {
+      "target": 90112,
+      "depth": 0.1,
+      "asked": "KESTREL-7",
+      "correct": true,
+      "distractor_hit": [],
+      "answer": "4417-AMBER",
+      "prompt_tokens": 95210,
+      "off_target": false,
+      "window_hit": false,
+      "wall_s": 1144.23
+    },
+    {
+      "target": 90112,
+      "depth": 0.5,
+      "asked": "HERON-3",
+      "correct": true,
+      "distractor_hit": [],
+      "answer": "9012-SLATE",
+      "prompt_tokens": 95211,
+      "off_target": false,
+      "window_hit": false,
+      "wall_s": 1144.74
+    },
+    {
+      "target": 90112,
+      "depth": 0.9,
+      "asked": "OSPREY-5",
+      "correct": true,
+      "distractor_hit": [],
+      "answer": "2280-OLIVE",
+      "prompt_tokens": 95212,
+      "off_target": false,
+      "window_hit": false,
+      "wall_s": 1145.2
+    }
+  ],
+  "summary": {
+    "correct": 9,
+    "total": 9,
+    "invalid_size_rows": 0
+  }
+}
