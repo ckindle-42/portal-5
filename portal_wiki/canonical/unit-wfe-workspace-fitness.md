@@ -144,17 +144,17 @@ Phase 0; fitness matrix drives disposition decisions.
 
 ## Measurement caveats (added 2026-10-12)
 
-- **auto-compliance prompt/tool-surface mismatch (defect, not fixed).** The
-  served system prompt (persona + the auto-compliance `system_prompt_append` in
-  `config/portal.yaml`) names `nerc_cip_requirement`, `compliance_ask`,
-  `nerc_cip_currency` and others the harness does not offer, and its output
-  taxonomy (Full/Partial/None/Ambiguous) conflicts with the suite's JSON
-  determination labels. `tests/wfe/prompt_surface.py` detects both; the campaign
-  prints them as `WARN prompt/tool surface` at startup (never blocks). Every
-  auto-compliance result measured before the suite is fixed (all seats, incumbent
-  included) has **understated absolute PASS rates**. Relative comparisons on the
-  same suite remain like-for-like. Re-baseline after the fix; do not rerun fleet
-  campaigns for this alone.
+- **Prompt/tool-surface mismatch (fixed 2026-10-12; re-baseline pending).**
+  Persona prompts and `system_prompt_append` name production tools the harness
+  does not offer (auto-compliance: `nerc_cip_requirement`, `compliance_ask`, …),
+  and auto-compliance's output taxonomy (Full/Partial/None/Ambiguous) conflicted
+  with the suite's JSON determination labels. `workspace_context` now appends a
+  `WFE HARNESS TOOLS:` note (`tests/wfe/prompt_surface.py` `harness_note`) naming
+  the real surface and giving the user turn's output format precedence; the
+  campaign WARNs if any served prompt still mismatches. Results taken before the
+  fix for auto-compliance, auto-research, general-deep, tools-specialist(::fast)
+  and auto-coding::laguna / ::fast-repair are not comparable with results after
+  it. Re-baseline: operator task TASK_WFE_PROMPT_SURFACE_REBASELINE_V1.
 - **Card-think arms.** A model whose card reasons (think on by default) must
   ALSO be measured at its card think + sampling setting, not only at the lane's
   forced think-off policy. Report both, and attribute "lane fit" (the lane's
