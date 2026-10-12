@@ -1516,25 +1516,19 @@ def _ready(campaign_dir: Path) -> bool:
 def _warn_prompt_surface(matrix: list[dict]) -> None:
     import yaml
 
-    from tests.wfe.prompt_surface import audit_workspace
+    from tests.wfe.prompt_surface import audit_workspace, production_tool_names
     from tests.wfe.runner import REPO as _REPO
-    from tests.wfe.runner import TOOL_NAMES
+    from tests.wfe.runner import workspace_context
 
-    personas = [
-        yaml.safe_load(pf.read_text()) or {}
-        for pf in sorted((_REPO / "config/personas").glob("*.yaml"))
-    ]
     portal = yaml.safe_load((_REPO / "config/portal.yaml").read_text()) or {}
-    workspaces = portal.get("workspaces") or {}
+    known = production_tool_names(portal)
     keys = {(r.get("workspace", ""), r.get("suite_path", "")) for r in matrix}
     for ws_id, suite in sorted(k for k in keys if k[0] and k[1]):
-        persona = next((pe for pe in personas if pe.get("workspace_model") == ws_id), None)
-        if persona is None or not Path(suite).is_file():
+        if not Path(suite).is_file():
             continue
-        served = str(persona.get("system_prompt") or "") + str(
-            (workspaces.get(ws_id) or {}).get("system_prompt_append") or ""
-        )
-        for w in audit_workspace(served, Path(suite).read_text(), set(TOOL_NAMES)):
+        ctx = workspace_context(ws_id)
+        served, surface = ctx["system_prompt"], set(ctx["tool_surface"])
+        for w in audit_workspace(served, Path(suite).read_text(), surface, known):
             print(f"WARN prompt/tool surface [{ws_id}]: {w}", flush=True)
 
 

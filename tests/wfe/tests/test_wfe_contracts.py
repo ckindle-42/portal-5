@@ -675,6 +675,7 @@ class TestOfflineRescore:
         router injects it."""
         import yaml
 
+        from tests.wfe.prompt_surface import HARNESS_NOTE_MARKER
         from tests.wfe.runner import REPO, workspace_context
 
         ws = yaml.safe_load((REPO / "config/portal.yaml").read_text())["workspaces"]
@@ -682,7 +683,8 @@ class TestOfflineRescore:
         wsc = workspace_context("auto-coding::laguna")
         assert wsc["model"] == variant["model_hint"]
         assert wsc["sampling"]["temperature"] == variant["temperature"]
-        assert wsc["system_prompt"].endswith(variant["system_prompt_append"])
+        served = wsc["system_prompt"].split("\n\n" + HARNESS_NOTE_MARKER)[0]
+        assert served.endswith(variant["system_prompt_append"])
         assert wsc["declared_tools"] == variant["tools"]
 
     def test_base_workspace_system_prompt_append_is_applied(self):

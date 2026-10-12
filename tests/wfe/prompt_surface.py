@@ -3,9 +3,7 @@ from __future__ import annotations
 import json
 import re
 
-TOOL_FAMILY_RE = re.compile(
-    r"\b(nerc_cip_\w+|compliance_\w+|lookup_control|map_frameworks|search_controls)\b"
-)
+HARNESS_NOTE_MARKER = "WFE HARNESS TOOLS:"
 
 TAXONOMY_SETS: dict[str, tuple[str, ...]] = {
     "coverage": ("Full", "Partial", "None", "Ambiguous"),
@@ -13,12 +11,38 @@ TAXONOMY_SETS: dict[str, tuple[str, ...]] = {
 }
 
 
-def prompt_tool_mismatches(system_prompt: str, harness_tools: set[str]) -> list[str]:
-    named = sorted(set(TOOL_FAMILY_RE.findall(system_prompt)))
-    return [name for name in named if name not in harness_tools]
+def production_tool_names(portal: dict) -> set[str]:
+    names: set[str] = set()
+    for ws in (portal.get("workspaces") or {}).values():
+        names.update(t for t in ws.get("tools") or [] if "_" in t)
+    return names
+
+
+def prompt_tool_mismatches(
+    system_prompt: str, harness_tools: set[str], known_tools: set[str]
+) -> list[str]:
+    if HARNESS_NOTE_MARKER in system_prompt:
+        return []
+    return sorted(
+        t for t in known_tools - harness_tools if re.search(rf"\b{re.escape(t)}\b", system_prompt)
+    )
+
+
+def harness_note(system_prompt: str, harness_tools: list[str], known_tools: set[str]) -> str:
+    if not prompt_tool_mismatches(system_prompt, set(harness_tools), known_tools):
+        return ""
+    return (
+        f"\n\n{HARNESS_NOTE_MARKER} the only tools available here are "
+        f"{', '.join(harness_tools)}. Any other tool named above does not exist in this "
+        "environment: work from the material you are given using these tools. If the "
+        "user's request specifies an output format, follow it instead of any output "
+        "format described above."
+    )
 
 
 def taxonomy_conflicts(system_prompt: str, user_text: str) -> list[str]:
+    if HARNESS_NOTE_MARKER in system_prompt:
+        return []
     sys_hits = {
         k
         for k, labels in TAXONOMY_SETS.items()
@@ -34,10 +58,12 @@ def taxonomy_conflicts(system_prompt: str, user_text: str) -> list[str]:
     return []
 
 
-def suite_warnings(system_prompt: str, user_text: str, harness_tools: set[str]) -> list[str]:
+def suite_warnings(
+    system_prompt: str, user_text: str, harness_tools: set[str], known_tools: set[str]
+) -> list[str]:
     out = [
         f"prompt names tool not in harness surface: {t}"
-        for t in prompt_tool_mismatches(system_prompt, harness_tools)
+        for t in prompt_tool_mismatches(system_prompt, harness_tools, known_tools)
     ]
     conflicts = taxonomy_conflicts(system_prompt, user_text)
     if conflicts:
@@ -47,13 +73,16 @@ def suite_warnings(system_prompt: str, user_text: str, harness_tools: set[str]) 
     return out
 
 
-def audit_workspace(system_prompt: str, suite_jsonl: str, harness_tools: set[str]) -> list[str]:
+def audit_workspace(
+    system_prompt: str, suite_jsonl: str, harness_tools: set[str], known_tools: set[str]
+) -> list[str]:
     warnings: list[str] = []
     for line in suite_jsonl.splitlines():
         if not line.strip():
             continue
         row = json.loads(line)
-        for w in suite_warnings(system_prompt, str(row.get("instruction", "")), harness_tools):
+        instruction = str(row.get("instruction", ""))
+        for w in suite_warnings(system_prompt, instruction, harness_tools, known_tools):
             if w not in warnings:
                 warnings.append(w)
     return warnings

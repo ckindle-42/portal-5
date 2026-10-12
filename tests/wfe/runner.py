@@ -53,6 +53,7 @@ from portal.platform.inference.ollama_native import to_native_request
 from portal.platform.inference.omlx_auth import omlx_headers
 from portal.platform.inference.router.text_tool_calls import salvage_text_tool_calls
 from tests.wfe.checkers import CheckContext, apply_checkers
+from tests.wfe.prompt_surface import harness_note, production_tool_names
 from tests.wfe.schema import Economics, Outcome, ResultRow, env_fingerprint, sha12
 
 REPO = Path(__file__).resolve().parents[2]
@@ -1098,6 +1099,8 @@ def workspace_context(ws_id: str, persona: str | None = None) -> dict:
     sp += ws.get("system_prompt_append") or ""
     declared = list(ws.get("tools") or [])
     surface = [t for t in TOOL_NAMES if t in declared] or TOOL_NAMES
+    note = harness_note(sp, surface, production_tool_names(portal))
+    sp += note
 
     # Extended-thinking control (Qwen3/DeepSeek/GLM/gpt-oss/granite4.x). Production
     # (router/validation.py) resolves the sampling block from `think_profiles`
@@ -1136,6 +1139,7 @@ def workspace_context(ws_id: str, persona: str | None = None) -> dict:
         "declared_tools": declared,
         "tool_surface": surface,
         "tool_surface_proxy": sorted(surface) != sorted(declared),
+        "harness_note": bool(note),
         "context_limit": ws.get("context_limit"),
         "module": ws.get("module"),
         "sampling": sampling,
