@@ -24,6 +24,13 @@ backends:
     supports_tools: true
   - id: hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx96k
     supports_tools: true
+  # TASK_SALUKI_27B_SPIKE_V1 (2026-10-11, operator-authorized bench-only
+  # registration — NOT a promotion): the spike's challenger tag, addressed by
+  # bench-saluki-27b for the §A2 read-test through the pipeline. num_ctx 32768
+  # baked; supports_tools:true per the spike's own probes (bench_tool_use_probe
+  # 4/4, parallel 20/20 on Ollama). No production workspace hints this tag.
+  - id: portal5/underdog-saluki-27b:iq2-mix-ctx32k
+    supports_tools: true
   # WINDOW_AND_SEAT_V1 P4.2: candidate tags registered so the live tool-loop
   # test can address them through compliance-reading's ?model= override. Each
   # was probed (settings_audit.probe_tag) before registration; supports_tools
@@ -1325,6 +1332,8 @@ workspace_routing:
   bench-omnicoder2:
   - general
   bench-qwen38-27b:
+  - general
+  bench-saluki-27b:
   - general
   bench-qwen38-flash-next-reap288:
   - coding

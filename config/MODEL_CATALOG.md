@@ -2246,3 +2246,7 @@ The compliance-reading seat is the §P8.1-bound production seat; moving it to oM
 ### `hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx96k`
 
 `hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx96k` bakes a 98304-token context onto the Qwen3.8-27B Q4_K_M GGUF and is the `model_hint` of the `general-deep` workspace. `config/backends.yaml` registers it in the `general` group with `supports_tools: true`; the `omlx-general` group aliases it to `Qwen3.8-27B-oQ4e-mtp`, which serves it (the Ollama tag is only the fallback).
+
+### `portal5/underdog-saluki-27b:iq2-mix-ctx32k`
+
+`portal5/underdog-saluki-27b:iq2-mix-ctx32k` is Underdog-Saluki-27B-1.0 (ConwayResearch, Apache 2.0) — Qwen3.8-27B compressed to a 7.89 GB ~2-bit i-quant GGUF (IQ2-mix over ISTA-DASLab's GSQ-RCO quant) — imported 2026-10-11 from the sha-verified upstream GGUF with the embedded official Qwen3.8 chat template and `PARAMETER num_ctx 32768` baked. It is a TASK_SALUKI_27B_SPIKE_V1 bench-only tag: `config/backends.yaml` registers it in the `general` group with `supports_tools: true` (probe result, not the card's word) and the eval-module `bench-saluki-27b` workspace addresses it for the §A2 read-test. It is NOT a production seat and no production workspace hints it; PROMOTE_POLICY=confirm applies. Spike evidence: `docs/SALUKI_27B_SPIKE_CLOSEOUT.md` and `tests/benchmarks/results/saluki_spike/`.

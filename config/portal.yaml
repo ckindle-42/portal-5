@@ -2370,6 +2370,28 @@ workspaces:
     enable_web_search: false
     owui_system_prompt: |-
       You are a creative coder. Ship complete, working, single-file HTML. No TODOs. No framework questions. Build the most interesting version.
+  bench-saluki-27b:
+    module: eval
+    name: 🔬 Bench · Underdog-Saluki-27B (IQ2-mix)
+    description: |-
+      TASK_SALUKI_27B_SPIKE_V1 bench seat (2026-10-11) — BENCH-ONLY, not a promotion; PROMOTE_POLICY=confirm. Underdog-Saluki-27B-1.0 (ConwayResearch, Apache 2.0): Qwen3.8-27B compressed to a 7.89 GB ~2-bit i-quant GGUF (IQ2-mix on ISTA-DASLab GSQ-RCO), tuned to keep tool calling. Imported from the sha-verified GGUF (4a673518b11b) with template parity (embedded chat template = official Qwen3.8 c3cf9e34abf4; render check 5/5). Settings mirror the auto-compliance context the §A2 read-test measures in (think:false, deterministic lane sampling, 32k window) so qwen38 reference cells and saluki cells are served under the same policy class. Evidence: docs/SALUKI_27B_SPIKE_CLOSEOUT.md + tests/benchmarks/results/saluki_spike/.
+    model_hint: portal5/underdog-saluki-27b:iq2-mix-ctx32k
+    context_limit: 32768
+    predict_limit: 24576
+    max_concurrent: 1
+    keep_alive: 5m
+    temperature: 0.3
+    top_p: 0.95
+    top_k: 20
+    min_p: 0.0
+    repeat_penalty: 1.1
+    think: false
+    emits_reasoning: false
+    tools: []
+    expose_to_owui: true
+    enable_web_search: false
+    owui_system_prompt: |-
+      You are a creative coder. Ship complete, working, single-file HTML. No TODOs. No framework questions. Build the most interesting version.
   bench-qwen38-flash-next-reap288:
     module: eval
     name: 🔬 Bench · Qwen3.8-Flash-Next-REAP-288 (oMLX, MLX 4-bit)

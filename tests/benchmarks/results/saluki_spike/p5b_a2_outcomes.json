@@ -1,54 +1,31 @@
 {
   "probe": "a2_six_case_read_test",
-  "started_utc": "2026-10-12T02:48:25Z",
-  "instrument": "scripts/prove_then_scale/p1_experiment.py via run_a2_saluki.py (runtime seat injection, no tracked file edited)",
-  "conditions": "both seats run under identical conditions this run (no pre-existing qwen38 cells and no local rubric copy; per task, side-by-side judging with identical criteria would apply \u2014 moot for the challenger, below)",
-  "qwen38_reference_cells_produced": [
-    {
-      "case": "choice",
-      "wall_s": 65.3,
-      "prompt_tokens": 21433,
-      "cited": null,
-      "answer_chars": 1907
-    },
-    {
-      "case": "either_or",
-      "wall_s": 103.5,
-      "prompt_tokens": 22792,
-      "cited": null,
-      "answer_chars": 4635
-    },
-    {
-      "case": "interval",
-      "wall_s": 71.5,
-      "prompt_tokens": 21252,
-      "cited": null,
-      "answer_chars": 2673
-    },
-    {
-      "case": "no_operator_side",
-      "wall_s": 85.5,
-      "prompt_tokens": 22335,
-      "cited": null,
-      "answer_chars": 3541
-    },
-    {
-      "case": "parent",
-      "wall_s": 297.1,
-      "prompt_tokens": 23891,
-      "cited": null,
-      "answer_chars": 7194
-    },
-    {
-      "case": "read_check",
-      "wall_s": 73.2,
-      "prompt_tokens": 23881,
-      "cited": null,
-      "answer_chars": 4222
-    }
-  ],
-  "saluki_outcome": "BLOCKED \u2014 the instrument's pipeline-transport guard refused the unregistered model:",
-  "saluki_error": "ValueError: 'portal5/underdog-saluki-27b:iq2-mix-ctx32k' is neither a portal.yaml workspace id nor any workspace's model_hint \u2014 the pipeline would silently serve it on the group's first model. Register the tag (apply-params / config/backends.yaml) or address the workspace by id.",
-  "reading": "The \u00a7A2 instrument addresses models ONLY through the pipeline registry by design (transport_dialects.py build(): an unmapped name must fail loudly). Measuring Saluki here requires registering a bench seat (backends.yaml tag + portal.yaml bench workspace + sync-config + pipeline rebuild) \u2014 integration prep this spike deliberately does not perform (operator: run the file as written; write only the report). Compliance-reader candidacy is therefore UNMEASURED by this spike, not failed.",
-  "privacy": "no standard text, operator documents or model answers in this record; operator-local cells stay under reports/compliance/ (gitignored)"
+  "completed_utc": "2026-10-12T09:18:07Z",
+  "instrument": "scripts/prove_then_scale/p1_experiment.py via run_a2_saluki.py; fixed body sha d2ee11a25e00, instruction=baseline, NUM_CTX 32768, think off",
+  "serving": "ALL cells through the pipeline :9099 (transport_dialects pipeline dialect): qwen38 cells via auto-compliance (its model_hint), saluki cells via the operator-authorized bench-only workspace bench-saluki-27b (trace-verified serving: backend ollama-general, model portal5/underdog-saluki-27b:iq2-mix-ctx32k)",
+  "judgment_basis": "No local rubric copy existed (A2_SPLASH_MODEL_JUDGMENT.md absent); per the task, both seats judged side by side under identical criteria = the instrument's own documented failure classes (conjunction silently adopted for the `choice` case; restatement-as-evidence for `no_operator_side`; gap inventory for `parent`). Single-reader judgment, not blinded. This record carries outcomes only; answers stay operator-local.",
+  "qwen38_reference": {
+    "parent": "pass",
+    "choice": "pass",
+    "interval": "pass",
+    "read_check": "pass",
+    "either_or": "pass",
+    "no_operator_side": "pass",
+    "score": "6/6 today (the historical 4/6 predates the current fixed body and cells)"
+  },
+  "saluki": {
+    "parent": "fail",
+    "choice": "fail",
+    "interval": "pass",
+    "read_check": "pass",
+    "either_or": "pass",
+    "no_operator_side": "pass",
+    "score": "4/6"
+  },
+  "saluki_failure_categories": {
+    "parent": "planted-gap missed: reported zero compliance gaps over material containing the policy's and-vs-or narrowing that the reference reading caught and severity-rated",
+    "choice": "conjunction silently adopted (the documented A6.1 choice failure class): dismissed the operator policy's joined list as bullet formatting and answered that all NERC latitude is in use"
+  },
+  "reading": "Saluki reads 4/6 - exactly the tie threshold that kept gemma4 (the pre-registered bar: not a candidate unless >= 4/6). Not disqualified; it sits at the tie line, two cases below today's reference reader, with both failures in conflict-detection (planted discrepancy missed or silently resolved), not in citation behavior (both sides cited on all six).",
+  "privacy": "no standard text, operator documents or answer bodies in this record; cells remain under reports/compliance/ (gitignored)"
 }

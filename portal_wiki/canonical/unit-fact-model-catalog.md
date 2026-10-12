@@ -1,11 +1,11 @@
 ---
 id: unit-fact-model-catalog
 kind: what
-title: 281 model ids, 7 backend groups
+title: 282 model ids, 7 backend groups
 sources:
 - type: code
   path: config/backends.yaml
-  commit: fc3937455b40
+  commit: 4234a1d050f5
 claims:
 - probe: backends.groups.count
   pattern: '{value} backend groups)'
@@ -14,10 +14,10 @@ tags:
 - fact
 - models
 created_at: 1784000421.487881
-updated_at: 1791740960.4931579
+updated_at: 1791794704.268051
 ---
 
-# Model catalog (281 model ids across 7 backend groups)
+# Model catalog (282 model ids across 7 backend groups)
 
 ## coding (57)
 
@@ -94,7 +94,7 @@ updated_at: 1791740960.4931579
 - `huihui_ai/baronllm-abliterated`
 - `huihui_ai/baronllm-abliterated:latest-ctx8k`
 
-## general (127)
+## general (128)
 
 - `NVIDIA-Nemotron-3.5-Lightning-30B-A3B-oQ4e-mtp`
 - `Qwen3.8-27B-oQ4e-mtp`
@@ -211,6 +211,7 @@ updated_at: 1791740960.4931579
 - `portal5/hauhaucs-qwen36-35b:q4_K_M-ctx256k`
 - `portal5/ornith15-35b:q4_K_M-ctx256k`
 - `portal5/qwen3.6-27b-mtp:q8_0-drafted`
+- `portal5/underdog-saluki-27b:iq2-mix-ctx32k`
 - `portal5/xyz-aquila-mini:Q4_K_M`
 - `portal5/xyz-aquila-mini:q4_k_m-ctx16k`
 - `qwen3-coder-next:latest`
