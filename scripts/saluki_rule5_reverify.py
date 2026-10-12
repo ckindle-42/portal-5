@@ -1,43 +1,13 @@
 #!/usr/bin/env python3
-"""Rule-5 re-verification for the Saluki 27B spike (TASK_SALUKI_27B_SPIKE_V1 follow-up).
+"""Rule-5 re-verify for the Saluki spike (TASK_SALUKI_27B_SPIKE_V1 follow-up).
 
-Question: is the WFE compliance turn-cap loop a MODEL fault, or a harness /
-template / sampling / think-control fault?
+Minimal file_read loop (6-turn cap) per cell; Step 0 audits each cell's post-tool
+prompt against the official template render. Results go to
+tests/benchmarks/results/saluki_spike/p4_rule5_reverify.json (cells and
+step0_delivery_audit); the pre-registration block is not touched. Design and
+results: docs/SALUKI_27B_SPIKE_CLOSEOUT.md (Rule-5 amendment).
 
-What it does, sequentially, one request in flight:
-
-  Step 0 (delivery audit, seed 1000 of each cell): at the post-tool turn, the
-    prompt token count the engine reports is compared with the token count of
-    the OFFICIAL template render (the GGUF's embedded jinja, rendered locally
-    with enable_thinking set to match the cell). Equal counts mean the engine
-    rendered the same prompt. The rendered text, including whether
-    `<think>\\n\\n</think>\\n\\n` is present, is saved under rendered/.
-
-  Cells (each run = minimal file_read loop, 6-turn cap, 5 seeds):
-    S1 Saluki, lane sampling, think off, WITH JSON clause
-    S2 Saluki, lane sampling, repeat_penalty 1.0, think off, WITH clause
-    S3 Saluki, card sampling (0.6/0.95/20, rep 1.0), think off, WITH clause
-    S4 Saluki, card sampling, think ON, WITH clause
-    S5 Saluki, lane sampling, think off, WITHOUT clause
-    I1 Incumbent Q4 (ctx32k), lane sampling, think off, WITH clause
-    I2 Incumbent Q4, lane sampling, think off, WITHOUT clause
-
-Requests are built with production's own adapter builder
-(`to_native_request`) and sent to Ollama's native /api/chat, so options and
-`think` are translated exactly as the Ollama adapter does.
-
-The system prompt and user text are copied verbatim from a committed WFE debug
-row (auto-compliance). The no-clause variant removes only the sentence that
-starts "Reply with a single JSON object".
-
-Results are written into tests/benchmarks/results/saluki_spike/p4_rule5_reverify.json
-(its `cells` and `step0_delivery_audit` keys) without touching the
-pre-registration block.
-
-Usage:
-  uv run python scripts/saluki_rule5_reverify.py                # all cells + audit
-  uv run python scripts/saluki_rule5_reverify.py --cells S1,I1  # a subset
-  uv run python scripts/saluki_rule5_reverify.py --audit-only   # Step 0 only
+Usage: uv run python scripts/saluki_rule5_reverify.py [--cells S1,I1] [--seeds 3] [--audit-only]
 """
 
 from __future__ import annotations

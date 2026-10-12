@@ -1,13 +1,6 @@
-"""Prompt/tool-surface consistency for WFE workloads (pure functions, no I/O).
+"""Prompt/tool-surface consistency for WFE workloads (pure, no I/O).
 
-Why this exists: the auto-compliance suite serves the production persona prompt
-(config/personas/cippolicywriter.yaml). That prompt tells the model to call
-compliance tools (nerc_cip_requirement, compliance_ask, nerc_cip_currency, ...)
-and to use an output taxonomy, while the WFE harness offers only its own tools
-and the user turn asks for a different label set. Found in the Saluki Rule-5
-re-verify (2026-10-12): the model hunted map/register files with repo_search
-because the prompt sent it there with the only tools it had. Every seat measured
-on that suite was affected, so the check flags it until the suite is fixed.
+See docs/SALUKI_27B_SPIKE_CLOSEOUT.md and the WFE wiki unit for why this exists.
 """
 
 from __future__ import annotations
