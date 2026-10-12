@@ -1,0 +1,23 @@
+# Saluki spike — results: docs/SALUKI_27B_SPIKE_CLOSEOUT.md — Ollama DIRECT arms (WFE_ENGINE unset).
+# A model evaluation, not a seat decision: a seat decision needs a bench workspace and a
+# WFE_ENGINE=pipeline run, which this spike deliberately does not wire (operator gate).
+#
+# auto-compliance is the SAME instrument as the 2026-09-24 Bonsai verdict
+# (docs/MIMO_V26_DISTILL_9B_BRINGUP_V1.md "Bonsai verdict": 14 tasks x n=3, incumbent 33/42,
+# Bonsai-2 PQ2 21/42 with 12 turn-cap loops), so the result lands next to that table.
+# general-deep measures the job Saluki would actually take: General · Deep's prompt,
+# instruct sampling and think:false at its matched 96K window.
+# One arm per process; every arm after the first needs --append.
+workloads:
+  auto-compliance:
+    home: compliance_agentic
+    discovery: [research]
+    arms:
+      incumbent: hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k
+      challengers: [portal5/underdog-saluki-27b:iq2-mix-ctx32k]
+  general-deep:
+    home: research
+    discovery: [coding, creative]
+    arms:
+      incumbent: hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx96k
+      challengers: [portal5/underdog-saluki-27b:iq2-mix-ctx96k]

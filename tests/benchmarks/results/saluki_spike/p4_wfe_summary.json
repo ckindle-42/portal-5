@@ -1,0 +1,92 @@
+{
+  "campaign": "saluki_spike_20261011",
+  "note": "turn-cap loop = exhausted_turns marker (Bonsai definition); PENDING_REVIEW = creative-lane blinded review queue (9 per 96K arm)",
+  "arms": {
+    "T32": {
+      "role": "challenger",
+      "model": "portal5_underdog-saluki-27b_iq2-mix-ctx32k",
+      "workloads": {
+        "auto-compliance": {
+          "total": 33,
+          "pass": 4,
+          "fail": 0,
+          "budget_exhausted": 29,
+          "harness_error": 0,
+          "pending_review": 0,
+          "turn_cap_loops": 29,
+          "median_wall_s": 131.0
+        },
+        "general-deep": {
+          "total": 9,
+          "pass": 6,
+          "fail": 0,
+          "budget_exhausted": 3,
+          "harness_error": 0,
+          "pending_review": 0,
+          "turn_cap_loops": 3,
+          "median_wall_s": 22.6
+        }
+      }
+    },
+    "INC96": {
+      "role": "incumbent",
+      "model": "hf.co/unsloth/Qwen3.8-27B-GGUF/Q4/K/M-ctx96k",
+      "workloads": {
+        "general-deep": {
+          "total": 27,
+          "pass": 18,
+          "fail": 0,
+          "budget_exhausted": 0,
+          "harness_error": 0,
+          "pending_review": 9,
+          "turn_cap_loops": 0,
+          "median_wall_s": 36.5
+        }
+      }
+    },
+    "T96": {
+      "role": "challenger",
+      "model": "portal5_underdog-saluki-27b_iq2-mix-ctx96k",
+      "workloads": {
+        "general-deep": {
+          "total": 27,
+          "pass": 14,
+          "fail": 1,
+          "budget_exhausted": 3,
+          "harness_error": 0,
+          "pending_review": 9,
+          "turn_cap_loops": 3,
+          "median_wall_s": 24.9
+        }
+      }
+    },
+    "INC32": {
+      "role": "incumbent",
+      "model": "hf.co/unsloth/Qwen3.8-27B-GGUF/Q4/K/M-ctx32k",
+      "workloads": {
+        "auto-compliance": {
+          "total": 33,
+          "pass": 18,
+          "fail": 5,
+          "budget_exhausted": 8,
+          "harness_error": 2,
+          "pending_review": 0,
+          "turn_cap_loops": 8,
+          "median_wall_s": 23.1
+        },
+        "general-deep": {
+          "total": 9,
+          "pass": 9,
+          "fail": 0,
+          "budget_exhausted": 0,
+          "harness_error": 0,
+          "pending_review": 0,
+          "turn_cap_loops": 0,
+          "median_wall_s": 21.7
+        }
+      }
+    }
+  },
+  "harness_error_reason": "comp-p6j-09 repeats 1-2 on INC32: sandbox leaked the task answer key (gold_label/gold_finding_type) into repo_search output \u2014 contaminated instrument rows, not model results",
+  "saluki_loop_signature": "repeated repo_search of portal/modules/compliance/data/nerc_cip_map.json and nerc_cip_register.json (pattern variants) and repeated file_read of the same map \u2014 the analogue of Bonsai's packet.json re-read; 160/160 tool calls executed without error"
+}
