@@ -1673,3 +1673,40 @@ class TestPipelineMode:
         monkeypatch.setattr(cp, "ENGINE", "pipeline")
         s = cp._sampling_for({"sampling": {"top_k": 20}}, 0, {"sampling": {"temperature": 0.2}})
         assert s == {"temperature": 0.2, "seed": 1000, "max_tokens_source": "pipeline"}
+
+    def test_seat_served_candidates_resolve_the_production_alias(self):
+        """backends.yaml shadows several incumbent tags onto priority-10 oMLX
+        seats; the served-model checks must accept that target and still reject
+        a third model. Reads the committed routing, so it fails if the alias
+        drifts too."""
+        from tests.wfe import campaign as cp
+
+        assert cp.seat_served_candidates(
+            "auto-compliance", "hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k"
+        ) == {"hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k", "Qwen3.8-27B-oQ4e-mtp"}
+        # variant ids resolve through their base workspace's routing
+        assert cp.seat_served_candidates(
+            "auto-coding::laguna", "portal5/laguna-xs21:q4_K_M-ctx128k"
+        ) == {"portal5/laguna-xs21:q4_K_M-ctx128k", "Laguna-XS-2.1-4bit"}
+        # an unaliased tag admits only itself
+        assert cp.seat_served_candidates(
+            "auto-coding::fast-repair", "kat-coder-v2.5-dev:Q4_K_M-ctx32k"
+        ) == {"kat-coder-v2.5-dev:Q4_K_M-ctx32k"}
+
+    def test_preflight_pipeline_accepts_alias_rejects_drift(self, monkeypatch):
+        from tests.wfe import campaign as cp
+
+        monkeypatch.setattr(
+            cp, "chat", lambda *a, **k: {"served": {"model": "Qwen3.8-27B-oQ4e-mtp"}}
+        )
+        assert (
+            cp.preflight_pipeline(
+                ["auto-compliance"], "hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k"
+            )["verdict"]
+            == "OK"
+        )
+        monkeypatch.setattr(cp, "chat", lambda *a, **k: {"served": {"model": "some-other-model"}})
+        pf = cp.preflight_pipeline(
+            ["auto-compliance"], "hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k"
+        )
+        assert pf["verdict"] == "REVIEW" and "some-other-model" in pf["findings"][0]

@@ -700,10 +700,33 @@ def rescore_debug_dir(debug_dir: Path, campaign_dir: Path | None = None) -> list
 # --------------------------------------------------------------------------
 
 
+def seat_served_candidates(workspace: str, model: str) -> set[str]:
+    """Model ids production may serve for this arm: the tag plus its aliases in
+    the groups workspace_routing puts in the seat path. backends.yaml shadows
+    many incumbent tags onto priority-10 oMLX seats (auto-compliance ->
+    Qwen3.8-27B-oQ4e-mtp, tools-specialist -> granite-4.1-8b-mxfp8), so a raw
+    equality check would BLOCK every aliased seat; a third model is still a
+    mismatch."""
+    base = workspace.partition("::")[0]
+    try:
+        cfg = yaml.safe_load((REPO / "config/backends.yaml").read_text()) or {}
+    except OSError:
+        return {model}
+    lanes = (cfg.get("workspace_routing") or {}).get(base) or []
+    out = {model}
+    for grp in cfg.get("backends") or []:
+        if grp.get("group") in lanes:
+            target = (grp.get("aliases") or {}).get(model)
+            if target:
+                out.add(target)
+    return out
+
+
 def preflight_pipeline(workspaces: list[str], model: str) -> dict:
     """Pipeline mode: the pipeline owns the wire, so the raw transport probe is
     moot. What must hold is that each seat is actually served by the arm's model
-    (a fallback or alias drift would make every row describe another model)."""
+    or its production alias (a fallback to a third model would make every row
+    describe another model)."""
     findings = []
     for ws in workspaces:
         try:
@@ -712,7 +735,7 @@ def preflight_pipeline(workspaces: list[str], model: str) -> dict:
         except Exception as e:
             served, findings = None, [*findings, f"{ws}: request failed: {e}"]
             continue
-        if served != model:
+        if served not in seat_served_candidates(ws, model):
             findings.append(f"{ws}: pipeline served {served!r}, arm is {model!r}")
     return {"model": model, "verdict": "REVIEW" if findings else "OK", "findings": findings}
 
@@ -860,7 +883,11 @@ def run_row(
             "tool_call_log": [],
         }
     served = (out.get("evidence") or {}).get("served_models")
-    if ENGINE == "pipeline" and served and served != [row_model(r)]:
+    if (
+        ENGINE == "pipeline"
+        and served
+        and not set(served) <= seat_served_candidates(r["workspace"], row_model(r))
+    ):
         # The pipeline routed this seat to another model (fallback, alias drift):
         # the row says nothing about the arm, so it must not count as seat evidence.
         out = {
