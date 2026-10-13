@@ -59,7 +59,7 @@ from tests.wfe.prompt_surface import harness_note, production_tool_names
 from tests.wfe.schema import Economics, Outcome, ResultRow, env_fingerprint, sha12
 
 REPO = Path(__file__).resolve().parents[2]
-OLLAMA = "http://localhost:11434"
+OLLAMA = os.environ.get("WFE_OLLAMA_URL", "http://localhost:11434").rstrip("/")
 #: The chat engine under test. Default is production (Ollama). Set
 #: WFE_ENGINE=<name> and WFE_CHAT_BASE_URL=<base> to point the campaign at any
 #: OpenAI-compatible engine (oMLX, mlx-serve, Rapid-MLX, vllm-mlx, mlx_lm.server)
