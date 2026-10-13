@@ -165,3 +165,39 @@ def test_completion_requires_a_model_quality_result_for_every_expected_row(tmp_p
     ]
     write(rows[2]["run_id"], "PASS")
     assert campaign.completion_problems(d) == [] and campaign._cmd_verify_complete(d) == 0
+
+
+def test_pipeline_preflight_asks_the_pipeline_for_each_arms_workspaces(tmp_path, monkeypatch):
+    monkeypatch.setattr(campaign, "CAMPAIGNS", tmp_path / "campaigns")
+    plan = tmp_path / "plan.yaml"
+    plan.write_text("workloads: {}\n")
+    rows = [
+        {**ROW, "run_id": "w1|m|s|t|r0", "workspace": "auto-compliance", "model": "m"},
+        {**ROW, "run_id": "w2|m|s|t|r0", "workspace": "auto-coding", "model": "m"},
+    ]
+    d = campaign.open_campaign("c", plan, rows, append=False)
+    seen = []
+    monkeypatch.setattr(campaign, "ENGINE", "pipeline")
+    monkeypatch.setattr(campaign, "drain_others", lambda *a: [])
+    monkeypatch.setattr(campaign, "drain_model", lambda *a: True)
+    monkeypatch.setattr(campaign, "model_sizes", lambda: {})
+    monkeypatch.setattr(campaign, "row_model", lambda r: "m")
+    monkeypatch.setattr(
+        campaign, "preflight_pipeline", lambda ws, m: seen.append((ws, m)) or {"verdict": "OK"}
+    )
+
+    def wrong(*a, **k):
+        raise AssertionError("the raw-transport preflight must not run in pipeline mode")
+
+    monkeypatch.setattr(campaign, "preflight_arm", wrong)
+    assert campaign._cmd_preflight(d, False) == 0
+    assert seen == [(["auto-coding", "auto-compliance"], "m")]
+
+
+def test_a_gate_refusal_exits_4_with_its_reason(tmp_path, monkeypatch, capsys):
+    plan = _cli_env(tmp_path, monkeypatch, [ROW])
+    monkeypatch.setattr(campaign, "instrument_dirty", lambda: ["tests/wfe/runner.py"])
+    monkeypatch.delenv("WFE_ALLOW_DIRTY_INSTRUMENT", raising=False)
+    monkeypatch.setattr(sys, "argv", ["campaign", "--plan", str(plan), "--campaign-id", "c"])
+    assert campaign._cli() == campaign.EXIT_GATE
+    assert "uncommitted changes" in capsys.readouterr().err

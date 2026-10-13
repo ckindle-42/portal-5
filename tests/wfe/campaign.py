@@ -589,6 +589,20 @@ def instrument_fingerprint() -> dict:
     return parts
 
 
+EXIT_GATE = 4
+
+
+class GateRefused(SystemExit):
+    """A gate refused to run: controls, a dirty or drifted instrument. Exits 4 with its reason."""
+
+    def __init__(self, message: str):
+        super().__init__(EXIT_GATE)
+        self.message = message
+
+    def __str__(self) -> str:
+        return self.message
+
+
 def instrument_drift(manifest: dict) -> str | None:
     """How a fresh observation differs from the campaign's frozen baseline, or None."""
     base = manifest.get("instrument") or {}
@@ -607,7 +621,7 @@ def gate_execution(campaign_dir: Path) -> None:
     keep_receipt(campaign_dir, gate_controls(m["rows"], "execute"))
     drift = instrument_drift(m)
     if drift:
-        raise SystemExit(f"execute: {drift}; open a new campaign for the changed instrument")
+        raise GateRefused(f"execute: {drift}; open a new campaign for the changed instrument")
 
 
 def gate_controls(rows: list[dict], where: str) -> dict:
@@ -616,13 +630,13 @@ def gate_controls(rows: list[dict], where: str) -> dict:
 
     dirty = instrument_dirty()
     if dirty and os.environ.get("WFE_ALLOW_DIRTY_INSTRUMENT") != "1":
-        raise SystemExit(
+        raise GateRefused(
             f"{where}: the instrument has uncommitted changes {dirty[:8]}; commit first"
         )
     paths = sorted({r["suite_path"] for r in rows if r.get("suite_path")})
     rec = controls.receipt(paths, {r["task_id"] for r in rows if r.get("suite_path")})
     if rec["failures"]:
-        raise SystemExit(
+        raise GateRefused(
             f"{where}: {len(rec['failures'])} task control(s) fail — the checker cannot tell "
             "a right answer from a wrong one (or a key has expired), so no model can be "
             "scored with it:\n  " + "\n  ".join(rec["failures"][:40])
@@ -652,7 +666,7 @@ def open_campaign(cid: str, plan_path: Path, matrix: list[dict], append: bool) -
             # Resume gates in main(); read-only views come through here and never write.
             return d
         if instrument_drift(manifest):
-            raise SystemExit(f"append: {instrument_drift(manifest)}; open a new campaign")
+            raise GateRefused(f"append: {instrument_drift(manifest)}; open a new campaign")
         known = {r["run_id"] for r in manifest["rows"]}
         added = [r for r in matrix if r["run_id"] not in known]
         keep_receipt(d, gate_controls([*manifest["rows"], *added], "append"))
@@ -1936,11 +1950,18 @@ def _cmd_preflight(campaign_dir: Path, force: bool) -> int:
     missing = [a for a in arms if a not in sizes] if sizes and ENGINE == "ollama" else []
     manifest = load_manifest(campaign_dir)
     frozen = manifest.setdefault("identity_map", {})
+    ws_by_model: dict[str, set] = {}
+    for r in manifest["rows"]:
+        ws_by_model.setdefault(row_model(r), set()).add(r["workspace"])
     bad = []
     drift: list[str] = []
     for i, a in enumerate(arms, 1):
         t0 = time.monotonic()
-        res = preflight_arm(campaign_dir, a, force)
+        res = (  # in pipeline mode, ask the pipeline what it serves for this arm
+            preflight_pipeline(sorted(ws_by_model.get(a, ())), a)
+            if ENGINE == "pipeline"
+            else preflight_arm(campaign_dir, a, force)
+        )
         verdict = str(res.get("verdict"))
         # The first preflight of a pair freezes its identity; a later change
         # means the two halves of the comparison describe different builds.
@@ -2095,5 +2116,13 @@ def main() -> int:
     return exit_status(outs, arms)
 
 
+def _cli() -> int:
+    try:
+        return main()
+    except GateRefused as e:
+        print(e, file=sys.stderr)
+        return EXIT_GATE
+
+
 if __name__ == "__main__":
-    raise SystemExit(main())
+    raise SystemExit(_cli())
