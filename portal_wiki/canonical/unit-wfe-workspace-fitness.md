@@ -144,7 +144,7 @@ Phase 0; fitness matrix drives disposition decisions.
 
 ## Measurement caveats (added 2026-10-12)
 
-- **Prompt/tool-surface mismatch (fixed 2026-10-12; pipeline re-baseline pending).**
+- **Prompt/tool-surface mismatch (fixed 2026-10-12; seat baseline V2).**
   Persona prompts and `system_prompt_append` name production tools the harness
   does not offer (auto-compliance: `nerc_cip_requirement`, `compliance_ask`, …),
   and auto-compliance's output taxonomy conflicted with the suite's JSON labels.
@@ -158,9 +158,19 @@ Phase 0; fitness matrix drives disposition decisions.
   the note and never read user turns — it now flags a task demanding a tool the
   surface lacks). A task that needs a production tool declares `requires_tools`
   and is BLOCKED (comp-reading-contract-01). A FAIL that carries the task's
-  completion signal is no longer relabelled REFUSED. Pipeline re-baseline:
-  TASK_WFE_PROMPT_SURFACE_REBASELINE_V2; corrections in
+  completion signal is no longer relabelled REFUSED. V1 corrections in
   `docs/WFE_PROMPT_SURFACE_REBASELINE_V1.CLOSEOUT.md`.
+- **Seat baseline (TASK_WFE_PROMPT_SURFACE_REBASELINE_V2):**
+  `wfe_prompt_surface_seat_20261012`, pipeline mode, 87 rows, n=3, is the seat
+  baseline for the seven affected workspaces
+  (`docs/WFE_PROMPT_SURFACE_REBASELINE_V2.CLOSEOUT.md`). Four of the seven seats
+  are served through committed oMLX aliases, so the per-row
+  `evidence.served_models` field is part of the baseline record. On the oMLX
+  `Qwen3.8-27B-oQ4e-mtp` seat the p6j compliance tasks loop at the lane's
+  think-off (11/13 served rows) while the same checkpoint on the Ollama fallback
+  passes (15/17) — attributed to a seat × think-off × format-clause conjunction
+  (think-on and no-format control arms each drop loops to 0), not to model
+  capability.
 - **Card-think arms.** A model whose card reasons (think on by default) must
   ALSO be measured at its card think + sampling setting, not only at the lane's
   forced think-off policy. Report both, and attribute "lane fit" (the lane's
