@@ -9,13 +9,6 @@ import pytest
 from tests.wfe import campaign, report
 
 
-@pytest.fixture(autouse=True)
-def _fresh_fingerprint():
-    campaign.instrument_fingerprint.cache_clear()
-    yield
-    campaign.instrument_fingerprint.cache_clear()
-
-
 @pytest.fixture
 def fake_repo(tmp_path, monkeypatch):
     (tmp_path / "config").mkdir()
@@ -28,7 +21,6 @@ def fake_repo(tmp_path, monkeypatch):
 
 
 def _fp() -> str:
-    campaign.instrument_fingerprint.cache_clear()
     return campaign.instrument_fingerprint()["fingerprint"]
 
 
@@ -143,3 +135,57 @@ async def test_pipeline_health_reports_its_build(monkeypatch):
     monkeypatch.setattr(handlers, "registry", Reg())
     monkeypatch.setenv("PORTAL_BUILD_SHA", "abc1234")
     assert (await handlers.health())["build_sha"] == "abc1234"
+
+
+# ── the frozen baseline is enforced, with no cache to clear ──────────────────
+
+
+def _open(tmp_path, monkeypatch, rows=()):
+    monkeypatch.setattr(campaign, "CAMPAIGNS", tmp_path / "campaigns")
+    plan = tmp_path / "plan.yaml"
+    plan.write_text("workloads: {}\n")
+    return campaign.open_campaign("c", plan, list(rows), append=False), plan
+
+
+def test_observation_is_fresh_every_call(fake_repo):
+    before = campaign.instrument_fingerprint()["fingerprint"]
+    (fake_repo / "config/portal.yaml").write_text("a: 3\n")
+    assert campaign.instrument_fingerprint()["fingerprint"] != before
+
+
+def test_execution_refuses_a_campaign_whose_instrument_changed(fake_repo, tmp_path, monkeypatch):
+    d, _ = _open(tmp_path, monkeypatch)
+    campaign.gate_execution(d)
+    (fake_repo / "tests/wfe/runner.py").write_text("x = 2\n")
+    with pytest.raises(SystemExit, match="instrument drift in \\['harness'\\]"):
+        campaign.gate_execution(d)
+
+
+def test_append_refuses_a_changed_instrument(fake_repo, tmp_path, monkeypatch):
+    _, plan = _open(tmp_path, monkeypatch)
+    (fake_repo / "config/backends.yaml").write_text("b: 1\n")
+    with pytest.raises(SystemExit, match="append: instrument drift"):
+        campaign.open_campaign("c", plan, [], append=True)
+
+
+def test_deployed_build_change_is_drift(fake_repo, tmp_path, monkeypatch):
+    monkeypatch.setattr(campaign, "ENGINE", "pipeline")
+    build = {"sha": "aaaaaaa"}
+    monkeypatch.setattr(campaign, "deployed_build", lambda: build["sha"])
+    d, _ = _open(tmp_path, monkeypatch)
+    build["sha"] = "bbbbbbb"
+    assert "deployed" in campaign.instrument_drift(campaign.load_manifest(d))
+
+
+def test_drift_after_a_row_quarantines_it_and_stops_the_arm(fake_repo, tmp_path, monkeypatch):
+    r = {"run_id": "w|a|s|t|r0", "arm": "a", "state": "PENDING"}
+    d, _ = _open(tmp_path, monkeypatch, [r])
+    m = campaign.load_manifest(d)
+    row = {"outcome": "PASS", "notes": ""}
+    assert campaign.arm_stop_reason("a", row, d, m, m["rows"][0]) is None
+    (fake_repo / "config/portal.yaml").write_text("a: 9\n")
+    why = campaign.arm_stop_reason("a", row, d, m, m["rows"][0])
+    assert why and "config" in why
+    saved = json.loads(campaign._row_path(d, r["run_id"]).read_text())
+    assert saved["outcome"] == "BLOCKED" and saved["notes"].startswith("INSTRUMENT DRIFT")
+    assert campaign.load_manifest(d)["rows"][0]["state"] == "BLOCKED"

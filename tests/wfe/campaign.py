@@ -571,7 +571,6 @@ def deployed_matches(build: str) -> bool:
     )
 
 
-@functools.lru_cache(maxsize=1)
 def instrument_fingerprint() -> dict:
     """What is measuring: harness and config by content, portal tree, deployed build, engine."""
     import hashlib
@@ -587,6 +586,27 @@ def instrument_fingerprint() -> dict:
     blob = json.dumps({k: v for k, v in parts.items() if k != "commit"}, sort_keys=True)
     parts["fingerprint"] = hashlib.sha256(blob.encode()).hexdigest()[:16]
     return parts
+
+
+def instrument_drift(manifest: dict) -> str | None:
+    """How a fresh observation differs from the campaign's frozen baseline, or None."""
+    base = manifest.get("instrument") or {}
+    now = instrument_fingerprint()
+    if not base or now["fingerprint"] == base.get("fingerprint"):
+        return None
+    keys = sorted(k for k in now if k not in ("fingerprint", "commit") and now[k] != base.get(k))
+    return (
+        f"instrument drift in {keys}: baseline {base.get('fingerprint')} now {now['fingerprint']}"
+    )
+
+
+def gate_execution(campaign_dir: Path) -> None:
+    """Controls gate plus baseline check before any row of a resumed campaign runs."""
+    m = load_manifest(campaign_dir)
+    keep_receipt(campaign_dir, gate_controls(m["rows"], "execute"))
+    drift = instrument_drift(m)
+    if drift:
+        raise SystemExit(f"execute: {drift}; open a new campaign for the changed instrument")
 
 
 def gate_controls(rows: list[dict], where: str) -> dict:
@@ -630,6 +650,8 @@ def open_campaign(cid: str, plan_path: Path, matrix: list[dict], append: bool) -
         if not append:
             # Resume gates in main(); read-only views come through here and never write.
             return d
+        if instrument_drift(manifest):
+            raise SystemExit(f"append: {instrument_drift(manifest)}; open a new campaign")
         known = {r["run_id"] for r in manifest["rows"]}
         added = [r for r in matrix if r["run_id"] not in known]
         keep_receipt(d, gate_controls([*manifest["rows"], *added], "append"))
@@ -1246,7 +1268,7 @@ def run_row(
         run_id=r["run_id"],
         campaign_id=manifest["campaign_id"],
         stage="full",
-        instrument=instrument_fingerprint(),
+        instrument=manifest.get("instrument") or instrument_fingerprint(),
         workspace=r["workspace"],
         arm=r["arm"],
         arm_role=r["arm_role"],
@@ -1396,8 +1418,18 @@ MAX_CONSECUTIVE_HARNESS_ERRORS = 3
 _RECENT: dict[str, list[str]] = {}
 
 
-def arm_stop_reason(arm: str, row: dict) -> str | None:
-    """Why the arm must stop after this row (a failover stops it at once), or None."""
+def arm_stop_reason(
+    arm: str, row: dict, campaign_dir: Path | None = None, manifest: dict | None = None, r=None
+) -> str | None:
+    """Why the arm must stop after this row (a failover stops it at once), or None.
+    Instrument drift observed after a row quarantines that row and stops the arm."""
+    drift = instrument_drift(manifest) if manifest else None
+    if drift and campaign_dir is not None and r is not None:
+        row = {**row, "outcome": Outcome.BLOCKED.value, "notes": f"INSTRUMENT DRIFT: {drift}"}
+        _row_path(campaign_dir, r["run_id"]).write_text(json.dumps(row, indent=1))
+        r["state"] = Outcome.BLOCKED.value
+        save_manifest(campaign_dir, manifest)
+        return drift
     if str(row.get("notes") or "").startswith(SEAT_BLOCK):
         return str(row["notes"])[:200]
     recent = _RECENT.setdefault(arm, [])
@@ -1487,7 +1519,7 @@ def execute_arm(
             f"      -> {row['outcome']} turns={row['turns']} tools={row['tool_calls']} "
             f"errs={row['tool_errors']} {row['economics'].get('wall_s')}s",
         )
-        stop = arm_stop_reason(arm, row)
+        stop = arm_stop_reason(arm, row, campaign_dir, manifest, r)
         if stop:
             _log(campaign_dir, f"arm {arm}: STOPPED — {stop}")
             break
@@ -1796,6 +1828,7 @@ def _cmd_smoke(args, plan: Path) -> int:
     (d / "preflight").mkdir(parents=True, exist_ok=True)
     keep_receipt(d, rec)
     manifest = {"campaign_id": d.name, "env": env_fingerprint(OLLAMA), "rows": [r]}
+    manifest["instrument"] = instrument_fingerprint()
     save_manifest(d, manifest)
     pf = (
         preflight_pipeline([r["workspace"]], row_model(r))
@@ -1984,7 +2017,7 @@ def main() -> int:
     if not _ready(campaign_dir):
         return 3
     # Re-gate every row before it runs: suites change and keys expire after open.
-    keep_receipt(campaign_dir, gate_controls(load_manifest(campaign_dir)["rows"], "execute"))
+    gate_execution(campaign_dir)
     if args.preflight:
         return _cmd_preflight(campaign_dir, args.force)
     manifest = load_manifest(campaign_dir)
