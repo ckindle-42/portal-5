@@ -1,0 +1,29 @@
+{
+ "campaign_id": "wfe_prompt_surface_seat_smoke_20261012",
+ "env": {
+  "git_sha": "2b27d8c4",
+  "ollama_version": "0.40.0",
+  "python": "3.13.12",
+  "platform": "macOS-27.0.1-arm64-arm-64bit-Mach-O",
+  "engine": "pipeline",
+  "engine_base_url": "",
+  "engine_version": "unknown",
+  "fingerprint": "791254ff1757"
+ },
+ "rows": [
+  {
+   "run_id": "auto-compliance|hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k|compliance_agentic|comp-p6j-01|r0",
+   "workspace": "auto-compliance",
+   "arm": "hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k",
+   "model": "hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k",
+   "overrides": {},
+   "arm_role": "incumbent",
+   "suite": "compliance_agentic",
+   "suite_path": "/Users/chris/projects/portal-5/tests/wfe/suites/compliance_agentic.jsonl",
+   "task_id": "comp-p6j-01",
+   "repeat": 0,
+   "is_home": true,
+   "state": "PENDING"
+  }
+ ]
+}

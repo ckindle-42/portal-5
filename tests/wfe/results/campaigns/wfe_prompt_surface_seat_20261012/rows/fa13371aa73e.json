@@ -1,0 +1,449 @@
+{
+ "schema": "wfe-result-2",
+ "run_id": "general-deep|hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx96k|research|res-repo-grounded|r2",
+ "campaign_id": "wfe_prompt_surface_seat_20261012",
+ "stage": "full",
+ "workspace": "general-deep",
+ "arm": "hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx96k",
+ "arm_role": "incumbent",
+ "suite": "research",
+ "task_id": "res-repo-grounded",
+ "repeat": 2,
+ "outcome": "BUDGET_EXHAUSTED",
+ "notes": "did not finish | answer missing patterns=['config/portal\\\\.yaml']",
+ "evidence": {
+  "checker_outcome": "FAIL",
+  "served_models": [
+   "Qwen3.8-27B-oQ4e-mtp"
+  ]
+ },
+ "persona_slug": null,
+ "prompt_sha": "7a026d696817",
+ "tool_surface": [
+  "file_read",
+  "file_list",
+  "repo_search",
+  "pytest_run",
+  "file_write",
+  "http_get"
+ ],
+ "tool_surface_proxy": true,
+ "harness": {
+  "endpoint": "v1",
+  "stream": false,
+  "think": "native",
+  "format": "none"
+ },
+ "sampling": {
+  "seed": 1002,
+  "max_tokens_source": "pipeline"
+ },
+ "baked_params": {},
+ "seed": 1002,
+ "turns": 17,
+ "tool_calls": 16,
+ "tool_errors": 0,
+ "finish_reason": "tool_calls",
+ "economics": {
+  "prompt_tokens": 101147,
+  "completion_tokens": 576,
+  "total_tokens": 101723,
+  "load_ms": null,
+  "wall_s": 169.2,
+  "cold_load": false
+ },
+ "env": {
+  "git_sha": "2b27d8c4",
+  "ollama_version": "0.40.0",
+  "python": "3.13.12",
+  "platform": "macOS-27.0.1-arm64-arm-64bit-Mach-O",
+  "engine": "pipeline",
+  "engine_base_url": "",
+  "engine_version": "unknown",
+  "fingerprint": "791254ff1757"
+ },
+ "final_text_head": "",
+ "transcript": [
+  {
+   "turn": 0,
+   "content": "",
+   "tool_calls": [
+    {
+     "name": "repo_search",
+     "args_raw": "{\"pattern\": \"single source of truth\"}"
+    }
+   ],
+   "served": {
+    "backend": "omlx-general",
+    "model": "Qwen3.8-27B-oQ4e-mtp"
+   }
+  },
+  {
+   "turn": 1,
+   "content": "",
+   "tool_calls": [
+    {
+     "name": "file_read",
+     "args_raw": "{\"path\": \"docs/HOWTO.md\"}"
+    }
+   ],
+   "served": {
+    "backend": "omlx-general",
+    "model": "Qwen3.8-27B-oQ4e-mtp"
+   }
+  },
+  {
+   "turn": 2,
+   "content": "",
+   "tool_calls": [
+    {
+     "name": "repo_search",
+     "args_raw": "{\"path\": \"docs/HOWTO.md\", \"pattern\": \"single source of truth\"}"
+    }
+   ],
+   "served": {
+    "backend": "omlx-general",
+    "model": "Qwen3.8-27B-oQ4e-mtp"
+   }
+  },
+  {
+   "turn": 3,
+   "content": "",
+   "tool_calls": [
+    {
+     "name": "repo_search",
+     "args_raw": "{\"path\": \"docs/HOWTO.md\", \"pattern\": \"portal.yaml|regenerates|sync-config\"}"
+    }
+   ],
+   "served": {
+    "backend": "omlx-general",
+    "model": "Qwen3.8-27B-oQ4e-mtp"
+   }
+  },
+  {
+   "turn": 4,
+   "content": "",
+   "tool_calls": [
+    {
+     "name": "file_read",
+     "args_raw": "{\"path\": \"portal_wiki/canonical/unit-HOWTO-3-workspaces.md\"}"
+    }
+   ],
+   "served": {
+    "backend": "omlx-general",
+    "model": "Qwen3.8-27B-oQ4e-mtp"
+   }
+  },
+  {
+   "turn": 5,
+   "content": "",
+   "tool_calls": [
+    {
+     "name": "file_read",
+     "args_raw": "{\"path\": \"portal_wiki/canonical/unit-fact-config-index.md\"}"
+    }
+   ],
+   "served": {
+    "backend": "omlx-general",
+    "model": "Qwen3.8-27B-oQ4e-mtp"
+   }
+  },
+  {
+   "turn": 6,
+   "content": "",
+   "tool_calls": [
+    {
+     "name": "file_read",
+     "args_raw": "{\"path\": \"portal_wiki/canonical/unit-general-config-workspace-pointers.md\"}"
+    }
+   ],
+   "served": {
+    "backend": "omlx-general",
+    "model": "Qwen3.8-27B-oQ4e-mtp"
+   }
+  },
+  {
+   "turn": 7,
+   "content": "",
+   "tool_calls": [
+    {
+     "name": "file_read",
+     "args_raw": "{\"path\": \"portal_wiki/canonical/unit-compliance-config-workspace-pointers.md\"}"
+    }
+   ],
+   "served": {
+    "backend": "omlx-general",
+    "model": "Qwen3.8-27B-oQ4e-mtp"
+   }
+  },
+  {
+   "turn": 8,
+   "content": "",
+   "tool_calls": [
+    {
+     "name": "file_read",
+     "args_raw": "{\"path\": \"portal_wiki/canonical/unit-module-cad.md\"}"
+    }
+   ],
+   "served": {
+    "backend": "omlx-general",
+    "model": "Qwen3.8-27B-oQ4e-mtp"
+   }
+  },
+  {
+   "turn": 9,
+   "content": "",
+   "tool_calls": [
+    {
+     "name": "file_read",
+     "args_raw": "{\"path\": \"portal_wiki/canonical/unit-module-general.md\"}"
+    }
+   ],
+   "served": {
+    "backend": "omlx-general",
+    "model": "Qwen3.8-27B-oQ4e-mtp"
+   }
+  },
+  {
+   "turn": 10,
+   "content": "",
+   "tool_calls": [
+    {
+     "name": "file_read",
+     "args_raw": "{\"path\": \"portal_wiki/canonical/unit-design-ollama-native-dispatch.md\"}"
+    }
+   ],
+   "served": {
+    "backend": "omlx-general",
+    "model": "Qwen3.8-27B-oQ4e-mtp"
+   }
+  },
+  {
+   "turn": 11,
+   "content": "",
+   "tool_calls": [
+    {
+     "name": "file_read",
+     "args_raw": "{\"path\": \"portal_wiki/canonical/unit-surface-inference.md\"}"
+    }
+   ],
+   "served": {
+    "backend": "omlx-general",
+    "model": "Qwen3.8-27B-oQ4e-mtp"
+   }
+  },
+  {
+   "turn": 12,
+   "content": "",
+   "tool_calls": [
+    {
+     "name": "file_read",
+     "args_raw": "{\"path\": \"portal_wiki/archive/unit-ci-generated-fresh.md\"}"
+    }
+   ],
+   "served": {
+    "backend": "omlx-general",
+    "model": "Qwen3.8-27B-oQ4e-mtp"
+   }
+  },
+  {
+   "turn": 13,
+   "content": "",
+   "tool_calls": [
+    {
+     "name": "file_read",
+     "args_raw": "{\"path\": \"portal_wiki/archive/unit-router-workspaces.md\"}"
+    }
+   ],
+   "served": {
+    "backend": "omlx-general",
+    "model": "Qwen3.8-27B-oQ4e-mtp"
+   }
+  },
+  {
+   "turn": 14,
+   "content": "",
+   "tool_calls": [
+    {
+     "name": "file_read",
+     "args_raw": "{\"path\": \"portal_wiki/archive/unit-scripts-migrate_to_portal_yaml.md\"}"
+    }
+   ],
+   "served": {
+    "backend": "omlx-general",
+    "model": "Qwen3.8-27B-oQ4e-mtp"
+   }
+  },
+  {
+   "turn": 15,
+   "content": "",
+   "tool_calls": [
+    {
+     "name": "file_read",
+     "args_raw": "{\"path\": \"portal_wiki/canonical/unit-HOWTO-3-workspaces.md\"}"
+    }
+   ],
+   "served": {
+    "backend": "omlx-general",
+    "model": "Qwen3.8-27B-oQ4e-mtp"
+   }
+  },
+  {
+   "turn": 16,
+   "exhausted_turns": "no final answer in 16 turns"
+  }
+ ],
+ "tool_call_log": [
+  {
+   "name": "repo_search",
+   "args": {
+    "pattern": "single source of truth"
+   },
+   "raw_args": "{\"pattern\": \"single source of truth\"}",
+   "output": "docs/HOWTO.md:69:**How:** Workspaces are defined in `config/portal.yaml` under the `workspaces:` block \u2014 each entry declares `module`, `name`, `model_hint`, `tools`, and `expose_to_owui`. Select one from the model dropdown; the exposed ones are exactly those with `expose_to_owui: true`. `./launch.sh sync-config` regenerates the derived artifacts (`workspace_routing` in `config/backends.yaml`, `.mcp.json`, and the Open WebUI workspace presets under `imports/openwebui/workspaces/`) so `config/portal.yaml` stays the single source of truth.\nportal/modules/compliance/config/__init__.py:3:(the single source of truth), not a duplicate store.\nportal/modules/general/config/__init__.py:16:    no separate config store, this reads the single source of truth.\"\"\"\nportal/modules/netforensics/tools/netforensics_mcp.py:52:    # single source of truth for the lab invariant \u2014 the security module's guard\nportal/modules/security/core/_data.py:40:    \"\"\"config/lab_targets.yaml's `lab_hosts:` block \u2014 single source of truth.\nportal/modules/security/core/matrix.py:530:    REAL published port \u2014 the single source of truth.\nportal/platform/inference/config.py:25:# Path to the single source of truth \u2014 relative to repo root\nportal_wiki/archive/unit-ci-generated-fresh.md:28:Rule 6 makes `portal.yaml` the single source of truth and declares the three\nportal_wiki/archive/unit-router-workspaces.md:32:the catalog to Rule 6's single source of truth \u2014 a workspace added to\nportal_wiki/archive/unit-scripts-migrate_to_portal_yaml.md:19:Migrates the workspace and MCP server definitions from the code literals and .mcp.json into config/portal.yaml, the single source of truth.\nportal_wiki/archive/unit-tests-lib-coding-fixtures.md:27:The scenario YAML is the single source of truth for what a coding persona is\nportal_wiki/archive/unit-tests-lib-init.md:45:The fixtures are the single source of truth \u2014 the loaders are purely a\nportal_wiki/canonical/unit-HOWTO-3-workspaces.md:20:**How:** Workspaces are defined in `config/portal.yaml` under the `workspaces:` block \u2014 each entry declares `module`, `name`, `model_hint`, `tools`, and `expose_to_owui`. Select one from the model dropdown; the exposed ones are exactly those with `expose_to_owui: true`. `./launch.sh sync-config` regenerates the derived artifacts (`workspace_routing` in `config/backends.yaml`, `.mcp.json`, and the Open WebUI workspace presets under `imports/openwebui/workspaces/`) so `config/portal.yaml` stays the single source of truth.\nportal_wiki/canonical/unit-compliance-config-workspace-pointers.md:28:CLAUDE.md Rule 6 makes `config/portal.yaml` the single source of truth for\nportal_wiki/canonical/unit-design-ollama-native-dispatch.md:43:The rejected alternative was baking sampling into Ollama tags: it needs no request-path code, but it makes sampling a property of a shared tag (seats that share a tag conflict), turns every sampling change into a re-bake that drifts silently if missed, and still cannot deliver `think: true`. The adapter keeps `config/portal.yaml` the single source of truth; its exposure to Ollama changes is bounded by the contract loop rather than by hope.\nportal_wiki/canonical/unit-fact-config-index.md:50:- `portal.yaml` \u2014 single source of truth for `workspaces` and `mcp_fleet`;\nportal_wiki/canonical/unit-general-config-workspace-pointers.md:21:`config/portal.yaml`, the single source of truth for workspaces.\nportal_wiki/canonical/unit-module-cad.md:190:the toggle's single source of truth, and re-grounding it to the adapter\nportal_wiki/canonical/unit-module-general.md:57:  pointer into config/portal.yaml (the single source of truth)\nportal_wiki/canonical/unit-surface-inference.md:28:Rule 6 makes `portal.yaml` the single source of truth and every other config file a\nscripts/_archive/mlx-retired-3a0c58e/mlx-proxy.py:182:# Load model registry from backends.yaml (single source of truth \u2014 CLAUDE.md Rule 8)\nscripts/lab_host.py:4:This is the single source of truth for host access. Every other module that",
+   "error": false
+  },
+  {
+   "name": "file_read",
+   "args": {
+    "path": "docs/HOWTO.md"
+   },
+   "raw_args": "{\"path\": \"docs/HOWTO.md\"}",
+   "output": "# Portal 6.0.3 \u2014 How-To Guide\n\n---\n\n## 1. Quick Start\n\n<!-- WIKI:GENERATED unit=unit-HOWTO-1-quick-start -->\nComplete working examples for every feature. Each section shows: what it does, how to activate it, a working example, and how to verify.\n\n**What:** Launch the entire platform with one command.\n\n```bash\ngit clone https://github.com/ckindle-42/portal-5.git\ncd portal-5\n./launch.sh up\n```\n\nThe `up` case in `launch.sh` copies `.env.example` to `.env` when it is missing, regenerates any secret still set to `CHANGEME` via `bootstrap_secrets` and the secret-repair loop, creates the shared workspace tree under `~/AI_Output`, pulls the Docker images, auto-starts the native services, checks hardware, and brings the compose stack up. A first run downloads images and model weights, so it takes tens of minutes rather than seconds; subsequent runs are near-instant.\n\nWhen the stack is ready `launch.sh` prints the service URLs:\n\n- Open WebUI: `http://localhost:8080`\n- SearXNG: `http://localhost:8088`\n- Grafana: `http://localhost:3000`\n- Prometheus: `http://localhost:9090`\n\n`ENABLE_REMOTE_ACCESS=true` in `.env` makes Open WebUI bind to `0.0.0.0` instead of loopback, and `WEBUI_LISTEN_ADDR` is written back into `.env` so external restarts keep the same binding.\n\n**Verify:**\n```bash\n./launch.sh status\n```\n\n### Why\n\nFirst-run bootstrapping lives inside the `up` case rather than in a manual checklist so every post-clone dependency \u2014 env file, secrets, workspace tree, Docker images, model weights \u2014 is generated or fetched by one command and a fresh checkout converges to the same running stack as an old install. The secret-repair loop also makes an interrupted first run self-healing: re-running `up` regenerates whatever placeholder value is left over.\n<!-- /WIKI:GENERATED -->\n\n---\n\n## 2. Chat with AI\n\n<!-- WIKI:GENERATED unit=unit-HOWTO-2-chat-with-ai -->\n**What:** Open WebUI connects to Portal Pipeline, which routes each request to the best-fit model.\n\n**How:** Open `http://localhost:8080` and sign in with the admin credentials from `.env` \u2014 `OPENWEBUI_ADMIN_EMAIL` / `OPENWEBUI_ADMIN_PASSWORD`, the latter auto-generated on first run and printed by `launch.sh`. Open WebUI's `OPENAI_API_BASE_URL` points at the pipeline's `http://portal-pipeline:9099/v1` in `deploy/portal-5/docker-compose.yml`, so every chat flows through the router.\n\n**Example \u2014 general chat:**\n1. Select `Portal Auto Router` from the model dropdown\n2. Type: `Explain how Docker networking works`\n3. The `auto` workspace's `model_hint` (`huihui_ai/qwen3.5-abliterated:9b-ctx8k` in `config/portal.yaml`) selects the model served via Ollama\n\nThe `auto` workspace is special: when no explicit model is chosen, the LLM intent classifier (`_route_with_llm`, Layer 1 in `portal/platform/inference/router/routing.py`) picks the best-fit workspace, falling back to weighted keyword scoring (`_detect_workspace`, Layer 2) on low confidence or timeout. `DEFAULT_MODEL` in `.env.example` only sets Open WebUI's default picker selection.\n\n**Verify routing:** run `./launch.sh status`, or `curl http://localhost:9099/v1/models` with `PIPELINE_API_KEY` as the bearer token.\n\n### Why\n\nRouting is deliberately split from serving: Open WebUI only knows one OpenAI-compatible endpoint, and the pipeline decides which workspace and model answer. Keeping the chat UI that thin means model selection, persona overrides, and tool grants can all evolve inside `config/portal.yaml` and `routing.py` without any Open WebUI change, and the two-layer classifier makes the router both accurate (LLM) and fast (keywords) without blocking the request on the classifier.\n<!-- /WIKI:GENERATED -->\n\n---\n\n## 3. Workspaces\n\n<!-- WIKI:GENERATED unit=unit-HOWTO-3-workspaces -->\n**What:** Each workspace routes to a specialized model and activates the relevant tools.\n\n**How:** Workspaces are defined in `config/portal.yaml` under the `workspaces:` block \u2014 each entry declares `module`, `name`, `model_hint`, `tools`, and `expose_to_owui`. Select",
+   "error": false
+  },
+  {
+   "name": "repo_search",
+   "args": {
+    "path": "docs/HOWTO.md",
+    "pattern": "single source of truth"
+   },
+   "raw_args": "{\"path\": \"docs/HOWTO.md\", \"pattern\": \"single source of truth\"}",
+   "output": "(no matches)",
+   "error": false
+  },
+  {
+   "name": "repo_search",
+   "args": {
+    "path": "docs/HOWTO.md",
+    "pattern": "portal.yaml|regenerates|sync-config"
+   },
+   "raw_args": "{\"path\": \"docs/HOWTO.md\", \"pattern\": \"portal.yaml|regenerates|sync-config\"}",
+   "output": "(no matches)",
+   "error": false
+  },
+  {
+   "name": "file_read",
+   "args": {
+    "path": "portal_wiki/canonical/unit-HOWTO-3-workspaces.md"
+   },
+   "raw_args": "{\"path\": \"portal_wiki/canonical/unit-HOWTO-3-workspaces.md\"}",
+   "output": "---\nid: unit-HOWTO-3-workspaces\nkind: why\ntitle: \"HOWTO \\u2014 3. Workspaces\"\nsources:\n- type: code\n  path: config/portal.yaml\nclaims: []\nconfidence: high\ntags:\n- HOWTO\n- docs\n- verified-v1\ncreated_at: 1783195000.839686\nupdated_at: 1783195000.839686\n---\n\n**What:** Each workspace routes to a specialized model and activates the relevant tools.\n\n**How:** Workspaces are defined in `config/portal.yaml` under the `workspaces:` block \u2014 each entry declares `module`, `name`, `model_hint`, `tools`, and `expose_to_owui`. Select one from the model dropdown; the exposed ones are exactly those with `expose_to_owui: true`. `./launch.sh sync-config` regenerates the derived artifacts (`workspace_routing` in `config/backends.yaml`, `.mcp.json`, and the Open WebUI workspace presets under `imports/openwebui/workspaces/`) so `config/portal.yaml` stays the single source of truth.\n\nFor the full live roster (production + eval workspaces, module, model hint) use `unit-fact-workspace-roster` \u2014 do not maintain a second handwritten table here. A few flagship examples verified against `config/portal.yaml`:\n\n| Workspace | model_hint (Ollama) | Key tools |\n|---|---|---|\n| `auto` (Portal Auto Router) | `huihui_ai/qwen3.5-abliterated:9b-ctx8k` | LLM intent classifier routes onward |\n| `auto-daily` | `gemma4:26b-a4b-it-qat-ctx8k` | web_search, create_word_document, execute_python |\n| `auto-coding` | `qwen3-coder:30b-a3b-q4_K_M-ctx16k` | execute_python, execute_nodejs, execute_bash |\n| `auto-security` | `hf.co/mradermacher/VulnLLM-R-7B-GGUF:q4_K_M-ctx8k` | web_search, classify_vulnerability, execute_bash |\n| `auto-documents` | `granite4.1:8b-ctx16k` | create_word_document, create_excel, create_powerpoint |\n| `auto-music` | `lfm2.5:8b-ctx8k` | minimax_generate, minimax_status, speak, clone_voice, register_voice |\n| `auto-vision` | `qwen3-vl:32b-ctx8k` | transcribe_audio, generate_image |\n\n`auto-video` is exposed with `generate_video` / `animate_image` (shipped enabled \u2014 see the Video Generation unit). Eval workspaces (the `bench-*` set) additionally require `PORTAL_ENABLE_EVAL=1` at pipeline startup.\n\n**Example \u2014 coding:** select `Portal Code Expert` and ask a coding question; `auto-coding` answers with Qwen3-Coder-30B and its sandbox tools (`execute_bash`, `execute_python`, `sandbox_status`) run code on request.\n\n## Why\n\nWorkspaces are pure configuration, not code. Putting name, model hint, tool grants, and OWUI exposure in one YAML block means adding or tuning a lane never requires a pipeline code change, and the module-toggle layer can hide an entire workspace family at sync time. Mechanically deriving the presets keeps the dropdown and routing in lockstep, which is why `sync-config` idempotence is enforced by the test suite.\n",
+   "error": false
+  },
+  {
+   "name": "file_read",
+   "args": {
+    "path": "portal_wiki/canonical/unit-fact-config-index.md"
+   },
+   "raw_args": "{\"path\": \"portal_wiki/canonical/unit-fact-config-index.md\"}",
+   "output": "---\nid: unit-fact-config-index\nkind: mixed\ntitle: \"Config files \\u2014 the config/ tree index\"\nsources:\n- type: code\n  path: config/portal.yaml\n- type: code\n  path: config/backends.yaml\n- type: code\n  path: config/modules.generated.yaml\n- type: code\n  path: config/complexity_budget.yaml\n- type: code\n  path: config/model_card_expectations.yaml\n- type: code\n  path: config/spine_surfaces.yaml\n- type: code\n  path: config/lab_targets.yaml\n- type: code\n  path: config/security_corpus.yaml\n- type: code\n  path: config/tool_catalog.yaml\n- type: code\n  path: config/challenge_classes.yaml\n- type: code\n  path: config/engine_contract.yaml\n- type: code\n  path: config/ollama_direct_allowlist.yaml\nclaims:\n- probe: config.files\n  pattern: '{value} config files'\nconfidence: high\ntags:\n- fact\n- operator\ncreated_at: 1788030600.446044\nupdated_at: 1788030600.446044\n---\n\n# Config files \u2014 the config/ tree index\n\nThe `config/` tree holds 12 config files; each line below says what the\nfile is, who writes it, and who reads it. Hand-edited files are operator\ninputs; derived files are regenerated by `./launch.sh sync-config` and must\nnever be edited by hand.\n\n## Hand-edited (operator-owned)\n\n- `portal.yaml` \u2014 single source of truth for `workspaces` and `mcp_fleet`;\n  written by the operator, read by `sync-config` and the routing layer.\n- `backends.yaml` \u2014 the model catalog plus memory budgets and `workspace_routing`;\n  the one file an operator edits to scale from 1 to 12 nodes.\n- `lab_targets.yaml` \u2014 lab host/vm targets for bench and live-exec lanes.\n- `security_corpus.yaml` \u2014 security corpus definitions.\n- `tool_catalog.yaml` \u2014 tool catalog declarations.\n- `challenge_classes.yaml` \u2014 challenge classification vocabulary.\n- `engine_contract.yaml` \u2014 probe models for `scripts/engine_contract_check.py`,\n  the live proof that the sampling/think values Portal sends reach the model\n  on Ollama and oMLX; read by that check and the daily engine auto-update job.\n- `ollama_direct_allowlist.yaml` \u2014 path-and-reason entries for direct Ollama\n  inference callers retained as guarded pipeline internals or operator-only\n  probes; enforced by the `HM` `validate_system` check.\n\n## Derived (regenerated, never hand-edited)\n\n- `modules.generated.yaml` \u2014 module enabled/disabled state, derived by\n  `sync-config` from the module-unit fences and `portal.yaml`.\n- `spine_surfaces.yaml` \u2014 the code-surface coverage manifest (BR gate),\n  generated by `python3 -m portal.platform.wiki.coverage --write-manifest`.\n- `complexity_budget.yaml` \u2014 recorded complexity ceilings, written by\n  `scripts/complexity_report.py --write-budget`; re-baselined after\n  intentional code growth.\n- `model_card_expectations.yaml` \u2014 model ground-truth registry for the WFE\n  settings auditor (card-recommended sampling, max context, template\n  known-good hashes, harness think policy); research debt is tracked in\n  the file itself and reported as `card_research_debt` findings.\n\n## Why\n\nThe split is the whole config discipline: operator-owned files carry intent,\nderived files carry fact, and the `sync-config` / `--write-manifest` /\n`--write-budget` trio is what keeps the derived set equal to a fresh\ngeneration. Knowing which bucket a file is in tells an operator what to edit\nand what to never touch.\n",
+   "error": false
+  },
+  {
+   "name": "file_read",
+   "args": {
+    "path": "portal_wiki/canonical/unit-general-config-workspace-pointers.md"
+   },
+   "raw_args": "{\"path\": \"portal_wiki/canonical/unit-general-config-workspace-pointers.md\"}",
+   "output": "---\nid: unit-general-config-workspace-pointers\nkind: mixed\ntitle: \"General config \\u2014 portal.yaml pointer surface\"\nsources:\n- type: code\n  path: portal/modules/general/config/__init__.py\n  commit: 9c8e6dae\nclaims: []\nconfidence: high\ntags:\n- authored-v1\n- module\n- general\n- config\ncreated_at: 1785794891.7058592\nupdated_at: 1785794891.7058592\n---\n\nThe general module's config surface is a name-based pointer into\n`config/portal.yaml`, the single source of truth for workspaces.\n`GENERAL_WORKSPACE_IDS` lists the two workspaces belonging to this discipline\n(`auto-daily`, `auto-general-uncensored`) and `general_workspaces()` reads the\nlive portal config and returns their current entries.\n\n## Why\n\n`portal.yaml` has no per-workspace module tag stored inside the workspace spec\nitself \u2014 the module association is by name convention, so this constant is the\nroster that makes that convention explicit and machine-usable. Loading through\n`load_portal_config()` at call time means the accessor always reflects the\nconfig that actually routes these workspaces; a cached copy would drift the\nmoment the YAML changed, which is the exact staleness failure the drift-census\nprogram exists to catch.\n\n## Interfaces\n\n`GENERAL_WORKSPACE_IDS` is the discipline roster and `general_workspaces()`\nmaterialises the current entries from portal.yaml via\n`cfg.workspaces[wid].model_dump()` \u2014 the returned shape follows the config\nmodel rather than a hand-maintained projection.\n",
+   "error": false
+  },
+  {
+   "name": "file_read",
+   "args": {
+    "path": "portal_wiki/canonical/unit-compliance-config-workspace-pointers.md"
+   },
+   "raw_args": "{\"path\": \"portal_wiki/canonical/unit-compliance-config-workspace-pointers.md\"}",
+   "output": "---\nid: unit-compliance-config-workspace-pointers\nkind: mixed\ntitle: \"Compliance config \\u2014 portal.yaml pointer surface\"\nsources:\n- type: code\n  path: portal/modules/compliance/config/__init__.py\n  commit: 9c8e6dae\nclaims: []\nconfidence: high\ntags:\n- authored-v1\n- module\n- compliance\n- config\ncreated_at: 1785794866.570522\nupdated_at: 1785794866.570522\n---\n\nThe compliance module's config surface is a name-based pointer into\n`config/portal.yaml` rather than a duplicate store. `COMPLIANCE_WORKSPACE_IDS`\nlists the workspaces that belong to this discipline, and\n`compliance_workspaces()` loads the live portal config and returns the matching\nentries as dicts.\n\n## Why\n\nCLAUDE.md Rule 6 makes `config/portal.yaml` the single source of truth for\nworkspaces. A module that cached its own copy of `auto-compliance`'s spec\nwould drift from the real config the moment the YAML changed \u2014 the same\nstaleness failure the whole spine-drift program exists to catch. Reading\nthrough `load_portal_config()` at call time means the module can never\ndisagree with the file that actually routes the workspace.\n\n## Interfaces\n\n`COMPLIANCE_WORKSPACE_IDS` is the module's roster constant and\n`compliance_workspaces()` is the accessor that materialises the current\nentries from portal.yaml \u2014 the shape returned mirrors the config model\n(`cfg.workspaces[wid].model_dump()`), not a hand-maintained projection.\n",
+   "error": false
+  },
+  {
+   "name": "file_read",
+   "args": {
+    "path": "portal_wiki/canonical/unit-module-cad.md"
+   },
+   "raw_args": "{\"path\": \"portal_wiki/canonical/unit-module-cad.md\"}",
+   "output": "---\nid: unit-module-cad\nkind: mixed\ntitle: \"CAD Module \\u2014 build123d BREP primary, OpenSCAD fallback\"\nsources:\n- type: code\n  path: portal/modules/cad/tools/cad_render_mcp.py\n- type: code\n  path: portal/modules/cad/tools/capabilities.py\n- type: code\n  path: portal/modules/cad/tools/scad_emitter.py\n- type: code\n  path: portal/modules/cad/tools/b123d_emitter.py\n- type: code\n  path: portal/modules/cad/tools/part_plan.py\n- type: code\n  path: portal/modules/cad/tools/b123d_bridge.py\n- type: code\n  path: Dockerfile.cad\n- type: code\n  path: portal/modules/cad/tools/mesh_validator.py\n- type: code\n  path: portal/platform/wiki/adapters/modules.py\n- type: code\n  path: config/portal.yaml\nclaims:\n- probe: modules.enabled\n  contains: cad\nconfidence: high\ntags:\n- cad\n- module\n- verified-v1\ncreated_at: 1783821386.7899158\nupdated_at: 1787845000.0\n---\n\n# CAD Module \u2014 build123d BREP primary, OpenSCAD fallback\n\n## Tools\n\n`portal.modules.cad.tools.cad_render_mcp` \u2014 the CAD render MCP server,\nregistered as `cad_render` in `config/portal.yaml` `mcp_fleet:` on port\n8926. It is pipeline-exposed only (`expose_to_pipeline: true`,\n`expose_to_ide: false`), so its tools reach workspace personas but not the\nIDE. It runs from its own arm64-native image (`Dockerfile.cad`, compose\n`platform: linux/arm64`) \u2014 OCP + VTK + OpenSCAD are kept out of the shared\n`Dockerfile.mcp`. Eleven tools, in two groups:\n\n- **BREP primary (build123d):** `generate_part` (JSON IR in, exact solid out)\n  and six `cad_*` tools \u2014 `cad_build`, `cad_execute`, `cad_measure`,\n  `cad_find_holes`, `cad_render`, `cad_finalize` \u2014 fronting an in-container\n  `build123d-mcp` engine.\n- **Fallback / mesh:** `generate_scad` (OpenSCAD), `render_openscad`,\n  `render_mesh`, `convert_cad`.\n\n## Backends\n\n`part_plan.plan_part()` validates the geometry IR and does all coordinate math\nonce (a kernel-neutral `PartPlan`); two backends render it. `scad_emitter`\nemits OpenSCAD (output pinned byte-for-byte by `tests/data/cad_scad_golden/`);\n`b123d_emitter` emits a build123d algebra-mode script, checked against the SCAD\nmeshes for volume/genus/bbox parity. Gaps are explicit `kernel_gap` errors\n(Tier-B extrudes; a base with both fillets and chamfers) that point the model at\n`cad_build`.\n\n## build123d engine bridge (`b123d_bridge.py`)\n\nThe six `cad_*` tools are a thin bridge over a loopback-only (`127.0.0.1:18123`,\nnot a host port) `build123d-mcp 0.3.90` HTTP engine that `cad_render_mcp`\nstarts at launch. The engine is spawned with an allowlisted environment and its\nown import sandbox. Sessions: one isolated CAD session per pipeline request\n(the request id is the handle); the bridge does LRU eviction under the engine's\nsession cap and retries on 503; idle sessions expire after\n`CAD_B3D_IDLE_TIMEOUT_S` (default 900 s). Cross-turn continuity is carried by\nthe saved script/STEP, not live session state. Tool-level failures are returned\nwith HTTP 200 and `ok:false` so a model mistake never trips the pipeline's\ncircuit breaker.\n\n## generate_scad \u2014 constrained structured intermediate (TASK_CAD_MODULE_OVERHAUL_V1)\n\nThe model does not compute 3D coordinates. It emits a JSON geometry\ndescription against `config/inference/cad_geometry_schema.json`, and\n`portal.modules.cad.tools.scad_emitter` (a deterministic, no-LLM emitter\nusing a restricted AST arithmetic evaluator \u2014 not `eval()`) owns all\ncoordinate-frame math and CSG ordering:\n\n- **Tier A (preferred)** \u2014 feature-level vocabulary: a `base` primitive\n  plus `holes`/`pockets`/`standoffs`/`ribs`/`bosses`/`shell`/`pattern`,\n  each positioned by face + semantic anchor + offset, never a raw 3D\n  vector. \"An M3 hole on the top face, 5mm from each end\" \u2014 the emitter\n  resolves the translate/rotate, not the model.\n- **Base types** \u2014 `box`, `cylinder`, and (TASK_CAD_ARM_REDEVELOP_V1) `prism`\n  (regular N-gon bar: hex stock / nut / hex standoff via `across_flats` or\n  `circumradius`), `revolve` (stepped/flanged/revolved body from a `[radius, z]`\n  profile that includes the bore) an",
+   "error": false
+  },
+  {
+   "name": "file_read",
+   "args": {
+    "path": "portal_wiki/canonical/unit-module-general.md"
+   },
+   "raw_args": "{\"path\": \"portal_wiki/canonical/unit-module-general.md\"}",
+   "output": "---\nid: unit-module-general\nkind: mixed\ntitle: \"General Module \\u2014 the always-on base (filesystem/fetch/git/docker)\"\nsources:\n- type: code\n  path: portal/modules/general/tools/__init__.py\n- type: code\n  path: portal/modules/general/config/__init__.py\n- type: code\n  path: portal/platform/wiki/adapters/modules.py\n- type: code\n  path: config/portal.yaml#mcp_fleet\nclaims:\n- probe: modules.enabled\n  contains: general\nconfidence: high\ntags:\n- general\n- module\n- verified-v1\ncreated_at: 1783815451.164374\nupdated_at: 1783815451.164374\n---\n\n# General Module \u2014 the always-on base\n\n## What it is\n\nThe general module is the always-on base discipline: filesystem, fetch,\ngit, and docker access for IDE-side (Claude Code / opencode) repo work.\nUnlike other modules, it wraps no Portal-authored source \u2014 its tools are\nexternally vendored MCP servers.\n\n## Config (fenced yaml \u2014 DESIGN-MODULES-V1 module-definition convention)\n\n```yaml\nmodule: general\nenabled: true\ntools:\n  - filesystem\n  - fetch\n  - git\n  - docker\nworkspaces:\n  - auto-daily\n  - auto-general-uncensored\nexpose_to_pipeline: false\nexpose_to_ide: true\n```\n\n## Structure\n\n- portal/modules/general/tools/ \u2014 documents the 4 vendored MCP servers\n  (BASE_TOOL_FLEET_IDS), no wrapper implementation (none needed/owned)\n- portal/modules/general/config/ \u2014 general_workspaces(), a name-based\n  pointer into config/portal.yaml (the single source of truth)\n\n## Why\n\nThe general module is \"always-on\" in a way the other modules are not: its\n`enabled:` field is true, and even if it were flipped the adapter\n(`portal/platform/wiki/adapters/modules.py`) keeps the four base fleet ids\nlaunched unconditionally because repo-facing tooling must never disappear\non a module toggle. Its fenced block is the fuller DESIGN-MODULES-V1\nmodule definition rather than a bare `enabled:` line, but the adapter\nreads the same field either way. The unit is sourced to the adapter, the\ntwo small files under `portal/modules/general/` that document the fleet\nand the workspace pointer, and the `mcp_fleet` section of\n`config/portal.yaml` that declares the vendored servers.\n",
+   "error": false
+  },
+  {
+   "name": "file_read",
+   "args": {
+    "path": "portal_wiki/canonical/unit-design-ollama-native-dispatch.md"
+   },
+   "raw_args": "{\"path\": \"portal_wiki/canonical/unit-design-ollama-native-dispatch.md\"}",
+   "output": "---\nid: unit-design-ollama-native-dispatch\nkind: why\ntitle: Ollama Native Dispatch and the Engine Contract Loop\nsources:\n- type: code\n  path: portal/platform/inference/ollama_native.py\n- type: code\n  path: portal/platform/inference/router/ollama_passthrough.py\n- type: code\n  path: scripts/engine_contract_check.py\n- type: code\n  path: scripts/engine_autoupdate.py\n- type: code\n  path: scripts/omlx_seat_defaults.py\n- type: code\n  path: scripts/omlx_chat_template_patch.py\n- type: code\n  path: config/engine_contract.yaml\nclaims: []\nconfidence: high\ntags:\n- design\n- ollama\n- omlx\n- sampling\ncreated_at: 1790333591\nupdated_at: 1790333591\n---\n\nThe pipeline speaks OpenAI end to end, but Ollama's OpenAI endpoint cannot carry the settings Portal configures (see P5-OLLAMA-V1-SAMPLING-001), so Ollama backends are answered from native `/api/chat` by `OllamaNativeTransport`, mounted on the shared httpx client in `router/lifespan.py`. It intercepts only POST `/v1/chat/completions` to a base URL the registry positively knows is an Ollama backend; oMLX, vLLM and every other URL pass through untouched. It translates the request (sampling from `options` and top-level, `max_tokens` -> `num_predict`, content parts split one message per part as `/v1` does, tool-call arguments to objects, `think` only for models whose `/api/show` capabilities include thinking) and returns the byte-for-byte `/v1` shape (`reasoning`, string tool arguments, `finish_reason: tool_calls`, trailing usage chunk). Model-lifecycle fields (`num_ctx`, `num_batch`, `keep_alive`) are deliberately not forwarded \u2014 `/v1` never delivered them and honouring them would change memory behaviour, not fix delivery.\n\nMaintenance is mechanical because Ollama ships often and oMLX has major versions ahead: `scripts/engine_contract_check.py` proves, for the running version of each engine, that every sampling key and the think control change the model's output through production's own request builders (`_inject_ollama_options` / `_inject_omlx_options`), and that the adapter answers identically to `/v1`. `scripts/engine_autoupdate.py` (daily launchd job) re-runs it whenever a version changes and gates weekly engine updates on it, rolling back on failure. The WFE harness serves Ollama arms through the same `to_native_request` translation so a benchmark measures exactly what production serves. Clients that talk to oMLX directly (IDE paths) receive a seat's sampling through oMLX's per-model defaults, written by `scripts/omlx_seat_defaults.py` from `config/portal.yaml` when exactly one production seat maps to the model. Gemma 4's no-think marker (`<|channel>thought\\n<channel|>`) is absent after a tool response in every template in play (the MLX conversions, Google's canonical template, Ollama's `gemma4*` renderers), which left post-tool turns unanchored: a thought channel holding the answer, a tool call written inside it, a malformed tool name, or a runaway (PIPELINE_ALIGNMENT_V1 \u00a713). The adapter pre-fills the block as a trailing assistant message for a no-think post-tool turn on a `gemma4*` RENDERER, and `scripts/omlx_chat_template_patch.py` (run by `sync-config`) adds the same branch to the served Gemma 4 conversions' templates.\n\nNative-protocol MCP callers use the separate\n`portal/platform/inference/router/ollama_passthrough.py` routes. They\nauthenticate with the pipeline key and forward original Ollama bytes through\n`LoadGuard` without `/v1` translation, preserving native-only fields such as\n`think`, `format`, `images`, and `message.thinking`.\n\n## Why\n\nThe rejected alternative was baking sampling into Ollama tags: it needs no request-path code, but it makes sampling a property of a shared tag (seats that share a tag conflict), turns every sampling change into a re-bake that drifts silently if missed, and still cannot deliver `think: true`. The adapter keeps `config/portal.yaml` the single source of truth; its exposure to Ollama changes is bounded by the contract loop rather than by hope.\n",
+   "error": false
+  },
+  {
+   "name": "file_read",
+   "args": {
+    "path": "portal_wiki/canonical/unit-surface-inference.md"
+   },
+   "raw_args": "{\"path\": \"portal_wiki/canonical/unit-surface-inference.md\"}",
+   "output": "---\nid: unit-surface-inference\nkind: mixed\ntitle: \"Inference platform layer \\u2014 config single-source, tool registry, process\\\n  \\ lifecycle\"\nsources:\n- type: code\n  path: portal/platform/inference/*.py\nclaims: []\nconfidence: high\ntags:\n- authored-v1\n- platform\n- inference\ncreated_at: 1785884800.0\nupdated_at: 1785884800.0\n---\n\nThe inference platform layer is the shared spine of the Portal 5 pipeline: the typed\n`PortalConfig` over `config/portal.yaml`, the `validate_config` pre-gate that guards\nthe `sync_config` generators, the `ToolRegistry` that probes live MCP manifests, and\nthe `BackendRegistry` whose candidate cache keeps selection cheap. The\npackage init carries `__version__`; the launcher starts uvicorn with Prometheus\nmultiprocess first.\n\n## Why\n\nRule 6 makes `portal.yaml` the single source of truth and every other config file a\nderived artifact, which is why this layer splits into a validated model, a cheap\nvalidator, and idempotent emitters. Tool dispatch and backend selection sit on hot\nrequest paths, so freshness is a contract: `_candidate_cache` is invalidated inside\n`_refresh_healthy_cache`, and the Prometheus multiprocess dir must exist before the\nmetrics client imports or workers silently corrupt shared metrics.\n\n## Interfaces\n\n`load_portal_config` returns the cached `PortalConfig`; `get_workspace_dict`,\n`get_pipeline_mcp_servers`, and `load_persona_map` project the runtime views.\n`validate_config` returns error strings without raising. `ToolRegistry` exposes\n`refresh`, `get`, and `dispatch`; `BackendRegistry` exposes `get_backend_candidates`\nand `health_check_all`. The `sync_config` `main` runs the idempotent emitters.\n\n## Gotchas\n\nModule toggles are honored in the workspace view, so a disabled module hides its\nworkspaces from routing. The registry probes tool servers over HTTP, so one\ndown at startup stays absent until a successful refresh. Unknown workspace ids clamp\nto `_unknown` so the candidate cache cannot grow unbounded.\n",
+   "error": false
+  },
+  {
+   "name": "file_read",
+   "args": {
+    "path": "portal_wiki/archive/unit-ci-generated-fresh.md"
+   },
+   "raw_args": "{\"path\": \"portal_wiki/archive/unit-ci-generated-fresh.md\"}",
+   "output": "---\nid: unit-ci-generated-fresh\nkind: mixed\ntitle: \"CI guard \\u2014 sync-config idempotence enforces Rule 6\"\nsources:\n- type: code\n  path: scripts/ci/check_generated_fresh.py\n  commit: '38123c31'\nlast_generated_commit: '38123c31'\nclaims: []\nconfidence: high\ntags:\n- authored-v1\n- ci\n- config\ncreated_at: 1785795640.236754\nupdated_at: 1785795640.236754\n---\n\nThe generated-fresh guard runs `sync-config` and fails if the three\ngenerated artifacts \u2014 `config/backends.yaml`, `.mcp.json`, and\n`opencode.jsonc` \u2014 differ after it, meaning a human edited a generated file\ninstead of editing `config/portal.yaml` and re-running sync-config. It is the\nmechanical enforcement of CLAUDE.md Rule 6.\n\n## Why\n\nRule 6 makes `portal.yaml` the single source of truth and declares the three\ngenerated files derived. The failure this guard prevents is the silent drift\nthat results when someone hand-edits a generated file: the edit works until\nthe next sync-config overwrites it, and then the difference reappears as a\nmystery. Because `sync-config` is idempotent, a clean tree produces no diff \u2014\nso any diff after running it is, by construction, a hand-edit that should not\nhave happened. The guard runs as a pre-commit hook on every commit.\n\n## Interfaces\n\n`main()` invokes `portal.platform.inference.sync_config` as a subprocess,\nchecks the git diff on the three generated paths, and returns non-zero with a\nfix hint when anything changed. The `GENERATED` list is the full derived set\nit guards.\n\n## Gotchas\n\nThe guard is a fast-path skip when `config/` has no tracked changes \u2014 if the\nconfig surface is untouched, there is nothing to regenerate and the check\nwould only cost a full sync-config run for no information.\n",
+   "error": false
+  },
+  {
+   "name": "file_read",
+   "args": {
+    "path": "portal_wiki/archive/unit-router-workspaces.md"
+   },
+   "raw_args": "{\"path\": \"portal_wiki/archive/unit-router-workspaces.md\"}",
+   "output": "---\nid: unit-router-workspaces\nkind: mixed\ntitle: \"Router workspaces \\u2014 catalog + persona tool whitelist\"\nsources:\n- type: code\n  path: portal/platform/inference/router/workspaces.py\n  commit: d7c1d4f4\nlast_generated_commit: d7c1d4f4\nclaims: []\nconfidence: high\ntags:\n- authored-v1\n- platform\n- inference\n- router\ncreated_at: 1785798129.534917\nupdated_at: 1785798129.534917\n---\n\n`workspaces.py` is the routing policy's workspace catalog: `WORKSPACES`\nholds one entry per user-selectable workspace with its pinned model,\nper-workspace tuning knobs, and the persona map; it also resolves the tool\nwhitelist per workspace.\n\n## Why\n\nThe catalog is where \"what should I do\" decisions are made concrete: which\nmodel serves a workspace, what context and concurrency limits it gets,\nwhether it emits reasoning, and which tools its personas may call. It is\nloaded from the portal config (via the workspace dict), which is what ties\nthe catalog to Rule 6's single source of truth \u2014 a workspace added to\n`portal.yaml` appears here after sync-config, and one whose module is\ndisabled is excluded. The persona-to-tools resolution\n(`_resolve_persona_tools`) is the authorisation boundary that decides what a\npersona can call.\n\n## Interfaces\n\n`WORKSPACES`, `_PERSONA_MAP`, `MAX_TOOL_HOPS`, `_workspace_tools`, and\n`_resolve_persona_tools` are the surface the routing and tool layers consume.\n\n## Gotchas\n\n`WORKSPACES` is built at import time from the config, so a config change\nrequires a restart to take effect \u2014 it is not re-read per request.\n",
+   "error": false
+  },
+  {
+   "name": "file_read",
+   "args": {
+    "path": "portal_wiki/archive/unit-scripts-migrate_to_portal_yaml.md"
+   },
+   "raw_args": "{\"path\": \"portal_wiki/archive/unit-scripts-migrate_to_portal_yaml.md\"}",
+   "output": "---\nid: unit-scripts-migrate_to_portal_yaml\nkind: mixed\ntitle: \"Script \\u2014 migrate_to_portal_yaml\"\nsources:\n- type: code\n  path: scripts/migrate_to_portal_yaml.py\n  commit: 94ecf393\nlast_generated_commit: 94ecf393\nclaims: []\nconfidence: high\ntags:\n- authored-v1\n- scripts\ncreated_at: 1785799532.379113\nupdated_at: 1785799532.379113\n---\n\nMigrates the workspace and MCP server definitions from the code literals and .mcp.json into config/portal.yaml, the single source of truth.\n\n## Why\n\nRule 6 makes portal.yaml the source of truth, and a migration that moves the literal definitions there is the mechanical step that ends the dual-source state where the code and the config could disagree.\n\n## Interfaces\n\nThe script is an operator or agent tool run from the repo root; it prints its findings and exits with the appropriate status.\n\n## Gotchas\n\nAs a standalone script it reads live state \u2014 run it with the stack or environment it expects, and treat its output as current reality, not a stale record.\n",
+   "error": false
+  },
+  {
+   "name": "file_read",
+   "args": {
+    "path": "portal_wiki/canonical/unit-HOWTO-3-workspaces.md"
+   },
+   "raw_args": "{\"path\": \"portal_wiki/canonical/unit-HOWTO-3-workspaces.md\"}",
+   "output": "---\nid: unit-HOWTO-3-workspaces\nkind: why\ntitle: \"HOWTO \\u2014 3. Workspaces\"\nsources:\n- type: code\n  path: config/portal.yaml\nclaims: []\nconfidence: high\ntags:\n- HOWTO\n- docs\n- verified-v1\ncreated_at: 1783195000.839686\nupdated_at: 1783195000.839686\n---\n\n**What:** Each workspace routes to a specialized model and activates the relevant tools.\n\n**How:** Workspaces are defined in `config/portal.yaml` under the `workspaces:` block \u2014 each entry declares `module`, `name`, `model_hint`, `tools`, and `expose_to_owui`. Select one from the model dropdown; the exposed ones are exactly those with `expose_to_owui: true`. `./launch.sh sync-config` regenerates the derived artifacts (`workspace_routing` in `config/backends.yaml`, `.mcp.json`, and the Open WebUI workspace presets under `imports/openwebui/workspaces/`) so `config/portal.yaml` stays the single source of truth.\n\nFor the full live roster (production + eval workspaces, module, model hint) use `unit-fact-workspace-roster` \u2014 do not maintain a second handwritten table here. A few flagship examples verified against `config/portal.yaml`:\n\n| Workspace | model_hint (Ollama) | Key tools |\n|---|---|---|\n| `auto` (Portal Auto Router) | `huihui_ai/qwen3.5-abliterated:9b-ctx8k` | LLM intent classifier routes onward |\n| `auto-daily` | `gemma4:26b-a4b-it-qat-ctx8k` | web_search, create_word_document, execute_python |\n| `auto-coding` | `qwen3-coder:30b-a3b-q4_K_M-ctx16k` | execute_python, execute_nodejs, execute_bash |\n| `auto-security` | `hf.co/mradermacher/VulnLLM-R-7B-GGUF:q4_K_M-ctx8k` | web_search, classify_vulnerability, execute_bash |\n| `auto-documents` | `granite4.1:8b-ctx16k` | create_word_document, create_excel, create_powerpoint |\n| `auto-music` | `lfm2.5:8b-ctx8k` | minimax_generate, minimax_status, speak, clone_voice, register_voice |\n| `auto-vision` | `qwen3-vl:32b-ctx8k` | transcribe_audio, generate_image |\n\n`auto-video` is exposed with `generate_video` / `animate_image` (shipped enabled \u2014 see the Video Generation unit). Eval workspaces (the `bench-*` set) additionally require `PORTAL_ENABLE_EVAL=1` at pipeline startup.\n\n**Example \u2014 coding:** select `Portal Code Expert` and ask a coding question; `auto-coding` answers with Qwen3-Coder-30B and its sandbox tools (`execute_bash`, `execute_python`, `sandbox_status`) run code on request.\n\n## Why\n\nWorkspaces are pure configuration, not code. Putting name, model hint, tool grants, and OWUI exposure in one YAML block means adding or tuning a lane never requires a pipeline code change, and the module-toggle layer can hide an entire workspace family at sync time. Mechanically deriving the presets keeps the dropdown and routing in lockstep, which is why `sync-config` idempotence is enforced by the test suite.\n",
+   "error": false
+  }
+ ],
+ "final_text": "",
+ "repeat_degeneracy": null,
+ "model": "hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx96k",
+ "overrides": {},
+ "sampling_undelivered": []
+}

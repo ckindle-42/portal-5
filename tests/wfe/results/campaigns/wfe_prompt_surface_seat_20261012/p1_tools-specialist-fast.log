@@ -1,0 +1,27 @@
+appended 9 rows (0 already present)
+2026-10-12T23:32:37Z arm gemma4:e4b-it-qat-ctx8k: 9 runs pending
+2026-10-12T23:32:38Z   [1/9] tools-specialist::fast|gemma4:e4b-it-qat-ctx8k|coding|code-cli-args|r0
+2026-10-12T23:33:07Z       -> PASS turns=4 tools=3 errs=0 29.3s
+2026-10-12T23:33:07Z   [2/9] tools-specialist::fast|gemma4:e4b-it-qat-ctx8k|coding|code-cli-args|r1
+2026-10-12T23:33:42Z       -> PASS turns=4 tools=3 errs=0 35.1s
+2026-10-12T23:33:42Z   [3/9] tools-specialist::fast|gemma4:e4b-it-qat-ctx8k|coding|code-cli-args|r2
+2026-10-12T23:34:36Z       -> PASS turns=4 tools=3 errs=0 54.3s
+2026-10-12T23:34:36Z   [4/9] tools-specialist::fast|gemma4:e4b-it-qat-ctx8k|coding|code-fix-fizz|r0
+2026-10-12T23:35:17Z       -> PASS turns=5 tools=4 errs=0 39.8s
+2026-10-12T23:35:17Z   [5/9] tools-specialist::fast|gemma4:e4b-it-qat-ctx8k|coding|code-fix-fizz|r1
+2026-10-12T23:35:47Z       -> PASS turns=4 tools=3 errs=0 30.3s
+2026-10-12T23:35:47Z   [6/9] tools-specialist::fast|gemma4:e4b-it-qat-ctx8k|coding|code-fix-fizz|r2
+2026-10-12T23:36:29Z       -> PASS turns=4 tools=3 errs=0 41.3s
+2026-10-12T23:36:29Z   [7/9] tools-specialist::fast|gemma4:e4b-it-qat-ctx8k|coding|code-kv|r0
+    … tools-specialist::fast: streaming, 323108 bytes, 30s elapsed
+2026-10-12T23:37:40Z       -> PASS turns=4 tools=3 errs=0 71.5s
+2026-10-12T23:37:40Z   [8/9] tools-specialist::fast|gemma4:e4b-it-qat-ctx8k|coding|code-kv|r1
+2026-10-12T23:38:34Z       -> PASS turns=4 tools=3 errs=0 53.3s
+2026-10-12T23:38:34Z   [9/9] tools-specialist::fast|gemma4:e4b-it-qat-ctx8k|coding|code-kv|r2
+    … tools-specialist::fast: streaming, 325677 bytes, 30s elapsed
+2026-10-12T23:39:37Z       -> PASS turns=4 tools=3 errs=0 62.8s
+2026-10-12T23:39:37Z arm complete — gemma4:e4b-it-qat-ctx8k: {'PASS': 9} in 420s
+
+campaign dir: /Users/chris/projects/portal-5/tests/wfe/results/campaigns/wfe_prompt_surface_seat_20261012   creative queue: 0 item(s)
+next: uv run python -m tests.wfe.report --campaign wfe_prompt_surface_seat_20261012
+exit=0

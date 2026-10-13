@@ -1,0 +1,106 @@
+{
+ "schema": "wfe-result-2",
+ "run_id": "auto-research|hf.co/sjakek/Nex-N2-mini-GGUF:UD-Q4_K_M-ctx16k|research|res-granite-ctx|r0",
+ "campaign_id": "wfe_prompt_surface_seat_20261012",
+ "stage": "full",
+ "workspace": "auto-research",
+ "arm": "hf.co/sjakek/Nex-N2-mini-GGUF:UD-Q4_K_M-ctx16k",
+ "arm_role": "incumbent",
+ "suite": "research",
+ "task_id": "res-granite-ctx",
+ "repeat": 0,
+ "outcome": "PASS",
+ "notes": "answer patterns matched",
+ "evidence": {
+  "served_models": [
+   "hf.co/sjakek/Nex-N2-mini-GGUF:UD-Q4_K_M-ctx16k"
+  ]
+ },
+ "persona_slug": "factchecker",
+ "prompt_sha": "a177b5f24317",
+ "tool_surface": [
+  "file_read",
+  "file_list",
+  "repo_search",
+  "pytest_run",
+  "file_write",
+  "http_get"
+ ],
+ "tool_surface_proxy": true,
+ "harness": {
+  "endpoint": "v1",
+  "stream": false,
+  "think": "native",
+  "format": "none"
+ },
+ "sampling": {
+  "seed": 1000,
+  "max_tokens_source": "pipeline"
+ },
+ "baked_params": {},
+ "seed": 1000,
+ "turns": 2,
+ "tool_calls": 1,
+ "tool_errors": 0,
+ "finish_reason": "stop",
+ "economics": {
+  "prompt_tokens": 2819,
+  "completion_tokens": 117,
+  "total_tokens": 2936,
+  "load_ms": null,
+  "wall_s": 4.6,
+  "cold_load": true
+ },
+ "env": {
+  "git_sha": "2b27d8c4",
+  "ollama_version": "0.40.0",
+  "python": "3.13.12",
+  "platform": "macOS-27.0.1-arm64-arm-64bit-Mach-O",
+  "engine": "pipeline",
+  "engine_base_url": "",
+  "engine_version": "unknown",
+  "fingerprint": "791254ff1757"
+ },
+ "final_text_head": "IBM documents that the Granite 4.0 family was released in **October 2025**. For context window, the file says the models were **trained on sequences up to 512K tokens** and **validated for context windows up to 128K tokens**.\n\nQuote of file path exactly: `granite_4x_notes.md`\n\nRESEARCH COMPLETE",
+ "transcript": [
+  {
+   "turn": 0,
+   "content": "",
+   "tool_calls": [
+    {
+     "name": "file_read",
+     "args_raw": "{\"path\":\"granite_4x_notes.md\"}"
+    }
+   ],
+   "served": {
+    "backend": "ollama-general",
+    "model": "hf.co/sjakek/Nex-N2-mini-GGUF:UD-Q4_K_M-ctx16k"
+   }
+  },
+  {
+   "turn": 1,
+   "content": "IBM documents that the Granite 4.0 family was released in **October 2025**. For context window, the file says the models were **trained on sequences up to 512K tokens** and **validated for context windows up to 128K tokens**.\n\nQuote of file path exactly: `granite_4x_notes.md`\n\nRESEARCH COMPLETE",
+   "tool_calls": [],
+   "served": {
+    "backend": "ollama-general",
+    "model": "hf.co/sjakek/Nex-N2-mini-GGUF:UD-Q4_K_M-ctx16k"
+   }
+  }
+ ],
+ "tool_call_log": [
+  {
+   "name": "file_read",
+   "args": {
+    "path": "granite_4x_notes.md"
+   },
+   "raw_args": "{\"path\":\"granite_4x_notes.md\"}",
+   "output": "# IBM Granite 4.0 \u2014 Release & Context Window Notes (fixture, verified 2026-09-11)\n\nThe Granite 4.0 family (Nano, Micro, Tiny, Small) was released by IBM in\nOctober 2025. The Granite 4.0 models were trained on sequences up to 512K\ntokens, and their performance has been validated for context windows up to\n128K tokens.\n\nGranite 4.0 Nano \u2014 the smallest variants, at 350M and roughly 1.5B\nparameters \u2014 followed shortly after the initial October 2025 release,\naimed at running locally, including in-browser.\n",
+   "error": false
+  }
+ ],
+ "final_text": "IBM documents that the Granite 4.0 family was released in **October 2025**. For context window, the file says the models were **trained on sequences up to 512K tokens** and **validated for context windows up to 128K tokens**.\n\nQuote of file path exactly: `granite_4x_notes.md`\n\nRESEARCH COMPLETE",
+ "repeat_degeneracy": null,
+ "model": "hf.co/sjakek/Nex-N2-mini-GGUF:UD-Q4_K_M-ctx16k",
+ "overrides": {},
+ "sampling_undelivered": []
+}

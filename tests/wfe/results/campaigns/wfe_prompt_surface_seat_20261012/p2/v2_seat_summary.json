@@ -1,0 +1,99 @@
+{
+ "auto-coding::fast-repair": {
+  "outcomes": {
+   "PASS": 7,
+   "FAIL": 2
+  },
+  "turncap_loops": 0,
+  "loop_tasks": {},
+  "median_wall_s": 19.0,
+  "served": [
+   "kat-coder-v2.5-dev:Q4_K_M-ctx32k"
+  ]
+ },
+ "auto-coding::laguna": {
+  "outcomes": {
+   "PASS": 7,
+   "BUDGET_EXHAUSTED": 2
+  },
+  "turncap_loops": 2,
+  "loop_tasks": {
+   "code-kv": 2
+  },
+  "median_wall_s": 21.6,
+  "served": [
+   "Laguna-XS-2.1-4bit"
+  ]
+ },
+ "auto-compliance": {
+  "outcomes": {
+   "FAIL": 2,
+   "BUDGET_EXHAUSTED": 12,
+   "PASS": 16,
+   "BLOCKED": 3
+  },
+  "turncap_loops": 12,
+  "loop_tasks": {
+   "comp-p6j-01": 2,
+   "comp-p6j-02": 1,
+   "comp-p6j-11": 1,
+   "comp-p6j-14": 3,
+   "comp-p6j-19": 3,
+   "comp-p6j-24": 2
+  },
+  "median_wall_s": 29.0,
+  "served": [
+   "Qwen3.8-27B-oQ4e-mtp",
+   "hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k"
+  ]
+ },
+ "auto-research": {
+  "outcomes": {
+   "PASS": 9
+  },
+  "turncap_loops": 0,
+  "loop_tasks": {},
+  "median_wall_s": 4.6,
+  "served": [
+   "hf.co/sjakek/Nex-N2-mini-GGUF:UD-Q4_K_M-ctx16k"
+  ]
+ },
+ "general-deep": {
+  "outcomes": {
+   "PASS": 6,
+   "BUDGET_EXHAUSTED": 3
+  },
+  "turncap_loops": 3,
+  "loop_tasks": {
+   "res-ollama-ctx": 1,
+   "res-repo-grounded": 2
+  },
+  "median_wall_s": 30.1,
+  "served": [
+   "Qwen3.8-27B-oQ4e-mtp"
+  ]
+ },
+ "tools-specialist": {
+  "outcomes": {
+   "PASS": 3,
+   "FAIL": 6
+  },
+  "turncap_loops": 0,
+  "loop_tasks": {},
+  "median_wall_s": 23.8,
+  "served": [
+   "granite-4.1-8b-mxfp8"
+  ]
+ },
+ "tools-specialist::fast": {
+  "outcomes": {
+   "PASS": 9
+  },
+  "turncap_loops": 0,
+  "loop_tasks": {},
+  "median_wall_s": 41.3,
+  "served": [
+   "gemma4:e4b-it-qat-ctx8k"
+  ]
+ }
+}

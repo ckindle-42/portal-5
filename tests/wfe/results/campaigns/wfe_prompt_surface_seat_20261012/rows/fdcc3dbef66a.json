@@ -1,0 +1,271 @@
+{
+ "schema": "wfe-result-2",
+ "run_id": "auto-research|hf.co/sjakek/Nex-N2-mini-GGUF:UD-Q4_K_M-ctx16k|research|res-repo-grounded|r0",
+ "campaign_id": "wfe_prompt_surface_seat_20261012",
+ "stage": "full",
+ "workspace": "auto-research",
+ "arm": "hf.co/sjakek/Nex-N2-mini-GGUF:UD-Q4_K_M-ctx16k",
+ "arm_role": "incumbent",
+ "suite": "research",
+ "task_id": "res-repo-grounded",
+ "repeat": 0,
+ "outcome": "PASS",
+ "notes": "answer patterns matched",
+ "evidence": {
+  "served_models": [
+   "hf.co/sjakek/Nex-N2-mini-GGUF:UD-Q4_K_M-ctx16k"
+  ]
+ },
+ "persona_slug": "factchecker",
+ "prompt_sha": "a177b5f24317",
+ "tool_surface": [
+  "file_read",
+  "file_list",
+  "repo_search",
+  "pytest_run",
+  "file_write",
+  "http_get"
+ ],
+ "tool_surface_proxy": true,
+ "harness": {
+  "endpoint": "v1",
+  "stream": false,
+  "think": "native",
+  "format": "none"
+ },
+ "sampling": {
+  "seed": 1000,
+  "max_tokens_source": "pipeline"
+ },
+ "baked_params": {},
+ "seed": 1000,
+ "turns": 7,
+ "tool_calls": 9,
+ "tool_errors": 0,
+ "finish_reason": "stop",
+ "economics": {
+  "prompt_tokens": 29337,
+  "completion_tokens": 1473,
+  "total_tokens": 30810,
+  "load_ms": null,
+  "wall_s": 41.2,
+  "cold_load": false
+ },
+ "env": {
+  "git_sha": "2b27d8c4",
+  "ollama_version": "0.40.0",
+  "python": "3.13.12",
+  "platform": "macOS-27.0.1-arm64-arm-64bit-Mach-O",
+  "engine": "pipeline",
+  "engine_base_url": "",
+  "engine_version": "unknown",
+  "fingerprint": "791254ff1757"
+ },
+ "final_text_head": "The file described as the single source of truth for workspace configuration is:\n\n`config/portal.yaml`\n\nTwo artifacts regenerated from it are:\n- `workspace_routing` in `config/backends.yaml`\n- `.mcp.json`\n\nThe file path is quoted exactly as: `config/portal.yaml`\n\nRESEARCH COMPLETE",
+ "transcript": [
+  {
+   "turn": 0,
+   "content": "",
+   "tool_calls": [
+    {
+     "name": "repo_search",
+     "args_raw": "{\"pattern\":\"single source of truth.*workspace configuration|workspace configuration.*single source of truth|single source of truth for workspace configuration\",\"path\":\".\"}"
+    }
+   ],
+   "served": {
+    "backend": "ollama-general",
+    "model": "hf.co/sjakek/Nex-N2-mini-GGUF:UD-Q4_K_M-ctx16k"
+   },
+   "reasoning_chars": 315
+  },
+  {
+   "turn": 1,
+   "content": "",
+   "tool_calls": [
+    {
+     "name": "repo_search",
+     "args_raw": "{\"pattern\":\"source of truth\",\"path\":\".\"}"
+    },
+    {
+     "name": "repo_search",
+     "args_raw": "{\"pattern\":\"workspace configuration\",\"path\":\".\"}"
+    },
+    {
+     "name": "repo_search",
+     "args_raw": "{\"pattern\":\"regenerated\",\"path\":\".\"}"
+    },
+    {
+     "name": "file_list",
+     "args_raw": "{\"path\":\".\"}"
+    }
+   ],
+   "served": {
+    "backend": "ollama-general",
+    "model": "hf.co/sjakek/Nex-N2-mini-GGUF:UD-Q4_K_M-ctx16k"
+   },
+   "reasoning_chars": 260
+  },
+  {
+   "turn": 2,
+   "content": "",
+   "tool_calls": [
+    {
+     "name": "file_read",
+     "args_raw": "{\"path\":\"docs/HOWTO.md\"}"
+    }
+   ],
+   "served": {
+    "backend": "ollama-general",
+    "model": "hf.co/sjakek/Nex-N2-mini-GGUF:UD-Q4_K_M-ctx16k"
+   },
+   "reasoning_chars": 407
+  },
+  {
+   "turn": 3,
+   "content": "",
+   "tool_calls": [
+    {
+     "name": "file_read",
+     "args_raw": "{\"path\":\"docs/HOWTO.md\"}"
+    }
+   ],
+   "served": {
+    "backend": "ollama-general",
+    "model": "hf.co/sjakek/Nex-N2-mini-GGUF:UD-Q4_K_M-ctx16k"
+   }
+  },
+  {
+   "turn": 4,
+   "content": "",
+   "tool_calls": [
+    {
+     "name": "repo_search",
+     "args_raw": "{\"pattern\":\"How: Workspaces are defined in `config/portal.yaml`.*regenerates.*derived artifacts.*workspace_routing|How: Workspaces are defined in `config/portal.yaml`\",\"path\":\".\"}"
+    }
+   ],
+   "served": {
+    "backend": "ollama-general",
+    "model": "hf.co/sjakek/Nex-N2-mini-GGUF:UD-Q4_K_M-ctx16k"
+   },
+   "reasoning_chars": 775
+  },
+  {
+   "turn": 5,
+   "content": "",
+   "tool_calls": [
+    {
+     "name": "repo_search",
+     "args_raw": "{\"pattern\":\"so `config/portal.yaml` stays the single source of truth\",\"path\":\".\"}"
+    }
+   ],
+   "served": {
+    "backend": "ollama-general",
+    "model": "hf.co/sjakek/Nex-N2-mini-GGUF:UD-Q4_K_M-ctx16k"
+   },
+   "reasoning_chars": 2892
+  },
+  {
+   "turn": 6,
+   "content": "The file described as the single source of truth for workspace configuration is:\n\n`config/portal.yaml`\n\nTwo artifacts regenerated from it are:\n- `workspace_routing` in `config/backends.yaml`\n- `.mcp.json`\n\nThe file path is quoted exactly as: `config/portal.yaml`\n\nRESEARCH COMPLETE",
+   "tool_calls": [],
+   "served": {
+    "backend": "ollama-general",
+    "model": "hf.co/sjakek/Nex-N2-mini-GGUF:UD-Q4_K_M-ctx16k"
+   }
+  }
+ ],
+ "tool_call_log": [
+  {
+   "name": "repo_search",
+   "args": {
+    "pattern": "single source of truth.*workspace configuration|workspace configuration.*single source of truth|single source of truth for workspace configuration",
+    "path": "."
+   },
+   "raw_args": "{\"pattern\":\"single source of truth.*workspace configuration|workspace configuration.*single source of truth|single source of truth for workspace configuration\",\"path\":\".\"}",
+   "output": "(no matches)",
+   "error": false
+  },
+  {
+   "name": "repo_search",
+   "args": {
+    "pattern": "source of truth",
+    "path": "."
+   },
+   "raw_args": "{\"pattern\":\"source of truth\",\"path\":\".\"}",
+   "output": "CHANGELOG.md:746:  source of truth: `pyproject.toml`) instead of a hardcoded literal\nP5_ROADMAP.md:239:source of truth for what the fleet serves, so the two surviving UD workspaces\nREADME.md:19:\u251c\u2500\u2500 \ud83d\udcc1 config/                            # Single source of truth\nconfig/MODEL_CATALOG.md:162:The `general`-group registration with `supports_tools: false` is asserted directly by `config/backends.yaml`, and the model has no workspace in `config/portal.yaml`, making the backend registry the only source of truth. The institutional knowledge that the `[AVAILABLE_TOOLS]` template does not actually dispatch tools is preserved because it is the exact reason the flag is false and why the model never reaches a production workspace.\nconfig/lab_targets.yaml:5:# Core AD-lab + web-fleet host identities. Single source of truth for\nconfig/portal.yaml:1:# Portal 5 \u2014 single configuration source of truth\ndocs/ADMIN_GUIDE.md:283:Native and container Ollama are two separate config surfaces, and the compose file documents only the container one. An operator who tunes the container's env block while running native (the default) has made a change that never takes effect \u2014 the plist is the only lever that does, so the source of truth must be stated explicitly. The Homebrew-vs-pinned-install distinction is called out explicitly because the failure mode is silent: both bind the same port, so a stale Homebrew reinstall serving an outdated Ollama version produces no error, just quietly-wrong behavior (a whole 3-hour benchmark leg ran against it undetected) until someone thinks to check `/api/version` against the live server instead of trusting `command -v ollama`, which resolves whatever is first on PATH. The `ollama-current` symlink indirection exists because the direct-path scheme required editing the plist's `ProgramArguments` and the `/opt/homebrew/bin/ollama` PATH symlink separately on every upgrade \u2014 two places that could silently disagree after a future upgrade if only one got updated.\ndocs/HOWTO.md:69:**How:** Workspaces are defined in `config/portal.yaml` under the `workspaces:` block \u2014 each entry declares `module`, `name`, `model_hint`, `tools`, and `expose_to_owui`. Select one from the model dropdown; the exposed ones are exactly those with `expose_to_owui: true`. `./launch.sh sync-config` regenerates the derived artifacts (`workspace_routing` in `config/backends.yaml`, `.mcp.json`, and the Open WebUI workspace presets under `imports/openwebui/workspaces/`) so `config/portal.yaml` stays the single source of truth.\ndocs/HOWTO.md:708:The canonical units under `portal_wiki/canonical/` are the source of truth.\ndocs/LAB_SETUP.md:59:source of truth for which security models should be resident.\ndocs/_archive_execdocs/PORTAL5_ACCEPTANCE_EXECUTE_V8.md:211:- **`OLLAMA_MAX_LOADED_MODELS=3` required**: the router holds its own slot alongside two inference models. Verify the running Ollama process has this set (`ps eww -p $(pgrep -f \"ollama serve\") | tr ' ' '\\n' | grep MAX_LOADED`) \u2014 plist is the source of truth for native Ollama, not docker-compose env.\nexecute_local_sec_bench.sh:38:# \u2500\u2500 Canonical full-coverage run-args (blue/purple-driven; theory benches off) \u2014 ONE source of truth \u2500\u2500\nportal/modules/compliance/config/__init__.py:3:(the single source of truth), not a duplicate store.\nportal/modules/compliance/core/cip_register.py:373:    CIP-012-1) are dropped \u2014 the register is the source of truth for versions.\"\"\"\nportal/modules/compliance/core/projections.py:3:The canonical transactional store is the source of truth; graph, lexical and\nportal/modules/general/config/__init__.py:16:    no separate config store, this reads the single source of truth.\"\"\"\nportal/modules/netforensics/tools/netforensics_mcp.py:52:    # single source of truth for the lab invariant \u2014 the security module's guard\nportal/modules/security/core/_data.py:40:    \"\"\"config/lab_targets.yaml's `lab_hosts:` block \u2014 single source of truth.\nportal/modules/security/core/matrix.py:530:    REAL published",
+   "error": false
+  },
+  {
+   "name": "repo_search",
+   "args": {
+    "pattern": "workspace configuration",
+    "path": "."
+   },
+   "raw_args": "{\"pattern\":\"workspace configuration\",\"path\":\".\"}",
+   "output": "docs/research/derived_assertion/INVENTORY_HEAD.md:43:- Q3.3 `ctx_validated` is stored in workspace configuration only where an operator has recorded the working-context preflight result; the validation code treats it as a required boolean for baked context tags and separately gates `tool_choice_verified` (`scripts/validation/personas.py:222-237`, `scripts/validation/personas.py:251-287`). It is not stored as a per-model probe artifact in `bench_tps` result records (`tests/benchmarks/bench/measure.py:404-424`), so it is a config assertion rather than a re-derivable model-level measurement.\nportal_wiki/canonical/unit-compliance-reading-truth.md:101:tool ids. Sampling continues to come from the workspace configuration.\ntests/unit/test_mcp_endpoints.py:149:    \"\"\"Test backend routing and workspace configuration completeness.\"\"\"\n",
+   "error": false
+  },
+  {
+   "name": "repo_search",
+   "args": {
+    "pattern": "regenerated",
+    "path": "."
+   },
+   "raw_args": "{\"pattern\":\"regenerated\",\"path\":\".\"}",
+   "output": "KNOWN_LIMITATIONS.md:913:- **WEBUI_SECRET_KEY rotation invalidates OAuth tokens.** If `.env` is regenerated and the secret key changes, all MCP OAuth tools need re-authentication. The variable is set in `.env.example` with a placeholder.\nconfig/UNUSED_MODELS_20260721.md:6:357GB free (81% full). `config/model_inventory.snapshot` regenerated to\ndocs/ADMIN_GUIDE.md:696:Model bindings are the reachability-resolved view of what each workspace `model_hint` and persona `model_pin` actually serve: a hint is reachable only when the workspace's routing groups in `config/backends.yaml` contain the model. The gap count is the live measure of how many bindings silently fall back to the pool default, and is regenerated from the same config the router reads.\ndocs/BACKUP_RESTORE.md:289:The restore path deliberately limits itself to state that cannot be regenerated \u2014 the databases and the secrets file \u2014 while leaving versioned config to the operator's own copy. That split keeps the destructive command minimal and predictable; a restore that silently overwrote live config would merge an operator's post-backup tuning with stale files.\ndocs/HOWTO.md:719:   regenerated.\ndocs/HOWTO.md:739:whose content is mechanically regenerated from live config rather than\ndocs/MODEL_FLEET_CLOSEOUT_20260906.CLOSEOUT.md:69:7. `./launch.sh sync-config` run clean (81 workspaces; derived views regenerated; wiki doc-block auto-updated). Container rebuild deferred until removal execution (eval-only seats; rebuilding mid-bench would have disturbed runs).\ndocs/README_VOICE_V1.md:174:stale artifact; the manifest was **left untouched** rather than regenerated into a different\ndocs/design/DESIGN_DERIVED_ASSERTION_INVARIANT_V1.md:49:AJ audits local source resolution and corruption; AW compares regenerated bodies\ndocs/reports/SPINE_REMEDIATION_FINDINGS.md:31:with no guard, on the confirm/loop path** \u2014 `seed_facts` (machine-derived, regenerated by\ndocs/research/derived_assertion/INVENTORY_HEAD.md:18:- Q0.5 A current \u201cphantom pin\u201d predicate is **UNRESOLVED \u2014 no pin record or pin-health predicate exists at HEAD**. The closest mechanical analogue is a repository-local source whose resolved match set is empty, producing `missing-source` (or `untracked-source`) in `audit_units` (`portal/platform/wiki/audit.py:66-87`, `portal/platform/wiki/audit.py:161-180`). Current \u201cstale\u201d means a machine-derived unit is absent or its stored body differs from a freshly regenerated body (`portal/platform/wiki/maintain.py:56-79`); it is not \u201ca source commit differs from a pin,\u201d because that pin axis was deleted (`portal/platform/wiki/drift.py:14-21`).\nportal/modules/security/tools/mitre_mcp.py:252:    # (mitre-attack/attack-stix-data), regenerated by\nportal/platform/wiki/adapters/seed_facts.py:366:            \"and is regenerated from the same config the router reads.\"\nportal/platform/wiki/maintain.py:54:    regenerated_units: list[KnowledgeUnit] | None = None,\nportal/platform/wiki/maintain.py:65:    if regenerated_units is None:\nportal/platform/wiki/maintain.py:66:        regenerated_units = _regenerate_derived_units(current_commit)\nportal/platform/wiki/maintain.py:67:    fresh_by_id = {unit.id: unit for unit in regenerated_units}\nportal_wiki/archive/unit-wiki-adapter-seed-code.md:31:avoid. They are regenerated by the maintenance loop whenever the repo moves.\nportal_wiki/canonical/unit-HOWTO-discovery-with-fact-units.md:36:   regenerated.\nportal_wiki/canonical/unit-HOWTO-discovery-with-fact-units.md:56:whose content is mechanically regenerated from live config rather than\nportal_wiki/canonical/unit-backup-restore-complete-system-recovery.md:22:The restore path deliberately limits itself to state that cannot be regenerated \u2014 the databases and the secrets file \u2014 while leaving versioned config to the operator's own copy. That split keeps the destructive command minimal and predictable; a restore that silently overwrote live config would merge an operator's post-backup tuning with stale files.\nportal_wi",
+   "error": false
+  },
+  {
+   "name": "file_list",
+   "args": {
+    "path": "."
+   },
+   "raw_args": "{\"path\":\".\"}",
+   "output": "",
+   "error": false
+  },
+  {
+   "name": "file_read",
+   "args": {
+    "path": "docs/HOWTO.md"
+   },
+   "raw_args": "{\"path\":\"docs/HOWTO.md\"}",
+   "output": "# Portal 6.0.3 \u2014 How-To Guide\n\n---\n\n## 1. Quick Start\n\n<!-- WIKI:GENERATED unit=unit-HOWTO-1-quick-start -->\nComplete working examples for every feature. Each section shows: what it does, how to activate it, a working example, and how to verify.\n\n**What:** Launch the entire platform with one command.\n\n```bash\ngit clone https://github.com/ckindle-42/portal-5.git\ncd portal-5\n./launch.sh up\n```\n\nThe `up` case in `launch.sh` copies `.env.example` to `.env` when it is missing, regenerates any secret still set to `CHANGEME` via `bootstrap_secrets` and the secret-repair loop, creates the shared workspace tree under `~/AI_Output`, pulls the Docker images, auto-starts the native services, checks hardware, and brings the compose stack up. A first run downloads images and model weights, so it takes tens of minutes rather than seconds; subsequent runs are near-instant.\n\nWhen the stack is ready `launch.sh` prints the service URLs:\n\n- Open WebUI: `http://localhost:8080`\n- SearXNG: `http://localhost:8088`\n- Grafana: `http://localhost:3000`\n- Prometheus: `http://localhost:9090`\n\n`ENABLE_REMOTE_ACCESS=true` in `.env` makes Open WebUI bind to `0.0.0.0` instead of loopback, and `WEBUI_LISTEN_ADDR` is written back into `.env` so external restarts keep the same binding.\n\n**Verify:**\n```bash\n./launch.sh status\n```\n\n### Why\n\nFirst-run bootstrapping lives inside the `up` case rather than in a manual checklist so every post-clone dependency \u2014 env file, secrets, workspace tree, Docker images, model weights \u2014 is generated or fetched by one command and a fresh checkout converges to the same running stack as an old install. The secret-repair loop also makes an interrupted first run self-healing: re-running `up` regenerates whatever placeholder value is left over.\n<!-- /WIKI:GENERATED -->\n\n---\n\n## 2. Chat with AI\n\n<!-- WIKI:GENERATED unit=unit-HOWTO-2-chat-with-ai -->\n**What:** Open WebUI connects to Portal Pipeline, which routes each request to the best-fit model.\n\n**How:** Open `http://localhost:8080` and sign in with the admin credentials from `.env` \u2014 `OPENWEBUI_ADMIN_EMAIL` / `OPENWEBUI_ADMIN_PASSWORD`, the latter auto-generated on first run and printed by `launch.sh`. Open WebUI's `OPENAI_API_BASE_URL` points at the pipeline's `http://portal-pipeline:9099/v1` in `deploy/portal-5/docker-compose.yml`, so every chat flows through the router.\n\n**Example \u2014 general chat:**\n1. Select `Portal Auto Router` from the model dropdown\n2. Type: `Explain how Docker networking works`\n3. The `auto` workspace's `model_hint` (`huihui_ai/qwen3.5-abliterated:9b-ctx8k` in `config/portal.yaml`) selects the model served via Ollama\n\nThe `auto` workspace is special: when no explicit model is chosen, the LLM intent classifier (`_route_with_llm`, Layer 1 in `portal/platform/inference/router/routing.py`) picks the best-fit workspace, falling back to weighted keyword scoring (`_detect_workspace`, Layer 2) on low confidence or timeout. `DEFAULT_MODEL` in `.env.example` only sets Open WebUI's default picker selection.\n\n**Verify routing:** run `./launch.sh status`, or `curl http://localhost:9099/v1/models` with `PIPELINE_API_KEY` as the bearer token.\n\n### Why\n\nRouting is deliberately split from serving: Open WebUI only knows one OpenAI-compatible endpoint, and the pipeline decides which workspace and model answer. Keeping the chat UI that thin means model selection, persona overrides, and tool grants can all evolve inside `config/portal.yaml` and `routing.py` without any Open WebUI change, and the two-layer classifier makes the router both accurate (LLM) and fast (keywords) without blocking the request on the classifier.\n<!-- /WIKI:GENERATED -->\n\n---\n\n## 3. Workspaces\n\n<!-- WIKI:GENERATED unit=unit-HOWTO-3-workspaces -->\n**What:** Each workspace routes to a specialized model and activates the relevant tools.\n\n**How:** Workspaces are defined in `config/portal.yaml` under the `workspaces:` block \u2014 each entry declares `module`, `name`, `model_hint`, `tools`, and `expose_to_owui`. Select",
+   "error": false
+  },
+  {
+   "name": "file_read",
+   "args": {
+    "path": "docs/HOWTO.md"
+   },
+   "raw_args": "{\"path\":\"docs/HOWTO.md\"}",
+   "output": "# Portal 6.0.3 \u2014 How-To Guide\n\n---\n\n## 1. Quick Start\n\n<!-- WIKI:GENERATED unit=unit-HOWTO-1-quick-start -->\nComplete working examples for every feature. Each section shows: what it does, how to activate it, a working example, and how to verify.\n\n**What:** Launch the entire platform with one command.\n\n```bash\ngit clone https://github.com/ckindle-42/portal-5.git\ncd portal-5\n./launch.sh up\n```\n\nThe `up` case in `launch.sh` copies `.env.example` to `.env` when it is missing, regenerates any secret still set to `CHANGEME` via `bootstrap_secrets` and the secret-repair loop, creates the shared workspace tree under `~/AI_Output`, pulls the Docker images, auto-starts the native services, checks hardware, and brings the compose stack up. A first run downloads images and model weights, so it takes tens of minutes rather than seconds; subsequent runs are near-instant.\n\nWhen the stack is ready `launch.sh` prints the service URLs:\n\n- Open WebUI: `http://localhost:8080`\n- SearXNG: `http://localhost:8088`\n- Grafana: `http://localhost:3000`\n- Prometheus: `http://localhost:9090`\n\n`ENABLE_REMOTE_ACCESS=true` in `.env` makes Open WebUI bind to `0.0.0.0` instead of loopback, and `WEBUI_LISTEN_ADDR` is written back into `.env` so external restarts keep the same binding.\n\n**Verify:**\n```bash\n./launch.sh status\n```\n\n### Why\n\nFirst-run bootstrapping lives inside the `up` case rather than in a manual checklist so every post-clone dependency \u2014 env file, secrets, workspace tree, Docker images, model weights \u2014 is generated or fetched by one command and a fresh checkout converges to the same running stack as an old install. The secret-repair loop also makes an interrupted first run self-healing: re-running `up` regenerates whatever placeholder value is left over.\n<!-- /WIKI:GENERATED -->\n\n---\n\n## 2. Chat with AI\n\n<!-- WIKI:GENERATED unit=unit-HOWTO-2-chat-with-ai -->\n**What:** Open WebUI connects to Portal Pipeline, which routes each request to the best-fit model.\n\n**How:** Open `http://localhost:8080` and sign in with the admin credentials from `.env` \u2014 `OPENWEBUI_ADMIN_EMAIL` / `OPENWEBUI_ADMIN_PASSWORD`, the latter auto-generated on first run and printed by `launch.sh`. Open WebUI's `OPENAI_API_BASE_URL` points at the pipeline's `http://portal-pipeline:9099/v1` in `deploy/portal-5/docker-compose.yml`, so every chat flows through the router.\n\n**Example \u2014 general chat:**\n1. Select `Portal Auto Router` from the model dropdown\n2. Type: `Explain how Docker networking works`\n3. The `auto` workspace's `model_hint` (`huihui_ai/qwen3.5-abliterated:9b-ctx8k` in `config/portal.yaml`) selects the model served via Ollama\n\nThe `auto` workspace is special: when no explicit model is chosen, the LLM intent classifier (`_route_with_llm`, Layer 1 in `portal/platform/inference/router/routing.py`) picks the best-fit workspace, falling back to weighted keyword scoring (`_detect_workspace`, Layer 2) on low confidence or timeout. `DEFAULT_MODEL` in `.env.example` only sets Open WebUI's default picker selection.\n\n**Verify routing:** run `./launch.sh status`, or `curl http://localhost:9099/v1/models` with `PIPELINE_API_KEY` as the bearer token.\n\n### Why\n\nRouting is deliberately split from serving: Open WebUI only knows one OpenAI-compatible endpoint, and the pipeline decides which workspace and model answer. Keeping the chat UI that thin means model selection, persona overrides, and tool grants can all evolve inside `config/portal.yaml` and `routing.py` without any Open WebUI change, and the two-layer classifier makes the router both accurate (LLM) and fast (keywords) without blocking the request on the classifier.\n<!-- /WIKI:GENERATED -->\n\n---\n\n## 3. Workspaces\n\n<!-- WIKI:GENERATED unit=unit-HOWTO-3-workspaces -->\n**What:** Each workspace routes to a specialized model and activates the relevant tools.\n\n**How:** Workspaces are defined in `config/portal.yaml` under the `workspaces:` block \u2014 each entry declares `module`, `name`, `model_hint`, `tools`, and `expose_to_owui`. Select",
+   "error": false
+  },
+  {
+   "name": "repo_search",
+   "args": {
+    "pattern": "How: Workspaces are defined in `config/portal.yaml`.*regenerates.*derived artifacts.*workspace_routing|How: Workspaces are defined in `config/portal.yaml`",
+    "path": "."
+   },
+   "raw_args": "{\"pattern\":\"How: Workspaces are defined in `config/portal.yaml`.*regenerates.*derived artifacts.*workspace_routing|How: Workspaces are defined in `config/portal.yaml`\",\"path\":\".\"}",
+   "output": "(no matches)",
+   "error": false
+  },
+  {
+   "name": "repo_search",
+   "args": {
+    "pattern": "so `config/portal.yaml` stays the single source of truth",
+    "path": "."
+   },
+   "raw_args": "{\"pattern\":\"so `config/portal.yaml` stays the single source of truth\",\"path\":\".\"}",
+   "output": "docs/HOWTO.md:69:**How:** Workspaces are defined in `config/portal.yaml` under the `workspaces:` block \u2014 each entry declares `module`, `name`, `model_hint`, `tools`, and `expose_to_owui`. Select one from the model dropdown; the exposed ones are exactly those with `expose_to_owui: true`. `./launch.sh sync-config` regenerates the derived artifacts (`workspace_routing` in `config/backends.yaml`, `.mcp.json`, and the Open WebUI workspace presets under `imports/openwebui/workspaces/`) so `config/portal.yaml` stays the single source of truth.\nportal_wiki/canonical/unit-HOWTO-3-workspaces.md:20:**How:** Workspaces are defined in `config/portal.yaml` under the `workspaces:` block \u2014 each entry declares `module`, `name`, `model_hint`, `tools`, and `expose_to_owui`. Select one from the model dropdown; the exposed ones are exactly those with `expose_to_owui: true`. `./launch.sh sync-config` regenerates the derived artifacts (`workspace_routing` in `config/backends.yaml`, `.mcp.json`, and the Open WebUI workspace presets under `imports/openwebui/workspaces/`) so `config/portal.yaml` stays the single source of truth.\n",
+   "error": false
+  }
+ ],
+ "final_text": "The file described as the single source of truth for workspace configuration is:\n\n`config/portal.yaml`\n\nTwo artifacts regenerated from it are:\n- `workspace_routing` in `config/backends.yaml`\n- `.mcp.json`\n\nThe file path is quoted exactly as: `config/portal.yaml`\n\nRESEARCH COMPLETE",
+ "repeat_degeneracy": null,
+ "model": "hf.co/sjakek/Nex-N2-mini-GGUF:UD-Q4_K_M-ctx16k",
+ "overrides": {},
+ "sampling_undelivered": []
+}

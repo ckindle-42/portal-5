@@ -1,0 +1,38 @@
+2026-10-13T00:27:08Z arm hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k: 18 runs pending
+2026-10-13T00:27:08Z   [1/18] auto-compliance|hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k|compliance_agentic_loopset_noformat|comp-p6j-01|r0
+2026-10-13T00:28:00Z       -> FAIL turns=2 tools=1 errs=0 51.5s
+2026-10-13T00:28:00Z   [2/18] auto-compliance|hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k|compliance_agentic_loopset_noformat|comp-p6j-01|r1
+2026-10-13T00:28:32Z       -> FAIL turns=2 tools=1 errs=0 31.9s
+2026-10-13T00:28:32Z   [3/18] auto-compliance|hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k|compliance_agentic_loopset_noformat|comp-p6j-01|r2
+2026-10-13T00:29:05Z       -> FAIL turns=2 tools=1 errs=0 33.6s
+2026-10-13T00:29:05Z   [4/18] auto-compliance|hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k|compliance_agentic_loopset_noformat|comp-p6j-02|r0
+2026-10-13T00:29:30Z       -> FAIL turns=2 tools=1 errs=0 24.7s
+2026-10-13T00:29:30Z   [5/18] auto-compliance|hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k|compliance_agentic_loopset_noformat|comp-p6j-02|r1
+2026-10-13T00:29:58Z       -> FAIL turns=2 tools=1 errs=0 27.9s
+2026-10-13T00:29:58Z   [6/18] auto-compliance|hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k|compliance_agentic_loopset_noformat|comp-p6j-02|r2
+2026-10-13T00:30:22Z       -> FAIL turns=2 tools=1 errs=0 24.3s
+2026-10-13T00:30:22Z   [7/18] auto-compliance|hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k|compliance_agentic_loopset_noformat|comp-p6j-11|r0
+2026-10-13T00:30:54Z       -> FAIL turns=2 tools=1 errs=0 32.2s
+2026-10-13T00:30:54Z   [8/18] auto-compliance|hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k|compliance_agentic_loopset_noformat|comp-p6j-11|r1
+2026-10-13T00:31:17Z       -> FAIL turns=2 tools=1 errs=0 22.3s
+2026-10-13T00:31:17Z   [9/18] auto-compliance|hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k|compliance_agentic_loopset_noformat|comp-p6j-11|r2
+2026-10-13T00:31:35Z       -> FAIL turns=2 tools=1 errs=0 18.4s
+2026-10-13T00:31:35Z   [10/18] auto-compliance|hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k|compliance_agentic_loopset_noformat|comp-p6j-14|r0
+2026-10-13T00:31:59Z       -> FAIL turns=2 tools=1 errs=0 24.1s
+2026-10-13T00:31:59Z   [11/18] auto-compliance|hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k|compliance_agentic_loopset_noformat|comp-p6j-14|r1
+2026-10-13T00:32:23Z       -> FAIL turns=2 tools=1 errs=0 23.5s
+2026-10-13T00:32:23Z   [12/18] auto-compliance|hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k|compliance_agentic_loopset_noformat|comp-p6j-14|r2
+2026-10-13T00:32:48Z       -> FAIL turns=2 tools=1 errs=0 25.3s
+2026-10-13T00:32:48Z   [13/18] auto-compliance|hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k|compliance_agentic_loopset_noformat|comp-p6j-19|r0
+2026-10-13T00:33:26Z       -> FAIL turns=2 tools=1 errs=0 38.1s
+2026-10-13T00:33:26Z   [14/18] auto-compliance|hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k|compliance_agentic_loopset_noformat|comp-p6j-19|r1
+2026-10-13T00:34:01Z       -> FAIL turns=2 tools=1 errs=0 34.6s
+2026-10-13T00:34:01Z   [15/18] auto-compliance|hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k|compliance_agentic_loopset_noformat|comp-p6j-19|r2
+2026-10-13T00:34:34Z       -> FAIL turns=2 tools=1 errs=0 32.8s
+2026-10-13T00:34:34Z   [16/18] auto-compliance|hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k|compliance_agentic_loopset_noformat|comp-p6j-24|r0
+2026-10-13T00:35:04Z       -> FAIL turns=2 tools=1 errs=0 30.7s
+2026-10-13T00:35:04Z   [17/18] auto-compliance|hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k|compliance_agentic_loopset_noformat|comp-p6j-24|r1
+2026-10-13T00:35:26Z       -> FAIL turns=2 tools=1 errs=0 21.1s
+2026-10-13T00:35:26Z   [18/18] auto-compliance|hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k|compliance_agentic_loopset_noformat|comp-p6j-24|r2
+2026-10-13T00:35:49Z       -> FAIL turns=2 tools=1 errs=0 23.8s
+2026-10-13T00:35:49Z arm complete — hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k: {'FAIL': 18} in 522s

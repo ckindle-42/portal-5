@@ -1,6 +1,8 @@
-# Post-fix incumbent baseline for TASK_WFE_PROMPT_SURFACE_REBASELINE_V1.
-# Affected workspaces are derived from workspace_context(ws)["harness_note"]
-# across tests/wfe/workloads.yaml and tests/wfe/plans/*.yaml at HEAD 2c2fd0c.
+# Post-fix incumbent baseline for TASK_WFE_PROMPT_SURFACE_REBASELINE_V2
+# (pipeline-mode seat baseline; V1 ran direct Ollama and is a direct-engine
+# reference only). Affected workspaces are derived from
+# workspace_context(ws)["harness_note"] across tests/wfe/workloads.yaml and
+# tests/wfe/plans/*.yaml at HEAD 2b27d8c4 (set re-derived at 6f6819dc, unchanged).
 # Incumbents only; challengers belong in a later task. Future card-reasoning
 # candidates must also run at card think + sampling settings (R5).
 workloads:

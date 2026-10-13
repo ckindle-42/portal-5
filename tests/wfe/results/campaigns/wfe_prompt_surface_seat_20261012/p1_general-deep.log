@@ -1,0 +1,26 @@
+appended 9 rows (0 already present)
+2026-10-12T23:17:48Z arm hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx96k: 9 runs pending
+2026-10-12T23:17:49Z   [1/9] general-deep|hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx96k|research|res-granite-ctx|r0
+2026-10-12T23:18:06Z       -> PASS turns=2 tools=1 errs=0 16.9s
+2026-10-12T23:18:06Z   [2/9] general-deep|hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx96k|research|res-granite-ctx|r1
+2026-10-12T23:18:29Z       -> PASS turns=5 tools=4 errs=1 23.2s
+2026-10-12T23:18:29Z   [3/9] general-deep|hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx96k|research|res-granite-ctx|r2
+2026-10-12T23:18:46Z       -> PASS turns=2 tools=1 errs=0 17.1s
+2026-10-12T23:18:46Z   [4/9] general-deep|hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx96k|research|res-ollama-ctx|r0
+2026-10-12T23:19:16Z       -> PASS turns=2 tools=1 errs=0 30.1s
+2026-10-12T23:19:16Z   [5/9] general-deep|hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx96k|research|res-ollama-ctx|r1
+2026-10-12T23:20:25Z       -> BUDGET_EXHAUSTED turns=17 tools=16 errs=13 68.4s
+2026-10-12T23:20:25Z   [6/9] general-deep|hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx96k|research|res-ollama-ctx|r2
+2026-10-12T23:20:44Z       -> PASS turns=2 tools=1 errs=0 19.0s
+2026-10-12T23:20:44Z   [7/9] general-deep|hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx96k|research|res-repo-grounded|r0
+2026-10-12T23:21:56Z       -> PASS turns=4 tools=3 errs=0 72.4s
+2026-10-12T23:21:56Z   [8/9] general-deep|hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx96k|research|res-repo-grounded|r1
+2026-10-12T23:24:17Z       -> BUDGET_EXHAUSTED turns=17 tools=16 errs=0 141.3s
+2026-10-12T23:24:17Z   [9/9] general-deep|hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx96k|research|res-repo-grounded|r2
+    … general-deep: streaming, 1129 bytes, 30s elapsed
+2026-10-12T23:27:07Z       -> BUDGET_EXHAUSTED turns=17 tools=16 errs=0 169.2s
+2026-10-12T23:27:07Z arm complete — hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx96k: {'PASS': 6, 'BUDGET_EXHAUSTED': 3} in 558s
+
+campaign dir: /Users/chris/projects/portal-5/tests/wfe/results/campaigns/wfe_prompt_surface_seat_20261012   creative queue: 0 item(s)
+next: uv run python -m tests.wfe.report --campaign wfe_prompt_surface_seat_20261012
+exit=0

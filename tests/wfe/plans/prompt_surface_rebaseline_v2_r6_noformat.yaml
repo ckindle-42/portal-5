@@ -1,0 +1,13 @@
+# R6 control arm for TASK_WFE_PROMPT_SURFACE_REBASELINE_V2 (R5) — no-format
+# control, protocol item 3. The same 6 looping p6j tasks with the output-format
+# sentence removed (completion signal kept, checker kept — a finished answer
+# scores FAIL, only the loop rate is read). Runs at the lane's own think
+# setting; the seat's served prompt and tools are unchanged. The scored rows
+# are loop diagnostics, not fitness numbers.
+workloads:
+  auto-compliance:
+    home: compliance_agentic_loopset_noformat
+    discovery: []
+    arms:
+      incumbent: hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k
+      challengers: []

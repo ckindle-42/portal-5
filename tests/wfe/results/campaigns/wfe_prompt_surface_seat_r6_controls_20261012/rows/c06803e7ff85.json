@@ -1,0 +1,110 @@
+{
+ "schema": "wfe-result-2",
+ "run_id": "auto-compliance|hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k@think-on-09904277|compliance_agentic_loopset|comp-p6j-24|r1",
+ "campaign_id": "wfe_prompt_surface_seat_r6_controls_20261012",
+ "stage": "full",
+ "workspace": "auto-compliance",
+ "arm": "hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k@think-on-09904277",
+ "arm_role": "challenger",
+ "suite": "compliance_agentic_loopset",
+ "task_id": "comp-p6j-24",
+ "repeat": 1,
+ "outcome": "PASS",
+ "notes": "answer patterns matched",
+ "evidence": {
+  "served_models": [
+   "Qwen3.8-27B-oQ4e-mtp"
+  ]
+ },
+ "persona_slug": "cippolicywriter",
+ "prompt_sha": "53680f17cb49",
+ "tool_surface": [
+  "file_read",
+  "file_list",
+  "repo_search",
+  "pytest_run",
+  "file_write",
+  "http_get"
+ ],
+ "tool_surface_proxy": true,
+ "harness": {
+  "endpoint": "v1",
+  "stream": false,
+  "think": "true",
+  "format": "none"
+ },
+ "sampling": {
+  "seed": 1001,
+  "max_tokens_source": "pipeline"
+ },
+ "baked_params": {},
+ "seed": 1001,
+ "turns": 2,
+ "tool_calls": 1,
+ "tool_errors": 0,
+ "finish_reason": "stop",
+ "economics": {
+  "prompt_tokens": 4839,
+  "completion_tokens": 1065,
+  "total_tokens": 5904,
+  "load_ms": null,
+  "wall_s": 52.7,
+  "cold_load": false
+ },
+ "env": {
+  "git_sha": "2b27d8c4",
+  "ollama_version": "0.40.0",
+  "python": "3.13.12",
+  "platform": "macOS-27.0.1-arm64-arm-64bit-Mach-O",
+  "engine": "pipeline",
+  "engine_base_url": "",
+  "engine_version": "unknown",
+  "fingerprint": "791254ff1757"
+ },
+ "final_text_head": "\n\n{\"determination\": \"ABSTAIN\", \"cited_refs\": [\"CIP-003-8 Attachment 1 Part 3.2\"], \"rationale\": \"The governing requirement is conditional on the entity actually having Dial-up Connectivity to low impact BES Cyber Systems, and while the candidate asserts no dial-up modems exist in the OT environment, the packet contains no evidence establishing whether any such connectivity exists. Because packet_complete is false and the existence of Dial-up Connectivity cannot be verified from the packet, I abstain rather than guess.\"}\n\nDETERMINATION COMPLETE",
+ "transcript": [
+  {
+   "turn": 0,
+   "content": "\n\n",
+   "tool_calls": [
+    {
+     "name": "file_read",
+     "args_raw": "{\"path\": \"packet.json\"}"
+    }
+   ],
+   "served": {
+    "backend": "omlx-reasoning",
+    "model": "Qwen3.8-27B-oQ4e-mtp"
+   },
+   "reasoning_chars": 71
+  },
+  {
+   "turn": 1,
+   "content": "\n\n{\"determination\": \"ABSTAIN\", \"cited_refs\": [\"CIP-003-8 Attachment 1 Part 3.2\"], \"rationale\": \"The governing requirement is conditional on the entity actually having Dial-up Connectivity to low impact BES Cyber Systems, and while the candidate asserts no dial-up modems exist in the OT environment, the packet contains no evidence establishing whether any such connectivity exists. Because packet_complete is false and the existence of Dial-up Connectivity cannot be verified from the packet, I abstain rather than guess.\"}\n\nDETERMINATION COMPLETE",
+   "tool_calls": [],
+   "served": {
+    "backend": "omlx-reasoning",
+    "model": "Qwen3.8-27B-oQ4e-mtp"
+   },
+   "reasoning_chars": 4386
+  }
+ ],
+ "tool_call_log": [
+  {
+   "name": "file_read",
+   "args": {
+    "path": "packet.json"
+   },
+   "raw_args": "{\"path\": \"packet.json\"}",
+   "output": "{\n \"id\": \"P6J-24\",\n \"governing_ref\": \"CIP-003-8 Attachment 1 Part 3.2\",\n \"governing_text\": \"Authenticate all Dial-up Connectivity, if any, that provides access to low impact BES Cyber System(s), per Cyber Asset capability.\",\n \"premises\": [\n  \"'if any' makes this obligation conditional on the entity actually having Dial-up Connectivity to low impact BES Cyber Systems\",\n  \"the packet does not state whether the entity has any Dial-up Connectivity\"\n ],\n \"candidate_text\": \"The OT environment uses no dial-up modems; all remote connectivity is via the managed jump-host infrastructure.\",\n \"packet_complete\": false,\n \"must_not_flag\": false\n}",
+   "error": false
+  }
+ ],
+ "final_text": "\n\n{\"determination\": \"ABSTAIN\", \"cited_refs\": [\"CIP-003-8 Attachment 1 Part 3.2\"], \"rationale\": \"The governing requirement is conditional on the entity actually having Dial-up Connectivity to low impact BES Cyber Systems, and while the candidate asserts no dial-up modems exist in the OT environment, the packet contains no evidence establishing whether any such connectivity exists. Because packet_complete is false and the existence of Dial-up Connectivity cannot be verified from the packet, I abstain rather than guess.\"}\n\nDETERMINATION COMPLETE",
+ "repeat_degeneracy": null,
+ "model": "hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k",
+ "overrides": {
+  "think": "true"
+ },
+ "sampling_undelivered": []
+}

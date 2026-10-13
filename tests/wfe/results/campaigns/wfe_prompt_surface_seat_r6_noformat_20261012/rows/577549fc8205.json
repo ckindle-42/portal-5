@@ -1,0 +1,106 @@
+{
+ "schema": "wfe-result-2",
+ "run_id": "auto-compliance|hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k|compliance_agentic_loopset_noformat|comp-p6j-14|r0",
+ "campaign_id": "wfe_prompt_surface_seat_r6_noformat_20261012",
+ "stage": "full",
+ "workspace": "auto-compliance",
+ "arm": "hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k",
+ "arm_role": "incumbent",
+ "suite": "compliance_agentic_loopset_noformat",
+ "task_id": "comp-p6j-14",
+ "repeat": 0,
+ "outcome": "FAIL",
+ "notes": "answer missing patterns=['\"?determination\"?\\\\s*[:=]\\\\s*\"?PARTIAL\\\\b', 'cited_refs']",
+ "evidence": {
+  "served_models": [
+   "Qwen3.8-27B-oQ4e-mtp"
+  ]
+ },
+ "persona_slug": "cippolicywriter",
+ "prompt_sha": "53680f17cb49",
+ "tool_surface": [
+  "file_read",
+  "file_list",
+  "repo_search",
+  "pytest_run",
+  "file_write",
+  "http_get"
+ ],
+ "tool_surface_proxy": true,
+ "harness": {
+  "endpoint": "v1",
+  "stream": false,
+  "think": "native",
+  "format": "none"
+ },
+ "sampling": {
+  "seed": 1000,
+  "max_tokens_source": "pipeline"
+ },
+ "baked_params": {},
+ "seed": 1000,
+ "turns": 2,
+ "tool_calls": 1,
+ "tool_errors": 0,
+ "finish_reason": "stop",
+ "economics": {
+  "prompt_tokens": 4680,
+  "completion_tokens": 574,
+  "total_tokens": 5254,
+  "load_ms": null,
+  "wall_s": 24.1,
+  "cold_load": false
+ },
+ "env": {
+  "git_sha": "2b27d8c4",
+  "ollama_version": "0.40.0",
+  "python": "3.13.12",
+  "platform": "macOS-27.0.1-arm64-arm-64bit-Mach-O",
+  "engine": "pipeline",
+  "engine_base_url": "",
+  "engine_version": "unknown",
+  "fingerprint": "791254ff1757"
+ },
+ "final_text_head": "## Determination \u2014 Packet P6J-14\n\n**Governing:** CIP-010-4 R2 Part 2.1\n**Premise applied:** This Part carries two conjunct duties \u2014 (a) monitor for baseline-configuration changes at least once every 35 calendar days, and (b) document and investigate detected unauthorized changes.\n\n### Duty (a): Monitor \u2264 35 days \u2014 SATISFIED\nThe candidate states a file integrity monitoring agent on each in-scope BES Cyber System reports configuration drift to the OT Security dashboard every 24 hours. A 24-hour reporting cadence is strictly more frequent than the minimum once-every-35-calendar-days floor, and it",
+ "transcript": [
+  {
+   "turn": 0,
+   "content": "",
+   "tool_calls": [
+    {
+     "name": "file_read",
+     "args_raw": "{\"path\": \"packet.json\"}"
+    }
+   ],
+   "served": {
+    "backend": "omlx-reasoning",
+    "model": "Qwen3.8-27B-oQ4e-mtp"
+   }
+  },
+  {
+   "turn": 1,
+   "content": "## Determination \u2014 Packet P6J-14\n\n**Governing:** CIP-010-4 R2 Part 2.1\n**Premise applied:** This Part carries two conjunct duties \u2014 (a) monitor for baseline-configuration changes at least once every 35 calendar days, and (b) document and investigate detected unauthorized changes.\n\n### Duty (a): Monitor \u2264 35 days \u2014 SATISFIED\nThe candidate states a file integrity monitoring agent on each in-scope BES Cyber System reports configuration drift to the OT Security dashboard every 24 hours. A 24-hour reporting cadence is strictly more frequent than the minimum once-every-35-calendar-days floor, and it applies to each in-scope BES Cyber System. This duty is met on the evidence shown, subject to SME review that \"configuration drift\" reporting maps to changes in the R1 Part 1.1 baseline configuration (i.e., that drift is measured against a documented baseline, not merely prior-state deltas).\n\n### Duty (b): Document and investigate detected unauthorized changes \u2014 NOT ADDRESSED\nThe candidate describes only detection and reporting. It contains no language requiring that detected unauthorized changes be documented or investigated, nor any assignment of who investigates, by when, or what record is produced. Because the premise states both duties are conjunctive (both required), a candidate that satisfies only duty (a) cannot satisfy the Part as a whole.\n\n### Coverage\n**Partial.** The candidate covers duty (a) and is missing the entire \"document and investigate detected unauthorized changes\" obligation of duty (b).\n\n### Evidence an auditor would look for\n- For (a): FIM agent inventory mapped to in-scope BES Cyber Systems; dashboard/alert logs showing \u226435-day (here 24-hour) coverage; the documented baseline configuration per R1 Part 1.1 that drift is measured against.\n- For (b): change-investigation records, documented findings of unauthorized changes, and evidence of remediation/disposition \u2014 none of which the candidate language generates.\n\n### Cross-References\nCIP-010-4 R2 Part 1.1",
+   "tool_calls": [],
+   "served": {
+    "backend": "omlx-reasoning",
+    "model": "Qwen3.8-27B-oQ4e-mtp"
+   }
+  }
+ ],
+ "tool_call_log": [
+  {
+   "name": "file_read",
+   "args": {
+    "path": "packet.json"
+   },
+   "raw_args": "{\"path\": \"packet.json\"}",
+   "output": "{\n \"id\": \"P6J-14\",\n \"governing_ref\": \"CIP-010-4 R2 Part 2.1\",\n \"governing_text\": \"Monitor at least once every 35 calendar days for changes to the baseline configuration (as described in Requirement R1, Part 1.1). Document and investigate detected unauthorized changes.\",\n \"premises\": [\n  \"this Part has two conjunct duties: (a) monitor <=35 days, (b) document and investigate detected unauthorized changes\"\n ],\n \"candidate_text\": \"A file integrity monitoring agent on each in-scope BES Cyber System reports configuration drift to the OT Security dashboard every 24 hours.\",\n \"packet_complete\": true,\n \"must_not_flag\": false\n}",
+   "error": false
+  }
+ ],
+ "final_text": "## Determination \u2014 Packet P6J-14\n\n**Governing:** CIP-010-4 R2 Part 2.1\n**Premise applied:** This Part carries two conjunct duties \u2014 (a) monitor for baseline-configuration changes at least once every 35 calendar days, and (b) document and investigate detected unauthorized changes.\n\n### Duty (a): Monitor \u2264 35 days \u2014 SATISFIED\nThe candidate states a file integrity monitoring agent on each in-scope BES Cyber System reports configuration drift to the OT Security dashboard every 24 hours. A 24-hour reporting cadence is strictly more frequent than the minimum once-every-35-calendar-days floor, and it applies to each in-scope BES Cyber System. This duty is met on the evidence shown, subject to SME review that \"configuration drift\" reporting maps to changes in the R1 Part 1.1 baseline configuration (i.e., that drift is measured against a documented baseline, not merely prior-state deltas).\n\n### Duty (b): Document and investigate detected unauthorized changes \u2014 NOT ADDRESSED\nThe candidate describes only detection and reporting. It contains no language requiring that detected unauthorized changes be documented or investigated, nor any assignment of who investigates, by when, or what record is produced. Because the premise states both duties are conjunctive (both required), a candidate that satisfies only duty (a) cannot satisfy the Part as a whole.\n\n### Coverage\n**Partial.** The candidate covers duty (a) and is missing the entire \"document and investigate detected unauthorized changes\" obligation of duty (b).\n\n### Evidence an auditor would look for\n- For (a): FIM agent inventory mapped to in-scope BES Cyber Systems; dashboard/alert logs showing \u226435-day (here 24-hour) coverage; the documented baseline configuration per R1 Part 1.1 that drift is measured against.\n- For (b): change-investigation records, documented findings of unauthorized changes, and evidence of remediation/disposition \u2014 none of which the candidate language generates.\n\n### Cross-References\nCIP-010-4 R2 Part 1.1 (baseline configuration definition); CIP-010-4 R3/R5 (event response and reporting, if unauthorized changes escalate to security events).\n\n**Bottom line:** The candidate text is a detection-only control. It satisfies the monitoring-frequency conjunct but omits the document-and-investigate conjunct, so it does not fully satisfy CIP-010-4 R2 Part 2.1 as stated in the governing text and premises.\n\nDETERMINATION COMPLETE",
+ "repeat_degeneracy": null,
+ "model": "hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k",
+ "overrides": {},
+ "sampling_undelivered": []
+}

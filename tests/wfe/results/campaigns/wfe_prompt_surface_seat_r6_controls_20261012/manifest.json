@@ -1,0 +1,504 @@
+{
+ "schema": "wfe-manifest-1",
+ "campaign_id": "wfe_prompt_surface_seat_r6_controls_20261012",
+ "plan": "tests/wfe/plans/prompt_surface_rebaseline_v2_r6_think.yaml",
+ "plan_sha": "049863d5b4b5",
+ "created_utc": "2026-10-13T00:00:41.485035+00:00",
+ "env": {
+  "git_sha": "2b27d8c4",
+  "ollama_version": "0.40.0",
+  "python": "3.13.12",
+  "platform": "macOS-27.0.1-arm64-arm-64bit-Mach-O",
+  "engine": "pipeline",
+  "engine_base_url": "",
+  "engine_version": "unknown",
+  "fingerprint": "791254ff1757"
+ },
+ "config_dirty_at_start": [],
+ "rows": [
+  {
+   "run_id": "auto-compliance|hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k@think-on-09904277|compliance_agentic_loopset|comp-p6j-01|r0",
+   "workspace": "auto-compliance",
+   "arm": "hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k@think-on-09904277",
+   "model": "hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k",
+   "overrides": {
+    "think": "true"
+   },
+   "arm_role": "challenger",
+   "suite": "compliance_agentic_loopset",
+   "suite_path": "/Users/chris/projects/portal-5/tests/wfe/suites/compliance_agentic_loopset.jsonl",
+   "task_id": "comp-p6j-01",
+   "repeat": 0,
+   "is_home": true,
+   "state": "FAIL"
+  },
+  {
+   "run_id": "auto-compliance|hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k@think-on-09904277|compliance_agentic_loopset|comp-p6j-01|r1",
+   "workspace": "auto-compliance",
+   "arm": "hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k@think-on-09904277",
+   "model": "hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k",
+   "overrides": {
+    "think": "true"
+   },
+   "arm_role": "challenger",
+   "suite": "compliance_agentic_loopset",
+   "suite_path": "/Users/chris/projects/portal-5/tests/wfe/suites/compliance_agentic_loopset.jsonl",
+   "task_id": "comp-p6j-01",
+   "repeat": 1,
+   "is_home": true,
+   "state": "FAIL"
+  },
+  {
+   "run_id": "auto-compliance|hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k@think-on-09904277|compliance_agentic_loopset|comp-p6j-01|r2",
+   "workspace": "auto-compliance",
+   "arm": "hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k@think-on-09904277",
+   "model": "hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k",
+   "overrides": {
+    "think": "true"
+   },
+   "arm_role": "challenger",
+   "suite": "compliance_agentic_loopset",
+   "suite_path": "/Users/chris/projects/portal-5/tests/wfe/suites/compliance_agentic_loopset.jsonl",
+   "task_id": "comp-p6j-01",
+   "repeat": 2,
+   "is_home": true,
+   "state": "PASS"
+  },
+  {
+   "run_id": "auto-compliance|hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k@think-on-09904277|compliance_agentic_loopset|comp-p6j-02|r0",
+   "workspace": "auto-compliance",
+   "arm": "hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k@think-on-09904277",
+   "model": "hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k",
+   "overrides": {
+    "think": "true"
+   },
+   "arm_role": "challenger",
+   "suite": "compliance_agentic_loopset",
+   "suite_path": "/Users/chris/projects/portal-5/tests/wfe/suites/compliance_agentic_loopset.jsonl",
+   "task_id": "comp-p6j-02",
+   "repeat": 0,
+   "is_home": true,
+   "state": "PASS"
+  },
+  {
+   "run_id": "auto-compliance|hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k@think-on-09904277|compliance_agentic_loopset|comp-p6j-02|r1",
+   "workspace": "auto-compliance",
+   "arm": "hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k@think-on-09904277",
+   "model": "hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k",
+   "overrides": {
+    "think": "true"
+   },
+   "arm_role": "challenger",
+   "suite": "compliance_agentic_loopset",
+   "suite_path": "/Users/chris/projects/portal-5/tests/wfe/suites/compliance_agentic_loopset.jsonl",
+   "task_id": "comp-p6j-02",
+   "repeat": 1,
+   "is_home": true,
+   "state": "PASS"
+  },
+  {
+   "run_id": "auto-compliance|hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k@think-on-09904277|compliance_agentic_loopset|comp-p6j-02|r2",
+   "workspace": "auto-compliance",
+   "arm": "hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k@think-on-09904277",
+   "model": "hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k",
+   "overrides": {
+    "think": "true"
+   },
+   "arm_role": "challenger",
+   "suite": "compliance_agentic_loopset",
+   "suite_path": "/Users/chris/projects/portal-5/tests/wfe/suites/compliance_agentic_loopset.jsonl",
+   "task_id": "comp-p6j-02",
+   "repeat": 2,
+   "is_home": true,
+   "state": "PASS"
+  },
+  {
+   "run_id": "auto-compliance|hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k@think-on-09904277|compliance_agentic_loopset|comp-p6j-11|r0",
+   "workspace": "auto-compliance",
+   "arm": "hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k@think-on-09904277",
+   "model": "hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k",
+   "overrides": {
+    "think": "true"
+   },
+   "arm_role": "challenger",
+   "suite": "compliance_agentic_loopset",
+   "suite_path": "/Users/chris/projects/portal-5/tests/wfe/suites/compliance_agentic_loopset.jsonl",
+   "task_id": "comp-p6j-11",
+   "repeat": 0,
+   "is_home": true,
+   "state": "PASS"
+  },
+  {
+   "run_id": "auto-compliance|hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k@think-on-09904277|compliance_agentic_loopset|comp-p6j-11|r1",
+   "workspace": "auto-compliance",
+   "arm": "hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k@think-on-09904277",
+   "model": "hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k",
+   "overrides": {
+    "think": "true"
+   },
+   "arm_role": "challenger",
+   "suite": "compliance_agentic_loopset",
+   "suite_path": "/Users/chris/projects/portal-5/tests/wfe/suites/compliance_agentic_loopset.jsonl",
+   "task_id": "comp-p6j-11",
+   "repeat": 1,
+   "is_home": true,
+   "state": "PASS"
+  },
+  {
+   "run_id": "auto-compliance|hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k@think-on-09904277|compliance_agentic_loopset|comp-p6j-11|r2",
+   "workspace": "auto-compliance",
+   "arm": "hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k@think-on-09904277",
+   "model": "hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k",
+   "overrides": {
+    "think": "true"
+   },
+   "arm_role": "challenger",
+   "suite": "compliance_agentic_loopset",
+   "suite_path": "/Users/chris/projects/portal-5/tests/wfe/suites/compliance_agentic_loopset.jsonl",
+   "task_id": "comp-p6j-11",
+   "repeat": 2,
+   "is_home": true,
+   "state": "PASS"
+  },
+  {
+   "run_id": "auto-compliance|hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k@think-on-09904277|compliance_agentic_loopset|comp-p6j-14|r0",
+   "workspace": "auto-compliance",
+   "arm": "hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k@think-on-09904277",
+   "model": "hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k",
+   "overrides": {
+    "think": "true"
+   },
+   "arm_role": "challenger",
+   "suite": "compliance_agentic_loopset",
+   "suite_path": "/Users/chris/projects/portal-5/tests/wfe/suites/compliance_agentic_loopset.jsonl",
+   "task_id": "comp-p6j-14",
+   "repeat": 0,
+   "is_home": true,
+   "state": "PASS"
+  },
+  {
+   "run_id": "auto-compliance|hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k@think-on-09904277|compliance_agentic_loopset|comp-p6j-14|r1",
+   "workspace": "auto-compliance",
+   "arm": "hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k@think-on-09904277",
+   "model": "hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k",
+   "overrides": {
+    "think": "true"
+   },
+   "arm_role": "challenger",
+   "suite": "compliance_agentic_loopset",
+   "suite_path": "/Users/chris/projects/portal-5/tests/wfe/suites/compliance_agentic_loopset.jsonl",
+   "task_id": "comp-p6j-14",
+   "repeat": 1,
+   "is_home": true,
+   "state": "PASS"
+  },
+  {
+   "run_id": "auto-compliance|hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k@think-on-09904277|compliance_agentic_loopset|comp-p6j-14|r2",
+   "workspace": "auto-compliance",
+   "arm": "hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k@think-on-09904277",
+   "model": "hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k",
+   "overrides": {
+    "think": "true"
+   },
+   "arm_role": "challenger",
+   "suite": "compliance_agentic_loopset",
+   "suite_path": "/Users/chris/projects/portal-5/tests/wfe/suites/compliance_agentic_loopset.jsonl",
+   "task_id": "comp-p6j-14",
+   "repeat": 2,
+   "is_home": true,
+   "state": "PASS"
+  },
+  {
+   "run_id": "auto-compliance|hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k@think-on-09904277|compliance_agentic_loopset|comp-p6j-19|r0",
+   "workspace": "auto-compliance",
+   "arm": "hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k@think-on-09904277",
+   "model": "hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k",
+   "overrides": {
+    "think": "true"
+   },
+   "arm_role": "challenger",
+   "suite": "compliance_agentic_loopset",
+   "suite_path": "/Users/chris/projects/portal-5/tests/wfe/suites/compliance_agentic_loopset.jsonl",
+   "task_id": "comp-p6j-19",
+   "repeat": 0,
+   "is_home": true,
+   "state": "PASS"
+  },
+  {
+   "run_id": "auto-compliance|hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k@think-on-09904277|compliance_agentic_loopset|comp-p6j-19|r1",
+   "workspace": "auto-compliance",
+   "arm": "hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k@think-on-09904277",
+   "model": "hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k",
+   "overrides": {
+    "think": "true"
+   },
+   "arm_role": "challenger",
+   "suite": "compliance_agentic_loopset",
+   "suite_path": "/Users/chris/projects/portal-5/tests/wfe/suites/compliance_agentic_loopset.jsonl",
+   "task_id": "comp-p6j-19",
+   "repeat": 1,
+   "is_home": true,
+   "state": "PASS"
+  },
+  {
+   "run_id": "auto-compliance|hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k@think-on-09904277|compliance_agentic_loopset|comp-p6j-19|r2",
+   "workspace": "auto-compliance",
+   "arm": "hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k@think-on-09904277",
+   "model": "hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k",
+   "overrides": {
+    "think": "true"
+   },
+   "arm_role": "challenger",
+   "suite": "compliance_agentic_loopset",
+   "suite_path": "/Users/chris/projects/portal-5/tests/wfe/suites/compliance_agentic_loopset.jsonl",
+   "task_id": "comp-p6j-19",
+   "repeat": 2,
+   "is_home": true,
+   "state": "PASS"
+  },
+  {
+   "run_id": "auto-compliance|hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k@think-on-09904277|compliance_agentic_loopset|comp-p6j-24|r0",
+   "workspace": "auto-compliance",
+   "arm": "hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k@think-on-09904277",
+   "model": "hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k",
+   "overrides": {
+    "think": "true"
+   },
+   "arm_role": "challenger",
+   "suite": "compliance_agentic_loopset",
+   "suite_path": "/Users/chris/projects/portal-5/tests/wfe/suites/compliance_agentic_loopset.jsonl",
+   "task_id": "comp-p6j-24",
+   "repeat": 0,
+   "is_home": true,
+   "state": "PASS"
+  },
+  {
+   "run_id": "auto-compliance|hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k@think-on-09904277|compliance_agentic_loopset|comp-p6j-24|r1",
+   "workspace": "auto-compliance",
+   "arm": "hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k@think-on-09904277",
+   "model": "hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k",
+   "overrides": {
+    "think": "true"
+   },
+   "arm_role": "challenger",
+   "suite": "compliance_agentic_loopset",
+   "suite_path": "/Users/chris/projects/portal-5/tests/wfe/suites/compliance_agentic_loopset.jsonl",
+   "task_id": "comp-p6j-24",
+   "repeat": 1,
+   "is_home": true,
+   "state": "PASS"
+  },
+  {
+   "run_id": "auto-compliance|hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k@think-on-09904277|compliance_agentic_loopset|comp-p6j-24|r2",
+   "workspace": "auto-compliance",
+   "arm": "hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k@think-on-09904277",
+   "model": "hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k",
+   "overrides": {
+    "think": "true"
+   },
+   "arm_role": "challenger",
+   "suite": "compliance_agentic_loopset",
+   "suite_path": "/Users/chris/projects/portal-5/tests/wfe/suites/compliance_agentic_loopset.jsonl",
+   "task_id": "comp-p6j-24",
+   "repeat": 2,
+   "is_home": true,
+   "state": "PASS"
+  },
+  {
+   "run_id": "auto-coding::laguna|portal5/laguna-xs21:q4_K_M-ctx128k@card-think-35f4592f|coding|code-cli-args|r0",
+   "workspace": "auto-coding::laguna",
+   "arm": "portal5/laguna-xs21:q4_K_M-ctx128k@card-think-35f4592f",
+   "model": "portal5/laguna-xs21:q4_K_M-ctx128k",
+   "overrides": {
+    "sampling": {
+     "temperature": 1.0,
+     "top_p": 1.0,
+     "top_k": 20
+    },
+    "think": "true"
+   },
+   "arm_role": "challenger",
+   "suite": "coding",
+   "suite_path": "/Users/chris/projects/portal-5/tests/wfe/suites/coding.jsonl",
+   "task_id": "code-cli-args",
+   "repeat": 0,
+   "is_home": true,
+   "state": "PASS"
+  },
+  {
+   "run_id": "auto-coding::laguna|portal5/laguna-xs21:q4_K_M-ctx128k@card-think-35f4592f|coding|code-cli-args|r1",
+   "workspace": "auto-coding::laguna",
+   "arm": "portal5/laguna-xs21:q4_K_M-ctx128k@card-think-35f4592f",
+   "model": "portal5/laguna-xs21:q4_K_M-ctx128k",
+   "overrides": {
+    "sampling": {
+     "temperature": 1.0,
+     "top_p": 1.0,
+     "top_k": 20
+    },
+    "think": "true"
+   },
+   "arm_role": "challenger",
+   "suite": "coding",
+   "suite_path": "/Users/chris/projects/portal-5/tests/wfe/suites/coding.jsonl",
+   "task_id": "code-cli-args",
+   "repeat": 1,
+   "is_home": true,
+   "state": "PASS"
+  },
+  {
+   "run_id": "auto-coding::laguna|portal5/laguna-xs21:q4_K_M-ctx128k@card-think-35f4592f|coding|code-cli-args|r2",
+   "workspace": "auto-coding::laguna",
+   "arm": "portal5/laguna-xs21:q4_K_M-ctx128k@card-think-35f4592f",
+   "model": "portal5/laguna-xs21:q4_K_M-ctx128k",
+   "overrides": {
+    "sampling": {
+     "temperature": 1.0,
+     "top_p": 1.0,
+     "top_k": 20
+    },
+    "think": "true"
+   },
+   "arm_role": "challenger",
+   "suite": "coding",
+   "suite_path": "/Users/chris/projects/portal-5/tests/wfe/suites/coding.jsonl",
+   "task_id": "code-cli-args",
+   "repeat": 2,
+   "is_home": true,
+   "state": "PASS"
+  },
+  {
+   "run_id": "auto-coding::laguna|portal5/laguna-xs21:q4_K_M-ctx128k@card-think-35f4592f|coding|code-fix-fizz|r0",
+   "workspace": "auto-coding::laguna",
+   "arm": "portal5/laguna-xs21:q4_K_M-ctx128k@card-think-35f4592f",
+   "model": "portal5/laguna-xs21:q4_K_M-ctx128k",
+   "overrides": {
+    "sampling": {
+     "temperature": 1.0,
+     "top_p": 1.0,
+     "top_k": 20
+    },
+    "think": "true"
+   },
+   "arm_role": "challenger",
+   "suite": "coding",
+   "suite_path": "/Users/chris/projects/portal-5/tests/wfe/suites/coding.jsonl",
+   "task_id": "code-fix-fizz",
+   "repeat": 0,
+   "is_home": true,
+   "state": "PASS"
+  },
+  {
+   "run_id": "auto-coding::laguna|portal5/laguna-xs21:q4_K_M-ctx128k@card-think-35f4592f|coding|code-fix-fizz|r1",
+   "workspace": "auto-coding::laguna",
+   "arm": "portal5/laguna-xs21:q4_K_M-ctx128k@card-think-35f4592f",
+   "model": "portal5/laguna-xs21:q4_K_M-ctx128k",
+   "overrides": {
+    "sampling": {
+     "temperature": 1.0,
+     "top_p": 1.0,
+     "top_k": 20
+    },
+    "think": "true"
+   },
+   "arm_role": "challenger",
+   "suite": "coding",
+   "suite_path": "/Users/chris/projects/portal-5/tests/wfe/suites/coding.jsonl",
+   "task_id": "code-fix-fizz",
+   "repeat": 1,
+   "is_home": true,
+   "state": "PASS"
+  },
+  {
+   "run_id": "auto-coding::laguna|portal5/laguna-xs21:q4_K_M-ctx128k@card-think-35f4592f|coding|code-fix-fizz|r2",
+   "workspace": "auto-coding::laguna",
+   "arm": "portal5/laguna-xs21:q4_K_M-ctx128k@card-think-35f4592f",
+   "model": "portal5/laguna-xs21:q4_K_M-ctx128k",
+   "overrides": {
+    "sampling": {
+     "temperature": 1.0,
+     "top_p": 1.0,
+     "top_k": 20
+    },
+    "think": "true"
+   },
+   "arm_role": "challenger",
+   "suite": "coding",
+   "suite_path": "/Users/chris/projects/portal-5/tests/wfe/suites/coding.jsonl",
+   "task_id": "code-fix-fizz",
+   "repeat": 2,
+   "is_home": true,
+   "state": "PASS"
+  },
+  {
+   "run_id": "auto-coding::laguna|portal5/laguna-xs21:q4_K_M-ctx128k@card-think-35f4592f|coding|code-kv|r0",
+   "workspace": "auto-coding::laguna",
+   "arm": "portal5/laguna-xs21:q4_K_M-ctx128k@card-think-35f4592f",
+   "model": "portal5/laguna-xs21:q4_K_M-ctx128k",
+   "overrides": {
+    "sampling": {
+     "temperature": 1.0,
+     "top_p": 1.0,
+     "top_k": 20
+    },
+    "think": "true"
+   },
+   "arm_role": "challenger",
+   "suite": "coding",
+   "suite_path": "/Users/chris/projects/portal-5/tests/wfe/suites/coding.jsonl",
+   "task_id": "code-kv",
+   "repeat": 0,
+   "is_home": true,
+   "state": "BUDGET_EXHAUSTED"
+  },
+  {
+   "run_id": "auto-coding::laguna|portal5/laguna-xs21:q4_K_M-ctx128k@card-think-35f4592f|coding|code-kv|r1",
+   "workspace": "auto-coding::laguna",
+   "arm": "portal5/laguna-xs21:q4_K_M-ctx128k@card-think-35f4592f",
+   "model": "portal5/laguna-xs21:q4_K_M-ctx128k",
+   "overrides": {
+    "sampling": {
+     "temperature": 1.0,
+     "top_p": 1.0,
+     "top_k": 20
+    },
+    "think": "true"
+   },
+   "arm_role": "challenger",
+   "suite": "coding",
+   "suite_path": "/Users/chris/projects/portal-5/tests/wfe/suites/coding.jsonl",
+   "task_id": "code-kv",
+   "repeat": 1,
+   "is_home": true,
+   "state": "BUDGET_EXHAUSTED"
+  },
+  {
+   "run_id": "auto-coding::laguna|portal5/laguna-xs21:q4_K_M-ctx128k@card-think-35f4592f|coding|code-kv|r2",
+   "workspace": "auto-coding::laguna",
+   "arm": "portal5/laguna-xs21:q4_K_M-ctx128k@card-think-35f4592f",
+   "model": "portal5/laguna-xs21:q4_K_M-ctx128k",
+   "overrides": {
+    "sampling": {
+     "temperature": 1.0,
+     "top_p": 1.0,
+     "top_k": 20
+    },
+    "think": "true"
+   },
+   "arm_role": "challenger",
+   "suite": "coding",
+   "suite_path": "/Users/chris/projects/portal-5/tests/wfe/suites/coding.jsonl",
+   "task_id": "code-kv",
+   "repeat": 2,
+   "is_home": true,
+   "state": "BUDGET_EXHAUSTED"
+  }
+ ],
+ "config_dirty_at_end": [],
+ "appends": [
+  {
+   "utc": "2026-10-13T00:18:33.043530+00:00",
+   "added": 9
+  }
+ ]
+}

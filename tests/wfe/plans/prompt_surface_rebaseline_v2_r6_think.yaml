@@ -1,0 +1,28 @@
+# R6 control arms for TASK_WFE_PROMPT_SURFACE_REBASELINE_V2 (R5) — think arms.
+# The V2 seat baseline (wfe_prompt_surface_seat_20261012) looped at the turn cap
+# on the oMLX alias seat: auto-compliance 11/13 served rows (p6j tasks),
+# general-deep 3/9, laguna code-kv 2/9 — while the same checkpoint on the
+# Ollama GGUF fallback rows passed 15/17. Protocol control 2 (card think) runs
+# here on a committed plan, one variable per arm: the served prompt, tools,
+# turn cap and suites are the seat's; only `think` (and, for laguna, the card
+# sampling) is flipped. Scopes: auto-compliance runs the 6 looping p6j tasks
+# (compliance_agentic_loopset); laguna runs its full coding suite. Baselines
+# are the main campaign's seat rows; compare per served model.
+workloads:
+  auto-compliance:
+    home: compliance_agentic_loopset
+    discovery: []
+    arms:
+      challengers:
+        - model: hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k
+          label: think-on
+          think: true
+  auto-coding::laguna:
+    home: coding
+    discovery: []
+    arms:
+      challengers:
+        - model: portal5/laguna-xs21:q4_K_M-ctx128k
+          label: card-think
+          think: true
+          sampling: {temperature: 1.0, top_p: 1.0, top_k: 20}

@@ -1,0 +1,156 @@
+{
+ "purpose": "P0.4 pipeline smoke verification \u2014 system message AS RECEIVED BY THE MODEL (trace bodies.backend_request, PORTAL_TRACE_BODIES=1)",
+ "arm_tag": "hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k",
+ "workspace_routing": "backends.yaml workspace_routing auto-compliance -> [reasoning, general]; omlx-reasoning priority 10 alias hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k -> Qwen3.8-27B-oQ4e-mtp",
+ "served_model_all_turns": [
+  "Qwen3.8-27B-oQ4e-mtp"
+ ],
+ "served_backend_all_turns": [
+  "omlx-reasoning"
+ ],
+ "served_is_incumbent_via_alias": true,
+ "note_in_every_turn": true,
+ "append_in_every_turn": true,
+ "tools_exactly_six_harness": true,
+ "tools": [
+  "file_list",
+  "file_read",
+  "file_write",
+  "http_get",
+  "pytest_run",
+  "repo_search"
+ ],
+ "think_off_every_turn": true,
+ "sampling_turn1": {
+  "temperature": 0.3,
+  "top_p": 0.95,
+  "top_k": 20,
+  "min_p": 0.0,
+  "repeat_penalty": null,
+  "repetition_penalty": 1.1
+ },
+ "sampling_matches_workspace": true,
+ "note_on_output_cap": "max_tokens/num_predict is redacted in traces ('max_tokens' contains 'token'); the pipeline applies the seat predict_limit 24576 from portal.yaml",
+ "turns": [
+  {
+   "correlation_id": "wfe-645d0f3e2994",
+   "served_model": "Qwen3.8-27B-oQ4e-mtp",
+   "served_backend": "omlx-reasoning",
+   "note_in_received_system": true,
+   "note_offset": 4287,
+   "append_in_received_system": true,
+   "append_offset": 5523,
+   "tools_offered": [
+    "file_list",
+    "file_read",
+    "file_write",
+    "http_get",
+    "pytest_run",
+    "repo_search"
+   ],
+   "chat_template_kwargs": {
+    "enable_thinking": false
+   },
+   "sampling": {
+    "temperature": 0.3,
+    "top_p": 0.95,
+    "top_k": 20,
+    "min_p": 0.0,
+    "repeat_penalty": null,
+    "repetition_penalty": 1.1
+   }
+  },
+  {
+   "correlation_id": "wfe-b9031a5a1882",
+   "served_model": "Qwen3.8-27B-oQ4e-mtp",
+   "served_backend": "omlx-reasoning",
+   "note_in_received_system": true,
+   "note_offset": 4287,
+   "append_in_received_system": true,
+   "append_offset": 5523,
+   "tools_offered": [
+    "file_list",
+    "file_read",
+    "file_write",
+    "http_get",
+    "pytest_run",
+    "repo_search"
+   ],
+   "chat_template_kwargs": {
+    "enable_thinking": false
+   },
+   "sampling": {
+    "temperature": 0.3,
+    "top_p": 0.95,
+    "top_k": 20,
+    "min_p": 0.0,
+    "repeat_penalty": null,
+    "repetition_penalty": 1.1
+   }
+  },
+  {
+   "correlation_id": "wfe-43285b3518b0",
+   "served_model": "Qwen3.8-27B-oQ4e-mtp",
+   "served_backend": "omlx-reasoning",
+   "note_in_received_system": true,
+   "note_offset": 4287,
+   "append_in_received_system": true,
+   "append_offset": 5523,
+   "tools_offered": [
+    "file_list",
+    "file_read",
+    "file_write",
+    "http_get",
+    "pytest_run",
+    "repo_search"
+   ],
+   "chat_template_kwargs": {
+    "enable_thinking": false
+   },
+   "sampling": {
+    "temperature": 0.3,
+    "top_p": 0.95,
+    "top_k": 20,
+    "min_p": 0.0,
+    "repeat_penalty": null,
+    "repetition_penalty": 1.1
+   }
+  },
+  {
+   "correlation_id": "wfe-06e26bbaeaa4",
+   "served_model": "Qwen3.8-27B-oQ4e-mtp",
+   "served_backend": "omlx-reasoning",
+   "note_in_received_system": true,
+   "note_offset": 4287,
+   "append_in_received_system": true,
+   "append_offset": 5523,
+   "tools_offered": [
+    "file_list",
+    "file_read",
+    "file_write",
+    "http_get",
+    "pytest_run",
+    "repo_search"
+   ],
+   "chat_template_kwargs": {
+    "enable_thinking": false
+   },
+   "sampling": {
+    "temperature": 0.3,
+    "top_p": 0.95,
+    "top_k": 20,
+    "min_p": 0.0,
+    "repeat_penalty": null,
+    "repetition_penalty": 1.1
+   }
+  }
+ ],
+ "smoke_row": {
+  "task": "comp-p6j-01",
+  "outcome": "FAIL",
+  "reason": "model answered PARTIAL vs key SUPPORTED \u2014 model outcome, not an instrument failure"
+ },
+ "all_checks_pass": true,
+ "received_layout": "[persona base] -> [WFE HARNESS TOOLS note (client system)] -> [system_prompt_append (pipeline-injected last, production preinject order)]",
+ "note_before_append_as_pipeline_injects": true
+}

@@ -1,0 +1,459 @@
+{
+ "schema": "wfe-result-2",
+ "run_id": "auto-compliance|hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k|compliance_agentic|comp-p6j-19|r1",
+ "campaign_id": "wfe_prompt_surface_seat_20261012",
+ "stage": "full",
+ "workspace": "auto-compliance",
+ "arm": "hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k",
+ "arm_role": "incumbent",
+ "suite": "compliance_agentic",
+ "task_id": "comp-p6j-19",
+ "repeat": 1,
+ "outcome": "BUDGET_EXHAUSTED",
+ "notes": "did not finish | answer missing patterns=['\"?determination\"?\\\\s*[:=]\\\\s*\"?PARTIAL\\\\b', 'cited_refs']",
+ "evidence": {
+  "checker_outcome": "FAIL",
+  "served_models": [
+   "Qwen3.8-27B-oQ4e-mtp"
+  ]
+ },
+ "persona_slug": "cippolicywriter",
+ "prompt_sha": "53680f17cb49",
+ "tool_surface": [
+  "file_read",
+  "file_list",
+  "repo_search",
+  "pytest_run",
+  "file_write",
+  "http_get"
+ ],
+ "tool_surface_proxy": true,
+ "harness": {
+  "endpoint": "v1",
+  "stream": false,
+  "think": "native",
+  "format": "none"
+ },
+ "sampling": {
+  "seed": 1001,
+  "max_tokens_source": "pipeline"
+ },
+ "baked_params": {},
+ "seed": 1001,
+ "turns": 17,
+ "tool_calls": 16,
+ "tool_errors": 0,
+ "finish_reason": "tool_calls",
+ "economics": {
+  "prompt_tokens": 94077,
+  "completion_tokens": 794,
+  "total_tokens": 94871,
+  "load_ms": null,
+  "wall_s": 95.3,
+  "cold_load": false
+ },
+ "env": {
+  "git_sha": "2b27d8c4",
+  "ollama_version": "0.40.0",
+  "python": "3.13.12",
+  "platform": "macOS-27.0.1-arm64-arm-64bit-Mach-O",
+  "engine": "pipeline",
+  "engine_base_url": "",
+  "engine_version": "unknown",
+  "fingerprint": "791254ff1757"
+ },
+ "final_text_head": "",
+ "transcript": [
+  {
+   "turn": 0,
+   "content": "",
+   "tool_calls": [
+    {
+     "name": "file_read",
+     "args_raw": "{\"path\": \"packet.json\"}"
+    }
+   ],
+   "served": {
+    "backend": "omlx-reasoning",
+    "model": "Qwen3.8-27B-oQ4e-mtp"
+   }
+  },
+  {
+   "turn": 1,
+   "content": "",
+   "tool_calls": [
+    {
+     "name": "repo_search",
+     "args_raw": "{\"pattern\": \"Critical Infrastructure Protection Officer|CIP Senior Manager\"}"
+    }
+   ],
+   "served": {
+    "backend": "omlx-reasoning",
+    "model": "Qwen3.8-27B-oQ4e-mtp"
+   }
+  },
+  {
+   "turn": 2,
+   "content": "",
+   "tool_calls": [
+    {
+     "name": "file_read",
+     "args_raw": "{\"path\": \"portal/modules/compliance/data/nerc_cip_map.json\"}"
+    }
+   ],
+   "served": {
+    "backend": "omlx-reasoning",
+    "model": "Qwen3.8-27B-oQ4e-mtp"
+   }
+  },
+  {
+   "turn": 3,
+   "content": "",
+   "tool_calls": [
+    {
+     "name": "file_read",
+     "args_raw": "{\"path\": \"portal/modules/compliance/core/vocabulary_bridge.py\"}"
+    }
+   ],
+   "served": {
+    "backend": "omlx-reasoning",
+    "model": "Qwen3.8-27B-oQ4e-mtp"
+   }
+  },
+  {
+   "turn": 4,
+   "content": "",
+   "tool_calls": [
+    {
+     "name": "repo_search",
+     "args_raw": "{\"path\": \"portal/modules/compliance/core/vocabulary_bridge.py\", \"pattern\": \"def |class \"}"
+    }
+   ],
+   "served": {
+    "backend": "omlx-reasoning",
+    "model": "Qwen3.8-27B-oQ4e-mtp"
+   }
+  },
+  {
+   "turn": 5,
+   "content": "",
+   "tool_calls": [
+    {
+     "name": "repo_search",
+     "args_raw": "{\"path\": \"portal/modules/compliance/core/vocabulary_bridge.py\", \"pattern\": \"STRONG|WEAK|hypernym|align\"}"
+    }
+   ],
+   "served": {
+    "backend": "omlx-reasoning",
+    "model": "Qwen3.8-27B-oQ4e-mtp"
+   }
+  },
+  {
+   "turn": 6,
+   "content": "",
+   "tool_calls": [
+    {
+     "name": "repo_search",
+     "args_raw": "{\"path\": \"portal/modules/compliance/core/vocabulary_bridge.py\", \"pattern\": \".\"}"
+    }
+   ],
+   "served": {
+    "backend": "omlx-reasoning",
+    "model": "Qwen3.8-27B-oQ4e-mtp"
+   }
+  },
+  {
+   "turn": 7,
+   "content": "",
+   "tool_calls": [
+    {
+     "name": "repo_search",
+     "args_raw": "{\"path\": \"portal/modules/compliance/core/vocabulary_bridge.py\", \"pattern\": \"def \"}"
+    }
+   ],
+   "served": {
+    "backend": "omlx-reasoning",
+    "model": "Qwen3.8-27B-oQ4e-mtp"
+   }
+  },
+  {
+   "turn": 8,
+   "content": "",
+   "tool_calls": [
+    {
+     "name": "repo_search",
+     "args_raw": "{\"path\": \"portal/modules/compliance/core/vocabulary_bridge.py\", \"pattern\": \"proposal|score|confidence|hypernym\"}"
+    }
+   ],
+   "served": {
+    "backend": "omlx-reasoning",
+    "model": "Qwen3.8-27B-oQ4e-mtp"
+   }
+  },
+  {
+   "turn": 9,
+   "content": "",
+   "tool_calls": [
+    {
+     "name": "repo_search",
+     "args_raw": "{\"path\": \"portal/modules/compliance/core/vocabulary_bridge.py\", \"pattern\": \"class|return|def|STRONG\"}"
+    }
+   ],
+   "served": {
+    "backend": "omlx-reasoning",
+    "model": "Qwen3.8-27B-oQ4e-mtp"
+   }
+  },
+  {
+   "turn": 10,
+   "content": "",
+   "tool_calls": [
+    {
+     "name": "repo_search",
+     "args_raw": "{\"path\": \"portal/modules/compliance/core/vocabulary_bridge.py\", \"pattern\": \"HypernymP|VocabTerm|_norm|_CAP_TERM\"}"
+    }
+   ],
+   "served": {
+    "backend": "omlx-reasoning",
+    "model": "Qwen3.8-27B-oQ4e-mtp"
+   }
+  },
+  {
+   "turn": 11,
+   "content": "",
+   "tool_calls": [
+    {
+     "name": "repo_search",
+     "args_raw": "{\"path\": \"portal/modules/compliance/core/vocabulary_bridge.py\", \"pattern\": \"def|class|return|STRONG|WEAK\"}"
+    }
+   ],
+   "served": {
+    "backend": "omlx-reasoning",
+    "model": "Qwen3.8-27B-oQ4e-mtp"
+   }
+  },
+  {
+   "turn": 12,
+   "content": "",
+   "tool_calls": [
+    {
+     "name": "repo_search",
+     "args_raw": "{\"path\": \"portal/modules/compliance/core/vocabulary_bridge.py\", \"pattern\": \"def|class|return|STRONG|WEAK|proposal\"}"
+    }
+   ],
+   "served": {
+    "backend": "omlx-reasoning",
+    "model": "Qwen3.8-27B-oQ4e-mtp"
+   }
+  },
+  {
+   "turn": 13,
+   "content": "",
+   "tool_calls": [
+    {
+     "name": "repo_search",
+     "args_raw": "{\"path\": \"portal/modules/compliance/core/vocabulary_bridge.py\", \"pattern\": \"def|class|return|STRONG|WEAK|proposal|HypernymP|VocabTerm\"}"
+    }
+   ],
+   "served": {
+    "backend": "omlx-reasoning",
+    "model": "Qwen3.8-27B-oQ4e-mtp"
+   }
+  },
+  {
+   "turn": 14,
+   "content": "",
+   "tool_calls": [
+    {
+     "name": "repo_search",
+     "args_raw": "{\"path\": \"portal/modules/compliance/core/vocabulary_bridge.py\", \"pattern\": \"def|class|return|STRONG|WEAK|proposal|HypernymP|VocabTerm|_norm\"}"
+    }
+   ],
+   "served": {
+    "backend": "omlx-reasoning",
+    "model": "Qwen3.8-27B-oQ4e-mtp"
+   }
+  },
+  {
+   "turn": 15,
+   "content": "",
+   "tool_calls": [
+    {
+     "name": "repo_search",
+     "args_raw": "{\"path\": \"portal/modules/compliance/core/vocabulary_bridge.py\", \"pattern\": \"def|class|return|STRONG|WEAK|proposal|HypernymP|VocabTerm|_norm|align\"}"
+    }
+   ],
+   "served": {
+    "backend": "omlx-reasoning",
+    "model": "Qwen3.8-27B-oQ4e-mtp"
+   }
+  },
+  {
+   "turn": 16,
+   "exhausted_turns": "no final answer in 16 turns"
+  }
+ ],
+ "tool_call_log": [
+  {
+   "name": "file_read",
+   "args": {
+    "path": "packet.json"
+   },
+   "raw_args": "{\"path\": \"packet.json\"}",
+   "output": "{\n \"id\": \"P6J-19\",\n \"governing_ref\": \"CIP-002-5.1a R2 Part 2.2\",\n \"governing_text\": \"Have its CIP Senior Manager or delegate approve the identifications required by Requirement R1 at least once every 15 calendar months, even if it has no identified items in Requirement R1.\",\n \"premises\": [\n  \"the NERC Glossary term is 'CIP Senior Manager'\",\n  \"the internal document uses a term it defines locally as 'Critical Infrastructure Protection Officer', last aligned to the glossary in 2019\"\n ],\n \"candidate_text\": \"The Critical Infrastructure Protection Officer approves the BES Cyber System identification list at least once every 15 calendar months.\",\n \"packet_complete\": true,\n \"must_not_flag\": false\n}",
+   "error": false
+  },
+  {
+   "name": "repo_search",
+   "args": {
+    "pattern": "Critical Infrastructure Protection Officer|CIP Senior Manager"
+   },
+   "raw_args": "{\"pattern\": \"Critical Infrastructure Protection Officer|CIP Senior Manager\"}",
+   "output": "packet.json:4: \"governing_text\": \"Have its CIP Senior Manager or delegate approve the identifications required by Requirement R1 at least once every 15 calendar months, even if it has no identified items in Requirement R1.\",\npacket.json:6:  \"the NERC Glossary term is 'CIP Senior Manager'\",\npacket.json:7:  \"the internal document uses a term it defines locally as 'Critical Infrastructure Protection Officer', last aligned to the glossary in 2019\"\npacket.json:9: \"candidate_text\": \"The Critical Infrastructure Protection Officer approves the BES Cyber System identification list at least once every 15 calendar months.\",\n\nportal/modules/compliance/core/org_graph.py:232:    r\"\\b(OT Security (?:Manager|Operations|Team|Analyst)|CIP Senior Manager|\"\nportal/modules/compliance/core/policy_graph.py:489:    r\"Operator|Generator Operator|Reliability Coordinator|CIP Senior Manager|\"\nportal/modules/compliance/core/vocabulary_bridge.py:71:    \"CIP SM\": \"CIP Senior Manager\",\nportal/modules/compliance/data/nerc_cip_map.json:62:      \"verbatim_text\": \"Have its CIP Senior Manager or delegate approve the identifications required by Requirement R1 at least once every 15 calendar months, even if it has no identified items in Requirement R1.\",\nportal/modules/compliance/data/nerc_cip_map.json:706:      \"verbatim_text\": \"Each Responsible Entity shall review and obtain CIP Senior Manager approval at least once every 15 calendar months for one or more documented cyber security policies that collectively address the following topics:\",\nportal/modules/compliance/data/nerc_cip_map.json:726:      \"verbatim_text\": \"Each Responsible Entity shall identify a CIP Senior Manager by name and document any change within 30 calendar days of the change.\",\nportal/modules/compliance/data/nerc_cip_map.json:736:      \"verbatim_text\": \"The Responsible Entity shall implement a documented process to delegate authority, unless no delegations are used. Where allowed by the CIP Standards, the CIP Senior Manager may delegate authority for specific actions to a delegate or delegates. These delegations shall be documented, including the name or title of the delegate, the specific actions delegated, and the date of the delegation; approved by the CIP Senior Manager; and updated within 30 days of any change to the delegation. Delegation changes do not need to be reinstated with a change to the delegator.\",\nportal/modules/compliance/data/nerc_cip_map.json:1146:      \"verbatim_text\": \"Each Responsible Entity shall review and obtain CIP Senior Manager approval at least once every 15 calendar months for one or more documented cyber security policies that collectively address the following topics:\",\nportal/modules/compliance/data/nerc_cip_map.json:1166:      \"verbatim_text\": \"Each Responsible Entity shall identify a CIP Senior Manager by name and document any change within 30 calendar days of the change.\",\nportal/modules/compliance/data/nerc_cip_map.json:1176:      \"verbatim_text\": \"The Responsible Entity shall implement a documented process to delegate authority, unless no delegations are used. Where allowed by the CIP Standards, the CIP Senior Manager may delegate authority for specific actions to a delegate or delegates. These delegations shall be documented, including the name or title of the delegate, the specific actions delegated, and the date of the delegation; approved by the CIP Senior Manager; and updated within 30 days of any change to the delegation. Delegation changes do not need to be reinstated with a change to the delegator.\",\nportal/modules/compliance/data/nerc_cip_map.json:1824:      \"verbatim_text\": \"For each mitigation plan created or revised in Part 2.3, implement the plan within the timeframe specified in the plan, unless a revision to the plan or an extension to the timeframe specified in Part 2.3 is approved by the CIP Senior Manager or delegate.\",\nportal/modules/compliance/data/nerc_cip_map.json:2721:      \"verbatim_text\": \"Each Responsible Entity shall review and ob",
+   "error": false
+  },
+  {
+   "name": "file_read",
+   "args": {
+    "path": "portal/modules/compliance/data/nerc_cip_map.json"
+   },
+   "raw_args": "{\"path\": \"portal/modules/compliance/data/nerc_cip_map.json\"}",
+   "output": "{\n  \"source\": \"DERIVED from portal/modules/compliance/data/nerc_cip_register.json (NERC CIP standards, verbatim). Do not hand-edit \u2014 run `python -m portal.modules.compliance.core.cip_register build`.\",\n  \"note\": \"related_800_53 is the pre-existing advisory crosswalk seed, R-level, not an official OLIR. Verify against the current enforceable version on nerc.com for audit use.\",\n  \"lifecycle_source\": \"nerc.com/pa/Stand \u2014 FERC-approved enforcement dates (public record)\",\n  \"requirements\": {\n    \"CIP-002-5.1a R1 Part 1.1\": {\n      \"standard\": \"CIP-002-5.1a\",\n      \"requirement\": \"R1\",\n      \"part\": \"1.1\",\n      \"verbatim_text\": \"Identify each of the high impact BES Cyber Systems according to Attachment 1, Section 1, if any, at each asset;\",\n      \"lifecycle_state\": \"EFFECTIVE\",\n      \"valid_from\": \"2016-07-01\",\n      \"valid_to\": null,\n      \"related_800_53\": [\n        \"RA-2\",\n        \"CM-8\",\n        \"PM-5\"\n      ]\n    },\n    \"CIP-002-5.1a R1 Part 1.2\": {\n      \"standard\": \"CIP-002-5.1a\",\n      \"requirement\": \"R1\",\n      \"part\": \"1.2\",\n      \"verbatim_text\": \"Identify each of the medium impact BES Cyber Systems according to Attachment 1, Section 2, if any, at each asset; and\",\n      \"lifecycle_state\": \"EFFECTIVE\",\n      \"valid_from\": \"2016-07-01\",\n      \"valid_to\": null,\n      \"related_800_53\": [\n        \"RA-2\",\n        \"CM-8\",\n        \"PM-5\"\n      ]\n    },\n    \"CIP-002-5.1a R1 Part 1.3\": {\n      \"standard\": \"CIP-002-5.1a\",\n      \"requirement\": \"R1\",\n      \"part\": \"1.3\",\n      \"verbatim_text\": \"Identify each asset that contains a low impact BES Cyber System according to Attachment 1, Section 3, if any (a discrete list of low impact BES Cyber Systems is not required).\",\n      \"lifecycle_state\": \"EFFECTIVE\",\n      \"valid_from\": \"2016-07-01\",\n      \"valid_to\": null,\n      \"related_800_53\": [\n        \"RA-2\",\n        \"CM-8\",\n        \"PM-5\"\n      ]\n    },\n    \"CIP-002-5.1a R2 Part 2.1\": {\n      \"standard\": \"CIP-002-5.1a\",\n      \"requirement\": \"R2\",\n      \"part\": \"2.1\",\n      \"verbatim_text\": \"Review the identifications in Requirement R1 and its parts (and update them if there are changes identified) at least once every 15 calendar months, even if it has no identified items in Requirement R1, and\",\n      \"lifecycle_state\": \"EFFECTIVE\",\n      \"valid_from\": \"2016-07-01\",\n      \"valid_to\": null,\n      \"related_800_53\": []\n    },\n    \"CIP-002-5.1a R2 Part 2.2\": {\n      \"standard\": \"CIP-002-5.1a\",\n      \"requirement\": \"R2\",\n      \"part\": \"2.2\",\n      \"verbatim_text\": \"Have its CIP Senior Manager or delegate approve the identifications required by Requirement R1 at least once every 15 calendar months, even if it has no identified items in Requirement R1.\",\n      \"lifecycle_state\": \"EFFECTIVE\",\n      \"valid_from\": \"2016-07-01\",\n      \"valid_to\": null,\n      \"related_800_53\": []\n    },\n    \"CIP-002-5.1a Attachment 1 Section 1\": {\n      \"standard\": \"CIP-002-5.1a\",\n      \"requirement\": \"Attachment 1 Section 1\",\n      \"part\": \"\",\n      \"verbatim_text\": \"Each BES Cyber System used by and located at any of the following:\",\n      \"lifecycle_state\": \"EFFECTIVE\",\n      \"valid_from\": \"2016-07-01\",\n      \"valid_to\": null,\n      \"related_800_53\": []\n    },\n    \"CIP-002-5.1a Attachment 1 Part 1.1\": {\n      \"standard\": \"CIP-002-5.1a\",\n      \"requirement\": \"Attachment 1\",\n      \"part\": \"1.1\",\n      \"verbatim_text\": \"Each Control Center or backup Control Center used to perform the functional obligations of the Reliability Coordinator.\",\n      \"lifecycle_state\": \"EFFECTIVE\",\n      \"valid_from\": \"2016-07-01\",\n      \"valid_to\": null,\n      \"related_800_53\": []\n    },\n    \"CIP-002-5.1a Attachment 1 Part 1.2\": {\n      \"standard\": \"CIP-002-5.1a\",\n      \"requirement\": \"Attachment 1\",\n      \"part\": \"1.2\",\n      \"verbatim_text\": \"Each Control Center or backup Control Center used to perform the functional obligations of the Balancing Authority: 1) for generation equal to or greater than an aggregate of 3000 MW in a single Interconnection, or 2) for one or more of the ass",
+   "error": false
+  },
+  {
+   "name": "file_read",
+   "args": {
+    "path": "portal/modules/compliance/core/vocabulary_bridge.py"
+   },
+   "raw_args": "{\"path\": \"portal/modules/compliance/core/vocabulary_bridge.py\"}",
+   "output": "\"\"\"The vocabulary bridge (TASK_COMPLIANCE_REASONING_V6 P3).\n\nThe principled replacement for the ``<org>|SME|OT|Security|Manager|Owner`` regex\nthat ``assessment._compare`` used to decide actor alignment. Following\nGraphCompliance \u00a71.5, an organization entity is mapped to policy vocabulary\nthrough **hypernym proposals**, each marked:\n\n  - ``STRONG`` when its supporting fragment is a *premise* (a defined term, an\n    impact-rating criterion, a scope statement) \u2014 authoritative;\n  - ``WEAK``   otherwise \u2014 a lexical hint only.\n\nConfidence aggregates by max-pooling the per-proposal scores plus a bonus when\na STRONG proposal is present. Every mapping keeps its supporting fragment, so\n\"OT Security Manager resolves to Responsible Entity\" is a recorded, reviewable\nchain, not a literal buried in a comparator.\n\nThe policy vocabulary is derived from the typed policy graph's premises plus\nthe NERC defined terms the register text itself surfaces (capitalised\nmulti-word phrases and acronyms \u2014 NERC's own convention for a glossary term).\nIngesting the published NERC *Glossary of Terms* PDF as an additional premise\nsource is gated on nerc.com reachability (honest-BLOCKED, mirroring\n``currency.nerc_currency``); the register-derived term set is the floor.\n\"\"\"\n\nfrom __future__ import annotations\n\nimport re\nfrom dataclasses import dataclass, field\nfrom typing import Literal\n\nfrom portal.modules.compliance.core.policy_graph import PolicyGraph, build_policy_graph\n\nStrength = Literal[\"STRONG\", \"WEAK\"]\n\n# NERC's functional model: the \"Responsible Entity\" of a CIP standard is\n# whichever registered functional entity the standard applies to. An operator's\n# internal roles (a manager, an owner, a team) are assignments *within* that\n# entity \u2014 CIP-004/003 explicitly contemplate delegation. This is public\n# structure from the NERC Rules of Procedure, not a tuned heuristic.\n_FUNCTIONAL_ENTITIES = (\n    \"Responsible Entity\",\n    \"Transmission Owner\",\n    \"Transmission Operator\",\n    \"Generator Operator\",\n    \"Generator Owner\",\n    \"Reliability Coordinator\",\n    \"Balancing Authority\",\n    \"Distribution Provider\",\n    \"Planning Coordinator\",\n    \"Interchange Coordinator\",\n)\n_ROLE_HEAD = re.compile(\n    r\"\\b(manager|owner|delegate|team|operator|analyst|administrator|coordinator|\"\n    r\"engineer|lead|director|officer|personnel|staff|group|committee|custodian)\\b\",\n    re.I,\n)\n\n# Acronym expansions stated in the CIP standards' own Applicable Systems text.\n_ACRONYM_SEED: dict[str, str] = {\n    \"EACMS\": \"Electronic Access Control or Monitoring Systems\",\n    \"PACS\": \"Physical Access Control Systems\",\n    \"PCA\": \"Protected Cyber Asset\",\n    \"ESP\": \"Electronic Security Perimeter\",\n    \"EAP\": \"Electronic Access Point\",\n    \"BCA\": \"BES Cyber Asset\",\n    \"BCS\": \"BES Cyber System\",\n    \"BCSI\": \"BES Cyber System Information\",\n    \"TCA\": \"Transient Cyber Asset\",\n    \"IRA\": \"Interactive Remote Access\",\n    \"PSP\": \"Physical Security Perimeter\",\n    \"CIP SM\": \"CIP Senior Manager\",\n}\n\n_STOP_PREFIX = re.compile(r\"^(Each |The |For |A |An |Its )\", re.I)\n_CAP_TERM = re.compile(\n    r\"\\b((?:[A-Z]{2,6} )?[A-Z][a-z]+(?: (?:[A-Z][a-z]+|of|or|and)){1,4}|[A-Z]{2,6})\\b\"\n)\n_NOISE = {\n    \"Each\",\n    \"The\",\n    \"This\",\n    \"That\",\n    \"Requirement\",\n    \"Part\",\n    \"Section\",\n    \"Attachment\",\n    \"Table\",\n    \"Where\",\n    \"For\",\n    \"Reference Model\",\n    \"MW\",\n    \"kV\",\n}\n\n\ndef _norm(term: str) -> str:\n    t = _STOP_PREFIX.sub(\"\", term).strip()\n    t = re.sub(\n        r\"\\b(Systems|Assets|Incidents|Centers|Facilities|Media)\\b\",\n        lambda m: m.group(1)[:-1] if m.group(1) != \"Media\" else m.group(1),\n        t,\n    )\n    t = re.sub(r\"s$\", \"\", t) if t.endswith(\"s\") and not t.endswith(\"ss\") else t\n    return t.strip()\n\n\n@dataclass\nclass VocabTerm:\n    term: str\n    canonical: str\n    strength: Strength  # STRONG if any supporting fragment is a premise\n    supporting_fragments: list[dict[str, str]] = field(default_factory=list)\n    is_functional_entity: bool = False\n\n\n@dataclass\nclass HypernymP",
+   "error": false
+  },
+  {
+   "name": "repo_search",
+   "args": {
+    "path": "portal/modules/compliance/core/vocabulary_bridge.py",
+    "pattern": "def |class "
+   },
+   "raw_args": "{\"path\": \"portal/modules/compliance/core/vocabulary_bridge.py\", \"pattern\": \"def |class \"}",
+   "output": "(no matches)",
+   "error": false
+  },
+  {
+   "name": "repo_search",
+   "args": {
+    "path": "portal/modules/compliance/core/vocabulary_bridge.py",
+    "pattern": "STRONG|WEAK|hypernym|align"
+   },
+   "raw_args": "{\"path\": \"portal/modules/compliance/core/vocabulary_bridge.py\", \"pattern\": \"STRONG|WEAK|hypernym|align\"}",
+   "output": "packet.json:7:  \"the internal document uses a term it defines locally as 'Critical Infrastructure Protection Officer', last aligned to the glossary in 2019\"\n",
+   "error": false
+  },
+  {
+   "name": "repo_search",
+   "args": {
+    "path": "portal/modules/compliance/core/vocabulary_bridge.py",
+    "pattern": "."
+   },
+   "raw_args": "{\"path\": \"portal/modules/compliance/core/vocabulary_bridge.py\", \"pattern\": \".\"}",
+   "output": "packet.json:1:{\npacket.json:2: \"id\": \"P6J-19\",\npacket.json:3: \"governing_ref\": \"CIP-002-5.1a R2 Part 2.2\",\npacket.json:4: \"governing_text\": \"Have its CIP Senior Manager or delegate approve the identifications required by Requirement R1 at least once every 15 calendar months, even if it has no identified items in Requirement R1.\",\npacket.json:5: \"premises\": [\npacket.json:6:  \"the NERC Glossary term is 'CIP Senior Manager'\",\npacket.json:7:  \"the internal document uses a term it defines locally as 'Critical Infrastructure Protection Officer', last aligned to the glossary in 2019\"\npacket.json:8: ],\npacket.json:9: \"candidate_text\": \"The Critical Infrastructure Protection Officer approves the BES Cyber System identification list at least once every 15 calendar months.\",\npacket.json:10: \"packet_complete\": true,\npacket.json:11: \"must_not_flag\": false\npacket.json:12:}\n",
+   "error": false
+  },
+  {
+   "name": "repo_search",
+   "args": {
+    "path": "portal/modules/compliance/core/vocabulary_bridge.py",
+    "pattern": "def "
+   },
+   "raw_args": "{\"path\": \"portal/modules/compliance/core/vocabulary_bridge.py\", \"pattern\": \"def \"}",
+   "output": "(no matches)",
+   "error": false
+  },
+  {
+   "name": "repo_search",
+   "args": {
+    "path": "portal/modules/compliance/core/vocabulary_bridge.py",
+    "pattern": "proposal|score|confidence|hypernym"
+   },
+   "raw_args": "{\"path\": \"portal/modules/compliance/core/vocabulary_bridge.py\", \"pattern\": \"proposal|score|confidence|hypernym\"}",
+   "output": "(no matches)",
+   "error": false
+  },
+  {
+   "name": "repo_search",
+   "args": {
+    "path": "portal/modules/compliance/core/vocabulary_bridge.py",
+    "pattern": "class|return|def|STRONG"
+   },
+   "raw_args": "{\"path\": \"portal/modules/compliance/core/vocabulary_bridge.py\", \"pattern\": \"class|return|def|STRONG\"}",
+   "output": "packet.json:7:  \"the internal document uses a term it defines locally as 'Critical Infrastructure Protection Officer', last aligned to the glossary in 2019\"\n",
+   "error": false
+  },
+  {
+   "name": "repo_search",
+   "args": {
+    "path": "portal/modules/compliance/core/vocabulary_bridge.py",
+    "pattern": "HypernymP|VocabTerm|_norm|_CAP_TERM"
+   },
+   "raw_args": "{\"path\": \"portal/modules/compliance/core/vocabulary_bridge.py\", \"pattern\": \"HypernymP|VocabTerm|_norm|_CAP_TERM\"}",
+   "output": "(no matches)",
+   "error": false
+  },
+  {
+   "name": "repo_search",
+   "args": {
+    "path": "portal/modules/compliance/core/vocabulary_bridge.py",
+    "pattern": "def|class|return|STRONG|WEAK"
+   },
+   "raw_args": "{\"path\": \"portal/modules/compliance/core/vocabulary_bridge.py\", \"pattern\": \"def|class|return|STRONG|WEAK\"}",
+   "output": "packet.json:7:  \"the internal document uses a term it defines locally as 'Critical Infrastructure Protection Officer', last aligned to the glossary in 2019\"\n",
+   "error": false
+  },
+  {
+   "name": "repo_search",
+   "args": {
+    "path": "portal/modules/compliance/core/vocabulary_bridge.py",
+    "pattern": "def|class|return|STRONG|WEAK|proposal"
+   },
+   "raw_args": "{\"path\": \"portal/modules/compliance/core/vocabulary_bridge.py\", \"pattern\": \"def|class|return|STRONG|WEAK|proposal\"}",
+   "output": "packet.json:7:  \"the internal document uses a term it defines locally as 'Critical Infrastructure Protection Officer', last aligned to the glossary in 2019\"\n",
+   "error": false
+  },
+  {
+   "name": "repo_search",
+   "args": {
+    "path": "portal/modules/compliance/core/vocabulary_bridge.py",
+    "pattern": "def|class|return|STRONG|WEAK|proposal|HypernymP|VocabTerm"
+   },
+   "raw_args": "{\"path\": \"portal/modules/compliance/core/vocabulary_bridge.py\", \"pattern\": \"def|class|return|STRONG|WEAK|proposal|HypernymP|VocabTerm\"}",
+   "output": "packet.json:7:  \"the internal document uses a term it defines locally as 'Critical Infrastructure Protection Officer', last aligned to the glossary in 2019\"\n",
+   "error": false
+  },
+  {
+   "name": "repo_search",
+   "args": {
+    "path": "portal/modules/compliance/core/vocabulary_bridge.py",
+    "pattern": "def|class|return|STRONG|WEAK|proposal|HypernymP|VocabTerm|_norm"
+   },
+   "raw_args": "{\"path\": \"portal/modules/compliance/core/vocabulary_bridge.py\", \"pattern\": \"def|class|return|STRONG|WEAK|proposal|HypernymP|VocabTerm|_norm\"}",
+   "output": "packet.json:7:  \"the internal document uses a term it defines locally as 'Critical Infrastructure Protection Officer', last aligned to the glossary in 2019\"\n",
+   "error": false
+  },
+  {
+   "name": "repo_search",
+   "args": {
+    "path": "portal/modules/compliance/core/vocabulary_bridge.py",
+    "pattern": "def|class|return|STRONG|WEAK|proposal|HypernymP|VocabTerm|_norm|align"
+   },
+   "raw_args": "{\"path\": \"portal/modules/compliance/core/vocabulary_bridge.py\", \"pattern\": \"def|class|return|STRONG|WEAK|proposal|HypernymP|VocabTerm|_norm|align\"}",
+   "output": "packet.json:7:  \"the internal document uses a term it defines locally as 'Critical Infrastructure Protection Officer', last aligned to the glossary in 2019\"\n",
+   "error": false
+  }
+ ],
+ "final_text": "",
+ "repeat_degeneracy": null,
+ "model": "hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k",
+ "overrides": {},
+ "sampling_undelivered": []
+}

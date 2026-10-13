@@ -1,0 +1,447 @@
+{
+ "schema": "wfe-result-2",
+ "run_id": "general-deep|hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx96k|research|res-ollama-ctx|r1",
+ "campaign_id": "wfe_prompt_surface_seat_20261012",
+ "stage": "full",
+ "workspace": "general-deep",
+ "arm": "hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx96k",
+ "arm_role": "incumbent",
+ "suite": "research",
+ "task_id": "res-ollama-ctx",
+ "repeat": 1,
+ "outcome": "BUDGET_EXHAUSTED",
+ "notes": "did not finish | answer missing patterns=['num_ctx|context window', 'ollama_num_ctx_notes\\\\.md']",
+ "evidence": {
+  "checker_outcome": "FAIL",
+  "served_models": [
+   "Qwen3.8-27B-oQ4e-mtp"
+  ]
+ },
+ "persona_slug": null,
+ "prompt_sha": "7a026d696817",
+ "tool_surface": [
+  "file_read",
+  "file_list",
+  "repo_search",
+  "pytest_run",
+  "file_write",
+  "http_get"
+ ],
+ "tool_surface_proxy": true,
+ "harness": {
+  "endpoint": "v1",
+  "stream": false,
+  "think": "native",
+  "format": "none"
+ },
+ "sampling": {
+  "seed": 1001,
+  "max_tokens_source": "pipeline"
+ },
+ "baked_params": {},
+ "seed": 1001,
+ "turns": 17,
+ "tool_calls": 16,
+ "tool_errors": 13,
+ "finish_reason": "tool_calls",
+ "economics": {
+  "prompt_tokens": 42904,
+  "completion_tokens": 484,
+  "total_tokens": 43388,
+  "load_ms": null,
+  "wall_s": 68.4,
+  "cold_load": false
+ },
+ "env": {
+  "git_sha": "2b27d8c4",
+  "ollama_version": "0.40.0",
+  "python": "3.13.12",
+  "platform": "macOS-27.0.1-arm64-arm-64bit-Mach-O",
+  "engine": "pipeline",
+  "engine_base_url": "",
+  "engine_version": "unknown",
+  "fingerprint": "791254ff1757"
+ },
+ "final_text_head": "",
+ "transcript": [
+  {
+   "turn": 0,
+   "content": "",
+   "tool_calls": [
+    {
+     "name": "file_read",
+     "args_raw": "{\"path\": \"ollama_num_ctx_notes.md\"}"
+    }
+   ],
+   "served": {
+    "backend": "omlx-general",
+    "model": "Qwen3.8-27B-oQ4e-mtp"
+   }
+  },
+  {
+   "turn": 1,
+   "content": "",
+   "tool_calls": [
+    {
+     "name": "file_read",
+     "args_raw": "{\"path\": \"/workspace/ollama_num_ctx_notes.md\"}"
+    }
+   ],
+   "served": {
+    "backend": "omlx-general",
+    "model": "Qwen3.8-27B-oQ4e-mtp"
+   }
+  },
+  {
+   "turn": 2,
+   "content": "",
+   "tool_calls": [
+    {
+     "name": "file_list",
+     "args_raw": "{\"path\": \".\"}"
+    }
+   ],
+   "served": {
+    "backend": "omlx-general",
+    "model": "Qwen3.8-27B-oQ4e-mtp"
+   }
+  },
+  {
+   "turn": 3,
+   "content": "",
+   "tool_calls": [
+    {
+     "name": "file_read",
+     "args_raw": "{\"path\": \"/workspace/uploads/ollama_num_ctx_notes.md\"}"
+    }
+   ],
+   "served": {
+    "backend": "omlx-general",
+    "model": "Qwen3.8-27B-oQ4e-mtp"
+   }
+  },
+  {
+   "turn": 4,
+   "content": "",
+   "tool_calls": [
+    {
+     "name": "repo_search",
+     "args_raw": "{\"pattern\": \"num_ctx\"}"
+    }
+   ],
+   "served": {
+    "backend": "omlx-general",
+    "model": "Qwen3.8-27B-oQ4e-mtp"
+   }
+  },
+  {
+   "turn": 5,
+   "content": "",
+   "tool_calls": [
+    {
+     "name": "file_read",
+     "args_raw": "{\"path\": \"/workspace/ollama_num_ctx_notes.md\"}"
+    }
+   ],
+   "served": {
+    "backend": "omlx-general",
+    "model": "Qwen3.8-27B-oQ4e-mtp"
+   }
+  },
+  {
+   "turn": 6,
+   "content": "",
+   "tool_calls": [
+    {
+     "name": "file_read",
+     "args_raw": "{\"path\": \"/workspace/ollama_num_ctx_notes.md\"}"
+    }
+   ],
+   "served": {
+    "backend": "omlx-general",
+    "model": "Qwen3.8-27B-oQ4e-mtp"
+   }
+  },
+  {
+   "turn": 7,
+   "content": "",
+   "tool_calls": [
+    {
+     "name": "file_read",
+     "args_raw": "{\"path\": \"/workspace/ollama_num_ctx_notes.md\"}"
+    }
+   ],
+   "served": {
+    "backend": "omlx-general",
+    "model": "Qwen3.8-27B-oQ4e-mtp"
+   }
+  },
+  {
+   "turn": 8,
+   "content": "",
+   "tool_calls": [
+    {
+     "name": "file_read",
+     "args_raw": "{\"path\": \"/workspace/ollama_num_ctx_notes.md\"}"
+    }
+   ],
+   "served": {
+    "backend": "omlx-general",
+    "model": "Qwen3.8-27B-oQ4e-mtp"
+   }
+  },
+  {
+   "turn": 9,
+   "content": "",
+   "tool_calls": [
+    {
+     "name": "file_read",
+     "args_raw": "{\"path\": \"/workspace/ollama_num_ctx_notes.md\"}"
+    }
+   ],
+   "served": {
+    "backend": "omlx-general",
+    "model": "Qwen3.8-27B-oQ4e-mtp"
+   }
+  },
+  {
+   "turn": 10,
+   "content": "",
+   "tool_calls": [
+    {
+     "name": "file_read",
+     "args_raw": "{\"path\": \"/workspace/ollama_num_ctx_notes.md\"}"
+    }
+   ],
+   "served": {
+    "backend": "omlx-general",
+    "model": "Qwen3.8-27B-oQ4e-mtp"
+   }
+  },
+  {
+   "turn": 11,
+   "content": "",
+   "tool_calls": [
+    {
+     "name": "file_read",
+     "args_raw": "{\"path\": \"/workspace/ollama_num_ctx_notes.md\"}"
+    }
+   ],
+   "served": {
+    "backend": "omlx-general",
+    "model": "Qwen3.8-27B-oQ4e-mtp"
+   }
+  },
+  {
+   "turn": 12,
+   "content": "",
+   "tool_calls": [
+    {
+     "name": "file_read",
+     "args_raw": "{\"path\": \"/workspace/ollama_num_ctx_notes.md\"}"
+    }
+   ],
+   "served": {
+    "backend": "omlx-general",
+    "model": "Qwen3.8-27B-oQ4e-mtp"
+   }
+  },
+  {
+   "turn": 13,
+   "content": "",
+   "tool_calls": [
+    {
+     "name": "file_read",
+     "args_raw": "{\"path\": \"/workspace/ollama_num_ctx_notes.md\"}"
+    }
+   ],
+   "served": {
+    "backend": "omlx-general",
+    "model": "Qwen3.8-27B-oQ4e-mtp"
+   }
+  },
+  {
+   "turn": 14,
+   "content": "",
+   "tool_calls": [
+    {
+     "name": "file_read",
+     "args_raw": "{\"path\": \"/workspace/ollama_num_ctx_notes.md\"}"
+    }
+   ],
+   "served": {
+    "backend": "omlx-general",
+    "model": "Qwen3.8-27B-oQ4e-mtp"
+   }
+  },
+  {
+   "turn": 15,
+   "content": "",
+   "tool_calls": [
+    {
+     "name": "file_read",
+     "args_raw": "{\"path\": \"/workspace/ollama_num_ctx_notes.md\"}"
+    }
+   ],
+   "served": {
+    "backend": "omlx-general",
+    "model": "Qwen3.8-27B-oQ4e-mtp"
+   }
+  },
+  {
+   "turn": 16,
+   "exhausted_turns": "no final answer in 16 turns"
+  }
+ ],
+ "tool_call_log": [
+  {
+   "name": "file_read",
+   "args": {
+    "path": "ollama_num_ctx_notes.md"
+   },
+   "raw_args": "{\"path\": \"ollama_num_ctx_notes.md\"}",
+   "output": "# Ollama /v1/chat/completions and num_ctx (fixture, verified 2026-09-11)\n\nOllama's OpenAI-compatible endpoint (/v1/chat/completions) has no field in\nthe OpenAI request schema for context length, so a request-time num_ctx is\nignored on that endpoint. This has been an open request since 2024; no PR\nadding it has landed.\n\nDocumented workaround: create a Modelfile that pins the desired window,\ne.g.:\n\n    FROM <base-model>\n    PARAMETER num_ctx 32768\n\nthen run `ollama create mymodel -f Modelfile` and call the API using\n\"mymodel\" instead of the base model name. The derived model shares the\noriginal weights (no extra disk cost) and always serves requests at the\npinned context length.\n",
+   "error": false
+  },
+  {
+   "name": "file_read",
+   "args": {
+    "path": "/workspace/ollama_num_ctx_notes.md"
+   },
+   "raw_args": "{\"path\": \"/workspace/ollama_num_ctx_notes.md\"}",
+   "output": "ERROR: cannot read /workspace/ollama_num_ctx_notes.md",
+   "error": false
+  },
+  {
+   "name": "file_list",
+   "args": {
+    "path": "."
+   },
+   "raw_args": "{\"path\": \".\"}",
+   "output": "ollama_num_ctx_notes.md",
+   "error": false
+  },
+  {
+   "name": "file_read",
+   "args": {
+    "path": "/workspace/uploads/ollama_num_ctx_notes.md"
+   },
+   "raw_args": "{\"path\": \"/workspace/uploads/ollama_num_ctx_notes.md\"}",
+   "output": "ERROR: cannot read /workspace/uploads/ollama_num_ctx_notes.md",
+   "error": false
+  },
+  {
+   "name": "repo_search",
+   "args": {
+    "pattern": "num_ctx"
+   },
+   "raw_args": "{\"pattern\": \"num_ctx\"}",
+   "output": "ollama_num_ctx_notes.md:1:# Ollama /v1/chat/completions and num_ctx (fixture, verified 2026-09-11)\nollama_num_ctx_notes.md:4:the OpenAI request schema for context length, so a request-time num_ctx is\nollama_num_ctx_notes.md:12:    PARAMETER num_ctx 32768\n\n.env.example:265:# request-time num_ctx and Ollama-only reasoning fields remain available).\nKNOWN_LIMITATIONS.md:851:### Ollama /v1 ignores options.num_ctx and options.num_batch\nKNOWN_LIMITATIONS.md:854:- **Description**: Ollama's OpenAI-compatible `/v1/chat/completions` endpoint ignores the `options` sub-object (VERIFY-1 probes, 2026-06). The pipeline still injects `options.num_ctx` (from each workspace's `context_limit`) and `options.num_batch` (fixed 2048) because a future Ollama version may honor them; `predict_limit` is mapped to top-level `max_tokens`, which IS honored. `_apply_workspace_settings` in `portal/platform/inference/router/validation.py` implements all three injections.\nKNOWN_LIMITATIONS.md:874:- **Related**: `P5-OLLAMA-OPTIONS-001` above \u2014 the reason a baked tag is the only lever, since `/v1` ignores request-time `options.num_ctx`.\nKNOWN_LIMITATIONS.md:1086:  `keep_alive: -1` but omitted `options.num_ctx`. Ollama then defaults the\nKNOWN_LIMITATIONS.md:1095:- **Fix**: both warmup calls now set `options.num_ctx` \u2014 `2048` for the\nKNOWN_LIMITATIONS.md:1099:  `TestRouterWarmupContext::test_warmup_sets_same_num_ctx_as_routing_call` and\nKNOWN_LIMITATIONS.md:1100:  `::test_auto_model_warmup_caps_num_ctx` in `tests/unit/test_pipeline.py`.\nKNOWN_LIMITATIONS.md:1108:  same missing-`num_ctx` shape (lower severity \u2014 `keep_alive: \"5m\"`\nKNOWN_LIMITATIONS.md:1112:  `options.num_ctx` (`4096`) on their `/api/generate` payloads. Regression\nKNOWN_LIMITATIONS.md:1113:  tests: `TestOllamaOutcomes::test_payload_caps_num_ctx` in\nKNOWN_LIMITATIONS.md:1148:The router warmup pins the model with `keep_alive: -1`, which is load-bearing: without it the router re-cold-loads on every heavy inference request. But the same pin becomes a memory bug when `options.num_ctx` is omitted, because Ollama then reserves the model's full context window times the parallel slots \u2014 tens of GiB for a small model \u2014 which forces the scheduler to evict the router it was trying to keep warm. Matching the warmup context to the real routing call and the workspace limit is what makes the pin actually safe.\nP5_ROADMAP.md:137:`temperature: 0`, `num_predict: 40`, `num_ctx: 2048`, and `keep_alive: -1` so\nconfig/MODEL_CATALOG.md:88:`llama3.2:3b-instruct-q8_0-ctx8k` is a `-ctx8k`-tagged Ollama variant of `llama3.2:3b-instruct-q8_0` (registered `config/backends.yaml`, `general` group, `supports_tools: true`, live-audited via `_audit_tools_probe`), created via `ollama create` with a Modelfile-baked `PARAMETER num_ctx 8192`. It exists solely for `tests/benchmarks/bench_omlx_v3.py`'s shootout gate \u2014 Ollama's `/v1/chat/completions` endpoint silently ignores a runtime `options.num_ctx` override (verified live, Ollama 0.32.5), so a real context cap requires this baked-tag mechanism, matching every other `-ctxNk` model in the catalog. Not referenced by any `config/portal.yaml` workspace.\nconfig/MODEL_CATALOG.md:198:`portal5/gemma4-12b:q4_K_M-ctx8k` is the 8192-token capped tag of the Gemma 4 12B Q4 model (~7.6GB, Google). `config/backends.yaml` registers it in `group: general` with `supports_tools: true`. The cap exists because the 12B family's very large native context inflates KV-cache reservations and collapses TPS; the num_ctx 8192 limit is baked into this dedicated id via the `apply-params` command. It is not pinned by any `config/portal.yaml` workspace `model_hint`; it serves as a general-pool option. See the QAT sibling `gemma4:12b-it-qat` for the same-size family entry.\nconfig/MODEL_CATALOG.md:286:`hf.co/mradermacher/Huihui-Qwen3.6-35B-A3B-abliterated-GGUF:Q4_K_M-ctx8k` is the 8K-context derived tag (baked `PARAMETER num_ctx 8192` via apply-params). PROMOTED 2026-09-07 (fleet closeout): it is the `auto-general-uncensor",
+   "error": false
+  },
+  {
+   "name": "file_read",
+   "args": {
+    "path": "/workspace/ollama_num_ctx_notes.md"
+   },
+   "raw_args": "{\"path\": \"/workspace/ollama_num_ctx_notes.md\"}",
+   "output": "ERROR: cannot read /workspace/ollama_num_ctx_notes.md",
+   "error": false
+  },
+  {
+   "name": "file_read",
+   "args": {
+    "path": "/workspace/ollama_num_ctx_notes.md"
+   },
+   "raw_args": "{\"path\": \"/workspace/ollama_num_ctx_notes.md\"}",
+   "output": "ERROR: cannot read /workspace/ollama_num_ctx_notes.md",
+   "error": false
+  },
+  {
+   "name": "file_read",
+   "args": {
+    "path": "/workspace/ollama_num_ctx_notes.md"
+   },
+   "raw_args": "{\"path\": \"/workspace/ollama_num_ctx_notes.md\"}",
+   "output": "ERROR: cannot read /workspace/ollama_num_ctx_notes.md",
+   "error": false
+  },
+  {
+   "name": "file_read",
+   "args": {
+    "path": "/workspace/ollama_num_ctx_notes.md"
+   },
+   "raw_args": "{\"path\": \"/workspace/ollama_num_ctx_notes.md\"}",
+   "output": "ERROR: cannot read /workspace/ollama_num_ctx_notes.md",
+   "error": false
+  },
+  {
+   "name": "file_read",
+   "args": {
+    "path": "/workspace/ollama_num_ctx_notes.md"
+   },
+   "raw_args": "{\"path\": \"/workspace/ollama_num_ctx_notes.md\"}",
+   "output": "ERROR: cannot read /workspace/ollama_num_ctx_notes.md",
+   "error": false
+  },
+  {
+   "name": "file_read",
+   "args": {
+    "path": "/workspace/ollama_num_ctx_notes.md"
+   },
+   "raw_args": "{\"path\": \"/workspace/ollama_num_ctx_notes.md\"}",
+   "output": "ERROR: cannot read /workspace/ollama_num_ctx_notes.md",
+   "error": false
+  },
+  {
+   "name": "file_read",
+   "args": {
+    "path": "/workspace/ollama_num_ctx_notes.md"
+   },
+   "raw_args": "{\"path\": \"/workspace/ollama_num_ctx_notes.md\"}",
+   "output": "ERROR: cannot read /workspace/ollama_num_ctx_notes.md",
+   "error": false
+  },
+  {
+   "name": "file_read",
+   "args": {
+    "path": "/workspace/ollama_num_ctx_notes.md"
+   },
+   "raw_args": "{\"path\": \"/workspace/ollama_num_ctx_notes.md\"}",
+   "output": "ERROR: cannot read /workspace/ollama_num_ctx_notes.md",
+   "error": false
+  },
+  {
+   "name": "file_read",
+   "args": {
+    "path": "/workspace/ollama_num_ctx_notes.md"
+   },
+   "raw_args": "{\"path\": \"/workspace/ollama_num_ctx_notes.md\"}",
+   "output": "ERROR: cannot read /workspace/ollama_num_ctx_notes.md",
+   "error": false
+  },
+  {
+   "name": "file_read",
+   "args": {
+    "path": "/workspace/ollama_num_ctx_notes.md"
+   },
+   "raw_args": "{\"path\": \"/workspace/ollama_num_ctx_notes.md\"}",
+   "output": "ERROR: cannot read /workspace/ollama_num_ctx_notes.md",
+   "error": false
+  },
+  {
+   "name": "file_read",
+   "args": {
+    "path": "/workspace/ollama_num_ctx_notes.md"
+   },
+   "raw_args": "{\"path\": \"/workspace/ollama_num_ctx_notes.md\"}",
+   "output": "ERROR: cannot read /workspace/ollama_num_ctx_notes.md",
+   "error": false
+  }
+ ],
+ "final_text": "",
+ "repeat_degeneracy": null,
+ "model": "hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx96k",
+ "overrides": {},
+ "sampling_undelivered": []
+}

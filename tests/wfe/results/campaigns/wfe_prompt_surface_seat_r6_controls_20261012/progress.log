@@ -1,0 +1,58 @@
+2026-10-13T00:01:06Z arm hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k@think-on-09904277: 18 runs pending
+2026-10-13T00:01:06Z   [1/18] auto-compliance|hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k@think-on-09904277|compliance_agentic_loopset|comp-p6j-01|r0
+2026-10-13T00:03:28Z       -> FAIL turns=2 tools=1 errs=0 141.8s
+2026-10-13T00:03:28Z   [2/18] auto-compliance|hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k@think-on-09904277|compliance_agentic_loopset|comp-p6j-01|r1
+2026-10-13T00:05:13Z       -> FAIL turns=2 tools=1 errs=0 105.4s
+2026-10-13T00:05:13Z   [3/18] auto-compliance|hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k@think-on-09904277|compliance_agentic_loopset|comp-p6j-01|r2
+2026-10-13T00:06:01Z       -> PASS turns=2 tools=1 errs=0 47.3s
+2026-10-13T00:06:01Z   [4/18] auto-compliance|hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k@think-on-09904277|compliance_agentic_loopset|comp-p6j-02|r0
+2026-10-13T00:06:28Z       -> PASS turns=2 tools=1 errs=0 27.6s
+2026-10-13T00:06:28Z   [5/18] auto-compliance|hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k@think-on-09904277|compliance_agentic_loopset|comp-p6j-02|r1
+2026-10-13T00:07:09Z       -> PASS turns=2 tools=1 errs=0 40.4s
+2026-10-13T00:07:09Z   [6/18] auto-compliance|hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k@think-on-09904277|compliance_agentic_loopset|comp-p6j-02|r2
+2026-10-13T00:07:32Z       -> PASS turns=2 tools=1 errs=0 23.1s
+2026-10-13T00:07:32Z   [7/18] auto-compliance|hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k@think-on-09904277|compliance_agentic_loopset|comp-p6j-11|r0
+2026-10-13T00:08:20Z       -> PASS turns=2 tools=1 errs=0 48.6s
+2026-10-13T00:08:20Z   [8/18] auto-compliance|hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k@think-on-09904277|compliance_agentic_loopset|comp-p6j-11|r1
+2026-10-13T00:08:52Z       -> PASS turns=2 tools=1 errs=0 31.7s
+2026-10-13T00:08:52Z   [9/18] auto-compliance|hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k@think-on-09904277|compliance_agentic_loopset|comp-p6j-11|r2
+2026-10-13T00:09:20Z       -> PASS turns=2 tools=1 errs=0 28.0s
+2026-10-13T00:09:20Z   [10/18] auto-compliance|hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k@think-on-09904277|compliance_agentic_loopset|comp-p6j-14|r0
+2026-10-13T00:09:48Z       -> PASS turns=2 tools=1 errs=0 27.4s
+2026-10-13T00:09:48Z   [11/18] auto-compliance|hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k@think-on-09904277|compliance_agentic_loopset|comp-p6j-14|r1
+2026-10-13T00:10:07Z       -> PASS turns=2 tools=1 errs=0 19.3s
+2026-10-13T00:10:07Z   [12/18] auto-compliance|hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k@think-on-09904277|compliance_agentic_loopset|comp-p6j-14|r2
+2026-10-13T00:10:25Z       -> PASS turns=2 tools=1 errs=0 18.0s
+2026-10-13T00:10:25Z   [13/18] auto-compliance|hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k@think-on-09904277|compliance_agentic_loopset|comp-p6j-19|r0
+2026-10-13T00:11:02Z       -> PASS turns=2 tools=1 errs=0 36.7s
+2026-10-13T00:11:02Z   [14/18] auto-compliance|hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k@think-on-09904277|compliance_agentic_loopset|comp-p6j-19|r1
+2026-10-13T00:11:57Z       -> PASS turns=2 tools=1 errs=0 55.4s
+2026-10-13T00:11:57Z   [15/18] auto-compliance|hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k@think-on-09904277|compliance_agentic_loopset|comp-p6j-19|r2
+2026-10-13T00:12:33Z       -> PASS turns=2 tools=1 errs=0 36.1s
+2026-10-13T00:12:33Z   [16/18] auto-compliance|hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k@think-on-09904277|compliance_agentic_loopset|comp-p6j-24|r0
+2026-10-13T00:13:39Z       -> PASS turns=3 tools=2 errs=0 65.2s
+2026-10-13T00:13:39Z   [17/18] auto-compliance|hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k@think-on-09904277|compliance_agentic_loopset|comp-p6j-24|r1
+2026-10-13T00:14:31Z       -> PASS turns=2 tools=1 errs=0 52.7s
+2026-10-13T00:14:31Z   [18/18] auto-compliance|hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k@think-on-09904277|compliance_agentic_loopset|comp-p6j-24|r2
+2026-10-13T00:18:32Z       -> PASS turns=4 tools=3 errs=0 240.6s
+2026-10-13T00:18:32Z arm complete — hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k@think-on-09904277: {'FAIL': 2, 'PASS': 16} in 1046s
+2026-10-13T00:18:44Z arm portal5/laguna-xs21:q4_K_M-ctx128k@card-think-35f4592f: 9 runs pending
+2026-10-13T00:18:44Z   [1/9] auto-coding::laguna|portal5/laguna-xs21:q4_K_M-ctx128k@card-think-35f4592f|coding|code-cli-args|r0
+2026-10-13T00:18:59Z       -> PASS turns=5 tools=4 errs=0 15.1s
+2026-10-13T00:18:59Z   [2/9] auto-coding::laguna|portal5/laguna-xs21:q4_K_M-ctx128k@card-think-35f4592f|coding|code-cli-args|r1
+2026-10-13T00:19:22Z       -> PASS turns=7 tools=6 errs=0 23.1s
+2026-10-13T00:19:22Z   [3/9] auto-coding::laguna|portal5/laguna-xs21:q4_K_M-ctx128k@card-think-35f4592f|coding|code-cli-args|r2
+2026-10-13T00:19:44Z       -> PASS turns=6 tools=5 errs=0 21.6s
+2026-10-13T00:19:44Z   [4/9] auto-coding::laguna|portal5/laguna-xs21:q4_K_M-ctx128k@card-think-35f4592f|coding|code-fix-fizz|r0
+2026-10-13T00:19:55Z       -> PASS turns=5 tools=4 errs=0 11.2s
+2026-10-13T00:19:55Z   [5/9] auto-coding::laguna|portal5/laguna-xs21:q4_K_M-ctx128k@card-think-35f4592f|coding|code-fix-fizz|r1
+2026-10-13T00:20:08Z       -> PASS turns=5 tools=4 errs=0 12.2s
+2026-10-13T00:20:08Z   [6/9] auto-coding::laguna|portal5/laguna-xs21:q4_K_M-ctx128k@card-think-35f4592f|coding|code-fix-fizz|r2
+2026-10-13T00:20:17Z       -> PASS turns=6 tools=5 errs=0 8.9s
+2026-10-13T00:20:17Z   [7/9] auto-coding::laguna|portal5/laguna-xs21:q4_K_M-ctx128k@card-think-35f4592f|coding|code-kv|r0
+2026-10-13T00:23:16Z       -> BUDGET_EXHAUSTED turns=17 tools=16 errs=2 178.6s
+2026-10-13T00:23:16Z   [8/9] auto-coding::laguna|portal5/laguna-xs21:q4_K_M-ctx128k@card-think-35f4592f|coding|code-kv|r1
+2026-10-13T00:24:29Z       -> BUDGET_EXHAUSTED turns=17 tools=16 errs=3 72.8s
+2026-10-13T00:24:29Z   [9/9] auto-coding::laguna|portal5/laguna-xs21:q4_K_M-ctx128k@card-think-35f4592f|coding|code-kv|r2
+2026-10-13T00:26:58Z       -> BUDGET_EXHAUSTED turns=17 tools=16 errs=0 149.1s
+2026-10-13T00:26:58Z arm complete — portal5/laguna-xs21:q4_K_M-ctx128k@card-think-35f4592f: {'PASS': 6, 'BUDGET_EXHAUSTED': 3} in 495s

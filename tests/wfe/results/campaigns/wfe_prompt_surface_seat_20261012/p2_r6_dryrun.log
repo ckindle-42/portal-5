@@ -1,0 +1,3 @@
+matrix rows: 27   arms: 2   repeats: 3
+    18  hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k@think-on-09904277
+     9  portal5/laguna-xs21:q4_K_M-ctx128k@card-think-35f4592f

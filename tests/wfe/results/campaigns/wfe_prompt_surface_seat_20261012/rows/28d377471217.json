@@ -1,0 +1,175 @@
+{
+ "schema": "wfe-result-2",
+ "run_id": "general-deep|hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx96k|research|res-granite-ctx|r1",
+ "campaign_id": "wfe_prompt_surface_seat_20261012",
+ "stage": "full",
+ "workspace": "general-deep",
+ "arm": "hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx96k",
+ "arm_role": "incumbent",
+ "suite": "research",
+ "task_id": "res-granite-ctx",
+ "repeat": 1,
+ "outcome": "PASS",
+ "notes": "answer patterns matched",
+ "evidence": {
+  "served_models": [
+   "Qwen3.8-27B-oQ4e-mtp"
+  ]
+ },
+ "persona_slug": null,
+ "prompt_sha": "7a026d696817",
+ "tool_surface": [
+  "file_read",
+  "file_list",
+  "repo_search",
+  "pytest_run",
+  "file_write",
+  "http_get"
+ ],
+ "tool_surface_proxy": true,
+ "harness": {
+  "endpoint": "v1",
+  "stream": false,
+  "think": "native",
+  "format": "none"
+ },
+ "sampling": {
+  "seed": 1001,
+  "max_tokens_source": "pipeline"
+ },
+ "baked_params": {},
+ "seed": 1001,
+ "turns": 5,
+ "tool_calls": 4,
+ "tool_errors": 1,
+ "finish_reason": "stop",
+ "economics": {
+  "prompt_tokens": 7459,
+  "completion_tokens": 215,
+  "total_tokens": 7674,
+  "load_ms": null,
+  "wall_s": 23.2,
+  "cold_load": false
+ },
+ "env": {
+  "git_sha": "2b27d8c4",
+  "ollama_version": "0.40.0",
+  "python": "3.13.12",
+  "platform": "macOS-27.0.1-arm64-arm-64bit-Mach-O",
+  "engine": "pipeline",
+  "engine_base_url": "",
+  "engine_version": "unknown",
+  "fingerprint": "791254ff1757"
+ },
+ "final_text_head": "Based on `granite_4x_notes.md`:\n\n- **Documented context window:** IBM's Granite 4.0 models were trained on sequences up to 512K tokens, and their performance has been validated for context windows up to **128K tokens**.\n- **Release year:** The Granite 4.0 family was released in **October 2025**.\n\nFile path: `granite_4x_notes.md`\n\nRESEARCH COMPLETE",
+ "transcript": [
+  {
+   "turn": 0,
+   "content": "",
+   "tool_calls": [
+    {
+     "name": "file_read",
+     "args_raw": "{\"path\": \"granite_4x_notes.md\"}"
+    }
+   ],
+   "served": {
+    "backend": "omlx-general",
+    "model": "Qwen3.8-27B-oQ4e-mtp"
+   }
+  },
+  {
+   "turn": 1,
+   "content": "",
+   "tool_calls": [
+    {
+     "name": "file_read",
+     "args_raw": "{\"path\": \"/workspace/granite_4x_notes.md\"}"
+    }
+   ],
+   "served": {
+    "backend": "omlx-general",
+    "model": "Qwen3.8-27B-oQ4e-mtp"
+   }
+  },
+  {
+   "turn": 2,
+   "content": "",
+   "tool_calls": [
+    {
+     "name": "file_list",
+     "args_raw": "{\"path\": \".\"}"
+    }
+   ],
+   "served": {
+    "backend": "omlx-general",
+    "model": "Qwen3.8-27B-oQ4e-mtp"
+   }
+  },
+  {
+   "turn": 3,
+   "content": "",
+   "tool_calls": [
+    {
+     "name": "file_read",
+     "args_raw": "{\"path\": \"granite_4x_notes.md\"}"
+    }
+   ],
+   "served": {
+    "backend": "omlx-general",
+    "model": "Qwen3.8-27B-oQ4e-mtp"
+   }
+  },
+  {
+   "turn": 4,
+   "content": "Based on `granite_4x_notes.md`:\n\n- **Documented context window:** IBM's Granite 4.0 models were trained on sequences up to 512K tokens, and their performance has been validated for context windows up to **128K tokens**.\n- **Release year:** The Granite 4.0 family was released in **October 2025**.\n\nFile path: `granite_4x_notes.md`\n\nRESEARCH COMPLETE",
+   "tool_calls": [],
+   "served": {
+    "backend": "omlx-general",
+    "model": "Qwen3.8-27B-oQ4e-mtp"
+   }
+  }
+ ],
+ "tool_call_log": [
+  {
+   "name": "file_read",
+   "args": {
+    "path": "granite_4x_notes.md"
+   },
+   "raw_args": "{\"path\": \"granite_4x_notes.md\"}",
+   "output": "# IBM Granite 4.0 \u2014 Release & Context Window Notes (fixture, verified 2026-09-11)\n\nThe Granite 4.0 family (Nano, Micro, Tiny, Small) was released by IBM in\nOctober 2025. The Granite 4.0 models were trained on sequences up to 512K\ntokens, and their performance has been validated for context windows up to\n128K tokens.\n\nGranite 4.0 Nano \u2014 the smallest variants, at 350M and roughly 1.5B\nparameters \u2014 followed shortly after the initial October 2025 release,\naimed at running locally, including in-browser.\n",
+   "error": false
+  },
+  {
+   "name": "file_read",
+   "args": {
+    "path": "/workspace/granite_4x_notes.md"
+   },
+   "raw_args": "{\"path\": \"/workspace/granite_4x_notes.md\"}",
+   "output": "ERROR: cannot read /workspace/granite_4x_notes.md",
+   "error": false
+  },
+  {
+   "name": "file_list",
+   "args": {
+    "path": "."
+   },
+   "raw_args": "{\"path\": \".\"}",
+   "output": "granite_4x_notes.md",
+   "error": false
+  },
+  {
+   "name": "file_read",
+   "args": {
+    "path": "granite_4x_notes.md"
+   },
+   "raw_args": "{\"path\": \"granite_4x_notes.md\"}",
+   "output": "# IBM Granite 4.0 \u2014 Release & Context Window Notes (fixture, verified 2026-09-11)\n\nThe Granite 4.0 family (Nano, Micro, Tiny, Small) was released by IBM in\nOctober 2025. The Granite 4.0 models were trained on sequences up to 512K\ntokens, and their performance has been validated for context windows up to\n128K tokens.\n\nGranite 4.0 Nano \u2014 the smallest variants, at 350M and roughly 1.5B\nparameters \u2014 followed shortly after the initial October 2025 release,\naimed at running locally, including in-browser.\n",
+   "error": false
+  }
+ ],
+ "final_text": "Based on `granite_4x_notes.md`:\n\n- **Documented context window:** IBM's Granite 4.0 models were trained on sequences up to 512K tokens, and their performance has been validated for context windows up to **128K tokens**.\n- **Release year:** The Granite 4.0 family was released in **October 2025**.\n\nFile path: `granite_4x_notes.md`\n\nRESEARCH COMPLETE",
+ "repeat_degeneracy": null,
+ "model": "hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx96k",
+ "overrides": {},
+ "sampling_undelivered": []
+}

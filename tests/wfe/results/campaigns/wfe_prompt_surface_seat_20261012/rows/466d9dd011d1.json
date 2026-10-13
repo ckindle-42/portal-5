@@ -1,0 +1,127 @@
+{
+ "schema": "wfe-result-2",
+ "run_id": "auto-compliance|hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k|compliance_agentic|comp-p6j-02|r2",
+ "campaign_id": "wfe_prompt_surface_seat_20261012",
+ "stage": "full",
+ "workspace": "auto-compliance",
+ "arm": "hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k",
+ "arm_role": "incumbent",
+ "suite": "compliance_agentic",
+ "task_id": "comp-p6j-02",
+ "repeat": 2,
+ "outcome": "PASS",
+ "notes": "answer patterns matched",
+ "evidence": {
+  "served_models": [
+   "hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k"
+  ]
+ },
+ "persona_slug": "cippolicywriter",
+ "prompt_sha": "53680f17cb49",
+ "tool_surface": [
+  "file_read",
+  "file_list",
+  "repo_search",
+  "pytest_run",
+  "file_write",
+  "http_get"
+ ],
+ "tool_surface_proxy": true,
+ "harness": {
+  "endpoint": "v1",
+  "stream": false,
+  "think": "native",
+  "format": "none"
+ },
+ "sampling": {
+  "seed": 1002,
+  "max_tokens_source": "pipeline"
+ },
+ "baked_params": {},
+ "seed": 1002,
+ "turns": 3,
+ "tool_calls": 2,
+ "tool_errors": 0,
+ "finish_reason": "stop",
+ "economics": {
+  "prompt_tokens": null,
+  "completion_tokens": null,
+  "total_tokens": null,
+  "load_ms": null,
+  "wall_s": 17.5,
+  "cold_load": false
+ },
+ "env": {
+  "git_sha": "2b27d8c4",
+  "ollama_version": "0.40.0",
+  "python": "3.13.12",
+  "platform": "macOS-27.0.1-arm64-arm-64bit-Mach-O",
+  "engine": "pipeline",
+  "engine_base_url": "",
+  "engine_version": "unknown",
+  "fingerprint": "791254ff1757"
+ },
+ "final_text_head": "{\"determination\": \"SUPPORTED\", \"cited_refs\": [\"CIP-007-6 R2 Part 2.2\"], \"rationale\": \"The governing requirement mandates evaluation of newly released security patches for applicability at least once every 35 calendar days, and the candidate's fixed 21-calendar-day cadence is a maximum interval that satisfies that floor (21 <= 35). The packet is complete, so no element needed to decide is missing.\"}\nDETERMINATION COMPLETE",
+ "transcript": [
+  {
+   "turn": 0,
+   "content": "",
+   "tool_calls": [
+    {
+     "name": "file_read",
+     "args_raw": "{\"path\":\"packet.json\"}"
+    }
+   ],
+   "served": {
+    "backend": "ollama-reasoning",
+    "model": "hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k"
+   }
+  },
+  {
+   "turn": 1,
+   "content": "",
+   "tool_calls": [
+    {
+     "name": "file_list",
+     "args_raw": "{}"
+    }
+   ],
+   "served": {
+    "backend": "ollama-reasoning",
+    "model": "hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k"
+   }
+  },
+  {
+   "turn": 2,
+   "content": "{\"determination\": \"SUPPORTED\", \"cited_refs\": [\"CIP-007-6 R2 Part 2.2\"], \"rationale\": \"The governing requirement mandates evaluation of newly released security patches for applicability at least once every 35 calendar days, and the candidate's fixed 21-calendar-day cadence is a maximum interval that satisfies that floor (21 <= 35). The packet is complete, so no element needed to decide is missing.\"}\nDETERMINATION COMPLETE",
+   "tool_calls": [],
+   "served": {
+    "backend": "ollama-reasoning",
+    "model": "hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k"
+   }
+  }
+ ],
+ "tool_call_log": [
+  {
+   "name": "file_read",
+   "args": {
+    "path": "packet.json"
+   },
+   "raw_args": "{\"path\":\"packet.json\"}",
+   "output": "{\n \"id\": \"P6J-02\",\n \"governing_ref\": \"CIP-007-6 R2 Part 2.2\",\n \"governing_text\": \"At least once every 35 calendar days, evaluate security patches for applicability that have been released since the last evaluation from the source or sources identified in Part 2.1.\",\n \"premises\": [\n  \"cadence is a maximum interval\"\n ],\n \"candidate_text\": \"OT Security evaluates newly released security patches for applicability every 21 calendar days.\",\n \"packet_complete\": true,\n \"must_not_flag\": true\n}",
+   "error": false
+  },
+  {
+   "name": "file_list",
+   "args": {},
+   "raw_args": "{}",
+   "output": "packet.json",
+   "error": false
+  }
+ ],
+ "final_text": "{\"determination\": \"SUPPORTED\", \"cited_refs\": [\"CIP-007-6 R2 Part 2.2\"], \"rationale\": \"The governing requirement mandates evaluation of newly released security patches for applicability at least once every 35 calendar days, and the candidate's fixed 21-calendar-day cadence is a maximum interval that satisfies that floor (21 <= 35). The packet is complete, so no element needed to decide is missing.\"}\nDETERMINATION COMPLETE",
+ "repeat_degeneracy": null,
+ "model": "hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k",
+ "overrides": {},
+ "sampling_undelivered": []
+}

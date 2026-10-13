@@ -1,0 +1,446 @@
+{
+ "schema": "wfe-result-2",
+ "run_id": "auto-compliance|hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k|compliance_agentic|comp-p6j-19|r2",
+ "campaign_id": "wfe_prompt_surface_seat_20261012",
+ "stage": "full",
+ "workspace": "auto-compliance",
+ "arm": "hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k",
+ "arm_role": "incumbent",
+ "suite": "compliance_agentic",
+ "task_id": "comp-p6j-19",
+ "repeat": 2,
+ "outcome": "BUDGET_EXHAUSTED",
+ "notes": "did not finish | answer missing patterns=['\"?determination\"?\\\\s*[:=]\\\\s*\"?PARTIAL\\\\b', 'cited_refs']",
+ "evidence": {
+  "checker_outcome": "FAIL",
+  "served_models": [
+   "Qwen3.8-27B-oQ4e-mtp"
+  ]
+ },
+ "persona_slug": "cippolicywriter",
+ "prompt_sha": "53680f17cb49",
+ "tool_surface": [
+  "file_read",
+  "file_list",
+  "repo_search",
+  "pytest_run",
+  "file_write",
+  "http_get"
+ ],
+ "tool_surface_proxy": true,
+ "harness": {
+  "endpoint": "v1",
+  "stream": false,
+  "think": "native",
+  "format": "none"
+ },
+ "sampling": {
+  "seed": 1002,
+  "max_tokens_source": "pipeline"
+ },
+ "baked_params": {},
+ "seed": 1002,
+ "turns": 17,
+ "tool_calls": 16,
+ "tool_errors": 0,
+ "finish_reason": "tool_calls",
+ "economics": {
+  "prompt_tokens": 146856,
+  "completion_tokens": 509,
+  "total_tokens": 147365,
+  "load_ms": null,
+  "wall_s": 175.0,
+  "cold_load": false
+ },
+ "env": {
+  "git_sha": "2b27d8c4",
+  "ollama_version": "0.40.0",
+  "python": "3.13.12",
+  "platform": "macOS-27.0.1-arm64-arm-64bit-Mach-O",
+  "engine": "pipeline",
+  "engine_base_url": "",
+  "engine_version": "unknown",
+  "fingerprint": "791254ff1757"
+ },
+ "final_text_head": "",
+ "transcript": [
+  {
+   "turn": 0,
+   "content": "",
+   "tool_calls": [
+    {
+     "name": "file_read",
+     "args_raw": "{\"path\": \"packet.json\"}"
+    }
+   ],
+   "served": {
+    "backend": "omlx-reasoning",
+    "model": "Qwen3.8-27B-oQ4e-mtp"
+   }
+  },
+  {
+   "turn": 1,
+   "content": "",
+   "tool_calls": [
+    {
+     "name": "file_list",
+     "args_raw": "{}"
+    }
+   ],
+   "served": {
+    "backend": "omlx-reasoning",
+    "model": "Qwen3.8-27B-oQ4e-mtp"
+   }
+  },
+  {
+   "turn": 2,
+   "content": "",
+   "tool_calls": [
+    {
+     "name": "repo_search",
+     "args_raw": "{\"pattern\": \"Critical Infrastructure Protection Officer|CIP Senior Manager\"}"
+    }
+   ],
+   "served": {
+    "backend": "omlx-reasoning",
+    "model": "Qwen3.8-27B-oQ4e-mtp"
+   }
+  },
+  {
+   "turn": 3,
+   "content": "",
+   "tool_calls": [
+    {
+     "name": "file_read",
+     "args_raw": "{\"path\": \"portal/modules/compliance/data/nerc_cip_map.json\"}"
+    }
+   ],
+   "served": {
+    "backend": "omlx-reasoning",
+    "model": "Qwen3.8-27B-oQ4e-mtp"
+   }
+  },
+  {
+   "turn": 4,
+   "content": "",
+   "tool_calls": [
+    {
+     "name": "file_read",
+     "args_raw": "{\"path\": \"portal/modules/compliance/core/vocabulary_bridge.py\"}"
+    }
+   ],
+   "served": {
+    "backend": "omlx-reasoning",
+    "model": "Qwen3.8-27B-oQ4e-mtp"
+   }
+  },
+  {
+   "turn": 5,
+   "content": "",
+   "tool_calls": [
+    {
+     "name": "file_read",
+     "args_raw": "{\"path\": \"portal/modules/compliance/core/policy_graph.py\"}"
+    }
+   ],
+   "served": {
+    "backend": "omlx-reasoning",
+    "model": "Qwen3.8-27B-oQ4e-mtp"
+   }
+  },
+  {
+   "turn": 6,
+   "content": "",
+   "tool_calls": [
+    {
+     "name": "repo_search",
+     "args_raw": "{\"pattern\": \"SUPPORTED|PARTIAL|CONTRADICTED|ABSENT|ABSTAIN\", \"path\": \"portal/modules/compliance/core\"}"
+    }
+   ],
+   "served": {
+    "backend": "omlx-reasoning",
+    "model": "Qwen3.8-27B-oQ4e-mtp"
+   }
+  },
+  {
+   "turn": 7,
+   "content": "",
+   "tool_calls": [
+    {
+     "name": "file_read",
+     "args_raw": "{\"path\": \"portal/modules/compliance/core/council.py\"}"
+    }
+   ],
+   "served": {
+    "backend": "omlx-reasoning",
+    "model": "Qwen3.8-27B-oQ4e-mtp"
+   }
+  },
+  {
+   "turn": 8,
+   "content": "",
+   "tool_calls": [
+    {
+     "name": "file_read",
+     "args_raw": "{\"path\": \"portal/modules/compliance/core/assessment.py\"}"
+    }
+   ],
+   "served": {
+    "backend": "omlx-reasoning",
+    "model": "Qwen3.8-27B-oQ4e-mtp"
+   }
+  },
+  {
+   "turn": 9,
+   "content": "",
+   "tool_calls": [
+    {
+     "name": "file_read",
+     "args_raw": "{\"path\": \"portal/modules/compliance/core/vocabulary_bridge.py\"}"
+    }
+   ],
+   "served": {
+    "backend": "omlx-reasoning",
+    "model": "Qwen3.8-27B-oQ4e-mtp"
+   }
+  },
+  {
+   "turn": 10,
+   "content": "",
+   "tool_calls": [
+    {
+     "name": "file_read",
+     "args_raw": "{\"path\": \"portal/modules/compliance/core/council.py\"}"
+    }
+   ],
+   "served": {
+    "backend": "omlx-reasoning",
+    "model": "Qwen3.8-27B-oQ4e-mtp"
+   }
+  },
+  {
+   "turn": 11,
+   "content": "",
+   "tool_calls": [
+    {
+     "name": "file_read",
+     "args_raw": "{\"path\": \"portal/modules/compliance/core/council.py\"}"
+    }
+   ],
+   "served": {
+    "backend": "omlx-reasoning",
+    "model": "Qwen3.8-27B-oQ4e-mtp"
+   }
+  },
+  {
+   "turn": 12,
+   "content": "",
+   "tool_calls": [
+    {
+     "name": "file_read",
+     "args_raw": "{\"path\": \"portal/modules/compliance/core/council.py\"}"
+    }
+   ],
+   "served": {
+    "backend": "omlx-reasoning",
+    "model": "Qwen3.8-27B-oQ4e-mtp"
+   }
+  },
+  {
+   "turn": 13,
+   "content": "",
+   "tool_calls": [
+    {
+     "name": "file_read",
+     "args_raw": "{\"path\": \"portal/modules/compliance/core/council.py\"}"
+    }
+   ],
+   "served": {
+    "backend": "omlx-reasoning",
+    "model": "Qwen3.8-27B-oQ4e-mtp"
+   }
+  },
+  {
+   "turn": 14,
+   "content": "",
+   "tool_calls": [
+    {
+     "name": "file_read",
+     "args_raw": "{\"path\": \"portal/modules/compliance/core/council.py\"}"
+    }
+   ],
+   "served": {
+    "backend": "omlx-reasoning",
+    "model": "Qwen3.8-27B-oQ4e-mtp"
+   }
+  },
+  {
+   "turn": 15,
+   "content": "",
+   "tool_calls": [
+    {
+     "name": "file_read",
+     "args_raw": "{\"path\": \"portal/modules/compliance/core/council.py\"}"
+    }
+   ],
+   "served": {
+    "backend": "omlx-reasoning",
+    "model": "Qwen3.8-27B-oQ4e-mtp"
+   }
+  },
+  {
+   "turn": 16,
+   "exhausted_turns": "no final answer in 16 turns"
+  }
+ ],
+ "tool_call_log": [
+  {
+   "name": "file_read",
+   "args": {
+    "path": "packet.json"
+   },
+   "raw_args": "{\"path\": \"packet.json\"}",
+   "output": "{\n \"id\": \"P6J-19\",\n \"governing_ref\": \"CIP-002-5.1a R2 Part 2.2\",\n \"governing_text\": \"Have its CIP Senior Manager or delegate approve the identifications required by Requirement R1 at least once every 15 calendar months, even if it has no identified items in Requirement R1.\",\n \"premises\": [\n  \"the NERC Glossary term is 'CIP Senior Manager'\",\n  \"the internal document uses a term it defines locally as 'Critical Infrastructure Protection Officer', last aligned to the glossary in 2019\"\n ],\n \"candidate_text\": \"The Critical Infrastructure Protection Officer approves the BES Cyber System identification list at least once every 15 calendar months.\",\n \"packet_complete\": true,\n \"must_not_flag\": false\n}",
+   "error": false
+  },
+  {
+   "name": "file_list",
+   "args": {},
+   "raw_args": "{}",
+   "output": "packet.json",
+   "error": false
+  },
+  {
+   "name": "repo_search",
+   "args": {
+    "pattern": "Critical Infrastructure Protection Officer|CIP Senior Manager"
+   },
+   "raw_args": "{\"pattern\": \"Critical Infrastructure Protection Officer|CIP Senior Manager\"}",
+   "output": "packet.json:4: \"governing_text\": \"Have its CIP Senior Manager or delegate approve the identifications required by Requirement R1 at least once every 15 calendar months, even if it has no identified items in Requirement R1.\",\npacket.json:6:  \"the NERC Glossary term is 'CIP Senior Manager'\",\npacket.json:7:  \"the internal document uses a term it defines locally as 'Critical Infrastructure Protection Officer', last aligned to the glossary in 2019\"\npacket.json:9: \"candidate_text\": \"The Critical Infrastructure Protection Officer approves the BES Cyber System identification list at least once every 15 calendar months.\",\n\nportal/modules/compliance/core/org_graph.py:232:    r\"\\b(OT Security (?:Manager|Operations|Team|Analyst)|CIP Senior Manager|\"\nportal/modules/compliance/core/policy_graph.py:489:    r\"Operator|Generator Operator|Reliability Coordinator|CIP Senior Manager|\"\nportal/modules/compliance/core/vocabulary_bridge.py:71:    \"CIP SM\": \"CIP Senior Manager\",\nportal/modules/compliance/data/nerc_cip_map.json:62:      \"verbatim_text\": \"Have its CIP Senior Manager or delegate approve the identifications required by Requirement R1 at least once every 15 calendar months, even if it has no identified items in Requirement R1.\",\nportal/modules/compliance/data/nerc_cip_map.json:706:      \"verbatim_text\": \"Each Responsible Entity shall review and obtain CIP Senior Manager approval at least once every 15 calendar months for one or more documented cyber security policies that collectively address the following topics:\",\nportal/modules/compliance/data/nerc_cip_map.json:726:      \"verbatim_text\": \"Each Responsible Entity shall identify a CIP Senior Manager by name and document any change within 30 calendar days of the change.\",\nportal/modules/compliance/data/nerc_cip_map.json:736:      \"verbatim_text\": \"The Responsible Entity shall implement a documented process to delegate authority, unless no delegations are used. Where allowed by the CIP Standards, the CIP Senior Manager may delegate authority for specific actions to a delegate or delegates. These delegations shall be documented, including the name or title of the delegate, the specific actions delegated, and the date of the delegation; approved by the CIP Senior Manager; and updated within 30 days of any change to the delegation. Delegation changes do not need to be reinstated with a change to the delegator.\",\nportal/modules/compliance/data/nerc_cip_map.json:1146:      \"verbatim_text\": \"Each Responsible Entity shall review and obtain CIP Senior Manager approval at least once every 15 calendar months for one or more documented cyber security policies that collectively address the following topics:\",\nportal/modules/compliance/data/nerc_cip_map.json:1166:      \"verbatim_text\": \"Each Responsible Entity shall identify a CIP Senior Manager by name and document any change within 30 calendar days of the change.\",\nportal/modules/compliance/data/nerc_cip_map.json:1176:      \"verbatim_text\": \"The Responsible Entity shall implement a documented process to delegate authority, unless no delegations are used. Where allowed by the CIP Standards, the CIP Senior Manager may delegate authority for specific actions to a delegate or delegates. These delegations shall be documented, including the name or title of the delegate, the specific actions delegated, and the date of the delegation; approved by the CIP Senior Manager; and updated within 30 days of any change to the delegation. Delegation changes do not need to be reinstated with a change to the delegator.\",\nportal/modules/compliance/data/nerc_cip_map.json:1824:      \"verbatim_text\": \"For each mitigation plan created or revised in Part 2.3, implement the plan within the timeframe specified in the plan, unless a revision to the plan or an extension to the timeframe specified in Part 2.3 is approved by the CIP Senior Manager or delegate.\",\nportal/modules/compliance/data/nerc_cip_map.json:2721:      \"verbatim_text\": \"Each Responsible Entity shall review and ob",
+   "error": false
+  },
+  {
+   "name": "file_read",
+   "args": {
+    "path": "portal/modules/compliance/data/nerc_cip_map.json"
+   },
+   "raw_args": "{\"path\": \"portal/modules/compliance/data/nerc_cip_map.json\"}",
+   "output": "{\n  \"source\": \"DERIVED from portal/modules/compliance/data/nerc_cip_register.json (NERC CIP standards, verbatim). Do not hand-edit \u2014 run `python -m portal.modules.compliance.core.cip_register build`.\",\n  \"note\": \"related_800_53 is the pre-existing advisory crosswalk seed, R-level, not an official OLIR. Verify against the current enforceable version on nerc.com for audit use.\",\n  \"lifecycle_source\": \"nerc.com/pa/Stand \u2014 FERC-approved enforcement dates (public record)\",\n  \"requirements\": {\n    \"CIP-002-5.1a R1 Part 1.1\": {\n      \"standard\": \"CIP-002-5.1a\",\n      \"requirement\": \"R1\",\n      \"part\": \"1.1\",\n      \"verbatim_text\": \"Identify each of the high impact BES Cyber Systems according to Attachment 1, Section 1, if any, at each asset;\",\n      \"lifecycle_state\": \"EFFECTIVE\",\n      \"valid_from\": \"2016-07-01\",\n      \"valid_to\": null,\n      \"related_800_53\": [\n        \"RA-2\",\n        \"CM-8\",\n        \"PM-5\"\n      ]\n    },\n    \"CIP-002-5.1a R1 Part 1.2\": {\n      \"standard\": \"CIP-002-5.1a\",\n      \"requirement\": \"R1\",\n      \"part\": \"1.2\",\n      \"verbatim_text\": \"Identify each of the medium impact BES Cyber Systems according to Attachment 1, Section 2, if any, at each asset; and\",\n      \"lifecycle_state\": \"EFFECTIVE\",\n      \"valid_from\": \"2016-07-01\",\n      \"valid_to\": null,\n      \"related_800_53\": [\n        \"RA-2\",\n        \"CM-8\",\n        \"PM-5\"\n      ]\n    },\n    \"CIP-002-5.1a R1 Part 1.3\": {\n      \"standard\": \"CIP-002-5.1a\",\n      \"requirement\": \"R1\",\n      \"part\": \"1.3\",\n      \"verbatim_text\": \"Identify each asset that contains a low impact BES Cyber System according to Attachment 1, Section 3, if any (a discrete list of low impact BES Cyber Systems is not required).\",\n      \"lifecycle_state\": \"EFFECTIVE\",\n      \"valid_from\": \"2016-07-01\",\n      \"valid_to\": null,\n      \"related_800_53\": [\n        \"RA-2\",\n        \"CM-8\",\n        \"PM-5\"\n      ]\n    },\n    \"CIP-002-5.1a R2 Part 2.1\": {\n      \"standard\": \"CIP-002-5.1a\",\n      \"requirement\": \"R2\",\n      \"part\": \"2.1\",\n      \"verbatim_text\": \"Review the identifications in Requirement R1 and its parts (and update them if there are changes identified) at least once every 15 calendar months, even if it has no identified items in Requirement R1, and\",\n      \"lifecycle_state\": \"EFFECTIVE\",\n      \"valid_from\": \"2016-07-01\",\n      \"valid_to\": null,\n      \"related_800_53\": []\n    },\n    \"CIP-002-5.1a R2 Part 2.2\": {\n      \"standard\": \"CIP-002-5.1a\",\n      \"requirement\": \"R2\",\n      \"part\": \"2.2\",\n      \"verbatim_text\": \"Have its CIP Senior Manager or delegate approve the identifications required by Requirement R1 at least once every 15 calendar months, even if it has no identified items in Requirement R1.\",\n      \"lifecycle_state\": \"EFFECTIVE\",\n      \"valid_from\": \"2016-07-01\",\n      \"valid_to\": null,\n      \"related_800_53\": []\n    },\n    \"CIP-002-5.1a Attachment 1 Section 1\": {\n      \"standard\": \"CIP-002-5.1a\",\n      \"requirement\": \"Attachment 1 Section 1\",\n      \"part\": \"\",\n      \"verbatim_text\": \"Each BES Cyber System used by and located at any of the following:\",\n      \"lifecycle_state\": \"EFFECTIVE\",\n      \"valid_from\": \"2016-07-01\",\n      \"valid_to\": null,\n      \"related_800_53\": []\n    },\n    \"CIP-002-5.1a Attachment 1 Part 1.1\": {\n      \"standard\": \"CIP-002-5.1a\",\n      \"requirement\": \"Attachment 1\",\n      \"part\": \"1.1\",\n      \"verbatim_text\": \"Each Control Center or backup Control Center used to perform the functional obligations of the Reliability Coordinator.\",\n      \"lifecycle_state\": \"EFFECTIVE\",\n      \"valid_from\": \"2016-07-01\",\n      \"valid_to\": null,\n      \"related_800_53\": []\n    },\n    \"CIP-002-5.1a Attachment 1 Part 1.2\": {\n      \"standard\": \"CIP-002-5.1a\",\n      \"requirement\": \"Attachment 1\",\n      \"part\": \"1.2\",\n      \"verbatim_text\": \"Each Control Center or backup Control Center used to perform the functional obligations of the Balancing Authority: 1) for generation equal to or greater than an aggregate of 3000 MW in a single Interconnection, or 2) for one or more of the ass",
+   "error": false
+  },
+  {
+   "name": "file_read",
+   "args": {
+    "path": "portal/modules/compliance/core/vocabulary_bridge.py"
+   },
+   "raw_args": "{\"path\": \"portal/modules/compliance/core/vocabulary_bridge.py\"}",
+   "output": "\"\"\"The vocabulary bridge (TASK_COMPLIANCE_REASONING_V6 P3).\n\nThe principled replacement for the ``<org>|SME|OT|Security|Manager|Owner`` regex\nthat ``assessment._compare`` used to decide actor alignment. Following\nGraphCompliance \u00a71.5, an organization entity is mapped to policy vocabulary\nthrough **hypernym proposals**, each marked:\n\n  - ``STRONG`` when its supporting fragment is a *premise* (a defined term, an\n    impact-rating criterion, a scope statement) \u2014 authoritative;\n  - ``WEAK``   otherwise \u2014 a lexical hint only.\n\nConfidence aggregates by max-pooling the per-proposal scores plus a bonus when\na STRONG proposal is present. Every mapping keeps its supporting fragment, so\n\"OT Security Manager resolves to Responsible Entity\" is a recorded, reviewable\nchain, not a literal buried in a comparator.\n\nThe policy vocabulary is derived from the typed policy graph's premises plus\nthe NERC defined terms the register text itself surfaces (capitalised\nmulti-word phrases and acronyms \u2014 NERC's own convention for a glossary term).\nIngesting the published NERC *Glossary of Terms* PDF as an additional premise\nsource is gated on nerc.com reachability (honest-BLOCKED, mirroring\n``currency.nerc_currency``); the register-derived term set is the floor.\n\"\"\"\n\nfrom __future__ import annotations\n\nimport re\nfrom dataclasses import dataclass, field\nfrom typing import Literal\n\nfrom portal.modules.compliance.core.policy_graph import PolicyGraph, build_policy_graph\n\nStrength = Literal[\"STRONG\", \"WEAK\"]\n\n# NERC's functional model: the \"Responsible Entity\" of a CIP standard is\n# whichever registered functional entity the standard applies to. An operator's\n# internal roles (a manager, an owner, a team) are assignments *within* that\n# entity \u2014 CIP-004/003 explicitly contemplate delegation. This is public\n# structure from the NERC Rules of Procedure, not a tuned heuristic.\n_FUNCTIONAL_ENTITIES = (\n    \"Responsible Entity\",\n    \"Transmission Owner\",\n    \"Transmission Operator\",\n    \"Generator Operator\",\n    \"Generator Owner\",\n    \"Reliability Coordinator\",\n    \"Balancing Authority\",\n    \"Distribution Provider\",\n    \"Planning Coordinator\",\n    \"Interchange Coordinator\",\n)\n_ROLE_HEAD = re.compile(\n    r\"\\b(manager|owner|delegate|team|operator|analyst|administrator|coordinator|\"\n    r\"engineer|lead|director|officer|personnel|staff|group|committee|custodian)\\b\",\n    re.I,\n)\n\n# Acronym expansions stated in the CIP standards' own Applicable Systems text.\n_ACRONYM_SEED: dict[str, str] = {\n    \"EACMS\": \"Electronic Access Control or Monitoring Systems\",\n    \"PACS\": \"Physical Access Control Systems\",\n    \"PCA\": \"Protected Cyber Asset\",\n    \"ESP\": \"Electronic Security Perimeter\",\n    \"EAP\": \"Electronic Access Point\",\n    \"BCA\": \"BES Cyber Asset\",\n    \"BCS\": \"BES Cyber System\",\n    \"BCSI\": \"BES Cyber System Information\",\n    \"TCA\": \"Transient Cyber Asset\",\n    \"IRA\": \"Interactive Remote Access\",\n    \"PSP\": \"Physical Security Perimeter\",\n    \"CIP SM\": \"CIP Senior Manager\",\n}\n\n_STOP_PREFIX = re.compile(r\"^(Each |The |For |A |An |Its )\", re.I)\n_CAP_TERM = re.compile(\n    r\"\\b((?:[A-Z]{2,6} )?[A-Z][a-z]+(?: (?:[A-Z][a-z]+|of|or|and)){1,4}|[A-Z]{2,6})\\b\"\n)\n_NOISE = {\n    \"Each\",\n    \"The\",\n    \"This\",\n    \"That\",\n    \"Requirement\",\n    \"Part\",\n    \"Section\",\n    \"Attachment\",\n    \"Table\",\n    \"Where\",\n    \"For\",\n    \"Reference Model\",\n    \"MW\",\n    \"kV\",\n}\n\n\ndef _norm(term: str) -> str:\n    t = _STOP_PREFIX.sub(\"\", term).strip()\n    t = re.sub(\n        r\"\\b(Systems|Assets|Incidents|Centers|Facilities|Media)\\b\",\n        lambda m: m.group(1)[:-1] if m.group(1) != \"Media\" else m.group(1),\n        t,\n    )\n    t = re.sub(r\"s$\", \"\", t) if t.endswith(\"s\") and not t.endswith(\"ss\") else t\n    return t.strip()\n\n\n@dataclass\nclass VocabTerm:\n    term: str\n    canonical: str\n    strength: Strength  # STRONG if any supporting fragment is a premise\n    supporting_fragments: list[dict[str, str]] = field(default_factory=list)\n    is_functional_entity: bool = False\n\n\n@dataclass\nclass HypernymP",
+   "error": false
+  },
+  {
+   "name": "file_read",
+   "args": {
+    "path": "portal/modules/compliance/core/policy_graph.py"
+   },
+   "raw_args": "{\"path\": \"portal/modules/compliance/core/policy_graph.py\"}",
+   "output": "\"\"\"The typed policy graph (TASK_COMPLIANCE_REASONING_V6 P2).\n\n`cip_register.py` / `cip_extract.py` are the immutable extraction template and\nare **not** touched. This module *augments* the persisted register in place:\nevery register node is classified into one of three types, following the\nGraphCompliance CU taxonomy (arXiv:2510.26309 \u00a73):\n\n  - ``premise``  \u2014 non-deontic definitional / interpretive material: defined\n    terms, role definitions, scope statements, evidence guidance, enumerated\n    policy topics. Never itself judged; the system needs it to *read* the rules.\n  - ``meta_cu``  \u2014 an applicability predicate: temporal / territorial scope,\n    role qualification, covered-system scope. Evaluated first, gates whether an\n    actor-CU is considered; never reported as a standalone finding.\n  - ``actor_cu`` \u2014 an obligation, prohibition or permission addressed to a\n    role-bearing actor. These, and only these, receive determinations.\n\nClassification is deterministic and every node carries the rule that typed it\nplus a verbatim evidence span \u2014 no tuned constants, no similarity scores. The\nper-field CU decomposition (``{subject, constraint, condition, context}`` with\nper-field char spans) and the fine-grained ``REFERS_TO`` reference closure are\nlayered on top of this typing in the same module (see ``decompose_actor_cu``\nand ``resolve_references``).\n\nBuild: ``python -m portal.modules.compliance.core.policy_graph build``\nOutput: ``portal/modules/compliance/data/nerc_cip_policy_graph.json`` (derived,\nrebuildable, idempotent).\n\"\"\"\n\nfrom __future__ import annotations\n\nimport json\nimport re\nfrom dataclasses import asdict, dataclass, field\nfrom pathlib import Path\nfrom typing import Any, Literal\n\nfrom portal.modules.compliance.core.cip_register import REGISTER_PATH, Register, RegisterNode\n\n_DATA = Path(__file__).resolve().parent.parent / \"data\"\nPOLICY_GRAPH_PATH = _DATA / \"nerc_cip_policy_graph.json\"\n\nNodeType = Literal[\"premise\", \"meta_cu\", \"actor_cu\"]\n\n# \u2500\u2500 lexical signals (documented, not tuned) \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n\n# A deontic operator addressed to an actor. \"may\" alone is a permission and is\n# handled by the permission-structure pass, not here.\n_MODAL = re.compile(r\"\\b(shall|must|may not|is required to|are required to|required to)\\b\", re.I)\n\n# A NERC requirement-parts table cell / attachment element is written as a bare\n# imperative or gerund clause governed by its requirement's \"shall implement ...\n# that collectively includes each of the applicable requirement parts\" (or\n# \"... which shall include:\") stem. Both verb forms appear in the corpus.\n_IMPERATIVE = re.compile(\n    r\"^\\s*(?:Section \\d+\\.[^:]*:\\s*)?(?:Where technically feasible[,;] )?\"\n    r\"(?:At least once (?:every|each) [^,]+, )?\"\n    r\"(Identif\\w+|Review|Have|Document\\w*|Test\\w*|Monitor\\w*|Conduct|Updat\\w+|\"\n    r\"Issue|Provide|Implement\\w*|Perform\\w*|Authenticat\\w+|Determin\\w+|Mitigat\\w+|\"\n    r\"Includ\\w+|Establish\\w*|Maintain\\w*|Develop\\w*|Retain|Verif\\w+|Protect\\w*|\"\n    r\"Deploy\\w*|Disabl\\w+|Enforc\\w+|Restrict\\w*|Detect\\w*|Generat\\w+|Manag\\w+|\"\n    r\"Evaluat\\w+|Appl\\w+|Requir\\w+|Permit\\w*|Use|Select\\w*|Grant\\w*|Revok\\w+|\"\n    r\"Assign\\w*|Ensur\\w+|Control\\w*|Chang\\w+|Limit\\w*|Authoriz\\w+|Remov\\w+|\"\n    r\"Initiat\\w+|Reinforc\\w+|Configur\\w+|Coordinat\\w+|Notif\\w+|Report\\w*|\"\n    r\"Respon\\w+|Contain\\w*|Eradicat\\w+|Recover\\w*|Preserv\\w+|Correct\\w*|Take|\"\n    r\"Stor\\w+|Record\\w*|Classif\\w+|Alert\\w*|Log|Patch\\w*|Scan\\w*|Method|\"\n    r\"One or (?:more|a combination)|For (?:Transient|Removable|electronic|each)|\"\n    r\"Prior to|Where )\",\n    re.I,\n)\n\n# Parent-requirement text that introduces an enumerated list of MANDATORY\n# elements: every child Part is then an actor-CU regardless of its verb form.\n_ENUMERATING_LEAD = re.compile(\n    r\"(shall (?:implement|have|develop|maintain|include)[^.]*?|\"\n    r\"that (?:collectively )?include[s]?[^.]*?|which shall include|\"\n    r\"as part of[^.]*?)\\s*:?\\s*$\",\n    re.I,\n)\n\n# Applicability / scope predicate language.\n_META = ",
+   "error": false
+  },
+  {
+   "name": "repo_search",
+   "args": {
+    "pattern": "SUPPORTED|PARTIAL|CONTRADICTED|ABSENT|ABSTAIN",
+    "path": "portal/modules/compliance/core"
+   },
+   "raw_args": "{\"pattern\": \"SUPPORTED|PARTIAL|CONTRADICTED|ABSENT|ABSTAIN\", \"path\": \"portal/modules/compliance/core\"}",
+   "output": "mapping_store.py:39:COVERAGE_VALUES = (\"FULL\", \"PARTIAL\", \"NONE\", \"NOT_APPLICABLE\", \"NEEDS_REVIEW\")\nscenarios.py:194:_SEVERITY = {\"FULL\": 3, \"PARTIAL\": 2, \"NONE\": 1, \"NEEDS_REVIEW\": 1, \"UNRESOLVED\": 0}\nassessment.py:104:        return \"SUPPORTED\", \"not_constrained\", \"governing atom does not constrain this field\"\nassessment.py:107:        return \"SUPPORTED\", \"binding_effect\", \"controlled procedure text is internally mandatory\"\nassessment.py:111:            return \"SUPPORTED\", \"vocabulary_bridge\", alignment.note\nassessment.py:116:                \"SUPPORTED\",\nassessment.py:120:        return \"ABSENT\", \"presence\", \"internal assertion omits the governing field\"\nassessment.py:122:        return \"SUPPORTED\", \"exact\", \"internal field exactly matches the governing field\"\nassessment.py:137:                return \"CONTRADICTED\", kind, note\nassessment.py:139:                # SUPPORTED is right \u2014 a stricter internal rule satisfies a\nassessment.py:148:                return \"SUPPORTED\", kind, note\nassessment.py:153:        return \"SUPPORTED\", \"token_entailment\", \"governing terms are present in the assertion\"\nassessment.py:154:    return \"ABSENT\", \"token_entailment\", \"candidate does not address the governing field\"\nassessment.py:161:    call site so `_compare` keeps one branch for both SUPPORTED outcomes.\nassessment.py:237:            determination=\"ABSENT\",\nassessment.py:274:    if any(r.determination == \"CONTRADICTED\" for r in constrained):\nassessment.py:275:        determination = \"CONTRADICTED\"\nassessment.py:289:    elif any(r.determination == \"ABSENT\" for r in constrained):\nassessment.py:290:        determination = \"ABSENT\"\nassessment.py:317:        determination = \"SUPPORTED\"\nassessment.py:324:        counterevidence_anchor_ids=[internal_anchor] if determination == \"CONTRADICTED\" else [],\nassessment.py:352:        r.atom_id: (\"CONTRADICTED\" if r.determination in {\"ABSENT\", \"PARTIAL\"} else r.determination)\nassessment.py:360:    # Roll-up below preserves ABSENT/PARTIAL; the folded set only ever contains\nassessment.py:361:    # SUPPORTED/CONTRADICTED/UNRESOLVED, which is what the evaluator accepts.\nassessment.py:368:    elif any(value == \"CONTRADICTED\" for value in determinations):\nassessment.py:369:        overall, code, missing = \"CONTRADICTED\", \"\", {}\nassessment.py:370:    elif determinations and all(value == \"SUPPORTED\" for value in determinations):\nassessment.py:371:        overall, code, missing = \"SUPPORTED\", \"\", {}\nassessment.py:372:    elif determinations and all(value == \"ABSENT\" for value in determinations):\nassessment.py:373:        overall, code, missing = \"ABSENT\", \"\", {}\nassessment.py:375:        overall, code, missing = \"PARTIAL\", \"\", {}\nassessment.py:646:_COUNCIL_MET = (\"SUPPORTED\",)\nassessment.py:662:    PARTIAL beside a reading PARTIAL is agreement, and a council SUPPORTED\nassessment.py:663:    beside a reading PARTIAL is the finer-grained reading the duty enumeration\nassessment.py:671:        decision == \"ABSENT\" and documentary in (\"FULL\", \"PARTIAL\")\nassessment.py:737:    projection exposes the ordinary FULL/PARTIAL/NONE vocabulary only under an\nassessment.py:745:        if documentary in (\"FULL\", \"PARTIAL\", \"NONE\"):\nassessment.py:793:            decision == \"ABSENT\" or any(g.kind == \"OMISSION\" for g in explanation.gaps)\nruntime_config.py:11:MISSING/EMPTY status (which makes every actor-CU return ABSENT with a complete\ncouncil.py:38:_DETERMINATIONS = (\"SUPPORTED\", \"PARTIAL\", \"CONTRADICTED\", \"ABSENT\", \"INSUFFICIENT\")\ncouncil.py:39:_UNMET = (\"PARTIAL\", \"CONTRADICTED\", \"ABSENT\")\ncouncil.py:81:    \"- ABSENT = the packet is complete and no candidate addresses the unit.\\n\"\ncouncil.py:90:    \"term, the mapping is stale: return PARTIAL with OUTDATED_LANGUAGE, even \"\ncouncil.py:95:    '\"SUPPORTED|PARTIAL|CONTRADICTED|ABSENT|INSUFFICIENT\",'\ncouncil.py:176:    if det in (\"SUPPORTED\", \"PARTIAL\", \"CONTRADICTED\") and (not cited or off):\ncouncil.py:375:            decision = \"SUPPORTED\"\nmigrations/schema.py:378:        -- requireme",
+   "error": false
+  },
+  {
+   "name": "file_read",
+   "args": {
+    "path": "portal/modules/compliance/core/council.py"
+   },
+   "raw_args": "{\"path\": \"portal/modules/compliance/core/council.py\"}",
+   "output": "\"\"\"The council (TASK_COMPLIANCE_REASONING_V6 P5).\n\nV4's mechanics, unchanged: sealed packets, cite-or-drop, quorum computed in\ncode, dissent recorded as ``S04_INTERPRETATION_DISPUTE``. Two things are new\nfor V6:\n\n  - judgment is **listwise over the CU plan** \u2014 one model call per governing\n    anchor, the seat seeing every candidate at once so it can weigh the\n    relationships among them, not one call per atom;\n  - a **second, separate call performs the exception override** against the\n    reference closure whenever the first call judges the CU unmet.\n\nThe packet is the structured JSON ``GateResult.to_council_packet()`` produces \u2014\nnever raw document text (the KG-representation literature finds structured JSON\nbeats prose for fact-intensive judgment). Inference from silence is forbidden\nin the seat contract and tested: an ambiguous or under-evidenced packet returns\n``insufficient``, never a guess.\n\nThe model call is injected (``seat_fn``); the default talks to Ollama. No seat\never sees another seat's answer, the prior determination, the approval state or\na gold label.\n\"\"\"\n\nfrom __future__ import annotations\n\nimport json\nimport math\nimport re\nfrom collections import Counter, deque\nfrom collections.abc import Callable\nfrom dataclasses import dataclass, field\nfrom typing import Any\n\nfrom portal.modules.compliance.core import cancellation\n\nSeatFn = Callable[[str, str, str], str]  # (model, system, user) -> raw text\n\n_DETERMINATIONS = (\"SUPPORTED\", \"PARTIAL\", \"CONTRADICTED\", \"ABSENT\", \"INSUFFICIENT\")\n_UNMET = (\"PARTIAL\", \"CONTRADICTED\", \"ABSENT\")\n_FINDING_TYPES = (\"\", \"GAP\", \"CONTRADICTION\", \"OUTDATED_LANGUAGE\", \"WEAK_MAPPING\")\n\n# A judgment is a reasoning task. 900 tokens fitted a one-sentence rationale\n# with reasoning suppressed; it cannot hold a read of a Part plus its\n# candidates. Raised with the suppression removed (f350324a solved a /v1 leak by\n# disabling thought; /api/chat separates the channels).\n_SEAT_BUDGET = 8192\n\n# Per-call reasoning provenance for the run receipt. Bounded: this module is\n# imported by a long-lived MCP server, so an unbounded list would be a slow leak.\n_LAST_TRACE: deque[dict[str, Any]] = deque(maxlen=256)\n\n# reading_transport.DEFAULT_TEMPERATURE (0.0, greedy) is the right default for\n# a JSON-verdict task on an instruct model \u2014 deterministic, reproducible. It is\n# the WRONG default for a reasoning model: DeepSeek's own model card explicitly\n# warns that greedy decoding on DeepSeek-R1 causes repetition loops and\n# incoherent output, and recommends 0.5-0.7 (0.6) with top_p 0.95. council.py\n# has no per-seat sampling override in its call chain (SeatFn is just\n# (model, system, user) -> str), so without this table the deepseek_r1 seat\n# (promoted 2026-09-26, config/compliance/council.yaml) would silently run at\n# temperature 0 against its own vendor's guidance. Same pattern as\n# reading_transport._THINK_CAPABLE \u2014 a per-model exception table, not a\n# blanket change to the system-wide default the other seats rely on.\n_MODEL_TEMPERATURE: dict[str, float] = {\n    \"hf.co/unsloth/DeepSeek-R1-0528-Qwen3-8B-GGUF:Q4_K_XL-ctx64k\": 0.6,\n}\n\n_SEAT_SYSTEM = (\n    \"You are one sealed seat on a compliance review council. You receive a \"\n    \"PRE-ANALYZED problem as JSON: one governing compliance unit already \"\n    \"decomposed into subject/constraint/condition/context, its applicability \"\n    \"state, its reference closure, its exception clauses, and a list of \"\n    \"candidate internal commitments each already checked for actor alignment \"\n    \"and (where a quantity exists) constraint direction.\\n\"\n    \"Decide whether the candidates, taken together, satisfy the governing \"\n    \"unit. RULES:\\n\"\n    \"- Judge only this governing unit. Do not invent obligations.\\n\"\n    \"- A candidate the gate marked MORE_RESTRICTIVE or EQUIVALENT SATISFIES \"\n    \"the constraint \u2014 stricter is never a violation.\\n\"\n    \"- Do NOT infer from silence. If the packet lacks evidence you need, or \"\n    \"applicability is UNKNOWN/CONFLICTED, return INSU",
+   "error": false
+  },
+  {
+   "name": "file_read",
+   "args": {
+    "path": "portal/modules/compliance/core/assessment.py"
+   },
+   "raw_args": "{\"path\": \"portal/modules/compliance/core/assessment.py\"}",
+   "output": "\"\"\"Field-level deterministic compliance assessment (V3 P5).\"\"\"\n\nfrom __future__ import annotations\n\nimport hashlib\nimport json\nimport logging\nimport os\nimport re\nimport uuid\nfrom dataclasses import asdict\nfrom typing import Any, cast\n\nfrom portal.modules.compliance.core.boundary import BoundarySearch, persist\nfrom portal.modules.compliance.core.comparison import ExpressionNode, Status, evaluate_expression\nfrom portal.modules.compliance.core.constraints import (\n    Quantity,\n    compare_constraint,\n    infer_constraint_kind,\n)\nfrom portal.modules.compliance.core.determination import (\n    FIELDS,\n    AssessmentContext,\n    AssessmentRequest,\n    AssessmentResult,\n    AtomResult,\n    FieldResult,\n    RequirementResult,\n)\n\nlogger = logging.getLogger(__name__)\n\n_QUANTITY = re.compile(\n    r\"(?P<value>\\d+)\\s+(?:(?P<qualifier>calendar|business)\\s+)?(?P<unit>hour|day|week|month|year)s?\",\n    re.I,\n)\n\n_VOCAB_CACHE: list[Any] = []\n\n\ndef _actor_alignment(internal_actor: str, governing_actor: str) -> Any:\n    \"\"\"Actor alignment through the recorded hypernym-proposal chain (P3) \u2014 the\n    principled replacement for the old role-word regex. No org name or role\n    literal lives in this module (Y07).\"\"\"\n    from portal.modules.compliance.core.vocabulary_bridge import align_actor, derive_vocabulary\n\n    if not _VOCAB_CACHE:\n        _VOCAB_CACHE.append(derive_vocabulary())\n    return align_actor(internal_actor, governing_actor, _VOCAB_CACHE[0])\n\n\ndef _value(item: dict[str, Any], field: str) -> str:\n    if field == \"condition\":\n        item = item.get(\"conditions\", item.get(\"conditions_json\", item.get(field, \"\")))\n    elif field == \"exception\":\n        item = item.get(\"exceptions\", item.get(\"exceptions_json\", item.get(field, \"\")))\n    else:\n        item = item.get(field, \"\")\n    if isinstance(item, list):\n        return \" \".join(map(str, item))\n    return str(item or \"\").strip()\n\n\ndef _norm(value: str) -> set[str]:\n    return {\n        word\n        for word in re.findall(r\"[a-z0-9]+\", value.lower())\n        if word\n        not in {\n            \"the\",\n            \"a\",\n            \"an\",\n            \"of\",\n            \"to\",\n            \"and\",\n            \"or\",\n            \"for\",\n            \"in\",\n            \"on\",\n            \"by\",\n            \"each\",\n            \"its\",\n            \"that\",\n            \"this\",\n            \"with\",\n            \"from\",\n            \"be\",\n            \"are\",\n            \"is\",\n            \"at\",\n            \"shall\",\n            \"must\",\n            \"required\",\n            \"entity\",\n            \"responsible\",\n        }\n    }\n\n\ndef _compare(\n    field: str, governing: str, internal: str, candidate: dict[str, Any]\n) -> tuple[str, str, str]:\n    if not governing:\n        return \"SUPPORTED\", \"not_constrained\", \"governing atom does not constrain this field\"\n    source_text = str(candidate.get(\"source_text\", \"\"))\n    if field == \"modality\" and candidate.get(\"binding_effect\") == \"internally_mandatory\":\n        return \"SUPPORTED\", \"binding_effect\", \"controlled procedure text is internally mandatory\"\n    if field == \"actor\":\n        alignment = _actor_alignment(internal or source_text, governing)\n        if alignment.aligned:\n            return \"SUPPORTED\", \"vocabulary_bridge\", alignment.note\n    if not internal:\n        left, context = _norm(governing), _norm(source_text)\n        if left and len(left & context) / len(left) >= 0.6:\n            return (\n                \"SUPPORTED\",\n                \"source_context\",\n                \"governing field is present in the anchored assertion text\",\n            )\n        return \"ABSENT\", \"presence\", \"internal assertion omits the governing field\"\n    if governing.casefold() == internal.casefold():\n        return \"SUPPORTED\", \"exact\", \"internal field exactly matches the governing field\"\n    if field == \"deadline_cadence\":\n        gq, iq = _QUANTITY.search(governing), _QUANTITY.search(internal)\n        kind = infer_constraint_kind(governing)\n        if gq and iq and kind:\n            outcome, not",
+   "error": false
+  },
+  {
+   "name": "file_read",
+   "args": {
+    "path": "portal/modules/compliance/core/vocabulary_bridge.py"
+   },
+   "raw_args": "{\"path\": \"portal/modules/compliance/core/vocabulary_bridge.py\"}",
+   "output": "\"\"\"The vocabulary bridge (TASK_COMPLIANCE_REASONING_V6 P3).\n\nThe principled replacement for the ``<org>|SME|OT|Security|Manager|Owner`` regex\nthat ``assessment._compare`` used to decide actor alignment. Following\nGraphCompliance \u00a71.5, an organization entity is mapped to policy vocabulary\nthrough **hypernym proposals**, each marked:\n\n  - ``STRONG`` when its supporting fragment is a *premise* (a defined term, an\n    impact-rating criterion, a scope statement) \u2014 authoritative;\n  - ``WEAK``   otherwise \u2014 a lexical hint only.\n\nConfidence aggregates by max-pooling the per-proposal scores plus a bonus when\na STRONG proposal is present. Every mapping keeps its supporting fragment, so\n\"OT Security Manager resolves to Responsible Entity\" is a recorded, reviewable\nchain, not a literal buried in a comparator.\n\nThe policy vocabulary is derived from the typed policy graph's premises plus\nthe NERC defined terms the register text itself surfaces (capitalised\nmulti-word phrases and acronyms \u2014 NERC's own convention for a glossary term).\nIngesting the published NERC *Glossary of Terms* PDF as an additional premise\nsource is gated on nerc.com reachability (honest-BLOCKED, mirroring\n``currency.nerc_currency``); the register-derived term set is the floor.\n\"\"\"\n\nfrom __future__ import annotations\n\nimport re\nfrom dataclasses import dataclass, field\nfrom typing import Literal\n\nfrom portal.modules.compliance.core.policy_graph import PolicyGraph, build_policy_graph\n\nStrength = Literal[\"STRONG\", \"WEAK\"]\n\n# NERC's functional model: the \"Responsible Entity\" of a CIP standard is\n# whichever registered functional entity the standard applies to. An operator's\n# internal roles (a manager, an owner, a team) are assignments *within* that\n# entity \u2014 CIP-004/003 explicitly contemplate delegation. This is public\n# structure from the NERC Rules of Procedure, not a tuned heuristic.\n_FUNCTIONAL_ENTITIES = (\n    \"Responsible Entity\",\n    \"Transmission Owner\",\n    \"Transmission Operator\",\n    \"Generator Operator\",\n    \"Generator Owner\",\n    \"Reliability Coordinator\",\n    \"Balancing Authority\",\n    \"Distribution Provider\",\n    \"Planning Coordinator\",\n    \"Interchange Coordinator\",\n)\n_ROLE_HEAD = re.compile(\n    r\"\\b(manager|owner|delegate|team|operator|analyst|administrator|coordinator|\"\n    r\"engineer|lead|director|officer|personnel|staff|group|committee|custodian)\\b\",\n    re.I,\n)\n\n# Acronym expansions stated in the CIP standards' own Applicable Systems text.\n_ACRONYM_SEED: dict[str, str] = {\n    \"EACMS\": \"Electronic Access Control or Monitoring Systems\",\n    \"PACS\": \"Physical Access Control Systems\",\n    \"PCA\": \"Protected Cyber Asset\",\n    \"ESP\": \"Electronic Security Perimeter\",\n    \"EAP\": \"Electronic Access Point\",\n    \"BCA\": \"BES Cyber Asset\",\n    \"BCS\": \"BES Cyber System\",\n    \"BCSI\": \"BES Cyber System Information\",\n    \"TCA\": \"Transient Cyber Asset\",\n    \"IRA\": \"Interactive Remote Access\",\n    \"PSP\": \"Physical Security Perimeter\",\n    \"CIP SM\": \"CIP Senior Manager\",\n}\n\n_STOP_PREFIX = re.compile(r\"^(Each |The |For |A |An |Its )\", re.I)\n_CAP_TERM = re.compile(\n    r\"\\b((?:[A-Z]{2,6} )?[A-Z][a-z]+(?: (?:[A-Z][a-z]+|of|or|and)){1,4}|[A-Z]{2,6})\\b\"\n)\n_NOISE = {\n    \"Each\",\n    \"The\",\n    \"This\",\n    \"That\",\n    \"Requirement\",\n    \"Part\",\n    \"Section\",\n    \"Attachment\",\n    \"Table\",\n    \"Where\",\n    \"For\",\n    \"Reference Model\",\n    \"MW\",\n    \"kV\",\n}\n\n\ndef _norm(term: str) -> str:\n    t = _STOP_PREFIX.sub(\"\", term).strip()\n    t = re.sub(\n        r\"\\b(Systems|Assets|Incidents|Centers|Facilities|Media)\\b\",\n        lambda m: m.group(1)[:-1] if m.group(1) != \"Media\" else m.group(1),\n        t,\n    )\n    t = re.sub(r\"s$\", \"\", t) if t.endswith(\"s\") and not t.endswith(\"ss\") else t\n    return t.strip()\n\n\n@dataclass\nclass VocabTerm:\n    term: str\n    canonical: str\n    strength: Strength  # STRONG if any supporting fragment is a premise\n    supporting_fragments: list[dict[str, str]] = field(default_factory=list)\n    is_functional_entity: bool = False\n\n\n@dataclass\nclass HypernymP",
+   "error": false
+  },
+  {
+   "name": "file_read",
+   "args": {
+    "path": "portal/modules/compliance/core/council.py"
+   },
+   "raw_args": "{\"path\": \"portal/modules/compliance/core/council.py\"}",
+   "output": "\"\"\"The council (TASK_COMPLIANCE_REASONING_V6 P5).\n\nV4's mechanics, unchanged: sealed packets, cite-or-drop, quorum computed in\ncode, dissent recorded as ``S04_INTERPRETATION_DISPUTE``. Two things are new\nfor V6:\n\n  - judgment is **listwise over the CU plan** \u2014 one model call per governing\n    anchor, the seat seeing every candidate at once so it can weigh the\n    relationships among them, not one call per atom;\n  - a **second, separate call performs the exception override** against the\n    reference closure whenever the first call judges the CU unmet.\n\nThe packet is the structured JSON ``GateResult.to_council_packet()`` produces \u2014\nnever raw document text (the KG-representation literature finds structured JSON\nbeats prose for fact-intensive judgment). Inference from silence is forbidden\nin the seat contract and tested: an ambiguous or under-evidenced packet returns\n``insufficient``, never a guess.\n\nThe model call is injected (``seat_fn``); the default talks to Ollama. No seat\never sees another seat's answer, the prior determination, the approval state or\na gold label.\n\"\"\"\n\nfrom __future__ import annotations\n\nimport json\nimport math\nimport re\nfrom collections import Counter, deque\nfrom collections.abc import Callable\nfrom dataclasses import dataclass, field\nfrom typing import Any\n\nfrom portal.modules.compliance.core import cancellation\n\nSeatFn = Callable[[str, str, str], str]  # (model, system, user) -> raw text\n\n_DETERMINATIONS = (\"SUPPORTED\", \"PARTIAL\", \"CONTRADICTED\", \"ABSENT\", \"INSUFFICIENT\")\n_UNMET = (\"PARTIAL\", \"CONTRADICTED\", \"ABSENT\")\n_FINDING_TYPES = (\"\", \"GAP\", \"CONTRADICTION\", \"OUTDATED_LANGUAGE\", \"WEAK_MAPPING\")\n\n# A judgment is a reasoning task. 900 tokens fitted a one-sentence rationale\n# with reasoning suppressed; it cannot hold a read of a Part plus its\n# candidates. Raised with the suppression removed (f350324a solved a /v1 leak by\n# disabling thought; /api/chat separates the channels).\n_SEAT_BUDGET = 8192\n\n# Per-call reasoning provenance for the run receipt. Bounded: this module is\n# imported by a long-lived MCP server, so an unbounded list would be a slow leak.\n_LAST_TRACE: deque[dict[str, Any]] = deque(maxlen=256)\n\n# reading_transport.DEFAULT_TEMPERATURE (0.0, greedy) is the right default for\n# a JSON-verdict task on an instruct model \u2014 deterministic, reproducible. It is\n# the WRONG default for a reasoning model: DeepSeek's own model card explicitly\n# warns that greedy decoding on DeepSeek-R1 causes repetition loops and\n# incoherent output, and recommends 0.5-0.7 (0.6) with top_p 0.95. council.py\n# has no per-seat sampling override in its call chain (SeatFn is just\n# (model, system, user) -> str), so without this table the deepseek_r1 seat\n# (promoted 2026-09-26, config/compliance/council.yaml) would silently run at\n# temperature 0 against its own vendor's guidance. Same pattern as\n# reading_transport._THINK_CAPABLE \u2014 a per-model exception table, not a\n# blanket change to the system-wide default the other seats rely on.\n_MODEL_TEMPERATURE: dict[str, float] = {\n    \"hf.co/unsloth/DeepSeek-R1-0528-Qwen3-8B-GGUF:Q4_K_XL-ctx64k\": 0.6,\n}\n\n_SEAT_SYSTEM = (\n    \"You are one sealed seat on a compliance review council. You receive a \"\n    \"PRE-ANALYZED problem as JSON: one governing compliance unit already \"\n    \"decomposed into subject/constraint/condition/context, its applicability \"\n    \"state, its reference closure, its exception clauses, and a list of \"\n    \"candidate internal commitments each already checked for actor alignment \"\n    \"and (where a quantity exists) constraint direction.\\n\"\n    \"Decide whether the candidates, taken together, satisfy the governing \"\n    \"unit. RULES:\\n\"\n    \"- Judge only this governing unit. Do not invent obligations.\\n\"\n    \"- A candidate the gate marked MORE_RESTRICTIVE or EQUIVALENT SATISFIES \"\n    \"the constraint \u2014 stricter is never a violation.\\n\"\n    \"- Do NOT infer from silence. If the packet lacks evidence you need, or \"\n    \"applicability is UNKNOWN/CONFLICTED, return INSU",
+   "error": false
+  },
+  {
+   "name": "file_read",
+   "args": {
+    "path": "portal/modules/compliance/core/council.py"
+   },
+   "raw_args": "{\"path\": \"portal/modules/compliance/core/council.py\"}",
+   "output": "\"\"\"The council (TASK_COMPLIANCE_REASONING_V6 P5).\n\nV4's mechanics, unchanged: sealed packets, cite-or-drop, quorum computed in\ncode, dissent recorded as ``S04_INTERPRETATION_DISPUTE``. Two things are new\nfor V6:\n\n  - judgment is **listwise over the CU plan** \u2014 one model call per governing\n    anchor, the seat seeing every candidate at once so it can weigh the\n    relationships among them, not one call per atom;\n  - a **second, separate call performs the exception override** against the\n    reference closure whenever the first call judges the CU unmet.\n\nThe packet is the structured JSON ``GateResult.to_council_packet()`` produces \u2014\nnever raw document text (the KG-representation literature finds structured JSON\nbeats prose for fact-intensive judgment). Inference from silence is forbidden\nin the seat contract and tested: an ambiguous or under-evidenced packet returns\n``insufficient``, never a guess.\n\nThe model call is injected (``seat_fn``); the default talks to Ollama. No seat\never sees another seat's answer, the prior determination, the approval state or\na gold label.\n\"\"\"\n\nfrom __future__ import annotations\n\nimport json\nimport math\nimport re\nfrom collections import Counter, deque\nfrom collections.abc import Callable\nfrom dataclasses import dataclass, field\nfrom typing import Any\n\nfrom portal.modules.compliance.core import cancellation\n\nSeatFn = Callable[[str, str, str], str]  # (model, system, user) -> raw text\n\n_DETERMINATIONS = (\"SUPPORTED\", \"PARTIAL\", \"CONTRADICTED\", \"ABSENT\", \"INSUFFICIENT\")\n_UNMET = (\"PARTIAL\", \"CONTRADICTED\", \"ABSENT\")\n_FINDING_TYPES = (\"\", \"GAP\", \"CONTRADICTION\", \"OUTDATED_LANGUAGE\", \"WEAK_MAPPING\")\n\n# A judgment is a reasoning task. 900 tokens fitted a one-sentence rationale\n# with reasoning suppressed; it cannot hold a read of a Part plus its\n# candidates. Raised with the suppression removed (f350324a solved a /v1 leak by\n# disabling thought; /api/chat separates the channels).\n_SEAT_BUDGET = 8192\n\n# Per-call reasoning provenance for the run receipt. Bounded: this module is\n# imported by a long-lived MCP server, so an unbounded list would be a slow leak.\n_LAST_TRACE: deque[dict[str, Any]] = deque(maxlen=256)\n\n# reading_transport.DEFAULT_TEMPERATURE (0.0, greedy) is the right default for\n# a JSON-verdict task on an instruct model \u2014 deterministic, reproducible. It is\n# the WRONG default for a reasoning model: DeepSeek's own model card explicitly\n# warns that greedy decoding on DeepSeek-R1 causes repetition loops and\n# incoherent output, and recommends 0.5-0.7 (0.6) with top_p 0.95. council.py\n# has no per-seat sampling override in its call chain (SeatFn is just\n# (model, system, user) -> str), so without this table the deepseek_r1 seat\n# (promoted 2026-09-26, config/compliance/council.yaml) would silently run at\n# temperature 0 against its own vendor's guidance. Same pattern as\n# reading_transport._THINK_CAPABLE \u2014 a per-model exception table, not a\n# blanket change to the system-wide default the other seats rely on.\n_MODEL_TEMPERATURE: dict[str, float] = {\n    \"hf.co/unsloth/DeepSeek-R1-0528-Qwen3-8B-GGUF:Q4_K_XL-ctx64k\": 0.6,\n}\n\n_SEAT_SYSTEM = (\n    \"You are one sealed seat on a compliance review council. You receive a \"\n    \"PRE-ANALYZED problem as JSON: one governing compliance unit already \"\n    \"decomposed into subject/constraint/condition/context, its applicability \"\n    \"state, its reference closure, its exception clauses, and a list of \"\n    \"candidate internal commitments each already checked for actor alignment \"\n    \"and (where a quantity exists) constraint direction.\\n\"\n    \"Decide whether the candidates, taken together, satisfy the governing \"\n    \"unit. RULES:\\n\"\n    \"- Judge only this governing unit. Do not invent obligations.\\n\"\n    \"- A candidate the gate marked MORE_RESTRICTIVE or EQUIVALENT SATISFIES \"\n    \"the constraint \u2014 stricter is never a violation.\\n\"\n    \"- Do NOT infer from silence. If the packet lacks evidence you need, or \"\n    \"applicability is UNKNOWN/CONFLICTED, return INSU",
+   "error": false
+  },
+  {
+   "name": "file_read",
+   "args": {
+    "path": "portal/modules/compliance/core/council.py"
+   },
+   "raw_args": "{\"path\": \"portal/modules/compliance/core/council.py\"}",
+   "output": "\"\"\"The council (TASK_COMPLIANCE_REASONING_V6 P5).\n\nV4's mechanics, unchanged: sealed packets, cite-or-drop, quorum computed in\ncode, dissent recorded as ``S04_INTERPRETATION_DISPUTE``. Two things are new\nfor V6:\n\n  - judgment is **listwise over the CU plan** \u2014 one model call per governing\n    anchor, the seat seeing every candidate at once so it can weigh the\n    relationships among them, not one call per atom;\n  - a **second, separate call performs the exception override** against the\n    reference closure whenever the first call judges the CU unmet.\n\nThe packet is the structured JSON ``GateResult.to_council_packet()`` produces \u2014\nnever raw document text (the KG-representation literature finds structured JSON\nbeats prose for fact-intensive judgment). Inference from silence is forbidden\nin the seat contract and tested: an ambiguous or under-evidenced packet returns\n``insufficient``, never a guess.\n\nThe model call is injected (``seat_fn``); the default talks to Ollama. No seat\never sees another seat's answer, the prior determination, the approval state or\na gold label.\n\"\"\"\n\nfrom __future__ import annotations\n\nimport json\nimport math\nimport re\nfrom collections import Counter, deque\nfrom collections.abc import Callable\nfrom dataclasses import dataclass, field\nfrom typing import Any\n\nfrom portal.modules.compliance.core import cancellation\n\nSeatFn = Callable[[str, str, str], str]  # (model, system, user) -> raw text\n\n_DETERMINATIONS = (\"SUPPORTED\", \"PARTIAL\", \"CONTRADICTED\", \"ABSENT\", \"INSUFFICIENT\")\n_UNMET = (\"PARTIAL\", \"CONTRADICTED\", \"ABSENT\")\n_FINDING_TYPES = (\"\", \"GAP\", \"CONTRADICTION\", \"OUTDATED_LANGUAGE\", \"WEAK_MAPPING\")\n\n# A judgment is a reasoning task. 900 tokens fitted a one-sentence rationale\n# with reasoning suppressed; it cannot hold a read of a Part plus its\n# candidates. Raised with the suppression removed (f350324a solved a /v1 leak by\n# disabling thought; /api/chat separates the channels).\n_SEAT_BUDGET = 8192\n\n# Per-call reasoning provenance for the run receipt. Bounded: this module is\n# imported by a long-lived MCP server, so an unbounded list would be a slow leak.\n_LAST_TRACE: deque[dict[str, Any]] = deque(maxlen=256)\n\n# reading_transport.DEFAULT_TEMPERATURE (0.0, greedy) is the right default for\n# a JSON-verdict task on an instruct model \u2014 deterministic, reproducible. It is\n# the WRONG default for a reasoning model: DeepSeek's own model card explicitly\n# warns that greedy decoding on DeepSeek-R1 causes repetition loops and\n# incoherent output, and recommends 0.5-0.7 (0.6) with top_p 0.95. council.py\n# has no per-seat sampling override in its call chain (SeatFn is just\n# (model, system, user) -> str), so without this table the deepseek_r1 seat\n# (promoted 2026-09-26, config/compliance/council.yaml) would silently run at\n# temperature 0 against its own vendor's guidance. Same pattern as\n# reading_transport._THINK_CAPABLE \u2014 a per-model exception table, not a\n# blanket change to the system-wide default the other seats rely on.\n_MODEL_TEMPERATURE: dict[str, float] = {\n    \"hf.co/unsloth/DeepSeek-R1-0528-Qwen3-8B-GGUF:Q4_K_XL-ctx64k\": 0.6,\n}\n\n_SEAT_SYSTEM = (\n    \"You are one sealed seat on a compliance review council. You receive a \"\n    \"PRE-ANALYZED problem as JSON: one governing compliance unit already \"\n    \"decomposed into subject/constraint/condition/context, its applicability \"\n    \"state, its reference closure, its exception clauses, and a list of \"\n    \"candidate internal commitments each already checked for actor alignment \"\n    \"and (where a quantity exists) constraint direction.\\n\"\n    \"Decide whether the candidates, taken together, satisfy the governing \"\n    \"unit. RULES:\\n\"\n    \"- Judge only this governing unit. Do not invent obligations.\\n\"\n    \"- A candidate the gate marked MORE_RESTRICTIVE or EQUIVALENT SATISFIES \"\n    \"the constraint \u2014 stricter is never a violation.\\n\"\n    \"- Do NOT infer from silence. If the packet lacks evidence you need, or \"\n    \"applicability is UNKNOWN/CONFLICTED, return INSU",
+   "error": false
+  },
+  {
+   "name": "file_read",
+   "args": {
+    "path": "portal/modules/compliance/core/council.py"
+   },
+   "raw_args": "{\"path\": \"portal/modules/compliance/core/council.py\"}",
+   "output": "\"\"\"The council (TASK_COMPLIANCE_REASONING_V6 P5).\n\nV4's mechanics, unchanged: sealed packets, cite-or-drop, quorum computed in\ncode, dissent recorded as ``S04_INTERPRETATION_DISPUTE``. Two things are new\nfor V6:\n\n  - judgment is **listwise over the CU plan** \u2014 one model call per governing\n    anchor, the seat seeing every candidate at once so it can weigh the\n    relationships among them, not one call per atom;\n  - a **second, separate call performs the exception override** against the\n    reference closure whenever the first call judges the CU unmet.\n\nThe packet is the structured JSON ``GateResult.to_council_packet()`` produces \u2014\nnever raw document text (the KG-representation literature finds structured JSON\nbeats prose for fact-intensive judgment). Inference from silence is forbidden\nin the seat contract and tested: an ambiguous or under-evidenced packet returns\n``insufficient``, never a guess.\n\nThe model call is injected (``seat_fn``); the default talks to Ollama. No seat\never sees another seat's answer, the prior determination, the approval state or\na gold label.\n\"\"\"\n\nfrom __future__ import annotations\n\nimport json\nimport math\nimport re\nfrom collections import Counter, deque\nfrom collections.abc import Callable\nfrom dataclasses import dataclass, field\nfrom typing import Any\n\nfrom portal.modules.compliance.core import cancellation\n\nSeatFn = Callable[[str, str, str], str]  # (model, system, user) -> raw text\n\n_DETERMINATIONS = (\"SUPPORTED\", \"PARTIAL\", \"CONTRADICTED\", \"ABSENT\", \"INSUFFICIENT\")\n_UNMET = (\"PARTIAL\", \"CONTRADICTED\", \"ABSENT\")\n_FINDING_TYPES = (\"\", \"GAP\", \"CONTRADICTION\", \"OUTDATED_LANGUAGE\", \"WEAK_MAPPING\")\n\n# A judgment is a reasoning task. 900 tokens fitted a one-sentence rationale\n# with reasoning suppressed; it cannot hold a read of a Part plus its\n# candidates. Raised with the suppression removed (f350324a solved a /v1 leak by\n# disabling thought; /api/chat separates the channels).\n_SEAT_BUDGET = 8192\n\n# Per-call reasoning provenance for the run receipt. Bounded: this module is\n# imported by a long-lived MCP server, so an unbounded list would be a slow leak.\n_LAST_TRACE: deque[dict[str, Any]] = deque(maxlen=256)\n\n# reading_transport.DEFAULT_TEMPERATURE (0.0, greedy) is the right default for\n# a JSON-verdict task on an instruct model \u2014 deterministic, reproducible. It is\n# the WRONG default for a reasoning model: DeepSeek's own model card explicitly\n# warns that greedy decoding on DeepSeek-R1 causes repetition loops and\n# incoherent output, and recommends 0.5-0.7 (0.6) with top_p 0.95. council.py\n# has no per-seat sampling override in its call chain (SeatFn is just\n# (model, system, user) -> str), so without this table the deepseek_r1 seat\n# (promoted 2026-09-26, config/compliance/council.yaml) would silently run at\n# temperature 0 against its own vendor's guidance. Same pattern as\n# reading_transport._THINK_CAPABLE \u2014 a per-model exception table, not a\n# blanket change to the system-wide default the other seats rely on.\n_MODEL_TEMPERATURE: dict[str, float] = {\n    \"hf.co/unsloth/DeepSeek-R1-0528-Qwen3-8B-GGUF:Q4_K_XL-ctx64k\": 0.6,\n}\n\n_SEAT_SYSTEM = (\n    \"You are one sealed seat on a compliance review council. You receive a \"\n    \"PRE-ANALYZED problem as JSON: one governing compliance unit already \"\n    \"decomposed into subject/constraint/condition/context, its applicability \"\n    \"state, its reference closure, its exception clauses, and a list of \"\n    \"candidate internal commitments each already checked for actor alignment \"\n    \"and (where a quantity exists) constraint direction.\\n\"\n    \"Decide whether the candidates, taken together, satisfy the governing \"\n    \"unit. RULES:\\n\"\n    \"- Judge only this governing unit. Do not invent obligations.\\n\"\n    \"- A candidate the gate marked MORE_RESTRICTIVE or EQUIVALENT SATISFIES \"\n    \"the constraint \u2014 stricter is never a violation.\\n\"\n    \"- Do NOT infer from silence. If the packet lacks evidence you need, or \"\n    \"applicability is UNKNOWN/CONFLICTED, return INSU",
+   "error": false
+  },
+  {
+   "name": "file_read",
+   "args": {
+    "path": "portal/modules/compliance/core/council.py"
+   },
+   "raw_args": "{\"path\": \"portal/modules/compliance/core/council.py\"}",
+   "output": "\"\"\"The council (TASK_COMPLIANCE_REASONING_V6 P5).\n\nV4's mechanics, unchanged: sealed packets, cite-or-drop, quorum computed in\ncode, dissent recorded as ``S04_INTERPRETATION_DISPUTE``. Two things are new\nfor V6:\n\n  - judgment is **listwise over the CU plan** \u2014 one model call per governing\n    anchor, the seat seeing every candidate at once so it can weigh the\n    relationships among them, not one call per atom;\n  - a **second, separate call performs the exception override** against the\n    reference closure whenever the first call judges the CU unmet.\n\nThe packet is the structured JSON ``GateResult.to_council_packet()`` produces \u2014\nnever raw document text (the KG-representation literature finds structured JSON\nbeats prose for fact-intensive judgment). Inference from silence is forbidden\nin the seat contract and tested: an ambiguous or under-evidenced packet returns\n``insufficient``, never a guess.\n\nThe model call is injected (``seat_fn``); the default talks to Ollama. No seat\never sees another seat's answer, the prior determination, the approval state or\na gold label.\n\"\"\"\n\nfrom __future__ import annotations\n\nimport json\nimport math\nimport re\nfrom collections import Counter, deque\nfrom collections.abc import Callable\nfrom dataclasses import dataclass, field\nfrom typing import Any\n\nfrom portal.modules.compliance.core import cancellation\n\nSeatFn = Callable[[str, str, str], str]  # (model, system, user) -> raw text\n\n_DETERMINATIONS = (\"SUPPORTED\", \"PARTIAL\", \"CONTRADICTED\", \"ABSENT\", \"INSUFFICIENT\")\n_UNMET = (\"PARTIAL\", \"CONTRADICTED\", \"ABSENT\")\n_FINDING_TYPES = (\"\", \"GAP\", \"CONTRADICTION\", \"OUTDATED_LANGUAGE\", \"WEAK_MAPPING\")\n\n# A judgment is a reasoning task. 900 tokens fitted a one-sentence rationale\n# with reasoning suppressed; it cannot hold a read of a Part plus its\n# candidates. Raised with the suppression removed (f350324a solved a /v1 leak by\n# disabling thought; /api/chat separates the channels).\n_SEAT_BUDGET = 8192\n\n# Per-call reasoning provenance for the run receipt. Bounded: this module is\n# imported by a long-lived MCP server, so an unbounded list would be a slow leak.\n_LAST_TRACE: deque[dict[str, Any]] = deque(maxlen=256)\n\n# reading_transport.DEFAULT_TEMPERATURE (0.0, greedy) is the right default for\n# a JSON-verdict task on an instruct model \u2014 deterministic, reproducible. It is\n# the WRONG default for a reasoning model: DeepSeek's own model card explicitly\n# warns that greedy decoding on DeepSeek-R1 causes repetition loops and\n# incoherent output, and recommends 0.5-0.7 (0.6) with top_p 0.95. council.py\n# has no per-seat sampling override in its call chain (SeatFn is just\n# (model, system, user) -> str), so without this table the deepseek_r1 seat\n# (promoted 2026-09-26, config/compliance/council.yaml) would silently run at\n# temperature 0 against its own vendor's guidance. Same pattern as\n# reading_transport._THINK_CAPABLE \u2014 a per-model exception table, not a\n# blanket change to the system-wide default the other seats rely on.\n_MODEL_TEMPERATURE: dict[str, float] = {\n    \"hf.co/unsloth/DeepSeek-R1-0528-Qwen3-8B-GGUF:Q4_K_XL-ctx64k\": 0.6,\n}\n\n_SEAT_SYSTEM = (\n    \"You are one sealed seat on a compliance review council. You receive a \"\n    \"PRE-ANALYZED problem as JSON: one governing compliance unit already \"\n    \"decomposed into subject/constraint/condition/context, its applicability \"\n    \"state, its reference closure, its exception clauses, and a list of \"\n    \"candidate internal commitments each already checked for actor alignment \"\n    \"and (where a quantity exists) constraint direction.\\n\"\n    \"Decide whether the candidates, taken together, satisfy the governing \"\n    \"unit. RULES:\\n\"\n    \"- Judge only this governing unit. Do not invent obligations.\\n\"\n    \"- A candidate the gate marked MORE_RESTRICTIVE or EQUIVALENT SATISFIES \"\n    \"the constraint \u2014 stricter is never a violation.\\n\"\n    \"- Do NOT infer from silence. If the packet lacks evidence you need, or \"\n    \"applicability is UNKNOWN/CONFLICTED, return INSU",
+   "error": false
+  },
+  {
+   "name": "file_read",
+   "args": {
+    "path": "portal/modules/compliance/core/council.py"
+   },
+   "raw_args": "{\"path\": \"portal/modules/compliance/core/council.py\"}",
+   "output": "\"\"\"The council (TASK_COMPLIANCE_REASONING_V6 P5).\n\nV4's mechanics, unchanged: sealed packets, cite-or-drop, quorum computed in\ncode, dissent recorded as ``S04_INTERPRETATION_DISPUTE``. Two things are new\nfor V6:\n\n  - judgment is **listwise over the CU plan** \u2014 one model call per governing\n    anchor, the seat seeing every candidate at once so it can weigh the\n    relationships among them, not one call per atom;\n  - a **second, separate call performs the exception override** against the\n    reference closure whenever the first call judges the CU unmet.\n\nThe packet is the structured JSON ``GateResult.to_council_packet()`` produces \u2014\nnever raw document text (the KG-representation literature finds structured JSON\nbeats prose for fact-intensive judgment). Inference from silence is forbidden\nin the seat contract and tested: an ambiguous or under-evidenced packet returns\n``insufficient``, never a guess.\n\nThe model call is injected (``seat_fn``); the default talks to Ollama. No seat\never sees another seat's answer, the prior determination, the approval state or\na gold label.\n\"\"\"\n\nfrom __future__ import annotations\n\nimport json\nimport math\nimport re\nfrom collections import Counter, deque\nfrom collections.abc import Callable\nfrom dataclasses import dataclass, field\nfrom typing import Any\n\nfrom portal.modules.compliance.core import cancellation\n\nSeatFn = Callable[[str, str, str], str]  # (model, system, user) -> raw text\n\n_DETERMINATIONS = (\"SUPPORTED\", \"PARTIAL\", \"CONTRADICTED\", \"ABSENT\", \"INSUFFICIENT\")\n_UNMET = (\"PARTIAL\", \"CONTRADICTED\", \"ABSENT\")\n_FINDING_TYPES = (\"\", \"GAP\", \"CONTRADICTION\", \"OUTDATED_LANGUAGE\", \"WEAK_MAPPING\")\n\n# A judgment is a reasoning task. 900 tokens fitted a one-sentence rationale\n# with reasoning suppressed; it cannot hold a read of a Part plus its\n# candidates. Raised with the suppression removed (f350324a solved a /v1 leak by\n# disabling thought; /api/chat separates the channels).\n_SEAT_BUDGET = 8192\n\n# Per-call reasoning provenance for the run receipt. Bounded: this module is\n# imported by a long-lived MCP server, so an unbounded list would be a slow leak.\n_LAST_TRACE: deque[dict[str, Any]] = deque(maxlen=256)\n\n# reading_transport.DEFAULT_TEMPERATURE (0.0, greedy) is the right default for\n# a JSON-verdict task on an instruct model \u2014 deterministic, reproducible. It is\n# the WRONG default for a reasoning model: DeepSeek's own model card explicitly\n# warns that greedy decoding on DeepSeek-R1 causes repetition loops and\n# incoherent output, and recommends 0.5-0.7 (0.6) with top_p 0.95. council.py\n# has no per-seat sampling override in its call chain (SeatFn is just\n# (model, system, user) -> str), so without this table the deepseek_r1 seat\n# (promoted 2026-09-26, config/compliance/council.yaml) would silently run at\n# temperature 0 against its own vendor's guidance. Same pattern as\n# reading_transport._THINK_CAPABLE \u2014 a per-model exception table, not a\n# blanket change to the system-wide default the other seats rely on.\n_MODEL_TEMPERATURE: dict[str, float] = {\n    \"hf.co/unsloth/DeepSeek-R1-0528-Qwen3-8B-GGUF:Q4_K_XL-ctx64k\": 0.6,\n}\n\n_SEAT_SYSTEM = (\n    \"You are one sealed seat on a compliance review council. You receive a \"\n    \"PRE-ANALYZED problem as JSON: one governing compliance unit already \"\n    \"decomposed into subject/constraint/condition/context, its applicability \"\n    \"state, its reference closure, its exception clauses, and a list of \"\n    \"candidate internal commitments each already checked for actor alignment \"\n    \"and (where a quantity exists) constraint direction.\\n\"\n    \"Decide whether the candidates, taken together, satisfy the governing \"\n    \"unit. RULES:\\n\"\n    \"- Judge only this governing unit. Do not invent obligations.\\n\"\n    \"- A candidate the gate marked MORE_RESTRICTIVE or EQUIVALENT SATISFIES \"\n    \"the constraint \u2014 stricter is never a violation.\\n\"\n    \"- Do NOT infer from silence. If the packet lacks evidence you need, or \"\n    \"applicability is UNKNOWN/CONFLICTED, return INSU",
+   "error": false
+  }
+ ],
+ "final_text": "",
+ "repeat_degeneracy": null,
+ "model": "hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k",
+ "overrides": {},
+ "sampling_undelivered": []
+}

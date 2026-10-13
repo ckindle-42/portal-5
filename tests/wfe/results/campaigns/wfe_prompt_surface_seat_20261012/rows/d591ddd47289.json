@@ -1,0 +1,172 @@
+{
+ "schema": "wfe-result-2",
+ "run_id": "auto-coding::fast-repair|kat-coder-v2.5-dev:Q4_K_M-ctx32k|coding|code-fix-fizz|r1",
+ "campaign_id": "wfe_prompt_surface_seat_20261012",
+ "stage": "full",
+ "workspace": "auto-coding::fast-repair",
+ "arm": "kat-coder-v2.5-dev:Q4_K_M-ctx32k",
+ "arm_role": "incumbent",
+ "suite": "coding",
+ "task_id": "code-fix-fizz",
+ "repeat": 1,
+ "outcome": "PASS",
+ "notes": "seeded fixtures intact | hidden-suite code_fizz: passed=4 failed=0 errors=0 min_passed=4 :: 4 passed in 0.02s",
+ "evidence": {
+  "pytest_tail": "....                                                                     [100%]\n4 passed in 0.02s\n",
+  "served_models": [
+   "kat-coder-v2.5-dev:Q4_K_M-ctx32k"
+  ]
+ },
+ "persona_slug": "agenticheavy",
+ "prompt_sha": "949bc42f0157",
+ "tool_surface": [
+  "file_read",
+  "file_list",
+  "repo_search",
+  "pytest_run",
+  "file_write",
+  "http_get"
+ ],
+ "tool_surface_proxy": true,
+ "harness": {
+  "endpoint": "v1",
+  "stream": false,
+  "think": "native",
+  "format": "none"
+ },
+ "sampling": {
+  "seed": 1001,
+  "max_tokens_source": "pipeline"
+ },
+ "baked_params": {},
+ "seed": 1001,
+ "turns": 3,
+ "tool_calls": 5,
+ "tool_errors": 0,
+ "finish_reason": "stop",
+ "economics": {
+  "prompt_tokens": 4469,
+  "completion_tokens": 409,
+  "total_tokens": 4878,
+  "load_ms": null,
+  "wall_s": 9.1,
+  "cold_load": false
+ },
+ "env": {
+  "git_sha": "2b27d8c4",
+  "ollama_version": "0.40.0",
+  "python": "3.13.12",
+  "platform": "macOS-27.0.1-arm64-arm-64bit-Mach-O",
+  "engine": "pipeline",
+  "engine_base_url": "",
+  "engine_version": "unknown",
+  "fingerprint": "791254ff1757"
+ },
+ "final_text_head": "TASK COMPLETE\n\nAdded the missing `fizzbuzz(n)` function that returns `'FizzBuzz'` for multiples of both 3 and 5, `'Fizz'` for multiples of 3, `'Buzz'` for multiples of 5, and the number as a string otherwise. All 4 tests pass.",
+ "transcript": [
+  {
+   "turn": 0,
+   "content": "",
+   "tool_calls": [
+    {
+     "name": "file_read",
+     "args_raw": "{\"path\":\"fizz.py\"}"
+    },
+    {
+     "name": "file_read",
+     "args_raw": "{\"path\":\"test_fizz.py\"}"
+    },
+    {
+     "name": "pytest_run",
+     "args_raw": "{\"args\":\"test_fizz.py\"}"
+    }
+   ],
+   "served": {
+    "backend": "ollama-coding",
+    "model": "kat-coder-v2.5-dev:Q4_K_M-ctx32k"
+   },
+   "reasoning_chars": 68
+  },
+  {
+   "turn": 1,
+   "content": "",
+   "tool_calls": [
+    {
+     "name": "file_write",
+     "args_raw": "{\"path\":\"fizz.py\",\"content\":\"def fizz(n):\\n    return 'Fizz' if n % 3 == 0 else str(n)\\n\\ndef fizzbuzz(n):\\n    if n % 3 == 0 and n % 5 == 0:\\n        return 'FizzBuzz'\\n    if n % 3 == 0:\\n        return 'Fizz'\\n    if n % 5 == 0:\\n        return 'Buzz'\\n    return str(n)\\n\"}"
+    },
+    {
+     "name": "pytest_run",
+     "args_raw": "{\"args\":\"test_fizz.py\"}"
+    }
+   ],
+   "served": {
+    "backend": "ollama-coding",
+    "model": "kat-coder-v2.5-dev:Q4_K_M-ctx32k"
+   },
+   "reasoning_chars": 284
+  },
+  {
+   "turn": 2,
+   "content": "TASK COMPLETE\n\nAdded the missing `fizzbuzz(n)` function that returns `'FizzBuzz'` for multiples of both 3 and 5, `'Fizz'` for multiples of 3, `'Buzz'` for multiples of 5, and the number as a string otherwise. All 4 tests pass.",
+   "tool_calls": [],
+   "served": {
+    "backend": "ollama-coding",
+    "model": "kat-coder-v2.5-dev:Q4_K_M-ctx32k"
+   }
+  }
+ ],
+ "tool_call_log": [
+  {
+   "name": "file_read",
+   "args": {
+    "path": "fizz.py"
+   },
+   "raw_args": "{\"path\":\"fizz.py\"}",
+   "output": "def fizz(n):\n    return 'Fizz' if n % 3 == 0 else str(n)\n",
+   "error": false
+  },
+  {
+   "name": "file_read",
+   "args": {
+    "path": "test_fizz.py"
+   },
+   "raw_args": "{\"path\":\"test_fizz.py\"}",
+   "output": "from fizz import fizzbuzz\n\ndef test_fifteen():\n    assert fizzbuzz(15) == 'FizzBuzz'\ndef test_three():\n    assert fizzbuzz(3) == 'Fizz'\ndef test_five():\n    assert fizzbuzz(5) == 'Buzz'\ndef test_seven():\n    assert fizzbuzz(7) == '7'\n",
+   "error": false
+  },
+  {
+   "name": "pytest_run",
+   "args": {
+    "args": "test_fizz.py"
+   },
+   "raw_args": "{\"args\":\"test_fizz.py\"}",
+   "output": "\n==================================== ERRORS ====================================\n________________________ ERROR collecting test_fizz.py _________________________\nImportError while importing test module '/private/tmp/wfe/wfe_prompt_surface_seat_20261012/d591ddd47289/code-fix-fizz__r1/test_fizz.py'.\nHint: make sure your test modules/packages have valid Python names.\nTraceback:\ntest_fizz.py:1: in <module>\n    from fizz import fizzbuzz\nE   ImportError: cannot import name 'fizzbuzz' from 'fizz' (/private/tmp/wfe/wfe_prompt_surface_seat_20261012/d591ddd47289/code-fix-fizz__r1/fizz.py)\n=========================== short test summary info ============================\nERROR test_fizz.py\n!!!!!!!!!!!!!!!!!!!! Interrupted: 1 error during collection !!!!!!!!!!!!!!!!!!!!\n1 error in 0.04s\n",
+   "error": false
+  },
+  {
+   "name": "file_write",
+   "args": {
+    "path": "fizz.py",
+    "content": "def fizz(n):\n    return 'Fizz' if n % 3 == 0 else str(n)\n\ndef fizzbuzz(n):\n    if n % 3 == 0 and n % 5 == 0:\n        return 'FizzBuzz'\n    if n % 3 == 0:\n        return 'Fizz'\n    if n % 5 == 0:\n        return 'Buzz'\n    return str(n)\n"
+   },
+   "raw_args": "{\"path\":\"fizz.py\",\"content\":\"def fizz(n):\\n    return 'Fizz' if n % 3 == 0 else str(n)\\n\\ndef fizzbuzz(n):\\n    if n % 3 == 0 and n % 5 == 0:\\n        return 'FizzBuzz'\\n    if n % 3 == 0:\\n        return 'Fizz'\\n    if n % 5 == 0:\\n        return 'Buzz'\\n    return str(n)\\n\"}",
+   "output": "wrote 235 chars to fizz.py",
+   "error": false
+  },
+  {
+   "name": "pytest_run",
+   "args": {
+    "args": "test_fizz.py"
+   },
+   "raw_args": "{\"args\":\"test_fizz.py\"}",
+   "output": "....                                                                     [100%]\n4 passed in 0.02s\n",
+   "error": false
+  }
+ ],
+ "final_text": "TASK COMPLETE\n\nAdded the missing `fizzbuzz(n)` function that returns `'FizzBuzz'` for multiples of both 3 and 5, `'Fizz'` for multiples of 3, `'Buzz'` for multiples of 5, and the number as a string otherwise. All 4 tests pass.",
+ "repeat_degeneracy": null,
+ "model": "kat-coder-v2.5-dev:Q4_K_M-ctx32k",
+ "overrides": {},
+ "sampling_undelivered": []
+}

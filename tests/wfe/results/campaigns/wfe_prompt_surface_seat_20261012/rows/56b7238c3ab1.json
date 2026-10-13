@@ -1,0 +1,459 @@
+{
+ "schema": "wfe-result-2",
+ "run_id": "auto-compliance|hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k|compliance_agentic|comp-p6j-14|r1",
+ "campaign_id": "wfe_prompt_surface_seat_20261012",
+ "stage": "full",
+ "workspace": "auto-compliance",
+ "arm": "hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k",
+ "arm_role": "incumbent",
+ "suite": "compliance_agentic",
+ "task_id": "comp-p6j-14",
+ "repeat": 1,
+ "outcome": "BUDGET_EXHAUSTED",
+ "notes": "did not finish | answer missing patterns=['\"?determination\"?\\\\s*[:=]\\\\s*\"?PARTIAL\\\\b', 'cited_refs']",
+ "evidence": {
+  "checker_outcome": "FAIL",
+  "served_models": [
+   "Qwen3.8-27B-oQ4e-mtp"
+  ]
+ },
+ "persona_slug": "cippolicywriter",
+ "prompt_sha": "53680f17cb49",
+ "tool_surface": [
+  "file_read",
+  "file_list",
+  "repo_search",
+  "pytest_run",
+  "file_write",
+  "http_get"
+ ],
+ "tool_surface_proxy": true,
+ "harness": {
+  "endpoint": "v1",
+  "stream": false,
+  "think": "native",
+  "format": "none"
+ },
+ "sampling": {
+  "seed": 1001,
+  "max_tokens_source": "pipeline"
+ },
+ "baked_params": {},
+ "seed": 1001,
+ "turns": 17,
+ "tool_calls": 16,
+ "tool_errors": 0,
+ "finish_reason": "tool_calls",
+ "economics": {
+  "prompt_tokens": 82276,
+  "completion_tokens": 882,
+  "total_tokens": 83158,
+  "load_ms": null,
+  "wall_s": 86.8,
+  "cold_load": false
+ },
+ "env": {
+  "git_sha": "2b27d8c4",
+  "ollama_version": "0.40.0",
+  "python": "3.13.12",
+  "platform": "macOS-27.0.1-arm64-arm-64bit-Mach-O",
+  "engine": "pipeline",
+  "engine_base_url": "",
+  "engine_version": "unknown",
+  "fingerprint": "791254ff1757"
+ },
+ "final_text_head": "",
+ "transcript": [
+  {
+   "turn": 0,
+   "content": "",
+   "tool_calls": [
+    {
+     "name": "file_read",
+     "args_raw": "{\"path\": \"packet.json\"}"
+    }
+   ],
+   "served": {
+    "backend": "omlx-reasoning",
+    "model": "Qwen3.8-27B-oQ4e-mtp"
+   }
+  },
+  {
+   "turn": 1,
+   "content": "",
+   "tool_calls": [
+    {
+     "name": "repo_search",
+     "args_raw": "{\"pattern\": \"P6J-14|CIP-010-4 R2 Part 2.1\"}"
+    }
+   ],
+   "served": {
+    "backend": "omlx-reasoning",
+    "model": "Qwen3.8-27B-oQ4e-mtp"
+   }
+  },
+  {
+   "turn": 2,
+   "content": "",
+   "tool_calls": [
+    {
+     "name": "file_read",
+     "args_raw": "{\"path\": \"config/compliance/y21_resolutions.yaml\"}"
+    }
+   ],
+   "served": {
+    "backend": "omlx-reasoning",
+    "model": "Qwen3.8-27B-oQ4e-mtp"
+   }
+  },
+  {
+   "turn": 3,
+   "content": "",
+   "tool_calls": [
+    {
+     "name": "file_read",
+     "args_raw": "{\"path\": \"tests/unit/test_compliance_y21_error_classes.py\"}"
+    }
+   ],
+   "served": {
+    "backend": "omlx-reasoning",
+    "model": "Qwen3.8-27B-oQ4e-mtp"
+   }
+  },
+  {
+   "turn": 4,
+   "content": "",
+   "tool_calls": [
+    {
+     "name": "repo_search",
+     "args_raw": "{\"path\": \"portal/modules/compliance/data/nerc_cip_map.json\", \"pattern\": \"CIP-010-4 R2 Part 2.1\"}"
+    }
+   ],
+   "served": {
+    "backend": "omlx-reasoning",
+    "model": "Qwen3.8-27B-oQ4e-mtp"
+   }
+  },
+  {
+   "turn": 5,
+   "content": "",
+   "tool_calls": [
+    {
+     "name": "repo_search",
+     "args_raw": "{\"path\": \"portal/modules/compliance/data/nerc_cip_map.json\", \"pattern\": \"CIP-010-4 R2 Part 2.1\"}"
+    }
+   ],
+   "served": {
+    "backend": "omlx-reasoning",
+    "model": "Qwen3.8-27B-oQ4e-mtp"
+   }
+  },
+  {
+   "turn": 6,
+   "content": "",
+   "tool_calls": [
+    {
+     "name": "repo_search",
+     "args_raw": "{\"path\": \"portal/modules/compliance/data/nerc_cip_map.json\", \"pattern\": \"CIP-010-4 R2 Part 2.1\"}"
+    }
+   ],
+   "served": {
+    "backend": "omlx-reasoning",
+    "model": "Qwen3.8-27B-oQ4e-mtp"
+   }
+  },
+  {
+   "turn": 7,
+   "content": "",
+   "tool_calls": [
+    {
+     "name": "repo_search",
+     "args_raw": "{\"path\": \"portal/modules/compliance/data/nerc_cip_map.json\", \"pattern\": \"CIP-010-4 R2 Part 2.1\"}"
+    }
+   ],
+   "served": {
+    "backend": "omlx-reasoning",
+    "model": "Qwen3.8-27B-oQ4e-mtp"
+   }
+  },
+  {
+   "turn": 8,
+   "content": "",
+   "tool_calls": [
+    {
+     "name": "repo_search",
+     "args_raw": "{\"path\": \"portal/modules/compliance/data/nerc_cip_map.json\", \"pattern\": \"CIP-010-4 R2 Part 2.1\"}"
+    }
+   ],
+   "served": {
+    "backend": "omlx-reasoning",
+    "model": "Qwen3.8-27B-oQ4e-mtp"
+   }
+  },
+  {
+   "turn": 9,
+   "content": "",
+   "tool_calls": [
+    {
+     "name": "repo_search",
+     "args_raw": "{\"path\": \"portal/modules/compliance/data/nerc_cip_map.json\", \"pattern\": \"CIP-010-4 R2 Part 2.1\"}"
+    }
+   ],
+   "served": {
+    "backend": "omlx-reasoning",
+    "model": "Qwen3.8-27B-oQ4e-mtp"
+   }
+  },
+  {
+   "turn": 10,
+   "content": "",
+   "tool_calls": [
+    {
+     "name": "repo_search",
+     "args_raw": "{\"path\": \"portal/modules/compliance/data/nerc_cip_map.json\", \"pattern\": \"CIP-010-4 R2 Part 2.1\"}"
+    }
+   ],
+   "served": {
+    "backend": "omlx-reasoning",
+    "model": "Qwen3.8-27B-oQ4e-mtp"
+   }
+  },
+  {
+   "turn": 11,
+   "content": "",
+   "tool_calls": [
+    {
+     "name": "repo_search",
+     "args_raw": "{\"path\": \"portal/modules/compliance/data/nerc_cip_map.json\", \"pattern\": \"CIP-010-4 R2 Part 2.1\"}"
+    }
+   ],
+   "served": {
+    "backend": "omlx-reasoning",
+    "model": "Qwen3.8-27B-oQ4e-mtp"
+   }
+  },
+  {
+   "turn": 12,
+   "content": "",
+   "tool_calls": [
+    {
+     "name": "repo_search",
+     "args_raw": "{\"path\": \"portal/modules/compliance/data/nerc_cip_map.json\", \"pattern\": \"CIP-010-4 R2 Part 2.1\"}"
+    }
+   ],
+   "served": {
+    "backend": "omlx-reasoning",
+    "model": "Qwen3.8-27B-oQ4e-mtp"
+   }
+  },
+  {
+   "turn": 13,
+   "content": "",
+   "tool_calls": [
+    {
+     "name": "repo_search",
+     "args_raw": "{\"path\": \"portal/modules/compliance/data/nerc_cip_map.json\", \"pattern\": \"CIP-010-4 R2 Part 2.1\"}"
+    }
+   ],
+   "served": {
+    "backend": "omlx-reasoning",
+    "model": "Qwen3.8-27B-oQ4e-mtp"
+   }
+  },
+  {
+   "turn": 14,
+   "content": "",
+   "tool_calls": [
+    {
+     "name": "repo_search",
+     "args_raw": "{\"path\": \"portal/modules/compliance/data/nerc_cip_map.json\", \"pattern\": \"CIP-010-4 R2 Part 2.1\"}"
+    }
+   ],
+   "served": {
+    "backend": "omlx-reasoning",
+    "model": "Qwen3.8-27B-oQ4e-mtp"
+   }
+  },
+  {
+   "turn": 15,
+   "content": "",
+   "tool_calls": [
+    {
+     "name": "repo_search",
+     "args_raw": "{\"path\": \"portal/modules/compliance/data/nerc_cip_map.json\", \"pattern\": \"CIP-010-4 R2 Part 2.1\"}"
+    }
+   ],
+   "served": {
+    "backend": "omlx-reasoning",
+    "model": "Qwen3.8-27B-oQ4e-mtp"
+   }
+  },
+  {
+   "turn": 16,
+   "exhausted_turns": "no final answer in 16 turns"
+  }
+ ],
+ "tool_call_log": [
+  {
+   "name": "file_read",
+   "args": {
+    "path": "packet.json"
+   },
+   "raw_args": "{\"path\": \"packet.json\"}",
+   "output": "{\n \"id\": \"P6J-14\",\n \"governing_ref\": \"CIP-010-4 R2 Part 2.1\",\n \"governing_text\": \"Monitor at least once every 35 calendar days for changes to the baseline configuration (as described in Requirement R1, Part 1.1). Document and investigate detected unauthorized changes.\",\n \"premises\": [\n  \"this Part has two conjunct duties: (a) monitor <=35 days, (b) document and investigate detected unauthorized changes\"\n ],\n \"candidate_text\": \"A file integrity monitoring agent on each in-scope BES Cyber System reports configuration drift to the OT Security dashboard every 24 hours.\",\n \"packet_complete\": true,\n \"must_not_flag\": false\n}",
+   "error": false
+  },
+  {
+   "name": "repo_search",
+   "args": {
+    "pattern": "P6J-14|CIP-010-4 R2 Part 2.1"
+   },
+   "raw_args": "{\"pattern\": \"P6J-14|CIP-010-4 R2 Part 2.1\"}",
+   "output": "packet.json:2: \"id\": \"P6J-14\",\npacket.json:3: \"governing_ref\": \"CIP-010-4 R2 Part 2.1\",\n\nconfig/compliance/y21_resolutions.yaml:33:  P6J-14:\nportal/modules/compliance/data/nerc_cip_map.json:2380:    \"CIP-010-4 R2 Part 2.1\": {\nportal/modules/compliance/data/nerc_cip_policy_graph.json:8025:   \"id\": \"CIP-010-4 R2 Part 2.1\",\nportal/modules/compliance/data/nerc_cip_policy_graph.json:11744:   \"src\": \"CIP-010-4 R2 Part 2.1\",\nportal/modules/compliance/data/nerc_cip_policy_graph.json:11753:   \"src\": \"CIP-010-4 R2 Part 2.1\",\nportal/modules/compliance/data/nerc_cip_policy_graph.json:12676:   \"dst\": \"CIP-010-4 R2 Part 2.1\",\nportal/modules/compliance/data/nerc_cip_register.json:5467:   \"id\": \"CIP-010-4 R2 Part 2.1\",\nportal/modules/compliance/data/nerc_cip_register.json:7729:   \"dst\": \"CIP-010-4 R2 Part 2.1\",\ntests/unit/test_compliance_policy_graph.py:96:        \"CIP-010-4 R2 Part 2.1\",\ntests/unit/test_compliance_technical_basis.py:97:    _Node(\"CIP-010-4 R2 Part 2.1\", \"R2\", \"2.1\"),\ntests/unit/test_compliance_technical_basis.py:125:    assert placed[\"CIP-010-4 R2 Part 2.1\"] == 2\ntests/unit/test_compliance_y21_error_classes.py:86:    \"\"\"P6J-14 (2 seats): read 'monitors more frequently' as satisfying a duty\n",
+   "error": false
+  },
+  {
+   "name": "file_read",
+   "args": {
+    "path": "config/compliance/y21_resolutions.yaml"
+   },
+   "raw_args": "{\"path\": \"config/compliance/y21_resolutions.yaml\"}",
+   "output": "# Y21 \u2014 adjudication of every false-supported the SHIPPED roster produced.\n#\n# Y21's bar is not \"zero false-supported\" (a judge that never over-approves is a\n# judge that over-flags); it is zero UNRESOLVED false-supported. A case is\n# resolved when its mechanism is named, its disposition is chosen, and a\n# regression test pins it. `scripts/compliance_y21_adjudicate.py` cross-checks\n# this file against the rows it actually finds, so a NEW false-supported case\n# that nobody has adjudicated shows up as unresolved rather than being absorbed\n# into a rate.\n#\n# Source: coding_task/v9_compliance/private/runs/D0_20260906T185401Z/seat_sweep_debug/\n# Adjudicated: 2026-09-12\n\nresolutions:\n  P6J-12:\n    seats: [mistral-small3.2:24b-instruct-2506-q4_K_M]\n    cause: judgment\n    mechanism: >-\n      Asserted the candidate's one-year deadline was \"stricter than\" the\n      governing 180-day maximum. That is backwards: 365 days is longer than 180,\n      so the candidate is more permissive, not stricter. An arithmetic direction\n      error, not a reading error.\n    disposition: MITIGATED_IN_PRODUCTION\n    why: >-\n      The sweep prompt asked the seat to judge constraint direction itself. The\n      SHIPPED council does not: the no-model gate pre-computes direction and\n      hands the seat a candidate already marked MORE_RESTRICTIVE or EQUIVALENT,\n      so this class cannot reach the judge in production.\n    regression_test: >-\n      tests/unit/test_compliance_y21_error_classes.py\n      ::test_p6j12_class_stricter_direction_is_gate_computed_not_model_judged\n\n  P6J-14:\n    seats:\n      - granite4.1:30b-ctx16k\n      - mistral-small3.2:24b-instruct-2506-q4_K_M\n    cause: judgment\n    mechanism: >-\n      Read \"monitors configuration changes every 24 hours\" as satisfying a duty\n      the gold scored PARTIAL/WEAK_MAPPING. A stricter FREQUENCY on a weakly\n      mapped DUTY is not satisfaction of that duty \u2014 the seats collapsed the two.\n    disposition: ACCEPTED_RESIDUAL\n    why: >-\n      Genuine judgment error and a real residual: 2 of 3 roster seats. It does\n      not breach the ceiling (roster false-gap 1.1%, bar 10%), and the council\n      needs 2-of-3 quorum, so a single dissenting seat still surfaces it. Left\n      as a measured residual rather than papered over with a prompt rule, since\n      the distinction is substantive and a rule risks over-flagging.\n    regression_test: >-\n      tests/unit/test_compliance_y21_error_classes.py\n      ::test_p6j14_class_weak_mapping_remains_a_declarable_finding\n\n  P6J-19:\n    seats:\n      - granite4.1:30b-ctx16k\n      - mistral-small3.2:24b-instruct-2506-q4_K_M\n      - hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k\n    cause: judgment\n    mechanism: >-\n      The packet stated the internal term was \"last aligned to the glossary in\n      2019\". Every seat read the alignment and dropped the date, answering\n      SUPPORTED where the gold is PARTIAL/OUTDATED_LANGUAGE. 3 of 3 roster\n      seats, across three different lineages \u2014 a systematic blind spot, not a\n      bad case.\n    disposition: FIXED\n    why: >-\n      Root cause is the prompt, not the models. `council._SEAT_SYSTEM` OFFERED\n      OUTDATED_LANGUAGE as a finding_type but never stated what triggers it,\n      while every other rule in that prompt is spelled out. A finding type with\n      no rule is unreachable by construction. A trigger was added 2026-09-12;\n      the `outdated_rule` variant in the Y23 sweep measures whether it earns its\n      place rather than assuming it does.\n    regression_test: >-\n      tests/unit/test_compliance_y21_error_classes.py\n      ::test_p6j19_outdated_language_has_a_stated_trigger\n",
+   "error": false
+  },
+  {
+   "name": "file_read",
+   "args": {
+    "path": "tests/unit/test_compliance_y21_error_classes.py"
+   },
+   "raw_args": "{\"path\": \"tests/unit/test_compliance_y21_error_classes.py\"}",
+   "output": "\"\"\"Y21 \u2014 one regression case per adjudicated council error class.\n\n`scripts/compliance_y21_adjudicate.py` classifies every seat-sweep disagreement\nas extraction / bridge / gate / judgment. Six false-supported rows survived on\nthe SHIPPED roster (granite4.1:30b, mistral-small3.2:24b, Qwen3.8-27B); they\ncollapse to three distinct cases, and Y21's bar is that none of them stays\n*unresolved*. Each is pinned here so a future prompt, gate or roster change that\nreintroduces it fails a test rather than a bench run.\n\nThese are hermetic: they assert the CLASSIFIER and the shipped prompt contract,\nnot model output. Adjudication of the models themselves lives in the JSON record\nnext to the sweep (`y21_adjudication.json`).\n\"\"\"\n\nfrom __future__ import annotations\n\nimport importlib\n\nadj = importlib.import_module(\"scripts.compliance_y21_adjudicate\")\ncouncil = importlib.import_module(\"portal.modules.compliance.core.council\")\n\n\ndef _row(**score):\n    base = {\n        \"schema_ok\": True,\n        \"correct\": True,\n        \"citation_ok\": True,\n        \"must_not_flag_fp\": False,\n        \"false_supported\": False,\n    }\n    base.update(score)\n    return {\"parsed\": {\"determination\": \"SUPPORTED\"}, \"score\": base}\n\n\n# \u2500\u2500 the four causes are mutually exclusive and exhaustive \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n\n\ndef test_clean_row_is_not_a_disagreement():\n    assert adj.classify(_row()) is None\n\n\ndef test_unparseable_output_is_extraction_not_judgment():\n    \"\"\"A seat whose JSON never parsed tells you nothing about its reasoning \u2014\n    counting it as a judgment error inflates the ceiling with harness noise.\"\"\"\n    row = _row(schema_ok=False, correct=False)\n    assert adj.classify(row) == \"extraction\"\n    row2 = {\"parsed\": None, \"score\": {**_row()[\"score\"], \"correct\": False}}\n    assert adj.classify(row2) == \"extraction\"\n\n\ndef test_right_call_wrong_citation_is_bridge():\n    \"\"\"The determination is correct and only the reference failed: a vocabulary\n    /mapping defect, fixable without touching the judge.\"\"\"\n    assert adj.classify(_row(citation_ok=False)) == \"bridge\"\n\n\ndef test_allowlist_violation_is_gate_even_when_label_is_right():\n    \"\"\"must_not_flag is the no-model gate's job. It outranks the label, because\n    a correct determination that flags a forbidden standard is still a gate\n    escape, not a good answer.\"\"\"\n    assert adj.classify(_row(must_not_flag_fp=True)) == \"gate\"\n    assert adj.classify(_row(must_not_flag_fp=True, correct=False)) == \"gate\"\n\n\ndef test_wrong_label_with_clean_parse_and_citation_is_judgment():\n    \"\"\"The only class a better model fixes.\"\"\"\n    assert adj.classify(_row(correct=False, false_supported=True)) == \"judgment\"\n\n\n# \u2500\u2500 the three surviving false-supported cases, pinned by their mechanism \u2500\u2500\u2500\u2500\u2500\n\n\ndef test_p6j12_class_stricter_direction_is_gate_computed_not_model_judged():\n    \"\"\"P6J-12 (mistral): asserted a one-year deadline was 'stricter than' a\n    180-day maximum \u2014 backwards; 365 > 180 is more permissive. In the SHIPPED\n    council this class is pre-empted: the gate hands the seat a candidate\n    already marked MORE_RESTRICTIVE or EQUIVALENT, so direction is computed\n    rather than reasoned. This test fails if that guarantee leaves the prompt.\"\"\"\n    s = council._SEAT_SYSTEM\n    assert \"MORE_RESTRICTIVE\" in s and \"EQUIVALENT\" in s\n    assert \"stricter is never a violation\" in s\n    assert \"constraint direction\" in s\n\n\ndef test_p6j14_class_weak_mapping_remains_a_declarable_finding():\n    \"\"\"P6J-14 (2 seats): read 'monitors more frequently' as satisfying a duty\n    the gold scored WEAK_MAPPING. A stricter *frequency* on a weakly-mapped\n    *duty* is not satisfaction, so the seat must still be able to say so.\"\"\"\n    assert \"WEAK_MAPPING\" in council._SEAT_SYSTEM\n\n\ndef test_p6j19_outdated_language_has_a_stated_trigger():\n    \"\"\"P6J-19 is the one all three roster seats missed together, from three\n    different lineages \u2014 a systematic blind spot, not a bad case. The packet\n    stated the local term was 'last aligned to the glossary in 2019'; ",
+   "error": false
+  },
+  {
+   "name": "repo_search",
+   "args": {
+    "path": "portal/modules/compliance/data/nerc_cip_map.json",
+    "pattern": "CIP-010-4 R2 Part 2.1"
+   },
+   "raw_args": "{\"path\": \"portal/modules/compliance/data/nerc_cip_map.json\", \"pattern\": \"CIP-010-4 R2 Part 2.1\"}",
+   "output": "packet.json:3: \"governing_ref\": \"CIP-010-4 R2 Part 2.1\",\n",
+   "error": false
+  },
+  {
+   "name": "repo_search",
+   "args": {
+    "path": "portal/modules/compliance/data/nerc_cip_map.json",
+    "pattern": "CIP-010-4 R2 Part 2.1"
+   },
+   "raw_args": "{\"path\": \"portal/modules/compliance/data/nerc_cip_map.json\", \"pattern\": \"CIP-010-4 R2 Part 2.1\"}",
+   "output": "packet.json:3: \"governing_ref\": \"CIP-010-4 R2 Part 2.1\",\n",
+   "error": false
+  },
+  {
+   "name": "repo_search",
+   "args": {
+    "path": "portal/modules/compliance/data/nerc_cip_map.json",
+    "pattern": "CIP-010-4 R2 Part 2.1"
+   },
+   "raw_args": "{\"path\": \"portal/modules/compliance/data/nerc_cip_map.json\", \"pattern\": \"CIP-010-4 R2 Part 2.1\"}",
+   "output": "packet.json:3: \"governing_ref\": \"CIP-010-4 R2 Part 2.1\",\n",
+   "error": false
+  },
+  {
+   "name": "repo_search",
+   "args": {
+    "path": "portal/modules/compliance/data/nerc_cip_map.json",
+    "pattern": "CIP-010-4 R2 Part 2.1"
+   },
+   "raw_args": "{\"path\": \"portal/modules/compliance/data/nerc_cip_map.json\", \"pattern\": \"CIP-010-4 R2 Part 2.1\"}",
+   "output": "packet.json:3: \"governing_ref\": \"CIP-010-4 R2 Part 2.1\",\n",
+   "error": false
+  },
+  {
+   "name": "repo_search",
+   "args": {
+    "path": "portal/modules/compliance/data/nerc_cip_map.json",
+    "pattern": "CIP-010-4 R2 Part 2.1"
+   },
+   "raw_args": "{\"path\": \"portal/modules/compliance/data/nerc_cip_map.json\", \"pattern\": \"CIP-010-4 R2 Part 2.1\"}",
+   "output": "packet.json:3: \"governing_ref\": \"CIP-010-4 R2 Part 2.1\",\n",
+   "error": false
+  },
+  {
+   "name": "repo_search",
+   "args": {
+    "path": "portal/modules/compliance/data/nerc_cip_map.json",
+    "pattern": "CIP-010-4 R2 Part 2.1"
+   },
+   "raw_args": "{\"path\": \"portal/modules/compliance/data/nerc_cip_map.json\", \"pattern\": \"CIP-010-4 R2 Part 2.1\"}",
+   "output": "packet.json:3: \"governing_ref\": \"CIP-010-4 R2 Part 2.1\",\n",
+   "error": false
+  },
+  {
+   "name": "repo_search",
+   "args": {
+    "path": "portal/modules/compliance/data/nerc_cip_map.json",
+    "pattern": "CIP-010-4 R2 Part 2.1"
+   },
+   "raw_args": "{\"path\": \"portal/modules/compliance/data/nerc_cip_map.json\", \"pattern\": \"CIP-010-4 R2 Part 2.1\"}",
+   "output": "packet.json:3: \"governing_ref\": \"CIP-010-4 R2 Part 2.1\",\n",
+   "error": false
+  },
+  {
+   "name": "repo_search",
+   "args": {
+    "path": "portal/modules/compliance/data/nerc_cip_map.json",
+    "pattern": "CIP-010-4 R2 Part 2.1"
+   },
+   "raw_args": "{\"path\": \"portal/modules/compliance/data/nerc_cip_map.json\", \"pattern\": \"CIP-010-4 R2 Part 2.1\"}",
+   "output": "packet.json:3: \"governing_ref\": \"CIP-010-4 R2 Part 2.1\",\n",
+   "error": false
+  },
+  {
+   "name": "repo_search",
+   "args": {
+    "path": "portal/modules/compliance/data/nerc_cip_map.json",
+    "pattern": "CIP-010-4 R2 Part 2.1"
+   },
+   "raw_args": "{\"path\": \"portal/modules/compliance/data/nerc_cip_map.json\", \"pattern\": \"CIP-010-4 R2 Part 2.1\"}",
+   "output": "packet.json:3: \"governing_ref\": \"CIP-010-4 R2 Part 2.1\",\n",
+   "error": false
+  },
+  {
+   "name": "repo_search",
+   "args": {
+    "path": "portal/modules/compliance/data/nerc_cip_map.json",
+    "pattern": "CIP-010-4 R2 Part 2.1"
+   },
+   "raw_args": "{\"path\": \"portal/modules/compliance/data/nerc_cip_map.json\", \"pattern\": \"CIP-010-4 R2 Part 2.1\"}",
+   "output": "packet.json:3: \"governing_ref\": \"CIP-010-4 R2 Part 2.1\",\n",
+   "error": false
+  },
+  {
+   "name": "repo_search",
+   "args": {
+    "path": "portal/modules/compliance/data/nerc_cip_map.json",
+    "pattern": "CIP-010-4 R2 Part 2.1"
+   },
+   "raw_args": "{\"path\": \"portal/modules/compliance/data/nerc_cip_map.json\", \"pattern\": \"CIP-010-4 R2 Part 2.1\"}",
+   "output": "packet.json:3: \"governing_ref\": \"CIP-010-4 R2 Part 2.1\",\n",
+   "error": false
+  },
+  {
+   "name": "repo_search",
+   "args": {
+    "path": "portal/modules/compliance/data/nerc_cip_map.json",
+    "pattern": "CIP-010-4 R2 Part 2.1"
+   },
+   "raw_args": "{\"path\": \"portal/modules/compliance/data/nerc_cip_map.json\", \"pattern\": \"CIP-010-4 R2 Part 2.1\"}",
+   "output": "packet.json:3: \"governing_ref\": \"CIP-010-4 R2 Part 2.1\",\n",
+   "error": false
+  }
+ ],
+ "final_text": "",
+ "repeat_degeneracy": null,
+ "model": "hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k",
+ "overrides": {},
+ "sampling_undelivered": []
+}

@@ -1,0 +1,106 @@
+{
+ "schema": "wfe-result-2",
+ "run_id": "auto-compliance|hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k|compliance_agentic_loopset_noformat|comp-p6j-01|r1",
+ "campaign_id": "wfe_prompt_surface_seat_r6_noformat_20261012",
+ "stage": "full",
+ "workspace": "auto-compliance",
+ "arm": "hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k",
+ "arm_role": "incumbent",
+ "suite": "compliance_agentic_loopset_noformat",
+ "task_id": "comp-p6j-01",
+ "repeat": 1,
+ "outcome": "FAIL",
+ "notes": "answer missing patterns=['\"?determination\"?\\\\s*[:=]\\\\s*\"?SUPPORTED\\\\b', 'cited_refs']",
+ "evidence": {
+  "served_models": [
+   "Qwen3.8-27B-oQ4e-mtp"
+  ]
+ },
+ "persona_slug": "cippolicywriter",
+ "prompt_sha": "53680f17cb49",
+ "tool_surface": [
+  "file_read",
+  "file_list",
+  "repo_search",
+  "pytest_run",
+  "file_write",
+  "http_get"
+ ],
+ "tool_surface_proxy": true,
+ "harness": {
+  "endpoint": "v1",
+  "stream": false,
+  "think": "native",
+  "format": "none"
+ },
+ "sampling": {
+  "seed": 1001,
+  "max_tokens_source": "pipeline"
+ },
+ "baked_params": {},
+ "seed": 1001,
+ "turns": 2,
+ "tool_calls": 1,
+ "tool_errors": 0,
+ "finish_reason": "stop",
+ "economics": {
+  "prompt_tokens": 4686,
+  "completion_tokens": 874,
+  "total_tokens": 5560,
+  "load_ms": null,
+  "wall_s": 31.9,
+  "cold_load": false
+ },
+ "env": {
+  "git_sha": "2b27d8c4",
+  "ollama_version": "0.40.0",
+  "python": "3.13.12",
+  "platform": "macOS-27.0.1-arm64-arm-64bit-Mach-O",
+  "engine": "pipeline",
+  "engine_base_url": "",
+  "engine_version": "unknown",
+  "fingerprint": "791254ff1757"
+ },
+ "final_text_head": "## Determination \u2014 Packet P6J-01\n\n**Governing requirement:** CIP-007-6 R2 Part 2.2 \u2014 At least once every 35 calendar days, evaluate security patches for applicability that have been released since the last evaluation from the source(s) identified in Part 2.1.\n\n**Premise applied:** The 35-day cadence is a maximum interval, not a target.\n\n### Analysis\n\n| Element | Governing text | Candidate text | Verdict |\n|---|---|---|---|\n| Cadence / interval | \"At least once every 35 calendar days\" (max interval) | \"on a 35-day cycle\" | Aligned \u2014 fixed 35-day cycle satisfies the maximum-interval floor; it do",
+ "transcript": [
+  {
+   "turn": 0,
+   "content": "",
+   "tool_calls": [
+    {
+     "name": "file_read",
+     "args_raw": "{\"path\": \"packet.json\"}"
+    }
+   ],
+   "served": {
+    "backend": "omlx-reasoning",
+    "model": "Qwen3.8-27B-oQ4e-mtp"
+   }
+  },
+  {
+   "turn": 1,
+   "content": "## Determination \u2014 Packet P6J-01\n\n**Governing requirement:** CIP-007-6 R2 Part 2.2 \u2014 At least once every 35 calendar days, evaluate security patches for applicability that have been released since the last evaluation from the source(s) identified in Part 2.1.\n\n**Premise applied:** The 35-day cadence is a maximum interval, not a target.\n\n### Analysis\n\n| Element | Governing text | Candidate text | Verdict |\n|---|---|---|---|\n| Cadence / interval | \"At least once every 35 calendar days\" (max interval) | \"on a 35-day cycle\" | Aligned \u2014 fixed 35-day cycle satisfies the maximum-interval floor; it does not exceed 35 days |\n| Action | \"evaluate security patches for applicability\" | \"review \u2026 security patches for applicability to in-scope BES Cyber Systems\" | Aligned \u2014 review-for-applicability is the evaluation act; scoping to in-scope BES Cyber Systems is a permissible narrowing, not a deviation |\n| Scope of patches | \"released since the last evaluation\" (incremental) | \"all vendor-published security patches \u2026 on a 35-day cycle\" | Aligned \u2014 \"all \u2026 on a 35-day cycle\" is read as the full set released since the last review each cycle; no under-scope |\n| Source linkage (Part 2.1) | \"from the source or sources identified in Part 2.1\" | \"vendor-published \u2026 patches\" | **Ambiguous** \u2014 the candidate does not tie its patch sources to those identified in Part 2.1 |\n\n### Findings\n\n- **Cadence:** Satisfies the maximum-interval premise. A fixed 35-day cycle never exceeds the 35-calendar-day ceiling, so it meets \"at least once every 35 calendar days.\"\n- **Action and scope:** Satisfies the evaluate-for-applicability obligation, scoped to in-scope BES Cyber Systems.\n- **Source linkage (the one gap):** The governing text requires evaluation of patches \"from the source or sources identified in Part 2.1.\" The candidate says only \"vendor-published security patches\" and does not reference or incorporate the Part 2.1 source identification. This is a **Partial** coverage point: if the candidate's ",
+   "tool_calls": [],
+   "served": {
+    "backend": "omlx-reasoning",
+    "model": "Qwen3.8-27B-oQ4e-mtp"
+   }
+  }
+ ],
+ "tool_call_log": [
+  {
+   "name": "file_read",
+   "args": {
+    "path": "packet.json"
+   },
+   "raw_args": "{\"path\": \"packet.json\"}",
+   "output": "{\n \"id\": \"P6J-01\",\n \"governing_ref\": \"CIP-007-6 R2 Part 2.2\",\n \"governing_text\": \"At least once every 35 calendar days, evaluate security patches for applicability that have been released since the last evaluation from the source or sources identified in Part 2.1.\",\n \"premises\": [\n  \"'security patch' evaluation cadence is a maximum interval, not a target\"\n ],\n \"candidate_text\": \"The OT Threat and Vulnerability Management Procedure requires the OT Security team to review all vendor-published security patches for applicability to in-scope BES Cyber Systems on a 35-day cycle, tracked in the patch register.\",\n \"packet_complete\": true,\n \"must_not_flag\": false\n}",
+   "error": false
+  }
+ ],
+ "final_text": "## Determination \u2014 Packet P6J-01\n\n**Governing requirement:** CIP-007-6 R2 Part 2.2 \u2014 At least once every 35 calendar days, evaluate security patches for applicability that have been released since the last evaluation from the source(s) identified in Part 2.1.\n\n**Premise applied:** The 35-day cadence is a maximum interval, not a target.\n\n### Analysis\n\n| Element | Governing text | Candidate text | Verdict |\n|---|---|---|---|\n| Cadence / interval | \"At least once every 35 calendar days\" (max interval) | \"on a 35-day cycle\" | Aligned \u2014 fixed 35-day cycle satisfies the maximum-interval floor; it does not exceed 35 days |\n| Action | \"evaluate security patches for applicability\" | \"review \u2026 security patches for applicability to in-scope BES Cyber Systems\" | Aligned \u2014 review-for-applicability is the evaluation act; scoping to in-scope BES Cyber Systems is a permissible narrowing, not a deviation |\n| Scope of patches | \"released since the last evaluation\" (incremental) | \"all vendor-published security patches \u2026 on a 35-day cycle\" | Aligned \u2014 \"all \u2026 on a 35-day cycle\" is read as the full set released since the last review each cycle; no under-scope |\n| Source linkage (Part 2.1) | \"from the source or sources identified in Part 2.1\" | \"vendor-published \u2026 patches\" | **Ambiguous** \u2014 the candidate does not tie its patch sources to those identified in Part 2.1 |\n\n### Findings\n\n- **Cadence:** Satisfies the maximum-interval premise. A fixed 35-day cycle never exceeds the 35-calendar-day ceiling, so it meets \"at least once every 35 calendar days.\"\n- **Action and scope:** Satisfies the evaluate-for-applicability obligation, scoped to in-scope BES Cyber Systems.\n- **Source linkage (the one gap):** The governing text requires evaluation of patches \"from the source or sources identified in Part 2.1.\" The candidate says only \"vendor-published security patches\" and does not reference or incorporate the Part 2.1 source identification. This is a **Partial** coverage point: if the candidate's \"vendor-published\" set does not demonstrably equal (or is a documented subset of) the Part 2.1-identified sources, an auditor cannot evidence that the correct source set is being evaluated. This must be closed by either (a) explicitly referencing the Part 2.1 source list, or (b) documenting that \"vendor-published\" is coextensive with the Part 2.1 sources.\n\n### Coverage classification\n**Partial.** The cadence, action, and system scope are covered; the Part 2.1 source linkage is not evidenced in the candidate text and must be tied to or reconciled with Part 2.1 before this can be treated as Full coverage.\n\n### Evidence an auditor would look for\n- Patch register entries showing a review performed no more than 35 calendar days apart (proves the maximum-interval floor).\n- The Part 2.1 source list, and a mapping showing the candidate's \"vendor-published\" set equals or is documented as a subset of that list (closes the Partial gap).\n- Applicability evaluation records per patch, tied to in-scope BES Cyber Systems.\n\n### Cross-references\n- CIP-007-6 R2 Part 2.1 (source identification \u2014 the linkage this candidate must satisfy).\n- CIP-010-6 (vulnerability management) \u2014 interacts with the patch/applicability evaluation workflow.\n\nNote on verbatim text: I am working from the governing_text supplied in the packet; for authoritative current language, see nerc.com/pa/Stand.\n\nDETERMINATION COMPLETE",
+ "repeat_degeneracy": null,
+ "model": "hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k",
+ "overrides": {},
+ "sampling_undelivered": []
+}
