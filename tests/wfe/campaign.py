@@ -772,15 +772,40 @@ def served_mismatch(transcript: list, primary: str) -> str | None:
     return None
 
 
+def backend_catalog() -> frozenset[str]:
+    """Ids production accepts as ?model= (preinject._known_backend_models)."""
+    cfg = yaml.safe_load((REPO / "config/backends.yaml").read_text()) or {}
+    return frozenset(
+        m["id"] if isinstance(m, dict) else m
+        for b in cfg.get("backends") or []
+        for m in b.get("models") or []
+        if (m.get("id") if isinstance(m, dict) else m)
+    )
+
+
 def preflight_pipeline(workspaces: list[str], model: str) -> dict:
     """Pipeline mode: the pipeline owns the wire, so the raw transport probe is
     moot. What must hold is that each seat is actually served by the arm's model
     seat (a failover or a third model would make every row describe another
     model)."""
     findings = []
+    if model not in backend_catalog():
+        return {
+            "model": model,
+            "verdict": "REVIEW",
+            "findings": [
+                f"{model!r} is not a model id in config/backends.yaml: production ignores "
+                f"?model= for it and serves the seat instead. Add it to a backend's models."
+            ],
+        }
     for ws in workspaces:
         try:
-            r = chat(ws, [{"role": "user", "content": "Reply with the word ready."}], tools=False)
+            r = chat(
+                ws,
+                [{"role": "user", "content": "Reply with the word ready."}],
+                tools=False,
+                harness={"pipeline_model": model},
+            )
             served = (r.get("served") or {}).get("model")
         except Exception as e:
             served, findings = None, [*findings, f"{ws}: request failed: {e}"]
@@ -926,6 +951,7 @@ def run_row(
     harness = campaign_harness(wsc, overrides)
     t0 = time.monotonic()
     pipe = ENGINE == "pipeline"
+    harness["pipeline_model"] = row_model(r) if pipe else None
     # The prompt actually sent: in pipeline mode the pipeline adds the append.
     sent_prompt = wsc["system_prompt_pipeline"] if pipe else wsc["system_prompt"]
     try:
@@ -964,8 +990,7 @@ def run_row(
         else None
     )
     if mismatch:
-        # The row says nothing about the seat, so it must not count as seat
-        # evidence. BLOCKED rows are re-offered by --rerun-failed.
+        # Not seat evidence; BLOCKED rows are re-offered by --rerun-failed.
         out = {
             **out,
             "outcome": Outcome.BLOCKED.value,
@@ -1007,9 +1032,8 @@ def run_row(
     row["repeat_degeneracy"] = degenerate_repeats(wsc, overrides)
     row["model"] = row_model(r)
     row["overrides"] = overrides
-    # What the engine was ASKED for but silently drops (runner.DELIVERABLE_KEYS),
-    # and — on Ollama — what the tag bakes, which is what actually served those
-    # keys. Without this a row's `sampling` claims values the model never saw.
+    # What the engine was ASKED for but silently drops (runner.DELIVERABLE_KEYS) and, on
+    # Ollama, what the tag bakes; else a row's `sampling` claims values never served.
     row["sampling_undelivered"] = undeliverable_keys(sampling)
     row["baked_params"] = _baked_params(row_model(r))
     _row_path(campaign_dir, r["run_id"]).write_text(json.dumps(row, indent=1))

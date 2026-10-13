@@ -44,6 +44,7 @@ import subprocess
 import sys
 import time
 import urllib.error
+import urllib.parse
 import urllib.request
 from pathlib import Path
 
@@ -765,7 +766,9 @@ def _build_payload(
     translation, so an arm is measured exactly as production serves it."""
     endpoint, fmt = h["endpoint"], h.get("format", "none")
     if ENGINE == "pipeline":
-        return _build_pipeline(model, messages, fmt, sampling, schemas, think, wire_stream)
+        return _build_pipeline(
+            model, messages, fmt, sampling, schemas, think, wire_stream, h.get("pipeline_model")
+        )
     if endpoint == "v1":
         payload = _build_v1(model, messages, fmt, sampling, think, wire_stream)
         if schemas:
@@ -795,10 +798,12 @@ def _build_pipeline(
     schemas: list | None,
     think: str,
     wire_stream: bool,
+    model_override: str | None = None,
 ) -> tuple[str, dict, list[str]]:
     """The body Open WebUI would send the pipeline for `workspace`, plus only
     the arm's explicit overrides. No max_tokens: the pipeline applies the seat's
-    predict_limit, and sending one would override it."""
+    predict_limit, and sending one would override it. `model_override` (the arm)
+    goes out as production's ?model= (preinject._resolve_model_override)."""
     payload: dict = {"model": workspace, "messages": messages, "stream": wire_stream}
     if wire_stream:
         # Per-turn usage is how a silent context truncation is detected.
@@ -822,7 +827,10 @@ def _build_pipeline(
         # modes use); everything else runs through the pipeline.
         payload["tools"] = schemas
         payload["portal_client_tools_only"] = True
-    return f"{CHAT_BASE}/v1/chat/completions", payload, []
+    url = f"{CHAT_BASE}/v1/chat/completions"
+    if model_override:
+        url += "?" + urllib.parse.urlencode({"model": model_override})
+    return url, payload, []
 
 
 def pipeline_served(correlation_id: str) -> dict:
