@@ -1391,6 +1391,23 @@ def _rows_to_run(
     return todo, None
 
 
+#: Consecutive HARNESS_ERROR rows that stop an arm (the instrument, not the model).
+MAX_CONSECUTIVE_HARNESS_ERRORS = 3
+_RECENT: dict[str, list[str]] = {}
+
+
+def arm_stop_reason(arm: str, row: dict) -> str | None:
+    """Why the arm must stop after this row (a failover stops it at once), or None."""
+    if str(row.get("notes") or "").startswith(SEAT_BLOCK):
+        return str(row["notes"])[:200]
+    recent = _RECENT.setdefault(arm, [])
+    recent.append(row["outcome"])
+    tail = recent[-MAX_CONSECUTIVE_HARNESS_ERRORS:]
+    if len(tail) == MAX_CONSECUTIVE_HARNESS_ERRORS and set(tail) == {Outcome.HARNESS_ERROR.value}:
+        return f"{MAX_CONSECUTIVE_HARNESS_ERRORS} consecutive HARNESS_ERROR rows: {row.get('notes', '')[:160]}"
+    return None
+
+
 def execute_arm(
     campaign_dir: Path,
     arm: str,
@@ -1436,6 +1453,7 @@ def execute_arm(
     ws_cache: dict[tuple, dict] = {}
     suite_cache: dict[str, dict] = {}
     tally: dict = {}
+    stop = None
     t_arm = time.monotonic()
     for i, r in enumerate(todo, 1):
         ws_key = (r["workspace"], row_overrides(r).get("persona"))
@@ -1469,12 +1487,9 @@ def execute_arm(
             f"      -> {row['outcome']} turns={row['turns']} tools={row['tool_calls']} "
             f"errs={row['tool_errors']} {row['economics'].get('wall_s')}s",
         )
-        if str(row.get("notes") or "").startswith(SEAT_BLOCK):
-            # The seat failed over. Every further row would land on the failover
-            # too (it holds the memory the seat needs to reload), so stop here;
-            # the remaining rows stay PENDING and this one re-runs with
-            # --rerun-failed once the seat serves again.
-            _log(campaign_dir, f"arm {arm}: STOPPED — {row['notes'][:200]}")
+        stop = arm_stop_reason(arm, row)
+        if stop:
+            _log(campaign_dir, f"arm {arm}: STOPPED — {stop}")
             break
 
     if not drain_model(model):
@@ -1484,7 +1499,7 @@ def execute_arm(
     _log(campaign_dir, f"arm complete — {summary}")
     if notify:
         _notify("test_summary", f"WFE arm done ({elapsed}s)\n{arm}\n{tally}", {"arm": arm})
-    return {"arm": arm, "ran": len(todo), "tally": tally, "elapsed_s": elapsed}
+    return {"arm": arm, "ran": len(todo), "tally": tally, "elapsed_s": elapsed, "stopped": stop}
 
 
 def build_review_queue(campaign_dir: Path) -> int:
@@ -1974,11 +1989,12 @@ def main() -> int:
         return _cmd_preflight(campaign_dir, args.force)
     manifest = load_manifest(campaign_dir)
     arms = _select_arms(manifest, args.arm)
+    stopped = []
     for arm in arms:
         if not ollama_reachable():
             _log(campaign_dir, f"ABORT before {arm}: Ollama unreachable")
             return 3
-        execute_arm(
+        out = execute_arm(
             campaign_dir,
             arm,
             args.max_turns,
@@ -1988,6 +2004,7 @@ def main() -> int:
             args.notify,
             args.rerun_failed,
         )
+        stopped += [arm] if out and out.get("stopped") else []
     n = build_review_queue(campaign_dir)
     dirty = config_dirty()
     manifest = load_manifest(campaign_dir)
@@ -1997,7 +2014,7 @@ def main() -> int:
         _log(campaign_dir, f"WARNING: config/ changed during the campaign: {dirty}")
     print(f"\ncampaign dir: {campaign_dir}   creative queue: {n} item(s)")
     print(f"next: uv run python -m tests.wfe.report --campaign {campaign_dir.name}")
-    return 0
+    return 5 if stopped else 0  # an arm stopped early: rows remain PENDING
 
 
 if __name__ == "__main__":
