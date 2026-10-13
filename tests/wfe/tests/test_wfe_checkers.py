@@ -723,3 +723,44 @@ def test_a_declared_omission_is_accounted_for_not_a_gap():
     assert result.outcome is Outcome.PASS
     assert result.evidence["closure_complete"] is False
     assert result.evidence["omitted_with_reason"] == ["csection-skipped"]
+
+
+class TestComplianceViolationClassGrading:
+    """The p6j keys' PARTIAL/CONTRADICTED/ABSENT flavours are ambiguous by the
+    probe's own account (tests/compliance_probe/README.md: violation-class
+    accuracy is the headline, exact accuracy is not), and its keys disagree
+    with each other on structurally identical packets (P6J-05 CONTRADICTED vs
+    P6J-11/27 ABSENT). WFE grades the class and records the exact label."""
+
+    def _task(self, tid):
+        import json
+
+        from tests.wfe.runner import REPO
+
+        for line in (REPO / "tests/wfe/suites/compliance_agentic.jsonl").read_text().splitlines():
+            t = json.loads(line)
+            if t["id"] == tid:
+                return t
+        raise AssertionError(tid)
+
+    def _grade(self, tid, label):
+        from tests.wfe.checkers import CheckContext, apply_checkers
+
+        text = f'{{"determination": "{label}", "cited_refs": ["X"], "rationale": "r"}} DETERMINATION COMPLETE'
+        return apply_checkers(self._task(tid), CheckContext(final_text=text))
+
+    def test_any_unmet_flavour_passes_an_unmet_key(self):
+        r = self._grade("comp-p6j-11", "CONTRADICTED")
+        assert r.outcome.value == "PASS" and r.evidence["exact_label_match"] is False
+        assert self._grade("comp-p6j-11", "ABSENT").evidence["exact_label_match"] is True
+
+    def test_class_errors_still_fail(self):
+        assert self._grade("comp-p6j-11", "SUPPORTED").outcome.value == "FAIL"
+        assert self._grade("comp-p6j-11", "ABSTAIN").outcome.value == "FAIL"
+        assert self._grade("comp-p6j-01", "PARTIAL").outcome.value == "FAIL"
+        assert self._grade("comp-p6j-24", "ABSENT").outcome.value == "FAIL"
+
+    def test_instruction_carries_the_council_decision_rules(self):
+        t = self._task("comp-p6j-19")
+        assert "stricter than the governing constraint satisfies it" in t["instruction"]
+        assert "last aligned or checked at some past time" in t["instruction"]

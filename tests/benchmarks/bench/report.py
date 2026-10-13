@@ -67,10 +67,11 @@ def _print_direct_table(results: list[dict]) -> None:
         size_str = f"{size_gb:.0f}GB" if size_gb else "-"
         if r["runs_success"] > 0:
             qs = r.get("quality_score", 1.0)
+            qs_s = "unscored" if qs is None else f"{qs:.2f}"
             tq = r.get("tps_quality", r["avg_tps"])
             print(
                 f"{model_short:<50} {r['backend']:<10} {size_str:<8} {'OK':<10} {r['avg_tps']:<10.1f} "
-                f"{qs:<9.2f} {tq:<8.1f} {r['avg_completion_tokens']:<8}"
+                f"{qs_s:<9} {tq:<8.1f} {r['avg_completion_tokens']:<8}"
             )
         elif not r.get("available", True):
             print(
@@ -99,9 +100,10 @@ def _print_pipeline_table(results: list[dict]) -> None:
         ws = r.get("workspace", "?")
         if r["runs_success"] > 0:
             qs = r.get("quality_score", 1.0)
+            qs_s = "unscored" if qs is None else f"{qs:.2f}"
             tq = r.get("tps_quality", r["avg_tps"])
             print(
-                f"{ws:<30} {r['avg_tps']:<10.1f} {qs:<9.2f} {tq:<8.1f} "
+                f"{ws:<30} {r['avg_tps']:<10.1f} {qs_s:<9} {tq:<8.1f} "
                 f"{r['avg_completion_tokens']:<8} {r['runs_success']}/{r['runs_total']}"
             )
         else:
@@ -128,8 +130,9 @@ def _print_persona_table(results: list[dict]) -> None:
         wm_short = wm.split("/")[-1] if "/" in wm else wm
         if r["runs_success"] > 0:
             qs = r.get("quality_score", 1.0)
+            qs_s = "unscored" if qs is None else f"{qs:.2f}"
             print(
-                f"{slug:<30} {cat:<12} {wm_short:<40} {r['avg_tps']:<10.1f} {qs:<9.2f} {r['runs_success']}/{r['runs_total']}"
+                f"{slug:<30} {cat:<12} {wm_short:<40} {r['avg_tps']:<10.1f} {qs_s:<9} {r['runs_success']}/{r['runs_total']}"
             )
         else:
             print(

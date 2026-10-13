@@ -360,7 +360,9 @@ def bench_tps(
     if successful:
         last_ok = successful[-1]
         routed_model = last_ok.get("response_model", "")
-        last_response_text = last_ok.get("response_text", "") or last_ok.get("reasoning_text", "")
+        # The ANSWER only. Falling back to reasoning_text scored a reply that never
+        # answered on the keywords its private reasoning happened to mention.
+        last_response_text = last_ok.get("response_text", "") or ""
 
     # Quality scoring: measure signal coverage for this prompt category
     try:
@@ -371,11 +373,14 @@ def bench_tps(
         _sys.path.insert(0, str(PROJECT_ROOT / "tests"))
         from quality_signals import quality_score as _qs
 
-        qs = round(_qs(prompt_category, last_response_text), 2) if last_response_text else 0.0
-    except Exception:
-        qs = 1.0  # Don't penalize if signals module unavailable
+        qs = round(_qs(prompt_category, last_response_text), 2) if last_response_text else None
+        quality_unscored = "" if last_response_text else "no answer text (reasoning only or empty)"
+    except Exception as e:
+        # Unscored, not perfect: a silent 1.0 ranked an unscorable run as flawless.
+        qs, quality_unscored = None, f"quality_signals unavailable: {e}"
 
-    tps_quality = round(avg_tps * qs, 1)
+    # Unscored runs rank on speed alone and say so (quality_unscored).
+    tps_quality = round(avg_tps * qs, 1) if qs is not None else avg_tps
 
     expected_match: bool | None = None
     expected_detail = ""
@@ -417,6 +422,7 @@ def bench_tps(
         "routed_model": routed_model,
         "prompt_category": prompt_category,
         "quality_score": qs,
+        "quality_unscored": quality_unscored,
         "tps_quality": tps_quality,
         "reasoning_mode": _reasoning,
         "expected_model_match": expected_match,

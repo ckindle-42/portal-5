@@ -128,10 +128,22 @@ def _collect_warnings(rows: list[dict], manifest: dict, allow_mixed: bool) -> li
     return warnings
 
 
+def _one_draw_per_task(rows: list[dict]) -> list[dict]:
+    """Deterministic repeats (temperature 0, pinned seed) are one observation:
+    counting them n times narrowed the Wilson interval threefold and made a
+    temperature-0 arm "separated" from a sampled one on a third of the data."""
+    if not any(r.get("repeat_degeneracy") for r in rows):
+        return rows
+    first: dict = {}
+    for r in sorted(rows, key=lambda r: r.get("repeat", 0)):
+        first.setdefault(r["task_id"], r)
+    return list(first.values())
+
+
 def _build_matrix(by_key: dict, role_of: dict, home_of: dict) -> list[dict]:
     matrix: list[dict] = []
     for (ws, suite, arm), rs in sorted(by_key.items()):
-        passes, n = _rate(rs)
+        passes, n = _rate(_one_draw_per_task(rs))
         p, lo, hi = wilson(passes, n)
         instr = [r for r in rs if Outcome(r["outcome"]) in INSTRUMENT_OUTCOMES]
         pending = [r for r in rs if r["outcome"] == Outcome.PENDING_REVIEW.value]

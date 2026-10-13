@@ -63,6 +63,7 @@ import datetime as dt
 import functools
 import json
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -78,6 +79,7 @@ from tests.wfe.runner import (
     ENGINE,
     OLLAMA,
     TOOL_NAMES,
+    card_sampling,
     chat,
     load_suite,
     make_sandbox,
@@ -141,6 +143,8 @@ DEBUG_TREE_CAP = 60
 #: retryable, as opposed to a task-level block (offline `requires_network`), which
 #: is not. execute_arm re-offers only rows carrying this prefix.
 _PREFLIGHT_BLOCK = "preflight REVIEW: "
+#: Note prefix of a pipeline row the seat did not serve (run_row).
+SEAT_BLOCK = "not seat evidence: "
 
 
 # --------------------------------------------------------------------------
@@ -359,14 +363,14 @@ def arm_spec(entry) -> tuple[str, str, dict]:
     """(arm_id, model, overrides) for one plan arm.
 
     A plan arm is a model tag, or a variant of one:
-      {model: <tag>, label: card, sampling: {...}, think: true|false}
+      {model: <tag>, label: card, sampling: {...}, think: true|false, persona: <slug>}
     A variant's arm_id is `<tag>@<label>-<sha8 of its overrides>`, so the seat
     arm and the card arm of the SAME model are distinct arms with distinct
     run_ids. Before this, run_id carried no sampling: an A/B with --append
     added 0 rows ("already present") and the card arm silently never ran."""
     if isinstance(entry, dict):
         model = str(entry["model"])
-        ov = {k: entry[k] for k in ("sampling", "think") if entry.get(k) is not None}
+        ov = {k: entry[k] for k in ("sampling", "think", "persona") if entry.get(k) is not None}
         label = entry.get("label")
     else:
         model, ov, label = str(entry), {}, None
@@ -379,6 +383,33 @@ def arm_spec(entry) -> tuple[str, str, dict]:
         return model, model, {}
     digest = sha12(json.dumps(ov, sort_keys=True))[:8]
     return f"{model}@{label}-{digest}" if label else f"{model}@{digest}", model, ov
+
+
+def _with_card_sampling(entry, role: str, ws_id: str):
+    """A challenger with no explicit `sampling` runs at its MODEL CARD's
+    sampling, not the seat's. The seat's sampling block was tuned for the
+    incumbent (auto-compliance: temperature 0.3, repetition_penalty 1.1), and
+    every challenger in workloads.yaml — gpt-oss (card 1.0/1.0), granite4.2,
+    glm-4.7-flash, Qwen3.8-Uncensored — used to run at it, so a comparison
+    measured fit to the incumbent's settings. Replacing the incumbent would
+    re-tune the seat for the new model, so the card is the fair arm. The card
+    mode follows the lane's think policy. `sampling: seat` keeps the seat's
+    block on purpose; a model with no card sampling keeps it and says so."""
+    if role != "challenger":
+        return entry
+    spec = dict(entry) if isinstance(entry, dict) else {"model": str(entry)}
+    if spec.get("sampling") == "seat":
+        spec.pop("sampling")
+        return spec
+    if spec.get("sampling") is not None:
+        return spec
+    lane_think = workspace_context(ws_id).get("think")
+    card = card_sampling(spec["model"], lane_think)
+    if not card:
+        return spec
+    spec["sampling"] = card
+    spec.setdefault("label", "card")
+    return spec
 
 
 def row_model(r: dict) -> str:
@@ -428,7 +459,7 @@ def expand_matrix(
         for role, entry in ordered:
             if not entry:
                 continue
-            arm_id, model, overrides = arm_spec(entry)
+            arm_id, model, overrides = arm_spec(_with_card_sampling(entry, role, ws_id))
             if only_arm and only_arm not in (arm_id, model):
                 continue
             spec = (arm_id, model, overrides)
@@ -605,10 +636,11 @@ def _reconcile_offline(recorded: str | None, checker_outcome: str) -> tuple[str,
     BUDGET_EXHAUSTED always stands: the model did not finish, and a checker
     re-grade — even a PASS on the artifacts it left — cannot change that. This
     used to upgrade it to PASS, which re-created the stall-masking defect on
-    every --rescore. The other telemetry outcomes may still be upgraded by a
-    checker PASS (a too-strict checker was the real reason for a FAIL-shaped
-    TOOL_ERROR)."""
-    if recorded == Outcome.BUDGET_EXHAUSTED.value or (
+    every --rescore. BLOCKED stands too: a row the seat did not serve (a
+    failover turn) is not seat evidence however well it grades. The other
+    telemetry outcomes may still be upgraded by a checker PASS (a too-strict
+    checker was the real reason for a FAIL-shaped TOOL_ERROR)."""
+    if recorded in (Outcome.BUDGET_EXHAUSTED.value, Outcome.BLOCKED.value) or (
         recorded in _RUN_TELEMETRY_OUTCOMES and checker_outcome != Outcome.PASS.value
     ):
         return (
@@ -700,33 +732,51 @@ def rescore_debug_dir(debug_dir: Path, campaign_dir: Path | None = None) -> list
 # --------------------------------------------------------------------------
 
 
-def seat_served_candidates(workspace: str, model: str) -> set[str]:
-    """Model ids production may serve for this arm: the tag plus its aliases in
-    the groups workspace_routing puts in the seat path. backends.yaml shadows
-    many incumbent tags onto priority-10 oMLX seats (auto-compliance ->
-    Qwen3.8-27B-oQ4e-mtp, tools-specialist -> granite-4.1-8b-mxfp8), so a raw
-    equality check would BLOCK every aliased seat; a third model is still a
-    mismatch."""
-    base = workspace.partition("::")[0]
+def seat_primary(workspace: str, model: str) -> str:
+    """The model id production routes this arm to when every backend is
+    healthy: the workspace's routing groups in order (then the fallback group),
+    backends within a group by descending priority, first one that serves the
+    tag — through an alias or directly. backends.yaml shadows several incumbent
+    tags onto priority-10 oMLX seats (auto-compliance -> Qwen3.8-27B-oQ4e-mtp),
+    so that alias IS the seat. The raw tag on Ollama behind it is the failover,
+    a different engine and build: V2 counted 17 failover rows as seat evidence."""
     try:
         cfg = yaml.safe_load((REPO / "config/backends.yaml").read_text()) or {}
     except OSError:
-        return {model}
-    lanes = (cfg.get("workspace_routing") or {}).get(base) or []
-    out = {model}
-    for grp in cfg.get("backends") or []:
-        if grp.get("group") in lanes:
-            target = (grp.get("aliases") or {}).get(model)
-            if target:
-                out.add(target)
-    return out
+        return model
+    groups = list((cfg.get("workspace_routing") or {}).get(workspace.partition("::")[0]) or [])
+    groups.append((cfg.get("defaults") or {}).get("fallback_group", "general"))
+    for group in groups:
+        backends = [b for b in cfg.get("backends") or [] if b.get("group") == group]
+        for b in sorted(backends, key=lambda b: -int(b.get("priority") or 0)):
+            alias = (b.get("aliases") or {}).get(model)
+            if alias:
+                return alias
+            ids = {m.get("id") if isinstance(m, dict) else m for m in b.get("models") or []}
+            if model in ids:
+                return model
+    return model
+
+
+def served_mismatch(transcript: list, primary: str) -> str | None:
+    """Why a pipeline row is not seat evidence, or None. Every model turn must
+    carry a served model (a missing trace is unverified, not assumed) and it
+    must be the seat's primary; one failover turn taints the whole row."""
+    turns = [t for t in transcript if "tool_calls" in t]
+    served = [(t.get("served") or {}).get("model") for t in turns]
+    if any(m is None for m in served):
+        return f"served model unverified on {served.count(None)}/{len(served)} turn(s)"
+    off = sorted({m for m in served if m != primary})
+    if off:
+        return f"pipeline served {off} (seat is {primary}) — failover or drift"
+    return None
 
 
 def preflight_pipeline(workspaces: list[str], model: str) -> dict:
     """Pipeline mode: the pipeline owns the wire, so the raw transport probe is
     moot. What must hold is that each seat is actually served by the arm's model
-    or its production alias (a fallback to a third model would make every row
-    describe another model)."""
+    seat (a failover or a third model would make every row describe another
+    model)."""
     findings = []
     for ws in workspaces:
         try:
@@ -735,8 +785,11 @@ def preflight_pipeline(workspaces: list[str], model: str) -> dict:
         except Exception as e:
             served, findings = None, [*findings, f"{ws}: request failed: {e}"]
             continue
-        if served not in seat_served_candidates(ws, model):
-            findings.append(f"{ws}: pipeline served {served!r}, arm is {model!r}")
+        primary = seat_primary(ws, model)
+        if served != primary:
+            findings.append(
+                f"{ws}: pipeline served {served!r}, seat is {primary!r} (arm {model!r})"
+            )
     return {"model": model, "verdict": "REVIEW" if findings else "OK", "findings": findings}
 
 
@@ -822,15 +875,35 @@ def _baked_params(model: str) -> dict:
     return params
 
 
-def degenerate_repeats(wsc: dict) -> str | None:
-    """A workspace pinned to temperature 0 (or to a fixed seed) produces
-    identical repeats. Recorded so the report never presents n=3 as three
-    independent draws when it was one draw counted three times."""
+def served_context_limit(workspace: str, model: str, wsc: dict) -> int | None:
+    """The context window the row is actually served with, when knowable. An
+    Ollama tag bakes it (`num_ctx`, or the `-ctxNk` naming convention); an oMLX
+    seat serves its full window, which the harness does not know, so the
+    shrinking-prompt check alone applies there."""
+    served = seat_primary(workspace, model) if ENGINE == "pipeline" else model
+    if ENGINE in ("ollama", "pipeline") and served == model:
+        baked = _baked_params(model).get("num_ctx") if ENGINE == "ollama" else None
+        if baked:
+            return int(baked)
+        m = re.search(r"ctx(\d+)k", model)
+        if m:
+            return int(m.group(1)) * 1024
+        return wsc.get("context_limit") if model == wsc.get("model") else None
+    return None
+
+
+def degenerate_repeats(wsc: dict, overrides: dict | None = None) -> str | None:
+    """A row served at temperature 0 (or with a pinned seed) repeats one draw.
+    Recorded so the report never presents n=3 as three independent draws when
+    it was one draw counted three times. The ARM's sampling decides: a
+    challenger at its card temperature in a temperature-0 workspace is not
+    degenerate, and was mis-flagged when only the workspace was read."""
     if wsc.get("pinned_seed") is not None:
         return f"workspace pins seed={wsc['pinned_seed']}"
-    t = wsc.get("declared_temperature")
+    forced = (overrides or {}).get("sampling") or {}
+    t = forced.get("temperature", wsc.get("declared_temperature"))
     if t is not None and float(t) == 0.0:
-        return "workspace declares temperature 0 — repeats are deterministic"
+        return "served at temperature 0 — repeats are deterministic"
     return None
 
 
@@ -852,11 +925,13 @@ def run_row(
     sampling = _sampling_for(wsc, r["repeat"], overrides)
     harness = campaign_harness(wsc, overrides)
     t0 = time.monotonic()
+    pipe = ENGINE == "pipeline"
+    # The prompt actually sent: in pipeline mode the pipeline adds the append.
+    sent_prompt = wsc["system_prompt_pipeline"] if pipe else wsc["system_prompt"]
     try:
-        pipe = ENGINE == "pipeline"
         out = run_task(
             r["workspace"] if pipe else row_model(r),
-            wsc["system_prompt_pipeline"] if pipe else wsc["system_prompt"],
+            sent_prompt,
             task,
             sandbox,
             max_turns,
@@ -865,6 +940,7 @@ def run_row(
             harness=dict(harness),
             sampling=sampling,
             tool_surface=wsc.get("tool_surface"),
+            context_limit=served_context_limit(r["workspace"], row_model(r), wsc),
         )
     except Exception as e:
         _log(campaign_dir, f"  runner raised: {type(e).__name__}: {e}")
@@ -882,18 +958,18 @@ def run_row(
             "transcript": [],
             "tool_call_log": [],
         }
-    served = (out.get("evidence") or {}).get("served_models")
-    if (
-        ENGINE == "pipeline"
-        and served
-        and not set(served) <= seat_served_candidates(r["workspace"], row_model(r))
-    ):
-        # The pipeline routed this seat to another model (fallback, alias drift):
-        # the row says nothing about the arm, so it must not count as seat evidence.
+    mismatch = (
+        served_mismatch(out.get("transcript") or [], seat_primary(r["workspace"], row_model(r)))
+        if pipe and out.get("transcript")
+        else None
+    )
+    if mismatch:
+        # The row says nothing about the seat, so it must not count as seat
+        # evidence. BLOCKED rows are re-offered by --rerun-failed.
         out = {
             **out,
             "outcome": Outcome.BLOCKED.value,
-            "notes": f"pipeline served {served}, arm is {row_model(r)} | {out.get('notes', '')}",
+            "notes": f"{SEAT_BLOCK}{mismatch} | {out.get('notes', '')}",
         }
     econ = dict(out.get("economics") or {})
     econ["cold_load"] = cold
@@ -911,7 +987,7 @@ def run_row(
         notes=out["notes"],
         evidence=out["evidence"],
         persona_slug=wsc.get("persona_slug"),
-        prompt_sha=sha12(wsc["system_prompt"]),
+        prompt_sha=sha12(sent_prompt),
         tool_surface=wsc.get("tool_surface") or TOOL_NAMES,
         tool_surface_proxy=bool(wsc.get("tool_surface_proxy", True)),
         harness=dict(harness),
@@ -928,7 +1004,7 @@ def run_row(
         tool_call_log=out["tool_call_log"],
     ).to_dict()
     row["final_text"] = out.get("final_text", "")
-    row["repeat_degeneracy"] = degenerate_repeats(wsc)
+    row["repeat_degeneracy"] = degenerate_repeats(wsc, overrides)
     row["model"] = row_model(r)
     row["overrides"] = overrides
     # What the engine was ASKED for but silently drops (runner.DELIVERABLE_KEYS),
@@ -952,7 +1028,7 @@ def run_row(
                 "suite_path": r["suite_path"],
                 "task_id": r["task_id"],
                 "repeat": r["repeat"],
-                "system_prompt": wsc["system_prompt"],
+                "system_prompt": sent_prompt,
                 "persona_slug": wsc.get("persona_slug"),
                 "instruction": task["instruction"],
                 "harness": dict(harness),
@@ -1072,7 +1148,12 @@ def execute_arm(
     # previous arm's process may have been killed without cleaning up, and the
     # pipeline may have pinned a classifier since. Both are memory this arm needs.
     model = row_model(todo[0])
-    evicted = drain_others(model)
+    # Keep the arm's tag resident only when it IS the seat. When the seat is an
+    # oMLX alias, a resident Ollama copy of the tag only takes the memory the
+    # seat needs: in V2 the failover GGUF stayed loaded and oMLX answered 507
+    # to every reload for 17 rows.
+    seat = seat_primary(todo[0]["workspace"], model) if ENGINE == "pipeline" else model
+    evicted = drain_others(model if seat == model else "")
     if evicted:
         _log(campaign_dir, f"arm {arm}: drained {len(evicted)} resident model(s): {evicted}")
     if ENGINE == "omlx" or (ENGINE == "pipeline" and model not in model_sizes()):
@@ -1082,13 +1163,14 @@ def execute_arm(
     if notify:
         _notify("test_start", f"WFE arm started: {arm}\n{len(todo)} task-runs")
 
-    ws_cache: dict[str, dict] = {}
+    ws_cache: dict[tuple, dict] = {}
     suite_cache: dict[str, dict] = {}
     tally: dict = {}
     t_arm = time.monotonic()
     for i, r in enumerate(todo, 1):
-        if r["workspace"] not in ws_cache:
-            ws_cache[r["workspace"]] = workspace_context(r["workspace"])
+        ws_key = (r["workspace"], row_overrides(r).get("persona"))
+        if ws_key not in ws_cache:
+            ws_cache[ws_key] = workspace_context(*ws_key)
         if r["suite_path"] not in suite_cache:
             suite_cache[r["suite_path"]] = {t["id"]: t for t in load_suite(r["suite_path"])}
         task = suite_cache[r["suite_path"]].get(r["task_id"])
@@ -1102,7 +1184,7 @@ def execute_arm(
             campaign_dir,
             manifest,
             r,
-            ws_cache[r["workspace"]],
+            ws_cache[ws_key],
             task,
             max_turns,
             budget_s,
@@ -1117,6 +1199,13 @@ def execute_arm(
             f"      -> {row['outcome']} turns={row['turns']} tools={row['tool_calls']} "
             f"errs={row['tool_errors']} {row['economics'].get('wall_s')}s",
         )
+        if str(row.get("notes") or "").startswith(SEAT_BLOCK):
+            # The seat failed over. Every further row would land on the failover
+            # too (it holds the memory the seat needs to reload), so stop here;
+            # the remaining rows stay PENDING and this one re-runs with
+            # --rerun-failed once the seat serves again.
+            _log(campaign_dir, f"arm {arm}: STOPPED — {row['notes'][:200]}")
+            break
 
     if not drain_model(model):
         _log(campaign_dir, f"arm {arm}: WARNING — still resident after {DRAIN_TIMEOUT_S}s")
@@ -1430,7 +1519,7 @@ def _cmd_smoke(args, plan: Path) -> int:
     if pf.get("verdict") != "OK" and not args.force:
         print("\nsmoke: preflight REVIEW — fix or pass --force", file=sys.stderr)
         return 1
-    wsc = workspace_context(r["workspace"])
+    wsc = workspace_context(r["workspace"], row_overrides(r).get("persona"))
     task = {t["id"]: t for t in load_suite(r["suite_path"])}[r["task_id"]]
     debug = args.debug_dir or (d / "debug")
     row = run_row(d, manifest, r, wsc, task, args.max_turns, args.budget_s, debug, cold=True)
@@ -1549,11 +1638,16 @@ def _warn_prompt_surface(matrix: list[dict]) -> None:
 
     portal = yaml.safe_load((_REPO / "config/portal.yaml").read_text()) or {}
     known = production_tool_names(portal)
-    keys = {(r.get("workspace", ""), r.get("suite_path", "")) for r in matrix}
-    for ws_id, suite in sorted(k for k in keys if k[0] and k[1]):
+    keys = {
+        (r.get("workspace", ""), r.get("suite_path", ""), (r.get("overrides") or {}).get("persona"))
+        for r in matrix
+    }
+    for ws_id, suite, persona in sorted(
+        (k for k in keys if k[0] and k[1]), key=lambda k: (k[0], k[1], k[2] or "")
+    ):
         if not Path(suite).is_file():
             continue
-        ctx = workspace_context(ws_id)
+        ctx = workspace_context(ws_id, persona)
         served, surface = ctx["system_prompt"], set(ctx["tool_surface"])
         for w in audit_workspace(served, Path(suite).read_text(), surface, known):
             print(f"WARN prompt/tool surface [{ws_id}]: {w}", flush=True)

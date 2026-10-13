@@ -1210,6 +1210,15 @@ class TestTransientPreflightIsRecoverable:
     momentary connection reset silently cost an arm all 39 of its runs.
     """
 
+    @pytest.fixture(autouse=True)
+    def _no_live_engines(self, monkeypatch):
+        """execute_arm drains Ollama/oMLX before an arm. Unstubbed, this test
+        evicted real resident models (the pipeline's router) on every run."""
+        monkeypatch.setattr(camp, "drain_others", lambda keep: [])
+        monkeypatch.setattr(camp, "drain_model", lambda m: True)
+        monkeypatch.setattr(camp, "drain_omlx", lambda: "stub")
+        monkeypatch.setattr(camp, "model_sizes", lambda: {"m:t": 1})
+
     def _open(self, tmp_path):
         camp.CAMPAIGNS = tmp_path / "campaigns"
         plan = tmp_path / "plan.yaml"
@@ -1269,7 +1278,7 @@ class TestTransientPreflightIsRecoverable:
             }
 
         monkeypatch.setattr(camp, "preflight_harness", lambda m: {"verdict": "OK", "findings": []})
-        monkeypatch.setattr(camp, "workspace_context", lambda ws: {"model": "m:t"})
+        monkeypatch.setattr(camp, "workspace_context", lambda ws, persona=None: {"model": "m:t"})
         monkeypatch.setattr(camp, "run_row", _row)
         second = camp.execute_arm(d, "m:t", 4, 60, None, False, False)
         assert second["ran"] > 0, "resume left the arm permanently blocked"
@@ -1674,39 +1683,348 @@ class TestPipelineMode:
         s = cp._sampling_for({"sampling": {"top_k": 20}}, 0, {"sampling": {"temperature": 0.2}})
         assert s == {"temperature": 0.2, "seed": 1000, "max_tokens_source": "pipeline"}
 
-    def test_seat_served_candidates_resolve_the_production_alias(self):
+    def test_seat_primary_is_the_production_alias(self):
         """backends.yaml shadows several incumbent tags onto priority-10 oMLX
-        seats; the served-model checks must accept that target and still reject
-        a third model. Reads the committed routing, so it fails if the alias
-        drifts too."""
+        seats; that alias is the seat. Reads the committed routing, so it
+        fails if the alias drifts too."""
         from tests.wfe import campaign as cp
 
-        assert cp.seat_served_candidates(
-            "auto-compliance", "hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k"
-        ) == {"hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k", "Qwen3.8-27B-oQ4e-mtp"}
+        assert (
+            cp.seat_primary("auto-compliance", "hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k")
+            == "Qwen3.8-27B-oQ4e-mtp"
+        )
         # variant ids resolve through their base workspace's routing
-        assert cp.seat_served_candidates(
-            "auto-coding::laguna", "portal5/laguna-xs21:q4_K_M-ctx128k"
-        ) == {"portal5/laguna-xs21:q4_K_M-ctx128k", "Laguna-XS-2.1-4bit"}
-        # an unaliased tag admits only itself
-        assert cp.seat_served_candidates(
-            "auto-coding::fast-repair", "kat-coder-v2.5-dev:Q4_K_M-ctx32k"
-        ) == {"kat-coder-v2.5-dev:Q4_K_M-ctx32k"}
+        assert (
+            cp.seat_primary("auto-coding::laguna", "portal5/laguna-xs21:q4_K_M-ctx128k")
+            == "Laguna-XS-2.1-4bit"
+        )
+        # an unaliased tag is its own seat
+        assert (
+            cp.seat_primary("auto-coding::fast-repair", "kat-coder-v2.5-dev:Q4_K_M-ctx32k")
+            == "kat-coder-v2.5-dev:Q4_K_M-ctx32k"
+        )
 
-    def test_preflight_pipeline_accepts_alias_rejects_drift(self, monkeypatch):
+    def test_preflight_pipeline_rejects_the_failover_and_drift(self, monkeypatch):
         from tests.wfe import campaign as cp
 
+        tag = "hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k"
         monkeypatch.setattr(
             cp, "chat", lambda *a, **k: {"served": {"model": "Qwen3.8-27B-oQ4e-mtp"}}
         )
-        assert (
-            cp.preflight_pipeline(
-                ["auto-compliance"], "hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k"
-            )["verdict"]
-            == "OK"
+        assert cp.preflight_pipeline(["auto-compliance"], tag)["verdict"] == "OK"
+        for other in (tag, "some-other-model"):
+            monkeypatch.setattr(cp, "chat", lambda *a, _m=other, **k: {"served": {"model": _m}})
+            pf = cp.preflight_pipeline(["auto-compliance"], tag)
+            assert pf["verdict"] == "REVIEW" and other in pf["findings"][0]
+
+    def test_a_failover_turn_makes_the_row_not_seat_evidence(self):
+        """V2 counted 17 rows served by the Ollama failover (and 2 that switched
+        engine mid-row) as the oMLX seat's baseline."""
+        from tests.wfe import campaign as cp
+
+        seat = "Qwen3.8-27B-oQ4e-mtp"
+
+        def turn(m):
+            return {"turn": 0, "tool_calls": [], "served": {"model": m}}
+
+        assert cp.served_mismatch([turn(seat), turn(seat)], seat) is None
+        assert "failover" in cp.served_mismatch([turn(seat), turn("raw:tag")], seat)
+        # a model turn without trace evidence is unverified, not assumed fine
+        missing = [turn(seat), {"turn": 1, "tool_calls": []}]
+        assert "unverified" in cp.served_mismatch(missing, seat)
+        # non-model transcript entries (stall, turn-cap marker) carry no served
+        assert cp.served_mismatch([turn(seat), {"turn": 2, "exhausted_turns": "x"}], seat) is None
+
+
+class TestV2ReviewInstrumentFixes:
+    """Defects found reviewing wfe_prompt_surface_seat_20261012 (V3 task)."""
+
+    def test_repo_search_scoped_to_a_file_searches_that_file(self, tmp_path):
+        sb = Sandbox(tmp_path)
+        sb.file_write("packet.json", '"governing_ref": "CIP-010-4 R2 Part 2.1"')
+        sb.file_write("other.txt", "unrelated")
+        out = sb.repo_search("CIP-010-4", "other.txt")
+        assert "packet.json" not in out and out == "(no matches)"
+        assert sb.repo_search("CIP-010-4", "packet.json").startswith("packet.json:1:")
+
+    def test_repo_search_on_a_missing_path_is_an_error_not_a_widening(self, tmp_path):
+        sb = Sandbox(tmp_path)
+        sb.file_write("packet.json", "CIP-010-4")
+        assert sb.repo_search("CIP-010-4", "no/such.json").startswith("ERROR:")
+
+    def test_repo_search_scoped_to_a_repo_file_reaches_it(self, tmp_path):
+        out = Sandbox(tmp_path).repo_search(r"\[tool\.ruff\]", "pyproject.toml")
+        assert out.startswith("pyproject.toml:")
+
+    def test_repo_search_scoped_to_a_repo_dir_keeps_the_deny_list(self, tmp_path):
+        out = Sandbox(tmp_path).repo_search("comp-p6j-01", "tests")
+        assert "tests/wfe/" not in out
+
+    def test_sandbox_only_task_cannot_read_the_repository(self, tmp_path):
+        sb = Sandbox(tmp_path, allow_repo_read=False)
+        assert sb.file_read("pyproject.toml").startswith("ERROR:")
+        assert sb.repo_search(r"\[tool\.ruff\]") == "(no matches)"
+        assert sb.repo_search("x", "config/compliance/y21_resolutions.yaml").startswith("ERROR:")
+
+    def test_every_compliance_packet_task_is_sandbox_only(self):
+        from tests.wfe.runner import REPO, load_suite
+
+        for name in (
+            "compliance_agentic",
+            "compliance_agentic_full",
+            "compliance_agentic_loopset",
+            "compliance_agentic_loopset_noformat",
+        ):
+            for t in load_suite(REPO / f"tests/wfe/suites/{name}.jsonl"):
+                if "packet.json" in (t.get("seed") or {}):
+                    assert t.get("repo_read") is False, (name, t["id"])
+
+    def test_run_task_applies_repo_read_and_the_sandbox_only_schema(self, tmp_path, monkeypatch):
+        from tests.wfe import runner as rn
+
+        seen = {}
+
+        def fake_chat(model, messages, tools=True, tool_schemas=None, **k):
+            seen["schemas"] = tool_schemas
+            return {
+                "message": {"content": "done"},
+                "finish_reason": "stop",
+                "economics": rn.Economics(),
+                "served": {},
+            }
+
+        monkeypatch.setattr(rn, "chat", fake_chat)
+        sb = Sandbox(tmp_path)
+        task = {
+            "id": "t",
+            "instruction": "x",
+            "repo_read": False,
+            "checkers": [{"type": "answer_contains", "patterns": ["done"]}],
+        }
+        rn.run_task("m", "sys", task, sb, 2, 60, use_tools=True)
+        assert sb.allow_repo_read is False
+        desc = [s for s in seen["schemas"] if s["function"]["name"] == "repo_search"][0]
+        assert "repository" not in desc["function"]["description"]
+
+    def test_workspace_mount_paths_land_in_the_sandbox(self, tmp_path):
+        sb = Sandbox(tmp_path)
+        sb.file_write("notes.md", "seeded")
+        assert sb.file_read("/workspace/notes.md") == "seeded"
+        assert sb.file_read("/workspace/uploads/notes.md") == "seeded"
+        assert sb.file_write("/workspace/out.py", "x").startswith("wrote")
+        assert (tmp_path / "out.py").read_text() == "x"
+        assert "notes.md" in sb.file_list("/workspace")
+
+    def test_pipeline_error_frame_is_not_an_empty_answer(self):
+        lines = ['data: {"error": "Response timed out — model may still be generating."}']
+        with pytest.raises(RuntimeError, match="mid-stream"):
+            _parse_stream_v1(iter(lines))
+
+    def test_pipeline_no_answer_placeholder_is_not_the_models_answer(self, tmp_path, monkeypatch):
+        from portal.platform.inference.router.thinking import NO_ANSWER_MESSAGE
+        from tests.wfe import runner as rn
+
+        monkeypatch.setattr(
+            rn,
+            "chat",
+            lambda *a, **k: {
+                "message": {"content": NO_ANSWER_MESSAGE},
+                "finish_reason": "stop",
+                "economics": rn.Economics(),
+                "served": {},
+            },
         )
-        monkeypatch.setattr(cp, "chat", lambda *a, **k: {"served": {"model": "some-other-model"}})
-        pf = cp.preflight_pipeline(
-            ["auto-compliance"], "hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k"
+        task = {
+            "id": "t",
+            "instruction": "x",
+            "checkers": [{"type": "answer_contains", "patterns": ["Please retry"]}],
+        }
+        out = rn.run_task("m", "sys", task, Sandbox(tmp_path), 2, 60, use_tools=True)
+        assert out["final_text"] == "" and out["outcome"] == "FAIL"
+        assert out["evidence"]["pipeline_no_answer"] is True
+        assert out["notes"].startswith("pipeline no-answer placeholder")
+
+    def test_dispatch_errors_are_flagged_in_the_tool_log(self, tmp_path):
+        from tests.wfe.runner import _execute_calls
+
+        log, msgs = [], []
+        calls = [{"function": {"name": "file_read", "arguments": '{"path": "nope.txt"}'}}]
+        assert _execute_calls(calls, 0, Sandbox(tmp_path), log, msgs) == 1
+        assert log[0]["error"] is True
+
+    def test_code_kv_instruction_names_a_single_backslash_escape(self):
+        """The instruction said `\\\\;` (two backslashes) while the hidden suite
+        tests r"a\\;b" (one): models wrote tests to the instruction, their
+        own tests failed and they looped with a hidden-suite-passing parser."""
+        from tests.wfe.runner import REPO, load_suite
+
+        kv = {t["id"]: t for t in load_suite(REPO / "tests/wfe/suites/coding.jsonl")}["code-kv"]
+        assert "semicolon \\; is" in kv["instruction"]
+        assert "\\\\;" not in kv["instruction"]
+        graded = (REPO / "tests/wfe/graded/code_kv/test_parse_kv.py").read_text()
+        assert 'r"note=a\\;b' in graded
+
+    def test_rescore_never_upgrades_a_blocked_row(self):
+        out, why = camp._reconcile_offline("BLOCKED", "PASS")
+        assert out == "BLOCKED" and "kept recorded" in why
+
+    def test_arm_on_an_aliased_seat_drains_the_raw_tag_and_stops_on_failover(
+        self, tmp_path, monkeypatch
+    ):
+        """V2: the failover GGUF stayed resident (drain kept the raw tag) and
+        oMLX 507'd every reload for 17 rows. The arm must free it at start and
+        stop at the first failover row instead of burning the rest."""
+        tag = "hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k"
+        rows = [
+            {
+                "run_id": f"r{i}",
+                "arm": tag,
+                "model": tag,
+                "workspace": "auto-compliance",
+                "suite_path": "s",
+                "task_id": "t",
+                "state": "PENDING",
+            }
+            for i in range(3)
+        ]
+        manifest = {"rows": rows}
+        kept, ran = [], []
+        monkeypatch.setattr(camp, "ENGINE", "pipeline")
+        monkeypatch.setattr(camp, "load_manifest", lambda d: manifest)
+        monkeypatch.setattr(camp, "save_manifest", lambda d, m: None)
+        monkeypatch.setattr(camp, "_rows_to_run", lambda *a: (list(rows), None))
+        monkeypatch.setattr(camp, "drain_others", lambda keep: kept.append(keep) or [])
+        monkeypatch.setattr(camp, "model_sizes", lambda: {tag: 1})
+        monkeypatch.setattr(camp, "drain_model", lambda m: True)
+        monkeypatch.setattr(camp, "workspace_context", lambda ws, persona=None: {})
+        monkeypatch.setattr(camp, "load_suite", lambda p: [{"id": "t"}])
+
+        def fake_row(d, m, r, *a, **k):
+            ran.append(r["run_id"])
+            return {
+                "outcome": "BLOCKED",
+                "notes": camp.SEAT_BLOCK + "failover",
+                "turns": 1,
+                "tool_calls": 0,
+                "tool_errors": 0,
+                "economics": {},
+            }
+
+        monkeypatch.setattr(camp, "run_row", fake_row)
+        camp.execute_arm(tmp_path, tag, 16, 600, None, False, False)
+        assert kept == [""] and ran == ["r0"]
+        assert [r["state"] for r in rows] == ["BLOCKED", "PENDING", "PENDING"]
+
+
+class TestSelectionBiasFixes:
+    """Defects that biased model choice, found in the 2026-10-13 audit."""
+
+    def test_workspace_is_measured_with_its_own_prompt_not_a_persona(self):
+        import yaml
+
+        from tests.wfe.runner import REPO, workspace_context
+
+        ws = yaml.safe_load((REPO / "config/portal.yaml").read_text())["workspaces"]
+        for wid in ("auto-coding", "auto-compliance", "tools-specialist", "auto-research"):
+            wsc = workspace_context(wid)
+            assert wsc["persona_slug"] is None
+            assert wsc["system_prompt_base"] == (ws[wid].get("owui_system_prompt") or "")
+        # a persona is measured only when named
+        slug = workspace_context("auto-coding", "agenticheavy")["persona_slug"]
+        assert slug == "agenticheavy"
+
+    def test_no_prompt_workspace_sends_no_invented_prompt(self, tmp_path, monkeypatch):
+        from tests.wfe import runner as rn
+
+        assert rn.workspace_context("auto-general-uncensored")["system_prompt_base"] == ""
+        sent = {}
+
+        def fake_chat(model, messages, **k):
+            sent["roles"] = [m["role"] for m in messages]
+            return {
+                "message": {"content": "ok"},
+                "finish_reason": "stop",
+                "economics": rn.Economics(),
+                "served": {},
+            }
+
+        monkeypatch.setattr(rn, "chat", fake_chat)
+        task = {"id": "t", "instruction": "x", "checkers": [{"type": "answer_contains"}]}
+        rn.run_task("m", "", task, Sandbox(tmp_path), 1, 60, use_tools=True)
+        assert sent["roles"] == ["user"]
+
+    def test_challengers_run_at_their_card_sampling(self, tmp_path):
+        plan = tmp_path / "p.yaml"
+        plan.write_text(
+            yaml.safe_dump(
+                {
+                    "workloads": {
+                        "auto-compliance": {
+                            "home": "compliance_agentic",
+                            "arms": {
+                                "incumbent": "hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k",
+                                "challengers": [
+                                    "gpt-oss:20b",
+                                    {"model": "granite4.2:30b-q4_K_M", "sampling": "seat"},
+                                ],
+                            },
+                        }
+                    }
+                }
+            )
         )
-        assert pf["verdict"] == "REVIEW" and "some-other-model" in pf["findings"][0]
+        rows = camp.expand_matrix(plan, repeats=1)
+        by_model = {r["model"]: r for r in rows}
+        assert by_model["hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k"]["overrides"] == {}
+        assert by_model["gpt-oss:20b"]["overrides"]["sampling"] == {
+            "temperature": 1.0,
+            "top_p": 1.0,
+        }
+        assert "@card-" in by_model["gpt-oss:20b"]["arm"]
+        assert by_model["granite4.2:30b-q4_K_M"]["overrides"] == {}
+
+    def test_card_mode_follows_the_lane_think_policy(self):
+        from tests.wfe.runner import card_sampling
+
+        tag = "orcarouter/Qwen3.8-27B-Uncensored:Q4_K_M"
+        assert card_sampling(tag, False)["temperature"] == 0.7
+        assert card_sampling(tag, True)["temperature"] == 1.0
+        assert card_sampling("command-r:35b", None) == {}
+
+    def test_degeneracy_follows_the_arms_own_temperature(self):
+        wsc = {"declared_temperature": 0.0}
+        assert camp.degenerate_repeats(wsc) is not None
+        assert camp.degenerate_repeats(wsc, {"sampling": {"temperature": 1.0}}) is None
+
+    def test_deterministic_repeats_count_once_in_the_rate(self):
+        from tests.wfe import report as rp
+
+        rows = [
+            {"task_id": "a", "repeat": i, "outcome": "PASS", "repeat_degeneracy": "t0"}
+            for i in range(3)
+        ] + [
+            {"task_id": "b", "repeat": i, "outcome": "FAIL", "repeat_degeneracy": "t0"}
+            for i in range(3)
+        ]
+        assert rp._rate(rp._one_draw_per_task(rows)) == (1, 2)
+
+    def test_context_overflow_is_detected(self):
+        from tests.wfe.runner import context_overflow
+
+        grow = [{"turn": 0, "prompt_tokens": 3000}, {"turn": 1, "prompt_tokens": 5000}]
+        assert context_overflow(grow, 8192) is None
+        shrink = [{"turn": 0, "prompt_tokens": 7000}, {"turn": 1, "prompt_tokens": 4098}]
+        assert "shrank" in context_overflow(shrink, 8192)
+        full = [{"turn": 0, "prompt_tokens": 7900, "completion_tokens": 300}]
+        assert "reached" in context_overflow(full, 8192)
+        first_turn_cut = [{"turn": 0, "sent_chars": 15346, "prompt_tokens": 1027}]
+        assert "chars sent" in context_overflow(first_turn_cut, None)
+
+    def test_weak_checkers_now_require_the_substance(self):
+        from tests.wfe.runner import REPO, load_suite
+
+        coding = {t["id"]: t for t in load_suite(REPO / "tests/wfe/suites/coding.jsonl")}
+        assert coding["code-cli-args"]["checkers"][0]["type"] == "hidden_pytest"
+        assert (REPO / "tests/wfe/graded/code_summarize/test_summarize.py").is_file()
+        research = {t["id"]: t for t in load_suite(REPO / "tests/wfe/suites/research.jsonl")}
+        assert "Modelfile" in research["res-ollama-ctx"]["checkers"][0]["patterns"]

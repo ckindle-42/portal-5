@@ -37,6 +37,7 @@ OLLAMA_URL = "http://localhost:11434"
 RESULTS_DIR = REPO_ROOT / "tests" / "benchmarks" / "results"
 CORPUS = REPO_ROOT / "config" / "security" / "benign_corpus_bench_benign_cells.json"
 TIMEOUT = 240
+PROBE_PREDICT = 4096
 
 
 def load_events() -> list[dict]:
@@ -167,7 +168,9 @@ def run_case(model: str, case: dict) -> dict:
         "model": model,
         "messages": [{"role": "user", "content": case["prompt"]}],
         "stream": False,
-        "options": {"num_predict": 512},
+        # num_predict covers reasoning AND answer on /api/chat; 512 let a
+        # reasoning model spend it all thinking and score an empty answer as wrong.
+        "options": {"num_predict": PROBE_PREDICT},
     }
     req = urllib.request.Request(
         f"{OLLAMA_URL}/api/chat",
@@ -181,6 +184,17 @@ def run_case(model: str, case: dict) -> dict:
     except Exception as e:
         return {"id": case["id"], "ok": False, "error": str(e), "wall_s": time.monotonic() - t0}
     content = (data.get("message") or {}).get("content", "") or ""
+    thinking = (data.get("message") or {}).get("thinking", "") or ""
+    if not content.strip() and (thinking or data.get("done_reason") == "length"):
+        # Reasoning ran out the budget before an answer: not a wrong answer.
+        return {
+            "id": case["id"],
+            "ok": False,
+            "budget_exhausted": True,
+            "done_reason": data.get("done_reason"),
+            "thinking_chars": len(thinking),
+            "wall_s": time.monotonic() - t0,
+        }
     # strip reasoning so we score the final answer
     body = re.sub(r"<think>.*?</think>", "", content, flags=re.DOTALL).strip() or content
     matched = _score(body, case)
@@ -203,7 +217,9 @@ def probe_model(model: str, cases: list[dict]) -> dict:
     unload(model)
     ok = [c for c in case_results if c.get("ok")]
     matched = sum(1 for c in ok if c.get("matched"))
-    total = len(cases)
+    # Graded = cases that produced an answer. A transport error or a
+    # budget-exhausted reasoning run is reported, not scored as a wrong answer.
+    total = len(ok)
     tps_vals = [c["tps"] for c in ok if c.get("tps")]
     avg_tps = round(sum(tps_vals) / len(tps_vals), 2) if tps_vals else None
     return {
@@ -212,6 +228,9 @@ def probe_model(model: str, cases: list[dict]) -> dict:
         "quality_score": round(matched / total, 2) if total else None,
         "runs_success": matched,
         "runs_total": total,
+        "cases_total": len(cases),
+        "instrument_errors": sum(1 for c in case_results if c.get("error")),
+        "budget_exhausted": sum(1 for c in case_results if c.get("budget_exhausted")),
         "prompt_category": "data",
         "cases": case_results,
     }

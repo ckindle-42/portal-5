@@ -237,7 +237,9 @@ def probe_model(
     ok_cases = [c for c in case_results if c.get("ok")]
     correct = sum(1 for c in ok_cases if c.get("correct"))
     trace_ok = sum(1 for c in ok_cases if (c.get("trace") or {}).get("trace_ok"))
-    total = len(cases)
+    # Graded = cases that produced an answer; transport errors and reasoning-only
+    # replies are reported below, not scored as wrong answers.
+    total = sum(1 for c in case_results if c.get("ok"))
     tps_vals = [c["tps"] for c in ok_cases if c.get("tps")]
     avg_tps = round(sum(tps_vals) / len(tps_vals), 2) if tps_vals else None
 
@@ -247,6 +249,9 @@ def probe_model(
         "quality_score": round(correct / total, 2) if total else None,  # Axis 1 = headline
         "runs_success": correct,
         "runs_total": total,
+        "cases_total": len(case_results),
+        "instrument_errors": sum(1 for c in case_results if c.get("error")),
+        "budget_exhausted": sum(1 for c in case_results if c.get("budget_exhausted")),
         "prompt_category": "reasoning-explicit",
         "trace_quality_rate": round(trace_ok / total, 2) if total else None,  # Axis 2, supporting
         "predict_limit": predict_limit,

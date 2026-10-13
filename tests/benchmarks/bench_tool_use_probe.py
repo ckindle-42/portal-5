@@ -214,13 +214,20 @@ def run_case(model: str, case: dict) -> dict:
     calls = _extract_tool_calls(data)
     msg = data.get("message") or {}
     content = msg.get("content", "") or ""
-    # A reasoning model's whole answer can land entirely in Ollama's separate
-    # "thinking" field with empty "content" (same pattern already handled in
-    # bench_vision_probe.py / bench_fara_cua_probe.py). Combine both so a
-    # no-tool-needed answer that reasons its way to the right response isn't
-    # scored as a blank non-answer.
     thinking = msg.get("thinking", "") or ""
-    text = content + ("\n" + thinking if thinking else "")
+    # Scored on the ANSWER only. Matching content + thinking credited a model
+    # for a keyword it merely considered in its private reasoning, whatever it
+    # finally answered. A reasoning-only reply (budget spent before an answer)
+    # is reported as budget_exhausted, not scored either way.
+    if not content.strip() and not calls and (thinking or data.get("done_reason") == "length"):
+        return {
+            "id": case["id"],
+            "ok": False,
+            "budget_exhausted": True,
+            "thinking_chars": len(thinking),
+            "wall_s": time.monotonic() - t0,
+        }
+    text = content
 
     if case["kind"] == "expect_no_call":
         answered = any(k in text.lower() for k in case.get("expect_any", []))
@@ -263,7 +270,9 @@ def probe_model(model: str, cases: list[dict]) -> dict:
     tools_unsupported = any(c.get("tools_unsupported") for c in case_results)
 
     matched = sum(1 for c in case_results if c.get("matched"))
-    total = len(case_results)
+    # Graded = cases that produced an answer; transport errors and reasoning-only
+    # replies are reported below, not scored as wrong answers.
+    total = sum(1 for c in case_results if c.get("ok"))
     tps_vals = [c["tps"] for c in case_results if c.get("tps")]
     avg_tps = round(sum(tps_vals) / len(tps_vals), 2) if tps_vals else None
 
@@ -273,6 +282,9 @@ def probe_model(model: str, cases: list[dict]) -> dict:
         "quality_score": round(matched / total, 2) if total else None,
         "runs_success": matched,
         "runs_total": total,
+        "cases_total": len(case_results),
+        "instrument_errors": sum(1 for c in case_results if c.get("error")),
+        "budget_exhausted": sum(1 for c in case_results if c.get("budget_exhausted")),
         "prompt_category": "agent-toolcall",
         "tools_supported": not tools_unsupported,
         "cases": case_results,

@@ -200,7 +200,16 @@ def run_case(model: str, case: dict) -> dict:
         return {"id": case["id"], "ok": False, "error": str(e), "wall_s": time.monotonic() - t0}
     content = (data.get("message") or {}).get("content", "") or ""
     thinking = (data.get("message") or {}).get("thinking", "") or ""
-    text = (content + " " + thinking).lower()
+    # Scored on the ANSWER only (see bench_tool_use_probe.run_case).
+    if not content.strip() and (thinking or data.get("done_reason") == "length"):
+        return {
+            "id": case["id"],
+            "ok": False,
+            "budget_exhausted": True,
+            "thinking_chars": len(thinking),
+            "wall_s": time.monotonic() - t0,
+        }
+    text = content.lower()
     matched = any(k in text for k in case["expect_any"])
     eval_count = data.get("eval_count") or 0
     eval_duration_ns = data.get("eval_duration") or 0
@@ -226,7 +235,9 @@ def probe_model(model: str, cases: list[dict]) -> dict:
     unload(model)
 
     matched = sum(1 for c in case_results if c.get("matched"))
-    total = len(case_results)
+    # Graded = cases that produced an answer; transport errors and reasoning-only
+    # replies are reported below, not scored as wrong answers.
+    total = sum(1 for c in case_results if c.get("ok"))
     tps_vals = [c["tps"] for c in case_results if c.get("tps")]
     avg_tps = round(sum(tps_vals) / len(tps_vals), 2) if tps_vals else None
 
@@ -237,6 +248,9 @@ def probe_model(model: str, cases: list[dict]) -> dict:
         "quality_score": round(matched / total, 2) if total else None,
         "runs_success": matched,
         "runs_total": total,
+        "cases_total": len(case_results),
+        "instrument_errors": sum(1 for c in case_results if c.get("error")),
+        "budget_exhausted": sum(1 for c in case_results if c.get("budget_exhausted")),
         "prompt_category": "vision",
         "cases": case_results,
     }

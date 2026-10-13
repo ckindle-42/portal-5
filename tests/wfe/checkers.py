@@ -267,6 +267,10 @@ def check_answer_contains(spec: dict, ctx: CheckContext) -> CheckResult:
     text = ctx.final_text or ""
     missing = [p for p in (spec.get("patterns") or []) if not re.search(p, text, re.I)]
     ev = {}
+    if spec.get("exact"):
+        # Graded on the class (compliance: met / unmet / abstain, the probe's own
+        # headline metric); the exact label is kept as evidence, not as the verdict.
+        ev["exact_label_match"] = bool(re.search(spec["exact"], text, re.I))
     leaked = [
         p
         for p in (spec.get("forbid_in_tool_output") or [])

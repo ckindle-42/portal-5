@@ -272,6 +272,12 @@ def prf(tp: int, fp: int, fn: int, beta: float) -> float:
 
 
 def aggregate(rows: list[dict], cases: list[dict]) -> dict:
+    # A transport error or a skipped case says nothing about judgment: it was
+    # scored as a missed violation (an fn), so a seat behind a flaky transport or
+    # a slow load ranked below one that answered. Excluded and counted instead.
+    kept = [(c, r) for c, r in zip(cases, rows, strict=True) if not r.get("instrument_error")]
+    instrument_errors = len(rows) - len(kept)
+    cases, rows = [c for c, _ in kept], [r for _, r in kept]
     # violation detection: positive class = "this CU is not satisfied"
     tp = fp = fn = tn = 0
     for case, row in zip(cases, rows, strict=True):
@@ -291,7 +297,7 @@ def aggregate(rows: list[dict], cases: list[dict]) -> dict:
             tn += 1
     mcc_d = math.sqrt((tp + fp) * (tp + fn) * (tn + fp) * (tn + fn))
     mcc = ((tp * tn) - (fp * fn)) / mcc_d if mcc_d else 0.0
-    n = len(cases)
+    n = len(cases) or 1
 
     # violation-class accuracy: did the seat get the met / unmet / abstain call
     # right, ignoring WHICH unmet flavour? This is what a human-in-the-loop gate
@@ -310,7 +316,8 @@ def aggregate(rows: list[dict], cases: list[dict]) -> dict:
     abst = [r for c, r in zip(cases, rows, strict=True) if c["category"] == "ABSTAIN"]
     complete = [(c, r) for c, r in zip(cases, rows, strict=True) if c["packet_complete"]]
     return {
-        "n": n,
+        "n": len(cases),
+        "instrument_errors": instrument_errors,
         "violation_class_accuracy": round(vclass_ok / n, 4),
         "exact_accuracy": round(sum(1 for r in rows if r.get("correct")) / n, 4),
         "F2_violation": round(prf(tp, fp, fn, 2.0), 4),
@@ -354,6 +361,12 @@ def unload(model: str) -> None:
 # objective), and the receipt carries the applied settings from the trace.
 
 _PIPELINE_MODE = False
+#: The original native instrument: think forced off, temperature 0, 700-token
+#: cap. Kept only to reproduce the 2026-09-06 sweep. It is NOT how the council
+#: runs a seat (council._ollama_seat: reasoning allowed, an 8192 answer budget,
+#: the per-model temperature table), so it under-measured every reasoning model —
+#: DeepSeek-R1 spent the 700 in its trace and scored ERR on every case.
+_LEGACY_NATIVE = False
 PIPELINE_URL = "http://localhost:9099"
 
 
@@ -595,9 +608,46 @@ def _is_json(s: str) -> bool:
     return False
 
 
+def _council_run_case(model: str, case: dict, system: str) -> dict:
+    """A candidate tag run exactly as council._ollama_seat runs a seat."""
+    from portal.modules.compliance.core.council import _MODEL_TEMPERATURE, _SEAT_BUDGET
+    from portal.modules.compliance.core.reading_transport import DEFAULT_TEMPERATURE, chat
+
+    t0 = time.monotonic()
+    try:
+        res = chat(
+            model,
+            system,
+            packet(case),
+            budget=_SEAT_BUDGET,
+            fmt="json",
+            temperature=_MODEL_TEMPERATURE.get(model, DEFAULT_TEMPERATURE),
+        )
+    except Exception as e:
+        return {"id": case["id"], "error": str(e), "wall_s": round(time.monotonic() - t0, 2)}
+    content = res.content
+    ec, ed = res.get("eval_count") or 0, res.get("eval_duration_s") or 0
+    return {
+        "id": case["id"],
+        "raw": content[:2000],
+        "raw_full": content,
+        "request": {"model": model, "transport": "council", "budget": _SEAT_BUDGET},
+        "parsed": parse_output(content),
+        "reasoned": res.reasoned,
+        "thinking_chars": len(res.thinking),
+        "stop_reason": res.get("stop_reason", ""),
+        "prompt_tokens": res.get("prompt_eval_count") or 0,
+        "eval_tokens": ec,
+        "tps": round(ec / ed, 1) if ed else None,
+        "wall_s": round(time.monotonic() - t0, 2),
+    }
+
+
 def run_case(model: str, case: dict, baked: dict | None = None, system: str | None = None) -> dict:
     if _PIPELINE_MODE:
         return _pipeline_run_case(model, case, system=system or _SYSTEM)
+    if not _LEGACY_NATIVE:
+        return _council_run_case(model, case, system or _SYSTEM)
     # the model's own baked sampling params (from /api/show), with a
     # deterministic temperature and a fixed predict budget for the task
     opts = {k: v for k, v in (baked or {}).items() if k != "num_ctx"}
@@ -699,7 +749,7 @@ def run_model(
     for case, prefs in zip(cases, packet_refs_by_case, strict=True):
         if time.monotonic() - t_start > _MODEL_BUDGET_S:
             run = {"id": case["id"], "error": "model budget exceeded — skipped"}
-            sc = score_case(case, None, prefs)
+            sc = {**score_case(case, None, prefs), "instrument_error": True}
             runs.append(run)
             scored.append(sc)
             if dbg:
@@ -708,6 +758,8 @@ def run_model(
             continue
         run = run_case(model, case, baked, system=system)
         sc = score_case(case, run.get("parsed"), prefs)
+        if run.get("error"):
+            sc["instrument_error"] = True
         runs.append(run)
         scored.append(sc)
         if dbg:
@@ -760,6 +812,8 @@ def rescore_debug_dir(debug_dir: Path) -> list[dict]:
             prefs = set(row.get("packet_std_allowlist", []))
             obj = parse_output(row.get("raw_response", "")) if not row.get("error") else None
             sc = score_case(c, obj, prefs)
+            if row.get("error"):
+                sc["instrument_error"] = True
             scored.append(sc)
             runs.append(
                 {
@@ -892,11 +946,13 @@ def _build_arg_parser() -> argparse.ArgumentParser:
     )
     ap.add_argument(
         "--transport",
-        default="ollama",
-        choices=("ollama", "pipeline"),
-        help="ollama: the original native /api/chat instrument (the transport the "
-        "2026-09-06 sweep qualified on). pipeline: the product path — seats are "
-        "workspace ids, sampling is the owned workspace's declared policy.",
+        default="council",
+        choices=("council", "legacy-native", "pipeline"),
+        help="council (default): the tag run exactly as the council runs a seat "
+        "(reasoning allowed, 8192 budget, the council temperature table). "
+        "legacy-native: the 2026-09-06 instrument (think off, temperature 0, 700 "
+        "cap) — reproduction only; it under-measures reasoning models. pipeline: "
+        "the product path — seats are workspace ids.",
     )
     return ap
 
@@ -904,8 +960,9 @@ def _build_arg_parser() -> argparse.ArgumentParser:
 def main() -> None:
     args = _build_arg_parser().parse_args()
 
-    global _PIPELINE_MODE
+    global _PIPELINE_MODE, _LEGACY_NATIVE
     _PIPELINE_MODE = args.transport == "pipeline"
+    _LEGACY_NATIVE = args.transport == "legacy-native"
 
     cases = load_cases()
     assert len(cases) == 30, f"probe has {len(cases)} cases, expected 30"

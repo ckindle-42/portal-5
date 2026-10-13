@@ -182,7 +182,9 @@ def probe_model(model: str, cases: list[dict]) -> dict:
     unload(model)
 
     matched = sum(1 for c in case_results if c.get("matched"))
-    total = len(case_results)
+    # Graded = cases that produced an answer; transport errors and reasoning-only
+    # replies are reported below, not scored as wrong answers.
+    total = sum(1 for c in case_results if c.get("ok"))
     tps_vals = [c["tps"] for c in case_results if c.get("tps")]
     avg_tps = round(sum(tps_vals) / len(tps_vals), 2) if tps_vals else None
 
@@ -199,6 +201,9 @@ def probe_model(model: str, cases: list[dict]) -> dict:
         "quality_score": round(matched / total, 2) if total else None,
         "runs_success": matched,
         "runs_total": total,
+        "cases_total": len(case_results),
+        "instrument_errors": sum(1 for c in case_results if c.get("error")),
+        "budget_exhausted": sum(1 for c in case_results if c.get("budget_exhausted")),
         "prompt_category": "abliterated",
         "over_refusal_rate": round(
             1 - (sum(1 for c in over_refusal_cases if c.get("matched")) / len(over_refusal_cases)),

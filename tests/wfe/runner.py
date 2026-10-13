@@ -52,6 +52,7 @@ import yaml
 from portal.platform.inference.ollama_native import to_native_request
 from portal.platform.inference.omlx_auth import omlx_headers
 from portal.platform.inference.router.text_tool_calls import salvage_text_tool_calls
+from portal.platform.inference.router.thinking import NO_ANSWER_MESSAGE
 from tests.wfe.checkers import CheckContext, apply_checkers
 from tests.wfe.prompt_surface import harness_note, production_tool_names
 from tests.wfe.schema import Economics, Outcome, ResultRow, env_fingerprint, sha12
@@ -170,9 +171,35 @@ TOOL_SCHEMAS = [
     ),
 ]
 TOOL_NAMES = [t["function"]["name"] for t in TOOL_SCHEMAS]
+#: The descriptions a repo_read: false task sees — the tool must not promise a
+#: repository it will not search.
+SANDBOX_ONLY_SCHEMAS = {
+    "repo_search": _fn(
+        "repo_search",
+        "Regex search across the files in your working directory. Args: pattern (str), path (str, optional).",
+        {"pattern": {"type": "string"}, "path": {"type": "string"}},
+        ["pattern"],
+    ),
+}
 
 
 REPO_DENY_PREFIXES = ("tests/wfe/", "tests/compliance_probe/", "tests/benchmarks/results/")
+
+
+#: Production mounts the user's files at /workspace (uploads under
+#: /workspace/uploads) and personas say so (general-deep). The harness seeds those
+#: files at the sandbox root, so an absolute /workspace path must land there —
+#: otherwise the model is told where its files are and every read ERRORs
+#: (general-deep res-ollama-ctx, laguna code-kv in wfe_prompt_surface_seat_20261012).
+WORKSPACE_MOUNTS = ("/workspace/uploads", "/workspace")
+
+
+def _unmount(path: str) -> str:
+    p = str(path)
+    for mount in WORKSPACE_MOUNTS:
+        if p == mount or p.startswith(mount + "/"):
+            return p[len(mount) :].lstrip("/") or "."
+    return p
 
 
 def _repo_denied(rel: str) -> bool:
@@ -201,6 +228,7 @@ class Sandbox:
         version only fell back when the path ESCAPED the sandbox, so
         file_read('README.md') on an in-repo research task never reached the
         repo and repo_search('.', ...) searched an empty directory."""
+        path = _unmount(path)
         sp = (self.root / path).resolve()
         in_sandbox = self._under(sp, self.root)
         if write:
@@ -237,17 +265,20 @@ class Sandbox:
         return "\n".join(str(x.relative_to(d)) for x in sorted(d.rglob("*"))[:200])
 
     def _grep_sandbox(self, pattern: str, root: Path) -> str:
+        """grep a sandbox directory or one file (-H keeps the file name on a
+        single-file search). Paths are shown relative to the sandbox root, so
+        they can be passed straight back to file_read."""
         try:
             return subprocess.run(
-                ["grep", "-rEnI", "--exclude-dir=__pycache__", "--", pattern, str(root)],
+                ["grep", "-rEnIH", "--exclude-dir=__pycache__", "--", pattern, str(root)],
                 capture_output=True,
                 text=True,
                 timeout=15,
-            ).stdout.replace(str(root) + "/", "")
+            ).stdout.replace(str(self.root) + "/", "")
         except Exception as e:  # pragma: no cover - defensive
             return f"ERROR: {e}\n"
 
-    def _grep_repo(self, pattern: str) -> str:
+    def _grep_repo(self, pattern: str, pathspec: str = ".") -> str:
         """`git grep` over TRACKED files only — fast, and .venv / worktrees /
         node_modules / build artifacts are excluded for free. A plain `grep -r`
         over the repo root walks .claude/worktrees/*/.venv and times out."""
@@ -263,7 +294,7 @@ class Sandbox:
                     "-e",
                     pattern,
                     "--",
-                    ".",
+                    pathspec,
                     *(f":(exclude){prefix.rstrip('/')}" for prefix in REPO_DENY_PREFIXES),
                 ],
                 capture_output=True,
@@ -278,13 +309,27 @@ class Sandbox:
         """Regex search across the sandbox AND the repository (its stated
         contract). The previous version only added the repo when `path` was
         empty or escaped the sandbox, so `path='.'` — which the model naturally
-        passes for "here" — resolved to the sandbox root and excluded the repo."""
+        passes for "here" — resolved to the sandbox root and excluded the repo.
+
+        A `path` scopes the search to that file or directory. It used to fall
+        back to the whole sandbox whenever `path` was a FILE, so
+        repo_search(pattern, 'some/file.json') answered with an unrelated
+        packet.json hit and the model re-issued the same call up to 12 times
+        (comp-p6j-14, wfe_prompt_surface_seat_20261012). A path that does not
+        exist is an error, never a silent widening."""
         if not str(pattern).strip():
             return "ERROR: pattern required"
         chunks: list[str] = []
-        if path and path not in (".", "./"):
+        if path and _unmount(path) not in (".", "./"):
             t = self._resolve(path)
-            chunks.append(self._grep_sandbox(pattern, t if (t and t.is_dir()) else self.root))
+            if t is None or not t.exists():
+                return f"ERROR: no such file or directory: {path}"
+            if self._under(t, self.root):
+                chunks.append(self._grep_sandbox(pattern, t))
+            else:
+                # A repo path goes through git grep so the deny list holds:
+                # grep -r on REPO/tests would reach tests/wfe/suites.
+                chunks.append(self._grep_repo(pattern, str(t.relative_to(REPO))))
         else:
             chunks.append(self._grep_sandbox(pattern, self.root))
             if self.allow_repo_read:
@@ -421,6 +466,29 @@ def think_policy(tag: str, registry: dict | None = None) -> str:
     return "default"
 
 
+def card_sampling(tag: str, lane_think: bool | None, registry: dict | None = None) -> dict:
+    """The card's recommended sampling for `tag`, in the harness's key names,
+    choosing the card mode that matches the lane's think policy (an instruct
+    mode under think: false, a thinking mode under think: true or unset — a
+    hybrid reasoning model's native default is thinking). Empty when the card
+    records none."""
+    hit = card_entry(tag, registry)
+    if not hit:
+        return {}
+    entry = hit[1]
+    chosen = entry.get("recommended_sampling") or {}
+    modes = entry.get("recommended_sampling_modes") or {}
+    prefix = "instruct" if lane_think is False else "thinking"
+    if prefix:
+        chosen = next((v for k, v in modes.items() if k.startswith(prefix)), chosen)
+    out = {}
+    for k, v in (chosen or {}).items():
+        key = "repeat_penalty" if k == "repetition_penalty" else k
+        if key in SAMPLING_KEYS and v is not None:
+            out[key] = v
+    return out
+
+
 def format_json_policy(tag: str, registry: dict | None = None) -> bool | None:
     """Card ground truth for the strict-JSON arm: harness_policy.format_json_safe.
 
@@ -544,6 +612,11 @@ def _parse_stream_v1(lines) -> dict:
         if data == "[DONE]":
             break
         obj = json.loads(data)
+        if obj.get("error"):
+            # The pipeline reports a backend timeout/507/connection failure as an
+            # error frame. Read as an empty delta it became an empty "answer"
+            # scored against the model.
+            raise RuntimeError(f"engine error mid-stream: {obj['error']}")
         if obj.get("usage"):
             usage = obj["usage"]
         choice = (obj.get("choices") or [{}])[0]
@@ -727,6 +800,9 @@ def _build_pipeline(
     the arm's explicit overrides. No max_tokens: the pipeline applies the seat's
     predict_limit, and sending one would override it."""
     payload: dict = {"model": workspace, "messages": messages, "stream": wire_stream}
+    if wire_stream:
+        # Per-turn usage is how a silent context truncation is detected.
+        payload["stream_options"] = {"include_usage": True}
     for k in SAMPLING_KEYS:
         if sampling.get(k) is not None:
             payload[k] = sampling[k]
@@ -1086,11 +1162,18 @@ def workspace_context(ws_id: str, persona: str | None = None) -> dict:
     ws = portal["workspaces"][base_id]
     if variant:
         ws = {**ws, **ws["variants"][variant]}
-    slug, sp = resolve_persona(base_id, persona)
-    if not sp:
-        sp = ws.get("owui_system_prompt") or (
-            (ws.get("description") or "") + "\nPerform the user's task faithfully."
-        )
+    # The seat is what a user gets by selecting the WORKSPACE in Open WebUI: its
+    # preset's params.system, which sync-config renders from
+    # `owui_system_prompt`. Until 2026-10-13 the harness measured the
+    # alphabetically-first persona bound to the workspace instead (auto-coding:
+    # `agenticheavy` of 40; auto-compliance: `cippolicywriter`; 10 of 11
+    # workloads), and invented "<description> Perform the user's task
+    # faithfully." where production sends no system prompt at all. A persona is
+    # measured only when one is asked for by slug.
+    if persona:
+        slug, sp = resolve_persona(base_id, persona)
+    else:
+        slug, sp = None, ws.get("owui_system_prompt") or ""
     # Production appends this to the system message on every request
     # (router/preinject.py `_inject_system_prompt_append`). Until 2026-09-24 WFE
     # never did, so auto-coding / auto-compliance / auto-documents /
@@ -1150,6 +1233,41 @@ def workspace_context(ws_id: str, persona: str | None = None) -> dict:
     }
 
 
+def context_overflow(transcript: list, context_limit: int | None) -> str | None:
+    """Whether the engine silently cut this conversation, from per-turn usage.
+
+    Ollama does not error on overflow: a prompt longer than num_ctx is cut to
+    about half the window keeping only the first few tokens ("truncating input
+    prompt ... keep=5" — the system prompt and the task go first), and a
+    generation that fills the window is context-shifted by half. Both were in
+    its log during WFE campaigns (wfe_full_20260911: granite4.1:8b-ctx8k, Nex
+    ctx16k, Qwen3.6-abliterated ctx8k) and no row recorded them. A conversation
+    only grows, so a turn whose prompt is SHORTER than the previous turn's was
+    truncated; a turn whose prompt + output reaches the window was too; and a
+    turn whose message text runs to more than 8 characters per reported prompt
+    token was cut on its first overflow (real text is 3–6 chars/token, and the
+    tool schemas only add tokens)."""
+    turns = [t for t in transcript if t.get("prompt_tokens")]
+    prev = 0
+    for t in turns:
+        p, c = int(t["prompt_tokens"]), int(t.get("completion_tokens") or 0)
+        sent = int(t.get("sent_chars") or 0)
+        if sent > 4000 and sent / p > 8:
+            return (
+                f"turn {t.get('turn')}: {sent} chars sent but only {p} prompt tokens "
+                "reported (engine truncation)"
+            )
+        if prev and p < prev:
+            return f"turn {t.get('turn')}: prompt shrank {prev} -> {p} tokens (engine truncation)"
+        if context_limit and p + c >= context_limit - 8:
+            return (
+                f"turn {t.get('turn')}: prompt {p} + output {c} reached the "
+                f"{context_limit}-token window"
+            )
+        prev = p
+    return None
+
+
 def _execute_calls(calls: list, turn: int, sandbox: Sandbox, tool_log: list, messages: list) -> int:
     """Dispatch one turn's tool calls and append production-shaped results.
 
@@ -1175,7 +1293,7 @@ def _execute_calls(calls: list, turn: int, sandbox: Sandbox, tool_log: list, mes
                 "args": args,
                 "raw_args": str(fn.get("arguments"))[:500],
                 "output": str(out)[:4000],
-                "error": bool(err),
+                "error": bool(err) or str(out).startswith("ERROR:"),
             }
         )
         messages.append(
@@ -1280,6 +1398,13 @@ class _Loop:
         """Record one reply and return its (content, tool_calls)."""
         msg = resp.get("message") or {}
         content, calls = msg.get("content") or "", msg.get("tool_calls") or []
+        # The pipeline substitutes this text when the engine delivered no
+        # visible content (router/thinking.py). It is not the model's answer: on
+        # the granite oMLX seat it stood in for a malformed <tool_call> block the
+        # engine's stream dropped, and V2 scored it as six model FAILs.
+        no_answer = not calls and content.strip() == NO_ANSWER_MESSAGE
+        if no_answer:
+            content = ""
         # Production parity: the pipeline recovers a call the engine returned as
         # text (P5-OMLX-QWEN3CODER-TOOLTEXT-001); in direct engine modes the
         # harness must do the same or it scores recovered calls as lost.
@@ -1289,6 +1414,7 @@ class _Loop:
             recovered = len(calls)
         self._record(turn, content, calls)
         extra = {
+            "pipeline_no_answer": no_answer,
             "recovered_tool_calls": recovered,
             "served": resp.get("served"),
             "reasoning_chars": len(msg.get("reasoning") or ""),
@@ -1298,6 +1424,10 @@ class _Loop:
 
     def step(self, turn: int, remaining: int) -> bool:
         """One turn. Returns True to continue the loop, False to stop."""
+        sent_chars = sum(
+            len(str(m.get("content") or "")) + len(json.dumps(m.get("tool_calls") or []))
+            for m in self.messages
+        )
         try:
             resp = chat(
                 self.model,
@@ -1318,6 +1448,19 @@ class _Loop:
         self.econ.merge(resp["economics"])
         self.finish_reason = resp.get("finish_reason") or self.finish_reason
         content, calls = self._read_reply(turn, resp)
+        turn_econ = resp["economics"]
+        self.transcript[-1].update(
+            {
+                k: v
+                for k, v in (
+                    ("sent_chars", sent_chars),
+                    ("prompt_tokens", turn_econ.prompt_tokens),
+                    ("completion_tokens", turn_econ.completion_tokens),
+                    ("finish_reason", resp.get("finish_reason")),
+                )
+                if v is not None
+            }
+        )
 
         if calls:
             self.messages.append({"role": "assistant", "content": content, "tool_calls": calls})
@@ -1386,8 +1529,11 @@ def run_task(
     harness: dict | None = None,
     sampling: dict | None = None,
     tool_surface: list[str] | None = None,
+    context_limit: int | None = None,
 ) -> dict:
-    """Run one fitness task to completion, then apply its checkers."""
+    """Run one fitness task to completion, then apply its checkers.
+    `context_limit` is the served context window, when known: a turn that
+    reaches it was silently truncated by the engine (see context_overflow)."""
     if task.get("requires_network") and not network_ok():
         # No outbound network: http_get would fail on every call and a
         # fetch-grounded checker would score the model 0 for the instrument's
@@ -1402,15 +1548,28 @@ def run_task(
         )
     for seed_path, seed_body in (task.get("seed") or {}).items():
         sandbox.file_write(seed_path, seed_body)
+    # A self-contained task (a compliance packet) declares repo_read: false. With
+    # the repository readable, the p6j seats went hunting through Portal's own
+    # compliance source and the adjudication notes about the very packets under
+    # test (config/compliance/y21_resolutions.yaml names P6J-14/19): 11 of the 12
+    # turn-cap loops in wfe_prompt_surface_seat_20261012 read those files, and
+    # no passing row did. Production's compliance seat has no repository at all.
+    sandbox.allow_repo_read = bool(task.get("repo_read", True))
     schemas = (
         [t for t in TOOL_SCHEMAS if t["function"]["name"] in tool_surface]
         if tool_surface
         else TOOL_SCHEMAS
     )
+    if not sandbox.allow_repo_read:
+        schemas = [SANDBOX_ONLY_SCHEMAS.get(t["function"]["name"], t) for t in schemas]
     lp = _Loop(model, task, sandbox, schemas, harness, sampling, use_tools)
     lp.messages[0]["content"] = system_prompt
+    if not system_prompt:
+        # Production sends no system message for a workspace without a prompt
+        # (the pipeline then injects only the append, if any).
+        lp.messages.pop(0)
     _run_turns(lp, max_turns, budget_s)
-    return _finalize_run(
+    out = _finalize_run(
         task,
         lp.final_text,
         lp.assistant_texts,
@@ -1422,6 +1581,11 @@ def run_task(
         lp.tool_errors,
         lp.econ,
     )
+    overflow = context_overflow(lp.transcript, context_limit)
+    if overflow:
+        out["evidence"] = {**out["evidence"], "context_overflow": overflow}
+        out["notes"] = f"context overflow: {overflow} | " + out["notes"]
+    return out
 
 
 def _finalize_run(
@@ -1450,6 +1614,9 @@ def _finalize_run(
     )
     if any(t.get("completion_signal_missing") for t in transcript):
         evidence = {**evidence, "completion_signal_missing": True}
+    if any(t.get("pipeline_no_answer") for t in transcript):
+        evidence = {**evidence, "pipeline_no_answer": True}
+        notes = "pipeline no-answer placeholder (engine delivered no visible content) | " + notes
     recovered = sum(t.get("recovered_tool_calls", 0) for t in transcript)
     if recovered:
         evidence = {**evidence, "recovered_tool_calls": recovered}

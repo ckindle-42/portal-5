@@ -1064,6 +1064,10 @@ surfaces:
   globs:
   - tests/wfe/graded/code_kv/test_parse_kv.py
   unit: unit-wfe-workspace-fitness
+- name: file-tests-wfe-graded-code_summarize-test_summarize
+  globs:
+  - tests/wfe/graded/code_summarize/test_summarize.py
+  unit: unit-wfe-workspace-fitness
 - name: file-tests-wfe-prompt_surface
   globs:
   - tests/wfe/prompt_surface.py

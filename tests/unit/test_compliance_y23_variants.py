@@ -85,6 +85,9 @@ def test_run_case_puts_the_chosen_variant_on_the_wire(monkeypatch):
         return _Resp()
 
     monkeypatch.setattr(probe.urllib.request, "urlopen", _fake_urlopen)
+    # The native wire path; the council path is covered in
+    # test_judgment_probe_instrument.py.
+    monkeypatch.setattr(probe, "_LEGACY_NATIVE", True)
 
     for name, text in probe.PROMPT_VARIANTS.items():
         probe.run_case("m", _case(), {}, system=text)

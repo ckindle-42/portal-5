@@ -57,6 +57,27 @@ def test_run_case_reads_content_not_thinking_field():
             "some-model", {"id": "c1", "prompt": "make a cube", "expect_dims": None}
         )
 
-    assert result["ok"] is True
-    assert result["response_preview"] == ""
-    assert result["matched"] is False
+    # A run that spent its budget reasoning produced no answer: reported as
+    # budget_exhausted and left out of the graded denominator, not scored as a
+    # wrong answer (which ranked reasoning models below non-reasoning ones).
+    assert result["ok"] is False
+    assert result["budget_exhausted"] is True
+    assert "matched" not in result
+
+
+def test_probe_model_excludes_errors_and_budget_exhaustion_from_the_rate():
+    results = iter(
+        [
+            {"id": "a", "ok": True, "matched": True},
+            {"id": "b", "ok": False, "error": "timeout"},
+            {"id": "c", "ok": False, "budget_exhausted": True},
+            {"id": "d", "ok": True, "matched": False},
+        ]
+    )
+    with (
+        patch.object(cad, "run_case", lambda m, c: next(results)),
+        patch.object(cad, "unload", lambda m: None),
+    ):
+        out = cad.probe_model("m", [{}] * 4)
+    assert out["runs_total"] == 2 and out["quality_score"] == 0.5
+    assert out["instrument_errors"] == 1 and out["budget_exhausted"] == 1
