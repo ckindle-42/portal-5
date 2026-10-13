@@ -508,6 +508,27 @@ def _row_stub(ws_id, spec, role, suite, suite_path, task_id, rep, is_home) -> di
     }
 
 
+def gate_controls(rows: list[dict], where: str) -> dict:
+    """Known-answer controls for these rows' tasks; raises on failure, returns the receipt."""
+    from tests.wfe import controls
+
+    paths = sorted({r["suite_path"] for r in rows if r.get("suite_path")})
+    rec = controls.receipt(paths, {r["task_id"] for r in rows if r.get("suite_path")})
+    if rec["failures"]:
+        raise SystemExit(
+            f"{where}: {len(rec['failures'])} task control(s) fail — the checker cannot tell "
+            "a right answer from a wrong one (or a key has expired), so no model can be "
+            "scored with it:\n  " + "\n  ".join(rec["failures"][:40])
+        )
+    return {**rec, "where": where}
+
+
+def keep_receipt(campaign_dir: Path, rec: dict) -> None:
+    """Append a receipt to controls_receipts.jsonl, never to the manifest."""
+    with (campaign_dir / "controls_receipts.jsonl").open("a") as fh:
+        fh.write(json.dumps(rec) + "\n")
+
+
 def open_campaign(cid: str, plan_path: Path, matrix: list[dict], append: bool) -> Path:
     """Create a campaign, or append rows to a live one.
 
@@ -521,9 +542,11 @@ def open_campaign(cid: str, plan_path: Path, matrix: list[dict], append: bool) -
     if mpath.exists():
         manifest = json.loads(mpath.read_text())
         if not append:
+            # Resume gates in main(); read-only views come through here and never write.
             return d
         known = {r["run_id"] for r in manifest["rows"]}
         added = [r for r in matrix if r["run_id"] not in known]
+        keep_receipt(d, gate_controls([*manifest["rows"], *added], "append"))
         manifest["rows"].extend(added)
         manifest["rows"].sort(
             key=lambda r: (r["arm"], r["workspace"], r["suite"], r["task_id"], r["repeat"])
@@ -534,6 +557,8 @@ def open_campaign(cid: str, plan_path: Path, matrix: list[dict], append: bool) -
         mpath.write_text(json.dumps(manifest, indent=1))
         print(f"appended {len(added)} rows ({len(matrix) - len(added)} already present)")
         return d
+    rec = gate_controls(matrix, "open")
+    keep_receipt(d, rec)
     mpath.write_text(
         json.dumps(
             {
@@ -1529,9 +1554,11 @@ def _cmd_smoke(args, plan: Path) -> int:
         print("smoke: no matching row", file=sys.stderr)
         return 2
     r = matrix[0]
+    rec = gate_controls([r], "smoke")
     d = CAMPAIGNS / (args.campaign_id or "wfe_smoke")
     (d / "rows").mkdir(parents=True, exist_ok=True)
     (d / "preflight").mkdir(parents=True, exist_ok=True)
+    keep_receipt(d, rec)
     manifest = {"campaign_id": d.name, "env": env_fingerprint(OLLAMA), "rows": [r]}
     save_manifest(d, manifest)
     pf = (
@@ -1561,6 +1588,12 @@ def _cmd_dry_run(matrix: list[dict], repeats: int) -> int:
     print(f"matrix rows: {len(matrix)}   arms: {len(c)}   repeats: {repeats}")
     for a, n in sorted(c.items()):
         print(f"  {n:>4}  {a}")
+    try:
+        rec = gate_controls(matrix, "dry-run")
+    except SystemExit as e:
+        print(f"controls: FAIL\n{e}")
+        return 4
+    print(f"controls: PASS ({len(rec['suites'])} suite(s), {rec['tasks']} task(s))")
     return 0
 
 
@@ -1703,6 +1736,8 @@ def main() -> int:
         return rc
     if not _ready(campaign_dir):
         return 3
+    # Re-gate every row before it runs: suites change and keys expire after open.
+    keep_receipt(campaign_dir, gate_controls(load_manifest(campaign_dir)["rows"], "execute"))
     if args.preflight:
         return _cmd_preflight(campaign_dir, args.force)
     manifest = load_manifest(campaign_dir)

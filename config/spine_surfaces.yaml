@@ -1064,6 +1064,10 @@ surfaces:
   globs:
   - tests/wfe/compliance_preflight.py
   unit: unit-wfe-workspace-fitness
+- name: file-tests-wfe-controls
+  globs:
+  - tests/wfe/controls.py
+  unit: unit-wfe-workspace-fitness
 - name: file-tests-wfe-graded-code_fizz-test_fizz
   globs:
   - tests/wfe/graded/code_fizz/test_fizz.py
@@ -1108,9 +1112,17 @@ surfaces:
   globs:
   - tests/wfe/tests/test_wfe_contracts.py
   unit: unit-wfe-workspace-fitness
+- name: file-tests-wfe-tests-test_wfe_controls
+  globs:
+  - tests/wfe/tests/test_wfe_controls.py
+  unit: unit-wfe-workspace-fitness
 - name: file-tests-wfe-tests-test_wfe_gold_isolation
   globs:
   - tests/wfe/tests/test_wfe_gold_isolation.py
+  unit: unit-wfe-workspace-fitness
+- name: file-tests-wfe-tests-test_wfe_production_path
+  globs:
+  - tests/wfe/tests/test_wfe_production_path.py
   unit: unit-wfe-workspace-fitness
 - name: file-tests-wfe-tests-test_wfe_prompt_surface
   globs:
