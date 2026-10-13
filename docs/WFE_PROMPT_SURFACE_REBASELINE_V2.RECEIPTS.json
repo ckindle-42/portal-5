@@ -1,4 +1,5 @@
 {
+  "review_corrections": "2026-10-13: seat baseline withdrawn — 19/30 auto-compliance rows served by the Ollama failover; loop attribution and tools-specialist cause withdrawn. See the closeout's 'Review corrections' section; superseded by TASK_WFE_PROMPT_SURFACE_REBASELINE_V3.",
   "schema": "wfe-prompt-surface-rebaseline-v2-receipt-v1",
   "campaign_id": "wfe_prompt_surface_seat_20261012",
   "task": "coding_task/TASK_WFE_PROMPT_SURFACE_REBASELINE_V2.md",

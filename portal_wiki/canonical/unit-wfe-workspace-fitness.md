@@ -160,17 +160,33 @@ Phase 0; fitness matrix drives disposition decisions.
   and is BLOCKED (comp-reading-contract-01). A FAIL that carries the task's
   completion signal is no longer relabelled REFUSED. V1 corrections in
   `docs/WFE_PROMPT_SURFACE_REBASELINE_V1.CLOSEOUT.md`.
-- **Seat baseline (TASK_WFE_PROMPT_SURFACE_REBASELINE_V2):**
-  `wfe_prompt_surface_seat_20261012`, pipeline mode, 87 rows, n=3, is the seat
-  baseline for the seven affected workspaces
-  (`docs/WFE_PROMPT_SURFACE_REBASELINE_V2.CLOSEOUT.md`). Four of the seven seats
-  are served through committed oMLX aliases, so the per-row
-  `evidence.served_models` field is part of the baseline record. On the oMLX
-  `Qwen3.8-27B-oQ4e-mtp` seat the p6j compliance tasks loop at the lane's
-  think-off (11/13 served rows) while the same checkpoint on the Ollama fallback
-  passes (15/17) — attributed to a seat × think-off × format-clause conjunction
-  (think-on and no-format control arms each drop loops to 0), not to model
-  capability.
+- **Seat baseline (pending: TASK_WFE_PROMPT_SURFACE_REBASELINE_V3).**
+  `wfe_prompt_surface_seat_20261012` (V2) is NOT a seat baseline: 19 of its 30
+  auto-compliance rows ran on the Ollama failover, not the oMLX alias seat. Its
+  "seat × think-off × format-clause" loop attribution compared different tasks
+  across engines and is withdrawn. Corrections, and the instrument defects that
+  fed its loops and FAILs, are in `docs/WFE_PROMPT_SURFACE_REBASELINE_V2.CLOSEOUT.md`.
+  Defects: `repo_search` ignoring a file path, packet tasks reading the repo, an
+  unmapped `/workspace`, the pipeline no-answer placeholder scored as an answer,
+  and the code-kv escape mismatch. Pipeline-mode rows now count only when
+  every model turn is served by the seat's primary model (`seat_primary`).
+- **Instrument audit (2026-10-13): pre-audit WFE and probe numbers are biased.**
+  `docs/WFE_INSTRUMENT_AUDIT_20261013.md` lists 19 defects and the dispositions
+  resting on them. In short:
+  - Workspaces were measured with an arbitrary persona prompt; they now use the
+    workspace's own `owui_system_prompt`.
+  - Challengers ran at the incumbent's sampling; they now run at their card's.
+  - Compliance was graded on ambiguous, internally inconsistent exact labels; it
+    is now graded by violation class.
+  - Silent Ollama context truncation went undetected; it is now
+    `evidence.context_overflow`.
+  - The judgment probe ran think-off at 700 tokens; it now uses the council
+    transport.
+  - Domain probes scored empty answers as wrong, or scored the model's
+    reasoning text.
+
+  By class re-grade, the auto-compliance incumbent ties granite4.1:30b
+  (24/30 each). Treat every WFE/probe rate before 2026-10-13 as "pre-audit".
 - **Card-think arms.** A model whose card reasons (think on by default) must
   ALSO be measured at its card think + sampling setting, not only at the lane's
   forced think-off policy. Report both, and attribute "lane fit" (the lane's

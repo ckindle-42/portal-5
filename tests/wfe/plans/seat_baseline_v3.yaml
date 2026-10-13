@@ -1,0 +1,66 @@
+# Seat baseline for TASK_WFE_PROMPT_SURFACE_REBASELINE_V3: every workload workspace's
+# LIVE incumbent (config/portal.yaml model_hint, read 2026-10-13) on its home suite,
+# pipeline mode. Every measured prompt changed on 2026-10-13 (workspace prompt, not the
+# alphabetically-first persona), so all workload workspaces are re-baselined, not only
+# the 7 that carried the harness note. Incumbents only; challengers are P4.
+workloads:
+  auto-coding:
+    home: coding
+    discovery: []
+    arms:
+      incumbent: qwen3-coder:30b-a3b-q4_K_M-ctx256k
+      challengers: []
+  tools-specialist:
+    home: coding
+    discovery: []
+    arms:
+      incumbent: granite4.1:8b-ctx8k
+      challengers: []
+  tools-specialist::fast:
+    home: coding
+    discovery: []
+    arms:
+      incumbent: gemma4:e4b-it-qat-ctx8k
+      challengers: []
+  auto-coding::fast-repair:
+    home: coding
+    discovery: []
+    arms:
+      incumbent: kat-coder-v2.5-dev:Q4_K_M-ctx32k
+      challengers: []
+  auto-coding::laguna:
+    home: coding
+    discovery: []
+    arms:
+      incumbent: portal5/laguna-xs21:q4_K_M-ctx128k
+      challengers: []
+  auto-research:
+    home: research
+    discovery: []
+    arms:
+      incumbent: hf.co/sjakek/Nex-N2-mini-GGUF:UD-Q4_K_M-ctx16k
+      challengers: []
+  auto-documents:
+    home: research
+    discovery: []
+    arms:
+      incumbent: granite4.1:8b-ctx16k
+      challengers: []
+  general-deep:
+    home: research
+    discovery: []
+    arms:
+      incumbent: hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx96k
+      challengers: []
+  auto-general-uncensored:
+    home: creative
+    discovery: []
+    arms:
+      incumbent: hf.co/mradermacher/Huihui-Qwen3.6-35B-A3B-abliterated-GGUF:Q4_K_M-ctx8k
+      challengers: []
+  auto-compliance:
+    home: compliance_agentic
+    discovery: []
+    arms:
+      incumbent: hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k
+      challengers: []

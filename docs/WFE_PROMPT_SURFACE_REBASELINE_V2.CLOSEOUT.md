@@ -9,6 +9,97 @@
   Portal stack up; pipeline image verified fresh (built 09:08, after the last
   `portal/`+`config/` commit at 07:59).
 
+## Review corrections (2026-10-13)
+
+A review of this closeout found that the seat baseline it declares is not valid, and that
+its headline attribution rests on a confound. The Decision below is withdrawn.
+`wfe_prompt_surface_seat_20261012` stands only as a diagnostic run. The seat baseline is
+TASK_WFE_PROMPT_SURFACE_REBASELINE_V3. The instrument fixes below are in `tests/wfe/`,
+with a unit test for each.
+
+1. **19 of the 30 auto-compliance rows are not seat evidence.** The seat is the oMLX alias
+   `Qwen3.8-27B-oQ4e-mtp`. 17 rows ran entirely on the Ollama failover and 2 switched
+   engine mid-row. The R8 fix `2b27d8c4` accepted the raw tag as well as the alias, so
+   failover rows counted as seat rows. Fixed: `seat_primary()` resolves the one model
+   production routes to (routing groups, then backend priority), and every model turn of
+   a pipeline row must be served by it. A failover turn or a missing trace makes the row
+   BLOCKED (`not seat evidence:`), offline rescore keeps it BLOCKED, and the arm stops at
+   the first such row.
+2. **The "oMLX loops, Ollama passes" split compares different tasks.** The failover
+   window covered p6j-02 r1 through p6j-11 r2, so p6j-14/19/24 never ran on Ollama and
+   p6j-03/05/06/09 never ran on oMLX. The control table's "seat 11/18" row mixed both
+   engines. No committed Ollama-engine arm exists, so the engine factor of the
+   "seat × think-off × format clause" conjunction is unmeasured. The attribution is
+   withdrawn.
+3. **The mid-arm "manual unload" was the pipeline, not an outside actor.** The pipeline
+   log shows the sequence:
+   - At 22:47:04Z a tool-loop request to oMLX timed out, and the pipeline fell back to
+     Ollama.
+   - Ollama cold-loaded the 27B GGUF.
+   - `load_guard` freed the "idle" oMLX seat through `/admin/api/models/…/unload`.
+   - From 22:49Z every reload of the seat was refused with HTTP 507 ("does not fit under
+     the dynamic memory ceiling") while the GGUF stayed resident.
+
+   VulnLLM-R-7B was preloaded by the pipeline's own warmup at the 22:40Z container
+   recreate and expired on oMLX's 300 s TTL at 22:45:33Z; no external probes were
+   involved. `execute_arm` also kept the raw Ollama tag resident (`drain_others(model)`)
+   while the seat was the oMLX alias. Fixed: the arm keeps nothing on Ollama when its
+   seat is an alias. The production failover chain is recorded for V3.
+4. **Loops were fed by two harness defects.**
+   - `repo_search(pattern, <file>)` ignored the file and grepped the whole sandbox. The
+     model asked for `nerc_cip_map.json`, got back the same `packet.json:3` line, and
+     repeated the call up to 12 times (p6j-14 r1/r2).
+   - The packet tasks could read the whole repository, including Portal's compliance
+     source and `config/compliance/y21_resolutions.yaml` /
+     `tests/unit/test_compliance_y21_error_classes.py`, which discuss P6J-14 and P6J-19 by
+     id. 11 of the 12 compliance loop rows read compliance repo files; no PASS row did.
+
+   Fixed: a scoped `repo_search` searches only that path, and a missing path is an error.
+   Every compliance packet task declares `repo_read: false`, so the sandbox has no
+   repository fallback and the tool description says so. Production's compliance seat has
+   no repository either.
+5. **General-deep's prompt names `/workspace`, which the harness did not map.**
+   res-ollama-ctx r1 tried `/workspace/...` paths 13 times, and every read errored.
+   Laguna's code-kv also wrote to `/workspace/parse_kv.py`. Fixed: `/workspace` and
+   `/workspace/uploads` map to the sandbox root. The closeout's "zero tool errors inside
+   the loops" was also wrong: the tool log's `error` flag marked only argument-parse
+   failures. It now marks dispatch errors as well.
+6. **tools-specialist's 6 FAILs are an engine delivery fault, not "mxfp8 writes invalid
+   Python".** All six rows end on the pipeline's placeholder "⚠️ The model did not
+   produce an answer. Please retry.", and the three code-fix-fizz rows made no file write.
+   A replay of the code-fix-fizz turn reproduces it:
+   - granite-4.1-8b-mxfp8 emits `<tool_call>{"name": "file_read", "arguments": {…}}}`,
+     with one extra `}`.
+   - Non-streamed, oMLX returns that text.
+   - Streamed, which is the production path, oMLX drops it and returns empty content
+     with `finish_reason=stop`. The pipeline then substitutes the placeholder.
+
+   The runner scored the placeholder as the model's answer. Fixed: the placeholder is
+   stripped and flagged (`evidence.pipeline_no_answer`, notes prefix). The engine defect
+   affects production tools-specialist users and is recorded for V3.
+7. **The laguna code-kv "loops" are an instruction/key mismatch.** The instruction said
+   a backslash-escaped semicolon is `\\;` (two backslashes, as the model reads it). The
+   hidden suite tests `r"note=a\;b"` (one). In all five laguna code-kv turn-cap rows
+   (seat r0/r1, card-think r0/r1/r2) the hidden suite passed 7/7: the parser was
+   right, and the model was chasing its own tests written to the instruction. The
+   tools-specialist backslash literal sits in the same spot. Fixed: the instruction
+   names `\;`. Code-kv rows from before the fix are not comparable.
+8. **R6 protocol steps were skipped.**
+   - Item 3: the no-format control ran on oMLX only, not on the production engine.
+   - Item 4: no rendered post-tool prompt was captured. The P0 smoke checked the
+     system message only.
+   - No thresholds were recorded before the run.
+   - General-deep's loops had no control at all.
+9. **The pipeline's stream error frames were read as empty answers.** `_parse_stream_v1`
+   ignored a `data: {"error": …}` frame, and no V2 row hit one. Fixed: an error frame
+   raises, giving HARNESS_ERROR.
+
+A wider audit of every evaluation instrument followed; see `docs/WFE_INSTRUMENT_AUDIT_20261013.md`. It found, among others, that WFE measured an arbitrary persona prompt instead of the workspace's, and that challengers ran at the incumbent's sampling.
+
+The P0 receipts, the V1 offline regrade and the comp-p6j-06 result stand. Everything
+under "P2 — Results and deltas" and "R6 loop attribution" below is descriptive history,
+not a baseline or an attribution.
+
 ## Decision
 
 The seat baseline for the seven affected workspaces is
