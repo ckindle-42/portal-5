@@ -7,6 +7,7 @@ workspace_routing (backends.yaml), .mcp.json, or imports/openwebui/workspaces/.
 from __future__ import annotations
 
 import json
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -22,6 +23,7 @@ def _run_sync_config() -> str:
         capture_output=True,
         text=True,
         cwd=str(REPO),
+        env={**os.environ, "PORTAL_SYNC_SKIP_PIPELINE_CHECK": "1"},
     )
     if result.returncode != 0:
         raise RuntimeError(f"sync-config failed:\n{result.stderr}")

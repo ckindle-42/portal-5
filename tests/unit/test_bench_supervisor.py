@@ -327,15 +327,14 @@ class TestHandlerTableIntegrity:
 
         # handle_load_model GETs Ollama's /api/tags; keep it off the network.
         monkeypatch.setattr(urllib.request, "urlopen", _no_engine)
+        # Lab handlers reach Proxmox; with no lab each must still return a valid action.
+        monkeypatch.setattr(sup, "_import_lab_exec", lambda: None)
         state = sup.SupervisorState()
         handlers = sup.build_state_handlers(15)
         valid_actions = {"retry", "continue", "skip", "escalate"}
         for name, _line_det, _state_det, handler in handlers:
-            try:
-                action = handler(state, "test")
-                assert action in valid_actions, f"{name} returned {action!r}"
-            except Exception:
-                pass  # Expected when lab_exec not available
+            action = handler(state, "test")
+            assert action in valid_actions, f"{name} returned {action!r}"
 
 
 # ── SupervisorState ──────────────────────────────────────────────────────────

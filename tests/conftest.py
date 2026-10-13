@@ -7,7 +7,10 @@ by adding the uv virtualenv's site-packages to sys.path.
 
 import os
 import sys
+import tempfile
 from pathlib import Path
+
+import pytest
 
 # Provide a test API key so router_pipe module-level import doesn't call sys.exit(1).
 # This must be set before any portal_pipeline import.
@@ -57,3 +60,39 @@ if sys.prefix == sys.base_prefix:
                 if str(site_packages) not in sys.path:
                     sys.path.insert(0, str(site_packages))
             break
+
+
+# Offline boundary (tests/_netguard/netguard.py): no remote host or service port,
+# in-process or in a Python subprocess; a hit fails the test unless `live_port_ok`.
+_NETGUARD_DIR = Path(__file__).resolve().parent / "_netguard"
+sys.path.insert(0, str(_NETGUARD_DIR))
+import netguard as _netguard  # noqa: E402
+
+_netguard.install()
+_NETGUARD_LOG = Path(tempfile.mkstemp(prefix="portal-netguard-", suffix=".log")[1])
+os.environ["PORTAL_NETGUARD"] = "1"
+os.environ["PORTAL_NETGUARD_LOG"] = str(_NETGUARD_LOG)
+os.environ["PYTHONPATH"] = os.pathsep.join(
+    [str(_NETGUARD_DIR), *filter(None, [os.environ.get("PYTHONPATH")])]
+)
+
+
+def pytest_configure(config):
+    config.addinivalue_line("markers", "live_port_ok: the test points at a service port on purpose")
+
+
+@pytest.fixture(autouse=True)
+def _offline_boundary(request):
+    _netguard.HITS.clear()
+    _NETGUARD_LOG.write_text("")
+    yield
+    hits = [f"{h}:{p}" for h, p in _netguard.HITS]
+    hits += [
+        ln.split(" pid=")[0].replace(" ", ":") for ln in _NETGUARD_LOG.read_text().splitlines()
+    ]
+    _netguard.HITS.clear()
+    if hits and not request.node.get_closest_marker("live_port_ok"):
+        pytest.fail(
+            f"test reached the network outside the offline boundary: {sorted(set(hits))} — stub it",
+            pytrace=False,
+        )

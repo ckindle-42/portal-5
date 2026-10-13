@@ -355,6 +355,8 @@ def _check_pipeline_freshness(config: Any) -> None:
     import urllib.error
     import urllib.request
 
+    if os.environ.get("PORTAL_SYNC_SKIP_PIPELINE_CHECK") == "1":
+        return  # unit tests: the live pipeline is outside the offline boundary
     port = os.environ.get("PIPELINE_PORT", "9099")
     api_key = os.environ.get("PIPELINE_API_KEY", "")
     req = urllib.request.Request(
