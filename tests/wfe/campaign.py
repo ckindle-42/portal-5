@@ -92,6 +92,7 @@ from tests.wfe.runner import (
 from tests.wfe.schema import (
     INSTRUMENT_OUTCOMES,
     MANIFEST_SCHEMA_VERSION,
+    MODEL_QUALITY_OUTCOMES,
     Outcome,
     ResultRow,
     env_fingerprint,
@@ -1440,6 +1441,43 @@ def arm_stop_reason(
     return None
 
 
+#: CLI exit codes (tests/wfe/run_arm.py records them in arm_exits.log).
+EXIT_OK, EXIT_STOPPED, EXIT_BLOCKED, EXIT_NO_SELECTION, EXIT_INCOMPLETE = 0, 5, 6, 7, 8
+
+
+def exit_status(outs: list[dict], arms: list[str]) -> int:
+    """0 ran or nothing left to run; 5 an arm stopped; 6 an arm was blocked; 7 none selected."""
+    if not arms:
+        return EXIT_NO_SELECTION
+    if any(o.get("blocked") for o in outs):
+        return EXIT_BLOCKED
+    return EXIT_STOPPED if any(o.get("stopped") for o in outs) else EXIT_OK
+
+
+def completion_problems(campaign_dir: Path) -> list[str]:
+    """Every expected row must have a persisted model-quality result under the baseline."""
+    m = load_manifest(campaign_dir)
+    base = (m.get("instrument") or {}).get("fingerprint")
+    ok = {o.value for o in MODEL_QUALITY_OUTCOMES}
+    out = []
+    for r in m["rows"]:
+        p = _row_path(campaign_dir, r["run_id"])
+        row = json.loads(p.read_text()) if p.exists() else {"outcome": "no result"}
+        if row.get("outcome") not in ok:
+            out.append(f"{r['run_id']}: {row.get('outcome')}")
+        elif base and (row.get("instrument") or {}).get("fingerprint") != base:
+            out.append(f"{r['run_id']}: measured under another instrument")
+    return out
+
+
+def _cmd_verify_complete(campaign_dir: Path) -> int:
+    problems = completion_problems(campaign_dir)
+    for p in problems[:50]:
+        print(f"  INCOMPLETE {p}")
+    print(f"{len(problems)} problem(s) in {campaign_dir.name}")
+    return EXIT_INCOMPLETE if problems else EXIT_OK
+
+
 def execute_arm(
     campaign_dir: Path,
     arm: str,
@@ -1604,6 +1642,11 @@ def _parse_args(argv=None):
     ap.add_argument("--list-arms", action="store_true")
     ap.add_argument("--status", action="store_true")
     ap.add_argument("--watch", action="store_true", help="live view of a running campaign")
+    ap.add_argument(
+        "--verify-complete",
+        action="store_true",
+        help="exit 0 only if every expected row has a model-quality result under the baseline",
+    )
     ap.add_argument(
         "--health",
         action="store_true",
@@ -1941,6 +1984,8 @@ def _inspect_command(args, campaign_dir: Path) -> int | None:
         return _cmd_status(campaign_dir)
     if args.watch:
         return _cmd_watch(campaign_dir, args.watch_interval)
+    if args.verify_complete:
+        return _cmd_verify_complete(campaign_dir)
     if args.health:
         return _cmd_health(campaign_dir, args.stale_after_s)
     return None
@@ -2022,7 +2067,7 @@ def main() -> int:
         return _cmd_preflight(campaign_dir, args.force)
     manifest = load_manifest(campaign_dir)
     arms = _select_arms(manifest, args.arm)
-    stopped = []
+    outs = []
     for arm in arms:
         if not ollama_reachable():
             _log(campaign_dir, f"ABORT before {arm}: Ollama unreachable")
@@ -2037,7 +2082,7 @@ def main() -> int:
             args.notify,
             args.rerun_failed,
         )
-        stopped += [arm] if out and out.get("stopped") else []
+        outs.append(out or {})
     n = build_review_queue(campaign_dir)
     dirty = config_dirty()
     manifest = load_manifest(campaign_dir)
@@ -2047,7 +2092,7 @@ def main() -> int:
         _log(campaign_dir, f"WARNING: config/ changed during the campaign: {dirty}")
     print(f"\ncampaign dir: {campaign_dir}   creative queue: {n} item(s)")
     print(f"next: uv run python -m tests.wfe.report --campaign {campaign_dir.name}")
-    return 5 if stopped else 0  # an arm stopped early: rows remain PENDING
+    return exit_status(outs, arms)
 
 
 if __name__ == "__main__":
