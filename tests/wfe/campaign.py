@@ -624,6 +624,26 @@ def gate_execution(campaign_dir: Path) -> None:
         raise GateRefused(f"execute: {drift}; open a new campaign for the changed instrument")
 
 
+def tool_gaps(rows: list[dict]) -> list[str]:
+    """Rows whose task requires tools the row's tool surface cannot offer."""
+    out, surface, tasks = set(), {}, {}
+    for r in rows:
+        sp = r.get("suite_path")
+        if not sp:
+            continue
+        tasks.setdefault(sp, {t["id"]: t for t in load_suite(sp)})
+        need = set((tasks[sp].get(r["task_id"]) or {}).get("requires_tools") or [])
+        key = (r["workspace"], row_overrides(r).get("persona"))
+        if need and key not in surface:
+            surface[key] = set(workspace_context(*key).get("tool_surface") or TOOL_NAMES)
+        missing = sorted(need - surface.get(key, set(TOOL_NAMES)))
+        if missing:
+            out.add(
+                f"{r['suite']}:{r['task_id']} in {r['workspace']}: needs tools not offered {missing}"
+            )
+    return sorted(out)
+
+
 def gate_controls(rows: list[dict], where: str) -> dict:
     """Known-answer controls for these rows' tasks; raises on failure, returns the receipt."""
     from tests.wfe import controls
@@ -635,6 +655,7 @@ def gate_controls(rows: list[dict], where: str) -> dict:
         )
     paths = sorted({r["suite_path"] for r in rows if r.get("suite_path")})
     rec = controls.receipt(paths, {r["task_id"] for r in rows if r.get("suite_path")})
+    rec["failures"] += tool_gaps(rows)
     if rec["failures"]:
         raise GateRefused(
             f"{where}: {len(rec['failures'])} task control(s) fail — the checker cannot tell "

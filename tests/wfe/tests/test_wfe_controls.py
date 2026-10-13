@@ -192,3 +192,20 @@ def test_dry_run_passes_clean_controls(env, capsys):
     env.write(_task())
     assert campaign._cmd_dry_run([env.row("t1")], 1) == 0
     assert "controls: PASS" in capsys.readouterr().out
+
+
+def test_a_task_needing_tools_the_row_cannot_offer_is_refused(env):
+    t = _task()
+    t["requires_tools"] = ["compliance_requirement", "compliance_ask"]
+    env.write(t)
+    row = {**env.row("t1"), "workspace": "auto-compliance"}
+    assert campaign.tool_gaps([row]) == [
+        "s:t1 in auto-compliance: needs tools not offered ['compliance_ask', 'compliance_requirement']"
+    ]
+    with pytest.raises(SystemExit, match="needs tools not offered"):
+        campaign.open_campaign("c", env.plan, [row], append=False)
+
+
+def test_the_shipped_decision_plan_has_no_unrunnable_task():
+    matrix = campaign.expand_matrix(REPO / "tests/wfe/plans/decision_run_v1.yaml", 1)
+    assert matrix and campaign.tool_gaps(matrix) == []
