@@ -68,3 +68,31 @@ def test_preflight_sends_the_arm_as_override(monkeypatch):
     monkeypatch.setattr(campaign, "chat", fake_chat)
     campaign.preflight_pipeline(["auto-coding"], model)
     assert seen["harness"] == {"pipeline_model": model}
+
+
+def test_served_record_carries_the_options_the_pipeline_applied(monkeypatch):
+    import io
+    import json
+
+    rec = {
+        "backend": "omlx-reasoning",
+        "model": "granite-4.1-30b-4bit",
+        "options_applied": {"temperature": 0.0, "top_k": 20, "repetition_penalty": 1.1},
+    }
+
+    class R(io.BytesIO):
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *a):
+            return False
+
+    monkeypatch.setattr(
+        runner.urllib.request, "urlopen", lambda req, timeout=10: R(json.dumps(rec).encode())
+    )
+    served = runner.pipeline_served("wfe-x")
+    assert served == {
+        "backend": "omlx-reasoning",
+        "model": "granite-4.1-30b-4bit",
+        "options": rec["options_applied"],
+    }

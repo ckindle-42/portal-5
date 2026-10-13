@@ -834,14 +834,16 @@ def _build_pipeline(
 
 
 def pipeline_served(correlation_id: str) -> dict:
-    """The backend and model the pipeline actually used for one request, from
-    its per-request trace. Empty when the trace is unavailable."""
+    """The backend, model and applied options (sampling, output limit, think) the
+    pipeline actually used for one request, from its per-request trace
+    (validation.py records `options_applied`). Empty when the trace is unavailable."""
     req = urllib.request.Request(
         f"{CHAT_BASE}/v1/trace/{correlation_id}", headers=_pipeline_headers()
     )
     with contextlib.suppress(Exception), urllib.request.urlopen(req, timeout=10) as r:
         rec = json.load(r)
-        return {"backend": rec.get("backend"), "model": rec.get("model")}
+        out = {"backend": rec.get("backend"), "model": rec.get("model")}
+        return {**out, "options": rec.get("options_applied")} if rec.get("options_applied") else out
     return {}
 
 
