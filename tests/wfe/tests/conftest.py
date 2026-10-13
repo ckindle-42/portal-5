@@ -11,3 +11,7 @@ def _offline_wfe(monkeypatch):
     monkeypatch.setattr(campaign, "env_fingerprint", lambda *a, **k: dict(fixed))
     monkeypatch.setattr(runner, "env_fingerprint", lambda *a, **k: dict(fixed))
     monkeypatch.setattr(runner, "_ollama_can_think", lambda *a, **k: False)
+    # The developer's tree is often dirty; tests of the gate patch this themselves.
+    monkeypatch.setattr(campaign, "instrument_dirty", lambda: [])
+    head = campaign._git("rev-parse", "HEAD").strip()
+    monkeypatch.setattr(campaign, "deployed_build", lambda: head)

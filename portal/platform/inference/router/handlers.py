@@ -137,6 +137,7 @@ async def health() -> dict[str, Any]:
     return {
         "status": "ok" if healthy else "degraded",
         "version": _PKG_VERSION,
+        "build_sha": os.environ.get("PORTAL_BUILD_SHA", "unknown"),
         "backends_healthy": len(healthy),
         "backends_total": len(registry.list_backends()),
         "workspaces": len(WORKSPACES),

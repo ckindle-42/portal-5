@@ -105,8 +105,22 @@ def _fingerprint_check(rows: list[dict], allow_mixed: bool) -> list[str]:
     )
 
 
+def _instrument_check(rows: list[dict], allow_mixed: bool) -> list[str]:
+    """Refuse to pool rows measured by different harness code or config."""
+    fps = Counter((r.get("instrument") or {}).get("fingerprint", "legacy") for r in rows)
+    if len(fps) <= 1:
+        return []
+    msg = f"MIXED INSTRUMENT FINGERPRINTS across results: {dict(fps)}"
+    if allow_mixed:
+        return [msg + " (pooled under --allow-mixed; comparisons are not sound)"]
+    raise SystemExit(
+        msg + "\nThe harness or its config changed mid-campaign. Re-run the affected "
+        "rows under one instrument or pass --allow-mixed to pool them explicitly."
+    )
+
+
 def _collect_warnings(rows: list[dict], manifest: dict, allow_mixed: bool) -> list[str]:
-    warnings = _fingerprint_check(rows, allow_mixed)
+    warnings = _fingerprint_check(rows, allow_mixed) + _instrument_check(rows, allow_mixed)
     degen = sorted({r["repeat_degeneracy"] for r in rows if r.get("repeat_degeneracy")})
     warnings += [
         f"repeats are not independent draws: {d} — n>1 counts one observation "

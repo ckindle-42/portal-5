@@ -114,6 +114,8 @@ class ResultRow:
     finish_reason: str | None = None
     economics: dict = field(default_factory=dict)
     env: dict = field(default_factory=dict)
+    #: campaign.instrument_fingerprint(); rows with different fingerprints are not pooled.
+    instrument: dict = field(default_factory=dict)
     final_text_head: str = ""
     transcript: list = field(default_factory=list)
     tool_call_log: list = field(default_factory=list)

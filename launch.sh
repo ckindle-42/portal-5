@@ -325,9 +325,9 @@ case "${1:-up}" in
     cd "$COMPOSE_DIR"
     MCP_SERVICES="mcp-documents mcp-tts mcp-whisper mcp-sandbox mcp-security mcp-research mcp-memory mcp-rag browser-mcp mcp-cad-render mcp-proxmox mcp-binresearch"
     echo "[portal-5] Rebuilding portal-pipeline..."
-    docker compose build portal-pipeline
+    docker compose build --build-arg PORTAL_BUILD_SHA="$(git rev-parse HEAD 2>/dev/null || echo unknown)" portal-pipeline
     echo "[portal-5] Rebuilding MCP images..."
-    docker compose build $MCP_SERVICES
+    docker compose build --build-arg PORTAL_BUILD_SHA="$(git rev-parse HEAD 2>/dev/null || echo unknown)" $MCP_SERVICES
     echo "[portal-5] Building native arm64 PowerShell sandbox image..."
     docker build -t portal5-pwsh:latest -f "$PORTAL_ROOT/Dockerfile.pwsh" "$PORTAL_ROOT"
     echo "[portal-5] Loading pwsh image into DinD..."
@@ -346,7 +346,7 @@ case "${1:-up}" in
     cd "$COMPOSE_DIR"
     MCP_SERVICES="mcp-documents mcp-tts mcp-whisper mcp-sandbox mcp-security mcp-research mcp-memory mcp-rag browser-mcp mcp-cad-render mcp-proxmox mcp-binresearch"
     echo "[portal-5] Rebuilding MCP images..."
-    docker compose build $MCP_SERVICES
+    docker compose build --build-arg PORTAL_BUILD_SHA="$(git rev-parse HEAD 2>/dev/null || echo unknown)" $MCP_SERVICES
     echo "[portal-5] Building native arm64 PowerShell sandbox image..."
     docker build -t portal5-pwsh:latest -f "$PORTAL_ROOT/Dockerfile.pwsh" "$PORTAL_ROOT"
     echo "[portal-5] Loading pwsh image into DinD..."

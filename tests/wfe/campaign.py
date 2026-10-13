@@ -69,6 +69,7 @@ import subprocess
 import sys
 import tempfile
 import time
+import urllib.request
 from pathlib import Path
 
 import yaml
@@ -508,10 +509,95 @@ def _row_stub(ws_id, spec, role, suite, suite_path, task_id, rep, is_home) -> di
     }
 
 
+#: Config whose change alters what a row measures; edits to it split a campaign.
+FINGERPRINTED_CONFIG = (
+    "config/portal.yaml",
+    "config/backends.yaml",
+    "config/model_card_expectations.yaml",
+)
+
+
+#: Instrument inputs hashed by content; results are outputs and never part of it.
+INSTRUMENT_DIRS = ("tests/wfe",)
+_NOT_INSTRUMENT = ("tests/wfe/results", "__pycache__", ".pytest_cache")
+#: Paths whose uncommitted change means the instrument is not the committed one.
+INSTRUMENT_PATHS = ("tests/wfe", "portal", "config", "Dockerfile.pipeline", "Dockerfile.mcp")
+
+
+def _git(*a: str) -> str:
+    try:
+        return subprocess.run(
+            ["git", *a], cwd=REPO, capture_output=True, text=True, timeout=20
+        ).stdout
+    except Exception:
+        return ""
+
+
+def _content_digest(paths) -> str:
+    import hashlib
+
+    h = hashlib.sha256()
+    for rel in paths:
+        root = REPO / rel
+        files = sorted(root.rglob("*")) if root.is_dir() else [root]
+        for f in files:
+            r = f.relative_to(REPO).as_posix()
+            if f.is_file() and not any(x in r for x in _NOT_INSTRUMENT):
+                h.update(r.encode() + b"\0" + f.read_bytes() + b"\0")
+    return h.hexdigest()[:16]
+
+
+def instrument_dirty() -> list[str]:
+    out = _git("status", "--porcelain", "--", *INSTRUMENT_PATHS, ":(exclude)tests/wfe/results")
+    return [ln[3:] for ln in out.splitlines() if ln.strip()]
+
+
+def deployed_build() -> str:
+    """The git commit the running pipeline image was built from (its /health build_sha)."""
+    try:
+        with urllib.request.urlopen(f"{CHAT_BASE}/health", timeout=5) as r:
+            return str(json.loads(r.read()).get("build_sha") or "unknown")
+    except Exception:
+        return "unreachable"
+
+
+def deployed_matches(build: str) -> bool:
+    """True when the deployed image's portal/ tree and Dockerfile equal HEAD's."""
+    if not re.fullmatch(r"[0-9a-f]{7,40}", build or ""):
+        return False
+    return all(
+        _git("rev-parse", f"{build}:{p}").strip() == _git("rev-parse", f"HEAD:{p}").strip() != ""
+        for p in ("portal", "Dockerfile.pipeline")
+    )
+
+
+@functools.lru_cache(maxsize=1)
+def instrument_fingerprint() -> dict:
+    """What is measuring: harness and config by content, portal tree, deployed build, engine."""
+    import hashlib
+
+    parts = {
+        "commit": _git("rev-parse", "HEAD").strip(),
+        "harness": _content_digest(INSTRUMENT_DIRS),
+        "config": _content_digest(FINGERPRINTED_CONFIG),
+        "portal_tree": _git("rev-parse", "HEAD:portal").strip(),
+        "deployed": deployed_build() if ENGINE == "pipeline" else "",
+        "engine": ENGINE,
+    }
+    blob = json.dumps({k: v for k, v in parts.items() if k != "commit"}, sort_keys=True)
+    parts["fingerprint"] = hashlib.sha256(blob.encode()).hexdigest()[:16]
+    return parts
+
+
 def gate_controls(rows: list[dict], where: str) -> dict:
     """Known-answer controls for these rows' tasks; raises on failure, returns the receipt."""
     from tests.wfe import controls
 
+    dirty = instrument_dirty()
+    if dirty and os.environ.get("WFE_ALLOW_DIRTY_INSTRUMENT") != "1":
+        raise SystemExit(
+            f"{where}: the instrument has uncommitted changes {dirty[:8]}; commit first"
+        )
     paths = sorted({r["suite_path"] for r in rows if r.get("suite_path")})
     rec = controls.receipt(paths, {r["task_id"] for r in rows if r.get("suite_path")})
     if rec["failures"]:
@@ -552,7 +638,11 @@ def open_campaign(cid: str, plan_path: Path, matrix: list[dict], append: bool) -
             key=lambda r: (r["arm"], r["workspace"], r["suite"], r["task_id"], r["repeat"])
         )
         manifest.setdefault("appends", []).append(
-            {"utc": dt.datetime.now(dt.UTC).isoformat(), "added": len(added)}
+            {
+                "utc": dt.datetime.now(dt.UTC).isoformat(),
+                "added": len(added),
+                "instrument": instrument_fingerprint(),
+            }
         )
         mpath.write_text(json.dumps(manifest, indent=1))
         print(f"appended {len(added)} rows ({len(matrix) - len(added)} already present)")
@@ -563,6 +653,7 @@ def open_campaign(cid: str, plan_path: Path, matrix: list[dict], append: bool) -
         json.dumps(
             {
                 "schema": MANIFEST_SCHEMA_VERSION,
+                "instrument": instrument_fingerprint(),
                 "campaign_id": cid,
                 "plan": str(plan_path),
                 "plan_sha": sha12(plan_path.read_text()),
@@ -823,6 +914,9 @@ def preflight_pipeline(workspaces: list[str], model: str) -> dict:
                 f"?model= for it and serves the seat instead. Add it to a backend's models."
             ],
         }
+    build = deployed_build()
+    if not deployed_matches(build):
+        findings.append(f"deployed pipeline build {build!r} is not HEAD's portal/: rebuild first")
     for ws in workspaces:
         try:
             r = chat(
@@ -1027,6 +1121,7 @@ def run_row(
         run_id=r["run_id"],
         campaign_id=manifest["campaign_id"],
         stage="full",
+        instrument=instrument_fingerprint(),
         workspace=r["workspace"],
         arm=r["arm"],
         arm_role=r["arm_role"],

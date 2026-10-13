@@ -36,5 +36,9 @@ RUN groupadd -r portal && useradd -r -g portal portal \
 HEALTHCHECK --interval=15s --timeout=5s --start-period=30s --retries=5 \
     CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:9099/health')"
 
+# Deployed-revision stamp read by /health (launch.sh passes git HEAD).
+ARG PORTAL_BUILD_SHA=unknown
+ENV PORTAL_BUILD_SHA=${PORTAL_BUILD_SHA}
+
 # Entrypoint fixes tmpfs mount ownership then drops to portal user
 ENTRYPOINT ["/app/scripts/pipeline-entrypoint.sh"]
