@@ -11,3 +11,9 @@ workspaces:
   auto-data:
     tool_mode: production
     allow: [attach_source, run_sql, profile_table, list_session, create_excel]
+  auto-research:
+    # The knowledge base and memory, scoped to the row. Live web (web_search, web_fetch,
+    # news_search) is a named deferral: results that depend on the live internet are not
+    # repeatable. remember is a write, but under a scope it lands in the row's own memory.
+    tool_mode: production
+    allow: [kb_search, kb_search_all, kb_list, recall, graph_recall, neighbors, entity_timeline, remember]
