@@ -11,6 +11,8 @@ no confirm cell at all. Spec: docs/WFE_ROOT_CAUSES_20261013.md.
 from __future__ import annotations
 
 import json
+import os
+from pathlib import Path
 from typing import Any
 
 import yaml
@@ -18,9 +20,10 @@ import yaml
 from ._shared import REPO_ROOT
 from .registry import register
 
-LEDGER = REPO_ROOT / "tests" / "wfe" / "fitness_ledger.yaml"
+LEDGER = Path(os.environ.get("WFE_FITNESS_LEDGER") or REPO_ROOT / "tests/wfe/fitness_ledger.yaml")
 CAMPAIGNS = REPO_ROOT / "tests" / "wfe" / "results" / "campaigns"
 ROUTING = REPO_ROOT / "config" / "backends.yaml"
+PORTAL = REPO_ROOT / "config" / "portal.yaml"
 
 
 def _cells() -> list[dict[str, Any]]:
@@ -43,14 +46,16 @@ def _campaign_engine(campaign_id: str) -> str:
 
 
 def _seats() -> dict[str, str]:
-    """workspace -> the model production seats there (backends.yaml routing)."""
-    cfg = yaml.safe_load(ROUTING.read_text()) or {}
-    seats: dict[str, str] = {}
-    for ws, entry in (cfg.get("workspace_routing") or {}).items():
-        model = entry.get("primary") or entry.get("model") if isinstance(entry, dict) else entry
-        if model:
-            seats[str(ws)] = str(model)
-    return seats
+    """workspace -> the model production seats there. backends.yaml says which
+    workspaces production routes, but its workspace_routing maps each one to
+    backend groups, not to a model; the seat is portal.yaml's model_hint."""
+    routed = (yaml.safe_load(ROUTING.read_text()) or {}).get("workspace_routing") or {}
+    spaces = (yaml.safe_load(PORTAL.read_text()) or {}).get("workspaces") or {}
+    return {
+        str(ws): str(spaces[ws]["model_hint"])
+        for ws in routed
+        if (spaces.get(ws) or {}).get("model_hint")
+    }
 
 
 def _served_today(workspace: str, model: str) -> str | None:
@@ -65,22 +70,45 @@ def _served_today(workspace: str, model: str) -> str | None:
         return None
 
 
+def _content_today(backend: str, model: str) -> tuple[str, str]:
+    """The content id of the build that serves `model` now, or ("", why not)."""
+    try:
+        from tests.wfe.campaign import observe_identity
+    except Exception as e:  # pragma: no cover
+        return "", f"the harness does not import ({e})"
+    ident, why = observe_identity(backend, model)
+    return ident["content"], why
+
+
+def _stale(where: str, workspace: str, model: str, served: dict) -> list[str]:
+    """Why this cell no longer describes what production serves, if it does not."""
+    now = _served_today(workspace, model)
+    if not now:
+        return []
+    if now != served.get("model"):
+        return [f"{where}: measured {served.get('model')}, production now serves {now}"]
+    content, why = _content_today(str(served.get("backend") or ""), now)
+    if not content:
+        return [f"{where}: cannot observe the build production serves now ({why})"]
+    if content != served.get("content"):
+        return [f"{where}: {now} was rebuilt since it was measured"]
+    return []
+
+
 def _ledger_findings(cells: list[dict[str, Any]]) -> tuple[list[str], list[str]]:
-    """(hard failures, stale warnings)."""
+    """(hard failures, stale or unobservable warnings)."""
     fails: list[str] = []
     stale: list[str] = []
     for c in cells:
+        where = f"{c.get('workspace')}/{c.get('model')}"
         engine = _campaign_engine(c.get("campaign"))
+        served = c.get("served") if isinstance(c.get("served"), dict) else {}
         if engine != "pipeline":
-            fails.append(
-                f"{c.get('workspace')}/{c.get('model')}: campaign {c.get('campaign')!r} is {engine}, not pipeline"
-            )
-            continue
-        now = _served_today(str(c.get("workspace")), str(c.get("model")))
-        if now and c.get("served") and now != c["served"]:
-            stale.append(
-                f"{c.get('workspace')}/{c.get('model')}: measured {c['served']}, production now serves {now}"
-            )
+            fails.append(f"{where}: campaign {c.get('campaign')!r} is {engine}, not pipeline")
+        elif not served.get("content"):
+            fails.append(f"{where}: no served identity recorded, so it cannot be checked")
+        else:
+            stale += _stale(where, str(c.get("workspace")), str(c.get("model")), served)
     return fails, stale
 
 
@@ -93,7 +121,10 @@ def check_wfe_fitness_ledger() -> tuple[str, str, list[dict[str, Any]]]:
     """HP. A seat decision must cite a pipeline campaign measured by one instrument."""
     cells = _cells()
     fails, stale = _ledger_findings(cells)
-    covered = {(str(c.get("workspace")), str(c.get("model"))) for c in cells}
+    # A seat is covered by a cell it won (model) or a cell it defended (incumbent).
+    covered = {
+        (str(c.get("workspace")), str(c.get(k))) for c in cells for k in ("model", "incumbent")
+    }
     seats = _seats()
     uncovered = sorted(ws for ws, model in seats.items() if (ws, model) not in covered)
 
@@ -101,7 +132,7 @@ def check_wfe_fitness_ledger() -> tuple[str, str, list[dict[str, Any]]]:
         {
             "name": "every ledger cell cites a pipeline campaign",
             "status": "FAIL" if fails else "PASS",
-            "detail": f"{len(cells)} cell(s) cite a pipeline campaign"
+            "detail": f"{len(cells)} cell(s) cite a pipeline campaign and a served identity"
             if not fails
             else "; ".join(fails[:6]),
         },
@@ -122,9 +153,9 @@ def check_wfe_fitness_ledger() -> tuple[str, str, list[dict[str, Any]]]:
         },
     ]
     if fails:
-        return ("FAIL", f"{len(fails)} ledger cell(s) cite a non-pipeline campaign", subs)
+        return ("FAIL", f"{len(fails)} ledger cell(s) are not decision evidence", subs)
     if stale:
-        return ("WARN", f"{len(stale)} seat(s) are STALE against production", subs)
+        return ("WARN", f"{len(stale)} cell(s) are STALE or unobservable against production", subs)
     if uncovered:
         return (
             "WARN",
