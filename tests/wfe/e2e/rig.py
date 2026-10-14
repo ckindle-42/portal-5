@@ -1,14 +1,14 @@
 """WFE end-to-end rig: the REAL pipeline app, fake engines, the real harness CLI.
 
-    uv run python -m tests.wfe.e2e.rig [--keep] [--ports 21434,28085,29099]
+    uv run python -m tests.wfe.e2e.rig [--keep] [--ports 21434,28085,29099,28913,28939]
 
 Starts fake Ollama and oMLX and the pipeline on their own ports (refusing ports in
-use, so no live service is touched), runs sixteen scenarios through
+use, so no live service is touched), runs nineteen scenarios through
 tests/wfe/run_arm.py, asserts each one's exit code and evidence, writes a JSON
 receipt and exits 0 only if every scenario passed. The fake oMLX models get
 checkpoint directories of their own (OMLX_MODEL_DIR), so identity is observed the
-way production observes it, and the I scenarios change them on purpose. Rig campaigns (`rig_*`) are
-deleted afterwards unless --keep.
+way production observes it, and the I scenarios change them on purpose. Rig
+campaigns (`rig_*`) are deleted afterwards unless --keep.
 """
 
 from __future__ import annotations
@@ -40,11 +40,12 @@ DRIFT_PROBE = REPO / "tests/wfe/_rig_drift_probe.py"
 
 
 class Rig:
-    def __init__(self, ports: tuple[int, int, int], keep: bool):
-        self.ol, self.om, self.pp = ports
+    def __init__(self, ports: tuple[int, ...], keep: bool):
+        self.ol, self.om, self.pp, self.docs, self.data = ports
         self.keep = keep
         self.tmp = Path(tempfile.mkdtemp(prefix="wfe-rig-"))
         self.procs: dict[str, subprocess.Popen] = {}
+        self.ai, self.sess = self.tmp / "AI_Output", self.tmp / "sessions"
         self.stamp = str(int(time.time()))
         self.campaigns: list[str] = []
         self.results: list[dict] = []
@@ -89,6 +90,35 @@ class Rig:
         )
         self._wait(f"http://127.0.0.1:{self.om}/health")
 
+    def start_mcps(self) -> None:
+        """The REAL documents and data MCPs, on rig ports, writing only under the rig's tmp."""
+        self.ai.mkdir(parents=True, exist_ok=True)
+        for name, mod, env in (
+            (
+                "documents",
+                "portal.modules.documents.tools.document_mcp",
+                {"DOCUMENTS_MCP_PORT": str(self.docs), "OUTPUT_DIR": str(self.ai)},
+            ),
+            (
+                "data",
+                "portal.modules.data.tools.data_mcp",
+                {
+                    "DATA_MCP_PORT": str(self.data),
+                    "DATA_MCP_ROOT": str(self.ai),
+                    "DATA_MCP_SESSIONS": str(self.sess),
+                },
+            ),
+        ):
+            self.procs[name] = subprocess.Popen(
+                [sys.executable, "-m", mod],
+                cwd=REPO,
+                env={**os.environ, **env},
+                stdout=open(self.tmp / f"{name}.out", "w"),
+                stderr=subprocess.STDOUT,
+            )
+        for port in (self.docs, self.data):
+            self._wait(f"http://127.0.0.1:{port}/health")
+
     def start_pipeline(self, build: str) -> None:
         self.stop("pipeline")
         env = {
@@ -99,6 +129,8 @@ class Rig:
             "LOAD_GUARD_WAIT_S": "5",
             "PORTAL_BUILD_SHA": build,
             "PORTAL_TRACE_DIR": str(self.tmp / "traces"),
+            "MCP_DOCUMENTS_URL": f"http://127.0.0.1:{self.docs}",
+            "MCP_DATA_URL": f"http://127.0.0.1:{self.data}",
         }
         cmd = [
             sys.executable,
@@ -110,6 +142,8 @@ class Rig:
             "--port",
             str(self.pp),
         ]
+        log = self.tmp / "pipeline.out"
+        warmed = log.read_text().count("Warmup complete") if log.exists() else 0
         self.procs["pipeline"] = subprocess.Popen(
             cmd,
             cwd=REPO,
@@ -118,6 +152,9 @@ class Rig:
             stderr=subprocess.STDOUT,
         )
         self._wait(f"http://127.0.0.1:{self.pp}/health")
+        end = time.time() + 60  # the warmup request must not land in a scenario's window
+        while time.time() < end and log.read_text().count("Warmup complete") <= warmed:
+            time.sleep(0.5)
 
     def _wait(self, url: str, timeout: float = 90) -> None:
         end = time.time() + timeout
@@ -150,6 +187,8 @@ class Rig:
             "WFE_ALLOW_DIRTY_INSTRUMENT": "1",
             "OMLX_MODEL_DIR": str(self.omlx),
             "OMLX_SETTINGS": str(self.tmp / "model_settings.json"),
+            "AI_OUTPUT_DIR": str(self.ai),
+            "WFE_DATA_MCP_URL": f"http://127.0.0.1:{self.data}",
         }
 
     def cid(self, n: str) -> str:
@@ -255,12 +294,13 @@ class Rig:
 
     # ── scenarios ───────────────────────────────────────────────────────────
     def run(self) -> int:
-        for port in (self.ol, self.om, self.pp):
+        for port in (self.ol, self.om, self.pp, self.docs, self.data):
             if not self._free(port):
                 raise SystemExit(f"rig: port {port} is in use; pass --ports to use free ones")
         (self.tmp / "pids").write_text("")
         try:
             self.start_fakes()
+            self.start_mcps()
             self.start_pipeline(self.head)
             self.scenarios()
         finally:
@@ -281,13 +321,14 @@ class Rig:
         print(
             f"\nrig: {len(self.results) - len(failed)}/{len(self.results)} PASS; receipt {self.tmp}/receipt.json"
         )
-        return 1 if failed or len(self.results) < 16 else 0
+        return 1 if failed or len(self.results) < 19 else 0
 
     def scenarios(self) -> None:
         self.happy_path()
         self.identity()
         self.failures()
         self.gates_and_builds()
+        production(self)
 
     def happy_path(self) -> None:
         self.two = two = ["--task", "comp-p6j-01", "--repeats", "1"]
@@ -556,10 +597,152 @@ class Rig:
         )
 
 
+PROD_PLAN = """workloads:
+  auto-documents:
+    home: rig_production
+    discovery: []
+    arms: {incumbent: granite4.1:8b-ctx16k, challengers: []}
+  auto-data:
+    home: rig_production
+    discovery: []
+    arms: {incumbent: hf.co/unsloth/Qwen3.6-35B-A3B-GGUF:UD-Q4_K_XL-ctx32k, challengers: []}
+"""
+
+
+def _allow(ws: str) -> list[str]:
+    from tests.wfe.eval_mode import mode_for
+
+    return sorted(mode_for(ws)["allow"])
+
+
+def _post(port: int, path: str, body: dict) -> dict:
+    req = urllib.request.Request(
+        f"http://127.0.0.1:{port}{path}",
+        data=json.dumps(body).encode(),
+        headers={"Content-Type": "application/json"},
+    )
+    with urllib.request.urlopen(req, timeout=30) as r:
+        return json.load(r)
+
+
+def production(rig: Rig) -> None:
+    """S13-S15: production tool mode against the real documents and data MCPs."""
+    plan = rig.tmp / "prod_plan.yaml"
+    plan.write_text(PROD_PLAN)
+    s13_documents(rig, plan)
+    s14_data(rig, plan)
+    s15_no_scope_leak(rig)
+
+
+def s13_documents(rig: Rig, plan: Path) -> None:
+    docs_arm = "granite4.1:8b-ctx16k"
+    c13, m = rig.cid("docs"), rig.mark()
+    rc = rig.arm(
+        c13,
+        docs_arm,
+        "--workspace",
+        "auto-documents",
+        "--task",
+        "rig-doc-01",
+        "--repeats",
+        "1",
+        plan=plan,
+    )
+    row = (rig.rows(c13) or [{}])[0]
+    recs = (row.get("evidence") or {}).get("receipts") or []
+    offered = [c["tools"] for c in rig.engine_calls(m) if c["tools"]][:1]
+    left = sorted(str(p.relative_to(rig.ai)) for p in rig.ai.rglob("*") if p.is_file())
+    ok = (
+        rc == 0
+        and row.get("outcome") == "PASS"
+        and (row.get("evidence") or {}).get("tool_mode") == "production"
+        and any(r.get("valid") is True for r in recs)
+        and offered == [_allow("auto-documents")]
+        and list((CAMPAIGNS / c13 / "artifacts").rglob("*.docx"))
+        and left == []
+    )
+    rig.check(
+        "S13 documents in production mode: own tools, receipt, nothing published or left",
+        bool(ok),
+        f"rc={rc} outcome={row.get('outcome')} receipts={len(recs)} offered={offered} left={left}",
+    )
+
+
+def s14_data(rig: Rig, plan: Path) -> None:
+    data_arm = "hf.co/unsloth/Qwen3.6-35B-A3B-GGUF:UD-Q4_K_XL-ctx32k"
+    (rig.ai / "operator.csv").write_text("a\n1\n")
+    _post(
+        rig.data,
+        "/tools/attach_source",
+        {"arguments": {"session_id": "operator", "path": "operator.csv", "table": "t"}},
+    )
+    (rig.ai / "operator.csv").unlink()
+    c14, m = rig.cid("data"), rig.mark()
+    rc = rig.arm(
+        c14,
+        data_arm,
+        "--workspace",
+        "auto-data",
+        "--task",
+        "rig-data-01",
+        "--repeats",
+        "1",
+        plan=plan,
+    )
+    row = (rig.rows(c14) or [{}])[0]
+    dbs = sorted(p.name for p in rig.sess.glob("*.duckdb"))
+    offered = [c["tools"] for c in rig.engine_calls(m) if c["tools"]][:1]
+    ok = (
+        rc == 0
+        and row.get("outcome") == "PASS"
+        and dbs == ["operator.duckdb"]
+        and offered
+        and set(offered[0]) <= set(_allow("auto-data"))
+    )
+    rig.check(
+        "S14 data in production mode: own fixture, session closed, foreign session kept",
+        bool(ok),
+        f"rc={rc} outcome={row.get('outcome')} sessions={dbs} offered={offered}",
+    )
+
+
+def s15_no_scope_leak(rig: Rig) -> None:
+    import http.client
+
+    conn = http.client.HTTPConnection("127.0.0.1", rig.pp, timeout=60)
+    scope = {"campaign": "wfe_" + "c" * 16, "run": "wfe_" + "d" * 40, "allow": ["run_sql"]}
+    seen = []
+    for extra in ({"portal_eval": scope}, {}):
+        m = rig.mark()
+        req = {
+            "model": "auto-data",
+            "stream": False,
+            "messages": [{"role": "user", "content": "total?"}],
+            **extra,
+        }
+        conn.request(
+            "POST",
+            "/v1/chat/completions",
+            json.dumps(req),
+            {"Authorization": "Bearer rig-key", "Content-Type": "application/json"},
+        )
+        conn.getresponse().read()
+        seen.append([c["tools"] for c in rig.engine_calls(m) if c["tools"]][:1])
+    conn.close()
+    ok = seen[0] == [["run_sql"]] and seen[1] and len(seen[1][0]) > 1
+    rig.check(
+        "S15 a scope does not outlive its request (same connection)", bool(ok), f"offered={seen}"
+    )
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--keep", action="store_true", help="keep rig campaigns and logs")
-    ap.add_argument("--ports", default="21434,28085,29099", help="fake Ollama, fake oMLX, pipeline")
+    ap.add_argument(
+        "--ports",
+        default="21434,28085,29099,28913,28939",
+        help="fake Ollama, fake oMLX, pipeline, documents MCP, data MCP",
+    )
     a = ap.parse_args()
     ports = tuple(int(p) for p in a.ports.split(","))
     return Rig(ports, a.keep).run()
