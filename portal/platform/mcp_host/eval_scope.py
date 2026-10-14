@@ -17,14 +17,14 @@ from pathlib import Path
 from typing import Any
 
 TOKEN = re.compile(r"^wfe_[0-9a-f]{16,40}$")
-EVAL_SCOPE: ContextVar[dict | None] = ContextVar("portal_eval_scope", default=None)
+EVAL_SCOPE: ContextVar[dict[str, Any] | None] = ContextVar("portal_eval_scope", default=None)
 
 
 class ScopeError(ValueError):
     """A malformed scope, or a path outside the run's namespace."""
 
 
-def parse(raw: Any) -> dict | None:
+def parse(raw: Any) -> dict[str, Any] | None:
     """A validated scope from a body's `portal_eval` (pipeline) or `eval` (MCP) field."""
     if raw is None:
         return None
@@ -40,14 +40,14 @@ def parse(raw: Any) -> dict | None:
     return {"campaign": camp, "run": run, "allow": sorted(set(allow))}
 
 
-def run_root(base: Path | str, scope: dict) -> Path:
+def run_root(base: Path | str, scope: dict[str, Any]) -> Path:
     """`<base>/wfe/<campaign>/<run>`, with `base` resolved first; created if absent."""
     root = Path(base).resolve() / "wfe" / scope["campaign"] / scope["run"]
     root.mkdir(parents=True, exist_ok=True)
-    return root
+    return Path(root)
 
 
-def confine(base: Path | str, scope: dict, path: str | Path, sub: str = "") -> Path:
+def confine(base: Path | str, scope: dict[str, Any], path: str | Path, sub: str = "") -> Path:
     """`path` resolved inside the run root (relative paths under `sub`); escapes refused."""
     root = run_root(base, scope)
     p = Path(path)
@@ -57,7 +57,7 @@ def confine(base: Path | str, scope: dict, path: str | Path, sub: str = "") -> P
     return cand
 
 
-def receipt(base: Path | str, scope: dict, tool: str, path: Path | str) -> dict:
+def receipt(base: Path | str, scope: dict[str, Any], tool: str, path: Path | str) -> dict[str, Any]:
     """Append a creation receipt to `<run root>/.receipts.jsonl` and return it."""
     p = confine(base, scope, path)
     data = p.read_bytes()
