@@ -5,6 +5,7 @@ import asyncio
 import hashlib
 import json
 import os
+import re
 import sys
 import time
 
@@ -15,6 +16,7 @@ from fastapi.responses import JSONResponse, StreamingResponse
 
 B = yaml.safe_load(open(sys.argv[1]))
 OLLAMA_PORT, OMLX_PORT, FLAGS = int(sys.argv[2]), int(sys.argv[3]), sys.argv[4]
+EG2_PORT = int(sys.argv[5]) if len(sys.argv) > 5 else 0
 OLLAMA_IDS, OMLX_IDS = [], []
 for be in B["backends"]:
     ids = [m["id"] if isinstance(m, dict) else m for m in be.get("models") or []] + list(
@@ -36,6 +38,7 @@ def log(engine, path, body):
                 "tools": [
                     t.get("function", {}).get("name") for t in (body or {}).get("tools") or []
                 ],
+                "text": json.dumps((body or {}).get("messages") or [])[:20000],
             }
         )
         + "\n"
@@ -43,35 +46,46 @@ def log(engine, path, body):
     LOG.flush()
 
 
-def script(model, messages, tools):
-    """First turn with a file_read tool: read packet.json. After a tool result: answer."""
-    has_tool_result = any(m.get("role") == "tool" for m in messages)
-    names = [t.get("function", {}).get("name") for t in tools or []]
-    if "file_read" in names and not has_tool_result:
-        return None, {"name": "file_read", "arguments": {"path": "packet.json"}}
-    n_results = sum(1 for m in messages if m.get("role") == "tool")
-    if "attach_source" in names and n_results == 0:
-        return None, {
-            "name": "attach_source",
-            "arguments": {"session_id": "model_picked", "path": "sales.csv", "table": "sales"},
-        }
-    if "run_sql" in names and n_results == 1:
-        return None, {
-            "name": "run_sql",
-            "arguments": {
-                "session_id": "model_picked",
-                "sql": "SELECT sum(amount) AS total FROM sales",
-            },
-        }
-    if "run_sql" in names and n_results >= 2:
-        last = str(messages[-1].get("content", ""))
-        total = "15" if "15" in last else "unknown"
+def _data_flow(names, n, messages):
+    """attach_source, then run_sql, then answer with the total."""
+    if "attach_source" in names and n == 0:
+        args = {"session_id": "model_picked", "path": "sales.csv", "table": "sales"}
+        return None, {"name": "attach_source", "arguments": args}
+    if "run_sql" in names and n == 1:
+        sql = "SELECT sum(amount) AS total FROM sales"
+        return None, {"name": "run_sql", "arguments": {"session_id": "model_picked", "sql": sql}}
+    if "run_sql" in names and n >= 2:
+        total = "15" if "15" in str(messages[-1].get("content", "")) else "unknown"
         return json.dumps({"total_amount": total}), None
-    if "create_word_document" in names and not has_tool_result:
+    return None
+
+
+def _kb_flow(names, n, messages):
+    """kb_search on the operator's KB id (a scope must force it onto the run's KB), then answer."""
+    if "kb_search" not in names:
+        return None
+    if n == 0:
         return None, {
-            "name": "create_word_document",
-            "arguments": {"title": "Rig report", "content": "# Findings\nAll checks passed."},
+            "name": "kb_search",
+            "arguments": {"kb_id": "opkb", "query": "relay setpoint amps"},
         }
+    found = re.findall(r"\d+ amps", str(messages[-1].get("content", "")))
+    return json.dumps({"setpoint": found[0] if found else "unknown"}), None
+
+
+def script(model, messages, tools):
+    """Deterministic scripted model: a tool flow when its tools are offered, else an answer."""
+    names = [t.get("function", {}).get("name") for t in tools or []]
+    n = sum(1 for m in messages if m.get("role") == "tool")
+    if "file_read" in names and n == 0:
+        return None, {"name": "file_read", "arguments": {"path": "packet.json"}}
+    for flow in (_data_flow, _kb_flow):
+        out = flow(names, n, messages)
+        if out:
+            return out
+    if "create_word_document" in names and n == 0:
+        doc = {"title": "Rig report", "content": "# Findings\nAll checks passed."}
+        return None, {"name": "create_word_document", "arguments": doc}
     det = ["SUPPORTED", "CONTRADICTED", "ABSENT", "ABSTAIN", "PARTIAL"][
         int(hashlib.sha256((model + json.dumps(messages[-1:])).encode()).hexdigest(), 16) % 5
     ]
@@ -195,8 +209,8 @@ async def models():
 
 
 @om.get("/v1/models/status")
-async def mstatus():
-    return {"models": []}
+async def mstatus():  # what load_guard reads: a real ceiling, nothing loaded
+    return {"models": [], "final_ceiling": 400e9, "current_model_memory": 0}
 
 
 @om.get("/api/status")
@@ -289,10 +303,74 @@ async def ochat(req: Request):
     return StreamingResponse(_omlx_stream(b["model"], text, call), media_type="text/event-stream")
 
 
+eg2 = FastAPI()
+EG2_IDENTITY = {
+    "model": "fake-eg2",
+    "revision": "r1",
+    "native_dim": 768,
+    "dtype": "f32",
+    "device": "cpu",
+    "backend": "fake",
+}
+
+
+def _bow(text: str, dim: int) -> list[float]:
+    v = [0.0] * dim
+    for w in re.findall(r"[a-z0-9]+", (text or "").lower()):
+        v[int(hashlib.sha256(w.encode()).hexdigest(), 16) % dim] += 1.0
+    n = sum(x * x for x in v) ** 0.5 or 1.0
+    return [x / n for x in v]
+
+
+@eg2.get("/ready")
+async def eg2_ready():
+    return {"ready": True, "identity": EG2_IDENTITY}
+
+
+@eg2.post("/embed")
+async def eg2_embed(req: Request):
+    b = await req.json()
+    dim = int(b.get("dim") or 768)
+    return {
+        "embeddings": [
+            _bow(t.get("text") or "" if isinstance(t, dict) else t, dim)
+            for t in b.get("inputs") or []
+        ],
+        "model": EG2_IDENTITY["model"],
+    }
+
+
+@eg2.get("/vl/health")
+async def vl_health():
+    return {"status": "ok", "embed_model": "fake-vl", "embedding_dim": 768}
+
+
+@eg2.get("/vl/ready")
+async def vl_ready():
+    return {"ready": True}
+
+
+@eg2.post("/vl/embed_batch")
+async def vl_embed_batch(req: Request):
+    b = await req.json()
+    return {"embeddings": [_bow(it.get("text") or "", 768) for it in b.get("items") or []]}
+
+
+@eg2.post("/vl/rerank")
+async def vl_rerank(req: Request):
+    b = await req.json()
+    n = min(int(b.get("top_n", 5)), len(b.get("candidates") or []))
+    return {"results": [{"index": i, "score": 0.5} for i in range(n)]}
+
+
 async def main():
     s1 = uvicorn.Server(uvicorn.Config(ol, host="127.0.0.1", port=OLLAMA_PORT, log_level="warning"))
     s2 = uvicorn.Server(uvicorn.Config(om, host="127.0.0.1", port=OMLX_PORT, log_level="warning"))
-    await asyncio.gather(s1.serve(), s2.serve())
+    servers = [s1.serve(), s2.serve()]
+    if EG2_PORT:
+        cfg = uvicorn.Config(eg2, host="127.0.0.1", port=EG2_PORT, log_level="warning")
+        servers.append(uvicorn.Server(cfg).serve())
+    await asyncio.gather(*servers)
 
 
 asyncio.run(main())

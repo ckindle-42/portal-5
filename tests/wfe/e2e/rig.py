@@ -738,12 +738,17 @@ def s15_no_scope_leak(rig: Rig) -> None:
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--keep", action="store_true", help="keep rig campaigns and logs")
+    ap.add_argument("--live", action="store_true", help="run against the deployed production stack")
     ap.add_argument(
         "--ports",
         default="21434,28085,29099,28913,28939",
         help="fake Ollama, fake oMLX, pipeline, documents MCP, data MCP",
     )
     a = ap.parse_args()
+    if a.live:  # the same scenarios against the deployed production stack and real models
+        from tests.wfe.e2e.live import LiveRig
+
+        return LiveRig(a.keep).run()
     ports = tuple(int(p) for p in a.ports.split(","))
     return Rig(ports, a.keep).run()
 
