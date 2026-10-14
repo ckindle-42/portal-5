@@ -650,6 +650,99 @@ class TestOfflineRescore:
         row = json.loads(camp._row_path(d, rid).read_text())
         assert "rescored_utc" in row
 
+    def test_a_rescore_preserves_the_original_evidence_and_names_its_grader(self, tmp_path):
+        """R-7: re-grading used to overwrite the row, so the verdict the run
+        actually produced became unrecoverable and nothing recorded which
+        checkers replaced it."""
+        rid = "ws|m:t|coding|code-kv|r0"
+        cd = tmp_path / "c"
+        (cd / "rows").mkdir(parents=True)
+        rp = camp._row_path(cd, rid)
+        rp.write_text(
+            json.dumps(
+                {
+                    "run_id": rid,
+                    "outcome": "PASS",
+                    "notes": "the original verdict",
+                    "instrument": {"fingerprint": "abc123", "engine": "ollama"},
+                }
+            )
+        )
+        rec = self._debug_record(rid)
+        rec["sandbox_tree"] = {"parse_kv.py": "def parse_kv(s):\n    return {}\n"}
+        dbg = tmp_path / "debug"
+        dbg.mkdir()
+        (dbg / "m_t.debug.jsonl").write_text(json.dumps(rec) + "\n")
+
+        camp.rescore_debug_dir(dbg, cd)
+
+        row = json.loads(rp.read_text())
+        assert row["outcome"] == "FAIL"
+        assert row["original"] == {
+            "outcome": "PASS",
+            "notes": "the original verdict",
+            "instrument": {"fingerprint": "abc123", "engine": "ollama"},
+        }
+        assert row["rescore"]["outcome"] == "FAIL"
+        assert row["rescore"]["grader"]["fingerprint"]
+
+    def test_a_second_rescore_keeps_the_first_original(self, tmp_path):
+        """`original` is what the run produced, not what the previous re-grade
+        produced, so re-scoring twice does not lose the run's own verdict."""
+        rid = "ws|m:t|coding|code-kv|r0"
+        cd = tmp_path / "c"
+        (cd / "rows").mkdir(parents=True)
+        rp = camp._row_path(cd, rid)
+        rp.write_text(json.dumps({"run_id": rid, "outcome": "PASS", "notes": "run verdict"}))
+        rec = self._debug_record(rid)
+        rec["sandbox_tree"] = {"parse_kv.py": "def parse_kv(s):\n    return {}\n"}
+        dbg = tmp_path / "debug"
+        dbg.mkdir()
+        (dbg / "m_t.debug.jsonl").write_text(json.dumps(rec) + "\n")
+
+        camp.rescore_debug_dir(dbg, cd)
+        camp.rescore_debug_dir(dbg, cd)
+
+        row = json.loads(rp.read_text())
+        assert row["original"]["outcome"] == "PASS"
+        assert row["original"]["notes"] == "run verdict"
+
+
+class TestGraderComparison:
+    """R-7: a comparison may only pool rows one grader produced."""
+
+    @staticmethod
+    def _row(fp: str | None, outcome: str = "PASS") -> dict:
+        row = {"outcome": outcome}
+        if fp is not None:
+            row["rescore"] = {"outcome": outcome, "grader": {"fingerprint": fp}}
+        return row
+
+    def test_rows_never_rescored_are_comparable(self):
+        from tests.wfe import report as rep
+
+        assert rep._grader_check([self._row(None), self._row(None, "FAIL")], False) == []
+
+    def test_rows_under_one_grader_are_comparable(self):
+        from tests.wfe import report as rep
+
+        rows = [self._row("aaa"), self._row("aaa", "FAIL")]
+        assert rep._grader_check(rows, False) == []
+
+    def test_two_graders_refuse_rather_than_pool(self):
+        from tests.wfe import report as rep
+
+        rows = [self._row("aaa"), self._row("bbb")]
+        with pytest.raises(SystemExit, match="MIXED GRADERS"):
+            rep._grader_check(rows, False)
+        assert "MIXED GRADERS" in rep._grader_check(rows, True)[0]
+
+    def test_a_rescored_row_is_not_comparable_with_an_unrescored_one(self):
+        from tests.wfe import report as rep
+
+        with pytest.raises(SystemExit, match="MIXED GRADERS"):
+            rep._grader_check([self._row("aaa"), self._row(None)], False)
+
     def test_repeat_degeneracy_is_flagged(self):
         """n=3 at temperature 0 is one draw counted three times. The report must
         never present it as three independent observations."""

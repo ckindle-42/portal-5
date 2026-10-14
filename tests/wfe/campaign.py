@@ -819,9 +819,26 @@ def rescore_debug_dir(debug_dir: Path, campaign_dir: Path | None = None) -> list
                 p = _row_path(campaign_dir, rec["run_id"])
                 if p.exists():
                     row = json.loads(p.read_text())
+                    # R-7: a re-grade must never destroy what the first grading
+                    # recorded. `original` is written once, on the first
+                    # re-score of this row; `rescore.grader` names the instrument
+                    # that produced the current outcome, so a comparison can tell
+                    # which checkers graded each side.
+                    row.setdefault(
+                        "original",
+                        {
+                            "outcome": row.get("outcome"),
+                            "notes": row.get("notes"),
+                            "instrument": row.get("instrument"),
+                        },
+                    )
                     row["outcome"] = final_outcome
                     row["notes"] = f"{cr.notes} [{why}]"
                     row["evidence"] = cr.evidence
+                    row["rescore"] = {
+                        "outcome": final_outcome,
+                        "grader": instrument_fingerprint(),
+                    }
                     row["rescored_utc"] = dt.datetime.now(dt.UTC).isoformat()
                     p.write_text(json.dumps(row, indent=1))
     if campaign_dir and (campaign_dir / "manifest.json").exists():

@@ -119,8 +119,36 @@ def _instrument_check(rows: list[dict], allow_mixed: bool) -> list[str]:
     )
 
 
+def _grader_of(row: dict) -> str:
+    """Which grading produced this row's outcome: the re-score's instrument, or
+    the run's own. `rescore_debug_dir` preserves the pre-re-score verdict under
+    `original` and stamps the new one, so a row is only comparable with rows
+    graded by the same instrument (R-7)."""
+    return (row.get("rescore") or {}).get("grader", {}).get("fingerprint", "original")
+
+
+def _grader_check(rows: list[dict], allow_mixed: bool) -> list[str]:
+    """Refuse to compare a re-scored row against one that was never re-scored,
+    or against one re-scored by a different instrument."""
+    graders = Counter(_grader_of(r) for r in rows)
+    if len(graders) <= 1:
+        return []
+    msg = f"MIXED GRADERS across results: {dict(graders)}"
+    if allow_mixed:
+        return [msg + " (pooled under --allow-mixed; comparisons are not sound)"]
+    raise SystemExit(
+        msg + "\nSome rows were re-scored under one instrument and others under another "
+        "(or not at all). Re-score the whole comparison or pass --allow-mixed to pool "
+        "them explicitly."
+    )
+
+
 def _collect_warnings(rows: list[dict], manifest: dict, allow_mixed: bool) -> list[str]:
-    warnings = _fingerprint_check(rows, allow_mixed) + _instrument_check(rows, allow_mixed)
+    warnings = (
+        _fingerprint_check(rows, allow_mixed)
+        + _instrument_check(rows, allow_mixed)
+        + _grader_check(rows, allow_mixed)
+    )
     degen = sorted({r["repeat_degeneracy"] for r in rows if r.get("repeat_degeneracy")})
     warnings += [
         f"repeats are not independent draws: {d} — n>1 counts one observation "
