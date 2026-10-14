@@ -137,6 +137,7 @@ from scripts.validation.security_bench import (  # noqa: E402, F401
     check_valid_workspaces_resolve,
 )
 from scripts.validation.telemetry import check_complexity_census  # noqa: E402, F401
+from scripts.validation.wfe import check_wfe_fitness_ledger  # noqa: E402, F401
 from scripts.validation.wiki import (  # noqa: E402, F401
     check_archive_reachability,
     check_spine_code_coverage,
