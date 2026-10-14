@@ -766,6 +766,54 @@ def _reconcile_offline(recorded: str | None, checker_outcome: str) -> tuple[str,
     return checker_outcome, "checker re-grade"
 
 
+def _rehydrate_check(rec: dict, task: dict):
+    """Grade one recorded run from its captured artifacts, then drop the tree."""
+    root = rehydrate_tree(rec.get("sandbox_tree") or {})
+    try:
+        return apply_checkers(
+            task,
+            CheckContext(
+                final_text=rec.get("final_text", ""),
+                assistant_texts=rec.get("assistant_texts") or [],
+                tool_calls=rec.get("tool_call_log") or [],
+                sandbox_root=root,
+                task=task,
+                finish_reason=rec.get("finish_reason"),
+            ),
+        )
+    finally:
+        shutil.rmtree(root, ignore_errors=True)
+
+
+def _write_rescored_row(campaign_dir: Path, rec: dict, cr, final_outcome: str, why: str) -> None:
+    """Persist one re-grade onto its campaign row, preserving the first verdict.
+
+    R-7: a re-grade must never destroy what the first grading recorded. `original`
+    is written once, on the first re-score of this row; `rescore.grader` names the
+    instrument that produced the current outcome, so a comparison can tell which
+    checkers graded each side."""
+    if not rec.get("run_id"):
+        return
+    p = _row_path(campaign_dir, rec["run_id"])
+    if not p.exists():
+        return
+    row = json.loads(p.read_text())
+    row.setdefault(
+        "original",
+        {
+            "outcome": row.get("outcome"),
+            "notes": row.get("notes"),
+            "instrument": row.get("instrument"),
+        },
+    )
+    row["outcome"] = final_outcome
+    row["notes"] = f"{cr.notes} [{why}]"
+    row["evidence"] = cr.evidence
+    row["rescore"] = {"outcome": final_outcome, "grader": instrument_fingerprint()}
+    row["rescored_utc"] = dt.datetime.now(dt.UTC).isoformat()
+    p.write_text(json.dumps(row, indent=1))
+
+
 def rescore_debug_dir(debug_dir: Path, campaign_dir: Path | None = None) -> list[dict]:
     """Re-grade every recorded task-run with no model calls.
 
@@ -790,21 +838,7 @@ def rescore_debug_dir(debug_dir: Path, campaign_dir: Path | None = None) -> list
                 rec["rescore"] = {"outcome": None, "note": "task not found in suite"}
                 updated.append(rec)
                 continue
-            root = rehydrate_tree(rec.get("sandbox_tree") or {})
-            try:
-                cr = apply_checkers(
-                    task,
-                    CheckContext(
-                        final_text=rec.get("final_text", ""),
-                        assistant_texts=rec.get("assistant_texts") or [],
-                        tool_calls=rec.get("tool_call_log") or [],
-                        sandbox_root=root,
-                        task=task,
-                        finish_reason=rec.get("finish_reason"),
-                    ),
-                )
-            finally:
-                shutil.rmtree(root, ignore_errors=True)
+            cr = _rehydrate_check(rec, task)
             final_outcome, why = _reconcile_offline(rec.get("outcome"), cr.outcome.value)
             rec["rescore"] = {
                 "outcome": final_outcome,
@@ -815,32 +849,8 @@ def rescore_debug_dir(debug_dir: Path, campaign_dir: Path | None = None) -> list
                 "changed": final_outcome != rec.get("outcome"),
             }
             updated.append(rec)
-            if campaign_dir and rec.get("run_id"):
-                p = _row_path(campaign_dir, rec["run_id"])
-                if p.exists():
-                    row = json.loads(p.read_text())
-                    # R-7: a re-grade must never destroy what the first grading
-                    # recorded. `original` is written once, on the first
-                    # re-score of this row; `rescore.grader` names the instrument
-                    # that produced the current outcome, so a comparison can tell
-                    # which checkers graded each side.
-                    row.setdefault(
-                        "original",
-                        {
-                            "outcome": row.get("outcome"),
-                            "notes": row.get("notes"),
-                            "instrument": row.get("instrument"),
-                        },
-                    )
-                    row["outcome"] = final_outcome
-                    row["notes"] = f"{cr.notes} [{why}]"
-                    row["evidence"] = cr.evidence
-                    row["rescore"] = {
-                        "outcome": final_outcome,
-                        "grader": instrument_fingerprint(),
-                    }
-                    row["rescored_utc"] = dt.datetime.now(dt.UTC).isoformat()
-                    p.write_text(json.dumps(row, indent=1))
+            if campaign_dir:
+                _write_rescored_row(campaign_dir, rec, cr, final_outcome, why)
     if campaign_dir and (campaign_dir / "manifest.json").exists():
         m = load_manifest(campaign_dir)
         by_id = {r["run_id"]: r for r in m["rows"]}
@@ -934,11 +944,7 @@ def backend_engine(backend_id: str) -> str:
 
 
 def ollama_content_id(model: str) -> str:
-    """Ollama's manifest digest for a tag, from /api/tags.
-
-    The digest changes when a tag is re-pulled, re-quantised or re-baked under
-    the same name — which is exactly the change a seat decision has to notice.
-    Empty when the tag is not installed on this host."""
+    """Ollama's manifest digest for a tag, from /api/tags (doc: identity)."""
     try:
         with urllib.request.urlopen(f"{OLLAMA}/api/tags", timeout=10) as r:
             for m in json.load(r).get("models") or []:
@@ -950,8 +956,7 @@ def ollama_content_id(model: str) -> str:
 
 
 def omlx_content_id(model: str) -> str:
-    """An oMLX model has no manifest digest: hash its checkpoint `config.json`
-    together with the settings entry that decides how the seat serves it."""
+    """oMLX has no manifest digest: hash the checkpoint config + settings entry."""
     import hashlib
 
     cfg = OMLX_MODEL_DIR / model / "config.json"
@@ -968,13 +973,7 @@ def omlx_content_id(model: str) -> str:
 
 
 def served_identity(backend_id: str, model: str) -> dict:
-    """The build that served one probe: which backend, which model id, and a
-    content id for that model on that engine.
-
-    Identity is per (workspace, arm), never part of the shared instrument
-    fingerprint: the same arm id legitimately resolves to different builds in
-    different workspaces (`granite4.1:8b-ctx8k` is `granite-4.1-8b-mxfp8` in
-    auto-coding and the Ollama tag in auto-research)."""
+    """What served one probe: backend id, model id, and its content id."""
     engine = backend_engine(backend_id)
     if engine == "ollama":
         content = ollama_content_id(model)
@@ -986,10 +985,7 @@ def served_identity(backend_id: str, model: str) -> dict:
 
 
 def freeze_identities(frozen: dict, identities: dict) -> list[str]:
-    """Freeze each pair's identity on first sight; report every later change.
-
-    A first preflight of a pair writes it; anything after that must match, or the
-    rows on either side describe different builds and cannot be pooled."""
+    """Freeze each pair's identity on first sight; report every later change."""
     drift = []
     for key in sorted(identities):
         ident = identities[key]
@@ -1001,13 +997,13 @@ def freeze_identities(frozen: dict, identities: dict) -> list[str]:
     return drift
 
 
-def row_identity(transcript: list, frozen: dict | None) -> dict | None:
-    """The identity a row was actually served with, from its own turns.
+def frozen_identity(manifest: dict, r: dict) -> dict | None:
+    """The identity preflight froze for this row's (workspace, model) pair."""
+    return (manifest.get("identity_map") or {}).get(f"{r['workspace']}|{row_model(r)}")
 
-    Backend and model come from the row's trace, so a mid-campaign change of
-    serving build shows up here rather than being copied from the freeze. The
-    content id is the frozen one: it costs a model-manifest read, and preflight
-    certified it for this pair."""
+
+def row_identity(transcript: list, frozen: dict | None) -> dict | None:
+    """What a row was served with, from its own trace; content from the freeze."""
     served = next(
         (t.get("served") or {} for t in transcript if (t.get("served") or {}).get("model")), None
     )
@@ -1281,12 +1277,7 @@ def run_row(
     row["repeat_degeneracy"] = degenerate_repeats(wsc, overrides)
     row["model"] = row_model(r)
     row["overrides"] = overrides
-    # What actually served this row, from its own turns; the pair's frozen
-    # content id is attached only when the served model still matches it.
-    row["identity"] = row_identity(
-        out.get("transcript") or [],
-        (manifest.get("identity_map") or {}).get(f"{r['workspace']}|{row_model(r)}"),
-    )
+    row["identity"] = row_identity(out.get("transcript") or [], frozen_identity(manifest, r))
     # What the engine was ASKED for but silently drops (runner.DELIVERABLE_KEYS) and, on
     # Ollama, what the tag bakes; else a row's `sampling` claims values never served.
     row["sampling_undelivered"] = undeliverable_keys(sampling)

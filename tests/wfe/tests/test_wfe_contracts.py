@@ -707,6 +707,65 @@ class TestOfflineRescore:
         assert row["original"]["outcome"] == "PASS"
         assert row["original"]["notes"] == "run verdict"
 
+    def test_repeat_degeneracy_is_flagged(self):
+        """n=3 at temperature 0 is one draw counted three times. The report must
+        never present it as three independent observations."""
+        assert camp.degenerate_repeats({"declared_temperature": 0.0}) is not None
+        assert camp.degenerate_repeats({"pinned_seed": 42}) is not None
+        assert camp.degenerate_repeats({"declared_temperature": 0.7}) is None
+
+    def test_workspace_sampling_is_production_not_harness_default(self):
+        """Dimension 8: every workspace declares its own sampling block, and the
+        campaign must serve each arm at ITS settings, not at a harness default."""
+        from tests.wfe.runner import workspace_context
+
+        wsc = workspace_context("auto-coding")
+        assert wsc["sampling"], "workspace sampling block not carried through"
+        s = camp._sampling_for(wsc, 2)
+        assert s["seed"] == 1002
+        if wsc.get("declared_temperature") is not None:
+            assert s["temperature"] == wsc["declared_temperature"]
+
+    def test_variant_context_merges_like_production(self):
+        """`workspace::variant` is production's synthetic id: variant keys override
+        the base, and system_prompt_append lands in the system prompt as the
+        router injects it."""
+        import yaml
+
+        from tests.wfe.prompt_surface import HARNESS_NOTE_MARKER
+        from tests.wfe.runner import REPO, workspace_context
+
+        ws = yaml.safe_load((REPO / "config/portal.yaml").read_text())["workspaces"]
+        variant = ws["auto-coding"]["variants"]["laguna"]
+        wsc = workspace_context("auto-coding::laguna")
+        assert wsc["model"] == variant["model_hint"]
+        assert wsc["sampling"]["temperature"] == variant["temperature"]
+        served = wsc["system_prompt"].split("\n\n" + HARNESS_NOTE_MARKER)[0]
+        assert served.endswith(variant["system_prompt_append"])
+        assert wsc["declared_tools"] == variant["tools"]
+
+    def test_base_workspace_system_prompt_append_is_applied(self):
+        import yaml
+
+        from tests.wfe.runner import REPO, workspace_context
+
+        base = yaml.safe_load((REPO / "config/portal.yaml").read_text())["workspaces"][
+            "auto-coding"
+        ]
+        assert workspace_context("auto-coding")["system_prompt"].endswith(
+            base["system_prompt_append"]
+        )
+
+    def test_personaless_workspace_uses_the_owui_preset_prompt(self):
+        import yaml
+
+        from tests.wfe.runner import REPO, workspace_context
+
+        ws = yaml.safe_load((REPO / "config/portal.yaml").read_text())["workspaces"]
+        wsc = workspace_context("general-deep")
+        assert wsc["persona_slug"] is None
+        assert wsc["system_prompt_base"] == ws["general-deep"]["owui_system_prompt"]
+
 
 class TestGraderComparison:
     """R-7: a comparison may only pool rows one grader produced."""
@@ -865,65 +924,6 @@ class TestModelIdentity:
     def test_identity_never_enters_the_instrument_fingerprint(self):
         fp = camp.instrument_fingerprint()
         assert not {"identity", "identity_map", "content"} & set(fp)
-
-    def test_repeat_degeneracy_is_flagged(self):
-        """n=3 at temperature 0 is one draw counted three times. The report must
-        never present it as three independent observations."""
-        assert camp.degenerate_repeats({"declared_temperature": 0.0}) is not None
-        assert camp.degenerate_repeats({"pinned_seed": 42}) is not None
-        assert camp.degenerate_repeats({"declared_temperature": 0.7}) is None
-
-    def test_workspace_sampling_is_production_not_harness_default(self):
-        """Dimension 8: every workspace declares its own sampling block, and the
-        campaign must serve each arm at ITS settings, not at a harness default."""
-        from tests.wfe.runner import workspace_context
-
-        wsc = workspace_context("auto-coding")
-        assert wsc["sampling"], "workspace sampling block not carried through"
-        s = camp._sampling_for(wsc, 2)
-        assert s["seed"] == 1002
-        if wsc.get("declared_temperature") is not None:
-            assert s["temperature"] == wsc["declared_temperature"]
-
-    def test_variant_context_merges_like_production(self):
-        """`workspace::variant` is production's synthetic id: variant keys override
-        the base, and system_prompt_append lands in the system prompt as the
-        router injects it."""
-        import yaml
-
-        from tests.wfe.prompt_surface import HARNESS_NOTE_MARKER
-        from tests.wfe.runner import REPO, workspace_context
-
-        ws = yaml.safe_load((REPO / "config/portal.yaml").read_text())["workspaces"]
-        variant = ws["auto-coding"]["variants"]["laguna"]
-        wsc = workspace_context("auto-coding::laguna")
-        assert wsc["model"] == variant["model_hint"]
-        assert wsc["sampling"]["temperature"] == variant["temperature"]
-        served = wsc["system_prompt"].split("\n\n" + HARNESS_NOTE_MARKER)[0]
-        assert served.endswith(variant["system_prompt_append"])
-        assert wsc["declared_tools"] == variant["tools"]
-
-    def test_base_workspace_system_prompt_append_is_applied(self):
-        import yaml
-
-        from tests.wfe.runner import REPO, workspace_context
-
-        base = yaml.safe_load((REPO / "config/portal.yaml").read_text())["workspaces"][
-            "auto-coding"
-        ]
-        assert workspace_context("auto-coding")["system_prompt"].endswith(
-            base["system_prompt_append"]
-        )
-
-    def test_personaless_workspace_uses_the_owui_preset_prompt(self):
-        import yaml
-
-        from tests.wfe.runner import REPO, workspace_context
-
-        ws = yaml.safe_load((REPO / "config/portal.yaml").read_text())["workspaces"]
-        wsc = workspace_context("general-deep")
-        assert wsc["persona_slug"] is None
-        assert wsc["system_prompt_base"] == ws["general-deep"]["owui_system_prompt"]
 
 
 class _FakeResp:

@@ -120,16 +120,12 @@ def _instrument_check(rows: list[dict], allow_mixed: bool) -> list[str]:
 
 
 def _grader_of(row: dict) -> str:
-    """Which grading produced this row's outcome: the re-score's instrument, or
-    the run's own. `rescore_debug_dir` preserves the pre-re-score verdict under
-    `original` and stamps the new one, so a row is only comparable with rows
-    graded by the same instrument (R-7)."""
+    """The instrument that graded this row; 'original' when never re-scored."""
     return (row.get("rescore") or {}).get("grader", {}).get("fingerprint", "original")
 
 
 def _grader_check(rows: list[dict], allow_mixed: bool) -> list[str]:
-    """Refuse to compare a re-scored row against one that was never re-scored,
-    or against one re-scored by a different instrument."""
+    """Refuse to pool rows graded by different instruments (R-7)."""
     graders = Counter(_grader_of(r) for r in rows)
     if len(graders) <= 1:
         return []
@@ -144,13 +140,7 @@ def _grader_check(rows: list[dict], allow_mixed: bool) -> list[str]:
 
 
 def _identity_check(rows: list[dict], manifest: dict, allow_mixed: bool) -> list[str]:
-    """Refuse to compare a row whose serving build disagrees with its pair's
-    frozen identity.
-
-    The key is the pair, never the arm alone: one arm id is legitimately served
-    by different builds in different workspaces, so freezing per arm would block
-    every such comparison, and freezing globally would miss a build change
-    inside one workspace."""
+    """Refuse to compare a row whose serving build moved off its frozen identity."""
     frozen = manifest.get("identity_map") or {}
     if not frozen:
         return []

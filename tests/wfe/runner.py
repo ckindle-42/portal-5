@@ -929,11 +929,7 @@ def _read_response(endpoint: str, r) -> tuple[dict, str | None, Economics]:
 
 @contextlib.contextmanager
 def _traced_errors(cid: str):
-    """Give a failed request its correlation id (R2-22, root-cause doc).
-
-    A turn that stalls or errors has no `served` record, so its pipeline trace is
-    the only evidence of what actually answered it. Without the id that evidence
-    is unreachable, and the row cannot be explained after the fact."""
+    """Give a failed request its correlation id (R2-22, root-cause doc)."""
     try:
         yield
     except Exception as e:

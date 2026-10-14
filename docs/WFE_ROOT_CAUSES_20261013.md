@@ -242,6 +242,62 @@ PORTAL_NETGUARD_LOG, which the fixture reads.
 Non-Python subprocesses (curl, docker) are outside this boundary.
 ```
 
+### Instrument identity (`tests/wfe/campaign.py`, causes C1 and C3)
+
+The build that served a row, frozen per pair and kept out of the shared fingerprint.
+
+```text
+A seat decision rests on rows that must have been served by the build the
+decision names. Two things make that non-obvious:
+
+  - the instrument fingerprint answers "what measured this?" and is deliberately
+    shared by every arm in a campaign. Putting the served build in it would make
+    two arms in one comparison carry different fingerprints and block the very
+    comparison the campaign exists to make;
+  - one arm id is legitimately served by different builds in different
+    workspaces. At HEAD granite4.1:8b-ctx8k resolves to granite-4.1-8b-mxfp8 in
+    auto-coding and auto-security, and to the Ollama tag in auto-research and
+    auto-compliance. A per-arm freeze would reject that as drift.
+
+So identity is keyed "<workspace>|<model>" and holds:
+  backend  — the backends.yaml entry id the pipeline's trace reports;
+  model    — the served model id the trace reports;
+  content  — for Ollama, the manifest digest from /api/tags, which changes when
+             a tag is re-pulled, re-quantised or re-baked under the same name;
+             for oMLX, which has no manifest digest, the sha256 of the
+             checkpoint's config.json plus the model's
+             ~/.omlx/model_settings.json entry (the per-model settings that
+             decide how the seat serves it).
+
+The first preflight of a pair writes it into the manifest's identity_map. Any
+later disagreement is reported as drift and fails preflight. Every row records
+what actually served it, read from its own trace, so a mid-campaign move shows
+up rather than being copied from the freeze; the content id is taken from the
+freeze because it costs a model-manifest read that preflight already paid for.
+The report refuses to compare rows that disagree with the frozen identity.
+
+The same key is what Part 3's eligibility receipts use.
+
+### Failure traceability (`tests/wfe/runner.py`, R2-22 and R-7)
+
+```text
+Two pieces of evidence a decision needs, both of which used to be destroyed:
+
+  - a turn that stalls or errors has no `served` record. Its pipeline trace is
+    then the only evidence of what answered the request, and the correlation id
+    is the only way to reach that trace. `chat()` attaches the id to whatever a
+    call raises, and the turn loop records it. Direct-engine rows have no trace
+    and record no empty id.
+  - re-grading a campaign offline (`rescore_debug_dir`) used to overwrite the
+    row's outcome, notes and evidence, so the verdict the run actually produced
+    became unrecoverable and nothing recorded which checkers replaced it. A
+    rescored row now keeps `original: {outcome, notes, instrument}` — written
+    once, so a second pass cannot bury the run's own verdict — and records
+    `rescore: {outcome, grader: instrument_fingerprint()}`. The report pools
+    rescored outcomes only when every row in the comparison was graded by the
+    same instrument.
+```
+
 ## Review of the task's second version (2026-10-13), and how V3 answers it
 
 A second independent review of V2 found seven defects. Each was checked against the code
