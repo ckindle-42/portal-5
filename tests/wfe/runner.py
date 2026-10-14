@@ -836,6 +836,11 @@ def _build_pipeline(
         # modes use); everything else runs through the pipeline.
         payload["tools"] = schemas
         payload["portal_client_tools_only"] = True
+    elif not eval_scope:
+        # No tools asked for (preflights, probes): say so. Without the flag the pipeline
+        # attaches the workspace's own production tools, so a "reply ready" probe could
+        # create files, query data or write notes. Production tool mode carries a scope.
+        payload["portal_no_tools"] = True
     if eval_scope:  # production tool mode: the workspace's own tools, scoped (eval_mode)
         payload["portal_eval"] = eval_scope
     url = f"{CHAT_BASE}/v1/chat/completions"

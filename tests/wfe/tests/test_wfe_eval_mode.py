@@ -165,3 +165,22 @@ def test_gate_checks_production_rows_against_the_allowlist(tmp_path, monkeypatch
     assert campaign.tool_gaps(rows) == [
         "s:t2 in auto-data: needs tools not offered ['execute_python']"
     ]
+
+
+def test_a_pipeline_call_without_tools_says_so():
+    msgs = [{"role": "user", "content": "Reply with the word ready."}]
+    _, p, _ = runner._build_pipeline(
+        "auto-compliance", msgs, "none", {}, None, "default", False, "m"
+    )
+    assert p.get("portal_no_tools") is True and "tools" not in p
+    _, p, _ = runner._build_pipeline(
+        "auto-compliance",
+        msgs,
+        "none",
+        {},
+        [{"function": {"name": "file_read"}}],
+        "default",
+        False,
+        "m",
+    )
+    assert p.get("portal_client_tools_only") is True and "portal_no_tools" not in p
