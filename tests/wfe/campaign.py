@@ -426,6 +426,17 @@ def row_overrides(r: dict) -> dict:
     return r["overrides"] if "overrides" in r else env_overrides()
 
 
+def load_advance(path: Path | None) -> dict[str, set] | None:
+    """The screen's advance list: workspace -> candidate arms to confirm.
+
+    `report --screen-out` writes it. Incumbents are not listed and are always
+    expanded, because a cell whose baseline is missing cannot be compared."""
+    if path is None:
+        return None
+    data = yaml.safe_load(Path(path).read_text()) or {}
+    return {str(ws): {str(a) for a in (arms or [])} for ws, arms in data.items()}
+
+
 def expand_matrix(
     plan_path: Path,
     repeats: int = DEFAULT_REPEATS,
@@ -434,12 +445,20 @@ def expand_matrix(
     only_suite: str | None = None,
     only_task: str | None = None,
     only_workspace: str | None = None,
+    tier: str = "confirm",
+    advance: dict[str, set] | None = None,
 ) -> list[dict]:
     """Expand the plan into one row per (workspace, arm, suite, task, repeat).
 
-    Full power up front — no screening tier. The operator's intent is to test the
-    models themselves over a multi-day run, and a comparison that was never run
-    at production sampling has not been made.
+    `tier` records how a row was created and never decides membership in a
+    comparison: "screen" takes repeat 0 of the tasks a suite marks `screen`,
+    "confirm" takes every task at repeats 0..repeats-1. A confirm append over a
+    workspace already screened reuses the screen rows because their run_id is
+    identical, which is what leaves no duplicate and re-runs nothing.
+
+    `advance` (workspace -> candidate arms to keep) is what `--advance` passes
+    after a screen; incumbents are always kept, because a cell without its
+    baseline cannot be compared.
 
     Rows are keyed by run_id and carry their own state, which is what makes the
     campaign resumable, appendable and honest about what did not run."""
@@ -455,6 +474,7 @@ def expand_matrix(
         home = wl.get("home")
         suites = every if all_suites else [home] + list(wl.get("discovery") or [])
         arms = wl.get("arms") or {}
+        wanted = (advance or {}).get(ws_id)
         ordered = [("incumbent", arms.get("incumbent"))] + [
             ("challenger", c) for c in (arms.get("challengers") or [])
         ]
@@ -464,35 +484,45 @@ def expand_matrix(
             arm_id, model, overrides = arm_spec(_with_card_sampling(entry, role, ws_id))
             if only_arm and only_arm not in (arm_id, model):
                 continue
+            if wanted is not None and role == "challenger" and arm_id not in wanted:
+                continue
             spec = (arm_id, model, overrides)
             for suite in dict.fromkeys(s for s in suites if s):
                 if only_suite and suite != only_suite:
                     continue
-                suite_path = SUITE_DIR / f"{suite}.jsonl"
-                if not suite_path.exists():
-                    rows.append(
-                        _row_stub(ws_id, spec, role, suite, suite_path, "MISSING", 0, suite == home)
-                        | {
-                            "state": Outcome.HARNESS_ERROR.value,
-                            "note": f"suite file not found: {suite_path}",
-                        }
-                    )
-                    continue
-                for task in load_suite(suite_path):
-                    if only_task and task["id"] != only_task:
-                        continue
-                    for rep in range(repeats):
-                        rows.append(
-                            _row_stub(
-                                ws_id, spec, role, suite, suite_path, task["id"], rep, suite == home
-                            )
-                        )
+                rows += _suite_rows(ws_id, spec, role, suite, home, tier, repeats, only_task)
     # Arm-major: every task for a model runs while its weights are resident.
     rows.sort(key=lambda r: (r["arm"], r["workspace"], r["suite"], r["task_id"], r["repeat"]))
     return rows
 
 
-def _row_stub(ws_id, spec, role, suite, suite_path, task_id, rep, is_home) -> dict:
+def _suite_rows(ws_id, spec, role, suite, home, tier, repeats, only_task) -> list[dict]:
+    """Every row one (workspace, arm, suite) contributes at this tier."""
+    suite_path = SUITE_DIR / f"{suite}.jsonl"
+    if not suite_path.exists():
+        return [
+            _row_stub(ws_id, spec, role, suite, suite_path, "MISSING", 0, suite == home, tier)
+            | {
+                "state": Outcome.HARNESS_ERROR.value,
+                "note": f"suite file not found: {suite_path}",
+            }
+        ]
+    out: list[dict] = []
+    for task in load_suite(suite_path):
+        if only_task and task["id"] != only_task:
+            continue
+        if tier == "screen" and not task.get("screen"):
+            continue
+        for rep in range(1 if tier == "screen" else repeats):
+            out.append(
+                _row_stub(
+                    ws_id, spec, role, suite, suite_path, task["id"], rep, suite == home, tier
+                )
+            )
+    return out
+
+
+def _row_stub(ws_id, spec, role, suite, suite_path, task_id, rep, is_home, tier="confirm") -> dict:
     arm_id, model, overrides = spec
     return {
         "run_id": f"{ws_id}|{arm_id}|{suite}|{task_id}|r{rep}",
@@ -501,6 +531,7 @@ def _row_stub(ws_id, spec, role, suite, suite_path, task_id, rep, is_home) -> di
         "model": model,
         "overrides": overrides,
         "arm_role": role,
+        "tier": tier,
         "suite": suite,
         "suite_path": str(suite_path),
         "task_id": task_id,
@@ -1653,6 +1684,8 @@ def build_review_queue(campaign_dir: Path) -> int:
 def _parse_args(argv=None):
     ap = argparse.ArgumentParser()
     ap.add_argument("--plan", default=str(REPO / "tests/wfe/workloads.yaml"))
+    ap.add_argument("--tier", choices=("screen", "confirm"), default="confirm")
+    ap.add_argument("--advance", type=Path, help="advance.yaml from report --screen-out")
     ap.add_argument("--campaign-id", help="create or continue this campaign")
     ap.add_argument("--arm", help="run exactly one model tag (one arm per process)")
     ap.add_argument("--workspace", help="restrict to one workspace")
@@ -2091,7 +2124,15 @@ def main() -> int:
     if not args.campaign_id:
         ap.error("--campaign-id is required (or use --smoke / --rescore / --list-arms)")
     matrix = expand_matrix(
-        plan, args.repeats, args.all_suites, args.arm, args.suite, args.task, args.workspace
+        plan,
+        args.repeats,
+        args.all_suites,
+        args.arm,
+        args.suite,
+        args.task,
+        args.workspace,
+        args.tier,
+        load_advance(args.advance),
     )
     _warn_prompt_surface(matrix)
     if args.dry_run:

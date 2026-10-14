@@ -1068,6 +1068,18 @@ surfaces:
   globs:
   - tests/wfe/controls.py
   unit: unit-wfe-workspace-fitness
+- name: file-tests-wfe-decision
+  globs:
+  - tests/wfe/decision.py
+  unit: unit-wfe-workspace-fitness
+- name: file-tests-wfe-e2e-fake_engines
+  globs:
+  - tests/wfe/e2e/fake_engines.py
+  unit: unit-wfe-workspace-fitness
+- name: file-tests-wfe-e2e-rig
+  globs:
+  - tests/wfe/e2e/rig.py
+  unit: unit-wfe-workspace-fitness
 - name: file-tests-wfe-graded-code_fizz-test_fizz
   globs:
   - tests/wfe/graded/code_fizz/test_fizz.py
@@ -1087,6 +1099,10 @@ surfaces:
 - name: file-tests-wfe-report
   globs:
   - tests/wfe/report.py
+  unit: unit-wfe-workspace-fitness
+- name: file-tests-wfe-run_arm
+  globs:
+  - tests/wfe/run_arm.py
   unit: unit-wfe-workspace-fitness
 - name: file-tests-wfe-runner
   globs:
@@ -1116,6 +1132,10 @@ surfaces:
   globs:
   - tests/wfe/tests/test_wfe_controls.py
   unit: unit-wfe-workspace-fitness
+- name: file-tests-wfe-tests-test_wfe_decision
+  globs:
+  - tests/wfe/tests/test_wfe_decision.py
+  unit: unit-wfe-workspace-fitness
 - name: file-tests-wfe-tests-test_wfe_gold_isolation
   globs:
   - tests/wfe/tests/test_wfe_gold_isolation.py
@@ -1131,6 +1151,18 @@ surfaces:
 - name: file-tests-wfe-tests-test_wfe_provenance
   globs:
   - tests/wfe/tests/test_wfe_provenance.py
+  unit: unit-wfe-workspace-fitness
+- name: file-tests-wfe-tests-test_wfe_run_arm
+  globs:
+  - tests/wfe/tests/test_wfe_run_arm.py
+  unit: unit-wfe-workspace-fitness
+- name: file-tests-wfe-tests-test_wfe_stop_rules
+  globs:
+  - tests/wfe/tests/test_wfe_stop_rules.py
+  unit: unit-wfe-workspace-fitness
+- name: file-tests-wfe-tests-test_wfe_tiers
+  globs:
+  - tests/wfe/tests/test_wfe_tiers.py
   unit: unit-wfe-workspace-fitness
 - name: file-tests-wfe-tools-build_compliance_suite
   globs:
