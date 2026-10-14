@@ -143,11 +143,47 @@ def _grader_check(rows: list[dict], allow_mixed: bool) -> list[str]:
     )
 
 
+def _identity_check(rows: list[dict], manifest: dict, allow_mixed: bool) -> list[str]:
+    """Refuse to compare a row whose serving build disagrees with its pair's
+    frozen identity.
+
+    The key is the pair, never the arm alone: one arm id is legitimately served
+    by different builds in different workspaces, so freezing per arm would block
+    every such comparison, and freezing globally would miss a build change
+    inside one workspace."""
+    frozen = manifest.get("identity_map") or {}
+    if not frozen:
+        return []
+    bad: list[str] = []
+    for r in rows:
+        ident = r.get("identity")
+        want = frozen.get(f"{r.get('workspace')}|{r.get('model') or r.get('arm')}")
+        if not ident or not want:
+            continue
+        if any(
+            (ident.get(k) or "") != (want.get(k) or "") for k in ("backend", "model", "content")
+        ):
+            bad.append(f"{r.get('workspace')}|{r.get('arm')}: served {ident}, frozen {want}")
+    if not bad:
+        return []
+    msg = f"IDENTITY DRIFT across results: {len(bad)} row(s)"
+    if allow_mixed:
+        return [msg + " (pooled under --allow-mixed; comparisons are not sound)"]
+    raise SystemExit(
+        msg
+        + "\n  "
+        + "\n  ".join(sorted(set(bad))[:8])
+        + "\nThe serving build changed within a (workspace, arm) after preflight froze it. "
+        "Re-run the affected rows under one build or pass --allow-mixed explicitly."
+    )
+
+
 def _collect_warnings(rows: list[dict], manifest: dict, allow_mixed: bool) -> list[str]:
     warnings = (
         _fingerprint_check(rows, allow_mixed)
         + _instrument_check(rows, allow_mixed)
         + _grader_check(rows, allow_mixed)
+        + _identity_check(rows, manifest, allow_mixed)
     )
     degen = sorted({r["repeat_degeneracy"] for r in rows if r.get("repeat_degeneracy")})
     warnings += [

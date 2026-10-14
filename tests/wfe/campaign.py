@@ -916,6 +916,109 @@ def backend_catalog() -> frozenset[str]:
     )
 
 
+#: oMLX serves each model from a directory named after its id; the per-model
+#: entry that decides how the seat serves it lives in the operator's home.
+OMLX_MODEL_DIR = Path(os.environ.get("OMLX_MODEL_DIR", "/Volumes/data01/omlx-models"))
+OMLX_SETTINGS = Path(
+    os.environ.get("OMLX_SETTINGS", str(Path.home() / ".omlx" / "model_settings.json"))
+)
+
+
+def backend_engine(backend_id: str) -> str:
+    """The engine a backends.yaml entry id names ('ollama', 'omlx', ...)."""
+    cfg = yaml.safe_load((REPO / "config/backends.yaml").read_text()) or {}
+    for b in cfg.get("backends") or []:
+        if b.get("id") == backend_id:
+            return str(b.get("type") or "")
+    return ""
+
+
+def ollama_content_id(model: str) -> str:
+    """Ollama's manifest digest for a tag, from /api/tags.
+
+    The digest changes when a tag is re-pulled, re-quantised or re-baked under
+    the same name — which is exactly the change a seat decision has to notice.
+    Empty when the tag is not installed on this host."""
+    try:
+        with urllib.request.urlopen(f"{OLLAMA}/api/tags", timeout=10) as r:
+            for m in json.load(r).get("models") or []:
+                if model in (m.get("name"), m.get("model")):
+                    return str(m.get("digest") or "")
+    except Exception:
+        return ""
+    return ""
+
+
+def omlx_content_id(model: str) -> str:
+    """An oMLX model has no manifest digest: hash its checkpoint `config.json`
+    together with the settings entry that decides how the seat serves it."""
+    import hashlib
+
+    cfg = OMLX_MODEL_DIR / model / "config.json"
+    try:
+        config = cfg.read_bytes()
+    except OSError:
+        config = b""
+    try:
+        entry = (json.loads(OMLX_SETTINGS.read_text()).get("models") or {}).get(model)
+    except Exception:
+        entry = None
+    blob = (config.hex() + json.dumps(entry, sort_keys=True)).encode()
+    return hashlib.sha256(blob).hexdigest()[:32]
+
+
+def served_identity(backend_id: str, model: str) -> dict:
+    """The build that served one probe: which backend, which model id, and a
+    content id for that model on that engine.
+
+    Identity is per (workspace, arm), never part of the shared instrument
+    fingerprint: the same arm id legitimately resolves to different builds in
+    different workspaces (`granite4.1:8b-ctx8k` is `granite-4.1-8b-mxfp8` in
+    auto-coding and the Ollama tag in auto-research)."""
+    engine = backend_engine(backend_id)
+    if engine == "ollama":
+        content = ollama_content_id(model)
+    elif engine == "omlx":
+        content = omlx_content_id(model)
+    else:
+        content = ""
+    return {"backend": backend_id, "model": model, "content": content}
+
+
+def freeze_identities(frozen: dict, identities: dict) -> list[str]:
+    """Freeze each pair's identity on first sight; report every later change.
+
+    A first preflight of a pair writes it; anything after that must match, or the
+    rows on either side describe different builds and cannot be pooled."""
+    drift = []
+    for key in sorted(identities):
+        ident = identities[key]
+        known = frozen.get(key)
+        if known is None:
+            frozen[key] = ident
+        elif known != ident:
+            drift.append(f"{key}: frozen {known} != now {ident}")
+    return drift
+
+
+def row_identity(transcript: list, frozen: dict | None) -> dict | None:
+    """The identity a row was actually served with, from its own turns.
+
+    Backend and model come from the row's trace, so a mid-campaign change of
+    serving build shows up here rather than being copied from the freeze. The
+    content id is the frozen one: it costs a model-manifest read, and preflight
+    certified it for this pair."""
+    served = next(
+        (t.get("served") or {} for t in transcript if (t.get("served") or {}).get("model")), None
+    )
+    if not served:
+        return None
+    ident = {"backend": served.get("backend") or "", "model": served.get("model") or ""}
+    if frozen and frozen.get("model") == ident["model"]:
+        ident["content"] = frozen.get("content", "")
+    return ident
+
+
 def preflight_pipeline(workspaces: list[str], model: str) -> dict:
     """Pipeline mode: the pipeline owns the wire, so the raw transport probe is
     moot. What must hold is that each seat is actually served by the arm's model
@@ -934,6 +1037,7 @@ def preflight_pipeline(workspaces: list[str], model: str) -> dict:
     build = deployed_build()
     if not deployed_matches(build):
         findings.append(f"deployed pipeline build {build!r} is not HEAD's portal/: rebuild first")
+    identities: dict[str, dict] = {}
     for ws in workspaces:
         try:
             r = chat(
@@ -942,7 +1046,8 @@ def preflight_pipeline(workspaces: list[str], model: str) -> dict:
                 tools=False,
                 harness={"pipeline_model": model},
             )
-            served = (r.get("served") or {}).get("model")
+            served_rec = r.get("served") or {}
+            served = served_rec.get("model")
         except Exception as e:
             served, findings = None, [*findings, f"{ws}: request failed: {e}"]
             continue
@@ -951,7 +1056,14 @@ def preflight_pipeline(workspaces: list[str], model: str) -> dict:
             findings.append(
                 f"{ws}: pipeline served {served!r}, seat is {primary!r} (arm {model!r})"
             )
-    return {"model": model, "verdict": "REVIEW" if findings else "OK", "findings": findings}
+        if served:
+            identities[f"{ws}|{model}"] = served_identity(served_rec.get("backend") or "", served)
+    return {
+        "model": model,
+        "verdict": "REVIEW" if findings else "OK",
+        "findings": findings,
+        "identities": identities,
+    }
 
 
 def preflight_arm(campaign_dir: Path, arm: str, force: bool = False) -> dict:
@@ -1169,6 +1281,12 @@ def run_row(
     row["repeat_degeneracy"] = degenerate_repeats(wsc, overrides)
     row["model"] = row_model(r)
     row["overrides"] = overrides
+    # What actually served this row, from its own turns; the pair's frozen
+    # content id is attached only when the served model still matches it.
+    row["identity"] = row_identity(
+        out.get("transcript") or [],
+        (manifest.get("identity_map") or {}).get(f"{r['workspace']}|{row_model(r)}"),
+    )
     # What the engine was ASKED for but silently drops (runner.DELIVERABLE_KEYS) and, on
     # Ollama, what the tag bakes; else a row's `sampling` claims values never served.
     row["sampling_undelivered"] = undeliverable_keys(sampling)
@@ -1734,11 +1852,17 @@ def _cmd_preflight(campaign_dir: Path, force: bool) -> int:
     )
     # Arms served by another engine (WFE_ENGINE) are not Ollama tags at all.
     missing = [a for a in arms if a not in sizes] if sizes and ENGINE == "ollama" else []
+    manifest = load_manifest(campaign_dir)
+    frozen = manifest.setdefault("identity_map", {})
     bad = []
+    drift: list[str] = []
     for i, a in enumerate(arms, 1):
         t0 = time.monotonic()
         res = preflight_arm(campaign_dir, a, force)
         verdict = str(res.get("verdict"))
+        # The first preflight of a pair freezes its identity; a later change
+        # means the two halves of the comparison describe different builds.
+        drift += freeze_identities(frozen, res.get("identities") or {})
         print(f"[{i}/{len(arms)}] {verdict:6s} {round(time.monotonic() - t0, 1):7.1f}s  {a}")
         for f in res.get("findings") or []:
             print(f"          FINDING: {f}")
@@ -1748,6 +1872,11 @@ def _cmd_preflight(campaign_dir: Path, force: bool) -> int:
             bad.append(a)
         drain_model(a)
         sys.stdout.flush()
+    save_manifest(campaign_dir, manifest)
+    for d in drift:
+        print(f"          IDENTITY DRIFT: {d}")
+    if drift:
+        bad.append("identity-drift")
     print(f"\npreflight: {len(arms) - len(bad)}/{len(arms)} OK")
     if missing:
         print("NOT INSTALLED: " + ", ".join(missing))

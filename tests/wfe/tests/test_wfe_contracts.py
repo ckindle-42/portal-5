@@ -743,6 +743,129 @@ class TestGraderComparison:
         with pytest.raises(SystemExit, match="MIXED GRADERS"):
             rep._grader_check([self._row("aaa"), self._row(None)], False)
 
+
+class TestModelIdentity:
+    """The build that served each (workspace, arm), frozen at the pair's first
+    preflight and kept out of the shared instrument fingerprint."""
+
+    @staticmethod
+    def _ident(backend="omlx-coding", model="granite4.1:8b-ctx8k", content="c1"):
+        return {"backend": backend, "model": model, "content": content}
+
+    @staticmethod
+    def _row(workspace, arm, model, identity):
+        return {"workspace": workspace, "arm": arm, "model": model, "identity": identity}
+
+    def test_the_same_arm_may_be_served_by_different_builds_in_two_workspaces(self):
+        """granite4.1:8b-ctx8k really does resolve to different builds per
+        workspace, so a per-arm freeze would block a legitimate comparison."""
+        frozen: dict = {}
+        drift = camp.freeze_identities(
+            frozen,
+            {
+                "auto-coding|granite4.1:8b-ctx8k": self._ident(
+                    backend="omlx-coding", model="granite-4.1-8b-mxfp8", content="a"
+                ),
+                "auto-research|granite4.1:8b-ctx8k": self._ident(
+                    backend="ollama", model="granite4.1:8b-ctx8k", content="b"
+                ),
+            },
+        )
+        assert drift == []
+        assert len(frozen) == 2
+
+        from tests.wfe import report as rep
+
+        rows = [
+            self._row(
+                "auto-coding",
+                "granite4.1:8b-ctx8k",
+                "granite4.1:8b-ctx8k",
+                frozen["auto-coding|granite4.1:8b-ctx8k"],
+            ),
+            self._row(
+                "auto-research",
+                "granite4.1:8b-ctx8k",
+                "granite4.1:8b-ctx8k",
+                frozen["auto-research|granite4.1:8b-ctx8k"],
+            ),
+        ]
+        assert rep._identity_check(rows, {"identity_map": frozen}, False) == []
+
+    def test_two_candidates_in_one_comparison_are_accepted(self):
+        from tests.wfe import report as rep
+
+        frozen: dict = {}
+        pairs = {
+            "auto-compliance|hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k": self._ident(
+                backend="omlx-compliance",
+                model="Qwen3.8-27B-oQ4e-mtp",
+                content="inc",
+            ),
+            "auto-compliance|granite4.1:30b-ctx64k": self._ident(
+                backend="omlx-compliance", model="granite-4.1-30b-4bit", content="chal"
+            ),
+        }
+        assert camp.freeze_identities(frozen, pairs) == []
+        rows = [
+            self._row(
+                "auto-compliance",
+                "hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k",
+                "hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k",
+                frozen["auto-compliance|hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k"],
+            ),
+            self._row(
+                "auto-compliance",
+                "granite4.1:30b-ctx64k",
+                "granite4.1:30b-ctx64k",
+                frozen["auto-compliance|granite4.1:30b-ctx64k"],
+            ),
+        ]
+        assert rep._identity_check(rows, {"identity_map": frozen}, False) == []
+
+    def test_an_identity_change_within_one_pair_is_rejected(self):
+        from tests.wfe import report as rep
+
+        frozen: dict = {}
+        assert camp.freeze_identities(frozen, {"auto-coding|m": self._ident(content="c1")}) == []
+        drift = camp.freeze_identities(frozen, {"auto-coding|m": self._ident(content="c2")})
+        assert len(drift) == 1 and "auto-coding|m" in drift[0]
+        # The freeze is not overwritten by the change.
+        assert frozen["auto-coding|m"]["content"] == "c1"
+
+        rows = [self._row("auto-coding", "m", "m", self._ident(content="c2"))]
+        with pytest.raises(SystemExit, match="IDENTITY DRIFT"):
+            rep._identity_check(rows, {"identity_map": frozen}, False)
+        assert "IDENTITY DRIFT" in rep._identity_check(rows, {"identity_map": frozen}, True)[0]
+
+    def test_a_row_records_what_served_it_from_its_own_turns(self):
+        transcript = [
+            {"turn": 0, "served": {"backend": "omlx-coding", "model": "granite-4.1-30b-4bit"}}
+        ]
+        frozen = self._ident(backend="omlx-coding", model="granite-4.1-30b-4bit", content="abc")
+        assert camp.row_identity(transcript, frozen) == {
+            "backend": "omlx-coding",
+            "model": "granite-4.1-30b-4bit",
+            "content": "abc",
+        }
+
+    def test_a_row_that_moved_keeps_the_model_it_was_actually_served(self):
+        """Backend and model come from the row's own trace, so a mid-campaign
+        move shows up instead of being copied from the freeze."""
+        transcript = [{"turn": 0, "served": {"backend": "ollama", "model": "other:tag"}}]
+        frozen = self._ident(content="abc")
+        assert camp.row_identity(transcript, frozen) == {
+            "backend": "ollama",
+            "model": "other:tag",
+        }
+
+    def test_a_row_with_no_trace_records_no_identity(self):
+        assert camp.row_identity([{"turn": 0, "content": "x"}], {}) is None
+
+    def test_identity_never_enters_the_instrument_fingerprint(self):
+        fp = camp.instrument_fingerprint()
+        assert not {"identity", "identity_map", "content"} & set(fp)
+
     def test_repeat_degeneracy_is_flagged(self):
         """n=3 at temperature 0 is one draw counted three times. The report must
         never present it as three independent observations."""
