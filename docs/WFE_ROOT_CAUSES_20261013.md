@@ -268,41 +268,86 @@ PORTAL_NETGUARD_LOG, which the fixture reads.
 Non-Python subprocesses (curl, docker) are outside this boundary.
 ```
 
-### Instrument identity (`tests/wfe/campaign.py`, causes C1 and C3)
+### Instrument identity, the fitness ledger and check HP (`tests/wfe/campaign.py`, `tests/wfe/report.py`, `scripts/validation/wfe.py`; causes C1 and C3; corrected by P1R)
 
-The build that served a row, frozen per pair and kept out of the shared fingerprint.
+The build that served a row, observed, frozen per pair, checked on every row, and
+carried into the ledger, where check HP compares it with what production serves.
 
 ```text
 A seat decision rests on rows that must have been served by the build the
 decision names. Two things make that non-obvious:
 
-  - the instrument fingerprint answers "what measured this?" and is deliberately
-    shared by every arm in a campaign. Putting the served build in it would make
-    two arms in one comparison carry different fingerprints and block the very
-    comparison the campaign exists to make;
-  - one arm id is legitimately served by different builds in different
-    workspaces. At HEAD granite4.1:8b-ctx8k resolves to granite-4.1-8b-mxfp8 in
-    auto-coding and auto-security, and to the Ollama tag in auto-research and
-    auto-compliance. A per-arm freeze would reject that as drift.
+  - the instrument fingerprint answers "what measured this?" and is shared by
+    every arm in a campaign. Putting the served build in it would give two arms
+    in one comparison different fingerprints and block the comparison;
+  - one model is legitimately served by different builds in different
+    workspaces (granite4.1:8b-ctx8k is granite-4.1-8b-mxfp8 on oMLX in
+    auto-coding and the Ollama tag in auto-research). A per-model freeze would
+    reject that as drift.
 
-So identity is keyed "<workspace>|<model>" and holds:
-  backend  — the backends.yaml entry id the pipeline's trace reports;
-  model    — the served model id the trace reports;
-  content  — for Ollama, the manifest digest from /api/tags, which changes when
-             a tag is re-pulled, re-quantised or re-baked under the same name;
-             for oMLX, which has no manifest digest, the sha256 of the
-             checkpoint's config.json plus the model's
-             ~/.omlx/model_settings.json entry (the per-model settings that
-             decide how the seat serves it).
+So identity is keyed "<workspace>|<model tag>" and holds:
+  backend  the backends.yaml entry id the pipeline's trace reports;
+  model    the served model id the trace reports;
+  content  observed in the engine's own store, never assumed:
+           Ollama: the tag's manifest digest from /api/tags (changes when a tag
+             is re-pulled, re-quantised or re-baked under the same name);
+           oMLX: a sha256 over config.json, tokenizer_config.json,
+             chat_template.jinja and generation_config.json, the name and size
+             of every *.safetensors file, and the model's model_settings.json
+             entry, in the directory oMLX's own settings list (model_dirs).
+  An identity whose content cannot be observed has content "" and a reason.
+  It is never frozen, and preflight reports it as a finding, so the arm is
+  blocked. (Before P1R a missing oMLX directory hashed to one constant shared
+  by every model, and an unreachable Ollama gave "": both passed as identities.)
 
-The first preflight of a pair writes it into the manifest's identity_map. Any
-later disagreement is reported as drift and fails preflight. Every row records
-what actually served it, read from its own trace, so a mid-campaign move shows
-up rather than being copied from the freeze; the content id is taken from the
-freeze because it costs a model-manifest read that preflight already paid for.
-The report refuses to compare rows that disagree with the frozen identity.
+Where it is enforced:
+  every arm's preflight (execute and --preflight alike) freezes each pair on
+    first sight and turns any later change into IDENTITY DRIFT: the arm is
+    blocked (exit 6). Before P1R only --preflight froze, and execution
+    discarded what it observed;
+  after every row the row's identity is observed again (backend and model from
+    its own trace, content from the store) and compared with the freeze; a
+    difference quarantines the row and stops the arm (exit 5), exactly as
+    instrument drift does. Turns served by two models match nothing. Before
+    P1R the row copied the frozen content, so a rebuild under the same name
+    could never show up;
+  the report refuses a pipeline campaign whose scored rows lack an identity or
+    disagree with the freeze; a missing identity is a refusal, never a pass;
+  --record refuses a campaign with no frozen identities, and every cell names
+    its incumbent and carries both sides' identity (served, incumbent_served),
+    looked up by model tag. Before P1R the lookup used the arm id, missed for
+    card arms, and wrote the pipeline's git sha as the served build;
+  check HP reads each seat as portal.yaml's model_hint for every workspace
+    backends.yaml routes (workspace_routing holds backend groups, not models;
+    before P1R every one of the 58 "seats" was a group list, so no seat could
+    ever be covered). A seat is covered by a cell it won (model) or defended
+    (incumbent). A cell is STALE when production now serves another model for
+    it, or the same model with different content; a build HP cannot observe is
+    a warning, not a pass.
 
 The same key is what Part 3's eligibility receipts use.
+```
+
+### Restorability of removals (`scripts/wfe_disposition_backfill.py`, cause C3; corrected by P1R)
+
+```text
+Whether a removal can be undone is a question for the registry, not for what was
+installed at closeout. For each removed Ollama identity the backfill asks the
+registry for the manifest of the tag `ollama pull` would fetch and compares its
+layers with the model_layer_digests the register recorded:
+  verified (the measured artifact), differs (the registry now serves another
+  build), unrecorded (no digest was recorded), unrestorable (no registry serves
+  it), unverified (the registry could not be asked). --write refuses while any
+  removal is unverified; HTTP 403 is a proxy or a gated repo, never "absent".
+Portal's -ctxNk tags are made locally by `models apply-params` FROM a base tag with
+PARAMETER num_ctx: the recipe pulls the base and recreates the variant, and the
+base is what the registry is asked about. RESTORE_SOURCES maps an identity the
+register recorded without a source to a pullable tag; it is verified like any other.
+Before P1R: "absent at closeout" meant unrestorable (command-r:35b-08-2024-q4_K_M and
+granite4.2:30b-q4_K_M among the five at risk), nine recipes pulled local -ctxNk or
+portal5/ tags no registry serves, and "verify with model_layer_digests" was text,
+not a check.
+```
 
 ### Failure traceability (`tests/wfe/runner.py`, R2-22 and R-7)
 
@@ -372,3 +417,26 @@ its own, against the receipts of the parts before it.
 | V4-6 | data-mcp (and compliance-mcp) are host-native LaunchAgents (`com.portal5.data-mcp`); `launch.sh rebuild` neither stamps nor restarts them. | yes (`scripts/native-mcp-service.sh`, `scripts/lib/util.sh:584`) | P2: native launch-time stamp, the `launchctl kickstart` lifecycle, per-service build observed in preflight and receipts, and service-specific rollback. |
 | V4-7 | A blocked arm and an empty selection exited 0. | reproduced | P1 patch 8: exit codes 0, 5, 6 and 7, `--verify-complete` (8 when incomplete), tested through the real CLI under the supervisor. |
 | + | Coding proof criteria; full incumbent confirm coverage; private trace storage and the public-text scan; an enumerated acceptance matrix; stale prose. | yes | The program index's acceptance matrix; P5's coverage, storage and scan rules; this document corrected. |
+
+## Review of Part 1's execution (2026-10-14), and how P1R answers it
+
+Part 1's twelve embedded patches landed intact (every added line is on main or was
+superseded within the series; the hand-resolved patch 9 lost nothing; the rig passes
+12/12 on main). The defects were all in the build steps the task specified in a
+paragraph each and accepted on synthetic tests. The task asked for one live smoke per
+arm, whose checklist did not include identity, and for no live run of the decision
+chain. The live output showed two of the defects (the smoke's identity had no content;
+HP warned that 58 of 58 seats had no cell, which could never clear), and the
+acceptance criteria let both through. The executor did what the task said.
+
+| Row | Defect | Why the task let it through | P1R |
+|---|---|---|---|
+| P1-2.4 (N-15) | Identity: execution discarded what preflight observed; rows copied content from the freeze; an unobservable build passed as a constant or "" | the spec said "preflight records" without naming execution; the three required tests were synthetic dicts | observed, frozen at every arm's preflight, checked after every row; unobservable blocks |
+| P1-3.6 (N-16) | Ledger: `served` looked up by arm id, falling back to the pipeline's git sha; no incumbent | "served build" undefined; the component test never read it | both sides' identity by model tag; refuses without a freeze |
+| P1-3.7 (N-17) | HP: seats were backend-group lists; STALE compared a model name with a git sha | the seat's source was never stated; tests used a routing shape production lacks | seats from model_hint; coverage by model or incumbent; STALE by identity |
+| P1-3.9 (N-18) | Backfill: restorability from presence at closeout; recipes for tags no registry serves; "verified" unchecked | "exact pull or import recipe" with no verification step | registry manifests compared by digest; ctx recipes; --write refuses unverified |
+| P1-3.2 (N-19) | No production suite marks `screen: true`, so `--tier screen` selects nothing | Part 3 builds the suites | assigned to Part 3 |
+| P1-3.4 (N-20) | `baseline_reusable` has no caller | no cross-campaign reuse path exists yet | assigned to Parts 3 and 5: any reuse must call it |
+
+Every build step in a task file now carries its own live acceptance line, run on the
+production stack, not only named tests.

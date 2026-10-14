@@ -200,6 +200,16 @@ Phase 0; fitness matrix drives disposition decisions.
   `tests/wfe/controls.py`, and the unit-test offline boundary only in
   `tests/_netguard/netguard.py`. Probe evidence stays diagnostic: no probe is
   decision-grade, and only pipeline-mode WFE rows can set a seat or a disposition.
+- **Identity, ledger and check HP (P1R, 2026-10-14).** The build that served each
+  (workspace, model) is observed in the engine's own store (the Ollama manifest
+  digest; for oMLX the checkpoint's config, tokenizer, template, weight-file sizes and
+  model_settings entry), frozen at every arm's preflight and re-checked after every
+  row: a change blocks the arm or quarantines the row. A build that cannot be
+  observed blocks the arm. `report --record` writes both sides' identity and the
+  incumbent into `tests/wfe/fitness_ledger.yaml`; check HP reads seats from
+  portal.yaml's `model_hint` and flags a cell STALE when production now serves a
+  different model or different content. The backfill decides restorability by asking
+  the registry and comparing digests. Spec: `docs/WFE_ROOT_CAUSES_20261013.md`.
 - **Card-think arms.** A model whose card reasons (think on by default) must
   ALSO be measured at its card think + sampling setting, not only at the lane's
   forced think-off policy. Report both, and attribute "lane fit" (the lane's
