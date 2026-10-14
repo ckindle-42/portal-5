@@ -27,7 +27,7 @@ tags:
 
 `data_mcp` (:8939) — sandboxed, local-only DuckDB conversational analytics.
 `attach_source` reads a CSV / Parquet / JSON / xlsx file under `DATA_MCP_ROOT`
-once and materialises it into a session table; `run_sql` runs against a
+(default: `AI_OUTPUT_DIR`, else `~/AI_Output`) once and materialises it into a session table; `run_sql` runs against a
 connection opened with `enable_external_access=false` (DuckDB then refuses any
 filesystem read and cannot re-enable access), fronted by a denylist for a
 clean error, results row-capped; `profile_table` returns a per-column profile

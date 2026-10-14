@@ -120,6 +120,9 @@ case "$SERVICE" in
         ;;
     data-mcp)
         export DATA_MCP_PORT="${DATA_MCP_PORT:-8939}"
+        # Same root the Docker services mount (${AI_OUTPUT_DIR:-$HOME/AI_Output}); an explicit
+        # DATA_MCP_ROOT still wins. Without this a custom AI_OUTPUT_DIR left data on another root.
+        export DATA_MCP_ROOT="${DATA_MCP_ROOT:-${AI_OUTPUT_DIR:-$HOME/AI_Output}}"
         exec "$PY" -m portal.modules.data.tools.data_mcp
         ;;
     netforensics-mcp)

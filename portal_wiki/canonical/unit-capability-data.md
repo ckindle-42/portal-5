@@ -33,8 +33,9 @@ the `auto-data` workspace. It is host-native (stdlib + lazy `duckdb` / pandas).
 
 ## How it's used
 
-`attach_source` reads a tabular file (`DATA_MCP_ROOT`-confined, default
-`~/AI_Output`) exactly once through a short-lived loader connection and
+`attach_source` reads a tabular file (`DATA_MCP_ROOT`-confined; the native
+launcher defaults it to `AI_OUTPUT_DIR`, else `~/AI_Output`, the root the Docker
+services mount) exactly once through a short-lived loader connection and
 materialises it into a session table; `run_sql` queries the session on a
 cached connection opened with `enable_external_access=false`, so it can never
 open an arbitrary path or re-enable filesystem access (a denylist on
