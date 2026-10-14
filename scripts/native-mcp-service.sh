@@ -125,6 +125,13 @@ case "$SERVICE" in
         export COMPLIANCE_MCP_PORT="${COMPLIANCE_MCP_PORT:-8937}"
         exec "$PY" -m portal.modules.compliance.tools.compliance_mcp
         ;;
+    compliance-mcp-eval)
+        # The compliance EVALUATION instance (WFE root-fix Part 2c-2): every state path under
+        # its own root, built from public material only; serves verified read-only tools.
+        exec "$PY" -m portal.modules.compliance.core.eval_instance serve \
+            --root "${COMPLIANCE_EVAL_ROOT:-$HOME/.portal-data/compliance-eval}" \
+            --port "${COMPLIANCE_EVAL_PORT:-8948}"
+        ;;
     detection-mcp)
         export DETECTION_MCP_PORT="${DETECTION_MCP_PORT:-8938}"
         exec "$PY" -m portal.modules.detection.tools.detection_mcp

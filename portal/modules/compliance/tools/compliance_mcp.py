@@ -2844,6 +2844,13 @@ async def invoke_tool(request: Request) -> JSONResponse:
     fn = _DISPATCH.get(name)
     if fn is None:
         return JSONResponse({"error": f"unknown tool {name}"}, status_code=404)
+    if os.environ.get("COMPLIANCE_EVAL_INSTANCE") == "1":  # root-fix Part 2c-2
+        from portal.modules.compliance.core.eval_instance import VERIFIED_TOOLS
+
+        if name not in VERIFIED_TOOLS:
+            return JSONResponse(
+                {"error": f"{name} is not served by the evaluation instance"}, status_code=403
+            )
     try:
         body = await request.json()
     except Exception:

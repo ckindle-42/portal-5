@@ -40,6 +40,7 @@ def test_native_mcp_wrapper_declares_every_host_native_service():
         "mitre-mcp",
         "detections-mcp",
         "wiki-mcp",
+        "compliance-mcp-eval",
     ):
         assert f"    {service})" in source
 

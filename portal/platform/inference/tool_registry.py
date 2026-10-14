@@ -21,6 +21,7 @@ Knobs (env-overridable): ``TOOL_REGISTRY_REFRESH_S`` (3600s refresh interval),
 from __future__ import annotations
 
 import asyncio
+import functools
 import logging
 import os
 import time
@@ -40,6 +41,24 @@ MCP_SERVERS: dict[str, str] = get_pipeline_mcp_servers(load_portal_config())
 TOOL_REGISTRY_REFRESH_S = float(os.environ.get("TOOL_REGISTRY_REFRESH_S", "3600"))
 TOOL_DISCOVERY_TIMEOUT_S = 5.0
 TOOL_DISPATCH_TIMEOUT_S = float(os.environ.get("TOOL_DISPATCH_TIMEOUT_S", "60"))
+
+
+@functools.lru_cache(maxsize=1)
+def _compliance_server_url() -> str:
+    from portal.platform.inference.config import get_pipeline_mcp_servers, load_portal_config  # noqa: PLC0415
+
+    return str(get_pipeline_mcp_servers(load_portal_config()).get("compliance") or "").rstrip("/")
+
+
+def _eval_route(server_url: str, url: str) -> str | None:
+    """Under a WFE evaluation scope, a compliance tool call goes to the compliance evaluation
+    instance (root-fix Part 2c-2), or nowhere: never to the operator's compliance store."""
+    from portal.platform.mcp_host.eval_scope import EVAL_SCOPE  # noqa: PLC0415
+
+    if not EVAL_SCOPE.get() or server_url.rstrip("/") != _compliance_server_url():
+        return url
+    target = os.environ.get("MCP_COMPLIANCE_EVAL_URL", "").rstrip("/")
+    return url.replace(server_url.rstrip("/"), target, 1) if target else None
 
 
 def _dispatch_body(arguments: dict[str, Any], request_id: str) -> dict[str, Any]:
@@ -368,8 +387,14 @@ class ToolRegistry:
 
         try:
             client = await self._client()
+            routed = _eval_route(tool.server_url, url)
+            if routed is None:
+                return {
+                    "error": "no compliance evaluation instance is configured "
+                    "(MCP_COMPLIANCE_EVAL_URL); a scoped call never reaches the operator's store"
+                }
             r = await client.post(
-                url, json=_dispatch_body(arguments, request_id), timeout=timeout_s
+                routed, json=_dispatch_body(arguments, request_id), timeout=timeout_s
             )
             if r.status_code == 200:
                 tool.healthy = True

@@ -197,6 +197,13 @@ curl -s http://localhost:9099/health/all | jq .
 returns per-backend status, so a healthy response means routing itself is
 fine even when a specific model is not loaded.
 
+**Which code is running.** The pipeline and the documents, data, memory, RAG and compliance MCPs
+report `build_sha` and `build_dirty` on `/health`. Docker images take them from `./launch.sh`
+build arguments, and host-native services from `scripts/native-mcp-service.sh` at launch (HEAD of
+the checkout; `unknown` / -1 outside one). After a code change, a service whose `build_sha` is not
+HEAD, or whose `build_dirty` is above 0, is running something else: rebuild it, or restart it with
+`launchctl kickstart -k gui/$(id -u)/com.portal5.<service>`.
+
 ##### All services
 
 ```bash

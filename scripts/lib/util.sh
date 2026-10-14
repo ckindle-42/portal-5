@@ -569,6 +569,14 @@ PY
         "compliance-mcp" "com.portal5.compliance-mcp" \
         "${COMPLIANCE_MCP_PORT:-8937}" "compliance-mcp"
 
+    # ── Compliance EVALUATION instance (host-native, :8948) ────────────────
+    # WFE rows' compliance tools (root-fix Part 2c-2): its own store, built from the public
+    # register + the planted corpus; never the operator's. Build it once with
+    #   uv run python -m portal.modules.compliance.core.eval_instance build
+    _ensure_native_mcp_service \
+        "compliance-mcp-eval" "com.portal5.compliance-mcp-eval" \
+        "${COMPLIANCE_EVAL_PORT:-8948}" "compliance-mcp-eval"
+
     # ── Detection MCP (host-native, :8938) ─────────────────────────────────
     # pySigma conversion + YARA + promoted read-only lab-scoped SIEM search.
     # Host-native — pySigma/yara live in the .venv; the live tools reuse the
@@ -811,6 +819,12 @@ _do_down() {
             echo "[portal-5] Compliance MCP stopped."
         else
             echo "[portal-5] Compliance MCP: not running (nothing to stop)."
+        fi
+
+        # Compliance evaluation instance (:8948)
+        if launchctl print "gui/$(id -u)/com.portal5.compliance-mcp-eval" &>/dev/null 2>&1; then
+            launchctl bootout "gui/$(id -u)/com.portal5.compliance-mcp-eval" 2>/dev/null || true
+            echo "[portal-5] Compliance evaluation instance stopped (launchd)."
         fi
 
         # Detection MCP (:8938)

@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 import time
 from pathlib import Path
 from typing import Any
@@ -24,12 +25,16 @@ from portal.modules.compliance.core.applicability import AssetScope
 from portal.modules.compliance.core.determination import AssessmentContext, CorpusSnapshot
 
 _CONFIG = Path(__file__).resolve().parents[4] / "config" / "compliance"
-_DEFAULT_ORG_GRAPH = (
-    Path(__file__).resolve().parents[4]
-    / "coding_task"
-    / "v9_compliance"
-    / "private"
-    / "org_graph.json"
+# COMPLIANCE_ORG_GRAPH overrides it (the evaluation instance points it at an absent file).
+_DEFAULT_ORG_GRAPH = Path(
+    os.environ.get("COMPLIANCE_ORG_GRAPH")
+    or (
+        Path(__file__).resolve().parents[4]
+        / "coding_task"
+        / "v9_compliance"
+        / "private"
+        / "org_graph.json"
+    )
 )
 
 # Fallback roster when config/compliance/council.yaml is absent. The cited

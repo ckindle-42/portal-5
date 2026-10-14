@@ -12,18 +12,24 @@ the file instead of leaking the constants into the public tree.
 from __future__ import annotations
 
 import json
+import os
 from functools import lru_cache
 from pathlib import Path
 from typing import Any
 
-PROFILE_PATH = (
-    Path(__file__).resolve().parents[3]
-    / "modules"
-    / "compliance"
-    / "data"
-    / "private"
-    / "profile"
-    / "operator_profile.json"
+# COMPLIANCE_OPERATOR_PROFILE overrides it; the evaluation instance points it at an absent
+# file under its own root so it can never read the operator's profile.
+PROFILE_PATH = Path(
+    os.environ.get("COMPLIANCE_OPERATOR_PROFILE")
+    or (
+        Path(__file__).resolve().parents[3]
+        / "modules"
+        / "compliance"
+        / "data"
+        / "private"
+        / "profile"
+        / "operator_profile.json"
+    )
 )
 
 
