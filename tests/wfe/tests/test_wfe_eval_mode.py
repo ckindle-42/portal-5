@@ -102,7 +102,11 @@ def test_finish_keeps_receipted_artifacts_and_cleans_only_the_row(out_root, tmp_
     es.receipt(eval_mode.OUTPUT_ROOT, ctx["scope"], "Document", f)
     cd = tmp_path / "campaign"
     out = eval_mode.finish(ctx, {"outcome": "PASS", "evidence": {}}, cd, r)
-    assert out["tool_mode"] == "production" and out["evidence"]["receipts"][0]["valid"] is True
+    assert (
+        out["evidence"]["tool_mode"] == "production"
+        and out["evidence"]["receipts"][0]["valid"] is True
+    )
+    assert not ctx["root"].parent.exists() and (out_root / "wfe").is_dir()
     assert list((cd / "artifacts").rglob("r.docx")) and not ctx["root"].exists()
     assert foreign.exists() and (out_root / "operator.docx").exists()
     assert json.loads((cd / "cleanup" / f"{ctx['scope']['run']}.json").read_text())["files"]

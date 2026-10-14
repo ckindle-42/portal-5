@@ -101,8 +101,14 @@ def finish(ctx: dict | None, out: dict, campaign_dir: Path, r: dict) -> dict:
     for rec in (x for x in recs if x["valid"] is True):
         keep.mkdir(parents=True, exist_ok=True)
         shutil.copy2(rec["path"], keep / Path(rec["path"]).name)
-    out = {**out, "tool_mode": "production", "eval_scope": ctx["scope"]}
-    out["evidence"] = {**(out.get("evidence") or {}), "receipts": recs}
+    # In evidence, which is persisted: ResultRow drops keys it does not declare.
+    ev = {
+        **(out.get("evidence") or {}),
+        "receipts": recs,
+        "tool_mode": "production",
+        "eval_scope": ctx["scope"],
+    }
+    out = {**out, "evidence": ev}
     cleanup(ctx, campaign_dir, r)
     return out
 
@@ -145,6 +151,10 @@ def cleanup(ctx: dict, campaign_dir: Path | None, r: dict) -> list[str]:
             p.unlink()
     for d in sorted((p for p in root.rglob("*") if p.is_dir()), key=lambda p: -len(p.parts)):
         d.rmdir() if not any(d.iterdir()) else None
-    if root.is_dir() and not any(root.iterdir()):
-        root.rmdir()
+    for d in (
+        root,
+        root.parent,
+    ):  # the run, then its campaign directory; never the shared wfe/ root
+        if d.is_dir() and not any(d.iterdir()):
+            d.rmdir()
     return listed
