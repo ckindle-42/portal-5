@@ -129,6 +129,12 @@ sweep.
 | N-18 | The backfill decided restorability from presence at closeout, gave pull recipes for tags no registry serves, and verified nothing; fixed in P1R |
 | N-19 | No production suite marks a task `screen: true`, so `--tier screen` selects nothing (Part 3: family suites mark their screen tasks) |
 | N-20 | `baseline_reusable` has no caller (Parts 3 and 5: any cross-campaign baseline reuse must call it) |
+| N-21 | The documents MCP's REST shim dispatched any module global (internal helpers callable over HTTP); fixed in Part 2a |
+| N-22 | Documents create_* returns success:false after writing the file when Open WebUI publish fails; the file is orphaned (Part 4) |
+| N-23 | Documents read tools use any existing absolute path as given; only images were confined (Part 4) |
+| N-24 | A suite task without `checkers` (or a misspelled key) defaults to an answer check any answer passes (Part 4: validate suite files) |
+| N-25 | A harness pipeline call that asked for no tools was offered the workspace's production tools, so readiness probes could act; fixed in Part 2a |
+| N-26 | seat_baseline_v3 has no auto-data workload and measures auto-documents on the research suite (Part 3: family suites) |
 
 ## Follow-on tasks (assigned, not dropped)
 
