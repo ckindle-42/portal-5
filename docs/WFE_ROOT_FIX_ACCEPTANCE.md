@@ -25,7 +25,7 @@
 | P1-3.9 | PASS | 492d51b8; live L6a controls found (gpt-oss:20b, hf.co Foundation-Sec-8B), portal5 absent; L6b rc=0 verified 53 differs 6 n/a 90 unrecorded 26 unrestorable 28; at-risk: command-r verified, granite4.1:8b-q8_0 verified, granite4.2:30b verified, Qwen3.6-27B bartowski differs, xyz-aquila-mini unrestorable; receipt /tmp/p1r_live_20261014T203825Z/receipt.json | 2026-10-14T20:40:05Z |
 | P1-3.10 | PASS | arguable in 83458174: comp-p6j-09, comp-p6j-18 and comp-p6j-24 carry `"arguable": true` in every compliance suite that holds them (compliance_agentic 2, compliance_agentic_full 3, loopset 1, loopset_noformat 1), and the suites still pass their controls (test_wfe_controls.py 23 passed). Re-baseline in 27a0a67b: prose 56902 -> 57108, data_lines 11402 -> 11455 (patch 5's _ELIGIBILITY table), god_lines 64767 -> 64792, god_funcs 520 -> 519; `--gate` exits 0. | 2026-10-14T14:50:00Z |
 | P1-3.11 | PASS | 804fab1b; rig: 16/16 PASS; receipt /var/folders/1r/140k52_x789f31ybwq9bt2300000gn/T/wfe-rig-gng86uvs/receipt.json | 2026-10-14T20:40:06Z |
-| P1-X | FAIL | REOPENED by P1R: the hand-off HEAD moves to P1R's. Was PASS: Part 1 pushed to main; `git log origin/main..HEAD` empty after the push. Hand-off HEAD for Parts 2 and 4 is 27a0a67b (the last code commit; the ledger commit that follows it carries docs only), standing floor 3503 passed / validator 220 pas | 2026-10-14T20:05:34Z |
+| P1-X | PASS | pushed 7f78ac8d (eb5a30a0..7f78ac8d); git log origin/main..HEAD empty; ci_local PASS 4833 passed; hand-off HEAD 7f78ac8d | 2026-10-14T20:52:25Z |
 | P2-A | PENDING | | |
 | P2-B | PENDING | | |
 | P2-C1 | PENDING | | |
