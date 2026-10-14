@@ -646,6 +646,35 @@ def instrument_drift(manifest: dict) -> str | None:
     )
 
 
+def campaign_suite_digests(campaign_dir: Path) -> dict[str, str]:
+    """The suite content digests this campaign was gated against."""
+    p = campaign_dir / "controls_receipts.jsonl"
+    if not p.exists():
+        return {}
+    digests: dict[str, str] = {}
+    for line in p.read_text().splitlines():
+        if line.strip():
+            digests.update(json.loads(line).get("suites") or {})
+    return digests
+
+
+def baseline_reusable(this_dir: Path, other_dir: Path) -> tuple[bool, str]:
+    """Whether another campaign's incumbent rows may serve as this cell's baseline.
+
+    A baseline measured by other checkers or other harness code is not a
+    baseline, so reuse needs an identical instrument fingerprint and identical
+    suite content; otherwise the incumbent is re-run."""
+    fa = (load_manifest(this_dir).get("instrument") or {}).get("fingerprint")
+    fb = (load_manifest(other_dir).get("instrument") or {}).get("fingerprint")
+    if not fa or not fb or fa != fb:
+        return False, f"instrument fingerprint {fa!r} != {fb!r}"
+    da, db = campaign_suite_digests(this_dir), campaign_suite_digests(other_dir)
+    if da != db:
+        changed = sorted(k for k in set(da) | set(db) if da.get(k) != db.get(k))
+        return False, f"suite content changed since that campaign: {changed[:4]}"
+    return True, "same instrument and suite content"
+
+
 def gate_execution(campaign_dir: Path) -> None:
     """Controls gate plus baseline check before any row of a resumed campaign runs."""
     m = load_manifest(campaign_dir)
