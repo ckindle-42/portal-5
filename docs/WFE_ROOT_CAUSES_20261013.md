@@ -128,6 +128,12 @@ sweep.
 | N-12 | Pipeline-mode preflight and arm execution unload a GGUF tag production may be serving on Ollama |
 | N-13 | `scripts/lab_ready.py` ran its `.env` loader at import, so a unit test that imported it pushed the operator's whole `.env` into `os.environ`. That made the notification channels look configured, and a later, unrelated test sent a real Telegram and Pushover alert. `scripts/lab_targets.py` already had the `UNIT_TEST_MODE` hermetic guard for exactly this; `lab_ready.py` did not. Fixed in Phase 1 by the same guard. |
 | N-14 | Three unit tests reached live non-loopback hosts once the boundary could see them: `test_compliance_currency.py::_online()` probed nerc.com from a unit test, and the Telegram and Pushover `test_send_alert_skips_when_not_configured` tests inherited credentials from N-13 and posted to `api.telegram.org` and `api.pushover.net`. Fixed in Phase 1: the currency probe treats the boundary as offline, and the two channel tests pin their own "not configured" precondition. |
+| N-15 | Identity froze only under --preflight; execution discarded it, rows copied content from the freeze, and an unobservable build passed as a constant or empty id; fixed in P1R |
+| N-16 | --record looked the served build up by arm id and fell back to the pipeline's git sha; no cell named its incumbent; fixed in P1R |
+| N-17 | Check HP read seats from workspace_routing (backend groups), so no seat could be covered, and STALE compared a model name with a git sha; fixed in P1R |
+| N-18 | The backfill decided restorability from presence at closeout, gave pull recipes for tags no registry serves, and verified nothing; fixed in P1R |
+| N-19 | No production suite marks a task `screen: true`, so `--tier screen` selects nothing (Part 3: family suites mark their screen tasks) |
+| N-20 | `baseline_reusable` has no caller (Parts 3 and 5: any cross-campaign baseline reuse must call it) |
 
 ## Follow-on tasks (assigned, not dropped)
 
