@@ -376,6 +376,10 @@ Two pieces of evidence a decision needs, both of which used to be destroyed:
     same instrument.
 ```
 
+## Production tool mode (Part 2a)
+
+`tests/wfe/tool_modes.yaml` lists workspaces measured with their **own** tools (auto-documents, auto-data) instead of the harness's sandbox tools (cause C6). A listed row sends `portal_eval` {campaign, run, allow} (bounded `wfe_<hex>` tokens); the pipeline offers and authorizes only `allow`, records the scope in the turn trace and forwards it to every MCP call (malformed scope: 400). The documents MCP then writes only to `<AI_Output>/wfe/<campaign>/<run>/out/`, confines reads to the run root, never publishes to Open WebUI and appends a creation receipt (`rel`, sha256, size). The data MCP forces `session_id` to the run token and confines `attach_source` to the run's `in/`. The harness stages seed files in `in/`, validates receipts (inside `out/`, absent before, unchanged; `receipt_artifact` grades them), writes a cleanup inventory first, closes the data session via the scope-only `/eval/close_session` and deletes only files under the run root.
+
 ## Review of the task's second version (2026-10-13), and how V3 answers it
 
 A second independent review of V2 found seven defects. Each was checked against the code

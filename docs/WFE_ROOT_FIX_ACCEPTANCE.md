@@ -26,24 +26,24 @@
 | P1-3.10 | PASS | arguable in 83458174: comp-p6j-09, comp-p6j-18 and comp-p6j-24 carry `"arguable": true` in every compliance suite that holds them (compliance_agentic 2, compliance_agentic_full 3, loopset 1, loopset_noformat 1), and the suites still pass their controls (test_wfe_controls.py 23 passed). Re-baseline in 27a0a67b: prose 56902 -> 57108, data_lines 11402 -> 11455 (patch 5's _ELIGIBILITY table), god_lines 64767 -> 64792, god_funcs 520 -> 519; `--gate` exits 0. | 2026-10-14T14:50:00Z |
 | P1-3.11 | PASS | 804fab1b; rig: 16/16 PASS; receipt /var/folders/1r/140k52_x789f31ybwq9bt2300000gn/T/wfe-rig-gng86uvs/receipt.json | 2026-10-14T20:40:06Z |
 | P1-X | PASS | pushed 7f78ac8d (eb5a30a0..7f78ac8d); git log origin/main..HEAD empty; ci_local PASS 4833 passed; hand-off HEAD 7f78ac8d | 2026-10-14T20:52:25Z |
-| P2-A | PENDING | | |
-| P2-B | PENDING | | |
-| P2-C1 | PENDING | | |
-| P2-C2 | PENDING | | |
-| P2-C3 | PENDING | | |
+| P2-A | PENDING | Part 2a: discovery D1-D3/D4 evidence for documents and data (live rows p2a_docs/p2a_data_20261014); knowledge-base and memory scope are Parts 2b/2c. | |
+| P2-B | PASS | 32b3e9a2, ed06f3d6. Pipeline `portal_eval` scope: allowlist narrows offered+authorized tools, scope in trace, forwarded as `eval` to every MCP call, malformed scope is 400; calls with no tools send portal_no_tools (N-25). tests/unit/test_eval_scope.py; rig S13-S15 19/19 PASS (S15: scope does not outlive its request on one connection). | 2026-10-14 |
+| P2-C1 | PASS | 0314f543. `eval_mode.tokens` yields bounded wfe_<sha256> campaign/run tokens (logical run_ids contain | : / and long model ids); valid, distinct, deterministic: tests/wfe/tests/test_wfe_eval_mode.py. | 2026-10-14 |
+| P2-C2 | PASS | 32b3e9a2, d6099439. Documents MCP: outputs only in run `out/`, reads confined to run root, no OWUI publish, creation receipt with run-relative `rel`; REST shim dispatches manifest tools only (N-21). Rig S13 PASS; live p2a_docs_20261014 PASS, receipt valid, Open WebUI file count 1480 before and after. | 2026-10-14 |
+| P2-C3 | PASS | 5f9b6321, d50f00d8. Data MCP: session_id forced to run token, attach confined to run `in/`, scope-only /eval/close_session; native root follows AI_OUTPUT_DIR (one root /Users/chris/AI_Output verified for harness, documents mount, data MCP). Rig S14 PASS; live p2a_data_20261014 session deleted, foreign session kept. | 2026-10-14 |
 | P2-C4 | PENDING | | |
 | P2-C5 | PENDING | | |
 | P2-C6 | PENDING | | |
 | P2-C7 | PENDING | | |
-| P2-C8 | PENDING | | |
-| P2-D | PENDING | | |
-| P2-E1 | PENDING | | |
-| P2-E2 | PENDING | | |
+| P2-C8 | PENDING | Part 2a: cleanup for documents and data proven (rig S13/S14, live rows: inventory written first, namespace and data session removed); 2b/2c cover the rest. | |
+| P2-D | PENDING | Part 2a: production-mode rows carry tool_mode and eval_scope in evidence; remaining families in 2b/2c. | |
+| P2-E1 | PASS | p2a_docs_20261014: auto-documents / granite4.1:8b-ctx16k, task rig-doc-01, arm exit 0, mode=production with allowlist, receipts [valid], served granite-4.1-8b-mxfp8, identity equals pair freeze (P1R), namespace gone, nothing new at output root. Outcome PASS. | 2026-10-14 |
+| P2-E2 | PASS | p2a_data_20261014: auto-data / Qwen3.6-35B-A3B UD-Q4_K_XL-ctx32k, task rig-data-01, arm exit 0, mode=production with allowlist, served unsloth--Qwen3.6-35B-A3B-UD-MLX-4bit, identity equals pair freeze (P1R), session and namespace gone, nothing new at output root. Outcome FAIL (information only: model answered {"total_amount": 15}, number not the string the pattern expects); mechanics PASS. | 2026-10-14 |
 | P2-E3 | PENDING | | |
 | P2-E4 | PENDING | | |
 | P2-E5 | PENDING | | |
 | P2-E6 | PENDING | | |
-| P2-E7 | PENDING | | |
+| P2-E7 | PENDING | Part 2a: cleanup after live documents and data rows verified (namespace gone, no output-root additions); remaining families in 2b/2c. | |
 | P2-X | PENDING | | |
 | P3-A | PENDING | | |
 | P3-B | PENDING | | |
