@@ -54,6 +54,16 @@ def _row(ws, arm, role, tid, repeat, tier, *, fail):
     }
 
 
+@pytest.fixture(autouse=True)
+def _observed_builds(monkeypatch):
+    """The build serving each model, as the engine's store would report it."""
+    monkeypatch.setattr(
+        camp,
+        "observe_identity",
+        lambda backend, model: ({"backend": backend, "model": model, "content": f"c-{model}"}, ""),
+    )
+
+
 @pytest.fixture
 def rig(tmp_path, monkeypatch):
     """A hermetic campaign: fixture suites, fake chat, no live engine or pipeline."""
@@ -149,8 +159,15 @@ def rig(tmp_path, monkeypatch):
 
 
 def _run_rows(d: Path, rows: list[dict], rig) -> None:
-    """Write one result row per matrix row through the real row path."""
+    """Write one result row per matrix row through the real row path, after
+    freezing each pair's identity exactly as an arm's preflight does."""
     manifest = camp.load_manifest(d)
+    observed = {
+        f"{r['workspace']}|{r['model']}": camp.served_identity("omlx-test", f"served-{r['model']}")
+        for r in rows
+    }
+    assert camp.freeze_identities(manifest.setdefault("identity_map", {}), observed) == []
+    camp.save_manifest(d, manifest)
     tasks = {t["id"]: t for t in rn.load_suite(camp.SUITE_DIR / "home.jsonl")}
     for r in rows:
         if (d / "rows" / (camp.sha12(r["run_id"]) + ".json")).exists():

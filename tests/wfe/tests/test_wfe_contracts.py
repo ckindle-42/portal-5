@@ -11,6 +11,7 @@ import json
 import socket
 import time
 import types
+from pathlib import Path
 
 import pytest
 import yaml
@@ -804,83 +805,52 @@ class TestGraderComparison:
 
 
 class TestModelIdentity:
-    """The build that served each (workspace, arm), frozen at the pair's first
-    preflight and kept out of the shared instrument fingerprint."""
+    """The build that served each (workspace, model): observed in the engine's own
+    store, frozen at the pair's first preflight, re-observed after every row, and
+    kept out of the shared instrument fingerprint (doc: identity)."""
 
     @staticmethod
     def _ident(backend="omlx-coding", model="granite4.1:8b-ctx8k", content="c1"):
         return {"backend": backend, "model": model, "content": content}
 
     @staticmethod
-    def _row(workspace, arm, model, identity):
-        return {"workspace": workspace, "arm": arm, "model": model, "identity": identity}
+    def _row(workspace, model, identity, outcome="PASS"):
+        return {
+            "workspace": workspace,
+            "arm": model,
+            "model": model,
+            "identity": identity,
+            "outcome": outcome,
+        }
+
+    PIPELINE = {"instrument": {"engine": "pipeline"}}
+
+    @staticmethod
+    def _checkpoint(root, model, **files):
+        d = root / model
+        d.mkdir(parents=True, exist_ok=True)
+        base = {"config.json": '{"quant": 4}', "model.safetensors": "w" * 10}
+        for name, body in {**base, **files}.items():
+            (d / name).write_text(body)
+        return d
 
     def test_the_same_arm_may_be_served_by_different_builds_in_two_workspaces(self):
         """granite4.1:8b-ctx8k really does resolve to different builds per
         workspace, so a per-arm freeze would block a legitimate comparison."""
-        frozen: dict = {}
-        drift = camp.freeze_identities(
-            frozen,
-            {
-                "auto-coding|granite4.1:8b-ctx8k": self._ident(
-                    backend="omlx-coding", model="granite-4.1-8b-mxfp8", content="a"
-                ),
-                "auto-research|granite4.1:8b-ctx8k": self._ident(
-                    backend="ollama", model="granite4.1:8b-ctx8k", content="b"
-                ),
-            },
-        )
-        assert drift == []
-        assert len(frozen) == 2
-
-        from tests.wfe import report as rep
-
-        rows = [
-            self._row(
-                "auto-coding",
-                "granite4.1:8b-ctx8k",
-                "granite4.1:8b-ctx8k",
-                frozen["auto-coding|granite4.1:8b-ctx8k"],
-            ),
-            self._row(
-                "auto-research",
-                "granite4.1:8b-ctx8k",
-                "granite4.1:8b-ctx8k",
-                frozen["auto-research|granite4.1:8b-ctx8k"],
-            ),
-        ]
-        assert rep._identity_check(rows, {"identity_map": frozen}, False) == []
-
-    def test_two_candidates_in_one_comparison_are_accepted(self):
         from tests.wfe import report as rep
 
         frozen: dict = {}
         pairs = {
-            "auto-compliance|hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k": self._ident(
-                backend="omlx-compliance",
-                model="Qwen3.8-27B-oQ4e-mtp",
-                content="inc",
+            "auto-coding|granite4.1:8b-ctx8k": self._ident(
+                model="granite-4.1-8b-mxfp8", content="a"
             ),
-            "auto-compliance|granite4.1:30b-ctx64k": self._ident(
-                backend="omlx-compliance", model="granite-4.1-30b-4bit", content="chal"
+            "auto-research|granite4.1:8b-ctx8k": self._ident(
+                backend="ollama", model="granite4.1:8b-ctx8k", content="b"
             ),
         }
         assert camp.freeze_identities(frozen, pairs) == []
-        rows = [
-            self._row(
-                "auto-compliance",
-                "hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k",
-                "hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k",
-                frozen["auto-compliance|hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k"],
-            ),
-            self._row(
-                "auto-compliance",
-                "granite4.1:30b-ctx64k",
-                "granite4.1:30b-ctx64k",
-                frozen["auto-compliance|granite4.1:30b-ctx64k"],
-            ),
-        ]
-        assert rep._identity_check(rows, {"identity_map": frozen}, False) == []
+        rows = [self._row(k.split("|")[0], "granite4.1:8b-ctx8k", v) for k, v in pairs.items()]
+        assert rep._identity_check(rows, {**self.PIPELINE, "identity_map": frozen}, False) == []
 
     def test_an_identity_change_within_one_pair_is_rejected(self):
         from tests.wfe import report as rep
@@ -889,37 +859,193 @@ class TestModelIdentity:
         assert camp.freeze_identities(frozen, {"auto-coding|m": self._ident(content="c1")}) == []
         drift = camp.freeze_identities(frozen, {"auto-coding|m": self._ident(content="c2")})
         assert len(drift) == 1 and "auto-coding|m" in drift[0]
-        # The freeze is not overwritten by the change.
-        assert frozen["auto-coding|m"]["content"] == "c1"
-
-        rows = [self._row("auto-coding", "m", "m", self._ident(content="c2"))]
+        assert frozen["auto-coding|m"]["content"] == "c1"  # the freeze is not overwritten
+        manifest = {**self.PIPELINE, "identity_map": frozen}
+        rows = [self._row("auto-coding", "m", self._ident(content="c2"))]
         with pytest.raises(SystemExit, match="IDENTITY DRIFT"):
-            rep._identity_check(rows, {"identity_map": frozen}, False)
-        assert "IDENTITY DRIFT" in rep._identity_check(rows, {"identity_map": frozen}, True)[0]
+            rep._identity_check(rows, manifest, False)
+        assert "IDENTITY DRIFT" in rep._identity_check(rows, manifest, True)[0]
 
-    def test_a_row_records_what_served_it_from_its_own_turns(self):
+    def test_an_unobserved_identity_is_never_frozen(self):
+        frozen: dict = {}
+        assert camp.freeze_identities(frozen, {"ws|m": self._ident(content="")}) == []
+        assert frozen == {}
+
+    def test_omlx_content_comes_from_the_checkpoint_on_disk(self, tmp_path, monkeypatch):
+        """Each thing that makes the checkpoint what it is moves the content id."""
+        monkeypatch.setenv("OMLX_MODEL_DIR", str(tmp_path / "models"))
+        settings = tmp_path / "model_settings.json"
+        settings.write_text(json.dumps({"models": {"m": {"temperature": 0.6}}}))
+        monkeypatch.setattr(camp, "OMLX_SETTINGS", settings)
+        d = self._checkpoint(tmp_path / "models", "m")
+        first, why = camp.omlx_content_id("m")
+        assert first and not why
+        assert camp.omlx_content_id("m")[0] == first  # stable
+        seen = {first}
+        for change in (
+            lambda: (d / "config.json").write_text('{"quant": 8}'),
+            lambda: (d / "chat_template.jinja").write_text("{{ patched }}"),
+            lambda: (d / "model.safetensors").write_text("w" * 11),
+            lambda: settings.write_text(json.dumps({"models": {"m": {"temperature": 0.7}}})),
+        ):
+            change()
+            now = camp.omlx_content_id("m")[0]
+            assert now not in seen
+            seen.add(now)
+
+    def test_an_unobservable_omlx_build_has_no_content_and_says_why(self, tmp_path, monkeypatch):
+        """Before P1R a missing directory hashed to one constant shared by every
+        model, which passed as an identity. Now it is no identity, with a reason."""
+        monkeypatch.setenv("OMLX_MODEL_DIR", str(tmp_path / "empty"))
+        a, why_a = camp.omlx_content_id("Qwen3.8-27B-oQ4e-mtp")
+        b, _ = camp.omlx_content_id("granite-4.1-30b-4bit")
+        assert a == b == ""
+        assert "Qwen3.8-27B-oQ4e-mtp/config.json" in why_a and str(tmp_path / "empty") in why_a
+
+    def test_omlx_model_dirs_come_from_the_server_settings(self, tmp_path, monkeypatch):
+        server = tmp_path / "settings.json"
+        server.write_text(
+            json.dumps({"model": {"model_dirs": [str(tmp_path / "a"), str(tmp_path / "b")]}})
+        )
+        monkeypatch.setattr(camp, "OMLX_SERVER_SETTINGS", server)
+        monkeypatch.delenv("OMLX_MODEL_DIR", raising=False)
+        assert camp.omlx_model_dirs() == [tmp_path / "a", tmp_path / "b"]
+        self._checkpoint(tmp_path / "b", "m")
+        assert camp.omlx_content_id("m")[0]  # found in the second directory
+        monkeypatch.setenv("OMLX_MODEL_DIR", str(tmp_path / "override"))
+        assert camp.omlx_model_dirs() == [tmp_path / "override"]
+        server.write_text("{}")
+        monkeypatch.delenv("OMLX_MODEL_DIR")
+        assert camp.omlx_model_dirs() == [Path(camp.OMLX_DEFAULT_MODEL_DIR)]
+
+    def test_ollama_content_is_the_tags_digest_or_empty_with_a_reason(self, monkeypatch):
+        import contextlib
+        import io
+
+        tags = {
+            "models": [
+                {"name": "granite4.1:30b", "model": "granite4.1:30b", "digest": "d30"},
+                {"name": "llama3:latest", "model": "llama3:latest", "digest": "dl3"},
+            ]
+        }
+
+        def fake_urlopen(url, timeout=None):
+            assert url.endswith("/api/tags")
+            return contextlib.closing(io.BytesIO(json.dumps(tags).encode()))
+
+        monkeypatch.setattr(camp.urllib.request, "urlopen", fake_urlopen)
+        assert camp.ollama_content_id("granite4.1:30b") == ("d30", "")
+        assert camp.ollama_content_id("llama3") == ("dl3", "")
+        content, why = camp.ollama_content_id("absent:tag")
+        assert content == "" and "not in Ollama" in why
+
+        def down(url, timeout=None):
+            raise OSError("connection refused")
+
+        monkeypatch.setattr(camp.urllib.request, "urlopen", down)
+        content, why = camp.ollama_content_id("granite4.1:30b")
+        assert content == "" and "unreachable" in why
+
+    def test_a_row_records_the_build_observed_after_it_not_the_freeze(self, monkeypatch):
+        """Before P1R the row copied the frozen content, so a rebuild under the
+        same name could never show up in a row. Now the row is observed."""
+        monkeypatch.setattr(camp, "ENGINE", "pipeline")
+        monkeypatch.setattr(
+            camp,
+            "observe_identity",
+            lambda b, m: ({"backend": b, "model": m, "content": "rebuilt"}, ""),
+        )
+        transcript = [{"turn": 0, "served": {"backend": "omlx-reasoning", "model": "g"}}]
+        row = {"identity": camp.row_identity(transcript)}
+        assert row["identity"] == {"backend": "omlx-reasoning", "model": "g", "content": "rebuilt"}
+        r = {"workspace": "auto-compliance", "model": "granite4.1:30b", "arm": "granite4.1:30b"}
+        manifest = {
+            "identity_map": {
+                "auto-compliance|granite4.1:30b": self._ident(
+                    backend="omlx-reasoning", model="g", content="measured"
+                )
+            }
+        }
+        assert "frozen" in camp.identity_drift(manifest, r, row)
+        manifest["identity_map"]["auto-compliance|granite4.1:30b"]["content"] = "rebuilt"
+        assert camp.identity_drift(manifest, r, row) is None
+
+    def test_a_row_with_no_freeze_or_no_content_is_drift(self, monkeypatch):
+        monkeypatch.setattr(camp, "ENGINE", "pipeline")
+        r = {"workspace": "w", "model": "m", "arm": "m"}
+        assert camp.identity_drift({}, r, {"identity": self._ident()})  # nothing frozen
+        assert "cannot be observed" in camp.identity_drift(
+            {"identity_map": {"w|m": self._ident()}}, r, {"identity": self._ident(content="")}
+        )
+        assert camp.identity_drift({}, r, {"identity": None}) is None  # no served turn
+
+    def test_turns_served_by_two_models_match_nothing(self):
         transcript = [
-            {"turn": 0, "served": {"backend": "omlx-coding", "model": "granite-4.1-30b-4bit"}}
+            {"turn": 0, "served": {"backend": "omlx-reasoning", "model": "a"}},
+            {"turn": 1, "served": {"backend": "ollama", "model": "b"}},
         ]
-        frozen = self._ident(backend="omlx-coding", model="granite-4.1-30b-4bit", content="abc")
-        assert camp.row_identity(transcript, frozen) == {
-            "backend": "omlx-coding",
-            "model": "granite-4.1-30b-4bit",
-            "content": "abc",
-        }
-
-    def test_a_row_that_moved_keeps_the_model_it_was_actually_served(self):
-        """Backend and model come from the row's own trace, so a mid-campaign
-        move shows up instead of being copied from the freeze."""
-        transcript = [{"turn": 0, "served": {"backend": "ollama", "model": "other:tag"}}]
-        frozen = self._ident(content="abc")
-        assert camp.row_identity(transcript, frozen) == {
-            "backend": "ollama",
-            "model": "other:tag",
-        }
+        ident = camp.row_identity(transcript)
+        assert ident["backend"] == "mixed" and ident["content"] == ""
 
     def test_a_row_with_no_trace_records_no_identity(self):
-        assert camp.row_identity([{"turn": 0, "content": "x"}], {}) is None
+        assert camp.row_identity([{"turn": 0, "content": "x"}]) is None
+
+    def test_the_report_refuses_a_scored_pipeline_row_without_identity(self):
+        from tests.wfe import report as rep
+
+        frozen = {"w|m": self._ident()}
+        bare = [self._row("w", "m", None)]
+        with pytest.raises(SystemExit, match="IDENTITY DRIFT"):
+            rep._identity_check(bare, {**self.PIPELINE, "identity_map": frozen}, False)
+        with pytest.raises(SystemExit):  # no freeze at all is not a pass either
+            rep._identity_check([self._row("w", "m", self._ident())], dict(self.PIPELINE), False)
+        assert (
+            rep._identity_check([self._row("w", "m", None, "HARNESS_ERROR")], self.PIPELINE, False)
+            == []
+        )
+        assert rep._identity_check(bare, {"instrument": {"engine": "ollama"}}, False) == []
+
+    def test_the_arm_preflight_freezes_then_blocks_a_later_change(self, tmp_path, monkeypatch):
+        monkeypatch.setattr(camp, "ENGINE", "pipeline")
+        d = tmp_path / "c"
+        d.mkdir()
+        manifest = {"rows": []}
+        camp.save_manifest(d, manifest)
+        seen = {"content": "c1"}
+
+        def fake_pf(workspaces, model):
+            ident = {"backend": "omlx-reasoning", "model": "g", "content": seen["content"]}
+            return {
+                "model": model,
+                "verdict": "OK",
+                "findings": [],
+                "identities": {f"{w}|{model}": ident for w in workspaces},
+            }
+
+        monkeypatch.setattr(camp, "preflight_pipeline", fake_pf)
+        rows = [{"workspace": "auto-compliance", "model": "m", "arm": "m"}]
+        assert camp._arm_preflight(d, manifest, rows, "m", False)["verdict"] == "OK"
+        assert camp.load_manifest(d)["identity_map"]["auto-compliance|m"]["content"] == "c1"
+        seen["content"] = "c2"
+        pf = camp._arm_preflight(d, manifest, rows, "m", False)
+        assert pf["verdict"] == "REVIEW" and any("IDENTITY DRIFT" in f for f in pf["findings"])
+        assert camp.load_manifest(d)["identity_map"]["auto-compliance|m"]["content"] == "c1"
+
+    def test_identity_drift_after_a_row_quarantines_it_and_stops_the_arm(
+        self, tmp_path, monkeypatch
+    ):
+        monkeypatch.setattr(camp, "ENGINE", "pipeline")
+        monkeypatch.setattr(camp, "instrument_drift", lambda m: None)
+        d = tmp_path / "c"
+        (d / "rows").mkdir(parents=True)
+        r = {"run_id": "w|m|s|t|r0", "workspace": "w", "model": "m", "arm": "m", "state": "PASS"}
+        manifest = {"rows": [r], "identity_map": {"w|m": self._ident(content="c1")}}
+        row = {"outcome": "PASS", "notes": "", "identity": self._ident(content="c2")}
+        stop = camp.arm_stop_reason("m", row, d, manifest, r)
+        assert stop and "frozen" in stop
+        saved = json.loads(camp._row_path(d, r["run_id"]).read_text())
+        assert saved["outcome"] == "BLOCKED" and saved["notes"].startswith("IDENTITY DRIFT")
+        assert r["state"] == "BLOCKED"
 
     def test_identity_never_enters_the_instrument_fingerprint(self):
         fp = camp.instrument_fingerprint()
@@ -1990,14 +2116,24 @@ class TestPipelineMode:
         from tests.wfe import campaign as cp
 
         tag = "hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k"
+        seat = {"backend": "omlx-reasoning", "model": "Qwen3.8-27B-oQ4e-mtp"}
+        monkeypatch.setattr(cp, "chat", lambda *a, **k: {"served": seat})
         monkeypatch.setattr(
-            cp, "chat", lambda *a, **k: {"served": {"model": "Qwen3.8-27B-oQ4e-mtp"}}
+            cp, "observe_identity", lambda b, m: ({"backend": b, "model": m, "content": "c"}, "")
         )
         assert cp.preflight_pipeline(["auto-compliance"], tag)["verdict"] == "OK"
         for other in (tag, "some-other-model"):
-            monkeypatch.setattr(cp, "chat", lambda *a, _m=other, **k: {"served": {"model": _m}})
+            served = {"backend": "omlx-reasoning", "model": other}
+            monkeypatch.setattr(cp, "chat", lambda *a, _s=served, **k: {"served": _s})
             pf = cp.preflight_pipeline(["auto-compliance"], tag)
             assert pf["verdict"] == "REVIEW" and other in pf["findings"][0]
+        # The right model, but a build nobody can observe, is not a pass either.
+        monkeypatch.setattr(cp, "chat", lambda *a, **k: {"served": seat})
+        monkeypatch.setattr(
+            cp, "observe_identity", lambda b, m: ({"backend": b, "model": m, "content": ""}, "gone")
+        )
+        pf = cp.preflight_pipeline(["auto-compliance"], tag)
+        assert pf["verdict"] == "REVIEW" and "cannot be observed: gone" in pf["findings"][0]
 
     def test_a_failover_turn_makes_the_row_not_seat_evidence(self):
         """V2 counted 17 rows served by the Ollama failover (and 2 that switched

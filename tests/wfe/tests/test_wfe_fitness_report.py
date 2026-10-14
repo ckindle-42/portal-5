@@ -20,12 +20,19 @@ N_SCREEN = 10
 N_TOTAL = 30
 
 
+def _ident(ws, model):
+    """What an arm's preflight observes and every row re-observes: one per pair."""
+    return {"backend": "omlx-reasoning", "model": f"served-{model}", "content": f"c-{ws}-{model}"}
+
+
 def _row(ws, arm, role, tid, repeat, tier, fail):
+    model = arm.split("@")[0]
     return {
         "run_id": f"{ws}|{arm}|{SUITE}|{tid}|r{repeat}",
         "workspace": ws,
         "arm": arm,
-        "model": arm,
+        "model": model,
+        "identity": _ident(ws, model),
         "arm_role": role,
         "suite": SUITE,
         "suite_path": str(rep.REPO / "tests/wfe/suites" / f"{SUITE}.jsonl"),
@@ -72,6 +79,7 @@ def _campaign(tmp_path, monkeypatch, *, inc_fails=False, cand_fails=False, ws_b=
             "instrument": {"fingerprint": "fp1", "engine": "pipeline"},
             "env": {"fingerprint": "e"},
             "rows": rows,
+            "identity_map": {f"{r['workspace']}|{r['model']}": r["identity"] for r in rows},
         },
     )
     for r in rows:

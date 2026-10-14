@@ -1046,11 +1046,23 @@ def backend_catalog() -> frozenset[str]:
     )
 
 
-#: oMLX serves each model from a directory named after its id; the per-model
-#: entry that decides how the seat serves it lives in the operator's home.
-OMLX_MODEL_DIR = Path(os.environ.get("OMLX_MODEL_DIR", "/Volumes/data01/omlx-models"))
+#: oMLX serves each model from a directory named after its id, under one of the
+#: model directories its server settings list (`~/.omlx/settings.json`). The
+#: per-model entry that decides how the seat serves it is in model_settings.json.
+#: OMLX_MODEL_DIR (os.pathsep-separated) overrides the server settings.
+OMLX_SERVER_SETTINGS = Path(
+    os.environ.get("OMLX_SERVER_SETTINGS", str(Path.home() / ".omlx" / "settings.json"))
+)
 OMLX_SETTINGS = Path(
     os.environ.get("OMLX_SETTINGS", str(Path.home() / ".omlx" / "model_settings.json"))
+)
+OMLX_DEFAULT_MODEL_DIR = "/Volumes/data01/omlx-models"
+#: What makes an oMLX checkpoint what it is, short of hashing its weights.
+OMLX_IDENTITY_FILES = (
+    "config.json",
+    "tokenizer_config.json",
+    "chat_template.jinja",
+    "generation_config.json",
 )
 
 
@@ -1063,45 +1075,72 @@ def backend_engine(backend_id: str) -> str:
     return ""
 
 
-def ollama_content_id(model: str) -> str:
-    """Ollama's manifest digest for a tag, from /api/tags (doc: identity)."""
+def omlx_model_dirs() -> list[Path]:
+    """Where oMLX looks for model directories: OMLX_MODEL_DIR, else its settings."""
+    if os.environ.get("OMLX_MODEL_DIR"):
+        return [Path(p) for p in os.environ["OMLX_MODEL_DIR"].split(os.pathsep) if p]
+    try:
+        model = json.loads(OMLX_SERVER_SETTINGS.read_text()).get("model") or {}
+    except (OSError, ValueError):
+        model = {}
+    dirs = model.get("model_dirs") or [model.get("model_dir") or OMLX_DEFAULT_MODEL_DIR]
+    return [Path(str(d)).expanduser() for d in dirs if d]
+
+
+def ollama_content_id(model: str) -> tuple[str, str]:
+    """Ollama's manifest digest for a tag (/api/tags), or ("", why it is unobservable)."""
     try:
         with urllib.request.urlopen(f"{OLLAMA}/api/tags", timeout=10) as r:
-            for m in json.load(r).get("models") or []:
-                if model in (m.get("name"), m.get("model")):
-                    return str(m.get("digest") or "")
-    except Exception:
-        return ""
-    return ""
+            listed = json.load(r).get("models") or []
+    except Exception as e:
+        return "", f"Ollama /api/tags unreachable ({e})"
+    names = {model, model if ":" in model else f"{model}:latest"}
+    for m in listed:
+        if {m.get("name"), m.get("model")} & names and m.get("digest"):
+            return str(m["digest"]), ""
+    return "", f"{model!r} is not in Ollama's /api/tags"
 
 
-def omlx_content_id(model: str) -> str:
-    """oMLX has no manifest digest: hash the checkpoint config + settings entry."""
+def omlx_content_id(model: str) -> tuple[str, str]:
+    """A content id for an oMLX checkpoint, or ("", why it is unobservable): its
+    config, tokenizer and template files, each weight file's name and size, and
+    its model_settings.json entry (doc: identity)."""
     import hashlib
 
-    cfg = OMLX_MODEL_DIR / model / "config.json"
-    try:
-        config = cfg.read_bytes()
-    except OSError:
-        config = b""
+    dirs = omlx_model_dirs()
+    root = next((d / model for d in dirs if (d / model / "config.json").is_file()), None)
+    if root is None:
+        return "", f"no {model}/config.json under {[str(d) for d in dirs]}"
+    h = hashlib.sha256()
+    for name in OMLX_IDENTITY_FILES:
+        f = root / name
+        h.update(name.encode() + b"\0" + (f.read_bytes() if f.is_file() else b"-") + b"\0")
+    for f in sorted(root.glob("*.safetensors")):
+        h.update(f"{f.name}:{f.stat().st_size}\0".encode())
     try:
         entry = (json.loads(OMLX_SETTINGS.read_text()).get("models") or {}).get(model)
-    except Exception:
+    except (OSError, ValueError):
         entry = None
-    blob = (config.hex() + json.dumps(entry, sort_keys=True)).encode()
-    return hashlib.sha256(blob).hexdigest()[:32]
+    h.update(json.dumps(entry, sort_keys=True).encode())
+    return h.hexdigest()[:32], ""
+
+
+def observe_identity(backend_id: str, model: str) -> tuple[dict, str]:
+    """What serves one model now, observed in the engine's own store: backend id,
+    model id and content id, plus why the content could not be observed."""
+    engine = backend_engine(backend_id)
+    if engine == "ollama":
+        content, why = ollama_content_id(model)
+    elif engine == "omlx":
+        content, why = omlx_content_id(model)
+    else:
+        content, why = "", f"backend {backend_id!r} has no content identity"
+    return {"backend": backend_id, "model": model, "content": content}, why
 
 
 def served_identity(backend_id: str, model: str) -> dict:
-    """What served one probe: backend id, model id, and its content id."""
-    engine = backend_engine(backend_id)
-    if engine == "ollama":
-        content = ollama_content_id(model)
-    elif engine == "omlx":
-        content = omlx_content_id(model)
-    else:
-        content = ""
-    return {"backend": backend_id, "model": model, "content": content}
+    """What serves one model now (backend, model, content); content is "" when unobservable."""
+    return observe_identity(backend_id, model)[0]
 
 
 def freeze_identities(frozen: dict, identities: dict) -> list[str]:
@@ -1110,6 +1149,8 @@ def freeze_identities(frozen: dict, identities: dict) -> list[str]:
     for key in sorted(identities):
         ident = identities[key]
         known = frozen.get(key)
+        if not ident.get("content"):  # never freeze what could not be observed
+            continue
         if known is None:
             frozen[key] = ident
         elif known != ident:
@@ -1122,17 +1163,33 @@ def frozen_identity(manifest: dict, r: dict) -> dict | None:
     return (manifest.get("identity_map") or {}).get(f"{r['workspace']}|{row_model(r)}")
 
 
-def row_identity(transcript: list, frozen: dict | None) -> dict | None:
-    """What a row was served with, from its own trace; content from the freeze."""
-    served = next(
-        (t.get("served") or {} for t in transcript if (t.get("served") or {}).get("model")), None
-    )
+def row_identity(transcript: list) -> dict | None:
+    """What served a row, observed when it finished: backend and model from the
+    row's own trace, content from the engine's store, never copied from the freeze.
+    Turns served by more than one model make a row whose identity matches nothing."""
+    served = {
+        ((t.get("served") or {}).get("backend") or "", (t.get("served") or {}).get("model"))
+        for t in transcript
+        if (t.get("served") or {}).get("model")
+    }
     if not served:
         return None
-    ident = {"backend": served.get("backend") or "", "model": served.get("model") or ""}
-    if frozen and frozen.get("model") == ident["model"]:
-        ident["content"] = frozen.get("content", "")
-    return ident
+    if len(served) > 1:
+        return {"backend": "mixed", "model": repr(sorted(served)), "content": ""}
+    return served_identity(*next(iter(served)))
+
+
+def identity_drift(manifest: dict, r: dict, row: dict) -> str | None:
+    """Why the build that served this row is not its pair's frozen one, or None.
+    A row with no served turn (an instrument error) has nothing to compare."""
+    ident = row.get("identity")
+    if ENGINE != "pipeline" or not ident:
+        return None
+    key = f"{r['workspace']}|{row_model(r)}"
+    if not ident.get("content"):
+        return f"{key}: the build serving {ident.get('model')!r} cannot be observed"
+    want = frozen_identity(manifest, r)
+    return None if want == ident else f"{key}: frozen {want} != served {ident}"
 
 
 def preflight_pipeline(workspaces: list[str], model: str) -> dict:
@@ -1173,7 +1230,10 @@ def preflight_pipeline(workspaces: list[str], model: str) -> dict:
                 f"{ws}: pipeline served {served!r}, seat is {primary!r} (arm {model!r})"
             )
         if served:
-            identities[f"{ws}|{model}"] = served_identity(served_rec.get("backend") or "", served)
+            ident, why = observe_identity(served_rec.get("backend") or "", served)
+            identities[f"{ws}|{model}"] = ident
+            if why:
+                findings.append(f"{ws}: the build serving {served!r} cannot be observed: {why}")
     return {
         "model": model,
         "verdict": "REVIEW" if findings else "OK",
@@ -1397,7 +1457,7 @@ def run_row(
     row["repeat_degeneracy"] = degenerate_repeats(wsc, overrides)
     row["model"] = row_model(r)
     row["overrides"] = overrides
-    row["identity"] = row_identity(out.get("transcript") or [], frozen_identity(manifest, r))
+    row["identity"] = row_identity(out.get("transcript") or [])
     # What the engine was ASKED for but silently drops (runner.DELIVERABLE_KEYS) and, on
     # Ollama, what the tag bakes; else a row's `sampling` claims values never served.
     row["sampling_undelivered"] = undeliverable_keys(sampling)
@@ -1485,11 +1545,7 @@ def _rows_to_run(
         return [], {"arm": arm, "ran": 0, "blocked": len(todo)}
 
     model = row_model(arm_rows[0])
-    pf = (
-        preflight_pipeline(sorted({r["workspace"] for r in arm_rows}), model)
-        if ENGINE == "pipeline"
-        else preflight_arm(campaign_dir, model, force_preflight)
-    )
+    pf = _arm_preflight(campaign_dir, manifest, arm_rows, model, force_preflight)
     findings = "; ".join(pf.get("findings") or [])
     if pf.get("verdict") != "OK" and not force_preflight:
         for r in todo:
@@ -1511,6 +1567,29 @@ def _rows_to_run(
     return todo, None
 
 
+def _arm_preflight(campaign_dir: Path, manifest: dict, arm_rows: list, model: str, force) -> dict:
+    """The arm's preflight. In pipeline mode it also freezes each (workspace, model)
+    pair's identity on first sight, and a later change becomes a finding, so the
+    arm is blocked instead of measured on another build (doc: identity)."""
+    if ENGINE != "pipeline":
+        return preflight_arm(campaign_dir, model, force)
+    pf = preflight_pipeline(sorted({r["workspace"] for r in arm_rows}), model)
+    drift = freeze_identities(manifest.setdefault("identity_map", {}), pf.get("identities") or {})
+    save_manifest(campaign_dir, manifest)
+    if not drift:
+        return pf
+    found = [*(pf.get("findings") or []), *(f"IDENTITY DRIFT: {d}" for d in drift)]
+    return {**pf, "verdict": "REVIEW", "findings": found}
+
+
+def _quarantine(campaign_dir: Path, manifest: dict, r: dict, row: dict, note: str) -> None:
+    """Keep the row's evidence but mark it BLOCKED, so it never enters a comparison."""
+    row = {**row, "outcome": Outcome.BLOCKED.value, "notes": note}
+    _row_path(campaign_dir, r["run_id"]).write_text(json.dumps(row, indent=1))
+    r["state"] = Outcome.BLOCKED.value
+    save_manifest(campaign_dir, manifest)
+
+
 #: Consecutive HARNESS_ERROR rows that stop an arm (the instrument, not the model).
 MAX_CONSECUTIVE_HARNESS_ERRORS = 3
 _RECENT: dict[str, list[str]] = {}
@@ -1520,14 +1599,16 @@ def arm_stop_reason(
     arm: str, row: dict, campaign_dir: Path | None = None, manifest: dict | None = None, r=None
 ) -> str | None:
     """Why the arm must stop after this row (a failover stops it at once), or None.
-    Instrument drift observed after a row quarantines that row and stops the arm."""
-    drift = instrument_drift(manifest) if manifest else None
-    if drift and campaign_dir is not None and r is not None:
-        row = {**row, "outcome": Outcome.BLOCKED.value, "notes": f"INSTRUMENT DRIFT: {drift}"}
-        _row_path(campaign_dir, r["run_id"]).write_text(json.dumps(row, indent=1))
-        r["state"] = Outcome.BLOCKED.value
-        save_manifest(campaign_dir, manifest)
-        return drift
+    Instrument or identity drift observed after a row quarantines that row and
+    stops the arm."""
+    if manifest and campaign_dir is not None and r is not None:
+        for label, drift in (
+            ("INSTRUMENT DRIFT", instrument_drift(manifest)),
+            ("IDENTITY DRIFT", identity_drift(manifest, r, row)),
+        ):
+            if drift:
+                _quarantine(campaign_dir, manifest, r, row, f"{label}: {drift}")
+                return drift
     if str(row.get("notes") or "").startswith(SEAT_BLOCK):
         return str(row["notes"])[:200]
     recent = _RECENT.setdefault(arm, [])

@@ -141,20 +141,21 @@ def _grader_check(rows: list[dict], allow_mixed: bool) -> list[str]:
 
 
 def _identity_check(rows: list[dict], manifest: dict, allow_mixed: bool) -> list[str]:
-    """Refuse to compare a row whose serving build moved off its frozen identity."""
-    frozen = manifest.get("identity_map") or {}
-    if not frozen:
+    """Refuse to compare a row whose serving build is not its pair's frozen one. In
+    a pipeline campaign every scored row must carry an observed identity equal to
+    the freeze: a missing one is a refusal, never a pass (doc: identity)."""
+    if (manifest.get("instrument") or {}).get("engine") != "pipeline":
         return []
+    frozen = manifest.get("identity_map") or {}
+    scored = {o.value for o in MODEL_QUALITY_OUTCOMES}
     bad: list[str] = []
     for r in rows:
-        ident = r.get("identity")
-        want = frozen.get(f"{r.get('workspace')}|{r.get('model') or r.get('arm')}")
-        if not ident or not want:
+        if r.get("outcome") not in scored:
             continue
-        if any(
-            (ident.get(k) or "") != (want.get(k) or "") for k in ("backend", "model", "content")
-        ):
-            bad.append(f"{r.get('workspace')}|{r.get('arm')}: served {ident}, frozen {want}")
+        key = f"{r.get('workspace')}|{r.get('model') or r.get('arm')}"
+        ident, want = r.get("identity") or {}, frozen.get(key)
+        if not ident.get("content") or ident != want:
+            bad.append(f"{key}: served {ident or None}, frozen {want}")
     if not bad:
         return []
     msg = f"IDENTITY DRIFT across results: {len(bad)} row(s)"
