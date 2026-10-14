@@ -1,0 +1,167 @@
+"""Production tool mode (root-fix Part 2a): tokens, staging, receipts, cleanup, payload, gate."""
+
+from __future__ import annotations
+
+import json
+
+import pytest
+
+from portal.platform.mcp_host import eval_scope as es
+from tests.wfe import campaign, eval_mode, runner
+
+
+@pytest.fixture
+def out_root(tmp_path, monkeypatch):
+    monkeypatch.setattr(eval_mode, "OUTPUT_ROOT", tmp_path / "AI_Output")
+    monkeypatch.setattr(eval_mode, "close_data_session", lambda scope: None)
+    return tmp_path / "AI_Output"
+
+
+def _row(rid="auto-documents|hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k@card-1|s|t|r0"):
+    return {"run_id": rid, "workspace": "auto-documents"}
+
+
+def test_tokens_are_valid_distinct_and_deterministic():
+    ids = ["w|hf.co/a/B:Q4|s|t|r0", "w|hf.co/a/B:Q4|s|t|r1", "w|x" + "y" * 300 + "|s|t|r0"]
+    toks = [eval_mode.tokens("camp-1", i) for i in ids]
+    assert all(es.TOKEN.match(c) and es.TOKEN.match(r) for c, r in toks)
+    assert len({r for _, r in toks}) == 3 and toks[0] == eval_mode.tokens("camp-1", ids[0])
+
+
+def test_prepare_scopes_the_row_and_drops_the_harness_note(out_root):
+    h, wsc = (
+        {},
+        {
+            "system_prompt_pipeline": "base + NOTE",
+            "system_prompt_base": "base",
+            "tool_surface": ["file_read"],
+        },
+    )
+    task = {"id": "t", "seed": {"q.csv": "a\n1\n"}}
+    t2, w2, ctx = eval_mode.prepare(True, _row(), {"campaign_id": "c"}, task, wsc, h)
+    assert h["pipeline_eval"]["allow"] == sorted(eval_mode.mode_for("auto-documents")["allow"])
+    assert w2["system_prompt_pipeline"] == "base" and "file_read" not in w2["tool_surface"]
+    assert (ctx["root"] / "in" / "q.csv").read_text() == "a\n1\n" and t2["_eval"] is ctx
+    assert eval_mode.prepare(False, _row(), {"campaign_id": "c"}, task, wsc, {})[2] is None
+    assert (
+        eval_mode.prepare(
+            True, {**_row(), "workspace": "auto-coding"}, {"campaign_id": "c"}, task, wsc, {}
+        )[2]
+        is None
+    )
+
+
+def test_receipts_reject_preexisting_changed_and_outside_files(out_root):
+    _, _, ctx = eval_mode.prepare(
+        True,
+        _row(),
+        {"campaign_id": "c"},
+        {"id": "t", "seed": {"old.docx": "x"}},
+        {"system_prompt_pipeline": "", "system_prompt_base": ""},
+        {},
+    )
+    out = ctx["root"] / "out"
+    out.mkdir()
+    good, changed = out / "good.docx", out / "changed.docx"
+    for f in (good, changed):
+        f.write_bytes(b"doc")
+        es.receipt(eval_mode.OUTPUT_ROOT, ctx["scope"], "Document", f)
+    changed.write_bytes(b"tampered")
+    with (ctx["root"] / ".receipts.jsonl").open("a") as fh:
+        fh.write(
+            json.dumps(
+                {"tool": "x", "path": str(ctx["root"] / "in" / "old.docx"), "sha256": "", "size": 1}
+            )
+            + "\n"
+        )
+    v = {r["path"].rsplit("/", 1)[-1]: r["valid"] for r in eval_mode.receipts(ctx)}
+    assert v == {
+        "good.docx": True,
+        "changed.docx": "changed after creation",
+        "old.docx": "outside out/ or missing",
+    }
+
+
+def test_finish_keeps_receipted_artifacts_and_cleans_only_the_row(out_root, tmp_path):
+    foreign = out_root / "wfe" / ("wfe_" + "f" * 16) / "keep.txt"
+    foreign.parent.mkdir(parents=True)
+    foreign.write_text("other campaign")
+    (out_root / "operator.docx").write_text("operator file")
+    r = _row()
+    _, _, ctx = eval_mode.prepare(
+        True,
+        r,
+        {"campaign_id": "c"},
+        {"id": "t"},
+        {"system_prompt_pipeline": "", "system_prompt_base": ""},
+        {},
+    )
+    (ctx["root"] / "out").mkdir()
+    f = ctx["root"] / "out" / "r.docx"
+    f.write_bytes(b"doc")
+    es.receipt(eval_mode.OUTPUT_ROOT, ctx["scope"], "Document", f)
+    cd = tmp_path / "campaign"
+    out = eval_mode.finish(ctx, {"outcome": "PASS", "evidence": {}}, cd, r)
+    assert out["tool_mode"] == "production" and out["evidence"]["receipts"][0]["valid"] is True
+    assert list((cd / "artifacts").rglob("r.docx")) and not ctx["root"].exists()
+    assert foreign.exists() and (out_root / "operator.docx").exists()
+    assert json.loads((cd / "cleanup" / f"{ctx['scope']['run']}.json").read_text())["files"]
+
+
+def test_pipeline_payload_carries_the_scope_and_no_sandbox_tools():
+    scope = {"campaign": "wfe_" + "a" * 16, "run": "wfe_" + "b" * 40, "allow": ["run_sql"]}
+    _, payload, _ = runner._build_pipeline(
+        "auto-data",
+        [{"role": "user", "content": "q"}],
+        "none",
+        {},
+        None,
+        "default",
+        False,
+        None,
+        scope,
+    )
+    assert (
+        payload["portal_eval"] == scope
+        and "tools" not in payload
+        and "portal_client_tools_only" not in payload
+    )
+
+
+def test_gate_checks_production_rows_against_the_allowlist(tmp_path, monkeypatch):
+    monkeypatch.setattr(campaign, "ENGINE", "pipeline")
+    suite = tmp_path / "s.jsonl"
+    suite.write_text(
+        json.dumps(
+            {
+                "id": "t1",
+                "instruction": "i",
+                "requires_tools": ["run_sql"],
+                "checks": [{"type": "answer_contains", "patterns": ["x"]}],
+            }
+        )
+        + "\n"
+        + json.dumps(
+            {
+                "id": "t2",
+                "instruction": "i",
+                "requires_tools": ["execute_python"],
+                "checks": [{"type": "answer_contains", "patterns": ["x"]}],
+            }
+        )
+        + "\n"
+    )
+    rows = [
+        {
+            "run_id": f"auto-data|a|s|{t}|r0",
+            "workspace": "auto-data",
+            "suite": "s",
+            "suite_path": str(suite),
+            "task_id": t,
+            "overrides": {},
+        }
+        for t in ("t1", "t2")
+    ]
+    assert campaign.tool_gaps(rows) == [
+        "s:t2 in auto-data: needs tools not offered ['execute_python']"
+    ]

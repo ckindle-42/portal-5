@@ -49,6 +49,11 @@ def script(model, messages, tools):
     names = [t.get("function", {}).get("name") for t in tools or []]
     if "file_read" in names and not has_tool_result:
         return None, {"name": "file_read", "arguments": {"path": "packet.json"}}
+    if "create_word_document" in names and not has_tool_result:
+        return None, {
+            "name": "create_word_document",
+            "arguments": {"title": "Rig report", "content": "# Findings\nAll checks passed."},
+        }
     det = ["SUPPORTED", "CONTRADICTED", "ABSENT", "ABSTAIN", "PARTIAL"][
         int(hashlib.sha256((model + json.dumps(messages[-1:])).encode()).hexdigest(), 16) % 5
     ]

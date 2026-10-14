@@ -74,6 +74,7 @@ from pathlib import Path
 
 import yaml
 
+from tests.wfe import eval_mode
 from tests.wfe.checkers import CheckContext, apply_checkers
 from tests.wfe.runner import (
     CHAT_BASE,
@@ -697,7 +698,12 @@ def tool_gaps(rows: list[dict]) -> list[str]:
         need = set((tasks[sp].get(r["task_id"]) or {}).get("requires_tools") or [])
         key = (r["workspace"], row_overrides(r).get("persona"))
         if need and key not in surface:
-            surface[key] = set(workspace_context(*key).get("tool_surface") or TOOL_NAMES)
+            prod = eval_mode.mode_for(r["workspace"]) if ENGINE == "pipeline" else None
+            surface[key] = (
+                set(prod["allow"])
+                if prod
+                else set(workspace_context(*key).get("tool_surface") or TOOL_NAMES)
+            )
         missing = sorted(need - surface.get(key, set(TOOL_NAMES)))
         if missing:
             out.add(
@@ -1356,6 +1362,24 @@ def degenerate_repeats(wsc: dict, overrides: dict | None = None) -> str | None:
     return None
 
 
+def _raised_out(e: Exception) -> dict:
+    """The row a runner exception leaves: an instrument error, never a model outcome."""
+    return {
+        "outcome": Outcome.HARNESS_ERROR.value,
+        "notes": f"runner raised: {type(e).__name__}: {e}",
+        "evidence": {},
+        "turns": 0,
+        "tool_calls": 0,
+        "tool_errors": 0,
+        "finish_reason": None,
+        "economics": {},
+        "final_text": "",
+        "final_text_head": "",
+        "transcript": [],
+        "tool_call_log": [],
+    }
+
+
 def run_row(
     campaign_dir: Path,
     manifest: dict,
@@ -1376,6 +1400,7 @@ def run_row(
     t0 = time.monotonic()
     pipe = ENGINE == "pipeline"
     harness["pipeline_model"] = row_model(r) if pipe else None
+    task, wsc, prod = eval_mode.prepare(pipe, r, manifest, task, wsc, harness)
     # The prompt actually sent: in pipeline mode the pipeline adds the append.
     sent_prompt = wsc["system_prompt_pipeline"] if pipe else wsc["system_prompt"]
     try:
@@ -1386,7 +1411,7 @@ def run_row(
             sandbox,
             max_turns,
             budget_s,
-            use_tools=True,
+            use_tools=not prod,
             harness=dict(harness),
             sampling=sampling,
             tool_surface=wsc.get("tool_surface"),
@@ -1394,20 +1419,8 @@ def run_row(
         )
     except Exception as e:
         _log(campaign_dir, f"  runner raised: {type(e).__name__}: {e}")
-        out = {
-            "outcome": Outcome.HARNESS_ERROR.value,
-            "notes": f"runner raised: {type(e).__name__}: {e}",
-            "evidence": {},
-            "turns": 0,
-            "tool_calls": 0,
-            "tool_errors": 0,
-            "finish_reason": None,
-            "economics": {},
-            "final_text": "",
-            "final_text_head": "",
-            "transcript": [],
-            "tool_call_log": [],
-        }
+        out = _raised_out(e)
+    out = eval_mode.finish(prod, out, campaign_dir, r)
     mismatch = (
         served_mismatch(out.get("transcript") or [], seat_primary(r["workspace"], row_model(r)))
         if pipe and out.get("transcript")

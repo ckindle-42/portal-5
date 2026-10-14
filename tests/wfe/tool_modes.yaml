@@ -1,0 +1,13 @@
+# Production tool mode per workspace (root-fix Part 2a; tests/wfe/eval_mode.py).
+# A listed workspace runs its OWN tools through the pipeline under an evaluation scope:
+# the pipeline offers and authorizes only `allow`, and each MCP confines the call to the
+# row's namespace. Unlisted workspaces keep the harness's sandbox tools. Changing this
+# file changes the instrument: running campaigns refuse it as drift.
+workspaces:
+  auto-documents:
+    tool_mode: production
+    allow: [create_word_document, create_excel, create_powerpoint, read_word_document,
+            read_excel, read_powerpoint, read_pdf]
+  auto-data:
+    tool_mode: production
+    allow: [attach_source, run_sql, profile_table, list_session, create_excel]

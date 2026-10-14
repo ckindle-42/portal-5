@@ -767,7 +767,15 @@ def _build_payload(
     endpoint, fmt = h["endpoint"], h.get("format", "none")
     if ENGINE == "pipeline":
         return _build_pipeline(
-            model, messages, fmt, sampling, schemas, think, wire_stream, h.get("pipeline_model")
+            model,
+            messages,
+            fmt,
+            sampling,
+            schemas,
+            think,
+            wire_stream,
+            h.get("pipeline_model"),
+            h.get("pipeline_eval"),
         )
     if endpoint == "v1":
         payload = _build_v1(model, messages, fmt, sampling, think, wire_stream)
@@ -799,6 +807,7 @@ def _build_pipeline(
     think: str,
     wire_stream: bool,
     model_override: str | None = None,
+    eval_scope: dict | None = None,
 ) -> tuple[str, dict, list[str]]:
     """The body Open WebUI would send the pipeline for `workspace`, plus only
     the arm's explicit overrides. No max_tokens: the pipeline applies the seat's
@@ -827,6 +836,8 @@ def _build_pipeline(
         # modes use); everything else runs through the pipeline.
         payload["tools"] = schemas
         payload["portal_client_tools_only"] = True
+    if eval_scope:  # production tool mode: the workspace's own tools, scoped (eval_mode)
+        payload["portal_eval"] = eval_scope
     url = f"{CHAT_BASE}/v1/chat/completions"
     if model_override:
         url += "?" + urllib.parse.urlencode({"model": model_override})

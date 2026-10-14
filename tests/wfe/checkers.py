@@ -528,8 +528,29 @@ def check_compliance_reading_contract(spec: dict, ctx: CheckContext) -> CheckRes
     )
 
 
+def check_receipt_artifact(spec: dict, ctx: CheckContext) -> CheckResult:
+    """A file the row created through a workspace tool, proven by a valid creation receipt
+    (production tool mode; tests/wfe/eval_mode.py). `ext` filters, `min_count` defaults to 1."""
+    ev = (ctx.task or {}).get("_eval")
+    if not ev:
+        return CheckResult(Outcome.HARNESS_ERROR, "receipt_artifact needs production tool mode", {})
+    from tests.wfe.eval_mode import receipts
+
+    recs = [
+        x for x in receipts(ev) if x["valid"] is True and x["path"].endswith(spec.get("ext", ""))
+    ]
+    need = int(spec.get("min_count", 1))
+    outcome = Outcome.PASS if len(recs) >= need else Outcome.FAIL
+    return CheckResult(
+        outcome,
+        f"{len(recs)} receipted {spec.get('ext', '')} file(s), need {need}",
+        {"receipts": recs},
+    )
+
+
 CHECKERS = {
     "pytest_pass": check_pytest_pass,
+    "receipt_artifact": check_receipt_artifact,
     "hidden_pytest": check_hidden_pytest,
     "immutable": check_immutable,
     "file_exists": check_file_exists,
