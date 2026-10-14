@@ -9,6 +9,8 @@ sources:
 - type: code
   path: portal/modules/compliance/tools/compliance_mcp.py
 - type: code
+  path: portal/modules/compliance/core/eval_instance.py
+- type: code
   path: portal/modules/compliance/tests/test_compliance_mcp.py
 - type: code
   path: scripts/native-mcp-service.sh
@@ -63,3 +65,25 @@ CIP-007 R2 bridge turns a CVE into a defensible, dated patch-evaluation record
 in one call. The crosswalk seed is deliberately marked partial rather than
 presented as the authoritative OLIR — honest capability tiers over
 overclaiming in a compliance tool.
+
+## Evaluation instance (WFE)
+
+WFE rows that measure auto-compliance with its own tools never touch the operator's compliance
+store. A separate compliance MCP process, `compliance-mcp-eval` (LaunchAgent
+`com.portal5.compliance-mcp-eval`, port 8948), runs from one root
+(`COMPLIANCE_EVAL_ROOT`, default `~/.portal-data/compliance-eval`). Every state path is under
+that root, and the operator profile and org graph point at absent files there
+(`COMPLIANCE_OPERATOR_PROFILE`, `COMPLIANCE_ORG_GRAPH`). It refuses to start if any path the
+code will use is outside the root.
+
+- **Its store is built from public, committed material only:**
+  `uv run python -m portal.modules.compliance.core.eval_instance build` imports the NERC CIP
+  register and ingests the synthetic planted corpus.
+- **It serves only `eval_instance.VERIFIED_TOOLS`:** tools measured to make no model call, change
+  nothing, and answer independently of earlier calls. Re-measure them with
+  `uv run python -m tests.wfe.e2e.compliance_classify`. Everything else returns 403.
+- **Routing.** The pipeline sends a scoped compliance call there (`MCP_COMPLIANCE_EVAL_URL`) and
+  refuses it when unset; it never falls back to the operator's instance.
+- **Proof of routing.** Its `/health` reports `eval_tool_calls`, the number of tool calls it has
+  served.
+
