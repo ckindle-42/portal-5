@@ -148,10 +148,12 @@ def live_scenarios(rig: LiveRig) -> None:
         f"rc={r.returncode}",
     )
     r = rig.cli("--plan", str(PLAN), "--campaign-id", c1, *one, "--preflight")
+    frozen = rig.manifest(c1).get("identity_map") or {}
+    contents = [v.get("content") for v in frozen.values()]
     rig.check(
-        "S2 --preflight: the pipeline serves each arm's seat",
-        r.returncode == 0,
-        f"rc={r.returncode}",
+        "S2 --preflight: the pipeline serves each arm's seat, and its real build is frozen",
+        r.returncode == 0 and len(frozen) == 2 and all(contents) and len(set(contents)) == 2,
+        f"rc={r.returncode} frozen={ {k: v.get('content', '')[:12] for k, v in frozen.items()} }",
     )
     rcs = [rig.arm(c1, a, *one, timeout=1800) for a in (inc, ch)]
     turns = [
@@ -199,8 +201,49 @@ def live_scenarios(rig: LiveRig) -> None:
         "S6 engine fails mid-arm", "needs a production engine to fail; proven by the fake rig"
     )
 
+    live_identity(rig, c1, inc)
     live_discipline(rig, inc, ch, one, c1)
     live_production(rig)
+
+
+def live_identity(rig: LiveRig, c1: str, inc: str) -> None:
+    """P1R's identity scenarios. I1-I3 rewrite the rig's own checkpoints, so they are
+    offline-only here (P1R's live acceptance proved them on production). I4 runs on
+    c1's real rows: --record into a scratch ledger, then check HP, then a changed build."""
+    why = "rewrites the rig's own checkpoint directories; proven on production by P1R's L1-L4"
+    for name in (
+        "I1 a rebuild since the freeze blocks the arm",
+        "I2 a rebuild mid-arm quarantines the row and stops the arm",
+        "I3 a build that cannot be observed blocks the arm",
+    ):
+        rig.offline_only(name, why)
+    led = rig.tmp / "ledger.yaml"
+    rec = __import__("subprocess").run(
+        [__import__("sys").executable, "-m", "tests.wfe.report", "--campaign", c1, "--record"]
+        + ["--ledger", str(led)],
+        cwd=REPO,
+        env=rig.env(),
+        capture_output=True,
+        text=True,
+    )
+    cells = (yaml.safe_load(led.read_text()) or {}).get("cells") or [] if led.exists() else []
+    frozen = rig.manifest(c1).get("identity_map") or {}
+    recorded = rec.returncode == 0 and len(cells) == 1 and cells[0].get("incumbent") == inc
+    recorded = recorded and cells[0].get("served") in frozen.values()
+    now = rig.hp(led)
+    if cells:
+        cells[0]["served"]["content"] = "live-rig-rebuilt"
+        led.write_text(yaml.safe_dump({"cells": cells}, sort_keys=False))
+    later = rig.hp(led)
+    rig.check(
+        "I4 (live) --record carries both served identities; check HP covers the seat, then sees a rebuild",
+        recorded
+        and now.get("subs", [])[:2] == ["PASS", "PASS"]
+        and now.get("covered") == ["auto-compliance"]
+        and later.get("subs", [None, None])[1] == "WARN",
+        f"record={rec.returncode} cells={len(cells)} hp={now.get('subs')} "
+        f"covered={now.get('covered')} after_rebuild={later.get('subs')}",
+    )
 
 
 def live_discipline(rig: LiveRig, inc: str, ch: str, one: list[str], c1: str) -> None:
