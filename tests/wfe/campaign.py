@@ -1411,7 +1411,7 @@ def run_row(
             sandbox,
             max_turns,
             budget_s,
-            use_tools=not prod,
+            use_tools=not (prod and prod["production"]),
             harness=dict(harness),
             sampling=sampling,
             tool_surface=wsc.get("tool_surface"),

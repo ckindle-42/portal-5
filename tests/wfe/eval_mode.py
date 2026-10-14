@@ -15,6 +15,7 @@ import os
 import shutil
 import urllib.request
 from pathlib import Path
+from typing import Any
 
 import yaml
 
@@ -39,6 +40,8 @@ def setting(name: str, default: str, env_file: Path = REPO / ".env") -> str:
 
 OUTPUT_ROOT = Path(setting("AI_OUTPUT_DIR", str(Path.home() / "AI_Output")))
 DATA_MCP_URL = os.environ.get("WFE_DATA_MCP_URL", "http://localhost:8939").rstrip("/")
+MEMORY_MCP_URL = os.environ.get("WFE_MEMORY_MCP_URL", "http://localhost:8920").rstrip("/")
+RAG_MCP_URL = os.environ.get("WFE_RAG_MCP_URL", "http://localhost:8921").rstrip("/")
 
 
 def mode_for(workspace: str) -> dict | None:
@@ -67,20 +70,34 @@ def prepare(pipe: bool, r: dict, manifest: dict, task: dict, wsc: dict, harness:
     """(task, wsc, ctx). In production mode: the scope goes in the harness, the prompt loses
     the harness note, fixtures are staged in the run's `in/`, and the pre-run inventory is
     taken. Otherwise everything is returned unchanged with ctx None."""
-    m = mode_for(r["workspace"]) if pipe else None
-    if not m:
+    if not pipe:
         return task, wsc, None
+    m = mode_for(r["workspace"])
     camp, run = tokens(manifest["campaign_id"], r["run_id"])
-    scope = {"campaign": camp, "run": run, "allow": sorted(m["allow"])}
+    # Every pipeline row carries a scope: a sandbox row allows no workspace tools, but the
+    # pipeline's own memory/KB injection and write-back still stay inside the row (Part 2b).
+    scope = {"campaign": camp, "run": run, "allow": sorted(m["allow"]) if m else []}
+    harness["pipeline_eval"] = scope
+    if not m:
+        ctx = {"scope": scope, "root": None, "inventory": {}, "production": False}
+        cleanup_stores(ctx)  # a re-run starts clean
+        return task, wsc, ctx
     root = eval_scope.run_root(OUTPUT_ROOT, scope)
-    cleanup({"scope": scope, "root": root, "inventory": {}}, None, r)  # a re-run starts clean
+    cleanup(
+        {"scope": scope, "root": root, "inventory": {}, "production": True}, None, r
+    )  # a re-run starts clean
     root = eval_scope.run_root(OUTPUT_ROOT, scope)
     for rel, body in (task.get("seed") or {}).items():
         dest = eval_scope.confine(OUTPUT_ROOT, scope, rel, sub="in")
         dest.parent.mkdir(parents=True, exist_ok=True)
         dest.write_text(body)
-    ctx = {"scope": scope, "root": root, "inventory": _inventory(root)}
-    harness["pipeline_eval"] = scope
+    ctx: dict[str, Any] = {
+        "scope": scope,
+        "root": root,
+        "inventory": _inventory(root),
+        "production": True,
+    }
+    ctx["seed_error"] = seed_stores(scope, task)
     wsc = {
         **wsc,
         "system_prompt_pipeline": wsc["system_prompt_base"],
@@ -114,6 +131,16 @@ def finish(ctx: dict | None, out: dict, campaign_dir: Path, r: dict) -> dict:
     """Record receipts, keep receipted artifacts in the campaign, then clean up the row."""
     if not ctx:
         return out
+    if not ctx["production"]:
+        err = cleanup_stores(ctx)
+        ev = {**(out.get("evidence") or {}), "eval_scope": ctx["scope"], "tool_mode": "sandbox"}
+        return {**out, "evidence": {**ev, **({"cleanup_errors": err} if err else {})}}
+    if ctx.get("seed_error"):  # the row did not get its fixtures: an instrument failure
+        out = {
+            **out,
+            "outcome": "HARNESS_ERROR",
+            "notes": f"fixture seeding failed: {ctx['seed_error']}",
+        }
     recs = receipts(ctx)
     keep = campaign_dir / "artifacts" / hashlib.sha256(r["run_id"].encode()).hexdigest()[:12]
     for rec in (x for x in recs if x["valid"] is True):
@@ -134,18 +161,47 @@ def finish(ctx: dict | None, out: dict, campaign_dir: Path, r: dict) -> dict:
 DATA_TOOLS = ("attach_source", "run_sql", "profile_table", "list_session")
 
 
-def close_data_session(scope: dict) -> str | None:
-    """Close and delete the run's data session through the data MCP's scope-only route."""
+def eval_post(url: str, body: dict) -> str | None:
+    """POST to an MCP's evaluation route; the error text, or None on success. The one
+    network call this module makes (tests stub it)."""
     req = urllib.request.Request(
-        f"{DATA_MCP_URL}/eval/close_session",
-        data=json.dumps({"eval": scope}).encode(),
-        headers={"Content-Type": "application/json"},
+        url, data=json.dumps(body).encode(), headers={"Content-Type": "application/json"}
     )
     try:
-        urllib.request.urlopen(req, timeout=10).read()
+        with urllib.request.urlopen(req, timeout=120) as resp:
+            out = json.loads(resp.read() or b"{}")
+        return out.get("error") if isinstance(out, dict) else None
     except Exception as e:  # noqa: BLE001
         return str(e)
+
+
+def close_data_session(scope: dict) -> str | None:
+    """Close and delete the run's data session through the data MCP's scope-only route."""
+    return eval_post(f"{DATA_MCP_URL}/eval/close_session", {"eval": scope})
+
+
+def seed_stores(scope: dict, task: dict) -> str | None:
+    """A task's memory and KB fixtures, written into the run's own scope before the row."""
+    for text in task.get("memory_seed") or []:
+        err = eval_post(
+            f"{MEMORY_MCP_URL}/tools/remember", {"arguments": {"text": text}, "eval": scope}
+        )
+        if err:
+            return f"memory: {err}"
+    if task.get("kb_seed"):
+        err = eval_post(f"{RAG_MCP_URL}/eval/seed_kb", {"docs": task["kb_seed"], "eval": scope})
+        if err:
+            return f"kb: {err}"
     return None
+
+
+def cleanup_stores(ctx: dict) -> list[str]:
+    """Delete the run's memory and KB (scope-only routes); errors are returned, never hidden."""
+    errs = [
+        eval_post(f"{MEMORY_MCP_URL}/eval/forget_scope", {"eval": ctx["scope"]}),
+        eval_post(f"{RAG_MCP_URL}/eval/drop_kb", {"eval": ctx["scope"]}),
+    ]
+    return [e for e in errs if e]
 
 
 def cleanup(ctx: dict, campaign_dir: Path | None, r: dict) -> list[str]:
@@ -153,6 +209,7 @@ def cleanup(ctx: dict, campaign_dir: Path | None, r: dict) -> list[str]:
     data MCP's own scope-only route. Never deletes outside the run root."""
     root, scope = ctx["root"], ctx["scope"]
     listed = sorted(str(p) for p in root.rglob("*") if p.is_file())
+    listed += [f"store cleanup failed: {e}" for e in cleanup_stores(ctx)]
     if campaign_dir is not None:
         d = campaign_dir / "cleanup"
         d.mkdir(parents=True, exist_ok=True)

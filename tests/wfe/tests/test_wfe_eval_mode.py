@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import contextlib
 import json
 
 import pytest
@@ -43,12 +44,10 @@ def test_prepare_scopes_the_row_and_drops_the_harness_note(out_root):
     assert w2["system_prompt_pipeline"] == "base" and "file_read" not in w2["tool_surface"]
     assert (ctx["root"] / "in" / "q.csv").read_text() == "a\n1\n" and t2["_eval"] is ctx
     assert eval_mode.prepare(False, _row(), {"campaign_id": "c"}, task, wsc, {})[2] is None
-    assert (
-        eval_mode.prepare(
-            True, {**_row(), "workspace": "auto-coding"}, {"campaign_id": "c"}, task, wsc, {}
-        )[2]
-        is None
+    sandbox = eval_mode.prepare(
+        True, {**_row(), "workspace": "auto-coding"}, {"campaign_id": "c"}, task, wsc, {}
     )
+    assert sandbox[2]["production"] is False and sandbox[2]["scope"]["allow"] == []
 
 
 def test_receipts_reject_preexisting_changed_and_outside_files(out_root):
@@ -219,3 +218,85 @@ def test_settings_resolve_like_the_services(tmp_path, monkeypatch):
     monkeypatch.setenv("AI_OUTPUT_DIR", "/from/env")
     assert eval_mode.setting("AI_OUTPUT_DIR", "/home/x/AI_Output", env) == "/from/env"
     assert eval_mode.setting("MISSING", "dflt", env) == "dflt"
+
+
+def test_a_sandbox_row_gets_an_empty_scope_and_its_stores_cleaned(out_root, monkeypatch):
+    calls = []
+    monkeypatch.setattr(
+        eval_mode, "eval_post", lambda url, body: calls.append(url.rsplit("/", 2)[-2:]) or None
+    )
+    h = {}
+    wsc = {"system_prompt_pipeline": "p", "system_prompt_base": "b", "tool_surface": ["file_read"]}
+    task, w2, ctx = eval_mode.prepare(
+        True, {**_row(), "workspace": "auto-coding"}, {"campaign_id": "c"}, {"id": "t"}, wsc, h
+    )
+    assert h["pipeline_eval"]["allow"] == [] and w2 is wsc and ctx["production"] is False
+    out = eval_mode.finish(ctx, {"outcome": "PASS", "evidence": {}}, out_root, _row())
+    assert out["evidence"]["tool_mode"] == "sandbox" and out["outcome"] == "PASS"
+    assert calls.count(["eval", "forget_scope"]) == 2 and calls.count(["eval", "drop_kb"]) == 2
+
+
+def test_production_seeds_memory_and_kb_and_a_seed_failure_is_an_instrument_error(
+    out_root, monkeypatch
+):
+    calls = []
+
+    def post(url, body):
+        calls.append((url.rsplit("/", 2)[-2:], body.get("eval", {}).get("run")))
+        return "embedder down" if url.endswith("/tools/remember") and fail else None
+
+    monkeypatch.setattr(eval_mode, "eval_post", post)
+    task = {"id": "t", "memory_seed": ["a fact", "another"], "kb_seed": {"k.md": "kb text"}}
+    wsc = {"system_prompt_pipeline": "", "system_prompt_base": ""}
+    row = {**_row(), "workspace": "auto-data"}
+    for fail in (False, True):
+        calls.clear()
+        _, _, ctx = eval_mode.prepare(True, row, {"campaign_id": "c"}, task, wsc, {})
+        run = ctx["scope"]["run"]
+        if not fail:
+            assert (
+                calls.count((["tools", "remember"], run)) == 2
+                and (["eval", "seed_kb"], run) in calls
+            )
+        out = eval_mode.finish(ctx, {"outcome": "PASS", "evidence": {}}, out_root, row)
+        assert (out["outcome"] == "HARNESS_ERROR") is fail
+
+
+@pytest.mark.parametrize(
+    ("ws", "tools_on", "allow_empty"),
+    [("auto-coding", True, True), ("auto-documents", False, False)],
+)
+def test_run_row_keeps_sandbox_tools_and_sends_the_scope(
+    tmp_path, monkeypatch, out_root, ws, tools_on, allow_empty
+):
+    from tests.wfe.runner import workspace_context
+
+    class SentError(Exception):
+        pass
+
+    seen = {}
+
+    def fake_run_task(*a, **k):
+        seen.update(k)
+        raise SentError
+
+    monkeypatch.setattr(campaign, "ENGINE", "pipeline")
+    monkeypatch.setattr(campaign, "make_sandbox", lambda *a, **k: None)
+    monkeypatch.setattr(campaign, "run_task", fake_run_task)
+    wsc = workspace_context(ws)
+    row = {
+        "run_id": f"{ws}|m|s|t|r0",
+        "workspace": ws,
+        "arm": wsc["model"],
+        "arm_role": "incumbent",
+        "suite": "s",
+        "task_id": "t",
+        "repeat": 0,
+        "overrides": {},
+    }
+    with contextlib.suppress(Exception):  # the fake raises, or run_row records it
+        campaign.run_row(
+            tmp_path, {"campaign_id": "c", "env": {}}, row, wsc, {"id": "t"}, 1, 1, None, False
+        )
+    assert seen["use_tools"] is tools_on
+    assert (seen["harness"]["pipeline_eval"]["allow"] == []) is allow_empty
