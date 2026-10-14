@@ -72,7 +72,11 @@ embed through EmbeddingGemma 2's VL-compatible surface (`VL_RETRIEVAL_URL`, defa
 `/rerank` forwards to the Qwen3-VL reranker (`scripts/vl-retrieval-server.py`, :8942),
 which no longer embeds for RAG (TASK_EG2_CUTOVER_V1 C4). `rag_mcp.py` keeps the KB-lifecycle tools (`kb_list` /
 `kb_optimize` / `kb_versions` / `kb_restore`) and registers the multimodal
-routes.
+routes. All of them reach the store through `retrieval.store` (one table naming,
+one paged listing). Under a WFE evaluation scope the run's KB is the only KB:
+`kb_search` is forced onto it, `kb_search_all` and `kb_list` see only it, and
+`kb_ingest` and the maintenance tools refuse. `/eval/seed_kb` (inline documents)
+and `/eval/drop_kb` are scope-only harness routes, never tools.
 
 When `RAG_TRANSCRIBE_FIGURES` enables the S0 per-page vision transcript,
 `RAG_OLLAMA_URL` defaults to `http://portal-pipeline:9099/ollama` and the MCP

@@ -60,7 +60,10 @@ graph-aware: it vector-seeds memories and entities from the query, expands
 relations up to `hops` deep, and returns the matched memories plus a
 `graph_context` of connected nodes and edges — the flat top-K response keys
 (`query` / `num_results` / `memories`) are preserved so callers don't break.
-`forget` / `list_memories` / `clear_memories` keep their contracts.
+`forget` / `list_memories` / `clear_memories` keep their contracts; `forget`
+deletes only the caller's own rows and refuses a malformed id. Under a WFE
+evaluation scope, recall, injection and write-back read and write only the run's
+own memory (see the memory MCP unit).
 
 Vectors come from EmbeddingGemma 2 on :8946 (`EG2_EMBEDDING_URL`) as 768d
 asymmetric SEARCH embeddings: memories and entity names are documents, the

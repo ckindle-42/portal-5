@@ -44,9 +44,15 @@ future conversation if it only makes sense in the one that wrote it.
 
 `remember` stores a self-contained sentence with a category and tags.
 `recall` embeds the query, searches with the recency-adjusted score, and
-returns the top matches. `forget` deletes by id, `list_memories` inventories
-with optional filters, and `clear_memories` is the admin bulk delete gated on
-a `YES_DELETE_ALL` token. Embeddings come from the local EmbeddingGemma 2
+returns the top matches. `forget` deletes by id (only the caller's own memory;
+ids and categories are validated before they reach a LanceDB filter, whose
+SQL-like syntax otherwise let `x' OR '1'='1` match every row), `list_memories`
+inventories with optional filters, and `clear_memories` is the admin bulk delete
+gated on a `YES_DELETE_ALL` token. Every query and write resolves its owner per
+call: the operator, or a WFE evaluation run when the request body carries an
+`eval` scope. A run can neither read nor change the operator's memories, and
+graph expansion never crosses owners. `/eval/forget_scope` (scope only, never a
+tool) deletes a run's memories, entities and relations. Embeddings come from the local EmbeddingGemma 2
 service on :8946 (`EG2_EMBEDDING_URL`), so no text ever leaves the machine to be
 vectorised. Memories and entity names embed as 768d SEARCH documents and the
 recall query as a SEARCH query; every stored vector carries an
