@@ -79,7 +79,15 @@ def test_registration_owns_retrieval_routes() -> None:
             return d
 
     rm.register_retrieval_routes(F())
-    assert set(calls) == {"/tools/kb_ingest", "/tools/kb_search", "/tools/kb_search_all"}
+    # The three retrieval tools, plus the two harness-only evaluation-scope routes (root-fix
+    # Part 2b): never tools, so in no manifest and on no workspace's tool list.
+    assert set(calls) == {
+        "/tools/kb_ingest",
+        "/tools/kb_search",
+        "/tools/kb_search_all",
+        "/eval/seed_kb",
+        "/eval/drop_kb",
+    }
 
 
 def test_ingest_then_search_contract(tmp_path: Path) -> None:

@@ -22,13 +22,17 @@ migration — see `unit-platform-retrieval`.
 
 from __future__ import annotations
 
+import dataclasses
 import os
+import re
+import shutil
 from pathlib import Path
 from typing import Any, Protocol
 
 import httpx
 from starlette.responses import JSONResponse
 
+from portal.platform.mcp_host import eval_scope
 from portal.platform.retrieval import chunking as _chunking
 from portal.platform.retrieval import embedding as _embedding
 from portal.platform.retrieval import extraction as _extraction
@@ -177,11 +181,77 @@ def _composition() -> _pipeline.Composition:
 
 
 # ── Routes (contract-preserving, multimodal-backed) ───────────────────────────
+_EVAL_DOC = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,99}$")
+
+
+def _scoped_composition() -> _pipeline.Composition:
+    """Under a WFE evaluation scope the run's KB is the only KB that exists."""
+    comp = _composition()
+    scope = eval_scope.EVAL_SCOPE.get()
+    if not scope:
+        return comp
+    full = comp.list_kbs
+    return dataclasses.replace(comp, list_kbs=lambda: [k for k in full() if k == scope["run"]])
+
+
+def _eval_sources(scope: dict[str, Any]) -> Path:
+    base = os.environ.get("PORTAL5_KB_SOURCES_DIR") or os.path.join(_store.LANCE_DIR, "kb_sources")
+    return eval_scope.run_root(base, scope)
+
+
+async def _eval_seed_kb(request: _JsonRequest) -> JSONResponse:
+    """Harness-only: write inline documents under the run's own source dir and ingest them as
+    the run's KB (KB sources live in a container volume the harness cannot write to)."""
+    scope = eval_scope.EVAL_SCOPE.get()
+    if scope is None:
+        return JSONResponse({"error": "an evaluation scope is required"}, status_code=400)
+    docs = (await request.json()).get("docs") or {}
+    if not docs or not all(
+        isinstance(k, str) and _EVAL_DOC.match(k) and isinstance(v, str) for k, v in docs.items()
+    ):
+        return JSONResponse({"error": "docs must map plain file names to text"}, status_code=400)
+    src = _eval_sources(scope)
+    for name, text in docs.items():
+        (src / name).write_text(text)
+    try:
+        return JSONResponse(
+            await _pipeline.ingest_document(_composition(), scope["run"], src, True)
+        )
+    except _VLUnavailableError as e:
+        return JSONResponse({"error": str(e)}, status_code=503)
+
+
+async def _eval_drop_kb(request: _JsonRequest) -> JSONResponse:
+    """Harness-only: drop the run's KB tables, its stamp and its source dir. Scope required."""
+    scope = eval_scope.EVAL_SCOPE.get()
+    if scope is None:
+        return JSONResponse({"error": "an evaluation scope is required"}, status_code=400)
+    run, db, gone = scope["run"], _store.get_db(), []
+    for name in (_store.tname(run), _store.vname(run)):
+        if name in _store.table_names(db):
+            db.drop_table(name)
+            gone.append(name)
+    meta = Path(_store.meta_path(run))
+    if meta.exists():
+        meta.unlink()
+        gone.append(meta.name)
+    shutil.rmtree(_eval_sources(scope), ignore_errors=True)
+    return JSONResponse({"dropped": gone, "kb_id": run})
+
+
 async def _ingest(request: _JsonRequest) -> JSONResponse:
     """kb_ingest: ingest a source directory. Text chunks (VL-embedded) + rendered
     PDF pages (VL-embedded) in one pass. Contract-preserved:
     args {kb_id, source_dir, rebuild, fts}, response
     {kb_id, files_ingested, chunks_added, pages_added, fts_index}."""
+    if eval_scope.EVAL_SCOPE.get():
+        return JSONResponse(
+            {"error": "kb_ingest is not available under an evaluation scope"}, status_code=403
+        )
+    if eval_scope.EVAL_SCOPE.get():
+        return JSONResponse(
+            {"error": "kb_ingest is not available under an evaluation scope"}, status_code=403
+        )
     args = (await request.json()).get("arguments", {})
     kb_id = args.get("kb_id", "")
     source_dir = args.get("source_dir", "")
@@ -220,13 +290,14 @@ async def _search(request: _JsonRequest) -> JSONResponse:
     calibrated probability when the text arm has no confident answer (see
     VL_TEXT_GATE / the B1 fusion fix)."""
     args = (await request.json()).get("arguments", {})
-    kb_id = args.get("kb_id", "")
+    scope = eval_scope.EVAL_SCOPE.get()
+    kb_id = scope["run"] if scope else args.get("kb_id", "")  # the scope owns the KB
     query = args.get("query", "")
     top_k = min(int(args.get("top_k", 5)), 20)
     if not kb_id or not query:
         return JSONResponse({"error": "kb_id and query required"}, status_code=400)
     try:
-        result = await _pipeline.search(_composition(), kb_id, query, top_k)
+        result = await _pipeline.search(_scoped_composition(), kb_id, query, top_k)
         return JSONResponse(result)
     except _pipeline.UnknownKBError as e:
         return JSONResponse({"error": str(e)}, status_code=404)
@@ -244,7 +315,7 @@ async def _search_all(request: _JsonRequest) -> JSONResponse:
     if not query:
         return JSONResponse({"error": "query required"}, status_code=400)
     try:
-        result = await _pipeline.search_all(_composition(), query, top_k)
+        result = await _pipeline.search_all(_scoped_composition(), query, top_k)
         return JSONResponse(result)
     except Exception as e:  # noqa: BLE001
         return JSONResponse({"error": str(e)}, status_code=503)
@@ -258,6 +329,8 @@ async def reindex_all() -> dict[str, Any]:
 
 def register_retrieval_routes(mcp: Any) -> None:
     """Own the kb_* retrieval routes with the multimodal implementation."""
-    mcp.custom_route("/tools/kb_ingest", methods=["POST"])(_ingest)
-    mcp.custom_route("/tools/kb_search", methods=["POST"])(_search)
-    mcp.custom_route("/tools/kb_search_all", methods=["POST"])(_search_all)
+    mcp.custom_route("/tools/kb_ingest", methods=["POST"])(eval_scope.bind_route(_ingest))
+    mcp.custom_route("/tools/kb_search", methods=["POST"])(eval_scope.bind_route(_search))
+    mcp.custom_route("/tools/kb_search_all", methods=["POST"])(eval_scope.bind_route(_search_all))
+    mcp.custom_route("/eval/seed_kb", methods=["POST"])(eval_scope.bind_route(_eval_seed_kb))
+    mcp.custom_route("/eval/drop_kb", methods=["POST"])(eval_scope.bind_route(_eval_drop_kb))

@@ -173,8 +173,18 @@ async def _read_file(path: Path) -> str:
     return ""
 
 
+async def _scoped(request: Request) -> bool:
+    """True when the request carries a WFE evaluation scope (maintenance tools refuse it)."""
+    try:
+        return bool((await request.json()).get("eval"))
+    except Exception:  # noqa: BLE001
+        return False
+
+
 @_route("/tools/kb_optimize", methods=["POST"])
 async def kb_optimize_endpoint(request: Request) -> JSONResponse:
+    if await _scoped(request):
+        return JSONResponse({"error": "not available under an evaluation scope"}, status_code=403)
     body = await request.json()
     args = body.get("arguments", {})
     kb_id = args.get("kb_id", "")
@@ -219,6 +229,8 @@ async def kb_optimize_endpoint(request: Request) -> JSONResponse:
 
 @_route("/tools/kb_versions", methods=["POST"])
 async def kb_versions_endpoint(request: Request) -> JSONResponse:
+    if await _scoped(request):
+        return JSONResponse({"error": "not available under an evaluation scope"}, status_code=403)
     body = await request.json()
     args = body.get("arguments", {})
     kb_id = args.get("kb_id", "")
@@ -243,6 +255,8 @@ async def kb_versions_endpoint(request: Request) -> JSONResponse:
 
 @_route("/tools/kb_restore", methods=["POST"])
 async def kb_restore_endpoint(request: Request) -> JSONResponse:
+    if await _scoped(request):
+        return JSONResponse({"error": "not available under an evaluation scope"}, status_code=403)
     body = await request.json()
     args = body.get("arguments", {})
     kb_id = args.get("kb_id", "")
@@ -264,9 +278,16 @@ async def kb_restore_endpoint(request: Request) -> JSONResponse:
 @_route("/tools/kb_list", methods=["POST"])
 async def kb_list_endpoint(request: Request) -> JSONResponse:
     from portal.modules.research.tools.rag_multimodal import _read_stamp
+    from portal.platform.mcp_host import eval_scope
 
+    try:
+        scope = eval_scope.parse((await request.json()).get("eval"))
+    except eval_scope.ScopeError as e:
+        return JSONResponse({"error": f"eval scope: {e}"}, status_code=400)
+    except Exception:  # noqa: BLE001 — no body
+        scope = None
     kbs = []
-    for kb_id in _list_kbs():
+    for kb_id in [k for k in _list_kbs() if not scope or k == scope["run"]]:
         t = _kb_table(kb_id)
         if t is not None:
             stamp = _read_stamp(kb_id) or {}

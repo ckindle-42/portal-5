@@ -41,6 +41,29 @@ def parse(raw: Any) -> dict[str, Any] | None:
     return {"campaign": camp, "run": run, "allow": sorted(set(allow))}
 
 
+def bind_route(handler: Any) -> Any:
+    """Wrap a Starlette route handler so the request body's `eval` scope is bound while it
+    runs. A malformed scope is a 400; a body that is not JSON is left to the handler."""
+
+    async def run(request: Any) -> Any:
+        from starlette.responses import JSONResponse  # noqa: PLC0415
+
+        try:
+            body = await request.json()
+            scope = parse(body.get("eval")) if isinstance(body, dict) else None
+        except ScopeError as e:
+            return JSONResponse({"error": f"eval scope: {e}"}, status_code=400)
+        except Exception:  # noqa: BLE001
+            scope = None
+        token = EVAL_SCOPE.set(scope)
+        try:
+            return await handler(request)
+        finally:
+            EVAL_SCOPE.reset(token)
+
+    return run
+
+
 def run_root(base: Path | str, scope: dict[str, Any]) -> Path:
     """`<base>/wfe/<campaign>/<run>`, with `base` resolved first; created if absent."""
     root = Path(base).resolve() / "wfe" / scope["campaign"] / scope["run"]
