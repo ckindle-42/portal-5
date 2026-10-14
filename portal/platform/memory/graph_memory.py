@@ -25,6 +25,7 @@ from starlette.responses import JSONResponse
 
 from portal.platform.embedding.client import EmbeddingClient
 from portal.platform.embedding.contract import NATIVE_DIM, Role, Task
+from portal.platform.mcp_host import eval_scope
 
 LANCE_DIR = os.environ.get("PORTAL5_LANCE_DIR", "/Volumes/data01/portal5_lance")
 # EmbeddingGemma 2 (:8946; containers set EG2_EMBEDDING_URL). Memory recall is asymmetric
@@ -34,6 +35,16 @@ EMBEDDING_DIM = NATIVE_DIM
 # vectors: the highest floor that keeps every query's gold memory (recall_any 0.975 at top-4).
 RECALL_FLOOR = float(os.environ.get("MEMORY_RECALL_FLOOR", "0.60"))
 DEFAULT_USER = "default"
+
+
+def _user() -> str:
+    """The memory owner for this call: the WFE run under an evaluation scope, else the
+    operator. Every read and write goes through it, so a scoped call can neither see nor
+    change the operator's memories (and entity expansion never crosses users)."""
+    scope = eval_scope.EVAL_SCOPE.get()
+    return scope["run"] if scope else DEFAULT_USER
+
+
 MEMORY_TABLE = "memory"
 ENTITIES_TABLE = "memory_entities"
 RELATIONS_TABLE = "memory_relations"
@@ -178,6 +189,17 @@ def graph_stats() -> dict[str, Any]:
     }
 
 
+_TOKEN_RE = re.compile(r"^[A-Za-z0-9_.:-]{1,128}$")
+
+
+def _token(value: Any, what: str) -> str:
+    """A memory id or category, checked before it is put in a LanceDB filter: those filters
+    are SQL-like, so an unchecked `x' OR '1'='1` would match every row (N-27)."""
+    if not isinstance(value, str) or not _TOKEN_RE.match(value):
+        raise ValueError(f"invalid {what}: {value!r}")
+    return value
+
+
 def _safe(name: str) -> str:
     if not name or not _NAME_RE.match(str(name)):
         raise ValueError(f"invalid entity name: {name!r}")
@@ -286,9 +308,7 @@ async def _upsert_entity(name: str, etype: str = "concept") -> None:
     name = _safe(name)
     tbl = _entities()
     now = time.time()
-    existing = (
-        tbl.search().where(f"user_id = '{DEFAULT_USER}' AND name = '{name}'").limit(1).to_list()
-    )
+    existing = tbl.search().where(f"user_id = '{_user()}' AND name = '{name}'").limit(1).to_list()
     if existing:
         e = existing[0]
         tbl.delete(f"id = '{e['id']}'")
@@ -302,7 +322,7 @@ async def _upsert_entity(name: str, etype: str = "concept") -> None:
         [
             {
                 "id": str(uuid.uuid4()),
-                "user_id": DEFAULT_USER,
+                "user_id": _user(),
                 "name": name,
                 "etype": etype,
                 "vector": vec,
@@ -334,7 +354,7 @@ async def _ingest_graph(text: str, source_memory_id: str) -> None:
         rows.append(
             {
                 "id": str(uuid.uuid4()),
-                "user_id": DEFAULT_USER,
+                "user_id": _user(),
                 "src": src,
                 "dst": dst,
                 "rel_type": rel_type,
@@ -357,7 +377,7 @@ def _rels_for(names: set[str]) -> list[dict[str, Any]]:
             continue
         for r in (
             tbl.search()
-            .where(f"user_id = '{DEFAULT_USER}' AND (src = '{n}' OR dst = '{n}')")
+            .where(f"user_id = '{_user()}' AND (src = '{n}' OR dst = '{n}')")
             .limit(100)
             .to_list()
         ):
@@ -385,7 +405,7 @@ async def _remember(request: Request) -> JSONResponse:
         [
             {
                 "id": mid,
-                "user_id": DEFAULT_USER,
+                "user_id": _user(),
                 "text": text,
                 "category": category,
                 "tags": args.get("tags", []),
@@ -417,7 +437,11 @@ async def _recall(request: Request) -> JSONResponse:
     except Exception as e:  # noqa: BLE001
         return JSONResponse({"error": f"embedding failed: {e}"}, status_code=503)
     mtbl = _memory_table()
-    where = f"user_id = '{DEFAULT_USER}'" + (f" AND category = '{category}'" if category else "")
+    try:
+        category = _token(category, "category") if category else None
+    except ValueError as e:
+        return JSONResponse({"error": str(e)}, status_code=400)
+    where = f"user_id = '{_user()}'" + (f" AND category = '{category}'" if category else "")
     seed_mem = [
         r
         for r in mtbl.search(qvec).metric("cosine").where(where).limit(min(top_k * 3, 60)).to_list()
@@ -448,7 +472,7 @@ async def _recall(request: Request) -> JSONResponse:
             _entities()
             .search(qvec)
             .metric("cosine")
-            .where(f"user_id = '{DEFAULT_USER}'")
+            .where(f"user_id = '{_user()}'")
             .limit(3)
             .to_list()
         )
@@ -481,12 +505,15 @@ async def _recall(request: Request) -> JSONResponse:
 
 async def _forget(request: Request) -> JSONResponse:
     args = (await request.json()).get("arguments", {})
-    mid = args.get("id", "")
-    if not mid:
-        return JSONResponse({"error": "id is required"}, status_code=400)
     try:
-        _memory_table().delete(f"id = '{mid}'")
-        _relations().delete(f"source_memory_id = '{mid}'")
+        mid = _token(args.get("id", ""), "id")
+    except ValueError as e:
+        return JSONResponse(
+            {"error": f"id is required and must be a memory id: {e}"}, status_code=400
+        )
+    try:  # only the caller's own memory (the operator, or an evaluation run)
+        _memory_table().delete(f"id = '{mid}' AND user_id = '{_user()}'")
+        _relations().delete(f"source_memory_id = '{mid}' AND user_id = '{_user()}'")
         return JSONResponse({"id": mid, "deleted": True})
     except Exception as e:  # noqa: BLE001
         return JSONResponse({"error": str(e)}, status_code=500)
@@ -497,7 +524,11 @@ async def _list_memories(request: Request) -> JSONResponse:
     category = args.get("category")
     tags = args.get("tags", [])
     limit = min(int(args.get("limit", 50)), 500)
-    where = f"user_id = '{DEFAULT_USER}'" + (f" AND category = '{category}'" if category else "")
+    try:
+        category = _token(category, "category") if category else None
+    except ValueError as e:
+        return JSONResponse({"error": str(e)}, status_code=400)
+    where = f"user_id = '{_user()}'" + (f" AND category = '{category}'" if category else "")
     rows = _memory_table().search().where(where).limit(limit).to_list()
     if tags:
         ts = set(tags)
@@ -524,8 +555,8 @@ async def _clear_memories(request: Request) -> JSONResponse:
     if args.get("confirm_token") != "YES_DELETE_ALL":
         return JSONResponse({"error": "confirm_token must be 'YES_DELETE_ALL'"}, status_code=400)
     for t in (_memory_table(), _entities(), _relations()):
-        t.delete(f"user_id = '{DEFAULT_USER}'")
-    return JSONResponse({"deleted": "all", "user_id": DEFAULT_USER})
+        t.delete(f"user_id = '{_user()}'")
+    return JSONResponse({"deleted": "all", "user_id": _user()})
 
 
 # ── New graph tools ──────────────────────────────────────────────────────────
@@ -540,7 +571,7 @@ async def _link(request: Request) -> JSONResponse:
             [
                 {
                     "id": rid,
-                    "user_id": DEFAULT_USER,
+                    "user_id": _user(),
                     "src": src,
                     "dst": dst,
                     "rel_type": args.get("rel_type", "related_to"),
@@ -589,7 +620,7 @@ async def _entity_timeline(request: Request) -> JSONResponse:
         rels = (
             _relations()
             .search()
-            .where(f"user_id = '{DEFAULT_USER}' AND (src = '{name}' OR dst = '{name}')")
+            .where(f"user_id = '{_user()}' AND (src = '{name}' OR dst = '{name}')")
             .limit(500)
             .to_list()
         )
@@ -616,7 +647,7 @@ async def _entity_timeline(request: Request) -> JSONResponse:
 
 async def migrate_existing() -> dict[str, Any]:
     """One-way, in-task migration: process every existing memory into the graph."""
-    rows = _memory_table().search().where(f"user_id = '{DEFAULT_USER}'").limit(100000).to_list()
+    rows = _memory_table().search().where(f"user_id = '{_user()}'").limit(100000).to_list()
     done = 0
     for r in rows:
         await _ingest_graph(r["text"], r["id"])
@@ -624,14 +655,49 @@ async def migrate_existing() -> dict[str, Any]:
     return {"migrated": done}
 
 
+def _scoped(handler: Any) -> Any:
+    """Bind the request body's WFE evaluation scope (`eval`) around a route handler."""
+
+    async def run(request: Request) -> JSONResponse:
+        try:
+            body = await request.json()
+            scope = eval_scope.parse(body.get("eval")) if isinstance(body, dict) else None
+        except eval_scope.ScopeError as e:
+            return JSONResponse({"error": f"eval scope: {e}"}, status_code=400)
+        except Exception:  # noqa: BLE001 — a body the handler itself will reject
+            scope = None
+        token = eval_scope.EVAL_SCOPE.set(scope)
+        try:
+            resp: JSONResponse = await handler(request)
+            return resp
+        finally:
+            eval_scope.EVAL_SCOPE.reset(token)
+
+    return run
+
+
+async def _forget_scope(request: Request) -> JSONResponse:
+    """Harness-only cleanup: delete everything the evaluation run stored (memories,
+    entities, relations). Requires a scope; never a tool."""
+    scope = eval_scope.EVAL_SCOPE.get()
+    if scope is None:
+        return JSONResponse({"error": "an evaluation scope is required"}, status_code=400)
+    for t in (_memory_table(), _entities(), _relations()):
+        t.delete(f"user_id = '{scope['run']}'")
+    return JSONResponse({"deleted": "all", "user_id": scope["run"]})
+
+
 def register_memory_routes(mcp: Any) -> None:
     """Register ALL memory endpoints (replacements + graph tools) on the server."""
-    mcp.custom_route("/tools/remember", methods=["POST"])(_remember)
-    mcp.custom_route("/tools/recall", methods=["POST"])(_recall)
-    mcp.custom_route("/tools/forget", methods=["POST"])(_forget)
-    mcp.custom_route("/tools/list_memories", methods=["POST"])(_list_memories)
-    mcp.custom_route("/tools/clear_memories", methods=["POST"])(_clear_memories)
-    mcp.custom_route("/tools/link", methods=["POST"])(_link)
-    mcp.custom_route("/tools/neighbors", methods=["POST"])(_neighbors)
-    mcp.custom_route("/tools/entity_timeline", methods=["POST"])(_entity_timeline)
-    mcp.custom_route("/tools/graph_recall", methods=["POST"])(_recall)  # recall is graph-aware
+    mcp.custom_route("/tools/remember", methods=["POST"])(_scoped(_remember))
+    mcp.custom_route("/tools/recall", methods=["POST"])(_scoped(_recall))
+    mcp.custom_route("/tools/forget", methods=["POST"])(_scoped(_forget))
+    mcp.custom_route("/tools/list_memories", methods=["POST"])(_scoped(_list_memories))
+    mcp.custom_route("/tools/clear_memories", methods=["POST"])(_scoped(_clear_memories))
+    mcp.custom_route("/tools/link", methods=["POST"])(_scoped(_link))
+    mcp.custom_route("/tools/neighbors", methods=["POST"])(_scoped(_neighbors))
+    mcp.custom_route("/tools/entity_timeline", methods=["POST"])(_scoped(_entity_timeline))
+    mcp.custom_route("/tools/graph_recall", methods=["POST"])(
+        _scoped(_recall)
+    )  # recall is graph-aware
+    mcp.custom_route("/eval/forget_scope", methods=["POST"])(_scoped(_forget_scope))
