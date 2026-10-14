@@ -30,6 +30,7 @@ from pathlib import Path
 
 import yaml
 
+from tests.wfe import decision
 from tests.wfe.schema import (
     INSTRUMENT_OUTCOMES,
     MODEL_QUALITY_OUTCOMES,
@@ -279,6 +280,111 @@ def _build_matrix(by_key: dict, role_of: dict, home_of: dict) -> list[dict]:
             }
         )
     return matrix
+
+
+def _queue(path: Path | None = None) -> dict:
+    """The candidate queue: what each model is for, and whether it is measurable."""
+    p = Path(path) if path else (REPO / "tests" / "wfe" / "candidate_queue.yaml")
+    if not p.exists():
+        return {}
+    return (yaml.safe_load(p.read_text()) or {}).get("models") or {}
+
+
+def _intended(queue: dict, model: str) -> set:
+    return set((queue.get(model) or {}).get("intended") or [])
+
+
+def _by_cell(rows: list[dict]) -> dict[tuple, list[dict]]:
+    out: dict[tuple, list[dict]] = defaultdict(list)
+    for r in rows:
+        out[(r["workspace"], r["arm"])].append(r)
+    return out
+
+
+def _incumbents(manifest: dict) -> dict[str, str]:
+    return {m["workspace"]: m["arm"] for m in manifest["rows"] if m["arm_role"] == "incumbent"}
+
+
+def _candidates(by: dict, ws: str, inc: str) -> list[str]:
+    return sorted({a for (w, a) in by if w == ws and a != inc})
+
+
+def arguable_tasks(suite_paths) -> set:
+    """The (suite, task) pairs a suite marks `arguable`."""
+    from tests.wfe.runner import load_suite
+
+    out: set = set()
+    for sp in sorted({str(p) for p in suite_paths}):
+        if not Path(sp).exists():  # a recorded suite that has since been renamed
+            continue
+        for t in load_suite(sp):
+            if t.get("arguable"):
+                out.add((Path(sp).stem, t["id"]))
+    return out
+
+
+def screen_out(
+    campaign_dir: Path, queue_path: Path | None = None, allow_mixed: bool = False
+) -> dict:
+    """One screen verdict per (workspace, candidate).
+
+    A screen DROP is a cost filter, never a decision, and an intended workspace
+    is always advanced: the model was queued for that lane, so only a full
+    confirm may take it away."""
+    manifest, rows, _ = _load(campaign_dir)
+    _collect_warnings(rows, manifest, allow_mixed)
+    queue = _queue(queue_path)
+    by = _by_cell(rows)
+    advance: dict[str, list[str]] = {}
+    cells = []
+    for ws, inc in sorted(_incumbents(manifest).items()):
+        for arm in _candidates(by, ws, inc):
+            cell = decision.screen(by[(ws, inc)], by[(ws, arm)], screen_expected(manifest, ws, arm))
+            if cell.verdict == decision.DROP and ws in _intended(queue, arm):
+                cell.verdict = decision.ADVANCE
+                cell.reason += "; intended workspace, always confirmed"
+            cells.append({"workspace": ws, "candidate": arm, **vars(cell)})
+            if cell.verdict == decision.ADVANCE:
+                advance.setdefault(ws, []).append(arm)
+    return {"advance": advance, "cells": cells}
+
+
+def fitness(campaign_dir: Path, queue_path: Path | None = None, allow_mixed: bool = False) -> dict:
+    """The confirm verdict per cell, then one disposition per model."""
+    manifest, rows, _ = _load(campaign_dir)
+    _collect_warnings(rows, manifest, allow_mixed)
+    queue = _queue(queue_path)
+    by = _by_cell(rows)
+    suites = [r["suite_path"] for r in manifest["rows"] if r.get("suite_path")]
+    arguable = arguable_tasks(suites)
+    repeats = max((r["repeat"] for r in manifest["rows"]), default=0) + 1
+    per_model: dict[str, dict[str, str]] = {}
+    cells = []
+    for ws, inc in sorted(_incumbents(manifest).items()):
+        for arm in _candidates(by, ws, inc):
+            expected = cell_expected(manifest, ws, inc, arm)
+            cell = decision.confirm(
+                by[(ws, inc)], by[(ws, arm)], expected, repeats=repeats, arguable=arguable
+            )
+            cells.append({"workspace": ws, "incumbent": inc, "candidate": arm, **vars(cell)})
+            per_model.setdefault(arm, {})[ws] = cell.verdict
+    lineages = Counter((queue.get(m) or {}).get("lineage") or m for m in per_model)
+    dispositions = []
+    for model in sorted(per_model):
+        lineage = (queue.get(model) or {}).get("lineage") or model
+        verdict, reason = decision.dispose(
+            per_model[model], _intended(queue, model), lineages[lineage] == 1
+        )
+        dispositions.append(
+            {
+                "model": model,
+                "disposition": verdict,
+                "reason": reason,
+                "intended": sorted(_intended(queue, model)),
+                "cells": per_model[model],
+            }
+        )
+    return {"instrument": manifest.get("instrument"), "cells": cells, "dispositions": dispositions}
 
 
 def build(campaign_dir: Path, allow_mixed: bool = False, only_arm: str | None = None) -> dict:
@@ -649,10 +755,35 @@ def main() -> int:
     ap.add_argument("--arm", help="per-model review document for one arm")
     ap.add_argument("--allow-mixed", action="store_true")
     ap.add_argument("--out-dir", default=str(REPO / "docs"))
+    ap.add_argument("--queue", type=Path, help="candidate queue (default candidate_queue.yaml)")
+    ap.add_argument("--screen-out", type=Path, help="write the screen's advance list here")
+    ap.add_argument("--fitness", action="store_true", help="confirm verdicts and dispositions")
     args = ap.parse_args()
     campaign_dir = CAMPAIGNS / args.campaign
     if not campaign_dir.is_dir():
         raise SystemExit(f"no such campaign: {campaign_dir}")
+
+    if args.screen_out:
+        res = screen_out(campaign_dir, args.queue, args.allow_mixed)
+        for c in res["cells"]:
+            print(f"  {c['verdict']:9s} {c['workspace']} <- {c['candidate']}: {c['reason']}")
+        args.screen_out.parent.mkdir(parents=True, exist_ok=True)
+        args.screen_out.write_text(yaml.safe_dump(res["advance"], sort_keys=True))
+        n = sum(len(v) for v in res["advance"].values())
+        print(f"advance: {args.screen_out} ({n} candidate cell(s))")
+        return 0
+
+    if args.fitness:
+        res = fitness(campaign_dir, args.queue, args.allow_mixed)
+        for c in res["cells"]:
+            print(f"  {c['verdict']:14s} {c['workspace']} {c['candidate']}: {c['reason']}")
+        for d in res["dispositions"]:
+            print(f"  {d['disposition']:16s} {d['model']}: {d['reason']}")
+        out = campaign_dir / "fitness.json"
+        out.write_text(json.dumps(res, indent=1))
+        print(f"fitness: {out}")
+        return 0
+
     rep = build(campaign_dir, args.allow_mixed, args.arm)
     stem = args.campaign + (f"_{sha12(args.arm)}" if args.arm else "")
     out_md = Path(args.out_dir) / f"WFE_FITNESS_REPORT_{stem}.md"

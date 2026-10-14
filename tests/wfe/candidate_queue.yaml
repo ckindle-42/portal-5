@@ -1,0 +1,26 @@
+# Candidate queue — what each model is FOR, and whether it can be measured now.
+#
+# `report --fitness` reads this: `intended` decides the disposition (BETTER in an
+# intended workspace is a FOLD, BETTER only outside is a PURPOSE), `lineage`
+# decides RETAIN_DIVERSITY against REDUNDANT when nothing separates a model from
+# its incumbent, and `available: false` makes every cell MISSING, so a model that
+# cannot be restored can only ever be NO_DECISION.
+#
+# Part 1 carries the models the confirm cell actually plans. Part 3 replaces this
+# with the generated queue: one entry per catalog model, its intended workspaces,
+# and the eligibility facts that put it there.
+models:
+  hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k:
+    lineage: qwen3.8
+    available: true
+    # Seated on 2026-09-12 (24/30 by class against granite4.1:30b on the pre-fix
+    # instrument). auto-compliance is the lane it was seated for.
+    intended:
+      - auto-compliance
+  granite4.1:30b-ctx64k:
+    lineage: granite4.1
+    available: true
+    # Tied the incumbent 24/30 by class before the instrument fixes, so it is a
+    # candidate for the same lane rather than a model looking for one.
+    intended:
+      - auto-compliance
