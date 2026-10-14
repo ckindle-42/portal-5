@@ -79,7 +79,13 @@ def prepare(pipe: bool, r: dict, manifest: dict, task: dict, wsc: dict, harness:
     scope = {"campaign": camp, "run": run, "allow": sorted(m["allow"]) if m else []}
     harness["pipeline_eval"] = scope
     if not m:
-        ctx = {"scope": scope, "root": None, "inventory": {}, "production": False}
+        ctx = {
+            "scope": scope,
+            "root": None,
+            "inventory": {},
+            "production": False,
+            "use_tools": not task.get("no_tools"),
+        }
         cleanup_stores(ctx)  # a re-run starts clean
         return task, wsc, ctx
     root = eval_scope.run_root(OUTPUT_ROOT, scope)
@@ -96,6 +102,7 @@ def prepare(pipe: bool, r: dict, manifest: dict, task: dict, wsc: dict, harness:
         "root": root,
         "inventory": _inventory(root),
         "production": True,
+        "use_tools": False,
     }
     ctx["seed_error"] = seed_stores(scope, task)
     wsc = {

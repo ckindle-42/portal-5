@@ -263,11 +263,15 @@ def test_production_seeds_memory_and_kb_and_a_seed_failure_is_an_instrument_erro
 
 
 @pytest.mark.parametrize(
-    ("ws", "tools_on", "allow_empty"),
-    [("auto-coding", True, True), ("auto-documents", False, False)],
+    ("ws", "task", "tools_on", "allow_empty"),
+    [
+        ("auto-coding", {"id": "t"}, True, True),
+        ("auto-coding", {"id": "t", "no_tools": True}, False, True),
+        ("auto-documents", {"id": "t"}, False, False),
+    ],
 )
 def test_run_row_keeps_sandbox_tools_and_sends_the_scope(
-    tmp_path, monkeypatch, out_root, ws, tools_on, allow_empty
+    tmp_path, monkeypatch, out_root, ws, task, tools_on, allow_empty
 ):
     from tests.wfe.runner import workspace_context
 
@@ -296,7 +300,7 @@ def test_run_row_keeps_sandbox_tools_and_sends_the_scope(
     }
     with contextlib.suppress(Exception):  # the fake raises, or run_row records it
         campaign.run_row(
-            tmp_path, {"campaign_id": "c", "env": {}}, row, wsc, {"id": "t"}, 1, 1, None, False
+            tmp_path, {"campaign_id": "c", "env": {}}, row, wsc, task, 1, 1, None, False
         )
     assert seen["use_tools"] is tools_on
     assert (seen["harness"]["pipeline_eval"]["allow"] == []) is allow_empty
