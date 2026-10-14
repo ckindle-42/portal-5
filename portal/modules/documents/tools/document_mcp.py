@@ -26,6 +26,7 @@ from starlette.requests import Request
 from starlette.responses import JSONResponse, Response
 
 from portal.platform.data_loader import load_data
+from portal.platform.mcp_host import eval_scope
 from portal.platform.mcp_host.owui_files import publish_file_sync
 
 if TYPE_CHECKING:
@@ -50,7 +51,19 @@ TEMPLATES_DIR = Path(__file__).resolve().parents[4] / "config" / "documents" / "
 
 
 def _published(output_path: Path, noun: str) -> dict[str, Any]:
-    """Publish a freshly generated file through Open WebUI and shape the tool result."""
+    """Publish a freshly generated file through Open WebUI and shape the tool result. Under a
+    WFE evaluation scope nothing is published: the file stays in the run's namespace and a
+    creation receipt is written beside it."""
+    scope = eval_scope.EVAL_SCOPE.get()
+    if scope:
+        rec = eval_scope.receipt(OUTPUT_DIR, scope, noun, output_path)
+        return {
+            "success": True,
+            "path": rec["path"],
+            "filename": output_path.name,
+            "receipt": rec,
+            "message": f"{noun} created: {output_path.name}",
+        }
     pub = publish_file_sync(output_path)
     if "error" in pub:
         return {"success": False, "error": pub["error"]}
@@ -207,6 +220,9 @@ def _resolve_input_path(file_path: str) -> Path:
     uploads (exact name, or OWUI's ``<uuid>_<name>`` form). Falls back to the
     given path so the caller's not-found error is unchanged.
     """
+    scope = eval_scope.EVAL_SCOPE.get()
+    if scope:  # a WFE row reads only its own fixtures and outputs
+        return eval_scope.confine(OUTPUT_DIR, scope, file_path, sub="in")
     given = Path(file_path)
     if given.exists() or given.name != file_path:
         return given.resolve()
@@ -224,6 +240,9 @@ def _resolve_input_path(file_path: str) -> Path:
 def _resolve_image(source: str) -> Path:
     if source.startswith(("http://", "https://")):
         return _safe_remote_image(source)
+    scope = eval_scope.EVAL_SCOPE.get()
+    if scope:
+        return eval_scope.confine(OUTPUT_DIR, scope, source, sub="in")
     candidate = Path(source)
     if not candidate.is_absolute():
         candidate = OUTPUT_DIR / candidate
@@ -241,6 +260,7 @@ async def health_check(request: Request) -> JSONResponse:
 
 # Tool manifest for discovery
 TOOLS_MANIFEST = load_data("config/inference", "tools_manifest_document_mcp")
+_MANIFEST_NAMES = frozenset(t["name"] for t in TOOLS_MANIFEST)
 
 
 @_route("/tools", methods=["GET"])
@@ -257,18 +277,26 @@ async def invoke_tool(request: Request) -> JSONResponse:
     except Exception:
         body = {}
     arguments = body.get("arguments", body)
-
     try:
-        fn = globals().get(tool_name)
-        if fn is None or not callable(fn):
-            return JSONResponse({"error": f"Unknown tool: {tool_name}"}, status_code=404)
-        result = fn(**arguments)
+        scope = eval_scope.parse(body.get("eval")) if isinstance(body, dict) else None
+    except eval_scope.ScopeError as e:
+        return JSONResponse({"error": f"eval scope: {e}"}, status_code=400)
+    # Only the manifest's tools are callable: globals() also holds internal helpers.
+    if tool_name not in _MANIFEST_NAMES:
+        return JSONResponse({"error": f"Unknown tool: {tool_name}"}, status_code=404)
+    token = eval_scope.EVAL_SCOPE.set(scope)
+    try:
+        result = globals()[tool_name](**arguments)
         return JSONResponse(result)
+    except eval_scope.ScopeError as e:
+        return JSONResponse({"error": str(e)}, status_code=403)
     except TypeError as e:
         return JSONResponse({"error": f"Invalid arguments for '{tool_name}': {e}"}, status_code=400)
     except Exception as e:
         logger.error("invoke_tool %s failed: %s", tool_name, e, exc_info=True)
         return JSONResponse({"error": str(e)}, status_code=500)
+    finally:
+        eval_scope.EVAL_SCOPE.reset(token)
 
 
 logger = logging.getLogger(__name__)
@@ -278,6 +306,11 @@ def _unique_path(name: str, ext: str) -> Path:
     """Return a unique output path."""
     uid = uuid.uuid4().hex[:8]
     safe = "".join(c if c.isalnum() or c in ("-", "_") else "_" for c in name[:40]).strip("_")
+    scope = eval_scope.EVAL_SCOPE.get()
+    if scope:
+        out = eval_scope.run_root(OUTPUT_DIR, scope) / "out"
+        out.mkdir(exist_ok=True)
+        return out / f"{safe}_{uid}.{ext}"
     return OUTPUT_DIR / f"{safe}_{uid}.{ext}"
 
 

@@ -46,6 +46,7 @@ from portal.platform.inference.router.backend_introspect import (
 from portal.platform.inference.router.correlation import (
     get_correlation_id as _corr_id,
 )
+from portal.platform.inference.router.eval_gate import apply_eval_scope
 from portal.platform.inference.router.metrics import (
     _hint_fallback_total,
     _record_response_time,
@@ -1671,6 +1672,7 @@ async def _build_streaming_request(
     _client_tools_only = bool(backend_body.pop("portal_client_tools_only", False))
     if _client_tools_only:
         effective_tools = []
+    effective_tools = apply_eval_scope(backend_body, effective_tools)
     # Per-model supports_tools lookup for both backend types — see
     # TASK_TOOL_SUPPORT_AUDIT_V1 §A4. The previous Ollama-default-true
     # logic caused tool-using workspaces to error when their fallback

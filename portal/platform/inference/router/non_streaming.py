@@ -18,6 +18,7 @@ import httpx
 from fastapi.responses import JSONResponse
 
 from portal.platform.inference.config import PersonaSpec
+from portal.platform.inference.router.eval_gate import apply_eval_scope
 from portal.platform.inference.router.metrics import _hint_fallback_total, _tool_calls_recovered
 from portal.platform.inference.router.power import _record_usage
 from portal.platform.inference.router.text_tool_calls import (
@@ -505,6 +506,7 @@ async def _try_non_streaming(
     # portal_client_tools_only / portal_no_tools / the non-tool-model strip:
     # same contract as streaming._build_streaming_request, so a request (or a
     # stream's non-streaming fallback) behaves the same in either mode.
+    _ns_tools = apply_eval_scope(req_body, _ns_tools)
     if req_body.pop("portal_client_tools_only", False):
         _ns_tools = []
     _supports_tools = _model_supports_tools(target_model)

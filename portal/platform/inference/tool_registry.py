@@ -42,6 +42,15 @@ TOOL_DISCOVERY_TIMEOUT_S = 5.0
 TOOL_DISPATCH_TIMEOUT_S = float(os.environ.get("TOOL_DISPATCH_TIMEOUT_S", "60"))
 
 
+def _dispatch_body(arguments: dict[str, Any], request_id: str) -> dict[str, Any]:
+    """The POST body for an MCP tool call; a WFE evaluation scope (mcp_host.eval_scope) rides
+    along as `eval` so the MCP can confine the call to the row's namespace."""
+    from portal.platform.mcp_host.eval_scope import EVAL_SCOPE  # noqa: PLC0415
+
+    scope = EVAL_SCOPE.get()
+    return {"arguments": arguments, "request_id": request_id, **({"eval": scope} if scope else {})}
+
+
 def _backoff_seconds(failures: int) -> float:
     """Backoff window in seconds for ``failures`` consecutive errors.
 
@@ -360,9 +369,7 @@ class ToolRegistry:
         try:
             client = await self._client()
             r = await client.post(
-                url,
-                json={"arguments": arguments, "request_id": request_id},
-                timeout=timeout_s,
+                url, json=_dispatch_body(arguments, request_id), timeout=timeout_s
             )
             if r.status_code == 200:
                 tool.healthy = True
