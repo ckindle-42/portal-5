@@ -927,6 +927,20 @@ def _read_response(endpoint: str, r) -> tuple[dict, str | None, Economics]:
     )
 
 
+@contextlib.contextmanager
+def _traced_errors(cid: str):
+    """Give a failed request its correlation id (R2-22, root-cause doc).
+
+    A turn that stalls or errors has no `served` record, so its pipeline trace is
+    the only evidence of what actually answered it. Without the id that evidence
+    is unreachable, and the row cannot be explained after the fact."""
+    try:
+        yield
+    except Exception as e:
+        e.correlation_id = cid
+        raise
+
+
 def chat(
     model: str,
     messages: list[dict],
@@ -971,22 +985,23 @@ def chat(
     elif ENGINE == "omlx":
         headers |= omlx_headers()
     req = urllib.request.Request(url, data=json.dumps(payload).encode(), headers=headers)
-    try:
-        with urllib.request.urlopen(req, timeout=stall_s) as r:
-            if wire_stream:
-                lines = _iter_lines_with_stall(r, stall_s, hard_s, model)
-                msg, finish, econ = _read_stream(wire, lines)
-            else:
-                msg, finish, econ = _read_response(wire, r)
-    except TimeoutError as e:
-        raise StreamStalledError(f"{model}: no response headers for {stall_s}s ({e})") from e
-    except urllib.error.HTTPError as e:
-        # The status line alone ("HTTP Error 400: Bad Request") cannot tell a
-        # context overflow from a malformed request; the engine's body can.
-        body = ""
-        with contextlib.suppress(Exception):
-            body = e.read().decode(errors="ignore")[:500]
-        raise RuntimeError(f"HTTP {e.code} from {url}: {body or e.reason}") from e
+    with _traced_errors(cid):
+        try:
+            with urllib.request.urlopen(req, timeout=stall_s) as r:
+                if wire_stream:
+                    lines = _iter_lines_with_stall(r, stall_s, hard_s, model)
+                    msg, finish, econ = _read_stream(wire, lines)
+                else:
+                    msg, finish, econ = _read_response(wire, r)
+        except TimeoutError as e:
+            raise StreamStalledError(f"{model}: no response headers for {stall_s}s ({e})") from e
+        except urllib.error.HTTPError as e:
+            # The status line alone ("HTTP Error 400: Bad Request") cannot tell a
+            # context overflow from a malformed request; the engine's body can.
+            body = ""
+            with contextlib.suppress(Exception):
+                body = e.read().decode(errors="ignore")[:500]
+            raise RuntimeError(f"HTTP {e.code} from {url}: {body or e.reason}") from e
     econ.wall_s = round(time.monotonic() - t0, 2)
     return {
         "message": msg,
@@ -1450,7 +1465,10 @@ class _Loop:
             stalled = isinstance(e, StreamStalledError | TimeoutError)
             self.outcome_override = Outcome.BUDGET_EXHAUSTED if stalled else Outcome.HARNESS_ERROR
             key = "stalled" if stalled else "harness_error"
-            self.transcript.append({"turn": turn, key: f"{type(e).__name__}: {e}"})
+            entry = {"turn": turn, key: f"{type(e).__name__}: {e}"}
+            if cid := getattr(e, "correlation_id", ""):
+                entry["correlation_id"] = cid
+            self.transcript.append(entry)
             return False
 
         self.econ.merge(resp["economics"])

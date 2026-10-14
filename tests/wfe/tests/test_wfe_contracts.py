@@ -764,6 +764,72 @@ class TestStallDetection:
         assert Outcome.BUDGET_EXHAUSTED not in INSTRUMENT_OUTCOMES
 
 
+class TestFailedTurnTrace:
+    """R2-22: a stalled or errored turn keeps its request's correlation id, so the
+    pipeline trace of the request that failed is still reachable."""
+
+    @pytest.fixture
+    def pipeline_mode(self, monkeypatch):
+        from tests.wfe import runner as rn
+
+        monkeypatch.setattr(rn, "ENGINE", "pipeline")
+        monkeypatch.setattr(rn, "CHAT_BASE", "http://pipeline.invalid")
+        return rn
+
+    def test_a_refused_request_keeps_its_correlation_id(self, pipeline_mode, monkeypatch):
+        import urllib.request
+
+        def _refused(*_a, **_k):
+            raise ConnectionRefusedError("no pipeline here")
+
+        monkeypatch.setattr(urllib.request, "urlopen", _refused)
+        with pytest.raises(ConnectionRefusedError) as ei:
+            pipeline_mode.chat("auto-compliance", [{"role": "user", "content": "hi"}])
+        assert ei.value.correlation_id.startswith("wfe-")
+
+    def test_a_stall_keeps_its_correlation_id(self, pipeline_mode, monkeypatch):
+        import urllib.request
+
+        def _stalled(*_a, **_k):
+            raise StreamStalledError("no output for 300s")
+
+        monkeypatch.setattr(urllib.request, "urlopen", _stalled)
+        with pytest.raises(StreamStalledError) as ei:
+            pipeline_mode.chat("auto-compliance", [{"role": "user", "content": "hi"}])
+        assert ei.value.correlation_id.startswith("wfe-")
+
+    def test_the_loop_records_the_id_on_a_failed_turn(self, pipeline_mode, monkeypatch, tmp_path):
+        rn = pipeline_mode
+        task = {"id": "t", "instruction": "Decide."}
+
+        def _failing_chat(*_a, **_k):
+            err = rn.StreamStalledError("no output for 300s")
+            err.correlation_id = "wfe-abc123"
+            raise err
+
+        monkeypatch.setattr(rn, "chat", _failing_chat)
+        loop = rn._Loop("auto-compliance", task, Sandbox(tmp_path), None, {}, None, False)
+        assert loop.step(0, 30) is False
+        (turn,) = loop.transcript
+        assert turn["turn"] == 0
+        assert "stalled" in turn
+        assert turn["correlation_id"] == "wfe-abc123"
+
+    def test_a_direct_engine_turn_records_no_empty_id(self, monkeypatch, tmp_path):
+        """Only pipeline mode has a trace; a direct row must not carry a blank id."""
+        from tests.wfe import runner as rn
+
+        task = {"id": "t", "instruction": "Decide."}
+
+        def _failing_chat(*_a, **_k):
+            raise rn.StreamStalledError("no output for 300s")
+
+        monkeypatch.setattr(rn, "chat", _failing_chat)
+        loop = rn._Loop("laguna", task, Sandbox(tmp_path), None, {}, None, False)
+        assert loop.step(0, 30) is False
+        assert "correlation_id" not in loop.transcript[0]
+
+
 class TestEffectiveSampling:
     """The audit must check the temperature the PIPELINE serves, not the one
     baked in the tag. router/validation.py injects the workspace's flat sampling
