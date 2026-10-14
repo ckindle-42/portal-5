@@ -30,8 +30,9 @@ def apply_eval_scope(body: dict[str, Any], tools: list[str]) -> list[str]:
         scope = eval_scope.parse(body.pop("portal_eval", None))
     except eval_scope.ScopeError as e:
         raise HTTPException(status_code=400, detail=f"portal_eval: {e}") from e
-    if scope is None:
-        return tools
-    eval_scope.EVAL_SCOPE.set(scope)
-    trace_note(eval=scope)
-    return [t for t in tools if t in scope["allow"]]
+    offered = tools if scope is None else [t for t in tools if t in scope["allow"]]
+    trace_note(tools_offered=sorted(offered))  # what this request could call, scoped or not
+    if scope is not None:
+        eval_scope.EVAL_SCOPE.set(scope)
+        trace_note(eval=scope)
+    return offered

@@ -265,3 +265,18 @@ def test_the_handler_binds_the_scope_before_injection():
     assert ctx.run(es.EVAL_SCOPE.get)["run"] == RUN and "portal_eval" in body
     with pytest.raises(HTTPException):
         contextvars.copy_context().run(bind_eval_scope, {"portal_eval": {"campaign": "x"}})
+
+
+def test_the_trace_records_the_tools_each_request_was_offered(monkeypatch):
+    """Live acceptance reads production's own trace: the gate notes what was offered."""
+    import contextvars
+
+    from portal.platform.inference.router import eval_gate
+
+    notes = []
+    monkeypatch.setattr(eval_gate, "trace_note", lambda **k: notes.append(k))
+    ctx = contextvars.copy_context()
+    ctx.run(eval_gate.apply_eval_scope, {"portal_eval": {**SCOPE, "allow": ["b"]}}, ["a", "b"])
+    contextvars.copy_context().run(eval_gate.apply_eval_scope, {}, ["a", "b"])
+    offered = [n["tools_offered"] for n in notes if "tools_offered" in n]
+    assert offered == [["b"], ["a", "b"]] and any("eval" in n for n in notes)

@@ -28,6 +28,7 @@ from portal.platform.inference.router.metrics import (
     _auto_context_latency_seconds,
 )
 from portal.platform.inference.router.preinject import append_text_to_content
+from portal.platform.inference.router.trace import note as trace_note
 from portal.platform.inference.router.workspaces import WORKSPACES
 from portal.platform.inference.tool_registry import tool_registry
 
@@ -195,6 +196,7 @@ async def inject_recalled_memory(
     # (same contract-mismatch class as SEAM-V1-AUTORAG-001).
     result = await _dispatch_bounded("recall", {"query": query, "top_k": _TOP_K}, cid)
     snippets = _extract_snippets(result)
+    trace_note(memory_injected=len(snippets))  # what injection actually added, per turn
     _auto_context_latency_seconds.labels(source="memory").observe(
         asyncio.get_event_loop().time() - t0
     )
@@ -224,6 +226,7 @@ async def inject_retrieved_context(
         args["kb_id"] = kb_id
     result = await _dispatch_bounded("kb_search", args, cid)
     snippets = _extract_snippets(result)
+    trace_note(kb_injected=len(snippets))
     _auto_context_latency_seconds.labels(source="rag").observe(asyncio.get_event_loop().time() - t0)
     _auto_context_inject_total.labels(
         source="rag", outcome=_dispatch_outcome("rag", result, snippets)
