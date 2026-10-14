@@ -61,9 +61,12 @@ def receipt(base: Path | str, scope: dict, tool: str, path: Path | str) -> dict:
     """Append a creation receipt to `<run root>/.receipts.jsonl` and return it."""
     p = confine(base, scope, path)
     data = p.read_bytes()
+    # `rel` is what the harness resolves: an MCP in a container sees the run root under its own
+    # mount (/app/data/generated/...), the harness under the host's (~/AI_Output/...).
     rec = {
         "tool": tool,
         "path": str(p),
+        "rel": str(p.relative_to(run_root(base, scope))),
         "sha256": hashlib.sha256(data).hexdigest(),
         "size": len(data),
         "utc": time.time(),

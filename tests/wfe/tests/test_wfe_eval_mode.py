@@ -188,3 +188,24 @@ def test_a_pipeline_call_without_tools_says_so():
         "m",
     )
     assert p.get("portal_client_tools_only") is True and "portal_no_tools" not in p
+
+
+def test_a_receipt_from_a_container_view_is_resolved_on_the_host(out_root):
+    """The documents MCP runs in Docker: its receipt path is /app/data/generated/wfe/...;
+    the harness must resolve the receipt's run-relative `rel` against its own root."""
+    _, _, ctx = eval_mode.prepare(
+        True,
+        _row(),
+        {"campaign_id": "c"},
+        {"id": "t"},
+        {"system_prompt_pipeline": "", "system_prompt_base": ""},
+        {},
+    )
+    (ctx["root"] / "out").mkdir()
+    f = ctx["root"] / "out" / "r.docx"
+    f.write_bytes(b"doc")
+    rec = es.receipt(eval_mode.OUTPUT_ROOT, ctx["scope"], "Document", f)
+    rec["path"] = "/app/data/generated/wfe/container_view/" + rec["rel"]
+    (ctx["root"] / ".receipts.jsonl").write_text(json.dumps(rec) + "\n")
+    [got] = eval_mode.receipts(ctx)
+    assert got["valid"] is True and got["host_path"] == str(f.resolve())

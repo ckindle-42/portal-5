@@ -79,10 +79,12 @@ def receipts(ctx: dict) -> list[dict]:
     out = []
     for line in f.read_text().splitlines() if f.exists() else []:
         rec = json.loads(line)
-        p = Path(rec["path"]).resolve()
+        # The MCP's `path` is in its own filesystem view (a container mount); `rel` is not.
+        p = (ctx["root"] / rec["rel"]).resolve() if rec.get("rel") else Path(rec["path"]).resolve()
+        rec["host_path"] = str(p)
         if (ctx["root"] / "out") not in p.parents or not p.is_file():
             rec["valid"] = "outside out/ or missing"
-        elif rec["path"] in ctx["inventory"]:
+        elif str(p) in ctx["inventory"]:
             rec["valid"] = "existed before the row"
         elif hashlib.sha256(p.read_bytes()).hexdigest() != rec["sha256"]:
             rec["valid"] = "changed after creation"
@@ -100,7 +102,7 @@ def finish(ctx: dict | None, out: dict, campaign_dir: Path, r: dict) -> dict:
     keep = campaign_dir / "artifacts" / hashlib.sha256(r["run_id"].encode()).hexdigest()[:12]
     for rec in (x for x in recs if x["valid"] is True):
         keep.mkdir(parents=True, exist_ok=True)
-        shutil.copy2(rec["path"], keep / Path(rec["path"]).name)
+        shutil.copy2(rec["host_path"], keep / Path(rec["host_path"]).name)
     # In evidence, which is persisted: ResultRow drops keys it does not declare.
     ev = {
         **(out.get("evidence") or {}),
