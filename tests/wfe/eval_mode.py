@@ -66,10 +66,18 @@ SERVICE_URLS = {
 }
 
 
-def mode_for(workspace: str) -> dict | None:
-    """The workspace's production tool mode ({tool_mode, allow}), or None for sandbox."""
+def mode_for(workspace: str, row_mode: str | None = None) -> dict | None:
+    """The workspace's production tool mode ({tool_mode, allow}), or None for sandbox. A plan
+    workload may choose the mode (`tool_mode: sandbox | production`, carried on its rows):
+    the suite knows which tools its tasks need. Without a choice, tool_modes.yaml decides."""
     modes = (yaml.safe_load(TOOL_MODES.read_text()) or {}).get("workspaces") or {}
     m = modes.get(workspace)
+    if row_mode == "sandbox":
+        return None
+    if row_mode == "production" and not (m and m.get("tool_mode") == "production"):
+        raise ValueError(
+            f"{workspace}: tool_mode production, but tool_modes.yaml has no allowlist for it"
+        )
     return m if m and m.get("tool_mode") == "production" else None
 
 
@@ -94,7 +102,7 @@ def prepare(pipe: bool, r: dict, manifest: dict, task: dict, wsc: dict, harness:
     taken. Otherwise everything is returned unchanged with ctx None."""
     if not pipe:
         return task, wsc, None
-    m = mode_for(r["workspace"])
+    m = mode_for(r["workspace"], r.get("tool_mode"))
     camp, run = tokens(manifest["campaign_id"], r["run_id"])
     # Every pipeline row carries a scope: a sandbox row allows no workspace tools, but the
     # pipeline's own memory/KB injection and write-back still stay inside the row (Part 2b).

@@ -478,7 +478,24 @@ def expand_matrix(
                 rows += _suite_rows(ws_id, spec, role, suite, home, tier, repeats, only_task)
     # Arm-major: every task for a model runs while its weights are resident.
     rows.sort(key=lambda r: (r["arm"], r["workspace"], r["suite"], r["task_id"], r["repeat"]))
-    return rows
+    return _with_tool_modes(rows, plan)
+
+
+def _with_tool_modes(rows: list[dict], plan: dict) -> list[dict]:
+    """Carry a workload's `tool_mode` (sandbox | production) onto its rows, checked now rather
+    than mid-run: an unknown mode, or production for a workspace with no allowlist, is an error."""
+    modes = {
+        ws: wl.get("tool_mode")
+        for ws, wl in (plan.get("workloads") or {}).items()
+        if wl.get("tool_mode")
+    }
+    for ws, mode in modes.items():
+        if mode not in ("sandbox", "production"):
+            raise ValueError(f"{ws}: tool_mode must be sandbox or production, not {mode!r}")
+        eval_mode.mode_for(ws, mode)
+    return [
+        {**r, "tool_mode": modes[r["workspace"]]} if r["workspace"] in modes else r for r in rows
+    ]
 
 
 def _planned_arms(arms: dict, ws_id: str, only_arm: str | None, want: set | None):
@@ -739,7 +756,11 @@ def tool_gaps(rows: list[dict]) -> list[str]:
         need = set((tasks[sp].get(r["task_id"]) or {}).get("requires_tools") or [])
         key = (r["workspace"], row_overrides(r).get("persona"))
         if need and key not in surface:
-            prod = eval_mode.mode_for(r["workspace"]) if ENGINE == "pipeline" else None
+            prod = (
+                eval_mode.mode_for(r["workspace"], r.get("tool_mode"))
+                if ENGINE == "pipeline"
+                else None
+            )
             surface[key] = (
                 set(prod["allow"])
                 if prod

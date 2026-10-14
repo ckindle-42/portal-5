@@ -337,3 +337,78 @@ def test_every_production_allowlist_is_the_workspaces_own_tools():
         modes["auto-compliance"]["allow"]
         and set(modes["auto-compliance"]["allow"]) <= VERIFIED_TOOLS
     )
+
+
+def _plan_with(tmp_path, ws, mode, home="compliance_agentic_full"):
+    p = tmp_path / "plan.yaml"
+    mode_line = f"    tool_mode: {mode}\n" if mode else ""
+    p.write_text(
+        f"workloads:\n  {ws}:\n{mode_line}    home: {home}\n    discovery: []\n"
+        "    arms: {incumbent: hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k, challengers: []}\n"
+    )
+    return p
+
+
+def test_a_plan_chooses_the_tool_mode_and_bad_choices_fail_at_expansion(tmp_path):
+    rows = campaign.expand_matrix(_plan_with(tmp_path, "auto-compliance", "sandbox"), 1)
+    assert rows and {r["tool_mode"] for r in rows} == {"sandbox"}
+    assert eval_mode.mode_for("auto-compliance", "sandbox") is None
+    assert eval_mode.mode_for("auto-compliance")["tool_mode"] == "production"
+    with pytest.raises(ValueError, match="sandbox or production"):
+        campaign.expand_matrix(_plan_with(tmp_path, "auto-compliance", "both"), 1)
+    with pytest.raises(ValueError, match="no allowlist"):
+        campaign.expand_matrix(
+            _plan_with(tmp_path, "auto-coding", "production", home="research"), 1
+        )
+
+
+def test_the_gate_refuses_packet_tasks_in_production_and_allows_them_in_sandbox(
+    tmp_path, monkeypatch
+):
+    """Not vacuous: without the plan's sandbox choice, every packet task (file_read) is refused."""
+    monkeypatch.setattr(campaign, "ENGINE", "pipeline")
+    prod = campaign.tool_gaps(
+        campaign.expand_matrix(_plan_with(tmp_path, "auto-compliance", None), 1)
+    )
+    sandbox = campaign.tool_gaps(
+        campaign.expand_matrix(_plan_with(tmp_path, "auto-compliance", "sandbox"), 1)
+    )
+    assert len(prod) == 30 and all("file_read" in g for g in prod) and sandbox == []
+    real = campaign.tool_gaps(
+        campaign.expand_matrix(eval_mode.REPO / "tests/wfe/plans/decision_run_v1.yaml", 1)
+    )
+    assert real == []
+
+
+def test_a_sandbox_declared_row_keeps_its_sandbox_tools(tmp_path, monkeypatch, out_root):
+    from tests.wfe.runner import workspace_context
+
+    class SentError(Exception):
+        pass
+
+    seen = {}
+
+    def fake_run_task(*a, **k):
+        seen.update(k)
+        raise SentError
+
+    monkeypatch.setattr(campaign, "ENGINE", "pipeline")
+    monkeypatch.setattr(campaign, "make_sandbox", lambda *a, **k: None)
+    monkeypatch.setattr(campaign, "run_task", fake_run_task)
+    wsc = workspace_context("auto-compliance")
+    row = {
+        "run_id": "auto-compliance|m|s|t|r0",
+        "workspace": "auto-compliance",
+        "arm": wsc["model"],
+        "arm_role": "incumbent",
+        "suite": "s",
+        "task_id": "t",
+        "repeat": 0,
+        "overrides": {},
+        "tool_mode": "sandbox",
+    }
+    with contextlib.suppress(Exception):
+        campaign.run_row(
+            tmp_path, {"campaign_id": "c", "env": {}}, row, wsc, {"id": "t"}, 1, 1, None, False
+        )
+    assert seen["use_tools"] is True and seen["harness"]["pipeline_eval"]["allow"] == []

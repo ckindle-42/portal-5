@@ -35,12 +35,14 @@ workloads:
       incumbent: portal5/laguna-xs21:q4_K_M-ctx128k
       challengers: []
   auto-research:
+    tool_mode: sandbox  # sandbox-era suite (its tasks need file_read); production-mode measurement uses the family suites (root-fix Part 3)
     home: research
     discovery: []
     arms:
       incumbent: hf.co/sjakek/Nex-N2-mini-GGUF:UD-Q4_K_M-ctx16k
       challengers: []
   auto-documents:
+    tool_mode: sandbox  # sandbox-era suite (its tasks need file_read); production-mode measurement uses the family suites (root-fix Part 3)
     home: research
     discovery: []
     arms:
@@ -59,6 +61,7 @@ workloads:
       incumbent: hf.co/mradermacher/Huihui-Qwen3.6-35B-A3B-abliterated-GGUF:Q4_K_M-ctx8k
       challengers: []
   auto-compliance:
+    tool_mode: sandbox  # sandbox-era suite (its tasks need file_read); production-mode measurement uses the family suites (root-fix Part 3)
     home: compliance_agentic
     discovery: []
     arms:

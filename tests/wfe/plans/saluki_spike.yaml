@@ -10,6 +10,7 @@
 # One arm per process; every arm after the first needs --append.
 workloads:
   auto-compliance:
+    tool_mode: sandbox  # sandbox-era suite (its tasks need file_read); production-mode measurement uses the family suites (root-fix Part 3)
     home: compliance_agentic
     discovery: [research]
     arms:

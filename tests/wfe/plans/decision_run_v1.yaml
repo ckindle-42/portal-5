@@ -11,6 +11,7 @@
 # the status quo stands.
 workloads:
   auto-compliance:
+    tool_mode: sandbox  # sandbox-era suite (its tasks need file_read); production-mode measurement uses the family suites (root-fix Part 3)
     home: compliance_agentic_full
     discovery: []
     arms:

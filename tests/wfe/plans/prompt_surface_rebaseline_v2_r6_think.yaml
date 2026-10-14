@@ -10,6 +10,7 @@
 # are the main campaign's seat rows; compare per served model.
 workloads:
   auto-compliance:
+    tool_mode: sandbox  # sandbox-era suite (its tasks need file_read); production-mode measurement uses the family suites (root-fix Part 3)
     home: compliance_agentic_loopset
     discovery: []
     arms:

@@ -1,6 +1,7 @@
 # Compliance seat on the upgraded engines (Ollama 0.35.0 / oMLX 0.7.0), through the pipeline. The pipeline serves it from oMLX (Lightning MTP).
 workloads:
   auto-compliance:
+    tool_mode: sandbox  # sandbox-era suite (its tasks need file_read); production-mode measurement uses the family suites (root-fix Part 3)
     home: compliance_agentic
     discovery: []
     arms:

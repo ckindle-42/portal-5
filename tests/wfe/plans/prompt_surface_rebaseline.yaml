@@ -7,6 +7,7 @@
 # candidates must also run at card think + sampling settings (R5).
 workloads:
   auto-compliance:
+    tool_mode: sandbox  # sandbox-era suite (its tasks need file_read); production-mode measurement uses the family suites (root-fix Part 3)
     home: compliance_agentic
     discovery: []
     arms:
@@ -31,6 +32,7 @@ workloads:
       incumbent: gemma4:e4b-it-qat-ctx8k
       challengers: []
   auto-research:
+    tool_mode: sandbox  # sandbox-era suite (its tasks need file_read); production-mode measurement uses the family suites (root-fix Part 3)
     home: research
     discovery: []
     arms:
