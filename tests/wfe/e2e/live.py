@@ -136,11 +136,6 @@ class LiveRig(Rig):
         self.results.append({"scenario": name, "status": "OFFLINE-ONLY", "evidence": why})
         print(f"OFFLINE-ONLY  {name}: {why}")
 
-    def wait_for_rows(self, c: str, n: int, timeout: float = 900) -> None:
-        end = time.time() + timeout
-        while time.time() < end and len(list((CAMPAIGNS / c / "rows").glob("*.json"))) < n:
-            time.sleep(2)
-
 
 def live_scenarios(rig: LiveRig) -> None:
     inc, ch = _seat("auto-compliance"), "granite4.1:30b-ctx64k"
@@ -216,12 +211,11 @@ def live_discipline(rig: LiveRig, inc: str, ch: str, one: list[str], c1: str) ->
         "workloads:\n  auto-compliance:\n    home: rig_short\n    discovery: []\n"
         f"    arms: {{incumbent: {inc}, challengers: []}}\n"
     )
-    three = ["--repeats", "1"]
+    three = ["--repeats", "5"]  # 15 cheap rows: there is always work left after the first
     c7 = rig.cid("drift")
 
     def drift_after_first_row():
-        rig.wait_for_rows(c7, 1)
-        DRIFT_PROBE.write_text("# live rig drift probe\n")
+        rig.act_after_first_row(c7, lambda pid: DRIFT_PROBE.write_text("# live rig drift probe\n"))
 
     rc = rig.arm(c7, inc, *three, plan=short, during=drift_after_first_row, timeout=3600)
     DRIFT_PROBE.unlink(missing_ok=True)
@@ -232,11 +226,10 @@ def live_discipline(rig: LiveRig, inc: str, ch: str, one: list[str], c1: str) ->
         f"rc={rc} quarantined={len(q)}",
     )
 
-    c8, pids = rig.cid("kill"), rig.tmp / "pids"
+    c8 = rig.cid("kill")
 
     def kill_after_first_row():
-        rig.wait_for_rows(c8, 1)
-        os.kill(int(pids.read_text().split()[-1]), signal.SIGTERM)
+        rig.act_after_first_row(c8, lambda pid: os.kill(pid, signal.SIGTERM))
 
     rc1 = rig.arm(c8, inc, *three, plan=short, during=kill_after_first_row, timeout=3600)
     v1 = rig.cli("--plan", str(short), "--campaign-id", c8, *three, "--verify-complete").returncode

@@ -14,6 +14,7 @@ campaigns (`rig_*`) are deleted afterwards unless --keep.
 from __future__ import annotations
 
 import argparse
+import contextlib
 import json
 import os
 import shutil
@@ -276,6 +277,20 @@ class Rig:
         )
         return json.loads(out.stdout.strip().splitlines()[-1]) if out.returncode == 0 else {}
 
+    def act_after_first_row(self, campaign: str, action, timeout: float = 1800) -> None:
+        """Deterministic mid-arm action: wait for the first row, freeze the campaign process
+        (SIGSTOP) so it cannot finish the rest, act, then let it continue (SIGCONT)."""
+        rows, end = CAMPAIGNS / campaign / "rows", time.time() + timeout
+        while time.time() < end and not any(rows.glob("*.json")):
+            time.sleep(0.05)
+        pid = int((self.tmp / "pids").read_text().split()[-1])
+        os.kill(pid, signal.SIGSTOP)
+        try:
+            action(pid)
+        finally:
+            with contextlib.suppress(ProcessLookupError):
+                os.kill(pid, signal.SIGCONT)
+
     def rows(self, campaign: str) -> list[dict]:
         return [json.loads(f.read_text()) for f in (CAMPAIGNS / campaign / "rows").glob("*.json")]
 
@@ -418,14 +433,10 @@ class Rig:
 
     def identity_mid_arm(self) -> None:
         c = self.cid("midrebuild")
-        rows_dir = CAMPAIGNS / c / "rows"
         saved: dict = {}
 
         def rebuild_after_first_row():
-            end = time.time() + 240
-            while time.time() < end and not (rows_dir.exists() and any(rows_dir.glob("*.json"))):
-                time.sleep(0.2)
-            saved["old"] = self.rebuild(SERVED[INC])
+            self.act_after_first_row(c, lambda pid: saved.update(old=self.rebuild(SERVED[INC])))
 
         try:
             rc = self.arm(c, INC, "--repeats", "1", during=rebuild_after_first_row, timeout=600)
@@ -518,8 +529,7 @@ class Rig:
         c7 = self.cid("drift")
 
         def drift_later():
-            time.sleep(4)
-            DRIFT_PROBE.write_text("# rig drift probe\n")
+            self.act_after_first_row(c7, lambda pid: DRIFT_PROBE.write_text("# rig drift probe\n"))
 
         rc = self.arm(c7, INC, "--repeats", "1", during=drift_later)
         DRIFT_PROBE.unlink(missing_ok=True)
@@ -533,11 +543,9 @@ class Rig:
         )
 
         c8 = self.cid("kill")
-        pids = self.tmp / "pids"
 
         def kill_later():
-            time.sleep(4)
-            os.kill(int(pids.read_text().split()[-1]), signal.SIGTERM)
+            self.act_after_first_row(c8, lambda pid: os.kill(pid, signal.SIGTERM))
 
         rc1 = self.arm(c8, INC, "--repeats", "1", during=kill_later)
         v1 = self.cli(
