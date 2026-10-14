@@ -15,19 +15,17 @@ import asyncio
 import contextlib
 import logging
 import os
-import re
 from collections.abc import Awaitable, Callable
 from pathlib import Path
 from typing import Any
 
-import lancedb
-import pyarrow as pa  # type: ignore[import-untyped]  # pyarrow ships no py.typed
 from mcp.server import MCPServer
 from starlette.requests import Request
 from starlette.responses import JSONResponse, Response
 
 from portal.modules.research.tools.rag_multimodal import register_retrieval_routes
 from portal.platform.data_loader import load_data
+from portal.platform.retrieval import store as _store
 
 logger = logging.getLogger(__name__)
 mcp = MCPServer("rag")
@@ -46,46 +44,21 @@ _kb_cache: dict[str, Any] = {}
 
 
 def _get_db() -> Any:
-    global _db
-    if _db is None:
-        from portal.platform.lance_guard import require_lance_dir
-
-        require_lance_dir(LANCE_DIR)
-        os.makedirs(RAG_DIR, exist_ok=True)
-        _db = lancedb.connect(RAG_DIR)
-    return _db
+    """The one KB store (retrieval.store), shared with kb_ingest / kb_search."""
+    return _store.get_db()
 
 
-def _kb_table_name(kb_id: str) -> str:
-    return f"kb_{re.sub(r'[^a-z0-9_]', '_', kb_id.lower())}"
-
-
-def _kb_table(kb_id: str, create_if_missing: bool = False) -> Any:
-    name = _kb_table_name(kb_id)
-    db = _get_db()
-    if name in db.table_names():
-        return db.open_table(name)
-    if not create_if_missing:
-        return None
-    schema = pa.schema(
-        [
-            pa.field("chunk_id", pa.string()),
-            pa.field("kb_id", pa.string()),
-            pa.field("source_file", pa.string()),
-            pa.field("chunk_index", pa.int32()),
-            pa.field("text", pa.string()),
-            pa.field("vector", pa.list_(pa.float32(), EMBEDDING_DIM)),
-            pa.field("char_start", pa.int32()),
-            pa.field("char_end", pa.int32()),
-            pa.field("ingested_at", pa.float64()),
-        ]
-    )
-    return db.create_table(name, schema=schema)
+def _kb_table(kb_id: str) -> Any:
+    """A KB's text table through retrieval.store, or None. This module used to keep its own
+    naming (lower-cased, sanitised) and an unpaged table listing: kb_list then dropped any KB
+    whose id was not lower-case alphanumeric, listed `_visual` tables as KBs, and could skip
+    tables past the first page (N-29)."""
+    return _store.text_table(kb_id)
 
 
 def _list_kbs() -> list[str]:
-    """List all KBs by table prefix."""
-    return sorted([t.replace("kb_", "", 1) for t in _get_db().table_names() if t.startswith("kb_")])
+    """All KBs, through retrieval.store's paged listing (visual tables excluded)."""
+    return _store.list_kbs()
 
 
 _route: Callable[
