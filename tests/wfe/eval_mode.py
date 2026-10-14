@@ -21,7 +21,23 @@ import yaml
 from portal.platform.mcp_host import eval_scope
 
 TOOL_MODES = Path(__file__).resolve().parent / "tool_modes.yaml"
-OUTPUT_ROOT = Path(os.environ.get("AI_OUTPUT_DIR") or Path.home() / "AI_Output")
+REPO = Path(__file__).resolve().parents[2]
+
+
+def setting(name: str, default: str, env_file: Path = REPO / ".env") -> str:
+    """A deployment setting the way the services resolve it: the environment, then the
+    repository's .env (which compose and the native launcher read), then the default."""
+    if os.environ.get(name):
+        return os.environ[name]
+    if env_file.is_file():
+        for line in env_file.read_text().splitlines():
+            key, sep, val = line.strip().partition("=")
+            if sep and key.removeprefix("export ").strip() == name and val.strip():
+                return os.path.expandvars(os.path.expanduser(val.strip().strip("'\"")))
+    return default
+
+
+OUTPUT_ROOT = Path(setting("AI_OUTPUT_DIR", str(Path.home() / "AI_Output")))
 DATA_MCP_URL = os.environ.get("WFE_DATA_MCP_URL", "http://localhost:8939").rstrip("/")
 
 

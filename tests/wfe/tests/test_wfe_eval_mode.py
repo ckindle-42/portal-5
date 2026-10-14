@@ -209,3 +209,13 @@ def test_a_receipt_from_a_container_view_is_resolved_on_the_host(out_root):
     (ctx["root"] / ".receipts.jsonl").write_text(json.dumps(rec) + "\n")
     [got] = eval_mode.receipts(ctx)
     assert got["valid"] is True and got["host_path"] == str(f.resolve())
+
+
+def test_settings_resolve_like_the_services(tmp_path, monkeypatch):
+    env = tmp_path / ".env"
+    env.write_text("# comment\nexport AI_OUTPUT_DIR='/srv/ai'\nOTHER=1\n")
+    monkeypatch.delenv("AI_OUTPUT_DIR", raising=False)
+    assert eval_mode.setting("AI_OUTPUT_DIR", "/home/x/AI_Output", env) == "/srv/ai"
+    monkeypatch.setenv("AI_OUTPUT_DIR", "/from/env")
+    assert eval_mode.setting("AI_OUTPUT_DIR", "/home/x/AI_Output", env) == "/from/env"
+    assert eval_mode.setting("MISSING", "dflt", env) == "dflt"
