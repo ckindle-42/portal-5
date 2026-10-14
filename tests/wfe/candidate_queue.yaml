@@ -1,26 +1,337 @@
-# Candidate queue — what each model is FOR, and whether it can be measured now.
-#
-# `report --fitness` reads this: `intended` decides the disposition (BETTER in an
-# intended workspace is a FOLD, BETTER only outside is a PURPOSE), `lineage`
-# decides RETAIN_DIVERSITY against REDUNDANT when nothing separates a model from
-# its incumbent, and `available: false` makes every cell MISSING, so a model that
-# cannot be restored can only ever be NO_DECISION.
-#
-# Part 1 carries the models the confirm cell actually plans. Part 3 replaces this
-# with the generated queue: one entry per catalog model, its intended workspaces,
-# and the eligibility facts that put it there.
 models:
-  hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k:
-    lineage: qwen3.8
-    available: true
-    # Seated on 2026-09-12 (24/30 by class against granite4.1:30b on the pre-fix
-    # instrument). auto-compliance is the lane it was seated for.
-    intended:
-      - auto-compliance
+  Bonsai-27B-mlx-1bit:
+    available: false
+    intended: []
+    lineage: Bonsai-27B-mlx-1bit
+    note: already absent from the store at closeout and the register records no upstream source
+    removed_at_closeout: true
+  Laguna-XS.2-4bit:
+    available: false
+    intended: []
+    lineage: Laguna-XS.2-4bit
+    note: already absent from the store at closeout and the register records no upstream source
+    removed_at_closeout: true
+  MLX-Qwen3.5-9B-Claude-4.6-Opus-Reasoning-Distilled-8bit:
+    available: false
+    intended: []
+    lineage: MLX-Qwen3.5-9B-Claude-4.6-Opus-Reasoning-Distilled-8bit
+    note: already absent from the store at closeout and the register records no upstream source
+    removed_at_closeout: true
+  MiMo-V2.6-Distill-Qwen-9B-MLX-Serve-4bit-mtp:
+    available: false
+    intended: []
+    lineage: MiMo-V2.6-Distill-Qwen-9B-MLX-Serve-4bit-mtp
+    note: already absent from the store at closeout and the register records no upstream source
+    removed_at_closeout: true
+  SuperQwen3.8-27b-abliterated-MLX-4bit:
+    available: false
+    intended: []
+    lineage: SuperQwen3.8-27b-abliterated-MLX-4bit
+    note: already absent from the store at closeout and the register records no upstream source
+    removed_at_closeout: true
+  Ternary-Bonsai-2-27B-mlx-2bit:
+    available: false
+    intended: []
+    lineage: Ternary-Bonsai-2-27B-mlx-2bit
+    note: already absent from the store at closeout and the register records no upstream source
+    removed_at_closeout: true
+  Ternary-Bonsai-8B-mlx-2bit:
+    available: false
+    intended: []
+    lineage: Ternary-Bonsai-8B-mlx-2bit
+    note: already absent from the store at closeout and the register records no upstream source
+    removed_at_closeout: true
+  bonsai-control:qwen3-1.7b-ctx16k:
+    available: false
+    intended: []
+    lineage: bonsai-control
+    note: already absent from the store at closeout and the register records no upstream source
+    removed_at_closeout: true
+  bonsai-control:qwen3-4b-ctx16k:
+    available: false
+    intended: []
+    lineage: bonsai-control
+    note: already absent from the store at closeout and the register records no upstream source
+    removed_at_closeout: true
+  bonsai-control:qwen3-8b-ctx16k:
+    available: false
+    intended: []
+    lineage: bonsai-control
+    note: already absent from the store at closeout and the register records no upstream source
+    removed_at_closeout: true
+  bonsai-control:qwen36-27b-ctx32k:
+    available: false
+    intended: []
+    lineage: bonsai-control
+    note: already absent from the store at closeout and the register records no upstream source
+    removed_at_closeout: true
+  bonsai-control:qwen38-27b-ctx32k:
+    available: false
+    intended: []
+    lineage: bonsai-control
+    note: already absent from the store at closeout and the register records no upstream source
+    removed_at_closeout: true
+  bonsai-probe:bonsai-v1-8b:
+    available: false
+    intended: []
+    lineage: bonsai-probe
+    note: already absent from the store at closeout and the register records no upstream source
+    removed_at_closeout: true
+  command-r:35b-08-2024-q4_K_M:
+    at_risk: 'judgment probe v6: the stop rule''s ''else REMOVED'' fired'
+    available: false
+    intended: []
+    lineage: command-r
+    note: already absent from the store at closeout and the register records no upstream source
+    removed_at_closeout: true
+  cybersecqwen-4b-toolfix:latest:
+    available: false
+    intended: []
+    lineage: cybersecqwen-4b-toolfix
+    note: already absent from the store at closeout and the register records no upstream source
+    removed_at_closeout: true
+  deepseek-ocr:latest:
+    available: false
+    intended: []
+    lineage: deepseek-ocr
+    note: already absent from the store at closeout and the register records no upstream source
+    removed_at_closeout: true
+  devstral:24b:
+    available: false
+    intended: []
+    lineage: devstral
+    note: already absent from the store at closeout and the register records no upstream source
+    removed_at_closeout: true
+  dolphin-llama3:8b:
+    available: false
+    intended: []
+    lineage: dolphin-llama3
+    note: already absent from the store at closeout and the register records no upstream source
+    removed_at_closeout: true
+  gemma4:e2b-it-qat-ctx8k:
+    available: false
+    intended: []
+    lineage: gemma4
+    note: already absent from the store at closeout and the register records no upstream source
+    removed_at_closeout: true
+  gemma4:e4b-it-qat-ctx8k:
+    available: false
+    intended: []
+    lineage: gemma4
+    note: already absent from the store at closeout and the register records no upstream source
+    removed_at_closeout: true
+  glm-ocr:Q8_0:
+    available: false
+    intended: []
+    lineage: glm-ocr
+    note: already absent from the store at closeout and the register records no upstream source
+    removed_at_closeout: true
   granite4.1:30b-ctx64k:
-    lineage: granite4.1
     available: true
-    # Tied the incumbent 24/30 by class before the instrument fixes, so it is a
-    # candidate for the same lane rather than a model looking for one.
     intended:
-      - auto-compliance
+    - auto-compliance
+    lineage: granite4.1
+  granite4.2:30b-q4_K_M:
+    at_risk: 'judgment probe v6: stop rule fired on a like-for-like comparator'
+    available: false
+    intended: []
+    lineage: granite4.2
+    note: already absent from the store at closeout and the register records no upstream source
+    removed_at_closeout: true
+  hf.co/Abiray/Agents-A1-Q4_K_M-GGUF:Q4_K_M:
+    available: false
+    intended: []
+    lineage: hf.co/Abiray/Agents-A1-Q4_K_M-GGUF
+    note: already absent from the store at closeout and the register records no upstream source
+    removed_at_closeout: true
+  hf.co/Andycurrent/Mistral-7B-Uncensored-GGUF:Q4_K_M:
+    available: false
+    intended: []
+    lineage: hf.co/Andycurrent/Mistral-7B-Uncensored-GGUF
+    note: already absent from the store at closeout and the register records no upstream source
+    removed_at_closeout: true
+  hf.co/BugTraceAI/BugTraceAI-CORE-Ultra-27B-Q6:Q6_K:
+    available: false
+    intended: []
+    lineage: hf.co/BugTraceAI/BugTraceAI-CORE-Ultra-27B-Q6
+    note: already absent from the store at closeout and the register records no upstream source
+    removed_at_closeout: true
+  hf.co/Jackrong/DeepSeek-V4-Pro-Qwen3.5-4B-MTP-GGUF:Q4_K_M:
+    available: false
+    intended: []
+    lineage: hf.co/Jackrong/DeepSeek-V4-Pro-Qwen3.5-4B-MTP-GGUF
+    note: already absent from the store at closeout and the register records no upstream source
+    removed_at_closeout: true
+  hf.co/Jackrong/DeepSeek-V4-Pro-Qwen3.5-9B-MTP-GGUF:Q4_K_M:
+    available: false
+    intended: []
+    lineage: hf.co/Jackrong/DeepSeek-V4-Pro-Qwen3.5-9B-MTP-GGUF
+    note: already absent from the store at closeout and the register records no upstream source
+    removed_at_closeout: true
+  hf.co/Jackrong/Qwopus3.6-27B-v2-MTP-GGUF:Qwopus3.6-27B-v2-MTP-Q5_K_M.gguf:
+    available: false
+    intended: []
+    lineage: hf.co/Jackrong/Qwopus3.6-27B-v2-MTP-GGUF
+    note: already absent from the store at closeout and the register records no upstream source
+    removed_at_closeout: true
+  hf.co/Jiunsong/SuperQwen-AgentWorld-35B-A3B-abliterated-gguf-4bit:Q4_K_M:
+    available: false
+    intended: []
+    lineage: hf.co/Jiunsong/SuperQwen-AgentWorld-35B-A3B-abliterated-gguf-4bit
+    note: already absent from the store at closeout and the register records no upstream source
+    removed_at_closeout: true
+  hf.co/LiquidAI/LFM2.5-1.2B-Instruct-GGUF:Q4_K_M:
+    available: false
+    intended: []
+    lineage: hf.co/LiquidAI/LFM2.5-1.2B-Instruct-GGUF
+    note: already absent from the store at closeout and the register records no upstream source
+    removed_at_closeout: true
+  hf.co/LiquidAI/LFM2.5-230M-GGUF:Q4_K_M:
+    available: false
+    intended: []
+    lineage: hf.co/LiquidAI/LFM2.5-230M-GGUF
+    note: already absent from the store at closeout and the register records no upstream source
+    removed_at_closeout: true
+  hf.co/LiquidAI/LFM2.5-350M-GGUF:Q4_K_M:
+    available: false
+    intended: []
+    lineage: hf.co/LiquidAI/LFM2.5-350M-GGUF
+    note: already absent from the store at closeout and the register records no upstream source
+    removed_at_closeout: true
+  hf.co/Mia-AiLab/Qwable-3.6-35b:Qwable-3.6-35b_q4_k_m.gguf:
+    available: false
+    intended: []
+    lineage: hf.co/Mia-AiLab/Qwable-3.6-35b
+    note: already absent from the store at closeout and the register records no upstream source
+    removed_at_closeout: true
+  hf.co/ggml-org/dots.ocr-GGUF:Q8_0:
+    available: false
+    intended: []
+    lineage: hf.co/ggml-org/dots.ocr-GGUF
+    note: already absent from the store at closeout and the register records no upstream source
+    removed_at_closeout: true
+  hf.co/mitkox/FastContext-1.0-4B-SFT-Q4_K_M-GGUF:Q4_K_M:
+    available: false
+    intended: []
+    lineage: hf.co/mitkox/FastContext-1.0-4B-SFT-Q4_K_M-GGUF
+    note: already absent from the store at closeout and the register records no upstream source
+    removed_at_closeout: true
+  hf.co/mradermacher/Nanonets-OCR2-3B-GGUF:Q4_K_M:
+    available: false
+    intended: []
+    lineage: hf.co/mradermacher/Nanonets-OCR2-3B-GGUF
+    note: already absent from the store at closeout and the register records no upstream source
+    removed_at_closeout: true
+  hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k:
+    available: true
+    intended:
+    - auto-compliance
+    lineage: qwen3.8
+  huihui_ai/gemma-4-abliterated:E2b-qat-ctx8k:
+    available: false
+    intended: []
+    lineage: huihui_ai/gemma-4-abliterated
+    note: already absent from the store at closeout and the register records no upstream source
+    removed_at_closeout: true
+  llama3.2:3b:
+    available: false
+    intended: []
+    lineage: llama3.2
+    note: already absent from the store at closeout and the register records no upstream source
+    removed_at_closeout: true
+  llama3.2:3b-instruct-q8_0-ctx8k:
+    available: false
+    intended: []
+    lineage: llama3.2
+    note: already absent from the store at closeout and the register records no upstream source
+    removed_at_closeout: true
+  meta-secalign-8b-q4_k_m:latest:
+    available: false
+    intended: []
+    lineage: meta-secalign-8b-q4_k_m
+    note: already absent from the store at closeout and the register records no upstream source
+    removed_at_closeout: true
+  muse-glimmer:30b-mlx:
+    available: false
+    intended: []
+    lineage: muse-glimmer
+    note: already absent from the store at closeout and the register records no upstream source
+    removed_at_closeout: true
+  phi4:14b-q8_0:
+    available: false
+    intended: []
+    lineage: phi4
+    note: already absent from the store at closeout and the register records no upstream source
+    removed_at_closeout: true
+  portal5/deepwen-3.6:q4.5-moq:
+    available: false
+    intended: []
+    lineage: portal5/deepwen-3.6
+    note: already absent from the store at closeout and the register records no upstream source
+    removed_at_closeout: true
+  portal5/deepwen-3.6:q4.5-moq-ctx32k:
+    available: false
+    intended: []
+    lineage: portal5/deepwen-3.6
+    note: already absent from the store at closeout and the register records no upstream source
+    removed_at_closeout: true
+  portal5/gemma4-12b:q4_K_M-ctx8k:
+    available: false
+    intended: []
+    lineage: portal5/gemma4-12b
+    note: already absent from the store at closeout and the register records no upstream source
+    removed_at_closeout: true
+  portal5/laguna-xs2:q4_K_M-ctx128k:
+    available: false
+    intended: []
+    lineage: portal5/laguna-xs2
+    note: already absent from the store at closeout and the register records no upstream source
+    removed_at_closeout: true
+  portal5/mimo-v26-distill-9b:q4_K_M-ctx256k:
+    available: false
+    intended: []
+    lineage: portal5/mimo-v26-distill-9b
+    note: already absent from the store at closeout and the register records no upstream source
+    removed_at_closeout: true
+  portal5/qwen3.6-27b-mtp:q8_0-drafted:
+    available: false
+    intended: []
+    lineage: portal5/qwen3.6-27b-mtp
+    note: already absent from the store at closeout and the register records no upstream source
+    removed_at_closeout: true
+  portal5/xyz-aquila-mini:Q4_K_M:
+    available: false
+    intended: []
+    lineage: portal5/xyz-aquila-mini
+    note: already absent from the store at closeout and the register records no upstream source
+    removed_at_closeout: true
+  qwen3.6:27b-mtp-q4_K_M:
+    available: false
+    intended: []
+    lineage: qwen3.6
+    note: already absent from the store at closeout and the register records no upstream source
+    removed_at_closeout: true
+  qwen3.6:27b-q8_0:
+    available: false
+    intended: []
+    lineage: qwen3.6
+    note: already absent from the store at closeout and the register records no upstream source
+    removed_at_closeout: true
+  qwen3.6:35b-a3b-q4_K_M:
+    available: false
+    intended: []
+    lineage: qwen3.6
+    note: already absent from the store at closeout and the register records no upstream source
+    removed_at_closeout: true
+  sylink/sylink:8b:
+    available: false
+    intended: []
+    lineage: sylink/sylink
+    note: already absent from the store at closeout and the register records no upstream source
+    removed_at_closeout: true
+  sylink/sylink:8b-ctx8k:
+    available: false
+    intended: []
+    lineage: sylink/sylink
+    note: already absent from the store at closeout and the register records no upstream source
+    removed_at_closeout: true

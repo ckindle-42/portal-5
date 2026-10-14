@@ -1120,6 +1120,10 @@ surfaces:
   globs:
   - tests/wfe/tests/conftest.py
   unit: unit-wfe-workspace-fitness
+- name: file-tests-wfe-tests-test_wfe_backfill
+  globs:
+  - tests/wfe/tests/test_wfe_backfill.py
+  unit: unit-wfe-workspace-fitness
 - name: file-tests-wfe-tests-test_wfe_baseline
   globs:
   - tests/wfe/tests/test_wfe_baseline.py
