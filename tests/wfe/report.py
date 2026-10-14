@@ -387,6 +387,89 @@ def fitness(campaign_dir: Path, queue_path: Path | None = None, allow_mixed: boo
     return {"instrument": manifest.get("instrument"), "cells": cells, "dispositions": dispositions}
 
 
+LEDGER = REPO / "tests" / "wfe" / "fitness_ledger.yaml"
+
+
+def ledger_receipts(campaign_dir: Path) -> list[dict]:
+    p = campaign_dir / "controls_receipts.jsonl"
+    if not p.exists():
+        return []
+    return [json.loads(x) for x in p.read_text().splitlines() if x.strip()]
+
+
+def ledger_refusals(campaign_dir: Path, manifest: dict, rows: list[dict]) -> list[str]:
+    """Why this campaign may not be written to the fitness ledger; empty means it may.
+
+    A seat decision has to be traceable to decision-grade evidence: rows served
+    through the pipeline, measured by one instrument, gated by controls that all
+    passed. Anything else is a diagnostic and stays out of the ledger."""
+    why = []
+    if (manifest.get("instrument") or {}).get("engine") != "pipeline":
+        why.append("not a pipeline-mode campaign: only pipeline rows are decision-grade")
+    fps = {(r.get("instrument") or {}).get("fingerprint") for r in rows}
+    if len(fps) != 1 or None in fps:
+        why.append(f"rows do not share one instrument fingerprint: {sorted(map(str, fps))}")
+    receipts = ledger_receipts(campaign_dir)
+    if not receipts:
+        why.append("no controls receipt: the controls gate never ran for this campaign")
+    failed = [r for r in receipts if r.get("failures")]
+    if failed:
+        why.append(f"{len(failed)} controls receipt(s) record failures")
+    return why
+
+
+def record_ledger(
+    campaign_dir: Path,
+    queue_path: Path | None = None,
+    ledger_path: Path | None = None,
+    allow_mixed: bool = False,
+) -> dict:
+    """Write one cell per (model, workspace) to the fitness ledger."""
+    manifest, rows, _ = _load(campaign_dir)
+    why = ledger_refusals(campaign_dir, manifest, rows)
+    if why:
+        raise SystemExit("refusing to record the fitness ledger:\n  " + "\n  ".join(why))
+    fit = fitness(campaign_dir, queue_path, allow_mixed)
+    ident = manifest.get("identity_map") or {}
+    instrument = manifest.get("instrument") or {}
+    receipts = {
+        path: digest
+        for rec in ledger_receipts(campaign_dir)
+        for path, digest in (rec.get("suites") or {}).items()
+    }
+    now = dt.datetime.now(dt.UTC).isoformat()
+    cells = [
+        {
+            "model": c["candidate"],
+            "workspace": c["workspace"],
+            "tier": "confirm",
+            "verdict": c["verdict"],
+            "reason": c["reason"],
+            "n": c["n"],
+            "wins": c["wins"],
+            "losses": c["losses"],
+            "ties": c["ties"],
+            "p": c["p"],
+            "campaign": manifest.get("campaign_id"),
+            "instrument": instrument.get("fingerprint"),
+            "served": (ident.get(f"{c['workspace']}|{c['candidate']}") or {}).get("model")
+            or instrument.get("deployed"),
+            "receipts": receipts,
+            "recorded_utc": now,
+        }
+        for c in fit["cells"]
+    ]
+    path = Path(ledger_path) if ledger_path else LEDGER
+    doc = (yaml.safe_load(path.read_text()) if path.exists() else None) or {}
+    fresh = {(c["model"], c["workspace"]) for c in cells}
+    kept = [
+        e for e in (doc.get("cells") or []) if (e.get("model"), e.get("workspace")) not in fresh
+    ]
+    doc["cells"] = [*kept, *cells]
+    path.write_text(yaml.safe_dump(doc, sort_keys=False))
+    return {"path": str(path), "cells": cells, "kept": len(kept)}
+
+
 def build(campaign_dir: Path, allow_mixed: bool = False, only_arm: str | None = None) -> dict:
     manifest, rows, preflights = _load(campaign_dir)
     if only_arm:
@@ -758,6 +841,8 @@ def main() -> int:
     ap.add_argument("--queue", type=Path, help="candidate queue (default candidate_queue.yaml)")
     ap.add_argument("--screen-out", type=Path, help="write the screen's advance list here")
     ap.add_argument("--fitness", action="store_true", help="confirm verdicts and dispositions")
+    ap.add_argument("--record", action="store_true", help="write --fitness cells to the ledger")
+    ap.add_argument("--ledger", type=Path, help="fitness ledger path (default fitness_ledger.yaml)")
     args = ap.parse_args()
     campaign_dir = CAMPAIGNS / args.campaign
     if not campaign_dir.is_dir():
@@ -771,6 +856,13 @@ def main() -> int:
         args.screen_out.write_text(yaml.safe_dump(res["advance"], sort_keys=True))
         n = sum(len(v) for v in res["advance"].values())
         print(f"advance: {args.screen_out} ({n} candidate cell(s))")
+        return 0
+
+    if args.record:
+        res = record_ledger(campaign_dir, args.queue, args.ledger, args.allow_mixed)
+        for c in res["cells"]:
+            print(f"  {c['verdict']:14s} {c['workspace']} {c['model']}: {c['reason']}")
+        print(f"ledger: {res['path']} (+{len(res['cells'])} cell(s), {res['kept']} kept)")
         return 0
 
     if args.fitness:

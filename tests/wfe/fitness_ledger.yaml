@@ -1,0 +1,14 @@
+# Fitness ledger — one cell per (model, workspace), written by
+# `report --campaign <id> --record`; never hand-edited.
+#
+# A cell is the evidence behind a seat decision, so recording refuses anything
+# that is not decision-grade: a campaign that did not run through the pipeline,
+# rows measured by more than one instrument, or a controls gate that did not run
+# or did not pass. Each cell carries the instrument fingerprint, the served build
+# and the suite digests its campaign was gated against, so a reader can tell
+# whether the measurement still describes what production serves.
+#
+# Part 1 leaves this empty and installs the writer. The disposition backfill
+# (build step 8) is what fills it from the fleet closeout; Part 5's sweep adds
+# the cells it measures.
+cells: []

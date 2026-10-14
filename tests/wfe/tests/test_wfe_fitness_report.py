@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import json
 
+import pytest
 import yaml
 
 from tests.wfe import campaign as camp
@@ -170,3 +171,62 @@ class TestScreenOut:
         assert cell["n"] == 4 < decision.SCREEN_MIN_TASKS
         assert cell["verdict"] == decision.ADVANCE
         assert "too few to drop" in cell["reason"]
+
+
+class TestFitnessLedger:
+    """Recording refuses anything that is not decision-grade."""
+
+    def test_a_clean_pipeline_campaign_records_its_cells(self, tmp_path, monkeypatch):
+        d, q = _campaign(tmp_path, monkeypatch, inc_fails=True)
+        led = tmp_path / "ledger.yaml"
+        res = rep.record_ledger(d, q, led)
+        (cell,) = [c for c in res["cells"] if c["model"] == CAND]
+        assert cell["verdict"] == decision.BETTER
+        assert cell["tier"] == "confirm"
+        assert cell["campaign"] == "c"
+        assert cell["instrument"] == "fp1"
+        assert cell["receipts"] == {f"{SUITE}.jsonl": "d1"}
+        assert cell["recorded_utc"]
+        assert yaml.safe_load(led.read_text())["cells"] == res["cells"]
+
+    def test_recording_twice_replaces_the_cell_rather_than_appending(self, tmp_path, monkeypatch):
+        d, q = _campaign(tmp_path, monkeypatch, inc_fails=True)
+        led = tmp_path / "ledger.yaml"
+        rep.record_ledger(d, q, led)
+        res = rep.record_ledger(d, q, led)
+        cells = yaml.safe_load(led.read_text())["cells"]
+        assert len(cells) == len(res["cells"])
+        assert len({(c["model"], c["workspace"]) for c in cells}) == len(cells)
+
+    def test_a_direct_engine_campaign_is_refused(self, tmp_path, monkeypatch):
+        d, q = _campaign(tmp_path, monkeypatch)
+        man = json.loads((d / "manifest.json").read_text())
+        man["instrument"]["engine"] = "ollama"
+        camp.save_manifest(d, man)
+        with pytest.raises(SystemExit, match="not a pipeline-mode campaign"):
+            rep.record_ledger(d, q, tmp_path / "ledger.yaml")
+
+    def test_rows_measured_by_two_instruments_are_refused(self, tmp_path, monkeypatch):
+        d, q = _campaign(tmp_path, monkeypatch)
+        man = json.loads((d / "manifest.json").read_text())
+        man["rows"][0]["instrument"] = {"fingerprint": "fp2"}
+        camp.save_manifest(d, man)
+        (d / "rows" / (camp.sha12(man["rows"][0]["run_id"]) + ".json")).write_text(
+            json.dumps(man["rows"][0])
+        )
+        with pytest.raises(SystemExit, match="one instrument fingerprint"):
+            rep.record_ledger(d, q, tmp_path / "ledger.yaml")
+
+    def test_a_failing_controls_receipt_is_refused(self, tmp_path, monkeypatch):
+        d, q = _campaign(tmp_path, monkeypatch)
+        (d / "controls_receipts.jsonl").write_text(
+            json.dumps({"where": "execute", "suites": {}, "failures": ["t1: echo passed"]}) + "\n"
+        )
+        with pytest.raises(SystemExit, match="record failures"):
+            rep.record_ledger(d, q, tmp_path / "ledger.yaml")
+
+    def test_a_campaign_with_no_controls_receipt_is_refused(self, tmp_path, monkeypatch):
+        d, q = _campaign(tmp_path, monkeypatch)
+        (d / "controls_receipts.jsonl").unlink()
+        with pytest.raises(SystemExit, match="controls gate never ran"):
+            rep.record_ledger(d, q, tmp_path / "ledger.yaml")
