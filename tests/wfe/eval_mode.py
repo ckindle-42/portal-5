@@ -54,6 +54,7 @@ MEMORY_MCP_URL = mcp_url("WFE_MEMORY_MCP_URL", "MEMORY_MCP_HOST_PORT", 8920)
 RAG_MCP_URL = mcp_url("WFE_RAG_MCP_URL", "RAG_MCP_HOST_PORT", 8921)
 DOCUMENTS_MCP_URL = mcp_url("WFE_DOCUMENTS_MCP_URL", "DOCUMENTS_HOST_PORT", 8913)
 COMPLIANCE_MCP_URL = mcp_url("WFE_COMPLIANCE_MCP_URL", "COMPLIANCE_MCP_PORT", 8937)
+COMPLIANCE_EVAL_URL = mcp_url("WFE_COMPLIANCE_EVAL_URL", "COMPLIANCE_EVAL_PORT", 8948)
 #: The services a pipeline row can reach besides the pipeline itself; WFE_SERVICES narrows it.
 SERVICE_URLS = {
     "documents": DOCUMENTS_MCP_URL,
@@ -61,6 +62,7 @@ SERVICE_URLS = {
     "memory": MEMORY_MCP_URL,
     "rag": RAG_MCP_URL,
     "compliance": COMPLIANCE_MCP_URL,
+    "compliance_eval": COMPLIANCE_EVAL_URL,
 }
 
 

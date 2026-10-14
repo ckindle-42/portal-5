@@ -102,8 +102,10 @@ def test_the_evaluation_instance_serves_only_verified_tools(monkeypatch, tool, s
         },
         receive,
     )
+    served = sum(cm._EVAL_SERVED.values())
     resp = asyncio.run(cm.invoke_tool(req))
     assert resp.status_code == status
+    assert sum(cm._EVAL_SERVED.values()) - served == (1 if status == 200 else 0)  # the health count
 
 
 def test_scoped_compliance_calls_go_to_the_evaluation_instance_or_nowhere(monkeypatch):

@@ -10,6 +10,7 @@ Port: 8937 (COMPLIANCE_MCP_PORT or MCP_PORT env override).
 from __future__ import annotations
 
 import asyncio
+import collections
 import contextvars
 import dataclasses
 import datetime
@@ -2810,10 +2811,27 @@ _DISPATCH: dict[str, Callable[..., Any]] = {
 }
 
 
+#: Tool calls this process served as the compliance evaluation instance (root-fix Part 2c-2);
+#: live acceptance reads it to prove that scoped calls were routed here.
+_EVAL_SERVED: collections.Counter[str] = collections.Counter()
+
+
+def _eval_health() -> dict[str, Any]:
+    if os.environ.get("COMPLIANCE_EVAL_INSTANCE") != "1":
+        return {}
+    return {"eval_instance": True, "eval_tool_calls": sum(_EVAL_SERVED.values())}
+
+
 @_route("/health", methods=["GET"])
 async def health_check(request: Request) -> JSONResponse:
     return JSONResponse(
-        {"status": "ok", "service": "compliance-mcp", "port": _port, **build_info()}
+        {
+            "status": "ok",
+            "service": "compliance-mcp",
+            "port": _port,
+            **build_info(),
+            **_eval_health(),
+        }
     )
 
 
@@ -2851,6 +2869,7 @@ async def invoke_tool(request: Request) -> JSONResponse:
             return JSONResponse(
                 {"error": f"{name} is not served by the evaluation instance"}, status_code=403
             )
+        _EVAL_SERVED[name] += 1
     try:
         body = await request.json()
     except Exception:

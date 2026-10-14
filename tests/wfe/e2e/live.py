@@ -107,6 +107,7 @@ class LiveRig(Rig):
         return bad
 
     def run(self) -> int:
+        self.compliance_before = operator_compliance_digest()
         (self.tmp / "pids").write_text("")
         bad = self.preconditions()
         if bad:
@@ -115,6 +116,12 @@ class LiveRig(Rig):
             return 2
         try:
             live_scenarios(self)
+            after = operator_compliance_digest()
+            self.check(
+                "S19 the operator's compliance store is unchanged by the whole live run",
+                self.compliance_before is not None and after == self.compliance_before,
+                f"store={OPERATOR_COMPLIANCE_DB} digest_before={self.compliance_before} after={after}",
+            )
         finally:
             DRIFT_PROBE.unlink(missing_ok=True)
             if not self.keep:
@@ -322,6 +329,65 @@ def live_discipline(rig: LiveRig, inc: str, ch: str, one: list[str], c1: str) ->
     rig.check("S12 smoke on the live stack", r.returncode == 0, f"rc={r.returncode}")
 
 
+OPERATOR_COMPLIANCE_DB = Path(
+    eval_mode.setting(
+        "COMPLIANCE_DB_PATH", str(REPO / "portal/modules/compliance/data/compliance_store.db")
+    )
+)
+
+
+def operator_compliance_digest() -> str | None:
+    """A logical digest of the operator's compliance store: every table's rows, read-only."""
+    import hashlib
+    import sqlite3
+
+    if not OPERATOR_COMPLIANCE_DB.exists():
+        return None
+    con = sqlite3.connect(f"file:{OPERATOR_COMPLIANCE_DB}?mode=ro", uri=True)
+    h = hashlib.sha256()
+    for (t,) in con.execute("select name from sqlite_master where type='table' order by name"):
+        h.update(t.encode())
+        h.update(repr(sorted(map(repr, con.execute(f'select * from "{t}"')))).encode())
+    con.close()
+    return h.hexdigest()[:16]
+
+
+def live_compliance(rig: LiveRig, plan: Path) -> None:
+    """S19: an auto-compliance row in production mode is served by the evaluation instance."""
+
+    def served() -> int:
+        try:
+            with urllib.request.urlopen(f"{eval_mode.COMPLIANCE_EVAL_URL}/health", timeout=5) as r:
+                return int(json.load(r).get("eval_tool_calls", -1))
+        except Exception:  # noqa: BLE001
+            return -1
+
+    c, before = rig.cid("auto-compliance"), served()
+    rc = rig.arm(
+        c,
+        _seat("auto-compliance"),
+        "--workspace",
+        "auto-compliance",
+        "--task",
+        "rig-comp-01",
+        "--repeats",
+        "1",
+        plan=plan,
+        timeout=1800,
+    )
+    row = (rig.rows(c) or [{}])[0]
+    ev, after = row.get("evidence") or {}, served()
+    calls = sum((t.get("served") or {}) != {} for t in row.get("transcript") or [])
+    # Positive evidence: the evaluation instance served this row's call. "Unchanged" would also
+    # be true if the model never called a compliance tool, which proves nothing about routing.
+    ok = rc == 0 and ev.get("tool_mode") == "production" and before >= 0 and after > before
+    rig.check(
+        f"S19 auto-compliance in production mode (outcome {row.get('outcome')})",
+        ok,
+        f"rc={rc} mode={ev.get('tool_mode')} eval_instance_calls {before}->{after} turns={calls}",
+    )
+
+
 def _root_files() -> set[str]:
     return {str(p) for p in eval_mode.OUTPUT_ROOT.glob("*") if p.is_file()}
 
@@ -332,7 +398,7 @@ def live_production(rig: LiveRig) -> None:
         "workloads:\n"
         + "".join(
             f"  {ws}:\n    home: rig_production\n    discovery: []\n    arms: {{incumbent: {_seat(ws)}, challengers: []}}\n"
-            for ws in ("auto-documents", "auto-data", "auto-research")
+            for ws in ("auto-documents", "auto-data", "auto-research", "auto-compliance")
         )
     )
     sess = Path(
@@ -393,6 +459,7 @@ def live_production(rig: LiveRig) -> None:
         f"left={sorted(left)}",
     )
 
+    live_compliance(rig, plan)
     live_no_leak(rig)
     live_memory(rig)
 

@@ -73,13 +73,26 @@ def _kb_flow(names, n, messages):
     return json.dumps({"setpoint": found[0] if found else "unknown"}), None
 
 
+def _compliance_flow(names, n, messages):
+    """nerc_cip_requirement for CIP-007-6 R2 Part 2.2, then answer with the interval it states."""
+    if "nerc_cip_requirement" not in names:
+        return None
+    if n == 0:
+        return None, {
+            "name": "nerc_cip_requirement",
+            "arguments": {"req_id": "CIP-007-6 R2 Part 2.2"},
+        }
+    found = re.findall(r"\d+ calendar days", str(messages[-1].get("content", "")))
+    return json.dumps({"interval": found[0] if found else "unknown"}), None
+
+
 def script(model, messages, tools):
     """Deterministic scripted model: a tool flow when its tools are offered, else an answer."""
     names = [t.get("function", {}).get("name") for t in tools or []]
     n = sum(1 for m in messages if m.get("role") == "tool")
     if "file_read" in names and n == 0:
         return None, {"name": "file_read", "arguments": {"path": "packet.json"}}
-    for flow in (_data_flow, _kb_flow):
+    for flow in (_data_flow, _kb_flow, _compliance_flow):
         out = flow(names, n, messages)
         if out:
             return out
