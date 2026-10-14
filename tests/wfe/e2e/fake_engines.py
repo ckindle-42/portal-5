@@ -49,6 +49,24 @@ def script(model, messages, tools):
     names = [t.get("function", {}).get("name") for t in tools or []]
     if "file_read" in names and not has_tool_result:
         return None, {"name": "file_read", "arguments": {"path": "packet.json"}}
+    n_results = sum(1 for m in messages if m.get("role") == "tool")
+    if "attach_source" in names and n_results == 0:
+        return None, {
+            "name": "attach_source",
+            "arguments": {"session_id": "model_picked", "path": "sales.csv", "table": "sales"},
+        }
+    if "run_sql" in names and n_results == 1:
+        return None, {
+            "name": "run_sql",
+            "arguments": {
+                "session_id": "model_picked",
+                "sql": "SELECT sum(amount) AS total FROM sales",
+            },
+        }
+    if "run_sql" in names and n_results >= 2:
+        last = str(messages[-1].get("content", ""))
+        total = "15" if "15" in last else "unknown"
+        return json.dumps({"total_amount": total}), None
     if "create_word_document" in names and not has_tool_result:
         return None, {
             "name": "create_word_document",
