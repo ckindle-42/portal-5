@@ -173,6 +173,7 @@ def test_documents_mcp_dispatches_only_manifest_tools(docs):
 
 
 def test_documents_mcp_scoped_create_stays_in_the_namespace(docs, monkeypatch):
+    pytest.importorskip("docx", reason="python-docx not installed")
     dm, root, no_publish = docs
     monkeypatch.setattr(dm, "publish_file_sync", no_publish)
     status, body = _invoke(
