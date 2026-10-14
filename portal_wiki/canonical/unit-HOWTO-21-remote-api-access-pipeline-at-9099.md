@@ -25,7 +25,8 @@ updated_at: 1783195000.860634
 - `POST /v1/chat/completions` — `chat_completions`, streaming included
 - `POST /v1/messages` — Anthropic-compatible message passthrough
 - `GET /v1/backends` — registry health
-- `GET /health` — liveness
+- `GET /health` — liveness, plus `build_sha` / `build_dirty`: the commit the running image was built
+  from and how many uncommitted changes under `portal/` it included (0 is clean, -1 unknown)
 - `POST /ollama/api/chat`, `/generate`, `/embed` — authenticated, native Ollama requests; inference calls pass through the host-memory guard
 - `GET /ollama/api/ps`, `/tags`, `POST /ollama/api/show` — authenticated read-only Ollama probes
 
