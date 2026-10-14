@@ -55,30 +55,25 @@ decisions stand as status quo, flagged:
 
 ## Decisions at risk
 
-Every identity in the closeout register is classified by `scripts/wfe_disposition_backfill.py`:
-203 items — 82 integrated, 59 removed_restorable, 54 removed_unrestorable, 8 retained_for_purpose. The receipt is `docs/WFE_DISPOSITION_BACKFILL_20261014.json`.
+`scripts/wfe_disposition_backfill.py --verify` classifies every identity in the closeout
+register and asks the registry whether each removal can be pulled again, comparing the
+registry's layers with the digests the register recorded (receipt
+`docs/WFE_DISPOSITION_BACKFILL_20261014.json`, verified 2026-10-14T20:38:55.631010+00:00). Of 203 items: {'integrated': 82, 'removed_restorable': 85, 'removed_unrestorable': 28, 'retained_for_purpose': 8}.
 
-**The five removals that rest on a measurement one of the 2026-10-13 audits found biased.**
-Four are judgment-probe-v6 stop-rule verdicts and one is the research probe. None is
-reversed here: each is either restorable with the recipe below, or unrestorable and in the
-queue with `available: false`, so every cell it could have had is MISSING and its disposition
-can only be NO_DECISION.
+**The five removals that rest on a measurement one of the 2026-10-13 audits found
+biased.** None is reversed here. A restorable one can be measured again with the recipe
+below; an unrestorable one is in the queue with `available: false`, so every cell it
+could have had is MISSING and its disposition can only be NO_DECISION.
 
-| Removal | Why it is at risk | Restore |
-|---|---|---|
-| `ollama:command-r:35b-08-2024-q4_K_M` | judgment probe v6: the stop rule's 'else REMOVED' fired | **unrestorable** — already absent from the store at closeout and the register records no upstream source |
-| `ollama:granite4.1:8b-q8_0` | judgment probe v6: stop rule fired on +0.06 exact (about 2 of 30 tasks) | ollama pull granite4.1:8b-q8_0; verify with model_layer_digests (1 layer(s)) |
-| `ollama:granite4.2:30b-q4_K_M` | judgment probe v6: stop rule fired on a like-for-like comparator | **unrestorable** — already absent from the store at closeout and the register records no upstream source |
-| `ollama:hf.co/bartowski/Qwen_Qwen3.6-27B-GGUF:Q4_K_M` | judgment probe v6: duplicate-quant stop rule fired on exact parity | ollama pull hf.co/bartowski/Qwen_Qwen3.6-27B-GGUF:Q4_K_M; verify with model_layer_digests (1 layer(s)) |
-| `ollama:portal5/xyz-aquila-mini:q4_k_m-ctx16k` | research probe: the lane instrument's checkers were weak (defect 10) | ollama pull portal5/xyz-aquila-mini:q4_k_m-ctx16k; verify with model_layer_digests (1 layer(s)) |
+| Removal | Why it is at risk | Restorable | Restore |
+|---|---|---|---|
+| `ollama:command-r:35b-08-2024-q4_K_M` | judgment probe v6: the stop rule's 'else REMOVED' fired | **verified** | `ollama pull command-r:35b-08-2024-q4_K_M` |
+| `ollama:granite4.1:8b-q8_0` | judgment probe v6: stop rule fired on +0.06 exact (about 2 of 30 tasks) | **verified** | `ollama pull granite4.1:8b-q8_0` |
+| `ollama:granite4.2:30b-q4_K_M` | judgment probe v6: stop rule fired on a like-for-like comparator | **verified** | `ollama pull granite4.2:30b-q4_K_M` |
+| `ollama:hf.co/bartowski/Qwen_Qwen3.6-27B-GGUF:Q4_K_M` | judgment probe v6: duplicate-quant stop rule fired on exact parity | **differs** | `ollama pull hf.co/bartowski/Qwen_Qwen3.6-27B-GGUF:Q4_K_M` |
+| `ollama:portal5/xyz-aquila-mini:q4_k_m-ctx16k` | research probe: the lane instrument's checkers were weak (defect 10) | **unrestorable** | `no registry serves portal5/xyz-aquila-mini:q4_k_m` |
 
-The other 52 unrestorable removals carry no measurement at all — they were already absent from the store at
-closeout, or they are oMLX directories whose upstream source the register never recorded. They
-are in `tests/wfe/candidate_queue.yaml` with `available: false` (54 in total), which makes their cells MISSING.
-
-The remaining 59 removals are restorable with `ollama pull`
-and verifiable against the `model_layer_digests` the register recorded, so re-measuring any of
-them costs a pull rather than an archaeology exercise.
+Restorable removals: 85 (53 verified as the measured build, 6 where the registry now serves a different build, 26 with no recorded digest). Unrestorable: 28, in `tests/wfe/candidate_queue.yaml` with `available: false`.
 ## Round-2 offline findings, mapped to causes
 
 | Finding | Status | Cause |
