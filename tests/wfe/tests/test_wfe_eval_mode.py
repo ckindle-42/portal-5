@@ -320,3 +320,20 @@ def test_mcp_addresses_follow_the_deployments_host_ports(tmp_path, monkeypatch):
     )
     monkeypatch.setenv("WFE_MEMORY_MCP_URL", "http://mem:1/")
     assert eval_mode.mcp_url("WFE_MEMORY_MCP_URL", "MEMORY_MCP_HOST_PORT", 8920) == "http://mem:1"
+
+
+def test_every_production_allowlist_is_the_workspaces_own_tools():
+    """An allowlist can only narrow a workspace's real tools; auto-compliance's must also be
+    tools proven safe on the compliance evaluation instance."""
+    import yaml
+
+    from portal.modules.compliance.core.eval_instance import VERIFIED_TOOLS
+
+    ws = yaml.safe_load((eval_mode.REPO / "config/portal.yaml").read_text())["workspaces"]
+    modes = yaml.safe_load(eval_mode.TOOL_MODES.read_text())["workspaces"]
+    for name, m in modes.items():
+        assert set(m["allow"]) <= set(ws[name].get("tools") or []), name
+    assert (
+        modes["auto-compliance"]["allow"]
+        and set(modes["auto-compliance"]["allow"]) <= VERIFIED_TOOLS
+    )

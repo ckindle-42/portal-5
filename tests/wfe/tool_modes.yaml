@@ -17,3 +17,10 @@ workspaces:
     # repeatable. remember is a write, but under a scope it lands in the row's own memory.
     tool_mode: production
     allow: [kb_search, kb_search_all, kb_list, recall, graph_recall, neighbors, entity_timeline, remember]
+  auto-compliance:
+    # Served by the compliance EVALUATION instance (root-fix Part 2c-2), never the operator's
+    # store: the workspace's tools that were measured read-only, model-free and
+    # history-independent (eval_instance.VERIFIED_TOOLS). Writes, model-backed tools and live
+    # feeds (CVE/EPSS/KEV/advisories, web) are excluded; the feeds are Part 2c-3's.
+    tool_mode: production
+    allow: [compliance_answers, compliance_coverage, compliance_flexibility, compliance_intentionality, compliance_links, compliance_mappings, compliance_notes, compliance_orphans, compliance_read, compliance_requirement, compliance_route, compliance_search, compliance_timeline, compliance_trace, lookup_control, map_frameworks, nerc_cip_currency, nerc_cip_requirement, patch_evidence, search_controls]
