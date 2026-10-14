@@ -243,6 +243,12 @@ class TestComponentScreenToLedger:
         assert {c["verdict"] for c in written} == {decision.BETTER, decision.NOT_SEPARATED}
         assert all(c["campaign"] == "sweep" for c in written)
         assert all(c["instrument"] == camp.instrument_fingerprint()["fingerprint"] for c in written)
+        # Each side's served build is the one its pair froze, never a stand-in.
+        frozen = camp.load_manifest(d)["identity_map"]
+        for c in written:
+            assert c["served"] == frozen[f"{c['workspace']}|{c['model']}"]
+            assert c["incumbent_served"] == frozen[f"{c['workspace']}|{c['incumbent']}"]
+            assert c["served"]["content"] and c["incumbent"] == INC
 
     def test_the_reused_screen_rows_are_the_confirm_repeat_zero(self, rig):
         """The append re-runs nothing: every screen run_id is already present."""

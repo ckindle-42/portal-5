@@ -25,6 +25,7 @@ from __future__ import annotations
 import argparse
 import datetime as dt
 import json
+import os
 from collections import Counter, defaultdict
 from pathlib import Path
 
@@ -399,7 +400,21 @@ def fitness(campaign_dir: Path, queue_path: Path | None = None, allow_mixed: boo
     return {"instrument": manifest.get("instrument"), "cells": cells, "dispositions": dispositions}
 
 
-LEDGER = REPO / "tests" / "wfe" / "fitness_ledger.yaml"
+LEDGER = Path(
+    os.environ.get("WFE_FITNESS_LEDGER") or REPO / "tests" / "wfe" / "fitness_ledger.yaml"
+)
+LEDGER_HEADER = """\
+# Fitness ledger: one cell per (model, workspace), written by
+# `report --campaign <id> --record`; never hand-edited.
+#
+# A cell is the evidence behind a seat decision, so recording refuses anything
+# that is not decision-grade: a campaign that did not run through the pipeline,
+# rows measured by more than one instrument, a controls gate that did not run or
+# did not pass, or a side whose serving build was never observed. Each cell names
+# the incumbent it was compared against and carries both sides' served identity
+# (backend, model, content), so check HP can tell whether the measurement still
+# describes what production serves. Part 5's sweep fills it.
+"""
 
 
 def ledger_receipts(campaign_dir: Path) -> list[dict]:
@@ -421,6 +436,8 @@ def ledger_refusals(campaign_dir: Path, manifest: dict, rows: list[dict]) -> lis
     fps = {(r.get("instrument") or {}).get("fingerprint") for r in rows}
     if len(fps) != 1 or None in fps:
         why.append(f"rows do not share one instrument fingerprint: {sorted(map(str, fps))}")
+    if not manifest.get("identity_map"):
+        why.append("no frozen identities: no arm's preflight observed what served it")
     receipts = ledger_receipts(campaign_dir)
     if not receipts:
         why.append("no controls receipt: the controls gate never ran for this campaign")
@@ -443,6 +460,7 @@ def record_ledger(
         raise SystemExit("refusing to record the fitness ledger:\n  " + "\n  ".join(why))
     fit = fitness(campaign_dir, queue_path, allow_mixed)
     ident = manifest.get("identity_map") or {}
+    model_of = {m["arm"]: m.get("model") or m["arm"] for m in manifest["rows"]}
     instrument = manifest.get("instrument") or {}
     receipts = {
         path: digest
@@ -452,8 +470,10 @@ def record_ledger(
     now = dt.datetime.now(dt.UTC).isoformat()
     cells = [
         {
-            "model": c["candidate"],
+            "model": model_of.get(c["candidate"], c["candidate"]),
+            "arm": c["candidate"],
             "workspace": c["workspace"],
+            "incumbent": model_of.get(c["incumbent"], c["incumbent"]),
             "tier": "confirm",
             "verdict": c["verdict"],
             "reason": c["reason"],
@@ -464,13 +484,23 @@ def record_ledger(
             "p": c["p"],
             "campaign": manifest.get("campaign_id"),
             "instrument": instrument.get("fingerprint"),
-            "served": (ident.get(f"{c['workspace']}|{c['candidate']}") or {}).get("model")
-            or instrument.get("deployed"),
+            "served": ident.get(f"{c['workspace']}|{model_of.get(c['candidate'])}"),
+            "incumbent_served": ident.get(f"{c['workspace']}|{model_of.get(c['incumbent'])}"),
             "receipts": receipts,
             "recorded_utc": now,
         }
         for c in fit["cells"]
     ]
+    unseen = [
+        f"{c['workspace']}|{c['arm']}"
+        for c in cells
+        if not (c["served"] or {}).get("content")
+        or not (c["incumbent_served"] or {}).get("content")
+    ]
+    if unseen:
+        raise SystemExit(
+            f"refusing to record the fitness ledger: no observed identity for {unseen}"
+        )
     path = Path(ledger_path) if ledger_path else LEDGER
     doc = (yaml.safe_load(path.read_text()) if path.exists() else None) or {}
     fresh = {(c["model"], c["workspace"]) for c in cells}
@@ -478,7 +508,7 @@ def record_ledger(
         e for e in (doc.get("cells") or []) if (e.get("model"), e.get("workspace")) not in fresh
     ]
     doc["cells"] = [*kept, *cells]
-    path.write_text(yaml.safe_dump(doc, sort_keys=False))
+    path.write_text(LEDGER_HEADER + yaml.safe_dump(doc, sort_keys=False))
     return {"path": str(path), "cells": cells, "kept": len(kept)}
 
 

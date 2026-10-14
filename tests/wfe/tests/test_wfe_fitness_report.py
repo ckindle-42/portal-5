@@ -59,14 +59,16 @@ def _cell_rows(ws, arm, role, *, fail=False, screen_n=N_SCREEN, n=N_TOTAL):
     return out
 
 
-def _campaign(tmp_path, monkeypatch, *, inc_fails=False, cand_fails=False, ws_b=False, name="c"):
+def _campaign(
+    tmp_path, monkeypatch, *, inc_fails=False, cand_fails=False, ws_b=False, name="c", cand=CAND
+):
     monkeypatch.setattr(rep, "CAMPAIGNS", tmp_path / "campaigns")
     monkeypatch.setattr(camp, "CAMPAIGNS", tmp_path / "campaigns")
     d = rep.CAMPAIGNS / name
     (d / "rows").mkdir(parents=True)
     (d / "preflight").mkdir(parents=True)
     rows = _cell_rows(WS_A, INC, "incumbent", fail=inc_fails) + _cell_rows(
-        WS_A, CAND, "challenger", fail=cand_fails
+        WS_A, cand, "challenger", fail=cand_fails
     )
     if ws_b:
         rows += _cell_rows(WS_B, INC, "incumbent", fail=inc_fails) + _cell_rows(
@@ -238,3 +240,37 @@ class TestFitnessLedger:
         (d / "controls_receipts.jsonl").unlink()
         with pytest.raises(SystemExit, match="controls gate never ran"):
             rep.record_ledger(d, q, tmp_path / "ledger.yaml")
+
+    def test_a_cell_names_its_incumbent_and_both_served_identities(self, tmp_path, monkeypatch):
+        d, q = _campaign(tmp_path, monkeypatch, inc_fails=True)
+        (cell,) = [
+            c for c in rep.record_ledger(d, q, tmp_path / "l.yaml")["cells"] if c["model"] == CAND
+        ]
+        assert cell["incumbent"] == INC
+        assert cell["served"] == _ident(WS_A, CAND)
+        assert cell["incumbent_served"] == _ident(WS_A, INC)
+
+    def test_a_card_arm_records_its_model_tags_identity(self, tmp_path, monkeypatch):
+        """The identity map is keyed by model tag. Keyed by the arm id, a card arm
+        missed it and the cell recorded the pipeline's git sha as its served build."""
+        arm = f"{CAND}@card-c1832928"
+        d, q = _campaign(tmp_path, monkeypatch, inc_fails=True, cand=arm)
+        (cell,) = [
+            c for c in rep.record_ledger(d, q, tmp_path / "l.yaml")["cells"] if c["arm"] == arm
+        ]
+        assert cell["model"] == CAND
+        assert cell["served"] == _ident(WS_A, CAND)
+
+    def test_a_campaign_whose_identities_were_never_frozen_is_refused(self, tmp_path, monkeypatch):
+        d, q = _campaign(tmp_path, monkeypatch)
+        man = json.loads((d / "manifest.json").read_text())
+        del man["identity_map"]
+        camp.save_manifest(d, man)
+        with pytest.raises(SystemExit, match="no frozen identities"):
+            rep.record_ledger(d, q, tmp_path / "ledger.yaml")
+
+    def test_recording_keeps_the_ledger_header(self, tmp_path, monkeypatch):
+        d, q = _campaign(tmp_path, monkeypatch, inc_fails=True)
+        led = tmp_path / "ledger.yaml"
+        rep.record_ledger(d, q, led)
+        assert led.read_text().startswith(rep.LEDGER_HEADER)
