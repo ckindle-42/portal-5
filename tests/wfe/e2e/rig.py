@@ -3,9 +3,11 @@
     uv run python -m tests.wfe.e2e.rig [--keep] [--ports 21434,28085,29099]
 
 Starts fake Ollama and oMLX and the pipeline on their own ports (refusing ports in
-use, so no live service is touched), runs twelve scenarios through
+use, so no live service is touched), runs sixteen scenarios through
 tests/wfe/run_arm.py, asserts each one's exit code and evidence, writes a JSON
-receipt and exits 0 only if every scenario passed. Rig campaigns (`rig_*`) are
+receipt and exits 0 only if every scenario passed. The fake oMLX models get
+checkpoint directories of their own (OMLX_MODEL_DIR), so identity is observed the
+way production observes it, and the I scenarios change them on purpose. Rig campaigns (`rig_*`) are
 deleted afterwards unless --keep.
 """
 
@@ -23,6 +25,8 @@ import tempfile
 import time
 import urllib.request
 from pathlib import Path
+
+import yaml
 
 from tests.wfe.campaign import SEAT_BLOCK
 
@@ -47,6 +51,14 @@ class Rig:
         self.head = subprocess.run(
             ["git", "rev-parse", "HEAD"], cwd=REPO, capture_output=True, text=True
         ).stdout.strip()
+        self.omlx = self.tmp / "omlx-models"
+        for served in SERVED.values():
+            d = self.omlx / served
+            d.mkdir(parents=True)
+            (d / "config.json").write_text(json.dumps({"model": served, "quant": 4}))
+            (d / "tokenizer_config.json").write_text("{}")
+            (d / "model.safetensors").write_bytes(served.encode() * 8)
+        (self.tmp / "model_settings.json").write_text('{"models": {}}')
 
     # ── services ────────────────────────────────────────────────────────────
     def _free(self, port: int) -> bool:
@@ -127,6 +139,8 @@ class Rig:
             "WFE_OLLAMA_URL": f"http://127.0.0.1:{self.ol}",
             "WFE_OMLX_URL": f"http://127.0.0.1:{self.om}",
             "WFE_ALLOW_DIRTY_INSTRUMENT": "1",
+            "OMLX_MODEL_DIR": str(self.omlx),
+            "OMLX_SETTINGS": str(self.tmp / "model_settings.json"),
         }
 
     def cid(self, n: str) -> str:
@@ -184,6 +198,36 @@ class Rig:
             during()
         return p.wait(timeout)
 
+    def manifest(self, campaign: str) -> dict:
+        return json.loads((CAMPAIGNS / campaign / "manifest.json").read_text())
+
+    def rebuild(self, served: str, body: str = '{"rebuilt": true}') -> str:
+        """Change a fake checkpoint the way a re-quantization would; returns the old config."""
+        cfg = self.omlx / served / "config.json"
+        old = cfg.read_text()
+        cfg.write_text(body)
+        return old
+
+    def hp(self, ledger: Path) -> dict:
+        """Check HP, run as the validator runs it, against a scratch ledger."""
+        code = (
+            "import json; from scripts.validation import wfe as hp\n"
+            "s, d, subs = hp.check_wfe_fitness_ledger()\n"
+            "cov = {(str(c.get('workspace')), str(c.get(k))) for c in hp._cells()"
+            " for k in ('model', 'incumbent')}\n"
+            "print(json.dumps({'status': s, 'subs': [x['status'] for x in subs],"
+            " 'stale': subs[1]['detail'],"
+            " 'covered': [w for w, m in hp._seats().items() if (w, m) in cov]}))"
+        )
+        out = subprocess.run(
+            [sys.executable, "-c", code],
+            cwd=REPO,
+            env={**self.env(), "WFE_FITNESS_LEDGER": str(ledger)},
+            capture_output=True,
+            text=True,
+        )
+        return json.loads(out.stdout.strip().splitlines()[-1]) if out.returncode == 0 else {}
+
     def rows(self, campaign: str) -> list[dict]:
         return [json.loads(f.read_text()) for f in (CAMPAIGNS / campaign / "rows").glob("*.json")]
 
@@ -228,10 +272,11 @@ class Rig:
         print(
             f"\nrig: {len(self.results) - len(failed)}/{len(self.results)} PASS; receipt {self.tmp}/receipt.json"
         )
-        return 1 if failed or len(self.results) < 12 else 0
+        return 1 if failed or len(self.results) < 16 else 0
 
     def scenarios(self) -> None:
         self.happy_path()
+        self.identity()
         self.failures()
         self.gates_and_builds()
 
@@ -248,10 +293,16 @@ class Rig:
         m = self.mark()
         r = self.cli("--plan", str(PLAN), "--campaign-id", c1, *two, "--preflight")
         models = {c["model"] for c in self.engine_calls(m)}
+        frozen = self.manifest(c1).get("identity_map") or {}
+        contents = [v.get("content") for v in frozen.values()]
         self.check(
-            "S2 --preflight asks the pipeline what it serves",
-            r.returncode == 0 and models <= set(SERVED.values()),
-            f"rc={r.returncode} served={sorted(models)}",
+            "S2 --preflight asks the pipeline what it serves, and freezes what serves it",
+            r.returncode == 0
+            and models <= set(SERVED.values())
+            and set(frozen) == {f"auto-compliance|{INC}", f"auto-compliance|{CH}"}
+            and all(contents)
+            and len(set(contents)) == 2,
+            f"rc={r.returncode} served={sorted(models)} frozen={sorted(frozen)}",
         )
 
         rcs = [self.arm(c1, a, *two) for a in (INC, CH)]
@@ -288,6 +339,106 @@ class Rig:
             "S4 completion and report",
             vc.returncode == 0 and rep.returncode == 0,
             f"verify={vc.returncode} report={rep.returncode}",
+        )
+
+    def identity(self) -> None:
+        """Identity is observed in the engine's store, frozen at preflight, checked
+        at every arm start and after every row, and carried into the ledger, where
+        check HP compares it with what production serves now (doc: identity)."""
+        self.identity_at_arm_start()
+        self.identity_mid_arm()
+        self.identity_unobservable()
+        self.identity_in_the_ledger()
+
+    def identity_at_arm_start(self) -> None:
+        two = self.two
+        c = self.cid("rebuilt")
+        self.cli("--plan", str(PLAN), "--campaign-id", c, *two, "--preflight")
+        old = self.rebuild(SERVED[CH])
+        try:
+            rc = self.arm(c, CH, *two)
+        finally:
+            self.rebuild(SERVED[CH], old)
+        notes = [r.get("note", "") for r in self.manifest(c)["rows"] if r.get("model") == CH]
+        self.check(
+            "I1 a rebuild since the freeze blocks the arm",
+            rc == 6 and notes and all("IDENTITY DRIFT" in n for n in notes),
+            f"rc={rc} notes={[n[:60] for n in notes]}",
+        )
+
+    def identity_mid_arm(self) -> None:
+        c = self.cid("midrebuild")
+        rows_dir = CAMPAIGNS / c / "rows"
+        saved: dict = {}
+
+        def rebuild_after_first_row():
+            end = time.time() + 240
+            while time.time() < end and not (rows_dir.exists() and any(rows_dir.glob("*.json"))):
+                time.sleep(0.2)
+            saved["old"] = self.rebuild(SERVED[INC])
+
+        try:
+            rc = self.arm(c, INC, "--repeats", "1", during=rebuild_after_first_row, timeout=600)
+        finally:
+            if "old" in saved:
+                self.rebuild(SERVED[INC], saved["old"])
+        q = [r for r in self.rows(c) if str(r.get("notes", "")).startswith("IDENTITY DRIFT")]
+        self.check(
+            "I2 a rebuild mid-arm quarantines the row and stops the arm",
+            rc == 5 and len(q) == 1,
+            f"rc={rc} quarantined={len(q)} rows={len(self.rows(c))}",
+        )
+
+    def identity_unobservable(self) -> None:
+        c = self.cid("unobservable")
+        two = self.two
+        home, away = self.omlx / SERVED[INC], self.tmp / "moved-away"
+        home.rename(away)
+        try:
+            rc = self.arm(c, INC, *two)
+        finally:
+            away.rename(home)
+        notes = [r.get("note", "") for r in self.manifest(c)["rows"]]
+        self.check(
+            "I3 a build that cannot be observed blocks the arm",
+            rc == 6 and notes and all("cannot be observed" in n for n in notes),
+            f"rc={rc} notes={[n[:60] for n in notes]}",
+        )
+
+    def identity_in_the_ledger(self) -> None:
+        led = self.tmp / "ledger.yaml"
+        rec = subprocess.run(
+            [sys.executable, "-m", "tests.wfe.report", "--campaign", self.c1, "--record"]
+            + ["--ledger", str(led)],
+            cwd=REPO,
+            env=self.env(),
+            capture_output=True,
+            text=True,
+        )
+        cells = (yaml.safe_load(led.read_text()) or {}).get("cells") if led.exists() else []
+        frozen = self.manifest(self.c1).get("identity_map") or {}
+        recorded = (
+            rec.returncode == 0
+            and len(cells) == 1
+            and cells[0].get("incumbent") == INC
+            and cells[0].get("served") == frozen.get(f"auto-compliance|{CH}")
+            and cells[0].get("incumbent_served") == frozen.get(f"auto-compliance|{INC}")
+        )
+        now = self.hp(led)
+        old = self.rebuild(SERVED[CH])
+        try:
+            later = self.hp(led)
+        finally:
+            self.rebuild(SERVED[CH], old)
+        self.check(
+            "I4 --record carries both served identities; check HP covers the seat, then sees a rebuild",
+            recorded
+            and now.get("subs", [])[:2] == ["PASS", "PASS"]
+            and now.get("covered") == ["auto-compliance"]
+            and later.get("subs", [None, None])[1] == "WARN"
+            and "rebuilt" in later.get("stale", ""),
+            f"record={rec.returncode} cells={len(cells or [])} hp={now.get('subs')} "
+            f"covered={now.get('covered')} after_rebuild={later.get('subs')}",
         )
 
     def failures(self) -> None:
