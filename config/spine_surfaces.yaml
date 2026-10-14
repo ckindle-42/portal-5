@@ -1132,6 +1132,10 @@ surfaces:
   globs:
   - tests/wfe/tests/test_wfe_checkers.py
   unit: unit-wfe-workspace-fitness
+- name: file-tests-wfe-tests-test_wfe_component
+  globs:
+  - tests/wfe/tests/test_wfe_component.py
+  unit: unit-wfe-workspace-fitness
 - name: file-tests-wfe-tests-test_wfe_contracts
   globs:
   - tests/wfe/tests/test_wfe_contracts.py

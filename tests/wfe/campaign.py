@@ -474,7 +474,9 @@ def expand_matrix(
         home = wl.get("home")
         suites = every if all_suites else [home] + list(wl.get("discovery") or [])
         arms = wl.get("arms") or {}
-        wanted = (advance or {}).get(ws_id)
+        # An advance list is the screen's whole output: a workspace it does not
+        # name advanced no candidate, so only that workspace's incumbent confirms.
+        wanted = None if advance is None else advance.get(ws_id, set())
         ordered = [("incumbent", arms.get("incumbent"))] + [
             ("challenger", c) for c in (arms.get("challengers") or [])
         ]
@@ -484,7 +486,7 @@ def expand_matrix(
             arm_id, model, overrides = arm_spec(_with_card_sampling(entry, role, ws_id))
             if only_arm and only_arm not in (arm_id, model):
                 continue
-            if wanted is not None and role == "challenger" and arm_id not in wanted:
+            if role == "challenger" and wanted is not None and arm_id not in wanted:
                 continue
             spec = (arm_id, model, overrides)
             for suite in dict.fromkeys(s for s in suites if s):

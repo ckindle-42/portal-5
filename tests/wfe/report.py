@@ -358,16 +358,27 @@ def fitness(campaign_dir: Path, queue_path: Path | None = None, allow_mixed: boo
     suites = [r["suite_path"] for r in manifest["rows"] if r.get("suite_path")]
     arguable = arguable_tasks(suites)
     repeats = max((r["repeat"] for r in manifest["rows"]), default=0) + 1
+    # `tier` is a property of the matrix, so the manifest is what says whether a
+    # cell was ever confirmed: a candidate the screen dropped has screen rows and
+    # nothing else, which is an absent cell rather than a mismatched comparison.
+    confirmed = {(m["workspace"], m["arm"]) for m in manifest["rows"] if m.get("tier") == "confirm"}
     per_model: dict[str, dict[str, str]] = {}
     cells = []
     for ws, inc in sorted(_incumbents(manifest).items()):
         for arm in _candidates(by, ws, inc):
+            if (ws, arm) not in confirmed:
+                continue
             expected = cell_expected(manifest, ws, inc, arm)
             cell = decision.confirm(
                 by[(ws, inc)], by[(ws, arm)], expected, repeats=repeats, arguable=arguable
             )
             cells.append({"workspace": ws, "incumbent": inc, "candidate": arm, **vars(cell)})
             per_model.setdefault(arm, {})[ws] = cell.verdict
+    # The queue is the roster: a model it names and no cell covers still gets a
+    # disposition, which is what turns "queued but unmeasured" into NO_DECISION
+    # instead of silence.
+    for model in queue:
+        per_model.setdefault(model, {})
     lineages = Counter((queue.get(m) or {}).get("lineage") or m for m in per_model)
     dispositions = []
     for model in sorted(per_model):
