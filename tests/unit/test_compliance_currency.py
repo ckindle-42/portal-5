@@ -4,6 +4,7 @@ when nerc.com is unreachable.
 
 from __future__ import annotations
 
+import os
 import urllib.error
 import urllib.request
 
@@ -17,6 +18,9 @@ from portal.modules.compliance.core.currency import (
 
 
 def _online() -> bool:
+    if os.environ.get("PORTAL_NETGUARD") == "1":
+        # Inside the offline boundary the honest answer is "offline" (doc, N-14).
+        return False
     try:
         urllib.request.urlopen("https://www.nerc.com/", timeout=5)  # noqa: S310
         return True

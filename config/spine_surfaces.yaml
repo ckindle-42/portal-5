@@ -928,6 +928,14 @@ surfaces:
   globs:
   - scripts/omlx/deepseek_r1_tool_parser.py
   unit: unit-surface-omlx-tool-parsers
+- name: file-tests-_netguard-netguard
+  globs:
+  - tests/_netguard/netguard.py
+  unit: unit-wfe-workspace-fitness
+- name: file-tests-_netguard-sitecustomize
+  globs:
+  - tests/_netguard/sitecustomize.py
+  unit: unit-wfe-workspace-fitness
 - name: file-tests-benchmarks-embedding_consumers-__init__
   globs:
   - tests/benchmarks/embedding_consumers/__init__.py
@@ -1088,6 +1096,10 @@ surfaces:
   globs:
   - tests/wfe/settings_audit.py
   unit: unit-known-limitations-unregistered-hint-fallback
+- name: file-tests-wfe-tests-conftest
+  globs:
+  - tests/wfe/tests/conftest.py
+  unit: unit-wfe-workspace-fitness
 - name: file-tests-wfe-tests-test_wfe_checkers
   globs:
   - tests/wfe/tests/test_wfe_checkers.py

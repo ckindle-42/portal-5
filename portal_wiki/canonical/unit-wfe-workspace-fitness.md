@@ -10,6 +10,8 @@ sources:
 - type: code
   path: tests/wfe/**/*.py
 - type: code
+  path: tests/_netguard/*.py
+- type: code
   path: tests/wfe/prompt_surface.py
 - type: doc
   path: docs/TASK_WORKSPACE_FITNESS_EVAL_V1.md
@@ -187,6 +189,17 @@ Phase 0; fitness matrix drives disposition decisions.
 
   By class re-grade, the auto-compliance incumbent ties granite4.1:30b
   (24/30 each). Treat every WFE/probe rate before 2026-10-13 as "pre-audit".
+- **Root fixes (2026-10-13, in progress).** `docs/WFE_ROOT_CAUSES_20261013.md`
+  consolidates both audits into the root causes C1–C6 and specifies their fixes:
+  C1 two measurement paths, C2 checkers never shown to work, C3 decisions record
+  nothing of what measured them, C4 samples too small and an ambiguous decision
+  rule, C5 unit tests reach live services, C6 the jobs are not covered.
+  `WFE_ROOT_FIX_PROGRAM.md` splits the work into five parts, and
+  `docs/WFE_ROOT_FIX_ACCEPTANCE.md` is its acceptance ledger. The decision rule
+  lives only in `tests/wfe/decision.py`, known-answer controls only in
+  `tests/wfe/controls.py`, and the unit-test offline boundary only in
+  `tests/_netguard/netguard.py`. Probe evidence stays diagnostic: no probe is
+  decision-grade, and only pipeline-mode WFE rows can set a seat or a disposition.
 - **Card-think arms.** A model whose card reasons (think on by default) must
   ALSO be measured at its card think + sampling setting, not only at the lane's
   forced think-off policy. Report both, and attribute "lane fit" (the lane's

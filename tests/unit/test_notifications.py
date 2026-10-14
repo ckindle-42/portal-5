@@ -195,10 +195,15 @@ class TestTelegramChannel:
     """Telegram notification channel."""
 
     @pytest.mark.asyncio
-    async def test_send_alert_skips_when_not_configured(self):
+    async def test_send_alert_skips_when_not_configured(self, monkeypatch):
         from portal.platform.inference.notifications.channels.telegram import TelegramChannel
         from portal.platform.inference.notifications.events import AlertEvent, EventType
 
+        # Pin the test's own precondition (doc, N-14); else the send is real.
+        for var in ("TELEGRAM_ALERT_BOT_TOKEN", "TELEGRAM_BOT_TOKEN"):
+            monkeypatch.delenv(var, raising=False)
+        for var in ("TELEGRAM_ALERT_CHANNEL_ID", "TELEGRAM_USER_IDS"):
+            monkeypatch.delenv(var, raising=False)
         channel = TelegramChannel()
         event = AlertEvent(type=EventType.BACKEND_DOWN, message="test")
         await channel.send(event)  # Should not raise
@@ -221,10 +226,13 @@ class TestPushoverChannel:
     """Pushover notification channel."""
 
     @pytest.mark.asyncio
-    async def test_send_alert_skips_when_not_configured(self):
+    async def test_send_alert_skips_when_not_configured(self, monkeypatch):
         from portal.platform.inference.notifications.channels.pushover import PushoverChannel
         from portal.platform.inference.notifications.events import AlertEvent, EventType
 
+        # Pin the test's own precondition (doc, N-14); else the send is real.
+        monkeypatch.delenv("PUSHOVER_API_TOKEN", raising=False)
+        monkeypatch.delenv("PUSHOVER_USER_KEY", raising=False)
         channel = PushoverChannel()
         event = AlertEvent(type=EventType.BACKEND_DOWN, message="test")
         await channel.send(event)  # Should not raise

@@ -18,6 +18,10 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 
 def _load_env() -> None:
     """Load repository lab configuration before deriving readiness constants."""
+    # Hermetic-test guard, as scripts/lab_targets.py: importing this module must
+    # not push the operator's .env into a test process (root-cause doc, N-13).
+    if os.environ.get("UNIT_TEST_MODE") == "1":
+        return
     env_file = REPO_ROOT / ".env"
     if not env_file.exists():
         return
