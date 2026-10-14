@@ -1128,6 +1128,10 @@ surfaces:
   globs:
   - tests/wfe/tests/test_wfe_prompt_surface.py
   unit: unit-wfe-workspace-fitness
+- name: file-tests-wfe-tests-test_wfe_provenance
+  globs:
+  - tests/wfe/tests/test_wfe_provenance.py
+  unit: unit-wfe-workspace-fitness
 - name: file-tests-wfe-tools-build_compliance_suite
   globs:
   - tests/wfe/tools/build_compliance_suite.py

@@ -1,0 +1,21 @@
+# First confirm cell of the candidate sweep (WFE root-fix program, Part 5), a decision
+# already known to be open. Pipeline mode only.
+# Part 1 uses it only for the live smoke. Its home suite is the council-packet set until
+# Part 3 migrates compliance to production tools and repoints `home`; Part 5 runs the cell
+# on the migrated suite.
+# Every arm, incumbent or challenger, is served through production's ?model=
+# override under the workspace's own prompt, tools, think and caps, and every turn's
+# served model is verified. Challengers get their card sampling as caller values.
+# The verdict comes from tests/wfe/decision.py (paired sign test over >= 30 compared
+# tasks, arguable tasks counted against the leader). Anything else is NO_DECISION and
+# the status quo stands.
+workloads:
+  auto-compliance:
+    home: compliance_agentic_full
+    discovery: []
+    arms:
+      # Seated on 2026-09-12; tied 24/30 with granite4.1:30b by class on the pre-fix
+      # instrument (round 1 rows 1-5). Served by oMLX Qwen3.8-27B-oQ4e-mtp.
+      incumbent: hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k
+      challengers:
+        - granite4.1:30b-ctx64k
