@@ -168,6 +168,43 @@ def _identity_check(rows: list[dict], manifest: dict, allow_mixed: bool) -> list
     )
 
 
+def expected_sets(manifest: dict, workspace: str) -> dict[str, set]:
+    """Each arm's expected (suite, task) set for one workspace, from the matrix.
+
+    The expected set comes from the matrix, not from the rows that happen to
+    exist: a task missing from both arms has to count against the excluded
+    budget, or a half-finished campaign reads as a complete one."""
+    out: dict[str, set] = {}
+    for m in manifest["rows"]:
+        if m["workspace"] != workspace:
+            continue
+        out.setdefault(m["arm"], set()).add((m["suite"], m["task_id"]))
+    return out
+
+
+def screen_expected(manifest: dict, workspace: str, arm: str) -> set:
+    """The screen tasks for one arm: the rows a screen expansion created."""
+    return {
+        (m["suite"], m["task_id"])
+        for m in manifest["rows"]
+        if m["workspace"] == workspace and m["arm"] == arm and m.get("tier") == "screen"
+    }
+
+
+def cell_expected(manifest: dict, workspace: str, incumbent: str, candidate: str) -> set:
+    """The compared set for one cell. Both arms must expect exactly the same
+    tasks, or the comparison is between two different suites."""
+    sets = expected_sets(manifest, workspace)
+    inc, cand = sets.get(incumbent, set()), sets.get(candidate, set())
+    if inc != cand:
+        raise SystemExit(
+            f"{workspace}: {candidate} and {incumbent} do not expect the same tasks "
+            f"({len(cand)} vs {len(inc)}); incumbent-only {sorted(inc - cand)[:4]}, "
+            f"candidate-only {sorted(cand - inc)[:4]}"
+        )
+    return inc
+
+
 def _collect_warnings(rows: list[dict], manifest: dict, allow_mixed: bool) -> list[str]:
     warnings = (
         _fingerprint_check(rows, allow_mixed)
