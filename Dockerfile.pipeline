@@ -39,6 +39,8 @@ HEALTHCHECK --interval=15s --timeout=5s --start-period=30s --retries=5 \
 # Deployed-revision stamp read by /health (launch.sh passes git HEAD).
 ARG PORTAL_BUILD_SHA=unknown
 ENV PORTAL_BUILD_SHA=${PORTAL_BUILD_SHA}
+ARG PORTAL_BUILD_DIRTY=-1
+ENV PORTAL_BUILD_DIRTY=${PORTAL_BUILD_DIRTY}
 
 # Entrypoint fixes tmpfs mount ownership then drops to portal user
 ENTRYPOINT ["/app/scripts/pipeline-entrypoint.sh"]

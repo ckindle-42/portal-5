@@ -596,6 +596,46 @@ def deployed_build() -> str:
         return "unreachable"
 
 
+def deployed_services() -> dict[str, dict]:
+    """Each participating service's reported build, from its /health (root-fix Part 2c).
+    WFE_SERVICES (comma-separated) narrows the set; a service that does not answer is an entry
+    with an error, never a silent skip."""
+    names = [
+        n
+        for n in (os.environ.get("WFE_SERVICES") or ",".join(eval_mode.SERVICE_URLS)).split(",")
+        if n
+    ]
+    out: dict[str, dict] = {}
+    for n in names:
+        try:
+            with urllib.request.urlopen(f"{eval_mode.SERVICE_URLS[n]}/health", timeout=5) as r:
+                h = json.loads(r.read())
+            out[n] = {
+                "build_sha": str(h.get("build_sha") or "unknown"),
+                "build_dirty": h.get("build_dirty", -1),
+            }
+        except Exception as e:  # noqa: BLE001
+            out[n] = {"build_sha": "unreachable", "build_dirty": -1, "error": str(e)}
+    return out
+
+
+def service_findings(services: dict[str, dict]) -> list[str]:
+    """Why a service cannot be trusted to run HEAD: unreachable, another build, or dirty."""
+    bad = []
+    for n, s in services.items():
+        if s.get("error"):
+            bad.append(f"{n} service unreachable: {s['error']}")
+        elif not deployed_matches(s["build_sha"]):
+            bad.append(
+                f"{n} service runs build {s['build_sha']!r}, not HEAD's portal/: rebuild or restart it"
+            )
+        elif int(s.get("build_dirty") or 0) > 0:
+            bad.append(
+                f"{n} service was started from a tree with uncommitted changes under portal/"
+            )
+    return bad
+
+
 def deployed_matches(build: str) -> bool:
     """True when the deployed image's portal/ tree and Dockerfile equal HEAD's."""
     if not re.fullmatch(r"[0-9a-f]{7,40}", build or ""):
@@ -616,6 +656,7 @@ def instrument_fingerprint() -> dict:
         "config": _content_digest(FINGERPRINTED_CONFIG),
         "portal_tree": _git("rev-parse", "HEAD:portal").strip(),
         "deployed": deployed_build() if ENGINE == "pipeline" else "",
+        "services": deployed_services() if ENGINE == "pipeline" else {},
         "engine": ENGINE,
     }
     blob = json.dumps({k: v for k, v in parts.items() if k != "commit"}, sort_keys=True)
@@ -1216,6 +1257,7 @@ def preflight_pipeline(workspaces: list[str], model: str) -> dict:
     build = deployed_build()
     if not deployed_matches(build):
         findings.append(f"deployed pipeline build {build!r} is not HEAD's portal/: rebuild first")
+    findings += service_findings(deployed_services())
     identities: dict[str, dict] = {}
     for ws in workspaces:
         try:

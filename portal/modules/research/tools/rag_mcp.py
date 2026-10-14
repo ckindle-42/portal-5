@@ -25,6 +25,7 @@ from starlette.responses import JSONResponse, Response
 
 from portal.modules.research.tools.rag_multimodal import register_retrieval_routes
 from portal.platform.data_loader import load_data
+from portal.platform.mcp_host.build_info import build_info
 from portal.platform.retrieval import store as _store
 
 logger = logging.getLogger(__name__)
@@ -71,9 +72,11 @@ _route: Callable[
 async def health(request: Request) -> JSONResponse:
     try:
         kbs = _list_kbs()
-        return JSONResponse({"status": "ok", "service": "rag-mcp", "knowledge_bases": kbs})
+        return JSONResponse(
+            {"status": "ok", "service": "rag-mcp", "knowledge_bases": kbs, **build_info()}
+        )
     except Exception as e:
-        return JSONResponse({"status": "degraded", "error": str(e)})
+        return JSONResponse({"status": "degraded", "error": str(e), **build_info()})
 
 
 TOOLS_MANIFEST = load_data("config/inference", "tools_manifest_rag_mcp")

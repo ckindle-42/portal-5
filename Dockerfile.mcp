@@ -114,6 +114,8 @@ RUN groupadd -r portal && useradd -r -m -g portal portal \
 # Deployed-revision stamp read by /health (launch.sh passes git HEAD).
 ARG PORTAL_BUILD_SHA=unknown
 ENV PORTAL_BUILD_SHA=${PORTAL_BUILD_SHA}
+ARG PORTAL_BUILD_DIRTY=-1
+ENV PORTAL_BUILD_DIRTY=${PORTAL_BUILD_DIRTY}
 
 ENTRYPOINT ["/usr/local/bin/mcp-entrypoint.sh"]
 CMD ["python", "-m", "portal.modules.documents.tools.document_mcp"]

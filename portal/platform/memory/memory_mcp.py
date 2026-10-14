@@ -25,6 +25,7 @@ from starlette.requests import Request
 from starlette.responses import JSONResponse, Response
 
 from portal.platform.data_loader import load_data
+from portal.platform.mcp_host.build_info import build_info
 from portal.platform.memory.graph_memory import (
     LANCE_DIR,
     MEMORY_TABLE,
@@ -62,6 +63,7 @@ async def health(request: Request) -> JSONResponse:
             {
                 "status": status,
                 "service": "memory-mcp",
+                **build_info(),
                 "stored": g["memories"],
                 "graph": {
                     "entities": g["entities"],
@@ -71,7 +73,7 @@ async def health(request: Request) -> JSONResponse:
             }
         )
     except Exception as e:  # noqa: BLE001
-        return JSONResponse({"status": "degraded", "error": str(e)})
+        return JSONResponse({"status": "degraded", "error": str(e), **build_info()})
 
 
 @_route("/metrics", methods=["GET"])

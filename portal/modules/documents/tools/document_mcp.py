@@ -27,6 +27,7 @@ from starlette.responses import JSONResponse, Response
 
 from portal.platform.data_loader import load_data
 from portal.platform.mcp_host import eval_scope
+from portal.platform.mcp_host.build_info import build_info
 from portal.platform.mcp_host.owui_files import publish_file_sync
 
 if TYPE_CHECKING:
@@ -255,7 +256,7 @@ def _resolve_image(source: str) -> Path:
 
 @_route("/health", methods=["GET"])
 async def health_check(request: Request) -> JSONResponse:
-    return JSONResponse({"status": "ok", "service": "documents-mcp"})
+    return JSONResponse({"status": "ok", "service": "documents-mcp", **build_info()})
 
 
 # Tool manifest for discovery

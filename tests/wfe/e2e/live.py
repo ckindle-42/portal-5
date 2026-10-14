@@ -97,6 +97,7 @@ class LiveRig(Rig):
             ("memory", "/eval/forget_scope", {}, 400),
             ("rag", "/eval/drop_kb", {}, 400),
         )
+        bad += campaign.service_findings(campaign.deployed_services())
         for name, path, body, want in probes:
             got = self.mcp(name, path, body).get("status")
             if got != want:

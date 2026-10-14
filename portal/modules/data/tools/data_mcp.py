@@ -25,6 +25,7 @@ from starlette.responses import JSONResponse, Response
 
 from portal.platform.data_loader import load_data
 from portal.platform.mcp_host import eval_scope
+from portal.platform.mcp_host.build_info import build_info
 
 logger = logging.getLogger(__name__)
 _port = int(os.environ.get("DATA_MCP_PORT") or os.environ.get("MCP_PORT", "8939"))
@@ -355,7 +356,7 @@ _DISPATCH: dict[str, Any] = {
 
 @_route("/health", methods=["GET"])
 async def health_check(request: Request) -> JSONResponse:
-    return JSONResponse({"status": "ok", "service": "data-mcp", "port": _port})
+    return JSONResponse({"status": "ok", "service": "data-mcp", "port": _port, **build_info()})
 
 
 @_route("/ready", methods=["GET"])

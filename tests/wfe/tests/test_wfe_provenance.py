@@ -32,6 +32,7 @@ def test_fingerprint_names_its_inputs():
         "config",
         "portal_tree",
         "deployed",
+        "services",
         "engine",
         "fingerprint",
     }
@@ -189,3 +190,47 @@ def test_drift_after_a_row_quarantines_it_and_stops_the_arm(fake_repo, tmp_path,
     saved = json.loads(campaign._row_path(d, r["run_id"]).read_text())
     assert saved["outcome"] == "BLOCKED" and saved["notes"].startswith("INSTRUMENT DRIFT")
     assert campaign.load_manifest(d)["rows"][0]["state"] == "BLOCKED"
+
+
+# ── every participating service proves its build (root-fix Part 2c) ─────────
+
+
+def test_service_findings_name_every_reason_a_service_is_untrusted(monkeypatch):
+    head = campaign._git("rev-parse", "HEAD").strip()
+    svcs = {
+        "ok": {"build_sha": head, "build_dirty": 0},
+        "docker": {"build_sha": head, "build_dirty": -1},
+        "down": {"build_sha": "unreachable", "build_dirty": -1, "error": "refused"},
+        "stale": {"build_sha": "0" * 40, "build_dirty": 0},
+        "dirty": {"build_sha": head, "build_dirty": 3},
+    }
+    got = campaign.service_findings(svcs)
+    assert len(got) == 3 and any("down service unreachable" in g for g in got)
+    assert any(g.startswith("stale service runs build") for g in got) and any(
+        "dirty service" in g for g in got
+    )
+
+
+def test_preflight_blocks_on_a_stale_service(monkeypatch):
+    monkeypatch.setattr(
+        campaign, "deployed_services", lambda: {"memory": {"build_sha": "0" * 40, "build_dirty": 0}}
+    )
+    monkeypatch.setattr(campaign, "chat", lambda *a, **k: {"served": {"model": "x"}})
+    monkeypatch.setattr(campaign, "seat_primary", lambda ws, m: "x")
+    monkeypatch.setattr(campaign, "backend_catalog", lambda: {"m"})
+    res = campaign.preflight_pipeline(["w"], "m")
+    assert any("memory service runs build" in f for f in res["findings"]) and res["verdict"] != "OK"
+
+
+def test_a_service_rebuilt_mid_campaign_is_drift(fake_repo, tmp_path, monkeypatch):
+    monkeypatch.setattr(campaign, "ENGINE", "pipeline")
+    monkeypatch.setattr(campaign, "CAMPAIGNS", tmp_path / "campaigns")
+    monkeypatch.setattr(campaign, "deployed_build", lambda: "a" * 40)
+    svc = {"rag": {"build_sha": "a" * 40, "build_dirty": 0}}
+    monkeypatch.setattr(campaign, "deployed_services", lambda: {k: dict(v) for k, v in svc.items()})
+    plan = tmp_path / "plan.yaml"
+    plan.write_text("workloads: {}\n")
+    d = campaign.open_campaign("c", plan, [], append=False)
+    assert campaign.instrument_drift(campaign.load_manifest(d)) is None
+    svc["rag"]["build_sha"] = "b" * 40
+    assert "services" in campaign.instrument_drift(campaign.load_manifest(d))

@@ -110,10 +110,11 @@ class Rig:
                 },
             ),
         ):
+            stamp = {"PORTAL_BUILD_SHA": self.head, "PORTAL_BUILD_DIRTY": "0"}
             self.procs[name] = subprocess.Popen(
                 [sys.executable, "-m", mod],
                 cwd=REPO,
-                env={**os.environ, **env},
+                env={**os.environ, **env, **stamp},
                 stdout=open(self.tmp / f"{name}.out", "w"),
                 stderr=subprocess.STDOUT,
             )
@@ -186,6 +187,8 @@ class Rig:
             "WFE_OLLAMA_URL": f"http://127.0.0.1:{self.ol}",
             "WFE_OMLX_URL": f"http://127.0.0.1:{self.om}",
             "WFE_ALLOW_DIRTY_INSTRUMENT": "1",
+            "WFE_SERVICES": "documents,data",  # the MCPs this rig starts
+            "WFE_DOCUMENTS_MCP_URL": f"http://127.0.0.1:{self.docs}",
             "OMLX_MODEL_DIR": str(self.omlx),
             "OMLX_SETTINGS": str(self.tmp / "model_settings.json"),
             "AI_OUTPUT_DIR": str(self.ai),

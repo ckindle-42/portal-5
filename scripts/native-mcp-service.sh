@@ -37,6 +37,17 @@ cd "$PORTAL_ROOT"
 # shellcheck source=scripts/lib/venv_preflight.sh
 source "$PORTAL_ROOT/scripts/lib/venv_preflight.sh"
 
+# What this process runs: the repository HEAD at launch and how many uncommitted changes
+# portal/ had (root-fix Part 2c). MCP health routes report both; WFE preflight checks them.
+# Not a git checkout (or no git): stamp unknown, never stop the service from starting.
+if PORTAL_BUILD_SHA="$(git -C "$PORTAL_ROOT" rev-parse HEAD 2>/dev/null)"; then
+    PORTAL_BUILD_DIRTY="$(git -C "$PORTAL_ROOT" status --porcelain -- portal 2>/dev/null | wc -l | tr -d ' ')"
+else
+    PORTAL_BUILD_SHA=unknown
+    PORTAL_BUILD_DIRTY=-1
+fi
+export PORTAL_BUILD_SHA PORTAL_BUILD_DIRTY
+
 case "$SERVICE" in
     mlx-transcribe)
         # Shares the fragile MLX runtime with :8917/:8918/:8942 — same drift gate

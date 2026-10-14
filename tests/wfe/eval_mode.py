@@ -53,6 +53,15 @@ DATA_MCP_URL = mcp_url("WFE_DATA_MCP_URL", "DATA_MCP_PORT", 8939)
 MEMORY_MCP_URL = mcp_url("WFE_MEMORY_MCP_URL", "MEMORY_MCP_HOST_PORT", 8920)
 RAG_MCP_URL = mcp_url("WFE_RAG_MCP_URL", "RAG_MCP_HOST_PORT", 8921)
 DOCUMENTS_MCP_URL = mcp_url("WFE_DOCUMENTS_MCP_URL", "DOCUMENTS_HOST_PORT", 8913)
+COMPLIANCE_MCP_URL = mcp_url("WFE_COMPLIANCE_MCP_URL", "COMPLIANCE_MCP_PORT", 8937)
+#: The services a pipeline row can reach besides the pipeline itself; WFE_SERVICES narrows it.
+SERVICE_URLS = {
+    "documents": DOCUMENTS_MCP_URL,
+    "data": DATA_MCP_URL,
+    "memory": MEMORY_MCP_URL,
+    "rag": RAG_MCP_URL,
+    "compliance": COMPLIANCE_MCP_URL,
+}
 
 
 def mode_for(workspace: str) -> dict | None:

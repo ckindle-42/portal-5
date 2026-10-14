@@ -48,6 +48,7 @@ from portal.modules.compliance.core.addressing import (
 from portal.modules.compliance.core.graph_queries import links as _graph_links
 from portal.modules.compliance.core.graph_queries import timeline as _graph_timeline
 from portal.platform.data_loader import load_data
+from portal.platform.mcp_host.build_info import build_info
 
 logger = logging.getLogger(__name__)
 _port = int(os.environ.get("COMPLIANCE_MCP_PORT") or os.environ.get("MCP_PORT", "8937"))
@@ -2811,7 +2812,9 @@ _DISPATCH: dict[str, Callable[..., Any]] = {
 
 @_route("/health", methods=["GET"])
 async def health_check(request: Request) -> JSONResponse:
-    return JSONResponse({"status": "ok", "service": "compliance-mcp", "port": _port})
+    return JSONResponse(
+        {"status": "ok", "service": "compliance-mcp", "port": _port, **build_info()}
+    )
 
 
 @_route("/ready", methods=["GET"])

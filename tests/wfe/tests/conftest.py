@@ -17,3 +17,4 @@ def _offline_wfe(monkeypatch):
     monkeypatch.setattr(campaign, "instrument_dirty", lambda: [])
     head = campaign._git("rev-parse", "HEAD").strip()
     monkeypatch.setattr(campaign, "deployed_build", lambda: head)
+    monkeypatch.setattr(campaign, "deployed_services", lambda: {})
