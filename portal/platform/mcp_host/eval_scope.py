@@ -35,8 +35,9 @@ def parse(raw: Any) -> dict[str, Any] | None:
         isinstance(camp, str) and TOKEN.match(camp) and isinstance(run, str) and TOKEN.match(run)
     ):
         raise ScopeError("eval scope campaign and run must match wfe_<hex>")
-    if not (isinstance(allow, list) and allow and all(isinstance(t, str) and t for t in allow)):
-        raise ScopeError("eval scope allow must be a non-empty list of tool names")
+    # An empty allowlist is a sandbox row: no workspace tools, but injection still scoped.
+    if not (isinstance(allow, list) and all(isinstance(t, str) and t for t in allow)):
+        raise ScopeError("eval scope allow must be a list of tool names")
     return {"campaign": camp, "run": run, "allow": sorted(set(allow))}
 
 

@@ -32,7 +32,7 @@ def _no_scope_leaks():
     [
         {"campaign": "x", "run": RUN, "allow": ["t"]},
         {"campaign": CAMP, "run": "../etc", "allow": ["t"]},
-        {"campaign": CAMP, "run": RUN, "allow": []},
+        {"campaign": CAMP, "run": RUN, "allow": "x"},
         "str",
     ],
 )
@@ -248,3 +248,20 @@ def test_close_session_is_scope_only_and_deletes_only_that_session(data):
     status, body = _route(dm.eval_close_session, {"eval": SCOPE})
     assert body["closed"] == RUN and f"{RUN}.duckdb" in body["deleted"]
     assert (sess / "operator.duckdb").exists() and not (sess / f"{RUN}.duckdb").exists()
+
+
+def test_an_empty_allowlist_is_a_sandbox_scope():
+    assert es.parse({"campaign": CAMP, "run": RUN, "allow": []})["allow"] == []
+
+
+def test_the_handler_binds_the_scope_before_injection():
+    import contextvars
+
+    from portal.platform.inference.router.eval_gate import bind_eval_scope
+
+    body = {"portal_eval": {**SCOPE, "allow": []}}
+    ctx = contextvars.copy_context()
+    ctx.run(bind_eval_scope, body)
+    assert ctx.run(es.EVAL_SCOPE.get)["run"] == RUN and "portal_eval" in body
+    with pytest.raises(HTTPException):
+        contextvars.copy_context().run(bind_eval_scope, {"portal_eval": {"campaign": "x"}})

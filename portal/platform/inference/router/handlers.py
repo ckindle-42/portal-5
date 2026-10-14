@@ -44,6 +44,7 @@ from portal.platform.inference.router.council import (
     stream_council_review,
 )
 from portal.platform.inference.router.disconnect import cancel_on_disconnect
+from portal.platform.inference.router.eval_gate import bind_eval_scope
 from portal.platform.inference.router.lifespan import (
     _startup_time,
 )
@@ -560,6 +561,10 @@ async def _resolve_request_route(
     # Phase 7: File attachment injection — OWUI uploads live in body["files"];
     # inject notes into the last user message so the model can reference file IDs.
     body = _inject_attached_files(body)
+
+    # Phase 7b: a WFE evaluation scope binds before any tool call the handler makes, so
+    # injection and write-back below read and write only the row's own memory and KB.
+    bind_eval_scope(body)
 
     # Phase 8: Auto-context injection — proactive memory recall + KB retrieval
     # for opted-in workspaces (no-op unless inject_memory / auto_rag).
