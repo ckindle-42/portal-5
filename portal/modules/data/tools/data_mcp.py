@@ -9,9 +9,11 @@ Port: 8939 (DATA_MCP_PORT or MCP_PORT env override).
 from __future__ import annotations
 
 import contextlib
+import inspect
 import logging
 import os
 import re
+import shutil
 from collections import OrderedDict
 from collections.abc import Awaitable, Callable
 from pathlib import Path
@@ -22,6 +24,7 @@ from starlette.requests import Request
 from starlette.responses import JSONResponse, Response
 
 from portal.platform.data_loader import load_data
+from portal.platform.mcp_host import eval_scope
 
 logger = logging.getLogger(__name__)
 _port = int(os.environ.get("DATA_MCP_PORT") or os.environ.get("MCP_PORT", "8939"))
@@ -145,6 +148,12 @@ def _with_headroom(con: Any, work: Callable[[Any], Any]) -> tuple[Any, int]:
 
 
 def _resolve(path: str) -> Path:
+    scope = eval_scope.EVAL_SCOPE.get()
+    if scope:  # a WFE row reads only its own fixtures
+        p = eval_scope.confine(_ROOT, scope, path, sub="in")
+        if not p.exists():
+            raise FileNotFoundError(f"not found in the evaluation namespace: {path}")
+        return p
     p = Path(path).resolve() if os.path.isabs(path) else (_ROOT / path).resolve()
     if p != _ROOT and _ROOT not in p.parents:
         raise ValueError(f"path escapes data root {_ROOT}: {path}")
@@ -314,6 +323,28 @@ def list_session(session_id: str) -> dict[str, Any]:
 
 TOOLS_MANIFEST = load_data("config/inference", "tools_manifest_data_mcp")
 
+
+def close_session(session_id: str) -> dict[str, Any]:
+    """Close and delete one session (database, WAL, spill directory). Evaluation scope only:
+    it is never on a workspace's tool list, and outside a scope it is refused."""
+    if not eval_scope.EVAL_SCOPE.get():
+        return {"error": "close_session is available only under an evaluation scope"}
+    old = _conns.pop(session_id, None)
+    if old is not None:
+        with contextlib.suppress(Exception):
+            old.close()
+    base = Path(_db_path(session_id))
+    gone = []
+    for p in (base, Path(f"{base}.wal"), Path(f"{base}.tmp")):
+        if p.is_dir():
+            shutil.rmtree(p, ignore_errors=True)
+            gone.append(p.name)
+        elif p.exists():
+            p.unlink()
+            gone.append(p.name)
+    return {"closed": session_id, "deleted": gone}
+
+
 _DISPATCH: dict[str, Any] = {
     "attach_source": attach_source,
     "run_sql": run_sql,
@@ -342,6 +373,24 @@ async def list_tools(request: Request) -> JSONResponse:
     return JSONResponse({"tools": TOOLS_MANIFEST})
 
 
+@_route("/eval/close_session", methods=["POST"])
+async def eval_close_session(request: Request) -> JSONResponse:
+    """Harness-only cleanup: close and delete the evaluation run's session. Requires a scope;
+    never a tool, so it is in no manifest and on no workspace's tool list."""
+    try:
+        body = await request.json()
+        scope = eval_scope.parse(body.get("eval"))
+    except Exception as e:  # noqa: BLE001
+        return JSONResponse({"error": f"eval scope: {e}"}, status_code=400)
+    if scope is None:
+        return JSONResponse({"error": "an evaluation scope is required"}, status_code=400)
+    token = eval_scope.EVAL_SCOPE.set(scope)
+    try:
+        return JSONResponse(close_session(scope["run"]))
+    finally:
+        eval_scope.EVAL_SCOPE.reset(token)
+
+
 @_route("/tools/{tool_name}", methods=["POST"])
 async def invoke_tool(request: Request) -> JSONResponse:
     name = request.path_params.get("tool_name", "")
@@ -354,9 +403,18 @@ async def invoke_tool(request: Request) -> JSONResponse:
         body = {}
     args = body.get("arguments", body) if isinstance(body, dict) else {}
     try:
+        scope = eval_scope.parse(body.get("eval")) if isinstance(body, dict) else None
+    except eval_scope.ScopeError as e:
+        return JSONResponse({"error": f"eval scope: {e}"}, status_code=400)
+    if scope and isinstance(args, dict) and "session_id" in inspect.signature(fn).parameters:
+        args = {**args, "session_id": scope["run"]}  # the scope owns the session
+    token = eval_scope.EVAL_SCOPE.set(scope)
+    try:
         return JSONResponse(fn(**args))
     except TypeError as e:
         return JSONResponse({"error": f"bad params: {e}"}, status_code=400)
+    finally:
+        eval_scope.EVAL_SCOPE.reset(token)
 
 
 if __name__ == "__main__":

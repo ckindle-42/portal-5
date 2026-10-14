@@ -17,6 +17,16 @@ RUN = "wfe_" + "b" * 40
 SCOPE = {"campaign": CAMP, "run": RUN, "allow": ["create_word_document"]}
 
 
+@pytest.fixture(autouse=True)
+def _no_scope_leaks():
+    """Every test starts and must end with no evaluation scope set in this context."""
+    assert es.EVAL_SCOPE.get() is None
+    yield
+    leaked = es.EVAL_SCOPE.get()
+    es.EVAL_SCOPE.set(None)
+    assert leaked is None, "a test left an evaluation scope set"
+
+
 @pytest.mark.parametrize(
     "raw",
     [
@@ -53,12 +63,15 @@ def test_receipt_records_the_created_file(tmp_path):
 
 
 def test_pipeline_gate_narrows_tools_and_refuses_a_bad_scope():
+    import contextvars
+
     from portal.platform.inference.router.eval_gate import apply_eval_scope
 
     assert apply_eval_scope({}, ["a", "b"]) == ["a", "b"]
     body = {"portal_eval": {**SCOPE, "allow": ["b", "zzz"]}}
-    assert apply_eval_scope(body, ["a", "b"]) == ["b"] and "portal_eval" not in body
-    assert es.EVAL_SCOPE.get()["run"] == RUN
+    ctx = contextvars.copy_context()  # a request's own context, as the ASGI server gives it
+    assert ctx.run(apply_eval_scope, body, ["a", "b"]) == ["b"] and "portal_eval" not in body
+    assert ctx.run(es.EVAL_SCOPE.get)["run"] == RUN and es.EVAL_SCOPE.get() is None
     with pytest.raises(HTTPException) as e:
         apply_eval_scope({"portal_eval": {"campaign": "bad"}}, ["a"])
     assert e.value.status_code == 400
@@ -142,6 +155,17 @@ def _invoke(dm, name, body):
     return resp.status_code, json.loads(resp.body)
 
 
+def _route(handler, body):
+    from starlette.requests import Request
+
+    async def receive():
+        return {"type": "http.request", "body": json.dumps(body).encode()}
+
+    req = Request({"type": "http", "method": "POST", "path": "/", "headers": []}, receive)
+    resp = asyncio.run(handler(req))
+    return resp.status_code, json.loads(resp.body)
+
+
 def test_documents_mcp_dispatches_only_manifest_tools(docs):
     dm, _, _ = docs
     status, body = _invoke(dm, "_unique_path", {"arguments": {"name": "x", "ext": "y"}})
@@ -169,3 +193,55 @@ def test_documents_mcp_scoped_read_outside_the_namespace_is_refused(docs):
         {"arguments": {"file_path": str(root / "operator.docx")}, "eval": SCOPE},
     )
     assert status == 403 and "outside the evaluation namespace" in body["error"]
+
+
+@pytest.fixture
+def data(tmp_path, monkeypatch):
+    from portal.modules.data.tools import data_mcp as dm
+
+    root, sess = tmp_path / "ai", tmp_path / "sess"
+    root.mkdir()
+    monkeypatch.setattr(dm, "_ROOT", root.resolve())
+    monkeypatch.setattr(dm, "_SESS_DIR", sess)
+    dm._conns.clear()
+    yield dm, root, sess
+    for c in list(dm._conns.values()):
+        c.close()
+    dm._conns.clear()
+
+
+def test_data_scope_owns_the_session_and_confines_attach(data):
+    dm, root, sess = data
+    fx = es.run_root(root, SCOPE) / "in"
+    fx.mkdir()
+    (fx / "sales.csv").write_text("region,amount\neast,10\nwest,5\n")
+    args = {"session_id": "someone_else", "path": "sales.csv", "table": "sales"}
+    status, body = _invoke(dm, "attach_source", {"arguments": args, "eval": SCOPE})
+    assert status == 200 and body["session_id"] == RUN and body["rows"] == 2
+    q = {"session_id": "ignored", "sql": "SELECT sum(amount) AS t FROM sales"}
+    status, body = _invoke(dm, "run_sql", {"arguments": q, "eval": SCOPE})
+    assert status == 200 and json.dumps(body).count("15") >= 1
+    (root / "operator.csv").write_text("a\n1\n")
+    bad = {"session_id": "x", "path": str(root / "operator.csv"), "table": "t"}
+    status, body = _invoke(dm, "attach_source", {"arguments": bad, "eval": SCOPE})
+    assert "outside the evaluation namespace" in body.get("error", "")
+
+
+def test_close_session_is_scope_only_and_deletes_only_that_session(data):
+    dm, root, sess = data
+    (root / "f.csv").write_text("a\n1\n")
+    op = {"session_id": "operator", "path": "f.csv", "table": "t"}
+    assert _invoke(dm, "attach_source", {"arguments": op})[1]["rows"] == 1
+    fx = es.run_root(root, SCOPE) / "in"
+    fx.mkdir()
+    (fx / "f.csv").write_text("a\n1\n")
+    _invoke(dm, "attach_source", {"arguments": {**op, "session_id": "x"}, "eval": SCOPE})
+    status, _ = _invoke(
+        dm, "close_session", {"arguments": {"session_id": "operator"}, "eval": SCOPE}
+    )
+    assert status == 404  # never a tool
+    status, body = _route(dm.eval_close_session, {})
+    assert status == 400 and "required" in body["error"]
+    status, body = _route(dm.eval_close_session, {"eval": SCOPE})
+    assert body["closed"] == RUN and f"{RUN}.duckdb" in body["deleted"]
+    assert (sess / "operator.duckdb").exists() and not (sess / f"{RUN}.duckdb").exists()
