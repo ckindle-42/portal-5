@@ -200,7 +200,7 @@ def live_scenarios(rig: LiveRig) -> None:
 
     missing = rig.tmp / "missing_plan.yaml"
     missing.write_text(
-        "workloads:\n  auto-compliance:\n    home: compliance_agentic_full\n    discovery: []\n"
+        "workloads:\n  auto-compliance:\n    tool_mode: sandbox\n    home: compliance_agentic_full\n    discovery: []\n"
         "    arms: {incumbent: rig-not-installed-model:latest, challengers: []}\n"
     )
     rc = rig.arm(rig.cid("missing"), "rig-not-installed-model:latest", *one, plan=missing)
@@ -259,7 +259,7 @@ def live_discipline(rig: LiveRig, inc: str, ch: str, one: list[str], c1: str) ->
     # --task selects one id, so S7/S8 use the 3-task rig_short suite (real model, cheap rows).
     short = rig.tmp / "short_plan.yaml"
     short.write_text(
-        "workloads:\n  auto-compliance:\n    home: rig_short\n    discovery: []\n"
+        "workloads:\n  auto-compliance:\n    tool_mode: sandbox\n    home: rig_short\n    discovery: []\n"
         f"    arms: {{incumbent: {inc}, challengers: []}}\n"
     )
     three = ["--repeats", "5"]  # 15 cheap rows: there is always work left after the first

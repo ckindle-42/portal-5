@@ -102,7 +102,8 @@ def prepare(pipe: bool, r: dict, manifest: dict, task: dict, wsc: dict, harness:
     taken. Otherwise everything is returned unchanged with ctx None."""
     if not pipe:
         return task, wsc, None
-    m = mode_for(r["workspace"], r.get("tool_mode"))
+    # A task that needs no tools gets none in either mode: an empty allowlist, no client tools.
+    m = None if task.get("no_tools") else mode_for(r["workspace"], r.get("tool_mode"))
     camp, run = tokens(manifest["campaign_id"], r["run_id"])
     # Every pipeline row carries a scope: a sandbox row allows no workspace tools, but the
     # pipeline's own memory/KB injection and write-back still stay inside the row (Part 2b).

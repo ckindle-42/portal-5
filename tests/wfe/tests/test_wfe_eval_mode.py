@@ -412,3 +412,22 @@ def test_a_sandbox_declared_row_keeps_its_sandbox_tools(tmp_path, monkeypatch, o
             tmp_path, {"campaign_id": "c", "env": {}}, row, wsc, {"id": "t"}, 1, 1, None, False
         )
     assert seen["use_tools"] is True and seen["harness"]["pipeline_eval"]["allow"] == []
+
+
+def test_a_no_tools_task_gets_no_tools_in_production_mode(out_root):
+    """rig_short-style tasks in a production workspace: no allowlisted tools, no client tools."""
+    h = {}
+    wsc = {"system_prompt_pipeline": "p", "system_prompt_base": "b"}
+    _, _, ctx = eval_mode.prepare(
+        True,
+        {**_row(), "workspace": "auto-compliance"},
+        {"campaign_id": "c"},
+        {"id": "t", "no_tools": True},
+        wsc,
+        h,
+    )
+    assert (
+        h["pipeline_eval"]["allow"] == []
+        and ctx["use_tools"] is False
+        and ctx["production"] is False
+    )
