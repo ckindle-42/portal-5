@@ -1080,6 +1080,10 @@ surfaces:
   globs:
   - tests/wfe/e2e/rig.py
   unit: unit-wfe-workspace-fitness
+- name: file-tests-wfe-eval_mode
+  globs:
+  - tests/wfe/eval_mode.py
+  unit: unit-wfe-workspace-fitness
 - name: file-tests-wfe-graded-code_fizz-test_fizz
   globs:
   - tests/wfe/graded/code_fizz/test_fizz.py
@@ -1151,6 +1155,10 @@ surfaces:
 - name: file-tests-wfe-tests-test_wfe_decision
   globs:
   - tests/wfe/tests/test_wfe_decision.py
+  unit: unit-wfe-workspace-fitness
+- name: file-tests-wfe-tests-test_wfe_eval_mode
+  globs:
+  - tests/wfe/tests/test_wfe_eval_mode.py
   unit: unit-wfe-workspace-fitness
 - name: file-tests-wfe-tests-test_wfe_fitness_report
   globs:
