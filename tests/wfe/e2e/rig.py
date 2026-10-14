@@ -51,8 +51,17 @@ class Rig:
         self.head = subprocess.run(
             ["git", "rev-parse", "HEAD"], cwd=REPO, capture_output=True, text=True
         ).stdout.strip()
+        # A checkpoint for every model the fake oMLX serves, as fake_engines lists them,
+        # so the build behind any workspace's seat is observable, as in production.
         self.omlx = self.tmp / "omlx-models"
-        for served in SERVED.values():
+        backends = yaml.safe_load((REPO / "config/backends.yaml").read_text())["backends"]
+        omlx_ids = {
+            m["id"] if isinstance(m, dict) else m
+            for b in backends
+            if b["type"] != "ollama"
+            for m in [*(b.get("models") or []), *(b.get("aliases") or {}).values()]
+        }
+        for served in sorted(omlx_ids | set(SERVED.values())):
             d = self.omlx / served
             d.mkdir(parents=True)
             (d / "config.json").write_text(json.dumps({"model": served, "quant": 4}))
