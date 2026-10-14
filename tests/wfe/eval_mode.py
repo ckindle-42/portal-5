@@ -39,9 +39,20 @@ def setting(name: str, default: str, env_file: Path = REPO / ".env") -> str:
 
 
 OUTPUT_ROOT = Path(setting("AI_OUTPUT_DIR", str(Path.home() / "AI_Output")))
-DATA_MCP_URL = os.environ.get("WFE_DATA_MCP_URL", "http://localhost:8939").rstrip("/")
-MEMORY_MCP_URL = os.environ.get("WFE_MEMORY_MCP_URL", "http://localhost:8920").rstrip("/")
-RAG_MCP_URL = os.environ.get("WFE_RAG_MCP_URL", "http://localhost:8921").rstrip("/")
+
+
+def mcp_url(env: str, host_port_key: str, default_port: int) -> str:
+    """An MCP's host address the way the deployment publishes it: an explicit WFE_* URL, else
+    localhost on the host port .env sets (compose's *_HOST_PORT, the native *_PORT), else the default."""
+    return (
+        os.environ.get(env) or f"http://localhost:{setting(host_port_key, str(default_port))}"
+    ).rstrip("/")
+
+
+DATA_MCP_URL = mcp_url("WFE_DATA_MCP_URL", "DATA_MCP_PORT", 8939)
+MEMORY_MCP_URL = mcp_url("WFE_MEMORY_MCP_URL", "MEMORY_MCP_HOST_PORT", 8920)
+RAG_MCP_URL = mcp_url("WFE_RAG_MCP_URL", "RAG_MCP_HOST_PORT", 8921)
+DOCUMENTS_MCP_URL = mcp_url("WFE_DOCUMENTS_MCP_URL", "DOCUMENTS_HOST_PORT", 8913)
 
 
 def mode_for(workspace: str) -> dict | None:
@@ -79,7 +90,7 @@ def prepare(pipe: bool, r: dict, manifest: dict, task: dict, wsc: dict, harness:
     scope = {"campaign": camp, "run": run, "allow": sorted(m["allow"]) if m else []}
     harness["pipeline_eval"] = scope
     if not m:
-        ctx = {
+        ctx: dict[str, Any] = {
             "scope": scope,
             "root": None,
             "inventory": {},
@@ -97,7 +108,7 @@ def prepare(pipe: bool, r: dict, manifest: dict, task: dict, wsc: dict, harness:
         dest = eval_scope.confine(OUTPUT_ROOT, scope, rel, sub="in")
         dest.parent.mkdir(parents=True, exist_ok=True)
         dest.write_text(body)
-    ctx: dict[str, Any] = {
+    ctx = {
         "scope": scope,
         "root": root,
         "inventory": _inventory(root),

@@ -304,3 +304,19 @@ def test_run_row_keeps_sandbox_tools_and_sends_the_scope(
         )
     assert seen["use_tools"] is tools_on
     assert (seen["harness"]["pipeline_eval"]["allow"] == []) is allow_empty
+
+
+def test_mcp_addresses_follow_the_deployments_host_ports(tmp_path, monkeypatch):
+    env = tmp_path / ".env"
+    env.write_text("MEMORY_MCP_HOST_PORT=18920\n")
+    monkeypatch.setattr(eval_mode, "REPO", tmp_path)
+    monkeypatch.delenv("WFE_MEMORY_MCP_URL", raising=False)
+    monkeypatch.delenv("MEMORY_MCP_HOST_PORT", raising=False)
+    real = eval_mode.setting
+    monkeypatch.setattr(eval_mode, "setting", lambda k, d, env_file=env: real(k, d, env_file))
+    assert (
+        eval_mode.mcp_url("WFE_MEMORY_MCP_URL", "MEMORY_MCP_HOST_PORT", 8920)
+        == "http://localhost:18920"
+    )
+    monkeypatch.setenv("WFE_MEMORY_MCP_URL", "http://mem:1/")
+    assert eval_mode.mcp_url("WFE_MEMORY_MCP_URL", "MEMORY_MCP_HOST_PORT", 8920) == "http://mem:1"

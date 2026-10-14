@@ -31,7 +31,12 @@ from tests.wfe import campaign, eval_mode
 from tests.wfe.e2e.rig import CAMPAIGNS, DRIFT_PROBE, PLAN, REPO, Rig
 
 PIPE = os.environ.get("WFE_CHAT_BASE_URL", "http://localhost:9099").rstrip("/")
-MCP = {"documents": 8913, "data": 8939, "memory": 8920, "rag": 8921}
+MCP = {
+    "documents": eval_mode.DOCUMENTS_MCP_URL,
+    "data": eval_mode.DATA_MCP_URL,
+    "memory": eval_mode.MEMORY_MCP_URL,
+    "rag": eval_mode.RAG_MCP_URL,
+}
 SCOPE_ALL = {"campaign": "wfe_" + "0" * 16, "run": "wfe_" + "0" * 40, "allow": []}
 
 
@@ -67,7 +72,7 @@ class LiveRig(Rig):
             return {"status": e.code, **(json.loads(e.read() or b"{}") or {})}
 
     def mcp(self, name: str, path: str, body: dict) -> dict:
-        return self._req(f"http://localhost:{MCP[name]}{path}", body)
+        return self._req(f"{MCP[name]}{path}", body)
 
     def chat(self, ws: str, text: str, scope: dict | None = None) -> tuple[str, dict]:
         cid = f"wfe-live-{uuid.uuid4().hex[:12]}"
