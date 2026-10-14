@@ -451,17 +451,10 @@ def expand_matrix(
     """Expand the plan into one row per (workspace, arm, suite, task, repeat).
 
     `tier` records how a row was created and never decides membership in a
-    comparison: "screen" takes repeat 0 of the tasks a suite marks `screen`,
-    "confirm" takes every task at repeats 0..repeats-1. A confirm append over a
-    workspace already screened reuses the screen rows because their run_id is
-    identical, which is what leaves no duplicate and re-runs nothing.
-
-    `advance` (workspace -> candidate arms to keep) is what `--advance` passes
-    after a screen; incumbents are always kept, because a cell without its
-    baseline cannot be compared.
-
-    Rows are keyed by run_id and carry their own state, which is what makes the
-    campaign resumable, appendable and honest about what did not run."""
+    comparison; `advance` (workspace -> candidates to keep) is the screen's
+    output. Rows are keyed by run_id and carry their own state, which is what
+    makes the campaign resumable, appendable and honest about what did not run.
+    The tier and advance rules are specified in docs/WFE_ROOT_CAUSES_20261013.md."""
     plan = yaml.safe_load(plan_path.read_text()) or {}
     every = sorted(p.stem for p in SUITE_DIR.glob("*.jsonl") if not p.stem.endswith("_full"))
     rows: list[dict] = []
@@ -477,18 +470,7 @@ def expand_matrix(
         # An advance list is the screen's whole output: a workspace it does not
         # name advanced no candidate, so only that workspace's incumbent confirms.
         wanted = None if advance is None else advance.get(ws_id, set())
-        ordered = [("incumbent", arms.get("incumbent"))] + [
-            ("challenger", c) for c in (arms.get("challengers") or [])
-        ]
-        for role, entry in ordered:
-            if not entry:
-                continue
-            arm_id, model, overrides = arm_spec(_with_card_sampling(entry, role, ws_id))
-            if only_arm and only_arm not in (arm_id, model):
-                continue
-            if role == "challenger" and wanted is not None and arm_id not in wanted:
-                continue
-            spec = (arm_id, model, overrides)
+        for role, spec in _planned_arms(arms, ws_id, only_arm, wanted):
             for suite in dict.fromkeys(s for s in suites if s):
                 if only_suite and suite != only_suite:
                     continue
@@ -496,6 +478,24 @@ def expand_matrix(
     # Arm-major: every task for a model runs while its weights are resident.
     rows.sort(key=lambda r: (r["arm"], r["workspace"], r["suite"], r["task_id"], r["repeat"]))
     return rows
+
+
+def _planned_arms(arms: dict, ws_id: str, only_arm: str | None, want: set | None):
+    """(role, spec) for every arm one workspace expands, obeying --arm and --advance."""
+    ordered = [("incumbent", arms.get("incumbent"))] + [
+        ("challenger", c) for c in (arms.get("challengers") or [])
+    ]
+    out = []
+    for role, entry in ordered:
+        if not entry:
+            continue
+        arm_id, model, overrides = arm_spec(_with_card_sampling(entry, role, ws_id))
+        if only_arm and only_arm not in (arm_id, model):
+            continue
+        if role == "challenger" and want is not None and arm_id not in want:
+            continue
+        out.append((role, (arm_id, model, overrides)))
+    return out
 
 
 def _suite_rows(ws_id, spec, role, suite, home, tier, repeats, only_task) -> list[dict]:
@@ -2017,6 +2017,15 @@ def _cmd_list_arms(plan: Path, all_suites: bool) -> int:
     return 0
 
 
+def _print_preflight(i: int, total: int, arm: str, res: dict, elapsed: float) -> None:
+    """One arm's preflight verdict and everything that qualified it."""
+    print(f"[{i}/{total}] {str(res.get('verdict')):6s} {round(elapsed, 1):7.1f}s  {arm}")
+    for f in res.get("findings") or []:
+        print(f"          FINDING: {f}")
+    for n in res.get("notes") or []:
+        print(f"          note: {n}")
+
+
 def _cmd_preflight(campaign_dir: Path, force: bool) -> int:
     """Probe every arm's transport before the sweep starts.
 
@@ -2051,11 +2060,7 @@ def _cmd_preflight(campaign_dir: Path, force: bool) -> int:
         # The first preflight of a pair freezes its identity; a later change
         # means the two halves of the comparison describe different builds.
         drift += freeze_identities(frozen, res.get("identities") or {})
-        print(f"[{i}/{len(arms)}] {verdict:6s} {round(time.monotonic() - t0, 1):7.1f}s  {a}")
-        for f in res.get("findings") or []:
-            print(f"          FINDING: {f}")
-        for n in res.get("notes") or []:
-            print(f"          note: {n}")
+        _print_preflight(i, len(arms), a, res, time.monotonic() - t0)
         if verdict != "OK":
             bad.append(a)
         drain_model(a)
