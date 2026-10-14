@@ -186,6 +186,7 @@ def test_documents_mcp_scoped_create_stays_in_the_namespace(docs, monkeypatch):
 
 
 def test_documents_mcp_scoped_read_outside_the_namespace_is_refused(docs):
+    pytest.importorskip("docx", reason="python-docx not installed")
     dm, root, _ = docs
     (root / "operator.docx").write_bytes(b"x")
     status, body = _invoke(
@@ -198,6 +199,7 @@ def test_documents_mcp_scoped_read_outside_the_namespace_is_refused(docs):
 
 @pytest.fixture
 def data(tmp_path, monkeypatch):
+    pytest.importorskip("duckdb", reason="duckdb not installed")
     from portal.modules.data.tools import data_mcp as dm
 
     root, sess = tmp_path / "ai", tmp_path / "sess"
