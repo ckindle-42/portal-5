@@ -113,6 +113,7 @@ def busy() -> str | None:
 
 def contract(engine: str) -> int:
     """Run the contract check for one engine. 0 = OK, 1 = failed, 2 = cannot run."""
+    log(f"{engine}: running contract check (real generations, takes several minutes)")
     r = _run([sys.executable, str(CONTRACT), engine], timeout=3600)
     print(r.stdout + r.stderr, flush=True)
     return r.returncode
@@ -380,6 +381,7 @@ def update_engine(engine: str, state: dict, dry_run: bool, allow_prerelease: boo
     except Exception as e:
         switched = False
         log(f"{engine}: install failed: {e}")
+    log(f"{engine}: switched={switched}" + (" (waited on data01 approval)" if tcc else ""))
     rc = contract(engine) if switched else 2
     entry = {"utc": tag, "from": old, "to": new, "contract_rc": rc}
     if rc == 0:
@@ -427,6 +429,9 @@ def main(argv: list[str]) -> int:
         log(f"deferring: a sweep is running ({who})")
         return 0
     # Daily: re-prove the contract whenever a version changed by any route.
+    log(
+        f"checking whether {', '.join(engines)} changed since last verified (may run the contract check)"
+    )
     r = _run([sys.executable, str(CONTRACT), "--if-changed", *engines], timeout=7200)
     print(r.stdout + r.stderr, flush=True)
     last = state.get("last_update_run")
