@@ -2,6 +2,10 @@
 """Seat-qualification probe for the compliance judgment step
 (TASK_COMPLIANCE_REASONING_V6 D0-M).
 
+NOT THE COUNCIL PATH (N-9): this scores one sealed seat call per case, outside the
+compliance review council. Production judgments run through the council; a verdict
+here says how a seat behaves alone, and does not stand for council behaviour.
+
 Runs every candidate seat model against the 30 authored cases in
 ``tests/compliance_probe/judgment_probe_v6.jsonl`` and measures the seat
 properties §D0-M requires — *not* leaderboard position:
