@@ -97,9 +97,13 @@ def call_pipeline(
     workspace: str,
     messages: list[dict[str, str]],
     *,
-    max_tokens: int = 1024,
+    max_tokens: int | None = None,
 ) -> tuple[str, float, int]:
-    """Call /v1/chat/completions on the pipeline. Returns (content, latency_s, tokens)."""
+    """Call /v1/chat/completions on the pipeline. Returns (content, latency_s, tokens).
+
+    N-3: ``max_tokens`` is sent only when a caller passes one. The pipeline applies the
+    workspace's ``predict_limit`` with setdefault, so a probe-chosen cap silently replaces
+    the seat's output limit; the default leaves production's cap in force."""
     headers = {
         "Authorization": f"Bearer {PIPELINE_API_KEY}",
         "Content-Type": "application/json",
@@ -107,9 +111,10 @@ def call_pipeline(
     payload: dict[str, Any] = {
         "model": workspace,
         "messages": messages,
-        "max_tokens": max_tokens,
         "stream": False,
     }
+    if max_tokens is not None:
+        payload["max_tokens"] = max_tokens
     client = _get_http_client()
     t0 = time.time()
     r = client.post(f"{PIPELINE_URL}/v1/chat/completions", json=payload, headers=headers)
@@ -412,7 +417,7 @@ def run_p1(workspace: str) -> ProbeResult:
         {"role": "system", "content": P1_PROMPT_SYS},
         {"role": "user", "content": P1_PROMPT_USER},
     ]
-    content, dt, tokens = call_pipeline(workspace, messages, max_tokens=512)
+    content, dt, tokens = call_pipeline(workspace, messages)
     score, markers = score_p1_envsim(content)
     return ProbeResult(
         probe_id="P1_envsim",
@@ -459,7 +464,7 @@ def run_p2(workspace: str) -> ProbeResult:
 def run_p3(workspace: str, target_kb: int = 50) -> ProbeResult:
     doc = _build_p3_doc(target_kb)
     messages = [{"role": "user", "content": P3_PROMPT_TMPL.format(doc=doc)}]
-    content, dt, tokens = call_pipeline(workspace, messages, max_tokens=512)
+    content, dt, tokens = call_pipeline(workspace, messages)
     score, markers = score_p3_needle(content)
     return ProbeResult(
         probe_id=f"P3_needle_{target_kb}KB",
@@ -476,7 +481,7 @@ def run_p3(workspace: str, target_kb: int = 50) -> ProbeResult:
 
 def run_p4(workspace: str) -> ProbeResult:
     messages = [{"role": "user", "content": P4_PROMPT_USER}]
-    content, dt, tokens = call_pipeline(workspace, messages, max_tokens=1024)
+    content, dt, tokens = call_pipeline(workspace, messages)
     score, markers = score_p4_uncensored(content)
     return ProbeResult(
         probe_id="P4_uncensored",
@@ -496,7 +501,7 @@ def run_p5(workspace: str) -> list[ProbeResult]:
     for i, q in enumerate(P5_QUESTIONS):
         prompt = q["q"] + "\n\nFinal line: 'Answer: <letter>'"
         messages = [{"role": "user", "content": prompt}]
-        content, dt, tokens = call_pipeline(workspace, messages, max_tokens=2048)
+        content, dt, tokens = call_pipeline(workspace, messages)
         score, markers = score_p5_reasoning(content, q["answer"])
         results.append(
             ProbeResult(
@@ -516,7 +521,7 @@ def run_p5(workspace: str) -> list[ProbeResult]:
 
 def run_p6(workspace: str) -> ProbeResult:
     messages = [{"role": "user", "content": P6_PROMPT_USER}]
-    content, dt, tokens = call_pipeline(workspace, messages, max_tokens=1536)
+    content, dt, tokens = call_pipeline(workspace, messages)
     score, markers = score_p6_swe(content)
     return ProbeResult(
         probe_id="P6_swe_handoff",
