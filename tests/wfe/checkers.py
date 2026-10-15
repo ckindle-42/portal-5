@@ -548,6 +548,29 @@ def check_receipt_artifact(spec: dict, ctx: CheckContext) -> CheckResult:
     )
 
 
+def check_tool_grounded(spec: dict, ctx: CheckContext) -> CheckResult:
+    """The answer must rest on a successful call to one of ``tools`` whose output
+    shows every ``evidence`` pattern: the fact was retrieved through the
+    workspace's own tools, not recalled. ``answer_contains`` grades the answer;
+    this grades where it came from."""
+    tools = set(spec.get("tools") or [])
+    evidence = spec.get("evidence") or []
+    for c in ctx.tool_calls:
+        out = str(c.get("output", ""))
+        if (tools and c.get("name") not in tools) or c.get("error") or out.startswith("ERROR"):
+            continue
+        if all(re.search(p, out, re.I) for p in evidence):
+            return CheckResult(
+                Outcome.PASS, f"grounded by {c.get('name')}", {"grounded_by": c.get("name")}
+            )
+    called = [c.get("name") for c in ctx.tool_calls]
+    return CheckResult(
+        Outcome.FAIL,
+        f"no successful call to {sorted(tools)} returned {evidence}",
+        {"calls": called},
+    )
+
+
 CHECKERS = {
     "pytest_pass": check_pytest_pass,
     "receipt_artifact": check_receipt_artifact,
@@ -556,6 +579,7 @@ CHECKERS = {
     "file_exists": check_file_exists,
     "file_contains": check_file_contains,
     "answer_contains": check_answer_contains,
+    "tool_grounded": check_tool_grounded,
     "cited_answer": check_cited_answer,
     "human_review": check_human_review,
     "compliance_reading_contract": check_compliance_reading_contract,

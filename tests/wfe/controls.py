@@ -15,8 +15,36 @@ from tests.wfe.schema import Outcome
 #: The date expiry is judged against; tests replace it.
 TODAY = dt.date.today
 
-#: Checkers that grade only the answer text, so a control answer tests them fully.
-ANSWER_GRADED = {"answer_contains", "cited_answer", "compliance_reading_contract"}
+#: Checkers a control tests fully: they grade the answer text and, for tool_grounded, the
+#: tool trace a declared control supplies ({"answer": ..., "tool_calls": [...]}).
+ANSWER_GRADED = {"answer_contains", "cited_answer", "compliance_reading_contract", "tool_grounded"}
+
+#: Every key a suite task may carry, and the keys each checker type reads (N-24): a
+#: missing or misspelled key used to default to a check that any answer passes.
+TASK_KEYS = {
+    "id",
+    "lane",
+    "agentic",
+    "instruction",
+    "completion_signal",
+    "checkers",
+    "seed",
+    "repo_read",
+    "controls",
+    "requires_tools",
+    "arguable",
+    "dimensions",
+    "eval_set",
+    "kb_seed",
+    "memory_seed",
+    "no_tools",
+    "screen",
+    "expires",
+}
+CHECKER_KEYS = {
+    "answer_contains": ({"patterns"}, {"forbid", "exact", "forbid_in_tool_output"}),
+    "tool_grounded": ({"evidence"}, {"tools"}),
+}
 
 
 @dataclass
@@ -36,10 +64,31 @@ class ControlFailure:
 
 
 def _checker_types(task: dict) -> set[str]:
+    return {s.get("type", "") for s in task.get("checkers") or []}
+
+
+def schema_failures(task: dict, suite: str = "") -> list[ControlFailure]:
+    """A task the harness cannot grade as written: no checkers, an unknown checker
+    type, a checker spec with a missing or unknown key, or an unknown task key (N-24)."""
+    from tests.wfe.checkers import CHECKERS
+
+    tid, bad = task.get("id", "?"), []
+    if unknown := sorted(set(task) - TASK_KEYS):
+        bad.append(f"unknown task keys {unknown}")
     specs = task.get("checkers")
-    if specs is None:
-        specs = [task.get("checker") or {"type": "answer_contains"}]
-    return {s.get("type", "answer_contains") for s in specs}
+    if not isinstance(specs, list) or not specs:
+        bad.append("no checkers: a task without one passes any answer")
+    for s in specs if isinstance(specs, list) else []:
+        kind = s.get("type")
+        if kind not in CHECKERS:
+            bad.append(f"unknown checker type {kind!r}")
+        elif kind in CHECKER_KEYS:
+            need, may = CHECKER_KEYS[kind]
+            if missing := sorted(k for k in need if not s.get(k)):
+                bad.append(f"{kind}: missing or empty {missing}")
+            if extra := sorted(set(s) - need - may - {"type"}):
+                bad.append(f"{kind}: unknown keys {extra}")
+    return [ControlFailure(suite, tid, "schema", "a gradeable task", "invalid", b) for b in bad]
 
 
 def _seed_text(task: dict) -> str:
@@ -49,15 +98,20 @@ def _seed_text(task: dict) -> str:
     return str(seed)
 
 
-def _outcome(task: dict, answer: str) -> tuple[Outcome, str]:
-    r = apply_checkers(task, CheckContext(final_text=answer, task=task))
+def _outcome(task: dict, answer: str | dict) -> tuple[Outcome, str]:
+    """A control is an answer, or {"answer", "tool_calls"} for a trace-grounded task."""
+    text = answer.get("answer", "") if isinstance(answer, dict) else answer
+    calls = answer.get("tool_calls") if isinstance(answer, dict) else None
+    r = apply_checkers(task, CheckContext(final_text=text, task=task, tool_calls=calls))
     return r.outcome, r.notes
 
 
 def check_task(task: dict, suite: str = "", today: dt.date | None = None) -> list[ControlFailure]:
     """Every control failure for one task; empty when the checker is sound."""
     tid = task.get("id", "?")
-    out: list[ControlFailure] = []
+    out: list[ControlFailure] = schema_failures(task, suite)
+    if out:
+        return out
     expires = task.get("expires")
     if expires and dt.date.fromisoformat(str(expires)) < (today or TODAY()):
         out.append(
