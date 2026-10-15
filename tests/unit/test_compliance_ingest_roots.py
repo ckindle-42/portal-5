@@ -81,9 +81,9 @@ def test_relative_profile_dir_resolves_against_the_repo(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, ingested: list[str]
 ) -> None:
     repo = Path(cr.__file__).resolve().parents[4]
-    _profile(tmp_path, monkeypatch, {"internal_v9": "coding_task/v9_compliance/LSPG-CIP"})
+    _profile(tmp_path, monkeypatch, {"internal_v9": "coding_task/v9_compliance/CORPUS-A"})
 
-    status, _ = _post(str(repo / "coding_task" / "v9_compliance" / "LSPG-CIP"))
+    status, _ = _post(str(repo / "coding_task" / "v9_compliance" / "CORPUS-A"))
 
     assert status == 200
     assert len(ingested) == 1
