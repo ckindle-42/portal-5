@@ -92,7 +92,14 @@ COMPUTER_USE_TOOL = {
 }
 
 
-def _extract_action(msg: dict) -> tuple[str | None, dict]:
+def _source(m: re.Match[str], text: str, thinking: str) -> str:
+    """'content' when the matched call text sits in the reply, 'thinking' when only the
+    reasoning field carries it. N-2: a call found only in 'thinking' is a template defect
+    (the model's own output is not a clean tool call), not a pass."""
+    return "content" if m.group(0) in text else "thinking"
+
+
+def _extract_action(msg: dict) -> tuple[str | None, dict, str]:
     """Parse Fara's tool call, whichever of three shapes it lands in.
 
     Depending on whether Ollama's generic (non-Fara-specific) chat template
@@ -114,14 +121,14 @@ def _extract_action(msg: dict) -> tuple[str | None, dict]:
     if tool_calls:
         fn = tool_calls[0].get("function", {})
         args = fn.get("arguments", {})
-        return args.get("action"), args
+        return args.get("action"), args, "tool_calls"
 
     combined = text + "\n" + thinking
     m = re.search(r"<tool_call>\s*(\{.*?\})\s*</tool_call>", combined, re.S)
     if m:
         obj = json.loads(m.group(1))
         args = obj.get("arguments", obj)
-        return args.get("action") or args.get("name"), args
+        return args.get("action") or args.get("name"), args, _source(m, text, thinking)
 
     m = re.search(r"<function=computer_use>(.*?)</function>", combined, re.S)
     if m:
@@ -138,9 +145,9 @@ def _extract_action(msg: dict) -> tuple[str | None, dict]:
             if "<parameter=" in val or "<function" in val:
                 continue  # malformed: no close tag, value bled into next field
             args[key] = val
-        return args.get("action"), args
+        return args.get("action"), args, _source(m, text, thinking)
 
-    return None, args
+    return None, args, "none"
 
 
 def main() -> int:
@@ -162,7 +169,14 @@ def main() -> int:
     r = httpx.post(f"{OLLAMA}/api/chat", json=body, timeout=300)
     r.raise_for_status()
     msg = r.json().get("message", {})
-    action, args = _extract_action(msg)
+    action, args, source = _extract_action(msg)
+
+    if source == "thinking":
+        print(
+            "TEMPLATE DEFECT: the tool call was emitted inside 'thinking', not as a clean call (N-2)"
+        )
+        print("thinking:", msg.get("thinking", "")[:400])
+        return 2
 
     if action is None:
         print("FAIL: no tool_call (native or inline) with an 'action' field emitted")
@@ -176,6 +190,7 @@ def main() -> int:
         json.dumps(
             {
                 "emitted_tool_call": True,
+                "call_source": source,
                 "action": action,
                 "action_supported": ok_action,
                 "has_coordinate": has_coord,
