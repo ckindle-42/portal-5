@@ -120,7 +120,7 @@ def _release_gap(repo: str, current: tuple[int, ...], report: Report) -> None:
         for r in releases
         if not r.get("draft")
         and not r.get("prerelease")
-        and not re.search(r"(rc|alpha|beta)\d*$", str(r.get("tag_name", "")), re.IGNORECASE)
+        and not re.search(r"(rc|alpha|beta|dev|pre)\d*$", str(r.get("tag_name", "")), re.IGNORECASE)
     ]
     if not releases:
         report.lines.append("no releases found")
@@ -210,15 +210,9 @@ def check_ollama() -> Report:
 def check_omlx() -> Report:
     rep = Report("omlx")
     try:
-        out = subprocess.run(
-            ["brew", "list", "--versions", "jundot/omlx/omlx"],
-            capture_output=True,
-            text=True,
-            timeout=30,
-        ).stdout.split()
-        rep.current = out[-1] if len(out) > 1 else "?"
-    except (OSError, subprocess.SubprocessError) as e:
-        rep.lines.append(f"brew not available: {e}")
+        rep.current = os.readlink("/opt/homebrew/opt/omlx").rstrip("/").rsplit("/", 1)[-1]
+    except OSError as e:
+        rep.lines.append(f"could not determine installed oMLX version: {e}")
         return rep
     _release_gap("jundot/omlx", _semver(rep.current), rep)
     _advisories("jundot/omlx", rep)
