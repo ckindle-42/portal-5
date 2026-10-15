@@ -385,6 +385,15 @@ Two pieces of evidence a decision needs, both of which used to be destroyed:
 
 `tests/wfe/tool_modes.yaml` lists workspaces measured with their **own** tools (auto-documents, auto-data) instead of the harness's sandbox tools (cause C6). A listed row sends `portal_eval` {campaign, run, allow} (bounded `wfe_<hex>` tokens); the pipeline offers and authorizes only `allow`, records the scope in the turn trace and forwards it to every MCP call (malformed scope: 400). The documents MCP then writes only to `<AI_Output>/wfe/<campaign>/<run>/out/`, confines reads to the run root, never publishes to Open WebUI and appends a creation receipt (`rel`, sha256, size). The data MCP forces `session_id` to the run token and confines `attach_source` to the run's `in/`. The harness stages seed files in `in/`, validates receipts (inside `out/`, absent before, unchanged; `receipt_artifact` grades them), writes a cleanup inventory first, closes the data session via the scope-only `/eval/close_session` and deletes only files under the run root.
 
+### Part 2 rest: memory, knowledge bases, build stamps, compliance evaluation instance
+
+- **Scope before injection.** The handler binds the scope before memory and KB injection, so WFE rows never see operator memories (N-31). Graph memory is user-scoped; `forget`, `recall` and `list_memories` are filter-safe (N-27). The RAG MCP is scoped; `/eval/seed_kb` and `/eval/drop_kb` are harness-only; `kb_list` uses the one KB store (N-29).
+- **Live mode.** `python -m tests.wfe.e2e.rig --live` runs the rig's scenarios on the production stack and refuses to start unless every service runs this code. Expected: `live: 21/26 PASS (5 offline-only)`.
+- **Build stamps.** documents, data, memory, RAG and compliance report `build_sha` and `build_dirty` on `/health`; preflight refuses an unreachable, stale or dirty service; service builds enter the instrument fingerprint.
+- **Compliance evaluation instance.** `compliance-mcp-eval` on :8948, rooted at `~/.portal-data/compliance-eval`, serves only the measured-safe tools; a scoped compliance call routes there or is refused. auto-compliance runs in production tool mode through it.
+- **Volume ownership.** The MCP entrypoint chowns the LanceDB and KB-sources volumes; root-written files from earlier migrations otherwise made memory writes and scoped KB seeding fail with 500 (found by live S16 and S17).
+- **Gap.** No test covers cleanup after an interrupted production row (P2-C8 stays PENDING).
+
 ## Review of the task's second version (2026-10-13), and how V3 answers it
 
 A second independent review of V2 found seven defects. Each was checked against the code
