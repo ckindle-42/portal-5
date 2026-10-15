@@ -104,6 +104,23 @@ class LoadRefusedError(Exception):
 #: The pipeline's guard (set by lifespan); None outside the pipeline process.
 GUARD: LoadGuard | None = None
 
+#: How long the model a request just failed over FROM stays out of eviction (P-2). On the
+#: V2 closeout run an oMLX timeout failed over to an Ollama cold load, load_guard freed the
+#: oMLX seat to make room, and every reload of it then got HTTP 507.
+FAILOVER_PROTECT_S = float(os.environ.get("LOAD_GUARD_FAILOVER_PROTECT_S", "300"))
+
+
+def protect_failover(engine: str, model: str) -> None:
+    """Keep the model a request just failed over from loaded for a cool-down (P-2)."""
+    if GUARD is not None and engine in (OLLAMA, OMLX) and model:
+        GUARD.protect(engine, model)
+        logger.info(
+            "load_guard: protecting %s:%s for %.0fs after a failover",
+            engine,
+            model,
+            FAILOVER_PROTECT_S,
+        )
+
 
 class LoadGuard:
     def __init__(
@@ -113,6 +130,7 @@ class LoadGuard:
         client: Callable[[], httpx.AsyncClient] = lambda: httpx.AsyncClient(timeout=10.0),
     ) -> None:
         self._omlx_url = omlx_url
+        self._protected: dict[tuple[str, str], float] = {}  # (engine, model) -> monotonic deadline
         self._pinned = pinned
         self._client = client
         self._lock = asyncio.Lock()
@@ -146,6 +164,16 @@ class LoadGuard:
             event.set()
 
         return end
+
+    def protect(self, engine: str, model: str, seconds: float | None = None) -> None:
+        """Exclude ``model`` from eviction for ``seconds`` (default FAILOVER_PROTECT_S)."""
+        span = FAILOVER_PROTECT_S if seconds is None else seconds
+        self._protected[(engine, model)] = time.monotonic() + span
+
+    def protected(self, engine: str) -> set[str]:
+        """The models of ``engine`` currently protected from eviction."""
+        now = time.monotonic()
+        return {m for (e, m), until in self._protected.items() if e == engine and until > now}
 
     def busy(self, engine: str, model: str) -> int:
         return self._busy.get((engine, model), 0)
@@ -219,7 +247,10 @@ class LoadGuard:
             sum(
                 size
                 for name, size in resident.items()
-                if name != pinned and name not in exclude and not self.busy(OLLAMA, name)
+                if name != pinned
+                and name not in exclude
+                and name not in self.protected(OLLAMA)
+                and not self.busy(OLLAMA, name)
             )
         )
 
@@ -249,6 +280,7 @@ class LoadGuard:
             and not m.get("pinned")
             and not m.get("is_loading")
             and m["id"] not in exclude
+            and m["id"] not in self.protected(OMLX)
             and not self.busy(OMLX, m["id"])
         ]
         return url, sorted(idle, key=lambda m: float(m.get("last_access") or 0))
