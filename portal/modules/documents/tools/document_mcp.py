@@ -67,7 +67,15 @@ def _published(output_path: Path, noun: str) -> dict[str, Any]:
         }
     pub = publish_file_sync(output_path)
     if "error" in pub:
-        return {"success": False, "error": pub["error"]}
+        # N-22: the file exists; saying success:false orphaned it and invited a duplicate retry.
+        return {
+            "success": True,
+            "published": False,
+            "path": str(output_path),
+            "filename": output_path.name,
+            "publish_error": pub["error"],
+            "message": f"{noun} created at {output_path.name}, but publishing to Open WebUI failed: {pub['error']}",
+        }
     return {
         "success": True,
         "path": str(output_path),
@@ -226,16 +234,32 @@ def _resolve_input_path(file_path: str) -> Path:
         return eval_scope.confine(OUTPUT_DIR, scope, file_path, sub="in")
     given = Path(file_path)
     if given.exists() or given.name != file_path:
-        return given.resolve()
+        return _readable(given)
     uploads = OUTPUT_DIR / "uploads"
     for candidate in (OUTPUT_DIR / file_path, uploads / file_path):
         if candidate.is_file():
-            return candidate.resolve()
+            return _readable(candidate)
     if uploads.is_dir():
         matches = sorted(uploads.glob(f"*_{file_path}"), key=lambda m: m.stat().st_mtime)
         if matches:
-            return matches[-1].resolve()
-    return given.resolve()
+            return _readable(matches[-1])
+    return given.resolve()  # not found anywhere: the caller's not-found error, unchanged
+
+
+def _readable(path: Path) -> Path:
+    """N-23: a read stays inside OUTPUT_DIR (with its uploads) or DOCUMENTS_READ_ROOTS."""
+    p = path.resolve()
+    extra = [
+        Path(r).expanduser().resolve()
+        for r in os.getenv("DOCUMENTS_READ_ROOTS", "").split(os.pathsep)
+        if r
+    ]
+    roots = [OUTPUT_DIR.resolve(), *extra]
+    if not any(p == r or r in p.parents for r in roots):
+        raise PermissionError(
+            f"{path} is outside the readable roots {[str(r) for r in roots]} (set DOCUMENTS_READ_ROOTS to allow more)"
+        )
+    return p
 
 
 def _resolve_image(source: str) -> Path:
