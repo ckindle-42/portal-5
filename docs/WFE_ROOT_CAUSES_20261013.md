@@ -140,6 +140,7 @@ sweep.
 | N-29 | kb_list and KB maintenance used a second storage path (lower-cased names, unpaged listing, _visual tables as KBs); KBs like NERC-CIP vanished; fixed in Part 2b |
 | N-30 | Memory write-back runs only on the non-streaming path; Open WebUI streams, so it rarely fires (Part 4) |
 | N-31 | WFE rows in memory-injecting workspaces got the operator's recalled memories: injection ran before the scope bound; fixed in Part 2b |
+| N-32 | The compliance evaluation instance ingested the planted corpus with each document's PLANT header, its answer key; any tool reading those chunks handed a model the gold answer; fixed in the compliance slice |
 
 ## Follow-on tasks (assigned, not dropped)
 
