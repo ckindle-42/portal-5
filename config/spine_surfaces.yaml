@@ -184,6 +184,10 @@ surfaces:
   globs:
   - portal/modules/compliance/core/enumeration.py
   unit: unit-compliance-requirement-join
+- name: file-portal-modules-compliance-core-eval_instance
+  globs:
+  - portal/modules/compliance/core/eval_instance.py
+  unit: unit-capability-compliance
 - name: file-portal-modules-compliance-core-evaluation
   globs:
   - portal/modules/compliance/core/evaluation.py
@@ -1072,9 +1076,17 @@ surfaces:
   globs:
   - tests/wfe/decision.py
   unit: unit-wfe-workspace-fitness
+- name: file-tests-wfe-e2e-compliance_classify
+  globs:
+  - tests/wfe/e2e/compliance_classify.py
+  unit: unit-wfe-workspace-fitness
 - name: file-tests-wfe-e2e-fake_engines
   globs:
   - tests/wfe/e2e/fake_engines.py
+  unit: unit-wfe-workspace-fitness
+- name: file-tests-wfe-e2e-live
+  globs:
+  - tests/wfe/e2e/live.py
   unit: unit-wfe-workspace-fitness
 - name: file-tests-wfe-e2e-rig
   globs:
@@ -1139,6 +1151,10 @@ surfaces:
 - name: file-tests-wfe-tests-test_wfe_checkers
   globs:
   - tests/wfe/tests/test_wfe_checkers.py
+  unit: unit-wfe-workspace-fitness
+- name: file-tests-wfe-tests-test_wfe_compliance_classify
+  globs:
+  - tests/wfe/tests/test_wfe_compliance_classify.py
   unit: unit-wfe-workspace-fitness
 - name: file-tests-wfe-tests-test_wfe_component
   globs:
