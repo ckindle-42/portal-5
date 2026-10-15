@@ -441,6 +441,23 @@ def _norm_key(s: str) -> str:
     return re.sub(r"[-_.\s]", "", s.lower())
 
 
+_VERSION_DOT = re.compile(r"(?<=\d)\.(?=\d)")
+
+
+def _key_in_tag(key: str, tag: str) -> bool:
+    """N-7: a key with a version dot ('qwen3.8') matches only that version: its dot is
+    joined ('qwen38') and a separator between two digits stays a boundary, so 'Qwen3-8B'
+    (Qwen3 at 8B) no longer matches, while 'granite-4.1' still matches 'granite4.1:8b'. Keys without one match separator-insensitively, as before."""
+    if _VERSION_DOT.search(key):
+
+        def bounded(s: str) -> str:  # join the version dot; keep only digit-SEP-digit as a boundary
+            s = re.sub(r"(?<=\d)[-_.\s](?=\d)", "~", _VERSION_DOT.sub("", s.lower()))
+            return re.sub(r"[-_.\s]", "", s)
+
+        return bounded(key) in bounded(tag)
+    return _norm_key(key) in _norm_key(tag)
+
+
 def card_entry(tag: str, registry: dict | None = None) -> tuple[str, dict] | None:
     """Longest-match-wins over separator-normalised keys.
 
@@ -449,11 +466,10 @@ def card_entry(tag: str, registry: dict | None = None) -> tuple[str, dict] | Non
     granite, because registry keys are hyphenated ('granite-4.1') while installed
     tags are not ('granite4.1'). Dimensions 2 and 3 were inert as a result."""
     registry = _card_registry() if registry is None else registry
-    tl = _norm_key(tag)
     best = None
     for key, entry in registry.items():
         nk = _norm_key(key)
-        if nk and nk in tl and (best is None or len(nk) > len(_norm_key(best[0]))):
+        if nk and _key_in_tag(key, tag) and (best is None or len(nk) > len(_norm_key(best[0]))):
             best = (key, entry or {})
     return best
 
