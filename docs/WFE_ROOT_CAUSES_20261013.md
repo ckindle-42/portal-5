@@ -467,3 +467,34 @@ acceptance criteria let both through. The executor did what the task said.
 
 Every build step in a task file now carries its own live acceptance line, run on the
 production stack, not only named tests.
+
+## Phase A outcomes (TASK_WFE_COMBINED_CODE_RUN_V1, 2026-10-15)
+
+Code and tests only; no live runs, no push. Live checks for every item below run in Phase B.
+
+| Item | Status | Commit | Evidence or assumption |
+|---|---|---|---|
+| S1, SD, P4 patches (14) | applied | 3c3d95d9..24da22ee | `git am --3way`, no adjustment |
+| N-32 root-cause row | fixed | 22f8a1e9 | doc row |
+| N-33 compliance_ingest confinement | fixed | 0543aa65 | route refuses sources outside the public compliance data dir and the operator profile's `corpus_dirs` (403, roots named); tests in `test_compliance_ingest_roots.py`. `eval_instance.build` stays on `ingest_folder` by design |
+| N-8 seat_primary parity | fixed | aefa63bc | see divergence list below |
+| N-11 tracked answer rows | fixed | f5054327 | 80 compliance answer rows untracked (`git rm --cached`, kept on disk); HK now matches row content, with a planted-row test |
+| N-10 MODEL_CATALOG reconcile | fixed | f4fcfee1 | the MLX DeepSeek-R1 entry is LIVE (re-registered 2026-09-25), not RETIRED; test forbids a RETIRED label on a live model |
+| N-2 Fara thinking-sourced call | fixed | 3ce3d332 | a call found only in `thinking` is a TEMPLATE DEFECT, not a pass |
+| N-3 candidates probe max_tokens | fixed | c31208bc | `predict_limit` is `setdefault` in the pipeline, so a probe cap overrode the seat's output limit; the probe no longer sends one |
+| N-9 judgment probe scope | fixed | c86b492f | header states it is not the council path |
+| N-1 research probe | fixed | 00049ed7 | errors are ERROR (unscored); rates over scored items; text tool calls are unscored; reasoning-only answers labelled; rq03 re-anchored to January 2025; a verdict needs 30 scored items (qset has 10, so no verdict from it) |
+| N-4 V2 rescore | done, no tracked change | none | offline rescore: 5 outcomes changed, all in compliance rows now untracked (N-11): comp-p6j-06 REFUSED→FAIL ×2, comp-p6j-09 REFUSED→FAIL, comp-p6j-11 FAIL→PASS ×2. Tracked rows: 0 outcome changes; metadata-only rewrites reverted |
+| R2-29 failover window | checked, test added | 6837e6d6 | no Ollama-served hint with a baked window below its context_limit; one unsuffixed hint (`mistral-small3.2:24b` for `auto-security::security-council-mistral-small32-24b`, limit 16384) has no baked `num_ctx` (`/api/show`), so it runs at Ollama's default. Named exception; fix is a `-ctx16k` tag in Phase B (P-4 prevent) |
+| P-2 Laguna failover | reverted | none | removing the Ollama tag orphans the omlx-coding alias. ASSUMED-STALE: the 500 note dates from Ollama 0.34.2 (live 0.40.5). Phase B sends one request through the pipeline with the oMLX primary unavailable |
+| P-2 timeout | code finding, no change | none | streaming uses an idle timeout (`streaming_client.py:244`); the fixed total is the non-streaming read timeout (`non_streaming.py:489`, 300s; 600s for reasoning). ASSUMED that it is what fired; no V2 log exists in the repo or containers. Phase B stall check |
+| P-3 parser | probed, no change | none | oMLX 0.7.0 active, ships a `laguna` parser (glm47-equivalent). Checkpoint tokenizer config has no `tool_parser_type`. ASSUMED oMLX auto-infers the parser. Phase B live call logs the parser; stamp only if the guard fires |
+| P-4 truncation and harness parity | not measured | none | needs a model cold load, so Phase B, through the pipeline |
+| N-8/N-11/N-4/N-10 (live) | Phase B | — | per the operator rule, live checks go through the pipeline on :9099 |
+
+**N-8 divergence (pre-fix `seat_primary` against production candidate order).** 22 pairs across 2 workspaces. Pre-fix rows for these pairs may have attributed the wrong primary. Phase B confirms one diverging workspace live via `/v1/trace`.
+
+- `bench-foundation-sec-8b-reasoning`: gemma4 q4_K_M ctx128k/32k/64k and qat ctx8k; NVIDIA-Nemotron Lightning GGUF ctx8k; Qwen3.6-35B-A3B GGUF ctx96k; Qwen3.8-27B GGUF ctx96k; mistral-small3.2:24b; qwen3.6:27b-q4_K_M-ctx16k.
+- `bench-qwen38-flash-next-reap288`: the same hints as above, plus granite4.1 30b ctx16k, granite4.1 8b ctx16k and ctx8k, and Qwen3.8-27B GGUF ctx32k.
+
+Old-seat readings were oMLX alias names (e.g. `mlx-community--gemma-4-26b-a4b-it-4bit`, `Qwen3.8-27B-oQ4e-mtp`); production served the Ollama tag. The 22 pairs and the old values were computed by running the pre-fix function from `8db8dca6` against `BackendRegistry` candidate order with shuffles pinned.
