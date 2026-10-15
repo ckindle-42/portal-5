@@ -13,6 +13,10 @@ fi
 if [ -d /app/data/portal5_lance ]; then
     chown -R portal:portal /app/data/portal5_lance 2>/dev/null || true
 fi
+# RAG KB sources volume: the evaluation scope creates per-run subdirectories under it.
+if [ -d /app/data/portal5_kb_sources ]; then
+    chown -R portal:portal /app/data/portal5_kb_sources 2>/dev/null || true
+fi
 
 # Stage the proxmox SSH key/known_hosts (bind-mounted read-only, host permission
 # bits that the non-root `portal` user usually can't read) into portal's own
