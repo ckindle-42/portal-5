@@ -1,0 +1,16 @@
+# auto-data's first seat decision: measured with its own data tools (production mode) on
+# data_production (36 questions over three seeded datasets, gold reproduced by DuckDB).
+# The candidate queue names no challenger for auto-data, so these are the strongest
+# tool-capable generalists its routed backends already serve. The screen tier drops the
+# weak ones cheaply; the operator may trim this list before the run.
+workloads:
+  auto-data:
+    tool_mode: production
+    home: data_production
+    discovery: []
+    arms:
+      incumbent: hf.co/unsloth/Qwen3.6-35B-A3B-GGUF:UD-Q4_K_XL-ctx32k
+      challengers:
+        - hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k
+        - granite4.1:30b-ctx64k
+        - hf.co/bartowski/NVIDIA-Nemotron-3.5-Lightning-30B-A3B-GGUF:Q4_K_M-ctx32k
