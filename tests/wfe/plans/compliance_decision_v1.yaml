@@ -1,0 +1,14 @@
+# The first seat decision on valid evidence (compliance vertical slice).
+# auto-compliance measured with its own tools (production mode, through the compliance
+# evaluation instance) on compliance_production: 12 planted-corpus determinations and 24
+# register lookups, every answer graded and grounded in a tool call. decision_run_v1 stays
+# as it was: the rig's sandbox-mode plan.
+workloads:
+  auto-compliance:
+    tool_mode: production
+    home: compliance_production
+    discovery: []
+    arms:
+      incumbent: hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k
+      challengers:
+        - granite4.1:30b-ctx64k
