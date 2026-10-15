@@ -8,6 +8,11 @@ fi
 if [ -d /app/data/generated ]; then
     chown -R portal:portal /app/data/generated 2>/dev/null || true
 fi
+# LanceDB volume (memory + RAG): files written as root (migrations, docker exec) otherwise
+# make every later write by the portal user fail with "Permission denied".
+if [ -d /app/data/portal5_lance ]; then
+    chown -R portal:portal /app/data/portal5_lance 2>/dev/null || true
+fi
 
 # Stage the proxmox SSH key/known_hosts (bind-mounted read-only, host permission
 # bits that the non-root `portal` user usually can't read) into portal's own
