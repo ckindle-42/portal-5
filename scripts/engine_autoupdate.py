@@ -19,7 +19,8 @@ Never updates while a WFE campaign, UAT or bench run is in flight (one request
 at a time is a house rule; an engine restart mid-sweep invalidates the sweep) —
 it defers to the next day.
 
-Ollama:  release tarball unpacked to ``~/ollama-<ver>/``; ``~/ollama-current``
+Ollama:  release tarball unpacked to ``~/.portal5/engines/ollama-<ver>/`` (live + one previous kept);
+         oMLX likewise keeps only the running + previous keg; ``~/ollama-current``
          flipped; LaunchDaemon ``com.portal5.ollama`` kickstarted (passwordless
          launchctl per the portal5 sudoers entry). Rollback flips it back.
 oMLX:    ``brew upgrade`` with cleanup disabled so the previous keg survives;
@@ -67,6 +68,7 @@ CONTRACT = REPO / "scripts" / "engine_contract_check.py"
 HOME = Path.home()
 OLLAMA_CURRENT = HOME / "ollama-current"
 OLLAMA_LIVE = HOME / "ollama-live"
+OLLAMA_ARCHIVE = HOME / ".portal5" / "engines"  # ollama-<ver>/ rollback copies
 TCC_WAIT_S = 1800
 OLLAMA_URL = "http://localhost:11434"
 OLLAMA_DAEMON = "system/com.portal5.ollama"
@@ -156,8 +158,23 @@ def _ollama_restart(version: str) -> bool:
     return _wait(lambda: (_http_ok(f"{OLLAMA_URL}/api/version") or {}).get("version") == version)
 
 
+def _ollama_archived(version: str) -> Path:
+    """Archive dir for `version`; falls back to the legacy ~/ollama-<ver> location."""
+    new, legacy = OLLAMA_ARCHIVE / f"ollama-{version}", HOME / f"ollama-{version}"
+    return legacy if not new.exists() and legacy.exists() else new
+
+
+def ollama_prune(keep: set[str]) -> None:
+    """Delete archived releases (new and legacy locations) except those in `keep`."""
+    for root in (OLLAMA_ARCHIVE, HOME):
+        for d in root.glob("ollama-[0-9]*"):
+            if d.is_dir() and not d.is_symlink() and d.name.removeprefix("ollama-") not in keep:
+                log(f"ollama: pruning archived release {d}")
+                shutil.rmtree(d, ignore_errors=True)
+
+
 def ollama_install(version: str) -> Path:
-    target = HOME / f"ollama-{version}"
+    target = _ollama_archived(version)
     if (target / "ollama").exists():
         return target
     url = f"https://github.com/ollama/ollama/releases/download/v{version}/ollama-darwin.tgz"
@@ -173,6 +190,7 @@ def ollama_install(version: str) -> Path:
         r = _run([str(staging / "ollama"), "--version"], timeout=30)
         if version not in (r.stdout + r.stderr):
             raise RuntimeError(f"unpacked binary does not report {version}: {r.stdout}{r.stderr}")
+        target.parent.mkdir(parents=True, exist_ok=True)
         shutil.move(str(staging), target)
     return target
 
@@ -229,10 +247,10 @@ def ollama_switch(version: str, expected_models: int) -> str:
     the version: macOS keys a bare executable's volume-access grant to its path
     plus its Developer ID requirement (identical across Ollama releases), so a
     stable path lets one approval cover every future upgrade. Versions stay
-    archived as ~/ollama-<ver>/ for rollback."""
+    archived under ~/.portal5/engines/ollama-<ver>/ for rollback."""
     staging = OLLAMA_LIVE.with_name("ollama-live.new")
     shutil.rmtree(staging, ignore_errors=True)
-    shutil.copytree(HOME / f"ollama-{version}", staging, symlinks=True)
+    shutil.copytree(_ollama_archived(version), staging, symlinks=True)
     (staging / "VERSION").write_text(version + "\n")
     prev = OLLAMA_LIVE.with_name("ollama-live.prev")
     shutil.rmtree(prev, ignore_errors=True)
@@ -307,6 +325,15 @@ def omlx_upgrade(expected_models: int) -> str:
         "omlx", omlx_model_count, expected_models, omlx_running(), _omlx_restart
     )
     return "ok" if visible else "tcc"
+
+
+def omlx_prune(keep: set[str]) -> None:
+    """Remove installed oMLX kegs except those in `keep` (brew cleanup is disabled
+    during upgrade so the previous keg survives for rollback)."""
+    for d in OMLX_CELLAR.glob("*"):
+        if d.is_dir() and not d.is_symlink() and d.name not in keep:
+            log(f"omlx: pruning old keg {d}")
+            shutil.rmtree(d, ignore_errors=True)
 
 
 def omlx_point_at(version: str) -> bool:
@@ -387,6 +414,8 @@ def update_engine(engine: str, state: dict, dry_run: bool, allow_prerelease: boo
     if rc == 0:
         if engine == "ollama":
             _repin_router()
+        # keep the live release plus one rollback target
+        (ollama_prune if engine == "ollama" else omlx_prune)({old, new})
         state.setdefault("history", []).append(entry | {"result": "updated"})
         _alert(
             f"{engine} updated {old} -> {new}", "engine contract passed — values reach the model"

@@ -14,6 +14,8 @@ def ollama(monkeypatch):
     monkeypatch.setattr(eu, "ollama_running", lambda: "0.34.2")
     monkeypatch.setattr(eu, "ollama_latest", lambda: "0.34.4")
     monkeypatch.setattr(eu, "ollama_install", lambda v: calls.append(("install", v)))
+    monkeypatch.setattr(eu, "ollama_prune", lambda keep: calls.append(("prune", keep)))
+    monkeypatch.setattr(eu, "omlx_prune", lambda keep: calls.append(("prune", keep)))
     monkeypatch.setattr(eu, "_model_count", lambda: 90)
     monkeypatch.setattr(eu, "_alert", lambda *a, **k: calls.append(("alert", a[0])))
     return calls
@@ -88,3 +90,28 @@ def test_omlx_unapproved_popup_rolls_back_without_rejecting(monkeypatch):
     assert eu.update_engine("omlx", state, False) is True
     assert ("point", "0.6.4") in calls and "restore" in calls
     assert not state.get("rejected", {}).get("omlx")
+
+
+def test_ollama_prune_keeps_only_listed_releases(monkeypatch, tmp_path):
+    arch, home = tmp_path / "engines", tmp_path / "home"
+    for d in (
+        arch / "ollama-0.40.4",
+        arch / "ollama-0.40.3",
+        arch / "ollama-0.40.0",
+        home / "ollama-0.34.2",
+    ):
+        d.mkdir(parents=True)
+    (home / "ollama-live").mkdir()
+    monkeypatch.setattr(eu, "OLLAMA_ARCHIVE", arch)
+    monkeypatch.setattr(eu, "HOME", home)
+    eu.ollama_prune({"0.40.4", "0.40.3"})
+    assert sorted(p.name for p in arch.iterdir()) == ["ollama-0.40.3", "ollama-0.40.4"]
+    assert sorted(p.name for p in home.iterdir()) == ["ollama-live"]
+
+
+def test_omlx_prune_keeps_only_listed_kegs(monkeypatch, tmp_path):
+    for v in ("0.6.4", "0.7.0", "0.7.1"):
+        (tmp_path / v).mkdir()
+    monkeypatch.setattr(eu, "OMLX_CELLAR", tmp_path)
+    eu.omlx_prune({"0.7.0", "0.7.1"})
+    assert sorted(p.name for p in tmp_path.iterdir()) == ["0.7.0", "0.7.1"]
