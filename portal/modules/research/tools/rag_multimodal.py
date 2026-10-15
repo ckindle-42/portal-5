@@ -239,6 +239,17 @@ async def _eval_drop_kb(request: _JsonRequest) -> JSONResponse:
     return JSONResponse({"dropped": gone, "kb_id": run})
 
 
+def _ingest_roots() -> list[Path]:
+    """Where kb_ingest may read: PORTAL5_KB_INGEST_ROOTS (os.pathsep-separated), else the
+    knowledge-base sources directory."""
+    raw = os.environ.get("PORTAL5_KB_INGEST_ROOTS", "")
+    roots = [Path(p).expanduser().resolve() for p in raw.split(os.pathsep) if p]
+    default = os.environ.get("PORTAL5_KB_SOURCES_DIR") or os.path.join(
+        _store.LANCE_DIR, "kb_sources"
+    )
+    return roots or [Path(default).expanduser().resolve()]
+
+
 async def _ingest(request: _JsonRequest) -> JSONResponse:
     """kb_ingest: ingest a source directory. Text chunks (VL-embedded) + rendered
     PDF pages (VL-embedded) in one pass. Contract-preserved:
@@ -259,6 +270,16 @@ async def _ingest(request: _JsonRequest) -> JSONResponse:
     if not kb_id or not source_dir:
         return JSONResponse({"error": "kb_id and source_dir are required"}, status_code=400)
     src = Path(source_dir).expanduser().resolve()
+    roots = _ingest_roots()
+    if not any(src == r or r in src.parents for r in roots):
+        # N-28: ingest-then-search would otherwise read any path the container can.
+        return JSONResponse(
+            {
+                "error": f"source_dir is outside the ingest roots {[str(r) for r in roots]} "
+                "(set PORTAL5_KB_INGEST_ROOTS to allow more)"
+            },
+            status_code=403,
+        )
     if not src.is_dir():
         return JSONResponse({"error": f"directory not found: {src}"}, status_code=404)
     try:

@@ -16,6 +16,15 @@ _store = importlib.import_module("portal.platform.retrieval.store")
 _embedding = importlib.import_module("portal.platform.retrieval.embedding")
 
 
+@pytest.fixture(autouse=True)
+def _temp_dirs_are_allowed_roots(monkeypatch):
+    """These tests read and ingest from temporary directories; allow exactly those (PORTAL5_KB_INGEST_ROOTS).
+    Production confines reads and ingest to configured roots (N-23, N-28)."""
+    import tempfile
+
+    monkeypatch.setenv("PORTAL5_KB_INGEST_ROOTS", tempfile.gettempdir())
+
+
 class _Req:
     def __init__(self, a: Any) -> None:
         self._a: dict[str, Any] = {"arguments": a}

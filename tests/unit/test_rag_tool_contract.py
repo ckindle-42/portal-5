@@ -32,6 +32,15 @@ _chunking = importlib.import_module("portal.platform.retrieval.chunking")
 from portal.platform.inference.router import context_inject  # noqa: E402
 
 
+@pytest.fixture(autouse=True)
+def _temp_dirs_are_allowed_roots(monkeypatch):
+    """These tests read and ingest from temporary directories; allow exactly those (PORTAL5_KB_INGEST_ROOTS).
+    Production confines reads and ingest to configured roots (N-23, N-28)."""
+    import tempfile
+
+    monkeypatch.setenv("PORTAL5_KB_INGEST_ROOTS", tempfile.gettempdir())
+
+
 class _Req:
     def __init__(self, a: dict):
         self._a = {"arguments": a}
