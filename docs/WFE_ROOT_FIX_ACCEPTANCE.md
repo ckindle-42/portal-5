@@ -34,7 +34,7 @@
 | P2-C4 | PENDING | | |
 | P2-C5 | PENDING | | |
 | P2-C6 | PENDING | | |
-| P2-C7 | PENDING | | |
+| P2-C7 | NOT_APPLICABLE | operator decision 2026-10-14: security/SPL out of scope (program amendment, Deferred in this release) | 2026-10-15T01:56:16Z |
 | P2-C8 | PENDING | Part 2a: cleanup for documents and data proven (rig S13/S14, live rows: inventory written first, namespace and data session removed); 2b/2c cover the rest. | |
 | P2-D | PENDING | Part 2a: production-mode rows carry tool_mode and eval_scope in evidence; remaining families in 2b/2c. | |
 | P2-E1 | PASS | p2a_docs_20261014: auto-documents / granite4.1:8b-ctx16k, task rig-doc-01, arm exit 0, mode=production with allowlist, receipts [valid], served granite-4.1-8b-mxfp8, identity equals pair freeze (P1R), namespace gone, nothing new at output root. Outcome PASS. | 2026-10-14 |
@@ -42,7 +42,7 @@
 | P2-E3 | PENDING | | |
 | P2-E4 | PENDING | | |
 | P2-E5 | PENDING | | |
-| P2-E6 | PENDING | | |
+| P2-E6 | NOT_APPLICABLE | operator decision 2026-10-14: security/SPL out of scope (program amendment, Deferred in this release) | 2026-10-15T01:56:17Z |
 | P2-E7 | PENDING | Part 2a: cleanup after live documents and data rows verified (namespace gone, no output-root additions); remaining families in 2b/2c. | |
 | P2-X | PENDING | | |
 | P3-A | PENDING | | |
@@ -54,7 +54,7 @@
 | P3-D4 | PENDING | | |
 | P3-D5 | PENDING | | |
 | P3-D6 | PENDING | | |
-| P3-D7 | PENDING | | |
+| P3-D7 | NOT_APPLICABLE | operator decision 2026-10-14: security/SPL out of scope (program amendment, Deferred in this release) | 2026-10-15T01:56:17Z |
 | P3-D8 | PENDING | | |
 | P3-D9 | PENDING | | |
 | P3-E | PENDING | | |
