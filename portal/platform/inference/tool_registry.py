@@ -45,7 +45,10 @@ TOOL_DISPATCH_TIMEOUT_S = float(os.environ.get("TOOL_DISPATCH_TIMEOUT_S", "60"))
 
 @functools.lru_cache(maxsize=1)
 def _compliance_server_url() -> str:
-    from portal.platform.inference.config import get_pipeline_mcp_servers, load_portal_config  # noqa: PLC0415
+    from portal.platform.inference.config import (  # noqa: PLC0415
+        get_pipeline_mcp_servers,
+        load_portal_config,
+    )
 
     return str(get_pipeline_mcp_servers(load_portal_config()).get("compliance") or "").rstrip("/")
 
