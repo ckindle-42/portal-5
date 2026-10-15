@@ -90,6 +90,26 @@ class QuestionResult:
     synthesis_1_5: int = 0
     error: str | None = None
     latency_s: float = 0.0
+    answer_source: str = "content"  # N-1: "reasoning" when the answer came from the reasoning field
+
+
+def _final_answer(msg: dict[str, Any]) -> tuple[str, str]:
+    """The answer text and where it came from. Some models (e.g. tongyi-deepresearch) put the
+    answer in the reasoning field and leave content empty on the final turn; that fallback is
+    kept (so the answer is not scored as blank) and labelled (N-1)."""
+    content = msg.get("content") or ""
+    if "<tool_call>" in content:
+        return "", "text_tool_call"  # N-1: a call written as text is not an answer
+    if content:
+        return content, "content"
+    reasoning = msg.get("reasoning") or ""
+    return reasoning, "reasoning" if reasoning else "content"
+
+
+def _text_call_error(answer_source: str) -> str | None:
+    if answer_source == "text_tool_call":
+        return "TEXT_TOOL_CALL: the model wrote its tool call as text, not a structured call"
+    return None
 
 
 def _as_str(value: Any) -> str:
@@ -133,6 +153,7 @@ def run_agent(
     hops = 0
     final_answer = ""
     error = None
+    answer_source = "content"
     try:
         for hop in range(max_hops + 1):
             hops = hop
@@ -153,8 +174,8 @@ def run_agent(
                 # Some models (e.g. tongyi-deepresearch) put the answer in a
                 # separate reasoning field and leave content empty on the
                 # final turn instead of promoting it — fall back so the
-                # answer isn't scored as a blank response.
-                final_answer = content or msg.get("reasoning") or ""
+                # answer isn't scored as a blank response, and say so.
+                final_answer, answer_source = _final_answer(msg)
                 break
             messages.append(
                 {
@@ -178,7 +199,7 @@ def run_agent(
                 )
                 r2.raise_for_status()
                 final_msg = r2.json()["choices"][0]["message"]
-                final_answer = final_msg.get("content") or final_msg.get("reasoning") or ""
+                final_answer, answer_source = _final_answer(final_msg)
                 break
             for tc in calls:
                 fn = tc.get("function", {})
@@ -218,8 +239,9 @@ def run_agent(
         tool_calls=tool_calls_log,
         searched_or_fetched=sources,
         citation_grounding=round(grounding_score, 2),
-        error=error,
+        error=error or _text_call_error(answer_source),
         latency_s=round(time.time() - t0, 1),
+        answer_source=answer_source,
     )
 
 
@@ -289,6 +311,8 @@ def run_arm(model: str, qset: list[dict[str, Any]], client: httpx.Client) -> lis
         factuality, synthesis = judge_factuality_and_synthesis(
             q["question"], q["checkable"], res.final_answer, client
         )
+        if res.error or factuality.startswith("JUDGE_ERROR"):
+            factuality = "ERROR"  # N-1: a failed run or judge is not a FAIL; it is unscored
         res.factuality = factuality
         res.synthesis_1_5 = synthesis
         results.append(res)
@@ -301,22 +325,46 @@ def run_arm(model: str, qset: list[dict[str, Any]], client: httpx.Client) -> lis
     return results
 
 
+# N-1: a WIN/INCUMBENT verdict needs this many scored items per arm; below it the
+# verdict is INSUFFICIENT_N. The qset has 10 items, so a 2/2 or 10/10 result is not a verdict.
+MIN_SCORED_FOR_VERDICT = 30
+
+
 def summarize(results: list[QuestionResult]) -> dict[str, Any]:
+    """Rates are over SCORED items (PASS/PARTIAL/FAIL). ERROR and unscored items are excluded
+    from the denominator and counted separately (N-1)."""
+    scored = [r for r in results if r.factuality in ("PASS", "PARTIAL", "FAIL")]
+    n_scored = len(scored) or 1
     n = len(results) or 1
-    pass_n = sum(1 for r in results if r.factuality == "PASS")
-    partial_n = sum(1 for r in results if r.factuality == "PARTIAL")
-    fail_n = sum(1 for r in results if r.factuality == "FAIL")
+    pass_n = sum(1 for r in scored if r.factuality == "PASS")
+    partial_n = sum(1 for r in scored if r.factuality == "PARTIAL")
+    fail_n = sum(1 for r in scored if r.factuality == "FAIL")
     return {
         "n": len(results),
+        "scored": len(scored),
         "factuality_pass": pass_n,
         "factuality_partial": partial_n,
         "factuality_fail": fail_n,
-        "factuality_pass_rate": round(pass_n / n, 2),
-        "avg_synthesis_1_5": round(sum(r.synthesis_1_5 for r in results) / n, 2),
+        "factuality_pass_rate": round(pass_n / n_scored, 2),
+        "avg_synthesis_1_5": round(sum(r.synthesis_1_5 for r in scored) / n_scored, 2),
         "avg_citation_grounding": round(sum(r.citation_grounding for r in results) / n, 2),
         "avg_latency_s": round(sum(r.latency_s for r in results) / n, 1),
-        "errors": sum(1 for r in results if r.error),
+        "errors": sum(1 for r in results if r.factuality == "ERROR"),
+        "reasoning_fallback": sum(1 for r in results if r.answer_source == "reasoning"),
     }
+
+
+def verdict(candidate: dict[str, Any], incumbent: dict[str, Any]) -> str:
+    """CANDIDATE_WINS / TIE / INCUMBENT_WINS, or INSUFFICIENT_N below MIN_SCORED_FOR_VERDICT."""
+    if min(candidate["scored"], incumbent["scored"]) < MIN_SCORED_FOR_VERDICT:
+        return "INSUFFICIENT_N"
+    cp, ip = candidate["factuality_pass_rate"], incumbent["factuality_pass_rate"]
+    cs, is_ = candidate["avg_synthesis_1_5"], incumbent["avg_synthesis_1_5"]
+    if cp > ip or (cp == ip and cs > is_):
+        return "CANDIDATE_WINS"
+    if cp == ip and cs == is_:
+        return "TIE"
+    return "INCUMBENT_WINS"
 
 
 def main() -> int:
@@ -341,24 +389,7 @@ def main() -> int:
     candidate_summary = summarize(candidate_results)
     incumbent_summary = summarize(incumbent_results)
 
-    verdict = (
-        "CANDIDATE_WINS"
-        if (
-            candidate_summary["factuality_pass_rate"] > incumbent_summary["factuality_pass_rate"]
-            or (
-                candidate_summary["factuality_pass_rate"]
-                == incumbent_summary["factuality_pass_rate"]
-                and candidate_summary["avg_synthesis_1_5"] > incumbent_summary["avg_synthesis_1_5"]
-            )
-        )
-        else (
-            "TIE"
-            if candidate_summary["factuality_pass_rate"]
-            == incumbent_summary["factuality_pass_rate"]
-            and candidate_summary["avg_synthesis_1_5"] == incumbent_summary["avg_synthesis_1_5"]
-            else "INCUMBENT_WINS"
-        )
-    )
+    result_verdict = verdict(candidate_summary, incumbent_summary)
 
     payload = {
         "generated_at": ts,
@@ -367,7 +398,7 @@ def main() -> int:
         "qset_path": args.qset,
         "candidate_summary": candidate_summary,
         "incumbent_summary": incumbent_summary,
-        "verdict": verdict,
+        "verdict": result_verdict,
         "candidate_results": [asdict(r) for r in candidate_results],
         "incumbent_results": [asdict(r) for r in incumbent_results],
     }
@@ -377,7 +408,7 @@ def main() -> int:
     print("=" * 80)
     print(f"Candidate  ({args.candidate}): {candidate_summary}")
     print(f"Incumbent  ({args.incumbent}): {incumbent_summary}")
-    print(f"VERDICT: {verdict}")
+    print(f"VERDICT: {result_verdict}")
     print(f"Results: {out_path}")
     print("=" * 80)
     return 0
