@@ -73,6 +73,7 @@ The goal is one. The work is five tasks, each executable on its own, in this ord
 - computer use;
 - live-web research;
 - live Splunk.
+- security/SPL: out of scope by operator decision (2026-10-14); no Part 2c-3.
 
 Each is a named follow-on in the root-cause document.
 
@@ -180,7 +181,7 @@ yes. Part 5's matrix check enforces both.
 | `P2-C4` | 2 | campaign KB scope, foreign refusal, kb_delete; tests | no |
 | `P2-C5` | 2 | graph memory user scope in every query, no cross-user expansion, scoped delete; tests | no |
 | `P2-C6` | 2 | isolated campaign compliance store; operator store digest unchanged; tests | no |
-| `P2-C7` | 2 | security/SPL offline allowlist and fixture confinement; tests | no |
+| `P2-C7` | 2 | security/SPL offline allowlist and fixture confinement; tests | yes |
 | `P2-C8` | 2 | receipt-based cleanup and rollback; interrupted-cleanup tests | no |
 | `P2-D` | 2 | build stamps for every participating Docker and native service; preflight and drift; tests | no |
 | `P2-E1` | 2 | live acceptance with proof traces: documents | no |
@@ -188,7 +189,7 @@ yes. Part 5's matrix check enforces both.
 | `P2-E3` | 2 | live acceptance with proof traces: general | no |
 | `P2-E4` | 2 | live acceptance with proof traces: research | no |
 | `P2-E5` | 2 | live acceptance with proof traces: compliance | no |
-| `P2-E6` | 2 | live acceptance with proof traces: security/SPL | no |
+| `P2-E6` | 2 | live acceptance with proof traces: security/SPL | yes |
 | `P2-E7` | 2 | live acceptance: coding sandbox proof criteria | no |
 | `P2-X` | 2 | Part 2 pushed; allowlists, services and restart commands recorded | no |
 | `P3-A` | 3 | job-family map covers every workspace; unmapped fails a test | no |
@@ -200,7 +201,7 @@ yes. Part 5's matrix check enforces both.
 | `P3-D4` | 3 | mandatory suite at floor with controls: general | no |
 | `P3-D5` | 3 | mandatory suite at floor with controls: coding | no |
 | `P3-D6` | 3 | mandatory suite at floor with controls: research | no |
-| `P3-D7` | 3 | mandatory suite at floor with controls: security/SPL | no |
+| `P3-D7` | 3 | mandatory suite at floor with controls: security/SPL | yes |
 | `P3-D8` | 3 | deferred family: creative (human adjudication follow-on) | yes |
 | `P3-D9` | 3 | deferred family: vision, image, audio, video | yes |
 | `P3-E` | 3 | queue, backend-bound eligibility, plan generator, proxy restriction; tests | no |
