@@ -135,6 +135,11 @@ sweep.
 | N-24 | A suite task without `checkers` (or a misspelled key) defaults to an answer check any answer passes (Part 4: validate suite files) |
 | N-25 | A harness pipeline call that asked for no tools was offered the workspace's production tools, so readiness probes could act; fixed in Part 2a |
 | N-26 | seat_baseline_v3 has no auto-data workload and measures auto-documents on the research suite (Part 3: family suites) |
+| N-27 | Graph memory forget/recall/list_memories put model-supplied id/category into LanceDB filters; `x' OR '1'='1` deleted every memory; fixed in Part 2b |
+| N-28 | kb_ingest accepts any source_dir the container can read (no confinement): an index-then-search exfiltration path (Part 4) |
+| N-29 | kb_list and KB maintenance used a second storage path (lower-cased names, unpaged listing, _visual tables as KBs); KBs like NERC-CIP vanished; fixed in Part 2b |
+| N-30 | Memory write-back runs only on the non-streaming path; Open WebUI streams, so it rarely fires (Part 4) |
+| N-31 | WFE rows in memory-injecting workspaces got the operator's recalled memories: injection ran before the scope bound; fixed in Part 2b |
 
 ## Follow-on tasks (assigned, not dropped)
 
