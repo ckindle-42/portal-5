@@ -2013,6 +2013,15 @@ async def _stream_with_fallback(
                 continue
         break
 
+    if not stream_failed and _output_sent:
+        # N-30: salient memory write-back, as the non-streaming path does once per turn. Open
+        # WebUI streams, so before this it rarely fired. Under a WFE scope it lands in the
+        # row's own memory (the scope is copied into the task's context).
+        from portal.platform.inference.router.context_inject import schedule_writeback
+        from portal.platform.inference.router.correlation import get_correlation_id
+
+        schedule_writeback(workspace_id, body.get("messages", []), get_correlation_id())
+
     if stream_failed and (
         _output_sent or _is_noncascadable_stream_error(_error_status, _error_buffer)
     ):
