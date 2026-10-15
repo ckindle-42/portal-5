@@ -19,11 +19,10 @@ Never updates while a WFE campaign, UAT or bench run is in flight (one request
 at a time is a house rule; an engine restart mid-sweep invalidates the sweep) —
 it defers to the next day.
 
-Ollama:  release tarball unpacked to ``~/.portal5/engines/ollama-<ver>/`` (live + one previous kept);
-         oMLX likewise keeps only the running + previous keg; ``~/ollama-current``
+Ollama:  release tarball unpacked to ``~/.portal5/engines/ollama-<ver>/`` (live + previous kept); ``~/ollama-current``
          flipped; LaunchDaemon ``com.portal5.ollama`` kickstarted (passwordless
          launchctl per the portal5 sudoers entry). Rollback flips it back.
-oMLX:    ``brew upgrade`` with cleanup disabled so the previous keg survives;
+oMLX:    ``brew upgrade`` with cleanup disabled so the previous keg survives (older kegs pruned);
          ``~/.omlx/settings.json`` + ``model_settings.json`` backed up first.
          Rollback re-points ``/opt/homebrew/opt/omlx`` (what the brew service
          runs) at the previous keg and restores the settings.
@@ -68,7 +67,7 @@ CONTRACT = REPO / "scripts" / "engine_contract_check.py"
 HOME = Path.home()
 OLLAMA_CURRENT = HOME / "ollama-current"
 OLLAMA_LIVE = HOME / "ollama-live"
-OLLAMA_ARCHIVE = HOME / ".portal5" / "engines"  # ollama-<ver>/ rollback copies
+OLLAMA_ARCHIVE = HOME / ".portal5" / "engines"
 TCC_WAIT_S = 1800
 OLLAMA_URL = "http://localhost:11434"
 OLLAMA_DAEMON = "system/com.portal5.ollama"
@@ -159,13 +158,11 @@ def _ollama_restart(version: str) -> bool:
 
 
 def _ollama_archived(version: str) -> Path:
-    """Archive dir for `version`; falls back to the legacy ~/ollama-<ver> location."""
     new, legacy = OLLAMA_ARCHIVE / f"ollama-{version}", HOME / f"ollama-{version}"
     return legacy if not new.exists() and legacy.exists() else new
 
 
 def ollama_prune(keep: set[str]) -> None:
-    """Delete archived releases (new and legacy locations) except those in `keep`."""
     for root in (OLLAMA_ARCHIVE, HOME):
         for d in root.glob("ollama-[0-9]*"):
             if d.is_dir() and not d.is_symlink() and d.name.removeprefix("ollama-") not in keep:
@@ -328,8 +325,6 @@ def omlx_upgrade(expected_models: int) -> str:
 
 
 def omlx_prune(keep: set[str]) -> None:
-    """Remove installed oMLX kegs except those in `keep` (brew cleanup is disabled
-    during upgrade so the previous keg survives for rollback)."""
     for d in OMLX_CELLAR.glob("*"):
         if d.is_dir() and not d.is_symlink() and d.name not in keep:
             log(f"omlx: pruning old keg {d}")
@@ -414,7 +409,6 @@ def update_engine(engine: str, state: dict, dry_run: bool, allow_prerelease: boo
     if rc == 0:
         if engine == "ollama":
             _repin_router()
-        # keep the live release plus one rollback target
         (ollama_prune if engine == "ollama" else omlx_prune)({old, new})
         state.setdefault("history", []).append(entry | {"result": "updated"})
         _alert(
