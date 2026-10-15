@@ -74,6 +74,7 @@ from pathlib import Path
 
 import yaml
 
+from portal.platform.inference.cluster_backends import BackendRegistry
 from tests.wfe import eval_mode
 from tests.wfe.checkers import CheckContext, apply_checkers
 from tests.wfe.runner import (
@@ -1081,22 +1082,23 @@ def seat_primary(workspace: str, model: str) -> str:
     tags onto priority-10 oMLX seats (auto-compliance -> Qwen3.8-27B-oQ4e-mtp),
     so that alias IS the seat. The raw tag on Ollama behind it is the failover,
     a different engine and build: V2 counted 17 failover rows as seat evidence."""
-    try:
-        cfg = yaml.safe_load((REPO / "config/backends.yaml").read_text()) or {}
-    except OSError:
-        return model
-    groups = list((cfg.get("workspace_routing") or {}).get(workspace.partition("::")[0]) or [])
-    groups.append((cfg.get("defaults") or {}).get("fallback_group", "general"))
-    for group in groups:
-        backends = [b for b in cfg.get("backends") or [] if b.get("group") == group]
-        for b in sorted(backends, key=lambda b: -int(b.get("priority") or 0)):
-            alias = (b.get("aliases") or {}).get(model)
-            if alias:
-                return alias
-            ids = {m.get("id") if isinstance(m, dict) else m for m in b.get("models") or []}
-            if model in ids:
-                return model
+    # N-8: the same candidate order and resolution production uses (BackendRegistry), not a
+    # second YAML walk; shuffles are pinned so the first candidate that serves the tag is stable.
+    import random
+    from unittest import mock
+
+    reg = _seat_registry()
+    with mock.patch.object(random, "shuffle", lambda _xs: None):
+        for backend in reg.get_backend_candidates(workspace):
+            resolved = backend.resolve_model(model)
+            if resolved is not None:
+                return resolved
     return model
+
+
+@functools.lru_cache(maxsize=1)
+def _seat_registry() -> BackendRegistry:
+    return BackendRegistry(config_path=str(REPO / "config/backends.yaml"))
 
 
 def served_mismatch(transcript: list, primary: str) -> str | None:
