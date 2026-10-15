@@ -34,6 +34,15 @@ def _run(c):
 
 
 @pytest.fixture(autouse=True)
+def _temp_dirs_are_allowed_roots(monkeypatch):
+    """These tests ingest from temporary directories; allow exactly those (PORTAL5_KB_INGEST_ROOTS).
+    Production confines ingest to configured roots (N-28)."""
+    import tempfile
+
+    monkeypatch.setenv("PORTAL5_KB_INGEST_ROOTS", tempfile.gettempdir())
+
+
+@pytest.fixture(autouse=True)
 def _iso(tmp_path, monkeypatch):
     pytest.importorskip("lancedb")
     monkeypatch.setattr(_store, "LANCE_DIR", str(tmp_path / "lance"))

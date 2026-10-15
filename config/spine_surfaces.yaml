@@ -1132,6 +1132,14 @@ surfaces:
   globs:
   - tests/wfe/settings_audit.py
   unit: unit-known-limitations-unregistered-hint-fallback
+- name: file-tests-wfe-suites-build_compliance_production
+  globs:
+  - tests/wfe/suites/build_compliance_production.py
+  unit: unit-wfe-workspace-fitness
+- name: file-tests-wfe-suites-build_data_production
+  globs:
+  - tests/wfe/suites/build_data_production.py
+  unit: unit-wfe-workspace-fitness
 - name: file-tests-wfe-tests-conftest
   globs:
   - tests/wfe/tests/conftest.py
@@ -1156,6 +1164,10 @@ surfaces:
   globs:
   - tests/wfe/tests/test_wfe_compliance_classify.py
   unit: unit-wfe-workspace-fitness
+- name: file-tests-wfe-tests-test_wfe_compliance_slice
+  globs:
+  - tests/wfe/tests/test_wfe_compliance_slice.py
+  unit: unit-wfe-workspace-fitness
 - name: file-tests-wfe-tests-test_wfe_component
   globs:
   - tests/wfe/tests/test_wfe_component.py
@@ -1167,6 +1179,10 @@ surfaces:
 - name: file-tests-wfe-tests-test_wfe_controls
   globs:
   - tests/wfe/tests/test_wfe_controls.py
+  unit: unit-wfe-workspace-fitness
+- name: file-tests-wfe-tests-test_wfe_data_slice
+  globs:
+  - tests/wfe/tests/test_wfe_data_slice.py
   unit: unit-wfe-workspace-fitness
 - name: file-tests-wfe-tests-test_wfe_decision
   globs:
