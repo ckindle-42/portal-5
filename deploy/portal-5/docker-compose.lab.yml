@@ -112,7 +112,7 @@ services:
   # Install Wazuh agents on dc01/ws01/srv01 to ship events here.
   # Agent install: see docs/LAB_SETUP.md → "Wazuh Agent Deployment"
   wazuh-manager:
-    image: wazuh/wazuh-manager:4.9.2
+    image: wazuh/wazuh-manager:4.14.9
     container_name: portal5-lab-wazuh-manager
     profiles: [lab-wazuh]
     restart: unless-stopped
@@ -134,7 +134,7 @@ services:
 
   # ── Wazuh Indexer — OpenSearch backend for alert storage ─────────────────
   wazuh-indexer:
-    image: wazuh/wazuh-indexer:4.9.2
+    image: wazuh/wazuh-indexer:4.14.9
     container_name: portal5-lab-wazuh-indexer
     profiles: [lab-wazuh]
     restart: unless-stopped
@@ -158,7 +158,7 @@ services:
 
   # ── Wazuh Dashboard — Kibana-based UI (optional, memory-heavy) ───────────
   wazuh-dashboard:
-    image: wazuh/wazuh-dashboard:4.9.2
+    image: wazuh/wazuh-dashboard:4.14.9
     container_name: portal5-lab-wazuh-dashboard
     profiles: [lab-wazuh-ui]    # separate profile — only start if you need the UI
     restart: unless-stopped

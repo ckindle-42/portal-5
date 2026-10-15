@@ -901,7 +901,7 @@ services:
 
   # ── Prometheus — Metrics collection ──────────────────────────────────────
   prometheus:
-    image: prom/prometheus:v2.51.2
+    image: prom/prometheus:v3.13.4
     container_name: portal5-prometheus
     restart: unless-stopped
     ports:
@@ -920,7 +920,7 @@ services:
 
   # ── Grafana — Metrics dashboards ────────────────────────────────────────
   grafana:
-    image: grafana/grafana:10.4.19
+    image: grafana/grafana:13.2.4
     container_name: portal5-grafana
     restart: unless-stopped
     ports:
