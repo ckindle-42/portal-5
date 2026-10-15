@@ -161,3 +161,11 @@ def test_catalog_lossless_from_snapshot() -> None:
         f"{len(missing)} snapshot model id(s) missing from MODEL_CATALOG.md:\n"
         + "\n".join(f"  {m}" for m in sorted(missing))
     )
+
+
+def test_a_retired_catalog_header_is_not_a_live_backends_model() -> None:
+    """N-10: a section labelled RETIRED must not name a model backends.yaml still serves.
+    The DeepSeek-R1 MLX entry was labelled RETIRED while live (2026-09-25); this keeps the label honest."""
+    live = _backends_model_ids()
+    retired = set(re.findall(r"^### `([^`]+)` — RETIRED\b", CATALOG.read_text(), re.MULTILINE))
+    assert not (retired & live), sorted(retired & live)
