@@ -31,6 +31,7 @@ from typing import Any
 from starlette.requests import Request
 from starlette.responses import JSONResponse
 
+from portal.modules.compliance.core import operator_profile as _operator_profile
 from portal.platform.retrieval import chunking as _chunking
 from portal.platform.retrieval import embedding as _embedding
 from portal.platform.retrieval import extraction as _extraction
@@ -374,6 +375,23 @@ async def _search(request: Request) -> JSONResponse:
         return JSONResponse({"error": str(e)}, status_code=503)
 
 
+def _compliance_ingest_roots() -> list[Path]:
+    """Where compliance_ingest may read (N-33): the public compliance data dir, plus every
+    ``corpus_dirs`` value of the operator profile when it is present (relative values are
+    repo-relative). No profile (CI, a fresh clone, the evaluation instance): public dir only."""
+    here = Path(__file__).resolve()
+    repo = here.parents[4]
+    roots = [here.parents[1] / "data"]
+    try:
+        corpus = _operator_profile.require("corpus_dirs")
+    except RuntimeError:
+        corpus = {}
+    for value in corpus.values():
+        p = Path(str(value)).expanduser()
+        roots.append((p if p.is_absolute() else repo / p).resolve())
+    return roots
+
+
 async def _ingest(request: Request) -> JSONResponse:
     """compliance_ingest: ingest a folder of policy AND procedure PDFs in one
     pass over the compliance_* tables — TASK_COMPLIANCE_ENGINE_LANDING_V1 P3.
@@ -397,6 +415,16 @@ async def _ingest(request: Request) -> JSONResponse:
     rebuild = args.get("rebuild", False)
     if not source_dir:
         return JSONResponse({"error": "source_dir is required"}, status_code=400)
+    src = Path(source_dir).expanduser().resolve()
+    roots = _compliance_ingest_roots()
+    if not any(src == r or r in src.parents for r in roots):
+        # N-33: the route is offered to the model; its source must stay inside the roots.
+        return JSONResponse(
+            {
+                "error": f"source_dir is outside the compliance ingest roots {[str(r) for r in roots]}"
+            },
+            status_code=403,
+        )
     try:
         return JSONResponse(await ingest_folder(source_dir, kb_id, rebuild))
     except _embedding.VLUnavailableError as e:

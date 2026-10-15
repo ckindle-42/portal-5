@@ -38,8 +38,13 @@ def _temp_dirs_are_allowed_roots(monkeypatch):
     """These tests ingest from temporary directories; allow exactly those (PORTAL5_KB_INGEST_ROOTS).
     Production confines ingest to configured roots (N-28)."""
     import tempfile
+    from pathlib import Path
 
     monkeypatch.setenv("PORTAL5_KB_INGEST_ROOTS", tempfile.gettempdir())
+    # compliance_ingest's roots (N-33) are the data dir and the profile; allow temp here too.
+    monkeypatch.setattr(
+        cr, "_compliance_ingest_roots", lambda: [Path(tempfile.gettempdir()).resolve()]
+    )
 
 
 @pytest.fixture(autouse=True)
