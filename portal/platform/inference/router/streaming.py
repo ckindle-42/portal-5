@@ -31,6 +31,7 @@ import contextlib
 import json
 import logging
 import os
+import re
 import time
 from collections.abc import AsyncGenerator, AsyncIterator, Iterator
 from typing import TYPE_CHECKING, Any
@@ -39,6 +40,7 @@ import httpx
 from fastapi import HTTPException
 
 from portal.platform.inference.config import PersonaSpec
+from portal.platform.inference.load_guard import protect_failover
 from portal.platform.inference.router.backend_introspect import (
     free_ollama_for_omlx,
     make_room_for_omlx,
@@ -389,6 +391,29 @@ def _apply_reasoning_rewrite(
     new_obj = dict(obj)
     new_obj["choices"] = [dict(choice, delta=new_delta)]
     return f"data: {json.dumps(new_obj)}\n\n".encode(), emitted, True
+
+
+async def _rescue_empty_hop(
+    backend_url: str, body: dict[str, Any]
+) -> tuple[str, list[dict[str, Any]]]:
+    """P-1: re-issue a streamed tool-loop hop that ended with no content and no tool
+    call, non-streamed. oMLX's streaming tool parser drops a malformed ``<tool_call>``
+    (one extra brace) and returns empty content, while the non-streamed reply keeps the
+    text, from which ``salvage_text_tool_calls`` recovers the call.
+    Returns ``(answer_text, tool_calls)``; both empty when the retry has nothing."""
+    try:
+        r = await _http_client.post(backend_url, json={**body, "stream": False})  # type: ignore[union-attr]
+        data = r.json() if r.status_code == 200 else {}
+    except Exception as e:  # noqa: BLE001 — a failed rescue falls back to the no-answer path
+        logger.warning("Empty-hop rescue against %s failed: %s", backend_url, e)
+        return "", []
+    msg = ((data.get("choices") or [{}])[0] or {}).get("message") or {}
+    calls = list(msg.get("tool_calls") or [])
+    text = re.sub(r"<think>.*?</think>", "", str(msg.get("content") or ""), flags=re.S).strip()
+    if not calls and text and body.get("tools"):
+        before, calls = salvage_text_tool_calls(text, body.get("tools"))
+        text = "" if calls else text
+    return text, calls
 
 
 async def _dispatch_hop_tool_calls(
@@ -774,6 +799,31 @@ async def _tool_loop_frames(
             }
             yield f"data: {json.dumps(_tail_chunk)}\n\n".encode()
             _content_emitted = _content_emitted or bool(_tail.strip())
+
+        # P-1: an empty hop with tools offered gets one non-streamed retry before the
+        # no-answer placeholder: the streamed parser may have dropped a malformed call.
+        if (
+            not _content_emitted
+            and finish_reason != "tool_calls"
+            and current_body.get("tools")
+            and not (_reasoning_seen or _think_filter.removed)
+        ):
+            _rtext, _rcalls = await _rescue_empty_hop(backend_url, current_body)
+            if _rcalls:
+                logger.info("Tool loop hop %d: empty stream rescued %d call(s)", hop, len(_rcalls))
+                _tool_calls_recovered.labels(workspace=workspace_id).inc(len(_rcalls))
+                tool_calls_buf.extend(_rcalls)
+                finish_reason = "tool_calls"
+            elif _rtext:
+                _rescued = {
+                    "id": request_id,
+                    "object": "chat.completion.chunk",
+                    "created": int(time.time()),
+                    "model": workspace_id,
+                    "choices": [{"index": 0, "delta": {"content": _rtext}, "finish_reason": None}],
+                }
+                yield f"data: {json.dumps(_rescued)}\n\n".encode()
+                _content_emitted = True
 
         # Empty and reasoning-only terminals are explicit no-answer outcomes.
         # Diagnostics contain only the outcome class and route identity; raw
@@ -1978,6 +2028,7 @@ async def _stream_with_fallback(
         return
 
     if stream_failed:
+        protect_failover(getattr(backend, "type", ""), target_model)  # P-2: no eviction cascade
         fallback_body = {**body, "stream": False}
         # The streamed (engine, model) pair already failed; several backend
         # groups front the same engine, so resending there is a repeat.
