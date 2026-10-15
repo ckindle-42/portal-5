@@ -90,7 +90,7 @@ def verify(root: Path | str) -> list[str]:
         "org graph": runtime_config._DEFAULT_ORG_GRAPH,
         "LanceDB": store.LANCE_DIR,
     }
-    return [f"{k} would be {v}" for k, v in used.items() if r not in Path(v).resolve().parents]
+    return [f"{k} would be {v}" for k, v in used.items() if r not in Path(str(v)).resolve().parents]
 
 
 def _stage_planted(root: Path | str) -> Path:
@@ -107,7 +107,7 @@ def _stage_planted(root: Path | str) -> Path:
     return out
 
 
-def build(root: Path | str) -> dict:
+def build(root: Path | str) -> dict[str, object]:
     """The evaluation store, from public, committed material only."""
     from portal.modules.compliance.core.cip_register import Register
     from portal.modules.compliance.core.ingest import ingest_folder
