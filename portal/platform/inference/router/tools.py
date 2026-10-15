@@ -136,6 +136,40 @@ def _select_explicit_required_tool(
     return None
 
 
+def split_embedded_call(name: str, arguments: str, offered: set[str]) -> tuple[str, str]:
+    """P-3: a model wrote its arguments into the tool name (``compliance_read{"ref": "x"}``,
+    ``compliance_read({"ref": "x"})``, ``compliance_read(ref="x")``). When the name is not
+    offered but starts with an offered name followed by such a form, and no separate
+    arguments were sent, split it. Anything else is returned unchanged, so a name that is
+    not offered still fails the authorization gate and goes back to the model as an error."""
+    import re
+
+    if name in offered or (arguments or "{}").strip() not in ("", "{}"):
+        return name, arguments
+    for tool in sorted(offered, key=len, reverse=True):
+        if not name.startswith(tool) or len(name) == len(tool):
+            continue
+        rest = name[len(tool) :].strip()
+        if rest.startswith("(") and rest.endswith(")"):
+            rest = rest[1:-1].strip()
+        try:
+            if rest.startswith("{"):
+                args = json.loads(rest)
+            elif rest and re.fullmatch(r"(\w+\s*=\s*(\"[^\"]*\"|'[^']*'|[^,]+)\s*,?\s*)+", rest):
+                args = {
+                    k: v.strip().strip("\"'")
+                    for k, v in re.findall(r"(\w+)\s*=\s*(\"[^\"]*\"|'[^']*'|[^,]+)", rest)
+                }
+            else:
+                continue
+        except json.JSONDecodeError:
+            continue
+        if isinstance(args, dict):
+            logger.info("Tool call %r: arguments split out of the tool name (P-3)", tool)
+            return tool, json.dumps(args)
+    return name, arguments
+
+
 async def _dispatch_tool_call(
     tool_call: dict[str, Any],
     effective_tools: set[str],
@@ -197,8 +231,9 @@ async def _dispatch_tool_call(
     from portal.platform.inference.tool_registry import tool_registry
 
     fn = tool_call.get("function", {})
-    tool_name = fn.get("name", "").strip()
-    arguments_str = fn.get("arguments", "{}")
+    tool_name, arguments_str = split_embedded_call(
+        fn.get("name", "").strip(), fn.get("arguments", "{}"), effective_tools
+    )
     tool_call_id = tool_call.get("id", "")
     allowed = tool_name in effective_tools
     trace_span(
