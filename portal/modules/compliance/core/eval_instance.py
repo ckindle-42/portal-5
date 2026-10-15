@@ -93,6 +93,20 @@ def verify(root: Path | str) -> list[str]:
     return [f"{k} would be {v}" for k, v in used.items() if r not in Path(v).resolve().parents]
 
 
+def _stage_planted(root: Path | str) -> Path:
+    """The planted corpus without its ``<!-- PLANT {...} -->`` headers. Each header is
+    that document's answer key (targets, control class, expected coverage); ingested
+    as-is, any tool that reads the chunk hands a model the answer (N-32)."""
+    import re
+
+    out = Path(root) / "planted_staged"
+    out.mkdir(parents=True, exist_ok=True)
+    for f in sorted(PLANTED.glob("*.md")):
+        text = re.sub(r"<!--\s*PLANT\s+\{.*?\}\s*-->\s*", "", f.read_text(), flags=re.S)
+        (out / f.name).write_text(text)
+    return out
+
+
 def build(root: Path | str) -> dict:
     """The evaluation store, from public, committed material only."""
     from portal.modules.compliance.core.cip_register import Register
@@ -103,7 +117,7 @@ def build(root: Path | str) -> dict:
     repo = Repository(os.environ["COMPLIANCE_DB_PATH"])
     repo.migrate()
     reg = import_register(repo, Register.load())
-    corpus = asyncio.run(ingest_folder(str(PLANTED), "operator_corpus", True))
+    corpus = asyncio.run(ingest_folder(str(_stage_planted(root)), "operator_corpus", True))
     return {"register": reg, "planted_corpus": corpus}
 
 
