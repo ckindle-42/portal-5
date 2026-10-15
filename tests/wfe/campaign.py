@@ -255,6 +255,15 @@ def drain_model(tag: str, timeout_s: int = DRAIN_TIMEOUT_S) -> bool:
     return False
 
 
+def production_seat_tags() -> set[str]:
+    """Every model tag a production workspace seats (portal.yaml model_hint). N-12: in
+    pipeline mode the harness shares the engines with production, so it never evicts these."""
+    spaces = (yaml.safe_load((REPO / "config/portal.yaml").read_text()) or {}).get(
+        "workspaces"
+    ) or {}
+    return {str(w["model_hint"]) for w in spaces.values() if (w or {}).get("model_hint")}
+
+
 def drain_others(keep: str, timeout_s: int = DRAIN_TIMEOUT_S) -> list[str]:
     """Evict every resident model that is not `keep`, and wait for each.
 
@@ -268,8 +277,9 @@ def drain_others(keep: str, timeout_s: int = DRAIN_TIMEOUT_S) -> list[str]:
     classifier) is evicted too. That is deliberate — it is memory the arm needs,
     and the owning service reloads it on its next request."""
     evicted = []
+    protected = production_seat_tags() if ENGINE == "pipeline" else set()
     for tag in loaded_models():
-        if tag == keep:
+        if tag == keep or tag in protected:
             continue
         drain_model(tag, timeout_s)
         evicted.append(tag)
