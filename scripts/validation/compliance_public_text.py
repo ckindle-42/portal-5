@@ -60,11 +60,32 @@ def _holds_answer(node: Any) -> bool:
     return False
 
 
+def _compliance_row_with_text(data: Any) -> bool:
+    """A WFE row from a compliance suite that carries answer text (N-11): the row's head or
+    any transcript turn holds content. Matched on content, not on the file name."""
+    if not isinstance(data, dict):
+        return False
+    tag = f"{data.get('suite', '')} {data.get('workspace', '')} {data.get('task_id', '')}".lower()
+    if "compliance" not in tag:
+        return False
+    if data.get("final_text_head"):
+        return True
+    return any(isinstance(t, dict) and t.get("content") for t in data.get("transcript") or [])
+
+
 def _structural(root: Path, files: list[str]) -> list[dict]:
     findings: list[dict] = []
     for rel in files:
         parts = rel.split("/")
         name = parts[-1].lower()
+        if rel.endswith(".json"):
+            try:
+                data = json.loads((root / rel).read_text(encoding="utf-8"))
+            except (OSError, ValueError):
+                data = None
+            if _compliance_row_with_text(data):
+                findings.append({"path": rel, "rule": "compliance answer text in a tracked result"})
+                continue
         if "results" in parts[:-1] and any(m in name for m in COMPLIANCE_RESULT_MARKERS):
             findings.append({"path": rel, "rule": "compliance run output in a results directory"})
             continue

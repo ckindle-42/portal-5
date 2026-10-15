@@ -70,3 +70,32 @@ def test_untracked_local_files_are_not_public(tmp_path):
     local.mkdir(parents=True)
     (local / "q.json").write_text("{}")
     assert hk.audit(root, content=False)[0] == "PASS"
+
+
+def test_a_tracked_compliance_row_with_answer_text_fails_by_content(tmp_path):
+    """N-11: matched on content. A planted compliance row under a neutral name is refused;
+    a non-compliance row with text, and a compliance row without text, are not."""
+    compliance_row = {
+        "suite": "compliance_production",
+        "workspace": "auto-compliance",
+        "final_text_head": "The control requires review every 35 days.",
+    }
+    root = _repo(
+        tmp_path,
+        {
+            "tests/wfe/results/campaigns/x/rows/abc.json": json.dumps(compliance_row),
+            "tests/wfe/results/campaigns/x/rows/def.json": json.dumps(
+                {"suite": "coding", "workspace": "auto-coding", "final_text_head": "print(1)"}
+            ),
+            "tests/wfe/results/campaigns/x/rows/ghi.json": json.dumps(
+                {
+                    "suite": "compliance_production",
+                    "workspace": "auto-compliance",
+                    "transcript": [{"turn": 0, "content": ""}],
+                }
+            ),
+        },
+    )
+    status, _, findings = hk.audit(root, content=False)
+    assert status == "FAIL"
+    assert [f["path"] for f in findings] == ["tests/wfe/results/campaigns/x/rows/abc.json"]
