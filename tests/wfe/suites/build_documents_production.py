@@ -956,7 +956,7 @@ def trip_target(target: str, title: str, label: str, value: object) -> dict:
     line = f"{label}: {value}"
     if target == "docx":
         return {
-            "tgt": f'create a Word document titled "{title}" whose body is the single line "{line}" with the value you worked out',
+            "tgt": f'create a Word document titled "{title}" whose body is the single line "{label}: " followed by the value you worked out',
             "tool": "create_word_document",
             "args": {"title": title, "content": line},
             "gold": make_docx([("title", title), ("p", line)]),
@@ -974,7 +974,7 @@ def trip_target(target: str, title: str, label: str, value: object) -> dict:
             "wrong": make_xlsx({"Sheet1": [["Metric", "Value"], [label, "n/a"]]}),
         }
     return {
-        "tgt": f'create a PowerPoint deck titled "{title}" with one content slide titled "Summary" whose text is "{line}" with the value you worked out',
+        "tgt": f'create a PowerPoint deck titled "{title}" with one content slide titled "Summary" whose text is "{label}: " followed by the value you worked out',
         "tool": "create_powerpoint",
         "args": {"title": title, "slides": [{"title": "Summary", "content": line}]},
         "gold": make_pptx([("Summary", line)], deck_title=title),

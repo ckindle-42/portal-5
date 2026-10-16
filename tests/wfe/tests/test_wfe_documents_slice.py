@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import base64
 import json
+import re
 from pathlib import Path
 
 import pytest
@@ -101,3 +102,11 @@ def test_seed_b64_round_trips():
     for t in TASKS.values():
         for rel, b in (t.get("seed_b64") or {}).items():
             assert base64.b64decode(b)[:2] in (b"PK", b"%P"), rel
+
+
+def test_a_round_trip_instruction_never_states_the_value_it_asks_for():
+    gen.build()
+    for case, task in zip(gen.trip_cases(), _kind("doc-trip-"), strict=True):
+        assert f"{case['label']}: {case['value']}" not in task["instruction"], task["id"]
+        bare = task["instruction"].replace(case["file"], "")
+        assert not re.search(rf"(?<!\w){re.escape(str(case['value']))}(?!\w)", bare), task["id"]
