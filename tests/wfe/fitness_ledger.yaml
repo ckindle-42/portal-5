@@ -34,3 +34,70 @@ cells:
   receipts:
     /Users/chris/projects/portal-5/tests/wfe/suites/compliance_production.jsonl: 789df4f811db070f
   recorded_utc: '2026-10-16T07:52:14.894702+00:00'
+- model: granite4.1:30b-ctx64k
+  arm: granite4.1:30b-ctx64k@card-c1832928
+  workspace: auto-data
+  incumbent: hf.co/unsloth/Qwen3.6-35B-A3B-GGUF:UD-Q4_K_XL-ctx32k
+  tier: confirm
+  verdict: BETTER
+  reason: sign test p=0.0117; worst case p=0.0117
+  n: 36
+  wins: 10
+  losses: 1
+  ties: 25
+  p: 0.01171875
+  campaign: wfe_data_decision_20261016
+  instrument: ac1570b30b378576
+  served:
+    backend: omlx-reasoning
+    model: granite-4.1-30b-4bit
+    content: bd434c626a19b6b2621e4d883e09eab4
+  incumbent_served: &id001
+    backend: omlx-reasoning
+    model: unsloth--Qwen3.6-35B-A3B-UD-MLX-4bit
+    content: 79065cdafcdb49e5ad5fb94e93fda559
+  receipts: &id002
+    /Users/chris/projects/portal-5/tests/wfe/suites/data_production.jsonl: efda19faecd2333f
+  recorded_utc: '2026-10-16T09:24:35.464770+00:00'
+- model: hf.co/bartowski/NVIDIA-Nemotron-3.5-Lightning-30B-A3B-GGUF:Q4_K_M-ctx32k
+  arm: hf.co/bartowski/NVIDIA-Nemotron-3.5-Lightning-30B-A3B-GGUF:Q4_K_M-ctx32k@card-234497e1
+  workspace: auto-data
+  incumbent: hf.co/unsloth/Qwen3.6-35B-A3B-GGUF:UD-Q4_K_XL-ctx32k
+  tier: confirm
+  verdict: NOT_SEPARATED
+  reason: sign test p=0.227
+  n: 36
+  wins: 8
+  losses: 3
+  ties: 25
+  p: 0.2265625
+  campaign: wfe_data_decision_20261016
+  instrument: ac1570b30b378576
+  served:
+    backend: ollama-general
+    model: hf.co/bartowski/NVIDIA-Nemotron-3.5-Lightning-30B-A3B-GGUF:Q4_K_M-ctx32k
+    content: 4b88e6454808ddab287aa96a70bbbc5b946a09934fcc586a100883bd63db415d
+  incumbent_served: *id001
+  receipts: *id002
+  recorded_utc: '2026-10-16T09:24:35.464770+00:00'
+- model: hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k
+  arm: hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k@card-7ff8d2f5
+  workspace: auto-data
+  incumbent: hf.co/unsloth/Qwen3.6-35B-A3B-GGUF:UD-Q4_K_XL-ctx32k
+  tier: confirm
+  verdict: NOT_SEPARATED
+  reason: sign test p=0.092
+  n: 36
+  wins: 10
+  losses: 3
+  ties: 23
+  p: 0.09228515625
+  campaign: wfe_data_decision_20261016
+  instrument: ac1570b30b378576
+  served:
+    backend: omlx-reasoning
+    model: Qwen3.8-27B-oQ4e-mtp
+    content: 7228ad7fe9dd53c6ce5445652af2341e
+  incumbent_served: *id001
+  receipts: *id002
+  recorded_utc: '2026-10-16T09:24:35.464770+00:00'
