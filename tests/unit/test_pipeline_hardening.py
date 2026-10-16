@@ -399,7 +399,7 @@ def _reasoning_tool_turn_responses() -> list[_Resp]:
                             {
                                 "index": 0,
                                 "id": "call-2",
-                                "function": {"name": "lookup", "arguments": "{}"},
+                                "function": {"name": "lookup", "arguments": '{"second": true}'},
                             }
                         ]
                     },

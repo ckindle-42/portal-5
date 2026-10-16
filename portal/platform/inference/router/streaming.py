@@ -55,6 +55,7 @@ from portal.platform.inference.router.metrics import (
     _record_response_time,
     _tool_calls_recovered,
     _tool_loop_hops,
+    _tool_repeat_suppressed,
 )
 from portal.platform.inference.router.non_streaming import (
     _REQUEST_ERROR_STATUSES,
@@ -72,6 +73,7 @@ from portal.platform.inference.router.text_tool_calls import (
     salvage_text_tool_calls,
 )
 from portal.platform.inference.router.thinking import NO_ANSWER_MESSAGE, ThinkTagFilter
+from portal.platform.inference.router.tool_repeat import ToolRepeatGuard
 from portal.platform.inference.router.tools import (
     _dispatch_tool_call,
     _select_explicit_required_tool,
@@ -445,21 +447,44 @@ async def _dispatch_hop_tool_calls(
     request_id: str,
     hop: int,
     max_hops: int,
+    guard: ToolRepeatGuard | None = None,
 ) -> tuple[dict[str, Any], list[dict[str, Any]]]:
     """Dispatch all tool calls for one hop in parallel.
 
     Returns (assistant_msg, dispatch_results) where assistant_msg is ready to
     append to the message list and dispatch_results is the list of tool result
-    messages (one per tool call).
+    messages (one per tool call). With a ``guard``, a call this turn already ran
+    is answered from its earlier result instead of running again.
     """
-    dispatch_results: list[dict[str, Any]] = list(
+    repeats = [guard is not None and guard.seen(tc) for tc in all_tool_calls]
+    fresh = list(
         await asyncio.gather(
             *[
                 _dispatch_tool_call(tc, effective_tools, workspace_id, persona, request_id)
-                for tc in all_tool_calls
+                for tc, rep in zip(all_tool_calls, repeats, strict=True)
+                if not rep
             ],
         )
     )
+    fresh_iter = iter(fresh)
+    dispatch_results: list[dict[str, Any]] = []
+    for tc, rep in zip(all_tool_calls, repeats, strict=True):
+        if rep and guard is not None:
+            dispatch_results.append(guard.repeat_result(tc))
+            _tool_repeat_suppressed.labels(workspace=workspace_id).inc()
+            logger.warning(
+                "Tool loop hop=%d workspace=%s tool=%s repeated with the same arguments; "
+                "answered from the earlier result%s",
+                hop,
+                workspace_id,
+                tc["function"]["name"],
+                " — tools withheld next hop" if guard.force_synthesis else "",
+            )
+        else:
+            result = next(fresh_iter)
+            if guard is not None:
+                guard.remember(tc, result)
+            dispatch_results.append(result)
     assistant_msg = {
         "role": "assistant",
         "content": None,
@@ -605,6 +630,7 @@ async def _tool_loop_frames(
     _exec_audit_calls: list[
         dict[str, Any]
     ] = []  # accumulates tool calls across all hops when exec_audit=true
+    _repeat_guard = ToolRepeatGuard()
 
     while hop < MAX_TOOL_HOPS:
         hop += 1
@@ -1025,10 +1051,16 @@ async def _tool_loop_frames(
                 request_id,
                 hop,
                 MAX_TOOL_HOPS,
+                _repeat_guard,
             )
             current_body["messages"] = (
                 current_body.get("messages", []) + [assistant_msg] + dispatch_results
             )
+            if _repeat_guard.force_synthesis:
+                # A third identical request: the model is stuck on one call. Take a final
+                # turn with the tools withheld rather than run on to the hop limit.
+                current_body["tools"] = None
+                current_body["tool_choice"] = None
             if _exec_audit:
                 _exec_audit_calls.extend(
                     [

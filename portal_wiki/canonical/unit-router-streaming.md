@@ -35,6 +35,8 @@ chain — a unit describing it as a separate two-model pipeline would be
 confidently wrong. The FX1 lesson (a dependency-contract mismatch that unit
 mocks could not catch) is why the live streaming smoke test exists.
 
+Within one turn a `ToolRepeatGuard` (`router/tool_repeat.py`) answers a call the model re-issues with identical arguments from its earlier result plus a short note, instead of running the tool again, and on a third identical request the next hop withholds the tools so the turn ends with an answer rather than the hop limit. The non-streaming failover loop applies the same guard; each suppression increments `portal5_tool_repeat_suppressed_total{workspace}`.
+
 ## Interfaces
 
 `_json_completion_to_sse`, `_stream_from_backend_guarded`,

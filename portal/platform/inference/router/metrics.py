@@ -127,6 +127,12 @@ _tool_call_errors = Counter(
     ["tool", "workspace"],
     registry=_REGISTRY,
 )
+_tool_repeat_suppressed = Counter(
+    "portal5_tool_repeat_suppressed_total",
+    "Identical tool calls within a turn answered from the earlier result, by workspace",
+    ["workspace"],
+    registry=_REGISTRY,
+)
 _tool_calls_recovered = Counter(
     "portal5_tool_calls_recovered_total",
     "Tool calls the engine returned as text and the pipeline recovered, by workspace",

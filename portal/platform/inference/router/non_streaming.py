@@ -19,13 +19,18 @@ from fastapi.responses import JSONResponse
 
 from portal.platform.inference.config import PersonaSpec
 from portal.platform.inference.router.eval_gate import apply_eval_scope
-from portal.platform.inference.router.metrics import _hint_fallback_total, _tool_calls_recovered
+from portal.platform.inference.router.metrics import (
+    _hint_fallback_total,
+    _tool_calls_recovered,
+    _tool_repeat_suppressed,
+)
 from portal.platform.inference.router.power import _record_usage
 from portal.platform.inference.router.state import _record_error
 from portal.platform.inference.router.text_tool_calls import (
     drop_unparsed_markup,
     salvage_text_tool_calls,
 )
+from portal.platform.inference.router.tool_repeat import ToolRepeatGuard
 from portal.platform.inference.router.tools import (
     _dispatch_tool_call,
     _select_explicit_required_tool,
@@ -680,16 +685,36 @@ async def _try_non_streaming(
             )
             _ns_messages = list(req_body.get("messages") or [])
             _ns_hops = 0
+            _ns_guard = ToolRepeatGuard()
             while _ns_tool_calls and _ns_dispatchable:
                 _ns_hops += 1
-                _ns_dispatch = await asyncio.gather(
-                    *[
-                        _dispatch_tool_call(
-                            tc, set(_ns_tools), workspace_id, persona, f"ns-{int(time.time())}"
-                        )
-                        for tc in _ns_tool_calls
-                    ]
+                _ns_repeats = [_ns_guard.seen(tc) for tc in _ns_tool_calls]
+                _ns_fresh = iter(
+                    await asyncio.gather(
+                        *[
+                            _dispatch_tool_call(
+                                tc, set(_ns_tools), workspace_id, persona, f"ns-{int(time.time())}"
+                            )
+                            for tc, rep in zip(_ns_tool_calls, _ns_repeats, strict=True)
+                            if not rep
+                        ]
+                    )
                 )
+                _ns_dispatch = []
+                for tc, rep in zip(_ns_tool_calls, _ns_repeats, strict=True):
+                    if rep:
+                        _ns_dispatch.append(_ns_guard.repeat_result(tc))
+                        _tool_repeat_suppressed.labels(workspace=workspace_id).inc()
+                        logger.warning(
+                            "Non-stream tool loop: workspace=%s tool=%s repeated with the same "
+                            "arguments; answered from the earlier result",
+                            workspace_id,
+                            tc["function"]["name"],
+                        )
+                    else:
+                        _ns_result = next(_ns_fresh)
+                        _ns_guard.remember(tc, _ns_result)
+                        _ns_dispatch.append(_ns_result)
                 _ns_messages = (
                     _ns_messages
                     + [{"role": "assistant", "content": None, "tool_calls": _ns_tool_calls}]
@@ -697,7 +722,7 @@ async def _try_non_streaming(
                 )
                 # Every turn but the last keeps the tools, so a turn that needs a second
                 # lookup gets it; the last is the synthesis, run with none.
-                _ns_last = _ns_hops >= max_hops
+                _ns_last = _ns_hops >= max_hops or _ns_guard.force_synthesis
                 _synth_body = {
                     **req_body,
                     "messages": _ns_messages,
