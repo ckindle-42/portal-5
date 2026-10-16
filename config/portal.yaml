@@ -392,6 +392,7 @@ workspaces:
         top_p: 0.95
         top_k: 64
         temperature: 1.0
+        presence_penalty: 0.0
       ornith15:
         name: 🗑️ Portal Uncensored Throwaway (Ornith-1.5)
         description: Same general-purpose uncensored lane, alternate backend — Ornith-1.5-35B-A3B uncensored MoE (added 2026-08-26). Untested for conversational quality vs the HauhauCS primary; pick this to compare.
@@ -400,6 +401,8 @@ workspaces:
         top_p: 0.95
         top_k: 20
         temperature: 1.0
+        presence_penalty: 0.0
+        repeat_penalty: 1.05
   auto-daily:
     module: general
     name: 🪶 Portal Daily Driver
