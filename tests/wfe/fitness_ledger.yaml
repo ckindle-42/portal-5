@@ -8,4 +8,29 @@
 # the incumbent it was compared against and carries both sides' served identity
 # (backend, model, content), so check HP can tell whether the measurement still
 # describes what production serves. Part 5's sweep fills it.
-cells: []
+cells:
+- model: granite4.1:30b-ctx64k
+  arm: granite4.1:30b-ctx64k@card-c1832928
+  workspace: auto-compliance
+  incumbent: hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k
+  tier: confirm
+  verdict: NOT_SEPARATED
+  reason: sign test p=1.000
+  n: 36
+  wins: 4
+  losses: 5
+  ties: 27
+  p: 1.0
+  campaign: wfe_compliance_decision_20261016
+  instrument: 95420f80cb85dcfd
+  served:
+    backend: omlx-reasoning
+    model: granite-4.1-30b-4bit
+    content: bd434c626a19b6b2621e4d883e09eab4
+  incumbent_served:
+    backend: omlx-reasoning
+    model: Qwen3.8-27B-oQ4e-mtp
+    content: 7228ad7fe9dd53c6ce5445652af2341e
+  receipts:
+    /Users/chris/projects/portal-5/tests/wfe/suites/compliance_production.jsonl: 789df4f811db070f
+  recorded_utc: '2026-10-16T07:52:14.894702+00:00'
