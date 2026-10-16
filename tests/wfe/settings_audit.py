@@ -767,6 +767,20 @@ def _probe_tools_rendered(tag: str, violations: list[dict], where: str) -> dict:
     return verdict
 
 
+def _is_thinking_only_build(tag: str) -> bool:
+    """Ollama builds a model for a thinking renderer (`RENDERER qwen3-vl-thinking`) when the
+    weights are the vendor's Thinking edition; those cannot be told not to reason."""
+    try:
+        modelfile = str(_post("/api/show", {"model": tag}, timeout=30).get("modelfile") or "")
+    except Exception:  # noqa: BLE001
+        return False
+    return any(
+        line.split()[0] in ("RENDERER", "PARSER") and "thinking" in line
+        for line in modelfile.splitlines()
+        if line.split()
+    )
+
+
 def _probe_think_honored(tag: str, violations: list[dict], where: str) -> dict:
     """Is `think` honored, ignored, or refused?
 
@@ -818,6 +832,16 @@ def _probe_think_honored(tag: str, violations: list[dict], where: str) -> dict:
     elif isinstance(on, int) and isinstance(off, int):
         if on > 0 and off == 0:
             seen["verdict"] = "honored"
+        elif on > 0 and off > 0 and _is_thinking_only_build(tag):
+            seen["verdict"] = "thinking_only"
+            _v(
+                violations,
+                where,
+                "thinking_only_build",
+                f"{tag}: a thinking-only build — it reasons whatever `think` says, so a seat on it "
+                "needs an output budget that covers the reasoning and the answer",
+                "INFO",
+            )
         else:
             seen["verdict"] = "ignored"
             _v(

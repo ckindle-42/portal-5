@@ -1400,6 +1400,33 @@ class TestQwen3VlSeatFollowsTheBuildItRuns:
         assert (ws["presence_penalty"], ws["repeat_penalty"]) == (0.0, 1.0)
 
 
+class TestThinkingOnlyBuildThinkProbe:
+    def _probe(self, monkeypatch, modelfile):
+        import tests.wfe.settings_audit as sa
+
+        def fake_post(path, payload, timeout=60):
+            if path == "/api/show":
+                return {"modelfile": modelfile}
+            return {"message": {"content": "43", "thinking": "17 plus 26 is 43"}}
+
+        monkeypatch.setattr(sa, "_post", fake_post)
+        v: list[dict] = []
+        sa._probe_think_honored("qwen3-vl:32b", v, "tag:x")
+        return v
+
+    def test_a_thinking_renderer_makes_ignored_think_an_info_not_a_fail(self, monkeypatch):
+        v = self._probe(
+            monkeypatch, "FROM x\nRENDERER qwen3-vl-thinking\nPARSER qwen3-vl-thinking\n"
+        )
+        assert [(x["kind"], x["severity"]) for x in v] == [("thinking_only_build", "INFO")]
+
+    def test_a_template_that_ignores_think_without_a_thinking_renderer_still_fails(
+        self, monkeypatch
+    ):
+        v = self._probe(monkeypatch, "FROM x\nTEMPLATE {{ .Prompt }}\n")
+        assert [(x["kind"], x["severity"]) for x in v] == [("template_think_ignored", "FAIL")]
+
+
 class TestSandboxRepoAccess:
     """Regression: an in-repo research task (res-repo-grounded) was unwinnable
     because repo_search('.', ...) searched only the empty sandbox and
