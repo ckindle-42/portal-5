@@ -9,6 +9,7 @@ receipt-based cleanup that deletes only what the row owns.
 
 from __future__ import annotations
 
+import base64
 import hashlib
 import json
 import os
@@ -128,6 +129,10 @@ def prepare(pipe: bool, r: dict, manifest: dict, task: dict, wsc: dict, harness:
         dest = eval_scope.confine(OUTPUT_ROOT, scope, rel, sub="in")
         dest.parent.mkdir(parents=True, exist_ok=True)
         dest.write_text(body)
+    for rel, b64 in (task.get("seed_b64") or {}).items():  # binary fixtures (office, pdf)
+        dest = eval_scope.confine(OUTPUT_ROOT, scope, rel, sub="in")
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        dest.write_bytes(base64.b64decode(b64))
     ctx = {
         "scope": scope,
         "root": root,

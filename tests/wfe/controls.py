@@ -29,6 +29,7 @@ TASK_KEYS = {
     "completion_signal",
     "checkers",
     "seed",
+    "seed_b64",
     "repo_read",
     "controls",
     "requires_tools",

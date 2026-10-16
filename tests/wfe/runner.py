@@ -34,6 +34,7 @@ Usage:
 from __future__ import annotations
 
 import argparse
+import base64
 import contextlib
 import datetime as dt
 import json
@@ -371,6 +372,14 @@ class Sandbox:
         f.parent.mkdir(parents=True, exist_ok=True)
         f.write_text(content)
         return f"wrote {len(content)} chars to {path}"
+
+    def file_write_bytes(self, path: str, data: bytes) -> None:
+        """A binary fixture (seed_b64), confined like file_write."""
+        f = self._resolve(path, write=True)
+        if f is None or f.is_dir() or f == self.root:
+            raise ValueError(f"{path} outside sandbox")
+        f.parent.mkdir(parents=True, exist_ok=True)
+        f.write_bytes(data)
 
     def http_get(self, url: str = "") -> str:
         if not str(url).startswith("http"):
@@ -1652,6 +1661,8 @@ def run_task(
         )
     for seed_path, seed_body in (task.get("seed") or {}).items():
         sandbox.file_write(seed_path, seed_body)
+    for seed_path, seed_b64 in (task.get("seed_b64") or {}).items():
+        sandbox.file_write_bytes(seed_path, base64.b64decode(seed_b64))
     # A self-contained task (a compliance packet) declares repo_read: false. With
     # the repository readable, the p6j seats went hunting through Portal's own
     # compliance source and the adjudication notes about the very packets under

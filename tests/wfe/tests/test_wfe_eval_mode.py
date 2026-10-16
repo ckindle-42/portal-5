@@ -431,3 +431,23 @@ def test_a_no_tools_task_gets_no_tools_in_production_mode(out_root):
         and ctx["use_tools"] is False
         and ctx["production"] is False
     )
+
+
+def test_seed_b64_stages_binary_fixtures_byte_exact(out_root, tmp_path):
+    import base64
+
+    from tests.wfe import controls
+    from tests.wfe.runner import Sandbox
+
+    blob = bytes(range(256)) + b"PK\x03\x04"
+    task = {"id": "t", "seed_b64": {"sub/a.docx": base64.b64encode(blob).decode()}}
+    wsc = {"system_prompt_pipeline": "", "system_prompt_base": ""}
+    _, _, ctx = eval_mode.prepare(True, _row(), {"campaign_id": "c"}, task, wsc, {})
+    assert (ctx["root"] / "in" / "sub" / "a.docx").read_bytes() == blob
+    # the sandbox path writes the same bytes, confined to the sandbox
+    sb = Sandbox(tmp_path)
+    sb.file_write_bytes("sub/a.docx", blob)
+    assert (tmp_path / "sub" / "a.docx").read_bytes() == blob
+    with pytest.raises(ValueError):
+        sb.file_write_bytes("../escape.bin", blob)
+    assert "seed_b64" in controls.TASK_KEYS
