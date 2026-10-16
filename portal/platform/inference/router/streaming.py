@@ -130,6 +130,22 @@ def _as_bytes(body: bytes | memoryview[int]) -> bytes:
     return body.tobytes() if isinstance(body, memoryview) else body
 
 
+def _exec_audit_event(calls: list[dict[str, Any]]) -> bytes:
+    """The trailing ``exec_audit`` SSE event: every tool call the pipeline dispatched."""
+    event = {
+        "type": "exec_audit",
+        "tool_calls": [
+            {
+                "tool": tc.get("function", {}).get("name", ""),
+                "arguments": tc.get("function", {}).get("arguments", ""),
+                "output": tc.get("_output", ""),
+            }
+            for tc in calls
+        ],
+    }
+    return f"data: {json.dumps(event)}\n\n".encode()
+
+
 def _content_chunk(request_id: str, workspace_id: str, text: str) -> bytes:
     """One OpenAI chunk carrying ``text`` as assistant content."""
     payload = {
@@ -941,6 +957,8 @@ async def _tool_loop_frames(
                         }
                     ],
                 }
+                if _exec_audit and _exec_audit_calls:
+                    yield _exec_audit_event(_exec_audit_calls)
                 yield f"data: {json.dumps(limit_msg)}\n\n".encode()
                 yield b"data: [DONE]\n\n"
                 return
@@ -1007,18 +1025,7 @@ async def _tool_loop_frames(
         else:
             # Model finished without tool calls — done
             if _exec_audit and _exec_audit_calls:
-                audit_event = {
-                    "type": "exec_audit",
-                    "tool_calls": [
-                        {
-                            "tool": tc.get("function", {}).get("name", ""),
-                            "arguments": tc.get("function", {}).get("arguments", ""),
-                            "output": tc.get("_output", ""),
-                        }
-                        for tc in _exec_audit_calls
-                    ],
-                }
-                yield f"data: {json.dumps(audit_event)}\n\n".encode()
+                yield _exec_audit_event(_exec_audit_calls)
             if notice := take_truncation_notice():
                 yield _content_chunk(request_id, workspace_id, f"\n\n{notice}")
             yield _completion_finish_chunk(finish_reason or "stop")

@@ -621,6 +621,7 @@ def _parse_stream_api(lines) -> dict:
 
 def _parse_stream_v1(lines) -> dict:
     content, reasoning, tool_parts, finish, usage = [], [], {}, None, {}
+    audit: list[dict] = []
     for line in lines:
         line = line.strip()
         if not line.startswith("data:"):
@@ -629,6 +630,9 @@ def _parse_stream_v1(lines) -> dict:
         if data == "[DONE]":
             break
         obj = json.loads(data)
+        if obj.get("type") == "exec_audit":
+            audit.extend(obj.get("tool_calls") or [])
+            continue
         if obj.get("error"):
             # The pipeline reports a backend timeout/507/connection failure as an
             # error frame. Read as an empty delta it became an empty "answer"
@@ -661,6 +665,8 @@ def _parse_stream_v1(lines) -> dict:
     msg = _mk_msg(content, tool_parts)
     if reasoning:
         msg["reasoning"] = "".join(reasoning)
+    if audit:
+        msg["_exec_audit"] = audit
     return {"message": msg, "finish_reason": finish, "usage": usage}
 
 
@@ -859,6 +865,9 @@ def _build_pipeline(
         payload["portal_no_tools"] = True
     if eval_scope:  # production tool mode: the workspace's own tools, scoped (eval_mode)
         payload["portal_eval"] = eval_scope
+        # The pipeline dispatches these tools, so the client never sees a call. exec_audit
+        # makes it report each call's tool, arguments and output: the row's own trace.
+        payload["exec_audit"] = True
     url = f"{CHAT_BASE}/v1/chat/completions"
     if model_override:
         url += "?" + urllib.parse.urlencode({"model": model_override})
@@ -1338,6 +1347,25 @@ def context_overflow(transcript: list, context_limit: int | None) -> str | None:
     return None
 
 
+def _audited_calls(msg: dict) -> list[dict]:
+    """The calls the pipeline dispatched in production tool mode (its exec_audit event),
+    in the harness's tool_log shape, so tool_grounded grades the row's own trace."""
+    out = []
+    for a in msg.pop("_exec_audit", None) or []:
+        args, _ = normalize_tool_args(a.get("arguments"))
+        text = str(a.get("output") or "")
+        out.append(
+            {
+                "name": a.get("tool") or "",
+                "args": args,
+                "raw_args": str(a.get("arguments"))[:500],
+                "output": text[:4000],
+                "error": text.startswith("ERROR"),
+            }
+        )
+    return out
+
+
 def _execute_calls(calls: list, turn: int, sandbox: Sandbox, tool_log: list, messages: list) -> int:
     """Dispatch one turn's tool calls and append production-shaped results.
 
@@ -1520,6 +1548,7 @@ class _Loop:
             self.transcript.append(entry)
             return False
 
+        self.tool_log.extend(_audited_calls(resp["message"]))
         self.econ.merge(resp["economics"])
         self.finish_reason = resp.get("finish_reason") or self.finish_reason
         content, calls = self._read_reply(turn, resp)
