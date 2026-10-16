@@ -129,3 +129,33 @@ def test_scoped_compliance_calls_go_to_the_evaluation_instance_or_nowhere(monkey
         )
     finally:
         es.EVAL_SCOPE.reset(token)
+
+
+def test_a_tilde_root_stages_under_the_home_dir_not_a_literal_tilde_directory(
+    tmp_path, monkeypatch
+):
+    """Live 2026-10-15: the default root '~/.portal-data/compliance-eval' was staged into a
+    literal './~/...' directory, ingest_folder (which expands '~') found nothing, and the
+    store was built with zero documents while the build printed success."""
+    from portal.modules.compliance.core import eval_instance
+
+    monkeypatch.setenv("HOME", str(tmp_path))
+    monkeypatch.chdir(tmp_path)
+    out = eval_instance._stage_planted("~/.portal-data/compliance-eval")
+    assert out == tmp_path / ".portal-data" / "compliance-eval" / "planted_staged"
+    assert out.is_dir() and any(out.glob("*.md"))
+    assert not (tmp_path / "~").exists()
+
+
+def test_build_fails_loudly_when_the_planted_corpus_does_not_ingest(tmp_path, monkeypatch):
+    from portal.modules.compliance.core import eval_instance, ingest, migrate_legacy
+
+    monkeypatch.setenv("COMPLIANCE_DB_PATH", str(tmp_path / "c.db"))
+
+    async def nothing(*a, **k):
+        return {"error": "directory not found: x"}
+
+    monkeypatch.setattr(ingest, "ingest_folder", nothing)
+    monkeypatch.setattr(migrate_legacy, "import_register", lambda *a, **k: {})
+    with pytest.raises(RuntimeError, match="did not ingest"):
+        eval_instance.build(tmp_path)

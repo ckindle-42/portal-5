@@ -49,3 +49,20 @@ def test_audit_event_becomes_the_rows_tool_log_and_grounds_the_answer() -> None:
 def test_no_audit_means_no_calls_and_tool_grounded_fails() -> None:
     msg, _, _ = runner._read_stream("v1", _stream({"choices": [{"delta": {"content": "x"}}]}))
     assert runner._audited_calls(msg) == []
+
+
+def test_a_failed_lookup_that_echoes_the_id_does_not_ground_the_answer() -> None:
+    """Live 2026-10-15: compliance_read answered {"ref": "OT-POL-007", "resolved": false} and
+    tool_grounded called the answer grounded because the output named the document."""
+    failed = {"name": "compliance_read", "output": '{"ref": "OT-POL-007", "resolved": false}'}
+    ok = {"name": "compliance_read", "output": '{"ref": "OT-POL-007", "text": "retention"}'}
+    spec = {"type": "tool_grounded", "evidence": [r"OT\-POL\-007(?![A-Za-z0-9])"]}
+    ctx = CheckContext(final_text="x", task={}, tool_calls=[failed])
+    assert check_tool_grounded(spec, ctx).outcome == Outcome.FAIL
+    ctx = CheckContext(final_text="x", task={}, tool_calls=[failed, ok])
+    assert check_tool_grounded(spec, ctx).outcome == Outcome.PASS
+    err = {"name": "x", "output": '{"error": "boom OT-POL-007"}'}
+    assert (
+        check_tool_grounded(spec, CheckContext(final_text="", task={}, tool_calls=[err])).outcome
+        == Outcome.FAIL
+    )

@@ -99,7 +99,7 @@ def _stage_planted(root: Path | str) -> Path:
     as-is, any tool that reads the chunk hands a model the answer (N-32)."""
     import re
 
-    out = Path(root) / "planted_staged"
+    out = Path(root).expanduser() / "planted_staged"
     out.mkdir(parents=True, exist_ok=True)
     for f in sorted(PLANTED.glob("*.md")):
         text = re.sub(r"<!--\s*PLANT\s+\{.*?\}\s*-->\s*", "", f.read_text(), flags=re.S)
@@ -118,6 +118,8 @@ def build(root: Path | str) -> dict[str, object]:
     repo.migrate()
     reg = import_register(repo, Register.load())
     corpus = asyncio.run(ingest_folder(str(_stage_planted(root)), "operator_corpus", True))
+    if corpus.get("error") or corpus.get("ingest_error") or not corpus.get("files_ingested"):
+        raise RuntimeError(f"the planted corpus did not ingest: {corpus}")
     return {"register": reg, "planted_corpus": corpus}
 
 

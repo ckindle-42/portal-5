@@ -548,6 +548,19 @@ def check_receipt_artifact(spec: dict, ctx: CheckContext) -> CheckResult:
     )
 
 
+def _output_failed(out: str) -> bool:
+    """A tool answered, but with a failure: ``resolved``/``found``/``success`` false, or an
+    ``error`` field. Such an output echoes the id that was asked for (``{"ref": "OT-POL-007",
+    "resolved": false}``), so it must never ground an answer."""
+    try:
+        d = json.loads(out)
+    except ValueError:
+        return False
+    if not isinstance(d, dict):
+        return False
+    return any(d.get(k) is False for k in ("resolved", "found", "success")) or bool(d.get("error"))
+
+
 def check_tool_grounded(spec: dict, ctx: CheckContext) -> CheckResult:
     """The answer must rest on a successful call to one of ``tools`` whose output
     shows every ``evidence`` pattern: the fact was retrieved through the
@@ -557,7 +570,12 @@ def check_tool_grounded(spec: dict, ctx: CheckContext) -> CheckResult:
     evidence = spec.get("evidence") or []
     for c in ctx.tool_calls:
         out = str(c.get("output", ""))
-        if (tools and c.get("name") not in tools) or c.get("error") or out.startswith("ERROR"):
+        if (
+            (tools and c.get("name") not in tools)
+            or c.get("error")
+            or out.startswith("ERROR")
+            or _output_failed(out)
+        ):
             continue
         if all(re.search(p, out, re.I) for p in evidence):
             return CheckResult(
