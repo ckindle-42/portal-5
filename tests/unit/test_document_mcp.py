@@ -420,3 +420,13 @@ class TestReadBareFilename:
             == (tmp_path / "uploads" / "1234_b.xlsx").resolve()
         )
         assert document_mcp._resolve_input_path("nope.xlsx").name == "nope.xlsx"
+
+
+def test_word_document_tool_says_how_to_express_a_table():
+    """A model can only build a table if the tool tells it markdown pipe rows make one."""
+    from portal.modules.documents.tools import document_mcp
+
+    manifest = {t["name"]: t for t in document_mcp.TOOLS_MANIFEST}
+    desc = manifest["create_word_document"]["parameters"]["properties"]["content"]["description"]
+    assert "table" in desc and "|---|" in desc
+    assert "table" in (document_mcp.create_word_document.__doc__ or "")

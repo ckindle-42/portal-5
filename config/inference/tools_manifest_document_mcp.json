@@ -5,7 +5,7 @@
     "parameters": {
       "properties": {
         "content": {
-          "description": "Document content (markdown supported)",
+          "description": "Document content in markdown: # headings, - bullets, a table as pipe rows with a |---| separator line (| a | b |), code blocks, links",
           "type": "string"
         },
         "title": {

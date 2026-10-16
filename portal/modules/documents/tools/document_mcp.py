@@ -357,6 +357,7 @@ def create_word_document(
     - '### Heading' → H3 heading
     - '- item' → bullet list item
     - Regular text → body paragraph
+    - Pipe rows with a '|---|---|' separator line → a table (header row first)
 
     Args:
         title: Document title (also used as filename base)
