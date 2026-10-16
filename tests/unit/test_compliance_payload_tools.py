@@ -205,3 +205,34 @@ def test_coverage_counts_declarations_and_labels_proposals(
     assert result["dual_document"]["resolved"] is True
     assert result["dual_document"]["window"]["context_limit"] == 131_072
     store.close()
+
+
+@pytest.mark.parametrize(
+    ("standard", "requirement"),
+    [
+        ("CIP-905-1", "R1 Part 1.2"),
+        ("CIP-905-1", "CIP-905-1 R1 Part 1.2"),
+        ("", "CIP-905-1 R1 Part 1.2"),
+    ],
+)
+def test_coverage_addresses_a_requirement_the_same_bare_or_fully_qualified(
+    tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch, standard: str, requirement: str
+) -> None:
+    """A model passes the full address as `requirement` as often as the bare part; the
+    standard was prefixed twice ('CIP-905-1 CIP-905-1 R1 ...' is not a regulatory address)."""
+    from portal.modules.compliance.core import dual_document
+    from portal.modules.compliance.tools import compliance_mcp
+
+    store = Repository(tmp_path / "addr.db")
+    seen: list[str] = []
+    monkeypatch.setattr(compliance_mcp, "_repo", lambda: store)
+    monkeypatch.setattr(
+        dual_document,
+        "build",
+        lambda repo, requirement_ref, **_k: seen.append(requirement_ref) or {},
+    )
+    result = compliance_mcp.compliance_coverage(standard=standard, requirement=requirement)
+    assert "error" not in result
+    assert seen == ["CIP-905-1 R1 Part 1.2"]
+    assert result["standard"] == "CIP-905-1"
+    store.close()

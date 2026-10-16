@@ -2305,7 +2305,10 @@ def compliance_coverage(
 
     repo = _repo()
     try:
-        target = f"{standard} {requirement}".strip() if requirement else standard
+        if requirement and reading_assembly.parse_ref(requirement) is not None:
+            target = requirement  # already a full address: prefixing the standard doubled it
+        else:
+            target = f"{standard} {requirement}".strip() if requirement else standard
         parsed = reading_assembly.parse_ref(target) or reading_assembly.parse_ref(standard)
         if parsed is None:
             return {"error": f"{target!r} is not a regulatory address"}
