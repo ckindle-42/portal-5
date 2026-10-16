@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import importlib
+import importlib.util
 
 import pytest
 
@@ -21,7 +22,19 @@ def outside(tmp_path, monkeypatch):
 
 
 @pytest.mark.parametrize(
-    "tool", ["read_excel", "read_word_document", "read_powerpoint", "read_pdf"]
+    "tool",
+    [
+        "read_excel",
+        pytest.param(
+            "read_word_document",
+            marks=pytest.mark.skipif(
+                importlib.util.find_spec("docx") is None,
+                reason="python-docx is absent (dev-only CI extras): the tool reports that before it checks the path",
+            ),
+        ),
+        "read_powerpoint",
+        "read_pdf",
+    ],
 )
 def test_a_refused_read_is_a_structured_error(tool, outside):
     out = getattr(dm, tool)(outside)
