@@ -21,7 +21,9 @@ from portal.platform.inference.config import PersonaSpec
 from portal.platform.inference.router.eval_gate import apply_eval_scope
 from portal.platform.inference.router.metrics import _hint_fallback_total, _tool_calls_recovered
 from portal.platform.inference.router.power import _record_usage
+from portal.platform.inference.router.state import _record_error
 from portal.platform.inference.router.text_tool_calls import (
+    drop_unparsed_markup,
     salvage_text_tool_calls,
 )
 from portal.platform.inference.router.tools import (
@@ -620,6 +622,16 @@ async def _try_non_streaming(
                         _tool_calls_recovered.labels(workspace=workspace_id).inc(len(_salvaged))
                         _msg.update(content=_text, tool_calls=_salvaged)
                         _c["finish_reason"] = "tool_calls"
+                    elif (
+                        _msg.get("content")
+                        and (_clean := drop_unparsed_markup(_msg["content"])) != _msg["content"]
+                    ):
+                        logger.warning(
+                            "NON-STREAM: unparseable tool-call markup withheld (model=%s)",
+                            req_body.get("model", ""),
+                        )
+                        _record_error(workspace_id, "unparsed_tool_call")
+                        _msg["content"] = _clean
             _resp_tc: list[dict[str, Any]] = []
             for _c in data.get("choices") or []:
                 _resp_tc.extend((_c.get("message") or {}).get("tool_calls") or [])

@@ -36,8 +36,20 @@ def _xml_param_value(raw: str, schema: dict[str, Any]) -> Any:
 def _decode_json_call(raw_payload: str) -> tuple[str, dict[str, Any]] | None:
     try:
         payload, end = json.JSONDecoder().raw_decode(raw_payload)
-    except json.JSONDecodeError:
-        return None
+    except json.JSONDecodeError as exc:
+        # Live granite/oMLX (2026-10-15) closed a call like Python source:
+        # ``{"code": "print(1)")}}`` — a stray ``)`` after a complete string value.
+        # Drop that single character and decode once more; any other defect stays
+        # unparsed.
+        if raw_payload[exc.pos : exc.pos + 1] != ")":
+            return None
+        try:
+            payload, end = json.JSONDecoder().raw_decode(
+                raw_payload[: exc.pos] + raw_payload[exc.pos + 1 :]
+            )
+        except json.JSONDecodeError:
+            return None
+        raw_payload = raw_payload[: exc.pos] + raw_payload[exc.pos + 1 :]
     # The live Granite/oMLX path was observed to append one unmatched closing
     # brace after an otherwise valid wrapped call. Accept only that single
     # terminal character; other trailing content remains an unparsed answer.
@@ -108,6 +120,14 @@ def salvage_text_tool_calls(
         )
     prefix = text[: matches[0][0]].replace("<tool_call>", "").strip()
     return prefix, calls
+
+
+def drop_unparsed_markup(text: str) -> str:
+    """*text* cut at its first ``<tool_call>`` wrapper: a wrapper that could not be
+    salvaged is call syntax, never an answer, so it is not delivered to a client.
+    A bare ``<function=...>`` mention stays (it may be prose about an unoffered tool)."""
+    cut = text.find("<tool_call>")
+    return text[:cut].rstrip() if cut >= 0 else text
 
 
 class TextToolCallHoldback:

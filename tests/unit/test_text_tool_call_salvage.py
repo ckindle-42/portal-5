@@ -269,3 +269,55 @@ async def test_client_tools_only_offers_exactly_the_client_tools(monkeypatch):
     assert has_tools and effective == []
     assert out["tools"] == TOOLS and out["tool_choice"] == "auto"
     assert "portal_client_tools_only" not in out
+
+
+# Verbatim from live granite-4.1-8b / oMLX, 2026-10-15 (P-1 follow-up): a stray ")" after a
+# complete string value. It reached the client as raw markup.
+CAPTURED_STRAY_PAREN = (
+    '<tool_call>\n{"name": "execute_python", "arguments": {"code": "print(sum(range(444)))")}}\n'
+    "</tool_call>"
+)
+EXEC_TOOLS = [
+    {
+        "type": "function",
+        "function": {
+            "name": "execute_python",
+            "parameters": {"type": "object", "properties": {"code": {"type": "string"}}},
+        },
+    }
+]
+
+
+def test_stray_paren_after_a_complete_value_is_repaired() -> None:
+    before, calls = salvage_text_tool_calls(CAPTURED_STRAY_PAREN, EXEC_TOOLS)
+    assert before == "" and len(calls) == 1
+    assert calls[0]["function"]["name"] == "execute_python"
+    assert json.loads(calls[0]["function"]["arguments"]) == {"code": "print(sum(range(444)))"}
+
+
+def test_other_malformation_is_not_guessed() -> None:
+    bad = '<tool_call>\n{"name": "execute_python", "arguments": {"code": "x" ]}}\n</tool_call>'
+    assert salvage_text_tool_calls(bad, EXEC_TOOLS) == (bad, [])
+
+
+def test_unparsed_markup_is_never_delivered_as_an_answer() -> None:
+    from portal.platform.inference.router.text_tool_calls import drop_unparsed_markup
+
+    text = 'Sure.\n<tool_call>\n{"name": "nope"\n</tool_call>'
+    assert drop_unparsed_markup(text) == "Sure."
+    assert drop_unparsed_markup("plain answer") == "plain answer"
+    assert drop_unparsed_markup("Use <function=x> here") == "Use <function=x> here"
+
+
+@pytest.mark.anyio
+async def test_stream_never_delivers_an_unsalvageable_tool_call_wrapper(monkeypatch):
+    hop1 = [
+        _frame({"content": '<tool_call>\n{"name": "get_weather", "arguments": {"city" ]}}\n'}),
+        _frame({"content": "</tool_call>"}),
+        _frame({}, "stop"),
+        "data: [DONE]",
+    ]
+    out, dispatched = await _run(monkeypatch, [hop1])
+    assert dispatched == []
+    assert "<tool_call>" not in out and "get_weather" not in out
+    assert out.count("[DONE]") == 1

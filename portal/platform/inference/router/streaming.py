@@ -68,6 +68,7 @@ from portal.platform.inference.router.non_streaming import (
 from portal.platform.inference.router.state import _record_error
 from portal.platform.inference.router.text_tool_calls import (
     TextToolCallHoldback,
+    drop_unparsed_markup,
     salvage_text_tool_calls,
 )
 from portal.platform.inference.router.thinking import NO_ANSWER_MESSAGE, ThinkTagFilter
@@ -804,7 +805,18 @@ async def _tool_loop_frames(
                 tool_calls_buf.extend(_salvaged)
                 finish_reason = "tool_calls"
             else:
-                _visible_held = _think_filter.feed(_held)
+                # Markup that could not be salvaged is never an answer: log it and
+                # let the empty-hop rescue below (then the no-answer notice) handle it.
+                logger.warning(
+                    "Tool loop hop %d: unparseable tool-call markup withheld "
+                    "(workspace=%s model=%s): %.200r",
+                    hop,
+                    workspace_id,
+                    current_body.get("model", ""),
+                    _held,
+                )
+                _record_error(workspace_id, "unparsed_tool_call")
+                _visible_held = _think_filter.feed(drop_unparsed_markup(_held))
                 if _visible_held:
                     _held_chunk = {
                         "id": request_id,
