@@ -1284,6 +1284,38 @@ class TestSeatSamplingFollowsTheGuidance:
         assert [x["kind"] for x in v] == ["sampling_override_over_lane"]
 
 
+class TestCardRegistryCarriesTheAntiLoopSettings:
+    """C-FIX: the registry's qwen3.8 entry omitted Unsloth's presence_penalty 1.5, so the audit
+    could not see that the seat lacked it."""
+
+    def _entry(self, key):
+        import yaml
+
+        from tests.wfe.runner import REPO
+
+        return yaml.safe_load((REPO / "config/model_card_expectations.yaml").read_text())["models"][
+            key
+        ]
+
+    def test_qwen38_instruct_is_unsloths_full_non_thinking_setting(self):
+        modes = self._entry("qwen3.8")["recommended_sampling_modes"]
+        assert modes["instruct"] == {
+            "temperature": 0.7, "top_p": 0.8, "top_k": 20, "min_p": 0.0,
+            "presence_penalty": 1.5, "repeat_penalty": 1.0,
+        }  # fmt: skip
+        assert (
+            modes["thinking"]["temperature"] == 1.0 and modes["thinking"]["presence_penalty"] == 0.0
+        )
+
+    def test_qwen36_thinking_general_carries_the_presence_penalty(self):
+        modes = self._entry("qwen3.6")["recommended_sampling_modes"]
+        assert modes["thinking_general"]["presence_penalty"] == 1.5
+
+    def test_the_entries_record_their_source_tier(self):
+        assert "build provider" in self._entry("qwen3.8")["source_tier"]
+        assert "build provider" in self._entry("qwen3.6")["source_tier"]
+
+
 class TestSandboxRepoAccess:
     """Regression: an in-repo research task (res-repo-grounded) was unwinnable
     because repo_search('.', ...) searched only the empty sandbox and

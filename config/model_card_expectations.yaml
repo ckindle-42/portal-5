@@ -141,20 +141,22 @@ models:
     status: verified-card
     verified: true
     source: "https://huggingface.co/Qwen/Qwen3.6-35B-A3B/resolve/main/generation_config.json (2026-09-25)"
+    source_tier: "1 — build provider: https://huggingface.co/unsloth/Qwen3.6-35B-A3B-GGUF (confirmed 2026-10-16: instruct 0.7/0.8/20/0/presence 1.5/rep 1.0; thinking_general presence_penalty 1.5)"
     recommended_sampling: {temperature: 1.0, top_p: 0.95, top_k: 20}
     recommended_sampling_modes:
-      thinking_general: {temperature: 1.0, top_p: 0.95, top_k: 20, min_p: 0.0, presence_penalty: 0.0, repeat_penalty: 1.0}
+      thinking_general: {temperature: 1.0, top_p: 0.95, top_k: 20, min_p: 0.0, presence_penalty: 1.5, repeat_penalty: 1.0}
       thinking_precise_coding: {temperature: 0.6, top_p: 0.95, top_k: 20, min_p: 0.0, presence_penalty: 0.0, repeat_penalty: 1.0}
       instruct: {temperature: 0.7, top_p: 0.8, top_k: 20, min_p: 0.0, presence_penalty: 1.5, repeat_penalty: 1.0}
     prompt_contract: "Thinking on by default. Modes from https://huggingface.co/Qwen/Qwen3.6-27B README (2026-09-25). Lineage covers huihui abliterations, HauhauCS Aggressive (GGUF arch qwen35moe; tags carry qwen3.6/qwen36), and KAT-Coder/Ornith, which have their own keys."
   qwen3.8:
     status: verified-card
     verified: true
-    source: "https://huggingface.co/unsloth/Qwen3.8-27B-GGUF (2026-09-24)"
-    recommended_sampling: {temperature: 0.7, top_p: 0.8, top_k: 20}
+    source: "https://huggingface.co/unsloth/Qwen3.8-27B-GGUF (2026-09-24; re-confirmed 2026-10-16)"
+    source_tier: "1 — build provider (Unsloth): non-thinking presence_penalty 1.5 'to curb endless loops'; the seat had omitted it"
+    recommended_sampling: {temperature: 0.7, top_p: 0.8, top_k: 20, min_p: 0.0, presence_penalty: 1.5, repeat_penalty: 1.0}
     recommended_sampling_modes:
-      thinking: {temperature: 1.0, top_p: 0.95, top_k: 20}
-      instruct: {temperature: 0.7, top_p: 0.8, top_k: 20}
+      thinking: {temperature: 1.0, top_p: 0.95, top_k: 20, min_p: 0.0, presence_penalty: 0.0, repeat_penalty: 1.0}
+      instruct: {temperature: 0.7, top_p: 0.8, top_k: 20, min_p: 0.0, presence_penalty: 1.5, repeat_penalty: 1.0}
     max_context: 262144
     tools: true
     prompt_contract: "Qwen3 XML tool calls; thinking on by default (enable_thinking / think:false to suppress). Unsloth's GGUFs carry a nested-object tool-call fix and developer-role support."
