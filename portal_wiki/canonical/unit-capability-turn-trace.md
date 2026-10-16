@@ -35,7 +35,9 @@ after that point, in a child task holding a copy of the context.
 Records land in a tmpfs directory named by `PORTAL_TRACE_DIR`, keyed on the
 correlation id echoed to the client as `X-Correlation-ID`. `PORTAL_TRACE`
 disables capture outright, `PORTAL_TRACE_BODIES` opts into message and
-argument text, and `PORTAL_TRACE_MAX` caps how many records survive before the
+argument text (each tool-loop hop's request is a digest: the messages new since the
+previous hop with role, size, sha256 and a short head, so a 20-hop turn fits the
+record cap), and `PORTAL_TRACE_MAX` caps how many records survive before the
 oldest are pruned. `finalize_trace` overwrites rather than skipping a repeat
 call: the handler writes the routing decision when its response headers are
 ready, and the streaming generator replaces that record with the complete one

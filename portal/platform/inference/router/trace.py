@@ -25,6 +25,7 @@ change the outcome of a turn.
 from __future__ import annotations
 
 import contextlib
+import hashlib
 import json
 import os
 import re
@@ -54,6 +55,8 @@ MAX_RECORDS: int = _int("PORTAL_TRACE_MAX", 200)
 # Keep enough room for the compact fallback record even when an operator sets
 # an unusually small limit. Records stay valid JSON at every configured size.
 MAX_RECORD_BYTES: int = max(512, _int("PORTAL_TRACE_MAX_BYTES", 32768))
+#: Characters of each captured message kept verbatim; the rest is a size and a hash.
+HEAD_CHARS: int = 160
 
 # Correlation ids are minted as ``p5-<hex12>`` but may be supplied by a client
 # through X-Correlation-ID, so the id is a filename component we do not trust.
@@ -98,7 +101,7 @@ class TurnTrace:
     disconnects mid-stream still leaves the earlier, partial record on disk.
     """
 
-    __slots__ = ("cid", "started_at", "_t0", "_spans", "_meta", "_bodies")
+    __slots__ = ("cid", "started_at", "_t0", "_spans", "_meta", "_bodies", "_seen")
 
     def __init__(self, cid: str) -> None:
         self.cid = cid
@@ -107,6 +110,7 @@ class TurnTrace:
         self._spans: list[dict[str, Any]] = []
         self._meta: dict[str, Any] = {}
         self._bodies: dict[str, Any] = {}
+        self._seen = 0
 
     def span(self, name: str, **fields: Any) -> None:
         """Append one named event with its offset from the start of the turn."""
@@ -125,12 +129,54 @@ class TurnTrace:
     def capture(self, **fields: Any) -> None:
         """Keep opt-in message or tool-argument bodies on this turn."""
         for key, value in redact(fields).items():
+            if key == "backend_request" and isinstance(value, dict):
+                value = self._digest_request(value)
             if key not in self._bodies:
                 self._bodies[key] = value
             elif isinstance(self._bodies[key], list):
                 self._bodies[key].append(value)
             else:
                 self._bodies[key] = [self._bodies[key], value]
+
+    def _digest_request(self, body: dict[str, Any]) -> dict[str, Any]:
+        """One tool-loop hop's request, compact: the messages new since the previous
+        hop (role, size, sha256, head) plus a hash of the prefix already seen.
+
+        A hop re-sends the whole conversation, so keeping every hop's full messages
+        outgrows the record cap and loses the lot. The digest still shows whether each
+        ``role:tool`` result arrived whole (``chars``/``sha256``), in order (``i``), and
+        whether earlier messages were left untouched (``prefix_sha256``).
+        """
+        messages = body.get("messages") or []
+        start = min(self._seen, len(messages))
+        prefix = json.dumps(messages[:start], default=str, sort_keys=True)
+        entries = []
+        for i, msg in enumerate(messages[start:], start):
+            raw = msg.get("content") if isinstance(msg, dict) else msg
+            text = raw if isinstance(raw, str) else json.dumps(raw, default=str)
+            entry: dict[str, Any] = {
+                "i": i,
+                "role": msg.get("role") if isinstance(msg, dict) else None,
+                "chars": len(text),
+                "sha256": hashlib.sha256(text.encode("utf-8")).hexdigest()[:16],
+                "head": text[:HEAD_CHARS],
+            }
+            if len(text) > HEAD_CHARS:
+                entry["head_truncated"] = True
+            if isinstance(msg, dict) and msg.get("tool_call_id"):
+                entry["tool_call_id"] = msg["tool_call_id"]
+            if isinstance(msg, dict) and msg.get("tool_calls"):
+                entry["tool_calls"] = len(msg["tool_calls"])
+            entries.append(entry)
+        self._seen = len(messages)
+        return {
+            "n_messages": len(messages),
+            "new_from": start,
+            "prefix_sha256": hashlib.sha256(prefix.encode("utf-8")).hexdigest()[:16],
+            "tools": len(body.get("tools") or []),
+            "params": {k: v for k, v in body.items() if k not in ("messages", "tools")},
+            "messages": entries,
+        }
 
     def to_dict(self) -> dict[str, Any]:
         record = {
@@ -214,10 +260,16 @@ def _write(cid: str, record: dict[str, Any]) -> None:
     directory.mkdir(parents=True, exist_ok=True)
     payload = json.dumps(record, default=str, separators=(",", ":"))
     if len(payload.encode("utf-8")) > MAX_RECORD_BYTES:
-        thin = {k: v for k, v in record.items() if k not in ("spans", "bodies")}
+        # Spans go first: the captured bodies are the opt-in evidence, so they stay
+        # whenever they fit on their own.
+        thin = {k: v for k, v in record.items() if k != "spans"}
         thin["truncated"] = True
         thin["spans"] = []
         payload = json.dumps(thin, default=str, separators=(",", ":"))
+        if len(payload.encode("utf-8")) > MAX_RECORD_BYTES:
+            thin.pop("bodies", None)
+            thin["bodies_dropped"] = True
+            payload = json.dumps(thin, default=str, separators=(",", ":"))
         if len(payload.encode("utf-8")) > MAX_RECORD_BYTES:
             thin = {"correlation_id": cid, "truncated": True, "spans": []}
             payload = json.dumps(thin, separators=(",", ":"))

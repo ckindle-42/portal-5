@@ -110,9 +110,66 @@ def test_bodies_are_opt_in_and_nested_credentials_are_redacted(
     record = mod.read_trace("p5-dddd0001")
     assert record["bodies_captured"] is True
     assert record["bodies"]["messages"][0]["content"] == "private prompt"
-    assert record["bodies"]["backend_request"]["messages"][0]["content"] == "sealed prompt"
-    assert record["bodies"]["backend_request"]["chat_template_kwargs"]["enable_thinking"]
+    assert record["bodies"]["backend_request"]["messages"][0]["head"] == "sealed prompt"
+    assert record["bodies"]["backend_request"]["params"]["chat_template_kwargs"]["enable_thinking"]
     assert record["bodies"]["tool_arguments"]["lookup"]["api_key"] == "<redacted>"
+
+
+def test_tool_loop_hops_keep_their_bodies_within_the_cap(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Every hop re-sends the whole conversation, so 20 hops of 4 KB tool results once
+    outgrew the record cap and the cap dropped every body. Each hop now records only the
+    messages new since the last one, with size and hash, and the record keeps them."""
+    import hashlib
+
+    monkeypatch.setenv("PORTAL_TRACE", "1")
+    monkeypatch.setenv("PORTAL_TRACE_BODIES", "1")
+    monkeypatch.setenv("PORTAL_TRACE_DIR", str(tmp_path / "hops"))
+    import portal.platform.inference.router.trace as mod
+
+    mod = importlib.reload(mod)
+    mod.start_trace("p5-dddd0003")
+    result = "R" * 4500
+    messages: list[dict] = [
+        {"role": "system", "content": "sys"},
+        {"role": "user", "content": "task"},
+    ]
+    for hop in range(20):
+        mod.capture(backend_request={"model": "m", "messages": list(messages), "tools": [{}] * 46})
+        messages.append({"role": "assistant", "content": "", "tool_calls": [{"id": f"c{hop}"}]})
+        messages.append({"role": "tool", "tool_call_id": f"c{hop}", "content": result})
+    mod.finalize_trace()
+
+    record = mod.read_trace("p5-dddd0003")
+    assert not record.get("truncated")
+    hops = record["bodies"]["backend_request"]
+    assert len(hops) == 20
+    assert [h["n_messages"] for h in hops] == [2 + 2 * n for n in range(20)]
+    last = hops[19]["messages"]
+    assert last[-1]["role"] == "tool" and last[-1]["chars"] == 4500
+    assert last[-1]["sha256"] == hashlib.sha256(result.encode()).hexdigest()[:16]
+    assert last[-1]["head_truncated"] is True and len(last[-1]["head"]) < 4500
+    assert hops[19]["new_from"] == hops[18]["n_messages"]
+    assert hops[0]["tools"] == 46
+
+
+def test_oversized_bodies_are_dropped_with_a_marker_not_silently(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("PORTAL_TRACE", "1")
+    monkeypatch.setenv("PORTAL_TRACE_BODIES", "1")
+    monkeypatch.setenv("PORTAL_TRACE_DIR", str(tmp_path / "marker"))
+    monkeypatch.setenv("PORTAL_TRACE_MAX_BYTES", "1024")
+    import portal.platform.inference.router.trace as mod
+
+    mod = importlib.reload(mod)
+    mod.start_trace("p5-dddd0004")
+    mod.capture(tool_arguments={"q": "x" * 5000})
+    mod.finalize_trace()
+
+    record = mod.read_trace("p5-dddd0004")
+    assert record["truncated"] is True and record["bodies_dropped"] is True
 
 
 def test_oversized_records_remain_bounded_valid_json(
