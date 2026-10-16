@@ -863,6 +863,24 @@ def _behavioral_probes(tag: str, violations: list[dict], where: str) -> None:
             timeout=300,
         )
         content = str((r.get("message") or {}).get("content", "") or "")
+        if not content.strip() and str((r.get("message") or {}).get("thinking", "") or "").strip():
+            # A thinking-only build (qwen3-vl:32b) ignores think:false, so the 20-token budget
+            # went to its reasoning. It is not a template fault: give the turn room to finish.
+            r = _post(
+                "/api/chat",
+                {
+                    "model": tag,
+                    "stream": False,
+                    "messages": [
+                        {"role": "system", "content": "Always answer the single word: BLUE."},
+                        {"role": "user", "content": "What colour is grass? Answer in one word."},
+                    ],
+                    "options": {**opts, "num_predict": 1024},
+                    "think": False,
+                },
+                timeout=300,
+            )
+            content = str((r.get("message") or {}).get("content", "") or "")
         honored = "blue" in content.lower()
         if not honored and not content.strip():
             # EMPTY content is the template/budget breakdown signal — the

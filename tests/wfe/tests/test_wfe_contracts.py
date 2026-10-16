@@ -1333,6 +1333,73 @@ class TestVariantsKeepTheirOwnSamplingWhenTheBaseChanges:
         assert {**base, **base["variants"]["ornith15"]}["repeat_penalty"] == 1.05
 
 
+class TestThinkingOnlyBuildsAreNotFlaggedAsBrokenTemplates:
+    """qwen3-vl:32b is the Thinking build: it ignores think:false, so the system-instruction
+    probe's 20-token budget went to reasoning and the probe reported a template fault."""
+
+    def _run(self, monkeypatch, replies):
+        import tests.wfe.settings_audit as sa
+
+        calls: list[int] = []
+
+        def fake_post(path, payload, timeout=60):
+            if payload.get("format") == "json":
+                return {"message": {"content": '{"ok": true}'}}
+            calls.append(payload["options"]["num_predict"])
+            return replies[min(len(calls) - 1, len(replies) - 1)]
+
+        monkeypatch.setattr(sa, "_post", fake_post)
+        monkeypatch.setattr(sa, "_probe_tools_rendered", lambda *a, **k: None)
+        monkeypatch.setattr(sa, "_probe_think_honored", lambda *a, **k: None)
+        v: list[dict] = []
+        sa._behavioral_probes("qwen3-vl:32b", v, "tag:qwen3-vl:32b")
+        return v, calls
+
+    def test_reasoning_that_finishes_on_a_larger_budget_is_not_a_fault(self, monkeypatch):
+        thinking_only = {"message": {"content": "", "thinking": "The user wants one word..."}}
+        answered = {"message": {"content": "BLUE", "thinking": "..."}}
+        v, calls = self._run(monkeypatch, [thinking_only, answered])
+        assert [x for x in v if x["severity"] == "FAIL"] == [] and calls == [20, 1024]
+
+    def test_a_turn_that_is_still_empty_is_still_a_fail(self, monkeypatch):
+        empty = {"message": {"content": "", "thinking": "..."}}
+        v, _ = self._run(monkeypatch, [empty, empty])
+        assert any(x["kind"] == "template_system_ignored" and x["severity"] == "FAIL" for x in v)
+
+    def test_empty_content_with_no_reasoning_is_a_fail_without_a_retry(self, monkeypatch):
+        v, calls = self._run(monkeypatch, [{"message": {"content": ""}}])
+        assert calls == [20]
+        assert any(x["kind"] == "template_system_ignored" for x in v)
+
+
+class TestQwen3VlSeatFollowsTheBuildItRuns:
+    """qwen3-vl:32b is the Thinking build; the registry and the auto-vision seat carried the
+    Instruct card's values."""
+
+    def test_the_registry_describes_the_thinking_build_first(self):
+        import yaml
+
+        from tests.wfe.runner import REPO
+
+        e = yaml.safe_load((REPO / "config/model_card_expectations.yaml").read_text())["models"][
+            "qwen3-vl"
+        ]
+        assert e["recommended_sampling"] == e["recommended_sampling_modes"]["thinking"]
+        assert e["recommended_sampling"]["temperature"] == 1.0
+        assert e["recommended_sampling"]["presence_penalty"] == 0.0
+        assert e["recommended_sampling_modes"]["instruct"]["presence_penalty"] == 1.5
+
+    def test_auto_vision_serves_the_thinking_card(self):
+        import yaml
+
+        from tests.wfe.runner import REPO
+
+        ws = yaml.safe_load((REPO / "config/portal.yaml").read_text())["workspaces"]["auto-vision"]
+        assert ws["model_hint"].startswith("qwen3-vl:32b")
+        assert (ws["temperature"], ws["top_p"], ws["top_k"]) == (1.0, 0.95, 20)
+        assert (ws["presence_penalty"], ws["repeat_penalty"]) == (0.0, 1.0)
+
+
 class TestSandboxRepoAccess:
     """Regression: an in-repo research task (res-repo-grounded) was unwinnable
     because repo_search('.', ...) searched only the empty sandbox and

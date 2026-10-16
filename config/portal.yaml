@@ -1747,14 +1747,16 @@ workspaces:
     description: Image understanding, visual analysis, multimodal tasks (Qwen3-VL, Ollama)
     # 2026-09-25: sampling set to the qwen3-vl card (by purpose); prior values + A/B: docs/TASK_SEAT_SAMPLING_AB_V1.md
     model_hint: qwen3-vl:32b-ctx8k
-    # presence_penalty 1.5 (card) is a no-op on Ollama; repeat_penalty 1.05 substitutes (2026-09-25, calibrate: docs/TASK_SEAT_SAMPLING_AB_V1.md)
+    # qwen3-vl:32b is the THINKING build (it ignores think:false); sampling is the vendor's
+    # Qwen3-VL-32B-Thinking vision-language setting (registry qwen3-vl, 2026-10-16). It had run the
+    # Instruct card's values.
     repeat_penalty: 1.0
     context_limit: 8192
-    temperature: 0.7
-    top_p: 0.8
+    temperature: 1.0
+    top_p: 0.95
     top_k: 20
     min_p: 0.05
-    presence_penalty: 1.5
+    presence_penalty: 0.0
     tools:
     - transcribe_audio
     - generate_image

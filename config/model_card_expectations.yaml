@@ -122,9 +122,16 @@ models:
   qwen3-vl:
     status: verified-card
     verified: true
-    source: "https://huggingface.co/Qwen/Qwen3-VL-32B-Instruct (README + generation_config.json) (2026-09-25)"
-    recommended_sampling: {temperature: 0.7, top_p: 0.8, top_k: 20, repeat_penalty: 1.0, presence_penalty: 1.5}
-    prompt_contract: "Instruct VL card for vision tasks; the README's text-only setting is temperature 1.0 / presence_penalty 2.0 and 32K output."
+    source: "https://huggingface.co/Qwen/Qwen3-VL-32B-Thinking (vision-language settings, 2026-10-16); the -instruct tags follow https://huggingface.co/Qwen/Qwen3-VL-32B-Instruct (README + generation_config.json) (2026-09-25)"
+    source_tier: "2 — vendor card; the Ollama library build (qwen3-vl:32b) publishes no sampling beyond its baked temperature 1 / top_p 0.95 / top_k 20, which match the Thinking card"
+    # qwen3-vl:32b and its -ctx tags are the THINKING build (Ollama RENDERER/PARSER qwen3-vl-thinking,
+    # capability `thinking`), which ignores think:false. recommended_sampling is that build's
+    # vision-language setting; the -instruct tags use the instruct mode.
+    recommended_sampling: {temperature: 1.0, top_p: 0.95, top_k: 20, repeat_penalty: 1.0, presence_penalty: 0.0}
+    recommended_sampling_modes:
+      thinking: {temperature: 1.0, top_p: 0.95, top_k: 20, repeat_penalty: 1.0, presence_penalty: 0.0}
+      instruct: {temperature: 0.7, top_p: 0.8, top_k: 20, repeat_penalty: 1.0, presence_penalty: 1.5}
+    prompt_contract: "qwen3-vl:32b is the Thinking build: it always reasons (think:false is ignored) and delivers the answer after the reasoning, so a seat on it needs an output budget that covers both. Thinking card text-only setting is presence_penalty 1.5 with the same temperature/top_p/top_k; the instruct card's text-only setting is temperature 1.0 / presence_penalty 2.0 and 32K output."
   qwen3.5:
     status: verified-card
     verified: true
