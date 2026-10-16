@@ -589,6 +589,10 @@ PYEOF
 
   sync-config)
     python3 -m portal.platform.inference.cli sync-config "${@:2}" || exit $?
+    # `seed` skips presets that already exist, so a changed workspace prompt or tool binding
+    # never reaches Open WebUI's live presets until `reseed`: say so instead of staying silent.
+    "$PORTAL_ROOT/.venv/bin/python" "$PORTAL_ROOT/scripts/check_owui_preset_drift.py" \
+      || echo "[portal-5] ⚠️  Open WebUI presets are stale vs imports/openwebui/workspaces: run ./launch.sh reseed"
     # Direct-to-oMLX clients (IDE paths) get the seat's sampling as oMLX's
     # per-model defaults; the pipeline already sends it explicitly.
     if [ -d "$HOME/.omlx" ]; then
