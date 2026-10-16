@@ -28,6 +28,22 @@ The reviewer asked whether the fast fails are a delivery or template defect, as 
 
 Conclusion: model behaviour, not delivery. On roughly one data row in ten Qwen3.6-35B-A3B (think off) answers from nothing, often with a fabricated number, instead of calling `run_sql`. It is the weakest of the four arms on this lane (95/108 against granite 105, Qwen3.8 102, Nemotron 99 in the confirm run), so the operator may want a guard (a data answer with no query must be refused) or a different incumbent. No seat is changed here.
 
+### Operator-approved data guard, measured
+`require_tool_before_answer: true` on auto-data (`7d8f29f2`): a turn that ends with an answer and no tool call is held, the model is asked once to answer from a query (tools still offered), and a still-ungrounded answer is delivered with a visible notice; streaming and failover paths; metric `portal5_answer_without_tool_retried_total`. Tests cover retry-then-call, still-ungrounded-with-notice, a normal turn untouched, an unflagged workspace untouched.
+- Live: `data-prod-sales-00` x12 through the pipeline, 12/12 PASS (12040); the retry fired twice and both recovered a call.
+- Re-measure, incumbent alone, new campaign `wfe_data_guard_confirm_20261016` (confirm, 108 rows, HEAD `7d8f29f2`):
+
+| incumbent Qwen3.6 on auto-data | PASS | zero-call rows |
+|---|---|---|
+| without the guard (`wfe_data_decision_20261016`) | 95 / 108 | 11 |
+| without the guard, guidance sampling (`wfe_data_diag_q36_20261016`) | 95 / 108 | 11 |
+| **with the guard** | **106 / 108** | **0** |
+| granite 4.1 30B (earlier confirm, no guard) | 105 / 108 | 0 |
+| Qwen3.8 27B (earlier) | 102 / 108 | 0 |
+| Nemotron 3.5 (earlier) | 99 / 108 | 0 |
+
+The guard fired 11 times in the 108 rows and each retry produced a tool call (no notice was delivered). The two remaining FAILs are `data-prod-sales-01` (answer 40 correct, but graded ungrounded: no successful `run_sql`/`profile_table` call returned the value), unrelated to the guard. With the guard the incumbent is ahead of granite on this lane by 1 row, within noise; the gap that made it the weakest arm is closed. No seat is changed; the operator decides.
+
 ## Seat sampling (C-FIX)
 auto-data now serves Unsloth's Qwen3.6 non-thinking guidance (0.7 / 0.8 / 20 / 0 / presence 1.5 / repetition 1.0); it ran repetition 1.05 and no presence penalty.
 
