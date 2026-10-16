@@ -1,5 +1,7 @@
 # WFE decision — auto-compliance (informational, harness validation)
 
+> **Before evidence; its determination half is invalid.** The store lacked the standards, the coverage tool rejected a qualified address, and the instruction named undefined values (all fixed since); the lookup half stands. The seat also ran off-guidance sampling. The re-screen is `docs/WFE_DECISION_AUTO_COMPLIANCE_CFIX_20261016.md`.
+
 Campaign `wfe_compliance_decision_20261016` · HEAD `3b9f4f29` · plan `tests/wfe/plans/compliance_decision_v1.yaml` · engine pipeline, production tool mode.
 Purpose: validate the corrected harness end to end. Not a seat contest; no seat changed.
 

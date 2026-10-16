@@ -1,5 +1,7 @@
 # WFE decision — auto-data (informational, harness validation)
 
+> **Before evidence.** The seat ran off-guidance sampling in this campaign. The re-screen at guidance sampling is `docs/WFE_DECISION_AUTO_DATA_CFIX_20261016.md`.
+
 Campaign `wfe_data_decision_20261016` · HEAD `f4d64d42` · plan `tests/wfe/plans/data_decision_v1.yaml` · engine pipeline, production tool mode.
 Purpose: validate the corrected harness end to end. Not a seat contest; no seat changed.
 
@@ -26,5 +28,5 @@ Purpose: validate the corrected harness end to end. Not a seat contest; no seat 
 - 432 rows, all `evidence.tool_mode == production`; 0 duplicate run_ids; 0 quarantined; `tool_calls` equals the length of `tool_call_log` on every row (pipeline `exec_audit` trace).
 - Outcomes: 401 PASS, 31 FAIL, 0 HARNESS_ERROR after the rerun.
 - Identities frozen at preflight (4/4 OK).
-- One HARNESS_ERROR (granite, `data-prod-tickets-32`, r0): the oMLX stream timed out mid-generation at 125 s and the Ollama fallback was refused (507: projected 20.4 GiB over 13.5 GiB headroom). Transient infrastructure, one row in 108. Resume alone does not redo it (`appended 0 rows`); `run_arm ... --rerun-failed` re-ran only that row (PASS, 16.6 s) and `--verify-complete` then reported 0 problems. Pre-rerun campaign dir backed up at `/tmp/wfe_data_decision_20261016.bak`.
+- One HARNESS_ERROR (granite, `data-prod-tickets-32`, r0): the oMLX stream timed out mid-generation at 125 s and the Ollama fallback was refused (507: projected 20.4 GiB over 13.5 GiB headroom). Not transient: see the root cause in `docs/WFE_DECISION_AUTO_DATA_CFIX_20261016.md` (a 5 s connect timeout to oMLX; fixed in `abcff920`). Resume alone does not redo it (`appended 0 rows`); `run_arm ... --rerun-failed` re-ran only that row (PASS, 16.6 s) and `--verify-complete` then reported 0 problems. Pre-rerun campaign dir backed up at `/tmp/wfe_data_decision_20261016.bak`.
 - No defect in the harness found in C2.
