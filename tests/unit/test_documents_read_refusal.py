@@ -21,19 +21,22 @@ def outside(tmp_path, monkeypatch):
     return str(secret)
 
 
+def _needs(module: str):
+    """The reader reports its missing library before it checks the path; the dev-only CI extras
+    lack these, so the refusal can only be asserted where the library is installed."""
+    return pytest.mark.skipif(
+        importlib.util.find_spec(module) is None,
+        reason=f"{module} is absent (dev-only CI extras)",
+    )
+
+
 @pytest.mark.parametrize(
     "tool",
     [
-        "read_excel",
-        pytest.param(
-            "read_word_document",
-            marks=pytest.mark.skipif(
-                importlib.util.find_spec("docx") is None,
-                reason="python-docx is absent (dev-only CI extras): the tool reports that before it checks the path",
-            ),
-        ),
-        "read_powerpoint",
-        "read_pdf",
+        pytest.param("read_excel", marks=_needs("openpyxl")),
+        pytest.param("read_word_document", marks=_needs("docx")),
+        pytest.param("read_powerpoint", marks=_needs("pptx")),
+        pytest.param("read_pdf", marks=_needs("pdfplumber")),
     ],
 )
 def test_a_refused_read_is_a_structured_error(tool, outside):
