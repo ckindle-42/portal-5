@@ -14,6 +14,7 @@ failure doesn't affect others, and ``dispatch`` returns error dicts rather than
 raising so a tool failure can't break the SSE stream.
 
 Knobs (env-overridable): ``TOOL_REGISTRY_REFRESH_S`` (3600s refresh interval),
+``TOOL_REGISTRY_RETRY_S`` (30s while an MCP is undiscovered),
 ``TOOL_DISPATCH_TIMEOUT_S`` (60s per-call POST timeout, overridable per-tool via
 ``ToolDefinition.custom_timeout_s``), and per-server ``MCP_<NAME>_URL``.
 """
@@ -39,6 +40,9 @@ logger = logging.getLogger(__name__)
 MCP_SERVERS: dict[str, str] = get_pipeline_mcp_servers(load_portal_config())
 
 TOOL_REGISTRY_REFRESH_S = float(os.environ.get("TOOL_REGISTRY_REFRESH_S", "3600"))
+# While any MCP is undiscovered (a partial startup, e.g. memory not up yet), refresh on this
+# shorter interval so the missing server is retried, not hidden for the full TTL.
+TOOL_REGISTRY_RETRY_S = float(os.environ.get("TOOL_REGISTRY_RETRY_S", "30"))
 TOOL_DISCOVERY_TIMEOUT_S = 5.0
 TOOL_DISPATCH_TIMEOUT_S = float(os.environ.get("TOOL_DISPATCH_TIMEOUT_S", "60"))
 
@@ -174,6 +178,7 @@ class ToolRegistry:
         """
         self._tools: dict[str, ToolDefinition] = {}
         self._last_refresh: float = 0.0
+        self._partial: bool = False  # last refresh had a server that failed discovery
         self._refresh_lock = asyncio.Lock()
         self._http: httpx.AsyncClient | None = None
 
@@ -209,14 +214,14 @@ class ToolRegistry:
         # Under CPython the GIL guarantees a coherent read of _last_refresh
         # and _tools; both are only mutated together at successful-refresh
         # finish under the lock, so a stale-but-consistent read is safe.
-        if not force and time.time() - self._last_refresh < TOOL_REGISTRY_REFRESH_S:
+        if not force and time.time() - self._last_refresh < self._ttl():
             return len(self._tools)
 
         async with self._refresh_lock:
             # Re-check under the lock: concurrent callers can both pass the
             # lockless check; only the first should do the work.
             now = time.time()
-            if not force and now - self._last_refresh < TOOL_REGISTRY_REFRESH_S:
+            if not force and now - self._last_refresh < self._ttl():
                 return len(self._tools)
 
             client = await self._client()
@@ -302,12 +307,17 @@ class ToolRegistry:
 
             self._tools = new_tools
             self._last_refresh = now
+            self._partial = any(sid not in succeeded_servers for sid in MCP_SERVERS)
             logger.info(
                 "Tool registry refreshed: %d tools across %d servers",
                 len(self._tools),
                 len(MCP_SERVERS),
             )
             return len(self._tools)
+
+    def _ttl(self) -> float:
+        """Refresh interval: the retry interval while discovery is partial, else the full TTL."""
+        return TOOL_REGISTRY_RETRY_S if self._partial else TOOL_REGISTRY_REFRESH_S
 
     def get(self, name: str) -> ToolDefinition | None:
         """Look up a tool by name; ``None`` if not in the registry."""
