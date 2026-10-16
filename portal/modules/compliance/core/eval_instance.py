@@ -181,6 +181,97 @@ def _capture_planted(repo: Any, root: Path | str) -> list[str]:
     return ids
 
 
+def _capture_register(repo: Any, register: Any) -> list[str]:
+    """Register, capture and anchor each standard revision's committed requirement text.
+
+    The register tables answer ``nerc_cip_requirement``, but the dual-document payload and
+    ``compliance_coverage`` read the standard from captured sections and the anchors into
+    them. Without those, a coverage question for CIP-007-6 R2 Part 2.2 resolves its address
+    and returns an empty standard side (``sections_in_standard: 0``). Each standard becomes a
+    text-only source document, one unit per requirement node holding exactly the node's
+    verbatim text, anchored by the same exact-match method production uses."""
+    from collections import defaultdict
+
+    from portal.modules.compliance.core.capture import (
+        CapturedDocument,
+        CapturedUnit,
+        store_capture,
+    )
+    from portal.modules.compliance.core.models import SourceDocument
+    from portal.modules.compliance.core.requirement_anchor import anchor_revision
+
+    by_standard: dict[str, list[Any]] = defaultdict(list)
+    for node in register.nodes:
+        if str(node.verbatim_text or "").strip():
+            by_standard[node.standard].append(node)
+    ids: list[str] = []
+    for standard, nodes in sorted(by_standard.items()):
+        logical_id = f"NERC/{standard}"
+        repo.upsert_source_document(
+            SourceDocument(
+                logical_id=logical_id,
+                title=logical_id,
+                issuer="NERC",
+                source_kind="regulatory_standard",
+                jurisdiction="US",
+            )
+        )
+        body, units = "", []
+        for n, node in enumerate(nodes):
+            applies = str(getattr(node, "applicable_systems", "") or "").strip()
+            block = f"{node.id}\n{str(node.verbatim_text).strip()}\n" + (
+                f"Applicable systems: {applies}\n" if applies else ""
+            )
+            block += "\n"
+            units.append(
+                CapturedUnit(
+                    ordinal=n,
+                    unit_kind="prose",
+                    heading_path=f"{logical_id} > {node.id}",
+                    title=str(node.id),
+                    page_start=1,
+                    page_end=1,
+                    char_start=len(body),
+                    char_end=len(body) + len(block),
+                    text=block,
+                )
+            )
+            body += block
+        revision = repo.add_document_revision(
+            logical_id,
+            f"{logical_id}.txt",
+            body.encode(),
+            binding_effect="binding",
+            effective_date=min((str(n.valid_from) for n in nodes if n.valid_from), default=None),
+        )
+        store_capture(
+            repo,
+            revision.revision_id,
+            CapturedDocument(
+                path=Path(f"{logical_id}.txt"),
+                page_count=1,
+                full_text=body,
+                units=units,
+                extractor="eval_instance",
+                extractor_version="1",
+                reader_strings=tuple(u.text for u in units),
+            ),
+        )
+        anchors = anchor_revision(repo, revision.revision_id, nodes)
+        repo.record_anchors(anchors)
+        # A text under the anchor's length floor is refused by design (a short string would
+        # match unrelated text); any other miss means the capture and the register disagree.
+        missed = [
+            a
+            for a in anchors
+            if not a.anchored and a.relation == "governing" and "too short" not in str(a.reason)
+        ]
+        if missed:
+            raise RuntimeError(f"{standard}: {len(missed)} requirement(s) did not anchor")
+        ids.append(logical_id)
+    return ids
+
+
 def build(root: Path | str) -> dict[str, object]:
     """The evaluation store, from public, committed material only."""
     from portal.modules.compliance.core import section_index
@@ -193,11 +284,24 @@ def build(root: Path | str) -> dict[str, object]:
     repo.migrate()
     reg = import_register(repo, Register.load())
     ids = _capture_planted(repo, root)
+    standards = _capture_register(repo, Register.load())
     plan = section_index.build_plan(repo, jurisdiction="internal")
     projected = asyncio.run(project_sections(plan.kb_id, plan.units, rebuild=True))
     if len(ids) != len(list(PLANTED.glob("*.md"))) or not plan.units:
         raise RuntimeError(f"the planted corpus did not capture: {len(ids)} documents, {plan}")
-    return {"register": reg, "planted_documents": ids, "projected": projected}
+    standards_plan = section_index.build_plan(repo, jurisdiction="US")
+    if not standards or not standards_plan.units:
+        raise RuntimeError(f"the register did not capture: {len(standards)} standards")
+    projected_standards = asyncio.run(
+        project_sections(standards_plan.kb_id, standards_plan.units, rebuild=True)
+    )
+    return {
+        "register": reg,
+        "planted_documents": ids,
+        "standards": len(standards),
+        "projected": projected,
+        "projected_standards": projected_standards,
+    }
 
 
 def main(argv: list[str] | None = None) -> int:

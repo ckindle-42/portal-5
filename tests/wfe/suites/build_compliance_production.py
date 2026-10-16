@@ -17,6 +17,7 @@ from __future__ import annotations
 import json
 import re
 from pathlib import Path
+from typing import NamedTuple
 
 REPO = Path(__file__).resolve().parents[3]
 DATA = REPO / "portal" / "modules" / "compliance" / "data"
@@ -25,18 +26,213 @@ LOOKUP_TOOLS = ["nerc_cip_requirement", "compliance_requirement", "compliance_re
 LEAKS = ["expected_coverage", "control_class", r"<!--\s*PLANT"]
 INTERVAL = re.compile(r"\b(\d+)\s+(calendar\s+(?:days|months)|days|months|minutes|hours)\b", re.I)
 SCREEN_CLASSES = ("covered", "hole", "tier_conflict", "applicability")
+#: A control class whose gold only exists at a stated date. The corpus header carries
+#: `as_of_effective` as the answer key's context, but the task never said so, so a model
+#: working today could not reach the gold: the instruction now names the date.
+AS_OF = {"future_effective": "2024-01-01"}  # test_compliance_planted: CIP-013-2 starts 2024-04-01
+
+
+class Fact(NamedTuple):
+    """One fact the gold depends on, and the offered tool call that must expose it.
+
+    `pattern` is matched against the tool's output with JSON escapes and whitespace
+    collapsed to single spaces. A fact that exists only in the PLANT header (the answer
+    key) or in data no tool returns makes the task unattainable: the attainability check
+    (tests/wfe/e2e/compliance_attainability.py) fails on it. Never pass it, never loosen it."""
+
+    tool: str
+    args: dict
+    pattern: str
+    why: str
+
+
+def _doc(doc: str, pattern: str, why: str) -> Fact:
+    return Fact("compliance_read", {"ref": doc}, pattern, why)
+
+
+def _req(req: str, pattern: str, why: str, **extra) -> Fact:
+    return Fact("nerc_cip_requirement", {"req_id": req, **extra}, pattern, why)
+
+
+#: The deciding facts per determination, keyed by the planted document id. They are the inputs
+#: tests/unit/test_compliance_planted.py and the engine use to derive each gold, by control class.
+DECIDING_FACTS: dict[str, list[Fact]] = {
+    # covered: the document's operative language and the Part's normative interval agree
+    "OT-POL-007": [
+        _doc(
+            "OT-POL-007",
+            r"shall evaluate security patches .{0,80}every 35 calendar days",
+            "policy states the 35-day duty",
+        ),
+        _req(
+            "CIP-007-6 R2 Part 2.2",
+            r"at least once every 35 calendar days",
+            "Part 2.2 sets 35 calendar days",
+        ),
+    ],
+    "OT-PROC-007": [
+        _doc(
+            "OT-PROC-007",
+            r"Every 35 calendar days .{0,40}pulls the list of security patches",
+            "procedure performs the 35-day evaluation",
+        ),
+        _req(
+            "CIP-007-6 R2 Part 2.2",
+            r"at least once every 35 calendar days",
+            "Part 2.2 sets 35 calendar days",
+        ),
+    ],
+    # hole: the document says nothing about installing patches; Part 2.3 requires it
+    "OT-POL-007b": [
+        _doc(
+            "OT-POL-007b",
+            r"Backups shall be tested annually",
+            "the document's only operative language is about backups",
+        ),
+        _req(
+            "CIP-007-6 R2 Part 2.3",
+            r"Apply the applicable patches",
+            "Part 2.3 requires applying patches",
+        ),
+    ],
+    # aspirational: hortatory words, no shall
+    "OT-POL-004": [
+        _doc(
+            "OT-POL-004",
+            r"strives to provide .{0,80}endeavors to keep .{0,80}encouraged to complete",
+            "aspirational wording, no obligation",
+        ),
+        _req("CIP-004-7 R2 Part 2.1", r"Training content on", "Part 2.1 requires training content"),
+    ],
+    # lexical: the document only names the requirement, with no operative language of its own
+    "OT-POL-005": [
+        _doc(
+            "OT-POL-005",
+            r"addresses CIP-005-7 R1 Part 1\.1\. Refer to the network architecture drawings",
+            "only a citation and a pointer",
+        ),
+        _req(
+            "CIP-005-7 R1 Part 1.1",
+            r"shall reside within a defined ESP",
+            "Part 1.1 requires an ESP",
+        ),
+    ],
+    # tier conflict: a procedure-tier document sets 18 months; the standard says 15 calendar months
+    "OT-PROC-003": [
+        _doc("OT-PROC-003", r"at least once every 18 months", "procedure sets 18 months"),
+        _doc("OT-PROC-003", r'"authority_tier": ?"3"', "the document's tier is the procedure tier"),
+        _req(
+            "CIP-003-9 R1", r"at least once every 15 calendar months", "R1 sets 15 calendar months"
+        ),
+    ],
+    # deontic: "should ... where practical" against a mandatory Part
+    "OT-POL-012": [
+        _doc("OT-POL-012", r"should protect .{0,120}where practical", "advisory modality"),
+        _req(
+            "CIP-012-2 R1 Part 1.1",
+            r"Identification of method\(s\) used to mitigate the risk",
+            "Part 1.1 is a mandatory identification",
+        ),
+    ],
+    # applicability: the Part's applicable systems against the systems the document covers
+    "OT-POL-006": [
+        _doc(
+            "OT-POL-006",
+            r"Medium Impact BES Cyber Systems with External Routable Connectivity and their associated PACS",
+            "the document's stated scope",
+        ),
+        _req(
+            "CIP-006-6 R1 Part 1.2",
+            r"Medium Impact BES Cyber Systems with External Routable Connectivity and their associated: 1\. EACMS; and 2\. PCA",
+            "the Part's applicable systems",
+        ),
+    ],
+    # temporal: the document cites CIP-003-8, which the register records as superseded
+    "OT-POL-003old": [
+        _doc(
+            "OT-POL-003old",
+            r"implements CIP-003-8 Attachment 1",
+            "the document cites the retired version",
+        ),
+        _req(
+            "CIP-003-9 R2",
+            r'"version":\s*"8".{0,200}"as_known":\s*"SUPERSEDED_OR_RETIRED"',
+            "CIP-003-8 is superseded or retired",
+        ),
+    ],
+    # future effective: as of 2024-01-01 the revision that holds the Part is not yet in force
+    "OT-POL-013fe": [
+        _doc(
+            "OT-POL-013fe",
+            r"One or more processes, used in planning for the procurement",
+            "the document restates Part 1.1",
+        ),
+        _req(
+            "CIP-013-2 R1 Part 1.1",
+            r'"future":\s*\[\{"family":\s*"CIP-013",\s*"version":\s*"2".{0,120}"valid_from":\s*"2024-04-01".{0,120}"as_known":\s*"FUTURE"',
+            "the revision's effective date is after the as-of date",
+            valid_at="2024-01-01",
+        ),
+    ],
+    # implicit change: approved against the previous version's topic list; this Part is new in -9
+    "OT-POL-003ic": [
+        _doc(
+            "OT-POL-003ic",
+            r"against the CIP-003-8 topic list and has not been re-reviewed",
+            "approved under the earlier version",
+        ),
+        _req(
+            "CIP-003-9 R1 Part 1.2.6",
+            r"Vendor electronic remote access security controls",
+            "Part 1.2.6 is the added topic",
+        ),
+        _req(
+            "CIP-003-9 R1 Part 1.2.6",
+            r'"version":\s*"8".{0,200}"as_known":\s*"SUPERSEDED_OR_RETIRED"',
+            "CIP-003-8 is the superseded revision",
+        ),
+    ],
+    # cross reference: the referenced program document does not exist in the corpus
+    "OT-POL-003xref": [
+        _doc(
+            "OT-POL-003xref",
+            r"refer to our CIP-004 program documentation",
+            "the document defers to another document",
+        ),
+        _req(
+            "CIP-003-9 R1 Part 1.1.1",
+            r"Personnel and training \(CIP.?004\)",
+            "the Part names the topic",
+        ),
+        Fact(
+            "compliance_read",
+            {"ref": "CIP-004 program documentation"},
+            r'"resolved": ?false',
+            "the referenced document is not resolvable",
+        ),
+    ],
+}
 
 
 def _q(key: str, value: str) -> str:
     return rf'"{key}"\s*:\s*"{re.escape(value)}"'
 
 
+def _plants() -> list[dict]:
+    return [
+        json.loads(re.search(r"<!--\s*PLANT\s+(\{.*?\})\s*-->", f.read_text(), re.S).group(1))
+        for f in sorted((DATA / "planted_corpus").glob("*.md"))
+    ]
+
+
+def determination_targets() -> list[dict]:
+    """The document and requirement each determination names (what the task text says)."""
+    return [{"doc": p["doc_id"], "req": p["targets"]} for p in _plants()]
+
+
 def determinations() -> list[dict]:
     out = []
-    for f in sorted((DATA / "planted_corpus").glob("*.md")):
-        plant = json.loads(
-            re.search(r"<!--\s*PLANT\s+(\{.*?\})\s*-->", f.read_text(), re.S).group(1)
-        )
+    for plant in _plants():
         doc, req = plant["doc_id"], plant["targets"]
         cov, sig = plant.get("expected_coverage"), plant.get("expected_signal") or "NONE"
         gold = {
@@ -45,6 +241,7 @@ def determinations() -> list[dict]:
             **({"coverage": cov} if cov else {}),
             "signal": sig,
         }
+        as_of = f" as of {AS_OF[plant['control_class']]}" if plant["control_class"] in AS_OF else ""
         here = rf"{re.escape(doc)}(?![A-Za-z0-9])"
         trace = [
             {
@@ -66,7 +263,7 @@ def determinations() -> list[dict]:
                 "screen": plant["control_class"] in SCREEN_CLASSES,
                 "instruction": (
                     f"Using the compliance tools, determine how fully the operator corpus document "
-                    f"{doc} satisfies {req}. Coverage is one of FULL, PARTIAL, NONE or NOT_APPLICABLE; "
+                    f"{doc} satisfies {req}{as_of}. Coverage is one of FULL, PARTIAL, NONE or NOT_APPLICABLE; "
                     f"signal is one of NONE, COMPLIANCE_CONFLICT, STALE or NEEDS_REVIEW. Answer only as "
                     f'JSON with the keys "document", "requirement", "coverage" and "signal".'
                 ),
