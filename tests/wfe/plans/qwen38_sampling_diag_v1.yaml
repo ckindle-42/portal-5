@@ -1,0 +1,20 @@
+# Diagnostic, not a seat decision: does the vendor's non-thinking sampling stop the Qwen3.8
+# tool-loop repeat (one call re-issued up to the 20-hop limit)? The unsloth Qwen3.8-27B card
+# says temperature 0.7, top_p 0.80, top_k 20, min_p 0, presence_penalty 1.5 "to curb endless
+# loops", repetition_penalty 1.0; the seat runs temperature 0.3, top_p 0.95, repetition 1.1 and
+# no presence_penalty. Arm 1a is the card as published; arm 1b keeps the compliance lane's 0.3
+# temperature ceiling and adds the presence penalty. Run on the 013fe task with --task.
+workloads:
+  auto-compliance:
+    tool_mode: production
+    home: compliance_production
+    discovery: []
+    arms:
+      incumbent: hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k
+      challengers:
+        - model: hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k
+          label: card-vendor
+          sampling: {temperature: 0.7, top_p: 0.8, top_k: 20, min_p: 0.0, presence_penalty: 1.5, repeat_penalty: 1.0}
+        - model: hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k
+          label: lane-ceiling
+          sampling: {temperature: 0.3, top_p: 0.8, top_k: 20, min_p: 0.0, presence_penalty: 1.5, repeat_penalty: 1.0}
