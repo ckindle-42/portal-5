@@ -1,11 +1,11 @@
 ---
 id: unit-fact-model-catalog
 kind: what
-title: 281 model ids, 7 backend groups
+title: 284 model ids, 7 backend groups
 sources:
 - type: code
   path: config/backends.yaml
-  commit: 21aff91e0517
+  commit: b888910b4743
 claims:
 - probe: backends.groups.count
   pattern: '{value} backend groups)'
@@ -14,10 +14,10 @@ tags:
 - fact
 - models
 created_at: 1784000421.487881
-updated_at: 1791809467.015687
+updated_at: 1792109099.959192
 ---
 
-# Model catalog (281 model ids across 7 backend groups)
+# Model catalog (284 model ids across 7 backend groups)
 
 ## coding (57)
 
@@ -264,7 +264,7 @@ updated_at: 1791809467.015687
 - `supergemma4-26b-uncensored:Q4_K_M-ctx64k`
 - `unsloth--Qwen3.6-35B-A3B-UD-MLX-4bit`
 
-## security (35)
+## security (38)
 
 - `Jiunsong--supergemma4-26b-uncensored-mlx-4bit-v2`
 - `Nex-N2.5-mini-Uncensored-MLX-4bit`
@@ -283,6 +283,7 @@ updated_at: 1791809467.015687
 - `hf.co/Nguuma/security-slm-unsloth-1.5b:latest`
 - `hf.co/douyamv/Gemma-4-31B-JANG_4M-CRACK-GGUF:gemma-4-31b-jang-crack-Q4_K_M.gguf`
 - `hf.co/fdtn-ai/Foundation-Sec-8B-Reasoning-Q8_0-GGUF:Q8_0`
+- `hf.co/fdtn-ai/Foundation-Sec-8B-Reasoning-Q8_0-GGUF:Q8_0-ctx8k`
 - `hf.co/mradermacher/CyberSecQwen-4B-GGUF:Q4_K_M`
 - `hf.co/mradermacher/VulnLLM-R-7B-GGUF:Q4_K_M`
 - `hf.co/mradermacher/VulnLLM-R-7B-GGUF:q4_K_M-ctx8k`
@@ -297,6 +298,8 @@ updated_at: 1791809467.015687
 - `lfm2.5:8b`
 - `lfm2.5:8b-ctx8k`
 - `meta-secalign-8b-q4_k_m`
+- `mistral-small3.2:24b-ctx16k`
+- `qwen3.6:27b-q4_K_M-ctx4k`
 - `supergemma4-26b-uncensored:Q4_K_M`
 - `supergemma4-26b-uncensored:Q4_K_M-ctx64k`
 - `sylink/sylink:8b`

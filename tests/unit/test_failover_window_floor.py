@@ -11,9 +11,8 @@ import yaml
 
 REPO = Path(__file__).resolve().parents[2]
 
-# Unsuffixed Ollama hint whose baked num_ctx is unset (/api/show: no num_ctx), so the window is
-# Ollama's default, not the workspace's 16384. Fix is -ctx16k tag via `portal models apply-params`.
-KNOWN_UNPINNED = {("auto-security::security-council-mistral-small32-24b", "mistral-small3.2:24b")}
+# No known exceptions: every tool workspace's Ollama hint bakes its context_limit (P-4 prevent).
+KNOWN_UNPINNED: set[tuple[str, str]] = set()
 
 
 def _baked(tag: str) -> int | None:

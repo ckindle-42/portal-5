@@ -547,6 +547,15 @@ backends:
 - group: security
   id: ollama-security
   models:
+  # P-4 prevent (2026-10-15): window-only derived tags (same weights, num_ctx baked to the
+  # workspace's context_limit). Not probed: the security council seats expose no tools, so
+  # supports_tools is false until a live tool probe through the pipeline says otherwise.
+  - id: qwen3.6:27b-q4_K_M-ctx4k
+    supports_tools: false
+  - id: mistral-small3.2:24b-ctx16k
+    supports_tools: false
+  - id: hf.co/fdtn-ai/Foundation-Sec-8B-Reasoning-Q8_0-GGUF:Q8_0-ctx8k
+    supports_tools: false
   - id: baronllm:q6_k
     supports_tools: false
   - id: glm-4.7-flash:Q4_K_M

@@ -2249,3 +2249,15 @@ The compliance-reading seat is the §P8.1-bound production seat; moving it to oM
 
 `hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx96k` bakes a 98304-token context onto the Qwen3.8-27B Q4_K_M GGUF and is the `model_hint` of the `general-deep` workspace. `config/backends.yaml` registers it in the `general` group with `supports_tools: true`; the `omlx-general` group aliases it to `Qwen3.8-27B-oQ4e-mtp`, which serves it (the Ollama tag is only the fallback).
 
+
+### `qwen3.6:27b-q4_K_M-ctx4k`
+
+`qwen3.6:27b-q4_K_M-ctx4k` is the derived tag of `qwen3.6:27b-q4_K_M` with `PARAMETER num_ctx 4096` baked in (P-4 prevent, 2026-10-15). `config/portal.yaml`'s `auto-security::security-council-qwen36-27b` names it as `model_hint`, matching its `context_limit` of 4096, and `config/backends.yaml` registers it in the `ollama-security` pool with `supports_tools: false`. This is a window-only seat-tag change: same weights as the base tag, only the window corrected to `context_limit`. Not probed; the security council seats expose no tools. Before this tag the base tag bakes no `num_ctx`, so Ollama's default window applied, not the workspace's.
+
+### `mistral-small3.2:24b-ctx16k`
+
+`mistral-small3.2:24b-ctx16k` is the derived tag of `mistral-small3.2:24b` with `PARAMETER num_ctx 16384` baked in (P-4 prevent, 2026-10-15; R2-29). `config/portal.yaml`'s `auto-security::security-council-mistral-small32-24b` names it as `model_hint`, matching its `context_limit` of 16384, and `config/backends.yaml` registers it in the `ollama-security` pool with `supports_tools: false` (window-only seat-tag change, not probed). The base tag bakes no `num_ctx`, so the workspace ran at Ollama's default window until this tag existed.
+
+### `hf.co/fdtn-ai/Foundation-Sec-8B-Reasoning-Q8_0-GGUF:Q8_0-ctx8k`
+
+`hf.co/fdtn-ai/Foundation-Sec-8B-Reasoning-Q8_0-GGUF:Q8_0-ctx8k` is the derived tag of the Foundation-Sec-8B reasoning GGUF with `PARAMETER num_ctx 8192` baked in (P-4 prevent, 2026-10-15). `config/portal.yaml`'s `auto-security::security-expert-foundation-sec-8b` names it as `model_hint`, matching its `context_limit` of 8192, and `config/backends.yaml` registers it in the `ollama-security` pool with `supports_tools: false`, as the base weights are registered.

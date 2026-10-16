@@ -1246,7 +1246,7 @@ workspaces:
         description: 'Security-role-scoped seat binding for the HEART/council
           member tag qwen3.6:27b-q4_K_M — not user-facing, not auto-routed.'
         expose_to_owui: false
-        model_hint: qwen3.6:27b-q4_K_M
+        model_hint: qwen3.6:27b-q4_K_M-ctx4k
         context_limit: 4096
         tools: []
         depth: default
@@ -1341,7 +1341,7 @@ workspaces:
         description: 'Security-role-scoped seat binding for the HEART/council
           member tag mistral-small3.2:24b -- not user-facing, not auto-routed.'
         expose_to_owui: false
-        model_hint: mistral-small3.2:24b
+        model_hint: mistral-small3.2:24b-ctx16k
         context_limit: 16384
         tools: []
         depth: default
@@ -1366,7 +1366,7 @@ workspaces:
           arbiter role (hf.co/fdtn-ai/Foundation-Sec-8B-Reasoning-Q8_0-GGUF)
           -- not user-facing, not auto-routed.'
         expose_to_owui: false
-        model_hint: hf.co/fdtn-ai/Foundation-Sec-8B-Reasoning-Q8_0-GGUF:Q8_0
+        model_hint: hf.co/fdtn-ai/Foundation-Sec-8B-Reasoning-Q8_0-GGUF:Q8_0-ctx8k
         context_limit: 8192
         tools: []
         depth: default
