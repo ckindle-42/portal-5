@@ -40,6 +40,52 @@ UNGROUNDED_NOTICE = (
 FORCE_SYNTHESIS_AT = 3
 
 
+#: Tools whose result depends only on their arguments and on stored data nothing in the turn
+#: edits: a repeat of one of these is a loop. Anything else (execute_*, create_*, remember,
+#: write_*, an unknown tool) may change state, or read state a previous call changed, so it always
+#: runs and invalidates what was cached: "edit, run the tests, edit, run the tests" repeats the same
+#: `pytest` call with different results.
+_READ_ONLY_PREFIXES = (
+    "read_",
+    "get_",
+    "list_",
+    "lookup_",
+    "search_",
+    "find_",
+    "kb_search",
+    "kb_list",
+    "recall",
+    "graph_recall",
+    "neighbors",
+    "entity_timeline",
+    "nerc_cip_",
+    "profile_table",
+    "run_sql",
+    "web_search",
+    "web_fetch",
+    "wiki_",
+    "mitre_",
+    "check_",
+    "triage_",
+    "scan_",
+    "compliance_",
+)
+#: Compliance tools that write (the `compliance_` prefix is otherwise the reading surface).
+_WRITING = frozenset(
+    {
+        "compliance_note",
+        "compliance_correct",
+        "compliance_review_decide",
+        "compliance_review_decide_batch",
+        "compliance_draft_revisions",
+    }
+)
+
+
+def is_read_only(name: str) -> bool:
+    return name.startswith(_READ_ONLY_PREFIXES) and name not in _WRITING
+
+
 def _canonical_args(call: dict[str, Any]) -> str:
     raw: Any = (call.get("function") or {}).get("arguments")
     if isinstance(raw, str):
@@ -69,6 +115,12 @@ class ToolRepeatGuard:
     def seen(self, call: dict[str, Any]) -> bool:
         """True when this exact call already ran this turn; counts the request."""
         key = call_key(call)
+        if not is_read_only(key[0]):
+            # It will run, and what it does can change what an earlier identical call would now
+            # return: nothing cached before it is a repeat any more.
+            self._results.clear()
+            self._requests.clear()
+            return False
         self._requests[key] = self._requests.get(key, 0) + 1
         if key not in self._results:
             return False
@@ -83,7 +135,9 @@ class ToolRepeatGuard:
         return len(self._results)
 
     def remember(self, call: dict[str, Any], result: dict[str, Any]) -> None:
-        self._results[call_key(call)] = str(result.get("content") or "")
+        key = call_key(call)
+        if is_read_only(key[0]):
+            self._results[key] = str(result.get("content") or "")
 
     def repeat_result(self, call: dict[str, Any]) -> dict[str, Any]:
         """The tool message for a suppressed repeat: the earlier result plus the note."""

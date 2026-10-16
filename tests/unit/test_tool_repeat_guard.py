@@ -20,7 +20,7 @@ from portal.platform.inference.router.tool_repeat import (
 )
 
 
-def _call(name: str = "lookup", args: object = None, cid: str = "c1") -> dict:
+def _call(name: str = "kb_search", args: object = None, cid: str = "c1") -> dict:
     raw = json.dumps({"req": "CIP-013-2"} if args is None else args)
     return {"id": cid, "type": "function", "function": {"name": name, "arguments": raw}}
 
@@ -58,6 +58,63 @@ def test_different_arguments_are_a_new_call_and_key_order_is_not() -> None:
     assert guard.seen(_call(name="other", args={"a": 1, "b": 2})) is False
 
 
+def test_a_rerun_after_a_state_change_is_not_a_repeat() -> None:
+    """edit -> run the tests -> edit -> run the tests: the second `pytest` has the same name and
+    arguments as the first and a different answer, so it must run (and so must the edit)."""
+    guard = ToolRepeatGuard()
+    pytest_call = _call("execute_bash", {"command": "pytest -q"}, "1")
+    edit = _call("execute_bash", {"command": "sed -i 's/a/b/' mod.py"}, "2")
+
+    assert guard.seen(pytest_call) is False
+    guard.remember(pytest_call, {"content": "1 failed"})
+    assert guard.seen(edit) is False
+    guard.remember(edit, {"content": ""})
+    assert guard.seen(_call("execute_bash", {"command": "pytest -q"}, "3")) is False
+    assert guard.suppressed == 0 and guard.force_synthesis is False
+
+
+def test_an_identical_exec_call_is_never_answered_from_the_cache() -> None:
+    guard = ToolRepeatGuard()
+    run = _call("execute_python", {"code": "print(1)"}, "1")
+    for _ in range(4):
+        assert guard.seen(run) is False  # it may append to a file; only read tools are cached
+        guard.remember(run, {"content": "1"})
+    assert guard.force_synthesis is False
+
+
+def test_a_write_clears_the_cache_of_reads_made_before_it() -> None:
+    guard = ToolRepeatGuard()
+    read = _call("kb_search", {"query": "x"}, "1")
+    guard.seen(read)
+    guard.remember(read, {"content": "old hit"})
+    assert guard.seen(_call("kb_search", {"query": "x"}, "2")) is True  # a plain repeat
+
+    guard.seen(_call("remember", {"text": "fact"}, "3"))  # a write runs
+    assert guard.seen(_call("kb_search", {"query": "x"}, "4")) is False  # the read runs again
+
+
+def test_the_reading_surface_is_cached_and_the_compliance_writers_are_not() -> None:
+    from portal.platform.inference.router.tool_repeat import is_read_only
+
+    for name in (
+        "nerc_cip_requirement",
+        "compliance_read",
+        "kb_search",
+        "run_sql",
+        "profile_table",
+    ):
+        assert is_read_only(name), name
+    for name in (
+        "execute_bash",
+        "create_excel",
+        "remember",
+        "compliance_note",
+        "attach_source",
+        "mystery",
+    ):
+        assert not is_read_only(name), name
+
+
 def test_a_new_turn_starts_with_nothing_remembered() -> None:
     first = ToolRepeatGuard()
     first.seen(_call())
@@ -87,7 +144,7 @@ class _Stream:
 
 
 def _tool_frame(args: str = '{"req":"CIP-013-2"}') -> _Resp:
-    call = {"index": 0, "id": "c", "function": {"name": "lookup", "arguments": args}}
+    call = {"index": 0, "id": "c", "function": {"name": "kb_search", "arguments": args}}
     chunk = {"choices": [{"delta": {"tool_calls": [call]}, "finish_reason": "tool_calls"}]}
     return _Resp([f"data: {json.dumps(chunk)}", "data: [DONE]"])
 
@@ -111,7 +168,12 @@ def test_the_streaming_loop_runs_a_stuck_call_once_and_ends_with_a_toolless_turn
 
     async def fake_dispatch(tc, *_a, **_k):
         executed.append(tc["function"]["name"])
-        return {"role": "tool", "tool_call_id": tc.get("id"), "name": "lookup", "content": "RESULT"}
+        return {
+            "role": "tool",
+            "tool_call_id": tc.get("id"),
+            "name": "kb_search",
+            "content": "RESULT",
+        }
 
     monkeypatch.setattr(streaming, "_http_client", _Client())
     monkeypatch.setattr(streaming, "_backend_type_for_url", lambda url: "omlx")
@@ -124,12 +186,14 @@ def test_the_streaming_loop_runs_a_stuck_call_once_and_ends_with_a_toolless_turn
             {
                 "messages": [{"role": "user", "content": "hi"}],
                 "model": "m",
-                "tools": [{"type": "function", "function": {"name": "lookup", "parameters": {}}}],
+                "tools": [
+                    {"type": "function", "function": {"name": "kb_search", "parameters": {}}}
+                ],
             },
             "auto-daily",
             "m",
             "",
-            {"lookup"},
+            {"kb_search"},
         ):
             out += chunk
         return out
@@ -137,7 +201,7 @@ def test_the_streaming_loop_runs_a_stuck_call_once_and_ends_with_a_toolless_turn
     out = asyncio.run(run())
 
     assert b"the answer" in out
-    assert executed == ["lookup"]  # the stuck call ran once; the two repeats came from the cache
+    assert executed == ["kb_search"]  # the stuck call ran once; the two repeats came from the cache
     assert len(bodies) == 4
     assert bodies[2]["tools"] and bodies[3]["tools"] is None  # tools withheld after the 3rd request
     tool_msgs = [m for m in bodies[3]["messages"] if m["role"] == "tool"]
@@ -159,7 +223,7 @@ def test_a_toolless_final_turn_never_delivers_call_markup(monkeypatch) -> None:
             return _Stream(outcomes.pop(0))
 
     async def fake_dispatch(tc, *_a, **_k):
-        return {"role": "tool", "tool_call_id": tc.get("id"), "name": "lookup", "content": "R"}
+        return {"role": "tool", "tool_call_id": tc.get("id"), "name": "kb_search", "content": "R"}
 
     monkeypatch.setattr(streaming, "_http_client", _Client())
     monkeypatch.setattr(streaming, "_backend_type_for_url", lambda url: "omlx")
@@ -172,12 +236,14 @@ def test_a_toolless_final_turn_never_delivers_call_markup(monkeypatch) -> None:
             {
                 "messages": [{"role": "user", "content": "hi"}],
                 "model": "m",
-                "tools": [{"type": "function", "function": {"name": "lookup", "parameters": {}}}],
+                "tools": [
+                    {"type": "function", "function": {"name": "kb_search", "parameters": {}}}
+                ],
             },
             "auto-daily",
             "m",
             "",
-            {"lookup"},
+            {"kb_search"},
         ):
             out += chunk
         return out
@@ -197,7 +263,7 @@ def test_the_streaming_loop_still_runs_a_call_with_new_arguments(monkeypatch) ->
 
     async def fake_dispatch(tc, *_a, **_k):
         executed.append(tc["function"]["arguments"])
-        return {"role": "tool", "tool_call_id": tc.get("id"), "name": "lookup", "content": "R"}
+        return {"role": "tool", "tool_call_id": tc.get("id"), "name": "kb_search", "content": "R"}
 
     monkeypatch.setattr(streaming, "_http_client", _Client())
     monkeypatch.setattr(streaming, "_backend_type_for_url", lambda url: "omlx")
@@ -210,12 +276,14 @@ def test_the_streaming_loop_still_runs_a_call_with_new_arguments(monkeypatch) ->
             {
                 "messages": [{"role": "user", "content": "hi"}],
                 "model": "m",
-                "tools": [{"type": "function", "function": {"name": "lookup", "parameters": {}}}],
+                "tools": [
+                    {"type": "function", "function": {"name": "kb_search", "parameters": {}}}
+                ],
             },
             "auto-daily",
             "m",
             "",
-            {"lookup"},
+            {"kb_search"},
         ):
             out += chunk
         return out
@@ -258,7 +326,7 @@ async def test_the_failover_loop_applies_the_same_guard(monkeypatch) -> None:
     monkeypatch.setitem(ns.WORKSPACES, ws, {"model_hint": "m"})
     monkeypatch.setattr(ns, "registry", SimpleNamespace(request_timeout=5.0))
     monkeypatch.setattr(ns, "_model_supports_tools", lambda _m: True)
-    monkeypatch.setattr(ns, "_resolve_persona_tools", lambda *_a: ["lookup"])
+    monkeypatch.setattr(ns, "_resolve_persona_tools", lambda *_a: ["kb_search"])
     monkeypatch.setattr(ns, "apply_eval_scope", lambda _b, tools: tools)
 
     async def refresh() -> None:
