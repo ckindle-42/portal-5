@@ -443,3 +443,21 @@ def test_word_document_tool_says_how_to_express_a_table():
     desc = manifest["create_word_document"]["parameters"]["properties"]["content"]["description"]
     assert "table" in desc and "|---|" in desc
     assert "table" in (document_mcp.create_word_document.__doc__ or "")
+
+
+def test_every_required_manifest_parameter_is_defined_and_real():
+    """create_excel once required `title` without defining it: the model was never told the name."""
+    import inspect
+
+    from portal.modules.documents.tools import document_mcp
+
+    for tool in document_mcp.TOOLS_MANIFEST:
+        props, req = (
+            tool["parameters"].get("properties", {}),
+            tool["parameters"].get("required", []),
+        )
+        assert set(req) <= set(props), (tool["name"], sorted(set(req) - set(props)))
+        params = inspect.signature(getattr(document_mcp, tool["name"])).parameters
+        assert set(props) <= set(params), (tool["name"], sorted(set(props) - set(params)))
+        needed = {n for n, p in params.items() if p.default is inspect.Parameter.empty}
+        assert needed <= set(req), (tool["name"], sorted(needed - set(req)))

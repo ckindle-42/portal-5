@@ -69,6 +69,10 @@
     "name": "create_excel",
     "parameters": {
       "properties": {
+        "title": {
+          "description": "Spreadsheet title (also used as the filename base)",
+          "type": "string"
+        },
         "data": {
           "description": "Array of rows",
           "type": "array"
