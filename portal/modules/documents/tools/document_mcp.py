@@ -9,6 +9,7 @@ Start with: python -m mcp.documents.document_mcp
 
 from __future__ import annotations
 
+import glob
 import ipaddress
 import json
 import logging
@@ -240,9 +241,16 @@ def _resolve_input_path(file_path: str) -> Path:
         if candidate.is_file():
             return _readable(candidate)
     if uploads.is_dir():
-        matches = sorted(uploads.glob(f"*_{file_path}"), key=lambda m: m.stat().st_mtime)
+        matches = sorted(
+            uploads.glob(f"*_{glob.escape(file_path)}"), key=lambda m: m.stat().st_mtime
+        )
         if matches:
             return _readable(matches[-1])
+        # Open WebUI hands the model a file by id (the context's resource-id), and stores it
+        # as <id>_<name>: the id alone names the upload too.
+        by_id = sorted(uploads.glob(f"{glob.escape(file_path)}_*"), key=lambda m: m.stat().st_mtime)
+        if by_id:
+            return _readable(by_id[-1])
     return given.resolve()  # not found anywhere: the caller's not-found error, unchanged
 
 

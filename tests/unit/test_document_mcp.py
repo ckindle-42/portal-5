@@ -421,6 +421,19 @@ class TestReadBareFilename:
         )
         assert document_mcp._resolve_input_path("nope.xlsx").name == "nope.xlsx"
 
+    def test_open_webui_file_id_resolves_to_the_stored_upload(self, tmp_path, monkeypatch):
+        """OWUI's context names an upload by id (resource-id); it is stored as <id>_<name>."""
+        from portal.modules.documents.tools import document_mcp
+
+        monkeypatch.setattr(document_mcp, "OUTPUT_DIR", tmp_path)
+        (tmp_path / "uploads").mkdir()
+        stored = tmp_path / "uploads" / "ddba5f89-9ad6-438e-a08c-76c3ada6085f_memo.docx"
+        stored.write_bytes(b"x")
+        got = document_mcp._resolve_input_path("ddba5f89-9ad6-438e-a08c-76c3ada6085f")
+        assert got == stored.resolve()
+        # a glob metacharacter in the argument matches nothing; it never widens the lookup
+        assert document_mcp._resolve_input_path("*").name == "*"
+
 
 def test_word_document_tool_says_how_to_express_a_table():
     """A model can only build a table if the tool tells it markdown pipe rows make one."""
