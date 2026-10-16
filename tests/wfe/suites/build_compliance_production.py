@@ -32,6 +32,71 @@ SCREEN_CLASSES = ("covered", "hole", "tier_conflict", "applicability")
 AS_OF = {"future_effective": "2024-01-01"}  # test_compliance_planted: CIP-013-2 starts 2024-04-01
 
 
+#: What each answer value means, in the engine's own words, so the instruction defines what it
+#: enumerates. Undefined, NEEDS_REVIEW read as "there are no recorded links, so it needs review"
+#: and the task measured that ambiguity instead of the model (Phase C r2: det 1/16, with the
+#: wrong signal NEEDS_REVIEW on almost every row).
+#:   coverage.py   FULL/PARTIAL/NONE/NOT_APPLICABLE are the cell's coverage; `applies` False is
+#:                 NOT_APPLICABLE; a span that only names the requirement is not "substantive
+#:                 overlap"; text_signals.is_aspirational: "names an intent, not an auditable
+#:                 obligation"; _stale_citations: "cites a superseded standard id".
+#:   tiers.py      "the standard says 15 calendar months, the procedure says 18" is a
+#:                 COMPLIANCE_CONFLICT, never reconciled; coverage.py: a duration/modal mismatch.
+#:   test_compliance_planted: future-effective is "not a 'today' gap"; an implicit change "must
+#:                 land NEEDS_REVIEW" (approved against the old text of a Part that changed).
+COVERAGE_VALUES = {
+    "FULL": "the document's own operative language satisfies what the requirement requires",
+    "PARTIAL": "the document addresses the requirement but a stated duration or obligation differs "
+    "from it",
+    "NONE": "no part of the document substantively addresses the requirement (it only names it, "
+    "states an intent or hedge with no auditable obligation such as 'strives to', 'encouraged to' or "
+    "'where practical', or covers a different obligation), or the "
+    "requirement is not yet in force on the stated date",
+    "NOT_APPLICABLE": "the requirement does not apply to the systems the document covers",
+}
+SIGNAL_VALUES = {
+    "NONE": "no conflict, stale citation or change indicator applies",
+    "COMPLIANCE_CONFLICT": "the document and the requirement make conflicting normative or "
+    "quantitative claims about the same obligation (a differing duration, or should against shall)",
+    "STALE": "the document cites a superseded version of the standard by its exact id",
+    "NEEDS_REVIEW": "the requirement's text changed between versions and the document was "
+    "approved against the older text and not re-reviewed",
+}
+LINKS_NOTE = (
+    "The store holds no recorded or approved links between documents and requirements; their "
+    "absence is expected and is not itself a signal. Judge from the document text and the "
+    "requirement text."
+)
+
+
+def _defs(values: dict[str, str]) -> str:
+    return "; ".join(f"{k} = {v}" for k, v in values.items())
+
+
+def determination_instruction(doc: str, req: str, as_of: str) -> str:
+    return (
+        f"Using the compliance tools, determine how fully the operator corpus document {doc} "
+        f"satisfies {req}{as_of}. Coverage is one of {', '.join(COVERAGE_VALUES)}: "
+        f"{_defs(COVERAGE_VALUES)}. Signal is one of {', '.join(SIGNAL_VALUES)}: "
+        f"{_defs(SIGNAL_VALUES)}. {LINKS_NOTE} Answer only as JSON with the keys "
+        '"document", "requirement", "coverage" and "signal".'
+    )
+
+
+def undefined_values(instruction: str) -> list[str]:
+    """Enumerated answer values (`... is one of A, B, C: ...`) with no `A = definition` in the
+    text that follows their own list. The suite refuses to build while any exist."""
+    missing = []
+    lists = list(re.finditer(r"is one of ((?:[A-Z][A-Z_]+(?:, )?)+)[:.]", instruction))
+    for n, m in enumerate(lists):
+        end = lists[n + 1].start() if n + 1 < len(lists) else len(instruction)
+        body = instruction[m.end() - 1 : end]
+        for value in m.group(1).split(", "):
+            if not re.search(rf"(?:^|[:;] ){re.escape(value)} = \S", body):
+                missing.append(value)
+    return missing
+
+
 class Fact(NamedTuple):
     """One fact the gold depends on, and the offered tool call that must expose it.
 
@@ -261,12 +326,7 @@ def determinations() -> list[dict]:
                 "lane": "compliance",
                 "agentic": True,
                 "screen": plant["control_class"] in SCREEN_CLASSES,
-                "instruction": (
-                    f"Using the compliance tools, determine how fully the operator corpus document "
-                    f"{doc} satisfies {req}{as_of}. Coverage is one of FULL, PARTIAL, NONE or NOT_APPLICABLE; "
-                    f"signal is one of NONE, COMPLIANCE_CONFLICT, STALE or NEEDS_REVIEW. Answer only as "
-                    f'JSON with the keys "document", "requirement", "coverage" and "signal".'
-                ),
+                "instruction": determination_instruction(doc, req, as_of),
                 "requires_tools": ["compliance_read"],
                 "checkers": [
                     {
@@ -363,6 +423,9 @@ def lookups(n: int = 24) -> list[dict]:
 
 def main() -> None:
     tasks = determinations() + lookups()
+    for t in tasks:
+        if missing := undefined_values(t["instruction"]):
+            raise SystemExit(f"{t['id']}: answer values used but not defined: {missing}")
     tasks.sort(key=lambda t: not t["screen"])  # the screen tier first
     OUT.write_text("".join(json.dumps(t) + "\n" for t in tasks))
     print(

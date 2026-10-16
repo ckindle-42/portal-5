@@ -67,3 +67,23 @@ def test_the_future_effective_task_names_its_as_of_date():
     tasks = {t["id"]: t for t in gen.determinations()}
     (task,) = [t for k, t in tasks.items() if "future-effective" in k]
     assert "as of 2024-01-01" in task["instruction"]
+
+
+def test_every_enumerated_answer_value_in_an_instruction_is_defined():
+    for t in gen.determinations() + gen.lookups():
+        assert gen.undefined_values(t["instruction"]) == [], t["id"]
+
+
+def test_the_definedness_check_catches_an_undefined_value_and_a_borrowed_definition():
+    bare = "Signal is one of NONE, NEEDS_REVIEW. Answer as JSON."
+    assert gen.undefined_values(bare) == ["NONE", "NEEDS_REVIEW"]
+    # NONE defined under the coverage list does not define NONE in the signal list
+    mixed = "Coverage is one of FULL, NONE: FULL = a; NONE = b. Signal is one of NONE, STALE: STALE = c."
+    assert gen.undefined_values(mixed) == ["NONE"]
+
+
+def test_the_instruction_says_missing_links_are_expected_and_not_a_signal():
+    (task,) = [t for t in gen.determinations() if "det-covered-ot-pol-007" in t["id"]]
+    text = task["instruction"]
+    assert "absence is expected and is not itself a signal" in text
+    assert "NEEDS_REVIEW = the requirement's text changed between versions" in text
