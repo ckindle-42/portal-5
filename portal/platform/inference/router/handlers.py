@@ -97,6 +97,7 @@ from portal.platform.inference.router.trace import (
 from portal.platform.inference.router.trace import (
     span as trace_span,
 )
+from portal.platform.inference.router.truncation import set_estimate as set_prompt_estimate
 from portal.platform.inference.router.workspaces import (
     _PERSONA_MAP,
     WORKSPACES,
@@ -838,6 +839,7 @@ async def chat_completions(
         workspace_id, body, stream, persona, candidates = await _resolve_request_route(
             request, slot
         )
+        set_prompt_estimate(body)
 
         if not stream:
             # Non-streaming: try each backend until one succeeds; enforce the

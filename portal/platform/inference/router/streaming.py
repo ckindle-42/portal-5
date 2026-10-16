@@ -87,6 +87,7 @@ from portal.platform.inference.router.trace import (
 from portal.platform.inference.router.trace import (
     span as trace_span,
 )
+from portal.platform.inference.router.truncation import take_notice as take_truncation_notice
 from portal.platform.inference.router.validation import (
     _inject_ollama_options,
     _inject_omlx_options,
@@ -1274,6 +1275,8 @@ async def _stream_from_backend_guarded(
                 _finish_reason = (
                     "length" if reasoning_only or _finish_reason == "length" else "stop"
                 )
+            if notice := take_truncation_notice():
+                yield _content_chunk(f"chatcmpl-{workspace_id}", workspace_id, f"\n\n{notice}")
             yield _completion_finish_chunk(
                 _finish_reason or ("tool_calls" if _tool_calls_emitted else "stop")
             )

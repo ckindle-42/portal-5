@@ -1286,6 +1286,20 @@ def workspace_context(ws_id: str, persona: str | None = None) -> dict:
     }
 
 
+_PROMPT_TOO_LONG = (
+    "exceeds the available context size",
+    "prompt too long",
+    "context length",
+    "maximum context",
+)
+
+
+def _is_prompt_too_long(exc: BaseException) -> bool:
+    """An engine's loud refusal of an over-window prompt (llama.cpp runner, oMLX)."""
+    text = str(exc).lower()
+    return "http 400" in text and any(m in text for m in _PROMPT_TOO_LONG)
+
+
 def context_overflow(transcript: list, context_limit: int | None) -> str | None:
     """Whether the engine silently cut this conversation, from per-turn usage.
 
@@ -1300,6 +1314,9 @@ def context_overflow(transcript: list, context_limit: int | None) -> str | None:
     turn whose message text runs to more than 8 characters per reported prompt
     token was cut on its first overflow (real text is 3–6 chars/token, and the
     tool schemas only add tokens)."""
+    for t in transcript:
+        if t.get("context_overflow"):
+            return f"turn {t.get('turn')}: {t['context_overflow']}"
     turns = [t for t in transcript if t.get("prompt_tokens")]
     prev = 0
     for t in turns:
@@ -1496,6 +1513,8 @@ class _Loop:
             self.outcome_override = Outcome.BUDGET_EXHAUSTED if stalled else Outcome.HARNESS_ERROR
             key = "stalled" if stalled else "harness_error"
             entry = {"turn": turn, key: f"{type(e).__name__}: {e}"}
+            if _is_prompt_too_long(e):
+                entry["context_overflow"] = f"HTTP 400 prompt too long: {str(e)[-200:]}"
             if cid := getattr(e, "correlation_id", ""):
                 entry["correlation_id"] = cid
             self.transcript.append(entry)

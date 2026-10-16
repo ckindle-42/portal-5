@@ -29,6 +29,7 @@ from portal.platform.inference.router.tools import (
     _select_explicit_required_tool,
 )
 from portal.platform.inference.router.trace import capture as trace_capture
+from portal.platform.inference.router.truncation import take_notice as take_truncation_notice
 from portal.platform.inference.router.validation import (
     _inject_ollama_options,
     _inject_omlx_options,
@@ -324,6 +325,11 @@ def _apply_non_stream_response(
     )
     if "model" not in data or not data["model"]:
         data["model"] = target_model
+    if notice := take_truncation_notice():
+        for choice in data.get("choices") or []:
+            msg = choice.get("message") or {}
+            if msg.get("content") is not None and not msg.get("tool_calls"):
+                msg["content"] = f"{notice}\n\n{msg['content']}"
     logger.info(
         "Backend %s succeeded for workspace=%s model=%s",
         backend.id,

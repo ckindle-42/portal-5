@@ -17,6 +17,7 @@ import time
 from typing import Any
 
 import portal.platform.inference.router.state as _state_mod
+from portal.platform.inference.router import truncation as _truncation
 from portal.platform.inference.router.metrics import (
     _energy_consumed_ws_total,
     _input_tokens,
@@ -130,6 +131,7 @@ def _record_usage(
         eval_duration_ns = int(data.get("eval_duration") or usage.get("eval_duration") or 0)
 
         _requests_by_model.labels(model=model, workspace=workspace).inc()
+        _truncation.check(model, workspace, prompt_tokens)
 
         if completion_tokens > 0:
             _output_tokens.labels(model=model, workspace=workspace).inc(completion_tokens)
