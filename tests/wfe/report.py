@@ -292,8 +292,14 @@ def _queue(path: Path | None = None) -> dict:
     return (yaml.safe_load(p.read_text()) or {}).get("models") or {}
 
 
+def _tag(arm: str) -> str:
+    """The model tag of an arm id: a variant arm is `<tag>@<label>-<digest>` and the
+    candidate queue is keyed by the bare tag."""
+    return arm.split("@", 1)[0]
+
+
 def _intended(queue: dict, model: str) -> set:
-    return set((queue.get(model) or {}).get("intended") or [])
+    return set((queue.get(_tag(model)) or {}).get("intended") or [])
 
 
 def _by_cell(rows: list[dict]) -> dict[tuple, list[dict]]:
@@ -375,7 +381,7 @@ def fitness(campaign_dir: Path, queue_path: Path | None = None, allow_mixed: boo
                 by[(ws, inc)], by[(ws, arm)], expected, repeats=repeats, arguable=arguable
             )
             cells.append({"workspace": ws, "incumbent": inc, "candidate": arm, **vars(cell)})
-            per_model.setdefault(arm, {})[ws] = cell.verdict
+            per_model.setdefault(_tag(arm), {})[ws] = cell.verdict
     # The queue is the roster: a model it names and no cell covers still gets a
     # disposition, which is what turns "queued but unmeasured" into NO_DECISION
     # instead of silence.

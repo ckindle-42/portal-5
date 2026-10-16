@@ -131,6 +131,27 @@ class TestFitnessView:
         assert rep.fitness(d, q)["instrument"]["fingerprint"] == "fp1"
 
 
+class TestVariantArmAgainstTheQueue:
+    """A variant arm id is `<tag>@<label>-<digest>`; the queue is keyed by the bare tag.
+    The screen used to miss the intended override and the fitness view lost the cells."""
+
+    VARIANT = f"{CAND}@card-abcd1234"
+
+    def test_a_losing_variant_arm_in_an_intended_workspace_still_advances(
+        self, tmp_path, monkeypatch
+    ):
+        d, q = _campaign(tmp_path, monkeypatch, cand_fails=True, cand=self.VARIANT)
+        res = rep.screen_out(d, q)
+        assert res["advance"] == {WS_A: [self.VARIANT]}
+
+    def test_a_variant_arm_is_dispositioned_under_its_model_tag(self, tmp_path, monkeypatch):
+        d, q = _campaign(tmp_path, monkeypatch, inc_fails=True, cand=self.VARIANT)
+        res = rep.fitness(d, q)
+        (disp,) = [x for x in res["dispositions"] if x["model"] == CAND]
+        assert disp["disposition"] == "FOLD"
+        assert disp["cells"] == {WS_A: decision.BETTER}
+
+
 class TestScreenOut:
     def test_a_losing_candidate_in_an_intended_workspace_still_advances(
         self, tmp_path, monkeypatch
