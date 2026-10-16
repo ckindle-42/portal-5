@@ -1,0 +1,16 @@
+# auto-documents' first seat decision: measured with its own document tools (production mode)
+# on documents_production (36 tasks: 12 reads, 12 creates, 12 read-derive-write round trips;
+# produced files are parsed, not grepped). The challengers are tool-capable generalists served
+# by auto-documents' routed groups (general, coding), each at a window of at least 32k. The
+# screen tier drops the weak ones cheaply; this is informational: no seat changes.
+workloads:
+  auto-documents:
+    tool_mode: production
+    home: documents_production
+    discovery: []
+    arms:
+      incumbent: granite4.1:8b-ctx16k
+      challengers:
+        - hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k
+        - granite4.1:30b-ctx96k
+        - gemma4:26b-a4b-it-q4_K_M-ctx32k
