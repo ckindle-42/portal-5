@@ -62,7 +62,9 @@ def _backend_type_for_url(base_url: str) -> str:
         if reg is not None:
             needle = base_url.rstrip("/")
             for b in reg.list_backends():
-                if b.url.rstrip("/") == needle:
+                base = b.url.rstrip("/")
+                # Exact base URL, or a request URL under it (the tool loop passes the chat path).
+                if needle == base or needle.startswith(base + "/"):
                     return b.type
     except Exception:
         pass
@@ -101,6 +103,25 @@ async def _omlx_engine_reachable(base_url: str, timeout_s: float) -> bool:
         return False
 
 
+def _freeable(names: list[str], router_model: str) -> list[str]:
+    """Idle Ollama residents that may be unloaded for oMLX: not the router, not busy with a
+    request, and not protected by the load guard (a failover source). Protection is keyed by
+    engine, so an oMLX failover protection never shields an Ollama model."""
+    from portal.platform.inference import load_guard
+
+    guard = load_guard.GUARD
+    out: list[str] = []
+    for name in names:
+        if name == router_model:
+            continue
+        if guard is not None and (
+            guard.busy(load_guard.OLLAMA, name) or name in guard.protected(load_guard.OLLAMA)
+        ):
+            continue
+        out.append(name)
+    return out
+
+
 async def free_ollama_for_omlx(wait_s: float = 15.0) -> list[str]:
     """Unload Ollama's resident models (the intent router excepted); return their names.
 
@@ -124,7 +145,7 @@ async def free_ollama_for_omlx(wait_s: float = 15.0) -> list[str]:
         for url in sorted(urls):
             try:
                 ps = (await client.get(f"{url}/api/ps")).json().get("models", [])
-                names = [m["name"] for m in ps if m.get("name") != _LLM_ROUTER_MODEL]
+                names = _freeable([m["name"] for m in ps], _LLM_ROUTER_MODEL)
                 for name in names:
                     await client.post(f"{url}/api/generate", json={"model": name, "keep_alive": 0})
                 deadline = time.monotonic() + wait_s

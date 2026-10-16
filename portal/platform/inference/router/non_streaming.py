@@ -79,9 +79,18 @@ _CAPACITY_ERROR_MARKERS = (
     "would exceed",
     "projected memory",
     "cannot load",
+    "does not fit",
+    "dynamic memory ceiling",
     "metal_cap",
     "wired_limit",
 )
+
+
+def is_omlx_capacity_refusal(status: int, detail: bytes | str) -> bool:
+    """An oMLX capacity refusal that freeing idle Ollama residents can cure: the 400 prefill
+    guard or the 507 load ceiling ("does not fit under the dynamic memory ceiling"). Used by
+    every path (streamed, tool-loop, non-streamed), so all three free and retry the same way."""
+    return status in (400, 507) and _is_capacity_error(backend_error_detail(detail))
 
 
 def _is_capacity_error(detail: str) -> bool:

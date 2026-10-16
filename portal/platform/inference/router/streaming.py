@@ -42,6 +42,7 @@ from fastapi import HTTPException
 from portal.platform.inference.config import PersonaSpec
 from portal.platform.inference.load_guard import protect_failover
 from portal.platform.inference.router.backend_introspect import (
+    _backend_type_for_url,
     free_ollama_for_omlx,
     make_room_for_omlx,
 )
@@ -61,6 +62,7 @@ from portal.platform.inference.router.non_streaming import (
     _is_capacity_error,
     _try_non_streaming,
     backend_error_detail,
+    is_omlx_capacity_refusal,
     resolve_hop_target,
 )
 from portal.platform.inference.router.state import _record_error
@@ -634,129 +636,149 @@ async def _tool_loop_frames(
                 }
                 yield f"data: {json.dumps(status_chunk)}\n\n".encode()
 
-        # Stream from backend
-        try:
-            trace_capture(backend_request=current_body)
-            async with _http_client.stream("POST", backend_url, json=current_body) as resp:  # type: ignore[union-attr]
-                if resp.status_code != 200:
-                    err = await resp.aread()
-                    logger.error(
-                        "Tool-loop backend returned HTTP %d: %s", resp.status_code, err[:200]
-                    )
-                    _record_error(workspace_id, f"backend_http_{resp.status_code}")
-                    yield _backend_error_chunk(resp.status_code, err)
-                    return
-
-                async for line in resp.aiter_lines():
-                    if not line:
-                        continue
-                    if not line.startswith("data: "):
-                        yield (line + "\n\n").encode()
-                        continue
-                    data_str = line[6:].strip()
-                    if data_str == "[DONE]":
-                        # The router decides whether this was a tool hop or a
-                        # terminal answer before writing the finish/DONE pair.
-                        continue
-                    try:
-                        obj = json.loads(data_str)
-                    except Exception:
-                        yield (line + "\n\n").encode()
-                        continue
-                    choice = (obj.get("choices") or [{}])[0]
-                    delta = choice.get("delta", {})
-                    _reasoning_seen = _reasoning_seen or any(
-                        delta.get(name) for name in ("reasoning", "reasoning_content", "thinking")
-                    )
-
-                    if delta.get("tool_calls"):
-                        _accumulate_tool_calls(delta["tool_calls"], tool_calls_buf)
-                        # Some backends send tool_calls + finish_reason in
-                        # the same final chunk — capture finish_reason here
-                        # so the dispatch gate fires after the stream ends.
-                        if choice.get("finish_reason"):
-                            finish_reason = choice["finish_reason"]
-                        # Suppress tool_call delta — pipeline owns dispatch
-                        continue
-
-                    _frame_finish = choice.get("finish_reason")
-                    if _frame_finish:
-                        finish_reason = _frame_finish
-                        if finish_reason == "tool_calls":
-                            # Suppress finish_reason=tool_calls chunk too
-                            continue
-                        # Emit terminal finish only after final content/error.
-                        choice = dict(choice, finish_reason=None)
-                        obj = dict(obj, choices=[choice])
-                        line = f"data: {json.dumps(obj)}"
-
-                    _ct = delta.get("content")
-                    if _holdback is not None and _ct and isinstance(_ct, str):
-                        _ct = _ct if isinstance(_ct, str) else ""
-                        _shown = _holdback.feed(_ct)
-                        if _shown != _ct:
-                            if not _shown:
+        _freed_for_hop = False
+        for _attempt in range(2):
+            try:
+                trace_capture(backend_request=current_body)
+                async with _http_client.stream("POST", backend_url, json=current_body) as resp:  # type: ignore[union-attr]
+                    if resp.status_code != 200:
+                        err = await resp.aread()
+                        if (
+                            not _freed_for_hop
+                            and _backend_type_for_url(backend_url) == "omlx"
+                            and is_omlx_capacity_refusal(resp.status_code, err)
+                        ):
+                            # oMLX refused the load for memory idle Ollama residents hold.
+                            # Free them once and retry this hop before the error reaches the client.
+                            _freed_for_hop = True
+                            _freed = await free_ollama_for_omlx()
+                            if _freed:
+                                logger.info(
+                                    "oMLX capacity refusal (workspace=%s, hop=%d); freed Ollama %s, retrying oMLX",
+                                    workspace_id,
+                                    hop,
+                                    _freed,
+                                )
                                 continue
-                            delta = dict(delta, content=_shown)
-                            choice = dict(choice, delta=delta)
+                        logger.error(
+                            "Tool-loop backend returned HTTP %d: %s", resp.status_code, err[:200]
+                        )
+                        _record_error(workspace_id, f"backend_http_{resp.status_code}")
+                        yield _backend_error_chunk(resp.status_code, err)
+                        return
+
+                    async for line in resp.aiter_lines():
+                        if not line:
+                            continue
+                        if not line.startswith("data: "):
+                            yield (line + "\n\n").encode()
+                            continue
+                        data_str = line[6:].strip()
+                        if data_str == "[DONE]":
+                            # The router decides whether this was a tool hop or a
+                            # terminal answer before writing the finish/DONE pair.
+                            continue
+                        try:
+                            obj = json.loads(data_str)
+                        except Exception:
+                            yield (line + "\n\n").encode()
+                            continue
+                        choice = (obj.get("choices") or [{}])[0]
+                        delta = choice.get("delta", {})
+                        _reasoning_seen = _reasoning_seen or any(
+                            delta.get(name)
+                            for name in ("reasoning", "reasoning_content", "thinking")
+                        )
+
+                        if delta.get("tool_calls"):
+                            _accumulate_tool_calls(delta["tool_calls"], tool_calls_buf)
+                            # Some backends send tool_calls + finish_reason in
+                            # the same final chunk — capture finish_reason here
+                            # so the dispatch gate fires after the stream ends.
+                            if choice.get("finish_reason"):
+                                finish_reason = choice["finish_reason"]
+                            # Suppress tool_call delta — pipeline owns dispatch
+                            continue
+
+                        _frame_finish = choice.get("finish_reason")
+                        if _frame_finish:
+                            finish_reason = _frame_finish
+                            if finish_reason == "tool_calls":
+                                # Suppress finish_reason=tool_calls chunk too
+                                continue
+                            # Emit terminal finish only after final content/error.
+                            choice = dict(choice, finish_reason=None)
                             obj = dict(obj, choices=[choice])
                             line = f"data: {json.dumps(obj)}"
 
-                    _rewrite_chunk, _emitted, _skip = _apply_reasoning_rewrite(
-                        line,
-                        delta,
-                        choice,
-                        obj,
-                        _thinking_allowed,
-                        _think_filter,
-                    )
-                    if _rewrite_chunk is not None:
-                        yield _rewrite_chunk
-                        _content_emitted = _content_emitted or _emitted
-                    if _skip:
-                        continue
-                    if _emitted:
-                        _content_emitted = True
-                    if delta or not _frame_finish:
-                        yield (line + "\n\n").encode()
-        except httpx.TimeoutException:
-            logger.warning(
-                "Tool-loop backend %s timed out (workspace=%s, hop=%d) — probing engine state",
-                backend_url,
-                workspace_id,
-                hop,
-            )
-            from portal.platform.inference.router.backend_introspect import (
-                model_still_running as _msr,
-            )
+                        _ct = delta.get("content")
+                        if _holdback is not None and _ct and isinstance(_ct, str):
+                            _ct = _ct if isinstance(_ct, str) else ""
+                            _shown = _holdback.feed(_ct)
+                            if _shown != _ct:
+                                if not _shown:
+                                    continue
+                                delta = dict(delta, content=_shown)
+                                choice = dict(choice, delta=delta)
+                                obj = dict(obj, choices=[choice])
+                                line = f"data: {json.dumps(obj)}"
 
-            _still_running = await _msr(backend_url, timeout_s=5.0)
-            if _still_running:
+                        _rewrite_chunk, _emitted, _skip = _apply_reasoning_rewrite(
+                            line,
+                            delta,
+                            choice,
+                            obj,
+                            _thinking_allowed,
+                            _think_filter,
+                        )
+                        if _rewrite_chunk is not None:
+                            yield _rewrite_chunk
+                            _content_emitted = _content_emitted or _emitted
+                        if _skip:
+                            continue
+                        if _emitted:
+                            _content_emitted = True
+                        if delta or not _frame_finish:
+                            yield (line + "\n\n").encode()
+                break
+            except httpx.TimeoutException:
                 logger.warning(
-                    "Backend %s: model still in /api/ps after stream timeout — "
-                    "reasoning model mid-generation? (workspace=%s)",
+                    "Tool-loop backend %s timed out (workspace=%s, hop=%d) — probing engine state",
                     backend_url,
                     workspace_id,
+                    hop,
                 )
-                yield (
-                    f"data: {json.dumps({'error': 'Response timed out — model may still be generating. Please retry.'})}\n\n"
-                ).encode()
-            else:
-                logger.warning(
-                    "Backend %s: no model in /api/ps after timeout — backend may be down (workspace=%s)",
-                    backend_url,
-                    workspace_id,
+                from portal.platform.inference.router.backend_introspect import (
+                    model_still_running as _msr,
                 )
-                _record_error(workspace_id, "stream_timeout")
-                yield (
-                    f"data: {json.dumps({'error': 'Backend timed out and no model is loaded. Please retry.'})}\n\n"
-                ).encode()
-            return
-        except Exception as e:
-            logger.error("Tool-loop stream error from %s: %s", backend_url, e)
-            _record_error(workspace_id, "stream_error")
-            yield (f"data: {json.dumps({'error': 'Backend connection error'})}\n\n").encode()
-            return
+
+                _still_running = await _msr(backend_url, timeout_s=5.0)
+                if _still_running:
+                    logger.warning(
+                        "Backend %s: model still in /api/ps after stream timeout — "
+                        "reasoning model mid-generation? (workspace=%s)",
+                        backend_url,
+                        workspace_id,
+                    )
+                    yield (
+                        f"data: {json.dumps({'error': 'Response timed out — model may still be generating. Please retry.'})}\n\n"
+                    ).encode()
+                else:
+                    logger.warning(
+                        "Backend %s: no model in /api/ps after timeout — backend may be down (workspace=%s)",
+                        backend_url,
+                        workspace_id,
+                    )
+                    _record_error(workspace_id, "stream_timeout")
+                    yield (
+                        f"data: {json.dumps({'error': 'Backend timed out and no model is loaded. Please retry.'})}\n\n"
+                    ).encode()
+                return
+            except Exception as e:
+                logger.error("Tool-loop stream error from %s: %s", backend_url, e)
+                _record_error(workspace_id, "stream_error")
+                yield (f"data: {json.dumps({'error': 'Backend connection error'})}\n\n").encode()
+                return
 
         if _holdback is not None and _holdback.holding:
             _held = _holdback.take()
@@ -1995,9 +2017,8 @@ async def _stream_with_fallback(
             and not _output_sent
             and not _freed_ollama
             and getattr(backend, "type", "") == "omlx"
-            and _error_status == 400
             and _error_buffer
-            and _is_capacity_error(_stream_error_detail(_error_buffer))
+            and is_omlx_capacity_refusal(_error_status or 0, _error_buffer)
         ):
             _freed_ollama = True
             _freed = await free_ollama_for_omlx()
