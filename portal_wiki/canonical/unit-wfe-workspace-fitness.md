@@ -235,6 +235,18 @@ tool returned every evidence pattern; an output that reports a failure
 answer, even when it echoes the id that was asked for. The compliance and data
 production suites (`compliance_production`, `data_production`) are graded this way.
 
+Phase C ran both suites end to end (compliance `wfe_compliance_decision_20261016*`, data
+`wfe_data_decision_20261016*`; decisions in `docs/WFE_DECISION_AUTO_*_CFIX_20261016.md`). What it taught the
+instrument: an arm id can carry a variant label (`<tag>@<label>-<digest>`), which the candidate queue and the
+fitness report match by the bare tag; a determination task is attainable only when every fact its gold needs is
+reachable through the tools (`tests/wfe/e2e/compliance_attainability.py` proves that against the evaluation
+store, which now captures and anchors the register's standards); and an instruction may enumerate only values
+it defines. A seat's sampling is judged against its build provider's guidance (Unsloth first, then the vendor
+card): `settings_audit` fails a production seat that differs unless its `sampling_override` carries a reason and
+measured evidence. A tool-using model that re-issues an identical call is answered from the earlier result and,
+on a third repeat, finishes without tools; a workspace flagged `require_tool_before_answer` (auto-data) retries
+once when a turn answers with no tool call.
+
 The compliance evaluation store (`compliance-mcp-eval`) is built from the committed
 planted corpus with each document's answer-key header stripped. Each document is
 registered, captured and projected under its own id, because the retrieval index is

@@ -77,15 +77,15 @@
 | P4-N11 | PASS | fixed f5054327; live: HK flagged a planted tracked compliance row in the live repo, clean after removal | 2026-10-16T02:54:02Z |
 | P4-N12 | PASS | pipeline-mode preflight with gemma4:12b-it-qat-ctx8k resident: still resident after (api/ps before == after) | 2026-10-16T02:54:02Z |
 | P4-F | PENDING | | |
-| P4-X | PENDING | | |
+| P4-X | PASS | pushed: origin/main was 1e9ffc7e at the start of Phase C (git log origin/main..HEAD empty then); the one GitHub CI failure on it (run 38843924518, test_documents_read_refusal read_word_document, python-docx absent) is fixed in ef9dae88 (the run on the Phase C push is reported separately) | 2026-10-16T20:14:32Z |
 | P5-A1 | PENDING | | |
 | P5-A2 | PENDING | | |
 | P5-A3 | PENDING | | |
-| P5-A4 | PENDING | | |
+| P5-A4 | PASS | screens, every arm exit 0: compliance wfe_compliance_decision_20261016cf (Qwen3.8 10/11, granite 2/11) and data wfe_data_decision_20261016cf (4 arms, 7/12, 11/12 x3); docs/WFE_DECISION_AUTO_COMPLIANCE_CFIX_20261016.md, docs/WFE_DECISION_AUTO_DATA_CFIX_20261016.md | 2026-10-16T20:14:32Z |
 | P5-A5 | PENDING | | |
-| P5-A6 | PENDING | | |
-| P5-A7 | PENDING | | |
-| P5-A8 | PENDING | | |
+| P5-A6 | PASS | confirms, every arm exit 0: wfe_compliance_decision_20261016 (97 rows/arm) and wfe_data_decision_20261016 (108 rows/arm), the before-evidence at off-guidance sampling (docs/WFE_DECISION_AUTO_COMPLIANCE_20261016.md, docs/WFE_DECISION_AUTO_DATA_20261016.md); plus the incumbent-with-guard confirm wfe_data_guard_confirm_20261016 (106/108) | 2026-10-16T20:14:32Z |
+| P5-A7 | PASS | compliance_production suite, known-open cell auto-compliance x granite4.1:30b: NOT_SEPARATED (p=1.000), RETAIN_DIVERSITY, recorded in tests/wfe/fitness_ledger.yaml; its determination half was re-run after three instrument defects (a58459eb, 92982bb6, 3e8dc44d) | 2026-10-16T20:14:32Z |
+| P5-A8 | PASS | verify-complete 0 problems on wfe_compliance_decision_20261016, wfe_data_decision_20261016 (after --rerun-failed), and both cf screens; probe campaigns removed or gitignored, no planted file committed | 2026-10-16T20:14:32Z |
 | P5-A9 | PENDING | | |
 | P5-B1 | PENDING | | |
 | P5-B2 | PENDING | | |

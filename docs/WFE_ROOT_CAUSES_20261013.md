@@ -134,7 +134,7 @@ sweep.
 | N-23 | Documents read tools use any existing absolute path as given; only images were confined (Part 4) |
 | N-24 | A suite task without `checkers` (or a misspelled key) defaults to an answer check any answer passes (Part 4: validate suite files) |
 | N-25 | A harness pipeline call that asked for no tools was offered the workspace's production tools, so readiness probes could act; fixed in Part 2a |
-| N-26 | seat_baseline_v3 has no auto-data workload and measures auto-documents on the research suite (Part 3: family suites) |
+| N-26 | seat_baseline_v3 has no auto-data workload and measures auto-documents on the research suite (Part 3: family suites); **Phase C: auto-data now has its own production suite (`data_production`) and decision plan (`tests/wfe/plans/data_decision_v1.yaml`), run as `wfe_data_decision_20261016` / `wfe_data_decision_20261016cf`** |
 | N-27 | Graph memory forget/recall/list_memories put model-supplied id/category into LanceDB filters; `x' OR '1'='1` deleted every memory; fixed in Part 2b |
 | N-28 | kb_ingest accepts any source_dir the container can read (no confinement): an index-then-search exfiltration path (Part 4) |
 | N-29 | kb_list and KB maintenance used a second storage path (lower-cased names, unpaged listing, _visual tables as KBs); KBs like NERC-CIP vanished; fixed in Part 2b |
