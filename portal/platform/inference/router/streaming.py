@@ -73,7 +73,7 @@ from portal.platform.inference.router.text_tool_calls import (
     salvage_text_tool_calls,
 )
 from portal.platform.inference.router.thinking import NO_ANSWER_MESSAGE, ThinkTagFilter
-from portal.platform.inference.router.tool_repeat import ToolRepeatGuard
+from portal.platform.inference.router.tool_repeat import FINAL_ANSWER_REQUEST, ToolRepeatGuard
 from portal.platform.inference.router.tools import (
     _dispatch_tool_call,
     _select_explicit_required_tool,
@@ -645,7 +645,13 @@ async def _tool_loop_frames(
         # Text-written tool calls (P5-OMLX-QWEN3CODER-TOOLTEXT-001): with tools
         # offered, content from a call marker on is withheld until the stream
         # ends, then dispatched if it parses or released as text if it doesn't.
-        _holdback = TextToolCallHoldback() if current_body.get("tools") else None
+        # A toolless synthesis turn is held back too: a model that still wants a tool writes
+        # the call as text, which is never an answer.
+        _holdback = (
+            TextToolCallHoldback()
+            if current_body.get("tools") or _repeat_guard.force_synthesis
+            else None
+        )
 
         # Emit preamble (role chunk) on first hop
         if hop == 1:
@@ -1061,6 +1067,7 @@ async def _tool_loop_frames(
                 # turn with the tools withheld rather than run on to the hop limit.
                 current_body["tools"] = None
                 current_body["tool_choice"] = None
+                current_body["messages"] = [*current_body["messages"], FINAL_ANSWER_REQUEST]
             if _exec_audit:
                 _exec_audit_calls.extend(
                     [

@@ -18,6 +18,15 @@ REPEAT_NOTE = (
     "You already called this with the same arguments; the result is above. "
     "Use it to answer, or call a different tool."
 )
+#: Appended when the tools are withheld: the model is told to answer from what it has, because
+#: a model that cannot call a tool otherwise writes the call out as text.
+FINAL_ANSWER_REQUEST = {
+    "role": "user",
+    "content": (
+        "No more tool calls are available. Using the tool results already above, give your "
+        "final answer now."
+    ),
+}
 #: The request count at which the turn stops offering tools (1 = executed, 2 = first repeat).
 FORCE_SYNTHESIS_AT = 3
 

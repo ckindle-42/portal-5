@@ -30,7 +30,7 @@ from portal.platform.inference.router.text_tool_calls import (
     drop_unparsed_markup,
     salvage_text_tool_calls,
 )
-from portal.platform.inference.router.tool_repeat import ToolRepeatGuard
+from portal.platform.inference.router.tool_repeat import FINAL_ANSWER_REQUEST, ToolRepeatGuard
 from portal.platform.inference.router.tools import (
     _dispatch_tool_call,
     _select_explicit_required_tool,
@@ -723,6 +723,8 @@ async def _try_non_streaming(
                 # Every turn but the last keeps the tools, so a turn that needs a second
                 # lookup gets it; the last is the synthesis, run with none.
                 _ns_last = _ns_hops >= max_hops or _ns_guard.force_synthesis
+                if _ns_guard.force_synthesis:
+                    _ns_messages = [*_ns_messages, FINAL_ANSWER_REQUEST]
                 _synth_body = {
                     **req_body,
                     "messages": _ns_messages,

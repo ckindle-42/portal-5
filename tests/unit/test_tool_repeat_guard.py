@@ -12,7 +12,12 @@ import pytest
 
 from portal.platform.inference.router import non_streaming as ns
 from portal.platform.inference.router import streaming
-from portal.platform.inference.router.tool_repeat import REPEAT_NOTE, ToolRepeatGuard, call_key
+from portal.platform.inference.router.tool_repeat import (
+    FINAL_ANSWER_REQUEST,
+    REPEAT_NOTE,
+    ToolRepeatGuard,
+    call_key,
+)
 
 
 def _call(name: str = "lookup", args: object = None, cid: str = "c1") -> dict:
@@ -137,6 +142,49 @@ def test_the_streaming_loop_runs_a_stuck_call_once_and_ends_with_a_toolless_turn
     assert bodies[2]["tools"] and bodies[3]["tools"] is None  # tools withheld after the 3rd request
     tool_msgs = [m for m in bodies[3]["messages"] if m["role"] == "tool"]
     assert len(tool_msgs) == 3 and REPEAT_NOTE in tool_msgs[1]["content"]
+    assert bodies[3]["messages"][-1] == FINAL_ANSWER_REQUEST  # told to answer from what it has
+
+
+def test_a_toolless_final_turn_never_delivers_call_markup(monkeypatch) -> None:
+    """Live 2026-10-16: with the tools withheld the model wrote its call out as text and the
+    client received `<tool_call><function=...>` as the answer."""
+    markup = (
+        "<tool_call>\n<function=lookup>\n<parameter=req>\nCIP-013-2\n</parameter>\n"
+        "</function>\n</tool_call>"
+    )
+    outcomes = [_tool_frame(), _tool_frame(), _tool_frame(), _answer_frame(markup)]
+
+    class _Client:
+        def stream(self, method, url, json=None):  # noqa: A002
+            return _Stream(outcomes.pop(0))
+
+    async def fake_dispatch(tc, *_a, **_k):
+        return {"role": "tool", "tool_call_id": tc.get("id"), "name": "lookup", "content": "R"}
+
+    monkeypatch.setattr(streaming, "_http_client", _Client())
+    monkeypatch.setattr(streaming, "_backend_type_for_url", lambda url: "omlx")
+    monkeypatch.setattr(streaming, "_dispatch_tool_call", fake_dispatch)
+
+    async def run() -> bytes:
+        out = b""
+        async for chunk in streaming._tool_loop_frames(
+            "http://omlx.test/v1/chat/completions",
+            {
+                "messages": [{"role": "user", "content": "hi"}],
+                "model": "m",
+                "tools": [{"type": "function", "function": {"name": "lookup", "parameters": {}}}],
+            },
+            "auto-daily",
+            "m",
+            "",
+            {"lookup"},
+        ):
+            out += chunk
+        return out
+
+    out = asyncio.run(run())
+
+    assert b"<tool_call>" not in out and b"<function=" not in out
 
 
 def test_the_streaming_loop_still_runs_a_call_with_new_arguments(monkeypatch) -> None:
@@ -249,3 +297,4 @@ async def test_the_failover_loop_applies_the_same_guard(monkeypatch) -> None:
     assert json.loads(result.body)["choices"][0]["message"]["content"] == "ok"
     assert len(executed) == 1  # the same call is run once for the whole turn
     assert client.bodies[3]["tools"] is None  # the turn ends with a toolless synthesis
+    assert client.bodies[3]["messages"][-1] == FINAL_ANSWER_REQUEST
