@@ -5,7 +5,7 @@ title: 284 model ids, 7 backend groups
 sources:
 - type: code
   path: config/backends.yaml
-  commit: b888910b4743
+  commit: bed9443c387e
 claims:
 - probe: backends.groups.count
   pattern: '{value} backend groups)'
@@ -14,7 +14,7 @@ tags:
 - fact
 - models
 created_at: 1784000421.487881
-updated_at: 1792109099.959192
+updated_at: 1792189804.562542
 ---
 
 # Model catalog (284 model ids across 7 backend groups)
@@ -124,7 +124,7 @@ updated_at: 1792109099.959192
 - `granite-4.1-8b-mxfp8`
 - `granite4.1:30b`
 - `granite4.1:30b-ctx16k`
-- `granite4.1:30b-ctx98k`
+- `granite4.1:30b-ctx96k`
 - `granite4.1:8b`
 - `granite4.1:8b-ctx16k`
 - `granite4.1:8b-ctx8k`

@@ -175,6 +175,14 @@ models:
     verified: true
     source: "https://huggingface.co/google/gemma-4-26B-A4B-it/resolve/main/generation_config.json (2026-09-25)"
     recommended_sampling: {temperature: 1.0, top_p: 0.95, top_k: 64}
+  foundation-sec-8b-reasoning:
+    status: verified-card
+    verified: true
+    source: "https://huggingface.co/fdtn-ai/Foundation-Sec-8B-Reasoning-Q8_0-GGUF/raw/main/generation_config.json (2026-10-16); card https://huggingface.co/fdtn-ai/Foundation-Sec-8B-Reasoning"
+    source_tier: "1 — build provider: fdtn-ai's own GGUF repo ships generation_config.json (same values as the base repo). The card gives no sampling guidance; its code example uses temperature 0.1 and its benchmarks ran at 0.3 (evaluation setup, not a recommendation)."
+    recommended_sampling: {temperature: 0.6, top_p: 0.95, repeat_penalty: 1.1}
+    max_context: 32768
+    prompt_contract: "Llama-3.1-8B-based security reasoning model; emits a reasoning trace (vLLM uses the minimax_m2 reasoning parser). Trained at 32,768 tokens."
   granite-4.1:
     status: verified-card
     verified: true

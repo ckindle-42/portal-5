@@ -67,7 +67,7 @@ backends:
   # request-time num_ctx. supports_tools verified live 2026-09-25 via a
   # direct /api/chat probe on the derived tag (clean tool_calls, typed
   # arguments — same weights/template as the incumbent seat).
-  - id: granite4.1:30b-ctx98k
+  - id: granite4.1:30b-ctx96k
     supports_tools: true
   # Nemotron 3.5 Lightning added 2026-08-14 for auto-nemotron workspace
   # (architectural diversity vs the Gemma-4 daily driver). supports_tools
@@ -1012,7 +1012,7 @@ backends:
     supports_tools: true
   - id: Qwen3.8-27B-oQ4e-mtp
     supports_tools: true
-  # P5-FANOUT-001 lane-alignment audit (2026-09-25): granite4.1:30b-ctx98k is
+  # P5-FANOUT-001 lane-alignment audit (2026-09-25): granite4.1:30b-ctx96k is
   # deliberately NOT aliased here — the granite-4.1-30b-4bit conversion
   # returned EMPTY output on an 85k-token needle probe (400 correctly at 132k,
   # fine at <=39k), so the reading lane's ~82k worst case is NOT served on the

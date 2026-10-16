@@ -1370,10 +1370,12 @@ workspaces:
         # fallback -- a real fix at the time, but an eval-module workspace,
         # not a security-role-policy one). Preserves the exact tag; only the
         # policy scope changes.
-        repeat_penalty: 1.05
-        top_k: 20
-        top_p: 0.8
-        temperature: 0.7
+        # Sampling: the build provider's generation_config.json (fdtn-ai GGUF
+        # repo, 2026-10-16) -- 0.6 / 0.95 / 1.1. The earlier 0.7/0.8/20/1.05
+        # were Qwen3-Coder values with no source for this model.
+        temperature: 0.6
+        top_p: 0.95
+        repeat_penalty: 1.1
         name: 🔵 Portal Blue Team · Expert Seat (Foundation-Sec 8B)
         description: 'Security-role-scoped seat binding for the fed expert/
           arbiter role (hf.co/fdtn-ai/Foundation-Sec-8B-Reasoning-Q8_0-GGUF)
@@ -2305,7 +2307,7 @@ workspaces:
       dropped, so a reading that needs the big window must address a seat that
       bakes it; short verdict/council calls stay on the 16k/32k seats so they
       stop reserving the 31.7 GiB 98k footprint (P5-FANOUT-001 M2).
-    model_hint: granite4.1:30b-ctx98k
+    model_hint: granite4.1:30b-ctx96k
     context_limit: 98304
     # working-ctx preflight verified live 2026-09-25: /api/ps context_length
     # 98304 on the baked tag (P5-FANOUT-001 A5).

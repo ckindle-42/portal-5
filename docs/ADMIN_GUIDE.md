@@ -859,7 +859,7 @@ The fleet table is the `mcp_fleet` list in `config/portal.yaml`, the single sour
 - `granite-4.1-8b-mxfp8`
 - `granite4.1:30b`
 - `granite4.1:30b-ctx16k`
-- `granite4.1:30b-ctx98k`
+- `granite4.1:30b-ctx96k`
 - `granite4.1:8b`
 - `granite4.1:8b-ctx16k`
 - `granite4.1:8b-ctx8k`

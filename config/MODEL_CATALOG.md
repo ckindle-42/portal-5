@@ -1297,9 +1297,9 @@ This derived id is unusual in that three `config/portal.yaml` bindings consume i
 
 ---
 
-### `granite4.1:30b-ctx98k`
+### `granite4.1:30b-ctx96k`
 
-`granite4.1:30b-ctx98k` is the 98304-token reading-window form of `granite4.1:30b` (trained ceiling 131,072; created from the existing blobs with `PARAMETER num_ctx 98304`, the same bake `portal models apply-params` performs). `config/backends.yaml` registers it in the `general` group with `supports_tools: true` (verified 2026-09-25 by a live native tool-call probe on the derived tag: clean typed `get_weather` call) and shadows it onto `granite-4.1-30b-4bit` via the `omlx-general` priority-10 alias block. `config/portal.yaml` binds it as the `model_hint` of the `bench-granite41-30b-ctx98k` workspace with `context_limit: 98304`. It exists because the compliance reading loop's worst case is ~82k tokens while the pipeline drops request-time `num_ctx` (P5-FANOUT-001 W3, docs/TASK_FANOUT_CONCURRENCY_V1.md): a reading needing the big window must address a seat that bakes it, and short verdict/council calls stay on the 16k/32k seats.
+`granite4.1:30b-ctx96k` is the 98304-token reading-window form of `granite4.1:30b` (trained ceiling 131,072; created from the existing blobs with `PARAMETER num_ctx 98304`, the same bake `portal models apply-params` performs). `config/backends.yaml` registers it in the `general` group with `supports_tools: true` (verified 2026-09-25 by a live native tool-call probe on the derived tag: clean typed `get_weather` call) and shadows it onto `granite-4.1-30b-4bit` via the `omlx-general` priority-10 alias block. `config/portal.yaml` binds it as the `model_hint` of the `bench-granite41-30b-ctx98k` workspace with `context_limit: 98304`. It exists because the compliance reading loop's worst case is ~82k tokens while the pipeline drops request-time `num_ctx` (P5-FANOUT-001 W3, docs/TASK_FANOUT_CONCURRENCY_V1.md): a reading needing the big window must address a seat that bakes it, and short verdict/council calls stay on the 16k/32k seats.
 
 ## Why
 
