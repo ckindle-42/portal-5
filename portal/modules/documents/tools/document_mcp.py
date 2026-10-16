@@ -822,7 +822,10 @@ def read_word_document(
             "error": "python-docx not installed. Run: pip install python-docx",
         }
 
-    src = _resolve_input_path(file_path)
+    try:
+        src = _resolve_input_path(file_path)
+    except PermissionError as e:  # N-23: a refusal is the tool's structured error, not a 500
+        return {"success": False, "error": str(e)}
     if not src.exists():
         return {"success": False, "error": f"File not found: {file_path}"}
     if src.suffix.lower() != ".docx":
@@ -883,7 +886,10 @@ def read_excel(
     except ImportError:
         return {"success": False, "error": "openpyxl not installed. Run: pip install openpyxl"}
 
-    src = _resolve_input_path(file_path)
+    try:
+        src = _resolve_input_path(file_path)
+    except PermissionError as e:  # N-23: a refusal is the tool's structured error, not a 500
+        return {"success": False, "error": str(e)}
     if not src.exists():
         return {"success": False, "error": f"File not found: {file_path}"}
     if src.suffix.lower() not in {".xlsx", ".xlsm"}:
@@ -942,7 +948,10 @@ def read_powerpoint(
             "error": "python-pptx not installed. Run: pip install python-pptx",
         }
 
-    src = _resolve_input_path(file_path)
+    try:
+        src = _resolve_input_path(file_path)
+    except PermissionError as e:  # N-23: a refusal is the tool's structured error, not a 500
+        return {"success": False, "error": str(e)}
     if not src.exists():
         return {"success": False, "error": f"File not found: {file_path}"}
     if src.suffix.lower() != ".pptx":
@@ -1019,7 +1028,10 @@ def read_pdf(
             "error": "pdfplumber not installed. Run: pip install pdfplumber",
         }
 
-    src = _resolve_input_path(file_path)
+    try:
+        src = _resolve_input_path(file_path)
+    except PermissionError as e:  # N-23: a refusal is the tool's structured error, not a 500
+        return {"success": False, "error": str(e)}
     if not src.exists():
         return {"success": False, "error": f"File not found: {file_path}"}
     if src.suffix.lower() != ".pdf":
