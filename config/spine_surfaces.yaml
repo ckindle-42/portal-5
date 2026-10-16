@@ -1076,6 +1076,10 @@ surfaces:
   globs:
   - tests/wfe/decision.py
   unit: unit-wfe-workspace-fitness
+- name: file-tests-wfe-e2e-compliance_attainability
+  globs:
+  - tests/wfe/e2e/compliance_attainability.py
+  unit: unit-wfe-workspace-fitness
 - name: file-tests-wfe-e2e-compliance_classify
   globs:
   - tests/wfe/e2e/compliance_classify.py
@@ -1159,6 +1163,10 @@ surfaces:
 - name: file-tests-wfe-tests-test_wfe_checkers
   globs:
   - tests/wfe/tests/test_wfe_checkers.py
+  unit: unit-wfe-workspace-fitness
+- name: file-tests-wfe-tests-test_wfe_compliance_attainability
+  globs:
+  - tests/wfe/tests/test_wfe_compliance_attainability.py
   unit: unit-wfe-workspace-fitness
 - name: file-tests-wfe-tests-test_wfe_compliance_classify
   globs:

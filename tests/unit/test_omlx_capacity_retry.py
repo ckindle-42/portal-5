@@ -113,3 +113,64 @@ def test_a_507_on_the_tool_loop_frees_once_and_retries_omlx(monkeypatch) -> None
     assert len(posts) == 2 and freed == [1]
     assert b"hello" in out
     assert b'"error"' not in out  # the 507 never reaches the client
+
+
+def _drive_tool_loop(monkeypatch, outcomes: list) -> tuple[bytes, list[str]]:
+    """Run the tool loop against scripted POST outcomes (a _Resp, or an exception to raise)."""
+    posts: list[str] = []
+
+    class _Client:
+        def stream(self, method, url, json=None):  # noqa: A002
+            posts.append(url)
+            outcome = outcomes.pop(0)
+            if isinstance(outcome, Exception):
+                raise outcome
+            return _Stream(outcome)
+
+    async def no_engine(*_a, **_k):
+        return False
+
+    monkeypatch.setattr(streaming, "_http_client", _Client())
+    monkeypatch.setattr(streaming, "_backend_type_for_url", lambda url: "omlx")
+    from portal.platform.inference.router import backend_introspect
+
+    monkeypatch.setattr(backend_introspect, "model_still_running", no_engine)
+
+    async def run() -> bytes:
+        out = b""
+        async for chunk in streaming._tool_loop_frames(
+            "http://omlx.test/v1/chat/completions",
+            {"messages": [{"role": "user", "content": "hi"}], "model": "m"},
+            "auto-daily",
+            "m",
+            "",
+            set(),
+        ):
+            out += chunk
+        return out
+
+    return asyncio.run(run()), posts
+
+
+def test_a_connect_timeout_retries_the_same_backend_once(monkeypatch) -> None:
+    """The connection never opened, so nothing was sent: retry instead of failing the turn over."""
+    import httpx
+
+    answer = json.dumps({"choices": [{"delta": {"content": "hello"}, "finish_reason": "stop"}]})
+    out, posts = _drive_tool_loop(
+        monkeypatch,
+        [httpx.ConnectTimeout("connect"), _Resp(200, lines=[f"data: {answer}", "data: [DONE]"])],
+    )
+    assert len(posts) == 2 and b"hello" in out and b'"error"' not in out
+
+
+def test_a_second_connect_timeout_and_any_read_timeout_surface_as_errors(monkeypatch) -> None:
+    import httpx
+
+    out, posts = _drive_tool_loop(
+        monkeypatch, [httpx.ConnectTimeout("a"), httpx.ConnectTimeout("b")]
+    )
+    assert len(posts) == 2 and b'"error"' in out
+
+    out, posts = _drive_tool_loop(monkeypatch, [httpx.ReadTimeout("slow")])
+    assert len(posts) == 1 and b'"error"' in out  # a read timeout may have started generating

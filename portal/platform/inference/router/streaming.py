@@ -656,7 +656,8 @@ async def _tool_loop_frames(
                 yield f"data: {json.dumps(status_chunk)}\n\n".encode()
 
         _freed_for_hop = False
-        for _attempt in range(2):
+        _connect_retried = False
+        for _attempt in range(3):
             try:
                 trace_capture(backend_request=current_body)
                 async with _http_client.stream("POST", backend_url, json=current_body) as resp:  # type: ignore[union-attr]
@@ -766,10 +767,24 @@ async def _tool_loop_frames(
                         if delta or not _frame_finish:
                             yield (line + "\n\n").encode()
                 break
-            except httpx.TimeoutException:
+            except httpx.TimeoutException as _timeout:
+                if isinstance(_timeout, httpx.ConnectTimeout) and not _connect_retried:
+                    # The connection never opened, so nothing was sent and nothing generated:
+                    # retrying the same backend once is safe and keeps one stalled accept from
+                    # failing the turn over to an engine that cannot hold the model (a Phase C
+                    # granite row: 5.0 s connect timeout -> Ollama fallback -> 507 after 120 s).
+                    _connect_retried = True
+                    logger.warning(
+                        "Tool-loop backend %s connect timed out (workspace=%s, hop=%d); retrying once",
+                        backend_url,
+                        workspace_id,
+                        hop,
+                    )
+                    continue
                 logger.warning(
-                    "Tool-loop backend %s timed out (workspace=%s, hop=%d) — probing engine state",
+                    "Tool-loop backend %s timed out [%s] (workspace=%s, hop=%d) — probing engine state",
                     backend_url,
+                    type(_timeout).__name__,
                     workspace_id,
                     hop,
                 )
