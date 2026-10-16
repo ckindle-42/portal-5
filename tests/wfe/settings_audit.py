@@ -263,6 +263,15 @@ def _audit_sampling(ws_id, ws, hint, bp, tags, violations) -> None:
             "INFO",
         )
         limit = eff  # the card's value is this seat's ceiling from here on
+    elif eff > limit + 1e-9 and ws.get("sampling_override"):
+        _v(
+            violations,
+            ws_id,
+            "sampling_override_over_lane",
+            f"serves temperature {eff}, above the {ws.get('module')} lane's {limit}, by override",
+            "INFO",
+        )
+        limit = eff
     elif eff > limit + 1e-9:
         _v(
             violations,
@@ -354,9 +363,10 @@ def _served_sampling_check(
 
     Served = the seat's resolved sampling (production's own resolver: think
     profile -> flat keys), else the engine's default for that key (the tag's
-    baked value on Ollama, oMLX's global setting on oMLX). A deviation is a
-    WARN, not a FAIL: the doctrine (docs/TASK_SEAT_VENDOR_FIT_V1.md) adopts
-    the card only when an A/B in the seat shows it better for the job."""
+    baked value on Ollama, oMLX's global setting on oMLX). The guidance is the
+    authority (C-FIX 2026-10-16): a production seat that differs FAILs unless its
+    `sampling_override` names a reason and the measured evidence; a bench seat
+    stays a WARN."""
     from portal.platform.inference.router.validation import _resolve_sampling_values
 
     declared = _resolve_sampling_values(ws)
@@ -378,12 +388,41 @@ def _served_sampling_check(
     # A seat on ANY sanctioned mode matches; otherwise report against the primary.
     per_mode = [_diffs(m) for m in _card_modes(hit[1], _served_think(ws, hint, registry))]
     diffs = [] if not per_mode or any(not d for d in per_mode) else per_mode[0]
-    if diffs:
+    override = ws.get("sampling_override")
+    if override is not None and not (
+        isinstance(override, dict) and override.get("reason") and override.get("evidence")
+    ):
+        _v(
+            violations,
+            ws_id,
+            "sampling_override_incomplete",
+            "sampling_override needs both a `reason` and the `evidence` (a measured campaign); "
+            "a lane cap alone is never a reason",
+            "FAIL",
+        )
+        return
+    if not diffs:
+        return
+    detail = f"{hint} on {engine}: " + "; ".join(diffs)
+    if override:
+        _v(
+            violations,
+            ws_id,
+            "served_vs_card_overridden",
+            f"{detail} — kept by override: {override['reason']} (evidence: {override['evidence']})",
+            "INFO",
+        )
+    elif ws_id.startswith("bench-"):
+        _v(violations, ws_id, "served_vs_card", detail + " — bench seat, A/B before changing")
+    else:
+        # The build provider's guidance (else the vendor card) is the authority for a
+        # production seat; a lane ceiling is never a reason to serve something else.
         _v(
             violations,
             ws_id,
             "served_vs_card",
-            f"{hint} on {engine}: " + "; ".join(diffs) + " — A/B before changing (seat-vendor fit)",
+            detail + " — serve the guidance, or add sampling_override {reason, evidence}",
+            "FAIL",
         )
 
 

@@ -1212,6 +1212,78 @@ class TestEffectiveSampling:
         assert any(x["kind"] == "sampling_defaulted" and x["severity"] == "FAIL" for x in v)
 
 
+class TestSeatSamplingFollowsTheGuidance:
+    """C-FIX: a lane cap once lowered auto-compliance's temperature below Qwen3.8's published
+    value (7b5d2afd) and the audit only warned. The guidance is now the authority."""
+
+    CARD = {"temperature": 0.7, "top_p": 0.8, "top_k": 20, "presence_penalty": 1.5}
+
+    def _check(self, ws_id, ws, monkeypatch):
+        import tests.wfe.settings_audit as sa
+
+        registry = {
+            "qwen3.8": {
+                "status": "verified-card",
+                "recommended_sampling": self.CARD,
+                "recommended_sampling_modes": {"instruct": self.CARD},
+            }
+        }
+        monkeypatch.setattr(
+            sa, "_expectations_for", lambda _h, _r: ("qwen3.8", registry["qwen3.8"])
+        )
+        monkeypatch.setattr(sa, "omlx_default_sampling", lambda: {})
+        v: list[dict] = []
+        hint = "hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k"
+        sa._served_sampling_check(
+            ws_id, {"model_hint": hint, "think": False, **ws}, hint, "omlx", registry, v
+        )
+        return v
+
+    def test_a_production_seat_below_the_guidance_is_a_fail(self, monkeypatch):
+        v = self._check("auto-compliance", {"temperature": 0.3, "top_p": 0.95}, monkeypatch)
+        assert [x["severity"] for x in v if x["kind"] == "served_vs_card"] == ["FAIL"]
+
+    def test_the_presence_penalty_is_checked_too(self, monkeypatch):
+        ws = {"temperature": 0.7, "top_p": 0.8, "top_k": 20}  # everything but the anti-loop key
+        v = self._check("auto-compliance", ws, monkeypatch)
+        assert any(x["kind"] == "served_vs_card" and "presence_penalty" in x["detail"] for x in v)
+
+    def test_a_seat_serving_the_guidance_is_clean(self, monkeypatch):
+        assert self._check("auto-compliance", dict(self.CARD), monkeypatch) == []
+
+    def test_a_complete_override_keeps_the_seat_and_says_why(self, monkeypatch):
+        ov = {"reason": "classifier", "evidence": "wfe_router_20261016"}
+        v = self._check("task-router", {"temperature": 0.2, "sampling_override": ov}, monkeypatch)
+        assert [x["severity"] for x in v] == ["INFO"] and v[0][
+            "kind"
+        ] == "served_vs_card_overridden"
+
+    def test_an_override_without_evidence_is_a_fail(self, monkeypatch):
+        ov = {"reason": "deterministic lane"}
+        v = self._check(
+            "auto-compliance", {"temperature": 0.3, "sampling_override": ov}, monkeypatch
+        )
+        assert [x["kind"] for x in v] == ["sampling_override_incomplete"] and v[0][
+            "severity"
+        ] == "FAIL"
+
+    def test_a_bench_seat_stays_a_warning(self, monkeypatch):
+        v = self._check("bench-qwen38-cad", {"temperature": 0.2}, monkeypatch)
+        assert [x["severity"] for x in v] == ["WARN"]
+
+    def test_an_override_turns_the_lane_ceiling_into_a_note(self):
+        from tests.wfe.settings_audit import _audit_sampling
+
+        ws = {"module": "compliance", "model_hint": "x", "temperature": 0.7}
+        v: list[dict] = []
+        _audit_sampling("w", ws, "x", {}, {"x"}, v)
+        assert any(x["kind"] == "sampling_hot" and x["severity"] == "FAIL" for x in v)
+        ws["sampling_override"] = {"reason": "r", "evidence": "e"}
+        v = []
+        _audit_sampling("w", ws, "x", {}, {"x"}, v)
+        assert [x["kind"] for x in v] == ["sampling_override_over_lane"]
+
+
 class TestSandboxRepoAccess:
     """Regression: an in-repo research task (res-repo-grounded) was unwinnable
     because repo_search('.', ...) searched only the empty sandbox and
