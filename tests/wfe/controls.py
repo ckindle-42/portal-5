@@ -45,6 +45,7 @@ TASK_KEYS = {
 CHECKER_KEYS = {
     "answer_contains": ({"patterns"}, {"forbid", "exact", "forbid_in_tool_output"}),
     "tool_grounded": ({"evidence"}, {"tools"}),
+    "office_contains": ({"kind", "expect"}, {"path"}),
 }
 
 

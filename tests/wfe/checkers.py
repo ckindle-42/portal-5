@@ -548,6 +548,70 @@ def check_receipt_artifact(spec: dict, ctx: CheckContext) -> CheckResult:
     )
 
 
+def _office_text(f: Path, kind: str) -> str:
+    """Every string in a produced office file, parsed (never a grep of the binary): docx
+    paragraphs and table cells, xlsx cell values, pptx shape text per slide."""
+    if kind == "docx":
+        import docx
+
+        d = docx.Document(str(f))
+        parts = [p.text for p in d.paragraphs]
+        parts += [c.text for t in d.tables for row in t.rows for c in row.cells]
+    elif kind == "xlsx":
+        import openpyxl
+
+        wb = openpyxl.load_workbook(str(f), data_only=True)
+        parts = [
+            str(c.value) for ws in wb for row in ws.iter_rows() for c in row if c.value is not None
+        ]
+    elif kind == "pptx":
+        import pptx
+
+        parts = []
+        for slide in pptx.Presentation(str(f)).slides:
+            for sh in slide.shapes:
+                if sh.has_text_frame:
+                    parts.append(sh.text_frame.text)
+                if getattr(sh, "has_table", False) and sh.has_table:
+                    parts += [c.text for row in sh.table.rows for c in row.cells]
+    else:
+        raise ValueError(f"unknown office kind {kind!r}")
+    return "\n".join(parts)
+
+
+def check_office_contains(spec: dict, ctx: CheckContext) -> CheckResult:
+    """A produced docx/xlsx/pptx whose parsed content holds every `expect` string. `path` is
+    in the sandbox, or, in production mode, a glob under the row's receipted out/ files."""
+    kind = spec["kind"]
+    ev = (ctx.task or {}).get("_eval")
+    if ev:
+        from tests.wfe.eval_mode import receipts
+
+        files = [
+            Path(x["host_path"])
+            for x in receipts(ev)
+            if x["valid"] is True and x["host_path"].endswith("." + kind)
+        ]
+    else:
+        f = _sandbox_only(ctx, spec["path"]) if ctx.sandbox_root else None
+        files = [f] if f and f.is_file() else []
+    if not files:
+        return CheckResult(Outcome.FAIL, f"no produced .{kind} file", {})
+    expect = spec.get("expect") or []
+    best: list[str] | None = None
+    for f in files:
+        try:
+            text = _office_text(f, kind)
+        except Exception as e:  # noqa: BLE001
+            best = best or [f"unparseable {f.name}: {e}"]
+            continue
+        missing = [e for e in expect if e not in text]
+        if not missing:
+            return CheckResult(Outcome.PASS, f"{f.name} holds all {len(expect)} expected", {})
+        best = missing if best is None or len(missing) < len(best) else best
+    return CheckResult(Outcome.FAIL, f"produced .{kind} lacks {best}", {})
+
+
 def _output_failed(out: str) -> bool:
     """A tool answered, but with a failure: ``resolved``/``found``/``success`` false, or an
     ``error`` field. Such an output echoes the id that was asked for (``{"ref": "OT-POL-007",
@@ -592,6 +656,7 @@ def check_tool_grounded(spec: dict, ctx: CheckContext) -> CheckResult:
 CHECKERS = {
     "pytest_pass": check_pytest_pass,
     "receipt_artifact": check_receipt_artifact,
+    "office_contains": check_office_contains,
     "hidden_pytest": check_hidden_pytest,
     "immutable": check_immutable,
     "file_exists": check_file_exists,

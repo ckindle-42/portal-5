@@ -1212,6 +1212,10 @@ surfaces:
   globs:
   - tests/wfe/tests/test_wfe_ledger_check.py
   unit: unit-wfe-workspace-fitness
+- name: file-tests-wfe-tests-test_wfe_office_contains
+  globs:
+  - tests/wfe/tests/test_wfe_office_contains.py
+  unit: unit-wfe-workspace-fitness
 - name: file-tests-wfe-tests-test_wfe_production_path
   globs:
   - tests/wfe/tests/test_wfe_production_path.py
