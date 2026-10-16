@@ -1063,3 +1063,13 @@ The fleet table is the `mcp_fleet` list in `config/portal.yaml`, the single sour
 
 The catalog groups every model id registered in `config/backends.yaml` by its routing group, which is the same grouping `workspace_routing` uses to resolve which backends a workspace can draw from. Deriving the catalog from the backend file keeps the documented model inventory and the actually-served pool identical.
 <!-- /WIKI:GENERATED -->
+
+## Optional read and ingest roots
+
+By default the documents tools read only inside the output directory (`AI_OUTPUT_DIR`,
+including uploads) and `kb_ingest` reads only the knowledge-base sources directory
+(`PORTAL5_KB_SOURCES_DIR`). To widen either, set `DOCUMENTS_READ_ROOTS` or
+`PORTAL5_KB_INGEST_ROOTS` to an `os.pathsep`-separated list of folders in `.env`. Leave them
+unset unless a folder outside those defaults must be readable by the model's tools.
+`compliance_ingest` reads only the compliance data directory and the operator profile's
+`corpus_dirs`.

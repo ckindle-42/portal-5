@@ -142,6 +142,10 @@ sweep.
 | N-31 | WFE rows in memory-injecting workspaces got the operator's recalled memories: injection ran before the scope bound; fixed in Part 2b |
 | N-32 | The compliance evaluation instance ingested the planted corpus with each document's PLANT header, its answer key; any tool reading those chunks handed a model the gold answer; fixed in the compliance slice |
 | N-33 | compliance_ingest is offered to the model, and its source_dir was not confined: any folder the container could read was ingested. Fixed in this run: the route refuses a source outside the public compliance data dir and the operator profile's corpus_dirs (403, roots named); tests in tests/unit/test_compliance_ingest_roots.py |
+| N-34 | A production-tool-mode row recorded `calls: []`: the pipeline dispatches the tools, the harness only logged calls it executed itself, so `tool_grounded` could never see a call. Fixed f52b9679: the row requests `exec_audit` and reads the pipeline's audit event (also emitted at the hop limit) |
+| N-35 | `tool_grounded` and the store-check script treated a failed lookup as grounding because `{"ref": "OT-POL-007", "resolved": false}` names the id. Fixed a86f5a1b: a `resolved`/`found`/`success` false or `error` output never grounds; the store check now requires `resolved` |
+| N-36 | The compliance evaluation store held zero documents: the default `~` root staged into a literal `./~` directory, and an embed-only ingest never wrote `source_sections`, so `compliance_read` resolved nothing and every hit was excluded. Fixed a86f5a1b + 99451144: `~` expanded; each planted document is registered, captured and projected under its own id; the build fails loudly otherwise |
+| N-37 | A text tool call with a stray `)` after a complete string value (granite-4.1-8b via oMLX) reached the client as raw `<tool_call>` markup. Fixed 8270d4ba: that one character is repaired; any unsalvageable `<tool_call>` wrapper is withheld (logged, counted as `unparsed_tool_call`) on the streamed and non-streamed paths |
 
 ## Follow-on tasks (assigned, not dropped)
 
@@ -394,7 +398,7 @@ Two pieces of evidence a decision needs, both of which used to be destroyed:
 - **Build stamps.** documents, data, memory, RAG and compliance report `build_sha` and `build_dirty` on `/health`; preflight refuses an unreachable, stale or dirty service; service builds enter the instrument fingerprint.
 - **Compliance evaluation instance.** `compliance-mcp-eval` on :8948, rooted at `~/.portal-data/compliance-eval`, serves only the measured-safe tools; a scoped compliance call routes there or is refused. auto-compliance runs in production tool mode through it.
 - **Volume ownership.** The MCP entrypoint chowns the LanceDB and KB-sources volumes; root-written files from earlier migrations otherwise made memory writes and scoped KB seeding fail with 500 (found by live S16 and S17).
-- **Gap.** No test covers cleanup after an interrupted production row (P2-C8 stays PENDING).
+- **Gap.** Cleanup after an interrupted production row was exercised live once (Phase B, 2026-10-15): a `run_arm` killed mid-row left no row, `--append` resumed it as exactly one row and wrote its cleanup inventory, and a second resume found nothing pending. P2-C8 stays PENDING until the remaining families' drills run.
 
 ## Review of the task's second version (2026-10-13), and how V3 answers it
 
@@ -486,10 +490,10 @@ Code and tests only; no live runs, no push. Live checks for every item below run
 | N-1 research probe | fixed | 00049ed7 | errors are ERROR (unscored); rates over scored items; text tool calls are unscored; reasoning-only answers labelled; rq03 re-anchored to January 2025; a verdict needs 30 scored items (qset has 10, so no verdict from it) |
 | N-4 V2 rescore | done, no tracked change | none | offline rescore: 5 outcomes changed, all in compliance rows now untracked (N-11): comp-p6j-06 REFUSED→FAIL ×2, comp-p6j-09 REFUSED→FAIL, comp-p6j-11 FAIL→PASS ×2. Tracked rows: 0 outcome changes; metadata-only rewrites reverted |
 | R2-29 failover window | checked, test added | 6837e6d6 | no Ollama-served hint with a baked window below its context_limit; one unsuffixed hint (`mistral-small3.2:24b` for `auto-security::security-council-mistral-small32-24b`, limit 16384) has no baked `num_ctx` (`/api/show`), so it runs at Ollama's default. Named exception; fix is a `-ctx16k` tag in Phase B (P-4 prevent) |
-| P-2 Laguna failover | reverted | none | removing the Ollama tag orphans the omlx-coding alias. ASSUMED-STALE: the 500 note dates from Ollama 0.34.2 (live 0.40.5). Phase B sends one request through the pipeline with the oMLX primary unavailable |
-| P-2 timeout | code finding, no change | none | streaming uses an idle timeout (`streaming_client.py:244`); the fixed total is the non-streaming read timeout (`non_streaming.py:489`, 300s; 600s for reasoning). ASSUMED that it is what fired; no V2 log exists in the repo or containers. Phase B stall check |
-| P-3 parser | probed, no change | none | oMLX 0.7.0 active, ships a `laguna` parser (glm47-equivalent). Checkpoint tokenizer config has no `tool_parser_type`. ASSUMED oMLX auto-infers the parser. Phase B live call logs the parser; stamp only if the guard fires |
-| P-4 truncation and harness parity | not measured | none | needs a model cold load, so Phase B, through the pipeline |
+| P-2 Laguna failover | verified live | none | Ollama 0.40.5, oMLX stopped, `auto-coding::laguna` through the pipeline: served by ollama-coding, execute_bash ran, no 500. The 0.34.2 note in backends.yaml is corrected |
+| P-2 timeout | verified live, no change | none | the shared client's 600s read timeout is a per-read idle timer: a 420s oMLX freeze resumed uncut, a 660s freeze was cut at ~600s with `protecting omlx:...` and an Ollama fallback. The fixed 300s total is the non-streaming path |
+| P-3 parser | verified live | none | oMLX 0.7.0 pins the laguna parser; the live Laguna tool call ran. No stamp needed. The split guard stays a unit-tested backstop |
+| P-4 truncation and harness parity | fixed, live | cb5755e2, 07c6e12e | Ollama 0.40.5: the Ollama-engine runner (gemma4 ctx8k) answers 200 with `prompt_tokens` cut to the window (4099 for a ~20k prompt, head dropped); the llama.cpp runner (LFM ctx8k) 400s `exceeds the available context size`. Detect: window from the `-ctxNk` tag vs a chars/4 estimate, trace note `prompt_truncated`, metric `portal_errors_total{error_type=prompt_truncated}`, one-line notice; parity: that 400 is recorded `context_overflow` |
 | N-8/N-11/N-4/N-10 (live) | Phase B | — | per the operator rule, live checks go through the pipeline on :9099 |
 
 **N-8 divergence (pre-fix `seat_primary` against production candidate order).** 22 pairs across 2 workspaces. Pre-fix rows for these pairs may have attributed the wrong primary. Phase B confirms one diverging workspace live via `/v1/trace`.

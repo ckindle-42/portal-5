@@ -441,9 +441,11 @@ backends:
   # cap, official and imported GGUF alike). Derived from the Ollama library
   # `laguna-xs-2.1` (poolside-v1 renderer/parser), num_ctx 131072 baked — ctx64k
   # was undersized for real opencode prompts (87,665-token case). ~20GB. This is
-  # the Ollama FALLBACK only: Ollama 0.34.2's Laguna parser 500s on any reply that
-  # starts with a bare JSON object ("empty Laguna tool call name"); the oMLX
-  # alias in omlx-coding (priority 10) serves the seat and does not.
+  # the Ollama FALLBACK: Ollama 0.34.2's Laguna parser 500ed on any reply that
+  # starts with a bare JSON object ("empty Laguna tool call name"). Re-checked live
+  # on 0.40.5 (2026-10-15, oMLX stopped, auto-coding::laguna through the pipeline):
+  # served by ollama-coding, execute_bash ran, no 500. The oMLX alias in omlx-coding
+  # (priority 10) still serves the seat.
   - id: portal5/laguna-xs21:q4_K_M-ctx128k
     supports_tools: true
   - id: gpt-oss:20b

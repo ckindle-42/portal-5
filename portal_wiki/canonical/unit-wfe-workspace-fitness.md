@@ -223,3 +223,25 @@ Phase 0; fitness matrix drives disposition decisions.
 - **Loop attribution.** Before naming a model as the cause of a turn-cap loop,
   follow the protocol in [[unit-wfe-loop-attribution-protocol]].
 
+
+## Production tool mode: the row's own trace
+
+In production tool mode the pipeline, not the harness, dispatches the workspace's
+tools, so a row asks for `exec_audit` and reads the pipeline's audit event (tool,
+arguments, output for every dispatched call, also at the hop limit) as its tool
+log. The `tool_grounded` checker passes only when a successful call to an allowed
+tool returned every evidence pattern; an output that reports a failure
+(`resolved`, `found` or `success` false, or an `error` field) never grounds an
+answer, even when it echoes the id that was asked for. The compliance and data
+production suites (`compliance_production`, `data_production`) are graded this way.
+
+The compliance evaluation store (`compliance-mcp-eval`) is built from the committed
+planted corpus with each document's answer-key header stripped. Each document is
+registered, captured and projected under its own id, because the retrieval index is
+a projection of the canonical section store: an embed-only ingest leaves
+`compliance_read` unable to resolve the id. The build fails when nothing captures.
+
+A prompt longer than the served `-ctxNk` tag is detected by the pipeline when the
+engine reports fewer prompt tokens than were sent (trace note `prompt_truncated`,
+the `prompt_truncated` error counter, a one-line notice); a runner that refuses it
+with HTTP 400 is recorded by the harness as `context_overflow`.

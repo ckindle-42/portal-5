@@ -47,10 +47,10 @@
 | P2-X | PENDING | | |
 | P3-A | PENDING | | |
 | P3-B | PENDING | | |
-| P3-C | PENDING | | |
-| P3-D1 | PENDING | | |
+| P3-C | PASS | compliance_production suite (36 tasks, 11 screen) rebuilds reproducibly; controls gate PASS (11 screen tasks/arm, both arms, preflight 2/2 OK on 4 services at HEAD); store check 12/12 resolved+grounded+no leak at 99451144 (the earlier 12/12 passed on a `resolved:false` echo, see N-35/N-36); live rows s1_live_d_20261015: lookup PASS grounded by nerc_cip_requirement, determination FAIL on content (PARTIAL/NEEDS_REVIEW) with 12 grounded calls; both tool_mode production, seat Qwen3.8-27B-oQ4e-mtp, identity frozen | 2026-10-16T02:54:02Z |
+| P3-D1 | PASS | data_production: live rows sd_live_20261015 on the incumbent: inventory PASS (run_sql), tickets PASS (run_sql), sales FAIL (model answered null without tools; 2 of 3 PASS on repeat in sd_live_sales_20261015); tool_mode production, served unsloth--Qwen3.6-35B-A3B-UD-MLX-4bit, sessions closed | 2026-10-16T02:54:02Z |
 | P3-D2 | PENDING | | |
-| P3-D3 | PENDING | | |
+| P3-D3 | PASS | data suite, decision plan and live rows (see P3-D1); controls gate with the DuckDB cross-checks PASS | 2026-10-16T02:54:02Z |
 | P3-D4 | PENDING | | |
 | P3-D5 | PENDING | | |
 | P3-D6 | PENDING | | |
@@ -60,22 +60,22 @@
 | P3-E | PENDING | | |
 | P3-F | PENDING | | |
 | P3-X | PENDING | | |
-| P4-P1 | PENDING | | |
-| P4-P2 | PENDING | | |
-| P4-P3 | PENDING | | |
-| P4-P4 | PENDING | | |
-| P4-N1 | PENDING | | |
-| P4-N2 | PENDING | | |
-| P4-N3 | PENDING | | |
-| P4-N4 | PENDING | | |
-| P4-N5 | PENDING | | |
-| P4-N6 | PENDING | | |
-| P4-N7 | PENDING | | |
-| P4-N8 | PENDING | | |
-| P4-N9 | PENDING | | |
-| P4-N10 | PENDING | | |
-| P4-N11 | PENDING | | |
-| P4-N12 | PENDING | | |
+| P4-P1 | PASS | empty tool-loop hop is rescued by one non-streamed retry: live on granite-4.1-8b via oMLX, `empty stream rescued` x9 in 14 streamed tool requests, no placeholder. The same runs leaked raw `<tool_call>` markup twice (stray `)`): fixed in 8270d4ba (repair + withhold), 8 of 8 clean after redeploy | 2026-10-16T02:54:02Z |
+| P4-P2 | PASS | seat protection: `protecting omlx:<model> for 300s` on a natural failover and in the stall drill; stall timer: shared client read timeout 600s per read is the idle timer, a 420s freeze resumed uncut, a 660s freeze was cut at ~600s (`timed out ... probing engine state`, then protect + Ollama fallback); capacity refusal: a real 507 freed idle Ollama and retried oMLX, client got no error (75f9467f); eligibility: R2-29 test + window-only tags; Laguna Ollama failover answered live on 0.40.5 (the 0.34.2 500 note was stale and is corrected) | 2026-10-16T02:54:02Z |
+| P4-P3 | PASS | split guard is a unit-tested backstop (not exercised live); parser root: oMLX 0.7.0 pins the laguna parser, `auto-coding::laguna` ran execute_bash via oMLX live | 2026-10-16T02:54:02Z |
+| P4-P4 | PASS | detect: measured on Ollama 0.40.5 through the pipeline (gemma4 ctx8k returns 200 with prompt_tokens cut to 4099 for a ~20k prompt; the llama.cpp runner 400s), trace note + metric + visible notice live on streamed and non-streamed turns (cb5755e2, 07c6e12e); prevent: window-only tags created and resolved, `settings_audit` has no ctx_not_baked FAIL (4 pre-existing FAILs listed in the report); parity: a real 400 `exceeds the available context size` is recorded context_overflow | 2026-10-16T02:54:02Z |
+| P4-N1 | PASS | fixed 00049ed7 | 2026-10-16T02:54:02Z |
+| P4-N2 | PASS | fixed 3ce3d332 | 2026-10-16T02:54:02Z |
+| P4-N3 | PASS | fixed c31208bc | 2026-10-16T02:54:02Z |
+| P4-N4 | PASS | done: offline rescore, 0 tracked outcome changes; 5 changes were in rows now untracked (N-11) | 2026-10-16T02:54:02Z |
+| P4-N5 | PASS | fixed in Part 1 | 2026-10-16T02:54:02Z |
+| P4-N6 | PASS | fixed in Part 1 | 2026-10-16T02:54:02Z |
+| P4-N7 | PASS | settings_audit: no Qwen3-8B tag resolves to the qwen3.8 card | 2026-10-16T02:54:02Z |
+| P4-N8 | PASS | fixed aefa63bc; live: auto-compliance, auto-coding and auto-data /v1/trace serving model == seat_primary | 2026-10-16T02:54:02Z |
+| P4-N9 | PASS | fixed c86b492f | 2026-10-16T02:54:02Z |
+| P4-N10 | PASS | fixed f4fcfee1 | 2026-10-16T02:54:02Z |
+| P4-N11 | PASS | fixed f5054327; live: HK flagged a planted tracked compliance row in the live repo, clean after removal | 2026-10-16T02:54:02Z |
+| P4-N12 | PASS | pipeline-mode preflight with gemma4:12b-it-qat-ctx8k resident: still resident after (api/ps before == after) | 2026-10-16T02:54:02Z |
 | P4-F | PENDING | | |
 | P4-X | PENDING | | |
 | P5-A1 | PENDING | | |
