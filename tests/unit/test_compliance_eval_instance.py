@@ -147,15 +147,25 @@ def test_a_tilde_root_stages_under_the_home_dir_not_a_literal_tilde_directory(
     assert not (tmp_path / "~").exists()
 
 
-def test_build_fails_loudly_when_the_planted_corpus_does_not_ingest(tmp_path, monkeypatch):
-    from portal.modules.compliance.core import eval_instance, ingest, migrate_legacy
+def test_every_planted_document_is_registered_and_captured_without_its_answer_key(tmp_path):
+    """Live 2026-10-15: embedding the corpus alone (ingest_folder) left source_sections empty,
+    so compliance_read answered {"resolved": false} for every planted id and every hit was
+    excluded. Each document must resolve under its own id, key-free."""
+    from portal.modules.compliance.core import eval_instance
+    from portal.modules.compliance.core.repository import Repository
 
-    monkeypatch.setenv("COMPLIANCE_DB_PATH", str(tmp_path / "c.db"))
-
-    async def nothing(*a, **k):
-        return {"error": "directory not found: x"}
-
-    monkeypatch.setattr(ingest, "ingest_folder", nothing)
-    monkeypatch.setattr(migrate_legacy, "import_register", lambda *a, **k: {})
-    with pytest.raises(RuntimeError, match="did not ingest"):
-        eval_instance.build(tmp_path)
+    repo = Repository(tmp_path / "c.db")
+    repo.migrate()
+    ids = eval_instance._capture_planted(repo, tmp_path)
+    assert len(ids) == len(list(eval_instance.PLANTED.glob("*.md"))) == 12
+    for doc_id in ids:
+        n = repo._conn.execute(
+            "SELECT COUNT(*) FROM source_sections s JOIN document_revisions r "
+            "ON r.revision_id = s.revision_id WHERE r.logical_id = ?",
+            (doc_id,),
+        ).fetchone()[0]
+        assert n >= 1, doc_id
+        rev = repo._conn.execute(
+            "SELECT alias_path FROM document_revisions WHERE logical_id = ?", (doc_id,)
+        ).fetchone()[0]
+        assert "PLANT" not in Path(rev).read_text()

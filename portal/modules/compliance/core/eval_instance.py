@@ -18,6 +18,7 @@ import argparse
 import asyncio
 import os
 from pathlib import Path
+from typing import Any
 
 #: Measured on an isolated instance (fresh store per tool, quiescence before and after, then a
 #: store warmed by every other candidate): no model call, no table or file change, and an
@@ -107,20 +108,96 @@ def _stage_planted(root: Path | str) -> Path:
     return out
 
 
+def _capture_planted(repo: Any, root: Path | str) -> list[str]:
+    """Register, capture and return the logical ids of the planted documents.
+
+    The retrieval index is a projection of the canonical section store, so a document
+    that is only embedded (``ingest_folder``) hits nothing: ``compliance_read`` cannot
+    resolve its id and every hit is excluded as not in ``source_sections``. Each document
+    is therefore registered under its own id (the header's ``doc_id``), captured whole and
+    stored, the way ``reader.store_answer`` stores a text-only source."""
+    import json
+    import re
+
+    from portal.modules.compliance.core.capture import (
+        CapturedDocument,
+        CapturedUnit,
+        store_capture,
+    )
+    from portal.modules.compliance.core.models import SourceDocument
+
+    staged = _stage_planted(root)
+    ids: list[str] = []
+    for f in sorted(PLANTED.glob("*.md")):
+        head = re.search(r"<!--\s*PLANT\s+(\{.*?\})\s*-->", f.read_text(), re.S)
+        meta = json.loads(head.group(1)) if head else {}
+        doc_id = meta["doc_id"]
+        staged_file = staged / f.name
+        body = staged_file.read_text()
+        repo.upsert_source_document(
+            SourceDocument(
+                logical_id=doc_id,
+                title=doc_id,
+                issuer="operator",
+                source_kind=str(meta.get("doc_class") or "policy"),
+                jurisdiction="internal",
+            )
+        )
+        revision = repo.add_document_revision(
+            doc_id, str(staged_file), body.encode(), binding_effect="binding"
+        )
+        # Units tile the text: one per second-level heading, the first also holding the title.
+        cuts = [0, *[m.start() for m in re.finditer(r"^## ", body, re.M) if m.start()], len(body)]
+        units = []
+        for n, (a, b) in enumerate(zip(cuts, cuts[1:], strict=False)):
+            first = body[a:b].strip().splitlines()[0].lstrip("# ").strip()
+            units.append(
+                CapturedUnit(
+                    ordinal=n,
+                    unit_kind="prose",
+                    heading_path=f"{doc_id} > {first}" if n else doc_id,
+                    title=first,
+                    page_start=1,
+                    page_end=1,
+                    char_start=a,
+                    char_end=b,
+                    text=body[a:b],
+                )
+            )
+        store_capture(
+            repo,
+            revision.revision_id,
+            CapturedDocument(
+                path=staged_file,
+                page_count=1,
+                full_text=body,
+                units=units,
+                extractor="eval_instance",
+                extractor_version="1",
+                reader_strings=tuple(u.text for u in units),
+            ),
+        )
+        ids.append(doc_id)
+    return ids
+
+
 def build(root: Path | str) -> dict[str, object]:
     """The evaluation store, from public, committed material only."""
+    from portal.modules.compliance.core import section_index
     from portal.modules.compliance.core.cip_register import Register
-    from portal.modules.compliance.core.ingest import ingest_folder
     from portal.modules.compliance.core.migrate_legacy import import_register
     from portal.modules.compliance.core.repository import Repository
+    from portal.modules.compliance.tools.compliance_retrieval import project_sections
 
     repo = Repository(os.environ["COMPLIANCE_DB_PATH"])
     repo.migrate()
     reg = import_register(repo, Register.load())
-    corpus = asyncio.run(ingest_folder(str(_stage_planted(root)), "operator_corpus", True))
-    if corpus.get("error") or corpus.get("ingest_error") or not corpus.get("files_ingested"):
-        raise RuntimeError(f"the planted corpus did not ingest: {corpus}")
-    return {"register": reg, "planted_corpus": corpus}
+    ids = _capture_planted(repo, root)
+    plan = section_index.build_plan(repo, jurisdiction="internal")
+    projected = asyncio.run(project_sections(plan.kb_id, plan.units, rebuild=True))
+    if len(ids) != len(list(PLANTED.glob("*.md"))) or not plan.units:
+        raise RuntimeError(f"the planted corpus did not capture: {len(ids)} documents, {plan}")
+    return {"register": reg, "planted_documents": ids, "projected": projected}
 
 
 def main(argv: list[str] | None = None) -> int:
