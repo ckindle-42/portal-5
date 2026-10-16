@@ -3,8 +3,10 @@ docs/WFE_ROOT_CAUSES_20261013.md, "Known-answer controls"."""
 
 from __future__ import annotations
 
+import base64
 import datetime as dt
 import hashlib
+import tempfile
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -17,7 +19,13 @@ TODAY = dt.date.today
 
 #: Checkers a control tests fully: they grade the answer text and, for tool_grounded, the
 #: tool trace a declared control supplies ({"answer": ..., "tool_calls": [...]}).
-ANSWER_GRADED = {"answer_contains", "cited_answer", "compliance_reading_contract", "tool_grounded"}
+ANSWER_GRADED = {
+    "answer_contains",
+    "cited_answer",
+    "compliance_reading_contract",
+    "tool_grounded",
+    "office_contains",
+}
 
 #: Every key a suite task may carry, and the keys each checker type reads (N-24): a
 #: missing or misspelled key used to default to a check that any answer passes.
@@ -45,7 +53,7 @@ TASK_KEYS = {
 CHECKER_KEYS = {
     "answer_contains": ({"patterns"}, {"forbid", "exact", "forbid_in_tool_output"}),
     "tool_grounded": ({"evidence"}, {"tools"}),
-    "office_contains": ({"kind", "expect"}, {"path"}),
+    "office_contains": ({"kind", "expect"}, {"path", "headings", "sheets", "titles"}),
 }
 
 
@@ -101,10 +109,21 @@ def _seed_text(task: dict) -> str:
 
 
 def _outcome(task: dict, answer: str | dict) -> tuple[Outcome, str]:
-    """A control is an answer, or {"answer", "tool_calls"} for a trace-grounded task."""
+    """A control is an answer, or {"answer", "tool_calls", "files_b64"}: a trace for a
+    trace-grounded task, and the files a produced-file task's checker should find."""
     text = answer.get("answer", "") if isinstance(answer, dict) else answer
     calls = answer.get("tool_calls") if isinstance(answer, dict) else None
-    r = apply_checkers(task, CheckContext(final_text=text, task=task, tool_calls=calls))
+    files = answer.get("files_b64") if isinstance(answer, dict) else None
+    with tempfile.TemporaryDirectory() as td:
+        for rel, b64 in (files or {}).items():
+            (Path(td) / rel).parent.mkdir(parents=True, exist_ok=True)
+            (Path(td) / rel).write_bytes(base64.b64decode(b64))
+        r = apply_checkers(
+            task,
+            CheckContext(
+                final_text=text, task=task, tool_calls=calls, sandbox_root=Path(td) if td else None
+            ),
+        )
     return r.outcome, r.notes
 
 

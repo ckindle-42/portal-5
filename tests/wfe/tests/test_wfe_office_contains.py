@@ -68,3 +68,60 @@ def test_registered_in_the_schema_gate():
     assert not controls.schema_failures(task)
     task["checkers"] = [{"type": "office_contains", "kind": "docx"}]
     assert controls.schema_failures(task)
+
+
+def test_structural_names_headings_sheets_titles(tmp_path):
+    d = docx.Document()
+    d.add_heading("Plan", 1)
+    d.add_paragraph("Goals")  # text only, not a heading
+    d.save(tmp_path / "a.docx")
+    spec = {"type": "office_contains", "kind": "docx", "expect": ["Goals"], "path": "a.docx"}
+    assert (
+        check_office_contains(
+            {**spec, "headings": ["Plan"]}, CheckContext(sandbox_root=tmp_path)
+        ).outcome
+        == Outcome.PASS
+    )
+    assert (
+        check_office_contains(
+            {**spec, "headings": ["Goals"]}, CheckContext(sandbox_root=tmp_path)
+        ).outcome
+        == Outcome.FAIL
+    )
+    wb = openpyxl.Workbook()
+    wb.active.title = "North"
+    wb.save(tmp_path / "a.xlsx")
+    x = {"type": "office_contains", "kind": "xlsx", "expect": [], "sheets": ["North"]}
+    assert check_office_contains(x, CheckContext(sandbox_root=tmp_path)).outcome == Outcome.PASS
+    assert (
+        check_office_contains(
+            {**x, "sheets": ["South"]}, CheckContext(sandbox_root=tmp_path)
+        ).outcome
+        == Outcome.FAIL
+    )
+    p = pptx.Presentation()
+    p.slides.add_slide(p.slide_layouts[5]).shapes.title.text = "Roadmap"
+    p.save(tmp_path / "a.pptx")
+    t = {"type": "office_contains", "kind": "pptx", "expect": [], "titles": ["Roadmap"]}
+    assert check_office_contains(t, CheckContext(sandbox_root=tmp_path)).outcome == Outcome.PASS
+    assert (
+        check_office_contains(
+            {**t, "titles": ["Other"]}, CheckContext(sandbox_root=tmp_path)
+        ).outcome
+        == Outcome.FAIL
+    )
+
+
+def test_one_file_must_satisfy_everything(tmp_path):
+    for n, text in (("a", "alpha"), ("b", "beta")):
+        d = docx.Document()
+        d.add_paragraph(text)
+        d.save(tmp_path / f"{n}.docx")
+    spec = {"type": "office_contains", "kind": "docx", "expect": ["alpha", "beta"]}
+    assert check_office_contains(spec, CheckContext(sandbox_root=tmp_path)).outcome == Outcome.FAIL
+    assert (
+        check_office_contains(
+            {**spec, "expect": ["beta"]}, CheckContext(sandbox_root=tmp_path)
+        ).outcome
+        == Outcome.PASS
+    )

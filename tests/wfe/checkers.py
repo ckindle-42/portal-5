@@ -548,15 +548,21 @@ def check_receipt_artifact(spec: dict, ctx: CheckContext) -> CheckResult:
     )
 
 
-def _office_text(f: Path, kind: str) -> str:
-    """Every string in a produced office file, parsed (never a grep of the binary): docx
-    paragraphs and table cells, xlsx cell values, pptx shape text per slide."""
+def _office_parts(f: Path, kind: str) -> tuple[str, list[str]]:
+    """(all text, structural names) of a produced office file, parsed (never a grep of the
+    binary). Text: docx paragraphs and table cells, xlsx cell values, pptx shape text. Names:
+    docx heading paragraphs (Title and Heading styles), xlsx sheet names, pptx slide titles."""
     if kind == "docx":
         import docx
 
         d = docx.Document(str(f))
         parts = [p.text for p in d.paragraphs]
         parts += [c.text for t in d.tables for row in t.rows for c in row.cells]
+        names = [
+            p.text
+            for p in d.paragraphs
+            if p.style is not None and p.style.name.startswith(("Heading", "Title"))
+        ]
     elif kind == "xlsx":
         import openpyxl
 
@@ -564,11 +570,14 @@ def _office_text(f: Path, kind: str) -> str:
         parts = [
             str(c.value) for ws in wb for row in ws.iter_rows() for c in row if c.value is not None
         ]
+        names = list(wb.sheetnames)
     elif kind == "pptx":
         import pptx
 
-        parts = []
+        parts, names = [], []
         for slide in pptx.Presentation(str(f)).slides:
+            if slide.shapes.title is not None:
+                names.append(slide.shapes.title.text_frame.text)
             for sh in slide.shapes:
                 if sh.has_text_frame:
                     parts.append(sh.text_frame.text)
@@ -576,12 +585,18 @@ def _office_text(f: Path, kind: str) -> str:
                     parts += [c.text for row in sh.table.rows for c in row.cells]
     else:
         raise ValueError(f"unknown office kind {kind!r}")
-    return "\n".join(parts)
+    return "\n".join(parts), names
+
+
+#: The structural key each office kind may check, against the names _office_parts returns.
+_OFFICE_NAMES = {"docx": "headings", "xlsx": "sheets", "pptx": "titles"}
 
 
 def check_office_contains(spec: dict, ctx: CheckContext) -> CheckResult:
-    """A produced docx/xlsx/pptx whose parsed content holds every `expect` string. `path` is
-    in the sandbox, or, in production mode, a glob under the row's receipted out/ files."""
+    """A produced docx/xlsx/pptx whose parsed content holds every `expect` string and every
+    name under the kind's structural key (`headings`, `sheets`, `titles`). In production mode
+    the candidates are the row's valid creation receipts of that kind; in the sandbox, `path`
+    or else every file of that kind under the sandbox. One file must satisfy all of it."""
     kind = spec["kind"]
     ev = (ctx.task or {}).get("_eval")
     if ev:
@@ -592,20 +607,26 @@ def check_office_contains(spec: dict, ctx: CheckContext) -> CheckResult:
             for x in receipts(ev)
             if x["valid"] is True and x["host_path"].endswith("." + kind)
         ]
-    else:
-        f = _sandbox_only(ctx, spec["path"]) if ctx.sandbox_root else None
+    elif not ctx.sandbox_root:
+        files = []
+    elif spec.get("path"):
+        f = _sandbox_only(ctx, spec["path"])
         files = [f] if f and f.is_file() else []
+    else:
+        files = sorted(Path(ctx.sandbox_root).resolve().rglob(f"*.{kind}"))
     if not files:
         return CheckResult(Outcome.FAIL, f"no produced .{kind} file", {})
     expect = spec.get("expect") or []
+    names_want = spec.get(_OFFICE_NAMES.get(kind, ""), []) or []
     best: list[str] | None = None
     for f in files:
         try:
-            text = _office_text(f, kind)
+            text, names = _office_parts(f, kind)
         except Exception as e:  # noqa: BLE001
             best = best or [f"unparseable {f.name}: {e}"]
             continue
         missing = [e for e in expect if e not in text]
+        missing += [f"{_OFFICE_NAMES[kind]}:{n}" for n in names_want if n not in names]
         if not missing:
             return CheckResult(Outcome.PASS, f"{f.name} holds all {len(expect)} expected", {})
         best = missing if best is None or len(missing) < len(best) else best
