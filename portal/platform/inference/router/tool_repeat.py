@@ -27,6 +27,15 @@ FINAL_ANSWER_REQUEST = {
         "final answer now."
     ),
 }
+#: Sent once on a workspace that requires a tool before it answers (portal.yaml
+#: `require_tool_before_answer`) when a turn ended with an answer and no tool call.
+GROUNDING_REQUEST = {
+    "role": "user",
+    "content": "Answer only from a query result: call run_sql or profile_table first, then answer.",
+}
+UNGROUNDED_NOTICE = (
+    "\n\n*Note: this answer is not grounded in a query — the model answered without running one.*"
+)
 #: The request count at which the turn stops offering tools (1 = executed, 2 = first repeat).
 FORCE_SYNTHESIS_AT = 3
 
@@ -55,6 +64,7 @@ class ToolRepeatGuard:
         self._requests: dict[tuple[str, str], int] = {}
         self.force_synthesis = False
         self.suppressed = 0
+        self.grounding_retried = False
 
     def seen(self, call: dict[str, Any]) -> bool:
         """True when this exact call already ran this turn; counts the request."""
@@ -66,6 +76,11 @@ class ToolRepeatGuard:
         if self._requests[key] >= FORCE_SYNTHESIS_AT:
             self.force_synthesis = True
         return True
+
+    @property
+    def executed(self) -> int:
+        """Distinct tool calls this turn has run."""
+        return len(self._results)
 
     def remember(self, call: dict[str, Any], result: dict[str, Any]) -> None:
         self._results[call_key(call)] = str(result.get("content") or "")

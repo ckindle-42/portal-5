@@ -53,6 +53,7 @@ _load_persona_map()
 #   system_prompt_append       String appended after the persona system prompt.
 #   think                      False → disable Qwen3/thinking-mode extended thinking.
 #   emits_reasoning            True → model emits reasoning chains (DeepSeek-R1 family).
+#   require_tool_before_answer True → an answer with no tool call in the turn is retried once, then noticed.
 #
 # Workspace ID prefixes:
 #   auto       — auto-routable (the LLM intent classifier may route here).

@@ -20,6 +20,7 @@ from fastapi.responses import JSONResponse
 from portal.platform.inference.config import PersonaSpec
 from portal.platform.inference.router.eval_gate import apply_eval_scope
 from portal.platform.inference.router.metrics import (
+    _answer_without_tool_retried,
     _hint_fallback_total,
     _tool_calls_recovered,
     _tool_repeat_suppressed,
@@ -30,7 +31,12 @@ from portal.platform.inference.router.text_tool_calls import (
     drop_unparsed_markup,
     salvage_text_tool_calls,
 )
-from portal.platform.inference.router.tool_repeat import FINAL_ANSWER_REQUEST, ToolRepeatGuard
+from portal.platform.inference.router.tool_repeat import (
+    FINAL_ANSWER_REQUEST,
+    GROUNDING_REQUEST,
+    UNGROUNDED_NOTICE,
+    ToolRepeatGuard,
+)
 from portal.platform.inference.router.tools import (
     _dispatch_tool_call,
     _select_explicit_required_tool,
@@ -686,6 +692,42 @@ async def _try_non_streaming(
             _ns_messages = list(req_body.get("messages") or [])
             _ns_hops = 0
             _ns_guard = ToolRepeatGuard()
+            if (
+                WORKSPACES.get(workspace_id.split("::")[0], {}).get("require_tool_before_answer")
+                and req_body.get("tools")
+                and not _ns_tool_calls
+                and any(
+                    (_c.get("message") or {}).get("content") for _c in data.get("choices") or []
+                )
+            ):
+                # Answered with no tool call on a workspace that requires one: ask once for a
+                # grounded answer (tools still offered); an answer that is still ungrounded is
+                # delivered with a notice.
+                _answer_without_tool_retried.labels(workspace=workspace_id).inc()
+                logger.warning(
+                    "Non-stream: workspace=%s answered without a tool call; asking once for a "
+                    "grounded answer",
+                    workspace_id,
+                )
+                _ns_messages = [*_ns_messages, GROUNDING_REQUEST]
+                _ns_guard.grounding_retried = True
+                _ns_retry = await _http_client.post(
+                    backend.chat_url,
+                    json={**req_body, "messages": _ns_messages},
+                    timeout=_timeout_obj,
+                )
+                _raise_for_backend_status(_ns_retry)
+                data = _ns_retry.json()
+                _recover_or_withhold_markup(
+                    data, req_body.get("tools"), req_body.get("model", ""), workspace_id
+                )
+                _ns_tool_calls = []
+                for _c in data.get("choices") or []:
+                    _ns_tool_calls.extend((_c.get("message") or {}).get("tool_calls") or [])
+                _ns_dispatchable = bool(_ns_tools) and all(
+                    (tc.get("function") or {}).get("name", "").strip() in _ns_tools
+                    for tc in _ns_tool_calls
+                )
             while _ns_tool_calls and _ns_dispatchable:
                 _ns_hops += 1
                 _ns_repeats = [_ns_guard.seen(tc) for tc in _ns_tool_calls]
@@ -756,6 +798,11 @@ async def _try_non_streaming(
                         for tc in _ns_tool_calls
                     )
                 )
+
+            if _ns_guard.grounding_retried and _ns_guard.executed == 0:
+                for _c in data.get("choices") or []:
+                    _m = _c.get("message") or {}
+                    _m["content"] = (_m.get("content") or "") + UNGROUNDED_NOTICE
 
             # Salient memory write-back (fire-and-forget; once per OWUI turn).
             # Persists only salient USER statements; no-op unless the workspace

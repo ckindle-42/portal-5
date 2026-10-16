@@ -51,6 +51,7 @@ from portal.platform.inference.router.correlation import (
 )
 from portal.platform.inference.router.eval_gate import apply_eval_scope
 from portal.platform.inference.router.metrics import (
+    _answer_without_tool_retried,
     _hint_fallback_total,
     _record_response_time,
     _tool_calls_recovered,
@@ -73,7 +74,12 @@ from portal.platform.inference.router.text_tool_calls import (
     salvage_text_tool_calls,
 )
 from portal.platform.inference.router.thinking import NO_ANSWER_MESSAGE, ThinkTagFilter
-from portal.platform.inference.router.tool_repeat import FINAL_ANSWER_REQUEST, ToolRepeatGuard
+from portal.platform.inference.router.tool_repeat import (
+    FINAL_ANSWER_REQUEST,
+    GROUNDING_REQUEST,
+    UNGROUNDED_NOTICE,
+    ToolRepeatGuard,
+)
 from portal.platform.inference.router.tools import (
     _dispatch_tool_call,
     _select_explicit_required_tool,
@@ -243,6 +249,14 @@ def _thinking_enabled(body: dict[str, Any]) -> bool:
         return False
     options = body.get("options")
     return not (isinstance(options, dict) and options.get("think") is False)
+
+
+def _route(held: list[bytes] | None, frame: bytes) -> list[bytes]:
+    """The frames to send now: the frame itself, or none while this hop's output is being held."""
+    if held is None:
+        return [frame]
+    held.append(frame)
+    return []
 
 
 def _indexed_tool_calls(tool_calls: list[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -631,6 +645,9 @@ async def _tool_loop_frames(
         dict[str, Any]
     ] = []  # accumulates tool calls across all hops when exec_audit=true
     _repeat_guard = ToolRepeatGuard()
+    _require_tool = bool(
+        WORKSPACES.get(workspace_id.split("::")[0], {}).get("require_tool_before_answer")
+    )
 
     while hop < MAX_TOOL_HOPS:
         hop += 1
@@ -650,6 +667,19 @@ async def _tool_loop_frames(
         _holdback = (
             TextToolCallHoldback()
             if current_body.get("tools") or _repeat_guard.force_synthesis
+            else None
+        )
+
+        # A workspace that requires a tool before it answers: until a tool has run, this hop's
+        # output is held, so an answer given from nothing can be replaced by one retry.
+        _held_frames: list[bytes] | None = (
+            []
+            if (
+                _require_tool
+                and current_body.get("tools")
+                and _repeat_guard.executed == 0
+                and not _repeat_guard.grounding_retried
+            )
             else None
         )
 
@@ -790,14 +820,16 @@ async def _tool_loop_frames(
                             _think_filter,
                         )
                         if _rewrite_chunk is not None:
-                            yield _rewrite_chunk
+                            for _f in _route(_held_frames, _rewrite_chunk):
+                                yield _f
                             _content_emitted = _content_emitted or _emitted
                         if _skip:
                             continue
                         if _emitted:
                             _content_emitted = True
                         if delta or not _frame_finish:
-                            yield (line + "\n\n").encode()
+                            for _f in _route(_held_frames, (line + "\n\n").encode()):
+                                yield _f
                 break
             except httpx.TimeoutException as _timeout:
                 if isinstance(_timeout, httpx.ConnectTimeout) and not _connect_retried:
@@ -890,7 +922,8 @@ async def _tool_loop_frames(
                             {"index": 0, "delta": {"content": _visible_held}, "finish_reason": None}
                         ],
                     }
-                    yield f"data: {json.dumps(_held_chunk)}\n\n".encode()
+                    for _f in _route(_held_frames, f"data: {json.dumps(_held_chunk)}\n\n".encode()):
+                        yield _f
                     _content_emitted = _content_emitted or bool(_visible_held.strip())
 
         _tail = _think_filter.feed("", final=True)
@@ -902,7 +935,8 @@ async def _tool_loop_frames(
                 "model": workspace_id,
                 "choices": [{"index": 0, "delta": {"content": _tail}, "finish_reason": None}],
             }
-            yield f"data: {json.dumps(_tail_chunk)}\n\n".encode()
+            for _f in _route(_held_frames, f"data: {json.dumps(_tail_chunk)}\n\n".encode()):
+                yield _f
             _content_emitted = _content_emitted or bool(_tail.strip())
 
         # P-1: an empty hop with tools offered gets one non-streamed retry before the
@@ -927,7 +961,8 @@ async def _tool_loop_frames(
                     "model": workspace_id,
                     "choices": [{"index": 0, "delta": {"content": _rtext}, "finish_reason": None}],
                 }
-                yield f"data: {json.dumps(_rescued)}\n\n".encode()
+                for _f in _route(_held_frames, f"data: {json.dumps(_rescued)}\n\n".encode()):
+                    yield _f
                 _content_emitted = True
 
         # Empty and reasoning-only terminals are explicit no-answer outcomes.
@@ -961,8 +996,26 @@ async def _tool_loop_frames(
                     }
                 ],
             }
-            yield f"data: {json.dumps(_empty_chunk)}\n\n".encode()
+            for _f in _route(_held_frames, f"data: {json.dumps(_empty_chunk)}\n\n".encode()):
+                yield _f
             finish_reason = "length" if _reasoning_only or finish_reason == "length" else "stop"
+
+        if _held_frames is not None:
+            if finish_reason != "tool_calls" and not tool_calls_buf and _content_emitted:
+                # Answered with no tool call on a workspace that requires one: drop the held
+                # answer and ask once for a grounded one (tools still offered).
+                _repeat_guard.grounding_retried = True
+                _answer_without_tool_retried.labels(workspace=workspace_id).inc()
+                logger.warning(
+                    "Tool loop hop %d: workspace=%s answered without a tool call; asking once "
+                    "for a grounded answer",
+                    hop,
+                    workspace_id,
+                )
+                current_body["messages"] = [*current_body.get("messages", []), GROUNDING_REQUEST]
+                continue
+            for _f in _held_frames:
+                yield _f
 
         # After stream completes, check if tool calls were emitted
         if finish_reason == "tool_calls":
@@ -1078,6 +1131,22 @@ async def _tool_loop_frames(
             # Continue loop for next iteration
         else:
             # Model finished without tool calls — done
+            if (
+                _require_tool
+                and current_body.get("tools")
+                and _repeat_guard.executed == 0
+                and _repeat_guard.grounding_retried
+            ):
+                _notice = {
+                    "id": request_id,
+                    "object": "chat.completion.chunk",
+                    "created": int(time.time()),
+                    "model": workspace_id,
+                    "choices": [
+                        {"index": 0, "delta": {"content": UNGROUNDED_NOTICE}, "finish_reason": None}
+                    ],
+                }
+                yield f"data: {json.dumps(_notice)}\n\n".encode()
             if _exec_audit and _exec_audit_calls:
                 yield _exec_audit_event(_exec_audit_calls)
             if notice := take_truncation_notice():

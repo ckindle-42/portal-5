@@ -35,7 +35,7 @@ chain — a unit describing it as a separate two-model pipeline would be
 confidently wrong. The FX1 lesson (a dependency-contract mismatch that unit
 mocks could not catch) is why the live streaming smoke test exists.
 
-Within one turn a `ToolRepeatGuard` (`router/tool_repeat.py`) answers a call the model re-issues with identical arguments from its earlier result plus a short note, instead of running the tool again, and on a third identical request the next hop withholds the tools so the turn ends with an answer rather than the hop limit. The non-streaming failover loop applies the same guard; each suppression increments `portal5_tool_repeat_suppressed_total{workspace}`.
+Within one turn a `ToolRepeatGuard` (`router/tool_repeat.py`) answers a call the model re-issues with identical arguments from its earlier result plus a short note, instead of running the tool again, and on a third identical request the next hop withholds the tools so the turn ends with an answer rather than the hop limit. The non-streaming failover loop applies the same guard; each suppression increments `portal5_tool_repeat_suppressed_total{workspace}`. A workspace flagged `require_tool_before_answer` in portal.yaml (auto-data) does not deliver an answer given with no tool call in the whole turn: the hop's output is held, the model is asked once to answer from a query (tools still offered, `portal5_answer_without_tool_retried_total{workspace}`), and an answer that is still ungrounded is delivered with a one-line notice.
 
 ## Interfaces
 

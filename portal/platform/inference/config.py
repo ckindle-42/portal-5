@@ -141,6 +141,9 @@ class WorkspaceSpec(BaseModel):
     tool_choice: str | None = None
     think: bool | None = None
     emits_reasoning: bool | None = None
+    # True → an answer with no tool call in the whole turn is not delivered as is: the pipeline
+    # asks once for a grounded answer, then delivers with a notice (router/tool_repeat.py).
+    require_tool_before_answer: bool | None = None
     keep_alive: str | None = None
     temperature: float | None = None
     top_p: float | None = None

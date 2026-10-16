@@ -1788,6 +1788,10 @@ workspaces:
     # presence_penalty 1.5 (card) is a no-op on Ollama; repeat_penalty 1.05 substitutes (2026-09-25, calibrate: docs/TASK_SEAT_SAMPLING_AB_V1.md)
     repeat_penalty: 1.0
     presence_penalty: 1.5
+    # A data answer must come from a query: about 1 turn in 10 the model answers from nothing
+    # (a fabricated number) without calling run_sql. The pipeline asks once for a grounded answer,
+    # then delivers with a notice.
+    require_tool_before_answer: true
     think: false
     tools:
     - execute_python

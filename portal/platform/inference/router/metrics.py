@@ -127,6 +127,13 @@ _tool_call_errors = Counter(
     ["tool", "workspace"],
     registry=_REGISTRY,
 )
+_answer_without_tool_retried = Counter(
+    "portal5_answer_without_tool_retried_total",
+    "Turns on a require_tool_before_answer workspace that answered with no tool call and were "
+    "asked once to ground the answer, by workspace",
+    ["workspace"],
+    registry=_REGISTRY,
+)
 _tool_repeat_suppressed = Counter(
     "portal5_tool_repeat_suppressed_total",
     "Identical tool calls within a turn answered from the earlier result, by workspace",
