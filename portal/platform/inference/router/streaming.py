@@ -2126,6 +2126,7 @@ async def _stream_with_fallback(
                         enforce_hint=not fb_last,
                         persona=persona,
                         tried=tried,
+                        max_hops=MAX_TOOL_HOPS,
                     )
                 except BackendRequestError as exc:
                     _error_buffer = (

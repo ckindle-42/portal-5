@@ -344,6 +344,35 @@ def _apply_non_stream_response(
     )
 
 
+def _recover_or_withhold_markup(
+    data: dict[str, Any], tools: list[dict[str, Any]] | None, model: str, workspace_id: str
+) -> None:
+    """Turn a tool call the model wrote as text into a real ``tool_calls`` entry, or withhold it.
+
+    A reply that carries call markup but no offered tool (a synthesis turn runs with none)
+    is call syntax, never an answer: it is cut from the content, not delivered."""
+    for choice in data.get("choices") or []:
+        msg = choice.get("message") or {}
+        if msg.get("tool_calls"):
+            continue
+        text, salvaged = salvage_text_tool_calls(msg.get("content") or "", tools)
+        if salvaged:
+            logger.info(
+                "NON-STREAM: recovered %d tool call(s) written as text (model=%s)",
+                len(salvaged),
+                model,
+            )
+            _tool_calls_recovered.labels(workspace=workspace_id).inc(len(salvaged))
+            msg.update(content=text, tool_calls=salvaged)
+            choice["finish_reason"] = "tool_calls"
+        elif (
+            msg.get("content") and (clean := drop_unparsed_markup(msg["content"])) != msg["content"]
+        ):
+            logger.warning("NON-STREAM: unparseable tool-call markup withheld (model=%s)", model)
+            _record_error(workspace_id, "unparsed_tool_call")
+            msg["content"] = clean
+
+
 async def _try_non_streaming(
     backend: Any,
     body: dict[str, Any],
@@ -353,6 +382,7 @@ async def _try_non_streaming(
     enforce_hint: bool = True,
     persona: str = "",
     tried: dict[tuple[str, str], str] | None = None,
+    max_hops: int = 1,
 ) -> JSONResponse | None:
     """Attempt one non-streaming completion against ``backend``; ``None`` on failure.
 
@@ -398,7 +428,9 @@ async def _try_non_streaming(
 
     Asymmetry with the streaming tool loop: the streaming variant
     in ``_stream_with_tool_loop_impl`` loops up to ``MAX_TOOL_HOPS``
-    times; this does exactly one synthesis turn. Reason: Open WebUI
+    times; by default this does exactly one synthesis turn (``max_hops=1``;
+    a stream's failover passes ``MAX_TOOL_HOPS`` so its turn keeps the tools
+    until the model answers). Reason: Open WebUI
     sends **two** requests per user message when tools are enabled
     — one streaming (for the user-visible response) and one
     non-streaming (for its DB-of-record commit). The streaming
@@ -607,31 +639,9 @@ async def _try_non_streaming(
             data = resp.json()
             # P5-OMLX-QWEN3CODER-TOOLTEXT-001: a call the engine's parser
             # missed arrives as content; recover it before the tool loop.
-            for _c in data.get("choices") or []:
-                _msg = _c.get("message") or {}
-                if req_body.get("tools") and not _msg.get("tool_calls"):
-                    _text, _salvaged = salvage_text_tool_calls(
-                        _msg.get("content") or "", req_body["tools"]
-                    )
-                    if _salvaged:
-                        logger.info(
-                            "NON-STREAM: recovered %d tool call(s) written as text (model=%s)",
-                            len(_salvaged),
-                            req_body.get("model", ""),
-                        )
-                        _tool_calls_recovered.labels(workspace=workspace_id).inc(len(_salvaged))
-                        _msg.update(content=_text, tool_calls=_salvaged)
-                        _c["finish_reason"] = "tool_calls"
-                    elif (
-                        _msg.get("content")
-                        and (_clean := drop_unparsed_markup(_msg["content"])) != _msg["content"]
-                    ):
-                        logger.warning(
-                            "NON-STREAM: unparseable tool-call markup withheld (model=%s)",
-                            req_body.get("model", ""),
-                        )
-                        _record_error(workspace_id, "unparsed_tool_call")
-                        _msg["content"] = _clean
+            _recover_or_withhold_markup(
+                data, req_body.get("tools"), req_body.get("model", ""), workspace_id
+            )
             _resp_tc: list[dict[str, Any]] = []
             for _c in data.get("choices") or []:
                 _resp_tc.extend((_c.get("message") or {}).get("tool_calls") or [])
@@ -668,7 +678,10 @@ async def _try_non_streaming(
                 (tc.get("function") or {}).get("name", "").strip() in _ns_tools
                 for tc in _ns_tool_calls
             )
-            if _ns_tool_calls and _ns_dispatchable:
+            _ns_messages = list(req_body.get("messages") or [])
+            _ns_hops = 0
+            while _ns_tool_calls and _ns_dispatchable:
+                _ns_hops += 1
                 _ns_dispatch = await asyncio.gather(
                     *[
                         _dispatch_tool_call(
@@ -677,26 +690,44 @@ async def _try_non_streaming(
                         for tc in _ns_tool_calls
                     ]
                 )
-                _synth_messages = (
-                    (req_body.get("messages") or [])
+                _ns_messages = (
+                    _ns_messages
                     + [{"role": "assistant", "content": None, "tool_calls": _ns_tool_calls}]
                     + list(_ns_dispatch)
                 )
+                # Every turn but the last keeps the tools, so a turn that needs a second
+                # lookup gets it; the last is the synthesis, run with none.
+                _ns_last = _ns_hops >= max_hops
                 _synth_body = {
                     **req_body,
-                    "messages": _synth_messages,
-                    "tools": None,
-                    "tool_choice": None,
+                    "messages": _ns_messages,
+                    "tools": None if _ns_last else req_body.get("tools"),
+                    "tool_choice": None if _ns_last else req_body.get("tool_choice"),
                 }
                 _synth_resp = await _http_client.post(
                     backend.chat_url, json=_synth_body, timeout=_timeout_obj
                 )
                 _raise_for_backend_status(_synth_resp)
                 data = _synth_resp.json()
+                _recover_or_withhold_markup(
+                    data, _synth_body.get("tools"), req_body.get("model", ""), workspace_id
+                )
                 logger.info(
-                    "Non-stream tool loop: workspace=%s dispatched %d tool(s), synthesis complete",
+                    "Non-stream tool loop: workspace=%s hop %d dispatched %d tool(s)",
                     workspace_id,
+                    _ns_hops,
                     len(_ns_tool_calls),
+                )
+                _ns_tool_calls = []
+                for _c in data.get("choices") or []:
+                    _ns_tool_calls.extend((_c.get("message") or {}).get("tool_calls") or [])
+                _ns_dispatchable = (
+                    not _ns_last
+                    and bool(_ns_tool_calls)
+                    and all(
+                        (tc.get("function") or {}).get("name", "").strip() in _ns_tools
+                        for tc in _ns_tool_calls
+                    )
                 )
 
             # Salient memory write-back (fire-and-forget; once per OWUI turn).

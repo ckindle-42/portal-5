@@ -956,3 +956,106 @@ async def test_make_room_for_omlx_only_for_large_omlx_prompts(monkeypatch) -> No
     assert await bi.make_room_for_omlx(_backend("a"), large) == []  # Ollama target: leave alone
     assert await bi.make_room_for_omlx(_omlx_backend("a"), large) == ["m"]
     assert freed == [1]
+
+
+# ── non-streaming tool loop (the stream's failover engine) ───────────
+
+#: Captured 2026-10-16 from the Ollama GGUF of Qwen3.8-27B serving a stream failover: the
+#: synthesis turn ran with no tools offered, and the model wrote its next lookup as text.
+_MARKUP = (
+    "<tool_call>\n<function=nerc_cip_currency>\n<parameter=req_id>\nCIP-013-2 R1 Part 1.1\n"
+    "</parameter>\n<parameter=date>\n2024-01-01\n</parameter>\n</function>\n</tool_call>"
+)
+
+
+def _tool_reply(name: str = "lookup") -> httpx.Response:
+    call = {"id": "c", "type": "function", "function": {"name": name, "arguments": "{}"}}
+    return httpx.Response(
+        200,
+        json={"choices": [{"message": {"role": "assistant", "content": "", "tool_calls": [call]}}]},
+    )
+
+
+def _text_reply(text: str) -> httpx.Response:
+    return httpx.Response(
+        200, json={"choices": [{"message": {"role": "assistant", "content": text}}]}
+    )
+
+
+@pytest.fixture
+def ns_tools(monkeypatch: pytest.MonkeyPatch, ns_env):
+    from portal.platform.inference import tool_registry as registry_mod
+
+    monkeypatch.setattr(ns, "_model_supports_tools", lambda _m: True)
+    monkeypatch.setattr(ns, "_resolve_persona_tools", lambda *_a: ["lookup"])
+    monkeypatch.setattr(ns, "apply_eval_scope", lambda _b, tools: tools)
+
+    async def refresh() -> None:
+        return None
+
+    monkeypatch.setattr(registry_mod.tool_registry, "refresh", refresh)
+    monkeypatch.setattr(
+        registry_mod.tool_registry,
+        "get_openai_tools",
+        lambda names: [
+            {"type": "function", "function": {"name": n, "parameters": {}}} for n in names
+        ],
+    )
+
+    async def dispatch(tc, *_a, **_k):
+        return {"role": "tool", "tool_call_id": tc.get("id"), "content": "result"}
+
+    monkeypatch.setattr(ns, "_dispatch_tool_call", dispatch)
+    return ns_env
+
+
+class _SeenClient(_NSClient):
+    def __init__(self, responses: list[httpx.Response]) -> None:
+        super().__init__(responses)
+        self.bodies: list[dict] = []
+
+    async def post(self, url, json, timeout):  # noqa: A002
+        self.bodies.append(dict(json))
+        return await super().post(url, json, timeout)
+
+
+@pytest.mark.anyio
+async def test_failover_synthesis_never_delivers_tool_call_markup(monkeypatch, ns_tools) -> None:
+    client = _SeenClient([_tool_reply(), _text_reply(_MARKUP)])
+    monkeypatch.setattr(ns, "_http_client", client)
+
+    result = await ns._try_non_streaming(_backend("b"), {"messages": []}, ns_tools, 0.0)
+
+    content = json.loads(result.body)["choices"][0]["message"]["content"] or ""
+    assert "<tool_call>" not in content and "<function=" not in content
+    assert (
+        client.bodies[1]["tools"] is None
+    )  # the one-hop default still ends in a toolless synthesis
+
+
+@pytest.mark.anyio
+async def test_failover_runs_a_tool_loop_until_the_model_answers(monkeypatch, ns_tools) -> None:
+    client = _SeenClient([_tool_reply(), _tool_reply(), _text_reply("the answer")])
+    monkeypatch.setattr(ns, "_http_client", client)
+
+    result = await ns._try_non_streaming(
+        _backend("b"), {"messages": []}, ns_tools, 0.0, max_hops=20
+    )
+
+    assert json.loads(result.body)["choices"][0]["message"]["content"] == "the answer"
+    assert len(client.bodies) == 3
+    assert client.bodies[1]["tools"] and client.bodies[2]["tools"]  # tools stay on until the answer
+    assert sum(1 for m in client.bodies[2]["messages"] if m["role"] == "tool") == 2
+
+
+@pytest.mark.anyio
+async def test_failover_tool_loop_ends_with_a_toolless_synthesis_at_the_hop_limit(
+    monkeypatch, ns_tools
+) -> None:
+    client = _SeenClient([_tool_reply(), _tool_reply(), _text_reply(_MARKUP)])
+    monkeypatch.setattr(ns, "_http_client", client)
+
+    result = await ns._try_non_streaming(_backend("b"), {"messages": []}, ns_tools, 0.0, max_hops=2)
+
+    assert client.bodies[2]["tools"] is None
+    assert "<tool_call>" not in (json.loads(result.body)["choices"][0]["message"]["content"] or "")
