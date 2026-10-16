@@ -87,6 +87,7 @@ from portal.platform.inference.router.trace import (
 from portal.platform.inference.router.trace import (
     span as trace_span,
 )
+from portal.platform.inference.router.truncation import check as check_truncation
 from portal.platform.inference.router.truncation import take_notice as take_truncation_notice
 from portal.platform.inference.router.validation import (
     _inject_ollama_options,
@@ -684,6 +685,12 @@ async def _tool_loop_frames(
                         except Exception:
                             yield (line + "\n\n").encode()
                             continue
+                        if isinstance(obj.get("usage"), dict):
+                            check_truncation(
+                                current_body.get("model", ""),
+                                workspace_id,
+                                int(obj["usage"].get("prompt_tokens") or 0),
+                            )
                         choice = (obj.get("choices") or [{}])[0]
                         delta = choice.get("delta", {})
                         _reasoning_seen = _reasoning_seen or any(
@@ -1000,6 +1007,8 @@ async def _tool_loop_frames(
                     ],
                 }
                 yield f"data: {json.dumps(audit_event)}\n\n".encode()
+            if notice := take_truncation_notice():
+                yield _content_chunk(request_id, workspace_id, f"\n\n{notice}")
             yield _completion_finish_chunk(finish_reason or "stop")
             yield b"data: [DONE]\n\n"
             if start_time is not None:

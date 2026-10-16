@@ -58,8 +58,8 @@ def check(model: str, workspace: str, prompt_tokens: int) -> bool:
         prompt_truncated={
             "model": model,
             "window": window,
-            "estimated_prompt_tokens": est,
-            "reported_prompt_tokens": prompt_tokens,
+            "estimated_prompt": est,
+            "reported_prompt": prompt_tokens,
         }
     )
     _errors_total.labels(workspace=workspace, error_type="prompt_truncated").inc()
