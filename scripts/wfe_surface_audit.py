@@ -423,6 +423,49 @@ def class5() -> list[Row]:
 # --------------------------------------------------------------------------
 
 
+#: Findings reviewed and kept, with the reason. (class, subject regex) -> reason. A new hit is
+#: open until someone reads it and adds a line here.
+JUSTIFIED: list[tuple[str, str, str]] = [
+    (
+        "1",
+        r"^auto-daily / ",
+        "8192-token window: any prompt addition needs the S2 P-4 measurement first",
+    ),
+    (
+        "1",
+        r"^(auto-coding|auto-nemotron|auto-compliance) / read_",
+        "document reading is incidental in a non-document lane; the tool description carries it",
+    ),
+    (
+        "1",
+        r"^(auto-cad|bench-qwen3\d-cad|auto-coding) / (convert_cad|sandbox_status|execute_bash)",
+        "self-describing utility tool in a lane whose prompt is about CAD or code",
+    ),
+    (
+        "4",
+        r"^auto-audio$",
+        "conditioned on the transcription tools it follows: the URLs exist only after they ran",
+    ),
+    ("4", r"^auto-compliance$", "an output-format rule, not tied to a tool's output"),
+    (
+        "4",
+        r"^compliance-reading$",
+        "a citations rule and a rule against writing tool syntax in prose; neither names a tool result",
+    ),
+]
+
+
+def apply_justified(rows: list[Row]) -> list[Row]:
+    out = []
+    for c, subject, sev, detail in rows:
+        why = next((w for cc, rx, w in JUSTIFIED if cc == c and re.search(rx, subject)), None)
+        if why and sev in ("open", "review"):
+            out.append((c, subject, "justified", f"{detail} | reason: {why}"))
+        else:
+            out.append((c, subject, "open" if sev == "review" else sev, detail))
+    return out
+
+
 CLASSES = {"1": class1, "2": class2, "3": class3, "4": class4, "5": class5}
 TITLES = {
     "1": "tool not named in the prompt",
@@ -459,13 +502,14 @@ def main() -> int:
     rows: list[Row] = []
     for c in a.classes.split(","):
         rows += CLASSES[c.strip()]()
+    rows = apply_justified(rows)
     for c in sorted({r[0] for r in rows}):
         counts = Counter(r[2] for r in rows if r[0] == c)
         print(f"class {c} {TITLES[c]:40s}", dict(sorted(counts.items())))
     if a.md:
         a.md.write_text(render(rows))
         print(f"wrote {a.md}")
-    return 1 if any(r[2] == "open" and r[0] in "235" for r in rows) else 0
+    return 1 if any(r[2] == "open" for r in rows) else 0
 
 
 if __name__ == "__main__":
