@@ -451,7 +451,7 @@ def load_advance(path: Path | None) -> dict[str, set] | None:
 
 def expand_matrix(
     plan_path: Path,
-    repeats: int = DEFAULT_REPEATS,
+    repeats: int | dict[str, int] = DEFAULT_REPEATS,
     all_suites: bool = False,
     only_arm: str | None = None,
     only_suite: str | None = None,
@@ -486,7 +486,8 @@ def expand_matrix(
             for suite in dict.fromkeys(s for s in suites if s):
                 if only_suite and suite != only_suite:
                     continue
-                rows += _suite_rows(ws_id, spec, role, suite, home, tier, repeats, only_task)
+                n = repeats.get(spec[0], DEFAULT_REPEATS) if isinstance(repeats, dict) else repeats
+                rows += _suite_rows(ws_id, spec, role, suite, home, tier, n, only_task)
     # Arm-major: every task for a model runs while its weights are resident.
     rows.sort(key=lambda r: (r["arm"], r["workspace"], r["suite"], r["task_id"], r["repeat"]))
     return _with_tool_modes(rows, plan)
@@ -1422,6 +1423,43 @@ def served_context_limit(workspace: str, model: str, wsc: dict) -> int | None:
     return None
 
 
+def served_temperature(transcript: list) -> float | None:
+    """The temperature the pipeline applied to the row's first served turn (its
+    `options_applied`), or None when the trace recorded none. Never the plan's value."""
+    for t in transcript:
+        temp = ((t.get("served") or {}).get("options") or {}).get("temperature")
+        if temp is not None:
+            return float(temp)
+    return None
+
+
+def arm_served_at_zero(campaign_dir: Path, arm: str) -> bool:
+    """True when every row the arm already ran in this campaign (its screen) recorded a served
+    temperature of 0. An arm with no recorded temperature is never assumed deterministic."""
+    temps = set()
+    for f in (campaign_dir / "rows").glob("*.json"):
+        with contextlib.suppress(Exception):
+            d = json.loads(f.read_text())
+            if d.get("arm") == arm and d.get("served_temperature") is not None:
+                temps.add(float(d["served_temperature"]))
+    return temps == {0.0}
+
+
+def repeats_policy(campaign_dir: Path, matrix: list[dict], default: int) -> dict[str, int]:
+    """arm -> confirm repeats. A workspace's arms get 1 repeat only when EVERY arm in it served
+    temperature 0; any other mix gets `default` for all, so a cell never compares unequal repeat
+    counts (decision.task_scores needs the same repeats on both sides)."""
+    arms_of: dict[str, set[str]] = {}
+    for r in matrix:
+        arms_of.setdefault(r["workspace"], set()).add(r["arm"])
+    out: dict[str, int] = {}
+    for arms in arms_of.values():
+        n = 1 if all(arm_served_at_zero(campaign_dir, a) for a in arms) else default
+        for a in arms:
+            out[a] = max(out.get(a, 0), n)
+    return out
+
+
 def degenerate_repeats(wsc: dict, overrides: dict | None = None) -> str | None:
     """A row served at temperature 0 (or with a pinned seed) repeats one draw.
     Recorded so the report never presents n=3 as three independent draws when
@@ -1543,6 +1581,13 @@ def run_row(
     ).to_dict()
     row["final_text"] = out.get("final_text", "")
     row["repeat_degeneracy"] = degenerate_repeats(wsc, overrides)
+    row["served_temperature"] = served_temperature(out.get("transcript") or [])
+    row["repeats_planned"] = sum(
+        1
+        for m in manifest["rows"]
+        if (m["workspace"], m["arm"], m["suite"], m["task_id"])
+        == (r["workspace"], r["arm"], r["suite"], r["task_id"])
+    )
     row["model"] = row_model(r)
     row["overrides"] = overrides
     row["identity"] = row_identity(out.get("transcript") or [])
@@ -1682,6 +1727,65 @@ def _quarantine(campaign_dir: Path, manifest: dict, r: dict, row: dict, note: st
 MAX_CONSECUTIVE_HARNESS_ERRORS = 3
 _RECENT: dict[str, list[str]] = {}
 
+#: Rows of one task kind after which an arm that is failing wholesale is halted.
+HALT_AFTER_ROWS = 4
+_KIND_ROWS: dict[tuple[str, str], list[dict]] = {}
+
+
+def task_kind(task: dict) -> str:
+    """A task's kind: its explicit `kind`, else its id without the trailing index
+    (`doc-read-03` -> `doc-read`)."""
+    return task.get("kind") or re.sub(r"(-\d+[a-z]?)+$", "", task["id"])
+
+
+def hop_limited(row: dict) -> bool:
+    """The model kept calling tools and never answered within the turn limit."""
+    return any("exhausted_turns" in t for t in row.get("transcript") or [])
+
+
+def kind_halt_reason(arm: str, kind: str, row: dict, n: int = HALT_AFTER_ROWS) -> str | None:
+    """Why the arm should halt on this task kind, or None. Judged once the kind has n rows:
+    a pass rate of at most 1/n, no tool call on any row, or any HARNESS_ERROR / hop-limit row."""
+    rows = _KIND_ROWS.setdefault((arm, kind), [])
+    rows.append(
+        {
+            "outcome": row["outcome"],
+            "tool_calls": row.get("tool_calls") or 0,
+            "hop": hop_limited(row),
+        }
+    )
+    if len(rows) < n:
+        return None
+    passes = sum(x["outcome"] == Outcome.PASS.value for x in rows)
+    if passes * n <= len(rows):
+        return f"pass rate {passes}/{len(rows)} <= 1/{n}"
+    if not any(x["tool_calls"] for x in rows):
+        return f"0 tool calls on all {len(rows)} rows"
+    if any(x["outcome"] == Outcome.HARNESS_ERROR.value for x in rows):
+        return "HARNESS_ERROR row"
+    if any(x["hop"] for x in rows):
+        return "hop-limit row"
+    return None
+
+
+def _halt_arm(campaign_dir: Path, arm: str, task: dict, row: dict, halt: bool) -> str | None:
+    """Judge the row's task kind; on a halt, log it and return "<kind>: <reason>"."""
+    kind = task_kind(task)
+    why = kind_halt_reason(arm, kind, row)
+    if not (why and halt):
+        return None
+    _log(campaign_dir, f"arm {arm}: HALTED — {kind}: {why}")
+    log_halt(campaign_dir, arm, kind, why)
+    return f"{kind}: {why}"
+
+
+def log_halt(campaign_dir: Path, arm: str, kind: str, reason: str) -> None:
+    """Append `HALT <arm> <kind> <reason>` to arm_exits.log (the supervisor's log when it set one)."""
+    path = Path(os.environ.get("WFE_EXIT_LOG") or campaign_dir / "arm_exits.log")
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("a") as fh:
+        fh.write(f"HALT {arm} {kind} {reason}\n")
+
 
 def arm_stop_reason(
     arm: str, row: dict, campaign_dir: Path | None = None, manifest: dict | None = None, r=None
@@ -1709,12 +1813,17 @@ def arm_stop_reason(
 
 #: CLI exit codes (tests/wfe/run_arm.py records them in arm_exits.log).
 EXIT_OK, EXIT_STOPPED, EXIT_BLOCKED, EXIT_NO_SELECTION, EXIT_INCOMPLETE = 0, 5, 6, 7, 8
+#: An arm halted on a task kind that was failing wholesale (see kind_halt_reason).
+EXIT_HALT = 9
 
 
 def exit_status(outs: list[dict], arms: list[str]) -> int:
-    """0 ran or nothing left to run; 5 an arm stopped; 6 an arm was blocked; 7 none selected."""
+    """0 ran or nothing left to run; 5 an arm stopped; 6 an arm was blocked; 7 none selected;
+    9 an arm halted on a failing task kind."""
     if not arms:
         return EXIT_NO_SELECTION
+    if any(o.get("halted") for o in outs):
+        return EXIT_HALT
     if any(o.get("blocked") for o in outs):
         return EXIT_BLOCKED
     return EXIT_STOPPED if any(o.get("stopped") for o in outs) else EXIT_OK
@@ -1753,6 +1862,7 @@ def execute_arm(
     force_preflight: bool,
     notify: bool,
     rerun_failed: bool = False,
+    halt: bool = True,
 ) -> dict:
     """Run every pending row for ONE arm. Fresh process per arm is the house
     pattern for long sweeps: a leaked handle or a wedged connection in one model
@@ -1789,7 +1899,7 @@ def execute_arm(
     ws_cache: dict[tuple, dict] = {}
     suite_cache: dict[str, dict] = {}
     tally: dict = {}
-    stop = None
+    stop = halted = None
     t_arm = time.monotonic()
     for i, r in enumerate(todo, 1):
         ws_key = (r["workspace"], row_overrides(r).get("persona"))
@@ -1827,6 +1937,8 @@ def execute_arm(
         if stop:
             _log(campaign_dir, f"arm {arm}: STOPPED — {stop}")
             break
+        if halted := _halt_arm(campaign_dir, arm, task, row, halt):
+            break
 
     if not drain_model(model):
         _log(campaign_dir, f"arm {arm}: WARNING — still resident after {DRAIN_TIMEOUT_S}s")
@@ -1835,7 +1947,14 @@ def execute_arm(
     _log(campaign_dir, f"arm complete — {summary}")
     if notify:
         _notify("test_summary", f"WFE arm done ({elapsed}s)\n{arm}\n{tally}", {"arm": arm})
-    return {"arm": arm, "ran": len(todo), "tally": tally, "elapsed_s": elapsed, "stopped": stop}
+    return {
+        "arm": arm,
+        "ran": len(todo),
+        "tally": tally,
+        "elapsed_s": elapsed,
+        "stopped": stop,
+        "halted": halted,
+    }
 
 
 def build_review_queue(campaign_dir: Path) -> int:
@@ -1891,7 +2010,17 @@ def _parse_args(argv=None):
     ap.add_argument("--workspace", help="restrict to one workspace")
     ap.add_argument("--suite", help="restrict to one suite")
     ap.add_argument("--task", help="restrict to one task id")
-    ap.add_argument("--repeats", type=int, default=DEFAULT_REPEATS)
+    ap.add_argument(
+        "--no-halt",
+        action="store_true",
+        help="do not halt an arm whose task kind is failing wholesale (exit 9)",
+    )
+    ap.add_argument(
+        "--repeats",
+        type=int,
+        help=f"repeats per task (confirm default: {DEFAULT_REPEATS}, or 1 for an arm whose "
+        "screen rows were served at temperature 0; screen always runs 1)",
+    )
     ap.add_argument(
         "--all-suites",
         action="store_true",
@@ -2161,13 +2290,15 @@ def _cmd_smoke(args, plan: Path) -> int:
     return 0 if row["outcome"] in (Outcome.PASS.value, Outcome.FAIL.value) else 1
 
 
-def _cmd_dry_run(matrix: list[dict], repeats: int) -> int:
+def _cmd_dry_run(matrix: list[dict], repeats: int | dict[str, int]) -> int:
     import collections
 
     c = collections.Counter(r["arm"] for r in matrix)
-    print(f"matrix rows: {len(matrix)}   arms: {len(c)}   repeats: {repeats}")
+    shown = repeats if isinstance(repeats, int) else "per arm"
+    print(f"matrix rows: {len(matrix)}   arms: {len(c)}   repeats: {shown}")
     for a, n in sorted(c.items()):
-        print(f"  {n:>4}  {a}")
+        rep = f"   repeats {repeats[a]}" if isinstance(repeats, dict) else ""
+        print(f"  {n:>4}  {a}{rep}")
     try:
         rec = gate_controls(matrix, "dry-run")
     except SystemExit as e:
@@ -2315,6 +2446,31 @@ def _warn_prompt_surface(matrix: list[dict]) -> None:
             print(f"WARN prompt/tool surface [{ws_id}]: {w}", flush=True)
 
 
+def _planned_matrix(plan: Path, args) -> tuple[int | dict[str, int], list[dict]]:
+    """The matrix and its repeats. Without --repeats a confirm gives each arm 1 repeat when its
+    screen rows recorded a served temperature of 0, and the default otherwise."""
+
+    def expand(n):
+        return expand_matrix(
+            plan,
+            n,
+            args.all_suites,
+            args.arm,
+            args.suite,
+            args.task,
+            args.workspace,
+            args.tier,
+            load_advance(args.advance),
+        )
+
+    repeats = DEFAULT_REPEATS if args.repeats is None else args.repeats
+    matrix = expand(repeats)
+    if args.repeats is None and args.tier == "confirm":
+        repeats = repeats_policy(CAMPAIGNS / args.campaign_id, matrix, DEFAULT_REPEATS)
+        matrix = expand(repeats)
+    return repeats, matrix
+
+
 def main() -> int:
     ap, args = _parse_args()
     plan = Path(args.plan)
@@ -2328,20 +2484,10 @@ def main() -> int:
 
     if not args.campaign_id:
         ap.error("--campaign-id is required (or use --smoke / --rescore / --list-arms)")
-    matrix = expand_matrix(
-        plan,
-        args.repeats,
-        args.all_suites,
-        args.arm,
-        args.suite,
-        args.task,
-        args.workspace,
-        args.tier,
-        load_advance(args.advance),
-    )
+    repeats, matrix = _planned_matrix(plan, args)
     _warn_prompt_surface(matrix)
     if args.dry_run:
-        return _cmd_dry_run(matrix, args.repeats)
+        return _cmd_dry_run(matrix, repeats)
 
     campaign_dir = open_campaign(args.campaign_id, plan, matrix, args.append)
     rc = _inspect_command(args, campaign_dir)
@@ -2369,8 +2515,11 @@ def main() -> int:
             args.force,
             args.notify,
             args.rerun_failed,
+            not args.no_halt,
         )
         outs.append(out or {})
+        if (out or {}).get("halted"):
+            break
     n = build_review_queue(campaign_dir)
     dirty = config_dirty()
     manifest = load_manifest(campaign_dir)

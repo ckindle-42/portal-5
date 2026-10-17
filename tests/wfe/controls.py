@@ -31,6 +31,7 @@ ANSWER_GRADED = {
 #: missing or misspelled key used to default to a check that any answer passes.
 TASK_KEYS = {
     "id",
+    "kind",
     "lane",
     "agentic",
     "instruction",

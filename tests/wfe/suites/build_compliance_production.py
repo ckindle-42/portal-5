@@ -323,6 +323,7 @@ def determinations() -> list[dict]:
         out.append(
             {
                 "id": f"comp-prod-det-{plant['control_class'].replace('_', '-')}-{doc.lower()}",
+                "kind": "determination",
                 "lane": "compliance",
                 "agentic": True,
                 "screen": plant["control_class"] in SCREEN_CLASSES,
@@ -387,6 +388,7 @@ def lookups(n: int = 24) -> list[dict]:
         out.append(
             {
                 "id": "comp-prod-lookup-" + re.sub(r"[^a-z0-9]+", "-", rid.lower()).strip("-"),
+                "kind": "lookup",
                 "lane": "compliance",
                 "agentic": True,
                 "screen": i < 6,

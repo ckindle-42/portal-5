@@ -357,6 +357,12 @@ def screen_out(
     return {"advance": advance, "cells": cells}
 
 
+def _draws(rows: list[dict]) -> dict:
+    """The repeat count and the served temperature(s) the rows recorded for one arm."""
+    temps = {r["served_temperature"] for r in rows if r.get("served_temperature") is not None}
+    return {"repeats": len({r["repeat"] for r in rows}), "served_temperature": sorted(temps)}
+
+
 def fitness(campaign_dir: Path, queue_path: Path | None = None, allow_mixed: bool = False) -> dict:
     """The confirm verdict per cell, then one disposition per model."""
     manifest, rows, _ = _load(campaign_dir)
@@ -380,7 +386,18 @@ def fitness(campaign_dir: Path, queue_path: Path | None = None, allow_mixed: boo
             cell = decision.confirm(
                 by[(ws, inc)], by[(ws, arm)], expected, repeats=repeats, arguable=arguable
             )
-            cells.append({"workspace": ws, "incumbent": inc, "candidate": arm, **vars(cell)})
+            cells.append(
+                {
+                    "workspace": ws,
+                    "incumbent": inc,
+                    "candidate": arm,
+                    **vars(cell),
+                    "draws": {
+                        "incumbent": _draws(by[(ws, inc)]),
+                        "candidate": _draws(by[(ws, arm)]),
+                    },
+                }
+            )
             per_model.setdefault(_tag(arm), {})[ws] = cell.verdict
     # The queue is the roster: a model it names and no cell covers still gets a
     # disposition, which is what turns "queued but unmeasured" into NO_DECISION
@@ -916,7 +933,13 @@ def main() -> int:
     if args.fitness:
         res = fitness(campaign_dir, args.queue, args.allow_mixed)
         for c in res["cells"]:
-            print(f"  {c['verdict']:14s} {c['workspace']} {c['candidate']}: {c['reason']}")
+            d = c["draws"]
+            print(
+                f"  {c['verdict']:14s} {c['workspace']} {c['candidate']}: {c['reason']} "
+                f"[repeats {d['incumbent']['repeats']}/{d['candidate']['repeats']}, "
+                f"served temperature {d['incumbent']['served_temperature']}/"
+                f"{d['candidate']['served_temperature']}]"
+            )
         for d in res["dispositions"]:
             print(f"  {d['disposition']:16s} {d['model']}: {d['reason']}")
         out = campaign_dir / "fitness.json"
