@@ -461,3 +461,23 @@ def test_every_required_manifest_parameter_is_defined_and_real():
         assert set(props) <= set(params), (tool["name"], sorted(set(props) - set(params)))
         needed = {n for n, p in params.items() if p.default is inspect.Parameter.empty}
         assert needed <= set(req), (tool["name"], sorted(needed - set(req)))
+
+
+def test_powerpoint_slides_schema_names_the_keys_the_tool_reads():
+    """Qwen sent {"title", "text"} and the tool silently dropped the bodies: the keys were never stated."""
+    from portal.modules.documents.tools import document_mcp
+
+    tool = next(t for t in document_mcp.TOOLS_MANIFEST if t["name"] == "create_powerpoint")
+    slides = tool["parameters"]["properties"]["slides"]
+    assert {"title", "content", "notes"} <= set(slides["items"]["properties"])
+    assert "content" in slides["description"]
+
+
+def test_auto_documents_prompt_names_the_read_parameter():
+    """'pass the file name' led the seat to send file_name/file; the parameter is file_path."""
+    from pathlib import Path
+
+    import yaml
+
+    ws = yaml.safe_load(Path("config/portal.yaml").read_text())["workspaces"]["auto-documents"]
+    assert "file_path" in ws["owui_system_prompt"]

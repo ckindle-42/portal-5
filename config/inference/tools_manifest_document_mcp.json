@@ -40,7 +40,21 @@
     "parameters": {
       "properties": {
         "slides": {
-          "description": "List of slide content",
+          "description": "List of slides. Each slide is an object with 'title' (string), 'content' (string, body text or bullets separated by newlines) and optional 'notes' (speaker notes)",
+          "items": {
+            "type": "object",
+            "properties": {
+              "title": {
+                "type": "string"
+              },
+              "content": {
+                "type": "string"
+              },
+              "notes": {
+                "type": "string"
+              }
+            }
+          },
           "type": "array"
         },
         "title": {
