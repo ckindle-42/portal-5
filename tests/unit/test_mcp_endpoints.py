@@ -235,3 +235,34 @@ class TestBackendModelHintRouting:
         assert "mlx" not in groups, (
             "MLX backend group must not be present — MLX inference has been retired"
         )
+
+
+class TestWhisperRejectsUnknownArguments:
+    """The dispatcher used to filter unknown keys and run the call without them, so the manifest's
+    old `audio_path` made the tool transcribe the latest upload instead of the named file."""
+
+    def test_unknown_key_is_a_structured_400_naming_the_accepted_keys(self):
+        pytest.importorskip("faster_whisper")
+        from starlette.testclient import TestClient
+
+        with TestClient(get_whisper_app()) as c:
+            r = c.post("/tools/transcribe_audio", json={"arguments": {"audio_path": "/x.wav"}})
+        assert r.status_code == 400
+        err = r.json()["error"]
+        assert "audio_path" in err and "file_path" in err
+
+    def test_manifest_names_the_parameter_the_function_takes(self):
+        import json
+        from pathlib import Path
+
+        manifest = json.loads(
+            (
+                Path(__file__).resolve().parents[2]
+                / "config/inference/tools_manifest_whisper_mcp.json"
+            ).read_text()
+        )
+        params = {t["name"]: set(t["parameters"]["properties"]) for t in manifest}
+        assert (
+            "file_path" in params["transcribe_audio"]
+            and "audio_path" not in params["transcribe_audio"]
+        )

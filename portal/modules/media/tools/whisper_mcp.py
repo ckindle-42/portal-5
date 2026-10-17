@@ -162,20 +162,25 @@ async def invoke_tool(request: Request) -> JSONResponse:
     arguments = body.get("arguments", {})
 
     try:
-        if tool_name == "transcribe_audio":
+        tools = {
+            "transcribe_audio": transcribe_audio,
+            "transcribe_with_speakers": transcribe_with_speakers,
+        }
+        if tool_name in tools:
             import inspect
 
-            valid = set(inspect.signature(transcribe_audio).parameters.keys())
-            filtered = {k: v for k, v in arguments.items() if k in valid}
-            result = await transcribe_audio(**filtered)
-            return JSONResponse(result)
-        elif tool_name == "transcribe_with_speakers":
-            import inspect
-
-            valid = set(inspect.signature(transcribe_with_speakers).parameters.keys())
-            filtered = {k: v for k, v in arguments.items() if k in valid}
-            result = await transcribe_with_speakers(**filtered)
-            return JSONResponse(result)
+            valid = set(inspect.signature(tools[tool_name]).parameters)
+            # An unknown key used to be filtered out and the call run without it: a model that
+            # sent the manifest's old `audio_path` transcribed the latest upload instead.
+            if unknown := sorted(set(arguments) - valid):
+                return JSONResponse(
+                    {
+                        "error": f"Invalid arguments for '{tool_name}': unexpected keyword "
+                        f"argument(s) {unknown}; accepted: {sorted(valid)}"
+                    },
+                    status_code=400,
+                )
+            return JSONResponse(await tools[tool_name](**arguments))
         else:
             return JSONResponse({"error": f"Unknown tool: {tool_name}"}, status_code=404)
     except Exception as e:

@@ -4,7 +4,7 @@
     "name": "transcribe_audio",
     "parameters": {
       "properties": {
-        "audio_path": {
+        "file_path": {
           "description": "Absolute path to audio file. Omit to auto-detect latest upload.",
           "type": "string"
         },
