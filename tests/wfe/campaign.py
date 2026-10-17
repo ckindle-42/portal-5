@@ -1433,24 +1433,31 @@ def served_temperature(transcript: list) -> float | None:
     return None
 
 
-def repeats_for_arm(campaign_dir: Path, arm: str, default: int = DEFAULT_REPEATS) -> int:
-    """Confirm repeats for an arm: 1 when every row it already ran in this campaign
-    (its screen) was served at temperature 0, else `default`. An arm with no recorded
-    served temperature gets `default`: a deterministic draw is never assumed."""
-    temps = []
+def arm_served_at_zero(campaign_dir: Path, arm: str) -> bool:
+    """True when every row the arm already ran in this campaign (its screen) recorded a served
+    temperature of 0. An arm with no recorded temperature is never assumed deterministic."""
+    temps = set()
     for f in (campaign_dir / "rows").glob("*.json"):
         with contextlib.suppress(Exception):
             d = json.loads(f.read_text())
             if d.get("arm") == arm and d.get("served_temperature") is not None:
-                temps.append(float(d["served_temperature"]))
-    return 1 if temps and set(temps) == {0.0} else default
+                temps.add(float(d["served_temperature"]))
+    return temps == {0.0}
 
 
 def repeats_policy(campaign_dir: Path, matrix: list[dict], default: int) -> dict[str, int]:
-    """arm -> confirm repeats for every arm in the matrix."""
-    return {
-        a: repeats_for_arm(campaign_dir, a, default) for a in sorted({r["arm"] for r in matrix})
-    }
+    """arm -> confirm repeats. A workspace's arms get 1 repeat only when EVERY arm in it served
+    temperature 0; any other mix gets `default` for all, so a cell never compares unequal repeat
+    counts (decision.task_scores needs the same repeats on both sides)."""
+    arms_of: dict[str, set[str]] = {}
+    for r in matrix:
+        arms_of.setdefault(r["workspace"], set()).add(r["arm"])
+    out: dict[str, int] = {}
+    for arms in arms_of.values():
+        n = 1 if all(arm_served_at_zero(campaign_dir, a) for a in arms) else default
+        for a in arms:
+            out[a] = max(out.get(a, 0), n)
+    return out
 
 
 def degenerate_repeats(wsc: dict, overrides: dict | None = None) -> str | None:

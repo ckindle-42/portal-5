@@ -268,6 +268,7 @@ def build() -> list[dict]:
         tasks.append(
             {
                 "id": f"data-prod-{table}-{i:02d}",
+                "kind": f"data-{table}",
                 "lane": "data",
                 "agentic": True,
                 "screen": i % 12 < 4,  # four per dataset in the screen tier

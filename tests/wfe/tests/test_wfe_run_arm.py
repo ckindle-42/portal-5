@@ -351,16 +351,34 @@ def _screen_rows(tmp_path, arm, temps):
         )
 
 
-def test_repeats_policy_is_one_at_served_temperature_zero_else_three(tmp_path):
+def test_repeats_policy_is_one_only_when_every_arm_in_the_cell_served_zero(tmp_path):
     _screen_rows(tmp_path, "cold", [0.0, 0.0])
+    _screen_rows(tmp_path, "cold2", [0.0])
     _screen_rows(tmp_path, "warm", [0.6, 0.6])
     _screen_rows(tmp_path, "mixed", [0.0, 0.3])
     _screen_rows(tmp_path, "unknown", [None])
-    pol = {
-        a: campaign.repeats_for_arm(tmp_path, a)
-        for a in ("cold", "warm", "mixed", "unknown", "new")
+
+    def m(ws, *arms):
+        return [{"workspace": ws, "arm": a} for a in arms]
+
+    matrix = (
+        m("allzero", "cold", "cold2")
+        + m("mixedcell", "cold", "warm")
+        + m("rowmix", "cold", "mixed")
+        + m("unrecorded", "cold", "unknown", "new")
+    )
+    assert campaign.repeats_policy(tmp_path, m("allzero", "cold", "cold2"), 3) == {
+        "cold": 1,
+        "cold2": 1,
     }
-    assert pol == {"cold": 1, "warm": 3, "mixed": 3, "unknown": 3, "new": 3}
+    assert campaign.repeats_policy(tmp_path, m("mixedcell", "cold", "warm"), 3) == {
+        "cold": 3,
+        "warm": 3,
+    }
+    assert set(campaign.repeats_policy(tmp_path, m("rowmix", "cold", "mixed"), 3).values()) == {3}
+    assert set(campaign.repeats_policy(tmp_path, matrix[-3:], 3).values()) == {3}
+    # an arm shared by a 1-repeat and a 3-repeat workspace keeps the larger count
+    assert campaign.repeats_policy(tmp_path, matrix, 3)["cold"] == 3
 
 
 def test_expand_matrix_applies_repeats_per_arm(tmp_path, monkeypatch):
@@ -394,3 +412,35 @@ def test_the_draws_recorded_per_arm_reach_the_fitness_cells():
         "repeats": 3,
         "served_temperature": [],
     }
+
+
+def test_every_production_suite_has_at_least_halt_after_rows_tasks_per_kind():
+    """The auto-halt judges a kind after HALT_AFTER_ROWS rows; a smaller kind could never halt."""
+    import collections
+
+    # the generated decision suites; rig_production is a 4-task rig with one task per kind
+    suites = [
+        p
+        for p in sorted(campaign.SUITE_DIR.glob("*_production.jsonl"))
+        if (campaign.SUITE_DIR / f"build_{p.stem}.py").exists()
+    ]
+    assert len(suites) >= 3
+    for path in suites:
+        kinds = collections.Counter(campaign.task_kind(t) for t in campaign.load_suite(path))
+        small = {k: n for k, n in kinds.items() if n < campaign.HALT_AFTER_ROWS}
+        assert not small, f"{path.name}: kinds under {campaign.HALT_AFTER_ROWS} tasks: {small}"
+
+
+def test_the_production_suite_generators_are_reproducible():
+    """Regenerating in place twice leaves the committed file byte-identical."""
+    from tests.wfe.suites import build_compliance_production as comp
+    from tests.wfe.suites import build_data_production as data
+
+    for mod in (comp, data):
+        committed = mod.OUT.read_text()
+        try:
+            for _ in range(2):
+                mod.main()
+                assert mod.OUT.read_text() == committed
+        finally:
+            mod.OUT.write_text(committed)
