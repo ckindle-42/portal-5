@@ -1,0 +1,16 @@
+# auto-research's first seat decision: measured with its own KB and memory tools (production
+# mode) on research_production (36 tasks, all facts fictional, seeded per row).
+# Challengers are served by auto-research's routed groups (reasoning, general) at a window of
+# at least the seat's 16k; the exact tags are checked against backends.yaml by the slice tests.
+# The operator may trim this list before the run.
+workloads:
+  auto-research:
+    tool_mode: production
+    home: research_production
+    discovery: []
+    arms:
+      incumbent: hf.co/sjakek/Nex-N2-mini-GGUF:UD-Q4_K_M-ctx16k
+      challengers:
+        - hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k
+        - granite4.1:30b-ctx64k
+        - hf.co/bartowski/NVIDIA-Nemotron-3.5-Lightning-30B-A3B-GGUF:Q4_K_M-ctx32k

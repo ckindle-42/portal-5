@@ -1,0 +1,19 @@
+# auto-coding's first seat decision: measured on the harness's sandbox tools (file_read /
+# file_write / pytest_run), the one family that may run in sandbox mode, on coding_production
+# (36 tasks graded by hidden tests the model never sees). Pipeline mode, every arm served
+# through production's ?model= override under the workspace's own prompt and caps.
+# Challengers are served by auto-coding's routed groups (coding, general) at a window of at
+# least 64k; Laguna is excluded (its tool-call arguments land in the tool name, P-3). The
+# Nemotron-3.5-Lightning tags the general group serves are 8k/32k, below the window, so it is
+# not an arm; gemma4:26b-a4b is dropped for the same slot count. The operator may trim this list.
+workloads:
+  auto-coding:
+    tool_mode: sandbox
+    home: coding_production
+    discovery: []
+    arms:
+      incumbent: qwen3-coder:30b-a3b-q4_K_M-ctx256k
+      challengers:
+        - hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx96k
+        - hf.co/unsloth/Qwen3.6-35B-A3B-GGUF:UD-Q4_K_XL-ctx96k
+        - qwen3-coder-next:latest-ctx64k
