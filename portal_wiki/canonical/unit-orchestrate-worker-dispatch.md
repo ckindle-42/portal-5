@@ -9,7 +9,9 @@ sources:
   path: config/prometheus/prometheus.yml
 - type: code
   path: config/grafana/dashboards/portal5_orchestrate_usage.json
-claims: []
+claims:
+- probe: orchestrate.rate_over_lifetime_counters
+  equals: []
 confidence: high
 tags:
 - orchestrate
@@ -77,6 +79,17 @@ scrape path*, so a scrape is a cache read however often Prometheus asks and the 
 panels are never more than a quarter-hour behind; the HTTP handler keeps a longer TTL of
 its own purely as a net for a dead refresher thread. Local ledger metrics — runs, tokens,
 cost — are computed live on every scrape, so tier panels move at the scrape interval.
+
+**A panel that quotes a windowed total must not derive it with `increase()`.** The ledger
+counters are cumulative over the whole life of the orchestration layer and only rise while
+Prometheus is watching, so a run booked before the series existed contributes nothing to
+the rate — a real $0.13 of DeepSeek and MiMo spend read as $0.00 on the 7-day stat while
+the per-tier table beside it, reading the raw gauge, showed the money correctly. The
+exporter therefore publishes already-windowed gauges computed from the registry's own
+per-run timestamps, `orchestrate_window_{runs,accepted,judged,failed,tokens,cost_usd,
+notional_usd}` labelled `window`, `tier` and `plan`; a new window is a line in
+`LEDGER_WINDOWS`. A timeseries is exempt, because showing movement is what a rate is for.
+The claim on this unit fails the `BS` gate if a totalling panel takes the rate again.
 
 The same binary writes the morning summary: `usage_exporter.py --digest [--push]` re-folds
 the registry over one **local** calendar day (`yesterday` by default, or `today`, `-N`, or

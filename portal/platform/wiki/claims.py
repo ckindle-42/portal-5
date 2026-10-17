@@ -477,7 +477,48 @@ def _probe_compliance_cite_and_scope(root: Path) -> list[str]:
     return sorted(out)
 
 
+_ORCHESTRATE_DASHBOARD = Path("config/grafana/dashboards/portal5_orchestrate_usage.json")
+
+
+#: Panel types that present one settled figure. A timeseries is exempt: there
+#: `increase()` over a counter is the right tool, because it is showing movement while
+#: Prometheus watches rather than claiming a total.
+_TOTALLING_PANELS = {"stat", "bargauge", "gauge", "table", "piechart"}
+
+
+def _probe_orchestrate_rate_over_lifetime_counters(root: Path) -> list[str]:
+    """Orchestration panels that state a windowed *total* via `increase()`/`rate()`.
+
+    Those counters are cumulative over the whole life of the orchestration layer and
+    only rise while Prometheus is watching, so a run booked before the series existed
+    contributes nothing to the rate: a real day's spend reads as zero while the raw
+    gauge next to it is correct. The exporter publishes already-windowed gauges
+    (`orchestrate_window_*`) computed from the registry's own timestamps, and a panel
+    quoting a total must read those. Expected empty; an entry names the offending panel.
+    """
+    import re as _re
+
+    path = root / _ORCHESTRATE_DASHBOARD
+    if not path.is_file():
+        return []
+    try:
+        dash = json.loads(path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError:
+        return ["<dashboard is not valid JSON>"]
+    bad = _re.compile(r"(?:increase|rate|irate|delta)\s*\(\s*orchestrate_\w+_total")
+    return sorted(
+        {
+            str(panel.get("title") or "<untitled>")
+            for panel in dash.get("panels") or []
+            if panel.get("type") in _TOTALLING_PANELS
+            for target in panel.get("targets") or []
+            if bad.search(str(target.get("expr") or ""))
+        }
+    )
+
+
 PROBES: dict[str, Callable[[Path], Any]] = {
+    "orchestrate.rate_over_lifetime_counters": _probe_orchestrate_rate_over_lifetime_counters,
     "compliance.cite_and_scope": _probe_compliance_cite_and_scope,
     "workspaces.total": _probe_workspaces_total,
     "workspaces.bench": _probe_workspaces_bench,

@@ -2,7 +2,7 @@
 
 # Portal 5 Architecture Map
 
-*Deterministic projection of 773 canonical units.*
+*Deterministic projection of 774 canonical units.*
 
 ## Knowledge Layer
 
@@ -589,6 +589,7 @@
 | `unit-module-video` | mixed | 4 |
 | `unit-module-vulnintel` | mixed | 3 |
 | `unit-ollama-native-passthrough` | mixed | 20 |
+| `unit-orchestrate-worker-dispatch` | why | 3 |
 | `unit-p5-roadmap-future-considerations-not-yet-implemented` | what | 5 |
 | `unit-p5-roadmap-p5-fut-004-webhook-based-event-notifications` | what | 2 |
 | `unit-p5-roadmap-p5-fut-006-llm-based-intent-routing` | what | 5 |
@@ -782,12 +783,12 @@
 | `unit-wiki-tests-render` | mixed | 1 |
 | `unit-wiki-writeback` | mixed | 1 |
 
-**Total:** 773 units
+**Total:** 774 units
 
 ## Source Distribution
 
 - **bench-security**: 1 references
-- **code**: 2080 references
+- **code**: 2083 references
 - **config**: 1 references
 - **data**: 1 references
 - **doc**: 2 references

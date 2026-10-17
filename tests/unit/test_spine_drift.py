@@ -284,3 +284,72 @@ def test_fact_unit_regeneration_touches_no_pin_field(tmp_path, monkeypatch):
         assert before == after
     finally:
         store_mod.reset_canonical_dir()
+
+
+# ── orchestration dashboard: a windowed total must not be a rate ─────────────
+
+
+def _dashboard(tmp_path: Path, panels: list[dict]) -> Path:
+    import json
+
+    path = tmp_path / claims_mod._ORCHESTRATE_DASHBOARD
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps({"panels": panels}), encoding="utf-8")
+    return tmp_path
+
+
+def _probe_dash(root: Path) -> list[str]:
+    return claims_mod.PROBES["orchestrate.rate_over_lifetime_counters"](root)
+
+
+def test_live_dashboard_states_no_total_as_a_rate():
+    assert _probe_dash(REPO_ROOT) == []
+
+
+def test_probe_names_a_stat_that_takes_the_rate_of_a_lifetime_counter(tmp_path):
+    root = _dashboard(
+        tmp_path,
+        [
+            {
+                "type": "stat",
+                "title": "Spent in cash (7d)",
+                "targets": [{"expr": "sum(increase(orchestrate_cost_usd_total[7d]))"}],
+            }
+        ],
+    )
+    assert _probe_dash(root) == ["Spent in cash (7d)"]
+
+
+def test_probe_exempts_a_timeseries_because_movement_is_what_a_rate_is_for(tmp_path):
+    root = _dashboard(
+        tmp_path,
+        [
+            {
+                "type": "timeseries",
+                "title": "Cash spent by tier",
+                "targets": [{"expr": "sum by (tier) (increase(orchestrate_cost_usd_total[1h]))"}],
+            }
+        ],
+    )
+    assert _probe_dash(root) == []
+
+
+def test_probe_accepts_a_stat_reading_the_windowed_gauge(tmp_path):
+    root = _dashboard(
+        tmp_path,
+        [
+            {
+                "type": "stat",
+                "title": "Spent in cash (7d)",
+                "targets": [{"expr": 'sum(orchestrate_window_cost_usd{window="7d"})'}],
+            }
+        ],
+    )
+    assert _probe_dash(root) == []
+
+
+def test_probe_reports_unparseable_dashboard_rather_than_passing(tmp_path):
+    path = tmp_path / claims_mod._ORCHESTRATE_DASHBOARD
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text("{not json", encoding="utf-8")
+    assert _probe_dash(tmp_path) == ["<dashboard is not valid JSON>"]
