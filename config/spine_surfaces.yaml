@@ -1096,6 +1096,10 @@ surfaces:
   globs:
   - tests/wfe/e2e/live.py
   unit: unit-wfe-workspace-fitness
+- name: file-tests-wfe-e2e-research_attainability
+  globs:
+  - tests/wfe/e2e/research_attainability.py
+  unit: unit-wfe-workspace-fitness
 - name: file-tests-wfe-e2e-rig
   globs:
   - tests/wfe/e2e/rig.py
@@ -1151,6 +1155,10 @@ surfaces:
 - name: file-tests-wfe-suites-build_documents_production
   globs:
   - tests/wfe/suites/build_documents_production.py
+  unit: unit-wfe-workspace-fitness
+- name: file-tests-wfe-suites-build_research_production
+  globs:
+  - tests/wfe/suites/build_research_production.py
   unit: unit-wfe-workspace-fitness
 - name: file-tests-wfe-tests-conftest
   globs:
@@ -1239,6 +1247,10 @@ surfaces:
 - name: file-tests-wfe-tests-test_wfe_provenance
   globs:
   - tests/wfe/tests/test_wfe_provenance.py
+  unit: unit-wfe-workspace-fitness
+- name: file-tests-wfe-tests-test_wfe_research_slice
+  globs:
+  - tests/wfe/tests/test_wfe_research_slice.py
   unit: unit-wfe-workspace-fitness
 - name: file-tests-wfe-tests-test_wfe_run_arm
   globs:
