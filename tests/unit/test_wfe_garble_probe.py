@@ -33,10 +33,21 @@ def test_probe_flags_zwsp_bad_names_and_dotdot():
     )
 
 
-def test_the_documents_seat_is_not_shadowed_onto_the_mxfp8_conversion():
-    """auto-documents routes to general+coding; in omlx-general the ctx16k seat tag must not be
-    aliased to granite-4.1-8b-mxfp8 (U+200B in paths whenever tools are in the request)."""
+#: (backend, tag) pairs aliased onto granite-4.1-8b-mxfp8 with probe evidence (2026-10-17):
+#: clean 10/10 with the lanes' own tool sets (tools-specialist, security-reviewer, auto-security).
+#: Adding a pair needs a new `scripts/wfe_garble_probe.py` run and an update to the KNOWN_LIMITATIONS
+#: unit unit-known-limitations-granite-8b-mxfp8-tool-garbling.
+PROBED_ALIASES = {("omlx-general", "granite4.1:8b-ctx8k"), ("omlx-security", "granite4.1:8b-ctx8k")}
+
+
+def test_no_unprobed_alias_onto_the_mxfp8_conversion():
+    """With tools present the conversion emits U+200B in paths and mangled names; the
+    granite4.1:8b-ctx16k seat (auto-documents/video/image) must not be shadowed onto it."""
     backends = yaml.safe_load((ROOT / "config" / "backends.yaml").read_text())["backends"]
-    general = next(b for b in backends if b["id"] == "omlx-general")
-    assert "granite4.1:8b-ctx16k" not in (general.get("aliases") or {})
-    assert general["aliases"]["granite4.1:8b-ctx8k"] == "granite-4.1-8b-mxfp8"  # fan-out lane kept
+    found = {
+        (b["id"], tag)
+        for b in backends
+        for tag, target in (b.get("aliases") or {}).items()
+        if target == "granite-4.1-8b-mxfp8"
+    }
+    assert found == PROBED_ALIASES, sorted(found ^ PROBED_ALIASES)

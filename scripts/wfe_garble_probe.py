@@ -39,6 +39,49 @@ def corruption(content: str, calls: list[dict], tool_names: set[str]) -> list[st
     return found
 
 
+def workspace_tools(workspace: str) -> list[dict]:
+    """The OpenAI function schemas a workspace offers, from its `tools` and the MCP manifests."""
+    import yaml
+
+    root = Path(__file__).resolve().parents[1]
+    names = (
+        yaml.safe_load((root / "config/portal.yaml").read_text())["workspaces"][workspace].get(
+            "tools"
+        )
+        or []
+    )
+    schemas = {}
+    for f in (root / "config/inference").glob("*manifest*.json"):
+        data = json.loads(f.read_text())
+        for t in data if isinstance(data, list) else data.get("tools", []):
+            if isinstance(t, dict) and "name" in t and "parameters" in t:
+                schemas[t["name"]] = t
+    if missing := [n for n in names if n not in schemas]:  # an MCP with no manifest file
+        for e in yaml.safe_load((root / "config/portal.yaml").read_text())["mcp_fleet"]:
+            try:
+                with urllib.request.urlopen(  # noqa: S310
+                    f"http://localhost:{e['port']}/tools", timeout=3
+                ) as r:
+                    for t in json.load(r).get("tools", []):
+                        params = t.get("parameters") or t.get("inputSchema")
+                        if t.get("name") in missing and params:
+                            schemas[t["name"]] = {**t, "parameters": params}
+            except Exception:  # noqa: BLE001, S110
+                continue
+    return [
+        {
+            "type": "function",
+            "function": {
+                "name": n,
+                "description": schemas[n].get("description", ""),
+                "parameters": schemas[n]["parameters"],
+            },
+        }
+        for n in names
+        if n in schemas
+    ]
+
+
 def ask(engine: str, model: str, req: dict) -> tuple[str, list[dict]]:
     body = {k: v for k, v in req.items() if k not in ("exec_audit", "stream_options")}
     body["model"], body["stream"] = model, False
@@ -89,14 +132,26 @@ def main() -> int:
     ap.add_argument("--engine", choices=("omlx", "ollama"), required=True)
     ap.add_argument("--model", required=True)
     ap.add_argument("-n", type=int, default=10)
+    ap.add_argument("--workspace", help="replace the request's tools with this workspace's tools")
+    ap.add_argument("--no-tools", action="store_true", help="drop the tools (control)")
     a = ap.parse_args()
     req = json.loads(a.request.read_text())
-    names = {t["function"]["name"] for t in req.get("tools") or []}
+    if a.workspace:
+        req["tools"] = workspace_tools(a.workspace)
+    if a.no_tools:
+        req.pop("tools", None)
+        req.pop("tool_choice", None)
+    names = {t["function"]["name"] for t in req.get("tools") or []}  # after any swap
     cnt: collections.Counter = collections.Counter()
     for _ in range(a.n):
         found = corruption(*ask(a.engine, a.model, req), names)
         cnt.update(found or ["clean"])
-    print(f"{a.engine} {a.model} n={a.n}: {dict(cnt)}")
+    label = (
+        f"workspace={a.workspace} ({len(req.get('tools') or [])} tools)"
+        if a.workspace
+        else ("no tools" if a.no_tools else "request tools")
+    )
+    print(f"{a.engine} {a.model} n={a.n} {label}: {dict(cnt)}")
     return 0 if set(cnt) == {"clean"} else 1
 
 

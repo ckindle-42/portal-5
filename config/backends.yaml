@@ -1125,7 +1125,7 @@ backends:
   aliases:
     huihui_ai/tongyi-deepresearch-abliterated:latest-ctx64k: Tongyi-DeepResearch-30B-A3B-abliterated-4bit
     granite4.1:30b-ctx64k: granite-4.1-30b-4bit
-    granite4.1:8b-ctx16k: granite-4.1-8b-mxfp8
+    # granite4.1:8b-ctx16k: not aliased (see omlx-general: the mxfp8 conversion garbles with tools).
     hf.co/unsloth/DeepSeek-R1-0528-Qwen3-8B-GGUF:Q4_K_XL-ctx64k: DeepSeek-R1-0528-Qwen3-8B-4bit
     # Tier-2 deep lane — auto-reasoning?variant=deep. Same MTP checkpoint the
     # omlx-coding group serves; aliased here so the reasoning group resolves it.
