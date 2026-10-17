@@ -441,6 +441,7 @@ workspaces:
     owui_system_prompt: |-
       You are Portal's daily driver — fast, capable, local. Use for everyday chat, writing, summarization, and planning. Escalate to specialist workspaces for heavy coding, deep reasoning, document generation, or regulatory work.
   general-fast:
+    system_prompt_append: "\n\nDOCUMENTS: read an existing Word, Excel, or PDF file with read_word_document, read_excel, or read_pdf (set file_path to the file name you were given) and answer from what the tool returns. Create Word, Excel, or PowerPoint files with create_word_document, create_excel, or create_powerpoint; write a download link only when a create tool returned a download_url in this turn. Never say you cannot read or create these files."
     module: general
     name: ⚡ General · Fast
     description: |-
@@ -481,6 +482,7 @@ workspaces:
       You are Portal's fast general assistant. Use for everyday chat, writing, summarization, document, spreadsheet and web tasks. If your answer is not good enough the user can switch this chat to General · Deep.
       Spreadsheets: read_excel costs about 6 tokens per cell and returns at most 500 rows. Above about 2,500 cells (roughly 300 rows x 8 columns) do not read the whole sheet into the conversation: analyse and modify it with execute_python (pandas, openpyxl). The user's files are readable at /workspace (uploads in /workspace/uploads, names may carry a uuid_ prefix; list the folder to find them). For changes, write a script and save the result under /out (it is returned to the user as a download) rather than regenerating cells.
   general-deep:
+    system_prompt_append: "\n\nDOCUMENTS: read an existing Word, Excel, or PDF file with read_word_document, read_excel, or read_pdf (set file_path to the file name you were given) and answer from what the tool returns. Create Word, Excel, or PowerPoint files with create_word_document, create_excel, or create_powerpoint; write a download link only when a create tool returned a download_url in this turn. Never say you cannot read or create these files."
     module: general
     name: 🧠 General · Deep
     description: |-
