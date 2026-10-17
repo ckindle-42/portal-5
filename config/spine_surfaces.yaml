@@ -1076,6 +1076,10 @@ surfaces:
   globs:
   - tests/wfe/decision.py
   unit: unit-wfe-workspace-fitness
+- name: file-tests-wfe-e2e-coding_attainability
+  globs:
+  - tests/wfe/e2e/coding_attainability.py
+  unit: unit-wfe-workspace-fitness
 - name: file-tests-wfe-e2e-compliance_attainability
   globs:
   - tests/wfe/e2e/compliance_attainability.py
@@ -1124,6 +1128,118 @@ surfaces:
   globs:
   - tests/wfe/graded/code_summarize/test_summarize.py
   unit: unit-wfe-workspace-fitness
+- name: file-tests-wfe-graded-cp_fix_00-test_stats
+  globs:
+  - tests/wfe/graded/cp_fix_00/test_stats.py
+  unit: unit-wfe-workspace-fitness
+- name: file-tests-wfe-graded-cp_fix_01-test_calendar_util
+  globs:
+  - tests/wfe/graded/cp_fix_01/test_calendar_util.py
+  unit: unit-wfe-workspace-fitness
+- name: file-tests-wfe-graded-cp_fix_02-test_tagbag
+  globs:
+  - tests/wfe/graded/cp_fix_02/test_tagbag.py
+  unit: unit-wfe-workspace-fitness
+- name: file-tests-wfe-graded-cp_fix_03-test_pager
+  globs:
+  - tests/wfe/graded/cp_fix_03/test_pager.py
+  unit: unit-wfe-workspace-fitness
+- name: file-tests-wfe-graded-cp_fix_04-test_growth
+  globs:
+  - tests/wfe/graded/cp_fix_04/test_growth.py
+  unit: unit-wfe-workspace-fitness
+- name: file-tests-wfe-graded-cp_fix_05-test_prefix
+  globs:
+  - tests/wfe/graded/cp_fix_05/test_prefix.py
+  unit: unit-wfe-workspace-fitness
+- name: file-tests-wfe-graded-cp_fix_06-test_slugs
+  globs:
+  - tests/wfe/graded/cp_fix_06/test_slugs.py
+  unit: unit-wfe-workspace-fitness
+- name: file-tests-wfe-graded-cp_fix_07-test_wc
+  globs:
+  - tests/wfe/graded/cp_fix_07/test_wc.py
+  unit: unit-wfe-workspace-fitness
+- name: file-tests-wfe-graded-cp_fix_08-test_due
+  globs:
+  - tests/wfe/graded/cp_fix_08/test_due.py
+  unit: unit-wfe-workspace-fitness
+- name: file-tests-wfe-graded-cp_fix_09-test_flatten_util
+  globs:
+  - tests/wfe/graded/cp_fix_09/test_flatten_util.py
+  unit: unit-wfe-workspace-fitness
+- name: file-tests-wfe-graded-cp_implement_00-test_runs
+  globs:
+  - tests/wfe/graded/cp_implement_00/test_runs.py
+  unit: unit-wfe-workspace-fitness
+- name: file-tests-wfe-graded-cp_implement_01-test_spans
+  globs:
+  - tests/wfe/graded/cp_implement_01/test_spans.py
+  unit: unit-wfe-workspace-fitness
+- name: file-tests-wfe-graded-cp_implement_02-test_clock
+  globs:
+  - tests/wfe/graded/cp_implement_02/test_clock.py
+  unit: unit-wfe-workspace-fitness
+- name: file-tests-wfe-graded-cp_implement_03-test_grid
+  globs:
+  - tests/wfe/graded/cp_implement_03/test_grid.py
+  unit: unit-wfe-workspace-fitness
+- name: file-tests-wfe-graded-cp_implement_04-test_fold
+  globs:
+  - tests/wfe/graded/cp_implement_04/test_fold.py
+  unit: unit-wfe-workspace-fitness
+- name: file-tests-wfe-graded-cp_implement_05-test_common
+  globs:
+  - tests/wfe/graded/cp_implement_05/test_common.py
+  unit: unit-wfe-workspace-fitness
+- name: file-tests-wfe-graded-cp_implement_06-test_numeral
+  globs:
+  - tests/wfe/graded/cp_implement_06/test_numeral.py
+  unit: unit-wfe-workspace-fitness
+- name: file-tests-wfe-graded-cp_implement_07-test_nest
+  globs:
+  - tests/wfe/graded/cp_implement_07/test_nest.py
+  unit: unit-wfe-workspace-fitness
+- name: file-tests-wfe-graded-cp_implement_08-test_budget
+  globs:
+  - tests/wfe/graded/cp_implement_08/test_budget.py
+  unit: unit-wfe-workspace-fitness
+- name: file-tests-wfe-graded-cp_implement_09-test_latest
+  globs:
+  - tests/wfe/graded/cp_implement_09/test_latest.py
+  unit: unit-wfe-workspace-fitness
+- name: file-tests-wfe-graded-cp_implement_10-test_rebase
+  globs:
+  - tests/wfe/graded/cp_implement_10/test_rebase.py
+  unit: unit-wfe-workspace-fitness
+- name: file-tests-wfe-graded-cp_implement_11-test_paths
+  globs:
+  - tests/wfe/graded/cp_implement_11/test_paths.py
+  unit: unit-wfe-workspace-fitness
+- name: file-tests-wfe-graded-cp_refactor_00-test_invoice
+  globs:
+  - tests/wfe/graded/cp_refactor_00/test_invoice.py
+  unit: unit-wfe-workspace-fitness
+- name: file-tests-wfe-graded-cp_refactor_01-test_money
+  globs:
+  - tests/wfe/graded/cp_refactor_01/test_money.py
+  unit: unit-wfe-workspace-fitness
+- name: file-tests-wfe-graded-cp_refactor_02-test_orders
+  globs:
+  - tests/wfe/graded/cp_refactor_02/test_orders.py
+  unit: unit-wfe-workspace-fitness
+- name: file-tests-wfe-graded-cp_refactor_03-test_ids
+  globs:
+  - tests/wfe/graded/cp_refactor_03/test_ids.py
+  unit: unit-wfe-workspace-fitness
+- name: file-tests-wfe-graded-cp_refactor_04-test_rows
+  globs:
+  - tests/wfe/graded/cp_refactor_04/test_rows.py
+  unit: unit-wfe-workspace-fitness
+- name: file-tests-wfe-graded-cp_refactor_05-test_calc
+  globs:
+  - tests/wfe/graded/cp_refactor_05/test_calc.py
+  unit: unit-wfe-workspace-fitness
 - name: file-tests-wfe-prompt_surface
   globs:
   - tests/wfe/prompt_surface.py
@@ -1148,6 +1264,10 @@ surfaces:
   globs:
   - tests/wfe/settings_audit.py
   unit: unit-known-limitations-unregistered-hint-fallback
+- name: file-tests-wfe-suites-build_coding_production
+  globs:
+  - tests/wfe/suites/build_coding_production.py
+  unit: unit-wfe-workspace-fitness
 - name: file-tests-wfe-suites-build_compliance_production
   globs:
   - tests/wfe/suites/build_compliance_production.py
@@ -1187,6 +1307,10 @@ surfaces:
 - name: file-tests-wfe-tests-test_wfe_checkers
   globs:
   - tests/wfe/tests/test_wfe_checkers.py
+  unit: unit-wfe-workspace-fitness
+- name: file-tests-wfe-tests-test_wfe_coding_slice
+  globs:
+  - tests/wfe/tests/test_wfe_coding_slice.py
   unit: unit-wfe-workspace-fitness
 - name: file-tests-wfe-tests-test_wfe_compliance_attainability
   globs:
