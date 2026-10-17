@@ -13,9 +13,25 @@
           "type": "string"
         },
         "images": {
-          "description": "Images with source/path_or_url, optional caption and width_in",
-          "items": {"type": "object"},
-          "type": "array"
+          "description": "Images; each object has 'source' (path or URL), optional 'caption' and 'width_in'",
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "source": {
+                "type": "string"
+              },
+              "path_or_url": {
+                "type": "string"
+              },
+              "caption": {
+                "type": "string"
+              },
+              "width_in": {
+                "type": "number"
+              }
+            }
+          }
         },
         "template": {
           "description": "Style template name, for example portal",
@@ -88,22 +104,75 @@
           "type": "string"
         },
         "data": {
-          "description": "Array of rows",
-          "type": "array"
+          "description": "Rows of one sheet, each a list of cell values; the first row is the header",
+          "type": "array",
+          "items": {
+            "type": "array",
+            "items": {}
+          }
         },
         "sheets": {
-          "description": "Multiple sheets with name, headers, and rows",
-          "items": {"type": "object"},
-          "type": "array"
+          "description": "Several sheets; each object has 'name', 'headers' (list) and 'rows' (list of lists)",
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "name": {
+                "type": "string"
+              },
+              "headers": {
+                "type": "array",
+                "items": {}
+              },
+              "rows": {
+                "type": "array",
+                "items": {
+                  "type": "array",
+                  "items": {}
+                }
+              }
+            }
+          }
         },
         "sheet_name": {
           "description": "Sheet name",
           "type": "string"
         },
         "charts": {
-          "description": "Native chart specifications",
-          "items": {"type": "object"},
-          "type": "array"
+          "description": "Native charts; each object has 'sheet', 'type' (bar, line or pie), 'title', 'min_col', 'max_col', 'min_row', 'max_row', optional 'cats_col' and 'anchor'",
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "sheet": {
+                "type": "string"
+              },
+              "type": {
+                "type": "string"
+              },
+              "title": {
+                "type": "string"
+              },
+              "min_col": {
+                "type": "integer"
+              },
+              "max_col": {
+                "type": "integer"
+              },
+              "min_row": {
+                "type": "integer"
+              },
+              "max_row": {
+                "type": "integer"
+              },
+              "cats_col": {
+                "type": "integer"
+              },
+              "anchor": {
+                "type": "string"
+              }
+            }
+          }
         },
         "also_pdf": {
           "default": false,
@@ -143,9 +212,14 @@
     "name": "export_pdf",
     "parameters": {
       "properties": {
-        "source_path": {"description": "Path to a generated Office document", "type": "string"}
+        "source_path": {
+          "description": "Path to a generated Office document",
+          "type": "string"
+        }
       },
-      "required": ["source_path"],
+      "required": [
+        "source_path"
+      ],
       "type": "object"
     }
   },
@@ -154,11 +228,22 @@
     "name": "prepare_embed_image",
     "parameters": {
       "properties": {
-        "image_url": {"description": "Published HTTPS image URL", "type": "string"},
-        "caption": {"description": "Optional image caption", "type": "string"},
-        "width_in": {"description": "Rendered width in inches", "type": "number"}
+        "image_url": {
+          "description": "Published HTTPS image URL",
+          "type": "string"
+        },
+        "caption": {
+          "description": "Optional image caption",
+          "type": "string"
+        },
+        "width_in": {
+          "description": "Rendered width in inches",
+          "type": "number"
+        }
       },
-      "required": ["image_url"],
+      "required": [
+        "image_url"
+      ],
       "type": "object"
     }
   },
