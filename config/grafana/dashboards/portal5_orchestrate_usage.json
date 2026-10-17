@@ -33,7 +33,7 @@
       "id": 1,
       "type": "bargauge",
       "title": "Plan headroom \u2014 every plan that publishes a quota",
-      "description": "Share of each rolling window still available. Covers Z.ai's two Coding Plan pools and Claude Pro's 5-hour and 7-day windows (the orchestrator's own budget \u2014 Opus drains it faster than Sonnet). Green above 40%, amber from 15%, red below; `auto` stops choosing a worker plan under 15%.",
+      "description": "Share of each rolling window still available. Covers Z.ai's two Coding Plan pools, Claude Pro's 5-hour and 7-day windows (the orchestrator's own budget \u2014 Opus drains it faster than Sonnet) and ChatGPT Plus / Codex's two windows. Green above 40%, amber from 15%, red below; `auto` stops choosing a worker plan under 15%.",
       "gridPos": {
         "h": 7,
         "w": 9,
@@ -95,8 +95,8 @@
     {
       "id": 2,
       "type": "stat",
-      "title": "Metered balances (where an API exists)",
-      "description": "Cash left on the pay-as-you-go accounts. DeepSeek and Moonshot publish a balance; MiMo does not \u2014 its spend is in the panel below and its top-up balance lives in the MiMo console.",
+      "title": "Metered balances",
+      "description": "Cash left on the pay-as-you-go accounts. DeepSeek and Moonshot publish a balance directly. MiMo publishes none, so its figure is derived: a balance read from the Xiaomi console, less everything opencode has booked against the provider since \u2014 re-anchor with `usage_exporter.py anchor mimo <usd>` when you top up or it drifts.",
       "gridPos": {
         "h": 7,
         "w": 7,
@@ -890,7 +890,7 @@
       },
       "options": {
         "mode": "markdown",
-        "content": "**Quota is the vendor's own number** for Z.ai (both Coding Plan pools), **Claude Pro** (5-hour and 7-day utilisation, the same source Claude Code's `/usage` reads), DeepSeek and Moonshot. Polled at most hourly and cached; a reading older than 3 hours is ignored for routing and the local proxy is used instead.\n\n**Three plans publish nothing.** MiMo has no balance endpoint \u2014 it is metered and its spend is tracked, but the balance itself lives in the Xiaomi console. Codex and Grok are flat-rate subscriptions with no quota API. For those the only honest signal of exhaustion is a dispatch failing, so no gauge is fabricated.\n\n**Cash is real; notional is modelled.** Prepaid tiers cost nothing at the margin, so *Avoided by prepaid* prices their tokens at the cheapest metered equivalent's list price. An estimate, not an invoice.\n\n**Token counts are normalised per harness** \u2014 codex reports input inclusive of its cached prefix while opencode and grok report cache separately. Raw provider fields differ by roughly an order of magnitude and must not be compared directly."
+        "content": "**Quota is the vendor's own number** for Z.ai (both Coding Plan pools), **Claude Pro** and **ChatGPT Plus / Codex** (5-hour and 7-day utilisation, the same endpoints their own CLIs read), and DeepSeek and Moonshot (dollar balances). Polled at most hourly and cached; a reading older than 3 hours is ignored for routing.\n\n**MiMo's balance is derived, not published.** Xiaomi offers no balance endpoint, so the figure is an operator-recorded console reading less everything opencode has booked against the provider since. Re-anchor after a top-up.\n\n**SuperGrok publishes nothing readable** \u2014 it falls back to the local run-count proxy, and the honest signal of exhaustion there is a dispatch failing.\n\n**Cash is real; notional is modelled.** Prepaid tiers cost nothing at the margin, so *Avoided by prepaid* prices their tokens at the cheapest metered equivalent's list price. An estimate, not an invoice.\n\n**Token counts are normalised per harness** \u2014 codex reports input inclusive of its cached prefix while opencode and grok report cache separately. Raw fields differ by roughly an order of magnitude and must not be compared directly."
       }
     },
     {
@@ -948,7 +948,7 @@
         "y": 44
       },
       "title": "Plans with no vendor quota API",
-      "description": "These plans are real and consumed but expose nothing to read, so their headroom falls back to counting local runs \u2014 a proxy that understated real consumption by ~40x when measured, because one dispatch is many billed requests. For these the reliable signal of exhaustion is a dispatch failing. Shown so they are never mistaken for idle.",
+      "description": "SuperGrok is the one plan that exposes nothing readable \u2014 accounts.x.ai serves HTML rather than an API, and the CLI's subscription check is not reachable as REST. Its headroom falls back to counting local runs, a proxy that understated real consumption by ~40x when measured. The reliable signal there is a dispatch failing.",
       "targets": [
         {
           "refId": "A",

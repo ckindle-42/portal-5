@@ -39,12 +39,16 @@ source Claude Code's own `/usage` reads; DeepSeek and Moonshot expose dollar bal
 Claude Pro is tracked but never dispatched to — it is the orchestrator's own budget, and
 the one most likely to run out mid-session.
 
-Three plans publish nothing. MiMo is purely metered and its spend is tracked, but Xiaomi
-offers no balance endpoint, so the top-up figure lives in its console. Codex and Grok are
-flat-rate subscriptions with no quota API at all. Those three fall back to counting local
-runs — a proxy that understated real consumption by ~40x when measured, because one
-dispatch is many billed requests — and for them the reliable signal of exhaustion is a
-dispatch failing.
+ChatGPT Plus is read the same way, from `chatgpt.com/backend-api/codex/usage` — the
+endpoint the Codex CLI itself uses, with the same 5-hour and 7-day shape.
+
+MiMo's balance is derived rather than published: Xiaomi offers no balance endpoint, so an
+operator-recorded console reading is carried forward less everything opencode has booked
+against the provider since (`usage_exporter.py anchor mimo <usd>`). SuperGrok is the one
+plan that exposes nothing readable at all — accounts.x.ai serves HTML and the CLI's
+subscription check is not reachable as REST — so it falls back to counting local runs, a
+proxy that understated real consumption by ~40x when measured, because one dispatch is
+many billed requests. There, the reliable signal of exhaustion is a dispatch failing.
 
 `usage_exporter.py` serves all of it as Prometheus metrics on **:8947** (vendor polls
 cached hourly; launchd `com.portal5.orchestrate-usage`), scraped by the `orchestrate-usage`
