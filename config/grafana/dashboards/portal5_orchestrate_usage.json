@@ -9,7 +9,7 @@
   "schemaVersion": 38,
   "version": 1,
   "editable": true,
-  "refresh": "1h",
+  "refresh": "5m",
   "time": {
     "from": "now-7d",
     "to": "now"
@@ -188,7 +188,7 @@
               },
               {
                 "color": "#c98500",
-                "value": 7200
+                "value": 1800
               },
               {
                 "color": "red",
@@ -543,7 +543,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "sum(increase(orchestrate_cost_usd_total[7d]))",
+          "expr": "sum(orchestrate_window_cost_usd{window=\"7d\"})",
           "instant": true
         }
       ],
@@ -585,7 +585,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "sum(increase(orchestrate_notional_cost_usd_total[7d])) - sum(increase(orchestrate_cost_usd_total[7d]))",
+          "expr": "sum(orchestrate_window_notional_usd{window=\"7d\"}) - sum(orchestrate_window_cost_usd{window=\"7d\"})",
           "instant": true
         }
       ],
@@ -627,7 +627,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "sum(increase(orchestrate_runs_total[7d]))",
+          "expr": "sum(orchestrate_window_runs{window=\"7d\"})",
           "instant": true
         }
       ],
@@ -669,7 +669,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "100 * sum(increase(orchestrate_accepted_total[7d])) / clamp_min(sum(increase(orchestrate_judged_total[7d])), 1)",
+          "expr": "100 * sum(orchestrate_window_accepted{window=\"7d\"}) / clamp_min(sum(orchestrate_window_judged{window=\"7d\"}), 1)",
           "instant": true
         }
       ],
@@ -890,7 +890,7 @@
       },
       "options": {
         "mode": "markdown",
-        "content": "**Quota is the vendor's own number** for Z.ai (both Coding Plan pools), **Claude Pro** and **ChatGPT Plus / Codex** (5-hour and 7-day utilisation, the same endpoints their own CLIs read), and DeepSeek and Moonshot (dollar balances). Polled at most hourly and cached; a reading older than 3 hours is ignored for routing.\n\n**MiMo's balance is derived, not published.** Xiaomi offers no balance endpoint, so the figure is an operator-recorded console reading less everything opencode has booked against the provider since. Re-anchor after a top-up.\n\n**SuperGrok publishes nothing readable** \u2014 it falls back to the local run-count proxy, and the honest signal of exhaustion there is a dispatch failing.\n\n**Cash is real; notional is modelled.** Prepaid tiers cost nothing at the margin, so *Avoided by prepaid* prices their tokens at the cheapest metered equivalent's list price. An estimate, not an invoice.\n\n**Token counts are normalised per harness** \u2014 codex reports input inclusive of its cached prefix while opencode and grok report cache separately. Raw fields differ by roughly an order of magnitude and must not be compared directly."
+        "content": "**Quota is the vendor's own number** for Z.ai (both Coding Plan pools), **Claude Pro** and **ChatGPT Plus / Codex** (5-hour and 7-day utilisation, the same endpoints their own CLIs read), and DeepSeek and Moonshot (dollar balances). Polled every 15 minutes by a background refresher and served from cache; a reading older than 3 hours is ignored for routing.\n\n**MiMo's balance is derived, not published.** Xiaomi offers no balance endpoint, so the figure is an operator-recorded console reading less everything opencode has booked against the provider since. Re-anchor after a top-up.\n\n**SuperGrok's figure costs a request.** xAI publishes no quota endpoint; the plan's headroom arrives as `x-ratelimit-{limit,remaining}-{tokens,requests}` on a chat response \u2014 the same numbers the CLI's `/usage` screen shows. The exporter reads it with a one-token completion, so it refreshes hourly rather than every 15 minutes.\n\n**Cash is real; notional is modelled.** Prepaid tiers cost nothing at the margin, so *Avoided by prepaid* prices their tokens at the cheapest metered equivalent's list price. An estimate, not an invoice.\n\n**Token counts are normalised per harness** \u2014 codex reports input inclusive of its cached prefix while opencode and grok report cache separately. Raw fields differ by roughly an order of magnitude and must not be compared directly."
       }
     },
     {
@@ -979,7 +979,8 @@
         "defaults": {
           "custom": {
             "align": "left"
-          }
+          },
+          "noValue": "None \u2014 every plan now reports a vendor figure."
         },
         "overrides": []
       },

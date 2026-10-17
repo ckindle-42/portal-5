@@ -44,11 +44,22 @@ endpoint the Codex CLI itself uses, with the same 5-hour and 7-day shape.
 
 MiMo's balance is derived rather than published: Xiaomi offers no balance endpoint, so an
 operator-recorded console reading is carried forward less everything opencode has booked
-against the provider since (`usage_exporter.py anchor mimo <usd>`). SuperGrok is the one
-plan that exposes nothing readable at all — accounts.x.ai serves HTML and the CLI's
-subscription check is not reachable as REST — so it falls back to counting local runs, a
-proxy that understated real consumption by ~40x when measured, because one dispatch is
-many billed requests. There, the reliable signal of exhaustion is a dispatch failing.
+against the provider since (`usage_exporter.py anchor mimo <usd>`).
+
+**SuperGrok's headroom is published, but only on a response.** xAI exposes no quota
+endpoint — every usage/quota/rate-limit path under `cli-chat-proxy.grok.com/v1` 404s, and
+`/v1/billing`, which does answer, reports the *on-demand credit* pool, all zeros on a flat
+subscription. What the plan actually publishes is
+`x-ratelimit-{limit,remaining}-{tokens,requests}` on a chat completion — the numbers the
+CLI's `/usage` screen shows under *Usage limit*, measured at 53,000,000 tokens and 8,300
+requests. `_poll_grok` therefore reads them with a one-token completion. Three details make
+it work: the base URL comes from the CLI's own `settings_cache.json` (`origin`), the token
+is the OIDC key in `~/.grok/auth.json`, and the request must carry
+`x-grok-client-version` / `x-grok-client-identifier` / `x-grok-client-mode` or the proxy
+answers **426 "Your Grok CLI version (none) is outdated"** rather than 401. Because the
+reading costs a billed request, `GROK_QUOTA_TTL` holds it to hourly whatever the base TTL
+is. All seven plans now report a vendor figure; the run-count proxy, which understated
+real consumption by ~40x, is no longer the fallback for any of them.
 
 **When the orchestrator's own plan runs out, work does not stop — it bills.** Past 100% of
 a window, Claude Pro draws on a monthly extra-usage credit cap, so continuing silently
@@ -58,10 +69,25 @@ now` prints an `ORCHESTRATOR EXTRA-USAGE` banner with the window, its reset time
 dollars already spent against the cap, and the orchestrator asks rather than proceeding.
 Overage is never disabled — it stays available, it is just never taken by default.
 
-`usage_exporter.py` serves all of it as Prometheus metrics on **:8947** (vendor polls
-cached hourly; launchd `com.portal5.orchestrate-usage`), scraped by the `orchestrate-usage`
-job and rendered by the **Portal 5 — Orchestrated Worker Usage & Cost** dashboard. The
-harness binaries themselves are watched by `scripts/check_updates.py harnesses`.
+`usage_exporter.py` serves all of it as Prometheus metrics on **:8947** (launchd
+`com.portal5.orchestrate-usage`), scraped by the `orchestrate-usage` job every 300s and
+rendered by the **Portal 5 — Orchestrated Worker Usage & Cost** dashboard, which refreshes
+every 5 minutes. A background refresher re-polls each vendor every 15 minutes *off the
+scrape path*, so a scrape is a cache read however often Prometheus asks and the quota
+panels are never more than a quarter-hour behind; the HTTP handler keeps a longer TTL of
+its own purely as a net for a dead refresher thread. Local ledger metrics — runs, tokens,
+cost — are computed live on every scrape, so tier panels move at the scrape interval.
+
+The same binary writes the morning summary: `usage_exporter.py --digest [--push]` re-folds
+the registry over one **local** calendar day (`yesterday` by default, or `today`, `-N`, or
+`YYYY-MM-DD`) and reports dispatches, accept rate, cash against notional cost per tier, the
+orchestrator's own token spend from its transcripts, and where each plan's quota stood.
+launchd `com.portal5.orchestrate-digest` sends it via Pushover at 08:05 daily, sourcing
+`.env` for the credentials the way the update-check job does. A day is folded rather than
+read off the Prometheus counters because a counter answers "how much since forever", and
+the summary needs one day in isolation.
+
+The harness binaries themselves are watched by `scripts/check_updates.py harnesses`.
 
 ## Why
 
