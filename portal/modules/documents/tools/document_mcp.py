@@ -107,6 +107,26 @@ def _load_template(template: str | None) -> dict[str, Any]:
     return cast(dict[str, Any], json.loads(path.read_text(encoding="utf-8")))
 
 
+def _unknown_keys(items: Any, allowed: tuple[str, ...], where: str) -> dict[str, Any] | None:
+    """A structured error when an item carries a key the tool would silently drop, else None.
+
+    A create tool must not report success for content it ignored: the model would tell the
+    user it wrote text that is not in the file. The error names the accepted keys so the
+    model can retry."""
+    for i, item in enumerate(items or [], 1):
+        if not isinstance(item, dict):
+            return {
+                "success": False,
+                "error": f"{where} {i} must be an object with the keys: {', '.join(allowed)}",
+            }
+        if extra := sorted(set(item) - set(allowed)):
+            return {
+                "success": False,
+                "error": f"unknown key(s) {extra} in {where} {i}; accepted keys: {', '.join(allowed)}",
+            }
+    return None
+
+
 def _add_hyperlink(paragraph: Paragraph, text: str, url: str) -> None:
     from docx.oxml import OxmlElement
     from docx.oxml.ns import qn
@@ -385,6 +405,8 @@ def create_word_document(
             "error": "python-docx not installed. Run: pip install python-docx",
         }
 
+    if bad := _unknown_keys(images, ("source", "path_or_url", "caption", "width_in"), "image"):
+        return bad
     try:
         doc = Document()
         theme = _load_template(template)
@@ -469,6 +491,19 @@ def create_powerpoint(
             "error": "python-pptx not installed. Run: pip install python-pptx",
         }
 
+    if bad := _unknown_keys(slides, ("title", "content", "notes", "chart", "images"), "slide"):
+        return bad
+    for n, slide_data in enumerate(slides or [], 1):
+        if bad := _unknown_keys(
+            [slide_data["chart"]] if slide_data.get("chart") else [],
+            ("type", "title", "categories", "series"),
+            f"chart of slide {n}",
+        ) or _unknown_keys(
+            slide_data.get("images"),
+            ("source", "path_or_url", "left_in", "top_in", "width_in"),
+            f"image of slide {n}",
+        ):
+            return bad
     try:
         prs = Presentation()
         theme = _load_template(template)
@@ -600,6 +635,22 @@ def create_excel(
             "error": "openpyxl not installed. Run: pip install openpyxl",
         }
 
+    if bad := _unknown_keys(sheets, ("name", "headers", "rows"), "sheet") or _unknown_keys(
+        charts,
+        (
+            "sheet",
+            "type",
+            "title",
+            "min_col",
+            "max_col",
+            "min_row",
+            "max_row",
+            "cats_col",
+            "anchor",
+        ),
+        "chart",
+    ):
+        return bad
     try:
         wb = openpyxl.Workbook()
         wb.properties.title = title

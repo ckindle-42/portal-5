@@ -481,3 +481,60 @@ def test_auto_documents_prompt_names_the_read_parameter():
 
     ws = yaml.safe_load(Path("config/portal.yaml").read_text())["workspaces"]["auto-documents"]
     assert "file_path" in ws["owui_system_prompt"]
+
+
+class TestCreateToolsRejectKeysTheyWouldDrop:
+    """A create tool that ignores a key and reports success makes the model tell the user it wrote
+    content that is not in the file (Qwen sent {"title", "text"} to create_powerpoint)."""
+
+    def _mcp(self):
+        from portal.modules.documents.tools import document_mcp
+
+        return document_mcp
+
+    def test_powerpoint_slide_with_text_instead_of_content(self):
+        r = self._mcp().create_powerpoint(
+            "Deck", [{"title": "Yields", "text": "Up twelve percent"}]
+        )
+        assert r["success"] is False
+        assert "'text'" in r["error"] and "title, content, notes" in r["error"]
+
+    def test_powerpoint_nested_chart_and_image_keys(self):
+        m = self._mcp()
+        bad_chart = m.create_powerpoint("D", [{"title": "t", "chart": {"kind": "bar"}}])
+        assert not bad_chart["success"] and "chart of slide 1" in bad_chart["error"]
+        bad_img = m.create_powerpoint("D", [{"title": "t", "images": [{"url": "x"}]}])
+        assert not bad_img["success"] and "image of slide 1" in bad_img["error"]
+
+    def test_excel_sheet_with_columns_instead_of_headers(self):
+        r = self._mcp().create_excel("Book", sheets=[{"name": "A", "columns": ["x"], "rows": []}])
+        assert (
+            r["success"] is False
+            and "'columns'" in r["error"]
+            and "name, headers, rows" in r["error"]
+        )
+
+    def test_excel_chart_unknown_key(self):
+        r = self._mcp().create_excel("B", data=[["a"]], charts=[{"type": "bar", "colour": "red"}])
+        assert r["success"] is False and "'colour'" in r["error"]
+
+    def test_word_image_unknown_key(self):
+        r = self._mcp().create_word_document("D", "text", images=[{"url": "x"}])
+        assert r["success"] is False and "'url'" in r["error"] and "source" in r["error"]
+
+    def test_non_object_items_are_a_structured_error(self):
+        assert not self._mcp().create_powerpoint("D", ["just a string"])["success"]
+
+    def test_accepted_keys_still_create(self, tmp_path, monkeypatch):
+        m = self._mcp()
+        monkeypatch.setattr(m, "OUTPUT_DIR", tmp_path)
+        monkeypatch.setattr(
+            m, "publish_file_sync", lambda p: {"filename": p.name, "url": f"https://x/{p.name}"}
+        )
+        r = m.create_powerpoint(
+            "Deck", [{"title": "A", "content": "b", "notes": "n"}, {"title": "B", "content": "c"}]
+        )
+        assert r["success"] is True
+        assert m.create_excel("Book", sheets=[{"name": "A", "headers": ["x"], "rows": [[1]]}])[
+            "success"
+        ]

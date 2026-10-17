@@ -1,0 +1,86 @@
+{
+ "model": "granite-4.1-8b-mxfp8",
+ "messages": [
+  {
+   "role": "system",
+   "content": "You help create and read professional documents. When asked to create a Word, Excel, or PowerPoint file, use the available MCP document tools. After a create tool returns a download_url in this turn, include that exact download_url as a clickable link in your response so the user can download the file. Format it as: 'Download: <download_url>'. Never write a download link unless a create tool returned one in this turn, and never add one to an answer that only reads or describes a document. When asked about the contents of an existing Word, Excel, PowerPoint, or PDF file, read it with read_word_document, read_excel, read_powerpoint, or read_pdf (set file_path to the file name you were given) and answer from what the tool returns. Never say you cannot create or read files — you have MCP tools for this.\n\nSAFETY POSTURE: You are a standard-posture assistant. If a request's genuine purpose is to harm or deceive a specific real person (doxxing, stalking, accessing someone's accounts without consent), to enable fraud/impersonation/forgery, to harass, or to cheat/deceive an institution, decline and offer a safe, legitimate alternative. This does not restrict ordinary academic, professional, security-research, or fictional work — help fully with those."
+  },
+  {
+   "role": "user",
+   "content": "Create a Word document titled \"Visitor Log Template\" containing a table whose header row is Name | Arrival and whose rows are Lucan Thorne | 09:15; Petra Voss | 10:40, then a paragraph reading \"Keep this log at the front desk.\"."
+  },
+  {
+   "role": "assistant",
+   "content": null,
+   "tool_calls": [
+    {
+     "id": "call_a4b3c38c",
+     "type": "function",
+     "function": {
+      "name": "create_word_document",
+      "arguments": "{\"content\": \"## Visitor Log\\n\\n| Name | Arrival |\\n|---|---|\\n| Lucan Thorne | 09:15 |\\n| Petra Voss | 10:40 |\\n\\nKeep this log at the front desk.\", \"title\": \"Visitor Log Template\"}"
+     }
+    }
+   ]
+  },
+  {
+   "role": "tool",
+   "tool_call_id": "call_a4b3c38c",
+   "name": "create_word_document",
+   "content": "{\"success\": true, \"path\": \"/app/data/generated/wfe/wfe_8d76c1e4c0c614a1/wfe_54970b6e5ea0234cf6dea8542b2f9bb2dfc199a1/out/Visitor_Log_Template_0d74a56b.docx\", \"filename\": \"Visitor_Log_Template_0d74a56b.docx\", \"receipt\": {\"tool\": \"Document\", \"path\": \"/app/data/generated/wfe/wfe_8d76c1e4c0c614a1/wfe_54970b6e5ea0234cf6dea8542b2f9bb2dfc199a1/out/Visitor_Log_Template_0d74a56b.docx\", \"rel\": \"out/Visitor_Log_Template_0d74a56b.docx\", \"sha256\": \"c790748c13bcd4da8eb3dbe0c609f0309dfbbbf35b8a100fa9e16b2f17e18b32\", \"size\": 36880, \"utc\": 1792197205.5119402}, \"message\": \"Document created: Visitor_Log_Template_0d74a56b.docx\"}"
+  }
+ ],
+ "stream": true,
+ "seed": 1002,
+ "max_tokens": 8192,
+ "stream_options": {
+  "include_usage": true
+ },
+ "temperature": 0.0,
+ "top_p": 0.9,
+ "top_k": 40,
+ "min_p": 0.05,
+ "tool_choice": "required",
+ "tools": [
+  {
+   "type": "function",
+   "function": {
+    "name": "create_word_document",
+    "description": "Create a Word document with rich Markdown, tables, code blocks, links, images, optional Portal theme, and optional PDF export",
+    "parameters": {
+     "properties": {
+      "content": {
+       "description": "Document content in markdown: # headings, - bullets, a table as pipe rows with a |---| separator line (| a | b |), code blocks, links",
+       "type": "string"
+      },
+      "title": {
+       "description": "Document title",
+       "type": "string"
+      },
+      "images": {
+       "description": "Images with source/path_or_url, optional caption and width_in",
+       "items": {
+        "type": "object"
+       },
+       "type": "array"
+      },
+      "template": {
+       "description": "Style template name, for example portal",
+       "type": "string"
+      },
+      "also_pdf": {
+       "default": false,
+       "description": "Also export PDF using host LibreOffice",
+       "type": "boolean"
+      }
+     },
+     "required": [
+      "title",
+      "content"
+     ],
+     "type": "object"
+    }
+   }
+  }
+ ]
+}

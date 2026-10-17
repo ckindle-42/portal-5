@@ -1038,7 +1038,12 @@ backends:
     gemma4:26b-a4b-it-qat-ctx8k: gemma-4-26b-a4b-it-QAT-4bit
     hf.co/bartowski/NVIDIA-Nemotron-3.5-Lightning-30B-A3B-GGUF:q4_K_M-ctx8k: NVIDIA-Nemotron-3.5-Lightning-30B-A3B-oQ4e-mtp
     granite4.1:8b-ctx8k: granite-4.1-8b-mxfp8
-    granite4.1:8b-ctx16k: granite-4.1-8b-mxfp8
+    # granite4.1:8b-ctx16k is deliberately NOT aliased (removed 2026-10-17): with tools in the
+    # request the nightmedia granite-4.1-8b-mxfp8 conversion emits U+200B inside paths (10/10 on
+    # a captured request, byte-exact in the raw oMLX stream), and mangled tool/file names
+    # ('create_ powerpoint', 'volume..xlsx'). The same request is clean on the seat's own Ollama
+    # GGUF (10/10) and on granite-4.1-30b-4bit (10/10), and clean here without tools.
+    # Evidence: docs/WFE_DECISION_AUTO_DOCUMENTS (S0 garbling). The 8b-ctx8k alias is unchanged.
     granite4.1:30b-ctx16k: granite-4.1-30b-4bit
     mistral-small3.2:24b: mlx-community--Mistral-Small-3.2-24B-Instruct-2506-4bit
     qwen3.6:27b-q4_K_M-ctx16k: unsloth--Qwen3.6-27B-UD-MLX-4bit
