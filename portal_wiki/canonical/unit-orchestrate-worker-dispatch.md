@@ -50,6 +50,14 @@ subscription check is not reachable as REST — so it falls back to counting loc
 proxy that understated real consumption by ~40x when measured, because one dispatch is
 many billed requests. There, the reliable signal of exhaustion is a dispatch failing.
 
+**When the orchestrator's own plan runs out, work does not stop — it bills.** Past 100% of
+a window, Claude Pro draws on a monthly extra-usage credit cap, so continuing silently
+would spend money nobody authorised and refusing silently would take a decision that is the
+operator's. The standing rule is therefore to **stop and offer the choice**: `dispatch.py
+now` prints an `ORCHESTRATOR EXTRA-USAGE` banner with the window, its reset time, and the
+dollars already spent against the cap, and the orchestrator asks rather than proceeding.
+Overage is never disabled — it stays available, it is just never taken by default.
+
 `usage_exporter.py` serves all of it as Prometheus metrics on **:8947** (vendor polls
 cached hourly; launchd `com.portal5.orchestrate-usage`), scraped by the `orchestrate-usage`
 job and rendered by the **Portal 5 — Orchestrated Worker Usage & Cost** dashboard. The

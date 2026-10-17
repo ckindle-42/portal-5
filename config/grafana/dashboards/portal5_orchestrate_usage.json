@@ -886,7 +886,7 @@
         "h": 5,
         "w": 24,
         "x": 0,
-        "y": 50
+        "y": 56
       },
       "options": {
         "mode": "markdown",
@@ -985,6 +985,135 @@
       },
       "options": {
         "showHeader": true
+      }
+    },
+    {
+      "id": 15,
+      "type": "stat",
+      "gridPos": {
+        "h": 6,
+        "w": 12,
+        "x": 0,
+        "y": 50
+      },
+      "title": "Extra usage \u2014 money spent past the plan",
+      "description": "Once a window hits 100%, work bills against a monthly extra-usage cap rather than stopping. This is real money. The orchestrator's rule is to STOP and offer the choice at that point \u2014 never to continue silently, and never to refuse a decision that is the operator's.",
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "orchestrate_extra_usage_used_usd",
+          "legendFormat": "{{plan}} spent",
+          "instant": true
+        },
+        {
+          "refId": "B",
+          "expr": "orchestrate_extra_usage_limit_usd - orchestrate_extra_usage_used_usd",
+          "legendFormat": "{{plan}} left",
+          "instant": true
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "currencyUSD",
+          "decimals": 2,
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "#199e70",
+                "value": null
+              },
+              {
+                "color": "#c98500",
+                "value": 25
+              },
+              {
+                "color": "red",
+                "value": 100
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "textMode": "auto",
+        "colorMode": "value",
+        "graphMode": "area",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        }
+      }
+    },
+    {
+      "id": 16,
+      "type": "timeseries",
+      "gridPos": {
+        "h": 6,
+        "w": 12,
+        "x": 12,
+        "y": 50
+      },
+      "title": "Windows that are biting",
+      "description": "Each window the provider itself reports as active, with its severity. A line at 100% means that plan's included usage is gone \u2014 for Claude Pro and Codex that is the orchestrator's own budget, not a worker's.",
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "orchestrate_limit_percent",
+          "legendFormat": "{{plan}} \u00b7 {{kind}} ({{severity}})"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "min": 0,
+          "max": 100,
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 8,
+            "showPoints": "never",
+            "axisLabel": "% of window used",
+            "thresholdsStyle": {
+              "mode": "line"
+            }
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "transparent",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 100
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
       }
     }
   ]
