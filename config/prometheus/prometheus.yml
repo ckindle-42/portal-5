@@ -25,6 +25,17 @@ scrape_configs:
     metrics_path: '/metrics'
     scrape_interval: 30s
 
+  # Orchestrated-worker usage: plan quota straight from the vendors (Z.ai Coding Plan
+  # pools, DeepSeek and Moonshot balances) plus per-tier spend from the dispatcher's
+  # registry. Host-native exporter; it caches vendor polls for an hour, so scraping
+  # more often than that costs nothing upstream.
+  - job_name: 'orchestrate-usage'
+    static_configs:
+      - targets: ['host.docker.internal:8947']
+    metrics_path: '/metrics'
+    scrape_interval: 300s
+    scrape_timeout: 60s
+
   # Prometheus self-monitoring
   - job_name: 'prometheus'
     static_configs:

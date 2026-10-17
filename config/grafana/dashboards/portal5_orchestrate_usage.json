@@ -1,0 +1,991 @@
+{
+  "uid": "portal5-orchestrate-usage",
+  "title": "Portal 5 \u2014 Orchestrated Worker Usage & Cost",
+  "tags": [
+    "portal5",
+    "orchestrate",
+    "cost"
+  ],
+  "schemaVersion": 38,
+  "version": 1,
+  "editable": true,
+  "refresh": "1h",
+  "time": {
+    "from": "now-7d",
+    "to": "now"
+  },
+  "timezone": "browser",
+  "description": "Plan quota, token usage and cost for the Claude Code orchestration layer. Quota comes from the vendors themselves (Z.ai Coding Plan pools, DeepSeek and Moonshot balances) and is polled hourly; spend comes from the dispatcher's registry. MiMo publishes no balance endpoint and Codex/Grok are flat-rate subscriptions with no quota API, so they appear in spend but not in quota.",
+  "panels": [
+    {
+      "type": "row",
+      "id": 100,
+      "title": "Plan headroom \u2014 switch before a plan blocks",
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 0
+      },
+      "collapsed": false
+    },
+    {
+      "id": 1,
+      "type": "bargauge",
+      "title": "Plan headroom \u2014 every plan that publishes a quota",
+      "description": "Share of each rolling window still available. Covers Z.ai's two Coding Plan pools and Claude Pro's 5-hour and 7-day windows (the orchestrator's own budget \u2014 Opus drains it faster than Sonnet). Green above 40%, amber from 15%, red below; `auto` stops choosing a worker plan under 15%.",
+      "gridPos": {
+        "h": 7,
+        "w": 9,
+        "x": 0,
+        "y": 1
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "100 * orchestrate_quota_remaining / orchestrate_quota_limit",
+          "legendFormat": "{{plan}} \u00b7 {{window}}",
+          "instant": true
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "min": 0,
+          "max": 100,
+          "decimals": 0,
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "#c98500",
+                "value": 15
+              },
+              {
+                "color": "#199e70",
+                "value": 40
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "displayMode": "gradient",
+        "orientation": "horizontal",
+        "showUnfilled": true,
+        "minVizHeight": 24,
+        "valueMode": "color",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        }
+      }
+    },
+    {
+      "id": 2,
+      "type": "stat",
+      "title": "Metered balances (where an API exists)",
+      "description": "Cash left on the pay-as-you-go accounts. DeepSeek and Moonshot publish a balance; MiMo does not \u2014 its spend is in the panel below and its top-up balance lives in the MiMo console.",
+      "gridPos": {
+        "h": 7,
+        "w": 7,
+        "x": 9,
+        "y": 1
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "orchestrate_balance_usd",
+          "legendFormat": "{{plan}}",
+          "instant": true
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "currencyUSD",
+          "decimals": 2,
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "#c98500",
+                "value": 5
+              },
+              {
+                "color": "#199e70",
+                "value": 20
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "orientation": "auto",
+        "textMode": "auto",
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        }
+      }
+    },
+    {
+      "id": 3,
+      "type": "stat",
+      "title": "Quota reading freshness",
+      "description": "Age of the cached vendor reading per plan. The exporter re-polls upstream hourly; anything over 3 hours is ignored for routing and the local run-count proxy is used instead.",
+      "gridPos": {
+        "h": 7,
+        "w": 8,
+        "x": 16,
+        "y": 1
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "orchestrate_quota_age_seconds",
+          "legendFormat": "{{plan}}",
+          "instant": true
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "decimals": 0,
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "#199e70",
+                "value": null
+              },
+              {
+                "color": "#c98500",
+                "value": 7200
+              },
+              {
+                "color": "red",
+                "value": 10800
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "orientation": "auto",
+        "textMode": "auto",
+        "colorMode": "value",
+        "graphMode": "none",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        }
+      }
+    },
+    {
+      "id": 4,
+      "type": "timeseries",
+      "title": "Quota burn-down and reset",
+      "description": "Credits left in each Z.ai pool over time. The sawtooth is the pool resetting; a line heading for zero before its reset is the cue to move work to another plan.",
+      "gridPos": {
+        "h": 8,
+        "w": 24,
+        "x": 0,
+        "y": 8
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "orchestrate_quota_remaining",
+          "legendFormat": "{{plan}} \u00b7 {{window}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "min": 0,
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 8,
+            "showPoints": "never",
+            "spanNulls": true,
+            "axisLabel": "credits remaining"
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": ".*5h.*"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#3987e5"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": ".*1w.*"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#d95926"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      }
+    },
+    {
+      "type": "row",
+      "id": 101,
+      "title": "Usage and cost by tier",
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 16
+      },
+      "collapsed": false
+    },
+    {
+      "id": 5,
+      "type": "timeseries",
+      "title": "New tokens by tier",
+      "description": "Tokens each tier actually had to ingest or generate, normalised per harness \u2014 codex reports input inclusive of its cached prefix while opencode and grok report cache separately, so raw counts are not comparable.",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 17
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (tier) (increase(orchestrate_tokens_total[1h]))",
+          "legendFormat": "{{tier}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "min": 0,
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "drawStyle": "bars",
+            "lineWidth": 1,
+            "fillOpacity": 85,
+            "stacking": {
+              "mode": "normal",
+              "group": "A"
+            },
+            "showPoints": "never",
+            "axisLabel": "new tokens / hour"
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "flash"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#3987e5"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "deep-flash"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#d95926"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "mimo-flash"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#199e70"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "codex"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#c98500"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "grok"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#d55181"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      }
+    },
+    {
+      "id": 6,
+      "type": "timeseries",
+      "title": "Cash spent by tier",
+      "description": "Actual dollars. Prepaid tiers sit flat at zero by design \u2014 what they would otherwise have cost is the next panel.",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 17
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (tier) (increase(orchestrate_cost_usd_total[1h]))",
+          "legendFormat": "{{tier}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "currencyUSD",
+          "min": 0,
+          "decimals": 4,
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "drawStyle": "bars",
+            "lineWidth": 1,
+            "fillOpacity": 85,
+            "stacking": {
+              "mode": "normal",
+              "group": "A"
+            },
+            "showPoints": "never",
+            "axisLabel": "USD / hour"
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "deep-flash"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#d95926"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "mimo-flash"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#199e70"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "kimi"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#d55181"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      }
+    },
+    {
+      "id": 7,
+      "type": "stat",
+      "title": "Spent in cash (7d)",
+      "description": "Real money across every metered tier in the dashboard window.",
+      "gridPos": {
+        "h": 5,
+        "w": 6,
+        "x": 0,
+        "y": 25
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(increase(orchestrate_cost_usd_total[7d]))",
+          "instant": true
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "currencyUSD",
+          "decimals": 2,
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "#d95926"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "textMode": "value",
+        "colorMode": "value",
+        "graphMode": "area",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        }
+      }
+    },
+    {
+      "id": 8,
+      "type": "stat",
+      "title": "Avoided by prepaid (7d)",
+      "description": "What the prepaid tiers' tokens would have cost at the cheapest metered equivalent's list price. This is the subscriptions earning their keep.",
+      "gridPos": {
+        "h": 5,
+        "w": 6,
+        "x": 6,
+        "y": 25
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(increase(orchestrate_notional_cost_usd_total[7d])) - sum(increase(orchestrate_cost_usd_total[7d]))",
+          "instant": true
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "currencyUSD",
+          "decimals": 2,
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "#199e70"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "textMode": "value",
+        "colorMode": "value",
+        "graphMode": "area",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        }
+      }
+    },
+    {
+      "id": 9,
+      "type": "stat",
+      "title": "Dispatches (7d)",
+      "description": "Worker dispatches recorded across all tiers.",
+      "gridPos": {
+        "h": 5,
+        "w": 6,
+        "x": 12,
+        "y": 25
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(increase(orchestrate_runs_total[7d]))",
+          "instant": true
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 0,
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "#3987e5"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "textMode": "value",
+        "colorMode": "value",
+        "graphMode": "area",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        }
+      }
+    },
+    {
+      "id": 10,
+      "type": "stat",
+      "title": "Accept rate (7d)",
+      "description": "Share of reviewed dispatches accepted. Routing ranks on cost per ACCEPTED slice, so this is the denominator that matters \u2014 a cheap tier rejected half the time is the expensive one.",
+      "gridPos": {
+        "h": 5,
+        "w": 6,
+        "x": 18,
+        "y": 25
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "100 * sum(increase(orchestrate_accepted_total[7d])) / clamp_min(sum(increase(orchestrate_judged_total[7d])), 1)",
+          "instant": true
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "min": 0,
+          "max": 100,
+          "decimals": 0,
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "#c98500",
+                "value": 70
+              },
+              {
+                "color": "#199e70",
+                "value": 90
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "textMode": "value",
+        "colorMode": "value",
+        "graphMode": "none",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        }
+      }
+    },
+    {
+      "id": 11,
+      "type": "table",
+      "title": "Per-tier ledger \u2014 the numbers routing actually reads",
+      "description": "Cumulative per tier. Cost per accepted slice is the figure `auto` ranks on once a tier has enough judged runs; until then it falls back to priors. This table is also the accessible view of the panels above.",
+      "gridPos": {
+        "h": 9,
+        "w": 24,
+        "x": 0,
+        "y": 30
+      },
+      "targets": [
+        {
+          "refId": "RUNS",
+          "expr": "orchestrate_runs_total",
+          "instant": true,
+          "format": "table"
+        },
+        {
+          "refId": "ACC",
+          "expr": "orchestrate_accepted_total",
+          "instant": true,
+          "format": "table"
+        },
+        {
+          "refId": "TOK",
+          "expr": "orchestrate_tokens_total",
+          "instant": true,
+          "format": "table"
+        },
+        {
+          "refId": "COST",
+          "expr": "orchestrate_cost_usd_total",
+          "instant": true,
+          "format": "table"
+        },
+        {
+          "refId": "NOT",
+          "expr": "orchestrate_notional_cost_usd_total",
+          "instant": true,
+          "format": "table"
+        },
+        {
+          "refId": "CPA",
+          "expr": "orchestrate_cost_usd_total / clamp_min(orchestrate_accepted_total, 1)",
+          "instant": true,
+          "format": "table"
+        }
+      ],
+      "transformations": [
+        {
+          "id": "merge",
+          "options": {}
+        },
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {
+              "Time": true,
+              "__name__": true,
+              "job": true,
+              "instance": true
+            },
+            "renameByName": {
+              "tier": "Tier",
+              "plan": "Plan",
+              "Value #RUNS": "Runs",
+              "Value #ACC": "Accepted",
+              "Value #TOK": "New tokens",
+              "Value #COST": "Cash $",
+              "Value #NOT": "Notional $",
+              "Value #CPA": "$ / accepted"
+            }
+          }
+        },
+        {
+          "id": "sortBy",
+          "options": {
+            "fields": {},
+            "sort": [
+              {
+                "field": "New tokens",
+                "desc": true
+              }
+            ]
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "custom": {
+            "align": "right"
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Tier"
+            },
+            "properties": [
+              {
+                "id": "custom.align",
+                "value": "left"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Plan"
+            },
+            "properties": [
+              {
+                "id": "custom.align",
+                "value": "left"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": ".*\\$.*"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "currencyUSD"
+              },
+              {
+                "id": "decimals",
+                "value": 4
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "New tokens"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "short"
+              },
+              {
+                "id": "decimals",
+                "value": 0
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "showHeader": true,
+        "footer": {
+          "show": false
+        }
+      }
+    },
+    {
+      "id": 12,
+      "type": "text",
+      "title": "What this dashboard can and cannot see",
+      "gridPos": {
+        "h": 5,
+        "w": 24,
+        "x": 0,
+        "y": 50
+      },
+      "options": {
+        "mode": "markdown",
+        "content": "**Quota is the vendor's own number** for Z.ai (both Coding Plan pools), **Claude Pro** (5-hour and 7-day utilisation, the same source Claude Code's `/usage` reads), DeepSeek and Moonshot. Polled at most hourly and cached; a reading older than 3 hours is ignored for routing and the local proxy is used instead.\n\n**Three plans publish nothing.** MiMo has no balance endpoint \u2014 it is metered and its spend is tracked, but the balance itself lives in the Xiaomi console. Codex and Grok are flat-rate subscriptions with no quota API. For those the only honest signal of exhaustion is a dispatch failing, so no gauge is fabricated.\n\n**Cash is real; notional is modelled.** Prepaid tiers cost nothing at the margin, so *Avoided by prepaid* prices their tokens at the cheapest metered equivalent's list price. An estimate, not an invoice.\n\n**Token counts are normalised per harness** \u2014 codex reports input inclusive of its cached prefix while opencode and grok report cache separately. Raw provider fields differ by roughly an order of magnitude and must not be compared directly."
+      }
+    },
+    {
+      "id": 13,
+      "type": "bargauge",
+      "gridPos": {
+        "h": 6,
+        "w": 12,
+        "x": 0,
+        "y": 44
+      },
+      "title": "Metered spend to date \u2014 including MiMo",
+      "description": "Cumulative cash per metered plan. MiMo is purely pay-as-you-go and is charged like DeepSeek and Kimi; it is here rather than in the balances panel only because Xiaomi publishes no balance endpoint to read.",
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (plan) (orchestrate_cost_usd_total{plan=~\"deepseek|mimo|kimi\"})",
+          "legendFormat": "{{plan}}",
+          "instant": true
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "currencyUSD",
+          "decimals": 4,
+          "min": 0,
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "#d95926"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "displayMode": "basic",
+        "orientation": "horizontal",
+        "showUnfilled": true,
+        "valueMode": "text",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        }
+      }
+    },
+    {
+      "id": 14,
+      "type": "table",
+      "gridPos": {
+        "h": 6,
+        "w": 12,
+        "x": 12,
+        "y": 44
+      },
+      "title": "Plans with no vendor quota API",
+      "description": "These plans are real and consumed but expose nothing to read, so their headroom falls back to counting local runs \u2014 a proxy that understated real consumption by ~40x when measured, because one dispatch is many billed requests. For these the reliable signal of exhaustion is a dispatch failing. Shown so they are never mistaken for idle.",
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "orchestrate_plan_has_vendor_quota == 0",
+          "instant": true,
+          "format": "table"
+        }
+      ],
+      "transformations": [
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {
+              "Time": true,
+              "__name__": true,
+              "job": true,
+              "instance": true,
+              "Value": true
+            },
+            "renameByName": {
+              "plan": "Plan",
+              "reason": "Why it cannot be read"
+            }
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "left"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "showHeader": true
+      }
+    }
+  ]
+}
