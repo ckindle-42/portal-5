@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import datetime as dt
+import os
 import signal
 import subprocess
 import sys
@@ -14,7 +15,8 @@ DEFAULT_PID_FILE = Path("/tmp/portal5-memory-safety-test-pids")
 
 def supervise(cmd: list[str], pid_file: Path, exit_log: Path, label: str) -> int:
     """Start cmd, register its PID for the watchdog, forward signals, log and return its exit."""
-    child = subprocess.Popen(cmd)
+    # The campaign appends its HALT line to the same log the supervisor writes its exit to.
+    child = subprocess.Popen(cmd, env={**os.environ, "WFE_EXIT_LOG": str(exit_log)})
     with pid_file.open("a") as fh:
         fh.write(f"{child.pid}\n")
     old = {
