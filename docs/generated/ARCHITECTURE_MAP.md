@@ -2,7 +2,7 @@
 
 # Portal 5 Architecture Map
 
-*Deterministic projection of 772 canonical units.*
+*Deterministic projection of 773 canonical units.*
 
 ## Knowledge Layer
 
@@ -163,7 +163,7 @@
 | `unit-backup-restore-3-mcp-data-if-applicable` | what | 2 |
 | `unit-backup-restore-4-full-system-backup-script` | what | 2 |
 | `unit-backup-restore-add-to-crontab-crontab-e` | what | 2 |
-| `unit-backup-restore-after-config-changes-re-seed` | what | 1 |
+| `unit-backup-restore-after-config-changes-re-seed` | what | 2 |
 | `unit-backup-restore-backup-config-directory` | what | 1 |
 | `unit-backup-restore-backup-portal-5-data` | what | 2 |
 | `unit-backup-restore-backup-retention` | what | 2 |
@@ -196,7 +196,7 @@
 | `unit-capability-binresearch` | mixed | 3 |
 | `unit-capability-browser` | mixed | 3 |
 | `unit-capability-cad-render` | mixed | 6 |
-| `unit-capability-compliance` | mixed | 4 |
+| `unit-capability-compliance` | mixed | 5 |
 | `unit-capability-context7` | mixed | 3 |
 | `unit-capability-data` | mixed | 4 |
 | `unit-capability-detection` | mixed | 4 |
@@ -335,6 +335,7 @@
 | `unit-known-limitations-emergent-objective-loop-curated-capability-tool-names-vs-live-dispatch-whitelist` | what | 8 |
 | `unit-known-limitations-engine-update-data01-approval` | what | 2 |
 | `unit-known-limitations-fara-cua-tag-closure` | what | 1 |
+| `unit-known-limitations-granite-8b-mxfp8-tool-garbling` | what | 3 |
 | `unit-known-limitations-higgs-voice-cloning` | mixed | 1 |
 | `unit-known-limitations-host-native-mcp-lifecycle-launcher-child-exit` | what | 5 |
 | `unit-known-limitations-importing-the-security-bench-module-sets-a-linux-only-prometheus-multiproc-dir-host-side` | what | 4 |
@@ -767,7 +768,7 @@
 | `unit-user-guide-uploading-documents` | what | 2 |
 | `unit-user-guide-workspaces` | what | 3 |
 | `unit-wfe-loop-attribution-protocol` | mixed | 3 |
-| `unit-wfe-workspace-fitness` | mixed | 5 |
+| `unit-wfe-workspace-fitness` | mixed | 6 |
 | `unit-wiki-adapter-modules` | mixed | 1 |
 | `unit-wiki-audit` | mixed | 1 |
 | `unit-wiki-interfaces` | mixed | 1 |
@@ -781,12 +782,12 @@
 | `unit-wiki-tests-render` | mixed | 1 |
 | `unit-wiki-writeback` | mixed | 1 |
 
-**Total:** 772 units
+**Total:** 773 units
 
 ## Source Distribution
 
 - **bench-security**: 1 references
-- **code**: 2074 references
+- **code**: 2080 references
 - **config**: 1 references
 - **data**: 1 references
 - **doc**: 2 references

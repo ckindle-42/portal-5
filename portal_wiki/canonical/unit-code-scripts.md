@@ -1,35 +1,35 @@
 ---
 id: unit-code-scripts
 kind: what
-title: scripts subsystem (214 files)
+title: scripts subsystem (227 files)
 sources:
 - type: code
   path: scripts/_archive/analyze_bench_v5.py
-  commit: 6389a23d9b49
+  commit: 8015e9381c8a
 - type: code
   path: scripts/_archive/engine_h2h_20260924/bench_engine_h2h.py
-  commit: 6389a23d9b49
+  commit: 8015e9381c8a
 - type: code
   path: scripts/_archive/engine_h2h_20260924/deep_lane/run_deep.py
-  commit: 6389a23d9b49
+  commit: 8015e9381c8a
 - type: code
   path: scripts/_archive/engine_h2h_20260924/prismml_mlx_server.py
-  commit: 6389a23d9b49
+  commit: 8015e9381c8a
 - type: code
   path: scripts/_archive/engine_h2h_20260924/tests/test_bench_engine_h2h.py
-  commit: 6389a23d9b49
+  commit: 8015e9381c8a
 claims: []
 confidence: high
 tags:
 - code
 - scripts
-created_at: 1791575454.1499898
-updated_at: 1791575454.1499898
+created_at: 1792204748.5158741
+updated_at: 1792204748.5158741
 ---
 
 # scripts subsystem
 
-**Files:** 214
+**Files:** 227
 
 - `scripts/_archive/analyze_bench_v5.py`
 - `scripts/_archive/engine_h2h_20260924/bench_engine_h2h.py`
@@ -51,4 +51,4 @@ updated_at: 1791575454.1499898
 - `scripts/bully_corpus_hunt_run.py`
 - `scripts/bully_full_assembly_run.py`
 - `scripts/bully_inject_capture.py`
-- ... and 194 more
+- ... and 207 more

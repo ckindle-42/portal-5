@@ -1,37 +1,39 @@
 ---
 id: unit-code-tests
 kind: what
-title: tests subsystem (629 files)
+title: tests subsystem (739 files)
 sources:
 - type: code
   path: tests/__init__.py
-  commit: bbe72ae97802
+  commit: 8015e9381c8a
+- type: code
+  path: tests/_netguard/netguard.py
+  commit: 8015e9381c8a
+- type: code
+  path: tests/_netguard/sitecustomize.py
+  commit: 8015e9381c8a
 - type: code
   path: tests/acceptance/_common.py
-  commit: bbe72ae97802
+  commit: 8015e9381c8a
 - type: code
   path: tests/acceptance/cli.py
-  commit: bbe72ae97802
-- type: code
-  path: tests/acceptance/results.py
-  commit: bbe72ae97802
-- type: code
-  path: tests/acceptance/runner.py
-  commit: bbe72ae97802
+  commit: 8015e9381c8a
 claims: []
 confidence: high
 tags:
 - code
 - tests
-created_at: 1791573770.470886
-updated_at: 1791573770.470886
+created_at: 1792204748.5163882
+updated_at: 1792204748.5163882
 ---
 
 # tests subsystem
 
-**Files:** 629
+**Files:** 739
 
 - `tests/__init__.py`
+- `tests/_netguard/netguard.py`
+- `tests/_netguard/sitecustomize.py`
 - `tests/acceptance/_common.py`
 - `tests/acceptance/cli.py`
 - `tests/acceptance/results.py`
@@ -49,6 +51,4 @@ updated_at: 1791573770.470886
 - `tests/acceptance/s10_personas_ollama.py`
 - `tests/acceptance/s10c_compliance_personas.py`
 - `tests/acceptance/s12_web_search.py`
-- `tests/acceptance/s13_rag_embedding.py`
-- `tests/acceptance/s15_shared_workspace.py`
-- ... and 609 more
+- ... and 719 more
