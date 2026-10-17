@@ -1092,6 +1092,10 @@ surfaces:
   globs:
   - tests/wfe/e2e/fake_engines.py
   unit: unit-wfe-workspace-fitness
+- name: file-tests-wfe-e2e-general_attainability
+  globs:
+  - tests/wfe/e2e/general_attainability.py
+  unit: unit-wfe-workspace-fitness
 - name: file-tests-wfe-e2e-live
   globs:
   - tests/wfe/e2e/live.py
@@ -1155,6 +1159,10 @@ surfaces:
 - name: file-tests-wfe-suites-build_documents_production
   globs:
   - tests/wfe/suites/build_documents_production.py
+  unit: unit-wfe-workspace-fitness
+- name: file-tests-wfe-suites-build_general_production
+  globs:
+  - tests/wfe/suites/build_general_production.py
   unit: unit-wfe-workspace-fitness
 - name: file-tests-wfe-suites-build_research_production
   globs:
@@ -1223,6 +1231,10 @@ surfaces:
 - name: file-tests-wfe-tests-test_wfe_fitness_report
   globs:
   - tests/wfe/tests/test_wfe_fitness_report.py
+  unit: unit-wfe-workspace-fitness
+- name: file-tests-wfe-tests-test_wfe_general_slice
+  globs:
+  - tests/wfe/tests/test_wfe_general_slice.py
   unit: unit-wfe-workspace-fitness
 - name: file-tests-wfe-tests-test_wfe_gold_isolation
   globs:

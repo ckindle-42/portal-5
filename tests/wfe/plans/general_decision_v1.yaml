@@ -1,0 +1,57 @@
+# The general family's first seat decisions: one workload per workspace, each its own campaign
+# (--workspace <id>; run general-fast, general-deep, auto-daily, then the uncensored lanes).
+# general-fast / general-deep / auto-daily run general_production (36 tasks, 12 screen);
+# the uncensored lanes carry no KB or document-create tools, so they run general_core_production
+# (computed + memory, 24 tasks, 8 screen). Every challenger is served by the `general` group at
+# a window of at least the workspace's context_limit (checked by the slice tests against
+# backends.yaml). The operator may trim these lists before the run.
+workloads:
+  general-fast:
+    tool_mode: production
+    home: general_production
+    discovery: []
+    arms:
+      incumbent: hf.co/unsloth/Qwen3.6-35B-A3B-GGUF:UD-Q4_K_XL-ctx96k
+      challengers:
+        - hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx96k
+        - gemma4:26b-a4b-it-q4_K_M-ctx128k
+        - granite4.1:30b-ctx96k
+  general-deep:
+    tool_mode: production
+    home: general_production
+    discovery: []
+    arms:
+      incumbent: hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx96k
+      challengers:
+        - hf.co/unsloth/Qwen3.6-35B-A3B-GGUF:UD-Q4_K_XL-ctx96k
+        - gemma4:26b-a4b-it-q4_K_M-ctx128k
+        - granite4.1:30b-ctx96k
+  auto-daily:
+    tool_mode: production
+    home: general_production
+    discovery: []
+    arms:
+      incumbent: gemma4:26b-a4b-it-qat-ctx8k
+      challengers:
+        - granite4.1:30b-ctx16k
+        - hf.co/bartowski/NVIDIA-Nemotron-3.5-Lightning-30B-A3B-GGUF:q4_K_M-ctx8k
+        - hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k
+  auto-general-uncensored:
+    tool_mode: production
+    home: general_core_production
+    discovery: []
+    arms:
+      incumbent: hf.co/mradermacher/Huihui-Qwen3.6-35B-A3B-abliterated-GGUF:Q4_K_M-ctx8k
+      challengers:
+        - huihui_ai/Qwen3.6-abliterated:27b-ctx8k
+        - huihui_ai/qwen3.5-abliterated:9b-ctx64k
+        - portal5/hauhaucs-qwen36-35b:q4_K_M-ctx256k
+  auto-uncensored-throwaway:
+    tool_mode: production
+    home: general_core_production
+    discovery: []
+    arms:
+      incumbent: portal5/hauhaucs-qwen36-35b:q4_K_M-ctx256k
+      challengers:
+        - huihui_ai/qwen3.5-abliterated:9b-ctx64k
+        - hf.co/unsloth/Qwen3.6-35B-A3B-GGUF:UD-Q4_K_XL-ctx48k
