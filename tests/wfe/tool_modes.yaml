@@ -24,3 +24,17 @@ workspaces:
     # feeds (CVE/EPSS/KEV/advisories, web) are excluded; the feeds are Part 2c-3's.
     tool_mode: production
     allow: [compliance_answers, compliance_coverage, compliance_flexibility, compliance_intentionality, compliance_links, compliance_mappings, compliance_notes, compliance_orphans, compliance_read, compliance_requirement, compliance_route, compliance_search, compliance_timeline, compliance_trace, lookup_control, map_frameworks, nerc_cip_currency, nerc_cip_requirement, patch_evidence, search_controls]
+  general-fast: &general_tools
+    # The general family's own tools, scoped to the row (TASK_WFE_SLICE_GENERAL): documents,
+    # KB, python and memory. Excluded: web_search / web_fetch (no fixed gold), minimax_* and
+    # transcribe_audio (out of scope). remember is a write that lands in the row's own memory.
+    tool_mode: production
+    allow: [kb_search, kb_list, read_pdf, read_word_document, read_excel, create_word_document, create_excel, create_powerpoint, execute_python, remember, recall]
+  general-deep: *general_tools
+  auto-daily: *general_tools
+  auto-general-uncensored: &uncensored_tools
+    # The uncensored general lanes carry no KB or document-create tools; they are measured
+    # on the computed and memory kinds only (general_core_production).
+    tool_mode: production
+    allow: [execute_python, remember, recall]
+  auto-uncensored-throwaway: *uncensored_tools

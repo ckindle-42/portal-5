@@ -1264,6 +1264,10 @@ surfaces:
   globs:
   - tests/wfe/tests/test_wfe_tiers.py
   unit: unit-wfe-workspace-fitness
+- name: file-tests-wfe-tests-test_wfe_tool_modes
+  globs:
+  - tests/wfe/tests/test_wfe_tool_modes.py
+  unit: unit-wfe-workspace-fitness
 - name: file-tests-wfe-tools-build_compliance_suite
   globs:
   - tests/wfe/tools/build_compliance_suite.py
