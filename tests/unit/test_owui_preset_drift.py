@@ -51,3 +51,26 @@ def test_check_reads_each_workspace_file_but_not_the_bundle(tmp_path):
     stale["params"]["system"] = "old"
     assert mod.check(lambda _id: stale, tmp_path).keys() == {"auto-documents"}
     assert mod.check(lambda _id: FILE, tmp_path) == {}
+
+
+def test_persona_expectation_follows_the_seeder_rules():
+    personas = {p["id"]: p for p in mod.expected_personas()}
+    assert len(personas) > 100
+    p = next(iter(personas.values()))
+    assert p["base_model_id"] == p["params"]["model"] and p["params"]["system"]
+
+
+def test_a_persona_sharing_a_workspace_id_is_reported_not_drift():
+    exp = [
+        {
+            "id": "auto-documents",
+            "name": "x",
+            "base_model_id": "b",
+            "params": {"system": "s", "model": "b"},
+            "meta": {"toolIds": []},
+        }
+    ]
+    assert mod.shadowed_personas(exp) == ["auto-documents"]
+    assert mod.check_personas(lambda _id: None, exp) == {}  # never seeded, so never "missing"
+    other = [{**exp[0], "id": "some-persona-xyz"}]
+    assert list(mod.check_personas(lambda _id: None, other)) == ["some-persona-xyz"]
