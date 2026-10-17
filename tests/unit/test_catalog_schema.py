@@ -65,7 +65,10 @@ def test_persona_missing_workspace_model_raises(tmp_path: Path) -> None:
 def test_all_production_personas_have_valid_parents() -> None:
     """All production personas reference an existing workspace."""
     personas = load_persona_map()
-    assert len(personas) == 123, f"Expected 123 personas, got {len(personas)}"
+    on_disk = len(
+        list((Path(__file__).resolve().parents[2] / "config" / "personas").glob("*.yaml"))
+    )
+    assert len(personas) == on_disk, f"{len(personas)} loaded personas, {on_disk} persona files"
     validate_persona_parents(personas)  # raises if any parent is invalid
 
 

@@ -1,26 +1,26 @@
 ---
 id: unit-fact-persona-roster
 kind: what
-title: 123 personas
+title: 112 personas
 sources:
 - type: code
   path: config/personas/
-  commit: 8813e0589d6a
+  commit: 2a4de64fbafe
 - type: code
   path: config/personas/adversarysimulator.yaml
-  commit: 8813e0589d6a
+  commit: 2a4de64fbafe
 - type: code
   path: config/personas/agenticheavy.yaml
-  commit: 8813e0589d6a
+  commit: 2a4de64fbafe
 - type: code
   path: config/personas/agenticlite.yaml
-  commit: 8813e0589d6a
+  commit: 2a4de64fbafe
 - type: code
   path: config/personas/agentorchestrator.yaml
-  commit: 8813e0589d6a
+  commit: 2a4de64fbafe
 - type: code
-  path: config/personas/bench_gemma4_26b_optiq.yaml
-  commit: 8813e0589d6a
+  path: config/personas/bench_qwen36_abl_27b.yaml
+  commit: 2a4de64fbafe
 claims:
 - probe: personas.count
   pattern: Persona roster ({value} personas)
@@ -29,10 +29,10 @@ tags:
 - fact
 - personas
 created_at: 1784000421.217775
-updated_at: 1791554375.6245172
+updated_at: 1792202185.701866
 ---
 
-# Persona roster (123 personas)
+# Persona roster (112 personas)
 
 | Slug | Module | Workspace | Model Pin |
 |---|---|---|---|
@@ -40,18 +40,7 @@ updated_at: 1791554375.6245172
 | `agenticheavy` | coding | `auto-coding` | — |
 | `agenticlite` | coding | `auto-coding` | — |
 | `agentorchestrator` | coding | `auto-coding` | — |
-| `bench-gemma4-26b-optiq` | eval | `bench-gemma4-26b-optiq` | — |
-| `bench-gemma4-e4b-qat` | eval | `bench-gemma4-e4b-qat` | — |
-| `bench-glm` | eval | `bench-glm` | — |
-| `bench-granite41-30b` | eval | `bench-granite41-30b` | — |
-| `bench-granite41-8b` | eval | `bench-granite41-8b` | — |
-| `bench-huihui-qwen36-27b` | eval | `bench-huihui-qwen36-27b` | — |
-| `bench-huihui-qwen36-35b-a3b` | eval | `bench-huihui-qwen36-35b-a3b` | — |
-| `bench-nex-n2-mini` | eval | `bench-nex-n2-mini` | — |
-| `bench-omnicoder2` | eval | `bench-omnicoder2` | — |
-| `bench-qwen35-abliterated` | eval | `bench-qwen35-abliterated` | — |
 | `bench-qwen36-abl-27b` | eval | `bench-huihui-qwen36-27b` | — |
-| `bench-qwen3-coder-30b` | eval | `bench-qwen3-coder-30b` | — |
 | `blueteamdefender` | security | `auto-security` | — |
 | `bugdiscoverycodeassistant` | coding | `auto-coding` | — |
 | `businessanalyst` | general | `auto-reasoning` | — |

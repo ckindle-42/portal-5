@@ -7,7 +7,7 @@ sources:
 - type: code
   path: config/portal.yaml
 - type: code
-  path: config/personas/bench_granite41_8b.yaml
+  path: config/portal.yaml
 - type: code
   path: tests/benchmarks/bench/prompts.py
 claims: []

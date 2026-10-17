@@ -422,7 +422,7 @@ key=workspace` (sealed grader; run one at a time). Details: `portal/modules/cad/
 ### Personas
 
 <!-- WIKI:GENERATED unit=unit-fact-persona-roster -->
-#### Persona roster (123 personas)
+#### Persona roster (112 personas)
 
 | Slug | Module | Workspace | Model Pin |
 |---|---|---|---|
@@ -430,18 +430,7 @@ key=workspace` (sealed grader; run one at a time). Details: `portal/modules/cad/
 | `agenticheavy` | coding | `auto-coding` | — |
 | `agenticlite` | coding | `auto-coding` | — |
 | `agentorchestrator` | coding | `auto-coding` | — |
-| `bench-gemma4-26b-optiq` | eval | `bench-gemma4-26b-optiq` | — |
-| `bench-gemma4-e4b-qat` | eval | `bench-gemma4-e4b-qat` | — |
-| `bench-glm` | eval | `bench-glm` | — |
-| `bench-granite41-30b` | eval | `bench-granite41-30b` | — |
-| `bench-granite41-8b` | eval | `bench-granite41-8b` | — |
-| `bench-huihui-qwen36-27b` | eval | `bench-huihui-qwen36-27b` | — |
-| `bench-huihui-qwen36-35b-a3b` | eval | `bench-huihui-qwen36-35b-a3b` | — |
-| `bench-nex-n2-mini` | eval | `bench-nex-n2-mini` | — |
-| `bench-omnicoder2` | eval | `bench-omnicoder2` | — |
-| `bench-qwen35-abliterated` | eval | `bench-qwen35-abliterated` | — |
 | `bench-qwen36-abl-27b` | eval | `bench-huihui-qwen36-27b` | — |
-| `bench-qwen3-coder-30b` | eval | `bench-qwen3-coder-30b` | — |
 | `blueteamdefender` | security | `auto-security` | — |
 | `bugdiscoverycodeassistant` | coding | `auto-coding` | — |
 | `businessanalyst` | general | `auto-reasoning` | — |
