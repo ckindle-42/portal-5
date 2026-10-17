@@ -129,6 +129,19 @@ The harness (`tests/wfe/`):
   `--preflight` probes every arm before the sweep, and each arm releases its
   model (`keep_alive: 0`) so co-resident weight never becomes the measurement;
   `report.py` — deterministic Wilson-interval report, NOT SEPARATED not ranked.
+- `scripts/wfe_supervise.py` — the watcher that makes a long sweep cheap to
+  leave alone. `run_arm`'s auto-halt stops one arm whose task kind has gone bad,
+  but the driver then starts the next arm, so a sweep can halt arm by arm and
+  still reach its end unread. The supervisor polls `campaign.health()` plus
+  cross-arm tripwires every five minutes and EXITS on the first problem — a new
+  `arm_exits.log` HALT, a cell at or below 10% PASS over 12+ graded rows, a cell
+  where 90%+ of tool-offered rows called no tool, or 25%+ of a cell's rows
+  carrying a spoiled answer (zero-width garbling, raw `<tool_call>` markup, a
+  download link answering a read task, a PASS on almost no text). Run detached,
+  its exit is the signal to come and look. `--sample N` prints the newest rows
+  with their answers and smells: the automatic checks cover the failures already
+  seen, and reading the answers covers the one that matters most — a run that is
+  healthy by every exit code and producing evidence nobody can use.
 - `scripts/wfe_sweep_unattended.sh` — the unattended kickoff. The sweep talks
   straight to Ollama, so the Portal stack is not a dependency but a competitor
   for memory: this stops it for the duration, evicts every resident model,

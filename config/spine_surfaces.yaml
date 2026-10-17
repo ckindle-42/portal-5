@@ -1396,6 +1396,10 @@ surfaces:
   globs:
   - tests/wfe/tests/test_wfe_stop_rules.py
   unit: unit-wfe-workspace-fitness
+- name: file-tests-wfe-tests-test_wfe_supervise
+  globs:
+  - tests/wfe/tests/test_wfe_supervise.py
+  unit: unit-wfe-workspace-fitness
 - name: file-tests-wfe-tests-test_wfe_tiers
   globs:
   - tests/wfe/tests/test_wfe_tiers.py
