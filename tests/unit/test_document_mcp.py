@@ -492,7 +492,10 @@ class TestCreateToolsRejectKeysTheyWouldDrop:
 
         return document_mcp
 
+    # Each create tool checks for its library before it validates keys, so these
+    # skip where CI lacks the optional extras.
     def test_powerpoint_slide_with_text_instead_of_content(self):
+        pytest.importorskip("pptx", reason="python-pptx not installed")
         r = self._mcp().create_powerpoint(
             "Deck", [{"title": "Yields", "text": "Up twelve percent"}]
         )
@@ -500,6 +503,7 @@ class TestCreateToolsRejectKeysTheyWouldDrop:
         assert "'text'" in r["error"] and "title, content, notes" in r["error"]
 
     def test_powerpoint_nested_chart_and_image_keys(self):
+        pytest.importorskip("pptx", reason="python-pptx not installed")
         m = self._mcp()
         bad_chart = m.create_powerpoint("D", [{"title": "t", "chart": {"kind": "bar"}}])
         assert not bad_chart["success"] and "chart of slide 1" in bad_chart["error"]
@@ -507,6 +511,7 @@ class TestCreateToolsRejectKeysTheyWouldDrop:
         assert not bad_img["success"] and "image of slide 1" in bad_img["error"]
 
     def test_excel_sheet_with_columns_instead_of_headers(self):
+        pytest.importorskip("openpyxl", reason="openpyxl not installed")
         r = self._mcp().create_excel("Book", sheets=[{"name": "A", "columns": ["x"], "rows": []}])
         assert (
             r["success"] is False
@@ -515,17 +520,22 @@ class TestCreateToolsRejectKeysTheyWouldDrop:
         )
 
     def test_excel_chart_unknown_key(self):
+        pytest.importorskip("openpyxl", reason="openpyxl not installed")
         r = self._mcp().create_excel("B", data=[["a"]], charts=[{"type": "bar", "colour": "red"}])
         assert r["success"] is False and "'colour'" in r["error"]
 
     def test_word_image_unknown_key(self):
+        pytest.importorskip("docx", reason="python-docx not installed")
         r = self._mcp().create_word_document("D", "text", images=[{"url": "x"}])
         assert r["success"] is False and "'url'" in r["error"] and "source" in r["error"]
 
     def test_non_object_items_are_a_structured_error(self):
+        pytest.importorskip("pptx", reason="python-pptx not installed")
         assert not self._mcp().create_powerpoint("D", ["just a string"])["success"]
 
     def test_accepted_keys_still_create(self, tmp_path, monkeypatch):
+        pytest.importorskip("pptx", reason="python-pptx not installed")
+        pytest.importorskip("openpyxl", reason="openpyxl not installed")
         m = self._mcp()
         monkeypatch.setattr(m, "OUTPUT_DIR", tmp_path)
         monkeypatch.setattr(
