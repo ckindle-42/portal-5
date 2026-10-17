@@ -65,7 +65,7 @@ python3 scripts/blend_acceptance_results.py        # blend ACCEPTANCE_RESULTS.md
 
 ```bash
 python3 scripts/check_model_bindings.py             # live gate: every model_pin/model_hint/alias/promptfoo-provider resolves to an installed Ollama tag
-python3 scripts/check_updates.py                    # report upstream drift + GitHub security advisories for the Obscura pin, Ollama, and oMLX (weekly launchd: com.portal5.update-check); accepts a component subset, e.g. `check_updates.py ollama`
+python3 scripts/check_updates.py                    # report upstream drift + GitHub security advisories for the Obscura pin, Ollama, oMLX, compose images, python deps, and the orchestrator's worker harnesses (opencode/codex/grok) (weekly launchd: com.portal5.update-check); accepts a component subset, e.g. `check_updates.py ollama harnesses`
 python3 scripts/verify_proxmox_mcp.py              # quick Proxmox MCP check (no Docker)
 python3 scripts/spine_census.py                    # wiki granularity census (mirror/surface/orphan)
 python3 scripts/saluki_rule5_reverify.py          # Rule-5 loop re-verify (Ollama, one request in flight; cell tags must exist, rewrites p4_rule5_reverify.json)

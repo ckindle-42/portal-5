@@ -2,8 +2,9 @@
 """Check Portal 5's hand-pinned external components against upstream.
 
 Covers the Obscura browser ref (``ARG OBSCURA_REF`` in
-``deploy/browser-mcp/Dockerfile``), Ollama (``~/ollama-current`` symlink), and
-the oMLX brew formula (``jundot/omlx/omlx``). Reports how far behind each pin is
+``deploy/browser-mcp/Dockerfile``), Ollama (``~/ollama-current`` symlink), the
+oMLX brew formula (``jundot/omlx/omlx``), and the orchestrator's worker
+harnesses (``opencode``, ``codex``, ``grok`` — see ``harnesses``). Reports how far behind each pin is
 and — the point of it — flags gaps that include a security fix or a published
 GitHub advisory, so a "review later" bump can be promoted to "do this now".
 
@@ -470,6 +471,123 @@ def _local_image_created(ref: str) -> str:
         return ""
 
 
+#: Worker harnesses driven by ~/.claude/orchestrate/bin/dispatch.py. Each is pinned by
+#: whatever installed it, and each publishes its version somewhere different:
+#:   opencode — a standalone binary; the Homebrew formula API is the source its own
+#:              `upgrade` consults, and the only one whose 2.x line matches what ships
+#:              (npm `opencode-ai` and GitHub releases both still track a 1.x line).
+#:   codex    — GitHub releases, tagged `rust-vX.Y.Z`; advisories available.
+#:   grok     — no public release feed; the CLI records what it last saw upstream in
+#:              ~/.grok/version.json, so that is self-reported, not independent.
+_HARNESS_BINS = {
+    "opencode": Path.home() / ".opencode" / "bin" / "opencode",
+    "codex": Path.home() / ".local" / "bin" / "codex",
+    "grok": Path.home() / ".grok" / "bin" / "grok",
+}
+_BREW_FORMULA = "https://formulae.brew.sh/api/formula/opencode.json"
+GROK_VERSION_FILE = Path.home() / ".grok" / "version.json"
+
+
+def _binary_version(name: str) -> str | None:
+    """`<bin> --version` reduced to its first dotted number, or None if it will not run."""
+    binary = _HARNESS_BINS[name]
+    if not binary.exists():
+        return None
+    try:
+        out = subprocess.run(  # noqa: S603
+            [str(binary), "--version"], capture_output=True, text=True, timeout=30, check=False
+        )
+    except (OSError, subprocess.SubprocessError):
+        return None
+    m = re.search(r"\d+\.\d+\.\d+", (out.stdout or "") + (out.returncode and out.stderr or ""))
+    return m.group(0) if m else None
+
+
+def _check_opencode(rep: Report) -> None:
+    current = _binary_version("opencode")
+    if not current:
+        rep.lines.append("opencode: not installed or would not report a version")
+        return
+    try:
+        with urllib.request.urlopen(_BREW_FORMULA, timeout=20) as r:  # noqa: S310 - fixed host
+            latest = str((json.loads(r.read().decode()).get("versions") or {}).get("stable") or "")
+    except (urllib.error.URLError, json.JSONDecodeError, TimeoutError) as e:
+        rep.lines.append(f"opencode {current}: upstream check failed: {e}")
+        return
+    if not latest:
+        rep.lines.append(f"opencode {current}: brew formula carried no stable version")
+        return
+    if _semver(latest) > _semver(current):
+        rep.status = "behind"
+        rep.lines.append(f"opencode {current} -> {latest}  bump: `opencode upgrade`")
+        rep.lines.append(
+            "  re-verify the measured quirks after upgrading (Code Mode `execute` ignoring "
+            "deny rules, --standalone vs the shared service, $PWD project resolution)"
+        )
+    else:
+        rep.lines.append(f"opencode {current} up to date (brew stable {latest})")
+
+
+def _check_codex(rep: Report) -> None:
+    current = _binary_version("codex")
+    if not current:
+        rep.lines.append("codex: not installed or would not report a version")
+        return
+    sub = Report("codex", current=current)
+    _release_gap("openai/codex", _semver(current), sub)
+    _advisories("openai/codex", sub)
+    if sub.status == "behind":
+        rep.status = "behind"
+        rep.security |= sub.security_in_gap
+        rep.lines.append(
+            f"codex {current} -> {sub.latest}  bump: `codex update`"
+            + ("  [SECURITY]" if sub.security_in_gap else "")
+        )
+        rep.lines.extend(f"  {ln}" for ln in sub.lines[1:4])
+    else:
+        rep.lines.append(f"codex {current} up to date (latest {sub.latest})")
+
+
+def _check_grok(rep: Report) -> None:
+    current = _binary_version("grok")
+    if not current:
+        rep.lines.append("grok: not installed or would not report a version")
+        return
+    try:
+        seen = json.loads(GROK_VERSION_FILE.read_text())
+    except (OSError, json.JSONDecodeError):
+        rep.lines.append(f"grok {current}: no upstream feed and no local version.json")
+        return
+    latest = str(seen.get("stable_version") or "")
+    checked = str(seen.get("checked_at") or "?")[:10]
+    if latest and _semver(latest) > _semver(current):
+        rep.status = "behind"
+        rep.lines.append(
+            f"grok {current} -> {latest} (self-reported {checked})  bump: `grok update`"
+        )
+    else:
+        rep.lines.append(
+            f"grok {current} up to date (self-reported {latest or '?'}, checked {checked})"
+        )
+
+
+def check_harnesses() -> Report:
+    """Worker harness binaries behind the orchestrator: opencode, codex, grok.
+
+    These are not Portal 5 services — they are the harnesses `dispatch.py` drives — but
+    they rot the same way and nothing else was watching them. Grok's figure is the CLI's
+    own last-seen value, so it only moves when grok has run; the other two are checked
+    against upstream directly.
+    """
+    rep = Report("harnesses", status="current")
+    rep.current = f"{sum(1 for p in _HARNESS_BINS.values() if p.exists())}/3 installed"
+    for check in (_check_opencode, _check_codex, _check_grok):
+        check(rep)
+    behind = sum(1 for ln in rep.lines if " -> " in ln)
+    rep.latest = f"{behind} behind" if behind else "all current"
+    return rep
+
+
 def check_images() -> Report:
     """Compose images: pinned tags vs upstream releases; floating tags vs advisories
     published after the local image was built."""
@@ -538,6 +656,7 @@ CHECKERS = {
     "python-deps": check_python_deps,
     "python-vulns": check_python_vulns,
     "images": check_images,
+    "harnesses": check_harnesses,
 }
 
 
