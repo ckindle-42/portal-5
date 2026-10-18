@@ -39,6 +39,7 @@ TASK_KEYS = {
     "instruction",
     "images",
     "fixtures",
+    "doc_spec",
     "completion_signal",
     "checkers",
     "seed",

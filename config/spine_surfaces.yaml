@@ -1320,6 +1320,10 @@ surfaces:
   globs:
   - tests/wfe/suites/build_general_production.py
   unit: unit-wfe-workspace-fitness
+- name: file-tests-wfe-suites-build_reading_long_production
+  globs:
+  - tests/wfe/suites/build_reading_long_production.py
+  unit: unit-wfe-workspace-fitness
 - name: file-tests-wfe-suites-build_reading_production
   globs:
   - tests/wfe/suites/build_reading_production.py
@@ -1463,6 +1467,10 @@ surfaces:
 - name: file-tests-wfe-tests-test_wfe_provenance
   globs:
   - tests/wfe/tests/test_wfe_provenance.py
+  unit: unit-wfe-workspace-fitness
+- name: file-tests-wfe-tests-test_wfe_reading_long_slice
+  globs:
+  - tests/wfe/tests/test_wfe_reading_long_slice.py
   unit: unit-wfe-workspace-fitness
 - name: file-tests-wfe-tests-test_wfe_reading_slice
   globs:

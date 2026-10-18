@@ -37,6 +37,8 @@ import argparse
 import base64
 import contextlib
 import datetime as dt
+import hashlib
+import importlib
 import json
 import os
 import re
@@ -1862,8 +1864,24 @@ def _finalize_run(
     }
 
 
+DOC_MARK = "{{DOCUMENT}}"
+
+
+def expand_doc(task: dict) -> dict:
+    """A task with a `doc_spec` carries a long synthetic document as a seed, not as text:
+    render it from the named generator and put it where the instruction's marker is. The
+    spec's sha256 pins the rendering, so a changed generator fails here, not in the gold."""
+    spec = task.get("doc_spec")
+    if not spec:
+        return task
+    doc = importlib.import_module(spec["generator"]).render_document(spec)
+    if spec.get("sha256") and hashlib.sha256(doc.encode()).hexdigest() != spec["sha256"]:
+        raise ValueError(f"{task['id']}: the rendered document no longer matches its sha256")
+    return {**task, "instruction": task["instruction"].replace(DOC_MARK, doc)}
+
+
 def load_suite(path: str | Path) -> list[dict]:
-    return [json.loads(x) for x in Path(path).read_text().splitlines() if x.strip()]
+    return [expand_doc(json.loads(x)) for x in Path(path).read_text().splitlines() if x.strip()]
 
 
 def make_sandbox(root: Path, task_id: str, repeat: int, fresh: bool = True) -> Sandbox:

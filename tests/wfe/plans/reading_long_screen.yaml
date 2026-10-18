@@ -1,0 +1,27 @@
+# compliance-reading's long-context screen (WFE new-instruments brief, I-LONGREAD): the
+# reading_long_production suite (36 tasks, 12 screen; needle / aggregation / quote at about
+# 40k, 80k and 112k tokens, every document synthetic and rendered from a seed at load time)
+# on the seat vs Qwen3.8-27B at the 128k window — the question the short reading suite cannot
+# ask (independent AA-LCR 65.7 vs 82.0; gemma's vendor MRCR-128k 44.1).
+#
+# Same workspace and tool_mode as reading_decision_v1. The tasks are no_tools — the document is
+# the prompt — so the compliance tool subset is neither offered nor staged and
+# tool_modes.yaml needs no change.
+#
+# Every challenger must be served by compliance-reading's routed group (backends.yaml
+# workspace_routing: general) at a window of at least the workspace's context_limit (131072).
+#
+# TODO(orchestrator): hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx128k exists in Ollama but is not
+# registered in config/backends.yaml yet; register it (general group), then the slice test's
+# challenger check runs instead of skipping. Until then the plan cannot run that arm.
+# Also measure prompt_tokens on one 112k row (documents were sized with the Gemma-3 and
+# Qwen3.6 tokenizers, not the served Gemma 4 build) before a campaign.
+workloads:
+  compliance-reading:
+    tool_mode: production
+    home: reading_long_production
+    discovery: []
+    arms:
+      incumbent: gemma4:26b-a4b-it-q4_K_M-ctx128k
+      challengers:
+        - hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx128k
