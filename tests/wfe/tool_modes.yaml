@@ -38,6 +38,12 @@ workspaces:
     tool_mode: production
     allow: [execute_python, remember, recall]
   auto-uncensored-throwaway: *uncensored_tools
+  tools-specialist:
+    # The lane's own three tools (O2 §5): python for the compute and chain kinds,
+    # memory for the store-recall and chain kinds — the same set the uncensored
+    # general lanes run. Nothing else is offered or measured.
+    tool_mode: production
+    allow: [execute_python, remember, recall]
   auto-cad:
     # The workspace's own CAD surface: the six cad_* pipeline tools (b123d_bridge.py
     # TOOL_NAMES) the suite measures, scoped to the row. The sandbox, web and memory

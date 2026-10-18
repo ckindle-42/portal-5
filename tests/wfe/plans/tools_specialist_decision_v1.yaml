@@ -1,0 +1,26 @@
+# tools-specialist's first seat decision (WFE P3 triage §5): measured with its own three
+# tools (execute_python, remember, recall) in production mode on
+# tools_specialist_production (12 tasks, 4 screen; computed golds and fictional store
+# tokens from the committed generator). Production mode needs the tool_modes.yaml
+# allowlist added with this suite (tests/wfe/tool_modes.yaml tools-specialist) —
+# "changing this file changes the instrument": merge between campaigns.
+#
+# The seat runs at temperature 0.0, so the S3 repeats policy runs confirms at 1 repeat,
+# recorded per row. The 8k window is the tightest in the fleet: the P-4 prompt-token
+# measure is backlogged before the screen (the offline check reserves only the
+# harness's default 2048-token output budget; there is no workspace predict_limit).
+#
+# Every challenger is served by tools-specialist's routed group (backends.yaml
+# workspace_routing: general) at a window of at least 8192, checked by the slice
+# tests. The operator may trim these lists before the run.
+workloads:
+  tools-specialist:
+    tool_mode: production
+    home: tools_specialist_production
+    discovery: []
+    arms:
+      incumbent: granite4.1:8b-ctx8k
+      challengers:
+        - granite4.1:8b-ctx16k
+        - hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k
+        - glm-4.7-flash:Q4_K_M-ctx64k
