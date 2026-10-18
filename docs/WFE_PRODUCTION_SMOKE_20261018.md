@@ -150,3 +150,31 @@ Fixes A (root fallback) and E (post-filter) plus the config decision on auto-dai
 - Logged-in browser click on a public download URL (expect 200) — needs a human session; structural evidence complete (D).
 - minimax_generate skipped by design (heavy GPU; covered by the music UAT).
 - `PORTAL_TRACE_BODIES=1` would pin A's exact bad arg; needs a pipeline restart (orchestrator's) — the arg-shape map constrains it to an absolute-path arg already.
+
+## Re-check 85d26a10
+
+**Build:** `/health` → `build_sha 85d26a10708a…`, `build_dirty: 0`, 12/12 backends; HEAD == deployed. Fix batch `21d5aed1` (A: documents read-path basename retry; D: create result drops top-level `path`; E: Download-line holdback; I: smoke forgets its memory note). Stack held exclusively; one request in flight; ≈10 min wall clock.
+
+| item | workspace | tool / case | offered | called | outcome | answer check | Download line | trace |
+|---|---|---|---|---|---|---|---|---|
+| A | general-fast | read_pdf | 13 | yes | ok | "5521" ✓ | none | p5-63e1740a07bb |
+| A | general-fast | read_word_document | 13 | yes | ok | "37" ✓ | none | p5-1bf5e9cc360e |
+| A | general-fast | read_excel | 13 | yes | ok | "2,235" ✓ | none | p5-5a165b6f68d8 |
+| A | general-deep | read_pdf | 13 | yes | ok | "The vault code … is **5521**" ✓ | none | p5-462cc9df2f91 |
+| A | general-deep | read_word_document | 13 | yes | ok | "**37 days**" ✓ | none | p5-c8836e2a9f9b |
+| A | general-deep | read_excel | 13 | yes | ok | "**2,235** (1,200 + 340 + 85 + 610)" ✓ — the §B mis-sum did not recur | none | p5-6e162101efe2 |
+| D | auto-documents | create_word_document | 7 | yes | ok | "Download: https://chat.intoodeep.systems/api/v1/files/a5dfba9b…/content/…" — **no `/app/data` path in the answer** | kept (public URL only) | p5-addd37bbcb94 |
+| D | documents MCP :8913 (direct, no model) | create_word_document | - | - | ok | result top-level keys = `download_url, filename, message, success` — **`path` gone**; message names only the public URL | n/a | - (MCP-direct, no pipeline trace) |
+| E | auto-documents | read_word_document | 7 | yes | ok | "**37 days**" ✓ — **no Download line, no URL** | none | p5-f95740259b98 |
+| E | auto-documents | read_powerpoint | 7 | yes | ok | "**Ilse Mott**" ✓ — no Download line | none | p5-85db16156407 |
+| E | auto-documents | read_pdf | 7 | yes | ok | "**5521**" ✓ — no Download line | none | p5-1c011112cb74 |
+| I | general-fast | `wfe_production_smoke.py` full run (13 cases) | 13 | 11/13 | 11 ok | 2/13 flagged = the two known instrument rows (kb_search empty-KB §F, recall pre-injection §G); all 6 read/create rows ok | - | p5-cee929d36a5d … p5-540eafdc1a76 |
+| I | memory MCP :8920 | recall "bluefinch" after the run | - | - | - | **FAIL — 1 note still present** (`8a8a5c7c-9fbf-4bb4-a532-cce9260ecd95`); hand-deleted | - | - |
+
+**A — PASS.** All six read rows called + ok + correct on both seats; no empty answers. The general-fast seat now passes an arg the tool accepts (the basename retry absorbs it), and the §B arithmetic slip did not recur on general-deep.
+**D — PASS.** The create answer gives only the public download URL; the tool result no longer carries a top-level container `path` (verified both through OWUI and MCP-direct); the create turn keeps its link.
+**E — PASS.** No Download line (fabricated or real) on any read answer; the create turn's link survives the holdback.
+**I — FAIL (instrument residual).** The script's cleanup takes the memory id from the **model's answer** (`scripts/wfe_production_smoke.py:291`, `_memory_id_from_tool_result_text`); this run the model stored the whole prompt sentence as the note and never echoed a UUID, so `memory_id` stayed empty, nothing was forgotten, and no WARNING printed. Proposed instrument fix: after `cleanup()`, sweep `POST :8920/tools/recall {"arguments": {"query": "smoke test code word bluefinch"}}` and `_forget_memory` every hit matching the smoke sentence — self-healing regardless of whether the model echoes the id. The leftover was hand-deleted; the store is clean again.
+
+No `portal/` or `config/` edits; no git.
+

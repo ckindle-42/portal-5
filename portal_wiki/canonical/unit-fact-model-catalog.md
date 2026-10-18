@@ -1,11 +1,11 @@
 ---
 id: unit-fact-model-catalog
 kind: what
-title: 284 model ids, 7 backend groups
+title: 286 model ids, 7 backend groups
 sources:
 - type: code
   path: config/backends.yaml
-  commit: bed9443c387e
+  commit: e6c77b136031
 claims:
 - probe: backends.groups.count
   pattern: '{value} backend groups)'
@@ -14,10 +14,10 @@ tags:
 - fact
 - models
 created_at: 1784000421.487881
-updated_at: 1792189804.562542
+updated_at: 1792322364.1563609
 ---
 
-# Model catalog (284 model ids across 7 backend groups)
+# Model catalog (286 model ids across 7 backend groups)
 
 ## coding (57)
 
@@ -94,7 +94,7 @@ updated_at: 1792189804.562542
 - `huihui_ai/baronllm-abliterated`
 - `huihui_ai/baronllm-abliterated:latest-ctx8k`
 
-## general (127)
+## general (128)
 
 - `NVIDIA-Nemotron-3.5-Lightning-30B-A3B-oQ4e-mtp`
 - `Qwen3.8-27B-oQ4e-mtp`
@@ -111,6 +111,7 @@ updated_at: 1792189804.562542
 - `gemma4:26b-a4b-it-q4_K_M-ctx32k`
 - `gemma4:26b-a4b-it-q4_K_M-ctx64k`
 - `gemma4:26b-a4b-it-qat`
+- `gemma4:26b-a4b-it-qat-ctx16k`
 - `gemma4:26b-a4b-it-qat-ctx8k`
 - `gemma4:31b-it-qat`
 - `gemma4:e2b-it-qat`
@@ -305,12 +306,13 @@ updated_at: 1792189804.562542
 - `sylink/sylink:8b`
 - `sylink/sylink:8b-ctx8k`
 
-## vision (16)
+## vision (17)
 
 - `gemma4:12b-it-qat`
 - `gemma4:12b-it-qat-ctx8k`
 - `gemma4:26b-a4b-it-q4_K_M`
 - `gemma4:26b-a4b-it-qat`
+- `gemma4:26b-a4b-it-qat-ctx16k`
 - `gemma4:26b-a4b-it-qat-ctx8k`
 - `gemma4:31b-it-qat`
 - `gemma4:31b-it-qat-ctx8k`

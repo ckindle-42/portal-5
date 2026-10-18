@@ -561,7 +561,7 @@ The roster is derived from the persona YAML files under `config/personas/`, one 
 | `auto-compliance` | compliance | `hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k` |
 | `auto-council` | general | `qwen3.6:27b-q4_K_M-ctx16k` |
 | `auto-creative` | media | `fredrezones55/Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive:Q4-ctx8k` |
-| `auto-daily` | general | `gemma4:26b-a4b-it-qat-ctx8k` |
+| `auto-daily` | general | `gemma4:26b-a4b-it-qat-ctx16k` |
 | `auto-data` | research | `hf.co/unsloth/Qwen3.6-35B-A3B-GGUF:UD-Q4_K_XL-ctx32k` |
 | `auto-documents` | documents | `granite4.1:8b-ctx16k` |
 | `auto-extract-uncensored` | documents | `hf.co/gaston-parravicini/LFM2.5-8B-A1B-Uncensored-Gaston-GGUF:q4_K_M-ctx8k` |
@@ -642,7 +642,7 @@ default.
 | `auto-compliance` | `hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k` | yes |
 | `auto-council` | `qwen3.6:27b-q4_K_M-ctx16k` | yes |
 | `auto-creative` | `fredrezones55/Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive:Q4-ctx8k` | yes |
-| `auto-daily` | `gemma4:26b-a4b-it-qat-ctx8k` | yes |
+| `auto-daily` | `gemma4:26b-a4b-it-qat-ctx16k` | yes |
 | `auto-data` | `hf.co/unsloth/Qwen3.6-35B-A3B-GGUF:UD-Q4_K_XL-ctx32k` | yes |
 | `auto-documents` | `granite4.1:8b-ctx16k` | yes |
 | `auto-extract-uncensored` | `hf.co/gaston-parravicini/LFM2.5-8B-A1B-Uncensored-Gaston-GGUF:q4_K_M-ctx8k` | yes |
@@ -741,7 +741,7 @@ The fleet table is the `mcp_fleet` list in `config/portal.yaml`, the single sour
 ### Model Catalog
 
 <!-- WIKI:GENERATED unit=unit-fact-model-catalog -->
-#### Model catalog (284 model ids across 7 backend groups)
+#### Model catalog (286 model ids across 7 backend groups)
 
 ##### coding (57)
 
@@ -818,7 +818,7 @@ The fleet table is the `mcp_fleet` list in `config/portal.yaml`, the single sour
 - `huihui_ai/baronllm-abliterated`
 - `huihui_ai/baronllm-abliterated:latest-ctx8k`
 
-##### general (127)
+##### general (128)
 
 - `NVIDIA-Nemotron-3.5-Lightning-30B-A3B-oQ4e-mtp`
 - `Qwen3.8-27B-oQ4e-mtp`
@@ -835,6 +835,7 @@ The fleet table is the `mcp_fleet` list in `config/portal.yaml`, the single sour
 - `gemma4:26b-a4b-it-q4_K_M-ctx32k`
 - `gemma4:26b-a4b-it-q4_K_M-ctx64k`
 - `gemma4:26b-a4b-it-qat`
+- `gemma4:26b-a4b-it-qat-ctx16k`
 - `gemma4:26b-a4b-it-qat-ctx8k`
 - `gemma4:31b-it-qat`
 - `gemma4:e2b-it-qat`
@@ -1029,12 +1030,13 @@ The fleet table is the `mcp_fleet` list in `config/portal.yaml`, the single sour
 - `sylink/sylink:8b`
 - `sylink/sylink:8b-ctx8k`
 
-##### vision (16)
+##### vision (17)
 
 - `gemma4:12b-it-qat`
 - `gemma4:12b-it-qat-ctx8k`
 - `gemma4:26b-a4b-it-q4_K_M`
 - `gemma4:26b-a4b-it-qat`
+- `gemma4:26b-a4b-it-qat-ctx16k`
 - `gemma4:26b-a4b-it-qat-ctx8k`
 - `gemma4:31b-it-qat`
 - `gemma4:31b-it-qat-ctx8k`

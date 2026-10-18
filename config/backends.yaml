@@ -128,6 +128,8 @@ backends:
     supports_tools: true
   - id: gemma4:26b-a4b-it-qat-ctx8k
     supports_tools: true
+  - id: gemma4:26b-a4b-it-qat-ctx16k
+    supports_tools: true
   - id: phi4:14b-q8_0
     supports_tools: false
   - id: hf.co/unsloth/Magistral-Small-2509-GGUF:Q8_0
@@ -763,6 +765,8 @@ backends:
     supports_tools: true
   - id: gemma4:26b-a4b-it-qat-ctx8k
     supports_tools: true
+  - id: gemma4:26b-a4b-it-qat-ctx16k
+    supports_tools: true
   - id: gemma4:31b-it-qat
     supports_tools: true
   - id: gemma4:31b-it-qat-ctx8k
@@ -1036,6 +1040,7 @@ backends:
   priority: 10
   aliases:
     gemma4:26b-a4b-it-qat-ctx8k: gemma-4-26b-a4b-it-QAT-4bit
+    gemma4:26b-a4b-it-qat-ctx16k: gemma-4-26b-a4b-it-QAT-4bit
     hf.co/bartowski/NVIDIA-Nemotron-3.5-Lightning-30B-A3B-GGUF:q4_K_M-ctx8k: NVIDIA-Nemotron-3.5-Lightning-30B-A3B-oQ4e-mtp
     granite4.1:8b-ctx8k: granite-4.1-8b-mxfp8
     # granite4.1:8b-ctx16k is deliberately NOT aliased (removed 2026-10-17): with tools in the
