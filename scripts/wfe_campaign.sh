@@ -20,6 +20,10 @@ CAMPAIGN_ID="${1:?usage: wfe_campaign.sh <campaign_id> [extra args...]}"
 shift || true
 
 REPEATS="${REPEATS:-3}"
+# REPEATS=policy leaves --repeats off, so a confirm takes the harness's repeats policy
+# (1 when every arm in the cell served temperature 0, else 3 — campaign.repeats_policy).
+REPEATS_FLAG="--repeats ${REPEATS}"
+[ "$REPEATS" = "policy" ] && REPEATS_FLAG=""
 BUDGET_S="${BUDGET_S:-1800}"
 MAX_TURNS="${MAX_TURNS:-16}"
 DEBUG_DIR="${DEBUG_DIR:-tests/wfe/results/campaigns/${CAMPAIGN_ID}/debug}"
@@ -44,10 +48,10 @@ echo "$(ts) CAMPAIGN ${CAMPAIGN_ID} repeats=${REPEATS} all_suites=${ALL_SUITES:-
 # call that actually creates/appends the manifest, so its output is kept: a
 # materialisation failure here would otherwise be invisible for the whole sweep.
 uv run python -m tests.wfe.campaign \
-    --campaign-id "$CAMPAIGN_ID" --repeats "$REPEATS" $ALL_SUITES_FLAG $PLAN_FLAG \
+    --campaign-id "$CAMPAIGN_ID" $REPEATS_FLAG $ALL_SUITES_FLAG $PLAN_FLAG \
     --append --dry-run "$@" 2>&1 | tee -a "$PROGRESS_LOG"
 uv run python -m tests.wfe.campaign \
-    --campaign-id "$CAMPAIGN_ID" --repeats "$REPEATS" $ALL_SUITES_FLAG $PLAN_FLAG \
+    --campaign-id "$CAMPAIGN_ID" $REPEATS_FLAG $ALL_SUITES_FLAG $PLAN_FLAG \
     --append --status "$@" 2>&1 | tee -a "$PROGRESS_LOG"
 
 # `mapfile`/`readarray` is bash 4+; macOS ships bash 3.2, so read into the array
@@ -104,7 +108,7 @@ print(ollama_reachable())
     uv run python -m tests.wfe.campaign \
         --campaign-id "$CAMPAIGN_ID" \
         --arm "$arm" \
-        --repeats "$REPEATS" \
+        $REPEATS_FLAG \
         --budget-s "$BUDGET_S" \
         --max-turns "$MAX_TURNS" \
         --debug-dir "$DEBUG_DIR" \
