@@ -20,7 +20,7 @@ REPO = Path(__file__).resolve().parents[3]
 SUITE = REPO / "tests/wfe/suites/extract_production.jsonl"
 PLAN = REPO / "tests/wfe/plans/extract_decision_v1.yaml"
 TASKS = {t["id"]: t for t in map(json.loads, SUITE.read_text().splitlines())}
-KINDS = {"entities": 4, "fields": 4, "summary-facts": 4}
+KINDS = {"entities": 12, "fields": 12, "summary-facts": 12}
 IMPERATIVE = {"Extract"}
 
 
@@ -33,7 +33,7 @@ def _gold(task: dict) -> dict:
 
 
 def test_the_suite_is_sound_and_balanced():
-    assert len(TASKS) == 12 and sum(t["screen"] for t in TASKS.values()) == 4
+    assert len(TASKS) == 36 and sum(t["screen"] for t in TASKS.values()) == 12
     for kind, n in KINDS.items():
         assert len(_kind(kind)) == n, kind
         assert all(t["id"].startswith(f"ex-{kind}-") for t in _kind(kind))

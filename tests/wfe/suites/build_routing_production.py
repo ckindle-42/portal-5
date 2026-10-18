@@ -4,17 +4,17 @@ characterisation suite (WFE P3 triage §1 REVISED; master plan S8/O5).
 The pipeline's `auto` routing is: harmful-intent gate -> Layer-1 LLM classifier ->
 Layer-2 weighted keyword fallback (router/routing.py). The classifier model is the
 LLM_ROUTER_MODEL env, not a request parameter, so there are no challenger arms: this
-suite CHARACTERISES the production router. 16 tasks, 4 in the screen tier, four
+suite CHARACTERISES the production router. 36 tasks, 12 in the screen tier, four
 kinds — the four workspaces Layer 2 can provably score (the O2 group sketch named
 documents/data/media, but those workspaces have no keyword tables: a prompt routed
 there is only decidable by the live LLM classifier, which the offline lane cannot
 verify — so the kinds are the clear-cut set):
 
-- auto-coding (4)     code intent, anchored on the table's strong terms;
-- auto-compliance (4) NERC CIP / audit intent;
-- auto-security (4)   defensive analysis of AUTHORIZED lab material (never trips the
+- auto-coding (9)     code intent, anchored on the table's strong terms;
+- auto-compliance (9) NERC CIP / audit intent;
+- auto-security (9)   defensive analysis of AUTHORIZED lab material (never trips the
                       harmful-intent gate — asserted at build time);
-- auto-spl (4)        Splunk SPL intent.
+- auto-spl (9)        Splunk SPL intent.
 
 Each task is a fictional user request that Layer 2, scored offline against the real
 keyword tables (config/inference/routing_*_keywords.json via
@@ -43,8 +43,8 @@ REPO = Path(__file__).resolve().parents[3]
 OUT = Path(__file__).with_name("routing_production.jsonl")
 EXAMPLES = json.loads((REPO / "config" / "routing_examples.json").read_text())
 LANE = "routing"
-SCREEN = {"auto-coding": 1, "auto-compliance": 1, "auto-security": 1, "auto-spl": 1}
-COUNTS = {"auto-coding": 4, "auto-compliance": 4, "auto-security": 4, "auto-spl": 4}
+SCREEN = {"auto-coding": 3, "auto-compliance": 3, "auto-security": 3, "auto-spl": 3}
+COUNTS = {"auto-coding": 9, "auto-compliance": 9, "auto-security": 9, "auto-spl": 9}
 TAIL = "Reply with the single word OK."
 
 #: (gold workspace, the fictional user request). Every request must survive the build
@@ -56,24 +56,44 @@ PROMPTS: dict[str, list[str]] = {
         "Write a function that parses ISO 8601 timestamps from a log file and returns the five most recent ones.",
         "Can you review this code for a race condition? The worker threads share one dictionary without a lock and I think that is the bug.",
         "Debug this for me: my shell script exits 0 but never writes the output file when the directory name has spaces in it.",
+        "Write a program that reads a CSV of fictional warehouse stock and prints every item whose count fell below its reorder level.",
+        "Write code that turns a directory of JSON exports into one merged Parquet file, and add unit tests for the merge logic.",
+        "This function returns the wrong column when the header row has trailing spaces — fix the bug and show me the diff.",
+        "I need a code review of this pull request diff: it swaps a queue for a stack in the job scheduler and I think the retries now starve.",
+        "Write a script that pings every host in a fictional subnet and appends the reachable ones to an inventory file with a timestamp.",
     ],
     "auto-compliance": [
         "Map our fictional substation maintenance policy to CIP-007 requirements and list every gap with remediation steps for audit preparation.",
         "For CIP-003, what does the standard require a registered entity to document in its cybersecurity governance policy, and where do our fictional procedures fall short?",
         "We are preparing an audit of CIP-004 access rights. Build the checklist of evidence the auditor will ask for.",
         "Which CIP-006 physical security controls apply to a fictional control center, and what would a gap analysis look like for them?",
+        "Our fictional operator self-certified CIP-005 for the current quarter — what evidence must the compliance program keep to support that posting?",
+        "Write the remediation plan outline for a fictional finding against CIP-008 incident reporting, with the standard's own vocabulary.",
+        "For CIP-009 recovery plans, which parts must be exercised on a cycle, and what does the register text actually require?",
+        "Draft the supply-chain risk assessment section for CIP-013 as it would apply to a fictional medium-impact fleet of inverters.",
+        "Compare what CIP-010 requires for configuration change management against what our fictional change board already documents.",
     ],
     "auto-security": [
         "In our authorized lab, analyze this captured payload for a buffer overflow and write the defensive signature that detects it.",
         "For a threat-hunting exercise on our own network, suggest hunts for lateral movement using Windows event logs, and what a backdoor beacon would look like.",
         "Our fictional honeypot caught scanning traffic — write the incident response steps to contain and eradicate a suspected bind shell on a decoy host.",
         "Assess this fictional vulnerability report for a privilege escalation in a print service and recommend defensive mitigations for our fleet.",
+        "Build the defensive detection rule for an asreproasting attempt against our fictional domain controller, and explain the tell-tale event ids.",
+        "Write the incident response runbook for a suspected botnet callback from a fictional point-of-sale host, containment first.",
+        "In our authorized malware analysis lab, walk through static analysis of this fictional dropper sample and list the indicators a defender can block.",
+        "Map this fictional attack chain to mitre att&ck techniques and write the defensive detections our SOC should deploy at each stage.",
+        "For a defensive review of our fictional fleet, which hardening steps blunt an attempt to pass the hash, and what would the detection look like?",
     ],
     "auto-spl": [
         "Write a Splunk SPL query using tstats to count authentication failures per host over the last 24 hours.",
         "Build a Splunk correlation search that fires a notable event when one source IP produces failed logins on five or more fictional workstations.",
         "Which SPL commands join a lookup of asset owners to authentication events — show an inputlookup and stats example I can adapt.",
         "Draft a detection search that alerts when a service account is used outside its documented maintenance window.",
+        "Use makeresults and eventstats to build a fictional baseline of logins per user, then flag the outliers in the same Splunk search.",
+        "Write the SPL for a mvexpand over a comma-separated list field so each fictional process name becomes its own row.",
+        "Write a Splunk SPL query that pivots tstats by the data model's Authentication index and prints a per-user success and failure table.",
+        "Build a Splunk correlation search for data model acceleration gaps: which fictional sourcetypes are falling out of the model?",
+        "Write SPL that uses inputlookup to pull a fictional asset list, joins it to authentication events, and marks each row with the owner's site.",
     ],
 }
 

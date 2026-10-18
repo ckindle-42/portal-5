@@ -23,7 +23,7 @@ REPO = Path(__file__).resolve().parents[3]
 SUITE = REPO / "tests/wfe/suites/reasoning_math_production.jsonl"
 PLAN = REPO / "tests/wfe/plans/reasoning_math_decision_v1.yaml"
 TASKS = {t["id"]: t for t in map(json.loads, SUITE.read_text().splitlines())}
-KINDS = {"arithmetic": 4, "combinatorics": 4, "logic-grid": 4}
+KINDS = {"arithmetic": 12, "combinatorics": 12, "logic-grid": 12}
 WORKSPACES = ("auto-reasoning", "auto-math")
 ORD = {"first": 1, "second": 2, "third": 3, "fourth": 4}
 IMPERATIVE = {"Work", "Count", "Determine"}
@@ -78,33 +78,46 @@ def _recompute_combinatorics(ins: str) -> str:
     return str(math.comb(w + d, w))
 
 
-def _order_fits(ins: str, names: list[str], pos: dict[str, int]) -> bool:
-    """The clue sentences parsed back out of the instruction, checked for one order."""
-    for nm in names:
-        if (m := re.search(rf"\b{nm} did not finish (\w+)\.", ins)) and pos[nm] == ORD[m.group(1)]:
+def _parse_clues(ins: str) -> list[tuple[str, str, str]]:
+    """Every clue bullet, classified: ('not', name, ordinal) | ('before', a, b) |
+    ('ahead', a, b). The bullet list is the instruction's own structure, so parsing
+    it whole cannot miss a clue the way a first-match search did."""
+    out = []
+    for bullet in re.findall(r"^- (.+?)$", ins, re.M):
+        if m := re.fullmatch(r"(\w+) did not finish (first|second|third|fourth)\.", bullet):
+            out.append(("not", m.group(1), m.group(2)))
+        elif m := re.fullmatch(r"(\w+) finished immediately before (\w+)\.", bullet):
+            out.append(("before", m.group(1), m.group(2)))
+        elif m := re.fullmatch(r"(\w+) finished somewhere ahead of (\w+)\.", bullet):
+            out.append(("ahead", m.group(1), m.group(2)))
+        else:
+            raise AssertionError(f"unparseable clue: {bullet!r}")
+    return out
+
+
+def _order_fits(clues: list[tuple[str, str, str]], pos: dict[str, int]) -> bool:
+    for kind, a, b in clues:
+        if kind == "not" and pos[a] == ORD[b]:
             return False
-        for other in names:
-            if (m := re.search(rf"\b{nm} finished immediately before {other}\.", ins)) and pos[
-                nm
-            ] + 1 != pos[other]:
-                return False
-            if (m := re.search(rf"\b{nm} finished somewhere ahead of {other}\.", ins)) and pos[
-                nm
-            ] >= pos[other]:
-                return False
+        if kind == "before" and pos[a] + 1 != pos[b]:
+            return False
+        if kind == "ahead" and pos[a] >= pos[b]:
+            return False
     return True
 
 
 def _recompute_logic(ins: str) -> str:
-    """Brute-force all 24 finishing orders; the gold is the asked position's runner
-    in the UNIQUE order the clues admit."""
+    """Brute-force all 24 finishing orders against every parsed clue; the gold is the
+    asked position's runner in the UNIQUE order the clues admit."""
     roster = re.search(r"runners \u2014 ([A-Za-z, ]+?) \u2014", ins).group(1)
     names = sorted(w.strip() for w in roster.replace(" and ", ",").split(","))
     asked = ORD[re.search(r"finished (\w+)[.?]", ins).group(1)]
+    clues = _parse_clues(ins)
+    assert len(clues) == len(re.findall(r"^- ", ins, re.M)), "a clue bullet went unparsed"
     sols = [
         {nm: i + 1 for i, nm in enumerate(perm)}
         for perm in itertools.permutations(names)
-        if _order_fits(ins, names, {nm: i + 1 for i, nm in enumerate(perm)})
+        if _order_fits(clues, {nm: i + 1 for i, nm in enumerate(perm)})
     ]
     assert len(sols) == 1, len(sols)
     return next(nm for nm, p in sols[0].items() if p == asked)
@@ -126,7 +139,7 @@ def _recompute(task: dict) -> str:
 
 
 def test_the_suite_is_sound_and_balanced():
-    assert len(TASKS) == 12 and sum(t["screen"] for t in TASKS.values()) == 4
+    assert len(TASKS) == 36 and sum(t["screen"] for t in TASKS.values()) == 12
     for kind, n in KINDS.items():
         assert len(_kind(kind)) == n, kind
         assert all(t["id"].startswith(f"rm-{kind}-") for t in _kind(kind))

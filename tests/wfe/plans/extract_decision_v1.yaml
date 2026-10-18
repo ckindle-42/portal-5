@@ -1,5 +1,5 @@
 # auto-extract-uncensored's first seat decision (WFE P3 triage §8): the extraction
-# suite on extract_production (12 tasks, 4 screen, all no_tools — the lane declares no
+# suite on extract_production (36 tasks, 12 screen, all no_tools — the lane declares no
 # tools, so no workload declares a tool_mode and tool_modes.yaml needs no entry).
 # Sensitive-flavoured fictional documents; the gold is computed by the committed
 # generator from the document spec.

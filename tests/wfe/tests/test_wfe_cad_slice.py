@@ -21,7 +21,7 @@ REPO = Path(__file__).resolve().parents[3]
 SUITE = REPO / "tests/wfe/suites/cad_production.jsonl"
 PLAN = REPO / "tests/wfe/plans/cad_decision_v1.yaml"
 TASKS = {t["id"]: t for t in map(json.loads, SUITE.read_text().splitlines())}
-KINDS = {"plate-holes": 4, "extrusion": 4, "revolve": 4}
+KINDS = {"plate-holes": 12, "extrusion": 12, "revolve": 12}
 IMPERATIVE = {"Build"}
 
 
@@ -72,7 +72,7 @@ def _recompute(task: dict) -> tuple[str, str]:
 
 
 def test_the_suite_is_sound_and_balanced():
-    assert len(TASKS) == 12 and sum(t["screen"] for t in TASKS.values()) == 4
+    assert len(TASKS) == 36 and sum(t["screen"] for t in TASKS.values()) == 12
     for kind, n in KINDS.items():
         assert len(_kind(kind)) == n, kind
         assert all(t["id"].startswith(f"cad-{kind}-") for t in _kind(kind))

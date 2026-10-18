@@ -10,12 +10,12 @@ answer must appear after the reasoning, never only inside a <think> block.
 
 Every problem is generated from fictional seeded values, so a model cannot pass from
 training, and the gold is computed here — never written by hand — then asserted unique
-across the suite. Three kinds, 12 tasks, 4 in the screen tier:
+across the suite. Three kinds, 36 tasks, 12 in the screen tier (four per kind on screen):
 
-- arithmetic (4)      a multi-step exact computation on seeded numbers (percent chain,
+- arithmetic (12)      a multi-step exact computation on seeded numbers (percent chain,
                       fill rate, clock, modular power);
-- combinatorics (4)   an exact count (handshakes, committee, podium, grid routes);
-- logic-grid (4)      a four-runner finishing order pinned by generated clues; the
+- combinatorics (12)   an exact count (handshakes, committee, podium, grid routes);
+- logic-grid (12)      a four-runner finishing order pinned by generated clues; the
                       generator brute-forces all 24 permutations and keeps a puzzle
                       only when the clues admit exactly one solution.
 
@@ -42,17 +42,40 @@ from tests.wfe.suites.build_research_production import Fact
 
 OUT = Path(__file__).with_name("reasoning_math_production.jsonl")
 FORMAT = 'Answer only as JSON {"answer": ...}.'
-COUNTS = {"arithmetic": 4, "combinatorics": 4, "logic-grid": 4}
-SCREEN = {"arithmetic": 1, "combinatorics": 1, "logic-grid": 2}
+COUNTS = {"arithmetic": 12, "combinatorics": 12, "logic-grid": 12}
+SCREEN = {"arithmetic": 4, "combinatorics": 4, "logic-grid": 4}
 LANE = "reasoning"
 SEEDS = {"arithmetic": 8800, "combinatorics": 8900, "logic-grid": 9100}
 ORDINALS = {1: "first", 2: "second", 3: "third", 4: "fourth"}
-#: The position each logic-grid task asks about, so the four gold names differ.
+#: The position each logic-grid task asks about, cycling so the four question forms
+#: all appear; the gold name is rejected if an earlier task already used it.
 ASKED_POSITION = (2, 3, 1, 4)
 
 DECIDING_FACTS: dict[str, list[Fact]] = {}
 
-_LOGIC_NAMES = ["Vellisa", "Ondrey", "Sarait", "Mireau", "Kestrel", "Tobren"]
+_LOGIC_NAMES = [
+    "Vellisa",
+    "Ondrey",
+    "Sarait",
+    "Mireau",
+    "Kestrel",
+    "Tobren",
+    "Ilsabet",
+    "Corvane",
+    "Halvard",
+    "Otteline",
+    "Perrine",
+    "Quillan",
+    "Roderic",
+    "Serafina",
+    "Brannoch",
+    "Fenwick",
+]
+
+#: Golds already used by a built task (reset by build()). Numeric kinds re-seed on a
+#: collision (the count ranges overlap by design); logic-grid rejects a truth whose
+#: asked-position runner was taken. Either way the build stays deterministic.
+_USED_GOLDS: set[str] = set()
 
 
 def _pattern(gold: str) -> str:
@@ -96,11 +119,19 @@ def _solutions(names: list[str], clues: list[Clue]) -> list[dict[str, int]]:
 
 
 def logic_case(n: int) -> tuple[list[str], list[str], int, str]:
-    """(names, clue sentences, asked position, gold name) with a UNIQUE solution."""
+    """(names, clue sentences, asked position, gold name) with a UNIQUE solution and a
+    gold name no earlier task has taken (the drawer re-seeds under the fixed task
+    seed until both hold, so the build stays deterministic)."""
     r = random.Random(SEEDS["logic-grid"] + n)
-    names = sorted(r.sample(_LOGIC_NAMES, 4))
-    order = r.sample(names, 4)
-    truth = {name: i + 1 for i, name in enumerate(order)}
+    asked = ASKED_POSITION[n % len(ASKED_POSITION)]
+    while True:
+        names = sorted(r.sample(_LOGIC_NAMES, 4))
+        order = r.sample(names, 4)
+        truth = {name: i + 1 for i, name in enumerate(order)}
+        gold = next(name for name, p in truth.items() if p == asked)
+        if gold not in _USED_GOLDS:
+            break
+    _USED_GOLDS.add(gold)
     pool: list[Clue] = []
     for a, b in itertools.permutations(names, 2):
         pool.append(_immediately_before(a, b))
@@ -124,8 +155,6 @@ def logic_case(n: int) -> tuple[list[str], list[str], int, str]:
             best = smaller
     if len(best) != 1 or best[0] != truth:
         raise RuntimeError(f"logic-grid-{n:02d}: clues admit {len(best)} solutions")
-    asked = ASKED_POSITION[n % len(ASKED_POSITION)]
-    gold = next(name for name, p in truth.items() if p == asked)
     return names, [text for text, _ in clues], asked, gold
 
 
@@ -133,9 +162,11 @@ def logic_case(n: int) -> tuple[list[str], list[str], int, str]:
 
 
 def arithmetic_case(n: int) -> tuple[str, str, str, str]:
-    """(question, format phrase, gold, kind detail) for arithmetic task n."""
+    """(question, format phrase, gold, kind detail) for arithmetic task n. Four shapes
+    cycle with the task index, so the twelve tasks are three seeded rounds of each."""
     r = random.Random(SEEDS["arithmetic"] + n)
-    if n == 0:  # a percent chain, both steps applied to the running price
+    shape = n % 4
+    if shape == 0:  # a percent chain, both steps applied to the running price
         while True:
             base = 20 * r.randint(15, 60)
             up = r.choice([10, 15, 20, 25])
@@ -148,7 +179,7 @@ def arithmetic_case(n: int) -> tuple[str, str, str, str]:
             f"price goes down by {down} percent. What is the final price in credits?"
         )
         return question, "the number only", str(int(final)), "percent chain"
-    if n == 1:  # two opposing flows; the NET rate fills the tank
+    if shape == 1:  # two opposing flows; the NET rate fills the tank
         fast, slow, mins = r.randint(31, 80), r.randint(4, 30), r.randint(45, 240)
         while fast - slow < 3:
             slow = r.randint(4, 30)
@@ -158,7 +189,7 @@ def arithmetic_case(n: int) -> tuple[str, str, str, str]:
             f"How many minutes until the tank is full?"
         )
         return question, "the number only", str(mins), "fill rate"
-    if n == 2:  # clock arithmetic far past one wrap
+    if shape == 2:  # clock arithmetic far past one wrap
         h, m, add = r.randint(0, 23), r.randint(0, 59), r.randint(1500, 6000)
         total = (h * 60 + m + add) % (24 * 60)
         question = (
@@ -177,23 +208,25 @@ def arithmetic_case(n: int) -> tuple[str, str, str, str]:
 
 
 def combinatorics_case(n: int) -> tuple[str, str, str, str]:
-    """(question, format phrase, gold, kind detail) for combinatorics task n."""
+    """(question, format phrase, gold, kind detail) for combinatorics task n. Four
+    shapes cycle with the task index; the count formulas are exact."""
     r = random.Random(SEEDS["combinatorics"] + n)
-    if n == 0:
+    shape = n % 4
+    if shape == 0:
         people = r.randint(21, 48)
         question = (
             f"At a gathering of {people} people, every pair of people shakes hands exactly "
             f"once. How many handshakes take place?"
         )
         return question, "the number only", str(people * (people - 1) // 2), "handshakes"
-    if n == 1:
+    if shape == 1:
         members, size = r.randint(9, 14), r.randint(3, 5)
         question = (
             f"A club with {members} members is choosing a committee of {size} members. "
             f"How many different committees are possible?"
         )
         return question, "the number only", str(math.comb(members, size)), "committee"
-    if n == 2:
+    if shape == 2:
         entrants = r.randint(9, 15)
         question = (
             f"A race has {entrants} entrants and awards gold, silver and bronze. How many "
@@ -256,7 +289,13 @@ def _task(tid: str, kind: str, n: int, ins: str, gold: str, givens: list[tuple[s
 
 
 def build_arithmetic(n: int) -> dict:
-    question, fmt, gold, detail = arithmetic_case(n)
+    for attempt in range(1000):
+        question, fmt, gold, detail = arithmetic_case(n + attempt * 1000)
+        if gold not in _USED_GOLDS:
+            break
+    else:
+        raise RuntimeError(f"rm-arithmetic-{n:02d}: no unique gold found")
+    _USED_GOLDS.add(gold)
     tid = f"rm-arithmetic-{n:02d}"
     numbers = re.findall(r"\d+", question)
     givens = [(v, f"given {i + 1} of the {detail}") for i, v in enumerate(numbers)]
@@ -269,7 +308,13 @@ def build_arithmetic(n: int) -> dict:
 
 
 def build_combinatorics(n: int) -> dict:
-    question, fmt, gold, detail = combinatorics_case(n)
+    for attempt in range(1000):
+        question, fmt, gold, detail = combinatorics_case(n + attempt * 1000)
+        if gold not in _USED_GOLDS:
+            break
+    else:
+        raise RuntimeError(f"rm-combinatorics-{n:02d}: no unique gold found")
+    _USED_GOLDS.add(gold)
     tid = f"rm-combinatorics-{n:02d}"
     numbers = re.findall(r"\d+", question)
     givens = [(v, f"given {i + 1} of the {detail} count") for i, v in enumerate(numbers)]
@@ -328,6 +373,7 @@ def _leaks(t: dict) -> str | None:
 
 def build() -> list[dict]:
     DECIDING_FACTS.clear()
+    _USED_GOLDS.clear()
     tasks = [BUILDERS[k](n) for k, count in COUNTS.items() for n in range(count)]
     golds = [json.loads(t["controls"]["pass"][0]["answer"])["answer"] for t in tasks]
     if len(golds) != len(set(golds)):

@@ -23,7 +23,7 @@ REPO = Path(__file__).resolve().parents[3]
 SUITE = REPO / "tests/wfe/suites/tools_specialist_production.jsonl"
 PLAN = REPO / "tests/wfe/plans/tools_specialist_decision_v1.yaml"
 TASKS = {t["id"]: t for t in map(json.loads, SUITE.read_text().splitlines())}
-KINDS = {"compute": 4, "store-recall": 4, "chain": 4}
+KINDS = {"compute": 12, "store-recall": 12, "chain": 12}
 IMPERATIVE = {"Compute", "Store"}
 
 
@@ -61,7 +61,10 @@ def _recompute(task: dict) -> str | None:
     if "least common multiple" in ins:
         a, b, c = map(int, re.findall(r"least common multiple of (\d+), (\d+) and (\d+)", ins)[0])
         return str(math.lcm(a, b, c))
-    if "squared plus" in ins and "Use Python" in ins:
+    if re.search(r"the value of \((\d+) - (\d+)\) squared plus (\d+)", ins):
+        a, b, c = map(int, re.findall(r"the value of \((\d+) - (\d+)\) squared plus (\d+)", ins)[0])
+        return str((a - b) ** 2 + c)
+    if "squared plus" in ins:
         a, b = map(int, re.findall(r"the value of (\d+) squared plus (\d+) squared", ins)[0])
         return str(a**2 + b**2)
     if "factorial" in ins:
@@ -78,7 +81,7 @@ def _recompute(task: dict) -> str | None:
 
 
 def test_the_suite_is_sound_and_balanced():
-    assert len(TASKS) == 12 and sum(t["screen"] for t in TASKS.values()) == 4
+    assert len(TASKS) == 36 and sum(t["screen"] for t in TASKS.values()) == 12
     for kind, n in KINDS.items():
         assert len(_kind(kind)) == n, kind
         assert all(t["id"].startswith(f"ts-{kind}-") for t in _kind(kind))

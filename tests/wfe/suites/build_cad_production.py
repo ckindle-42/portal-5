@@ -3,13 +3,13 @@
 
 Every part is a generated solid with a closed-form volume the generator computes and
 never writes by hand; the spec (lengths, hole count, diameters) is stated in the
-instruction, the derived volume never is. Three kinds, 12 tasks, 4 in the screen tier:
+instruction, the derived volume never is. Three kinds, 36 tasks, 12 in the screen tier (four per kind on screen):
 
-- plate-holes (4)  an L×W×H plate with N through holes of diameter d:
+- plate-holes (12)  an L×W×H plate with N through holes of diameter d:
                    volume = L·W·H − N·π·(d/2)²·H;
-- extrusion (4)    a right-triangle or trapezoid profile extruded by L:
+- extrusion (12)    a right-triangle or trapezoid profile extruded by L:
                    volume = (a·b/2)·L or ((p+q)/2·t)·L;
-- revolve (4)      a cylinder or truncated cone revolved: π·r²·h or π·h/3·(R²+Rr+r²).
+- revolve (12)      a cylinder or truncated cone revolved: π·r²·h or π·h/3·(R²+Rr+r²).
 
 Every task is graded on its answer (`answer_contains`, the stated JSON keys) AND on
 where it came from: `tool_grounded` twice — once on a successful `cad_build`
@@ -43,10 +43,13 @@ from pathlib import Path
 from tests.wfe.suites.build_research_production import Fact
 
 OUT = Path(__file__).with_name("cad_production.jsonl")
-COUNTS = {"plate-holes": 4, "extrusion": 4, "revolve": 4}
-SCREEN = {"plate-holes": 2, "extrusion": 1, "revolve": 1}
+COUNTS = {"plate-holes": 12, "extrusion": 12, "revolve": 12}
+SCREEN = {"plate-holes": 4, "extrusion": 4, "revolve": 4}
 LANE = "cad"
 SEEDS = {"plate-holes": 9200, "extrusion": 9300, "revolve": 9400}
+#: Gold volumes already used by a built task (reset by build()); the spec drawers
+#: re-seed on a collision so the suite's golds stay unique.
+_USED_GOLDS: set[str] = set()
 #: The cad_* pipeline surface (b123d_bridge.py TOOL_NAMES) the allowlist offers.
 CAD_TOOLS = [
     "cad_build",
@@ -329,14 +332,24 @@ def _task(tid: str, kind: str, n: int, s: dict) -> dict:
 
 
 def build_task(kind: str, n: int) -> dict:
-    r = random.Random(SEEDS[kind] + n)
-    s = {"plate-holes": plate_spec, "extrusion": extrusion_spec, "revolve": revolve_spec}[kind](r)
     tid = f"cad-{kind}-{n:02d}"
+    for attempt in range(1000):
+        r = random.Random(SEEDS[kind] + n + attempt * 1000)
+        s = {"plate-holes": plate_spec, "extrusion": extrusion_spec, "revolve": revolve_spec}[kind](
+            r
+        )
+        gold = str(math.floor(s["vol"]))
+        if gold not in _USED_GOLDS:
+            break
+    else:
+        raise RuntimeError(f"{tid}: no unique gold volume found")
+    _USED_GOLDS.add(gold)
     return _task(tid, kind, n, s)
 
 
 def build() -> list[dict]:
     DECIDING_FACTS.clear()
+    _USED_GOLDS.clear()
     tasks = [build_task(k, n) for k, count in COUNTS.items() for n in range(count)]
     golds = [json.loads(t["controls"]["pass"][0]["answer"])["volume_mm3"] for t in tasks]
     if len(golds) != len(set(golds)):

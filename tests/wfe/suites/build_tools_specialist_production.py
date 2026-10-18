@@ -4,14 +4,14 @@ production suite (WFE P3 triage §5; master plan S8/O5).
 tools-specialist serves granite4.1:8b at ctx 8192 with exactly three tools —
 execute_python, remember, recall — so the suite measures the tool loop itself. Every
 value is computed here from seeded fictional numbers or generated fictional tokens,
-never written by hand. Three kinds, 12 tasks, 4 in the screen tier:
+never written by hand. Three kinds, 36 tasks, 12 in the screen tier (four per kind on screen):
 
-- compute (4)        an exact computation posed in the instruction; the reference
+- compute (12)        an exact computation posed in the instruction; the reference
                      execute_python code prints the gold on stdout;
-- store-recall (4)   a fictional fact the model must store with remember and confirm
+- store-recall (12)   a fictional fact the model must store with remember and confirm
                      with recall — the answer token is GIVEN (the store path is the
                      test, per the triage's task form), the grounding is the read-back;
-- chain (4)          compute with Python, store the result, recall it back, answer:
+- chain (12)          compute with Python, store the result, recall it back, answer:
                      grounded twice, on the computation's stdout and the recall's text.
 
 Every task is graded on its answer (answer_contains) AND on where it came from
@@ -44,13 +44,17 @@ from pathlib import Path
 from tests.wfe.suites.build_research_production import Fact
 
 OUT = Path(__file__).with_name("tools_specialist_production.jsonl")
-COUNTS = {"compute": 4, "store-recall": 4, "chain": 4}
-SCREEN = {"compute": 1, "store-recall": 1, "chain": 2}
+COUNTS = {"compute": 12, "store-recall": 12, "chain": 12}
+SCREEN = {"compute": 4, "store-recall": 4, "chain": 4}
 LANE = "tools"
 SEEDS = {"compute": 9500, "store-recall": 9600, "chain": 9700}
 FORMAT = 'Answer only as JSON {"answer": "<value>"}.'
 
 DECIDING_FACTS: dict[str, list[Fact]] = {}
+
+#: Store tokens already used by a built task (reset by build()); the token drawer
+#: re-seeds on a collision so the suite's golds stay unique.
+_USED_GOLDS: set[str] = set()
 
 
 def _pattern(gold: str) -> str:
@@ -82,6 +86,7 @@ def _phrase(imperative: bool, question: str, command: str) -> str:
 def compute_case(n: int) -> dict:
     """(instruction body, reference python, gold, near-miss wrong, fmt) for task n."""
     r = random.Random(SEEDS["compute"] + n)
+    n = n % 4
     if n == 0:
         rows = [(r.randint(12, 40), r.randint(3, 19)) for _ in range(3)]
         gold = sum(u * p for u, p in rows)
@@ -134,6 +139,8 @@ def compute_case(n: int) -> dict:
             "fmt": "the number of people only",
         }
     a, b, c = (r.randint(8, 40) for _ in range(3))
+    while math.lcm(a, b, c) == a * b * c:  # a coprime triple's lcm IS the product: no near-miss
+        a, b, c = (r.randint(8, 40) for _ in range(3))
     gold = str(math.lcm(a, b, c))
     wrong = str(a * b * c)
     body = f"What is the least common multiple of {a}, {b} and {c}?"
@@ -157,9 +164,15 @@ def _token(r: random.Random, n: int) -> str:
 
 
 def store_case(n: int) -> dict:
-    r = random.Random(SEEDS["store-recall"] + n)
-    desc = _PAYLOADS[n]
-    token = _token(r, n)
+    for attempt in range(1000):
+        r = random.Random(SEEDS["store-recall"] + n + attempt * 1000)
+        desc = _PAYLOADS[n % len(_PAYLOADS)]
+        token = _token(r, n % len(_PAYLOADS))
+        if token not in _USED_GOLDS:
+            break
+    else:
+        raise RuntimeError(f"ts-store-recall-{n:02d}: no unique token found")
+    _USED_GOLDS.add(token)
     note = f"The {desc} is {token}."
     return {"desc": desc, "token": token, "note": note}
 
@@ -170,6 +183,7 @@ def store_case(n: int) -> dict:
 def chain_case(n: int) -> dict:
     """(expression text, reference python, gold) for chain task n."""
     r = random.Random(SEEDS["chain"] + n)
+    n = n % 4
     if n == 0:
         a, b, c = r.randint(12, 60), r.randint(12, 60), r.randint(3, 9)
         body = f"the value of ({a} + {b}) * {c}"
@@ -422,6 +436,7 @@ BUILDERS = {"compute": build_compute, "store-recall": build_store, "chain": buil
 
 def build() -> list[dict]:
     DECIDING_FACTS.clear()
+    _USED_GOLDS.clear()
     tasks = [BUILDERS[k](n) for k, count in COUNTS.items() for n in range(count)]
     golds = [json.loads(t["controls"]["pass"][0]["answer"])["answer"] for t in tasks]
     if len(golds) != len(set(golds)):

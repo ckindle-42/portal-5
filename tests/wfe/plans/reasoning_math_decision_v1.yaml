@@ -1,5 +1,5 @@
 # The reasoning/math family's first seat decisions (WFE P3 triage §2): one suite,
-# reasoning_math_production (12 tasks, 4 screen, all no_tools), two workspaces, each its
+# reasoning_math_production (36 tasks, 12 screen, all no_tools), two workspaces, each its
 # own campaign (--workspace <id>).
 #
 # No workload declares a tool_mode: every task is `no_tools`, so the pipeline row is

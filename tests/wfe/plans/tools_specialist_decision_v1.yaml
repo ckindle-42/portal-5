@@ -1,6 +1,6 @@
 # tools-specialist's first seat decision (WFE P3 triage §5): measured with its own three
 # tools (execute_python, remember, recall) in production mode on
-# tools_specialist_production (12 tasks, 4 screen; computed golds and fictional store
+# tools_specialist_production (36 tasks, 12 screen; computed golds and fictional store
 # tokens from the committed generator). Production mode needs the tool_modes.yaml
 # allowlist added with this suite (tests/wfe/tool_modes.yaml tools-specialist) —
 # "changing this file changes the instrument": merge between campaigns.

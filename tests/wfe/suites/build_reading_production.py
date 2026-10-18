@@ -5,7 +5,7 @@ The same planted-corpus determinations and register lookups auto-compliance meas
 mixed for the reading seat over its reading tool subset — NO new gold: the
 determinations come from build_compliance_production.determinations() (the PLANT keys
 remain the gold, forbidden in tool output), the lookups from build_compliance_production
-.lookups(). 12 tasks, 4 in the screen tier, kinds determination (6) / lookup (6):
+.lookups(). 36 tasks, 12 in the screen tier, kinds determination (12) / lookup (24):
 
 - determination (6)  covered, hole, tier-conflict, applicability (the four screen
                      classes) plus aspirational and temporal;
@@ -30,37 +30,30 @@ from pathlib import Path
 from tests.wfe.suites import build_compliance_production as comp
 
 OUT = Path(__file__).with_name("reading_production.jsonl")
-#: The determination control classes the narrow suite carries, in order; the first two
-#: screen. The remaining planted classes (deontic, cross-reference, future-effective,
-#: implicit-change) stay in auto-compliance's full suite.
-DET_CLASSES = ("covered", "hole", "tier-conflict", "applicability", "aspirational", "temporal")
-DET_SCREEN = 2
-LOOKUPS = 6
-LOOKUP_SCREEN = 2
+#: ALL TWELVE planted determinations and ALL TWENTY-FOUR register lookups the
+#: compliance generator yields — 36 tasks, no padding needed: the planted corpus and
+#: the register's single-interval parts are exactly that deep. The four screen
+#: classes screen; the first eight lookups screen.
+DET_SCREEN_CLASSES = ("covered", "hole", "tier-conflict", "applicability")
+LOOKUPS = 24
+LOOKUP_SCREEN = 8
 LANE = "reading"
 
 
 def build() -> list[dict]:
     tasks: list[dict] = []
-    by_class: dict[str, dict] = {}
+    screened: set[str] = set()
     for t in comp.determinations():
         seg = t["id"].split("-det-", 1)[1]
-        cls = next((c for c in DET_CLASSES if seg == c or seg.startswith(c + "-")), None)
-        if cls:
-            by_class.setdefault(cls, t)
-    missing = [c for c in DET_CLASSES if c not in by_class]
-    if missing:
-        raise RuntimeError(f"planted corpus lacks determination classes: {missing}")
-    for n, cls in enumerate(DET_CLASSES):
-        t = dict(by_class[cls])
-        t.update(
-            {
-                "id": f"read-det-{cls}-{n:02d}",
-                "lane": LANE,
-                "screen": n < DET_SCREEN,
-            }
-        )
-        tasks.append(t)
+        cls = next((c for c in DET_SCREEN_CLASSES if seg == c or seg.startswith(c + "-")), None)
+        screen = False
+        if cls and cls not in screened:
+            screened.add(cls)
+            screen = True  # exactly one screen row per screen class: four in all
+        n = len(tasks)
+        tasks.append(dict(t, id=f"read-det-{n:02d}-{seg}", lane=LANE, screen=screen))
+    if sum(t["screen"] for t in tasks if t["kind"] == "determination") != len(DET_SCREEN_CLASSES):
+        raise RuntimeError("the four screen classes did not all land in the suite")
     for n, t in enumerate(comp.lookups(LOOKUPS)):
         t = dict(t)
         rid = t["id"].removeprefix("comp-prod-lookup-")
@@ -72,6 +65,8 @@ def build() -> list[dict]:
         # the documents-suite lesson: a document is never a sentence-opener
         if re.search(r"(?:^|[.\n]\s*)In [A-Z0-9][A-Z0-9._-]*\s*[,\u2014]", t["instruction"]):
             raise RuntimeError(f"{t['id']}: instruction opens a sentence with 'In <file>,'")
+    if len(tasks) != 36:
+        raise RuntimeError(f"expected 36 tasks (12 determinations + 24 lookups), got {len(tasks)}")
     tasks.sort(key=lambda t: not t["screen"])
     return tasks
 

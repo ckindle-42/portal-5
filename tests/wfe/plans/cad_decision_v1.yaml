@@ -1,5 +1,5 @@
 # auto-cad's first seat decision (WFE P3 triage §4): measured with its own CAD tools in
-# production mode on cad_production (12 tasks, 4 screen; closed-form gold volumes
+# production mode on cad_production (36 tasks, 12 screen; closed-form gold volumes
 # computed by the committed generator). Production mode needs the tool_modes.yaml
 # allowlist added with this suite (tests/wfe/tool_modes.yaml auto-cad) — "changing this
 # file changes the instrument": merge between campaigns.

@@ -22,7 +22,7 @@ REPO = Path(__file__).resolve().parents[3]
 SUITE = REPO / "tests/wfe/suites/routing_production.jsonl"
 PLAN = REPO / "tests/wfe/plans/routing_decision_v1.yaml"
 TASKS = {t["id"]: t for t in map(json.loads, SUITE.read_text().splitlines())}
-KINDS = {"auto-coding": 4, "auto-compliance": 4, "auto-security": 4, "auto-spl": 4}
+KINDS = {"auto-coding": 9, "auto-compliance": 9, "auto-security": 9, "auto-spl": 9}
 
 
 def _kind(kind: str) -> list[dict]:
@@ -30,7 +30,7 @@ def _kind(kind: str) -> list[dict]:
 
 
 def test_the_suite_is_sound_and_balanced():
-    assert len(TASKS) == 16 and sum(t["screen"] for t in TASKS.values()) == 4
+    assert len(TASKS) == 36 and sum(t["screen"] for t in TASKS.values()) == 12
     for kind, n in KINDS.items():
         assert len(_kind(kind)) == n, kind
         assert all(t["id"].startswith(f"route-{kind.removeprefix('auto-')}-") for t in _kind(kind))
