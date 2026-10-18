@@ -20,8 +20,12 @@ from portal.platform.inference.router.metrics import (
 )
 from portal.platform.inference.router.state import _record_error
 from portal.platform.inference.router.trace import (
+    add_tool_time,
+)
+from portal.platform.inference.router.trace import (
     capture as trace_capture,
 )
+from portal.platform.inference.router.trace import note as trace_note
 from portal.platform.inference.router.trace import (
     span as trace_span,
 )
@@ -295,13 +299,15 @@ async def _dispatch_tool_call(
     try:
         result = await tool_registry.dispatch(tool_name, arguments, request_id=request_id)
     except Exception:
+        elapsed = time.monotonic() - t0
         trace_span(
             "tool.completed",
             tool=tool_name,
             tool_call_id=tool_call_id,
             outcome="exception",
-            duration_ms=round((time.monotonic() - t0) * 1000, 1),
+            duration_ms=round(elapsed * 1000, 1),
         )
+        trace_note(portal_timings=add_tool_time(elapsed))
         raise
     elapsed = time.monotonic() - t0
     trace_span(
@@ -311,6 +317,7 @@ async def _dispatch_tool_call(
         outcome="error" if "error" in result else "ok",
         duration_ms=round(elapsed * 1000, 1),
     )
+    trace_note(portal_timings=add_tool_time(elapsed))
 
     # Metrics
     _tool_calls_total.labels(tool=tool_name, workspace=workspace_id).inc()

@@ -25,6 +25,7 @@ change the outcome of a turn.
 from __future__ import annotations
 
 import contextlib
+import contextvars
 import hashlib
 import json
 import os
@@ -335,3 +336,359 @@ def recent_traces(limit: int = 20) -> list[dict[str, Any]]:
             }
         )
     return out
+
+
+_FIELDS = (
+    "prefill_s",
+    "ttft_s",
+    "reasoning_tokens",
+    "reasoning_s",
+    "answer_tokens",
+    "answer_s",
+    "answer_tps",
+    "tool_s",
+    "total_s",
+    "timing_source",
+)
+_ADDITIVE = (
+    "prefill_s",
+    "reasoning_tokens",
+    "reasoning_s",
+    "answer_tokens",
+    "answer_s",
+    "tool_s",
+    "total_s",
+)
+_CURRENT: contextvars.ContextVar[dict[str, Any] | None] = contextvars.ContextVar(
+    "portal_timings", default=None
+)
+
+
+def _empty() -> dict[str, Any]:
+    return {name: (0 if name == "tool_s" else None) for name in _FIELDS}
+
+
+def _blank() -> dict[str, Any]:
+    return dict.fromkeys(_FIELDS)
+
+
+def _number(value: Any) -> float | None:
+    try:
+        result = float(value)
+    except (TypeError, ValueError):
+        return None
+    return result if result >= 0 else None
+
+
+def _int(value: Any) -> int | None:
+    try:
+        result = int(value)
+    except (TypeError, ValueError):
+        return None
+    return result if result >= 0 else None
+
+
+def _finish(values: dict[str, Any]) -> dict[str, Any]:
+    out = {name: values.get(name) for name in _FIELDS}
+    if out.get("timing_source") not in ("engine", "measured"):
+        out["timing_source"] = "measured"
+    answer_s, answer_tokens = out.get("answer_s"), out.get("answer_tokens")
+    out["answer_tps"] = (
+        round(answer_tokens / answer_s, 3)
+        if isinstance(answer_s, int | float)
+        and answer_s > 0
+        and isinstance(answer_tokens, int | float)
+        else None
+    )
+    for name in _ADDITIVE:
+        if out.get(name) is not None:
+            out[name] = round(out[name], 6) if name.endswith("_s") else int(out[name])
+    for name in ("ttft_s",):
+        if out.get(name) is not None:
+            out[name] = round(out[name], 6)
+    return out
+
+
+def _explicit_timings(data: dict[str, Any]) -> dict[str, Any]:
+    explicit = data.get("portal_timings")
+    values = _blank()
+    if not isinstance(explicit, dict):
+        return values
+    for name in _FIELDS:
+        value = explicit.get(name)
+        if name in ("reasoning_tokens", "answer_tokens"):
+            values[name] = _int(value) if value is not None else None
+        elif name not in ("timing_source", "answer_tps"):
+            values[name] = _number(value) if value is not None else None
+    values["timing_source"] = explicit.get("timing_source")
+    return values
+
+
+def _engine_timings(data: dict[str, Any], usage: dict[str, Any]) -> dict[str, Any]:
+    prompt_duration = _number(usage.get("prompt_eval_duration"))
+    if prompt_duration is None:
+        prompt_ns = _number(
+            data.get("prompt_eval_duration") or usage.get("prompt_eval_duration_ns")
+        )
+        prompt_duration = prompt_ns / 1_000_000_000 if prompt_ns is not None else None
+
+    generation_duration = _number(usage.get("generation_duration"))
+    eval_ns = _number(data.get("eval_duration") or usage.get("eval_duration"))
+    if generation_duration is None and eval_ns is not None:
+        generation_duration = eval_ns / 1_000_000_000
+
+    total_duration = _number(usage.get("total_time") or data.get("total_time"))
+    if total_duration is None and prompt_duration is not None and generation_duration is not None:
+        total_duration = prompt_duration + generation_duration
+    ttft = _number(usage.get("time_to_first_token") or data.get("time_to_first_token"))
+    completion_tokens = _int(
+        next(
+            (
+                value
+                for value in (
+                    usage.get("completion_tokens"),
+                    data.get("eval_count"),
+                    usage.get("eval_count"),
+                )
+                if value is not None
+            ),
+            None,
+        )
+    )
+    completion_details = usage.get("completion_tokens_details") or {}
+    return {
+        "prefill_s": prompt_duration,
+        "generation_s": generation_duration,
+        "total_s": total_duration,
+        "ttft_s": ttft,
+        "completion_tokens": completion_tokens,
+        "reasoning_tokens": _int(completion_details.get("reasoning_tokens")),
+        "has_timing": any(
+            value is not None
+            for value in (prompt_duration, generation_duration, total_duration, ttft)
+        ),
+    }
+
+
+def _content_phases(data: dict[str, Any], measured: dict[str, Any]) -> tuple[bool, bool]:
+    choices = data.get("choices") or []
+    message = choices[0].get("message") or {} if choices and isinstance(choices[0], dict) else {}
+    native = data.get("message") if isinstance(data.get("message"), dict) else {}
+    has_reasoning = any(
+        message.get(name) or native.get(name)
+        for name in ("reasoning", "reasoning_content", "thinking")
+    ) or bool(_int(measured.get("reasoning_tokens")))
+    has_answer = bool(
+        message.get("content") or native.get("content") or _int(measured.get("answer_tokens"))
+    )
+    return has_reasoning, has_answer
+
+
+def _answer_token_count(
+    engine: dict[str, Any], measured: dict[str, Any], has_reasoning: bool, has_answer: bool
+) -> int | None:
+    total = engine["completion_tokens"]
+    reasoning = engine["reasoning_tokens"]
+    measured_reasoning = _int(measured.get("reasoning_tokens"))
+    if reasoning is not None and total is not None:
+        return max(0, total - reasoning)
+    if total is not None and has_reasoning and measured_reasoning is not None:
+        return max(0, total - measured_reasoning)
+    if total is not None and not has_reasoning and has_answer:
+        return total
+    return _int(measured.get("answer_tokens"))
+
+
+def _answer_duration(
+    values: dict[str, Any],
+    engine: dict[str, Any],
+    measured: dict[str, Any],
+    has_reasoning: bool,
+    has_answer: bool,
+) -> float | None:
+    generation_s = engine["generation_s"]
+    if (
+        generation_s is not None
+        and has_answer
+        and (not has_reasoning or values.get("reasoning_s") is not None)
+    ):
+        return max(0.0, generation_s - (_number(values.get("reasoning_s")) or 0.0))
+    return _number(measured.get("answer_s"))
+
+
+def normalize_engine_timings(
+    data: dict[str, Any], measured: dict[str, Any] | None = None
+) -> dict[str, Any]:
+    """Map Ollama-native, oMLX OpenAI, and Portal timing shapes to one object."""
+    measured = measured or {}
+    values = _explicit_timings(data)
+    usage = data.get("usage") if isinstance(data.get("usage"), dict) else {}
+    engine = _engine_timings(data, usage)
+    has_reasoning, has_answer = _content_phases(data, measured)
+
+    for name in ("prefill_s", "ttft_s", "total_s"):
+        if values.get(name) is None:
+            values[name] = engine[name]
+        if values.get(name) is None:
+            values[name] = _number(measured.get(name))
+    if values.get("reasoning_tokens") is None:
+        values["reasoning_tokens"] = engine["reasoning_tokens"]
+        if values["reasoning_tokens"] is None:
+            values["reasoning_tokens"] = _int(measured.get("reasoning_tokens"))
+    if values.get("answer_tokens") is None:
+        values["answer_tokens"] = _answer_token_count(engine, measured, has_reasoning, has_answer)
+    if values.get("reasoning_s") is None:
+        values["reasoning_s"] = _number(measured.get("reasoning_s"))
+    if values.get("answer_s") is None:
+        values["answer_s"] = _answer_duration(values, engine, measured, has_reasoning, has_answer)
+    if measured.get("tool_s") is not None:
+        values["tool_s"] = _number(measured.get("tool_s"))
+    if values.get("reasoning_tokens") is None and not has_reasoning and has_answer:
+        values["reasoning_tokens"] = 0
+    if values.get("timing_source") not in ("engine", "measured"):
+        values["timing_source"] = "engine" if engine["has_timing"] else "measured"
+    return _finish(values)
+
+
+def start_timings() -> None:
+    """Start a fresh timing rollup for the current pipeline request."""
+    _CURRENT.set(_empty())
+
+
+def current_portal_timings() -> dict[str, Any]:
+    """Return a stable copy of the request timing rollup."""
+    current = _CURRENT.get()
+    return _finish(dict(current)) if current is not None else _finish(_empty())
+
+
+def add_model_turn(data: dict[str, Any], measured: dict[str, Any] | None = None) -> dict[str, Any]:
+    """Normalize and add one engine call to the current request rollup."""
+    turn = normalize_engine_timings(data, measured)
+    current = _CURRENT.get()
+    if current is None:
+        current = _empty()
+        _CURRENT.set(current)
+    for name in _ADDITIVE:
+        value = turn.get(name)
+        if value is not None:
+            current[name] = (current.get(name) or 0) + value
+    if current.get("ttft_s") is None and turn.get("ttft_s") is not None:
+        current["ttft_s"] = turn["ttft_s"]
+    if turn.get("timing_source") == "measured" or (
+        current.get("timing_source") == "engine" and turn.get("timing_source") == "engine"
+    ):
+        current["timing_source"] = turn["timing_source"]
+    elif turn.get("timing_source") == "engine" and current.get("timing_source") is None:
+        current["timing_source"] = "engine"
+    return current_portal_timings()
+
+
+def add_tool_time(seconds: float) -> dict[str, Any]:
+    """Add elapsed tool dispatch time; it remains separate from model total_s."""
+    current = _CURRENT.get()
+    if current is None:
+        current = _empty()
+        _CURRENT.set(current)
+    current["tool_s"] = (current.get("tool_s") or 0) + max(0.0, seconds)
+    return current_portal_timings()
+
+
+class StreamMeasurement:
+    """Observe response events while preserving their original SSE payloads."""
+
+    def __init__(self) -> None:
+        self.started = time.monotonic()
+        self.first_any: float | None = None
+        self.first_reasoning: float | None = None
+        self.first_answer: float | None = None
+        self.last_reasoning: float | None = None
+        self.last_answer: float | None = None
+        self.last_any: float | None = None
+        self.reasoning_tokens = 0
+        self.answer_tokens = 0
+        self.saw_tool_calls = False
+        self.finish_reason: str | None = None
+        self.engine_data: dict[str, Any] = {}
+
+    def observe(
+        self,
+        frame: dict[str, Any],
+        *,
+        visible_content: str | None = None,
+        content_override: bool = False,
+        inline_reasoning: bool = False,
+    ) -> None:
+        if isinstance(frame.get("portal_timings"), dict):
+            self.engine_data["portal_timings"] = frame["portal_timings"]
+        if isinstance(frame.get("usage"), dict):
+            self.engine_data["usage"] = frame["usage"]
+        elif any(k in frame for k in ("eval_count", "eval_duration", "prompt_eval_duration")):
+            self.engine_data.update(frame)
+        choices = frame.get("choices") or []
+        if choices:
+            choice = choices[0] if isinstance(choices[0], dict) else {}
+            delta = choice.get("delta") or {}
+        else:
+            message = frame.get("message") or {}
+            if not message:
+                return
+            choice = {"finish_reason": "tool_calls" if message.get("tool_calls") else None}
+            delta = {
+                "content": message.get("content"),
+                "reasoning": message.get("thinking"),
+                "tool_calls": message.get("tool_calls"),
+            }
+        if choice.get("finish_reason"):
+            self.finish_reason = str(choice["finish_reason"])
+        now = time.monotonic()
+        reasoning = next(
+            (delta.get(k) for k in ("reasoning", "reasoning_content", "thinking") if delta.get(k)),
+            "inline" if inline_reasoning else None,
+        )
+        answer = visible_content if content_override else delta.get("content")
+        tool_calls = delta.get("tool_calls")
+        self.saw_tool_calls = self.saw_tool_calls or bool(tool_calls)
+        if not (reasoning or answer or tool_calls):
+            return
+        self.first_any = self.first_any or now
+        self.last_any = now
+        if reasoning:
+            self.first_reasoning = self.first_reasoning or now
+            self.last_reasoning = now
+            self.reasoning_tokens += 1
+        if answer:
+            self.first_answer = self.first_answer or now
+            self.last_answer = now
+            self.answer_tokens += 1
+
+    def result(self) -> dict[str, Any]:
+        end = self.last_any or time.monotonic()
+        ttft = self.first_any - self.started if self.first_any is not None else None
+        total = end - self.started if self.first_any is not None else None
+        reasoning_end = self.first_answer or self.last_reasoning
+        reasoning_s = (
+            max(0.0, reasoning_end - self.first_reasoning)
+            if self.first_reasoning is not None and reasoning_end is not None
+            else None
+        )
+        answer_s = (
+            max(0.0, self.last_answer - self.first_answer)
+            if self.first_answer is not None
+            and self.last_answer is not None
+            and self.finish_reason != "tool_calls"
+            else None
+        )
+        answer_tokens = (
+            0 if self.saw_tool_calls or self.finish_reason == "tool_calls" else self.answer_tokens
+        )
+        if answer_s == 0 and total is not None and answer_tokens:
+            answer_s = max(0.0, total - (ttft or 0.0) - (reasoning_s or 0.0))
+        return {
+            "prefill_s": ttft,
+            "ttft_s": ttft,
+            "reasoning_tokens": self.reasoning_tokens,
+            "reasoning_s": reasoning_s,
+            "answer_tokens": answer_tokens,
+            "answer_s": answer_s,
+            "total_s": total,
+        }

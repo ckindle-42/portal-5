@@ -55,6 +55,7 @@ from portal.platform.inference.ollama_native import to_native_request
 from portal.platform.inference.omlx_auth import omlx_headers
 from portal.platform.inference.router.text_tool_calls import salvage_text_tool_calls
 from portal.platform.inference.router.thinking import NO_ANSWER_MESSAGE
+from portal.platform.inference.router.trace import StreamMeasurement, normalize_engine_timings
 from tests.wfe.checkers import CheckContext, apply_checkers
 from tests.wfe.prompt_surface import harness_note, production_tool_names
 from tests.wfe.schema import Economics, Outcome, ResultRow, env_fingerprint, sha12
@@ -598,11 +599,13 @@ def _iter_lines_with_stall(resp, stall_s: int, hard_s: int, tag: str):
 
 def _parse_stream_api(lines) -> dict:
     content, thinking, tool_parts, done_reason, raw = [], [], {}, None, {}
+    timing = StreamMeasurement()
     for line in lines:
         line = line.strip()
         if not line:
             continue
         obj = json.loads(line)
+        timing.observe(obj)
         if obj.get("error"):
             raise RuntimeError(f"engine error mid-stream: {obj['error']}")
         msg = obj.get("message") or {}
@@ -625,12 +628,18 @@ def _parse_stream_api(lines) -> dict:
     out_msg = _mk_msg(content, tool_parts)
     if thinking:
         out_msg["reasoning"] = "".join(thinking)
-    return {"message": out_msg, "done_reason": done_reason, "_raw": raw}
+    return {
+        "message": out_msg,
+        "done_reason": done_reason,
+        "_raw": raw,
+        "portal_timings": normalize_engine_timings(raw, timing.result()),
+    }
 
 
 def _parse_stream_v1(lines) -> dict:
     content, reasoning, tool_parts, finish, usage = [], [], {}, None, {}
     audit: list[dict] = []
+    timing = StreamMeasurement()
     for line in lines:
         line = line.strip()
         if not line.startswith("data:"):
@@ -639,6 +648,7 @@ def _parse_stream_v1(lines) -> dict:
         if data == "[DONE]":
             break
         obj = json.loads(data)
+        timing.observe(obj)
         if obj.get("type") == "exec_audit":
             audit.extend(obj.get("tool_calls") or [])
             continue
@@ -676,7 +686,12 @@ def _parse_stream_v1(lines) -> dict:
         msg["reasoning"] = "".join(reasoning)
     if audit:
         msg["_exec_audit"] = audit
-    return {"message": msg, "finish_reason": finish, "usage": usage}
+    return {
+        "message": msg,
+        "finish_reason": finish,
+        "usage": usage,
+        "portal_timings": normalize_engine_timings(timing.engine_data, timing.result()),
+    }
 
 
 def _v1_think_fields(think: str) -> dict:
@@ -893,7 +908,11 @@ def pipeline_served(correlation_id: str) -> dict:
     with contextlib.suppress(Exception), urllib.request.urlopen(req, timeout=10) as r:
         rec = json.load(r)
         out = {"backend": rec.get("backend"), "model": rec.get("model")}
-        return {**out, "options": rec.get("options_applied")} if rec.get("options_applied") else out
+        if rec.get("options_applied"):
+            out["options"] = rec["options_applied"]
+        if rec.get("portal_timings"):
+            out["portal_timings"] = rec["portal_timings"]
+        return out
     return {}
 
 
@@ -932,13 +951,37 @@ def _econ_from_usage(u: dict) -> Economics:
     )
 
 
+def _econ_from_timings(timings: dict) -> Economics:
+    return Economics(
+        **{
+            key: timings.get(key)
+            for key in (
+                "prefill_s",
+                "ttft_s",
+                "reasoning_tokens",
+                "reasoning_s",
+                "answer_tokens",
+                "answer_s",
+                "answer_tps",
+                "tool_s",
+                "total_s",
+                "timing_source",
+            )
+        }
+    )
+
+
 def _read_stream(endpoint: str, lines) -> tuple[dict, str | None, Economics]:
     """Decode a streamed response into (message, finish_reason, economics).
     Economics come from the usage chunk (/v1, stream_options.include_usage) or
     the final done object (/api/chat) — the pre-repair runner discarded both."""
     if endpoint == "v1":
         out = _parse_stream_v1(line.decode() for line in lines)
-        return out["message"], out.get("finish_reason"), _econ_from_usage(out.get("usage") or {})
+        econ = _econ_from_usage(out.get("usage") or {})
+        timing_econ = _econ_from_timings(out.get("portal_timings") or {})
+        for key in timing_econ.timing_dict():
+            setattr(econ, key, getattr(timing_econ, key))
+        return out["message"], out.get("finish_reason"), econ
     out = _parse_stream_api(line.decode() for line in lines)
     raw = out.get("_raw") or {}
     total = (raw.get("prompt_eval_count") or 0) + (raw.get("eval_count") or 0)
@@ -950,6 +993,7 @@ def _read_stream(endpoint: str, lines) -> tuple[dict, str | None, Economics]:
             completion_tokens=raw.get("eval_count"),
             total_tokens=total or None,
             load_ms=int((raw.get("load_duration") or 0) / 1e6) or None,
+            **(out.get("portal_timings") or {}),
         ),
     )
 
@@ -960,10 +1004,14 @@ def _read_response(endpoint: str, r) -> tuple[dict, str | None, Economics]:
     if endpoint == "v1":
         body = json.load(r)
         choice = (body.get("choices") or [{}])[0]
+        timing_econ = _econ_from_timings(normalize_engine_timings(body))
+        econ = _econ_from_usage(body.get("usage") or {})
+        for key in timing_econ.timing_dict():
+            setattr(econ, key, getattr(timing_econ, key))
         return (
             choice.get("message") or {"role": "assistant", "content": ""},
             choice.get("finish_reason"),
-            _econ_from_usage(body.get("usage") or {}),
+            econ,
         )
     raw = json.load(r)
     total = (raw.get("prompt_eval_count") or 0) + (raw.get("eval_count") or 0)
@@ -975,6 +1023,7 @@ def _read_response(endpoint: str, r) -> tuple[dict, str | None, Economics]:
             completion_tokens=raw.get("eval_count"),
             total_tokens=total or None,
             load_ms=int((raw.get("load_duration") or 0) / 1e6) or None,
+            **normalize_engine_timings(raw),
         ),
     )
 
@@ -1050,14 +1099,24 @@ def chat(
             with contextlib.suppress(Exception):
                 body = e.read().decode(errors="ignore")[:500]
             raise RuntimeError(f"HTTP {e.code} from {url}: {body or e.reason}") from e
-    econ.wall_s = round(time.monotonic() - t0, 2)
+    elapsed = time.monotonic() - t0
+    econ.wall_s = round(elapsed, 2)
+    if econ.total_s is None:
+        econ.total_s = round(elapsed, 6)
+        econ.timing_source = econ.timing_source or "measured"
+    served = pipeline_served(cid) if cid else {}
+    trace_timings = served.get("portal_timings") or {}
+    if trace_timings:
+        for key, value in trace_timings.items():
+            if hasattr(econ, key):
+                setattr(econ, key, value)
     return {
         "message": msg,
         "finish_reason": finish,
         "economics": econ,
         "harness_caveats": caveats,
         "resolved_think": think,
-        "served": pipeline_served(cid) if cid else {},
+        "served": served,
     }
 
 
@@ -1570,6 +1629,7 @@ class _Loop:
                     ("prompt_tokens", turn_econ.prompt_tokens),
                     ("completion_tokens", turn_econ.completion_tokens),
                     ("finish_reason", resp.get("finish_reason")),
+                    ("portal_timings", turn_econ.timing_dict()),
                 )
                 if v is not None
             }

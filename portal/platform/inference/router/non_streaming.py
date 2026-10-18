@@ -46,7 +46,9 @@ from portal.platform.inference.router.tools import (
     _dispatch_tool_call,
     _select_explicit_required_tool,
 )
+from portal.platform.inference.router.trace import add_model_turn, current_portal_timings
 from portal.platform.inference.router.trace import capture as trace_capture
+from portal.platform.inference.router.trace import note as trace_note
 from portal.platform.inference.router.truncation import take_notice as take_truncation_notice
 from portal.platform.inference.router.validation import (
     _inject_ollama_options,
@@ -304,6 +306,7 @@ def _apply_non_stream_response(
     start_time: float,
     *,
     successful_creation: bool = False,
+    model_elapsed_s: float | None = None,
 ) -> JSONResponse:
     """Normalise + record + wrap a completed non-streaming response dict.
 
@@ -349,6 +352,18 @@ def _apply_non_stream_response(
         data=data,
         elapsed_seconds=time.monotonic() - start_time,
     )
+    _elapsed = time.monotonic() - start_time
+    data["portal_timings"] = add_model_turn(
+        data,
+        measured={
+            "total_s": (
+                max(0.0, model_elapsed_s)
+                if model_elapsed_s is not None
+                else max(0.0, _elapsed - (current_portal_timings().get("tool_s") or 0.0))
+            ),
+        },
+    )
+    trace_note(portal_timings=data["portal_timings"])
     if "model" not in data or not data["model"]:
         data["model"] = target_model
     if notice := take_truncation_notice():
@@ -640,6 +655,27 @@ async def _try_non_streaming(
 
     async def _run_request() -> JSONResponse | None:
         """POST → tool loop → normalise → return. None on any failure."""
+
+        def _record_intermediate_model(data: dict[str, Any], started: float) -> None:
+            """Count tool/grounding hops as model time, excluding discarded prose."""
+            timing_data = dict(data)
+            if isinstance(data.get("choices"), list):
+                timing_data["choices"] = []
+                for choice in data["choices"]:
+                    if isinstance(choice, dict):
+                        copied = dict(choice)
+                        copied["message"] = {**(choice.get("message") or {}), "content": ""}
+                        timing_data["choices"].append(copied)
+            if isinstance(data.get("message"), dict):
+                timing_data["message"] = {**data["message"], "content": ""}
+            timing_data["portal_timings"] = {
+                **(data.get("portal_timings") or {}),
+                "answer_tokens": 0,
+                "answer_s": 0,
+            }
+            add_model_turn(timing_data, measured={"total_s": max(0.0, time.monotonic() - started)})
+            trace_note(portal_timings=current_portal_timings())
+
         try:
             _req_tools = len(req_body.get("tools", []))
             _req_msgs = len(req_body.get("messages", []))
@@ -658,6 +694,7 @@ async def _try_non_streaming(
             ]
             logger.info("NON-STREAM tools: %s", _tool_names)
             trace_capture(backend_request=req_body)
+            _model_started = time.monotonic()
             resp = await _http_client.post(backend.chat_url, json=req_body, timeout=_timeout_obj)
             _raise_for_backend_status(resp)
             data = resp.json()
@@ -726,6 +763,8 @@ async def _try_non_streaming(
                 )
                 _ns_messages = [*_ns_messages, GROUNDING_REQUEST]
                 _ns_guard.grounding_retried = True
+                _record_intermediate_model(data, _model_started)
+                _model_started = time.monotonic()
                 _ns_retry = await _http_client.post(
                     backend.chat_url,
                     json={**req_body, "messages": _ns_messages},
@@ -744,6 +783,7 @@ async def _try_non_streaming(
                     for tc in _ns_tool_calls
                 )
             while _ns_tool_calls and _ns_dispatchable:
+                _record_intermediate_model(data, _model_started)
                 _ns_hops += 1
                 _ns_repeats = [_ns_guard.seen(tc) for tc in _ns_tool_calls]
                 _ns_fresh = iter(
@@ -791,6 +831,7 @@ async def _try_non_streaming(
                     "tools": None if _ns_last else req_body.get("tools"),
                     "tool_choice": None if _ns_last else req_body.get("tool_choice"),
                 }
+                _model_started = time.monotonic()
                 _synth_resp = await _http_client.post(
                     backend.chat_url, json=_synth_body, timeout=_timeout_obj
                 )
@@ -837,6 +878,7 @@ async def _try_non_streaming(
                 target_model,
                 start_time,
                 successful_creation=_ns_creation_succeeded,
+                model_elapsed_s=max(0.0, time.monotonic() - _model_started),
             )
         except (httpx.TimeoutException, BackendRequestError):
             raise  # timeout: outer handler checks /api/ps; 4xx: caller surfaces it

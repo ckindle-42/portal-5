@@ -73,6 +73,16 @@ class Economics:
     load_ms: int | None = None
     wall_s: float | None = None
     cold_load: bool = False
+    prefill_s: float | None = None
+    ttft_s: float | None = None
+    reasoning_tokens: int | None = None
+    reasoning_s: float | None = None
+    answer_tokens: int | None = None
+    answer_s: float | None = None
+    answer_tps: float | None = None
+    tool_s: float | None = None
+    total_s: float | None = None
+    timing_source: str | None = None
 
     def merge(self, other: Economics) -> None:
         for k in ("prompt_tokens", "completion_tokens", "total_tokens"):
@@ -81,6 +91,44 @@ class Economics:
                 setattr(self, k, (a or 0) + b)
         if other.load_ms is not None:
             self.load_ms = max(self.load_ms or 0, other.load_ms)
+        for k in (
+            "prefill_s",
+            "reasoning_tokens",
+            "reasoning_s",
+            "answer_tokens",
+            "answer_s",
+            "tool_s",
+            "total_s",
+        ):
+            value = getattr(other, k)
+            if value is not None:
+                setattr(self, k, (getattr(self, k) or 0) + value)
+        if self.ttft_s is None and other.ttft_s is not None:
+            self.ttft_s = other.ttft_s
+        if other.timing_source is not None:
+            if self.timing_source is None:
+                self.timing_source = other.timing_source
+            elif self.timing_source != other.timing_source:
+                self.timing_source = "measured"
+        if self.answer_tokens is not None and self.answer_s and self.answer_s > 0:
+            self.answer_tps = round(self.answer_tokens / self.answer_s, 3)
+
+    def timing_dict(self) -> dict:
+        return {
+            k: getattr(self, k)
+            for k in (
+                "prefill_s",
+                "ttft_s",
+                "reasoning_tokens",
+                "reasoning_s",
+                "answer_tokens",
+                "answer_s",
+                "answer_tps",
+                "tool_s",
+                "total_s",
+                "timing_source",
+            )
+        }
 
 
 @dataclass

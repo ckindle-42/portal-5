@@ -22,7 +22,7 @@ tags:
 - tests
 - evaluation
 created_at: 1788792773.476087
-updated_at: 1790365849
+updated_at: 1792321100
 ---
 
 The WFE harness evaluates a model IN its workspace context — persona system
@@ -80,6 +80,18 @@ The harness (`tests/wfe/`):
   is caught in minutes. Deterministic persona resolution; token/latency
   economics captured; `--preflight` self-test reconciles observed strict-JSON
   behaviour (empty OR degenerate) against the model card's format_json_safe.
+- Timing economics keep `prefill_s`, `ttft_s`, reasoning and visible-answer
+  counts and durations, `answer_tps`, `tool_s`, `total_s` and a `timing_source`
+  on each turn. Engine usage supplies timings where available; otherwise the
+  pipeline measures the stream from its first generated delta through the last,
+  with reasoning and answer phases split at the first non-reasoning delta.
+  When an engine supplies only an aggregate completion count, reasoning counts
+  use observed deltas and answer counts use the remainder; without an aggregate,
+  answer counts use observed deltas. Delta counts are not guaranteed to equal
+  tokenizer tokens. Row
+  economics roll up durations and counts, retain the first TTFT and recompute
+  answer TPS; `report.py` shows median and nearest-rank p90 answer TPS, TTFT and
+  model total time per workspace, lane and arm.
 - Pipeline mode (`WFE_ENGINE=pipeline`, source `.env` for `PIPELINE_API_KEY`) is
   the standard path for seat testing: every request goes to the Portal pipeline
   (`:9099`) under the workspace id, as Open WebUI sends it. The pipeline applies

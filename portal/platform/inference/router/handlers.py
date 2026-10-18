@@ -86,9 +86,11 @@ from portal.platform.inference.router.trace import (
     capture as trace_capture,
 )
 from portal.platform.inference.router.trace import (
+    current_portal_timings,
     finalize_trace,
     read_trace,
     recent_traces,
+    start_timings,
     start_trace,
 )
 from portal.platform.inference.router.trace import (
@@ -119,6 +121,48 @@ except importlib.metadata.PackageNotFoundError:
 _startup_time_val: float = time.time()
 _mp_registry_cache: Any = None
 _mp_registry_dir_cache: str | None = None
+
+
+async def _with_portal_timings(source: AsyncIterator[bytes]) -> AsyncIterator[bytes]:
+    """Add one metadata-only timing frame immediately before the SSE terminator."""
+    done = False
+    async for chunk in source:
+        raw = chunk.encode() if isinstance(chunk, str) else chunk
+        marker = b"data: [DONE]"
+        if marker in raw:
+            before, separator, after = raw.partition(marker)
+            if before:
+                yield before
+            timings = current_portal_timings()
+            trace_note(portal_timings=timings)
+            payload = {
+                "id": get_correlation_id(),
+                "object": "chat.completion.chunk",
+                "choices": [],
+                "portal_timings": timings,
+            }
+            yield ("data: " + json.dumps(payload, separators=(",", ":")) + "\n\n").encode()
+            yield separator + after
+            done = True
+        else:
+            yield raw
+    if not done:
+        timings = current_portal_timings()
+        trace_note(portal_timings=timings)
+        payload = {
+            "id": get_correlation_id(),
+            "object": "chat.completion.chunk",
+            "choices": [],
+            "portal_timings": timings,
+        }
+        yield ("data: " + json.dumps(payload, separators=(",", ":")) + "\n\n").encode()
+    finalize_trace()
+
+
+def _timed_stream_response(response: Any) -> Any:
+    if isinstance(response, StreamingResponse):
+        response.body_iterator = _with_portal_timings(response.body_iterator)
+    return response
 
 
 async def health() -> dict[str, Any]:
@@ -825,6 +869,7 @@ async def chat_completions(
     _verify_key(authorization)
 
     start_trace(get_correlation_id())
+    start_timings()
 
     slot = RequestSlot()
     await slot.acquire_global()
@@ -861,7 +906,7 @@ async def chat_completions(
             workspace_id, body, stream, persona, slot, start_time
         )
         if council_resp is not None:
-            return council_resp
+            return _timed_stream_response(council_resp)
 
         backend, target_model, _model_hint, _chain, _secondary_model, _tertiary_model = (
             _select_streaming_backend(workspace_id, candidates)
@@ -903,7 +948,7 @@ async def chat_completions(
                 _has_tools,
             )
             _streaming_response = StreamingResponse(
-                _stream_fn,
+                _with_portal_timings(_stream_fn),
                 media_type="text/event-stream",
                 headers={"x-portal-route": f"{workspace_id};{backend.id};{target_model}"},
             )
@@ -917,22 +962,24 @@ async def chat_completions(
 
         slot.detach()
         _streaming_response = StreamingResponse(
-            _stream_with_fallback(
-                backend,
-                body,
-                workspace_id,
-                target_model,
-                persona,
-                effective_tools,
-                start_time,
-                _has_tools,
-                _chain,
-                _portal_no_tools,
-                _secondary_model,
-                _tertiary_model,
-                remaining,
-                slot,
-                backend_body,
+            _with_portal_timings(
+                _stream_with_fallback(
+                    backend,
+                    body,
+                    workspace_id,
+                    target_model,
+                    persona,
+                    effective_tools,
+                    start_time,
+                    _has_tools,
+                    _chain,
+                    _portal_no_tools,
+                    _secondary_model,
+                    _tertiary_model,
+                    remaining,
+                    slot,
+                    backend_body,
+                )
             ),
             media_type="text/event-stream",
             headers={"x-portal-route": f"{workspace_id};{backend.id};{target_model}"},

@@ -25,9 +25,11 @@ from __future__ import annotations
 import argparse
 import datetime as dt
 import json
+import math
 import os
 from collections import Counter, defaultdict
 from pathlib import Path
+from statistics import median
 
 import yaml
 
@@ -56,6 +58,30 @@ def _fmt_ci(passes: int, n: int) -> str:
         return "n/a (0 gradeable)"
     p, lo, hi = wilson(passes, n)
     return f"{passes}/{n} = {p:.2f} [{lo:.2f}–{hi:.2f}]"
+
+
+def _speed_summary(economics: list[dict]) -> dict:
+    def stats(field: str) -> tuple[float | None, float | None]:
+        values = sorted(
+            float(e[field])
+            for e in economics
+            if isinstance(e.get(field), int | float) and not isinstance(e.get(field), bool)
+        )
+        if not values:
+            return None, None
+        p90 = values[max(0, math.ceil(0.9 * len(values)) - 1)]
+        return median(values), p90
+
+    result = {}
+    for field in ("answer_tps", "ttft_s", "total_s"):
+        med, p90 = stats(field)
+        result[f"{field}_median"] = med
+        result[f"{field}_p90"] = p90
+    return result
+
+
+def _fmt_speed(speed: dict, key: str) -> str:
+    return f"{speed[key]:.2f}" if speed.get(key) is not None else "—"
 
 
 def _load(campaign_dir: Path) -> tuple[dict, list[dict], dict]:
@@ -276,6 +302,7 @@ def _build_matrix(by_key: dict, role_of: dict, home_of: dict) -> list[dict]:
                 "outcomes": dict(Counter(r["outcome"] for r in rs)),
                 "median_tokens": sorted(tok)[len(tok) // 2] if tok else None,
                 "median_wall_s": sorted(wall)[len(wall) // 2] if wall else None,
+                "speed": _speed_summary(econ),
                 "cold_load_ms": max(cold) if cold else None,
                 "persona": next((r.get("persona_slug") for r in rs if r.get("persona_slug")), None),
                 "repeats": sorted({r["repeat"] for r in rs}),
@@ -787,6 +814,28 @@ def _sec_instrument(a, rep) -> None:
 def _sec_matrix(a, rep) -> None:
     a("## 2. Fitness matrix")
     a("")
+
+
+def _sec_speed(a, rep) -> None:
+    a("## 2a. Speed by arm")
+    a("")
+    a("Timing values are per-row observations; p90 uses nearest-rank percentile.")
+    a("")
+    a(
+        "| Workspace | Lane | Arm | Answer tok/s med | Answer tok/s p90 | "
+        "TTFT s med | TTFT s p90 | Total s med | Total s p90 |"
+    )
+    a("|---|---|---|---:|---:|---:|---:|---:|---:|")
+    for row in rep["matrix"]:
+        speed = row.get("speed") or {}
+        a(
+            f"| {row['workspace']} | {'home' if row['is_home'] else 'disc'}:{row['suite']} | "
+            f"`{row['arm']}` | {_fmt_speed(speed, 'answer_tps_median')} | "
+            f"{_fmt_speed(speed, 'answer_tps_p90')} | {_fmt_speed(speed, 'ttft_s_median')} | "
+            f"{_fmt_speed(speed, 'ttft_s_p90')} | {_fmt_speed(speed, 'total_s_median')} | "
+            f"{_fmt_speed(speed, 'total_s_p90')} |"
+        )
+    a("")
     a("Rates count only model-attributable outcomes. Brackets are Wilson 95% intervals.")
     a("")
     a("| Workspace | Lane | Arm | Role | Persona | Rate | Excluded | Med tok | Med s |")
@@ -889,6 +938,7 @@ def render_markdown(rep: dict) -> str:
         _sec_header,
         _sec_instrument,
         _sec_matrix,
+        _sec_speed,
         _sec_comparisons,
         _sec_packets,
         _sec_coverage,

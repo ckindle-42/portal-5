@@ -40,6 +40,7 @@ from typing import Any
 import httpx
 
 from portal.platform.inference.load_guard import OLLAMA, OMLX, LoadGuard, LoadRefusedError
+from portal.platform.inference.router.trace import normalize_engine_timings
 
 logger = logging.getLogger(__name__)
 
@@ -308,6 +309,7 @@ def to_openai_completion(native: dict[str, Any]) -> dict[str, Any]:
         f"chatcmpl-{time.monotonic_ns() % 1000}",
     )
     body["usage"] = _usage(native)
+    body["portal_timings"] = normalize_engine_timings(native)
     return body
 
 
@@ -352,24 +354,25 @@ async def native_stream_to_sse(
                         cid,
                     )
                 )
-            yield sse(
-                _envelope(
-                    model,
-                    "chat.completion.chunk",
-                    [
-                        {
-                            "index": 0,
-                            "delta": {},
-                            "finish_reason": _finish(chunk.get("done_reason"), n_calls > 0),
-                        }
-                    ],
-                    created,
-                    cid,
-                )
+            finish_chunk = _envelope(
+                model,
+                "chat.completion.chunk",
+                [
+                    {
+                        "index": 0,
+                        "delta": {},
+                        "finish_reason": _finish(chunk.get("done_reason"), n_calls > 0),
+                    }
+                ],
+                created,
+                cid,
             )
+            finish_chunk["portal_timings"] = normalize_engine_timings(chunk)
+            yield sse(finish_chunk)
             if include_usage:
                 usage_chunk = _envelope(model, "chat.completion.chunk", [], created, cid)
                 usage_chunk["usage"] = _usage(chunk)
+                usage_chunk["portal_timings"] = finish_chunk["portal_timings"]
                 yield sse(usage_chunk)
             break
         delta: dict[str, Any] = {"role": "assistant"} if first else {}

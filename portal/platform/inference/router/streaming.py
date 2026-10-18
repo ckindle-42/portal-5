@@ -90,10 +90,12 @@ from portal.platform.inference.router.tools import (
     _select_explicit_required_tool,
 )
 from portal.platform.inference.router.trace import (
-    capture as trace_capture,
+    StreamMeasurement,
+    add_model_turn,
+    finalize_trace,
 )
 from portal.platform.inference.router.trace import (
-    finalize_trace,
+    capture as trace_capture,
 )
 from portal.platform.inference.router.trace import (
     note as trace_note,
@@ -398,11 +400,11 @@ def _apply_reasoning_rewrite(
     obj: dict[str, Any],
     thinking_enabled: bool,
     think_filter: ThinkTagFilter,
-) -> tuple[bytes | None, bool, bool]:
+) -> tuple[bytes | None, bool, bool, str | None]:
     """Separate reasoning channels and incrementally filter inline wrappers.
 
     Returns:
-        (rewritten_chunk_or_None, content_emitted, skip_default_yield)
+        (rewritten_chunk_or_None, content_emitted, skip_default_yield, visible_content)
 
         - rewritten_chunk_or_None: SSE bytes to yield instead of the original line,
           or None if no rewrite is needed.
@@ -429,10 +431,10 @@ def _apply_reasoning_rewrite(
 
     emitted = bool(visible.strip()) if isinstance(visible, str) else False
     if not changed:
-        return None, emitted, False
+        return None, emitted, False, visible
     new_obj = dict(obj)
     new_obj["choices"] = [dict(choice, delta=new_delta)]
-    return f"data: {json.dumps(new_obj)}\n\n".encode(), emitted, True
+    return f"data: {json.dumps(new_obj)}\n\n".encode(), emitted, True, visible
 
 
 async def _rescue_empty_hop(
@@ -829,7 +831,7 @@ async def _tool_loop_frames(
                                 obj = dict(obj, choices=[choice])
                                 line = f"data: {json.dumps(obj)}"
 
-                        _rewrite_chunk, _emitted, _skip = _apply_reasoning_rewrite(
+                        _rewrite_chunk, _emitted, _skip, _visible = _apply_reasoning_rewrite(
                             line,
                             delta,
                             choice,
@@ -1332,6 +1334,7 @@ async def _stream_from_backend_guarded(
     _finish_reason: str | None = None
     _think_filter = ThinkTagFilter()
     _thinking_allowed = _thinking_enabled(body)
+    _timing_measurement = StreamMeasurement()
     try:
         _usage_recorded = False  # guard: only record TPS once per request
         trace_capture(backend_request=body)
@@ -1423,13 +1426,22 @@ async def _stream_from_backend_guarded(
                         clean_choice = dict(choice)
                         clean_choice["finish_reason"] = None
                         clean_frame = dict(frame, choices=[clean_choice])
-                        rewritten, emitted, _skip = _apply_reasoning_rewrite(
+                        rewritten, emitted, _skip, visible = _apply_reasoning_rewrite(
                             line,
                             delta,
                             clean_choice,
                             clean_frame,
                             _thinking_allowed,
                             _think_filter,
+                        )
+                        _timing_measurement.observe(
+                            frame,
+                            visible_content=visible,
+                            content_override=isinstance(delta.get("content"), str),
+                            inline_reasoning=(
+                                isinstance(delta.get("content"), str)
+                                and visible != delta.get("content")
+                            ),
                         )
                         _answer_emitted = _answer_emitted or emitted
                         if rewritten is not None:
@@ -1442,10 +1454,17 @@ async def _stream_from_backend_guarded(
                         else:
                             yield (line + "\n\n").encode()
                         continue
+                    _timing_measurement.observe(frame)
                     yield (line + "\n\n").encode()
                     continue
                 yield (line + "\n\n").encode()
 
+            trace_note(
+                portal_timings=add_model_turn(
+                    _timing_measurement.engine_data,
+                    _timing_measurement.result(),
+                )
+            )
             tail = _think_filter.feed("", final=True)
             if tail:
                 yield _content_chunk(f"chatcmpl-{workspace_id}", workspace_id, tail)
