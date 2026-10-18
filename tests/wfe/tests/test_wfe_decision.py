@@ -116,6 +116,44 @@ def test_sign_test_is_exact_and_two_sided():
     assert dc.sign_test_p(6, 0) == pytest.approx(0.03125)
 
 
+def test_curtail_guaranteed_better_after_worst_case_future_tasks():
+    expected = ids(36)
+    completed = {(S, f"t{i}") for i in range(27)}
+    inc = rows(dict.fromkeys((f"t{i}" for i in range(36)), "FFF"))
+    cand = rows(dict.fromkeys((f"t{i}" for i in range(27)), "PPP"))
+    cell = dc.curtail(inc, cand, expected, completed)
+    assert cell.verdict == dc.BETTER
+    assert cell.n == 27 and cell.wins == 27
+    assert "worst-case p=" in cell.reason
+
+
+def test_curtail_guaranteed_not_separated_when_no_remaining_sign_can_cross_alpha():
+    expected = ids(36)
+    completed = {(S, f"t{i}") for i in range(33)}
+    inc = rows(dict.fromkeys((f"t{i}" for i in range(36)), "PPP"))
+    cand_spec = {f"t{i}": ("FFF" if i == 0 else "PPP") for i in range(33)}
+    cell = dc.curtail(inc, rows(cand_spec), expected, completed)
+    assert cell.verdict == dc.NOT_SEPARATED
+    assert cell.losses == 1
+
+
+def test_curtail_waits_when_a_remaining_task_can_change_the_verdict():
+    expected = ids(36)
+    completed = {(S, f"t{i}") for i in range(35)}
+    inc_spec = {f"t{i}": "FFF" for i in range(35)}
+    inc_spec["t35"] = "PPP"
+    cand_spec = {f"t{i}": ("PPP" if i < 6 else "FFF") for i in range(35)}
+    assert dc.curtail(rows(inc_spec), rows(cand_spec), expected, completed) is None
+
+
+def test_curtail_stops_when_the_decision_floor_cannot_be_met():
+    expected = ids(12)
+    inc = rows(dict.fromkeys((f"t{i}" for i in range(12)), "FFF"))
+    cell = dc.curtail(inc, [], expected, set())
+    assert cell.verdict == dc.NO_DECISION
+    assert "at most 12" in cell.reason
+
+
 def test_screen_uses_repeat_zero_and_drops_only_on_a_clear_margin():
     tasks = {f"s{i}" for i in range(10)}
     exp = {(S, t) for t in tasks}

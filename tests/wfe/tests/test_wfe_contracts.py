@@ -481,6 +481,205 @@ def camp_report_build(d):
     return build(d)
 
 
+class TestWfeCurtailment:
+    def _campaign(
+        self, tmp_path, tasks=12, repeats=3, incumbent_complete=True, incumbent_outcome="PASS"
+    ):
+        directory = tmp_path / "curtail-campaign"
+        (directory / "rows").mkdir(parents=True)
+        (directory / "preflight").mkdir()
+        suite_path = tmp_path / "curtail-suite.jsonl"
+        suite_path.write_text("".join(json.dumps({"id": f"t{i}"}) + "\n" for i in range(tasks)))
+        rows = []
+        for arm, role in (("inc", "incumbent"), ("ch", "challenger")):
+            for task in range(tasks):
+                for repeat in range(repeats):
+                    run_id = f"ws|{arm}|suite|t{task}|r{repeat}"
+                    state = incumbent_outcome if arm == "inc" and incumbent_complete else "PENDING"
+                    rows.append(
+                        {
+                            "run_id": run_id,
+                            "workspace": "ws",
+                            "arm": arm,
+                            "arm_role": role,
+                            "suite": "suite",
+                            "suite_path": str(suite_path),
+                            "task_id": f"t{task}",
+                            "repeat": repeat,
+                            "tier": "confirm",
+                            "state": state,
+                        }
+                    )
+                    if state != "PENDING":
+                        result = {
+                            "run_id": run_id,
+                            "workspace": "ws",
+                            "arm": arm,
+                            "suite": "suite",
+                            "task_id": f"t{task}",
+                            "repeat": repeat,
+                            "outcome": state,
+                            "instrument": {"fingerprint": "base"},
+                            "env": {"fingerprint": "env"},
+                        }
+                        (directory / "rows" / f"{camp.sha12(run_id)}.json").write_text(
+                            json.dumps(result)
+                        )
+        camp.save_manifest(
+            directory,
+            {
+                "campaign_id": "f1-test",
+                "instrument": {"fingerprint": "base"},
+                "env": {"fingerprint": "env"},
+                "rows": rows,
+            },
+        )
+        return directory
+
+    def test_floor_curtailment_is_complete_and_reported(self, tmp_path):
+        from tests.wfe.report import build, fitness, render_markdown
+
+        directory = self._campaign(tmp_path)
+        manifest = camp.load_manifest(directory)
+        record = camp._curtail_workspace(directory, manifest, "ch", "ws")
+        assert record["state"] == "CURTAILED"
+        assert record["verdict"] == "NO_DECISION"
+        assert record["rows_saved"] == 36
+        assert all(
+            r["state"] == "SKIPPED_DECIDED"
+            for r in camp.load_manifest(directory)["rows"]
+            if r["arm"] == "ch"
+        )
+        assert camp.completion_problems(directory) == []
+        fit = fitness(directory)
+        json.dumps(fit)
+        assert [(c["candidate"], c["verdict"]) for c in fit["cells"]] == [("ch", "NO_DECISION")]
+        assert fit["cells"][0]["excluded"] == {}
+        report = build(directory)
+        assert len(report["not_run"]) == 36
+        assert "36 row(s) saved" in render_markdown(report)
+
+    def test_better_curtailment_is_the_fitness_verdict_and_skips_do_not_reduce_floor(
+        self, tmp_path
+    ):
+        from tests.wfe.report import fitness
+
+        directory = self._campaign(tmp_path, tasks=36, incumbent_outcome="FAIL")
+        manifest = camp.load_manifest(directory)
+        for row in manifest["rows"]:
+            if row["arm"] != "ch" or int(row["task_id"][1:]) >= 33:
+                continue
+            row["state"] = "PASS"
+            result = {
+                "run_id": row["run_id"],
+                "workspace": "ws",
+                "arm": "ch",
+                "suite": "suite",
+                "task_id": row["task_id"],
+                "repeat": row["repeat"],
+                "outcome": "PASS",
+                "instrument": {"fingerprint": "base"},
+                "env": {"fingerprint": "env"},
+            }
+            camp._row_path(directory, row["run_id"]).write_text(json.dumps(result))
+        camp.save_manifest(directory, manifest)
+
+        record = camp._curtail_workspace(directory, manifest, "ch", "ws", "suite/t32")
+
+        assert record["verdict"] == "BETTER"
+        assert record["cell"]["n"] == 33
+        assert record["rows_saved"] == 9
+        cell = fitness(directory)["cells"][0]
+        assert (cell["verdict"], cell["n"], cell["wins"]) == ("BETTER", 33, 33)
+        assert not {f"suite/t{i}" for i in range(33, 36)} & set(cell["excluded"])
+
+    def test_partial_gradeable_screen_rows_remain_future_tasks(self, tmp_path):
+        directory = self._campaign(tmp_path, tasks=36, incumbent_outcome="FAIL")
+        manifest = camp.load_manifest(directory)
+        for row in manifest["rows"]:
+            if row["repeat"] != 0:
+                continue
+            row["tier"] = "screen"
+            if row["arm"] == "ch":
+                row["state"] = "PASS"
+                result = {
+                    "run_id": row["run_id"],
+                    "workspace": "ws",
+                    "arm": "ch",
+                    "suite": "suite",
+                    "task_id": row["task_id"],
+                    "repeat": 0,
+                    "outcome": "PASS",
+                    "instrument": {"fingerprint": "base"},
+                    "env": {"fingerprint": "env"},
+                }
+                camp._row_path(directory, row["run_id"]).write_text(json.dumps(result))
+        camp.save_manifest(directory, manifest)
+
+        record = camp._curtail_workspace(directory, manifest, "ch", "ws")
+
+        assert record is None
+        assert all(
+            row["state"] == "PENDING"
+            for row in camp.load_manifest(directory)["rows"]
+            if row["arm"] == "ch" and row["tier"] == "confirm"
+        )
+
+    def test_execute_arm_curtails_floor_before_challenger_preflight(self, tmp_path, monkeypatch):
+        directory = self._campaign(tmp_path)
+
+        def unexpected_preflight(*_args, **_kwargs):
+            raise AssertionError("floor-limited challenger must not need preflight or model calls")
+
+        monkeypatch.setattr(camp, "preflight_arm", unexpected_preflight)
+        result = camp.execute_arm(directory, "ch", 4, 60, None, False, False)
+        assert result["ran"] == 0
+        assert camp.load_manifest(directory)["curtailments"][0]["rows_saved"] == 36
+
+    def test_incomplete_incumbent_bypasses_curtailment(self, tmp_path):
+        directory = self._campaign(tmp_path, incumbent_complete=False)
+        manifest = camp.load_manifest(directory)
+        record = camp._curtail_workspace(directory, manifest, "ch", "ws")
+        assert record["state"] == "BYPASSED_INCOMPLETE_INCUMBENT"
+        assert record["rows_saved"] == 0
+        assert all(r["state"] == "PENDING" for r in manifest["rows"] if r["arm"] == "ch")
+
+    def test_incumbent_with_a_missing_repeat_bypasses_curtailment(self, tmp_path):
+        directory = self._campaign(tmp_path, tasks=36)
+        manifest = camp.load_manifest(directory)
+        manifest["rows"] = [
+            row
+            for row in manifest["rows"]
+            if not (row["arm"] == "inc" and row["task_id"] == "t0" and row["repeat"] == 2)
+        ]
+
+        record = camp._curtail_workspace(directory, manifest, "ch", "ws")
+
+        assert record["state"] == "BYPASSED_INCOMPLETE_INCUMBENT"
+        assert "repeats incomplete" in record["reason"]
+        assert record["rows_saved"] == 0
+
+    def test_no_curtail_resumes_skipped_rows(self, tmp_path):
+        directory = self._campaign(tmp_path)
+        manifest = camp.load_manifest(directory)
+        camp._curtail_workspace(directory, manifest, "ch", "ws")
+        manifest = camp.load_manifest(directory)
+        camp._resume_curtailed_rows(directory, manifest, "ch")
+        resumed = camp.load_manifest(directory)
+        assert all(r["state"] == "PENDING" for r in resumed["rows"] if r["arm"] == "ch")
+        assert resumed["curtailment_history"][0]["state"] == "RESUMED_NO_CURTAIL"
+        assert resumed.get("curtailments", []) == []
+
+    def test_incumbent_arms_are_selected_first(self):
+        manifest = {
+            "rows": [
+                {"arm": "z-candidate", "arm_role": "challenger", "model": "z"},
+                {"arm": "a-incumbent", "arm_role": "incumbent", "model": "a"},
+            ]
+        }
+        assert camp._select_arms(manifest, None) == ["a-incumbent", "z-candidate"]
+
+
 class TestOfflineRescore:
     """The single most valuable property of a 30-60 hour campaign: when a
     checker is wrong — and the checkers in this harness were wrong once already

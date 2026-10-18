@@ -499,25 +499,55 @@ def fitness(campaign_dir: Path, queue_path: Path | None = None, allow_mixed: boo
     # cell was ever confirmed: a candidate the screen dropped has screen rows and
     # nothing else, which is an absent cell rather than a mismatched comparison.
     confirmed = {(m["workspace"], m["arm"]) for m in manifest["rows"] if m.get("tier") == "confirm"}
+    curtailments = {
+        c["id"]: c for c in manifest.get("curtailments", []) if c.get("state") == "CURTAILED"
+    }
     per_model: dict[str, dict[str, str]] = {}
     cells = []
     for ws, inc in sorted(_incumbents(manifest).items()):
-        for arm in _candidates(by, ws, inc):
+        arms = sorted(
+            {m["arm"] for m in manifest["rows"] if m["workspace"] == ws and m["arm"] != inc}
+        )
+        for arm in arms:
             if (ws, arm) not in confirmed:
                 continue
             expected = cell_expected(manifest, ws, inc, arm)
             cell = decision.confirm(
-                by[(ws, inc)], by[(ws, arm)], expected, repeats=repeats, arguable=arguable
+                by.get((ws, inc), []),
+                by.get((ws, arm), []),
+                expected,
+                repeats=repeats,
+                arguable=arguable,
             )
+            curtailment = curtailments.get(_curtail_key(ws, arm))
+            if curtailment:
+                for field in ("verdict", "reason", "n", "wins", "losses", "ties", "p"):
+                    setattr(cell, field, curtailment["cell"][field])
+                skipped = {
+                    (m["suite"], m["task_id"])
+                    for m in manifest["rows"]
+                    if m.get("workspace") == ws
+                    and m.get("arm") == arm
+                    and m.get("state") == "SKIPPED_DECIDED"
+                    and m.get("curtailment_id") == curtailment["id"]
+                }
+                cell.excluded = {
+                    task: why for task, why in cell.excluded.items() if task not in skipped
+                }
+            cell_data = vars(cell).copy()
+            cell_data["excluded"] = {
+                f"{suite}/{task_id}": reason for (suite, task_id), reason in cell.excluded.items()
+            }
             cells.append(
                 {
                     "workspace": ws,
                     "incumbent": inc,
                     "candidate": arm,
-                    **vars(cell),
+                    **cell_data,
+                    "curtailment": curtailment,
                     "draws": {
-                        "incumbent": _draws(by[(ws, inc)]),
-                        "candidate": _draws(by[(ws, arm)]),
+                        "incumbent": _draws(by.get((ws, inc), [])),
+                        "candidate": _draws(by.get((ws, arm), [])),
                     },
                 }
             )
@@ -628,6 +658,10 @@ def render_fitness_map(mp: dict) -> str:
         )
     lines.append("")
     return "\n".join(lines)
+
+
+def _curtail_key(workspace: str, arm: str) -> str:
+    return f"{workspace}|{arm}"
 
 
 LEDGER = Path(
@@ -803,7 +837,11 @@ def build(campaign_dir: Path, allow_mixed: bool = False, only_arm: str | None = 
         )
 
     taxonomy = Counter(r["outcome"] for r in rows)
-    blocked = [m for m in manifest["rows"] if m.get("state") in (Outcome.BLOCKED.value, "PENDING")]
+    blocked = [
+        m
+        for m in manifest["rows"]
+        if m.get("state") in (Outcome.BLOCKED.value, "PENDING", "SKIPPED_DECIDED")
+    ]
     packets = _decision_packets(matrix, comparisons)
     dims = _coverage(rows)
 
@@ -832,6 +870,7 @@ def build(campaign_dir: Path, allow_mixed: bool = False, only_arm: str | None = 
             {"run_id": m["run_id"], "state": m.get("state"), "note": m.get("note", "")}
             for m in blocked
         ],
+        "curtailments": manifest.get("curtailments", []),
         "preflight": {
             k: {
                 "verdict": v.get("verdict"),
@@ -1074,6 +1113,30 @@ def _sec_comparisons(a, rep) -> None:
     a("")
 
 
+def _sec_curtailments(a, rep) -> None:
+    records = rep.get("curtailments", [])
+    if not records:
+        return
+    a("## 3a. Confirm curtailment")
+    a("")
+    a("A challenger stopped only after its complete incumbent comparison fixed the verdict.")
+    a("")
+    for c in records:
+        if c.get("state") == "CURTAILED":
+            a(
+                f"- `{c['workspace']}` / `{c['arm']}` vs `{c['incumbent']}` — "
+                f"**{c['verdict']}** after `{c['after_task']}`; "
+                f"{c['tasks_remaining']} task(s), {c['rows_saved']} row(s) saved. "
+                f"{c['reason']}"
+            )
+        else:
+            a(
+                f"- `{c['workspace']}` / `{c['arm']}` — curtailment bypassed "
+                f"({c.get('rows_saved', 0)} rows saved): {c.get('reason', c.get('state'))}"
+            )
+    a("")
+
+
 def _sec_packets(a, rep) -> None:
     a("## 5. Decision packets")
     a("")
@@ -1127,6 +1190,7 @@ def render_markdown(rep: dict) -> str:
         _sec_matrix,
         _sec_speed,
         _sec_comparisons,
+        _sec_curtailments,
         _sec_packets,
         _sec_coverage,
     ):
@@ -1200,6 +1264,9 @@ def main() -> int:
                 f"served temperature {d['incumbent']['served_temperature']}/"
                 f"{d['candidate']['served_temperature']}]"
             )
+            if c.get("curtailment"):
+                cr = c["curtailment"]
+                print(f"    curtailed after {cr['after_task']}; {cr['rows_saved']} row(s) saved")
         for d in res["dispositions"]:
             print(f"  {d['disposition']:16s} {d['model']}: {d['reason']}")
         out = campaign_dir / "fitness.json"

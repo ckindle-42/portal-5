@@ -75,7 +75,7 @@ from pathlib import Path
 import yaml
 
 from portal.platform.inference.cluster_backends import BackendRegistry
-from tests.wfe import eval_mode
+from tests.wfe import decision, eval_mode
 from tests.wfe.checkers import CheckContext, apply_checkers
 from tests.wfe.runner import (
     CHAT_BASE,
@@ -1870,13 +1870,217 @@ def exit_status(outs: list[dict], arms: list[str]) -> int:
     return EXIT_STOPPED if any(o.get("stopped") for o in outs) else EXIT_OK
 
 
+def _manifest_row_result(campaign_dir: Path, row: dict) -> dict:
+    """Read a persisted task-run, or synthesize its terminal manifest outcome."""
+    path = _row_path(campaign_dir, row["run_id"])
+    if path.exists():
+        return json.loads(path.read_text())
+    return {
+        "suite": row["suite"],
+        "task_id": row["task_id"],
+        "repeat": row["repeat"],
+        "outcome": row.get("state", "PENDING"),
+    }
+
+
+def _curtail_id(workspace: str, arm: str) -> str:
+    return f"{workspace}|{arm}"
+
+
+def _incomplete_incumbent_reason(
+    baseline_rows: list[dict], expected: set, repeats: int
+) -> str | None:
+    baseline_expected = {(r["suite"], r["task_id"]) for r in baseline_rows}
+    if baseline_expected != expected:
+        return f"incumbent task set differs ({len(baseline_expected)} vs {len(expected)})"
+    if any(r.get("state") in ("PENDING", "SKIPPED_DECIDED") for r in baseline_rows):
+        return "incumbent rows are incomplete when challenger starts"
+    want = set(range(repeats))
+    for task in expected:
+        got = [r["repeat"] for r in baseline_rows if (r["suite"], r["task_id"]) == task]
+        if set(got) != want or len(got) != repeats:
+            return f"incumbent repeats incomplete for {task[0]}/{task[1]}: {sorted(got)} of {sorted(want)}"
+    return None
+
+
+def _evaluate_curtailment(
+    campaign_dir: Path, baseline_rows: list[dict], cand_rows: list[dict], expected: set
+):
+    """Score completed tasks across tiers; gradeable partial tasks remain future work."""
+    repeats = max((r["repeat"] for r in [*baseline_rows, *cand_rows]), default=0) + 1
+    completed, fixed_excluded = set(), set()
+    for task_key in expected:
+        task_rows = [r for r in cand_rows if (r["suite"], r["task_id"]) == task_key]
+        states = [r.get("state", "PENDING") for r in task_rows]
+        if states and all(s not in ("PENDING", "SKIPPED_DECIDED") for s in states):
+            completed.add(task_key)
+        elif any(
+            s not in ("PENDING", "SKIPPED_DECIDED") and s not in MODEL_QUALITY_OUTCOMES
+            for s in states
+        ):
+            fixed_excluded.add(task_key)
+    inc_results = [_manifest_row_result(campaign_dir, r) for r in baseline_rows]
+    cand_results = [
+        _manifest_row_result(campaign_dir, r)
+        for r in cand_rows
+        if (r["suite"], r["task_id"]) in completed | fixed_excluded
+        and r.get("state") not in ("PENDING", "SKIPPED_DECIDED")
+    ]
+    arguable = set()
+    suite_paths = {r.get("suite_path") for r in cand_rows if r.get("suite_path")}
+    for suite_path in suite_paths:
+        arguable.update(
+            (Path(suite_path).stem, task["id"])
+            for task in load_suite(suite_path)
+            if task.get("arguable")
+        )
+    return decision.curtail(
+        inc_results,
+        cand_results,
+        expected,
+        completed,
+        repeats=repeats,
+        arguable=arguable,
+        fixed_excluded=fixed_excluded,
+    )
+
+
+def _bypass_curtailment(rec_id, workspace, arm, incumbent, after_task, reason):
+    return {
+        "id": rec_id,
+        "workspace": workspace,
+        "arm": arm,
+        "incumbent": incumbent,
+        "state": "BYPASSED_INCOMPLETE_INCUMBENT",
+        "reason": reason,
+        "after_task": after_task,
+        "rows_saved": 0,
+    }
+
+
+def _curtail_workspace(
+    campaign_dir: Path, manifest: dict, arm: str, workspace: str, after_task: str = "campaign start"
+) -> dict | None:
+    """Curtail confirm rows against a complete incumbent, reusing observed screen rows."""
+    workspace_rows = [
+        r
+        for r in manifest["rows"]
+        if r.get("workspace") == workspace and r.get("arm") and r.get("arm_role")
+    ]
+    confirm_rows = [r for r in workspace_rows if r.get("tier", "confirm") == "confirm"]
+    cand_rows = [r for r in confirm_rows if r.get("arm") == arm]
+    if not cand_rows or cand_rows[0].get("arm_role") != "challenger":
+        return None
+    pending = [r for r in cand_rows if r.get("state") == "PENDING"]
+    if not pending:
+        return None
+    incumbents = {r["arm"] for r in confirm_rows if r["arm_role"] == "incumbent"}
+    if len(incumbents) != 1:
+        return None
+    incumbent = next(iter(incumbents))
+    expected = {(r["suite"], r["task_id"]) for r in cand_rows}
+    baseline_rows = [
+        r
+        for r in workspace_rows
+        if r["arm"] == incumbent and (r["suite"], r["task_id"]) in expected
+    ]
+    repeats = (
+        max(
+            (r["repeat"] for r in workspace_rows if (r["suite"], r["task_id"]) in expected),
+            default=0,
+        )
+        + 1
+    )
+    cand_rows = [
+        r for r in workspace_rows if r["arm"] == arm and (r["suite"], r["task_id"]) in expected
+    ]
+    curtailments = manifest.setdefault("curtailments", [])
+    rec_id = _curtail_id(workspace, arm)
+    existing = next((c for c in curtailments if c.get("id") == rec_id), None)
+    if existing and existing.get("state") == "CURTAILED":
+        return existing
+
+    bypass_reason = _incomplete_incumbent_reason(baseline_rows, expected, repeats)
+    if bypass_reason:
+        record = _bypass_curtailment(rec_id, workspace, arm, incumbent, after_task, bypass_reason)
+    else:
+        cell = _evaluate_curtailment(campaign_dir, baseline_rows, cand_rows, expected)
+        remaining = [r for r in confirm_rows if r.get("arm") == arm and r.get("state") == "PENDING"]
+        if cell is None or not remaining:
+            return None
+        summary = {
+            key: getattr(cell, key)
+            for key in ("verdict", "reason", "n", "wins", "losses", "ties", "p")
+        }
+        record = {
+            "id": rec_id,
+            "workspace": workspace,
+            "arm": arm,
+            "incumbent": incumbent,
+            "state": "CURTAILED",
+            "verdict": cell.verdict,
+            "reason": cell.reason,
+            "after_task": after_task,
+            "tasks_compared": cell.n,
+            "tasks_remaining": len({(r["suite"], r["task_id"]) for r in remaining}),
+            "rows_saved": len(remaining),
+            "cell": summary,
+        }
+        for row in remaining:
+            row.update(
+                state="SKIPPED_DECIDED",
+                note=f"curtailed: {cell.verdict}; {cell.reason}",
+                curtailment_id=rec_id,
+            )
+        _log(
+            campaign_dir,
+            f"arm {arm} [{workspace}]: curtailed after {after_task} — {cell.verdict}; saved {len(remaining)} row(s)",
+        )
+
+    if existing:
+        existing.clear()
+        existing.update(record)
+    else:
+        curtailments.append(record)
+    save_manifest(campaign_dir, manifest)
+    if record["state"] == "BYPASSED_INCOMPLETE_INCUMBENT":
+        _log(campaign_dir, f"arm {arm} [{workspace}]: curtailment bypassed — {record['reason']}")
+    return record
+
+
+def _resume_curtailed_rows(campaign_dir: Path, manifest: dict, arm: str) -> None:
+    """The explicit --no-curtail override re-offers rows skipped by an earlier run."""
+    resumed = []
+    for record in list(manifest.get("curtailments", [])):
+        if record.get("arm") != arm or record.get("state") != "CURTAILED":
+            continue
+        for row in manifest["rows"]:
+            if (
+                row.get("curtailment_id") == record.get("id")
+                and row.get("state") == "SKIPPED_DECIDED"
+            ):
+                row["state"] = "PENDING"
+                row.pop("note", None)
+                row.pop("curtailment_id", None)
+        resumed.append({**record, "state": "RESUMED_NO_CURTAIL"})
+        manifest["curtailments"].remove(record)
+    if resumed:
+        manifest.setdefault("curtailment_history", []).extend(resumed)
+        save_manifest(campaign_dir, manifest)
+
+
 def completion_problems(campaign_dir: Path) -> list[str]:
     """Every expected row must have a persisted model-quality result under the baseline."""
     m = load_manifest(campaign_dir)
     base = (m.get("instrument") or {}).get("fingerprint")
     ok = {o.value for o in MODEL_QUALITY_OUTCOMES}
+    valid_curtailments = {
+        c.get("id") for c in m.get("curtailments", []) if c.get("state") == "CURTAILED"
+    }
     out = []
     for r in m["rows"]:
+        if r.get("state") == "SKIPPED_DECIDED" and r.get("curtailment_id") in valid_curtailments:
+            continue
         p = _row_path(campaign_dir, r["run_id"])
         row = json.loads(p.read_text()) if p.exists() else {"outcome": "no result"}
         if row.get("outcome") not in ok:
@@ -1886,12 +2090,72 @@ def completion_problems(campaign_dir: Path) -> list[str]:
     return out
 
 
+def _prepare_arm_curtailment(campaign_dir: Path, manifest: dict, arm: str, enabled: bool) -> None:
+    if not enabled:
+        _resume_curtailed_rows(campaign_dir, manifest, arm)
+        return
+    workspaces = {
+        r["workspace"] for r in manifest["rows"] if r.get("arm") == arm and r.get("workspace")
+    }
+    for workspace in sorted(workspaces):
+        _curtail_workspace(campaign_dir, manifest, arm, workspace)
+
+
+def _curtail_after_task(campaign_dir: Path, manifest: dict, arm: str, row: dict, enabled: bool):
+    if not enabled or row.get("tier") != "confirm" or row.get("arm_role") != "challenger":
+        return
+    task_rows = [
+        m
+        for m in manifest["rows"]
+        if (m.get("workspace"), m.get("arm"), m.get("suite"), m.get("task_id"))
+        == (row["workspace"], arm, row["suite"], row["task_id"])
+    ]
+    finished = all(m.get("state") not in ("PENDING", "SKIPPED_DECIDED") for m in task_rows)
+    if task_rows and finished:
+        _curtail_workspace(
+            campaign_dir,
+            manifest,
+            arm,
+            row["workspace"],
+            after_task=f"{row['suite']}/{row['task_id']}",
+        )
+
+
 def _cmd_verify_complete(campaign_dir: Path) -> int:
     problems = completion_problems(campaign_dir)
     for p in problems[:50]:
         print(f"  INCOMPLETE {p}")
     print(f"{len(problems)} problem(s) in {campaign_dir.name}")
     return EXIT_INCOMPLETE if problems else EXIT_OK
+
+
+def _prepare_arm_resources(campaign_dir: Path, arm: str, todo: list[dict]) -> str:
+    model = row_model(todo[0])
+    seat = seat_primary(todo[0]["workspace"], model) if ENGINE == "pipeline" else model
+    evicted = drain_others(model if seat == model else "")
+    if evicted:
+        _log(campaign_dir, f"arm {arm}: drained {len(evicted)} resident model(s): {evicted}")
+    if ENGINE == "omlx" or (ENGINE == "pipeline" and model not in model_sizes()):
+        _log(campaign_dir, f"arm {arm}: {drain_omlx()}")
+    return model
+
+
+def _finish_arm(campaign_dir, arm, model, tally, elapsed_start, notify, stop, halted, ran):
+    if not drain_model(model):
+        _log(campaign_dir, f"arm {arm}: WARNING — still resident after {DRAIN_TIMEOUT_S}s")
+    elapsed = round(time.monotonic() - elapsed_start)
+    summary = f"{arm}: {tally} in {elapsed}s"
+    _log(campaign_dir, f"arm complete — {summary}")
+    if notify:
+        _notify("test_summary", f"WFE arm done ({elapsed}s)\n{arm}\n{tally}", {"arm": arm})
+    return {
+        "arm": arm,
+        "ran": ran,
+        "tally": tally,
+        "elapsed_s": elapsed,
+        "stopped": stop,
+        "halted": halted,
+    }
 
 
 def execute_arm(
@@ -1904,11 +2168,13 @@ def execute_arm(
     notify: bool,
     rerun_failed: bool = False,
     halt: bool = True,
+    curtail: bool = True,
 ) -> dict:
     """Run every pending row for ONE arm. Fresh process per arm is the house
     pattern for long sweeps: a leaked handle or a wedged connection in one model
     must not poison the remaining arms."""
     manifest = load_manifest(campaign_dir)
+    _prepare_arm_curtailment(campaign_dir, manifest, arm, curtail)
     retry_states = (
         {Outcome.HARNESS_ERROR.value, Outcome.TOOL_ERROR.value, Outcome.BLOCKED.value}
         if rerun_failed
@@ -1918,20 +2184,9 @@ def execute_arm(
     if early is not None:
         return early
 
-    # Evict on model change, before the first row rather than after the last: the
-    # previous arm's process may have been killed without cleaning up, and the
-    # pipeline may have pinned a classifier since. Both are memory this arm needs.
-    model = row_model(todo[0])
-    # Keep the arm's tag resident only when it IS the seat. When the seat is an
-    # oMLX alias, a resident Ollama copy of the tag only takes the memory the
-    # seat needs: in V2 the failover GGUF stayed loaded and oMLX answered 507
-    # to every reload for 17 rows.
-    seat = seat_primary(todo[0]["workspace"], model) if ENGINE == "pipeline" else model
-    evicted = drain_others(model if seat == model else "")
-    if evicted:
-        _log(campaign_dir, f"arm {arm}: drained {len(evicted)} resident model(s): {evicted}")
-    if ENGINE == "omlx" or (ENGINE == "pipeline" and model not in model_sizes()):
-        _log(campaign_dir, f"arm {arm}: {drain_omlx()}")
+    # Evict before the first row so stale weights or a pinned classifier cannot
+    # consume the memory this arm needs.
+    model = _prepare_arm_resources(campaign_dir, arm, todo)
 
     _log(campaign_dir, f"arm {arm}: {len(todo)} runs pending")
     if notify:
@@ -1940,9 +2195,12 @@ def execute_arm(
     ws_cache: dict[tuple, dict] = {}
     suite_cache: dict[str, dict] = {}
     tally: dict = {}
+    ran = 0
     stop = halted = None
     t_arm = time.monotonic()
     for i, r in enumerate(todo, 1):
+        if r.get("state") == "SKIPPED_DECIDED":
+            continue
         ws_key = (r["workspace"], row_overrides(r).get("persona"))
         if ws_key not in ws_cache:
             ws_cache[ws_key] = workspace_context(*ws_key)
@@ -1966,6 +2224,7 @@ def execute_arm(
             debug_dir,
             cold=(i == 1),
         )
+        ran += 1
         r["state"] = row["outcome"]
         tally[row["outcome"]] = tally.get(row["outcome"], 0) + 1
         save_manifest(campaign_dir, manifest)
@@ -1980,22 +2239,9 @@ def execute_arm(
             break
         if halted := _halt_arm(campaign_dir, arm, task, row, halt):
             break
+        _curtail_after_task(campaign_dir, manifest, arm, r, curtail)
 
-    if not drain_model(model):
-        _log(campaign_dir, f"arm {arm}: WARNING — still resident after {DRAIN_TIMEOUT_S}s")
-    elapsed = round(time.monotonic() - t_arm)
-    summary = f"{arm}: {tally} in {elapsed}s"
-    _log(campaign_dir, f"arm complete — {summary}")
-    if notify:
-        _notify("test_summary", f"WFE arm done ({elapsed}s)\n{arm}\n{tally}", {"arm": arm})
-    return {
-        "arm": arm,
-        "ran": len(todo),
-        "tally": tally,
-        "elapsed_s": elapsed,
-        "stopped": stop,
-        "halted": halted,
-    }
+    return _finish_arm(campaign_dir, arm, model, tally, t_arm, notify, stop, halted, ran)
 
 
 def build_review_queue(campaign_dir: Path) -> int:
@@ -2068,6 +2314,11 @@ def _parse_args(argv=None):
         help="every suite, not just home + discovery — the variety of work a model may face",
     )
     ap.add_argument("--append", action="store_true", help="add rows to a live campaign")
+    ap.add_argument(
+        "--no-curtail",
+        action="store_true",
+        help="run every confirm row even when the incumbent comparison is already decided",
+    )
     ap.add_argument(
         "--rerun-failed", action="store_true", help="also redo HARNESS_ERROR/TOOL_ERROR rows"
     )
@@ -2445,7 +2696,15 @@ def _inspect_command(args, campaign_dir: Path) -> int | None:
 
 def _select_arms(manifest: dict, want: str | None) -> list[str]:
     """Arm ids to run. `--arm` may name an arm id or a model tag (every variant)."""
-    return sorted({r["arm"] for r in manifest["rows"] if want in (None, r["arm"], row_model(r))})
+    roles = {}
+    for row in manifest["rows"]:
+        arm = row.get("arm")
+        if arm:
+            roles[arm] = min(roles.get(arm, 1), 0 if row.get("arm_role") == "incumbent" else 1)
+    return sorted(
+        {r["arm"] for r in manifest["rows"] if want in (None, r["arm"], row_model(r))},
+        key=lambda arm: (roles.get(arm, 1), arm),
+    )
 
 
 def _ready(campaign_dir: Path) -> bool:
@@ -2557,6 +2816,7 @@ def main() -> int:
             args.notify,
             args.rerun_failed,
             not args.no_halt,
+            curtail=not args.no_curtail,
         )
         outs.append(out or {})
         if (out or {}).get("halted"):

@@ -290,3 +290,20 @@ A prompt longer than the served `-ctxNk` tag is detected by the pipeline when th
 engine reports fewer prompt tokens than were sent (trace note `prompt_truncated`,
 the `prompt_truncated` error counter, a one-line notice); a runner that refuses it
 with HTTP 400 is recorded by the harness as `context_overflow`.
+
+## F1 confirm curtailment
+
+Confirm campaigns run the incumbent arm first, then each challenger arm to
+completion or curtailment before starting the next arm. A challenger can be
+curtailed after a task's repeats finish only when the incumbent's complete
+confirm rows are already terminal and every possible remaining gradeable score
+produces the same `decision.confirm` verdict. Future tasks are assumed gradeable;
+instrument failures are rerun with `--rerun-failed`, and only exclusions already
+observed in candidate or incumbent rows count. The manifest records the stop
+task, verdict, rows saved and reason; remaining rows are `SKIPPED_DECIDED` and
+count as complete only with that record. `rows_saved` counts pending confirm
+manifest rows, one per task-run repeat; `tasks_remaining` counts distinct tasks.
+An incomplete incumbent bypasses curtailment and is recorded. `--no-curtail`
+resumes skipped rows. Fitness uses the recorded curtailment verdict and does not
+count skipped tasks as missing against the decision floor; Markdown reports
+show the verdict and rows saved.

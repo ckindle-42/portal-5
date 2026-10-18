@@ -148,6 +148,153 @@ def confirm(
     )
 
 
+def _future_symbols(inc_scores: dict, task: tuple, repeats: int) -> tuple[str, ...]:
+    if task not in inc_scores:
+        raise ValueError("future tasks require a gradeable incumbent score")
+    inc_score = inc_scores[task]
+    signs = {
+        "W" if score > inc_score else "L" if score < inc_score else "T"
+        for score in (i / repeats for i in range(repeats + 1))
+    }
+    return tuple(sorted(signs))
+
+
+def _reachable_states(inc_scores, future, repeats, initial, arguable):
+    states = {initial}
+    for task in future:
+        is_arguable = task in arguable
+        states = {
+            (
+                w + int(symbol == "W" and not is_arguable),
+                losses + int(symbol == "L" and not is_arguable),
+                wa + int(symbol == "W" and is_arguable),
+                la + int(symbol == "L" and is_arguable),
+                excluded,
+            )
+            for w, losses, wa, la, excluded in states
+            for symbol in _future_symbols(inc_scores, task, repeats)
+        }
+    return states
+
+
+def _curtail_verdict(wins, losses, arguable_wins, arguable_losses, excluded, expected_n):
+    compared = expected_n - excluded
+    if excluded / expected_n > MAX_EXCLUDED_FRAC or compared < DECISION_FLOOR:
+        return NO_DECISION, None
+    wins += arguable_wins
+    losses += arguable_losses
+    p = sign_test_p(wins, losses)
+    if p >= ALPHA:
+        return NOT_SEPARATED, p
+    lead = wins > losses
+    arguable_n = arguable_wins + arguable_losses
+    worst_wins = wins - arguable_wins + (arguable_n if lead else 0)
+    worst_losses = losses - arguable_losses + (arguable_n if not lead else 0)
+    p_worst = sign_test_p(worst_wins, worst_losses)
+    if p_worst >= ALPHA or (worst_wins > worst_losses) != lead:
+        return NO_DECISION, p_worst
+    return (BETTER if lead else WORSE), p_worst
+
+
+def curtail(
+    inc_rows: list[dict],
+    cand_rows: list[dict],
+    expected: set,
+    completed: set,
+    repeats: int = 3,
+    arguable: set | frozenset = frozenset(),
+    fixed_excluded: set | frozenset = frozenset(),
+) -> Cell | None:
+    """Return the invariant confirm verdict, or None while any completion can change it.
+
+    `completed` names candidate tasks whose repeats have all reached a terminal state.
+    Every remaining task with a gradeable incumbent score is assumed gradeable and
+    considered against all possible PASS fractions. Only exclusions already
+    observed in candidate or incumbent rows count. An ungradeable incumbent task
+    is excluded because the complete incumbent has already established that fact.
+    """
+    fixed_excluded = set(fixed_excluded)
+    if not expected or not completed <= expected or not fixed_excluded <= expected:
+        raise ValueError("completed tasks must be a subset of a non-empty expected set")
+    if completed & fixed_excluded:
+        raise ValueError("completed and fixed-excluded tasks must be disjoint")
+    inc_scores, _ = task_scores(inc_rows, repeats)
+    cand_complete = [r for r in cand_rows if key(r) in completed]
+    pairs, _ = pair(inc_rows, cand_complete, expected, repeats)
+    cand_scores, _ = task_scores(cand_complete, repeats)
+    wins, losses, ties = _counts(pairs)
+
+    # If even a perfectly gradeable completion cannot reach the floor, the full
+    # campaign verdict is already fixed at NO_DECISION.
+    candidate_fixed_excluded = sum(
+        task in inc_scores and task not in pairs for task in completed | fixed_excluded
+    )
+    max_compared = min(len(inc_scores), len(expected)) - candidate_fixed_excluded
+    if max_compared < DECISION_FLOOR:
+        return Cell(
+            NO_DECISION,
+            f"floor: at most {max_compared} of {len(expected)} compared tasks; "
+            f"{DECISION_FLOOR} required",
+            len(pairs),
+            wins,
+            losses,
+            ties,
+            sign_test_p(wins, losses),
+            dict.fromkeys(expected - completed, "not completed"),
+        )
+
+    fixed_arg = {task for task in pairs if task in arguable}
+    cand_arg = {task: cand_scores[task] - inc_scores[task] for task in fixed_arg}
+    wa = sum(score > 0 for score in cand_arg.values())
+    la = sum(score < 0 for score in cand_arg.values())
+    future = sorted((expected - completed - fixed_excluded) & inc_scores.keys())
+    excluded = len(expected) - len(pairs) - len(future)
+    initial = (wins - wa, losses - la, wa, la, excluded)
+    states = _reachable_states(inc_scores, future, repeats, initial, arguable)
+
+    verdicts = set()
+    worst_better_p = 0.0
+    for state in states:
+        verdict, p_worst = _curtail_verdict(*state, len(expected))
+        verdicts.add(verdict)
+        if verdict == BETTER:
+            worst_better_p = max(worst_better_p, p_worst or 0.0)
+        if len(verdicts) > 1:
+            return None
+
+    verdict = next(iter(verdicts))
+    if verdict == BETTER:
+        reason = (
+            f"curtailed: every completion is BETTER; worst-case p={worst_better_p:.4f} "
+            f"< alpha={ALPHA:.2f}"
+        )
+    elif verdict == NOT_SEPARATED:
+        reason = "curtailed: every completion is NOT_SEPARATED under the exact sign test"
+    elif verdict == WORSE:
+        reason = "curtailed: every completion is WORSE under the exact sign test"
+    else:
+        reason = (
+            f"curtailed: every completion is {NO_DECISION}; floor/exclusion/arguable "
+            "rule cannot produce another verdict"
+        )
+    return Cell(
+        verdict,
+        reason,
+        len(pairs),
+        wins,
+        losses,
+        ties,
+        sign_test_p(wins, losses),
+        {
+            **dict.fromkeys(expected - completed - fixed_excluded, "not completed"),
+            **dict.fromkeys(fixed_excluded, "partial repeats fixed as excluded"),
+            **dict.fromkeys(
+                (task for task in completed if task not in pairs), "ungradeable or missing"
+            ),
+        },
+    )
+
+
 def screen(inc_rows: list[dict], cand_rows: list[dict], screen_expected: set) -> Cell:
     """The screen-tier outcome for one cell, from repeat 0 of the screen tasks."""
     pick = [r for r in inc_rows if key(r) in screen_expected and r["repeat"] == 0]
