@@ -24,7 +24,7 @@ providers:
       num_predict: 4096
 defaultTest:
   options:
-    provider: ollama:chat:gemma4:26b-a4b-it-qat-ctx8k
+    provider: ollama:chat:gemma4:26b-a4b-it-qat-ctx16k
   assert:
     - type: latency
       threshold: 900000

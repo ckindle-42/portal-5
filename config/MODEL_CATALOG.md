@@ -1237,9 +1237,19 @@ The `vision` group registration in `config/backends.yaml` supplies the tool flag
 
 ---
 
+### `gemma4:26b-a4b-it-qat-ctx16k`
+
+`gemma4:26b-a4b-it-qat-ctx16k` is the context-bounded version of `gemma4:26b-a4b-it-qat`, holding a 16384-token window, derived from the ctx8k tag (same weights and template). `config/backends.yaml` registers it under the `vision` and `general` groups with `supports_tools: true` (direct Ollama tool probe 2026-10-18: clean typed call) and aliases it onto `gemma-4-26b-a4b-it-QAT-4bit` on oMLX. `config/portal.yaml` selects it as the `auto-daily` workspace `model_hint`: the S2 production smoke measured the empty-turn prompt at 2996 of 8192 tokens (37%), docs/WFE_PRODUCTION_SMOKE_20261018.md.
+
+## Why
+
+The auto-daily `model_hint` in `config/portal.yaml` resolves to this tag, and the two `config/backends.yaml` registrations plus the oMLX alias are what make it routable and tool-capable.
+
+---
+
 ### `gemma4:26b-a4b-it-qat-ctx8k`
 
-`gemma4:26b-a4b-it-qat-ctx8k` is the context-bounded version of `gemma4:26b-a4b-it-qat`, holding an 8192-token window. `config/backends.yaml` registers it under the `vision` group with `supports_tools: true`. `config/portal.yaml` selects it as the `auto-daily` workspace `model_hint`, so the daily-driver lane reaches the QAT model through this capped tag. The limit is applied via `portal models apply-params` because the chat-completions API does not honor request-time context parameters, making a derived id necessary.
+`gemma4:26b-a4b-it-qat-ctx8k` is the context-bounded version of `gemma4:26b-a4b-it-qat`, holding an 8192-token window. `config/backends.yaml` registers it under the `vision` group with `supports_tools: true`. It was the `auto-daily` `model_hint` until 2026-10-18 (superseded by the ctx16k tag) and stays registered as a fallback id. The limit is applied via `portal models apply-params` because the chat-completions API does not honor request-time context parameters, making a derived id necessary.
 
 ## Why
 

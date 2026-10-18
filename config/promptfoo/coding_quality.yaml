@@ -14,7 +14,7 @@ providers:
       num_predict: 512
 defaultTest:
   options:
-    provider: ollama:chat:gemma4:26b-a4b-it-qat-ctx8k
+    provider: ollama:chat:gemma4:26b-a4b-it-qat-ctx16k
   assert:
     - type: not-contains
       value: "as an AI language model"

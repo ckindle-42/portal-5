@@ -12,6 +12,7 @@ gemma4:12b-it-qat-ctx8k
 gemma4:26b-a4b-it-q4_K_M
 gemma4:26b-a4b-it-qat
 gemma4:26b-a4b-it-qat-ctx8k
+gemma4:26b-a4b-it-qat-ctx16k
 gemma4:31b-it-qat
 gemma4:31b-it-qat-ctx8k
 gemma4:e2b-it-qat
