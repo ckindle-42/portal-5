@@ -484,6 +484,22 @@ The dual `general`/`coding` registration with `supports_tools: true` in both gro
 
 
 Since 2026-10-18 it is also the `auto-math` seat (`model_hint`, `context_limit: 24576`, Z.ai card sampling temperature 1.0 / top_p 0.95), chosen on WFE `wfe_math_20261018d`: BETTER than phi4-mini-reasoning (sign test p=0.039, 104/108 PASS), kept over the slightly more accurate Qwen3.8-27B for lineage diversity — GLM held no production seat.
+### `hf.co/bartowski/nex-agi_Nex-N2.5-mini-GGUF:Q4_K_M`
+
+`hf.co/bartowski/nex-agi_Nex-N2.5-mini-GGUF:Q4_K_M` is bartowski's Q4_K_M (22.3 GB) of nex-agi/Nex-N2.5-mini, a 34.7B-total / ~3.5B-active `qwen35moe` model with vision, tools and adaptive thinking (`reasoning_effort` none/medium/high per the card). Pulled 2026-10-18 as the auto-research challenger named by the seat prior (docs/WFE_SEAT_PRIOR_20261018.md: same-vendor suite BrowseComp 83.4 vs 74.1 and Toolathlon 54.6 vs 33.3 over Nex-N2-mini). The GGUF bakes no stop tokens or sampling; card sampling is temperature 0.7, top_p 0.95, top_k 40. `config/backends.yaml` registers it in `group: general` with `supports_tools: true` after a direct native probe (3/3 single calls plus a clean tool-result turn).
+
+## Why
+
+A newer release of the auto-research seat's own family, with a clear same-vendor lead on the research lane's benchmarks; registered so WFE can screen it against the seat.
+
+### `hf.co/bartowski/nex-agi_Nex-N2.5-mini-GGUF:Q4_K_M-ctx16k`
+
+`hf.co/bartowski/nex-agi_Nex-N2.5-mini-GGUF:Q4_K_M-ctx16k` is the 16K-context derived tag (baked `PARAMETER num_ctx 16384`, weights shared with the base tag), matching the auto-research seat's `context_limit`. Registered in `group: general` with `supports_tools: true`.
+
+## Why
+
+Ollama ignores request-time `num_ctx`, so a challenger must arrive at the seat's window through a baked tag, exactly as the seat (`Nex-N2-mini ... -ctx16k`) does.
+
 ### `hf.co/sjakek/Nex-N2-mini-GGUF:UD-Q4_K_M-ctx16k`
 
 `hf.co/sjakek/Nex-N2-mini-GGUF:UD-Q4_K_M-ctx16k` is the 16K-context derived tag (baked `PARAMETER num_ctx 16384` via apply-params — Ollama's `/v1/chat/completions` ignores request-time `options.num_ctx`). PROMOTED 2026-09-07 (fleet closeout): it is the `auto-research` workspace `model_hint` after winning the research-task probe head-to-head twice on the same instrument (factuality 0.9/0.8, synthesis 5.0/4.5, vs incumbent xyz-aquila-mini 0.3 and tongyi-deepresearch 0.4 — `tests/benchmarks/results/research_probe_20260907T030136Z.json` + `research_probe_20260907T032401Z.json`). `config/backends.yaml` lists it with `supports_tools: true` in every group (verified 2026-09-25 by a neutral native tool-call probe — 3/3 single-call plus a clean tool-result turn); the router reads one flag per model id, last entry wins, so a per-group split never took effect.

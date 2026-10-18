@@ -1,0 +1,14 @@
+# Seat-prior screen (operator 2026-10-18): Nex-N2.5-mini against the auto-research seat
+# Nex-N2-mini, on research_production (36 tasks, fictional facts, KB + memory tools, production
+# tool mode). The prior's lead is on web-research benchmarks (BrowseComp, Toolathlon); this
+# suite measures the lane's KB/memory synthesis work, so a tie here is a real answer, not noise.
+# Not a *_decision_v1 plan: auto-research keeps research_decision_v1 as its sweep source.
+workloads:
+  auto-research:
+    tool_mode: production
+    home: research_production
+    discovery: []
+    arms:
+      incumbent: hf.co/sjakek/Nex-N2-mini-GGUF:UD-Q4_K_M-ctx16k
+      challengers:
+        - hf.co/bartowski/nex-agi_Nex-N2.5-mini-GGUF:Q4_K_M-ctx16k

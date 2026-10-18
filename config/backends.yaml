@@ -246,6 +246,13 @@ backends:
   # 2026-09-07 fleet closeout: auto-research promotion (research probe 0.9/0.8 vs 0.3/0.4)
   - id: hf.co/sjakek/Nex-N2-mini-GGUF:UD-Q4_K_M-ctx16k
     supports_tools: true
+  # 2026-10-18 auto-research challenger (seat prior: +9.3 BrowseComp, +21.3 Toolathlon over
+  # N2-mini, same vendor suite). bartowski Q4_K_M; no baked stops/sampling; tools probed
+  # direct 3/3 single-call + a clean tool-result turn at card sampling 0.7/0.95/40.
+  - id: hf.co/bartowski/nex-agi_Nex-N2.5-mini-GGUF:Q4_K_M
+    supports_tools: true
+  - id: hf.co/bartowski/nex-agi_Nex-N2.5-mini-GGUF:Q4_K_M-ctx16k
+    supports_tools: true
   - id: qwen3-coder-next:latest
     supports_tools: true
   - id: hf.co/gaston-parravicini/LFM2.5-8B-A1B-Uncensored-Gaston-GGUF:Q4_K_M

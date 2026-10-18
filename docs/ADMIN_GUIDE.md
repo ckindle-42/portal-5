@@ -741,7 +741,7 @@ The fleet table is the `mcp_fleet` list in `config/portal.yaml`, the single sour
 ### Model Catalog
 
 <!-- WIKI:GENERATED unit=unit-fact-model-catalog -->
-#### Model catalog (286 model ids across 7 backend groups)
+#### Model catalog (288 model ids across 7 backend groups)
 
 ##### coding (57)
 
@@ -818,7 +818,7 @@ The fleet table is the `mcp_fleet` list in `config/portal.yaml`, the single sour
 - `huihui_ai/baronllm-abliterated`
 - `huihui_ai/baronllm-abliterated:latest-ctx8k`
 
-##### general (128)
+##### general (130)
 
 - `NVIDIA-Nemotron-3.5-Lightning-30B-A3B-oQ4e-mtp`
 - `Qwen3.8-27B-oQ4e-mtp`
@@ -875,6 +875,8 @@ The fleet table is the `mcp_fleet` list in `config/portal.yaml`, the single sour
 - `hf.co/bartowski/Qwen_Qwen3.6-27B-GGUF:Q4_K_M`
 - `hf.co/bartowski/THUDM_GLM-Z1-Rumination-32B-0414-GGUF:THUDM_GLM-Z1-Rumination-32B-0414-Q4_K_M.gguf`
 - `hf.co/bartowski/huihui-ai_Qwen3-Coder-Next-abliterated-GGUF:Q4_K_M`
+- `hf.co/bartowski/nex-agi_Nex-N2.5-mini-GGUF:Q4_K_M`
+- `hf.co/bartowski/nex-agi_Nex-N2.5-mini-GGUF:Q4_K_M-ctx16k`
 - `hf.co/coder543/North-Mini-Code-1.0-QAD-GGUF:NVFP4`
 - `hf.co/deepreinforce-ai/Ornith-1.0-35B-GGUF:Q4_K_M`
 - `hf.co/douyamv/Gemma-4-31B-JANG_4M-CRACK-GGUF:gemma-4-31b-jang-crack-Q4_K_M.gguf`
