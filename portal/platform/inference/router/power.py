@@ -19,6 +19,10 @@ from typing import Any
 import portal.platform.inference.router.state as _state_mod
 from portal.platform.inference.router import truncation as _truncation
 from portal.platform.inference.router.metrics import (
+    _answer_seconds,
+    _answer_tokens,
+    _decode_seconds,
+    _decode_tokens,
     _energy_consumed_ws_total,
     _input_tokens,
     _output_tokens,
@@ -30,6 +34,8 @@ from portal.platform.inference.router.metrics import (
     _power_gpu_watts,
     _requests_by_model,
     _tokens_per_second,
+    _tps_unmeasured,
+    _ttft_seconds,
 )
 
 logger = logging.getLogger(__name__)
@@ -83,8 +89,136 @@ async def _power_polling_loop() -> None:
         await asyncio.sleep(10)
 
 
+def _positive_float(value: object) -> float | None:
+    """Return ``value`` as a finite float > 0, or ``None`` when it cannot be one."""
+    if isinstance(value, bool) or value is None:
+        return None
+    try:
+        number = float(value)  # type: ignore[arg-type]
+    except (TypeError, ValueError):
+        return None
+    if number <= 0.0 or number != number or number == float("inf"):
+        return None
+    return number
+
+
+def _nonneg_int(value: object) -> int | None:
+    """Return ``value`` as an int >= 0, or ``None`` when it cannot be one."""
+    if isinstance(value, bool) or value is None:
+        return None
+    try:
+        number = int(value)  # type: ignore[arg-type]
+    except (TypeError, ValueError):
+        return None
+    if number < 0:
+        return None
+    return number
+
+
+def _decode_observation(
+    completion_tokens: int,
+    eval_duration_ns: int,
+    decode_seconds: float | None,
+) -> tuple[str, float] | None:
+    """Engine ``eval_duration``, else caller ``decode_seconds``. None if neither applies."""
+    if completion_tokens <= 0:
+        return None
+    if eval_duration_ns > 0:
+        return ("engine", eval_duration_ns / 1_000_000_000)
+    measured = _positive_float(decode_seconds)
+    if measured is None:
+        return None
+    return ("measured", measured)
+
+
+def _resolve_answer_tokens(
+    completion_tokens: int,
+    reasoning_tokens: int | None,
+    answer_tokens: int | None,
+) -> int | None:
+    """Visible-answer tokens from an explicit count, else completion minus reasoning."""
+    if answer_tokens is not None:
+        return _nonneg_int(answer_tokens)
+    if reasoning_tokens is None:
+        return None
+    reasoning = _nonneg_int(reasoning_tokens)
+    if reasoning is None:
+        return None
+    return max(0, completion_tokens - reasoning)
+
+
+def _record_timing_series(
+    *,
+    model: str,
+    workspace: str,
+    completion_tokens: int,
+    eval_duration_ns: int,
+    decode_seconds: float | None,
+    ttft_seconds: float | None,
+    reasoning_tokens: int | None,
+    answer_seconds: float | None,
+    answer_tokens: int | None,
+) -> None:
+    """Record decode, answer, and TTFT series. Never substitutes wall clock.
+
+    Decode time is Ollama ``eval_duration`` (``source="engine"``) when it is
+    present, otherwise the caller ``decode_seconds`` (``source="measured"``).
+    When neither is available and the response has completion tokens, the
+    request is counted on ``portal_tps_unmeasured_total`` and left out of the
+    new series. Answer counters move only when the caller passes the split.
+    ``bench-*`` workspaces still update Prometheus and are left out of the
+    daily-digest accumulators.
+    """
+    bench = workspace.startswith("bench-")
+    observed = _decode_observation(completion_tokens, eval_duration_ns, decode_seconds)
+    if completion_tokens > 0 and observed is None:
+        _tps_unmeasured.labels(model=model, workspace=workspace).inc()
+    if observed is not None:
+        source, decode_s = observed
+        _decode_tokens.labels(model=model, workspace=workspace, source=source).inc(
+            completion_tokens
+        )
+        _decode_seconds.labels(model=model, workspace=workspace, source=source).inc(decode_s)
+        if not bench:
+            _state_mod._decode_tokens += completion_tokens
+            _state_mod._decode_seconds += decode_s
+
+    ttft = _positive_float(ttft_seconds)
+    if ttft is not None:
+        # Caller-observed. Engine payloads do not carry time-to-first-token.
+        _ttft_seconds.labels(model=model, workspace=workspace, source="measured").observe(ttft)
+        if not bench:
+            _state_mod._ttft_samples.append(ttft)
+
+    resolved_answer = _resolve_answer_tokens(completion_tokens, reasoning_tokens, answer_tokens)
+    answer_s = _positive_float(answer_seconds)
+    if resolved_answer is not None and resolved_answer > 0 and answer_s is not None:
+        _answer_tokens.labels(model=model, workspace=workspace, source="measured").inc(
+            resolved_answer
+        )
+        _answer_seconds.labels(model=model, workspace=workspace, source="measured").inc(answer_s)
+        if not bench:
+            _state_mod._answer_tokens += resolved_answer
+            _state_mod._answer_seconds += answer_s
+            _state_mod._answer_tokens_by_model[model] = (
+                _state_mod._answer_tokens_by_model.get(model, 0) + resolved_answer
+            )
+            _state_mod._answer_seconds_by_model[model] = (
+                _state_mod._answer_seconds_by_model.get(model, 0.0) + answer_s
+            )
+
+
 def _record_usage(
-    model: str, workspace: str, data: dict[str, Any], elapsed_seconds: float | None = None
+    model: str,
+    workspace: str,
+    data: dict[str, Any],
+    elapsed_seconds: float | None = None,
+    *,
+    decode_seconds: float | None = None,
+    ttft_seconds: float | None = None,
+    reasoning_tokens: int | None = None,
+    answer_seconds: float | None = None,
+    answer_tokens: int | None = None,
 ) -> None:
     """Extract token counts and TPS from a backend response dict; record to metrics.
 
@@ -93,12 +227,23 @@ def _record_usage(
     ``eval_duration`` ns), Ollama nested under ``usage:``, OpenAI top-level
     (``completion_tokens``, ``prompt_tokens``), OpenAI nested in ``usage``.
 
-    TPS preference: ``eval_duration_ns`` (Ollama's model compute time, no
-    network jitter), then ``elapsed_seconds`` (wall clock from the streaming
-    caller), then skipped (token counts still recorded). Updates the Prometheus
-    collectors and the daily-summary aggregates (``_total_tps``,
-    ``_total_input_tokens``, etc.); ``bench-*`` traffic is excluded from the
-    daily-summary TPS (cold model loads inflate wall-clock TPS).
+    The deprecated ``portal_tokens_per_second`` histogram still prefers
+    ``eval_duration`` and then ``elapsed_seconds`` (wall clock). The decode,
+    answer, and TTFT series do not use wall clock. ``bench-*`` traffic is
+    excluded from the daily-summary accumulators.
+
+    Keyword-only timings, for a later streaming caller. Omit any you do not
+    have; do not pass wall clock as ``decode_seconds``.
+
+    * ``decode_seconds`` — model decode time when the payload has no
+      ``eval_duration``. Ignored for the decode series when ``eval_duration``
+      is present (engine wins, so passing both does not double-count).
+    * ``ttft_seconds`` — request start to the first generated token.
+    * ``reasoning_tokens`` — thinking tokens. With ``answer_seconds`` and no
+      ``answer_tokens``, answer tokens are ``completion_tokens - reasoning_tokens``.
+    * ``answer_seconds`` — visible-answer duration. Required to record the
+      answer series. Not derived from ``decode_seconds``.
+    * ``answer_tokens`` — visible-answer tokens. Overrides the subtraction.
 
     Bare ``except Exception`` swallows failures — a malformed payload must not
     crash a successful request's metric path.
@@ -107,8 +252,13 @@ def _record_usage(
         model: Concrete model id (post-``model_hint`` resolution).
         workspace: Workspace id from the request.
         data: The backend's response dict, in any of the four shapes above.
-        elapsed_seconds: Wall-clock elapsed time from the streaming caller;
-            ``None`` from non-streaming callers (they rely on ``eval_duration``).
+        elapsed_seconds: Wall-clock elapsed time. Feeds only the deprecated
+            histogram. ``None`` when the caller has no clock.
+        decode_seconds: Measured model decode seconds. See above.
+        ttft_seconds: Measured time to first generated token. See above.
+        reasoning_tokens: Thinking-token count. See above.
+        answer_seconds: Measured visible-answer seconds. See above.
+        answer_tokens: Visible-answer token count. See above.
     """
     try:
         # Tokens may be OpenAI (completion/prompt_tokens) or Ollama
@@ -182,6 +332,18 @@ def _record_usage(
 
         # Track per-model request count for summary (plain dict, not the Counter)
         _state_mod._req_count_by_model[model] = _state_mod._req_count_by_model.get(model, 0) + 1
+
+        _record_timing_series(
+            model=model,
+            workspace=workspace,
+            completion_tokens=completion_tokens,
+            eval_duration_ns=eval_duration_ns,
+            decode_seconds=decode_seconds,
+            ttft_seconds=ttft_seconds,
+            reasoning_tokens=reasoning_tokens,
+            answer_seconds=answer_seconds,
+            answer_tokens=answer_tokens,
+        )
 
     except Exception as e:
         logger.debug("Failed to record usage metrics: %s", e)

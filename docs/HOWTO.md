@@ -560,6 +560,8 @@ curl http://localhost:9090/-/healthy
 curl http://localhost:9099/metrics
 ```
 
+The speed panels read token-weighted counters. `portal_decode_tokens_total` and `portal_decode_seconds_total` count every generated token over model decode time: Ollama `eval_count` / `eval_duration` when the engine reports them (`source="engine"`), otherwise a caller-supplied `decode_seconds` (`source="measured"`). They do not fall back to wall clock; a request with tokens but no decode time increments `portal_tps_unmeasured_total` and is left out of the ratio. `portal_answer_tokens_total` and `portal_answer_seconds_total` count the visible answer only, and only when the caller passes the answer split. `portal_ttft_seconds` is the time from request to the first generated token. Grafana divides five-minute rates, `sum by(model) (rate(portal_decode_tokens_total[5m])) / sum by(model) (rate(portal_decode_seconds_total[5m]))`, and the same shape for the answer counters and for workspace. TTFT panels use `histogram_quantile` on `portal_ttft_seconds_bucket`. `portal_tokens_per_second` is deprecated for one release: it is a per-request rate and can still fall back to wall clock.
+
 ### Why
 
 Observability is kept out of Open WebUI and out of the pipeline's code: the router only emits Prometheus text, and dashboards live as provisioned files under `config/grafana/`. That makes metrics reproducible from git — there are no click-configured panels to lose — and lets an operator point any Prometheus-compatible stack at the pipeline without changing Portal itself.

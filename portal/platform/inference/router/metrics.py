@@ -37,9 +37,56 @@ _auto_context_latency_seconds = Histogram(
 
 _tokens_per_second = Histogram(
     "portal_tokens_per_second",
-    "Tokens generated per second by model and workspace",
+    "DEPRECATED: per-request tokens/sec (completion tokens over eval_duration, else wall "
+    "clock). Includes reasoning tokens and can span tool dispatch. Prefer "
+    "portal_decode_tokens_total / portal_decode_seconds_total. Kept for one release.",
     ["model", "workspace"],
     buckets=[5, 10, 20, 30, 40, 50, 60, 80, 100, 150, 200],
+    registry=_REGISTRY,
+)
+
+# Token-weighted speed. Dashboards and the daily digest divide the token counter
+# by the seconds counter over a window. Never divide the lifetime histogram.
+# `source` is "engine" (Ollama eval_duration / eval_count) or "measured"
+# (caller-supplied decode_seconds / answer split / TTFT). Wall clock is not a source.
+_TIMING_LABELS = ["model", "workspace", "source"]
+
+_decode_tokens = Counter(
+    "portal_decode_tokens_total",
+    "Generated tokens over model decode time, including reasoning, by model, workspace, and source",
+    _TIMING_LABELS,
+    registry=_REGISTRY,
+)
+_decode_seconds = Counter(
+    "portal_decode_seconds_total",
+    "Model decode seconds paired with portal_decode_tokens_total",
+    _TIMING_LABELS,
+    registry=_REGISTRY,
+)
+_answer_tokens = Counter(
+    "portal_answer_tokens_total",
+    "Visible answer tokens, excluding reasoning. Recorded only when the caller passes the answer split",
+    _TIMING_LABELS,
+    registry=_REGISTRY,
+)
+_answer_seconds = Counter(
+    "portal_answer_seconds_total",
+    "Seconds spent emitting the visible answer, paired with portal_answer_tokens_total",
+    _TIMING_LABELS,
+    registry=_REGISTRY,
+)
+_ttft_seconds = Histogram(
+    "portal_ttft_seconds",
+    "Seconds from request start to the first generated token of any kind",
+    _TIMING_LABELS,
+    buckets=[0.05, 0.1, 0.25, 0.5, 1.0, 2.0, 3.0, 5.0, 8.0, 13.0, 21.0, 34.0, 60.0],
+    registry=_REGISTRY,
+)
+_tps_unmeasured = Counter(
+    "portal_tps_unmeasured_total",
+    "Requests with completion tokens whose decode time was neither engine-reported "
+    "nor passed as decode_seconds. Not estimated from wall clock",
+    ["model", "workspace"],
     registry=_REGISTRY,
 )
 

@@ -93,6 +93,10 @@ class WebhookChannel(NotificationChannel):
                 # Extended metrics
                 "requests_by_model": event.requests_by_model,
                 "avg_tokens_per_second": event.avg_tokens_per_second,
+                "decode_tokens_per_second": event.decode_tokens_per_second,
+                "answer_tokens_per_second": event.answer_tokens_per_second,
+                "ttft_median_seconds": event.ttft_median_seconds,
+                "top_models_by_volume": event.top_models_by_volume,
                 "total_input_tokens": event.total_input_tokens,
                 "total_output_tokens": event.total_output_tokens,
                 "avg_response_time_ms": event.avg_response_time_ms,

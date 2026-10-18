@@ -37,6 +37,15 @@ _total_tps: float = 0.0
 _request_tps_count: int = 0
 _total_input_tokens: int = 0
 _total_output_tokens: int = 0
+# Token-weighted digest inputs. bench-* is excluded at record time.
+# Rates are sum(tokens) / sum(seconds), not a mean of per-request rates.
+_decode_tokens: float = 0.0
+_decode_seconds: float = 0.0
+_answer_tokens: float = 0.0
+_answer_seconds: float = 0.0
+_ttft_samples: list[float] = []
+_answer_tokens_by_model: dict[str, int] = {}
+_answer_seconds_by_model: dict[str, float] = {}
 _req_count_by_model: dict[str, int] = {}  # model_name -> count (plain dict for summary)
 _req_count_by_error: dict[str, int] = {}  # error_type -> count (plain dict for summary)
 _peak_concurrent: int = 0
@@ -124,6 +133,7 @@ def _save_state() -> None:
     """
     global _total_tps, _request_tps_count
     global _total_input_tokens, _total_output_tokens
+    global _decode_tokens, _decode_seconds, _answer_tokens, _answer_seconds, _ttft_samples
     global _request_count, _req_count_by_model, _req_count_by_error, _persona_usage_raw
     global _peak_concurrent
 
@@ -151,6 +161,15 @@ def _save_state() -> None:
                     + _total_input_tokens,
                     "total_output_tokens": int(existing.get("total_output_tokens", 0))
                     + _total_output_tokens,
+                    "decode_tokens": float(existing.get("decode_tokens", 0.0)) + _decode_tokens,
+                    "decode_seconds": float(existing.get("decode_seconds", 0.0)) + _decode_seconds,
+                    "answer_tokens": float(existing.get("answer_tokens", 0.0)) + _answer_tokens,
+                    "answer_seconds": float(existing.get("answer_seconds", 0.0)) + _answer_seconds,
+                    "ttft_samples": list(existing.get("ttft_samples") or [])
+                    if isinstance(existing.get("ttft_samples"), list)
+                    else [],
+                    "answer_tokens_by_model": dict(existing.get("answer_tokens_by_model") or {}),
+                    "answer_seconds_by_model": dict(existing.get("answer_seconds_by_model") or {}),
                     "req_count_by_model": dict(existing.get("req_count_by_model", {})),
                     "req_count_by_error": dict(existing.get("req_count_by_error", {})),
                     "peak_concurrent": max(
@@ -162,6 +181,15 @@ def _save_state() -> None:
                 # Merge nested dicts
                 for ws, count in _request_count.items():
                     merged["request_count"][ws] = merged["request_count"].get(ws, 0) + count
+                merged["ttft_samples"].extend(_ttft_samples)
+                for model, count in _answer_tokens_by_model.items():
+                    merged["answer_tokens_by_model"][model] = int(
+                        merged["answer_tokens_by_model"].get(model, 0)
+                    ) + int(count)
+                for model, seconds in _answer_seconds_by_model.items():
+                    merged["answer_seconds_by_model"][model] = float(
+                        merged["answer_seconds_by_model"].get(model, 0.0)
+                    ) + float(seconds)
                 for model, count in _req_count_by_model.items():
                     merged["req_count_by_model"][model] = (
                         merged["req_count_by_model"].get(model, 0) + count
@@ -190,6 +218,13 @@ def _save_state() -> None:
                 _request_tps_count = 0
                 _total_input_tokens = 0
                 _total_output_tokens = 0
+                _decode_tokens = 0.0
+                _decode_seconds = 0.0
+                _answer_tokens = 0.0
+                _answer_seconds = 0.0
+                _ttft_samples = []
+                _answer_tokens_by_model.clear()
+                _answer_seconds_by_model.clear()
                 _request_count.clear()
                 _req_count_by_model.clear()
                 _req_count_by_error.clear()

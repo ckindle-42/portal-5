@@ -475,6 +475,19 @@ class TestNotificationScheduler:
                     "total_response_time_ms": 50000.0,
                     "total_tps": 250.0,
                     "request_tps_count": 10,
+                    "decode_tokens": 400.0,
+                    "decode_seconds": 8.0,
+                    "answer_tokens": 300.0,
+                    "answer_seconds": 10.0,
+                    "ttft_samples": [0.2, 0.5, 1.1, 0.4],
+                    "answer_tokens_by_model": {
+                        "dolphin-llama3:8b": 200,
+                        "qwen3-coder-next:30b-q5": 100,
+                    },
+                    "answer_seconds_by_model": {
+                        "dolphin-llama3:8b": 4.0,
+                        "qwen3-coder-next:30b-q5": 5.0,
+                    },
                     "total_input_tokens": 10000,
                     "total_output_tokens": 30000,
                     "req_count_by_model": {
@@ -509,7 +522,19 @@ class TestNotificationScheduler:
                     "dolphin-llama3:8b": 100,
                     "qwen3-coder-next:30b-q5": 50,
                 }
-                assert event.avg_tokens_per_second == pytest.approx(25.0)
+                # 400 decode tokens / 8s. The unweighted 250/10 = 25 must not be used.
+                assert event.avg_tokens_per_second == pytest.approx(50.0)
+                assert event.decode_tokens_per_second == pytest.approx(50.0)
+                assert event.answer_tokens_per_second == pytest.approx(30.0)
+                assert event.ttft_median_seconds == pytest.approx(0.45)
+                assert event.top_models_by_volume[0]["model"] == "dolphin-llama3:8b"
+                assert event.top_models_by_volume[0]["answer_tokens"] == 200
+                assert event.top_models_by_volume[0]["answer_tokens_per_second"] == pytest.approx(
+                    50.0
+                )
+                assert event.top_models_by_volume[1]["answer_tokens_per_second"] == pytest.approx(
+                    20.0
+                )
                 assert event.total_input_tokens == 10000
                 assert event.total_output_tokens == 30000
                 assert abs(event.avg_response_time_ms - 333.33) < 0.1  # 50000/150 ≈ 333.33
@@ -574,6 +599,10 @@ class TestWebhookSummaryExtendedMetrics:
                     "qwen3-coder-next:30b-q5": 200,
                 }
                 assert payload["avg_tokens_per_second"] == 25.0
+                assert payload["decode_tokens_per_second"] == 0.0
+                assert payload["answer_tokens_per_second"] == 0.0
+                assert payload["ttft_median_seconds"] == 0.0
+                assert payload["top_models_by_volume"] == []
                 assert payload["total_input_tokens"] == 50000
                 assert payload["total_output_tokens"] == 150000
                 assert payload["avg_response_time_ms"] == 1200.0
@@ -660,6 +689,19 @@ class TestDailySummaryDeltaComputation:
             },
             "req_count_by_error": {"timeout": 10},
             "peak_concurrent": 5,
+            "decode_tokens": 1000.0,
+            "decode_seconds": 40.0,
+            "answer_tokens": 100.0,
+            "answer_seconds": 10.0,
+            "ttft_samples": [0.2, 0.4],
+            "answer_tokens_by_model": {
+                "dolphin-llama3:8b": 10,
+                "qwen3-coder-next:30b-q5": 5,
+            },
+            "answer_seconds_by_model": {
+                "dolphin-llama3:8b": 1.0,
+                "qwen3-coder-next:30b-q5": 1.0,
+            },
         }
 
         current_state = {
@@ -677,6 +719,19 @@ class TestDailySummaryDeltaComputation:
             "req_count_by_error": {"timeout": 12, "502": 3},
             "peak_concurrent": 5,
             "persona_usage_raw": {},
+            "decode_tokens": 1400.0,
+            "decode_seconds": 48.0,
+            "answer_tokens": 400.0,
+            "answer_seconds": 20.0,
+            "ttft_samples": [0.2, 0.4, 0.3, 0.5, 0.9],
+            "answer_tokens_by_model": {
+                "dolphin-llama3:8b": 210,
+                "qwen3-coder-next:30b-q5": 105,
+            },
+            "answer_seconds_by_model": {
+                "dolphin-llama3:8b": 5.0,
+                "qwen3-coder-next:30b-q5": 6.0,
+            },
         }
 
         from portal.platform.inference.notifications import scheduler as sched_module
@@ -721,7 +776,16 @@ class TestDailySummaryDeltaComputation:
             assert event.total_input_tokens == 10000
             assert event.total_output_tokens == 30000
 
-            assert event.avg_tokens_per_second == pytest.approx(25.0)
+            # Day is 400 decode tokens / 8s. Unweighted delta 250/10 = 25 is not the rate.
+            assert event.avg_tokens_per_second == pytest.approx(50.0)
+            assert event.decode_tokens_per_second == pytest.approx(50.0)
+            assert event.answer_tokens_per_second == pytest.approx(30.0)
+            assert event.ttft_median_seconds == pytest.approx(0.5)
+            assert event.top_models_by_volume[0] == {
+                "model": "dolphin-llama3:8b",
+                "answer_tokens": 200,
+                "answer_tokens_per_second": pytest.approx(50.0),
+            }
 
             assert event.avg_response_time_ms == pytest.approx(100.0)
 

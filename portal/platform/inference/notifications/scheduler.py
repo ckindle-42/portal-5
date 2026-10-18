@@ -118,6 +118,93 @@ def _delta_dict(current: dict[str, int], previous: dict[str, int]) -> dict[str, 
     return result
 
 
+def _snapshot_from_state(state: dict[str, Any]) -> dict[str, Any]:
+    """Copy the cumulative counters the daily summary differences against yesterday."""
+    raw_samples = state.get("ttft_samples") or []
+    samples: list[float] = []
+    if isinstance(raw_samples, list):
+        for item in raw_samples:
+            if isinstance(item, bool) or not isinstance(item, (int, float)):
+                continue
+            samples.append(float(item))
+    return {
+        "request_count": state.get("request_count", {}),
+        "total_response_time_ms": float(state.get("total_response_time_ms", 0.0)),
+        "total_tps": float(state.get("total_tps", 0.0)),
+        "request_tps_count": int(state.get("request_tps_count", 0)),
+        "total_input_tokens": int(state.get("total_input_tokens", 0)),
+        "total_output_tokens": int(state.get("total_output_tokens", 0)),
+        "req_count_by_model": state.get("req_count_by_model", {}),
+        "req_count_by_error": state.get("req_count_by_error", {}),
+        "peak_concurrent": int(state.get("peak_concurrent", 0)),
+        "decode_tokens": float(state.get("decode_tokens", 0.0)),
+        "decode_seconds": float(state.get("decode_seconds", 0.0)),
+        "answer_tokens": float(state.get("answer_tokens", 0.0)),
+        "answer_seconds": float(state.get("answer_seconds", 0.0)),
+        "ttft_samples": samples,
+        "answer_tokens_by_model": dict(state.get("answer_tokens_by_model") or {}),
+        "answer_seconds_by_model": dict(state.get("answer_seconds_by_model") or {}),
+    }
+
+
+def _weighted_rate(tokens: float, seconds: float) -> float:
+    """Token-weighted tok/s. Zero when the day has no measured seconds."""
+    if seconds <= 0:
+        return 0.0
+    return tokens / seconds
+
+
+def _median(samples: list[float]) -> float:
+    """Median of a day's TTFT samples. Even counts average the two central values."""
+    if not samples:
+        return 0.0
+    ordered = sorted(samples)
+    mid = len(ordered) // 2
+    if len(ordered) % 2:
+        return float(ordered[mid])
+    return float(ordered[mid - 1] + ordered[mid]) / 2.0
+
+
+def _delta_samples(current: list[float], previous: list[float]) -> list[float]:
+    """Samples appended since ``previous`` was snapshotted.
+
+    The state file only appends. When the new list still starts with the
+    previous one, the tail is the day. A replaced list (state reset) is the
+    whole window.
+    """
+    if not current:
+        return []
+    if len(current) >= len(previous) and current[: len(previous)] == previous:
+        return list(current[len(previous) :])
+    return list(current)
+
+
+def _top_models_by_answer_volume(
+    tokens_by_model: dict[str, Any],
+    seconds_by_model: dict[str, Any],
+    limit: int = 5,
+) -> list[dict[str, Any]]:
+    """Highest answer-token models, each with its token-weighted answer rate."""
+    rows: list[dict[str, Any]] = []
+    for model, raw_tokens in tokens_by_model.items():
+        try:
+            tokens = float(raw_tokens)
+            seconds = float(seconds_by_model.get(model, 0.0) or 0.0)
+        except (TypeError, ValueError):
+            continue
+        if tokens <= 0:
+            continue
+        rows.append(
+            {
+                "model": str(model),
+                "answer_tokens": int(tokens),
+                "answer_tokens_per_second": _weighted_rate(tokens, seconds),
+            }
+        )
+    rows.sort(key=lambda row: (-int(row["answer_tokens"]), str(row["model"])))
+    return rows[:limit]
+
+
 class NotificationScheduler:
     """
     APScheduler-based daily summary trigger.
@@ -184,17 +271,7 @@ class NotificationScheduler:
 
         try:
             state = _load_aggregated_state()
-            baseline: dict[str, Any] = {
-                "request_count": state.get("request_count", {}),
-                "total_response_time_ms": float(state.get("total_response_time_ms", 0.0)),
-                "total_tps": float(state.get("total_tps", 0.0)),
-                "request_tps_count": int(state.get("request_tps_count", 0)),
-                "total_input_tokens": int(state.get("total_input_tokens", 0)),
-                "total_output_tokens": int(state.get("total_output_tokens", 0)),
-                "req_count_by_model": state.get("req_count_by_model", {}),
-                "req_count_by_error": state.get("req_count_by_error", {}),
-                "peak_concurrent": int(state.get("peak_concurrent", 0)),
-            }
+            baseline = _snapshot_from_state(state)
             _save_snapshot(baseline)
             req_count = baseline.get("request_count", {})
             logger.info(
@@ -266,41 +343,52 @@ class NotificationScheduler:
             except Exception:
                 pass
 
-        current_snapshot: dict[str, Any] = {
-            "request_count": state.get("request_count", {}),
-            "total_response_time_ms": float(state.get("total_response_time_ms", 0.0)),
-            "total_tps": float(state.get("total_tps", 0.0)),
-            "request_tps_count": int(state.get("request_tps_count", 0)),
-            "total_input_tokens": int(state.get("total_input_tokens", 0)),
-            "total_output_tokens": int(state.get("total_output_tokens", 0)),
-            "req_count_by_model": state.get("req_count_by_model", {}),
-            "req_count_by_error": state.get("req_count_by_error", {}),
-            "peak_concurrent": int(state.get("peak_concurrent", 0)),
-        }
+        current_snapshot = _snapshot_from_state(state)
 
         # Load previous snapshot and compute deltas
         prev = _load_snapshot()
 
         prev_request_count: dict[str, int] = prev.get("request_count", {})
         prev_rt_ms: float = float(prev.get("total_response_time_ms", 0.0))
-        prev_tps_sum: float = float(prev.get("total_tps", 0.0))
-        prev_tps_count: int = int(prev.get("request_tps_count", 0))
         prev_inp: int = int(prev.get("total_input_tokens", 0))
         prev_out: int = int(prev.get("total_output_tokens", 0))
         prev_by_model: dict[str, int] = prev.get("req_count_by_model", {})
         prev_by_error: dict[str, int] = prev.get("req_count_by_error", {})
+        prev_samples = prev.get("ttft_samples") or []
+        if not isinstance(prev_samples, list):
+            prev_samples = []
 
         daily_requests = _delta_dict(current_snapshot["request_count"], prev_request_count)
         daily_total = sum(daily_requests.values())
-        # Exclude bench-* workspaces from averages (cold model loads inflate response time/TPS)
+        # Exclude bench-* workspaces from averages (cold model loads inflate response time).
+        # Decode/answer/TTFT already omit bench-* at record time.
         daily_real_total = sum(v for k, v in daily_requests.items() if not k.startswith("bench-"))
         daily_rt_ms = _delta(current_snapshot["total_response_time_ms"], prev_rt_ms)
-        daily_tps_sum = _delta(current_snapshot["total_tps"], prev_tps_sum)
-        daily_tps_count = _delta(current_snapshot["request_tps_count"], prev_tps_count)
         daily_inp = _delta(current_snapshot["total_input_tokens"], prev_inp)
         daily_out = _delta(current_snapshot["total_output_tokens"], prev_out)
         daily_by_model = _delta_dict(current_snapshot["req_count_by_model"], prev_by_model)
         daily_by_error = _delta_dict(current_snapshot["req_count_by_error"], prev_by_error)
+        daily_decode_tokens = float(
+            _delta(current_snapshot["decode_tokens"], float(prev.get("decode_tokens", 0.0)))
+        )
+        daily_decode_seconds = float(
+            _delta(current_snapshot["decode_seconds"], float(prev.get("decode_seconds", 0.0)))
+        )
+        daily_answer_tokens = float(
+            _delta(current_snapshot["answer_tokens"], float(prev.get("answer_tokens", 0.0)))
+        )
+        daily_answer_seconds = float(
+            _delta(current_snapshot["answer_seconds"], float(prev.get("answer_seconds", 0.0)))
+        )
+        daily_ttft = _delta_samples(current_snapshot["ttft_samples"], prev_samples)
+        daily_answer_tokens_by_model = _delta_dict(
+            current_snapshot["answer_tokens_by_model"],
+            prev.get("answer_tokens_by_model") or {},
+        )
+        daily_answer_seconds_by_model = _delta_dict(
+            current_snapshot["answer_seconds_by_model"],
+            prev.get("answer_seconds_by_model") or {},
+        )
 
         # Guard: if both current state AND previous snapshot are empty, the state was
         # wiped (container recreation). Skip the empty summary — save current as new
@@ -340,8 +428,11 @@ class NotificationScheduler:
         except Exception:
             pass
 
-        # Compute derived metrics from daily deltas
-        avg_tps = daily_tps_sum / daily_tps_count if daily_tps_count > 0 else 0.0
+        # Token-weighted rates: sum of tokens / sum of seconds over the day.
+        # The deprecated unweighted mean (total_tps / request_tps_count) is not read.
+        decode_tps = _weighted_rate(daily_decode_tokens, daily_decode_seconds)
+        answer_tps = _weighted_rate(daily_answer_tokens, daily_answer_seconds)
+        ttft_median = _median(daily_ttft)
         avg_response_ms = daily_rt_ms / daily_real_total if daily_real_total > 0 else 0.0
 
         # Import SummaryEvent here to avoid circular import
@@ -355,9 +446,16 @@ class NotificationScheduler:
             healthy_backends=healthy,
             total_backends=total_backends,
             uptime_seconds=now.timestamp() - _startup_time if _startup_time else 0.0,
-            # Extended metrics
+            # Extended metrics. avg_tokens_per_second keeps the decode rate under the old name.
             requests_by_model=daily_by_model,
-            avg_tokens_per_second=avg_tps,
+            avg_tokens_per_second=decode_tps,
+            decode_tokens_per_second=decode_tps,
+            answer_tokens_per_second=answer_tps,
+            ttft_median_seconds=ttft_median,
+            top_models_by_volume=_top_models_by_answer_volume(
+                daily_answer_tokens_by_model,
+                daily_answer_seconds_by_model,
+            ),
             total_input_tokens=int(daily_inp),
             total_output_tokens=int(daily_out),
             avg_response_time_ms=avg_response_ms,
@@ -375,10 +473,12 @@ class NotificationScheduler:
 
         logger.info(
             "Daily summary dispatched for %s: %d requests across %d workspaces, "
-            "avg TPS=%.1f, avg response=%.0fms",
+            "decode tok/s=%.1f, answer tok/s=%.1f, ttft median=%.2fs, avg response=%.0fms",
             report_date,
             daily_total,
             len(daily_requests),
-            avg_tps,
+            decode_tps,
+            answer_tps,
+            ttft_median,
             avg_response_ms,
         )

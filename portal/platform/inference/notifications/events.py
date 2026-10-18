@@ -155,7 +155,14 @@ class SummaryEvent:
     uptime_seconds: float
     # Extended metrics
     requests_by_model: dict[str, int] = field(default_factory=dict)
+    # Token-weighted decode tok/s (sum of decode tokens / sum of decode seconds).
+    # The name is the pre-T2 field; it is no longer a mean of per-request rates.
     avg_tokens_per_second: float = 0.0
+    decode_tokens_per_second: float = 0.0
+    answer_tokens_per_second: float = 0.0
+    ttft_median_seconds: float = 0.0
+    # Rows: model, answer_tokens, answer_tokens_per_second. Ranked by answer tokens.
+    top_models_by_volume: list[dict[str, Any]] = field(default_factory=list)
     total_input_tokens: int = 0
     total_output_tokens: int = 0
     avg_response_time_ms: float = 0.0
@@ -165,6 +172,28 @@ class SummaryEvent:
     peak_concurrent: int = 0
     persona_usage: dict[str, int] = field(default_factory=dict)
     type: EventType = field(default=EventType.DAILY_SUMMARY)
+
+    def _decode_rate(self) -> float:
+        """Decode tok/s. Uses the legacy field when the explicit one was not set."""
+        if self.decode_tokens_per_second > 0:
+            return self.decode_tokens_per_second
+        return self.avg_tokens_per_second
+
+    def _top_model_rows(self) -> list[tuple[str, int, float]]:
+        """Top models by answer-token volume, capped at five."""
+        rows: list[tuple[str, int, float]] = []
+        for row in self.top_models_by_volume[:5]:
+            try:
+                rows.append(
+                    (
+                        str(row.get("model", "")),
+                        int(row.get("answer_tokens", 0)),
+                        float(row.get("answer_tokens_per_second", 0.0)),
+                    )
+                )
+            except (TypeError, ValueError):
+                continue
+        return rows
 
     def format_slack(self) -> str:
         """Format for Slack."""
@@ -176,7 +205,9 @@ class SummaryEvent:
             f"*Errors:* {self.total_errors:,}",
             f"*Healthy Backends:* {self.healthy_backends}/{self.total_backends}",
             f"*Peak Concurrent:* {self.peak_concurrent}",
-            f"*Avg TPS:* {self.avg_tokens_per_second:.1f} tok/s",
+            f"*Decode tok/s:* {self._decode_rate():.1f} tok/s",
+            f"*Answer tok/s:* {self.answer_tokens_per_second:.1f}",
+            f"*TTFT median:* {self.ttft_median_seconds:.2f}s",
             f"*Avg Response Time:* {self.avg_response_time_ms:.0f}ms",
             f"*Tokens:* {self.total_input_tokens:,} in / {self.total_output_tokens:,} out",
             "",
@@ -194,6 +225,12 @@ class SummaryEvent:
             lines.append("*Top Models:*")
             for model, count in sorted(self.requests_by_model.items(), key=lambda x: -x[1])[:5]:
                 lines.append(f"  `{model}` {count:,}")
+        volume = self._top_model_rows()
+        if volume:
+            lines.append("")
+            lines.append("*Top Models by Answer Volume:*")
+            for model, tokens, rate in volume:
+                lines.append(f"  `{model}` {tokens:,} tok @ {rate:.1f} tok/s")
         if self.persona_usage:
             lines.append("")
             lines.append("*Persona Usage:*")
@@ -210,7 +247,9 @@ class SummaryEvent:
             f"Errors: {self.total_errors:,}",
             f"Healthy Backends: {self.healthy_backends}/{self.total_backends}",
             f"Peak Concurrent: {self.peak_concurrent}",
-            f"Avg TPS: {self.avg_tokens_per_second:.1f}",
+            f"Decode tok/s: {self._decode_rate():.1f}",
+            f"Answer tok/s: {self.answer_tokens_per_second:.1f}",
+            f"TTFT median: {self.ttft_median_seconds:.2f}s",
             f"Avg Response: {self.avg_response_time_ms:.0f}ms",
             f"Tokens: {self.total_input_tokens:,} in / {self.total_output_tokens:,} out",
         ]
@@ -228,6 +267,12 @@ class SummaryEvent:
             lines.append("Top Models:")
             for model, count in sorted(self.requests_by_model.items(), key=lambda x: -x[1])[:5]:
                 lines.append(f"  {model}: {count:,}")
+        volume = self._top_model_rows()
+        if volume:
+            lines.append("")
+            lines.append("Top Models by Answer Volume:")
+            for model, tokens, rate in volume:
+                lines.append(f"  {model}: {tokens:,} tok @ {rate:.1f} tok/s")
         if self.persona_usage:
             lines.append("")
             lines.append("Persona Usage:")
@@ -242,7 +287,9 @@ class SummaryEvent:
             "",
             f"<b>Requests:</b> {self.total_requests:,}",
             f"<b>Healthy Backends:</b> {self.healthy_backends}/{self.total_backends}",
-            f"<b>Avg Tokens/sec:</b> {self.avg_tokens_per_second:.1f}",
+            f"<b>Decode tok/s:</b> {self._decode_rate():.1f}",
+            f"<b>Answer tok/s:</b> {self.answer_tokens_per_second:.1f}",
+            f"<b>TTFT median:</b> {self.ttft_median_seconds:.2f}s",
             f"<b>Avg Response Time:</b> {self.avg_response_time_ms:.0f}ms",
             f"<b>Input Tokens:</b> {self.total_input_tokens:,}",
             f"<b>Output Tokens:</b> {self.total_output_tokens:,}",
@@ -258,13 +305,22 @@ class SummaryEvent:
             for model, count in sorted(self.requests_by_model.items(), key=lambda x: -x[1])[:5]:
                 lines.append(f"<li>{_html.escape(model)}: {count:,}</li>")
             lines.append("</ul>")
+        volume = self._top_model_rows()
+        if volume:
+            lines.append("<b>Top Models by Answer Volume:</b><ul>")
+            for model, tokens, rate in volume:
+                lines.append(f"<li>{_html.escape(model)}: {tokens:,} tok @ {rate:.1f} tok/s</li>")
+            lines.append("</ul>")
         return "\n".join(lines)
 
     def format_pushover(self) -> str:
         """Format for Pushover (max 512 chars)."""
         msg = (
             f"📊 Portal 5 ({self.report_date}): {self.total_requests:,} req, "
-            f"{self.avg_tokens_per_second:.0f} tok/s, {self.avg_response_time_ms:.0f}ms avg, "
+            f"decode {self._decode_rate():.0f} tok/s, "
+            f"answer {self.answer_tokens_per_second:.0f} tok/s, "
+            f"ttft {self.ttft_median_seconds:.2f}s, "
+            f"{self.avg_response_time_ms:.0f}ms avg, "
             f"{self.healthy_backends}/{self.total_backends} backends"
         )
         return msg[:512]

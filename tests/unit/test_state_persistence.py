@@ -21,6 +21,13 @@ def _reset_accumulators():
     saved_rt = rm._total_response_time_ms
     saved_in = rp._total_input_tokens
     saved_out = rp._total_output_tokens
+    saved_decode_tokens = rp._decode_tokens
+    saved_decode_seconds = rp._decode_seconds
+    saved_answer_tokens = rp._answer_tokens
+    saved_answer_seconds = rp._answer_seconds
+    saved_ttft = list(rp._ttft_samples)
+    saved_answer_by_model = dict(rp._answer_tokens_by_model)
+    saved_answer_seconds_by_model = dict(rp._answer_seconds_by_model)
     saved_peak = rp._peak_concurrent
     saved_rc = dict(rp._request_count)
     saved_rm = dict(rp._req_count_by_model)
@@ -33,6 +40,15 @@ def _reset_accumulators():
     rm._total_response_time_ms = saved_rt
     rp._total_input_tokens = saved_in
     rp._total_output_tokens = saved_out
+    rp._decode_tokens = saved_decode_tokens
+    rp._decode_seconds = saved_decode_seconds
+    rp._answer_tokens = saved_answer_tokens
+    rp._answer_seconds = saved_answer_seconds
+    rp._ttft_samples = saved_ttft
+    rp._answer_tokens_by_model.clear()
+    rp._answer_tokens_by_model.update(saved_answer_by_model)
+    rp._answer_seconds_by_model.clear()
+    rp._answer_seconds_by_model.update(saved_answer_seconds_by_model)
     rp._peak_concurrent = saved_peak
     rp._request_count.clear()
     rp._request_count.update(saved_rc)
@@ -76,6 +92,42 @@ def test_save_state_no_double_counting(tmp_path):
     data = json.loads(state_file.read_text())
     assert data["total_tps"] == 100.0  # NOT 300
     assert data["request_tps_count"] == 5  # NOT 15
+
+
+def test_save_state_timing_accumulators_append_once(tmp_path):
+    """Decode, answer, and TTFT samples persist once and reset in memory."""
+    state_file = tmp_path / "metrics_state.json"
+    rp._STATE_FILE = state_file
+
+    rp._decode_tokens = 100.0
+    rp._decode_seconds = 2.5
+    rp._answer_tokens = 80.0
+    rp._answer_seconds = 2.0
+    rp._ttft_samples = [0.2, 0.4]
+    rp._answer_tokens_by_model["m"] = 80
+    rp._answer_seconds_by_model["m"] = 2.0
+
+    rp._save_state()
+    rp._save_state()
+
+    data = json.loads(state_file.read_text())
+    assert data["decode_tokens"] == 100.0
+    assert data["decode_seconds"] == 2.5
+    assert data["answer_tokens"] == 80.0
+    assert data["ttft_samples"] == [0.2, 0.4]
+    assert data["answer_tokens_by_model"]["m"] == 80
+    assert data["answer_seconds_by_model"]["m"] == 2.0
+    assert rp._decode_tokens == 0.0
+    assert rp._ttft_samples == []
+
+    rp._decode_tokens = 10.0
+    rp._ttft_samples = [0.9]
+    rp._save_state()
+
+    data = json.loads(state_file.read_text())
+    assert data["decode_tokens"] == 110.0
+    assert data["ttft_samples"] == [0.2, 0.4, 0.9]
+    assert rp._ttft_samples == []
 
 
 def test_save_state_concurrent_workers_serialize(tmp_path):

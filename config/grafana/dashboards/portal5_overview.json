@@ -120,11 +120,14 @@
     {
       "id": 8,
       "type": "timeseries",
-      "title": "Tokens Per Second by Model",
-      "description": "Rolling average tokens/sec for each model. Higher = faster inference.",
+      "title": "Decode and Answer tok/s by Model",
+      "description": "Token-weighted rates over 5 minutes: sum of tokens divided by sum of seconds, per model. A long reply outweighs a short one.",
       "gridPos": { "h": 8, "w": 12, "x": 0, "y": 11 },
-      "targets": [{ "expr": "rate(portal_tokens_per_second_sum[5m]) / rate(portal_tokens_per_second_count[5m])", "legendFormat": "{{model}}", "datasource": { "type": "prometheus", "uid": "prometheus" } }],
-      "fieldConfig": { "defaults": { "unit": "none", "custom": { "lineWidth": 2 }, "displayName": "${__field.labels.model}" } },
+      "targets": [
+        { "expr": "sum by(model) (rate(portal_decode_tokens_total[5m])) / sum by(model) (rate(portal_decode_seconds_total[5m]))", "legendFormat": "decode {{model}}", "datasource": { "type": "prometheus", "uid": "prometheus" } },
+        { "expr": "sum by(model) (rate(portal_answer_tokens_total[5m])) / sum by(model) (rate(portal_answer_seconds_total[5m]))", "legendFormat": "answer {{model}}", "datasource": { "type": "prometheus", "uid": "prometheus" } }
+      ],
+      "fieldConfig": { "defaults": { "unit": "none", "custom": { "lineWidth": 2 } } },
       "options": { "legend": { "displayMode": "table", "placement": "bottom", "calcs": ["mean", "max", "last"] } }
     },
     {
@@ -138,20 +141,11 @@
       "options": { "legend": { "displayMode": "table", "placement": "bottom", "calcs": ["sum", "last"] } }
     },
     {
-      "id": 22,
-      "type": "stat",
-      "title": "Avg Tokens/sec (Aggregate)",
-      "description": "Average tokens generated per second across all models.",
-      "gridPos": { "h": 4, "w": 4, "x": 0, "y": 19 },
-      "targets": [{       "expr": "sum(portal_tokens_per_second_sum) / sum(portal_tokens_per_second_count)", "datasource": { "type": "prometheus", "uid": "prometheus" } }],
-      "fieldConfig": { "defaults": { "unit": "none", "color": { "mode": "fixed", "fixedColor": "green" } } }
-    },
-    {
       "id": 10,
       "type": "stat",
       "title": "Total Output Tokens",
       "description": "Cumulative output tokens since pipeline restart.",
-      "gridPos": { "h": 4, "w": 4, "x": 4, "y": 19 },
+      "gridPos": { "h": 4, "w": 4, "x": 0, "y": 19 },
       "targets": [{ "expr": "sum(portal_output_tokens_total)", "datasource": { "type": "prometheus", "uid": "prometheus" } }],
       "fieldConfig": { "defaults": { "unit": "short", "color": { "mode": "fixed", "fixedColor": "blue" } } }
     },
@@ -160,7 +154,7 @@
       "type": "stat",
       "title": "Total Input Tokens",
       "description": "Cumulative prompt tokens processed since pipeline restart.",
-      "gridPos": { "h": 4, "w": 4, "x": 8, "y": 19 },
+      "gridPos": { "h": 4, "w": 4, "x": 4, "y": 19 },
       "targets": [{ "expr": "sum(portal_input_tokens_total)", "datasource": { "type": "prometheus", "uid": "prometheus" } }],
       "fieldConfig": { "defaults": { "unit": "short", "color": { "mode": "fixed", "fixedColor": "purple" } } }
     },
@@ -169,7 +163,7 @@
       "type": "stat",
       "title": "Token Ratio (out/in)",
       "description": "Output tokens per input token. Higher = more verbose models.",
-      "gridPos": { "h": 4, "w": 4, "x": 12, "y": 19 },
+      "gridPos": { "h": 4, "w": 4, "x": 8, "y": 19 },
       "targets": [{ "expr": "sum(portal_output_tokens_total) / sum(portal_input_tokens_total)", "datasource": { "type": "prometheus", "uid": "prometheus" } }],
       "fieldConfig": { "defaults": { "unit": "none", "decimals": 2, "color": { "mode": "fixed", "fixedColor": "orange" } } }
     },
@@ -178,7 +172,7 @@
       "type": "barchart",
       "title": "Top 10 Models by Request Count",
       "description": "Which models are handling the most requests this session.",
-      "gridPos": { "h": 4, "w": 8, "x": 16, "y": 19 },
+      "gridPos": { "h": 4, "w": 12, "x": 12, "y": 19 },
       "targets": [{ "expr": "topk(10, sum by(model) (portal_requests_by_model_total))", "legendFormat": "{{model}}", "datasource": { "type": "prometheus", "uid": "prometheus" }, "instant": true }],
       "fieldConfig": { "defaults": { "unit": "short" } }
     },
@@ -301,19 +295,35 @@
     {
       "id": 25,
       "type": "timeseries",
-      "title": "Tokens Per Second by Workspace",
-      "description": "Rolling average tokens/sec per workspace. Shows which workspaces drive inference load.",
+      "title": "Decode and Answer tok/s by Workspace",
+      "description": "Token-weighted decode and answer rates over 5 minutes, per workspace.",
       "gridPos": { "h": 8, "w": 12, "x": 12, "y": 49 },
-      "targets": [{ "expr": "sum by(workspace) (rate(portal_tokens_per_second_sum[5m])) / sum by(workspace) (rate(portal_tokens_per_second_count[5m]))", "legendFormat": "{{workspace}}", "datasource": { "type": "prometheus", "uid": "prometheus" } }],
+      "targets": [
+        { "expr": "sum by(workspace) (rate(portal_decode_tokens_total[5m])) / sum by(workspace) (rate(portal_decode_seconds_total[5m]))", "legendFormat": "decode {{workspace}}", "datasource": { "type": "prometheus", "uid": "prometheus" } },
+        { "expr": "sum by(workspace) (rate(portal_answer_tokens_total[5m])) / sum by(workspace) (rate(portal_answer_seconds_total[5m]))", "legendFormat": "answer {{workspace}}", "datasource": { "type": "prometheus", "uid": "prometheus" } }
+      ],
       "fieldConfig": { "defaults": { "unit": "none", "custom": { "lineWidth": 2 } } },
       "options": { "legend": { "displayMode": "table", "placement": "bottom", "calcs": ["mean", "max", "last"] } }
+    },
+    {
+      "id": 42,
+      "type": "timeseries",
+      "title": "TTFT p50 / p90 by Model",
+      "description": "Time to first generated token. Median and 90th percentile over 5 minutes, per model.",
+      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 57 },
+      "targets": [
+        { "expr": "histogram_quantile(0.50, sum by(model, le) (rate(portal_ttft_seconds_bucket[5m])))", "legendFormat": "p50 {{model}}", "datasource": { "type": "prometheus", "uid": "prometheus" } },
+        { "expr": "histogram_quantile(0.90, sum by(model, le) (rate(portal_ttft_seconds_bucket[5m])))", "legendFormat": "p90 {{model}}", "datasource": { "type": "prometheus", "uid": "prometheus" } }
+      ],
+      "fieldConfig": { "defaults": { "unit": "s", "custom": { "lineWidth": 2 } } },
+      "options": { "legend": { "displayMode": "table", "placement": "bottom", "calcs": ["last"] } }
     },
     {
       "id": 30,
       "type": "stat",
       "title": "[RETIRED] MLX Free Memory",
       "description": "Current free memory reported by MLX proxy (retired 75c24a9).",
-      "gridPos": { "h": 4, "w": 4, "x": 0, "y": 57 },
+      "gridPos": { "h": 4, "w": 4, "x": 0, "y": 65 },
       "targets": [{ "expr": "mlx_memory_free_gb", "datasource": { "type": "prometheus", "uid": "prometheus" } }],
       "fieldConfig": { "defaults": { "unit": "decgbytes", "color": { "mode": "thresholds" }, "thresholds": { "steps": [{ "color": "red", "value": 0 }, { "color": "yellow", "value": 10 }, { "color": "green", "value": 25 }] } } },
       "options": { "reduceOptions": { "calcs": ["lastNotNull"] } }
@@ -323,7 +333,7 @@
       "type": "stat",
       "title": "[RETIRED] MLX Memory Used %",
       "description": "System memory usage percentage from MLX proxy (retired 75c24a9).",
-      "gridPos": { "h": 4, "w": 4, "x": 4, "y": 57 },
+      "gridPos": { "h": 4, "w": 4, "x": 4, "y": 65 },
       "targets": [{ "expr": "mlx_memory_used_pct", "datasource": { "type": "prometheus", "uid": "prometheus" } }],
       "fieldConfig": { "defaults": { "unit": "percent", "color": { "mode": "thresholds" }, "thresholds": { "steps": [{ "color": "green", "value": 0 }, { "color": "yellow", "value": 70 }, { "color": "red", "value": 85 }] } } },
       "options": { "reduceOptions": { "calcs": ["lastNotNull"] } }
@@ -333,7 +343,7 @@
       "type": "stat",
       "title": "[RETIRED] MLX Peak Memory",
       "description": "Peak memory usage since proxy started (retired 75c24a9).",
-      "gridPos": { "h": 4, "w": 4, "x": 8, "y": 57 },
+      "gridPos": { "h": 4, "w": 4, "x": 8, "y": 65 },
       "targets": [{ "expr": "mlx_memory_peak_used_pct", "datasource": { "type": "prometheus", "uid": "prometheus" } }],
       "fieldConfig": { "defaults": { "unit": "percent", "color": { "mode": "thresholds" }, "thresholds": { "steps": [{ "color": "green", "value": 0 }, { "color": "yellow", "value": 70 }, { "color": "red", "value": 85 }] } } },
       "options": { "reduceOptions": { "calcs": ["lastNotNull"] } }
@@ -343,7 +353,7 @@
       "type": "stat",
       "title": "[RETIRED] MLX Model Switches",
       "description": "Total model switch count since proxy started (retired 75c24a9).",
-      "gridPos": { "h": 4, "w": 4, "x": 12, "y": 57 },
+      "gridPos": { "h": 4, "w": 4, "x": 12, "y": 65 },
       "targets": [{ "expr": "mlx_proxy_switch_count", "datasource": { "type": "prometheus", "uid": "prometheus" } }],
       "fieldConfig": { "defaults": { "color": { "mode": "fixed", "fixedColor": "orange" } } },
       "options": { "reduceOptions": { "calcs": ["lastNotNull"] } }
@@ -353,7 +363,7 @@
       "type": "stat",
       "title": "[RETIRED] MLX Proxy State",
       "description": "Current MLX proxy state (retired 75c24a9).",
-      "gridPos": { "h": 4, "w": 4, "x": 16, "y": 57 },
+      "gridPos": { "h": 4, "w": 4, "x": 16, "y": 65 },
       "targets": [{ "expr": "mlx_proxy_state", "datasource": { "type": "prometheus", "uid": "prometheus" } }],
       "fieldConfig": { "defaults": { "color": { "mode": "thresholds" }, "thresholds": { "steps": [{ "color": "red", "value": 0 }, { "color": "green", "value": 1 }] } } },
       "options": { "reduceOptions": { "calcs": ["lastNotNull"] } }
@@ -363,7 +373,7 @@
       "type": "timeseries",
       "title": "[RETIRED] System Memory Over Time",
       "description": "Memory usage tracked by MLX proxy watchdog (retired 75c24a9).",
-      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 61 },
+      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 69 },
       "targets": [
         { "expr": "mlx_memory_free_gb", "legendFormat": "Free (GB)", "datasource": { "type": "prometheus", "uid": "prometheus" } },
         { "expr": "mlx_memory_wired_gb", "legendFormat": "Wired (GB)", "datasource": { "type": "prometheus", "uid": "prometheus" } },
@@ -377,7 +387,7 @@
       "type": "stat",
       "title": "Hint Fallback Total (session)",
       "description": "portal5_hint_fallback_total — requests where a workspace model_hint or persona model_pin did not resolve and a pool-default model was served instead. Nonzero means an intended model is unreachable by its workspace's routing groups (FINDINGS_MODEL_REACHABILITY.md class of bug) — should stay 0 in steady state; a rising count needs the same reachability fix applied to config/backends.yaml / config/personas.",
-      "gridPos": { "h": 4, "w": 4, "x": 0, "y": 69 },
+      "gridPos": { "h": 4, "w": 4, "x": 0, "y": 77 },
       "targets": [{ "expr": "sum(portal5_hint_fallback_total)", "datasource": { "type": "prometheus", "uid": "prometheus" } }],
       "fieldConfig": { "defaults": { "color": { "mode": "thresholds" }, "thresholds": { "steps": [{ "color": "green", "value": 0 }, { "color": "red", "value": 1 }] } } },
       "options": { "reduceOptions": { "calcs": ["lastNotNull"] } }
@@ -387,7 +397,7 @@
       "type": "barchart",
       "title": "Hint Fallbacks by Workspace / Hinted Model",
       "description": "Which workspace+hinted-model combos are silently falling back to a pool default instead of serving the pin/hint.",
-      "gridPos": { "h": 6, "w": 20, "x": 4, "y": 69 },
+      "gridPos": { "h": 6, "w": 20, "x": 4, "y": 77 },
       "targets": [
         { "expr": "topk(10, sum by(workspace, hinted, served) (portal5_hint_fallback_total))", "legendFormat": "{{workspace}} {{hinted}} -> {{served}}", "datasource": { "type": "prometheus", "uid": "prometheus" }, "instant": true }
       ],
