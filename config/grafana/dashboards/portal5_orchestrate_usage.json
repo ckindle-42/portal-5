@@ -7,7 +7,7 @@
     "cost"
   ],
   "schemaVersion": 38,
-  "version": 1,
+  "version": 2,
   "editable": true,
   "refresh": "5m",
   "time": {
@@ -30,6 +30,158 @@
       "collapsed": false
     },
     {
+      "id": 17,
+      "type": "table",
+      "title": "Plan resets \u2014 when each window refills",
+      "description": "One row per prepaid plan window. Used % is the vendor's own reading; 'Resets at' is local time and 'Resets in' counts down. Rolling windows with no fixed reset (SuperGrok) show no reset time.",
+      "gridPos": {
+        "h": 7,
+        "w": 24,
+        "x": 0,
+        "y": 1
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "orchestrate_quota_pct_used",
+          "instant": true,
+          "format": "table"
+        },
+        {
+          "refId": "B",
+          "expr": "orchestrate_quota_reset_timestamp * 1000 > 0",
+          "instant": true,
+          "format": "table"
+        },
+        {
+          "refId": "C",
+          "expr": "(orchestrate_quota_reset_timestamp - time()) > 0",
+          "instant": true,
+          "format": "table"
+        }
+      ],
+      "transformations": [
+        {
+          "id": "merge",
+          "options": {}
+        },
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {
+              "Time": true,
+              "__name__": true,
+              "instance": true,
+              "job": true
+            },
+            "indexByName": {
+              "plan": 0,
+              "window": 1,
+              "Value #A": 2,
+              "Value #B": 3,
+              "Value #C": 4
+            },
+            "renameByName": {
+              "plan": "Plan",
+              "window": "Window",
+              "Value #A": "Used %",
+              "Value #B": "Resets at",
+              "Value #C": "Resets in"
+            }
+          }
+        },
+        {
+          "id": "sortBy",
+          "options": {
+            "sort": [
+              {
+                "field": "Resets in"
+              }
+            ]
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "auto"
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Used %"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "percent"
+              },
+              {
+                "id": "decimals",
+                "value": 0
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-background"
+                }
+              },
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "green",
+                      "value": null
+                    },
+                    {
+                      "color": "orange",
+                      "value": 70
+                    },
+                    {
+                      "color": "red",
+                      "value": 90
+                    }
+                  ]
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Resets at"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "dateTimeAsLocal"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Resets in"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "dtdurations"
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "showHeader": true,
+        "cellHeight": "sm"
+      }
+    },
+    {
       "id": 1,
       "type": "bargauge",
       "title": "Plan headroom \u2014 every plan that publishes a quota",
@@ -38,7 +190,7 @@
         "h": 7,
         "w": 9,
         "x": 0,
-        "y": 1
+        "y": 8
       },
       "targets": [
         {
@@ -101,7 +253,7 @@
         "h": 7,
         "w": 7,
         "x": 9,
-        "y": 1
+        "y": 8
       },
       "targets": [
         {
@@ -162,7 +314,7 @@
         "h": 7,
         "w": 8,
         "x": 16,
-        "y": 1
+        "y": 8
       },
       "targets": [
         {
@@ -222,7 +374,7 @@
         "h": 8,
         "w": 24,
         "x": 0,
-        "y": 8
+        "y": 15
       },
       "targets": [
         {
@@ -300,7 +452,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 16
+        "y": 23
       },
       "collapsed": false
     },
@@ -311,9 +463,9 @@
       "description": "Tokens each tier actually had to ingest or generate, normalised per harness \u2014 codex reports input inclusive of its cached prefix while opencode and grok report cache separately, so raw counts are not comparable.",
       "gridPos": {
         "h": 8,
-        "w": 12,
+        "w": 24,
         "x": 0,
-        "y": 17
+        "y": 24
       },
       "targets": [
         {
@@ -432,104 +584,6 @@
       }
     },
     {
-      "id": 6,
-      "type": "timeseries",
-      "title": "Cash spent by tier",
-      "description": "Actual dollars. Prepaid tiers sit flat at zero by design \u2014 what they would otherwise have cost is the next panel.",
-      "gridPos": {
-        "h": 8,
-        "w": 12,
-        "x": 12,
-        "y": 17
-      },
-      "targets": [
-        {
-          "refId": "A",
-          "expr": "sum by (tier) (increase(orchestrate_cost_usd_total[1h]))",
-          "legendFormat": "{{tier}}"
-        }
-      ],
-      "fieldConfig": {
-        "defaults": {
-          "unit": "currencyUSD",
-          "min": 0,
-          "decimals": 4,
-          "color": {
-            "mode": "palette-classic"
-          },
-          "custom": {
-            "drawStyle": "bars",
-            "lineWidth": 1,
-            "fillOpacity": 85,
-            "stacking": {
-              "mode": "normal",
-              "group": "A"
-            },
-            "showPoints": "never",
-            "axisLabel": "USD / hour"
-          }
-        },
-        "overrides": [
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "deep-flash"
-            },
-            "properties": [
-              {
-                "id": "color",
-                "value": {
-                  "mode": "fixed",
-                  "fixedColor": "#d95926"
-                }
-              }
-            ]
-          },
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "mimo-flash"
-            },
-            "properties": [
-              {
-                "id": "color",
-                "value": {
-                  "mode": "fixed",
-                  "fixedColor": "#199e70"
-                }
-              }
-            ]
-          },
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "kimi"
-            },
-            "properties": [
-              {
-                "id": "color",
-                "value": {
-                  "mode": "fixed",
-                  "fixedColor": "#d55181"
-                }
-              }
-            ]
-          }
-        ]
-      },
-      "options": {
-        "legend": {
-          "displayMode": "list",
-          "placement": "bottom",
-          "showLegend": true
-        },
-        "tooltip": {
-          "mode": "multi",
-          "sort": "desc"
-        }
-      }
-    },
-    {
       "id": 7,
       "type": "stat",
       "title": "Spent in cash (7d)",
@@ -538,7 +592,7 @@
         "h": 5,
         "w": 6,
         "x": 0,
-        "y": 25
+        "y": 32
       },
       "targets": [
         {
@@ -580,7 +634,7 @@
         "h": 5,
         "w": 6,
         "x": 6,
-        "y": 25
+        "y": 32
       },
       "targets": [
         {
@@ -622,7 +676,7 @@
         "h": 5,
         "w": 6,
         "x": 12,
-        "y": 25
+        "y": 32
       },
       "targets": [
         {
@@ -664,7 +718,7 @@
         "h": 5,
         "w": 6,
         "x": 18,
-        "y": 25
+        "y": 32
       },
       "targets": [
         {
@@ -724,7 +778,7 @@
         "h": 9,
         "w": 24,
         "x": 0,
-        "y": 30
+        "y": 37
       },
       "targets": [
         {
@@ -886,7 +940,7 @@
         "h": 5,
         "w": 24,
         "x": 0,
-        "y": 56
+        "y": 63
       },
       "options": {
         "mode": "markdown",
@@ -900,7 +954,7 @@
         "h": 6,
         "w": 12,
         "x": 0,
-        "y": 44
+        "y": 51
       },
       "title": "Metered spend to date \u2014 including MiMo",
       "description": "Cumulative cash per metered plan. MiMo is purely pay-as-you-go and is charged like DeepSeek and Kimi; it is here rather than in the balances panel only because Xiaomi publishes no balance endpoint to read.",
@@ -939,63 +993,13 @@
       }
     },
     {
-      "id": 14,
-      "type": "table",
-      "gridPos": {
-        "h": 6,
-        "w": 12,
-        "x": 12,
-        "y": 44
-      },
-      "title": "Plans with no vendor quota API",
-      "description": "SuperGrok is the one plan that exposes nothing readable \u2014 accounts.x.ai serves HTML rather than an API, and the CLI's subscription check is not reachable as REST. Its headroom falls back to counting local runs, a proxy that understated real consumption by ~40x when measured. The reliable signal there is a dispatch failing.",
-      "targets": [
-        {
-          "refId": "A",
-          "expr": "orchestrate_plan_has_vendor_quota == 0",
-          "instant": true,
-          "format": "table"
-        }
-      ],
-      "transformations": [
-        {
-          "id": "organize",
-          "options": {
-            "excludeByName": {
-              "Time": true,
-              "__name__": true,
-              "job": true,
-              "instance": true,
-              "Value": true
-            },
-            "renameByName": {
-              "plan": "Plan",
-              "reason": "Why it cannot be read"
-            }
-          }
-        }
-      ],
-      "fieldConfig": {
-        "defaults": {
-          "custom": {
-            "align": "left"
-          },
-          "noValue": "None \u2014 every plan now reports a vendor figure."
-        },
-        "overrides": []
-      },
-      "options": {
-        "showHeader": true
-      }
-    },
-    {
       "id": 15,
       "type": "stat",
       "gridPos": {
         "h": 6,
-        "w": 12,
+        "w": 24,
         "x": 0,
-        "y": 50
+        "y": 57
       },
       "title": "Extra usage \u2014 money spent past the plan",
       "description": "Once a window hits 100%, work bills against a monthly extra-usage cap rather than stopping. This is real money. The orchestrator's rule is to STOP and offer the choice at that point \u2014 never to continue silently, and never to refuse a decision that is the operator's.",
@@ -1060,7 +1064,7 @@
         "h": 6,
         "w": 12,
         "x": 12,
-        "y": 50
+        "y": 51
       },
       "title": "Windows that are biting",
       "description": "Each window the provider itself reports as active, with its severity. A line at 100% means that plan's included usage is gone \u2014 for Claude Pro and Codex that is the orchestrator's own budget, not a worker's.",
