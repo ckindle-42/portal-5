@@ -951,10 +951,18 @@ def _econ_from_usage(u: dict) -> Economics:
     )
 
 
+def _timing_value(key: str, value):
+    """A timing field the row can do arithmetic on, else None: a malformed value (once a
+    redacted "<redacted>" count) must cost the row its timing, never the row itself."""
+    if key == "timing_source":
+        return value if value in ("engine", "measured") else None
+    return value if isinstance(value, (int, float)) and not isinstance(value, bool) else None
+
+
 def _econ_from_timings(timings: dict) -> Economics:
     return Economics(
         **{
-            key: timings.get(key)
+            key: _timing_value(key, timings.get(key))
             for key in (
                 "prefill_s",
                 "ttft_s",
@@ -993,7 +1001,7 @@ def _read_stream(endpoint: str, lines) -> tuple[dict, str | None, Economics]:
             completion_tokens=raw.get("eval_count"),
             total_tokens=total or None,
             load_ms=int((raw.get("load_duration") or 0) / 1e6) or None,
-            **(out.get("portal_timings") or {}),
+            **{k: _timing_value(k, v) for k, v in (out.get("portal_timings") or {}).items()},
         ),
     )
 

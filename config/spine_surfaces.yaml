@@ -1464,6 +1464,10 @@ surfaces:
   globs:
   - tests/wfe/tests/test_wfe_run_arm.py
   unit: unit-wfe-workspace-fitness
+- name: file-tests-wfe-tests-test_wfe_runner_timing_guard
+  globs:
+  - tests/wfe/tests/test_wfe_runner_timing_guard.py
+  unit: unit-wfe-workspace-fitness
 - name: file-tests-wfe-tests-test_wfe_stop_rules
   globs:
   - tests/wfe/tests/test_wfe_stop_rules.py

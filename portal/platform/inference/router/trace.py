@@ -63,7 +63,16 @@ HEAD_CHARS: int = 160
 # through X-Correlation-ID, so the id is a filename component we do not trust.
 _CID_RE = re.compile(r"^[A-Za-z0-9._-]{1,64}$")
 
-_REDACT = ("authorization", "api_key", "apikey", "token", "password", "secret")
+_REDACT = ("authorization", "api_key", "apikey", "password", "secret")
+
+
+def _is_credential_key(lowered: str) -> bool:
+    """A credential-shaped key: the names in _REDACT, or a singular *token (access_token,
+    x-token). Token *counts* (reasoning_tokens, prompt_tokens, max_tokens) are not secrets:
+    blanking them turned the T1 timing rollup's counts into "<redacted>" in /v1/trace and the
+    WFE runner then failed adding to them (campaign wfe_math_20261018c, every row
+    HARNESS_ERROR)."""
+    return any(name in lowered for name in _REDACT) or lowered.endswith("token")
 
 
 def trace_dir() -> Path:
@@ -85,9 +94,7 @@ def redact(mapping: dict[str, Any]) -> dict[str, Any]:
     out: dict[str, Any] = {}
     for key, value in mapping.items():
         lowered = str(key).lower()
-        out[key] = (
-            "<redacted>" if any(token in lowered for token in _REDACT) else _redact_value(value)
-        )
+        out[key] = "<redacted>" if _is_credential_key(lowered) else _redact_value(value)
     return out
 
 
