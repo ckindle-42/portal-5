@@ -1336,6 +1336,10 @@ surfaces:
   globs:
   - tests/wfe/suites/build_tools_specialist_production.py
   unit: unit-wfe-workspace-fitness
+- name: file-tests-wfe-suites-build_vision_production
+  globs:
+  - tests/wfe/suites/build_vision_production.py
+  unit: unit-wfe-workspace-fitness
 - name: file-tests-wfe-sweep_plan
   globs:
   - tests/wfe/sweep_plan.py
@@ -1503,6 +1507,10 @@ surfaces:
 - name: file-tests-wfe-tests-test_wfe_tools_specialist_slice
   globs:
   - tests/wfe/tests/test_wfe_tools_specialist_slice.py
+  unit: unit-wfe-workspace-fitness
+- name: file-tests-wfe-tests-test_wfe_vision_slice
+  globs:
+  - tests/wfe/tests/test_wfe_vision_slice.py
   unit: unit-wfe-workspace-fitness
 - name: file-tests-wfe-tools-build_compliance_suite
   globs:

@@ -37,6 +37,7 @@ TASK_KEYS = {
     "lane",
     "agentic",
     "instruction",
+    "images",
     "completion_signal",
     "checkers",
     "seed",

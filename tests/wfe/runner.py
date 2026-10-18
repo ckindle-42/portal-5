@@ -1537,6 +1537,26 @@ def _empty_result(outcome: Outcome, notes: str) -> dict:
     }
 
 
+def user_content(task: dict) -> str | list[dict]:
+    """The user turn: the instruction, plus OpenAI `image_url` data-URI parts for
+    each repo-relative PNG in the task's `images` (as Open WebUI sends an upload)."""
+    images = task.get("images") or []
+    if not images:
+        return task["instruction"]
+    parts: list[dict] = [{"type": "text", "text": task["instruction"]}]
+    for rel in images:
+        data = base64.b64encode((REPO / rel).read_bytes()).decode()
+        parts.append({"type": "image_url", "image_url": {"url": f"data:image/png;base64,{data}"}})
+    return parts
+
+
+def _text_chars(content) -> int:
+    """Characters of text in a message body; image parts are not text."""
+    if isinstance(content, list):
+        return sum(len(str(p.get("text", ""))) for p in content if isinstance(p, dict))
+    return len(str(content or ""))
+
+
 class _Loop:
     """Mutable state threaded through the turn loop, kept out of run_task's
     branch/statement count."""
@@ -1547,7 +1567,7 @@ class _Loop:
         self.use_tools = use_tools
         self.messages = [
             {"role": "system", "content": ""},
-            {"role": "user", "content": task["instruction"]},
+            {"role": "user", "content": user_content(task)},
         ]
         self.transcript: list = []
         self.tool_log: list = []
@@ -1607,7 +1627,7 @@ class _Loop:
     def step(self, turn: int, remaining: int) -> bool:
         """One turn. Returns True to continue the loop, False to stop."""
         sent_chars = sum(
-            len(str(m.get("content") or "")) + len(json.dumps(m.get("tool_calls") or []))
+            _text_chars(m.get("content")) + len(json.dumps(m.get("tool_calls") or []))
             for m in self.messages
         )
         try:
