@@ -62,3 +62,10 @@ workspaces:
     # tool for the plate-holes kind.
     tool_mode: production
     allow: [cad_build, cad_execute, cad_measure, cad_find_holes, cad_render, cad_finalize]
+  auto-audio:
+    # The workspace's own transcription tools (portal-mlx-transcribe :8924), scoped to the row:
+    # the fixture WAV is staged in the run's in/ and the transcripts land in out/ with receipts
+    # (scripts/mlx-transcribe.py honours the eval scope). Needs the native service restarted
+    # on a build with that change.
+    tool_mode: production
+    allow: [transcribe_audio, transcribe_with_speakers]

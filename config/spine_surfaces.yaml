@@ -1288,6 +1288,10 @@ surfaces:
   globs:
   - tests/wfe/settings_audit.py
   unit: unit-known-limitations-unregistered-hint-fallback
+- name: file-tests-wfe-suites-build_audio_production
+  globs:
+  - tests/wfe/suites/build_audio_production.py
+  unit: unit-wfe-workspace-fitness
 - name: file-tests-wfe-suites-build_cad_production
   globs:
   - tests/wfe/suites/build_cad_production.py
@@ -1347,6 +1351,10 @@ surfaces:
 - name: file-tests-wfe-tests-conftest
   globs:
   - tests/wfe/tests/conftest.py
+  unit: unit-wfe-workspace-fitness
+- name: file-tests-wfe-tests-test_wfe_audio_slice
+  globs:
+  - tests/wfe/tests/test_wfe_audio_slice.py
   unit: unit-wfe-workspace-fitness
 - name: file-tests-wfe-tests-test_wfe_backfill
   globs:

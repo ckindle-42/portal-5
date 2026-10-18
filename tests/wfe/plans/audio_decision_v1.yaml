@@ -1,0 +1,27 @@
+# auto-audio's first seat decision (WFE new-instruments brief, I-AUDIO): the audio suite on
+# audio_production (36 tasks, 12 screen). Production tool mode (tool_modes.yaml auto-audio):
+# the fixture WAV is staged in the row's in/ and the seat must call the transcription tool
+# (portal-mlx-transcribe :8924) and answer from the transcript.
+#
+# The seat is gemma4:12b-it-qat-ctx8k (portal.yaml auto-audio, 8192 window). The seat never
+# hears the clip itself, so the arms are compared on tool use plus transcript reading; their
+# own audio capability is not exercised. backends.yaml carries no audio flag; all three tags
+# have supports_tools: true and are served by auto-audio's groups (workspace_routing: vision
+# + general) at a window of at least 8192, checked by the slice test.
+# gemma4:e4b-it-qat is named by its ctx8k tag: the bare tag carries no window suffix.
+#
+# TODO(orchestrator) before the first campaign on this plan:
+#   1. restart the native portal-mlx-transcribe service on a build with the eval-scope change
+#      (scripts/mlx-transcribe.py); without it a scoped call cannot find the staged clip;
+#   2. run all 36 clips through the real service once and confirm each task's evidence
+#      patterns appear in the transcript (Parakeet/Sortformer output was not run offline);
+#   3. tool_modes.yaml gained an auto-audio entry: a running campaign refuses that as drift.
+workloads:
+  auto-audio:
+    home: audio_production
+    discovery: []
+    arms:
+      incumbent: gemma4:12b-it-qat-ctx8k
+      challengers:
+        - gemma4:e4b-it-qat-ctx8k
+        - gemma4:26b-a4b-it-q4_K_M-ctx32k

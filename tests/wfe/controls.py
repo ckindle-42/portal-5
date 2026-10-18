@@ -38,6 +38,7 @@ TASK_KEYS = {
     "agentic",
     "instruction",
     "images",
+    "fixtures",
     "completion_signal",
     "checkers",
     "seed",

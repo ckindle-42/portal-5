@@ -51,9 +51,11 @@ _REPO_ROOT = Path(__file__).resolve().parent.parent
 if str(_REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(_REPO_ROOT))
 
+from portal.platform.mcp_host import eval_scope  # noqa: E402
 from portal.platform.mcp_host.workspace import (  # noqa: E402
     get_generated_dir,
     get_uploads_dir,
+    get_workspace_root,
     resolve_upload_path,
 )
 
@@ -465,7 +467,12 @@ def _persist_transcript(segments: list[dict], meta: dict, source_name: str) -> d
     the paths, download URLs and rendered markdown. Both the plain and the
     diarized paths route through here so every transcript yields the same three
     artifacts."""
-    out_dir = get_generated_dir("transcripts")
+    scope = eval_scope.EVAL_SCOPE.get()
+    if scope:  # a WFE row writes only inside its own namespace
+        out_dir = eval_scope.run_root(get_workspace_root(), scope) / "out"
+        out_dir.mkdir(exist_ok=True)
+    else:
+        out_dir = get_generated_dir("transcripts")
     uid = uuid.uuid4().hex[:12]
     json_path = out_dir / f"transcript_{uid}.json"
     md_path = out_dir / f"transcript_{uid}.md"
@@ -494,6 +501,9 @@ def _persist_transcript(segments: list[dict], meta: dict, source_name: str) -> d
         result["warning"] = (
             f"{meta.get('warning', '')} (.docx sidecar skipped: python-docx unavailable)".strip()
         )
+    if scope:
+        for written in (json_path, md_path, *([docx_path] if docx_written else [])):
+            eval_scope.receipt(get_workspace_root(), scope, "transcribe", written)
     return result
 
 
@@ -558,6 +568,26 @@ def _latest_audio_upload() -> Path | None:
     return max(candidates, key=lambda f: f.stat().st_mtime)
 
 
+def _resolve_scoped_audio(scope: dict, file: str) -> tuple[Path | None, str]:
+    """A WFE row's input: only its own `in/` fixtures, by bare name or (as with a live
+    upload, where the model passes no reference) the newest audio file there. No fallback
+    to the shared uploads directory."""
+    in_dir = eval_scope.run_root(get_workspace_root(), scope) / "in"
+    if not file or _PLACEHOLDER_RE.match(file.strip()):
+        found = [f for f in in_dir.glob("*") if f.suffix.lower() in _AUDIO_EXTENSIONS]
+        if not found:
+            return (
+                None,
+                "no audio file found in uploads directory — please upload an audio file first",
+            )
+        p = max(found, key=lambda f: f.stat().st_mtime)
+        return p, p.name
+    p = eval_scope.confine(get_workspace_root(), scope, os.path.basename(file), sub="in")
+    if not p.is_file():
+        return None, f"upload not found: {file!r} (no match in uploads directory)"
+    return p, p.name
+
+
 def _resolve_audio_input(file: str) -> tuple[Path | None, str]:
     """Resolve a tool input to an absolute path.
 
@@ -569,6 +599,9 @@ def _resolve_audio_input(file: str) -> tuple[Path | None, str]:
 
     Returns (path, source_name) or (None, error_message).
     """
+    scope = eval_scope.EVAL_SCOPE.get()
+    if scope:
+        return _resolve_scoped_audio(scope, file)
     # Empty or literal template placeholder (e.g. '<file_id_or_filename>') →
     # OWUI doesn't surface file references to the pipeline, so auto-detect
     # the most recently uploaded audio file.
@@ -639,7 +672,20 @@ async def invoke_tool(tool_name: str, request: Request) -> JSONResponse:
     except Exception:
         body = {}
     arguments = body.get("arguments", {})
+    try:
+        scope = eval_scope.parse(body.get("eval")) if isinstance(body, dict) else None
+    except eval_scope.ScopeError as e:
+        return JSONResponse({"error": f"eval scope: {e}"}, status_code=400)
+    token = eval_scope.EVAL_SCOPE.set(scope)
+    try:
+        return await _dispatch_tool(tool_name, arguments)
+    except eval_scope.ScopeError as e:
+        return JSONResponse({"error": str(e)}, status_code=403)
+    finally:
+        eval_scope.EVAL_SCOPE.reset(token)
 
+
+async def _dispatch_tool(tool_name: str, arguments: dict) -> JSONResponse:
     if tool_name == "transcribe_with_speakers":
         file_arg = arguments.get("file", "")
         num_speakers = arguments.get("num_speakers")

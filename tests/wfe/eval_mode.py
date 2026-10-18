@@ -133,6 +133,10 @@ def prepare(pipe: bool, r: dict, manifest: dict, task: dict, wsc: dict, harness:
         dest = eval_scope.confine(OUTPUT_ROOT, scope, rel, sub="in")
         dest.parent.mkdir(parents=True, exist_ok=True)
         dest.write_bytes(base64.b64decode(b64))
+    for rel in task.get("fixtures") or []:  # repo-relative files too large to inline (audio)
+        dest = eval_scope.confine(OUTPUT_ROOT, scope, Path(rel).name, sub="in")
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copyfile(REPO / rel, dest)
     ctx = {
         "scope": scope,
         "root": root,
