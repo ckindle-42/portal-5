@@ -68,7 +68,10 @@ _USED_GOLDS: set[str] = set()
 
 
 def _pattern(gold: str) -> str:
-    return rf'"answer"\s*:\s*"?{re.escape(gold)}"?(?![\w.-])'
+    """The answer in its JSON field. A padded AIME gold ("062") also accepts the unpadded
+    integer (62): the instruction still asks for padding, but the value is what is graded."""
+    alt = f"(?:{gold}|{int(gold)})" if re.fullmatch(r"0\d\d", gold) else re.escape(gold)
+    return rf'"answer"\s*:\s*"?{alt}"?(?![\w.-])'
 
 
 def _answer(gold: str) -> str:
@@ -462,167 +465,320 @@ COMPETITION: list[tuple[str, str, str, str, Callable[[], str], dict]] = [
 ]
 
 
-#: id -> (question, options (A..D), gold letter, provenance). Original wording;
-#: the gold option's fact is from the reference each provenance records.
+#: id -> (question, options (A..D), gold letter, provenance). Original wording. Every item is
+#: a multi-step graduate-level problem whose correct option is COMPUTED by the matching
+#: SCIENCE_VERIFY function (build() asserts the option at the gold letter equals it), and each
+#: provenance records the worked derivation. The distractors are the answers the usual slips
+#: produce (a dropped cross term, a wrong sign, the textbook special case), so a model that
+#: pattern-matches instead of deriving lands on one of them.
 SCIENCE: list[tuple[str, str, list[str], str, dict]] = [
     (
         "rh-grad-science-00",
-        "A particle is confined to a one-dimensional infinite square well. In its third excited "
-        "state (n = 4), how many nodes does the wavefunction have strictly inside the well, "
-        "excluding the two walls?",
-        ["1", "2", "3", "4"],
-        "C",
+        "A particle in an infinite square well of width L (0 < x < L) is prepared at t = 0 in the "
+        "normalized state ψ = (φ₁ + φ₂)/√2, where φₙ(x) = √(2/L) sin(nπx/L). What is ⟨x⟩ at t = 0?",
+        ["0.500 L", "0.320 L", "0.410 L", "0.680 L"],
+        "B",
         {
             "source": "original question written for this suite",
             "licence": "original (Portal 5)",
-            "reference": "the n-th energy eigenstate of the infinite square well has n − 1 interior "
-            "nodes (standard quantum mechanics, e.g. Griffiths)",
+            "reference": "standard infinite-well matrix elements (e.g. Griffiths, Introduction to "
+            "Quantum Mechanics, ch. 2)",
+            "derivation": "⟨x⟩ = ½(⟨x⟩₁₁ + ⟨x⟩₂₂) + Re⟨φ₁|x|φ₂⟩ = L/2 + ⟨φ₁|x|φ₂⟩, and ⟨φ₁|x|φ₂⟩ = "
+            "(2/L)∫x sin(πx/L) sin(2πx/L)dx = −16L/(9π²) ≈ −0.180 L, so ⟨x⟩ = 0.320 L. "
+            "Distractors: 0.500 L drops the cross term; 0.680 L flips its sign; 0.410 L halves it.",
         },
     ),
     (
         "rh-grad-science-01",
-        "A muon has a mean lifetime of 2.20 microseconds in its rest frame. What is its mean "
-        "lifetime in the laboratory frame when it travels at 0.99c?",
-        ["2.20 μs", "4.40 μs", "7.09 μs", "15.6 μs"],
+        "A mole of non-interacting two-level systems has non-degenerate levels at energies 0 and ε. "
+        "As the temperature varies, the molar heat capacity C(T) passes through a single maximum. "
+        "What is that maximum value, in units of R?",
+        ["0.250", "0.500", "0.693", "0.439"],
         "D",
         {
             "source": "original question written for this suite",
             "licence": "original (Portal 5)",
-            "reference": "time dilation: γ = 1/√(1 − 0.99²) ≈ 7.0888; 2.20 μs × γ ≈ 15.6 μs",
+            "reference": "the Schottky anomaly (e.g. Kittel & Kroemer, Thermal Physics, ch. 3)",
+            "derivation": "With x = ε/kT, C/R = x² eˣ/(1 + eˣ)². Setting d/dx = 0 gives "
+            "2 = x·tanh(x/2), solved numerically x ≈ 2.399, where C/R ≈ 0.439. Distractors: "
+            "0.250 is the x² coefficient of the high-temperature expansion, and 0.500 and 0.693 "
+            "(ln 2, the high-temperature entropy per system) are the usual guesses.",
         },
     ),
     (
         "rh-grad-science-02",
-        "Which of the following processes is forbidden in the Standard Model because it violates a "
-        "conservation law?",
-        [
-            "π⁰ → γ + γ",
-            "μ⁻ → e⁻ + ν̄ₑ + ν_μ",
-            "p → e⁺ + π⁰",
-            "n → p + e⁻ + ν̄ₑ",
-        ],
-        "C",
+        "A proton beam strikes protons at rest. What is the threshold beam kinetic energy for the "
+        "reaction p + p → p + p + π⁰? Use m_p = 938.27 MeV/c² and m_π⁰ = 134.98 MeV/c².",
+        ["279.7 MeV", "135.0 MeV", "270.0 MeV", "540.0 MeV"],
+        "A",
         {
             "source": "original question written for this suite",
             "licence": "original (Portal 5)",
-            "reference": "p → e⁺π⁰ has baryon number 1 → 0; the other three conserve all quantum "
-            "numbers and are observed (PDG)",
+            "reference": "relativistic threshold kinematics (e.g. Griffiths, Introduction to "
+            "Elementary Particles, ch. 3)",
+            "derivation": "Threshold: invariant mass √s = 2m_p + m_π. Fixed target: s = 2m_p² + "
+            "2m_pE_beam, so T = E_beam − m_p = ((2m_p + m_π)² − 4m_p²)/(2m_p) = 2m_π + "
+            "m_π²/(2m_p) = 269.96 + 9.71 = 279.7 MeV. Distractors: m_π (no recoil energy), 2m_π "
+            "(drops the m_π²/2m_p term), 4m_π.",
         },
     ),
     (
         "rh-grad-science-03",
-        "What is the molar heat capacity at constant volume of a classical monatomic ideal gas?",
-        ["R/2", "R", "3R/2", "5R/2"],
+        "A woman's mother is an obligate carrier of an X-linked recessive disorder, and her father "
+        "is unaffected. She has three sons, none of whom is affected. Ignoring new mutations, what "
+        "is the probability that she is a carrier?",
+        ["50%", "12.5%", "11.1%", "6.25%"],
         "C",
         {
             "source": "original question written for this suite",
             "licence": "original (Portal 5)",
-            "reference": "equipartition: U = 3NkT/2, so C_V = 3R/2 per mole",
+            "reference": "Bayesian carrier-risk calculation (e.g. Young, Introduction to Risk "
+            "Calculation in Genetic Counseling)",
+            "derivation": "Prior 1/2. P(3 unaffected sons | carrier) = (1/2)³ = 1/8; P(… | "
+            "non-carrier) = 1. Posterior = (½·⅛)/(½·⅛ + ½·1) = 1/9 ≈ 11.1%. Distractors: the "
+            "prior 50%, the conditional-probability term alone 12.5%, and 6.25% = (1/2)⁴.",
         },
     ),
     (
         "rh-grad-science-04",
-        "The octahedral complex ion [Co(NH₃)₆]³⁺ is low-spin. How many unpaired electrons does it "
-        "have?",
-        ["0", "1", "2", "4"],
-        "A",
+        "An X-ray photon of wavelength 0.0711 nm scatters from a free electron initially at rest "
+        "and is detected at 90° to its original direction. What is the kinetic energy of the "
+        "recoil electron? (hc = 1239.84 eV·nm; the Compton wavelength h/mₑc = 2.4263 × 10⁻³ nm.)",
+        ["0.288 keV", "1.15 keV", "0.575 keV", "17.4 keV"],
+        "C",
         {
             "source": "original question written for this suite",
             "licence": "original (Portal 5)",
-            "reference": "Co³⁺ is d⁶; NH₃ is a strong-field ligand, so low-spin t2g⁶ eg⁰ — "
-            "diamagnetic, zero unpaired electrons",
+            "reference": "Compton scattering (e.g. Krane, Modern Physics, ch. 3)",
+            "derivation": "λ′ = λ + (h/mₑc)(1 − cos 90°) = 0.0711 + 0.0024263 = 0.0735263 nm. "
+            "T = hc/λ − hc/λ′ = 17437.97 − 16862.53 eV = 575.4 eV = 0.575 keV. Distractors: "
+            "half and double that value, and 17.4 keV (the whole incident photon energy).",
         },
     ),
     (
         "rh-grad-science-05",
-        "A solution is 0.10 M in acetic acid (pKa 4.76) and 0.10 M in sodium acetate. What is its "
-        "pH?",
-        ["2.88", "4.76", "5.76", "9.24"],
-        "B",
+        "A pure sample of a parent isotope with half-life 10.0 h decays to a daughter with "
+        "half-life 2.00 h, and the daughter's own product is stable. Starting with no daughter "
+        "nuclei, at what time is the daughter's activity largest?",
+        ["5.80 h", "6.00 h", "3.87 h", "23.2 h"],
+        "A",
         {
             "source": "original question written for this suite",
             "licence": "original (Portal 5)",
-            "reference": "Henderson–Hasselbalch: equal acid/conjugate concentrations give "
-            "pH = pKa = 4.76",
+            "reference": "Bateman equations, transient equilibrium (e.g. Krane, Introductory "
+            "Nuclear Physics, ch. 6)",
+            "derivation": "N₂(t) = λ₁N₁(0)/(λ₂ − λ₁)·(e^(−λ₁t) − e^(−λ₂t)); dN₂/dt = 0 gives "
+            "t = ln(λ₂/λ₁)/(λ₂ − λ₁) with λ₁ = ln2/10, λ₂ = ln2/2: ln5/(0.2773 h⁻¹) = 5.80 h. "
+            "The activity λ₂N₂ peaks at the same instant. Distractors: the mean of the half-lives "
+            "(6.00 h), ln(λ₂/λ₁)/(λ₁ + λ₂) (3.87 h), ln(λ₂/λ₁)/λ₁ (23.2 h).",
         },
     ),
     (
         "rh-grad-science-06",
-        "Which of these atoms has the highest first ionization energy?",
-        ["Na", "Mg", "Cl", "Ar"],
+        "An enzyme obeys Michaelis–Menten kinetics with Vmax = 100 μmol/min and Km = 2.0 mM. A "
+        "purely competitive inhibitor is present at 10 μM (Ki = 5.0 μM) and the substrate "
+        "concentration is 4.0 mM. What is the initial reaction rate?",
+        ["22.2 μmol/min", "28.6 μmol/min", "66.7 μmol/min", "40.0 μmol/min"],
         "D",
         {
             "source": "original question written for this suite",
             "licence": "original (Portal 5)",
-            "reference": "first ionization energies: Na 496, Mg 738, Cl 1251, Ar 1521 kJ/mol "
-            "(standard tables / CRC Handbook)",
+            "reference": "enzyme inhibition kinetics (e.g. Fersht, Structure and Mechanism in "
+            "Protein Science, ch. 3)",
+            "derivation": "Competitive inhibition raises Km to Km(1 + [I]/Ki) = 2.0 × 3 = 6.0 mM "
+            "with Vmax unchanged, so v = 100·4.0/(6.0 + 4.0) = 40.0 μmol/min. Distractors: 66.7 "
+            "(uninhibited), 28.6 (uncompetitive form), 22.2 (noncompetitive form).",
         },
     ),
     (
         "rh-grad-science-07",
-        "Which substrate undergoes SN2 substitution with cyanide ion (CN⁻) the fastest?",
-        ["CH₃Br", "CH₃CH₂Br", "(CH₃)₂CHBr", "(CH₃)₃CBr"],
-        "A",
-        {
-            "source": "original question written for this suite",
-            "licence": "original (Portal 5)",
-            "reference": "SN2 rate falls with steric hindrance at the electrophilic carbon: "
-            "methyl > primary > secondary > tertiary (standard organic chemistry)",
-        },
-    ),
-    (
-        "rh-grad-science-08",
-        "In prokaryotes, translation initiates at AUG with which aminoacyl-tRNA bound in the "
-        "ribosomal P site?",
-        ["methionyl-tRNA", "N-formylmethionyl-tRNA", "N-acetyllysyl-tRNA", "selenocysteinyl-tRNA"],
+        "2,3,4-Pentanetriol (CH₃–CHOH–CHOH–CHOH–CH₃) has three carbons that bear an OH group. "
+        "How many stereoisomers does it have in total, counting each enantiomer separately?",
+        ["2", "4", "6", "8"],
         "B",
         {
             "source": "original question written for this suite",
             "licence": "original (Portal 5)",
-            "reference": "prokaryotic initiator tRNA carries N-formylmethionine (fMet-tRNAᶠᴹᵉᵗ), "
-            "which is deformylated/removed post-translationally",
+            "reference": "stereochemistry of molecules with a pseudoasymmetric centre (e.g. Eliel "
+            "& Wilen, Stereochemistry of Organic Compounds, ch. 4)",
+            "derivation": "Draw the chain as a Fischer projection with OH on the left (−) or "
+            "right (+) at C2, C3, C4: eight labelings (a, b, c). A 180° in-plane rotation is "
+            "the same molecule and maps (a, b, c) to (−c, −b, −a): no labeling is fixed (b = −b "
+            "is impossible), so the eight pair up into 4 distinct molecules: two meso forms "
+            "(a = c) and one enantiomeric pair. Distractors: 8 is the naive 2³, 2 and 6 the common slips.",
+        },
+    ),
+    (
+        "rh-grad-science-08",
+        "The pure rotational spectrum of ¹²C¹⁶O (atomic masses 12.000 u and 15.995 u) shows "
+        "equally spaced lines separated by 3.845 cm⁻¹. Treating the molecule as a rigid rotor, "
+        "what is its bond length? (h = 6.62607 × 10⁻³⁴ J·s, c = 2.99792 × 10¹⁰ cm/s, "
+        "1 u = 1.66054 × 10⁻²⁷ kg.)",
+        ["0.80 Å", "1.60 Å", "2.26 Å", "1.13 Å"],
+        "D",
+        {
+            "source": "original question written for this suite",
+            "licence": "original (Portal 5)",
+            "reference": "rigid-rotor microwave spectroscopy (e.g. Atkins, Physical Chemistry, "
+            "rotational spectra)",
+            "derivation": "Line spacing = 2B, so B = 1.9225 cm⁻¹. μ = 12.000·15.995/27.995 u = "
+            "6.8563 u. r = √(h/(8π²cμB)) = 1.131 Å. Distractors: using the spacing as B (0.80 Å), "
+            "halving B (1.60 Å), and a factor-of-two slip in r (2.26 Å).",
         },
     ),
     (
         "rh-grad-science-09",
-        "In the lac operon, which molecule acts as the physiological inducer that inactivates the "
-        "lac repressor?",
-        ["allolactose", "glucose", "cyclic AMP", "5-bromouracil"],
+        "How many distinct LS spectroscopic terms ²ˢ⁺¹L arise from the electron configuration d² "
+        "(two equivalent electrons in one d subshell), counting each term once?",
+        ["5", "8", "9", "10"],
         "A",
         {
             "source": "original question written for this suite",
             "licence": "original (Portal 5)",
-            "reference": "allolactose (an isomer of lactose produced by β-galactosidase) binds the "
-            "lac repressor and releases it from the operator",
+            "reference": "term symbols of equivalent electrons under the Pauli principle (e.g. "
+            "Atkins, Physical Chemistry, atomic spectra)",
+            "derivation": "d² has C(10,2) = 45 microstates. Tabulating (M_L, M_S) and peeling off "
+            "terms leaves ³F (21), ³P (9), ¹G (9), ¹D (5), ¹S (1) = 45: five terms. The "
+            "non-equivalent (d¹d¹) case would give ten (both spins for each of S, P, D, F, G). "
+            "Distractors: 10 is that non-equivalent count; 8 and 9 miscount the allowed terms.",
         },
     ),
     (
         "rh-grad-science-10",
-        "An autosomal recessive disease occurs in 1 in 10,000 newborns in a population at "
-        "Hardy–Weinberg equilibrium. Approximately what fraction of the population are carriers?",
-        ["0.01%", "0.99%", "1.98%", "2.98%"],
-        "C",
+        "A particle of mass m in an infinite square well 0 < x < L is perturbed by "
+        "H′ = V₀ δ(x − L/2). What is the first-order shift in the energy of the n = 2 state?",
+        ["2V₀/L", "0", "V₀/L", "4V₀/L"],
+        "B",
         {
             "source": "original question written for this suite",
             "licence": "original (Portal 5)",
-            "reference": "q² = 10⁻⁴ gives q = 0.01, so carrier frequency 2pq ≈ 2·0.99·0.01 = 1.98%",
+            "reference": "first-order non-degenerate perturbation theory (e.g. Griffiths, "
+            "Introduction to Quantum Mechanics, ch. 7)",
+            "derivation": "E⁽¹⁾ = ⟨ψ₂|H′|ψ₂⟩ = V₀|ψ₂(L/2)|² = V₀(2/L)sin²(π) = 0, because the "
+            "n = 2 state has a node at the centre. Distractors: 2V₀/L is the n = odd result, "
+            "V₀/L and 4V₀/L are mis-normalizations.",
         },
     ),
     (
         "rh-grad-science-11",
-        "A molecule shows a strong, sharp IR absorption at 1715 cm⁻¹ and no absorption above "
-        "3000 cm⁻¹ other than weak C–H stretches. Which functional group is most consistent with "
-        "this?",
-        ["a nitrile", "an isolated alkyne", "a ketone", "a carboxylic acid"],
+        "A van der Waals gas has critical temperature Tc = 150.0 K. What is its Boyle "
+        "temperature, the temperature at which the second virial coefficient vanishes?",
+        ["44 K", "150 K", "506 K", "1013 K"],
         "C",
         {
             "source": "original question written for this suite",
             "licence": "original (Portal 5)",
-            "reference": "ketone C=O stretch ≈ 1715 cm⁻¹; nitrile/alkyne C≡N/C≡C absorb 2100–2260 "
-            "cm⁻¹, and a carboxylic acid shows a broad O–H band above 3000 cm⁻¹",
+            "reference": "van der Waals critical constants and virial expansion (e.g. Atkins, "
+            "Physical Chemistry, real gases)",
+            "derivation": "B₂(T) = b − a/(RT) = 0 gives T_B = a/(Rb); the critical point is "
+            "Tc = 8a/(27Rb), so T_B = (27/8)Tc = 506 K. Distractors: 44 K (8/27 inverted), "
+            "150 K (Tc itself), 1013 K (the maximum inversion temperature 2a/(Rb) = (27/4)Tc).",
         },
     ),
 ]
+
+
+def _v_well_mean_x() -> str:
+    """<x> for (phi1 + phi2)/sqrt(2): L/2 + <phi1|x|phi2> (cross term −16/(9π²))."""
+    return f"{0.5 - 16 / (9 * math.pi**2):.3f} L"
+
+
+def _v_schottky() -> str:
+    best = max(
+        x * x * math.exp(x) / (1 + math.exp(x)) ** 2 for x in (i / 1000 for i in range(1, 8000))
+    )
+    return f"{best:.3f}"
+
+
+def _v_threshold() -> str:
+    mp, mpi = 938.27, 134.98
+    return f"{2 * mpi + mpi**2 / (2 * mp):.1f} MeV"
+
+
+def _v_xlinked() -> str:
+    prior, like_c, like_n = 0.5, 0.5**3, 1.0
+    return f"{100 * prior * like_c / (prior * like_c + (1 - prior) * like_n):.1f}%"
+
+
+def _v_compton() -> str:
+    lam, lam_c, hc = 0.0711, 2.4263e-3, 1239.84
+    return f"{(hc / lam - hc / (lam + lam_c)) / 1000:.3f} keV"
+
+
+def _v_bateman() -> str:
+    l1, l2 = math.log(2) / 10.0, math.log(2) / 2.0
+    return f"{math.log(l2 / l1) / (l2 - l1):.2f} h"
+
+
+def _v_competitive() -> str:
+    vmax, km, s, i, ki = 100.0, 2.0, 4.0, 10.0, 5.0
+    return f"{vmax * s / (km * (1 + i / ki) + s):.1f} μmol/min"
+
+
+def _v_pentanetriol() -> str:
+    """Orbits of the eight Fischer labelings (a, b, c) under the 180° rotation
+    (a, b, c) -> (-c, -b, -a)."""
+    seen: set[tuple[int, int, int]] = set()
+    orbits = 0
+    for a, b, c in itertools.product((1, -1), repeat=3):
+        if (a, b, c) in seen:
+            continue
+        orbits += 1
+        seen |= {(a, b, c), (-c, -b, -a)}
+    return str(orbits)
+
+
+def _v_bond_length() -> str:
+    h, c, u = 6.62607e-34, 2.99792e10, 1.66054e-27
+    mu = 12.000 * 15.995 / (12.000 + 15.995) * u
+    b = 3.845 / 2
+    return f"{math.sqrt(h / (8 * math.pi**2 * c * mu * b)) * 1e10:.2f} Å"
+
+
+def _v_d2_terms() -> str:
+    """Peel LS terms off the 45 microstates of two equivalent d electrons."""
+    orbitals = [(ml, ms) for ml in range(-2, 3) for ms in (1, -1)]
+    table: dict[tuple[int, int], int] = {}
+    for (m1, s1), (m2, s2) in itertools.combinations(orbitals, 2):
+        key = ((m1 + m2), (s1 + s2) // 2)  # M_L, M_S (M_S in units of 1/2 -> integers 1, 0, -1)
+        table[key] = table.get(key, 0) + 1
+    terms = 0
+    while any(table.values()):
+        ml_top = max(ml for (ml, ms), n in table.items() if n)
+        ms_top = max(ms for (ml, ms), n in table.items() if n and ml == ml_top)
+        terms += 1
+        for ml in range(-ml_top, ml_top + 1):
+            for ms in range(-ms_top, ms_top + 1):
+                table[(ml, ms)] -= 1
+    return str(terms)
+
+
+def _v_delta_shift() -> str:
+    """First-order shift of the n = 2 well state under V0 δ(x − L/2), in units of V0/L."""
+    shift = 2 * math.sin(2 * math.pi * 0.5) ** 2
+    return "0" if abs(shift) < 1e-12 else f"{shift:g}V₀/L"
+
+
+def _v_boyle() -> str:
+    return f"{27 / 8 * 150.0:.0f} K"
+
+
+#: id -> the correct option string, computed (never typed): build() asserts the option at the
+#: gold letter equals it, so a mislettered or mistyped gold cannot reach the suite.
+SCIENCE_VERIFY: dict[str, Callable[[], str]] = {
+    "rh-grad-science-00": _v_well_mean_x,
+    "rh-grad-science-01": _v_schottky,
+    "rh-grad-science-02": _v_threshold,
+    "rh-grad-science-03": _v_xlinked,
+    "rh-grad-science-04": _v_compton,
+    "rh-grad-science-05": _v_bateman,
+    "rh-grad-science-06": _v_competitive,
+    "rh-grad-science-07": _v_pentanetriol,
+    "rh-grad-science-08": _v_bond_length,
+    "rh-grad-science-09": _v_d2_terms,
+    "rh-grad-science-10": _v_delta_shift,
+    "rh-grad-science-11": _v_boyle,
+}
 
 PROVENANCE: dict[str, dict] = {tid: p for tid, *_rest, p in COMPETITION}
 PROVENANCE.update({tid: p for tid, *_rest, p in SCIENCE})
@@ -672,7 +828,7 @@ def _somewhere_ahead(a: str, b: str) -> Clue:
 def _exactly_two_ahead(a: str, b: str) -> Clue:
     return (
         f"{a} finished exactly two positions ahead of {b}.",
-        lambda p, a=a, b=b: p[a] == p[b] + 2,
+        lambda p, a=a, b=b: p[a] == p[b] - 2,  # position 1 is first: "ahead" is smaller
     )
 
 
@@ -944,6 +1100,11 @@ def build_science(entry: tuple[str, str, list[str], str, dict], n: int) -> dict:
     tid, question, options, gold, provenance = entry
     if gold not in "ABCD" or len(options) != 4 or len(set(options)) != 4:
         raise RuntimeError(f"{tid}: malformed options or gold letter {gold!r}")
+    computed = SCIENCE_VERIFY[tid]()
+    if options["ABCD".index(gold)] != computed:
+        raise RuntimeError(
+            f"{tid}: option {gold} is {options['ABCD'.index(gold)]!r}, computed {computed!r}"
+        )
     letters = "ABCD"
     body = "\n".join(f"({letter}) {text}" for letter, text in zip(letters, options, strict=True))
     ins = _phrase(

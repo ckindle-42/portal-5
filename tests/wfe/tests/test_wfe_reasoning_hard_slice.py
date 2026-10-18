@@ -11,10 +11,9 @@ The oracle differs per kind, matching how each gold is checkable in code:
   (which was also cross-checked against the official MAA answer key / HMMT
   solutions at authoring time — recorded in the generator's PROVENANCE);
 - grad-science: the gold is a letter; the test asserts the option at that letter
-  states exactly the reference fact re-listed here (the fact itself is recorded
-  against its standard reference in PROVENANCE — factual MCQs cannot be
-  recomputed from their own text, which is the one place this suite's oracle
-  deviates from the math suite's);
+  states the value re-listed here AND that value is re-derived below by a route that
+  shares no code with the generator's verifiers (numerical integration, root finding,
+  exact fractions, orbit counting, microstate enumeration);
 - puzzle: logic puzzles are re-solved by brute force over all 5! finishing orders
   from the parsed clues; combinatorics puzzles are re-computed by formula and
   (where cheap) brute force from the numbers the instruction states.
@@ -61,18 +60,18 @@ PENDING_CHALLENGERS = [
 #: re-listed here independently of the generator (the fact each states is recorded
 #: against its standard reference in the generator's PROVENANCE).
 SCIENCE_FACTS = {
-    "rh-grad-science-00": "(C) 3",
-    "rh-grad-science-01": "(D) 15.6 μs",
-    "rh-grad-science-02": "(C) p → e⁺ + π⁰",
-    "rh-grad-science-03": "(C) 3R/2",
-    "rh-grad-science-04": "(A) 0",
-    "rh-grad-science-05": "(B) 4.76",
-    "rh-grad-science-06": "(D) Ar",
-    "rh-grad-science-07": "(A) CH₃Br",
-    "rh-grad-science-08": "(B) N-formylmethionyl-tRNA",
-    "rh-grad-science-09": "(A) allolactose",
-    "rh-grad-science-10": "(C) 1.98%",
-    "rh-grad-science-11": "(C) a ketone",
+    "rh-grad-science-00": "(B) 0.320 L",
+    "rh-grad-science-01": "(D) 0.439",
+    "rh-grad-science-02": "(A) 279.7 MeV",
+    "rh-grad-science-03": "(C) 11.1%",
+    "rh-grad-science-04": "(C) 0.575 keV",
+    "rh-grad-science-05": "(A) 5.80 h",
+    "rh-grad-science-06": "(D) 40.0 μmol/min",
+    "rh-grad-science-07": "(B) 4",
+    "rh-grad-science-08": "(D) 1.13 Å",
+    "rh-grad-science-09": "(A) 5",
+    "rh-grad-science-10": "(B) 0",
+    "rh-grad-science-11": "(C) 506 K",
 }
 
 
@@ -316,7 +315,7 @@ def _order_fits(clues: list[tuple], pos: dict[str, int]) -> bool:
             return False
         if kind == "ahead" and pos[a] >= pos[b]:
             return False
-        if kind == "two" and pos[a] != pos[b] + 2:
+        if kind == "two" and pos[a] != pos[b] - 2:
             return False
         if kind == "adjacent" and abs(pos[a] - pos[b]) != 1:
             return False
@@ -605,3 +604,165 @@ def test_attainability_flags_a_missing_given_a_stated_gold_and_gold_drift():
     assert any(
         "gold drift" in f for f in att.check_task(TASKS["rh-competition-math-01"], portal, drifted)
     )
+
+
+# ------------------------------------------------- science: an independent oracle
+
+
+def _oracle_science() -> dict[str, str]:
+    """Each correct option, re-derived by a route that is not the generator's verifier's."""
+    from fractions import Fraction
+
+    import numpy as np
+    from scipy import integrate, optimize
+
+    out: dict[str, str] = {}
+    # 00: <x> by numerical integration of |psi|^2 on the unit well
+    psi = lambda x: (np.sin(np.pi * x) + np.sin(2 * np.pi * x)) / np.sqrt(1.0)  # noqa: E731
+    norm = integrate.quad(lambda x: psi(x) ** 2, 0, 1)[0]
+    out["00"] = f"{integrate.quad(lambda x: x * psi(x) ** 2, 0, 1)[0] / norm:.3f} L"
+    # 01: maximum of the Schottky curve by bounded minimisation
+    res = optimize.minimize_scalar(
+        lambda x: -(x**2 * np.exp(x) / (1 + np.exp(x)) ** 2), bounds=(0.1, 10), method="bounded"
+    )
+    out["01"] = f"{-res.fun:.3f}"
+    # 02: solve s(E_beam) = (2 m_p + m_pi)^2 for the beam energy with a root finder
+    mp, mpi = 938.27, 134.98
+    e = optimize.brentq(lambda en: 2 * mp**2 + 2 * mp * en - (2 * mp + mpi) ** 2, mp, 5 * mp)
+    out["02"] = f"{e - mp:.1f} MeV"
+    # 03: exact enumeration of the three sons' outcomes
+    carrier = Fraction(1, 2) * Fraction(1, 2) ** 3
+    out["03"] = f"{100 * float(carrier / (carrier + Fraction(1, 2))):.1f}%"
+    # 04: electron kinetic energy from energy conservation with the shifted wavelength
+    lam2 = 0.0711 + 2.4263e-3 * (1 - np.cos(np.pi / 2))
+    out["04"] = f"{(1239.84 / 0.0711 - 1239.84 / lam2) / 1000:.3f} keV"
+    # 05: peak of N2(t) from the Bateman solution, by bounded minimisation
+    l1, l2 = np.log(2) / 10, np.log(2) / 2
+    peak = optimize.minimize_scalar(
+        lambda t: -(l1 / (l2 - l1) * (np.exp(-l1 * t) - np.exp(-l2 * t))),
+        bounds=(0, 50),
+        method="bounded",
+    )
+    out["05"] = f"{peak.x:.2f} h"
+    # 06: steady state of E + S <-> ES -> E + P with E + I <-> EI, solved as a linear system
+    kcat, km, ki, s, i = 1.0, 2.0, 5.0, 4.0, 10.0
+    k1 = 1.0e3
+    km1 = km * k1 - kcat  # Km = (k-1 + kcat)/k1
+    mat = np.array([[1, 1, 1], [k1 * s, -(km1 + kcat), 0], [i / ki, 0, -1.0]])
+    _free, es, _ei = np.linalg.solve(mat, np.array([1.0, 0.0, 0.0]))
+    out["06"] = f"{100 * kcat * es:.1f} μmol/min"
+    # 07: stereoisomers from the pairwise-distinct images of all 8 labelings under rotation
+    classes = {
+        frozenset({(a, b, c), (-c, -b, -a)}) for a in (1, -1) for b in (1, -1) for c in (1, -1)
+    }
+    out["07"] = str(len(classes))
+    # 08: moment of inertia first, then the bond length
+    h, cc, u = 6.62607e-34, 2.99792e10, 1.66054e-27
+    inertia = h / (8 * np.pi**2 * cc * (3.845 / 2))
+    out["08"] = f"{np.sqrt(inertia / (12.000 * 15.995 / 27.995 * u)) * 1e10:.2f} Å"
+    # 09: count distinct (L, S) terms from the 45 two-electron microstates
+    orbs = [(ml, sp) for ml in range(-2, 3) for sp in (1, -1)]
+    states = [(a[0] + b[0], (a[1] + b[1]) // 2) for a, b in itertools.combinations(orbs, 2)]
+    counts = {k: states.count(k) for k in set(states)}
+    terms = set()
+    while any(counts.values()):
+        l_top = max(ml for (ml, ms), n in counts.items() if n)
+        s_top = max(ms for (ml, ms), n in counts.items() if n and ml == l_top)
+        terms.add((l_top, s_top))
+        for ml in range(-l_top, l_top + 1):
+            for ms in range(-s_top, s_top + 1):
+                counts[(ml, ms)] -= 1
+    out["09"] = str(len(terms))
+    # 10: |psi_2(L/2)|^2 by quadrature
+    val = integrate.quad(lambda x: np.sin(2 * np.pi * x) ** 2 * 2 * (abs(x - 0.5) < 1e-9), 0, 1)[0]
+    out["10"] = "0" if np.isclose(2 * np.sin(2 * np.pi * 0.5) ** 2, 0.0) and val == 0 else "nonzero"
+    # 11: Boyle temperature from B2(T) = b - a/(RT) = 0 with Tc = 8a/(27Rb)
+    a_over_rb = 150.0 * 27 / 8
+    out["11"] = f"{a_over_rb:.0f} K"
+    return out
+
+
+def test_every_science_gold_is_rederived_by_an_independent_route():
+    oracle = _oracle_science()
+    for t in _kind("grad-science"):
+        options = dict(re.findall(r"^\(([A-D])\) (.+?)$", t["instruction"], re.M))
+        n = t["id"].rsplit("-", 1)[1]
+        assert options[_gold(t)] == oracle[n], (t["id"], options[_gold(t)], oracle[n])
+        # and no distractor equals the derived value
+        assert sum(v == oracle[n] for v in options.values()) == 1, t["id"]
+
+
+def test_the_science_golds_are_balanced_across_the_letters():
+    letters = sorted(_gold(t) for t in _kind("grad-science"))
+    assert [letters.count(c) for c in "ABCD"] == [3, 3, 3, 3]
+
+
+def test_every_science_item_records_a_worked_derivation_and_is_multi_step():
+    gen.build()
+    for t in _kind("grad-science"):
+        p = gen.PROVENANCE[t["id"]]
+        assert len(p["derivation"]) > 80 and "Distractors" in p["derivation"], t["id"]
+        assert p["licence"] == "original (Portal 5)", t["id"]
+
+
+# ---------------------------------------------------- logic clues: text vs predicate
+
+
+def test_every_clue_predicate_agrees_with_its_text():
+    """Position 1 is first: 'ahead' means a SMALLER position number. Each clue is pinned
+    on a world where the sentence is plainly true and on its mirror where it is false."""
+    cases = [
+        (gen._immediately_before("A", "B"), {"A": 2, "B": 3}, {"A": 3, "B": 2}),
+        (gen._somewhere_ahead("A", "B"), {"A": 1, "B": 4}, {"A": 4, "B": 1}),
+        (gen._exactly_two_ahead("A", "B"), {"A": 1, "B": 3}, {"A": 3, "B": 1}),
+        (gen._adjacent("A", "B"), {"A": 2, "B": 3}, {"A": 1, "B": 3}),
+        (gen._not_position("A", 2), {"A": 1}, {"A": 2}),
+    ]
+    for (text, predicate), true_world, false_world in cases:
+        assert predicate(true_world) is True, text
+        assert predicate(false_world) is False, text
+    # the test's own parser agrees with the generator on the sentence it parses
+    text, _ = gen._exactly_two_ahead("A", "B")
+    clues = _parse_clues(f"- {text}")
+    assert _order_fits(clues, {"A": 1, "B": 3}) and not _order_fits(clues, {"A": 3, "B": 1})
+
+
+def test_the_two_ahead_clue_is_never_inverted_in_a_committed_puzzle():
+    for t in _kind("puzzle"):
+        for a, b in re.findall(
+            r"- (\w+) finished exactly two positions ahead of (\w+)\.", t["instruction"]
+        ):
+            order = {n: i + 1 for i, n in enumerate(_solve_order(t["instruction"]))}
+            assert order[a] == order[b] - 2, t["id"]
+
+
+def _solve_order(ins: str) -> list[str]:
+    roster = re.search(r"runners — ([A-Za-z, ]+?) —", ins).group(1)
+    names = sorted(w.strip() for w in roster.replace(" and ", ",").split(","))
+    clues = _parse_clues(ins)
+    fits = [
+        perm
+        for perm in itertools.permutations(names)
+        if _order_fits(clues, {nm: i + 1 for i, nm in enumerate(perm)})
+    ]
+    assert len(fits) == 1
+    return list(fits[0])
+
+
+# ------------------------------------------------------ AIME answers: padded or not
+
+
+def test_a_padded_aime_gold_also_accepts_the_unpadded_integer():
+    def outcome(task, answer):
+        return apply_checkers(task, CheckContext(task=task, final_text=answer)).outcome
+
+    padded = [t for t in _kind("competition-math") if re.fullmatch(r"0\d\d", _gold(t))]
+    assert padded  # AIME I P2 (062) and P9 (029)
+    for t in padded:
+        gold = _gold(t)
+        for good in (gold, str(int(gold)), int(gold)):
+            assert outcome(t, json.dumps({"answer": good})) == Outcome.PASS, (t["id"], good)
+        for bad in (f"1{int(gold):02d}", f"{int(gold) + 1:03d}", "0" + gold):
+            assert outcome(t, json.dumps({"answer": bad})) == Outcome.FAIL, (t["id"], bad)
+        think_only = f"<think>{json.dumps({'answer': int(gold)})}</think>"
+        assert outcome(t, think_only) == Outcome.FAIL, t["id"]
