@@ -62,8 +62,8 @@ registry's layers with the digests the register recorded (receipt
 
 **The five removals that rest on a measurement one of the 2026-10-13 audits found
 biased.** None is reversed here. A restorable one can be measured again with the recipe
-below; an unrestorable one is in the queue with `available: false`, so every cell it
-could have had is MISSING and its disposition can only be NO_DECISION.
+below; an unrestorable one is recorded in the receipt only (since P5-B1 the queue holds
+live candidates), so it contributes no queue row and no NO_DECISION disposition.
 
 | Removal | Why it is at risk | Restorable | Restore |
 |---|---|---|---|
@@ -73,7 +73,7 @@ could have had is MISSING and its disposition can only be NO_DECISION.
 | `ollama:hf.co/bartowski/Qwen_Qwen3.6-27B-GGUF:Q4_K_M` | judgment probe v6: duplicate-quant stop rule fired on exact parity | **differs** | `ollama pull hf.co/bartowski/Qwen_Qwen3.6-27B-GGUF:Q4_K_M` |
 | `ollama:portal5/xyz-aquila-mini:q4_k_m-ctx16k` | research probe: the lane instrument's checkers were weak (defect 10) | **unrestorable** | `no registry serves portal5/xyz-aquila-mini:q4_k_m` |
 
-Restorable removals: 85 (53 verified as the measured build, 6 where the registry now serves a different build, 26 with no recorded digest). Unrestorable: 28, in `tests/wfe/candidate_queue.yaml` with `available: false`.
+Restorable removals: 85 (53 verified as the measured build, 6 where the registry now serves a different build, 26 with no recorded digest). Unrestorable: 28, recorded in `docs/WFE_DISPOSITION_BACKFILL_20261014.json` only; `tests/wfe/candidate_queue.yaml` holds live candidates (P5-B1).
 ## Round-2 offline findings, mapped to causes
 
 | Finding | Status | Cause |

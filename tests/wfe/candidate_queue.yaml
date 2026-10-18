@@ -1,180 +1,36 @@
 models:
-  Bonsai-27B-mlx-1bit:
-    available: false
-    intended: []
-    lineage: Bonsai-27B-mlx-1bit
-    note: 'a omlx_entry directory: the register records no upstream source to re-obtain it from'
-    removed_at_closeout: true
-  Laguna-XS.2-4bit:
-    available: false
-    intended: []
-    lineage: Laguna-XS.2-4bit
-    note: 'a omlx_entry directory: the register records no upstream source to re-obtain it from'
-    removed_at_closeout: true
-  MLX-Qwen3.5-9B-Claude-4.6-Opus-Reasoning-Distilled-8bit:
-    available: false
-    intended: []
-    lineage: MLX-Qwen3.5-9B-Claude-4.6-Opus-Reasoning-Distilled-8bit
-    note: 'a omlx_entry directory: the register records no upstream source to re-obtain it from'
-    removed_at_closeout: true
-  MiMo-V2.6-Distill-Qwen-9B-MLX-Serve-4bit-mtp:
-    available: false
-    intended: []
-    lineage: MiMo-V2.6-Distill-Qwen-9B-MLX-Serve-4bit-mtp
-    note: 'a omlx_entry directory: the register records no upstream source to re-obtain it from'
-    removed_at_closeout: true
-  SuperQwen3.8-27b-abliterated-MLX-4bit:
-    available: false
-    intended: []
-    lineage: SuperQwen3.8-27b-abliterated-MLX-4bit
-    note: 'a omlx_entry directory: the register records no upstream source to re-obtain it from'
-    removed_at_closeout: true
-  Ternary-Bonsai-2-27B-mlx-2bit:
-    available: false
-    intended: []
-    lineage: Ternary-Bonsai-2-27B-mlx-2bit
-    note: 'a omlx_entry directory: the register records no upstream source to re-obtain it from'
-    removed_at_closeout: true
-  Ternary-Bonsai-8B-mlx-2bit:
-    available: false
-    intended: []
-    lineage: Ternary-Bonsai-8B-mlx-2bit
-    note: 'a omlx_entry directory: the register records no upstream source to re-obtain it from'
-    removed_at_closeout: true
-  baronllm:q6_k:
-    available: false
-    intended: []
-    lineage: baronllm
-    note: no registry serves baronllm:q6_k
-    removed_at_closeout: true
-  bonsai-control:qwen3-1.7b-ctx16k:
-    available: false
-    intended: []
-    lineage: bonsai-control
-    note: no registry serves bonsai-control:qwen3-1.7b
-    removed_at_closeout: true
-  bonsai-control:qwen3-4b-ctx16k:
-    available: false
-    intended: []
-    lineage: bonsai-control
-    note: no registry serves bonsai-control:qwen3-4b
-    removed_at_closeout: true
-  bonsai-control:qwen3-8b-ctx16k:
-    available: false
-    intended: []
-    lineage: bonsai-control
-    note: no registry serves bonsai-control:qwen3-8b
-    removed_at_closeout: true
-  bonsai-control:qwen36-27b-ctx32k:
-    available: false
-    intended: []
-    lineage: bonsai-control
-    note: no registry serves bonsai-control:qwen36-27b
-    removed_at_closeout: true
-  bonsai-control:qwen38-27b-ctx32k:
-    available: false
-    intended: []
-    lineage: bonsai-control
-    note: no registry serves bonsai-control:qwen38-27b
-    removed_at_closeout: true
-  bonsai-probe:bonsai-v1-8b:
-    available: false
-    intended: []
-    lineage: bonsai-probe
-    note: no registry serves bonsai-probe:bonsai-v1-8b
-    removed_at_closeout: true
-  bully-ae9fa52b558fbce0:latest:
-    available: false
-    intended: []
-    lineage: bully-ae9fa52b558fbce0
-    note: no registry serves bully-ae9fa52b558fbce0:latest
-    removed_at_closeout: true
-  bully-bcb0e4b867519350:latest:
-    available: false
-    intended: []
-    lineage: bully-bcb0e4b867519350
-    note: no registry serves bully-bcb0e4b867519350:latest
-    removed_at_closeout: true
-  cybersecqwen-4b-toolfix:latest:
-    available: false
-    intended: []
-    lineage: cybersecqwen-4b-toolfix
-    note: no registry serves cybersecqwen-4b-toolfix:latest
-    removed_at_closeout: true
+  gemma4:26b-a4b-it-q4_K_M-ctx32k:
+    available: true
+    intended:
+    - auto-documents
+    lineage: gemma4
+    note: ctx32k general-group tag measured in wfe_documents_20261017h; the base tag holds the vision
+      persona pins
   granite4.1:30b-ctx64k:
     available: true
     intended:
     - auto-compliance
+    - auto-data
     lineage: granite4.1
+    note: 'reasoning-group tag: confirm cells in wfe_compliance_decision_20261016 and wfe_data_decision_20261016'
+  granite4.1:30b-ctx96k:
+    available: true
+    intended:
+    - auto-documents
+    lineage: granite4.1
+    note: general-group window tag measured in wfe_documents_20261017h; the ctx64k entry covers the reasoning-group
+      lanes
+  hf.co/bartowski/NVIDIA-Nemotron-3.5-Lightning-30B-A3B-GGUF:Q4_K_M-ctx32k:
+    available: true
+    intended:
+    - auto-data
+    lineage: nemotron-3.5-lightning
+    note: 'general-group tag: confirm cell NOT_SEPARATED in wfe_data_decision_20261016'
   hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k:
     available: true
     intended:
-    - auto-compliance
+    - auto-documents
+    - auto-data
     lineage: qwen3.8
-  meta-secalign-8b-q4_k_m:latest:
-    available: false
-    intended: []
-    lineage: meta-secalign-8b-q4_k_m
-    note: no registry serves meta-secalign-8b-q4_k_m:latest
-    removed_at_closeout: true
-  portal5/cadmium:Q4_K_M:
-    available: false
-    intended: []
-    lineage: portal5/cadmium
-    note: no registry serves portal5/cadmium:Q4_K_M
-    removed_at_closeout: true
-  portal5/deepwen-3.6:q4.5-moq:
-    available: false
-    intended: []
-    lineage: portal5/deepwen-3.6
-    note: no registry serves portal5/deepwen-3.6:q4.5-moq
-    removed_at_closeout: true
-  portal5/deepwen-3.6:q4.5-moq-ctx32k:
-    available: false
-    intended: []
-    lineage: portal5/deepwen-3.6
-    note: no registry serves portal5/deepwen-3.6:q4.5-moq
-    removed_at_closeout: true
-  portal5/gemma4-12b:q4_K_M-ctx8k:
-    available: false
-    intended: []
-    lineage: portal5/gemma4-12b
-    note: no registry serves portal5/gemma4-12b:q4_K_M
-    removed_at_closeout: true
-  portal5/laguna-xs2:q4_K_M-ctx128k:
-    available: false
-    intended: []
-    lineage: portal5/laguna-xs2
-    note: no registry serves portal5/laguna-xs2:q4_K_M
-    removed_at_closeout: true
-  portal5/mimo-v26-distill-9b:q4_K_M-ctx256k:
-    available: false
-    intended: []
-    lineage: portal5/mimo-v26-distill-9b
-    note: no registry serves portal5/mimo-v26-distill-9b:q4_K_M
-    removed_at_closeout: true
-  portal5/qwen3.6-27b-mtp:q8_0-drafted:
-    available: false
-    intended: []
-    lineage: portal5/qwen3.6-27b-mtp
-    note: no registry serves portal5/qwen3.6-27b-mtp:q8_0-drafted
-    removed_at_closeout: true
-  portal5/xyz-aquila-mini:Q4_K_M:
-    available: false
-    intended: []
-    lineage: portal5/xyz-aquila-mini
-    note: no registry serves portal5/xyz-aquila-mini:Q4_K_M
-    removed_at_closeout: true
-  portal5/xyz-aquila-mini:q4_k_m-ctx16k:
-    at_risk: 'research probe: the lane instrument''s checkers were weak (defect 10)'
-    available: false
-    intended: []
-    lineage: portal5/xyz-aquila-mini
-    note: no registry serves portal5/xyz-aquila-mini:q4_k_m
-    removed_at_closeout: true
-  supergemma4-26b-uncensored:Q4_K_M:
-    available: false
-    intended: []
-    lineage: supergemma4-26b-uncensored
-    note: no registry serves supergemma4-26b-uncensored:Q4_K_M
-    removed_at_closeout: true
+    note: 'auto-compliance model_hint: measured as the incumbent there, so its candidate lanes are documents
+      and data'

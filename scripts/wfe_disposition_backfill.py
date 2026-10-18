@@ -25,9 +25,11 @@ Portal's `-ctxNk` tags are local: `models apply-params` creates them FROM a base
 tag with `PARAMETER num_ctx`. Their recipe pulls the base and recreates the
 variant, and the base is what the registry is asked about.
 
-A removal that is not restorable enters `tests/wfe/candidate_queue.yaml` with
-`available: false`, so every cell it could have had is MISSING and the
-disposition it supports can only be NO_DECISION.
+A removal that is not restorable is recorded in the receipt
+(`docs/WFE_DISPOSITION_BACKFILL_20261014.json`) only: since P5-B1 (2026-10-18)
+`tests/wfe/candidate_queue.yaml` holds live candidates solely, so no dead row can
+contribute a NO_DECISION disposition to the fitness map. The `--write` queue step
+below predates that rule; review it before re-running with `--write`.
 
 Usage:
     uv run python scripts/wfe_disposition_backfill.py                   # no network
@@ -255,8 +257,8 @@ def render_at_risk(report: dict) -> str:
         "",
         "**The five removals that rest on a measurement one of the 2026-10-13 audits found",
         "biased.** None is reversed here. A restorable one can be measured again with the recipe",
-        "below; an unrestorable one is in the queue with `available: false`, so every cell it",
-        "could have had is MISSING and its disposition can only be NO_DECISION.",
+        "below; an unrestorable one is recorded in the receipt only (since P5-B1 the queue holds",
+        "live candidates), so it contributes no queue row and no NO_DECISION disposition.",
         "",
         "| Removal | Why it is at risk | Restorable | Restore |",
         "|---|---|---|---|",
@@ -270,7 +272,8 @@ def render_at_risk(report: dict) -> str:
         f"Restorable removals: {sum(r.get(k, 0) for k in RESTORABLE)} ({r.get('verified', 0)}"
         f" verified as the measured build, {r.get('differs', 0)} where the registry now serves a"
         f" different build, {r.get('unrecorded', 0)} with no recorded digest). Unrestorable:"
-        f" {r.get('unrestorable', 0)}, in `tests/wfe/candidate_queue.yaml` with `available: false`.",
+        f" {r.get('unrestorable', 0)}, recorded in `{RECEIPT.relative_to(REPO)}` only;"
+        f" `tests/wfe/candidate_queue.yaml` holds live candidates (P5-B1).",
         "",
     ]
     return "\n".join(lines)

@@ -184,18 +184,20 @@ class TestRegister:
         assert report["restorability"].get("verified", 0) > 0
 
     def test_the_committed_receipt_and_queue_agree(self):
-        """Every unrestorable removal in the receipt is queued unavailable, and every
-        queue entry the backfill owns is an unrestorable removal of the receipt."""
+        """P5-B1 resolution (b): the queue holds live candidates only — it carries no
+        closeout row — while the frozen 2026-10-14 receipt keeps the historical record
+        of the 28 unrestorable removals."""
         receipt = json.loads(RECEIPT.read_text())
         models = (yaml.safe_load(QUEUE.read_text()) or {}).get("models") or {}
+        owned = {m for m, e in models.items() if (e or {}).get("removed_at_closeout")}
+        assert owned == set()
+        assert all((e or {}).get("available") is True for e in models.values())
         unrestorable = {
             str(r["exact_identity"] or r["item_id"])
             for r in receipt["rows"]
             if r["restorable"] == "unrestorable"
         }
-        owned = {m for m, e in models.items() if (e or {}).get("removed_at_closeout")}
-        assert owned == unrestorable
-        assert all(models[m]["available"] is False for m in owned)
+        assert len(unrestorable) == 28
 
 
 class TestWriting:
