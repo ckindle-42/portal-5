@@ -101,3 +101,70 @@ cells:
   incumbent_served: *id001
   receipts: *id002
   recorded_utc: '2026-10-16T09:24:35.464770+00:00'
+- model: gemma4:26b-a4b-it-q4_K_M-ctx32k
+  arm: gemma4:26b-a4b-it-q4_K_M-ctx32k@card-0c0db1ca
+  workspace: auto-documents
+  incumbent: granite4.1:8b-ctx16k
+  tier: confirm
+  verdict: BETTER
+  reason: sign test p=0.0156; worst case p=0.0156
+  n: 36
+  wins: 7
+  losses: 0
+  ties: 29
+  p: 0.015625
+  campaign: wfe_documents_20261017h
+  instrument: 75344932172b255f
+  served:
+    backend: omlx-general
+    model: mlx-community--gemma-4-26b-a4b-it-4bit
+    content: 69bee520b71c68a133cb78271e0479b4
+  incumbent_served: &id003
+    backend: ollama-general
+    model: granite4.1:8b-ctx16k
+    content: f70136320fc9b1d8719b27102a329c430582d2eeb0dcee2c136a4789c6caf13f
+  receipts: &id004
+    /Users/chris/projects/portal-5/tests/wfe/suites/documents_production.jsonl: 8962941b18dadb10
+  recorded_utc: '2026-10-18T02:35:53.949497+00:00'
+- model: granite4.1:30b-ctx96k
+  arm: granite4.1:30b-ctx96k@card-c1832928
+  workspace: auto-documents
+  incumbent: granite4.1:8b-ctx16k
+  tier: confirm
+  verdict: NOT_SEPARATED
+  reason: sign test p=0.375
+  n: 36
+  wins: 4
+  losses: 1
+  ties: 31
+  p: 0.375
+  campaign: wfe_documents_20261017h
+  instrument: 75344932172b255f
+  served:
+    backend: ollama-general
+    model: granite4.1:30b-ctx96k
+    content: 3631b79b62cbf60004611388bb5d6d81c80a5b67dab986a2cd4a56fe61192c47
+  incumbent_served: *id003
+  receipts: *id004
+  recorded_utc: '2026-10-18T02:35:53.949497+00:00'
+- model: hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k
+  arm: hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k@card-fd931ae2
+  workspace: auto-documents
+  incumbent: granite4.1:8b-ctx16k
+  tier: confirm
+  verdict: BETTER
+  reason: sign test p=0.0156; worst case p=0.0156
+  n: 36
+  wins: 7
+  losses: 0
+  ties: 29
+  p: 0.015625
+  campaign: wfe_documents_20261017h
+  instrument: 75344932172b255f
+  served:
+    backend: omlx-general
+    model: Qwen3.8-27B-oQ4e-mtp
+    content: 7228ad7fe9dd53c6ce5445652af2341e
+  incumbent_served: *id003
+  receipts: *id004
+  recorded_utc: '2026-10-18T02:35:53.949497+00:00'
