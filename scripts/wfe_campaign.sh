@@ -62,9 +62,11 @@ if [ -n "${ARMS_FILE:-}" ]; then
         [ -n "$_line" ] && ARMS+=("$_line")
     done < "$ARMS_FILE"
 else
-    # Smallest model first. Two reasons on a 64GB box: the early arms finish fast
-    # so a broken sweep shows itself in the first hour rather than the tenth, and
-    # each eviction leaves a larger inactive pool for the arm that follows.
+    # Incumbent first, then smallest model first. Confirm curtailment compares each
+    # challenger against a COMPLETE incumbent, so the incumbent must run before any
+    # challenger (size order put phi4, the auto-math incumbent, last). Smallest-first
+    # for the rest: the early arms finish fast, so a broken sweep shows itself in the
+    # first hour, and each eviction leaves a larger inactive pool for the next arm.
     while IFS= read -r _line || [ -n "$_line" ]; do
         [ -n "$_line" ] && ARMS+=("$_line")
     done < <(uv run python -m tests.wfe.campaign --list-arms $ALL_SUITES_FLAG $PLAN_FLAG \
@@ -76,8 +78,14 @@ try:
         size = {m['name']: m['size'] for m in json.load(r)['models']}
 except Exception:
     size = {}
+try:
+    with open('tests/wfe/results/campaigns/${CAMPAIGN_ID}/manifest.json') as f:
+        rows = json.load(f)['rows']
+    incumbents = {r.get('model') or r['arm'] for r in rows if r.get('arm_role') == 'incumbent'}
+except Exception:
+    incumbents = set()
 arms = [ln.strip() for ln in sys.stdin if ln.strip()]
-for a in sorted(arms, key=lambda a: (size.get(a, 0), a)):
+for a in sorted(arms, key=lambda a: (a not in incumbents, size.get(a, 0), a)):
     print(a)
 ")
 fi
