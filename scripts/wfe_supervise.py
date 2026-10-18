@@ -16,6 +16,7 @@ exit is the signal to come and look.
     uv run python scripts/wfe_supervise.py wfe_documents_20261017f &
     uv run python scripts/wfe_supervise.py wfe_documents_20261017f --once   # one tick
     uv run python scripts/wfe_supervise.py wfe_documents_20261017f --sample 5
+    uv run python scripts/wfe_supervise.py wfe_documents_20261017f --sample 5 --json
 
 The 30-minute tick is `tail -5 <campaign dir>/supervisor.log` plus `--sample 5`: the automatic
 checks cover the failures we have already had, and reading five answers covers the one we
@@ -180,19 +181,26 @@ def new_halts(campaign_dir: Path, seen: int) -> tuple[list[str], int]:
     return lines[seen:], len(lines)
 
 
+def sample_items(campaign_dir: Path, n: int) -> list[tuple[dict, str]]:
+    """The newest n rows as (row, answer head) pairs — the sample's shared data."""
+    files = sorted((campaign_dir / "rows").glob("*.json"), key=lambda f: f.stat().st_mtime)
+    rows = load_rows(campaign_dir, {})
+    out: list[tuple[dict, str]] = []
+    for f in files[-n:]:
+        r = rows.get(f.name)
+        if not r:
+            continue
+        out.append((r, " ".join(r["text"].split())[:220]))
+    return out
+
+
 def sample(campaign_dir: Path, n: int) -> str:
     """The 30-minute read: the newest rows as they actually came out.
 
     Automatic checks catch the shapes we already know. This is for the shape we don't: read
     the answers and ask whether you would accept the row as evidence."""
-    files = sorted((campaign_dir / "rows").glob("*.json"), key=lambda f: f.stat().st_mtime)
-    rows = load_rows(campaign_dir, {})
     out = []
-    for f in files[-n:]:
-        r = rows.get(f.name)
-        if not r:
-            continue
-        head = " ".join(r["text"].split())[:220]
+    for r, head in sample_items(campaign_dir, n):
         out.append(
             f"{r['outcome']:<9} {r['arm']}  {r['task_id']}  tool_calls={r['tool_calls']}\n"
             f"  notes  {r['notes'] or '—'}\n"
@@ -200,6 +208,22 @@ def sample(campaign_dir: Path, n: int) -> str:
         )
         out += [f"  !      {s}" for s in answer_smells(r)]
     return "\n".join(out) or "no rows yet"
+
+
+def sample_json(campaign_dir: Path, n: int) -> list[dict]:
+    """The same newest rows as a machine-readable list: one element per row, same values
+    the text sample shows."""
+    return [
+        {
+            "outcome": r["outcome"],
+            "model": r["arm"],
+            "task_id": r["task_id"],
+            "tool_calls": r["tool_calls"],
+            "notes": r["notes"] or "—",
+            "answer": head or "(empty)",
+        }
+        for r, head in sample_items(campaign_dir, n)
+    ]
 
 
 def tick(campaign_dir: Path, state: dict, rows: dict) -> tuple[str, list[str], str]:
@@ -233,6 +257,11 @@ def main() -> int:
         metavar="N",
         help="print the newest N rows (answers, notes, smells) and exit — the 30-minute read",
     )
+    ap.add_argument(
+        "--json",
+        action="store_true",
+        help="with --sample N: print the rows as one JSON array instead of text",
+    )
     args = ap.parse_args()
 
     campaign_dir = Path(args.campaign_id)
@@ -243,7 +272,10 @@ def main() -> int:
         return 3
 
     if args.sample:
-        print(sample(campaign_dir, args.sample))
+        if args.json:
+            print(json.dumps(sample_json(campaign_dir, args.sample), indent=2, ensure_ascii=False))
+        else:
+            print(sample(campaign_dir, args.sample))
         return 0
 
     state_f = campaign_dir / "supervisor_state.json"

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import importlib.util
 import json
+import os
 import sys
 from pathlib import Path
 
@@ -187,6 +188,102 @@ def test_the_sample_prints_the_newest_rows_with_their_smells(tmp_path):
 def test_the_sample_of_an_empty_campaign_says_so(tmp_path):
     (tmp_path / "rows").mkdir()
     assert supervise.sample(tmp_path, 5) == "no rows yet"
+
+
+def _four_rows(tmp_path):
+    """Distinct mtimes so the sample's newest-first order is unambiguous."""
+    (tmp_path / "rows").mkdir()
+    base = 1_700_000_000
+    for i in range(4):
+        f = tmp_path / "rows" / f"r{i}.json"
+        f.write_text(
+            json.dumps(
+                {
+                    "arm": "granite-4.0-h-small",
+                    "suite": "s",
+                    "task_id": f"doc-read-0{i}",
+                    "outcome": "PASS",
+                    "tool_calls": 2,
+                    "notes": f"note {i}",
+                    "final_text": f"Download: /app/​data/{i}",
+                }
+            )
+        )
+        os.utime(f, (base + i, base + i))
+
+
+def test_the_json_sample_has_one_element_per_row_with_the_briefs_keys_and_values(tmp_path):
+    _four_rows(tmp_path)
+    rows = supervise.sample_json(tmp_path, 2)
+    assert len(rows) == 2
+    assert list(rows) and list(rows[0]) == [
+        "outcome",
+        "model",
+        "task_id",
+        "tool_calls",
+        "notes",
+        "answer",
+    ]
+    # Same order the text sample prints: the newest n rows, oldest of the two first.
+    assert [r["task_id"] for r in rows] == ["doc-read-02", "doc-read-03"]
+    assert rows[1] == {
+        "outcome": "PASS",
+        "model": "granite-4.0-h-small",
+        "task_id": "doc-read-03",
+        "tool_calls": 2,
+        "notes": "note 3",
+        "answer": "Download: /app/​data/3",
+    }
+
+
+def test_the_json_sample_shows_the_same_values_the_text_sample_shows(tmp_path):
+    _four_rows(tmp_path)
+    rows = supervise.sample_json(tmp_path, 2)
+    text = supervise.sample(tmp_path, 2)
+    for r in rows:
+        assert f"{r['task_id']}" in text
+        assert f"notes  {r['notes']}" in text
+        assert f"answer {r['answer']}" in text
+
+
+def test_the_json_sample_shows_empty_notes_and_answer_the_way_the_text_one_does(tmp_path):
+    (tmp_path / "rows").mkdir()
+    (tmp_path / "rows" / "r.json").write_text(
+        json.dumps(
+            {"arm": "a", "suite": "s", "task_id": "t-01", "outcome": "FAIL", "tool_calls": 0}
+        )
+    )
+    (row,) = supervise.sample_json(tmp_path, 5)
+    assert row["notes"] == "—" and row["answer"] == "(empty)"
+    text = supervise.sample(tmp_path, 5)
+    assert "notes  —" in text and "answer (empty)" in text
+
+
+def test_the_json_sample_of_an_empty_campaign_is_an_empty_array(tmp_path):
+    (tmp_path / "rows").mkdir()
+    assert supervise.sample_json(tmp_path, 5) == []
+
+
+def test_the_text_sample_format_is_unchanged(tmp_path):
+    (tmp_path / "rows").mkdir()
+    (tmp_path / "rows" / "r.json").write_text(
+        json.dumps(
+            {
+                "arm": "a",
+                "suite": "s",
+                "task_id": "doc-read-01",
+                "outcome": "PASS",
+                "tool_calls": 1,
+                "notes": "a note",
+                "final_text": "a real answer, long enough to be one",
+            }
+        )
+    )
+    assert supervise.sample(tmp_path, 5) == (
+        f"{'PASS':<9} a  doc-read-01  tool_calls=1\n"
+        f"  notes  a note\n"
+        f"  answer a real answer, long enough to be one"
+    )
 
 
 def test_only_halts_appended_since_the_last_tick_are_reported(tmp_path):
