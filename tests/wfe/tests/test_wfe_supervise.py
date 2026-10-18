@@ -114,6 +114,13 @@ def test_a_pass_on_almost_no_answer_is_a_checker_smell():
     assert supervise.answer_smells(_row("FAIL", text="ok")) == []
 
 
+def test_a_terse_json_answer_is_what_the_task_asked_for():
+    # wfe_documents_20261017h: `{"answer": "Ilse Mott"}` to an "Answer only as JSON" read task
+    # voided a clean granite cell at 27%.
+    assert supervise.answer_smells(_row(text='{"answer": "Ilse Mott"}')) == []
+    assert supervise.answer_smells(_row(text='["x"]'))  # a bare list is still a smell
+
+
 def test_a_cell_whose_answers_are_spoiled_is_called_void_though_it_passes():
     """The expensive failure: every row PASSes, every exit code is clean, the evidence is not."""
     rows = _rows(*[_row(text=f"Download: /app/​data/{i}") for i in range(20)])

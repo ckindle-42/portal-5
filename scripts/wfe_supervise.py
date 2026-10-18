@@ -93,9 +93,18 @@ def answer_smells(row: dict) -> list[str]:
         out.append("raw <tool_call> markup left in the answer")
     if "read" in row["task_id"] and "Download:" in text:
         out.append("a download link in the answer to a read task (link bleed)")
-    if row["outcome"] == Outcome.PASS.value and len(text.strip()) < 20:
+    if row["outcome"] == Outcome.PASS.value and len(text.strip()) < 20 and not _is_json(text):
         out.append(f"PASS on {len(text.strip())} characters of answer — check the checker")
     return out
+
+
+def _is_json(text: str) -> bool:
+    """A terse JSON object is what an "Answer only as JSON" task asks for, not a spoiled row
+    (campaign wfe_documents_20261017h: `{"answer": "Ilse Mott"}` voided a clean cell)."""
+    try:
+        return isinstance(json.loads(text.strip()), dict)
+    except ValueError:
+        return False
 
 
 def cell_problems(rows: dict) -> list[str]:
