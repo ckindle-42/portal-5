@@ -88,7 +88,7 @@
 | P5-A8 | PASS | verify-complete 0 problems on wfe_compliance_decision_20261016, wfe_data_decision_20261016 (after --rerun-failed), and both cf screens; probe campaigns removed or gitignored, no planted file committed | 2026-10-16T20:14:32Z |
 | P5-A9 | PENDING | | |
 | P5-B1 | PASS | candidate queue live-only 90c8f9e7; fitness map from the merged ledger 385cd35b; docs/WFE_FITNESS_MAP.md one disposition per queued model (incl. auto-math cells from wfe_math_20261018d); triage coding_task/WFE_P5_B1_QUEUE_TRIAGE.md | 2026-10-18 |
-| P5-B2 | PENDING | GATE list docs/WFE_P5_B2_GATE_LIST.md with operator decisions G1 head-to-head, G3 hold, G4 keep, G5 keep; closes after the documents head-to-head (plan 0c781c6f) | |
+| P5-B2 | PASS | GATE list docs/WFE_P5_B2_GATE_LIST.md; operator decisions 2026-10-18: G1 gemma4:26b-a4b seats auto-documents (327b4e06, head-to-head from campaign h rows: tie 108/108, ~5.5x faster), G3 HOLD, G4 KEEP, G5 KEEP; auto-math glm-4.7-flash (538a38b7); live turns verified on build 327b4e06 | 2026-10-18 |
 | P5-C1 | PENDING | | |
 | P5-C2 | PENDING | | |
 | P5-C3 | PENDING | | |
