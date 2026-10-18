@@ -10,12 +10,14 @@ parallel three-reviewer council. ``early_quorum`` stops once the coded rule
 can no longer change. ``single_model`` keeps each role's prompt and a separate
 call, on one resident model. ``progress`` streams a verdict line per seat
 before synthesis. ``decompose`` settles obvious claims on a small model and
-sends only the unsettled ones to the big seats.
+sends only the unsettled ones to the big seats. An authenticated request
+may override that block for one call with ``portal_council_config``.
 """
 
 from __future__ import annotations
 
 import asyncio
+import copy
 import itertools
 import json
 import logging
@@ -1120,6 +1122,148 @@ async def _collect_opinions(
     )
 
 
+class CouncilConfigError(ValueError):
+    """``portal_council_config`` is present and not a legal per-request override."""
+
+
+_SPEED_BOOLS = ("early_quorum", "single_model", "progress", "decompose")
+_SPEED_STRINGS = ("single_model_model", "decompose_model")
+_OVERRIDE_TOP_LEVEL = frozenset((*_SPEED_BOOLS, *_SPEED_STRINGS, "synthesizer_model", "members"))
+_MEMBER_FIELDS = frozenset({"model", "max_tokens", "reasoning_max_tokens", "think"})
+
+
+def _reject_unknown_keys(keys: set[str], allowed: frozenset[str], where: str) -> None:
+    extra = sorted(keys - allowed)
+    if extra:
+        raise CouncilConfigError(f"{where} has unknown keys: {', '.join(extra)}")
+
+
+def _expect_bool(value: Any, where: str) -> bool:
+    if not isinstance(value, bool):
+        raise CouncilConfigError(f"{where} must be a boolean")
+    return value
+
+
+def _expect_model_name(value: Any, where: str) -> str:
+    if not isinstance(value, str) or not value.strip():
+        raise CouncilConfigError(f"{where} must be a non-empty string")
+    return value
+
+
+def _expect_int(value: Any, where: str, minimum: int) -> int:
+    if isinstance(value, bool) or not isinstance(value, int) or value < minimum:
+        raise CouncilConfigError(f"{where} must be an integer >= {minimum}")
+    return value
+
+
+def _validate_member_patch(seat_id: str, patch: Any) -> dict[str, Any]:
+    where = f"portal_council_config.members.{seat_id}"
+    if not isinstance(patch, dict):
+        raise CouncilConfigError(f"{where} must be an object")
+    _reject_unknown_keys(set(patch), _MEMBER_FIELDS, where)
+    if not patch:
+        names = ", ".join(sorted(_MEMBER_FIELDS))
+        raise CouncilConfigError(f"{where} must set at least one of {names}")
+    cleaned: dict[str, Any] = {}
+    if "model" in patch:
+        cleaned["model"] = _expect_model_name(patch["model"], f"{where}.model")
+    if "max_tokens" in patch:
+        cleaned["max_tokens"] = _expect_int(patch["max_tokens"], f"{where}.max_tokens", 64)
+    if "reasoning_max_tokens" in patch:
+        cleaned["reasoning_max_tokens"] = _expect_int(
+            patch["reasoning_max_tokens"], f"{where}.reasoning_max_tokens", 0
+        )
+    if "think" in patch:
+        cleaned["think"] = _expect_bool(patch["think"], f"{where}.think")
+    return cleaned
+
+
+def _validate_council_override(raw: Any, seat_ids: set[str]) -> dict[str, Any]:
+    """Check the request override. Unknown keys are an error, not a silent drop."""
+    if not isinstance(raw, dict):
+        raise CouncilConfigError("portal_council_config must be an object")
+    _reject_unknown_keys(set(raw), _OVERRIDE_TOP_LEVEL, "portal_council_config")
+    cleaned: dict[str, Any] = {}
+    for key in _SPEED_BOOLS:
+        if key in raw:
+            cleaned[key] = _expect_bool(raw[key], f"portal_council_config.{key}")
+    for key in (*_SPEED_STRINGS, "synthesizer_model"):
+        if key in raw:
+            cleaned[key] = _expect_model_name(raw[key], f"portal_council_config.{key}")
+    if "members" not in raw:
+        return cleaned
+    members = raw["members"]
+    if not isinstance(members, dict):
+        raise CouncilConfigError("portal_council_config.members must be an object keyed by seat id")
+    unknown_seats = sorted(set(members) - seat_ids)
+    if unknown_seats:
+        raise CouncilConfigError(
+            "portal_council_config.members has unknown seat: " + ", ".join(unknown_seats)
+        )
+    cleaned["members"] = {
+        str(seat_id): _validate_member_patch(str(seat_id), members[seat_id]) for seat_id in members
+    }
+    return cleaned
+
+
+def _applied_view(
+    council: dict[str, Any], member_override: dict[str, Any] | None
+) -> dict[str, Any]:
+    """Flat effective config, using the request's key names so an echo can match."""
+    speed = _speed_flags(council)
+    applied: dict[str, Any] = {
+        "early_quorum": speed["early_quorum"],
+        "single_model": speed["single_model"],
+        "single_model_model": speed["resident_model"],
+        "progress": speed["progress"],
+        "decompose": speed["decompose"],
+        "decompose_model": speed["decompose_model"],
+        "synthesizer_model": str(council.get("synthesizer_model") or ""),
+    }
+    if member_override is not None:
+        applied["members"] = member_override
+    return applied
+
+
+def prepare_council_request(council: dict[str, Any], body: dict[str, Any]) -> dict[str, Any]:
+    """Merge ``portal_council_config`` over one request's council block.
+
+    No key returns ``council`` unchanged. A legal override returns a deep copy
+    and stashes the effective config on ``_applied_config`` for the result
+    metadata. The chat handler is the only caller, and it already required the
+    pipeline API key.
+
+    Request keys: ``early_quorum``, ``single_model``, ``single_model_model``,
+    ``progress``, ``decompose``, ``decompose_model``, ``synthesizer_model``,
+    and ``members`` keyed by seat id (``model``, ``max_tokens``,
+    ``reasoning_max_tokens``, ``think``). ``single_model_model`` is the
+    resident model.
+    """
+    if "portal_council_config" not in body:
+        return council
+    seat_ids = {str(member.get("id", "")) for member in council.get("members") or []}
+    override = _validate_council_override(body.get("portal_council_config"), seat_ids)
+    merged = copy.deepcopy(council)
+    speed = dict(merged.get("speed") or {})
+    for key in _SPEED_BOOLS:
+        if key in override:
+            speed[key] = override[key]
+    if "single_model_model" in override:
+        speed["resident_model"] = override["single_model_model"]
+    if "decompose_model" in override:
+        speed["decompose_model"] = override["decompose_model"]
+    merged["speed"] = speed
+    if "synthesizer_model" in override:
+        merged["synthesizer_model"] = override["synthesizer_model"]
+    member_override = override.get("members")
+    if member_override:
+        by_id = {str(member.get("id", "")): member for member in merged.get("members") or []}
+        for seat_id, patch in member_override.items():
+            by_id[seat_id].update(patch)
+    merged["_applied_config"] = _applied_view(merged, member_override)
+    return merged
+
+
 async def run_council_review(
     body: dict[str, Any],
     council: dict[str, Any],
@@ -1130,6 +1274,8 @@ async def run_council_review(
 ) -> CouncilCompletion:
     """Run isolated reviewers, aggregate in code, and synthesize one answer."""
     started = time.monotonic()
+    # Set only on a per-request copy. Pop so it never leaks into a seat prompt.
+    applied_config = council.pop("_applied_config", None)
     speed = _speed_flags(council)
     members = _seat_members(council, speed)
     review_material = _render_review_material(body.get("messages") or [])
@@ -1239,6 +1385,8 @@ async def run_council_review(
             "timings": timings,
         },
     }
+    if applied_config is not None:
+        data["portal_council"]["applied_config"] = applied_config
     return CouncilCompletion(
         data=data,
         backend_id=synth.backend_id,

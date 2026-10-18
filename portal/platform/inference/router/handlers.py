@@ -40,6 +40,8 @@ from portal.platform.inference.router.context_inject import (
 )
 from portal.platform.inference.router.correlation import get_correlation_id
 from portal.platform.inference.router.council import (
+    CouncilConfigError,
+    prepare_council_request,
     run_council_review,
     stream_council_review,
 )
@@ -699,6 +701,12 @@ async def _dispatch_council(
     council_cfg = WORKSPACES.get(workspace_id, {}).get("council")
     if not council_cfg:
         return None
+    # This handler is only reached after _verify_key, so a per-request council
+    # override is limited to authenticated pipeline callers.
+    try:
+        council_cfg = prepare_council_request(council_cfg, body)
+    except CouncilConfigError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
     logger.info(
         "Council routing: workspace=%s reviewers=%d stream=%s",
         workspace_id,

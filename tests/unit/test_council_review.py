@@ -6,6 +6,7 @@ import asyncio
 import json
 
 import pytest
+from fastapi import HTTPException
 from starlette.requests import Request
 
 import portal.platform.inference.router.council as council_mod
@@ -475,3 +476,70 @@ async def test_chat_handler_short_circuits_primary_model_for_council(
     assert response.status_code == 200
     assert calls == ["auto-council"]
     assert json.loads(response.body)["choices"][0]["message"]["content"].endswith("REVISE**")
+
+
+def _chat_request(payload: dict) -> Request:
+    raw = json.dumps(payload).encode()
+    sent = False
+
+    async def receive() -> dict:
+        nonlocal sent
+        if sent:
+            return {"type": "http.disconnect"}
+        sent = True
+        return {"type": "http.request", "body": raw, "more_body": False}
+
+    return Request(
+        {
+            "type": "http",
+            "method": "POST",
+            "path": "/v1/chat/completions",
+            "query_string": b"",
+            "headers": [(b"content-length", str(len(raw)).encode())],
+        },
+        receive,
+    )
+
+
+@pytest.mark.asyncio
+async def test_chat_handler_rejects_an_unknown_council_override(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    import portal.platform.inference.router.handlers as handlers
+
+    class FakeRequestSlot:
+        async def acquire_global(self) -> None:
+            return None
+
+        async def acquire_api_key(self, _api_key: str) -> None:
+            return None
+
+        async def acquire_workspace(self, _workspace_id: str) -> None:
+            return None
+
+        def mark_active(self) -> None:
+            return None
+
+        def release_if_attached(self) -> None:
+            return None
+
+    monkeypatch.setattr(handlers, "_verify_key", lambda _authorization: None)
+    monkeypatch.setattr(handlers, "registry", _Registry())
+    monkeypatch.setattr(handlers, "RequestSlot", FakeRequestSlot)
+    monkeypatch.setattr(
+        handlers,
+        "run_council_review",
+        lambda *_args, **_kwargs: pytest.fail("rejected override must not run"),
+    )
+    request = _chat_request(
+        {
+            "model": "auto-council",
+            "stream": False,
+            "messages": [{"role": "user", "content": "Review this proposal."}],
+            "portal_council_config": {"mode": "early_quorum"},
+        }
+    )
+    with pytest.raises(HTTPException) as caught:
+        await handlers.chat_completions(request, authorization="Bearer test")
+    assert caught.value.status_code == 400
+    assert "unknown keys: mode" in str(caught.value.detail)

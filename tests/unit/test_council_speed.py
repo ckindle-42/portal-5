@@ -9,9 +9,11 @@ import pytest
 import portal.platform.inference.router.council as council_mod
 from portal.platform.inference.cluster_backends import Backend
 from portal.platform.inference.router.council import (
+    CouncilConfigError,
     CouncilOpinion,
     claim_disposition,
     decision_from_settled,
+    prepare_council_request,
     run_council_review,
     stream_council_review,
     votes_decide_outcome,
@@ -717,7 +719,7 @@ async def test_per_seat_output_and_thinking_budgets(
     assert by_model["operator-model"]["think"] is True
 
 
-def test_production_speed_defaults_match_today_and_short_seats() -> None:
+def test_production_speed_defaults_leave_seat_budgets_unset() -> None:
     council = WORKSPACES["auto-council"]["council"]
     speed = council["speed"]
     assert speed["early_quorum"] is False
@@ -727,9 +729,152 @@ def test_production_speed_defaults_match_today_and_short_seats() -> None:
     assert speed["decompose_model"] == "granite4.1:8b-ctx16k"
     assert "resident_model" not in speed
     by_id = {member["id"]: member for member in council["members"]}
-    assert by_id["evidence"]["max_tokens"] == 1024
-    assert by_id["evidence"]["think"] is False
-    assert by_id["challenger"]["max_tokens"] == 1024
-    assert by_id["challenger"]["think"] is False
-    assert "max_tokens" not in by_id["operator"]
+    for seat in ("evidence", "challenger", "operator"):
+        assert "max_tokens" not in by_id[seat]
+        assert "reasoning_max_tokens" not in by_id[seat]
+        assert "think" not in by_id[seat]
     assert council["reviewer_max_tokens"] == 8192
+
+
+def _echo_applied(payload: dict, override: dict) -> bool:
+    """Same check the council bench uses for portal_council.applied_config."""
+    portal = payload.get("portal_council")
+    if not isinstance(portal, dict):
+        return False
+    bucket = portal.get("applied_config")
+    if not isinstance(bucket, dict):
+        return False
+    return all(bucket.get(key) == value for key, value in override.items())
+
+
+def test_absent_override_returns_the_workspace_block() -> None:
+    council = _council()
+    assert prepare_council_request(council, _body()) is council
+
+
+def test_unknown_override_key_names_itself() -> None:
+    with pytest.raises(CouncilConfigError, match="unknown keys: mode"):
+        prepare_council_request(_council(), {"portal_council_config": {"mode": "early_quorum"}})
+
+
+def test_override_type_and_seat_errors_are_specific() -> None:
+    council = _council()
+    with pytest.raises(CouncilConfigError, match="must be an object"):
+        prepare_council_request(council, {"portal_council_config": ["early_quorum"]})
+    with pytest.raises(CouncilConfigError, match="early_quorum must be a boolean"):
+        prepare_council_request(council, {"portal_council_config": {"early_quorum": "yes"}})
+    with pytest.raises(CouncilConfigError, match="unknown seat: outsider"):
+        prepare_council_request(
+            council,
+            {"portal_council_config": {"members": {"outsider": {"model": "other"}}}},
+        )
+    with pytest.raises(CouncilConfigError, match="unknown keys: temperature"):
+        prepare_council_request(
+            council,
+            {"portal_council_config": {"members": {"evidence": {"temperature": 0.9}}}},
+        )
+    with pytest.raises(CouncilConfigError, match="max_tokens must be an integer >= 64"):
+        prepare_council_request(
+            council,
+            {"portal_council_config": {"members": {"evidence": {"max_tokens": True}}}},
+        )
+
+
+def test_override_merges_one_request_and_leaves_the_workspace_block() -> None:
+    council = _council()
+    original_model = council["members"][0]["model"]
+    override = {
+        "early_quorum": True,
+        "single_model": True,
+        "single_model_model": "resident-model",
+        "progress": False,
+        "decompose": False,
+        "decompose_model": "decompose-model",
+        "synthesizer_model": "other-synth",
+        "members": {
+            "evidence": {"model": "evidence-override", "max_tokens": 128, "think": False},
+            "operator": {"reasoning_max_tokens": 64},
+        },
+    }
+    merged = prepare_council_request(council, {"portal_council_config": override})
+    assert merged is not council
+    assert council["members"][0]["model"] == original_model
+    assert "max_tokens" not in council["members"][0]
+    assert merged["synthesizer_model"] == "other-synth"
+    assert merged["speed"]["early_quorum"] is True
+    assert merged["speed"]["resident_model"] == "resident-model"
+    assert merged["speed"]["decompose_model"] == "decompose-model"
+    evidence = next(member for member in merged["members"] if member["id"] == "evidence")
+    assert evidence["model"] == "evidence-override"
+    assert evidence["max_tokens"] == 128
+    assert evidence["think"] is False
+    operator = next(member for member in merged["members"] if member["id"] == "operator")
+    assert operator["model"] == "operator-model"
+    assert operator["reasoning_max_tokens"] == 64
+    assert _echo_applied(
+        {"portal_council": {"applied_config": merged["_applied_config"]}}, override
+    )
+
+
+@pytest.mark.asyncio
+async def test_request_override_is_what_the_seats_run_and_what_is_echoed(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    engine = _Engine({"resident-model": _vote("SUPPORT"), "synth": _SYNTH})
+    monkeypatch.setattr(council_mod, "_http_client", engine)
+    override = {"single_model": True, "single_model_model": "resident-model"}
+    merged = prepare_council_request(_council(), {"portal_council_config": override})
+    completion = await run_council_review(
+        _body(),
+        merged,
+        registry=_Registry(),
+        workspace_id="auto-council",
+    )
+    reviewer_models = {call["model"] for call in engine.calls if call["model"] != "synth"}
+    assert reviewer_models == {"resident-model"}
+    assert _echo_applied(completion.data, override)
+
+    plain = _Engine(
+        {
+            "evidence-model": _vote("SUPPORT"),
+            "challenger-model": _vote("SUPPORT"),
+            "operator-model": _vote("SUPPORT"),
+            "synth": _SYNTH,
+        }
+    )
+    monkeypatch.setattr(council_mod, "_http_client", plain)
+    untouched = await run_council_review(
+        _body(),
+        _council(),
+        registry=_Registry(),
+        workspace_id="auto-council",
+    )
+    assert "applied_config" not in untouched.data["portal_council"]
+
+
+@pytest.mark.asyncio
+async def test_request_seat_budget_reaches_the_payload(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    engine = _Engine(
+        {
+            "evidence-model": _vote("SUPPORT"),
+            "challenger-model": _vote("SUPPORT"),
+            "operator-model": _vote("SUPPORT"),
+            "synth": _SYNTH,
+        }
+    )
+    monkeypatch.setattr(council_mod, "_http_client", engine)
+    override = {"members": {"challenger": {"max_tokens": 256, "think": False}}}
+    merged = prepare_council_request(_council(), {"portal_council_config": override})
+    completion = await run_council_review(
+        _body(),
+        merged,
+        registry=_Registry(),
+        workspace_id="auto-council",
+    )
+    by_model = {call["model"]: call for call in engine.calls}
+    assert by_model["challenger-model"]["max_tokens"] == 256
+    assert by_model["challenger-model"]["think"] is False
+    assert by_model["evidence-model"]["max_tokens"] == 8192
+    assert _echo_applied(completion.data, override)
