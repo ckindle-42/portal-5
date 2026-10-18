@@ -439,16 +439,22 @@ def _apply_reasoning_rewrite(
 
 
 async def _rescue_empty_hop(
-    backend_url: str, body: dict[str, Any]
+    backend_url: str,
+    body: dict[str, Any],
+    workspace_id: str = "unknown",
+    model: str = "unknown",
 ) -> tuple[str, list[dict[str, Any]]]:
     """P-1: re-issue a streamed tool-loop hop that ended with no content and no tool
     call, non-streamed. oMLX's streaming tool parser drops a malformed ``<tool_call>``
     (one extra brace) and returns empty content, while the non-streamed reply keeps the
     text, from which ``salvage_text_tool_calls`` recovers the call.
     Returns ``(answer_text, tool_calls)``; both empty when the retry has nothing."""
+    started = time.monotonic()
     try:
         r = await _http_client.post(backend_url, json={**body, "stream": False})  # type: ignore[union-attr]
-        data = r.json() if r.status_code == 200 else {}
+        if r.status_code != 200:
+            return "", []
+        data = r.json()
     except Exception as e:  # noqa: BLE001 — a failed rescue falls back to the no-answer path
         logger.warning("Empty-hop rescue against %s failed: %s", backend_url, e)
         return "", []
@@ -456,9 +462,49 @@ async def _rescue_empty_hop(
     calls = list(msg.get("tool_calls") or [])
     text = re.sub(r"<think>.*?</think>", "", str(msg.get("content") or ""), flags=re.S).strip()
     if not calls and text and body.get("tools"):
-        before, calls = salvage_text_tool_calls(text, body.get("tools"))
+        _, calls = salvage_text_tool_calls(text, body.get("tools"))
         text = "" if calls else text
+    measured: dict[str, Any] = {
+        "total_s": max(0.0, time.monotonic() - started),
+        "tool_turn": bool(calls),
+    }
+    if calls:
+        measured.update(answer_tokens=0, answer_s=0)
+    from portal.platform.inference.router.power import _record_usage
+
+    _record_usage(
+        model=data.get("model") or body.get("model") or model,
+        workspace=workspace_id,
+        data=data,
+        **usage_metric_kwargs(data, measured),
+    )
+    trace_note(portal_timings=add_model_turn(data, measured))
     return text, calls
+
+
+def _record_tool_loop_turn(
+    measurement: StreamMeasurement,
+    workspace_id: str,
+    model: str,
+    *,
+    tool_turn: bool,
+) -> None:
+    """Record one completed engine call from the streaming tool loop."""
+    measured = measurement.result()
+    if tool_turn:
+        measured["tool_turn"] = True
+        measured["answer_tokens"] = 0
+        measured["answer_s"] = 0
+    engine_data = measurement.engine_data
+    from portal.platform.inference.router.power import _record_usage
+
+    _record_usage(
+        model=engine_data.get("model") or model,
+        workspace=workspace_id,
+        data=engine_data,
+        **usage_metric_kwargs(engine_data, measured),
+    )
+    trace_note(portal_timings=add_model_turn(engine_data, measured))
 
 
 async def _dispatch_hop_tool_calls(
@@ -667,6 +713,7 @@ async def _tool_loop_frames(
 
         # Accumulators for this iteration
         tool_calls_buf: list[dict[str, Any]] = []
+        _timing_measurement = StreamMeasurement()
         finish_reason: str | None = None
         _content_emitted: bool = False  # substantive answer bytes reached client
         _reasoning_seen = False
@@ -778,6 +825,7 @@ async def _tool_loop_frames(
                         except Exception:
                             yield (line + "\n\n").encode()
                             continue
+                        timing_frame = obj
                         if isinstance(obj.get("usage"), dict):
                             check_truncation(
                                 current_body.get("model", ""),
@@ -792,6 +840,7 @@ async def _tool_loop_frames(
                         )
 
                         if delta.get("tool_calls"):
+                            _timing_measurement.observe(timing_frame)
                             _accumulate_tool_calls(delta["tool_calls"], tool_calls_buf)
                             # Some backends send tool_calls + finish_reason in
                             # the same final chunk — capture finish_reason here
@@ -806,6 +855,7 @@ async def _tool_loop_frames(
                             finish_reason = _frame_finish
                             if finish_reason == "tool_calls":
                                 # Suppress finish_reason=tool_calls chunk too
+                                _timing_measurement.observe(timing_frame)
                                 continue
                             # Emit terminal finish only after final content/error.
                             choice = dict(choice, finish_reason=None)
@@ -818,6 +868,7 @@ async def _tool_loop_frames(
                             _shown = _holdback.feed(_ct)
                             if _shown != _ct:
                                 if not _shown:
+                                    _timing_measurement.observe(timing_frame)
                                     continue
                                 delta = dict(delta, content=_shown)
                                 choice = dict(choice, delta=delta)
@@ -839,6 +890,15 @@ async def _tool_loop_frames(
                             obj,
                             _thinking_allowed,
                             _think_filter,
+                        )
+                        _timing_measurement.observe(
+                            timing_frame,
+                            visible_content=_visible,
+                            content_override=isinstance(delta.get("content"), str),
+                            inline_reasoning=(
+                                isinstance(delta.get("content"), str)
+                                and _visible != delta.get("content")
+                            ),
                         )
                         if _rewrite_chunk is not None:
                             for _f in _route(_held_frames, _rewrite_chunk):
@@ -961,6 +1021,19 @@ async def _tool_loop_frames(
                 yield _f
             _content_emitted = _content_emitted or bool(_tail.strip())
 
+        _discarded_answer = (
+            _held_frames is not None
+            and finish_reason != "tool_calls"
+            and not tool_calls_buf
+            and _content_emitted
+        )
+        _record_tool_loop_turn(
+            _timing_measurement,
+            workspace_id,
+            current_body.get("model", model),
+            tool_turn=finish_reason == "tool_calls" or bool(tool_calls_buf) or _discarded_answer,
+        )
+
         # P-1: an empty hop with tools offered gets one non-streamed retry before the
         # no-answer placeholder: the streamed parser may have dropped a malformed call.
         if (
@@ -969,7 +1042,9 @@ async def _tool_loop_frames(
             and current_body.get("tools")
             and not (_reasoning_seen or _think_filter.removed)
         ):
-            _rtext, _rcalls = await _rescue_empty_hop(backend_url, current_body)
+            _rtext, _rcalls = await _rescue_empty_hop(
+                backend_url, current_body, workspace_id, current_body.get("model", model)
+            )
             if _rcalls:
                 logger.info("Tool loop hop %d: empty stream rescued %d call(s)", hop, len(_rcalls))
                 _tool_calls_recovered.labels(workspace=workspace_id).inc(len(_rcalls))

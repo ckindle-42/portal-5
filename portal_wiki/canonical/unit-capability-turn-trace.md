@@ -61,13 +61,17 @@ The record's top-level `portal_timings` object carries request-level
 the engine reports a completion total without a reasoning split, the pipeline
 apportions that total by phase delta counts, or by character counts when deltas
 are unavailable. Model-call timing is accumulated across tool-loop hops, while
-tool dispatch stays in `tool_s`. Streaming clients receive the same object in a
-metadata-only chunk immediately before `[DONE]`; a non-streaming response
-carries it in the body. Engine timing fields are marked `engine`, and
+tool dispatch stays in `tool_s`. Both the non-streaming and streaming tool loops
+record each engine round, including the tool-call response and final synthesis;
+the final round supplies the answer split. Streaming clients receive the same
+object in a metadata-only chunk immediately before `[DONE]`; a non-streaming
+response carries it in the body. Engine timing fields are marked `engine`, and
 stream-derived timing fields are marked `measured`.
-Per-model-call usage metrics receive the same timing rollup: generation duration and TTFT retain
-engine provenance when supplied, stream-derived decode and TTFT are marked measured, and tool
-dispatch time is excluded from decode and answer durations.
+
+Per-model-call usage metrics receive timings for every engine round:
+generation duration and TTFT retain engine provenance when supplied,
+stream-derived decode and TTFT are marked measured, and tool dispatch time is
+excluded from decode and answer durations.
 
 ## Why
 

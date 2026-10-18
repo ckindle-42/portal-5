@@ -9,8 +9,15 @@ from types import SimpleNamespace
 import pytest
 
 from portal.platform.inference.ollama_native import native_stream_to_sse, to_openai_completion
-from portal.platform.inference.router import non_streaming
+from portal.platform.inference.router import non_streaming, streaming
 from portal.platform.inference.router.handlers import _with_portal_timings
+from portal.platform.inference.router.metrics import (
+    _answer_seconds,
+    _answer_tokens,
+    _decode_seconds,
+    _decode_tokens,
+    _ttft_seconds,
+)
 from portal.platform.inference.router.trace import (
     StreamMeasurement,
     TurnTrace,
@@ -287,4 +294,322 @@ def test_trace_record_exposes_timing_metadata():
     assert trace.to_dict()["portal_timings"] == {
         "prefill_s": 1.0,
         "timing_source": "engine",
+    }
+
+
+def _metric_value(metric, **labels):
+    return float(metric.labels(**labels)._value.get())
+
+
+def _metric_sum(metric, **labels):
+    return float(metric.labels(**labels)._sum.get())
+
+
+class _StreamResponse:
+    status_code = 200
+
+    def __init__(self, lines):
+        self.lines = lines
+
+    async def aiter_lines(self):
+        for line in self.lines:
+            yield line
+
+
+class _StreamContext:
+    def __init__(self, response):
+        self.response = response
+
+    async def __aenter__(self):
+        return self.response
+
+    async def __aexit__(self, *_args):
+        return None
+
+
+class _StreamClient:
+    def __init__(self, responses):
+        self.responses = list(responses)
+
+    def stream(self, *_args, **_kwargs):
+        return _StreamContext(self.responses.pop(0))
+
+
+def _sse(payload):
+    return "data: " + json.dumps(payload, separators=(",", ":"))
+
+
+def _tool_call_frame():
+    return _sse(
+        {
+            "choices": [
+                {
+                    "delta": {
+                        "tool_calls": [
+                            {
+                                "index": 0,
+                                "id": "call-timing-1",
+                                "type": "function",
+                                "function": {"name": "lookup", "arguments": "{}"},
+                            }
+                        ]
+                    },
+                    "finish_reason": None,
+                }
+            ]
+        }
+    )
+
+
+def _tool_turn_usage():
+    return _sse(
+        {
+            "choices": [],
+            "usage": {
+                "prompt_tokens": 22,
+                "completion_tokens": 20,
+                "completion_tokens_details": {"reasoning_tokens": 12},
+                "time_to_first_token": 0.15,
+                "prompt_eval_duration": 0.25,
+                "generation_duration": 0.5,
+                "total_time": 0.8,
+            },
+        }
+    )
+
+
+def _answer_turn_usage():
+    return _sse(
+        {
+            "choices": [],
+            "usage": {
+                "prompt_tokens": 25,
+                "completion_tokens": 40,
+                "time_to_first_token": 0.2,
+                "prompt_eval_duration": 0.3,
+                "generation_duration": 0.6,
+                "total_time": 0.95,
+            },
+        }
+    )
+
+
+@pytest.mark.anyio
+async def test_stream_tool_loop_accumulates_each_round_and_records_timing_metrics(monkeypatch):
+    model, workspace = "timing-stream-tool-model", "timing-stream-tool-ws"
+    start_timings()
+    monkeypatch.setattr(
+        streaming,
+        "_http_client",
+        _StreamClient(
+            [
+                _StreamResponse(
+                    [
+                        _sse(
+                            {
+                                "choices": [
+                                    {
+                                        "delta": {"reasoning": "thinking"},
+                                        "finish_reason": None,
+                                    }
+                                ]
+                            }
+                        ),
+                        _tool_call_frame(),
+                        _sse({"choices": [{"delta": {}, "finish_reason": "tool_calls"}]}),
+                        _tool_turn_usage(),
+                        "data: [DONE]",
+                    ]
+                ),
+                _StreamResponse(
+                    [
+                        _sse(
+                            {
+                                "choices": [
+                                    {
+                                        "delta": {"content": "visible answer " * 40},
+                                        "finish_reason": None,
+                                    }
+                                ]
+                            }
+                        ),
+                        _sse({"choices": [{"delta": {}, "finish_reason": "stop"}]}),
+                        _answer_turn_usage(),
+                        "data: [DONE]",
+                    ]
+                ),
+            ]
+        ),
+    )
+
+    async def dispatch(*args, **kwargs):
+        add_tool_time(2.5)
+        calls = args[0]
+        return (
+            {"role": "assistant", "content": None, "tool_calls": calls},
+            [{"role": "tool", "tool_call_id": "call-timing-1", "name": "lookup", "content": "ok"}],
+        )
+
+    monkeypatch.setattr(streaming, "_dispatch_hop_tool_calls", dispatch)
+    response = streaming._tool_loop_frames(
+        "http://recorded-engine/v1/chat/completions",
+        {
+            "model": model,
+            "stream": True,
+            "messages": [{"role": "user", "content": "lookup this"}],
+            "tools": [{"type": "function", "function": {"name": "lookup"}}],
+        },
+        workspace,
+        model,
+        "",
+        {"lookup"},
+    )
+    chunks = [chunk async for chunk in _with_portal_timings(response)]
+    timing_frame = next(
+        json.loads(line[6:])
+        for chunk in chunks
+        for line in chunk.decode().splitlines()
+        if line.startswith("data: ")
+        and line[6:] != "[DONE]"
+        and "portal_timings" in json.loads(line[6:])
+    )
+    timings = timing_frame["portal_timings"]
+    labels = {"model": model, "workspace": workspace, "source": "engine"}
+
+    assert timings["prefill_s"] == pytest.approx(0.55)
+    assert timings["ttft_s"] == pytest.approx(0.15)
+    assert timings["reasoning_tokens"] == 12
+    assert timings["answer_tokens"] == 40
+    assert timings["answer_s"] == pytest.approx(0.6)
+    assert timings["total_s"] == pytest.approx(1.75)
+    assert timings["tool_s"] == pytest.approx(2.5)
+    assert timings["timing_source"] == "engine"
+    assert _metric_value(_decode_tokens, **labels) == 60
+    assert _metric_value(_decode_seconds, **labels) == pytest.approx(1.1)
+    assert _metric_value(_answer_tokens, **labels) == 40
+    assert _metric_value(_answer_seconds, **labels) == pytest.approx(0.6)
+    assert _metric_sum(_ttft_seconds, **labels) == pytest.approx(0.35)
+
+
+class _JsonResponse:
+    status_code = 200
+    content = b""
+
+    def __init__(self, data):
+        self.data = data
+
+    def raise_for_status(self):
+        return None
+
+    def json(self):
+        return self.data
+
+
+class _NonstreamClient:
+    def __init__(self, responses):
+        self.responses = list(responses)
+
+    async def post(self, *_args, **_kwargs):
+        return _JsonResponse(self.responses.pop(0))
+
+
+@pytest.mark.anyio
+async def test_nonstream_tool_loop_accumulates_each_round_and_records_timing_metrics(
+    monkeypatch,
+):
+    model, workspace = "timing-nonstream-tool-model", "timing-nonstream-tool-ws"
+    start_timings()
+    tool_call = {
+        "id": "call-timing-ns-1",
+        "type": "function",
+        "function": {"name": "lookup", "arguments": "{}"},
+    }
+    first_round = {
+        "model": model,
+        "choices": [{"message": {"role": "assistant", "content": None, "tool_calls": [tool_call]}}],
+        "prompt_eval_count": 18,
+        "eval_count": 20,
+        "prompt_eval_duration": 250_000_000,
+        "eval_duration": 500_000_000,
+        "time_to_first_token": 0.1,
+    }
+    final_round = {
+        "model": model,
+        "choices": [{"message": {"role": "assistant", "content": "visible answer " * 40}}],
+        "prompt_eval_count": 25,
+        "eval_count": 40,
+        "prompt_eval_duration": 300_000_000,
+        "eval_duration": 600_000_000,
+        "time_to_first_token": 0.2,
+    }
+    monkeypatch.setattr(non_streaming, "_http_client", _NonstreamClient([first_round, final_round]))
+    monkeypatch.setattr(non_streaming, "_resolve_persona_tools", lambda *_args: ["lookup"])
+    monkeypatch.setattr(non_streaming, "_model_supports_tools", lambda _model: True)
+    monkeypatch.setattr(non_streaming, "_inject_ollama_options", lambda body, _workspace: body)
+    monkeypatch.setattr(non_streaming, "_select_explicit_required_tool", lambda *_args: None)
+    monkeypatch.setattr(
+        non_streaming,
+        "_dispatch_tool_call",
+        lambda *_args, **_kwargs: _dispatch_tool_result(tool_call),
+    )
+    from portal.platform.inference.tool_registry import tool_registry
+
+    async def refresh():
+        return None
+
+    monkeypatch.setattr(tool_registry, "refresh", refresh)
+    monkeypatch.setattr(
+        tool_registry,
+        "get_openai_tools",
+        lambda _names: [{"type": "function", "function": {"name": "lookup"}}],
+    )
+
+    async def make_room(*_args):
+        return None
+
+    monkeypatch.setattr(
+        "portal.platform.inference.router.backend_introspect.make_room_for_omlx", make_room
+    )
+    monkeypatch.setattr(non_streaming, "registry", None)
+    monkeypatch.setattr(
+        "portal.platform.inference.router.context_inject.schedule_writeback", lambda *_args: None
+    )
+    monkeypatch.setitem(non_streaming.WORKSPACES, workspace, {})
+    backend = SimpleNamespace(
+        id="recorded-ollama",
+        type="ollama",
+        chat_url="http://recorded-engine/v1/chat/completions",
+        models=[model],
+        resolve_model=lambda _hint: None,
+    )
+    response = await non_streaming._try_non_streaming(
+        backend,
+        {"messages": [{"role": "user", "content": "lookup this"}], "tool_choice": "auto"},
+        workspace,
+        time.monotonic(),
+    )
+    body = json.loads(response.body)
+    timings = body["portal_timings"]
+    labels = {"model": model, "workspace": workspace, "source": "engine"}
+
+    assert timings["prefill_s"] == pytest.approx(0.55)
+    assert timings["ttft_s"] == pytest.approx(0.1)
+    assert timings["answer_tokens"] == 40
+    assert timings["answer_s"] == pytest.approx(0.6)
+    assert timings["tool_s"] == pytest.approx(2.5)
+    assert timings["timing_source"] == "engine"
+    assert _metric_value(_decode_tokens, **labels) == 60
+    assert _metric_value(_decode_seconds, **labels) == pytest.approx(1.1)
+    assert _metric_value(_answer_tokens, **labels) == 40
+    assert _metric_value(_answer_seconds, **labels) == pytest.approx(0.6)
+    assert _metric_sum(_ttft_seconds, **labels) == pytest.approx(0.3)
+
+
+async def _dispatch_tool_result(tool_call):
+    add_tool_time(2.5)
+    return {
+        "role": "tool",
+        "tool_call_id": tool_call["id"],
+        "name": "lookup",
+        "content": "ok",
     }
