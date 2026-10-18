@@ -58,8 +58,15 @@ if [ "$HTTP_CODE" != "200" ]; then
     exit 1
 fi
 
-CHUNK_COUNT=$(grep -c '^data: {' "$_tmpfile" 2>/dev/null || echo 0)
-HAS_DONE=$(grep -c '^data: \[DONE\]' "$_tmpfile" 2>/dev/null || echo 0)
+# `grep -c` prints its count (0 included) and exits 1 when nothing matches, so
+# `|| echo 0` appended a second line: HAS_DONE became "0\n0" and the `-lt` test
+# raised "integer expression expected" instead of the intended FAIL. `|| true`
+# keeps the substitution non-fatal without adding output; the `:-0` guard covers
+# an unreadable file (grep then prints no count at all).
+CHUNK_COUNT=$(grep -c '^data: {' "$_tmpfile" 2>/dev/null || true)
+CHUNK_COUNT=${CHUNK_COUNT:-0}
+HAS_DONE=$(grep -c '^data: \[DONE\]' "$_tmpfile" 2>/dev/null || true)
+HAS_DONE=${HAS_DONE:-0}
 
 # Condition 3: reject error envelopes (FX1 failure mode — pipeline emits
 # data: {"error": "..."} then [DONE]; previously passed the gate incorrectly)
@@ -95,6 +102,7 @@ if ! grep -qE '"(content|reasoning)"[[:space:]]*:[[:space:]]*"[^"]' "$_tmpfile" 
     exit 1
 fi
 
-CONTENT_CHUNKS=$(grep -cE '"(content|reasoning)"[[:space:]]*:[[:space:]]*"[^"]' "$_tmpfile" 2>/dev/null || echo 0)
+CONTENT_CHUNKS=$(grep -cE '"(content|reasoning)"[[:space:]]*:[[:space:]]*"[^"]' "$_tmpfile" 2>/dev/null || true)
+CONTENT_CHUNKS=${CONTENT_CHUNKS:-0}
 echo "PASS — $CHUNK_COUNT SSE chunk(s), $CONTENT_CHUNKS with token delta(s), [DONE] received"
 exit 0

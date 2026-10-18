@@ -57,6 +57,9 @@ class Case:
     expect: str = ""  # regex the answer must match (empty: the tool outcome is the check)
     skip: str = ""  # reason this tool is not called in a smoke
     create: bool = False
+    # Production has one KB with zero chunks ('smoketest'): there is nothing to search, so a
+    # model that calls kb_list and answers from that empty list is correct (finding F).
+    expect_empty_kb: bool = False
 
 
 CASES: list[Case] = [
@@ -93,8 +96,16 @@ CASES: list[Case] = [
     Case("web_fetch", "Fetch https://example.com and tell me its page heading.", "Example Domain"),
     Case("news_search", "What is the latest news about NVIDIA?"),
     Case("kb_list", "List my knowledge bases."),
-    Case("kb_search", "Search my knowledge base for compliance and summarize the top result."),
-    Case("kb_search_all", "Search all my knowledge bases for backup and summarize the top result."),
+    Case(
+        "kb_search",
+        "Search my knowledge base for compliance and summarize the top result.",
+        expect_empty_kb=True,
+    ),
+    Case(
+        "kb_search_all",
+        "Search all my knowledge bases for backup and summarize the top result.",
+        expect_empty_kb=True,
+    ),
     Case(
         "remember",
         'Remember that the smoke test code word is "bluefinch". Include the exact id returned by the remember tool in your answer.',
@@ -241,6 +252,9 @@ class Result:
     note: str = ""
     answer: str = ""
     memory_id: str = ""
+    # Correct despite not calling the case tool: an expects-empty-KB case answered from
+    # another kb_* tool that completed ok (finding F).
+    accepted: bool = False
 
 
 def newest_trace(ws: str, since: float) -> dict | None:
@@ -284,11 +298,27 @@ def run_case(ws: str, case: Case) -> Result:
     r.outcome = done.get(case.tool, "-" if not r.called else "no completion")
     if not r.called and called:
         r.note = f"called {sorted(set(called))} instead"
+    if case.expect_empty_kb and not r.called:
+        kb_tool = next(
+            (t for t in ("kb_list", "kb_search", "kb_search_all") if done.get(t) == "ok"), ""
+        )
+        if kb_tool:
+            r.accepted = True
+            r.note = f"correct: no KB has content; answered from {kb_tool}"
     r.answer_ok = (
         "n/a" if not case.expect else ("yes" if re.search(case.expect, msg, re.I) else "NO")
     )
     r.garbage = [name for name, fn in GARBAGE if fn(msg, case)]
     return r
+
+
+def needs_look(r: Result) -> bool:
+    """A row is a finding unless it was skipped or correct by design (empty-KB cases)."""
+    if r.note.startswith("skipped"):
+        return False
+    if r.garbage or r.answer_ok == "NO":
+        return True
+    return not r.accepted and (not r.called or r.outcome not in ("ok", "complete"))
 
 
 def empty_turn(ws: str) -> tuple[int, int]:
@@ -407,14 +437,7 @@ def main() -> int:
     if a.md:
         a.md.write_text(text)
     print("\n" + text)
-    bad = [
-        r
-        for r in results
-        if not r.note.startswith("skipped")
-        and (
-            not r.called or r.answer_ok == "NO" or r.garbage or r.outcome not in ("ok", "complete")
-        )
-    ]
+    bad = [r for r in results if needs_look(r)]
     print(f"{len(bad)} of {len(results)} rows need a look")
     return 0
 
