@@ -380,3 +380,28 @@ def test_note_applied_options_records_post_injection_body():
     assert applied["num_ctx"] == 16384
     assert applied["enable_thinking"] is False
     assert applied["workspace"] == "compliance-reading"
+
+
+def test_applied_options_read_ollama_seat_sampling_from_options():
+    """Ollama seat sampling lives in `options`; the receipt must report it, and a
+    top-level caller value still wins, as it does on the wire."""
+    import portal.platform.inference.router.trace as trace_module
+    from portal.platform.inference.router.validation import _note_applied_options
+
+    seen: dict[str, Any] = {}
+    original = trace_module.note
+    trace_module.note = lambda **fields: seen.update(fields)
+    try:
+        body = {
+            "model": "x",
+            "top_p": 0.5,
+            "options": {"temperature": 0.8, "top_p": 0.95, "repeat_penalty": 1.1, "seed": 7},
+        }
+        _note_applied_options(body, "auto-math")
+    finally:
+        trace_module.note = original
+    applied = seen["options_applied"]
+    assert applied["temperature"] == 0.8
+    assert applied["top_p"] == 0.5
+    assert applied["repetition_penalty"] == 1.1
+    assert applied["seed"] == 7

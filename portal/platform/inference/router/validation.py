@@ -81,16 +81,23 @@ def _note_applied_options(body: dict[str, Any], workspace_id: str) -> None:
         options = body.get("options") or {}
         ctk = body.get("chat_template_kwargs") or {}
         ws_cfg = WORKSPACES.get(workspace_id, {}) if workspace_id else {}
+
+        # Ollama seat sampling is injected into `options`; a top-level value wins
+        # on the wire (ollama_native.to_native_request), so it wins here too.
+        def _applied(key: str, option_key: str | None = None) -> Any:
+            top = body.get(key)
+            return top if top is not None else options.get(option_key or key)
+
         _trace_note(
             options_applied={
                 "workspace": workspace_id,
-                "temperature": body.get("temperature"),
-                "top_p": body.get("top_p"),
-                "top_k": body.get("top_k"),
-                "min_p": body.get("min_p"),
-                "presence_penalty": body.get("presence_penalty"),
-                "repetition_penalty": body.get("repetition_penalty"),
-                "seed": body.get("seed"),
+                "temperature": _applied("temperature"),
+                "top_p": _applied("top_p"),
+                "top_k": _applied("top_k"),
+                "min_p": _applied("min_p"),
+                "presence_penalty": _applied("presence_penalty"),
+                "repetition_penalty": _applied("repetition_penalty", "repeat_penalty"),
+                "seed": _applied("seed"),
                 # Named output_limit, not max_tokens: the trace store's
                 # credential redaction substring-matches "token" and would
                 # redact the applied output budget out of the receipt.
