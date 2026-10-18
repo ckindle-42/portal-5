@@ -214,6 +214,23 @@ _REASONING_EFFORT_PREDICT: dict[str, int] = {
 }
 
 
+# Output cap for a workspace with no predict_limit. Without one, a model that falls
+# into a greedy decode loop streams until the stream hard ceiling (1800 s): seen on
+# tools-specialist granite4.1:8b at temperature 0 (34 KB, wfe_tools_20261018). llama.cpp
+# context-shifts past num_ctx, so the window does not stop it either. Never above the
+# workspace's context_limit.
+_DEFAULT_PREDICT_LIMIT = int(os.environ.get("PORTAL_DEFAULT_PREDICT_LIMIT", "8192"))
+
+
+def _output_cap(ws_cfg_local: dict[str, Any]) -> int:
+    """The workspace's predict_limit, else the default capped at its context window."""
+    explicit = ws_cfg_local.get("predict_limit")
+    if explicit:
+        return int(explicit)
+    ctx = ws_cfg_local.get("context_limit")
+    return min(_DEFAULT_PREDICT_LIMIT, int(ctx)) if ctx else _DEFAULT_PREDICT_LIMIT
+
+
 def _apply_reasoning_effort(body: dict[str, Any]) -> tuple[int, str] | None:
     """Pop ``reasoning_effort`` from ``body`` (mutates in place) and, when it is a
     recognised tier, hard-set ``max_tokens`` to the mapped cap.
@@ -283,9 +300,8 @@ def _inject_ollama_options(body: dict[str, Any], workspace_id: str = "") -> dict
     # reasoning_effort override wins over the workspace's fixed predict_limit
     _effort = _apply_reasoning_effort(body)
     # output token cap — map to top-level max_tokens (OpenAI standard)
-    predict_limit = ws_cfg_local.get("predict_limit")
-    if predict_limit and _effort is None:
-        body.setdefault("max_tokens", predict_limit)
+    if _effort is None:
+        body.setdefault("max_tokens", _output_cap(ws_cfg_local))
 
     # keep_alive: workspace override wins; hard assignment (not setdefault) so
     # bench workspace lifecycle takes precedence over OWUI's own value.
@@ -376,9 +392,8 @@ def _inject_omlx_options(body: dict[str, Any], workspace_id: str = "") -> dict[s
     ws_cfg_local = WORKSPACES.get(workspace_id, {}) if workspace_id else {}
 
     _effort = _apply_reasoning_effort(body)
-    predict_limit = ws_cfg_local.get("predict_limit")
-    if predict_limit and _effort is None:
-        body.setdefault("max_tokens", predict_limit)
+    if _effort is None:
+        body.setdefault("max_tokens", _output_cap(ws_cfg_local))
     if _effort is not None:
         _ctk = dict(body.get("chat_template_kwargs") or {})
         _ctk.setdefault("reasoning_effort", _effort[1])

@@ -17,3 +17,4 @@ lead is on open-web research (BrowseComp, Toolathlon), which this KB-only suite 
 **Recommendation: keep N2-mini.** It's faster, and N2.5 is not separated on the lane's measured
 job. Revisit only if a web-research suite exists. Speed fields are absent on these rows (tool-loop
 timing gap, fixed in T6 f0478a6f after this run), so the comparison uses wall time.
+- auto-research: operator 2026-10-18 confirmed keep Nex-N2-mini (N2.5 not separated, slower).

@@ -405,3 +405,18 @@ def test_applied_options_read_ollama_seat_sampling_from_options():
     assert applied["top_p"] == 0.5
     assert applied["repetition_penalty"] == 1.1
     assert applied["seed"] == 7
+
+
+def test_a_workspace_without_predict_limit_still_gets_an_output_cap(monkeypatch):
+    """No predict_limit used to mean no max_tokens: a greedy loop streamed to the 1800 s
+    ceiling (tools-specialist, wfe_tools_20261018). Default, never above the window."""
+    from portal.platform.inference.router import validation
+
+    monkeypatch.setitem(validation.WORKSPACES, "ws-nocap", {"context_limit": 4096})
+    monkeypatch.setitem(validation.WORKSPACES, "ws-wide", {"context_limit": 65536})
+    monkeypatch.setitem(validation.WORKSPACES, "ws-own", {"predict_limit": 2048})
+    for inject in (validation._inject_ollama_options, validation._inject_omlx_options):
+        assert inject({"model": "x"}, "ws-nocap")["max_tokens"] == 4096
+        assert inject({"model": "x"}, "ws-wide")["max_tokens"] == validation._DEFAULT_PREDICT_LIMIT
+        assert inject({"model": "x"}, "ws-own")["max_tokens"] == 2048
+        assert inject({"model": "x", "max_tokens": 77}, "ws-wide")["max_tokens"] == 77
