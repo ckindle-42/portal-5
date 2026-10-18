@@ -130,7 +130,7 @@ def _write_row(d: Path, row: dict) -> None:
 def _stub_trees(monkeypatch) -> None:
     """Synthetic trees. Real campaign proofs do not use this."""
 
-    def pipeline(sha: str) -> dict:
+    def pipeline(sha: str, _workspace: str = "") -> dict:
         if sha in (DEPLOYED, MOD):
             return {"inference": "inf", "config": "cfg"}
         if sha == PIPE:
@@ -414,3 +414,26 @@ def test_math_b_to_d_auto_math_incumbents_do_not_match():
     assert n == 108 and report["matched"] == 0
     assert counts[("no source row",)] == 72
     assert counts[("suite_digest", "pipeline")] == 36
+
+
+def test_pipeline_digest_ignores_rebaseline_only_commits():
+    """ad6e1342 only re-baselines the complexity budget and spine manifest: the
+    serving digest must not move, or reuse is inert across every commit."""
+    child, parent = "ad6e1342", "ad6e1342^"
+    if not campaign.tree_at(child, "portal/platform/inference"):
+        pytest.skip("history not available (shallow clone)")
+    before = campaign.pipeline_at(campaign._git("rev-parse", parent).strip(), "auto-math")
+    after = campaign.pipeline_at(campaign._git("rev-parse", child).strip(), "auto-math")
+    assert before and before == after
+
+
+def test_pipeline_digest_keys_on_the_rows_own_workspace_block():
+    """538a38b7 reseated auto-math only: auto-math's digest moves, auto-documents' does not."""
+    child = campaign._git("rev-parse", "538a38b7").strip()
+    if not campaign.tree_at(child, "portal/platform/inference"):
+        pytest.skip("history not available (shallow clone)")
+    parent = campaign._git("rev-parse", "538a38b7^").strip()
+    assert campaign.pipeline_at(parent, "auto-math") != campaign.pipeline_at(child, "auto-math")
+    assert campaign.pipeline_at(parent, "auto-documents") == campaign.pipeline_at(
+        child, "auto-documents"
+    )

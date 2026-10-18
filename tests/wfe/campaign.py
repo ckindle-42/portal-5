@@ -61,6 +61,7 @@ import argparse
 import contextlib
 import datetime as dt
 import functools
+import hashlib
 import json
 import os
 import re
@@ -904,18 +905,51 @@ def tree_at(sha: str, path: str) -> str:
     return out if re.fullmatch(r"[0-9a-f]{40}", out) else ""
 
 
-def pipeline_at(sha: str) -> dict:
-    """Trees that can change a served answer without being a tool module.
+#: config/ paths that shape a served answer. The rest of config/ (complexity budget,
+#: spine manifest, catalog prose, promptfoo, dashboards) changes with nearly every
+#: commit and would make reuse inert. portal.yaml is keyed by the row's own workspace
+#: block, so a seat edit elsewhere does not invalidate this workspace's rows.
+_SERVING_CONFIG = (
+    "config/inference",
+    "config/personas",
+    "config/chat_templates",
+    "config/backends.yaml",
+    "config/engine_contract.yaml",
+    "config/tool_catalog.yaml",
+    "config/routing_descriptions.json",
+    "config/routing_examples.json",
+)
 
-    `portal/platform/inference` is the router, including `router/tools.py`.
-    `config/` carries the tool manifests the router serves. Both are taken at
-    the row's deployed build sha. A missing sha or tree is an empty dict, and
-    an empty dict never matches."""
+
+def _workspace_block(sha: str, workspace: str) -> str:
+    """sha256 of the workspace's portal.yaml block at `sha`; empty when absent."""
+    if not workspace or not _SHA_RE.fullmatch(sha or ""):
+        return ""
+    try:
+        doc = yaml.safe_load(_git("show", f"{sha}:config/portal.yaml")) or {}
+    except yaml.YAMLError:
+        return ""
+    block = (doc.get("workspaces") or {}).get(workspace)
+    if not isinstance(block, dict):
+        return ""
+    return hashlib.sha256(json.dumps(block, sort_keys=True, default=str).encode()).hexdigest()
+
+
+def pipeline_at(sha: str, workspace: str) -> dict:
+    """What can change a served answer without being a tool module, at the row's
+    deployed build sha: the router tree (`portal/platform/inference`, including
+    `router/tools.py`), the serving config paths, and the workspace's own
+    portal.yaml block. A missing sha, tree or block is an empty dict, and an empty
+    dict never matches. An optional path absent at `sha` hashes as empty."""
     inference = tree_at(sha, "portal/platform/inference")
-    config = tree_at(sha, "config")
-    if not inference or not config:
+    block = _workspace_block(sha, workspace)
+    if not inference or not block:
         return {}
-    return {"inference": inference, "config": config}
+    return {
+        "inference": inference,
+        "workspace": block,
+        **{path: tree_at(sha, path) for path in _SERVING_CONFIG},
+    }
 
 
 def _tool_index(sha: str) -> dict[str, str]:
@@ -1000,7 +1034,7 @@ def recorded_reuse_key(campaign_dir: Path, row: dict, digests: dict | None = Non
         tool_surface=surface,
         engine=engine,
         engine_version=version,
-        pipeline=pipeline_at(sha),
+        pipeline=pipeline_at(sha, row.get("workspace") or ""),
         tool_modules=tool_module_trees(sha, surface),
     )
 
@@ -1029,7 +1063,7 @@ def destination_reuse_key(
         tool_surface=surface,
         engine=engine,
         engine_version=version,
-        pipeline=pipeline_at(sha),
+        pipeline=pipeline_at(sha, stub.get("workspace") or ""),
         tool_modules=tool_module_trees(sha, surface),
     )
 
