@@ -345,8 +345,10 @@ class TestDocumentCreationOverhaul:
                 }
             ],
         )
-        workbook = openpyxl.load_workbook(result["path"])
+        workbook = openpyxl.load_workbook(tmp_path / result["filename"])
         assert result["success"] is True
+        assert "path" not in result
+        assert result["download_url"] == f"https://example.test/{result['filename']}"
         assert len(workbook.active._charts) == 1
 
     def test_rich_markdown_and_template(self, tmp_path, monkeypatch):
@@ -366,8 +368,10 @@ class TestDocumentCreationOverhaul:
             "## Heading\n\n**bold** and `code`\n\n| A | B |\n|---|---|\n| 1 | 2 |",
             template="portal",
         )
-        document = Document(result["path"])
+        document = Document(tmp_path / result["filename"])
         assert result["success"] is True
+        assert "path" not in result
+        assert result["download_url"] == f"https://example.test/{result['filename']}"
         assert any(table.cell(1, 1).text == "2" for table in document.tables)
         assert any(run.bold for paragraph in document.paragraphs for run in paragraph.runs)
 
@@ -433,6 +437,66 @@ class TestReadBareFilename:
         assert got == stored.resolve()
         # a glob metacharacter in the argument matches nothing; it never widens the lookup
         assert document_mcp._resolve_input_path("*").name == "*"
+
+    def test_outside_absolute_path_falls_back_to_readable_basename(self, tmp_path, monkeypatch):
+        from portal.modules.documents.tools import document_mcp
+
+        root = tmp_path / "readable"
+        root.mkdir()
+        monkeypatch.setattr(document_mcp, "OUTPUT_DIR", root)
+        monkeypatch.delenv("DOCUMENTS_READ_ROOTS", raising=False)
+        safe = root / "report.xlsx"
+        safe.write_bytes(b"readable")
+        outside = tmp_path / "elsewhere" / "report.xlsx"
+        outside.parent.mkdir()
+        outside.write_bytes(b"outside")
+
+        assert document_mcp._resolve_input_path(str(outside)) == safe.resolve()
+
+    def test_outside_parent_traversal_without_readable_basename_is_refused(
+        self, tmp_path, monkeypatch
+    ):
+        from portal.modules.documents.tools import document_mcp
+
+        root = tmp_path / "readable"
+        root.mkdir()
+        monkeypatch.setattr(document_mcp, "OUTPUT_DIR", root)
+        monkeypatch.delenv("DOCUMENTS_READ_ROOTS", raising=False)
+        outside = tmp_path / "elsewhere" / "private.xlsx"
+        outside.parent.mkdir()
+        outside.write_bytes(b"outside")
+
+        with pytest.raises(PermissionError, match="outside the readable roots"):
+            document_mcp._resolve_input_path(str(root / ".." / "elsewhere" / "private.xlsx"))
+
+    def test_successful_publish_result_omits_container_path(self, tmp_path, monkeypatch):
+        from portal.modules.documents.tools import document_mcp
+
+        output_path = tmp_path / "report.docx"
+        monkeypatch.setattr(
+            document_mcp,
+            "publish_file_sync",
+            lambda path: {"filename": path.name, "url": "https://files.test/report.docx"},
+        )
+
+        result = document_mcp._published(output_path, "Word document")
+
+        assert result["success"] is True
+        assert "path" not in result
+        assert result["download_url"] == "https://files.test/report.docx"
+
+    def test_publish_failure_success_result_omits_container_path(self, tmp_path, monkeypatch):
+        from portal.modules.documents.tools import document_mcp
+
+        monkeypatch.setattr(
+            document_mcp, "publish_file_sync", lambda _path: {"error": "OWUI unavailable"}
+        )
+
+        result = document_mcp._published(tmp_path / "report.docx", "Word document")
+
+        assert result["success"] is True
+        assert "path" not in result
+        assert result["publish_error"] == "OWUI unavailable"
 
 
 def test_word_document_tool_says_how_to_express_a_table():

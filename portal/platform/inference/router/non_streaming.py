@@ -18,6 +18,11 @@ import httpx
 from fastapi.responses import JSONResponse
 
 from portal.platform.inference.config import PersonaSpec
+from portal.platform.inference.router.download_links import (
+    offers_file_creation,
+    strip_unbacked_download_lines,
+    successful_file_creation,
+)
 from portal.platform.inference.router.eval_gate import apply_eval_scope
 from portal.platform.inference.router.metrics import (
     _answer_without_tool_retried,
@@ -297,6 +302,8 @@ def _apply_non_stream_response(
     workspace_id: str,
     target_model: str,
     start_time: float,
+    *,
+    successful_creation: bool = False,
 ) -> JSONResponse:
     """Normalise + record + wrap a completed non-streaming response dict.
 
@@ -304,6 +311,12 @@ def _apply_non_stream_response(
     ``_try_non_streaming`` to avoid duplicating ~60 lines of post-processing.
     Pure sync — no awaits.
     """
+    if not successful_creation:
+        for choice in data.get("choices") or []:
+            msg = choice.get("message") or {}
+            if isinstance(msg.get("content"), str):
+                msg["content"] = strip_unbacked_download_lines(msg["content"])
+
     try:
         from portal.platform.inference.router.thinking import (
             NO_ANSWER_MESSAGE,
@@ -692,6 +705,8 @@ async def _try_non_streaming(
             _ns_messages = list(req_body.get("messages") or [])
             _ns_hops = 0
             _ns_guard = ToolRepeatGuard()
+            # no file tools offered: nothing to filter
+            _ns_creation_succeeded = not offers_file_creation(req_body.get("tools"))
             if (
                 WORKSPACES.get(workspace_id.split("::")[0], {}).get("require_tool_before_answer")
                 and req_body.get("tools")
@@ -757,6 +772,9 @@ async def _try_non_streaming(
                         _ns_result = next(_ns_fresh)
                         _ns_guard.remember(tc, _ns_result)
                         _ns_dispatch.append(_ns_result)
+                _ns_creation_succeeded = _ns_creation_succeeded or any(
+                    successful_file_creation(result) for result in _ns_dispatch
+                )
                 _ns_messages = (
                     _ns_messages
                     + [{"role": "assistant", "content": None, "tool_calls": _ns_tool_calls}]
@@ -812,7 +830,14 @@ async def _try_non_streaming(
 
             schedule_writeback(workspace_id, body.get("messages", []), get_correlation_id())
 
-            return _apply_non_stream_response(data, backend, workspace_id, target_model, start_time)
+            return _apply_non_stream_response(
+                data,
+                backend,
+                workspace_id,
+                target_model,
+                start_time,
+                successful_creation=_ns_creation_succeeded,
+            )
         except (httpx.TimeoutException, BackendRequestError):
             raise  # timeout: outer handler checks /api/ps; 4xx: caller surfaces it
         except Exception as exc:

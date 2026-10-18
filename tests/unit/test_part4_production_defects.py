@@ -64,7 +64,7 @@ def test_a_failed_publish_reports_the_file_it_created(docs, monkeypatch):
     monkeypatch.setattr(docs, "publish_file_sync", lambda p: {"error": "Open WebUI unreachable"})
     r = docs._published(f, "Document")
     assert r["success"] is True and r["published"] is False and "unreachable" in r["publish_error"]
-    assert f.exists() and r["path"] == str(f)
+    assert f.exists() and r["filename"] == f.name and "path" not in r
 
 
 def test_document_reads_stay_inside_the_output_root(docs, tmp_path, monkeypatch):

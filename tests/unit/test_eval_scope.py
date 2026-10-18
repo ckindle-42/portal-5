@@ -181,7 +181,8 @@ def test_documents_mcp_scoped_create_stays_in_the_namespace(docs, monkeypatch):
     )
     out = es.run_root(root, SCOPE) / "out"
     assert status == 200 and body["success"] and body["receipt"]["sha256"]
-    assert [p.name for p in out.iterdir()] == [os.path.basename(body["path"])]
+    assert "path" not in body
+    assert [p.name for p in out.iterdir()] == [os.path.basename(body["receipt"]["path"])]
     assert [p.name for p in root.iterdir()] == ["wfe"]
 
 

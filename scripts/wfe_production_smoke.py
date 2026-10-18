@@ -33,7 +33,11 @@ REPO = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO))
 OWUI = "http://localhost:8080"
 PIPE = "http://localhost:9099"
+MEMORY_MCP = f"http://localhost:{os.environ.get('MEMORY_MCP_PORT', '8920')}"
 OUTPUT = Path(os.environ.get("AI_OUTPUT_DIR", str(Path.home() / "AI_Output")))
+_MEMORY_ID_RE = re.compile(
+    r"\b[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\b", re.I
+)
 
 
 def env(name: str) -> str:
@@ -91,7 +95,10 @@ CASES: list[Case] = [
     Case("kb_list", "List my knowledge bases."),
     Case("kb_search", "Search my knowledge base for compliance and summarize the top result."),
     Case("kb_search_all", "Search all my knowledge bases for backup and summarize the top result."),
-    Case("remember", 'Remember that the smoke test code word is "bluefinch".'),
+    Case(
+        "remember",
+        'Remember that the smoke test code word is "bluefinch". Include the exact id returned by the remember tool in your answer.',
+    ),
     Case("recall", "What is the smoke test code word I asked you to remember?", "bluefinch"),
     Case("graph_recall", 'Using your memory graph, what do you know about "bluefinch"?'),
     Case("neighbors", 'Which entities are related to "bluefinch" in my memory graph?'),
@@ -233,6 +240,7 @@ class Result:
     seconds: float = 0.0
     note: str = ""
     answer: str = ""
+    memory_id: str = ""
 
 
 def newest_trace(ws: str, since: float) -> dict | None:
@@ -240,6 +248,12 @@ def newest_trace(ws: str, since: float) -> dict | None:
         if t["workspace"] == ws and t["started_at"] >= since - 1:
             return pipe(f"/v1/trace/{t['correlation_id']}")
     return None
+
+
+def _memory_id_from_tool_result_text(text: str) -> str:
+    """Read the UUID that the remember tool returned and the answer repeats."""
+    match = _MEMORY_ID_RE.search(text)
+    return match.group(0) if match else ""
 
 
 def run_case(ws: str, case: Case) -> Result:
@@ -259,6 +273,8 @@ def run_case(ws: str, case: Case) -> Result:
     r.seconds = round(time.time() - t0, 1)
     msg = (out.get("choices") or [{}])[0].get("message", {}).get("content") or ""
     r.answer = msg
+    if case.tool == "remember":
+        r.memory_id = _memory_id_from_tool_result_text(msg)
     r.tokens = (out.get("usage") or {}).get("prompt_tokens", 0)
     trace = newest_trace(ws, t0)
     spans = (trace or {}).get("spans", [])
@@ -295,9 +311,32 @@ def empty_turn(ws: str) -> tuple[int, int]:
     return (out.get("usage") or {}).get("prompt_tokens", 0), ctx
 
 
-def cleanup(ids: list[str]) -> None:
+def _forget_memory(memory_id: str) -> None:
+    try:
+        result = http(
+            f"{MEMORY_MCP}/tools/forget",
+            {"arguments": {"id": memory_id}},
+            timeout=30,
+        )
+        if result.get("error"):
+            raise RuntimeError(result["error"])
+    except Exception as e:  # noqa: BLE001 — cleanup should not hide the smoke result
+        print(f"WARNING: could not forget smoke memory {memory_id}: {e}", flush=True)
+
+
+def cleanup(
+    ids: list[str], memory_ids: list[str] | None = None, *, remember_id_missing: bool = False
+) -> None:
     for i in ids:
         delete_file(i)
+    for memory_id in memory_ids or []:
+        _forget_memory(memory_id)
+    if remember_id_missing:
+        print(
+            "WARNING: the remember tool completed but its memory id was not returned; "
+            "the smoke note may remain stored",
+            flush=True,
+        )
     for f in list(OUTPUT.glob("Smoke_*")) + list(OUTPUT.glob("uploads/*smoke_*")):
         f.unlink(missing_ok=True)
 
@@ -316,6 +355,8 @@ def main() -> int:
     portal = yaml.safe_load((REPO / "config/portal.yaml").read_text())["workspaces"]
     by_tool = {c.tool: c for c in CASES}
     results: list[Result] = []
+    memory_ids: list[str] = []
+    remember_id_missing = False
     p4: dict[str, tuple[int, int]] = {}
     with tempfile.TemporaryDirectory() as td:
         ids = [upload(p) for p in fixtures(Path(td))]
@@ -331,12 +372,17 @@ def main() -> int:
                         continue
                     res = run_case(ws, case)
                     results.append(res)
+                    if case.tool == "remember" and res.outcome == "ok":
+                        if res.memory_id:
+                            memory_ids.append(res.memory_id)
+                        else:
+                            remember_id_missing = True
                     print(
                         f"{ws:16s} {tool:22s} called={res.called!s:5s} outcome={res.outcome:10s} answer={res.answer_ok:4s} garbage={res.garbage} {res.note}",
                         flush=True,
                     )
         finally:
-            cleanup(ids)
+            cleanup(ids, memory_ids, remember_id_missing=remember_id_missing)
     lines = [
         "| workspace | tool | called | outcome | answer | garbage | prompt tokens | s | note |",
         "|---|---|---|---|---|---|---|---|---|",

@@ -61,7 +61,6 @@ def _published(output_path: Path, noun: str) -> dict[str, Any]:
         rec = eval_scope.receipt(OUTPUT_DIR, scope, noun, output_path)
         return {
             "success": True,
-            "path": rec["path"],
             "filename": output_path.name,
             "receipt": rec,
             "message": f"{noun} created: {output_path.name}",
@@ -72,14 +71,12 @@ def _published(output_path: Path, noun: str) -> dict[str, Any]:
         return {
             "success": True,
             "published": False,
-            "path": str(output_path),
             "filename": output_path.name,
             "publish_error": pub["error"],
             "message": f"{noun} created at {output_path.name}, but publishing to Open WebUI failed: {pub['error']}",
         }
     return {
         "success": True,
-        "path": str(output_path),
         "filename": pub["filename"],
         "download_url": pub["url"],
         "message": f"{noun} created: {pub['filename']}. [Download]({pub['url']})",
@@ -272,7 +269,23 @@ def _resolve_input_path(file_path: str) -> Path:
         return eval_scope.confine(OUTPUT_DIR, scope, file_path, sub="in")
     given = Path(file_path)
     if given.exists() or given.name != file_path:
-        return _readable(given)
+        try:
+            return _readable(given)
+        except PermissionError as refused:
+            # OWUI may send an absolute path from its container. If that path
+            # is not readable here, try only its basename through the same
+            # confined upload/output lookup used for a bare filename.
+            found = _lookup_bare_name(os.path.basename(file_path))
+            if found is not None:
+                return found
+            raise refused
+    if found := _lookup_bare_name(file_path):
+        return found
+    return given.resolve()  # not found anywhere: the caller's not-found error, unchanged
+
+
+def _lookup_bare_name(file_path: str) -> Path | None:
+    """Find a bare filename in the output directory or its upload namespace."""
     uploads = OUTPUT_DIR / "uploads"
     for candidate in (OUTPUT_DIR / file_path, uploads / file_path):
         if candidate.is_file():
@@ -288,7 +301,7 @@ def _resolve_input_path(file_path: str) -> Path:
         by_id = sorted(uploads.glob(f"{glob.escape(file_path)}_*"), key=lambda m: m.stat().st_mtime)
         if by_id:
             return _readable(by_id[-1])
-    return given.resolve()  # not found anywhere: the caller's not-found error, unchanged
+    return None
 
 
 def _readable(path: Path) -> Path:

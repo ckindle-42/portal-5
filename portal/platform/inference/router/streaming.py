@@ -49,6 +49,11 @@ from portal.platform.inference.router.backend_introspect import (
 from portal.platform.inference.router.correlation import (
     get_correlation_id as _corr_id,
 )
+from portal.platform.inference.router.download_links import (
+    DownloadLineFilter,
+    offers_file_creation,
+    successful_file_creation,
+)
 from portal.platform.inference.router.eval_gate import apply_eval_scope
 from portal.platform.inference.router.metrics import (
     _answer_without_tool_retried,
@@ -645,6 +650,11 @@ async def _tool_loop_frames(
         dict[str, Any]
     ] = []  # accumulates tool calls across all hops when exec_audit=true
     _repeat_guard = ToolRepeatGuard()
+    _download_lines = DownloadLineFilter()
+    _successful_creation = False
+    if not offers_file_creation(current_body.get("tools")):
+        _download_lines.mark_successful_creation()  # no file tools offered: pass through
+        _successful_creation = True
     _require_tool = bool(
         WORKSPACES.get(workspace_id.split("::")[0], {}).get("require_tool_before_answer")
     )
@@ -811,6 +821,14 @@ async def _tool_loop_frames(
                                 obj = dict(obj, choices=[choice])
                                 line = f"data: {json.dumps(obj)}"
 
+                        if isinstance(_ct, str) and _ct:
+                            _shown_download = _download_lines.feed(_ct)
+                            if _shown_download != _ct:
+                                delta = dict(delta, content=_shown_download)
+                                choice = dict(choice, delta=delta)
+                                obj = dict(obj, choices=[choice])
+                                line = f"data: {json.dumps(obj)}"
+
                         _rewrite_chunk, _emitted, _skip = _apply_reasoning_rewrite(
                             line,
                             delta,
@@ -912,6 +930,7 @@ async def _tool_loop_frames(
                 )
                 _record_error(workspace_id, "unparsed_tool_call")
                 _visible_held = _think_filter.feed(drop_unparsed_markup(_held))
+                _visible_held = _download_lines.feed(_visible_held)
                 if _visible_held:
                     _held_chunk = {
                         "id": request_id,
@@ -954,14 +973,31 @@ async def _tool_loop_frames(
                 tool_calls_buf.extend(_rcalls)
                 finish_reason = "tool_calls"
             elif _rtext:
-                _rescued = {
-                    "id": request_id,
-                    "object": "chat.completion.chunk",
-                    "created": int(time.time()),
-                    "model": workspace_id,
-                    "choices": [{"index": 0, "delta": {"content": _rtext}, "finish_reason": None}],
-                }
-                for _f in _route(_held_frames, f"data: {json.dumps(_rescued)}\n\n".encode()):
+                _shown_rescue = _download_lines.feed(_rtext)
+                if _shown_rescue:
+                    _rescued = {
+                        "id": request_id,
+                        "object": "chat.completion.chunk",
+                        "created": int(time.time()),
+                        "model": workspace_id,
+                        "choices": [
+                            {
+                                "index": 0,
+                                "delta": {"content": _shown_rescue},
+                                "finish_reason": None,
+                            }
+                        ],
+                    }
+                    for _f in _route(_held_frames, f"data: {json.dumps(_rescued)}\n\n".encode()):
+                        yield _f
+                    _content_emitted = True
+
+        if finish_reason != "tool_calls":
+            _download_tail = _download_lines.finish()
+            if _download_tail:
+                for _f in _route(
+                    _held_frames, _content_chunk(request_id, workspace_id, _download_tail)
+                ):
                     yield _f
                 _content_emitted = True
 
@@ -1112,6 +1148,13 @@ async def _tool_loop_frames(
                 MAX_TOOL_HOPS,
                 _repeat_guard,
             )
+            if not _successful_creation and any(
+                successful_file_creation(result) for result in dispatch_results
+            ):
+                _successful_creation = True
+                _released_downloads = _download_lines.mark_successful_creation()
+                if _released_downloads:
+                    yield _content_chunk(request_id, workspace_id, _released_downloads)
             current_body["messages"] = (
                 current_body.get("messages", []) + [assistant_msg] + dispatch_results
             )
