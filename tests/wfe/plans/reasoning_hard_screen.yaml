@@ -1,0 +1,36 @@
+# I-REASON seat screen (operator 2026-10-18, WFE_NEW_INSTRUMENTS_BRIEF_V1): the
+# hard reasoning suite, reasoning_hard_production (36 tasks, 12 screen, all
+# no_tools), one workspace — auto-reasoning (think on, temperature 0.6).
+#
+# Not a *_decision_v1 plan: auto-reasoning keeps reasoning_math_decision_v1 as its
+# sweep source, so this file follows the research_nex25_screen.yaml pattern.
+#
+# Incumbent: the workspace's seat (config/portal.yaml model_hint,
+# DeepSeek-R1-0528-Qwen3-8B, ctx 64k). Challengers per the brief:
+#   - Qwen3.8-27B (ctx96k tag) and GLM-4.7-Flash (ctx64k tag): registered and
+#     served by auto-reasoning's routing groups (reasoning + general).
+#   - K2-Horizon-MoVA-36B-A4B and Granite 4.2 30B need ctx64k tags.
+#     TODO(operator): create and register
+#         hf.co/bartowski/K2-Horizon-MoVA-36B-A4B-GGUF:Q4_K_M-ctx64k
+#         hf.co/ibm-granite/granite-4.2-30b-GGUF:Q4_K_M-ctx64k
+#     in backends.yaml (a group auto-reasoning routes to). Until registered, the
+#     slice test skips those two arms' served/window checks
+#     (test_wfe_reasoning_hard_slice.py).
+#
+# Every arm's tag must be served by the workspace's routed groups at a window of
+# at least its context_limit (65536) — checked against backends.yaml by the slice
+# test. No workload declares a tool_mode: every task is `no_tools`
+# (tests/wfe/eval_mode.py:107). The operator may trim these lists before the run.
+workloads:
+  auto-reasoning:
+    home: reasoning_hard_production
+    discovery: []
+    arms:
+      incumbent: hf.co/unsloth/DeepSeek-R1-0528-Qwen3-8B-GGUF:Q4_K_XL-ctx64k
+      challengers:
+        - hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx96k
+        - glm-4.7-flash:Q4_K_M-ctx64k
+        # TODO(operator): create + register these two ctx64k tags (brief I-REASON);
+        # the slice test skips their served/window checks until then.
+        - hf.co/bartowski/K2-Horizon-MoVA-36B-A4B-GGUF:Q4_K_M-ctx64k
+        - hf.co/ibm-granite/granite-4.2-30b-GGUF:Q4_K_M-ctx64k
