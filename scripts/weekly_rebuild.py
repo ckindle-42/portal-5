@@ -62,6 +62,16 @@ def _compose(*args: str, timeout: int = 900) -> subprocess.CompletedProcess:
     return _run([DOCKER, "compose", "-f", str(COMPOSE), *args], timeout)
 
 
+def _build_args() -> list[str]:
+    """The provenance args ``./launch.sh rebuild`` passes. Without them every image reports
+    build_sha "unknown" and the WFE harness refuses to trust the deployed build (2026-10-18:
+    this job ran mid-program and blanked every service's /health build_sha)."""
+    sha = _run(["git", "-C", str(REPO), "rev-parse", "HEAD"], 30).stdout.strip() or "unknown"
+    dirty = _run(["git", "-C", str(REPO), "status", "--porcelain", "--", "portal"], 30).stdout
+    n = len([ln for ln in dirty.splitlines() if ln.strip()])
+    return ["--build-arg", f"PORTAL_BUILD_SHA={sha}", "--build-arg", f"PORTAL_BUILD_DIRTY={n}"]
+
+
 def _pull_services() -> list[str]:
     """Every active-profile service except Open WebUI (updated by ``owui_update``)."""
     r = _compose("config", "--services", timeout=120)
@@ -138,7 +148,7 @@ def main(argv: list[str]) -> int:
         return 0
 
     t0 = time.monotonic()
-    if _compose("build", "--pull", "--no-cache", timeout=7200).returncode != 0:
+    if _compose("build", "--pull", "--no-cache", *_build_args(), timeout=7200).returncode != 0:
         _pushover(
             "Weekly rebuild FAILED", "image build failed — stack left running untouched", high=True
         )

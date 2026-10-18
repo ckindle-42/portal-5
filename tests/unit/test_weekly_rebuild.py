@@ -62,6 +62,16 @@ def test_happy_path_builds_fresh_then_down_then_up(monkeypatch):
     assert build < down < up
 
 
+def test_build_carries_the_provenance_args(monkeypatch):
+    # 2026-10-18: without them every image reported build_sha "unknown" and the WFE harness
+    # could not confirm the deployed build
+    calls: list = []
+    _patch(monkeypatch, calls)
+    assert wr.main([]) == 0
+    build = next(" ".join(c) for c in calls if "build" in c and "--no-cache" in c)
+    assert "PORTAL_BUILD_SHA=" in build and "PORTAL_BUILD_DIRTY=" in build
+
+
 def test_defers_while_a_sweep_runs(monkeypatch):
     calls: list = []
     _patch(monkeypatch, calls)

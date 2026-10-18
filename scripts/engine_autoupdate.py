@@ -77,7 +77,17 @@ OMLX_OPT = Path("/opt/homebrew/opt/omlx")
 OMLX_CELLAR = Path("/opt/homebrew/Cellar/omlx")
 OMLX_SETTINGS = [HOME / ".omlx" / "settings.json", HOME / ".omlx" / "model_settings.json"]
 WEEK = dt.timedelta(days=7)
-BUSY_PATTERNS = ("tests.wfe.campaign", "tests.wfe.runner", "tests/uat", "bench_tps", "tests.uat")
+# wfe_campaign.sh / wfe_supervise cover the seconds between arms (only bash is alive then) and
+# the gap between a chained screen and its confirm.
+BUSY_PATTERNS = (
+    "tests.wfe.campaign",
+    "tests.wfe.runner",
+    "wfe_campaign.sh",
+    "wfe_supervise",
+    "tests/uat",
+    "bench_tps",
+    "tests.uat",
+)
 
 
 def log(msg: str) -> None:
