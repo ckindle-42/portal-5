@@ -1335,6 +1335,22 @@ The window is a seat property on the pipeline path — this tag is the mechanism
 
 ---
 
+### `hf.co/ibm-granite/granite-4.2-8b-GGUF:Q4_K_M-ctx8k`
+
+`hf.co/ibm-granite/granite-4.2-8b-GGUF:Q4_K_M-ctx8k` is an 8K-context derived tag of IBM's own Q4_K_M GGUF of Granite 4.2 8B (released 2026-08-25, a reasoning model with built-in `<think>`; 5.3 GB). The hf.co manifest baked `<think>` as a stop token, which would end a thinking model's turn as soon as it starts reasoning, so this tag re-declares the stops without it (`<|im_start|>`, `<|im_end|>`, `<|im_start|>user`) and bakes `num_ctx 8192`. Card sampling is temperature 1.0 and top_p 0.95 (generation_config.json). `config/backends.yaml` registers it in `group: general` with `supports_tools: true` after a direct probe: 3/3 clean tool calls with the reasoning separated. Pulled 2026-10-18 as a tools-specialist challenger.
+
+## Why
+
+The seat-prior and landscape reviews (docs/WFE_LANDSCAPE_FLEET_20261018.md) named Granite 4.2 as the highest-value family the fleet had not measured on its current instrument; tools-specialist is a live seat that has never been measured.
+
+### `hf.co/ibm-granite/granite-4.2-30b-GGUF:Q4_K_M-ctx8k`
+
+`hf.co/ibm-granite/granite-4.2-30b-GGUF:Q4_K_M-ctx8k` is an 8K-context derived tag of IBM's own Q4_K_M GGUF of Granite 4.2 30B (released 2026-08-25, a reasoning model with built-in `<think>`; 17.7 GB). The hf.co manifest baked `<think>` as a stop token, which would end a thinking model's turn as soon as it starts reasoning, so this tag re-declares the stops without it (`<|im_start|>`, `<|im_end|>`, `<|im_start|>user`) and bakes `num_ctx 8192`. Card sampling is temperature 1.0 and top_p 0.95 (generation_config.json). `config/backends.yaml` registers it in `group: general` with `supports_tools: true` after a direct probe: 3/3 clean tool calls with the reasoning separated. Pulled 2026-10-18 as a tools-specialist challenger.
+
+## Why
+
+The seat-prior and landscape reviews (docs/WFE_LANDSCAPE_FLEET_20261018.md) named Granite 4.2 as the highest-value family the fleet had not measured on its current instrument; tools-specialist is a live seat that has never been measured.
+
 ### `granite4.1:8b-ctx16k`
 
 `granite4.1:8b-ctx16k` is a derived context-capped tag of `granite4.1:8b`. It appears in `config/backends.yaml` under the `general`, `security`, and `reasoning` groups, always with `supports_tools: true`. In `config/portal.yaml` it is the `model_hint` for `auto-image` and `auto-video`, the tool-calling MCP lanes for image and video generation. It seated `auto-documents` until 2026-10-18, when WFE `wfe_documents_20261017h` found gemma4-26b-a4b and Qwen3.8 BETTER, and the operator seated gemma4. The cap is baked in via `portal models apply-params` because Ollama's `/v1/chat/completions` ignores request-time `options.num_ctx`; a derived tag is the only way to bound context per workspace. See the base `granite4.1:8b` entry for full model detail; this unit exists to satisfy backends.yaml/MODEL_CATALOG parity.

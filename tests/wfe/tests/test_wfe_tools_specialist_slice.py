@@ -238,7 +238,7 @@ def test_the_plan_arms_are_served_by_the_workspaces_groups_and_fit_its_window():
     arms = plan["arms"]
     assert arms["incumbent"] == portal["model_hint"] and plan["tool_mode"] == "production"
     assert plan["home"] == "tools_specialist_production" and plan["discovery"] == []
-    assert len(arms["challengers"]) == 3
+    assert 3 <= len(arms["challengers"]) <= 6
     for tag in [arms["incumbent"], *arms["challengers"]]:
         assert tag in served, tag
         window = int(re.search(r"ctx(\d+)k", tag).group(1)) * 1024

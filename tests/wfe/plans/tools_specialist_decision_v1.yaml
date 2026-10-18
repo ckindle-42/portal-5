@@ -20,7 +20,12 @@ workloads:
     discovery: []
     arms:
       incumbent: granite4.1:8b-ctx8k
+      # 2026-10-18 (operator: test the new families; tools-specialist is live and unmeasured):
+      # granite4.1:8b-ctx16k dropped (the incumbent's own weights at a wider window); Granite 4.2
+      # and the landscape review's tool-calling pick Qwen3.6-35B-A3B added.
       challengers:
-        - granite4.1:8b-ctx16k
+        - hf.co/ibm-granite/granite-4.2-8b-GGUF:Q4_K_M-ctx8k
+        - hf.co/ibm-granite/granite-4.2-30b-GGUF:Q4_K_M-ctx8k
+        - hf.co/unsloth/Qwen3.6-35B-A3B-GGUF:UD-Q4_K_XL-ctx96k
         - hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k
         - glm-4.7-flash:Q4_K_M-ctx64k

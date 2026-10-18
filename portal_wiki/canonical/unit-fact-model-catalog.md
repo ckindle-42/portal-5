@@ -1,11 +1,11 @@
 ---
 id: unit-fact-model-catalog
 kind: what
-title: 288 model ids, 7 backend groups
+title: 290 model ids, 7 backend groups
 sources:
 - type: code
   path: config/backends.yaml
-  commit: b54479ca8a2b
+  commit: 7499f0e1bbd4
 claims:
 - probe: backends.groups.count
   pattern: '{value} backend groups)'
@@ -14,10 +14,10 @@ tags:
 - fact
 - models
 created_at: 1784000421.487881
-updated_at: 1792346676.2245739
+updated_at: 1792349473.576016
 ---
 
-# Model catalog (288 model ids across 7 backend groups)
+# Model catalog (290 model ids across 7 backend groups)
 
 ## coding (57)
 
@@ -94,7 +94,7 @@ updated_at: 1792346676.2245739
 - `huihui_ai/baronllm-abliterated`
 - `huihui_ai/baronllm-abliterated:latest-ctx8k`
 
-## general (130)
+## general (132)
 
 - `NVIDIA-Nemotron-3.5-Lightning-30B-A3B-oQ4e-mtp`
 - `Qwen3.8-27B-oQ4e-mtp`
@@ -157,6 +157,8 @@ updated_at: 1792346676.2245739
 - `hf.co/deepreinforce-ai/Ornith-1.0-35B-GGUF:Q4_K_M`
 - `hf.co/douyamv/Gemma-4-31B-JANG_4M-CRACK-GGUF:gemma-4-31b-jang-crack-Q4_K_M.gguf`
 - `hf.co/gaston-parravicini/LFM2.5-8B-A1B-Uncensored-Gaston-GGUF:Q4_K_M`
+- `hf.co/ibm-granite/granite-4.2-30b-GGUF:Q4_K_M-ctx8k`
+- `hf.co/ibm-granite/granite-4.2-8b-GGUF:Q4_K_M-ctx8k`
 - `hf.co/inclusionAI/Ling-3.0-tiny-GGUF:Q4_K_M-ctx32k`
 - `hf.co/mitkox/FastContext-1.0-4B-SFT-Q4_K_M-GGUF:Q4_K_M`
 - `hf.co/mradermacher/Huihui-Qwen3.6-35B-A3B-abliterated-GGUF:Q4_K_M`

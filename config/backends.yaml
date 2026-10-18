@@ -122,6 +122,14 @@ backends:
     supports_tools: true
   - id: granite4.1:8b-ctx8k
     supports_tools: true
+  # Granite 4.2 (IBM, 2026-08-25, reasoning models) as tools-specialist challengers, 2026-10-18.
+  # ibm-granite GGUF Q4_K_M; the hf.co manifest baked a <think> stop (a thinking model would
+  # stop at once), so these derived tags re-declare the stops without it. Direct tool probe
+  # 3/3 each at temperature 0, reasoning separated.
+  - id: hf.co/ibm-granite/granite-4.2-8b-GGUF:Q4_K_M-ctx8k
+    supports_tools: true
+  - id: hf.co/ibm-granite/granite-4.2-30b-GGUF:Q4_K_M-ctx8k
+    supports_tools: true
   - id: gemma4:26b-a4b-it-q4_K_M
     supports_tools: true
   - id: gemma4:26b-a4b-it-qat
