@@ -21,6 +21,7 @@ TODAY = dt.date.today
 #: tool trace a declared control supplies ({"answer": ..., "tool_calls": [...]}).
 ANSWER_GRADED = {
     "answer_contains",
+    "answer_after_reasoning",
     "cited_answer",
     "compliance_reading_contract",
     "tool_grounded",
@@ -53,6 +54,7 @@ TASK_KEYS = {
 }
 CHECKER_KEYS = {
     "answer_contains": ({"patterns"}, {"forbid", "exact", "forbid_in_tool_output"}),
+    "answer_after_reasoning": ({"patterns"}, set()),
     "tool_grounded": ({"evidence"}, {"tools"}),
     "office_contains": ({"kind", "expect"}, {"path", "headings", "sheets", "titles"}),
 }

@@ -1,0 +1,36 @@
+# The reasoning/math family's first seat decisions (WFE P3 triage §2): one suite,
+# reasoning_math_production (12 tasks, 4 screen, all no_tools), two workspaces, each its
+# own campaign (--workspace <id>).
+#
+# No workload declares a tool_mode: every task is `no_tools`, so the pipeline row is
+# prepared with no tool surface either way (tests/wfe/eval_mode.py:107) and an
+# allowlist entry in tool_modes.yaml would promise nothing.
+#
+# Think-on seats serve at temperature > 0 (auto-reasoning 0.6, auto-math 0.8), so the
+# S3 repeats policy runs confirms at 3 repeats, recorded per row.
+#
+# Every challenger is served by the workspaces' routed groups (backends.yaml
+# workspace_routing: reasoning + general) at a window of at least the workspace's
+# context_limit — 65536 for auto-reasoning, 24576 for auto-math — checked against
+# backends.yaml by the slice tests. The output chain lives under the workspaces' own
+# predict_limit (16384 / 8192, the hard output cap, applied by the harness,
+# tests/wfe/runner.py:1278). The operator may trim these lists before the run.
+workloads:
+  auto-reasoning:
+    home: reasoning_math_production
+    discovery: []
+    arms:
+      incumbent: hf.co/unsloth/DeepSeek-R1-0528-Qwen3-8B-GGUF:Q4_K_XL-ctx64k
+      challengers:
+        - hf.co/bartowski/THUDM_GLM-Z1-Rumination-32B-0414-GGUF:THUDM_GLM-Z1-Rumination-32B-0414-Q4_K_M.gguf-ctx64k
+        - granite4.1:30b-ctx64k
+        - glm-4.7-flash:Q4_K_M-ctx64k
+  auto-math:
+    home: reasoning_math_production
+    discovery: []
+    arms:
+      incumbent: phi4-mini-reasoning:latest-ctx24k
+      challengers:
+        - hf.co/unsloth/DeepSeek-R1-0528-Qwen3-8B-GGUF:Q4_K_XL-ctx64k
+        - hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k
+        - glm-4.7-flash:Q4_K_M-ctx64k

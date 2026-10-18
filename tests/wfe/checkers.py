@@ -674,6 +674,34 @@ def check_tool_grounded(spec: dict, ctx: CheckContext) -> CheckResult:
     )
 
 
+#: An inline reasoning block, terminated or not (a seat that burns its whole output
+#: budget inside <think> never closes the block).
+THINK_BLOCK_RE = re.compile(r"<think>.*?(?:</think>|\Z)", re.S | re.I)
+
+
+def check_answer_after_reasoning(spec: dict, ctx: CheckContext) -> CheckResult:
+    """Reasoning/math's second checker (WFE P3 triage §2): the answer must appear
+    AFTER the reasoning — in the visible answer text — never only inside a <think>
+    block. A think-on seat that reasons past its output budget and closes with the
+    gold inside an unterminated <think> never answered; `answer_contains` alone
+    would score that row PASS because the pattern is in final_text. Reasoning that
+    arrives on the separate reasoning channel (Ollama `reasoning`,
+    tests/wfe/runner.py:661) is not in final_text at all, so a clean answer passes
+    untouched. No tools are offered on these tasks, so there is no trace to ground;
+    this grades the only other thing the family promises: an answer that survives
+    the reasoning."""
+    text = ctx.final_text or ""
+    outside = THINK_BLOCK_RE.sub("", text)
+    missing = [p for p in (spec.get("patterns") or []) if not re.search(p, outside, re.I)]
+    if missing:
+        return CheckResult(
+            Outcome.FAIL,
+            f"answer only inside the reasoning block: missing outside <think>={missing}",
+            {"reasoning_only": outside != text},
+        )
+    return CheckResult(Outcome.PASS, "answer appears outside the reasoning block", {})
+
+
 CHECKERS = {
     "pytest_pass": check_pytest_pass,
     "receipt_artifact": check_receipt_artifact,
@@ -684,6 +712,7 @@ CHECKERS = {
     "file_contains": check_file_contains,
     "answer_contains": check_answer_contains,
     "tool_grounded": check_tool_grounded,
+    "answer_after_reasoning": check_answer_after_reasoning,
     "cited_answer": check_cited_answer,
     "human_review": check_human_review,
     "compliance_reading_contract": check_compliance_reading_contract,

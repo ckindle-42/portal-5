@@ -15,6 +15,7 @@ import pytest
 from tests.wfe.checkers import (
     CheckContext,
     apply_checkers,
+    check_answer_after_reasoning,
     check_answer_contains,
     check_cited_answer,
     check_compliance_reading_contract,
@@ -143,6 +144,57 @@ class TestAnswerProvenance:
             {"patterns": ["CONTRADICTED"], "forbid_in_tool_output": ["gold_label"]}, ctx
         )
         assert r.outcome == Outcome.HARNESS_ERROR
+
+
+class TestAnswerAfterReasoning:
+    """Reasoning/math's second checker (WFE P3 triage §2): a think-on seat that
+    buries the gold inside a <think> block and never answers visibly must not
+    score PASS on the strength of answer_contains alone."""
+
+    SPEC = {"patterns": [r'"answer"\s*:\s*"?42"?(?![\w.-])']}
+
+    def test_visible_answer_passes(self):
+        ctx = CheckContext(final_text='The result is {"answer": "42"}.')
+        assert check_answer_after_reasoning(self.SPEC, ctx).outcome == Outcome.PASS
+
+    def test_answer_inside_a_closed_think_block_still_visible_passes(self):
+        ctx = CheckContext(final_text='<think>work work</think>{"answer": "42"}')
+        assert check_answer_after_reasoning(self.SPEC, ctx).outcome == Outcome.PASS
+
+    def test_answer_only_inside_think_fails(self):
+        ctx = CheckContext(final_text='<think>it must be {"answer": "42"} QED</think>')
+        r = check_answer_after_reasoning(self.SPEC, ctx)
+        assert r.outcome == Outcome.FAIL and r.evidence["reasoning_only"] is True
+
+    def test_unterminated_think_burned_on_reasoning_fails(self):
+        """The budget died inside the reasoning: no close tag, no answer."""
+        ctx = CheckContext(final_text='<think>step 1, step 2, so {"answer": "42"}')
+        assert check_answer_after_reasoning(self.SPEC, ctx).outcome == Outcome.FAIL
+
+    def test_wrong_answer_outside_think_fails(self):
+        ctx = CheckContext(final_text='{"answer": "41"}')
+        assert check_answer_after_reasoning(self.SPEC, ctx).outcome == Outcome.FAIL
+
+    def test_case_insensitive_block_and_empty_text_fail(self):
+        assert (
+            check_answer_after_reasoning(
+                self.SPEC, CheckContext(final_text='<THINK>{"answer": "42"}')
+            ).outcome
+            == Outcome.FAIL
+        )
+        assert check_answer_after_reasoning(self.SPEC, CheckContext()).outcome == Outcome.FAIL
+
+    def test_apply_checkers_fails_the_think_only_row(self):
+        """A task carrying the pair scores the think-only reply FAIL, not PASS."""
+        task = {
+            "id": "t",
+            "checkers": [
+                {"type": "answer_contains", "patterns": self.SPEC["patterns"]},
+                {"type": "answer_after_reasoning", "patterns": self.SPEC["patterns"]},
+            ],
+        }
+        ctx = CheckContext(task=task, final_text='<think>{"answer": "42"}</think>')
+        assert apply_checkers(task, ctx).outcome == Outcome.FAIL
 
 
 class TestCitationGrounding:
