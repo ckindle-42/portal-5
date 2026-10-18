@@ -38,3 +38,12 @@ workspaces:
     tool_mode: production
     allow: [execute_python, remember, recall]
   auto-uncensored-throwaway: *uncensored_tools
+  auto-cad:
+    # The workspace's own CAD surface: the six cad_* pipeline tools (b123d_bridge.py
+    # TOOL_NAMES) the suite measures, scoped to the row. The sandbox, web and memory
+    # tools stay out: a python computation is not a measured part, and the schemas
+    # cost P-4 window (O2: 20 tools vs 32k). find_holes has no checker — its engine
+    # output shape is unverified (backlog) — it is offered because it is the natural
+    # tool for the plate-holes kind.
+    tool_mode: production
+    allow: [cad_build, cad_execute, cad_measure, cad_find_holes, cad_render, cad_finalize]

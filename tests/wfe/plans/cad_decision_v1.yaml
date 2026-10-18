@@ -1,0 +1,23 @@
+# auto-cad's first seat decision (WFE P3 triage §4): measured with its own CAD tools in
+# production mode on cad_production (12 tasks, 4 screen; closed-form gold volumes
+# computed by the committed generator). Production mode needs the tool_modes.yaml
+# allowlist added with this suite (tests/wfe/tool_modes.yaml auto-cad) — "changing this
+# file changes the instrument": merge between campaigns.
+#
+# Every challenger is served by auto-cad's routed groups (backends.yaml
+# workspace_routing: coding + general) at a window of at least the workspace's
+# context_limit (32768), checked by the slice tests. The incumbent is HEAD's
+# model_hint (qwen3-coder:30b-a3b at ctx32k — the auto-coding memory note in
+# workloads.yaml was about its 256k window; 32k is a different KV budget, but the
+# preflight is backlogged). The operator may trim these lists before the run.
+workloads:
+  auto-cad:
+    tool_mode: production
+    home: cad_production
+    discovery: []
+    arms:
+      incumbent: qwen3-coder:30b-a3b-q4_K_M-ctx32k
+      challengers:
+        - hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k
+        - glm-4.7-flash:Q4_K_M-ctx64k
+        - gemma4:26b-a4b-it-q4_K_M-ctx32k

@@ -1076,6 +1076,10 @@ surfaces:
   globs:
   - tests/wfe/decision.py
   unit: unit-wfe-workspace-fitness
+- name: file-tests-wfe-e2e-cad_attainability
+  globs:
+  - tests/wfe/e2e/cad_attainability.py
+  unit: unit-wfe-workspace-fitness
 - name: file-tests-wfe-e2e-coding_attainability
   globs:
   - tests/wfe/e2e/coding_attainability.py
@@ -1268,6 +1272,10 @@ surfaces:
   globs:
   - tests/wfe/settings_audit.py
   unit: unit-known-limitations-unregistered-hint-fallback
+- name: file-tests-wfe-suites-build_cad_production
+  globs:
+  - tests/wfe/suites/build_cad_production.py
+  unit: unit-wfe-workspace-fitness
 - name: file-tests-wfe-suites-build_coding_production
   globs:
   - tests/wfe/suites/build_coding_production.py
@@ -1307,6 +1315,10 @@ surfaces:
 - name: file-tests-wfe-tests-test_wfe_baseline
   globs:
   - tests/wfe/tests/test_wfe_baseline.py
+  unit: unit-wfe-workspace-fitness
+- name: file-tests-wfe-tests-test_wfe_cad_slice
+  globs:
+  - tests/wfe/tests/test_wfe_cad_slice.py
   unit: unit-wfe-workspace-fitness
 - name: file-tests-wfe-tests-test_wfe_cells
   globs:
