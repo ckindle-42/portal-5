@@ -1,11 +1,11 @@
 ---
 id: unit-fact-model-catalog
 kind: what
-title: 290 model ids, 7 backend groups
+title: 294 model ids, 7 backend groups
 sources:
 - type: code
   path: config/backends.yaml
-  commit: 7499f0e1bbd4
+  commit: 517884a2ca95
 claims:
 - probe: backends.groups.count
   pattern: '{value} backend groups)'
@@ -14,10 +14,10 @@ tags:
 - fact
 - models
 created_at: 1784000421.487881
-updated_at: 1792349473.576016
+updated_at: 1792354689.035684
 ---
 
-# Model catalog (290 model ids across 7 backend groups)
+# Model catalog (294 model ids across 7 backend groups)
 
 ## coding (57)
 
@@ -94,7 +94,7 @@ updated_at: 1792349473.576016
 - `huihui_ai/baronllm-abliterated`
 - `huihui_ai/baronllm-abliterated:latest-ctx8k`
 
-## general (132)
+## general (134)
 
 - `NVIDIA-Nemotron-3.5-Lightning-30B-A3B-oQ4e-mtp`
 - `Qwen3.8-27B-oQ4e-mtp`
@@ -146,6 +146,7 @@ updated_at: 1792349473.576016
 - `hf.co/Nguuma/security-slm-unsloth-1.5b:latest`
 - `hf.co/QuantFactory/Llama-3.2-3B-Instruct-abliterated-GGUF`
 - `hf.co/QuantFactory/Llama-3.2-3B-Instruct-abliterated-GGUF:latest`
+- `hf.co/bartowski/K2-Horizon-MoVA-36B-A4B-GGUF:Q4_K_M-ctx96k`
 - `hf.co/bartowski/NVIDIA-Nemotron-3.5-Lightning-30B-A3B-GGUF:Q4_K_M-ctx32k`
 - `hf.co/bartowski/NVIDIA-Nemotron-3.5-Lightning-30B-A3B-GGUF:q4_K_M-ctx8k`
 - `hf.co/bartowski/Qwen_Qwen3.6-27B-GGUF:Q4_K_M`
@@ -182,6 +183,7 @@ updated_at: 1792349473.576016
 - `hf.co/unsloth/Qwen3.6-35B-A3B-GGUF:UD-Q4_K_XL-ctx48k`
 - `hf.co/unsloth/Qwen3.6-35B-A3B-GGUF:UD-Q4_K_XL-ctx96k`
 - `hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M`
+- `hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx128k`
 - `hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k`
 - `hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx96k`
 - `hf.co/yuxinlu1/gemma-4-12B-agentic-fable5-composer2.5-v2-3.5x-tau2-GGUF:Q4_K_M`
@@ -234,7 +236,7 @@ updated_at: 1792349473.576016
 - `Laguna-XS-2.1-4bit`
 - `Qwen3-Coder-30B-A3B-Instruct-4bit`
 
-## reasoning (32)
+## reasoning (34)
 
 - `DeepSeek-R1-0528-Qwen3-8B-4bit`
 - `Qwen3.8-27B-oQ4e-mtp`
@@ -250,9 +252,11 @@ updated_at: 1792349473.576016
 - `granite4.1:8b-ctx16k`
 - `granite4.1:8b-ctx8k`
 - `hf.co/Jackrong/Qwopus3.6-27B-v2-MTP-GGUF:Qwopus3.6-27B-v2-MTP-Q5_K_M.gguf`
+- `hf.co/bartowski/K2-Horizon-MoVA-36B-A4B-GGUF:Q4_K_M-ctx64k`
 - `hf.co/bartowski/THUDM_GLM-Z1-Rumination-32B-0414-GGUF:THUDM_GLM-Z1-Rumination-32B-0414-Q4_K_M.gguf`
 - `hf.co/bartowski/THUDM_GLM-Z1-Rumination-32B-0414-GGUF:THUDM_GLM-Z1-Rumination-32B-0414-Q4_K_M.gguf-ctx64k`
 - `hf.co/fdtn-ai/Foundation-Sec-8B-Reasoning-Q8_0-GGUF:Q8_0`
+- `hf.co/ibm-granite/granite-4.2-30b-GGUF:Q4_K_M-ctx64k`
 - `hf.co/unsloth/DeepSeek-R1-0528-Qwen3-8B-GGUF:Q4_K_XL`
 - `hf.co/unsloth/DeepSeek-R1-0528-Qwen3-8B-GGUF:Q4_K_XL-ctx64k`
 - `hf.co/unsloth/Qwen3.6-35B-A3B-GGUF:UD-Q4_K_XL`

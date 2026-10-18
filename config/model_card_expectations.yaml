@@ -55,6 +55,12 @@ models:
     max_context: {pending_research: true}
     tools: {pending_research: true}
 
+  k2-horizon:
+    status: card-only
+    card_source: "https://huggingface.co/IFM/K2-Horizon-MoVA-36B-A4B (README 'Recommended settings') (2026-10-18)"
+    recommended_sampling: {temperature: 1.0, top_p: 0.95}
+    prompt_contract: "Reasoning model (thinking channel separated by Ollama); card recommends reasoning_effort high. GGUF carries its own Jinja chat template."
+    max_context: 524288
   granite-4.2:
     status: verified-behavioral
     behavioral_quirks:

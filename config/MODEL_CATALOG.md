@@ -1335,6 +1335,38 @@ The window is a seat property on the pipeline path — this tag is the mechanism
 
 ---
 
+### `hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx128k`
+
+`hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx128k` — The 128K-context derived tag of unsloth's Qwen3.8-27B Q4_K_M (baked `num_ctx 131072`, weights shared with the base tag), registered in `group: general` with `supports_tools: true` as the long-reading challenger to the compliance-reading seat. Independent AA-LCR puts Qwen3.8-27B at 82.0 against 65.7 for the seated gemma4-26b (docs/WFE_LANDSCAPE_FLEET_20261018.md); the existing 96K tags would truncate the seat's 124.7k-token worst case.
+
+## Why
+
+Named by the 2026-10-18 landscape review as a current, fitting candidate for its lane; registered so WFE can screen it against the seat.
+
+### `hf.co/bartowski/K2-Horizon-MoVA-36B-A4B-GGUF:Q4_K_M-ctx64k`
+
+`hf.co/bartowski/K2-Horizon-MoVA-36B-A4B-GGUF:Q4_K_M-ctx64k` — A 64K-context derived tag of bartowski's Q4_K_M (22.7 GB) of IFM's K2 Horizon MoVA 36B-A4B (released 2026-09-03, Apache 2.0, MoE with ~4B active, a thinking model). Registered in `group: reasoning` as an auto-reasoning challenger. Direct probe on this host: 3/3 clean tool calls, reasoning returned separately, about 37 tok/s decode; card sampling is temperature 1.0, top_p 0.95.
+
+## Why
+
+Named by the 2026-10-18 landscape review as a current, fitting candidate for its lane; registered so WFE can screen it against the seat.
+
+### `hf.co/bartowski/K2-Horizon-MoVA-36B-A4B-GGUF:Q4_K_M-ctx96k`
+
+`hf.co/bartowski/K2-Horizon-MoVA-36B-A4B-GGUF:Q4_K_M-ctx96k` — The 96K-context derived tag of the same K2 Horizon MoVA 36B-A4B weights, registered in `group: general` as the general-fast challenger (Artificial Analysis index 25 against 18 for the seated Qwen3.6-35B-A3B).
+
+## Why
+
+Named by the 2026-10-18 landscape review as a current, fitting candidate for its lane; registered so WFE can screen it against the seat.
+
+### `hf.co/ibm-granite/granite-4.2-30b-GGUF:Q4_K_M-ctx64k`
+
+`hf.co/ibm-granite/granite-4.2-30b-GGUF:Q4_K_M-ctx64k` — A 64K-context derived tag of IBM's Granite 4.2 30B Q4_K_M with the stops re-declared without the manifest's `<think>`, registered in `group: reasoning` as an auto-reasoning challenger (Granite 4.2 is a reasoning model).
+
+## Why
+
+Named by the 2026-10-18 landscape review as a current, fitting candidate for its lane; registered so WFE can screen it against the seat.
+
 ### `hf.co/ibm-granite/granite-4.2-8b-GGUF:Q4_K_M-ctx8k`
 
 `hf.co/ibm-granite/granite-4.2-8b-GGUF:Q4_K_M-ctx8k` is an 8K-context derived tag of IBM's own Q4_K_M GGUF of Granite 4.2 8B (released 2026-08-25, a reasoning model with built-in `<think>`; 5.3 GB). The hf.co manifest baked `<think>` as a stop token, which would end a thinking model's turn as soon as it starts reasoning, so this tag re-declares the stops without it (`<|im_start|>`, `<|im_end|>`, `<|im_start|>user`) and bakes `num_ctx 8192`. Card sampling is temperature 1.0 and top_p 0.95 (generation_config.json). `config/backends.yaml` registers it in `group: general` with `supports_tools: true` after a direct probe: 3/3 clean tool calls with the reasoning separated. Pulled 2026-10-18 as a tools-specialist challenger.

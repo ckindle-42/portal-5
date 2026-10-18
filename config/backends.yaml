@@ -130,6 +130,13 @@ backends:
     supports_tools: true
   - id: hf.co/ibm-granite/granite-4.2-30b-GGUF:Q4_K_M-ctx8k
     supports_tools: true
+  # 2026-10-18 landscape candidates. Qwen3.8 at 128k for long reading (compliance-reading);
+  # K2 Horizon MoVA 36B-A4B (IFM, 2026-09-03, MoE ~4B active) for general-fast; direct
+  # probe 3/3 tool calls, reasoning separated, ~37 tok/s decode on this host.
+  - id: hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx128k
+    supports_tools: true
+  - id: hf.co/bartowski/K2-Horizon-MoVA-36B-A4B-GGUF:Q4_K_M-ctx96k
+    supports_tools: true
   - id: gemma4:26b-a4b-it-q4_K_M
     supports_tools: true
   - id: gemma4:26b-a4b-it-qat
@@ -738,6 +745,12 @@ backends:
   - id: hf.co/unsloth/DeepSeek-R1-0528-Qwen3-8B-GGUF:Q4_K_XL
     supports_tools: true
   - id: hf.co/unsloth/DeepSeek-R1-0528-Qwen3-8B-GGUF:Q4_K_XL-ctx64k
+    supports_tools: true
+  # 2026-10-18 auto-reasoning challengers at the seat's 64k window: K2 Horizon MoVA 36B-A4B,
+  # and Granite 4.2 30B (stops re-declared without the manifest's <think>).
+  - id: hf.co/bartowski/K2-Horizon-MoVA-36B-A4B-GGUF:Q4_K_M-ctx64k
+    supports_tools: true
+  - id: hf.co/ibm-granite/granite-4.2-30b-GGUF:Q4_K_M-ctx64k
     supports_tools: true
   # Tier-2 deep lane (auto-reasoning?variant=deep, PROPOSED_REASONING_OVERHAUL
   # _V3). Dense Qwen3.8-27B. Ollama GGUF fallback; omlx-reasoning aliases it to

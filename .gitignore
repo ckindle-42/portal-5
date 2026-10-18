@@ -60,7 +60,9 @@ tests/benchmarks/results/.quant_trueup_last_utc
 # <model>.jsonl result rows beside them are the tracked receipts.
 tests/benchmarks/results/engine_h2h/logs/
 tests/benchmarks/results/engine_h2h/state/
-tests/fixtures/audio/
+tests/fixtures/audio/*
+# WFE audio_production clips are tracked fixtures (build_audio_production.py; `say` output is not byte-stable).
+!tests/fixtures/audio/aud-*.wav
 
 # Stage 2 propose/prove staged diffs + report — working dir, not source
 portal/modules/security/core/stage2_proposals/
