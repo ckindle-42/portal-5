@@ -84,8 +84,11 @@ def test_seeded_fixtures_hold_the_gold(tmp_path):
             assert str(case["gold"]) in text, case["file"]
 
 
-def test_attainability_fails_when_a_fact_is_not_exposed_or_the_call_makes_no_file():
+def test_attainability_fails_when_a_fact_is_not_exposed_or_the_call_makes_no_file(monkeypatch):
+    from tests.wfe import eval_mode
     from tests.wfe.e2e import documents_attainability as att
+
+    monkeypatch.setattr(eval_mode, "eval_post", lambda *_: None)
 
     gen.build()
     read = TASKS["doc-read-00"]

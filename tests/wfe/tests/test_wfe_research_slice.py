@@ -144,8 +144,11 @@ def test_the_seeded_stores_hold_the_gold():
         assert gold in stores, t["id"]
 
 
-def test_attainability_fails_when_a_fact_is_not_exposed_or_a_decoy_is_reachable():
+def test_attainability_fails_when_a_fact_is_not_exposed_or_a_decoy_is_reachable(monkeypatch):
+    from tests.wfe import eval_mode
     from tests.wfe.e2e import research_attainability as att
+
+    monkeypatch.setattr(eval_mode, "eval_post", lambda *_: None)
 
     gen.build()
 

@@ -6,6 +6,7 @@ from __future__ import annotations
 import contextlib
 import json
 import sqlite3
+import urllib.error
 import urllib.request
 
 from tests.wfe.e2e import compliance_classify as cc
@@ -13,6 +14,23 @@ from tests.wfe.e2e import compliance_classify as cc
 
 def test_the_trap_counts_a_model_call_and_the_store_diff_sees_a_write(tmp_path, monkeypatch):
     from portal.modules.compliance.tools import compliance_mcp as cm
+
+    class OfflineTrap:
+        server_port = 43210
+
+        def __init__(self, *_args):
+            pass
+
+        def serve_forever(self):
+            pass
+
+    def refuse_request(request, timeout=5):
+        cc._Trap.hits += 1
+        raise urllib.error.HTTPError(str(request), 503, "offline trap", {}, None)
+
+    cc._Trap.hits = 0
+    monkeypatch.setattr(cc, "HTTPServer", OfflineTrap)
+    monkeypatch.setattr(urllib.request, "urlopen", refuse_request)
 
     db = tmp_path / "compliance_store.db"
     con = sqlite3.connect(db)

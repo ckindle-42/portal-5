@@ -182,8 +182,11 @@ def test_the_suites_regenerate_identically():
     )
 
 
-def test_attainability_fails_when_a_fact_is_not_exposed():
+def test_attainability_fails_when_a_fact_is_not_exposed(monkeypatch):
+    from tests.wfe import eval_mode
     from tests.wfe.e2e import general_attainability as att
+
+    monkeypatch.setattr(eval_mode, "eval_post", lambda *_: None)
 
     gen.build()
 
