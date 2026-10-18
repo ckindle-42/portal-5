@@ -1,0 +1,28 @@
+# compliance-reading's first seat decision (WFE P3 triage §7, narrow): the compliance
+# suite's determination/lookup kinds over the reading tool subset, on
+# reading_production (12 tasks, 4 screen — no new gold). Production mode needs the
+# tool_modes.yaml allowlist added with this suite (tests/wfe/tool_modes.yaml
+# compliance-reading) — "changing this file changes the instrument": merge between
+# campaigns. The rows run against the compliance EVALUATION instance (:8948), never
+# the operator's store (root-fix Part 2c-2).
+#
+# The seat runs at temperature 1.0 with think off, so the S3 repeats policy runs
+# confirms at 3 repeats. The 128k window is generous against the 10-tool subset; the
+# P-4 measure is backlogged anyway (S2 owns it).
+#
+# Every challenger is served by compliance-reading's routed group (backends.yaml
+# workspace_routing: general) at a window of at least the workspace's context_limit
+# (131072). The >= 128k field is thin: the only qualifying tags are the three 256k
+# portal builds (uncensored/heretic flavours — a flavour finding would be a seat
+# finding, not a suite defect). The operator may trim these lists before the run.
+workloads:
+  compliance-reading:
+    tool_mode: production
+    home: reading_production
+    discovery: []
+    arms:
+      incumbent: gemma4:26b-a4b-it-q4_K_M-ctx128k
+      challengers:
+        - portal5/hauhaucs-qwen36-35b:q4_K_M-ctx256k
+        - portal5/gemma4-26b-heretic:q4_K_M-ctx256k
+        - portal5/ornith15-35b:q4_K_M-ctx256k

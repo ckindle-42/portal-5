@@ -44,6 +44,15 @@ workspaces:
     # general lanes run. Nothing else is offered or measured.
     tool_mode: production
     allow: [execute_python, remember, recall]
+  compliance-reading:
+    # The reading subset (O2 §7, narrow): read-side corpus and register tools only —
+    # every entry is in the workspace's own tools list AND in the evaluation
+    # instance's VERIFIED_TOOLS (eval_instance.py). The writes and review decisions
+    # (compliance_note, compliance_correct, compliance_review_*) are not offered and
+    # not measured. Served by the compliance EVALUATION instance, never the
+    # operator's store (root-fix Part 2c-2).
+    tool_mode: production
+    allow: [compliance_answers, compliance_coverage, compliance_links, compliance_notes, compliance_read, compliance_requirement, compliance_search, compliance_timeline, nerc_cip_currency, nerc_cip_requirement]
   auto-cad:
     # The workspace's own CAD surface: the six cad_* pipeline tools (b123d_bridge.py
     # TOOL_NAMES) the suite measures, scoped to the row. The sandbox, web and memory
