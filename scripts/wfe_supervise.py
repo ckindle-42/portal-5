@@ -74,11 +74,21 @@ def load_rows(campaign_dir: Path, cache: dict) -> dict:
             "task_id": r.get("task_id", "?"),
             "outcome": r.get("outcome"),
             "tool_calls": r.get("tool_calls", 0),
-            "tool_surface": bool(r.get("tool_surface")),
+            "tool_surface": _offered_tools(r),
             "notes": (r.get("notes") or "")[:160],
             "text": text[:600],
         }
     return cache
+
+
+def _offered_tools(r: dict) -> bool:
+    """Whether the seat was offered any tool. A pipeline row's eval scope is the truth (an empty
+    allowlist means none, as on a no_tools task); `tool_surface` is only the client-side default
+    and is recorded even then (wfe_math_20261018b: a false "15/15 rows called no tool")."""
+    scope = (r.get("evidence") or {}).get("eval_scope")
+    if isinstance(scope, dict):
+        return bool(scope.get("allow"))
+    return bool(r.get("tool_surface"))
 
 
 def answer_smells(row: dict) -> list[str]:

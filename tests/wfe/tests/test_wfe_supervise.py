@@ -252,3 +252,11 @@ def test_health_problems_reach_the_tick(tmp_path, monkeypatch):
     )
     verdict, problems, _ = supervise.tick(tmp_path, {}, {})
     assert verdict == "ATTENTION" and problems == ["no row completed in 1h00m"]
+
+
+def test_a_no_tools_pipeline_row_is_not_counted_as_offered_tools():
+    no_tools = {"tool_surface": ["file_read"], "evidence": {"eval_scope": {"allow": []}}}
+    offered = {"tool_surface": [], "evidence": {"eval_scope": {"allow": ["read_pdf"]}}}
+    assert supervise._offered_tools(no_tools) is False
+    assert supervise._offered_tools(offered) is True
+    assert supervise._offered_tools({"tool_surface": ["file_read"]}) is True  # direct engine
