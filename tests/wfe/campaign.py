@@ -1779,9 +1779,12 @@ def hop_limited(row: dict) -> bool:
     return any("exhausted_turns" in t for t in row.get("transcript") or [])
 
 
-def kind_halt_reason(arm: str, kind: str, row: dict, n: int = HALT_AFTER_ROWS) -> str | None:
+def kind_halt_reason(
+    arm: str, kind: str, row: dict, n: int = HALT_AFTER_ROWS, tools: bool = True
+) -> str | None:
     """Why the arm should halt on this task kind, or None. Judged once the kind has n rows:
-    a pass rate of at most 1/n, no tool call on any row, or any HARNESS_ERROR / hop-limit row."""
+    a pass rate of at most 1/n, no tool call on any row (only when the kind offers tools —
+    a `no_tools` kind never calls one), or any HARNESS_ERROR / hop-limit row."""
     rows = _KIND_ROWS.setdefault((arm, kind), [])
     rows.append(
         {
@@ -1795,7 +1798,7 @@ def kind_halt_reason(arm: str, kind: str, row: dict, n: int = HALT_AFTER_ROWS) -
     passes = sum(x["outcome"] == Outcome.PASS.value for x in rows)
     if passes * n <= len(rows):
         return f"pass rate {passes}/{len(rows)} <= 1/{n}"
-    if not any(x["tool_calls"] for x in rows):
+    if tools and not any(x["tool_calls"] for x in rows):
         return f"0 tool calls on all {len(rows)} rows"
     if any(x["outcome"] == Outcome.HARNESS_ERROR.value for x in rows):
         return "HARNESS_ERROR row"
@@ -1807,7 +1810,9 @@ def kind_halt_reason(arm: str, kind: str, row: dict, n: int = HALT_AFTER_ROWS) -
 def _halt_arm(campaign_dir: Path, arm: str, task: dict, row: dict, halt: bool) -> str | None:
     """Judge the row's task kind; on a halt, log it and return "<kind>: <reason>"."""
     kind = task_kind(task)
-    why = kind_halt_reason(arm, kind, row)
+    # wfe_math_20261018a: every reasoning/math arm halted on "0 tool calls" — its tasks are
+    # no_tools, so a call is never possible.
+    why = kind_halt_reason(arm, kind, row, tools=not task.get("no_tools"))
     if not (why and halt):
         return None
     _log(campaign_dir, f"arm {arm}: HALTED — {kind}: {why}")

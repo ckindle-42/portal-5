@@ -244,6 +244,13 @@ def test_halt_when_every_row_made_zero_tool_calls():
     assert out[3] == "0 tool calls on all 4 rows"
 
 
+def test_a_no_tools_kind_is_never_halted_for_making_no_tool_call():
+    # wfe_math_20261018a: every reasoning/math arm halted on its no_tools arithmetic kind
+    campaign._KIND_ROWS.clear()
+    out = [campaign.kind_halt_reason("a", "k", _row("PASS", 0), tools=False) for _ in range(4)]
+    assert out == [None] * 4
+
+
 def test_halt_on_a_harness_error_row_once_the_kind_has_n_rows():
     rows = [_row(), _row("HARNESS_ERROR"), _row(), _row()]
     assert _halt(rows)[3] == "HARNESS_ERROR row"
