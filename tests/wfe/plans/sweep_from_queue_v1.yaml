@@ -1,0 +1,34 @@
+# Sweep plan generated from tests/wfe/candidate_queue.yaml by tests.wfe.sweep_plan.
+# Incumbents come from tests/wfe/plans/*_decision_v1.yaml. A queued model is a
+# challenger only in an intended workspace whose workspace_routing groups serve
+# it and whose ctxNk window is at least that workspace's context_limit.
+notes: []
+workloads:
+  auto-compliance:
+    tool_mode: production
+    home: compliance_production
+    discovery: []
+    arms:
+      incumbent: hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k
+      challengers:
+      - granite4.1:30b-ctx64k
+  auto-data:
+    tool_mode: production
+    home: data_production
+    discovery: []
+    arms:
+      incumbent: hf.co/unsloth/Qwen3.6-35B-A3B-GGUF:UD-Q4_K_XL-ctx32k
+      challengers:
+      - granite4.1:30b-ctx64k
+      - hf.co/bartowski/NVIDIA-Nemotron-3.5-Lightning-30B-A3B-GGUF:Q4_K_M-ctx32k
+      - hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k
+  auto-documents:
+    tool_mode: production
+    home: documents_production
+    discovery: []
+    arms:
+      incumbent: granite4.1:8b-ctx16k
+      challengers:
+      - gemma4:26b-a4b-it-q4_K_M-ctx32k
+      - granite4.1:30b-ctx96k
+      - hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k

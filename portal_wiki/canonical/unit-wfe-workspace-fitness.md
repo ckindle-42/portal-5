@@ -141,6 +141,10 @@ The harness (`tests/wfe/`):
   `--preflight` probes every arm before the sweep, and each arm releases its
   model (`keep_alive: 0`) so co-resident weight never becomes the measurement;
   `report.py` — deterministic Wilson-interval report, NOT SEPARATED not ranked.
+  `sweep_plan.py` — writes `plans/sweep_from_queue_v1.yaml` from the candidate
+  queue's intended workspaces and the incumbents in `plans/*_decision_v1.yaml`.
+  A queued model is a challenger only where `workspace_routing` serves it and
+  its `ctxNk` window is at least that workspace's `context_limit`.
 - `scripts/wfe_supervise.py` — the watcher that makes a long sweep cheap to
   leave alone. `run_arm`'s auto-halt stops one arm whose task kind has gone bad,
   but the driver then starts the next arm, so a sweep can halt arm by arm and
