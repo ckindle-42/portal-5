@@ -1,0 +1,23 @@
+# auto-security's first seat decision on the analytical security workload
+# (WFE new instruments 2026-10-18): security_analysis_production, 36 tasks,
+# 12 screen, all no_tools — CVE→CWE mapping, CVSS severity banding, and
+# vulnerable-function CWE identification.
+#
+# No workload declares a tool_mode: every task is `no_tools`, so the pipeline row is
+# prepared with no tool surface (tests/wfe/eval_mode.py:107) and no tool mode entry
+# is needed.
+#
+# Every challenger is served by auto-security's routed groups (backends.yaml
+# workspace_routing: security + general) at a window of at least the workspace's
+# context_limit (8192), checked by the slice tests. The operator may trim these
+# lists before the run.
+workloads:
+  auto-security:
+    home: security_analysis_production
+    discovery: []
+    arms:
+      incumbent: hf.co/mradermacher/VulnLLM-R-7B-GGUF:q4_K_M-ctx8k
+      challengers:
+        - hf.co/fdtn-ai/Foundation-Sec-8B-Reasoning-Q8_0-GGUF:Q8_0-ctx8k
+        - hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k
+        - hf.co/ibm-granite/granite-4.2-8b-GGUF:Q4_K_M-ctx8k
