@@ -137,9 +137,20 @@ def test_a_few_spoiled_rows_do_not_void_a_cell():
 
 
 def test_one_answer_repeated_across_tasks_means_a_stuck_seat():
-    rows = [_row(task_id=f"t-{i}", text="the same answer every time, verbatim") for i in range(3)]
+    rows = [
+        _row(outcome="FAIL", task_id=f"t-{i}", text="the same answer every time, verbatim")
+        for i in range(3)
+    ]
     (problem,) = supervise.stuck_answers("a", rows)
     assert "3 different tasks" in problem and "stuck" in problem
+
+
+def test_tasks_sharing_one_correct_answer_are_not_stuck():
+    """The research suite's absent-fact tasks all expect NOT_FOUND (wfe_research_nex25)."""
+    rows = [
+        _row(task_id=f"t-{i}", text='{"answer":"NOT_FOUND"} as the record says') for i in range(3)
+    ]
+    assert supervise.stuck_answers("a", rows) == []
 
 
 def test_the_same_task_answered_the_same_way_twice_is_just_a_repeat():
