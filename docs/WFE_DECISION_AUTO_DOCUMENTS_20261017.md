@@ -83,3 +83,23 @@ Recorded in `tests/wfe/fitness_ledger.yaml` (89decd5f).
 - Create answers hand the user a container path (`/app/data/generated/…`) as the download link —
   verify in a real OWUI turn (S2 production smoke).
 - The ledger cells are on the pre-f5c0fcd6 suite; the next documents campaign runs the fixed suite.
+
+## Addendum 2026-10-18 — G1 head-to-head, computed offline
+
+Campaign h already ran both FOLD candidates on the same suite, instrument, build and repeats, so the
+gemma-vs-Qwen3.8 pairing comes from its rows, with no new inference (the planned
+`documents_h2h_v1` run is not needed). Arms are the h challengers, each at its card sampling (both
+served temperature 1.0).
+
+| | gemma4:26b-a4b q4_K_M ctx32k | Qwen3.8-27B Q4_K_M ctx32k |
+|---|---|---|
+| PASS (36 × 3) | 108/108 | 108/108 |
+| Paired sign test | — | 0 wins / 0 losses / 36 ties, NOT_SEPARATED |
+| Total s per task, median (p90) | **3.7** (5.3) | 20.3 (45.1) |
+| Lineage seats today | gemma: 6 | Qwen3.8: 3 |
+
+Accuracy is at the suite's ceiling, so the suite can't separate the two. A live re-run on the same
+suite would only repeat that, so the call rests on speed (gemma about 5.5× faster per task) and
+lineage. Also corrected: the "incumbent temperature null" finding above was a receipt defect
+(`options_applied` read only top-level sampling), fixed de1e657e; granite's seat sampling was
+delivered.
