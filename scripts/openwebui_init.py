@@ -571,7 +571,24 @@ async def create_persona_presets_async(
             )
         )
 
+    # Open WebUI stores presets in SQLite: ~110 concurrent delete+create calls hit
+    # "database is locked" (HTTP 500) on a few presets every reseed. Bound the fan-out
+    # and retry a 500, so a reseed never leaves presets missing.
+    gate = asyncio.Semaphore(4)
+
     async def _create_one(
+        slug: str, name: str, workspace_model: str, payload: dict
+    ) -> tuple[str, str]:
+        result: tuple[str, str] = (name, "fail:unknown")
+        for attempt in range(3):
+            async with gate:
+                result = await _create_once(slug, name, workspace_model, payload)
+            if not result[1].startswith("fail:500"):
+                return result
+            await asyncio.sleep(1.0 + attempt)
+        return result
+
+    async def _create_once(
         slug: str, name: str, workspace_model: str, payload: dict
     ) -> tuple[str, str]:
         try:
