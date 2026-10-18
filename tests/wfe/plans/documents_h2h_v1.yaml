@@ -1,0 +1,15 @@
+# P5-B2 G1/G2 (operator 2026-10-18: "G1 head-to-head"): the two auto-documents FOLDs never met.
+# gemma4:26b-a4b q4_K_M ctx32k is the reference arm ("incumbent" here is only the comparison
+# baseline — the live seat stays granite4.1:8b-ctx16k until the operator decides), Qwen3.8-27B
+# ctx32k the challenger. Fixed suite (post-f5c0fcd6: no "In <file>," opener, exact value cells),
+# phase timing on every row. Decide on accuracy + speed + lineage diversity (Qwen3.8 already
+# holds three production seats).
+workloads:
+  auto-documents:
+    tool_mode: production
+    home: documents_production
+    discovery: []
+    arms:
+      incumbent: gemma4:26b-a4b-it-q4_K_M-ctx32k
+      challengers:
+        - hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k
