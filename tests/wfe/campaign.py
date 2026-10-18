@@ -2429,9 +2429,8 @@ _KIND_ROWS: dict[tuple[str, str], list[dict]] = {}
 
 
 def task_kind(task: dict) -> str:
-    """A task's kind: its explicit `kind`, else its id without the trailing index
-    (`doc-read-03` -> `doc-read`)."""
-    return task.get("kind") or re.sub(r"(-\d+[a-z]?)+$", "", task["id"])
+    """The halt group: explicit `halt_kind`, else its `kind`, else id without index."""
+    return task.get("halt_kind") or task.get("kind") or re.sub(r"(-\d+[a-z]?)+$", "", task["id"])
 
 
 def hop_limited(row: dict) -> bool:

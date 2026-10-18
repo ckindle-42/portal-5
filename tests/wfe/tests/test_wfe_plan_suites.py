@@ -85,7 +85,7 @@ def test_every_plan_suite_file_exists():
 
 
 def test_the_six_o5_suites_carry_the_full_shape():
-    """36 tasks / 12 screen: the expansion that answered wfe_math_20261018b."""
+    """Production suites meet their task floor and preserve their screen/full split."""
     for suite, kinds in {
         "reasoning_math_production": {"arithmetic": 12, "combinatorics": 12, "logic-grid": 12},
         "cad_production": {"plate-holes": 12, "extrusion": 12, "revolve": 12},
@@ -95,12 +95,18 @@ def test_the_six_o5_suites_carry_the_full_shape():
         "routing_production": {
             "auto-coding": 9,
             "auto-compliance": 9,
-            "auto-security": 9,
+            "auto-security": 14,
             "auto-spl": 9,
+            "auto-creative": 2,
+            "auto-research": 2,
         },
     }.items():
         tasks = [json.loads(x) for x in (SUITES / f"{suite}.jsonl").read_text().splitlines()]
-        assert len(tasks) == 36 and sum(t["screen"] for t in tasks) == 12, suite
+        expected_total = 45 if suite == "routing_production" else 36
+        expected_screen = 15 if suite == "routing_production" else 12
+        assert (
+            len(tasks) == expected_total and sum(t["screen"] for t in tasks) == expected_screen
+        ), suite
         by_kind: dict[str, int] = {}
         for t in tasks:
             by_kind[t["kind"]] = by_kind.get(t["kind"], 0) + 1

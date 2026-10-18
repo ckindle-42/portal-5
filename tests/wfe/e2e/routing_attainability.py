@@ -1,14 +1,14 @@
 """Is each routing task clear-cut, and is the router's own few-shot file kept out?
 
-The routing family offers no tools, so attainability here is the clear-cut proof the
-O2 clearance demands, run over the committed suite: the REAL Layer 2 keyword scorer
-(router/routing.py:_detect_workspace, the production fallback) resolves every prompt
-to its gold workspace offline; the harmful-intent gate stays cold on every prompt
-(a trip would reroute the row to auto-daily); no prompt names any workspace id or
-shares a five-word sequence with routing_examples.json — the router's own few-shot
-prompt, which would leak the task; and the prompt plus the default output budget fit
-the 8k window. What this cannot prove offline is what the live row MEASURES: whether
-the production Layer-1 classifier agrees. Nothing here touches the network.
+The routing family offers no tools. For scored tasks, attainability proves that the
+REAL Layer 2 keyword scorer (router/routing.py:_detect_workspace, the production
+fallback) resolves each prompt to its gold workspace offline. The classifier-only
+creative and research tasks have no matching Layer-2 keyword tables, so only their
+live rows can measure Layer-1 classification. The harmful-intent gate stays cold on
+every prompt (a trip would reroute the row to auto-daily); no prompt names any
+workspace id or shares a five-word sequence with routing_examples.json — the
+router's own few-shot prompt, which would leak the task; and each prompt plus the
+default output budget fits the 8k window. Nothing here touches the network.
 
     uv run python -m tests.wfe.e2e.routing_attainability            # offline
     uv run python -m tests.wfe.e2e.routing_attainability --json
@@ -38,9 +38,10 @@ def check_task(task: dict, portal: dict, example_shingles: set[str]) -> list[str
     ins = task["instruction"]
     want = task["checkers"][0]["workspace"]
     failures = []
-    got = rt._detect_workspace([{"role": "user", "content": ins}])
-    if got != want:
-        failures.append(f"Layer 2 resolves the prompt to {got!r}, not the gold {want!r}")
+    if not task.get("classifier_only"):
+        got = rt._detect_workspace([{"role": "user", "content": ins}])
+        if got != want:
+            failures.append(f"Layer 2 resolves the prompt to {got!r}, not the gold {want!r}")
     if rt.detect_harmful_intent([{"role": "user", "content": ins}]):
         failures.append("the prompt trips the harmful-intent gate (would reroute to auto-daily)")
     if gen._shingles(ins) & example_shingles:

@@ -22,7 +22,14 @@ REPO = Path(__file__).resolve().parents[3]
 SUITE = REPO / "tests/wfe/suites/routing_production.jsonl"
 PLAN = REPO / "tests/wfe/plans/routing_decision_v1.yaml"
 TASKS = {t["id"]: t for t in map(json.loads, SUITE.read_text().splitlines())}
-KINDS = {"auto-coding": 9, "auto-compliance": 9, "auto-security": 9, "auto-spl": 9}
+KINDS = {
+    "auto-coding": 9,
+    "auto-compliance": 9,
+    "auto-security": 14,
+    "auto-spl": 9,
+    "auto-creative": 2,
+    "auto-research": 2,
+}
 
 
 def _kind(kind: str) -> list[dict]:
@@ -30,7 +37,7 @@ def _kind(kind: str) -> list[dict]:
 
 
 def test_the_suite_is_sound_and_balanced():
-    assert len(TASKS) == 36 and sum(t["screen"] for t in TASKS.values()) == 12
+    assert len(TASKS) == 45 and sum(t["screen"] for t in TASKS.values()) == 15
     for kind, n in KINDS.items():
         assert len(_kind(kind)) == n, kind
         assert all(t["id"].startswith(f"route-{kind.removeprefix('auto-')}-") for t in _kind(kind))
@@ -43,11 +50,29 @@ def test_every_task_is_no_tools_and_graded_on_the_resolved_workspace():
         assert t["no_tools"] is True and t["requires_tools"] == [] and t["agentic"] is False, t[
             "id"
         ]
-        assert t["checkers"] == [{"type": "routed_workspace", "workspace": t["kind"]}], t["id"]
+        expected = [{"type": "routed_workspace", "workspace": t["kind"]}]
+        if t.get("refusal_is_failure"):
+            expected.append({"type": "answer_contains", "patterns": ["^OK$"]})
+        assert t["checkers"] == expected, t["id"]
         assert t["lane"] == "routing", t["id"]
         assert t["instruction"].endswith("Reply with the single word OK."), t[
             "id"
         ]  # the output cap
+
+
+def test_sensitive_rows_fail_refusals_and_only_unscored_specialists_are_classifier_only():
+    sensitive = [t for t in TASKS.values() if t.get("refusal_is_failure")]
+    assert len(sensitive) == 9
+    assert {t["kind"] for t in sensitive} == {"auto-security", "auto-creative", "auto-research"}
+    for task in sensitive:
+        fail_answers = {c["answer"] for c in task["controls"]["fail"]}
+        assert "I cannot help with that request." in fail_answers, task["id"]
+        assert "This request raises serious moral concerns. OK" in fail_answers, task["id"]
+
+    classifier_only = [t for t in TASKS.values() if t.get("classifier_only")]
+    assert len(classifier_only) == 4
+    assert {t["kind"] for t in classifier_only} == {"auto-creative", "auto-research"}
+    assert {t["halt_kind"] for t in classifier_only} == {"classifier_only"}
 
 
 def test_the_controls_pass_on_the_gold_route_and_fail_on_a_wrong_route_or_no_trace():
@@ -76,13 +101,14 @@ def test_the_gold_workspace_is_never_named_and_examples_are_kept_out():
 
 
 def test_every_prompt_is_provably_clear_cut_offline():
-    """The production Layer 2 fallback resolves every prompt to its gold, and the
-    harmful-intent gate stays cold (a trip would reroute the row to auto-daily)."""
+    """Layer 2 resolves scored prompts to gold; the harmful-intent gate stays cold
+    for every prompt, including classifier-only creative/research cases."""
     from portal.platform.inference.router import routing as rt
 
     for t in TASKS.values():
         got = rt._detect_workspace([{"role": "user", "content": t["instruction"]}])
-        assert got == t["kind"], (t["id"], got)
+        if not t.get("classifier_only"):
+            assert got == t["kind"], (t["id"], got)
         assert not rt.detect_harmful_intent([{"role": "user", "content": t["instruction"]}]), t[
             "id"
         ]

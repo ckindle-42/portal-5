@@ -22,7 +22,7 @@ tags:
 - tests
 - evaluation
 created_at: 1788792773.476087
-updated_at: 1792321100
+updated_at: 1792350560
 ---
 
 The WFE harness evaluates a model IN its workspace context — persona system
@@ -126,6 +126,10 @@ The harness (`tests/wfe/`):
   model-unwritable graded suite, immutable, sandbox-only file_exists/
   file_contains, answer_contains with tool-output leak detection, cited_answer
   fetch-grounded, human_review → PENDING_REVIEW).
+- Sensitive routing rows require the exact output `OK` and set
+  `refusal_is_failure`, so a refusal or preamble fails the task instead of being
+  tallied as a separate REFUSED outcome; refusal and moralising controls prove
+  the failure path.
 - `compliance_reading_contract` scores the reading contract from what was
   OBSERVED: the transcript's own `tool_calls` and the receipt `compliance_ask`
   returned, never the JSON object a model writes about its own run. Three ways
@@ -181,6 +185,13 @@ The harness (`tests/wfe/`):
 - Suites under `tests/wfe/suites/`, workload map `tests/wfe/workloads.yaml`,
   results `tests/wfe/results/`, checker/contract regression tests
   `tests/wfe/tests/`.
+- `routing_production.jsonl` is built by `build_routing_production.py` and has
+  45 tasks / 15 screen. Its nine sensitive rows target auto-security (5),
+  auto-creative (2), and auto-research (2). The four creative/research rows are
+  classifier-only because those workspaces have no Layer-2 keyword tables; their
+  live trace still must match the expected workspace. `halt_kind: classifier_only`
+  groups those four for the existing four-row auto-halt threshold while retaining
+  each task's actual `kind` and routed-workspace checker.
 
 Governing task: docs/TASK_WORKSPACE_FITNESS_EVAL_V1.md. Removals across the
 fleet are HELD until its register v4. Gate: settings audit exits 0 FAIL at

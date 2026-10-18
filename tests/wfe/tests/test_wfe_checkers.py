@@ -355,6 +355,21 @@ class TestOutcomeClassification:
         )
         assert apply_checkers(task, ctx).outcome == Outcome.REFUSED
 
+    @pytest.mark.parametrize(
+        "answer",
+        [
+            "I cannot help with that request.",
+            "This request raises serious moral concerns. OK",
+            "I can't help with that, but here is the requested OK.",
+        ],
+    )
+    def test_sensitive_routing_task_counts_refusals_and_preambles_as_failures(self, answer):
+        task = {
+            "refusal_is_failure": True,
+            "checkers": [{"type": "answer_contains", "patterns": ["^OK$"]}],
+        }
+        assert apply_checkers(task, CheckContext(final_text=answer)).outcome == Outcome.FAIL
+
     def test_answered_abstain_with_cannot_is_a_fail_not_a_refusal(self, tmp_path):
         task = {
             "completion_signal": "DETERMINATION COMPLETE",

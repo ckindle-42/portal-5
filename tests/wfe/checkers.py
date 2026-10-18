@@ -793,7 +793,12 @@ def apply_checkers(task: dict, ctx: CheckContext) -> CheckResult:
         if any(r.outcome == level for r in results):
             signal = task.get("completion_signal")
             answered = bool(signal) and signal in (ctx.final_text or "")
-            if level == Outcome.FAIL and not answered and detect_refusal(ctx.final_text):
+            if (
+                level == Outcome.FAIL
+                and not answered
+                and detect_refusal(ctx.final_text)
+                and not task.get("refusal_is_failure")
+            ):
                 return CheckResult(Outcome.REFUSED, "model refused | " + notes, evidence)
             if level == Outcome.FAIL and ctx.finish_reason in ("length", "max_tokens"):
                 return CheckResult(

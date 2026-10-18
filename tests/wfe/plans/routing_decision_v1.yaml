@@ -1,9 +1,9 @@
 # The `auto` router's single-arm characterisation (WFE P3 triage §1 REVISED): ONE arm,
 # no challengers — the classifier model is the LLM_ROUTER_MODEL env on the pipeline,
 # not a request parameter, so there is nothing to swap. The suite is
-# routing_production (36 tasks, 12 screen, all no_tools; kinds are the four workspaces
-# Layer 2 provably scores — the O2 group sketch named documents/data/media, which have
-# no keyword tables and are only decidable by the live LLM classifier).
+# routing_production (45 tasks, 15 screen, all no_tools; scored security tasks are
+# Layer-2-proven. Creative and research tasks exercise Layer 1 because those
+# specialist workspaces have no keyword tables).
 #
 # The arm is HEAD's model_hint: the classifier consults the descriptions and the
 # request text, and the row then runs the ROUTED workspace's seat for the one-word

@@ -51,6 +51,9 @@ TASK_KEYS = {
     "memory_seed",
     "no_tools",
     "screen",
+    "classifier_only",
+    "halt_kind",
+    "refusal_is_failure",
     "expires",
 }
 CHECKER_KEYS = {
