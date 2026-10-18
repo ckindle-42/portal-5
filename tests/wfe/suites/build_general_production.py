@@ -1,16 +1,16 @@
 """Build tests/wfe/suites/general_production.jsonl and general_core_production.jsonl.
 
-The general family's production suite (general-fast, general-deep, auto-daily): 36 tasks, 12 in
-the screen tier. `general_core_production` is its computed and memory half (24 tasks, 8 screen),
+The general family's production suite (general-fast, general-deep, auto-daily): 48 tasks, 16 in
+the screen tier. `general_core_production` is its computed and memory half (36 tasks, 12 screen),
 the suite for the uncensored general lanes, whose tools carry no KB or document-create tool.
 Every gold is computed here, never written by hand; facts are fictional or seeded per row.
 
-- python (10)    a number or word that needs real computation; graded on the answer and on an
+- python (14)    a number or word that needs real computation; graded on the answer and on an
                  execute_python call whose stdout shows it (the reference code is the gold's
                  proof: the attainability check runs it through the sandbox);
-- notool (6)     short exact reasoning, `no_tools`, answer-graded only: the one allowed exception
+- notool (10)    short exact reasoning, `no_tools`, answer-graded only: the one allowed exception
                  to the two-checker rule;
-- memory (8)     a fictional preference or fact in `memory_seed`, reached through recall. Two of
+- memory (12)    a fictional preference or fact in `memory_seed`, reached through recall. Two of
                  them (INJECTED) are answered by memory injection without a call, so they are
                  answer-graded until the live read of auto-context decides their grounding rule;
 - kb (6)         a fictional fact in `kb_seed`, reached through kb_search;
@@ -23,6 +23,7 @@ Every gold is computed here, never written by hand; facts are fictional or seede
 from __future__ import annotations
 
 import json
+import math
 import random
 import re
 from datetime import date, timedelta
@@ -34,8 +35,8 @@ from tests.wfe.suites import build_research_production as res
 OUT = Path(__file__).with_name("general_production.jsonl")
 OUT_CORE = Path(__file__).with_name("general_core_production.jsonl")
 FORMAT = 'Answer only as JSON {"answer": ...}.'
-COUNTS = {"python": 10, "notool": 6, "memory": 8, "kb": 6, "document": 6}
-SCREEN = {"python": 3, "notool": 2, "memory": 3, "kb": 2, "document": 2}
+COUNTS = {"python": 14, "notool": 10, "memory": 12, "kb": 6, "document": 6}
+SCREEN = {"python": 5, "notool": 3, "memory": 4, "kb": 2, "document": 2}
 INJECTED = (6, 7)  # memory tasks answered by memory injection; grounding pending the live read
 LANE = {
     "python": "computed",
@@ -100,6 +101,8 @@ def _imperative(n: int, question: str, command: str) -> str:
 def python_case(n: int) -> tuple[str, str, str]:
     """(instruction body, reference code, gold) for python task n."""
     r = random.Random(7000 + n)
+    if n >= 10:
+        return _python_case_c(n, r)
     if n == 0:
         d1 = date(2031, 1, 1) + timedelta(days=r.randint(0, 3000))
         d2 = d1 + timedelta(days=r.randint(4000, 9000))
@@ -141,6 +144,40 @@ def python_case(n: int) -> tuple[str, str, str]:
         )
         return body, code, str(gold)
     return _python_case_b(n, r)
+
+
+def _python_case_c(n: int, r: random.Random) -> tuple[str, str, str]:
+    """Cases 10-13 (the decision-floor expansion of the computed half)."""
+    if n == 10:
+        k = r.randint(30, 60)
+        body = f"what is the sum of the digits of 2 raised to the power {k}?"
+        code = f"print(sum(int(c) for c in str(2**{k})))"
+        return body, code, str(sum(int(c) for c in str(2**k)))
+    if n == 11:
+        d, h, m = r.randint(2, 9), r.randint(2, 20), r.randint(5, 55)
+        body = f"how many seconds are there in {d} days, {h} hours and {m} minutes?"
+        code = f"print({d}*86400 + {h}*3600 + {m}*60)"
+        return body, code, str(d * 86400 + h * 3600 + m * 60)
+    if n == 12:
+        k = r.randint(6, 9)
+        primes: list[int] = []
+        cand = 2
+        while len(primes) < k:
+            if all(cand % p for p in primes if p * p <= cand):
+                primes.append(cand)
+            cand += 1
+        prod = math.prod(primes)
+        body = f"what is the product of the first {k} prime numbers?"
+        code = f"import math\nprint(math.prod({primes}))"
+        return body, code, str(prod)
+    hours = r.choice([2, 4, 5, 8])
+    dist = hours * r.randint(40, 120)
+    body = (
+        f"a fictional train covers {dist} kilometres in {hours} hours. "
+        f"what is its average speed in kilometres per hour?"
+    )
+    code = f"print({dist} // {hours})"
+    return body, code, str(dist // hours)
 
 
 def _python_case_b(n: int, r: random.Random) -> tuple[str, str, str]:
@@ -269,6 +306,39 @@ def notool_case(n: int) -> tuple[str, str]:
             f"What is the next number in the sequence {', '.join(map(str, seq))}?",
             str(a0 * ratio**4),
         )
+    if n == 6:
+        v, c, d = r.randint(18, 45), r.randint(6, 12), r.randint(3, 7)
+        return (
+            f"A fictional ferry carries {v} vehicles per crossing and makes {c} crossings a day. "
+            f"How many vehicles does it carry in {d} days?",
+            str(v * c * d),
+        )
+    if n == 7:
+        deposit = 100 * r.randint(5, 40)
+        rate = r.choice([4, 5, 6, 8])
+        years = r.randint(2, 5)
+        return (
+            f"A deposit of {deposit} credits earns {rate} percent simple interest each year. "
+            f"How much interest does it earn over {years} years?",
+            str(deposit * rate * years // 100),
+        )
+    if n == 8:
+        h1, m1 = r.randint(6, 11), r.choice([0, 15, 30, 45])
+        h2, m2 = r.randint(h1 + 1, 17), r.choice([0, 15, 30, 45])
+        return (
+            f"How many minutes are there between {h1:02d}:{m1:02d} and {h2:02d}:{m2:02d} "
+            f"on the same day?",
+            str((h2 * 60 + m2) - (h1 * 60 + m1)),
+        )
+    if n == 9:
+        serves = r.choice([3, 4, 6])
+        grams = serves * r.randint(30, 90)
+        want = serves + r.randint(2, 5)
+        return (
+            f"A recipe for {serves} people uses {grams} grams of flour. "
+            f"How many grams are needed for {want} people?",
+            str(grams * want // serves),
+        )
     while True:
         base = r.choice([200, 400, 600, 800, 1000, 1200])
         up, down = r.choice([10, 20, 25, 50]), r.choice([10, 20, 25, 50])
@@ -314,6 +384,15 @@ MEMORY_ITEMS = [
     ),
     ("My gym membership number is {v}.", "my gym membership number", "the number only", "digits"),
     ("My mechanic is {v}.", "the name of my mechanic", "the full name", "person"),
+    ("My car's licence plate is {v}.", "my car's licence plate", "the plate only", "plate"),
+    ("My library card number is {v}.", "my library card number", "the number only", "digits"),
+    (
+        "My insurance policy number is {v}.",
+        "my insurance policy number",
+        "the policy number only",
+        "code",
+    ),
+    ("My dentist is Dr. {v}.", "my dentist", "the full name", "person"),
 ]
 
 
@@ -331,6 +410,12 @@ def memory_value(w: res.World, kind: str) -> str:
         )
     if kind == "school":
         return w._unique(lambda: f"{w.word()} Academy")
+    if kind == "plate":
+        return w._unique(
+            lambda: (
+                "".join(r.choice("BCDFGKLMNPRSTVXZ") for _ in range(2)) + f"-{r.randint(100, 999)}"
+            )
+        )
     return w._unique(lambda: f"{w.word().lower()}-{r.randint(10, 99)}")
 
 

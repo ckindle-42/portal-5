@@ -40,11 +40,11 @@ def _gold(task: dict) -> str:
 
 
 def test_the_suites_are_sound_balanced_and_the_core_is_the_computed_and_memory_half():
-    assert len(FULL) == 36 and sum(t["screen"] for t in FULL.values()) == 12
+    assert len(FULL) == 48 and sum(t["screen"] for t in FULL.values()) == 16
     for kind, n in gen.COUNTS.items():
         assert len(_kind(kind)) == n, kind
         assert sum(t["screen"] for t in _kind(kind)) == gen.SCREEN[kind], kind
-    assert len(CORE) == 24 and sum(t["screen"] for t in CORE.values()) == 8
+    assert len(CORE) == 36 and sum(t["screen"] for t in CORE.values()) == 12
     assert set(CORE) == {i for i, t in FULL.items() if t["kind"] in ("python", "notool", "memory")}
     for name in ("general_production", "general_core_production"):
         path = SUITES / f"{name}.jsonl"
@@ -131,6 +131,29 @@ def test_notool_golds_agree_with_a_second_derivation():
     h, m = (int(x) for x in re.search(r"(\d\d):(\d\d)", q).groups())
     add = int(re.search(r"(\d+) minutes later", q).group(1))
     assert f"{(h * 60 + m + add) // 60 % 24:02d}:{(h * 60 + m + add) % 60:02d}" == gold
+    q, gold = gen.notool_case(6)
+    vehicles, crossings, days = (int(x) for x in re.findall(r"(\d+)", q))
+    assert vehicles * crossings * days == int(gold)
+    q, gold = gen.notool_case(7)
+    deposit = int(re.search(r"deposit of (\d+) credits", q).group(1))
+    rate, years = (
+        int(x) for x in re.findall(r"(\d+) percent", q)[:1] + re.findall(r"over (\d+) years", q)
+    )
+    assert deposit * rate * years // 100 == int(gold)
+    q, gold = gen.notool_case(8)
+    t1, t2 = re.findall(r"(\d\d):(\d\d)", q)
+    mins = (int(t2[0]) * 60 + int(t2[1])) - (int(t1[0]) * 60 + int(t1[1]))
+    assert mins == int(gold)
+    q, gold = gen.notool_case(9)
+    serves = int(re.search(r"recipe for (\d+) people", q).group(1))
+    grams = int(re.search(r"uses (\d+) grams", q).group(1))
+    want = int(re.search(r"for (\d+) people\?", q).group(1))
+    assert grams * want // serves == int(gold)
+
+
+def test_the_core_golds_are_unique():
+    golds = [_gold(t) for t in CORE.values()]
+    assert len(golds) == len(set(golds))
 
 
 def test_memory_and_kb_stores_hold_the_gold_and_a_third_are_imperative():

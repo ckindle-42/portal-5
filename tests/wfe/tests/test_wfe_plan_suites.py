@@ -8,11 +8,11 @@ PRODUCTION suite any plan references carries at least the floor.
 Scope, stated plainly: suites whose name does not end in ``_production`` (coding,
 research, creative, the compliance_agentic* sets, rig_short) are the pre-decision
 diagnostic instruments — engine A/B sets, seat baselines, prompt-surface loopsets —
-and are out of the floor's scope, which decision.py applies to decision cells. Two
-production-named suites are pinned at their known counts as recorded gaps rather than
-silently exempted: general_core_production (24 — the uncensored lanes' tool-compatible
-half of general_production cannot reach the floor without re-scoping O3's suite) and
-rig_production (4 — the P2a acceptance rig, production-named only by accident).
+and are out of the floor's scope, which decision.py applies to decision cells. One
+production-named suite is pinned at its known count as a recorded gap rather than
+silently exempted: rig_production (4 — the P2a acceptance rig, production-named only
+by accident). general_core_production was the second gap (24) until the floor
+expansion grew it to 36; the main test now covers it like any production suite.
 """
 
 from __future__ import annotations
@@ -30,11 +30,6 @@ SUITES = REPO / "tests/wfe/suites"
 
 #: Production-named suites recorded UNDER the floor, with the reason they stand.
 KNOWN_GAPS = {
-    "general_core_production": (
-        24,
-        "the uncensored lanes' tool-compatible subset of general_production; reaching "
-        "30 needs new computed/memory kinds in O3's suite — an orchestrator decision",
-    ),
     "rig_production": (
         4,
         "the P2a acceptance rig, production-named only by accident; it is a fixture, "
