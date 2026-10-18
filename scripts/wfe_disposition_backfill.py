@@ -28,13 +28,13 @@ variant, and the base is what the registry is asked about.
 A removal that is not restorable is recorded in the receipt
 (`docs/WFE_DISPOSITION_BACKFILL_20261014.json`) only: since P5-B1 (2026-10-18)
 `tests/wfe/candidate_queue.yaml` holds live candidates solely, so no dead row can
-contribute a NO_DECISION disposition to the fitness map. The `--write` queue step
-below predates that rule; review it before re-running with `--write`.
+contribute a NO_DECISION disposition to the fitness map. `--write` honours that:
+its queue step prunes closeout rows and never adds one back.
 
 Usage:
     uv run python scripts/wfe_disposition_backfill.py                   # no network
     uv run python scripts/wfe_disposition_backfill.py --verify          # ask the registries
-    uv run python scripts/wfe_disposition_backfill.py --verify --write  # receipt, queue, doc
+    uv run python scripts/wfe_disposition_backfill.py --verify --write  # receipt, doc, queue prune
 """
 
 from __future__ import annotations
@@ -206,26 +206,6 @@ def backfill(lookup=None) -> dict:
     }
 
 
-def queue_entries(rows: list[dict]) -> dict:
-    """The removals that cannot be restored, as queue entries with `available: false`."""
-    out: dict = {}
-    for r in rows:
-        if r["restorable"] != "unrestorable":
-            continue
-        identity = str(r["exact_identity"] or r["item_id"])
-        entry = {
-            "lineage": identity.split(":")[0],
-            "available": False,
-            "intended": [],
-            "removed_at_closeout": True,
-            "note": r["recipe"],
-        }
-        if r["at_risk"]:
-            entry["at_risk"] = r["at_risk"]
-        out[identity] = entry
-    return out
-
-
 def merge_queue(entries: dict, path: Path = QUEUE) -> tuple[int, int]:
     """Write the backfill's entries; drop the backfill's earlier ones the registry
     now shows are restorable. Entries the backfill did not write are left alone."""
@@ -243,6 +223,15 @@ def merge_queue(entries: dict, path: Path = QUEUE) -> tuple[int, int]:
     return added, len(stale)
 
 
+def _receipt_ref() -> str:
+    """The receipt as the docs name it; the full path when --write is pointed
+    outside the repo the way the tests point it."""
+    try:
+        return str(RECEIPT.relative_to(REPO))
+    except ValueError:
+        return str(RECEIPT)
+
+
 def render_at_risk(report: dict) -> str:
     """The doc's "Decisions at risk" section, from a verified report."""
     r = report["restorability"]
@@ -252,7 +241,7 @@ def render_at_risk(report: dict) -> str:
         "`scripts/wfe_disposition_backfill.py --verify` classifies every identity in the closeout",
         "register and asks the registry whether each removal can be pulled again, comparing the",
         "registry's layers with the digests the register recorded (receipt",
-        f"`{RECEIPT.relative_to(REPO)}`, verified {report['verified_utc']}). Of"
+        f"`{_receipt_ref()}`, verified {report['verified_utc']}). Of"
         f" {report['item_count']} items: {report['classes']}.",
         "",
         "**The five removals that rest on a measurement one of the 2026-10-13 audits found",
@@ -272,7 +261,7 @@ def render_at_risk(report: dict) -> str:
         f"Restorable removals: {sum(r.get(k, 0) for k in RESTORABLE)} ({r.get('verified', 0)}"
         f" verified as the measured build, {r.get('differs', 0)} where the registry now serves a"
         f" different build, {r.get('unrecorded', 0)} with no recorded digest). Unrestorable:"
-        f" {r.get('unrestorable', 0)}, recorded in `{RECEIPT.relative_to(REPO)}` only;"
+        f" {r.get('unrestorable', 0)}, recorded in `{_receipt_ref()}` only;"
         f" `tests/wfe/candidate_queue.yaml` holds live candidates (P5-B1).",
         "",
     ]
@@ -289,7 +278,11 @@ def write_doc_section(report: dict, doc: Path = DOC) -> None:
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--verify", action="store_true", help="ask the registries (network)")
-    ap.add_argument("--write", action="store_true", help="write the receipt, queue and doc")
+    ap.add_argument(
+        "--write",
+        action="store_true",
+        help="write the receipt and doc; prune closeout rows out of the queue",
+    )
     args = ap.parse_args()
     report = backfill(registry_layers if args.verify else None)
     print(f"classified {report['item_count']} item(s): {report['classes']}")
@@ -306,9 +299,10 @@ def main() -> int:
             print(f"  {r['item_id']}: {r['verification']}")
         return 1
     RECEIPT.write_text(json.dumps(report, indent=1) + "\n")
-    added, dropped = merge_queue(queue_entries(report["rows"]))
-    write_doc_section(report)
-    print(f"\nwrote {RECEIPT.relative_to(REPO)}; queue +{added} -{dropped}; doc section rewritten")
+    # The queue holds live candidates only: prune every closeout row, add none.
+    _, pruned = merge_queue({}, QUEUE)
+    write_doc_section(report, DOC)
+    print(f"\nwrote {RECEIPT}; queue pruned {pruned} closeout row(s); doc section rewritten")
     return 0
 
 

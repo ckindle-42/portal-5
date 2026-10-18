@@ -207,6 +207,51 @@ class TestWriting:
         assert bf.main() == 1
         assert "refusing to write" in capsys.readouterr().out
 
+    def test_write_prunes_closeout_rows_and_never_readds_one(self, tmp_path, monkeypatch, capsys):
+        """--write keeps the queue to live candidates: closeout rows are pruned and
+        none is written back (the queue step used to re-add all of them)."""
+        queue = tmp_path / "queue.yaml"
+        queue.write_text(
+            yaml.safe_dump(
+                {
+                    "models": {
+                        "gone:tag": {
+                            "available": False,
+                            "intended": [],
+                            "lineage": "gone",
+                            "note": "no registry serves gone:tag",
+                            "removed_at_closeout": True,
+                        },
+                        "live:tag": {
+                            "available": True,
+                            "intended": ["auto-coding"],
+                            "lineage": "live",
+                        },
+                    }
+                }
+            )
+        )
+        receipt = tmp_path / "receipt.json"
+        doc = tmp_path / "doc.md"
+        doc.write_text("# T\n\n## Decisions at risk\n\nold text\n## Next\n\nkept\n")
+        served = {}
+        for item in json.loads(bf.CLOSEOUT.read_text())["items"]:
+            pull, _ = bf.pull_plan(str(item.get("exact_identity")))
+            served[pull] = set(item.get("model_layer_digests") or []) | served.get(pull, set())
+        clean = bf.backfill(_registry(served))
+        assert not clean["unverified"]
+        monkeypatch.setattr(bf, "backfill", lambda *_: clean)
+        monkeypatch.setattr(sys, "argv", ["bf", "--write"])
+        monkeypatch.setattr(bf, "QUEUE", queue)
+        monkeypatch.setattr(bf, "RECEIPT", receipt)
+        monkeypatch.setattr(bf, "DOC", doc)
+        assert bf.main() == 0
+        models = yaml.safe_load(queue.read_text())["models"]
+        assert set(models) == {"live:tag"}
+        assert not any((e or {}).get("removed_at_closeout") for e in models.values())
+        assert receipt.exists()
+        assert "queue pruned 1 closeout row(s)" in capsys.readouterr().out
+
     def test_merge_drops_restorable_entries_and_keeps_the_operators(self, tmp_path):
         q = tmp_path / "queue.yaml"
         q.write_text(

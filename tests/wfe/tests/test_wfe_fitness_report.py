@@ -4,6 +4,7 @@ and the dispositions (spec: docs/WFE_ROOT_CAUSES_20261013.md)."""
 from __future__ import annotations
 
 import json
+import sys
 
 import pytest
 import yaml
@@ -295,3 +296,116 @@ class TestFitnessLedger:
         led = tmp_path / "ledger.yaml"
         rep.record_ledger(d, q, led)
         assert led.read_text().startswith(rep.LEDGER_HEADER)
+
+
+class TestFitnessMap:
+    """The P5-B1 view: dispose() from every decision-grade ledger cell, not one
+    campaign's, so a model whose lanes were confirmed in different campaigns
+    still reaches a terminal verdict."""
+
+    def _fixtures(self, tmp_path, models, cells):
+        q = tmp_path / "queue.yaml"
+        q.write_text(yaml.safe_dump({"models": models}))
+        led = tmp_path / "ledger.yaml"
+        led.write_text(yaml.safe_dump({"cells": cells}))
+        return q, led
+
+    @staticmethod
+    def _cell(model, ws, verdict, campaign):
+        return {
+            "model": model,
+            "workspace": ws,
+            "verdict": verdict,
+            "campaign": campaign,
+            "tier": "confirm",
+        }
+
+    def test_cells_from_two_campaigns_merge_into_one_terminal_verdict(self, tmp_path):
+        models = {"gran:tag": {"lineage": "gran", "available": True, "intended": [WS_A, WS_B]}}
+        cells = [
+            self._cell("gran:tag", WS_A, decision.NOT_SEPARATED, "c-compliance"),
+            self._cell("gran:tag", WS_B, decision.BETTER, "c-documents"),
+        ]
+        q, led = self._fixtures(tmp_path, models, cells)
+        res = rep.fitness_map(q, led)
+        (d,) = res["dispositions"]
+        assert d["cells"] == {WS_A: decision.NOT_SEPARATED, WS_B: decision.BETTER}
+        assert d["campaigns"] == {WS_A: "c-compliance", WS_B: "c-documents"}
+        assert d["disposition"] == "FOLD"
+        assert f"'{WS_B}'" in d["reason"]
+
+    def test_a_tied_model_sharing_its_lineage_is_redundant(self, tmp_path):
+        models = {
+            "a:tag": {"lineage": "ln", "available": True, "intended": [WS_A]},
+            "b:tag": {"lineage": "ln", "available": True, "intended": [WS_B]},
+        }
+        cells = [self._cell("a:tag", WS_A, decision.NOT_SEPARATED, "c1")]
+        q, led = self._fixtures(tmp_path, models, cells)
+        (d,) = [x for x in rep.fitness_map(q, led)["dispositions"] if x["model"] == "a:tag"]
+        assert d["disposition"] == "REDUNDANT"
+
+    def test_a_tied_sole_lineage_retains_diversity(self, tmp_path):
+        models = {"solo:tag": {"lineage": "ln", "available": True, "intended": [WS_A]}}
+        cells = [self._cell("solo:tag", WS_A, decision.NOT_SEPARATED, "c1")]
+        q, led = self._fixtures(tmp_path, models, cells)
+        (d,) = rep.fitness_map(q, led)["dispositions"]
+        assert d["disposition"] == "RETAIN_DIVERSITY"
+
+    def test_a_queued_model_with_no_cells_disposes_from_the_queue(self, tmp_path):
+        models = {
+            "want:tag": {"lineage": "w", "available": True, "intended": [WS_A]},
+            "blank:tag": {"lineage": "b", "available": True, "intended": []},
+        }
+        q, led = self._fixtures(tmp_path, models, [])
+        res = rep.fitness_map(q, led)
+        by = {d["model"]: d for d in res["dispositions"]}
+        assert by["want:tag"]["disposition"] == "NO_DECISION"
+        assert f"'{WS_A}'" in by["want:tag"]["reason"]
+        assert by["blank:tag"]["disposition"] == "NO_DECISION"
+        assert "no intended workspace" in by["blank:tag"]["reason"]
+
+    def test_a_ledger_cell_the_queue_does_not_name_still_surfaces(self, tmp_path):
+        models = {"kept:tag": {"lineage": "k", "available": True, "intended": [WS_A]}}
+        cells = [self._cell("stray:tag", WS_A, decision.BETTER, "c1")]
+        q, led = self._fixtures(tmp_path, models, cells)
+        res = rep.fitness_map(q, led)
+        by = {d["model"]: d for d in res["dispositions"]}
+        assert by["stray:tag"]["queued"] is False
+        assert "no intended workspace" in by["stray:tag"]["reason"]
+
+    def test_fitness_map_flag_prints_the_map_without_writing(self, tmp_path, monkeypatch, capsys):
+        models = {"gran:tag": {"lineage": "gran", "available": True, "intended": [WS_A, WS_B]}}
+        cells = [
+            self._cell("gran:tag", WS_A, decision.NOT_SEPARATED, "c1"),
+            self._cell("gran:tag", WS_B, decision.BETTER, "c2"),
+        ]
+        q, led = self._fixtures(tmp_path, models, cells)
+        map_doc = tmp_path / "WFE_FITNESS_MAP.md"
+        monkeypatch.setattr(rep, "MAP_DOC", map_doc)
+        monkeypatch.setattr(
+            sys,
+            "argv",
+            ["report", "--fitness-map", "--queue", str(q), "--ledger", str(led)],
+        )
+        assert rep.main() == 0
+        out = capsys.readouterr().out
+        assert "| model | intended |" in out
+        assert "FOLD" in out
+        assert not map_doc.exists()
+
+    def test_write_map_writes_the_markdown(self, tmp_path, monkeypatch, capsys):
+        models = {"gran:tag": {"lineage": "gran", "available": True, "intended": [WS_A]}}
+        cells = [self._cell("gran:tag", WS_A, decision.NOT_SEPARATED, "c1")]
+        q, led = self._fixtures(tmp_path, models, cells)
+        map_doc = tmp_path / "WFE_FITNESS_MAP.md"
+        monkeypatch.setattr(rep, "MAP_DOC", map_doc)
+        monkeypatch.setattr(
+            sys,
+            "argv",
+            ["report", "--write-map", "--queue", str(q), "--ledger", str(led)],
+        )
+        assert rep.main() == 0
+        text = map_doc.read_text()
+        assert text.startswith("# WFE fitness map")
+        assert "gran:tag" in text and "RETAIN_DIVERSITY" in text
+        assert f"map: {map_doc}" in capsys.readouterr().out
