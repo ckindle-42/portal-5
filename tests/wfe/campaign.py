@@ -748,11 +748,15 @@ def baseline_reusable(this_dir: Path, other_dir: Path) -> tuple[bool, str]:
     return True, "same instrument and suite content"
 
 
-#: An incumbent row is copied from an earlier campaign only when every one of these
-#: matches. This is narrower than `baseline_reusable`: the full instrument fingerprint
-#: also hashes config, the deployed sha and the service map, which this reuse does
-#: not require. `baseline_reusable` stays the campaign-level predicate and is not
-#: called from here.
+#: An incumbent row is copied only when every one of these matches. The harness
+#: digest and the whole portal tree are not part of it: they change on commits
+#: that cannot change the served answer. Checkers are re-run on the copy.
+#: `baseline_reusable` stays the full-fingerprint predicate and is not called here.
+#: Harness sandbox tools are not a portal module; a tool with no module does not match.
+_HARNESS_TOOLS = frozenset(TOOL_NAMES)
+_SHA_RE = re.compile(r"[0-9a-f]{7,40}\Z")
+_TOOL_DEF_RE = re.compile(r"def ([A-Za-z_][A-Za-z0-9_]*)\b")
+_tool_index_cache: dict[str, dict[str, str]] = {}
 REUSE_FIELDS = (
     "suite_digest",
     "task_id",
@@ -760,10 +764,12 @@ REUSE_FIELDS = (
     "backend",
     "model",
     "content",
+    "engine",
+    "engine_version",
     "sampling",
     "tool_surface",
-    "harness",
-    "portal_tree",
+    "pipeline",
+    "tool_modules",
 )
 
 
@@ -775,10 +781,17 @@ def reuse_key(
     identity: dict | None,
     sampling: dict | None,
     tool_surface: list | None,
-    harness: str | None,
-    portal_tree: str | None,
+    engine: str | None,
+    engine_version: str | None,
+    pipeline: dict | None,
+    tool_modules: dict | None,
 ) -> dict:
-    """The exact incumbent-reuse fingerprint. `identity` is backend, model, content."""
+    """The incumbent-reuse fingerprint.
+
+    `identity` is backend, model and the model content digest. `pipeline` is the
+    inference and config trees at the row's deployed sha. `tool_modules` maps each
+    offered portal module to its tree at that sha; None means a tool could not
+    be placed, which never matches."""
     ident = identity or {}
     return {
         "suite_digest": suite_digest or "",
@@ -787,19 +800,35 @@ def reuse_key(
         "backend": ident.get("backend") or "",
         "model": ident.get("model") or "",
         "content": ident.get("content") or "",
+        "engine": engine or "",
+        "engine_version": engine_version or "",
         "sampling": dict(sampling or {}),
         "tool_surface": list(tool_surface or []),
-        "harness": harness or "",
-        "portal_tree": portal_tree or "",
+        "pipeline": dict(pipeline or {}),
+        "tool_modules": None if tool_modules is None else dict(tool_modules),
     }
 
 
 def reuse_mismatch(want: dict, have: dict) -> list[str]:
-    """Field names that differ. An unobserved content id never matches, including two empties."""
+    """Field names that differ.
+
+    An unobserved content id, a missing deployed-build pipeline digest, a missing
+    engine or version, or an unplaced tool module never matches, including two
+    empties. An empty tool-module map is a real answer: the row was offered only
+    harness tools."""
     bad = [k for k in REUSE_FIELDS if want.get(k) != have.get(k)]
-    if (not want.get("content") or not have.get("content")) and "content" not in bad:
-        bad.append("content")
+    for name in ("content", "pipeline", "engine", "engine_version"):
+        if (not want.get(name) or not have.get(name)) and name not in bad:
+            bad.append(name)
+    if (want.get("tool_modules") is None or have.get("tool_modules") is None) and (
+        "tool_modules" not in bad
+    ):
+        bad.append("tool_modules")
     return bad
+
+
+def _key_usable(key: dict) -> bool:
+    return not reuse_mismatch(key, key)
 
 
 def _freeze_reuse_key(key: dict) -> tuple:
@@ -867,18 +896,112 @@ def _task_of(stub: dict, cache: dict) -> dict | None:
     return cache[sp].get(stub.get("task_id"))
 
 
+def tree_at(sha: str, path: str) -> str:
+    """The git tree (or blob) hash of `path` at `sha`. Empty when it cannot be read."""
+    if not _SHA_RE.fullmatch(sha or ""):
+        return ""
+    out = _git("rev-parse", "--verify", f"{sha}:{path}").strip()
+    return out if re.fullmatch(r"[0-9a-f]{40}", out) else ""
+
+
+def pipeline_at(sha: str) -> dict:
+    """Trees that can change a served answer without being a tool module.
+
+    `portal/platform/inference` is the router, including `router/tools.py`.
+    `config/` carries the tool manifests the router serves. Both are taken at
+    the row's deployed build sha. A missing sha or tree is an empty dict, and
+    an empty dict never matches."""
+    inference = tree_at(sha, "portal/platform/inference")
+    config = tree_at(sha, "config")
+    if not inference or not config:
+        return {}
+    return {"inference": inference, "config": config}
+
+
+def _tool_index(sha: str) -> dict[str, str]:
+    """Tool function name to `portal/modules/<module>` at one commit."""
+    if sha in _tool_index_cache:
+        return _tool_index_cache[sha]
+    index: dict[str, str] = {}
+    out = _git("grep", "-E", r"^def [A-Za-z_]", sha, "--", "portal/modules")
+    for line in out.splitlines():
+        try:
+            _rev, path, text = line.split(":", 2)
+        except ValueError:
+            continue
+        found = _TOOL_DEF_RE.search(text)
+        parts = path.split("/")
+        if not found or len(parts) < 3 or parts[0] != "portal" or parts[1] != "modules":
+            continue
+        index.setdefault(found.group(1), f"portal/modules/{parts[2]}")
+    _tool_index_cache[sha] = index
+    return index
+
+
+def tool_module_trees(sha: str, tools: list | None) -> dict | None:
+    """Tree hash of each portal module the row was offered, at the deployed sha.
+
+    Harness sandbox tools have no module. None means a non-harness tool could
+    not be placed, or the sha has no tree, so the row is run rather than copied."""
+    if not _SHA_RE.fullmatch(sha or ""):
+        return None
+    index = _tool_index(sha)
+    modules: set[str] = set()
+    for name in tools or []:
+        if name in _HARNESS_TOOLS:
+            continue
+        path = index.get(name)
+        if not path:
+            return None
+        modules.add(path)
+    trees: dict[str, str] = {}
+    for path in sorted(modules):
+        tree = tree_at(sha, path)
+        if not tree:
+            return None
+        trees[path] = tree
+    return trees
+
+
+def _deployed_sha(instrument: dict | None) -> str:
+    sha = str((instrument or {}).get("deployed") or "")
+    return sha if _SHA_RE.fullmatch(sha) else ""
+
+
+def _engine_stamp(env: dict | None, instrument: dict | None) -> tuple[str, str]:
+    """Engine name and the version that can change a served answer.
+
+    Pipeline rows are served by Ollama, so the version is `ollama_version`.
+    An oMLX row uses that engine's own version."""
+    env = env or {}
+    instrument = instrument or {}
+    engine = str(instrument.get("engine") or env.get("engine") or "")
+    if engine == "omlx":
+        version = str(env.get("engine_version") or "")
+    else:
+        version = str(env.get("ollama_version") or env.get("engine_version") or "")
+    if version == "unknown":
+        version = ""
+    return engine, version
+
+
 def recorded_reuse_key(campaign_dir: Path, row: dict, digests: dict | None = None) -> dict:
     """The reuse fingerprint of a row that has already been graded."""
     inst = row.get("instrument") or {}
+    sha = _deployed_sha(inst)
+    engine, version = _engine_stamp(row.get("env"), inst)
+    surface = list(row.get("tool_surface") or [])
     return reuse_key(
         suite_digest=suite_digest_of(campaign_dir, row, digests),
         task_id=row.get("task_id"),
         repeat=row.get("repeat"),
         identity=row.get("identity"),
         sampling=row.get("sampling"),
-        tool_surface=row.get("tool_surface"),
-        harness=inst.get("harness"),
-        portal_tree=inst.get("portal_tree"),
+        tool_surface=surface,
+        engine=engine,
+        engine_version=version,
+        pipeline=pipeline_at(sha),
+        tool_modules=tool_module_trees(sha, surface),
     )
 
 
@@ -889,17 +1012,25 @@ def destination_reuse_key(
     task: dict | None = None,
     digests: dict | None = None,
 ) -> dict:
-    """The reuse fingerprint the pending stub would have if this campaign ran it."""
+    """The reuse fingerprint the pending stub would have if this campaign ran it.
+
+    Identity comes from the frozen map. The deployed sha is the one this
+    campaign recorded at open. No live probe."""
     inst = manifest.get("instrument") or {}
+    sha = _deployed_sha(inst)
+    engine, version = _engine_stamp(manifest.get("env"), inst)
+    surface = expected_incumbent_surface(stub, task)
     return reuse_key(
         suite_digest=suite_digest_of(campaign_dir, stub, digests),
         task_id=stub.get("task_id"),
         repeat=stub.get("repeat"),
         identity=frozen_identity(manifest, stub),
         sampling=expected_incumbent_sampling(stub),
-        tool_surface=expected_incumbent_surface(stub, task),
-        harness=inst.get("harness"),
-        portal_tree=inst.get("portal_tree"),
+        tool_surface=surface,
+        engine=engine,
+        engine_version=version,
+        pipeline=pipeline_at(sha),
+        tool_modules=tool_module_trees(sha, surface),
     )
 
 
@@ -935,9 +1066,9 @@ def _iter_incumbent_results(campaign_dir: Path) -> list[tuple[str, dict]]:
 
 def _index_reusable_incumbents(
     campaign_dir: Path, campaigns_root: Path
-) -> dict[tuple, list[tuple[str, dict]]]:
+) -> dict[tuple, list[tuple[str, Path, dict]]]:
     """Earlier campaigns' graded incumbent rows, keyed by the reuse fingerprint."""
-    index: dict[tuple, list[tuple[str, dict]]] = {}
+    index: dict[tuple, list[tuple[str, Path, dict]]] = {}
     if not campaigns_root.is_dir():
         return index
     here = campaign_dir.resolve()
@@ -952,9 +1083,9 @@ def _index_reusable_incumbents(
             continue
         for cid, row in _iter_incumbent_results(other):
             recorded = recorded_reuse_key(other, row, digests)
-            if not recorded.get("content"):
+            if not _key_usable(recorded):
                 continue
-            index.setdefault(_freeze_reuse_key(recorded), []).append((cid, row))
+            index.setdefault(_freeze_reuse_key(recorded), []).append((cid, other, row))
     return index
 
 
@@ -991,6 +1122,65 @@ def release_reused_incumbents(campaign_dir: Path, manifest: dict) -> int:
     return n
 
 
+def _debug_by_run(campaign_dir: Path, cache: dict) -> dict:
+    """run_id to the debug record that holds the sandbox tree, when one was kept."""
+    if campaign_dir in cache:
+        return cache[campaign_dir]
+    found: dict = {}
+    debug = campaign_dir / "debug"
+    if debug.is_dir():
+        for path in sorted(debug.glob("*.debug.jsonl")):
+            try:
+                lines = path.read_text().splitlines()
+            except OSError:
+                continue
+            for line in lines:
+                if not line.strip():
+                    continue
+                try:
+                    rec = json.loads(line)
+                except ValueError:
+                    continue
+                if rec.get("run_id"):
+                    found[rec["run_id"]] = rec
+    cache[campaign_dir] = found
+    return found
+
+
+def regrade_copied(row: dict, task: dict, debug_rec: dict | None = None):
+    """Re-grade one copied row with the current checkers. No model call.
+
+    Returns (outcome, why, check) or None when the checkers cannot be applied.
+    The outcome is the one that counts; the caller keeps the earlier outcome
+    beside it."""
+    rec = {
+        "final_text": row.get("final_text", ""),
+        "assistant_texts": row.get("assistant_texts")
+        or ([row["final_text"]] if row.get("final_text") else []),
+        "tool_call_log": row.get("tool_call_log") or [],
+        "transcript": row.get("transcript") or [],
+        "finish_reason": row.get("finish_reason"),
+        "sandbox_tree": {},
+        "outcome": row.get("outcome"),
+    }
+    for name in (
+        "final_text",
+        "assistant_texts",
+        "tool_call_log",
+        "transcript",
+        "finish_reason",
+        "sandbox_tree",
+    ):
+        if debug_rec and debug_rec.get(name) not in (None, ""):
+            rec[name] = debug_rec[name]
+    try:
+        cr = _rehydrate_check(rec, task)
+    except Exception:
+        return None
+    final, why = _reconcile_offline(row.get("outcome"), cr.outcome.value)
+    return final, why, cr
+
+
 def _mark_reused(manifest: dict, stub: dict, outcome: str | None, provenance: str) -> None:
     """Record the copy on the stub and on the manifest row, which may be a different dict."""
     for row in manifest.get("rows") or []:
@@ -1001,6 +1191,94 @@ def _mark_reused(manifest: dict, stub: dict, outcome: str | None, provenance: st
     stub["reused_from"] = provenance
 
 
+def _adopt_existing_reuse(manifest: dict, stub: dict, path: Path) -> str | None:
+    """A copy already on disk counts as present. A row this campaign graded is left."""
+    try:
+        existing = json.loads(path.read_text())
+    except (OSError, ValueError):
+        return None
+    if existing.get("reused_from") and _quality_outcome(existing.get("outcome")):
+        _mark_reused(manifest, stub, existing["outcome"], existing["reused_from"])
+        return stub["run_id"]
+    return None
+
+
+def _suite_still_matches(stub: dict, want: dict) -> bool:
+    """The suite file must still be the one the receipt gated. Otherwise run the row."""
+    from tests.wfe.controls import suite_digest
+
+    try:
+        current = suite_digest(stub["suite_path"])
+    except OSError:
+        return False
+    return current == want.get("suite_digest")
+
+
+def _choose_reuse_source(
+    campaign_dir: Path, stub: dict, hits: list
+) -> tuple[str, Path, dict] | None:
+    """One source, or none when there is no hit or the recorded outcomes disagree."""
+    outcomes = {row.get("outcome") for _, _src, row in hits}
+    if len(outcomes) != 1:
+        if len(outcomes) > 1:
+            _log(campaign_dir, f"not reusing {stub['run_id']}: sources disagree on the outcome")
+        return None
+    return sorted(hits, key=lambda item: (item[0], item[2].get("run_id") or ""))[0]
+
+
+def _write_reused_copy(
+    campaign_dir: Path,
+    manifest: dict,
+    stub: dict,
+    src: dict,
+    cid: str,
+    graded: tuple,
+    path: Path,
+) -> None:
+    final, why, cr = graded
+    body = dict(src)
+    body["original_outcome"] = src.get("original_outcome") or src.get("outcome")
+    body["regraded_outcome"] = final
+    body["outcome"] = final
+    body["notes"] = f"{cr.notes} [{why}]"
+    body["evidence"] = cr.evidence
+    body["reused_from"] = _provenance(cid, src)
+    body["campaign_id"] = manifest.get("campaign_id") or campaign_dir.name
+    body["run_id"] = stub["run_id"]
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(body, indent=1))
+    _mark_reused(manifest, stub, final, body["reused_from"])
+    _log(campaign_dir, f"reused {stub['run_id']} from {body['reused_from']}: {why}")
+
+
+def _reuse_one(
+    campaign_dir: Path,
+    manifest: dict,
+    stub: dict,
+    index: dict,
+    tasks: dict,
+    digests: dict,
+    debug_cache: dict,
+) -> str | None:
+    path = _row_path(campaign_dir, stub["run_id"])
+    if path.is_file():
+        return _adopt_existing_reuse(manifest, stub, path)
+    task = _task_of(stub, tasks)
+    want = destination_reuse_key(campaign_dir, manifest, stub, task, digests)
+    if not _key_usable(want) or task is None or not _suite_still_matches(stub, want):
+        return None
+    chosen = _choose_reuse_source(campaign_dir, stub, index.get(_freeze_reuse_key(want)) or [])
+    if chosen is None:
+        return None
+    cid, src_dir, src = chosen
+    debug = _debug_by_run(src_dir, debug_cache).get(src.get("run_id"))
+    graded = regrade_copied(src, task, debug)
+    if graded is None or not _quality_outcome(graded[0]):
+        return None
+    _write_reused_copy(campaign_dir, manifest, stub, src, cid, graded, path)
+    return stub["run_id"]
+
+
 def reuse_incumbent_rows(
     campaign_dir: Path,
     manifest: dict,
@@ -1009,9 +1287,10 @@ def reuse_incumbent_rows(
 ) -> list[str]:
     """Copy matching incumbent rows from earlier campaigns. Returns copied run ids.
 
-    The copy keeps the earlier grade and adds `reused_from: <campaign>/<row>`.
-    It does not re-grade. Two sources that match the fingerprint and disagree on
-    the outcome are not copied."""
+    The copy records `reused_from: <campaign>/<row>`, `original_outcome` and
+    `regraded_outcome`. The regraded outcome is the one that counts. Two sources
+    that match the fingerprint and disagree on the recorded outcome are not
+    copied. A suite file that no longer matches the receipt is run, not copied."""
     pending = [
         s for s in stubs if s.get("arm_role") == "incumbent" and s.get("state") in (None, "PENDING")
     ]
@@ -1023,36 +1302,12 @@ def reuse_incumbent_rows(
         return []
     tasks: dict = {}
     digests: dict = {}
-    copied: list[str] = []
-    for stub in pending:
-        path = _row_path(campaign_dir, stub["run_id"])
-        if path.is_file():
-            try:
-                existing = json.loads(path.read_text())
-            except (OSError, ValueError):
-                existing = {}
-            if existing.get("reused_from") and _quality_outcome(existing.get("outcome")):
-                _mark_reused(manifest, stub, existing["outcome"], existing["reused_from"])
-                copied.append(stub["run_id"])
-            continue
-        want = destination_reuse_key(campaign_dir, manifest, stub, _task_of(stub, tasks), digests)
-        if not want.get("content"):
-            continue
-        hits = index.get(_freeze_reuse_key(want)) or []
-        outcomes = {row.get("outcome") for _, row in hits}
-        if len(outcomes) != 1:
-            if len(outcomes) > 1:
-                _log(campaign_dir, f"not reusing {stub['run_id']}: sources disagree on the outcome")
-            continue
-        cid, src = sorted(hits, key=lambda item: (item[0], item[1].get("run_id") or ""))[0]
-        body = dict(src)
-        body["reused_from"] = _provenance(cid, src)
-        body["campaign_id"] = manifest.get("campaign_id") or campaign_dir.name
-        body["run_id"] = stub["run_id"]
-        path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text(json.dumps(body, indent=1))
-        _mark_reused(manifest, stub, body.get("outcome"), body["reused_from"])
-        copied.append(stub["run_id"])
+    debug_cache: dict = {}
+    copied = [
+        run_id
+        for stub in pending
+        if (run_id := _reuse_one(campaign_dir, manifest, stub, index, tasks, digests, debug_cache))
+    ]
     if copied:
         save_manifest(campaign_dir, manifest)
         _log(campaign_dir, f"reused {len(copied)} incumbent row(s) from earlier campaigns")

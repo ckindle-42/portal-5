@@ -1,8 +1,9 @@
 """Incumbent rows copied from an earlier campaign when the reuse key matches.
 
-The key is the suite digest, task, repeat, served identity (backend, model,
-content), sampling, tool surface, harness digest and the deployed build's portal
-tree. The copy keeps the earlier grade and records reused_from. It is not re-graded.
+The key is the suite digest, task, repeat, model identity, engine and version,
+delivered sampling, tool surface, the pipeline trees at the deployed sha, and
+the tree of each offered tool module. The copy is re-graded with the current
+checkers. original_outcome is the earlier grade; the regraded outcome counts.
 """
 
 from __future__ import annotations
@@ -18,9 +19,10 @@ from tests.wfe import report as rep
 WS = "auto-documents"
 MODEL = "granite4.1:8b-ctx16k"
 IDENT = {"backend": "ollama-general", "model": MODEL, "content": "content-abc"}
-HARNESS = "h" * 16
-PORTAL = "p" * 40
-DIGEST = "d" * 16
+DEPLOYED = "c" * 40
+PIPE = "b" * 40
+MOD = "d" * 40
+VERSION = "0.40.5"
 DOCS = Path("/Users/chris/projects/portal-5/tests/wfe/results/campaigns")
 
 
@@ -31,7 +33,16 @@ def _pipeline(monkeypatch):
 
 def _suite(tmp: Path) -> Path:
     path = tmp / "documents_production.jsonl"
-    path.write_text(json.dumps({"id": "t1", "instruction": "do the task"}) + "\n")
+    path.write_text(
+        json.dumps(
+            {
+                "id": "t1",
+                "instruction": "do the task",
+                "checkers": [{"type": "answer_contains", "patterns": ["TASK COMPLETE"]}],
+            }
+        )
+        + "\n"
+    )
     return path
 
 
@@ -53,23 +64,30 @@ def _stub(suite: Path, *, role: str = "incumbent", state: str = "PENDING", repea
     }
 
 
-def _receipt(d: Path, suite: Path, digest: str = DIGEST) -> None:
+def _receipt(d: Path, suite: Path, digest: str | None = None) -> None:
+    from tests.wfe.controls import suite_digest
+
+    if digest is None:
+        digest = suite_digest(suite)
     (d / "controls_receipts.jsonl").write_text(
         json.dumps({"where": "open", "suites": {str(suite): digest}, "failures": []}) + "\n"
     )
 
 
-def _instrument(fp: str) -> dict:
+def _instrument(fp: str, deployed: str = DEPLOYED) -> dict:
     return {
         "fingerprint": fp,
-        "harness": HARNESS,
-        "portal_tree": PORTAL,
+        "deployed": deployed,
         "engine": "pipeline",
     }
 
 
+def _env(fp: str, version: str = VERSION) -> dict:
+    return {"fingerprint": fp, "engine": "pipeline", "ollama_version": version}
+
+
 def _open(
-    root: Path, name: str, suite: Path, rows: list[dict], *, fp: str, digest: str = DIGEST
+    root: Path, name: str, suite: Path, rows: list[dict], *, fp: str, digest: str | None = None
 ) -> Path:
     d = root / name
     (d / "rows").mkdir(parents=True)
@@ -78,7 +96,7 @@ def _open(
         {
             "campaign_id": name,
             "instrument": _instrument(fp),
-            "env": {"fingerprint": fp},
+            "env": _env(fp),
             "identity_map": {f"{WS}|{MODEL}": dict(IDENT)},
             "rows": rows,
         },
@@ -91,13 +109,14 @@ def _source_row(suite: Path, surface: list, **over) -> dict:
     row = {
         **_stub(suite, state="PASS"),
         "outcome": "FAIL",
+        "final_text": "TASK COMPLETE",
         "evidence": {"marker": 1},
         "notes": "kept",
         "identity": dict(IDENT),
         "sampling": campaign.expected_incumbent_sampling(_stub(suite)),
         "tool_surface": list(surface),
         "instrument": _instrument("old-fp"),
-        "env": {"fingerprint": "old-env"},
+        "env": _env("old-env"),
         "campaign_id": "src",
     }
     row.update(over)
@@ -108,7 +127,29 @@ def _write_row(d: Path, row: dict) -> None:
     campaign._row_path(d, row["run_id"]).write_text(json.dumps(row))
 
 
+def _stub_trees(monkeypatch) -> None:
+    """Synthetic trees. Real campaign proofs do not use this."""
+
+    def pipeline(sha: str) -> dict:
+        if sha in (DEPLOYED, MOD):
+            return {"inference": "inf", "config": "cfg"}
+        if sha == PIPE:
+            return {"inference": "inf", "config": "other-cfg"}
+        return {}
+
+    def modules(sha: str, _tools: list) -> dict | None:
+        if sha in (DEPLOYED, PIPE):
+            return {"portal/modules/documents": "mod"}
+        if sha == MOD:
+            return {"portal/modules/documents": "mod-other"}
+        return None
+
+    monkeypatch.setattr(campaign, "pipeline_at", pipeline)
+    monkeypatch.setattr(campaign, "tool_module_trees", modules)
+
+
 def _pair(tmp: Path, monkeypatch):
+    _stub_trees(monkeypatch)
     monkeypatch.setattr(campaign, "CAMPAIGNS", tmp)
     suite = _suite(tmp)
     surface = campaign.expected_incumbent_surface(_stub(suite))
@@ -122,18 +163,19 @@ def _pair(tmp: Path, monkeypatch):
 
 
 class TestReuseKey:
-    def test_an_exact_match_is_copied_and_not_regraded(self, tmp_path, monkeypatch):
+    def test_an_exact_match_is_copied_and_regraded(self, tmp_path, monkeypatch):
         _src, dst, stub, src_row = _pair(tmp_path, monkeypatch)
         copied = campaign.reuse_incumbent_rows(dst, campaign.load_manifest(dst), [stub])
         assert copied == [stub["run_id"]]
         body = json.loads(campaign._row_path(dst, stub["run_id"]).read_text())
         assert body["reused_from"] == f"src/{src_row['run_id']}"
-        assert body["outcome"] == "FAIL" and body["evidence"] == {"marker": 1}
-        assert body["notes"] == "kept" and "rescore" not in body
+        assert body["original_outcome"] == "FAIL"
+        assert body["regraded_outcome"] == "PASS" and body["outcome"] == "PASS"
+        assert "checker re-grade" in body["notes"]
         assert body["instrument"]["fingerprint"] == "old-fp"
         assert body["campaign_id"] == "dst" and body["run_id"] == stub["run_id"]
         saved = campaign.load_manifest(dst)
-        assert saved["rows"][0]["state"] == "FAIL"
+        assert saved["rows"][0]["state"] == "PASS"
         assert saved["rows"][0]["reused_from"] == body["reused_from"]
 
     def test_a_copy_of_a_copy_keeps_the_original_provenance(self, tmp_path, monkeypatch):
@@ -152,11 +194,15 @@ class TestReuseKey:
             "suite",
             "task",
             "repeat",
+            "backend",
+            "model",
             "content",
+            "engine",
+            "version",
             "sampling",
             "surface",
-            "harness",
-            "portal",
+            "pipeline",
+            "modules",
         ],
     )
     def test_any_one_field_off_is_not_copied(self, tmp_path, monkeypatch, mutate):
@@ -176,16 +222,24 @@ class TestReuseKey:
             man = campaign.load_manifest(src_dir)
             man["rows"][0]["repeat"] = 1
             campaign.save_manifest(src_dir, man)
+        elif mutate == "backend":
+            body["identity"] = {**body["identity"], "backend": "other-backend"}
+        elif mutate == "model":
+            body["identity"] = {**body["identity"], "model": "other-model"}
         elif mutate == "content":
             body["identity"] = {**body["identity"], "content": "other-content"}
+        elif mutate == "engine":
+            body["instrument"] = {**body["instrument"], "engine": "other-engine"}
+        elif mutate == "version":
+            body["env"] = {**body["env"], "ollama_version": "9.9.9"}
         elif mutate == "sampling":
             body["sampling"] = {**body["sampling"], "temperature": 0.7}
         elif mutate == "surface":
             body["tool_surface"] = ["read_pdf"]
-        elif mutate == "harness":
-            body["instrument"] = {**body["instrument"], "harness": "other-harness"}
-        elif mutate == "portal":
-            body["instrument"] = {**body["instrument"], "portal_tree": "other-tree"}
+        elif mutate == "pipeline":
+            body["instrument"] = {**body["instrument"], "deployed": PIPE}
+        elif mutate == "modules":
+            body["instrument"] = {**body["instrument"], "deployed": MOD}
         path.write_text(json.dumps(body))
         assert campaign.reuse_incumbent_rows(dst, campaign.load_manifest(dst), [stub]) == []
         assert not campaign._row_path(dst, stub["run_id"]).exists()
@@ -195,6 +249,15 @@ class TestReuseKey:
         man = campaign.load_manifest(dst)
         man["identity_map"] = {}
         assert campaign.reuse_incumbent_rows(dst, man, [stub]) == []
+
+    def test_a_row_without_a_deployed_sha_is_not_copied(self, tmp_path, monkeypatch):
+        _src, dst, stub, _row = _pair(tmp_path, monkeypatch)
+        src_dir = tmp_path / "src"
+        path = campaign._row_path(src_dir, stub["run_id"])
+        body = json.loads(path.read_text())
+        body["instrument"] = {k: v for k, v in body["instrument"].items() if k != "deployed"}
+        path.write_text(json.dumps(body))
+        assert campaign.reuse_incumbent_rows(dst, campaign.load_manifest(dst), [stub]) == []
 
     def test_a_challenger_row_is_not_a_source(self, tmp_path, monkeypatch):
         monkeypatch.setattr(campaign, "CAMPAIGNS", tmp_path)
@@ -261,7 +324,7 @@ class TestReuseKey:
         )
         out = campaign.execute_arm(dst, MODEL, 4, 60, None, False, False)
         assert out["ran"] == 0 and out["reused"] == 1
-        assert campaign.load_manifest(dst)["rows"][0]["state"] == "FAIL"
+        assert campaign.load_manifest(dst)["rows"][0]["state"] == "PASS"
 
 
 class TestPresent:
@@ -327,4 +390,27 @@ def test_documents_g_to_h_incumbents_do_not_match():
         counts[tuple(row["diffs"])] = counts.get(tuple(row["diffs"]), 0) + 1
     assert report["matched"] == 0 and report["dst_incumbent_rows"] == 108
     assert counts[("no source row",)] == 96
-    assert counts[("harness", "portal_tree")] == 12
+    assert counts[("pipeline", "tool_modules")] == 12
+
+
+def test_math_b_to_d_auto_math_incumbents_do_not_match():
+    """Read-only. b is the earlier auto-math confirm; d is the later one.
+    Overlapping rows differ on the suite receipt and the pipeline trees."""
+    b, d = DOCS / "wfe_math_20261018b", DOCS / "wfe_math_20261018d"
+    if not (b / "manifest.json").is_file() or not (d / "manifest.json").is_file():
+        pytest.skip("math campaigns b and d are not in this checkout")
+    before = (d / "manifest.json").stat().st_mtime_ns
+    report = campaign.incumbent_reuse_report(b, d)
+    assert (d / "manifest.json").stat().st_mtime_ns == before
+    by_id = {r["run_id"]: r for r in campaign.load_manifest(d)["rows"]}
+    counts: dict[tuple, int] = {}
+    n = 0
+    for row in report["rows"]:
+        if (by_id.get(row["run_id"]) or {}).get("workspace") != "auto-math":
+            continue
+        n += 1
+        key = tuple(row["diffs"])
+        counts[key] = counts.get(key, 0) + 1
+    assert n == 108 and report["matched"] == 0
+    assert counts[("no source row",)] == 72
+    assert counts[("suite_digest", "pipeline")] == 36

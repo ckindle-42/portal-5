@@ -144,12 +144,15 @@ The harness (`tests/wfe/`):
   driver with `--debug-dir` full-run capture and `--rescore` offline re-grade;
   `--preflight` probes every arm before the sweep, and each arm releases its
   model (`keep_alive: 0`) so co-resident weight never becomes the measurement.
-  An incumbent row is copied from an earlier campaign, and not re-graded, when
-  the suite digest, task, repeat, served identity (backend, model, content),
-  sampling, tool surface, harness digest and the deployed build's portal tree
-  all match. The copy records `reused_from: <campaign>/<row>`. `--fresh-incumbent`
-  drops those copies and runs the rows. `verify-complete` and the fitness report
-  count a copied row as present.
+  An incumbent row is copied from an earlier campaign when the suite digest,
+  task, repeat, model identity, engine and version, delivered sampling, tool
+  surface, the pipeline trees (`portal/platform/inference` and `config/`) and
+  each offered tool module's tree all match at the row's deployed build sha.
+  A row with no deployed sha is run. The copy is re-graded with the current
+  checkers and records `original_outcome`, `regraded_outcome` and
+  `reused_from: <campaign>/<row>`; the regraded outcome counts.
+  `--fresh-incumbent` drops those copies and runs the rows. `verify-complete`
+  and the fitness report count a copied row as present.
   `report.py` — deterministic Wilson-interval report, NOT SEPARATED not ranked.
   `sweep_plan.py` — writes `plans/sweep_from_queue_v1.yaml` from the candidate
   queue's intended workspaces and the incumbents in `plans/*_decision_v1.yaml`.

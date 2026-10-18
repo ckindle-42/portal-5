@@ -354,7 +354,8 @@ def _collect_warnings(rows: list[dict], manifest: dict, allow_mixed: bool) -> li
     reused_n = sum(1 for r in rows if r.get("reused_from"))
     if reused_n:
         warnings.append(
-            f"{reused_n} incumbent row(s) reused from an earlier campaign (reused_from); not re-graded"
+            f"{reused_n} incumbent row(s) reused from an earlier campaign (reused_from) "
+            "and re-graded with the current checkers"
         )
     degen = sorted({r["repeat_degeneracy"] for r in rows if r.get("repeat_degeneracy")})
     warnings += [
