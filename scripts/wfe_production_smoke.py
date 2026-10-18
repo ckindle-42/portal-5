@@ -38,6 +38,10 @@ OUTPUT = Path(os.environ.get("AI_OUTPUT_DIR", str(Path.home() / "AI_Output")))
 _MEMORY_ID_RE = re.compile(
     r"\b[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\b", re.I
 )
+# The remember case's code word. Cleanup also sweeps the memory store by this word: the model
+# may store the whole prompt sentence and answer without the tool's id (finding I).
+SMOKE_CODE_WORD = "bluefinch"
+MEMORY_SWEEP_QUERY = f"smoke test code word {SMOKE_CODE_WORD}"
 
 
 def env(name: str) -> str:
@@ -108,12 +112,12 @@ CASES: list[Case] = [
     ),
     Case(
         "remember",
-        'Remember that the smoke test code word is "bluefinch". Include the exact id returned by the remember tool in your answer.',
+        f'Remember that the smoke test code word is "{SMOKE_CODE_WORD}". Include the exact id returned by the remember tool in your answer.',
     ),
-    Case("recall", "What is the smoke test code word I asked you to remember?", "bluefinch"),
-    Case("graph_recall", 'Using your memory graph, what do you know about "bluefinch"?'),
-    Case("neighbors", 'Which entities are related to "bluefinch" in my memory graph?'),
-    Case("entity_timeline", 'Show the timeline of events for the entity "bluefinch".'),
+    Case("recall", "What is the smoke test code word I asked you to remember?", SMOKE_CODE_WORD),
+    Case("graph_recall", f'Using your memory graph, what do you know about "{SMOKE_CODE_WORD}"?'),
+    Case("neighbors", f'Which entities are related to "{SMOKE_CODE_WORD}" in my memory graph?'),
+    Case("entity_timeline", f'Show the timeline of events for the entity "{SMOKE_CODE_WORD}".'),
     Case("execute_python", "Run Python to compute 17*23 and tell me the result.", "391"),
     Case("execute_nodejs", "Use Node.js to compute 6*7 and tell me the result.", r"\b42\b"),
     Case(
@@ -341,7 +345,8 @@ def empty_turn(ws: str) -> tuple[int, int]:
     return (out.get("usage") or {}).get("prompt_tokens", 0), ctx
 
 
-def _forget_memory(memory_id: str) -> None:
+def _forget_memory(memory_id: str) -> bool:
+    """Forget one memory id; True when the forget call succeeded."""
     try:
         result = http(
             f"{MEMORY_MCP}/tools/forget",
@@ -350,8 +355,36 @@ def _forget_memory(memory_id: str) -> None:
         )
         if result.get("error"):
             raise RuntimeError(result["error"])
+        return True
     except Exception as e:  # noqa: BLE001 — cleanup should not hide the smoke result
         print(f"WARNING: could not forget smoke memory {memory_id}: {e}", flush=True)
+        return False
+
+
+def _sweep_memories() -> None:
+    """Forget leftover smoke notes by content, not by an id the model may never echo.
+
+    The remember case asks the model to repeat the tool's id, but it can store the prompt
+    sentence and answer without one (finding I, re-check 85d26a10). Recall is semantic, so
+    only hits whose text carries the smoke code word are forgotten; nothing else is touched.
+    """
+    try:
+        result = http(
+            f"{MEMORY_MCP}/tools/recall",
+            {"arguments": {"query": MEMORY_SWEEP_QUERY}},
+            timeout=30,
+        )
+        if result.get("error"):
+            raise RuntimeError(result["error"])
+        ids = {
+            m.get("id")
+            for m in result.get("memories") or []
+            if SMOKE_CODE_WORD in (m.get("text") or "")
+        }
+        forgotten = sum(1 for memory_id in ids if memory_id and _forget_memory(memory_id))
+        print(f"cleanup: forgot {forgotten} smoke memory note(s) via recall sweep", flush=True)
+    except Exception as e:  # noqa: BLE001 — cleanup should not hide the smoke result
+        print(f"WARNING: could not sweep the memory store for smoke notes: {e}", flush=True)
 
 
 def cleanup(
@@ -367,6 +400,8 @@ def cleanup(
             "the smoke note may remain stored",
             flush=True,
         )
+    # Always sweep: the turn-based id above is best-effort and the model may not echo one.
+    _sweep_memories()
     for f in list(OUTPUT.glob("Smoke_*")) + list(OUTPUT.glob("uploads/*smoke_*")):
         f.unlink(missing_ok=True)
 
