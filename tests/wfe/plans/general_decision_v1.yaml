@@ -31,10 +31,10 @@ workloads:
     home: general_production
     discovery: []
     arms:
-      incumbent: gemma4:26b-a4b-it-qat-ctx8k
+      incumbent: gemma4:26b-a4b-it-qat-ctx16k
       challengers:
         - granite4.1:30b-ctx16k
-        - hf.co/bartowski/NVIDIA-Nemotron-3.5-Lightning-30B-A3B-GGUF:q4_K_M-ctx8k
+        - hf.co/bartowski/NVIDIA-Nemotron-3.5-Lightning-30B-A3B-GGUF:Q4_K_M-ctx32k
         - hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k
   auto-general-uncensored:
     tool_mode: production
