@@ -127,6 +127,23 @@ def _unknown_keys(items: Any, allowed: tuple[str, ...], where: str) -> dict[str,
     return None
 
 
+def _non_scalar_cell(rows: Any, where: str) -> dict[str, Any] | None:
+    """A structured error when a row is not a flat list of cell values, else None.
+
+    openpyxl's own message ("Cannot convert ['a', 'b'] to Excel") does not say which field is
+    wrong, so a seat that nested its header row (``headers: [["a", "b"]]``) retried the same
+    call until its budget ran out (WFE wfe_documents_20261017g doc-create-06)."""
+    for i, row in enumerate(rows or [], 1):
+        cells = row if isinstance(row, list) else [row]
+        if any(isinstance(c, (list, dict)) for c in cells):
+            return {
+                "success": False,
+                "error": f"{where} {i} must be a flat list of cell values (text or numbers), "
+                f'e.g. ["Name", "Score"]; got {row!r}',
+            }
+    return None
+
+
 def _add_hyperlink(paragraph: Paragraph, text: str, url: str) -> None:
     from docx.oxml import OxmlElement
     from docx.oxml.ns import qn
@@ -651,6 +668,13 @@ def create_excel(
         "chart",
     ):
         return bad
+    if bad := _non_scalar_cell(data, "row"):
+        return bad
+    for n, sheet_data in enumerate(sheets or [], 1):
+        if bad := _non_scalar_cell(
+            [sheet_data.get("headers") or []], f"headers of sheet {n}"
+        ) or _non_scalar_cell(sheet_data.get("rows"), f"sheet {n} row"):
+            return bad
     try:
         wb = openpyxl.Workbook()
         wb.properties.title = title

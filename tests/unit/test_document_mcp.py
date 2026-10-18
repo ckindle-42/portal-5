@@ -519,6 +519,19 @@ class TestCreateToolsRejectKeysTheyWouldDrop:
             and "name, headers, rows" in r["error"]
         )
 
+    def test_excel_nested_header_row_is_a_structured_error(self):
+        pytest.importorskip("openpyxl", reason="openpyxl not installed")
+        r = self._mcp().create_excel(
+            "Book", sheets=[{"name": "A", "headers": [["x", "y"]], "rows": [["1", "2"]]}]
+        )
+        assert r["success"] is False and "headers of sheet 1" in r["error"]
+        assert "flat list" in r["error"]
+
+    def test_excel_flat_rows_still_succeed_validation(self):
+        m = self._mcp()
+        assert m._non_scalar_cell([["a", 1], ["b", 2.5]], "row") is None
+        assert m._non_scalar_cell([["a", ["b"]]], "row")["success"] is False
+
     def test_excel_chart_unknown_key(self):
         pytest.importorskip("openpyxl", reason="openpyxl not installed")
         r = self._mcp().create_excel("B", data=[["a"]], charts=[{"type": "bar", "colour": "red"}])

@@ -122,7 +122,10 @@
               },
               "headers": {
                 "type": "array",
-                "items": {}
+                "description": "One flat header row, e.g. [\"Name\", \"Score\"] (not nested)",
+                "items": {
+                  "type": "string"
+                }
               },
               "rows": {
                 "type": "array",
