@@ -31,6 +31,10 @@ logger = logging.getLogger(__name__)
 
 _CREATE_ACTION_RE = re.compile(r"\b(?:build|create|generate|make|produce|save)\b")
 _RUN_ACTION_RE = re.compile(r"\b(?:execute|run)\b")
+# A prompt that also asks to read a source is a multi-step turn: narrowing it to one create
+# tool takes away the read tool it needs first (doc-trip: "Read orders.xlsx … create a Word
+# document" was narrowed to create_excel by the ".xlsx" of the source file).
+_READ_ACTION_RE = re.compile(r"\b(?:read|open|load|extract|parse|summari[sz]e)\b")
 # TASK_COMPLIANCE_REASONING_V2 P8-L tried forcing tool_choice=required onto
 # nerc_cip_requirement for any message naming a CIP id plus a word like
 # "requirement" or "means" — the same mechanism used for
@@ -130,10 +134,11 @@ def _select_explicit_required_tool(
             ),
         ),
     ]
-    for tool_name, matched in candidates:
-        if matched and tool_name in effective_tools:
-            return tool_name
-    return None
+    if _READ_ACTION_RE.search(text):
+        return None
+    matched = [name for name, hit in candidates if hit and name in effective_tools]
+    # Two side effects named (or one file type naming the source, another the target): ambiguous.
+    return matched[0] if len(matched) == 1 else None
 
 
 def split_embedded_call(name: str, arguments: str, offered: set[str]) -> tuple[str, str]:

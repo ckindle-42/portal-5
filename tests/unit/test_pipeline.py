@@ -1593,12 +1593,22 @@ class TestExplicitRequiredToolSelection:
             "Write a Python function that validates an email address.",
             "Write a getting-started document for a junior developer.",
             "Read this Word document and summarize it.",
+            # WFE doc-trip: the source's ".xlsx" used to narrow this to create_excel alone.
+            'Read orders.xlsx, add up the Units column, then create a Word document titled "Units Report".',
+            "Read plan.docx, add up the Hours column, then create a Word document with the total.",
+            "Create an Excel workbook and a Word document from these notes.",
         ],
     )
     def test_leaves_non_side_effect_requests_on_auto(self, prompt):
         from portal.platform.inference.router_pipe import _select_explicit_required_tool
 
-        available = {"execute_python", "create_word_document", "read_word_document"}
+        available = {
+            "execute_python",
+            "create_word_document",
+            "create_excel",
+            "read_word_document",
+            "read_excel",
+        }
         assert (
             _select_explicit_required_tool([{"role": "user", "content": prompt}], available) is None
         )
