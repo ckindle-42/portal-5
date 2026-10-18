@@ -62,7 +62,89 @@ def _fmt_ci(passes: int, n: int) -> str:
     return f"{passes}/{n} = {p:.2f} [{lo:.2f}–{hi:.2f}]"
 
 
-def _speed_summary(economics: list[dict]) -> dict:
+def _speed_economics(row: dict) -> dict:
+    """Return row speed fields, repairing pre-T4 splits from stored text lengths."""
+    economics = row.get("economics") if isinstance(row.get("economics"), dict) else row
+    answer_tokens = economics.get("answer_tokens")
+    answer_tps = economics.get("answer_tps")
+    if not economics.get("split_source"):
+        completion_tokens = economics.get("completion_tokens")
+        reasoning_chars = economics.get("reasoning_chars")
+        if not isinstance(reasoning_chars, int | float) or isinstance(reasoning_chars, bool):
+            reasoning_chars = row.get("reasoning_chars")
+        if not isinstance(reasoning_chars, int | float) or isinstance(reasoning_chars, bool):
+            reasoning_chars = sum(
+                turn.get("reasoning_chars", 0)
+                for turn in (row.get("transcript") or [])
+                if isinstance(turn, dict)
+                and isinstance(turn.get("reasoning_chars", 0), int | float)
+                and not isinstance(turn.get("reasoning_chars", 0), bool)
+            )
+        answer_chars = economics.get("answer_chars")
+        if not isinstance(answer_chars, int | float) or isinstance(answer_chars, bool):
+            final_text = row.get("final_text")
+            if not isinstance(final_text, str):
+                transcript = row.get("transcript") or []
+                final_text = next(
+                    (
+                        turn.get("content")
+                        for turn in reversed(transcript)
+                        if isinstance(turn, dict) and isinstance(turn.get("content"), str)
+                    ),
+                    row.get("final_text_head"),
+                )
+            answer_chars = len(final_text) if isinstance(final_text, str) else None
+        if (
+            isinstance(completion_tokens, int | float)
+            and not isinstance(completion_tokens, bool)
+            and isinstance(reasoning_chars, int | float)
+            and not isinstance(reasoning_chars, bool)
+            and isinstance(answer_chars, int | float)
+            and not isinstance(answer_chars, bool)
+            and reasoning_chars + answer_chars > 0
+        ):
+            answer_tokens = round(
+                completion_tokens * answer_chars / (reasoning_chars + answer_chars)
+            )
+            answer_s = economics.get("answer_s")
+            answer_tps = (
+                round(answer_tokens / answer_s, 3)
+                if isinstance(answer_s, int | float)
+                and not isinstance(answer_s, bool)
+                and answer_s > 0
+                else None
+            )
+
+    completion_tokens = economics.get("completion_tokens")
+    reasoning_s, answer_s = economics.get("reasoning_s"), economics.get("answer_s")
+    reasoning_s = (
+        reasoning_s
+        if isinstance(reasoning_s, int | float) and not isinstance(reasoning_s, bool)
+        else 0
+    )
+    answer_s = (
+        answer_s if isinstance(answer_s, int | float) and not isinstance(answer_s, bool) else 0
+    )
+    decode_s = reasoning_s + answer_s
+    decode_tps = (
+        completion_tokens / decode_s
+        if isinstance(completion_tokens, int | float)
+        and not isinstance(completion_tokens, bool)
+        and decode_s > 0
+        else None
+    )
+    return {
+        "answer_tokens": answer_tokens,
+        "answer_tps": answer_tps,
+        "ttft_s": economics.get("ttft_s"),
+        "total_s": economics.get("total_s"),
+        "decode_tps": decode_tps,
+    }
+
+
+def _speed_summary(rows: list[dict]) -> dict:
+    economics = [_speed_economics(row) for row in rows]
+
     def stats(field: str) -> tuple[float | None, float | None]:
         values = sorted(
             float(e[field])
@@ -75,7 +157,7 @@ def _speed_summary(economics: list[dict]) -> dict:
         return median(values), p90
 
     result = {}
-    for field in ("answer_tps", "ttft_s", "total_s"):
+    for field in ("answer_tps", "decode_tps", "ttft_s", "total_s"):
         med, p90 = stats(field)
         result[f"{field}_median"] = med
         result[f"{field}_p90"] = p90
@@ -304,7 +386,7 @@ def _build_matrix(by_key: dict, role_of: dict, home_of: dict) -> list[dict]:
                 "outcomes": dict(Counter(r["outcome"] for r in rs)),
                 "median_tokens": sorted(tok)[len(tok) // 2] if tok else None,
                 "median_wall_s": sorted(wall)[len(wall) // 2] if wall else None,
-                "speed": _speed_summary(econ),
+                "speed": _speed_summary(rs),
                 "cold_load_ms": max(cold) if cold else None,
                 "persona": next((r.get("persona_slug") for r in rs if r.get("persona_slug")), None),
                 "repeats": sorted({r["repeat"] for r in rs}),
@@ -909,15 +991,18 @@ def _sec_speed(a, rep) -> None:
     a("")
     a(
         "| Workspace | Lane | Arm | Answer tok/s med | Answer tok/s p90 | "
-        "TTFT s med | TTFT s p90 | Total s med | Total s p90 |"
+        "Decode tok/s med | Decode tok/s p90 | TTFT s med | TTFT s p90 | "
+        "Total s med | Total s p90 |"
     )
-    a("|---|---|---|---:|---:|---:|---:|---:|---:|")
+    a("|---|---|---|---:|---:|---:|---:|---:|---:|---:|---:|")
     for row in rep["matrix"]:
         speed = row.get("speed") or {}
         a(
             f"| {row['workspace']} | {'home' if row['is_home'] else 'disc'}:{row['suite']} | "
             f"`{row['arm']}` | {_fmt_speed(speed, 'answer_tps_median')} | "
-            f"{_fmt_speed(speed, 'answer_tps_p90')} | {_fmt_speed(speed, 'ttft_s_median')} | "
+            f"{_fmt_speed(speed, 'answer_tps_p90')} | "
+            f"{_fmt_speed(speed, 'decode_tps_median')} | {_fmt_speed(speed, 'decode_tps_p90')} | "
+            f"{_fmt_speed(speed, 'ttft_s_median')} | "
             f"{_fmt_speed(speed, 'ttft_s_p90')} | {_fmt_speed(speed, 'total_s_median')} | "
             f"{_fmt_speed(speed, 'total_s_p90')} |"
         )

@@ -62,6 +62,15 @@ def counts_for_quality(outcome: str | Outcome) -> bool:
     return Outcome(outcome) in MODEL_QUALITY_OUTCOMES
 
 
+def _merge_split_source(current: str | None, incoming: str | None) -> str | None:
+    rank = {"engine": 0, "deltas": 1, "chars": 2}
+    if incoming not in rank:
+        return current
+    if current not in rank:
+        return incoming
+    return max((current, incoming), key=rank.get)
+
+
 @dataclass
 class Economics:
     """Per-run cost. Ollama returns these on every response; the pre-repair
@@ -76,6 +85,10 @@ class Economics:
     prefill_s: float | None = None
     ttft_s: float | None = None
     reasoning_tokens: int | None = None
+    reasoning_deltas: int | None = None
+    answer_deltas: int | None = None
+    reasoning_chars: int | None = None
+    answer_chars: int | None = None
     reasoning_s: float | None = None
     answer_tokens: int | None = None
     answer_s: float | None = None
@@ -83,6 +96,7 @@ class Economics:
     tool_s: float | None = None
     total_s: float | None = None
     timing_source: str | None = None
+    split_source: str | None = None
 
     def merge(self, other: Economics) -> None:
         for k in ("prompt_tokens", "completion_tokens", "total_tokens"):
@@ -94,6 +108,10 @@ class Economics:
         for k in (
             "prefill_s",
             "reasoning_tokens",
+            "reasoning_deltas",
+            "answer_deltas",
+            "reasoning_chars",
+            "answer_chars",
             "reasoning_s",
             "answer_tokens",
             "answer_s",
@@ -110,6 +128,7 @@ class Economics:
                 self.timing_source = other.timing_source
             elif self.timing_source != other.timing_source:
                 self.timing_source = "measured"
+        self.split_source = _merge_split_source(self.split_source, other.split_source)
         if self.answer_tokens is not None and self.answer_s and self.answer_s > 0:
             self.answer_tps = round(self.answer_tokens / self.answer_s, 3)
 
@@ -120,6 +139,10 @@ class Economics:
                 "prefill_s",
                 "ttft_s",
                 "reasoning_tokens",
+                "reasoning_deltas",
+                "answer_deltas",
+                "reasoning_chars",
+                "answer_chars",
                 "reasoning_s",
                 "answer_tokens",
                 "answer_s",
@@ -127,6 +150,7 @@ class Economics:
                 "tool_s",
                 "total_s",
                 "timing_source",
+                "split_source",
             )
         }
 

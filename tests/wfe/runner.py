@@ -956,6 +956,8 @@ def _timing_value(key: str, value):
     redacted "<redacted>" count) must cost the row its timing, never the row itself."""
     if key == "timing_source":
         return value if value in ("engine", "measured") else None
+    if key == "split_source":
+        return value if value in ("engine", "deltas", "chars") else None
     return value if isinstance(value, (int, float)) and not isinstance(value, bool) else None
 
 
@@ -967,6 +969,10 @@ def _econ_from_timings(timings: dict) -> Economics:
                 "prefill_s",
                 "ttft_s",
                 "reasoning_tokens",
+                "reasoning_deltas",
+                "answer_deltas",
+                "reasoning_chars",
+                "answer_chars",
                 "reasoning_s",
                 "answer_tokens",
                 "answer_s",
@@ -974,6 +980,7 @@ def _econ_from_timings(timings: dict) -> Economics:
                 "tool_s",
                 "total_s",
                 "timing_source",
+                "split_source",
             )
         }
     )
@@ -1592,6 +1599,7 @@ class _Loop:
             "recovered_tool_calls": recovered,
             "served": resp.get("served"),
             "reasoning_chars": len(msg.get("reasoning") or ""),
+            "answer_chars": len(content),
         }
         self.transcript[-1].update({k: v for k, v in extra.items() if v})
         return content, calls

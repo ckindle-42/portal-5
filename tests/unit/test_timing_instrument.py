@@ -93,6 +93,8 @@ def test_engine_shapes_and_measured_fallback_normalize_to_same_fields():
         {
             "ttft_s": 1.1,
             "reasoning_tokens": 4,
+            "reasoning_deltas": 4,
+            "answer_deltas": 5,
             "reasoning_s": 1.0,
             "answer_tokens": 5,
             "answer_s": 1.0,
@@ -120,6 +122,7 @@ def test_engine_shapes_and_measured_fallback_normalize_to_same_fields():
         1.1,
         5,
     )
+    assert ollama["split_source"] == "deltas"
     assert omlx["timing_source"] == "engine"
     assert (omlx["prefill_s"], omlx["ttft_s"], omlx["total_s"]) == (0.35, 0.4, 1.2)
     assert omlx["answer_tps"] == 6.25
@@ -146,6 +149,10 @@ def test_stream_measurement_fills_missing_engine_timings(monkeypatch):
         "prefill_s": 0.2,
         "ttft_s": 0.2,
         "reasoning_tokens": 1,
+        "reasoning_deltas": 1,
+        "answer_deltas": 2,
+        "reasoning_chars": 6,
+        "answer_chars": 6,
         "reasoning_s": 0.2,
         "answer_tokens": 2,
         "answer_s": 0.4,
@@ -153,7 +160,36 @@ def test_stream_measurement_fills_missing_engine_timings(monkeypatch):
         "tool_s": None,
         "total_s": 0.8,
         "timing_source": "measured",
+        "split_source": "deltas",
     }
+
+
+def test_engine_total_with_legacy_delta_split_is_repaired_by_character_evidence():
+    data = {
+        "message": {"thinking": "r" * 6013, "content": "a" * 32},
+        "eval_count": 2034,
+        "eval_duration": 46_024_463_000,
+        "portal_timings": {
+            "reasoning_tokens": 1713,
+            "answer_tokens": 321,
+            "answer_tps": 1219.503,
+            "reasoning_s": 45.761241,
+            "answer_s": 0.263222,
+            "total_s": 46.343497,
+            "timing_source": "engine",
+        },
+    }
+
+    timings = normalize_engine_timings(data)
+
+    assert timings["reasoning_tokens"] == 2023
+    assert timings["answer_tokens"] == 11
+    assert timings["answer_tps"] == round(11 / 0.263222, 3)
+    assert timings["reasoning_deltas"] is None
+    assert timings["answer_deltas"] is None
+    assert timings["reasoning_chars"] == 6013
+    assert timings["answer_chars"] == 32
+    assert timings["split_source"] == "chars"
 
 
 def test_pipeline_nonstream_body_carries_measured_timings_without_changing_content(monkeypatch):

@@ -56,11 +56,15 @@ once the last tool hop is done. An operator reads them back through
 
 The record's top-level `portal_timings` object carries request-level
 `prefill_s`, `ttft_s`, reasoning and answer counts and durations, `answer_tps`,
-`tool_s`, `total_s` and `timing_source`. Model-call timing is accumulated across
-tool-loop hops, while tool dispatch stays in `tool_s`. Streaming clients receive
-the same object in a metadata-only chunk immediately before `[DONE]`; a
-non-streaming response carries it in the body. Engine timing fields are marked
-`engine`, and stream-derived timing fields are marked `measured`.
+`tool_s`, `total_s`, `timing_source`, raw phase delta/character counts, and
+`split_source`. A delta count is one nonempty stream frame, not a token count. If
+the engine reports a completion total without a reasoning split, the pipeline
+apportions that total by phase delta counts, or by character counts when deltas
+are unavailable. Model-call timing is accumulated across tool-loop hops, while
+tool dispatch stays in `tool_s`. Streaming clients receive the same object in a
+metadata-only chunk immediately before `[DONE]`; a non-streaming response
+carries it in the body. Engine timing fields are marked `engine`, and
+stream-derived timing fields are marked `measured`.
 Per-model-call usage metrics receive the same timing rollup: generation duration and TTFT retain
 engine provenance when supplied, stream-derived decode and TTFT are marked measured, and tool
 dispatch time is excluded from decode and answer durations.

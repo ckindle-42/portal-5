@@ -349,6 +349,10 @@ _FIELDS = (
     "prefill_s",
     "ttft_s",
     "reasoning_tokens",
+    "reasoning_deltas",
+    "answer_deltas",
+    "reasoning_chars",
+    "answer_chars",
     "reasoning_s",
     "answer_tokens",
     "answer_s",
@@ -356,10 +360,15 @@ _FIELDS = (
     "tool_s",
     "total_s",
     "timing_source",
+    "split_source",
 )
 _ADDITIVE = (
     "prefill_s",
     "reasoning_tokens",
+    "reasoning_deltas",
+    "answer_deltas",
+    "reasoning_chars",
+    "answer_chars",
     "reasoning_s",
     "answer_tokens",
     "answer_s",
@@ -372,7 +381,10 @@ _CURRENT: contextvars.ContextVar[dict[str, Any] | None] = contextvars.ContextVar
 
 
 def _empty() -> dict[str, Any]:
-    return {name: (0 if name == "tool_s" else None) for name in _FIELDS}
+    return {
+        name: (0 if name in ("tool_s", "reasoning_deltas", "answer_deltas") else None)
+        for name in _FIELDS
+    }
 
 
 def _blank() -> dict[str, Any]:
@@ -399,6 +411,8 @@ def _finish(values: dict[str, Any]) -> dict[str, Any]:
     out = {name: values.get(name) for name in _FIELDS}
     if out.get("timing_source") not in ("engine", "measured"):
         out["timing_source"] = "measured"
+    if out.get("split_source") not in ("engine", "deltas", "chars"):
+        out["split_source"] = None
     answer_s, answer_tokens = out.get("answer_s"), out.get("answer_tokens")
     out["answer_tps"] = (
         round(answer_tokens / answer_s, 3)
@@ -423,11 +437,19 @@ def _explicit_timings(data: dict[str, Any]) -> dict[str, Any]:
         return values
     for name in _FIELDS:
         value = explicit.get(name)
-        if name in ("reasoning_tokens", "answer_tokens"):
+        if name in (
+            "reasoning_tokens",
+            "reasoning_deltas",
+            "answer_deltas",
+            "reasoning_chars",
+            "answer_chars",
+            "answer_tokens",
+        ):
             values[name] = _int(value) if value is not None else None
-        elif name not in ("timing_source", "answer_tps"):
+        elif name not in ("timing_source", "answer_tps", "split_source"):
             values[name] = _number(value) if value is not None else None
     values["timing_source"] = explicit.get("timing_source")
+    values["split_source"] = explicit.get("split_source")
     return values
 
 
@@ -486,28 +508,110 @@ def _content_phases(data: dict[str, Any], measured: dict[str, Any]) -> tuple[boo
     has_reasoning = any(
         message.get(name) or native.get(name)
         for name in ("reasoning", "reasoning_content", "thinking")
-    ) or bool(_int(measured.get("reasoning_tokens")))
+    ) or bool(
+        _int(measured.get("reasoning_deltas"))
+        or _int(measured.get("reasoning_tokens"))
+        or _int(measured.get("reasoning_chars"))
+    )
     has_answer = bool(
-        message.get("content") or native.get("content") or _int(measured.get("answer_tokens"))
+        message.get("content")
+        or native.get("content")
+        or _int(measured.get("answer_deltas"))
+        or _int(measured.get("answer_tokens"))
+        or _int(measured.get("answer_chars"))
     )
     return has_reasoning, has_answer
 
 
+def _phase_evidence(data: dict[str, Any], measured: dict[str, Any]) -> dict[str, int | None]:
+    explicit = data.get("portal_timings") if isinstance(data.get("portal_timings"), dict) else {}
+    choices = data.get("choices") or []
+    message = choices[0].get("message") or {} if choices and isinstance(choices[0], dict) else {}
+    native = data.get("message") if isinstance(data.get("message"), dict) else {}
+    reasoning_text = next(
+        (
+            message.get(name) or native.get(name)
+            for name in ("reasoning", "reasoning_content", "thinking")
+            if message.get(name) or native.get(name)
+        ),
+        "",
+    )
+    answer_text = message.get("content") or native.get("content") or ""
+    measured_evidence = dict(measured)
+    if measured_evidence.get("reasoning_deltas") is None:
+        measured_evidence["reasoning_deltas"] = measured.get("reasoning_tokens")
+    if measured_evidence.get("answer_deltas") is None:
+        measured_evidence["answer_deltas"] = measured.get("answer_tokens")
+    return {
+        name: _int(measured_evidence.get(name))
+        if measured_evidence.get(name) is not None
+        else _int(explicit.get(name))
+        if explicit.get(name) is not None
+        else derived
+        for name, derived in (
+            ("reasoning_deltas", None),
+            ("answer_deltas", None),
+            ("reasoning_chars", len(reasoning_text) if isinstance(reasoning_text, str) else None),
+            ("answer_chars", len(answer_text) if isinstance(answer_text, str) else None),
+        )
+    }
+
+
 def _answer_token_count(
-    engine: dict[str, Any], measured: dict[str, Any], has_reasoning: bool, has_answer: bool
-) -> int | None:
+    engine: dict[str, Any],
+    evidence: dict[str, int | None],
+    measured: dict[str, Any],
+    has_reasoning: bool,
+    has_answer: bool,
+) -> tuple[int | None, int | None, str | None]:
     total = engine["completion_tokens"]
     reasoning = engine["reasoning_tokens"]
+    reasoning_deltas = evidence.get("reasoning_deltas")
+    answer_deltas = evidence.get("answer_deltas")
+    reasoning_chars = evidence.get("reasoning_chars")
+    answer_chars = evidence.get("answer_chars")
+
+    if measured.get("tool_turn"):
+        split_source = "engine" if reasoning is not None else "deltas"
+        return (
+            reasoning if reasoning is not None else _int(measured.get("reasoning_tokens")),
+            0,
+            split_source,
+        )
+    if reasoning is not None:
+        answer_tokens = (
+            max(0, total - reasoning) if total is not None else _int(measured.get("answer_tokens"))
+        )
+        return reasoning, answer_tokens, "engine"
+    if total is not None:
+        delta_counts_cover_text = not (
+            (reasoning_chars and not reasoning_deltas) or (answer_chars and not answer_deltas)
+        )
+        if (
+            reasoning_deltas is not None
+            and answer_deltas is not None
+            and reasoning_deltas + answer_deltas > 0
+            and delta_counts_cover_text
+        ):
+            answer_tokens = round(total * answer_deltas / (reasoning_deltas + answer_deltas))
+            return total - answer_tokens, answer_tokens, "deltas"
+        if (
+            reasoning_chars is not None
+            and answer_chars is not None
+            and (reasoning_chars + answer_chars) > 0
+        ):
+            answer_tokens = round(total * answer_chars / (reasoning_chars + answer_chars))
+            return total - answer_tokens, answer_tokens, "chars"
+        if has_answer and not has_reasoning:
+            return 0, total, "engine"
+        if has_reasoning and not has_answer:
+            return total, 0, "engine"
+        return None, None, None
     measured_reasoning = _int(measured.get("reasoning_tokens"))
-    if not has_answer:
-        return _int(measured.get("answer_tokens"))
-    if reasoning is not None and total is not None:
-        return max(0, total - reasoning)
-    if total is not None and has_reasoning and measured_reasoning is not None:
-        return max(0, total - measured_reasoning)
-    if total is not None and not has_reasoning and has_answer:
-        return total
-    return _int(measured.get("answer_tokens"))
+    measured_answer = _int(measured.get("answer_tokens"))
+    if measured_reasoning is not None or measured_answer is not None:
+        return measured_reasoning, measured_answer, "deltas"
+    return None, None, None
 
 
 def _answer_duration(
@@ -527,6 +631,88 @@ def _answer_duration(
     return _number(measured.get("answer_s"))
 
 
+def _should_recompute_split(
+    values: dict[str, Any],
+    engine: dict[str, Any],
+    measured: dict[str, Any],
+    has_reasoning: bool,
+    has_answer: bool,
+) -> bool:
+    if engine["completion_tokens"] is None:
+        return False
+    if values.get("split_source") is None:
+        return True
+    return (
+        values.get("split_source") == "engine"
+        and engine["reasoning_tokens"] is None
+        and ((has_reasoning and has_answer) or measured.get("tool_turn"))
+    )
+
+
+def _split_source_for(engine: dict[str, Any], evidence: dict[str, int | None]) -> str | None:
+    if engine["completion_tokens"] is not None or engine["reasoning_tokens"] is not None:
+        return "engine"
+    if any(evidence.get(name) is not None for name in ("reasoning_deltas", "answer_deltas")):
+        return "deltas"
+    if any(evidence.get(name) is not None for name in ("reasoning_chars", "answer_chars")):
+        return "chars"
+    return None
+
+
+def _resolve_token_split(
+    values: dict[str, Any],
+    engine: dict[str, Any],
+    evidence: dict[str, int | None],
+    measured: dict[str, Any],
+    has_reasoning: bool,
+    has_answer: bool,
+) -> None:
+    if _should_recompute_split(values, engine, measured, has_reasoning, has_answer):
+        values["reasoning_tokens"] = None
+        values["answer_tokens"] = None
+        values["split_source"] = None
+    if values.get("reasoning_tokens") is None or values.get("answer_tokens") is None:
+        reasoning_tokens, answer_tokens, split_source = _answer_token_count(
+            engine, evidence, measured, has_reasoning, has_answer
+        )
+        if values.get("reasoning_tokens") is None:
+            values["reasoning_tokens"] = reasoning_tokens
+        if values.get("answer_tokens") is None:
+            values["answer_tokens"] = answer_tokens
+        if values.get("split_source") is None:
+            values["split_source"] = split_source
+    if values.get("reasoning_tokens") is None:
+        values["reasoning_tokens"] = engine["reasoning_tokens"]
+        if values["reasoning_tokens"] is None:
+            values["reasoning_tokens"] = _int(measured.get("reasoning_tokens"))
+    if values.get("reasoning_tokens") is None and not has_reasoning and has_answer:
+        values["reasoning_tokens"] = 0
+    if values.get("split_source") is None and (
+        values.get("reasoning_tokens") is not None or values.get("answer_tokens") is not None
+    ):
+        values["split_source"] = _split_source_for(engine, evidence)
+
+
+def _resolve_durations(
+    values: dict[str, Any],
+    engine: dict[str, Any],
+    measured: dict[str, Any],
+    has_reasoning: bool,
+    has_answer: bool,
+) -> None:
+    for name in ("prefill_s", "ttft_s", "total_s"):
+        if values.get(name) is None:
+            values[name] = engine[name]
+        if values.get(name) is None:
+            values[name] = _number(measured.get(name))
+    if values.get("reasoning_s") is None:
+        values["reasoning_s"] = _number(measured.get("reasoning_s"))
+    if values.get("answer_s") is None:
+        values["answer_s"] = _answer_duration(values, engine, measured, has_reasoning, has_answer)
+    if measured.get("tool_s") is not None:
+        values["tool_s"] = _number(measured.get("tool_s"))
+
+
 def normalize_engine_timings(
     data: dict[str, Any], measured: dict[str, Any] | None = None
 ) -> dict[str, Any]:
@@ -535,27 +721,13 @@ def normalize_engine_timings(
     values = _explicit_timings(data)
     usage = data.get("usage") if isinstance(data.get("usage"), dict) else {}
     engine = _engine_timings(data, usage)
+    evidence = _phase_evidence(data, measured)
     has_reasoning, has_answer = _content_phases(data, measured)
-
-    for name in ("prefill_s", "ttft_s", "total_s"):
+    for name, value in evidence.items():
         if values.get(name) is None:
-            values[name] = engine[name]
-        if values.get(name) is None:
-            values[name] = _number(measured.get(name))
-    if values.get("reasoning_tokens") is None:
-        values["reasoning_tokens"] = engine["reasoning_tokens"]
-        if values["reasoning_tokens"] is None:
-            values["reasoning_tokens"] = _int(measured.get("reasoning_tokens"))
-    if values.get("answer_tokens") is None:
-        values["answer_tokens"] = _answer_token_count(engine, measured, has_reasoning, has_answer)
-    if values.get("reasoning_s") is None:
-        values["reasoning_s"] = _number(measured.get("reasoning_s"))
-    if values.get("answer_s") is None:
-        values["answer_s"] = _answer_duration(values, engine, measured, has_reasoning, has_answer)
-    if measured.get("tool_s") is not None:
-        values["tool_s"] = _number(measured.get("tool_s"))
-    if values.get("reasoning_tokens") is None and not has_reasoning and has_answer:
-        values["reasoning_tokens"] = 0
+            values[name] = value
+    _resolve_token_split(values, engine, evidence, measured, has_reasoning, has_answer)
+    _resolve_durations(values, engine, measured, has_reasoning, has_answer)
     if values.get("timing_source") not in ("engine", "measured"):
         values["timing_source"] = "engine" if engine["has_timing"] else "measured"
     return _finish(values)
@@ -616,6 +788,13 @@ def add_model_turn(data: dict[str, Any], measured: dict[str, Any] | None = None)
         value = turn.get(name)
         if value is not None:
             current[name] = (current.get(name) or 0) + value
+    split_source = turn.get("split_source")
+    if split_source in ("engine", "deltas", "chars"):
+        rank = {"engine": 0, "deltas": 1, "chars": 2}
+        previous = current.get("split_source")
+        current["split_source"] = (
+            split_source if previous not in rank else max((previous, split_source), key=rank.get)
+        )
     if current.get("ttft_s") is None and turn.get("ttft_s") is not None:
         current["ttft_s"] = turn["ttft_s"]
     if turn.get("timing_source") == "measured" or (
@@ -637,6 +816,16 @@ def add_tool_time(seconds: float) -> dict[str, Any]:
     return current_portal_timings()
 
 
+def _reasoning_char_length(reasoning_text: Any, content: Any, inline: bool) -> int:
+    if isinstance(reasoning_text, str):
+        return len(reasoning_text)
+    if not inline or not isinstance(content, str):
+        return 0
+    thoughts = re.findall(r"<think>(.*?)</think>", content, flags=re.I | re.S)
+    open_thought = re.search(r"<think>(.*)$", content, flags=re.I | re.S)
+    return sum(map(len, thoughts)) + (len(open_thought.group(1)) if open_thought else 0)
+
+
 class StreamMeasurement:
     """Observe response events while preserving their original SSE payloads."""
 
@@ -650,6 +839,8 @@ class StreamMeasurement:
         self.last_any: float | None = None
         self.reasoning_tokens = 0
         self.answer_tokens = 0
+        self.reasoning_chars = 0
+        self.answer_chars = 0
         self.saw_tool_calls = False
         self.finish_reason: str | None = None
         self.engine_data: dict[str, Any] = {}
@@ -689,6 +880,10 @@ class StreamMeasurement:
             (delta.get(k) for k in ("reasoning", "reasoning_content", "thinking") if delta.get(k)),
             "inline" if inline_reasoning else None,
         )
+        reasoning_text = next(
+            (delta.get(k) for k in ("reasoning", "reasoning_content", "thinking") if delta.get(k)),
+            None,
+        )
         answer = visible_content if content_override else delta.get("content")
         tool_calls = delta.get("tool_calls")
         self.saw_tool_calls = self.saw_tool_calls or bool(tool_calls)
@@ -699,10 +894,15 @@ class StreamMeasurement:
         if reasoning:
             self.first_reasoning = self.first_reasoning or now
             self.last_reasoning = now
+            self.reasoning_chars += _reasoning_char_length(
+                reasoning_text, delta.get("content"), inline_reasoning
+            )
             self.reasoning_tokens += 1
         if answer:
             self.first_answer = self.first_answer or now
             self.last_answer = now
+            if isinstance(answer, str):
+                self.answer_chars += len(answer)
             self.answer_tokens += 1
 
     def result(self) -> dict[str, Any]:
@@ -731,8 +931,14 @@ class StreamMeasurement:
             "prefill_s": ttft,
             "ttft_s": ttft,
             "reasoning_tokens": self.reasoning_tokens,
+            # These counts are nonempty stream frames, not tokenizer tokens.
+            "reasoning_deltas": self.reasoning_tokens,
+            "answer_deltas": self.answer_tokens,
+            "reasoning_chars": self.reasoning_chars,
+            "answer_chars": self.answer_chars,
             "reasoning_s": reasoning_s,
             "answer_tokens": answer_tokens,
             "answer_s": answer_s,
             "total_s": total,
+            "tool_turn": self.saw_tool_calls or self.finish_reason == "tool_calls",
         }

@@ -61,8 +61,12 @@ def test_ollama_native_stream_and_nonstream_payloads_keep_engine_timings():
     assert streamed.timing_source == nonstream.timing_source == "engine"
     assert streamed.prefill_s == nonstream.prefill_s == 1.25
     assert streamed.total_s == nonstream.total_s == 3.75
-    assert streamed.answer_tokens == 10
-    assert nonstream.answer_tokens is None  # the native payload has no per-phase token counts
+    assert streamed.reasoning_tokens == 5
+    assert streamed.answer_tokens == 6
+    assert streamed.reasoning_deltas == streamed.answer_deltas == 1
+    assert streamed.split_source == "deltas"
+    assert nonstream.answer_tokens == 6  # apportioned by the two message text lengths
+    assert nonstream.split_source == "chars"
 
 
 def test_omlx_stream_and_nonstream_payloads_keep_engine_timings():
@@ -96,8 +100,12 @@ def test_omlx_stream_and_nonstream_payloads_keep_engine_timings():
     assert streamed.prefill_s == 0.4
     assert streamed.ttft_s == 0.42
     assert streamed.total_s == 1.65
-    assert streamed.reasoning_tokens == 1
-    assert streamed.answer_tokens == 5
+    assert streamed.reasoning_tokens == 3
+    assert streamed.answer_tokens == 3
+    assert streamed.reasoning_deltas == streamed.answer_deltas == 1
+    assert streamed.reasoning_chars == len("Reason")
+    assert streamed.answer_chars == len("Answer")
+    assert streamed.split_source == "deltas"
     assert streamed.answer_tps > 0
     assert nonstream.total_s == 1.4
     assert nonstream.answer_tokens == 6
@@ -106,14 +114,37 @@ def test_omlx_stream_and_nonstream_payloads_keep_engine_timings():
 def test_report_speed_summary_uses_median_and_nearest_rank_p90():
     speed = report._speed_summary(
         [
-            {"answer_tps": 10, "ttft_s": 0.2, "total_s": 1.0},
-            {"answer_tps": 20, "ttft_s": 0.4, "total_s": 2.0},
-            {"answer_tps": 30, "ttft_s": 0.6, "total_s": 3.0},
+            {
+                "answer_tps": 10,
+                "ttft_s": 0.2,
+                "total_s": 1.0,
+                "completion_tokens": 100,
+                "reasoning_s": 1,
+                "answer_s": 1,
+            },
+            {
+                "answer_tps": 20,
+                "ttft_s": 0.4,
+                "total_s": 2.0,
+                "completion_tokens": 300,
+                "reasoning_s": 1,
+                "answer_s": 2,
+            },
+            {
+                "answer_tps": 30,
+                "ttft_s": 0.6,
+                "total_s": 3.0,
+                "completion_tokens": 900,
+                "reasoning_s": 2,
+                "answer_s": 1,
+            },
         ]
     )
     assert speed == {
         "answer_tps_median": 20,
         "answer_tps_p90": 30,
+        "decode_tps_median": 100,
+        "decode_tps_p90": 300,
         "ttft_s_median": 0.4,
         "ttft_s_p90": 0.6,
         "total_s_median": 2,
@@ -121,13 +152,62 @@ def test_report_speed_summary_uses_median_and_nearest_rank_p90():
     }
 
 
+def test_logic_grid_legacy_answer_rate_is_rederived_from_character_split():
+    row = {
+        "economics": {
+            "completion_tokens": 2034,
+            "reasoning_tokens": 1713,
+            "answer_tokens": 321,
+            "answer_tps": 1219.503,
+            "reasoning_s": 45.761241,
+            "answer_s": 0.263222,
+            "ttft_s": 0.324508,
+            "total_s": 46.343497,
+            "timing_source": "engine",
+        },
+        "transcript": [{"reasoning_chars": 6013}],
+        "final_text": "x" * 32,
+    }
+
+    speed = report._speed_economics(row)
+
+    assert speed["answer_tokens"] == 11
+    assert 10 <= speed["answer_tokens"] <= 12
+    assert speed["answer_tps"] == round(11 / 0.263222, 3)
+    assert speed["answer_tps"] < 50
+    assert speed["decode_tps"] == 2034 / (45.761241 + 0.263222)
+    assert report._speed_summary([row])["answer_tps_median"] == speed["answer_tps"]
+
+
 def test_row_economics_roll_up_turn_timings_and_preserve_first_ttft():
     row = Economics()
     row.merge(
-        Economics(ttft_s=0.3, answer_tokens=3, answer_s=0.5, total_s=0.8, timing_source="engine")
+        Economics(
+            ttft_s=0.3,
+            answer_tokens=3,
+            answer_s=0.5,
+            total_s=0.8,
+            timing_source="engine",
+            reasoning_deltas=2,
+            answer_deltas=1,
+            reasoning_chars=9,
+            answer_chars=4,
+            split_source="deltas",
+        )
     )
     row.merge(
-        Economics(ttft_s=0.5, answer_tokens=5, answer_s=1.0, total_s=1.5, timing_source="engine")
+        Economics(
+            ttft_s=0.5,
+            answer_tokens=5,
+            answer_s=1.0,
+            total_s=1.5,
+            timing_source="engine",
+            reasoning_deltas=4,
+            answer_deltas=2,
+            reasoning_chars=11,
+            answer_chars=5,
+            split_source="chars",
+        )
     )
     assert row.ttft_s == 0.3
     assert row.answer_tokens == 8
@@ -135,3 +215,6 @@ def test_row_economics_roll_up_turn_timings_and_preserve_first_ttft():
     assert row.total_s == 2.3
     assert row.answer_tps == 5.333
     assert row.timing_source == "engine"
+    assert row.reasoning_deltas == 6 and row.answer_deltas == 3
+    assert row.reasoning_chars == 20 and row.answer_chars == 9
+    assert row.split_source == "chars"
