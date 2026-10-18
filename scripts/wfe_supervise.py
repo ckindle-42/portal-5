@@ -152,9 +152,13 @@ def cell_problems(rows: dict) -> list[str]:
 
 
 def stuck_answers(arm: str, rows: list[dict]) -> list[str]:
-    """One answer repeated across different tasks: the seat stopped reading the task."""
+    """One answer repeated across different tasks: the seat stopped reading the task.
+    A graded PASS is not stuck: several tasks can share one correct answer (the
+    research suite's absent-fact tasks all expect NOT_FOUND)."""
     by_text: dict[str, set[str]] = defaultdict(set)
     for r in rows:
+        if r.get("outcome") == "PASS":
+            continue
         if len(r["text"].strip()) >= 20:
             by_text[r["text"]].add(r["task_id"])
     out = []
