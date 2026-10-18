@@ -713,6 +713,10 @@ def _resolve_durations(
         values["tool_s"] = _number(measured.get("tool_s"))
 
 
+#: Answer-rate observations need at least this many answer tokens (metrics, WFE report).
+MIN_ANSWER_TOKENS_FOR_RATE = 32
+
+
 def normalize_engine_timings(
     data: dict[str, Any], measured: dict[str, Any] | None = None
 ) -> dict[str, Any]:

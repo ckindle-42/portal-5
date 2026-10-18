@@ -34,7 +34,7 @@ from statistics import median
 
 import yaml
 
-from portal.platform.inference.router.metrics import MIN_ANSWER_TOKENS_FOR_RATE
+from portal.platform.inference.router.trace import MIN_ANSWER_TOKENS_FOR_RATE
 from tests.wfe import decision
 from tests.wfe.schema import (
     INSTRUMENT_OUTCOMES,
