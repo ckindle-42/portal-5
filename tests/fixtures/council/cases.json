@@ -1,0 +1,305 @@
+{
+  "schema_version": 1,
+  "description": "Fixed council review set for scripts/council_bench.py. Each case is a submission, the outcome a correct review must reach, and the key issue it must name. The label fields are answers: only 'submission' is ever sent to a reviewer.",
+  "workspace": "auto-council",
+  "cases": [
+    {
+      "id": "case-01",
+      "category": "clear_support",
+      "submission": "Proposal: raise the auto-council reviewer output budget from 4096 to 8192 tokens.\n\nCurrent state: config/portal.yaml sets reviewer_max_tokens: 4096 for the auto-council workspace. A probe on 2026-09-26 recorded one moderate review consuming 4055 tokens on reasoning plus answer, leaving 41 tokens of headroom. The Operator seat runs a reasoning model whose chat template has no thinking switch, so its budget cannot be recovered by turning thinking off.\n\nThe change: set reviewer_max_tokens to 8192 in the auto-council block only. The synthesizer budget, the roster, the quorum rule, the prompts and every other workspace stay as they are. No Python changes; the value is read at request time.\n\nFailure handling: restoring the previous value (4096) in the same block returns the deployment to its current behaviour. No schema, index or data migration is involved.\n\nVerification: the existing unit suite covers the council path with mocked engines; a live review after the change should show non-empty opinions from all three seats.\n",
+      "expected_outcome": "SUPPORT",
+      "key_issue": "The change is reversible from the same config block and touches no other workspace.",
+      "key_issue_markers": [
+        "reversib",
+        "rollback",
+        "low risk",
+        "single value",
+        "well scoped"
+      ]
+    },
+    {
+      "id": "case-02",
+      "category": "clear_support",
+      "submission": "Proposal: record per-stage timings on council runs.\n\nThe response gains a portal_council.timings object: per seat, the resolved model, cold-load seconds, prefill seconds, decode seconds and token counts; the same for the synthesizer; and total wall time. The object sits beside the existing portal_council.aggregate and portal_council.reviewers keys.\n\nCompatibility: existing keys keep their names and meanings, and clients that never read the new object see no difference. Routing, quorum and synthesis code are untouched; the timings are collected from the engine responses the council already receives.\n\nVerification: unit tests with mocked engines assert the object's shape; one live review checks that every seat reports a model and a total.\n",
+      "expected_outcome": "SUPPORT",
+      "key_issue": "The new timing object is additive and leaves the decision path untouched.",
+      "key_issue_markers": [
+        "backward compatible",
+        "additive",
+        "unknown fields",
+        "no change to the decision"
+      ]
+    },
+    {
+      "id": "case-03",
+      "category": "clear_support",
+      "submission": "Proposal: correct the canonical unit that describes council quorum.\n\nThe unit states that quorum is computed over the reviewers that returned a vote. The implementation in portal/platform/inference/router/council.py computes it over the full configured roster: aggregate_opinions divides by len(opinions) and counts non-voters against minimum_participation.\n\nThe edit changes only the unit's prose, plus the sentence that calls a failed seat a non-participant. No code, config or test changes.\n",
+      "expected_outcome": "SUPPORT",
+      "key_issue": "A prose-only correction that makes the document describe the existing implementation.",
+      "key_issue_markers": [
+        "documentation-only",
+        "documentation only",
+        "doc-only",
+        "docs-only",
+        "prose-only",
+        "matches the implementation",
+        "no code change"
+      ]
+    },
+    {
+      "id": "case-04",
+      "category": "clear_support",
+      "submission": "Proposal: add a unit test for the council escalation path.\n\nToday tests/unit/test_council_review.py covers the 2-of-3 quorum, dissent, and low-participation escalation, but not the case where every seat abstains with valid JSON. The new test feeds three valid ABSTAIN opinions through aggregate_opinions and asserts the escalation outcome with participation 0.0 and no dissent.\n\nThe change adds one test function in the existing file. No production module, config value or prompt is edited, and the test uses the same mocked engines as its neighbours.\n",
+      "expected_outcome": "SUPPORT",
+      "key_issue": "A test-only addition that covers the all-abstain ESCALATE path.",
+      "key_issue_markers": [
+        "test-only",
+        "test only",
+        "coverage gap",
+        "no runtime behaviour",
+        "regression test"
+      ]
+    },
+    {
+      "id": "case-05",
+      "category": "clear_support",
+      "submission": "Proposal: pin the Ollama image to the version currently deployed.\n\nThe stack currently pulls ollama/ollama:latest. Two upgrades in the last quarter changed the chat template handling and broke the DeepSeek-R1 seat's JSON output; both were repaired by hand afterwards. Pinning to 0.32.4, the version running now and used by the last validated review, makes a redeploy reproduce today's behaviour.\n\nThe change edits one image tag in the compose file. A separate task tracks upgrades; unpinning stays a deliberate edit. No code, config keys or model files change.\n",
+      "expected_outcome": "SUPPORT",
+      "key_issue": "Pinning the deployed image tag makes redeploys reproducible without changing behaviour.",
+      "key_issue_markers": [
+        "reproducib",
+        "deterministic",
+        "no behavioural change",
+        "avoids drift"
+      ]
+    },
+    {
+      "id": "case-06",
+      "category": "clear_reject",
+      "submission": "Proposal: reclaim disk space on the inference host.\n\nThe cleanup script will run `docker compose down -v` for the inference stack, then `docker system prune -a --volumes`. This removes stopped containers, unused images and named volumes in one step. The stack is brought back with `./launch.sh up`, which recreates everything from config.\n\nRationale: the host is at 91% disk usage and the operator wants the space back before the next model pull. No copy of the volume contents is kept because the models can be pulled again.\n",
+      "expected_outcome": "REJECT",
+      "key_issue": "`down -v` and `prune --volumes` destroy the model volumes, forcing a multi-hour re-download.",
+      "key_issue_markers": [
+        "data loss",
+        "irreversib",
+        "re-download",
+        "destroys",
+        "wipes",
+        "hours of"
+      ]
+    },
+    {
+      "id": "case-07",
+      "category": "clear_reject",
+      "submission": "Proposal: fix the pipeline authentication failures by moving the key into the repository.\n\nToday PIPELINE_API_KEY lives in .env, which the deploy script reads. Some MCP containers start without it and return 401. The change writes the key value into config/portal.yaml under a new pipeline_api_key entry, and config/portal.yaml is checked into the repository so every service and every checkout gets the same value. The .env entry is removed to avoid two sources of truth.\n\nNo replacement of the key is planned; the value is shared by the local services only.\n",
+      "expected_outcome": "REJECT",
+      "key_issue": "The plan writes a shared key in plaintext into a tracked file.",
+      "key_issue_markers": [
+        "secret",
+        "credential",
+        "plaintext",
+        "leak",
+        "version control"
+      ]
+    },
+    {
+      "id": "case-08",
+      "category": "clear_reject",
+      "submission": "Proposal: compact the metrics store.\n\nThe job rewrites metrics_state.json in place: it reads the file, drops every entry older than 30 days, and writes the shortened file back to the same path. The pipeline reads this file at startup and during each request for telemetry; the startup loader fails hard on invalid JSON and has no fallback file. No copy is kept; the file is small and the old entries are not used for routing.\n\nThe job runs once at deploy time from the same service account as the pipeline. If it fails halfway the file is left partially written; the deploy script restarts the pipeline afterwards.\n",
+      "expected_outcome": "REJECT",
+      "key_issue": "An in-place rewrite of a live-read file with no copy is not atomic and can destroy the metrics.",
+      "key_issue_markers": [
+        "corrupt",
+        "atomic",
+        "no backup",
+        "data loss",
+        "truncat",
+        "irreversib"
+      ]
+    },
+    {
+      "id": "case-09",
+      "category": "clear_reject",
+      "submission": "Proposal: stop the intermittent certificate errors between the pipeline and the Ollama host.\n\nThe pipeline's HTTP client will be created with verify=False for requests to https://ollama.internal:11434, and the self-signed certificate warning will be suppressed in the logs. The alternative — installing the internal CA on the pipeline container — was rejected as more work. The traffic stays on the private VLAN, so the operator considers an on-path attacker unlikely.\n\nThe change is one keyword argument in the client construction; tests mock the client and are unaffected.\n",
+      "expected_outcome": "REJECT",
+      "key_issue": "Disabling certificate verification removes the only defence against an impersonated backend.",
+      "key_issue_markers": [
+        "mitm",
+        "man-in-the-middle",
+        "trust store",
+        "impersonat",
+        "security regression"
+      ]
+    },
+    {
+      "id": "case-10",
+      "category": "clear_reject",
+      "submission": "Proposal: remove every workspace from config/portal.yaml that the router does not reference.\n\nThe script greps portal/platform/inference/router for each workspace id. Any id with no grep hit is deleted from config/portal.yaml, and the derived files are regenerated with ./launch.sh sync-config. The author checked five ids by hand and four were genuinely unused.\n\nThe scan covers only the router package. Open WebUI imports, persona files, the wiki, the acceptance suite and the bench scripts are not searched. The deletion runs in one pass, and the previous portal.yaml is not kept because git history is considered sufficient.\n",
+      "expected_outcome": "REJECT",
+      "key_issue": "The reference scan covers only the router, so the rewrite deletes workspaces used elsewhere.",
+      "key_issue_markers": [
+        "incomplete scan",
+        "reference set",
+        "outside the router",
+        "no dry run",
+        "irreversib"
+      ]
+    },
+    {
+      "id": "case-11",
+      "category": "hidden_flaw",
+      "submission": "Proposal: add a response cache to the pipeline.\n\nThe cache sits in front of the backend call. The lookup uses the workspace id and a SHA-256 of the rendered message list. On a hit, the stored completion is returned without calling the backend; entries expire after 24 hours or when the process restarts. The cache is enabled for auto-council and auto-reasoning.\n\nMeasured effect: in a synthetic run of 200 repeated requests, 61% were served from the cache and median latency fell from 8.4 s to 0.2 s. The cache is bounded to 512 entries and 64 MB.\n",
+      "expected_outcome": "REVISE",
+      "key_issue": "The cache lookup omits the sampling parameters and the resolved model, so config changes serve stale answers.",
+      "key_issue_markers": [
+        "sampling",
+        "temperature",
+        "does not include",
+        "omits",
+        "stale",
+        "invalidat"
+      ]
+    },
+    {
+      "id": "case-12",
+      "category": "hidden_flaw",
+      "submission": "Proposal: make document creation resilient to transient backend failures.\n\nThe MCP client will retry any request that returns 5xx or times out, up to three times with exponential backoff. The document tools are the main beneficiary: create_word_document currently fails about 2% of the time under load, and the user sees an error even though the file was often written.\n\nThe retry wrapper is generic and wraps every tool call, including create_word_document, create_excel and create_powerpoint. Each call already writes its output file before returning the download URL.\n",
+      "expected_outcome": "REVISE",
+      "key_issue": "The generic retry re-runs a create call that already wrote its file, so retries duplicate output.",
+      "key_issue_markers": [
+        "idempot",
+        "duplicate",
+        "not safe to retry",
+        "at-least-once",
+        "multiple files"
+      ]
+    },
+    {
+      "id": "case-13",
+      "category": "hidden_flaw",
+      "submission": "Proposal: add early quorum to council review.\n\nToday the pipeline waits for every configured seat before computing the decision. With three seats that means the slowest seat sets the wall time. Under early quorum, as soon as two reviewers return the same recommendation the remaining seats are skipped and the decision is computed from the votes in hand.\n\nThe skip is recorded on each skipped seat so the trace still shows the full roster, and skipped seats are never counted as votes. A skipped seat is reported with recommendation ABSTAIN and valid=false, so participation drops to 2/3, which still meets the 0.66 floor. The trigger is fixed at two agreeing votes and does not depend on the roster size; the roster is configurable and may grow for compliance reviews.\n",
+      "expected_outcome": "REVISE",
+      "key_issue": "The fixed two-vote trigger is below the required quorum once the roster grows beyond three seats.",
+      "key_issue_markers": [
+        "quorum-aware",
+        "cannot change the outcome",
+        "five seats",
+        "larger roster",
+        "below the required",
+        "not enough votes"
+      ]
+    },
+    {
+      "id": "case-14",
+      "category": "missing_evidence",
+      "submission": "Proposal: replace the current review prompt with the new v3 prompt.\n\nThe v3 prompt adds a sentence asking reviewers to cite the strongest counterexample. In an internal comparison it improved review quality by 12% and reduced generic findings. The v3 prompt also produces longer answers, which the team considers acceptable.\n\nThe change edits the system text for all three auto-council seats and leaves the JSON contract, the roster and the quorum unchanged. Rollout is a single config edit.\n",
+      "expected_outcome": "REVISE",
+      "key_issue": "The 12% quality claim has no dataset, sample size, metric definition or scorer.",
+      "key_issue_markers": [
+        "sample size",
+        "no dataset",
+        "unspecified",
+        "not reproducible",
+        "no benchmark",
+        "methodology",
+        "how was it measured"
+      ]
+    },
+    {
+      "id": "case-15",
+      "category": "missing_evidence",
+      "submission": "Proposal: swap the Documents seat from its current model to the smaller qwen3.5-9b variant.\n\nThe smaller model was tried in three ad-hoc document requests and produced usable output each time. It is roughly 40% faster on the same prompts and uses about half the memory, so the fleet can drop one 17 GB resident.\n\nThe change edits the workspace model hint and the seat's model in the documents bench. No formal evaluation was run; the team wants to ship before the next evaluation cycle.\n",
+      "expected_outcome": "REVISE",
+      "key_issue": "Three ad-hoc requests are not an evaluation of the smaller model's quality.",
+      "key_issue_markers": [
+        "anecdotal",
+        "sample size",
+        "not evidence",
+        "no benchmark",
+        "cannot generalise",
+        "not enough"
+      ]
+    },
+    {
+      "id": "case-16",
+      "category": "stale_claim",
+      "submission": "Proposal: size the council host for four resident models.\n\nThe memory plan uses 22.3 GiB for the Granite seat. That figure was measured on 2026-09-25 at a 16k context window; the council will run the seat at 32k so the review packet fits. The plan adds 17 GB for Qwen3.8, 18 GB for the Challenger and 5 GB for DeepSeek-R1, for a total of about 62 GB against 64 GB installed.\n\nThe note records that the 22.3 GiB included the KV cache at 16k. Rather than re-measure, the plan reuses that number for the 32k deployment because the weights are unchanged.\n",
+      "expected_outcome": "REVISE",
+      "key_issue": "The memory figure was measured at 16k and its KV cache does not cover the planned 32k window.",
+      "key_issue_markers": [
+        "underestimat",
+        "extrapolat",
+        "stale",
+        "not applicable",
+        "does not apply",
+        "larger window",
+        "grows with"
+      ]
+    },
+    {
+      "id": "case-17",
+      "category": "stale_claim",
+      "submission": "Proposal: keep Qwen3.8-27B as the council synthesizer.\n\nJustification: the synthesizer needs strong instruction following more than deep reasoning. The Qwen3.6 card reports IFBench 69.1, which is the figure the seat selection used, and the deployment already serves those weights. Keeping the same model avoids a 17 GB re-pull and a new qualification run.\n\nThe served tag is hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k. The vendor page for Qwen3.8 reports IFBench 79.5 on the same-card comparison.\n",
+      "expected_outcome": "REVISE",
+      "key_issue": "The cited IFBench figure belongs to the previous model generation, not the deployed Qwen3.8 tag.",
+      "key_issue_markers": [
+        "previous model",
+        "different model",
+        "wrong model",
+        "mismatch",
+        "does not match the deployed",
+        "stale"
+      ]
+    },
+    {
+      "id": "case-18",
+      "category": "operational_risk",
+      "submission": "Proposal: rebuild the RAG index on the live pipeline.\n\nThe rebuild writes a new index directory next to the current one, then swaps a symlink. During the build the pipeline keeps serving from the old index. The swap itself takes one filesystem rename, but the rebuild reads every document and holds the index lock for 20–40 minutes, and queries block on that lock while it is held.\n\nThe host has 38 GB free; the new index is expected to be about 19 GB. No maintenance window is planned because the operator expects the swap to be instant.\n",
+      "expected_outcome": "REVISE",
+      "key_issue": "The index lock makes queries unavailable for the whole 20–40 minute rebuild.",
+      "key_issue_markers": [
+        "downtime",
+        "unavailable",
+        "outage",
+        "cannot be served",
+        "queued",
+        "stall",
+        "headroom"
+      ]
+    },
+    {
+      "id": "case-19",
+      "category": "operational_risk",
+      "submission": "Proposal: prune generated files nightly.\n\nA cron job walks the generated directory under the output root, removes files whose modification time is older than 7 days, and logs how many bytes it reclaimed. The generated directories are links into the shared workspace; the walk resolves them and continues into the target. Nothing outside the output root is written, and deletions are final.\n\nThe job runs as the same user as the pipeline. It is scheduled at 02:00, when the operator is usually not working.\n",
+      "expected_outcome": "REJECT",
+      "key_issue": "The nightly walk follows links into the shared workspace and permanently deletes user files.",
+      "key_issue_markers": [
+        "symlink",
+        "follows",
+        "dereferenc",
+        "user files",
+        "irreversib",
+        "no backup"
+      ]
+    },
+    {
+      "id": "case-20",
+      "category": "split",
+      "submission": "Decision request: adopt the MLX-native video path as the only video engine.\n\nEvidence for: in a 12-clip comparison the MLX path produced the same resolutions in 2.1× less wall time on the same box; the clips were judged equivalent by the operator.\nEvidence against: the MLX path is a separate host service with its own process, weights and failure modes. It adds about 6 GB resident while loaded, and the box already runs a chat model and the speech services. The current path is a Python module inside the existing MCP image and needs no extra process.\nThe proposal is to remove the current path in the same change, so there is one engine to maintain.\n",
+      "expected_outcome": "REVISE",
+      "acceptable_outcomes": [
+        "REVISE",
+        "ESCALATE"
+      ],
+      "key_issue": "The speed evidence omits co-resident memory, and removing the old engine leaves no fallback.",
+      "key_issue_markers": [
+        "co-resident",
+        "memory",
+        "rollback",
+        "no fallback",
+        "one-way",
+        "peak"
+      ]
+    }
+  ]
+}
