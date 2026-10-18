@@ -65,6 +65,25 @@ class CouncilMemberSpec(BaseModel):
     label: str
     model: str
     system: str
+    # Answer budget. None keeps council.reviewer_max_tokens (today's seat cap).
+    max_tokens: int | None = Field(default=None, ge=64)
+    # Extra tokens added only while this seat is thinking. Thinking models spend
+    # num_predict on reasoning first; the answer budget stays intact.
+    reasoning_max_tokens: int | None = Field(default=None, ge=0)
+    # None uses the workspace think flag.
+    think: bool | None = None
+
+
+class CouncilSpeedSpec(BaseModel):
+    """Optional speed modes. Every flag defaults off: three parallel reviewers."""
+
+    early_quorum: bool = False
+    single_model: bool = False
+    # Empty uses the synthesizer model so one resident model serves every seat.
+    resident_model: str | None = None
+    progress: bool = False
+    decompose: bool = False
+    decompose_model: str | None = None
 
 
 class CouncilSpec(BaseModel):
@@ -76,6 +95,7 @@ class CouncilSpec(BaseModel):
     quorum: float = Field(default=0.66, gt=0.0, le=1.0)
     reviewer_max_tokens: int = Field(default=4096, ge=256)
     synthesizer_max_tokens: int = Field(default=4096, ge=256)
+    speed: CouncilSpeedSpec = Field(default_factory=CouncilSpeedSpec)
 
     @model_validator(mode="after")
     def unique_member_ids(self) -> CouncilSpec:

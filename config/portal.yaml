@@ -1570,26 +1570,46 @@ workspaces:
       # moderate review — correct, but uncomfortably close to the ceiling.
       # 8192 matches the headroom portal.modules.compliance.core.council
       # already gives the same failure mode (_SEAT_BUDGET, same rationale:
-      # "a judgment is a reasoning task"). Not a redesign — auto-council still
-      # has no split answer/reasoning budget like compliance's reading
-      # transport; that's the real fix, deferred (operator is focused on the
-      # compliance module right now).
+      # "a judgment is a reasoning task"). It remains the default and the
+      # Operator seat's budget: DeepSeek-R1 cannot suppress thinking, so that
+      # seat is not given a short answer cap. Evidence and Challenger set
+      # max_tokens: 1024 and think: false. A seat may also set
+      # reasoning_max_tokens, added to max_tokens only while think is on.
       reviewer_max_tokens: 8192
       synthesizer_max_tokens: 8192
+      # Speed modes stay off: a review is still three parallel isolated seats
+      # plus the synthesizer. early_quorum walks the members in order and skips
+      # the tail once the coded quorum can no longer change — the slow Operator
+      # seat is last on purpose. single_model keeps each role prompt and a
+      # separate call, on resident_model or the synthesizer when that is empty.
+      # progress streams one verdict line per seat before synthesis. decompose
+      # asks the small model three checks and only sends unsettled claims up.
+      speed:
+        early_quorum: false
+        single_model: false
+        progress: false
+        decompose: false
+        decompose_model: granite4.1:8b-ctx16k
       members:
       - id: evidence
         label: Evidence Auditor
         model: granite4.1:30b-ctx16k
+        # Non-thinking seat: the answer is a short JSON verdict, not an essay.
+        max_tokens: 1024
+        think: false
         system: |-
           You are the Evidence Auditor. Determine which material claims are supported, contradicted, stale, ambiguous, or missing necessary evidence. Check internal consistency and distinguish observed facts from inference. Do not judge style unless it obscures evidence.
       - id: challenger
         label: Challenger
         model: mistral-small3.2:24b
+        max_tokens: 1024
+        think: false
         system: |-
           You are the Challenger. Find weak assumptions, failure modes, security or safety risks, counterexamples, and the strongest case against the proposed direction. Focus on consequential problems rather than cosmetic objections.
       - id: operator
         label: Operator and User Advocate
         model: hf.co/unsloth/DeepSeek-R1-0528-Qwen3-8B-GGUF:Q4_K_XL-ctx64k
+        # No per-seat cap: reviewer_max_tokens (8192) covers thinking plus answer.
         system: |-
           You are the Operator and User Advocate. Judge whether the proposal is executable, maintainable, appropriately scoped, and useful to the person receiving it. Identify unclear ownership, missing verification, operational burden, and concrete next steps.
       synthesizer_model: hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k

@@ -159,6 +159,9 @@ def test_every_configured_council_model_is_reachable() -> None:
     council = WORKSPACES["auto-council"]["council"]
     configured = {member["model"] for member in council["members"]}
     configured.add(council["synthesizer_model"])
+    decompose_model = (council.get("speed") or {}).get("decompose_model")
+    if decompose_model:
+        configured.add(decompose_model)
     assert configured <= catalog
 
 

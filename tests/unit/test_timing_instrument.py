@@ -38,6 +38,7 @@ def test_ollama_native_completion_surfaces_engine_timings_without_changing_messa
         "eval_count": 7,
         "prompt_eval_duration": 2_000_000_000,
         "eval_duration": 1_500_000_000,
+        "load_duration": 4_000_000_000,
     }
 
     response = to_openai_completion(native)
@@ -47,6 +48,9 @@ def test_ollama_native_completion_surfaces_engine_timings_without_changing_messa
     assert response["portal_timings"]["prefill_s"] == 2.0
     assert response["portal_timings"]["total_s"] == 3.5
     assert response["portal_timings"]["timing_source"] == "engine"
+    # Cold load is not a portal_timings field. Keep the native nanoseconds on
+    # the translated body so a council stage can record them.
+    assert response["load_duration"] == 4_000_000_000
 
 
 @pytest.mark.anyio

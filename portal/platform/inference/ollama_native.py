@@ -310,6 +310,10 @@ def to_openai_completion(native: dict[str, Any]) -> dict[str, Any]:
     )
     body["usage"] = _usage(native)
     body["portal_timings"] = normalize_engine_timings(native)
+    # portal_timings has no cold-load field. Keep Ollama's native nanoseconds
+    # so council stages can record it without a second timing schema.
+    if native.get("load_duration") is not None:
+        body["load_duration"] = native["load_duration"]
     return body
 
 

@@ -14,7 +14,7 @@ tags:
 - inference
 - router
 created_at: 1785885200.0
-updated_at: 1785885200.0
+updated_at: 1792281600.0
 ---
 
 The router subpackage is the pipeline's request-handling engine, split from the monolithic `router_pipe` shim into focused modules. The contract: `app` binds the routes and middleware uvicorn serves, `auth` gates chat and admin traffic with distinct bearer keys, and `concurrency` bounds Ollama load through three semaphore tiers inside a single-owner `RequestSlot`. Routing policy lives in `routing` with the `workspaces` catalog, `context_inject` grounds requests proactively (its dispatch args are contract-tested against the tool schemas after the recall `k`/`top_k` mismatch shipped — SEAM-V1-AUTORAG-001 class), `preinject` applies persona and vision transforms pre-dispatch, and `state` persists telemetry without storing conversation. A `metrics` registry feeds power, monitor, and correlation observability, scraped by the Grafana stack; Anthropic compatibility, thinking normalisation, and council quorum complete the engine.
@@ -26,6 +26,10 @@ The split is architectural, not stylistic: routing policy, streaming transport, 
 ## Interfaces
 
 `app` re-exports the FastAPI entry; `WORKSPACES` drives routing and persona tool resolution; `_detect_workspace` resolves a message list to a workspace with `_KEYWORD_CACHE` fallback; `aggregate_opinions` enforces council quorum; `anthropic_to_openai_body` and `openai_stream_to_anthropic_sse` translate the Messages API; `strip_think` and `extract_think_inner` manage reasoning blocks; `get_metrics_summary` reads the shared `metrics` registry.
+
+## Council speed
+
+`auto-council` still runs three isolated reviewers in parallel and a synthesizer after the coded quorum, unless `council.speed` says otherwise. Every flag defaults off. `early_quorum` walks seats in config order and skips the tail once `aggregate_opinions` would return the same decision for every possible remaining vote; a skipped seat is recorded and is not a vote. `single_model` keeps each role prompt and a separate call, on `resident_model` or the synthesizer. `progress` streams one verdict line per seat before the synthesis. `decompose` asks `decompose_model` whether each claim's evidence is present, contradicted, or stale. A consistent answer settles that claim. `unsure`, or checks that disagree, is the only material sent to the big seats. If every claim escalates or the small model returns no sheet, the original submission is reviewed in full. Per-stage metadata (`portal_council.timings` and a `council.stage` trace span) records the model, cold-load (`load_duration`), prefill, decode, and tokens from `normalize_engine_timings`.
 
 ## Gotchas
 
