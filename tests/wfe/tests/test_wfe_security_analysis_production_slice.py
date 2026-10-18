@@ -145,9 +145,55 @@ def test_attainability_flags_a_missing_given_a_stated_gold_and_gold_drift():
     assert any("given not stated" in f for f in att.check_task(truncated, portal, built))
 
     leaked = json.loads(json.dumps(TASKS["sa-cve-cwe-00"]))
-    leaked["instruction"] += " The answer is CWE-416."
+    leaked["instruction"] += f" The answer is {_gold(TASKS['sa-cve-cwe-00'])}."
     assert any("gold not private" in f for f in att.check_task(leaked, portal, built))
 
     drifted = dict(built)
     drifted["sa-cve-cwe-00"] = "CWE-999"
     assert any("gold drift" in f for f in att.check_task(TASKS["sa-cve-cwe-00"], portal, drifted))
+
+
+# ----------------------------------------------------------- accepted answer sets
+
+
+def _answers(task: dict, *values: str) -> list[Outcome]:
+    return [
+        apply_checkers(task, CheckContext(task=task, final_text=json.dumps({"answer": v}))).outcome
+        for v in values
+    ]
+
+
+def test_defensible_parent_and_sibling_cwes_are_accepted_and_nothing_else():
+    by_label = {label: (n, cwes) for n, (label, _, cwes) in enumerate(gen.VULN_SNIPPETS)}
+    expect = {
+        "buffer-overflow": {"CWE-121", "CWE-120", "CWE-787"},
+        "weak-hash": {"CWE-328", "CWE-327", "CWE-916"},
+        "information-exposure": {"CWE-200", "CWE-209"},
+        "hardcoded-credentials": {"CWE-798", "CWE-259"},
+    }
+    for label, accepted in expect.items():
+        n, cwes = by_label[label]
+        task = TASKS[f"sa-vulnerable-function-{n:02d}"]
+        assert set(cwes) == accepted, label
+        assert set(_answers(task, *sorted(accepted))) == {Outcome.PASS}, label
+        assert _answers(task, "CWE-89", "CWE-1210") == [Outcome.FAIL, Outcome.FAIL], label
+
+
+def test_the_cve_items_use_nvd_primary_data_and_the_reworded_question():
+    assert len({c for c, *_ in gen.CVE_ITEMS}) == 12 and gen.CVE_ITEMS[0][0] != "CVE-2026-0001"
+    for t in _kind("cve-cwe"):
+        assert (
+            "recorded for CVE-" in t["instruction"] and "(CNA-provided or NVD)" in t["instruction"]
+        )
+    for _cve, cwes, severity, published in gen.CVE_ITEMS:
+        assert cwes and severity in {"LOW", "MEDIUM", "HIGH", "CRITICAL"}
+        assert published >= "2026-01-01"
+
+
+def test_the_two_replaced_snippets_have_one_answer_and_no_second_weakness():
+    labels = {label: cwes for label, _, cwes in gen.VULN_SNIPPETS}
+    assert labels["cross-site-request-forgery"] == ("CWE-352",)
+    assert labels["server-side-request-forgery"] == ("CWE-918",)
+    assert "improper-access-control" not in labels and "missing-authorization" not in labels
+    for label, snippet, _ in gen.VULN_SNIPPETS:
+        assert "SELECT" not in snippet.upper() or label == "sql-injection", label

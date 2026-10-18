@@ -35,92 +35,96 @@ DECIDING_FACTS: dict[str, list[Fact]] = {}
 # CVE/CWE/severity data from the U.S. National Vulnerability Database (NVD,
 # https://nvd.nist.gov/), a public-domain resource published by NIST. Values
 # retrieved 2026-10-18 via the NVD REST API v2.0
-# (https://services.nvd.nist.gov/rest/json/cves/2.0).
-CVE_ITEMS: list[tuple[str, str, str, str]] = [
-    ("CVE-2026-0001", "CWE-416", "MEDIUM", "2026-09-08"),
-    ("CVE-2026-0005", "CWE-200", "MEDIUM", "2026-03-02"),
-    ("CVE-2026-0006", "CWE-122", "CRITICAL", "2026-03-02"),
-    ("CVE-2026-0007", "CWE-1021", "HIGH", "2026-03-02"),
-    ("CVE-2026-0008", "CWE-441", "HIGH", "2026-03-02"),
-    ("CVE-2026-0009", "CWE-269", "HIGH", "2026-06-01"),
-    ("CVE-2026-0010", "CWE-787", "HIGH", "2026-03-02"),
-    ("CVE-2026-0011", "CWE-693", "HIGH", "2026-03-02"),
-    ("CVE-2026-0012", "CWE-284", "MEDIUM", "2026-03-02"),
-    ("CVE-2026-0018", "CWE-20", "MEDIUM", "2026-06-01"),
-    ("CVE-2026-0024", "CWE-862", "MEDIUM", "2026-03-02"),
-    ("CVE-2026-0040", "CWE-190", "MEDIUM", "2026-06-01"),
+# (https://services.nvd.nist.gov/rest/json/cves/2.0). Every record here is
+# "Analyzed", carries an NVD-primary CWE (the only CWE on the record, so the accepted
+# set has one member) and an NVD-primary CVSS v3.1 score, so neither gold can drift when
+# NVD finishes analysis. (CVE, accepted CWE ids, NVD base severity, published).
+CVE_ITEMS: list[tuple[str, tuple[str, ...], str, str]] = [
+    ("CVE-2025-13444", ("CWE-78",), "MEDIUM", "2026-01-13"),
+    ("CVE-2025-71133", ("CWE-125",), "HIGH", "2026-01-14"),
+    ("CVE-2025-14894", ("CWE-434",), "CRITICAL", "2026-01-16"),
+    ("CVE-2025-61634", ("CWE-22",), "LOW", "2026-02-03"),
+    ("CVE-2025-69275", ("CWE-79",), "MEDIUM", "2026-01-12"),
+    ("CVE-2026-0007", ("CWE-1021",), "HIGH", "2026-03-02"),
+    ("CVE-2026-22769", ("CWE-798",), "CRITICAL", "2026-02-17"),
+    ("CVE-2026-20989", ("CWE-347",), "LOW", "2026-03-16"),
+    ("CVE-2025-57785", ("CWE-415",), "MEDIUM", "2026-01-26"),
+    ("CVE-2026-0010", ("CWE-787",), "HIGH", "2026-03-02"),
+    ("CVE-2026-20992", ("CWE-863",), "LOW", "2026-03-16"),
+    ("CVE-2025-71083", ("CWE-476",), "MEDIUM", "2026-01-13"),
 ]
 
 # Minimal original code snippets for static analysis only. Each demonstrates one
 # well-known weakness class; none are executable exploit payloads. License: the
 # snippets are original to this suite and released under the same license as the
 # repository (Apache-2.0).
-VULN_SNIPPETS: list[tuple[str, str, str]] = [
+VULN_SNIPPETS: list[tuple[str, str, tuple[str, ...]]] = [
     (
         "sql-injection",
         'def lookup_user(conn, username):\n    query = "SELECT * FROM users WHERE name = \'" + username + "\'"\n    return conn.execute(query)',
-        "CWE-89",
+        ("CWE-89",),
     ),
     (
         "cross-site-scripting",
         'def render_comment(comment):\n    return f"<div>{comment}</div>"',
-        "CWE-79",
+        ("CWE-79",),
     ),
     (
         "buffer-overflow",
         "void process(char *input) {\n    char buf[16];\n    strcpy(buf, input);\n}",
-        "CWE-121",
+        ("CWE-121", "CWE-120", "CWE-787"),
     ),
     (
         "command-injection",
         'def ping(host):\n    return os.system("ping -c 1 " + host)',
-        "CWE-78",
+        ("CWE-78",),
     ),
     (
         "path-traversal",
         'def read_file(base, path):\n    return open(base + "/" + path).read()',
-        "CWE-22",
+        ("CWE-22",),
     ),
     (
         "insecure-deserialization",
         "def load_user(data):\n    return pickle.loads(data)",
-        "CWE-502",
+        ("CWE-502",),
     ),
     (
         "hardcoded-credentials",
         'DB_PASSWORD = "supersecret123"\n\ndef connect():\n    return db.connect(password=DB_PASSWORD)',
-        "CWE-798",
+        ("CWE-798", "CWE-259"),
     ),
     (
         "weak-hash",
         "def hash_password(pwd):\n    return hashlib.md5(pwd.encode()).hexdigest()",
-        "CWE-328",
+        ("CWE-328", "CWE-327", "CWE-916"),
     ),
     (
-        "improper-access-control",
-        'def delete_record(record_id):\n    # no ownership check\n    db.execute(f"DELETE FROM records WHERE id = {record_id}")',
-        "CWE-284",
+        "cross-site-request-forgery",
+        '@app.route("/transfer", methods=["POST"])\ndef transfer():\n    # the session cookie alone authorises this request; no anti-CSRF token is checked\n    bank.transfer(session["user"], request.form["to"], request.form["amount"])\n    return "ok"',
+        ("CWE-352",),
     ),
     (
-        "missing-authorization",
-        "def admin_panel(request):\n    # no role check\n    return render_admin(request)",
-        "CWE-862",
+        "server-side-request-forgery",
+        'def fetch_preview():\n    url = request.args["url"]\n    return requests.get(url, timeout=5).text',
+        ("CWE-918",),
     ),
     (
         "race-condition",
         "def increment(balance):\n    current = balance.read()\n    balance.write(current + 1)",
-        "CWE-362",
+        ("CWE-362",),
     ),
     (
         "information-exposure",
         'def handle_error(e):\n    return f"Error: {repr(e)}\\nTrace: {traceback.format_exc()}"',
-        "CWE-200",
+        ("CWE-200", "CWE-209"),
     ),
 ]
 
 
-def _pattern(gold: str) -> str:
-    return rf'"answer"\s*:\s*"?{re.escape(gold)}"?(?![\w.-])'
+def _pattern(accepted: tuple[str, ...]) -> str:
+    alt = "|".join(re.escape(a) for a in accepted)
+    return rf'"answer"\s*:\s*"?(?:{alt})"?(?![\w.-])'
 
 
 def _answer(gold: str) -> str:
@@ -136,10 +140,13 @@ def _task(
     kind: str,
     n: int,
     ins: str,
-    gold: str,
+    accepted: tuple[str, ...],
     givens: list[tuple[str, str]],
     wrong: str,
 ) -> dict:
+    """`accepted` is every answer the record or snippet defensibly supports; the first is
+    the gold shown in the pass control."""
+    gold = accepted[0]
     DECIDING_FACTS[tid] = [Fact("", {}, re.escape(given), why) for given, why in givens]
     return {
         "id": tid,
@@ -149,7 +156,7 @@ def _task(
         "screen": n < SCREEN[kind],
         "instruction": ins,
         "requires_tools": [],
-        "checkers": [{"type": "answer_contains", "patterns": [_pattern(gold)]}],
+        "checkers": [{"type": "answer_contains", "patterns": [_pattern(accepted)]}],
         "controls": {
             "pass": [{"answer": _answer(gold), "tool_calls": []}],
             "fail": [{"answer": _answer(wrong), "tool_calls": []}],
@@ -163,8 +170,8 @@ def build_cve_cwe(n: int) -> dict:
     tid = f"sa-cve-cwe-{n:02d}"
     ins = _phrase(
         n % 3 == 0,
-        f"What CWE id does NVD assign to {cve} (published {published})? {FORMAT}",
-        f"Classify {cve} (published {published}) by its NVD CWE assignment. {FORMAT}",
+        f"What CWE id is recorded for {cve} (published {published}) on NVD (CNA-provided or NVD)? {FORMAT}",
+        f"Report the CWE id recorded for {cve} (published {published}) on NVD (CNA-provided or NVD). {FORMAT}",
     )
     return _task(
         tid,
@@ -196,7 +203,7 @@ def build_severity(n: int) -> dict:
         "severity",
         n,
         ins,
-        severity,
+        (severity,),
         [(cve, "the CVE identifier whose severity is asked")],
         "UNKNOWN",
     )
@@ -227,10 +234,12 @@ BUILDERS = {
 
 
 def _leaks(t: dict) -> str | None:
-    """The gold must not appear in the instruction (CVE/CWE ids and severity bands)."""
+    """No accepted answer may appear in the instruction (CVE/CWE ids and severity bands)."""
     gold = json.loads(t["controls"]["pass"][0]["answer"])["answer"]
-    if gold in t["instruction"]:
-        return f"gold {gold!r} is stated in the instruction"
+    accepted = re.findall(r"CWE-\d+", t["checkers"][0]["patterns"][0]) or [gold]
+    for a in accepted:
+        if a in t["instruction"]:
+            return f"accepted answer {a!r} is stated in the instruction"
     return None
 
 
