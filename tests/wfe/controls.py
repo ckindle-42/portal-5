@@ -56,7 +56,7 @@ CHECKER_KEYS = {
     "answer_contains": ({"patterns"}, {"forbid", "exact", "forbid_in_tool_output"}),
     "answer_after_reasoning": ({"patterns"}, set()),
     "tool_grounded": ({"evidence"}, {"tools"}),
-    "office_contains": ({"kind", "expect"}, {"path", "headings", "sheets", "titles"}),
+    "office_contains": ({"kind", "expect"}, {"exact", "path", "headings", "sheets", "titles"}),
 }
 
 

@@ -588,6 +588,21 @@ def _office_parts(f: Path, kind: str) -> tuple[str, list[str]]:
     return "\n".join(parts), names
 
 
+def _has_line(lines: list[str], want: str) -> bool:
+    """`want` is one whole line (a cell, a paragraph) — not a substring of one. A bare "3" in
+    `expect` passed a workbook holding "13" (wfe_documents_20261017h doc-trip-01). Numbers
+    compare by value, so a cell written as 3.0 still holds 3."""
+    for ln in lines:
+        if ln == want:
+            return True
+        try:
+            if float(ln) == float(want):
+                return True
+        except ValueError:
+            continue
+    return False
+
+
 #: The structural key each office kind may check, against the names _office_parts returns.
 _OFFICE_NAMES = {"docx": "headings", "xlsx": "sheets", "pptx": "titles"}
 
@@ -626,6 +641,8 @@ def check_office_contains(spec: dict, ctx: CheckContext) -> CheckResult:
             best = best or [f"unparseable {f.name}: {e}"]
             continue
         missing = [e for e in expect if e not in text]
+        lines = [ln.strip() for ln in text.split("\n")]
+        missing += [f"exact:{e}" for e in spec.get("exact") or [] if not _has_line(lines, e)]
         missing += [f"{_OFFICE_NAMES[kind]}:{n}" for n in names_want if n not in names]
         if not missing:
             return CheckResult(Outcome.PASS, f"{f.name} holds all {len(expect)} expected", {})

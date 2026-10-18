@@ -42,6 +42,18 @@ def test_xlsx_cells_and_pptx_titles(tmp_path):
     assert _run(tmp_path, "pptx", ["Roadmap"], "a.pptx").outcome == Outcome.PASS
 
 
+def test_exact_values_must_be_a_whole_cell_not_a_substring(tmp_path):
+    # wfe_documents_20261017h doc-trip-01: expect "3" passed a workbook holding "13"
+    wb = openpyxl.Workbook()
+    wb.active.append(["Large orders", 13])
+    wb.save(tmp_path / "a.xlsx")
+    spec = {"type": "office_contains", "path": "a.xlsx", "kind": "xlsx", "expect": ["Large"]}
+    ctx = CheckContext(sandbox_root=tmp_path)
+    assert check_office_contains({**spec, "exact": ["3"]}, ctx).outcome == Outcome.FAIL
+    assert check_office_contains({**spec, "exact": ["13"]}, ctx).outcome == Outcome.PASS
+    assert check_office_contains({**spec, "exact": ["13.0"]}, ctx).outcome == Outcome.PASS
+
+
 def test_a_grep_of_the_binary_would_not_pass_but_parsing_does(tmp_path):
     d = docx.Document()
     d.add_paragraph("needle-value-77")

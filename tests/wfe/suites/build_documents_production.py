@@ -387,7 +387,9 @@ def read_tasks() -> list[dict]:
         text = (
             f"Read {c['file']} and tell me {c['ask']}."
             if i % 3 == 0
-            else f"In {c['file']}, {c['direct']}?"
+            # never "In <file>, …": a seat read "In terms.docx" as the file name (campaign
+            # wfe_documents_20261017h, granite-30b doc-read-01, 3/3 at temperature 0)
+            else f"In the file {c['file']}, {c['direct']}?"
         )
         gold = c["gold"]
         ev = [evidence(f) for f in c["facts"][:2]]
@@ -960,7 +962,7 @@ def trip_target(target: str, title: str, label: str, value: object) -> dict:
             "tool": "create_word_document",
             "args": {"title": title, "content": line},
             "gold": make_docx([("title", title), ("p", line)]),
-            "spec": {"expect": [line], "headings": [title]},
+            "spec": {"expect": [line], "exact": [line], "headings": [title]},
             "wrong": make_docx([("title", title), ("p", f"{label}: nothing")]),
         }
     if target == "xlsx":
@@ -970,7 +972,7 @@ def trip_target(target: str, title: str, label: str, value: object) -> dict:
             "tool": "create_excel",
             "args": {"title": title, "data": rows},
             "gold": make_xlsx({"Sheet1": rows}),
-            "spec": {"expect": ["Metric", "Value", label, str(value)]},
+            "spec": {"expect": ["Metric", "Value", label], "exact": [str(value)]},
             "wrong": make_xlsx({"Sheet1": [["Metric", "Value"], [label, "n/a"]]}),
         }
     return {
@@ -978,7 +980,7 @@ def trip_target(target: str, title: str, label: str, value: object) -> dict:
         "tool": "create_powerpoint",
         "args": {"title": title, "slides": [{"title": "Summary", "content": line}]},
         "gold": make_pptx([("Summary", line)], deck_title=title),
-        "spec": {"expect": [line], "titles": ["Summary"]},
+        "spec": {"expect": [line], "exact": [line], "titles": ["Summary"]},
         "wrong": make_pptx([("Summary", f"{label}: nothing")], deck_title=title),
     }
 
