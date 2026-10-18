@@ -5,7 +5,7 @@ title: 34 production + 24 eval workspaces
 sources:
 - type: code
   path: config/portal.yaml
-  commit: e6c77b136031
+  commit: c3da7aec22e1
 claims:
 - probe: workspaces.total
   pattern: '{value} total)'
@@ -14,7 +14,7 @@ tags:
 - fact
 - workspaces
 created_at: 1784000421.2630541
-updated_at: 1792322363.807611
+updated_at: 1792341423.2797031
 ---
 
 # Workspace roster (34 production, 24 eval, 58 total)
@@ -37,7 +37,7 @@ updated_at: 1792322363.807611
 | `auto-extract-uncensored` | documents | `hf.co/gaston-parravicini/LFM2.5-8B-A1B-Uncensored-Gaston-GGUF:q4_K_M-ctx8k` |
 | `auto-general-uncensored` | general | `hf.co/mradermacher/Huihui-Qwen3.6-35B-A3B-abliterated-GGUF:Q4_K_M-ctx8k` |
 | `auto-image` | image | `granite4.1:8b-ctx16k` |
-| `auto-math` | general | `phi4-mini-reasoning:latest-ctx24k` |
+| `auto-math` | general | `glm-4.7-flash:Q4_K_M-ctx64k` |
 | `auto-music` | media | `lfm2.5:8b-ctx8k` |
 | `auto-nemotron` | general | `hf.co/bartowski/NVIDIA-Nemotron-3.5-Lightning-30B-A3B-GGUF:Q4_K_M-ctx32k` |
 | `auto-reasoning` | general | `hf.co/unsloth/DeepSeek-R1-0528-Qwen3-8B-GGUF:Q4_K_XL-ctx64k` |

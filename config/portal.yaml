@@ -2208,19 +2208,14 @@ workspaces:
     system_prompt_append: "\n\nSAFETY POSTURE: You are a standard-posture assistant. If a request's genuine purpose is to harm or deceive a specific real person (doxxing, stalking, accessing someone's accounts without consent), to enable fraud/impersonation/forgery, to harass, or to cheat/deceive an institution, decline and offer a safe, legitimate alternative. This does not restrict ordinary academic, professional, security-research, or fictional work \u2014 help fully with those."
     name: 🧮 Portal Math Reasoner
     description: |-
-      Mathematical problem solving, proofs, calculus, algebra, statistics. Phi-4-Mini-Reasoning (V8: RL-trained math specialist, beats 7B models on AIME/MATH-500 at 3.8B, ~2.5GB, MIT).
-    model_hint: phi4-mini-reasoning:latest-ctx24k
+      Mathematical problem solving, proofs, calculus, algebra, statistics. GLM-4.7-Flash (ZhipuAI, 31B MoE ~3B active, MIT) — seated 2026-10-18 on WFE wfe_math_20261018d (BETTER than phi4-mini-reasoning, 104/108 vs 93/108; docs/WFE_DECISION_AUTO_MATH_20261018.md).
+    model_hint: glm-4.7-flash:Q4_K_M-ctx64k
     context_limit: 24576
     predict_limit: 8192
-    # TASK_SAMPLING_PROFILE_AUDIT_V1: verified Microsoft profile (README code
-    # example) with unsloth's explicit min_p=0.00 addition. Single profile,
-    # reasoning-only (no non-thinking mode documented). top_k undocumented
-    # anywhere checked; repeat_penalty=1.0 kept as-is (unsourced but not
-    # contradicted, and nothing baked in the Modelfile to fall back to).
-    temperature: 0.8
+    # Z.ai card default (zai-org/GLM-4.7-Flash README 'Default Settings'), the
+    # sampling measured in wfe_math_20261018d. The card names no top_k/min_p/penalty.
+    temperature: 1.0
     top_p: 0.95
-    min_p: 0.0
-    repeat_penalty: 1.0
     emits_reasoning: true
     tools: []
     expose_to_owui: true

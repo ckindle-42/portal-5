@@ -7,7 +7,7 @@ providers:
     config:
       temperature: 0
       num_predict: 2048
-  - id: ollama:chat:phi4-mini-reasoning:latest-ctx24k
+  - id: ollama:chat:glm-4.7-flash:Q4_K_M-ctx64k
     label: auto-math
     config:
       temperature: 0

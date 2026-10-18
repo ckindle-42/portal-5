@@ -567,7 +567,7 @@ The roster is derived from the persona YAML files under `config/personas/`, one 
 | `auto-extract-uncensored` | documents | `hf.co/gaston-parravicini/LFM2.5-8B-A1B-Uncensored-Gaston-GGUF:q4_K_M-ctx8k` |
 | `auto-general-uncensored` | general | `hf.co/mradermacher/Huihui-Qwen3.6-35B-A3B-abliterated-GGUF:Q4_K_M-ctx8k` |
 | `auto-image` | image | `granite4.1:8b-ctx16k` |
-| `auto-math` | general | `phi4-mini-reasoning:latest-ctx24k` |
+| `auto-math` | general | `glm-4.7-flash:Q4_K_M-ctx64k` |
 | `auto-music` | media | `lfm2.5:8b-ctx8k` |
 | `auto-nemotron` | general | `hf.co/bartowski/NVIDIA-Nemotron-3.5-Lightning-30B-A3B-GGUF:Q4_K_M-ctx32k` |
 | `auto-reasoning` | general | `hf.co/unsloth/DeepSeek-R1-0528-Qwen3-8B-GGUF:Q4_K_XL-ctx64k` |
@@ -648,7 +648,7 @@ default.
 | `auto-extract-uncensored` | `hf.co/gaston-parravicini/LFM2.5-8B-A1B-Uncensored-Gaston-GGUF:q4_K_M-ctx8k` | yes |
 | `auto-general-uncensored` | `hf.co/mradermacher/Huihui-Qwen3.6-35B-A3B-abliterated-GGUF:Q4_K_M-ctx8k` | yes |
 | `auto-image` | `granite4.1:8b-ctx16k` | yes |
-| `auto-math` | `phi4-mini-reasoning:latest-ctx24k` | yes |
+| `auto-math` | `glm-4.7-flash:Q4_K_M-ctx64k` | yes |
 | `auto-music` | `lfm2.5:8b-ctx8k` | yes |
 | `auto-nemotron` | `hf.co/bartowski/NVIDIA-Nemotron-3.5-Lightning-30B-A3B-GGUF:Q4_K_M-ctx32k` | yes |
 | `auto-reasoning` | `hf.co/unsloth/DeepSeek-R1-0528-Qwen3-8B-GGUF:Q4_K_XL-ctx64k` | yes |

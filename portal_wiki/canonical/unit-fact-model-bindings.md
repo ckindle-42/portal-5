@@ -5,13 +5,13 @@ title: "model bindings \u2014 0 reachability gap(s)"
 sources:
 - type: code
   path: config/backends.yaml
-  commit: e6c77b136031
+  commit: c3da7aec22e1
 - type: code
   path: config/portal.yaml
-  commit: e6c77b136031
+  commit: c3da7aec22e1
 - type: code
   path: config/personas/
-  commit: e6c77b136031
+  commit: c3da7aec22e1
 claims: []
 confidence: high
 tags:
@@ -19,7 +19,7 @@ tags:
 - model-bindings
 - reachability
 created_at: 1784000421.433863
-updated_at: 1792322364.0506911
+updated_at: 1792341423.505774
 ---
 
 # Model bindings (reachability-resolved)
@@ -47,7 +47,7 @@ default.
 | `auto-extract-uncensored` | `hf.co/gaston-parravicini/LFM2.5-8B-A1B-Uncensored-Gaston-GGUF:q4_K_M-ctx8k` | yes |
 | `auto-general-uncensored` | `hf.co/mradermacher/Huihui-Qwen3.6-35B-A3B-abliterated-GGUF:Q4_K_M-ctx8k` | yes |
 | `auto-image` | `granite4.1:8b-ctx16k` | yes |
-| `auto-math` | `phi4-mini-reasoning:latest-ctx24k` | yes |
+| `auto-math` | `glm-4.7-flash:Q4_K_M-ctx64k` | yes |
 | `auto-music` | `lfm2.5:8b-ctx8k` | yes |
 | `auto-nemotron` | `hf.co/bartowski/NVIDIA-Nemotron-3.5-Lightning-30B-A3B-GGUF:Q4_K_M-ctx32k` | yes |
 | `auto-reasoning` | `hf.co/unsloth/DeepSeek-R1-0528-Qwen3-8B-GGUF:Q4_K_XL-ctx64k` | yes |

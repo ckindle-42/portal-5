@@ -482,6 +482,8 @@ The dual `general`/`coding` registration with `supports_tools: true` in both gro
 
 `glm-4.7-flash:Q4_K_M-ctx64k` is the 64K-context derived tag (baked `PARAMETER num_ctx 65536`, weights shared with the base tag — 0 extra bytes) created 2026-09-07 when the fleet closeout flipped the `glm-coder` persona pin off REAP-23B per its recorded promotion policy. The persona's system prompt promises a 128K window; the base `glm-4.7-flash:Q4_K_M` tag ships no baked `num_ctx`, so the pin would have silently collapsed to the Ollama default — caught by settings review, not by the short-prompt exam that motivated the flip. Registered in `general` (`supports_tools: false`) and `coding` (`true`) to match the base tag.
 
+
+Since 2026-10-18 it is also the `auto-math` seat (`model_hint`, `context_limit: 24576`, Z.ai card sampling temperature 1.0 / top_p 0.95), chosen on WFE `wfe_math_20261018d`: BETTER than phi4-mini-reasoning (sign test p=0.039, 104/108 PASS), kept over the slightly more accurate Qwen3.8-27B for lineage diversity — GLM held no production seat.
 ### `hf.co/sjakek/Nex-N2-mini-GGUF:UD-Q4_K_M-ctx16k`
 
 `hf.co/sjakek/Nex-N2-mini-GGUF:UD-Q4_K_M-ctx16k` is the 16K-context derived tag (baked `PARAMETER num_ctx 16384` via apply-params — Ollama's `/v1/chat/completions` ignores request-time `options.num_ctx`). PROMOTED 2026-09-07 (fleet closeout): it is the `auto-research` workspace `model_hint` after winning the research-task probe head-to-head twice on the same instrument (factuality 0.9/0.8, synthesis 5.0/4.5, vs incumbent xyz-aquila-mini 0.3 and tongyi-deepresearch 0.4 — `tests/benchmarks/results/research_probe_20260907T030136Z.json` + `research_probe_20260907T032401Z.json`). `config/backends.yaml` lists it with `supports_tools: true` in every group (verified 2026-09-25 by a neutral native tool-call probe — 3/3 single-call plus a clean tool-result turn); the router reads one flag per model id, last entry wins, so a per-group split never took effect.
@@ -985,7 +987,7 @@ Grounding anchors the tag to the two backends.yaml registrations that carry it �
 
 ### `phi4-mini-reasoning`
 
-`phi4-mini-reasoning` is Microsoft Phi-4-Mini-Reasoning (2025, MIT, 3.8B, ~2.5GB Q4, 200K ctx), RL-trained for math, formal proofs, and symbolic computation, beating 7B models on AIME, MATH-500, and GPQA at its size. `config/backends.yaml` registers it in `group: reasoning` with `supports_tools: false`, consistent with a math specialist that does not route tools. `config/portal.yaml`'s auto-math workspace describes the model in its text and serves the derived `phi4-mini-reasoning:latest-ctx24k` tag as `model_hint`. The catalog warns against pulling the `:math` variant — the 2026-06-21 bench scored it 0.50 quality versus the base's 1.00 at equal TPS.
+`phi4-mini-reasoning` is Microsoft Phi-4-Mini-Reasoning (2025, MIT, 3.8B, ~2.5GB Q4, 200K ctx), RL-trained for math, formal proofs, and symbolic computation, beating 7B models on AIME, MATH-500, and GPQA at its size. `config/backends.yaml` registers it in `group: reasoning` with `supports_tools: false`, consistent with a math specialist that does not route tools. It seated auto-math through the derived `phi4-mini-reasoning:latest-ctx24k` tag until 2026-10-18, when WFE `wfe_math_20261018d` found all three challengers BETTER and the seat moved to `glm-4.7-flash:Q4_K_M-ctx64k` (docs/WFE_DECISION_AUTO_MATH_20261018.md). The catalog warns against pulling the `:math` variant — the 2026-06-21 bench scored it 0.50 quality versus the base's 1.00 at equal TPS.
 
 ## Why
 
@@ -1588,7 +1590,7 @@ An 8K context was far too small for real opencode/agentic use (tool-call round-t
 
 ### `phi4-mini-reasoning:latest-ctx24k`
 
-`phi4-mini-reasoning:latest-ctx24k` is the derived tag of `phi4-mini-reasoning:latest` with `PARAMETER num_ctx 24576` baked in via the `apply-params` command, required because Ollama's `/v1/chat/completions` drops request-time `options.num_ctx`. `config/backends.yaml` registers it in `group: reasoning` with `supports_tools: false`, matching its parent. `config/portal.yaml` sets it as the `auto-math` workspace `model_hint` with `context_limit: 24576`, so the math lane runs on the capped tag. See the parent unit for the RL math-specialist background and the `:math` bench warning.
+`phi4-mini-reasoning:latest-ctx24k` is the derived tag of `phi4-mini-reasoning:latest` with `PARAMETER num_ctx 24576` baked in via the `apply-params` command, required because Ollama's `/v1/chat/completions` drops request-time `options.num_ctx`. `config/backends.yaml` registers it in `group: reasoning` with `supports_tools: false`, matching its parent. It was the `auto-math` workspace `model_hint` (with `context_limit: 24576`) until 2026-10-18; auto-math now serves `glm-4.7-flash:Q4_K_M-ctx64k`. See the parent unit for the RL math-specialist background and the `:math` bench warning.
 
 ## Why
 
