@@ -80,6 +80,8 @@ class TestSummaryEvent:
             uptime_seconds=36000.0,
             requests_by_model={"dolphin-llama3:8b": 800, "qwen3-coder-next:30b-q5": 434},
             avg_tokens_per_second=25.5,
+            ttft_median_seconds=0.45,
+            ttft_sample_count=4,
             total_input_tokens=50000,
             total_output_tokens=150000,
             avg_response_time_ms=1200.0,
@@ -91,6 +93,7 @@ class TestSummaryEvent:
         assert "auto-coding" in formatted
         assert "2/3" in formatted
         assert "25.5 tok/s" in formatted  # avg TPS
+        assert "TTFT median (n=4):* 0.45s" in formatted
         assert "1200ms" in formatted  # avg response time
         assert "50,000 in" in formatted  # input tokens
 
@@ -113,6 +116,30 @@ class TestSummaryEvent:
         assert "Daily Summary" in formatted
         assert "100" in formatted
         assert "30.0" in formatted  # avg TPS
+
+    def test_ttft_median_includes_sample_count_in_each_format(self):
+        from portal.platform.inference.notifications.events import EventType, SummaryEvent
+
+        event = SummaryEvent(
+            type=EventType.DAILY_SUMMARY,
+            timestamp=datetime(2026, 3, 30, 9, 0, 0, tzinfo=UTC),
+            report_date="2026-03-29",
+            total_requests=100,
+            requests_by_workspace={"auto": 100},
+            healthy_backends=1,
+            total_backends=1,
+            uptime_seconds=7200.0,
+            ttft_median_seconds=0.35,
+            ttft_sample_count=7,
+        )
+
+        formatted = (
+            event.format_slack(),
+            event.format_telegram(),
+            event.format_email(),
+            event.format_pushover(),
+        )
+        assert all("n=7" in item for item in formatted)
 
     def test_format_pushover(self):
         from portal.platform.inference.notifications.events import EventType, SummaryEvent
@@ -527,6 +554,7 @@ class TestNotificationScheduler:
                 assert event.decode_tokens_per_second == pytest.approx(50.0)
                 assert event.answer_tokens_per_second == pytest.approx(30.0)
                 assert event.ttft_median_seconds == pytest.approx(0.45)
+                assert event.ttft_sample_count == 4
                 assert event.top_models_by_volume[0]["model"] == "dolphin-llama3:8b"
                 assert event.top_models_by_volume[0]["answer_tokens"] == 200
                 assert event.top_models_by_volume[0]["answer_tokens_per_second"] == pytest.approx(
@@ -781,6 +809,7 @@ class TestDailySummaryDeltaComputation:
             assert event.decode_tokens_per_second == pytest.approx(50.0)
             assert event.answer_tokens_per_second == pytest.approx(30.0)
             assert event.ttft_median_seconds == pytest.approx(0.5)
+            assert event.ttft_sample_count == 3
             assert event.top_models_by_volume[0] == {
                 "model": "dolphin-llama3:8b",
                 "answer_tokens": 200,

@@ -5,6 +5,10 @@ title: "HOWTO \u2014 23. Metrics & Monitoring"
 sources:
 - type: code
   path: portal/platform/inference/router/handlers.py
+- type: code
+  path: portal/platform/inference/router/metrics.py
+- type: code
+  path: portal/platform/inference/router/power.py
 claims: []
 confidence: high
 tags:
@@ -26,7 +30,7 @@ curl http://localhost:9090/-/healthy
 curl http://localhost:9099/metrics
 ```
 
-The speed panels read token-weighted counters. `portal_decode_tokens_total` and `portal_decode_seconds_total` count every generated token over model decode time: Ollama `eval_count` / `eval_duration` when the engine reports them (`source="engine"`), otherwise a caller-supplied `decode_seconds` (`source="measured"`). They do not fall back to wall clock; a request with tokens but no decode time increments `portal_tps_unmeasured_total` and is left out of the ratio. `portal_answer_tokens_total` and `portal_answer_seconds_total` count the visible answer only, and only when the caller passes the answer split. `portal_ttft_seconds` is the time from request to the first generated token. Grafana divides five-minute rates, `sum by(model) (rate(portal_decode_tokens_total[5m])) / sum by(model) (rate(portal_decode_seconds_total[5m]))`, and the same shape for the answer counters and for workspace. TTFT panels use `histogram_quantile` on `portal_ttft_seconds_bucket`. `portal_tokens_per_second` is deprecated for one release: it is a per-request rate and can still fall back to wall clock.
+The speed panels read token-weighted counters. `portal_decode_tokens_total` and `portal_decode_seconds_total` count every generated token over model decode time: Ollama `eval_count` / `eval_duration` when the engine reports them (`source="engine"`), otherwise a caller-supplied `decode_seconds` (`source="measured"`). They do not fall back to wall clock; a request with tokens but no decode time increments `portal_tps_unmeasured_total` and is left out of the ratio. `portal_answer_tokens_total` and `portal_answer_seconds_total` count only visible-answer rows with at least 32 answer tokens and a supplied answer split. The shared `MIN_ANSWER_TOKENS_FOR_RATE = 32` threshold avoids answer-rate noise from short, bursty generations; shorter answers remain in decode and TTFT metrics but not the answer-rate counters or daily answer-rate totals. `portal_ttft_seconds` is the time from request to the first generated token. Grafana divides five-minute rates, `sum by(model) (rate(portal_decode_tokens_total[5m])) / sum by(model) (rate(portal_decode_seconds_total[5m]))`, and the same shape for the answer counters and for workspace. TTFT panels use `histogram_quantile` on `portal_ttft_seconds_bucket`. `portal_tokens_per_second` is deprecated for one release: it is a per-request rate and can still fall back to wall clock.
 
 ## Why
 

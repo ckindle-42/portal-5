@@ -89,9 +89,12 @@ The harness (`tests/wfe/`):
   phase character counts when deltas are unavailable. Without an engine count,
   measured delta counts remain estimates. Row economics roll up durations and
   counts, retain the first TTFT and recompute answer TPS. The report repairs old
-  rows without `split_source` from reasoning and final-answer character counts,
-  and shows median and nearest-rank p90 answer TPS, decode TPS
-  (`completion_tokens / (reasoning_s + answer_s)`), TTFT and model total time
+  rows without `split_source` from reasoning and final-answer character counts.
+  The speed table makes decode TPS (`completion_tokens / (reasoning_s + answer_s)`)
+  and TTFT the primary columns. Answer TPS is included only for rows with at
+  least 32 answer tokens (`MIN_ANSWER_TOKENS_FOR_RATE`) because shorter bursty
+  generations produce unstable frame-timing rates. Every median displays its
+  observation count; p90 uses nearest rank. The report shows these speed fields
   per workspace, lane and arm.
 - Pipeline mode (`WFE_ENGINE=pipeline`, source `.env` for `PIPELINE_API_KEY`) is
   the standard path for seat testing: every request goes to the Portal pipeline

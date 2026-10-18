@@ -19,6 +19,7 @@ from typing import Any
 import portal.platform.inference.router.state as _state_mod
 from portal.platform.inference.router import truncation as _truncation
 from portal.platform.inference.router.metrics import (
+    MIN_ANSWER_TOKENS_FOR_RATE,
     _answer_seconds,
     _answer_tokens,
     _decode_seconds,
@@ -205,7 +206,11 @@ def _record_timing_series(
 
     resolved_answer = _resolve_answer_tokens(completion_tokens, reasoning_tokens, answer_tokens)
     answer_s = _positive_float(answer_seconds)
-    if resolved_answer is not None and resolved_answer > 0 and answer_s is not None:
+    if (
+        resolved_answer is not None
+        and resolved_answer >= MIN_ANSWER_TOKENS_FOR_RATE
+        and answer_s is not None
+    ):
         answer_source = (
             "engine"
             if eval_duration_ns > 0 or _positive_float(engine_decode_seconds) is not None

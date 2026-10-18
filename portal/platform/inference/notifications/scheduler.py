@@ -452,6 +452,7 @@ class NotificationScheduler:
             decode_tokens_per_second=decode_tps,
             answer_tokens_per_second=answer_tps,
             ttft_median_seconds=ttft_median,
+            ttft_sample_count=len(daily_ttft),
             top_models_by_volume=_top_models_by_answer_volume(
                 daily_answer_tokens_by_model,
                 daily_answer_seconds_by_model,

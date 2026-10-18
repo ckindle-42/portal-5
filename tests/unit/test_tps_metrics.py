@@ -21,6 +21,7 @@ from portal.platform.inference.notifications.scheduler import (
 )
 from portal.platform.inference.router.metrics import (
     _REGISTRY,
+    MIN_ANSWER_TOKENS_FOR_RATE,
     _answer_seconds,
     _answer_tokens,
     _decode_seconds,
@@ -167,6 +168,62 @@ class TestRecordTimingSeries:
             pytest.approx(2.0)
         )
 
+    def test_answer_rate_requires_at_least_32_answer_tokens(self):
+        assert MIN_ANSWER_TOKENS_FOR_RATE == 32
+        model, workspace = "tps-answer-threshold-model", "tps-answer-threshold-ws"
+        before_tokens = _counter(
+            _answer_tokens, model=model, workspace=workspace, source="measured"
+        )
+        before_seconds = _counter(
+            _answer_seconds, model=model, workspace=workspace, source="measured"
+        )
+        before_digest_tokens = state._answer_tokens
+        before_digest_seconds = state._answer_seconds
+
+        _record_usage(
+            model=model,
+            workspace=workspace,
+            data={"completion_tokens": 31},
+            decode_seconds=1.0,
+            ttft_seconds=0.2,
+            answer_tokens=31,
+            answer_seconds=0.4,
+        )
+
+        assert (
+            _counter(_answer_tokens, model=model, workspace=workspace, source="measured")
+            == before_tokens
+        )
+        assert (
+            _counter(_answer_seconds, model=model, workspace=workspace, source="measured")
+            == before_seconds
+        )
+        assert state._answer_tokens == before_digest_tokens
+        assert state._answer_seconds == before_digest_seconds
+        assert state._answer_tokens_by_model.get(model, 0) == 0
+        assert state._answer_seconds_by_model.get(model, 0) == 0
+
+        _record_usage(
+            model=model,
+            workspace=workspace,
+            data={"completion_tokens": 32},
+            decode_seconds=1.0,
+            ttft_seconds=0.2,
+            answer_tokens=32,
+            answer_seconds=0.4,
+        )
+
+        assert _counter(
+            _answer_tokens, model=model, workspace=workspace, source="measured"
+        ) - before_tokens == pytest.approx(32)
+        assert _counter(
+            _answer_seconds, model=model, workspace=workspace, source="measured"
+        ) - before_seconds == pytest.approx(0.4)
+        assert state._answer_tokens - before_digest_tokens == pytest.approx(32)
+        assert state._answer_seconds - before_digest_seconds == pytest.approx(0.4)
+        assert state._answer_tokens_by_model[model] == pytest.approx(32)
+        assert state._answer_seconds_by_model[model] == pytest.approx(0.4)
+
     def test_omlx_stream_usage_records_engine_sourced_timings(self):
         model, workspace = "tps-omlx-stream-model", "tps-omlx-stream-ws"
         usage_frame = json.loads(
@@ -212,10 +269,10 @@ class TestRecordTimingSeries:
         ) - before_decode_s == pytest.approx(1.2)
         assert _counter(
             _answer_tokens, model=model, workspace=workspace, source="engine"
-        ) - before_answer == pytest.approx(5)
+        ) - before_answer == pytest.approx(0)
         assert _counter(
             _answer_seconds, model=model, workspace=workspace, source="engine"
-        ) - before_answer_s == pytest.approx(1.0)
+        ) - before_answer_s == pytest.approx(0)
         assert _hist_sum(
             _ttft_seconds, model=model, workspace=workspace, source="engine"
         ) - before_ttft == pytest.approx(0.42)
@@ -232,6 +289,9 @@ class TestRecordTimingSeries:
         }
         before_decode_s = _counter(
             _decode_seconds, model=model, workspace=workspace, source="engine"
+        )
+        before_answer_tokens = _counter(
+            _answer_tokens, model=model, workspace=workspace, source="engine"
         )
         before_answer_s = _counter(
             _answer_seconds, model=model, workspace=workspace, source="engine"
@@ -259,8 +319,11 @@ class TestRecordTimingSeries:
             _decode_seconds, model=model, workspace=workspace, source="engine"
         ) - before_decode_s == pytest.approx(2.5)
         assert _counter(
+            _answer_tokens, model=model, workspace=workspace, source="engine"
+        ) - before_answer_tokens == pytest.approx(0)
+        assert _counter(
             _answer_seconds, model=model, workspace=workspace, source="engine"
-        ) - before_answer_s == pytest.approx(2.4)
+        ) - before_answer_s == pytest.approx(0)
         assert _hist_sum(
             _ttft_seconds, model=model, workspace=workspace, source="measured"
         ) - before_ttft == pytest.approx(0.25)
@@ -283,8 +346,8 @@ class TestRecordTimingSeries:
             },
         }
         answer_turn = {
-            "choices": [{"message": {"content": "done"}}],
-            "usage": {"completion_tokens": 3, "generation_duration": 0.6},
+            "choices": [{"message": {"content": "done " * 40}}],
+            "usage": {"completion_tokens": 40, "generation_duration": 0.6},
         }
         before_decode_s = _counter(
             _decode_seconds, model=model, workspace=workspace, source="engine"
@@ -320,7 +383,7 @@ class TestRecordTimingSeries:
                     "ttft_s": 0.15,
                     "reasoning_tokens": 0,
                     "reasoning_s": 0,
-                    "answer_tokens": 3,
+                    "answer_tokens": 40,
                     "answer_s": 0.6,
                     "total_s": 0.75,
                     "tool_s": 30.0,
@@ -351,6 +414,9 @@ class TestRecordTimingSeries:
         before_decode_s = _counter(
             _decode_seconds, model=model, workspace=workspace, source="engine"
         )
+        before_answer_tokens = _counter(
+            _answer_tokens, model=model, workspace=workspace, source="engine"
+        )
         before_answer_s = _counter(
             _answer_seconds, model=model, workspace=workspace, source="engine"
         )
@@ -367,8 +433,11 @@ class TestRecordTimingSeries:
             _decode_seconds, model=model, workspace=workspace, source="engine"
         ) - before_decode_s == pytest.approx(1.2)
         assert _counter(
+            _answer_tokens, model=model, workspace=workspace, source="engine"
+        ) - before_answer_tokens == pytest.approx(0)
+        assert _counter(
             _answer_seconds, model=model, workspace=workspace, source="engine"
-        ) - before_answer_s == pytest.approx(1.2)
+        ) - before_answer_s == pytest.approx(0)
         assert _hist_sum(
             _ttft_seconds, model=model, workspace=workspace, source="engine"
         ) - before_ttft == pytest.approx(0.42)

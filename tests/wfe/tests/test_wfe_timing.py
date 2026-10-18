@@ -115,6 +115,7 @@ def test_report_speed_summary_uses_median_and_nearest_rank_p90():
     speed = report._speed_summary(
         [
             {
+                "answer_tokens": 31,
                 "answer_tps": 10,
                 "ttft_s": 0.2,
                 "total_s": 1.0,
@@ -123,6 +124,7 @@ def test_report_speed_summary_uses_median_and_nearest_rank_p90():
                 "answer_s": 1,
             },
             {
+                "answer_tokens": 32,
                 "answer_tps": 20,
                 "ttft_s": 0.4,
                 "total_s": 2.0,
@@ -131,6 +133,7 @@ def test_report_speed_summary_uses_median_and_nearest_rank_p90():
                 "answer_s": 2,
             },
             {
+                "answer_tokens": 64,
                 "answer_tps": 30,
                 "ttft_s": 0.6,
                 "total_s": 3.0,
@@ -141,14 +144,18 @@ def test_report_speed_summary_uses_median_and_nearest_rank_p90():
         ]
     )
     assert speed == {
-        "answer_tps_median": 20,
+        "answer_tps_median": 25,
         "answer_tps_p90": 30,
+        "answer_tps_n": 2,
         "decode_tps_median": 100,
         "decode_tps_p90": 300,
+        "decode_tps_n": 3,
         "ttft_s_median": 0.4,
         "ttft_s_p90": 0.6,
+        "ttft_s_n": 3,
         "total_s_median": 2,
         "total_s_p90": 3,
+        "total_s_n": 3,
     }
 
 
@@ -173,10 +180,67 @@ def test_logic_grid_legacy_answer_rate_is_rederived_from_character_split():
 
     assert speed["answer_tokens"] == 11
     assert 10 <= speed["answer_tokens"] <= 12
-    assert speed["answer_tps"] == round(11 / 0.263222, 3)
-    assert speed["answer_tps"] < 50
+    assert speed["answer_tps"] is None
     assert speed["decode_tps"] == 2034 / (45.761241 + 0.263222)
-    assert report._speed_summary([row])["answer_tps_median"] == speed["answer_tps"]
+    summary = report._speed_summary([row])
+    assert summary["answer_tps_median"] is None
+    assert summary["answer_tps_n"] == 0
+    assert summary["decode_tps_n"] == 1
+
+
+def test_report_speed_table_prioritizes_decode_and_ttft_and_shows_median_counts():
+    lines = []
+    speed = report._speed_summary(
+        [
+            {
+                "answer_tokens": 31,
+                "answer_tps": 100,
+                "completion_tokens": 100,
+                "reasoning_s": 0.5,
+                "answer_s": 0.5,
+                "ttft_s": 0.2,
+                "total_s": 1,
+            },
+            {
+                "answer_tokens": 32,
+                "answer_tps": 50,
+                "completion_tokens": 100,
+                "reasoning_s": 0.5,
+                "answer_s": 0.5,
+                "ttft_s": 0.4,
+                "total_s": 2,
+            },
+        ]
+    )
+    report._sec_speed(
+        lines.append,
+        {
+            "matrix": [
+                {
+                    "workspace": "auto",
+                    "is_home": True,
+                    "suite": "home",
+                    "arm": "test-arm",
+                    "speed": speed,
+                    "role": "candidate",
+                    "persona": None,
+                    "passes": 0,
+                    "n": 0,
+                    "instrument_excluded": 0,
+                    "median_tokens": None,
+                    "median_wall_s": None,
+                }
+            ]
+        },
+    )
+
+    speed_table = "\n".join(lines)
+    header = next(line for line in lines if line.startswith("| Workspace"))
+    assert header.index("Decode tok/s") < header.index("TTFT s") < header.index("Answer tok/s")
+    assert "Decode tok/s med (n)" in header
+    assert "TTFT s med (n)" in header
+    assert "(n=2)" in speed_table
+    assert "(n=1)" in speed_table
 
 
 def test_row_economics_roll_up_turn_timings_and_preserve_first_ttft():

@@ -49,6 +49,8 @@ _tokens_per_second = Histogram(
 # by the seconds counter over a window. Never divide the lifetime histogram.
 # `source` is "engine" (Ollama eval_duration or engine usage durations/TTFT)
 # or "measured" (stream-derived decode/TTFT or answer split). Wall clock is not a source.
+# Answer-rate observations need at least this many answer tokens to avoid burst/frame noise.
+MIN_ANSWER_TOKENS_FOR_RATE = 32
 _TIMING_LABELS = ["model", "workspace", "source"]
 
 _decode_tokens = Counter(
@@ -65,13 +67,14 @@ _decode_seconds = Counter(
 )
 _answer_tokens = Counter(
     "portal_answer_tokens_total",
-    "Visible answer tokens, excluding reasoning. Recorded only when the caller passes the answer split",
+    f"Visible answer tokens for answers with at least {MIN_ANSWER_TOKENS_FOR_RATE} tokens, excluding reasoning",
     _TIMING_LABELS,
     registry=_REGISTRY,
 )
 _answer_seconds = Counter(
     "portal_answer_seconds_total",
-    "Seconds spent emitting the visible answer, paired with portal_answer_tokens_total",
+    f"Seconds spent emitting visible answers with at least {MIN_ANSWER_TOKENS_FOR_RATE} tokens, "
+    "paired with portal_answer_tokens_total",
     _TIMING_LABELS,
     registry=_REGISTRY,
 )

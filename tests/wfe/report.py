@@ -34,6 +34,7 @@ from statistics import median
 
 import yaml
 
+from portal.platform.inference.router.metrics import MIN_ANSWER_TOKENS_FOR_RATE
 from tests.wfe import decision
 from tests.wfe.schema import (
     INSTRUMENT_OUTCOMES,
@@ -133,6 +134,12 @@ def _speed_economics(row: dict) -> dict:
         and decode_s > 0
         else None
     )
+    if (
+        not isinstance(answer_tokens, int | float)
+        or isinstance(answer_tokens, bool)
+        or answer_tokens < MIN_ANSWER_TOKENS_FOR_RATE
+    ):
+        answer_tps = None
     return {
         "answer_tokens": answer_tokens,
         "answer_tps": answer_tps,
@@ -145,27 +152,32 @@ def _speed_economics(row: dict) -> dict:
 def _speed_summary(rows: list[dict]) -> dict:
     economics = [_speed_economics(row) for row in rows]
 
-    def stats(field: str) -> tuple[float | None, float | None]:
+    def stats(field: str) -> tuple[float | None, float | None, int]:
         values = sorted(
             float(e[field])
             for e in economics
             if isinstance(e.get(field), int | float) and not isinstance(e.get(field), bool)
         )
         if not values:
-            return None, None
+            return None, None, 0
         p90 = values[max(0, math.ceil(0.9 * len(values)) - 1)]
-        return median(values), p90
+        return median(values), p90, len(values)
 
     result = {}
     for field in ("answer_tps", "decode_tps", "ttft_s", "total_s"):
-        med, p90 = stats(field)
+        med, p90, n = stats(field)
         result[f"{field}_median"] = med
         result[f"{field}_p90"] = p90
+        result[f"{field}_n"] = n
     return result
 
 
 def _fmt_speed(speed: dict, key: str) -> str:
     return f"{speed[key]:.2f}" if speed.get(key) is not None else "—"
+
+
+def _fmt_speed_median(speed: dict, field: str) -> str:
+    return f"{_fmt_speed(speed, f'{field}_median')} (n={speed.get(f'{field}_n', 0)})"
 
 
 def _load(campaign_dir: Path) -> tuple[dict, list[dict], dict]:
@@ -987,24 +999,28 @@ def _sec_matrix(a, rep) -> None:
 def _sec_speed(a, rep) -> None:
     a("## 2a. Speed by arm")
     a("")
-    a("Timing values are per-row observations; p90 uses nearest-rank percentile.")
+    a(
+        "Decode tok/s and TTFT are the primary speed measures. Answer tok/s includes only "
+        f"rows with at least {MIN_ANSWER_TOKENS_FOR_RATE} answer tokens; n is the number "
+        "of observations in each median, and p90 uses nearest-rank percentile."
+    )
     a("")
     a(
-        "| Workspace | Lane | Arm | Answer tok/s med | Answer tok/s p90 | "
-        "Decode tok/s med | Decode tok/s p90 | TTFT s med | TTFT s p90 | "
-        "Total s med | Total s p90 |"
+        "| Workspace | Lane | Arm | Decode tok/s med (n) | Decode tok/s p90 | "
+        "TTFT s med (n) | TTFT s p90 | "
+        f"Answer tok/s med (n, >={MIN_ANSWER_TOKENS_FOR_RATE} tokens) | "
+        "Answer tok/s p90 | Total s med (n) | Total s p90 |"
     )
     a("|---|---|---|---:|---:|---:|---:|---:|---:|---:|---:|")
     for row in rep["matrix"]:
         speed = row.get("speed") or {}
         a(
             f"| {row['workspace']} | {'home' if row['is_home'] else 'disc'}:{row['suite']} | "
-            f"`{row['arm']}` | {_fmt_speed(speed, 'answer_tps_median')} | "
-            f"{_fmt_speed(speed, 'answer_tps_p90')} | "
-            f"{_fmt_speed(speed, 'decode_tps_median')} | {_fmt_speed(speed, 'decode_tps_p90')} | "
-            f"{_fmt_speed(speed, 'ttft_s_median')} | "
-            f"{_fmt_speed(speed, 'ttft_s_p90')} | {_fmt_speed(speed, 'total_s_median')} | "
-            f"{_fmt_speed(speed, 'total_s_p90')} |"
+            f"`{row['arm']}` | {_fmt_speed_median(speed, 'decode_tps')} | "
+            f"{_fmt_speed(speed, 'decode_tps_p90')} | "
+            f"{_fmt_speed_median(speed, 'ttft_s')} | {_fmt_speed(speed, 'ttft_s_p90')} | "
+            f"{_fmt_speed_median(speed, 'answer_tps')} | {_fmt_speed(speed, 'answer_tps_p90')} | "
+            f"{_fmt_speed_median(speed, 'total_s')} | {_fmt_speed(speed, 'total_s_p90')} |"
         )
     a("")
     a("Rates count only model-attributable outcomes. Brackets are Wilson 95% intervals.")

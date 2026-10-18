@@ -172,6 +172,7 @@ class SummaryEvent:
     peak_concurrent: int = 0
     persona_usage: dict[str, int] = field(default_factory=dict)
     type: EventType = field(default=EventType.DAILY_SUMMARY)
+    ttft_sample_count: int = 0
 
     def _decode_rate(self) -> float:
         """Decode tok/s. Uses the legacy field when the explicit one was not set."""
@@ -207,7 +208,7 @@ class SummaryEvent:
             f"*Peak Concurrent:* {self.peak_concurrent}",
             f"*Decode tok/s:* {self._decode_rate():.1f} tok/s",
             f"*Answer tok/s:* {self.answer_tokens_per_second:.1f}",
-            f"*TTFT median:* {self.ttft_median_seconds:.2f}s",
+            f"*TTFT median (n={self.ttft_sample_count}):* {self.ttft_median_seconds:.2f}s",
             f"*Avg Response Time:* {self.avg_response_time_ms:.0f}ms",
             f"*Tokens:* {self.total_input_tokens:,} in / {self.total_output_tokens:,} out",
             "",
@@ -249,7 +250,7 @@ class SummaryEvent:
             f"Peak Concurrent: {self.peak_concurrent}",
             f"Decode tok/s: {self._decode_rate():.1f}",
             f"Answer tok/s: {self.answer_tokens_per_second:.1f}",
-            f"TTFT median: {self.ttft_median_seconds:.2f}s",
+            f"TTFT median (n={self.ttft_sample_count}): {self.ttft_median_seconds:.2f}s",
             f"Avg Response: {self.avg_response_time_ms:.0f}ms",
             f"Tokens: {self.total_input_tokens:,} in / {self.total_output_tokens:,} out",
         ]
@@ -289,7 +290,7 @@ class SummaryEvent:
             f"<b>Healthy Backends:</b> {self.healthy_backends}/{self.total_backends}",
             f"<b>Decode tok/s:</b> {self._decode_rate():.1f}",
             f"<b>Answer tok/s:</b> {self.answer_tokens_per_second:.1f}",
-            f"<b>TTFT median:</b> {self.ttft_median_seconds:.2f}s",
+            f"<b>TTFT median (n={self.ttft_sample_count}):</b> {self.ttft_median_seconds:.2f}s",
             f"<b>Avg Response Time:</b> {self.avg_response_time_ms:.0f}ms",
             f"<b>Input Tokens:</b> {self.total_input_tokens:,}",
             f"<b>Output Tokens:</b> {self.total_output_tokens:,}",
@@ -319,7 +320,7 @@ class SummaryEvent:
             f"📊 Portal 5 ({self.report_date}): {self.total_requests:,} req, "
             f"decode {self._decode_rate():.0f} tok/s, "
             f"answer {self.answer_tokens_per_second:.0f} tok/s, "
-            f"ttft {self.ttft_median_seconds:.2f}s, "
+            f"ttft median {self.ttft_median_seconds:.2f}s (n={self.ttft_sample_count}), "
             f"{self.avg_response_time_ms:.0f}ms avg, "
             f"{self.healthy_backends}/{self.total_backends} backends"
         )
