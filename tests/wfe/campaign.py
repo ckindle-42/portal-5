@@ -969,6 +969,7 @@ def _reconcile_offline(recorded: str | None, checker_outcome: str) -> tuple[str,
 def _rehydrate_check(rec: dict, task: dict):
     """Grade one recorded run from its captured artifacts, then drop the tree."""
     root = rehydrate_tree(rec.get("sandbox_tree") or {})
+    transcript = rec.get("transcript") or []
     try:
         return apply_checkers(
             task,
@@ -979,6 +980,14 @@ def _rehydrate_check(rec: dict, task: dict):
                 sandbox_root=root,
                 task=task,
                 finish_reason=rec.get("finish_reason"),
+                served=next(
+                    (
+                        t.get("served")
+                        for t in reversed(transcript)
+                        if (t.get("served") or {}).get("options")
+                    ),
+                    None,
+                ),
             ),
         )
     finally:
@@ -1260,11 +1269,38 @@ def row_identity(transcript: list) -> dict | None:
     return served_identity(*next(iter(served)))
 
 
+_ROUTED_TASKS: dict[str, set[str]] = {}
+
+
+def _is_routed_row(r: dict) -> bool:
+    """Whether this row's task is graded by the routed_workspace checker — the ONLY
+    rows the identity exemption covers (O2 clearance §1): a routing row turns on the
+    `auto` workspace and the pipeline serves the ROUTED seat, so the served model is
+    another workspace's by design."""
+    sp = r.get("suite_path")
+    if not sp:
+        return False
+    if sp not in _ROUTED_TASKS:
+        try:
+            _ROUTED_TASKS[sp] = {
+                t["id"]
+                for t in load_suite(sp)
+                if any(c.get("type") == "routed_workspace" for c in t.get("checkers") or [])
+            }
+        except Exception:  # noqa: BLE001 — a missing suite must not kill the arm loop
+            _ROUTED_TASKS[sp] = set()
+    return r.get("task_id") in _ROUTED_TASKS[sp]
+
+
 def identity_drift(manifest: dict, r: dict, row: dict) -> str | None:
     """Why the build that served this row is not its pair's frozen one, or None.
-    A row with no served turn (an instrument error) has nothing to compare."""
+    A row with no served turn (an instrument error) has nothing to compare.
+    routed_workspace rows are exempt, and only those: the router resolved the turn
+    to another workspace's seat on purpose."""
     ident = row.get("identity")
     if ENGINE != "pipeline" or not ident:
+        return None
+    if _is_routed_row(r):
         return None
     key = f"{r['workspace']}|{row_model(r)}"
     if not ident.get("content"):

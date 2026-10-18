@@ -1096,6 +1096,10 @@ surfaces:
   globs:
   - tests/wfe/e2e/documents_attainability.py
   unit: unit-wfe-workspace-fitness
+- name: file-tests-wfe-e2e-extract_attainability
+  globs:
+  - tests/wfe/e2e/extract_attainability.py
+  unit: unit-wfe-workspace-fitness
 - name: file-tests-wfe-e2e-fake_engines
   globs:
   - tests/wfe/e2e/fake_engines.py
@@ -1123,6 +1127,10 @@ surfaces:
 - name: file-tests-wfe-e2e-rig
   globs:
   - tests/wfe/e2e/rig.py
+  unit: unit-wfe-workspace-fitness
+- name: file-tests-wfe-e2e-routing_attainability
+  globs:
+  - tests/wfe/e2e/routing_attainability.py
   unit: unit-wfe-workspace-fitness
 - name: file-tests-wfe-e2e-tools_specialist_attainability
   globs:
@@ -1300,6 +1308,10 @@ surfaces:
   globs:
   - tests/wfe/suites/build_documents_production.py
   unit: unit-wfe-workspace-fitness
+- name: file-tests-wfe-suites-build_extract_production
+  globs:
+  - tests/wfe/suites/build_extract_production.py
+  unit: unit-wfe-workspace-fitness
 - name: file-tests-wfe-suites-build_general_production
   globs:
   - tests/wfe/suites/build_general_production.py
@@ -1315,6 +1327,10 @@ surfaces:
 - name: file-tests-wfe-suites-build_research_production
   globs:
   - tests/wfe/suites/build_research_production.py
+  unit: unit-wfe-workspace-fitness
+- name: file-tests-wfe-suites-build_routing_production
+  globs:
+  - tests/wfe/suites/build_routing_production.py
   unit: unit-wfe-workspace-fitness
 - name: file-tests-wfe-suites-build_tools_specialist_production
   globs:
@@ -1388,6 +1404,10 @@ surfaces:
   globs:
   - tests/wfe/tests/test_wfe_eval_mode.py
   unit: unit-wfe-workspace-fitness
+- name: file-tests-wfe-tests-test_wfe_extract_slice
+  globs:
+  - tests/wfe/tests/test_wfe_extract_slice.py
+  unit: unit-wfe-workspace-fitness
 - name: file-tests-wfe-tests-test_wfe_fitness_report
   globs:
   - tests/wfe/tests/test_wfe_fitness_report.py
@@ -1431,6 +1451,10 @@ surfaces:
 - name: file-tests-wfe-tests-test_wfe_research_slice
   globs:
   - tests/wfe/tests/test_wfe_research_slice.py
+  unit: unit-wfe-workspace-fitness
+- name: file-tests-wfe-tests-test_wfe_routing_slice
+  globs:
+  - tests/wfe/tests/test_wfe_routing_slice.py
   unit: unit-wfe-workspace-fitness
 - name: file-tests-wfe-tests-test_wfe_run_arm
   globs:

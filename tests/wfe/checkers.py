@@ -58,6 +58,9 @@ class CheckContext:
     sandbox_root: Path | None = None
     task: dict = None
     finish_reason: str | None = None
+    #: The pipeline's served record for the final turn ({backend, model, options}),
+    #: threaded from the row's transcript — what routed_workspace grades.
+    served: dict | None = None
 
     def __post_init__(self):
         self.assistant_texts = self.assistant_texts or []
@@ -719,6 +722,29 @@ def check_answer_after_reasoning(spec: dict, ctx: CheckContext) -> CheckResult:
     return CheckResult(Outcome.PASS, "answer appears outside the reasoning block", {})
 
 
+def check_routed_workspace(spec: dict, ctx: CheckContext) -> CheckResult:
+    """Routing single-arm's checker (WFE P3 triage §1): the gold is the workspace the
+    pipeline's router resolved for the turn — read from the row's own trace,
+    `served.options.workspace` (router/handlers.py:635, validation.py:84; the runner
+    stores it per turn, tests/wfe/runner.py:886-896) — never from the model's text.
+    No tools are offered on these rows and the routed seat's reply is deliberately
+    one word (the seat-swap cost cap); this grades where the request WENT."""
+    want = str(spec.get("workspace") or "")
+    got = str(((ctx.served or {}).get("options") or {}).get("workspace") or "")
+    if not got:
+        return CheckResult(
+            Outcome.FAIL,
+            "the trace carries no resolved workspace (served.options.workspace missing)",
+            {"served": ctx.served or {}},
+        )
+    ok = got == want
+    return CheckResult(
+        Outcome.PASS if ok else Outcome.FAIL,
+        f"routed to {got!r}, expected {want!r}",
+        {"routed_to": got, "expected": want},
+    )
+
+
 CHECKERS = {
     "pytest_pass": check_pytest_pass,
     "receipt_artifact": check_receipt_artifact,
@@ -730,6 +756,7 @@ CHECKERS = {
     "answer_contains": check_answer_contains,
     "tool_grounded": check_tool_grounded,
     "answer_after_reasoning": check_answer_after_reasoning,
+    "routed_workspace": check_routed_workspace,
     "cited_answer": check_cited_answer,
     "human_review": check_human_review,
     "compliance_reading_contract": check_compliance_reading_contract,

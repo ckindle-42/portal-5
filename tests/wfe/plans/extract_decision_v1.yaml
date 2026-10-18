@@ -1,0 +1,23 @@
+# auto-extract-uncensored's first seat decision (WFE P3 triage §8): the extraction
+# suite on extract_production (12 tasks, 4 screen, all no_tools — the lane declares no
+# tools, so no workload declares a tool_mode and tool_modes.yaml needs no entry).
+# Sensitive-flavoured fictional documents; the gold is computed by the committed
+# generator from the document spec.
+#
+# The seat is LFM2.5-8B at temperature 0.2 with no workspace predict_limit, so the
+# harness's default 2048-token output budget applies; the 8k window is the P-4 item
+# (backlogged). Confirms run at 3 repeats under the S3 policy (temperature > 0).
+#
+# Every challenger is served by auto-extract-uncensored's routed groups (backends.yaml
+# workspace_routing: general + creative) at a window of at least 8192, checked by the
+# slice tests. The operator may trim these lists before the run.
+workloads:
+  auto-extract-uncensored:
+    home: extract_production
+    discovery: []
+    arms:
+      incumbent: hf.co/gaston-parravicini/LFM2.5-8B-A1B-Uncensored-Gaston-GGUF:q4_K_M-ctx8k
+      challengers:
+        - huihui_ai/qwen3.5-abliterated:9b-ctx8k
+        - granite4.1:8b-ctx16k
+        - hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k

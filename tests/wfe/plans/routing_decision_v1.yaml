@@ -1,0 +1,22 @@
+# The `auto` router's single-arm characterisation (WFE P3 triage §1 REVISED): ONE arm,
+# no challengers — the classifier model is the LLM_ROUTER_MODEL env on the pipeline,
+# not a request parameter, so there is nothing to swap. The suite is
+# routing_production (16 tasks, 4 screen, all no_tools; kinds are the four workspaces
+# Layer 2 provably scores — the O2 group sketch named documents/data/media, which have
+# no keyword tables and are only decidable by the live LLM classifier).
+#
+# The arm is HEAD's model_hint: the classifier consults the descriptions and the
+# request text, and the row then runs the ROUTED workspace's seat for the one-word
+# reply — so the served model is expected to differ from this arm's tag on every row.
+# That is why the identity exemption exists, scoped to routed_workspace rows only
+# (tests/wfe/campaign.py identity_drift), and why rows stay no_tools with a
+# one-word reply cap (the seat-swap cost, O2 clearance limit b).
+#
+# The plan carries no tool_mode: no tools are offered on any row.
+workloads:
+  auto:
+    home: routing_production
+    discovery: []
+    arms:
+      incumbent: huihui_ai/qwen3.5-abliterated:9b-ctx8k
+      challengers: []

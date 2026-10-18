@@ -23,6 +23,7 @@ from tests.wfe.checkers import (
     check_file_exists,
     check_hidden_pytest,
     check_immutable,
+    check_routed_workspace,
     detect_refusal,
     parse_pytest_summary,
 )
@@ -195,6 +196,49 @@ class TestAnswerAfterReasoning:
         }
         ctx = CheckContext(task=task, final_text='<think>{"answer": "42"}</think>')
         assert apply_checkers(task, ctx).outcome == Outcome.FAIL
+
+
+class TestRoutedWorkspace:
+    """Routing single-arm's checker (WFE P3 triage §1): the gold is the workspace the
+    pipeline's router resolved, read from the row's own trace — never the text."""
+
+    def test_matching_workspace_passes(self):
+        ctx = CheckContext(final_text="OK", served={"options": {"workspace": "auto-coding"}})
+        r = check_routed_workspace({"workspace": "auto-coding"}, ctx)
+        assert r.outcome == Outcome.PASS and r.evidence["routed_to"] == "auto-coding"
+
+    def test_a_wrong_route_fails_with_the_destination_as_evidence(self):
+        ctx = CheckContext(final_text="OK", served={"options": {"workspace": "auto-daily"}})
+        r = check_routed_workspace({"workspace": "auto-coding"}, ctx)
+        assert r.outcome == Outcome.FAIL and r.evidence["routed_to"] == "auto-daily"
+
+    def test_a_trace_without_a_resolved_workspace_fails(self):
+        """No served record, or one without options: the row proves nothing."""
+        assert (
+            check_routed_workspace({"workspace": "auto"}, CheckContext(final_text="OK")).outcome
+            == Outcome.FAIL
+        )
+        assert (
+            check_routed_workspace(
+                {"workspace": "auto"}, CheckContext(final_text="OK", served={"model": "x"})
+            ).outcome
+            == Outcome.FAIL
+        )
+
+    def test_the_reply_text_is_never_graded(self):
+        """The routed seat could answer anything; the checker grades where the request
+        went, so even an empty reply passes when the route is right."""
+        ctx = CheckContext(final_text="", served={"options": {"workspace": "auto-spl"}})
+        assert check_routed_workspace({"workspace": "auto-spl"}, ctx).outcome == Outcome.PASS
+
+    def test_apply_checkers_runs_it_from_a_task(self):
+        task = {"id": "t", "checkers": [{"type": "routed_workspace", "workspace": "auto"}]}
+        ok = CheckContext(task=task, final_text="OK", served={"options": {"workspace": "auto"}})
+        bad = CheckContext(
+            task=task, final_text="OK", served={"options": {"workspace": "auto-math"}}
+        )
+        assert apply_checkers(task, ok).outcome == Outcome.PASS
+        assert apply_checkers(task, bad).outcome == Outcome.FAIL
 
 
 class TestCitationGrounding:

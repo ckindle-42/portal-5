@@ -1716,6 +1716,10 @@ def _finalize_run(
     econ,
 ) -> dict:
     """Grade the completed run and assemble its result row."""
+    served = next(
+        (t.get("served") for t in reversed(transcript) if (t.get("served") or {}).get("options")),
+        None,
+    )
     ctx = CheckContext(
         final_text=final_text,
         assistant_texts=assistant_texts,
@@ -1723,6 +1727,7 @@ def _finalize_run(
         sandbox_root=sandbox.root,
         task=task,
         finish_reason=finish_reason,
+        served=served,
     )
     outcome, notes, evidence = _classify(
         task, ctx, transcript, outcome_override, tool_log, tool_errors

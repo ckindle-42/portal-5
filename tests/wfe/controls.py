@@ -22,6 +22,7 @@ TODAY = dt.date.today
 ANSWER_GRADED = {
     "answer_contains",
     "answer_after_reasoning",
+    "routed_workspace",
     "cited_answer",
     "compliance_reading_contract",
     "tool_grounded",
@@ -55,6 +56,7 @@ TASK_KEYS = {
 CHECKER_KEYS = {
     "answer_contains": ({"patterns"}, {"forbid", "exact", "forbid_in_tool_output"}),
     "answer_after_reasoning": ({"patterns"}, set()),
+    "routed_workspace": ({"workspace"}, set()),
     "tool_grounded": ({"evidence"}, {"tools"}),
     "office_contains": ({"kind", "expect"}, {"exact", "path", "headings", "sheets", "titles"}),
 }
@@ -112,11 +114,13 @@ def _seed_text(task: dict) -> str:
 
 
 def _outcome(task: dict, answer: str | dict) -> tuple[Outcome, str]:
-    """A control is an answer, or {"answer", "tool_calls", "files_b64"}: a trace for a
-    trace-grounded task, and the files a produced-file task's checker should find."""
+    """A control is an answer, or {"answer", "tool_calls", "files_b64", "served"}: a trace
+    for a trace-grounded task, the files a produced-file task's checker should find, and
+    the pipeline's served record a routed_workspace task's checker should read."""
     text = answer.get("answer", "") if isinstance(answer, dict) else answer
     calls = answer.get("tool_calls") if isinstance(answer, dict) else None
     files = answer.get("files_b64") if isinstance(answer, dict) else None
+    served = answer.get("served") if isinstance(answer, dict) else None
     with tempfile.TemporaryDirectory() as td:
         for rel, b64 in (files or {}).items():
             (Path(td) / rel).parent.mkdir(parents=True, exist_ok=True)
@@ -124,7 +128,11 @@ def _outcome(task: dict, answer: str | dict) -> tuple[Outcome, str]:
         r = apply_checkers(
             task,
             CheckContext(
-                final_text=text, task=task, tool_calls=calls, sandbox_root=Path(td) if td else None
+                final_text=text,
+                task=task,
+                tool_calls=calls,
+                sandbox_root=Path(td) if td else None,
+                served=served,
             ),
         )
     return r.outcome, r.notes
