@@ -30,6 +30,7 @@ from portal.platform.inference.router.metrics import (
     _ttft_seconds,
 )
 from portal.platform.inference.router.power import _record_usage
+from portal.platform.inference.router.trace import usage_metric_kwargs
 
 _DASHBOARD = Path("config/grafana/dashboards/portal5_overview.json")
 
@@ -165,6 +166,212 @@ class TestRecordTimingSeries:
         assert _hist_sum(_tokens_per_second, model=model, workspace=workspace) - before_hist == (
             pytest.approx(2.0)
         )
+
+    def test_omlx_stream_usage_records_engine_sourced_timings(self):
+        model, workspace = "tps-omlx-stream-model", "tps-omlx-stream-ws"
+        usage_frame = json.loads(
+            '{"choices":[],"usage":{"prompt_tokens":24,"completion_tokens":6,'
+            '"time_to_first_token":0.42,"prompt_eval_duration":0.4,'
+            '"generation_duration":1.2,"total_time":1.65,'
+            '"completion_tokens_details":{"reasoning_tokens":1}}}'
+        )
+        usage_frame["choices"] = [{"message": {"reasoning_content": "Reason", "content": "Answer"}}]
+        before_decode = _counter(_decode_tokens, model=model, workspace=workspace, source="engine")
+        before_decode_s = _counter(
+            _decode_seconds, model=model, workspace=workspace, source="engine"
+        )
+        before_answer = _counter(_answer_tokens, model=model, workspace=workspace, source="engine")
+        before_answer_s = _counter(
+            _answer_seconds, model=model, workspace=workspace, source="engine"
+        )
+        before_ttft = _hist_sum(_ttft_seconds, model=model, workspace=workspace, source="engine")
+
+        _record_usage(
+            model=model,
+            workspace=workspace,
+            data=usage_frame,
+            elapsed_seconds=9.0,
+            **usage_metric_kwargs(
+                usage_frame,
+                {
+                    "ttft_s": 0.5,
+                    "reasoning_tokens": 1,
+                    "reasoning_s": 0.2,
+                    "answer_tokens": 5,
+                    "answer_s": 1.0,
+                    "total_s": 1.7,
+                },
+            ),
+        )
+
+        assert _counter(
+            _decode_tokens, model=model, workspace=workspace, source="engine"
+        ) - before_decode == pytest.approx(6)
+        assert _counter(
+            _decode_seconds, model=model, workspace=workspace, source="engine"
+        ) - before_decode_s == pytest.approx(1.2)
+        assert _counter(
+            _answer_tokens, model=model, workspace=workspace, source="engine"
+        ) - before_answer == pytest.approx(5)
+        assert _counter(
+            _answer_seconds, model=model, workspace=workspace, source="engine"
+        ) - before_answer_s == pytest.approx(1.0)
+        assert _hist_sum(
+            _ttft_seconds, model=model, workspace=workspace, source="engine"
+        ) - before_ttft == pytest.approx(0.42)
+
+    def test_ollama_stream_eval_duration_stays_engine_decode_time(self):
+        model, workspace = "tps-ollama-stream-model", "tps-ollama-stream-ws"
+        done_frame = {
+            "done": True,
+            "message": {"thinking": "Reason", "content": "Answer"},
+            "prompt_eval_count": 24,
+            "eval_count": 11,
+            "prompt_eval_duration": 1_250_000_000,
+            "eval_duration": 2_500_000_000,
+        }
+        before_decode_s = _counter(
+            _decode_seconds, model=model, workspace=workspace, source="engine"
+        )
+        before_answer_s = _counter(
+            _answer_seconds, model=model, workspace=workspace, source="engine"
+        )
+        before_ttft = _hist_sum(_ttft_seconds, model=model, workspace=workspace, source="measured")
+
+        _record_usage(
+            model=model,
+            workspace=workspace,
+            data=done_frame,
+            **usage_metric_kwargs(
+                done_frame,
+                {
+                    "ttft_s": 0.25,
+                    "reasoning_tokens": 1,
+                    "reasoning_s": 0.1,
+                    "answer_tokens": 10,
+                    "answer_s": 2.4,
+                    "total_s": 2.75,
+                },
+            ),
+        )
+
+        assert _counter(
+            _decode_seconds, model=model, workspace=workspace, source="engine"
+        ) - before_decode_s == pytest.approx(2.5)
+        assert _counter(
+            _answer_seconds, model=model, workspace=workspace, source="engine"
+        ) - before_answer_s == pytest.approx(2.4)
+        assert _hist_sum(
+            _ttft_seconds, model=model, workspace=workspace, source="measured"
+        ) - before_ttft == pytest.approx(0.25)
+
+    def test_tool_loop_model_metrics_exclude_tool_dispatch_time(self):
+        model, workspace = "tps-tool-loop-model", "tps-tool-loop-ws"
+        tool_turn = {
+            "choices": [
+                {
+                    "message": {
+                        "reasoning_content": "thinking before the tool",
+                        "tool_calls": [{"type": "function"}],
+                    }
+                }
+            ],
+            "usage": {
+                "completion_tokens": 4,
+                "completion_tokens_details": {"reasoning_tokens": 1},
+                "generation_duration": 0.4,
+            },
+        }
+        answer_turn = {
+            "choices": [{"message": {"content": "done"}}],
+            "usage": {"completion_tokens": 3, "generation_duration": 0.6},
+        }
+        before_decode_s = _counter(
+            _decode_seconds, model=model, workspace=workspace, source="engine"
+        )
+        before_answer_s = _counter(
+            _answer_seconds, model=model, workspace=workspace, source="engine"
+        )
+
+        _record_usage(
+            model=model,
+            workspace=workspace,
+            data=tool_turn,
+            **usage_metric_kwargs(
+                tool_turn,
+                {
+                    "ttft_s": 0.1,
+                    "reasoning_tokens": 0,
+                    "reasoning_s": 0,
+                    "answer_tokens": 0,
+                    "answer_s": None,
+                    "total_s": 0.5,
+                    "tool_s": 30.0,
+                },
+            ),
+        )
+        _record_usage(
+            model=model,
+            workspace=workspace,
+            data=answer_turn,
+            **usage_metric_kwargs(
+                answer_turn,
+                {
+                    "ttft_s": 0.15,
+                    "reasoning_tokens": 0,
+                    "reasoning_s": 0,
+                    "answer_tokens": 3,
+                    "answer_s": 0.6,
+                    "total_s": 0.75,
+                    "tool_s": 30.0,
+                },
+            ),
+        )
+
+        assert _counter(
+            _decode_seconds, model=model, workspace=workspace, source="engine"
+        ) - before_decode_s == pytest.approx(1.0)
+        assert _counter(
+            _answer_seconds, model=model, workspace=workspace, source="engine"
+        ) - before_answer_s == pytest.approx(0.6)
+
+    def test_nonstream_omlx_reply_uses_engine_usage_timings(self):
+        model, workspace = "tps-omlx-nonstream-model", "tps-omlx-nonstream-ws"
+        response = {
+            "choices": [{"message": {"content": "Answer"}}],
+            "usage": {
+                "prompt_tokens": 24,
+                "completion_tokens": 6,
+                "time_to_first_token": 0.42,
+                "prompt_eval_duration": 0.4,
+                "generation_duration": 1.2,
+                "total_time": 1.65,
+            },
+        }
+        before_decode_s = _counter(
+            _decode_seconds, model=model, workspace=workspace, source="engine"
+        )
+        before_answer_s = _counter(
+            _answer_seconds, model=model, workspace=workspace, source="engine"
+        )
+        before_ttft = _hist_sum(_ttft_seconds, model=model, workspace=workspace, source="engine")
+
+        _record_usage(
+            model=model,
+            workspace=workspace,
+            data=response,
+            **usage_metric_kwargs(response),
+        )
+
+        assert _counter(
+            _decode_seconds, model=model, workspace=workspace, source="engine"
+        ) - before_decode_s == pytest.approx(1.2)
+        assert _counter(
+            _answer_seconds, model=model, workspace=workspace, source="engine"
+        ) - before_answer_s == pytest.approx(1.2)
+        assert _hist_sum(
+            _ttft_seconds, model=model, workspace=workspace, source="engine"
+        ) - before_ttft == pytest.approx(0.42)
 
     def test_answer_tokens_default_to_completion_minus_reasoning(self):
         model, workspace = "tps-split-model", "tps-split-ws"

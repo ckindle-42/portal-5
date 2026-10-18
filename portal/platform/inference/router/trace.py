@@ -439,7 +439,9 @@ def _engine_timings(data: dict[str, Any], usage: dict[str, Any]) -> dict[str, An
         )
         prompt_duration = prompt_ns / 1_000_000_000 if prompt_ns is not None else None
 
-    generation_duration = _number(usage.get("generation_duration"))
+    generation_duration = _number(
+        usage.get("generation_duration") or data.get("generation_duration")
+    )
     eval_ns = _number(data.get("eval_duration") or usage.get("eval_duration"))
     if generation_duration is None and eval_ns is not None:
         generation_duration = eval_ns / 1_000_000_000
@@ -497,6 +499,8 @@ def _answer_token_count(
     total = engine["completion_tokens"]
     reasoning = engine["reasoning_tokens"]
     measured_reasoning = _int(measured.get("reasoning_tokens"))
+    if not has_answer:
+        return _int(measured.get("answer_tokens"))
     if reasoning is not None and total is not None:
         return max(0, total - reasoning)
     if total is not None and has_reasoning and measured_reasoning is not None:
@@ -555,6 +559,39 @@ def normalize_engine_timings(
     if values.get("timing_source") not in ("engine", "measured"):
         values["timing_source"] = "engine" if engine["has_timing"] else "measured"
     return _finish(values)
+
+
+def usage_metric_kwargs(
+    data: dict[str, Any], measured: dict[str, Any] | None = None
+) -> dict[str, Any]:
+    """Build per-model-call timing kwargs for ``power._record_usage``.
+
+    Engine generation duration wins for decode time. Otherwise a streamed
+    measurement supplies decode time as request-to-last-token minus TTFT; the
+    non-streaming caller deliberately does not pass wall time as decode time.
+    Tool dispatch is never included because this input describes one model call.
+    """
+    measured = measured or {}
+    usage = data.get("usage") if isinstance(data.get("usage"), dict) else {}
+    engine = _engine_timings(data, usage)
+    timings = normalize_engine_timings(data, measured)
+    decode_seconds = engine["generation_s"]
+    if (
+        decode_seconds is None
+        and "ttft_s" in measured
+        and ("answer_s" in measured or "reasoning_s" in measured)
+    ):
+        total_s = _number(measured.get("total_s"))
+        ttft_s = _number(measured.get("ttft_s"))
+        if total_s is not None and ttft_s is not None:
+            decode_seconds = max(0.0, total_s - ttft_s)
+    return {
+        "decode_seconds": decode_seconds,
+        "ttft_seconds": timings.get("ttft_s"),
+        "reasoning_tokens": timings.get("reasoning_tokens"),
+        "answer_seconds": timings.get("answer_s"),
+        "answer_tokens": timings.get("answer_tokens"),
+    }
 
 
 def start_timings() -> None:

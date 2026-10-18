@@ -47,8 +47,8 @@ _tokens_per_second = Histogram(
 
 # Token-weighted speed. Dashboards and the daily digest divide the token counter
 # by the seconds counter over a window. Never divide the lifetime histogram.
-# `source` is "engine" (Ollama eval_duration / eval_count) or "measured"
-# (caller-supplied decode_seconds / answer split / TTFT). Wall clock is not a source.
+# `source` is "engine" (Ollama eval_duration or engine usage durations/TTFT)
+# or "measured" (stream-derived decode/TTFT or answer split). Wall clock is not a source.
 _TIMING_LABELS = ["model", "workspace", "source"]
 
 _decode_tokens = Counter(

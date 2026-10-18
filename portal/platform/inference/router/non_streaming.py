@@ -46,7 +46,11 @@ from portal.platform.inference.router.tools import (
     _dispatch_tool_call,
     _select_explicit_required_tool,
 )
-from portal.platform.inference.router.trace import add_model_turn, current_portal_timings
+from portal.platform.inference.router.trace import (
+    add_model_turn,
+    current_portal_timings,
+    usage_metric_kwargs,
+)
 from portal.platform.inference.router.trace import capture as trace_capture
 from portal.platform.inference.router.trace import note as trace_note
 from portal.platform.inference.router.truncation import take_notice as take_truncation_notice
@@ -291,6 +295,7 @@ async def _run_non_streaming_chain(
         workspace=workspace_id,
         data=primary_data,
         elapsed_seconds=time.monotonic() - start_time,
+        **usage_metric_kwargs(primary_data),
     )
     return JSONResponse(
         content=primary_data,
@@ -346,22 +351,22 @@ def _apply_non_stream_response(
     except Exception:
         pass  # Never let normalisation break a valid response
 
+    _elapsed = time.monotonic() - start_time
+    _model_total_s = (
+        max(0.0, model_elapsed_s)
+        if model_elapsed_s is not None
+        else max(0.0, _elapsed - (current_portal_timings().get("tool_s") or 0.0))
+    )
     _record_usage(
         model=target_model,
         workspace=workspace_id,
         data=data,
-        elapsed_seconds=time.monotonic() - start_time,
+        elapsed_seconds=_elapsed,
+        **usage_metric_kwargs(data, {"total_s": _model_total_s}),
     )
-    _elapsed = time.monotonic() - start_time
     data["portal_timings"] = add_model_turn(
         data,
-        measured={
-            "total_s": (
-                max(0.0, model_elapsed_s)
-                if model_elapsed_s is not None
-                else max(0.0, _elapsed - (current_portal_timings().get("tool_s") or 0.0))
-            ),
-        },
+        measured={"total_s": _model_total_s},
     )
     trace_note(portal_timings=data["portal_timings"])
     if "model" not in data or not data["model"]:
@@ -673,6 +678,12 @@ async def _try_non_streaming(
                 "answer_tokens": 0,
                 "answer_s": 0,
             }
+            _record_usage(
+                model=data.get("model") or target_model,
+                workspace=workspace_id,
+                data=timing_data,
+                **usage_metric_kwargs(timing_data),
+            )
             add_model_turn(timing_data, measured={"total_s": max(0.0, time.monotonic() - started)})
             trace_note(portal_timings=current_portal_timings())
 

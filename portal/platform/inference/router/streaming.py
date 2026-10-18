@@ -93,6 +93,7 @@ from portal.platform.inference.router.trace import (
     StreamMeasurement,
     add_model_turn,
     finalize_trace,
+    usage_metric_kwargs,
 )
 from portal.platform.inference.router.trace import (
     capture as trace_capture,
@@ -1374,6 +1375,7 @@ async def _stream_from_backend_guarded(
                                 workspace=workspace_id,
                                 data=usage_data,
                                 elapsed_seconds=elapsed,
+                                **usage_metric_kwargs(usage_data, _timing_measurement.result()),
                             )
                             _usage_recorded = True
                         except Exception:
@@ -1400,6 +1402,7 @@ async def _stream_from_backend_guarded(
                                 workspace=workspace_id,
                                 data=usage_data,
                                 elapsed_seconds=elapsed,
+                                **usage_metric_kwargs(usage_data, _timing_measurement.result()),
                             )
                             _usage_recorded = True
                             _completion_tokens_seen = usage_data.get("completion_tokens", 0) or 0

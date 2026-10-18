@@ -61,6 +61,9 @@ tool-loop hops, while tool dispatch stays in `tool_s`. Streaming clients receive
 the same object in a metadata-only chunk immediately before `[DONE]`; a
 non-streaming response carries it in the body. Engine timing fields are marked
 `engine`, and stream-derived timing fields are marked `measured`.
+Per-model-call usage metrics receive the same timing rollup: generation duration and TTFT retain
+engine provenance when supplied, stream-derived decode and TTFT are marked measured, and tool
+dispatch time is excluded from decode and answer durations.
 
 ## Why
 

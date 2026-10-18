@@ -134,6 +134,56 @@ class TestStreamFallbackPlainContent:
     """Golden-output: plain content delta stream."""
 
     @pytest.mark.anyio
+    async def test_omlx_usage_frame_passes_engine_timings_to_usage_metrics(
+        self, mock_client, monkeypatch
+    ):
+        import portal.platform.inference.router.power as power
+
+        model, workspace = "recorded-omlx", "timing-stream"
+        usage_frame = {
+            "choices": [],
+            "usage": {
+                "prompt_tokens": 24,
+                "completion_tokens": 6,
+                "completion_tokens_details": {"reasoning_tokens": 1},
+                "time_to_first_token": 0.42,
+                "prompt_eval_duration": 0.4,
+                "generation_duration": 1.2,
+                "total_time": 1.65,
+            },
+        }
+        events = (
+            _sse_line({"choices": [{"index": 0, "delta": {"reasoning_content": "Reason"}}]})
+            + b"\n\n"
+            + _sse_line({"choices": [{"index": 0, "delta": {"content": "Answer"}}]})
+            + b"\n\n"
+            + _sse_line(usage_frame)
+            + b"\n\n"
+            + b"data: [DONE]\n\n"
+        )
+        ctx = _MockStreamContext(200, _stream_lines(events))
+        monkeypatch.setattr(mock_client, "stream", lambda *_args, **_kwargs: ctx)
+        calls = []
+        monkeypatch.setattr(power, "_record_usage", lambda **kwargs: calls.append(kwargs))
+
+        chunks = await _drain(
+            router_pipe._stream_from_backend_guarded(
+                url="http://omlx/v1/chat/completions",
+                body={"chat_template_kwargs": {"enable_thinking": True}},
+                workspace_id=workspace,
+                model=model,
+            )
+        )
+
+        assert "Answer" in _decode_chunks(chunks)
+        assert len(calls) == 1
+        assert calls[0]["decode_seconds"] == 1.2
+        assert calls[0]["ttft_seconds"] == 0.42
+        assert calls[0]["reasoning_tokens"] == 1
+        assert calls[0]["answer_tokens"] == 5
+        assert 0 < calls[0]["answer_seconds"] <= 1.2
+
+    @pytest.mark.anyio
     async def test_plain_content_output(self, mock_client, monkeypatch):
         events = (
             _sse_line({"choices": [{"index": 0, "delta": {"content": "Hello"}}]})

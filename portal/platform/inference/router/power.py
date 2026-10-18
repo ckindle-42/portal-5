@@ -118,13 +118,17 @@ def _nonneg_int(value: object) -> int | None:
 def _decode_observation(
     completion_tokens: int,
     eval_duration_ns: int,
+    engine_decode_seconds: float | None,
     decode_seconds: float | None,
 ) -> tuple[str, float] | None:
-    """Engine ``eval_duration``, else caller ``decode_seconds``. None if neither applies."""
+    """Engine duration, else caller-measured decode. None if neither applies."""
     if completion_tokens <= 0:
         return None
     if eval_duration_ns > 0:
         return ("engine", eval_duration_ns / 1_000_000_000)
+    engine_duration = _positive_float(engine_decode_seconds)
+    if engine_duration is not None:
+        return ("engine", engine_duration)
     measured = _positive_float(decode_seconds)
     if measured is None:
         return None
@@ -153,6 +157,8 @@ def _record_timing_series(
     workspace: str,
     completion_tokens: int,
     eval_duration_ns: int,
+    engine_decode_seconds: float | None,
+    engine_ttft_seconds: float | None,
     decode_seconds: float | None,
     ttft_seconds: float | None,
     reasoning_tokens: int | None,
@@ -161,8 +167,10 @@ def _record_timing_series(
 ) -> None:
     """Record decode, answer, and TTFT series. Never substitutes wall clock.
 
-    Decode time is Ollama ``eval_duration`` (``source="engine"``) when it is
-    present, otherwise the caller ``decode_seconds`` (``source="measured"``).
+    Decode time is Ollama ``eval_duration`` or an engine usage
+    ``generation_duration`` (``source="engine"``) when present, otherwise the
+    caller ``decode_seconds`` (``source="measured"``). TTFT uses engine
+    ``time_to_first_token`` when present and caller ``ttft_seconds`` otherwise.
     When neither is available and the response has completion tokens, the
     request is counted on ``portal_tps_unmeasured_total`` and left out of the
     new series. Answer counters move only when the caller passes the split.
@@ -170,7 +178,9 @@ def _record_timing_series(
     daily-digest accumulators.
     """
     bench = workspace.startswith("bench-")
-    observed = _decode_observation(completion_tokens, eval_duration_ns, decode_seconds)
+    observed = _decode_observation(
+        completion_tokens, eval_duration_ns, engine_decode_seconds, decode_seconds
+    )
     if completion_tokens > 0 and observed is None:
         _tps_unmeasured.labels(model=model, workspace=workspace).inc()
     if observed is not None:
@@ -183,20 +193,28 @@ def _record_timing_series(
             _state_mod._decode_tokens += completion_tokens
             _state_mod._decode_seconds += decode_s
 
-    ttft = _positive_float(ttft_seconds)
+    ttft = _positive_float(engine_ttft_seconds)
+    ttft_source = "engine"
+    if ttft is None:
+        ttft = _positive_float(ttft_seconds)
+        ttft_source = "measured"
     if ttft is not None:
-        # Caller-observed. Engine payloads do not carry time-to-first-token.
-        _ttft_seconds.labels(model=model, workspace=workspace, source="measured").observe(ttft)
+        _ttft_seconds.labels(model=model, workspace=workspace, source=ttft_source).observe(ttft)
         if not bench:
             _state_mod._ttft_samples.append(ttft)
 
     resolved_answer = _resolve_answer_tokens(completion_tokens, reasoning_tokens, answer_tokens)
     answer_s = _positive_float(answer_seconds)
     if resolved_answer is not None and resolved_answer > 0 and answer_s is not None:
-        _answer_tokens.labels(model=model, workspace=workspace, source="measured").inc(
+        answer_source = (
+            "engine"
+            if eval_duration_ns > 0 or _positive_float(engine_decode_seconds) is not None
+            else "measured"
+        )
+        _answer_tokens.labels(model=model, workspace=workspace, source=answer_source).inc(
             resolved_answer
         )
-        _answer_seconds.labels(model=model, workspace=workspace, source="measured").inc(answer_s)
+        _answer_seconds.labels(model=model, workspace=workspace, source=answer_source).inc(answer_s)
         if not bench:
             _state_mod._answer_tokens += resolved_answer
             _state_mod._answer_seconds += answer_s
@@ -224,8 +242,9 @@ def _record_usage(
 
     Shape-tolerant: missing fields are skipped, never raised. Handles four
     response shapes: Ollama top-level (``eval_count``, ``prompt_eval_count``,
-    ``eval_duration`` ns), Ollama nested under ``usage:``, OpenAI top-level
-    (``completion_tokens``, ``prompt_tokens``), OpenAI nested in ``usage``.
+    ``eval_duration`` ns), Ollama nested under ``usage:``, and OpenAI top-level
+    (``completion_tokens``, ``prompt_tokens``) or nested ``usage`` including
+    engine generation duration and TTFT.
 
     The deprecated ``portal_tokens_per_second`` histogram still prefers
     ``eval_duration`` and then ``elapsed_seconds`` (wall clock). The decode,
@@ -279,6 +298,12 @@ def _record_usage(
             or 0
         )
         eval_duration_ns = int(data.get("eval_duration") or usage.get("eval_duration") or 0)
+        engine_decode_seconds = _positive_float(
+            data.get("generation_duration") or usage.get("generation_duration")
+        )
+        engine_ttft_seconds = _positive_float(
+            data.get("time_to_first_token") or usage.get("time_to_first_token")
+        )
 
         _requests_by_model.labels(model=model, workspace=workspace).inc()
         _truncation.check(model, workspace, prompt_tokens)
@@ -338,6 +363,8 @@ def _record_usage(
             workspace=workspace,
             completion_tokens=completion_tokens,
             eval_duration_ns=eval_duration_ns,
+            engine_decode_seconds=engine_decode_seconds,
+            engine_ttft_seconds=engine_ttft_seconds,
             decode_seconds=decode_seconds,
             ttft_seconds=ttft_seconds,
             reasoning_tokens=reasoning_tokens,

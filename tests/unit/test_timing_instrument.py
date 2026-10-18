@@ -181,6 +181,40 @@ def test_pipeline_nonstream_body_carries_measured_timings_without_changing_conte
     assert body["portal_timings"]["timing_source"] == "measured"
 
 
+def test_pipeline_nonstream_passes_engine_timings_to_usage_metrics(monkeypatch):
+    start_timings()
+    recorded = {}
+    monkeypatch.setattr(non_streaming, "_record_usage", lambda **kwargs: recorded.update(kwargs))
+    data = {
+        "choices": [{"message": {"role": "assistant", "content": "Answer"}}],
+        "usage": {
+            "prompt_tokens": 24,
+            "completion_tokens": 6,
+            "time_to_first_token": 0.42,
+            "prompt_eval_duration": 0.4,
+            "generation_duration": 1.2,
+            "total_time": 1.65,
+        },
+    }
+
+    response = non_streaming._apply_non_stream_response(
+        data,
+        SimpleNamespace(id="recorded"),
+        "wfe",
+        "recorded-model",
+        time.monotonic() - 1.65,
+        model_elapsed_s=1.65,
+    )
+    body = json.loads(response.body)
+
+    assert body["choices"][0]["message"]["content"] == "Answer"
+    assert recorded["decode_seconds"] == 1.2
+    assert recorded["ttft_seconds"] == 0.42
+    assert recorded["reasoning_tokens"] == 0
+    assert recorded["answer_seconds"] == 1.2
+    assert recorded["answer_tokens"] == 6
+
+
 @pytest.mark.anyio
 async def test_final_timing_frame_is_inserted_before_done_and_keeps_content():
     start_timings()
