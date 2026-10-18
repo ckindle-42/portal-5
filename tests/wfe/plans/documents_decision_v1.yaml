@@ -8,9 +8,11 @@ workloads:
     tool_mode: production
     home: documents_production
     discovery: []
+    # Seat since 327b4e06 (operator G1: gemma4-26b BETTER than granite4.1:8b, tied
+    # Qwen3.8 at 108/108 and ~5.5x faster).
     arms:
-      incumbent: granite4.1:8b-ctx16k
+      incumbent: gemma4:26b-a4b-it-q4_K_M-ctx32k
       challengers:
         - hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k
         - granite4.1:30b-ctx96k
-        - gemma4:26b-a4b-it-q4_K_M-ctx32k
+        - granite4.1:8b-ctx16k  # the former seat

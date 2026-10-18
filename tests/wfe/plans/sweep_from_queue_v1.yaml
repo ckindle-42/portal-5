@@ -2,7 +2,8 @@
 # Incumbents come from tests/wfe/plans/*_decision_v1.yaml. A queued model is a
 # challenger only in an intended workspace whose workspace_routing groups serve
 # it and whose ctxNk window is at least that workspace's context_limit.
-notes: []
+notes:
+- 'auto-documents: gemma4:26b-a4b-it-q4_K_M-ctx32k left out: it is the incumbent'
 workloads:
   auto-compliance:
     tool_mode: production
@@ -27,8 +28,7 @@ workloads:
     home: documents_production
     discovery: []
     arms:
-      incumbent: granite4.1:8b-ctx16k
+      incumbent: gemma4:26b-a4b-it-q4_K_M-ctx32k
       challengers:
-      - gemma4:26b-a4b-it-q4_K_M-ctx32k
       - granite4.1:30b-ctx96k
       - hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k

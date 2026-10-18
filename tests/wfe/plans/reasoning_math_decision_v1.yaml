@@ -28,9 +28,11 @@ workloads:
   auto-math:
     home: reasoning_math_production
     discovery: []
+    # Seat since 538a38b7 (wfe_math_20261018d: all three challengers BETTER than
+    # phi4-mini-reasoning; operator chose glm-4.7-flash for lineage diversity).
     arms:
-      incumbent: phi4-mini-reasoning:latest-ctx24k
+      incumbent: glm-4.7-flash:Q4_K_M-ctx64k
       challengers:
         - hf.co/unsloth/DeepSeek-R1-0528-Qwen3-8B-GGUF:Q4_K_XL-ctx64k
         - hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k
-        - glm-4.7-flash:Q4_K_M-ctx64k
+        - phi4-mini-reasoning:latest-ctx24k  # the former seat
