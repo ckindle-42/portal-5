@@ -215,10 +215,21 @@ def _review_scores(campaign_dir: Path) -> dict:
     return out
 
 
+def _pooled_for_fingerprint(rows: list[dict]) -> list[dict]:
+    """Rows measured in this campaign.
+
+    A reused incumbent row is present for grading. It was copied from an earlier
+    campaign, so its source env and instrument fingerprints are not a second
+    measurement of this one."""
+    return [r for r in rows if not r.get("reused_from")]
+
+
 def _fingerprint_check(rows: list[dict], allow_mixed: bool) -> list[str]:
     """Dimension 22 as a standing gate: an Ollama upgrade changes behaviour, so
     results from different environments must not be silently pooled."""
-    fps = Counter((r.get("env") or {}).get("fingerprint", "unknown") for r in rows)
+    fps = Counter(
+        (r.get("env") or {}).get("fingerprint", "unknown") for r in _pooled_for_fingerprint(rows)
+    )
     if len(fps) <= 1:
         return []
     msg = f"MIXED ENVIRONMENT FINGERPRINTS across results: {dict(fps)}"
@@ -231,7 +242,10 @@ def _fingerprint_check(rows: list[dict], allow_mixed: bool) -> list[str]:
 
 def _instrument_check(rows: list[dict], allow_mixed: bool) -> list[str]:
     """Refuse to pool rows measured by different harness code or config."""
-    fps = Counter((r.get("instrument") or {}).get("fingerprint", "legacy") for r in rows)
+    fps = Counter(
+        (r.get("instrument") or {}).get("fingerprint", "legacy")
+        for r in _pooled_for_fingerprint(rows)
+    )
     if len(fps) <= 1:
         return []
     msg = f"MIXED INSTRUMENT FINGERPRINTS across results: {dict(fps)}"
@@ -250,7 +264,7 @@ def _grader_of(row: dict) -> str:
 
 def _grader_check(rows: list[dict], allow_mixed: bool) -> list[str]:
     """Refuse to pool rows graded by different instruments (R-7)."""
-    graders = Counter(_grader_of(r) for r in rows)
+    graders = Counter(_grader_of(r) for r in _pooled_for_fingerprint(rows))
     if len(graders) <= 1:
         return []
     msg = f"MIXED GRADERS across results: {dict(graders)}"
@@ -337,6 +351,11 @@ def _collect_warnings(rows: list[dict], manifest: dict, allow_mixed: bool) -> li
         + _grader_check(rows, allow_mixed)
         + _identity_check(rows, manifest, allow_mixed)
     )
+    reused_n = sum(1 for r in rows if r.get("reused_from"))
+    if reused_n:
+        warnings.append(
+            f"{reused_n} incumbent row(s) reused from an earlier campaign (reused_from); not re-graded"
+        )
     degen = sorted({r["repeat_degeneracy"] for r in rows if r.get("repeat_degeneracy")})
     warnings += [
         f"repeats are not independent draws: {d} — n>1 counts one observation "
@@ -697,8 +716,8 @@ def ledger_refusals(campaign_dir: Path, manifest: dict, rows: list[dict]) -> lis
     why = []
     if (manifest.get("instrument") or {}).get("engine") != "pipeline":
         why.append("not a pipeline-mode campaign: only pipeline rows are decision-grade")
-    fps = {(r.get("instrument") or {}).get("fingerprint") for r in rows}
-    if len(fps) != 1 or None in fps:
+    fps = {(r.get("instrument") or {}).get("fingerprint") for r in rows if not r.get("reused_from")}
+    if fps and (len(fps) != 1 or None in fps):
         why.append(f"rows do not share one instrument fingerprint: {sorted(map(str, fps))}")
     if not manifest.get("identity_map"):
         why.append("no frozen identities: no arm's preflight observed what served it")

@@ -143,7 +143,13 @@ The harness (`tests/wfe/`):
 - `campaign.py` + `scripts/wfe_campaign.sh` — one-arm-per-process campaign
   driver with `--debug-dir` full-run capture and `--rescore` offline re-grade;
   `--preflight` probes every arm before the sweep, and each arm releases its
-  model (`keep_alive: 0`) so co-resident weight never becomes the measurement;
+  model (`keep_alive: 0`) so co-resident weight never becomes the measurement.
+  An incumbent row is copied from an earlier campaign, and not re-graded, when
+  the suite digest, task, repeat, served identity (backend, model, content),
+  sampling, tool surface, harness digest and the deployed build's portal tree
+  all match. The copy records `reused_from: <campaign>/<row>`. `--fresh-incumbent`
+  drops those copies and runs the rows. `verify-complete` and the fitness report
+  count a copied row as present.
   `report.py` — deterministic Wilson-interval report, NOT SEPARATED not ranked.
   `sweep_plan.py` — writes `plans/sweep_from_queue_v1.yaml` from the candidate
   queue's intended workspaces and the incumbents in `plans/*_decision_v1.yaml`.

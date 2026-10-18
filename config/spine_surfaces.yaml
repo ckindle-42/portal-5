@@ -1424,6 +1424,10 @@ surfaces:
   globs:
   - tests/wfe/tests/test_wfe_gold_isolation.py
   unit: unit-wfe-workspace-fitness
+- name: file-tests-wfe-tests-test_wfe_incumbent_reuse
+  globs:
+  - tests/wfe/tests/test_wfe_incumbent_reuse.py
+  unit: unit-wfe-workspace-fitness
 - name: file-tests-wfe-tests-test_wfe_ledger_check
   globs:
   - tests/wfe/tests/test_wfe_ledger_check.py

@@ -748,6 +748,377 @@ def baseline_reusable(this_dir: Path, other_dir: Path) -> tuple[bool, str]:
     return True, "same instrument and suite content"
 
 
+#: An incumbent row is copied from an earlier campaign only when every one of these
+#: matches. This is narrower than `baseline_reusable`: the full instrument fingerprint
+#: also hashes config, the deployed sha and the service map, which this reuse does
+#: not require. `baseline_reusable` stays the campaign-level predicate and is not
+#: called from here.
+REUSE_FIELDS = (
+    "suite_digest",
+    "task_id",
+    "repeat",
+    "backend",
+    "model",
+    "content",
+    "sampling",
+    "tool_surface",
+    "harness",
+    "portal_tree",
+)
+
+
+def reuse_key(
+    *,
+    suite_digest: str | None,
+    task_id: str | None,
+    repeat: int | None,
+    identity: dict | None,
+    sampling: dict | None,
+    tool_surface: list | None,
+    harness: str | None,
+    portal_tree: str | None,
+) -> dict:
+    """The exact incumbent-reuse fingerprint. `identity` is backend, model, content."""
+    ident = identity or {}
+    return {
+        "suite_digest": suite_digest or "",
+        "task_id": task_id,
+        "repeat": repeat,
+        "backend": ident.get("backend") or "",
+        "model": ident.get("model") or "",
+        "content": ident.get("content") or "",
+        "sampling": dict(sampling or {}),
+        "tool_surface": list(tool_surface or []),
+        "harness": harness or "",
+        "portal_tree": portal_tree or "",
+    }
+
+
+def reuse_mismatch(want: dict, have: dict) -> list[str]:
+    """Field names that differ. An unobserved content id never matches, including two empties."""
+    bad = [k for k in REUSE_FIELDS if want.get(k) != have.get(k)]
+    if (not want.get("content") or not have.get("content")) and "content" not in bad:
+        bad.append("content")
+    return bad
+
+
+def _freeze_reuse_key(key: dict) -> tuple:
+    frozen = []
+    for name in REUSE_FIELDS:
+        value = key.get(name)
+        if isinstance(value, (dict, list)):
+            frozen.append(json.dumps(value, sort_keys=True))
+        else:
+            frozen.append(value)
+    return tuple(frozen)
+
+
+def suite_digest_of(campaign_dir: Path, row: dict, cache: dict | None = None) -> str | None:
+    """The suite digest this campaign's controls receipt recorded for the row's suite."""
+    if cache is not None and campaign_dir in cache:
+        digests = cache[campaign_dir]
+    else:
+        digests = campaign_suite_digests(campaign_dir)
+        if cache is not None:
+            cache[campaign_dir] = digests
+    path = str(row.get("suite_path") or "")
+    if path and path in digests:
+        return digests[path]
+    stem = row.get("suite") or Path(path).stem
+    hits = {
+        v for k, v in digests.items() if Path(k).stem == stem or Path(k).name == f"{stem}.jsonl"
+    }
+    if len(hits) == 1:
+        return next(iter(hits))
+    return None
+
+
+def expected_incumbent_sampling(stub: dict) -> dict:
+    """The sampling `run_row` would record for this stub. No model call."""
+    return _sampling_for({}, stub.get("repeat") or 0, row_overrides(stub))
+
+
+def expected_incumbent_surface(stub: dict, task: dict | None = None) -> list:
+    """The tool surface `run_row` would record. A lookup failure yields [] so the
+    row is re-run rather than matched against a guess."""
+    try:
+        no_tools = bool(task and task.get("no_tools"))
+        if ENGINE == "pipeline" and not no_tools:
+            mode = eval_mode.mode_for(stub.get("workspace") or "", stub.get("tool_mode"))
+            if mode:
+                return sorted(mode["allow"])
+        wsc = workspace_context(
+            stub.get("workspace") or "", (stub.get("overrides") or {}).get("persona")
+        )
+        return list(wsc.get("tool_surface") or TOOL_NAMES)
+    except Exception:
+        return []
+
+
+def _task_of(stub: dict, cache: dict) -> dict | None:
+    sp = stub.get("suite_path")
+    if not sp:
+        return None
+    if sp not in cache:
+        try:
+            cache[sp] = {t["id"]: t for t in load_suite(sp)}
+        except Exception:
+            cache[sp] = {}
+    return cache[sp].get(stub.get("task_id"))
+
+
+def recorded_reuse_key(campaign_dir: Path, row: dict, digests: dict | None = None) -> dict:
+    """The reuse fingerprint of a row that has already been graded."""
+    inst = row.get("instrument") or {}
+    return reuse_key(
+        suite_digest=suite_digest_of(campaign_dir, row, digests),
+        task_id=row.get("task_id"),
+        repeat=row.get("repeat"),
+        identity=row.get("identity"),
+        sampling=row.get("sampling"),
+        tool_surface=row.get("tool_surface"),
+        harness=inst.get("harness"),
+        portal_tree=inst.get("portal_tree"),
+    )
+
+
+def destination_reuse_key(
+    campaign_dir: Path,
+    manifest: dict,
+    stub: dict,
+    task: dict | None = None,
+    digests: dict | None = None,
+) -> dict:
+    """The reuse fingerprint the pending stub would have if this campaign ran it."""
+    inst = manifest.get("instrument") or {}
+    return reuse_key(
+        suite_digest=suite_digest_of(campaign_dir, stub, digests),
+        task_id=stub.get("task_id"),
+        repeat=stub.get("repeat"),
+        identity=frozen_identity(manifest, stub),
+        sampling=expected_incumbent_sampling(stub),
+        tool_surface=expected_incumbent_surface(stub, task),
+        harness=inst.get("harness"),
+        portal_tree=inst.get("portal_tree"),
+    )
+
+
+def _quality_outcome(outcome: str | None) -> bool:
+    return outcome in {o.value for o in MODEL_QUALITY_OUTCOMES}
+
+
+def _iter_incumbent_results(campaign_dir: Path) -> list[tuple[str, dict]]:
+    """Graded incumbent rows of one campaign: (campaign id, row). Read-only."""
+    try:
+        manifest = load_manifest(campaign_dir)
+    except (OSError, ValueError):
+        return []
+    cid = manifest.get("campaign_id") or campaign_dir.name
+    out = []
+    for stub in manifest.get("rows") or []:
+        if stub.get("arm_role") != "incumbent" or stub.get("state") == "PENDING":
+            continue
+        path = _row_path(campaign_dir, stub["run_id"])
+        if not path.is_file():
+            continue
+        try:
+            row = json.loads(path.read_text())
+        except (OSError, ValueError):
+            continue
+        if row.get("arm_role") != "incumbent" or not _quality_outcome(row.get("outcome")):
+            continue
+        row.setdefault("campaign_id", cid)
+        row.setdefault("run_id", stub["run_id"])
+        out.append((cid, row))
+    return out
+
+
+def _index_reusable_incumbents(
+    campaign_dir: Path, campaigns_root: Path
+) -> dict[tuple, list[tuple[str, dict]]]:
+    """Earlier campaigns' graded incumbent rows, keyed by the reuse fingerprint."""
+    index: dict[tuple, list[tuple[str, dict]]] = {}
+    if not campaigns_root.is_dir():
+        return index
+    here = campaign_dir.resolve()
+    digests: dict = {}
+    for other in sorted(p for p in campaigns_root.iterdir() if p.is_dir()):
+        try:
+            if other.resolve() == here:
+                continue
+        except OSError:
+            continue
+        if not (other / "manifest.json").is_file():
+            continue
+        for cid, row in _iter_incumbent_results(other):
+            recorded = recorded_reuse_key(other, row, digests)
+            if not recorded.get("content"):
+                continue
+            index.setdefault(_freeze_reuse_key(recorded), []).append((cid, row))
+    return index
+
+
+def _provenance(campaign_id: str, row: dict) -> str:
+    """`<campaign>/<row>`. A row that was itself copied keeps the original source."""
+    return str(row.get("reused_from") or f"{campaign_id}/{row.get('run_id')}")
+
+
+def release_reused_incumbents(campaign_dir: Path, manifest: dict) -> int:
+    """Drop copied incumbent rows so `--fresh-incumbent` runs them again.
+
+    A row this campaign graded itself has no `reused_from` and is left alone."""
+    n = 0
+    for stub in manifest.get("rows") or []:
+        if stub.get("arm_role") != "incumbent":
+            continue
+        path = _row_path(campaign_dir, stub["run_id"])
+        if not path.is_file():
+            continue
+        try:
+            row = json.loads(path.read_text())
+        except (OSError, ValueError):
+            continue
+        if not row.get("reused_from"):
+            continue
+        path.unlink()
+        stub["state"] = "PENDING"
+        stub.pop("reused_from", None)
+        stub.pop("note", None)
+        n += 1
+    if n:
+        save_manifest(campaign_dir, manifest)
+        _log(campaign_dir, f"fresh incumbent: released {n} reused row(s)")
+    return n
+
+
+def _mark_reused(manifest: dict, stub: dict, outcome: str | None, provenance: str) -> None:
+    """Record the copy on the stub and on the manifest row, which may be a different dict."""
+    for row in manifest.get("rows") or []:
+        if row.get("run_id") == stub.get("run_id"):
+            row["state"] = outcome
+            row["reused_from"] = provenance
+    stub["state"] = outcome
+    stub["reused_from"] = provenance
+
+
+def reuse_incumbent_rows(
+    campaign_dir: Path,
+    manifest: dict,
+    stubs: list[dict],
+    campaigns_root: Path | None = None,
+) -> list[str]:
+    """Copy matching incumbent rows from earlier campaigns. Returns copied run ids.
+
+    The copy keeps the earlier grade and adds `reused_from: <campaign>/<row>`.
+    It does not re-grade. Two sources that match the fingerprint and disagree on
+    the outcome are not copied."""
+    pending = [
+        s for s in stubs if s.get("arm_role") == "incumbent" and s.get("state") in (None, "PENDING")
+    ]
+    if not pending:
+        return []
+    root = campaigns_root if campaigns_root is not None else CAMPAIGNS
+    index = _index_reusable_incumbents(campaign_dir, root)
+    if not index:
+        return []
+    tasks: dict = {}
+    digests: dict = {}
+    copied: list[str] = []
+    for stub in pending:
+        path = _row_path(campaign_dir, stub["run_id"])
+        if path.is_file():
+            try:
+                existing = json.loads(path.read_text())
+            except (OSError, ValueError):
+                existing = {}
+            if existing.get("reused_from") and _quality_outcome(existing.get("outcome")):
+                _mark_reused(manifest, stub, existing["outcome"], existing["reused_from"])
+                copied.append(stub["run_id"])
+            continue
+        want = destination_reuse_key(campaign_dir, manifest, stub, _task_of(stub, tasks), digests)
+        if not want.get("content"):
+            continue
+        hits = index.get(_freeze_reuse_key(want)) or []
+        outcomes = {row.get("outcome") for _, row in hits}
+        if len(outcomes) != 1:
+            if len(outcomes) > 1:
+                _log(campaign_dir, f"not reusing {stub['run_id']}: sources disagree on the outcome")
+            continue
+        cid, src = sorted(hits, key=lambda item: (item[0], item[1].get("run_id") or ""))[0]
+        body = dict(src)
+        body["reused_from"] = _provenance(cid, src)
+        body["campaign_id"] = manifest.get("campaign_id") or campaign_dir.name
+        body["run_id"] = stub["run_id"]
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(json.dumps(body, indent=1))
+        _mark_reused(manifest, stub, body.get("outcome"), body["reused_from"])
+        copied.append(stub["run_id"])
+    if copied:
+        save_manifest(campaign_dir, manifest)
+        _log(campaign_dir, f"reused {len(copied)} incumbent row(s) from earlier campaigns")
+    return copied
+
+
+def incumbent_reuse_report(src_dir: Path, dst_dir: Path) -> dict:
+    """Read-only: which of dst's incumbent rows src could supply, and why not.
+
+    Both sides are compared as recorded. Nothing is copied and nothing is graded."""
+    dst = load_manifest(dst_dir)
+    src_rows = _iter_incumbent_results(src_dir)
+    digests: dict = {}
+    rows = []
+    for stub in dst.get("rows") or []:
+        if stub.get("arm_role") != "incumbent":
+            continue
+        path = _row_path(dst_dir, stub["run_id"])
+        recorded = None
+        if path.is_file():
+            try:
+                recorded = json.loads(path.read_text())
+            except (OSError, ValueError):
+                recorded = None
+        if recorded and recorded.get("outcome"):
+            want = recorded_reuse_key(dst_dir, recorded, digests)
+        else:
+            want = destination_reuse_key(dst_dir, dst, stub, digests=digests)
+        same = [
+            (cid, row)
+            for cid, row in src_rows
+            if row.get("task_id") == stub.get("task_id") and row.get("repeat") == stub.get("repeat")
+        ]
+        if not same:
+            rows.append(
+                {
+                    "run_id": stub["run_id"],
+                    "task_id": stub.get("task_id"),
+                    "repeat": stub.get("repeat"),
+                    "match": False,
+                    "diffs": ["no source row"],
+                }
+            )
+            continue
+        diffs = [reuse_mismatch(want, recorded_reuse_key(src_dir, row, digests)) for _, row in same]
+        ok = any(not d for d in diffs)
+        rows.append(
+            {
+                "run_id": stub["run_id"],
+                "task_id": stub.get("task_id"),
+                "repeat": stub.get("repeat"),
+                "match": ok,
+                "diffs": [] if ok else diffs[0],
+            }
+        )
+    matched = sum(1 for r in rows if r["match"])
+    return {
+        "src": src_dir.name,
+        "dst": dst_dir.name,
+        "dst_incumbent_rows": len(rows),
+        "matched": matched,
+        "unmatched": len(rows) - matched,
+        "rows": rows,
+    }
+
+
 def gate_execution(campaign_dir: Path) -> None:
     """Controls gate plus baseline check before any row of a resumed campaign runs."""
     m = load_manifest(campaign_dir)
@@ -2083,9 +2454,12 @@ def completion_problems(campaign_dir: Path) -> list[str]:
             continue
         p = _row_path(campaign_dir, r["run_id"])
         row = json.loads(p.read_text()) if p.exists() else {"outcome": "no result"}
+        reused = bool(row.get("reused_from"))
         if row.get("outcome") not in ok:
             out.append(f"{r['run_id']}: {row.get('outcome')}")
-        elif base and (row.get("instrument") or {}).get("fingerprint") != base:
+        elif base and (row.get("instrument") or {}).get("fingerprint") != base and not reused:
+            # A reused incumbent row was graded under the earlier campaign's
+            # instrument fingerprint. The reuse key already matched; it is present.
             out.append(f"{r['run_id']}: measured under another instrument")
     return out
 
@@ -2158,6 +2532,42 @@ def _finish_arm(campaign_dir, arm, model, tally, elapsed_start, notify, stop, ha
     }
 
 
+def _arm_todo(
+    campaign_dir: Path,
+    manifest: dict,
+    arm: str,
+    force_preflight: bool,
+    notify: bool,
+    rerun_failed: bool,
+    fresh_incumbent: bool,
+    curtail: bool,
+) -> tuple[list[dict], dict | None, list[str]]:
+    """Pending rows for one arm, after a fresh release, curtailment, or a row copy.
+
+    The third value is the run ids copied from earlier campaigns. An early dict
+    means the arm should return that and not start a model. Release happens
+    before curtailment so a fresh incumbent is incomplete when the challenger
+    is considered."""
+    if fresh_incumbent:
+        release_reused_incumbents(campaign_dir, manifest)
+    _prepare_arm_curtailment(campaign_dir, manifest, arm, curtail)
+    retry_states = (
+        {Outcome.HARNESS_ERROR.value, Outcome.TOOL_ERROR.value, Outcome.BLOCKED.value}
+        if rerun_failed
+        else set()
+    )
+    todo, early = _rows_to_run(campaign_dir, manifest, arm, retry_states, force_preflight, notify)
+    if early is not None or fresh_incumbent:
+        return todo, early, []
+    reused = reuse_incumbent_rows(campaign_dir, manifest, todo)
+    done = set(reused)
+    todo = [r for r in todo if r["run_id"] not in done]
+    if todo:
+        return todo, None, reused
+    _log(campaign_dir, f"arm {arm}: nothing left to run ({len(reused)} incumbent row(s) reused)")
+    return [], {"arm": arm, "ran": 0, "reused": len(reused)}, reused
+
+
 def execute_arm(
     campaign_dir: Path,
     arm: str,
@@ -2169,18 +2579,22 @@ def execute_arm(
     rerun_failed: bool = False,
     halt: bool = True,
     curtail: bool = True,
+    fresh_incumbent: bool = False,
 ) -> dict:
     """Run every pending row for ONE arm. Fresh process per arm is the house
     pattern for long sweeps: a leaked handle or a wedged connection in one model
     must not poison the remaining arms."""
     manifest = load_manifest(campaign_dir)
-    _prepare_arm_curtailment(campaign_dir, manifest, arm, curtail)
-    retry_states = (
-        {Outcome.HARNESS_ERROR.value, Outcome.TOOL_ERROR.value, Outcome.BLOCKED.value}
-        if rerun_failed
-        else set()
+    todo, early, reused = _arm_todo(
+        campaign_dir,
+        manifest,
+        arm,
+        force_preflight,
+        notify,
+        rerun_failed,
+        fresh_incumbent,
+        curtail,
     )
-    todo, early = _rows_to_run(campaign_dir, manifest, arm, retry_states, force_preflight, notify)
     if early is not None:
         return early
 
@@ -2241,7 +2655,9 @@ def execute_arm(
             break
         _curtail_after_task(campaign_dir, manifest, arm, r, curtail)
 
-    return _finish_arm(campaign_dir, arm, model, tally, t_arm, notify, stop, halted, ran)
+    out = _finish_arm(campaign_dir, arm, model, tally, t_arm, notify, stop, halted, ran)
+    out["reused"] = len(reused)
+    return out
 
 
 def build_review_queue(campaign_dir: Path) -> int:
@@ -2321,6 +2737,11 @@ def _parse_args(argv=None):
     )
     ap.add_argument(
         "--rerun-failed", action="store_true", help="also redo HARNESS_ERROR/TOOL_ERROR rows"
+    )
+    ap.add_argument(
+        "--fresh-incumbent",
+        action="store_true",
+        help="rerun incumbent rows instead of reusing an earlier campaign's matching rows",
     )
     ap.add_argument("--max-turns", type=int, default=16)
     ap.add_argument("--budget-s", type=int, default=1800, help="per task-run wall budget")
@@ -2817,6 +3238,7 @@ def main() -> int:
             args.rerun_failed,
             not args.no_halt,
             curtail=not args.no_curtail,
+            fresh_incumbent=args.fresh_incumbent,
         )
         outs.append(out or {})
         if (out or {}).get("halted"):
