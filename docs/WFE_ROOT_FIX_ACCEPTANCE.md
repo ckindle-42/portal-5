@@ -87,8 +87,8 @@
 | P5-A7 | PASS | compliance_production suite, known-open cell auto-compliance x granite4.1:30b: NOT_SEPARATED (p=1.000), RETAIN_DIVERSITY, recorded in tests/wfe/fitness_ledger.yaml; its determination half was re-run after three instrument defects (a58459eb, 92982bb6, 3e8dc44d) | 2026-10-16T20:14:32Z |
 | P5-A8 | PASS | verify-complete 0 problems on wfe_compliance_decision_20261016, wfe_data_decision_20261016 (after --rerun-failed), and both cf screens; probe campaigns removed or gitignored, no planted file committed | 2026-10-16T20:14:32Z |
 | P5-A9 | PENDING | | |
-| P5-B1 | PENDING | | |
-| P5-B2 | PENDING | | |
+| P5-B1 | PASS | candidate queue live-only 90c8f9e7; fitness map from the merged ledger 385cd35b; docs/WFE_FITNESS_MAP.md one disposition per queued model (incl. auto-math cells from wfe_math_20261018d); triage coding_task/WFE_P5_B1_QUEUE_TRIAGE.md | 2026-10-18 |
+| P5-B2 | PENDING | GATE list docs/WFE_P5_B2_GATE_LIST.md with operator decisions G1 head-to-head, G3 hold, G4 keep, G5 keep; closes after the documents head-to-head (plan 0c781c6f) | |
 | P5-C1 | PENDING | | |
 | P5-C2 | PENDING | | |
 | P5-C3 | PENDING | | |

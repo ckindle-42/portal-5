@@ -5,7 +5,9 @@ Source: `tests/wfe/fitness_ledger.yaml` — every decision-grade cell (recording
 | model | intended | cells (workspace: verdict @ campaign) | disposition | reason |
 |---|---|---|---|---|
 | gemma4:26b-a4b-it-q4_K_M-ctx32k | auto-documents | auto-documents: BETTER @wfe_documents_20261017h | FOLD | BETTER in ['auto-documents']; also in [] |
+| glm-4.7-flash:Q4_K_M-ctx64k (not queued) | (none) | auto-math: BETTER @wfe_math_20261018d | NO_DECISION | no intended workspace recorded at intake |
 | granite4.1:30b-ctx64k | auto-compliance, auto-data | auto-compliance: NOT_SEPARATED @wfe_compliance_decision_20261016; auto-data: BETTER @wfe_data_decision_20261016 | FOLD | BETTER in ['auto-data']; also in [] |
 | granite4.1:30b-ctx96k | auto-documents | auto-documents: NOT_SEPARATED @wfe_documents_20261017h | REDUNDANT | not separated in ['auto-documents']; no gain shown anywhere |
 | hf.co/bartowski/NVIDIA-Nemotron-3.5-Lightning-30B-A3B-GGUF:Q4_K_M-ctx32k | auto-data | auto-data: NOT_SEPARATED @wfe_data_decision_20261016 | RETAIN_DIVERSITY | not separated in ['auto-data']; only member of its lineage |
-| hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k | auto-data, auto-documents | auto-data: NOT_SEPARATED @wfe_data_decision_20261016; auto-documents: BETTER @wfe_documents_20261017h | FOLD | BETTER in ['auto-documents']; also in [] |
+| hf.co/unsloth/DeepSeek-R1-0528-Qwen3-8B-GGUF:Q4_K_XL-ctx64k (not queued) | (none) | auto-math: BETTER @wfe_math_20261018d | NO_DECISION | no intended workspace recorded at intake |
+| hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k | auto-data, auto-documents | auto-data: NOT_SEPARATED @wfe_data_decision_20261016; auto-documents: BETTER @wfe_documents_20261017h; auto-math: BETTER @wfe_math_20261018d | FOLD | BETTER in ['auto-documents']; also in ['auto-math'] |

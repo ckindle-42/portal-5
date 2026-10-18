@@ -168,3 +168,70 @@ cells:
   incumbent_served: *id003
   receipts: *id004
   recorded_utc: '2026-10-18T02:35:53.949497+00:00'
+- model: glm-4.7-flash:Q4_K_M-ctx64k
+  arm: glm-4.7-flash:Q4_K_M-ctx64k@card-234497e1
+  workspace: auto-math
+  incumbent: phi4-mini-reasoning:latest-ctx24k
+  tier: confirm
+  verdict: BETTER
+  reason: sign test p=0.0386; worst case p=0.0386
+  n: 36
+  wins: 10
+  losses: 2
+  ties: 24
+  p: 0.03857421875
+  campaign: wfe_math_20261018d
+  instrument: 9f64bf4b6b14f67b
+  served:
+    backend: ollama-general
+    model: glm-4.7-flash:Q4_K_M-ctx64k
+    content: 7c977485cc3c2241e5d1ceb527dc940f3a338abeed9503a9b068f24438cbe8a9
+  incumbent_served: &id005
+    backend: ollama-reasoning
+    model: phi4-mini-reasoning:latest-ctx24k
+    content: 356d8b7802e7149a9dcce496b80f40f6eb7cb97722d11a777177bdd1fa0f80e0
+  receipts: &id006
+    /Users/chris/projects/portal-5/tests/wfe/suites/reasoning_math_production.jsonl: e4fcff74ff92a476
+  recorded_utc: '2026-10-18T16:26:30.499085+00:00'
+- model: hf.co/unsloth/DeepSeek-R1-0528-Qwen3-8B-GGUF:Q4_K_XL-ctx64k
+  arm: hf.co/unsloth/DeepSeek-R1-0528-Qwen3-8B-GGUF:Q4_K_XL-ctx64k@card-5d433cb0
+  workspace: auto-math
+  incumbent: phi4-mini-reasoning:latest-ctx24k
+  tier: confirm
+  verdict: BETTER
+  reason: sign test p=0.0386; worst case p=0.0386
+  n: 36
+  wins: 10
+  losses: 2
+  ties: 24
+  p: 0.03857421875
+  campaign: wfe_math_20261018d
+  instrument: 9f64bf4b6b14f67b
+  served:
+    backend: omlx-reasoning
+    model: DeepSeek-R1-0528-Qwen3-8B-4bit
+    content: 7d5daee5c2cc5af33b9854d9aba5840d
+  incumbent_served: *id005
+  receipts: *id006
+  recorded_utc: '2026-10-18T16:26:30.499085+00:00'
+- model: hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k
+  arm: hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k@card-fd931ae2
+  workspace: auto-math
+  incumbent: phi4-mini-reasoning:latest-ctx24k
+  tier: confirm
+  verdict: BETTER
+  reason: sign test p=0.0063; worst case p=0.0063
+  n: 36
+  wins: 11
+  losses: 1
+  ties: 24
+  p: 0.00634765625
+  campaign: wfe_math_20261018d
+  instrument: 9f64bf4b6b14f67b
+  served:
+    backend: omlx-reasoning
+    model: Qwen3.8-27B-oQ4e-mtp
+    content: 7228ad7fe9dd53c6ce5445652af2341e
+  incumbent_served: *id005
+  receipts: *id006
+  recorded_utc: '2026-10-18T16:26:30.499085+00:00'
