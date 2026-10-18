@@ -66,10 +66,17 @@ def _answer_pattern(gold: str) -> str:
 
 
 def _stdout_evidence(gold: str) -> str:
-    """The gold is the ENTIRE stdout (the reference code prints only it), anchored to
-    the opening quote — no trailing-newline dependence: the attainability probe
-    collapses escaped whitespace before matching."""
-    return rf'"stdout"\s*:\s*"{re.escape(gold)}(?!"[\w.-])'
+    """The gold appears in stdout as a whole value. The instruction never asks the model
+    to print only the result, so a seat that printed ``{'answer': 572}`` or the raw float
+    next to the rounded value computed it with the tool just the same (wfe_tools_20261018b
+    graded two such rows ungrounded). Bounded on both sides: an escaped newline/tab or a
+    non-word character before, no word character or decimal part after, so ``5720``,
+    ``1572`` and ``3714.5`` do not ground 572 or 3714."""
+    return (
+        r'"stdout"\s*:\s*"(?:[^"\\]|\\.)*?(?:(?<=\\n)|(?<=\\t)|(?<![\w.]))'
+        + re.escape(gold)
+        + r"(?![\w]|\.\d)"
+    )
 
 
 def _text_evidence(gold: str) -> str:
