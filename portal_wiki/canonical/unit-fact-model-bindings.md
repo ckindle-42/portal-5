@@ -5,13 +5,13 @@ title: "model bindings \u2014 0 reachability gap(s)"
 sources:
 - type: code
   path: config/backends.yaml
-  commit: c3da7aec22e1
+  commit: c8d498027919
 - type: code
   path: config/portal.yaml
-  commit: c3da7aec22e1
+  commit: c8d498027919
 - type: code
   path: config/personas/
-  commit: c3da7aec22e1
+  commit: c8d498027919
 claims: []
 confidence: high
 tags:
@@ -19,7 +19,7 @@ tags:
 - model-bindings
 - reachability
 created_at: 1784000421.433863
-updated_at: 1792341423.505774
+updated_at: 1792342347.063273
 ---
 
 # Model bindings (reachability-resolved)
@@ -43,7 +43,7 @@ default.
 | `auto-creative` | `fredrezones55/Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive:Q4-ctx8k` | yes |
 | `auto-daily` | `gemma4:26b-a4b-it-qat-ctx16k` | yes |
 | `auto-data` | `hf.co/unsloth/Qwen3.6-35B-A3B-GGUF:UD-Q4_K_XL-ctx32k` | yes |
-| `auto-documents` | `granite4.1:8b-ctx16k` | yes |
+| `auto-documents` | `gemma4:26b-a4b-it-q4_K_M-ctx32k` | yes |
 | `auto-extract-uncensored` | `hf.co/gaston-parravicini/LFM2.5-8B-A1B-Uncensored-Gaston-GGUF:q4_K_M-ctx8k` | yes |
 | `auto-general-uncensored` | `hf.co/mradermacher/Huihui-Qwen3.6-35B-A3B-abliterated-GGUF:Q4_K_M-ctx8k` | yes |
 | `auto-image` | `granite4.1:8b-ctx16k` | yes |

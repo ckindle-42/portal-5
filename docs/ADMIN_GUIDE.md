@@ -563,7 +563,7 @@ The roster is derived from the persona YAML files under `config/personas/`, one 
 | `auto-creative` | media | `fredrezones55/Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive:Q4-ctx8k` |
 | `auto-daily` | general | `gemma4:26b-a4b-it-qat-ctx16k` |
 | `auto-data` | research | `hf.co/unsloth/Qwen3.6-35B-A3B-GGUF:UD-Q4_K_XL-ctx32k` |
-| `auto-documents` | documents | `granite4.1:8b-ctx16k` |
+| `auto-documents` | documents | `gemma4:26b-a4b-it-q4_K_M-ctx32k` |
 | `auto-extract-uncensored` | documents | `hf.co/gaston-parravicini/LFM2.5-8B-A1B-Uncensored-Gaston-GGUF:q4_K_M-ctx8k` |
 | `auto-general-uncensored` | general | `hf.co/mradermacher/Huihui-Qwen3.6-35B-A3B-abliterated-GGUF:Q4_K_M-ctx8k` |
 | `auto-image` | image | `granite4.1:8b-ctx16k` |
@@ -644,7 +644,7 @@ default.
 | `auto-creative` | `fredrezones55/Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive:Q4-ctx8k` | yes |
 | `auto-daily` | `gemma4:26b-a4b-it-qat-ctx16k` | yes |
 | `auto-data` | `hf.co/unsloth/Qwen3.6-35B-A3B-GGUF:UD-Q4_K_XL-ctx32k` | yes |
-| `auto-documents` | `granite4.1:8b-ctx16k` | yes |
+| `auto-documents` | `gemma4:26b-a4b-it-q4_K_M-ctx32k` | yes |
 | `auto-extract-uncensored` | `hf.co/gaston-parravicini/LFM2.5-8B-A1B-Uncensored-Gaston-GGUF:q4_K_M-ctx8k` | yes |
 | `auto-general-uncensored` | `hf.co/mradermacher/Huihui-Qwen3.6-35B-A3B-abliterated-GGUF:Q4_K_M-ctx8k` | yes |
 | `auto-image` | `granite4.1:8b-ctx16k` | yes |

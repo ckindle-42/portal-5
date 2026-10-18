@@ -1599,13 +1599,16 @@ workspaces:
     system_prompt_append: "\n\nSAFETY POSTURE: You are a standard-posture assistant. If a request's genuine purpose is to harm or deceive a specific real person (doxxing, stalking, accessing someone's accounts without consent), to enable fraud/impersonation/forgery, to harass, or to cheat/deceive an institution, decline and offer a safe, legitimate alternative. This does not restrict ordinary academic, professional, security-research, or fictional work \u2014 help fully with those."
     name: 📄 Portal Document Builder
     description: Create Word, Excel, PowerPoint via MCP tools
-    # 2026-09-25: sampling set to the granite-4.1 card (by purpose); prior values + A/B: docs/TASK_SEAT_SAMPLING_AB_V1.md
-    model_hint: granite4.1:8b-ctx16k
+    # 2026-10-18 operator G1: gemma4-26b-a4b seated on WFE wfe_documents_20261017h —
+    # BETTER than granite4.1:8b (p=0.0156), tied Qwen3.8 at 108/108 and ~5.5x faster
+    # (docs/WFE_DECISION_AUTO_DOCUMENTS_20261017.md). Sampling = what was measured:
+    # Google card (temperature 1.0, top_p 0.95, top_k 64) plus the lane's min_p 0.05.
+    model_hint: gemma4:26b-a4b-it-q4_K_M-ctx32k
     context_limit: 16384
     predict_limit: 8192
-    temperature: 0.0
-    top_p: 0.9
-    top_k: 40
+    temperature: 1.0
+    top_p: 0.95
+    top_k: 64
     min_p: 0.05
     tools:
     - create_word_document

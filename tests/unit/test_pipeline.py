@@ -522,15 +522,13 @@ class TestR17bModelExpansion:
             )
 
     def test_documents_workspace_uses_fast_coding_model(self):
-        """auto-documents workspace model_hint uses granite4.1:8b (tool-capable document model).
-
-        phi4:14b-q8_0 was demoted in commit 92f720b: Ollama 0.30.x rejects tool injection
-        (HTTP 400) for phi4, but auto-documents requires MCP tools (create_word_document etc.).
-        granite4.1:8b is verified tool-capable (BFCL V3 68.27) and already in fleet.
+        """auto-documents seats gemma4:26b-a4b (operator G1, 2026-10-18): WFE
+        wfe_documents_20261017h found it BETTER than granite4.1:8b and tied with Qwen3.8
+        at ~5.5x the speed (docs/WFE_DECISION_AUTO_DOCUMENTS_20261017.md).
         """
         hint = WORKSPACES["auto-documents"]["model_hint"]
-        assert "granite4.1" in hint.lower(), (
-            f"Expected auto-documents to use granite4.1:8b, got: {hint}"
+        assert "gemma4:26b-a4b" in hint.lower(), (
+            f"Expected auto-documents to use gemma4:26b-a4b, got: {hint}"
         )
 
 
@@ -571,8 +569,8 @@ class TestR18ModelCompleteness:
         assert "qwen3-coder" in WORKSPACES["auto-coding"]["model_hint"].lower(), (
             "auto-coding should use qwen3-coder:30b-a3b-q4_K_M (Qwen3-Coder-30B MoE, primary coder, promoted V2 Phase 6)"
         )
-        assert "granite4.1" in WORKSPACES["auto-documents"]["model_hint"].lower(), (
-            "auto-documents should use granite4.1:8b (tool-capable document model; phi4:14b-q8_0 rejected by Ollama 0.30.x for tool calls — see commit 92f720b)"
+        assert "gemma4:26b-a4b" in WORKSPACES["auto-documents"]["model_hint"].lower(), (
+            "auto-documents should use gemma4:26b-a4b (WFE wfe_documents_20261017h, operator G1 2026-10-18)"
         )
         # R23: VulnLLM-R-7B promoted to auto-security primary 2026-06-20
         assert "vulnllm-r-7b" in WORKSPACES["auto-security"]["model_hint"].lower(), (

@@ -1321,7 +1321,7 @@ The window is a seat property on the pipeline path — this tag is the mechanism
 
 ### `granite4.1:8b-ctx16k`
 
-`granite4.1:8b-ctx16k` is a derived context-capped tag of `granite4.1:8b`. It appears in `config/backends.yaml` under the `general`, `security`, and `reasoning` groups, always with `supports_tools: true`. In `config/portal.yaml` it is the `model_hint` for `auto-documents`, `auto-image`, `auto-video`, and `auto-compliance` — the tool-calling MCP lanes for documents, image generation, video, and compliance analysis all route on this 16K-context variant. The cap is baked in via `portal models apply-params` because Ollama's `/v1/chat/completions` ignores request-time `options.num_ctx`; a derived tag is the only way to bound context per workspace. See the base `granite4.1:8b` entry for full model detail; this unit exists to satisfy backends.yaml/MODEL_CATALOG parity.
+`granite4.1:8b-ctx16k` is a derived context-capped tag of `granite4.1:8b`. It appears in `config/backends.yaml` under the `general`, `security`, and `reasoning` groups, always with `supports_tools: true`. In `config/portal.yaml` it is the `model_hint` for `auto-image` and `auto-video`, the tool-calling MCP lanes for image and video generation. It seated `auto-documents` until 2026-10-18, when WFE `wfe_documents_20261017h` found gemma4-26b-a4b and Qwen3.8 BETTER, and the operator seated gemma4. The cap is baked in via `portal models apply-params` because Ollama's `/v1/chat/completions` ignores request-time `options.num_ctx`; a derived tag is the only way to bound context per workspace. See the base `granite4.1:8b` entry for full model detail; this unit exists to satisfy backends.yaml/MODEL_CATALOG parity.
 
 ## Why
 
@@ -2166,6 +2166,8 @@ The slate's mid-weight hybrid: 9B active puts its decode between the incumbent d
 
 ---
 
+
+Since 2026-10-18 it is the `auto-documents` seat (served through the omlx-general alias `mlx-community--gemma-4-26b-a4b-it-4bit`, as measured): BETTER than granite4.1:8b (p=0.0156), tied with Qwen3.8-27B at 108/108 and about 5.5× faster per task (docs/WFE_DECISION_AUTO_DOCUMENTS_20261017.md).
 ### `gemma4:26b-a4b-it-q4_K_M-ctx64k`
 
 `gemma4:26b-a4b-it-q4_K_M-ctx64k` is the 64K-context derived tag of the same Gemma 4 26B-A4B weights (`PARAMETER num_ctx 65536`, trained ceiling 262,144), baked 2026-09-24 and registered in the `general` group 2026-09-26 during TASK_COMPLIANCE_PIPELINE_ALIGNMENT_V1 §P2: on the pipeline the request's `num_ctx` is dropped and the window is the seat's, so the reading seat's oversized sweep material (census 2026-09-26: 4 of 255 register nodes, all fitting 65k) needs a seat that bakes it. Serves `compliance-reading-overflow`; aliased on omlx-general to the same `mlx-community--gemma-4-26b-a4b-it-4bit` conversion as the 32k tag (max_model_len 262,144 — the conversion holds the window; the 90,041-token needle passed under the balanced memory guard), so both engines of the fallback cascade hold 65k.
