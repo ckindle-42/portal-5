@@ -2023,6 +2023,198 @@ class TestReasoningFitAudit:
         assert not v
 
 
+class TestReasoningBudgetFitAudit:
+    """reasoning_budget_fit: a thinking seat's served output budget vs a
+    window-aware target — min(card max output, 32768, window // 2), half the
+    KV window staying for prompt, history and tool results. Motivated by
+    auto-reasoning serving 16384 against DeepSeek-R1-0528's 64K-max-generation
+    card — hard problems truncated mid-thought and the audit had no check that
+    could see it."""
+
+    @staticmethod
+    def _run(ws, hint, registry, tags, baked_window=None):
+        from tests.wfe.settings_audit import _audit_reasoning_budget_fit
+
+        v: list[dict] = []
+        _audit_reasoning_budget_fit("w", ws, hint, registry, tags, v, baked_window=baked_window)
+        return [x for x in v if x["kind"] == "reasoning_budget_fit"]
+
+    def test_underbudgeted_reasoning_seat_is_a_fail(self):
+        ws = {"module": "general", "think": True, "predict_limit": 8192}
+        v = self._run(
+            ws,
+            "deepseek-r1:8b",
+            {"deepseek-r1": {"recommended_max_output": 65536}},
+            {"deepseek-r1:8b"},
+        )
+        assert len(v) == 1 and v[0]["severity"] == "FAIL"
+        # the finding names the model, the served budget and the card value
+        assert "deepseek-r1:8b" in v[0]["detail"]
+        assert "8192" in v[0]["detail"] and "65536" in v[0]["detail"]
+        assert v[0]["workspace"] == "w"
+
+    def test_exactly_the_truncation_budget_warns(self):
+        # served 16384 against a 32768 target sits ON the FAIL boundary
+        # (target // 2): below it fails, 16384 warns
+        ws = {"module": "general", "think": True, "predict_limit": 16384}
+        v = self._run(
+            ws,
+            "deepseek-r1:8b",
+            {"deepseek-r1": {"recommended_max_output": 65536}},
+            {"deepseek-r1:8b"},
+        )
+        assert len(v) == 1 and v[0]["severity"] == "WARN"
+        assert "16384" in v[0]["detail"] and "32768" in v[0]["detail"]
+
+    def test_card_sized_budget_is_silent(self):
+        # the 2026-10-19 auto-reasoning fix: 40960 covers min(65536, 32768)
+        ws = {"module": "general", "think": True, "predict_limit": 40960}
+        v = self._run(
+            ws,
+            "deepseek-r1:8b",
+            {"deepseek-r1": {"recommended_max_output": 65536}},
+            {"deepseek-r1:8b"},
+        )
+        assert not v
+
+    def test_below_ceiling_but_above_floor_is_a_warn(self):
+        ws = {"think": True, "predict_limit": 24576}
+        v = self._run(ws, "m:r", {"m": {"recommended_max_output": 32768}}, {"m:r"})
+        assert len(v) == 1 and v[0]["severity"] == "WARN"
+
+    def test_pipeline_default_budget_is_measured_when_no_predict_limit(self):
+        from tests.wfe.settings_audit import PIPELINE_DEFAULT_PREDICT_LIMIT
+
+        assert PIPELINE_DEFAULT_PREDICT_LIMIT == 8192
+        ws = {"think": True}  # no predict_limit — the served cap is the default
+        v = self._run(ws, "m:r", {"m": {"recommended_max_output": 32768}}, {"m:r"})
+        assert len(v) == 1 and v[0]["severity"] == "FAIL"
+        assert f"serves {PIPELINE_DEFAULT_PREDICT_LIMIT} (pipeline default)" in v[0]["detail"]
+
+    def test_served_budget_mirrors_output_cap_context_ceiling(self):
+        from tests.wfe.settings_audit import _served_output_budget
+
+        assert _served_output_budget({"predict_limit": 40960}) == 40960
+        assert _served_output_budget({"context_limit": 4096}) == 4096
+        assert _served_output_budget({"context_limit": 98304}) == 8192
+        assert _served_output_budget({}) == 8192
+
+    def test_baked_window_from_suffix_modelfile_or_neither(self):
+        from tests.wfe.settings_audit import _baked_window
+
+        assert _baked_window("hf.co/x/R:Q4_K_M-ctx24k", {}) == 24576
+        shows = {
+            "m:t": {"modelfile": "FROM x\nPARAMETER num_ctx 65536\nPARAMETER temperature 1.0\n"}
+        }
+        assert _baked_window("m:t", shows) == 65536
+        assert _baked_window("m:t", {"m:t": {"modelfile": "FROM x"}}) is None
+        assert _baked_window("m:t", {}) is None
+
+    def test_window_caps_the_target_and_sets_the_bands(self):
+        # card would allow 32768, but half of the 24576 window is 12288:
+        # 8192 is below target yet inside the WARN band (target // 2 = 6144)
+        ws = {"think": True, "predict_limit": 8192}
+        v = self._run(
+            ws, "m:r", {"m": {"recommended_max_output": 131072}}, {"m:r"}, baked_window=24576
+        )
+        assert len(v) == 1 and v[0]["severity"] == "WARN"
+        assert "12288" in v[0]["detail"] and "half of window 24576" in v[0]["detail"]
+        # below half the target is the FAIL class again
+        ws2 = {"think": True, "predict_limit": 4096}
+        v2 = self._run(
+            ws2, "m:r", {"m": {"recommended_max_output": 131072}}, {"m:r"}, baked_window=24576
+        )
+        assert len(v2) == 1 and v2[0]["severity"] == "FAIL"
+
+    def test_seat_context_limit_overrides_the_baked_window(self):
+        # the workspace's own context_limit is the window that fills
+        ws = {"think": True, "predict_limit": 8192, "context_limit": 8192}
+        v = self._run(
+            ws, "m:r", {"m": {"recommended_max_output": 131072}}, {"m:r"}, baked_window=65536
+        )
+        assert not v  # target = min(131072, 32768, 4096) = 4096; 8192 >= target
+
+    def test_window_is_the_binding_limit(self):
+        # a small window binds harder than card or ceiling: this seat would
+        # FAIL under the card-only rule (8192 < 16384) but its 8192 window
+        # sets target 4096 and the default 8192 budget passes it
+        ws = {"think": True, "context_limit": 8192}  # no predict_limit: default 8192
+        v = self._run(ws, "m:r", {"m": {"recommended_max_output": 65536}}, {"m:r"})
+        assert not v
+
+    def test_card_below_ceiling_never_fails(self):
+        # a card that documents less than 32K (e.g. granite-4.2's thinking-mode
+        # 8192) can only ever WARN — the FAIL class is for cards claiming 32K+
+        ws = {"think": True, "predict_limit": 4096}
+        v = self._run(
+            ws,
+            "granite4.2:8b",
+            {"granite-4.2": {"recommended_max_output": 8192}},
+            {"granite4.2:8b"},
+        )
+        assert len(v) == 1 and v[0]["severity"] == "WARN"
+
+    def test_think_false_reasoning_family_is_out_of_scope(self):
+        # operator review 2026-10-19: a seat that pins think:false does not
+        # reason at runtime, so a reasoning-sized output budget does not apply
+        ws = {"module": "general", "think": False, "predict_limit": 4096}
+        v = self._run(
+            ws,
+            "hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k",
+            {"qwen3.8": {"recommended_max_output": 131072}},
+            {"hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k"},
+        )
+        assert not v
+
+    def test_reasoning_family_seat_without_think_is_checked(self):
+        # a reasoning-family model thinks at its native default; the seat is in
+        # scope even though the workspace never sets `think`
+        ws = {"module": "compliance", "predict_limit": 8192}
+        v = self._run(
+            ws,
+            "hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k",
+            {"qwen3.8": {"recommended_max_output": 131072}},
+            {"hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k"},
+        )
+        assert len(v) == 1 and v[0]["severity"] == "FAIL"
+
+    def test_think_true_seat_on_a_cardless_model_is_silent(self):
+        ws = {"think": True, "predict_limit": 4096}
+        v = self._run(ws, "gemma4:e4b-it-qat", {"gemma4": {}}, {"gemma4:e4b-it-qat"})
+        assert not v
+
+    def test_think_false_plain_model_is_out_of_scope(self):
+        ws = {"think": False, "predict_limit": 4096}
+        v = self._run(
+            ws, "llama3.1:8b", {"llama3.1": {"recommended_max_output": 32768}}, {"llama3.1:8b"}
+        )
+        assert not v
+
+    def test_uninstalled_hint_is_out_of_scope(self):
+        ws = {"think": True, "predict_limit": 4096}
+        v = self._run(ws, "m:r", {"m": {"recommended_max_output": 32768}}, set())
+        assert not v
+
+    def test_registry_values_are_positive_ints(self):
+        """A YAML edit that puts a string/bool/negative into the field must not
+        reach the audit — the check treats an unusable value as absent."""
+        from tests.wfe.settings_audit import _load_expectations
+
+        reg = _load_expectations()
+        carried = [
+            k for k, e in reg.items() if isinstance(e, dict) and "recommended_max_output" in e
+        ]
+        assert carried, "registry lost every recommended_max_output entry"
+        for key in carried:
+            value = reg[key]["recommended_max_output"]
+            assert isinstance(value, int) and not isinstance(value, bool) and value > 0, key
+        # the motivating card documents its 64K maximum generation
+        assert reg["deepseek-r1"]["recommended_max_output"] == 65536
+        # review 2026-10-19: usage-example numbers (k2-horizon, nemotron) are
+        # not recommendations — those entries must not carry the field
+        assert "k2-horizon" not in carried and "nemotron-3.5-lightning" not in carried
+
+
 class TestTransientPreflightIsRecoverable:
     """A flaky probe must not cost an arm its whole row budget for the rest of a
     multi-day sweep.
