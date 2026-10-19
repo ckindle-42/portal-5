@@ -236,7 +236,9 @@ def test_the_plan_arms_are_served_by_the_workspaces_groups_and_fit_its_window():
         m["id"] for b in backends["backends"] if b["group"] in groups for m in b.get("models") or []
     }
     arms = plan["arms"]
-    assert arms["incumbent"] == portal["model_hint"] and plan["tool_mode"] == "production"
+    # A decided plan: the seat it produced is one of its arms (WFE_DECISION_TOOLS_SPECIALIST).
+    assert portal["model_hint"] in [arms["incumbent"], *arms["challengers"]]
+    assert plan["tool_mode"] == "production"
     assert plan["home"] == "tools_specialist_production" and plan["discovery"] == []
     assert 3 <= len(arms["challengers"]) <= 6
     for tag in [arms["incumbent"], *arms["challengers"]]:
