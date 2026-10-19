@@ -757,6 +757,7 @@ def baseline_reusable(this_dir: Path, other_dir: Path) -> tuple[bool, str]:
 _HARNESS_TOOLS = frozenset(TOOL_NAMES)
 _SHA_RE = re.compile(r"[0-9a-f]{7,40}\Z")
 _TOOL_DEF_RE = re.compile(r"def ([A-Za-z_][A-Za-z0-9_]*)\b")
+_TOOL_ROUTE_RE = re.compile(r'custom_route\("/tools/([A-Za-z_][A-Za-z0-9_]*)"')
 _tool_index_cache: dict[str, dict[str, str]] = {}
 REUSE_FIELDS = (
     "suite_digest",
@@ -957,7 +958,7 @@ def _tool_index(sha: str) -> dict[str, str]:
     if sha in _tool_index_cache:
         return _tool_index_cache[sha]
     index: dict[str, str] = {}
-    out = _git("grep", "-E", r"^def [A-Za-z_]", sha, "--", "portal/modules")
+    out = _git("grep", "-E", r"^(async )?def [A-Za-z_]", sha, "--", "portal/modules")
     for line in out.splitlines():
         try:
             _rev, path, text = line.split(":", 2)
@@ -968,6 +969,27 @@ def _tool_index(sha: str) -> dict[str, str]:
         if not found or len(parts) < 3 or parts[0] != "portal" or parts[1] != "modules":
             continue
         index.setdefault(found.group(1), f"portal/modules/{parts[2]}")
+    # A `/tools/<name>` route is the served tool itself, so it wins over a same-named
+    # function elsewhere (field_journal's `def recall` used to claim the memory tool).
+    # Platform services (the memory server) expose tools only this way; without these,
+    # every row offered remember/recall had an unplaced tool and was never reusable.
+    out = _git(
+        "grep", "-E", r'custom_route\("/tools/', sha, "--", "portal/modules", "portal/platform"
+    )
+    for line in out.splitlines():
+        try:
+            _rev, path, text = line.split(":", 2)
+        except ValueError:
+            continue
+        found = _TOOL_ROUTE_RE.search(text)
+        parts = path.split("/")
+        if (
+            found
+            and len(parts) >= 3
+            and parts[0] == "portal"
+            and parts[1] in ("modules", "platform")
+        ):
+            index[found.group(1)] = f"portal/{parts[1]}/{parts[2]}"
     _tool_index_cache[sha] = index
     return index
 

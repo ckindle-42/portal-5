@@ -437,3 +437,32 @@ def test_pipeline_digest_keys_on_the_rows_own_workspace_block():
     assert campaign.pipeline_at(parent, "auto-documents") == campaign.pipeline_at(
         child, "auto-documents"
     )
+
+
+def test_tool_index_places_route_served_and_async_tools(monkeypatch):
+    """remember/recall are memory-server routes and execute_python is an async def; all
+    three must place, and a route beats a same-named function in another module
+    (field_journal's `def recall` used to claim the memory tool)."""
+    sha = "a" * 40
+    defs = "\n".join(
+        [
+            f"{sha}:portal/modules/coding/tools/code_sandbox_mcp.py:async def execute_python(",
+            f"{sha}:portal/modules/security/core/field_journal.py:def recall(",
+        ]
+    )
+    routes = "\n".join(
+        [
+            f'{sha}:portal/platform/memory/graph_memory.py:    mcp.custom_route("/tools/remember", methods=["POST"])(x)',
+            f'{sha}:portal/platform/memory/graph_memory.py:    mcp.custom_route("/tools/recall", methods=["POST"])(x)',
+        ]
+    )
+
+    def fake_git(*args: str) -> str:
+        return routes if any("custom_route" in a for a in args) else defs
+
+    monkeypatch.setattr(campaign, "_git", fake_git)
+    monkeypatch.setattr(campaign, "_tool_index_cache", {})
+    index = campaign._tool_index(sha)
+    assert index["execute_python"] == "portal/modules/coding"
+    assert index["remember"] == "portal/platform/memory"
+    assert index["recall"] == "portal/platform/memory"
