@@ -999,7 +999,7 @@ workspaces:
         repeat_penalty: 1.0
         # think:true — the pentest loop (read tool output → decide next command →
         # execute) is genuinely reasoning-heavy, and 35B-A3B stays coherent even
-        # abliterated. ctx 8192->24576 + predict_limit 8192 so the <think> chain
+        # abliterated. ctx 8192->24576 + predict_limit 12288 so the <think> chain
         # has room to finish before the phase sections rather than truncate to
         # empty (the AEON pattern). Needs a lab-exec run to confirm the
         # "call execute_bash FIRST" + phase-header structure still hold.
