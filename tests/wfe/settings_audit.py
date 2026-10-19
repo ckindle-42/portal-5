@@ -1332,11 +1332,8 @@ def _seats(portal: dict):
                 yield f"{ws_id}::{vname}", merged
 
 
-def run_audit(behavioral: bool = False) -> dict:
-    registry = _load_expectations()
-    portal = yaml.safe_load((REPO / "config/portal.yaml").read_text())
-    backends = yaml.safe_load((REPO / "config/backends.yaml").read_text())
-
+def _registered_models(backends: dict) -> tuple[set[str], dict[str, bool]]:
+    """Model ids registered in backends.yaml, and each one's supports_tools flag."""
     registered: set[str] = set()
     tool_flags: dict[str, bool] = {}
     for b in backends.get("backends", []):
@@ -1344,7 +1341,51 @@ def run_audit(behavioral: bool = False) -> dict:
             if isinstance(m, dict) and m.get("id"):
                 registered.add(m["id"])
                 tool_flags[m["id"]] = bool(m.get("supports_tools"))
+    return registered, tool_flags
 
+
+def _audit_seat(ws_id: str, ws: dict, ctx: dict, violations: list[dict]) -> dict:
+    """Every per-seat check, on the path the pipeline actually serves the seat."""
+    hint = ws["model_hint"]
+    resolved = _served_path(ws_id, hint, ctx["reg"])
+    if resolved:
+        engine, backend_id, served_id = resolved
+    else:
+        # Unroutable (hint_unroutable): keep the heuristic engine so the rest still runs.
+        engine, backend_id, served_id = (
+            seat_engine(hint, ctx["backends"], ctx["omlx_ids"]),
+            "",
+            hint,
+        )
+    tags, registry = ctx["tags"], ctx["registry"]
+    _audit_workspace(
+        ws_id, ws, tags, ctx["registered"], ctx["tool_flags"], violations, omlx=engine == "omlx"
+    )
+    _audit_reasoning_fit(ws_id, ws, hint, registry, tags, violations)
+    omlx_entry = _audit_omlx_settings(ws_id, served_id, violations) if engine == "omlx" else {}
+    _served_sampling_check(ws_id, ws, hint, engine, registry, violations, served_id=served_id)
+    if engine == "ollama":
+        _audit_template_conformance(ws_id, served_id, ctx["shows"], ctx["tmap"], violations)
+        _audit_stop_hygiene(ws_id, served_id, ctx["shows"], violations)
+    defaults = (
+        baked_params(hint)
+        if engine == "ollama"
+        else {**omlx_default_sampling(), **_omlx_entry_sampling(omlx_entry)}
+    )
+    _audit_sampling_mode_fit(ws_id, ws, hint, defaults, registry, violations)
+    if hint in tags:
+        _card_check(hint, baked_params(hint), registry, violations, ws_id)
+        if ctx["behavioral"]:
+            _behavioral_probes(hint, violations, ws_id)
+    return {"engine": engine, "backend": backend_id, "model": served_id}
+
+
+def run_audit(behavioral: bool = False) -> dict:
+    registry = _load_expectations()
+    portal = yaml.safe_load((REPO / "config/portal.yaml").read_text())
+    backends = yaml.safe_load((REPO / "config/backends.yaml").read_text())
+
+    registered, tool_flags = _registered_models(backends)
     tags = installed_tags(backends)
     council_path = REPO / "config/compliance/council.yaml"
     seats: dict = {}
@@ -1371,35 +1412,22 @@ def run_audit(behavioral: bool = False) -> dict:
         _show(t, shows)
     tmap = template_map(shows)
 
+    ctx = {
+        "reg": reg,
+        "backends": backends,
+        "omlx_ids": omlx_ids,
+        "tags": tags,
+        "registered": registered,
+        "tool_flags": tool_flags,
+        "registry": registry,
+        "shows": shows,
+        "tmap": tmap,
+        "behavioral": behavioral,
+    }
     served_paths: dict[str, dict] = {}
     for ws_id, ws in served_seats:
         checked += 1
-        hint = ws["model_hint"]
-        resolved = _served_path(ws_id, hint, reg)
-        if resolved:
-            engine, backend_id, served_id = resolved
-        else:
-            # Unroutable (hint_unroutable above): keep the heuristic engine so
-            # the rest of the audit still runs on something.
-            engine, backend_id, served_id = seat_engine(hint, backends, omlx_ids), "", hint
-        served_paths[ws_id] = {"engine": engine, "backend": backend_id, "model": served_id}
-        _audit_workspace(ws_id, ws, tags, registered, tool_flags, violations, omlx=engine == "omlx")
-        _audit_reasoning_fit(ws_id, ws, hint, registry, tags, violations)
-        omlx_entry = _audit_omlx_settings(ws_id, served_id, violations) if engine == "omlx" else {}
-        _served_sampling_check(ws_id, ws, hint, engine, registry, violations, served_id=served_id)
-        if engine == "ollama":
-            _audit_template_conformance(ws_id, served_id, shows, tmap, violations)
-            _audit_stop_hygiene(ws_id, served_id, shows, violations)
-        defaults = (
-            baked_params(hint)
-            if engine == "ollama"
-            else {**omlx_default_sampling(), **_omlx_entry_sampling(omlx_entry)}
-        )
-        _audit_sampling_mode_fit(ws_id, ws, hint, defaults, registry, violations)
-        if hint in tags:
-            _card_check(hint, baked_params(hint), registry, violations, ws_id)
-            if behavioral:
-                _behavioral_probes(hint, violations, ws_id)
+        served_paths[ws_id] = _audit_seat(ws_id, ws, ctx, violations)
 
     personas_checked = _audit_personas(tags, violations)
     _audit_council(seats, tags, registered, violations)
