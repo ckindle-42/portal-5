@@ -1431,6 +1431,7 @@ class TestSeatSamplingFollowsTheGuidance:
             sa, "_expectations_for", lambda _h, _r: ("qwen3.8", registry["qwen3.8"])
         )
         monkeypatch.setattr(sa, "omlx_default_sampling", lambda: {})
+        monkeypatch.setattr(sa, "_omlx_model_settings", lambda _mid: {})
         v: list[dict] = []
         hint = "hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k"
         sa._served_sampling_check(
@@ -2860,3 +2861,475 @@ class TestSelectionBiasFixes:
         assert (REPO / "tests/wfe/graded/code_summarize/test_summarize.py").is_file()
         research = {t["id"]: t for t in load_suite(REPO / "tests/wfe/suites/research.jsonl")}
         assert "Modelfile" in research["res-ollama-ctx"]["checkers"][0]["patterns"]
+
+
+class TestServedEngine:
+    """served_engine: the audit resolves each seat the way the pipeline does —
+    routing groups, backend priority, alias translation, oMLX groups included —
+    so every later check audits the path production actually serves."""
+
+    BACKENDS = """\
+backends:
+- group: general
+  id: ollama-general
+  type: ollama
+  url: http://localhost:11434
+  models: [gemma4:26b]
+- group: coding
+  id: ollama-coding
+  type: ollama
+  url: http://localhost:11434
+  models: [kat-coder:Q4]
+- group: general
+  id: omlx-general
+  type: omlx
+  url: http://localhost:8085
+  priority: 10
+  models:
+  - id: unsloth--Qwen3.6-35B-A3B-UD-MLX-4bit
+    supports_tools: true
+  aliases:
+    hf.co/unsloth/Qwen3.6-35B-GGUF:Q4_K_M: unsloth--Qwen3.6-35B-A3B-UD-MLX-4bit
+workspace_routing:
+  auto-daily: [general]
+  auto-coding: [coding, general]
+defaults:
+  fallback_group: general
+"""
+
+    def _reg(self, tmp_path):
+        from portal.platform.inference.cluster_backends import BackendRegistry
+
+        p = tmp_path / "backends.yaml"
+        p.write_text(self.BACKENDS)
+        return BackendRegistry(str(p))
+
+    def test_an_omlx_alias_serves_the_omlx_path_and_names_the_served_model(self, tmp_path):
+        from tests.wfe.settings_audit import _served_path
+
+        got = _served_path(
+            "auto-daily", "hf.co/unsloth/Qwen3.6-35B-GGUF:Q4_K_M", self._reg(tmp_path)
+        )
+        assert got == ("omlx", "omlx-general", "unsloth--Qwen3.6-35B-A3B-UD-MLX-4bit")
+
+    def test_a_plain_hint_on_a_10_priority_group_still_resolves_ollama(self, tmp_path):
+        """The priority-10 oMLX backend is tried first; when it cannot serve the
+        hint the Ollama backend behind it does — engine ollama, not a guess."""
+        from tests.wfe.settings_audit import _served_path
+
+        assert _served_path("auto-daily", "gemma4:26b", self._reg(tmp_path)) == (
+            "ollama",
+            "ollama-general",
+            "gemma4:26b",
+        )
+
+    def test_the_first_routing_group_wins_over_the_priority_10_fallback(self, tmp_path):
+        from tests.wfe.settings_audit import _served_path
+
+        assert _served_path("auto-coding", "kat-coder:Q4", self._reg(tmp_path)) == (
+            "ollama",
+            "ollama-coding",
+            "kat-coder:Q4",
+        )
+
+    def test_no_backend_resolving_the_hint_is_none(self, tmp_path):
+        from tests.wfe.settings_audit import _served_path
+
+        assert _served_path("auto-daily", "nope:latest", self._reg(tmp_path)) is None
+
+
+class TestTemplateConformance:
+    """template_conformance: the expectation per architecture is DERIVED from the
+    locally installed library builds (any tag whose modelfile carries a RENDERER,
+    most common pair wins) — never a hand-written table."""
+
+    @staticmethod
+    def _show(arch, ren="", par="", template="{{ .Prompt }}", params=""):
+        modelfile = ""
+        if ren:
+            modelfile += f"RENDERER {ren}\n"
+        if par:
+            modelfile += f"PARSER {par}\n"
+        return {
+            "model_info": {"general.architecture": arch},
+            "modelfile": modelfile,
+            "template": template,
+            "parameters": params,
+        }
+
+    @staticmethod
+    def _audit(tag, show, library):
+        import tests.wfe.settings_audit as sa
+
+        shows = {tag: show, **library}
+        v: list[dict] = []
+        sa._audit_template_conformance("w", tag, shows, sa.template_map(shows), v)
+        return v
+
+    def test_the_map_is_the_most_common_pair_per_architecture(self):
+        import tests.wfe.settings_audit as sa
+
+        shows = {
+            "a": self._show("qwen35", "qwen3.5", "qwen3.5"),
+            "b": self._show("qwen35", "qwen3.5", "qwen3.5"),
+            "c": self._show("qwen35", "qwen3.8", "qwen3.5"),
+            "d": self._show("gemma4", "gemma4", "gemma4"),
+        }
+        assert sa.template_map(shows) == {
+            "qwen35": ("qwen3.5", "qwen3.5"),
+            "gemma4": ("gemma4", "gemma4"),
+        }
+
+    def test_a_tie_resolves_deterministically(self):
+        import tests.wfe.settings_audit as sa
+
+        shows = {
+            "a": self._show("arch", "rend1", "p1"),
+            "b": self._show("arch", "rend2", "p2"),
+        }
+        assert sa.template_map(shows) == sa.template_map(dict(reversed(list(shows.items()))))
+
+    def test_a_raw_jinja_tag_on_a_mapped_architecture_fails(self):
+        lib = {"lib": self._show("gemma4", "gemma4", "gemma4", "<real template>")}
+        v = self._audit("raw:Q4", self._show("gemma4"), lib)
+        assert [(x["kind"], x["severity"]) for x in v] == [("template_raw_jinja", "FAIL")]
+        assert "gemma4/gemma4" in v[0]["detail"]
+
+    def test_a_raw_jinja_tag_on_an_unmapped_architecture_passes(self):
+        v = self._audit("granite:Q4", self._show("granite"), {})
+        assert v == []
+
+    def test_a_library_conforming_tag_is_clean(self):
+        lib = {"lib": self._show("qwen35", "qwen3.5", "qwen3.5", "<real>")}
+        v = self._audit(
+            "hf.co/x/Qwen3.6-GGUF:Q4",
+            self._show("qwen35", "qwen3.5", "qwen3.5", "<real>"),
+            lib,
+        )
+        assert v == []
+
+    def test_a_renderer_the_library_does_not_carry_fails(self):
+        lib = {
+            "lib-a": self._show("qwen35", "qwen3.5", "qwen3.5", "<real>"),
+            "lib-b": self._show("qwen35", "qwen3.5", "qwen3.5", "<real>"),
+        }
+        v = self._audit("retemplated:Q4", self._show("qwen35", "qwen3.8", "qwen3.8", "<real>"), lib)
+        assert [(x["kind"], x["severity"]) for x in v] == [("template_renderer_mismatch", "FAIL")]
+
+    def test_a_second_library_renderer_for_the_arch_is_legitimate(self):
+        """qwen35 carries qwen3.5 and qwen3.8 in the library; a Qwen3.8 tag on
+        qwen3.8 is the documented build, not a majority-vote loser."""
+        lib = {
+            "lib-a": self._show("qwen35", "qwen3.5", "qwen3.5", "<real>"),
+            "lib-b": self._show("qwen35", "qwen3.5", "qwen3.5", "<real>"),
+            "lib-c": self._show("qwen35", "qwen3.8", "qwen3.5", "<real>"),
+        }
+        v = self._audit(
+            "hf.co/unsloth/Qwen3.8-27B:Q4",
+            self._show("qwen35", "qwen3.8", "qwen3.5", "<real>"),
+            lib,
+        )
+        assert v == []
+
+    def test_a_raw_jinja_tag_expects_its_family_renderer(self):
+        lib = {
+            "lib-a": self._show("qwen35", "qwen3.5", "qwen3.5", "<real>"),
+            "lib-b": self._show("qwen35", "qwen3.5", "qwen3.5", "<real>"),
+            "lib-c": self._show("qwen35", "qwen3.8", "qwen3.5", "<real>"),
+        }
+        raw = self._show("qwen35", "", "", "{{ .Prompt }}")
+        v = self._audit("hf.co/unsloth/Qwen3.8-27B:Q4", raw, lib)
+        assert len(v) == 1 and "qwen3.8/qwen3.5" in v[0]["detail"]
+
+    def test_a_laguna_build_named_21_must_use_poolside_v1(self):
+        """XS.2's `laguna` parser on a 2.1 build is the finding that started this
+        check — it must fail even when the laguna-arch map says otherwise."""
+        lib = {
+            "xs2-a": self._show("laguna", "laguna", "laguna", "<real>"),
+            "xs2-b": self._show("laguna", "laguna", "laguna", "<real>"),
+            "lib21": self._show("laguna", "poolside-v1", "poolside-v1", "<real>"),
+        }
+        v = self._audit(
+            "laguna-xs-2.1:latest",
+            self._show("laguna", "poolside-v1", "laguna", "<real>"),
+            lib,
+        )
+        assert [(x["kind"], x["severity"]) for x in v] == [("template_parser_mismatch", "FAIL")]
+
+    def test_a_laguna_21_build_on_poolside_v1_is_clean_even_against_the_map(self):
+        lib = {
+            "xs2-a": self._show("laguna", "laguna", "laguna", "<real>"),
+            "xs2-b": self._show("laguna", "laguna", "laguna", "<real>"),
+        }
+        v = self._audit(
+            "laguna-xs-2.1:latest",
+            self._show("laguna", "poolside-v1", "poolside-v1", "<real>"),
+            lib,
+        )
+        assert v == []
+
+    def test_a_laguna_build_that_is_not_21_follows_the_map(self):
+        lib = {"xs2-a": self._show("laguna", "laguna", "laguna", "<real>")}
+        v = self._audit("laguna-xs:2.0", self._show("laguna", "laguna", "laguna", "<real>"), lib)
+        assert v == []
+
+    def test_xs21_without_the_dot_is_still_named_21(self):
+        lib = {"xs2-a": self._show("laguna", "laguna", "laguna", "<real>")}
+        v = self._audit(
+            "portal5/laguna-xs21:q4_K_M",
+            self._show("laguna", "poolside-v1", "laguna", "<real>"),
+            lib,
+        )
+        assert [x["kind"] for x in v] == ["template_parser_mismatch"]
+
+
+class TestStopHygiene:
+    def _audit(self, params):
+        import tests.wfe.settings_audit as sa
+
+        shows = {"t:Q4": {"parameters": params}}
+        v: list[dict] = []
+        sa._audit_stop_hygiene("w", "t:Q4", shows, v)
+        return v
+
+    def test_a_baked_think_stop_is_a_fail(self):
+        v = self._audit('temperature 0.7\nstop    "<think>"\nstop    "<|im_end|>"')
+        assert [(x["kind"], x["severity"]) for x in v] == [("stop_hygiene", "FAIL")]
+        assert "<think>" in v[0]["detail"]
+
+    def test_baked_jinja_fragments_are_a_fail(self):
+        assert self._audit('stop    "{{ .Prompt }}"') != []
+        assert self._audit('stop    ".Prompt }}"') != []
+
+    def test_clean_stops_pass(self):
+        assert self._audit('stop    "<|im_end|>"\nstop    "<|im_start|>user"') == []
+
+    def test_no_parameters_at_all_passes(self):
+        assert self._audit("") == []
+
+
+class TestOmlxSettings:
+    """omlx_settings: the served oMLX model's ~/.omlx/model_settings.json entry
+    is what the card is judged against; 'no entry' is INFO (oMLX then serves the
+    request's sampling)."""
+
+    def test_no_entry_is_info_not_a_fault(self, monkeypatch):
+        import tests.wfe.settings_audit as sa
+
+        monkeypatch.setattr(sa, "_omlx_model_settings", lambda _mid: {})
+        v: list[dict] = []
+        sa._audit_omlx_settings("w", "model-4bit", v)
+        assert [(x["kind"], x["severity"]) for x in v] == [("omlx_settings_no_entry", "INFO")]
+
+    def test_the_reader_parses_a_canned_model_settings(self, tmp_path, monkeypatch):
+        import tests.wfe.settings_audit as sa
+
+        home = tmp_path / "home"
+        (home / ".omlx").mkdir(parents=True)
+        (home / ".omlx" / "model_settings.json").write_text(
+            json.dumps({"models": {"m-4bit": {"temperature": 0.7, "enable_thinking": False}}})
+        )
+        monkeypatch.setattr(sa.Path, "home", lambda: home)
+        assert sa._omlx_model_settings("m-4bit") == {
+            "temperature": 0.7,
+            "enable_thinking": False,
+        }
+        assert sa._omlx_model_settings("absent") == {}
+
+    def test_repetition_penalty_maps_to_the_card_key(self):
+        import tests.wfe.settings_audit as sa
+
+        assert sa._omlx_entry_sampling({"repetition_penalty": 1.05, "mtp_enabled": True}) == {
+            "repeat_penalty": 1.05
+        }
+
+    def test_the_entry_is_what_the_card_is_judged_against(self, monkeypatch):
+        """The global oMLX default says 0.7; the entry bakes the thinking card's
+        1.0 — served is 1.0, so the seat must be judged clean, not by the global."""
+        import tests.wfe.settings_audit as sa
+
+        registry = {
+            "qwen3.6": {
+                "status": "verified-card",
+                "recommended_sampling_modes": {
+                    "thinking": {"temperature": 1.0, "presence_penalty": 0.0}
+                },
+            }
+        }
+        monkeypatch.setattr(
+            sa, "_expectations_for", lambda _h, _r: ("qwen3.6", registry["qwen3.6"])
+        )
+        monkeypatch.setattr(sa, "omlx_default_sampling", lambda: {"temperature": 0.7})
+        monkeypatch.setattr(
+            sa,
+            "_omlx_model_settings",
+            lambda _mid: {"temperature": 1.0, "presence_penalty": 0.0, "enable_thinking": True},
+        )
+        ws = {"model_hint": "Laguna-X-4bit", "think": True}
+        v: list[dict] = []
+        sa._served_sampling_check(
+            "w", ws, "hf.co/x/Qwen3.6-GGUF:Q4", "omlx", registry, v, served_id="Laguna-X-4bit"
+        )
+        assert v == []
+
+    def test_an_entry_off_the_card_fails_the_served_seat(self, monkeypatch):
+        import tests.wfe.settings_audit as sa
+
+        registry = {
+            "qwen3.6": {
+                "status": "verified-card",
+                "recommended_sampling_modes": {
+                    "thinking": {"temperature": 1.0, "presence_penalty": 0.0}
+                },
+            }
+        }
+        monkeypatch.setattr(
+            sa, "_expectations_for", lambda _h, _r: ("qwen3.6", registry["qwen3.6"])
+        )
+        monkeypatch.setattr(sa, "omlx_default_sampling", lambda: {})
+        monkeypatch.setattr(
+            sa, "_omlx_model_settings", lambda _mid: {"temperature": 0.7, "enable_thinking": False}
+        )
+        ws = {"model_hint": "Laguna-X-4bit", "think": True}
+        v: list[dict] = []
+        sa._served_sampling_check(
+            "w", ws, "hf.co/x/Qwen3.6-GGUF:Q4", "omlx", registry, v, served_id="Laguna-X-4bit"
+        )
+        assert [x["kind"] for x in v] == ["served_vs_card"]
+        assert [x["severity"] for x in v] == ["FAIL"]
+        assert "temperature" in v[0]["detail"]
+
+
+class TestSamplingModeFit:
+    """sampling_mode_fit: a tools/coding seat must serve the card's coding/precise
+    arm when the card documents one — the general arm's presence 1.5 is the
+    tool-refusal regime, and the card names the numbers that work."""
+
+    MODES = {
+        "thinking_general": {"temperature": 0.7, "presence_penalty": 1.5},
+        "thinking_precise_coding": {"temperature": 0.6, "presence_penalty": 0.0},
+    }
+
+    def _audit(self, ws, monkeypatch, modes=None):
+        import tests.wfe.settings_audit as sa
+
+        registry = {
+            "qwen3.6": {
+                "status": "verified-card",
+                "recommended_sampling_modes": modes if modes is not None else self.MODES,
+            }
+        }
+        monkeypatch.setattr(
+            sa, "_expectations_for", lambda _h, _r: ("qwen3.6", registry["qwen3.6"])
+        )
+        v: list[dict] = []
+        sa._audit_sampling_mode_fit(
+            "auto-coding", ws, "hf.co/unsloth/Qwen3.6-35B-GGUF:Q4", {}, registry, v
+        )
+        return v
+
+    def test_a_tools_seat_on_the_general_arm_fails_naming_the_matched_mode(self, monkeypatch):
+        ws = {
+            "tools": ["execute_bash"],
+            "think": True,
+            "temperature": 0.7,
+            "presence_penalty": 1.5,
+        }
+        v = self._audit(ws, monkeypatch)
+        assert [(x["kind"], x["severity"]) for x in v] == [("sampling_mode_fit", "FAIL")]
+        assert "thinking_general" in v[0]["detail"]
+        assert "thinking_precise_coding" in v[0]["detail"]
+        assert "presence_penalty 1.5 vs 0.0" in v[0]["detail"]
+
+    def test_a_tools_seat_on_the_precise_arm_is_clean(self, monkeypatch):
+        ws = {
+            "tools": ["execute_bash"],
+            "think": True,
+            "temperature": 0.6,
+            "presence_penalty": 0.0,
+        }
+        assert self._audit(ws, monkeypatch) == []
+
+    def test_the_baked_default_layer_counts_as_served(self, monkeypatch):
+        """Nothing declared: the seat is served the tag's baked general-arm
+        values — still the wrong arm for a tool loop."""
+        import tests.wfe.settings_audit as sa
+
+        ws = {"tools": ["execute_bash"], "think": True}
+        registry = {
+            "qwen3.6": {
+                "status": "verified-card",
+                "recommended_sampling_modes": self.MODES,
+            }
+        }
+        monkeypatch.setattr(
+            sa, "_expectations_for", lambda _h, _r: ("qwen3.6", registry["qwen3.6"])
+        )
+        v: list[dict] = []
+        sa._audit_sampling_mode_fit(
+            "auto-coding",
+            ws,
+            "hf.co/unsloth/Qwen3.6-35B-GGUF:Q4",
+            {"temperature": 0.7, "presence_penalty": 1.5},
+            registry,
+            v,
+        )
+        assert [x["kind"] for x in v] == ["sampling_mode_fit"]
+
+    def test_a_seat_without_tools_on_a_general_lane_is_not_checked(self, monkeypatch):
+        ws = {"module": "general", "think": True, "temperature": 0.7, "presence_penalty": 1.5}
+        assert self._audit(ws, monkeypatch) == []
+
+    def test_a_coding_lane_is_checked_even_without_tools(self, monkeypatch):
+        ws = {"module": "coding", "think": True, "temperature": 0.7, "presence_penalty": 1.5}
+        assert [x["kind"] for x in self._audit(ws, monkeypatch)] == ["sampling_mode_fit"]
+
+    def test_the_agentic_tool_mode_is_checked_even_without_tools(self, monkeypatch):
+        ws = {"mode": "agentic", "think": True, "temperature": 0.7, "presence_penalty": 1.5}
+        assert [x["kind"] for x in self._audit(ws, monkeypatch)] == ["sampling_mode_fit"]
+
+    def test_a_card_without_a_precise_arm_is_not_checked(self, monkeypatch):
+        ws = {"tools": ["execute_bash"], "think": True, "temperature": 0.7, "presence_penalty": 1.5}
+        v = self._audit(ws, monkeypatch, modes={"thinking": {"temperature": 1.0}})
+        assert v == []
+
+
+class TestTagsAudit:
+    """--tags: template + stop conformance for arbitrary tags (challengers and
+    bench candidates), with no workspace."""
+
+    @staticmethod
+    def _show(arch, ren="", par="", template="{{ .Prompt }}", params=""):
+        return TestTemplateConformance._show(arch, ren, par, template, params)
+
+    def _run(self, monkeypatch, shows, want):
+        import tests.wfe.settings_audit as sa
+
+        def fake_post(path, payload, timeout=60):
+            if path == "/api/tags":
+                return {"models": [{"name": n} for n in shows]}
+            return shows.get(payload["model"], {})
+
+        monkeypatch.setattr(sa, "_post", fake_post)
+        monkeypatch.setattr(sa, "omlx_served_ids", set)
+        return sa.audit_tags(want)
+
+    def test_template_and_stop_findings_are_reported_per_tag(self, monkeypatch):
+        shows = {
+            "lib:latest": self._show("gemma4", "gemma4", "gemma4", "<real>"),
+            "challenger:Q4": self._show("gemma4", params='stop    "<think>"'),
+        }
+        r = self._run(monkeypatch, shows, ["challenger:Q4", "absent:latest"])
+        kinds = {(x["workspace"], x["kind"], x["severity"]) for x in r["violations"]}
+        assert ("tag:challenger:Q4", "template_raw_jinja", "FAIL") in kinds
+        assert ("tag:challenger:Q4", "stop_hygiene", "FAIL") in kinds
+        assert ("tag:absent:latest", "hint_absent", "FAIL") in kinds
+        assert r["fail_count"] == 3 and r["warn_count"] == 0
+
+    def test_a_clean_challenger_reports_nothing(self, monkeypatch):
+        shows = {
+            "lib:latest": self._show("gemma4", "gemma4", "gemma4", "<real>"),
+            "challenger:Q4": self._show("gemma4", "gemma4", "gemma4", "<real>"),
+        }
+        r = self._run(monkeypatch, shows, ["challenger:Q4"])
+        assert r["violations"] == [] and r["fail_count"] == 0
