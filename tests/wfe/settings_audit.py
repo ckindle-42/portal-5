@@ -836,6 +836,66 @@ def _audit_reasoning_fit(ws_id, ws, hint, registry, tags, violations) -> None:
     )
 
 
+#: The output cap the pipeline serves when a workspace sets no predict_limit —
+#: PORTAL_DEFAULT_PREDICT_LIMIT as resolved by `_output_cap` in
+#: portal/platform/inference/router/validation.py.
+PIPELINE_DEFAULT_PREDICT_LIMIT = 8192
+#: Budget-fit thresholds. A thinking seat's served budget below
+#: min(card max output, _CARD_OUTPUT_CEILING) is a WARN; below
+#: _BUDGET_FAIL_FLOOR while the card documents >= _CARD_OUTPUT_CEILING is the
+#: FAIL class (a hard problem truncated mid-thought, not just a short answer).
+_CARD_OUTPUT_CEILING = 32768
+_BUDGET_FAIL_FLOOR = 16384
+
+
+def _served_output_budget(ws: dict) -> int:
+    """The output cap the pipeline serves this seat — mirrors `_output_cap` in
+    portal/platform/inference/router/validation.py: the workspace's explicit
+    predict_limit wins, else the default capped at the context window."""
+    explicit = ws.get("predict_limit")
+    if explicit:
+        return int(explicit)
+    ctx = ws.get("context_limit")
+    return min(PIPELINE_DEFAULT_PREDICT_LIMIT, int(ctx)) if ctx else PIPELINE_DEFAULT_PREDICT_LIMIT
+
+
+def _audit_reasoning_budget_fit(ws_id, ws, hint, registry, tags, violations) -> None:
+    """A thinking seat's served output budget vs what its card documents.
+
+    The motivating failure: auto-reasoning served 16384 while DeepSeek-R1-0528's
+    card documents a 64K maximum generation (AIME averages ~23K tokens/question),
+    so hard problems died at finish=length with the whole budget spent on
+    reasoning and no answer. Fixed by hand (predict_limit 40960, 2026-10-19);
+    this check makes the whole fleet's version of that mismatch visible.
+    Scope (operator review, 2026-10-19): seats that reason at runtime —
+    think:true, or think unset on a reasoning-family model. A seat that pins
+    think:false does not reason, so a reasoning-sized budget does not apply.
+    Report-only — it names the seat, model, served budget and card value;
+    raising a budget is an operator decision."""
+    if hint not in tags or ws.get("think") is False:
+        return
+    if ws.get("think") is not True and not _is_reasoning_model(hint, registry):
+        return
+    hit = _card_entry_matched(hint, registry)
+    card_max = (hit[1] or {}).get("recommended_max_output") if hit else None
+    if not isinstance(card_max, int) or isinstance(card_max, bool) or card_max <= 0:
+        return
+    served = _served_output_budget(ws)
+    if served >= min(card_max, _CARD_OUTPUT_CEILING):
+        return
+    fail = served < _BUDGET_FAIL_FLOOR and card_max >= _CARD_OUTPUT_CEILING
+    origin = "predict_limit" if ws.get("predict_limit") else "pipeline default"
+    _v(
+        violations,
+        ws_id,
+        "reasoning_budget_fit",
+        f"{hint} is a thinking-model seat: its card documents max output {card_max} tokens "
+        f"but the seat serves {served} ({origin}) — hard problems truncate "
+        "mid-thought (auto-reasoning died 16384/16384 finish=length before the 40960 fix)",
+        "FAIL" if fail else "WARN",
+    )
+
+
 def _audit_personas(tags: set[str], violations: list[dict]) -> int:
     checked = 0
     for pf in (REPO / "config/personas").glob("*.yaml"):
@@ -1446,6 +1506,7 @@ def _audit_seat(ws_id: str, ws: dict, ctx: dict, violations: list[dict]) -> dict
         ws_id, ws, tags, ctx["registered"], ctx["tool_flags"], violations, omlx=engine == "omlx"
     )
     _audit_reasoning_fit(ws_id, ws, hint, registry, tags, violations)
+    _audit_reasoning_budget_fit(ws_id, ws, hint, registry, tags, violations)
     omlx_entry = _audit_omlx_settings(ws_id, served_id, violations) if engine == "omlx" else {}
     _served_sampling_check(ws_id, ws, hint, engine, registry, violations, served_id=served_id)
     if engine == "ollama":

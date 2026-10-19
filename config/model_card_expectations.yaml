@@ -19,6 +19,12 @@
 #                          narrow specialists this decides whether a seat can use it at all)
 #   recommended_sampling_modes : per-mode card values when the card gives several;
 #                          recommended_sampling holds the mode the auditor checks
+#   recommended_max_output : card-documented maximum output tokens for a thinking
+#                          model — a single-cap seat serves reasoning AND answer
+#                          from one budget, so this is what the seat's predict_limit
+#                          should fit (settings_audit reasoning_budget_fit). Absent
+#                          when the card documents no number; the citing card text
+#                          lives in the comment above each field.
 #   verified             : true only when source URL + date are recorded below
 #   harness_policy       : how the WFE harness must drive this family —
 #       think: 'default' | 'true' | 'false'  (api endpoint only; v1 has no knob)
@@ -70,6 +76,9 @@ models:
     source: "local run output judgment_probe_v6_rescored_20260906T224306Z.json (not published)"
     card_source: "https://huggingface.co/ibm-granite/granite-4.2-8b/resolve/main/generation_config.json (2026-09-25)"
     recommended_sampling: {temperature: 1.0, top_p: 0.95}
+    # Card "Generation Parameters": thinking mode max_new_tokens 8192,
+    # "increase for complex reasoning"; non-thinking 2048 (2026-10-19).
+    recommended_max_output: 8192
     prompt_contract: "Reasoning model (built-in <think>...</think>), base granite-4.1-8b-base. Unlike 4.1, a reasoning_uncontrolled flag DOES apply: a seat must set think explicitly."
     max_context: {pending_research: true}
 
@@ -86,6 +95,9 @@ models:
     recommended_sampling_modes:
       default: {temperature: 1.0, top_p: 0.95}
       agentic_coding: {temperature: 0.7, top_p: 1.0}
+    # Card "Default Settings (Most Tasks)": max new tokens 131072 (the 16384
+    # figures are Terminal-Bench/SWE/τ²-bench evaluation settings) (2026-10-19).
+    recommended_max_output: 131072
     prompt_contract: "Card: default 1.0/0.95 for most tasks; Terminal-Bench / SWE-bench run at 0.7/1.0 with 16K max new tokens; multi-turn agentic tasks want Preserved Thinking mode on."
 
   nemotron-3.5-lightning:
@@ -111,6 +123,10 @@ models:
       thinking: {temperature: 0.6, top_p: 0.95, top_k: 20, min_p: 0.0}
       instruct: {temperature: 0.7, top_p: 0.8, top_k: 20, min_p: 0.0}
     prompt_contract: "Generic Qwen3 (2504) hybrid-thinking card. 'DO NOT use greedy decoding' (repetition/loops). Coder, Coder-Next and VL have their own keys below — longest match wins."
+    # Best practices: "an output length of 32,768 tokens for most queries... max
+    # output length to 38,912 tokens" for highly complex math/programming
+    # (Qwen/Qwen3-8B README, 2026-10-19).
+    recommended_max_output: 38912
   qwen3-coder:
     status: verified-card
     verified: true
@@ -149,6 +165,10 @@ models:
       instruct_general: {temperature: 0.7, top_p: 0.8, top_k: 20, presence_penalty: 1.5}
       instruct_reasoning: {temperature: 1.0, top_p: 0.95, top_k: 20, presence_penalty: 1.5}
     max_context: 262144
+    # Qwen3.5 card best practices: 32,768 for most queries, "max output length to
+    # 81,920 tokens" for highly complex math/programming (Qwen/Qwen3.5-27B and
+    # Qwen3.5-35B-A3B READMEs, 2026-10-19; the unsloth doc records the 32,768 baseline).
+    recommended_max_output: 81920
     prompt_contract: "Small sizes (0.8B-9B) default reasoning OFF per Unsloth; fine-tunes may override (MiMo-V2.6 enables thinking unless enable_thinking is false). repeat_penalty disabled or 1.0; presence_penalty is the recommended loop guard."
   qwen3.6:
     status: verified-card
@@ -161,6 +181,10 @@ models:
       thinking_precise_coding: {temperature: 0.6, top_p: 0.95, top_k: 20, min_p: 0.0, presence_penalty: 0.0, repeat_penalty: 1.0}
       instruct: {temperature: 0.7, top_p: 0.8, top_k: 20, min_p: 0.0, presence_penalty: 1.5, repeat_penalty: 1.0}
     prompt_contract: "Thinking on by default. Modes from https://huggingface.co/Qwen/Qwen3.6-27B README (2026-09-25). Lineage covers huihui abliterations, HauhauCS Aggressive (GGUF arch qwen35moe; tags carry qwen3.6/qwen36), and KAT-Coder/Ornith, which have their own keys."
+    # Qwen3.6-35B-A3B card best practices: 32,768 for most queries, "max output
+    # length to 81,920 tokens" for highly complex math/programming (2026-10-19;
+    # the older 38,912 figure belongs to the Qwen3 (2504) card, not this one).
+    recommended_max_output: 81920
   qwen3.8:
     status: verified-card
     verified: true
@@ -176,6 +200,11 @@ models:
     harness_policy:
       think: "false"
       notes: "2026-09-25 template-path probe: hf.co/unsloth/Qwen3.8-27B-GGUF tags run on Ollama's gguf_chat_template path and pass all 4 tool-call probes."
+    # Qwen3.8-27B card "Adequate Output Length" (2026-10-19): frameworks with
+    # separate limits get reasoning content 262,144 and final response 131,072;
+    # a single-cap seat serves reasoning AND answer from one budget, so the
+    # card's final-response figure is what that budget must cover.
+    recommended_max_output: 131072
   gemma4:
     status: verified-card
     verified: true
@@ -202,6 +231,9 @@ models:
     verified: true
     source: "https://huggingface.co/microsoft/Phi-4-mini-reasoning (card, 2026-09-25)"
     recommended_sampling: {temperature: 0.8, top_p: 0.95}
+    # Card runs its benchmarks at max sequence length 32768 / max_new_tokens
+    # 32768 (README usage snippet, 2026-10-19).
+    recommended_max_output: 32768
     prompt_contract: "phi4-mini-reasoning is math-only by design ('designed and tested for math reasoning only'); card system prompt 'Your name is Phi, an AI math expert developed by Microsoft.'; max_new_tokens 32768; repetitive in very long chats."
   mistral-small:
     status: verified-card
@@ -215,6 +247,8 @@ models:
     source: "https://huggingface.co/mistralai/Magistral-Small-2509 (README 'Sampling parameters' + generation_config.json: temperature 0.7 / top_p 0.95) + build provider https://huggingface.co/unsloth/Magistral-Small-2509-GGUF (llama.cpp flags --temp 0.7 --top-p 0.95 --top-k -1) (2026-10-18)"
     recommended_sampling: {temperature: 0.7, top_p: 0.95}
     max_context: 131072
+    # generation_config.json max_new_tokens 131072 (matches prompt_contract).
+    recommended_max_output: 131072
     prompt_contract: "Reasoning-only model — [THINK]...[/THINK] special tokens wrap the reasoning trace and the reasoning prompt ships in the system prompt; no instruct mode. Card: temperature 0.7, top_p 0.95, max_tokens 131072; 128k context window (may degrade past 40k). Covers the unsloth GGUF build hf.co/unsloth/Magistral-Small-2509-GGUF."
     harness_policy:
       think: "true"
@@ -227,6 +261,10 @@ models:
     verified: true
     source: "https://huggingface.co/deepseek-ai/DeepSeek-R1-0528-Qwen3-8B (usage recommendations, 2026-09-25)"
     recommended_sampling: {temperature: 0.6, top_p: 0.95}
+    # Card: "For all our models, the maximum generation length is set to 64K
+    # tokens"; AIME averages ~23K tokens/question (0528, up from 12K) — hard
+    # problems need most of that budget (README, 2026-10-19).
+    recommended_max_output: 65536
     prompt_contract: "Always reasons (no <think> forcing needed since 0528). Max generation 64K tokens. Official system prompt names the model and today's date."
   llama:
     status: verified-card
