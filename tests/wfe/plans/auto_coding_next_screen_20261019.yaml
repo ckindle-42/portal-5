@@ -1,0 +1,13 @@
+# Three-arm auto-coding screen on the existing production coding suite.
+# The same-lineage challenger is the routed full-context Qwen3-Coder-Next tag;
+# Qwen3.8 uses the directly registered oMLX build with its native 256K window.
+workloads:
+  auto-coding:
+    tool_mode: sandbox
+    home: coding_production
+    discovery: []
+    arms:
+      incumbent: qwen3-coder:30b-a3b-q4_K_M-ctx256k
+      challengers:
+        - portal5/qwen3-coder-next:latest-ctx256k
+        - Qwen3.8-27B-oQ4e-mtp

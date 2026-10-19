@@ -1480,6 +1480,10 @@ surfaces:
   globs:
   - tests/wfe/tests/test_wfe_reading_long_slice.py
   unit: unit-wfe-workspace-fitness
+- name: file-tests-wfe-tests-test_wfe_next_screens_slice
+  globs:
+  - tests/wfe/tests/test_wfe_next_screens_slice.py
+  unit: unit-wfe-workspace-fitness
 - name: file-tests-wfe-tests-test_wfe_reading_slice
   globs:
   - tests/wfe/tests/test_wfe_reading_slice.py
