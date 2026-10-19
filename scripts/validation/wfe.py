@@ -164,3 +164,52 @@ def check_wfe_fitness_ledger() -> tuple[str, str, list[dict[str, Any]]]:
             subs,
         )
     return ("PASS", f"{len(cells)} ledger cell(s) match production and cover every seat", subs)
+
+
+@register(
+    "serving_conformance",
+    "HQ. Every served seat and installed tag conforms to its card and library template",
+    order=206,
+)
+def check_serving_conformance() -> tuple[str, str, list[dict[str, Any]]]:
+    """HQ. tests/wfe/settings_audit on the live fleet: each seat on the engine that actually
+    serves it, plus template and stop hygiene on EVERY installed Ollama tag, so a model pulled
+    for a bench or a challenger is checked the moment it lands rather than when a campaign
+    trips over it (2026-10-18: ~30 raw-jinja tags, a wrong Laguna parser and bad stops were
+    all found by hand). Any WARN or FAIL fails the check; INFO is reporting only. SKIP when
+    Ollama is not reachable (no live fleet to audit)."""
+    import urllib.request
+
+    from tests.wfe import settings_audit as audit
+
+    try:
+        urllib.request.urlopen(f"{audit.OLLAMA}/api/version", timeout=3).read()
+    except Exception as e:  # noqa: BLE001
+        return ("SKIP", f"Ollama not reachable at {audit.OLLAMA} ({e.__class__.__name__})", [])
+    seats = audit.run_audit()
+    backends = yaml.safe_load(ROUTING.read_text())
+    tags = audit.audit_tags(sorted(audit.installed_tags(backends)))
+    findings = [
+        v for v in [*seats["violations"], *tags["violations"]] if v["severity"] in ("WARN", "FAIL")
+    ]
+    subs = [
+        {
+            "name": f"{v['workspace']}: {v['kind']}",
+            "status": "FAIL",
+            "detail": v["detail"][:240],
+        }
+        for v in findings
+    ]
+    if findings:
+        kinds = sorted({v["kind"] for v in findings})
+        return (
+            "FAIL",
+            f"{len(findings)} conformance finding(s) ({', '.join(kinds)}) — run "
+            "`uv run python -m tests.wfe.settings_audit` and fix them",
+            subs,
+        )
+    return (
+        "PASS",
+        f"{seats['checked_workspaces']} seat(s) and {tags['checked_tags']} installed tag(s) conform",
+        subs,
+    )

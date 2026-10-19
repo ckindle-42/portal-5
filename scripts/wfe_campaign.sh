@@ -97,6 +97,34 @@ if [ "${#ARMS[@]}" -eq 0 ]; then
 fi
 echo "$(ts) ARMS ${#ARMS[@]}" | tee -a "$PROGRESS_LOG"
 
+# Serving conformance gate: refuse to spend hours measuring a misconfigured path. The
+# campaign's workspace(s) must audit clean on the engine that serves them, and every arm's
+# Ollama tag must carry its library template and clean stops (tests/wfe/settings_audit.py;
+# the same audit is validate_system check HQ). WFE_SKIP_CONFORMANCE=1 is the escape hatch.
+if [ "${WFE_SKIP_CONFORMANCE:-0}" != "1" ]; then
+    printf '%s\n' "${ARMS[@]}" > "${LOG_DIR}/arms.txt"
+    gate=$(uv run python -c "
+import sys
+from tests.wfe import settings_audit as audit
+args = sys.argv[1:]
+spaces = {args[i + 1] for i, a in enumerate(args[:-1]) if a == '--workspace'}
+arms = sorted({ln.strip().split('@card-')[0] for ln in open('${LOG_DIR}/arms.txt') if ln.strip()})
+seats = audit.run_audit()
+tags = audit.audit_tags(arms)
+bad = [v for v in seats['violations'] if v['severity'] in ('WARN', 'FAIL') and (not spaces or v['workspace'].split('::')[0] in spaces)]
+bad += [v for v in tags['violations'] if v['severity'] in ('WARN', 'FAIL')]
+for v in bad:
+    print(f\"  {v['severity']} {v['workspace']}: {v['kind']} — {v['detail'][:200]}\")
+print('CONFORMANCE', 'CLEAN' if not bad else f'{len(bad)} finding(s)')
+" "$@" 2>&1)
+    echo "$gate" | tee -a "$PROGRESS_LOG"
+    if ! echo "$gate" | grep -q "CONFORMANCE CLEAN"; then
+        echo "$(ts) ABORT: serving conformance findings above (fix them, or WFE_SKIP_CONFORMANCE=1)" \
+            | tee -a "$PROGRESS_LOG"
+        exit 3
+    fi
+fi
+
 for arm in "${ARMS[@]}"; do
     [ -z "$arm" ] && continue
     safe=$(echo "$arm" | tr '/:' '__')

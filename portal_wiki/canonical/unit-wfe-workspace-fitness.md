@@ -39,7 +39,12 @@ The harness (`tests/wfe/`):
   baked num_ctx vs declared context_limit (Ollama /v1 ignores request-time
   options.num_ctx), sampling vs lane policy, tool-flag vs declared tools.
   Catches the glm_coder-128K class of silent regressions; the -ctxNk tag claim
-  is verified against baked num_ctx rather than trusted.
+  is verified against baked num_ctx rather than trusted. It runs on its own in two
+  places, so nobody has to remember it: the pre-push validator
+  (`scripts/validation/wfe.py` `serving_conformance`, every seat plus template and
+  stop hygiene on every installed Ollama tag; any WARN or FAIL fails) and
+  `scripts/wfe_campaign.sh`, which refuses to start a campaign whose workspace or arm
+  tags do not audit clean (`WFE_SKIP_CONFORMANCE=1` overrides).
   `--behavioral` adds per-tag template probes that DO call the model:
   system-instruction honored, clean JSON under `format: json`,
   `template_tools_ignored` (a real `tools` array and a question only a tool call
