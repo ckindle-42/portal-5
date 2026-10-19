@@ -1639,6 +1639,31 @@ class _Loop:
         self.transcript[-1].update({k: v for k, v in extra.items() if v})
         return content, calls
 
+    def _record_chat_error(self, turn: int, e: Exception) -> None:
+        """A chat call that raised ends the run: a stall is BUDGET_EXHAUSTED, the model's
+        own malformed tool call is FAIL, anything else is HARNESS_ERROR."""
+        stalled = isinstance(e, StreamStalledError | TimeoutError)
+        if not stalled and self._model_wrote_malformed_call(turn, e):
+            return
+        self.outcome_override = Outcome.BUDGET_EXHAUSTED if stalled else Outcome.HARNESS_ERROR
+        key = "stalled" if stalled else "harness_error"
+        entry = {"turn": turn, key: f"{type(e).__name__}: {e}"}
+        if _is_prompt_too_long(e):
+            entry["context_overflow"] = f"HTTP 400 prompt too long: {str(e)[-200:]}"
+        if cid := getattr(e, "correlation_id", ""):
+            entry["correlation_id"] = cid
+        self.transcript.append(entry)
+
+    def _model_wrote_malformed_call(self, turn: int, e: Exception) -> bool:
+        """The MODEL emitted a tool call the engine could not parse (Qwen3.6 wrote
+        `<|im_start|>function=...` for `<tool_call><function=...>`): a seat FAIL, not ours.
+        As HARNESS_ERROR it halted whole arms (confirms d and g)."""
+        if not _is_malformed_tool_call(e):
+            return False
+        self.outcome_override = Outcome.FAIL
+        self.transcript.append({"turn": turn, "malformed_tool_call": str(e)[-300:]})
+        return True
+
     def step(self, turn: int, remaining: int) -> bool:
         """One turn. Returns True to continue the loop, False to stop."""
         sent_chars = sum(
@@ -1656,22 +1681,7 @@ class _Loop:
                 tool_schemas=self.schemas if self.use_tools else None,
             )
         except Exception as e:
-            stalled = isinstance(e, StreamStalledError | TimeoutError)
-            if not stalled and _is_malformed_tool_call(e):
-                # The MODEL emitted a tool call the engine could not parse (e.g. Qwen3.6
-                # wrote `<|im_start|>function=...` for `<tool_call><function=...>`): a seat
-                # failure, not ours. As HARNESS_ERROR it halted whole arms (confirms d and g).
-                self.outcome_override = Outcome.FAIL
-                self.transcript.append({"turn": turn, "malformed_tool_call": str(e)[-300:]})
-                return False
-            self.outcome_override = Outcome.BUDGET_EXHAUSTED if stalled else Outcome.HARNESS_ERROR
-            key = "stalled" if stalled else "harness_error"
-            entry = {"turn": turn, key: f"{type(e).__name__}: {e}"}
-            if _is_prompt_too_long(e):
-                entry["context_overflow"] = f"HTTP 400 prompt too long: {str(e)[-200:]}"
-            if cid := getattr(e, "correlation_id", ""):
-                entry["correlation_id"] = cid
-            self.transcript.append(entry)
+            self._record_chat_error(turn, e)
             return False
 
         self.tool_log.extend(_audited_calls(resp["message"]))
