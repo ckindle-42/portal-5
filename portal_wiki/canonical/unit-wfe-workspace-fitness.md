@@ -52,7 +52,28 @@ The harness (`tests/wfe/`):
   the template in charge, and on a reasoning-family template a 20-token probe
   budget goes entirely to `thinking`, which made the system-instruction probe
   FAIL correct templates. `--tag <tag>` probes one seat instead of sweeping
-  every workspace incumbent, and returns the verdicts a campaign pins. The sampling check
+  every workspace incumbent, and returns the verdicts a campaign pins. The
+  served path is resolved through production's own candidate order first
+  (`_served_path` over `BackendRegistry`: routing groups, backend priority,
+  alias translation — an oMLX shadow reads as engine `omlx` and its alias
+  target, e.g. `omlx-general`/`unsloth--Qwen3.6-35B-A3B-UD-MLX-4bit`), and every
+  check audits that path. The Ollama-path tag is checked for template
+  conformance against the library builds installed locally —
+  `template_map` groups every renderer-baking tag by architecture, most common
+  (RENDERER, PARSER) pair wins, so the expectation is derived, never a
+  hand-written table: `template_raw_jinja` fails a `TEMPLATE {{ .Prompt }}` tag
+  on a mapped architecture, `template_renderer_mismatch` a renderer the library
+  doesn't carry, and a `laguna` build whose name says 2.1 must use
+  `poolside-v1` (`template_parser_mismatch`). `stop_hygiene` fails any baked
+  `PARAMETER stop` containing `<think>`, `{{` or `.Prompt`. An oMLX-served seat
+  is audited against its `~/.omlx/model_settings.json` entry — the entry's
+  sampling (oMLX names it `repetition_penalty`) is the default layer the card is
+  judged against, and `omlx_settings_no_entry` is INFO, since oMLX then serves
+  the request's sampling. A tools/coding seat (tools, `mode: agentic`, or the
+  coding module) must serve the card's coding/precise arm when
+  `recommended_sampling_modes` documents one — `sampling_mode_fit` fails it
+  naming the arm that matched. `--tags TAG...` runs the template and stop
+  checks over arbitrary challenger/bench tags with no workspace. The sampling check
   compares the temperature the PIPELINE serves — `effective_temperature`:
   think-profile → workspace flat field → baked tag → Ollama default, mirroring
   router/validation.py — against the lane ceiling, not the baked tag value in

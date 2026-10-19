@@ -18,6 +18,7 @@ Usage:
   uv run python -m tests.wfe.settings_audit            # human report
   uv run python -m tests.wfe.settings_audit --json     # machine-readable
   uv run python -m tests.wfe.settings_audit --tag TAG --behavioral   # one seat
+  uv run python -m tests.wfe.settings_audit --tags TAG...            # challenger tags
 """
 
 from __future__ import annotations
@@ -30,11 +31,15 @@ import time
 import urllib.error
 import urllib.request
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 import yaml
 
 from portal.platform.inference.omlx_auth import omlx_headers
 from tests.wfe.runner import card_entry as _card_entry_matched
+
+if TYPE_CHECKING:
+    from portal.platform.inference.cluster_backends import BackendRegistry
 
 REPO = Path(__file__).resolve().parents[2]
 OLLAMA = "http://localhost:11434"
@@ -125,6 +130,21 @@ def seat_engine(hint: str, backends: dict, omlx_ids: set[str]) -> str:
     return "omlx" if hint in omlx_ids else "ollama"
 
 
+def _served_path(ws_id: str, hint: str, reg: BackendRegistry) -> tuple[str, str, str] | None:
+    """The (engine, backend id, served model id) the PIPELINE would use for this
+    seat: ``BackendRegistry.get_backend_candidates``'s own order — routing
+    groups, backend priority, fallback — with ``resolve_model``'s alias
+    translation. `seat_engine` guesses the engine from the hint; this walks the
+    served path, so an oMLX shadow (row identity backend: omlx-general, model:
+    unsloth--…-MLX-4bit) reads as oMLX and later checks audit THAT path. None
+    when no backend resolves the hint — `hint_unroutable` covers the case."""
+    for b in reg.get_backend_candidates(ws_id):
+        resolved = b.resolve_model(hint)
+        if resolved:
+            return ("omlx" if b.type == "omlx" else "ollama", b.id, resolved)
+    return None
+
+
 def omlx_default_sampling() -> dict:
     """oMLX's global sampling defaults — what an oMLX seat is served for any key
     it does not declare."""
@@ -153,6 +173,300 @@ def _v(
 ) -> None:
     violations.append(
         {"workspace": workspace, "kind": kind, "detail": detail, "severity": severity}
+    )
+
+
+# --- serving-path conformance: engine resolution, template, stops, oMLX ------
+#
+# Every finding below audits the path PRODUCTION serves (`_served_path`), not
+# the workspace's model_hint — since the oMLX shadow, those diverge (a seat
+# whose hint is an Ollama hf.co tag can be served by the oMLX alias target),
+# and a check aimed at the wrong path certifies nothing.
+
+
+def _show(tag: str, shows: dict[str, dict]) -> dict:
+    """One cached ``/api/show`` per tag — engine metadata, never a model call."""
+    if tag not in shows:
+        with contextlib.suppress(Exception):
+            shows[tag] = _post("/api/show", {"model": tag}, timeout=30)
+        shows.setdefault(tag, {})
+    return shows[tag]
+
+
+def _renderer_parser(show: dict) -> tuple[str, str]:
+    """The RENDERER/PARSER a tag's modelfile bakes ('' when it carries none)."""
+    ren = par = ""
+    for line in (show.get("modelfile") or "").splitlines():
+        parts = line.split()
+        if parts[:1] == ["RENDERER"] and len(parts) > 1:
+            ren = parts[1]
+        elif parts[:1] == ["PARSER"] and len(parts) > 1:
+            par = parts[1]
+    return ren, par
+
+
+def _architecture(show: dict) -> str:
+    return str((show.get("model_info") or {}).get("general.architecture") or "")
+
+
+def _is_raw_jinja(show: dict) -> bool:
+    """The hf.co manifest import bug: the template is bare pass-through jinja
+    (``TEMPLATE {{ .Prompt }}``) with no RENDERER — no chat structure at all,
+    so system prompts, tools arrays and think control are all silently dropped."""
+    return not _renderer_parser(show)[0] and "{{ .Prompt }}" in str(show.get("template") or "")
+
+
+def template_map(shows: dict[str, dict]) -> dict[str, tuple[str, str]]:
+    """architecture -> the (RENDERER, PARSER) pair the locally installed builds
+    carry, one vote per renderer-baking tag; ties go to the most common pair.
+    Derived from the tags on disk — never a hand-written table — so a new
+    library build updates the expectation by being pulled."""
+    votes: dict[str, dict[tuple[str, str], int]] = {}
+    for show in shows.values():
+        ren, par = _renderer_parser(show)
+        arch = _architecture(show)
+        if not (ren and arch):
+            continue
+        pairs = votes.setdefault(arch, {})
+        pairs[(ren, par)] = pairs.get((ren, par), 0) + 1
+    return {
+        arch: max(pairs.items(), key=lambda kv: (kv[1], kv[0]))[0] for arch, pairs in votes.items()
+    }
+
+
+def template_candidates(shows: dict[str, dict]) -> dict[str, list[tuple[str, str]]]:
+    """architecture -> every (RENDERER, PARSER) pair a local library build carries,
+    most common first. One architecture can legitimately carry several (qwen35:
+    qwen3.5 and qwen3.8; qwen3vl: thinking and instruct)."""
+    votes: dict[str, dict[tuple[str, str], int]] = {}
+    for show in shows.values():
+        ren, par = _renderer_parser(show)
+        arch = _architecture(show)
+        if ren and arch:
+            pairs = votes.setdefault(arch, {})
+            pairs[(ren, par)] = pairs.get((ren, par), 0) + 1
+    return {
+        arch: [pr for pr, _n in sorted(pairs.items(), key=lambda kv: (-kv[1], kv[0]))]
+        for arch, pairs in votes.items()
+    }
+
+
+def _norm(text: str) -> str:
+    return re.sub(r"[^a-z0-9.]", "", text.lower())
+
+
+def _expected_for(tag: str, pairs: list[tuple[str, str]]) -> tuple[str, str]:
+    """The library pair for a raw-jinja tag: the one whose renderer names the tag's
+    family (Qwen3.8 -> qwen3.8, a -thinking build -> *-thinking), else the most common."""
+    name = _norm(tag)
+    for ren, par in pairs:
+        if _norm(ren) and _norm(ren) in name:
+            return ren, par
+    for ren, par in pairs:
+        suffix = ren.rsplit("-", 1)[-1]
+        if suffix in ("thinking", "instruct") and suffix in tag.lower():
+            return ren, par
+    return pairs[0]
+
+
+def _is_laguna_21(tag: str) -> bool:
+    """The name says 2.1 — ``laguna-xs-2.1:latest`` or ``laguna-xs21:...``.
+    `laguna` is the XS.2 parser and mis-renders the 2.1 build; its library
+    renderer/parser is poolside-v1."""
+    low = tag.lower()
+    return "2.1" in low or "xs21" in low
+
+
+def _audit_template_conformance(
+    where: str,
+    tag: str,
+    shows: dict[str, dict],
+    tmap: dict[str, tuple[str, str]],
+    violations: list[dict],
+) -> None:
+    """Is this tag's build what the local library builds of the same
+    architecture carry? A raw-jinja tag on a mapped architecture serves a
+    template with no chat structure; a renderer the library doesn't pair with
+    the architecture is a re-templating nobody documented."""
+    show = _show(tag, shows)
+    arch = _architecture(show)
+    others = {k: v for k, v in shows.items() if k != tag}  # a tag never vouches for itself
+    pairs = template_candidates(others).get(arch) or ([tmap[arch]] if arch in tmap else [])
+    if not pairs:
+        return
+    expected = _expected_for(tag, pairs)
+    ren, par = _renderer_parser(show)
+    if _is_raw_jinja(show):
+        _v(
+            violations,
+            where,
+            "template_raw_jinja",
+            f"{tag}: TEMPLATE is bare {{{{ .Prompt }}}} with no RENDERER/PARSER, but the local "
+            f"library builds of {arch} carry {expected[0]}/{expected[1]} — retemplate it from "
+            "the library build",
+            "FAIL",
+        )
+        return
+    if arch == "laguna" and _is_laguna_21(tag):
+        if (ren, par) != ("poolside-v1", "poolside-v1"):
+            _v(
+                violations,
+                where,
+                "template_parser_mismatch",
+                f"{tag}: RENDERER/PARSER {ren}/{par} — a laguna build whose name says 2.1 must "
+                "use poolside-v1 (the XS.2 `laguna` parser mis-renders it)",
+                "FAIL",
+            )
+        return
+    if ren and ren not in {r for r, _p in pairs}:
+        _v(
+            violations,
+            where,
+            "template_renderer_mismatch",
+            f"{tag}: RENDERER {ren} but the local library builds of {arch} carry only "
+            f"{', '.join(f'{r}/{p}' for r, p in pairs)}",
+            "FAIL",
+        )
+
+
+def _baked_stops(show: dict) -> list[str]:
+    """The baked PARAMETER stop values (quotes stripped, as Ollama stores them)."""
+    out: list[str] = []
+    for line in (show.get("parameters") or "").splitlines():
+        head, sep, value = line.strip().partition(" ")
+        if head == "stop" and sep:
+            out.append(value.strip().strip('"'))
+    return out
+
+
+def _audit_stop_hygiene(
+    where: str, tag: str, shows: dict[str, dict], violations: list[dict]
+) -> None:
+    """A baked stop containing `<think>`, `{{` or `.Prompt` is an unrendered
+    template fragment from the hf.co manifest import — it can cut a legal answer
+    mid-turn or leak into the transcript."""
+    bad = [
+        s for s in _baked_stops(_show(tag, shows)) if "<think>" in s or "{{" in s or ".Prompt" in s
+    ]
+    if bad:
+        _v(
+            violations,
+            where,
+            "stop_hygiene",
+            f"{tag}: baked PARAMETER stop {bad} — a template fragment baked as a stop sequence "
+            "(hf.co manifest import bug); drop it",
+            "FAIL",
+        )
+
+
+def _omlx_model_settings(model_id: str) -> dict:
+    """The baked per-model entry for one oMLX model, from
+    ``~/.omlx/model_settings.json`` ({} when there is none)."""
+    with contextlib.suppress(Exception):
+        path = Path.home() / ".omlx" / "model_settings.json"
+        models = json.loads(path.read_text()).get("models") or {}
+        return models.get(model_id) or {}
+    return {}
+
+
+def _omlx_entry_sampling(entry: dict) -> dict:
+    """An oMLX entry's card-keyed sampling (oMLX names it repetition_penalty)."""
+    out = {
+        k: entry[k]
+        for k in ("temperature", "top_p", "top_k", "min_p", "presence_penalty")
+        if k in entry
+    }
+    if "repetition_penalty" in entry:
+        out["repeat_penalty"] = entry["repetition_penalty"]
+    return out
+
+
+def _audit_omlx_settings(where: str, model_id: str, violations: list[dict]) -> dict:
+    """Report the oMLX entry a seat is served with. 'No entry' is INFO, not a
+    fault: oMLX then serves whatever the request declares — the pipeline's
+    sampling reaches the model on the request path."""
+    entry = _omlx_model_settings(model_id)
+    if not entry:
+        _v(
+            violations,
+            where,
+            "omlx_settings_no_entry",
+            f"{model_id}: no ~/.omlx/model_settings.json entry — oMLX serves the request's sampling",
+            "INFO",
+        )
+    return entry
+
+
+_PRECISE_MODE_RE = re.compile(r"coding|precise", re.I)
+
+
+def _seat_uses_tools_or_coding(ws: dict) -> bool:
+    """A seat that offers tools, runs the agentic tool loop, or sits on the
+    coding lane (`module` is the workspace's category in config/portal.yaml)."""
+    lane = str(ws.get("module") or ws.get("category") or "").lower()
+    return bool(ws.get("tools")) or str(ws.get("mode") or "") == "agentic" or lane == "coding"
+
+
+def _thinks(mode_name: str) -> bool:
+    low = mode_name.lower()
+    return not ("instruct" in low or "non_thinking" in low or "nothink" in low)
+
+
+def _matches_mode(served: dict, mode: dict) -> bool:
+    return all(
+        k in served and served[k] is not None and abs(float(served[k]) - float(v)) <= 1e-6
+        for k, v in mode.items()
+    )
+
+
+def _audit_sampling_mode_fit(
+    ws_id: str,
+    ws: dict,
+    hint: str,
+    defaults: dict,
+    registry: dict,
+    violations: list[dict],
+) -> None:
+    """On a tools/coding seat the card's coding/precise arm is the one that
+    works (measured: presence 1.5 — the general arm's anti-loop setting — is the
+    tool-refusal regime). When the card documents such an arm, the seat must
+    serve IT; serving another documented arm fails, naming the arm that matched."""
+    if not _seat_uses_tools_or_coding(ws):
+        return
+    hit = _expectations_for(hint, registry)
+    if hit is None or hit[1].get("status") == "research-debt":
+        return
+    modes = hit[1].get("recommended_sampling_modes") or {}
+    precise = {n: m for n, m in modes.items() if isinstance(m, dict) and _PRECISE_MODE_RE.search(n)}
+    if not precise:
+        return
+    from portal.platform.inference.router.validation import _resolve_sampling_values
+
+    declared = _resolve_sampling_values(ws)
+    served = {k: declared.get(k, defaults.get(k)) for k in set(defaults) | set(declared)}
+    matched = sorted(
+        n for n, m in modes.items() if isinstance(m, dict) and m and _matches_mode(served, m)
+    )
+    if not matched or any(n in precise for n in matched):
+        return  # serves the precise arm — or nothing sanctionable, which served_vs_card fails
+    # Compare within one thinking state: a think-off seat on the card's instruct arm is
+    # following the vendor, not missing the thinking-only precise arm.
+    precise = {n: m for n, m in precise.items() if any(_thinks(n) == _thinks(x) for x in matched)}
+    if not precise:
+        return
+    name, mode = sorted(precise.items())[0]
+    diffs = "; ".join(
+        f"{k} {served.get(k)} vs {v}"
+        for k, v in mode.items()
+        if served.get(k) is None or abs(float(served[k]) - float(v)) > 1e-6
+    )
+    _v(
+        violations,
+        ws_id,
+        "sampling_mode_fit",
+        f"tools/coding seat serves the card's {matched[0]} arm ({diffs}) but the card "
+        f"documents {name} {mode} for this seat",
+        "FAIL",
     )
 
 
@@ -358,13 +672,15 @@ def _served_sampling_check(
     engine: str,
     registry: dict,
     violations: list[dict],
+    served_id: str | None = None,
 ) -> None:
     """What the model is SERVED, key by key, against its vendor card.
 
     Served = the seat's resolved sampling (production's own resolver: think
     profile -> flat keys), else the engine's default for that key (the tag's
-    baked value on Ollama, oMLX's global setting on oMLX). The guidance is the
-    authority (C-FIX 2026-10-16): a production seat that differs FAILs unless its
+    baked value on Ollama; on oMLX the served model's ~/.omlx/model_settings.json
+    entry over the global settings). The guidance is the authority (C-FIX
+    2026-10-16): a production seat that differs FAILs unless its
     `sampling_override` names a reason and the measured evidence; a bench seat
     stays a WARN."""
     from portal.platform.inference.router.validation import _resolve_sampling_values
@@ -373,7 +689,8 @@ def _served_sampling_check(
     hit = _expectations_for(hint, registry)
     if hit is None or hit[1].get("status") == "research-debt":
         return
-    defaults = baked_params(hint) if engine == "ollama" else omlx_default_sampling()
+    entry = _omlx_entry_sampling(_omlx_model_settings(served_id or hint))
+    defaults = baked_params(hint) if engine == "ollama" else {**omlx_default_sampling(), **entry}
 
     def _diffs(card: dict) -> list[str]:
         out = []
@@ -1040,13 +1357,45 @@ def run_audit(behavioral: bool = False) -> dict:
     omlx_ids = omlx_served_ids()
     served_seats = list(_seats(portal))
     _audit_routable(served_seats, backends, violations)
+
+    # The pipeline's own resolution, once: what each seat is actually served
+    # (engine + backend + model id) drives every check below.
+    from portal.platform.inference.cluster_backends import BackendRegistry
+
+    reg = BackendRegistry(str(REPO / "config/backends.yaml"))
+    # Engine metadata for the whole local library, once: the template
+    # expectations are derived from every installed build, and each seat's
+    # /api/show is cached for the conformance checks.
+    shows: dict[str, dict] = {}
+    for t in sorted(tags):
+        _show(t, shows)
+    tmap = template_map(shows)
+
+    served_paths: dict[str, dict] = {}
     for ws_id, ws in served_seats:
         checked += 1
         hint = ws["model_hint"]
-        engine = seat_engine(hint, backends, omlx_ids)
+        resolved = _served_path(ws_id, hint, reg)
+        if resolved:
+            engine, backend_id, served_id = resolved
+        else:
+            # Unroutable (hint_unroutable above): keep the heuristic engine so
+            # the rest of the audit still runs on something.
+            engine, backend_id, served_id = seat_engine(hint, backends, omlx_ids), "", hint
+        served_paths[ws_id] = {"engine": engine, "backend": backend_id, "model": served_id}
         _audit_workspace(ws_id, ws, tags, registered, tool_flags, violations, omlx=engine == "omlx")
         _audit_reasoning_fit(ws_id, ws, hint, registry, tags, violations)
-        _served_sampling_check(ws_id, ws, hint, engine, registry, violations)
+        omlx_entry = _audit_omlx_settings(ws_id, served_id, violations) if engine == "omlx" else {}
+        _served_sampling_check(ws_id, ws, hint, engine, registry, violations, served_id=served_id)
+        if engine == "ollama":
+            _audit_template_conformance(ws_id, served_id, shows, tmap, violations)
+            _audit_stop_hygiene(ws_id, served_id, shows, violations)
+        defaults = (
+            baked_params(hint)
+            if engine == "ollama"
+            else {**omlx_default_sampling(), **_omlx_entry_sampling(omlx_entry)}
+        )
+        _audit_sampling_mode_fit(ws_id, ws, hint, defaults, registry, violations)
         if hint in tags:
             _card_check(hint, baked_params(hint), registry, violations, ws_id)
             if behavioral:
@@ -1060,9 +1409,39 @@ def run_audit(behavioral: bool = False) -> dict:
         "checked_workspaces": checked,
         "checked_personas": personas_checked,
         "council_seats": seats,
+        "served_paths": served_paths,
+        "template_map": {a: f"{r}/{p}" for a, (r, p) in tmap.items()},
         "violations": violations,
         "fail_count": len(fails),
         "warn_count": sum(v["severity"] == "WARN" for v in violations),
+    }
+
+
+def audit_tags(want: list[str]) -> dict:
+    """Checks 2 (template conformance) and 3 (stop hygiene) against arbitrary
+    tags — challengers and bench candidates — with no workspace. The served-path
+    audit only sees what a workspace pins; the same two failures on a challenger
+    must be visible before it is promoted, not after."""
+    backends = yaml.safe_load((REPO / "config/backends.yaml").read_text())
+    tags = installed_tags(backends)
+    shows: dict[str, dict] = {}
+    for t in sorted(tags):
+        _show(t, shows)
+    tmap = template_map(shows)
+    violations: list[dict] = []
+    for t in want:
+        where = f"tag:{t}"
+        if t not in tags:
+            _v(violations, where, "hint_absent", f"{t} not installed", "FAIL")
+            continue
+        _audit_template_conformance(where, t, shows, tmap, violations)
+        _audit_stop_hygiene(where, t, shows, violations)
+    fails = [v for v in violations if v["severity"] == "FAIL"]
+    return {
+        "checked_tags": len(want),
+        "violations": violations,
+        "fail_count": len(fails),
+        "warn_count": len(violations) - len(fails),
     }
 
 
@@ -1109,8 +1488,17 @@ def main() -> int:
         default="",
         help="probe ONE tag and report only its violations (implies --behavioral)",
     )
+    ap.add_argument(
+        "--tags",
+        nargs="+",
+        default=None,
+        help="audit arbitrary tags for template + stop conformance (no workspace, no probes)",
+    )
     args = ap.parse_args()
-    report = probe_tag(args.tag) if args.tag else run_audit(behavioral=args.behavioral)
+    if args.tags:
+        report = audit_tags(args.tags)
+    else:
+        report = probe_tag(args.tag) if args.tag else run_audit(behavioral=args.behavioral)
     if args.json:
         print(json.dumps(report, indent=1))
         return 1 if report["fail_count"] else 0
@@ -1120,6 +1508,8 @@ def main() -> int:
         print(f"  baked params : {report.get('baked_params')}")
         print(f"  tools probe  : {report.get('tools_probe', {}).get('tools_rendered')}")
         print(f"  think probe  : {report.get('think_probe', {}).get('verdict')}")
+    elif "checked_tags" in report:
+        print(f"WFE settings audit — {report['checked_tags']} tags (template + stop hygiene)")
     else:
         print(
             f"WFE settings audit — {report['checked_workspaces']} workspaces, "
