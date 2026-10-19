@@ -69,3 +69,21 @@ def test_volatile_ids_and_times_do_not_make_equal_answers_differ():
     b = {"run_id": "9e8d7c6b5a4f3e2d1c0b", "at": "2026-10-15T09:08:07Z", "answer": "35 days"}
     assert cc._norm(a) == cc._norm(b) and cc._norm(a) != cc._norm({**a, "answer": "90 days"})
     assert json.loads(cc._norm(a))["answer"] == "35 days"
+
+
+def test_a_malformed_tool_call_is_a_model_fail_not_a_harness_error():
+    """oMLX refusing the model's own tool-call markup (invalid_tool_call) is the seat's
+    failure; as HARNESS_ERROR it halted whole arms (wfe_tools confirms d and g)."""
+    from tests.wfe import runner
+
+    err = RuntimeError(
+        "engine error mid-stream: {'message': 'Model output contains an unrecoverable tool call.',"
+        " 'code': 'invalid_tool_call'}"
+    )
+    assert runner._is_malformed_tool_call(err)
+    assert not runner._is_malformed_tool_call(RuntimeError("engine error mid-stream: HTTP 502"))
+    transcript = [{"turn": 1, "malformed_tool_call": str(err)}]
+    outcome, note, _ = runner._classify(
+        {"checkers": []}, None, transcript, runner.Outcome.FAIL, [], 0
+    )
+    assert outcome is runner.Outcome.FAIL and note.startswith("malformed tool call")

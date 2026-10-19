@@ -1388,6 +1388,12 @@ _PROMPT_TOO_LONG = (
 )
 
 
+def _is_malformed_tool_call(e: Exception) -> bool:
+    """The engine refused the model's own tool-call output (oMLX `invalid_tool_call`)."""
+    text = str(e)
+    return "invalid_tool_call" in text or "unrecoverable tool call" in text
+
+
 def _is_prompt_too_long(exc: BaseException) -> bool:
     """An engine's loud refusal of an over-window prompt (llama.cpp runner, oMLX)."""
     text = str(exc).lower()
@@ -1505,6 +1511,13 @@ def _classify(
             transcript[-1].get("harness_error", "harness error") if transcript else "harness error"
         )
         return Outcome.HARNESS_ERROR, note, {}
+    if override is Outcome.FAIL and transcript and "malformed_tool_call" in transcript[-1]:
+        # Checkers would grade the half-finished trace; the seat's failure is the malformed call.
+        return (
+            Outcome.FAIL,
+            f"malformed tool call (engine rejected the model's output): {transcript[-1]['malformed_tool_call'][-160:]}",
+            {},
+        )
     cr = apply_checkers(task, ctx)
     outcome, notes, evidence = cr.outcome, cr.notes, cr.evidence
     if override is Outcome.BUDGET_EXHAUSTED:
@@ -1644,6 +1657,13 @@ class _Loop:
             )
         except Exception as e:
             stalled = isinstance(e, StreamStalledError | TimeoutError)
+            if not stalled and _is_malformed_tool_call(e):
+                # The MODEL emitted a tool call the engine could not parse (e.g. Qwen3.6
+                # wrote `<|im_start|>function=...` for `<tool_call><function=...>`): a seat
+                # failure, not ours. As HARNESS_ERROR it halted whole arms (confirms d and g).
+                self.outcome_override = Outcome.FAIL
+                self.transcript.append({"turn": turn, "malformed_tool_call": str(e)[-300:]})
+                return False
             self.outcome_override = Outcome.BUDGET_EXHAUSTED if stalled else Outcome.HARNESS_ERROR
             key = "stalled" if stalled else "harness_error"
             entry = {"turn": turn, key: f"{type(e).__name__}: {e}"}
