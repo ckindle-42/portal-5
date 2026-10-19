@@ -1116,6 +1116,10 @@ surfaces:
   globs:
   - tests/wfe/e2e/reading_attainability.py
   unit: unit-wfe-workspace-fitness
+- name: file-tests-wfe-e2e-reasoning_hard_attainability
+  globs:
+  - tests/wfe/e2e/reasoning_hard_attainability.py
+  unit: unit-wfe-workspace-fitness
 - name: file-tests-wfe-e2e-reasoning_math_attainability
   globs:
   - tests/wfe/e2e/reasoning_math_attainability.py
@@ -1328,6 +1332,10 @@ surfaces:
   globs:
   - tests/wfe/suites/build_reading_production.py
   unit: unit-wfe-workspace-fitness
+- name: file-tests-wfe-suites-build_reasoning_hard_production
+  globs:
+  - tests/wfe/suites/build_reasoning_hard_production.py
+  unit: unit-wfe-workspace-fitness
 - name: file-tests-wfe-suites-build_reasoning_math_production
   globs:
   - tests/wfe/suites/build_reasoning_math_production.py
@@ -1475,6 +1483,10 @@ surfaces:
 - name: file-tests-wfe-tests-test_wfe_reading_slice
   globs:
   - tests/wfe/tests/test_wfe_reading_slice.py
+  unit: unit-wfe-workspace-fitness
+- name: file-tests-wfe-tests-test_wfe_reasoning_hard_slice
+  globs:
+  - tests/wfe/tests/test_wfe_reasoning_hard_slice.py
   unit: unit-wfe-workspace-fitness
 - name: file-tests-wfe-tests-test_wfe_reasoning_math_slice
   globs:
