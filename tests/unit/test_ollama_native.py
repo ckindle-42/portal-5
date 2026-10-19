@@ -71,7 +71,7 @@ def test_messages_tool_round_trip_and_content_parts():
         {
             "role": "assistant",
             "content": "",
-            "reasoning": "thinking...",
+            "reasoning_content": "thinking...",
             "tool_calls": [
                 {"id": "c1", "type": "function", "function": {"name": "f", "arguments": '{"a":1}'}}
             ],

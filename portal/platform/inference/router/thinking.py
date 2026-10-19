@@ -13,6 +13,33 @@ _MAX_LITERAL_TAG_EXAMPLE = 8192
 NO_ANSWER_MESSAGE = "⚠️ The model did not produce an answer. Please retry."
 
 
+def _thinking_enabled(body: dict[str, Any]) -> bool:
+    """Read the effective thinking policy across Ollama and oMLX request shapes."""
+    direct = body.get("enable_thinking")
+    if isinstance(direct, bool):
+        return direct
+    ctk = body.get("chat_template_kwargs")
+    if isinstance(ctk, dict):
+        nested = ctk.get("enable_thinking")
+        if isinstance(nested, bool):
+            return nested
+    if body.get("reasoning_effort") == "none":
+        return False
+    if body.get("think") is False:
+        return False
+    options = body.get("options")
+    return not (isinstance(options, dict) and options.get("think") is False)
+
+
+def _reasoning_text(message: dict[str, Any]) -> str:
+    """Read the first non-empty reasoning channel used by supported engines."""
+    for name in ("reasoning", "reasoning_content", "thinking"):
+        value = message.get(name)
+        if isinstance(value, str) and value:
+            return value
+    return ""
+
+
 class ThinkTagFilter:
     """Incrementally remove protocol ``<think>`` blocks from answer content.
 

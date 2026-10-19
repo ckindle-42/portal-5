@@ -292,6 +292,136 @@ async def test_post_tool_reasoning_and_newline_are_not_answer_content(
 
 
 @pytest.mark.anyio
+@pytest.mark.parametrize("reasoning_field", ["reasoning", "reasoning_content", "thinking"])
+async def test_streamed_tool_loop_carries_reasoning_and_visible_prose(
+    stream_client, monkeypatch: pytest.MonkeyPatch, reasoning_field: str
+) -> None:
+    call = {
+        "index": 0,
+        "id": "call-carry",
+        "function": {"name": "lookup", "arguments": "{}"},
+    }
+    responses = [
+        _Resp(
+            200,
+            [
+                _delta(**{reasoning_field: "PRIVATE_THOUGHT"}),
+                _delta(content="Checking the source."),
+                _delta(tool_calls=[call]),
+                _data({"choices": [{"index": 0, "delta": {}, "finish_reason": "tool_calls"}]}),
+                "data: [DONE]",
+            ],
+        ),
+        _Resp(
+            200,
+            [
+                _delta(content="Done."),
+                _data({"choices": [{"index": 0, "delta": {}, "finish_reason": "stop"}]}),
+                "data: [DONE]",
+            ],
+        ),
+    ]
+    requests: list[dict[str, typing.Any]] = []
+
+    def stream(*_args: typing.Any, json: dict[str, typing.Any], **_kwargs: typing.Any):  # noqa: A002
+        requests.append(json)
+        return _Ctx(responses.pop(0))
+
+    stream_client.stream = stream
+
+    async def dispatch(calls, *_args):
+        return (
+            {"role": "assistant", "tool_calls": calls},
+            [{"role": "tool", "tool_call_id": "call-carry", "content": "source result"}],
+        )
+
+    monkeypatch.setattr(st, "_dispatch_hop_tool_calls", dispatch)
+    chunks = await _drain(
+        st._stream_with_tool_loop_impl(
+            "http://x/v1/chat/completions",
+            {
+                "messages": [{"role": "user", "content": "lookup"}],
+                "tools": [{"type": "function", "function": {"name": "lookup"}}],
+                "chat_template_kwargs": {"enable_thinking": True},
+            },
+            "ws",
+            "m",
+            "p",
+            {"lookup"},
+        )
+    )
+
+    assistant_msg = requests[1]["messages"][-2]
+    assert assistant_msg["content"] == "Checking the source."
+    assert assistant_msg["reasoning_content"] == "PRIVATE_THOUGHT"
+    assert assistant_msg["tool_calls"][0]["id"] == "call-carry"
+    assert "PRIVATE_THOUGHT" not in _content(chunks)
+
+
+@pytest.mark.anyio
+async def test_streamed_tool_loop_does_not_carry_reasoning_when_thinking_is_disabled(
+    stream_client, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    call = {
+        "index": 0,
+        "id": "call-disabled",
+        "function": {"name": "lookup", "arguments": "{}"},
+    }
+    responses = [
+        _Resp(
+            200,
+            [
+                _delta(thinking="DISABLED_THOUGHT"),
+                _delta(content="Checking anyway."),
+                _delta(tool_calls=[call]),
+                _data({"choices": [{"index": 0, "delta": {}, "finish_reason": "tool_calls"}]}),
+                "data: [DONE]",
+            ],
+        ),
+        _Resp(
+            200,
+            [
+                _data({"choices": [{"index": 0, "delta": {}, "finish_reason": "stop"}]}),
+                "data: [DONE]",
+            ],
+        ),
+    ]
+    requests: list[dict[str, typing.Any]] = []
+
+    def stream(*_args: typing.Any, json: dict[str, typing.Any], **_kwargs: typing.Any):  # noqa: A002
+        requests.append(json)
+        return _Ctx(responses.pop(0))
+
+    stream_client.stream = stream
+
+    async def dispatch(calls, *_args):
+        return (
+            {"role": "assistant", "tool_calls": calls},
+            [{"role": "tool", "tool_call_id": "call-disabled", "content": "source result"}],
+        )
+
+    monkeypatch.setattr(st, "_dispatch_hop_tool_calls", dispatch)
+    await _drain(
+        st._stream_with_tool_loop_impl(
+            "http://x/v1/chat/completions",
+            {
+                "messages": [{"role": "user", "content": "lookup"}],
+                "tools": [{"type": "function", "function": {"name": "lookup"}}],
+                "chat_template_kwargs": {"enable_thinking": False},
+            },
+            "ws",
+            "m",
+            "p",
+            {"lookup"},
+        )
+    )
+
+    assistant_msg = requests[1]["messages"][-2]
+    assert assistant_msg["content"] == "Checking anyway."
+    assert not any(key in assistant_msg for key in ("reasoning", "reasoning_content", "thinking"))
+
+
+@pytest.mark.anyio
 async def test_chat_completions_route_dispatches_tool_and_synthesizes_without_reasoning_leak(
     api, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -1046,6 +1176,89 @@ async def test_failover_runs_a_tool_loop_until_the_model_answers(monkeypatch, ns
     assert len(client.bodies) == 3
     assert client.bodies[1]["tools"] and client.bodies[2]["tools"]  # tools stay on until the answer
     assert sum(1 for m in client.bodies[2]["messages"] if m["role"] == "tool") == 2
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize("reasoning_field", ["reasoning", "reasoning_content", "thinking"])
+async def test_failover_tool_loop_carries_reasoning_and_visible_prose(
+    monkeypatch, ns_tools, reasoning_field: str
+) -> None:
+    call = {
+        "id": "carry",
+        "type": "function",
+        "function": {"name": "lookup", "arguments": "{}"},
+    }
+    first = httpx.Response(
+        200,
+        json={
+            "choices": [
+                {
+                    "message": {
+                        "role": "assistant",
+                        "content": "Checking the source.",
+                        reasoning_field: "PRIVATE_THOUGHT",
+                        "tool_calls": [call],
+                    }
+                }
+            ]
+        },
+    )
+    client = _SeenClient([first, _text_reply("Done.")])
+    monkeypatch.setattr(ns, "_http_client", client)
+
+    await ns._try_non_streaming(
+        _backend("b"),
+        {"messages": [{"role": "user", "content": "lookup"}], "enable_thinking": True},
+        ns_tools,
+        0.0,
+    )
+
+    assistant_msg = client.bodies[1]["messages"][-2]
+    assert assistant_msg["content"] == "Checking the source."
+    assert assistant_msg["reasoning_content"] == "PRIVATE_THOUGHT"
+    assert assistant_msg["tool_calls"] == [call]
+
+
+@pytest.mark.anyio
+async def test_failover_tool_loop_does_not_carry_reasoning_when_thinking_is_disabled(
+    monkeypatch, ns_tools
+) -> None:
+    call = {
+        "id": "disabled",
+        "type": "function",
+        "function": {"name": "lookup", "arguments": "{}"},
+    }
+    first = httpx.Response(
+        200,
+        json={
+            "choices": [
+                {
+                    "message": {
+                        "role": "assistant",
+                        "content": "Checking anyway.",
+                        "thinking": "DISABLED_THOUGHT",
+                        "tool_calls": [call],
+                    }
+                }
+            ]
+        },
+    )
+    client = _SeenClient([first, _text_reply("Done.")])
+    monkeypatch.setattr(ns, "_http_client", client)
+
+    await ns._try_non_streaming(
+        _backend("b"),
+        {
+            "messages": [{"role": "user", "content": "lookup"}],
+            "chat_template_kwargs": {"enable_thinking": False},
+        },
+        ns_tools,
+        0.0,
+    )
+
+    assistant_msg = client.bodies[1]["messages"][-2]
+    assert assistant_msg["content"] == "Checking anyway."
+    assert not any(key in assistant_msg for key in ("reasoning", "reasoning_content", "thinking"))
 
 
 @pytest.mark.anyio
