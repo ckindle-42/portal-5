@@ -209,6 +209,16 @@ models:
     source: "https://huggingface.co/mistralai/Mistral-Small-3.2-24B-Instruct-2506/resolve/main/generation_config.json (2026-09-25)"
     recommended_sampling: {temperature: 0.15}
     prompt_contract: "Mistral recommends a low temperature (0.15) and its own system prompt. Only bench/persona use in this fleet (mistral-small3.2:24b)."
+  magistral:
+    status: verified-card
+    verified: true
+    source: "https://huggingface.co/mistralai/Magistral-Small-2509 (README 'Sampling parameters' + generation_config.json: temperature 0.7 / top_p 0.95) + build provider https://huggingface.co/unsloth/Magistral-Small-2509-GGUF (llama.cpp flags --temp 0.7 --top-p 0.95 --top-k -1) (2026-10-18)"
+    recommended_sampling: {temperature: 0.7, top_p: 0.95}
+    max_context: 131072
+    prompt_contract: "Reasoning-only model — [THINK]...[/THINK] special tokens wrap the reasoning trace and the reasoning prompt ships in the system prompt; no instruct mode. Card: temperature 0.7, top_p 0.95, max_tokens 131072; 128k context window (may degrade past 40k). Covers the unsloth GGUF build hf.co/unsloth/Magistral-Small-2509-GGUF."
+    harness_policy:
+      think: "true"
+      notes: "Reasoning-only: there is no instruct mode to switch to; a seat on this family must budget output for the reasoning trace plus the answer."
   command-r:
     status: research-debt
     prompt_contract: "Not a model_hint for any workspace (folded 2026-09-12). Research only if it comes back."

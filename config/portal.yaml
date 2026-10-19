@@ -669,6 +669,9 @@ workspaces:
         description: Multi-turn agentic coding with an abliterated SWE-capable model — the uncensored counterpart to the laguna variant (auto-coding?variant=laguna). Qwen3-Coder-Next abliterated (80B/3B MoE, ~46GB, bartowski GGUF, tools per Qwen coding-family arch). Same read→explore→edit→verify loop and explore_repository subagent. [BENCH-GATED PROVISIONAL model_hint — ~46GB resident on 64GB unified memory; not a default; promotion requires a passing bench run + separate operator task. Tool support asserted by architecture, not yet audit-confirmed.]
         # 2026-09-25: sampling set to the qwen3-coder-next card (by purpose); prior values + A/B: docs/TASK_SEAT_SAMPLING_AB_V1.md
         model_hint: portal5/qwen3-coder-next-abliterated:q4_K_M-ctx256k
+        # card: Qwen3-Coder-Next is non-thinking only ("does not generate
+        # <think></think> blocks") — think pinned off, not left to the template.
+        think: false
         context_limit: 262144
         keep_alive: 15m
         temperature: 1.0
@@ -746,6 +749,9 @@ workspaces:
         description: 'Agentic coding workspace for long-horizon multi-file tasks, SWE-agent-style workflows, and complex refactors. Qwen3-Coder-Next 80B/3B MoE (V8: agentic RL training on 800K executable tasks, 256K ctx, ~46GB, 20 t/s pipeline). Fallback 1: Qwen-AgentWorld-35B-A3B (~21GB, 45 t/s, MoE 3B active, 262K ctx) — language world model trained on MCP/Terminal/SWE/Web/OS env-simulation; strong tool-call coherence, available in general+coding pools. Fallback 2: gpt-oss:20b (~12GB, o3-mini level, MoE, purpose-built for agent/tool use, 2/2 security chain at 45s) — available in the coding pool when the primary is not loaded.'
         # 2026-09-25: sampling set to the qwen3-coder-next card (by purpose); prior values + A/B: docs/TASK_SEAT_SAMPLING_AB_V1.md
         model_hint: portal5/qwen3-coder-next:latest-ctx256k
+        # card: Qwen3-Coder-Next is non-thinking only ("does not generate
+        # <think></think> blocks") — think pinned off, not left to the template.
+        think: false
         top_k: 40
         top_p: 0.95
         temperature: 1.0
@@ -869,6 +875,9 @@ workspaces:
       Splunk SPL queries, YARA rules, detection search authoring, security scripting. Qwen3-Coder-Next abliterated (V8: 80B/3B MoE, 19 t/s, no refusals on offensive/security code, same quality as non-abliterated, ~46GB).
     # 2026-09-25: sampling set to the qwen3-coder-next card (by purpose); prior values + A/B: docs/TASK_SEAT_SAMPLING_AB_V1.md
     model_hint: hf.co/bartowski/huihui-ai_Qwen3-Coder-Next-abliterated-GGUF:Q4_K_M-ctx64k
+    # card: Qwen3-Coder-Next is non-thinking only ("does not generate
+    # <think></think> blocks") — think pinned off, not left to the template.
+    think: false
     top_k: 40
     context_limit: 65536
     keep_alive: 10m
@@ -975,11 +984,13 @@ workspaces:
         description: 'Authorized penetration testing assistant with execution capability. Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive (MoE, ~22GB). PROMOTED 2026-07-16 (P5-AUTOSEC-RESELECT widened slate): the only candidate across 27 tested (original 11-candidate slate + a widened abliterated-model sweep) to clear BOTH the tool-call reliability gate (valid_rate 0.80, unique_coverage 6/8 on kerberoast_to_da --lab-exec — best of any abliterated candidate) AND zero-refusal authorized-content compliance (verified: delivers complete working reverse-shell payloads, detailed mimikatz credential-dump walkthroughs, and working Metasploit EternalBlue commands — see docs/reselection/ for the diagnosis chain). Superseded the prior gemma-4-abliterated:E2b-qat pick, whose 2026-06-25 head-to-head numbers predated the reliability-scoring fix and were never re-verified; re-tested under the corrected methodology it failed the reliability gate (valid_rate 0.50-0.67 across 3 reps). execute_bash + execute_python + web_search for live target enumeration and PoC validation. Web app / AD / cloud / container attack paths, CVE-specific payloads, exec-ready findings.'
         # 2026-09-25: sampling set to the qwen3.6 thinking_precise_coding; repeat_penalty 1.1 kept as the thinking-chain loop guard card (engine settings only; prompts untouched); prior values + A/B: docs/TASK_SEAT_SAMPLING_AB_V1.md
         model_hint: fredrezones55/Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive:Q4-ctx24k
-        presence_penalty: 1.5
+        # SEAT_CARD_CONFORMANCE_FIX: serve the card's thinking_precise_coding arm
+        # (settings_audit sampling_mode_fit): temperature 0.6, presence_penalty 0.0.
+        presence_penalty: 0.0
         context_limit: 24576
         predict_limit: 8192
         keep_alive: 15m
-        temperature: 1.0
+        temperature: 0.6
         top_p: 0.95
         top_k: 20
         min_p: 0.0
@@ -2237,6 +2248,9 @@ workspaces:
     # sampling measured in wfe_math_20261018d. The card names no top_k/min_p/penalty.
     temperature: 1.0
     top_p: 0.95
+    # card: GLM-4.7-Flash is a hybrid thinking model (thinking on by default;
+    # the card's own knob is Preserved Thinking mode) — pinned on, explicit.
+    think: true
     emits_reasoning: true
     tools: []
     expose_to_owui: true
@@ -2269,9 +2283,10 @@ workspaces:
     predict_limit: 8192
     max_concurrent: 1
     keep_alive: 5m
-    temperature: 0.2
-    top_p: 0.9
-    repeat_penalty: 1.1
+    # SEAT_CARD_CONFORMANCE_FIX: qwen3-coder card values (settings_audit served_vs_card)
+    temperature: 0.7
+    top_p: 0.8
+    repeat_penalty: 1.05
     emits_reasoning: true
     tools: []
     expose_to_owui: true
@@ -2288,7 +2303,8 @@ workspaces:
     predict_limit: 8192
     max_concurrent: 1
     keep_alive: 5m
-    temperature: 0.2
+    # SEAT_CARD_CONFORMANCE_FIX: granite-4.1 card value — greedy decoding (settings_audit served_vs_card)
+    temperature: 0.0
     top_p: 0.9
     repeat_penalty: 1.1
     tools: []
@@ -2306,7 +2322,8 @@ workspaces:
     predict_limit: 8192
     max_concurrent: 1
     keep_alive: 5m
-    temperature: 0.6
+    # SEAT_CARD_CONFORMANCE_FIX: granite-4.1 card value — greedy decoding (settings_audit served_vs_card)
+    temperature: 0.0
     top_p: 0.95
     repeat_penalty: 1.1
     tools: []
@@ -2373,10 +2390,11 @@ workspaces:
     top_p: 0.95
     repeat_penalty: 1.0
     # TASK_SAMPLING_PROFILE_AUDIT_V1 verified Qwen3.5 profile (general rows).
+    # SEAT_CARD_CONFORMANCE_FIX: instruct profile gains the card's presence_penalty 1.5
     think: false
     think_profiles:
       thinking: {temperature: 1.0, top_p: 0.95, top_k: 20, min_p: 0.0, repeat_penalty: 1.0}
-      instruct: {temperature: 0.7, top_p: 0.8, top_k: 20, min_p: 0.0, repeat_penalty: 1.0}
+      instruct: {temperature: 0.7, top_p: 0.8, top_k: 20, min_p: 0.0, presence_penalty: 1.5, repeat_penalty: 1.0}
     emits_reasoning: true
     tools: []
     expose_to_owui: true
@@ -2392,9 +2410,12 @@ workspaces:
     predict_limit: 8192
     max_concurrent: 1
     keep_alive: 5m
-    temperature: 0.2
-    top_p: 0.9
+    # SEAT_CARD_CONFORMANCE_FIX: omnicoder card values (settings_audit served_vs_card)
+    temperature: 0.7
+    top_p: 0.8
+    top_k: 20
     repeat_penalty: 1.1
+    presence_penalty: 1.5
     tools: []
     expose_to_owui: true
     enable_web_search: false
@@ -2433,9 +2454,10 @@ workspaces:
       Benchmark: sh0wie/Qwen3.8-Flash-Next-REAP-288-MLX-4bit (Sept 2026, REAP expert-pruned 512->288 of Qwen/Qwen3.8-Flash-Next, qwen4_exp MoE, 48 layers, top-10 routing, 262K ctx). MLX affine 4-bit, ~70GB on disk (card: 68GB). Probed on this host 2026-09-02: 39.13GB actual resident with qwen4_ple_ssd_offload:true (REQUIRED in ~/.omlx/model_settings.json — 32GB PLE n-gram table streams from SSD, oMLX >=0.6.4 "PLE mode: mmap") — matches the card's "39 GB streamed" and the plan's ~39GB. oMLX's admission estimate is padded higher (40.57GB with the setting, 71.87GB without), so on a full stack (~25GB reclaimable) it refuses HTTP 507; probe was on a quiet host (./launch.sh down + Ollama evicted → ~41GB). Observed: ~22s first load; warm sustained decode ~23-29 tok/s on this M4 Pro (256-300 tok gens) — in line with the card's ~28 tok/s stock-resident figure despite running the streamed-PLE path; the card doesn't separately benchmark oMLX streamed. (Early 6-11 tok/s readings were cold-load artifacts.) model_type_override:llm is a dead end — qwen4_exp only runs the VLM engine. Thinking model (reasoning_content field). supports_tools:true (clean tool_calls probe). Card HumanEval 91.5% (vs 93.9% base Q4) not reproduced here. oMLX-only, no Ollama/GGUF fallback. Added 2026-09-02 (TASK_OMLX_QWEN38FN_REAP288_BRINGUP_V1). OPERATOR VERDICT 2026-09-02: never an auto-* default — too heavy (39GB loaded + 40.57GB admission gate needing a quiet host); bench / restricted manual use only, and only if proven against Laguna-XS.2 here. NOTE: will not load co-resident with the full Portal Docker stack on a 64GB host; bench runs need `./launch.sh down` first.
     model_hint: Qwen3.8-Flash-Next-REAP-288-MLX-4bit
     predict_limit: 16384
-    temperature: 0.2
-    top_p: 0.95
-    repeat_penalty: 1.1
+    # SEAT_CARD_CONFORMANCE_FIX: qwen3.8 instruct card values (settings_audit served_vs_card)
+    temperature: 0.7
+    top_p: 0.8
+    repeat_penalty: 1.0
     max_concurrent: 1
     # code-repair bench — not a reasoning task; think:false to match the coder
     # peers it benches against.
@@ -2451,7 +2473,9 @@ workspaces:
     model_hint: Nex-N2.5-mini-Uncensored-MLX-4bit
     predict_limit: 16384
     temperature: 0.7
-    top_p: 0.8
+    # SEAT_CARD_CONFORMANCE_FIX: nex-n2 card top_p/top_k (settings_audit served_vs_card)
+    top_p: 0.95
+    top_k: 40
     repeat_penalty: 1.05
     max_concurrent: 1
     emits_reasoning: true
@@ -2465,7 +2489,8 @@ workspaces:
     model_hint: gemma4:26b-a4b-it-q4_K_M
     max_concurrent: 1
     keep_alive: 5m
-    temperature: 0.6
+    # SEAT_CARD_CONFORMANCE_FIX: gemma4 card value (settings_audit served_vs_card)
+    temperature: 1.0
     top_p: 0.95
     repeat_penalty: 1.0
     tools: []
@@ -2536,8 +2561,10 @@ workspaces:
       Benchmark: hf.co/sjakek/Nex-N2-mini-GGUF:UD-Q4_K_M (June 2026, Apache 2.0, 35B total / 3B active MoE, ~22GB UD-Q4_K_M). Post-trained on Qwen3.5-35B-A3B-Base for agentic coding, tool use, reasoning. Multimodal (image+text). imatrix community GGUF by sjakek. Terminal-Bench 2.1 score: 60.7. PROMOTE_POLICY=confirm.
     model_hint: hf.co/sjakek/Nex-N2-mini-GGUF:UD-Q4_K_M
     predict_limit: 16384
-    temperature: 0.2
-    top_p: 0.9
+    # SEAT_CARD_CONFORMANCE_FIX: nex-n2 card values (settings_audit served_vs_card)
+    temperature: 0.7
+    top_p: 0.95
+    top_k: 40
     repeat_penalty: 1.1
     max_concurrent: 1
     emits_reasoning: true
@@ -2551,9 +2578,10 @@ workspaces:
       HEAD-TO-HEAD EVAL 2026-06-24: Gemma4-E2B-QAT abliterated (3GB, 71.6 t/s) vs baronllm (auto-pentest primary, 8B). Mirrors auto-pentest system prompt exactly — same tools, same lab environment, same hard constraints. Scoring: theory quality, refusal rate, MITRE ATT&CK coverage. If E2b-qat matches baronllm: promotes to auto-pentest primary, 18GB memory savings per concurrent request.
     model_hint: huihui_ai/gemma-4-abliterated:E2b-qat
     keep_alive: 15m
-    temperature: 0.3
-    top_p: 0.9
-    top_k: 40
+    # SEAT_CARD_CONFORMANCE_FIX: gemma4 card values (settings_audit served_vs_card)
+    temperature: 1.0
+    top_p: 0.95
+    top_k: 64
     min_p: 0.05
     repeat_penalty: 1.1
     seed: 42
@@ -2607,6 +2635,9 @@ workspaces:
     top_p: 0.95
     min_p: 0.01
     repeat_penalty: 1.0
+    # card: GLM-4.7-Flash is a hybrid thinking model (thinking on by default;
+    # the card's own knob is Preserved Thinking mode) — pinned on, explicit.
+    think: true
     tools: []
     expose_to_owui: true
     enable_web_search: false
@@ -2673,10 +2704,13 @@ workspaces:
     ctx_validated: true
     context_limit: 32768  # 2026-10-06: fixed overhead (system+20 tool schemas) measured 5193 tok = 31.7% of 16384
     predict_limit: 16384
-    temperature: 0.2
-    top_p: 0.9
-    top_k: 40
-    repeat_penalty: 1.1
+    # SEAT_CARD_CONFORMANCE_FIX: qwen3.8 instruct card values (settings_audit served_vs_card)
+    temperature: 0.7
+    top_p: 0.8
+    top_k: 20
+    min_p: 0.0
+    repeat_penalty: 1.0
+    presence_penalty: 1.5
     # think=false matches this model's proven seats. 2026-10-06 pipeline preflight, 6x "40x20x5
     # plate with two 4 mm holes" under auto: 6/6 valid tool names, none hallucinated; 2/6 went
     # straight to a build (generate_part/cad_*) and delivered, 4/6 opened with cad_find_holes on
@@ -2726,9 +2760,12 @@ workspaces:
     ctx_validated: true
     context_limit: 16384
     predict_limit: 16384
-    temperature: 0.2
-    top_p: 0.9
-    repeat_penalty: 1.1
+    temperature: 0.7
+    top_p: 0.8
+    top_k: 20
+    min_p: 0.0
+    repeat_penalty: 1.0
+    presence_penalty: 1.5
     # TASK_SAMPLING_PROFILE_AUDIT_V1 verified Qwen3.6 profile; think=false per
     # operator decision (see auto-council) — don't newly enable thinking
     # pending evaluation. Without this, a bench run measures thinking-block
@@ -2773,10 +2810,11 @@ workspaces:
     top_k: 20
     repeat_penalty: 1.0
     # TASK_SAMPLING_PROFILE_AUDIT_V1: inherited_unverified from Qwen3.6 base.
+    # SEAT_CARD_CONFORMANCE_FIX: instruct profile gains the card's presence_penalty 1.5
     think: false
     think_profiles:
       thinking: {temperature: 1.0, top_p: 0.95, top_k: 20, min_p: 0.0, repeat_penalty: 1.0}
-      instruct: {temperature: 0.7, top_p: 0.8, top_k: 20, min_p: 0.0, repeat_penalty: 1.0}
+      instruct: {temperature: 0.7, top_p: 0.8, top_k: 20, min_p: 0.0, presence_penalty: 1.5, repeat_penalty: 1.0}
     tools: []
     expose_to_owui: true
     enable_web_search: false
@@ -2790,9 +2828,10 @@ workspaces:
     model_hint: huihui_ai/gemma-4-abliterated:E2b-qat
     max_concurrent: 1
     keep_alive: 15m
-    temperature: 0.1
-    top_p: 0.9
-    top_k: 20
+    # SEAT_CARD_CONFORMANCE_FIX: gemma4 card values (settings_audit served_vs_card)
+    temperature: 1.0
+    top_p: 0.95
+    top_k: 64
     min_p: 0.05
     repeat_penalty: 1.1
     seed: 42
@@ -2827,7 +2866,8 @@ workspaces:
     max_concurrent: 1
     keep_alive: 5m
     temperature: 0.6
-    top_p: 0.95
+    # SEAT_CARD_CONFORMANCE_FIX: hermes card top_p (settings_audit served_vs_card)
+    top_p: 0.9
     repeat_penalty: 1.1
     emits_reasoning: true
     tools: []
