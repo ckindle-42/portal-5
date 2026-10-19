@@ -6,6 +6,10 @@ sources:
 - type: code
   path: portal/platform/inference/router/streaming.py
   commit: b1392f8efd4cbdaf0f760a1a023f67c494b14b7e
+- type: code
+  path: portal/platform/inference/router/non_streaming.py
+- type: code
+  path: portal/platform/inference/ollama_native.py
 claims: []
 confidence: high
 tags:
@@ -21,6 +25,13 @@ updated_at: 1785798117.610343
 with no routing policy. It owns the tool-loop streaming, the chain handoff,
 the preamble injection, and the JSON-to-SSE conversion for the fallback
 path.
+
+Both tool-loop paths append each hop's visible prose as assistant `content`
+and, when thinking is enabled, carry its reasoning in the canonical
+`reasoning_content` field beside `tool_calls`. `OllamaNativeTransport` maps
+that field to native `/api/chat` `thinking`; oMLX receives it unchanged.
+Reasoning stays separate from user-visible content, and disabled thinking
+does not add it to tool history.
 
 ## Why
 

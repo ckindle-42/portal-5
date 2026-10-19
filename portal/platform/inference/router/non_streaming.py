@@ -36,6 +36,11 @@ from portal.platform.inference.router.text_tool_calls import (
     drop_unparsed_markup,
     salvage_text_tool_calls,
 )
+from portal.platform.inference.router.thinking import (
+    _reasoning_text,
+    _thinking_enabled,
+    strip_think,
+)
 from portal.platform.inference.router.tool_repeat import (
     FINAL_ANSWER_REQUEST,
     GROUNDING_REQUEST,
@@ -589,6 +594,7 @@ async def _try_non_streaming(
         req_body = _inject_ollama_options(req_body, workspace_id)
     elif backend.type == "omlx":
         req_body = _inject_omlx_options(req_body, workspace_id)
+    _ns_thinking_allowed = _thinking_enabled(req_body)
 
     # Inject tool schemas — same logic as the streaming path. Required when
     # _try_non_streaming is used as a fallback after a streaming attempt fails
@@ -826,11 +832,32 @@ async def _try_non_streaming(
                 _ns_creation_succeeded = _ns_creation_succeeded or any(
                     successful_file_creation(result) for result in _ns_dispatch
                 )
-                _ns_messages = (
-                    _ns_messages
-                    + [{"role": "assistant", "content": None, "tool_calls": _ns_tool_calls}]
-                    + list(_ns_dispatch)
-                )
+                _ns_assistant_content: list[str] = []
+                _ns_assistant_reasoning: list[str] = []
+                for _choice in data.get("choices") or []:
+                    _message = _choice.get("message") or {}
+                    _content = _message.get("content")
+                    if isinstance(_content, str):
+                        _visible_content = strip_think(_content)
+                        if not _ns_creation_succeeded:
+                            _visible_content = strip_unbacked_download_lines(_visible_content)
+                        if _visible_content:
+                            _ns_assistant_content.append(_visible_content)
+                    if _ns_thinking_allowed:
+                        _reasoning = _reasoning_text(_message)
+                        if _reasoning:
+                            _ns_assistant_reasoning.append(_reasoning)
+                _ns_assistant_msg: dict[str, Any] = {
+                    "role": "assistant",
+                    "content": "".join(_ns_assistant_content) or None,
+                    "tool_calls": _ns_tool_calls,
+                }
+                _combined_reasoning = "".join(_ns_assistant_reasoning)
+                if _combined_reasoning:
+                    # OllamaNativeTransport maps this canonical field to native
+                    # /api/chat `thinking`; oMLX consumes it unchanged.
+                    _ns_assistant_msg["reasoning_content"] = _combined_reasoning
+                _ns_messages = _ns_messages + [_ns_assistant_msg] + list(_ns_dispatch)
                 # Every turn but the last keeps the tools, so a turn that needs a second
                 # lookup gets it; the last is the synthesis, run with none.
                 _ns_last = _ns_hops >= max_hops or _ns_guard.force_synthesis

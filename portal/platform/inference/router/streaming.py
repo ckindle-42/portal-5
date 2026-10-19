@@ -78,7 +78,12 @@ from portal.platform.inference.router.text_tool_calls import (
     drop_unparsed_markup,
     salvage_text_tool_calls,
 )
-from portal.platform.inference.router.thinking import NO_ANSWER_MESSAGE, ThinkTagFilter
+from portal.platform.inference.router.thinking import (
+    NO_ANSWER_MESSAGE,
+    ThinkTagFilter,
+    _reasoning_text,
+    _thinking_enabled,
+)
 from portal.platform.inference.router.tool_repeat import (
     FINAL_ANSWER_REQUEST,
     GROUNDING_REQUEST,
@@ -239,24 +244,6 @@ def _chunk_has_output(chunk: bytes) -> bool:
         if d.get("tool_calls"):
             return True
     return False
-
-
-def _thinking_enabled(body: dict[str, Any]) -> bool:
-    """Read the effective thinking policy across Ollama and oMLX request shapes."""
-    direct = body.get("enable_thinking")
-    if isinstance(direct, bool):
-        return direct
-    ctk = body.get("chat_template_kwargs")
-    if isinstance(ctk, dict):
-        nested = ctk.get("enable_thinking")
-        if isinstance(nested, bool):
-            return nested
-    if body.get("reasoning_effort") == "none":
-        return False
-    if body.get("think") is False:
-        return False
-    options = body.get("options")
-    return not (isinstance(options, dict) and options.get("think") is False)
 
 
 def _route(held: list[bytes] | None, frame: bytes) -> list[bytes]:
@@ -443,24 +430,26 @@ async def _rescue_empty_hop(
     body: dict[str, Any],
     workspace_id: str = "unknown",
     model: str = "unknown",
-) -> tuple[str, list[dict[str, Any]]]:
+) -> tuple[str, list[dict[str, Any]], str]:
     """P-1: re-issue a streamed tool-loop hop that ended with no content and no tool
     call, non-streamed. oMLX's streaming tool parser drops a malformed ``<tool_call>``
     (one extra brace) and returns empty content, while the non-streamed reply keeps the
     text, from which ``salvage_text_tool_calls`` recovers the call.
-    Returns ``(answer_text, tool_calls)``; both empty when the retry has nothing."""
+    Returns ``(answer_text, tool_calls, reasoning_text)``; all empty when the
+    retry has nothing."""
     started = time.monotonic()
     try:
         r = await _http_client.post(backend_url, json={**body, "stream": False})  # type: ignore[union-attr]
         if r.status_code != 200:
-            return "", []
+            return "", [], ""
         data = r.json()
     except Exception as e:  # noqa: BLE001 — a failed rescue falls back to the no-answer path
         logger.warning("Empty-hop rescue against %s failed: %s", backend_url, e)
-        return "", []
+        return "", [], ""
     msg = ((data.get("choices") or [{}])[0] or {}).get("message") or {}
     calls = list(msg.get("tool_calls") or [])
     text = re.sub(r"<think>.*?</think>", "", str(msg.get("content") or ""), flags=re.S).strip()
+    reasoning = _reasoning_text(msg) if _thinking_enabled(body) else ""
     if not calls and text and body.get("tools"):
         _, calls = salvage_text_tool_calls(text, body.get("tools"))
         text = "" if calls else text
@@ -479,7 +468,7 @@ async def _rescue_empty_hop(
         **usage_metric_kwargs(data, measured),
     )
     trace_note(portal_timings=add_model_turn(data, measured))
-    return text, calls
+    return text, calls, reasoning
 
 
 def _record_tool_loop_turn(
@@ -713,6 +702,8 @@ async def _tool_loop_frames(
 
         # Accumulators for this iteration
         tool_calls_buf: list[dict[str, Any]] = []
+        _content_buf = ""
+        _reasoning_buf = ""
         _timing_measurement = StreamMeasurement()
         finish_reason: str | None = None
         _content_emitted: bool = False  # substantive answer bytes reached client
@@ -838,6 +829,8 @@ async def _tool_loop_frames(
                             delta.get(name)
                             for name in ("reasoning", "reasoning_content", "thinking")
                         )
+                        if _thinking_allowed:
+                            _reasoning_buf += _reasoning_text(delta)
 
                         if delta.get("tool_calls"):
                             _timing_measurement.observe(timing_frame)
@@ -891,6 +884,8 @@ async def _tool_loop_frames(
                             _thinking_allowed,
                             _think_filter,
                         )
+                        if isinstance(_visible, str):
+                            _content_buf += _visible
                         _timing_measurement.observe(
                             timing_frame,
                             visible_content=_visible,
@@ -1042,13 +1037,17 @@ async def _tool_loop_frames(
             and current_body.get("tools")
             and not (_reasoning_seen or _think_filter.removed)
         ):
-            _rtext, _rcalls = await _rescue_empty_hop(
+            _rtext, _rcalls, _rreasoning = await _rescue_empty_hop(
                 backend_url, current_body, workspace_id, current_body.get("model", model)
             )
             if _rcalls:
                 logger.info("Tool loop hop %d: empty stream rescued %d call(s)", hop, len(_rcalls))
                 _tool_calls_recovered.labels(workspace=workspace_id).inc(len(_rcalls))
                 tool_calls_buf.extend(_rcalls)
+                _content_buf += _rtext
+                if _thinking_allowed:
+                    _reasoning_buf += _rreasoning
+                _reasoning_seen = _reasoning_seen or bool(_rreasoning)
                 finish_reason = "tool_calls"
             elif _rtext:
                 _shown_rescue = _download_lines.feed(_rtext)
@@ -1226,6 +1225,11 @@ async def _tool_loop_frames(
                 MAX_TOOL_HOPS,
                 _repeat_guard,
             )
+            assistant_msg["content"] = _content_buf if _content_buf.strip() else None
+            if _thinking_allowed and _reasoning_buf:
+                # Keep the OpenAI-compatible history field canonical. The
+                # OllamaNativeTransport maps it to /api/chat `thinking` once.
+                assistant_msg["reasoning_content"] = _reasoning_buf
             if not _successful_creation and any(
                 successful_file_creation(result) for result in dispatch_results
             ):

@@ -53,8 +53,11 @@ class _Client:
         return self.resp
 
 
-def _msg(content="", tool_calls=None):
-    return {"choices": [{"message": {"content": content, "tool_calls": tool_calls}}]}
+def _msg(content="", tool_calls=None, reasoning=None):
+    message = {"content": content, "tool_calls": tool_calls}
+    if reasoning is not None:
+        message["reasoning"] = reasoning
+    return {"choices": [{"message": message}]}
 
 
 def _rescue(monkeypatch, client):
@@ -69,9 +72,10 @@ def _rescue(monkeypatch, client):
 def test_a_malformed_tool_call_is_salvaged_from_the_non_streamed_reply(monkeypatch):
     raw = '<tool_call>{"name": "compliance_read", "arguments": {"ref": "OT-POL-007"}}}</tool_call>'
     client = _Client(_Resp(200, _msg(raw)))
-    text, calls = _rescue(monkeypatch, client)
+    text, calls, reasoning = _rescue(monkeypatch, client)
     assert client.sent["stream"] is False
     assert [c["function"]["name"] for c in calls] == ["compliance_read"] and text == ""
+    assert reasoning == ""
 
 
 def test_proper_tool_calls_and_plain_answers_come_back_as_they_are(monkeypatch):
@@ -80,13 +84,18 @@ def test_proper_tool_calls_and_plain_answers_come_back_as_they_are(monkeypatch):
         "type": "function",
         "function": {"name": "compliance_read", "arguments": "{}"},
     }
-    assert _rescue(monkeypatch, _Client(_Resp(200, _msg("", [call])))) == ("", [call])
+    assert _rescue(monkeypatch, _Client(_Resp(200, _msg("", [call], "rescue thought")))) == (
+        "",
+        [call],
+        "rescue thought",
+    )
     assert _rescue(monkeypatch, _Client(_Resp(200, _msg("<think>x</think>The answer.")))) == (
         "The answer.",
         [],
+        "",
     )
 
 
 def test_a_failed_rescue_falls_back_to_the_no_answer_path(monkeypatch):
-    assert _rescue(monkeypatch, _Client(exc=OSError("down"))) == ("", [])
-    assert _rescue(monkeypatch, _Client(_Resp(500, {}))) == ("", [])
+    assert _rescue(monkeypatch, _Client(exc=OSError("down"))) == ("", [], "")
+    assert _rescue(monkeypatch, _Client(_Resp(500, {}))) == ("", [], "")
