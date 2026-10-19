@@ -16,7 +16,7 @@
   },
   "bench_prompts[math]": {
     "base": "auto-reasoning",
-    "served_model": "hf.co/unsloth/DeepSeek-R1-0528-Qwen3-8B-GGUF:Q4_K_XL-ctx64k",
+    "served_model": "hf.co/bartowski/K2-Horizon-MoVA-36B-A4B-GGUF:Q4_K_M-ctx64k",
     "variant": null
   },
   "bench_prompts[reasoning]": {
@@ -76,7 +76,7 @@
   },
   "fold_mistral_llm": {
     "base": "auto-reasoning",
-    "served_model": "hf.co/unsloth/DeepSeek-R1-0528-Qwen3-8B-GGUF:Q4_K_XL-ctx64k",
+    "served_model": "hf.co/bartowski/K2-Horizon-MoVA-36B-A4B-GGUF:Q4_K_M-ctx64k",
     "variant": null
   },
   "fold_pentest": {
@@ -191,12 +191,12 @@
   },
   "routing_examples[23]": {
     "base": "auto-reasoning",
-    "served_model": "hf.co/unsloth/DeepSeek-R1-0528-Qwen3-8B-GGUF:Q4_K_XL-ctx64k",
+    "served_model": "hf.co/bartowski/K2-Horizon-MoVA-36B-A4B-GGUF:Q4_K_M-ctx64k",
     "variant": null
   },
   "routing_examples[24]": {
     "base": "auto-reasoning",
-    "served_model": "hf.co/unsloth/DeepSeek-R1-0528-Qwen3-8B-GGUF:Q4_K_XL-ctx64k",
+    "served_model": "hf.co/bartowski/K2-Horizon-MoVA-36B-A4B-GGUF:Q4_K_M-ctx64k",
     "variant": null
   },
   "routing_examples[25]": {
@@ -276,7 +276,7 @@
   },
   "routing_examples[39]": {
     "base": "auto-reasoning",
-    "served_model": "hf.co/unsloth/DeepSeek-R1-0528-Qwen3-8B-GGUF:Q4_K_XL-ctx64k",
+    "served_model": "hf.co/bartowski/K2-Horizon-MoVA-36B-A4B-GGUF:Q4_K_M-ctx64k",
     "variant": null
   },
   "routing_examples[3]": {
@@ -351,7 +351,7 @@
   },
   "rr_bench_prompts[math]": {
     "base": "auto-reasoning",
-    "served_model": "hf.co/unsloth/DeepSeek-R1-0528-Qwen3-8B-GGUF:Q4_K_XL-ctx64k",
+    "served_model": "hf.co/bartowski/K2-Horizon-MoVA-36B-A4B-GGUF:Q4_K_M-ctx64k",
     "variant": null
   },
   "rr_bench_prompts[reasoning]": {

@@ -407,11 +407,11 @@ class TestWorkspaceModelHintUpdated:
             "Coding workspace should use a specialized coding model (qwen3-coder or similar)"
         )
 
-    def test_reasoning_uses_deepseek_or_tongyi(self):
+    def test_reasoning_seats_a_thinking_model(self):
+        # The seat is decided by WFE (K2-Horizon, 2026-10-19); test the lane's property, not a name.
         ws = WORKSPACES.get("auto-reasoning", {})
-        hint = ws.get("model_hint", "").lower()
-        assert "deepseek" in hint or "tongyi" in hint or "r1" in hint or "qwopus" in hint, (
-            "Reasoning workspace should use a deep reasoning model (DeepSeek-R1, Tongyi, or Qwopus MTP)"
+        assert (
+            ws.get("model_hint") and ws.get("think") is True and ws.get("emits_reasoning") is True
         )
 
 
@@ -587,9 +587,6 @@ class TestR18ModelCompleteness:
             "auto-blueteam (now auto-security's 'blueteam' variant, Phase 6) should use "
             "Granite 4.1 8B (sylink is a reasoning model that doesn't call tools — "
             "switched for autonomous investigation capability)"
-        )
-        assert "deepseek-r1-0528" in WORKSPACES["auto-reasoning"]["model_hint"].lower(), (
-            "auto-reasoning should use DeepSeek-R1-0528-Qwen3-8B (V8 primary; Qwopus pull fails as of 2026-06-09)"
         )
 
     def test_env_example_has_pull_heavy(self):

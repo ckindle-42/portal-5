@@ -1502,25 +1502,20 @@ workspaces:
     module: general
     name: 🧠 Portal Deep Reasoner
     description: |-
-      Complex analysis, research synthesis, step-by-step reasoning. DeepSeek R1-0528-Qwen3-8B (V8: 31 t/s pipeline, AIME 2024 = Qwen3-235B at 8B, ~5GB. Replaces Qwopus primary which had pull failures). deepseek-r1:32b remains reasoning group fallback for heavy tasks.
-    # Kept on DeepSeek-R1 (2026-08-31): the adaptive UAT memory-thrash finding
-    # (FINDINGS D2) was auto-data's granite4.1:30b-ctx64k specifically — this
-    # 5GB dense-8B lane never thrashed. Kept for reasoning-group lineage
-    # diversity (DeepSeek vs Qwen vs phi vs Aquila across the four lanes) and
-    # as the dedicated thinking specialist. BENCH_REWIRE_PLAN_V1 B3 listed
-    # this slot for qwen3.6:35b-a3b; deferred pending a diversity-aware bench.
-    model_hint: hf.co/unsloth/DeepSeek-R1-0528-Qwen3-8B-GGUF:Q4_K_XL-ctx64k
+      Complex analysis, research synthesis, step-by-step reasoning. K2-Horizon-MoVA-36B-A4B (IFM, MoE ~4B active): I-REASON screen 12/12 at 28 s median vs DeepSeek-R1-8B 8/12 at 383 s.
+    # Seated 2026-10-19 (operator): wfe_reasoning_hard_20261019b screen, K2-Horizon 12/12
+    # (median 28 s, ~1.2k reasoning tokens) vs the DeepSeek-R1-0528-Qwen3-8B incumbent 8/12
+    # (383 s) and glm-4.7-flash 10/12; a K2-only 36x3 stability run follows. New lineage (IFM);
+    # DeepSeek stays seated in the compliance council. ~21 GB loaded vs DeepSeek's ~6 GB.
+    model_hint: hf.co/bartowski/K2-Horizon-MoVA-36B-A4B-GGUF:Q4_K_M-ctx64k
     context_limit: 65536
-    # 2026-10-19: 16384 -> 40960. 16384 truncated hard problems mid-thought (I-REASON screen
-    # row 1: 16384/16384 reasoning tokens, finish=length). DeepSeek-R1-0528's card: AIME
-    # averages ~23K tokens/question, max generation 64K; Qwen3's card: 38,912 for complex
-    # math/programming. 40960 covers both and fits the 64K window with the prompt.
+    # 40960 kept: K2 used ~1.2k tokens per task (max 10.4k) on the screen; the cap fits the
+    # 64K window with the prompt. The template defaults reasoning_effort to high (card).
     predict_limit: 40960
-    temperature: 0.6
+    # K2-Horizon card 'Recommended settings': temperature 1.0, top_p 0.95 (no top_k/min_p).
+    temperature: 1.0
     top_p: 0.95
-    top_k: 40
-    min_p: 0.02
-    # explicit: this is the dedicated reasoning lane. DeepSeek-R1 always reasons.
+    # explicit: this is the dedicated reasoning lane.
     think: true
     emits_reasoning: true
     tools: []

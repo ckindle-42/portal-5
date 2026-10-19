@@ -5,13 +5,13 @@ title: "model bindings \u2014 0 reachability gap(s)"
 sources:
 - type: code
   path: config/backends.yaml
-  commit: 1beddcf3c701
+  commit: f9828a380ef1
 - type: code
   path: config/portal.yaml
-  commit: 1beddcf3c701
+  commit: f9828a380ef1
 - type: code
   path: config/personas/
-  commit: 1beddcf3c701
+  commit: f9828a380ef1
 claims: []
 confidence: high
 tags:
@@ -19,7 +19,7 @@ tags:
 - model-bindings
 - reachability
 created_at: 1784000421.433863
-updated_at: 1792425554.0548558
+updated_at: 1792444794.742645
 ---
 
 # Model bindings (reachability-resolved)
@@ -50,7 +50,7 @@ default.
 | `auto-math` | `glm-4.7-flash:Q4_K_M-ctx64k` | yes |
 | `auto-music` | `lfm2.5:8b-ctx8k` | yes |
 | `auto-nemotron` | `hf.co/bartowski/NVIDIA-Nemotron-3.5-Lightning-30B-A3B-GGUF:Q4_K_M-ctx32k` | yes |
-| `auto-reasoning` | `hf.co/unsloth/DeepSeek-R1-0528-Qwen3-8B-GGUF:Q4_K_XL-ctx64k` | yes |
+| `auto-reasoning` | `hf.co/bartowski/K2-Horizon-MoVA-36B-A4B-GGUF:Q4_K_M-ctx64k` | yes |
 | `auto-research` | `hf.co/sjakek/Nex-N2-mini-GGUF:UD-Q4_K_M-ctx16k` | yes |
 | `auto-security` | `hf.co/mradermacher/VulnLLM-R-7B-GGUF:q4_K_M-ctx8k` | yes |
 | `auto-spl` | `hf.co/bartowski/huihui-ai_Qwen3-Coder-Next-abliterated-GGUF:Q4_K_M-ctx64k` | yes |

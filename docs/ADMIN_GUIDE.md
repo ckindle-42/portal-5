@@ -570,7 +570,7 @@ The roster is derived from the persona YAML files under `config/personas/`, one 
 | `auto-math` | general | `glm-4.7-flash:Q4_K_M-ctx64k` |
 | `auto-music` | media | `lfm2.5:8b-ctx8k` |
 | `auto-nemotron` | general | `hf.co/bartowski/NVIDIA-Nemotron-3.5-Lightning-30B-A3B-GGUF:Q4_K_M-ctx32k` |
-| `auto-reasoning` | general | `hf.co/unsloth/DeepSeek-R1-0528-Qwen3-8B-GGUF:Q4_K_XL-ctx64k` |
+| `auto-reasoning` | general | `hf.co/bartowski/K2-Horizon-MoVA-36B-A4B-GGUF:Q4_K_M-ctx64k` |
 | `auto-research` | research | `hf.co/sjakek/Nex-N2-mini-GGUF:UD-Q4_K_M-ctx16k` |
 | `auto-security` | security | `hf.co/mradermacher/VulnLLM-R-7B-GGUF:q4_K_M-ctx8k` |
 | `auto-spl` | general | `hf.co/bartowski/huihui-ai_Qwen3-Coder-Next-abliterated-GGUF:Q4_K_M-ctx64k` |
@@ -651,7 +651,7 @@ default.
 | `auto-math` | `glm-4.7-flash:Q4_K_M-ctx64k` | yes |
 | `auto-music` | `lfm2.5:8b-ctx8k` | yes |
 | `auto-nemotron` | `hf.co/bartowski/NVIDIA-Nemotron-3.5-Lightning-30B-A3B-GGUF:Q4_K_M-ctx32k` | yes |
-| `auto-reasoning` | `hf.co/unsloth/DeepSeek-R1-0528-Qwen3-8B-GGUF:Q4_K_XL-ctx64k` | yes |
+| `auto-reasoning` | `hf.co/bartowski/K2-Horizon-MoVA-36B-A4B-GGUF:Q4_K_M-ctx64k` | yes |
 | `auto-research` | `hf.co/sjakek/Nex-N2-mini-GGUF:UD-Q4_K_M-ctx16k` | yes |
 | `auto-security` | `hf.co/mradermacher/VulnLLM-R-7B-GGUF:q4_K_M-ctx8k` | yes |
 | `auto-spl` | `hf.co/bartowski/huihui-ai_Qwen3-Coder-Next-abliterated-GGUF:Q4_K_M-ctx64k` | yes |

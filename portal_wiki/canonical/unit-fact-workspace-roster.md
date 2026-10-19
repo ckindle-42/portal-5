@@ -5,7 +5,7 @@ title: 34 production + 24 eval workspaces
 sources:
 - type: code
   path: config/portal.yaml
-  commit: 1beddcf3c701
+  commit: f9828a380ef1
 claims:
 - probe: workspaces.total
   pattern: '{value} total)'
@@ -14,7 +14,7 @@ tags:
 - fact
 - workspaces
 created_at: 1784000421.2630541
-updated_at: 1792425553.8261938
+updated_at: 1792444794.519425
 ---
 
 # Workspace roster (34 production, 24 eval, 58 total)
@@ -40,7 +40,7 @@ updated_at: 1792425553.8261938
 | `auto-math` | general | `glm-4.7-flash:Q4_K_M-ctx64k` |
 | `auto-music` | media | `lfm2.5:8b-ctx8k` |
 | `auto-nemotron` | general | `hf.co/bartowski/NVIDIA-Nemotron-3.5-Lightning-30B-A3B-GGUF:Q4_K_M-ctx32k` |
-| `auto-reasoning` | general | `hf.co/unsloth/DeepSeek-R1-0528-Qwen3-8B-GGUF:Q4_K_XL-ctx64k` |
+| `auto-reasoning` | general | `hf.co/bartowski/K2-Horizon-MoVA-36B-A4B-GGUF:Q4_K_M-ctx64k` |
 | `auto-research` | research | `hf.co/sjakek/Nex-N2-mini-GGUF:UD-Q4_K_M-ctx16k` |
 | `auto-security` | security | `hf.co/mradermacher/VulnLLM-R-7B-GGUF:q4_K_M-ctx8k` |
 | `auto-spl` | general | `hf.co/bartowski/huihui-ai_Qwen3-Coder-Next-abliterated-GGUF:Q4_K_M-ctx64k` |
