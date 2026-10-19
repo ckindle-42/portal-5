@@ -1,0 +1,10 @@
+# Same Gemma 4 26B A4B model, comparing the QAT and Q4_K_M builds.
+workloads:
+  auto-daily:
+    tool_mode: production
+    home: general_production
+    discovery: []
+    arms:
+      incumbent: gemma4:26b-a4b-it-qat-ctx16k
+      challengers:
+        - gemma4:26b-a4b-it-q4_K_M-ctx32k
