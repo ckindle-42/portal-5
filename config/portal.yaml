@@ -2642,6 +2642,8 @@ workspaces:
     # 32768 = budget target: min(card 131072, 32K, window 64K // 2); the bare tag baked no
     # num_ctx, so the derived 64k tag gives the budget a real window (adjusted, not tested)
     predict_limit: 32768
+    # working-ctx preflight verified live 2026-10-19: /api/ps context_length 65536 on the tag.
+    ctx_validated: true
     max_concurrent: 1
     keep_alive: 5m
     # TASK_SAMPLING_PROFILE_AUDIT_V1: replaces the generic bench default
