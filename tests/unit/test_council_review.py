@@ -141,6 +141,32 @@ def test_council_schema_rejects_duplicate_evidence_ids() -> None:
         )
 
 
+def test_council_member_sampling_overrides_are_typed() -> None:
+    spec = CouncilSpec.model_validate(
+        {
+            "members": [
+                {
+                    "id": "one",
+                    "label": "One",
+                    "model": "m1",
+                    "system": "Review.",
+                    "temperature": 0.4,
+                    "top_p": 0.9,
+                    "top_k": 20,
+                    "min_p": 0.05,
+                    "presence_penalty": 0.3,
+                    "repeat_penalty": 1.1,
+                },
+                {"id": "two", "label": "Two", "model": "m2", "system": "Review."},
+            ],
+            "synthesizer_model": "m3",
+        }
+    )
+    assert spec.members[0].temperature == 0.4
+    assert spec.members[0].top_k == 20
+    assert spec.members[0].repeat_penalty == 1.1
+
+
 def test_production_workspace_is_explicit_and_tool_free() -> None:
     workspace = WORKSPACES["auto-council"]
     assert workspace["tools"] == []
@@ -225,13 +251,13 @@ def json_module(value: dict) -> str:
 
 
 class _Registry:
-    def __init__(self) -> None:
+    def __init__(self, models: list[str] | None = None, backend_type: str = "ollama") -> None:
         self.backend = Backend(
             id="test-backend",
-            type="ollama",
+            type=backend_type,
             url="http://test",
             group="general",
-            models=["evidence-model", "challenger-model", "operator-model", "synth"],
+            models=models or ["evidence-model", "challenger-model", "operator-model", "synth"],
         )
 
     def get_backend_candidates(self, _workspace_id: str) -> list[Backend]:
@@ -239,6 +265,217 @@ class _Registry:
 
     def list_healthy_backends(self) -> list[Backend]:
         return [self.backend]
+
+
+class _CaptureClient:
+    def __init__(self, content: str) -> None:
+        self.content = content
+        self.calls: list[dict] = []
+
+    async def post(self, _url: str, *, json: dict) -> _Response:
+        self.calls.append(json)
+        return _Response(self.content)
+
+
+async def _review_payload(
+    monkeypatch: pytest.MonkeyPatch,
+    *,
+    model: str,
+    think: bool,
+    overrides: dict | None = None,
+) -> dict:
+    client = _CaptureClient('{"recommendation":"SUPPORT","confidence":0.9}')
+    monkeypatch.setattr(council_mod, "_http_client", client)
+    member = {
+        "id": "reviewer",
+        "label": "Reviewer",
+        "model": model,
+        "system": "Review evidence.",
+        "think": think,
+        **(overrides or {}),
+    }
+    opinion, result = await council_mod._call_reviewer(
+        member,
+        review_material="proposal material",
+        workspace_id="auto-council",
+        registry=_Registry([model], backend_type="omlx"),
+        council={},
+    )
+    assert opinion.valid
+    assert not result.error
+    return client.calls[0]
+
+
+@pytest.mark.asyncio
+async def test_reviewer_prompt_contains_the_neutral_recommendation_rubric(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    payload = await _review_payload(monkeypatch, model="evidence-model", think=False)
+    system = payload["messages"][0]["content"]
+    for definition in (
+        "SUPPORT: proceed as proposed; any findings are minor.",
+        "REVISE: the goal is sound and the proposal can proceed once named, specific changes are made.",
+        "REJECT: should not proceed in this form; the premise is wrong, the risk outweighs the benefit,",
+        "ABSTAIN: the material is insufficient for your assigned review.",
+        "Choose the recommendation that follows from your own highest-severity finding.",
+    ):
+        assert definition in system
+
+
+@pytest.mark.asyncio
+async def test_reviewer_sampling_uses_the_card_mode_for_think_state(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    model = "hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k"
+    thinking = await _review_payload(monkeypatch, model=model, think=True)
+    instruct = await _review_payload(monkeypatch, model=model, think=False)
+
+    keys = ("temperature", "top_p", "top_k", "min_p", "presence_penalty", "repeat_penalty")
+    assert {key: thinking[key] for key in keys} == {
+        "temperature": 1.0,
+        "top_p": 0.95,
+        "top_k": 20,
+        "min_p": 0.0,
+        "presence_penalty": 0.0,
+        "repeat_penalty": 1.0,
+    }
+    assert thinking["repetition_penalty"] == 1.0
+    assert thinking["chat_template_kwargs"] == {"enable_thinking": True}
+    assert {key: instruct[key] for key in keys} == {
+        "temperature": 0.7,
+        "top_p": 0.8,
+        "top_k": 20,
+        "min_p": 0.0,
+        "presence_penalty": 1.5,
+        "repeat_penalty": 1.0,
+    }
+    assert instruct["chat_template_kwargs"] == {"enable_thinking": False}
+
+
+@pytest.mark.asyncio
+async def test_explicit_member_sampling_overrides_the_card(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    payload = await _review_payload(
+        monkeypatch,
+        model="hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k",
+        think=False,
+        overrides={"temperature": 0.42, "top_p": 0.6, "presence_penalty": 0.2},
+    )
+    assert payload["temperature"] == 0.42
+    assert payload["top_p"] == 0.6
+    assert payload["presence_penalty"] == 0.2
+    assert payload["top_k"] == 20
+
+
+@pytest.mark.asyncio
+async def test_synthesizer_uses_its_card_sampling(monkeypatch: pytest.MonkeyPatch) -> None:
+    model = "hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k"
+    client = _CaptureClient("## Recommendation\nThe coded result stands.")
+    monkeypatch.setattr(council_mod, "_http_client", client)
+    opinions = [_opinion("one", "SUPPORT"), _opinion("two", "SUPPORT")]
+    aggregate = aggregate_opinions(opinions, minimum_participation=0.66, quorum=0.66)
+    await council_mod._synthesize(
+        council={"synthesizer_model": model},
+        aggregate=aggregate,
+        opinions=opinions,
+        review_material="proposal material",
+        workspace_id="auto-council",
+        registry=_Registry([model], backend_type="omlx"),
+    )
+    payload = client.calls[0]
+    assert payload["temperature"] == 0.7
+    assert payload["top_p"] == 0.8
+    assert payload["presence_penalty"] == 1.5
+    assert payload["repeat_penalty"] == 1.0
+    assert payload["repetition_penalty"] == 1.0
+
+
+def test_settings_audit_checks_auto_council_cards_and_served_templates(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from tests.wfe import settings_audit
+
+    template_checks: list[tuple[str, str]] = []
+    stop_checks: list[tuple[str, str]] = []
+    monkeypatch.setattr(
+        settings_audit,
+        "_served_path",
+        lambda _workspace, model, _registry: ("ollama", "backend", f"served-{model}"),
+    )
+    monkeypatch.setattr(
+        settings_audit,
+        "_audit_template_conformance",
+        lambda where, tag, _shows, _tmap, _violations: template_checks.append((where, tag)),
+    )
+    monkeypatch.setattr(
+        settings_audit,
+        "_audit_stop_hygiene",
+        lambda where, tag, _shows, _violations: stop_checks.append((where, tag)),
+    )
+    council = {
+        "members": [{"id": "reviewer", "model": "uncarded-model"}],
+        "synthesizer_model": "known-model",
+    }
+    context = {
+        "registry": {"known-model": {}},
+        "reg": object(),
+        "shows": {},
+        "tmap": {},
+    }
+    violations: list[dict] = []
+    paths = settings_audit._audit_auto_council(council, context, violations)
+
+    assert paths["reviewer"]["served_model"] == "served-uncarded-model"
+    assert paths["synthesizer"]["served_model"] == "served-known-model"
+    assert template_checks == [
+        ("auto-council:reviewer", "served-uncarded-model"),
+        ("auto-council:synthesizer", "served-known-model"),
+    ]
+    assert stop_checks == template_checks
+    assert any(
+        violation["workspace"] == "auto-council:reviewer"
+        and violation["kind"] == "council_card_missing"
+        and violation["severity"] == "FAIL"
+        for violation in violations
+    )
+
+
+def test_settings_audit_reads_omlx_template_for_the_served_model(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from tests.wfe import settings_audit
+
+    template_reads: list[str] = []
+    monkeypatch.setattr(
+        settings_audit,
+        "_served_path",
+        lambda _workspace, model, _registry: ("omlx", "omlx-general", f"served-{model}"),
+    )
+    monkeypatch.setattr(
+        settings_audit,
+        "_template_sha_omlx",
+        lambda model: (
+            template_reads.append(model) or {"tokenizer_config_chat_template": "known-sha"}
+        ),
+    )
+    council = {
+        "members": [{"id": "reviewer", "model": "known-model"}],
+        "synthesizer_model": "known-model",
+    }
+    context = {
+        "registry": {"known-model": {"known_good_template_sha": "known-sha"}},
+        "reg": object(),
+        "shows": {},
+        "tmap": {},
+    }
+    violations: list[dict] = []
+    paths = settings_audit._audit_auto_council(council, context, violations)
+
+    assert template_reads == ["served-known-model", "served-known-model"]
+    assert paths["reviewer"]["template_check"] == "omlx_template_identity"
+    assert paths["reviewer"]["stop_check"] == "not_applicable_for_omlx"
+    assert violations == []
 
 
 class _Slot:

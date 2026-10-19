@@ -31,6 +31,8 @@ from typing import Any
 
 import httpx
 
+from portal.platform.inference.model_cards import card_sampling
+
 logger = logging.getLogger(__name__)
 _STREAM_HEARTBEAT_S = 15.0
 
@@ -38,19 +40,6 @@ _http_client: httpx.AsyncClient | None = None
 
 _RECOMMENDATIONS = frozenset({"SUPPORT", "REVISE", "REJECT", "ABSTAIN"})
 _DECISIONS = frozenset({"SUPPORT", "REVISE", "REJECT", "ESCALATE"})
-
-# Reviewers run at a fixed 0.1 below (deterministic-leaning, fine for most
-# instruct models on a structured-JSON review task) — but DeepSeek-R1's own
-# model card explicitly warns against near-greedy decoding: it recommends
-# 0.5-0.7 (0.6) to avoid repetition loops and incoherent output. auto-council's
-# Operator seat runs DeepSeek-R1 and had no per-model exception, same class of
-# gap found and fixed in portal.modules.compliance.core.council on 2026-09-26
-# (that fix cites the same vendor evidence) — not shared code between the two
-# council implementations, so the exception is duplicated here rather than
-# silently assumed to carry over.
-_MODEL_TEMPERATURE: dict[str, float] = {
-    "hf.co/unsloth/DeepSeek-R1-0528-Qwen3-8B-GGUF:Q4_K_XL-ctx64k": 0.6,
-}
 
 
 def _apply_think(payload: dict[str, Any], think: bool | str | None, backend_type: str) -> None:
@@ -96,12 +85,16 @@ Return exactly one JSON object and no Markdown:
   "conditions_to_change": ["what would change your recommendation"]
 }
 
-Rules:
 - Work independently. You cannot see other reviewers' answers.
 - Use only the supplied review material. Do not invent repository state, test
   results, citations, requirements, or user constraints.
 - Every substantive finding must identify its evidence.
-- Use ABSTAIN when the material is insufficient for your assigned review.
+- SUPPORT: proceed as proposed; any findings are minor.
+- REVISE: the goal is sound and the proposal can proceed once named, specific changes are made.
+- REJECT: should not proceed in this form; the premise is wrong, the risk outweighs the benefit,
+  or no revision of this proposal fixes the core problem.
+- ABSTAIN: the material is insufficient for your assigned review.
+- Choose the recommendation that follows from your own highest-severity finding.
 - Prefer a few actionable findings over generic commentary.
 """.strip()
 
@@ -356,6 +349,35 @@ def _seat_predict(
     if think:
         answer += reasoning
     return answer, think
+
+
+_COUNCIL_SAMPLING_KEYS = (
+    "temperature",
+    "top_p",
+    "top_k",
+    "min_p",
+    "presence_penalty",
+    "repeat_penalty",
+)
+
+
+def _seat_sampling(
+    model: str, think: bool | str | None, member: dict[str, Any] | None = None
+) -> dict[str, Any]:
+    """Card sampling for this thinking state, with explicit seat values on top."""
+    sampling = {
+        key: value
+        for key, value in card_sampling(model, think).items()
+        if key in _COUNCIL_SAMPLING_KEYS and value is not None
+    }
+    for key in _COUNCIL_SAMPLING_KEYS:
+        value = (member or {}).get(key)
+        if value is not None:
+            sampling[key] = value
+    repetition_penalty = (member or {}).get("repetition_penalty")
+    if repetition_penalty is not None:
+        sampling["repeat_penalty"] = repetition_penalty
+    return sampling
 
 
 def _skipped_opinion(member: dict[str, Any], reason: str) -> CouncilOpinion:
@@ -644,7 +666,7 @@ async def _post_model(
     system: str,
     user: str,
     max_tokens: int,
-    temperature: float,
+    sampling: dict[str, Any],
     think: bool | str | None,
     workspace_id: str,
     registry: Any,
@@ -663,9 +685,11 @@ async def _post_model(
             {"role": "system", "content": system},
             {"role": "user", "content": user},
         ],
-        "temperature": temperature,
         "max_tokens": max_tokens,
     }
+    payload.update(sampling)
+    if backend.type == "omlx" and "repeat_penalty" in sampling:
+        payload["repetition_penalty"] = sampling["repeat_penalty"]
     _apply_think(payload, think, backend.type)
     try:
         response = await _http_client.post(backend.chat_url, json=payload)
@@ -709,9 +733,8 @@ async def _call_reviewer(
         error = f"configured model is unavailable: {model}"
         return parse_opinion(member, "", error=error), _EngineCall(error=error)
 
-    # A thinking-capable model (the Operator seat's DeepSeek-R1) opens <think>
-    # by the template's own default and can spend the whole budget reasoning,
-    # returning an empty opinion. Per-seat think overrides the workspace flag.
+    # A thinking-capable model can spend the whole budget reasoning, returning
+    # an empty opinion. Per-seat think overrides the workspace flag.
     system = f"{member.get('system', '')}\n\n{_REVIEW_CONTRACT}".strip()
     max_tokens, think = _seat_predict(member, council, workspace_id)
     result = await _post_model(
@@ -719,7 +742,7 @@ async def _call_reviewer(
         system=system,
         user=f"## REVIEW MATERIAL\n\n{review_material}",
         max_tokens=max_tokens,
-        temperature=_MODEL_TEMPERATURE.get(model, 0.1),
+        sampling=_seat_sampling(model, think, member),
         think=think,
         workspace_id=workspace_id,
         registry=registry,
@@ -806,7 +829,7 @@ async def _synthesize(
             f"{json.dumps(synthesis_packet, ensure_ascii=False)}"
         ),
         max_tokens=int(council.get("synthesizer_max_tokens", 4096)),
-        temperature=0.2,
+        sampling=_seat_sampling(model, think),
         think=think,
         workspace_id=workspace_id,
         registry=registry,
@@ -933,7 +956,7 @@ async def _run_decompose(
         system=_DECOMPOSE_CONTRACT,
         user=f"## SUBMISSION\n\n{review_material}",
         max_tokens=_DECOMPOSE_MAX_TOKENS,
-        temperature=0.0,
+        sampling={"temperature": 0.0},
         think=False,
         workspace_id=workspace_id,
         registry=registry,

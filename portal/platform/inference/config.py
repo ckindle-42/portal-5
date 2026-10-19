@@ -72,6 +72,14 @@ class CouncilMemberSpec(BaseModel):
     reasoning_max_tokens: int | None = Field(default=None, ge=0)
     # None uses the workspace think flag.
     think: bool | None = None
+    # Explicit sampling overrides the matching model-card profile.
+    temperature: float | None = None
+    top_p: float | None = None
+    top_k: int | None = None
+    min_p: float | None = None
+    presence_penalty: float | None = None
+    repeat_penalty: float | None = None
+    repetition_penalty: float | None = None
 
 
 class CouncilSpeedSpec(BaseModel):

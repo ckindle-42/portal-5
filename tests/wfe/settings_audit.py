@@ -35,8 +35,8 @@ from typing import TYPE_CHECKING
 
 import yaml
 
+from portal.platform.inference.model_cards import card_entry as _card_entry_matched
 from portal.platform.inference.omlx_auth import omlx_headers
-from tests.wfe.runner import card_entry as _card_entry_matched
 
 if TYPE_CHECKING:
     from portal.platform.inference.cluster_backends import BackendRegistry
@@ -881,6 +881,61 @@ def _audit_council(
             )
 
 
+def _audit_auto_council(council: dict, ctx: dict, violations: list[dict]) -> dict[str, dict]:
+    """Audit the public council roster by card and by each model's served tag."""
+    roster = [
+        (str(member.get("id") or "member"), str(member.get("model") or ""))
+        for member in council.get("members") or []
+        if isinstance(member, dict)
+    ]
+    synthesizer = str(council.get("synthesizer_model") or "")
+    if synthesizer:
+        roster.append(("synthesizer", synthesizer))
+
+    served_paths: dict[str, dict] = {}
+    for role, model in roster:
+        where = f"auto-council:{role}"
+        card = _card_entry_matched(model, ctx["registry"]) if model else None
+        if card is None:
+            _v(
+                violations,
+                where,
+                "council_card_missing",
+                f"{model or '(empty model id)'} has no model_card_expectations entry",
+                "FAIL",
+            )
+        resolved = _served_path("auto-council", model, ctx["reg"]) if model else None
+        if resolved is None:
+            _v(
+                violations,
+                where,
+                "council_model_unroutable",
+                f"configured council model {model or '(empty model id)'} has no served backend",
+                "FAIL",
+            )
+            continue
+        engine, backend_id, served_id = resolved
+        served_paths[role] = {
+            "model": model,
+            "card": card[0] if card else None,
+            "engine": engine,
+            "backend": backend_id,
+            "served_model": served_id,
+        }
+        if engine == "ollama":
+            _audit_template_conformance(where, served_id, ctx["shows"], ctx["tmap"], violations)
+            _audit_stop_hygiene(where, served_id, ctx["shows"], violations)
+            served_paths[role]["template_check"] = "ollama_conformance"
+            served_paths[role]["stop_check"] = "ollama_parameter_stops"
+        else:
+            served_paths[role]["template"] = _audit_omlx_template(
+                where, served_id, card, violations
+            )
+            served_paths[role]["template_check"] = "omlx_template_identity"
+            served_paths[role]["stop_check"] = "not_applicable_for_omlx"
+    return served_paths
+
+
 def _load_expectations() -> dict:
     """family-keyed ground-truth registry; tag-keyed entries take precedence."""
     if not EXPECTATIONS_PATH.exists():
@@ -964,6 +1019,35 @@ def _template_sha_omlx(model_id: str) -> dict | None:
         if attempt == 0:
             time.sleep(0.5)
     return None
+
+
+def _audit_omlx_template(
+    where: str, model_id: str, card: tuple[str, dict] | None, violations: list[dict]
+) -> dict | None:
+    """Check the served oMLX template is readable and compare a card pin when present."""
+    template = _template_sha_omlx(model_id)
+    if template is None:
+        _v(
+            violations,
+            where,
+            "template_unreadable",
+            f"{model_id}: no readable chat template in the served oMLX model directory",
+            "FAIL",
+        )
+        return None
+    known_sha = (card[1] if card else {}).get("known_good_template_sha")
+    served_sha = template.get("tokenizer_config_chat_template") or template.get(
+        "chat_template_jinja"
+    )
+    if known_sha and served_sha and served_sha != known_sha:
+        _v(
+            violations,
+            where,
+            "template_drift",
+            f"{model_id} oMLX template sha {served_sha} != known-good {known_sha}",
+            "WARN",
+        )
+    return template
 
 
 def _card_check(tag: str, bp: dict, registry: dict, violations: list[dict], where: str) -> None:
@@ -1431,12 +1515,18 @@ def run_audit(behavioral: bool = False) -> dict:
 
     personas_checked = _audit_personas(tags, violations)
     _audit_council(seats, tags, registered, violations)
+    auto_council_models = _audit_auto_council(
+        (portal.get("workspaces") or {}).get("auto-council", {}).get("council") or {},
+        ctx,
+        violations,
+    )
 
     fails = [v for v in violations if v["severity"] == "FAIL"]
     return {
         "checked_workspaces": checked,
         "checked_personas": personas_checked,
         "council_seats": seats,
+        "auto_council_models": auto_council_models,
         "served_paths": served_paths,
         "template_map": {a: f"{r}/{p}" for a, (r, p) in tmap.items()},
         "violations": violations,

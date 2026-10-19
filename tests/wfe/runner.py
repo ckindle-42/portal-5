@@ -53,6 +53,7 @@ from pathlib import Path
 
 import yaml
 
+from portal.platform.inference import model_cards as _model_cards
 from portal.platform.inference.ollama_native import to_native_request
 from portal.platform.inference.omlx_auth import omlx_headers
 from portal.platform.inference.router.text_tool_calls import salvage_text_tool_calls
@@ -63,6 +64,11 @@ from tests.wfe.prompt_surface import harness_note, production_tool_names
 from tests.wfe.schema import Economics, Outcome, ResultRow, env_fingerprint, sha12
 
 REPO = Path(__file__).resolve().parents[2]
+_card_registry = _model_cards.card_registry
+_key_in_tag = _model_cards._key_in_tag
+_norm_key = _model_cards._norm_key
+card_entry = _model_cards.card_entry
+card_sampling = _model_cards.card_sampling
 OLLAMA = os.environ.get("WFE_OLLAMA_URL", "http://localhost:11434").rstrip("/")
 #: The chat engine under test. Default is production (Ollama). Set
 #: WFE_ENGINE=<name> and WFE_CHAT_BASE_URL=<base> to point the campaign at any
@@ -442,50 +448,6 @@ def normalize_tool_args(raw) -> tuple[dict, str | None]:
     return {}, f"unsupported arguments type {type(raw).__name__}"
 
 
-def _card_registry() -> dict:
-    path = REPO / "config" / "model_card_expectations.yaml"
-    if not path.exists():
-        return {}
-    return (yaml.safe_load(path.read_text()) or {}).get("models", {}) or {}
-
-
-def _norm_key(s: str) -> str:
-    return re.sub(r"[-_.\s]", "", s.lower())
-
-
-_VERSION_DOT = re.compile(r"(?<=\d)\.(?=\d)")
-
-
-def _key_in_tag(key: str, tag: str) -> bool:
-    """N-7: a key with a version dot ('qwen3.8') matches only that version: its dot is
-    joined ('qwen38') and a separator between two digits stays a boundary, so 'Qwen3-8B'
-    (Qwen3 at 8B) no longer matches, while 'granite-4.1' still matches 'granite4.1:8b'. Keys without one match separator-insensitively, as before."""
-    if _VERSION_DOT.search(key):
-
-        def bounded(s: str) -> str:  # join the version dot; keep only digit-SEP-digit as a boundary
-            s = re.sub(r"(?<=\d)[-_.\s](?=\d)", "~", _VERSION_DOT.sub("", s.lower()))
-            return re.sub(r"[-_.\s]", "", s)
-
-        return bounded(key) in bounded(tag)
-    return _norm_key(key) in _norm_key(tag)
-
-
-def card_entry(tag: str, registry: dict | None = None) -> tuple[str, dict] | None:
-    """Longest-match-wins over separator-normalised keys.
-
-    The previous first-substring-wins scan resolved 28 of 81 production hints to
-    the generic 'qwen3' entry (shadowing qwen3.5/3.6/3.8) and matched NOTHING for
-    granite, because registry keys are hyphenated ('granite-4.1') while installed
-    tags are not ('granite4.1'). Dimensions 2 and 3 were inert as a result."""
-    registry = _card_registry() if registry is None else registry
-    best = None
-    for key, entry in registry.items():
-        nk = _norm_key(key)
-        if nk and _key_in_tag(key, tag) and (best is None or len(nk) > len(_norm_key(best[0]))):
-            best = (key, entry or {})
-    return best
-
-
 def think_policy(tag: str, registry: dict | None = None) -> str:
     hit = card_entry(tag, registry)
     if hit:
@@ -493,29 +455,6 @@ def think_policy(tag: str, registry: dict | None = None) -> str:
         if pol:
             return pol
     return "default"
-
-
-def card_sampling(tag: str, lane_think: bool | None, registry: dict | None = None) -> dict:
-    """The card's recommended sampling for `tag`, in the harness's key names,
-    choosing the card mode that matches the lane's think policy (an instruct
-    mode under think: false, a thinking mode under think: true or unset — a
-    hybrid reasoning model's native default is thinking). Empty when the card
-    records none."""
-    hit = card_entry(tag, registry)
-    if not hit:
-        return {}
-    entry = hit[1]
-    chosen = entry.get("recommended_sampling") or {}
-    modes = entry.get("recommended_sampling_modes") or {}
-    prefix = "instruct" if lane_think is False else "thinking"
-    if prefix:
-        chosen = next((v for k, v in modes.items() if k.startswith(prefix)), chosen)
-    out = {}
-    for k, v in (chosen or {}).items():
-        key = "repeat_penalty" if k == "repetition_penalty" else k
-        if key in SAMPLING_KEYS and v is not None:
-            out[key] = v
-    return out
 
 
 def format_json_policy(tag: str, registry: dict | None = None) -> bool | None:

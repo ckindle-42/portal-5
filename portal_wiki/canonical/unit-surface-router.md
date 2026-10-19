@@ -6,6 +6,8 @@ title: "Router subpackage \u2014 workspace routing, council quorum, request engi
 sources:
 - type: code
   path: portal/platform/inference/router/*.py
+- type: code
+  path: tests/wfe/settings_audit.py
 claims: []
 confidence: high
 tags:
@@ -30,6 +32,8 @@ The split is architectural, not stylistic: routing policy, streaming transport, 
 ## Council speed
 
 `auto-council` still runs three isolated reviewers in parallel and a synthesizer after the coded quorum, unless `council.speed` says otherwise. Every flag defaults off. `early_quorum` walks seats in config order and skips the tail once `aggregate_opinions` would return the same decision for every possible remaining vote; a skipped seat is recorded and is not a vote. `single_model` keeps each role prompt and a separate call, on `resident_model` or the synthesizer. An authenticated chat request may send `portal_council_config` to override, for that request, the speed flags (`early_quorum`, `single_model`, `single_model_model`, `progress`, `decompose`, `decompose_model`), `synthesizer_model`, and per-seat `model`, `max_tokens`, `reasoning_max_tokens`, or `think` keyed by seat id. Unknown keys are rejected. The effective override is echoed as `portal_council.applied_config`. Production seats leave those per-seat budgets unset. `progress` streams one verdict line per seat before the synthesis. `decompose` asks `decompose_model` whether each claim's evidence is present, contradicted, or stale. A consistent answer settles that claim. `unsure`, or checks that disagree, is the only material sent to the big seats. If every claim escalates or the small model returns no sheet, the original submission is reviewed in full. Per-stage metadata (`portal_council.timings` and a `council.stage` trace span) records the model, cold-load (`load_duration`), prefill, decode, and tokens from `normalize_engine_timings`.
+
+Each reviewer receives a neutral SUPPORT/REVISE/REJECT/ABSTAIN rubric and must align its recommendation with its highest-severity finding. Reviewer and synthesizer sampling comes from the matching model card's profile for the seat's think state; explicit reviewer sampling overrides the card. oMLX requests receive `repeat_penalty` and its `repetition_penalty` alias. The settings audit checks card coverage for auto-council members and the synthesizer, resolves each served model for template checks, and applies baked-stop hygiene on Ollama routes. oMLX template identity is read from its served model directory; the Ollama `PARAMETER stop` check does not apply to oMLX.
 
 ## Gotchas
 
