@@ -11,6 +11,7 @@ breaker tripping on bad arguments, and OWUI task prompts stored as memories.
 from __future__ import annotations
 
 import json
+import logging
 import typing
 from types import SimpleNamespace
 from unittest.mock import MagicMock
@@ -32,6 +33,8 @@ from portal.platform.inference.router.preinject import (
     _inject_system_prompt_append,
     append_text_to_content,
 )
+from portal.platform.inference.router.thinking import NO_ANSWER_MESSAGE
+from portal.platform.inference.router.tool_repeat import FINAL_ANSWER_REQUEST
 
 DONE = b"data: [DONE]\n\n"
 
@@ -1272,3 +1275,122 @@ async def test_failover_tool_loop_ends_with_a_toolless_synthesis_at_the_hop_limi
 
     assert client.bodies[2]["tools"] is None
     assert "<tool_call>" not in (json.loads(result.body)["choices"][0]["message"]["content"] or "")
+
+
+@pytest.mark.anyio
+async def test_last_hop_tool_call_is_stripped_and_answered_by_a_final_toolless_turn(
+    monkeypatch, ns_tools
+) -> None:
+    client = _SeenClient([_tool_reply(), _tool_reply(), _text_reply("the final answer")])
+    monkeypatch.setattr(ns, "_http_client", client)
+
+    result = await ns._try_non_streaming(_backend("b"), {"messages": []}, ns_tools, 0.0)
+
+    body = json.loads(result.body)
+    assert body["choices"][0]["message"]["content"] == "the final answer"
+    assert not body["choices"][0]["message"].get("tool_calls")
+    assert len(client.bodies) == 3
+    assert client.bodies[1]["tools"] is None
+    assert client.bodies[2]["tools"] is None
+    assert client.bodies[2]["messages"][-1] == FINAL_ANSWER_REQUEST
+    assert client.bodies[2]["messages"][-2]["role"] == "tool"
+
+
+@pytest.mark.anyio
+async def test_final_toolless_turn_still_calling_tools_answers_with_the_notice(
+    monkeypatch, ns_tools
+) -> None:
+    client = _SeenClient([_tool_reply(), _tool_reply(), _tool_reply()])
+    monkeypatch.setattr(ns, "_http_client", client)
+
+    result = await ns._try_non_streaming(_backend("b"), {"messages": []}, ns_tools, 0.0)
+
+    body = json.loads(result.body)
+    assert body["choices"][0]["message"]["content"] == NO_ANSWER_MESSAGE
+    assert not body["choices"][0]["message"].get("tool_calls")
+    assert len(client.bodies) == 3
+
+
+@pytest.mark.anyio
+async def test_a_call_naming_an_unoffered_tool_is_dropped_and_answered_toollessly(
+    monkeypatch, ns_tools, caplog
+) -> None:
+    client = _SeenClient([_tool_reply(name="remember"), _text_reply("saved; anything else?")])
+    monkeypatch.setattr(ns, "_http_client", client)
+
+    with caplog.at_level(logging.INFO, logger="portal.platform.inference.router.non_streaming"):
+        result = await ns._try_non_streaming(_backend("b"), {"messages": []}, ns_tools, 0.0)
+
+    body = json.loads(result.body)
+    assert body["choices"][0]["message"]["content"] == "saved; anything else?"
+    assert not body["choices"][0]["message"].get("tool_calls")
+    assert len(client.bodies) == 2
+    assert client.bodies[1]["tools"] is None
+    assert client.bodies[1]["messages"][-1] == FINAL_ANSWER_REQUEST
+    assert client.bodies[1]["messages"][-2]["tool_calls"][0]["function"]["name"] == "remember"
+    assert "dropping undispatchable tool call(s): remember" in caplog.text
+
+
+@pytest.mark.anyio
+async def test_a_call_to_a_client_offered_tool_passes_through_untouched(
+    monkeypatch, ns_tools
+) -> None:
+    """A tool the CLIENT put in the request (not pipeline-owned) is the caller's to run:
+    the raw call goes back as before (harness direct modes, API clients with own tools)."""
+    client = _SeenClient([_tool_reply(name="client_lookup")])
+    monkeypatch.setattr(ns, "_http_client", client)
+    req = {
+        "messages": [],
+        "tools": [{"type": "function", "function": {"name": "client_lookup", "parameters": {}}}],
+    }
+    result = await ns._try_non_streaming(_backend("b"), req, ns_tools, 0.0)
+    body = json.loads(result.body)
+    calls = body["choices"][0]["message"].get("tool_calls") or []
+    assert [c["function"]["name"] for c in calls] == ["client_lookup"]
+    assert len(client.bodies) == 1
+
+
+@pytest.mark.anyio
+async def test_an_unoffered_call_beside_visible_prose_is_stripped_without_a_final_turn(
+    monkeypatch, ns_tools
+) -> None:
+    call = {"id": "c", "type": "function", "function": {"name": "remember", "arguments": "{}"}}
+    mixed = httpx.Response(
+        200,
+        json={
+            "choices": [
+                {
+                    "message": {
+                        "role": "assistant",
+                        "content": "Here is the answer.",
+                        "tool_calls": [call],
+                    }
+                }
+            ]
+        },
+    )
+    client = _SeenClient([mixed])
+    monkeypatch.setattr(ns, "_http_client", client)
+
+    result = await ns._try_non_streaming(_backend("b"), {"messages": []}, ns_tools, 0.0)
+
+    body = json.loads(result.body)
+    assert body["choices"][0]["message"]["content"] == "Here is the answer."
+    assert not body["choices"][0]["message"].get("tool_calls")
+    assert len(client.bodies) == 1
+
+
+def test_strip_tool_calls_drops_calls_and_resets_the_finish_reason() -> None:
+    call = {"id": "c", "type": "function", "function": {"name": "lookup", "arguments": "{}"}}
+    data = {
+        "choices": [
+            {
+                "message": {"content": "partial prose", "tool_calls": [call]},
+                "finish_reason": "tool_calls",
+            }
+        ]
+    }
+
+    assert ns._strip_tool_calls(data) == ["lookup"]
+    assert data["choices"][0]["message"] == {"content": "partial prose"}
+    assert data["choices"][0]["finish_reason"] == "stop"

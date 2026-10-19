@@ -18,7 +18,7 @@ tags:
 - inference
 - router
 created_at: 1785798117.610343
-updated_at: 1785798117.610343
+updated_at: 1792381701.329016
 ---
 
 `streaming.py` is the streaming transport — pure bytes-in / SSE-bytes-out
@@ -46,7 +46,7 @@ chain — a unit describing it as a separate two-model pipeline would be
 confidently wrong. The FX1 lesson (a dependency-contract mismatch that unit
 mocks could not catch) is why the live streaming smoke test exists.
 
-Within one turn a `ToolRepeatGuard` (`router/tool_repeat.py`) answers a call the model re-issues with identical arguments from its earlier result plus a short note, instead of running the tool again (read-only tools only: any other call, such as `execute_bash` or a write, always runs and clears what was cached, so an edit followed by the same test command is not a repeat), and on a third identical request the next hop withholds the tools so the turn ends with an answer rather than the hop limit. The non-streaming failover loop applies the same guard; each suppression increments `portal5_tool_repeat_suppressed_total{workspace}`. A workspace flagged `require_tool_before_answer` in portal.yaml (auto-data) does not deliver an answer given with no tool call in the whole turn: the hop's output is held, the model is asked once to answer from a query (tools still offered, `portal5_answer_without_tool_retried_total{workspace}`), and an answer that is still ungrounded is delivered with a one-line notice.
+Within one turn a `ToolRepeatGuard` (`router/tool_repeat.py`) answers a call the model re-issues with identical arguments from its earlier result plus a short note, instead of running the tool again (read-only tools only: any other call, such as `execute_bash` or a write, always runs and clears what was cached, so an edit followed by the same test command is not a repeat), and on a third identical request the next hop withholds the tools so the turn ends with an answer rather than the hop limit. The non-streaming failover loop applies the same guard, and it never hands a call it will not dispatch back to the client: calls left when the hop budget is spent — or naming tools the request never offered — are stripped from the response choices (finish reason reset to `stop`), one final toolless synthesis turn (`FINAL_ANSWER_REQUEST`, history ending in the tool results) answers from what the conversation already holds, and a turn that still produces only calls is answered with the no-answer notice; one INFO line names the workspace, model and dropped tools. The streaming loop keeps the older contract of passing client-injected calls through to the caller, since the stream's client owns dispatch; the non-streaming response is Open WebUI's DB commit, where a raw call is never actionable. Each suppression increments `portal5_tool_repeat_suppressed_total{workspace}`. A workspace flagged `require_tool_before_answer` in portal.yaml (auto-data) does not deliver an answer given with no tool call in the whole turn: the hop's output is held, the model is asked once to answer from a query (tools still offered, `portal5_answer_without_tool_retried_total{workspace}`), and an answer that is still ungrounded is delivered with a one-line notice.
 
 ## Interfaces
 

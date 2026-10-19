@@ -37,6 +37,7 @@ from portal.platform.inference.router.text_tool_calls import (
     salvage_text_tool_calls,
 )
 from portal.platform.inference.router.thinking import (
+    NO_ANSWER_MESSAGE,
     _reasoning_text,
     _thinking_enabled,
     strip_think,
@@ -465,6 +466,103 @@ def _assistant_turn(
     return turn
 
 
+def _record_intermediate_model(
+    data: dict[str, Any], model: str, workspace_id: str, started: float
+) -> None:
+    """Count tool/grounding hops as model time, excluding discarded prose."""
+    timing_data = dict(data)
+    if isinstance(data.get("choices"), list):
+        timing_data["choices"] = []
+        for choice in data["choices"]:
+            if isinstance(choice, dict):
+                copied = dict(choice)
+                copied["message"] = {**(choice.get("message") or {}), "content": ""}
+                timing_data["choices"].append(copied)
+    if isinstance(data.get("message"), dict):
+        timing_data["message"] = {**data["message"], "content": ""}
+    timing_data["portal_timings"] = {
+        **(data.get("portal_timings") or {}),
+        "answer_tokens": 0,
+        "answer_s": 0,
+    }
+    _record_usage(
+        model=data.get("model") or model,
+        workspace=workspace_id,
+        data=timing_data,
+        **usage_metric_kwargs(timing_data),
+    )
+    add_model_turn(timing_data, measured={"total_s": max(0.0, time.monotonic() - started)})
+    trace_note(portal_timings=current_portal_timings())
+
+
+def _strip_tool_calls(data: dict[str, Any]) -> list[str]:
+    dropped: list[str] = []
+    for choice in data.get("choices") or []:
+        message = choice.get("message") or {}
+        for call in message.pop("tool_calls", None) or []:
+            dropped.append(str((call.get("function") or {}).get("name", "?")))
+        if choice.get("finish_reason") == "tool_calls":
+            choice["finish_reason"] = "stop"
+    return dropped
+
+
+async def _final_toolless_answer(
+    client: Any,
+    url: str,
+    timeout: httpx.Timeout,
+    req_body: dict[str, Any],
+    messages: list[dict[str, Any]],
+    data: dict[str, Any],
+    tool_calls: list[dict[str, Any]],
+    hops: int,
+    thinking_allowed: bool,
+    creation_succeeded: bool,
+    workspace_id: str,
+    target_model: str,
+    model_started: float,
+) -> tuple[dict[str, Any], float]:
+    _record_intermediate_model(data, target_model, workspace_id, model_started)
+    dropped = _strip_tool_calls(data)
+    logger.info(
+        "Non-stream tool loop: workspace=%s model=%s dropping undispatchable tool call(s): %s",
+        workspace_id,
+        target_model,
+        ", ".join(dropped),
+    )
+    visible = [
+        str((c.get("message") or {}).get("content") or "") for c in data.get("choices") or []
+    ]
+    if any(text.strip() for text in visible):
+        return data, time.monotonic()
+    final_messages = list(messages)
+    if hops == 0:
+        final_messages.append(
+            _assistant_turn(data, tool_calls, thinking_allowed, creation_succeeded)
+        )
+    final_messages.append(FINAL_ANSWER_REQUEST)
+    final_body = {**req_body, "messages": final_messages, "tools": None, "tool_choice": None}
+    started = time.monotonic()
+    final_resp = await client.post(url, json=final_body, timeout=timeout)
+    _raise_for_backend_status(final_resp)
+    data = final_resp.json()
+    _recover_or_withhold_markup(data, None, req_body.get("model", ""), workspace_id)
+    late = _collect_tool_calls(data)
+    if late:
+        late_names = _strip_tool_calls(data)
+        logger.info(
+            "Non-stream tool loop: workspace=%s model=%s final toolless turn still called: %s — "
+            "returning the no-answer notice",
+            workspace_id,
+            target_model,
+            ", ".join(late_names),
+        )
+        for choice in data.get("choices") or []:
+            message = choice.get("message") or {}
+            if not str(message.get("content") or "").strip():
+                message["content"] = NO_ANSWER_MESSAGE
+    return data, started
+
+
 async def _try_non_streaming(
     backend: Any,
     body: dict[str, Any],
@@ -521,8 +619,8 @@ async def _try_non_streaming(
     Asymmetry with the streaming tool loop: the streaming variant
     in ``_stream_with_tool_loop_impl`` loops up to ``MAX_TOOL_HOPS``
     times; by default this does exactly one synthesis turn (``max_hops=1``;
-    a stream's failover passes ``MAX_TOOL_HOPS`` so its turn keeps the tools
-    until the model answers). Reason: Open WebUI
+    a stream's failover passes ``MAX_TOOL_HOPS``; undispatched end-of-turn
+    calls are stripped and answered by one final toolless turn). Reason: Open WebUI
     sends **two** requests per user message when tools are enabled
     — one streaming (for the user-visible response) and one
     non-streaming (for its DB-of-record commit). The streaming
@@ -710,32 +808,6 @@ async def _try_non_streaming(
     async def _run_request() -> JSONResponse | None:
         """POST → tool loop → normalise → return. None on any failure."""
 
-        def _record_intermediate_model(data: dict[str, Any], started: float) -> None:
-            """Count tool/grounding hops as model time, excluding discarded prose."""
-            timing_data = dict(data)
-            if isinstance(data.get("choices"), list):
-                timing_data["choices"] = []
-                for choice in data["choices"]:
-                    if isinstance(choice, dict):
-                        copied = dict(choice)
-                        copied["message"] = {**(choice.get("message") or {}), "content": ""}
-                        timing_data["choices"].append(copied)
-            if isinstance(data.get("message"), dict):
-                timing_data["message"] = {**data["message"], "content": ""}
-            timing_data["portal_timings"] = {
-                **(data.get("portal_timings") or {}),
-                "answer_tokens": 0,
-                "answer_s": 0,
-            }
-            _record_usage(
-                model=data.get("model") or target_model,
-                workspace=workspace_id,
-                data=timing_data,
-                **usage_metric_kwargs(timing_data),
-            )
-            add_model_turn(timing_data, measured={"total_s": max(0.0, time.monotonic() - started)})
-            trace_note(portal_timings=current_portal_timings())
-
         try:
             _req_tools = len(req_body.get("tools", []))
             _req_msgs = len(req_body.get("messages", []))
@@ -823,7 +895,7 @@ async def _try_non_streaming(
                 )
                 _ns_messages = [*_ns_messages, GROUNDING_REQUEST]
                 _ns_guard.grounding_retried = True
-                _record_intermediate_model(data, _model_started)
+                _record_intermediate_model(data, target_model, workspace_id, _model_started)
                 _model_started = time.monotonic()
                 _ns_retry = await _http_client.post(
                     backend.chat_url,
@@ -838,7 +910,7 @@ async def _try_non_streaming(
                 _ns_tool_calls = _collect_tool_calls(data)
                 _ns_dispatchable = bool(_ns_tools) and _all_offered(_ns_tool_calls, _ns_tools)
             while _ns_tool_calls and _ns_dispatchable:
-                _record_intermediate_model(data, _model_started)
+                _record_intermediate_model(data, target_model, workspace_id, _model_started)
                 _ns_hops += 1
                 _ns_repeats = [_ns_guard.seen(tc) for tc in _ns_tool_calls]
                 _ns_fresh = iter(
@@ -905,6 +977,30 @@ async def _try_non_streaming(
                     not _ns_last
                     and bool(_ns_tool_calls)
                     and _all_offered(_ns_tool_calls, _ns_tools)
+                )
+
+            # A call to a tool the CLIENT offered (in the request but not pipeline-owned) is
+            # the caller's to run: pass it through, as before (harness direct modes, API clients).
+            _client_owned = {
+                (t.get("function") or {}).get("name") for t in body.get("tools") or []
+            } - set(_ns_tools or ())
+            if _ns_tool_calls and not any(
+                (tc.get("function") or {}).get("name") in _client_owned for tc in _ns_tool_calls
+            ):
+                data, _model_started = await _final_toolless_answer(
+                    _http_client,
+                    backend.chat_url,
+                    _timeout_obj,
+                    req_body,
+                    _ns_messages,
+                    data,
+                    _ns_tool_calls,
+                    _ns_hops,
+                    _ns_thinking_allowed,
+                    _ns_creation_succeeded,
+                    workspace_id,
+                    target_model,
+                    _model_started,
                 )
 
             if _ns_guard.grounding_retried and _ns_guard.executed == 0:
