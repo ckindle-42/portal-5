@@ -314,6 +314,32 @@ def _ollama_seat(model: str, system: str, user: str, *, workspace_addressed: boo
     return result.content
 
 
+def _default_seat_fn(seats: list[dict[str, str]]) -> SeatFn:
+    """The Ollama seat; a seat that names a workspace leaves budget and sampling to it."""
+    workspace_seats = {_seat_address(s) for s in seats if s.get("workspace")}
+
+    def fn(model: str, system: str, user: str) -> str:
+        return _ollama_seat(model, system, user, workspace_addressed=model in workspace_seats)
+
+    return fn
+
+
+def _collect_opinions(
+    seats: list[dict[str, str]], fn: SeatFn, user: str, allowlist: set[str]
+) -> list[SeatOpinion]:
+    opinions: list[SeatOpinion] = []
+    for seat in seats:
+        cancellation.check()  # stop between seats once the client has gone
+        try:
+            raw = fn(_seat_address(seat), _SEAT_SYSTEM, user)
+        except Exception as exc:  # noqa: BLE001 - a failed seat is a non-vote, not a crash
+            op = SeatOpinion(seat_id=seat["id"], model=seat["model"], dropped=f"seat error: {exc}")
+            opinions.append(op)
+            continue
+        opinions.append(_parse_seat(seat["id"], seat["model"], raw, allowlist))
+    return opinions
+
+
 def run_council(
     packet: dict[str, Any],
     seats: list[dict[str, str]],
@@ -328,31 +354,11 @@ def run_council(
     ``seats`` is a list of ``{"id","label","model"}``. ``seat_fn`` is injected
     for tests; the default talks to Ollama. ``reference_texts`` maps a
     reference-closure ref to its verbatim text for the override call."""
-    workspace_seats: set[str] = set()
-    if seat_fn is None:
-
-        def fn(model: str, system: str, user: str) -> str:
-            return _ollama_seat(model, system, user, workspace_addressed=model in workspace_seats)
-
-    else:
-        fn = seat_fn
+    fn = seat_fn or _default_seat_fn(seats)
     anchor = packet["governing_unit"]["ref"]
     allowlist = _packet_allowlist(packet)
     user = json.dumps(packet, indent=2, ensure_ascii=False)
-
-    opinions: list[SeatOpinion] = []
-    for seat in seats:
-        cancellation.check()  # stop between seats once the client has gone
-        try:
-            model = _seat_address(seat)
-            if seat_fn is None and seat.get("workspace"):
-                workspace_seats.add(model)
-            raw = fn(model, _SEAT_SYSTEM, user)
-        except Exception as exc:  # noqa: BLE001 - a failed seat is a non-vote, not a crash
-            op = SeatOpinion(seat_id=seat["id"], model=seat["model"], dropped=f"seat error: {exc}")
-            opinions.append(op)
-            continue
-        opinions.append(_parse_seat(seat["id"], seat["model"], raw, allowlist))
+    opinions = _collect_opinions(seats, fn, user, allowlist)
 
     roster = len(seats)
     required = math.ceil((quorum * roster) - 1e-9)
