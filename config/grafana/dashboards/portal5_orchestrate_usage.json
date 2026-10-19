@@ -7,7 +7,7 @@
     "cost"
   ],
   "schemaVersion": 38,
-  "version": 2,
+  "version": 3,
   "editable": true,
   "refresh": "5m",
   "time": {
@@ -1118,6 +1118,174 @@
         "tooltip": {
           "mode": "multi",
           "sort": "desc"
+        }
+      }
+    },
+    {
+      "id": 102,
+      "type": "row",
+      "title": "Free P40 lane (thebrain) \u2014 local, unlimited",
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 68
+      },
+      "collapsed": false
+    },
+    {
+      "id": 103,
+      "type": "stat",
+      "title": "P40 dispatches (7d)",
+      "description": "Worker runs on the thebrain Tesla P40 tiers (brain, brain-ornith, brain-dense).",
+      "gridPos": {
+        "h": 5,
+        "w": 6,
+        "x": 0,
+        "y": 69
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(orchestrate_window_runs{window=\"7d\",tier=~\"brain.*\"})",
+          "instant": true
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none"
+        }
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "colorMode": "value",
+        "graphMode": "none"
+      }
+    },
+    {
+      "id": 104,
+      "type": "stat",
+      "title": "P40 accept rate (7d)",
+      "description": "Accepted at review / judged, P40 tiers.",
+      "gridPos": {
+        "h": 5,
+        "w": 6,
+        "x": 6,
+        "y": 69
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "100 * sum(orchestrate_window_accepted{window=\"7d\",tier=~\"brain.*\"}) / clamp_min(sum(orchestrate_window_judged{window=\"7d\",tier=~\"brain.*\"}),1)",
+          "instant": true
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "decimals": 1
+        }
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "colorMode": "value",
+        "graphMode": "none"
+      }
+    },
+    {
+      "id": 105,
+      "type": "stat",
+      "title": "P40 tokens (7d)",
+      "description": "New tokens processed on the P40 (cache reads excluded).",
+      "gridPos": {
+        "h": 5,
+        "w": 6,
+        "x": 12,
+        "y": 69
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(orchestrate_window_tokens{window=\"7d\",tier=~\"brain.*\"})",
+          "instant": true
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short"
+        }
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "colorMode": "value",
+        "graphMode": "none"
+      }
+    },
+    {
+      "id": 106,
+      "type": "stat",
+      "title": "Value of free P40 work (7d)",
+      "description": "What the same tokens would cost on DeepSeek flash, the metered lane the P40 replaces.",
+      "gridPos": {
+        "h": 5,
+        "w": 6,
+        "x": 18,
+        "y": 69
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(orchestrate_window_notional_usd{window=\"7d\",tier=~\"brain.*\"})",
+          "instant": true
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "currencyUSD"
+        }
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "colorMode": "value",
+        "graphMode": "none"
+      }
+    },
+    {
+      "id": 107,
+      "type": "timeseries",
+      "title": "P40 dispatches by model",
+      "gridPos": {
+        "h": 7,
+        "w": 24,
+        "x": 0,
+        "y": 74
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (tier) (orchestrate_window_runs{window=\"24h\",tier=~\"brain.*\"})",
+          "legendFormat": "{{tier}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none"
         }
       }
     }
