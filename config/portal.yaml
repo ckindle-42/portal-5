@@ -2640,9 +2640,9 @@ workspaces:
     name: 🔬 Bench · GLM-4.7-Flash Q4_K_M (ZhipuAI)
     description: |-
       Benchmark: glm-4.7-flash:Q4_K_M (~13GB, ZhipuAI/Z.AI, MIT). 31B MoE, 4 experts/token (~3B active), 128K context. Non-Meta/Qwen lineage — diverse training and architecture. Coding bench 2026-06-21: quality 0.67 (template mismatch suspected). Head-to-head vs bench-glm-reap (REAP UD-Q4_K_XL quant). PROMOTE_POLICY: re-bench after chat template verification.
-    model_hint: glm-4.7-flash:Q4_K_M
-    # 32768 = budget target: min(card 131072, 32K) — the tag bakes no num_ctx,
-    # so no window cap applies (reasoning_budget_fit; adjusted, not tested)
+    model_hint: glm-4.7-flash:Q4_K_M-ctx64k
+    # 32768 = budget target: min(card 131072, 32K, window 64K // 2); the bare tag baked no
+    # num_ctx, so the derived 64k tag gives the budget a real window (adjusted, not tested)
     predict_limit: 32768
     max_concurrent: 1
     keep_alive: 5m
