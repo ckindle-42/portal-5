@@ -551,7 +551,6 @@ def test_the_plan_arms_are_served_by_the_workspaces_groups_and_fit_its_window():
     # every task is no_tools, so the workload declares no tool mode at all
     assert "tool_mode" not in wl, "auto-reasoning"
     arms = wl["arms"]
-    # A decided plan: the seat it produced is one of its arms (K2-Horizon, 2026-10-19).
     assert portal["auto-reasoning"]["model_hint"] in [arms["incumbent"], *arms["challengers"]]
     assert arms["challengers"] == REGISTERED_CHALLENGERS + PENDING_CHALLENGERS
     served = _served("auto-reasoning", backends)

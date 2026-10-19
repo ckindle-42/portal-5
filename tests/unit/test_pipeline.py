@@ -408,7 +408,6 @@ class TestWorkspaceModelHintUpdated:
         )
 
     def test_reasoning_seats_a_thinking_model(self):
-        # The seat is decided by WFE (K2-Horizon, 2026-10-19); test the lane's property, not a name.
         ws = WORKSPACES.get("auto-reasoning", {})
         assert (
             ws.get("model_hint") and ws.get("think") is True and ws.get("emits_reasoning") is True
