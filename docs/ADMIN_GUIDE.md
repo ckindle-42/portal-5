@@ -586,7 +586,7 @@ The roster is derived from the persona YAML files under `config/personas/`, one 
 | `general-deep` | general | `hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx96k` |
 | `general-fast` | general | `hf.co/unsloth/Qwen3.6-35B-A3B-GGUF:UD-Q4_K_XL-ctx96k` |
 | `security-reviewer` | security | `granite4.1:8b-ctx8k` |
-| `tools-specialist` | general | `granite4.1:8b-ctx8k` |
+| `tools-specialist` | general | `hf.co/unsloth/Qwen3.6-35B-A3B-GGUF:UD-Q4_K_XL-ctx96k` |
 
 ##### Eval/bench workspaces (need PORTAL_ENABLE_EVAL=1)
 
@@ -667,7 +667,7 @@ default.
 | `general-deep` | `hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx96k` | yes |
 | `general-fast` | `hf.co/unsloth/Qwen3.6-35B-A3B-GGUF:UD-Q4_K_XL-ctx96k` | yes |
 | `security-reviewer` | `granite4.1:8b-ctx8k` | yes |
-| `tools-specialist` | `granite4.1:8b-ctx8k` | yes |
+| `tools-specialist` | `hf.co/unsloth/Qwen3.6-35B-A3B-GGUF:UD-Q4_K_XL-ctx96k` | yes |
 
 ##### Persona model_pin reachability
 

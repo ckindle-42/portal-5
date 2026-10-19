@@ -1429,13 +1429,22 @@ workspaces:
     module: general
     name: 🔧 Portal Tool Composer
     description: |-
-      Structured function/API calling via Granite-4.1 8B (tool-tagged, BFCL V3 68.27). Substitutes for ToolACE-2.5 (no GGUF after MLX retirement; re-sourcing tracked in P5-FUT-PARITY-001). Use for tasks composing multiple tool calls in sequence.
-    # 2026-09-25: sampling set to the granite-4.1 card (by purpose); prior values + A/B: docs/TASK_SEAT_SAMPLING_AB_V1.md
-    model_hint: granite4.1:8b-ctx8k
+      Structured function/API calling via Qwen3.6-35B-A3B (MoE, ~3B active; shares the weights already resident for other seats). Use for tasks composing multiple tool calls in sequence.
+    # 2026-10-19 operator: granite4.1:8b -> Qwen3.6-35B-A3B on confirm wfe_tools_20261019h (with g's
+    # incumbent rows): 76/87 (87%) vs granite 96/108 (89%), NOT_SEPARATED, but p90 17.6s vs 339s
+    # (granite looped to the output cap on store-recall) and no added memory. Run on the corrected
+    # pipeline (reasoning carried across hops, ordered dispatch, library renderer/parser).
+    # Sampling: the Qwen3.6 card's thinking_precise_coding arm, which a tools seat must serve
+    # (settings_audit sampling_mode_fit). A/B on the chain tasks: 23/24 vs 22/24 for thinking_general.
+    model_hint: hf.co/unsloth/Qwen3.6-35B-A3B-GGUF:UD-Q4_K_XL-ctx96k
     context_limit: 8192
-    temperature: 0.0
+    temperature: 0.6
     top_p: 0.95
+    top_k: 20
+    min_p: 0.0
+    presence_penalty: 0.0
     repeat_penalty: 1.0
+    think: true
     tools:
     - execute_python
     - remember

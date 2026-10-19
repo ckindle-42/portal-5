@@ -5,7 +5,7 @@ title: 34 production + 24 eval workspaces
 sources:
 - type: code
   path: config/portal.yaml
-  commit: e5191ce2ff1a
+  commit: 4f3745ba2518
 claims:
 - probe: workspaces.total
   pattern: '{value} total)'
@@ -14,7 +14,7 @@ tags:
 - fact
 - workspaces
 created_at: 1784000421.2630541
-updated_at: 1792345502.985253
+updated_at: 1792411650.4608908
 ---
 
 # Workspace roster (34 production, 24 eval, 58 total)
@@ -56,7 +56,7 @@ updated_at: 1792345502.985253
 | `general-deep` | general | `hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx96k` |
 | `general-fast` | general | `hf.co/unsloth/Qwen3.6-35B-A3B-GGUF:UD-Q4_K_XL-ctx96k` |
 | `security-reviewer` | security | `granite4.1:8b-ctx8k` |
-| `tools-specialist` | general | `granite4.1:8b-ctx8k` |
+| `tools-specialist` | general | `hf.co/unsloth/Qwen3.6-35B-A3B-GGUF:UD-Q4_K_XL-ctx96k` |
 
 ## Eval/bench workspaces (need PORTAL_ENABLE_EVAL=1)
 

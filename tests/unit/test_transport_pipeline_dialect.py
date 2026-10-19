@@ -42,7 +42,11 @@ def test_workspace_passthrough_for_known_workspace():
 
 
 def test_workspace_mapping_for_registered_hint():
-    assert model_addressing.workspace_id_for_model("granite4.1:8b-ctx8k") == "tools-specialist"
+    """A registered hint maps to a workspace that actually pins it (no seat name pinned here:
+    seats move, e.g. tools-specialist left granite4.1:8b on 2026-10-19)."""
+    hint = "granite4.1:8b-ctx8k"
+    ws = model_addressing.workspace_id_for_model(hint)
+    assert ws != hint and model_addressing.workspace_model_hint(ws) == hint
 
 
 def test_unknown_tag_passes_through():
@@ -122,7 +126,8 @@ def _built(**overrides: Any) -> dict[str, Any]:
 
 
 def test_build_resolves_tag_to_workspace_on_the_wire():
-    assert _built()["model"] == "tools-specialist"
+    assert _built()["model"] == model_addressing.workspace_id_for_model("granite4.1:8b-ctx8k")
+    assert _built()["model"] != "granite4.1:8b-ctx8k"
 
 
 def test_build_keeps_client_tools_and_marks_them_client_only():

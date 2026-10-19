@@ -5,13 +5,13 @@ title: "model bindings \u2014 0 reachability gap(s)"
 sources:
 - type: code
   path: config/backends.yaml
-  commit: e5191ce2ff1a
+  commit: 4f3745ba2518
 - type: code
   path: config/portal.yaml
-  commit: e5191ce2ff1a
+  commit: 4f3745ba2518
 - type: code
   path: config/personas/
-  commit: e5191ce2ff1a
+  commit: 4f3745ba2518
 claims: []
 confidence: high
 tags:
@@ -19,7 +19,7 @@ tags:
 - model-bindings
 - reachability
 created_at: 1784000421.433863
-updated_at: 1792345503.20875
+updated_at: 1792411650.697576
 ---
 
 # Model bindings (reachability-resolved)
@@ -66,7 +66,7 @@ default.
 | `general-deep` | `hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx96k` | yes |
 | `general-fast` | `hf.co/unsloth/Qwen3.6-35B-A3B-GGUF:UD-Q4_K_XL-ctx96k` | yes |
 | `security-reviewer` | `granite4.1:8b-ctx8k` | yes |
-| `tools-specialist` | `granite4.1:8b-ctx8k` | yes |
+| `tools-specialist` | `hf.co/unsloth/Qwen3.6-35B-A3B-GGUF:UD-Q4_K_XL-ctx96k` | yes |
 
 ## Persona model_pin reachability
 
