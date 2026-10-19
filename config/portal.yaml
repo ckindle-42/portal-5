@@ -2164,7 +2164,7 @@ workspaces:
   # of CVE triage would have changed compliance judgments with nothing to
   # say so. These workspaces are compliance's own: each carries the same
   # model_hint its seat uses (same models — a re-homing, not a swap), the
-  # settings the COUNCIL JOB calls for, and is addressed by workspace id at
+  # settings workspace-addressed seats take from this config, addressed by workspace id at
   # the council call sites (council.yaml `workspace:`), so hint resolution
   # order can never move a seat back into a borrowed lane. Not
   # expose_to_owui: they are engine seats, not conversation lanes.
@@ -2174,7 +2174,7 @@ workspaces:
     description: Compliance review council, Qwen3.8-27B seat — addressed by id from config/compliance/council.yaml; owns the settings the council job calls for instead of borrowing auto-compliance's.
     model_hint: hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k
     context_limit: 32768 # the tag's baked window; matches the borrowed lane's
-    predict_limit: 8192 # council._SEAT_BUDGET — the seat's own output budget
+    predict_limit: 8192 # workspace-addressed council seat output limit
     temperature: 0.7
     top_p: 0.8
     top_k: 20
@@ -2197,8 +2197,8 @@ workspaces:
     description: Compliance review council, granite4.1-30b seat — addressed by id from config/compliance/council.yaml; owns its settings instead of borrowing bench-granite41-30b.
     model_hint: granite4.1:30b-ctx16k
     context_limit: 16384 # the tag's baked window; matches the borrowed bench lane's
-    predict_limit: 8192 # council._SEAT_BUDGET — the seat's own output budget
-    temperature: 0.0 # the roster qualified at greedy; council._ollama_seat sends 0.0
+    predict_limit: 8192 # workspace-addressed council seat output limit
+    temperature: 0.0 # workspace-addressed council seat sampling setting
     top_p: 0.95
     top_k: 20
     min_p: 0.0
@@ -2215,11 +2215,9 @@ workspaces:
     model_hint: hf.co/unsloth/DeepSeek-R1-0528-Qwen3-8B-GGUF:Q4_K_XL-ctx64k
     context_limit: 65536 # the tag's baked window; matches the borrowed lane's
     # 32768 = budget target: min(card 65536, 32K, half of the 65536 window)
-    # (reasoning_budget_fit). NOTE: council.py's internal reading path still
-    # passes budget=_SEAT_BUDGET (8192) explicitly — raising that constant is
-    # a separate decision.
-    predict_limit: 32768 # council._SEAT_BUDGET — room for the reasoning trace plus the JSON verdict in one budget
-    temperature: 0.6 # DeepSeek-R1 vendor card (greedy causes repetition loops); recorded in council._MODEL_TEMPERATURE and declared here
+    # (reasoning_budget_fit); the council seat takes it from this workspace.
+    predict_limit: 32768
+    temperature: 0.6 # DeepSeek-R1 vendor card (greedy causes repetition loops)
     top_p: 0.95 # vendor card
     top_k: 40
     min_p: 0.02
