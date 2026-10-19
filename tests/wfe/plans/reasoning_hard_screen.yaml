@@ -9,12 +9,7 @@
 # DeepSeek-R1-0528-Qwen3-8B, ctx 64k). Challengers per the brief:
 #   - Qwen3.8-27B (ctx96k tag) and GLM-4.7-Flash (ctx64k tag): registered and
 #     served by auto-reasoning's routing groups (reasoning + general).
-#   - K2-Horizon-MoVA-36B-A4B and Granite 4.2 30B need ctx64k tags.
-#     TODO(operator): create and register
-#         hf.co/bartowski/K2-Horizon-MoVA-36B-A4B-GGUF:Q4_K_M-ctx64k
-#         hf.co/ibm-granite/granite-4.2-30b-GGUF:Q4_K_M-ctx64k
-#     in backends.yaml (a group auto-reasoning routes to). Until registered, the
-#     slice test skips those two arms' served/window checks
+#   - K2-Horizon-MoVA-36B-A4B and Granite 4.2 30B: ctx64k tags registered 2026-10-18 (d5898a94).
 #     (test_wfe_reasoning_hard_slice.py).
 #
 # Every arm's tag must be served by the workspace's routed groups at a window of
@@ -30,7 +25,5 @@ workloads:
       challengers:
         - hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx96k
         - glm-4.7-flash:Q4_K_M-ctx64k
-        # TODO(operator): create + register these two ctx64k tags (brief I-REASON);
-        # the slice test skips their served/window checks until then.
         - hf.co/bartowski/K2-Horizon-MoVA-36B-A4B-GGUF:Q4_K_M-ctx64k
         - hf.co/ibm-granite/granite-4.2-30b-GGUF:Q4_K_M-ctx64k
