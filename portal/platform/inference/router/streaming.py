@@ -26,7 +26,6 @@ The shared ``httpx.AsyncClient`` is injected by ``lifespan`` as
 
 from __future__ import annotations
 
-import asyncio
 import contextlib
 import json
 import logging
@@ -506,7 +505,11 @@ async def _dispatch_hop_tool_calls(
     max_hops: int,
     guard: ToolRepeatGuard | None = None,
 ) -> tuple[dict[str, Any], list[dict[str, Any]]]:
-    """Dispatch all tool calls for one hop in parallel.
+    """Dispatch one hop's tool calls in the order the model emitted them, one at a time.
+
+    Sequential on purpose (operator 2026-10-18): a model that batches dependent calls
+    (remember then recall, compute then store) must see each one land before the next
+    runs. In parallel, recall raced remember and came back empty.
 
     Returns (assistant_msg, dispatch_results) where assistant_msg is ready to
     append to the message list and dispatch_results is the list of tool result
@@ -514,15 +517,11 @@ async def _dispatch_hop_tool_calls(
     is answered from its earlier result instead of running again.
     """
     repeats = [guard is not None and guard.seen(tc) for tc in all_tool_calls]
-    fresh = list(
-        await asyncio.gather(
-            *[
-                _dispatch_tool_call(tc, effective_tools, workspace_id, persona, request_id)
-                for tc, rep in zip(all_tool_calls, repeats, strict=True)
-                if not rep
-            ],
-        )
-    )
+    fresh = [
+        await _dispatch_tool_call(tc, effective_tools, workspace_id, persona, request_id)
+        for tc, rep in zip(all_tool_calls, repeats, strict=True)
+        if not rep
+    ]
     fresh_iter = iter(fresh)
     dispatch_results: list[dict[str, Any]] = []
     for tc, rep in zip(all_tool_calls, repeats, strict=True):
@@ -636,8 +635,8 @@ async def _tool_loop_frames(
        - Collect tool_calls from the OpenAI-format buffer.
        - Bail with "Tool-use limit reached" content if
          ``hop >= MAX_TOOL_HOPS``.
-       - Dispatch all tool calls in parallel via
-         ``asyncio.gather(_dispatch_tool_call, ...)``.
+       - Dispatch the hop's tool calls
+         one at a time, in emitted order (dependent calls must see each other land).
        - Append assistant turn + tool results to
          ``current_body.messages`` and loop.
     5. **Otherwise** (``"stop"`` or similar): record response time
@@ -1214,7 +1213,7 @@ async def _tool_loop_frames(
                 yield b"data: [DONE]\n\n"
                 return
 
-            # Dispatch all tool calls in parallel
+            # Dispatch the hop's tool calls in emitted order
             assistant_msg, dispatch_results = await _dispatch_hop_tool_calls(
                 all_tool_calls,
                 effective_tools,

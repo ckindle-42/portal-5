@@ -8,7 +8,6 @@ streaming/non-streaming branch is decided by the request body's
 
 from __future__ import annotations
 
-import asyncio
 import json
 import logging
 import time
@@ -913,16 +912,15 @@ async def _try_non_streaming(
                 _record_intermediate_model(data, target_model, workspace_id, _model_started)
                 _ns_hops += 1
                 _ns_repeats = [_ns_guard.seen(tc) for tc in _ns_tool_calls]
+                # In emitted order, one at a time: dependent calls must see each other land.
                 _ns_fresh = iter(
-                    await asyncio.gather(
-                        *[
-                            _dispatch_tool_call(
-                                tc, set(_ns_tools), workspace_id, persona, f"ns-{int(time.time())}"
-                            )
-                            for tc, rep in zip(_ns_tool_calls, _ns_repeats, strict=True)
-                            if not rep
-                        ]
-                    )
+                    [
+                        await _dispatch_tool_call(
+                            tc, set(_ns_tools), workspace_id, persona, f"ns-{int(time.time())}"
+                        )
+                        for tc, rep in zip(_ns_tool_calls, _ns_repeats, strict=True)
+                        if not rep
+                    ]
                 )
                 _ns_dispatch = []
                 for tc, rep in zip(_ns_tool_calls, _ns_repeats, strict=True):
