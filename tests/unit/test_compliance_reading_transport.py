@@ -153,6 +153,18 @@ def test_thinking_is_requested_and_preserved(monkeypatch):
     assert result["downgraded"] == ""
 
 
+def test_workspace_owned_budget_and_temperature_are_omitted(monkeypatch):
+    server = _Server(thinking_capable=True, content='{"ok": true}')
+    monkeypatch.setattr(reading_transport, "_post", server)
+
+    result = chat("no-budget-test", "sys", "user", budget=None, temperature=None)
+
+    assert server.payloads[0]["options"] == {"num_ctx": reading_transport.DEFAULT_NUM_CTX}
+    assert result["answer_budget"] is None
+    assert result["num_predict"] is None
+    assert result["temperature"] is None
+
+
 def test_http_400_downgrades_once_and_is_recorded(monkeypatch):
     server = _Server(thinking_capable=False, content='{"relation": "SAME"}')
     monkeypatch.setattr(reading_transport, "_post", server)

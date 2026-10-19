@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import json
 
+from portal.modules.compliance.core import council, reading_transport
 from portal.modules.compliance.core.council import run_council
 
 _PACKET = {
@@ -246,3 +247,38 @@ def test_no_seat_sees_another_seats_answer():
     for u in seen:
         assert "prior_determination" not in u and "gold" not in u.lower()
         assert "approval" not in u.lower()
+
+
+def test_workspace_seat_uses_workspace_settings_and_legacy_keeps_defaults(monkeypatch):
+    from portal.platform.inference import model_addressing
+
+    deepseek = "hf.co/unsloth/DeepSeek-R1-0528-Qwen3-8B-GGUF:Q4_K_XL-ctx64k"
+    monkeypatch.setattr(model_addressing, "workspace_model_hint", lambda _model: deepseek)
+    calls = []
+
+    def fake_chat(model, system, user, **kwargs):
+        calls.append((model, kwargs["budget"], kwargs["temperature"]))
+        return reading_transport.ChatResult(
+            content=_vote("SUPPORTED", ["CIP-007-6 R2 Part 2.2"]),
+            reasoned=False,
+            thinking="",
+        )
+
+    monkeypatch.setattr(reading_transport, "chat", fake_chat)
+    seats = [
+        {
+            "id": "workspace-seat",
+            "label": "workspace seat",
+            "model": "qwen38",
+            "workspace": "compliance-council-qwen38",
+        },
+        {"id": "legacy-seat", "label": "legacy seat", "model": "legacy-deepseek"},
+    ]
+
+    result = run_council(_PACKET, seats, quorum=1.0)
+
+    assert result.determination == "SUPPORTED"
+    assert calls == [
+        ("compliance-council-qwen38", None, None),
+        ("legacy-deepseek", council._SEAT_BUDGET, council._MODEL_TEMPERATURE[deepseek]),
+    ]

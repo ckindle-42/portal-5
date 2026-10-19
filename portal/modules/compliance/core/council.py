@@ -43,6 +43,8 @@ _FINDING_TYPES = ("", "GAP", "CONTRADICTION", "OUTDATED_LANGUAGE", "WEAK_MAPPING
 # with reasoning suppressed; it cannot hold a read of a Part plus its
 # candidates. Raised with the suppression removed (f350324a solved a /v1 leak by
 # disabling thought; /api/chat separates the channels).
+# Legacy seats without a workspace use this output budget; workspace-addressed
+# seats take their output limit from the workspace configuration.
 _SEAT_BUDGET = 8192
 
 # Per-call reasoning provenance for the run receipt. Bounded: this module is
@@ -53,13 +55,9 @@ _LAST_TRACE: deque[dict[str, Any]] = deque(maxlen=256)
 # a JSON-verdict task on an instruct model — deterministic, reproducible. It is
 # the WRONG default for a reasoning model: DeepSeek's own model card explicitly
 # warns that greedy decoding on DeepSeek-R1 causes repetition loops and
-# incoherent output, and recommends 0.5-0.7 (0.6) with top_p 0.95. council.py
-# has no per-seat sampling override in its call chain (SeatFn is just
-# (model, system, user) -> str), so without this table the deepseek_r1 seat
-# (promoted 2026-09-26, config/compliance/council.yaml) would silently run at
-# temperature 0 against its own vendor's guidance. Same pattern as
-# reading_transport._THINK_CAPABLE — a per-model exception table, not a
-# blanket change to the system-wide default the other seats rely on.
+# incoherent output, and recommends 0.5-0.7 (0.6) with top_p 0.95.
+# This table preserves that per-model exception for legacy seats without a
+# workspace; workspace-addressed seats take temperature from their workspace.
 _MODEL_TEMPERATURE: dict[str, float] = {
     "hf.co/unsloth/DeepSeek-R1-0528-Qwen3-8B-GGUF:Q4_K_XL-ctx64k": 0.6,
 }
@@ -260,7 +258,7 @@ def _seat_address(seat: dict[str, Any]) -> str:
     return str(seat.get("workspace") or seat.get("model", ""))
 
 
-def _ollama_seat(model: str, system: str, user: str) -> str:
+def _ollama_seat(model: str, system: str, user: str, *, workspace_addressed: bool = False) -> str:
     """One council seat, through the shared reasoning transport.
 
     ``SeatFn`` still returns ``str`` — the seat's answer is its JSON content, so
@@ -281,17 +279,20 @@ def _ollama_seat(model: str, system: str, user: str) -> str:
     from portal.modules.compliance.core.reading_transport import DEFAULT_TEMPERATURE, chat
     from portal.platform.inference.model_addressing import workspace_model_hint
 
-    # ``model`` may be a workspace id (the seat's declared home); the
-    # temperature table is keyed by the TAG, so resolve back through the
-    # workspace's hint before the lookup.
-    tag = workspace_model_hint(model) or model
+    if workspace_addressed:
+        budget = temperature = None
+    else:
+        # Preserve legacy model-hint resolution for seats without a workspace.
+        tag = workspace_model_hint(model) or model
+        budget = _SEAT_BUDGET
+        temperature = _MODEL_TEMPERATURE.get(tag, DEFAULT_TEMPERATURE)
     result = chat(
         model,
         system,
         user,
-        budget=_SEAT_BUDGET,
+        budget=budget,
         fmt="json",
-        temperature=_MODEL_TEMPERATURE.get(tag, DEFAULT_TEMPERATURE),
+        temperature=temperature,
     )
     _LAST_TRACE.append(
         {
@@ -327,7 +328,14 @@ def run_council(
     ``seats`` is a list of ``{"id","label","model"}``. ``seat_fn`` is injected
     for tests; the default talks to Ollama. ``reference_texts`` maps a
     reference-closure ref to its verbatim text for the override call."""
-    fn = seat_fn or _ollama_seat
+    workspace_seats: set[str] = set()
+    if seat_fn is None:
+
+        def fn(model: str, system: str, user: str) -> str:
+            return _ollama_seat(model, system, user, workspace_addressed=model in workspace_seats)
+
+    else:
+        fn = seat_fn
     anchor = packet["governing_unit"]["ref"]
     allowlist = _packet_allowlist(packet)
     user = json.dumps(packet, indent=2, ensure_ascii=False)
@@ -336,7 +344,10 @@ def run_council(
     for seat in seats:
         cancellation.check()  # stop between seats once the client has gone
         try:
-            raw = fn(_seat_address(seat), _SEAT_SYSTEM, user)
+            model = _seat_address(seat)
+            if seat_fn is None and seat.get("workspace"):
+                workspace_seats.add(model)
+            raw = fn(model, _SEAT_SYSTEM, user)
         except Exception as exc:  # noqa: BLE001 - a failed seat is a non-vote, not a crash
             op = SeatOpinion(seat_id=seat["id"], model=seat["model"], dropped=f"seat error: {exc}")
             opinions.append(op)

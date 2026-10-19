@@ -68,9 +68,9 @@ class Dialect(Protocol):
         tools: list[dict[str, Any]] | None,
         fmt: Any,
         think: bool | str,
-        num_predict: int,
+        num_predict: int | None,
         num_ctx: int,
-        temperature: float,
+        temperature: float | None,
         keep_alive: str,
     ) -> dict[str, Any]: ...
 
@@ -123,20 +123,21 @@ class OllamaNative:
         tools: list[dict[str, Any]] | None,
         fmt: Any,
         think: bool | str,
-        num_predict: int,
+        num_predict: int | None,
         num_ctx: int,
-        temperature: float,
+        temperature: float | None,
         keep_alive: str,
     ) -> dict[str, Any]:
+        options: dict[str, Any] = {"num_ctx": num_ctx}
+        if temperature is not None:
+            options["temperature"] = temperature
+        if num_predict is not None:
+            options["num_predict"] = num_predict
         payload: dict[str, Any] = {
             "model": model,
             "messages": messages,
             "stream": False,
-            "options": {
-                "temperature": temperature,
-                "num_predict": num_predict,
-                "num_ctx": num_ctx,
-            },
+            "options": options,
             "keep_alive": keep_alive,
             "think": think,
         }
@@ -295,9 +296,9 @@ class OpenAICompat:
         tools: list[dict[str, Any]] | None,
         fmt: Any,
         think: bool | str,
-        num_predict: int,
+        num_predict: int | None,
         num_ctx: int,
-        temperature: float,
+        temperature: float | None,
         keep_alive: str,
     ) -> dict[str, Any]:
         # num_ctx and keep_alive are accepted and DROPPED on purpose: the window
@@ -307,10 +308,12 @@ class OpenAICompat:
             "model": model,
             "messages": messages,
             "stream": False,
-            "max_tokens": num_predict,
-            "temperature": temperature,
             "reasoning_effort": self._effort(think),
         }
+        if num_predict is not None:
+            payload["max_tokens"] = num_predict
+        if temperature is not None:
+            payload["temperature"] = temperature
         if fmt:
             payload["response_format"] = {"type": "json_object"} if fmt in ("json", True) else fmt
         if tools is not None:
@@ -515,9 +518,9 @@ class PipelineCompat(OpenAICompat):
         tools: list[dict[str, Any]] | None,
         fmt: Any,
         think: bool | str,
-        num_predict: int,
+        num_predict: int | None,
         num_ctx: int,
-        temperature: float,
+        temperature: float | None,
         keep_alive: str,
     ) -> dict[str, Any]:
         from portal.platform.inference.model_addressing import (  # noqa: PLC0415

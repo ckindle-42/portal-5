@@ -58,6 +58,23 @@ def test_context_limit_declared_and_absent():
     assert model_addressing.workspace_context_limit("no-such-workspace") == 0
 
 
+def test_pipeline_dialect_omits_workspace_owned_output_settings():
+    payload = PipelineCompat().build(
+        model="compliance-council-qwen38",
+        messages=[{"role": "user", "content": "packet"}],
+        tools=None,
+        fmt="json",
+        think=False,
+        num_predict=None,
+        num_ctx=32768,
+        temperature=None,
+        keep_alive="5m",
+    )
+
+    assert "max_tokens" not in payload
+    assert "temperature" not in payload
+
+
 # ── resolution default ───────────────────────────────────────────────────────
 
 

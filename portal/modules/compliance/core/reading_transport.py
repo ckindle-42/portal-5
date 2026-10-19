@@ -352,7 +352,7 @@ def _unpack(raw: dict[str, Any], dialect: Any = None) -> tuple[str, str]:
 
 
 def _attempt(
-    body: dict[str, Any], answer_budget: int, allowance: int, dialect: Any = None
+    body: dict[str, Any], answer_budget: int | None, allowance: int, dialect: Any = None
 ) -> dict[str, Any]:
     content, thinking = _unpack(body, dialect)
     metrics = dialect.metrics(body) if dialect is not None else {}
@@ -388,7 +388,7 @@ def _finalize_answer(
     body: dict[str, Any],
     *,
     build: Any,
-    answer_budget: int,
+    answer_budget: int | None,
     allowance: int,
     sent_think: bool | str,
     timeout: int,
@@ -495,14 +495,14 @@ def chat(
     *,
     messages: list[dict[str, Any]] | None = None,
     tools: list[dict[str, Any]] | None = None,
-    budget: int | None = None,
+    budget: int | None = DEFAULT_ANSWER_BUDGET,
     answer_budget: int | None = None,
     reasoning_allowance: int = DEFAULT_REASONING_ALLOWANCE,
     fmt: Any = "json",
     think: bool | str | None = None,
     timeout: int = 900,
     num_ctx: int = DEFAULT_NUM_CTX,
-    temperature: float = DEFAULT_TEMPERATURE,
+    temperature: float | None = DEFAULT_TEMPERATURE,
     keep_alive: str = DEFAULT_KEEP_ALIVE,
     dialect: Any = None,
 ) -> ChatResult:
@@ -521,8 +521,9 @@ def chat(
     after spending its whole budget inside ``thinking``. ``num_predict`` is now
     ``answer_budget + reasoning_allowance`` when reasoning is on and
     ``answer_budget`` when it is off, so turning reasoning on cannot shrink the
-    answer. ``budget`` remains an alias for ``answer_budget`` so no existing
-    call site changes behaviour.
+    answer. ``budget`` remains an alias for ``answer_budget``. Passing
+    ``budget=None`` or ``temperature=None`` leaves that request field to the
+    addressed workspace.
 
     A reasoning trace that still leaves the answer empty is a BUDGET ERROR, not
     an answer: it retries once at double the allowance, records both attempts,
@@ -532,8 +533,8 @@ def chat(
     """
     if think is None:
         think = DEFAULT_EFFORT
-    if answer_budget is None:
-        answer_budget = DEFAULT_ANSWER_BUDGET if budget is None else int(budget)
+    if answer_budget is None and budget is not None:
+        answer_budget = int(budget)
     started = time.time()
     want_think: bool | str = think if isinstance(think, str) else bool(think)
     if not _THINK_CAPABLE.get(model, True):
@@ -559,7 +560,7 @@ def chat(
     )
 
     def build(allowance: int, thinking: bool | str) -> dict[str, Any]:
-        predict = answer_budget + (allowance if thinking else 0)
+        predict = None if answer_budget is None else answer_budget + (allowance if thinking else 0)
         if _dialect.name != "ollama-native":
             built: dict[str, Any] = _dialect.build(
                 model=model,
@@ -578,8 +579,8 @@ def chat(
             "messages": sent_messages,
             "stream": False,
             "options": {
-                "temperature": temperature,
-                "num_predict": predict,
+                **({"temperature": temperature} if temperature is not None else {}),
+                **({"num_predict": predict} if predict is not None else {}),
                 "num_ctx": num_ctx,
             },
             "keep_alive": keep_alive,
@@ -680,7 +681,9 @@ def chat(
         temperature=temperature,
         answer_budget=answer_budget,
         reasoning_allowance=allowance if sent_think else 0,
-        num_predict=answer_budget + (allowance if sent_think else 0),
+        num_predict=(
+            None if answer_budget is None else answer_budget + (allowance if sent_think else 0)
+        ),
         attempts=attempts,
         finish_reason=finish_reason,
         stop_reason=stop_reason,
