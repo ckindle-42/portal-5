@@ -5,13 +5,13 @@ title: "model bindings \u2014 0 reachability gap(s)"
 sources:
 - type: code
   path: config/backends.yaml
-  commit: 4f3745ba2518
+  commit: 1beddcf3c701
 - type: code
   path: config/portal.yaml
-  commit: 4f3745ba2518
+  commit: 1beddcf3c701
 - type: code
   path: config/personas/
-  commit: 4f3745ba2518
+  commit: 1beddcf3c701
 claims: []
 confidence: high
 tags:
@@ -19,7 +19,7 @@ tags:
 - model-bindings
 - reachability
 created_at: 1784000421.433863
-updated_at: 1792411650.697576
+updated_at: 1792425554.0548558
 ---
 
 # Model bindings (reachability-resolved)
@@ -39,7 +39,7 @@ default.
 | `auto-cad` | `qwen3-coder:30b-a3b-q4_K_M-ctx32k` | yes |
 | `auto-coding` | `qwen3-coder:30b-a3b-q4_K_M-ctx256k` | yes |
 | `auto-compliance` | `hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k` | yes |
-| `auto-council` | `hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k` | yes |
+| `auto-council` | `gemma-4-26b-a4b-it-QAT-4bit` | yes |
 | `auto-creative` | `fredrezones55/Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive:Q4-ctx8k` | yes |
 | `auto-daily` | `gemma4:26b-a4b-it-qat-ctx16k` | yes |
 | `auto-data` | `hf.co/unsloth/Qwen3.6-35B-A3B-GGUF:UD-Q4_K_XL-ctx32k` | yes |

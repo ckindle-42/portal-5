@@ -1557,25 +1557,24 @@ workspaces:
     system_prompt_append: "\n\nSAFETY POSTURE: You are a standard-posture assistant. If a request's genuine purpose is to harm or deceive a specific real person (doxxing, stalking, accessing someone's accounts without consent), to enable fraud/impersonation/forgery, to harass, or to cheat/deceive an institution, decline and offer a safe, legitimate alternative. This does not restrict ordinary academic, professional, security-research, or fictional work \u2014 help fully with those."
     name: 🏛️ Portal Council Review
     description: |-
-      Opt-in multi-model review for decisions, plans, code/design proposals, research briefs, policies, and knowledge changes. Three isolated reviewers inspect evidence, risks, and operational usefulness; code enforces participation and quorum before a fourth model synthesizes one recommendation with dissent and missing evidence preserved.
-    # 2026-10-18 operator: synthesizer qwen3.6:27b -> Qwen3.8-27B (same-card +10.4 IFBench,
-    # +6.8 HLE, +6.4 LCB; weights already served; docs/WFE_SEAT_PRIOR_20261018.md).
-    # Sampling unchanged: the Qwen3.8 instruct profile equals Qwen3.6's.
-    model_hint: hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k
+      Opt-in council review for decisions, plans, code/design proposals, research briefs, policies, and knowledge changes. Three isolated reviewer roles inspect evidence, risks, and operational usefulness; code enforces participation and quorum before a synthesizer writes one recommendation with dissent and missing evidence preserved.
+    # 2026-10-19 operator: every council role runs on the one MoE already resident on oMLX
+    # (gemma-4-26B-A4B QAT, the auto-daily seat), each role still a separate isolated call.
+    # Council bench docs/COUNCIL_BENCH_20261019.md: median 26s vs 225s for the dense roster
+    # (granite-30B / mistral-24B / DeepSeek-R1-8B + Qwen3.8 synth) at the same measured
+    # quality (12/20 correct, 16/20 key issue), clear rejects 3/5 vs 0/5, no extra memory or
+    # load. Thinking on (88s, 13/20 key issue) and early_quorum (no speed gain at MoE speed,
+    # drops a seat) measured and not adopted. Known weakness: REVISE on some clear-support
+    # proposals (2/5). Hint and seats name the oMLX build so they reach the resident copy.
+    model_hint: gemma-4-26b-a4b-it-QAT-4bit
     context_limit: 16384
     predict_limit: 4096
-    temperature: 0.7
-    top_p: 0.8
-    top_k: 20
-    min_p: 0.0
-    presence_penalty: 1.5
-    repeat_penalty: 1.0
-    # TASK_SAMPLING_PROFILE_AUDIT_V1 verified Qwen3.6 profile (= Qwen3.8 instruct); think=false
-    # per operator decision — don't newly enable thinking pending evaluation.
+    # gemma4 card (google/gemma-4-26B-A4B-it generation_config.json); seats read it too.
+    temperature: 1.0
+    top_p: 0.95
+    top_k: 64
+    # Thinking evaluated 2026-10-19 (council bench): slower, not better. Off.
     think: false
-    think_profiles:
-      thinking: {temperature: 1.0, top_p: 0.95, top_k: 20, min_p: 0.0, repeat_penalty: 1.0}
-      instruct: {temperature: 0.7, top_p: 0.8, top_k: 20, min_p: 0.0, repeat_penalty: 1.0, presence_penalty: 1.5}
     tools: []
     council:
       minimum_participation: 0.66
@@ -1614,20 +1613,20 @@ workspaces:
       members:
       - id: evidence
         label: Evidence Auditor
-        model: granite4.1:30b-ctx16k
+        model: gemma-4-26b-a4b-it-QAT-4bit
         system: |-
           You are the Evidence Auditor. Determine which material claims are supported, contradicted, stale, ambiguous, or missing necessary evidence. Check internal consistency and distinguish observed facts from inference. Do not judge style unless it obscures evidence.
       - id: challenger
         label: Challenger
-        model: mistral-small3.2:24b
+        model: gemma-4-26b-a4b-it-QAT-4bit
         system: |-
           You are the Challenger. Find weak assumptions, failure modes, security or safety risks, counterexamples, and the strongest case against the proposed direction. Focus on consequential problems rather than cosmetic objections.
       - id: operator
         label: Operator and User Advocate
-        model: hf.co/unsloth/DeepSeek-R1-0528-Qwen3-8B-GGUF:Q4_K_XL-ctx64k
+        model: gemma-4-26b-a4b-it-QAT-4bit
         system: |-
           You are the Operator and User Advocate. Judge whether the proposal is executable, maintainable, appropriately scoped, and useful to the person receiving it. Identify unclear ownership, missing verification, operational burden, and concrete next steps.
-      synthesizer_model: hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k
+      synthesizer_model: gemma-4-26b-a4b-it-QAT-4bit
     expose_to_owui: true
     enable_web_search: false
     owui_system_prompt: |-
