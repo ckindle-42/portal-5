@@ -51,3 +51,10 @@ the model; measure any change with `scripts/council_bench.py`.
   - Workspace sampling set to the gemma4 card (1.0 / 0.95 / 64). The seats read the card too
     (6ccfeb5d).
 - The compliance council (`config/compliance/council.yaml`) is unchanged.
+
+## Rubric follow-up (d3c36205)
+
+SUPPORT now lists minor findings without changing the recommendation, and REVISE needs a
+finding that must be fixed first. Re-bench (`gemma4_rubric_v2`): 13/20 correct, clear support
+4/5 (2/5 and 3/5 on the two old-rubric runs), clear reject 3/5 (held), median 26 s. Within the
+±3/20 run noise overall, but it moves in the targeted direction at no cost elsewhere; kept.

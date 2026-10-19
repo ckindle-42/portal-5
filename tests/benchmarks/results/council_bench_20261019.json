@@ -16848,6 +16848,2077 @@
         },
         "override_status": "applied"
       }
+    },
+    {
+      "schema_version": 1,
+      "configuration": {
+        "label": "gemma4_rubric_v2",
+        "override": null
+      },
+      "started_at": "2026-10-19T20:15:07Z",
+      "cases_path": "/Users/chris/projects/portal-5/tests/fixtures/council/cases.json",
+      "cases": [
+        {
+          "id": "case-01",
+          "category": "clear_support",
+          "expected_outcome": "SUPPORT",
+          "acceptable_outcomes": [
+            "SUPPORT"
+          ],
+          "decision": "SUPPORT",
+          "outcome_ok": true,
+          "key_issue": "The change is reversible from the same config block and touches no other workspace.",
+          "key_issue_hit": true,
+          "key_issue_source": "reviewers",
+          "key_issue_evidence_backed": true,
+          "votes": {
+            "SUPPORT": 2,
+            "REVISE": 1,
+            "REJECT": 0
+          },
+          "participation": 1.0,
+          "participating": 3,
+          "roster": 3,
+          "dissent": [
+            "challenger"
+          ],
+          "seats": [
+            {
+              "member_id": "evidence",
+              "model": "gemma-4-26b-a4b-it-QAT-4bit",
+              "recommendation": "SUPPORT",
+              "valid": true,
+              "participated": true,
+              "error": ""
+            },
+            {
+              "member_id": "challenger",
+              "model": "gemma-4-26b-a4b-it-QAT-4bit",
+              "recommendation": "REVISE",
+              "valid": true,
+              "participated": true,
+              "error": ""
+            },
+            {
+              "member_id": "operator",
+              "model": "gemma-4-26b-a4b-it-QAT-4bit",
+              "recommendation": "SUPPORT",
+              "valid": true,
+              "participated": true,
+              "error": ""
+            }
+          ],
+          "wall_s": 33.798,
+          "timings": {
+            "source": "portal_council.timings",
+            "stages": [
+              {
+                "role": "reviewer",
+                "member_id": null,
+                "model": "gemma-4-26b-a4b-it-QAT-4bit",
+                "cold_load_s": null,
+                "prefill_s": 1.09,
+                "decode_s": 6.63,
+                "tokens": 198.0,
+                "wall_s": null
+              },
+              {
+                "role": "reviewer",
+                "member_id": null,
+                "model": "gemma-4-26b-a4b-it-QAT-4bit",
+                "cold_load_s": null,
+                "prefill_s": 3.75,
+                "decode_s": 8.7,
+                "tokens": 404.0,
+                "wall_s": null
+              },
+              {
+                "role": "reviewer",
+                "member_id": null,
+                "model": "gemma-4-26b-a4b-it-QAT-4bit",
+                "cold_load_s": null,
+                "prefill_s": 4.12,
+                "decode_s": 7.46,
+                "tokens": 327.0,
+                "wall_s": null
+              },
+              {
+                "role": "reviewer",
+                "member_id": null,
+                "model": "gemma-4-26b-a4b-it-QAT-4bit",
+                "cold_load_s": null,
+                "prefill_s": 1.99,
+                "decode_s": 6.3,
+                "tokens": 420.0,
+                "wall_s": null
+              }
+            ],
+            "total_wall_s": 33.770735
+          },
+          "error": ""
+        },
+        {
+          "id": "case-02",
+          "category": "clear_support",
+          "expected_outcome": "SUPPORT",
+          "acceptable_outcomes": [
+            "SUPPORT"
+          ],
+          "decision": "SUPPORT",
+          "outcome_ok": true,
+          "key_issue": "The new timing object is additive and leaves the decision path untouched.",
+          "key_issue_hit": false,
+          "key_issue_source": "",
+          "key_issue_evidence_backed": false,
+          "votes": {
+            "SUPPORT": 2,
+            "REVISE": 1,
+            "REJECT": 0
+          },
+          "participation": 1.0,
+          "participating": 3,
+          "roster": 3,
+          "dissent": [
+            "operator"
+          ],
+          "seats": [
+            {
+              "member_id": "evidence",
+              "model": "gemma-4-26b-a4b-it-QAT-4bit",
+              "recommendation": "SUPPORT",
+              "valid": true,
+              "participated": true,
+              "error": ""
+            },
+            {
+              "member_id": "challenger",
+              "model": "gemma-4-26b-a4b-it-QAT-4bit",
+              "recommendation": "SUPPORT",
+              "valid": true,
+              "participated": true,
+              "error": ""
+            },
+            {
+              "member_id": "operator",
+              "model": "gemma-4-26b-a4b-it-QAT-4bit",
+              "recommendation": "REVISE",
+              "valid": true,
+              "participated": true,
+              "error": ""
+            }
+          ],
+          "wall_s": 22.057,
+          "timings": {
+            "source": "portal_council.timings",
+            "stages": [
+              {
+                "role": "reviewer",
+                "member_id": null,
+                "model": "gemma-4-26b-a4b-it-QAT-4bit",
+                "cold_load_s": null,
+                "prefill_s": 3.69,
+                "decode_s": 8.35,
+                "tokens": 345.0,
+                "wall_s": null
+              },
+              {
+                "role": "reviewer",
+                "member_id": null,
+                "model": "gemma-4-26b-a4b-it-QAT-4bit",
+                "cold_load_s": null,
+                "prefill_s": 4.0,
+                "decode_s": 6.18,
+                "tokens": 242.0,
+                "wall_s": null
+              },
+              {
+                "role": "reviewer",
+                "member_id": null,
+                "model": "gemma-4-26b-a4b-it-QAT-4bit",
+                "cold_load_s": null,
+                "prefill_s": 1.55,
+                "decode_s": 9.91,
+                "tokens": 362.0,
+                "wall_s": null
+              },
+              {
+                "role": "reviewer",
+                "member_id": null,
+                "model": "gemma-4-26b-a4b-it-QAT-4bit",
+                "cold_load_s": null,
+                "prefill_s": 1.91,
+                "decode_s": 7.96,
+                "tokens": 530.0,
+                "wall_s": null
+              }
+            ],
+            "total_wall_s": 22.031165
+          },
+          "error": ""
+        },
+        {
+          "id": "case-03",
+          "category": "clear_support",
+          "expected_outcome": "SUPPORT",
+          "acceptable_outcomes": [
+            "SUPPORT"
+          ],
+          "decision": "REVISE",
+          "outcome_ok": false,
+          "key_issue": "A prose-only correction that makes the document describe the existing implementation.",
+          "key_issue_hit": true,
+          "key_issue_source": "reviewers",
+          "key_issue_evidence_backed": false,
+          "votes": {
+            "SUPPORT": 0,
+            "REVISE": 3,
+            "REJECT": 0
+          },
+          "participation": 1.0,
+          "participating": 3,
+          "roster": 3,
+          "dissent": [],
+          "seats": [
+            {
+              "member_id": "evidence",
+              "model": "gemma-4-26b-a4b-it-QAT-4bit",
+              "recommendation": "REVISE",
+              "valid": true,
+              "participated": true,
+              "error": ""
+            },
+            {
+              "member_id": "challenger",
+              "model": "gemma-4-26b-a4b-it-QAT-4bit",
+              "recommendation": "REVISE",
+              "valid": true,
+              "participated": true,
+              "error": ""
+            },
+            {
+              "member_id": "operator",
+              "model": "gemma-4-26b-a4b-it-QAT-4bit",
+              "recommendation": "REVISE",
+              "valid": true,
+              "participated": true,
+              "error": ""
+            }
+          ],
+          "wall_s": 23.822,
+          "timings": {
+            "source": "portal_council.timings",
+            "stages": [
+              {
+                "role": "reviewer",
+                "member_id": null,
+                "model": "gemma-4-26b-a4b-it-QAT-4bit",
+                "cold_load_s": null,
+                "prefill_s": 1.35,
+                "decode_s": 9.08,
+                "tokens": 324.0,
+                "wall_s": null
+              },
+              {
+                "role": "reviewer",
+                "member_id": null,
+                "model": "gemma-4-26b-a4b-it-QAT-4bit",
+                "cold_load_s": null,
+                "prefill_s": 3.74,
+                "decode_s": 8.93,
+                "tokens": 378.0,
+                "wall_s": null
+              },
+              {
+                "role": "reviewer",
+                "member_id": null,
+                "model": "gemma-4-26b-a4b-it-QAT-4bit",
+                "cold_load_s": null,
+                "prefill_s": 3.45,
+                "decode_s": 8.29,
+                "tokens": 338.0,
+                "wall_s": null
+              },
+              {
+                "role": "reviewer",
+                "member_id": null,
+                "model": "gemma-4-26b-a4b-it-QAT-4bit",
+                "cold_load_s": null,
+                "prefill_s": 2.11,
+                "decode_s": 8.87,
+                "tokens": 585.0,
+                "wall_s": null
+              }
+            ],
+            "total_wall_s": 23.798214
+          },
+          "error": ""
+        },
+        {
+          "id": "case-04",
+          "category": "clear_support",
+          "expected_outcome": "SUPPORT",
+          "acceptable_outcomes": [
+            "SUPPORT"
+          ],
+          "decision": "SUPPORT",
+          "outcome_ok": true,
+          "key_issue": "A test-only addition that covers the all-abstain ESCALATE path.",
+          "key_issue_hit": false,
+          "key_issue_source": "",
+          "key_issue_evidence_backed": false,
+          "votes": {
+            "SUPPORT": 3,
+            "REVISE": 0,
+            "REJECT": 0
+          },
+          "participation": 1.0,
+          "participating": 3,
+          "roster": 3,
+          "dissent": [],
+          "seats": [
+            {
+              "member_id": "evidence",
+              "model": "gemma-4-26b-a4b-it-QAT-4bit",
+              "recommendation": "SUPPORT",
+              "valid": true,
+              "participated": true,
+              "error": ""
+            },
+            {
+              "member_id": "challenger",
+              "model": "gemma-4-26b-a4b-it-QAT-4bit",
+              "recommendation": "SUPPORT",
+              "valid": true,
+              "participated": true,
+              "error": ""
+            },
+            {
+              "member_id": "operator",
+              "model": "gemma-4-26b-a4b-it-QAT-4bit",
+              "recommendation": "SUPPORT",
+              "valid": true,
+              "participated": true,
+              "error": ""
+            }
+          ],
+          "wall_s": 15.019,
+          "timings": {
+            "source": "portal_council.timings",
+            "stages": [
+              {
+                "role": "reviewer",
+                "member_id": null,
+                "model": "gemma-4-26b-a4b-it-QAT-4bit",
+                "cold_load_s": null,
+                "prefill_s": 3.86,
+                "decode_s": 1.95,
+                "tokens": 75.0,
+                "wall_s": null
+              },
+              {
+                "role": "reviewer",
+                "member_id": null,
+                "model": "gemma-4-26b-a4b-it-QAT-4bit",
+                "cold_load_s": null,
+                "prefill_s": 4.19,
+                "decode_s": 4.58,
+                "tokens": 242.0,
+                "wall_s": null
+              },
+              {
+                "role": "reviewer",
+                "member_id": null,
+                "model": "gemma-4-26b-a4b-it-QAT-4bit",
+                "cold_load_s": null,
+                "prefill_s": 1.52,
+                "decode_s": 5.2,
+                "tokens": 174.0,
+                "wall_s": null
+              },
+              {
+                "role": "reviewer",
+                "member_id": null,
+                "model": "gemma-4-26b-a4b-it-QAT-4bit",
+                "cold_load_s": null,
+                "prefill_s": 1.67,
+                "decode_s": 4.43,
+                "tokens": 292.0,
+                "wall_s": null
+              }
+            ],
+            "total_wall_s": 14.997272
+          },
+          "error": ""
+        },
+        {
+          "id": "case-05",
+          "category": "clear_support",
+          "expected_outcome": "SUPPORT",
+          "acceptable_outcomes": [
+            "SUPPORT"
+          ],
+          "decision": "SUPPORT",
+          "outcome_ok": true,
+          "key_issue": "Pinning the deployed image tag makes redeploys reproducible without changing behaviour.",
+          "key_issue_hit": true,
+          "key_issue_source": "reviewers",
+          "key_issue_evidence_backed": true,
+          "votes": {
+            "SUPPORT": 3,
+            "REVISE": 0,
+            "REJECT": 0
+          },
+          "participation": 1.0,
+          "participating": 3,
+          "roster": 3,
+          "dissent": [],
+          "seats": [
+            {
+              "member_id": "evidence",
+              "model": "gemma-4-26b-a4b-it-QAT-4bit",
+              "recommendation": "SUPPORT",
+              "valid": true,
+              "participated": true,
+              "error": ""
+            },
+            {
+              "member_id": "challenger",
+              "model": "gemma-4-26b-a4b-it-QAT-4bit",
+              "recommendation": "SUPPORT",
+              "valid": true,
+              "participated": true,
+              "error": ""
+            },
+            {
+              "member_id": "operator",
+              "model": "gemma-4-26b-a4b-it-QAT-4bit",
+              "recommendation": "SUPPORT",
+              "valid": true,
+              "participated": true,
+              "error": ""
+            }
+          ],
+          "wall_s": 19.957,
+          "timings": {
+            "source": "portal_council.timings",
+            "stages": [
+              {
+                "role": "reviewer",
+                "member_id": null,
+                "model": "gemma-4-26b-a4b-it-QAT-4bit",
+                "cold_load_s": null,
+                "prefill_s": 4.32,
+                "decode_s": 6.87,
+                "tokens": 277.0,
+                "wall_s": null
+              },
+              {
+                "role": "reviewer",
+                "member_id": null,
+                "model": "gemma-4-26b-a4b-it-QAT-4bit",
+                "cold_load_s": null,
+                "prefill_s": 3.99,
+                "decode_s": 5.5,
+                "tokens": 207.0,
+                "wall_s": null
+              },
+              {
+                "role": "reviewer",
+                "member_id": null,
+                "model": "gemma-4-26b-a4b-it-QAT-4bit",
+                "cold_load_s": null,
+                "prefill_s": 1.58,
+                "decode_s": 9.39,
+                "tokens": 334.0,
+                "wall_s": null
+              },
+              {
+                "role": "reviewer",
+                "member_id": null,
+                "model": "gemma-4-26b-a4b-it-QAT-4bit",
+                "cold_load_s": null,
+                "prefill_s": 2.01,
+                "decode_s": 6.61,
+                "tokens": 433.0,
+                "wall_s": null
+              }
+            ],
+            "total_wall_s": 19.936826
+          },
+          "error": ""
+        },
+        {
+          "id": "case-06",
+          "category": "clear_reject",
+          "expected_outcome": "REJECT",
+          "acceptable_outcomes": [
+            "REJECT"
+          ],
+          "decision": "REVISE",
+          "outcome_ok": false,
+          "key_issue": "`down -v` and `prune --volumes` destroy the model volumes, forcing a multi-hour re-download.",
+          "key_issue_hit": true,
+          "key_issue_source": "reviewers",
+          "key_issue_evidence_backed": true,
+          "votes": {
+            "SUPPORT": 0,
+            "REVISE": 2,
+            "REJECT": 1
+          },
+          "participation": 1.0,
+          "participating": 3,
+          "roster": 3,
+          "dissent": [
+            "challenger"
+          ],
+          "seats": [
+            {
+              "member_id": "evidence",
+              "model": "gemma-4-26b-a4b-it-QAT-4bit",
+              "recommendation": "REVISE",
+              "valid": true,
+              "participated": true,
+              "error": ""
+            },
+            {
+              "member_id": "challenger",
+              "model": "gemma-4-26b-a4b-it-QAT-4bit",
+              "recommendation": "REJECT",
+              "valid": true,
+              "participated": true,
+              "error": ""
+            },
+            {
+              "member_id": "operator",
+              "model": "gemma-4-26b-a4b-it-QAT-4bit",
+              "recommendation": "REVISE",
+              "valid": true,
+              "participated": true,
+              "error": ""
+            }
+          ],
+          "wall_s": 26.095,
+          "timings": {
+            "source": "portal_council.timings",
+            "stages": [
+              {
+                "role": "reviewer",
+                "member_id": null,
+                "model": "gemma-4-26b-a4b-it-QAT-4bit",
+                "cold_load_s": null,
+                "prefill_s": 4.16,
+                "decode_s": 10.58,
+                "tokens": 408.0,
+                "wall_s": null
+              },
+              {
+                "role": "reviewer",
+                "member_id": null,
+                "model": "gemma-4-26b-a4b-it-QAT-4bit",
+                "cold_load_s": null,
+                "prefill_s": 1.54,
+                "decode_s": 11.97,
+                "tokens": 419.0,
+                "wall_s": null
+              },
+              {
+                "role": "reviewer",
+                "member_id": null,
+                "model": "gemma-4-26b-a4b-it-QAT-4bit",
+                "cold_load_s": null,
+                "prefill_s": 3.85,
+                "decode_s": 10.64,
+                "tokens": 407.0,
+                "wall_s": null
+              },
+              {
+                "role": "reviewer",
+                "member_id": null,
+                "model": "gemma-4-26b-a4b-it-QAT-4bit",
+                "cold_load_s": null,
+                "prefill_s": 2.47,
+                "decode_s": 8.73,
+                "tokens": 570.0,
+                "wall_s": null
+              }
+            ],
+            "total_wall_s": 26.074823
+          },
+          "error": ""
+        },
+        {
+          "id": "case-07",
+          "category": "clear_reject",
+          "expected_outcome": "REJECT",
+          "acceptable_outcomes": [
+            "REJECT"
+          ],
+          "decision": "REJECT",
+          "outcome_ok": true,
+          "key_issue": "The plan writes a shared key in plaintext into a tracked file.",
+          "key_issue_hit": true,
+          "key_issue_source": "reviewers",
+          "key_issue_evidence_backed": true,
+          "votes": {
+            "SUPPORT": 0,
+            "REVISE": 0,
+            "REJECT": 3
+          },
+          "participation": 1.0,
+          "participating": 3,
+          "roster": 3,
+          "dissent": [],
+          "seats": [
+            {
+              "member_id": "evidence",
+              "model": "gemma-4-26b-a4b-it-QAT-4bit",
+              "recommendation": "REJECT",
+              "valid": true,
+              "participated": true,
+              "error": ""
+            },
+            {
+              "member_id": "challenger",
+              "model": "gemma-4-26b-a4b-it-QAT-4bit",
+              "recommendation": "REJECT",
+              "valid": true,
+              "participated": true,
+              "error": ""
+            },
+            {
+              "member_id": "operator",
+              "model": "gemma-4-26b-a4b-it-QAT-4bit",
+              "recommendation": "REJECT",
+              "valid": true,
+              "participated": true,
+              "error": ""
+            }
+          ],
+          "wall_s": 24.906,
+          "timings": {
+            "source": "portal_council.timings",
+            "stages": [
+              {
+                "role": "reviewer",
+                "member_id": null,
+                "model": "gemma-4-26b-a4b-it-QAT-4bit",
+                "cold_load_s": null,
+                "prefill_s": 4.16,
+                "decode_s": 10.22,
+                "tokens": 409.0,
+                "wall_s": null
+              },
+              {
+                "role": "reviewer",
+                "member_id": null,
+                "model": "gemma-4-26b-a4b-it-QAT-4bit",
+                "cold_load_s": null,
+                "prefill_s": 1.52,
+                "decode_s": 11.5,
+                "tokens": 409.0,
+                "wall_s": null
+              },
+              {
+                "role": "reviewer",
+                "member_id": null,
+                "model": "gemma-4-26b-a4b-it-QAT-4bit",
+                "cold_load_s": null,
+                "prefill_s": 3.84,
+                "decode_s": 9.98,
+                "tokens": 388.0,
+                "wall_s": null
+              },
+              {
+                "role": "reviewer",
+                "member_id": null,
+                "model": "gemma-4-26b-a4b-it-QAT-4bit",
+                "cold_load_s": null,
+                "prefill_s": 2.43,
+                "decode_s": 7.96,
+                "tokens": 523.0,
+                "wall_s": null
+              }
+            ],
+            "total_wall_s": 24.883185
+          },
+          "error": ""
+        },
+        {
+          "id": "case-08",
+          "category": "clear_reject",
+          "expected_outcome": "REJECT",
+          "acceptable_outcomes": [
+            "REJECT"
+          ],
+          "decision": "REJECT",
+          "outcome_ok": true,
+          "key_issue": "An in-place rewrite of a live-read file with no copy is not atomic and can destroy the metrics.",
+          "key_issue_hit": true,
+          "key_issue_source": "reviewers",
+          "key_issue_evidence_backed": true,
+          "votes": {
+            "SUPPORT": 0,
+            "REVISE": 0,
+            "REJECT": 3
+          },
+          "participation": 1.0,
+          "participating": 3,
+          "roster": 3,
+          "dissent": [],
+          "seats": [
+            {
+              "member_id": "evidence",
+              "model": "gemma-4-26b-a4b-it-QAT-4bit",
+              "recommendation": "REJECT",
+              "valid": true,
+              "participated": true,
+              "error": ""
+            },
+            {
+              "member_id": "challenger",
+              "model": "gemma-4-26b-a4b-it-QAT-4bit",
+              "recommendation": "REJECT",
+              "valid": true,
+              "participated": true,
+              "error": ""
+            },
+            {
+              "member_id": "operator",
+              "model": "gemma-4-26b-a4b-it-QAT-4bit",
+              "recommendation": "REJECT",
+              "valid": true,
+              "participated": true,
+              "error": ""
+            }
+          ],
+          "wall_s": 28.667,
+          "timings": {
+            "source": "portal_council.timings",
+            "stages": [
+              {
+                "role": "reviewer",
+                "member_id": null,
+                "model": "gemma-4-26b-a4b-it-QAT-4bit",
+                "cold_load_s": null,
+                "prefill_s": 4.09,
+                "decode_s": 10.11,
+                "tokens": 388.0,
+                "wall_s": null
+              },
+              {
+                "role": "reviewer",
+                "member_id": null,
+                "model": "gemma-4-26b-a4b-it-QAT-4bit",
+                "cold_load_s": null,
+                "prefill_s": 1.5,
+                "decode_s": 13.81,
+                "tokens": 500.0,
+                "wall_s": null
+              },
+              {
+                "role": "reviewer",
+                "member_id": null,
+                "model": "gemma-4-26b-a4b-it-QAT-4bit",
+                "cold_load_s": null,
+                "prefill_s": 3.78,
+                "decode_s": 12.01,
+                "tokens": 483.0,
+                "wall_s": null
+              },
+              {
+                "role": "reviewer",
+                "member_id": null,
+                "model": "gemma-4-26b-a4b-it-QAT-4bit",
+                "cold_load_s": null,
+                "prefill_s": 2.6,
+                "decode_s": 10.13,
+                "tokens": 666.0,
+                "wall_s": null
+              }
+            ],
+            "total_wall_s": 28.644223
+          },
+          "error": ""
+        },
+        {
+          "id": "case-09",
+          "category": "clear_reject",
+          "expected_outcome": "REJECT",
+          "acceptable_outcomes": [
+            "REJECT"
+          ],
+          "decision": "REVISE",
+          "outcome_ok": false,
+          "key_issue": "Disabling certificate verification removes the only defence against an impersonated backend.",
+          "key_issue_hit": true,
+          "key_issue_source": "reviewers",
+          "key_issue_evidence_backed": true,
+          "votes": {
+            "SUPPORT": 0,
+            "REVISE": 2,
+            "REJECT": 1
+          },
+          "participation": 1.0,
+          "participating": 3,
+          "roster": 3,
+          "dissent": [
+            "challenger"
+          ],
+          "seats": [
+            {
+              "member_id": "evidence",
+              "model": "gemma-4-26b-a4b-it-QAT-4bit",
+              "recommendation": "REVISE",
+              "valid": true,
+              "participated": true,
+              "error": ""
+            },
+            {
+              "member_id": "challenger",
+              "model": "gemma-4-26b-a4b-it-QAT-4bit",
+              "recommendation": "REJECT",
+              "valid": true,
+              "participated": true,
+              "error": ""
+            },
+            {
+              "member_id": "operator",
+              "model": "gemma-4-26b-a4b-it-QAT-4bit",
+              "recommendation": "REVISE",
+              "valid": true,
+              "participated": true,
+              "error": ""
+            }
+          ],
+          "wall_s": 26.205,
+          "timings": {
+            "source": "portal_council.timings",
+            "stages": [
+              {
+                "role": "reviewer",
+                "member_id": null,
+                "model": "gemma-4-26b-a4b-it-QAT-4bit",
+                "cold_load_s": null,
+                "prefill_s": 3.83,
+                "decode_s": 10.44,
+                "tokens": 415.0,
+                "wall_s": null
+              },
+              {
+                "role": "reviewer",
+                "member_id": null,
+                "model": "gemma-4-26b-a4b-it-QAT-4bit",
+                "cold_load_s": null,
+                "prefill_s": 4.12,
+                "decode_s": 11.32,
+                "tokens": 478.0,
+                "wall_s": null
+              },
+              {
+                "role": "reviewer",
+                "member_id": null,
+                "model": "gemma-4-26b-a4b-it-QAT-4bit",
+                "cold_load_s": null,
+                "prefill_s": 1.61,
+                "decode_s": 11.18,
+                "tokens": 400.0,
+                "wall_s": null
+              },
+              {
+                "role": "reviewer",
+                "member_id": null,
+                "model": "gemma-4-26b-a4b-it-QAT-4bit",
+                "cold_load_s": null,
+                "prefill_s": 2.39,
+                "decode_s": 8.23,
+                "tokens": 542.0,
+                "wall_s": null
+              }
+            ],
+            "total_wall_s": 26.181627
+          },
+          "error": ""
+        },
+        {
+          "id": "case-10",
+          "category": "clear_reject",
+          "expected_outcome": "REJECT",
+          "acceptable_outcomes": [
+            "REJECT"
+          ],
+          "decision": "REJECT",
+          "outcome_ok": true,
+          "key_issue": "The reference scan covers only the router, so the rewrite deletes workspaces used elsewhere.",
+          "key_issue_hit": true,
+          "key_issue_source": "reviewers",
+          "key_issue_evidence_backed": true,
+          "votes": {
+            "SUPPORT": 0,
+            "REVISE": 1,
+            "REJECT": 2
+          },
+          "participation": 1.0,
+          "participating": 3,
+          "roster": 3,
+          "dissent": [
+            "operator"
+          ],
+          "seats": [
+            {
+              "member_id": "evidence",
+              "model": "gemma-4-26b-a4b-it-QAT-4bit",
+              "recommendation": "REJECT",
+              "valid": true,
+              "participated": true,
+              "error": ""
+            },
+            {
+              "member_id": "challenger",
+              "model": "gemma-4-26b-a4b-it-QAT-4bit",
+              "recommendation": "REJECT",
+              "valid": true,
+              "participated": true,
+              "error": ""
+            },
+            {
+              "member_id": "operator",
+              "model": "gemma-4-26b-a4b-it-QAT-4bit",
+              "recommendation": "REVISE",
+              "valid": true,
+              "participated": true,
+              "error": ""
+            }
+          ],
+          "wall_s": 27.844,
+          "timings": {
+            "source": "portal_council.timings",
+            "stages": [
+              {
+                "role": "reviewer",
+                "member_id": null,
+                "model": "gemma-4-26b-a4b-it-QAT-4bit",
+                "cold_load_s": null,
+                "prefill_s": 1.45,
+                "decode_s": 12.01,
+                "tokens": 429.0,
+                "wall_s": null
+              },
+              {
+                "role": "reviewer",
+                "member_id": null,
+                "model": "gemma-4-26b-a4b-it-QAT-4bit",
+                "cold_load_s": null,
+                "prefill_s": 4.0,
+                "decode_s": 12.28,
+                "tokens": 504.0,
+                "wall_s": null
+              },
+              {
+                "role": "reviewer",
+                "member_id": null,
+                "model": "gemma-4-26b-a4b-it-QAT-4bit",
+                "cold_load_s": null,
+                "prefill_s": 3.68,
+                "decode_s": 12.55,
+                "tokens": 507.0,
+                "wall_s": null
+              },
+              {
+                "role": "reviewer",
+                "member_id": null,
+                "model": "gemma-4-26b-a4b-it-QAT-4bit",
+                "cold_load_s": null,
+                "prefill_s": 2.52,
+                "decode_s": 8.9,
+                "tokens": 573.0,
+                "wall_s": null
+              }
+            ],
+            "total_wall_s": 27.82298
+          },
+          "error": ""
+        },
+        {
+          "id": "case-11",
+          "category": "hidden_flaw",
+          "expected_outcome": "REVISE",
+          "acceptable_outcomes": [
+            "REVISE"
+          ],
+          "decision": "REVISE",
+          "outcome_ok": true,
+          "key_issue": "The cache lookup omits the sampling parameters and the resolved model, so config changes serve stale answers.",
+          "key_issue_hit": true,
+          "key_issue_source": "reviewers",
+          "key_issue_evidence_backed": true,
+          "votes": {
+            "SUPPORT": 0,
+            "REVISE": 3,
+            "REJECT": 0
+          },
+          "participation": 1.0,
+          "participating": 3,
+          "roster": 3,
+          "dissent": [],
+          "seats": [
+            {
+              "member_id": "evidence",
+              "model": "gemma-4-26b-a4b-it-QAT-4bit",
+              "recommendation": "REVISE",
+              "valid": true,
+              "participated": true,
+              "error": ""
+            },
+            {
+              "member_id": "challenger",
+              "model": "gemma-4-26b-a4b-it-QAT-4bit",
+              "recommendation": "REVISE",
+              "valid": true,
+              "participated": true,
+              "error": ""
+            },
+            {
+              "member_id": "operator",
+              "model": "gemma-4-26b-a4b-it-QAT-4bit",
+              "recommendation": "REVISE",
+              "valid": true,
+              "participated": true,
+              "error": ""
+            }
+          ],
+          "wall_s": 28.649,
+          "timings": {
+            "source": "portal_council.timings",
+            "stages": [
+              {
+                "role": "reviewer",
+                "member_id": null,
+                "model": "gemma-4-26b-a4b-it-QAT-4bit",
+                "cold_load_s": null,
+                "prefill_s": 3.74,
+                "decode_s": 10.91,
+                "tokens": 420.0,
+                "wall_s": null
+              },
+              {
+                "role": "reviewer",
+                "member_id": null,
+                "model": "gemma-4-26b-a4b-it-QAT-4bit",
+                "cold_load_s": null,
+                "prefill_s": 4.05,
+                "decode_s": 11.95,
+                "tokens": 483.0,
+                "wall_s": null
+              },
+              {
+                "role": "reviewer",
+                "member_id": null,
+                "model": "gemma-4-26b-a4b-it-QAT-4bit",
+                "cold_load_s": null,
+                "prefill_s": 1.55,
+                "decode_s": 13.6,
+                "tokens": 493.0,
+                "wall_s": null
+              },
+              {
+                "role": "reviewer",
+                "member_id": null,
+                "model": "gemma-4-26b-a4b-it-QAT-4bit",
+                "cold_load_s": null,
+                "prefill_s": 2.48,
+                "decode_s": 10.0,
+                "tokens": 659.0,
+                "wall_s": null
+              }
+            ],
+            "total_wall_s": 28.628555
+          },
+          "error": ""
+        },
+        {
+          "id": "case-12",
+          "category": "hidden_flaw",
+          "expected_outcome": "REVISE",
+          "acceptable_outcomes": [
+            "REVISE"
+          ],
+          "decision": "REVISE",
+          "outcome_ok": true,
+          "key_issue": "The generic retry re-runs a create call that already wrote its file, so retries duplicate output.",
+          "key_issue_hit": true,
+          "key_issue_source": "reviewers",
+          "key_issue_evidence_backed": true,
+          "votes": {
+            "SUPPORT": 0,
+            "REVISE": 3,
+            "REJECT": 0
+          },
+          "participation": 1.0,
+          "participating": 3,
+          "roster": 3,
+          "dissent": [],
+          "seats": [
+            {
+              "member_id": "evidence",
+              "model": "gemma-4-26b-a4b-it-QAT-4bit",
+              "recommendation": "REVISE",
+              "valid": true,
+              "participated": true,
+              "error": ""
+            },
+            {
+              "member_id": "challenger",
+              "model": "gemma-4-26b-a4b-it-QAT-4bit",
+              "recommendation": "REVISE",
+              "valid": true,
+              "participated": true,
+              "error": ""
+            },
+            {
+              "member_id": "operator",
+              "model": "gemma-4-26b-a4b-it-QAT-4bit",
+              "recommendation": "REVISE",
+              "valid": true,
+              "participated": true,
+              "error": ""
+            }
+          ],
+          "wall_s": 25.805,
+          "timings": {
+            "source": "portal_council.timings",
+            "stages": [
+              {
+                "role": "reviewer",
+                "member_id": null,
+                "model": "gemma-4-26b-a4b-it-QAT-4bit",
+                "cold_load_s": null,
+                "prefill_s": 3.86,
+                "decode_s": 10.54,
+                "tokens": 427.0,
+                "wall_s": null
+              },
+              {
+                "role": "reviewer",
+                "member_id": null,
+                "model": "gemma-4-26b-a4b-it-QAT-4bit",
+                "cold_load_s": null,
+                "prefill_s": 3.57,
+                "decode_s": 10.03,
+                "tokens": 391.0,
+                "wall_s": null
+              },
+              {
+                "role": "reviewer",
+                "member_id": null,
+                "model": "gemma-4-26b-a4b-it-QAT-4bit",
+                "cold_load_s": null,
+                "prefill_s": 0.91,
+                "decode_s": 11.7,
+                "tokens": 401.0,
+                "wall_s": null
+              },
+              {
+                "role": "reviewer",
+                "member_id": null,
+                "model": "gemma-4-26b-a4b-it-QAT-4bit",
+                "cold_load_s": null,
+                "prefill_s": 2.26,
+                "decode_s": 9.0,
+                "tokens": 594.0,
+                "wall_s": null
+              }
+            ],
+            "total_wall_s": 25.787772
+          },
+          "error": ""
+        },
+        {
+          "id": "case-13",
+          "category": "hidden_flaw",
+          "expected_outcome": "REVISE",
+          "acceptable_outcomes": [
+            "REVISE"
+          ],
+          "decision": "REVISE",
+          "outcome_ok": true,
+          "key_issue": "The fixed two-vote trigger is below the required quorum once the roster grows beyond three seats.",
+          "key_issue_hit": true,
+          "key_issue_source": "reviewers",
+          "key_issue_evidence_backed": true,
+          "votes": {
+            "SUPPORT": 0,
+            "REVISE": 3,
+            "REJECT": 0
+          },
+          "participation": 1.0,
+          "participating": 3,
+          "roster": 3,
+          "dissent": [],
+          "seats": [
+            {
+              "member_id": "evidence",
+              "model": "gemma-4-26b-a4b-it-QAT-4bit",
+              "recommendation": "REVISE",
+              "valid": true,
+              "participated": true,
+              "error": ""
+            },
+            {
+              "member_id": "challenger",
+              "model": "gemma-4-26b-a4b-it-QAT-4bit",
+              "recommendation": "REVISE",
+              "valid": true,
+              "participated": true,
+              "error": ""
+            },
+            {
+              "member_id": "operator",
+              "model": "gemma-4-26b-a4b-it-QAT-4bit",
+              "recommendation": "REVISE",
+              "valid": true,
+              "participated": true,
+              "error": ""
+            }
+          ],
+          "wall_s": 26.887,
+          "timings": {
+            "source": "portal_council.timings",
+            "stages": [
+              {
+                "role": "reviewer",
+                "member_id": null,
+                "model": "gemma-4-26b-a4b-it-QAT-4bit",
+                "cold_load_s": null,
+                "prefill_s": 4.13,
+                "decode_s": 11.73,
+                "tokens": 478.0,
+                "wall_s": null
+              },
+              {
+                "role": "reviewer",
+                "member_id": null,
+                "model": "gemma-4-26b-a4b-it-QAT-4bit",
+                "cold_load_s": null,
+                "prefill_s": 3.82,
+                "decode_s": 11.62,
+                "tokens": 466.0,
+                "wall_s": null
+              },
+              {
+                "role": "reviewer",
+                "member_id": null,
+                "model": "gemma-4-26b-a4b-it-QAT-4bit",
+                "cold_load_s": null,
+                "prefill_s": 1.58,
+                "decode_s": 11.86,
+                "tokens": 422.0,
+                "wall_s": null
+              },
+              {
+                "role": "reviewer",
+                "member_id": null,
+                "model": "gemma-4-26b-a4b-it-QAT-4bit",
+                "cold_load_s": null,
+                "prefill_s": 2.47,
+                "decode_s": 8.41,
+                "tokens": 554.0,
+                "wall_s": null
+              }
+            ],
+            "total_wall_s": 26.866022
+          },
+          "error": ""
+        },
+        {
+          "id": "case-14",
+          "category": "missing_evidence",
+          "expected_outcome": "REVISE",
+          "acceptable_outcomes": [
+            "REVISE"
+          ],
+          "decision": "REVISE",
+          "outcome_ok": true,
+          "key_issue": "The 12% quality claim has no dataset, sample size, metric definition or scorer.",
+          "key_issue_hit": true,
+          "key_issue_source": "reviewers",
+          "key_issue_evidence_backed": true,
+          "votes": {
+            "SUPPORT": 0,
+            "REVISE": 3,
+            "REJECT": 0
+          },
+          "participation": 1.0,
+          "participating": 3,
+          "roster": 3,
+          "dissent": [],
+          "seats": [
+            {
+              "member_id": "evidence",
+              "model": "gemma-4-26b-a4b-it-QAT-4bit",
+              "recommendation": "REVISE",
+              "valid": true,
+              "participated": true,
+              "error": ""
+            },
+            {
+              "member_id": "challenger",
+              "model": "gemma-4-26b-a4b-it-QAT-4bit",
+              "recommendation": "REVISE",
+              "valid": true,
+              "participated": true,
+              "error": ""
+            },
+            {
+              "member_id": "operator",
+              "model": "gemma-4-26b-a4b-it-QAT-4bit",
+              "recommendation": "REVISE",
+              "valid": true,
+              "participated": true,
+              "error": ""
+            }
+          ],
+          "wall_s": 23.959,
+          "timings": {
+            "source": "portal_council.timings",
+            "stages": [
+              {
+                "role": "reviewer",
+                "member_id": null,
+                "model": "gemma-4-26b-a4b-it-QAT-4bit",
+                "cold_load_s": null,
+                "prefill_s": 1.38,
+                "decode_s": 8.5,
+                "tokens": 301.0,
+                "wall_s": null
+              },
+              {
+                "role": "reviewer",
+                "member_id": null,
+                "model": "gemma-4-26b-a4b-it-QAT-4bit",
+                "cold_load_s": null,
+                "prefill_s": 3.71,
+                "decode_s": 10.69,
+                "tokens": 496.0,
+                "wall_s": null
+              },
+              {
+                "role": "reviewer",
+                "member_id": null,
+                "model": "gemma-4-26b-a4b-it-QAT-4bit",
+                "cold_load_s": null,
+                "prefill_s": 3.44,
+                "decode_s": 8.62,
+                "tokens": 360.0,
+                "wall_s": null
+              },
+              {
+                "role": "reviewer",
+                "member_id": null,
+                "model": "gemma-4-26b-a4b-it-QAT-4bit",
+                "cold_load_s": null,
+                "prefill_s": 2.11,
+                "decode_s": 7.29,
+                "tokens": 479.0,
+                "wall_s": null
+              }
+            ],
+            "total_wall_s": 23.936974
+          },
+          "error": ""
+        },
+        {
+          "id": "case-15",
+          "category": "missing_evidence",
+          "expected_outcome": "REVISE",
+          "acceptable_outcomes": [
+            "REVISE"
+          ],
+          "decision": "REJECT",
+          "outcome_ok": false,
+          "key_issue": "Three ad-hoc requests are not an evaluation of the smaller model's quality.",
+          "key_issue_hit": false,
+          "key_issue_source": "",
+          "key_issue_evidence_backed": false,
+          "votes": {
+            "SUPPORT": 0,
+            "REVISE": 1,
+            "REJECT": 2
+          },
+          "participation": 1.0,
+          "participating": 3,
+          "roster": 3,
+          "dissent": [
+            "operator"
+          ],
+          "seats": [
+            {
+              "member_id": "evidence",
+              "model": "gemma-4-26b-a4b-it-QAT-4bit",
+              "recommendation": "REJECT",
+              "valid": true,
+              "participated": true,
+              "error": ""
+            },
+            {
+              "member_id": "challenger",
+              "model": "gemma-4-26b-a4b-it-QAT-4bit",
+              "recommendation": "REJECT",
+              "valid": true,
+              "participated": true,
+              "error": ""
+            },
+            {
+              "member_id": "operator",
+              "model": "gemma-4-26b-a4b-it-QAT-4bit",
+              "recommendation": "REVISE",
+              "valid": true,
+              "participated": true,
+              "error": ""
+            }
+          ],
+          "wall_s": 24.98,
+          "timings": {
+            "source": "portal_council.timings",
+            "stages": [
+              {
+                "role": "reviewer",
+                "member_id": null,
+                "model": "gemma-4-26b-a4b-it-QAT-4bit",
+                "cold_load_s": null,
+                "prefill_s": 3.54,
+                "decode_s": 9.58,
+                "tokens": 377.0,
+                "wall_s": null
+              },
+              {
+                "role": "reviewer",
+                "member_id": null,
+                "model": "gemma-4-26b-a4b-it-QAT-4bit",
+                "cold_load_s": null,
+                "prefill_s": 0.88,
+                "decode_s": 13.22,
+                "tokens": 492.0,
+                "wall_s": null
+              },
+              {
+                "role": "reviewer",
+                "member_id": null,
+                "model": "gemma-4-26b-a4b-it-QAT-4bit",
+                "cold_load_s": null,
+                "prefill_s": 3.84,
+                "decode_s": 8.6,
+                "tokens": 334.0,
+                "wall_s": null
+              },
+              {
+                "role": "reviewer",
+                "member_id": null,
+                "model": "gemma-4-26b-a4b-it-QAT-4bit",
+                "cold_load_s": null,
+                "prefill_s": 2.17,
+                "decode_s": 8.57,
+                "tokens": 566.0,
+                "wall_s": null
+              }
+            ],
+            "total_wall_s": 24.95944
+          },
+          "error": ""
+        },
+        {
+          "id": "case-16",
+          "category": "stale_claim",
+          "expected_outcome": "REVISE",
+          "acceptable_outcomes": [
+            "REVISE"
+          ],
+          "decision": "REJECT",
+          "outcome_ok": false,
+          "key_issue": "The memory figure was measured at 16k and its KV cache does not cover the planned 32k window.",
+          "key_issue_hit": true,
+          "key_issue_source": "synthesis",
+          "key_issue_evidence_backed": false,
+          "votes": {
+            "SUPPORT": 0,
+            "REVISE": 0,
+            "REJECT": 3
+          },
+          "participation": 1.0,
+          "participating": 3,
+          "roster": 3,
+          "dissent": [],
+          "seats": [
+            {
+              "member_id": "evidence",
+              "model": "gemma-4-26b-a4b-it-QAT-4bit",
+              "recommendation": "REJECT",
+              "valid": true,
+              "participated": true,
+              "error": ""
+            },
+            {
+              "member_id": "challenger",
+              "model": "gemma-4-26b-a4b-it-QAT-4bit",
+              "recommendation": "REJECT",
+              "valid": true,
+              "participated": true,
+              "error": ""
+            },
+            {
+              "member_id": "operator",
+              "model": "gemma-4-26b-a4b-it-QAT-4bit",
+              "recommendation": "REJECT",
+              "valid": true,
+              "participated": true,
+              "error": ""
+            }
+          ],
+          "wall_s": 26.063,
+          "timings": {
+            "source": "portal_council.timings",
+            "stages": [
+              {
+                "role": "reviewer",
+                "member_id": null,
+                "model": "gemma-4-26b-a4b-it-QAT-4bit",
+                "cold_load_s": null,
+                "prefill_s": 3.72,
+                "decode_s": 11.87,
+                "tokens": 478.0,
+                "wall_s": null
+              },
+              {
+                "role": "reviewer",
+                "member_id": null,
+                "model": "gemma-4-26b-a4b-it-QAT-4bit",
+                "cold_load_s": null,
+                "prefill_s": 1.46,
+                "decode_s": 12.96,
+                "tokens": 461.0,
+                "wall_s": null
+              },
+              {
+                "role": "reviewer",
+                "member_id": null,
+                "model": "gemma-4-26b-a4b-it-QAT-4bit",
+                "cold_load_s": null,
+                "prefill_s": 4.03,
+                "decode_s": 10.71,
+                "tokens": 413.0,
+                "wall_s": null
+              },
+              {
+                "role": "reviewer",
+                "member_id": null,
+                "model": "gemma-4-26b-a4b-it-QAT-4bit",
+                "cold_load_s": null,
+                "prefill_s": 2.46,
+                "decode_s": 7.86,
+                "tokens": 518.0,
+                "wall_s": null
+              }
+            ],
+            "total_wall_s": 26.041279
+          },
+          "error": ""
+        },
+        {
+          "id": "case-17",
+          "category": "stale_claim",
+          "expected_outcome": "REVISE",
+          "acceptable_outcomes": [
+            "REVISE"
+          ],
+          "decision": "REVISE",
+          "outcome_ok": true,
+          "key_issue": "The cited IFBench figure belongs to the previous model generation, not the deployed Qwen3.8 tag.",
+          "key_issue_hit": false,
+          "key_issue_source": "",
+          "key_issue_evidence_backed": false,
+          "votes": {
+            "SUPPORT": 0,
+            "REVISE": 2,
+            "REJECT": 0
+          },
+          "participation": 0.667,
+          "participating": 2,
+          "roster": 3,
+          "dissent": [],
+          "seats": [
+            {
+              "member_id": "evidence",
+              "model": "gemma-4-26b-a4b-it-QAT-4bit",
+              "recommendation": "REVISE",
+              "valid": true,
+              "participated": true,
+              "error": ""
+            },
+            {
+              "member_id": "challenger",
+              "model": "gemma-4-26b-a4b-it-QAT-4bit",
+              "recommendation": "REVISE",
+              "valid": true,
+              "participated": true,
+              "error": ""
+            },
+            {
+              "member_id": "operator",
+              "model": "gemma-4-26b-a4b-it-QAT-4bit",
+              "recommendation": "ABSTAIN",
+              "valid": false,
+              "participated": false,
+              "error": "reviewer did not return a JSON object"
+            }
+          ],
+          "wall_s": 25.666,
+          "timings": {
+            "source": "portal_council.timings",
+            "stages": [
+              {
+                "role": "reviewer",
+                "member_id": null,
+                "model": "gemma-4-26b-a4b-it-QAT-4bit",
+                "cold_load_s": null,
+                "prefill_s": 3.96,
+                "decode_s": 10.57,
+                "tokens": 432.0,
+                "wall_s": null
+              },
+              {
+                "role": "reviewer",
+                "member_id": null,
+                "model": "gemma-4-26b-a4b-it-QAT-4bit",
+                "cold_load_s": null,
+                "prefill_s": 3.64,
+                "decode_s": 11.59,
+                "tokens": 489.0,
+                "wall_s": null
+              },
+              {
+                "role": "reviewer",
+                "member_id": null,
+                "model": "gemma-4-26b-a4b-it-QAT-4bit",
+                "cold_load_s": null,
+                "prefill_s": 1.44,
+                "decode_s": 10.49,
+                "tokens": 370.0,
+                "wall_s": null
+              },
+              {
+                "role": "reviewer",
+                "member_id": null,
+                "model": "gemma-4-26b-a4b-it-QAT-4bit",
+                "cold_load_s": null,
+                "prefill_s": 2.05,
+                "decode_s": 8.24,
+                "tokens": 544.0,
+                "wall_s": null
+              }
+            ],
+            "total_wall_s": 25.644104
+          },
+          "error": ""
+        },
+        {
+          "id": "case-18",
+          "category": "operational_risk",
+          "expected_outcome": "REVISE",
+          "acceptable_outcomes": [
+            "REVISE"
+          ],
+          "decision": "REJECT",
+          "outcome_ok": false,
+          "key_issue": "The index lock makes queries unavailable for the whole 20\u201340 minute rebuild.",
+          "key_issue_hit": true,
+          "key_issue_source": "reviewers",
+          "key_issue_evidence_backed": true,
+          "votes": {
+            "SUPPORT": 0,
+            "REVISE": 1,
+            "REJECT": 2
+          },
+          "participation": 1.0,
+          "participating": 3,
+          "roster": 3,
+          "dissent": [
+            "operator"
+          ],
+          "seats": [
+            {
+              "member_id": "evidence",
+              "model": "gemma-4-26b-a4b-it-QAT-4bit",
+              "recommendation": "REJECT",
+              "valid": true,
+              "participated": true,
+              "error": ""
+            },
+            {
+              "member_id": "challenger",
+              "model": "gemma-4-26b-a4b-it-QAT-4bit",
+              "recommendation": "REJECT",
+              "valid": true,
+              "participated": true,
+              "error": ""
+            },
+            {
+              "member_id": "operator",
+              "model": "gemma-4-26b-a4b-it-QAT-4bit",
+              "recommendation": "REVISE",
+              "valid": true,
+              "participated": true,
+              "error": ""
+            }
+          ],
+          "wall_s": 27.46,
+          "timings": {
+            "source": "portal_council.timings",
+            "stages": [
+              {
+                "role": "reviewer",
+                "member_id": null,
+                "model": "gemma-4-26b-a4b-it-QAT-4bit",
+                "cold_load_s": null,
+                "prefill_s": 1.5,
+                "decode_s": 11.15,
+                "tokens": 400.0,
+                "wall_s": null
+              },
+              {
+                "role": "reviewer",
+                "member_id": null,
+                "model": "gemma-4-26b-a4b-it-QAT-4bit",
+                "cold_load_s": null,
+                "prefill_s": 3.96,
+                "decode_s": 12.16,
+                "tokens": 530.0,
+                "wall_s": null
+              },
+              {
+                "role": "reviewer",
+                "member_id": null,
+                "model": "gemma-4-26b-a4b-it-QAT-4bit",
+                "cold_load_s": null,
+                "prefill_s": 3.67,
+                "decode_s": 10.92,
+                "tokens": 435.0,
+                "wall_s": null
+              },
+              {
+                "role": "reviewer",
+                "member_id": null,
+                "model": "gemma-4-26b-a4b-it-QAT-4bit",
+                "cold_load_s": null,
+                "prefill_s": 2.39,
+                "decode_s": 8.8,
+                "tokens": 580.0,
+                "wall_s": null
+              }
+            ],
+            "total_wall_s": 27.438528
+          },
+          "error": ""
+        },
+        {
+          "id": "case-19",
+          "category": "operational_risk",
+          "expected_outcome": "REJECT",
+          "acceptable_outcomes": [
+            "REJECT"
+          ],
+          "decision": "REVISE",
+          "outcome_ok": false,
+          "key_issue": "The nightly walk follows links into the shared workspace and permanently deletes user files.",
+          "key_issue_hit": true,
+          "key_issue_source": "reviewers",
+          "key_issue_evidence_backed": true,
+          "votes": {
+            "SUPPORT": 0,
+            "REVISE": 2,
+            "REJECT": 1
+          },
+          "participation": 1.0,
+          "participating": 3,
+          "roster": 3,
+          "dissent": [
+            "challenger"
+          ],
+          "seats": [
+            {
+              "member_id": "evidence",
+              "model": "gemma-4-26b-a4b-it-QAT-4bit",
+              "recommendation": "REVISE",
+              "valid": true,
+              "participated": true,
+              "error": ""
+            },
+            {
+              "member_id": "challenger",
+              "model": "gemma-4-26b-a4b-it-QAT-4bit",
+              "recommendation": "REJECT",
+              "valid": true,
+              "participated": true,
+              "error": ""
+            },
+            {
+              "member_id": "operator",
+              "model": "gemma-4-26b-a4b-it-QAT-4bit",
+              "recommendation": "REVISE",
+              "valid": true,
+              "participated": true,
+              "error": ""
+            }
+          ],
+          "wall_s": 25.246,
+          "timings": {
+            "source": "portal_council.timings",
+            "stages": [
+              {
+                "role": "reviewer",
+                "member_id": null,
+                "model": "gemma-4-26b-a4b-it-QAT-4bit",
+                "cold_load_s": null,
+                "prefill_s": 1.38,
+                "decode_s": 7.53,
+                "tokens": 264.0,
+                "wall_s": null
+              },
+              {
+                "role": "reviewer",
+                "member_id": null,
+                "model": "gemma-4-26b-a4b-it-QAT-4bit",
+                "cold_load_s": null,
+                "prefill_s": 3.48,
+                "decode_s": 11.02,
+                "tokens": 523.0,
+                "wall_s": null
+              },
+              {
+                "role": "reviewer",
+                "member_id": null,
+                "model": "gemma-4-26b-a4b-it-QAT-4bit",
+                "cold_load_s": null,
+                "prefill_s": 3.77,
+                "decode_s": 8.55,
+                "tokens": 371.0,
+                "wall_s": null
+              },
+              {
+                "role": "reviewer",
+                "member_id": null,
+                "model": "gemma-4-26b-a4b-it-QAT-4bit",
+                "cold_load_s": null,
+                "prefill_s": 2.11,
+                "decode_s": 8.48,
+                "tokens": 560.0,
+                "wall_s": null
+              }
+            ],
+            "total_wall_s": 25.227416
+          },
+          "error": ""
+        },
+        {
+          "id": "case-20",
+          "category": "split",
+          "expected_outcome": "REVISE",
+          "acceptable_outcomes": [
+            "REVISE",
+            "ESCALATE"
+          ],
+          "decision": "REVISE",
+          "outcome_ok": true,
+          "key_issue": "The speed evidence omits co-resident memory, and removing the old engine leaves no fallback.",
+          "key_issue_hit": true,
+          "key_issue_source": "reviewers",
+          "key_issue_evidence_backed": true,
+          "votes": {
+            "SUPPORT": 0,
+            "REVISE": 3,
+            "REJECT": 0
+          },
+          "participation": 1.0,
+          "participating": 3,
+          "roster": 3,
+          "dissent": [],
+          "seats": [
+            {
+              "member_id": "evidence",
+              "model": "gemma-4-26b-a4b-it-QAT-4bit",
+              "recommendation": "REVISE",
+              "valid": true,
+              "participated": true,
+              "error": ""
+            },
+            {
+              "member_id": "challenger",
+              "model": "gemma-4-26b-a4b-it-QAT-4bit",
+              "recommendation": "REVISE",
+              "valid": true,
+              "participated": true,
+              "error": ""
+            },
+            {
+              "member_id": "operator",
+              "model": "gemma-4-26b-a4b-it-QAT-4bit",
+              "recommendation": "REVISE",
+              "valid": true,
+              "participated": true,
+              "error": ""
+            }
+          ],
+          "wall_s": 28.941,
+          "timings": {
+            "source": "portal_council.timings",
+            "stages": [
+              {
+                "role": "reviewer",
+                "member_id": null,
+                "model": "gemma-4-26b-a4b-it-QAT-4bit",
+                "cold_load_s": null,
+                "prefill_s": 3.91,
+                "decode_s": 10.8,
+                "tokens": 414.0,
+                "wall_s": null
+              },
+              {
+                "role": "reviewer",
+                "member_id": null,
+                "model": "gemma-4-26b-a4b-it-QAT-4bit",
+                "cold_load_s": null,
+                "prefill_s": 1.42,
+                "decode_s": 14.18,
+                "tokens": 515.0,
+                "wall_s": null
+              },
+              {
+                "role": "reviewer",
+                "member_id": null,
+                "model": "gemma-4-26b-a4b-it-QAT-4bit",
+                "cold_load_s": null,
+                "prefill_s": 3.6,
+                "decode_s": 12.29,
+                "tokens": 488.0,
+                "wall_s": null
+              },
+              {
+                "role": "reviewer",
+                "member_id": null,
+                "model": "gemma-4-26b-a4b-it-QAT-4bit",
+                "cold_load_s": null,
+                "prefill_s": 2.46,
+                "decode_s": 10.44,
+                "tokens": 689.0,
+                "wall_s": null
+              }
+            ],
+            "total_wall_s": 28.915658
+          },
+          "error": ""
+        }
+      ],
+      "summary": {
+        "cases": 20,
+        "accuracy": 0.65,
+        "key_issue_recall": 0.8,
+        "median_wall_s": 25.93,
+        "p90_wall_s": 28.67,
+        "errors": 0,
+        "timings_captured": 20,
+        "by_category": {
+          "clear_reject": {
+            "cases": 5,
+            "accuracy": 0.6,
+            "key_issue_recall": 1.0,
+            "median_wall_s": 26.2,
+            "p90_wall_s": 28.67,
+            "errors": 0
+          },
+          "clear_support": {
+            "cases": 5,
+            "accuracy": 0.8,
+            "key_issue_recall": 0.6,
+            "median_wall_s": 22.06,
+            "p90_wall_s": 33.8,
+            "errors": 0
+          },
+          "hidden_flaw": {
+            "cases": 3,
+            "accuracy": 1.0,
+            "key_issue_recall": 1.0,
+            "median_wall_s": 26.89,
+            "p90_wall_s": 28.65,
+            "errors": 0
+          },
+          "missing_evidence": {
+            "cases": 2,
+            "accuracy": 0.5,
+            "key_issue_recall": 0.5,
+            "median_wall_s": 24.47,
+            "p90_wall_s": 24.98,
+            "errors": 0
+          },
+          "operational_risk": {
+            "cases": 2,
+            "accuracy": 0.0,
+            "key_issue_recall": 1.0,
+            "median_wall_s": 26.35,
+            "p90_wall_s": 27.46,
+            "errors": 0
+          },
+          "split": {
+            "cases": 1,
+            "accuracy": 1.0,
+            "key_issue_recall": 1.0,
+            "median_wall_s": 28.94,
+            "p90_wall_s": 28.94,
+            "errors": 0
+          },
+          "stale_claim": {
+            "cases": 2,
+            "accuracy": 0.5,
+            "key_issue_recall": 0.5,
+            "median_wall_s": 25.86,
+            "p90_wall_s": 26.06,
+            "errors": 0
+          }
+        },
+        "seats": {
+          "challenger": {
+            "appearances": 20,
+            "participated": 20,
+            "invalid": 0,
+            "votes": {
+              "REVISE": 8,
+              "SUPPORT": 3,
+              "REJECT": 9
+            },
+            "participation_rate": 1.0
+          },
+          "evidence": {
+            "appearances": 20,
+            "participated": 20,
+            "invalid": 0,
+            "votes": {
+              "SUPPORT": 4,
+              "REVISE": 10,
+              "REJECT": 6
+            },
+            "participation_rate": 1.0
+          },
+          "operator": {
+            "appearances": 20,
+            "participated": 19,
+            "invalid": 1,
+            "votes": {
+              "SUPPORT": 3,
+              "REVISE": 13,
+              "REJECT": 3
+            },
+            "participation_rate": 0.95
+          }
+        },
+        "override_status": "not_requested"
+      }
     }
   ]
 }
