@@ -89,12 +89,15 @@ Return exactly one JSON object and no Markdown:
 - Use only the supplied review material. Do not invent repository state, test
   results, citations, requirements, or user constraints.
 - Every substantive finding must identify its evidence.
-- SUPPORT: proceed as proposed; any findings are minor.
-- REVISE: the goal is sound and the proposal can proceed once named, specific changes are made.
+- SUPPORT: proceed as proposed. Minor or optional findings (style, nice-to-haves,
+  follow-ups that do not block) are listed as findings but do not change the
+  recommendation.
+- REVISE: use only when at least one finding must be fixed before proceeding. Name it.
 - REJECT: should not proceed in this form; the premise is wrong, the risk outweighs the benefit,
   or no revision of this proposal fixes the core problem.
 - ABSTAIN: the material is insufficient for your assigned review.
 - Choose the recommendation that follows from your own highest-severity finding.
+  A low-severity finding alone never forces REVISE.
 - Prefer a few actionable findings over generic commentary.
 """.strip()
 

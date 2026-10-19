@@ -313,11 +313,16 @@ async def test_reviewer_prompt_contains_the_neutral_recommendation_rubric(
     payload = await _review_payload(monkeypatch, model="evidence-model", think=False)
     system = payload["messages"][0]["content"]
     for definition in (
-        "SUPPORT: proceed as proposed; any findings are minor.",
-        "REVISE: the goal is sound and the proposal can proceed once named, specific changes are made.",
+        (
+            "SUPPORT: proceed as proposed. Minor or optional findings (style, nice-to-haves,\n"
+            "  follow-ups that do not block) are listed as findings but do not change the\n"
+            "  recommendation."
+        ),
+        "REVISE: use only when at least one finding must be fixed before proceeding. Name it.",
         "REJECT: should not proceed in this form; the premise is wrong, the risk outweighs the benefit,",
         "ABSTAIN: the material is insufficient for your assigned review.",
         "Choose the recommendation that follows from your own highest-severity finding.",
+        "A low-severity finding alone never forces REVISE.",
     ):
         assert definition in system
 
