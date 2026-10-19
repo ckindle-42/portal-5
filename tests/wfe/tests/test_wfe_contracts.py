@@ -2024,17 +2024,19 @@ class TestReasoningFitAudit:
 
 
 class TestReasoningBudgetFitAudit:
-    """reasoning_budget_fit: a thinking seat's served output budget vs the value
-    its card documents. Motivated by auto-reasoning serving 16384 against
-    DeepSeek-R1-0528's 64K-max-generation card — hard problems truncated
-    mid-thought and the audit had no check that could see it."""
+    """reasoning_budget_fit: a thinking seat's served output budget vs a
+    window-aware target — min(card max output, 32768, window // 2), half the
+    KV window staying for prompt, history and tool results. Motivated by
+    auto-reasoning serving 16384 against DeepSeek-R1-0528's 64K-max-generation
+    card — hard problems truncated mid-thought and the audit had no check that
+    could see it."""
 
     @staticmethod
-    def _run(ws, hint, registry, tags):
+    def _run(ws, hint, registry, tags, baked_window=None):
         from tests.wfe.settings_audit import _audit_reasoning_budget_fit
 
         v: list[dict] = []
-        _audit_reasoning_budget_fit("w", ws, hint, registry, tags, v)
+        _audit_reasoning_budget_fit("w", ws, hint, registry, tags, v, baked_window=baked_window)
         return [x for x in v if x["kind"] == "reasoning_budget_fit"]
 
     def test_underbudgeted_reasoning_seat_is_a_fail(self):
@@ -2052,8 +2054,8 @@ class TestReasoningBudgetFitAudit:
         assert v[0]["workspace"] == "w"
 
     def test_exactly_the_truncation_budget_warns(self):
-        # the incident value itself (16384) sits ON the floor: "below 16384"
-        # fails, 16384 warns — the card says the problem needs ~23K+64K
+        # served 16384 against a 32768 target sits ON the FAIL boundary
+        # (target // 2): below it fails, 16384 warns
         ws = {"module": "general", "think": True, "predict_limit": 16384}
         v = self._run(
             ws,
@@ -2062,7 +2064,7 @@ class TestReasoningBudgetFitAudit:
             {"deepseek-r1:8b"},
         )
         assert len(v) == 1 and v[0]["severity"] == "WARN"
-        assert "16384" in v[0]["detail"] and "65536" in v[0]["detail"]
+        assert "16384" in v[0]["detail"] and "32768" in v[0]["detail"]
 
     def test_card_sized_budget_is_silent(self):
         # the 2026-10-19 auto-reasoning fix: 40960 covers min(65536, 32768)
@@ -2096,6 +2098,49 @@ class TestReasoningBudgetFitAudit:
         assert _served_output_budget({"context_limit": 4096}) == 4096
         assert _served_output_budget({"context_limit": 98304}) == 8192
         assert _served_output_budget({}) == 8192
+
+    def test_baked_window_from_suffix_modelfile_or_neither(self):
+        from tests.wfe.settings_audit import _baked_window
+
+        assert _baked_window("hf.co/x/R:Q4_K_M-ctx24k", {}) == 24576
+        shows = {
+            "m:t": {"modelfile": "FROM x\nPARAMETER num_ctx 65536\nPARAMETER temperature 1.0\n"}
+        }
+        assert _baked_window("m:t", shows) == 65536
+        assert _baked_window("m:t", {"m:t": {"modelfile": "FROM x"}}) is None
+        assert _baked_window("m:t", {}) is None
+
+    def test_window_caps_the_target_and_sets_the_bands(self):
+        # card would allow 32768, but half of the 24576 window is 12288:
+        # 8192 is below target yet inside the WARN band (target // 2 = 6144)
+        ws = {"think": True, "predict_limit": 8192}
+        v = self._run(
+            ws, "m:r", {"m": {"recommended_max_output": 131072}}, {"m:r"}, baked_window=24576
+        )
+        assert len(v) == 1 and v[0]["severity"] == "WARN"
+        assert "12288" in v[0]["detail"] and "half of window 24576" in v[0]["detail"]
+        # below half the target is the FAIL class again
+        ws2 = {"think": True, "predict_limit": 4096}
+        v2 = self._run(
+            ws2, "m:r", {"m": {"recommended_max_output": 131072}}, {"m:r"}, baked_window=24576
+        )
+        assert len(v2) == 1 and v2[0]["severity"] == "FAIL"
+
+    def test_seat_context_limit_overrides_the_baked_window(self):
+        # the workspace's own context_limit is the window that fills
+        ws = {"think": True, "predict_limit": 8192, "context_limit": 8192}
+        v = self._run(
+            ws, "m:r", {"m": {"recommended_max_output": 131072}}, {"m:r"}, baked_window=65536
+        )
+        assert not v  # target = min(131072, 32768, 4096) = 4096; 8192 >= target
+
+    def test_window_is_the_binding_limit(self):
+        # a small window binds harder than card or ceiling: this seat would
+        # FAIL under the card-only rule (8192 < 16384) but its 8192 window
+        # sets target 4096 and the default 8192 budget passes it
+        ws = {"think": True, "context_limit": 8192}  # no predict_limit: default 8192
+        v = self._run(ws, "m:r", {"m": {"recommended_max_output": 65536}}, {"m:r"})
+        assert not v
 
     def test_card_below_ceiling_never_fails(self):
         # a card that documents less than 32K (e.g. granite-4.2's thinking-mode

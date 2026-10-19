@@ -988,7 +988,9 @@ workspaces:
         # (settings_audit sampling_mode_fit): temperature 0.6, presence_penalty 0.0.
         presence_penalty: 0.0
         context_limit: 24576
-        predict_limit: 8192
+        # 12288 = budget target: min(card 81920, 32K, half of the 24576 window)
+        # (reasoning_budget_fit; adjusted, not tested — security out of bench scope)
+        predict_limit: 12288
         keep_alive: 15m
         temperature: 0.6
         top_p: 0.95
@@ -2212,7 +2214,11 @@ workspaces:
     description: Compliance review council, DeepSeek-R1-0528-Qwen3-8B seat — addressed by id from config/compliance/council.yaml; owns its settings instead of borrowing auto-reasoning.
     model_hint: hf.co/unsloth/DeepSeek-R1-0528-Qwen3-8B-GGUF:Q4_K_XL-ctx64k
     context_limit: 65536 # the tag's baked window; matches the borrowed lane's
-    predict_limit: 8192 # council._SEAT_BUDGET — room for the reasoning trace plus the JSON verdict in one budget
+    # 32768 = budget target: min(card 65536, 32K, half of the 65536 window)
+    # (reasoning_budget_fit). NOTE: council.py's internal reading path still
+    # passes budget=_SEAT_BUDGET (8192) explicitly — raising that constant is
+    # a separate decision.
+    predict_limit: 32768 # council._SEAT_BUDGET — room for the reasoning trace plus the JSON verdict in one budget
     temperature: 0.6 # DeepSeek-R1 vendor card (greedy causes repetition loops); recorded in council._MODEL_TEMPERATURE and declared here
     top_p: 0.95 # vendor card
     top_k: 40
@@ -2254,7 +2260,9 @@ workspaces:
       Mathematical problem solving, proofs, calculus, algebra, statistics. GLM-4.7-Flash (ZhipuAI, 31B MoE ~3B active, MIT) — seated 2026-10-18 on WFE wfe_math_20261018d (BETTER than phi4-mini-reasoning, 104/108 vs 93/108; docs/WFE_DECISION_AUTO_MATH_20261018.md).
     model_hint: glm-4.7-flash:Q4_K_M-ctx64k
     context_limit: 24576
-    predict_limit: 8192
+    # 12288 = budget target: min(card 131072, 32K, half of the 24576 window)
+    # (reasoning_budget_fit; 2/108 rows hit the 8192 cap in wfe_math_20261018d)
+    predict_limit: 12288
     # Z.ai card default (zai-org/GLM-4.7-Flash README 'Default Settings'), the
     # sampling measured in wfe_math_20261018d. The card names no top_k/min_p/penalty.
     temperature: 1.0
@@ -2633,7 +2641,9 @@ workspaces:
     description: |-
       Benchmark: glm-4.7-flash:Q4_K_M (~13GB, ZhipuAI/Z.AI, MIT). 31B MoE, 4 experts/token (~3B active), 128K context. Non-Meta/Qwen lineage — diverse training and architecture. Coding bench 2026-06-21: quality 0.67 (template mismatch suspected). Head-to-head vs bench-glm-reap (REAP UD-Q4_K_XL quant). PROMOTE_POLICY: re-bench after chat template verification.
     model_hint: glm-4.7-flash:Q4_K_M
-    predict_limit: 8192
+    # 32768 = budget target: min(card 131072, 32K) — the tag bakes no num_ctx,
+    # so no window cap applies (reasoning_budget_fit; adjusted, not tested)
+    predict_limit: 32768
     max_concurrent: 1
     keep_alive: 5m
     # TASK_SAMPLING_PROFILE_AUDIT_V1: replaces the generic bench default
@@ -2908,7 +2918,9 @@ workspaces:
     description: "Slot-fix (TASK-DECISION-GATE-001): bench-orphaned tag added so the pending-verdict evidence miner can produce valid data. Model: hf.co/unsloth/Magistral-Small-2509-GGUF:Q8_0-ctx64k. Runtime capabilities verified via `ollama show`: ['completion', 'vision', 'tools']. PROMOTE_POLICY=confirm."
     model_hint: "hf.co/unsloth/Magistral-Small-2509-GGUF:Q8_0-ctx64k"
     ctx_validated: true
-    predict_limit: 8192
+    # 32768 = budget target: min(card 131072, 32K, half of the 65536 window)
+    # (reasoning_budget_fit; adjusted, not tested)
+    predict_limit: 32768
     max_concurrent: 1
     keep_alive: "5m"
     # TASK_SAMPLING_PROFILE_AUDIT_V1: replaces the generic bench default with

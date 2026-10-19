@@ -840,12 +840,30 @@ def _audit_reasoning_fit(ws_id, ws, hint, registry, tags, violations) -> None:
 #: PORTAL_DEFAULT_PREDICT_LIMIT as resolved by `_output_cap` in
 #: portal/platform/inference/router/validation.py.
 PIPELINE_DEFAULT_PREDICT_LIMIT = 8192
-#: Budget-fit thresholds. A thinking seat's served budget below
-#: min(card max output, _CARD_OUTPUT_CEILING) is a WARN; below
-#: _BUDGET_FAIL_FLOOR while the card documents >= _CARD_OUTPUT_CEILING is the
-#: FAIL class (a hard problem truncated mid-thought, not just a short answer).
+#: Budget-fit ceiling: a thinking seat never needs more than this much of its
+#: window for output, whatever the card says.
 _CARD_OUTPUT_CEILING = 32768
-_BUDGET_FAIL_FLOOR = 16384
+
+
+def _baked_window(tag: str, shows: dict[str, dict]) -> int | None:
+    """The KV window baked into a tag: the -ctxNk naming suffix, else the
+    Modelfile's num_ctx parameter. None when the tag documents neither —
+    Ollama then serves its own default and no window cap applies."""
+    from_suffix = ctx_from_tag(tag)
+    if from_suffix:
+        return from_suffix
+    for line in str((shows.get(tag) or {}).get("modelfile") or "").splitlines():
+        parts = line.split()
+        if len(parts) >= 3 and parts[0] == "PARAMETER" and parts[1].lower() == "num_ctx":
+            return int(parts[2])
+    return None
+
+
+def _served_window(ws: dict, baked_window: int | None) -> int | None:
+    """The window this seat's context actually fills: the workspace's
+    context_limit, else the served tag's baked window."""
+    ctx = ws.get("context_limit")
+    return int(ctx) if ctx else baked_window
 
 
 def _served_output_budget(ws: dict) -> int:
@@ -859,18 +877,24 @@ def _served_output_budget(ws: dict) -> int:
     return min(PIPELINE_DEFAULT_PREDICT_LIMIT, int(ctx)) if ctx else PIPELINE_DEFAULT_PREDICT_LIMIT
 
 
-def _audit_reasoning_budget_fit(ws_id, ws, hint, registry, tags, violations) -> None:
-    """A thinking seat's served output budget vs what its card documents.
+def _audit_reasoning_budget_fit(
+    ws_id, ws, hint, registry, tags, violations, baked_window: int | None = None
+) -> None:
+    """A thinking seat's served output budget vs a window-aware target.
 
-    The motivating failure: auto-reasoning served 16384 while DeepSeek-R1-0528's
-    card documents a 64K maximum generation (AIME averages ~23K tokens/question),
+    ``target = min(card recommended_max_output, 32768, served_window // 2)`` —
+    half the KV window stays for prompt, history and tool results, and memory
+    comes from the window (num_ctx), not from predict_limit, so a seat can
+    always raise its output budget inside its existing window. The motivating
+    failure: auto-reasoning served 16384 while DeepSeek-R1-0528's card
+    documents a 64K maximum generation (AIME averages ~23K tokens/question),
     so hard problems died at finish=length with the whole budget spent on
     reasoning and no answer. Fixed by hand (predict_limit 40960, 2026-10-19);
     this check makes the whole fleet's version of that mismatch visible.
     Scope (operator review, 2026-10-19): seats that reason at runtime —
     think:true, or think unset on a reasoning-family model. A seat that pins
     think:false does not reason, so a reasoning-sized budget does not apply.
-    Report-only — it names the seat, model, served budget and card value;
+    Report-only — it names the seat, model, target and served budget;
     raising a budget is an operator decision."""
     if hint not in tags or ws.get("think") is False:
         return
@@ -880,19 +904,24 @@ def _audit_reasoning_budget_fit(ws_id, ws, hint, registry, tags, violations) -> 
     card_max = (hit[1] or {}).get("recommended_max_output") if hit else None
     if not isinstance(card_max, int) or isinstance(card_max, bool) or card_max <= 0:
         return
+    window = _served_window(ws, baked_window)
+    if window:
+        target = min(card_max, _CARD_OUTPUT_CEILING, window // 2)
+    else:
+        target = min(card_max, _CARD_OUTPUT_CEILING)
     served = _served_output_budget(ws)
-    if served >= min(card_max, _CARD_OUTPUT_CEILING):
+    if served >= target:
         return
-    fail = served < _BUDGET_FAIL_FLOOR and card_max >= _CARD_OUTPUT_CEILING
     origin = "predict_limit" if ws.get("predict_limit") else "pipeline default"
+    window_note = f"half of window {window}" if window else "no baked window"
     _v(
         violations,
         ws_id,
         "reasoning_budget_fit",
-        f"{hint} is a thinking-model seat: its card documents max output {card_max} tokens "
-        f"but the seat serves {served} ({origin}) — hard problems truncate "
+        f"{hint} is a thinking-model seat: budget target {target} (card {card_max}, "
+        f"{window_note}) but the seat serves {served} ({origin}) — hard problems truncate "
         "mid-thought (auto-reasoning died 16384/16384 finish=length before the 40960 fix)",
-        "FAIL" if fail else "WARN",
+        "FAIL" if served < target // 2 else "WARN",
     )
 
 
@@ -1506,7 +1535,15 @@ def _audit_seat(ws_id: str, ws: dict, ctx: dict, violations: list[dict]) -> dict
         ws_id, ws, tags, ctx["registered"], ctx["tool_flags"], violations, omlx=engine == "omlx"
     )
     _audit_reasoning_fit(ws_id, ws, hint, registry, tags, violations)
-    _audit_reasoning_budget_fit(ws_id, ws, hint, registry, tags, violations)
+    _audit_reasoning_budget_fit(
+        ws_id,
+        ws,
+        hint,
+        registry,
+        tags,
+        violations,
+        baked_window=_baked_window(served_id, ctx["shows"]),
+    )
     omlx_entry = _audit_omlx_settings(ws_id, served_id, violations) if engine == "omlx" else {}
     _served_sampling_check(ws_id, ws, hint, engine, registry, violations, served_id=served_id)
     if engine == "ollama":
