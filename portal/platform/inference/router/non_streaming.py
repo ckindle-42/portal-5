@@ -422,6 +422,49 @@ def _recover_or_withhold_markup(
             msg["content"] = clean
 
 
+def _collect_tool_calls(data: dict[str, Any]) -> list[dict[str, Any]]:
+    """Every tool call across a response's choices."""
+    return [
+        tc
+        for c in data.get("choices") or []
+        for tc in (c.get("message") or {}).get("tool_calls") or []
+    ]
+
+
+def _all_offered(tool_calls: list[dict[str, Any]], offered) -> bool:
+    """True when every call names a tool this request offered (else it is not dispatchable)."""
+    return all((tc.get("function") or {}).get("name", "").strip() in offered for tc in tool_calls)
+
+
+def _assistant_turn(
+    data: dict[str, Any], tool_calls: list, thinking_allowed: bool, creation_succeeded: bool
+) -> dict[str, Any]:
+    """The model's tool-calling turn as history for the next hop: visible prose and, when
+    thinking is on, its reasoning, so an interleaved-thinking model keeps its plan.
+    `reasoning_content` is canonical; OllamaNativeTransport maps it to /api/chat `thinking`."""
+    content: list[str] = []
+    reasoning: list[str] = []
+    for choice in data.get("choices") or []:
+        message = choice.get("message") or {}
+        text = message.get("content")
+        if isinstance(text, str):
+            visible = strip_think(text)
+            if not creation_succeeded:
+                visible = strip_unbacked_download_lines(visible)
+            if visible:
+                content.append(visible)
+        if thinking_allowed and (r := _reasoning_text(message)):
+            reasoning.append(r)
+    turn: dict[str, Any] = {
+        "role": "assistant",
+        "content": "".join(content) or None,
+        "tool_calls": tool_calls,
+    }
+    if reasoning:
+        turn["reasoning_content"] = "".join(reasoning)
+    return turn
+
+
 async def _try_non_streaming(
     backend: Any,
     body: dict[str, Any],
@@ -792,13 +835,8 @@ async def _try_non_streaming(
                 _recover_or_withhold_markup(
                     data, req_body.get("tools"), req_body.get("model", ""), workspace_id
                 )
-                _ns_tool_calls = []
-                for _c in data.get("choices") or []:
-                    _ns_tool_calls.extend((_c.get("message") or {}).get("tool_calls") or [])
-                _ns_dispatchable = bool(_ns_tools) and all(
-                    (tc.get("function") or {}).get("name", "").strip() in _ns_tools
-                    for tc in _ns_tool_calls
-                )
+                _ns_tool_calls = _collect_tool_calls(data)
+                _ns_dispatchable = bool(_ns_tools) and _all_offered(_ns_tool_calls, _ns_tools)
             while _ns_tool_calls and _ns_dispatchable:
                 _record_intermediate_model(data, _model_started)
                 _ns_hops += 1
@@ -832,31 +870,9 @@ async def _try_non_streaming(
                 _ns_creation_succeeded = _ns_creation_succeeded or any(
                     successful_file_creation(result) for result in _ns_dispatch
                 )
-                _ns_assistant_content: list[str] = []
-                _ns_assistant_reasoning: list[str] = []
-                for _choice in data.get("choices") or []:
-                    _message = _choice.get("message") or {}
-                    _content = _message.get("content")
-                    if isinstance(_content, str):
-                        _visible_content = strip_think(_content)
-                        if not _ns_creation_succeeded:
-                            _visible_content = strip_unbacked_download_lines(_visible_content)
-                        if _visible_content:
-                            _ns_assistant_content.append(_visible_content)
-                    if _ns_thinking_allowed:
-                        _reasoning = _reasoning_text(_message)
-                        if _reasoning:
-                            _ns_assistant_reasoning.append(_reasoning)
-                _ns_assistant_msg: dict[str, Any] = {
-                    "role": "assistant",
-                    "content": "".join(_ns_assistant_content) or None,
-                    "tool_calls": _ns_tool_calls,
-                }
-                _combined_reasoning = "".join(_ns_assistant_reasoning)
-                if _combined_reasoning:
-                    # OllamaNativeTransport maps this canonical field to native
-                    # /api/chat `thinking`; oMLX consumes it unchanged.
-                    _ns_assistant_msg["reasoning_content"] = _combined_reasoning
+                _ns_assistant_msg = _assistant_turn(
+                    data, _ns_tool_calls, _ns_thinking_allowed, _ns_creation_succeeded
+                )
                 _ns_messages = _ns_messages + [_ns_assistant_msg] + list(_ns_dispatch)
                 # Every turn but the last keeps the tools, so a turn that needs a second
                 # lookup gets it; the last is the synthesis, run with none.
@@ -884,16 +900,11 @@ async def _try_non_streaming(
                     _ns_hops,
                     len(_ns_tool_calls),
                 )
-                _ns_tool_calls = []
-                for _c in data.get("choices") or []:
-                    _ns_tool_calls.extend((_c.get("message") or {}).get("tool_calls") or [])
+                _ns_tool_calls = _collect_tool_calls(data)
                 _ns_dispatchable = (
                     not _ns_last
                     and bool(_ns_tool_calls)
-                    and all(
-                        (tc.get("function") or {}).get("name", "").strip() in _ns_tools
-                        for tc in _ns_tool_calls
-                    )
+                    and _all_offered(_ns_tool_calls, _ns_tools)
                 )
 
             if _ns_guard.grounding_retried and _ns_guard.executed == 0:
