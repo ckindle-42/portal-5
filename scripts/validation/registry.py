@@ -3,7 +3,7 @@ Slug is identity, label is display. Assert slug AND label uniqueness at import.
 
 Ordering is explicit (``order=``) rather than insertion-ordered because the
 canonical check sequence interleaves the family modules (config's C/D sit
-inside inference's A–H; wiki's AJ/AW/BR–BT interleave security_bench, blue,
+inside inference's A–H; wiki's AJ/BR–BT interleave security_bench, blue,
 and telemetry), so import order alone cannot reproduce the golden sequence.
 Checks without an explicit order sort after all ordered checks, preserving
 insertion order among themselves.

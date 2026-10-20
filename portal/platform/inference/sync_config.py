@@ -6,11 +6,12 @@ Generates:
   config/backends.yaml        → workspace_routing block only (backends: block
                                 is operator-edited; never touched here)
   .mcp.json                   → Claude Code MCP server list
-  opencode.jsonc              → curated model picker for opencode
   imports/openwebui/workspaces/workspace_*.json → OWUI workspace presets
   config/modules.generated.yaml → module enable/disable snapshot (M7 toggle
                                 layer) — read-only reference; state lives in
                                 config/portal.yaml modules:, this file renders it
+
+Wiki facts are computed on demand; use ``portal docs build`` to render docs.
 
 Run:
   python3 -m portal.platform.inference.sync_config
@@ -313,15 +314,7 @@ def main() -> int:
     changed = emit_module_manifest(config)
     print(f"  config/modules.generated.yaml: {'updated' if changed else 'no change'}")
 
-    # 6. wiki fact-units + generated doc blocks (DESIGN_WIKI_GENERATION_LOOP_V1.md)
-    from portal.platform.wiki.adapters.seed_facts import seed_facts
-    from portal.platform.wiki.render import render_all_generated_blocks
-
-    seed_facts()
-    changed_docs = render_all_generated_blocks(Path("."))
-    print(f"  wiki fact-units + generated doc blocks: {len(changed_docs)} doc(s) updated")
-
-    # 7. live pipeline drift check — config/portal.yaml is baked into the
+    # 6. live pipeline drift check — config/portal.yaml is baked into the
     # portal5-pipeline image (unlike backends.yaml, which is live-mounted),
     # so a running container can silently keep serving a stale workspace
     # list after this script edits portal.yaml. Warn loudly rather than

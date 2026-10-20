@@ -1,8 +1,7 @@
 """Drift census — measure the distance between code and the docs the spine feeds.
 
-Three gates guard the spine:
+Two gates guard the spine:
 
-  AW  every `WIKI:GENERATED` block equals its unit's body (fact-units only, A4)
   BR  every code surface is cited by a gate-passing unit  (existence, not truth)
   BS  every claim holds, no dead doc refs                 (absolute, no baseline)
 
@@ -161,8 +160,8 @@ def broken_path_refs(repo_root: Path | None = None) -> tuple[str, ...]:
 
 # ── Census (the human-facing report) ─────────────────────────────────────────
 
-# Regenerated families whose figures are derived and already gated by AW. A
-# `unit-fact-*` body's counts come from live config every seed run, and a
+# Computed families whose figures come from live sources. A `unit-fact-*`
+# body's counts are derived for each wiki query, and a
 # technique signature's Event IDs come from the MITRE mapping — neither is a
 # hand-typed figure that could quietly go stale.
 _DERIVED_FAMILY_RE = re.compile(r"^(?:unit-fact-|unit-T\d{4}(?:\.\d{3})?-signature$)")
@@ -204,10 +203,7 @@ def undeclared_numeric_claims(
     project has paid to unlearn. Use it to pick the next units to instrument.
 
     Derived families are skipped rather than flagged: a `unit-fact-*` body's
-    figures regenerate from live config (and a technique signature's Event IDs
-    from the MITRE mapping) every seed run and are already gated by `AW`, so a
-    `claims:` entry there would duplicate an existing guarantee rather than add
-    one.
+    figures come from live sources (and signature Event IDs from the MITRE map).
     """
     if units is None:
         from portal.platform.wiki.store import load_all

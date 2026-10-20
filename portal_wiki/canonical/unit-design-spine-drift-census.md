@@ -17,9 +17,7 @@ sources:
   path: tests/unit/test_spine_drift.py
 - type: code
   path: tests/unit/test_detector_precision.py
-claims:
-- probe: validate.checks
-  pattern: '{value} validate checks'
+claims: []
 confidence: high
 tags:
 - drift
@@ -30,16 +28,13 @@ created_at: 1785825842.272556
 updated_at: 1791527128.0
 ---
 
-Three gates guarded the spine and none of them objected while README asserted 60
-benchmark workspaces against a live 65 and 22 MCP servers against a live 21:
-`AW` passes by comparing a generated block with its own unit body, `BR` passes by
-proving a new code surface is cited by *some* unit without asking whether the
-citation is true, and the retired `AK` ledger check bound zero docs —
-honestly, but leaving no doc-currency signal in the harness at all.
-Of 567 generated blocks across 25 Tier-1 docs, 7 came from a machine-derived
-`unit-fact-*` unit; the remaining 560 were authored prose with no executable link
-to code. Check `BS` closes that gap; the harness now carries 227 validate checks,
-including `HO` (review-program derived state); `BU`
+The active spine checks are `BR` surface coverage and `BS` claim/path validation.
+Generated-doc freshness (`AW`) and the empty commit-ledger check (`AK`) are
+retired. Volatile `unit-fact-*` content is computed by the wiki MCP from current
+inputs and is not stored in the canonical directory. `BR` proves a new code
+surface is cited by *some* unit; `BS` checks declared claims and paths. The
+harness's checks (listed by `scripts/validate_system.py`) include `HO`
+(review-program derived state); `BU`
 the complexity-census advisory, `BX` the pending-model-verdicts backlog cap,
 `BY`-`CI` the TASK_BULLY_RELATE_AND_INVESTIGATE_V1 operating/measurement
 invariants, `CJ`-`CQ` the TASK_BULLY_COUSIN_RELATION_V1 cousin-relation
@@ -66,8 +61,8 @@ than proceeding, `NARROW_SPAN` blocking an otherwise-green preflight, the
 hunt-loop checkpoint round-tripping per entry, a resumed run never
 re-planting a cousin, no claim published from a zero-record stage, Crogl
 reported as comprehension rather than exposure, and K.4's own one-entry
-zero-record shape as a permanent regression case); the doc-ledger `AK`
-check was removed once the ledger was emptied in TASK_WIKI_ZERO_DEBT_V1).
+zero-record shape as a permanent regression case). The former `AK` ledger and
+`AW` fact/document freshness checks are not registered.
 
 A **claim** binds a figure in a unit body to a live probe. `claims.py` combines
 platform probes with compliance and research probes supplied by module plugins.
@@ -88,13 +83,13 @@ known without a fuzzy signal being promoted to a failure. The signal itself is
 deliberately narrow (TASK_DETECTOR_PRECISION_V1): a figure is only a count when
 the noun is plural and the number is not preceded by a digit or a dot, fenced
 terminal excerpts are stripped, and the `unit-fact-*` / `unit-T*-signature`
-families are skipped because their figures regenerate from live config or the
-MITRE mapping and are already gated by `AW`. `tests/unit/test_detector_precision.py`
+families are skipped because their figures are recomputed from live config or
+the MITRE mapping. `tests/unit/test_detector_precision.py`
 locks the narrowing.
 
 The census carried a second axis until P0 (`TASK_BULLY_P0_SPINE_REDUCTION_V1`
 A1) deleted it whole: **pin health** classified every unit that cited a
-repo-local path against its `last_generated_commit` pin. 461 units shipped
+repo-local path against its `last_generated_commit` pin. The units shipped
 pinned to `05e42ec2`, a SHA absent from all 1904 commits — the pin resolving
 to a real commit never proved the body was still true, so it added no
 truth-checking `claims` didn't already provide, while forcing a two-commit

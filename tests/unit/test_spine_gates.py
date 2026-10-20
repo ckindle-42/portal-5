@@ -1,6 +1,6 @@
 """Ratchet the wiki/router spine's own correctness gates into the pytest CI lane.
 
-These four checks live in scripts/validate_system.py and were only enforced by
+These five checks live in scripts/validate_system.py and were only enforced by
 (bypassable) pre-commit. Riding tests/unit makes them server-side and unbypassable.
 """
 
@@ -30,7 +30,6 @@ def _load_validate():
     [
         "check_routing_regression",  # AU — served-model baseline
         "check_wiki_core",  # AJ — schema + provenance + import-clean
-        "check_wiki_facts_current",  # AW — fact-units vs live config
         "check_spine_code_coverage",  # BR — every module, MCP and platform package has a unit
         "check_spine_drift",  # BS — claims hold, no dead refs (absolute)
     ],

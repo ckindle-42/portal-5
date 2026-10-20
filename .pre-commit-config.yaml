@@ -26,8 +26,8 @@ repos:
         # pre-inference manifest. Keep lint enabled; skip only post-hoc format.
         exclude: ^tests/benchmarks/compliance_judgment_r1_experiment_v2\.py$
 
-      # Guard: full system validation — 74 checks (imports, routes, config,
-      # wiki/fact-unit currency, security-bench subsystem integrity, etc).
+      # Guard: full system validation (imports, routes, config, wiki claims,
+      # security-bench subsystem integrity, etc).
       # Takes ~60s, so it runs at push time (not per-commit) and only when
       # a change actually touches the surface it checks.
       - id: validate-system

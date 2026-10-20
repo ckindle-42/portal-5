@@ -1,13 +1,4 @@
-"""Doc-voice-family check: the README voice-restoration guard (HF).
-
-`AW` proves a generated block equals its unit body, `BR` that new code is
-cited, `BS` that declared claims still hold. None of them notices that a
-document has stopped being readable — `README.md` reached 91% machine-
-rendered with zero human-owned lines while all three stayed green. `HF`
-guards the four structural properties the voice restoration
-(`TASK_README_VOICE_V1`) had to repair, so a future migration pass cannot
-silently undo them.
-"""
+"""README voice guard: historical AW/BR/BS checks did not detect readability drift."""
 
 from __future__ import annotations
 

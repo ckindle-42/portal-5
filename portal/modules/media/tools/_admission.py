@@ -9,7 +9,7 @@ media bring-up: loading a large generation model when too little memory is free
 already crashes the box.
 
 These estimates are measured peak working sets and mirrored from
-`unit-fact-media-memory-budget` (portal/platform/wiki/adapters/seed_facts.py) — kept
+`unit-fact-media-memory-budget` (computed by portal/platform/wiki/adapters/seed_facts.py)
 as a separate copy here rather than imported, matching Rule 3 (MCP modules are
 independent services, zero cross-imports from platform internals).
 """

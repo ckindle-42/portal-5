@@ -43,7 +43,7 @@ Large non-chat cache consumers include Qwen-Image-2512 (~53.7 GiB), ltx-2.3-mlx-
 5. **Checked status does not reduce the header count.** `render_ledger` counts the classifier's entire pending list while preserving checkboxes and investigation notes. The heading is neither the unchecked count nor a count of planned jobs.
 6. **Freshness rules themselves aged.** The [August 13 analysis](../reports/PENDING_VERDICTS_ANALYSIS_20260813T170155Z.md) says 0/62 lack post-August-10 evidence, yet the saved checklist retains 12 investigate-refresh verdicts. Neither tells us whether the later Ollama/oMLX versions, scorer repairs, changed templates, or current context settings invalidate a specific result.
 
-The [fact-unit catalog](../portal_wiki/canonical/unit-fact-model-catalog.md) calls its 246 registrations “model ids.” There are only 160 distinct ID strings in those registrations. Likewise, `CLAUDE.md`'s single-Ollama-tier description is contradicted by the configured oMLX backends and aliases. Use current configuration for intended routing and runtime traces for actual routing; old prose alone is insufficient.
+The live `unit-fact-model-catalog` is computed through the wiki MCP rather than stored as a canonical file. At the time of this audit it called its 246 registrations “model ids,” with 160 distinct ID strings. Likewise, `CLAUDE.md`'s single-Ollama-tier description is contradicted by the configured oMLX backends and aliases. Use current configuration for intended routing and runtime traces for actual routing; old prose alone is insufficient.
 
 ## 3. What has actually been exercised
 

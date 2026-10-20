@@ -8,11 +8,14 @@ from typing import Annotated
 
 import typer
 
+from ._apps import docs_app
+
 
 def register(app: typer.Typer) -> None:
     """Attach top-level sync commands to the typer app."""
     app.command("sync-config")(sync_config)
     app.command("sync-readme")(sync_readme)
+    docs_app.command("build")(docs_build)
 
 
 def sync_config(
@@ -48,6 +51,22 @@ def sync_config(
         raise typer.Exit(code=0)
 
     sys.exit(_sync_main())
+
+
+def docs_build() -> None:
+    """Build generated docs separately from runtime config artifacts."""
+    root = Path(__file__).resolve().parents[4]
+    from portal.platform.wiki.render import (
+        render_admin_guide,
+        render_all_generated_blocks,
+        render_architecture_map,
+    )
+
+    updated = render_all_generated_blocks(root)
+    output_dir = root / "docs" / "generated"
+    render_admin_guide(output_dir)
+    render_architecture_map(output_dir)
+    typer.echo(f"docs build: {len(updated)} managed doc(s) updated; 2 generated views rendered")
 
 
 def sync_readme(

@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import typer
 
-from ._apps import agent_app, config_app, models_app, module_app, workspace_app
+from ._apps import agent_app, config_app, docs_app, models_app, module_app, workspace_app
 
 app = typer.Typer(
     name="portal",
@@ -21,6 +21,7 @@ app.add_typer(workspace_app, name="workspace")
 app.add_typer(models_app, name="models")
 app.add_typer(module_app, name="module")
 app.add_typer(agent_app, name="agent")
+app.add_typer(docs_app, name="docs")
 
 from . import agent as _agent  # noqa: E402, F401
 from . import config, models, module, workspace  # noqa: E402, F401

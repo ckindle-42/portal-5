@@ -98,7 +98,7 @@ Workspaces are pure configuration, not code. Putting name, model hint, tool gran
 
 **How:** Personas live as one YAML file each under `config/personas/`. During seeding, `scripts/openwebui_init.py` reads them and creates model presets in Open WebUI, binding each persona to a `workspace_model` and an optional `variant`. A chat request whose `model` is a persona slug also gets that prompt from the pipeline (`preinject._inject_persona_system_prompt`): the loaded `system_prompt` (inline, or the `prompt_template` body), skipped when the request's system message already equals it, and placed ahead of a different caller system message. Workspace `system_prompt_append` still follows. Select a persona from the model dropdown alongside workspaces.
 
-**Available personas:** use `unit-fact-persona-roster` for the generated live count, module ownership, workspace binding, and model pins. Do not maintain a second handwritten roster here.
+**Available personas:** query `unit-fact-persona-roster` for the computed live count, module ownership, workspace binding, and model pins. Do not maintain a second handwritten roster here.
 
 To inspect the live module breakdown:
 
@@ -663,29 +663,31 @@ Checklists for extending Portal 5 with a new MCP tool server, persona, workspace
    `config/owui_tool_servers.yaml` maps registered tool names to Open WebUI server ids.
 5. Add tool JSON to `imports/openwebui/tools/portal_<name>.json`.
 6. `openwebui_init.py` registers tool servers from the fleet-derived `.mcp.json` automatically.
-7. Reconcile the wiki: `./launch.sh sync-config` refreshes fact-units and
-   generated doc blocks; validate check AW (`scripts/validate_system.py`)
-   catches any that drifted. Edit authored units directly.
+7. Query current derived facts through the wiki MCP. Edit authored units
+   directly; run `uv run portal docs build` separately when generated docs
+   need to be refreshed for a release.
 
 #### New Persona
 1. Create `config/personas/<slug>.yaml` with: `name`, `slug`, `module`, `workspace_model`, `category`, and one of `system_prompt`/`prompt_template`.
 2. `openwebui_init.py` creates the Open WebUI model preset on next seed.
 3. No other changes needed.
-4. Reconcile the wiki: fact-units like `unit-fact-persona-roster`
-   regenerate on `./launch.sh sync-config`; AW verifies they match live config.
+4. Query `unit-fact-persona-roster` through the wiki MCP when a current derived
+   view is needed; it is computed from the live persona files on demand.
 
 #### New Workspace Routing Tier
 1. Add the workspace entry to `config/portal.yaml` under `workspaces:`.
 2. Run `./launch.sh sync-config` — regenerates `backends.yaml workspace_routing`, OWUI preset JSON, and `.mcp.json`.
 3. Verify: `python3 -m pytest tests/unit/test_generated_artifacts_fresh.py -q`.
 4. Do NOT hand-edit `backends.yaml workspace_routing` or `imports/openwebui/workspaces/` — those are generated.
-5. Reconcile the wiki via `sync-config` + AW, per the earlier checklists.
+5. Query the relevant `unit-fact-*` through the wiki MCP when a current derived
+   view is needed.
 
 #### New Cluster Node
 1. Edit `config/backends.yaml` — add backend entry, assign to group.
 2. `docker compose restart portal-pipeline`.
 3. Done. No code changes.
-4. Reconcile the wiki via `sync-config` + AW, per the earlier checklists.
+4. Query the relevant `unit-fact-*` through the wiki MCP when a current derived
+   view is needed.
 
 #### Why
 
@@ -694,12 +696,10 @@ edit plus a regeneration step, never as scattered hand-edits to derived
 files. `config/portal.yaml` is the single source for workspaces and the
 MCP fleet, `config/backends.yaml` is the single source for backends and
 groups, and `sync-config` mechanically rewrites `workspace_routing`,
-`.mcp.json`, and the OWUI presets from them — which is why the older
-commit-stamp ledger re-stamp step is gone: doc currency is now enforced
-by AW comparing each fact-unit and generated block against live config
-after `sync-config`, and by the drift census, not by a stamp run. The
-cluster-node checklist is intentionally the shortest because a backend
-entry is just data under Rule 1.
+`.mcp.json`, and the OWUI presets from them. Fact units are computed on demand
+by the wiki MCP, and docs are built separately with `portal docs build` when
+needed. The cluster-node checklist is intentionally the shortest because a
+backend entry is just data under Rule 1.
 <!-- /WIKI:GENERATED -->
 
 ---
@@ -709,24 +709,25 @@ entry is just data under Rule 1.
 <!-- WIKI:GENERATED unit=unit-HOWTO-discovery-with-fact-units -->
 ### Discovery with fact-units
 
-The canonical units under `portal_wiki/canonical/` are the source of truth.
-Fact-units (`unit-fact-*`) are the machine-derived subset: `sync-config`
-refreshes them from live configuration and validate check AW prevents their
-generated projections from drifting. Other canonical units are intentionally
-authored in the spine and then rendered into the documents that humans read.
+Authored knowledge units under `portal_wiki/canonical/` are the source of
+truth for durable guidance. Fact units (`unit-fact-*`) are computed on demand
+by the wiki MCP from live config, code, and probes; their content is not stored
+in the canonical directory. `sync-config` writes runtime artifacts only.
+Generated docs are refreshed separately with `portal docs build` when needed.
 
 #### Order of operations
 1. Use `wiki_search` / `wiki_explain` to find the relevant canonical unit.
 2. Edit that unit for authored knowledge, or edit the governing config or code
-   for a machine-derived fact-unit.
-3. Run `sync-config` so fact-units refresh and all managed document blocks are
-   regenerated.
+   that supplies a computed fact.
+3. Query `unit-fact-*` through `wiki_get_unit` or `wiki_search` for current
+   computed values. Run `portal docs build` separately when generated docs need
+   to be refreshed.
 4. Treat `sources:` as provenance and navigation. They must resolve, but they do
    not reverse authority from the canonical unit back into a rendered document.
 
 #### Trust tiers
-- **Fact-units** (`kind: what`, `tags: [fact]`) — generated from governing
-  config and code and checked by AW.
+- **Fact-units** (`unit-fact-*`) — computed from governing config, code, and
+  probes on each wiki MCP request; not persisted in the canonical store.
 - **WHY / HOWTO units** — authored canonical intent and operating guidance.
 - **Rendered documents** — projections only; direct edits are reserved for
   bounded human-owned fences and marker placement.
@@ -739,17 +740,12 @@ a `!` in the authorizations unit is an authorized tool with no registry match (a
 
 #### Why
 
-Discovery is routed through fact-units because they are the only units
-whose content is mechanically regenerated from live config rather than
-authored: `seed_facts.py` derives each `unit-fact-*` body from
-`config/portal.yaml` and `config/backends.yaml`, `sync-config` re-runs the
-seeder, and validate check AW diffs each fact-unit against live config so
-a drifted catalog cannot hide. The `wiki_search`/`wiki_explain` tools in
-`portal_wiki/mcp.py` search this store, which is why the "order of
-operations" starts with the search tools rather than with a grep: an
-answer found through the fact-units is current, cited, and re-derivable,
-where a claim read cold from source may describe a config that has since
-moved.
+Discovery is routed through fact units because their content is computed
+from live config and code by `seed_facts.py` when `wiki_get_unit` or
+`wiki_search` is called. The MCP overlays those computed units over authored
+canonical units; no persisted fact snapshot or `sync-config` freshness gate is
+involved. Start with the wiki tools to get the current derived view and its
+sources, then inspect the governing files when implementation detail matters.
 <!-- /WIKI:GENERATED -->
 
 ---

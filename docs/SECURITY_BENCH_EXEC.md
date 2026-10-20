@@ -1,31 +1,6 @@
 # Security Bench Real-Execution Runbook
 
-<!-- WIKI:GENERATED unit=unit-fact-security-variants -->
-## Security canonical variants (16)
-
-sec-bench `--workspaces` targets, addressed as `auto-security::<variant>`:
-
-- `auto-security::blueteam`
-- `auto-security::blueteam-council`
-- `auto-security::blueteam-orchestrated`
-- `auto-security::bully-handoff-drafter`
-- `auto-security::pentest`
-- `auto-security::purpleteam`
-- `auto-security::purpleteam-deep`
-- `auto-security::purpleteam-exec`
-- `auto-security::redteam`
-- `auto-security::redteam-deep`
-- `auto-security::security-council-granite41-30b`
-- `auto-security::security-council-mistral-small32-24b`
-- `auto-security::security-council-qwen36-27b`
-- `auto-security::security-expert-foundation-sec-8b`
-- `auto-security::security-tool-granite41-8b`
-- `auto-security::uncensored`
-
-### Why
-
-The canonical variant set is the `variants` map on the `auto-security` workspace in `config/portal.yaml`. Each entry is an `auto-security::<variant>` id that `sec-bench --workspaces` targets; the pipeline resolves the variant to a model pool the same way a `?variant=` hint on any workspace does. Deriving the list from config keeps the documented target set and the live routing surface aligned.
-<!-- /WIKI:GENERATED -->
+The current target list is derived from `auto-security.variants` in `config/portal.yaml`. Query `unit-fact-security-variants` through the wiki MCP.
 
 ---
 

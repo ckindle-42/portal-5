@@ -18,8 +18,7 @@ updated_at: 1785795461.8825479
 
 This test file pins down the render module's two hard-won contracts: that a
 `WIKI:GENERATED` block sitting *outside* a `WIKI:HUMAN-OWNED` region is
-detected, and that `render_report` returns the migration-coverage figures the
-AW gate consumes. The first contract is the fence-everything loophole closer:
+detected, and that `render_report` returns migration-coverage figures. The first contract is the fence-everything loophole closer:
 if a doc wraps every generated block in a human-owned fence, the block is
 effectively unmanaged, and this test guards the function that finds exactly
 those blocks.
@@ -29,12 +28,11 @@ those blocks.
 The HUMAN-OWNED fence was introduced as a deliberate escape hatch for prose a
 human owns outright, and the loophole this test closes is using it to hide
 *generated* content from the migration gate. `_find_unit_ids_outside_human_owned`
-is the instrument that tells the gate which blocks are genuinely managed, and
-these cases pin its boundary: markers alone, markers inside a fence, mixed
+tells the renderer which blocks are genuinely managed, and these cases pin its boundary: markers alone, markers inside a fence, mixed
 documents, and none at all. The render-report tests pin the numeric contract
-(`migrated`, `unmigrated`, `blocks_total`, `coverage_pct`) that AW compares
-against live unit bodies — a change to that dict shape fails here before it
-can break the validate harness.
+(`migrated`, `unmigrated`, `blocks_total`, `coverage_pct`) used by explicit
+documentation builds — a change to that dict shape fails here before it can
+break generated views.
 
 ## Interfaces
 

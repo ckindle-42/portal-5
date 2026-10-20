@@ -25,14 +25,14 @@ that drive the doc-migration coverage figures.
 
 ## Why
 
-The migration gate's whole point is that a doc is migrated only when its
-factual content lives in a unit. The anti-gaming angle is the V2 refinement:
+The migration report's whole point is to identify docs whose factual content
+has been moved into units. The anti-gaming angle is the V2 refinement:
 an early migration could slap a `WIKI:HUMAN-OWNED` fence around everything and
 call the doc migrated, so V2 requires a `reason` on new fences and this test
 guards the strip logic that removes both fence generations. `doc_is_migrated`
 must be false when substantive prose survives outside the managed regions —
-that is the definition AW enforces at the doc level, and `fenced_human_lines`
-plus `human_owned_reasons` give the gate the fence inventory it needs to tell
+that is the definition the migration report applies at the doc level, and
+`fenced_human_lines` plus `human_owned_reasons` give it the fence inventory to tell
 a genuine human-owned block from a gaming fence.
 
 ## Interfaces

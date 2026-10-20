@@ -2,7 +2,7 @@
 
 # Portal 5 Architecture Map
 
-*Deterministic projection of 775 canonical units.*
+*Deterministic projection of 760 canonical units.*
 
 ## Knowledge Layer
 
@@ -62,7 +62,7 @@
 | `unit-HOWTO-7-document-generation` | why | 1 |
 | `unit-HOWTO-8-image-generation` | why | 1 |
 | `unit-HOWTO-9-video-generation` | why | 1 |
-| `unit-HOWTO-adding-new-capabilities` | why | 5 |
+| `unit-HOWTO-adding-new-capabilities` | why | 6 |
 | `unit-HOWTO-diarized-transcription-speaker-labeled-transcripts` | why | 2 |
 | `unit-HOWTO-discovery-with-fact-units` | why | 3 |
 | `unit-HOWTO-embed-media-in-documents` | why | 1 |
@@ -288,22 +288,8 @@
 | `unit-design-embedding-consumers-harness` | mixed | 22 |
 | `unit-design-ollama-native-dispatch` | why | 7 |
 | `unit-design-omlx-dual-backend-plumbing` | mixed | 12 |
-| `unit-design-spine-drift-census` | mixed | 4 |
+| `unit-design-spine-drift-census` | mixed | 7 |
 | `unit-design-wiki-archive-mechanism` | mixed | 5 |
-| `unit-fact-config-index` | mixed | 12 |
-| `unit-fact-doc-migration-coverage` | what | 1 |
-| `unit-fact-dockerfile-index` | mixed | 8 |
-| `unit-fact-env-reference` | mixed | 3 |
-| `unit-fact-launch-commands` | mixed | 3 |
-| `unit-fact-mcp-fleet` | what | 1 |
-| `unit-fact-media-memory-budget` | what | 1 |
-| `unit-fact-model-bindings` | what | 3 |
-| `unit-fact-model-catalog` | what | 1 |
-| `unit-fact-persona-roster` | what | 6 |
-| `unit-fact-security-variants` | what | 1 |
-| `unit-fact-tool-authorizations` | what | 1 |
-| `unit-fact-tool-registry` | what | 1 |
-| `unit-fact-workspace-roster` | what | 1 |
 | `unit-fixture-capability-context-sample` | mixed | 1 |
 | `unit-general-config-workspace-pointers` | mixed | 1 |
 | `unit-general-fast-deep-workspaces` | mixed | 2 |
@@ -574,7 +560,7 @@
 | `unit-model-catalog-vulnllm-r-7b-4bit` | what | 1 |
 | `unit-module-cad` | mixed | 10 |
 | `unit-module-coding` | mixed | 5 |
-| `unit-module-compliance` | mixed | 4 |
+| `unit-module-compliance` | mixed | 5 |
 | `unit-module-data` | mixed | 3 |
 | `unit-module-detection` | mixed | 4 |
 | `unit-module-documents` | mixed | 4 |
@@ -585,7 +571,7 @@
 | `unit-module-media` | mixed | 6 |
 | `unit-module-music` | mixed | 3 |
 | `unit-module-netforensics` | mixed | 4 |
-| `unit-module-research` | mixed | 4 |
+| `unit-module-research` | mixed | 5 |
 | `unit-module-security` | mixed | 5 |
 | `unit-module-video` | mixed | 4 |
 | `unit-module-vulnintel` | mixed | 3 |
@@ -618,7 +604,7 @@
 | `unit-persona-matrix-ci-persona-matrix-ci-operations` | what | 2 |
 | `unit-persona-matrix-ci-pipeline-shape` | what | 3 |
 | `unit-persona-matrix-ci-regression-triage-workflow` | what | 5 |
-| `unit-platform-retrieval` | mixed | 10 |
+| `unit-platform-retrieval` | mixed | 11 |
 | `unit-platform-retrieval-substrate-migration` | mixed | 4 |
 | `unit-platform-storage-config-facade` | mixed | 2 |
 | `unit-portal-conftest` | mixed | 1 |
@@ -665,7 +651,6 @@
 | `unit-readme-acceptance-testing` | what | 3 |
 | `unit-readme-architecture` | what | 4 |
 | `unit-readme-benchmark-workspaces-user-selected-only` | what | 4 |
-| `unit-readme-capability-rollup` | what | 4 |
 | `unit-readme-coding-tool-integration-claude-code-opencode` | what | 4 |
 | `unit-readme-common-commands` | what | 9 |
 | `unit-readme-core-models-pulled-automatically-on-first-run-4-gb` | what | 4 |
@@ -703,12 +688,12 @@
 | `unit-sec-core-decision_engine` | mixed | 1 |
 | `unit-sec-tests-test_security_mcp` | mixed | 1 |
 | `unit-security-capability-index` | mixed | 1 |
-| `unit-security-cli-pass-through` | mixed | 1 |
+| `unit-security-cli-pass-through` | mixed | 3 |
 | `unit-security-combined-corpus-validation` | why | 9 |
 | `unit-security-commands-namespace` | mixed | 1 |
 | `unit-security-commands-run` | mixed | 1 |
 | `unit-security-config-reserved` | mixed | 1 |
-| `unit-security-knowledge-surface` | mixed | 1 |
+| `unit-security-knowledge-surface` | mixed | 2 |
 | `unit-security-tools-mcp-surface` | mixed | 1 |
 | `unit-surface-acceptance` | mixed | 1 |
 | `unit-surface-archive-engine-h2h` | mixed | 1 |
@@ -718,7 +703,7 @@
 | `unit-surface-compliance-closeout-scripts` | mixed | 21 |
 | `unit-surface-compliance-prove-then-scale-scripts` | mixed | 1 |
 | `unit-surface-compliance-reading-truth` | what | 2 |
-| `unit-surface-inference` | mixed | 1 |
+| `unit-surface-inference` | mixed | 2 |
 | `unit-surface-inference-cli` | mixed | 1 |
 | `unit-surface-investigation` | mixed | 1 |
 | `unit-surface-mcp-host` | mixed | 1 |
@@ -774,7 +759,7 @@
 | `unit-wiki-adapter-modules` | mixed | 1 |
 | `unit-wiki-audit` | mixed | 1 |
 | `unit-wiki-interfaces` | mixed | 1 |
-| `unit-wiki-maintain` | mixed | 1 |
+| `unit-wiki-maintain` | mixed | 4 |
 | `unit-wiki-provenance-ledger` | mixed | 1 |
 | `unit-wiki-quality` | mixed | 1 |
 | `unit-wiki-schema` | mixed | 1 |
@@ -784,12 +769,12 @@
 | `unit-wiki-tests-render` | mixed | 1 |
 | `unit-wiki-writeback` | mixed | 1 |
 
-**Total:** 775 units
+**Total:** 760 units
 
 ## Source Distribution
 
 - **bench-security**: 1 references
-- **code**: 2094 references
+- **code**: 2061 references
 - **config**: 1 references
 - **data**: 1 references
 - **doc**: 2 references

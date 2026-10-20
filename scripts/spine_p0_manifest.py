@@ -1,7 +1,7 @@
 """P0.1 — keep/release/archive manifest (read-only, TASK_BULLY_P0_SPINE_REDUCTION_V1).
 
-KEEP-FACT: `claims` (A2) or `unit-fact-*` (A4). RELEASE: Tier-1-block prose,
-not volatile. ARCHIVE: prose-only, unreferenced. Writes SPINE_P0_MANIFEST.md."""
+KEEP-FACT: authored units carrying executable `claims`. RELEASE: referenced
+authored prose without claims. ARCHIVE: prose-only, unreferenced. Writes SPINE_P0_MANIFEST.md."""
 
 from __future__ import annotations
 
@@ -34,12 +34,10 @@ def classify(repo_root: Path | None = None) -> dict:
     for uid, u in sorted(units.items()):
         if u.claims:
             keep_fact[uid] = "carries executable claims (A2 anti-drift core)"
-        elif uid.startswith("unit-fact-"):
-            keep_fact[uid] = "live-config-derived volatile-fact unit (A4)"
         elif uid in referenced:
-            release[uid] = "prose feeding a Tier-1 WIKI:GENERATED block; not a volatile fact"
+            release[uid] = "authored prose feeding a Tier-1 WIKI:GENERATED block"
         else:
-            archive[uid] = "prose-only: no claim, no fact, not referenced by a live doc block"
+            archive[uid] = "prose-only: no claim and not referenced by a live doc block"
 
     return {
         "keep_fact": keep_fact,
@@ -66,8 +64,8 @@ def render_manifest(result: dict) -> str:
         "",
         "## KEEP-FACT",
         "",
-        "Executable-claims anti-drift core (A2) plus live-config-derived volatile",
-        "facts (A4). These keep a `WIKI:GENERATED` fence and stay AW-governed.",
+        "Executable-claims anti-drift core. These authored units retain live",
+        "probe claims; volatile fact units are computed on demand and not stored.",
         "",
         "| unit id | reason |",
         "|---|---|",
@@ -79,8 +77,8 @@ def render_manifest(result: dict) -> str:
         "## RELEASE",
         "",
         "Prose feeding a Tier-1 generated block with no live-probe claim and no",
-        "volatile fact. P0.3 collapses these blocks to plain prose and drops the",
-        "binding unit from the AW-governed set; P0.4 archives the now-orphaned unit.",
+        "volatile fact. A generated docs build can refresh the block when needed;",
+        "the unit is not subject to a fact-unit freshness gate.",
         "",
         "| unit id | reason |",
         "|---|---|",

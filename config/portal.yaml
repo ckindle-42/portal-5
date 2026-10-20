@@ -1,8 +1,9 @@
 # Portal 5 — single configuration source of truth
 # Edit this file to manage workspaces and MCP fleet.
 # Then run:  ./launch.sh sync-config
-# to regenerate:  config/backends.yaml workspace_routing, .mcp.json,
-#                 opencode.jsonc picker, imports/openwebui/workspaces/
+# to regenerate runtime artifacts: config/backends.yaml workspace_routing,
+#                 .mcp.json, imports/openwebui/workspaces/,
+#                 config/modules.generated.yaml
 #
 # backends: block in backends.yaml is NOT generated — it is the operator's
 # hand-edited cluster scaling interface (CLAUDE.md Rule 1).

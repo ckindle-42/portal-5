@@ -1,31 +1,16 @@
-"""Seed fact-deriving WHAT units — the handful of numbers that drift.
-
-DESIGN_WIKI_GENERATION_LOOP_V1.md F1. Unlike seed_code's structural
-subsystem summaries (scraped file lists), these units COMPUTE their body
-from live config on every run — persona/workspace counts, the security
-variant vocabulary, MCP fleet, model catalog, and (most importantly)
-reachability-resolved model bindings. Re-running re-derives from current
-HEAD and is idempotent: save_unit() overwrites by unit.id, so no churn
-when nothing changed.
-
-unit-fact-model-bindings is deliberately reachability-resolved (same
-logic as scripts/persona_intent_audit.py check 5 / RUN_THIS's GATE 1) —
-it reports what a workspace/persona actually SERVES, not what it claims,
-so the wiki surfaces a "pinned but unservable" gap at derivation time
-instead of by audit.
-"""
+"""Compute current fact units from config, code, and claims probes."""
 
 from __future__ import annotations
 
+import re
 import subprocess
-from collections.abc import Iterable
+from collections.abc import Callable, Iterable
 from pathlib import Path
 from typing import Any, cast
 
 import yaml
 
 from portal.platform.wiki.schema import KnowledgeUnit, SourceRef
-from portal.platform.wiki.store import load_unit, save_unit
 
 _REPO_ROOT = Path(__file__).resolve().parents[4]
 
@@ -81,46 +66,9 @@ def _make_unit(
     why: str = "",
     claims: list[dict[str, Any]] | None = None,
 ) -> KnowledgeUnit:
-    """Construct a fact-unit that only changes on disk when its BODY changes.
-
-    KnowledgeUnit.__post_init__ defaults created_at/updated_at to "now" for
-    any instance that doesn't already carry them — building a fresh
-    KnowledgeUnit on every derive call would bump both fields every single
-    run even when the body is byte-identical. Fix: when the body is
-    unchanged from what's stored, reuse the PRIOR unit's sources/timestamps
-    wholesale (a true no-op write). Only when the body differs do
-    sources/updated_at advance to the current call's values.
-
-    (P0 A1 removed the `last_generated_commit` pin this docstring used to
-    describe — this function no longer stamps one; `sources[].commit` is
-    unaffected provenance metadata, not the pin.)
-
-    `why` (if given) is appended as a `## Why` section so the fact unit
-    passes the universal quality gate (structure check requires one), and
-    `claims` binds any live quantity in the body to a probe (claim-binding
-    check). Both are stable across regenerations: the body includes `why`,
-    so an unchanged body reuses the prior stamp.
-    """
-    import time
-
+    """Construct an in-memory fact unit from live sources."""
     if why:
         body = body.rstrip() + "\n\n## Why\n\n" + why.strip()
-    prior = load_unit(unit_id)
-    prior_claims = (prior.claims or []) if prior else None
-    claims_match = claims is None or prior_claims == (claims or [])
-    if prior and prior.body.strip() == body.strip() and claims_match:
-        return KnowledgeUnit(
-            id=unit_id,
-            kind="what",
-            title=title,
-            sources=prior.sources,
-            body=body,
-            tags=tags,
-            confidence=confidence,
-            claims=prior.claims or [],
-            created_at=prior.created_at,
-            updated_at=prior.updated_at,
-        )
     return KnowledgeUnit(
         id=unit_id,
         kind="what",
@@ -130,12 +78,10 @@ def _make_unit(
         tags=tags,
         confidence=confidence,
         claims=claims or [],
-        created_at=prior.created_at if prior else 0.0,
-        updated_at=time.time() if prior else 0.0,
     )
 
 
-def derive_persona_roster(commit: str, save: bool = True) -> KnowledgeUnit:
+def derive_persona_roster(commit: str) -> KnowledgeUnit:
     """unit-fact-persona-roster — config/personas/*.yaml."""
     persona_files = sorted((_REPO_ROOT / "config" / "personas").glob("*.yaml"))
     rows = []
@@ -185,12 +131,10 @@ def derive_persona_roster(commit: str, save: bool = True) -> KnowledgeUnit:
             }
         ],
     )
-    if save:
-        save_unit(unit)
     return unit
 
 
-def derive_workspace_roster(commit: str, save: bool = True) -> KnowledgeUnit:
+def derive_workspace_roster(commit: str) -> KnowledgeUnit:
     """unit-fact-workspace-roster — config/portal.yaml."""
     portal_cfg = _load_yaml(_REPO_ROOT / "config" / "portal.yaml")
     ws = portal_cfg["workspaces"]
@@ -233,12 +177,10 @@ def derive_workspace_roster(commit: str, save: bool = True) -> KnowledgeUnit:
             }
         ],
     )
-    if save:
-        save_unit(unit)
     return unit
 
 
-def derive_security_variants(commit: str, save: bool = True) -> KnowledgeUnit:
+def derive_security_variants(commit: str) -> KnowledgeUnit:
     """unit-fact-security-variants — config/portal.yaml auto-security.variants."""
     portal_cfg = _load_yaml(_REPO_ROOT / "config" / "portal.yaml")
     variants = sorted((portal_cfg["workspaces"].get("auto-security") or {}).get("variants") or {})
@@ -274,12 +216,10 @@ def derive_security_variants(commit: str, save: bool = True) -> KnowledgeUnit:
             "keeps the documented target set and the live routing surface aligned."
         ),
     )
-    if save:
-        save_unit(unit)
     return unit
 
 
-def derive_model_bindings(commit: str, save: bool = True) -> KnowledgeUnit:
+def derive_model_bindings(commit: str) -> KnowledgeUnit:
     """unit-fact-model-bindings — backends.yaml + personas, reachability-resolved.
 
     Reports what a workspace/persona ACTUALLY serves (reachable via
@@ -366,12 +306,10 @@ def derive_model_bindings(commit: str, save: bool = True) -> KnowledgeUnit:
             "and is regenerated from the same config the router reads."
         ),
     )
-    if save:
-        save_unit(unit)
     return unit
 
 
-def derive_mcp_fleet(commit: str, save: bool = True) -> KnowledgeUnit:
+def derive_mcp_fleet(commit: str) -> KnowledgeUnit:
     """unit-fact-mcp-fleet — config/portal.yaml mcp_fleet."""
     portal_cfg = _load_yaml(_REPO_ROOT / "config" / "portal.yaml")
     fleet = portal_cfg.get("mcp_fleet", [])
@@ -407,12 +345,10 @@ def derive_mcp_fleet(commit: str, save: bool = True) -> KnowledgeUnit:
             }
         ],
     )
-    if save:
-        save_unit(unit)
     return unit
 
 
-def derive_model_catalog(commit: str, save: bool = True) -> KnowledgeUnit:
+def derive_model_catalog(commit: str) -> KnowledgeUnit:
     """unit-fact-model-catalog — config/backends.yaml, by backend group."""
     backends_cfg = _load_yaml(_REPO_ROOT / "config" / "backends.yaml")
     group_models = _group_models(backends_cfg)
@@ -450,8 +386,6 @@ def derive_model_catalog(commit: str, save: bool = True) -> KnowledgeUnit:
             }
         ],
     )
-    if save:
-        save_unit(unit)
     return unit
 
 
@@ -548,7 +482,7 @@ def _all_registered_tools() -> set[str]:
     return names
 
 
-def derive_tool_registry(commit: str, save: bool = True) -> KnowledgeUnit:
+def derive_tool_registry(commit: str) -> KnowledgeUnit:
     """unit-fact-tool-registry — registered tool defs per MCP server."""
     reg = _mcp_registry()
     total = sum(len(v) for v in reg.values())
@@ -584,12 +518,10 @@ def derive_tool_registry(commit: str, save: bool = True) -> KnowledgeUnit:
             "unreachable because no server registers them."
         ),
     )
-    if save:
-        save_unit(unit)
     return unit
 
 
-def derive_tool_authorizations(commit: str, save: bool = True) -> KnowledgeUnit:
+def derive_tool_authorizations(commit: str) -> KnowledgeUnit:
     """unit-fact-tool-authorizations — per-workspace tools: whitelist + reachability flag."""
     portal_cfg = _load_yaml(_REPO_ROOT / "config" / "portal.yaml")
     ws = portal_cfg["workspaces"]
@@ -632,8 +564,6 @@ def derive_tool_authorizations(commit: str, save: bool = True) -> KnowledgeUnit:
             "any MCP server actually exposes."
         ),
     )
-    if save:
-        save_unit(unit)
     return unit
 
 
@@ -666,7 +596,7 @@ MEDIA_MODEL_MEMORY_GB: dict[str, float] = {
 }
 
 
-def derive_media_memory_budget(commit: str, save: bool = True) -> KnowledgeUnit:
+def derive_media_memory_budget(commit: str) -> KnowledgeUnit:
     """unit-fact-media-memory-budget — per-media-backend GB estimates for VRAM admission."""
     body_lines = [
         "# Media backend memory budget (Tier 0, cross-engine VRAM admission)",
@@ -706,12 +636,10 @@ def derive_media_memory_budget(commit: str, save: bool = True) -> KnowledgeUnit:
             "unreviewed setting."
         ),
     )
-    if save:
-        save_unit(unit)
     return unit
 
 
-def derive_doc_migration_coverage(commit: str, save: bool = True) -> KnowledgeUnit:
+def derive_doc_migration_coverage(commit: str) -> KnowledgeUnit:
     """unit-fact-doc-migration-coverage — render_report() numbers from live state."""
     from portal.platform.wiki.render import render_report
 
@@ -756,12 +684,10 @@ def derive_doc_migration_coverage(commit: str, save: bool = True) -> KnowledgeUn
             "identical."
         ),
     )
-    if save:
-        save_unit(unit)
     return unit
 
 
-def derive_capability_rollup(commit: str, save: bool = True) -> KnowledgeUnit:
+def derive_capability_rollup(commit: str) -> KnowledgeUnit:
     """unit-readme-capability-rollup — one derived headline count by kind, every
     figure bound to a probe so BS fails the moment one drifts (Rule 12)."""
     from portal.platform.wiki.claims import probe
@@ -783,7 +709,7 @@ def derive_capability_rollup(commit: str, save: bool = True) -> KnowledgeUnit:
             "",
             "| Kind | Count | Source |",
             "|---|---|---|",
-            f"| Modules | {mods_on} enabled of {mods_all} | `config/modules.generated.yaml` |",
+            f"| Modules | {mods_on} modules enabled of {mods_all} modules total | `config/modules.generated.yaml` |",
             f"| Functional workspaces | {ws_func} | `config/portal.yaml` `workspaces` |",
             f"| Benchmark workspaces | {ws_bench} | `config/portal.yaml` `workspaces` (eval module) |",
             f"| Workspaces total | {ws_all} | `config/portal.yaml` `workspaces` |",
@@ -828,9 +754,78 @@ def derive_capability_rollup(commit: str, save: bool = True) -> KnowledgeUnit:
             {"probe": "mcp.fleet.entries", "pattern": "{value} MCP tool servers"},
         ],
     )
-    if save:
-        save_unit(unit)
     return unit
+
+
+def derive_config_index(commit: str) -> KnowledgeUnit:
+    """Compute the live config-file index."""
+    files = sorted((_REPO_ROOT / "config").glob("*.yaml"))
+    body_lines = [f"# Config files ({len(files)} config files)", ""]
+    body_lines += [f"- `{f.name}`" for f in files]
+    return _make_unit(
+        "unit-fact-config-index",
+        "Config files — the config/ tree index",
+        [SourceRef(type="code", path="config/", commit=commit)],
+        "\n".join(body_lines),
+        ["fact", "operator"],
+        why="The config index is computed from the live YAML files under `config/`.",
+        claims=[{"probe": "config.files", "pattern": "{value} config files"}],
+    )
+
+
+def derive_dockerfile_index(commit: str) -> KnowledgeUnit:
+    """Compute the live Dockerfile index."""
+    files = sorted(_REPO_ROOT.glob("Dockerfile*"))
+    body_lines = [f"# Dockerfiles ({len(files)} Dockerfiles)", ""]
+    body_lines += [f"- `{f.name}`" for f in files]
+    return _make_unit(
+        "unit-fact-dockerfile-index",
+        "Dockerfiles — the image-build index",
+        [SourceRef(type="code", path=f.name, commit=commit) for f in files]
+        or [SourceRef(type="code", path="Dockerfile.pipeline", commit=commit)],
+        "\n".join(body_lines),
+        ["fact", "operator"],
+        why="The image index is computed from the live root-level `Dockerfile*` files.",
+        claims=[{"probe": "dockerfiles", "pattern": "{value} Dockerfiles"}],
+    )
+
+
+def derive_env_reference(commit: str) -> KnowledgeUnit:
+    """Compute the current environment-variable name index."""
+    env_path = _REPO_ROOT / ".env.example"
+    names = re.findall(r"^#?\s*([A-Z][A-Z0-9_]{2,})=", env_path.read_text(), re.MULTILINE)
+    body_lines = [f"# Environment variables ({len(names)} env vars)", ""]
+    body_lines += [f"- `{name}`" for name in names]
+    return _make_unit(
+        "unit-fact-env-reference",
+        "Environment variables — the .env.example index",
+        [SourceRef(type="code", path=".env.example", commit=commit)],
+        "\n".join(body_lines),
+        ["fact", "operator"],
+        why="Environment variable names are read from the live `.env.example` file.",
+        claims=[{"probe": "env.vars", "pattern": "{value} env vars"}],
+    )
+
+
+def derive_launch_commands(commit: str) -> KnowledgeUnit:
+    """Compute the current launch.sh subcommand index."""
+    launch = (_REPO_ROOT / "launch.sh").read_text()
+    commands = sorted(set(re.findall(r"^\s+([a-z][a-z0-9-]+)\)", launch, re.MULTILINE)))
+    body_lines = [f"# Operator commands ({len(commands)} subcommands)", ""]
+    body_lines += [f"- `{command}`" for command in commands]
+    return _make_unit(
+        "unit-fact-launch-commands",
+        "Operator commands — the launch.sh surface",
+        [
+            SourceRef(type="code", path="launch.sh", commit=commit),
+            SourceRef(type="code", path="scripts/lib/services.sh", commit=commit),
+            SourceRef(type="code", path="scripts/lib/util.sh", commit=commit),
+        ],
+        "\n".join(body_lines),
+        ["fact", "operator"],
+        why="The command index is computed from the live `launch.sh` usage cases.",
+        claims=[{"probe": "launch.commands", "pattern": "{value} subcommands"}],
+    )
 
 
 _DERIVERS = (
@@ -845,36 +840,38 @@ _DERIVERS = (
     derive_media_memory_budget,
     derive_doc_migration_coverage,
     derive_capability_rollup,
+    derive_config_index,
+    derive_dockerfile_index,
+    derive_env_reference,
+    derive_launch_commands,
 )
 
+_DERIVERS_BY_ID: dict[str, Callable[[str], KnowledgeUnit]] = {
+    "unit-fact-persona-roster": derive_persona_roster,
+    "unit-fact-workspace-roster": derive_workspace_roster,
+    "unit-fact-security-variants": derive_security_variants,
+    "unit-fact-model-bindings": derive_model_bindings,
+    "unit-fact-mcp-fleet": derive_mcp_fleet,
+    "unit-fact-model-catalog": derive_model_catalog,
+    "unit-fact-tool-registry": derive_tool_registry,
+    "unit-fact-tool-authorizations": derive_tool_authorizations,
+    "unit-fact-media-memory-budget": derive_media_memory_budget,
+    "unit-fact-doc-migration-coverage": derive_doc_migration_coverage,
+    "unit-fact-config-index": derive_config_index,
+    "unit-fact-dockerfile-index": derive_dockerfile_index,
+    "unit-fact-env-reference": derive_env_reference,
+    "unit-fact-launch-commands": derive_launch_commands,
+    "unit-readme-capability-rollup": derive_capability_rollup,
+}
 
-def derive_facts(commit: str | None = None, *, save: bool = False) -> list[KnowledgeUnit]:
-    """Derive all fact units in memory, optionally saving the result."""
+
+def derive_facts(commit: str | None = None) -> list[KnowledgeUnit]:
+    """Derive current facts in memory without writing the canonical store."""
     commit = commit or _get_current_commit()
-    return [deriver(commit, save=save) for deriver in _DERIVERS]
+    return [deriver(commit) for deriver in _DERIVERS]
 
 
-def seed_facts(commit: str | None = None) -> list[KnowledgeUnit]:
-    """Derive/re-derive all fact units from current config. Idempotent."""
-    return derive_facts(commit, save=True)
-
-
-def check_facts_current(commit: str | None = None) -> list[str]:
-    """Read-only: which fact units would change if re-derived right now.
-
-    Does NOT write anything — derives each unit in memory (save=False) and
-    diffs its body against what's stored on disk. Used by the validate
-    gate to catch a forgotten `sync-config` before commit.
-    """
-    from portal.platform.wiki.store import load_unit
-
-    commit = commit or _get_current_commit()
-    drifted: list[str] = []
-    for fresh in derive_facts(commit, save=False):
-        stored = load_unit(fresh.id)
-        # KnowledgeUnit.from_markdown() strips the body on load (schema.py),
-        # so a save/load round-trip normalizes leading/trailing whitespace —
-        # compare stripped to match that normalization, not raw equality.
-        if stored is None or stored.body.strip() != fresh.body.strip():
-            drifted.append(fresh.id)
-    return drifted
+def computed_fact_unit(unit_id: str) -> KnowledgeUnit | None:
+    """Return one live fact unit by ID, or None for an authored unit ID."""
+    deriver = _DERIVERS_BY_ID.get(unit_id)
+    return deriver(_get_current_commit()) if deriver else None

@@ -29,15 +29,15 @@ The operator-facing manual is a set of reference docs at the repo root and under
 | [Backup & Restore](docs/BACKUP_RESTORE.md) | Data backup procedures |
 | [Known Issues](KNOWN_ISSUES.md) | Current limitations and workarounds |
 
-Most of these guides are generated shells whose substance lives in
-`portal_wiki/canonical/` fact-units and is rendered into `<!-- WIKI:GENERATED -->`
-blocks, so the docs stay current through `./launch.sh sync-config` rather than
-hand edits.
+Generated guide blocks are refreshed separately with `uv run portal docs
+build` when a release needs them. Live fact units are computed on demand by the
+wiki MCP and are not stored under `portal_wiki/canonical/`. Use `portal config
+show` for the current runtime configuration summary.
 
 ## Why
 
 The documentation is the operator contract, not a summary after the fact: the
 guides cover exactly the surfaces the platform exposes (tooling, accounts, alerts,
 media, clustering), so a new operator can find the answer for a feature without
-reading source. Coupling the generated guides to wiki units means a doc cannot
-silently drift from the config that produces it.
+reading source. Building generated guides explicitly keeps runtime artifact
+generation independent from documentation output.

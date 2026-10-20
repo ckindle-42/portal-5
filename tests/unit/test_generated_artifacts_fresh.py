@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import json
 import os
+import shutil
 import subprocess
 import sys
 from pathlib import Path
@@ -30,6 +31,29 @@ def _run_sync_config() -> str:
     return result.stdout
 
 
+def _write_scratch_sync_tree(root: Path) -> None:
+    shutil.copytree(REPO / "config", root / "config")
+    shutil.copy2(REPO / ".mcp.json", root / ".mcp.json")
+    shutil.copy2(REPO / "opencode.jsonc", root / "opencode.jsonc")
+    shutil.copytree(
+        REPO / "imports" / "openwebui" / "workspaces",
+        root / "imports" / "openwebui" / "workspaces",
+    )
+    (root / "docs").mkdir()
+    (root / "portal_wiki" / "canonical").mkdir(parents=True)
+    (root / "docs" / "ADMIN_GUIDE.md").write_text(
+        "<!-- WIKI:GENERATED unit=unit-fact-workspace-roster -->\nstale\n"
+        "<!-- /WIKI:GENERATED -->\n",
+        encoding="utf-8",
+    )
+
+
+def _snapshot(root: Path) -> dict[str, bytes]:
+    return {
+        str(path.relative_to(root)): path.read_bytes() for path in root.rglob("*") if path.is_file()
+    }
+
+
 def test_sync_config_runs_without_error() -> None:
     """sync-config must exit 0 with the current portal.yaml."""
     output = _run_sync_config()
@@ -43,6 +67,51 @@ def test_sync_config_is_idempotent() -> None:
     assert "no change" in output or "0 created, 0 updated, 0 removed" in output, (
         f"sync-config was not idempotent:\n{output}"
     )
+
+
+def test_model_swap_sync_writes_only_runtime_artifacts(tmp_path, monkeypatch):
+    from portal.platform.inference import config as config_module
+    from portal.platform.inference import sync_config
+    from portal.platform.wiki import store
+    from portal.platform.wiki.adapters import modules, seed_facts
+
+    _write_scratch_sync_tree(tmp_path)
+    portal_yaml = tmp_path / "config" / "portal.yaml"
+    portal_cfg = yaml.safe_load(portal_yaml.read_text())
+    workspace = next(name for name in portal_cfg["workspaces"] if name.startswith("auto-"))
+    old_hint = portal_cfg["workspaces"][workspace]["model_hint"]
+    portal_cfg["workspaces"][workspace]["model_hint"] = "model-swap-test"
+    portal_yaml.write_text(yaml.safe_dump(portal_cfg), encoding="utf-8")
+    monkeypatch.setattr(sync_config, "REPO", tmp_path)
+    monkeypatch.setattr(config_module, "PORTAL_YAML", portal_yaml)
+    monkeypatch.setattr(config_module, "_CONFIG_CACHE", None)
+    monkeypatch.setattr(seed_facts, "_REPO_ROOT", tmp_path)
+    monkeypatch.setattr(modules, "launched_mcp_ids", lambda _mods=None: [])
+    monkeypatch.setattr(modules, "enabled_modules", lambda: ["general"])
+    monkeypatch.setattr(modules, "owui_workspaces", lambda _mods=None: [])
+    monkeypatch.setenv("PORTAL_SYNC_SKIP_PIPELINE_CHECK", "1")
+    monkeypatch.chdir(tmp_path)
+    assert portal_cfg["workspaces"][workspace]["model_hint"] != old_hint
+    store.set_canonical_dir(tmp_path / "portal_wiki" / "canonical")
+    before = _snapshot(tmp_path)
+    try:
+        assert sync_config.main() == 0
+    finally:
+        store.reset_canonical_dir()
+
+    after = _snapshot(tmp_path)
+    changed = {path for path in before.keys() | after.keys() if before.get(path) != after.get(path)}
+    allowed = {
+        "config/backends.yaml",
+        ".mcp.json",
+        "config/modules.generated.yaml",
+    }
+    unexpected = {
+        path
+        for path in changed
+        if path not in allowed and not path.startswith("imports/openwebui/workspaces/")
+    }
+    assert not unexpected, f"sync-config changed non-runtime paths: {sorted(unexpected)}"
 
 
 def test_backends_yaml_workspace_routing_matches_catalog() -> None:

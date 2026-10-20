@@ -1,15 +1,6 @@
-"""Executable claims — the missing link between a unit's prose and live reality.
+"""Executable claims bind authored and computed fact text to live probes.
 
-The generation loop guarantees that a Tier-1 doc's `WIKI:GENERATED` block equals
-its unit's body. It does not guarantee that the body is *true*. Measured at the
-commit this module landed: 567 generated blocks across 25 Tier-1 docs, of which
-7 (1.2%) came from a machine-derived `unit-fact-*` unit. The other 560 are
-authored prose that the AW gate certifies as "current" by comparing a copy with
-its own source — so README could claim 60 benchmark workspaces and 22 MCP
-servers against a live 65 and 21 with every gate green.
-
-A claim closes that loop for the facts that are actually checkable. A unit
-declares, in frontmatter, where in its body a live quantity appears:
+A unit declares, in frontmatter, where in its body a live quantity appears:
 
     claims:
     - probe: workspaces.bench
@@ -481,13 +472,3 @@ def claim_count(units: Sequence[KnowledgeUnit] | None = None) -> int:
 
         units = load_all()
     return sum(len(getattr(u, "claims", None) or []) for u in units)
-
-
-def fact_unit_ids(units: Sequence[KnowledgeUnit] | None = None) -> set[str]:
-    """KEEP-FACT set (P0 A2/A4): units with `claims` plus `unit-fact-*`. The
-    only set AW's generated-block-currency check governs post-P0."""
-    if units is None:
-        from portal.platform.wiki.store import load_all
-
-        units = load_all()
-    return {u.id for u in units if (getattr(u, "claims", None) or u.id.startswith("unit-fact-"))}

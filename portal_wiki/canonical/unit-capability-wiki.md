@@ -10,9 +10,7 @@ sources:
   path: portal_wiki/wiki_mcp.py
 - type: code
   path: scripts/native-mcp-service.sh
-claims:
-- probe: wiki.canonical.units
-  pattern: '{value} canonical units'
+claims: []
 confidence: high
 tags:
 - capability
@@ -27,8 +25,7 @@ updated_at: 1791551932
 ## What
 
 The Wiki MCP (`portal_wiki/wiki_mcp.py`, port 8931) is a host-native service
-that serves the canonical knowledge layer in `portal_wiki/canonical/` — 775 canonical units. It is pipeline- and IDE-exposed and is the discovery index
-the whole documentation system is built on.
+that serves the canonical knowledge layer in `portal_wiki/canonical/` — authored canonical units — plus fact units computed from live sources on demand. It is pipeline- and IDE-exposed and is the discovery index the whole documentation system is built on.
 
 ## How it's used
 

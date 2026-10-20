@@ -258,12 +258,11 @@ def test_bs_check_passes_when_declared_number_is_correct(tmp_path, monkeypatch):
     assert status == "PASS", detail
 
 
-# ── P0 regression: a fact change regenerates + commits in one commit ────────
+# ── Computed facts return in memory without canonical writes ────────────────
 
 
-def test_fact_unit_regeneration_touches_no_pin_field(tmp_path, monkeypatch):
-    """Exit criterion: a live-count re-derivation is single-commit — no pin
-    field left to bump in a second commit."""
+def test_fact_unit_derivation_does_not_write_canonical_store(tmp_path):
+    """Derived fact units are returned in memory and leave the store untouched."""
     from portal.platform.wiki import store as store_mod
     from portal.platform.wiki.adapters.seed_facts import derive_persona_roster
 
@@ -271,17 +270,9 @@ def test_fact_unit_regeneration_touches_no_pin_field(tmp_path, monkeypatch):
     canonical.mkdir()
     store_mod.set_canonical_dir(canonical)
     try:
-        unit = derive_persona_roster("deadbeef", save=True)
-        on_disk = (canonical / f"{unit.id}.md").read_text(encoding="utf-8")
-        assert "last_generated_commit" not in on_disk
-
-        # Re-deriving with a *different* commit but unchanged live config must
-        # produce a byte-identical file — there is nothing left that a mere
-        # HEAD advance would need to re-stamp.
-        before = on_disk
-        derive_persona_roster("cafef00d", save=True)
-        after = (canonical / f"{unit.id}.md").read_text(encoding="utf-8")
-        assert before == after
+        unit = derive_persona_roster("deadbeef")
+        assert unit.id == "unit-fact-persona-roster"
+        assert list(canonical.iterdir()) == []
     finally:
         store_mod.reset_canonical_dir()
 

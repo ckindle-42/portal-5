@@ -142,7 +142,6 @@ from scripts.validation.wiki import (  # noqa: E402, F401
     check_spine_code_coverage,
     check_spine_drift,
     check_wiki_core,
-    check_wiki_facts_current,
 )
 
 

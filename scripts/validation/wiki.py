@@ -100,172 +100,6 @@ def check_wiki_core() -> tuple[str, str, list[dict]]:
 
 
 @register(
-    "docs_generated_current",
-    "AK. docs/generated POC projections current (live unit count)",
-    order=36,
-)
-def check_docs_generated_current() -> tuple[str, str, list[dict]]:
-    """AK. The docs/generated/ POC renders must project the live unit count.
-
-    `render_admin_guide` / `render_architecture_map` are refreshed by
-    `python3 -m portal_wiki render --all`, **not** by `sync-config`, so they can
-    silently freeze against a stale canonical set while every other gate stays
-    green. Parse the `*Deterministic projection of N canonical units.*` line in
-    every `docs/generated/*.md` and HARD-FAIL when N differs from the live
-    `portal_wiki/canonical/*.md` count — staleness then fails the push-time
-    `validate-system` hook instead of shipping a misleading projection.
-    """
-    import re
-
-    live = len(list((REPO_ROOT / "portal_wiki" / "canonical").glob("*.md")))
-    violations: list[str] = []
-    for p in sorted((REPO_ROOT / "docs" / "generated").glob("*.md")):
-        m = re.search(
-            r"Deterministic projection of (\d+) canonical units", p.read_text(encoding="utf-8")
-        )
-        if m and int(m.group(1)) != live:
-            violations.append(f"{p.name}: projects {m.group(1)} units, live is {live}")
-    if violations:
-        return (
-            "FAIL",
-            "; ".join(violations) + " — run `python3 -m portal_wiki render --all`",
-            [
-                {
-                    "name": "docs/generated projections match live unit count",
-                    "status": "FAIL",
-                    "detail": "; ".join(violations),
-                }
-            ],
-        )
-    return (
-        "PASS",
-        f"docs/generated projections match the live canonical count ({live})",
-        [
-            {
-                "name": "docs/generated projections match live unit count",
-                "status": "PASS",
-                "detail": f"all project {live} units",
-            }
-        ],
-    )
-
-
-@register(
-    "wiki_facts_current",
-    "AW. wiki facts current (fact-units only, P0 A4)",
-    order=47,
-)
-def check_wiki_facts_current() -> tuple[str, str, list[dict]]:
-    """AW. Wiki fact-units are current vs live config, and every KEEP-FACT
-    generated doc block matches its unit's current body.
-
-    DESIGN_WIKI_GENERATION_LOOP_V1.md F3 — the precise replacement for a
-    coarse "a bound directory changed" doc-currency signal on the docs
-    that now carry generated fact-blocks: read-only diff of each
-    fact-unit's would-be body against what's stored, plus every
-    `<!-- WIKI:GENERATED unit=... -->` block bound to a KEEP-FACT unit in
-    the Tier-1 docs against its unit's current body. A mismatch here is
-    precise ("unit says 138, doc block says 130"), not "a directory
-    changed, re-stamp" — it means `sync-config` was not re-run after a
-    source change before commit.
-
-    P0 A4 scoped this check to the KEEP-FACT set (`claims.fact_unit_ids`) —
-    released prose carries no AW currency requirement, editing it is not a
-    `sync-config` event.
-
-    Additionally enforces A1: a doc that has graduated to "migrated" status
-    must have zero substantive remainder (no hand-edited facts outside
-    WIKI:GENERATED or WIKI:HUMAN-OWNED fences). Edit the unit, not the shell.
-    """
-    from portal.platform.wiki.adapters.seed_facts import check_facts_current
-    from portal.platform.wiki.claims import fact_unit_ids
-    from portal.platform.wiki.migration import substantive_remainder
-    from portal.platform.wiki.render import check_generated_blocks_current, render_report
-    from portal.platform.wiki.store import load_all
-
-    subs: list[dict] = []
-
-    stale_units = check_facts_current()
-    subs.append(
-        {
-            "name": "fact-units vs live config",
-            "status": "PASS" if not stale_units else "FAIL",
-            "detail": ", ".join(stale_units) if stale_units else "all current",
-        }
-    )
-
-    fact_ids = fact_unit_ids(load_all())
-    drift = check_generated_blocks_current(REPO_ROOT, unit_ids=fact_ids)
-    subs.append(
-        {
-            "name": "generated doc blocks vs units (fact-units only, A4)",
-            "status": "PASS" if not drift else "FAIL",
-            "detail": "; ".join(drift) if drift else "all match",
-        }
-    )
-
-    # A1 enforcement: a migrated doc must have zero substantive remainder.
-    # If someone hand-edits a migrated doc's meat (outside fences), catch it.
-    report = render_report(REPO_ROOT)
-    violations: list[str] = []
-    for rel in report["migrated"]:
-        p = REPO_ROOT / rel
-        if p.exists():
-            remainder = substantive_remainder(p.read_text(encoding="utf-8"))
-            if remainder:
-                violations.append(rel)
-    subs.append(
-        {
-            "name": "migrated docs have no un-fenced substance",
-            "status": "PASS" if not violations else "FAIL",
-            "detail": (
-                "; ".join(f"{v}: hand-edited substance outside fences" for v in violations)
-                if violations
-                else "all clean"
-            ),
-        }
-    )
-
-    # V2 enforcement: HUMAN-OWNED fences must be reasoned and bounded.
-    from portal.platform.wiki.migration import human_owned_reasons
-    from portal.platform.wiki.render import TIER1_DOCS
-
-    fence_violations: list[str] = []
-    for rel in TIER1_DOCS:
-        p = REPO_ROOT / rel
-        if not p.exists():
-            continue
-        text = p.read_text(encoding="utf-8")
-        reasons = human_owned_reasons(text)
-        if any(r == "[MISSING]" for r in reasons):
-            fence_violations.append(f"{rel}: unreasoned HUMAN-OWNED fence")
-    for rel in report.get("gamed", []):
-        fence_violations.append(f"{rel}: gamed (fence-everything, not real migration)")
-    subs.append(
-        {
-            "name": "HUMAN-OWNED fences are reasoned + bounded",
-            "status": "PASS" if not fence_violations else "FAIL",
-            "detail": "; ".join(fence_violations)
-            if fence_violations
-            else "all reasoned and bounded",
-        }
-    )
-
-    if stale_units or drift or violations or fence_violations:
-        detail = (
-            f"{len(stale_units)} fact-unit(s) stale, {len(drift)} doc block(s) drifted, "
-            f"{len(violations)} migrated doc(s) with un-fenced substance, "
-            f"{len(fence_violations)} fence violation(s) — run sync-config / edit units"
-        )
-        return ("FAIL", detail, subs)
-    return (
-        "PASS",
-        "fact-units current, all generated blocks match, migrated docs clean, fences reasoned",
-        subs,
-    )
-
-
-@register(
     "spine_code_coverage",
     "BR. spine coverage (every module, MCP and platform package has a unit)",
     order=68,
@@ -364,9 +198,8 @@ def _surface_manifests_differ(committed: list[dict], fresh: list[dict]) -> bool:
 def check_spine_drift() -> tuple[str, str, list[dict]]:
     """BS. The spine's content is true, not merely self-consistent.
 
-    AW proves a generated block equals its unit's body; BR proves a new code
-    surface is cited by some unit. Neither asks whether the body is *correct*.
-    At the commit this gate landed, both were green while README asserted 60
+    BR proves a new code surface is cited by some unit. This check asks whether
+    declared claims still match live probes. At the commit this gate landed, README asserted 60
     benchmark workspaces against a live 65 and 22 MCP servers against a live 21.
 
     Two axes, both HARD FAIL, neither baselinable:
@@ -379,11 +212,12 @@ def check_spine_drift() -> tuple[str, str, list[dict]]:
     body was still true and only forced a two-commit re-pin dance. No pin
     axis to restore.
     """
+    from portal.platform.wiki.adapters.seed_facts import derive_facts
     from portal.platform.wiki.claims import claim_count, evaluate_claims
     from portal.platform.wiki.drift import broken_path_refs
     from portal.platform.wiki.store import load_all
 
-    units = load_all()
+    units = load_all() + derive_facts()
     violations = evaluate_claims(units, REPO_ROOT)
     refs = broken_path_refs(REPO_ROOT)
 
@@ -652,9 +486,9 @@ def check_config_index_complete() -> tuple[str, str, list[dict]]:
     cannot discover from the wiki. Absolute: the index unit must name every
     live file in the config directory.
     """
-    from portal.platform.wiki.store import load_unit
+    from portal.platform.wiki.adapters.seed_facts import computed_fact_unit
 
-    unit = load_unit("unit-fact-config-index")
+    unit = computed_fact_unit("unit-fact-config-index")
     body = unit.body if unit else ""
     missing = [f.name for f in sorted((REPO_ROOT / "config").glob("*.yaml")) if f.name not in body]
     if missing:
@@ -693,9 +527,9 @@ def check_dockerfile_index_complete() -> tuple[str, str, list[dict]]:
     A new image with no index entry is an undocumented build surface. Absolute:
     the index unit must name every live Dockerfile in the repo root.
     """
-    from portal.platform.wiki.store import load_unit
+    from portal.platform.wiki.adapters.seed_facts import computed_fact_unit
 
-    unit = load_unit("unit-fact-dockerfile-index")
+    unit = computed_fact_unit("unit-fact-dockerfile-index")
     body = unit.body if unit else ""
     missing = [f.name for f in sorted(REPO_ROOT.glob("Dockerfile*")) if f.name not in body]
     if missing:

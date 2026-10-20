@@ -69,7 +69,11 @@ def wiki_search(query: str, top_k: int = 10) -> dict[str, Any]:
     Returns:
         dict with matching units and their citations.
     """
-    units = load_all()
+    from portal.platform.wiki.adapters.seed_facts import derive_facts
+
+    units_by_id = {unit.id: unit for unit in load_all()}
+    units_by_id.update({unit.id: unit for unit in derive_facts()})
+    units = list(units_by_id.values())
     query_words = query.lower().split()
     results = []
 
@@ -122,7 +126,9 @@ def wiki_get_unit(unit_id: str) -> dict[str, Any]:
     Returns:
         dict with full unit content and citations.
     """
-    unit = load_unit(unit_id)
+    from portal.platform.wiki.adapters.seed_facts import computed_fact_unit
+
+    unit = computed_fact_unit(unit_id) or load_unit(unit_id)
     if not unit:
         return {"error": f"Unit '{unit_id}' not found"}
 

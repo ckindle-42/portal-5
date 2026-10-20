@@ -30,14 +30,12 @@ def canonical_snapshot_hash() -> str:
     return hashlib.sha256(content.encode()).hexdigest()[:16]
 
 
-def _regenerate_derived_units(current_commit: str) -> list[KnowledgeUnit]:
-    """Build every machine-derived unit in memory without writing the store."""
+def _regenerate_derived_units() -> list[KnowledgeUnit]:
+    """Build code-seeded units in memory without writing the store."""
     from portal.platform.plugins import wiki_seeders
     from portal.platform.wiki.adapters.seed_code import seed_code
-    from portal.platform.wiki.adapters.seed_facts import derive_facts
 
     units = seed_code(dry_run=True)
-    units += derive_facts(current_commit, save=False)
     for seeder in wiki_seeders():
         units += seeder(True)
     return units
@@ -52,13 +50,13 @@ def check_staleness(
 
     Advancing HEAD alone does not make an authored canonical unit stale.
     Authored units are the spine; provenance is navigation, not reverse
-    authority. Machine-derived facts/code/signatures are stale only when their
-    would-be body differs from the canonical body.
+    authority. Stored code-derived units are stale only when their would-be
+    body differs from the canonical body. Live fact units are resolved by MCP.
     """
     del repo_root  # retained for backward-compatible callers
     units = {unit.id: unit for unit in load_all()}
     if regenerated_units is None:
-        regenerated_units = _regenerate_derived_units(current_commit)
+        regenerated_units = _regenerate_derived_units()
     fresh_by_id = {unit.id: unit for unit in regenerated_units}
     stale: list[dict[str, Any]] = []
     for fresh in fresh_by_id.values():

@@ -30,9 +30,10 @@ no re-stamp on ordinary edits, no two-commit dance.
 - `scripts/repin_stale.py` and the `chore(spine): re-pin units stale after
   <change>` commit pattern it produced.
 
-A fact change — editing a `unit-fact-*` body, or running `sync-config` to
-re-derive one from live config — is **one commit**. There is no pin to
-re-stamp in a second commit.
+Computed `unit-fact-*` units are not edited or stored; the wiki MCP derives
+them from live inputs on demand. Authored knowledge changes are made in
+canonical units. `sync-config` writes runtime artifacts, and generated docs
+are refreshed separately with `portal docs build` when needed.
 
 ## What P0 kept (A2/A3) — the anti-drift core
 
@@ -48,22 +49,20 @@ re-stamp in a second commit.
   every declared surface has a covering, gate-passing unit; every eligible
   `.py` file falls under some declared surface.
 
-## What P0 changed (A4) — AW scope
+## Current fact and documentation lifecycle
 
-`scripts/validation/wiki.py::check_wiki_facts_current` (AW) now governs only
-the **KEEP-FACT set** (`claims.fact_unit_ids()`: units carrying executable
-`claims`, plus `unit-fact-*` live-config-derived units) — not every unit
-that happens to feed a Tier-1 `WIKI:GENERATED` block. Editing ordinary prose
-in a Tier-1 doc (the 555 blocks P0.3 collapsed back to plain text across 25
-docs) triggers **no** `sync-config` obligation and **no** AW failure. A
-KEEP-FACT block going stale — the doc block copy diverging from its unit's
-current body — still fails AW exactly as before.
+The former AW generated-doc and fact-unit freshness check is retired.
+Computed facts are produced in memory by the wiki MCP and checked with
+authored claims against live probes. `sync-config` owns runtime artifacts
+only; it does not render docs or persist computed facts. `portal docs build`
+is the separate documentation render command.
 
-## What P0 shrank (A5) — corpus reduction, and where it stopped
+## Historical P0 reduction snapshot (A5) — before B2/B5
 
 P0.1's manifest classified all 719 canonical units at P0's start:
 
-- **KEEP-FACT (14)**: kept, fenced, AW-governed.
+- **KEEP-FACT (14)**: then kept as stored, fenced facts. B2 later removed the
+  computed fact snapshots and serves them on demand through the wiki MCP.
 - **RELEASE (552)**: prose feeding a generated block with no claim and no
   volatile fact. P0.3 un-fenced every one back to plain prose in its Tier-1
   doc(s) — this is the reduction that actually landed: the AW/fence tax on
@@ -86,15 +85,11 @@ rule working as designed, not a P0 shortfall: archiving prose whose
 assertions a live file still determines would strand real grounding, and P0
 does not weaken `check_archivable` to force a bigger number.
 
-**Consequence for the exit criteria**: `portal_wiki/canonical/` still holds
-719 files after P0 — the file-count shrink A5 anticipated does not land for
-this corpus without further, non-mechanical work (a `--superseded-by`
-editorial pass per unit, or an operator-approved change to what counts as
-archivable). What *does* land, unconditionally, is A4's tax removal (P0.3) —
-the load-bearing exit criterion ("editing ordinary prose triggers no
-`sync-config` / AW obligation") — which does not depend on file count. This
-gap between "the fence tax is gone" and "the corpus is smaller" is flagged
-here for operator review rather than closed by weakening a safety check.
+**Consequence at P0 close**: the canonical store held 719 files; the file-count
+shrink A5 anticipated did not land for that corpus without further,
+non-mechanical work. B2/B5 later removed 15 persisted computed fact snapshots
+and retired fact/document freshness gates. The current store count may change
+as authored units change and is reported by the live manifest generator.
 
 Archiving (for whatever P0.4 does move, and for any future
 `--superseded-by` pass) is a move to `portal_wiki/archive/`, never a delete
@@ -110,20 +105,18 @@ Portal 5 runtime code path. No config change follows.
 
 ## Validator catalogue, post-P0
 
-The wiki/spine family in `scripts/validation/wiki.py` is five checks:
+The current wiki/spine family in `scripts/validation/wiki.py` is four checks:
 
 | Check | Letter | What it proves |
 |---|---|---|
 | `wiki_core` | AJ | schema + provenance + import-clean + MCP tools importable |
-| `wiki_facts_current` | AW | KEEP-FACT units current vs live config; their generated blocks match; migrated docs carry no un-fenced substance |
 | `spine_code_coverage` | BR | every declared surface covered; every eligible file under a declared surface; manifest fresh |
 | `spine_drift` | BS | claims hold (HARD-FAIL); no dead Tier-1 doc path refs (HARD-FAIL) |
 | `archive_reachability` | BT | no live unit or doc block reaches an archived id |
 
 The pins/phantom sub-checks that used to sit inside BS are gone from this
-catalogue — not disabled, not baselined, removed. `scripts/validate_system.py`
-holds this same five-check set for the wiki family (see its docstring/check
-list for the authoritative registration order).
+catalogue — not disabled, not baselined, removed. AW fact/document freshness
+is also retired. `scripts/validate_system.py` holds this four-check wiki set.
 
 ## Rollback
 

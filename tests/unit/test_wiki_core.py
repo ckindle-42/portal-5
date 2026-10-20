@@ -512,6 +512,42 @@ class TestMCPTools:
         finally:
             reset_canonical_dir()
 
+    def test_fact_unit_is_live_and_searchable_without_storage(self, tmp_path, monkeypatch):
+        from portal.platform.wiki.adapters import seed_facts
+        from portal_wiki.mcp import wiki_get_unit, wiki_search
+
+        config_dir = tmp_path / "config"
+        config_dir.mkdir()
+        config_path = config_dir / "portal.yaml"
+        config_path.write_text(
+            "workspaces:\n  demo:\n    module: general\n    model_hint: model-a\n",
+            encoding="utf-8",
+        )
+        monkeypatch.setattr(seed_facts, "_REPO_ROOT", tmp_path)
+        monkeypatch.setattr(
+            seed_facts,
+            "derive_facts",
+            lambda: [seed_facts.derive_workspace_roster("test")],
+        )
+        canonical = tmp_path / "canonical"
+        set_canonical_dir(canonical)
+        try:
+            before = wiki_get_unit("unit-fact-workspace-roster")
+            assert "model-a" in before["body"]
+
+            config_path.write_text(
+                "workspaces:\n  demo:\n    module: general\n    model_hint: model-b\n",
+                encoding="utf-8",
+            )
+            after = wiki_get_unit("unit-fact-workspace-roster")
+            search = wiki_search("demo model-b")
+
+            assert "model-b" in after["body"]
+            assert any(row["unit_id"] == "unit-fact-workspace-roster" for row in search["results"])
+            assert not (canonical / "unit-fact-workspace-roster.md").exists()
+        finally:
+            reset_canonical_dir()
+
     def test_wiki_get_unit_not_found(self, tmp_path):
         set_canonical_dir(tmp_path)
         try:
@@ -544,9 +580,12 @@ class TestMCPTools:
         finally:
             reset_canonical_dir()
 
-    def test_wiki_explain_no_results(self, tmp_path):
+    def test_wiki_explain_no_results(self, tmp_path, monkeypatch):
         set_canonical_dir(tmp_path)
         try:
+            from portal.platform.wiki.adapters import seed_facts
+
+            monkeypatch.setattr(seed_facts, "derive_facts", lambda: [])
             from portal_wiki.mcp import wiki_explain
 
             result = wiki_explain("nonexistent topic xyz")

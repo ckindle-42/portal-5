@@ -25,11 +25,11 @@ For each doc `D` returned by `discover_unmigrated_docs()`, processed highest pri
 1. Read `D` and read HEAD reality; verify every substantive claim against actual code, config, or data and author units from HEAD truth, never from stale prose.
 2. Decompose `D` into section-level units, reserving fact-atom decomposition for values that are reused or independently volatile (see the section-granularity unit).
 3. Convert `D` into a shell whose substance is `WIKI:GENERATED` blocks plus `WIKI:HUMAN-OWNED` fences for the irreducible judgment.
-4. Render through `sync-config`, which invokes `render_all_generated_blocks`, then prove round-trip: an edit to the unit propagates and a hand-edit inside a generated fence is clobbered.
+4. Render through `uv run portal docs build`, then prove round-trip: an edit to the unit propagates and a hand-edit inside a generated fence is clobbered.
 5. Verify the per-commit gate is green, commit, then re-discover and continue.
 
 Each doc lands as one atomic commit, the repo is green after every commit, and the loop is resumable at any point without cleanup.
 
 ## Why
 
-The procedure is a fixed loop body because a migration that cannot be verified at each step silently degrades into docs-are-the-source authoring. Rendering through `sync-config` and proving propagation and clobbering closes the loop. The atomic-commit rule keeps every intermediate state buildable, which is what makes the loop safe to interrupt and resume. The legacy commit-stamp ledger (the `docs`-tree ledger file and its `scripts`-tree pruning script) was deleted in TASK_WIKI_ZERO_DEBT_V1 once its empty state made `AK` a no-op; discovery now collapses to the Tier-1 set and AW diffs generated blocks against unit bodies directly.
+The procedure is a fixed loop body because a migration that cannot be verified at each step silently degrades into docs-are-the-source authoring. Rendering through the separate docs build and proving propagation and clobbering closes the loop. The atomic-commit rule keeps every intermediate state buildable, which makes the loop safe to interrupt and resume. Runtime artifact generation remains independent of documentation output.

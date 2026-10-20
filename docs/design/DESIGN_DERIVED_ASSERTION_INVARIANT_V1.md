@@ -13,11 +13,12 @@
 **DAI-3.** A validator detects missing, broken, or unsupported links without re-executing the producer.
 
 At this HEAD the wiki is not a complete DAI reference implementation. It has
-mechanical source resolution, derived-body freshness, coverage, executable
+mechanical source resolution, live fact computation, coverage, executable
 claim-vs-probe checks, and archive reachability, but its `SourceRef` is supplied
 by the unit author and its old `last_generated_commit` pin axis was removed
-(`portal/platform/wiki/schema.py:16-40`, `portal/platform/wiki/drift.py:14-21`).
-The current tree therefore demonstrates parts of DAI-1/DAI-3 but not strong
+(`portal/platform/wiki/schema.py`, `portal/platform/wiki/drift.py`). Generated
+fact snapshots and doc freshness checks are also retired; `portal docs build`
+is explicit. The current tree demonstrates parts of DAI-1/DAI-3 but not strong
 DAI-2 or general claim-to-source SUPPORT. The supplied thesis counts
 631/631, 1128 fresh pins, 0 stale, and 0 phantom are not current-tree facts and
 are intentionally not repeated as design premises.
@@ -34,10 +35,12 @@ platform contract, not propagation of a proven wiki pin mechanism.
 | FRESHNESS | the target or derived projection has not changed without recomputation | stale derived material |
 | SUPPORT | the target actually licenses the assertion | citation mismatch |
 
-Current wiki checks cover the first three only in domain-specific/mechanical
-ways. BS's executable claims are the useful seed for SUPPORT, but its path-ref
-axis does not establish that a `SourceRef` licenses the prose
-(`scripts/validation/wiki.py:360-423`, `portal/platform/wiki/drift.py:9-21`).
+Current wiki checks cover existence/resolution and probe-backed support in
+domain-specific/mechanical ways; they do not verify persisted derived
+projections because those are no longer stored. BS's executable claims are the
+useful seed for SUPPORT, but its path-ref axis does not establish that a
+`SourceRef` licenses the prose (`scripts/validation/wiki.py`,
+`portal/platform/wiki/drift.py`).
 
 ## 3. Four instances
 
@@ -45,10 +48,11 @@ axis does not establish that a `SourceRef` licenses the prose
 
 The unit schema stores authored `SourceRef` values (`type`, `path`, optional
 `commit`, optional `section`) and requires at least one source
-(`portal/platform/wiki/schema.py:16-40`, `portal/platform/wiki/schema.py:44-71`).
-AJ audits local source resolution and corruption; AW compares regenerated bodies
-and generated blocks; BR checks manifest coverage; BS checks declared claims and
-dead paths; BT checks archive reachability (`portal/platform/wiki/audit.py:125-180`, `scripts/validation/wiki.py:154-266`, `scripts/validation/wiki.py:269-459`).
+(`portal/platform/wiki/schema.py`). AJ audits local source resolution and
+corruption; BR checks manifest coverage; BS checks declared claims and dead
+paths; BT checks archive reachability (`portal/platform/wiki/audit.py`,
+`scripts/validation/wiki.py`). Fact units are computed on demand through the
+wiki MCP. The former AW freshness check is not registered.
 
 There is no current pin freshness predicate. `check_staleness` compares a
 machine-derived body with the canonical body, not a source commit with a pin
