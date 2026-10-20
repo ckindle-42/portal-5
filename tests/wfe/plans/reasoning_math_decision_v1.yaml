@@ -20,7 +20,8 @@ workloads:
     home: reasoning_math_production
     discovery: []
     arms:
-      incumbent: hf.co/unsloth/DeepSeek-R1-0528-Qwen3-8B-GGUF:Q4_K_XL-ctx64k
+      # Seat moved to K2-Horizon 2026-10-19 (docs/DECISION_AUTO_REASONING_K2_20261019.md).
+      incumbent: hf.co/bartowski/K2-Horizon-MoVA-36B-A4B-GGUF:Q4_K_M-ctx64k
       challengers:
         - hf.co/bartowski/THUDM_GLM-Z1-Rumination-32B-0414-GGUF:THUDM_GLM-Z1-Rumination-32B-0414-Q4_K_M.gguf-ctx64k
         - granite4.1:30b-ctx64k
