@@ -1370,6 +1370,162 @@ def reuse_incumbent_rows(
     return copied
 
 
+def _iter_challenger_results(campaign_dir: Path) -> list[tuple[str, dict]]:
+    try:
+        manifest = load_manifest(campaign_dir)
+    except (OSError, ValueError):
+        return []
+    cid = manifest.get("campaign_id") or campaign_dir.name
+    out = []
+    for stub in manifest.get("rows") or []:
+        if stub.get("arm_role") != "challenger" or stub.get("state") in (None, "PENDING"):
+            continue
+        path = _row_path(campaign_dir, stub["run_id"])
+        if not path.is_file():
+            continue
+        try:
+            row = json.loads(path.read_text())
+        except (OSError, ValueError):
+            continue
+        if row.get("arm_role") != "challenger" or not _quality_outcome(row.get("outcome")):
+            continue
+        row.setdefault("campaign_id", cid)
+        row.setdefault("run_id", stub["run_id"])
+        out.append((cid, row))
+    return out
+
+
+def _index_reusable_screen_rows(campaign_dir: Path, source_ids: list[str]) -> dict:
+    candidates: dict = {}
+    root = CAMPAIGNS.resolve()
+    digests: dict = {}
+    seen: set[str] = set()
+    for source_id in source_ids:
+        if not source_id or Path(source_id).name != source_id or source_id in (".", ".."):
+            _log(campaign_dir, f"screen reuse: invalid campaign id {source_id!r}; skipped")
+            continue
+        try:
+            other = (CAMPAIGNS / source_id).resolve()
+        except OSError:
+            _log(campaign_dir, f"screen reuse: cannot resolve campaign {source_id!r}; skipped")
+            continue
+        if other.parent != root:
+            _log(campaign_dir, f"screen reuse: campaign {source_id!r} is outside campaigns root")
+            continue
+        if other == campaign_dir.resolve():
+            _log(campaign_dir, f"screen reuse: {source_id!r} is this campaign; skipped")
+            continue
+        if source_id in seen:
+            continue
+        seen.add(source_id)
+        if not (other / "manifest.json").is_file():
+            _log(campaign_dir, f"screen reuse: campaign {source_id!r} has no manifest")
+            continue
+        for cid, row in _iter_challenger_results(other):
+            key = recorded_reuse_key(other, row, digests)
+            item = (cid, other, row, key)
+            task_key = (
+                row.get("workspace"),
+                row.get("arm"),
+                row.get("suite"),
+                row.get("task_id"),
+            )
+            candidates.setdefault(task_key, []).append(item)
+    return candidates
+
+
+def _reuse_screen_one(
+    campaign_dir: Path,
+    manifest: dict,
+    stub: dict,
+    candidates: dict,
+    tasks: dict,
+    digests: dict,
+    debug_cache: dict,
+) -> str | None:
+    path = _row_path(campaign_dir, stub["run_id"])
+    if path.is_file():
+        return stub["run_id"] if _adopt_existing_reuse(manifest, stub, path) else None
+    task = _task_of(stub, tasks)
+    want = destination_reuse_key(campaign_dir, manifest, stub, task, digests)
+    if not _key_usable(want):
+        missing = reuse_mismatch(want, want)
+        _log(
+            campaign_dir,
+            f"not reusing {stub['run_id']}: destination fingerprint incomplete {missing}",
+        )
+        return None
+    if task is None or not _suite_still_matches(stub, want):
+        _log(campaign_dir, f"not reusing {stub['run_id']}: task or suite receipt changed")
+        return None
+    task_key = (
+        stub.get("workspace"),
+        stub.get("arm"),
+        stub.get("suite"),
+        stub.get("task_id"),
+    )
+    hits = []
+    for cid, src_dir, src, recorded in candidates.get(task_key, []):
+        mismatch = reuse_mismatch(want, recorded)
+        if mismatch:
+            _log(
+                campaign_dir,
+                f"not reusing {stub['run_id']} from {cid}/{src.get('run_id')}: "
+                f"fingerprint mismatch {mismatch}",
+            )
+        else:
+            hits.append((cid, src_dir, src))
+    chosen = _choose_reuse_source(campaign_dir, stub, hits)
+    if chosen is None:
+        return None
+    cid, src_dir, src = chosen
+    debug = _debug_by_run(src_dir, debug_cache).get(src.get("run_id"))
+    graded = regrade_copied(src, task, debug)
+    if graded is None or not _quality_outcome(graded[0]):
+        _log(campaign_dir, f"not reusing {stub['run_id']} from {cid}: current regrade unavailable")
+        return None
+    _write_reused_copy(campaign_dir, manifest, stub, src, cid, graded, path)
+    return stub["run_id"]
+
+
+def reuse_screen_rows(
+    campaign_dir: Path,
+    manifest: dict,
+    stubs: list[dict],
+    source_ids: list[str] | None = None,
+) -> list[str]:
+    pending = [
+        s
+        for s in stubs
+        if s.get("arm_role") == "challenger"
+        and s.get("tier", "confirm") == "confirm"
+        and s.get("state") in (None, "PENDING")
+    ]
+    selected = list(
+        dict.fromkeys(source_ids if source_ids is not None else manifest.get("reuse_screen") or [])
+    )
+    if not pending or not selected:
+        return []
+    candidates = _index_reusable_screen_rows(campaign_dir, selected)
+
+    tasks: dict = {}
+    digests: dict = {}
+    debug_cache: dict = {}
+    copied = [
+        run_id
+        for stub in pending
+        if (
+            run_id := _reuse_screen_one(
+                campaign_dir, manifest, stub, candidates, tasks, digests, debug_cache
+            )
+        )
+    ]
+    if copied:
+        save_manifest(campaign_dir, manifest)
+        _log(campaign_dir, f"reused {len(copied)} challenger row(s) from selected campaigns")
+    return copied
+
+
 def incumbent_reuse_report(src_dir: Path, dst_dir: Path) -> dict:
     """Read-only: which of dst's incumbent rows src could supply, and why not.
 
@@ -1495,7 +1651,23 @@ def keep_receipt(campaign_dir: Path, rec: dict) -> None:
         fh.write(json.dumps(rec) + "\n")
 
 
-def open_campaign(cid: str, plan_path: Path, matrix: list[dict], append: bool) -> Path:
+def _record_screen_reuse_sources(manifest: dict, source_ids: list[str] | None) -> bool:
+    sources = manifest.setdefault("reuse_screen", [])
+    changed = False
+    for source_id in source_ids or []:
+        if source_id not in sources:
+            sources.append(source_id)
+            changed = True
+    return changed
+
+
+def open_campaign(
+    cid: str,
+    plan_path: Path,
+    matrix: list[dict],
+    append: bool,
+    reuse_screen: list[str] | None = None,
+) -> Path:
     """Create a campaign, or append rows to a live one.
 
     Append is additive only: an existing run_id keeps its recorded state. This is
@@ -1508,7 +1680,8 @@ def open_campaign(cid: str, plan_path: Path, matrix: list[dict], append: bool) -
     if mpath.exists():
         manifest = json.loads(mpath.read_text())
         if not append:
-            # Resume gates in main(); read-only views come through here and never write.
+            if _record_screen_reuse_sources(manifest, reuse_screen):
+                save_manifest(d, manifest)
             return d
         if instrument_drift(manifest):
             raise GateRefused(f"append: {instrument_drift(manifest)}; open a new campaign")
@@ -1519,6 +1692,7 @@ def open_campaign(cid: str, plan_path: Path, matrix: list[dict], append: bool) -
         manifest["rows"].sort(
             key=lambda r: (r["arm"], r["workspace"], r["suite"], r["task_id"], r["repeat"])
         )
+        _record_screen_reuse_sources(manifest, reuse_screen)
         manifest.setdefault("appends", []).append(
             {
                 "utc": dt.datetime.now(dt.UTC).isoformat(),
@@ -1542,6 +1716,7 @@ def open_campaign(cid: str, plan_path: Path, matrix: list[dict], append: bool) -
                 "created_utc": dt.datetime.now(dt.UTC).isoformat(),
                 "env": env_fingerprint(OLLAMA),
                 "config_dirty_at_start": config_dirty(),
+                "reuse_screen": list(dict.fromkeys(reuse_screen or [])),
                 "rows": matrix,
             },
             indent=1,
@@ -2824,6 +2999,31 @@ def _prepare_arm_resources(campaign_dir: Path, arm: str, todo: list[dict]) -> st
     return model
 
 
+def _order_pending_rows(todo: list[dict], manifest: dict) -> list[dict]:
+    reused_tasks = {
+        (r.get("workspace"), r.get("arm"), r.get("suite"), r.get("task_id"))
+        for r in manifest.get("rows") or []
+        if r.get("reused_from")
+    }
+    return [
+        row
+        for _index, row in sorted(
+            enumerate(todo),
+            key=lambda item: (
+                item[1].get("repeat", 0),
+                (
+                    item[1].get("workspace"),
+                    item[1].get("arm"),
+                    item[1].get("suite"),
+                    item[1].get("task_id"),
+                )
+                in reused_tasks,
+                item[0],
+            ),
+        )
+    ]
+
+
 def _finish_arm(campaign_dir, arm, model, tally, elapsed_start, notify, stop, halted, ran):
     if not drain_model(model):
         _log(campaign_dir, f"arm {arm}: WARNING — still resident after {DRAIN_TIMEOUT_S}s")
@@ -2867,14 +3067,18 @@ def _arm_todo(
         else set()
     )
     todo, early = _rows_to_run(campaign_dir, manifest, arm, retry_states, force_preflight, notify)
-    if early is not None or fresh_incumbent:
+    if early is not None:
         return todo, early, []
-    reused = reuse_incumbent_rows(campaign_dir, manifest, todo)
+    reused = []
+    if not fresh_incumbent:
+        reused.extend(reuse_incumbent_rows(campaign_dir, manifest, todo))
+    reused.extend(reuse_screen_rows(campaign_dir, manifest, todo))
     done = set(reused)
     todo = [r for r in todo if r["run_id"] not in done]
+    todo = _order_pending_rows(todo, manifest)
     if todo:
         return todo, None, reused
-    _log(campaign_dir, f"arm {arm}: nothing left to run ({len(reused)} incumbent row(s) reused)")
+    _log(campaign_dir, f"arm {arm}: nothing left to run ({len(reused)} row(s) reused)")
     return [], {"arm": arm, "ran": 0, "reused": len(reused)}, reused
 
 
@@ -3052,6 +3256,13 @@ def _parse_args(argv=None):
         "--fresh-incumbent",
         action="store_true",
         help="rerun incumbent rows instead of reusing an earlier campaign's matching rows",
+    )
+    ap.add_argument(
+        "--reuse-screen",
+        action="append",
+        default=[],
+        metavar="CAMPAIGN_ID",
+        help="reuse matching graded challenger rows from this campaign (repeatable)",
     )
     ap.add_argument("--max-turns", type=int, default=16)
     ap.add_argument("--budget-s", type=int, default=1800, help="per task-run wall budget")
@@ -3502,8 +3713,14 @@ def _planned_matrix(plan: Path, args) -> tuple[int | dict[str, int], list[dict]]
     return repeats, matrix
 
 
+def _validate_reuse_screen_args(ap, args) -> None:
+    if args.reuse_screen and args.tier != "confirm":
+        ap.error("--reuse-screen can only be used with --tier confirm")
+
+
 def main() -> int:
     ap, args = _parse_args()
+    _validate_reuse_screen_args(ap, args)
     plan = Path(args.plan)
 
     if args.list_arms:
@@ -3520,7 +3737,9 @@ def main() -> int:
     if args.dry_run:
         return _cmd_dry_run(matrix, repeats)
 
-    campaign_dir = open_campaign(args.campaign_id, plan, matrix, args.append)
+    campaign_dir = open_campaign(
+        args.campaign_id, plan, matrix, args.append, reuse_screen=args.reuse_screen
+    )
     rc = _inspect_command(args, campaign_dir)
     if rc is not None:
         return rc

@@ -126,6 +126,23 @@ class TestConfirmAppendReusesScreenRows:
         assert {r["run_id"] for r in reused} <= {r["run_id"] for r in screen}
 
 
+def test_pending_confirm_rows_put_unseen_tasks_first_and_finish_rep_zero_first(plan):
+    rows = camp.expand_matrix(plan, 3, only_arm="m2", tier="confirm")
+    reused = next(r for r in rows if r["task_id"] == "t00" and r["repeat"] == 0)
+    reused.update(state="PASS", reused_from="screen/original-run")
+    pending = [r for r in rows if r["run_id"] != reused["run_id"]]
+
+    ordered = camp._order_pending_rows(pending, {"rows": rows})
+    repeat_zero = [r for r in ordered if r["repeat"] == 0]
+    repeat_one = [r for r in ordered if r["repeat"] == 1]
+
+    assert repeat_zero and repeat_one
+    assert ordered.index(repeat_zero[-1]) < ordered.index(repeat_one[0])
+    assert repeat_zero[0]["task_id"] == "t01"
+    assert all(r["task_id"] != "t00" for r in repeat_zero)
+    assert repeat_one[-1]["task_id"] == "t00"
+
+
 class TestAdvance:
     def test_advance_keeps_the_listed_candidates(self, plan, tmp_path):
         adv = tmp_path / "advance.yaml"

@@ -327,6 +327,84 @@ class TestReuseKey:
         assert campaign.load_manifest(dst)["rows"][0]["state"] == "PASS"
 
 
+class TestScreenReuse:
+    def _pair(self, tmp_path, monkeypatch):
+        _stub_trees(monkeypatch)
+        monkeypatch.setattr(campaign, "CAMPAIGNS", tmp_path)
+        suite = _suite(tmp_path)
+        surface = campaign.expected_incumbent_surface(_stub(suite, role="challenger"))
+        src_stub = _stub(suite, role="challenger", state="PASS")
+        src = _open(tmp_path, "screen", suite, [src_stub], fp="old-fp")
+        src_row = _source_row(suite, surface, arm_role="challenger", tier="screen")
+        _write_row(src, src_row)
+        dst_stub = _stub(suite, role="challenger")
+        dst = _open(tmp_path, "confirm", suite, [dst_stub], fp="new-fp")
+        manifest = campaign.load_manifest(dst)
+        manifest["reuse_screen"] = ["screen"]
+        campaign.save_manifest(dst, manifest)
+        return src_row, dst, dst_stub
+
+    def test_matching_screen_row_is_reused_with_source_provenance(self, tmp_path, monkeypatch):
+        src_row, dst, stub = self._pair(tmp_path, monkeypatch)
+        manifest = campaign.load_manifest(dst)
+        copied = campaign.reuse_screen_rows(dst, manifest, [stub])
+        assert copied == [stub["run_id"]]
+        body = json.loads(campaign._row_path(dst, stub["run_id"]).read_text())
+        assert body["reused_from"] == f"screen/{src_row['run_id']}"
+        assert body["arm_role"] == "challenger"
+        assert manifest["rows"][0]["reused_from"] == body["reused_from"]
+        assert manifest["rows"][0]["state"] == "PASS"
+
+    def test_fingerprint_mismatch_is_logged_and_not_reused(self, tmp_path, monkeypatch):
+        _src_row, dst, stub = self._pair(tmp_path, monkeypatch)
+        source_path = campaign._row_path(tmp_path / "screen", stub["run_id"])
+        row = json.loads(source_path.read_text())
+        row["sampling"] = {**row["sampling"], "temperature": 0.7}
+        source_path.write_text(json.dumps(row))
+
+        assert campaign.reuse_screen_rows(dst, campaign.load_manifest(dst), [stub]) == []
+        assert not campaign._row_path(dst, stub["run_id"]).exists()
+        log = (dst / "progress.log").read_text()
+        assert "fingerprint mismatch ['sampling']" in log
+
+    def test_source_is_recorded_in_manifest_and_cli_flag_is_repeatable(self, tmp_path, monkeypatch):
+        _src_row, dst, _stub = self._pair(tmp_path, monkeypatch)
+        plan = tmp_path / "plan.yaml"
+        plan.write_text("workloads: {}\n")
+        campaign.open_campaign("confirm", plan, [], append=False, reuse_screen=["older"])
+        assert campaign.load_manifest(dst)["reuse_screen"] == ["screen", "older"]
+
+        _parser, args = campaign._parse_args(
+            ["--campaign-id", "confirm", "--reuse-screen", "screen", "--reuse-screen", "older"]
+        )
+        assert args.reuse_screen == ["screen", "older"]
+
+    def test_report_lists_challenger_row_and_original_source(self, tmp_path):
+        suite = _suite(tmp_path)
+        row = _source_row(suite, ["read_pdf"], arm_role="challenger")
+        row["run_id"] = "confirm/candidate/t1/r0"
+        row["reused_from"] = "screen/original-run"
+        reused = rep._reused_rows([row])
+        assert reused == [
+            {
+                "run_id": "confirm/candidate/t1/r0",
+                "arm_role": "challenger",
+                "arm": MODEL,
+                "workspace": WS,
+                "suite": "documents_production",
+                "task_id": "t1",
+                "repeat": 0,
+                "reused_from": "screen/original-run",
+            }
+        ]
+        lines = []
+        rep._sec_reused_rows(lines.append, {"reused_rows": reused})
+        assert "confirm/candidate/t1/r0" in "\n".join(lines)
+        assert "screen/original-run" in "\n".join(lines)
+        warnings = rep._collect_warnings([row], {"rows": []}, False)
+        assert any("1 row(s) reused" in warning for warning in warnings)
+
+
 class TestPresent:
     def test_verify_complete_counts_a_reused_row(self, tmp_path, monkeypatch):
         _src, dst, stub, _row = _pair(tmp_path, monkeypatch)

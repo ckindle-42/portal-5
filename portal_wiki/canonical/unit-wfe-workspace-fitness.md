@@ -353,3 +353,13 @@ An incomplete incumbent bypasses curtailment and is recorded. `--no-curtail`
 resumes skipped rows. Fitness uses the recorded curtailment verdict and does not
 count skipped tasks as missing against the decision floor; Markdown reports
 show the verdict and rows saved.
+
+## F2 reuse screen rows in confirm
+
+A confirm run may opt into earlier campaigns with the repeatable option
+`--reuse-screen <campaign-id>`. Matching graded challenger rows count as their same-numbered
+confirm repeat only when `reuse_key` matches; fingerprint mismatches are logged
+and left to run. The confirm manifest records selected source campaign ids and
+each copied row records `reused_from`. Reports list each reused run id with its
+original campaign and row. Pending repeat-0 rows run before later repeats, with
+tasks that have no reused row first within each repeat.
