@@ -62,6 +62,7 @@ from portal.platform.inference.router.non_streaming import (
 )
 from portal.platform.inference.router.preinject import (
     _inject_attached_files,
+    _inject_persona_system_prompt,
     _inject_system_prompt_append,
     _inject_temporal_context,
     _resolve_auto_routing,
@@ -600,12 +601,11 @@ async def _resolve_request_route(
         workspace_id, request.query_params.get("model") or _model_pin
     )
 
+    body = _inject_persona_system_prompt(_original_model_id, body)
+
     # Phase 5: Temporal context injection — today's date + a search-first nudge
     # for web-tool-enabled workspaces.
     body = _inject_temporal_context(workspace_id, body)
-
-    # Phase 6: Workspace-level system_prompt_append — appended to existing system
-    # message or injected as a new system message if none is present.
     body = _inject_system_prompt_append(workspace_id, body)
 
     # Phase 7: File attachment injection — OWUI uploads live in body["files"];
@@ -854,7 +854,7 @@ async def chat_completions(
     2. Persona-to-workspace resolution (``_PERSONA_MAP[slug].workspace_model``).
     3. Auto-routing for ``auto`` (LLM intent classifier → keyword fallback).
     4. auto-vision text-only fallback (no image → reroute to auto-reasoning).
-    5. ``system_prompt_append`` injection.
+    5. Persona system prompt, then ``system_prompt_append``.
     6. File attachment injection (OWUI uploads live in ``body["files"]``).
     7. Candidate selection (``registry.get_backend_candidates``).
     8. Non-streaming branch: iterate candidates, first success or 502.

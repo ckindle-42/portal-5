@@ -79,13 +79,16 @@ Personas are pre-configured specialists defined one-per-file under
 and creates an Open WebUI model preset for it, so personas appear in the same
 model dropdown as workspaces. Examples include `Cyber Security Specialist`,
 `Red Team Operator`, and `Python Code Generator`. A persona's system prompt comes
-from the YAML's inline `system_prompt` or a shared `prompt_template` body.
+from the YAML's inline `system_prompt` or a shared `prompt_template` body. The
+pipeline applies that same text when the request model is the persona slug, so
+an API caller receives it without relying on the Open WebUI preset.
 
 ### Why
 
 The generated guide treated personas as if they were a frontend concept, but they
-are declarative artifacts: one YAML file per specialist, resolved to presets only
-by the seeding script. Grounding to `config/personas/` and `openwebui_init.py`
+are declarative artifacts: one YAML file per specialist. Seeding publishes the
+Open WebUI preset, and the pipeline applies the same prompt when the request
+model is the persona slug. Grounding to `config/personas/` and `openwebui_init.py`
 keeps the unit aligned with how a new persona is actually added, and explains why
 persona names in the dropdown always mirror the YAML `name` field.
 <!-- /WIKI:GENERATED -->
@@ -94,8 +97,9 @@ persona names in the dropdown always mirror the YAML `name` field.
 
 <!-- WIKI:HUMAN-OWNED reason="rationale — design intent, not a live fact" -->
 The generated guide treated personas as if they were a frontend concept, but they
-are declarative artifacts: one YAML file per specialist, resolved to presets only
-by the seeding script. Grounding to `config/personas/` and `openwebui_init.py`
+are declarative artifacts: one YAML file per specialist. Seeding publishes the
+Open WebUI preset, and the pipeline applies the same prompt when the request
+model is the persona slug. Grounding to `config/personas/` and `openwebui_init.py`
 keeps the unit aligned with how a new persona is actually added, and explains why
 persona names in the dropdown always mirror the YAML `name` field.
 <!-- /WIKI:HUMAN-OWNED -->

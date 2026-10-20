@@ -299,6 +299,30 @@ def _inject_temporal_context(workspace_id: str, body: dict[str, Any]) -> dict[st
     }
 
 
+def _inject_persona_system_prompt(model_id: str, body: dict[str, Any]) -> dict[str, Any]:
+    """Put a persona slug's system prompt first unless the request already has it."""
+    persona = _PERSONA_MAP.get(model_id)
+    prompt = persona.system_prompt if persona is not None else ""
+    if not prompt:
+        return body
+    messages = list(body.get("messages") or [])
+    idx = next((i for i, message in enumerate(messages) if message.get("role") == "system"), None)
+    if idx is None:
+        return {**body, "messages": [{"role": "system", "content": prompt}, *messages]}
+    current = messages[idx].get("content")
+    if str(current).strip() == prompt.strip():
+        return body
+    updated = dict(messages[idx])
+    if isinstance(current, list):
+        updated["content"] = [{"type": "text", "text": prompt}, *current]
+    else:
+        caller = current if isinstance(current, str) else ""
+        gap = "" if (not caller or prompt.endswith("\n\n")) else "\n"
+        updated["content"] = f"{prompt}{gap}{caller}" if caller else prompt
+    messages[idx] = updated
+    return {**body, "messages": messages}
+
+
 def _inject_system_prompt_append(workspace_id: str, body: dict[str, Any]) -> dict[str, Any]:
     """Append workspace-level system_prompt_append to the system message.
 

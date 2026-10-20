@@ -21,7 +21,7 @@ updated_at: 1783195000.839925
 
 **What:** Pre-configured specialist prompts that shape the AI's behavior.
 
-**How:** Personas live as one YAML file each under `config/personas/`. During seeding, `scripts/openwebui_init.py` reads them and creates model presets in Open WebUI, binding each persona to a `workspace_model` and an optional `variant`. Select a persona from the model dropdown alongside workspaces.
+**How:** Personas live as one YAML file each under `config/personas/`. During seeding, `scripts/openwebui_init.py` reads them and creates model presets in Open WebUI, binding each persona to a `workspace_model` and an optional `variant`. A chat request whose `model` is a persona slug also gets that prompt from the pipeline (`preinject._inject_persona_system_prompt`): the loaded `system_prompt` (inline, or the `prompt_template` body), skipped when the request's system message already equals it, and placed ahead of a different caller system message. Workspace `system_prompt_append` still follows. Select a persona from the model dropdown alongside workspaces.
 
 **Available personas:** use `unit-fact-persona-roster` for the generated live count, module ownership, workspace binding, and model pins. Do not maintain a second handwritten roster here.
 
