@@ -1169,7 +1169,7 @@
     {
       "id": 104,
       "type": "stat",
-      "title": "P40 accept rate (7d)",
+      "title": "P40 accept rate, current seats (7d)",
       "description": "Accepted at review / judged, P40 tiers.",
       "gridPos": {
         "h": 5,
@@ -1180,7 +1180,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "100 * sum(orchestrate_window_accepted{window=\"7d\",tier=~\"brain.*\"}) / clamp_min(sum(orchestrate_window_judged{window=\"7d\",tier=~\"brain.*\"}),1)",
+          "expr": "100 * sum(orchestrate_window_accepted{window=\"7d\",tier=~\"brain.*\",tier!=\"brain-retired\"}) / clamp_min(sum(orchestrate_window_judged{window=\"7d\",tier=~\"brain.*\",tier!=\"brain-retired\"}),1)",
           "instant": true
         }
       ],
@@ -1279,7 +1279,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "sum by (tier) (orchestrate_window_runs{window=\"24h\",tier=~\"brain.*\"})",
+          "expr": "sum by (tier) (orchestrate_window_runs{window=\"24h\",tier=~\"brain.*\",tier!=\"brain-retired\"})",
           "legendFormat": "{{tier}}"
         }
       ],
