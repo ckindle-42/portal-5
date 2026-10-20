@@ -7,6 +7,8 @@ and fleet membership still come from each entry's `module:` tag.
 
 from __future__ import annotations
 
+from typing import Any
+
 DEFAULT_ENABLED_MODULES: frozenset[str] = frozenset(
     {
         "security",
@@ -56,16 +58,6 @@ def module_mcp_ids() -> dict[str, tuple[str, ...]]:
     return {"platform": tuple(sorted(platform)), **{k: tuple(sorted(v)) for k, v in out.items()}}
 
 
-def _config_enabled_state(module: str) -> bool | None:
-    """Return `modules.<name>.enabled` from portal.yaml, or None if unset."""
-    from portal.platform.inference.config import load_portal_config
-
-    spec = load_portal_config().modules.get(module)
-    if spec is None:
-        return None
-    return spec.enabled
-
-
 def _eval_env_opt_in() -> bool:
     """Bench-harness opt-in for the eval module via PORTAL_ENABLE_EVAL, mirroring
     ``portal.platform.inference.config._eval_enabled()``'s env check. Duplicated
@@ -85,19 +77,39 @@ def _eval_env_opt_in() -> bool:
     return os.environ.get("PORTAL_ENABLE_EVAL", "").lower() in ("true", "1", "yes")
 
 
+def _config_enabled_state(module: str) -> bool | None:
+    """Return `modules.<name>.enabled` from portal.yaml, or None if unset."""
+    from portal.platform.inference.config import load_portal_config
+
+    spec = load_portal_config().modules.get(module)
+    if spec is None:
+        return None
+    return spec.enabled
+
+
+def _enabled_from(cfg: Any) -> set[str]:
+    """Enabled module names on one config, including the eval env opt-in."""
+    enabled: set[str] = set()
+    for mod in ALL_MODULES:
+        if mod == "eval" and _eval_env_opt_in():
+            enabled.add(mod)
+            continue
+        spec = cfg.modules.get(mod)
+        state = spec.enabled if spec is not None else mod in DEFAULT_ENABLED_MODULES
+        if state:
+            enabled.add(mod)
+    return enabled
+
+
 def enabled_modules() -> list[str]:
     """Modules whose config switch is on, else the documented default."""
-    result = []
-    for mod in sorted(ALL_MODULES):
-        if mod == "eval" and _eval_env_opt_in():
-            result.append(mod)
-            continue
-        state = _config_enabled_state(mod)
-        if state is None:
-            state = mod in DEFAULT_ENABLED_MODULES
-        if state:
-            result.append(mod)
-    return result
+    from portal.platform.inference.config import load_portal_config
+
+    return sorted(_enabled_from(load_portal_config()))
+
+
+def _active(config: Any, mods: list[str] | None) -> set[str]:
+    return set(mods) if mods is not None else _enabled_from(config)
 
 
 def launched_mcp_ids(mods: list[str] | None = None) -> list[str]:
@@ -134,9 +146,53 @@ def owui_workspaces(mods: list[str] | None = None) -> list[str] | None:
     return sorted(hidden)  # caller subtracts this from the full workspace set
 
 
-def is_workspace_disabled(workspace_id: str, mods: list[str] | None = None) -> bool:
-    """True if workspace_id belongs to a currently-disabled module."""
-    mods = enabled_modules() if mods is None else mods
-    disabled = ALL_MODULES - set(mods)
-    ws_ids = module_workspace_ids()
-    return any(workspace_id in ws_ids.get(mod, ()) for mod in disabled)
+def is_workspace_disabled(
+    workspace_id: str, mods: list[str] | None = None, config: Any = None
+) -> bool:
+    """True if the workspace, or ``engine::variant``, belongs to a disabled module."""
+    from portal.platform.inference.config import load_portal_config, variant_module
+
+    cfg = load_portal_config() if config is None else config
+    enabled = _active(cfg, mods)
+    base, _sep, variant = workspace_id.partition("::")
+    spec = cfg.workspaces.get(base)
+    if spec is None:
+        return False
+    if spec.module not in enabled:
+        return True
+    if not variant or variant not in spec.variants:
+        return False
+    return variant_module(spec.module, spec.variants[variant]) not in enabled
+
+
+def served_ids(config: Any, mods: list[str] | None = None) -> set[str]:
+    """Workspace ids plus ``engine::variant`` ids whose module is enabled."""
+    from portal.platform.inference.config import variant_module
+
+    enabled = _active(config, mods)
+    ids: set[str] = set()
+    for ws_id, spec in config.workspaces.items():
+        if spec.module not in enabled:
+            continue
+        ids.add(ws_id)
+        for name, variant in spec.variants.items():
+            if variant_module(spec.module, variant) in enabled:
+                ids.add(f"{ws_id}::{name}")
+    return ids
+
+
+def router_labels(config: Any, mods: list[str] | None = None) -> set[str]:
+    """Ids the router may offer: served engines and variants, without bench lanes."""
+    return {
+        wid for wid in served_ids(config, mods) if not wid.split("::", 1)[0].startswith("bench-")
+    }
+
+
+def preset_ids(config: Any, mods: list[str] | None = None) -> set[str]:
+    """Open WebUI preset ids: exposed engines only. Variants are never user-facing (R7)."""
+    enabled = _active(config, mods)
+    return {
+        ws_id
+        for ws_id, spec in config.workspaces.items()
+        if spec.module != "eval" and spec.expose_to_owui and spec.module in enabled
+    }

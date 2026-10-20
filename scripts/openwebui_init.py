@@ -564,6 +564,17 @@ async def create_role_prompts_async(
     )
 
 
+def _persona_skips_disabled_variant(persona: dict) -> bool:
+    """True when the persona's variant module is off, so it is not seeded."""
+    variant = persona.get("variant")
+    workspace = persona.get("workspace_model")
+    if not variant or not workspace:
+        return False
+    from portal.platform.wiki.adapters.modules import is_workspace_disabled
+
+    return is_workspace_disabled(f"{workspace}::{variant}")
+
+
 async def create_persona_presets_async(
     client: httpx.AsyncClient, token: str, personas_dir: Path
 ) -> None:
@@ -657,6 +668,9 @@ async def create_persona_presets_async(
         slug = persona.get("slug", f.stem)
         if persona_is_role(persona):
             role_slugs.append(slug)
+            continue
+        if _persona_skips_disabled_variant(persona):
+            print(f"  Skip {slug}: variant module disabled")
             continue
         name = persona.get("name", slug)
         if persona.get("prompt_template"):

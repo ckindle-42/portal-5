@@ -572,6 +572,17 @@ _VARIANT_INFERENCE_TABLE: dict[str, dict[str, dict[str, int]]] = {
 _VARIANT_INFERENCE_THRESHOLD = 3
 
 
+def _without_disabled_variant(workspace_id: str) -> str:
+    """Drop a variant whose module is off; the engine id stays offerable."""
+    if "::" not in workspace_id:
+        return workspace_id
+    from portal.platform.wiki.adapters.modules import is_workspace_disabled
+
+    if is_workspace_disabled(workspace_id):
+        return workspace_id.split("::", 1)[0]
+    return workspace_id
+
+
 def _infer_variant(base: str, message: str) -> str:
     """Score `message` against `base`'s variant-signal sets (if any) and
     return `"<base>::<variant>"` for the highest-scoring variant that clears
@@ -595,7 +606,7 @@ def _infer_variant(base: str, message: str) -> str:
     if not scores:
         return base
     winner = max(scores, key=lambda k: scores[k])
-    return f"{base}::{winner}"
+    return _without_disabled_variant(f"{base}::{winner}")
 
 
 def _router_payload(prompt: str) -> dict[str, Any]:
@@ -904,10 +915,10 @@ def _detect_workspace(messages: list[dict[str, Any]]) -> str | None:
             scores["_security_redteam"],
             scores["auto-security"],
         )
-        return "auto-security::redteam"
+        return _without_disabled_variant("auto-security::redteam")
 
     winner = max(scores, key=lambda k: scores[k])
     if winner in _SCORER_VARIANT_MAP:
         base, variant = _SCORER_VARIANT_MAP[winner]
-        return f"{base}::{variant}"
+        return _without_disabled_variant(f"{base}::{variant}")
     return winner

@@ -214,6 +214,15 @@ class WorkspaceSpec(BaseModel):
     engine: bool = False
     engine_reason: str | None = None
 
+    @model_validator(mode="after")
+    def _variant_modules_known(self) -> WorkspaceSpec:
+        known = set(get_args(ModuleName))
+        for name, cfg in self.variants.items():
+            module = cfg.get("module") if isinstance(cfg, dict) else None
+            if module is not None and module not in known:
+                raise ValueError(f"variant {name!r}: unknown module {module!r}")
+        return self
+
 
 class WorkspaceAlias(BaseModel):
     to: str
@@ -578,6 +587,28 @@ def _eval_enabled() -> bool:
     return "eval" in enabled_modules()
 
 
+def variant_module(engine_module: str, variant: dict[str, Any]) -> str:
+    """The variant's module, or the engine's when the variant does not declare one."""
+    declared = variant.get("module") if isinstance(variant, dict) else None
+    return str(declared) if declared else engine_module
+
+
+def engine_tools(spec: WorkspaceSpec, enabled: set[str]) -> list[str]:
+    """Engine tools plus tools of variants whose declared module is enabled."""
+    tools = list(spec.tools)
+    seen = set(tools)
+    for variant in spec.variants.values():
+        if not isinstance(variant, dict) or "module" not in variant:
+            continue
+        if variant_module(spec.module, variant) not in enabled:
+            continue
+        for tool in variant.get("tools") or []:
+            if tool not in seen:
+                seen.add(tool)
+                tools.append(tool)
+    return tools
+
+
 def get_workspace_dict(config: PortalConfig) -> dict[str, dict[str, Any]]:
     """Return the runtime ``WORKSPACES``-compatible plain dict.
 
@@ -601,9 +632,7 @@ def get_workspace_dict(config: PortalConfig) -> dict[str, dict[str, Any]]:
         raw = spec.model_dump(
             exclude_none=True, exclude=set(_OWUI_ONLY_FIELDS | _INTERNAL_ONLY_FIELDS)
         )
-        # Ensure tools is always present (original literal always had it)
-        if "tools" not in raw:
-            raw["tools"] = []
+        raw["tools"] = engine_tools(spec, enabled)
         # Original literal omitted chain when empty; pydantic emits []; normalise.
         if "chain" in raw and raw["chain"] == []:
             del raw["chain"]

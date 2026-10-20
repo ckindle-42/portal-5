@@ -1493,23 +1493,38 @@ def _audit_routable(seats: list, backends: dict, violations: list[dict]) -> None
             )
 
 
-def _seats(portal: dict):
-    """Every seat production can serve: each workspace, and each variant as the
-    synthetic `workspace::variant` id with the variant's keys merged over the
-    base (router/preinject.py). Variants were never audited before — and most
-    of the fleet's specialised seats are variants."""
+def classify_seats(
+    portal: dict, enabled: set[str] | None = None
+) -> tuple[list[tuple[str, dict]], list[dict[str, str]]]:
+    """Served seats, plus variants whose module is off as disabled, not tested."""
+    seats: list[tuple[str, dict]] = []
+    skipped: list[dict[str, str]] = []
     workspaces = portal.get("workspaces") or {}
     for ws_id, ws in workspaces.items():
         if not isinstance(ws, dict):
             continue
         effective = effective_workspace(workspaces, ws_id)
         if effective.get("model_hint"):
-            yield ws_id, effective
-        for vname in ws.get("variants") or {}:
+            seats.append((ws_id, effective))
+        for vname, vcfg in (ws.get("variants") or {}).items():
+            if not isinstance(vcfg, dict):
+                continue
             variant_id = f"{ws_id}::{vname}"
             merged = effective_workspace(workspaces, variant_id)
-            if merged.get("model_hint"):
-                yield variant_id, merged
+            if not merged.get("model_hint"):
+                continue
+            module = str(vcfg.get("module") or ws.get("module") or "")
+            if enabled is not None and module not in enabled:
+                skipped.append({"id": variant_id, "status": "disabled, not tested"})
+                continue
+            seats.append((variant_id, merged))
+    return seats, skipped
+
+
+def _seats(portal: dict, enabled: set[str] | None = None):
+    """Workspace seats plus ``workspace::variant`` seats whose module is enabled."""
+    seats, _skipped = classify_seats(portal, enabled)
+    yield from seats
 
 
 def _registered_models(backends: dict) -> tuple[set[str], dict[str, bool]]:
@@ -1590,7 +1605,9 @@ def run_audit(behavioral: bool = False) -> dict:
     violations: list[dict] = []
     checked = 0
     omlx_ids = omlx_served_ids()
-    served_seats = list(_seats(portal))
+    from portal.platform.wiki.adapters.modules import enabled_modules
+
+    served_seats, not_tested = classify_seats(portal, set(enabled_modules()))
     _audit_routable(served_seats, backends, violations)
 
     # The pipeline's own resolution, once: what each seat is actually served
@@ -1640,6 +1657,7 @@ def run_audit(behavioral: bool = False) -> dict:
         "served_paths": served_paths,
         "template_map": {a: f"{r}/{p}" for a, (r, p) in tmap.items()},
         "violations": violations,
+        "not_tested": not_tested,
         "fail_count": len(fails),
         "warn_count": sum(v["severity"] == "WARN" for v in violations),
     }
@@ -1747,6 +1765,8 @@ def main() -> int:
     for v in report["violations"]:
         mark = {"FAIL": "FAIL", "INFO": "info"}.get(v["severity"], "warn")
         print(f"  [{mark}] {v['workspace']}: {v['kind']} — {v['detail']}")
+    for item in report.get("not_tested") or []:
+        print(f"  [skip] {item['id']}: {item['status']}")
     print(f"\n{report['fail_count']} FAIL / {report['warn_count']} warn")
     return 1 if report["fail_count"] else 0
 

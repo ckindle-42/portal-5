@@ -1,0 +1,77 @@
+# C7 fixture. Not a production catalog. image is explicitly off because it defaults on.
+workspaces:
+  auto-media:
+    name: Media
+    description: Media engine
+    module: media
+    model_hint: media-base
+    expose_to_owui: true
+    tools:
+      - speak
+    variants:
+      speech:
+        name: Speech
+        description: Enabled speech variant
+        module: media
+        model_hint: media-speech
+        expose_to_owui: true
+        tools:
+          - transcribe
+      image:
+        name: Image
+        description: Image variant
+        module: image
+        model_hint: media-image
+        expose_to_owui: true
+        tools:
+          - generate_image
+      video:
+        name: Video
+        description: Video variant
+        module: video
+        model_hint: media-video
+        expose_to_owui: true
+        tools:
+          - generate_video
+      music:
+        name: Music
+        description: Music variant
+        module: music
+        model_hint: media-music
+        expose_to_owui: true
+        tools:
+          - generate_music
+modules:
+  media:
+    enabled: true
+  image:
+    enabled: false
+  video:
+    enabled: false
+  music:
+    enabled: false
+mcp_fleet:
+  - id: tts
+    name: TTS
+    module: media
+    port: 8916
+    expose_to_ide: false
+    compose_service: mcp-media
+  - id: image-gen
+    name: Image generation
+    module: image
+    port: 8933
+    expose_to_ide: false
+    compose_service: mcp-image
+  - id: video-gen
+    name: Video generation
+    module: video
+    port: 8935
+    expose_to_ide: false
+    compose_service: mcp-video
+  - id: music-gen
+    name: Music generation
+    module: music
+    port: 8912
+    expose_to_ide: false
+    compose_service: mcp-music

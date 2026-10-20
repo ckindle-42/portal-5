@@ -93,6 +93,16 @@ def _unpack_synthetic_workspace(workspace_id: str) -> tuple[str, str | None]:
     return workspace_id, None
 
 
+def _selected_variant_name(original_model_id: str, variant_param: str | None) -> str | None:
+    """Explicit ``?variant=`` wins, else the persona's declared variant."""
+    if variant_param:
+        return variant_param
+    persona = _PERSONA_MAP.get(original_model_id)
+    if persona is not None and persona.variant:
+        return persona.variant
+    return None
+
+
 def _resolve_workspace_variant(
     original_model_id: str, workspace_id: str, variant_param: str | None
 ) -> str:
@@ -116,11 +126,7 @@ def _resolve_workspace_variant(
     and a dict `__setitem__` with the same key/value from two concurrent
     requests is a harmless race, not a corruption.
     """
-    variant_name = variant_param
-    if not variant_name:
-        persona = _PERSONA_MAP.get(original_model_id)
-        if persona is not None:
-            variant_name = persona.variant
+    variant_name = _selected_variant_name(original_model_id, variant_param)
     if not variant_name:
         return workspace_id
 
@@ -131,6 +137,10 @@ def _resolve_workspace_variant(
         return workspace_id
 
     synthetic_id = f"{workspace_id}::{variant_name}"
+    from portal.platform.wiki.adapters.modules import is_workspace_disabled
+
+    if is_workspace_disabled(synthetic_id):
+        return workspace_id
     if synthetic_id not in WORKSPACES:
         WORKSPACES[synthetic_id] = {
             **WORKSPACES.get(workspace_id, {}),

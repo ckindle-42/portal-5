@@ -70,6 +70,7 @@ from portal.platform.inference.router.preinject import (
     _resolve_persona_workspace,
     _resolve_vision_fallback,
     _resolve_workspace_variant,
+    _selected_variant_name,
     _unpack_synthetic_workspace,
 )
 from portal.platform.inference.router.state import (
@@ -529,6 +530,17 @@ async def list_backends_endpoint(authorization: str | None = Header(None)) -> di
     }
 
 
+def _reject_disabled_workspace(workspace_id: str) -> None:
+    """Same 404 a disabled workspace gets today, for a workspace or ``engine::variant``."""
+    from portal.platform.wiki.adapters.modules import is_workspace_disabled
+
+    if is_workspace_disabled(workspace_id):
+        raise HTTPException(
+            status_code=404,
+            detail=f"Workspace '{workspace_id}' is disabled (module not enabled).",
+        )
+
+
 async def _resolve_request_route(
     request: Request,
     slot: RequestSlot,
@@ -571,16 +583,13 @@ async def _resolve_request_route(
     # Gate 4 so the gate sees the real workspace's module state.
     workspace_id, _alias_variant = _unpack_synthetic_workspace(workspace_id)
 
-    # Gate 4: reject requests to a workspace whose owning module is currently
-    # disabled. Checked after all workspace_id-mutating phases so it sees the
-    # final resolved id, not an intermediate alias.
-    from portal.platform.wiki.adapters.modules import is_workspace_disabled
-
-    if is_workspace_disabled(workspace_id):
-        raise HTTPException(
-            status_code=404,
-            detail=f"Workspace '{workspace_id}' is disabled (module not enabled).",
-        )
+    # Gate 4: disabled engine, then disabled variant. The engine stays up.
+    _reject_disabled_workspace(workspace_id)
+    _variant = _selected_variant_name(
+        _original_model_id, request.query_params.get("variant") or _alias_variant
+    )
+    if _variant:
+        _reject_disabled_workspace(f"{workspace_id}::{_variant}")
 
     # Phase 4b: apply a named variant override. Priority: explicit ?variant=
     # query param, else the legacy alias's implied variant, else the persona's
