@@ -1,6 +1,6 @@
 # Design: back to roots — refine Portal 5 in place (draft, 2026-10-20)
 
-**Status:** draft, revision 2 (review folded in, operator decisions 1, 6, 7 and 8 resolved). Supersedes the plan sections of
+**Status:** approved 2026-10-20 (operator: execute end to end, then resume WFE with a one-shot on everything enabled). Revision 3: all open decisions resolved. Supersedes the plan sections of
 `docs/DESIGN_ENGINES_AND_PROMPTS_20261019.md`. That doc's Appendices A–D stay the data reference,
 with one correction to Appendix D (§C9 below). Nothing changes until this is approved.
 
@@ -275,10 +275,10 @@ README and CHANGELOG in the same commit, or updates nothing.
 ## Open decisions for the operator
 
 1. **SPL placement.** Resolved: its own engine (23 tools, many security/vulnerability; Splunk is core work).
-2. **`auto-council`.** In the dropdown, or utility-only?
-3. **Media dispatcher.** One of the four current models, or screen a fresh one?
-4. **`uncensored`.** Fold `auto-creative` in (proposed), or keep it separate?
-5. **Open WebUI history (C5).** Hidden stub entries, or accept orphaned chats?
+2. **`auto-council`.** Resolved: utility only (hidden from the dropdown, callable by id).
+3. **Media dispatcher.** Resolved: screen the current dispatchers on mixed media prompts and seat the best.
+4. **`uncensored`.** Resolved: `auto-creative` folds in; its personas become roles on that engine.
+5. **Open WebUI history (C5).** Resolved: remove the old entries and start fresh (operator: "this will be the new going forward"). No stubs; C4 aliases cover live API callers only.
 6. **Run evidence (B6).** Resolved: raw output leaves `main` (data root + tagged archive);
    summaries stay; history is not rewritten.
 7. **Wiki archive (B7).** Resolved: excluded from gates only.
