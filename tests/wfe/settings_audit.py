@@ -69,6 +69,7 @@ LANE_SAMPLING = {
     "eval": {"temperature": 0.7, "deterministic": False},
     "general": {"temperature": 0.8, "deterministic": False},
     "media": {"temperature": 0.8, "deterministic": False},
+    "music": {"temperature": 0.8, "deterministic": False},
     "image": {"temperature": 0.8, "deterministic": False},
     "video": {"temperature": 0.8, "deterministic": False},
 }
