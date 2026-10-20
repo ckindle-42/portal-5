@@ -25,8 +25,8 @@
     "variant": null
   },
   "bench_prompts[security]": {
-    "base": "auto-security",
-    "served_model": "hf.co/mradermacher/VulnLLM-R-7B-GGUF:q4_K_M-ctx8k",
+    "base": "auto-daily",
+    "served_model": "gemma4:26b-a4b-it-qat-ctx16k",
     "variant": null
   },
   "bench_prompts[vision]": {
@@ -40,8 +40,8 @@
     "variant": "heavy"
   },
   "fold_blueteam": {
-    "base": "auto-security",
-    "served_model": "hf.co/mradermacher/VulnLLM-R-7B-GGUF:q4_K_M-ctx8k",
+    "base": "auto-daily",
+    "served_model": "gemma4:26b-a4b-it-qat-ctx16k",
     "variant": null
   },
   "fold_coding_agentic_laguna": {
@@ -80,9 +80,9 @@
     "variant": null
   },
   "fold_pentest": {
-    "base": "auto-security",
-    "served_model": "huihui_ai/qwen3.5-abliterated:9b-ctx8k",
-    "variant": "redteam"
+    "base": "auto-daily",
+    "served_model": "gemma4:26b-a4b-it-qat-ctx16k",
+    "variant": null
   },
   "fold_phi4_llm": {
     "base": null,
@@ -90,23 +90,23 @@
     "variant": null
   },
   "fold_purpleteam": {
-    "base": "auto-security",
-    "served_model": "hf.co/mradermacher/VulnLLM-R-7B-GGUF:q4_K_M-ctx8k",
+    "base": "auto-daily",
+    "served_model": "gemma4:26b-a4b-it-qat-ctx16k",
     "variant": null
   },
   "fold_purpleteam_deep": {
-    "base": null,
-    "served_model": null,
+    "base": "auto-daily",
+    "served_model": "gemma4:26b-a4b-it-qat-ctx16k",
     "variant": null
   },
   "fold_purpleteam_exec": {
-    "base": "auto-coding",
-    "served_model": "qwen3-coder:30b-a3b-q4_K_M-ctx256k",
+    "base": "auto-daily",
+    "served_model": "gemma4:26b-a4b-it-qat-ctx16k",
     "variant": null
   },
   "fold_redteam_deep": {
-    "base": null,
-    "served_model": null,
+    "base": "auto-daily",
+    "served_model": "gemma4:26b-a4b-it-qat-ctx16k",
     "variant": null
   },
   "fold_security_uncensored": {
@@ -120,48 +120,48 @@
     "variant": null
   },
   "routing_examples[10]": {
-    "base": null,
-    "served_model": null,
+    "base": "auto-daily",
+    "served_model": "gemma4:26b-a4b-it-qat-ctx16k",
     "variant": null
   },
   "routing_examples[11]": {
-    "base": null,
-    "served_model": null,
+    "base": "auto-daily",
+    "served_model": "gemma4:26b-a4b-it-qat-ctx16k",
     "variant": null
   },
   "routing_examples[12]": {
-    "base": null,
-    "served_model": null,
+    "base": "auto-daily",
+    "served_model": "gemma4:26b-a4b-it-qat-ctx16k",
     "variant": null
   },
   "routing_examples[13]": {
-    "base": null,
-    "served_model": null,
+    "base": "auto-daily",
+    "served_model": "gemma4:26b-a4b-it-qat-ctx16k",
     "variant": null
   },
   "routing_examples[14]": {
-    "base": null,
-    "served_model": null,
+    "base": "auto-daily",
+    "served_model": "gemma4:26b-a4b-it-qat-ctx16k",
     "variant": null
   },
   "routing_examples[15]": {
-    "base": "auto-security",
-    "served_model": "hf.co/mradermacher/VulnLLM-R-7B-GGUF:q4_K_M-ctx8k",
+    "base": "auto-daily",
+    "served_model": "gemma4:26b-a4b-it-qat-ctx16k",
     "variant": null
   },
   "routing_examples[16]": {
-    "base": null,
-    "served_model": null,
+    "base": "auto-daily",
+    "served_model": "gemma4:26b-a4b-it-qat-ctx16k",
     "variant": null
   },
   "routing_examples[17]": {
-    "base": "auto-security",
-    "served_model": "hf.co/mradermacher/VulnLLM-R-7B-GGUF:q4_K_M-ctx8k",
+    "base": "auto-daily",
+    "served_model": "gemma4:26b-a4b-it-qat-ctx16k",
     "variant": null
   },
   "routing_examples[18]": {
-    "base": null,
-    "served_model": null,
+    "base": "auto-daily",
+    "served_model": "gemma4:26b-a4b-it-qat-ctx16k",
     "variant": null
   },
   "routing_examples[19]": {
@@ -310,28 +310,28 @@
     "variant": null
   },
   "routing_examples[5]": {
-    "base": "auto-security",
-    "served_model": "hf.co/mradermacher/VulnLLM-R-7B-GGUF:q4_K_M-ctx8k",
+    "base": "auto-daily",
+    "served_model": "gemma4:26b-a4b-it-qat-ctx16k",
     "variant": null
   },
   "routing_examples[6]": {
-    "base": "auto-security",
-    "served_model": "huihui_ai/qwen3.5-abliterated:9b-ctx8k",
-    "variant": "redteam"
+    "base": "auto-daily",
+    "served_model": "gemma4:26b-a4b-it-qat-ctx16k",
+    "variant": null
   },
   "routing_examples[7]": {
-    "base": "auto-security",
-    "served_model": "hf.co/mradermacher/VulnLLM-R-7B-GGUF:q4_K_M-ctx8k",
+    "base": "auto-daily",
+    "served_model": "gemma4:26b-a4b-it-qat-ctx16k",
     "variant": null
   },
   "routing_examples[8]": {
-    "base": "auto-security",
-    "served_model": "huihui_ai/qwen3.5-abliterated:9b-ctx8k",
-    "variant": "redteam"
+    "base": "auto-daily",
+    "served_model": "gemma4:26b-a4b-it-qat-ctx16k",
+    "variant": null
   },
   "routing_examples[9]": {
-    "base": null,
-    "served_model": null,
+    "base": "auto-daily",
+    "served_model": "gemma4:26b-a4b-it-qat-ctx16k",
     "variant": null
   },
   "rr_bench_prompts[coding]": {
@@ -360,8 +360,8 @@
     "variant": null
   },
   "rr_bench_prompts[security]": {
-    "base": "auto-security",
-    "served_model": "hf.co/mradermacher/VulnLLM-R-7B-GGUF:q4_K_M-ctx8k",
+    "base": "auto-daily",
+    "served_model": "gemma4:26b-a4b-it-qat-ctx16k",
     "variant": null
   },
   "rr_bench_prompts[vision]": {
@@ -370,29 +370,29 @@
     "variant": null
   },
   "rr_s06_02_redteam_methodology": {
-    "base": "auto-security",
-    "served_model": "hf.co/mradermacher/VulnLLM-R-7B-GGUF:q4_K_M-ctx8k",
+    "base": "auto-daily",
+    "served_model": "gemma4:26b-a4b-it-qat-ctx16k",
     "variant": null
   },
   "rr_s06_03_blueteam_incident": {
-    "base": "auto-security",
-    "served_model": "hf.co/mradermacher/VulnLLM-R-7B-GGUF:q4_K_M-ctx8k",
+    "base": "auto-daily",
+    "served_model": "gemma4:26b-a4b-it-qat-ctx16k",
     "variant": null
   },
   "rr_s06_04_content_aware_security": {
-    "base": "auto-security",
-    "served_model": "huihui_ai/qwen3.5-abliterated:9b-ctx8k",
-    "variant": "redteam"
+    "base": "auto-daily",
+    "served_model": "gemma4:26b-a4b-it-qat-ctx16k",
+    "variant": null
   },
   "rr_s06_05_redteam_deep_kerberoast": {
-    "base": "auto-security",
-    "served_model": "hf.co/mradermacher/VulnLLM-R-7B-GGUF:q4_K_M-ctx8k",
+    "base": "auto-daily",
+    "served_model": "gemma4:26b-a4b-it-qat-ctx16k",
     "variant": null
   },
   "rr_s21_01_sqli_auto": {
-    "base": "auto-security",
-    "served_model": "huihui_ai/qwen3.5-abliterated:9b-ctx8k",
-    "variant": "redteam"
+    "base": "auto-daily",
+    "served_model": "gemma4:26b-a4b-it-qat-ctx16k",
+    "variant": null
   },
   "rr_s21_02_coding_auto": {
     "base": "auto-coding",
@@ -425,8 +425,8 @@
     "variant": null
   },
   "rr_variant_security_redteam": {
-    "base": "auto-security",
-    "served_model": "huihui_ai/qwen3.5-abliterated:9b-ctx8k",
-    "variant": "redteam"
+    "base": "auto-daily",
+    "served_model": "gemma4:26b-a4b-it-qat-ctx16k",
+    "variant": null
   }
 }

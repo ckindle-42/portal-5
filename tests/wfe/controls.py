@@ -58,6 +58,8 @@ TASK_KEYS = {
     "halt_kind",
     "refusal_is_failure",
     "expires",
+    # Short per-row provenance for an expectation that changed deliberately.
+    "note",
 }
 CHECKER_KEYS = {
     "answer_contains": ({"patterns"}, {"forbid", "exact", "forbid_in_tool_output"}),

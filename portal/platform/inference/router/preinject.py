@@ -21,6 +21,7 @@ from portal.platform.inference.router.routing import (
     _detect_workspace,
     _route_with_llm,
     detect_harmful_intent,
+    detect_router_handoff,
 )
 from portal.platform.inference.router.workspaces import _PERSONA_MAP, WORKSPACES
 
@@ -201,6 +202,25 @@ def _resolve_model_override(workspace_id: str, model_param: str | None) -> str:
     return synthetic_id
 
 
+def _append_handoff_note(messages: list[dict[str, Any]], lane: str) -> None:
+    """Append the hand-off note of every workspace that hands off to `lane`.
+
+    Mutates the caller's ``messages`` list (it is ``body["messages"]``, the same
+    object ``_resolve_vision_fallback`` edits through ``body``) so the fallback
+    lane can tell the user what to select instead of silently doing the work.
+    No pipeline state is involved — the note lives only in this request.
+    """
+    from portal.platform.inference.router.routing import _ROUTER_FALLBACK
+
+    notes = [
+        note
+        for ws_id, fallback in sorted(_ROUTER_FALLBACK.items())
+        if fallback == lane and (note := WORKSPACES.get(ws_id, {}).get("router_handoff_note"))
+    ]
+    if notes:
+        messages.append({"role": "system", "content": " ".join(notes)})
+
+
 async def _resolve_auto_routing(workspace_id: str, messages: list[dict[str, Any]]) -> str:
     """Run LLM-based and keyword-based auto-routing when workspace_id is 'auto'.
 
@@ -225,6 +245,21 @@ async def _resolve_auto_routing(workspace_id: str, messages: list[dict[str, Any]
             layer="harmful_intent_gate", workspace=_HARMFUL_INTENT_LANE
         ).inc()
         return _HARMFUL_INTENT_LANE
+    # `router: false` hand-off gate. An operator-selected-only workspace is
+    # absent from Layer 1's label set, so without this gate a request that is
+    # plainly that workspace's work would scatter to whichever remaining lane
+    # scored next-best and be answered there. Checked before Layer 1 for the
+    # same reason the harmful gate is: the destination must not depend on the
+    # classifier's second choice.
+    if handoff := detect_router_handoff(messages):
+        logger.info(
+            "Auto-routing: router-handoff gate fired — routing to '%s'; the "
+            "workspace this resembles is selected explicitly, not auto-routed.",
+            handoff,
+        )
+        _router_layer_total.labels(layer="router_handoff_gate", workspace=handoff).inc()
+        _append_handoff_note(messages, handoff)
+        return handoff
     # LLM router first — semantic intent, ~100ms, falls back on timeout/low confidence
     detected = await _route_with_llm(messages)
     if detected:

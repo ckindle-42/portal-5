@@ -32,6 +32,8 @@ modules:
     enabled: true
   security:
     enabled: true
+  security_redteam:
+    enabled: false
   video:
     enabled: false
   vulnintel:

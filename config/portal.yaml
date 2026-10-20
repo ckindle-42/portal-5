@@ -45,6 +45,12 @@ modules:
     enabled: true
   security:
     enabled: true
+  # Offensive-generation variants only (redteam, redteam-deep, purpleteam-exec).
+  # Off by default: the lab needed red to generate blue training data, and that
+  # work is campaign-scoped, not everyday traffic. Enable for a generation run,
+  # disable after. The defensive half of the security lane is unaffected.
+  security_redteam:
+    enabled: false
   video:
     enabled: false
   vulnintel:
@@ -1123,6 +1129,19 @@ workspaces:
       You are an expert Splunk SPL Engineer. Write, explain, refactor, and debug SPL queries. Always filter on index and sourcetype before the first pipe. Never hallucinate eval functions.
   auto-security:
     module: security
+    # Operator-selected only: the `auto` router never picks this workspace or
+    # its variants (it is absent from the Layer 1 label set and grammar enum,
+    # and Layer 2 hands off instead). Still in the Open WebUI dropdown and
+    # callable by id — `auto-security`, `auto-security::<variant>` — with
+    # behaviour unchanged when selected directly. Security work is kept out of
+    # normal operations by deliberate selection, not by the classifier.
+    router: false
+    router_fallback: auto-daily
+    router_handoff_note: 'Security and offensive-security work is not handled by
+      the auto workspace. Do not answer the security request: tell the user to
+      select the "🔒 Portal Security Analyst" workspace (auto-security) from the
+      workspace list and re-send it there. Answer anything else in the message
+      normally.'
     name: 🔒 Portal Security Analyst
     description: 'Authorized security assessment, vulnerability analysis, CVE/CWE classification, hardening. VulnLLM-R-7B (UCSB SURFI, Dec 2025, Qwen2.5-7B base — trained on AppSec vulnerability research: CVE severity, CWE classification, vulnerable code patterns). NOTE 2026-07-16 (P5-AUTOSEC-RESELECT): the "2026-06-20: 2/2 chain wins, fastest" claim predates the reliability-scoring fix. Live re-bench on the kerberoast_to_da EXECUTION chain found valid_rate 0.89 but redundant_call_rate 0.50 (docs/reselection/AUTOSEC_VULNLLM_DIAGNOSIS_20260716T164436Z.md) — but that scenario tests live-exploit tool orchestration, not this workspace''s actual job (CVE/CWE analysis, hardening). No candidate has been benched against the analytical workload itself, so no swap is made here pending that test (see docs/reselection/AUTOSEC_RESELECT_EVIDENCE_20260716T192100Z.md for the full candidate comparison, which found glm-4.7-flash:Q4_K_M strongest on tool-reliability generically — untested for this workspace''s specific analytical use case). Retained as incumbent. Fast vuln analysis with web search, vuln classification, and code execution.'
     # 2026-09-25: sampling set to the vulnllm card (engine settings only; prompts untouched); prior values + A/B: docs/TASK_SEAT_SAMPLING_AB_V1.md
@@ -1257,6 +1276,7 @@ workspaces:
         guardrail: default
         role: blue
       redteam:
+        module: security_redteam
         name: 🔴 Portal Red Team
         description: Deep offensive security, attack chain simulation, exploit scripting. Huihui-ai Qwen3.5-9B abliterated (zero refusals, Qwen3 architecture). Structures responses in attack phases with mandatory DEFENDER CUE for blue team handoff.
         # 2026-09-25: sampling set to the qwen3.5 instruct_general card (engine settings only; prompts untouched); prior values + A/B: docs/TASK_SEAT_SAMPLING_AB_V1.md
@@ -1275,6 +1295,7 @@ workspaces:
         guardrail: default
         role: red
       redteam-deep:
+        module: security_redteam
         name: 🔴 Portal Red Team · Deep
         description: High-fidelity single-model red team analysis. SuperGemma4-26B-uncensored (abliterated Gemma4 MoE, bench score 0.90, 6.7 ATT&CK IDs avg, zero disclaimers). Slower than the redteam variant (~100s/prompt) but produces denser ATT&CK coverage. Use when you need maximum MITRE TTP specificity for threat models or red team reports. Pipe the output to the purpleteam-deep variant (auto-security?variant=purpleteam-deep) manually for full four-hop analysis.
         # 2026-09-25: sampling set to the supergemma4 (gemma4) card (engine settings only; prompts untouched); prior values + A/B: docs/TASK_SEAT_SAMPLING_AB_V1.md
@@ -1346,6 +1367,7 @@ workspaces:
         guardrail: default
         role: purple
       purpleteam-exec:
+        module: security_redteam
         name: 🟣 Portal Purple Team · Execute
         description: "Four-hop execution-mode purple team chain — attack planning + live execution + detection + IR:\n1. \U0001F534 RED (exec) — SuperGemma4-26B: attack plan with execute_bash/execute_python/web_search for live PoC\n2. \U0001F535 BLUE — Granite 4.1 8B — tool-capable: detection analysis on actual execution output\n3. \U0001F6E1️ DETECT — Qwen3-Coder: Sigma rules, Wazuh XML, hunting queries from real artifacts\n4. \U0001F4CB IR PLAYBOOK — Qwen3.6-27B: triage, containment, evidence, eradication, recovery\n\nUnlike the purpleteam-deep variant (simulation only), this workspace executes commands against real targets. Use only on authorized systems. Latency is high — four sequential model calls, first hop uses tools."
         # 2026-09-25: sampling set to the supergemma4 (gemma4) card (engine settings only; prompts untouched); prior values + A/B: docs/TASK_SEAT_SAMPLING_AB_V1.md
@@ -2100,6 +2122,10 @@ workspaces:
     owui_system_prompt: |-
       You analyze images and handle multimodal tasks. Describe what you observe in detail. For image generation requests, call the generate_image tool (MLX-native FLUX); pass model='qwen-image' when the image needs legible text. Use edit_image with image_url set to modify an existing image by instruction.
   security-reviewer:
+    # Operator-selected only, same rule as auto-security: security is never an
+    # auto-routing destination. No `router_fallback` — the hand-off detector
+    # covers security work generally and lands on auto-daily.
+    router: false
     module: security
     name: Portal Security Review Analyst
     description: Read-only, evidence-grounded reviews of indexed security telemetry. The analyst owns every verdict.

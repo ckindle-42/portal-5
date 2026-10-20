@@ -210,7 +210,25 @@ class TestBackendModelHintRouting:
 
     def test_purpleteam_exec_has_chain_hops(self):
         """auto-security's purpleteam-exec variant must define at least 3
-        follow-on chain hops (was auto-purpleteam-exec, Phase 6)."""
+        follow-on chain hops (was auto-purpleteam-exec, Phase 6).
+
+        The variant belongs to the `security_redteam` module, which ships
+        disabled — offensive-generation variants are enabled for a lab
+        generation run, not for everyday traffic. The contract still holds
+        whenever the module is on, so the assertion is on the config, which is
+        present either way, and the served-id check is conditional.
+        """
+        from portal.platform.inference.config import load_portal_config
+        from portal.platform.wiki.adapters.modules import is_workspace_disabled
+
+        variants = load_portal_config().workspaces["auto-security"].variants
+        chain = variants["purpleteam-exec"].get("chain", [])
+        assert len(chain) >= 3, (
+            f"auto-purpleteam-exec chain must have ≥3 hops (blue/detect/IR), got {len(chain)}"
+        )
+        if is_workspace_disabled("auto-security::purpleteam-exec"):
+            return
+
         from portal.platform.inference.router.preinject import (
             _resolve_workspace_variant,
             _unpack_synthetic_workspace,
@@ -219,10 +237,7 @@ class TestBackendModelHintRouting:
 
         base, variant = _unpack_synthetic_workspace("auto-security::purpleteam-exec")
         resolved_id = _resolve_workspace_variant("auto-security::purpleteam-exec", base, variant)
-        chain = WORKSPACES[resolved_id].get("chain", [])
-        assert len(chain) >= 3, (
-            f"auto-purpleteam-exec chain must have ≥3 hops (blue/detect/IR), got {len(chain)}"
-        )
+        assert len(WORKSPACES[resolved_id].get("chain", [])) >= 3
 
     def test_backend_registry_loads_all_groups(self):
         """All core backend groups (general, coding, security, etc.) must load."""

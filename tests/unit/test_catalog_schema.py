@@ -131,6 +131,14 @@ def test_persona_tool_resolution_matches_snapshot(monkeypatch) -> None:
         )
         variant = spec.variant if isinstance(spec, PersonaSpec) else spec.get("variant")
         if variant:
+            # A persona whose variant's module is off is not seeded at all
+            # (openwebui_init._persona_skips_disabled_variant), so the tools it
+            # would resolve to never reach Open WebUI. Snapshotting the
+            # fallback would pin a value nothing uses.
+            from portal.platform.wiki.adapters.modules import is_workspace_disabled
+
+            if is_workspace_disabled(f"{ws_id}::{variant}"):
+                continue
             ws_id = _resolve_workspace_variant(slug, ws_id, variant)
         effective = _resolve_persona_tools(spec, ws_id)
         key = f"persona::{slug}"
