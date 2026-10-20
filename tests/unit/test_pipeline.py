@@ -109,6 +109,15 @@ def test_math_alias_is_removed_from_router_labels():
     from portal.platform.inference.router.routing import _VALID_WORKSPACE_IDS
 
     assert "auto-math" not in _VALID_WORKSPACE_IDS
+    assert (
+        not {
+            "auto-data",
+            "auto-extract-uncensored",
+            "auto-uncensored-throwaway",
+            "auto-creative",
+        }
+        & _VALID_WORKSPACE_IDS
+    )
     assert not {"general-fast", "general-deep", "auto-nemotron"} & _VALID_WORKSPACE_IDS
     assert "auto-reasoning" in _VALID_WORKSPACE_IDS
 
@@ -122,6 +131,26 @@ def test_chat_workspace_aliases_resolve_to_daily_variants(monkeypatch):
         "general-fast": "auto-daily::fast",
         "general-deep": "auto-daily::deep",
         "auto-nemotron": "auto-daily::nemotron",
+    }
+    cfg = load_portal_config()
+    assert {key: cfg.aliases[key].to for key in expected} == expected
+    assert {key: preinject._resolve_persona_workspace(key) for key in expected} == expected
+
+
+def test_family_merge_aliases_resolve_to_preserved_variants(monkeypatch):
+    import portal.platform.inference.router.preinject as preinject
+    from portal.platform.inference.config import load_portal_config
+
+    monkeypatch.setattr(preinject, "_DEPRECATED_ALIAS_LOGGED", set())
+    expected = {
+        "auto-data": "auto-research::data",
+        "auto-extract-uncensored": "auto-documents::extract-uncensored",
+        "auto-uncensored-throwaway": "auto-general-uncensored::throwaway",
+        "auto-uncensored-throwaway::gemma4-heretic": (
+            "auto-general-uncensored::throwaway-gemma4-heretic"
+        ),
+        "auto-uncensored-throwaway::ornith15": "auto-general-uncensored::throwaway-ornith15",
+        "auto-creative": "auto-general-uncensored::creative",
     }
     cfg = load_portal_config()
     assert {key: cfg.aliases[key].to for key in expected} == expected
@@ -1376,10 +1405,16 @@ class TestPersonaToolResolution:
         assert "execute_python" not in tools
 
     def test_empty_workspace_no_tools(self):
+        from portal.platform.inference.router.preinject import (
+            _resolve_workspace_variant,
+            _unpack_synthetic_workspace,
+        )
         from portal.platform.inference.router_pipe import _resolve_persona_tools
 
+        base, variant = _unpack_synthetic_workspace("auto-general-uncensored::creative")
+        resolved = _resolve_workspace_variant("creativewriter", base, variant)
         persona = {}
-        tools = _resolve_persona_tools(persona, "auto-creative")
+        tools = _resolve_persona_tools(persona, resolved)
         assert tools == []
 
     def test_workspace_tools_helper(self):
@@ -1397,7 +1432,9 @@ class TestPersonaToolResolution:
         assert "execute_python" in tools
         assert "web_search" in tools
 
-        tools_empty = _workspace_tools("auto-creative")
+        base, variant = _unpack_synthetic_workspace("auto-general-uncensored::creative")
+        creative_id = _resolve_workspace_variant("creativewriter", base, variant)
+        tools_empty = _workspace_tools(creative_id)
         assert tools_empty == []
 
         tools_missing = _workspace_tools("nonexistent-workspace")
@@ -1804,16 +1841,22 @@ class TestInjectOllamaOptions:
         )
 
     def test_quality_lane_uses_10m_keep_alive(self):
-        """auto-data (big q8 lane) should use keep_alive=10m.
+        """The data variant should use keep_alive=10m.
 
         auto-mistral was deleted outright in BUILD_PROGRAM_COLLAPSE_V1.md
         Phase 7 (model-tied workspace, no preserved variant) -- its
         keep_alive tuning went with it."""
+        from portal.platform.inference.router.preinject import (
+            _resolve_workspace_variant,
+            _unpack_synthetic_workspace,
+        )
         from portal.platform.inference.router_pipe import _inject_ollama_options
 
-        body = _inject_ollama_options({}, "auto-data")
+        base, variant = _unpack_synthetic_workspace("auto-research::data")
+        data_id = _resolve_workspace_variant("dataanalyst", base, variant)
+        body = _inject_ollama_options({}, data_id)
         assert body["keep_alive"] == "10m", (
-            "quality lane 'auto-data' should have keep_alive=10m — "
+            "quality lane 'auto-research::data' should have keep_alive=10m — "
             "long enough for back-to-back queries, short enough not to evict fleet"
         )
 

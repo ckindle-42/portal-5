@@ -1,10 +1,10 @@
-# auto-data's first seat decision: measured with its own data tools (production mode) on
+# auto-research::data's first seat decision: measured with its own data tools on
 # data_production (36 questions over three seeded datasets, gold reproduced by DuckDB).
-# The candidate queue names no challenger for auto-data, so these are the strongest
+# The candidate queue names no challenger for this variant, so these are the strongest
 # tool-capable generalists its routed backends already serve. The screen tier drops the
 # weak ones cheaply; the operator may trim this list before the run.
 workloads:
-  auto-data:
+  auto-research::data:
     tool_mode: production
     home: data_production
     discovery: []

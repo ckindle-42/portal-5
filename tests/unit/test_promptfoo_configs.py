@@ -18,14 +18,10 @@ CONFIG_DIR = Path("config/promptfoo")
 
 @pytest.fixture(scope="module")
 def known_models():
-    # Resolve quality-config model hints against the full workspace catalog.
-    from portal.platform.inference.config import load_portal_config
+    # Resolve provider model hints across base workspaces, variants, and aliases.
+    from portal.platform.inference.model_addressing import workspaces
 
-    return {
-        ws.model_hint
-        for ws in load_portal_config(include_bench=True).workspaces.values()
-        if ws.model_hint
-    }
+    return {ws.get("model_hint") for ws in workspaces().values() if ws.get("model_hint")}
 
 
 def _extract_model_refs(config_path):

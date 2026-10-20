@@ -1,4 +1,4 @@
-"""Build tests/wfe/suites/extract_production.jsonl, auto-extract-uncensored's suite
+"""Build tests/wfe/suites/extract_production.jsonl, auto-documents::extract-uncensored's suite
 (WFE P3 triage §8; master plan S8/O5).
 
 The lane serves LFM2.5-8B (ctx 8192, zero tools) and exists to work sensitive-flavoured

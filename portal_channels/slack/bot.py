@@ -38,12 +38,12 @@ CHANNEL_WORKSPACE_MAP: dict[str, tuple[str, str | None]] = {
     "images": ("auto-vision", None),  # was "auto-images" (invalid)
     "video": ("auto-video", None),
     "vision": ("auto-vision", None),
-    "creative": ("auto-creative", None),
+    "creative": ("auto-general-uncensored", "creative"),
     "documents": ("auto-documents", None),
     "music": ("auto-music", None),
     "research": ("auto-research", None),
     "reasoning": ("auto-reasoning", None),
-    "data": ("auto-data", None),
+    "data": ("auto-research", "data"),
 }
 
 

@@ -36,7 +36,9 @@ def test_a_candidate_is_placed_only_where_routing_and_window_allow(tmp_path):
     plans = tmp_path / "plans"
     plans.mkdir()
     _plan_file(
-        plans, "data_decision_v1.yaml", {"auto-data": _seat("seat:ctx32k", "data_production")}
+        plans,
+        "data_decision_v1.yaml",
+        {"auto-research::data": _seat("seat:ctx32k", "data_production")},
     )
     _plan_file(
         plans,
@@ -48,20 +50,23 @@ def test_a_candidate_is_placed_only_where_routing_and_window_allow(tmp_path):
         yaml.safe_dump(
             {
                 "models": {
-                    "alias:ctx32k": {"available": True, "intended": ["auto-data"]},
-                    "good:ctx32k": {"available": True, "intended": ["auto-data", "auto-documents"]},
-                    "small:ctx8k": {"available": True, "intended": ["auto-data"]},
-                    "nowindow": {"available": True, "intended": ["auto-data"]},
-                    "foreign:ctx64k": {"available": True, "intended": ["auto-data"]},
-                    "gone:ctx64k": {"available": False, "intended": ["auto-data"]},
-                    "seat:ctx32k": {"available": True, "intended": ["auto-data"]},
+                    "alias:ctx32k": {"available": True, "intended": ["auto-research::data"]},
+                    "good:ctx32k": {
+                        "available": True,
+                        "intended": ["auto-research::data", "auto-documents"],
+                    },
+                    "small:ctx8k": {"available": True, "intended": ["auto-research::data"]},
+                    "nowindow": {"available": True, "intended": ["auto-research::data"]},
+                    "foreign:ctx64k": {"available": True, "intended": ["auto-research::data"]},
+                    "gone:ctx64k": {"available": False, "intended": ["auto-research::data"]},
+                    "seat:ctx32k": {"available": True, "intended": ["auto-research::data"]},
                     "unplanned:ctx32k": {"available": True, "intended": ["auto-nowhere"]},
                 }
             }
         )
     )
     backends = {
-        "workspace_routing": {"auto-data": ["general"], "auto-documents": ["coding"]},
+        "workspace_routing": {"auto-research": ["general"], "auto-documents": ["coding"]},
         "backends": [
             {
                 "group": "general",
@@ -78,23 +83,29 @@ def test_a_candidate_is_placed_only_where_routing_and_window_allow(tmp_path):
         ],
     }
     portal = {
-        "auto-data": {"context_limit": 32768},
+        "auto-research": {
+            "context_limit": 8192,
+            "variants": {"data": {"context_limit": 32768}},
+        },
         "auto-documents": {"context_limit": 16384},
         "auto-nowhere": {"context_limit": 8192},
     }
     plan, notes = sp.generate(queue, plans, backends, portal)
-    assert plan["workloads"]["auto-data"]["arms"] == {
+    assert plan["workloads"]["auto-research::data"]["arms"] == {
         "incumbent": "seat:ctx32k",
         "challengers": ["alias:ctx32k", "good:ctx32k"],
     }
-    assert plan["workloads"]["auto-data"]["home"] == "data_production"
+    assert plan["workloads"]["auto-research::data"]["home"] == "data_production"
     assert "not-from-the-queue" not in str(plan)
     assert plan["workloads"]["auto-documents"]["arms"]["challengers"] == []
     assert "auto-nowhere" not in plan["workloads"]
     text = "\n".join(notes)
     assert "small:ctx8k left out: window 8192 < context_limit 32768" in text
     assert "nowindow left out: tag has no ctxNk window" in text
-    assert "foreign:ctx64k left out: not served by auto-data's workspace_routing groups" in text
+    assert (
+        "foreign:ctx64k left out: not served by auto-research::data's workspace_routing groups"
+        in text
+    )
     assert "gone:ctx64k left out: unavailable" in text
     assert "seat:ctx32k left out: it is the incumbent" in text
     assert "unplanned:ctx32k left out: no decision-plan incumbent" in text
@@ -108,11 +119,15 @@ def test_a_candidate_is_placed_only_where_routing_and_window_allow(tmp_path):
 def test_two_decision_plans_for_one_workspace_are_refused(tmp_path):
     plans = tmp_path / "plans"
     plans.mkdir()
-    _plan_file(plans, "a_decision_v1.yaml", {"auto-data": _seat("one:ctx32k", "data_production")})
-    _plan_file(plans, "b_decision_v1.yaml", {"auto-data": _seat("two:ctx32k", "data_production")})
+    _plan_file(
+        plans, "a_decision_v1.yaml", {"auto-research::data": _seat("one:ctx32k", "data_production")}
+    )
+    _plan_file(
+        plans, "b_decision_v1.yaml", {"auto-research::data": _seat("two:ctx32k", "data_production")}
+    )
     queue = tmp_path / "queue.yaml"
     queue.write_text(yaml.safe_dump({"models": {}}))
-    with pytest.raises(ValueError, match="auto-data"):
+    with pytest.raises(ValueError, match="auto-research::data"):
         sp.generate(queue, plans, {"workspace_routing": {}, "backends": []}, {})
 
 
@@ -177,12 +192,13 @@ def test_the_checked_in_sweep_matches_the_generator_and_expands(monkeypatch):
     queue = yaml.safe_load((REPO / "tests" / "wfe" / "candidate_queue.yaml").read_text())["models"]
     seats = sp.incumbents(REPO / "tests" / "wfe" / "plans")
     for ws, wl in plan["workloads"].items():
+        effective = sp.effective_workspace(portal, ws)
         assert wl["arms"]["incumbent"] == seats[ws]["incumbent"]
         assert wl["home"] == seats[ws]["home"]
         for model in wl["arms"]["challengers"]:
             assert ws in (queue[model].get("intended") or [])
             assert model in sp.servable(ws, backends)
-            assert sp.window_tokens(model) >= portal[ws]["context_limit"]
+            assert sp.window_tokens(model) >= effective["context_limit"]
     rows = campaign.expand_matrix(PLAN, 1, tier="screen")
     assert rows
     assert campaign.tool_gaps(rows) == []

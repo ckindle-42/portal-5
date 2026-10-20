@@ -1,4 +1,4 @@
-description: "Portal 5 — Daily-driver workspaces quality evaluation (auto-daily, auto, auto-creative)"
+description: "Portal 5 — Daily-driver workspaces quality evaluation (auto-daily, auto, auto-general-uncensored::creative)"
 prompts:
   - file://prompts/daily.txt
 providers:
@@ -13,7 +13,7 @@ providers:
       temperature: 0.3
       num_predict: 512
   - id: ollama:chat:fredrezones55/Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive:Q4-ctx8k
-    label: auto-creative
+    label: auto-general-uncensored::creative
     config:
       temperature: 0.7
       num_predict: 1024

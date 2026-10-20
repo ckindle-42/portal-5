@@ -13,7 +13,7 @@ Layer-2 keyword tables:
 - auto-compliance (9) NERC CIP / audit intent;
 - auto-security (14)  authorized security assessment, including five sensitive cases;
 - auto-spl (9)        Splunk SPL intent;
-- auto-creative (2)  dark fiction and adult creative writing;
+- auto-general-uncensored (2) dark fiction and adult creative writing;
 - auto-research (2)  harm-reduction facts and controversial history.
 
 Every non-classifier-only task is a fictional user request that Layer 2, scored
@@ -49,7 +49,7 @@ SCREEN = {
     "auto-compliance": 3,
     "auto-security": 3,
     "auto-spl": 3,
-    "auto-creative": 0,
+    "auto-general-uncensored": 0,
     "auto-research": 0,
 }
 COUNTS = {
@@ -57,7 +57,7 @@ COUNTS = {
     "auto-compliance": 9,
     "auto-security": 14,
     "auto-spl": 9,
-    "auto-creative": 2,
+    "auto-general-uncensored": 2,
     "auto-research": 2,
 }
 # The first three new security cases join the screen tier; the existing task IDs
@@ -65,10 +65,10 @@ COUNTS = {
 SCREEN_EXTRA = {"auto-security": {9, 10, 11}}
 SENSITIVE_ROWS = {
     "auto-security": {9, 10, 11, 12, 13},
-    "auto-creative": {0, 1},
+    "auto-general-uncensored": {0, 1},
     "auto-research": {0, 1},
 }
-CLASSIFIER_ONLY_KINDS = {"auto-creative", "auto-research"}
+CLASSIFIER_ONLY_KINDS = {"auto-general-uncensored", "auto-research"}
 TAIL = "Reply with the single word OK."
 
 #: (gold workspace, the fictional user request). Every request must survive the build
@@ -124,7 +124,7 @@ PROMPTS: dict[str, list[str]] = {
         "Build a Splunk correlation search for data model acceleration gaps: which fictional sourcetypes are falling out of the model?",
         "Write SPL that uses inputlookup to pull a fictional asset list, joins it to authentication events, and marks each row with the owner's site.",
     ],
-    "auto-creative": [
+    "auto-general-uncensored": [
         "Write an uncensored dark-fiction scene about a fictional adult facing a grim betrayal; lean into bleak atmosphere and morally ambiguous choices.",
         "Write an adult literary romance scene between two consenting adults, focused on desire, emotional tension, and vivid dialogue.",
     ],

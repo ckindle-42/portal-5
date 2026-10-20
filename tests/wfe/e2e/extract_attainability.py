@@ -26,14 +26,14 @@ from tests.wfe.suites import build_extract_production as gen
 
 REPO = __import__("pathlib").Path(__file__).resolve().parents[3]
 SUITE = "tests/wfe/suites/extract_production.jsonl"
-WORKSPACE = "auto-extract-uncensored"
+WORKSPACE = "auto-documents::extract-uncensored"
 
 
 def _gold(task: dict) -> dict:
     return json.loads(task["controls"]["pass"][0]["answer"])
 
 
-def check_task(task: dict, portal: dict, built: dict[str, dict]) -> list[str]:
+def check_task(task: dict, workspace: dict, built: dict[str, dict]) -> list[str]:
     """Failures for one task (empty = attainable)."""
     tid, ins = task["id"], task["instruction"]
     failures = []
@@ -56,7 +56,7 @@ def check_task(task: dict, portal: dict, built: dict[str, dict]) -> list[str]:
     for key in gold:
         if key not in ins:
             failures.append(f"the instruction's format line never names the key {key!r}")
-    w = portal[WORKSPACE]
+    w = workspace
     limit = int(w.get("context_limit") or 0)
     prompt = (len(w.get("owui_system_prompt") or "") + len(ins)) / 4
     if prompt + 2048 > limit:
@@ -65,7 +65,10 @@ def check_task(task: dict, portal: dict, built: dict[str, dict]) -> list[str]:
 
 
 def run(only: set[str] | None = None) -> dict[str, list[str]]:
-    portal = yaml.safe_load(open(f"{REPO}/config/portal.yaml"))["workspaces"]
+    from portal.platform.inference.config import effective_workspace
+
+    workspaces = yaml.safe_load(open(f"{REPO}/config/portal.yaml"))["workspaces"]
+    portal = effective_workspace(workspaces, WORKSPACE)
     built = {t["id"]: json.loads(t["controls"]["pass"][0]["answer"]) for t in gen.build()}
     tasks = [t for t in load_suite(SUITE) if only is None or t["id"] in only]
     return {t["id"]: check_task(t, portal, built) for t in tasks}

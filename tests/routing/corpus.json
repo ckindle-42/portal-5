@@ -129,7 +129,7 @@
     "id": "routing_examples[21]",
     "message": "analyze the distribution of this dataset and suggest visualizations",
     "source": "config/routing_examples.json",
-    "expected_workspace": "auto-data"
+    "expected_workspace": "auto-research"
   },
   {
     "id": "routing_examples[22]",
@@ -219,7 +219,7 @@
     "id": "routing_examples[36]",
     "message": "write a short story about a robot detective",
     "source": "config/routing_examples.json",
-    "expected_workspace": "auto-creative"
+    "expected_workspace": "auto-general-uncensored"
   },
   {
     "id": "routing_examples[37]",

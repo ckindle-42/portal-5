@@ -232,7 +232,7 @@ def test_the_plan_arms_are_served_fit_the_window_and_the_suite_tools_are_allowed
         "auto-daily::deep",
         "auto-daily",
         "auto-general-uncensored",
-        "auto-uncensored-throwaway",
+        "auto-general-uncensored::throwaway",
     }
     for ws, wl in plan.items():
         groups = set(backends["workspace_routing"][ws.partition("::")[0]])

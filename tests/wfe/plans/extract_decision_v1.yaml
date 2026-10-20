@@ -1,4 +1,4 @@
-# auto-extract-uncensored's first seat decision (WFE P3 triage §8): the extraction
+# auto-documents::extract-uncensored's first seat decision (WFE P3 triage §8): extraction
 # suite on extract_production (36 tasks, 12 screen, all no_tools — the lane declares no
 # tools, so no workload declares a tool_mode and tool_modes.yaml needs no entry).
 # Sensitive-flavoured fictional documents; the gold is computed by the committed
@@ -8,11 +8,11 @@
 # harness's default 2048-token output budget applies; the 8k window is the P-4 item
 # (backlogged). Confirms run at 3 repeats under the S3 policy (temperature > 0).
 #
-# Every challenger is served by auto-extract-uncensored's routed groups (backends.yaml
+# Every challenger is served by auto-documents' routed groups (backends.yaml
 # workspace_routing: general + creative) at a window of at least 8192, checked by the
 # slice tests. The operator may trim these lists before the run.
 workloads:
-  auto-extract-uncensored:
+  auto-documents::extract-uncensored:
     home: extract_production
     discovery: []
     arms:

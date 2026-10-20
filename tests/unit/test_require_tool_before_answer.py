@@ -1,5 +1,5 @@
 """A workspace flagged `require_tool_before_answer` does not deliver an answer given from nothing:
-the pipeline asks once for a grounded one, then delivers with a notice. Measured on auto-data
+the pipeline asks once for a grounded one, then delivers with a notice. Measured on auto-research::data
 (Qwen3.6): about 1 turn in 10 answered with no query, often with a fabricated number."""
 
 from __future__ import annotations

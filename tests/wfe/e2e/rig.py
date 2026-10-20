@@ -616,7 +616,7 @@ PROD_PLAN = """workloads:
     home: rig_production
     discovery: []
     arms: {incumbent: granite4.1:8b-ctx16k, challengers: []}
-  auto-data:
+  auto-research::data:
     home: rig_production
     discovery: []
     arms: {incumbent: hf.co/unsloth/Qwen3.6-35B-A3B-GGUF:UD-Q4_K_XL-ctx32k, challengers: []}
@@ -696,7 +696,7 @@ def s14_data(rig: Rig, plan: Path) -> None:
         c14,
         data_arm,
         "--workspace",
-        "auto-data",
+        "auto-research::data",
         "--task",
         "rig-data-01",
         "--repeats",
@@ -711,7 +711,7 @@ def s14_data(rig: Rig, plan: Path) -> None:
         and row.get("outcome") == "PASS"
         and dbs == ["operator.duckdb"]
         and offered
-        and set(offered[0]) <= set(_allow("auto-data"))
+        and set(offered[0]) <= set(_allow("auto-research::data"))
     )
     rig.check(
         "S14 data in production mode: own fixture, session closed, foreign session kept",
@@ -729,7 +729,7 @@ def s15_no_scope_leak(rig: Rig) -> None:
     for extra in ({"portal_eval": scope}, {}):
         m = rig.mark()
         req = {
-            "model": "auto-data",
+            "model": "auto-research::data",
             "stream": False,
             "messages": [{"role": "user", "content": "total?"}],
             **extra,

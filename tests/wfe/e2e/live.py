@@ -41,7 +41,10 @@ SCOPE_ALL = {"campaign": "wfe_" + "0" * 16, "run": "wfe_" + "0" * 40, "allow": [
 
 
 def _seat(ws: str) -> str:
-    return yaml.safe_load((REPO / "config/portal.yaml").read_text())["workspaces"][ws]["model_hint"]
+    from portal.platform.inference.config import effective_workspace
+
+    workspaces = yaml.safe_load((REPO / "config/portal.yaml").read_text())["workspaces"]
+    return effective_workspace(workspaces, ws)["model_hint"]
 
 
 class LiveRig(Rig):
@@ -398,7 +401,12 @@ def live_production(rig: LiveRig) -> None:
         "workloads:\n"
         + "".join(
             f"  {ws}:\n    home: rig_production\n    discovery: []\n    arms: {{incumbent: {_seat(ws)}, challengers: []}}\n"
-            for ws in ("auto-documents", "auto-data", "auto-research", "auto-compliance")
+            for ws in (
+                "auto-documents",
+                "auto-research::data",
+                "auto-research",
+                "auto-compliance",
+            )
         )
     )
     sess = Path(
@@ -407,7 +415,7 @@ def live_production(rig: LiveRig) -> None:
     before_root, before_sess = _root_files(), {p.name for p in sess.glob("*.duckdb")}
     for name, ws, task in (
         ("S13 documents", "auto-documents", "rig-doc-01"),
-        ("S14 data", "auto-data", "rig-data-01"),
+        ("S14 data", "auto-research::data", "rig-data-01"),
         ("S17 research (KB + memory seeds)", "auto-research", "rig-kb-01"),
     ):
         c = rig.cid(ws)
@@ -471,7 +479,7 @@ def live_no_leak(rig: LiveRig) -> None:
     for extra in ({"portal_eval": {**SCOPE_ALL, "allow": ["run_sql"]}}, {}):
         cid = f"wfe-live-{uuid.uuid4().hex[:12]}"
         body = {
-            "model": "auto-data",
+            "model": "auto-research::data",
             "stream": False,
             "messages": [{"role": "user", "content": "total?"}],
             **extra,

@@ -400,6 +400,30 @@ aliases:
     to: auto-daily::nemotron
     remove_after: 2026-12-31
     reason: Chat family merge; retain live API callers during migration.
+  auto-data:
+    to: auto-research::data
+    remove_after: 2026-12-31
+    reason: Research family merge; retain live API callers during migration.
+  auto-extract-uncensored:
+    to: auto-documents::extract-uncensored
+    remove_after: 2026-12-31
+    reason: Documents family merge; retain live API callers during migration.
+  auto-uncensored-throwaway:
+    to: auto-general-uncensored::throwaway
+    remove_after: 2026-12-31
+    reason: Uncensored family merge; retain live API callers during migration.
+  auto-uncensored-throwaway::gemma4-heretic:
+    to: auto-general-uncensored::throwaway-gemma4-heretic
+    remove_after: 2026-12-31
+    reason: Uncensored family merge; retain live API callers during migration.
+  auto-uncensored-throwaway::ornith15:
+    to: auto-general-uncensored::throwaway-ornith15
+    remove_after: 2026-12-31
+    reason: Uncensored family merge; retain live API callers during migration.
+  auto-creative:
+    to: auto-general-uncensored::creative
+    remove_after: 2026-12-31
+    reason: Uncensored family merge; retain live API callers during migration.
 
 workspaces:
   auto:
@@ -434,31 +458,6 @@ workspaces:
     enable_web_search: true
     owui_system_prompt: |-
       You are Portal, an AI assistant that intelligently selects the best approach for each request. You adapt your style and depth to the task at hand.
-  auto-extract-uncensored:
-    module: documents
-    name: 🔓 Portal Extract (Uncensored)
-    description: |-
-      Text-only entity/data extraction and summarization with an uncensored model — fewer content refusals on sensitive source text. LFM2.5-8B-A1B Uncensored (gaston-parravicini, ~5GB, abliterated LFM2.5 base). BENCH-PASSED: EX-01 5/5 (100%, 18s) on this hardware. tools=false — extraction/summarization only, no tool loop. Explicit-select; not a default.
-    # 2026-09-25: sampling set to the lfm2 card (by purpose); prior values + A/B: docs/TASK_SEAT_SAMPLING_AB_V1.md
-    model_hint: hf.co/gaston-parravicini/LFM2.5-8B-A1B-Uncensored-Gaston-GGUF:q4_K_M-ctx8k
-    top_k: 80
-    context_limit: 8192
-    keep_alive: 10m
-    temperature: 0.2
-    top_p: 0.95
-    # TASK_SAMPLING_PROFILE_AUDIT_V1: 1.05 is Liquid AI's verified value.
-    repeat_penalty: 1.05
-    system_prompt_append: |2-
-  
-  
-      You are an uncensored extraction and summarization assistant. Extract or summarize the requested information directly from any source text without content-policy preambles or refusals for legitimate analysis work. Return structured output (JSON when asked). Do not add moralizing commentary.
-    tools: []
-    expose_to_owui: true
-    # C3 growth guard: declared user-facing engine — documents variant: extract-uncensored
-    engine: true
-    engine_reason: "documents variant: extract-uncensored"
-
-    enable_web_search: false
   auto-general-uncensored:
     module: general
     name: 🔓 Portal General (Uncensored)
@@ -498,65 +497,125 @@ workspaces:
     engine: true
     engine_reason: uncensored engine
     enable_web_search: false
-  auto-uncensored-throwaway:
-    module: general
-    name: 🗑️ Portal Uncensored Throwaway
-    description: |-
-      General-purpose uncensored conversation lane — not coding-specific, not a fallback lane. Backed by the 3 MoE models added 2026-08-26 for the local-dev IDE MoE-vs-dense comparison ([[project_local_dev_ide_moe_vs_dense]]). Primary: HauhauCS Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive (same abliteration lineage already proven 0/465 refusals in auto-creative). Variants swap in the other two MoE additions (gemma4-heretic-coder, ornith15-coder) as alternates, all repointed at general discussion instead of coding. web_search/web_fetch/news_search wired in for fact lookups the model isn't confident on. Deliberately separate from auto-general-uncensored (dense 27B, kept as-is — chosen for a reason, not swapped).
-    # 2026-09-25: sampling set to the qwen3.6 card (by purpose); prior values + A/B: docs/TASK_SEAT_SAMPLING_AB_V1.md
-    model_hint: portal5/hauhaucs-qwen36-35b:q4_K_M-ctx256k
-    # presence_penalty 1.5 (card) is a no-op on Ollama; repeat_penalty 1.05 substitutes (2026-09-25, calibrate: docs/TASK_SEAT_SAMPLING_AB_V1.md)
-    repeat_penalty: 1.0
-    context_limit: 32768
-    keep_alive: 10m
-    temperature: 0.7
-    top_p: 0.8
-    top_k: 20
-    min_p: 0.0
-    presence_penalty: 1.5
-    think: false
-    system_prompt: |
-      You are an uncensored general-purpose conversational assistant covering any topic —
-      technical, historical, cultural, scientific, creative, or otherwise. Answer directly
-      and completely without content-policy preambles or refusals for legitimate requests.
-      Refuse only what is genuinely illegal to assist.
-      If you are not confident in a factual answer, use web_search (or web_fetch/news_search)
-      to verify rather than guessing or fabricating.
-    tools:
-    - web_search
-    - web_fetch
-    - news_search
-    - execute_bash
-    - execute_python
-    - remember
-    - recall
-    expose_to_owui: true
-    # C3 growth guard: declared user-facing engine — uncensored variant: throwaway
-    engine: true
-    engine_reason: "uncensored variant: throwaway"
-
-    enable_web_search: true
     variants:
-      gemma4-heretic:
+      throwaway:
+        module: general
+        name: 🗑️ Portal Uncensored Throwaway
+        description: |-
+          General-purpose uncensored conversation lane — not coding-specific, not a fallback lane. Backed by the 3 MoE models added 2026-08-26 for the local-dev IDE MoE-vs-dense comparison ([[project_local_dev_ide_moe_vs_dense]]). Primary: HauhauCS Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive (same abliteration lineage already proven 0/465 refusals in auto-creative). Variants swap in the other two MoE additions (gemma4-heretic-coder, ornith15-coder) as alternates, all repointed at general discussion instead of coding. web_search/web_fetch/news_search wired in for fact lookups the model isn't confident on. Deliberately separate from auto-general-uncensored (dense 27B, kept as-is — chosen for a reason, not swapped).
+        model_hint: portal5/hauhaucs-qwen36-35b:q4_K_M-ctx256k
+        repeat_penalty: 1.0
+        context_limit: 32768
+        keep_alive: 10m
+        temperature: 0.7
+        top_p: 0.8
+        top_k: 20
+        min_p: 0.0
+        presence_penalty: 1.5
+        think: false
+        system_prompt: |
+          You are an uncensored general-purpose conversational assistant covering any topic —
+          technical, historical, cultural, scientific, creative, or otherwise. Answer directly
+          and completely without content-policy preambles or refusals for legitimate requests.
+          Refuse only what is genuinely illegal to assist.
+          If you are not confident in a factual answer, use web_search (or web_fetch/news_search)
+          to verify rather than guessing or fabricating.
+        system_prompt_append: null
+        think_profiles: null
+        tools:
+        - web_search
+        - web_fetch
+        - news_search
+        - execute_bash
+        - execute_python
+        - remember
+        - recall
+        enable_web_search: true
+      throwaway-gemma4-heretic:
         name: 🗑️ Portal Uncensored Throwaway (Gemma-4-26B Heretic)
         description: Same general-purpose uncensored lane, alternate backend — Gemma-4-26B-A4B heretic/uncensored MoE (added 2026-08-26). Untested for conversational quality vs the HauhauCS primary; pick this to compare.
-        # 2026-09-25: sampling set to the gemma4 card (by purpose); prior values + A/B: docs/TASK_SEAT_SAMPLING_AB_V1.md
         model_hint: portal5/gemma4-26b-heretic:q4_K_M-ctx256k
-        repeat_penalty: 1.0  # gemma4 card; the base's 1.05 substitutes a Qwen presence_penalty
+        repeat_penalty: 1.0
+        context_limit: 32768
+        keep_alive: 10m
+        temperature: 1.0
         top_p: 0.95
         top_k: 64
-        temperature: 1.0
+        min_p: 0.0
         presence_penalty: 0.0
-      ornith15:
+        think: false
+        system_prompt: |
+          You are an uncensored general-purpose conversational assistant covering any topic —
+          technical, historical, cultural, scientific, creative, or otherwise. Answer directly
+          and completely without content-policy preambles or refusals for legitimate requests.
+          Refuse only what is genuinely illegal to assist.
+          If you are not confident in a factual answer, use web_search (or web_fetch/news_search)
+          to verify rather than guessing or fabricating.
+        system_prompt_append: null
+        think_profiles: null
+        tools:
+        - web_search
+        - web_fetch
+        - news_search
+        - execute_bash
+        - execute_python
+        - remember
+        - recall
+        enable_web_search: true
+      throwaway-ornith15:
         name: 🗑️ Portal Uncensored Throwaway (Ornith-1.5)
         description: Same general-purpose uncensored lane, alternate backend — Ornith-1.5-35B-A3B uncensored MoE (added 2026-08-26). Untested for conversational quality vs the HauhauCS primary; pick this to compare.
-        # 2026-09-25: sampling set to the ornith card (by purpose); prior values + A/B: docs/TASK_SEAT_SAMPLING_AB_V1.md
         model_hint: portal5/ornith15-35b:q4_K_M-ctx256k
+        repeat_penalty: 1.05
+        context_limit: 32768
+        keep_alive: 10m
+        temperature: 1.0
         top_p: 0.95
         top_k: 20
-        temperature: 1.0
+        min_p: 0.0
         presence_penalty: 0.0
-        repeat_penalty: 1.05
+        think: false
+        system_prompt: |
+          You are an uncensored general-purpose conversational assistant covering any topic —
+          technical, historical, cultural, scientific, creative, or otherwise. Answer directly
+          and completely without content-policy preambles or refusals for legitimate requests.
+          Refuse only what is genuinely illegal to assist.
+          If you are not confident in a factual answer, use web_search (or web_fetch/news_search)
+          to verify rather than guessing or fabricating.
+        system_prompt_append: null
+        think_profiles: null
+        tools:
+        - web_search
+        - web_fetch
+        - news_search
+        - execute_bash
+        - execute_python
+        - remember
+        - recall
+        enable_web_search: true
+      creative:
+        module: media
+        name: ✍️  Portal Creative Writer
+        description: |-
+          Creative writing, storytelling, content generation. Qwen3.6-35B-A3B HauhauCS uncensored (V8: 0/465 refusals, MoE 3B active, tool-capable + vision, ~22GB. Upgraded from gemma-4-heretic Q4).
+        model_hint: fredrezones55/Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive:Q4-ctx8k
+        context_limit: 8192
+        keep_alive: null
+        temperature: 0.85
+        top_p: 0.95
+        top_k: 50
+        min_p: 0.02
+        presence_penalty: null
+        repeat_penalty: null
+        think: false
+        think_profiles:
+          thinking: {temperature: 1.0, top_p: 0.95, top_k: 20, min_p: 0.0, presence_penalty: 0.0, repeat_penalty: 1.0}
+          instruct: {temperature: 0.7, top_p: 0.8, top_k: 20, min_p: 0.0, presence_penalty: 1.5, repeat_penalty: 1.0}
+        system_prompt_append: null
+        tools: []
+        enable_web_search: false
+        owui_system_prompt: |-
+          You are a versatile creative writer. Generate engaging, imaginative content with vivid descriptions and authentic voice. Embrace complexity and nuance in storytelling.
   auto-daily:
     module: general
     name: 🪶 Portal Daily Driver
@@ -1630,36 +1689,6 @@ workspaces:
         - recall
         mode: single
         guardrail: default
-  auto-creative:
-    module: media
-    name: ✍️  Portal Creative Writer
-    description: |-
-      Creative writing, storytelling, content generation. Qwen3.6-35B-A3B HauhauCS uncensored (V8: 0/465 refusals, MoE 3B active, tool-capable + vision, ~22GB. Upgraded from gemma-4-heretic Q4).
-    model_hint: fredrezones55/Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive:Q4-ctx8k
-    context_limit: 8192
-    temperature: 0.85
-    top_p: 0.95
-    top_k: 50
-    min_p: 0.02
-    # TASK_SAMPLING_PROFILE_AUDIT_V1: HauhauCS has no HF card of its own —
-    # inherited_unverified from its Qwen3.6 base per the audit's Research
-    # protocol. Its current Ollama bake mixes thinking-mode sampling with
-    # instruct-mode presence_penalty=1.5 (Finding 3's original defect,
-    # confirmed fleet-wide); this instruct profile supersedes that bake for
-    # pipeline-routed requests. think=false per operator decision.
-    think: false
-    think_profiles:
-      thinking: {temperature: 1.0, top_p: 0.95, top_k: 20, min_p: 0.0, presence_penalty: 0.0, repeat_penalty: 1.0}
-      instruct: {temperature: 0.7, top_p: 0.8, top_k: 20, min_p: 0.0, presence_penalty: 1.5, repeat_penalty: 1.0}
-    tools: []
-    expose_to_owui: true
-    # C3 growth guard: declared user-facing engine — uncensored variant: creative
-    engine: true
-    engine_reason: "uncensored variant: creative"
-
-    enable_web_search: false
-    owui_system_prompt: |-
-      You are a versatile creative writer. Generate engaging, imaginative content with vivid descriptions and authentic voice. Embrace complexity and nuance in storytelling.
   auto-reasoning:
     module: general
     name: 🧠 Portal Deep Reasoner
@@ -1847,6 +1876,29 @@ workspaces:
     enable_web_search: false
     owui_system_prompt: |-
       You help create and read professional documents. When asked to create a Word, Excel, or PowerPoint file, use the available MCP document tools. After a create tool returns a download_url in this turn, include that exact download_url as a clickable link in your response so the user can download the file. Format it as: 'Download: <download_url>'. Never write a download link unless a create tool returned one in this turn, and never add one to an answer that only reads or describes a document. When asked about the contents of an existing Word, Excel, PowerPoint, or PDF file, read it with read_word_document, read_excel, read_powerpoint, or read_pdf (set file_path to the file name you were given) and answer from what the tool returns. Never say you cannot create or read files — you have MCP tools for this.
+    variants:
+      extract-uncensored:
+        module: documents
+        name: 🔓 Portal Extract (Uncensored)
+        description: |-
+          Text-only entity/data extraction and summarization with an uncensored model — fewer content refusals on sensitive source text. LFM2.5-8B-A1B Uncensored (gaston-parravicini, ~5GB, abliterated LFM2.5 base). BENCH-PASSED: EX-01 5/5 (100%, 18s) on this hardware. tools=false — extraction/summarization only, no tool loop. Explicit-select; not a default.
+        model_hint: hf.co/gaston-parravicini/LFM2.5-8B-A1B-Uncensored-Gaston-GGUF:q4_K_M-ctx8k
+        top_k: 80
+        min_p: null
+        context_limit: 8192
+        predict_limit: null
+        keep_alive: 10m
+        temperature: 0.2
+        top_p: 0.95
+        # TASK_SAMPLING_PROFILE_AUDIT_V1: 1.05 is Liquid AI's verified value.
+        repeat_penalty: 1.05
+        system_prompt_append: |2-
+
+
+          You are an uncensored extraction and summarization assistant. Extract or summarize the requested information directly from any source text without content-policy preambles or refusals for legitimate analysis work. Return structured output (JSON when asked). Do not add moralizing commentary.
+        tools: []
+        enable_web_search: false
+        owui_system_prompt: null
   auto-video:
     module: video
     name: 🎬 Portal Video Creator
@@ -1989,6 +2041,37 @@ workspaces:
     tool_choice: required
     owui_system_prompt: |-
       You are a research assistant. Synthesize information from multiple sources. Distinguish primary from secondary sources. Always acknowledge the limits of your knowledge.
+    variants:
+      data:
+        module: research
+        name: 📊 Portal Data Analyst
+        description: |-
+          Data analysis, statistics, visualization guidance. Qwen3.6-35B-A3B (Alibaba MoE, 35B total / ~3B active, ~23GB, tool-capable, writes pandas/numpy/matplotlib, executes Python, produces Excel output).
+        model_hint: hf.co/unsloth/Qwen3.6-35B-A3B-GGUF:UD-Q4_K_XL-ctx32k
+        context_limit: 32768
+        predict_limit: null
+        keep_alive: 10m
+        temperature: 0.7
+        top_p: 0.8
+        top_k: 20
+        min_p: 0.0
+        repeat_penalty: 1.0
+        presence_penalty: 1.5
+        require_tool_before_answer: true
+        think: false
+        emits_reasoning: null
+        tools:
+        - execute_python
+        - create_excel
+        - kb_search
+        - attach_source
+        - run_sql
+        - profile_table
+        - list_session
+        enable_web_search: true
+        tool_choice: null
+        owui_system_prompt: |-
+          You are a data analyst. Help with data analysis, statistics, visualization design, and interpretation. Show your calculations. Explain statistical concepts clearly.
   auto-vision:
     module: general
     name: 👁️  Portal Vision
@@ -2016,50 +2099,6 @@ workspaces:
     enable_web_search: false
     owui_system_prompt: |-
       You analyze images and handle multimodal tasks. Describe what you observe in detail. For image generation requests, call the generate_image tool (MLX-native FLUX); pass model='qwen-image' when the image needs legible text. Use edit_image with image_url set to modify an existing image by instruction.
-  auto-data:
-    module: research
-    name: 📊 Portal Data Analyst
-    description: |-
-      Data analysis, statistics, visualization guidance. Qwen3.6-35B-A3B (Alibaba MoE, 35B total / ~3B active, ~23GB, tool-capable, writes pandas/numpy/matplotlib, executes Python, produces Excel output).
-    # Reasoning-group Tier-1 primary (BENCH_REWIRE_PLAN_V1 B3 /
-    # PROPOSED_REASONING_OVERHAUL_V3). Replaces granite4.1:30b-ctx64k, which
-    # drove a ~55GB resident working set → 96-97% memory, emergency evictions
-    # mid-generation, 5x slowdown (adaptive UAT FINDINGS D2). This MoE is
-    # ~23GB / 3B active (54.2 t/s measured vs 5-12 t/s dense) and fits the
-    # fleet at ctx32k. ctx32k baked tag (Ollama /v1 ignores request-time
-    # num_ctx). Sampling: audited Qwen3.6 instruct profile (matches
-    # auto-council; TASK_SAMPLING_PROFILE_AUDIT_V1).
-    model_hint: hf.co/unsloth/Qwen3.6-35B-A3B-GGUF:UD-Q4_K_XL-ctx32k
-    context_limit: 32768
-    keep_alive: 10m
-    temperature: 0.7
-    top_p: 0.8
-    top_k: 20
-    min_p: 0.0
-    # presence_penalty 1.5 (card) is a no-op on Ollama; repeat_penalty 1.05 substitutes (2026-09-25, calibrate: docs/TASK_SEAT_SAMPLING_AB_V1.md)
-    repeat_penalty: 1.0
-    presence_penalty: 1.5
-    # A data answer must come from a query: about 1 turn in 10 the model answers from nothing
-    # (a fabricated number) without calling run_sql. The pipeline asks once for a grounded answer,
-    # then delivers with a notice.
-    require_tool_before_answer: true
-    think: false
-    tools:
-    - execute_python
-    - create_excel
-    - kb_search
-    - attach_source
-    - run_sql
-    - profile_table
-    - list_session
-    expose_to_owui: true
-    # C3 growth guard: declared user-facing engine — research variant: data (DuckDB tools)
-    engine: true
-    engine_reason: "research variant: data (DuckDB tools)"
-
-    enable_web_search: true
-    owui_system_prompt: |-
-      You are a data analyst. Help with data analysis, statistics, visualization design, and interpretation. Show your calculations. Explain statistical concepts clearly.
   security-reviewer:
     module: security
     name: Portal Security Review Analyst

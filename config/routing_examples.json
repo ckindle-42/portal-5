@@ -127,7 +127,7 @@
     },
     {
       "message": "analyze the distribution of this dataset and suggest visualizations",
-      "workspace": "auto-data",
+      "workspace": "auto-research",
       "confidence": 0.93
     },
     {
@@ -202,7 +202,7 @@
     },
     {
       "message": "write a short story about a robot detective",
-      "workspace": "auto-creative",
+      "workspace": "auto-general-uncensored",
       "confidence": 0.95
     },
     {

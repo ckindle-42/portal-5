@@ -1,8 +1,9 @@
 name: "🎤 Interview Coach"
 slug: interviewcoach
-delivery: role
+delivery: persona
 category: general
-workspace_model: auto-creative
+workspace_model: auto-general-uncensored
+variant: creative
 preferred_models:
   - fredrezones55/Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive:Q4-ctx8k
   - hermes3:8b

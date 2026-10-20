@@ -27,7 +27,6 @@ _WEB_SEARCH_MODELS = frozenset(
         "auto-research",
         "auto-security",
         "auto-reasoning",
-        "auto-data",
         "auto-redteam",
         "auto-blueteam",
         "auto-compliance",

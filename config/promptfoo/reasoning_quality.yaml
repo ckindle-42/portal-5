@@ -1,4 +1,4 @@
-description: "Portal 5 — Reasoning workspaces quality evaluation (auto-reasoning, auto-math, auto-data)"
+description: "Portal 5 — Reasoning workspaces quality evaluation (auto-reasoning, auto-reasoning::math, auto-research::data)"
 prompts:
   - file://prompts/reasoning.txt
 providers:
@@ -13,7 +13,7 @@ providers:
       temperature: 0
       num_predict: 1024
   - id: ollama:chat:hf.co/unsloth/Qwen3.6-35B-A3B-GGUF:UD-Q4_K_XL-ctx32k
-    label: auto-data
+    label: auto-research::data
     config:
       temperature: 0
       num_predict: 1024

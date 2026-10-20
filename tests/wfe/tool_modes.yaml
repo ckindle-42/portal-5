@@ -8,7 +8,7 @@ workspaces:
     tool_mode: production
     allow: [create_word_document, create_excel, create_powerpoint, read_word_document,
             read_excel, read_powerpoint, read_pdf]
-  auto-data:
+  auto-research::data:
     tool_mode: production
     allow: [attach_source, run_sql, profile_table, list_session, create_excel]
   auto-research:
@@ -37,7 +37,7 @@ workspaces:
     # on the computed and memory kinds only (general_core_production).
     tool_mode: production
     allow: [execute_python, remember, recall]
-  auto-uncensored-throwaway: *uncensored_tools
+  auto-general-uncensored::throwaway: *uncensored_tools
   tools-specialist:
     # The lane's own three tools (O2 §5): python for the compute and chain kinds,
     # memory for the store-recall and chain kinds — the same set the uncensored

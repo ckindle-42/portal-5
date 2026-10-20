@@ -1,4 +1,4 @@
-"""Build tests/wfe/suites/data_production.jsonl, auto-data's production suite.
+"""Build tests/wfe/suites/data_production.jsonl, auto-research::data's production suite.
 
 Three small, deterministic datasets (sales, inventory, tickets) are seeded into each
 row's run directory; every question has one gold answer computed here and cross-checked

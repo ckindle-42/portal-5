@@ -1,4 +1,4 @@
-"""auto-data's production suite: sound under the controls gate, and its gold answers
+"""auto-research::data production suite: sound under the controls gate, and its gold answers
 reproduced independently by DuckDB (the engine behind the data MCP) from the very CSVs
 each row is seeded with."""
 

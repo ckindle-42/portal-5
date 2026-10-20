@@ -39,7 +39,10 @@ VALID_WORKSPACES = frozenset(
         "auto-spl",
         "auto-security",
         "security-reviewer",
-        "auto-creative",
+        "auto-general-uncensored::creative",
+        "auto-general-uncensored::throwaway",
+        "auto-general-uncensored::throwaway-gemma4-heretic",
+        "auto-general-uncensored::throwaway-ornith15",
         "auto-reasoning",
         "auto-council",
         "auto-documents",
@@ -48,7 +51,7 @@ VALID_WORKSPACES = frozenset(
         "auto-music",
         "auto-research",
         "auto-vision",
-        "auto-data",
+        "auto-research::data",
         "auto-compliance",
         "compliance-reading",
         # PIPELINE_ALIGNMENT_V1 §P1/§P2: compliance-owned engine seats (not
@@ -61,7 +64,6 @@ VALID_WORKSPACES = frozenset(
         "compliance-mapping",
         "auto-math",
         "auto-audio",
-        "auto-uncensored-throwaway",
         # Coding capability benchmark workspaces (user-selected only)
         "bench-qwen3-coder-30b",
         "bench-glm",
@@ -89,7 +91,7 @@ VALID_WORKSPACES = frozenset(
         "auto-cad",
         # June 2026 bench candidates
         # June 2026 uncensored coding + stranded-model lanes (TASK_CODING_UNCENSORED_LANES_V1)
-        "auto-extract-uncensored",
+        "auto-documents::extract-uncensored",
         "auto-general-uncensored",
         # June 2026 AppSec bench candidate
         # June 2026 diffusion research bench

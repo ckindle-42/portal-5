@@ -10,7 +10,7 @@ models:
     available: true
     intended:
     - auto-compliance
-    - auto-data
+    - auto-research::data
     lineage: granite4.1
     note: 'reasoning-group tag: confirm cells in wfe_compliance_decision_20261016 and wfe_data_decision_20261016'
   granite4.1:30b-ctx96k:
@@ -23,14 +23,14 @@ models:
   hf.co/bartowski/NVIDIA-Nemotron-3.5-Lightning-30B-A3B-GGUF:Q4_K_M-ctx32k:
     available: true
     intended:
-    - auto-data
+    - auto-research::data
     lineage: nemotron-3.5-lightning
     note: 'general-group tag: confirm cell NOT_SEPARATED in wfe_data_decision_20261016'
   hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k:
     available: true
     intended:
     - auto-documents
-    - auto-data
+    - auto-research::data
     lineage: qwen3.8
     note: 'auto-compliance model_hint: measured as the incumbent there, so its candidate lanes are documents
       and data'

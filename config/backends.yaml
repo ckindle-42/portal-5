@@ -241,6 +241,8 @@ backends:
     supports_tools: true
   - id: fredrezones55/Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive:Q4
     supports_tools: true
+  - id: fredrezones55/Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive:Q4-ctx8k
+    supports_tools: true
   - id: gemma4:12b-it-qat
     supports_tools: true
   - id: gemma4:e2b-it-qat
@@ -271,6 +273,8 @@ backends:
   - id: qwen3-coder-next:latest
     supports_tools: true
   - id: hf.co/gaston-parravicini/LFM2.5-8B-A1B-Uncensored-Gaston-GGUF:Q4_K_M
+    supports_tools: true
+  - id: hf.co/gaston-parravicini/LFM2.5-8B-A1B-Uncensored-Gaston-GGUF:q4_K_M-ctx8k
     supports_tools: true
   - id: hf.co/bartowski/huihui-ai_Qwen3-Coder-Next-abliterated-GGUF:Q4_K_M
     supports_tools: true
@@ -1279,12 +1283,7 @@ workspace_routing:
   - security
   - coding
   - general
-  auto-extract-uncensored:
-  - general
-  - creative
   auto-general-uncensored:
-  - general
-  auto-uncensored-throwaway:
   - general
   auto-daily:
   - general
@@ -1302,9 +1301,6 @@ workspace_routing:
   - coding
   - general
   tools-specialist:
-  - general
-  auto-creative:
-  - creative
   - general
   auto-reasoning:
   - reasoning
@@ -1325,9 +1321,6 @@ workspace_routing:
   - general
   auto-vision:
   - vision
-  - general
-  auto-data:
-  - reasoning
   - general
   security-reviewer:
   - general

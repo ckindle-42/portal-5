@@ -114,7 +114,7 @@ def test_the_six_o5_suites_carry_the_full_shape():
             "auto-compliance": 9,
             "auto-security": 14,
             "auto-spl": 9,
-            "auto-creative": 2,
+            "auto-general-uncensored": 2,
             "auto-research": 2,
         },
     }.items():

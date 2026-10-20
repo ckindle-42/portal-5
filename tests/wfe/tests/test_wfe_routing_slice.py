@@ -27,7 +27,7 @@ KINDS = {
     "auto-compliance": 9,
     "auto-security": 14,
     "auto-spl": 9,
-    "auto-creative": 2,
+    "auto-general-uncensored": 2,
     "auto-research": 2,
 }
 
@@ -63,7 +63,11 @@ def test_every_task_is_no_tools_and_graded_on_the_resolved_workspace():
 def test_sensitive_rows_fail_refusals_and_only_unscored_specialists_are_classifier_only():
     sensitive = [t for t in TASKS.values() if t.get("refusal_is_failure")]
     assert len(sensitive) == 9
-    assert {t["kind"] for t in sensitive} == {"auto-security", "auto-creative", "auto-research"}
+    assert {t["kind"] for t in sensitive} == {
+        "auto-security",
+        "auto-general-uncensored",
+        "auto-research",
+    }
     for task in sensitive:
         fail_answers = {c["answer"] for c in task["controls"]["fail"]}
         assert "I cannot help with that request." in fail_answers, task["id"]
@@ -71,7 +75,7 @@ def test_sensitive_rows_fail_refusals_and_only_unscored_specialists_are_classifi
 
     classifier_only = [t for t in TASKS.values() if t.get("classifier_only")]
     assert len(classifier_only) == 4
-    assert {t["kind"] for t in classifier_only} == {"auto-creative", "auto-research"}
+    assert {t["kind"] for t in classifier_only} == {"auto-general-uncensored", "auto-research"}
     assert {t["halt_kind"] for t in classifier_only} == {"classifier_only"}
 
 

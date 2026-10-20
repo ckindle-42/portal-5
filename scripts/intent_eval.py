@@ -58,7 +58,7 @@ INTENT_MAP: dict[str, tuple[str, str]] = {
     "compliance": ("auto-compliance", "bench_compliance_probe"),
     "spl": ("auto-spl", "bench_spl_probe"),
     "cad": ("auto-cad", "bench_cad_probe"),
-    "data": ("auto-data", "bench_data_probe"),
+    "data": ("auto-research::data", "bench_data_probe"),
     "tools": ("tools-specialist", "bench_tool_use_probe"),
     "mtp-speculative": ("auto-reasoning", "bench_mtp_probe"),
     "abliterated": ("auto-general-uncensored", "bench_refusal_preservation_probe"),

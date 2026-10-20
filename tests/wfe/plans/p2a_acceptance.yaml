@@ -4,7 +4,7 @@ workloads:
     home: rig_production
     discovery: []
     arms: {incumbent: granite4.1:8b-ctx16k, challengers: []}
-  auto-data:
+  auto-research::data:
     home: rig_production
     discovery: []
     arms: {incumbent: hf.co/unsloth/Qwen3.6-35B-A3B-GGUF:UD-Q4_K_XL-ctx32k, challengers: []}

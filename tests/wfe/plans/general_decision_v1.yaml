@@ -46,7 +46,7 @@ workloads:
         - huihui_ai/Qwen3.6-abliterated:27b-ctx8k
         - huihui_ai/qwen3.5-abliterated:9b-ctx64k
         - portal5/hauhaucs-qwen36-35b:q4_K_M-ctx256k
-  auto-uncensored-throwaway:
+  auto-general-uncensored::throwaway:
     tool_mode: production
     home: general_core_production
     discovery: []

@@ -114,9 +114,10 @@ def test_the_suite_regenerates_identically():
 
 
 def test_the_chain_fits_the_window_under_the_default_output_budget():
-    portal = yaml.safe_load((REPO / "config/portal.yaml").read_text())["workspaces"][
-        "auto-extract-uncensored"
-    ]
+    from portal.platform.inference.config import effective_workspace
+
+    workspaces = yaml.safe_load((REPO / "config/portal.yaml").read_text())["workspaces"]
+    portal = effective_workspace(workspaces, "auto-documents::extract-uncensored")
     limit = portal["context_limit"]
     assert portal.get("predict_limit") is None  # the harness default 2048 applies
     for t in TASKS.values():
@@ -125,12 +126,13 @@ def test_the_chain_fits_the_window_under_the_default_output_budget():
 
 
 def test_the_plan_arms_are_served_by_the_workspaces_groups_and_fit_its_window():
-    plan = yaml.safe_load(PLAN.read_text())["workloads"]["auto-extract-uncensored"]
-    portal = yaml.safe_load((REPO / "config/portal.yaml").read_text())["workspaces"][
-        "auto-extract-uncensored"
-    ]
+    from portal.platform.inference.config import effective_workspace
+
+    plan = yaml.safe_load(PLAN.read_text())["workloads"]["auto-documents::extract-uncensored"]
+    workspaces = yaml.safe_load((REPO / "config/portal.yaml").read_text())["workspaces"]
+    portal = effective_workspace(workspaces, "auto-documents::extract-uncensored")
     backends = yaml.safe_load((REPO / "config/backends.yaml").read_text())
-    groups = set(backends["workspace_routing"]["auto-extract-uncensored"])
+    groups = set(backends["workspace_routing"]["auto-documents"])
     served = {
         m["id"] for b in backends["backends"] if b["group"] in groups for m in b.get("models") or []
     }
@@ -149,10 +151,12 @@ def test_the_plan_arms_are_served_by_the_workspaces_groups_and_fit_its_window():
 
 
 def test_attainability_flags_a_missing_fact_and_gold_drift():
+    from portal.platform.inference.config import effective_workspace
     from tests.wfe.e2e import extract_attainability as att
 
     gen.build()
-    portal = yaml.safe_load((REPO / "config/portal.yaml").read_text())["workspaces"]
+    workspaces = yaml.safe_load((REPO / "config/portal.yaml").read_text())["workspaces"]
+    portal = effective_workspace(workspaces, "auto-documents::extract-uncensored")
     built = {t["id"]: _gold(t) for t in TASKS.values()}
     assert all(att.check_task(t, portal, built) == [] for t in TASKS.values())
 

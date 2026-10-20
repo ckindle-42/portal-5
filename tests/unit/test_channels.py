@@ -630,14 +630,18 @@ class TestDispatcher:
             "auto",
             "auto-coding",
             "auto-security",
-            "auto-creative",
+            "auto-general-uncensored::creative",
             "auto-reasoning",
             "auto-documents",
             "auto-image",
             "auto-music",
             "auto-research",
             "auto-vision",
-            "auto-data",
+            "auto-research::data",
+            "auto-documents::extract-uncensored",
+            "auto-general-uncensored::throwaway",
+            "auto-general-uncensored::throwaway-gemma4-heretic",
+            "auto-general-uncensored::throwaway-ornith15",
         ]:
             assert is_valid_workspace(ws), f"Expected valid: {ws}"
 

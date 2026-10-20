@@ -211,7 +211,7 @@ MATH_MAX_TOKENS = 1024
 REASONING_WORKSPACES: frozenset[str] = frozenset(
     {
         "bench-nex-n2-mini",  # Nex-N2-mini (Qwen3.5-35B-A3B MoE) — emits_reasoning
-        "auto-data",  # deepseek-r1:32b-q8_0 — R1 chain-of-thought
+        "auto-research::data",  # deepseek-r1:32b-q8_0 — R1 chain-of-thought
         "auto-daily",  # phi4-reasoning:plus (?model= override; formerly auto-phi4)
         "auto-research",  # tongyi-deepresearch-abliterated — deep research CoT
         "auto-coding",  # Magistral-Small-2509 (?model= override; formerly auto-mistral)

@@ -1,8 +1,9 @@
 name: "📊 Data Extractor"
 slug: dataextractor
-delivery: role
+delivery: persona
 category: data
-workspace_model: auto-data
+workspace_model: auto-research
+variant: data
 preferred_models:
   - granite4.1:30b-ctx64k
   - deepseek-r1:32b-q4_k_m

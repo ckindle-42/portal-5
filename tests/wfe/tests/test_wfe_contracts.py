@@ -1562,7 +1562,7 @@ class TestCardRegistryCarriesTheAntiLoopSettings:
 
 
 class TestVariantsKeepTheirOwnSamplingWhenTheBaseChanges:
-    """A variant inherits every base key it does not set. Giving auto-uncensored-throwaway the
+    """A variant inherits every base key it does not set. Giving the throwaway variant the
     Qwen3.6 presence_penalty 1.5 also gave it to its gemma4 and Ornith variants."""
 
     def test_throwaway_variants_do_not_inherit_the_qwen36_anti_loop_setting(self):
@@ -1571,11 +1571,11 @@ class TestVariantsKeepTheirOwnSamplingWhenTheBaseChanges:
         from tests.wfe.runner import REPO
 
         ws = yaml.safe_load((REPO / "config/portal.yaml").read_text())["workspaces"]
-        base = ws["auto-uncensored-throwaway"]
-        assert base["presence_penalty"] == 1.5
-        for name in ("gemma4-heretic", "ornith15"):
+        base = ws["auto-general-uncensored"]
+        assert base["variants"]["throwaway"]["presence_penalty"] == 1.5
+        for name in ("throwaway-gemma4-heretic", "throwaway-ornith15"):
             assert {**base, **base["variants"][name]}["presence_penalty"] == 0.0
-        assert {**base, **base["variants"]["ornith15"]}["repeat_penalty"] == 1.05
+        assert {**base, **base["variants"]["throwaway-ornith15"]}["repeat_penalty"] == 1.05
 
 
 class TestThinkingOnlyBuildsAreNotFlaggedAsBrokenTemplates:

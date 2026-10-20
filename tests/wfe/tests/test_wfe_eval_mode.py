@@ -114,7 +114,7 @@ def test_finish_keeps_receipted_artifacts_and_cleans_only_the_row(out_root, tmp_
 def test_pipeline_payload_carries_the_scope_and_no_sandbox_tools():
     scope = {"campaign": "wfe_" + "a" * 16, "run": "wfe_" + "b" * 40, "allow": ["run_sql"]}
     _, payload, _ = runner._build_pipeline(
-        "auto-data",
+        "auto-research::data",
         [{"role": "user", "content": "q"}],
         "none",
         {},
@@ -156,8 +156,8 @@ def test_gate_checks_production_rows_against_the_allowlist(tmp_path, monkeypatch
     )
     rows = [
         {
-            "run_id": f"auto-data|a|s|{t}|r0",
-            "workspace": "auto-data",
+            "run_id": f"auto-research::data|a|s|{t}|r0",
+            "workspace": "auto-research::data",
             "suite": "s",
             "suite_path": str(suite),
             "task_id": t,
@@ -166,7 +166,7 @@ def test_gate_checks_production_rows_against_the_allowlist(tmp_path, monkeypatch
         for t in ("t1", "t2")
     ]
     assert campaign.tool_gaps(rows) == [
-        "s:t2 in auto-data: needs tools not offered ['execute_python']"
+        "s:t2 in auto-research::data: needs tools not offered ['execute_python']"
     ]
 
 
@@ -248,7 +248,7 @@ def test_production_seeds_memory_and_kb_and_a_seed_failure_is_an_instrument_erro
     monkeypatch.setattr(eval_mode, "eval_post", post)
     task = {"id": "t", "memory_seed": ["a fact", "another"], "kb_seed": {"k.md": "kb text"}}
     wsc = {"system_prompt_pipeline": "", "system_prompt_base": ""}
-    row = {**_row(), "workspace": "auto-data"}
+    row = {**_row(), "workspace": "auto-research::data"}
     for fail in (False, True):
         calls.clear()
         _, _, ctx = eval_mode.prepare(True, row, {"campaign_id": "c"}, task, wsc, {})

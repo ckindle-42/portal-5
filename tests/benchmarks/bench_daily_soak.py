@@ -63,8 +63,8 @@ WORKSPACE_WEIGHTS: dict[str, int] = {
     "auto-reasoning": 8,
     "auto-spl": 7,
     "auto-compliance": 7,
-    "auto-data": 6,
-    "auto-creative": 5,
+    "auto-research::data": 6,
+    "auto-general-uncensored::creative": 5,
 }
 
 # Per-category direct model (matched to config/portal.yaml model_hint), for --path direct.
@@ -78,8 +78,8 @@ DIRECT_MODELS = {
         "auto-reasoning": "DeepSeek-R1-0528-Qwen3-8B-4bit",
         "auto-spl": "Qwen3-Coder-30B-A3B-Instruct-4bit",
         "auto-compliance": "granite-4.1-8b-mxfp8",
-        "auto-data": "granite-4.1-30b-4bit",
-        "auto-creative": "Qwen3.6-35B-A3B-HauhauCS-Aggressive-4bit",
+        "auto-research::data": "granite-4.1-30b-4bit",
+        "auto-general-uncensored::creative": "Qwen3.6-35B-A3B-HauhauCS-Aggressive-4bit",
     },
     "ollama": {
         "auto-coding": "qwen3-coder:30b-a3b-q4_K_M-ctx16k",
@@ -90,8 +90,8 @@ DIRECT_MODELS = {
         "auto-reasoning": "hf.co/unsloth/DeepSeek-R1-0528-Qwen3-8B-GGUF:Q4_K_XL-ctx64k",
         "auto-spl": "qwen3-coder:30b-a3b-q4_K_M-ctx16k",
         "auto-compliance": "granite4.1:8b-q8_0-ctx16k",  # Q8_0 to match oMLX mxfp8 (~8-bit) — parity fix
-        "auto-data": "granite4.1:30b-ctx64k",
-        "auto-creative": "fredrezones55/Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive:Q4-ctx8k",
+        "auto-research::data": "granite4.1:30b-ctx64k",
+        "auto-general-uncensored::creative": "fredrezones55/Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive:Q4-ctx8k",
     },
 }
 
@@ -148,12 +148,12 @@ PROMPT_BANKS: dict[str, list[str]] = {
         "Map 'inventory of authorized devices and software' to the CIP requirement and list required evidence.",
         "For HIPAA, summarize the access-control safeguards for an internal AI service producing PHI summaries.",
     ],
-    "auto-data": [
+    "auto-research::data": [
         "Run Python to compute p50/p95/p99 of [12,15,9,40,22,18,120,14,16,300] and show the code and result.",
         "Create an Excel sheet from this data: months Jan-Mar, requests 400/520/610, and confirm it saved.",
         "Run Python to fit a simple linear trend to [400,520,610] and report the slope.",
     ],
-    "auto-creative": [
+    "auto-general-uncensored::creative": [
         "Write a 120-word launch blurb for a self-hosted AI orchestration platform. Confident, not hypey.",
         "Draft a dry, engineer-to-engineer changelog entry announcing a multi-engine backend.",
         "Write a short, wry internal note that the Friday deploy is slipping to Monday.",

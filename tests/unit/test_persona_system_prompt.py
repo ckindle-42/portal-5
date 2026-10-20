@@ -11,6 +11,7 @@ from portal.platform.inference.router.preinject import _inject_persona_system_pr
 from portal.platform.inference.router.workspaces import _PERSONA_MAP
 
 _HEADERS = {"Authorization": f"Bearer {PIPELINE_API_KEY}"}
+_ROLE_SLUG = "codereviewer"
 
 
 @pytest.fixture
@@ -170,13 +171,13 @@ def _post_route(
 def test_role_slash_keeps_the_engine_and_injects_the_prompt(
     client: TestClient, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    prompt = _PERSONA_MAP["proofreader"].system_prompt
+    prompt = _PERSONA_MAP[_ROLE_SLUG].system_prompt
     body, route = _post_route(
         client,
         monkeypatch,
         {
             "model": "auto-daily",
-            "messages": [{"role": "user", "content": "/proofreader hello"}],
+            "messages": [{"role": "user", "content": f"/{_ROLE_SLUG} hello"}],
         },
     )
     assert route.startswith("auto-daily;")
@@ -195,27 +196,25 @@ def test_unknown_slash_is_untouched(client: TestClient, monkeypatch: pytest.Monk
 def test_slash_without_the_separating_space_is_untouched(
     client: TestClient, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    messages = [{"role": "user", "content": "/proofreader"}]
+    messages = [{"role": "user", "content": f"/{_ROLE_SLUG}"}]
     body = _post(client, monkeypatch, {"model": "auto-spl", "messages": messages})
     assert body["messages"] == messages
 
 
-def test_persona_slash_does_not_follow_the_persona_workspace(
+def test_variant_persona_slash_is_not_a_role(
     client: TestClient, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    prompt = _PERSONA_MAP["proofreader"].system_prompt
+    messages = [{"role": "user", "content": "/proofreader hello"}]
     body, route = _post_route(
         client,
         monkeypatch,
         {
             "model": "auto-spl",
-            "messages": [{"role": "user", "content": "/proofreader hello"}],
+            "messages": messages,
         },
     )
     assert route.startswith("auto-spl;")
-    assert _system(body).startswith(prompt)
-    user = next(message for message in body["messages"] if message["role"] == "user")
-    assert user["content"] == "hello"
+    assert body["messages"] == messages
 
 
 def test_role_slash_streams_on_the_same_engine(
@@ -223,7 +222,7 @@ def test_role_slash_streams_on_the_same_engine(
 ) -> None:
     import portal.platform.inference.router.handlers as handlers_mod
 
-    prompt = _PERSONA_MAP["proofreader"].system_prompt
+    prompt = _PERSONA_MAP[_ROLE_SLUG].system_prompt
     seen: dict[str, Any] = {}
 
     async def capture_build(
@@ -252,7 +251,7 @@ def test_role_slash_streams_on_the_same_engine(
         json={
             "model": "auto-daily",
             "stream": True,
-            "messages": [{"role": "user", "content": "/proofreader hello"}],
+            "messages": [{"role": "user", "content": f"/{_ROLE_SLUG} hello"}],
         },
         headers=_HEADERS,
     )
@@ -267,12 +266,12 @@ def test_role_slash_streams_on_the_same_engine(
 def test_follow_up_keeps_the_role_prompt_and_strips_history() -> None:
     from portal.platform.inference.router.preinject import _inject_requested_prompts
 
-    prompt = _PERSONA_MAP["proofreader"].system_prompt
+    prompt = _PERSONA_MAP[_ROLE_SLUG].system_prompt
     out = _inject_requested_prompts(
         "auto-spl",
         {
             "messages": [
-                {"role": "user", "content": "/proofreader fix: teh cat"},
+                {"role": "user", "content": f"/{_ROLE_SLUG} fix: teh cat"},
                 {"role": "assistant", "content": "fixed"},
                 {"role": "user", "content": "and the title"},
             ]
@@ -293,7 +292,7 @@ def test_role_slash_strips_a_text_part() -> None:
             "messages": [
                 {
                     "role": "user",
-                    "content": [{"type": "text", "text": "/proofreader hello"}],
+                    "content": [{"type": "text", "text": f"/{_ROLE_SLUG} hello"}],
                 }
             ]
         },

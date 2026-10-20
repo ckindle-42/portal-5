@@ -114,6 +114,7 @@ def test_persona_tool_resolution_matches_snapshot(monkeypatch) -> None:
     test — WORKSPACES aliases the same dict object every importer sees.
     """
     from portal.platform.inference.config import get_workspace_dict, load_portal_config
+    from portal.platform.inference.router.preinject import _resolve_workspace_variant
 
     monkeypatch.setenv("PORTAL_ENABLE_EVAL", "1")
     all_ws = get_workspace_dict(load_portal_config())
@@ -128,6 +129,9 @@ def test_persona_tool_resolution_matches_snapshot(monkeypatch) -> None:
             if isinstance(spec, PersonaSpec)
             else spec.get("workspace_model", "")
         )
+        variant = spec.variant if isinstance(spec, PersonaSpec) else spec.get("variant")
+        if variant:
+            ws_id = _resolve_workspace_variant(slug, ws_id, variant)
         effective = _resolve_persona_tools(spec, ws_id)
         key = f"persona::{slug}"
         if key in snap and snap[key]["effective_tools"] != effective:

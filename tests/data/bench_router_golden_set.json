@@ -72,7 +72,7 @@
     "offensive; was auto-redteam; variant=redteam"
   ],
   [
-    "full kill-chain analysis for a supply chain compromise — ATT&CK mapped",
+    "full kill-chain analysis for a supply chain compromise \u2014 ATT&CK mapped",
     "auto-security",
     "security",
     "depth signal; was auto-redteam-deep; variant=redteam-deep"
@@ -114,7 +114,7 @@
     "defensive creation"
   ],
   [
-    "we detected ransomware on WS-42 — what do we isolate first",
+    "we detected ransomware on WS-42 \u2014 what do we isolate first",
     "auto-security",
     "standard",
     "was auto-blueteam; variant=blueteam"
@@ -199,13 +199,13 @@
   ],
   [
     "analyze this CSV for outliers and suggest visualization approaches",
-    "auto-data",
+    "auto-research",
     "standard",
     ""
   ],
   [
     "explain the difference between ANOVA and a t-test for my experiment",
-    "auto-data",
+    "auto-research",
     "standard",
     ""
   ],
@@ -289,13 +289,13 @@
   ],
   [
     "write a noir detective short story set in a rainy city",
-    "auto-creative",
+    "auto-general-uncensored",
     "standard",
     ""
   ],
   [
     "write product copy for a new headphone launch",
-    "auto-creative",
+    "auto-general-uncensored",
     "standard",
     ""
   ],
@@ -387,7 +387,7 @@
     "what is 2 + 2",
     "auto",
     "abstain",
-    "trivial — no workspace needed"
+    "trivial \u2014 no workspace needed"
   ],
   [
     "who invented the telephone",
@@ -405,7 +405,7 @@
     "write a Splunk search to detect Mimikatz",
     "auto-spl",
     "standard",
-    "security + SPL overlap — SPL should win"
+    "security + SPL overlap \u2014 SPL should win"
   ],
   [
     "CIP-007 requirements for patching ICS systems",

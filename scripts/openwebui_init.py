@@ -713,7 +713,6 @@ async def create_persona_presets_async(
                                 "auto-research",
                                 "auto-security",
                                 "auto-reasoning",
-                                "auto-data",
                                 "auto-compliance",
                             }
                             # auto-redteam/auto-blueteam removed: folded into
