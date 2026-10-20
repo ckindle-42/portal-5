@@ -1306,12 +1306,6 @@ workspace_routing:
   auto-documents:
   - general
   - coding
-  auto-video:
-  - general
-  auto-image:
-  - general
-  auto-music:
-  - general
   auto-research:
   - reasoning
   - general

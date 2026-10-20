@@ -292,11 +292,12 @@ class TestSlackAdapter:
             slack_bot.build_app()
 
     def test_channel_workspace_map_all_valid(self):
-        """Every CHANNEL_WORKSPACE_MAP target is a workspace declared in portal.yaml."""
+        """Every channel target is a workspace or a time-boxed alias."""
         from portal.platform.inference.config import load_portal_config
         from portal_channels.slack.bot import CHANNEL_WORKSPACE_MAP
 
-        catalog = load_portal_config().workspaces
+        config = load_portal_config()
+        catalog = set(config.workspaces) | set(config.aliases)
         for channel_keyword, (workspace_id, _variant) in CHANNEL_WORKSPACE_MAP.items():
             assert workspace_id in catalog, (
                 f"Slack channel '{channel_keyword}' → '{workspace_id}' "

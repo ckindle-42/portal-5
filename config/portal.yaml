@@ -390,6 +390,18 @@ host_jobs:
 # enable_web_search:    → sets OWUI params.enable_web_search on the preset.
 # owui_system_prompt:   → sets OWUI params.system on the preset.
 aliases:
+  auto-image:
+    to: auto-audio::image
+    remove_after: 2026-12-31
+    reason: Media family merge; retain live API callers during migration.
+  auto-video:
+    to: auto-audio::video
+    remove_after: 2026-12-31
+    reason: Media family merge; retain live API callers during migration.
+  auto-music:
+    to: auto-audio::music
+    remove_after: 2026-12-31
+    reason: Media family merge; retain live API callers during migration.
   auto-math:
     to: auto-reasoning::math
     remove_after: 2026-12-31
@@ -1987,103 +1999,6 @@ workspaces:
         tools: []
         enable_web_search: false
         owui_system_prompt: null
-  auto-video:
-    module: video
-    name: 🎬 Portal Video Creator
-    description: >-
-      Generate short clips (with audio) via MLX-native LTX-2.3 (video_mlx MCP,
-      :8935). The `video` M7 module is OFF by default — enable with
-      `./launch.sh install-video-mlx` then `portal module enable video`. When the
-      `video` module is disabled, sync-config drops this workspace from the
-      presets entirely regardless of expose_to_owui.
-    model_hint: granite4.1:8b-ctx16k
-    context_limit: 16384
-    temperature: 0.8
-    top_p: 0.95
-    repeat_penalty: 1.0
-    sampling_override:
-      reason: granite writes video prompts at 0.8 for variety; the card's 0.0 is for extraction
-      evidence: pending
-    tools:
-    - generate_video
-    - animate_image
-    expose_to_owui: true
-    # C3 growth guard: declared user-facing engine — media tool route: video
-    engine: true
-    engine_reason: "media tool route: video"
-
-    enable_web_search: false
-    owui_system_prompt: |-
-      You help generate short video clips with MLX-native LTX-2.3. Use generate_video(prompt, ...) for text-to-video and animate_image(image_url, prompt, ...) for image-to-video. Clips are preview-grade and practically capped at ~4-6 seconds; jobs take several minutes. Describe what will be generated before executing, then return the download link from the tool result.
-  auto-image:
-    name: "🖼️  Portal Image Creator"
-    module: image
-    model_hint: granite4.1:8b-ctx16k
-    context_limit: 16384
-    temperature: 0.8
-    top_p: 0.95
-    repeat_penalty: 1.0
-    sampling_override:
-      reason: granite writes image prompts at 0.8 for variety; the card's 0.0 is for extraction
-      evidence: pending
-    tools:
-    - generate_image
-    - edit_image
-    expose_to_owui: true
-    # C3 growth guard: declared user-facing engine — media engine (one tool dispatcher)
-    engine: true
-    engine_reason: media engine (one tool dispatcher)
-    enable_web_search: false
-    owui_system_prompt: |-
-      You help generate and edit images with MLX-native FLUX. Use the generate_image tool to
-      create images from text descriptions. Pass model='schnell' by default (fast, 4-step). Pass
-      model='klein' (FLUX.2) when quality matters more than speed. Pass model='qwen-image' when the
-      request needs legible text rendered in the image (posters, slides, typography, signs, labels)
-      — Qwen-Image is best-in-class for this and schnell/klein are not. Use edit_image with
-      image_url set when the user wants an existing image edited by instruction (e.g. "make the sky
-      sunset orange"). Describe what you will generate before executing, then return the download
-      link from the tool result.
-    description: Generate and edit images with MLX-native FLUX (schnell / klein / qwen-image). Driver granite4.1:8b.
-  auto-music:
-    module: music
-    name: 🎵 Portal Music Producer
-    description: |-
-      Generate full songs (lyrics/vocals or instrumental) via MiniMax-Music3-MLX. LFM2.5-8B-A1B hybrid (V8: fastest structured-output model in fleet, 89 t/s, unique non-transformer architecture, tool-capable, Apache 2.0). ACE-Step-1.5 was evaluated side-by-side (TASK_MUSIC_DUAL_BACKEND) and disabled 2026-08-27 — see config/portal.yaml's mcp_fleet comment.
-    model_hint: lfm2.5:8b-ctx8k
-    context_limit: 8192
-    temperature: 0.8
-    top_p: 0.95
-    # TASK_SAMPLING_PROFILE_AUDIT_V1: 1.05 is Liquid AI's verified value
-    # (vendor generation_config.json/README + unsloth agree); Finding 3
-    # flagged the fleet's temp/top_k as "suspicious" but they were already
-    # correct — this repeat_penalty was the one real gap. temperature/top_p
-    # above stay as this workspace's deliberate creative-generation tuning,
-    # not overwritten with LFM2.5's base temp=0.2 (see Finding 2).
-    repeat_penalty: 1.05
-    sampling_override:
-      reason: lfm2.5 writes music prompts at 0.8 for variety; the card's 0.2 is for extraction
-      evidence: pending
-    system_prompt_append: |2-
-  
-  
-      You generate full songs (lyrics/vocals or instrumental) using MiniMax-Music3-MLX, plus speech/transcription tools. Generation is job-based: call minimax_generate to start, then poll minimax_status(job_id) every ~10-15 seconds and tell the user it is still rendering until status is "done" or "error" — a complete-quality clip (60s, 30 steps) takes several minutes, so never claim it is finished before status says so. Use [Verse]/[Chorus] tags in lyrics, or "[Instrumental]" for no vocals. Use speak to synthesise speech. Use clone_voice for a one-off voice from a supplied reference clip (5-15s of clean speech); to reuse a trainer's voice across sessions, call register_voice(name, reference_audio, reference_text) once, then speak with voice="trainer:<name>". Use list_voices to show available voices and saved trainer profiles, and transcribe_audio to convert speech to text (call it with no file argument to auto-detect the most recently uploaded audio; never ask the user for a path). Always call the appropriate tool rather than describing what you would do. If minimax_generate returns an error about insufficient free memory, relay it plainly: the machine is temporarily low on memory, a song needs roughly 27GB free, and the user can retry in a few minutes or after closing other running models and large chats. This is always temporary — never tell the user you lack a music tool or that generation is permanently unavailable.
-    tools:
-    - minimax_generate
-    - minimax_status
-    - minimax_models
-    - speak
-    - transcribe_audio
-    - clone_voice
-    - register_voice
-    - list_voices
-    expose_to_owui: true
-    # C3 growth guard: declared user-facing engine — media tool route: music
-    engine: true
-    engine_reason: "media tool route: music"
-
-    enable_web_search: false
-    owui_system_prompt: |-
-      You create full songs (lyrics/vocals or instrumental) using MiniMax-Music3-MLX (minimax_generate / minimax_status). Generation is job-based — start with minimax_generate, then poll minimax_status(job_id) until done, telling the user it's rendering in the meantime. Ask for style, mood, tempo, and lyrics-vs-instrumental if unspecified. After the job completes, include the download_url from the tool result as a clickable link. If minimax_generate returns an insufficient-memory error, relay it plainly — the machine is temporarily low on memory (a song needs ~27GB free), retry in a few minutes or after closing other models/large chats. Never claim you lack a music tool.
   auto-research:
     module: research
     name: 🔍 Portal Research Assistant
@@ -2617,6 +2532,99 @@ workspaces:
     enable_web_search: false
     owui_system_prompt: |-
       You are an audio analysis assistant. Transcribe audio files, analyze speech content, identify speakers, summarize recordings, and extract key information from audio. When given an audio file, use transcribe_with_speakers when it matters who is talking — it returns the transcript with per-turn speaker labels (SPEAKER_00, SPEAKER_01, ...); a single-speaker recording simply comes back as one speaker. Use transcribe_audio only when the user explicitly wants a fast plain transcript with no speaker labels. Either tool writes JSON, Markdown, and Word (.docx) files automatically and returns their download URLs — always surface the md_url and docx_url as clickable links. Call with no file argument to auto-detect the most recent upload, then provide a clear summary with timestamps for key moments.
+    variants:
+      image:
+        name: "🖼️  Portal Image Creator"
+        module: image
+        model_hint: granite4.1:8b-ctx16k
+        context_limit: 16384
+        temperature: 0.8
+        top_p: 0.95
+        repeat_penalty: 1.0
+        top_k: null
+        sampling_override:
+          reason: granite writes image prompts at 0.8 for variety; the card's 0.0 is for extraction
+          evidence: pending
+        tools:
+        - generate_image
+        - edit_image
+        expose_to_owui: true
+        enable_web_search: false
+        owui_system_prompt: |-
+          You help generate and edit images with MLX-native FLUX. Use the generate_image tool to
+          create images from text descriptions. Pass model='schnell' by default (fast, 4-step). Pass
+          model='klein' (FLUX.2) when quality matters more than speed. Pass model='qwen-image' when the
+          request needs legible text rendered in the image (posters, slides, typography, signs, labels)
+          — Qwen-Image is best-in-class for this and schnell/klein are not. Use edit_image with
+          image_url set when the user wants an existing image edited by instruction (e.g. "make the sky
+          sunset orange"). Describe what you will generate before executing, then return the download
+          link from the tool result.
+        description: Generate and edit images with MLX-native FLUX (schnell / klein / qwen-image). Driver granite4.1:8b.
+      video:
+        module: video
+        name: 🎬 Portal Video Creator
+        description: >-
+          Generate short clips (with audio) via MLX-native LTX-2.3 (video_mlx MCP,
+          :8935). The `video` M7 module is OFF by default — enable with
+          `./launch.sh install-video-mlx` then `portal module enable video`. When the
+          `video` module is disabled, sync-config drops this workspace from the
+          presets entirely regardless of expose_to_owui.
+        model_hint: granite4.1:8b-ctx16k
+        context_limit: 16384
+        temperature: 0.8
+        top_p: 0.95
+        repeat_penalty: 1.0
+        top_k: null
+        sampling_override:
+          reason: granite writes video prompts at 0.8 for variety; the card's 0.0 is for extraction
+          evidence: pending
+        tools:
+        - generate_video
+        - animate_image
+        expose_to_owui: true
+
+        enable_web_search: false
+        owui_system_prompt: |-
+          You help generate short video clips with MLX-native LTX-2.3. Use generate_video(prompt, ...) for text-to-video and animate_image(image_url, prompt, ...) for image-to-video. Clips are preview-grade and practically capped at ~4-6 seconds; jobs take several minutes. Describe what will be generated before executing, then return the download link from the tool result.
+      music:
+        module: music
+        name: 🎵 Portal Music Producer
+        description: |-
+          Generate full songs (lyrics/vocals or instrumental) via MiniMax-Music3-MLX. LFM2.5-8B-A1B hybrid (V8: fastest structured-output model in fleet, 89 t/s, unique non-transformer architecture, tool-capable, Apache 2.0). ACE-Step-1.5 was evaluated side-by-side (TASK_MUSIC_DUAL_BACKEND) and disabled 2026-08-27 — see config/portal.yaml's mcp_fleet comment.
+        model_hint: lfm2.5:8b-ctx8k
+        context_limit: 8192
+        temperature: 0.8
+        top_p: 0.95
+        # TASK_SAMPLING_PROFILE_AUDIT_V1: 1.05 is Liquid AI's verified value
+        # (vendor generation_config.json/README + unsloth agree); Finding 3
+        # flagged the fleet's temp/top_k as "suspicious" but they were already
+        # correct — this repeat_penalty was the one real gap. temperature/top_p
+        # above stay as this workspace's deliberate creative-generation tuning,
+        # not overwritten with LFM2.5's base temp=0.2 (see Finding 2).
+        repeat_penalty: 1.05
+        top_k: null
+        sampling_override:
+          reason: lfm2.5 writes music prompts at 0.8 for variety; the card's 0.2 is for extraction
+          evidence: pending
+        system_prompt_append: |2-
+  
+  
+          You generate full songs (lyrics/vocals or instrumental) using MiniMax-Music3-MLX, plus speech/transcription tools. Generation is job-based: call minimax_generate to start, then poll minimax_status(job_id) every ~10-15 seconds and tell the user it is still rendering until status is "done" or "error" — a complete-quality clip (60s, 30 steps) takes several minutes, so never claim it is finished before status says so. Use [Verse]/[Chorus] tags in lyrics, or "[Instrumental]" for no vocals. Use speak to synthesise speech. Use clone_voice for a one-off voice from a supplied reference clip (5-15s of clean speech); to reuse a trainer's voice across sessions, call register_voice(name, reference_audio, reference_text) once, then speak with voice="trainer:<name>". Use list_voices to show available voices and saved trainer profiles, and transcribe_audio to convert speech to text (call it with no file argument to auto-detect the most recently uploaded audio; never ask the user for a path). Always call the appropriate tool rather than describing what you would do. If minimax_generate returns an error about insufficient free memory, relay it plainly: the machine is temporarily low on memory, a song needs roughly 27GB free, and the user can retry in a few minutes or after closing other running models and large chats. This is always temporary — never tell the user you lack a music tool or that generation is permanently unavailable.
+        tools:
+        - minimax_generate
+        - minimax_status
+        - minimax_models
+        - speak
+        - transcribe_audio
+        - clone_voice
+        - register_voice
+        - list_voices
+        expose_to_owui: true
+
+        enable_web_search: false
+        owui_system_prompt: |-
+          You create full songs (lyrics/vocals or instrumental) using MiniMax-Music3-MLX (minimax_generate / minimax_status). Generation is job-based — start with minimax_generate, then poll minimax_status(job_id) until done, telling the user it's rendering in the meantime. Ask for style, mood, tempo, and lyrics-vs-instrumental if unspecified. After the job completes, include the download_url from the tool result as a clickable link. If minimax_generate returns an insufficient-memory error, relay it plainly — the machine is temporarily low on memory (a song needs ~27GB free), retry in a few minutes or after closing other models/large chats. Never claim you lack a music tool.
+
   task-router:
     module: eval
     name: Task model (titles, tags, follow-ups)
