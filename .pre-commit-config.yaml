@@ -39,7 +39,7 @@ repos:
         # Python/site-packages. See CLAUDE.md Tech Stack section.
         # PORTAL5_VALIDATE_CHANGED_ONLY=1 restricts the slow HK content scan
         # to files changed since merge-base with origin/main.
-        entry: PORTAL5_VALIDATE_CHANGED_ONLY=1 uv run python3 scripts/validate_system.py --skip-pytest
+        entry: env PORTAL5_VALIDATE_CHANGED_ONLY=1 uv run python3 scripts/validate_system.py --skip-pytest
         pass_filenames: false
         files: ^(portal/|config/|portal_wiki/|scripts/|deploy/|tests/)
         stages: [pre-push]
