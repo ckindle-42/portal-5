@@ -7,6 +7,7 @@ Generates:
                                 is operator-edited; never touched here)
   .mcp.json                   → Claude Code MCP server list
   imports/openwebui/workspaces/workspace_*.json → OWUI workspace presets
+  imports/openwebui/workspaces/workspaces_all.json → bulk import of those presets only
   config/modules.generated.yaml → module enable/disable snapshot (M7 toggle
                                 layer) — read-only reference; state lives in
                                 config/portal.yaml modules:, this file renders it
@@ -189,8 +190,23 @@ def emit_opencode_picker(config: Any) -> bool:
     return False  # no-op for now — opencode.jsonc is hand-maintained until M5
 
 
+def _bundle_text(presets: list[dict[str, Any]]) -> str:
+    ordered = sorted(presets, key=lambda preset: str(preset.get("id", "")))
+    return json.dumps(ordered, indent=2, ensure_ascii=False) + "\n"
+
+
+def _write_preset_bundle(ws_dir: Path, presets: list[dict[str, Any]]) -> bool:
+    """Rewrite workspaces_all.json from the presets just emitted. True if the file changed."""
+    path = ws_dir / "workspaces_all.json"
+    content = _bundle_text(presets)
+    if path.exists() and path.read_text(encoding="utf-8") == content:
+        return False
+    path.write_text(content, encoding="utf-8")
+    return True
+
+
 def emit_owui_presets(config: Any) -> tuple[int, int, int]:
-    """Regenerate imports/openwebui/workspaces/workspace_*.json. Returns (created, updated, removed).
+    """Regenerate workspace_*.json and workspaces_all.json. Returns (created, updated, removed).
 
     Gate 1 (M7 toggle layer): workspaces belonging to a disabled module are
     skipped, same as any other expose_to_owui=False workspace — a disabled
@@ -208,6 +224,7 @@ def emit_owui_presets(config: Any) -> tuple[int, int, int]:
 
     # Emit presets for all workspaces with expose_to_owui=True
     emitted_files: set[str] = set()
+    presets: list[dict[str, Any]] = []
     for ws_id, spec in config.workspaces.items():
         if not spec.expose_to_owui:
             continue
@@ -216,6 +233,7 @@ def emit_owui_presets(config: Any) -> tuple[int, int, int]:
         if ws_id in hidden_by_module:
             continue
         preset = _owui_preset(ws_id, spec)
+        presets.append(preset)
         fname = _ws_filename(ws_id)
         fpath = ws_dir / fname
         new_content = json.dumps(preset, indent=2, ensure_ascii=False) + "\n"
@@ -235,6 +253,9 @@ def emit_owui_presets(config: Any) -> tuple[int, int, int]:
             fpath.unlink()
             removed += 1
             print(f"  Removed orphan preset: {fpath.name}")
+
+    bundle_changed = _write_preset_bundle(ws_dir, presets)
+    print(f"  workspaces_all.json: {'updated' if bundle_changed else 'no change'}")
 
     return created, updated, removed
 

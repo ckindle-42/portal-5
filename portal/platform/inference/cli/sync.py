@@ -29,6 +29,7 @@ def sync_config(
       config/backends.yaml workspace_routing block
       .mcp.json (Claude Code MCP list)
       imports/openwebui/workspaces/workspace_*.json
+      imports/openwebui/workspaces/workspaces_all.json
 
     Idempotent — safe to run after every edit to portal.yaml.
     """

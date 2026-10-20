@@ -64,6 +64,7 @@ python3 scripts/blend_acceptance_results.py        # blend docs/ACCEPTANCE_RESUL
 ## Verification and measurement
 
 ```bash
+python3 scripts/uat_engines.py                     # one shot per enabled engine and variant, plus engines-and-roles checks (JSON under ${PORTAL_DATA_ROOT}/uat/; --dry-run, --only ID)
 python3 scripts/check_model_bindings.py             # live gate: every model_pin/model_hint/alias/promptfoo-provider resolves to an installed Ollama tag
 python3 scripts/check_updates.py                    # report upstream drift + GitHub security advisories for the Obscura pin, Ollama, oMLX, compose images, python deps, and the orchestrator's worker harnesses (opencode/codex/grok) (weekly launchd: com.portal5.update-check); accepts a component subset, e.g. `check_updates.py ollama harnesses`
 python3 scripts/verify_proxmox_mcp.py              # quick Proxmox MCP check (no Docker)

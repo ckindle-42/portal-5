@@ -12,6 +12,7 @@ import shutil
 import subprocess
 import sys
 from pathlib import Path
+from types import SimpleNamespace
 
 import yaml
 
@@ -170,6 +171,48 @@ def test_mcp_json_matches_fleet() -> None:
         f"  Only in fleet: {sorted(ide_names - mcp_names)}\n"
         f"  Only in .mcp.json: {sorted(mcp_names - ide_names)}"
     )
+
+
+def _preset_spec(module: str, expose: bool, name: str) -> SimpleNamespace:
+    return SimpleNamespace(
+        module=module,
+        expose_to_owui=expose,
+        name=name,
+        tools=[],
+        owui_system_prompt="",
+        enable_web_search=False,
+    )
+
+
+def test_workspaces_all_is_exactly_the_emitted_presets(tmp_path, monkeypatch) -> None:
+    """The bulk import lists the per-workspace preset files and nothing else."""
+    from portal.platform.inference import sync_config
+    from portal.platform.wiki.adapters import modules
+
+    monkeypatch.setattr(sync_config, "REPO", tmp_path)
+    monkeypatch.setattr(modules, "owui_workspaces", lambda _mods=None: ["hidden-engine"])
+    config = SimpleNamespace(
+        workspaces={
+            "auto-daily": _preset_spec("general", True, "Daily"),
+            "bench-kept": _preset_spec("eval", True, "Bench"),
+            "internal-seat": _preset_spec("general", False, "Internal"),
+            "hidden-engine": _preset_spec("media", True, "Hidden"),
+        }
+    )
+
+    created, updated, removed = sync_config.emit_owui_presets(config)
+    ws_dir = tmp_path / "imports" / "openwebui" / "workspaces"
+    files = sorted(path.name for path in ws_dir.glob("workspace_*.json"))
+    bundle = json.loads((ws_dir / "workspaces_all.json").read_text())
+    ids = [row["id"] for row in bundle]
+
+    assert created == 1 and updated == 0 and removed == 0
+    assert files == ["workspace_auto_daily.json"]
+    assert ids == ["auto-daily"]
+    assert json.loads((ws_dir / "workspace_auto_daily.json").read_text())["id"] == "auto-daily"
+    again_bytes = (ws_dir / "workspaces_all.json").read_bytes()
+    assert sync_config.emit_owui_presets(config) == (0, 0, 0)
+    assert (ws_dir / "workspaces_all.json").read_bytes() == again_bytes
 
 
 def test_owui_presets_cover_all_exposed_workspaces() -> None:

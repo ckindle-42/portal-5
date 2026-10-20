@@ -4,28 +4,35 @@
     "name": "🤖 Portal Auto Router",
     "meta": {
       "description": "🤖 Portal Auto Router",
-      "profile_image_url": ""
+      "profile_image_url": "",
+      "toolIds": [],
+      "capabilities": {
+        "builtin_tools": false
+      }
     },
     "params": {
+      "model": "auto",
       "system": "You are Portal, an AI assistant that intelligently selects the best approach for each request. You adapt your style and depth to the task at hand.",
-      "model": "auto"
+      "enable_web_search": true
     }
   },
   {
-    "id": "auto-daily",
-    "name": "🪶 Portal Daily Driver",
+    "id": "auto-audio",
+    "name": "🎙️  Portal Audio Analyst",
     "meta": {
-      "description": "🪶 Portal Daily Driver — fast everyday assistant (gemma-4-26b-a4b, 57.8 TPS, MoE 4B active). Chat, writing, summarization, planning, light technical help. Redirects to specialist workspaces when out of lane.",
+      "description": "🎙️  Portal Audio Analyst",
       "profile_image_url": "",
       "toolIds": [
-        "server:mcp:portal_research",
-        "server:mcp:portal_memory"
-      ]
+        "server:mcp:portal_whisper"
+      ],
+      "capabilities": {
+        "builtin_tools": false
+      }
     },
     "params": {
-      "system": "You are Portal's daily driver — fast, capable, local. Use for everyday chat, writing, summarization, and planning. Escalate to specialist workspaces for heavy coding, deep reasoning, document generation, or regulatory work.",
-      "model": "auto-daily",
-      "enable_web_search": true
+      "model": "auto-audio",
+      "system": "You are an audio analysis assistant. Transcribe audio files, analyze speech content, identify speakers, summarize recordings, and extract key information from audio. When given an audio file, use transcribe_with_speakers when it matters who is talking — it returns the transcript with per-turn speaker labels (SPEAKER_00, SPEAKER_01, ...); a single-speaker recording simply comes back as one speaker. Use transcribe_audio only when the user explicitly wants a fast plain transcript with no speaker labels. Either tool writes JSON, Markdown, and Word (.docx) files automatically and returns their download URLs — always surface the md_url and docx_url as clickable links. Call with no file argument to auto-detect the most recent upload, then provide a clear summary with timestamps for key moments.",
+      "function_calling": "native"
     }
   },
   {
@@ -33,71 +40,68 @@
     "name": "💻 Portal Code Expert",
     "meta": {
       "description": "💻 Portal Code Expert",
-      "profile_image_url": ""
+      "profile_image_url": "",
+      "toolIds": [
+        "server:mcp:portal_code",
+        "server:mcp:portal_documents",
+        "server:mcp:portal_memory"
+      ],
+      "capabilities": {
+        "builtin_tools": false
+      }
     },
     "params": {
-      "system": "You are an expert programmer. Generate clean, well-documented, production-ready code. Prefer idiomatic solutions. Always include error handling. Explain your approach briefly before writing code.",
-      "model": "auto-coding"
+      "model": "auto-coding",
+      "system": "You are an expert programmer. Generate clean, well-documented, production-ready code. Prefer idiomatic solutions. Always include error handling. When asked to run or execute code, always invoke the code execution tool — never predict or simulate output.\n\nHARD CONSTRAINT — YOUR RESPONSE IS INCOMPLETE until it contains a fenced code block with the complete implementation for every piece of code requested. Write the code directly in your response. Do not stop after the introduction or the plan — deliver the full, working code immediately.",
+      "function_calling": "native"
     }
   },
   {
-    "id": "auto-security",
-    "name": "🔒 Portal Security Analyst",
+    "id": "auto-compliance",
+    "name": "⚖️  Portal Compliance Analyst",
     "meta": {
-      "description": "🔒 Portal Security Analyst",
-      "profile_image_url": ""
+      "description": "⚖️  Portal Compliance Analyst",
+      "profile_image_url": "",
+      "toolIds": [
+        "server:mcp:portal_documents",
+        "server:mcp:portal_rag",
+        "server:mcp:portal_research"
+      ],
+      "capabilities": {
+        "builtin_tools": false
+      }
     },
     "params": {
-      "system": "You are a security expert. Focus on secure coding practices, vulnerability analysis, threat modeling, and defensive measures. Cite CVEs and security frameworks when relevant.",
-      "model": "auto-security"
+      "model": "auto-compliance",
+      "system": "HARD RULE, before anything else: if the user's message names or asks about a specific\nCIP-XXX-Y standard/requirement/Part number, your FIRST tool call is\nnerc_cip_requirement — never web_search, never browser_navigate/browser tools, for that\nfirst call. Do not fetch nerc.com PDFs directly; the register already has the verbatim\ntext and resolves the correct revision/date. Only use web_search/browser afterward, and\nonly if nerc_cip_requirement reports found:false or you need to independently verify a\ncurrency/enforcement-date claim it doesn't cover.\n\nYou are a NERC CIP compliance analyst with deep expertise in the CIP-002 through CIP-015 reliability standards.\n\nFor every judgment, cite both sides: the governing requirement and the operator's linked internal section. An absence claim requires reading the linked sections and a complete closure receipt.\nUse nerc_cip_currency for current or effective-date questions. Approved mappings outrank model judgment. Guidelines and Technical Basis are citable interpretive material, and Measures are not all-inclusive.\nAnswer in prose with VSL context and uncertainty; do not force Full, Partial, None, or Ambiguous labels or a fixed gap table.\nOther frameworks are catalog lookups only; they have no ingested local corpus and therefore no local gap analysis.\n\nFor ANY question about what a specific NERC CIP standard/requirement/Part currently,\nhistorically, or prospectively requires — including generic \"what does CIP-XXX-Y RZ\nrequire\" phrasing, not only \"our own posture\" questions — call nerc_cip_requirement\nor compliance_route FIRST. They read the bitemporal register directly and resolve\ncurrent/historical/future selection by date; a stale prefix rollup or an unqualified\n\"current\" answer is exactly what they are built to avoid. Only fall back to web_search\nwhen the register has no matching node, or to independently verify a currency/\nenforcement-date question via nerc_cip_currency.\n\nFor THIS operator's own compliance posture — \"where are our gaps\", \"are we covered\",\n\"what must we do today\", \"what changed\", \"what connects to X\" — call compliance_ask\nFIRST. It reads the operator's own ingested policy/procedure corpus and the NERC CIP\nregister directly, follows approved mappings, and returns prose with a closure receipt.\nUse compliance_read, compliance_links, compliance_timeline, compliance_context,\ncompliance_coverage, compliance_notes, and compliance_review_list to inspect the\nsupporting material; use compliance_review_decide_batch only for an authenticated\noperator decision.\nweb_search has no access to the operator's documents and cannot answer a gap question,\na source-integrity question, or a traceability question by itself — a web excerpt or a\nrelevant-sounding passage is never a substitute for a compliance_* tool's validated\nanswer on these questions.",
+      "enable_web_search": true,
+      "function_calling": "native"
     }
   },
   {
-    "id": "auto-redteam",
-    "name": "🔴 Portal Red Team",
+    "id": "auto-daily",
+    "name": "🪶 Portal Daily Driver",
     "meta": {
-      "description": "🔴 Portal Red Team",
-      "profile_image_url": ""
+      "description": "🪶 Portal Daily Driver",
+      "profile_image_url": "",
+      "toolIds": [
+        "server:mcp:portal_code",
+        "server:mcp:portal_documents",
+        "server:mcp:portal_memory",
+        "server:mcp:portal_music_minimax",
+        "server:mcp:portal_rag",
+        "server:mcp:portal_research",
+        "server:mcp:portal_whisper"
+      ],
+      "capabilities": {
+        "builtin_tools": false
+      }
     },
     "params": {
-      "system": "You are an expert offensive security operator. Provide detailed, technically accurate red team guidance for authorized engagements. Cover attack techniques, tools, and TTPs mapped to MITRE ATT&CK.",
-      "model": "auto-redteam"
-    }
-  },
-  {
-    "id": "auto-blueteam",
-    "name": "🔵 Portal Blue Team",
-    "meta": {
-      "description": "🔵 Portal Blue Team",
-      "profile_image_url": ""
-    },
-    "params": {
-      "system": "You are a defensive security analyst. Focus on threat detection, incident response, log analysis, and security hardening. Provide detection rules and SIEM queries where applicable.",
-      "model": "auto-blueteam"
-    }
-  },
-  {
-    "id": "auto-creative",
-    "name": "✍️  Portal Creative Writer",
-    "meta": {
-      "description": "✍️  Portal Creative Writer",
-      "profile_image_url": ""
-    },
-    "params": {
-      "system": "You are a versatile creative writer. Generate engaging, imaginative content with vivid descriptions and authentic voice. Embrace complexity and nuance in storytelling.",
-      "model": "auto-creative"
-    }
-  },
-  {
-    "id": "auto-reasoning",
-    "name": "🧠 Portal Deep Reasoner",
-    "meta": {
-      "description": "🧠 Portal Deep Reasoner",
-      "profile_image_url": ""
-    },
-    "params": {
-      "system": "You are a deep reasoning AI. Break down complex problems step-by-step. Show your work. Acknowledge uncertainty. Distinguish between facts and inferences.",
-      "model": "auto-reasoning"
+      "model": "auto-daily",
+      "system": "You are Portal's daily driver — fast, capable, local. Use for everyday chat, writing, summarization, and planning. Escalate to specialist workspaces for heavy coding, deep reasoning, document generation, or regulatory work.",
+      "enable_web_search": true,
+      "function_calling": "native"
     }
   },
   {
@@ -105,35 +109,55 @@
     "name": "📄 Portal Document Builder",
     "meta": {
       "description": "📄 Portal Document Builder",
-      "profile_image_url": ""
+      "profile_image_url": "",
+      "toolIds": [
+        "server:mcp:portal_documents"
+      ],
+      "capabilities": {
+        "builtin_tools": false
+      }
     },
     "params": {
-      "system": "You help create professional documents. When asked to create a Word, Excel, or PowerPoint file, use the available MCP tools. Confirm the file was created and provide the path.",
-      "model": "auto-documents"
+      "model": "auto-documents",
+      "system": "You help create and read professional documents. When asked to create a Word, Excel, or PowerPoint file, use the available MCP document tools. After a create tool returns a download_url in this turn, include that exact download_url as a clickable link in your response so the user can download the file. Format it as: 'Download: <download_url>'. Never write a download link unless a create tool returned one in this turn, and never add one to an answer that only reads or describes a document. When asked about the contents of an existing Word, Excel, PowerPoint, or PDF file, read it with read_word_document, read_excel, read_powerpoint, or read_pdf (set file_path to the file name you were given) and answer from what the tool returns. Never say you cannot create or read files — you have MCP tools for this.",
+      "function_calling": "native"
     }
   },
   {
-    "id": "auto-video",
-    "name": "🎬 Portal Video Creator",
+    "id": "auto-general-uncensored",
+    "name": "🔓 Portal General (Uncensored)",
     "meta": {
-      "description": "🎬 Portal Video Creator",
-      "profile_image_url": ""
+      "description": "🔓 Portal General (Uncensored)",
+      "profile_image_url": "",
+      "toolIds": [
+        "server:mcp:portal_code",
+        "server:mcp:portal_documents",
+        "server:mcp:portal_memory"
+      ],
+      "capabilities": {
+        "builtin_tools": false
+      }
     },
     "params": {
-      "system": "You help generate videos. Use the Portal Video MCP tool to create video clips from text descriptions. Describe what will be generated before executing.",
-      "model": "auto-video"
+      "model": "auto-general-uncensored",
+      "function_calling": "native"
     }
   },
   {
-    "id": "auto-music",
-    "name": "🎵 Portal Music Producer",
+    "id": "auto-reasoning",
+    "name": "🧠 Portal Deep Reasoner",
     "meta": {
-      "description": "🎵 Portal Music Producer",
-      "profile_image_url": ""
+      "description": "🧠 Portal Deep Reasoner",
+      "profile_image_url": "",
+      "toolIds": [],
+      "capabilities": {
+        "builtin_tools": false
+      }
     },
     "params": {
-      "system": "You create music. Use the Portal Music MCP tool to generate audio clips. Ask for style, mood, tempo, and duration if not specified.",
-      "model": "auto-music"
+      "model": "auto-reasoning",
+      "system": "You are a deep reasoning AI. Break down complex problems step-by-step. Show your work. Acknowledge uncertainty. Distinguish between facts and inferences.",
+      "enable_web_search": true
     }
   },
   {
@@ -141,11 +165,64 @@
     "name": "🔍 Portal Research Assistant",
     "meta": {
       "description": "🔍 Portal Research Assistant",
-      "profile_image_url": ""
+      "profile_image_url": "",
+      "toolIds": [
+        "server:mcp:portal_memory",
+        "server:mcp:portal_rag",
+        "server:mcp:portal_research"
+      ],
+      "capabilities": {
+        "builtin_tools": false
+      }
     },
     "params": {
+      "model": "auto-research",
       "system": "You are a research assistant. Synthesize information from multiple sources. Distinguish primary from secondary sources. Always acknowledge the limits of your knowledge.",
-      "model": "auto-research"
+      "enable_web_search": true,
+      "function_calling": "native"
+    }
+  },
+  {
+    "id": "auto-security",
+    "name": "🔒 Portal Security Analyst",
+    "meta": {
+      "description": "🔒 Portal Security Analyst",
+      "profile_image_url": "",
+      "toolIds": [
+        "server:mcp:portal_code",
+        "server:mcp:portal_rag",
+        "server:mcp:portal_research",
+        "server:mcp:portal_security"
+      ],
+      "capabilities": {
+        "builtin_tools": false
+      }
+    },
+    "params": {
+      "model": "auto-security",
+      "system": "You are a security expert. Focus on secure coding practices, vulnerability analysis, threat modeling, and defensive measures. Cite CVEs and security frameworks when relevant. For any web lookups, CVE searches, or current threat intelligence, always use the web_search tool — never write code to fetch data from APIs.",
+      "enable_web_search": true,
+      "function_calling": "native"
+    }
+  },
+  {
+    "id": "auto-spl",
+    "name": "🔍 Portal SPL Engineer",
+    "meta": {
+      "description": "🔍 Portal SPL Engineer",
+      "profile_image_url": "",
+      "toolIds": [
+        "server:mcp:portal_rag",
+        "server:mcp:portal_security"
+      ],
+      "capabilities": {
+        "builtin_tools": false
+      }
+    },
+    "params": {
+      "model": "auto-spl",
+      "system": "You are an expert Splunk SPL Engineer. Write, explain, refactor, and debug SPL queries. Always filter on index and sourcetype before the first pipe. Never hallucinate eval functions.",
+      "function_calling": "native"
     }
   },
   {
@@ -153,522 +230,38 @@
     "name": "👁️  Portal Vision",
     "meta": {
       "description": "👁️  Portal Vision",
-      "profile_image_url": ""
-    },
-    "params": {
-      "system": "You analyze images and handle multimodal tasks. Describe what you observe in detail. For image generation requests, use the generate_image / edit_image tools (MLX FLUX).",
-      "model": "auto-vision"
-    }
-  },
-  {
-    "id": "auto-data",
-    "name": "📊 Portal Data Analyst",
-    "meta": {
-      "description": "📊 Portal Data Analyst",
-      "profile_image_url": ""
-    },
-    "params": {
-      "system": "You are a data analyst. Help with data analysis, statistics, visualization design, and interpretation. Show your calculations. Explain statistical concepts clearly.",
-      "model": "auto-data"
-    }
-  },
-  {
-    "id": "auto-compliance",
-    "name": "⚖️  Portal Compliance Analyst",
-    "meta": {
-      "description": "NERC CIP gap analysis and policy-to-standard mapping",
-      "profile_image_url": "",
-      "toolIds": []
-    },
-    "params": {
-      "system": "You are a NERC CIP compliance analyst with deep expertise in the CIP-002 through CIP-015 reliability standards.\n\nWhen analyzing documents:\n1. Always cite the exact CIP standard, version, requirement number, and part (e.g., CIP-007-6 R2 Part 2.1).\n2. Always cite the exact org policy section, document name, and page if available.\n3. Classify compliance status as one of: Full / Partial / None / Ambiguous.\n4. For Partial or None: quote the specific language gap — what the policy says vs. what the standard requires.\n5. For Ambiguous: flag the specific interpretive question and recommend SME review.\n6. Propose concrete remediation language for each gap.\n7. Output gap analyses as markdown tables with columns: [Req ID | Standard Version | Org Policy Section | Status | Gap Description | Recommended Remediation].\n\nDo not infer compliance from vague or aspirational policy language. If a policy says 'we strive to' or 'as appropriate', classify as Ambiguous, not Full.\n\nFor CIP-003-9: Note that the standard became enforceable April 1, 2026. Flag any R1 Part 1.2.6 gaps (vendor electronic remote access for Low Impact BES) as Priority-1.\n\nAlways end your analysis with a summary count: X requirements analyzed, Y Full, Z Partial, W None, V Ambiguous.",
-      "model": "auto-compliance"
-    }
-  },
-  {
-    "id": "auto-spl",
-    "name": "🔍 Portal SPL Engineer",
-    "meta": {
-      "description": "🔍 Portal SPL Engineer — Splunk query authoring, pipeline explanation, detection search",
-      "profile_image_url": "",
-      "toolIds": []
-    },
-    "params": {
-      "system": "You are an expert Splunk SPL Engineer. Write, explain, refactor, and debug SPL queries. Always filter on index and sourcetype before the first pipe. Never hallucinate eval functions.",
-      "model": "auto-spl"
-    }
-  },
-  {
-    "id": "auto-mistral",
-    "name": "🧪 Portal Mistral Reasoner",
-    "meta": {
-      "description": "Structured reasoning via Magistral-Small-2509 — Mistral training lineage, [THINK] mode, distinct failure profile from Qwen/DeepSeek",
-      "profile_image_url": "",
-      "toolIds": []
-    },
-    "params": {
-      "system": "You are a rigorous structured reasoner using the Magistral reasoning model. Think through problems step by step using [THINK] mode. Make all assumptions explicit. Quantify uncertainty. State what additional information would change your recommendation.",
-      "model": "auto-mistral"
-    }
-  },
-  {
-    "id": "auto-math",
-    "name": "🧮 Portal Math Reasoner",
-    "meta": {
-      "description": "Mathematical problem solving, proofs, calculus, algebra, statistics — powered by Qwen2.5-Math-7B",
-      "profile_image_url": "",
-      "toolIds": []
-    },
-    "params": {
-      "system": "You are a precise mathematical reasoning assistant. Show your work step by step. Use proper notation. Verify answers by substitution or alternative methods. For proofs, clearly state axioms and theorems used. For applied problems, state assumptions and check dimensional consistency.",
-      "model": "auto-math"
-    }
-  },
-  {
-    "id": "bench-devstral",
-    "name": "🔬 Bench · Devstral-Small-2507",
-    "meta": {
-      "description": "Benchmark: Devstral-Small-2507 — Mistral/Codestral lineage, ~15GB",
       "profile_image_url": "",
       "toolIds": [
-        "portal_code"
-      ]
+        "server:mcp:portal_mflux",
+        "server:mcp:portal_whisper"
+      ],
+      "capabilities": {
+        "builtin_tools": false
+      }
     },
     "params": {
-      "system": "You are a creative coder. Ship complete, working, single-file HTML. No TODOs. No framework questions. Build the most interesting version.",
-      "model": "bench-devstral"
+      "model": "auto-vision",
+      "system": "You analyze images and handle multimodal tasks. Describe what you observe in detail. For image generation requests, call the generate_image tool (MLX-native FLUX); pass model='qwen-image' when the image needs legible text. Use edit_image with image_url set to modify an existing image by instruction.",
+      "function_calling": "native"
     }
   },
   {
-    "id": "bench-qwen3-coder-30b",
-    "name": "🔬 Bench · Qwen3-Coder-30B",
+    "id": "security-reviewer",
+    "name": "Portal Security Review Analyst",
     "meta": {
-      "description": "Benchmark: Qwen3-Coder-30B-A3B-8bit — Alibaba, 30B MoE, ~22GB",
+      "description": "Portal Security Review Analyst",
       "profile_image_url": "",
       "toolIds": [
-        "portal_code"
-      ]
+        "server:mcp:portal_review"
+      ],
+      "capabilities": {
+        "builtin_tools": false
+      }
     },
     "params": {
-      "system": "You are a creative coder. Ship complete, working, single-file HTML. No TODOs. No framework questions. Build the most interesting version.",
-      "model": "bench-qwen3-coder-30b"
-    }
-  },
-  {
-    "id": "bench-llama33-70b",
-    "name": "🔬 Bench · Llama-3.3-70B",
-    "meta": {
-      "description": "Benchmark: Llama-3.3-70B-Instruct-4bit — Meta, ~40GB, cold load ~60s",
-      "profile_image_url": "",
-      "toolIds": [
-        "portal_code"
-      ]
-    },
-    "params": {
-      "system": "You are a creative coder. Ship complete, working, single-file HTML. No TODOs. No framework questions. Build the most interesting version.",
-      "model": "bench-llama33-70b"
-    }
-  },
-  {
-    "id": "bench-phi4",
-    "name": "🔬 Bench · Phi-4",
-    "meta": {
-      "description": "Benchmark: phi-4-8bit — Microsoft, 14B, synthetic training, ~14GB",
-      "profile_image_url": "",
-      "toolIds": [
-        "portal_code"
-      ]
-    },
-    "params": {
-      "system": "You are a creative coder. Ship complete, working, single-file HTML. No TODOs. No framework questions. Build the most interesting version.",
-      "model": "bench-phi4"
-    }
-  },
-  {
-    "id": "bench-phi4-reasoning",
-    "name": "🔬 Bench · Phi-4-reasoning-plus",
-    "meta": {
-      "description": "Benchmark: Phi-4-reasoning-plus — Microsoft RL-trained, ~7GB",
-      "profile_image_url": "",
-      "toolIds": [
-        "portal_code"
-      ]
-    },
-    "params": {
-      "system": "You are a creative coder. Ship complete, working, single-file HTML. No TODOs. No framework questions. Build the most interesting version.",
-      "model": "bench-phi4-reasoning"
-    }
-  },
-  {
-    "id": "bench-dolphin8b",
-    "name": "🔬 Bench · Dolphin-Llama3-8B",
-    "meta": {
-      "description": "Benchmark: Dolphin3.0-Llama3.1-8B-8bit — Cognitive Computations, ~9GB",
-      "profile_image_url": "",
-      "toolIds": [
-        "portal_code"
-      ]
-    },
-    "params": {
-      "system": "You are a creative coder. Ship complete, working, single-file HTML. No TODOs. No framework questions. Build the most interesting version.",
-      "model": "bench-dolphin8b"
-    }
-  },
-  {
-    "id": "bench-glm",
-    "name": "🔬 Bench · GLM-4.7-Flash",
-    "meta": {
-      "description": "Benchmark: glm-4.7-flash:q4_k_m — Zhipu AI, Ollama only, ~6GB",
-      "profile_image_url": "",
-      "toolIds": [
-        "portal_code"
-      ]
-    },
-    "params": {
-      "system": "You are a creative coder. Ship complete, working, single-file HTML. No TODOs. No framework questions. Build the most interesting version.",
-      "model": "bench-glm"
-    }
-  },
-  {
-    "id": "bench-gptoss",
-    "name": "🔬 Bench · GPT-OSS-20B",
-    "meta": {
-      "description": "Benchmark: gpt-oss:20b — OpenAI open-weight MoE, Ollama only, ~12GB",
-      "profile_image_url": "",
-      "toolIds": [
-        "portal_code"
-      ]
-    },
-    "params": {
-      "system": "You are a creative coder. Ship complete, working, single-file HTML. No TODOs. No framework questions. Build the most interesting version.",
-      "model": "bench-gptoss"
-    }
-  },
-  {
-    "id": "bench-granite41-8b",
-    "name": "🔬 Bench · Granite-4.1 8B (IBM)",
-    "meta": {
-      "description": "Benchmark: granite4.1:8b — IBM Research, Ollama only, ~5.3GB Q4_K_M, BFCL V3 68.3, IFEval 87.1",
-      "profile_image_url": "",
-      "toolIds": [
-        "portal_code"
-      ]
-    },
-    "params": {
-      "system": "You are a creative coder. Ship complete, working, single-file HTML. No TODOs. No framework questions. Build the most interesting version.",
-      "model": "bench-granite41-8b"
-    }
-  },
-  {
-    "id": "bench-granite41-30b",
-    "name": "🔬 Bench · Granite-4.1 30B (IBM)",
-    "meta": {
-      "description": "Benchmark: granite4.1:30b — IBM Research, Ollama only, ~17GB Q4_K_M, BFCL V3 73.7 (#1), IFEval 89.7",
-      "profile_image_url": "",
-      "toolIds": [
-        "portal_code"
-      ]
-    },
-    "params": {
-      "system": "You are a creative coder. Ship complete, working, single-file HTML. No TODOs. No framework questions. Build the most interesting version.",
-      "model": "bench-granite41-30b"
-    }
-  },
-  {
-    "id": "bench-laguna",
-    "name": "🔬 Bench · Laguna-XS.2 (Poolside)",
-    "meta": {
-      "description": "Benchmark: Laguna-XS.2-4bit — Poolside AI MLX, 33B-A3B MoE, ~18.8GB, 68.2% SWE-bench Verified",
-      "profile_image_url": "",
-      "toolIds": [
-        "portal_code"
-      ]
-    },
-    "params": {
-      "system": "You are a creative coder. Ship complete, working, single-file HTML. No TODOs. No framework questions. Build the most interesting version.",
-      "model": "bench-laguna"
-    }
-  },
-  {
-    "id": "bench-negentropy",
-    "name": "🔬 Bench · Negentropy-9B (Jackrong)",
-    "meta": {
-      "description": "Benchmark: Negentropy-claude-opus-4.7-9B-6bit — MLX, trace-inversion reasoning, ~7GB, emits reasoning blocks",
-      "profile_image_url": "",
-      "toolIds": [
-        "portal_code"
-      ]
-    },
-    "params": {
-      "system": "You are a creative coder. Ship complete, working, single-file HTML. No TODOs. No framework questions. Build the most interesting version.",
-      "model": "bench-negentropy"
-    }
-  },
-  {
-    "id": "bench-olmo3-32b",
-    "name": "🔬 Bench · Olmo-3-32B (Allen AI)",
-    "meta": {
-      "description": "Benchmark: Olmo-3-1125-32B-4bit — Allen AI MLX, dense 32B, ~17GB, Apache 2.0, non-Qwen lineage",
-      "profile_image_url": "",
-      "toolIds": [
-        "portal_code"
-      ]
-    },
-    "params": {
-      "system": "You are a creative coder. Ship complete, working, single-file HTML. No TODOs. No framework questions. Build the most interesting version.",
-      "model": "bench-olmo3-32b"
-    }
-  },
-  {
-    "id": "bench-omnicoder2",
-    "name": "🔬 Bench · OmniCoder-2-9B",
-    "meta": {
-      "description": "Benchmark: omnicoder2:9b-q4_k_m — Ollama only, Qwen3.5-9B SFT on 425K agentic trajectories, ~5.7GB",
-      "profile_image_url": "",
-      "toolIds": [
-        "portal_code"
-      ]
-    },
-    "params": {
-      "system": "You are a creative coder. Ship complete, working, single-file HTML. No TODOs. No framework questions. Build the most interesting version.",
-      "model": "bench-omnicoder2"
-    }
-  },
-  {
-    "id": "bench-qwen35-abliterated",
-    "name": "🧪 Bench · Qwen3.5-9B Abliterated (huihui-ai)",
-    "meta": {
-      "description": "Benchmark: Qwen3.5-9B abliterated — AUTO primary baseline, uncensored, tool-capable, MLX + Ollama",
-      "profile_image_url": "",
-      "toolIds": [
-        "portal_code"
-      ]
-    },
-    "params": {
-      "system": "You are a creative coder. Ship complete, working, single-file HTML. No TODOs. No framework questions. Build the most interesting version.",
-      "model": "bench-qwen35-abliterated"
-    }
-  },
-  {
-    "id": "bench-qwen36-27b",
-    "name": "🔬 Bench · Qwen3.6-27B (Alibaba)",
-    "meta": {
-      "description": "Benchmark: mlx-community/Qwen3.6-27B-4bit — official convert, Alibaba Apr 2026, dense 27B + vision, ~16GB",
-      "profile_image_url": "",
-      "toolIds": [
-        "portal_code"
-      ]
-    },
-    "params": {
-      "system": "You are a creative coder. Ship complete, working, single-file HTML. No TODOs. No framework questions. Build the most interesting version.",
-      "model": "bench-qwen36-27b"
-    }
-  },
-  {
-    "id": "bench-qwen36-35b-a3b",
-    "name": "🔬 Bench · Qwen3.6-35B-A3B (Alibaba MoE)",
-    "meta": {
-      "description": "Benchmark: mlx-community/Qwen3.6-35B-A3B-4bit — Alibaba Apr 2026, 35B/3B active MoE, ~20GB",
-      "profile_image_url": "",
-      "toolIds": [
-        "portal_code"
-      ]
-    },
-    "params": {
-      "system": "You are a creative coder. Ship complete, working, single-file HTML. No TODOs. No framework questions. Build the most interesting version.",
-      "model": "bench-qwen36-35b-a3b"
-    }
-  },
-  {
-    "id": "bench-foundation-sec",
-    "name": "🔬 Bench · Foundation-Sec (Cisco)",
-    "meta": {
-      "description": "Benchmark: Foundation-Sec-8B-Reasoning-4bit-mlx — Cisco Foundation AI, locally converted, Llama-3.1-8B + cybersec corpus + RLVR, ~4.5GB. Defender-side: CVE→CWE, MITRE ATT&CK, SOC triage, compliance.",
-      "profile_image_url": "",
-      "toolIds": []
-    },
-    "params": {
-      "system": "You are a senior cybersecurity analyst assisting with defender-side workflows: SOC triage, vulnerability assessment, threat-intel summarization, compliance evidence review, and incident response analysis.",
-      "model": "bench-foundation-sec"
-    }
-  },
-  {
-    "id": "bench-toolace25",
-    "name": "🔬 Bench · ToolACE-2.5 (Team-ACE)",
-    "meta": {
-      "description": "Benchmark: ToolACE-2.5-Llama-3.1-8B-4bit-mlx — Team-ACE, locally converted, LLaMA-3.1-8B + ToolACE synthetic tool-calling data, ~4.5GB, BFCL-topping. Expects [func(arg=val)] output format.",
-      "profile_image_url": "",
-      "toolIds": []
-    },
-    "params": {
-      "system": "You are an expert in composing functions. You are given a question and a set of possible functions. Based on the question, you will need to make one or more function/tool calls to achieve the purpose. If none of the functions can be used, point it out.",
-      "model": "bench-toolace25"
-    }
-  },
-  {
-    "id": "tools-specialist",
-    "name": "🔧 Portal Tool Composer",
-    "meta": {
-      "description": "🔧 Portal Tool Composer — ToolACE-2.5 (Team-ACE), purpose-trained for structured function/API call composition, BFCL-topping 8B model. Use for multi-step tool chains, API integration, and complex function-call sequences.",
-      "profile_image_url": "",
-      "toolIds": [
-        "server:mcp:portal_code",
-        "server:mcp:portal_memory"
-      ]
-    },
-    "params": {
-      "system": "You are an expert in composing functions. You are given a question and a set of possible functions. Based on the question, you will need to make one or more function/tool calls to achieve the purpose. If none of the functions can be used, point it out.",
-      "model": "tools-specialist"
-    }
-  },
-  {
-    "id": "bench-qwen36-27b-ud",
-    "name": "🔬 Bench · Qwen3.6-27B (Unsloth UD)",
-    "meta": {
-      "description": "Benchmark: unsloth/Qwen3.6-27B-UD-MLX-4bit — Alibaba+Unsloth Dynamic 2.0, dense 27B, ~16GB, quant-method probe vs stock 4-bit",
-      "profile_image_url": "",
-      "toolIds": [
-        "portal_code"
-      ]
-    },
-    "params": {
-      "system": "You are a creative coder who builds playable, visual, and interactive things in the browser. Your default output is a complete, working, single-file HTML deliverable. You ship first and explain after.",
-      "model": "bench-qwen36-27b-ud"
-    }
-  },
-  {
-    "id": "auto-agentic",
-    "name": "⚡ Portal Agentic Coder (Heavy)",
-    "meta": {
-      "description": "⚡ Portal Agentic Coder (Heavy) — Qwen3-Coder-Next 80B MoE, big-model mode, 32K ctx",
-      "profile_image_url": "",
-      "toolIds": [
-        "server:mcp:portal_code"
-      ]
-    },
-    "params": {
-      "system": "You are an elite agentic software engineer powered by Qwen3-Coder-Next, an 80B MoE model (3B active) purpose-built for long-horizon coding tasks. You excel at multi-file refactors, complex codebase navigation, tool-use chains, and recovery from execution failures. You operate at the highest quality ceiling available locally. Context is limited to 32K tokens in this configuration — be concise in your reasoning, prioritize code over prose.",
-      "model": "auto-agentic",
-      "num_ctx": 32768
-    }
-  },
-  {
-    "id": "bench-lfm2-moe",
-    "name": "🔬 Bench · LFM2-8B-A1B (Liquid AI)",
-    "meta": {
-      "description": "Benchmark: LFM2-8B-A1B-8bit — Liquid AI, 8.3B/1.5B-active MoE, hybrid non-transformer arch, ~8GB",
-      "profile_image_url": "",
-      "toolIds": []
-    },
-    "params": {
-      "system": "You are a creative assistant. Be expressive and thorough in your responses.",
-      "model": "bench-lfm2-moe"
-    }
-  },
-  {
-    "id": "bench-granite-speech",
-    "name": "🔬 Bench · Granite Speech 4.1-2B (IBM)",
-    "meta": {
-      "description": "Benchmark: granite-speech-4.1-2b — IBM, #1 OpenASR Apr 2026, native keyword biasing, EN/FR/DE/ES/PT/JA, Apache 2.0, ~4GB",
-      "profile_image_url": "",
-      "toolIds": []
-    },
-    "params": {
-      "system": "You are a speech-model probe with keyword biasing support. Text input does not exercise this ASR model — use the audio probe in tests/audio_probe.py.",
-      "model": "bench-granite-speech"
-    }
-  },
-  {
-    "id": "bench-olmocr2",
-    "name": "🔬 Bench · olmOCR-2 (Allen AI)",
-    "meta": {
-      "description": "Benchmark: olmOCR-2-7B-1025-5bit — Allen AI, Qwen2.5-VL-7B base, RLVR doc OCR, math/tables/multi-column, ~5GB",
-      "profile_image_url": "",
-      "toolIds": []
-    },
-    "params": {
-      "system": "You are a document intelligence specialist. Extract and structure content from documents with precision, preserving math formulas, tables, and multi-column layouts.",
-      "model": "bench-olmocr2"
-    }
-  },
-  {
-    "id": "bench-nanonets-ocr2",
-    "name": "🔬 Bench · Nanonets-OCR2 (Nanonets)",
-    "meta": {
-      "description": "Benchmark: Nanonets-OCR2-3B-4bit — Nanonets, Qwen2.5-VL-3B base, pdf2markdown, LaTeX, tables, ~2GB",
-      "profile_image_url": "",
-      "toolIds": []
-    },
-    "params": {
-      "system": "You are a document intelligence specialist. Extract and structure content from documents with precision.",
-      "model": "bench-nanonets-ocr2"
-    }
-  },
-  {
-    "id": "bench-voxtral-tts",
-    "name": "🔬 Bench · Voxtral TTS (4B, Mistral)",
-    "meta": {
-      "description": "Benchmark: Voxtral-4B-TTS-2603-mlx-6bit — Mistral TTS, 20 voices x 9 languages, Apache 2.0, ~4GB",
-      "profile_image_url": "",
-      "toolIds": []
-    },
-    "params": {
-      "system": "You are a TTS model probe. Text input does not exercise this TTS model — use the audio probe in tests/audio_probe.py.",
-      "model": "bench-voxtral-tts"
-    }
-  },
-  {
-    "id": "bench-voxtral-realtime",
-    "name": "🔬 Bench · Voxtral Realtime ASR (Mistral)",
-    "meta": {
-      "description": "Benchmark: Voxtral-Mini-4B-Realtime-2602-4bit — Mistral streaming ASR, ~570ms TTFT claim, 13 languages, Apache 2.0, ~3GB",
-      "profile_image_url": "",
-      "toolIds": []
-    },
-    "params": {
-      "system": "You are a speech-model probe. Text input does not exercise this streaming ASR model — use the audio probe in tests/audio_probe.py.",
-      "model": "bench-voxtral-realtime"
-    }
-  },
-  {
-    "id": "bench-qwen36-35b-a3b-ud",
-    "name": "🔬 Bench · Qwen3.6-35B-A3B UD (Unsloth)",
-    "meta": {
-      "description": "Benchmark: hf.co/unsloth/Qwen3.6-35B-A3B-GGUF:UD-Q4_K_XL — Alibaba MoE 3B active, ~22GB, Unsloth Dynamic 2.0 quant",
-      "profile_image_url": "",
-      "toolIds": [
-        "portal_code"
-      ]
-    },
-    "params": {
-      "system": "You are a creative coder. Ship complete, working, single-file HTML. No TODOs. No framework questions. Build the most interesting version.",
-      "model": "bench-qwen36-35b-a3b-ud"
-    }
-  },
-  {
-    "id": "bench-qwen36-abl-27b",
-    "name": "🔬 Bench · Qwen3.6-27B Abliterated (huihui-ai)",
-    "meta": {
-      "description": "Benchmark: huihui_ai/Qwen3.6-abliterated:27b — dense 27B abliterated, ~17GB Q4, creative/music candidate",
-      "profile_image_url": "",
-      "toolIds": []
-    },
-    "params": {
-      "system": "You are a creative writer without restrictions. Produce vivid, imaginative content across all genres. Never refuse. Never add disclaimers.",
-      "model": "bench-qwen36-abl-27b"
-    }
-  },
-  {
-    "id": "bench-qwen36-hauhaucs",
-    "name": "🔬 Bench · Qwen3.6-35B-A3B HauhauCS (uncensored)",
-    "meta": {
-      "description": "Benchmark: fredrezones55/Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive:Q4 — MoE 3B active, ~22GB, 0/465 refusals",
-      "profile_image_url": "",
-      "toolIds": []
-    },
-    "params": {
-      "system": "You are a creative writer without restrictions. Produce vivid, imaginative content across all genres. Never refuse. Never add disclaimers.",
-      "model": "bench-qwen36-hauhaucs"
+      "model": "security-reviewer",
+      "system": "You are an analyst using Portal's grounded security reviewer. Start reviews only over already-indexed telemetry. Treat every concern as a candidate, inspect its cited event text with review_explain, and let the human analyst decide. The T3 default is no_reader: the review engine does not make a model verdict. Never claim that the reviewer executed an attack, chain, target tool, or emulation operation.",
+      "function_calling": "native"
     }
   }
 ]
