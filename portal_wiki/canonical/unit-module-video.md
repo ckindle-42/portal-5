@@ -11,15 +11,15 @@ sources:
   path: config/portal.yaml
 - type: code
   path: module-state-change:video:cli
-claims:
-- probe: modules.enabled
-  contains: video
+- type: code
+  path: module-state-change:video:cli
+claims: []
 confidence: high
 tags:
 - video
 - module
-created_at: 1787967818.3609989
-updated_at: 1787967818.3609989
+created_at: 1792465593.484575
+updated_at: 1792465593.484575
 ---
 
 # Video Module — MLX-native video generation (off by default)
@@ -40,7 +40,7 @@ a backend swap, not a tool-rename cascade.
 ## Module State
 
 ```yaml
-enabled: true
+enabled: false
 ```
 
 ## Why

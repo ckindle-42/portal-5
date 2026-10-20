@@ -21,7 +21,7 @@ modules:
   icsot:
     enabled: true
   image:
-    enabled: true
+    enabled: false
   media:
     enabled: true
   netforensics:
@@ -31,7 +31,7 @@ modules:
   security:
     enabled: true
   video:
-    enabled: true
+    enabled: false
   vulnintel:
     enabled: true
 launched_mcp_ids:
@@ -51,7 +51,6 @@ launched_mcp_ids:
 - git
 - icsot
 - memory
-- mflux
 - mitre
 - mlx_transcribe
 - music-minimax
@@ -64,7 +63,6 @@ launched_mcp_ids:
 - security
 - serena
 - tts
-- video_mlx
 - vulnintel
 - whisper
 - wiki

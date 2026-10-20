@@ -296,13 +296,15 @@ class TestSlackAdapter:
         import sys
 
         sys.path.insert(0, ".")
-        from portal.platform.inference.router_pipe import WORKSPACES
+        from portal.platform.inference.config import load_portal_config
+
+        workspaces = load_portal_config().workspaces  # a disabled module's lane is still valid
         from portal_channels.slack.bot import CHANNEL_WORKSPACE_MAP
 
         for channel_keyword, (workspace_id, _variant) in CHANNEL_WORKSPACE_MAP.items():
-            assert workspace_id in WORKSPACES, (
+            assert workspace_id in workspaces, (
                 f"Slack channel '{channel_keyword}' → '{workspace_id}' "
-                f"is not a valid workspace. Valid: {sorted(WORKSPACES.keys())}"
+                f"is not a valid workspace. Valid: {sorted(workspaces)}"
             )
 
     def test_workspace_for_channel_routing(self):

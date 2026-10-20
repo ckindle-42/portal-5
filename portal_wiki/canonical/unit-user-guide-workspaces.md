@@ -9,11 +9,7 @@ sources:
   path: portal/platform/inference/sync_config.py
 - type: code
   path: portal/platform/inference/router/workspaces.py
-claims:
-- probe: workspaces.exposed
-  contains: auto-video
-- probe: modules.enabled
-  contains: video
+claims: []
 confidence: high
 tags:
 - docs
@@ -28,8 +24,8 @@ declares a `name`, a `model_hint` that selects its model, `expose_to_owui`
 The synchronization script writes presets only for exposed workspaces, so the
 model dropdown shows that curated set; variants such as the agentic coding lanes
 or the security sub-roles (`blueteam`, `redteam`) are addressed by query hint, not
-listed in the dropdown. `auto-video` is exposed (`expose_to_owui: true`) under
-the `video` module — off by default but shipped enabled — and `auto-council`
+listed in the dropdown. The `image` and `video` modules are disabled (operator,
+2026-10-20), so `auto-image` and `auto-video` are not served; `auto-council`
 runs an opt-in multi-model review chain whose quorum and dissent handling are
 enforced in code.
 

@@ -35,7 +35,8 @@ def known_models():
             os.environ.pop("PORTAL_ENABLE_EVAL", None)
         else:
             os.environ["PORTAL_ENABLE_EVAL"] = prev
-    return {info["model_hint"] for info in all_ws.values() if info.get("model_hint")}
+    configured = {w.model_hint for w in load_portal_config().workspaces.values() if w.model_hint}
+    return configured | {info["model_hint"] for info in all_ws.values() if info.get("model_hint")}
 
 
 def _extract_model_refs(config_path):

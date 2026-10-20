@@ -47,8 +47,8 @@ def test_reasoning_workspaces_no_stale_keys(monkeypatch):
 def test_workspace_prompt_map_no_stale_keys(monkeypatch):
     from tests.benchmarks.bench.prompts import WORKSPACE_PROMPT_MAP
 
-    live = _live_workspaces_with_eval(monkeypatch)
-    stale = set(WORKSPACE_PROMPT_MAP) - live
+    configured = set(load_portal_config().workspaces)  # a disabled module's lane is not stale
+    stale = set(WORKSPACE_PROMPT_MAP) - configured
     assert not stale, f"WORKSPACE_PROMPT_MAP has stale keys: {sorted(stale)}"
 
 

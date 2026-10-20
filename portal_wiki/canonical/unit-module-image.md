@@ -1,7 +1,7 @@
 ---
 id: unit-module-image
 kind: mixed
-title: "Image Module — MLX-native image generation (MFLUX)"
+title: "Image Module \u2014 MLX-native image generation (MFLUX)"
 sources:
 - type: code
   path: portal/modules/media/tools/mflux_mcp.py
@@ -9,13 +9,15 @@ sources:
   path: portal/platform/wiki/adapters/modules.py
 - type: code
   path: config/portal.yaml
-claims:
-- probe: modules.enabled
-  contains: image
+- type: code
+  path: module-state-change:image:cli
+claims: []
 confidence: high
 tags:
 - image
 - module
+created_at: 1792465591.256565
+updated_at: 1792465591.256565
 ---
 
 # Image Module — MLX-native image generation (MFLUX)
@@ -37,7 +39,7 @@ tool-rename cascade.
 ## Module State
 
 ```yaml
-enabled: true
+enabled: false
 ```
 
 ## Why
