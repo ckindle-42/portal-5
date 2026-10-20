@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Mirror CI's unit-test job EXACTLY: clean env, editable install, same pytest invocation.
+# Mirror CI's test job EXACTLY: clean env, editable install, same pytest invocation.
 # Run this before every push. If it's green, CI will be green.
 #
 # CI (.github/workflows/unit-tests.yml) runs on actions/setup-python, which ships a bare
@@ -33,7 +33,7 @@ env -i HOME="$HOME" PATH="$VENV/bin:$PATH" VIRTUAL_ENV="$VENV" bash -c '
   # Compliance remains pre-service; keep its unfinished typing debt outside the
   # production gate until it is promoted. --active targets the isolated venv.
   uv run --active mypy --exclude "portal/modules/compliance/" portal/
-  pytest tests/unit portal/modules/security/tests -n auto -x --tb=short -q
+  pytest tests portal -n auto -x --tb=short -q
 ' _ "$(pwd)"
 
 rm -rf "$VENV"

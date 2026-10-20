@@ -1,8 +1,8 @@
-# Unit-test gate for Portal 5.
+# Test gate for Portal 5.
 #
-# Runs the pytest unit suite on every PR and on push to main.
-# Unlike persona_matrix_nightly.yml, this workflow does NOT need a
-# self-hosted runner — unit tests are pure-Python and import-only.
+# Runs the whole pytest suite (tests/ and portal/) on every PR and on push to
+# main. Unlike persona_matrix_nightly.yml, this workflow does NOT need a
+# self-hosted runner — the suite enforces an offline boundary in conftest.
 
 name: unit-tests
 
@@ -12,10 +12,7 @@ on:
       - "portal/**"
       - "portal_mcp/**"
       - "portal_channels/**"
-      - "tests/unit/**"
-      - "tests/lib/**"
-      - "tests/uat/**"
-      - "tests/persona_matrix/**"
+      - "tests/**"
       - "config/**.yaml"
       - "config/**.md"
       - "pyproject.toml"
@@ -31,7 +28,7 @@ concurrency:
 jobs:
   pytest:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 30
 
     steps:
       - name: Checkout
@@ -56,8 +53,8 @@ jobs:
           python -m pip install --upgrade pip
           pip install -e ".[dev]"
 
-      - name: Run unit tests
-        run: pytest tests/unit portal/modules/security/tests -n auto -x --tb=short -v
+      - name: Run test suite
+        run: pytest tests portal -n auto -x --tb=short -v
 
       - name: Upload coverage on failure
         if: failure()

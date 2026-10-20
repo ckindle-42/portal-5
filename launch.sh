@@ -45,8 +45,8 @@ case "${1:-up}" in
     # Pull latest Docker images before bringing the stack up
     echo "[portal-5] Pulling latest Docker images..."
     cd "$COMPOSE_DIR"
-    # Open WebUI is excluded: a new :main build is applied only behind the data
-    # backup + health gate in scripts/image_security_update.py (daily job).
+    # Open WebUI is excluded: a pinned-release change is applied only behind the
+    # data backup + health gate in scripts/image_security_update.py (daily job).
     docker compose pull $(docker compose config --services | grep -vx open-webui) \
       || echo "[portal-5] ⚠️  Some images could not be pulled — using cached versions."
 

@@ -51,9 +51,21 @@ class TestCiParity:
         assert os.access(ci_sh, os.X_OK), f"{ci_sh} is not executable"
 
     def test_ci_local_sh_mirrors_workflow(self) -> None:
-        """ci_local.sh mirrors the CI workflow's key commands."""
-        ci_sh = (Path(__file__).parents[4] / "scripts" / "ci_local.sh").read_text()
+        """ci_local.sh runs the same full-suite invocation as CI."""
+        root = Path(__file__).parents[4]
+        ci_sh = (root / "scripts" / "ci_local.sh").read_text()
+        workflow = (root / ".github" / "workflows" / "unit-tests.yml").read_text()
         assert "pip install -e" in ci_sh, "ci_local.sh must run editable install"
-        assert "tests/unit" in ci_sh, "ci_local.sh must run tests/unit"
+        assert "pytest tests portal -n auto" in ci_sh, "ci_local.sh must run the full suite"
+        assert "pytest tests portal -n auto" in workflow, "CI must run the full suite"
         assert "env -i" in ci_sh, "ci_local.sh must use clean env (env -i)"
         assert "ruff" in ci_sh, "ci_local.sh must run ruff"
+
+    def test_testpaths_covers_tests_and_portal(self) -> None:
+        """A bare pytest collects both test trees, as CI does."""
+        import tomllib
+
+        cfg = (Path(__file__).parents[4] / "pyproject.toml").read_text()
+        data = tomllib.loads(cfg)
+        testpaths = data["tool"]["pytest"]["ini_options"]["testpaths"]
+        assert "tests" in testpaths and "portal" in testpaths, testpaths
