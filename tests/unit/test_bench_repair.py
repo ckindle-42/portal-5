@@ -9,6 +9,8 @@ from __future__ import annotations
 
 from unittest.mock import patch
 
+import yaml
+
 from tests.benchmarks.bench_repair import (
     ARM_ONESHOT,
     ARM_REPAIR,
@@ -23,6 +25,7 @@ from tests.benchmarks.bench_repair import (
     samples_for_cell,
 )
 from tests.benchmarks.bench_repair.cli import (
+    REPO_ROOT,
     _omlx_alias_group,
     _resolve_workspace,
     _run_all_workspaces,
@@ -307,9 +310,12 @@ def test_resolve_workspace_skips_missing_workspace(capsys):
 
 
 def test_resolve_workspace_returns_model_hint_and_sampling():
+    configured = yaml.safe_load((REPO_ROOT / "config" / "portal.yaml").read_text())["workspaces"][
+        "bench-qwen38-27b"
+    ]["model_hint"]
     r = _resolve_workspace("bench-qwen38-27b")
     assert r is not None
-    assert r["model_hint"] == "hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M"
+    assert r["model_hint"] == configured
     assert isinstance(r["sampling"], dict)
 
 

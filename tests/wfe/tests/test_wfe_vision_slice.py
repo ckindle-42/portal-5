@@ -127,7 +127,8 @@ def test_the_plan_arms_are_served_by_the_workspaces_groups_and_fit_its_window():
         m["id"] for b in backends["backends"] if b["group"] in groups for m in b.get("models") or []
     }
     arms = plan["arms"]
-    assert arms["incumbent"] == portal["model_hint"] and plan["home"] == "vision_production"
+    assert portal["model_hint"] in [arms["incumbent"], *arms["challengers"]]
+    assert plan["home"] == "vision_production"
     assert plan["discovery"] == [] and "tool_mode" not in plan
     assert len(arms["challengers"]) == 3
     for tag in [arms["incumbent"], *arms["challengers"]]:

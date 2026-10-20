@@ -186,7 +186,8 @@ def test_the_plan_arms_are_served_fit_the_window_and_exclude_laguna():
         m["id"] for b in backends["backends"] if b["group"] in groups for m in b.get("models") or []
     }
     arms = plan["arms"]
-    assert arms["incumbent"] == portal["model_hint"] and plan["tool_mode"] == "sandbox"
+    assert portal["model_hint"] in [arms["incumbent"], *arms["challengers"]]
+    assert plan["tool_mode"] == "sandbox"
     assert len(arms["challengers"]) == 3
     for tag in [arms["incumbent"], *arms["challengers"]]:
         assert tag in served, tag

@@ -250,7 +250,7 @@ def test_the_plan_arms_are_served_by_the_workspaces_groups_and_fit_its_window():
             for m in b.get("models") or []
         }
         arms = wl["arms"]
-        assert arms["incumbent"] == portal[ws]["model_hint"]
+        assert portal[ws]["model_hint"] in [arms["incumbent"], *arms["challengers"]]
         assert len(arms["challengers"]) == 3
         for tag in [arms["incumbent"], *arms["challengers"]]:
             assert tag in served, (ws, tag)

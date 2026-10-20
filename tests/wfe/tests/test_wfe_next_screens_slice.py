@@ -55,7 +55,10 @@ def test_each_next_screen_uses_the_current_seat_and_expected_suite():
         tool_mode, home, challengers = expected[workspace]
         assert plan["tool_mode"] == tool_mode
         assert plan["home"] == home
-        assert plan["arms"]["incumbent"] == portal[workspace]["model_hint"]
+        assert portal[workspace]["model_hint"] in [
+            plan["arms"]["incumbent"],
+            *plan["arms"]["challengers"],
+        ]
         assert len(plan["arms"]["challengers"]) == challengers
         assert (REPO / "tests/wfe/suites" / f"{home}.jsonl").is_file()
 

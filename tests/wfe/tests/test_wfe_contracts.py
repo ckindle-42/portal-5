@@ -1590,12 +1590,23 @@ class TestQwen3VlSeatFollowsTheBuildItRuns:
         assert e["recommended_sampling_modes"]["instruct"]["presence_penalty"] == 1.5
 
     def test_auto_vision_serves_the_thinking_card(self):
-        import yaml
+        import re
 
         from tests.wfe.runner import REPO
 
         ws = yaml.safe_load((REPO / "config/portal.yaml").read_text())["workspaces"]["auto-vision"]
-        assert ws["model_hint"].startswith("qwen3-vl:32b")
+        hint = ws["model_hint"]
+        backends = yaml.safe_load((REPO / "config/backends.yaml").read_text())
+        groups = set(backends["workspace_routing"]["auto-vision"])
+        served = {
+            m["id"]
+            for b in backends["backends"]
+            if b["group"] in groups
+            for m in b.get("models") or []
+        }
+        assert hint in served, hint
+        window = int(re.search(r"ctx(\d+)k", hint).group(1)) * 1024
+        assert window >= ws["context_limit"], (hint, window)
         assert (ws["temperature"], ws["top_p"], ws["top_k"]) == (1.0, 0.95, 20)
         assert (ws["presence_penalty"], ws["repeat_penalty"]) == (0.0, 1.0)
 
