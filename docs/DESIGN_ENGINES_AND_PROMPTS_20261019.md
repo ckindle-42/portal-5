@@ -6,6 +6,33 @@
 are "excessive… we could build a lot of those into a workspace that is prompt injection as that's
 really the main difference". No lane is being cut for lack of use; this is a re-shaping.
 
+## Foundation (operator, 2026-10-19)
+
+"Portal itself is basic in the router and modules. That is the product at its foundation.
+Improving or adding capabilities is on brand."
+
+- **Modules are the capability units** (`general`, `coding`, `research`, `documents`,
+  `compliance`, `media`, `image`, `video`, `cad`, `security`, `eval`). Each owns its engines, its
+  tools and MCP servers, and its on/off switch.
+- **The router is the front door.** It sends a request to a module's engine, a variant, or a tool
+  route.
+- **Everything else is presentation.** Workspaces, variants, prompts and personas expose a
+  module's capability. This consolidation changes presentation only: it never removes a module
+  capability, and it makes adding one cheaper (a new tool route or variant inside an existing
+  engine, or a new module with its own engine), instead of a new workspace plus personas.
+
+| Module | Engines (after) |
+|---|---|
+| general | `auto` (router), `chat`, `reasoning`, `vision`, `uncensored` |
+| coding | `coding` |
+| cad | the `coding::cad` variant (CAD tools; module gate kept) |
+| research | `research` (+ `research::data`) |
+| documents | `documents` |
+| compliance | `compliance` (+ internal seats) |
+| media / image / video | `media`, with image / video / music / audio tool routes, each gated by its own module |
+| security | `security` (unchanged) |
+| eval | bench config (not seeded to Open WebUI) |
+
 ## The model
 
 - **Engine** (a workspace): model + tools + context window + sampling + thinking. The thing
