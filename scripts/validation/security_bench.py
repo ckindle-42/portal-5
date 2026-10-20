@@ -85,6 +85,15 @@ def check_bench_security_catalog() -> tuple[str, str, list[dict]]:
     return "PASS", f"all {len(prod_sec)} production security workspaces in DEFAULT_WORKSPACES", []
 
 
+def _known_workspace_ids() -> set[str]:
+    """Every id the pipeline serves: workspaces (bench included), engine::variant ids and aliases."""
+    from portal.platform.inference.config import load_portal_config
+
+    cfg = load_portal_config(include_bench=True)
+    variants = {f"{w}::{v}" for w, spec in cfg.workspaces.items() for v in (spec.variants or {})}
+    return set(cfg.workspaces) | variants | set(cfg.aliases or {})
+
+
 @register("uat_catalog_no_stale", "K. UAT catalog refs", order=10)
 def check_uat_catalog_no_stale_refs() -> tuple[str, str, list[dict]]:
     """K. UAT catalog has no stale workspace references.
@@ -108,12 +117,11 @@ def check_uat_catalog_no_stale_refs() -> tuple[str, str, list[dict]]:
         import re
 
         import tests.uat_catalog as cat
-        from portal.platform.inference.config import load_persona_map, load_portal_config
+        from portal.platform.inference.config import load_persona_map
     except ImportError as e:
         return "SKIP", f"import: {e}", []
 
-    cfg = load_portal_config(include_bench=True)
-    live_ws = set(cfg.workspaces.keys())
+    live_ws = _known_workspace_ids()
     live_personas = set(load_persona_map(include_bench=True).keys())
     live = live_ws | live_personas
 
@@ -212,11 +220,10 @@ def check_valid_workspaces_resolve() -> tuple[str, str, list[dict]]:
     Same shape as J/K — catalog drift detection.
     """
     try:
-        from portal.platform.inference.config import load_portal_config
         from portal_channels.dispatcher import VALID_WORKSPACES
     except ImportError as e:
         return "SKIP", f"import: {e}", []
-    live = set(load_portal_config().workspaces.keys())
+    live = _known_workspace_ids()
     stale = sorted(VALID_WORKSPACES - live)
     if stale:
         return "FAIL", f"{len(stale)} stale ws id(s) in VALID_WORKSPACES — first: {stale[0]}", []
