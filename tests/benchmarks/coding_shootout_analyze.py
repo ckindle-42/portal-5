@@ -18,8 +18,8 @@ gap is the finding.
 
 Usage:
     python3 tests/benchmarks/coding_shootout_analyze.py \
-        --input  tests/benchmarks/results/coding_shootout_v2_<UTC>.json \
-        --output tests/benchmarks/results/coding_shootout_v2_<UTC>.md
+        --input  ${PORTAL_DATA_ROOT}/tests/benchmarks/results/coding_shootout_v2_<UTC>.json \
+        --output ${PORTAL_DATA_ROOT}/tests/benchmarks/results/coding_shootout_v2_<UTC>.md
 """
 
 from __future__ import annotations

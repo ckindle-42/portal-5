@@ -58,7 +58,7 @@ decisions stand as status quo, flagged:
 `scripts/wfe_disposition_backfill.py --verify` classifies every identity in the closeout
 register and asks the registry whether each removal can be pulled again, comparing the
 registry's layers with the digests the register recorded (receipt
-`docs/WFE_DISPOSITION_BACKFILL_20261014.json`, verified 2026-10-14T20:38:55.631010+00:00). Of 203 items: {'integrated': 82, 'removed_restorable': 85, 'removed_unrestorable': 28, 'retained_for_purpose': 8}.
+`${PORTAL_DATA_ROOT}/docs/WFE_DISPOSITION_BACKFILL_20261014.json`, verified 2026-10-14T20:38:55.631010+00:00). Of 203 items: {'integrated': 82, 'removed_restorable': 85, 'removed_unrestorable': 28, 'retained_for_purpose': 8}.
 
 **The five removals that rest on a measurement one of the 2026-10-13 audits found
 biased.** None is reversed here. A restorable one can be measured again with the recipe
@@ -73,7 +73,7 @@ live candidates), so it contributes no queue row and no NO_DECISION disposition.
 | `ollama:hf.co/bartowski/Qwen_Qwen3.6-27B-GGUF:Q4_K_M` | judgment probe v6: duplicate-quant stop rule fired on exact parity | **differs** | `ollama pull hf.co/bartowski/Qwen_Qwen3.6-27B-GGUF:Q4_K_M` |
 | `ollama:portal5/xyz-aquila-mini:q4_k_m-ctx16k` | research probe: the lane instrument's checkers were weak (defect 10) | **unrestorable** | `no registry serves portal5/xyz-aquila-mini:q4_k_m` |
 
-Restorable removals: 85 (53 verified as the measured build, 6 where the registry now serves a different build, 26 with no recorded digest). Unrestorable: 28, recorded in `docs/WFE_DISPOSITION_BACKFILL_20261014.json` only; `tests/wfe/candidate_queue.yaml` holds live candidates (P5-B1).
+Restorable removals: 85 (53 verified as the measured build, 6 where the registry now serves a different build, 26 with no recorded digest). Unrestorable: 28, recorded in `${PORTAL_DATA_ROOT}/docs/WFE_DISPOSITION_BACKFILL_20261014.json` only; `tests/wfe/candidate_queue.yaml` holds live candidates (P5-B1).
 ## Round-2 offline findings, mapped to causes
 
 | Finding | Status | Cause |
@@ -435,7 +435,7 @@ it was accepted, and all eight hold.
 
 A fourth independent review of V4 found seven defects plus five contract tightenings. Each was
 checked against the code before it was accepted, and all of them hold. The single task file is
-replaced by a program of five part-tasks (`WFE_ROOT_FIX_PROGRAM.md`). Each part is executable on
+replaced by a program of five part-tasks (`docs/WFE_ROOT_FIX_PROGRAM.md`). Each part is executable on
 its own, against the receipts of the parts before it.
 
 | # | Finding | Checked | Answer |

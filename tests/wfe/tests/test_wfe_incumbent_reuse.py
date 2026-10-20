@@ -9,6 +9,7 @@ checkers. original_outcome is the earlier grade; the regraded outcome counts.
 from __future__ import annotations
 
 import json
+import os
 from pathlib import Path
 
 import pytest
@@ -23,7 +24,13 @@ DEPLOYED = "c" * 40
 PIPE = "b" * 40
 MOD = "d" * 40
 VERSION = "0.40.5"
-DOCS = Path("/Users/chris/projects/portal-5/tests/wfe/results/campaigns")
+DOCS = (
+    Path(os.environ.get("PORTAL_DATA_ROOT", str(Path.home() / "AI_Output" / "portal-data")))
+    / "tests"
+    / "wfe"
+    / "results"
+    / "campaigns"
+)
 
 
 @pytest.fixture(autouse=True)

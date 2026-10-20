@@ -26,7 +26,7 @@ tag with `PARAMETER num_ctx`. Their recipe pulls the base and recreates the
 variant, and the base is what the registry is asked about.
 
 A removal that is not restorable is recorded in the receipt
-(`docs/WFE_DISPOSITION_BACKFILL_20261014.json`) only: since P5-B1 (2026-10-18)
+(`${PORTAL_DATA_ROOT}/docs/WFE_DISPOSITION_BACKFILL_20261014.json`) only: since P5-B1 (2026-10-18)
 `tests/wfe/candidate_queue.yaml` holds live candidates solely, so no dead row can
 contribute a NO_DECISION disposition to the fitness map. `--write` honours that:
 its queue step prunes closeout rows and never adds one back.
@@ -52,8 +52,9 @@ from pathlib import Path
 import yaml
 
 REPO = Path(__file__).resolve().parents[1]
+DATA_ROOT = Path(os.environ.get("PORTAL_DATA_ROOT", str(Path.home() / "AI_Output" / "portal-data")))
 CLOSEOUT = REPO / "docs" / "MODEL_FLEET_CLOSEOUT_20260906.tasks.json"
-RECEIPT = REPO / "docs" / "WFE_DISPOSITION_BACKFILL_20261014.json"
+RECEIPT = DATA_ROOT / "docs" / "WFE_DISPOSITION_BACKFILL_20261014.json"
 QUEUE = REPO / "tests" / "wfe" / "candidate_queue.yaml"
 DOC = REPO / "docs" / "WFE_ROOT_CAUSES_20261013.md"
 REGISTRY = os.environ.get("WFE_OLLAMA_REGISTRY", "https://registry.ollama.ai")

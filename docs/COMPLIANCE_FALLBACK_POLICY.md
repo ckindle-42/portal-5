@@ -66,7 +66,7 @@ A full sweep runs every model in the auto-compliance chain against every applica
 
 ```bash
 python3 tests/portal5_persona_matrix.py \
-    --output "tests/benchmarks/results/persona_matrix_$(date -u +%Y%m%dT%H%M%SZ).json"
+    --output "${PORTAL_DATA_ROOT}/tests/benchmarks/results/persona_matrix_$(date -u +%Y%m%dT%H%M%SZ).json"
 ```
 
 Internally `run_sweep` resolves the chain with `chain_models_for_workspace`, loads the compliance personas, evicts Ollama models between cells, and returns a `portal5.persona_matrix.v1` report. `cli.py` returns exit code 1 when any cell has a FAIL (exit 2 when a baseline comparison also reports regressions), so a dirty sweep is visible to a shell.
@@ -85,7 +85,7 @@ The `--require` flag makes a sweep fail fast when a named model is absent from t
 python3 tests/portal5_persona_matrix.py \
     --backend ollama \
     --require granite4.1:8b,granite4.1:30b \
-    --output "tests/benchmarks/results/persona_matrix_granite_$(date -u +%Y%m%dT%H%M%SZ).json"
+    --output "${PORTAL_DATA_ROOT}/tests/benchmarks/results/persona_matrix_granite_$(date -u +%Y%m%dT%H%M%SZ).json"
 ```
 
 Both granite models are currently registered in the reasoning and general groups of `config/backends.yaml`, so the auto-compliance chain contains them; the sweep fails only if no remaining chain id contains the required substring. Comparison against baseline uses the real diff tool rather than a hand-rolled snippet:
@@ -93,7 +93,7 @@ Both granite models are currently registered in the reasoning and general groups
 ```bash
 python3 tests/persona_matrix_diff.py \
     <local-baseline>.json \
-    tests/benchmarks/results/persona_matrix_<NEW>.json --threshold 10
+    "${PORTAL_DATA_ROOT}/tests/benchmarks/results/persona_matrix_<NEW>.json" --threshold 10
 ```
 
 `compute_regressions` treats PASS-rate as PASS over PASS plus WARN plus FAIL per cell and flags a drop beyond the threshold in percentage points, default 10.0. The driver's `--baseline-compare` runs the same comparison inline and exits non-zero on regressions.

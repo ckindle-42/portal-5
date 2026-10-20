@@ -1,0 +1,145 @@
+{
+ "t1_enclosure": {
+  "base": {
+   "dimensions": {
+    "depth": 40,
+    "height": 25,
+    "width": 60
+   },
+   "type": "box"
+  },
+  "features": [
+   {
+    "dimensions": {
+     "diameter": 5,
+     "height": 15
+    },
+    "face": "bottom",
+    "name": "standoff_1",
+    "offset_from": "corner",
+    "offset_x": 2,
+    "offset_y": 2,
+    "type": "standoff"
+   },
+   {
+    "dimensions": {
+     "diameter": 5,
+     "height": 15
+    },
+    "face": "bottom",
+    "name": "standoff_2",
+    "offset_from": "corner",
+    "offset_x": 58,
+    "offset_y": 2,
+    "type": "standoff"
+   },
+   {
+    "dimensions": {
+     "diameter": 5,
+     "height": 15
+    },
+    "face": "bottom",
+    "name": "standoff_3",
+    "offset_from": "corner",
+    "offset_x": 58,
+    "offset_y": 38,
+    "type": "standoff"
+   },
+   {
+    "dimensions": {
+     "diameter": 5,
+     "height": 15
+    },
+    "face": "bottom",
+    "name": "standoff_4",
+    "offset_from": "corner",
+    "offset_x": 2,
+    "offset_y": 38,
+    "type": "standoff"
+   },
+   {
+    "dimensions": {
+     "depth": 15,
+     "diameter": 3
+    },
+    "face": "top_of_standoff_1",
+    "name": "m3_hole_1",
+    "offset_from": "center",
+    "offset_x": 0,
+    "offset_y": 0,
+    "type": "hole"
+   },
+   {
+    "dimensions": {
+     "depth": 15,
+     "diameter": 3
+    },
+    "face": "top_of_standoff_2",
+    "name": "m3_hole_2",
+    "offset_from": "center",
+    "offset_x": 0,
+    "offset_y": 0,
+    "type": "hole"
+   },
+   {
+    "dimensions": {
+     "depth": 15,
+     "diameter": 3
+    },
+    "face": "top_of_standoff_3",
+    "name": "m3_hole_3",
+    "offset_from": "center",
+    "offset_x": 0,
+    "offset_y": 0,
+    "type": "hole"
+   },
+   {
+    "dimensions": {
+     "depth": 15,
+     "diameter": 3
+    },
+    "face": "top_of_standoff_4",
+    "name": "m3_hole_4",
+    "offset_from": "center",
+    "offset_x": 0,
+    "offset_y": 0,
+    "type": "hole"
+   },
+   {
+    "dimensions": {
+     "depth": 1.5
+    },
+    "face": "top",
+    "name": "lid_lip_rim",
+    "offset_from": "edge",
+    "offset_x": 0,
+    "offset_y": 0,
+    "type": "shell"
+   }
+  ],
+  "shell": {
+   "thickness": 2
+  }
+ },
+ "t2_grommet_plate": {
+  "base": {
+   "dimensions": {
+    "depth": 4,
+    "width": 80
+   },
+   "type": "box"
+  },
+  "holes": [
+   {
+    "diameter": 10,
+    "face": "top",
+    "pattern": {
+     "count": 3,
+     "spacing": 25,
+     "type": "linear"
+    },
+    "type": "hole"
+   }
+  ]
+ }
+}

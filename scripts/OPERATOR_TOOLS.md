@@ -55,10 +55,10 @@ repo-wide work is still better on the `laguna` default.
 ## Dashboards and results
 
 ```bash
-python3 scripts/update_grafana_acceptance.py       # portal5_acceptance.json from ACCEPTANCE_RESULTS.md
+python3 scripts/update_grafana_acceptance.py       # portal5_acceptance.json from docs/ACCEPTANCE_RESULTS.md
 python3 scripts/update_grafana_benchmarks.py       # portal5_benchmarks.json from bench results
 python3 scripts/update_grafana_uat.py              # portal5_uat.json from UAT_RESULTS.md
-python3 scripts/blend_acceptance_results.py        # blend ACCEPTANCE_RESULTS.md from git history + live file
+python3 scripts/blend_acceptance_results.py        # blend docs/ACCEPTANCE_RESULTS.md from git history + live file
 ```
 
 ## Verification and measurement

@@ -8,6 +8,7 @@ provenance ledger entry per run.
 from __future__ import annotations
 
 import argparse
+import os
 import sys
 import time
 from datetime import UTC, datetime
@@ -41,7 +42,8 @@ from tests.benchmarks.bench_repair.runner import (
 )
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
-RESULTS_DIR = REPO_ROOT / "tests" / "benchmarks" / "results"
+DATA_ROOT = Path(os.environ.get("PORTAL_DATA_ROOT", str(Path.home() / "AI_Output" / "portal-data")))
+RESULTS_DIR = DATA_ROOT / "tests" / "benchmarks" / "results"
 
 
 def _omlx_alias_group(model_hint: str) -> str | None:

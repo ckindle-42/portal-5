@@ -82,7 +82,7 @@ TPS benchmarking is driven by `tests/benchmarks/bench_tps.py`, a shim that forwa
 python3 tests/benchmarks/bench_tps.py --mode pipeline --workspace auto --runs 3
 ```
 
-`--mode` accepts `direct` (raw Ollama), `pipeline` (workspaces through the portal pipeline), `personas` (persona routing), or `all`. `--workspace` filters pipeline runs to an exact workspace id and `--runs` sets the per-model trial count. Results are written to a timestamped JSON under `tests/benchmarks/results/` (`RESULTS_DIR`), and the CLI prints a summary ranking runs by `avg_tps`.
+`--mode` accepts `direct` (raw Ollama), `pipeline` (workspaces through the portal pipeline), `personas` (persona routing), or `all`. `--workspace` filters pipeline runs to an exact workspace id and `--runs` sets the per-model trial count. Results are written to a timestamped JSON under `${PORTAL_DATA_ROOT}/tests/benchmarks/results/` (`RESULTS_DIR`), and the CLI prints a summary ranking runs by `avg_tps`.
 
 Running the same model through `direct` and `pipeline` modes is the intended way to measure the portal layer's per-request overhead, because both modes use the same shared bench client and warmup path, so the delta isolates routing, auth, and proxy cost from inference.
 

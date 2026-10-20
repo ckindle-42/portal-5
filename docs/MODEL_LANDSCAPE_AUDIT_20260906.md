@@ -1,5 +1,10 @@
 # Model landscape audit and remaining work — 2026-09-06
 
+**Result links point outside the checkout.** Raw run evidence lives under
+`${PORTAL_DATA_ROOT}` (default `~/AI_Output/portal-data`); every
+`${PORTAL_DATA_ROOT}/tests/benchmarks/results/...` link below names the file by
+run id in that tree.
+
 This is a dated, read-only audit of saved project evidence and local model-store metadata. **The claim “53 production tags / ~782 GB plus 62 pending / ~784 GB” reproduces an old report, but is not an accurate account of current unique storage or unfinished evaluations.**
 
 The execution deliverable is [Task: close every model disposition](TASK_MODEL_FLEET_CLOSEOUT_20260906.md), with a [188-identity worklist](MODEL_FLEET_CLOSEOUT_20260906.tasks.json). Its goal is to close each identity as integrated, deliberately retained for a named purpose, or removed with a durable project record, then retire the old pending category.
@@ -10,7 +15,7 @@ No project scripts, tests, model calls, server queries, downloads, cleanup, conf
 
 | Claim / measurement | Finding |
 |---|---|
-| 53 production / 781.9 “GB” | This is the heading in `reports/model_cleanup_audit.md`. All 53 exact tags remain in the inspected Ollama store, but their manifest layers total **381.177 GiB after deduplication**, not 781.9 GiB. The 53 names collapse to 26 names after case folding and removing context suffixes; this is a naming count, not a count of distinct checkpoints. |
+| 53 production / 781.9 “GB” | This is the heading in the audit report at `${PORTAL_DATA_ROOT}/reports/model_cleanup_audit.md` (2026-09-06 run). All 53 exact tags remain in the inspected Ollama store, but their manifest layers total **381.177 GiB after deduplication**, not 781.9 GiB. The 53 names collapse to 26 names after case folding and removing context suffixes; this is a naming count, not a count of distinct checkpoints. |
 | 62 pending / 784.1 “GB” | The old ledger has 62 entries, but **only 29 exact tags are present; 33 are absent** from the inspected store. The present set references **351.114 GiB** of unique blobs. Only **259.232 GiB** is exclusive to those 29 tags relative to all other current manifests. This is a storage upper bound for removing the entire set, **not a deletion recommendation**. Some have current production roles. |
 | 62 untested models | False. Independent structured-result inspection found a test-attempt record naming every one of the 62 tags. Attempts include successes, failures, skips and limited probes; the number of completely accepted models cannot be inferred from that fact. |
 | All checkboxes mean complete | False. All 62 boxes are checked, but their recorded verdict labels are **30 keep-open, 20 investigate, 12 investigate-refresh**. None of those labels is a final promote/decline disposition. |
@@ -55,7 +60,7 @@ The scan covered JSON files under `tests/benchmarks/results`, `tests/results`, a
 
 ### Coding: completed work exists
 
-The August 26–27 [MoE coding report](../tests/benchmarks/results/BENCH_REPAIR_MOE_CODERS_20260826.md) agrees with its [raw 210-sample checkpoint](../tests/benchmarks/results/BENCH_REPAIR_CHECKPOINT_066355de23d5.json):
+The August 26–27 [MoE coding report](${PORTAL_DATA_ROOT}/tests/benchmarks/results/BENCH_REPAIR_MOE_CODERS_20260826.md) agrees with its [raw 210-sample checkpoint](${PORTAL_DATA_ROOT}/tests/benchmarks/results/BENCH_REPAIR_CHECKPOINT_066355de23d5.json):
 
 | Exact candidate lane | One-shot successes | One-repair successes |
 |---|---:|---:|
@@ -67,13 +72,13 @@ This is a completed ten-problem coding exam on Ollama 0.32.15, not proof of perf
 
 ### September 6 judgment evaluation: fresh results, incomplete acceptance
 
-The [saved rescored artifact](../tests/benchmarks/results/judgment_probe_v6_rescored_20260906T224306Z.json) contains 12 model entries with 30 cases each. Eleven have zero recorded execution errors; Phi4 Q4 has **30 HTTP 500 errors**, `config_unverified: true`, and `broken: true`. Its zero scores are not evidence of model reasoning quality. Appendix B preserves the rescored metrics, which differ from the original capture's exact-accuracy values; do not combine scorer versions.
+The [saved rescored artifact](${PORTAL_DATA_ROOT}/tests/benchmarks/results/judgment_probe_v6_rescored_20260906T224306Z.json) contains 12 model entries with 30 cases each. Eleven have zero recorded execution errors; Phi4 Q4 has **30 HTTP 500 errors**, `config_unverified: true`, and `broken: true`. Its zero scores are not evidence of model reasoning quality. Appendix B preserves the rescored metrics, which differ from the original capture's exact-accuracy values; do not combine scorer versions.
 
 Qwen3.8-27B ctx32k and Qwen3.6-27B ctx16k each have 0.90 exact accuracy and 0.9524 F2 on this rescoring, with one false-supported answer each. These results do not prove general compliance acceptance or justify a fleet-wide promotion. Granite4.2-30B Q8 and Granite4.1-8B Q8 also have separate earlier September 6 runs but are absent from the 12-entry rescored file. A consolidated comparison must either rescore those captured outputs under the same rubric or state their exclusion. The current active job's completion was not inferred from filenames or queried from a process/server.
 
 ### Limited probes, historical decisions, and invalidated evidence
 
-- **CAD:** the [August 27 partial](../tests/benchmarks/results/cap_cad-overhaul_20260827T164110Z.moe-only.SUPERSEDED.md) is explicitly superseded because of permissive geometry schema, ignored feature keys, missing baked context, and missing bounding-box PASS gating. It cannot support promotion. Geometry fixture validation is not a replacement model gauntlet.
+- **CAD:** the [August 27 partial](${PORTAL_DATA_ROOT}/tests/benchmarks/results/cap_cad-overhaul_20260827T164110Z.moe-only.SUPERSEDED.md) is explicitly superseded because of permissive geometry schema, ignored feature keys, missing baked context, and missing bounding-box PASS gating. It cannot support promotion. Geometry fixture validation is not a replacement model gauntlet.
 - **Qwen3.8 GGUF / MLX / MTP / DFlash2:** these are separate runtime/checkpoint configurations. The [GGUF catalog](../portal_wiki/canonical/unit-model-catalog-hf-co-unsloth-qwen3-8-27b-gguf-q4-k-m.md) explicitly says the full coding sweep was deferred in favor of IDE use. The [MTP catalog](../portal_wiki/canonical/unit-model-catalog-qwen3-8-27b-oq4e-mtp.md) records speed and tool probes, not a complete coding acceptance. The September 6 GGUF judgment results do not certify the MLX acceleration variants.
 - **REAP-288:** [catalog evidence](../portal_wiki/canonical/unit-model-catalog-qwen3-8-flash-next-reap-288-mlx-4bit.md) records quiet-host speed/tool probes and memory limits, explicitly leaves card HumanEval unreproduced, and records an operator decision against an auto default. It is configured as a selectable coding variant. A bounded comparison against Laguna remains a separate optional question; a broad automatic-promotion sweep conflicts with the recorded disposition.
 - **Cascade-2:** the [August 31 follow-up](../config/FOLLOWUP_REASONING_OVERHAUL_REMAINING_V1.md) explicitly supersedes its challenger rebench and records it fully dropped. Do not revive B1/C3 from older planning prose.
@@ -108,7 +113,7 @@ No defensible total GPU-hours estimate follows from “62 models.” A useful es
 
 ## 5. Evidence and audit limits
 
-The adjacent [machine-readable snapshot](MODEL_LANDSCAPE_AUDIT_20260906.evidence.json) records observed tag/layer mappings, measured totals, all old pending statuses and matched artifact paths, current non-bench configuration references, oMLX filesystem state, and hashes of key source files. It contains no model weights or credentials. It makes this audit reviewable after the active job advances.
+The adjacent [machine-readable snapshot](${PORTAL_DATA_ROOT}/docs/MODEL_LANDSCAPE_AUDIT_20260906.evidence.json) records observed tag/layer mappings, measured totals, all old pending statuses and matched artifact paths, current non-bench configuration references, oMLX filesystem state, and hashes of key source files. It contains no model weights or credentials. It makes this audit reviewable after the active job advances.
 
 The inspected primary store is `/Volumes/data01/ollama/models`, consistent with `.env.example`; the default `~/.ollama/models/manifests` directory was empty. No server query confirmed the active daemon's model directory or currently loaded models. No claims are made about other hosts, uninspected volumes, cloud caches, or actual request routing. Filesystem presence is not cryptographic verification of weights, successful loading, complete test coverage, or production acceptance.
 
@@ -120,68 +125,68 @@ The remaining appendices are generated from these read-only observations. Model 
 
 | Tag | Present | Old verdict | Latest dated exact-tag attempt located | Current non-bench reference |
 |---|---|---|---|---|
-| `portal5/qwen3.6-27b-mtp:q8_0-drafted` | No | I | [mtp_probe_20260812T110332Z.json](../tests/benchmarks/results/mtp_probe_20260812T110332Z.json) | — |
-| `qwen3.6:27b-q8_0` | No | IR | [reasoning_probe_20260812T114518Z.json](../tests/benchmarks/results/reasoning_probe_20260812T114518Z.json) | — |
-| `hf.co/unsloth/Magistral-Small-2509-GGUF:Q8_0-ctx64k` | Yes | I | [reasoning_probe_20260813T234949Z.json](../tests/benchmarks/results/reasoning_probe_20260813T234949Z.json) | — |
-| `qwen3.6:35b-a3b-q4_K_M` | No | IR | [reasoning_probe_20260812T114518Z.json](../tests/benchmarks/results/reasoning_probe_20260812T114518Z.json) | — |
-| `hf.co/unsloth/Qwen3.6-35B-A3B-GGUF:UD-Q4_K_XL` | Yes | K | [bench_tps_20260814T014425Z.json](../tests/benchmarks/results/bench_tps_20260814T014425Z.json) | — |
-| `hf.co/sjakek/Nex-N2-mini-GGUF:UD-Q4_K_M` | Yes | K | [reasoning_probe_20260813T234949Z.json](../tests/benchmarks/results/reasoning_probe_20260813T234949Z.json) | — |
-| `hf.co/BugTraceAI/BugTraceAI-CORE-Ultra-27B-Q6:Q6_K` | No | K | [security_exec_probe_20260811T202002Z.json](../tests/benchmarks/results/security_exec_probe_20260811T202002Z.json) | — |
-| `hf.co/mradermacher/Huihui-Qwen3.6-35B-A3B-abliterated-GGUF:Q4_K_M` | Yes | K | [refusal_preservation_probe_20260813T235101Z.json](../tests/benchmarks/results/refusal_preservation_probe_20260813T235101Z.json) | — |
-| `portal5/xyz-aquila-mini:Q4_K_M` | No | K | [bench_tps_20260811T230905Z.json](../tests/benchmarks/results/bench_tps_20260811T230905Z.json) | — |
-| `portal5/xyz-aquila-mini:q4_k_m-ctx16k` | Yes | K | [bench_tps_20260811T172511Z.json](../tests/benchmarks/results/bench_tps_20260811T172511Z.json) | `auto-research.model_hint` |
-| `muse-glimmer:30b-mlx` | No | K | [vision_probe_20260812T125539Z.json](../tests/benchmarks/results/vision_probe_20260812T125539Z.json) | — |
-| `hf.co/Jiunsong/SuperQwen-AgentWorld-35B-A3B-abliterated-gguf-4bit:Q4_K_M` | No | K | [tool_use_probe_20260811T202017Z.json](../tests/benchmarks/results/tool_use_probe_20260811T202017Z.json) | — |
-| `portal5/deepwen-3.6:q4.5-moq-ctx32k` | No | I | [cad_probe_20260813T140900Z.json](../tests/benchmarks/results/cad_probe_20260813T140900Z.json) | — |
-| `portal5/deepwen-3.6:q4.5-moq` | No | I | [cad_probe_20260813T140900Z.json](../tests/benchmarks/results/cad_probe_20260813T140900Z.json) | — |
-| `hf.co/Mia-AiLab/Qwable-3.6-35b:Qwable-3.6-35b_q4_k_m.gguf` | No | IR | [bench_tps_20260627T192858Z.json](../tests/benchmarks/results/bench_tps_20260627T192858Z.json) | — |
-| `hf.co/Abiray/Agents-A1-Q4_K_M-GGUF:Q4_K_M` | No | IR | [reasoning_probe_20260812T114518Z.json](../tests/benchmarks/results/reasoning_probe_20260812T114518Z.json) | — |
-| `hf.co/bartowski/THUDM_GLM-Z1-Rumination-32B-0414-GGUF:THUDM_GLM-Z1-Rumination-32B-0414-Q4_K_M.gguf-ctx64k` | Yes | I | [bench_tps_20260811T220820Z.json](../tests/benchmarks/results/bench_tps_20260811T220820Z.json) | — |
-| `deepseek-r1:32b-q4_k_m` | Yes | IR | [reasoning_probe_20260812T114518Z.json](../tests/benchmarks/results/reasoning_probe_20260812T114518Z.json) | — |
-| `hf.co/Jackrong/Qwopus3.6-27B-v2-MTP-GGUF:Qwopus3.6-27B-v2-MTP-Q5_K_M.gguf` | No | K | [mtp_probe_20260812T110332Z.json](../tests/benchmarks/results/mtp_probe_20260812T110332Z.json) | — |
-| `glm-4.7-flash:Q4_K_M` | Yes | I | [bench_tps_20260811T220820Z.json](../tests/benchmarks/results/bench_tps_20260811T220820Z.json) | — |
-| `gemma4:31b-it-qat-ctx8k` | Yes | K | [bench_tps_20260814T032302Z.json](../tests/benchmarks/results/bench_tps_20260814T032302Z.json) | — |
-| `gemma4:31b-it-qat` | Yes | K | [bench_tps_20260814T032302Z.json](../tests/benchmarks/results/bench_tps_20260814T032302Z.json) | — |
-| `hf.co/douyamv/Gemma-4-31B-JANG_4M-CRACK-GGUF:gemma-4-31b-jang-crack-Q4_K_M.gguf` | Yes | IR | [bench_tps_gemma_mtp_20260701.json](../tests/benchmarks/results/bench_tps_gemma_mtp_20260701.json) | — |
-| `gemma4:26b-a4b-it-q4_K_M` | Yes | K | [vision_probe_20260812T125539Z.json](../tests/benchmarks/results/vision_probe_20260812T125539Z.json) | — |
-| `hf.co/bartowski/Qwen_Qwen3.6-27B-GGUF:Q4_K_M` | Yes | I | [mtp_probe_20260812T110332Z.json](../tests/benchmarks/results/mtp_probe_20260812T110332Z.json) | — |
-| `qwen3.6:27b-mtp-q4_K_M` | No | K | [mtp_probe_20260812T110332Z.json](../tests/benchmarks/results/mtp_probe_20260812T110332Z.json) | — |
-| `hf.co/mradermacher/gemma-4-26B-A4B-it-uncensored-heretic-GGUF:gemma-4-26B-A4B-it-uncensored-heretic.Q4_K_M.gguf` | Yes | K | [bench_tps_20260814T072743Z.json](../tests/benchmarks/results/bench_tps_20260814T072743Z.json) | — |
-| `sylink/sylink:8b` | No | K | [long_context_probe_20260812T105740Z.json](../tests/benchmarks/results/long_context_probe_20260812T105740Z.json) | — |
-| `sylink/sylink:8b-ctx8k` | No | I | [long_context_probe_20260812T105740Z.json](../tests/benchmarks/results/long_context_probe_20260812T105740Z.json) | — |
-| `phi4:14b-q8_0` | No | K | [long_context_probe_20260812T105740Z.json](../tests/benchmarks/results/long_context_probe_20260812T105740Z.json) | — |
-| `mistral-small3.2:24b` | Yes | K | [bench_tps_20260811T172511Z.json](../tests/benchmarks/results/bench_tps_20260811T172511Z.json) | `auto-security.variants.blueteam-council.council_models.1`; `auto-council.council.members.1.model` |
-| `devstral-small-2:latest-ctx8k` | Yes | I | [bench_tps_20260811T220820Z.json](../tests/benchmarks/results/bench_tps_20260811T220820Z.json) | — |
-| `devstral-small-2:latest` | Yes | I | [bench_tps_20260811T172511Z.json](../tests/benchmarks/results/bench_tps_20260811T172511Z.json) | — |
-| `devstral:24b` | No | I | [bench_tps_20260811T220820Z.json](../tests/benchmarks/results/bench_tps_20260811T220820Z.json) | — |
-| `hf.co/unsloth/GLM-4.7-Flash-REAP-23B-A3B-GGUF:UD-Q4_K_XL-ctx64k` | Yes | IR | [judgment_probe_v6_rescored_20260906T224306Z.json](../tests/benchmarks/results/judgment_probe_v6_rescored_20260906T224306Z.json) | — |
-| `gpt-oss:20b` | Yes | IR | [reasoning_probe_20260812T114518Z.json](../tests/benchmarks/results/reasoning_probe_20260812T114518Z.json) | — |
-| `huihui_ai/qwen3-abliterated:14b-v2` | Yes | I | [refusal_preservation_probe_20260811T200719Z.json](../tests/benchmarks/results/refusal_preservation_probe_20260811T200719Z.json) | — |
-| `hf.co/fdtn-ai/Foundation-Sec-8B-Reasoning-Q8_0-GGUF:Q8_0` | Yes | IR | [reasoning_probe_20260812T005010Z.json](../tests/benchmarks/results/reasoning_probe_20260812T005010Z.json) | `auto-security.variants.blueteam-orchestrated.expert_model`; `auto-security.variants.blueteam-council.expert_model` |
-| `hf.co/Jackrong/DeepSeek-V4-Pro-Qwen3.5-9B-MTP-GGUF:Q4_K_M` | No | K | [vision_probe_20260812T125539Z.json](../tests/benchmarks/results/vision_probe_20260812T125539Z.json) | — |
-| `portal5/gemma4-12b:q4_K_M-ctx8k` | No | I | [bench_tps_20260811T172511Z.json](../tests/benchmarks/results/bench_tps_20260811T172511Z.json) | — |
-| `hf.co/yuxinlu1/gemma-4-12B-agentic-fable5-composer2.5-v2-3.5x-tau2-GGUF:Q4_K_M` | Yes | K | [mtp_probe_20260812T110332Z.json](../tests/benchmarks/results/mtp_probe_20260812T110332Z.json) | — |
-| `hf.co/mradermacher/Qwen3.5-9B-Claude-4.6-HighIQ-THINKING-HERETIC-UNCENSORED-GGUF:Q4_K_M` | Yes | I | [reasoning_probe_20260813T234949Z.json](../tests/benchmarks/results/reasoning_probe_20260813T234949Z.json) | — |
-| `gemma4:e4b-it-qat-ctx8k` | No | K | [vision_probe_20260812T125539Z.json](../tests/benchmarks/results/vision_probe_20260812T125539Z.json) | — |
-| `gemma4:e4b-it-qat` | Yes | K | [vision_probe_20260812T125539Z.json](../tests/benchmarks/results/vision_probe_20260812T125539Z.json) | — |
-| `meta-secalign-8b-q4_k_m:latest` | No | I | [bench_tps_20260811T172511Z.json](../tests/benchmarks/results/bench_tps_20260811T172511Z.json) | — |
-| `dolphin-llama3:8b` | No | K | [tool_use_probe_20260811T202017Z.json](../tests/benchmarks/results/tool_use_probe_20260811T202017Z.json) | — |
-| `hermes3:8b` | Yes | IR | [reasoning_probe_20260812T114518Z.json](../tests/benchmarks/results/reasoning_probe_20260812T114518Z.json) | — |
-| `huihui_ai/gemma-4-abliterated:E2b-qat-ctx8k` | No | K | [refusal_preservation_probe_20260811T200719Z.json](../tests/benchmarks/results/refusal_preservation_probe_20260811T200719Z.json) | — |
-| `huihui_ai/gemma-4-abliterated:E2b-qat` | Yes | I | [refusal_preservation_probe_20260811T200719Z.json](../tests/benchmarks/results/refusal_preservation_probe_20260811T200719Z.json) | — |
-| `hf.co/Andycurrent/Mistral-7B-Uncensored-GGUF:Q4_K_M` | No | IR | [reasoning_probe_20260812T005010Z.json](../tests/benchmarks/results/reasoning_probe_20260812T005010Z.json) | — |
-| `gemma4:e2b-it-qat-ctx8k` | No | K | [vision_probe_20260812T125539Z.json](../tests/benchmarks/results/vision_probe_20260812T125539Z.json) | — |
-| `gemma4:e2b-it-qat` | Yes | K | [vision_probe_20260812T125539Z.json](../tests/benchmarks/results/vision_probe_20260812T125539Z.json) | — |
-| `hf.co/Jackrong/DeepSeek-V4-Pro-Qwen3.5-4B-MTP-GGUF:Q4_K_M` | No | K | [mtp_probe_20260812T110332Z.json](../tests/benchmarks/results/mtp_probe_20260812T110332Z.json) | — |
-| `llama3.2:3b-instruct-q8_0-ctx8k` | No | K | [bench_tps_20260811T172511Z.json](../tests/benchmarks/results/bench_tps_20260811T172511Z.json) | — |
-| `hf.co/mitkox/FastContext-1.0-4B-SFT-Q4_K_M-GGUF:Q4_K_M` | No | K | [bench_tps_20260811T220820Z.json](../tests/benchmarks/results/bench_tps_20260811T220820Z.json) | — |
-| `cybersecqwen-4b-toolfix:latest` | No | I | [security_exec_probe_20260811T202002Z.json](../tests/benchmarks/results/security_exec_probe_20260811T202002Z.json) | — |
-| `llama3.2:3b` | No | K | [bench_tps_20260811T172511Z.json](../tests/benchmarks/results/bench_tps_20260811T172511Z.json) | — |
-| `hf.co/QuantFactory/Llama-3.2-3B-Instruct-abliterated-GGUF:latest` | Yes | K | [refusal_preservation_probe_20260811T200719Z.json](../tests/benchmarks/results/refusal_preservation_probe_20260811T200719Z.json) | — |
-| `hf.co/Nguuma/security-slm-unsloth-1.5b:latest` | Yes | IR | [reasoning_probe_20260812T114518Z.json](../tests/benchmarks/results/reasoning_probe_20260812T114518Z.json) | — |
-| `hf.co/LiquidAI/LFM2.5-1.2B-Instruct-GGUF:Q4_K_M` | No | I | [bench_tps_20260811T172511Z.json](../tests/benchmarks/results/bench_tps_20260811T172511Z.json) | — |
-| `hf.co/LiquidAI/LFM2.5-350M-GGUF:Q4_K_M` | No | I | [bench_tps_20260811T172511Z.json](../tests/benchmarks/results/bench_tps_20260811T172511Z.json) | — |
-| `hf.co/LiquidAI/LFM2.5-230M-GGUF:Q4_K_M` | No | I | [bench_tps_20260811T172511Z.json](../tests/benchmarks/results/bench_tps_20260811T172511Z.json) | — |
+| `portal5/qwen3.6-27b-mtp:q8_0-drafted` | No | I | [mtp_probe_20260812T110332Z.json](${PORTAL_DATA_ROOT}/tests/benchmarks/results/mtp_probe_20260812T110332Z.json) | — |
+| `qwen3.6:27b-q8_0` | No | IR | [reasoning_probe_20260812T114518Z.json](${PORTAL_DATA_ROOT}/tests/benchmarks/results/reasoning_probe_20260812T114518Z.json) | — |
+| `hf.co/unsloth/Magistral-Small-2509-GGUF:Q8_0-ctx64k` | Yes | I | [reasoning_probe_20260813T234949Z.json](${PORTAL_DATA_ROOT}/tests/benchmarks/results/reasoning_probe_20260813T234949Z.json) | — |
+| `qwen3.6:35b-a3b-q4_K_M` | No | IR | [reasoning_probe_20260812T114518Z.json](${PORTAL_DATA_ROOT}/tests/benchmarks/results/reasoning_probe_20260812T114518Z.json) | — |
+| `hf.co/unsloth/Qwen3.6-35B-A3B-GGUF:UD-Q4_K_XL` | Yes | K | [bench_tps_20260814T014425Z.json](${PORTAL_DATA_ROOT}/tests/benchmarks/results/bench_tps_20260814T014425Z.json) | — |
+| `hf.co/sjakek/Nex-N2-mini-GGUF:UD-Q4_K_M` | Yes | K | [reasoning_probe_20260813T234949Z.json](${PORTAL_DATA_ROOT}/tests/benchmarks/results/reasoning_probe_20260813T234949Z.json) | — |
+| `hf.co/BugTraceAI/BugTraceAI-CORE-Ultra-27B-Q6:Q6_K` | No | K | [security_exec_probe_20260811T202002Z.json](${PORTAL_DATA_ROOT}/tests/benchmarks/results/security_exec_probe_20260811T202002Z.json) | — |
+| `hf.co/mradermacher/Huihui-Qwen3.6-35B-A3B-abliterated-GGUF:Q4_K_M` | Yes | K | [refusal_preservation_probe_20260813T235101Z.json](${PORTAL_DATA_ROOT}/tests/benchmarks/results/refusal_preservation_probe_20260813T235101Z.json) | — |
+| `portal5/xyz-aquila-mini:Q4_K_M` | No | K | [bench_tps_20260811T230905Z.json](${PORTAL_DATA_ROOT}/tests/benchmarks/results/bench_tps_20260811T230905Z.json) | — |
+| `portal5/xyz-aquila-mini:q4_k_m-ctx16k` | Yes | K | [bench_tps_20260811T172511Z.json](${PORTAL_DATA_ROOT}/tests/benchmarks/results/bench_tps_20260811T172511Z.json) | `auto-research.model_hint` |
+| `muse-glimmer:30b-mlx` | No | K | [vision_probe_20260812T125539Z.json](${PORTAL_DATA_ROOT}/tests/benchmarks/results/vision_probe_20260812T125539Z.json) | — |
+| `hf.co/Jiunsong/SuperQwen-AgentWorld-35B-A3B-abliterated-gguf-4bit:Q4_K_M` | No | K | [tool_use_probe_20260811T202017Z.json](${PORTAL_DATA_ROOT}/tests/benchmarks/results/tool_use_probe_20260811T202017Z.json) | — |
+| `portal5/deepwen-3.6:q4.5-moq-ctx32k` | No | I | [cad_probe_20260813T140900Z.json](${PORTAL_DATA_ROOT}/tests/benchmarks/results/cad_probe_20260813T140900Z.json) | — |
+| `portal5/deepwen-3.6:q4.5-moq` | No | I | [cad_probe_20260813T140900Z.json](${PORTAL_DATA_ROOT}/tests/benchmarks/results/cad_probe_20260813T140900Z.json) | — |
+| `hf.co/Mia-AiLab/Qwable-3.6-35b:Qwable-3.6-35b_q4_k_m.gguf` | No | IR | [bench_tps_20260627T192858Z.json](${PORTAL_DATA_ROOT}/tests/benchmarks/results/bench_tps_20260627T192858Z.json) | — |
+| `hf.co/Abiray/Agents-A1-Q4_K_M-GGUF:Q4_K_M` | No | IR | [reasoning_probe_20260812T114518Z.json](${PORTAL_DATA_ROOT}/tests/benchmarks/results/reasoning_probe_20260812T114518Z.json) | — |
+| `hf.co/bartowski/THUDM_GLM-Z1-Rumination-32B-0414-GGUF:THUDM_GLM-Z1-Rumination-32B-0414-Q4_K_M.gguf-ctx64k` | Yes | I | [bench_tps_20260811T220820Z.json](${PORTAL_DATA_ROOT}/tests/benchmarks/results/bench_tps_20260811T220820Z.json) | — |
+| `deepseek-r1:32b-q4_k_m` | Yes | IR | [reasoning_probe_20260812T114518Z.json](${PORTAL_DATA_ROOT}/tests/benchmarks/results/reasoning_probe_20260812T114518Z.json) | — |
+| `hf.co/Jackrong/Qwopus3.6-27B-v2-MTP-GGUF:Qwopus3.6-27B-v2-MTP-Q5_K_M.gguf` | No | K | [mtp_probe_20260812T110332Z.json](${PORTAL_DATA_ROOT}/tests/benchmarks/results/mtp_probe_20260812T110332Z.json) | — |
+| `glm-4.7-flash:Q4_K_M` | Yes | I | [bench_tps_20260811T220820Z.json](${PORTAL_DATA_ROOT}/tests/benchmarks/results/bench_tps_20260811T220820Z.json) | — |
+| `gemma4:31b-it-qat-ctx8k` | Yes | K | [bench_tps_20260814T032302Z.json](${PORTAL_DATA_ROOT}/tests/benchmarks/results/bench_tps_20260814T032302Z.json) | — |
+| `gemma4:31b-it-qat` | Yes | K | [bench_tps_20260814T032302Z.json](${PORTAL_DATA_ROOT}/tests/benchmarks/results/bench_tps_20260814T032302Z.json) | — |
+| `hf.co/douyamv/Gemma-4-31B-JANG_4M-CRACK-GGUF:gemma-4-31b-jang-crack-Q4_K_M.gguf` | Yes | IR | [bench_tps_gemma_mtp_20260701.json](${PORTAL_DATA_ROOT}/tests/benchmarks/results/bench_tps_gemma_mtp_20260701.json) | — |
+| `gemma4:26b-a4b-it-q4_K_M` | Yes | K | [vision_probe_20260812T125539Z.json](${PORTAL_DATA_ROOT}/tests/benchmarks/results/vision_probe_20260812T125539Z.json) | — |
+| `hf.co/bartowski/Qwen_Qwen3.6-27B-GGUF:Q4_K_M` | Yes | I | [mtp_probe_20260812T110332Z.json](${PORTAL_DATA_ROOT}/tests/benchmarks/results/mtp_probe_20260812T110332Z.json) | — |
+| `qwen3.6:27b-mtp-q4_K_M` | No | K | [mtp_probe_20260812T110332Z.json](${PORTAL_DATA_ROOT}/tests/benchmarks/results/mtp_probe_20260812T110332Z.json) | — |
+| `hf.co/mradermacher/gemma-4-26B-A4B-it-uncensored-heretic-GGUF:gemma-4-26B-A4B-it-uncensored-heretic.Q4_K_M.gguf` | Yes | K | [bench_tps_20260814T072743Z.json](${PORTAL_DATA_ROOT}/tests/benchmarks/results/bench_tps_20260814T072743Z.json) | — |
+| `sylink/sylink:8b` | No | K | [long_context_probe_20260812T105740Z.json](${PORTAL_DATA_ROOT}/tests/benchmarks/results/long_context_probe_20260812T105740Z.json) | — |
+| `sylink/sylink:8b-ctx8k` | No | I | [long_context_probe_20260812T105740Z.json](${PORTAL_DATA_ROOT}/tests/benchmarks/results/long_context_probe_20260812T105740Z.json) | — |
+| `phi4:14b-q8_0` | No | K | [long_context_probe_20260812T105740Z.json](${PORTAL_DATA_ROOT}/tests/benchmarks/results/long_context_probe_20260812T105740Z.json) | — |
+| `mistral-small3.2:24b` | Yes | K | [bench_tps_20260811T172511Z.json](${PORTAL_DATA_ROOT}/tests/benchmarks/results/bench_tps_20260811T172511Z.json) | `auto-security.variants.blueteam-council.council_models.1`; `auto-council.council.members.1.model` |
+| `devstral-small-2:latest-ctx8k` | Yes | I | [bench_tps_20260811T220820Z.json](${PORTAL_DATA_ROOT}/tests/benchmarks/results/bench_tps_20260811T220820Z.json) | — |
+| `devstral-small-2:latest` | Yes | I | [bench_tps_20260811T172511Z.json](${PORTAL_DATA_ROOT}/tests/benchmarks/results/bench_tps_20260811T172511Z.json) | — |
+| `devstral:24b` | No | I | [bench_tps_20260811T220820Z.json](${PORTAL_DATA_ROOT}/tests/benchmarks/results/bench_tps_20260811T220820Z.json) | — |
+| `hf.co/unsloth/GLM-4.7-Flash-REAP-23B-A3B-GGUF:UD-Q4_K_XL-ctx64k` | Yes | IR | [judgment_probe_v6_rescored_20260906T224306Z.json](${PORTAL_DATA_ROOT}/tests/benchmarks/results/judgment_probe_v6_rescored_20260906T224306Z.json) | — |
+| `gpt-oss:20b` | Yes | IR | [reasoning_probe_20260812T114518Z.json](${PORTAL_DATA_ROOT}/tests/benchmarks/results/reasoning_probe_20260812T114518Z.json) | — |
+| `huihui_ai/qwen3-abliterated:14b-v2` | Yes | I | [refusal_preservation_probe_20260811T200719Z.json](${PORTAL_DATA_ROOT}/tests/benchmarks/results/refusal_preservation_probe_20260811T200719Z.json) | — |
+| `hf.co/fdtn-ai/Foundation-Sec-8B-Reasoning-Q8_0-GGUF:Q8_0` | Yes | IR | [reasoning_probe_20260812T005010Z.json](${PORTAL_DATA_ROOT}/tests/benchmarks/results/reasoning_probe_20260812T005010Z.json) | `auto-security.variants.blueteam-orchestrated.expert_model`; `auto-security.variants.blueteam-council.expert_model` |
+| `hf.co/Jackrong/DeepSeek-V4-Pro-Qwen3.5-9B-MTP-GGUF:Q4_K_M` | No | K | [vision_probe_20260812T125539Z.json](${PORTAL_DATA_ROOT}/tests/benchmarks/results/vision_probe_20260812T125539Z.json) | — |
+| `portal5/gemma4-12b:q4_K_M-ctx8k` | No | I | [bench_tps_20260811T172511Z.json](${PORTAL_DATA_ROOT}/tests/benchmarks/results/bench_tps_20260811T172511Z.json) | — |
+| `hf.co/yuxinlu1/gemma-4-12B-agentic-fable5-composer2.5-v2-3.5x-tau2-GGUF:Q4_K_M` | Yes | K | [mtp_probe_20260812T110332Z.json](${PORTAL_DATA_ROOT}/tests/benchmarks/results/mtp_probe_20260812T110332Z.json) | — |
+| `hf.co/mradermacher/Qwen3.5-9B-Claude-4.6-HighIQ-THINKING-HERETIC-UNCENSORED-GGUF:Q4_K_M` | Yes | I | [reasoning_probe_20260813T234949Z.json](${PORTAL_DATA_ROOT}/tests/benchmarks/results/reasoning_probe_20260813T234949Z.json) | — |
+| `gemma4:e4b-it-qat-ctx8k` | No | K | [vision_probe_20260812T125539Z.json](${PORTAL_DATA_ROOT}/tests/benchmarks/results/vision_probe_20260812T125539Z.json) | — |
+| `gemma4:e4b-it-qat` | Yes | K | [vision_probe_20260812T125539Z.json](${PORTAL_DATA_ROOT}/tests/benchmarks/results/vision_probe_20260812T125539Z.json) | — |
+| `meta-secalign-8b-q4_k_m:latest` | No | I | [bench_tps_20260811T172511Z.json](${PORTAL_DATA_ROOT}/tests/benchmarks/results/bench_tps_20260811T172511Z.json) | — |
+| `dolphin-llama3:8b` | No | K | [tool_use_probe_20260811T202017Z.json](${PORTAL_DATA_ROOT}/tests/benchmarks/results/tool_use_probe_20260811T202017Z.json) | — |
+| `hermes3:8b` | Yes | IR | [reasoning_probe_20260812T114518Z.json](${PORTAL_DATA_ROOT}/tests/benchmarks/results/reasoning_probe_20260812T114518Z.json) | — |
+| `huihui_ai/gemma-4-abliterated:E2b-qat-ctx8k` | No | K | [refusal_preservation_probe_20260811T200719Z.json](${PORTAL_DATA_ROOT}/tests/benchmarks/results/refusal_preservation_probe_20260811T200719Z.json) | — |
+| `huihui_ai/gemma-4-abliterated:E2b-qat` | Yes | I | [refusal_preservation_probe_20260811T200719Z.json](${PORTAL_DATA_ROOT}/tests/benchmarks/results/refusal_preservation_probe_20260811T200719Z.json) | — |
+| `hf.co/Andycurrent/Mistral-7B-Uncensored-GGUF:Q4_K_M` | No | IR | [reasoning_probe_20260812T005010Z.json](${PORTAL_DATA_ROOT}/tests/benchmarks/results/reasoning_probe_20260812T005010Z.json) | — |
+| `gemma4:e2b-it-qat-ctx8k` | No | K | [vision_probe_20260812T125539Z.json](${PORTAL_DATA_ROOT}/tests/benchmarks/results/vision_probe_20260812T125539Z.json) | — |
+| `gemma4:e2b-it-qat` | Yes | K | [vision_probe_20260812T125539Z.json](${PORTAL_DATA_ROOT}/tests/benchmarks/results/vision_probe_20260812T125539Z.json) | — |
+| `hf.co/Jackrong/DeepSeek-V4-Pro-Qwen3.5-4B-MTP-GGUF:Q4_K_M` | No | K | [mtp_probe_20260812T110332Z.json](${PORTAL_DATA_ROOT}/tests/benchmarks/results/mtp_probe_20260812T110332Z.json) | — |
+| `llama3.2:3b-instruct-q8_0-ctx8k` | No | K | [bench_tps_20260811T172511Z.json](${PORTAL_DATA_ROOT}/tests/benchmarks/results/bench_tps_20260811T172511Z.json) | — |
+| `hf.co/mitkox/FastContext-1.0-4B-SFT-Q4_K_M-GGUF:Q4_K_M` | No | K | [bench_tps_20260811T220820Z.json](${PORTAL_DATA_ROOT}/tests/benchmarks/results/bench_tps_20260811T220820Z.json) | — |
+| `cybersecqwen-4b-toolfix:latest` | No | I | [security_exec_probe_20260811T202002Z.json](${PORTAL_DATA_ROOT}/tests/benchmarks/results/security_exec_probe_20260811T202002Z.json) | — |
+| `llama3.2:3b` | No | K | [bench_tps_20260811T172511Z.json](${PORTAL_DATA_ROOT}/tests/benchmarks/results/bench_tps_20260811T172511Z.json) | — |
+| `hf.co/QuantFactory/Llama-3.2-3B-Instruct-abliterated-GGUF:latest` | Yes | K | [refusal_preservation_probe_20260811T200719Z.json](${PORTAL_DATA_ROOT}/tests/benchmarks/results/refusal_preservation_probe_20260811T200719Z.json) | — |
+| `hf.co/Nguuma/security-slm-unsloth-1.5b:latest` | Yes | IR | [reasoning_probe_20260812T114518Z.json](${PORTAL_DATA_ROOT}/tests/benchmarks/results/reasoning_probe_20260812T114518Z.json) | — |
+| `hf.co/LiquidAI/LFM2.5-1.2B-Instruct-GGUF:Q4_K_M` | No | I | [bench_tps_20260811T172511Z.json](${PORTAL_DATA_ROOT}/tests/benchmarks/results/bench_tps_20260811T172511Z.json) | — |
+| `hf.co/LiquidAI/LFM2.5-350M-GGUF:Q4_K_M` | No | I | [bench_tps_20260811T172511Z.json](${PORTAL_DATA_ROOT}/tests/benchmarks/results/bench_tps_20260811T172511Z.json) | — |
+| `hf.co/LiquidAI/LFM2.5-230M-GGUF:Q4_K_M` | No | I | [bench_tps_20260811T172511Z.json](${PORTAL_DATA_ROOT}/tests/benchmarks/results/bench_tps_20260811T172511Z.json) | — |
 
 ## Appendix B. September 6 rescored judgment results
 
@@ -208,34 +213,34 @@ These 41 exact names need inclusion in a refreshed inventory. “Outside the old
 
 | Tag | Logical GiB | Non-bench config reference | Latest dated exact-tag attempt located by bounded scan |
 |---|---:|---|---|
-| `baronllm:q6_k` | 6.143 | — | [bench_tps_20260621T030634Z.json](../tests/benchmarks/results/bench_tps_20260621T030634Z.json) |
+| `baronllm:q6_k` | 6.143 | — | [bench_tps_20260621T030634Z.json](${PORTAL_DATA_ROOT}/tests/benchmarks/results/bench_tps_20260621T030634Z.json) |
 | `bully-ae9fa52b558fbce0:latest` | 0.098 | — | Not established by this scan |
 | `bully-bcb0e4b867519350:latest` | 0.098 | — | Not established by this scan |
-| `command-r:35b-08-2024-q4_K_M` | 18.441 | — | [judgment_probe_v6_rescored_20260906T224306Z.json](../tests/benchmarks/results/judgment_probe_v6_rescored_20260906T224306Z.json) |
+| `command-r:35b-08-2024-q4_K_M` | 18.441 | — | [judgment_probe_v6_rescored_20260906T224306Z.json](${PORTAL_DATA_ROOT}/tests/benchmarks/results/judgment_probe_v6_rescored_20260906T224306Z.json) |
 | `deepseek-ocr:latest` | 6.228 | — | Not established by this scan |
 | `fredrezones55/Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive:Q4-ctx24k` | 20.552 | `auto-security.variants.pentest.model_hint` | Not established by this scan |
 | `gemma3:4b-it-q4_K_M` | 3.110 | — | Not established by this scan |
 | `glm-ocr:Q8_0` | 1.479 | — | Not established by this scan |
 | `granite3.2-vision:2b` | 2.270 | — | Not established by this scan |
-| `granite4.2:30b-q4_K_M` | 16.504 | — | [judgment_probe_v6_rescored_20260906T224306Z.json](../tests/benchmarks/results/judgment_probe_v6_rescored_20260906T224306Z.json) |
-| `granite4.2:30b-q8_0` | 28.975 | — | [judgment_probe_v6_20260906T210112Z.json](../tests/benchmarks/results/judgment_probe_v6_20260906T210112Z.json) |
-| `granite4.2:3b-q8_0` | 3.625 | — | [judgment_probe_v6_rescored_20260906T224306Z.json](../tests/benchmarks/results/judgment_probe_v6_rescored_20260906T224306Z.json) |
-| `granite4.2:8b-q8_0` | 8.704 | — | [judgment_probe_v6_rescored_20260906T224306Z.json](../tests/benchmarks/results/judgment_probe_v6_rescored_20260906T224306Z.json) |
-| `hf.co/HauhauCS/Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive:Q4_K_M` | 20.551 | — | [BENCH_REPAIR_CHECKPOINT_066355de23d5.json](../tests/benchmarks/results/BENCH_REPAIR_CHECKPOINT_066355de23d5.json) |
-| `hf.co/bartowski/NVIDIA-Nemotron-3.5-Lightning-30B-A3B-GGUF:q4_K_M-ctx8k` | 23.728 | `auto-nemotron.model_hint` | [judgment_probe_v6_rescored_20260906T224306Z.json](../tests/benchmarks/results/judgment_probe_v6_rescored_20260906T224306Z.json) |
+| `granite4.2:30b-q4_K_M` | 16.504 | — | [judgment_probe_v6_rescored_20260906T224306Z.json](${PORTAL_DATA_ROOT}/tests/benchmarks/results/judgment_probe_v6_rescored_20260906T224306Z.json) |
+| `granite4.2:30b-q8_0` | 28.975 | — | [judgment_probe_v6_20260906T210112Z.json](${PORTAL_DATA_ROOT}/tests/benchmarks/results/judgment_probe_v6_20260906T210112Z.json) |
+| `granite4.2:3b-q8_0` | 3.625 | — | [judgment_probe_v6_rescored_20260906T224306Z.json](${PORTAL_DATA_ROOT}/tests/benchmarks/results/judgment_probe_v6_rescored_20260906T224306Z.json) |
+| `granite4.2:8b-q8_0` | 8.704 | — | [judgment_probe_v6_rescored_20260906T224306Z.json](${PORTAL_DATA_ROOT}/tests/benchmarks/results/judgment_probe_v6_rescored_20260906T224306Z.json) |
+| `hf.co/HauhauCS/Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive:Q4_K_M` | 20.551 | — | [BENCH_REPAIR_CHECKPOINT_066355de23d5.json](${PORTAL_DATA_ROOT}/tests/benchmarks/results/BENCH_REPAIR_CHECKPOINT_066355de23d5.json) |
+| `hf.co/bartowski/NVIDIA-Nemotron-3.5-Lightning-30B-A3B-GGUF:q4_K_M-ctx8k` | 23.728 | `auto-nemotron.model_hint` | [judgment_probe_v6_rescored_20260906T224306Z.json](${PORTAL_DATA_ROOT}/tests/benchmarks/results/judgment_probe_v6_rescored_20260906T224306Z.json) |
 | `hf.co/ggml-org/dots.ocr-GGUF:Q8_0` | 3.016 | — | Not established by this scan |
 | `hf.co/mradermacher/Nanonets-OCR2-3B-GGUF:Q4_K_M` | 2.587 | — | Not established by this scan |
-| `hf.co/mradermacher/Ornith-1.5-35B-A3B-Uncensored-GGUF:Q4_K_M` | 20.794 | — | [BENCH_REPAIR_CHECKPOINT_066355de23d5.json](../tests/benchmarks/results/BENCH_REPAIR_CHECKPOINT_066355de23d5.json) |
-| `hf.co/mradermacher/gemma-4-26B-A4B-it-heretic-GGUF:Q4_K_M` | 15.643 | — | [BENCH_REPAIR_CHECKPOINT_066355de23d5.json](../tests/benchmarks/results/BENCH_REPAIR_CHECKPOINT_066355de23d5.json) |
+| `hf.co/mradermacher/Ornith-1.5-35B-A3B-Uncensored-GGUF:Q4_K_M` | 20.794 | — | [BENCH_REPAIR_CHECKPOINT_066355de23d5.json](${PORTAL_DATA_ROOT}/tests/benchmarks/results/BENCH_REPAIR_CHECKPOINT_066355de23d5.json) |
+| `hf.co/mradermacher/gemma-4-26B-A4B-it-heretic-GGUF:Q4_K_M` | 15.643 | — | [BENCH_REPAIR_CHECKPOINT_066355de23d5.json](${PORTAL_DATA_ROOT}/tests/benchmarks/results/BENCH_REPAIR_CHECKPOINT_066355de23d5.json) |
 | `hf.co/mradermacher/gemma-4-26B-A4B-it-heretic-GGUF:q4_k_m-ctx16k` | 15.643 | — | Not established by this scan |
-| `hf.co/unsloth/Qwen3.6-35B-A3B-GGUF:UD-Q4_K_XL-ctx32k` | 21.666 | `auto-data.model_hint` | [judgment_probe_v6_rescored_20260906T224306Z.json](../tests/benchmarks/results/judgment_probe_v6_rescored_20260906T224306Z.json) |
-| `hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M` | 16.796 | — | [bench_tps_20260814T152030Z.json](../tests/benchmarks/results/bench_tps_20260814T152030Z.json) |
-| `hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k` | 16.796 | `auto-reasoning.variants.deep.model_hint`; `auto-compliance.model_hint` | [judgment_probe_v6_rescored_20260906T224306Z.json](../tests/benchmarks/results/judgment_probe_v6_rescored_20260906T224306Z.json) |
+| `hf.co/unsloth/Qwen3.6-35B-A3B-GGUF:UD-Q4_K_XL-ctx32k` | 21.666 | `auto-data.model_hint` | [judgment_probe_v6_rescored_20260906T224306Z.json](${PORTAL_DATA_ROOT}/tests/benchmarks/results/judgment_probe_v6_rescored_20260906T224306Z.json) |
+| `hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M` | 16.796 | — | [bench_tps_20260814T152030Z.json](${PORTAL_DATA_ROOT}/tests/benchmarks/results/bench_tps_20260814T152030Z.json) |
+| `hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k` | 16.796 | `auto-reasoning.variants.deep.model_hint`; `auto-compliance.model_hint` | [judgment_probe_v6_rescored_20260906T224306Z.json](${PORTAL_DATA_ROOT}/tests/benchmarks/results/judgment_probe_v6_rescored_20260906T224306Z.json) |
 | `minicpm-v4.5:Q4_K_M` | 5.701 | — | Not established by this scan |
 | `minicpm-v:8b-2.6-q4_K_M` | 5.332 | — | Not established by this scan |
-| `mistral-small3.2:24b-instruct-2506-q4_K_M` | 14.135 | — | [judgment_probe_v6_rescored_20260906T224306Z.json](../tests/benchmarks/results/judgment_probe_v6_rescored_20260906T224306Z.json) |
+| `mistral-small3.2:24b-instruct-2506-q4_K_M` | 14.135 | — | [judgment_probe_v6_rescored_20260906T224306Z.json](${PORTAL_DATA_ROOT}/tests/benchmarks/results/judgment_probe_v6_rescored_20260906T224306Z.json) |
 | `orcarouter/Qwen3.8-27B-Uncensored:Q4_K_M` | 16.523 | — | Not established by this scan |
-| `phi4:14b-q4_K_M` | 8.431 | — | [judgment_probe_v6_rescored_20260906T224306Z.json](../tests/benchmarks/results/judgment_probe_v6_rescored_20260906T224306Z.json) |
+| `phi4:14b-q4_K_M` | 8.431 | — | [judgment_probe_v6_rescored_20260906T224306Z.json](${PORTAL_DATA_ROOT}/tests/benchmarks/results/judgment_probe_v6_rescored_20260906T224306Z.json) |
 | `portal5/agentworld-35b:ud-q4_K_XL-ctx256k` | 20.792 | `auto-coding.variants.lite.model_hint` | Not established by this scan |
 | `portal5/cadmium:Q4_K_M` | 1.797 | — | Not established by this scan |
 | `portal5/gemma4-26b-heretic:q4_K_M-ctx256k` | 15.643 | `auto-uncensored-throwaway.variants.gemma4-heretic.model_hint` | Not established by this scan |

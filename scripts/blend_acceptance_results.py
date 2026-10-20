@@ -187,7 +187,7 @@ def main():
 
     output = "\n".join(lines) + "\n"
 
-    out_path = "ACCEPTANCE_RESULTS.md"
+    out_path = "docs/ACCEPTANCE_RESULTS.md"
     with open(out_path, "w") as f:
         f.write(output)
 

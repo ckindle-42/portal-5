@@ -34,6 +34,7 @@ from pathlib import Path
 from typing import Any
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
+DATA_ROOT = Path(os.environ.get("PORTAL_DATA_ROOT", str(Path.home() / "AI_Output" / "portal-data")))
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 if str(REPO_ROOT / "scripts") not in sys.path:
@@ -1087,7 +1088,7 @@ def build_stages(  # noqa: C901, PLR0915
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--out-dir", default="docs")
+    parser.add_argument("--out-dir", default=str(DATA_ROOT / "docs"))
     parser.add_argument("--doc-stem", default="BULLY_FULL_ASSEMBLY_RUN_F4_V1")
     parser.add_argument("--max-records", type=int, default=None)
     parser.add_argument("--batch-size", type=int, default=10_000)

@@ -26,6 +26,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
+DATA_ROOT = Path(os.environ.get("PORTAL_DATA_ROOT", str(Path.home() / "AI_Output" / "portal-data")))
 sys.path.insert(0, str(REPO_ROOT))
 
 import httpx  # noqa: E402
@@ -35,7 +36,7 @@ from portal.modules.compliance.core.cip_register import Register  # noqa: E402
 from portal.modules.compliance.core.repository import Repository  # noqa: E402
 from scripts.prove_then_scale.p1_experiment import CASES, cited_sections  # noqa: E402
 
-ART_DIR = REPO_ROOT / "reports" / "compliance" / "prove_then_scale" / "b6"
+ART_DIR = DATA_ROOT / "reports" / "compliance" / "prove_then_scale" / "b6"
 
 SPLASH_MODELS = {
     "qwen38": "incoai/Qwen3.8-27B-Splash",

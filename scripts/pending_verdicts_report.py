@@ -19,6 +19,7 @@ import datetime as _dt
 import glob
 import hashlib
 import json
+import os
 import re
 import statistics
 import subprocess
@@ -28,9 +29,10 @@ from pathlib import Path
 import yaml
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
+DATA_ROOT = Path(os.environ.get("PORTAL_DATA_ROOT", str(Path.home() / "AI_Output" / "portal-data")))
 LEDGER_PATH = REPO_ROOT / "config" / "PENDING_MODEL_VERDICTS.md"
 PORTAL_PATH = REPO_ROOT / "config" / "portal.yaml"
-CARD_CACHE_DIR = REPO_ROOT / "reports" / "model_cards"
+CARD_CACHE_DIR = DATA_ROOT / "reports" / "model_cards"
 
 STALE_DAYS = 60
 # See pending_verdicts_evidence.py — evidence older than this is INVALID
@@ -2065,7 +2067,7 @@ def main(argv: list[str] | None = None) -> int:
     rows.sort(key=lambda r: -r["size_gb"])
     text = render_header(rows, boundary_days) + "\n".join(render_analysis_row(r) for r in rows)
     stamp = _dt.datetime.now(_dt.UTC).strftime("%Y%m%dT%H%M%SZ")
-    out_path = REPO_ROOT / "reports" / f"PENDING_VERDICTS_ANALYSIS_{stamp}.md"
+    out_path = DATA_ROOT / "reports" / f"PENDING_VERDICTS_ANALYSIS_{stamp}.md"
     out_path.parent.mkdir(parents=True, exist_ok=True)
     out_path.write_text(text)
     print(f"Wrote {out_path.relative_to(REPO_ROOT)} ({len(rows)} rows, {len(text)} bytes)")

@@ -30,7 +30,7 @@ correctness can be graded mechanically:
                         SIEM correlation rule do?). Graded: mentions the expected
                         concept — confirms general competence survived.
 
-Emits tests/benchmarks/results/security_exec_probe_<UTC>.json in the same JSON
+Emits ${PORTAL_DATA_ROOT}/tests/benchmarks/results/security_exec_probe_<UTC>.json in the same JSON
 shape bench_tps.py uses, so scripts/pending_verdicts_evidence.py picks it up
 automatically (harness prefix `security_exec_probe`).
 
@@ -45,6 +45,7 @@ import argparse
 import ast as _ast
 import datetime as _dt
 import json
+import os
 import re
 import time
 import urllib.request
@@ -52,7 +53,8 @@ from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 OLLAMA_URL = "http://localhost:11434"
-RESULTS_DIR = REPO_ROOT / "tests" / "benchmarks" / "results"
+DATA_ROOT = Path(os.environ.get("PORTAL_DATA_ROOT", str(Path.home() / "AI_Output" / "portal-data")))
+RESULTS_DIR = DATA_ROOT / "tests" / "benchmarks" / "results"
 TIMEOUT = 180
 
 # TASK_MODEL_BENCH_VALIDITY_V1 follow-up: the security-tooling category's own

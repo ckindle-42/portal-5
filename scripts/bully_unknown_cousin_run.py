@@ -22,11 +22,14 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import re
 import statistics
 from collections import Counter, defaultdict
 from pathlib import Path
 from typing import Any
+
+DATA_ROOT = Path(os.environ.get("PORTAL_DATA_ROOT", str(Path.home() / "AI_Output" / "portal-data")))
 
 from portal.modules.security.core.bully import anchors as anc
 from portal.modules.security.core.bully import artifact_graph as ag
@@ -291,7 +294,7 @@ def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--split-seed", type=int, default=0)
     parser.add_argument(
-        "--output", type=Path, default=Path("docs/BULLY_UNKNOWN_COUSIN_RUN_M3_V1.json")
+        "--output", type=Path, default=DATA_ROOT / "docs" / "BULLY_UNKNOWN_COUSIN_RUN_M3_V1.json"
     )
     args = parser.parse_args()
 

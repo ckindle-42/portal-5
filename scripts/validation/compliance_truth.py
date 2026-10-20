@@ -20,14 +20,16 @@ about what gets written from now on. Private receipts are audited when present
 from __future__ import annotations
 
 import json
+import os
 from datetime import datetime
 from pathlib import Path
 
 from scripts.validation.registry import register
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
+DATA_ROOT = Path(os.environ.get("PORTAL_DATA_ROOT", str(Path.home() / "AI_Output" / "portal-data")))
 ROOTS = (
-    REPO_ROOT / "reports" / "compliance",
+    DATA_ROOT / "reports" / "compliance",
     REPO_ROOT / "portal" / "modules" / "compliance" / "data" / "private",
 )
 SUITE_RECEIPTS = (

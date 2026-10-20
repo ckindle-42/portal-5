@@ -20,10 +20,12 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import sys
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
+DATA_ROOT = Path(os.environ.get("PORTAL_DATA_ROOT", str(Path.home() / "AI_Output" / "portal-data")))
 sys.path.insert(0, str(REPO_ROOT))
 
 from portal.modules.compliance.core import (  # noqa: E402
@@ -33,7 +35,7 @@ from portal.modules.compliance.core import (  # noqa: E402
 from portal.modules.compliance.core.repository import Repository  # noqa: E402
 from portal.modules.compliance.core.section_index import resolve_sections  # noqa: E402
 
-ART_DIR = REPO_ROOT / "reports" / "compliance" / "prove_then_scale"
+ART_DIR = DATA_ROOT / "reports" / "compliance" / "prove_then_scale"
 
 
 def main() -> int:

@@ -13,7 +13,7 @@ often keyed by workspace name, not model tag.
     python3 scripts/model_cleanup_audit.py
 
 Never calls `ollama rm`. Report-only; a human decides what to delete.
-Writes two files: reports/model_cleanup_audit.md (full categorization,
+Writes two files: ${PORTAL_DATA_ROOT}/reports/model_cleanup_audit.md (full categorization,
 gitignored, regenerated fresh each run) and config/PENDING_MODEL_VERDICTS.md
 (the EVALUATED_PENDING backlog — models genuinely benched but never given a
 promote/decline verdict; git-tracked, checklist-style, `- [x]` lines survive
@@ -24,6 +24,7 @@ from __future__ import annotations
 
 import glob
 import json
+import os
 import re
 import urllib.request
 from pathlib import Path
@@ -31,6 +32,7 @@ from pathlib import Path
 import yaml
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
+DATA_ROOT = Path(os.environ.get("PORTAL_DATA_ROOT", str(Path.home() / "AI_Output" / "portal-data")))
 OLLAMA_URL = "http://localhost:11434"
 
 CODE_SEARCH_GLOBS = ["config/*.yaml", "config/personas/*.yaml", "portal/**/*.py", "tests/**/*.py"]
@@ -105,11 +107,17 @@ def read_globs_indexed(patterns: list[str]) -> list[tuple[str, str, frozenset[st
     re-lowering per lookup is the difference between seconds and minutes."""
     out = []
     for pattern in patterns:
-        for path in glob.glob(str(REPO_ROOT / pattern), recursive=True):
+        base = Path(pattern) if os.path.isabs(pattern) else REPO_ROOT / pattern
+        for path in glob.glob(str(base), recursive=True):
             p = Path(path)
             if not p.is_file():
                 continue
-            relpath = str(p.relative_to(REPO_ROOT))
+            if p.is_relative_to(REPO_ROOT):
+                relpath = str(p.relative_to(REPO_ROOT))
+            elif p.is_relative_to(DATA_ROOT):
+                relpath = str(p.relative_to(DATA_ROOT))
+            else:
+                relpath = str(p)
             if relpath in SELF_OUTPUT_RELPATHS:
                 continue
             # Part B2's model-card fetch cache mentions every pending tag by
@@ -521,7 +529,7 @@ def main() -> int:
     disp = _load_register()
     if disp is not None:
         report = render_disposition_report(disp, on_disk)
-        out_path = REPO_ROOT / "reports" / "model_cleanup_audit.md"
+        out_path = DATA_ROOT / "reports" / "model_cleanup_audit.md"
         out_path.parent.mkdir(parents=True, exist_ok=True)
         out_path.write_text(report)
         print(report)
@@ -535,7 +543,14 @@ def main() -> int:
     prod_bases = production_bases()
     bench_by_base = bench_workspaces_by_base()
     code_corpus = read_globs(CODE_SEARCH_GLOBS)
-    result_files = read_globs_indexed(RESULT_SEARCH_GLOBS)
+    result_files = read_globs_indexed(
+        RESULT_SEARCH_GLOBS
+        + [
+            str(DATA_ROOT / "tests/benchmarks/results/**/*"),
+            str(DATA_ROOT / "reports/**/*"),
+            str(DATA_ROOT / "docs/*RUN*.json"),
+        ]
+    )
     prior_docs = documented_keep_tags()
 
     categorized: dict[str, list[dict]] = {}
@@ -556,7 +571,7 @@ def main() -> int:
     for cat, items in categorized.items():
         print(f"  {cat}: {len(items)} models, {sum(gb(m['size']) for m in items):.1f} GB")
 
-    out_path = REPO_ROOT / "reports" / "model_cleanup_audit.md"
+    out_path = DATA_ROOT / "reports" / "model_cleanup_audit.md"
     out_path.parent.mkdir(parents=True, exist_ok=True)
     out_path.write_text(render_report(categorized))
     print(f"\nWrote {out_path}")

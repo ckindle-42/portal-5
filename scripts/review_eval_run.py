@@ -10,6 +10,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import os
 import urllib.request
 from pathlib import Path
 from typing import Any
@@ -18,7 +19,8 @@ import portal.modules.security.core.review.embedding as embedding
 import portal.modules.security.core.review.service as service
 from portal.modules.security.core.review_eval import arms, report, selftest, stamp
 
-DEFAULT_TRUTH = Path("reports/review_eval/bots_truth_manifest.json")
+DATA_ROOT = Path(os.environ.get("PORTAL_DATA_ROOT", str(Path.home() / "AI_Output" / "portal-data")))
+DEFAULT_TRUTH = DATA_ROOT / "reports" / "review_eval" / "bots_truth_manifest.json"
 DEFAULT_EMBEDDER_URL = "http://127.0.0.1:8946"
 DEFAULT_MODEL_URL = "http://127.0.0.1:11434"
 EMBEDDING_DIM = 768

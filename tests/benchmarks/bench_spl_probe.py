@@ -23,7 +23,7 @@ discriminator_tokens are used, so every case has a gradeable ground truth):
 A case passes if it names the index AND covers >=50% of discriminators. This
 measures detection *validity against known-good reference logic*, not prose.
 
-Emits tests/benchmarks/results/spl_probe_<UTC>.json (harness prefix `spl_probe`).
+Emits ${PORTAL_DATA_ROOT}/tests/benchmarks/results/spl_probe_<UTC>.json (harness prefix `spl_probe`).
 quality_score = fraction of cases passed.
 """
 
@@ -32,6 +32,7 @@ from __future__ import annotations
 import argparse
 import datetime as _dt
 import json
+import os
 import re
 import time
 import urllib.request
@@ -39,7 +40,8 @@ from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 OLLAMA_URL = "http://localhost:11434"
-RESULTS_DIR = REPO_ROOT / "tests" / "benchmarks" / "results"
+DATA_ROOT = Path(os.environ.get("PORTAL_DATA_ROOT", str(Path.home() / "AI_Output" / "portal-data")))
+RESULTS_DIR = DATA_ROOT / "tests" / "benchmarks" / "results"
 SPL_CORPUS = REPO_ROOT / "portal" / "modules" / "security" / "core" / "siem" / "spl_detections.yaml"
 TIMEOUT = 300
 MAX_CASES = 8  # cap the sweep length; deterministic selection below

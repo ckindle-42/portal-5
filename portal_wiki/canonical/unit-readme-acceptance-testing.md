@@ -26,7 +26,7 @@ one file under `tests/acceptance/` — for example `s02_services.py`, `s03_routi
 `s10_personas_ollama.py`, `s16_security_mcp.py`, `s60_tool_calling.py` and
 `s70_information_access.py`. Each section records named checks via `record(...)`,
 and `cli.py` tallies PASS/FAIL/BLOCKED/WARN counts and writes the summary to
-`ACCEPTANCE_RESULTS.md`.
+`docs/ACCEPTANCE_RESULTS.md`.
 
 Run the whole suite, or a single section:
 

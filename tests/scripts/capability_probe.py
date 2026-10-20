@@ -14,7 +14,7 @@ Usage:
   python3 tests/scripts/capability_probe.py \
       [--scenarios tests/fixtures/capability_scenarios.yaml] \
       [--models <comma-list of bench slugs>] \
-      [--output tests/benchmarks/results/CAPABILITY_PROBE_<UTC>.md] \
+      [--output ${PORTAL_DATA_ROOT}/tests/benchmarks/results/CAPABILITY_PROBE_<UTC>.md] \
       [--dry-run]
 """
 
@@ -32,6 +32,7 @@ import httpx
 import yaml
 
 ROOT = Path(__file__).resolve().parent.parent.parent
+DATA_ROOT = Path(os.environ.get("PORTAL_DATA_ROOT", str(Path.home() / "AI_Output" / "portal-data")))
 PIPELINE_URL = "http://localhost:9099"
 SANDBOX_URL = "http://localhost:8914"
 
@@ -363,7 +364,7 @@ async def main_async(args) -> int:
             )
 
     out_path = args.output or str(
-        ROOT
+        DATA_ROOT
         / "tests"
         / "benchmarks"
         / "results"

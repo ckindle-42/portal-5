@@ -12,12 +12,14 @@ from __future__ import annotations
 
 import datetime as _dt
 import glob
+import os
 import re
 from collections import defaultdict
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
-REPORTS = REPO_ROOT / "reports"
+DATA_ROOT = Path(os.environ.get("PORTAL_DATA_ROOT", str(Path.home() / "AI_Output" / "portal-data")))
+REPORTS = DATA_ROOT / "reports"
 
 # category -> the command that benches it correctly (None = harness not built)
 CATEGORY_HARNESS_CMD: dict[str, str | None] = {

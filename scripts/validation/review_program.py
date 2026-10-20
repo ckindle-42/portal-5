@@ -2,10 +2,14 @@
 
 from __future__ import annotations
 
+import os
 import subprocess
+from pathlib import Path
 
 from ._shared import REPO_ROOT
 from .registry import register
+
+DATA_ROOT = Path(os.environ.get("PORTAL_DATA_ROOT", str(Path.home() / "AI_Output" / "portal-data")))
 
 
 @register(
@@ -24,7 +28,7 @@ def check_review_program() -> tuple[str, str, list[dict[str, str]]]:
         "-q",
     ]
     command = ["uv", "run", "python", "scripts/bully_review_state.py", "--check"]
-    census_dir = REPO_ROOT / "reports" / "bully_review"
+    census_dir = DATA_ROOT / "reports" / "bully_review"
     has_census = any(census_dir.glob("census_*.json"))
 
     try:
@@ -88,7 +92,7 @@ def check_review_program() -> tuple[str, str, list[dict[str, str]]]:
         )
 
     if not has_census:
-        guidance = "no census exists; run `uv run python scripts/bully_review_defect_census.py --out reports/bully_review`"
+        guidance = "no census exists; run `uv run python scripts/bully_review_defect_census.py --out ${PORTAL_DATA_ROOT}/reports/bully_review`"
     else:
         guidance = "state is absent or stale; run `uv run python scripts/bully_review_state.py --write` after the census"
     detail = f"`{' '.join(command)}` exited {result.returncode}; {guidance}"

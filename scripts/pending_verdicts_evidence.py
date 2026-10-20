@@ -36,6 +36,7 @@ from __future__ import annotations
 import datetime as _dt
 import glob
 import json
+import os
 import re
 import statistics
 from pathlib import Path
@@ -43,6 +44,7 @@ from pathlib import Path
 import yaml
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
+DATA_ROOT = Path(os.environ.get("PORTAL_DATA_ROOT", str(Path.home() / "AI_Output" / "portal-data")))
 LEDGER_PATH = REPO_ROOT / "config" / "PENDING_MODEL_VERDICTS.md"
 PORTAL_PATH = REPO_ROOT / "config" / "portal.yaml"
 
@@ -417,7 +419,7 @@ def suggest_verdict(tag: str, ev: dict, incumbent_tps: dict | None) -> tuple[str
 
 def latest_tps_for_tag(tag: str, needles: set[str]) -> dict | None:
     files = sorted(
-        glob.glob(str(REPO_ROOT / "tests/benchmarks/results/bench_tps_*.json")),
+        glob.glob(str(DATA_ROOT / "tests/benchmarks/results/bench_tps_*.json")),
         reverse=True,
     )
     for f in files[:30]:
@@ -615,7 +617,7 @@ def main(argv: list[str] | None = None) -> int:
 
     rows.sort(key=lambda r: -r["size_gb"])
     out_path = (
-        REPO_ROOT
+        DATA_ROOT
         / "reports"
         / f"PENDING_VERDICTS_EVIDENCE_{_dt.datetime.now(_dt.UTC).strftime('%Y%m%dT%H%M%SZ')}.md"
     )

@@ -6,9 +6,20 @@ instead of in task prose."""
 
 from __future__ import annotations
 
+import os
+from pathlib import Path
 from types import SimpleNamespace
 
 from .registry import register
+
+_DATA_ROOT = Path(
+    os.environ.get("PORTAL_DATA_ROOT", str(Path.home() / "AI_Output" / "portal-data"))
+)
+
+
+def _run_evidence(name: str) -> Path | None:
+    path = _DATA_ROOT / "docs" / name
+    return path if path.is_file() else None
 
 
 @register("bully_capability_denial", "BY. capability status never denies a read", order=74)
@@ -1282,11 +1293,10 @@ def check_confirmed_cousin_reaches_handoff() -> tuple[str, str, list[dict]]:
 )
 def check_milestone_run_plane_live_or_blocked() -> tuple[str, str, list[dict]]:
     import json
-    from pathlib import Path
 
-    path = Path(__file__).resolve().parents[2] / "docs" / "BULLY_LOOP_MILESTONE_RUN_R6_V1.json"
-    if not path.is_file():
-        return "FAIL", "BULLY_LOOP_MILESTONE_RUN_R6_V1.json does not exist", []
+    path = _run_evidence("BULLY_LOOP_MILESTONE_RUN_R6_V1.json")
+    if path is None:
+        return "SKIP", "milestone run evidence is under PORTAL_DATA_ROOT (not present)", []
     report = json.loads(path.read_text())
     plane = report.get("plane")
     if plane not in ("live", "BLOCKED"):
@@ -1332,9 +1342,8 @@ _SCOREBOARD_CONFORMANCE_HISTORICAL_RUN_DOCS = (
 
 
 def _scoreboard_conformance_docs_dir():
-    from pathlib import Path
 
-    return Path(__file__).resolve().parents[2] / "docs"
+    return _DATA_ROOT / "docs"
 
 
 def _scoreboard_conformance_new_run_docs():
@@ -1708,11 +1717,13 @@ def check_analyst_loop_payload_carries_concern_class() -> tuple[str, str, list[d
 )
 def check_analyst_loop_run_publishes_maturation_report() -> tuple[str, str, list[dict]]:
     import json
+    import os
     from pathlib import Path
 
-    path = Path(__file__).resolve().parents[2] / "docs" / "BULLY_ANALYST_LOOP_RUN_X6_V1.json"
+    root = Path(os.environ.get("PORTAL_DATA_ROOT", str(Path.home() / "AI_Output" / "portal-data")))
+    path = root / "docs" / "BULLY_ANALYST_LOOP_RUN_X6_V1.json"
     if not path.is_file():
-        return "FAIL", "BULLY_ANALYST_LOOP_RUN_X6_V1.json does not exist", []
+        return "SKIP", "X6 run evidence is under PORTAL_DATA_ROOT (not present on this host)", []
     report = json.loads(path.read_text())
     if report.get("plane") == "BLOCKED":
         if not report.get("reason"):
@@ -1778,13 +1789,15 @@ def check_analyst_loop_handoff_bin_off_path() -> tuple[str, str, list[dict]]:
 )
 def check_truth_x6_per_row_yields_invalid() -> tuple[str, str, list[dict]]:
     import json
+    import os
     from pathlib import Path
 
     from portal.modules.security.core.bully import truth_acceptance as ta
 
-    path = Path(__file__).resolve().parents[2] / "docs" / "BULLY_ANALYST_LOOP_RUN_X6_V1.json"
+    root = Path(os.environ.get("PORTAL_DATA_ROOT", str(Path.home() / "AI_Output" / "portal-data")))
+    path = root / "docs" / "BULLY_ANALYST_LOOP_RUN_X6_V1.json"
     if not path.is_file():
-        return "FAIL", "BULLY_ANALYST_LOOP_RUN_X6_V1.json does not exist", []
+        return "SKIP", "X6 run evidence is under PORTAL_DATA_ROOT (not present on this host)", []
     report = json.loads(path.read_text())
     rows = [r for r in report["per_row"] if r["cycle"] == 1]
     det = ta.detection_report(rows)
@@ -1852,11 +1865,10 @@ def check_truth_background_only_population_invalid() -> tuple[str, str, list[dic
 )
 def check_truth_selection_report_published_when_implants_shipped() -> tuple[str, str, list[dict]]:
     import json
-    from pathlib import Path
 
-    path = Path(__file__).resolve().parents[2] / "docs" / "BULLY_TRUTH_ACCEPTANCE_RUN_Y6_V1.json"
-    if not path.is_file():
-        return "FAIL", "BULLY_TRUTH_ACCEPTANCE_RUN_Y6_V1.json does not exist", []
+    path = _run_evidence("BULLY_TRUTH_ACCEPTANCE_RUN_Y6_V1.json")
+    if path is None:
+        return "SKIP", "Y6 run evidence is under PORTAL_DATA_ROOT (not present)", []
     report = json.loads(path.read_text())
     if report.get("plane") == "BLOCKED":
         if not report.get("reason"):
@@ -1991,11 +2003,10 @@ def check_truth_alignment_below_coverage_never_grades_exact_or_cousin() -> tuple
 )
 def check_truth_classifier_distribution_and_entropy_published() -> tuple[str, str, list[dict]]:
     import json
-    from pathlib import Path
 
-    path = Path(__file__).resolve().parents[2] / "docs" / "BULLY_TRUTH_ACCEPTANCE_RUN_Y6_V1.json"
-    if not path.is_file():
-        return "FAIL", "BULLY_TRUTH_ACCEPTANCE_RUN_Y6_V1.json does not exist", []
+    path = _run_evidence("BULLY_TRUTH_ACCEPTANCE_RUN_Y6_V1.json")
+    if path is None:
+        return "SKIP", "Y6 run evidence is under PORTAL_DATA_ROOT (not present)", []
     report = json.loads(path.read_text())
     if report.get("plane") == "BLOCKED":
         if not report.get("reason"):
@@ -3018,11 +3029,10 @@ def check_investigation_inference_no_curated_input() -> tuple[str, str, list[dic
 )
 def check_investigation_run_publishes_inference_and_unmapped() -> tuple[str, str, list[dict]]:
     import json
-    from pathlib import Path
 
-    path = Path(__file__).resolve().parents[2] / "docs" / "BULLY_INVESTIGATION_RUN_I6_V1.json"
-    if not path.is_file():
-        return "FAIL", f"{path} does not exist", []
+    path = _run_evidence("BULLY_INVESTIGATION_RUN_I6_V1.json")
+    if path is None:
+        return "SKIP", "I6 run evidence is under PORTAL_DATA_ROOT (not present)", []
     doc = json.loads(path.read_text())
     if "inference_report" not in doc:
         return "FAIL", "run doc does not publish inference_report", []

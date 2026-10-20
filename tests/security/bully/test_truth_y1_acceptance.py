@@ -9,7 +9,7 @@ from pathlib import Path
 from portal.modules.security.core.bully import truth_acceptance as ta
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
-X6_JSON = REPO_ROOT / "docs" / "BULLY_ANALYST_LOOP_RUN_X6_V1.json"
+X6_JSON = REPO_ROOT / "tests" / "fixtures" / "bully_x6_cycle1.json"
 
 
 def test_x6_per_row_yields_invalid() -> None:

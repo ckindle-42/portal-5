@@ -31,7 +31,7 @@ Runs at each model's production budget + temperature (resolved from portal.yaml
 via bench.config.budget_for_model_tag — same fidelity fix the token-budget and
 temperature bugs established), so the trace is never truncated mid-thought.
 
-Emits tests/benchmarks/results/reasoning_probe_<UTC>.json in the same JSON shape
+Emits ${PORTAL_DATA_ROOT}/tests/benchmarks/results/reasoning_probe_<UTC>.json in the same JSON shape
 bench_tps.py uses, so scripts/pending_verdicts_evidence.py picks it up
 automatically (harness prefix `reasoning_probe`).
 
@@ -45,6 +45,7 @@ from __future__ import annotations
 import argparse
 import datetime as _dt
 import json
+import os
 import re
 import sys
 import time
@@ -53,7 +54,8 @@ from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 OLLAMA_URL = "http://localhost:11434"
-RESULTS_DIR = REPO_ROOT / "tests" / "benchmarks" / "results"
+DATA_ROOT = Path(os.environ.get("PORTAL_DATA_ROOT", str(Path.home() / "AI_Output" / "portal-data")))
+RESULTS_DIR = DATA_ROOT / "tests" / "benchmarks" / "results"
 TIMEOUT = 600  # reasoning traces are long; generous ceiling, idle-gap is the real backstop
 
 sys.path.insert(0, str(REPO_ROOT / "tests" / "benchmarks"))

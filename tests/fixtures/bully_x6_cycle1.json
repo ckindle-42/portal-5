@@ -1,0 +1,2116 @@
+{
+ "plane": "live",
+ "maturation_report": {
+  "concerns_before": 300,
+  "concerns_after": 284,
+  "suppressed_entities": [
+   "ent-1445864584",
+   "ent-2014711841",
+   "ent-4253194720",
+   "ent-4425365142",
+   "ent-4589078389",
+   "ent-4832656216",
+   "ent-4955568285",
+   "ent-4960084202",
+   "ent-6069774360",
+   "ent-6311506924",
+   "ent-6664400666",
+   "ent-7166357635",
+   "ent-7643150268",
+   "ent-8374223252",
+   "ent-8720739441",
+   "ent-9784737779"
+  ],
+  "n_suppressed": 16,
+  "still_raised": [
+   "ent-0052753196",
+   "ent-0061403232",
+   "ent-0077448444",
+   "ent-0144507440",
+   "ent-0147645350",
+   "ent-0208451812",
+   "ent-0213741847",
+   "ent-0223208289",
+   "ent-0228534198",
+   "ent-0229569426",
+   "ent-0233134076",
+   "ent-0235088213",
+   "ent-0272490237",
+   "ent-0299318624",
+   "ent-0299328894",
+   "ent-0327244133",
+   "ent-0331284353",
+   "ent-0347366389",
+   "ent-0354615674",
+   "ent-0381684011",
+   "ent-0437799624",
+   "ent-0439051554",
+   "ent-0445016437",
+   "ent-0447541005",
+   "ent-0503833987",
+   "ent-0557435224",
+   "ent-0587838232",
+   "ent-0713944719",
+   "ent-0726162543",
+   "ent-0727771260",
+   "ent-0756392206",
+   "ent-0759704775",
+   "ent-0780574305",
+   "ent-0816297248",
+   "ent-0816365408",
+   "ent-0846910393",
+   "ent-0889088967",
+   "ent-0973077826",
+   "ent-1111526724",
+   "ent-1113126409",
+   "ent-1123642667",
+   "ent-1163789147",
+   "ent-1177898722",
+   "ent-1201947246",
+   "ent-1208414458",
+   "ent-1243000148",
+   "ent-1277297969",
+   "ent-1290090870",
+   "ent-1290469639",
+   "ent-1320131593",
+   "ent-1329395910",
+   "ent-1344097744",
+   "ent-1419786819",
+   "ent-1425819324",
+   "ent-1429397694",
+   "ent-1457625333",
+   "ent-1485198573",
+   "ent-1597618251",
+   "ent-1665713017",
+   "ent-1730662771",
+   "ent-1736562643",
+   "ent-1747315277",
+   "ent-1821514645",
+   "ent-1835219353",
+   "ent-1900205961",
+   "ent-1901047450",
+   "ent-1910257438",
+   "ent-1911804077",
+   "ent-1916765279",
+   "ent-1977652420",
+   "ent-2001072650",
+   "ent-2019751879",
+   "ent-2090689729",
+   "ent-2165268342",
+   "ent-2263198952",
+   "ent-2265840516",
+   "ent-2291543286",
+   "ent-2317711355",
+   "ent-2362826037",
+   "ent-2382228999",
+   "ent-2395277714",
+   "ent-2416071656",
+   "ent-2431743778",
+   "ent-2450275043",
+   "ent-2482233970",
+   "ent-2496864173",
+   "ent-2547796152",
+   "ent-2564687568",
+   "ent-2635538517",
+   "ent-2657794238",
+   "ent-2692299917",
+   "ent-2722112271",
+   "ent-2773600740",
+   "ent-2774174697",
+   "ent-2800034120",
+   "ent-2966595528",
+   "ent-3024245060",
+   "ent-3094197183",
+   "ent-3202057683",
+   "ent-3300025729",
+   "ent-3318366774",
+   "ent-3321599049",
+   "ent-3328118712",
+   "ent-3366400196",
+   "ent-3373282394",
+   "ent-3404910823",
+   "ent-3411182164",
+   "ent-3491206694",
+   "ent-3591957592",
+   "ent-3648249228",
+   "ent-3732278606",
+   "ent-3832943301",
+   "ent-3843940695",
+   "ent-3901166792",
+   "ent-3910567105",
+   "ent-4023424458",
+   "ent-4025213515",
+   "ent-4081702634",
+   "ent-4229828819",
+   "ent-4300565479",
+   "ent-4314905158",
+   "ent-4325407943",
+   "ent-4417523518",
+   "ent-4450774515",
+   "ent-4470896531",
+   "ent-4483387725",
+   "ent-4516105856",
+   "ent-4522690458",
+   "ent-4530896354",
+   "ent-4552790375",
+   "ent-4611088452",
+   "ent-4642802022",
+   "ent-4743512961",
+   "ent-4751551746",
+   "ent-4770733248",
+   "ent-4829058962",
+   "ent-4858537784",
+   "ent-4864426109",
+   "ent-4886739809",
+   "ent-4968615004",
+   "ent-5040026514",
+   "ent-5063539397",
+   "ent-5077039073",
+   "ent-5137321461",
+   "ent-5242566904",
+   "ent-5256908369",
+   "ent-5323269821",
+   "ent-5353551921",
+   "ent-5358152415",
+   "ent-5414121500",
+   "ent-5426050257",
+   "ent-5510991338",
+   "ent-5552760746",
+   "ent-5570847359",
+   "ent-5572953683",
+   "ent-5580316832",
+   "ent-5638213295",
+   "ent-5750993264",
+   "ent-5808338032",
+   "ent-5835222423",
+   "ent-5841292340",
+   "ent-5864715699",
+   "ent-5991644995",
+   "ent-6012295549",
+   "ent-6024052301",
+   "ent-6049781942",
+   "ent-6053734655",
+   "ent-6055821077",
+   "ent-6074312355",
+   "ent-6081423281",
+   "ent-6150840821",
+   "ent-6264409523",
+   "ent-6275758289",
+   "ent-6295770658",
+   "ent-6417945049",
+   "ent-6418858579",
+   "ent-6481305795",
+   "ent-6494271221",
+   "ent-6543472197",
+   "ent-6551273770",
+   "ent-6559085081",
+   "ent-6615595428",
+   "ent-6664880704",
+   "ent-6812508045",
+   "ent-6833454116",
+   "ent-6894040790",
+   "ent-6897581765",
+   "ent-6932603299",
+   "ent-6937547520",
+   "ent-6982676176",
+   "ent-7032461104",
+   "ent-7084803148",
+   "ent-7202064380",
+   "ent-7203572908",
+   "ent-7264673272",
+   "ent-7278662071",
+   "ent-7308756282",
+   "ent-7321341588",
+   "ent-7358425150",
+   "ent-7362733544",
+   "ent-7375806822",
+   "ent-7379972835",
+   "ent-7399314120",
+   "ent-7431379228",
+   "ent-7431738844",
+   "ent-7481010949",
+   "ent-7516506501",
+   "ent-7573505130",
+   "ent-7579350695",
+   "ent-7584018621",
+   "ent-7622050091",
+   "ent-7646039327",
+   "ent-7674599214",
+   "ent-7724318391",
+   "ent-7792204275",
+   "ent-7810426712",
+   "ent-7824574506",
+   "ent-7825931270",
+   "ent-7828993509",
+   "ent-7830523327",
+   "ent-7851010134",
+   "ent-7853409623",
+   "ent-7882750375",
+   "ent-7963708672",
+   "ent-7987777247",
+   "ent-8000344312",
+   "ent-8009384684",
+   "ent-8035339094",
+   "ent-8050794851",
+   "ent-8056089218",
+   "ent-8159214414",
+   "ent-8165095738",
+   "ent-8171580558",
+   "ent-8332121646",
+   "ent-8337556107",
+   "ent-8342737263",
+   "ent-8391966092",
+   "ent-8432952352",
+   "ent-8434783538",
+   "ent-8448982004",
+   "ent-8472342801",
+   "ent-8561538102",
+   "ent-8566984288",
+   "ent-8607856271",
+   "ent-8703720212",
+   "ent-8718238734",
+   "ent-8839042867",
+   "ent-8840192901",
+   "ent-8867215184",
+   "ent-8953796897",
+   "ent-8959521778",
+   "ent-8966572739",
+   "ent-9001352357",
+   "ent-9002999875",
+   "ent-9016677883",
+   "ent-9017510488",
+   "ent-9060801043",
+   "ent-9157100206",
+   "ent-9172327024",
+   "ent-9174572484",
+   "ent-9231072962",
+   "ent-9251540397",
+   "ent-9324023677",
+   "ent-9365969020",
+   "ent-9478936287",
+   "ent-9493278539",
+   "ent-9500988826",
+   "ent-9558879949",
+   "ent-9586880624",
+   "ent-9588253444",
+   "ent-9620146871",
+   "ent-9636324017",
+   "ent-9658889757",
+   "ent-9758301496",
+   "ent-9763505934",
+   "ent-9775516527",
+   "ent-9782147656",
+   "ent-9817460397",
+   "ent-9830063003",
+   "ent-9832521333",
+   "ent-9845478426",
+   "ent-9986797050",
+   "ent-9990295796",
+   "ent-9997176761"
+  ],
+  "newly_raised": [],
+  "noise_reduction": 0.0533
+ },
+ "per_row": [
+  {
+   "cycle": 1,
+   "implant_class_ground_truth": "background",
+   "relationship": "SIMILAR",
+   "concern_raised": true
+  },
+  {
+   "cycle": 1,
+   "implant_class_ground_truth": "background",
+   "relationship": "SIMILAR",
+   "concern_raised": true
+  },
+  {
+   "cycle": 1,
+   "implant_class_ground_truth": "background",
+   "relationship": "SIMILAR",
+   "concern_raised": true
+  },
+  {
+   "cycle": 1,
+   "implant_class_ground_truth": "background",
+   "relationship": "SIMILAR",
+   "concern_raised": true
+  },
+  {
+   "cycle": 1,
+   "implant_class_ground_truth": "background",
+   "relationship": "SIMILAR",
+   "concern_raised": true
+  },
+  {
+   "cycle": 1,
+   "implant_class_ground_truth": "background",
+   "relationship": "SAME",
+   "concern_raised": true
+  },
+  {
+   "cycle": 1,
+   "implant_class_ground_truth": "background",
+   "relationship": "SAME",
+   "concern_raised": true
+  },
+  {
+   "cycle": 1,
+   "implant_class_ground_truth": "background",
+   "relationship": "SIMILAR",
+   "concern_raised": true
+  },
+  {
+   "cycle": 1,
+   "implant_class_ground_truth": "background",
+   "relationship": "SIMILAR",
+   "concern_raised": true
+  },
+  {
+   "cycle": 1,
+   "implant_class_ground_truth": "background",
+   "relationship": "SIMILAR",
+   "concern_raised": true
+  },
+  {
+   "cycle": 1,
+   "implant_class_ground_truth": "background",
+   "relationship": "SIMILAR",
+   "concern_raised": true
+  },
+  {
+   "cycle": 1,
+   "implant_class_ground_truth": "background",
+   "relationship": "SIMILAR",
+   "concern_raised": true
+  },
+  {
+   "cycle": 1,
+   "implant_class_ground_truth": "background",
+   "relationship": "SIMILAR",
+   "concern_raised": true
+  },
+  {
+   "cycle": 1,
+   "implant_class_ground_truth": "background",
+   "relationship": "SAME",
+   "concern_raised": true
+  },
+  {
+   "cycle": 1,
+   "implant_class_ground_truth": "background",
+   "relationship": "SAME",
+   "concern_raised": true
+  },
+  {
+   "cycle": 1,
+   "implant_class_ground_truth": "background",
+   "relationship": "SAME",
+   "concern_raised": true
+  },
+  {
+   "cycle": 1,
+   "implant_class_ground_truth": "background",
+   "relationship": "SAME",
+   "concern_raised": true
+  },
+  {
+   "cycle": 1,
+   "implant_class_ground_truth": "background",
+   "relationship": "SAME",
+   "concern_raised": true
+  },
+  {
+   "cycle": 1,
+   "implant_class_ground_truth": "background",
+   "relationship": "SAME",
+   "concern_raised": true
+  },
+  {
+   "cycle": 1,
+   "implant_class_ground_truth": "background",
+   "relationship": "SIMILAR",
+   "concern_raised": true
+  },
+  {
+   "cycle": 1,
+   "implant_class_ground_truth": "background",
+   "relationship": "SIMILAR",
+   "concern_raised": true
+  },
+  {
+   "cycle": 1,
+   "implant_class_ground_truth": "background",
+   "relationship": "SAME",
+   "concern_raised": true
+  },
+  {
+   "cycle": 1,
+   "implant_class_ground_truth": "background",
+   "relationship": "SIMILAR",
+   "concern_raised": true
+  },
+  {
+   "cycle": 1,
+   "implant_class_ground_truth": "background",
+   "relationship": "SIMILAR",
+   "concern_raised": true
+  },
+  {
+   "cycle": 1,
+   "implant_class_ground_truth": "background",
+   "relationship": "SIMILAR",
+   "concern_raised": true
+  },
+  {
+   "cycle": 1,
+   "implant_class_ground_truth": "background",
+   "relationship": "SAME",
+   "concern_raised": true
+  },
+  {
+   "cycle": 1,
+   "implant_class_ground_truth": "background",
+   "relationship": "SAME",
+   "concern_raised": true
+  },
+  {
+   "cycle": 1,
+   "implant_class_ground_truth": "background",
+   "relationship": "SIMILAR",
+   "concern_raised": true
+  },
+  {
+   "cycle": 1,
+   "implant_class_ground_truth": "background",
+   "relationship": "SIMILAR",
+   "concern_raised": true
+  },
+  {
+   "cycle": 1,
+   "implant_class_ground_truth": "background",
+   "relationship": "SIMILAR",
+   "concern_raised": true
+  },
+  {
+   "cycle": 1,
+   "implant_class_ground_truth": "background",
+   "relationship": "SIMILAR",
+   "concern_raised": true
+  },
+  {
+   "cycle": 1,
+   "implant_class_ground_truth": "background",
+   "relationship": "SIMILAR",
+   "concern_raised": true
+  },
+  {
+   "cycle": 1,
+   "implant_class_ground_truth": "background",
+   "relationship": "SIMILAR",
+   "concern_raised": true
+  },
+  {
+   "cycle": 1,
+   "implant_class_ground_truth": "background",
+   "relationship": "SIMILAR",
+   "concern_raised": true
+  },
+  {
+   "cycle": 1,
+   "implant_class_ground_truth": "background",
+   "relationship": "SIMILAR",
+   "concern_raised": true
+  },
+  {
+   "cycle": 1,
+   "implant_class_ground_truth": "background",
+   "relationship": "SIMILAR",
+   "concern_raised": true
+  },
+  {
+   "cycle": 1,
+   "implant_class_ground_truth": "background",
+   "relationship": "SAME",
+   "concern_raised": true
+  },
+  {
+   "cycle": 1,
+   "implant_class_ground_truth": "background",
+   "relationship": "SAME",
+   "concern_raised": true
+  },
+  {
+   "cycle": 1,
+   "implant_class_ground_truth": "background",
+   "relationship": "SIMILAR",
+   "concern_raised": true
+  },
+  {
+   "cycle": 1,
+   "implant_class_ground_truth": "background",
+   "relationship": "SIMILAR",
+   "concern_raised": true
+  },
+  {
+   "cycle": 1,
+   "implant_class_ground_truth": "background",
+   "relationship": "SIMILAR",
+   "concern_raised": true
+  },
+  {
+   "cycle": 1,
+   "implant_class_ground_truth": "background",
+   "relationship": "SAME",
+   "concern_raised": true
+  },
+  {
+   "cycle": 1,
+   "implant_class_ground_truth": "background",
+   "relationship": "SAME",
+   "concern_raised": true
+  },
+  {
+   "cycle": 1,
+   "implant_class_ground_truth": "background",
+   "relationship": "SAME",
+   "concern_raised": true
+  },
+  {
+   "cycle": 1,
+   "implant_class_ground_truth": "background",
+   "relationship": "SAME",
+   "concern_raised": true
+  },
+  {
+   "cycle": 1,
+   "implant_class_ground_truth": "background",
+   "relationship": "SAME",
+   "concern_raised": true
+  },
+  {
+   "cycle": 1,
+   "implant_class_ground_truth": "background",
+   "relationship": "SAME",
+   "concern_raised": true
+  },
+  {
+   "cycle": 1,
+   "implant_class_ground_truth": "background",
+   "relationship": "SAME",
+   "concern_raised": true
+  },
+  {
+   "cycle": 1,
+   "implant_class_ground_truth": "background",
+   "relationship": "SAME",
+   "concern_raised": true
+  },
+  {
+   "cycle": 1,
+   "implant_class_ground_truth": "background",
+   "relationship": "SAME",
+   "concern_raised": true
+  },
+  {
+   "cycle": 1,
+   "implant_class_ground_truth": "background",
+   "relationship": "SAME",
+   "concern_raised": true
+  },
+  {
+   "cycle": 1,
+   "implant_class_ground_truth": "background",
+   "relationship": "SIMILAR",
+   "concern_raised": true
+  },
+  {
+   "cycle": 1,
+   "implant_class_ground_truth": "background",
+   "relationship": "SAME",
+   "concern_raised": true
+  },
+  {
+   "cycle": 1,
+   "implant_class_ground_truth": "background",
+   "relationship": "SAME",
+   "concern_raised": true
+  },
+  {
+   "cycle": 1,
+   "implant_class_ground_truth": "background",
+   "relationship": "SIMILAR",
+   "concern_raised": true
+  },
+  {
+   "cycle": 1,
+   "implant_class_ground_truth": "background",
+   "relationship": "SIMILAR",
+   "concern_raised": true
+  },
+  {
+   "cycle": 1,
+   "implant_class_ground_truth": "background",
+   "relationship": "SIMILAR",
+   "concern_raised": true
+  },
+  {
+   "cycle": 1,
+   "implant_class_ground_truth": "background",
+   "relationship": "SIMILAR",
+   "concern_raised": true
+  },
+  {
+   "cycle": 1,
+   "implant_class_ground_truth": "background",
+   "relationship": "SIMILAR",
+   "concern_raised": true
+  },
+  {
+   "cycle": 1,
+   "implant_class_ground_truth": "background",
+   "relationship": "SIMILAR",
+   "concern_raised": true
+  },
+  {
+   "cycle": 1,
+   "implant_class_ground_truth": "background",
+   "relationship": "SAME",
+   "concern_raised": true
+  },
+  {
+   "cycle": 1,
+   "implant_class_ground_truth": "background",
+   "relationship": "SIMILAR",
+   "concern_raised": true
+  },
+  {
+   "cycle": 1,
+   "implant_class_ground_truth": "background",
+   "relationship": "SIMILAR",
+   "concern_raised": true
+  },
+  {
+   "cycle": 1,
+   "implant_class_ground_truth": "background",
+   "relationship": "SIMILAR",
+   "concern_raised": true
+  },
+  {
+   "cycle": 1,
+   "implant_class_ground_truth": "background",
+   "relationship": "SIMILAR",
+   "concern_raised": true
+  },
+  {
+   "cycle": 1,
+   "implant_class_ground_truth": "background",
+   "relationship": "SAME",
+   "concern_raised": true
+  },
+  {
+   "cycle": 1,
+   "implant_class_ground_truth": "background",
+   "relationship": "SIMILAR",
+   "concern_raised": true
+  },
+  {
+   "cycle": 1,
+   "implant_class_ground_truth": "background",
+   "relationship": "SIMILAR",
+   "concern_raised": true
+  },
+  {
+   "cycle": 1,
+   "implant_class_ground_truth": "background",
+   "relationship": "SAME",
+   "concern_raised": true
+  },
+  {
+   "cycle": 1,
+   "implant_class_ground_truth": "background",
+   "relationship": "SAME",
+   "concern_raised": true
+  },
+  {
+   "cycle": 1,
+   "implant_class_ground_truth": "background",
+   "relationship": "SAME",
+   "concern_raised": true
+  },
+  {
+   "cycle": 1,
+   "implant_class_ground_truth": "background",
+   "relationship": "SIMILAR",
+   "concern_raised": true
+  },
+  {
+   "cycle": 1,
+   "implant_class_ground_truth": "background",
+   "relationship": "SIMILAR",
+   "concern_raised": true
+  },
+  {
+   "cycle": 1,
+   "implant_class_ground_truth": "background",
+   "relationship": "SIMILAR",
+   "concern_raised": true
+  },
+  {
+   "cycle": 1,
+   "implant_class_ground_truth": "background",
+   "relationship": "SAME",
+   "concern_raised": true
+  },
+  {
+   "cycle": 1,
+   "implant_class_ground_truth": "background",
+   "relationship": "SAME",
+   "concern_raised": true
+  },
+  {
+   "cycle": 1,
+   "implant_class_ground_truth": "background",
+   "relationship": "SAME",
+   "concern_raised": true
+  },
+  {
+   "cycle": 1,
+   "implant_class_ground_truth": "background",
+   "relationship": "SAME",
+   "concern_raised": true
+  },
+  {
+   "cycle": 1,
+   "implant_class_ground_truth": "background",
+   "relationship": "SAME",
+   "concern_raised": true
+  },
+  {
+   "cycle": 1,
+   "implant_class_ground_truth": "background",
+   "relationship": "SAME",
+   "concern_raised": true
+  },
+  {
+   "cycle": 1,
+   "implant_class_ground_truth": "background",
+   "relationship": "SAME",
+   "concern_raised": true
+  },
+  {
+   "cycle": 1,
+   "implant_class_ground_truth": "background",
+   "relationship": "SAME",
+   "concern_raised": true
+  },
+  {
+   "cycle": 1,
+   "implant_class_ground_truth": "background",
+   "relationship": "SAME",
+   "concern_raised": true
+  },
+  {
+   "cycle": 1,
+   "implant_class_ground_truth": "background",
+   "relationship": "SAME",
+   "concern_raised": true
+  },
+  {
+   "cycle": 1,
+   "implant_class_ground_truth": "background",
+   "relationship": "SIMILAR",
+   "concern_raised": true
+  },
+  {
+   "cycle": 1,
+   "implant_class_ground_truth": "background",
+   "relationship": "SAME",
+   "concern_raised": true
+  },
+  {
+   "cycle": 1,
+   "implant_class_ground_truth": "background",
+   "relationship": "SAME",
+   "concern_raised": true
+  },
+  {
+   "cycle": 1,
+   "implant_class_ground_truth": "background",
+   "relationship": "SIMILAR",
+   "concern_raised": true
+  },
+  {
+   "cycle": 1,
+   "implant_class_ground_truth": "background",
+   "relationship": "SAME",
+   "concern_raised": true
+  },
+  {
+   "cycle": 1,
+   "implant_class_ground_truth": "background",
+   "relationship": "SAME",
+   "concern_raised": true
+  },
+  {
+   "cycle": 1,
+   "implant_class_ground_truth": "background",
+   "relationship": "SAME",
+   "concern_raised": true
+  },
+  {
+   "cycle": 1,
+   "implant_class_ground_truth": "background",
+   "relationship": "SAME",
+   "concern_raised": true
+  },
+  {
+   "cycle": 1,
+   "implant_class_ground_truth": "background",
+   "relationship": "SAME",
+   "concern_raised": true
+  },
+  {
+   "cycle": 1,
+   "implant_class_ground_truth": "background",
+   "relationship": "SAME",
+   "concern_raised": true
+  },
+  {
+   "cycle": 1,
+   "implant_class_ground_truth": "background",
+   "relationship": "SAME",
+   "concern_raised": true
+  },
+  {
+   "cycle": 1,
+   "implant_class_ground_truth": "background",
+   "relationship": "SAME",
+   "concern_raised": true
+  },
+  {
+   "cycle": 1,
+   "implant_class_ground_truth": "background",
+   "relationship": "SAME",
+   "concern_raised": true
+  },
+  {
+   "cycle": 1,
+   "implant_class_ground_truth": "background",
+   "relationship": "SAME",
+   "concern_raised": true
+  },
+  {
+   "cycle": 1,
+   "implant_class_ground_truth": "background",
+   "relationship": "SAME",
+   "concern_raised": true
+  },
+  {
+   "cycle": 1,
+   "implant_class_ground_truth": "background",
+   "relationship": "SIMILAR",
+   "concern_raised": true
+  },
+  {
+   "cycle": 1,
+   "implant_class_ground_truth": "background",
+   "relationship": "SAME",
+   "concern_raised": true
+  },
+  {
+   "cycle": 1,
+   "implant_class_ground_truth": "background",
+   "relationship": "SIMILAR",
+   "concern_raised": true
+  },
+  {
+   "cycle": 1,
+   "implant_class_ground_truth": "background",
+   "relationship": "SAME",
+   "concern_raised": true
+  },
+  {
+   "cycle": 1,
+   "implant_class_ground_truth": "background",
+   "relationship": "SIMILAR",
+   "concern_raised": true
+  },
+  {
+   "cycle": 1,
+   "implant_class_ground_truth": "background",
+   "relationship": "SAME",
+   "concern_raised": true
+  },
+  {
+   "cycle": 1,
+   "implant_class_ground_truth": "background",
+   "relationship": "SAME",
+   "concern_raised": true
+  },
+  {
+   "cycle": 1,
+   "implant_class_ground_truth": "background",
+   "relationship": "SIMILAR",
+   "concern_raised": true
+  },
+  {
+   "cycle": 1,
+   "implant_class_ground_truth": "background",
+   "relationship": "SAME",
+   "concern_raised": true
+  },
+  {
+   "cycle": 1,
+   "implant_class_ground_truth": "background",
+   "relationship": "SAME",
+   "concern_raised": true
+  },
+  {
+   "cycle": 1,
+   "implant_class_ground_truth": "background",
+   "relationship": "SAME",
+   "concern_raised": true
+  },
+  {
+   "cycle": 1,
+   "implant_class_ground_truth": "background",
+   "relationship": "SAME",
+   "concern_raised": true
+  },
+  {
+   "cycle": 1,
+   "implant_class_ground_truth": "background",
+   "relationship": "SIMILAR",
+   "concern_raised": true
+  },
+  {
+   "cycle": 1,
+   "implant_class_ground_truth": "background",
+   "relationship": "SIMILAR",
+   "concern_raised": true
+  },
+  {
+   "cycle": 1,
+   "implant_class_ground_truth": "background",
+   "relationship": "SIMILAR",
+   "concern_raised": true
+  },
+  {
+   "cycle": 1,
+   "implant_class_ground_truth": "background",
+   "relationship": "SAME",
+   "concern_raised": true
+  },
+  {
+   "cycle": 1,
+   "implant_class_ground_truth": "background",
+   "relationship": "SAME",
+   "concern_raised": true
+  },
+  {
+   "cycle": 1,
+   "implant_class_ground_truth": "background",
+   "relationship": "SIMILAR",
+   "concern_raised": true
+  },
+  {
+   "cycle": 1,
+   "implant_class_ground_truth": "background",
+   "relationship": "SAME",
+   "concern_raised": true
+  },
+  {
+   "cycle": 1,
+   "implant_class_ground_truth": "background",
+   "relationship": "SAME",
+   "concern_raised": true
+  },
+  {
+   "cycle": 1,
+   "implant_class_ground_truth": "background",
+   "relationship": "SAME",
+   "concern_raised": true
+  },
+  {
+   "cycle": 1,
+   "implant_class_ground_truth": "background",
+   "relationship": "SIMILAR",
+   "concern_raised": true
+  },
+  {
+   "cycle": 1,
+   "implant_class_ground_truth": "background",
+   "relationship": "SIMILAR",
+   "concern_raised": true
+  },
+  {
+   "cycle": 1,
+   "implant_class_ground_truth": "background",
+   "relationship": "SIMILAR",
+   "concern_raised": true
+  },
+  {
+   "cycle": 1,
+   "implant_class_ground_truth": "background",
+   "relationship": "SIMILAR",
+   "concern_raised": true
+  },
+  {
+   "cycle": 1,
+   "implant_class_ground_truth": "background",
+   "relationship": "SIMILAR",
+   "concern_raised": true
+  },
+  {
+   "cycle": 1,
+   "implant_class_ground_truth": "background",
+   "relationship": "SIMILAR",
+   "concern_raised": true
+  },
+  {
+   "cycle": 1,
+   "implant_class_ground_truth": "background",
+   "relationship": "SAME",
+   "concern_raised": true
+  },
+  {
+   "cycle": 1,
+   "implant_class_ground_truth": "background",
+   "relationship": "SAME",
+   "concern_raised": true
+  },
+  {
+   "cycle": 1,
+   "implant_class_ground_truth": "background",
+   "relationship": "SIMILAR",
+   "concern_raised": true
+  },
+  {
+   "cycle": 1,
+   "implant_class_ground_truth": "background",
+   "relationship": "SIMILAR",
+   "concern_raised": true
+  },
+  {
+   "cycle": 1,
+   "implant_class_ground_truth": "background",
+   "relationship": "SIMILAR",
+   "concern_raised": true
+  },
+  {
+   "cycle": 1,
+   "implant_class_ground_truth": "background",
+   "relationship": "SIMILAR",
+   "concern_raised": true
+  },
+  {
+   "cycle": 1,
+   "implant_class_ground_truth": "background",
+   "relationship": "SAME",
+   "concern_raised": true
+  },
+  {
+   "cycle": 1,
+   "implant_class_ground_truth": "background",
+   "relationship": "SAME",
+   "concern_raised": true
+  },
+  {
+   "cycle": 1,
+   "implant_class_ground_truth": "background",
+   "relationship": "SIMILAR",
+   "concern_raised": true
+  },
+  {
+   "cycle": 1,
+   "implant_class_ground_truth": "background",
+   "relationship": "SAME",
+   "concern_raised": true
+  },
+  {
+   "cycle": 1,
+   "implant_class_ground_truth": "background",
+   "relationship": "SIMILAR",
+   "concern_raised": true
+  },
+  {
+   "cycle": 1,
+   "implant_class_ground_truth": "background",
+   "relationship": "SIMILAR",
+   "concern_raised": true
+  },
+  {
+   "cycle": 1,
+   "implant_class_ground_truth": "background",
+   "relationship": "SAME",
+   "concern_raised": true
+  },
+  {
+   "cycle": 1,
+   "implant_class_ground_truth": "background",
+   "relationship": "SIMILAR",
+   "concern_raised": true
+  },
+  {
+   "cycle": 1,
+   "implant_class_ground_truth": "background",
+   "relationship": "SAME",
+   "concern_raised": true
+  },
+  {
+   "cycle": 1,
+   "implant_class_ground_truth": "background",
+   "relationship": "SIMILAR",
+   "concern_raised": true
+  },
+  {
+   "cycle": 1,
+   "implant_class_ground_truth": "background",
+   "relationship": "SIMILAR",
+   "concern_raised": true
+  },
+  {
+   "cycle": 1,
+   "implant_class_ground_truth": "background",
+   "relationship": "SIMILAR",
+   "concern_raised": true
+  },
+  {
+   "cycle": 1,
+   "implant_class_ground_truth": "background",
+   "relationship": "SAME",
+   "concern_raised": true
+  },
+  {
+   "cycle": 1,
+   "implant_class_ground_truth": "background",
+   "relationship": "SAME",
+   "concern_raised": true
+  },
+  {
+   "cycle": 1,
+   "implant_class_ground_truth": "background",
+   "relationship": "SIMILAR",
+   "concern_raised": true
+  },
+  {
+   "cycle": 1,
+   "implant_class_ground_truth": "background",
+   "relationship": "SIMILAR",
+   "concern_raised": true
+  },
+  {
+   "cycle": 1,
+   "implant_class_ground_truth": "background",
+   "relationship": "SAME",
+   "concern_raised": true
+  },
+  {
+   "cycle": 1,
+   "implant_class_ground_truth": "background",
+   "relationship": "SIMILAR",
+   "concern_raised": true
+  },
+  {
+   "cycle": 1,
+   "implant_class_ground_truth": "background",
+   "relationship": "SIMILAR",
+   "concern_raised": true
+  },
+  {
+   "cycle": 1,
+   "implant_class_ground_truth": "background",
+   "relationship": "SAME",
+   "concern_raised": true
+  },
+  {
+   "cycle": 1,
+   "implant_class_ground_truth": "background",
+   "relationship": "SIMILAR",
+   "concern_raised": true
+  },
+  {
+   "cycle": 1,
+   "implant_class_ground_truth": "background",
+   "relationship": "SAME",
+   "concern_raised": true
+  },
+  {
+   "cycle": 1,
+   "implant_class_ground_truth": "background",
+   "relationship": "SAME",
+   "concern_raised": true
+  },
+  {
+   "cycle": 1,
+   "implant_class_ground_truth": "background",
+   "relationship": "SAME",
+   "concern_raised": true
+  },
+  {
+   "cycle": 1,
+   "implant_class_ground_truth": "background",
+   "relationship": "SAME",
+   "concern_raised": true
+  },
+  {
+   "cycle": 1,
+   "implant_class_ground_truth": "background",
+   "relationship": "SIMILAR",
+   "concern_raised": true
+  },
+  {
+   "cycle": 1,
+   "implant_class_ground_truth": "background",
+   "relationship": "SAME",
+   "concern_raised": true
+  },
+  {
+   "cycle": 1,
+   "implant_class_ground_truth": "background",
+   "relationship": "SAME",
+   "concern_raised": true
+  },
+  {
+   "cycle": 1,
+   "implant_class_ground_truth": "background",
+   "relationship": "SAME",
+   "concern_raised": true
+  },
+  {
+   "cycle": 1,
+   "implant_class_ground_truth": "background",
+   "relationship": "SAME",
+   "concern_raised": true
+  },
+  {
+   "cycle": 1,
+   "implant_class_ground_truth": "background",
+   "relationship": "SAME",
+   "concern_raised": true
+  },
+  {
+   "cycle": 1,
+   "implant_class_ground_truth": "background",
+   "relationship": "SAME",
+   "concern_raised": true
+  },
+  {
+   "cycle": 1,
+   "implant_class_ground_truth": "background",
+   "relationship": "SIMILAR",
+   "concern_raised": true
+  },
+  {
+   "cycle": 1,
+   "implant_class_ground_truth": "background",
+   "relationship": "SIMILAR",
+   "concern_raised": true
+  },
+  {
+   "cycle": 1,
+   "implant_class_ground_truth": "background",
+   "relationship": "SIMILAR",
+   "concern_raised": true
+  },
+  {
+   "cycle": 1,
+   "implant_class_ground_truth": "background",
+   "relationship": "SAME",
+   "concern_raised": true
+  },
+  {
+   "cycle": 1,
+   "implant_class_ground_truth": "background",
+   "relationship": "SAME",
+   "concern_raised": true
+  },
+  {
+   "cycle": 1,
+   "implant_class_ground_truth": "background",
+   "relationship": "SIMILAR",
+   "concern_raised": true
+  },
+  {
+   "cycle": 1,
+   "implant_class_ground_truth": "background",
+   "relationship": "SIMILAR",
+   "concern_raised": true
+  },
+  {
+   "cycle": 1,
+   "implant_class_ground_truth": "background",
+   "relationship": "SAME",
+   "concern_raised": true
+  },
+  {
+   "cycle": 1,
+   "implant_class_ground_truth": "background",
+   "relationship": "SAME",
+   "concern_raised": true
+  },
+  {
+   "cycle": 1,
+   "implant_class_ground_truth": "background",
+   "relationship": "SIMILAR",
+   "concern_raised": true
+  },
+  {
+   "cycle": 1,
+   "implant_class_ground_truth": "background",
+   "relationship": "SAME",
+   "concern_raised": true
+  },
+  {
+   "cycle": 1,
+   "implant_class_ground_truth": "background",
+   "relationship": "SAME",
+   "concern_raised": true
+  },
+  {
+   "cycle": 1,
+   "implant_class_ground_truth": "background",
+   "relationship": "SAME",
+   "concern_raised": true
+  },
+  {
+   "cycle": 1,
+   "implant_class_ground_truth": "background",
+   "relationship": "SAME",
+   "concern_raised": true
+  },
+  {
+   "cycle": 1,
+   "implant_class_ground_truth": "background",
+   "relationship": "SAME",
+   "concern_raised": true
+  },
+  {
+   "cycle": 1,
+   "implant_class_ground_truth": "background",
+   "relationship": "SAME",
+   "concern_raised": true
+  },
+  {
+   "cycle": 1,
+   "implant_class_ground_truth": "background",
+   "relationship": "SAME",
+   "concern_raised": true
+  },
+  {
+   "cycle": 1,
+   "implant_class_ground_truth": "background",
+   "relationship": "SIMILAR",
+   "concern_raised": true
+  },
+  {
+   "cycle": 1,
+   "implant_class_ground_truth": "background",
+   "relationship": "SAME",
+   "concern_raised": true
+  },
+  {
+   "cycle": 1,
+   "implant_class_ground_truth": "background",
+   "relationship": "SIMILAR",
+   "concern_raised": true
+  },
+  {
+   "cycle": 1,
+   "implant_class_ground_truth": "background",
+   "relationship": "SAME",
+   "concern_raised": true
+  },
+  {
+   "cycle": 1,
+   "implant_class_ground_truth": "background",
+   "relationship": "SAME",
+   "concern_raised": true
+  },
+  {
+   "cycle": 1,
+   "implant_class_ground_truth": "background",
+   "relationship": "SIMILAR",
+   "concern_raised": true
+  },
+  {
+   "cycle": 1,
+   "implant_class_ground_truth": "background",
+   "relationship": "SAME",
+   "concern_raised": true
+  },
+  {
+   "cycle": 1,
+   "implant_class_ground_truth": "background",
+   "relationship": "SIMILAR",
+   "concern_raised": true
+  },
+  {
+   "cycle": 1,
+   "implant_class_ground_truth": "background",
+   "relationship": "SIMILAR",
+   "concern_raised": true
+  },
+  {
+   "cycle": 1,
+   "implant_class_ground_truth": "background",
+   "relationship": "SIMILAR",
+   "concern_raised": true
+  },
+  {
+   "cycle": 1,
+   "implant_class_ground_truth": "background",
+   "relationship": "SAME",
+   "concern_raised": true
+  },
+  {
+   "cycle": 1,
+   "implant_class_ground_truth": "background",
+   "relationship": "SAME",
+   "concern_raised": true
+  },
+  {
+   "cycle": 1,
+   "implant_class_ground_truth": "background",
+   "relationship": "SIMILAR",
+   "concern_raised": true
+  },
+  {
+   "cycle": 1,
+   "implant_class_ground_truth": "background",
+   "relationship": "SAME",
+   "concern_raised": true
+  },
+  {
+   "cycle": 1,
+   "implant_class_ground_truth": "background",
+   "relationship": "SAME",
+   "concern_raised": true
+  },
+  {
+   "cycle": 1,
+   "implant_class_ground_truth": "background",
+   "relationship": "SIMILAR",
+   "concern_raised": true
+  },
+  {
+   "cycle": 1,
+   "implant_class_ground_truth": "background",
+   "relationship": "SAME",
+   "concern_raised": true
+  },
+  {
+   "cycle": 1,
+   "implant_class_ground_truth": "background",
+   "relationship": "SAME",
+   "concern_raised": true
+  },
+  {
+   "cycle": 1,
+   "implant_class_ground_truth": "background",
+   "relationship": "SIMILAR",
+   "concern_raised": true
+  },
+  {
+   "cycle": 1,
+   "implant_class_ground_truth": "background",
+   "relationship": "SIMILAR",
+   "concern_raised": true
+  },
+  {
+   "cycle": 1,
+   "implant_class_ground_truth": "background",
+   "relationship": "SIMILAR",
+   "concern_raised": true
+  },
+  {
+   "cycle": 1,
+   "implant_class_ground_truth": "background",
+   "relationship": "SIMILAR",
+   "concern_raised": true
+  },
+  {
+   "cycle": 1,
+   "implant_class_ground_truth": "background",
+   "relationship": "SIMILAR",
+   "concern_raised": true
+  },
+  {
+   "cycle": 1,
+   "implant_class_ground_truth": "background",
+   "relationship": "SIMILAR",
+   "concern_raised": true
+  },
+  {
+   "cycle": 1,
+   "implant_class_ground_truth": "background",
+   "relationship": "SAME",
+   "concern_raised": true
+  },
+  {
+   "cycle": 1,
+   "implant_class_ground_truth": "background",
+   "relationship": "SAME",
+   "concern_raised": true
+  },
+  {
+   "cycle": 1,
+   "implant_class_ground_truth": "background",
+   "relationship": "SAME",
+   "concern_raised": true
+  },
+  {
+   "cycle": 1,
+   "implant_class_ground_truth": "background",
+   "relationship": "SIMILAR",
+   "concern_raised": true
+  },
+  {
+   "cycle": 1,
+   "implant_class_ground_truth": "background",
+   "relationship": "SIMILAR",
+   "concern_raised": true
+  },
+  {
+   "cycle": 1,
+   "implant_class_ground_truth": "background",
+   "relationship": "SIMILAR",
+   "concern_raised": true
+  },
+  {
+   "cycle": 1,
+   "implant_class_ground_truth": "background",
+   "relationship": "SIMILAR",
+   "concern_raised": true
+  },
+  {
+   "cycle": 1,
+   "implant_class_ground_truth": "background",
+   "relationship": "SIMILAR",
+   "concern_raised": true
+  },
+  {
+   "cycle": 1,
+   "implant_class_ground_truth": "background",
+   "relationship": "SIMILAR",
+   "concern_raised": true
+  },
+  {
+   "cycle": 1,
+   "implant_class_ground_truth": "background",
+   "relationship": "SAME",
+   "concern_raised": true
+  },
+  {
+   "cycle": 1,
+   "implant_class_ground_truth": "background",
+   "relationship": "SAME",
+   "concern_raised": true
+  },
+  {
+   "cycle": 1,
+   "implant_class_ground_truth": "background",
+   "relationship": "SIMILAR",
+   "concern_raised": true
+  },
+  {
+   "cycle": 1,
+   "implant_class_ground_truth": "background",
+   "relationship": "SIMILAR",
+   "concern_raised": true
+  },
+  {
+   "cycle": 1,
+   "implant_class_ground_truth": "background",
+   "relationship": "SIMILAR",
+   "concern_raised": true
+  },
+  {
+   "cycle": 1,
+   "implant_class_ground_truth": "background",
+   "relationship": "SAME",
+   "concern_raised": true
+  },
+  {
+   "cycle": 1,
+   "implant_class_ground_truth": "background",
+   "relationship": "SAME",
+   "concern_raised": true
+  },
+  {
+   "cycle": 1,
+   "implant_class_ground_truth": "background",
+   "relationship": "SIMILAR",
+   "concern_raised": true
+  },
+  {
+   "cycle": 1,
+   "implant_class_ground_truth": "background",
+   "relationship": "SIMILAR",
+   "concern_raised": true
+  },
+  {
+   "cycle": 1,
+   "implant_class_ground_truth": "background",
+   "relationship": "SAME",
+   "concern_raised": true
+  },
+  {
+   "cycle": 1,
+   "implant_class_ground_truth": "background",
+   "relationship": "SAME",
+   "concern_raised": true
+  },
+  {
+   "cycle": 1,
+   "implant_class_ground_truth": "background",
+   "relationship": "SAME",
+   "concern_raised": true
+  },
+  {
+   "cycle": 1,
+   "implant_class_ground_truth": "background",
+   "relationship": "SAME",
+   "concern_raised": true
+  },
+  {
+   "cycle": 1,
+   "implant_class_ground_truth": "background",
+   "relationship": "SAME",
+   "concern_raised": true
+  },
+  {
+   "cycle": 1,
+   "implant_class_ground_truth": "background",
+   "relationship": "SAME",
+   "concern_raised": true
+  },
+  {
+   "cycle": 1,
+   "implant_class_ground_truth": "background",
+   "relationship": "SAME",
+   "concern_raised": true
+  },
+  {
+   "cycle": 1,
+   "implant_class_ground_truth": "background",
+   "relationship": "SIMILAR",
+   "concern_raised": true
+  },
+  {
+   "cycle": 1,
+   "implant_class_ground_truth": "background",
+   "relationship": "SIMILAR",
+   "concern_raised": true
+  },
+  {
+   "cycle": 1,
+   "implant_class_ground_truth": "background",
+   "relationship": "SIMILAR",
+   "concern_raised": true
+  },
+  {
+   "cycle": 1,
+   "implant_class_ground_truth": "background",
+   "relationship": "SIMILAR",
+   "concern_raised": true
+  },
+  {
+   "cycle": 1,
+   "implant_class_ground_truth": "background",
+   "relationship": "SAME",
+   "concern_raised": true
+  },
+  {
+   "cycle": 1,
+   "implant_class_ground_truth": "background",
+   "relationship": "SAME",
+   "concern_raised": true
+  },
+  {
+   "cycle": 1,
+   "implant_class_ground_truth": "background",
+   "relationship": "SAME",
+   "concern_raised": true
+  },
+  {
+   "cycle": 1,
+   "implant_class_ground_truth": "background",
+   "relationship": "SAME",
+   "concern_raised": true
+  },
+  {
+   "cycle": 1,
+   "implant_class_ground_truth": "background",
+   "relationship": "SIMILAR",
+   "concern_raised": true
+  },
+  {
+   "cycle": 1,
+   "implant_class_ground_truth": "background",
+   "relationship": "SIMILAR",
+   "concern_raised": true
+  },
+  {
+   "cycle": 1,
+   "implant_class_ground_truth": "background",
+   "relationship": "SIMILAR",
+   "concern_raised": true
+  },
+  {
+   "cycle": 1,
+   "implant_class_ground_truth": "background",
+   "relationship": "SAME",
+   "concern_raised": true
+  },
+  {
+   "cycle": 1,
+   "implant_class_ground_truth": "background",
+   "relationship": "SIMILAR",
+   "concern_raised": true
+  },
+  {
+   "cycle": 1,
+   "implant_class_ground_truth": "background",
+   "relationship": "SIMILAR",
+   "concern_raised": true
+  },
+  {
+   "cycle": 1,
+   "implant_class_ground_truth": "background",
+   "relationship": "SIMILAR",
+   "concern_raised": true
+  },
+  {
+   "cycle": 1,
+   "implant_class_ground_truth": "background",
+   "relationship": "SIMILAR",
+   "concern_raised": true
+  },
+  {
+   "cycle": 1,
+   "implant_class_ground_truth": "background",
+   "relationship": "SAME",
+   "concern_raised": true
+  },
+  {
+   "cycle": 1,
+   "implant_class_ground_truth": "background",
+   "relationship": "SAME",
+   "concern_raised": true
+  },
+  {
+   "cycle": 1,
+   "implant_class_ground_truth": "background",
+   "relationship": "SAME",
+   "concern_raised": true
+  },
+  {
+   "cycle": 1,
+   "implant_class_ground_truth": "background",
+   "relationship": "SAME",
+   "concern_raised": true
+  },
+  {
+   "cycle": 1,
+   "implant_class_ground_truth": "background",
+   "relationship": "SAME",
+   "concern_raised": true
+  },
+  {
+   "cycle": 1,
+   "implant_class_ground_truth": "background",
+   "relationship": "SAME",
+   "concern_raised": true
+  },
+  {
+   "cycle": 1,
+   "implant_class_ground_truth": "background",
+   "relationship": "SIMILAR",
+   "concern_raised": true
+  },
+  {
+   "cycle": 1,
+   "implant_class_ground_truth": "background",
+   "relationship": "SIMILAR",
+   "concern_raised": true
+  },
+  {
+   "cycle": 1,
+   "implant_class_ground_truth": "background",
+   "relationship": "SIMILAR",
+   "concern_raised": true
+  },
+  {
+   "cycle": 1,
+   "implant_class_ground_truth": "background",
+   "relationship": "SAME",
+   "concern_raised": true
+  },
+  {
+   "cycle": 1,
+   "implant_class_ground_truth": "background",
+   "relationship": "SAME",
+   "concern_raised": true
+  },
+  {
+   "cycle": 1,
+   "implant_class_ground_truth": "background",
+   "relationship": "SIMILAR",
+   "concern_raised": true
+  },
+  {
+   "cycle": 1,
+   "implant_class_ground_truth": "background",
+   "relationship": "SIMILAR",
+   "concern_raised": true
+  },
+  {
+   "cycle": 1,
+   "implant_class_ground_truth": "background",
+   "relationship": "SIMILAR",
+   "concern_raised": true
+  },
+  {
+   "cycle": 1,
+   "implant_class_ground_truth": "background",
+   "relationship": "SAME",
+   "concern_raised": true
+  },
+  {
+   "cycle": 1,
+   "implant_class_ground_truth": "background",
+   "relationship": "SAME",
+   "concern_raised": true
+  },
+  {
+   "cycle": 1,
+   "implant_class_ground_truth": "background",
+   "relationship": "SAME",
+   "concern_raised": true
+  },
+  {
+   "cycle": 1,
+   "implant_class_ground_truth": "background",
+   "relationship": "SAME",
+   "concern_raised": true
+  },
+  {
+   "cycle": 1,
+   "implant_class_ground_truth": "background",
+   "relationship": "SAME",
+   "concern_raised": true
+  },
+  {
+   "cycle": 1,
+   "implant_class_ground_truth": "background",
+   "relationship": "SIMILAR",
+   "concern_raised": true
+  },
+  {
+   "cycle": 1,
+   "implant_class_ground_truth": "background",
+   "relationship": "SIMILAR",
+   "concern_raised": true
+  },
+  {
+   "cycle": 1,
+   "implant_class_ground_truth": "background",
+   "relationship": "SIMILAR",
+   "concern_raised": true
+  },
+  {
+   "cycle": 1,
+   "implant_class_ground_truth": "background",
+   "relationship": "SAME",
+   "concern_raised": true
+  },
+  {
+   "cycle": 1,
+   "implant_class_ground_truth": "background",
+   "relationship": "SAME",
+   "concern_raised": true
+  },
+  {
+   "cycle": 1,
+   "implant_class_ground_truth": "background",
+   "relationship": "SAME",
+   "concern_raised": true
+  },
+  {
+   "cycle": 1,
+   "implant_class_ground_truth": "background",
+   "relationship": "SIMILAR",
+   "concern_raised": true
+  },
+  {
+   "cycle": 1,
+   "implant_class_ground_truth": "background",
+   "relationship": "SIMILAR",
+   "concern_raised": true
+  },
+  {
+   "cycle": 1,
+   "implant_class_ground_truth": "background",
+   "relationship": "SIMILAR",
+   "concern_raised": true
+  },
+  {
+   "cycle": 1,
+   "implant_class_ground_truth": "background",
+   "relationship": "SIMILAR",
+   "concern_raised": true
+  },
+  {
+   "cycle": 1,
+   "implant_class_ground_truth": "background",
+   "relationship": "SAME",
+   "concern_raised": true
+  },
+  {
+   "cycle": 1,
+   "implant_class_ground_truth": "background",
+   "relationship": "SAME",
+   "concern_raised": true
+  },
+  {
+   "cycle": 1,
+   "implant_class_ground_truth": "background",
+   "relationship": "SAME",
+   "concern_raised": true
+  },
+  {
+   "cycle": 1,
+   "implant_class_ground_truth": "background",
+   "relationship": "SAME",
+   "concern_raised": true
+  },
+  {
+   "cycle": 1,
+   "implant_class_ground_truth": "background",
+   "relationship": "SAME",
+   "concern_raised": true
+  },
+  {
+   "cycle": 1,
+   "implant_class_ground_truth": "background",
+   "relationship": "SAME",
+   "concern_raised": true
+  },
+  {
+   "cycle": 1,
+   "implant_class_ground_truth": "background",
+   "relationship": "SAME",
+   "concern_raised": true
+  },
+  {
+   "cycle": 1,
+   "implant_class_ground_truth": "background",
+   "relationship": "SIMILAR",
+   "concern_raised": true
+  },
+  {
+   "cycle": 1,
+   "implant_class_ground_truth": "background",
+   "relationship": "SAME",
+   "concern_raised": true
+  },
+  {
+   "cycle": 1,
+   "implant_class_ground_truth": "background",
+   "relationship": "SAME",
+   "concern_raised": true
+  },
+  {
+   "cycle": 1,
+   "implant_class_ground_truth": "background",
+   "relationship": "SAME",
+   "concern_raised": true
+  },
+  {
+   "cycle": 1,
+   "implant_class_ground_truth": "background",
+   "relationship": "SAME",
+   "concern_raised": true
+  },
+  {
+   "cycle": 1,
+   "implant_class_ground_truth": "background",
+   "relationship": "SAME",
+   "concern_raised": true
+  },
+  {
+   "cycle": 1,
+   "implant_class_ground_truth": "background",
+   "relationship": "SAME",
+   "concern_raised": true
+  },
+  {
+   "cycle": 1,
+   "implant_class_ground_truth": "background",
+   "relationship": "SIMILAR",
+   "concern_raised": true
+  },
+  {
+   "cycle": 1,
+   "implant_class_ground_truth": "background",
+   "relationship": "SAME",
+   "concern_raised": true
+  },
+  {
+   "cycle": 1,
+   "implant_class_ground_truth": "background",
+   "relationship": "SAME",
+   "concern_raised": true
+  },
+  {
+   "cycle": 1,
+   "implant_class_ground_truth": "background",
+   "relationship": "SIMILAR",
+   "concern_raised": true
+  },
+  {
+   "cycle": 1,
+   "implant_class_ground_truth": "background",
+   "relationship": "SAME",
+   "concern_raised": true
+  },
+  {
+   "cycle": 1,
+   "implant_class_ground_truth": "background",
+   "relationship": "SIMILAR",
+   "concern_raised": true
+  },
+  {
+   "cycle": 1,
+   "implant_class_ground_truth": "background",
+   "relationship": "SIMILAR",
+   "concern_raised": true
+  },
+  {
+   "cycle": 1,
+   "implant_class_ground_truth": "background",
+   "relationship": "SIMILAR",
+   "concern_raised": true
+  },
+  {
+   "cycle": 1,
+   "implant_class_ground_truth": "background",
+   "relationship": "SIMILAR",
+   "concern_raised": true
+  },
+  {
+   "cycle": 1,
+   "implant_class_ground_truth": "background",
+   "relationship": "SAME",
+   "concern_raised": true
+  },
+  {
+   "cycle": 1,
+   "implant_class_ground_truth": "background",
+   "relationship": "SAME",
+   "concern_raised": true
+  }
+ ]
+}

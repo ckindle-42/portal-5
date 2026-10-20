@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import sys
 import time
 from datetime import UTC, datetime
@@ -25,12 +26,13 @@ from pathlib import Path
 from typing import Any
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
+DATA_ROOT = Path(os.environ.get("PORTAL_DATA_ROOT", str(Path.home() / "AI_Output" / "portal-data")))
 sys.path.insert(0, str(REPO_ROOT))
 
 from portal.modules.compliance.core.reader import read  # noqa: E402
 from portal.modules.compliance.core.repository import Repository  # noqa: E402
 
-OUT_ROOT = REPO_ROOT / "reports" / "compliance" / "seat_probe"
+OUT_ROOT = DATA_ROOT / "reports" / "compliance" / "seat_probe"
 
 #: candidate seats. Each must hold the assembly plus an answer; the transport
 #: sets num_ctx per call and Ollama honours it (measured — see the report), so a

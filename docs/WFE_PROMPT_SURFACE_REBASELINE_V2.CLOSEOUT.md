@@ -301,7 +301,7 @@ control plans and suites, the P0 receipts (`p0/positive_control.json`,
 `p0/smoke_trace_checks.json`), the generated fitness report
 (`docs/WFE_FITNESS_REPORT_wfe_prompt_surface_seat_20261012.md` — it flags
 tools-specialist repeats as deterministic: three rows, one draw), the compact JSON receipt
-(`docs/WFE_PROMPT_SURFACE_REBASELINE_V2.RECEIPTS.json`), and this closeout. The complete
+(`${PORTAL_DATA_ROOT}/docs/WFE_PROMPT_SURFACE_REBASELINE_V2.RECEIPTS.json`), and this closeout. The complete
 campaigns stay in the ignored local results tree. `wfe_prompt_surface_seat_20261012`'s
 manifest was `cp`-backed up before every append (`manifest.bak-armN.json`).
 

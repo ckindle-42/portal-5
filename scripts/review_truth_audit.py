@@ -21,6 +21,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import sys
 import time
 from collections.abc import Iterable, Mapping
@@ -28,6 +29,7 @@ from pathlib import Path
 from typing import Any, Protocol
 
 REPO = Path(__file__).resolve().parents[1]
+DATA_ROOT = Path(os.environ.get("PORTAL_DATA_ROOT", str(Path.home() / "AI_Output" / "portal-data")))
 if str(REPO) not in sys.path:
     sys.path.insert(0, str(REPO))
 
@@ -203,7 +205,7 @@ def main(argv: list[str] | None = None) -> int:
         "--key", choices=("bots_answer_key", "bots_truth_key"), default="bots_answer_key"
     )
     parser.add_argument(
-        "--out", type=Path, default=REPO / "reports" / "review_eval" / "truth_audit"
+        "--out", type=Path, default=DATA_ROOT / "reports" / "review_eval" / "truth_audit"
     )
     args = parser.parse_args(argv)
     entries = (

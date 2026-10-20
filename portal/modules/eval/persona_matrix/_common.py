@@ -7,6 +7,7 @@ that was previously at the top of the monolithic script.
 from __future__ import annotations
 
 import importlib
+import os
 import sys
 from pathlib import Path
 from types import ModuleType
@@ -59,7 +60,12 @@ def _load_workspace_modules(
 
 
 OLLAMA_URL = "http://localhost:11434"
-RESULTS_DIR = _REPO / "tests" / "benchmarks" / "results"
+RESULTS_DIR = (
+    Path(os.environ.get("PORTAL_DATA_ROOT", str(Path.home() / "AI_Output" / "portal-data")))
+    / "tests"
+    / "benchmarks"
+    / "results"
+)
 
 # System prompt cap for matrix driver direct calls. Sized so the largest
 # current compliance persona (complianceanalyst at ~5000 chars) has 60%

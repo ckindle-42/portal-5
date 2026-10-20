@@ -45,7 +45,8 @@ import httpx
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 from portal.platform.inference.omlx_auth import omlx_headers  # noqa: E402
 
-RESULTS_DIR = Path(__file__).parent / "results"
+DATA_ROOT = Path(os.environ.get("PORTAL_DATA_ROOT", str(Path.home() / "AI_Output" / "portal-data")))
+RESULTS_DIR = DATA_ROOT / "tests" / "benchmarks" / "results"
 PIPELINE_URL = os.environ.get("PIPELINE_URL", "http://localhost:9099")
 OMLX_URL = "http://localhost:8085"
 OLLAMA_URL = "http://localhost:11434"

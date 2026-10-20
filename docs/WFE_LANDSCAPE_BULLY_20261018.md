@@ -34,7 +34,7 @@ Read: `review/reader.py` `resolve_candidate_models()` returns four seats. T3 pro
 
 `core_reasoning_candidate_rate` 0.5 (n=4). `panel_reasoning_seat_rate` 0.333 (n=3). `paired_truth_slice_yield` 0. `workload_B_available` 0. `alpha_open_available` 0. T6 (`725bebcc8911ba4b`): cousin recall 0 at n=1, `claim_proven_fraction` 0.25, processed corpus fraction 1.27e-5. The binding stage is unmeasured because every paired slice was excluded before the product ran.
 
-Rerank history, not current architecture: 2026-10-07 PHASE0 found `mlx-community/Qwen3-Reranker-0.6B-mxfp8` on :8925 with zero rerank calls, and a retired Harrier server that was no longer listening. Harrier-0.6B had been the :8917 default (`P5_ROADMAP.md` P5-FUT-EMBED-001). CHANGELOG 7.1.0 (2026-05-28) already recorded Harrier as competitive on the wider MTEB v2 field and EmbeddingGemma as best-in-class only under 500M. EG2 replaced that line as the one multimodal embedder (2026-10-06 release, cut over 2026-10-08). B1.4 compared EG2 distance bands with old Harrier constants; that is not a recall bake-off.
+Rerank history, not current architecture: 2026-10-07 PHASE0 found `mlx-community/Qwen3-Reranker-0.6B-mxfp8` on :8925 with zero rerank calls, and a retired Harrier server that was no longer listening. Harrier-0.6B had been the :8917 default (`ROADMAP.md` P5-FUT-EMBED-001). CHANGELOG 7.1.0 (2026-05-28) already recorded Harrier as competitive on the wider MTEB v2 field and EmbeddingGemma as best-in-class only under 500M. EG2 replaced that line as the one multimodal embedder (2026-10-06 release, cut over 2026-10-08). B1.4 compared EG2 distance bands with old Harrier constants; that is not a recall bake-off.
 
 ## Evidence
 

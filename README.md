@@ -13,7 +13,7 @@ portal-5/
 ├── 📄 README.md                          # This file - START HERE
 ├── 📄 CLAUDE.md                          # Agent entry point + ground rules
 ├── 📄 KNOWN_LIMITATIONS.md               # Where the honest answers live
-├── 📄 P5_ROADMAP.md                      # Forward-looking only
+├── 📄 ROADMAP.md                         # Forward-looking only
 ├── 🚀 launch.sh                          # One command for everything
 │
 ├── 📁 config/                            # Single source of truth
@@ -201,7 +201,7 @@ uv run python scripts/validate_system.py
 ### Before You Change Anything
 - **CLAUDE.md** — Agent entry point, 13 ground rules (20 min)
 - **KNOWN_LIMITATIONS.md** — Where the honest answers live (long, on purpose)
-- **P5_ROADMAP.md** — Forward-looking only (10 min)
+- **ROADMAP.md** — Forward-looking only (10 min)
 
 ---
 

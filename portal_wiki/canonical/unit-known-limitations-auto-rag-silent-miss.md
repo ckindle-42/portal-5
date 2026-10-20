@@ -1,7 +1,7 @@
 ---
 id: unit-known-limitations-auto-rag-silent-miss
 kind: what
-title: "KNOWN_LIMITATIONS — Auto-RAG context injection never ran, and failed as a cache miss"
+title: "KNOWN_LIMITATIONS — Auto-RAG is off by default and has never run in production"
 sources:
 - type: code
   path: portal/platform/inference/router/context_inject.py
@@ -17,12 +17,12 @@ tags:
 - verified-v1
 ---
 
-### Auto-RAG context injection never ran, and failed as a cache miss (RESOLVED)
+### Auto-RAG is off by default and has never run in production
 
 - **ID**: SEAM-V1-AUTORAG-001
-- **Status**: RESOLVED 2026-09-02 (TASK_RAG_COMPOSITION_SEAM_V1 P1). The feature
-  is now OFF by default and the silent-failure hole is closed; re-enabling it is
-  a deliberate gated choice, not a bug fix.
+- **Status**: OPEN BY CHOICE (silent-failure half RESOLVED 2026-09-02, TASK_RAG_COMPOSITION_SEAM_V1 P1).
+  The feature is OFF by default and the silent-failure hole is closed; re-enabling it is a
+  deliberate gated choice, not a bug fix, so the capability has still never run in production.
 - **Description**: `inject_retrieved_context` dispatched `kb_search` with
   `{"query": …, "k": _TOP_K}` — **no `kb_id`**, and `k` where the tool contract
   says `top_k`. `_search` returned `{"error": "kb_id and query required"}` with

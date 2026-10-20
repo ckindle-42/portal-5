@@ -18,7 +18,7 @@ updated_at: 1784946220.507908
 
 # Known Issues
 
-`KNOWN_ISSUES.md` is intentionally empty by design. Architectural
+`docs/KNOWN_ISSUES.md` is intentionally empty by design. Architectural
 constraints and accepted tradeoffs are documented in the canonical
 limitation register — the `unit-known-limitations-*` units rendered into
 `KNOWN_LIMITATIONS.md` by `portal/platform/wiki/render.py`
@@ -27,7 +27,7 @@ tradeoffs, not bugs to fix. A genuine operational bug belongs in the
 issue tracker at https://github.com/ckindle-42/portal-5/issues rather
 than in this file, keeping defects separate from decisions.
 
-`KNOWN_ISSUES.md` is itself a Tier-1 doc whose block is rendered from this
+`docs/KNOWN_ISSUES.md` is itself a Tier-1 doc whose block is rendered from this
 unit, so the "intentionally empty" statement is the single authored
 source for that page.
 

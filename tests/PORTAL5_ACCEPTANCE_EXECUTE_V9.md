@@ -219,13 +219,11 @@ slipped through as a green routing result.
 
 ## Results + dashboard
 
-After a run completes, the results file is written to the repository root as
-`ACCEPTANCE_RESULTS.md` by `_write_results` in `tests/lib/results.py`, carrying
-the date, git SHA, section list, runtime, summary counts, and one row per
-check. To publish it, run `scripts/update_grafana_acceptance.py --input
-ACCEPTANCE_RESULTS.md`. The explicit `--input` path matters because the script's
-default (the `RESULTS_FILE` constant) points at a `tests/`-tree location for the
-results file while the runner writes the file to the repo root. The
+After a run completes, the results file is written to `docs/ACCEPTANCE_RESULTS.md`
+by `_write_results` in `tests/lib/results.py`, carrying the date, git SHA,
+section list, runtime, summary counts, and one row per check. To publish it, run
+`scripts/update_grafana_acceptance.py`; its `RESULTS_FILE` default points at the
+same path. The
 script parses the markdown table, rewrites the dashboard JSON at
 `config/grafana/dashboards/portal5_acceptance.json`, and archives a JSONL
 snapshot into `tests/acceptance_corpus/` for the run-trend panel.

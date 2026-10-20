@@ -6,7 +6,7 @@ Also archives a JSONL snapshot to tests/acceptance_corpus/ for trend tracking.
 Usage:
     python3 scripts/update_grafana_acceptance.py
     python3 scripts/update_grafana_acceptance.py --dry-run
-    python3 scripts/update_grafana_acceptance.py --input tests/ACCEPTANCE_RESULTS.md
+    python3 scripts/update_grafana_acceptance.py --input docs/ACCEPTANCE_RESULTS.md
 """
 
 from __future__ import annotations
@@ -33,7 +33,7 @@ from lib.grafana_panels import (
 
 PROJECT_ROOT = Path(__file__).parent.parent
 DASHBOARD_PATH = PROJECT_ROOT / "config/grafana/dashboards/portal5_acceptance.json"
-RESULTS_FILE = PROJECT_ROOT / "tests/ACCEPTANCE_RESULTS.md"
+RESULTS_FILE = PROJECT_ROOT / "docs/ACCEPTANCE_RESULTS.md"
 CORPUS_DIR = PROJECT_ROOT / "tests/acceptance_corpus"
 
 STATUS_ORDER = ["PASS", "WARN", "FAIL", "BLOCKED", "INFO"]

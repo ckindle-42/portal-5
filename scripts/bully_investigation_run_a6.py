@@ -42,6 +42,7 @@ from __future__ import annotations
 import argparse
 import dataclasses
 import json
+import os
 import sys
 import time
 from pathlib import Path
@@ -58,6 +59,8 @@ from portal.modules.security.core.bully import (
 )
 from portal.modules.security.core.bully import inject_plane as ip  # noqa: E402
 from portal.modules.security.core.bully import investigation_pivot as pivot  # noqa: E402
+
+DATA_ROOT = Path(os.environ.get("PORTAL_DATA_ROOT", str(Path.home() / "AI_Output" / "portal-data")))
 from portal.modules.security.core.bully import telemetry_behavior as tb  # noqa: E402
 from portal.modules.security.core.bully.bots_answer_key import BOTS_ANSWER_KEY  # noqa: E402
 
@@ -125,7 +128,7 @@ def _entities_by_distance_from_pivots(
 
 def main() -> int:  # noqa: PLR0915, C901, PLR0912
     parser = argparse.ArgumentParser()
-    parser.add_argument("--out-dir", default="docs")
+    parser.add_argument("--out-dir", default=str(DATA_ROOT / "docs"))
     parser.add_argument("--doc-stem", default="BULLY_ADAPTIVE_REACH_RUN_A6_V1")
     parser.add_argument("--dry-run-cousins", action="store_true")
     args = parser.parse_args()

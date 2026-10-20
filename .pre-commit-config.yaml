@@ -44,6 +44,16 @@ repos:
         files: ^(portal/|config/|portal_wiki/|scripts/|deploy/|tests/)
         stages: [pre-push]
 
+      # Guard: raw run output stays outside the checkout (B6, R5). Bench/WFE/report
+      # writers default to $PORTAL_DATA_ROOT; this rejects a staged *.json/*.jsonl/
+      # *.csv under the old tracked output dirs. Markdown summaries are allowed.
+      - id: no-raw-run-output
+        name: raw run output stays out of main
+        language: system
+        entry: bash scripts/check_no_raw_run_output.sh
+        files: ^(reports/|tests/benchmarks/results/|tests/wfe/results/)
+        pass_filenames: true
+
       # Guard: unit-test suite passes before commit. ~4-5min parallelized
       # (pytest-xdist, -n auto) on a 14-core M-series Mac vs ~8min serial;
       # blocks commits that break the test suite. Opt-in via

@@ -17,7 +17,7 @@ computed answer. This is real OT/ICS-relevant data-analysis, not a synthetic CSV
 Scored per question: exact-match on the computed answer (numeric or set). A
 lucky-looking prose answer that states the wrong number fails.
 
-Emits tests/benchmarks/results/data_probe_<UTC>.json (harness prefix
+Emits ${PORTAL_DATA_ROOT}/tests/benchmarks/results/data_probe_<UTC>.json (harness prefix
 `data_probe`). quality_score = fraction of questions answered correctly.
 """
 
@@ -26,6 +26,7 @@ from __future__ import annotations
 import argparse
 import datetime as _dt
 import json
+import os
 import re
 import time
 import urllib.request
@@ -34,7 +35,8 @@ from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 OLLAMA_URL = "http://localhost:11434"
-RESULTS_DIR = REPO_ROOT / "tests" / "benchmarks" / "results"
+DATA_ROOT = Path(os.environ.get("PORTAL_DATA_ROOT", str(Path.home() / "AI_Output" / "portal-data")))
+RESULTS_DIR = DATA_ROOT / "tests" / "benchmarks" / "results"
 CORPUS = REPO_ROOT / "config" / "security" / "benign_corpus_bench_benign_cells.json"
 TIMEOUT = 240
 PROBE_PREDICT = 4096

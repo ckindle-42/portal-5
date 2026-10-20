@@ -135,7 +135,7 @@ def _git_sha() -> str:
 
 
 def _write_results(elapsed: int, sections_run: list[str]) -> None:
-    """Write ACCEPTANCE_RESULTS.md."""
+    """Write docs/ACCEPTANCE_RESULTS.md."""
     counts: dict[str, int] = {}
     for r in _log:
         counts[r.status] = counts.get(r.status, 0) + 1
@@ -213,13 +213,13 @@ def _write_results(elapsed: int, sections_run: list[str]) -> None:
                 ]
             )
 
-    (ROOT / "ACCEPTANCE_RESULTS.md").write_text("\n".join(lines))
-    print("\n📄 Results written to ACCEPTANCE_RESULTS.md")
+    (ROOT / "docs" / "ACCEPTANCE_RESULTS.md").write_text("\n".join(lines))
+    print("\n📄 Results written to docs/ACCEPTANCE_RESULTS.md")
 
 
 def _load_prior_results(sections_to_skip: set[str]) -> None:
-    """Load ACCEPTANCE_RESULTS.md into _log, skipping sections being re-run."""
-    results_path = ROOT / "ACCEPTANCE_RESULTS.md"
+    """Load docs/ACCEPTANCE_RESULTS.md into _log, skipping sections being re-run."""
+    results_path = ROOT / "docs" / "ACCEPTANCE_RESULTS.md"
     if not results_path.exists():
         print("  [append] No prior ACCEPTANCE_RESULTS.md found — starting fresh")
         return

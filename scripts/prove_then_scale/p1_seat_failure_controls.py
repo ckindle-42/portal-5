@@ -28,11 +28,13 @@ Usage: uv run python scripts/prove_then_scale/p1_seat_failure_controls.py
 from __future__ import annotations
 
 import json
+import os
 import sys
 import time
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
+DATA_ROOT = Path(os.environ.get("PORTAL_DATA_ROOT", str(Path.home() / "AI_Output" / "portal-data")))
 sys.path.insert(0, str(REPO_ROOT))
 
 from portal.modules.compliance.core.operator_profile import require  # noqa: E402
@@ -40,7 +42,7 @@ from portal.modules.compliance.core.reading_transport import chat  # noqa: E402
 from portal.modules.compliance.core.repository import Repository  # noqa: E402
 from portal.modules.compliance.core.section_index import resolve_sections  # noqa: E402
 
-ART_DIR = REPO_ROOT / "reports" / "compliance" / "prove_then_scale" / "p1_controls"
+ART_DIR = DATA_ROOT / "reports" / "compliance" / "prove_then_scale" / "p1_controls"
 
 #: The minimal section set each case actually turns on, hand-picked from the
 #: case file's derived_from lists — the small-material control. The section

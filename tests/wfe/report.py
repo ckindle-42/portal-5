@@ -45,7 +45,8 @@ from tests.wfe.schema import (
 )
 
 REPO = Path(__file__).resolve().parents[2]
-CAMPAIGNS = REPO / "tests" / "wfe" / "results" / "campaigns"
+DATA_ROOT = Path(os.environ.get("PORTAL_DATA_ROOT", str(Path.home() / "AI_Output" / "portal-data")))
+CAMPAIGNS = DATA_ROOT / "tests" / "wfe" / "results" / "campaigns"
 DIMENSIONS = REPO / "tests" / "wfe" / "dimensions.yaml"
 CLOSEOUT = REPO / "docs" / "MODEL_FLEET_CLOSEOUT_20260906.tasks.json"
 MAP_DOC = REPO / "docs" / "WFE_FITNESS_MAP.md"

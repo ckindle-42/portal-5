@@ -273,7 +273,7 @@ Phase 0; fitness matrix drives disposition decisions.
   C1 two measurement paths, C2 checkers never shown to work, C3 decisions record
   nothing of what measured them, C4 samples too small and an ambiguous decision
   rule, C5 unit tests reach live services, C6 the jobs are not covered.
-  `WFE_ROOT_FIX_PROGRAM.md` splits the work into five parts, and
+  `docs/WFE_ROOT_FIX_PROGRAM.md` splits the work into five parts, and
   `docs/WFE_ROOT_FIX_ACCEPTANCE.md` is its acceptance ledger. The decision rule
   lives only in `tests/wfe/decision.py`, known-answer controls only in
   `tests/wfe/controls.py`, and the unit-test offline boundary only in

@@ -22,7 +22,7 @@ clip.has_vision_encoder / capabilities field, not inferred from the card)
 are skipped with a clear reason, never silently benched as if they were
 multimodal.
 
-Emits tests/benchmarks/results/vision_probe_<UTC>.json in the same
+Emits ${PORTAL_DATA_ROOT}/tests/benchmarks/results/vision_probe_<UTC>.json in the same
 {"results": [{"model", "avg_tps", "quality_score", "runs_success",
 "runs_total", "prompt_category": "vision"}]} shape bench_tps.py JSON
 uses, so scripts/pending_verdicts_evidence.py picks it up automatically
@@ -39,13 +39,15 @@ import argparse
 import datetime as _dt
 import io
 import json
+import os
 import time
 import urllib.request
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 OLLAMA_URL = "http://localhost:11434"
-RESULTS_DIR = REPO_ROOT / "tests" / "benchmarks" / "results"
+DATA_ROOT = Path(os.environ.get("PORTAL_DATA_ROOT", str(Path.home() / "AI_Output" / "portal-data")))
+RESULTS_DIR = DATA_ROOT / "tests" / "benchmarks" / "results"
 TIMEOUT = 120
 
 # TASK_MODEL_BENCH_VALIDITY_V1 follow-up: bench at the temperature the model

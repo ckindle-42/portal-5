@@ -132,8 +132,8 @@ def project_body(body: str, host_depth: int) -> str:
 # search scope, not a mandate that every doc has one.
 TIER1_DOCS = (
     "README.md",
-    "P5_ROADMAP.md",
-    "KNOWN_ISSUES.md",
+    "ROADMAP.md",
+    "docs/KNOWN_ISSUES.md",
     "KNOWN_LIMITATIONS.md",
     "docs/HOWTO.md",
     "docs/ADMIN_GUIDE.md",

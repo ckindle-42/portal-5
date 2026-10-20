@@ -423,8 +423,8 @@ case "${1:-up}" in
     echo "[portal-5] Reseed complete."
     ;;
   sync-readme)
-    if [ ! -f "${PORTAL_ROOT}/ACCEPTANCE_RESULTS.md" ]; then
-      echo "No ACCEPTANCE_RESULTS.md to sync from. Run acceptance tests first:"
+    if [ ! -f "${PORTAL_ROOT}/docs/ACCEPTANCE_RESULTS.md" ]; then
+      echo "No docs/ACCEPTANCE_RESULTS.md to sync from. Run acceptance tests first:"
       echo "  python3 tests/portal5_acceptance_v6.py"
       exit 1
     fi
@@ -433,7 +433,7 @@ import re
 from pathlib import Path
 
 root = Path(__file__).parent if '__file__' in dir() else Path('.')
-results = (root / "ACCEPTANCE_RESULTS.md").read_text()
+results = (root / "docs" / "ACCEPTANCE_RESULTS.md").read_text()
 readme = (root / "README.md").read_text()
 
 # Extract Summary block from ACCEPTANCE_RESULTS.md (between ## Summary and ## Results)
@@ -458,7 +458,7 @@ Latest run ({date_str}):
 
 {summary_block}
 
-See [ACCEPTANCE_RESULTS.md](ACCEPTANCE_RESULTS.md) for full results.
+See [ACCEPTANCE_RESULTS.md](docs/ACCEPTANCE_RESULTS.md) for full results.
 """
 
 new_readme = re.sub(

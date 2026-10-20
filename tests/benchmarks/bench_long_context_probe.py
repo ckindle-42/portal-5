@@ -18,7 +18,7 @@ so the test window isn't silently truncated by Ollama's low default).
 Ask the model to recall the needle's content. Scored by keyword match in
 the response — same judge pattern as bench_vision_probe.py.
 
-Emits tests/benchmarks/results/long_context_probe_<UTC>.json in the same
+Emits ${PORTAL_DATA_ROOT}/tests/benchmarks/results/long_context_probe_<UTC>.json in the same
 JSON shape bench_tps.py uses, so scripts/pending_verdicts_evidence.py
 picks it up automatically as fresh post-boundary evidence.
 """
@@ -28,13 +28,15 @@ from __future__ import annotations
 import argparse
 import datetime as _dt
 import json
+import os
 import time
 import urllib.request
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 OLLAMA_URL = "http://localhost:11434"
-RESULTS_DIR = REPO_ROOT / "tests" / "benchmarks" / "results"
+DATA_ROOT = Path(os.environ.get("PORTAL_DATA_ROOT", str(Path.home() / "AI_Output" / "portal-data")))
+RESULTS_DIR = DATA_ROOT / "tests" / "benchmarks" / "results"
 TIMEOUT = 180
 
 # TASK_MODEL_BENCH_VALIDITY_V1 follow-up: bench at the temperature the model

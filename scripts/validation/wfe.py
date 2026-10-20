@@ -21,7 +21,8 @@ from ._shared import REPO_ROOT
 from .registry import register
 
 LEDGER = Path(os.environ.get("WFE_FITNESS_LEDGER") or REPO_ROOT / "tests/wfe/fitness_ledger.yaml")
-CAMPAIGNS = REPO_ROOT / "tests" / "wfe" / "results" / "campaigns"
+DATA_ROOT = Path(os.environ.get("PORTAL_DATA_ROOT", str(Path.home() / "AI_Output" / "portal-data")))
+CAMPAIGNS = DATA_ROOT / "tests" / "wfe" / "results" / "campaigns"
 ROUTING = REPO_ROOT / "config" / "backends.yaml"
 PORTAL = REPO_ROOT / "config" / "portal.yaml"
 

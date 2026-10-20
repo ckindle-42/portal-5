@@ -231,6 +231,6 @@ class TestRenderReport:
             <!-- /WIKI:GENERATED -->
         """)
         )
-        (tmp_path / "P5_ROADMAP.md").write_text("# Roadmap\n\nReal content here.\n")
+        (tmp_path / "ROADMAP.md").write_text("# Roadmap\n\nReal content here.\n")
         report = render_report(tmp_path)
         assert report["coverage_pct"] == 50.0

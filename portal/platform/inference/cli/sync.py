@@ -74,9 +74,9 @@ def sync_readme(
         bool, typer.Option("--dry-run", help="Show what would change without writing")
     ] = False,
 ) -> None:
-    """Refresh README.md acceptance-testing section from ACCEPTANCE_RESULTS.md."""
+    """Refresh README.md acceptance-testing section from docs/ACCEPTANCE_RESULTS.md."""
     repo_root = Path(__file__).resolve().parents[4]
-    results_path = repo_root / "ACCEPTANCE_RESULTS.md"
+    results_path = repo_root / "docs" / "ACCEPTANCE_RESULTS.md"
     readme_path = repo_root / "README.md"
 
     if not results_path.exists():
@@ -108,7 +108,7 @@ def sync_readme(
         "python3 tests/portal5_acceptance_v6.py --section S70\n"
         "```\n\n"
         f"Latest run ({date_str}):\n\n{summary_block}\n\n"
-        "See [ACCEPTANCE_RESULTS.md](ACCEPTANCE_RESULTS.md) for full results.\n"
+        "See [ACCEPTANCE_RESULTS.md](docs/ACCEPTANCE_RESULTS.md) for full results.\n"
     )
 
     new_readme = _re.sub(

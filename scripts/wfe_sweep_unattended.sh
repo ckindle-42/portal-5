@@ -94,7 +94,8 @@ CAMPAIGN_ID="${CAMPAIGN_ID:-wfe_full_$(date -u +%Y%m%d)}"
 # banner above does not name — a monitoring path that quietly lies.
 LOG_DIR="${LOG_DIR:-/tmp/wfe_${CAMPAIGN_ID}}"
 export LOG_DIR
-CAMPAIGN_DIR_REL="tests/wfe/results/campaigns/${CAMPAIGN_ID}"
+DATA_ROOT="${PORTAL_DATA_ROOT:-$HOME/AI_Output/portal-data}"
+CAMPAIGN_DIR_REL="${DATA_ROOT}/tests/wfe/results/campaigns/${CAMPAIGN_ID}"
 KICKOFF_LOG="${LOG_DIR}/kickoff.log"
 mkdir -p "$LOG_DIR"
 

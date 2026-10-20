@@ -36,7 +36,8 @@ PLAN = REPO / "tests/wfe/plans/decision_run_v1.yaml"
 INC = "hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k"
 CH = "granite4.1:30b-ctx64k"
 SERVED = {INC: "Qwen3.8-27B-oQ4e-mtp", CH: "granite-4.1-30b-4bit"}
-CAMPAIGNS = REPO / "tests/wfe/results/campaigns"
+DATA_ROOT = Path(os.environ.get("PORTAL_DATA_ROOT", str(Path.home() / "AI_Output" / "portal-data")))
+CAMPAIGNS = DATA_ROOT / "tests" / "wfe" / "results" / "campaigns"
 DRIFT_PROBE = REPO / "tests/wfe/_rig_drift_probe.py"
 
 

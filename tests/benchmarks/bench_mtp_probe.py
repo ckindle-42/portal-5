@@ -19,7 +19,7 @@ measured (useful as a floor check) but is reported with speedup=None and
 an explicit "no baseline pair identified" note rather than a fabricated
 comparison.
 
-Emits tests/benchmarks/results/mtp_probe_<UTC>.json in the same JSON
+Emits ${PORTAL_DATA_ROOT}/tests/benchmarks/results/mtp_probe_<UTC>.json in the same JSON
 shape bench_tps.py uses, so scripts/pending_verdicts_evidence.py picks it
 up automatically. quality_score here is 1.0 if the MTP model produced a
 coherent, non-empty, non-error response (a floor sanity check, not a
@@ -33,13 +33,15 @@ from __future__ import annotations
 import argparse
 import datetime as _dt
 import json
+import os
 import time
 import urllib.request
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 OLLAMA_URL = "http://localhost:11434"
-RESULTS_DIR = REPO_ROOT / "tests" / "benchmarks" / "results"
+DATA_ROOT = Path(os.environ.get("PORTAL_DATA_ROOT", str(Path.home() / "AI_Output" / "portal-data")))
+RESULTS_DIR = DATA_ROOT / "tests" / "benchmarks" / "results"
 TIMEOUT = 180
 FIXED_PROMPT = "Write a Python function that finds the longest increasing subsequence in a list of integers, with a brief docstring."
 

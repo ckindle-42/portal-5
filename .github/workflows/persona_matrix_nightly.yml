@@ -61,9 +61,11 @@ jobs:
           if [ "$BACKEND" != "both" ]; then
             BACKEND_FLAG="--backend $BACKEND"
           fi
-          BASELINE="tests/benchmarks/results/persona_matrix_baseline_${WORKSPACE}.json"
+          DATA_ROOT="${PORTAL_DATA_ROOT:-$HOME/AI_Output/portal-data}"
+          mkdir -p "$DATA_ROOT/tests/benchmarks/results"
+          BASELINE="$DATA_ROOT/tests/benchmarks/results/persona_matrix_baseline_${WORKSPACE}.json"
           TS=$(date -u +%Y%m%dT%H%M%SZ)
-          OUT="tests/benchmarks/results/persona_matrix_${WORKSPACE}_ci_${TS}.json"
+          OUT="$DATA_ROOT/tests/benchmarks/results/persona_matrix_${WORKSPACE}_ci_${TS}.json"
           echo "workspace=$WORKSPACE"        >> $GITHUB_OUTPUT
           echo "backend_flag=$BACKEND_FLAG"  >> $GITHUB_OUTPUT
           echo "baseline=$BASELINE"          >> $GITHUB_OUTPUT

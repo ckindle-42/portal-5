@@ -11,18 +11,20 @@ Promotion decisions remain operator-only (PROMOTE_POLICY).
 Usage:
     python3 tests/scripts/cc_challenge_matrix.py \
         [--input tests/UAT_RESULTS.md] \
-        [--output tests/benchmarks/results/CC01_CHALLENGE_MATRIX_<UTC>.md]
+        [--output ${PORTAL_DATA_ROOT}/tests/benchmarks/results/CC01_CHALLENGE_MATRIX_<UTC>.md]
 """
 
 from __future__ import annotations
 
 import argparse
+import os
 import re
 import sys
 from datetime import UTC, datetime
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent.parent
+DATA_ROOT = Path(os.environ.get("PORTAL_DATA_ROOT", str(Path.home() / "AI_Output" / "portal-data")))
 
 ROW_RE = re.compile(
     r"^\|\s*\d+\s*\|\s*(?P<status>[A-Z]+)\s*\|\s*\[(?P<name>(?:CC|BT|EX)-01[^\]]*)\]"
@@ -79,7 +81,7 @@ def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--input", default=str(ROOT / "tests" / "UAT_RESULTS.md"))
     default_out = (
-        ROOT
+        DATA_ROOT
         / "tests"
         / "benchmarks"
         / "results"

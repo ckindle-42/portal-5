@@ -43,7 +43,8 @@ from portal.platform.inference.omlx_auth import omlx_headers  # noqa: E402
 
 OMLX_URL = "http://localhost:8085"
 OLLAMA_URL = "http://localhost:11434"
-RESULTS_DIR = Path(__file__).parent / "results"
+DATA_ROOT = Path(os.environ.get("PORTAL_DATA_ROOT", str(Path.home() / "AI_Output" / "portal-data")))
+RESULTS_DIR = DATA_ROOT / "tests" / "benchmarks" / "results"
 
 # ── Model matrix ─────────────────────────────────────────────────────────────
 # oMLX ids are directory names under /Volumes/data01/omlx-models.

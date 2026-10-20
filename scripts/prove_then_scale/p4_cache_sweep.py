@@ -13,16 +13,18 @@ Usage: uv run python scripts/prove_then_scale/p4_cache_sweep.py
 from __future__ import annotations
 
 import json
+import os
 import sys
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
+DATA_ROOT = Path(os.environ.get("PORTAL_DATA_ROOT", str(Path.home() / "AI_Output" / "portal-data")))
 sys.path.insert(0, str(REPO_ROOT))
 
 from portal.modules.compliance.core import sweep  # noqa: E402
 from portal.modules.compliance.core.repository import Repository  # noqa: E402
 
-ART = REPO_ROOT / "reports" / "compliance" / "prove_then_scale" / "p4_cip007_cache.json"
+ART = DATA_ROOT / "reports" / "compliance" / "prove_then_scale" / "p4_cip007_cache.json"
 
 SEAT = "gemma4:26b-a4b-it-q4_K_M-ctx32k"
 

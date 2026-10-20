@@ -4,7 +4,7 @@
 
 **Execution status:** prepared for planning only. The user requested filesystem inspection while another job is active. This task does not authorize disrupting that job or starting a competing evaluation during this audit.
 
-Read the [verified landscape report](MODEL_LANDSCAPE_AUDIT_20260906.md), its [evidence snapshot](MODEL_LANDSCAPE_AUDIT_20260906.evidence.json), and the [per-item closeout worklist](MODEL_FLEET_CLOSEOUT_20260906.tasks.json). The worklist is the concrete checklist for execution. Its open decision fields are temporary task state; they are not a new permanent model status.
+Read the [verified landscape report](MODEL_LANDSCAPE_AUDIT_20260906.md), its [evidence snapshot](${PORTAL_DATA_ROOT}/docs/MODEL_LANDSCAPE_AUDIT_20260906.evidence.json), and the [per-item closeout worklist](MODEL_FLEET_CLOSEOUT_20260906.tasks.json). The worklist is the concrete checklist for execution. Its open decision fields are temporary task state; they are not a new permanent model status.
 
 ## Required final state
 

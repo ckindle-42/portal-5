@@ -103,7 +103,8 @@ from tests.wfe.schema import (
 )
 
 REPO = Path(__file__).resolve().parents[2]
-CAMPAIGNS = REPO / "tests" / "wfe" / "results" / "campaigns"
+DATA_ROOT = Path(os.environ.get("PORTAL_DATA_ROOT", str(Path.home() / "AI_Output" / "portal-data")))
+CAMPAIGNS = DATA_ROOT / "tests" / "wfe" / "results" / "campaigns"
 SUITE_DIR = REPO / "tests" / "wfe" / "suites"
 DEFAULT_REPEATS = 3
 #: Production fidelity base: the pipeline serves /v1 non-streaming, no forced

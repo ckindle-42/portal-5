@@ -14,19 +14,21 @@ Usage:
   python3 tests/scripts/game_challenge_analyze.py \
       [--results tests/UAT_RESULTS.md] \
       [--artifacts tests/artifacts] \
-      [--output tests/benchmarks/results/GAME_CHALLENGE_MATRIX_<UTC>.md]
+      [--output ${PORTAL_DATA_ROOT}/tests/benchmarks/results/GAME_CHALLENGE_MATRIX_<UTC>.md]
 """
 
 from __future__ import annotations
 
 import argparse
 import asyncio
+import os
 import re
 import sys
 from datetime import UTC, datetime
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent.parent
+DATA_ROOT = Path(os.environ.get("PORTAL_DATA_ROOT", str(Path.home() / "AI_Output" / "portal-data")))
 
 ROW_RE = re.compile(
     r"^\|\s*\d+\s*\|\s*(?P<status>[A-Z]+)\s*\|\s*\[(?P<name>GC-0\d[^\]]*)\]"
@@ -144,7 +146,7 @@ def main() -> int:
     ap.add_argument("--results", default=str(ROOT / "tests" / "UAT_RESULTS.md"))
     ap.add_argument("--artifacts", default=str(ROOT / "tests" / "artifacts"))
     out_default = (
-        ROOT
+        DATA_ROOT
         / "tests"
         / "benchmarks"
         / "results"

@@ -24,11 +24,13 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import sys
 from pathlib import Path
 from typing import Any
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
+DATA_ROOT = Path(os.environ.get("PORTAL_DATA_ROOT", str(Path.home() / "AI_Output" / "portal-data")))
 sys.path.insert(0, str(REPO_ROOT))
 
 from portal.modules.compliance.core.cip_register import Register  # noqa: E402
@@ -42,7 +44,7 @@ from portal.modules.compliance.core.requirement_anchor import (  # noqa: E402
 
 PDF_DIR = REPO_ROOT / "portal" / "modules" / "compliance" / "data" / "cip_pdfs"
 
-REPORT_PATH = REPO_ROOT / "reports" / "compliance" / "requirement_anchor_rates.json"
+REPORT_PATH = DATA_ROOT / "reports" / "compliance" / "requirement_anchor_rates.json"
 
 
 def _revision_for(repo: Repository, standard: str, sha256_prefix: str) -> str:

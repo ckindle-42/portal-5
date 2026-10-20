@@ -18,18 +18,20 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import sys
 import time
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
+DATA_ROOT = Path(os.environ.get("PORTAL_DATA_ROOT", str(Path.home() / "AI_Output" / "portal-data")))
 sys.path.insert(0, str(REPO_ROOT))
 
 from portal.modules.compliance.core import sweep  # noqa: E402
 from portal.modules.compliance.core.cip_register import Register  # noqa: E402
 from portal.modules.compliance.core.repository import Repository  # noqa: E402
 
-ART = REPO_ROOT / "reports" / "compliance" / "closeout" / "p3" / "family_sweep.json"
+ART = DATA_ROOT / "reports" / "compliance" / "closeout" / "p3" / "family_sweep.json"
 
 SEAT = "gemma4:26b-a4b-it-q4_K_M-ctx32k"
 

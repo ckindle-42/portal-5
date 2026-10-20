@@ -4,8 +4,8 @@ kind: what
 title: "MODEL_CATALOG \u2014 `hf.co/deepreinforce-ai/Ornith-1.0-9B-GGUF:Q4_K_M` \u2014\
   \ DROPPED 2026-06-30"
 sources:
-- type: code
-  path: tests/benchmarks/results/v10_candidates_20260629T202251Z.json
+- type: doc
+  path: config/MODEL_CATALOG.md
 claims: []
 confidence: high
 tags:

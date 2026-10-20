@@ -23,6 +23,7 @@ from __future__ import annotations
 import argparse
 import datetime as _dt
 import json
+import os
 import time
 import urllib.request
 from pathlib import Path
@@ -32,7 +33,8 @@ import httpx
 import yaml
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
-RESULTS_DIR = REPO_ROOT / "tests" / "benchmarks" / "results"
+DATA_ROOT = Path(os.environ.get("PORTAL_DATA_ROOT", str(Path.home() / "AI_Output" / "portal-data")))
+RESULTS_DIR = DATA_ROOT / "tests" / "benchmarks" / "results"
 OLLAMA_URL = "http://localhost:11434"
 CAD_MCP = "http://localhost:8926"
 SANDBOX_MCP = "http://localhost:8914"

@@ -40,7 +40,7 @@ section function and enforces the canonical order, calling
 re-exports `record` and `_log` from `results.py` and supplies `_chat`, `_mcp`,
 `_await_ollama_ready`, and `_git_sha`. `results.py` writes `R` entries into
 `_log`, classifies failures through `_classify`, and renders
-`ACCEPTANCE_RESULTS.md` via `_write_results`.
+`docs/ACCEPTANCE_RESULTS.md` via `_write_results`.
 
 ## Gotchas
 

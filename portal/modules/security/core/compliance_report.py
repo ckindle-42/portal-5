@@ -24,12 +24,16 @@ Honesty rules (load-bearing):
 from __future__ import annotations
 
 import json
+import os
 import time
 from pathlib import Path
 from typing import Any
 
 _REPO_ROOT = Path(__file__).resolve().parents[4]
-_REPORTS_DIR = _REPO_ROOT / "reports"
+_REPORTS_DIR = (
+    Path(os.environ.get("PORTAL_DATA_ROOT", str(Path.home() / "AI_Output" / "portal-data")))
+    / "reports"
+)
 
 _VERDICT_ORDER = ["PROVEN", "FAILED", "INDETERMINATE", "UNAVAILABLE"]
 

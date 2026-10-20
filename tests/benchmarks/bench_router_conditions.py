@@ -51,7 +51,7 @@ Usage:
 
     # Save results
     python3 tests/benchmarks/bench_router_conditions.py \\
-        --output tests/benchmarks/results/conditions_$(date +%Y%m%dT%H%M%S).json
+        --output ${PORTAL_DATA_ROOT}/tests/benchmarks/results/conditions_$(date +%Y%m%dT%H%M%S).json
 
     # Dry run — show what would be tested
     python3 tests/benchmarks/bench_router_conditions.py --dry-run

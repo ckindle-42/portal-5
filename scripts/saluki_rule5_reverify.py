@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import tempfile
 from pathlib import Path
 from typing import Any
@@ -10,10 +11,11 @@ import httpx
 import jinja2
 
 REPO = Path(__file__).resolve().parent.parent
+DATA_ROOT = Path(os.environ.get("PORTAL_DATA_ROOT", str(Path.home() / "AI_Output" / "portal-data")))
 
 from portal.platform.inference.ollama_native import to_native_request
 
-RESULTS = REPO / "tests/benchmarks/results/saluki_spike"
+RESULTS = DATA_ROOT / "tests" / "benchmarks" / "results" / "saluki_spike"
 RECEIPT = RESULTS / "p4_rule5_reverify.json"
 RENDERED = RESULTS / "rule5_reverify_rendered"
 WFE_DEBUG = RESULTS / "wfe/debug/portal5_underdog-saluki-27b_iq2-mix-ctx32k.debug.jsonl"

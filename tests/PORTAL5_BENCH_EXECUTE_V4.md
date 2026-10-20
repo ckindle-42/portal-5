@@ -37,7 +37,7 @@ entry point stable while the implementation was modularized.
 
 You are the **benchmark execution agent**, not the implementation agent. You
 execute the suite, diagnose failures, adjust the run, retry intelligently, and
-produce a Grafana dashboard update. Results go to `tests/benchmarks/results/`
+produce a Grafana dashboard update. Results go to `${PORTAL_DATA_ROOT}/tests/benchmarks/results/`
 as a timestamped JSON (`RESULTS_DIR` / `RESULTS_FILE` in
 `tests/benchmarks/bench/config.py`); the dashboard at
 `config/grafana/dashboards/portal5_benchmarks.json` updates from that file via
@@ -180,14 +180,14 @@ suggestion.
 ### On launch
 
 1. Start the run detached, logging to a timestamped file under
-   `tests/benchmarks/results/`.
+   `${PORTAL_DATA_ROOT}/tests/benchmarks/results/`.
 2. Record the PID and the expected test count (from `--dry-run`).
 3. Set the first wakeup ~20 min out.
 
 ## Why
 
 The bench writes results to a timestamped JSON under
-`tests/benchmarks/results/` by default: `RESULTS_DIR` and the UTC-stamped
+`${PORTAL_DATA_ROOT}/tests/benchmarks/results/` by default: `RESULTS_DIR` and the UTC-stamped
 `RESULTS_FILE` are set in `tests/benchmarks/bench/config.py`. Because a full
 run spans hours and the CLI appends as it goes, the output file doubles as the
 run's log of progress, so recording where it lives and the planned count on
@@ -277,11 +277,11 @@ checks cover the paths the bench's own request shape cannot reach.
 2. Update `config/grafana/dashboards/portal5_benchmarks.json` from the results
    JSON via the updater:
    ```bash
-   python3 scripts/update_grafana_benchmarks.py --input tests/benchmarks/results/<file>.json
+   python3 scripts/update_grafana_benchmarks.py --input "${PORTAL_DATA_ROOT}/tests/benchmarks/results/<file>.json"
    ```
 3. Commit:
    ```bash
-   git add tests/benchmarks/results/<file>.json config/grafana/dashboards/portal5_benchmarks.json
+   git add config/grafana/dashboards/portal5_benchmarks.json
    git commit -m "bench(tps): run <date> — <N> tests, <notable findings>"
    ```
 
@@ -292,7 +292,7 @@ rewrites `config/grafana/dashboards/portal5_benchmarks.json` (its
 `DASHBOARD_PATH` constant), rendering the direct/pipeline/persona tables from
 the JSON's `avg_tps` fields. The updater and the results file must be committed
 together so the dashboard and its source stay in sync; results live under
-`tests/benchmarks/results/` per `RESULTS_DIR` in
+`${PORTAL_DATA_ROOT}/tests/benchmarks/results/` per `RESULTS_DIR` in
 `tests/benchmarks/bench/config.py`. Confirming the count first prevents a
 partial run from being blessed as a baseline.
 

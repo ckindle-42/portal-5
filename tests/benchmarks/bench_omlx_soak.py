@@ -32,6 +32,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import random
 import threading
 import time
@@ -41,7 +42,8 @@ from pathlib import Path
 import bench_omlx_v3 as base
 import httpx
 
-RESULTS_DIR = Path(__file__).parent / "results"
+DATA_ROOT = Path(os.environ.get("PORTAL_DATA_ROOT", str(Path.home() / "AI_Output" / "portal-data")))
+RESULTS_DIR = DATA_ROOT / "tests" / "benchmarks" / "results"
 OMLX_URL = "http://localhost:8085"
 OLLAMA_URL = "http://localhost:11434"
 HEALTH_POLL_INTERVAL_S = 60

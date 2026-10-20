@@ -13,10 +13,12 @@ import argparse
 import collections
 import glob
 import json
+import os
 import statistics
 from pathlib import Path
 
-RESULTS = Path(__file__).resolve().parent / "results"
+DATA_ROOT = Path(os.environ.get("PORTAL_DATA_ROOT", str(Path.home() / "AI_Output" / "portal-data")))
+RESULTS = DATA_ROOT / "tests" / "benchmarks" / "results"
 TASKS = [
     "plate_4holes",
     "grommet_plate",

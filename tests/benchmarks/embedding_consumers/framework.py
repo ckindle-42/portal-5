@@ -12,6 +12,7 @@ from __future__ import annotations
 import hashlib
 import json
 import math
+import os
 import time
 from collections.abc import Awaitable, Callable, Iterable, Sequence
 from dataclasses import asdict, dataclass, field
@@ -20,7 +21,8 @@ from pathlib import Path
 from typing import Any
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
-REPORTS_DIR = REPO_ROOT / "reports" / "embedding_consumers"
+DATA_ROOT = Path(os.environ.get("PORTAL_DATA_ROOT", str(Path.home() / "AI_Output" / "portal-data")))
+REPORTS_DIR = DATA_ROOT / "reports" / "embedding_consumers"
 
 MEASURED, BLOCKED, ERROR, NOT_IMPLEMENTED = "MEASURED", "BLOCKED", "ERROR", "NOT_IMPLEMENTED"
 

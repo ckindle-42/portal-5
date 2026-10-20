@@ -174,7 +174,7 @@ already documented for gemma in Phase-0 (upstream draft filed) — the
 first tool-schema-bearing request after a fresh model load produced
 garbled output once, self-recovered on every retry immediately after. The
 oMLX warmup added this session does not carry tool schemas, so it doesn't
-pre-trigger this. See `PUNCHLIST.md` B2 for the full note and follow-up
+pre-trigger this. See `docs/PUNCHLIST.md` B2 for the full note and follow-up
 options.
 
 **Gates:** 2658 unit ✅, ruff ✅, `smoke_stream.sh` ✅, `ci_local.sh` ✅,

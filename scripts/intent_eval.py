@@ -25,16 +25,18 @@ from __future__ import annotations
 import argparse
 import glob
 import json
+import os
 import re
 from pathlib import Path
 
 import yaml
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
+DATA_ROOT = Path(os.environ.get("PORTAL_DATA_ROOT", str(Path.home() / "AI_Output" / "portal-data")))
 PORTAL_YAML = REPO_ROOT / "config" / "portal.yaml"
-RESULTS_DIR = REPO_ROOT / "tests" / "benchmarks" / "results"
-REPORTS = REPO_ROOT / "reports"
-SECURITY_CANDIDATES_DIR = REPO_ROOT / "tests" / "benchmarks" / "results" / "candidates"
+RESULTS_DIR = DATA_ROOT / "tests" / "benchmarks" / "results"
+REPORTS = DATA_ROOT / "reports"
+SECURITY_CANDIDATES_DIR = DATA_ROOT / "tests" / "benchmarks" / "results" / "candidates"
 
 SECURITY_TOOL_TEMPLATE_BLOCKED = {
     "hf.co/Jiunsong/SuperQwen-AgentWorld-35B-A3B-abliterated-gguf-4bit:Q4_K_M",

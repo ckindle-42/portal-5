@@ -19,7 +19,12 @@ from typing import Any, cast
 _PROJECT_ROOT = Path(__file__).resolve().parents[4]
 _SELF_DIR = Path(__file__).resolve().parent
 _RESULTS_DIR = _SELF_DIR / "results"
-_EXTRA_RESULTS_DIR = _PROJECT_ROOT / "tests" / "benchmarks" / "results"
+_EXTRA_RESULTS_DIR = (
+    Path(os.environ.get("PORTAL_DATA_ROOT", str(Path.home() / "AI_Output" / "portal-data")))
+    / "tests"
+    / "benchmarks"
+    / "results"
+)
 _JOURNAL_DIR = _SELF_DIR / "field_journal"
 
 # Matches sec_bench_*.json (the default baseline naming) AND sec_full_red_*/

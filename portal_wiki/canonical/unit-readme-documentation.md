@@ -27,7 +27,7 @@ The operator-facing manual is a set of reference docs at the repo root and under
 | [Cluster Scaling](docs/CLUSTER_SCALE.md) | Running multiple Ollama instances |
 | [Agent Loop](docs/AGENT_LOOP.md) | Platform-core bounded agent loop (`portal/platform/agent/`), the `portal agent` CLI |
 | [Backup & Restore](docs/BACKUP_RESTORE.md) | Data backup procedures |
-| [Known Issues](KNOWN_ISSUES.md) | Current limitations and workarounds |
+| [Known Issues](docs/KNOWN_ISSUES.md) | Current limitations and workarounds |
 
 Generated guide blocks are refreshed separately with `uv run portal docs
 build` when a release needs them. Live fact units are computed on demand by the

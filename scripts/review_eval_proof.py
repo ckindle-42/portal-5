@@ -23,6 +23,7 @@ from pathlib import Path
 from typing import Any
 
 REPO = Path(__file__).resolve().parents[1]
+DATA_ROOT = Path(os.environ.get("PORTAL_DATA_ROOT", str(Path.home() / "AI_Output" / "portal-data")))
 sys.path.insert(0, str(REPO))
 
 from portal.modules.security.core.bully.bots_answer_key import BOTS_ANSWER_KEY  # noqa: E402
@@ -66,10 +67,10 @@ CAPTURE_DATA_DIR = Path(
     "/Users/chris/projects/portal-5/portal/modules/security/core/results/captures"
 )
 
-OUTPUT = REPO / "reports" / "review_eval" / "e2e"
+OUTPUT = DATA_ROOT / "reports" / "review_eval" / "e2e"
 PRIVATE_OUTPUT = Path("/Users/chris/AI_Output/review/t6_proof")
-TRUTH_MANIFEST = REPO / "reports" / "review_eval" / "bots_truth_manifest.json"
-CAPTURE_MANIFEST = REPO / "reports" / "review_eval" / "capture_admission_manifest.json"
+TRUTH_MANIFEST = DATA_ROOT / "reports" / "review_eval" / "bots_truth_manifest.json"
+CAPTURE_MANIFEST = DATA_ROOT / "reports" / "review_eval" / "capture_admission_manifest.json"
 CALIBRATION_SLICE = Path("/Users/chris/AI_Output/review/calibration_slice.json")
 DEFAULT_BOT_POLICY = FunnelPolicy(
     alpha_unusual=0.2,

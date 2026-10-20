@@ -21,6 +21,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import os
 import sys
 import time
 from collections.abc import Iterator, Mapping, Sequence
@@ -29,6 +30,7 @@ from pathlib import Path
 from typing import Any, Protocol
 
 REPO = Path(__file__).resolve().parents[1]
+DATA_ROOT = Path(os.environ.get("PORTAL_DATA_ROOT", str(Path.home() / "AI_Output" / "portal-data")))
 sys.path.insert(0, str(REPO))
 
 from portal.modules.security.core.bully.bots_answer_key import BOTS_ANSWER_KEY  # noqa: E402
@@ -578,7 +580,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--partition-seconds", type=float, default=600.0)
     parser.add_argument("--timeout-seconds", type=float, default=90.0)
     parser.add_argument("--embed-dim", type=int, default=768)
-    parser.add_argument("--out", type=Path, default=REPO / "reports" / "review_eval")
+    parser.add_argument("--out", type=Path, default=DATA_ROOT / "reports" / "review_eval")
     parser.add_argument("--name", default="truth_derivation")
     parser.add_argument("--record", default="D-T8-PAIRING")
     args = parser.parse_args(argv)

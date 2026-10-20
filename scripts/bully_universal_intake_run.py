@@ -16,8 +16,11 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 from collections import Counter, defaultdict
 from pathlib import Path
+
+DATA_ROOT = Path(os.environ.get("PORTAL_DATA_ROOT", str(Path.home() / "AI_Output" / "portal-data")))
 from typing import Any
 
 from portal.modules.security.core.bully import anchors as anc
@@ -131,7 +134,7 @@ def main() -> int:
     parser.add_argument(
         "--output",
         type=Path,
-        default=Path("docs/BULLY_UNIVERSAL_INTAKE_RUN_M6_V1.json"),
+        default=DATA_ROOT / "docs" / "BULLY_UNIVERSAL_INTAKE_RUN_M6_V1.json",
     )
     args = parser.parse_args()
 

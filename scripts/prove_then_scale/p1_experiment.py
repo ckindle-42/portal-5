@@ -17,18 +17,20 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import sys
 import time
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
+DATA_ROOT = Path(os.environ.get("PORTAL_DATA_ROOT", str(Path.home() / "AI_Output" / "portal-data")))
 sys.path.insert(0, str(REPO_ROOT))
 
 from portal.modules.compliance.core import reading_material  # noqa: E402
 from portal.modules.compliance.core.reading_transport import ChatResult, chat  # noqa: E402
 from portal.modules.compliance.core.repository import Repository  # noqa: E402
 
-ART_DIR = REPO_ROOT / "reports" / "compliance" / "prove_then_scale" / "p1"
+ART_DIR = DATA_ROOT / "reports" / "compliance" / "prove_then_scale" / "p1"
 
 #: The six case questions from WINDOW_AND_SEAT_V1 §P6 (config/compliance/cases/
 #: cip_007_6.yaml), each with the ref whose population IS its material — the

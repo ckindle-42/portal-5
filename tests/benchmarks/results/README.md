@@ -1,11 +1,15 @@
 # Benchmark Results
 
-Timestamped JSON files from `python3 tests/benchmarks/bench_tps.py`. Each run produces one file.
+**Raw results moved out of the checkout.** Timestamped JSON files now live under
+`${PORTAL_DATA_ROOT}` (default `~/AI_Output/portal-data`), mirroring this path:
+`${PORTAL_DATA_ROOT}/tests/benchmarks/results/`. The benchmark scripts default
+there, so a new run writes nothing here. The pre-commit path rule rejects
+`*.json`, `*.jsonl` and `*.csv` added here; curated Markdown summaries stay.
 
 ## Useful jq queries
 
 ```bash
-LATEST=$(ls -t tests/benchmarks/results/bench_tps_*.json | head -1)
+LATEST=$(ls -t ${PORTAL_DATA_ROOT}/tests/benchmarks/results/bench_tps_*.json | head -1)
 
 # How many models tested / succeeded?
 jq '[.results[] | select(.runs_success > 0)] | length' "$LATEST"

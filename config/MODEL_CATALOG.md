@@ -502,7 +502,7 @@ Ollama ignores request-time `num_ctx`, so a challenger must arrive at the seat's
 
 ### `hf.co/sjakek/Nex-N2-mini-GGUF:UD-Q4_K_M-ctx16k`
 
-`hf.co/sjakek/Nex-N2-mini-GGUF:UD-Q4_K_M-ctx16k` is the 16K-context derived tag (baked `PARAMETER num_ctx 16384` via apply-params — Ollama's `/v1/chat/completions` ignores request-time `options.num_ctx`). PROMOTED 2026-09-07 (fleet closeout): it is the `auto-research` workspace `model_hint` after winning the research-task probe head-to-head twice on the same instrument (factuality 0.9/0.8, synthesis 5.0/4.5, vs incumbent xyz-aquila-mini 0.3 and tongyi-deepresearch 0.4 — `tests/benchmarks/results/research_probe_20260907T030136Z.json` + `research_probe_20260907T032401Z.json`). `config/backends.yaml` lists it with `supports_tools: true` in every group (verified 2026-09-25 by a neutral native tool-call probe — 3/3 single-call plus a clean tool-result turn); the router reads one flag per model id, last entry wins, so a per-group split never took effect.
+`hf.co/sjakek/Nex-N2-mini-GGUF:UD-Q4_K_M-ctx16k` is the 16K-context derived tag (baked `PARAMETER num_ctx 16384` via apply-params — Ollama's `/v1/chat/completions` ignores request-time `options.num_ctx`). PROMOTED 2026-09-07 (fleet closeout): it is the `auto-research` workspace `model_hint` after winning the research-task probe head-to-head twice on the same instrument (factuality 0.9/0.8, synthesis 5.0/4.5, vs incumbent xyz-aquila-mini 0.3 and tongyi-deepresearch 0.4 — `${PORTAL_DATA_ROOT}/tests/benchmarks/results/research_probe_20260907T030136Z.json` + `research_probe_20260907T032401Z.json`). `config/backends.yaml` lists it with `supports_tools: true` in every group (verified 2026-09-25 by a neutral native tool-call probe — 3/3 single-call plus a clean tool-result turn); the router reads one flag per model id, last entry wins, so a per-group split never took effect.
 
 ## Why
 
@@ -594,7 +594,7 @@ The prior body claimed a 2026-06-21 promotion with quality 1.00 and 12.1 TPS; `c
 
 Ornith-1.0-9B Q4_K_M was evaluated as a V10 coding candidate under the
 `bench-ornith-9b` workspace. The `TASK_MODEL_EVAL_V10_CANDIDATES` record in
-`tests/benchmarks/results/v10_candidates_20260629T202251Z.json` carries its tool-chain
+`${PORTAL_DATA_ROOT}/tests/benchmarks/results/v10_candidates_20260629T202251Z.json` carries its tool-chain
 probe run, where it scored above the baseline floor on its probe markers for the
 ImportError-diagnosis scenario. It was dropped on 2026-06-30: the same batch kept the
 35B sibling, and `bench-ornith-35b` was promoted from the V10 candidate eval per the
@@ -786,7 +786,7 @@ and `cand_huihui_ai_baronllm-abliterated_latest_exploit_20260704T055814Z.json`, 
 candidates. Because `PROMOTE_POLICY=confirm`, the harness reports deltas and never swaps
 fleet config, so a candidate batch always ends as comparison records with nothing
 promoted. The `TASK_MODEL_EVAL_V10_CANDIDATES` probe run in
-`tests/benchmarks/results/v10_candidates_20260629T194541Z.json` records per-workspace
+`${PORTAL_DATA_ROOT}/tests/benchmarks/results/v10_candidates_20260629T194541Z.json` records per-workspace
 probe scores for the bench-* candidate workspaces.
 
 ## Why
@@ -1036,7 +1036,7 @@ The doc body claimed it was "MOVED from security group to reasoning"; re-groundi
 Qwythos-9B Claude-Mythos-5-1M Q4_K_M was evaluated as a V10 candidate under the
 `bench-qwythos-9b` workspace and dropped on 2026-06-30. The
 `TASK_MODEL_EVAL_V10_CANDIDATES` record in
-`tests/benchmarks/results/v10_candidates_20260629T194541Z.json` shows it scoring at
+`${PORTAL_DATA_ROOT}/tests/benchmarks/results/v10_candidates_20260629T194541Z.json` shows it scoring at
 the floor on the long-context needle probe — its 1M-context headline bought nothing in
 a 50KB needle hunt — and falling short on the uncensored-depth probe. On those two
 probes it cleared no meaningful bar, and the drop verdict followed. The model id
@@ -2095,7 +2095,7 @@ Landed as an isolated bench candidate on the shadow-shift oMLX-security path so 
 
 ### `hf.co/HauhauCS/Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive:Q4_K_M`
 
-The bare (undecorated) pull tag for the model documented below as `portal5/hauhaucs-qwen36-35b:q4_K_M-ctx256k`. Registered in `config/backends.yaml`'s `general` group (in addition to `coding`'s ctx256k derived tag) 2026-08-27 as the `bench-hauhaucs-coder` bench workspace's `model_hint` and as one variant backend of `auto-uncensored-throwaway` — the bench_repair coding-correctness run (2026-08-26/27, `tests/benchmarks/results/BENCH_REPAIR_MOE_CODERS_20260826.md`) ran against this exact bare tag, so it is kept registered for provenance even though the bare tag defaults to Ollama's 32768 context cap (too small for real opencode/agentic use — see the ctx256k entry below). `auto-uncensored-throwaway`'s primary `model_hint` uses the ctx256k tag instead; this bare id remains only for the bench workspace and as a documented alternate.
+The bare (undecorated) pull tag for the model documented below as `portal5/hauhaucs-qwen36-35b:q4_K_M-ctx256k`. Registered in `config/backends.yaml`'s `general` group (in addition to `coding`'s ctx256k derived tag) 2026-08-27 as the `bench-hauhaucs-coder` bench workspace's `model_hint` and as one variant backend of `auto-uncensored-throwaway` — the bench_repair coding-correctness run (2026-08-26/27, `${PORTAL_DATA_ROOT}/tests/benchmarks/results/BENCH_REPAIR_MOE_CODERS_20260826.md`) ran against this exact bare tag, so it is kept registered for provenance even though the bare tag defaults to Ollama's 32768 context cap (too small for real opencode/agentic use — see the ctx256k entry below). `auto-uncensored-throwaway`'s primary `model_hint` uses the ctx256k tag instead; this bare id remains only for the bench workspace and as a documented alternate.
 
 ---
 
@@ -2113,7 +2113,7 @@ Kept separate from the existing `fredrezones55` repack entry because they're dif
 
 The bare (undecorated) pull tag for the model documented below as `portal5/gemma4-26b-heretic:q4_K_M-ctx256k`. Same registration/provenance rationale as the HauhauCS bare-tag entry above: kept in `config/backends.yaml`'s `general` group 2026-08-27 for the `bench-gemma4-heretic-coder` bench workspace (which the completed bench_repair run actually used) and as an `auto-uncensored-throwaway` variant backend; the ctx256k tag is used for the workspace's primary/default routing. Also this bare tag is the `model_hint` for `bench-moecad` (TASK_CAD_MODULE_OVERHAUL_V1 Phase 8's MoE CAD challenger, cloning `auto-cad`'s full tool loop incl. `generate_scad`) — the 2026-08-26/27 local-dev IDE MoE-vs-dense track's leader, tested here on whether that lead transfers to CAD.
 
-**CAD bench (Phase 8) — the only arm with completed data; the rest of the matrix is deferred.** This MoE arm's gauntlet run (`86c8f38a`, `tests/benchmarks/results/cap_cad-overhaul_20260827T164110Z.moe-only.txt`) is the sole completed dataset from Phase 8: `t3_bracket` and `t4_spur_gear` (direct OpenSCAD path) passed cleanly (watertight, plausible bbox); `t2_grommet_plate` (generate_scad Tier-A) called the right tool but produced a genuine model dimension error (built a 4mm-deep plate against an 80x30x4mm spec — wrong dimension mapping); `t1_enclosure` and `t5_gyroid_panel` returned inconclusive results (a since-fixed raw-tool-response capture gap). The what-was (`bench-cad-prior`), what-is (`auto-cad` incumbent), and could-be-dense (`bench-qwen36-cad`) arms were never run to completion — no dense-vs-MoE-vs-incumbent verdict exists. The operator intends to run the full gauntlet directly in a later session.
+**CAD bench (Phase 8) — the only arm with completed data; the rest of the matrix is deferred.** This MoE arm's gauntlet run (`86c8f38a`, `${PORTAL_DATA_ROOT}/tests/benchmarks/results/cap_cad-overhaul_20260827T164110Z.moe-only.txt`) is the sole completed dataset from Phase 8: `t3_bracket` and `t4_spur_gear` (direct OpenSCAD path) passed cleanly (watertight, plausible bbox); `t2_grommet_plate` (generate_scad Tier-A) called the right tool but produced a genuine model dimension error (built a 4mm-deep plate against an 80x30x4mm spec — wrong dimension mapping); `t1_enclosure` and `t5_gyroid_panel` returned inconclusive results (a since-fixed raw-tool-response capture gap). The what-was (`bench-cad-prior`), what-is (`auto-cad` incumbent), and could-be-dense (`bench-qwen36-cad`) arms were never run to completion — no dense-vs-MoE-vs-incumbent verdict exists. The operator intends to run the full gauntlet directly in a later session.
 
 ### `hf.co/mradermacher/gemma-4-26B-A4B-it-heretic-GGUF:Q4_K_M-ctx16k`
 

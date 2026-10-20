@@ -281,9 +281,13 @@ def _is_reasoning_model(model: str, workspace_id: str = "") -> bool:
 # Repo root: tests/benchmarks/bench/config.py → three parents up from tests/.
 PROJECT_ROOT = Path(__file__).resolve().parents[3]
 
-# Results live beside the package, under tests/benchmarks/results/ (unchanged
-# location — recomputed because this file is one level deeper than bench_tps.py).
-RESULTS_DIR = Path(__file__).resolve().parents[1] / "results"
+# Raw results live outside the checkout, under the operator's data root.
+RESULTS_DIR = (
+    Path(os.environ.get("PORTAL_DATA_ROOT", str(Path.home() / "AI_Output" / "portal-data")))
+    / "tests"
+    / "benchmarks"
+    / "results"
+)
 # Default output: timestamped UTC file under tests/benchmarks/results/
 # Override with --output. Operator commits selected baselines manually.
 RESULTS_FILE = str(RESULTS_DIR / f"bench_tps_{datetime.now(UTC).strftime('%Y%m%dT%H%M%SZ')}.json")

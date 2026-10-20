@@ -19,7 +19,7 @@ import yaml
 
 REPO = Path(__file__).resolve().parents[3]
 QUEUE = REPO / "tests" / "wfe" / "candidate_queue.yaml"
-RECEIPT = REPO / "docs" / "WFE_DISPOSITION_BACKFILL_20261014.json"
+RECEIPT = REPO / "tests" / "fixtures" / "wfe_disposition_backfill_20261014.json"
 
 
 def _load():

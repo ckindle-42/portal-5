@@ -53,13 +53,8 @@ venv/
 # Agent task files
 coding_task/
 
-# tests/benchmarks/results/ is tracked (needed for off-machine analysis)
-# Per-host benchmark bookkeeping is local even though selected baselines are tracked.
-tests/benchmarks/results/.quant_trueup_last_utc
-# Engine head-to-head: per-launch engine logs and live pid state are local; the
-# <model>.jsonl result rows beside them are the tracked receipts.
-tests/benchmarks/results/engine_h2h/logs/
-tests/benchmarks/results/engine_h2h/state/
+# Bench results moved out of main (B6): raw output lives under $PORTAL_DATA_ROOT.
+# The directories keep a README pointer only.
 tests/fixtures/audio/*
 # WFE audio_production clips are tracked fixtures (build_audio_production.py; `say` output is not byte-stable).
 !tests/fixtures/audio/aud-*.wav
@@ -81,12 +76,8 @@ tests/uat_adaptive/
 tests/ADAPTIVE_UAT_RESULTS.md
 tests/UAT_RESULTS_ADAPTIVE.md
 
-# WFE campaign run artifacts — per-run manifests, row records, preflight caches
-# and the full --debug-dir capture (every request, response, tool output and
-# sandbox tree for 552 runs). Gigabytes of machine-local evidence; the report it
-# produces is what belongs in docs/. Suites, graded/ and workloads.yaml are
-# source and are NOT under results/.
-tests/wfe/results/
+# WFE campaign run artifacts moved out of main (B6): manifests, rows and debug
+# captures live under $PORTAL_DATA_ROOT. Suites and workloads.yaml stay.
 config/proxmox_ca.pem
 
 # lab_discover.py output — live host state snapshot, not source
@@ -133,7 +124,7 @@ portal/modules/security/core/results/VALIDATION_*.md
 # controlled (same pattern as metrics_state.json in portal_pipeline).
 portal_wiki/provenance_ledger.jsonl
 
-# reports/ is tracked (needs to be part of main for off-machine analysis)
+# reports/ raw output moved out of main (B6): evidence lives under $PORTAL_DATA_ROOT.
 
 # Runtime supervisor state — regenerates every run, not source.
 /supervisor_log.json
@@ -163,7 +154,6 @@ data/private/
 # P7/F09: operator-issued reviewer tokens — a secret, never committed.
 portal/modules/compliance/data/compliance_reviewers.json
 portal/modules/compliance/data/compliance_store.db.pre-repair-backup
-reports/compliance/prove_then_scale/p1_run*.log
 
 # ZCode harness-local state (skills, session config)
 .zcode/
@@ -173,10 +163,3 @@ data/compliance/backups/
 
 # ZCode workspace ignore config (harness-local, like .zcode/)
 .zcodeignore
-# READING_TRUTH_V1 P1: run data stays local; outcome summaries are top-level md
-reports/compliance/*/
-reports/compliance/*.json
-
-# CAD gauntlet transcripts and run logs (large, local)
-reports/cad/traces/
-reports/cad/matrix_*.log

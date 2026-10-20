@@ -16,7 +16,7 @@ What changed from v1 (bench_cad_gauntlet.py, kept as the historical record):
 Usage:
   uv run python tests/benchmarks/bench_cad_gauntlet_v2.py \\
       --arm b0=auto-cad --arm prior=bench-cad-prior --reps 3 --label B0
-Results: tests/benchmarks/results/cad_gauntlet_v2_<label>_<ts>.{json,md}
+Results: ${PORTAL_DATA_ROOT}/tests/benchmarks/results/cad_gauntlet_v2_<label>_<ts>.{json,md}
 Resumable: --resume <json> skips (arm, task, rep) cells already recorded.
 Set CAD_GAUNTLET_TRACE_DIR=<dir> to write one full transcript per cell. Each cell also
 records `ended` (final_text | turn_cap | error) and the model's last text.
@@ -45,7 +45,8 @@ sys.path.insert(0, str(REPO_ROOT))
 
 from tests.benchmarks.cad_grader import grade_mesh  # noqa: E402
 
-RESULTS_DIR = REPO_ROOT / "tests" / "benchmarks" / "results"
+DATA_ROOT = Path(os.environ.get("PORTAL_DATA_ROOT", str(Path.home() / "AI_Output" / "portal-data")))
+RESULTS_DIR = DATA_ROOT / "tests" / "benchmarks" / "results"
 OLLAMA_URL = os.environ.get("OLLAMA_URL", "http://localhost:11434")
 # Container paths in tool results are under /workspace; on the host that is AI_OUTPUT_DIR.
 CONTAINER_WS = "/workspace"

@@ -21,11 +21,15 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import pathlib
 import sys
 import time
 
 REPO_ROOT = pathlib.Path(__file__).resolve().parents[2]
+DATA_ROOT = pathlib.Path(
+    os.environ.get("PORTAL_DATA_ROOT", str(pathlib.Path.home() / "AI_Output" / "portal-data"))
+)
 sys.path.insert(0, str(REPO_ROOT))
 
 from portal.modules.compliance.core import (  # noqa: E402
@@ -37,7 +41,14 @@ from portal.modules.compliance.core.cip_register import Register  # noqa: E402
 from portal.modules.compliance.core.repository import Repository  # noqa: E402
 
 DEFAULT_OUT = (
-    REPO_ROOT / "reports" / "compliance" / "load_and_converse" / "p3" / "family_links.json"
+    pathlib.Path(
+        os.environ.get("PORTAL_DATA_ROOT", str(pathlib.Path.home() / "AI_Output" / "portal-data"))
+    )
+    / "reports"
+    / "compliance"
+    / "load_and_converse"
+    / "p3"
+    / "family_links.json"
 )
 
 

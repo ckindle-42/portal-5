@@ -5,6 +5,20 @@ All notable changes to Portal 5 will be documented in this file.
 ## [Unreleased]
 
 ### Changed
+- **Root docs consolidated (B8).** Root keeps `README`, `CHANGELOG`, `CLAUDE.md`, `ROADMAP`
+  (renamed from `P5_ROADMAP.md`) and a current-only `KNOWN_LIMITATIONS`; `KNOWN_ISSUES`,
+  `PUNCHLIST`, `WFE_ROOT_FIX_PROGRAM`, `ACCEPTANCE_RESULTS` and `AGENTS_CAMPAIGN_SUPERVISOR`
+  moved under `docs/`. Resolved limitations moved to this file; their full decision and
+  evidence text is archived in `docs/archive/KNOWN_LIMITATIONS_RESOLVED_20261019.md`.
+  Resolved limitations recorded: `P5-CAD-ARM64-001` (build123d/OCP installs on arm64),
+  `pytest portal` write-through artifacts (isolated by `isolated_security_writes`),
+  `P5-ENV-MULTIPROC-HOSTLEAK-001` (security bench import no longer mutates the host env),
+  `P5-ANTHROPIC-COMPAT-001` (null `/v1/messages` success body), `P5-REQ-SIZE-001` (chunked
+  bodies now bounded), `P5-EMERGENT-002` (deterministic capability progression),
+  `P5-ROUTER-EVICTION-001` (router model evicted by one request), `P5-TOOL-NARRATION-001`
+  (narrated fake tool calls), `P5-OLLAMA-GPU-OVERHEAD-001` (40 GiB reservation starved
+  large models), `T5-COMPLIANCE-LANDING-001` (an engine with no route) and
+  `T5-COMPLIANCE-LANDING-002` (scope gated on data the corpus answers).
 - **Defensive Bully consolidation.** Removed the retired autonomous hunt CLI and orchestrator, the multi-agent investigation scaffold, and unreachable Bully modules, tests, and one-off scripts. The retained review, data-plane, corpus, discovery, and evaluation code remains documented in the current Wiki surfaces.
 - **CAD arm redeveloped: build123d BREP primary, arm64-native.** `auto-cad` now builds exact
   BREP solids with build123d (STEP + STL + PNG out) through `generate_part` (the same feature-level

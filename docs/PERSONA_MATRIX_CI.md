@@ -2,7 +2,7 @@
 
 This unit is the operations surface of the persona-matrix CI: how a sweep is configured, triggered, and consumed by an operator. Configuration is registry-driven — `WORKSPACE_REGISTRY` in `_common.py` maps each sweepable workspace to its assertion module, fixture module, persona categories, and an optional `threshold_doc`. The `auto-compliance` entry binds to `tests.lib.compliance_assertions`, `tests.lib.compliance_fixtures`, the compliance category, and `docs/COMPLIANCE_FALLBACK_POLICY.md`; `auto-coding` binds to the coding assertion and fixture libraries and carries no `threshold_doc` (the coding fallback-policy doc it once named does not exist, so the dead reference was dropped). The workflow supports three operator flows: baseline creation (run locally, inspect, commit the workspace-scoped JSON), manual dispatch (pick a workspace and the `ollama` backend from the workflow inputs), and artifact retrieval (the `persona_matrix-*` upload with 30-day retention).
 
-CI differs from the fallback-policy docs in an important way: the workflow is policy-free. It only compares a fresh run against the committed baseline through `--baseline-compare`; deciding what behavior is acceptable is delegated to the `threshold_doc` files the registry references, which the gate never reads. Operations are therefore split between the mechanical diff and the human-owned acceptability policy.
+CI differs from the fallback-policy docs in an important way: the workflow is policy-free. It only compares a fresh run against the saved baseline through `--baseline-compare`; deciding what behavior is acceptable is delegated to the `threshold_doc` files the registry references, which the gate never reads. Operations are therefore split between the mechanical diff and the human-owned acceptability policy.
 
 ## Why
 
@@ -25,7 +25,7 @@ The persona-matrix workflow has no scheduled cron trigger. `persona_matrix_night
                                                      tests/portal5_persona_matrix.py --baseline-compare --regression-threshold 10
                                                               │
                                                               ▼
-                                                     tests/benchmarks/results/persona_matrix_<ws>_ci_<ts>.json   (uploaded artifact)
+                                                     ${PORTAL_DATA_ROOT}/tests/benchmarks/results/persona_matrix_<ws>_ci_<ts>.json   (uploaded artifact)
                                                               │
                                                               ▼
                                                      tests/persona_matrix_diff.py vs baseline   (run log, no PR comment)
@@ -44,13 +44,13 @@ The shape matters because the doc that produced this unit drew a `[scheduled cro
 
 ## Baseline lifecycle
 
-The persona matrix treats a committed result file as the reference the CI gate diffs against. The workflow's `Determine sweep parameters` step expects that reference at `tests/benchmarks/results/persona_matrix_baseline_<workspace>.json` and, when present, hands it to the sweep via `--baseline-compare`. A first baseline is therefore an operator action: run the driver locally without `--baseline-compare`, inspect the rendered matrix, and commit the JSON under the workspace-scoped name. The workflow never writes this file — its own sweep output goes to a timestamped `persona_matrix_<workspace>_ci_<ts>.json` artifact — so the baseline can only change through an operator-authored commit.
+The persona matrix treats a baseline result file under the operator's data root as the reference the CI gate diffs against. The workflow's `Determine sweep parameters` step expects that reference at `${PORTAL_DATA_ROOT}/tests/benchmarks/results/persona_matrix_baseline_<workspace>.json` and, when present, hands it to the sweep via `--baseline-compare`. A first baseline is therefore an operator action: run the driver locally without `--baseline-compare`, inspect the rendered matrix, and save the JSON under the workspace-scoped name in the data root. The workflow never writes this file — its own sweep output goes to a timestamped `persona_matrix_<workspace>_ci_<ts>.json` artifact — so the baseline can only change through an operator action.
 
 Re-baselining is warranted when the same inputs that fire the workflow change behavior expectations. The PR path filter watches `config/personas/**` (persona system-prompt edits), `config/backends.yaml` (a model added to a workspace chain), `tests/lib/**` (assertion-library threshold or regex changes), and `tests/fixtures/**` (scenario edits). A model re-pull that moves the Ollama digest is not a file change; it surfaces as a regression in the next baseline diff and is the signal to re-baseline when the new behavior is in spec. The quarterly cadence is operator policy, not code — nothing enforces it; the mechanical backstop is the regression threshold (`--regression-threshold`, default 10pp) applied by `persona_matrix_diff.py`'s `compute_regressions`.
 
 ## Why
 
-The lifecycle exists because the CI gate is a diff, not an absolute judge: the workflow can only decide clean or red against a previously committed reference, so an operator must own when that reference moves. Binding the trigger list to the workflow's PR paths makes "when do I re-baseline" mechanically checkable instead of a memory, while digest-drift and quarterly cases stay human judgment, which is why they are policy rather than enforced in code.
+The lifecycle exists because the CI gate is a diff, not an absolute judge: the workflow can only decide clean or red against a previously saved reference, so an operator must own when that reference moves. Binding the trigger list to the workflow's PR paths makes "when do I re-baseline" mechanically checkable instead of a memory, while digest-drift and quarterly cases stay human judgment, which is why they are policy rather than enforced in code.
 
 ---
 
@@ -58,7 +58,7 @@ The lifecycle exists because the CI gate is a diff, not an absolute judge: the w
 
 CI runs on a self-hosted runner because the sweep and its pre-flight step need host access to the Portal 5 stack. The workflow's `runs-on: self-hosted` line and its Pre-flight step curl `localhost:9099` (pipeline health) and `localhost:11434` (Ollama version) before the sweep starts; a public GitHub-hosted runner has neither of those loopback services. If the self-hosted runner is offline the job queues — the workflow declares no fallback label, so GitHub has no hosted pool to spill onto.
 
-The CI run is non-destructive by construction. Sweep output lands at `tests/benchmarks/results/persona_matrix_<workspace>_ci_<ts>.json`, is uploaded as a `persona_matrix-*` artifact with `retention-days: 30`, and is never committed by the workflow. The baseline file is only read (passed to `--baseline-compare`), so baseline updates require an operator-authored commit. The workflow does not post a PR comment: it prints the `persona_matrix_diff.py` summary to the run log and, when the sweep exited non-zero, fails the job with that same exit code — a failed PR check blocks merge, while a manual dispatch failure only marks that run red.
+The CI run is non-destructive by construction. Sweep output lands at `${PORTAL_DATA_ROOT}/tests/benchmarks/results/persona_matrix_<workspace>_ci_<ts>.json`, is uploaded as a `persona_matrix-*` artifact with `retention-days: 30`, and is never committed. The baseline file is only read (passed to `--baseline-compare`), so baseline updates require an operator action. The workflow does not post a PR comment: it prints the `persona_matrix_diff.py` summary to the run log and, when the sweep exited non-zero, fails the job with that same exit code — a failed PR check blocks merge, while a manual dispatch failure only marks that run red.
 
 ## Why
 

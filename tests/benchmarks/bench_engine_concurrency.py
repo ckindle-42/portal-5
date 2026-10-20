@@ -62,7 +62,7 @@ Usage:
       --concurrency 4 --state B
 
   python3 tests/benchmarks/bench_engine_concurrency.py summarize \
-      --results tests/benchmarks/results --state B --shape fanout
+      --results ${PORTAL_DATA_ROOT}/tests/benchmarks/results --state B --shape fanout
 """
 
 from __future__ import annotations
@@ -84,7 +84,8 @@ import httpx
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 from portal.platform.inference.omlx_auth import omlx_headers  # noqa: E402
 
-RESULTS_DIR = Path(__file__).parent / "results"
+DATA_ROOT = Path(os.environ.get("PORTAL_DATA_ROOT", str(Path.home() / "AI_Output" / "portal-data")))
+RESULTS_DIR = DATA_ROOT / "tests" / "benchmarks" / "results"
 
 # All three speak OpenAI /v1/chat/completions, which is what makes one protocol
 # possible. splash is reached through the host forwarder, never 127.0.0.1:8000

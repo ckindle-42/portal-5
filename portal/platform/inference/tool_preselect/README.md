@@ -3,7 +3,7 @@
 **Roadmap ID:** `P5-FUT-TOOL-PRESELECT`
 **Status:** built, feature-flagged off by default. See
 `docs/_archive_execdocs/` for the Phase 5 validation summary once it
-lands; see `P5_ROADMAP.md` for the current enable/not-ready status.
+lands; see `ROADMAP.md` for the current enable/not-ready status.
 
 ## Problem
 

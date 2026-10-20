@@ -25,14 +25,16 @@ import argparse
 import datetime as _dt
 import hashlib
 import json
+import os
 import re
 import subprocess
 import time
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
+DATA_ROOT = Path(os.environ.get("PORTAL_DATA_ROOT", str(Path.home() / "AI_Output" / "portal-data")))
 LEDGER_PATH = REPO_ROOT / "config" / "PENDING_MODEL_VERDICTS.md"
-CACHE_DIR = REPO_ROOT / "reports" / "model_cards"
+CACHE_DIR = DATA_ROOT / "reports" / "model_cards"
 
 ENTRY_RE = re.compile(r"^- \[[x ]\] `([^`]+)` — [\d.]+ GB")
 FETCH_TIMEOUT = 15

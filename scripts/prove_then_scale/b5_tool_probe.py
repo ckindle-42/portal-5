@@ -36,7 +36,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 from portal.platform.inference.omlx_auth import omlx_headers  # noqa: E402
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
-ART = REPO_ROOT / "reports" / "compliance" / "prove_then_scale" / "b5"
+DATA_ROOT = Path(os.environ.get("PORTAL_DATA_ROOT", str(Path.home() / "AI_Output" / "portal-data")))
+ART = DATA_ROOT / "reports" / "compliance" / "prove_then_scale" / "b5"
 
 ENGINES = {
     "ollama": "http://localhost:11434",

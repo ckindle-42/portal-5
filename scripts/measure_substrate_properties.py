@@ -23,12 +23,14 @@ from __future__ import annotations
 
 import asyncio
 import json
+import os
 import sys
 import time
 from datetime import UTC, datetime
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
+DATA_ROOT = Path(os.environ.get("PORTAL_DATA_ROOT", str(Path.home() / "AI_Output" / "portal-data")))
 sys.path.insert(0, str(REPO_ROOT))
 
 from portal.modules.compliance.core import evaluation, section_index, tiers  # noqa: E402
@@ -161,7 +163,7 @@ def recall_at_k(kb_ids: list[str], rows: dict[str, dict], truth: dict) -> dict:
 
 def scorer_validation() -> dict:
     """score_reading over the four hand-judged seat-probe transcripts."""
-    probe_dir = REPO_ROOT / "reports" / "compliance" / "seat_probe"
+    probe_dir = DATA_ROOT / "reports" / "compliance" / "seat_probe"
     repo = Repository()
     try:
         examples = evaluation.labelled_examples(repo)
@@ -270,7 +272,7 @@ def main() -> int:
             }
         measurements["recall_at_k"] = recall_at_k(kb_ids, rows, truth)
         measurements["elapsed_s"] = round(time.time() - started, 1)
-        out = REPO_ROOT / "reports" / "compliance" / "SUBSTRATE_PROPERTIES_V1_measurements.json"
+        out = DATA_ROOT / "reports" / "compliance" / "SUBSTRATE_PROPERTIES_V1_measurements.json"
         out.write_text(json.dumps(measurements, indent=1) + "\n")
         print(f"measurements: {out}")
         print(

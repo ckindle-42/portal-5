@@ -20,7 +20,7 @@ Scored on STRUCTURE, per case:
                      for (loose ±30% tolerance — we're checking the model honored
                      a parametric constraint, not exact CAD precision)
 
-Emits tests/benchmarks/results/cad_probe_<UTC>.json in the bench_tps JSON shape
+Emits ${PORTAL_DATA_ROOT}/tests/benchmarks/results/cad_probe_<UTC>.json in the bench_tps JSON shape
 (harness prefix `cad_probe`). quality_score = fraction of cases that produced a
 watertight positive-volume solid — the bar that separates "wrote real CAD" from
 "wrote plausible-looking code that doesn't compile."
@@ -45,7 +45,8 @@ from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 OLLAMA_URL = "http://localhost:11434"
-RESULTS_DIR = REPO_ROOT / "tests" / "benchmarks" / "results"
+DATA_ROOT = Path(os.environ.get("PORTAL_DATA_ROOT", str(Path.home() / "AI_Output" / "portal-data")))
+RESULTS_DIR = DATA_ROOT / "tests" / "benchmarks" / "results"
 TIMEOUT = 300
 PROBE_PREDICT = 4096
 OPENSCAD_BIN = os.getenv("OPENSCAD_BIN", "openscad")

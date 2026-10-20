@@ -13,12 +13,14 @@ Usage:
 from __future__ import annotations
 
 import json
+import os
 import statistics
 import sys
 from pathlib import Path
 from typing import Any
 
 REPO = Path(__file__).resolve().parents[1]
+DATA_ROOT = Path(os.environ.get("PORTAL_DATA_ROOT", str(Path.home() / "AI_Output" / "portal-data")))
 
 
 def load(directory: Path) -> list[dict[str, Any]]:
@@ -117,7 +119,7 @@ def applied_settings(rows: list[dict[str, Any]]) -> str:
 def main() -> int:
     directories = [Path(a) for a in sys.argv[1:]]
     if not directories:
-        root = REPO / "reports" / "compliance" / "acceptance"
+        root = DATA_ROOT / "reports" / "compliance" / "acceptance"
         directories = sorted(p for p in root.iterdir() if p.is_dir())
     rows: list[dict[str, Any]] = []
     for directory in directories:

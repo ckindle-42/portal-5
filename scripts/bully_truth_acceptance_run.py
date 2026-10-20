@@ -50,12 +50,14 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import sys
 import time
 from pathlib import Path
 from typing import Any
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
+DATA_ROOT = Path(os.environ.get("PORTAL_DATA_ROOT", str(Path.home() / "AI_Output" / "portal-data")))
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 if str(REPO_ROOT / "scripts") not in sys.path:
@@ -100,7 +102,7 @@ def main() -> int:
     parser.add_argument("--max-timelines", type=int, default=25)
     parser.add_argument("--dry-run-generate", action="store_true", help="skip R.5a live dispatch")
     parser.add_argument("--dry-run-hec", action="store_true", help="skip HEC ship (log only)")
-    parser.add_argument("--out-dir", type=Path, default=REPO_ROOT / "docs")
+    parser.add_argument("--out-dir", type=Path, default=DATA_ROOT / "docs")
     parser.add_argument("--doc-stem", default="BULLY_TRUTH_ACCEPTANCE_RUN_Y6_V1")
     args = parser.parse_args()
 

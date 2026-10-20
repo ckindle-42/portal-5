@@ -6,8 +6,8 @@ title: "MODEL_CATALOG \u2014 Blue/red candidate batch evaluated 2026-07-03 \u201
 sources:
 - type: code
   path: portal/modules/security/core/candidate_eval.py
-- type: code
-  path: tests/benchmarks/results/v10_candidates_20260629T194541Z.json
+- type: doc
+  path: config/MODEL_CATALOG.md
 claims: []
 confidence: high
 tags:

@@ -106,7 +106,7 @@ migration always passes, nothing can silently regress what's already been
 cleaned up. Full investigation: `docs/_archive_execdocs/
 PHASE6_TRIP_FINDINGS_20260713.md`.
 
-**Follow-on filed:** `P5-FUT-ALIAS-SHIM-RETIRE` in `P5_ROADMAP.md`, with the
+**Follow-on filed:** `P5-FUT-ALIAS-SHIM-RETIRE` in `ROADMAP.md`, with the
 concrete next step for each holdout.
 
 ## 6. Program summary — commits

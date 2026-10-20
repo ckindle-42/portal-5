@@ -19,6 +19,7 @@ from __future__ import annotations
 import argparse
 import json
 import math
+import os
 import subprocess
 import sys
 from collections.abc import Callable, Mapping, Sequence
@@ -28,6 +29,7 @@ from typing import Any
 import yaml
 
 REPO = Path(__file__).resolve().parents[1]
+DATA_ROOT = Path(os.environ.get("PORTAL_DATA_ROOT", str(Path.home() / "AI_Output" / "portal-data")))
 sys.path.insert(0, str(REPO))
 
 from portal.modules.security.core.review_eval import (  # noqa: E402
@@ -446,7 +448,7 @@ def _git_commit_time(repo: Path) -> Callable[[str], float | None]:
 
 def collect(repo: Path) -> dict[str, Any]:
     reports: list[dict[str, Any]] = []
-    for path in sorted((repo / "reports" / "review_eval").rglob("*.json")):
+    for path in sorted((DATA_ROOT / "reports" / "review_eval").rglob("*.json")):
         doc = json.loads(path.read_text(encoding="utf-8"))
         if "stamp_digest" in doc and "metrics" in doc:
             reports.append(doc)
@@ -469,7 +471,7 @@ def collect(repo: Path) -> dict[str, Any]:
             )
         )
     ownership_path = repo / "config" / "security" / "review_ownership.yaml"
-    proof_path = repo / "reports" / "review_eval" / "e2e" / "t6_proof.json"
+    proof_path = DATA_ROOT / "reports" / "review_eval" / "e2e" / "t6_proof.json"
     proof_report = (
         json.loads(proof_path.read_text(encoding="utf-8")) if proof_path.is_file() else None
     )
@@ -481,7 +483,7 @@ def collect(repo: Path) -> dict[str, Any]:
         else []
     )
     return {
-        "census": _latest_census(repo / "reports" / "bully_review"),
+        "census": _latest_census(DATA_ROOT / "reports" / "bully_review"),
         "decisions": parsed,
         "reports": reports,
         "ownership": yaml.safe_load(ownership_path.read_text(encoding="utf-8"))

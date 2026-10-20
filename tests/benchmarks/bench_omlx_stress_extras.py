@@ -24,6 +24,7 @@ from __future__ import annotations
 import argparse
 import base64
 import json
+import os
 import statistics as st
 import threading
 import time
@@ -32,7 +33,8 @@ from pathlib import Path
 
 import bench_omlx_v3 as base
 
-RESULTS_DIR = Path(__file__).parent / "results"
+DATA_ROOT = Path(os.environ.get("PORTAL_DATA_ROOT", str(Path.home() / "AI_Output" / "portal-data")))
+RESULTS_DIR = DATA_ROOT / "tests" / "benchmarks" / "results"
 ASSETS_DIR = Path(__file__).parent / "assets"
 
 UNCONSTRAINED_PROMPT = "Briefly describe, in one or two sentences, what a doubly linked list is."

@@ -68,13 +68,10 @@ def test_schema_examples_validate_against_schema():
 
 
 def test_real_phase8_payloads_are_actionably_rejected():
-    result_path = ROOT / "tests/benchmarks/results/cap_cad-overhaul_20260827T164110Z.moe-only.json"
-    arms = json.loads(result_path.read_text())
-    results = arms[0]["results"]
-    t1 = next(result for result in results if result["task"] == "t1_enclosure")
-    t2 = next(result for result in results if result["task"] == "t2_grommet_plate")
-    t1_geometry = t1["tool_calls"][0]["args"]["geometry"]
-    t2_geometry = t2["tool_calls"][0]["args"]["geometry"]
+    # Golden geometry from the 2026-08-27 phase-8 run (raw results live under $PORTAL_DATA_ROOT).
+    payloads = json.loads((ROOT / "tests/fixtures/cad_phase8_payloads.json").read_text())
+    t1_geometry = payloads["t1_enclosure"]
+    t2_geometry = payloads["t2_grommet_plate"]
 
     t1_errors = " ".join(validate_geometry(t1_geometry))
     assert "features" in t1_errors

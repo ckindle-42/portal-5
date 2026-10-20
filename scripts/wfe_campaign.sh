@@ -26,7 +26,8 @@ REPEATS_FLAG="--repeats ${REPEATS}"
 [ "$REPEATS" = "policy" ] && REPEATS_FLAG=""
 BUDGET_S="${BUDGET_S:-1800}"
 MAX_TURNS="${MAX_TURNS:-16}"
-DEBUG_DIR="${DEBUG_DIR:-tests/wfe/results/campaigns/${CAMPAIGN_ID}/debug}"
+DATA_ROOT="${PORTAL_DATA_ROOT:-$HOME/AI_Output/portal-data}"
+DEBUG_DIR="${DEBUG_DIR:-${DATA_ROOT}/tests/wfe/results/campaigns/${CAMPAIGN_ID}/debug}"
 LOG_DIR="${LOG_DIR:-/tmp/wfe_${CAMPAIGN_ID}}"
 PROGRESS_LOG="${LOG_DIR}/progress.log"
 ALL_SUITES_FLAG=""
@@ -79,7 +80,7 @@ try:
 except Exception:
     size = {}
 try:
-    with open('tests/wfe/results/campaigns/${CAMPAIGN_ID}/manifest.json') as f:
+    with open('${DATA_ROOT}/tests/wfe/results/campaigns/${CAMPAIGN_ID}/manifest.json') as f:
         rows = json.load(f)['rows']
     incumbents = {r.get('model') or r['arm'] for r in rows if r.get('arm_role') == 'incumbent'}
 except Exception:

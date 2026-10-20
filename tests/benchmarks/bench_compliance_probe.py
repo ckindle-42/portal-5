@@ -22,7 +22,7 @@ A case passes if the model names BOTH the correct NIST control and NERC-CIP
 requirement. Exact ID match (normalized for spacing/case) — compliance is a
 domain where "close" is wrong.
 
-Emits tests/benchmarks/results/compliance_probe_<UTC>.json (harness prefix
+Emits ${PORTAL_DATA_ROOT}/tests/benchmarks/results/compliance_probe_<UTC>.json (harness prefix
 `compliance_probe`). quality_score = fraction of cases with both IDs correct.
 """
 
@@ -31,6 +31,7 @@ from __future__ import annotations
 import argparse
 import datetime as _dt
 import json
+import os
 import re
 import time
 import urllib.request
@@ -38,7 +39,8 @@ from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 OLLAMA_URL = "http://localhost:11434"
-RESULTS_DIR = REPO_ROOT / "tests" / "benchmarks" / "results"
+DATA_ROOT = Path(os.environ.get("PORTAL_DATA_ROOT", str(Path.home() / "AI_Output" / "portal-data")))
+RESULTS_DIR = DATA_ROOT / "tests" / "benchmarks" / "results"
 CORPUS = REPO_ROOT / "portal" / "modules" / "security" / "core" / "siem" / "spl_detections.yaml"
 TIMEOUT = 240
 PROBE_PREDICT = 4096

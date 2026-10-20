@@ -42,6 +42,7 @@ from __future__ import annotations
 import datetime as _dt
 import glob
 import json
+import os
 import re
 import subprocess
 import sys
@@ -53,11 +54,12 @@ from pathlib import Path
 import yaml
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
+DATA_ROOT = Path(os.environ.get("PORTAL_DATA_ROOT", str(Path.home() / "AI_Output" / "portal-data")))
 LEDGER_PATH = REPO_ROOT / "config" / "PENDING_MODEL_VERDICTS.md"
 SNAPSHOT_PATH = REPO_ROOT / "config" / "model_inventory.snapshot"
 PORTAL_PATH = REPO_ROOT / "config" / "portal.yaml"
 CANONICAL_DIR = REPO_ROOT / "portal_wiki" / "canonical"
-REPORTS_DIR = REPO_ROOT / "reports"
+REPORTS_DIR = DATA_ROOT / "reports"
 
 ENTRY_RE = re.compile(r"^- \[x\] `([^`]+)` — ([\d.]+) GB")
 VERDICT_RE = re.compile(
