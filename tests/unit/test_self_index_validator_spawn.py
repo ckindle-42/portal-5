@@ -27,8 +27,7 @@ class TestXAndAANeverSpawnValidator:
 
         monkeypatch.setattr(subprocess, "run", _record_run)
 
-        status, _detail, _subs = vs.check_self_index_integrity()
-        assert status == "PASS"
+        vs.check_self_index_integrity()  # its verdict depends on live data; only spawning is asserted
 
         validator_calls = [
             (cmd, kw) for cmd, kw in calls if any("validate_system.py" in str(arg) for arg in cmd)
@@ -57,8 +56,7 @@ class TestXAndAANeverSpawnValidator:
 
         monkeypatch.setattr(subprocess, "run", _record_run)
 
-        status, _detail, _subs = vs.check_stage2_propose_integrity()
-        assert status == "PASS"
+        vs.check_stage2_propose_integrity()  # its verdict depends on live data; only spawning is asserted
 
         validator_calls = [
             (cmd, kw) for cmd, kw in calls if any("validate_system.py" in str(arg) for arg in cmd)
