@@ -93,6 +93,18 @@ def test_mathreasoner_presets_the_reasoning_math_variant():
     assert _resolve_workspace_variant("mathreasoner", workspace, None) == "auto-reasoning::math"
 
 
+def test_synthetic_math_workspace_resolves_through_variant_merger():
+    from portal.platform.inference.config import load_portal_config
+    from portal.platform.inference.router.preinject import _resolve_workspace_variant
+    from portal.platform.inference.router.workspaces import WORKSPACES
+
+    resolved = _resolve_workspace_variant("auto-reasoning::math", "auto-reasoning", "math")
+    expected = load_portal_config().workspaces["auto-reasoning"].variants["math"]
+
+    assert resolved == "auto-reasoning::math"
+    assert WORKSPACES[resolved]["model_hint"] == expected["model_hint"]
+
+
 def test_math_alias_is_removed_from_router_labels():
     from portal.platform.inference.router.routing import _VALID_WORKSPACE_IDS
 

@@ -944,6 +944,49 @@ class TestOfflineRescore:
         assert served.endswith(variant["system_prompt_append"])
         assert wsc["declared_tools"] == variant["tools"]
 
+    def test_reasoning_math_variant_uses_effective_settings(self):
+        from portal.platform.inference.config import effective_workspace
+        from tests.wfe.runner import REPO, workspace_context
+
+        workspaces = yaml.safe_load((REPO / "config/portal.yaml").read_text())["workspaces"]
+        expected = effective_workspace(workspaces, "auto-reasoning::math")
+        actual = workspace_context("auto-reasoning::math")
+        assert actual["model"] == expected["model_hint"]
+        assert actual["context_limit"] == expected["context_limit"]
+        assert actual["sampling"]["max_tokens"] == expected["predict_limit"]
+        assert actual["sampling"]["temperature"] == expected["temperature"]
+
+    def test_pipeline_request_uses_the_variant_id_as_model(self, monkeypatch):
+        from tests.wfe import runner
+
+        monkeypatch.setattr(runner, "ENGINE", "pipeline")
+        _url, payload, _headers = runner._build_pipeline(
+            "auto-reasoning::math",
+            [{"role": "user", "content": "solve"}],
+            "none",
+            {},
+            None,
+            "default",
+            False,
+        )
+        assert payload["model"] == "auto-reasoning::math"
+
+    def test_settings_audit_resolves_variant_seats(self):
+        from tests.wfe.settings_audit import _seats
+
+        portal = {
+            "workspaces": {
+                "engine": {
+                    "model_hint": "base-model",
+                    "context_limit": 16384,
+                    "variants": {"math": {"model_hint": "math-model", "context_limit": 8192}},
+                }
+            }
+        }
+        seats = dict(_seats(portal))
+        assert seats["engine::math"]["model_hint"] == "math-model"
+        assert seats["engine::math"]["context_limit"] == 8192
+
     def test_base_workspace_system_prompt_append_is_applied(self):
         import yaml
 

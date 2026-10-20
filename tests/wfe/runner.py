@@ -54,6 +54,7 @@ from pathlib import Path
 import yaml
 
 from portal.platform.inference import model_cards as _model_cards
+from portal.platform.inference.config import effective_workspace
 from portal.platform.inference.ollama_native import to_native_request
 from portal.platform.inference.omlx_auth import omlx_headers
 from portal.platform.inference.router.text_tool_calls import salvage_text_tool_calls
@@ -1243,11 +1244,10 @@ def workspace_context(ws_id: str, persona: str | None = None) -> dict:
     """`ws_id` may name a variant as `workspace::variant`, the synthetic id
     production uses (router/preinject.py `_resolve_workspace_variant`): the
     variant's keys shallow-override the base workspace's."""
-    portal = yaml.safe_load((REPO / "config/portal.yaml").read_text())
-    base_id, _, variant = ws_id.partition("::")
-    ws = portal["workspaces"][base_id]
-    if variant:
-        ws = {**ws, **ws["variants"][variant]}
+    portal = yaml.safe_load((REPO / "config/portal.yaml").read_text()) or {}
+    workspaces = portal.get("workspaces") or {}
+    base_id = ws_id.partition("::")[0]
+    ws = effective_workspace(workspaces, ws_id)
     # The seat is what a user gets by selecting the WORKSPACE in Open WebUI: its
     # preset's params.system, which sync-config renders from
     # `owui_system_prompt`. Until 2026-10-13 the harness measured the

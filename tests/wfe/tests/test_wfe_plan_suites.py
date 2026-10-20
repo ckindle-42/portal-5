@@ -84,6 +84,23 @@ def test_every_plan_suite_file_exists():
     assert missing == [], f"plans reference missing suites: {missing}"
 
 
+def test_reasoning_math_variant_plan_builds_a_matrix():
+    from tests.wfe.campaign import expand_matrix
+    from tests.wfe.runner import workspace_context
+
+    rows = expand_matrix(
+        PLANS / "reasoning_math_decision_v1.yaml",
+        1,
+        only_workspace="auto-reasoning::math",
+        tier="screen",
+    )
+
+    assert rows
+    assert {row["workspace"] for row in rows} == {"auto-reasoning::math"}
+    assert {row["suite"] for row in rows} == {"reasoning_math_production"}
+    assert workspace_context("auto-reasoning::math")["context_limit"] == 24576
+
+
 def test_the_six_o5_suites_carry_the_full_shape():
     """Production suites meet their task floor and preserve their screen/full split."""
     for suite, kinds in {

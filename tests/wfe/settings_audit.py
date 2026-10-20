@@ -35,6 +35,7 @@ from typing import TYPE_CHECKING
 
 import yaml
 
+from portal.platform.inference.config import effective_workspace
 from portal.platform.inference.model_cards import card_entry as _card_entry_matched
 from portal.platform.inference.omlx_auth import omlx_headers
 
@@ -1495,15 +1496,18 @@ def _seats(portal: dict):
     synthetic `workspace::variant` id with the variant's keys merged over the
     base (router/preinject.py). Variants were never audited before — and most
     of the fleet's specialised seats are variants."""
-    for ws_id, ws in (portal.get("workspaces") or {}).items():
+    workspaces = portal.get("workspaces") or {}
+    for ws_id, ws in workspaces.items():
         if not isinstance(ws, dict):
             continue
-        if ws.get("model_hint"):
-            yield ws_id, ws
-        for vname, v in (ws.get("variants") or {}).items():
-            merged = {**ws, **(v or {})}
+        effective = effective_workspace(workspaces, ws_id)
+        if effective.get("model_hint"):
+            yield ws_id, effective
+        for vname in ws.get("variants") or {}:
+            variant_id = f"{ws_id}::{vname}"
+            merged = effective_workspace(workspaces, variant_id)
             if merged.get("model_hint"):
-                yield f"{ws_id}::{vname}", merged
+                yield variant_id, merged
 
 
 def _registered_models(backends: dict) -> tuple[set[str], dict[str, bool]]:

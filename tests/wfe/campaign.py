@@ -76,6 +76,7 @@ from pathlib import Path
 import yaml
 
 from portal.platform.inference.cluster_backends import BackendRegistry
+from portal.platform.inference.config import effective_workspace
 from tests.wfe import decision, eval_mode
 from tests.wfe.checkers import CheckContext, apply_checkers
 from tests.wfe.runner import (
@@ -259,12 +260,18 @@ def drain_model(tag: str, timeout_s: int = DRAIN_TIMEOUT_S) -> bool:
 
 
 def production_seat_tags() -> set[str]:
-    """Every model tag a production workspace seats (portal.yaml model_hint). N-12: in
-    pipeline mode the harness shares the engines with production, so it never evicts these."""
+    """Every model tag seated by a base workspace or variant."""
     spaces = (yaml.safe_load((REPO / "config/portal.yaml").read_text()) or {}).get(
         "workspaces"
     ) or {}
-    return {str(w["model_hint"]) for w in spaces.values() if (w or {}).get("model_hint")}
+    tags = set()
+    for base_id, base in spaces.items():
+        workspace_ids = [base_id, *(f"{base_id}::{name}" for name in (base.get("variants") or {}))]
+        for workspace_id in workspace_ids:
+            hint = effective_workspace(spaces, workspace_id).get("model_hint")
+            if hint:
+                tags.add(str(hint))
+    return tags
 
 
 def drain_others(keep: str, timeout_s: int = DRAIN_TIMEOUT_S) -> list[str]:
@@ -924,16 +931,29 @@ _SERVING_CONFIG = (
 
 
 def _workspace_block(sha: str, workspace: str) -> str:
-    """sha256 of the workspace's portal.yaml block at `sha`; empty when absent."""
+    """Hash the base block and selected variant block at sha; empty when absent."""
     if not workspace or not _SHA_RE.fullmatch(sha or ""):
         return ""
     try:
         doc = yaml.safe_load(_git("show", f"{sha}:config/portal.yaml")) or {}
     except yaml.YAMLError:
         return ""
-    block = (doc.get("workspaces") or {}).get(workspace)
-    if not isinstance(block, dict):
+    workspaces = doc.get("workspaces") or {}
+    base_id, _, variant = workspace.partition("::")
+    base = workspaces.get(base_id)
+    if not isinstance(base, dict):
         return ""
+    try:
+        effective = effective_workspace(workspaces, workspace)
+    except (KeyError, TypeError):
+        return ""
+    if variant:
+        variant_block = (base.get("variants") or {}).get(variant)
+        if not isinstance(variant_block, dict):
+            return ""
+        block = {"base": base, "variant": variant_block, "effective": effective}
+    else:
+        block = effective
     return hashlib.sha256(json.dumps(block, sort_keys=True, default=str).encode()).hexdigest()
 
 
@@ -3534,6 +3554,19 @@ def _cmd_dry_run(matrix: list[dict], repeats: int | dict[str, int]) -> int:
     for a, n in sorted(c.items()):
         rep = f"   repeats {repeats[a]}" if isinstance(repeats, dict) else ""
         print(f"  {n:>4}  {a}{rep}")
+    head = _git("rev-parse", "HEAD").strip()
+    for workspace in sorted({row["workspace"] for row in matrix}):
+        try:
+            context = workspace_context(workspace)
+        except (KeyError, TypeError):
+            print(f"  workspace {workspace}: settings unavailable config_fingerprint=unavailable")
+            continue
+        fingerprint = (pipeline_at(head, workspace) or {}).get("workspace", "unavailable")
+        print(
+            f"  workspace {workspace}: model={context.get('model')} "
+            f"context={context.get('context_limit')} predict={context.get('sampling', {}).get('max_tokens')} "
+            f"config_fingerprint={fingerprint}"
+        )
     try:
         rec = gate_controls(matrix, "dry-run")
     except SystemExit as e:

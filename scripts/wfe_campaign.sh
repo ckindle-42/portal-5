@@ -14,7 +14,9 @@
 #   REPEATS=5 ALL_SUITES=1 ./scripts/wfe_campaign.sh wfe_deep --arm <tag>
 set -uo pipefail
 
-cd /Users/chris/projects/portal-5
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="$(dirname "$SCRIPT_DIR")"
+cd "$REPO_ROOT"
 
 CAMPAIGN_ID="${1:?usage: wfe_campaign.sh <campaign_id> [extra args...]}"
 shift || true
@@ -51,6 +53,15 @@ echo "$(ts) CAMPAIGN ${CAMPAIGN_ID} repeats=${REPEATS} all_suites=${ALL_SUITES:-
 uv run python -m tests.wfe.campaign \
     --campaign-id "$CAMPAIGN_ID" $REPEATS_FLAG $ALL_SUITES_FLAG $PLAN_FLAG \
     --append --dry-run "$@" 2>&1 | tee -a "$PROGRESS_LOG"
+DRY_RUN_RC=$?
+if [ "$DRY_RUN_RC" -ne 0 ]; then
+    exit "$DRY_RUN_RC"
+fi
+for arg in "$@"; do
+    if [ "$arg" = "--dry-run" ]; then
+        exit 0
+    fi
+done
 uv run python -m tests.wfe.campaign \
     --campaign-id "$CAMPAIGN_ID" $REPEATS_FLAG $ALL_SUITES_FLAG $PLAN_FLAG \
     --append --status "$@" 2>&1 | tee -a "$PROGRESS_LOG"

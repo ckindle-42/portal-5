@@ -524,6 +524,44 @@ def test_pipeline_digest_keys_on_the_rows_own_workspace_block():
     )
 
 
+def test_variant_pipeline_digest_includes_base_and_variant_blocks(monkeypatch):
+    import yaml
+
+    base = {
+        "engine": {
+            "model_hint": "base-v1",
+            "variants": {"math": {"temperature": 0.6}},
+        }
+    }
+    variant_change = {
+        "engine": {
+            "model_hint": "base-v1",
+            "variants": {"math": {"temperature": 0.7}},
+        }
+    }
+    base_change = {
+        "engine": {
+            "model_hint": "base-v2",
+            "variants": {"math": {"temperature": 0.6}},
+        }
+    }
+    configs = {"a" * 40: base, "b" * 40: variant_change, "c" * 40: base_change}
+
+    def fake_git(*args):
+        if args[0] == "show":
+            sha = args[1].split(":", 1)[0]
+            return yaml.safe_dump({"workspaces": configs[sha]})
+        return ""
+
+    monkeypatch.setattr(campaign, "_git", fake_git)
+    monkeypatch.setattr(campaign, "tree_at", lambda _sha, _path: "d" * 40)
+    original = campaign.pipeline_at("a" * 40, "engine::math")
+
+    assert original
+    assert original != campaign.pipeline_at("b" * 40, "engine::math")
+    assert original != campaign.pipeline_at("c" * 40, "engine::math")
+
+
 def test_tool_index_places_route_served_and_async_tools(monkeypatch):
     """remember/recall are memory-server routes and execute_python is an async def; all
     three must place, and a route beats a same-named function in another module

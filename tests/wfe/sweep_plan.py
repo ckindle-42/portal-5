@@ -18,6 +18,8 @@ from typing import Any
 
 import yaml
 
+from portal.platform.inference.config import effective_workspace
+
 REPO = Path(__file__).resolve().parents[2]
 QUEUE = Path(__file__).with_name("candidate_queue.yaml")
 PLANS = Path(__file__).with_name("plans")
@@ -32,8 +34,9 @@ def window_tokens(tag: str) -> int | None:
 
 
 def servable(workspace: str, backends: dict) -> set[str]:
-    """Model tags the workspace's routed backend groups serve (ids and alias keys)."""
-    groups = set((backends.get("workspace_routing") or {}).get(workspace) or [])
+    """Model tags the base workspace's routed backend groups serve."""
+    base_id = workspace.partition("::")[0]
+    groups = set((backends.get("workspace_routing") or {}).get(base_id) or [])
     tags: set[str] = set()
     for be in backends.get("backends") or []:
         if be.get("group") not in groups:
@@ -91,7 +94,10 @@ def _reject(model: str, entry: dict, ws: str, seat: dict, backends: dict, portal
         return "it is the incumbent"
     if model not in servable(ws, backends):
         return f"not served by {ws}'s workspace_routing groups"
-    limit = (portal.get(ws) or {}).get("context_limit")
+    try:
+        limit = effective_workspace(portal, ws).get("context_limit")
+    except (KeyError, TypeError):
+        limit = None
     window = window_tokens(model)
     if not isinstance(limit, int):
         return "workspace context_limit is missing"

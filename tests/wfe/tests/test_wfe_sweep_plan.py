@@ -116,6 +116,57 @@ def test_two_decision_plans_for_one_workspace_are_refused(tmp_path):
         sp.generate(queue, plans, {"workspace_routing": {}, "backends": []}, {})
 
 
+def test_variant_uses_merged_context_and_base_routing_groups(tmp_path):
+    plans = tmp_path / "plans"
+    plans.mkdir()
+    _plan_file(
+        plans,
+        "reasoning_decision_v1.yaml",
+        {"auto-reasoning::math": _seat("seat:ctx8k", "reasoning_math_production")},
+    )
+    queue = tmp_path / "queue.yaml"
+    queue.write_text(
+        yaml.safe_dump(
+            {
+                "models": {
+                    "candidate:ctx8k": {
+                        "available": True,
+                        "intended": ["auto-reasoning::math"],
+                    },
+                    "small:ctx4k": {
+                        "available": True,
+                        "intended": ["auto-reasoning::math"],
+                    },
+                }
+            }
+        )
+    )
+    backends = {
+        "workspace_routing": {"auto-reasoning": ["reasoning"]},
+        "backends": [
+            {
+                "group": "reasoning",
+                "models": [{"id": "candidate:ctx8k"}, {"id": "small:ctx4k"}],
+            }
+        ],
+    }
+    portal = {
+        "auto-reasoning": {
+            "context_limit": 16384,
+            "variants": {"math": {"context_limit": 8192}},
+        }
+    }
+
+    plan, notes = sp.generate(queue, plans, backends, portal)
+
+    assert plan["workloads"]["auto-reasoning::math"]["arms"]["challengers"] == ["candidate:ctx8k"]
+    assert sp.servable("auto-reasoning::math", backends) == {
+        "candidate:ctx8k",
+        "small:ctx4k",
+    }
+    assert any("small:ctx4k left out: window 4096 < context_limit 8192" in n for n in notes)
+
+
 def test_the_checked_in_sweep_matches_the_generator_and_expands(monkeypatch):
     """Production allowlists are a pipeline-mode property, so the gap check is too."""
     monkeypatch.setattr(campaign, "ENGINE", "pipeline")
