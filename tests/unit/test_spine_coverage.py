@@ -90,41 +90,35 @@ _BODY_BY_ID: dict[str, str] = {
         "gate, because there is no baseline left to absorb new debt once the "
         "coverage set reaches one hundred percent."
     ),
-    "unit-surface-foo": (
-        "The foo subsystem owns the request path, and the surface unit "
-        "documents the contract of the whole directory rather than one file "
-        "inside it, which is the regrained shape the manifest gate expects.\n\n"
+    "unit-module-foo": (
+        "The foo module owns its request path end to end, and the module "
+        "unit documents the contract of the whole directory rather than one "
+        "file inside it, which is the ownership shape the B3 gate expects.\n\n"
         "## Why\n\n"
-        "A directory glob names one surface covering many files, so the "
-        "surface unit must pass the gate and cite paths matching the glob "
-        "for the manifest two-part assertion to accept it as documented."
+        "A module directory names one ownable surface covering many files, "
+        "so the module unit must pass the gate and cite a path under its "
+        "directory for the ownership assertion to accept it as the "
+        "documented owner of the code inside."
     ),
-    "unit-surface-bar": (
-        "The bar subsystem enumerates its surfaces by glob, and the manifest "
-        "gate expands each match so a directory-wide citation never understates "
-        "coverage across the synthetic tree's backend files.\n\n"
+    "unit-surface-orphan": (
+        "The orphan directory ships real tooling without a roster seat "
+        "today, so its files are owned by the surface unit that explains "
+        "the harness until a module unit exists for it.\n\n"
         "## Why\n\n"
-        "A glob citation legitimately covers every file it matches, and the "
-        "manifest must count all of them or the gate reports false "
-        "uncovered surfaces for a directory that is fully documented."
+        "Directory ownership falls back to the best gate-passing unit "
+        "citing the directory, and this unit is that fallback, which keeps "
+        "unrostered module code documented while the runtime roster catches "
+        "up with the tree on disk."
     ),
-    "unit-engine-a": (
-        "The wiki engine file a.py is declared per-file in the manifest so "
-        "that a brand new file in the engine directory is not automatically "
-        "covered by a sibling glob and must be deliberately registered.\n\n"
+    "unit-platform-pkg": (
+        "The pkg package carries the platform-side plumbing that every "
+        "engine routes through, and its unit explains the package contract "
+        "the way a module unit explains a discipline.\n\n"
         "## Why\n\n"
-        "The engine is the extraction-guarantee boundary, so a new file there "
-        "must force an explicit manifest addition instead of riding in under "
-        "a directory glob, which is exactly what the R3 probe verifies."
-    ),
-    "unit-engine-b": (
-        "The wiki engine file b.py is the second per-file manifest entry, "
-        "paired with a.py, and together they prove that per-file declarations "
-        "still satisfy the manifest's coverage requirement for the engine.\n\n"
-        "## Why\n\n"
-        "Per-file coverage for the engine directory keeps the boundary honest "
-        "while still meeting part two's demand that every eligible file fall "
-        "under some declared surface entry."
+        "A platform package is owned by the gate-passing unit citing most "
+        "of its eligible files, so the strongest explainer wins the entry, "
+        "and the gate checks that the winner still cites inside the package "
+        "it owns."
     ),
 }
 
@@ -250,105 +244,144 @@ def test_empty_tree_reports_full_coverage_not_division_error(tmp_path: Path) -> 
     assert report.pct == 100.0
 
 
-# ── R3 manifest-driven gate ───────────────────────────────────────────────────
-
-_WIKI_ENGINE = "portal/platform/wiki"
+# ── B3 directory-ownership gate ───────────────────────────────────────────────
 
 
-def _manifest_units() -> list[KnowledgeUnit]:
-    """A synthetic tree: two glob-covered dirs + a per-file engine dir."""
+def _ownership_units() -> list[KnowledgeUnit]:
+    """A synthetic tree: one rostered module, one unrostered dir, one package."""
     return [
-        _unit("unit-surface-foo", "portal/foo/alpha.py", "portal/foo/beta.py"),
-        _unit("unit-surface-bar", "portal/bar/*.py"),
-        _unit("unit-engine-a", f"{_WIKI_ENGINE}/a.py"),
-        _unit("unit-engine-b", f"{_WIKI_ENGINE}/b.py"),
+        _unit("unit-module-foo", "portal/modules/foo/a.py"),
+        _unit("unit-surface-orphan", "portal/modules/orphan/b.py"),
+        _unit("unit-platform-pkg", "portal/platform/pkg/x.py"),
     ]
 
 
-def _manifest_tree(tmp_path: Path) -> Path:
+def _ownership_tree(tmp_path: Path) -> Path:
     for p in (
-        "portal/foo/alpha.py",
-        "portal/foo/beta.py",
-        "portal/bar/x.py",
-        "portal/bar/y.py",
-        f"{_WIKI_ENGINE}/a.py",
-        f"{_WIKI_ENGINE}/b.py",
+        "portal/modules/foo/a.py",
+        "portal/modules/orphan/b.py",
+        "portal/platform/pkg/x.py",
     ):
         f = tmp_path / p
         f.parent.mkdir(parents=True, exist_ok=True)
         f.write_text("x = 1\n")
+    (tmp_path / "config").mkdir(exist_ok=True)
     return tmp_path
 
 
-def test_manifest_generation_covers_every_eligible_file(tmp_path: Path) -> None:
-    tree = _manifest_tree(tmp_path)
-    units = _manifest_units()
-    surfaces = generate_surface_manifest(tree, units)
-    eligible = set(discover_code_surfaces(tree))
-    covered: set[str] = set()
-    for s in surfaces:
-        for g in s["globs"]:
-            if any(ch in g for ch in "*?["):
-                for m in tree.glob(g):
-                    if m.is_file():
-                        covered.add(str(m.relative_to(tree)))
-            else:
-                covered.add(g)
-    assert eligible <= covered, eligible - covered
+def test_ownership_manifest_has_one_entry_per_directory(tmp_path: Path) -> None:
+    tree = _ownership_tree(tmp_path)
+    units = _ownership_units()
+    surfaces = {s["name"]: s for s in generate_surface_manifest(tree, units)}
+    assert surfaces["module-foo"] == {
+        "name": "module-foo",
+        "dir": "portal/modules/foo",
+        "unit": "unit-module-foo",
+    }
+    # a module dir without its unit-module falls to the best citing unit
+    assert surfaces["module-orphan"]["unit"] == "unit-surface-orphan"
+    assert surfaces["platform-pkg"]["unit"] == "unit-platform-pkg"
 
 
-def test_manifest_two_part_gate_passes_when_covered(tmp_path: Path) -> None:
-    tree = _manifest_tree(tmp_path)
-    units = _manifest_units()
+def test_ownership_gate_passes_when_every_entity_is_covered(tmp_path: Path) -> None:
+    tree = _ownership_tree(tmp_path)
+    units = _ownership_units()
     write_surface_manifest(tree, units)
-    part1, part2 = surface_manifest_uncovered(tree, units)
+    part1, part2 = surface_manifest_uncovered(tree, units, module_roster=["foo"])
     assert part1 == []
     assert part2 == []
 
 
-def test_manifest_gate_fails_new_file_outside_surfaces(tmp_path: Path) -> None:
-    """The R3 adversarial probe: a new file under no declared surface fails."""
-    tree = _manifest_tree(tmp_path)
-    units = _manifest_units()
+def test_new_file_inside_module_needs_no_manifest_entry(tmp_path: Path) -> None:
+    """The B3 done-when: a code edit inside a module is not a manifest event."""
+    tree = _ownership_tree(tmp_path)
+    units = _ownership_units()
     write_surface_manifest(tree, units)
-    # new file in the per-file engine dir — not declared → must fail
-    probe = tmp_path / _WIKI_ENGINE / "_simplify_probe.py"
-    probe.write_text("x = 1\n")
-    _part1, part2 = surface_manifest_uncovered(tree, units)
-    assert f"{_WIKI_ENGINE}/_simplify_probe.py" in part2
+    before = (tree / "config" / "spine_surfaces.yaml").read_text()
+    (tree / "portal" / "modules" / "foo" / "late.py").write_text("x = 2\n")
+    (tree / "portal" / "platform" / "pkg" / "late.py").write_text("x = 2\n")
+    write_surface_manifest(tree, units)
+    after = (tree / "config" / "spine_surfaces.yaml").read_text()
+    assert after == before
+    part1, part2 = surface_manifest_uncovered(tree, units, module_roster=["foo"])
+    assert part1 == []
+    assert part2 == []
 
 
-def test_manifest_gate_fails_when_covering_unit_is_gate_failing(tmp_path: Path) -> None:
-    """Part 1: a declared surface whose unit fails the quality gate is broken."""
-    tree = _manifest_tree(tmp_path)
+def test_undeclared_module_dir_fails_coverage(tmp_path: Path) -> None:
+    """A new module dir is a contract change: it must be declared (and owned)."""
+    tree = _ownership_tree(tmp_path)
+    units = _ownership_units()
+    write_surface_manifest(tree, units)
+    extra = tree / "portal" / "modules" / "extra"
+    extra.mkdir()
+    (extra / "c.py").write_text("x = 3\n")
+    _part1, part2 = surface_manifest_uncovered(tree, units, module_roster=["foo"])
+    assert "portal/modules/extra is named in no manifest entry" in part2
+
+
+def test_owner_unit_failing_quality_gate_fails_part1(tmp_path: Path) -> None:
+    tree = _ownership_tree(tmp_path)
     weak = KnowledgeUnit(
-        id="unit-surface-foo",
+        id="unit-module-foo",
         kind="what",
-        title="unit-surface-foo",
-        sources=[SourceRef(type="code", path="portal/foo/alpha.py")],
+        title="unit-module-foo",
+        sources=[SourceRef(type="code", path="portal/modules/foo/a.py")],
         body="too short",
     )
-    units = [weak] + [u for u in _manifest_units() if u.id != "unit-surface-foo"]
+    units = [weak] + [u for u in _ownership_units() if u.id != "unit-module-foo"]
     write_surface_manifest(tree, units)
     part1, _part2 = surface_manifest_uncovered(tree, units)
-    assert any("unit-surface-foo" in e for e in part1)
+    assert any("unit-module-foo" in e for e in part1)
+
+
+def test_roster_module_without_unit_fails_coverage(tmp_path: Path) -> None:
+    """Every rostered module needs its unit-module, even without a code dir."""
+    tree = _ownership_tree(tmp_path)
+    units = _ownership_units()
+    write_surface_manifest(tree, units)
+    _part1, part2 = surface_manifest_uncovered(tree, units, module_roster=["foo", "ghost"])
+    assert "module ghost has no unit-module-ghost" in part2
+    # default roster = module dirs on disk, so an unrostered dir is asked for too
+    _part1, part2 = surface_manifest_uncovered(tree, units)
+    assert "module orphan has no unit-module-orphan" in part2
+
+
+def test_fleet_id_without_capability_unit_fails_coverage(tmp_path: Path) -> None:
+    tree = _ownership_tree(tmp_path)
+    units = _ownership_units()
+    write_surface_manifest(tree, units)
+    _part1, part2 = surface_manifest_uncovered(
+        tree, units, module_roster=["foo"], mcp_fleet=["nosuch"]
+    )
+    assert "MCP nosuch has no unit-capability-nosuch" in part2
+
+
+def test_empty_package_dir_is_no_entity(tmp_path: Path) -> None:
+    """A dir with no eligible code is not a coverage entity."""
+    tree = _ownership_tree(tmp_path)
+    hollow = tree / "portal" / "platform" / "hollow"
+    hollow.mkdir(parents=True)
+    (hollow / "__init__.py").write_text("")
+    names = {s["name"] for s in generate_surface_manifest(tree, _ownership_units())}
+    assert "platform-hollow" not in names
 
 
 def test_manifest_is_idempotent(tmp_path: Path) -> None:
-    tree = _manifest_tree(tmp_path)
-    units = _manifest_units()
+    tree = _ownership_tree(tmp_path)
+    units = _ownership_units()
     write_surface_manifest(tree, units)
-    first = (tmp_path / "config" / "spine_surfaces.yaml").read_text()
+    first = (tree / "config" / "spine_surfaces.yaml").read_text()
     write_surface_manifest(tree, units)
-    second = (tmp_path / "config" / "spine_surfaces.yaml").read_text()
+    second = (tree / "config" / "spine_surfaces.yaml").read_text()
     assert first == second
 
 
 def test_manifest_loader_reads_what_was_written(tmp_path: Path) -> None:
-    tree = _manifest_tree(tmp_path)
-    units = _manifest_units()
+    tree = _ownership_tree(tmp_path)
+    units = _ownership_units()
     write_surface_manifest(tree, units)
     surfaces = load_surface_manifest(tree)
     assert surfaces, "manifest must not be empty"
     for s in surfaces:
-        assert s["name"] and s["globs"] and s["unit"]
+        assert s["name"] and s["dir"] and s["unit"]

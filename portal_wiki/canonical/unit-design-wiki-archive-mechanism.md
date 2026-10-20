@@ -54,7 +54,10 @@ a Tier-1 doc block references, or that a live unit links in prose, would break
 the render and grounding gates with no diagnostic. Keeping archived units on disk
 and provably unreachable turns "archive it" into a safe, reversible operation
 with an audit trail: `archive_reachability()` walks the live store and every
-Tier-1 doc, and the `BT` validate check fails if any archived id is re-reached
-through a stray reference. The `INDEX.md` reason is phrased as a fact ("cites
+Tier-1 doc, on demand at the archive command (`portal_wiki archive --check`).
+DESIGN_ROOTS_REFINEMENT_20261020 B7 took the archive out of the validate gates —
+the reachability invariant is enforced at the write point, not re-proved over
+all 883 archived units on every run. The `INDEX.md` reason is phrased as a fact
+("cites
 only docs/HOWTO.md, which is generated output") rather than a category label, so
 the decision to archive is itself reviewable long after the commit that made it.

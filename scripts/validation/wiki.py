@@ -1,5 +1,4 @@
-"""Wiki-family checks: core backbone, fact currency, spine coverage/drift, and
-archived-unit reachability."""
+"""Wiki-family checks: core backbone, fact currency, and spine coverage/drift."""
 
 from __future__ import annotations
 
@@ -268,37 +267,34 @@ def check_wiki_facts_current() -> tuple[str, str, list[dict]]:
 
 @register(
     "spine_code_coverage",
-    "BR. spine code coverage ratchet (new code must carry a covering unit)",
+    "BR. spine coverage (every module, MCP and platform package has a unit)",
     order=68,
 )
 def check_spine_code_coverage() -> tuple[str, str, list[dict]]:
-    """BR. Manifest-driven spine coverage: surfaces documented, files covered.
+    """BR. Directory-ownership spine coverage (DESIGN_ROOTS_REFINEMENT B3).
 
-    The per-file era ended in TASK_PORTAL_SIMPLIFY_V1 Phase R3. Before it, the
-    coverage gate walked the filesystem and required a hand-authored unit per
-    eligible `.py` file — which set knowledge granularity by file, not by
-    subsystem, and made documentation mass grow in lockstep with code mass
-    forever. The regrain collapsed ~570 per-file mirrors into ~30 subsystem
-    surfaces, and coverage now means something narrower but stronger:
+    R3's 419 file → unit bindings churned on routine commits — every new file
+    forced a manifest entry. Ownership is now a directory: a module dir
+    (`portal/modules/<name>`) is owned by `unit-module-<name>`, a platform
+    package by its unit. Coverage asks whether every module, MCP and platform
+    package has a unit; a code edit inside a module demands no unit edit and
+    no manifest entry, while a contract change (new module, new MCP, new
+    platform package) forces the unit that documents it.
 
-    Part 1 — every declared surface in `config/spine_surfaces.yaml` has a
-    covering unit that exists, passes the quality gate, and cites paths
-    matching the surface's globs.
-    Part 2 — every eligible `.py` file falls under some declared surface glob.
-    New code inside a documented surface costs nothing; new code outside one
-    must force a manifest entry — a deliberate act with a named owner. Code can
-    still never arrive silently undocumented; it just no longer costs a
-    hand-authored unit per file. The wiki engine (`portal/platform/wiki/`)
-    stays per-file as the extraction-guarantee boundary (check AJ), so a new
-    file there must be deliberately registered.
+    Part 1 — every declared owner exists, passes the quality gate, and cites
+    an eligible path under its directory.
+    Part 2 — every module dir and platform package is declared, every roster
+    module has `unit-module-<name>`, every mcp_fleet id has
+    `unit-capability-<id>`.
     """
+    from portal.platform.wiki.adapters.modules import ALL_MODULES
     from portal.platform.wiki.coverage import (
         generate_surface_manifest,
         load_surface_manifest,
         surface_manifest_uncovered,
     )
 
-    part1, part2 = surface_manifest_uncovered(REPO_ROOT)
+    part1, part2 = surface_manifest_uncovered(REPO_ROOT, module_roster=sorted(ALL_MODULES))
 
     # Manifest freshness: the committed manifest must equal a fresh generation
     # from the live unit set, or it has silently drifted from the landed
@@ -309,23 +305,22 @@ def check_spine_code_coverage() -> tuple[str, str, list[dict]]:
 
     subs = [
         {
-            "name": "every declared surface has a covering unit",
+            "name": "every declared owner is a gate-passing unit citing its directory",
             "status": "PASS" if not part1 else "FAIL",
             "detail": (
-                f"{len(committed)} declared surface(s) documented by a "
-                "gate-passing unit citing their globs"
+                f"{len(committed)} declared owner(s) documented by a "
+                "gate-passing unit citing their directory"
                 if not part1
-                else f"{len(part1)} surface(s) without a valid covering unit"
+                else f"{len(part1)} owner(s) without a valid owning unit"
             ),
         },
         {
-            "name": "every eligible file falls under a declared surface",
+            "name": "every module, MCP and platform package has a unit",
             "status": "PASS" if not part2 else "FAIL",
             "detail": (
-                "every eligible .py file matched by a declared surface glob"
+                "every roster module, mcp_fleet id, module dir and platform package has its unit"
                 if not part2
-                else f"{len(part2)} eligible file(s) under no declared surface: "
-                f"{', '.join(part2[:6])}"
+                else f"{len(part2)} entity gap(s): {', '.join(part2[:6])}"
             ),
         },
         {
@@ -342,18 +337,22 @@ def check_spine_code_coverage() -> tuple[str, str, list[dict]]:
     if part1 or part2 or manifest_drifted:
         parts = []
         if part1:
-            parts.append(f"{len(part1)} surface(s) without a valid covering unit")
+            parts.append(f"{len(part1)} owner(s) without a valid owning unit")
         if part2:
-            parts.append(f"{len(part2)} eligible file(s) under no declared surface")
+            parts.append(f"{len(part2)} entity coverage gap(s)")
         if manifest_drifted:
             parts.append("manifest is stale")
         return ("FAIL", "; ".join(parts), subs)
-    return ("PASS", "manifest coverage 100% — every surface documented, every file covered", subs)
+    return (
+        "PASS",
+        f"{len(committed)} owned dirs — every module, MCP and platform package has a unit",
+        subs,
+    )
 
 
 def _surface_manifests_differ(committed: list[dict], fresh: list[dict]) -> bool:
-    """Compare two surface manifests by name -> (globs, unit), order-insensitive."""
-    key = lambda s: (s["name"], tuple(s["globs"]), s["unit"])  # noqa: E731
+    """Compare two ownership manifests by (name, dir, unit), order-insensitive."""
+    key = lambda s: (s["name"], s["dir"], s["unit"])  # noqa: E731
     return sorted(map(key, committed)) != sorted(map(key, fresh))
 
 
@@ -420,42 +419,6 @@ def check_spine_drift() -> tuple[str, str, list[dict]]:
         "PASS",
         f"{claim_count(units)} claim(s) hold; no dead refs",
         subs,
-    )
-
-
-@register(
-    "archive_reachability",
-    "BT. archived units unreachable (no live link or doc block references)",
-    order=70,
-)
-def check_archive_reachability() -> tuple[str, str, list[dict]]:
-    """BT. Archived units stay out of the working set.
-
-    Archiving moves a unit's file to `portal_wiki/archive/`; the archive command
-    refuses when a live doc block references the id, a live unit links it, or a
-    live code source determines it. This check proves the invariant holds across
-    the store as a whole, so an archived id can never be re-reached through a
-    stray reference.
-    """
-    from portal.platform.wiki.archive import archive_reachability
-
-    violations = archive_reachability(REPO_ROOT)
-    if violations:
-        return (
-            "FAIL",
-            f"{len(violations)} archived unit(s) reachable from the live store",
-            [
-                {
-                    "name": "archived units unreachable",
-                    "status": "FAIL",
-                    "detail": "; ".join(violations[:6]),
-                }
-            ],
-        )
-    return (
-        "PASS",
-        "no live unit or doc block references an archived unit",
-        [{"name": "archived units unreachable", "status": "PASS", "detail": "all clean"}],
     )
 
 

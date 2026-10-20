@@ -131,3 +131,32 @@ python3 scripts/anchor_requirements.py --all --report [--verify-bundle-equivalen
                                     # miss lands in requirement_anchor_misses by name. Run it after any
                                     # re-capture — a moved section boundary invalidates the join.
 ```
+
+## Compliance program scripts (`scripts/compliance/`)
+
+Run by hand for the compliance program phases named in each; one line from each docstring.
+
+| Script | Purpose |
+|---|---|
+| `scripts/compliance/bench_sweep_engines.py` | SPLASH_SWEEP_ACCELERATION_V1 P3 - four-arm sweep throughput measurement. |
+| `scripts/compliance/calibrate_cip007.py` | CLOSEOUT_V1 P5 - CIP-007-6 calibration against the pre-sweep baseline. |
+| `scripts/compliance/capture_technical_basis.py` | Every register requirement carries what it says AND how it is meant to be met. |
+| `scripts/compliance/cite_and_scope_measure.py` | CITE_AND_SCOPE_V1 §P3 — assemble ``p3/measured.json`` from the receipts. |
+| `scripts/compliance/correction_loop_demo.py` | MODULE_COMPLETE_V1 §P3 — the correction loop, demonstrated end to end. |
+| `scripts/compliance/decide_sweep_engine.py` | SPLASH_SWEEP_ACCELERATION_V1 P5 - the promotion decision, made by the data. |
+| `scripts/compliance/derive_document_scope.py` | CITE_AND_SCOPE_V1 §P2 — read every operator document ONCE and store what it |
+| `scripts/compliance/lane_alteration_diff.py` | The lane-alteration diff (TASK_COMPLIANCE_PIPELINE_ALIGNMENT_V1 §P1). |
+| `scripts/compliance/measure_payload_turn.py` | DATA_TRUTH DD4 — one real turn through the deployed pipeline with the DD3 |
+| `scripts/compliance/pipeline_alignment_verify.py` | Live verification of the P1/P2/P3 pipeline work (PIPELINE_ALIGNMENT_V1). |
+| `scripts/compliance/pipeline_call_site_ledger.py` | The live call-site ledger (TASK_COMPLIANCE_PIPELINE_ALIGNMENT_V1 §P0). |
+| `scripts/compliance/reading_loop_triage.py` | Reading-seat triage: the same compliance-reading turn, direct to each engine |
+| `scripts/compliance/retype_relations.py` | MODULE_COMPLETE_V1 §P1 — act on adjudicated wrong relations; supersede, never delete. |
+| `scripts/compliance/self_agreement_pipeline.py` | Self-agreement on the serving engine (TASK_COMPLIANCE_PIPELINE_ALIGNMENT_V1 §P4). |
+| `scripts/compliance/session_proof.py` | MODULE_COMPLETE_V1 §P2 — hold a conversation: multi-turn sessions on one thread. |
+| `scripts/compliance/single_vs_split.py` | TASK_COMPLIANCE_PROVE_THE_MODULE_V1 §P4b - single model or split: the |
+| `scripts/compliance/sweep_acceptance_ab.py` | Sweep acceptance A/B: map-read a standard's requirements with ``write=False`` |
+| `scripts/compliance/verify_conjunction_adoption.py` | CLOSEOUT_V1 P1.3 - the no-regression guard on the conjunction adoption. |
+| `scripts/compliance/verify_technical_basis_coverage.py` | MODULE_COMPLETE_V1 §P0.5 — technical-basis coverage verified per requirement. |
+| `scripts/compliance/window_census.py` | The window census (TASK_COMPLIANCE_PIPELINE_ALIGNMENT_V1 §P2). |
+| `scripts/compliance/write_closeout_report.py` | CLOSEOUT_V1 P9.1 - the closing report generator. |
+| `scripts/compliance/write_splash_report.py` | SPLASH_SWEEP_ACCELERATION_V1 P7.1 - the splash report generator. |

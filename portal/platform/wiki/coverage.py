@@ -26,7 +26,6 @@ import subprocess
 from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
 
 from portal.platform.wiki.schema import KnowledgeUnit
 
@@ -226,44 +225,55 @@ def compute_coverage(
     return CoverageReport(eligible=eligible, covered=covered, uncovered=uncovered)
 
 
-# ── R3 manifest-driven coverage ──────────────────────────────────────────────
+# ── B3 directory ownership ───────────────────────────────────────────────────
 #
-# TASK_PORTAL_SIMPLIFY_V1 Phase R3 replaced the per-file era. Before it, every
-# eligible `.py` file needed a hand-authored unit, which set knowledge
-# granularity by filesystem walk and made documentation mass grow in lockstep
-# with code mass. The regrain collapsed ~570 per-file mirror units into ~30
-# subsystem surfaces. Coverage is now asserted against a manifest
-# (`config/spine_surfaces.yaml`) that names each surface, the globs that define
-# it, and the unit that documents it. The wiki engine stays per-file: check AJ
-# treats `portal/platform/wiki/` as the extraction-guarantee boundary, and a new
-# file there must be deliberately added to the manifest — which is exactly what
-# the R3 adversarial probe verifies.
+# DESIGN_ROOTS_REFINEMENT_20261020 B3 replaced R3's per-file manifest. R3's
+# 419 file → unit bindings churned on routine commits because every new file
+# forced a manifest entry. Ownership is now a directory: a module dir
+# (`portal/modules/<name>`) is owned by `unit-module-<name>`, a platform
+# package (`portal/platform/<pkg>`) by the gate-passing unit citing most of
+# its eligible files. Coverage asks whether every module, MCP and platform
+# package has a unit — a code edit inside a module demands no unit edit and
+# no manifest entry; a contract change (new module, new MCP, new platform
+# package) forces the unit.
 
 SURFACE_MANIFEST_PATH = _REPO_ROOT / "config" / "spine_surfaces.yaml"
 
-# Directories whose eligible files are declared one-per-file in the manifest so
-# a new file in them fails the gate until deliberately registered. Currently the
-# wiki engine only — the extraction-guarantee boundary (check AJ).
-_PER_FILE_SURFACE_DIRS = frozenset({"portal/platform/wiki"})
+_MODULES_ROOT = "portal/modules"
+_PLATFORM_ROOT = "portal/platform"
 
 
-def _expand_manifest_glob(root: Path, pattern: str) -> set[str]:
-    """Expand a manifest glob to the eligible files it matches."""
-    try:
-        return {str(m.relative_to(root)) for m in root.glob(pattern) if m.is_file()}
-    except (OSError, ValueError):
-        return set()
+def _under(path: str, directory: str) -> bool:
+    """Is `path` the directory itself or a file inside it?"""
+    return path == directory or path.startswith(directory + "/")
 
 
-def _matches_pattern(path: str, pattern: str) -> bool:
-    """Does `path` fall under a manifest glob pattern (with fnmatch semantics)?"""
-    if any(ch in pattern for ch in "*?["):
-        return Path(path).match(pattern)
-    return path == pattern
+def _code_dirs(root: Path, base: str) -> list[str]:
+    """Dirs under `base` holding at least one eligible `.py` file."""
+    parent = root / base
+    if not parent.is_dir():
+        return []
+    out = []
+    for d in sorted(parent.iterdir()):
+        if not d.is_dir() or d.name.startswith((".", "__")):
+            continue
+        if any(_is_eligible(str(p.relative_to(root)), root) for p in d.rglob("*.py")):
+            out.append(f"{base}/{d.name}")
+    return out
 
 
-def load_surface_manifest(repo_root: Path | None = None) -> list[dict[str, Any]]:
-    """Read `config/spine_surfaces.yaml`: [{name, globs, unit}, ...]."""
+def discover_module_dirs(repo_root: Path | None = None) -> list[str]:
+    """Module directories on disk: `portal/modules/<name>` with eligible code."""
+    return _code_dirs(repo_root or _REPO_ROOT, _MODULES_ROOT)
+
+
+def discover_platform_packages(repo_root: Path | None = None) -> list[str]:
+    """Platform packages on disk: `portal/platform/<pkg>` with eligible code."""
+    return _code_dirs(repo_root or _REPO_ROOT, _PLATFORM_ROOT)
+
+
+def load_surface_manifest(repo_root: Path | None = None) -> list[dict[str, str]]:
+    """Read `config/spine_surfaces.yaml`: [{name, dir, unit}, ...]."""
     root = repo_root or _REPO_ROOT
     path = root / "config" / "spine_surfaces.yaml"
     if not path.exists():
@@ -272,28 +282,58 @@ def load_surface_manifest(repo_root: Path | None = None) -> list[dict[str, Any]]
 
     data = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
     surfaces = data.get("surfaces") or []
-    out = []
-    for s in surfaces:
-        out.append(
-            {
-                "name": str(s.get("name", "")),
-                "globs": [str(g) for g in (s.get("globs") or [])],
-                "unit": str(s.get("unit", "")),
-            }
-        )
-    return out
+    return [
+        {
+            "name": str(s.get("name", "")),
+            "dir": str(s.get("dir", "")),
+            "unit": str(s.get("unit", "")),
+        }
+        for s in surfaces
+    ]
+
+
+def _citations_by_path(
+    units: Sequence[KnowledgeUnit], root: Path, eligible: set[str]
+) -> dict[str, list[str]]:
+    """Eligible path -> non-aggregate unit ids citing it."""
+    citing: dict[str, list[str]] = {}
+    for u in units:
+        if u.id.startswith(_AGGREGATE_ID_PREFIX):
+            continue
+        for p in _cited_paths_of(u, root) & eligible:
+            citing.setdefault(p, []).append(u.id)
+    return citing
+
+
+def _best_owning_unit(directory: str, citing: dict[str, list[str]], passing: frozenset[str]) -> str:
+    """The gate-passing unit citing the most eligible files under `directory`."""
+    scores: dict[str, int] = {}
+    for path, ids in citing.items():
+        if not _under(path, directory):
+            continue
+        for uid in ids:
+            if uid in passing:
+                scores[uid] = scores.get(uid, 0) + 1
+    if not scores:
+        return "unit-code-missing"
+    return max(sorted(scores), key=lambda uid: scores[uid])
 
 
 def surface_manifest_uncovered(
-    repo_root: Path | None = None, units: Sequence[KnowledgeUnit] | None = None
+    repo_root: Path | None = None,
+    units: Sequence[KnowledgeUnit] | None = None,
+    module_roster: Sequence[str] | None = None,
+    mcp_fleet: Sequence[str] | None = None,
 ) -> tuple[list[str], list[str]]:
-    """The R3 two-part gate, read-only.
+    """The B3 two-part gate, read-only.
 
     Returns (part1_errors, part2_uncovered) where each is a list of messages:
 
-    Part 1 — every declared surface has a covering unit: the unit exists, passes
-    the quality gate, and cites at least one path matching the surface's globs.
-    Part 2 — every eligible `.py` file falls under some declared surface glob.
+    Part 1 — every declared owner exists, passes the quality gate, and cites
+    at least one eligible path under its directory.
+    Part 2 — coverage by entity: every module dir and platform package is
+    declared, every roster module has `unit-module-<name>`, and every
+    mcp_fleet id has `unit-capability-<id>`.
     """
     root = repo_root or _REPO_ROOT
     if units is None:
@@ -303,124 +343,135 @@ def surface_manifest_uncovered(
     surfaces = load_surface_manifest(root)
     passing = _gate_passing_ids(units, root)
     eligible = set(discover_code_surfaces(root))
+    by_id = {u.id: u for u in units}
 
     part1: list[str] = []
     for s in surfaces:
-        uid, globs = s["unit"], s["globs"]
-        if not uid or not globs:
-            part1.append(f"surface {s['name']!r}: missing unit or globs")
+        uid, directory = s["unit"], s["dir"]
+        if not uid or not directory:
+            part1.append(f"surface {s['name']!r}: missing unit or dir")
             continue
-        if uid not in {u.id for u in units}:
-            part1.append(f"surface {s['name']!r}: covering unit {uid} does not exist")
+        unit = by_id.get(uid)
+        if unit is None:
+            part1.append(f"surface {s['name']!r}: owning unit {uid} does not exist")
             continue
         if uid not in passing:
-            part1.append(f"surface {s['name']!r}: covering unit {uid} fails the quality gate")
+            part1.append(f"surface {s['name']!r}: owning unit {uid} fails the quality gate")
             continue
-        unit = next(u for u in units if u.id == uid)
-        cited = _cited_paths_of(unit, root) & eligible
-        if not any(_matches_pattern(p, g) for p in cited for g in globs):
+        if not any(_under(p, directory) for p in _cited_paths_of(unit, root) & eligible):
             part1.append(
-                f"surface {s['name']!r}: unit {uid} cites no eligible path matching "
-                f"its globs {globs}"
+                f"surface {s['name']!r}: unit {uid} cites no eligible path under {directory}"
             )
 
-    covered_by_surfaces: set[str] = set()
-    for s in surfaces:
-        for g in s["globs"]:
-            covered_by_surfaces |= _expand_manifest_glob(root, g)
-
-    part2 = sorted(p for p in eligible if p not in covered_by_surfaces)
+    part2 = _entity_coverage_gaps(root, units, surfaces, module_roster, mcp_fleet)
     return part1, part2
+
+
+def _load_mcp_fleet_ids(root: Path) -> list[str]:
+    """mcp_fleet ids from config/portal.yaml; empty when the file is absent."""
+    import yaml
+
+    path = root / "config" / "portal.yaml"
+    if not path.exists():
+        return []
+    data = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+    return [str(e["id"]) for e in data.get("mcp_fleet") or [] if e.get("id")]
+
+
+def _entity_coverage_gaps(
+    root: Path,
+    units: Sequence[KnowledgeUnit],
+    surfaces: list[dict[str, str]],
+    module_roster: Sequence[str] | None,
+    mcp_fleet: Sequence[str] | None,
+) -> list[str]:
+    """Part 2: the modules, MCPs, module dirs and platform packages missing a unit."""
+    by_id = {u.id for u in units}
+    declared = {s["dir"] for s in surfaces}
+    module_dirs = discover_module_dirs(root)
+    platform_dirs = discover_platform_packages(root)
+
+    gaps: list[str] = []
+    for d in module_dirs + platform_dirs:
+        if d not in declared:
+            gaps.append(f"{d} is named in no manifest entry")
+
+    roster = (
+        list(module_roster)
+        if module_roster is not None
+        else [d.rsplit("/", 1)[1] for d in module_dirs]
+    )
+    for name in roster:
+        uid = f"unit-module-{name.replace('_', '-')}"
+        if uid not in by_id:
+            gaps.append(f"module {name} has no {uid}")
+
+    fleet = list(mcp_fleet) if mcp_fleet is not None else _load_mcp_fleet_ids(root)
+    for fid in fleet:
+        uid = f"unit-capability-{fid.replace('_', '-')}"
+        if uid not in by_id:
+            gaps.append(f"MCP {fid} has no {uid}")
+    return gaps
 
 
 def generate_surface_manifest(
     repo_root: Path | None = None, units: Sequence[KnowledgeUnit] | None = None
-) -> list[dict[str, Any]]:
-    """Emit the manifest from R2's landed boundaries — never hand-write it.
+) -> list[dict[str, str]]:
+    """Emit the directory-ownership manifest from the live unit set.
 
-    The `unit-surface-*` units' globs become the consolidated surface entries.
-    Everything else in the eligible tree becomes a per-file entry mapped to the
-    best covering unit, EXCEPT the per-file dirs (`portal/platform/wiki/`), whose
-    files are declared individually so a new file there forces a manifest entry.
-    Idempotent: regenerating over an unchanged tree reproduces the same YAML.
+    One entry per module dir — owned by `unit-module-<name>` when that unit
+    exists, else the best gate-passing unit citing the dir — and one per
+    platform package, owned by the gate-passing unit citing most of its
+    eligible files. Idempotent: regenerating over an unchanged tree
+    reproduces the same YAML.
     """
     root = repo_root or _REPO_ROOT
     if units is None:
         from portal.platform.wiki.store import load_all
 
         units = load_all()
-    eligible = sorted(discover_code_surfaces(root))
     passing = _gate_passing_ids(units, root)
+    eligible = set(discover_code_surfaces(root))
+    citing = _citations_by_path(units, root, eligible)
+    unit_ids = {u.id for u in units}
 
-    citing: dict[str, list[str]] = {}
-    for u in units:
-        if u.id.startswith(_AGGREGATE_ID_PREFIX):
-            continue
-        for p in _cited_paths_of(u, root) & set(eligible):
-            citing.setdefault(p, []).append(u.id)
-
-    def best_unit(path: str) -> str:
-        for uid in citing.get(path, []):
-            if uid in passing:
-                return uid
-        return citing.get(path, [None])[0] or "unit-code-missing"
-
-    surfaces: list[dict[str, Any]] = []
-    covered: set[str] = set()
-
-    # 1. Consolidated surface units carry their own globs.
-    for u in sorted(units, key=lambda u: u.id):
-        if not u.id.startswith("unit-surface-"):
-            continue
-        globs = [s.path for s in u.sources if any(c in s.path for c in "*?[")]
-        if not globs:
-            continue
-        surfaces.append({"name": u.id, "globs": sorted(set(globs)), "unit": u.id})
-        for g in globs:
-            covered |= _expand_manifest_glob(root, g)
-
-    # 2. Per-file dirs: the wiki engine stays per-file so a new file there is a
-    #    deliberate manifest addition, not an automatic cover.
-    per_file_covered: set[str] = set()
-    for p in eligible:
-        parent = str(Path(p).parent)
-        if parent in _PER_FILE_SURFACE_DIRS and p not in covered:
-            name = f"file-{Path(p).with_suffix('').as_posix().replace('/', '-')}"
-            surfaces.append({"name": name, "globs": [p], "unit": best_unit(p)})
-            per_file_covered.add(p)
-    covered |= per_file_covered
-
-    # 3. Any remaining eligible file: per-file entry so new code outside a
-    #    documented surface still forces a deliberate manifest addition.
-    for p in eligible:
-        if p in covered:
-            continue
-        name = f"file-{Path(p).with_suffix('').as_posix().replace('/', '-')}"
-        surfaces.append({"name": name, "globs": [p], "unit": best_unit(p)})
-        covered.add(p)
-
+    surfaces: list[dict[str, str]] = []
+    for d in discover_module_dirs(root):
+        name = d.rsplit("/", 1)[1]
+        uid = f"unit-module-{name.replace('_', '-')}"
+        if uid not in unit_ids:
+            uid = _best_owning_unit(d, citing, passing)
+        surfaces.append({"name": f"module-{name}", "dir": d, "unit": uid})
+    for d in discover_platform_packages(root):
+        surfaces.append(
+            {
+                "name": f"platform-{d.rsplit('/', 1)[1]}",
+                "dir": d,
+                "unit": _best_owning_unit(d, citing, passing),
+            }
+        )
     return sorted(surfaces, key=lambda s: s["name"])
 
 
 def write_surface_manifest(
     repo_root: Path | None = None, units: Sequence[KnowledgeUnit] | None = None
-) -> list[dict[str, Any]]:
+) -> list[dict[str, str]]:
     """Regenerate `config/spine_surfaces.yaml` from the live unit set."""
     import yaml
 
     root = repo_root or _REPO_ROOT
     surfaces = generate_surface_manifest(root, units=units)
     payload = {
-        "surfaces": [{"name": s["name"], "globs": s["globs"], "unit": s["unit"]} for s in surfaces]
+        "surfaces": [{"name": s["name"], "dir": s["dir"], "unit": s["unit"]} for s in surfaces]
     }
     path = root / "config" / "spine_surfaces.yaml"
     path.parent.mkdir(parents=True, exist_ok=True)
     header = (
-        "# Manifest-driven code-surface coverage (BR). Generated by\n"
+        "# Directory-ownership code coverage (BR). Generated by\n"
         "# `python3 -m portal.platform.wiki.coverage` — never hand-edit.\n"
-        "# Each surface: a name, the globs that define it, and the unit that\n"
-        "# documents it. Every eligible .py file must fall under a declared\n"
-        "# surface; new code outside one forces a deliberate manifest entry.\n"
+        "# Each entry: a module dir or platform package, and the unit that\n"
+        "# owns it. Adding a file inside a module needs no entry here; a new\n"
+        "# module, MCP or platform package forces its unit (DESIGN B3).\n"
     )
     path.write_text(header + yaml.safe_dump(payload, sort_keys=False), encoding="utf-8")
     return surfaces

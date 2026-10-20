@@ -31,9 +31,8 @@ def _load_validate():
         "check_routing_regression",  # AU — served-model baseline
         "check_wiki_core",  # AJ — schema + provenance + import-clean
         "check_wiki_facts_current",  # AW — fact-units vs live config
-        "check_spine_code_coverage",  # BR — every surface covered (absolute)
+        "check_spine_code_coverage",  # BR — every module, MCP and platform package has a unit
         "check_spine_drift",  # BS — claims hold, no dead refs (absolute)
-        "check_archive_reachability",  # BT — archived units unreachable
     ],
 )
 def test_spine_gate(fn_name):
