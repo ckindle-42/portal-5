@@ -12,6 +12,7 @@ tests/ under portal/modules/<x>/tests/.
 
 import os
 import sys
+from collections.abc import Iterator
 from pathlib import Path
 
 import pytest
@@ -52,7 +53,7 @@ if sys.prefix == sys.base_prefix:
 
 
 @pytest.fixture(autouse=True)
-def _scratch_provenance_ledger(tmp_path):
+def _scratch_provenance_ledger(tmp_path: Path) -> Iterator[None]:
     from portal.platform.wiki import provenance_ledger
 
     provenance_ledger.set_ledger_path(tmp_path / "provenance_ledger.jsonl")
