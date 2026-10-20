@@ -13,7 +13,7 @@ workloads:
     arms:
       incumbent: hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k
       challengers: []
-  general-deep:
+  auto-daily::deep:
     home: research
     discovery: []
     arms:

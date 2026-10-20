@@ -13,6 +13,7 @@ from pathlib import Path
 import pytest
 import yaml
 
+from portal.platform.inference.config import effective_workspace
 from tests.wfe import controls
 from tests.wfe.checkers import CheckContext, apply_checkers
 from tests.wfe.schema import Outcome
@@ -227,14 +228,14 @@ def test_the_plan_arms_are_served_fit_the_window_and_the_suite_tools_are_allowed
     backends = yaml.safe_load((REPO / "config/backends.yaml").read_text())
     modes = yaml.safe_load((REPO / "tests/wfe/tool_modes.yaml").read_text())["workspaces"]
     assert set(plan) == {
-        "general-fast",
-        "general-deep",
+        "auto-daily::fast",
+        "auto-daily::deep",
         "auto-daily",
         "auto-general-uncensored",
         "auto-uncensored-throwaway",
     }
     for ws, wl in plan.items():
-        groups = set(backends["workspace_routing"][ws])
+        groups = set(backends["workspace_routing"][ws.partition("::")[0]])
         served = {
             m["id"]
             for b in backends["backends"]
@@ -242,13 +243,14 @@ def test_the_plan_arms_are_served_fit_the_window_and_the_suite_tools_are_allowed
             for m in b.get("models") or []
         }
         arms = wl["arms"]
-        assert portal[ws]["model_hint"] in [arms["incumbent"], *arms["challengers"]], ws
+        workspace = effective_workspace(portal, ws)
+        assert workspace["model_hint"] in [arms["incumbent"], *arms["challengers"]], ws
         assert wl["tool_mode"] == "production", ws
         assert 2 <= len(arms["challengers"]) <= 3, ws
         for tag in [arms["incumbent"], *arms["challengers"]]:
             assert tag in served, (ws, tag)
             window = int(re.search(r"ctx(\d+)k", tag).group(1)) * 1024
-            assert window >= portal[ws]["context_limit"], (ws, tag)
+            assert window >= workspace["context_limit"], (ws, tag)
         suite = FULL if wl["home"] == "general_production" else CORE
         needed = {tool for t in suite.values() for tool in t["requires_tools"]}
         assert needed <= set(modes[ws]["allow"]), (ws, sorted(needed - set(modes[ws]["allow"])))

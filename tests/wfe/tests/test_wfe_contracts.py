@@ -1002,12 +1002,14 @@ class TestOfflineRescore:
     def test_personaless_workspace_uses_the_owui_preset_prompt(self):
         import yaml
 
+        from portal.platform.inference.config import effective_workspace
         from tests.wfe.runner import REPO, workspace_context
 
-        ws = yaml.safe_load((REPO / "config/portal.yaml").read_text())["workspaces"]
-        wsc = workspace_context("general-deep")
+        workspaces = yaml.safe_load((REPO / "config/portal.yaml").read_text())["workspaces"]
+        ws = effective_workspace(workspaces, "auto-daily::deep")
+        wsc = workspace_context("auto-daily::deep")
         assert wsc["persona_slug"] is None
-        assert wsc["system_prompt_base"] == ws["general-deep"]["owui_system_prompt"]
+        assert wsc["system_prompt_base"] == ws["owui_system_prompt"]
 
 
 class TestGraderComparison:

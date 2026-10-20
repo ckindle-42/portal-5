@@ -1,12 +1,12 @@
 # The general family's first seat decisions: one workload per workspace, each its own campaign
-# (--workspace <id>; run general-fast, general-deep, auto-daily, then the uncensored lanes).
-# general-fast / general-deep / auto-daily run general_production (48 tasks, 16 screen);
+# (--workspace <id>; run auto-daily::fast, auto-daily::deep, auto-daily, then the uncensored lanes).
+# auto-daily::fast / auto-daily::deep / auto-daily run general_production (48 tasks, 16 screen);
 # the uncensored lanes carry no KB or document-create tools, so they run general_core_production
 # (computed + memory, 36 tasks, 12 screen). Every challenger is served by the `general` group at
 # a window of at least the workspace's context_limit (checked by the slice tests against
 # backends.yaml). The operator may trim these lists before the run.
 workloads:
-  general-fast:
+  auto-daily::fast:
     tool_mode: production
     home: general_production
     discovery: []
@@ -16,7 +16,7 @@ workloads:
         - hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx96k
         - gemma4:26b-a4b-it-q4_K_M-ctx128k
         - granite4.1:30b-ctx96k
-  general-deep:
+  auto-daily::deep:
     tool_mode: production
     home: general_production
     discovery: []

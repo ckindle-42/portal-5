@@ -8,12 +8,13 @@ from pathlib import Path
 
 import yaml
 
+from portal.platform.inference.config import effective_workspace
 from portal.platform.inference.model_cards import card_entry
 
 REPO = Path(__file__).resolve().parents[3]
 PLANS = {
     "auto-coding": REPO / "tests/wfe/plans/auto_coding_next_screen_20261019.yaml",
-    "general-fast": REPO / "tests/wfe/plans/general_fast_k2_screen_20261019.yaml",
+    "auto-daily::fast": REPO / "tests/wfe/plans/general_fast_k2_screen_20261019.yaml",
     "auto-daily": REPO / "tests/wfe/plans/auto_daily_quant_screen_20261019.yaml",
 }
 
@@ -23,7 +24,7 @@ def _yaml(path: Path) -> dict:
 
 
 def _registered_in_routed_group(workspace: str, tag: str, backends: dict) -> bool:
-    groups = set(backends["workspace_routing"][workspace])
+    groups = set(backends["workspace_routing"][workspace.partition("::")[0]])
     for backend in backends["backends"]:
         if backend.get("group") not in groups:
             continue
@@ -46,7 +47,7 @@ def test_each_next_screen_uses_the_current_seat_and_expected_suite():
     portal = _yaml(REPO / "config/portal.yaml")["workspaces"]
     expected = {
         "auto-coding": ("sandbox", "coding_production", 2),
-        "general-fast": ("production", "general_production", 1),
+        "auto-daily::fast": ("production", "general_production", 1),
         "auto-daily": ("production", "general_production", 1),
     }
 
@@ -55,7 +56,8 @@ def test_each_next_screen_uses_the_current_seat_and_expected_suite():
         tool_mode, home, challengers = expected[workspace]
         assert plan["tool_mode"] == tool_mode
         assert plan["home"] == home
-        assert portal[workspace]["model_hint"] in [
+        effective = effective_workspace(portal, workspace)
+        assert effective["model_hint"] in [
             plan["arms"]["incumbent"],
             *plan["arms"]["challengers"],
         ]
@@ -69,10 +71,11 @@ def test_every_next_screen_arm_is_registered_for_the_route_and_fits_context():
 
     for workspace, path in PLANS.items():
         plan = _yaml(path)["workloads"][workspace]
+        effective = effective_workspace(portal, workspace)
         arms = [plan["arms"]["incumbent"], *plan["arms"]["challengers"]]
         for tag in arms:
             assert _registered_in_routed_group(workspace, tag, backends), (workspace, tag)
-            assert _window(tag) >= portal[workspace]["context_limit"], (workspace, tag)
+            assert _window(tag) >= effective["context_limit"], (workspace, tag)
 
 
 def test_production_suites_only_use_tools_authorized_by_the_workspace():

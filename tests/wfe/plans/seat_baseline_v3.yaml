@@ -48,7 +48,7 @@ workloads:
     arms:
       incumbent: granite4.1:8b-ctx16k
       challengers: []
-  general-deep:
+  auto-daily::deep:
     home: research
     discovery: []
     arms:

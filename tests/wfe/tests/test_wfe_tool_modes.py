@@ -6,6 +6,8 @@ from pathlib import Path
 
 import yaml
 
+from portal.platform.inference.config import effective_workspace
+
 REPO = Path(__file__).resolve().parents[3]
 
 
@@ -14,13 +16,14 @@ def test_every_allowlist_is_within_the_workspaces_tools():
     portal = yaml.safe_load((REPO / "config/portal.yaml").read_text())["workspaces"]
     for ws, mode in modes.items():
         assert mode["tool_mode"] == "production", ws
-        extra = sorted(set(mode["allow"]) - set(portal[ws]["tools"]))
+        workspace = effective_workspace(portal, ws)
+        extra = sorted(set(mode["allow"]) - set(workspace["tools"]))
         assert not extra, f"{ws}: allowlist names tools the workspace lacks: {extra}"
 
 
 def test_the_general_family_excludes_web_and_out_of_scope_tools():
     modes = yaml.safe_load((REPO / "tests/wfe/tool_modes.yaml").read_text())["workspaces"]
-    for ws in ("general-fast", "general-deep", "auto-daily"):
+    for ws in ("auto-daily::fast", "auto-daily::deep", "auto-daily"):
         allow = set(modes[ws]["allow"])
         assert not allow & {"web_search", "web_fetch", "news_search", "transcribe_audio"}
         assert not any(t.startswith("minimax_") for t in allow)

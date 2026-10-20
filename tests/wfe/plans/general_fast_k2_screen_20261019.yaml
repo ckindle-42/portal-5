@@ -1,6 +1,6 @@
-# Matched-context MoE screen for general-fast.
+# Matched-context MoE screen for auto-daily::fast.
 workloads:
-  general-fast:
+  auto-daily::fast:
     tool_mode: production
     home: general_production
     discovery: []

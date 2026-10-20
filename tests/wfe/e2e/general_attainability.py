@@ -78,7 +78,7 @@ def check_task(task: dict, call: Caller = call_tool) -> list[str]:
     h: dict = {}
     _, _, ctx = eval_mode.prepare(
         True,
-        {"workspace": "general-fast", "run_id": f"attain|{tid}"},
+        {"workspace": "auto-daily::fast", "run_id": f"attain|{tid}"},
         {"campaign_id": "general-attainability"},
         task,
         {"system_prompt_pipeline": "", "system_prompt_base": ""},

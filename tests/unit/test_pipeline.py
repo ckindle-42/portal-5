@@ -109,7 +109,31 @@ def test_math_alias_is_removed_from_router_labels():
     from portal.platform.inference.router.routing import _VALID_WORKSPACE_IDS
 
     assert "auto-math" not in _VALID_WORKSPACE_IDS
+    assert not {"general-fast", "general-deep", "auto-nemotron"} & _VALID_WORKSPACE_IDS
     assert "auto-reasoning" in _VALID_WORKSPACE_IDS
+
+
+def test_chat_workspace_aliases_resolve_to_daily_variants(monkeypatch):
+    import portal.platform.inference.router.preinject as preinject
+    from portal.platform.inference.config import load_portal_config
+
+    monkeypatch.setattr(preinject, "_DEPRECATED_ALIAS_LOGGED", set())
+    expected = {
+        "general-fast": "auto-daily::fast",
+        "general-deep": "auto-daily::deep",
+        "auto-nemotron": "auto-daily::nemotron",
+    }
+    cfg = load_portal_config()
+    assert {key: cfg.aliases[key].to for key in expected} == expected
+    assert {key: preinject._resolve_persona_workspace(key) for key in expected} == expected
+
+
+def test_nemotron_persona_presets_the_chat_variant():
+    from portal.platform.inference.config import load_persona_map
+
+    persona = load_persona_map()["nemotronlightning"]
+    assert persona.workspace_model == "auto-daily"
+    assert persona.variant == "nemotron"
 
 
 @pytest.fixture

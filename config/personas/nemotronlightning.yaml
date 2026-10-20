@@ -1,7 +1,8 @@
 name: "⚡ Nemotron Lightning"
 slug: nemotronlightning
 category: general
-workspace_model: auto-nemotron
+workspace_model: auto-daily
+variant: nemotron
 preferred_models:
   - hf.co/bartowski/NVIDIA-Nemotron-3.5-Lightning-30B-A3B-GGUF:Q4_K_M-ctx32k
 module: general

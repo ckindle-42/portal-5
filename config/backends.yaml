@@ -1288,12 +1288,6 @@ workspace_routing:
   - general
   auto-daily:
   - general
-  general-fast:
-  - general
-  general-deep:
-  - general
-  auto-nemotron:
-  - general
   auto-coding:
   - coding
   - general
