@@ -14,11 +14,13 @@ from .registry import register
 
 @register("workspace_module_tag", "AP. workspace module tag", order=40)
 def check_workspace_module_tag() -> tuple[str, str, list[dict]]:
-    """AP. Every workspace in config/portal.yaml carries a module: tag (hard-fail)."""
+    """AP. Every workspace in portal.yaml + bench_workspaces.yaml carries a module: tag."""
     import yaml
 
+    from portal.platform.inference.config import load_bench_workspaces_raw
+
     cfg = yaml.safe_load((REPO_ROOT / "config" / "portal.yaml").read_text())
-    workspaces = cfg.get("workspaces", {}) or {}
+    workspaces = {**(cfg.get("workspaces", {}) or {}), **load_bench_workspaces_raw(REPO_ROOT)}
     untagged = sorted(k for k, v in workspaces.items() if not v.get("module"))
     tagged = len(workspaces) - len(untagged)
     detail = f"{tagged}/{len(workspaces)} workspaces tagged"
@@ -55,6 +57,7 @@ def check_persona_module_tag() -> tuple[str, str, list[dict]]:
 
     persona_dir = REPO_ROOT / "config" / "personas"
     files = sorted(glob.glob(str(persona_dir / "*.yaml")))
+    files += sorted(glob.glob(str(persona_dir / "bench" / "*.yaml")))
     untagged = []
     for f in files:
         d = yaml.safe_load(open(f)) or {}  # noqa: SIM115
@@ -239,8 +242,10 @@ def check_eval_workspace_config_hygiene() -> tuple[str, str, list[dict]]:
 
     import yaml
 
+    from portal.platform.inference.config import load_bench_workspaces_raw
+
     cfg = yaml.safe_load((REPO_ROOT / "config" / "portal.yaml").read_text())
-    workspaces = cfg.get("workspaces", {}) or {}
+    workspaces = {**(cfg.get("workspaces", {}) or {}), **load_bench_workspaces_raw(REPO_ROOT)}
     ctx_suffix_re = re.compile(r"-ctx\d+k?$", re.IGNORECASE)
 
     dropped_context_limit: list[str] = []

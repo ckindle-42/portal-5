@@ -12,6 +12,12 @@ import yaml
 REPO_ROOT = Path(__file__).resolve().parents[4]
 
 
+def _persona_files() -> list[Path]:
+    """Return production and bench persona files."""
+    base = REPO_ROOT / "config" / "personas"
+    return sorted(base.glob("*.yaml")) + sorted((base / "bench").glob("*.yaml"))
+
+
 def load_backends_yaml() -> dict[str, Any]:
     with open(REPO_ROOT / "config" / "backends.yaml") as f:
         return cast(dict[str, Any], yaml.safe_load(f))
@@ -99,7 +105,7 @@ def load_personas_for_workspace(
         explicitly bound to this workspace).
     """
     out = []
-    for f in sorted((REPO_ROOT / "config" / "personas").glob("*.yaml")):
+    for f in _persona_files():
         try:
             d = yaml.safe_load(f.read_text()) or {}
             ws = d.get("workspace_model")
@@ -123,7 +129,7 @@ def load_personas_by_slugs(slugs: tuple[str, ...]) -> list[dict[str, Any]]:
     See TASK_CODING_SHOOTOUT_V2.md §A2 / §A7.
     """
     by_slug: dict[str, dict[str, Any]] = {}
-    for f in sorted((REPO_ROOT / "config" / "personas").glob("*.yaml")):
+    for f in _persona_files():
         try:
             d = yaml.safe_load(f.read_text()) or {}
             slug = d.get("slug")

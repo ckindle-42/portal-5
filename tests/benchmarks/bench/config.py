@@ -88,10 +88,7 @@ _PORTAL_WS_CACHE: dict[str, dict] | None = None
 
 
 def _portal_workspace_fields() -> dict[str, dict]:
-    """Load per-workspace {predict_limit, emits_reasoning, tools} from
-    config/portal.yaml (the single source of truth). Cached after first read.
-    Returns {} on any failure so bench never hard-fails on config parsing —
-    callers then fall back to their own defaults."""
+    """Load workspace fields from production and bench config."""
     global _PORTAL_WS_CACHE
     if _PORTAL_WS_CACHE is not None:
         return _PORTAL_WS_CACHE
@@ -99,9 +96,14 @@ def _portal_workspace_fields() -> dict[str, dict]:
     try:
         import yaml as _yaml
 
+        from portal.platform.inference.config import load_bench_workspaces_raw
+
+        specs: dict = {}
         portal_path = PROJECT_ROOT / "config" / "portal.yaml"
         data = _yaml.safe_load(portal_path.read_text()) or {}
-        for slug, spec in (data.get("workspaces") or {}).items():
+        specs.update(data.get("workspaces") or {})
+        specs.update(load_bench_workspaces_raw(PROJECT_ROOT))
+        for slug, spec in specs.items():
             if not isinstance(spec, dict):
                 continue
             out[slug] = {

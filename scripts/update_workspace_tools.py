@@ -27,12 +27,16 @@ def _portal_yaml_path() -> Path:
 
 
 def load_workspace_raw_tools() -> dict[str, list[str]]:
-    """Return raw tool names for every base workspace in portal.yaml."""
-    config = yaml.safe_load(_portal_yaml_path().read_text(encoding="utf-8")) or {}
-    return {
-        workspace_id: (spec.get("tools") or [])
-        for workspace_id, spec in (config.get("workspaces") or {}).items()
+    """Return raw tool names for every configured workspace."""
+    from portal.platform.inference.config import load_bench_workspaces_raw
+
+    portal_path = _portal_yaml_path()
+    config = yaml.safe_load(portal_path.read_text(encoding="utf-8")) or {}
+    workspaces = {
+        **(config.get("workspaces") or {}),
+        **load_bench_workspaces_raw(path=portal_path.with_name("bench_workspaces.yaml")),
     }
+    return {workspace_id: (spec.get("tools") or []) for workspace_id, spec in workspaces.items()}
 
 
 def main() -> int:

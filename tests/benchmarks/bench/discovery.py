@@ -180,22 +180,24 @@ def _config_workspaces() -> list[str]:
 
 
 def _discover_personas() -> list[dict]:
-    """Read all persona YAMLs, return [{slug, name, workspace_model, category}]."""
-    personas_dir = PROJECT_ROOT / "config" / "personas"
-    if not personas_dir.exists():
-        return []
+    """Read all persona YAMLs into [{slug, name, workspace_model, category}]."""
+    personas_dirs = [PROJECT_ROOT / "config" / "personas"]
+    personas_dirs.append(personas_dirs[0] / "bench")
     personas = []
-    for f in sorted(personas_dir.glob("*.yaml")):
-        try:
-            p = yaml.safe_load(f.read_text())
-        except Exception:
+    for personas_dir in personas_dirs:
+        if not personas_dir.exists():
             continue
-        personas.append(
-            {
-                "slug": p.get("slug", f.stem),
-                "name": p.get("name", f.stem),
-                "workspace_model": p.get("workspace_model", "dolphin-llama3:8b"),
-                "category": p.get("category", "general"),
-            }
-        )
+        for f in sorted(personas_dir.glob("*.yaml")):
+            try:
+                p = yaml.safe_load(f.read_text())
+            except Exception:
+                continue
+            personas.append(
+                {
+                    "slug": p.get("slug", f.stem),
+                    "name": p.get("name", f.stem),
+                    "workspace_model": p.get("workspace_model", "dolphin-llama3:8b"),
+                    "category": p.get("category", "general"),
+                }
+            )
     return personas

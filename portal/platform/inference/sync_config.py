@@ -195,6 +195,7 @@ def emit_owui_presets(config: Any) -> tuple[int, int, int]:
     Gate 1 (M7 toggle layer): workspaces belonging to a disabled module are
     skipped, same as any other expose_to_owui=False workspace — a disabled
     module's presets simply don't exist for OWUI to pick up on next seed.
+
     """
     from portal.platform.wiki.adapters.modules import owui_workspaces
 
@@ -209,6 +210,8 @@ def emit_owui_presets(config: Any) -> tuple[int, int, int]:
     emitted_files: set[str] = set()
     for ws_id, spec in config.workspaces.items():
         if not spec.expose_to_owui:
+            continue
+        if spec.module == "eval":
             continue
         if ws_id in hidden_by_module:
             continue
@@ -278,8 +281,8 @@ def main() -> int:
     config = load_portal_config(_force_reload=True)
     print(f"sync-config: loaded {len(config.workspaces)} workspaces, {len(config.mcp_fleet)} MCPs")
 
-    # 1. workspace_routing in backends.yaml
-    changed = emit_workspace_routing(config)
+    # 1. Route the full catalog in backends.yaml.
+    changed = emit_workspace_routing(load_portal_config(include_bench=True))
     print(f"  backends.yaml workspace_routing: {'updated' if changed else 'no change'}")
 
     # 2. .mcp.json

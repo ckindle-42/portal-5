@@ -80,7 +80,10 @@ def parse_ledger() -> list[dict]:
 
 
 def bench_workspaces_by_tag() -> dict[str, list[str]]:
+    from portal.platform.inference.config import load_bench_workspaces_raw
+
     d = yaml.safe_load(PORTAL_PATH.read_text())
+    d.setdefault("workspaces", {}).update(load_bench_workspaces_raw(REPO_ROOT))
     out: dict[str, list[str]] = {}
     for slug, spec in d.get("workspaces", {}).items():
         if not slug.startswith("bench-"):
@@ -95,12 +98,18 @@ def bench_workspaces_by_tag() -> dict[str, list[str]]:
 
 
 def workspace_modules() -> dict[str, tuple[str, ...]]:
+    from portal.platform.inference.config import load_bench_workspaces_raw
+
     d = yaml.safe_load(PORTAL_PATH.read_text())
+    d.setdefault("workspaces", {}).update(load_bench_workspaces_raw(REPO_ROOT))
     return {slug: tuple(spec.get("tags") or []) for slug, spec in d.get("workspaces", {}).items()}
 
 
 def production_incumbents_by_module() -> dict[str, list[dict]]:
+    from portal.platform.inference.config import load_bench_workspaces_raw
+
     d = yaml.safe_load(PORTAL_PATH.read_text())
+    d.setdefault("workspaces", {}).update(load_bench_workspaces_raw(REPO_ROOT))
     out: dict[str, list[dict]] = {}
     for slug, spec in d.get("workspaces", {}).items():
         if slug.startswith("bench-"):

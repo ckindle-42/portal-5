@@ -290,7 +290,7 @@ Slack             ─┘            │
 Ollama serves all chat. MLX survives only where Ollama has no equivalent — speech synthesis, diarized transcription, embeddings, reranking, image and video. One tier means one model catalog and one pull path.
 
 ### Source of Truth
-`config/portal.yaml` declares workspaces and the MCP fleet. `sync_config` regenerates everything derived from it. Editing a generated file is a change that gets overwritten.
+`config/portal.yaml` declares production workspaces and the MCP fleet; eval bench lanes live in `config/bench_workspaces.yaml` and are included when eval is enabled or a bench/WFE harness asks. `sync_config` regenerates the derived artifacts. Editing a generated file is a change that gets overwritten.
 
 ---
 

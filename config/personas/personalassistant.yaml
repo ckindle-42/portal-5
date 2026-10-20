@@ -52,3 +52,4 @@ tools_allow:
   - list_memories
   - kb_search
   - web_search
+persona_reason: "tool surface: tools_allow + forced tool choice — assistant actions must really execute"

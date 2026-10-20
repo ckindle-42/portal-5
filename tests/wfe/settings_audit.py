@@ -35,7 +35,7 @@ from typing import TYPE_CHECKING
 
 import yaml
 
-from portal.platform.inference.config import effective_workspace
+from portal.platform.inference.config import effective_workspace, load_bench_workspaces_raw
 from portal.platform.inference.model_cards import card_entry as _card_entry_matched
 from portal.platform.inference.omlx_auth import omlx_headers
 
@@ -929,7 +929,9 @@ def _audit_reasoning_budget_fit(
 
 def _audit_personas(tags: set[str], violations: list[dict]) -> int:
     checked = 0
-    for pf in (REPO / "config/personas").glob("*.yaml"):
+    persona_files = sorted((REPO / "config/personas").glob("*.yaml"))
+    persona_files += sorted((REPO / "config/personas/bench").glob("*.yaml"))
+    for pf in persona_files:
         d = yaml.safe_load(pf.read_text()) or {}
         pins: list[str] = []
         if isinstance(d.get("preferred_models"), list):
@@ -1570,6 +1572,11 @@ def _audit_seat(ws_id: str, ws: dict, ctx: dict, violations: list[dict]) -> dict
 def run_audit(behavioral: bool = False) -> dict:
     registry = _load_expectations()
     portal = yaml.safe_load((REPO / "config/portal.yaml").read_text())
+    # Include bench lanes in the audit roster.
+    portal["workspaces"] = {
+        **(portal.get("workspaces") or {}),
+        **load_bench_workspaces_raw(REPO),
+    }
     backends = yaml.safe_load((REPO / "config/backends.yaml").read_text())
 
     registered, tool_flags = _registered_models(backends)

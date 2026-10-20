@@ -111,9 +111,12 @@ _WORKSPACE_CACHE: dict[str, dict] | None = None
 def _load_workspaces() -> dict[str, dict]:
     global _WORKSPACE_CACHE
     if _WORKSPACE_CACHE is None:
-        cfg = yaml.safe_load((REPO_ROOT / "config" / "portal.yaml").read_text())
+        from portal.platform.inference.config import load_bench_workspaces_raw
+
+        cfg = yaml.safe_load((REPO_ROOT / "config" / "portal.yaml").read_text()) or {}
         _WORKSPACE_CACHE = {
-            k: v for k, v in cfg.get("workspaces", {}).items() if isinstance(v, dict)
+            **(cfg.get("workspaces") or {}),
+            **load_bench_workspaces_raw(REPO_ROOT),
         }
     return _WORKSPACE_CACHE
 

@@ -159,7 +159,7 @@ def write_module_enabled(name: str, enabled: bool, path: Path | None = None) -> 
     if n != 1:
         raise ValueError(f"modules.{name}.enabled not found in {target}")
     target.write_text(text[:body] + new_block + text[end:], encoding="utf-8")
-    cfg._CONFIG_CACHE = None
+    cfg._CONFIG_CACHE.clear()
 
 
 def _set_module_state(name: str, to_state: bool, actor: str, auto_confirm: bool) -> None:

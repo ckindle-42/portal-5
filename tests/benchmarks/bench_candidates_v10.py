@@ -60,11 +60,17 @@ def _get_model_hint(workspace: str) -> str | None:
     if _MODEL_HINT_CACHE is None:
         import yaml
 
+        from portal.platform.inference.config import load_bench_workspaces_raw
+
         portal_yaml = REPO_ROOT / "config" / "portal.yaml"
         if portal_yaml.exists():
-            cfg = yaml.safe_load(portal_yaml.read_text())
+            cfg = yaml.safe_load(portal_yaml.read_text()) or {}
             _MODEL_HINT_CACHE = {}
-            for ws_id, ws_cfg in cfg.get("workspaces", {}).items():
+            workspaces = {
+                **(cfg.get("workspaces") or {}),
+                **load_bench_workspaces_raw(REPO_ROOT),
+            }
+            for ws_id, ws_cfg in workspaces.items():
                 if isinstance(ws_cfg, dict) and ws_cfg.get("model_hint"):
                     _MODEL_HINT_CACHE[ws_id] = ws_cfg["model_hint"]
     return _MODEL_HINT_CACHE.get(workspace) if _MODEL_HINT_CACHE else None

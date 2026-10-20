@@ -11,7 +11,6 @@ Usage: python3 scripts/collapse_snapshot.py > snapshot.json
 
 from __future__ import annotations
 
-import glob
 import hashlib
 import json
 import re
@@ -38,11 +37,19 @@ ALL_MODULE_UNITS = (
 
 
 def _portal_yaml() -> dict:
-    return yaml.safe_load((REPO_ROOT / "config" / "portal.yaml").read_text())
+    from portal.platform.inference.config import load_bench_workspaces_raw
+
+    cfg = yaml.safe_load((REPO_ROOT / "config" / "portal.yaml").read_text()) or {}
+    cfg["workspaces"] = {
+        **(cfg.get("workspaces") or {}),
+        **load_bench_workspaces_raw(REPO_ROOT),
+    }
+    return cfg
 
 
 def _persona_files() -> list[Path]:
-    return [Path(p) for p in sorted(glob.glob(str(REPO_ROOT / "config" / "personas" / "*.yaml")))]
+    persona_dir = REPO_ROOT / "config" / "personas"
+    return sorted(persona_dir.glob("*.yaml")) + sorted((persona_dir / "bench").glob("*.yaml"))
 
 
 def _sha256(path: Path) -> str | None:

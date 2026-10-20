@@ -130,7 +130,10 @@ def main(argv: list[str]) -> int:
     if not SETTINGS.parent.exists():
         print("oMLX not installed on this host — nothing to sync")
         return 0
+    from portal.platform.inference.config import load_bench_workspaces_raw
+
     portal = yaml.safe_load((REPO / "config" / "portal.yaml").read_text())
+    portal.setdefault("workspaces", {}).update(load_bench_workspaces_raw(REPO))
     backends = yaml.safe_load((REPO / "config" / "backends.yaml").read_text())
     defaults, notes = seat_defaults(portal, backends)
     for n in notes:

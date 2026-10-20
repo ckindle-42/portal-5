@@ -54,7 +54,7 @@ def test_reasoning_workspaces_no_stale_keys(monkeypatch):
 def test_workspace_prompt_map_no_stale_keys():
     from tests.benchmarks.bench.prompts import WORKSPACE_PROMPT_MAP
 
-    cfg = load_portal_config()  # variants are valid ids
+    cfg = load_portal_config(include_bench=True)  # full catalog; variants are valid ids
     catalog = set(cfg.workspaces) | {
         f"{w}::{v}" for w, s in cfg.workspaces.items() for v in (s.variants or {})
     }

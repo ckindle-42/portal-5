@@ -16,6 +16,7 @@ import glob
 import json
 import os
 import sys
+from pathlib import Path
 
 import yaml
 
@@ -53,13 +54,14 @@ def _load_yaml(path: str) -> dict:
 
 def gather() -> dict:
     d = _load_yaml("config/portal.yaml")
-    ws = d["workspaces"]
+    from portal.platform.inference.config import load_bench_workspaces_raw
+
+    ws = {**d["workspaces"], **load_bench_workspaces_raw(Path("."))}
     prod = sorted(w for w, c in ws.items() if (c or {}).get("module") != "eval")
     ev = sorted(w for w, c in ws.items() if (c or {}).get("module") == "eval")
-    personas = sorted(
-        _load_yaml(f).get("slug", os.path.basename(f)[:-5])
-        for f in glob.glob("config/personas/*.yaml")
-    )
+    persona_files = sorted(glob.glob("config/personas/*.yaml"))
+    persona_files += sorted(glob.glob("config/personas/bench/*.yaml"))
+    personas = sorted(_load_yaml(f).get("slug", os.path.basename(f)[:-5]) for f in persona_files)
     # security canonical variants (base::variant) the sec bench addresses
     sec_variants = []
     sec = (ws.get("auto-security") or {}).get("variants") or {}
@@ -67,7 +69,7 @@ def gather() -> dict:
         sec_variants.append(f"auto-security::{v}")
     # model_pin personas (served-model correctness — from the intent fix)
     pinned = []
-    for f in glob.glob("config/personas/*.yaml"):
+    for f in persona_files:
         p = _load_yaml(f)
         if p.get("model_pin"):
             pinned.append((p.get("slug"), p["model_pin"]))

@@ -178,8 +178,14 @@ def reasoning_aware_max_tokens(workspace: str) -> int:
     import yaml
 
     try:
-        cfg = yaml.safe_load((REPO_ROOT / "config" / "portal.yaml").read_text())
-        ws = cfg.get("workspaces", {}).get(workspace, {})
+        from portal.platform.inference.config import load_bench_workspaces_raw
+
+        cfg = yaml.safe_load((REPO_ROOT / "config" / "portal.yaml").read_text()) or {}
+        workspaces = {
+            **(cfg.get("workspaces") or {}),
+            **load_bench_workspaces_raw(REPO_ROOT),
+        }
+        ws = workspaces.get(workspace, {})
         return 8192 if ws.get("emits_reasoning") else 4096
     except Exception:
         return 4096

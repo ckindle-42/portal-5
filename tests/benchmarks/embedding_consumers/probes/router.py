@@ -178,8 +178,10 @@ async def run(ctx: ProbeContext) -> ProbeResult:
 def _live_workspace_ids() -> set[str]:
     import yaml
 
+    from portal.platform.inference.config import load_bench_workspaces_raw
+
     cfg = yaml.safe_load((REPO_ROOT / "config" / "portal.yaml").read_text())
-    ws = cfg["workspaces"]
+    ws = {**(cfg.get("workspaces") or {}), **load_bench_workspaces_raw(REPO_ROOT)}
     ids = ws.keys() if isinstance(ws, dict) else [w.get("id") for w in ws]
     return {str(i) for i in ids}
 

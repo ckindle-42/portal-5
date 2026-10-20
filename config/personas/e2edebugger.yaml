@@ -45,3 +45,4 @@ tags:
   - debugging
   - browser
   - playwright
+persona_reason: "tool surface: tools_allow — end-to-end debugging needs its execution tools"

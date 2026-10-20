@@ -1000,7 +1000,8 @@ class TestSPLWorkspace:
         cfg = yaml.safe_load(open("config/backends.yaml"))
         pipe_ids = set(WORKSPACES.keys())
         yaml_ids = set(cfg["workspace_routing"].keys())
-        all_ids = set(load_portal_config().workspaces.keys())
+        # Compare routing with the full catalog, regardless of eval state.
+        all_ids = set(load_portal_config(include_bench=True).workspaces.keys())
         assert "auto-spl" in pipe_ids, "auto-spl missing from WORKSPACES in router_pipe.py"
         assert "auto-spl" in yaml_ids, "auto-spl missing from workspace_routing in backends.yaml"
         assert pipe_ids <= yaml_ids, (
@@ -1142,7 +1143,8 @@ class TestAgenticWorkspace:
         cfg = yaml.safe_load(open("config/backends.yaml"))
         pipe_ids = set(WORKSPACES.keys())
         yaml_ids = set(cfg["workspace_routing"].keys())
-        all_ids = set(load_portal_config().workspaces.keys())
+        # Compare routing with the full catalog, regardless of eval state.
+        all_ids = set(load_portal_config(include_bench=True).workspaces.keys())
         assert base in pipe_ids, f"{base} missing from WORKSPACES in router_pipe.py"
         assert base in yaml_ids, f"{base} missing from workspace_routing in backends.yaml"
         # WORKSPACES is computed once at module-import time and its exact contents

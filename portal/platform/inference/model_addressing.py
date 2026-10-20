@@ -59,7 +59,16 @@ def _load() -> None:
             data = yaml.safe_load(_PORTAL_YAML.read_text()) or {}
         except Exception:  # noqa: BLE001 - an unreadable registry addresses nothing
             data = {}
-        top_level = data.get("workspaces") or {}
+        # Keep bench lane model hints addressable by id.
+        try:
+            from portal.platform.inference.config import (  # noqa: PLC0415
+                load_bench_workspaces_raw,
+            )
+
+            bench = load_bench_workspaces_raw()
+        except Exception:  # noqa: BLE001 - same policy as the unreadable registry
+            bench = {}
+        top_level = {**(data.get("workspaces") or {}), **bench}
         for ws_id, ws_cfg in top_level.items():
             hint = (ws_cfg or {}).get("model_hint")
             if hint:

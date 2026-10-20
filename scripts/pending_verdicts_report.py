@@ -265,7 +265,11 @@ def mine_intake_rationale(tag: str) -> dict:
 
 
 def load_portal() -> dict:
-    return yaml.safe_load(PORTAL_PATH.read_text(encoding="utf-8"))
+    from portal.platform.inference.config import load_bench_workspaces_raw
+
+    d = yaml.safe_load(PORTAL_PATH.read_text(encoding="utf-8"))
+    d.setdefault("workspaces", {}).update(load_bench_workspaces_raw(REPO_ROOT))
+    return d
 
 
 def bench_workspaces_routing_to(tag: str, portal: dict) -> list[str]:

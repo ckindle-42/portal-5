@@ -47,3 +47,4 @@ tools_allow:
   - news_search
   - kb_search
   - kb_search_all
+persona_reason: "tool surface: tools_allow — verification needs only the search/fetch tools"

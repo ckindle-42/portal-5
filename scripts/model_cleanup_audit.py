@@ -158,7 +158,10 @@ def production_bases() -> set[str]:
     """Every model a live production workspace can route to: top-level model_hint
     plus every variant's model_hint. The Layer-1 router model is production infra
     too but isn't a workspace, so it's added explicitly."""
+    from portal.platform.inference.config import load_bench_workspaces_raw
+
     d = yaml.safe_load((REPO_ROOT / "config" / "portal.yaml").read_text())
+    d.setdefault("workspaces", {}).update(load_bench_workspaces_raw(REPO_ROOT))
     bases = set()
     for k, v in d.get("workspaces", {}).items():
         if k.startswith("bench-"):
@@ -173,7 +176,10 @@ def production_bases() -> set[str]:
 
 
 def bench_workspaces_by_base() -> dict[str, list[str]]:
+    from portal.platform.inference.config import load_bench_workspaces_raw
+
     d = yaml.safe_load((REPO_ROOT / "config" / "portal.yaml").read_text())
+    d.setdefault("workspaces", {}).update(load_bench_workspaces_raw(REPO_ROOT))
     out: dict[str, list[str]] = {}
     for k, v in d.get("workspaces", {}).items():
         if k.startswith("bench-") and v.get("model_hint"):

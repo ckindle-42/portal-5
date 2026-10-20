@@ -51,3 +51,4 @@ tools_allow:
   - kb_search
   - kb_search_all
   - recall
+persona_reason: "tool surface: tools_allow + forced tool choice — KB navigation must call a KB tool"

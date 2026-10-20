@@ -125,8 +125,13 @@ def test_plain_workspace_id_is_unchanged(
     assert body["messages"] == messages
 
 
-def test_prompt_template_persona_uses_the_template_file() -> None:
+def test_prompt_template_persona_uses_the_template_file(monkeypatch) -> None:
     from portal.platform.inference.config import _load_prompt_template
+    from portal.platform.inference.router import workspaces as ws_mod
+
+    # Load the bench persona with the bench workspace catalog.
+    monkeypatch.setenv("PORTAL_BENCH_WORKSPACES", "1")
+    ws_mod._load_persona_map()
 
     persona = _PERSONA_MAP["bench-qwen36-abl-27b"]
     assert persona.prompt_template

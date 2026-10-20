@@ -87,3 +87,4 @@ tools_allow:
   - read_word_document
   - remember
   - recall
+persona_reason: "tool surface: tools_allow — the daily driver curates a small everyday tool set"

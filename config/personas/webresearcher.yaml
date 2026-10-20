@@ -39,3 +39,4 @@ tools_allow:
   - news_search
   - remember
   - recall
+persona_reason: "tool surface: tools_allow — web research restricted to the search/fetch tools"

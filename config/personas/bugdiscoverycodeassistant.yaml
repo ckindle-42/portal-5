@@ -64,3 +64,4 @@ tags:
   - code-review
   - security
   - development
+persona_reason: "tool surface: tools_allow — bug discovery restricted to its analysis tools"

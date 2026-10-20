@@ -68,8 +68,14 @@ def _temperature_for_tag(model_tag: str) -> float:
     try:
         import yaml as _yaml
 
+        from portal.platform.inference.config import load_bench_workspaces_raw
+
         data = _yaml.safe_load((REPO_ROOT / "config" / "portal.yaml").read_text()) or {}
-        for slug, spec in (data.get("workspaces") or {}).items():
+        workspaces = {
+            **(data.get("workspaces") or {}),
+            **load_bench_workspaces_raw(REPO_ROOT),
+        }
+        for slug, spec in workspaces.items():
             if not slug.startswith("bench-") or not isinstance(spec, dict):
                 continue
             if spec.get("model_hint") == model_tag and spec.get("temperature") is not None:

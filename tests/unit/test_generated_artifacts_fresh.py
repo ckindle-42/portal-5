@@ -84,7 +84,7 @@ def test_model_swap_sync_writes_only_runtime_artifacts(tmp_path, monkeypatch):
     portal_yaml.write_text(yaml.safe_dump(portal_cfg), encoding="utf-8")
     monkeypatch.setattr(sync_config, "REPO", tmp_path)
     monkeypatch.setattr(config_module, "PORTAL_YAML", portal_yaml)
-    monkeypatch.setattr(config_module, "_CONFIG_CACHE", None)
+    monkeypatch.setattr(config_module, "_CONFIG_CACHE", {})
     monkeypatch.setattr(seed_facts, "_REPO_ROOT", tmp_path)
     monkeypatch.setattr(modules, "launched_mcp_ids", lambda _mods=None: [])
     monkeypatch.setattr(modules, "enabled_modules", lambda: ["general"])
@@ -127,9 +127,16 @@ def test_backends_yaml_workspace_routing_matches_catalog() -> None:
     backends_path = REPO / "config" / "backends.yaml"
 
     portal_raw = yaml.safe_load(portal_yaml_path.read_text()) or {}
+    # Full catalog: bench lanes moved to config/bench_workspaces.yaml (C step 1)
+    # but stay in the routing table, env-independently.
+    from portal.platform.inference.config import load_bench_workspaces_raw
+
+    portal_ws = {
+        *(portal_raw.get("workspaces", {}).keys()),
+        *load_bench_workspaces_raw(REPO).keys(),
+    }
     backends_raw = yaml.safe_load(backends_path.read_text()) or {}
 
-    portal_ws = set(portal_raw.get("workspaces", {}).keys())
     backends_routing = set(backends_raw.get("workspace_routing", {}).keys())
 
     missing = portal_ws - backends_routing

@@ -86,8 +86,11 @@ SCHEMAS = _load_manifest_schemas()
 
 
 def _load_workspace(ws_id: str) -> dict:
-    cfg = yaml.safe_load((REPO_ROOT / "config" / "portal.yaml").read_text())
-    return cfg["workspaces"][ws_id]
+    from portal.platform.inference.config import load_bench_workspaces_raw
+
+    cfg = yaml.safe_load((REPO_ROOT / "config" / "portal.yaml").read_text()) or {}
+    workspaces = {**(cfg.get("workspaces") or {}), **load_bench_workspaces_raw(REPO_ROOT)}
+    return workspaces[ws_id]
 
 
 TASKS = [

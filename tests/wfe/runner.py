@@ -1219,16 +1219,23 @@ def preflight_harness(model: str) -> dict:
     return out
 
 
-def resolve_persona(ws_id: str, override: str | None = None) -> tuple[str | None, str]:
+def resolve_persona(
+    ws_id: str,
+    override: str | None = None,
+    persona_map: dict | None = None,
+) -> tuple[str | None, str]:
     """Deterministic persona selection, recorded in every result row. auto-coding
     has 40 personas bound to it and auto-security 10; the previous
     first-glob-wins scan made the measured system prompt arbitrary and
     machine-dependent."""
-    candidates = []
-    for pf in sorted((REPO / "config/personas").glob("*.yaml")):
-        d = yaml.safe_load(pf.read_text()) or {}
-        if d.get("workspace_model") == ws_id and d.get("system_prompt"):
-            candidates.append((d.get("slug") or pf.stem, d["system_prompt"]))
+    from portal.platform.inference.config import load_persona_map
+
+    personas = persona_map or load_persona_map(include_bench=True)
+    candidates = [
+        (slug, persona.system_prompt)
+        for slug, persona in personas.items()
+        if persona.workspace_model == ws_id and persona.system_prompt
+    ]
     candidates.sort(key=lambda c: c[0])
     if override:
         for slug, sp in candidates:
@@ -1244,8 +1251,12 @@ def workspace_context(ws_id: str, persona: str | None = None) -> dict:
     """`ws_id` may name a variant as `workspace::variant`, the synthetic id
     production uses (router/preinject.py `_resolve_workspace_variant`): the
     variant's keys shallow-override the base workspace's."""
+    from portal.platform.inference.config import load_bench_workspaces_raw, load_persona_map
+
     portal = yaml.safe_load((REPO / "config/portal.yaml").read_text()) or {}
-    workspaces = portal.get("workspaces") or {}
+    workspaces = {**(portal.get("workspaces") or {}), **load_bench_workspaces_raw(REPO)}
+    portal["workspaces"] = workspaces
+    personas = load_persona_map(include_bench=True)
     base_id = ws_id.partition("::")[0]
     ws = effective_workspace(workspaces, ws_id)
     # The seat is what a user gets by selecting the WORKSPACE in Open WebUI: its
@@ -1257,7 +1268,7 @@ def workspace_context(ws_id: str, persona: str | None = None) -> dict:
     # faithfully." where production sends no system prompt at all. A persona is
     # measured only when one is asked for by slug.
     if persona:
-        slug, sp = resolve_persona(base_id, persona)
+        slug, sp = resolve_persona(base_id, persona, personas)
     else:
         slug, sp = None, ws.get("owui_system_prompt") or ""
     # Production appends this to the system message on every request
@@ -1299,13 +1310,7 @@ def workspace_context(ws_id: str, persona: str | None = None) -> dict:
         "system_prompt_base": sp_base,
         "system_prompt_pipeline": sp_base + note,
         "persona_slug": slug,
-        "persona_candidates": len(
-            [
-                1
-                for pf in (REPO / "config/personas").glob("*.yaml")
-                if (yaml.safe_load(pf.read_text()) or {}).get("workspace_model") == base_id
-            ]
-        ),
+        "persona_candidates": sum(p.workspace_model == base_id for p in personas.values()),
         "declared_tools": declared,
         "tool_surface": surface,
         "tool_surface_proxy": sorted(surface) != sorted(declared),

@@ -18,12 +18,14 @@ CONFIG_DIR = Path("config/promptfoo")
 
 @pytest.fixture(scope="module")
 def known_models():
-    # Resolve against every workspace in portal.yaml. Eval workspaces and
-    # modules that ship disabled (image, music, video) stay in the catalog,
-    # and promptfoo quality configs legitimately name their model hints.
+    # Resolve quality-config model hints against the full workspace catalog.
     from portal.platform.inference.config import load_portal_config
 
-    return {ws.model_hint for ws in load_portal_config().workspaces.values() if ws.model_hint}
+    return {
+        ws.model_hint
+        for ws in load_portal_config(include_bench=True).workspaces.values()
+        if ws.model_hint
+    }
 
 
 def _extract_model_refs(config_path):

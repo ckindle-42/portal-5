@@ -45,3 +45,4 @@ tools_allow:
   - news_search
   - web_fetch
   - kb_search
+persona_reason: "tool surface: tools_allow — market analysis restricted to the research tools"

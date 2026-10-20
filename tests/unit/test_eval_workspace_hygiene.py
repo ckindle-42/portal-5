@@ -21,6 +21,8 @@ def _patch_portal_yaml(monkeypatch, workspaces: dict) -> None:
     def fake_read_text(self, *args, **kwargs):
         if self.name == "portal.yaml":
             return payload
+        if self.name == "bench_workspaces.yaml":
+            return yaml.dump({"workspaces": {}})
         return orig_read_text(self, *args, **kwargs)
 
     monkeypatch.setattr(Path, "read_text", fake_read_text)

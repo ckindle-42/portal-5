@@ -47,3 +47,4 @@ tags:
   - tools
   - function-calling
   - api
+persona_reason: "tool surface: forced tool choice — composing tool chains is the seat's whole purpose"

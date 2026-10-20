@@ -52,11 +52,17 @@ def _load_workspaces() -> dict[str, dict]:
     if _WORKSPACE_CACHE is None:
         import yaml
 
+        from portal.platform.inference.config import load_bench_workspaces_raw
+
         portal_yaml = REPO_ROOT / "config" / "portal.yaml"
         _WORKSPACE_CACHE = {}
         if portal_yaml.exists():
-            cfg = yaml.safe_load(portal_yaml.read_text())
-            for ws_id, ws_cfg in cfg.get("workspaces", {}).items():
+            cfg = yaml.safe_load(portal_yaml.read_text()) or {}
+            workspaces = {
+                **(cfg.get("workspaces") or {}),
+                **load_bench_workspaces_raw(REPO_ROOT),
+            }
+            for ws_id, ws_cfg in workspaces.items():
                 if isinstance(ws_cfg, dict):
                     _WORKSPACE_CACHE[ws_id] = ws_cfg
     return _WORKSPACE_CACHE

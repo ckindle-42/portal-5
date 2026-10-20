@@ -10,12 +10,19 @@ Only the observation of a live engine is faked."""
 from __future__ import annotations
 
 import json
+from pathlib import Path
 
 import yaml
 
+from portal.platform.inference.config import load_bench_workspaces_raw
 from scripts.validation import wfe as hp
 
-REAL = yaml.safe_load(hp.PORTAL.read_text())["workspaces"]
+# The seat oracle covers production and bench routing.
+_REPO = Path(hp.PORTAL).parent.parent
+REAL = {
+    **(yaml.safe_load(hp.PORTAL.read_text())["workspaces"]),
+    **load_bench_workspaces_raw(_REPO),
+}
 WS = "auto-compliance"
 SEAT = REAL[WS]["model_hint"]
 CAND = "granite4.1:30b-ctx64k"

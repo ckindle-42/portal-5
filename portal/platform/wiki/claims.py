@@ -49,23 +49,27 @@ def _load_portal_yaml(root: Path) -> dict[str, Any]:
 
 
 def _workspace_names(root: Path) -> list[str]:
-    """Workspace *ids*, which are the mapping keys in `config/portal.yaml`.
-
-    The `name` field inside each entry is a display label ("🤖 Portal Auto
-    Router"), not an id, so it must never be used here — `workspaces.bench` counts
-    the `bench-` id prefix and would silently return 0 if fed display labels.
-    An earlier version iterated `workspaces` as though it were a list of dicts;
-    that produced the right answer only because iterating a dict yields its keys.
-    The shape is asserted rather than guessed so a future restructure fails loudly
-    instead of quietly zeroing the bench count.
-    """
+    """Return workspace IDs from production and bench config."""
     workspaces = _load_portal_yaml(root).get("workspaces")
-    if isinstance(workspaces, dict):
-        return [str(k) for k in workspaces]
-    raise TypeError(
-        f"config/portal.yaml `workspaces` must be a mapping of id -> spec, "
-        f"got {type(workspaces).__name__}"
-    )
+    if not isinstance(workspaces, dict):
+        raise TypeError(
+            f"config/portal.yaml `workspaces` must be a mapping of id -> spec, "
+            f"got {type(workspaces).__name__}"
+        )
+    names = [str(k) for k in workspaces]
+    bench_path = root / "config" / "bench_workspaces.yaml"
+    if bench_path.is_file():
+        # Keep the wiki core free of inference-layer imports.
+        import yaml
+
+        bench = (yaml.safe_load(bench_path.read_text(encoding="utf-8")) or {}).get("workspaces")
+        if not isinstance(bench, dict):
+            raise TypeError(
+                f"{bench_path} `workspaces` must be a mapping of id -> spec, "
+                f"got {type(bench).__name__}"
+            )
+        names += [str(k) for k in bench]
+    return names
 
 
 def _probe_workspaces_total(root: Path) -> int:

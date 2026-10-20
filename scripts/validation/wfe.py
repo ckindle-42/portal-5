@@ -49,9 +49,15 @@ def _campaign_engine(campaign_id: str) -> str:
 def _seats() -> dict[str, str]:
     """workspace -> the model production seats there. backends.yaml says which
     workspaces production routes, but its workspace_routing maps each one to
-    backend groups, not to a model; the seat is portal.yaml's model_hint."""
+    backend groups, not to a model; the seat is the workspace's model_hint
+    (portal.yaml, plus the bench config the routing table also covers — C step 1)."""
+    from portal.platform.inference.config import load_bench_workspaces_raw
+
     routed = (yaml.safe_load(ROUTING.read_text()) or {}).get("workspace_routing") or {}
-    spaces = (yaml.safe_load(PORTAL.read_text()) or {}).get("workspaces") or {}
+    spaces = {
+        **((yaml.safe_load(PORTAL.read_text()) or {}).get("workspaces") or {}),
+        **load_bench_workspaces_raw(REPO_ROOT),
+    }
     return {
         str(ws): str(spaces[ws]["model_hint"])
         for ws in routed

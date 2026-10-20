@@ -85,7 +85,10 @@ PROBE_PREFIX = {
 
 def resolve_incumbent(workspace: str) -> str:
     try:
+        from portal.platform.inference.config import load_bench_workspaces_raw
+
         d = yaml.safe_load(PORTAL_YAML.read_text()) or {}
+        d.setdefault("workspaces", {}).update(load_bench_workspaces_raw(REPO_ROOT))
     except Exception:
         return ""
     return (d.get("workspaces", {}).get(workspace, {}) or {}).get("model_hint", "")

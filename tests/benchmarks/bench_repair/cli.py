@@ -55,11 +55,16 @@ def _omlx_alias_group(model_hint: str) -> str | None:
 
 
 def _resolve_workspace(workspace: str) -> dict | None:
+    from portal.platform.inference.config import load_bench_workspaces_raw
+
     d = yaml.safe_load((REPO_ROOT / "config" / "portal.yaml").read_text())
+    d.setdefault("workspaces", {}).update(load_bench_workspaces_raw(REPO_ROOT))
     ws = d.get("workspaces", {}).get(workspace)
     if not ws:
         print(
-            f"WARNING: workspace not found in portal.yaml, skipping: {workspace}", file=sys.stderr
+            f"WARNING: workspace not found in portal.yaml/bench_workspaces.yaml, skipping: "
+            f"{workspace}",
+            file=sys.stderr,
         )
         return None
     hint = ws.get("model_hint")

@@ -25,6 +25,8 @@ logger = logging.getLogger(__name__)
 
 # Path to the single source of truth — relative to repo root
 PORTAL_YAML: Path = Path(__file__).resolve().parents[3] / "config" / "portal.yaml"
+# Bench/challenger lanes live outside the production workspace catalog.
+BENCH_YAML: Path = PORTAL_YAML.with_name("bench_workspaces.yaml")
 
 # The discipline modules; "platform" is additionally valid on mcp_fleet
 # entries (infra no discipline owns).
@@ -208,6 +210,10 @@ class WorkspaceSpec(BaseModel):
     enable_web_search: bool = False
     owui_system_prompt: str | None = None
 
+    # C3 user-facing engine growth guard.
+    engine: bool = False
+    engine_reason: str | None = None
+
 
 class WorkspaceAlias(BaseModel):
     to: str
@@ -263,6 +269,8 @@ class PersonaSpec(BaseModel):
     # /v1/models can advertise it without exposing every persona in the repo.
     ide_expose: bool = False
 
+    # C3 behavioural persona growth guard.
+    persona_reason: str | None = None
     # role: instructions only, seeded as an Open WebUI slash prompt (`/slug `).
     # persona (default): seeded as an Open WebUI model preset, as before.
     delivery: Literal["persona", "role"] = "persona"
@@ -440,13 +448,60 @@ class PortalConfig(BaseModel):
 
 # ── Loader ────────────────────────────────────────────────────────────────────
 
-_CONFIG_CACHE: PortalConfig | None = None
+# Cache ambient loads by path and eval-env state; explicit bench loads are uncached.
+_CONFIG_CACHE: dict[tuple[str, bool, bool], PortalConfig] = {}
+
+
+def _bench_env_state() -> tuple[bool, bool]:
+    """Return the two bench-related environment opt-ins."""
+    truthy = ("true", "1", "yes")
+    return (
+        os.environ.get("PORTAL_BENCH_WORKSPACES", "").lower() in truthy,
+        os.environ.get("PORTAL_ENABLE_EVAL", "").lower() in truthy,
+    )
+
+
+def _bench_env_opt_in() -> bool:
+    """Whether the bench/WFE harness explicitly asks for the bench lanes."""
+    return _bench_env_state()[0]
+
+
+def _eval_enabled_raw(raw: dict[str, Any]) -> bool:
+    """Return eval-module state from the raw portal config."""
+    if os.environ.get("PORTAL_ENABLE_EVAL", "").lower() in ("true", "1", "yes"):
+        return True
+    state = (raw.get("modules") or {}).get("eval", {}).get("enabled")
+    return bool(state)
+
+
+def _bench_merge_requested(raw: dict[str, Any], include_bench: bool | None) -> bool:
+    if include_bench is not None:
+        return include_bench
+    return _bench_env_opt_in() or _eval_enabled_raw(raw)
+
+
+def load_bench_workspaces_raw(
+    root: Path | None = None, *, path: Path | None = None
+) -> dict[str, Any]:
+    """Load the raw workspace mapping from the bench config file."""
+    bench_path = path or (BENCH_YAML if root is None else root / "config" / "bench_workspaces.yaml")
+    if not bench_path.is_file():
+        return {}
+    data = yaml.safe_load(bench_path.read_text()) or {}
+    workspaces = data.get("workspaces") or {}
+    if not isinstance(workspaces, dict):
+        raise TypeError(
+            f"{bench_path} `workspaces` must be a mapping of id -> spec, "
+            f"got {type(workspaces).__name__}"
+        )
+    return workspaces
 
 
 def load_portal_config(
     path: Path | None = None,
     *,
     _force_reload: bool = False,
+    include_bench: bool | None = None,
 ) -> PortalConfig:
     """Load ``config/portal.yaml`` and return a validated :class:`PortalConfig`.
 
@@ -455,12 +510,15 @@ def load_portal_config(
 
     The ``OLLAMA_URL`` env var overrides the YAML value; ``OLLAMA_BASE_URL``
     is accepted as a deprecated alias and triggers a warning.
+
     """
     global _CONFIG_CACHE
-    if _CONFIG_CACHE is not None and not _force_reload:
-        return _CONFIG_CACHE
-
     yaml_path = path or PORTAL_YAML
+    if _CONFIG_CACHE and include_bench is None and not _force_reload:
+        cached = _CONFIG_CACHE.get((str(yaml_path), *_bench_env_state()))
+        if cached is not None:
+            return cached
+
     raw: dict[str, Any] = yaml.safe_load(yaml_path.read_text()) or {}
 
     # Canonicalize Ollama URL — env wins over YAML
@@ -475,19 +533,32 @@ def load_portal_config(
     if env_url:
         raw["ollama_url"] = env_url
 
+    if _bench_merge_requested(raw, include_bench):
+        bench = load_bench_workspaces_raw(path=yaml_path.with_name("bench_workspaces.yaml"))
+        overlap = sorted(set(bench) & set(raw.get("workspaces") or {}))
+        if overlap:
+            raise RuntimeError(
+                f"bench_workspaces.yaml collides with portal.yaml workspaces: {overlap}"
+            )
+        raw["workspaces"] = {**(raw.get("workspaces") or {}), **bench}
+
     try:
-        _CONFIG_CACHE = PortalConfig.model_validate(raw)
+        config = PortalConfig.model_validate(raw)
     except Exception as exc:
         raise RuntimeError(f"portal.yaml failed validation ({yaml_path}): {exc}") from exc
 
-    return _CONFIG_CACHE
+    if include_bench is None:
+        _CONFIG_CACHE[(str(yaml_path), *_bench_env_state())] = config
+    return config
 
 
 # ── Derived-view helpers ──────────────────────────────────────────────────────
 
 # Fields that exist only in portal.yaml and must NOT appear in the runtime
 # WORKSPACES dict that the rest of the pipeline imports.
-_OWUI_ONLY_FIELDS = frozenset({"expose_to_owui", "enable_web_search", "owui_system_prompt"})
+_OWUI_ONLY_FIELDS = frozenset(
+    {"expose_to_owui", "enable_web_search", "owui_system_prompt", "engine", "engine_reason"}
+)
 
 # Schema-only fields consulted by resolve_workspace_variant() via
 # load_portal_config() directly — never surfaced in the runtime dict itself.
@@ -495,12 +566,12 @@ _INTERNAL_ONLY_FIELDS = frozenset({"variants"})
 
 
 def _eval_enabled() -> bool:
-    """Whether the eval module's workspaces/mcp entries should be loaded.
-
-    True when ``PORTAL_ENABLE_EVAL=1`` is set or ``modules.eval.enabled`` is on
-    in config/portal.yaml.
-    """
-    if os.environ.get("PORTAL_ENABLE_EVAL", "").lower() in ("true", "1", "yes"):
+    """Return whether eval workspaces are enabled by config or the environment."""
+    if _bench_env_opt_in() or os.environ.get("PORTAL_ENABLE_EVAL", "").lower() in (
+        "true",
+        "1",
+        "yes",
+    ):
         return True
     from portal.platform.wiki.adapters.modules import enabled_modules
 
@@ -568,26 +639,37 @@ def ollama_url(config: PortalConfig | None = None) -> str:
 # ── Persona loader ────────────────────────────────────────────────────────────
 
 _PERSONAS_DIR: Path = Path(__file__).resolve().parents[3] / "config" / "personas"
+# Bench personas load only with the bench workspace catalog.
+_BENCH_PERSONAS_DIR: Path = _PERSONAS_DIR / "bench"
 
 
 def load_persona_map(
     personas_dir: Path | None = None,
     config: PortalConfig | None = None,
+    include_bench: bool | None = None,
 ) -> dict[str, PersonaSpec]:
     """Return ``{slug: PersonaSpec}`` for every YAML under ``config/personas/``.
 
     Invalid files are logged at WARNING and skipped, and the skipped count is
     logged once at the end. Does not validate that every ``workspace_model``
     resolves — call ``validate_persona_parents`` for that gate.
+
     """
     directory = personas_dir or _PERSONAS_DIR
     if not directory.is_dir():
         logger.warning("Personas directory not found: %s", directory)
         return {}
 
+    files = sorted(directory.glob("*.yaml"))
+    bench_wanted = (
+        include_bench if include_bench is not None else (_bench_env_opt_in() or _eval_enabled())
+    )
+    if bench_wanted and directory == _PERSONAS_DIR:
+        files += sorted(_BENCH_PERSONAS_DIR.glob("*.yaml"))
+
     result: dict[str, PersonaSpec] = {}
     skipped = 0
-    for yf in sorted(directory.glob("*.yaml")):
+    for yf in files:
         try:
             raw = yaml.safe_load(yf.read_text()) or {}
             slug = raw.get("slug", yf.stem)

@@ -70,3 +70,4 @@ tags:
   - analysis
   - multimodal
   - vision
+persona_reason: "tool surface: forced tool choice — research answers must be grounded in a tool call"

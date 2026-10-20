@@ -10,6 +10,7 @@ from typing import Any, cast
 
 import yaml
 
+from portal.platform.inference.config import load_bench_workspaces_raw
 from portal.platform.wiki.schema import KnowledgeUnit, SourceRef
 
 _REPO_ROOT = Path(__file__).resolve().parents[4]
@@ -135,8 +136,13 @@ def derive_persona_roster(commit: str) -> KnowledgeUnit:
 
 
 def derive_workspace_roster(commit: str) -> KnowledgeUnit:
-    """unit-fact-workspace-roster — config/portal.yaml."""
+    """unit-fact-workspace-roster — config/portal.yaml + bench_workspaces.yaml."""
     portal_cfg = _load_yaml(_REPO_ROOT / "config" / "portal.yaml")
+    # Bench lanes moved to their own file (C step 1); the roster still lists them.
+    portal_cfg["workspaces"] = {
+        **(portal_cfg.get("workspaces") or {}),
+        **load_bench_workspaces_raw(_REPO_ROOT),
+    }
     ws = portal_cfg["workspaces"]
     prod = sorted((w, c) for w, c in ws.items() if (c or {}).get("module") != "eval")
     ev = sorted((w, c) for w, c in ws.items() if (c or {}).get("module") == "eval")
@@ -160,14 +166,18 @@ def derive_workspace_roster(commit: str) -> KnowledgeUnit:
     unit = _make_unit(
         "unit-fact-workspace-roster",
         f"{len(prod)} production + {len(ev)} eval workspaces",
-        [SourceRef(type="code", path="config/portal.yaml", commit=commit)],
+        [
+            SourceRef(type="code", path="config/portal.yaml", commit=commit),
+            SourceRef(type="code", path="config/bench_workspaces.yaml", commit=commit),
+        ],
         "\n".join(body_lines),
         ["fact", "workspaces"],
         why=(
-            "The roster is the workspace mapping in `config/portal.yaml`, split "
+            "The roster is the workspace mapping in `config/portal.yaml` plus the "
+            "bench lanes in `config/bench_workspaces.yaml`, split "
             "into the production workspaces that acceptance/UAT exercises and the "
             "eval/bench workspaces gated behind `PORTAL_ENABLE_EVAL=1`. The counts "
-            "and the per-workspace model hints come straight from that file, so the "
+            "and the per-workspace model hints come straight from those files, so the "
             "roster cannot disagree with what routing serves."
         ),
         claims=[

@@ -69,7 +69,14 @@ READ_ONLY = (
 def load_portal() -> dict:
     import yaml
 
-    return yaml.safe_load((REPO / "config" / "portal.yaml").read_text())
+    from portal.platform.inference.config import load_bench_workspaces_raw
+
+    portal = yaml.safe_load((REPO / "config" / "portal.yaml").read_text()) or {}
+    portal["workspaces"] = {
+        **(portal.get("workspaces") or {}),
+        **load_bench_workspaces_raw(REPO),
+    }
+    return portal
 
 
 def manifests() -> dict[Path, list[dict]]:

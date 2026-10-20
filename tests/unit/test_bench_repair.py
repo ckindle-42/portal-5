@@ -310,9 +310,12 @@ def test_resolve_workspace_skips_missing_workspace(capsys):
 
 
 def test_resolve_workspace_returns_model_hint_and_sampling():
-    configured = yaml.safe_load((REPO_ROOT / "config" / "portal.yaml").read_text())["workspaces"][
-        "bench-qwen38-27b"
-    ]["model_hint"]
+    from portal.platform.inference.config import load_bench_workspaces_raw
+
+    configured = {
+        **yaml.safe_load((REPO_ROOT / "config" / "portal.yaml").read_text())["workspaces"],
+        **load_bench_workspaces_raw(REPO_ROOT),
+    }["bench-qwen38-27b"]["model_hint"]
     r = _resolve_workspace("bench-qwen38-27b")
     assert r is not None
     assert r["model_hint"] == configured

@@ -38,3 +38,4 @@ tags:
   - browser
   - academic
   - paywall
+persona_reason: "tool surface: forced tool choice — paywalled lookup must really call the fetcher"

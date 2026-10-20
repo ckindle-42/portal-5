@@ -585,6 +585,7 @@ def _row_stub(ws_id, spec, role, suite, suite_path, task_id, rep, is_home, tier=
 #: Config whose change alters what a row measures; edits to it split a campaign.
 FINGERPRINTED_CONFIG = (
     "config/portal.yaml",
+    "config/bench_workspaces.yaml",
     "config/backends.yaml",
     "config/model_card_expectations.yaml",
 )
@@ -921,6 +922,7 @@ def tree_at(sha: str, path: str) -> str:
 _SERVING_CONFIG = (
     "config/inference",
     "config/personas",
+    "config/bench_workspaces.yaml",
     "config/chat_templates",
     "config/backends.yaml",
     "config/engine_contract.yaml",
@@ -931,14 +933,16 @@ _SERVING_CONFIG = (
 
 
 def _workspace_block(sha: str, workspace: str) -> str:
-    """Hash the base block and selected variant block at sha; empty when absent."""
+    """Hash the base block and selected variant block at sha (portal.yaml or the bench config)."""
     if not workspace or not _SHA_RE.fullmatch(sha or ""):
         return ""
-    try:
-        doc = yaml.safe_load(_git("show", f"{sha}:config/portal.yaml")) or {}
-    except yaml.YAMLError:
-        return ""
-    workspaces = doc.get("workspaces") or {}
+    workspaces: dict = {}
+    for path in ("config/portal.yaml", "config/bench_workspaces.yaml"):
+        try:
+            doc = yaml.safe_load(_git("show", f"{sha}:{path}")) or {}
+        except yaml.YAMLError:
+            continue
+        workspaces.update(doc.get("workspaces") or {})
     base_id, _, variant = workspace.partition("::")
     base = workspaces.get(base_id)
     if not isinstance(base, dict):
@@ -958,11 +962,7 @@ def _workspace_block(sha: str, workspace: str) -> str:
 
 
 def pipeline_at(sha: str, workspace: str) -> dict:
-    """What can change a served answer without being a tool module, at the row's
-    deployed build sha: the router tree (`portal/platform/inference`, including
-    `router/tools.py`), the serving config paths, and the workspace's own
-    portal.yaml block. A missing sha, tree or block is an empty dict, and an empty
-    dict never matches. An optional path absent at `sha` hashes as empty."""
+    """Hash the router, serving config paths and workspace block at a build sha."""
     inference = tree_at(sha, "portal/platform/inference")
     block = _workspace_block(sha, workspace)
     if not inference or not block:

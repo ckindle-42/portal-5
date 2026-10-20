@@ -1356,6 +1356,11 @@ workspace_routing:
   auto-audio:
   - vision
   - general
+  task-router:
+  - general
+  auto-cad:
+  - coding
+  - general
   bench-qwen3-coder-30b:
   - general
   bench-granite41-8b:
@@ -1381,8 +1386,6 @@ workspace_routing:
   - general
   bench-huihui-qwen36-27b:
   - general
-  task-router:
-  - general
   bench-gemma4-e4b-qat:
   - general
   bench-nex-n2-mini:
@@ -1390,9 +1393,6 @@ workspace_routing:
   bench-e2b-pentest:
   - general
   bench-glm:
-  - general
-  auto-cad:
-  - coding
   - general
   bench-qwen38-cad:
   - general

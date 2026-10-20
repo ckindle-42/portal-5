@@ -41,3 +41,4 @@ tags:
   - playwright
   - e2e
   - browser
+persona_reason: "tool surface: tools_deny — test authoring must not reach destructive tools"

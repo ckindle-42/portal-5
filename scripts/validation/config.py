@@ -44,9 +44,10 @@ def check_rule_6() -> tuple[str, str, list[dict]]:
     from portal.platform.wiki.adapters.modules import enabled_modules
 
     cfg = load_portal_config()
+    # Check routing against the full catalog regardless of eval state.
+    ws_all = set(load_portal_config(include_bench=True).workspaces.keys())
     eval_on = _eval_enabled()
     live_mods = set(enabled_modules()) | ({"eval"} if eval_on else set())
-    ws_all = set(cfg.workspaces.keys())
     ws_yaml = {wid for wid, spec in cfg.workspaces.items() if spec.module in live_mods}
     ws_router = set(WORKSPACES.keys())
 

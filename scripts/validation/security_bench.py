@@ -112,9 +112,9 @@ def check_uat_catalog_no_stale_refs() -> tuple[str, str, list[dict]]:
     except ImportError as e:
         return "SKIP", f"import: {e}", []
 
-    cfg = load_portal_config()
+    cfg = load_portal_config(include_bench=True)
     live_ws = set(cfg.workspaces.keys())
-    live_personas = set(load_persona_map().keys())
+    live_personas = set(load_persona_map(include_bench=True).keys())
     live = live_ws | live_personas
 
     slug_re = re.compile(r'"model_slug"\s*:\s*"([^"]+)"')
@@ -128,7 +128,7 @@ def check_uat_catalog_no_stale_refs() -> tuple[str, str, list[dict]]:
                 src = _f.read()
             for m in slug_re.finditer(src):
                 slug = m.group(1)
-                if slug and slug not in live and not slug.startswith("bench-"):
+                if slug and slug not in live:
                     bad.append((attr, slug))
     if bad:
         stale = sorted({slug for _, slug in bad})
@@ -147,14 +147,17 @@ def check_persona_workspace_resolution() -> tuple[str, str, list[dict]]:
         from portal.platform.inference.config import load_portal_config
     except ImportError as e:
         return "SKIP", f"import: {e}", []
-    cfg = load_portal_config()
+    cfg = load_portal_config(include_bench=True)
     live_workspaces = set(cfg.workspaces.keys())
     persona_dir = pathlib.Path("config/personas")
     if not persona_dir.is_dir():
         return "SKIP", "config/personas/ not found", []
     broken: list[str] = []
     n_total = 0
-    for yaml_path in persona_dir.glob("*.yaml"):
+    persona_files = sorted(persona_dir.glob("*.yaml")) + sorted(
+        (persona_dir / "bench").glob("*.yaml")
+    )
+    for yaml_path in persona_files:
         n_total += 1
         try:
             persona = yaml.safe_load(yaml_path.read_text())

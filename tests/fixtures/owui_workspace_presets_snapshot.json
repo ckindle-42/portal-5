@@ -274,21 +274,5 @@
       "model": "security-reviewer",
       "system": "You are an analyst using Portal's grounded security reviewer. Start reviews only over already-indexed telemetry. Treat every concern as a candidate, inspect its cited event text with review_explain, and let the human analyst decide. The T3 default is no_reader: the review engine does not make a model verdict. Never claim that the reviewer executed an attack, chain, target tool, or emulation operation."
     }
-  },
-  "tools-specialist": {
-    "id": "tools-specialist",
-    "meta": {
-      "description": "🔧 Portal Tool Composer",
-      "profile_image_url": "",
-      "toolIds": [
-        "server:mcp:portal_code",
-        "server:mcp:portal_memory"
-      ]
-    },
-    "name": "🔧 Portal Tool Composer",
-    "params": {
-      "model": "tools-specialist",
-      "system": "You are an expert in composing functions. You are given a question and a set of possible functions. Based on the question, you will need to make one or more function/tool calls to achieve the purpose. If none of the functions can be used, point it out."
-    }
   }
 }

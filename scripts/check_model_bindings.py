@@ -76,21 +76,32 @@ def _workspace_bindings(repo_root: Path) -> list[Binding]:
     portal_yaml = repo_root / "config" / "portal.yaml"
     if not portal_yaml.exists():
         return []
-    cfg = yaml.safe_load(portal_yaml.read_text())
+    from portal.platform.inference.config import load_bench_workspaces_raw
+
+    cfg = yaml.safe_load(portal_yaml.read_text()) or {}
+    bench_workspaces = load_bench_workspaces_raw(repo_root)
+    workspaces = {**(cfg.get("workspaces") or {}), **bench_workspaces}
     return [
-        (f"config/portal.yaml [{ws_id}]", "model_hint", ws["model_hint"])
-        for ws_id, ws in (cfg.get("workspaces") or {}).items()
+        (
+            f"config/{'bench_workspaces.yaml' if ws_id in bench_workspaces else 'portal.yaml'} [{ws_id}]",
+            "model_hint",
+            ws["model_hint"],
+        )
+        for ws_id, ws in workspaces.items()
         if isinstance(ws, dict) and isinstance(ws.get("model_hint"), str)
     ]
 
 
 def _persona_bindings(repo_root: Path) -> list[Binding]:
     out: list[Binding] = []
-    for path in sorted(glob.glob(str(repo_root / "config" / "personas" / "*.yaml"))):
-        p = Path(path)
+    persona_dir = repo_root / "config" / "personas"
+    persona_files = sorted(persona_dir.glob("*.yaml")) + sorted(
+        (persona_dir / "bench").glob("*.yaml")
+    )
+    for p in persona_files:
         data = yaml.safe_load(p.read_text())
         if isinstance(data, dict) and isinstance(data.get("model_pin"), str):
-            out.append((f"config/personas/{p.name}", "model_pin", data["model_pin"]))
+            out.append((str(p.relative_to(repo_root)), "model_pin", data["model_pin"]))
     return out
 
 
