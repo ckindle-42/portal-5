@@ -603,11 +603,7 @@ def check_self_index_integrity() -> tuple[str, str, list[dict]]:
         return "FAIL", f"self_index import failed: {e}", []
 
     # Check 2: build_self_index returns all required keys
-    # _run_validator_json shells out to validate_system.py with timeout=30 and, measured,
-    # takes 30s and returns None every time — there is no point in paying that wall-clock
-    # cost inside the check that is already asserting honest absent behaviour. Patch it to
-    # return None immediately (which is the value it yields on timeout) to keep the check
-    # fast without changing any pass/fail rule.
+    # The validator subprocess always times out (30 s) and yields None; return None now.
     try:
         from unittest.mock import patch
 
@@ -1014,9 +1010,7 @@ def check_stage2_propose_integrity() -> tuple[str, str, list[dict]]:
 
     oracles_before = s2._ORACLES_PY.read_text()
     ability_before = s2._ABILITY_PORT_PY.read_text()
-    # run_stage2() -> build_self_index() -> _run_validator_json() hits the same 30s
-    # timeout wall as X. Patch the validator reader to return None immediately so AA
-    # stays fast without changing any pass/fail rule.
+    # Same 30 s validator timeout as X; return None now.
     try:
         from unittest.mock import patch
 
