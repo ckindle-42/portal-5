@@ -162,7 +162,7 @@ async def invoke_tool(request: Request) -> JSONResponse:
     arguments = body.get("arguments", {})
 
     try:
-        tools = {
+        tools: dict[str, Callable[..., Awaitable[dict[str, Any]]]] = {
             "transcribe_audio": transcribe_audio,
             "transcribe_with_speakers": transcribe_with_speakers,
         }

@@ -14,7 +14,7 @@ import json
 import logging
 import os
 import time
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterable, AsyncIterator
 from datetime import UTC, datetime
 from typing import Any
 
@@ -125,11 +125,13 @@ _mp_registry_cache: Any = None
 _mp_registry_dir_cache: str | None = None
 
 
-async def _with_portal_timings(source: AsyncIterator[bytes]) -> AsyncIterator[bytes]:
+async def _with_portal_timings(
+    source: AsyncIterable[str | bytes | memoryview],
+) -> AsyncIterator[bytes]:
     """Add one metadata-only timing frame immediately before the SSE terminator."""
     done = False
     async for chunk in source:
-        raw = chunk.encode() if isinstance(chunk, str) else chunk
+        raw = chunk.encode() if isinstance(chunk, str) else bytes(chunk)
         marker = b"data: [DONE]"
         if marker in raw:
             before, separator, after = raw.partition(marker)
