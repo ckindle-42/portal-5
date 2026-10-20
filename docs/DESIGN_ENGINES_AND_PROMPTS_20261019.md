@@ -46,6 +46,30 @@ Utilities and internals: `auto-council` (decide whether it stays in the dropdown
 `tools-specialist`, `task-router`, `compliance-mapping`, `compliance-reading-overflow` and the
 three `compliance-council-*` seats.
 
+## Preserve, don't flatten (operator: "don't lose functionality that is truly different; leaner, but maybe more complex on the backend")
+
+Every merge is checked against Appendix C (each field that differs between members) and Appendix D
+(everything that references each id). A difference survives in one of three places, never
+silently:
+
+1. **A variant field.** Model, window, sampling, thinking, prompt append. `engine::variant` carries
+   its own values exactly as today's workspace does.
+2. **A tool route.** When members differ by tool set (media: image / video / music / audio; data:
+   DuckDB; CAD), the merged engine offers the union, and the backend routes each request to the
+   right tools and prompt using the existing tool preselector and keyword layer. This is the
+   "more complex backend" part: one front door, per-job behaviour behind it.
+3. **Module gating.** `module` is the enable switch (`config.py`: a workspace whose module is off
+   is not served; video ships off). A merged engine's tool routes keep their own module, so
+   turning `video` off removes the video route, not the media engine.
+
+Rules that hold throughout:
+- No id disappears: old ids alias to `engine::variant` (back-compat for API callers, opencode,
+  Open WebUI history, WFE plans, UAT and scripts in Appendix D).
+- Every merge re-runs the evidence that seated it: the router bench, the WFE suites whose home is
+  that lane, the conformance audit. A merge that loses a passing behaviour is not shipped.
+- Internal seats addressed by id (compliance council, reading-overflow, task-router,
+  tools-specialist) keep their ids and their settings; they only leave the dropdown.
+
 ## What has to change (mechanics)
 
 1. **Back-compat aliases.** Old workspace ids keep resolving: the pipeline maps `general-deep`
@@ -263,3 +287,176 @@ any row's destination you disagree with.
 | `bench-qwen36-abl-27b` | `bench-huihui-qwen36-27b` | — | bench | PROMPT |
 
 **Totals:** PROMPT 55, PROMPT on variant 31, KEEP persona 15, VARIANT 11
+
+## Appendix C — what differs inside each proposed merge
+
+Every config field whose value differs between the members of a merge. Each row must survive
+as a variant field, a tool route, or backend behaviour — or be marked deliberately dropped.
+
+### chat: auto-daily, general-fast, general-deep, auto-nemotron
+
+| Field | `auto-daily` | `general-fast` | `general-deep` | `auto-nemotron` |
+|---|---|---|---|---|
+| context_limit | 16384 | 98304 | 98304 | 32768 |
+| inject_memory | True | True | True | — |
+| keep_alive | — | 5m | 5m | 5m |
+| max_concurrent | — | 1 | 1 | 1 |
+| memory_writeback | True | True | True | — |
+| min_p | — | 0.0 | 0.0 | — |
+| model_hint | gemma4:26b-a4b-it-qat-ctx16k | hf.co/unsloth/Qwen3.6-35B-A3B-GGUF:UD-Q4_K_XL-ctx96k | hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx96k | hf.co/bartowski/NVIDIA-Nemotron-3.5-Lightning-30B-A3B-GGUF:Q4_K_M-ctx3 |
+| owui_system_prompt | You are Portal's daily driver — fast, capable, local. Use for everyday | You are Portal's fast general assistant. Use for everyday chat, writin | You are Portal's deep general assistant. The user often switches to yo | You are Portal's speed-focused general assistant on NVIDIA Nemotron 3. |
+| presence_penalty | — | 1.5 | 1.5 | — |
+| system_prompt_append | — |   DOCUMENTS: read an existing Word, Excel, or PDF file with read_word_ |   DOCUMENTS: read an existing Word, Excel, or PDF file with read_word_ | — |
+| temperature | 1 | 0.7 | 0.7 | 1.0 |
+| think | — | False | False | False |
+| think_profiles | — | — | — | dict[2] {"instruct": {"temperature": 1.0, "top_p": 0.95}, "thinking"… |
+| tools | list[16] ["web_search", "web_fetch", "kb_search", "kb_list", "read_pd… | list[13] ["web_search", "web_fetch", "kb_search", "kb_list", "read_pd… | list[13] ["web_search", "web_fetch", "kb_search", "kb_list", "read_pd… | list[8] ["web_search", "web_fetch", "kb_search", "kb_list", "read_pd… |
+| top_k | 64 | 20 | 20 | — |
+| top_p | 0.95 | 0.8 | 0.8 | 0.95 |
+
+### coding: auto-coding, auto-bigfix, auto-cad, auto-spl
+
+| Field | `auto-coding` | `auto-bigfix` | `auto-cad` | `auto-spl` |
+|---|---|---|---|---|
+| context_limit | 262144 | 16384 | 32768 | 65536 |
+| keep_alive | — | — | — | 10m |
+| min_p | 0.05 | 0.05 | — | — |
+| model_hint | qwen3-coder:30b-a3b-q4_K_M-ctx256k | qwen3-coder:30b-a3b-q4_K_M-ctx16k | qwen3-coder:30b-a3b-q4_K_M-ctx32k | hf.co/bartowski/huihui-ai_Qwen3-Coder-Next-abliterated-GGUF:Q4_K_M-ctx |
+| module | coding | general | cad | general |
+| owui_system_prompt | You are an expert programmer. Generate clean, well-documented, product | — | — | You are an expert Splunk SPL Engineer. Write, explain, refactor, and d |
+| predict_limit | 16384 | — | 16384 | — |
+| repeat_penalty | 1.05 | 1.05 | 1.05 | 1.1 |
+| system_prompt_append |   CRITICAL OUTPUT RULE: This is a SINGLE-TURN response — deliver every | — |   CAD OUTPUT RULE: You design parts as exact BREP solids with build123 | — |
+| temperature | 0.7 | 0.7 | 0.7 | 1.0 |
+| think | — | — | — | False |
+| tool_choice | — | required | required | — |
+| tool_choice_verified | — | — | True | — |
+| tools | list[8] ["execute_python", "execute_nodejs", "execute_bash", "sandbo… | ["execute_python", "execute_bash", "web_search"] | list[20] ["execute_python", "execute_bash", "sandbox_status", "read_p… | list[23] ["classify_vulnerability", "kb_search", "kb_list", "lookup_c… |
+| top_k | 20 | 20 | 20 | 40 |
+| top_p | 0.8 | 0.8 | 0.8 | 0.95 |
+
+### reasoning: auto-reasoning, auto-math
+
+| Field | `auto-reasoning` | `auto-math` |
+|---|---|---|
+| context_limit | 65536 | 24576 |
+| enable_web_search | True | False |
+| model_hint | hf.co/bartowski/K2-Horizon-MoVA-36B-A4B-GGUF:Q4_K_M-ctx64k | glm-4.7-flash:Q4_K_M-ctx64k |
+| owui_system_prompt | You are a deep reasoning AI. Break down complex problems step-by-step. | You are a precise mathematical reasoning assistant. Show your work ste |
+| predict_limit | 40960 | 12288 |
+| system_prompt_append | — |   SAFETY POSTURE: You are a standard-posture assistant. If a request's |
+
+### research: auto-research, auto-data
+
+| Field | `auto-research` | `auto-data` |
+|---|---|---|
+| context_limit | 16384 | 32768 |
+| emits_reasoning | True | — |
+| keep_alive | — | 10m |
+| min_p | 0.02 | 0.0 |
+| model_hint | hf.co/sjakek/Nex-N2-mini-GGUF:UD-Q4_K_M-ctx16k | hf.co/unsloth/Qwen3.6-35B-A3B-GGUF:UD-Q4_K_XL-ctx32k |
+| owui_system_prompt | You are a research assistant. Synthesize information from multiple sou | You are a data analyst. Help with data analysis, statistics, visualiza |
+| predict_limit | 16384 | — |
+| presence_penalty | — | 1.5 |
+| repeat_penalty | — | 1.0 |
+| require_tool_before_answer | — | True |
+| think | — | False |
+| tool_choice | required | — |
+| tools | list[11] ["web_search", "web_fetch", "news_search", "kb_search", "kb_… | list[7] ["execute_python", "create_excel", "kb_search", "attach_sour… |
+| top_k | 40 | 20 |
+| top_p | 0.95 | 0.8 |
+
+### documents: auto-documents, auto-extract-uncensored
+
+| Field | `auto-documents` | `auto-extract-uncensored` |
+|---|---|---|
+| context_limit | 16384 | 8192 |
+| keep_alive | — | 10m |
+| min_p | 0.05 | — |
+| model_hint | gemma4:26b-a4b-it-q4_K_M-ctx32k | hf.co/gaston-parravicini/LFM2.5-8B-A1B-Uncensored-Gaston-GGUF:q4_K_M-c |
+| owui_system_prompt | You help create and read professional documents. When asked to create  | — |
+| predict_limit | 8192 | — |
+| repeat_penalty | — | 1.05 |
+| system_prompt_append |   SAFETY POSTURE: You are a standard-posture assistant. If a request's |   You are an uncensored extraction and summarization assistant. Extrac |
+| temperature | 1.0 | 0.2 |
+| tools | list[7] ["create_word_document", "create_excel", "create_powerpoint"… | [] |
+| top_k | 64 | 80 |
+
+### compliance: auto-compliance, compliance-reading
+
+| Field | `auto-compliance` | `compliance-reading` |
+|---|---|---|
+| context_limit | 32768 | 131072 |
+| enable_web_search | True | False |
+| model_hint | hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k | gemma4:26b-a4b-it-q4_K_M-ctx128k |
+| owui_system_prompt | HARD RULE, before anything else: if the user's message names or asks a | Focused NERC CIP reading workspace, in conversation. For a requirement |
+| presence_penalty | 1.5 | — |
+| system_prompt_append | PRIMARY SOURCES: the only ingested regulatory corpus is NERC CIP. For  | You are the focused NERC CIP reading seat, reading with a compliance a |
+| temperature | 0.7 | 1.0 |
+| tools | list[46] ["create_word_document", "read_pdf", "kb_search", "kb_list",… | list[19] ["nerc_cip_requirement", "compliance_requirement", "nerc_cip… |
+| top_k | 20 | 64 |
+| top_p | 0.8 | 0.95 |
+
+### media: auto-image, auto-video, auto-music, auto-audio
+
+| Field | `auto-image` | `auto-video` | `auto-music` | `auto-audio` |
+|---|---|---|---|---|
+| context_limit | 16384 | 16384 | 8192 | 8192 |
+| model_hint | granite4.1:8b-ctx16k | granite4.1:8b-ctx16k | lfm2.5:8b-ctx8k | gemma4:12b-it-qat-ctx8k |
+| module | image | video | media | media |
+| owui_system_prompt | You help generate and edit images with MLX-native FLUX. Use the genera | You help generate short video clips with MLX-native LTX-2.3. Use gener | You create full songs (lyrics/vocals or instrumental) using MiniMax-Mu | You are an audio analysis assistant. Transcribe audio files, analyze s |
+| repeat_penalty | 1.0 | 1.0 | 1.05 | 1.0 |
+| sampling_override | dict[2] {"evidence": "pending", "reason": "granite writes image prom… | dict[2] {"evidence": "pending", "reason": "granite writes video prom… | dict[2] {"evidence": "pending", "reason": "lfm2.5 writes music promp… | — |
+| system_prompt_append | — | — |   You generate full songs (lyrics/vocals or instrumental) using MiniMa | — |
+| temperature | 0.8 | 0.8 | 0.8 | 1 |
+| tools | ["generate_image", "edit_image"] | ["generate_video", "animate_image"] | list[8] ["minimax_generate", "minimax_status", "minimax_models", "sp… | ["transcribe_audio", "transcribe_with_speakers"] |
+| top_k | — | — | — | 64 |
+
+### uncensored: auto-general-uncensored, auto-uncensored-throwaway, auto-creative
+
+| Field | `auto-general-uncensored` | `auto-uncensored-throwaway` | `auto-creative` |
+|---|---|---|---|
+| context_limit | 8192 | 32768 | 8192 |
+| enable_web_search | False | True | False |
+| keep_alive | 10m | 10m | — |
+| min_p | 0.0 | 0.0 | 0.02 |
+| model_hint | hf.co/mradermacher/Huihui-Qwen3.6-35B-A3B-abliterated-GGUF:Q4_K_M-ctx8 | portal5/hauhaucs-qwen36-35b:q4_K_M-ctx256k | fredrezones55/Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive:Q4-ctx8k |
+| module | general | general | media |
+| owui_system_prompt | — | — | You are a versatile creative writer. Generate engaging, imaginative co |
+| presence_penalty | 1.5 | 1.5 | — |
+| repeat_penalty | 1.0 | 1.0 | — |
+| system_prompt | — | You are an uncensored general-purpose conversational assistant coverin | — |
+| system_prompt_append |   You are an uncensored general assistant. Answer directly and complet | — | — |
+| temperature | 0.7 | 0.7 | 0.85 |
+| think_profiles | dict[2] {"instruct": {"min_p": 0.0, "presence_penalty": 1.5, "repeat… | — | dict[2] {"instruct": {"min_p": 0.0, "presence_penalty": 1.5, "repeat… |
+| tools | list[6] ["execute_bash", "execute_python", "read_word_document", "re… | list[7] ["web_search", "web_fetch", "news_search", "execute_bash", "… | [] |
+| top_k | 20 | 20 | 50 |
+| top_p | 0.8 | 0.8 | 0.95 |
+
+## Appendix D — what references each workspace id (code, config, tests; docs excluded)
+
+| Workspace | References |
+|---|---|
+| `auto-daily` | 397 files: tests/benchmarks 299, tests/wfe 26, reports 8, tests/unit 8, tests/data 7, tests/results 6 |
+| `general-fast` | 17 files: tests/wfe 9, config 2, portal/modules 1, portal_channels 1, reports/bully_review 1, scripts 1 |
+| `general-deep` | 63 files: tests/wfe 49, tests/benchmarks 6, config 2, tests/security 2, portal/modules 1, portal_channels 1 |
+| `auto-nemotron` | 10 files: config 2, tests/fixtures 2, config/personas 1, portal_channels 1, scripts 1, tests/acceptance 1 |
+| `auto-coding` | 596 files: tests/benchmarks 318, tests/wfe 113, config/personas 44, tests/unit 23, tests/data 12, portal/platform 8 |
+| `auto-bigfix` | 84 files: tests/benchmarks 53, tests/results 5, config 4, results 4, tests/data 4, tests/fixtures 3 |
+| `auto-cad` | 121 files: tests/benchmarks 72, tests/wfe 8, tests/results 5, config 4, results 4, tests/fixtures 4 |
+| `auto-spl` | 334 files: tests/benchmarks 277, tests/acceptance_corpus 5, tests/data 5, tests/fixtures 5, tests/results 5, tests/wfe 5 |
+| `auto-reasoning` | 371 files: tests/benchmarks 282, tests/wfe 14, config/personas 11, tests/fixtures 6, tests/acceptance_corpus 5, tests/data 5 |
+| `auto-math` | 214 files: tests/benchmarks 158, tests/wfe 12, results 6, tests/acceptance_corpus 5, tests/results 5, config 4 |
+| `auto-research` | 409 files: tests/benchmarks 289, tests/wfe 55, config/personas 10, tests/acceptance_corpus 6, tests/data 5, tests/results 5 |
+| `auto-data` | 351 files: tests/benchmarks 280, tests/wfe 13, config/personas 7, tests/acceptance_corpus 5, tests/data 5, tests/fixtures 5 |
+| `auto-documents` | 368 files: tests/benchmarks 279, tests/wfe 34, tests/unit 7, tests/acceptance_corpus 6, config/personas 5, tests/data 5 |
+| `auto-extract-uncensored` | 44 files: tests/benchmarks 27, tests/wfe 4, tests/fixtures 3, config 2, tests 2, tests/data 2 |
+| `auto-compliance` | 451 files: tests/benchmarks 293, tests/wfe 81, config/personas 8, tests/unit 8, scripts 6, portal/modules 5 |
+| `compliance-reading` | 59 files: tests/wfe 19, scripts/compliance 10, tests/unit 7, portal/modules 5, scripts 5, config 3 |
+| `auto-image` | 34 files: tests/benchmarks 24, config 3, deploy/portal-5 1, portal/platform 1, portal_channels 1, reports/embedding_consumers 1 |
+| `auto-video` | 213 files: tests/benchmarks 166, tests/wfe 8, tests/acceptance_corpus 5, tests/results 5, config 4, results 4 |
+| `auto-music` | 217 files: tests/benchmarks 167, tests/wfe 9, tests/acceptance_corpus 5, tests/data 5, tests/results 5, config 4 |
+| `auto-audio` | 117 files: tests/benchmarks 73, tests/acceptance_corpus 5, tests/data 5, tests/results 5, config 4, results 4 |
+| `auto-general-uncensored` | 66 files: tests/benchmarks 33, tests/wfe 15, tests/fixtures 3, config 2, tests 2, tests/data 2 |
+| `auto-uncensored-throwaway` | 10 files: tests/wfe 4, config 2, portal_channels 1, tests/data 1, tests/fixtures 1, tests/uat_corpus 1 |
+| `auto-creative` | 330 files: tests/benchmarks 277, tests/wfe 6, tests/acceptance_corpus 5, tests/data 5, tests/fixtures 5, tests/results 5 |
