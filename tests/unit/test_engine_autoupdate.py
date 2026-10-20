@@ -3,9 +3,34 @@ no engines: every side effect is monkeypatched)."""
 
 from __future__ import annotations
 
+import json
+
 import pytest
 
 from scripts import engine_autoupdate as eu
+
+
+@pytest.fixture(autouse=True)
+def _no_router_repin(monkeypatch):
+    """A sourced .env sets LLM_ROUTER_MODEL, which would send _repin_router to live Ollama."""
+    monkeypatch.delenv("LLM_ROUTER_MODEL", raising=False)
+
+
+def test_repin_router_loads_the_router_model_pinned(monkeypatch):
+    sent = []
+
+    class _Resp:
+        def read(self):
+            return b"{}"
+
+    def _urlopen(req, timeout):
+        sent.append((req.full_url, json.loads(req.data)))
+        return _Resp()
+
+    monkeypatch.setenv("LLM_ROUTER_MODEL", "router-tag")
+    monkeypatch.setattr(eu.urllib.request, "urlopen", _urlopen)
+    eu._repin_router()
+    assert sent == [(f"{eu.OLLAMA_URL}/api/generate", {"model": "router-tag", "keep_alive": -1})]
 
 
 @pytest.fixture
