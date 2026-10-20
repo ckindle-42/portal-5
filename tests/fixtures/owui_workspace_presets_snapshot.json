@@ -176,19 +176,6 @@
       "model": "auto-general-uncensored"
     }
   },
-  "auto-math": {
-    "id": "auto-math",
-    "meta": {
-      "description": "🧮 Portal Math Reasoner",
-      "profile_image_url": "",
-      "toolIds": []
-    },
-    "name": "🧮 Portal Math Reasoner",
-    "params": {
-      "model": "auto-math",
-      "system": "You are a precise mathematical reasoning assistant. Show your work step by step. Use proper notation. Verify answers by substitution or alternative methods. For proofs, clearly state axioms and theorems used. For applied problems, state assumptions and check dimensional consistency."
-    }
-  },
   "auto-reasoning": {
     "id": "auto-reasoning",
     "meta": {

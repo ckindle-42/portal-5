@@ -13,7 +13,7 @@
   "auto-extract-uncensored": "general",
   "auto-general-uncensored": "general",
   "auto-image": "creative",
-  "auto-math": "reasoning",
+  "auto-reasoning::math": "reasoning",
   "auto-music": "creative",
   "auto-nemotron": "general",
   "auto-reasoning": "reasoning",

@@ -14,7 +14,7 @@ import os
 from datetime import UTC, datetime
 from typing import Any
 
-from portal.platform.inference.router.metrics import _router_layer_total
+from portal.platform.inference.router.metrics import _alias_hits_total, _router_layer_total
 from portal.platform.inference.router.routing import (
     _HARMFUL_INTENT_LANE,
     _detect_workspace,
@@ -24,6 +24,7 @@ from portal.platform.inference.router.routing import (
 from portal.platform.inference.router.workspaces import _PERSONA_MAP, WORKSPACES
 
 logger = logging.getLogger(__name__)
+_DEPRECATED_ALIAS_LOGGED: set[str] = set()
 
 
 def append_text_to_content(content: Any, text: str) -> Any:
@@ -39,17 +40,34 @@ def append_text_to_content(content: Any, text: str) -> Any:
 
 
 def _resolve_persona_workspace(workspace_id: str) -> str:
-    """Resolve a persona slug to its backing workspace_model if not already a known workspace.
+    """Resolve a persona slug or deprecated workspace id before routing.
 
-    If workspace_id is already a key in WORKSPACES, returns it unchanged.
-    Otherwise looks up _PERSONA_MAP[workspace_id].workspace_model and returns that
-    if it resolves to a known workspace. Falls back to the original workspace_id.
+    Deprecated workspace aliases count every use and log once per id.
     """
-    if workspace_id not in WORKSPACES:
-        persona = _PERSONA_MAP.get(workspace_id)
-        if persona is not None and persona.workspace_model in WORKSPACES:
-            return persona.workspace_model
-    return workspace_id
+    requested_id = workspace_id
+    if workspace_id in WORKSPACES:
+        return workspace_id
+    persona = _PERSONA_MAP.get(workspace_id)
+    if persona is not None:
+        workspace_id = persona.workspace_model
+        if workspace_id in WORKSPACES:
+            return workspace_id
+    from portal.platform.inference.config import load_portal_config
+
+    alias = load_portal_config().aliases.get(workspace_id)
+    if alias is None:
+        return requested_id
+    if workspace_id not in _DEPRECATED_ALIAS_LOGGED:
+        logger.warning(
+            "Workspace alias %s is deprecated; use %s (remove after %s): %s",
+            workspace_id,
+            alias.to,
+            alias.remove_after,
+            alias.reason,
+        )
+        _DEPRECATED_ALIAS_LOGGED.add(workspace_id)
+    _alias_hits_total.labels(alias=workspace_id).inc()
+    return alias.to
 
 
 def _unpack_synthetic_workspace(workspace_id: str) -> tuple[str, str | None]:

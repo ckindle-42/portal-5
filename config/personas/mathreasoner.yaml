@@ -1,7 +1,8 @@
 name: "🧮 Math Reasoner"
 slug: mathreasoner
 category: reasoning
-workspace_model: auto-math
+workspace_model: auto-reasoning
+variant: math
 preferred_models:
   - phi4-mini-reasoning:latest-ctx24k
   - deepseek-r1:32b-q4_k_m

@@ -55,6 +55,51 @@ HEADERS = {
 }
 
 
+def test_workspace_aliases_have_not_passed_their_removal_date():
+    from datetime import date
+
+    from portal.platform.inference.config import load_portal_config
+
+    expired = {
+        alias_id: alias.remove_after.isoformat()
+        for alias_id, alias in load_portal_config().aliases.items()
+        if alias.remove_after < date.today()
+    }
+    assert not expired, f"Expired workspace aliases: {expired}"
+
+
+def test_auto_math_alias_resolves_before_routing_and_counts_each_hit(monkeypatch, caplog):
+    import portal.platform.inference.router.preinject as preinject
+    from portal.platform.inference.router.metrics import _alias_hits_total
+
+    monkeypatch.setattr(preinject, "_DEPRECATED_ALIAS_LOGGED", set())
+    before = _alias_hits_total.labels(alias="auto-math")._value.get()
+    assert preinject._resolve_persona_workspace("auto-math") == "auto-reasoning::math"
+    assert preinject._resolve_persona_workspace("auto-math") == "auto-reasoning::math"
+    after = _alias_hits_total.labels(alias="auto-math")._value.get()
+
+    assert after - before == 2
+    assert caplog.text.count("Workspace alias auto-math is deprecated") == 1
+
+
+def test_mathreasoner_presets_the_reasoning_math_variant():
+    from portal.platform.inference.router.preinject import (
+        _resolve_persona_workspace,
+        _resolve_workspace_variant,
+    )
+
+    workspace = _resolve_persona_workspace("mathreasoner")
+    assert workspace == "auto-reasoning"
+    assert _resolve_workspace_variant("mathreasoner", workspace, None) == "auto-reasoning::math"
+
+
+def test_math_alias_is_removed_from_router_labels():
+    from portal.platform.inference.router.routing import _VALID_WORKSPACE_IDS
+
+    assert "auto-math" not in _VALID_WORKSPACE_IDS
+    assert "auto-reasoning" in _VALID_WORKSPACE_IDS
+
+
 @pytest.fixture
 def sample_config(tmp_path):
     """Create a sample backends config for testing."""

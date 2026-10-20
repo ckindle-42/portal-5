@@ -34,12 +34,13 @@ from pathlib import Path
 
 import yaml
 
+from portal.platform.inference.config import effective_workspace
 from tests.wfe.runner import load_suite
 from tests.wfe.suites import build_reasoning_math_production as gen
 
 REPO = Path(__file__).resolve().parents[3]
 SUITE = "tests/wfe/suites/reasoning_math_production.jsonl"
-WORKSPACES = ("auto-reasoning", "auto-math")
+WORKSPACES = ("auto-reasoning", "auto-reasoning::math")
 
 
 def _gold(task: dict) -> str:
@@ -49,7 +50,7 @@ def _gold(task: dict) -> str:
 def _window_failures(task: dict, portal: dict) -> list[str]:
     out = []
     for ws in WORKSPACES:
-        w = portal[ws]
+        w = effective_workspace(portal, ws)
         prompt_tokens = (len(w.get("owui_system_prompt") or "") + len(task["instruction"])) / 4
         cap = int(w.get("predict_limit") or 0)
         limit = int(w.get("context_limit") or 0)

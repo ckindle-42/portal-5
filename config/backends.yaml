@@ -1353,9 +1353,6 @@ workspace_routing:
   - general
   compliance-reading-overflow:
   - general
-  auto-math:
-  - reasoning
-  - general
   auto-audio:
   - vision
   - general

@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import logging
 import os
+from datetime import date
 from pathlib import Path
 from typing import Any, Literal, get_args
 
@@ -208,6 +209,12 @@ class WorkspaceSpec(BaseModel):
     owui_system_prompt: str | None = None
 
 
+class WorkspaceAlias(BaseModel):
+    to: str
+    remove_after: date
+    reason: str = Field(min_length=1)
+
+
 class PersonaSpec(BaseModel):
     """One persona entry from ``config/personas/<slug>.yaml``.
 
@@ -357,6 +364,7 @@ class PortalConfig(BaseModel):
     """Top-level portal.yaml schema."""
 
     workspaces: dict[str, WorkspaceSpec]
+    aliases: dict[str, WorkspaceAlias] = Field(default_factory=dict)
     mcp_fleet: list[McpServer]
     modules: dict[str, ModuleToggle] = Field(
         default_factory=dict,
@@ -389,6 +397,19 @@ class PortalConfig(BaseModel):
         dupes = [i for i in ids if i in seen or seen.add(i)]  # type: ignore[func-returns-value]
         if dupes:
             raise ValueError(f"Duplicate MCP ids in fleet: {sorted(set(dupes))}")
+        return self
+
+    @model_validator(mode="after")
+    def _alias_targets_exist(self) -> PortalConfig:
+        for alias_id, alias in self.aliases.items():
+            if alias_id in self.workspaces:
+                raise ValueError(f"Workspace alias {alias_id!r} conflicts with a workspace")
+            engine_id, separator, variant = alias.to.partition("::")
+            engine = self.workspaces.get(engine_id)
+            if not separator or not variant or engine is None or variant not in engine.variants:
+                raise ValueError(
+                    f"Workspace alias {alias_id!r} targets unknown variant {alias.to!r}"
+                )
         return self
 
     @model_validator(mode="after")
@@ -655,3 +676,11 @@ def resolve_preset_tools(
     effective = set(workspace_tools) if persona.tools_allow is None else set(persona.tools_allow)
     deny = set(persona.tools_deny or [])
     return sorted(effective - deny)
+
+
+def effective_workspace(workspaces: dict[str, Any], workspace_id: str) -> dict[str, Any]:
+    """A workspace's served settings: ``engine::variant`` is the base merged with the variant
+    (the pipeline's merge in router/preinject._resolve_workspace_variant)."""
+    base_id, _, variant = workspace_id.partition("::")
+    base = dict(workspaces[base_id])
+    return {**base, **(base.get("variants") or {})[variant]} if variant else base

@@ -254,6 +254,15 @@ callers:
 Recorded results are history and are not edited. The census is re-run with live callers counted
 separately.
 
+### Merge recipe: reasoning ← auto-math
+
+Move `auto-math`'s distinct model, limits, sampling, thinking, web-search setting and prompts into
+`auto-reasoning.variants.math`; let common fields inherit from the engine. Add a time-boxed
+`auto-math` alias, point `mathreasoner` at `auto-reasoning` with `variant: math`, and remove the old
+label from router descriptions and examples. Check alias traffic before its removal date. For each
+family, capture `router_bench.py` on the production corpus before and after, then run
+`scripts/routing_regression.py --rebless` and record its diff.
+
 ## Sequencing
 
 1. **A first.** Most of the code exists and it changes no behaviour. A7 (pinning Open WebUI) is

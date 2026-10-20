@@ -225,13 +225,13 @@
     "id": "routing_examples[37]",
     "message": "solve this integral: \u222b x\u00b2 e^x dx",
     "source": "config/routing_examples.json",
-    "expected_workspace": "auto-math"
+    "expected_workspace": "auto-reasoning"
   },
   {
     "id": "routing_examples[38]",
     "message": "prove that there are infinitely many primes",
     "source": "config/routing_examples.json",
-    "expected_workspace": "auto-math"
+    "expected_workspace": "auto-reasoning"
   },
   {
     "id": "routing_examples[39]",

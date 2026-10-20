@@ -133,6 +133,13 @@ _requests_total = Counter(
     registry=_REGISTRY,
 )
 
+_alias_hits_total = Counter(
+    "portal_alias_hits_total",
+    "Requests addressed through a deprecated workspace alias",
+    ["alias"],
+    registry=_REGISTRY,
+)
+
 _client_disconnect_cancel_total = Counter(
     "portal5_client_disconnect_cancel_total",
     "Non-streaming requests whose backend work was cancelled because the client disconnected",

@@ -214,7 +214,7 @@ REASONING_WORKSPACES: frozenset[str] = frozenset(
         "auto-research",  # tongyi-deepresearch-abliterated — deep research CoT
         "auto-coding",  # Magistral-Small-2509 (?model= override; formerly auto-mistral)
         "auto-reasoning",
-        "auto-math",  # phi4-mini-reasoning production workspace
+        "auto-reasoning::math",  # math variant (was auto-math)
         "auto-security",  # AEON Qwen3.6-27B is a thinking model; applies to all role variants
         "auto-vision",  # routes to auto-reasoning for text-only; deepseek-r1 emits reasoning_text
     }
@@ -225,7 +225,7 @@ REASONING_WORKSPACES: frozenset[str] = frozenset(
 # so results contain entries for both, making cross-category comparison possible.
 MATH_SPECIALIST_WORKSPACES: frozenset[str] = frozenset(
     {
-        "auto-math",  # phi4-mini-reasoning — AIME/MATH-500 specialist
+        "auto-reasoning::math",  # math variant (was auto-math)
     }
 )
 # Model substrings that trigger the extra math pass in direct mode.

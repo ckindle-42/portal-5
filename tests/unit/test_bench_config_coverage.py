@@ -28,6 +28,13 @@ def _live_workspaces_with_eval(monkeypatch) -> set[str]:
     return set(get_workspace_dict(load_portal_config()))
 
 
+def _valid_ids(monkeypatch) -> set[str]:
+    """Live workspaces plus their engine::variant ids: valid keys, not lanes needing entries."""
+    cfg = load_portal_config()
+    variants = {f"{w}::{v}" for w, spec in cfg.workspaces.items() for v in (spec.variants or {})}
+    return _live_workspaces_with_eval(monkeypatch) | variants
+
+
 def test_per_workspace_timeout_no_stale_keys(monkeypatch):
     from tests.benchmarks.bench.config import PER_WORKSPACE_TIMEOUT
 
@@ -39,7 +46,7 @@ def test_per_workspace_timeout_no_stale_keys(monkeypatch):
 def test_reasoning_workspaces_no_stale_keys(monkeypatch):
     from tests.benchmarks.bench.config import REASONING_WORKSPACES
 
-    live = _live_workspaces_with_eval(monkeypatch)
+    live = _valid_ids(monkeypatch)
     stale = set(REASONING_WORKSPACES) - live
     assert not stale, f"REASONING_WORKSPACES has stale keys: {sorted(stale)}"
 
@@ -47,7 +54,10 @@ def test_reasoning_workspaces_no_stale_keys(monkeypatch):
 def test_workspace_prompt_map_no_stale_keys():
     from tests.benchmarks.bench.prompts import WORKSPACE_PROMPT_MAP
 
-    catalog = set(load_portal_config().workspaces)
+    cfg = load_portal_config()  # variants are valid ids
+    catalog = set(cfg.workspaces) | {
+        f"{w}::{v}" for w, s in cfg.workspaces.items() for v in (s.variants or {})
+    }
     stale = set(WORKSPACE_PROMPT_MAP) - catalog
     assert not stale, f"WORKSPACE_PROMPT_MAP has stale keys: {sorted(stale)}"
 

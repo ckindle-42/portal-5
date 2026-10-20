@@ -14,6 +14,7 @@ from pathlib import Path
 
 import yaml
 
+from portal.platform.inference.config import effective_workspace
 from tests.wfe import controls
 from tests.wfe.checkers import CheckContext, apply_checkers
 from tests.wfe.schema import Outcome
@@ -24,7 +25,7 @@ SUITE = REPO / "tests/wfe/suites/reasoning_math_production.jsonl"
 PLAN = REPO / "tests/wfe/plans/reasoning_math_decision_v1.yaml"
 TASKS = {t["id"]: t for t in map(json.loads, SUITE.read_text().splitlines())}
 KINDS = {"arithmetic": 12, "combinatorics": 12, "logic-grid": 12}
-WORKSPACES = ("auto-reasoning", "auto-math")
+WORKSPACES = ("auto-reasoning", "auto-reasoning::math")
 ORD = {"first": 1, "second": 2, "third": 3, "fourth": 4}
 IMPERATIVE = {"Work", "Count", "Determine"}
 
@@ -221,7 +222,7 @@ def test_the_chain_fits_the_window_under_the_hard_output_cap():
     real P-4 prompt-token measure is live and backlogged."""
     portal = yaml.safe_load((REPO / "config/portal.yaml").read_text())["workspaces"]
     for ws in WORKSPACES:
-        w = portal[ws]
+        w = effective_workspace(portal, ws)
         limit, cap = w["context_limit"], w["predict_limit"]
         assert cap and limit, ws
         for t in TASKS.values():
@@ -242,7 +243,9 @@ def test_the_plan_arms_are_served_by_the_workspaces_groups_and_fit_its_window():
         assert wl["home"] == "reasoning_math_production" and wl["discovery"] == []
         # every task is no_tools, so the workload declares no tool mode at all
         assert "tool_mode" not in wl, ws
-        groups = set(backends["workspace_routing"][ws])
+        groups = set(
+            backends["workspace_routing"][ws.partition("::")[0]]
+        )  # a variant routes as its base
         served = {
             m["id"]
             for b in backends["backends"]
@@ -250,12 +253,15 @@ def test_the_plan_arms_are_served_by_the_workspaces_groups_and_fit_its_window():
             for m in b.get("models") or []
         }
         arms = wl["arms"]
-        assert portal[ws]["model_hint"] in [arms["incumbent"], *arms["challengers"]]
+        assert effective_workspace(portal, ws)["model_hint"] in [
+            arms["incumbent"],
+            *arms["challengers"],
+        ]
         assert len(arms["challengers"]) == 3
         for tag in [arms["incumbent"], *arms["challengers"]]:
             assert tag in served, (ws, tag)
             window = int(re.search(r"ctx(\d+)k", tag).group(1)) * 1024
-            assert window >= portal[ws]["context_limit"], (ws, tag, window)
+            assert window >= effective_workspace(portal, ws)["context_limit"], (ws, tag, window)
 
 
 # --------------------------------------------------------------- attainability

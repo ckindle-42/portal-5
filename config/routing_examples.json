@@ -207,12 +207,12 @@
     },
     {
       "message": "solve this integral: \u222b x\u00b2 e^x dx",
-      "workspace": "auto-math",
+      "workspace": "auto-reasoning",
       "confidence": 0.97
     },
     {
       "message": "prove that there are infinitely many primes",
-      "workspace": "auto-math",
+      "workspace": "auto-reasoning",
       "confidence": 0.96
     },
     {

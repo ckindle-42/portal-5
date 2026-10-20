@@ -26,7 +26,7 @@ workloads:
         - hf.co/bartowski/THUDM_GLM-Z1-Rumination-32B-0414-GGUF:THUDM_GLM-Z1-Rumination-32B-0414-Q4_K_M.gguf-ctx64k
         - granite4.1:30b-ctx64k
         - glm-4.7-flash:Q4_K_M-ctx64k
-  auto-math:
+  auto-reasoning::math:
     home: reasoning_math_production
     discovery: []
     # Seat since 538a38b7 (wfe_math_20261018d: all three challengers BETTER than
