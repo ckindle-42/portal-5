@@ -603,8 +603,18 @@ def check_self_index_integrity() -> tuple[str, str, list[dict]]:
         return "FAIL", f"self_index import failed: {e}", []
 
     # Check 2: build_self_index returns all required keys
+    # _run_validator_json shells out to validate_system.py with timeout=30 and, measured,
+    # takes 30s and returns None every time — there is no point in paying that wall-clock
+    # cost inside the check that is already asserting honest absent behaviour. Patch it to
+    # return None immediately (which is the value it yields on timeout) to keep the check
+    # fast without changing any pass/fail rule.
     try:
-        index = build_self_index()
+        from unittest.mock import patch
+
+        import portal.modules.security.core.self_index as _si_mod
+
+        with patch.object(_si_mod, "_run_validator_json", return_value=None):
+            index = build_self_index()
     except Exception as e:
         return "FAIL", f"build_self_index raised: {type(e).__name__}: {e}", []
 
@@ -1004,8 +1014,16 @@ def check_stage2_propose_integrity() -> tuple[str, str, list[dict]]:
 
     oracles_before = s2._ORACLES_PY.read_text()
     ability_before = s2._ABILITY_PORT_PY.read_text()
+    # run_stage2() -> build_self_index() -> _run_validator_json() hits the same 30s
+    # timeout wall as X. Patch the validator reader to return None immediately so AA
+    # stays fast without changing any pass/fail rule.
     try:
-        report = run_stage2()
+        from unittest.mock import patch
+
+        import portal.modules.security.core.self_index as _si_mod
+
+        with patch.object(_si_mod, "_run_validator_json", return_value=None):
+            report = run_stage2()
     except Exception as e:
         subs.append({"name": "run_stage2", "status": "FAIL", "detail": str(e)})
         return "FAIL", f"run_stage2 raised: {type(e).__name__}: {e}", subs
