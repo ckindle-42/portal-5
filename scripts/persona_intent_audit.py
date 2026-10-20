@@ -98,8 +98,9 @@ def _claimed_lineage(system_prompt: str) -> str | None:
 def _discipline_of_module(module: str) -> str:
     """Coarse discipline bucket a module belongs to — coding/reasoning/
     security/general modules already ARE the discipline; this exists so
-    future module additions don't need a parallel mapping table."""
-    return module
+    future module additions don't need a parallel mapping table. A split-out
+    module (``security_redteam``) belongs to its parent's discipline."""
+    return module.partition("_")[0]
 
 
 def _group_models() -> dict[str, set[str]]:
@@ -137,7 +138,11 @@ def _workspace_routing() -> dict[str, list[str]]:
 def audit() -> tuple[list[dict], list[dict]]:
     """Returns (hard_failures, warnings)."""
 
-    from portal.platform.inference.config import load_persona_map, load_portal_config
+    from portal.platform.inference.config import (
+        load_persona_map,
+        load_portal_config,
+        variant_module,
+    )
     from portal.platform.inference.router.preinject import _known_backend_models
 
     portal_cfg = load_portal_config()
@@ -163,9 +168,10 @@ def audit() -> tuple[list[dict], list[dict]]:
             )
             continue
 
-        # Check 1: discipline(module) == discipline(workspace_model's module)
+        # Check 1: discipline(module) == discipline(workspace_model's module, or its variant's)
+        ws_module = variant_module(ws.module, ws.variants.get(p.variant or "", {}))
         persona_discipline = _discipline_of_module(p.module)
-        ws_discipline = _discipline_of_module(ws.module)
+        ws_discipline = _discipline_of_module(ws_module)
         if persona_discipline != ws_discipline:
             hard_failures.append(
                 {
@@ -174,7 +180,7 @@ def audit() -> tuple[list[dict], list[dict]]:
                     "detail": (
                         f"module={p.module!r} (discipline {persona_discipline!r}) "
                         f"but workspace_model={p.workspace_model!r} is module "
-                        f"{ws.module!r} (discipline {ws_discipline!r})"
+                        f"{ws_module!r} (discipline {ws_discipline!r})"
                     ),
                 }
             )

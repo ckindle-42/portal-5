@@ -7,7 +7,7 @@ variant: creative
 preferred_models:
   - fredrezones55/Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive:Q4-ctx8k
   - hermes3:8b
-module: general
+module: media
 # Gives access to hermes3:8b (narrative coherence) alongside dolphin (uncensored)
 system_prompt: |
   You are a versatile creative writer with mastery of multiple genres and forms.
