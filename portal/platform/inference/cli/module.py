@@ -84,7 +84,7 @@ def module_enable(
     actor: str = typer.Option("cli", "--actor", help="Who/what requested this change"),
     yes: bool = typer.Option(False, "--yes", help="Apply immediately, skip the confirm gate"),
 ) -> None:
-    """Enable a module (confirm-gated wiki write-back; --yes applies immediately)."""
+    """Enable a module and start its services. --yes writes config/portal.yaml."""
     _set_module_state(name, True, actor, yes)
 
 
@@ -94,8 +94,36 @@ def module_disable(
     actor: str = typer.Option("cli", "--actor", help="Who/what requested this change"),
     yes: bool = typer.Option(False, "--yes", help="Apply immediately, skip the confirm gate"),
 ) -> None:
-    """Disable a module (confirm-gated wiki write-back; --yes applies immediately)."""
+    """Disable a module and stop its services. --yes writes config/portal.yaml."""
     _set_module_state(name, False, actor, yes)
+
+
+@module_app.command("services")
+def module_services_cmd(
+    enabled: bool = typer.Option(False, "--enabled", help="List services of enabled modules"),
+    disabled: bool = typer.Option(False, "--disabled", help="List services of disabled modules"),
+    kind: str | None = typer.Option(None, "--kind", help="host or compose"),
+    module: str | None = typer.Option(None, "--module", help="Limit to one module"),
+    apply: bool = typer.Option(
+        False, "--apply", help="Start enabled services and stop disabled ones"
+    ),
+    stop_only: bool = typer.Option(
+        False, "--stop-only", help="With --apply, only stop disabled services"
+    ),
+    status: bool = typer.Option(False, "--status", help="Print module, config state, and runtime"),
+) -> None:
+    """Print or apply the module→service map (one ident per line)."""
+    from portal.platform.inference.cli.module_services import run_services_cli
+
+    run_services_cli(
+        enabled=enabled,
+        disabled=disabled,
+        kind=kind,
+        module=module,
+        apply=apply,
+        stop_only=stop_only,
+        status=status,
+    )
 
 
 def load_persona_map_safe() -> dict[str, Any]:
@@ -144,23 +172,25 @@ def _set_module_state(name: str, to_state: bool, actor: str, auto_confirm: bool)
     from_state = name in enabled_modules()
     verb = "enabled" if to_state else "disabled"
     if from_state == to_state:
-        typer.echo(f"'{name}' is already {verb} — no change.")
-        return
-    if not auto_confirm:
+        typer.echo(f"'{name}' is already {verb}.")
+    elif not auto_confirm:
         typer.echo(
             f"'{name}' would be {verb} (requested by {actor}). "
             "Re-run with --yes to write config/portal.yaml."
         )
         return
+    else:
+        try:
+            write_module_enabled(name, to_state)
+        except ValueError as exc:
+            typer.echo(f"❌ {exc}", err=True)
+            raise typer.Exit(code=1) from exc
+        typer.echo(f"✅ '{name}' {verb}.")
+        from portal.platform.inference.sync_config import main as sync_config_main
 
-    try:
-        write_module_enabled(name, to_state)
-    except ValueError as exc:
-        typer.echo(f"❌ {exc}", err=True)
-        raise typer.Exit(code=1) from exc
+        typer.echo("   Regenerating derived config (sync-config)...")
+        sync_config_main()
+    from portal.platform.inference.cli.module_services import apply_module
 
-    typer.echo(f"✅ '{name}' {verb}.")
-    from portal.platform.inference.sync_config import main as sync_config_main
-
-    typer.echo("   Regenerating derived config (sync-config)...")
-    sync_config_main()
+    for note in apply_module(name, start=to_state):
+        typer.echo(f"   {note}")

@@ -266,18 +266,47 @@ _install_log_rotation_agent() {
     fi
 }
 
+
+# ── Module service reconcile (map lives in config, not here) ────────────────
+_portal_module_services() {
+    local py="$PORTAL_ROOT/.venv/bin/python"
+    if [ ! -x "$py" ]; then
+        py="$(command -v python3)"
+    fi
+    PYTHONPATH="$PORTAL_ROOT${PYTHONPATH:+:$PYTHONPATH}" \
+        "$py" -m portal.platform.inference.cli module services "$@"
+}
+
+# Start every compose service except those belonging to a disabled module.
+# $1 is the profile flag string (`--profile telegram`), possibly empty.
+_compose_up_enabled() {
+    local profiles="$1"
+    local disabled svc
+    local -a start=()
+    disabled="$(_portal_module_services --disabled --kind compose)"
+    # shellcheck disable=SC2086
+    while IFS= read -r svc; do
+        [ -n "$svc" ] || continue
+        if printf '%s\n' "$disabled" | grep -qx -- "$svc"; then
+            echo "[portal-5]   not starting ${svc} (module disabled)"
+            continue
+        fi
+        start+=("$svc")
+    done < <(docker compose $profiles config --services)
+    if [ "${#start[@]}" -eq 0 ]; then
+        echo "[portal-5]   no compose services to start"
+        return 0
+    fi
+    # shellcheck disable=SC2086
+    docker compose $profiles up -d "${start[@]}"
+    _portal_module_services --apply --kind compose --stop-only
+}
+
 # ── Auto-start native services if installed but not running ─────────────────
 _ensure_native_services() {
     local ARCH
     ARCH=$(uname -m)
     echo "[portal-5] Checking native services..."
-
-    # Native launchers below must use the project's own venv, not a bare
-    # `python3` — that resolves to whatever's first on PATH (e.g. Homebrew's
-    # global Python), which lacks this project's pinned `mcp`/`portal` deps
-    # and makes these services crash-loop silently on import errors.
-    local PY="$PORTAL_ROOT/.venv/bin/python3"
-    [ -x "$PY" ] || PY="python3"
 
     # ── Ollama ───────────────────────────────────────────────────────────────
     # Apple Silicon runs the pinned build (`com.portal5.ollama`, a system
@@ -461,196 +490,11 @@ PY
 
     _install_log_rotation_agent
 
-    # ── MFLUX image MCP (native MLX on Apple Silicon) ──────────────────────
-    if [ "$ARCH" = "arm64" ]; then
-        if [ -f "$HOME/.portal5/mflux/.venv/bin/python" ]; then
-            if ! curl -s "http://localhost:${MFLUX_MCP_PORT:-8933}/health" &>/dev/null 2>&1; then
-                launchctl start com.portal5.mflux 2>/dev/null || true
-                echo "[portal-5]   ⏳ MFLUX image MCP starting on :${MFLUX_MCP_PORT:-8933}"
-            else
-                echo "[portal-5]   ✅ MFLUX image MCP: running"
-            fi
-        fi
-        # video-mlx MCP is supervised by launchd only when the operator has
-        # installed it (video module is off by default) — start if present.
-        if [ -f "$HOME/.portal5/video-mlx/ltx-2-mlx/.venv/bin/python" ]; then
-            curl -s "http://localhost:${VIDEO_MLX_MCP_PORT:-8935}/health" &>/dev/null 2>&1 \
-                || launchctl start com.portal5.video-mlx 2>/dev/null || true
-        fi
-    fi
+    # Host MCPs follow module state. Ollama, oMLX, and the maintenance jobs above
+    # stay unconditional: they are not module services.
+    echo "[portal-5] Reconciling host services to module state..."
+    _portal_module_services --apply --kind host
 
-    # ── MiniMax music MCP (native MLX on Apple Silicon) ─────────────────────
-    if [ "$ARCH" = "arm64" ]; then
-        if [ -f "$HOME/.portal5/music-minimax/.venv/bin/python" ]; then
-            if ! curl -s "http://localhost:${MUSIC_MINIMAX_PORT:-8912}/health" &>/dev/null 2>&1; then
-                launchctl start com.portal5.music-minimax 2>/dev/null || true
-                echo "[portal-5]   ⏳ MiniMax music MCP starting on :${MUSIC_MINIMAX_PORT:-8912}"
-            else
-                echo "[portal-5]   ✅ MiniMax music MCP: running"
-            fi
-        fi
-    fi
-
-    # ACE-Step engine and proxy are independently supervised by launchd.
-    if [ -f "$HOME/.portal5/music-ace/.venv/bin/python" ]; then
-        curl -s "http://localhost:${MUSIC_ACE_MCP_PORT:-8934}/health" &>/dev/null 2>&1 || launchctl start com.portal5.music-ace-mcp 2>/dev/null || true
-        curl -s "http://localhost:${ACESTEP_ENGINE_PORT:-8001}/health" &>/dev/null 2>&1 || launchctl start com.portal5.acestep-server 2>/dev/null || true
-    fi
-
-    # ── MLX Speech (Apple Silicon native only) ──────────────────────────────
-    if [ "$ARCH" = "arm64" ]; then
-        if "$PY" -c "import mlx_audio" &>/dev/null 2>&1 &&
-            [ -f "$PORTAL_ROOT/scripts/mlx-speech.py" ]; then
-            # launchd-supervised like :8924 — the wrapper runs the same drift
-            # pre-flight, so the gate is not lost by moving off the bare nohup.
-            _ensure_native_mcp_service \
-                "mlx-speech" "com.portal5.mlx-speech" \
-                "${MLX_SPEECH_PORT:-8918}" "mlx-speech"
-        fi
-    fi
-
-    # ── MLX Transcribe (Apple Silicon native only) ───────────────────────────
-    if [ "$ARCH" = "arm64" ]; then
-        if [ -f "$PORTAL_ROOT/scripts/mlx-transcribe.py" ]; then
-            _ensure_native_mcp_service \
-                "mlx-transcribe" "com.portal5.mlx-transcribe" \
-                "${MLX_TRANSCRIBE_PORT:-8924}" "mlx-transcribe"
-        fi
-    fi
-
-    # ── Pipeline MCP (host-native, :8928) ────────────────────────────────────
-    # Exposes get_pipeline_status, list_workspaces, get_loaded_models,
-    # explore_repository (FastContext subagent), and get_metrics_summary
-    # to coding tools (Claude Code, opencode) via .mcp.json.
-    _ensure_native_mcp_service \
-        "pipeline-mcp" "com.portal5.pipeline-mcp" \
-        "${PIPELINE_MCP_PORT:-8928}" "pipeline-mcp"
-
-    # ── MITRE ATT&CK MCP (host-native, :8929) ────────────────────────────────
-    # Reads tests/benchmarks/bench_security/siem/spl_detections.py via a
-    # repo-relative sys.path hack — not packaged into Dockerfile.mcp, so this
-    # must run against the host checkout rather than as a container.
-    _ensure_native_mcp_service \
-        "mitre-mcp" "com.portal5.mitre-mcp" \
-        "${MITRE_MCP_PORT:-8929}" "mitre-mcp"
-
-    # ── Detections MCP (host-native, :8932) ──────────────────────────────────
-    # Same tests/benchmarks/ dependency as MITRE MCP above.
-    _ensure_native_mcp_service \
-        "detections-mcp" "com.portal5.detections-mcp" \
-        "${DETECTIONS_MCP_PORT:-8932}" "detections-mcp"
-
-    # ── Wiki MCP (host-native, :8931) ─────────────────────────────────────────
-    # Reads portal_wiki/canonical/ via a repo-relative path and calls Ollama
-    # directly for wiki_explain — not packaged into Dockerfile.mcp.
-    _ensure_native_mcp_service \
-        "wiki-mcp" "com.portal5.wiki-mcp" \
-        "${WIKI_MCP_PORT:-8931}" "wiki-mcp"
-
-    # ── Vulnintel MCP (host-native, :8934) ───────────────────────────────────
-    # Read-only outbound-HTTPS-only vuln/threat-intel fronting NVD/EPSS/KEV/OSV/
-    # CISA ICSA + a clearnet IOC subset. Host-native (stdlib + httpx only, no
-    # Dockerfile.mcp deps); all API keys optional.
-    _ensure_native_mcp_service \
-        "vulnintel-mcp" "com.portal5.vulnintel-mcp" \
-        "${VULNINTEL_MCP_PORT:-8934}" "vulnintel-mcp"
-
-    # ── ICS/OT MCP (host-native, :8936) ─────────────────────────────────────
-    # Passive read-only ICS protocol dissection (scapy) + ATT&CK-for-ICS
-    # correlation. Host-native — scapy lives in the .venv, not Dockerfile.mcp.
-    _ensure_native_mcp_service \
-        "icsot-mcp" "com.portal5.icsot-mcp" \
-        "${ICSOT_MCP_PORT:-8936}" "icsot-mcp"
-
-    # ── Compliance MCP (host-native, :8937) ────────────────────────────────
-    # Read-only control-catalog lookup (distilled NIST 800-53 / CSF 2.0 OSCAL)
-    # + CIP-007 R2 patch-evidence bridge into vulnintel. Host-native, stdlib.
-    _ensure_native_mcp_service \
-        "compliance-mcp" "com.portal5.compliance-mcp" \
-        "${COMPLIANCE_MCP_PORT:-8937}" "compliance-mcp"
-
-    # ── Compliance EVALUATION instance (host-native, :8948) ────────────────
-    # WFE rows' compliance tools (root-fix Part 2c-2): its own store, built from the public
-    # register + the planted corpus; never the operator's. Build it once with
-    #   uv run python -m portal.modules.compliance.core.eval_instance build
-    _ensure_native_mcp_service \
-        "compliance-mcp-eval" "com.portal5.compliance-mcp-eval" \
-        "${COMPLIANCE_EVAL_PORT:-8948}" "compliance-mcp-eval"
-
-    # ── Detection MCP (host-native, :8938) ─────────────────────────────────
-    # pySigma conversion + YARA + promoted read-only lab-scoped SIEM search.
-    # Host-native — pySigma/yara live in the .venv; the live tools reuse the
-    # security module's SIEM primitives (not packaged into Dockerfile.mcp).
-    _ensure_native_mcp_service \
-        "detection-mcp" "com.portal5.detection-mcp" \
-        "${DETECTION_MCP_PORT:-8938}" "detection-mcp"
-
-    # ── Data MCP (host-native, :8939) ──────────────────────────────────────
-    # Sandboxed local DuckDB conversational analytics. Host-native — duckdb
-    # lives in the .venv, not Dockerfile.mcp.
-    _ensure_native_mcp_service \
-        "data-mcp" "com.portal5.data-mcp" \
-        "${DATA_MCP_PORT:-8939}" "data-mcp"
-
-    # ── Network Forensics MCP (host-native, :8941) ─────────────────────────
-    # Passive tshark PCAP analysis + gated lab-scoped nmap recon. Host-native
-    # — shells out to tshark/nmap (brew install wireshark nmap); every tool
-    # degrades gracefully when they are absent.
-    _ensure_native_mcp_service \
-        "netforensics-mcp" "com.portal5.netforensics-mcp" \
-        "${NETFORENSICS_MCP_PORT:-8941}" "netforensics-mcp"
-
-    # ── Review MCP (host-native, :8943) ────────────────────────────────────
-    # Grounded security-review lifecycle. Host-native because it needs the lab
-    # Splunk env, the loopback embedder (:8946) and private durable storage,
-    # none of which the Docker security MCP has.
-    _ensure_native_mcp_service \
-        "review-mcp" "com.portal5.review-mcp" \
-        "${REVIEW_MCP_PORT:-8943}" "review-mcp"
-
-    # ── Qwen3-VL retrieval server (host-native, :8942) ─────────────────────
-    # The RAG stack's multimodal embed/rerank backend (text+image joint space).
-    # Not an MCP — a FastAPI service (scripts/vl-retrieval-server.py) in the
-    # project .venv. Since TASK_EG2_CUTOVER_V1 it only RERANKS for the platform; embeddings
-    # come from EmbeddingGemma 2 (:8946), whose /vl/rerank forwards here.
-    #
-    # Runtime (TASK_VL_RUNTIME_LANDING_V4): mlx-embeddings 0.1.0 ships the
-    # `qwen3_vl` module; the model loads once transformers 5.x's torchvision-
-    # backed `vision` backend is present (torchvision is a declared apple-silicon
-    # dep purely to satisfy that class-level import gate — inference runs on the
-    # PIL path). Readiness is a *version-aware* check: a bare `import
-    # mlx_embeddings` also passes on 0.0.5, which has no VL path, so it is not a
-    # sufficient gate. If the check fails the server is NOT started (the `else`
-    # branch below only prints a warning); kb_search then gets connection-refused,
-    # which rag_multimodal maps to the same plain 503 pointing at /ready.
-    _VL_PORT="${VL_PORT:-8942}"
-    if ! curl -fsS "http://localhost:${_VL_PORT}/health" &>/dev/null 2>&1; then
-        _VL_PY="$PORTAL_ROOT/.venv/bin/python3"
-        _VL_READY_CHECK='import importlib.util as u, sys
-sys.exit(0 if all(u.find_spec(m) for m in
-    ("mlx_embeddings.models.qwen3_vl", "torchvision", "fastapi", "uvicorn")) else 1)'
-        if [ -x "$_VL_PY" ] && "$_VL_PY" -c "$_VL_READY_CHECK" &>/dev/null 2>&1; then
-            # launchd-supervised: O1's VL_MAX_REQUESTS self-exit assumes a
-            # supervisor restarts the process, and the wrapper re-runs the same
-            # drift pre-flight the inline branch used to run here.
-            _ensure_native_mcp_service \
-                "vl-retrieval" "com.portal5.vl-retrieval" \
-                "$_VL_PORT" "vl-retrieval"
-        else
-            echo "[portal-5]   ⚠️  VL retrieval deps missing (need mlx-embeddings>=0.1.0 + torchvision) — RAG multimodal retrieval will 503"
-        fi
-    fi
-
-    # ── EmbeddingGemma 2 platform embedder (host-native, :8946) ───────────
-    # The single embedding backend for every consumer
-    # (TASK_EMBEDDINGGEMMA2_PLATFORM_V1). Own venv; launchd-supervised.
-    if [ -x "${EG2_VENV:-$HOME/.portal5/eg2-venv}/bin/python3" ]; then
-        _ensure_native_mcp_service \
-            "eg2-embedding" "com.portal5.eg2-embedding" \
-            "${EG2_PORT:-8946}" "eg2-embedding"
-    else
-        echo "[portal-5]   ⚠️  EG2 embedder venv missing — run scripts/eg2-venv-setup.sh"
-    fi
 }
 
 # ── Teardown helper (shared by 'down' and the pre-start phase of 'up') ────────
@@ -1086,6 +930,9 @@ _cmd_status() {
     echo ""
     echo "  Portal 5 — System Status"
     echo "  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    echo ""
+    echo "  MODULE SERVICES"
+    _portal_module_services --status || echo "    module service status unavailable"
     echo ""
 
     # ── Stack services ────────────────────────────────────────────────────────

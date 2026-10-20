@@ -279,6 +279,18 @@ def test_address_path_delivers_standard_parts_and_document_set(repo: Repository)
     assert payload["documents_deferred"] == []
 
 
+@pytest.fixture(autouse=True)
+def _vl_offline(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Make the VL service unavailable so search takes its documented fallback offline."""
+    from portal.platform.retrieval import embedding
+
+    async def _down(*_a: object, **_k: object) -> None:
+        raise embedding.vl_error(ConnectionError("VL offline in unit tests"))
+
+    for name in ("vl_model_id", "vl_embed_batch", "vl_embed", "vl_rerank"):
+        monkeypatch.setattr(embedding, name, _down)
+
+
 def test_query_path_resolves_the_named_standard(repo: Repository) -> None:
     try:
         payload = dd.build(repo, query=f"CIP-901-1 asset register {_REQUIREMENT}")

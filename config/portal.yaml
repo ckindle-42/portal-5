@@ -105,6 +105,8 @@ mcp_fleet:
     expose_to_pipeline: true
     expose_to_ide: true
     default_enabled: false
+    host_native: true
+    launchd_label: com.portal5.music-minimax
   - id: mflux
     module: image
     name: portal-mflux
@@ -112,6 +114,8 @@ mcp_fleet:
     expose_to_pipeline: true
     expose_to_ide: false
     default_enabled: false
+    host_native: true
+    launchd_label: com.portal5.mflux
   - id: video_mlx
     module: video
     name: portal-video-mlx
@@ -122,6 +126,8 @@ mcp_fleet:
     # server is declared for tool advertisement but expected down until an
     # operator runs `./launch.sh install-video-mlx` + `portal module enable video`.
     default_enabled: false
+    host_native: true
+    launchd_label: com.portal5.video-mlx
   # id: music-ace (portal-music-ace, :8933) intentionally removed from the
   # fleet 2026-08-27 -- TASK_MUSIC_DUAL_BACKEND's [GATE: SELECT ENGINE]:
   # operator compared both engines on real 60s/30-step generations and
@@ -145,6 +151,7 @@ mcp_fleet:
     port: 8913
     expose_to_pipeline: true
     expose_to_ide: true
+    compose_service: mcp-documents
   - id: execution
     module: coding
     name: portal-sandbox
@@ -152,90 +159,115 @@ mcp_fleet:
     expose_to_pipeline: true
     expose_to_ide: true
     aliases: ["sandbox"]
+    compose_service: mcp-sandbox
   - id: whisper
     module: media
     name: portal-whisper
     port: 8915
     expose_to_pipeline: true
     expose_to_ide: true
+    compose_service: mcp-whisper
   - id: tts
     module: media
     name: portal-tts
     port: 8916
     expose_to_pipeline: true
     expose_to_ide: true
+    compose_service: mcp-tts
   - id: security
     module: security
     name: portal-security
     port: 8919
     expose_to_pipeline: true
     expose_to_ide: true
+    compose_service: mcp-security
   - id: memory
     module: platform
     name: portal-memory
     port: 8920
     expose_to_pipeline: true
     expose_to_ide: true
+    compose_service: mcp-memory
   - id: rag
     module: research
     name: portal-rag
     port: 8921
     expose_to_pipeline: true
     expose_to_ide: true
+    compose_service: mcp-rag
   - id: research
     module: research
     name: portal-research
     port: 8922
     expose_to_pipeline: true
     expose_to_ide: true
+    compose_service: mcp-research
   - id: browser
     module: research
     name: portal-browser
     port: 8923
     expose_to_pipeline: false
     expose_to_ide: true
+    compose_service: browser-mcp
   - id: mlx_transcribe
     module: platform
     name: portal-mlx-transcribe
     port: 8924
     expose_to_pipeline: true
     expose_to_ide: true
+    host_native: true
+    launchd_label: com.portal5.mlx-transcribe
+    native_service: mlx-transcribe
   - id: cad_render
     module: cad
     name: portal-cad-render
     port: 8926
     expose_to_pipeline: true
     expose_to_ide: false
+    compose_service: mcp-cad-render
   - id: proxmox
     module: security
     name: portal-proxmox
     port: 8927
     expose_to_pipeline: false
     expose_to_ide: true
+    compose_service: mcp-proxmox
   - id: pipeline
     module: platform
     name: portal-pipeline
     port: 8928
     expose_to_pipeline: true
     expose_to_ide: true
+    host_native: true
+    launchd_label: com.portal5.pipeline-mcp
+    native_service: pipeline-mcp
   - id: mitre
     module: security
     name: portal-mitre
     port: 8929
     expose_to_pipeline: true
     expose_to_ide: true
+    host_native: true
+    launchd_label: com.portal5.mitre-mcp
+    native_service: mitre-mcp
   - id: detections
     module: security
     name: portal-detections
     port: 8932
     expose_to_pipeline: true
     expose_to_ide: true
+    host_native: true
+    launchd_label: com.portal5.detections-mcp
+    native_service: detections-mcp
   - id: wiki
     module: platform
     name: portal-wiki
     port: 8931
     expose_to_pipeline: true
     expose_to_ide: true
+    host_native: true
+    launchd_label: com.portal5.wiki-mcp
+    native_service: wiki-mcp
   - id: binresearch
     module: platform
     name: portal-binresearch
@@ -245,30 +277,43 @@ mcp_fleet:
     aliases:
       - re-toolchain
       - binary-research
+    compose_service: mcp-binresearch
   - id: vulnintel
     module: vulnintel
     name: portal-vulnintel
     port: 8934
     expose_to_pipeline: true
     expose_to_ide: true
+    host_native: true
+    launchd_label: com.portal5.vulnintel-mcp
+    native_service: vulnintel-mcp
   - id: icsot
     module: icsot
     name: portal-icsot
     port: 8936
     expose_to_pipeline: true
     expose_to_ide: true
+    host_native: true
+    launchd_label: com.portal5.icsot-mcp
+    native_service: icsot-mcp
   - id: compliance
     module: compliance
     name: portal-compliance
     port: 8937
     expose_to_pipeline: true
     expose_to_ide: true
+    host_native: true
+    launchd_label: com.portal5.compliance-mcp
+    native_service: compliance-mcp
   - id: detection
     module: detection
     name: portal-detection
     port: 8938
     expose_to_pipeline: true
     expose_to_ide: true
+    host_native: true
+    launchd_label: com.portal5.detection-mcp
+    native_service: detection-mcp
   - id: context7
     module: coding
     name: portal-context7
@@ -283,18 +328,52 @@ mcp_fleet:
     port: 8939
     expose_to_pipeline: true
     expose_to_ide: true
+    host_native: true
+    launchd_label: com.portal5.data-mcp
+    native_service: data-mcp
   - id: netforensics
     module: netforensics
     name: portal-netforensics
     port: 8941
     expose_to_pipeline: true
     expose_to_ide: true
+    host_native: true
+    launchd_label: com.portal5.netforensics-mcp
+    native_service: netforensics-mcp
   - id: review
     module: security
     name: portal-review
     port: 8943
     expose_to_pipeline: true
     expose_to_ide: true
+    host_native: true
+    launchd_label: com.portal5.review-mcp
+    native_service: review-mcp
+
+# Launchd jobs with no mcp_fleet entry. `module: platform` is always on.
+host_jobs:
+  - label: com.portal5.mlx-speech
+    module: media
+    port: 8918
+    service: mlx-speech
+  - label: com.portal5.compliance-mcp-eval
+    # the WFE compliance eval store (:8948); WFE campaigns use it, so it runs with compliance
+    module: compliance
+    port: 8948
+    service: compliance-mcp-eval
+  - label: com.portal5.vl-retrieval
+    module: platform
+    port: 8942
+    service: vl-retrieval
+  - label: com.portal5.eg2-embedding
+    module: platform
+    port: 8946
+    service: eg2-embedding
+  - label: com.portal5.music-ace-mcp
+    module: music
+  - label: com.portal5.acestep-server
+    module: music
+    port: 8001
 
 # ── Workspace Catalog ──────────────────────────────────────────────────────
 # Keys must match workspace_routing in config/backends.yaml (generated by

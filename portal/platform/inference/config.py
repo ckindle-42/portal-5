@@ -316,10 +316,41 @@ class McpServer(BaseModel):
             "not treat these as down when unreachable."
         ),
     )
+    host_native: bool = False
+    launchd_label: str | None = None
+    native_service: str | None = None  # scripts/native-mcp-service.sh selector
+    compose_service: str | None = None
+
+    @model_validator(mode="after")
+    def _host_or_compose(self) -> McpServer:
+        if self.host_native and not self.launchd_label:
+            raise ValueError(f"mcp {self.id}: host_native requires launchd_label")
+        if self.launchd_label and not self.host_native:
+            raise ValueError(f"mcp {self.id}: launchd_label requires host_native")
+        if self.launchd_label and not self.launchd_label.startswith("com.portal5."):
+            raise ValueError(f"mcp {self.id}: launchd label must be com.portal5.*")
+        if self.host_native and self.compose_service:
+            raise ValueError(f"mcp {self.id}: host_native and compose_service are both set")
+        return self
 
 
 class ModuleToggle(BaseModel):
     enabled: bool
+
+
+class HostJob(BaseModel):
+    """A launchd job that has no mcp_fleet entry."""
+
+    label: str
+    module: ModuleName | Literal["platform"]
+    port: int | None = None
+    service: str | None = None
+
+    @model_validator(mode="after")
+    def _label_prefix(self) -> HostJob:
+        if not self.label.startswith("com.portal5."):
+            raise ValueError(f"host job label must be com.portal5.*: {self.label}")
+        return self
 
 
 class PortalConfig(BaseModel):
@@ -330,6 +361,10 @@ class PortalConfig(BaseModel):
     modules: dict[str, ModuleToggle] = Field(
         default_factory=dict,
         description="Per-module on/off. portal module enable/disable writes one line.",
+    )
+    host_jobs: list[HostJob] = Field(
+        default_factory=list,
+        description="Launchd jobs with no mcp_fleet entry. module platform is always on.",
     )
     ollama_url: str = "http://host.docker.internal:11434"
     request_timeout: int = 300
@@ -362,6 +397,19 @@ class PortalConfig(BaseModel):
         unknown = sorted(name for name in self.modules if name not in known)
         if unknown:
             raise ValueError(f"Unknown modules in portal.yaml: {unknown}")
+        return self
+
+    @model_validator(mode="after")
+    def _unique_launch_labels(self) -> PortalConfig:
+        labels = [s.launchd_label for s in self.mcp_fleet if s.launchd_label]
+        labels += [job.label for job in self.host_jobs]
+        dupes = sorted({label for label in labels if labels.count(label) > 1})
+        if dupes:
+            raise ValueError(f"Duplicate launchd labels: {dupes}")
+        fleet_ports = {s.port for s in self.mcp_fleet if s.port is not None}
+        clash = sorted(job.port for job in self.host_jobs if job.port in fleet_ports)
+        if clash:
+            raise ValueError(f"host_jobs ports collide with mcp_fleet: {clash}")
         return self
 
 

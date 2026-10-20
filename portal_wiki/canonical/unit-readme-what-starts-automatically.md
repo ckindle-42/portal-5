@@ -19,11 +19,13 @@ updated_at: 1791376709
 ---
 
 `./launch.sh up` starts the core Docker stack (compose services plus profiles
-auto-selected from Telegram/Slack tokens). Host-native Apple Silicon services
-start when their launchd agent has been installed — `_ensure_native_services` in
-`scripts/lib/util.sh` checks each registered launchd label (MFLUX image, music backend,
-MLX Speech, MLX Transcribe, embedding) and boots the service via `launchctl` or a
-background `nohup` fallback.
+auto-selected from Telegram/Slack tokens) and the services of enabled modules.
+Disabled modules are stopped (`docker compose stop`, `launchctl bootout` — the
+plist stays) and are not kickstarted. Ollama, the pipeline, Open WebUI, and
+`module: platform` services stay up. The map is `portal module services`
+(`mcp_fleet` host/compose fields plus `host_jobs` for launchd labels with no
+fleet entry). `_ensure_native_services` still brings up Ollama, oMLX, and the
+maintenance jobs, then applies that map.
 
 On Apple Silicon, `up` also installs the `com.portal5.log-rotate` user agent.
 It runs `scripts/rotate_logs.py` hourly and bounds the configured host logs

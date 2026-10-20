@@ -39,7 +39,7 @@ a backend swap, not a tool-rename cascade.
 
 ## Module State
 
-The switch is `modules.video.enabled` in `config/portal.yaml` (`portal module enable|disable` writes it). This unit documents the switch; it does not hold it.
+The switch is `modules.video.enabled` in `config/portal.yaml` (`portal module enable|disable` writes it). This unit documents the switch; it does not hold it. `portal module disable video --yes` bootouts `com.portal5.video-mlx`; `enable --yes` bootstraps and kickstarts it. `./launch.sh up` does the same from the module→service map.
 
 ## Why
 

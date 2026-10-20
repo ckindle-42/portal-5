@@ -143,7 +143,7 @@ case "${1:-up}" in
     fi
     echo "[portal-5] Starting stack..."
     cd "$COMPOSE_DIR"
-    docker compose $_PROFILES up -d
+    _compose_up_enabled "$_PROFILES"
 
 
     # Re-run openwebui-init in the background to pick up any new personas/workspaces
@@ -335,8 +335,20 @@ case "${1:-up}" in
     echo "[portal-5] Building data sandbox image (python + pandas/openpyxl) and loading into DinD..."
     printf 'FROM python:3.11-slim\nRUN pip install --no-cache-dir pandas openpyxl\n' | docker build -t portal5-sandbox-data:latest -
     docker save portal5-sandbox-data:latest | docker exec -i portal5-dind docker load
-    echo "[portal-5] Restarting all rebuilt containers..."
-    docker compose up -d --no-deps portal-pipeline $MCP_SERVICES
+    echo "[portal-5] Restarting rebuilt containers for enabled modules..."
+    _disabled_compose="$(_portal_module_services --disabled --kind compose)"
+    _keep=""
+    for svc in portal-pipeline $MCP_SERVICES; do
+        if printf '%s\n' "$_disabled_compose" | grep -qx -- "$svc"; then
+            echo "[portal-5]   not restarting ${svc} (module disabled)"
+            continue
+        fi
+        _keep="$_keep $svc"
+    done
+    # shellcheck disable=SC2086
+    docker compose up -d --no-deps $_keep
+    _portal_module_services --apply --kind compose --stop-only
+    _portal_module_services --apply --kind host
     echo "[portal-5] Done. Check status: ./launch.sh status"
     ;;
 
