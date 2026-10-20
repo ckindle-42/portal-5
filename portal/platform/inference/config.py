@@ -46,6 +46,11 @@ ModuleName = Literal[
     "research",
     "icsot",
     "security",
+    # Offensive-generation security variants (redteam / redteam-deep /
+    # purpleteam-exec). Split from `security` so the everyday system can ship
+    # without them while the defensive half stays on: a disabled module removes
+    # only the variants that declare it (C7).
+    "security_redteam",
     "video",
     "vulnintel",
 ]

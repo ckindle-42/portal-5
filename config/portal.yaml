@@ -45,6 +45,12 @@ modules:
     enabled: true
   security:
     enabled: true
+  # Offensive-generation variants only (redteam, redteam-deep, purpleteam-exec).
+  # Off by default: the lab needed red to generate blue training data, and that
+  # work is campaign-scoped, not everyday traffic. Enable for a generation run,
+  # disable after. The defensive half of the security lane is unaffected.
+  security_redteam:
+    enabled: false
   video:
     enabled: false
   vulnintel:
@@ -1270,6 +1276,7 @@ workspaces:
         guardrail: default
         role: blue
       redteam:
+        module: security_redteam
         name: 🔴 Portal Red Team
         description: Deep offensive security, attack chain simulation, exploit scripting. Huihui-ai Qwen3.5-9B abliterated (zero refusals, Qwen3 architecture). Structures responses in attack phases with mandatory DEFENDER CUE for blue team handoff.
         # 2026-09-25: sampling set to the qwen3.5 instruct_general card (engine settings only; prompts untouched); prior values + A/B: docs/TASK_SEAT_SAMPLING_AB_V1.md
@@ -1288,6 +1295,7 @@ workspaces:
         guardrail: default
         role: red
       redteam-deep:
+        module: security_redteam
         name: 🔴 Portal Red Team · Deep
         description: High-fidelity single-model red team analysis. SuperGemma4-26B-uncensored (abliterated Gemma4 MoE, bench score 0.90, 6.7 ATT&CK IDs avg, zero disclaimers). Slower than the redteam variant (~100s/prompt) but produces denser ATT&CK coverage. Use when you need maximum MITRE TTP specificity for threat models or red team reports. Pipe the output to the purpleteam-deep variant (auto-security?variant=purpleteam-deep) manually for full four-hop analysis.
         # 2026-09-25: sampling set to the supergemma4 (gemma4) card (engine settings only; prompts untouched); prior values + A/B: docs/TASK_SEAT_SAMPLING_AB_V1.md
@@ -1359,6 +1367,7 @@ workspaces:
         guardrail: default
         role: purple
       purpleteam-exec:
+        module: security_redteam
         name: 🟣 Portal Purple Team · Execute
         description: "Four-hop execution-mode purple team chain — attack planning + live execution + detection + IR:\n1. \U0001F534 RED (exec) — SuperGemma4-26B: attack plan with execute_bash/execute_python/web_search for live PoC\n2. \U0001F535 BLUE — Granite 4.1 8B — tool-capable: detection analysis on actual execution output\n3. \U0001F6E1️ DETECT — Qwen3-Coder: Sigma rules, Wazuh XML, hunting queries from real artifacts\n4. \U0001F4CB IR PLAYBOOK — Qwen3.6-27B: triage, containment, evidence, eradication, recovery\n\nUnlike the purpleteam-deep variant (simulation only), this workspace executes commands against real targets. Use only on authorized systems. Latency is high — four sequential model calls, first hop uses tools."
         # 2026-09-25: sampling set to the supergemma4 (gemma4) card (engine settings only; prompts untouched); prior values + A/B: docs/TASK_SEAT_SAMPLING_AB_V1.md
