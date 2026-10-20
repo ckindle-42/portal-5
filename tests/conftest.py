@@ -82,6 +82,15 @@ def pytest_configure(config):
 
 
 @pytest.fixture(autouse=True)
+def _scratch_provenance_ledger(tmp_path):
+    from portal.platform.wiki import provenance_ledger
+
+    provenance_ledger.set_ledger_path(tmp_path / "provenance_ledger.jsonl")
+    yield
+    provenance_ledger.reset_ledger_path()
+
+
+@pytest.fixture(autouse=True)
 def _offline_boundary(request):
     _netguard.HITS.clear()
     _NETGUARD_LOG.write_text("")

@@ -10,6 +10,7 @@ Verifies that:
 from __future__ import annotations
 
 import json
+import logging
 from pathlib import Path
 
 import pytest
@@ -60,6 +61,25 @@ def test_persona_missing_workspace_model_raises(tmp_path: Path) -> None:
     p.write_text("name: Bad\nslug: bad\ncategory: test\n")
     with pytest.raises(Exception, match="workspace_model"):
         PersonaSpec.model_validate(yaml.safe_load(p.read_text()))
+
+
+def test_malformed_persona_logs_warning_and_skipped_count(
+    tmp_path: Path, caplog: pytest.LogCaptureFixture
+) -> None:
+    """A persona that fails to load is a WARNING (not DEBUG) and the loader reports the count."""
+    (tmp_path / "good.yaml").write_text(
+        "name: Good\nslug: good\ncategory: test\nmodule: general\n"
+        "workspace_model: any-workspace\nsystem_prompt: ok\n"
+    )
+    (tmp_path / "bad.yaml").write_text("name: Bad\nslug: bad\ncategory: test\n")
+
+    with caplog.at_level(logging.WARNING, logger="portal.platform.inference.config"):
+        personas = load_persona_map(personas_dir=tmp_path)
+
+    assert set(personas) == {"good"}
+    warnings = [r.getMessage() for r in caplog.records if r.levelname == "WARNING"]
+    assert any("bad.yaml" in w for w in warnings)
+    assert "1 personas skipped" in warnings
 
 
 def test_all_production_personas_have_valid_parents() -> None:

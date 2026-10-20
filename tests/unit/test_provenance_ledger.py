@@ -118,3 +118,14 @@ class TestProvenanceLedger:
             reset_canonical_dir()
             reset_proposed_dir()
             reset_ledger_path()
+
+
+def test_scratch_ledger_fixture_keeps_the_real_ledger_byte_identical() -> None:
+    """The conftest autouse fixture (A3) redirects every append to a tmp_path ledger."""
+    real = Path(__file__).resolve().parents[2] / "portal_wiki" / "provenance_ledger.jsonl"
+    before = real.read_bytes() if real.exists() else None
+
+    append_entry(episode_id="ep-scratch", scenario="scratch", event="purple_run")
+
+    assert (real.read_bytes() if real.exists() else None) == before
+    assert [e.episode_id for e in read_ledger()] == ["ep-scratch"]

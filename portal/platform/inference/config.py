@@ -486,9 +486,9 @@ def load_persona_map(
 ) -> dict[str, PersonaSpec]:
     """Return ``{slug: PersonaSpec}`` for every YAML under ``config/personas/``.
 
-    Invalid files are logged and skipped. Does not validate that every
-    ``workspace_model`` resolves — call ``validate_persona_parents`` for that
-    gate.
+    Invalid files are logged at WARNING and skipped, and the skipped count is
+    logged once at the end. Does not validate that every ``workspace_model``
+    resolves — call ``validate_persona_parents`` for that gate.
     """
     directory = personas_dir or _PERSONAS_DIR
     if not directory.is_dir():
@@ -496,6 +496,7 @@ def load_persona_map(
         return {}
 
     result: dict[str, PersonaSpec] = {}
+    skipped = 0
     for yf in sorted(directory.glob("*.yaml")):
         try:
             raw = yaml.safe_load(yf.read_text()) or {}
@@ -518,7 +519,10 @@ def load_persona_map(
                 )
             result[spec.slug] = spec
         except Exception as exc:
-            logger.debug("Failed to load persona %s: %s", yf.name, exc)
+            skipped += 1
+            logger.warning("Failed to load persona %s: %s", yf.name, exc)
+    if skipped:
+        logger.warning("%d personas skipped", skipped)
     return result
 
 
