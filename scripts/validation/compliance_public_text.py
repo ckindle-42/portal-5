@@ -27,6 +27,7 @@ from __future__ import annotations
 import importlib
 import importlib.util
 import json
+import os
 import subprocess
 from pathlib import Path
 from typing import Any
@@ -109,22 +110,61 @@ def _structural(root: Path, files: list[str]) -> list[dict]:
     return findings
 
 
-def _content(root: Path) -> tuple[bool, str, list[dict]]:
+def _content(root: Path, *, files: list[str] | None = None) -> tuple[bool, str, list[dict]]:
     if importlib.util.find_spec(DETECTOR) is None:
         return False, "detector absent", []
     try:
         detector = importlib.import_module(DETECTOR)
-        return True, "", list(detector.head_findings(root))
+        return True, "", list(detector.head_findings(root, files=files))
     except Exception as exc:  # noqa: BLE001 - no store in CI is the expected case
         return False, f"not run: {type(exc).__name__}: {exc}"[:200], []
 
 
-def audit(root: Path = REPO_ROOT, *, content: bool = True) -> tuple[str, str, list[dict]]:
+def _changed_files(root: Path) -> list[str]:
+    """Relative paths of tracked files changed between merge-base and HEAD."""
+    base = subprocess.run(
+        ["git", "-C", str(root), "merge-base", "HEAD", "origin/main"],
+        capture_output=True,
+        text=True,
+        timeout=120,
+    )
+    if base.returncode != 0:
+        # No common ancestor (e.g. first push) — fall back to full scan.
+        return _tracked(root)
+    merged = base.stdout.strip()
+    diff = subprocess.run(
+        ["git", "-C", str(root), "diff", "--name-only", merged, "HEAD"],
+        capture_output=True,
+        text=True,
+        timeout=120,
+    )
+    if diff.returncode != 0:
+        return _tracked(root)
+    return [f for f in diff.stdout.splitlines() if f]
+
+
+def audit(
+    root: Path = REPO_ROOT,
+    *,
+    content: bool = True,
+    _changed_only: bool | None = None,
+) -> tuple[str, str, list[dict]]:
     files = _tracked(root)
     findings = _structural(root, files)
-    ran, why, hits = _content(root) if content else (False, "disabled", [])
+    if content:
+        if _changed_only is None:
+            _changed_only = os.environ.get("PORTAL5_VALIDATE_CHANGED_ONLY") == "1"
+        if _changed_only:
+            changed = _changed_files(root)
+            ran, why, hits = _content(root, files=changed)
+            scan = "content scan ran (changed-only)" if ran else f"content scan NOT RUN ({why})"
+        else:
+            ran, why, hits = _content(root)
+            scan = "content scan ran" if ran else f"content scan NOT RUN ({why})"
+    else:
+        ran, why, hits = False, "disabled", []
+        scan = "content scan NOT RUN (disabled)"
     findings.extend({"path": h.get("path", "?"), "rule": "operator-derived content"} for h in hits)
-    scan = "content scan ran" if ran else f"content scan NOT RUN ({why})"
     if findings:
         return (
             "FAIL",
@@ -133,7 +173,7 @@ def audit(root: Path = REPO_ROOT, *, content: bool = True) -> tuple[str, str, li
         )
     return (
         "PASS",
-        f"{len(files)} tracked files: public reports are summaries only; {scan}",
+        f"{len(files)} tracked files: public reports are outcome summaries only; {scan}",
         [],
     )
 

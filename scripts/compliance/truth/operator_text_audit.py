@@ -552,11 +552,20 @@ def _tracked(root: Path) -> list[str]:
     return [p for p in out.decode("utf-8", "replace").split("\0") if p]
 
 
-def head_findings(root: Path = REPO, index: OperatorIndex | None = None) -> list[dict[str, Any]]:
-    """Every tracked file under ``root`` with findings (PDF/DOCX extracted)."""
+def head_findings(
+    root: Path = REPO,
+    index: OperatorIndex | None = None,
+    *,
+    files: list[str] | None = None,
+) -> list[dict[str, Any]]:
+    """Every tracked file under ``root`` with findings (PDF/DOCX extracted).
+
+    When ``files`` is supplied, scan only those relative paths instead of the
+    full tracked set (used by the HK incremental mode).
+    """
     index = index or load_index()
     out: list[dict[str, Any]] = []
-    for rel in _tracked(root):
+    for rel in files if files is not None else _tracked(root):
         if index.is_protected(rel):
             continue
         path = root / rel
