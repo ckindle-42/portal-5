@@ -73,15 +73,20 @@ def test_backends_yaml_workspace_routing_matches_catalog() -> None:
 
 
 def test_mcp_json_matches_fleet() -> None:
-    """.mcp.json IDE entries must match ide-exposed servers in portal.yaml fleet."""
+    """.mcp.json IDE entries must match launched, ide-exposed fleet servers."""
     portal_yaml_path = REPO / "config" / "portal.yaml"
     mcp_json_path = REPO / ".mcp.json"
 
     portal_raw = yaml.safe_load(portal_yaml_path.read_text()) or {}
     mcp_raw = json.loads(mcp_json_path.read_text())
 
+    from portal.platform.wiki.adapters.modules import launched_mcp_ids
+
     fleet = portal_raw.get("mcp_fleet", [])
-    ide_names = {s["name"] for s in fleet if s.get("expose_to_ide", True)}
+    launched = set(launched_mcp_ids())
+    ide_names = {
+        s["name"] for s in fleet if s.get("expose_to_ide", True) and s.get("id") in launched
+    }
     mcp_names = set(mcp_raw.get("mcpServers", {}).keys())
 
     assert ide_names == mcp_names, (

@@ -55,9 +55,7 @@ identifiers, not just Enterprise.
 
 ## Module State
 
-```yaml
-enabled: true
-```
+The switch is `modules.icsot.enabled` in `config/portal.yaml` (`portal module enable|disable` writes it). This unit documents the switch; it does not hold it.
 
 ## Why
 

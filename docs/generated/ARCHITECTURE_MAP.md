@@ -2,7 +2,7 @@
 
 # Portal 5 Architecture Map
 
-*Deterministic projection of 774 canonical units.*
+*Deterministic projection of 775 canonical units.*
 
 ## Knowledge Layer
 
@@ -54,7 +54,7 @@
 | `unit-HOWTO-20-cluster-scaling` | why | 2 |
 | `unit-HOWTO-21-remote-api-access-pipeline-at-9099` | why | 2 |
 | `unit-HOWTO-22-mlx-acceleration-apple-silicon-retired` | why | 1 |
-| `unit-HOWTO-23-metrics-monitoring` | why | 1 |
+| `unit-HOWTO-23-metrics-monitoring` | why | 3 |
 | `unit-HOWTO-3-workspaces` | why | 1 |
 | `unit-HOWTO-4-personas` | why | 3 |
 | `unit-HOWTO-5-code-generation-execution` | why | 2 |
@@ -223,7 +223,7 @@
 | `unit-capability-security` | mixed | 2 |
 | `unit-capability-serena` | mixed | 3 |
 | `unit-capability-tts` | mixed | 3 |
-| `unit-capability-turn-trace` | mixed | 4 |
+| `unit-capability-turn-trace` | mixed | 8 |
 | `unit-capability-video-mlx` | mixed | 3 |
 | `unit-capability-vulnintel` | mixed | 4 |
 | `unit-capability-whisper` | mixed | 3 |
@@ -582,7 +582,8 @@
 | `unit-module-general` | mixed | 4 |
 | `unit-module-icsot` | mixed | 4 |
 | `unit-module-image` | mixed | 3 |
-| `unit-module-media` | mixed | 7 |
+| `unit-module-media` | mixed | 6 |
+| `unit-module-music` | mixed | 3 |
 | `unit-module-netforensics` | mixed | 4 |
 | `unit-module-research` | mixed | 4 |
 | `unit-module-security` | mixed | 5 |
@@ -686,7 +687,7 @@
 | `unit-readme-unit-test-ci` | what | 2 |
 | `unit-readme-what-starts-automatically` | what | 3 |
 | `unit-readme-workspaces` | what | 3 |
-| `unit-router-streaming` | mixed | 1 |
+| `unit-router-streaming` | mixed | 3 |
 | `unit-router-test-context-inject` | mixed | 1 |
 | `unit-router-test-correlation` | mixed | 1 |
 | `unit-routing-build-corpus` | mixed | 1 |
@@ -725,7 +726,7 @@
 | `unit-surface-omlx-tool-parsers` | mixed | 2 |
 | `unit-surface-persona-matrix` | mixed | 1 |
 | `unit-surface-portal-wiki` | mixed | 1 |
-| `unit-surface-router` | mixed | 1 |
+| `unit-surface-router` | mixed | 2 |
 | `unit-surface-scripts` | mixed | 3 |
 | `unit-surface-sec-bully` | mixed | 1 |
 | `unit-surface-sec-core` | mixed | 2 |
@@ -783,12 +784,12 @@
 | `unit-wiki-tests-render` | mixed | 1 |
 | `unit-wiki-writeback` | mixed | 1 |
 
-**Total:** 774 units
+**Total:** 775 units
 
 ## Source Distribution
 
 - **bench-security**: 1 references
-- **code**: 2083 references
+- **code**: 2094 references
 - **config**: 1 references
 - **data**: 1 references
 - **doc**: 2 references

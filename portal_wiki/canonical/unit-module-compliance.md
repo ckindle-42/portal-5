@@ -54,17 +54,12 @@ platform claims census.
 
 ## Module State
 
-```yaml
-enabled: true
-```
+The switch is `modules.compliance.enabled` in `config/portal.yaml` (`portal module enable|disable` writes it). This unit documents the switch; it does not hold it.
 
 ## Why
 
 The compliance module is config-only: it owns a workspace but no MCP
 server, so toggling it affects routing (`auto-compliance`) and nothing in
-the fleet. That is exactly why this unit is live config rather than a
-description — `portal/platform/wiki/adapters/modules.py` reads the fenced
-`enabled:` field to gate the workspace, and the module's actual analysis
-capability lives in the security module it depends on. Keeping the unit
-sourced to the adapter plus `config/portal.yaml` makes the toggle's real
-blast radius visible.
+the fleet. `modules.compliance.enabled` in `config/portal.yaml` gates the
+workspace. The module's analysis capability lives in the security module
+it depends on.

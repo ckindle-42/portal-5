@@ -15,7 +15,7 @@ from __future__ import annotations
 import logging
 import os
 from pathlib import Path
-from typing import Any, Literal
+from typing import Any, Literal, get_args
 
 import yaml
 from pydantic import BaseModel, ConfigDict, Field, model_validator
@@ -38,6 +38,7 @@ ModuleName = Literal[
     "general",
     "image",
     "media",
+    "music",
     "netforensics",
     "research",
     "icsot",
@@ -317,11 +318,19 @@ class McpServer(BaseModel):
     )
 
 
+class ModuleToggle(BaseModel):
+    enabled: bool
+
+
 class PortalConfig(BaseModel):
     """Top-level portal.yaml schema."""
 
     workspaces: dict[str, WorkspaceSpec]
     mcp_fleet: list[McpServer]
+    modules: dict[str, ModuleToggle] = Field(
+        default_factory=dict,
+        description="Per-module on/off. portal module enable/disable writes one line.",
+    )
     ollama_url: str = "http://host.docker.internal:11434"
     request_timeout: int = 300
     models: list[Model] = Field(
@@ -345,6 +354,14 @@ class PortalConfig(BaseModel):
         dupes = [i for i in ids if i in seen or seen.add(i)]  # type: ignore[func-returns-value]
         if dupes:
             raise ValueError(f"Duplicate MCP ids in fleet: {sorted(set(dupes))}")
+        return self
+
+    @model_validator(mode="after")
+    def _known_module_keys(self) -> PortalConfig:
+        known = set(get_args(ModuleName))
+        unknown = sorted(name for name in self.modules if name not in known)
+        if unknown:
+            raise ValueError(f"Unknown modules in portal.yaml: {unknown}")
         return self
 
 
@@ -407,8 +424,8 @@ _INTERNAL_ONLY_FIELDS = frozenset({"variants"})
 def _eval_enabled() -> bool:
     """Whether the eval module's workspaces/mcp entries should be loaded.
 
-    True when ``PORTAL_ENABLE_EVAL=1`` is set or the eval module is enabled via
-    the wiki module toggle.
+    True when ``PORTAL_ENABLE_EVAL=1`` is set or ``modules.eval.enabled`` is on
+    in config/portal.yaml.
     """
     if os.environ.get("PORTAL_ENABLE_EVAL", "").lower() in ("true", "1", "yes"):
         return True

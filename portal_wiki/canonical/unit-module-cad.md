@@ -176,17 +176,11 @@ retired claim this overturns.
 
 ## Module State
 
-```yaml
-enabled: true
-```
+The switch is `modules.cad.enabled` in `config/portal.yaml` (`portal module enable|disable` writes it). This unit documents the switch; it does not hold it.
 
 ## Why
 
-This is a live-config module unit, not a description: the fenced
-`enabled:` value is read by `portal/platform/wiki/adapters/modules.py`
-(`_unit_enabled_state`) to decide whether `auto-cad` routes and whether
-`cad_render` launches in the MCP fleet, so flipping it is a real state
-change gated by the CLI write-back (`writeback_module.py`). The unit is
-the toggle's single source of truth, and re-grounding it to the adapter
-plus the module's own tool code keeps the toggle honest against the code
-it actually controls.
+`modules.cad.enabled` in `config/portal.yaml` decides whether `auto-cad`
+routes and whether `cad_render` launches. `portal module enable|disable`
+writes that line. This unit documents the switch; the adapter and the
+module's tool code are what the switch controls.

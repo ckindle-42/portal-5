@@ -39,8 +39,8 @@ async def run() -> None:
             sec,
             "S2-02",
             "Pipeline /health",
-            "PASS" if backends_healthy > 0 else "WARN",
-            f"backends={backends_healthy}/{backends_total}, workspaces={workspaces}",
+            "PASS" if data.get("backends_checked") and backends_healthy > 0 else "WARN",
+            f"backends={backends_healthy}/{backends_total}, checked={bool(data.get('backends_checked'))}, workspaces={workspaces}",
             t0=t0,
         )
     else:

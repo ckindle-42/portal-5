@@ -192,6 +192,7 @@ async def health() -> dict[str, Any]:
         "build_dirty": int(os.environ.get("PORTAL_BUILD_DIRTY", "-1") or -1),
         "backends_healthy": len(healthy),
         "backends_total": len(registry.list_backends()),
+        "backends_checked": registry.health_checked,
         "workspaces": len(WORKSPACES),
     }
 

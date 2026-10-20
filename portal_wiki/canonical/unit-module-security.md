@@ -62,19 +62,17 @@ BUILD_PROGRAM_COLLAPSE_V1.md Phase 2.
 
 ## Module State
 
-```yaml
-enabled: true
-```
+The switch is `modules.security.enabled` in `config/portal.yaml` (`portal module enable|disable` writes it). This unit documents the switch; it does not hold it.
 
 ## Why
 
 The security module is the only RBP bench engine and the largest
 structural surface in the tree, and its toggle carries the most routing
 weight of any module: disabling it hides every `auto-security` variant
-and both `security` and `proxmox` fleet ids at once. The `enabled:` field
-is live config read by `portal/platform/wiki/adapters/modules.py`
-(`_unit_enabled_state`), and the variant list is grounded to the
-`variants:` block of the `auto-security` entry in `config/portal.yaml`.
+and both `security` and `proxmox` fleet ids at once.
+`modules.security.enabled` in `config/portal.yaml` is that switch, and
+the variant list is grounded to the `variants:` block of the
+`auto-security` entry in `config/portal.yaml`.
 This unit is sourced to the module adapter, the security tool servers it
 gates, the preinject variant resolver, and `config/portal.yaml` so the
 toggle and the workspace surface it controls stay verifiable together.

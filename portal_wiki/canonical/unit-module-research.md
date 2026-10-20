@@ -47,18 +47,15 @@ contributes the module's claim probes.
 
 ## Module State
 
-```yaml
-enabled: true
-```
+The switch is `modules.research.enabled` in `config/portal.yaml` (`portal module enable|disable` writes it). This unit documents the switch; it does not hold it.
 
 ## Why
 
 The research module owns four fleet ids and two workspaces, so its toggle
-controls both routing and tool availability in one move, read from the
-fenced `enabled:` field by `portal/platform/wiki/adapters/modules.py`
-(`_unit_enabled_state`). One of its servers (`browser`) is
-not pipeline-exposed, which means the module's real reachable surface is
-narrower than its fleet count suggests. This unit is sourced to the
+controls both routing and tool availability in one move.
+`modules.research.enabled` in `config/portal.yaml` is that switch. One of
+its servers (`browser`) is not pipeline-exposed, which means the module's
+real reachable surface is narrower than its fleet count suggests. This unit is sourced to the
 adapter that reads the toggle, the `portal/modules/research/tools/`
 package that implements the servers, and `config/portal.yaml` that
 declares their ports and exposure flags.

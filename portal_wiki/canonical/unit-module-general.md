@@ -34,9 +34,10 @@ externally vendored MCP servers.
 
 ## Config (fenced yaml — DESIGN-MODULES-V1 module-definition convention)
 
+The switch is `modules.general.enabled` in `config/portal.yaml` (`portal module enable|disable` writes it). This unit documents the switch; it does not hold it.
+
 ```yaml
 module: general
-enabled: true
 tools:
   - filesystem
   - fetch
@@ -58,13 +59,13 @@ expose_to_ide: true
 
 ## Why
 
-The general module is "always-on" in a way the other modules are not: its
-`enabled:` field is true, and even if it were flipped the adapter
+The general module is "always-on" in a way the other modules are not:
+`modules.general.enabled` is true, and even if it were flipped the adapter
 (`portal/platform/wiki/adapters/modules.py`) keeps the four base fleet ids
 launched unconditionally because repo-facing tooling must never disappear
-on a module toggle. Its fenced block is the fuller DESIGN-MODULES-V1
-module definition rather than a bare `enabled:` line, but the adapter
-reads the same field either way. The unit is sourced to the adapter, the
-two small files under `portal/modules/general/` that document the fleet
-and the workspace pointer, and the `mcp_fleet` section of
-`config/portal.yaml` that declares the vendored servers.
+on a module toggle. The fenced block above is the DESIGN-MODULES-V1
+module definition (tools and workspaces); it does not hold the switch.
+The unit is sourced to the adapter, the two small files under
+`portal/modules/general/` that document the fleet and the workspace
+pointer, and the `mcp_fleet` section of `config/portal.yaml` that
+declares the vendored servers.

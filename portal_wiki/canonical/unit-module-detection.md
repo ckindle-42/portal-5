@@ -48,9 +48,7 @@ single `Get-WinEvent` read. Neither ever writes.
 
 ## Module State
 
-```yaml
-enabled: true
-```
+The switch is `modules.detection.enabled` in `config/portal.yaml` (`portal module enable|disable` writes it). This unit documents the switch; it does not hold it.
 
 ## Why
 

@@ -568,7 +568,7 @@ The roster is derived from the persona YAML files under `config/personas/`, one 
 | `auto-general-uncensored` | general | `hf.co/mradermacher/Huihui-Qwen3.6-35B-A3B-abliterated-GGUF:Q4_K_M-ctx8k` |
 | `auto-image` | image | `granite4.1:8b-ctx16k` |
 | `auto-math` | general | `glm-4.7-flash:Q4_K_M-ctx64k` |
-| `auto-music` | media | `lfm2.5:8b-ctx8k` |
+| `auto-music` | music | `lfm2.5:8b-ctx8k` |
 | `auto-nemotron` | general | `hf.co/bartowski/NVIDIA-Nemotron-3.5-Lightning-30B-A3B-GGUF:Q4_K_M-ctx32k` |
 | `auto-reasoning` | general | `hf.co/bartowski/K2-Horizon-MoVA-36B-A4B-GGUF:Q4_K_M-ctx64k` |
 | `auto-research` | research | `hf.co/sjakek/Nex-N2-mini-GGUF:UD-Q4_K_M-ctx16k` |

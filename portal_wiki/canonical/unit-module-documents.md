@@ -40,18 +40,12 @@ LibreOffice-backed PDFs in addition to reading Office and PDF formats.
 
 ## Module State
 
-```yaml
-enabled: true
-```
+The switch is `modules.documents.enabled` in `config/portal.yaml` (`portal module enable|disable` writes it). This unit documents the switch; it does not hold it.
 
 ## Why
 
 The documents module carries two workspaces on a single tool server, so
-its toggle's blast radius is routing plus the `documents` fleet id. The
-fenced `enabled:` value is read by `portal/platform/wiki/adapters/modules.py`
-(`_unit_enabled_state`) as live config, and the only sanctioned way to
-flip it is the confirm-gated CLI write-back (`writeback_module.py`) that
-records the change as a `module-state-change:` provenance source. Sourcing
-this unit to the adapter, the tool server, and `config/portal.yaml` ties
-the prose to the files that actually determine both the toggle and the
-surface it controls.
+its toggle's blast radius is routing plus the `documents` fleet id.
+`modules.documents.enabled` in `config/portal.yaml` is that switch;
+`portal module enable|disable` writes it. This unit, the tool server, and
+`config/portal.yaml` are the files that determine the surface it controls.

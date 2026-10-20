@@ -10,6 +10,44 @@
 ollama_url: "http://host.docker.internal:11434"
 request_timeout: 300
 
+# Module on/off. `portal module enable|disable --yes` writes one line here.
+# unit-module-* documents the switch; it does not hold it.
+modules:
+  cad:
+    enabled: true
+  coding:
+    enabled: true
+  compliance:
+    enabled: true
+  data:
+    enabled: true
+  detection:
+    enabled: true
+  documents:
+    enabled: true
+  eval:
+    enabled: false
+  general:
+    enabled: true
+  icsot:
+    enabled: true
+  image:
+    enabled: false
+  media:
+    enabled: true
+  music:
+    enabled: false
+  netforensics:
+    enabled: true
+  research:
+    enabled: true
+  security:
+    enabled: true
+  video:
+    enabled: false
+  vulnintel:
+    enabled: true
+
 # ── MCP Fleet ──────────────────────────────────────────────────────────────
 # expose_to_pipeline: true  → model-callable (included in tool_registry)
 # expose_to_ide: true       → available in Claude Code / opencode (.mcp.json)
@@ -60,17 +98,19 @@ mcp_fleet:
   # hardware. Image generation is now `mflux` (:8933, host MLX layer) and video
   # is `video_mlx` (:8935, host MLX layer, `video` module off by default).
   - id: music-minimax
-    module: media
+    module: music
     name: portal-music-minimax
     port: 8912
     expose_to_pipeline: true
     expose_to_ide: true
+    default_enabled: false
   - id: mflux
     module: image
     name: portal-mflux
     port: 8933
     expose_to_pipeline: true
     expose_to_ide: false
+    default_enabled: false
   - id: video_mlx
     module: video
     name: portal-video-mlx
@@ -1710,7 +1750,7 @@ workspaces:
       link from the tool result.
     description: Generate and edit images with MLX-native FLUX (schnell / klein / qwen-image). Driver granite4.1:8b.
   auto-music:
-    module: media
+    module: music
     name: 🎵 Portal Music Producer
     description: |-
       Generate full songs (lyrics/vocals or instrumental) via MiniMax-Music3-MLX. LFM2.5-8B-A1B hybrid (V8: fastest structured-output model in fleet, 89 t/s, unique non-transformer architecture, tool-capable, Apache 2.0). ACE-Step-1.5 was evaluated side-by-side (TASK_MUSIC_DUAL_BACKEND) and disabled 2026-08-27 — see config/portal.yaml's mcp_fleet comment.

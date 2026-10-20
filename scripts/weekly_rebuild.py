@@ -25,6 +25,7 @@ Runs from launchd (``deploy/launchd/com.portal5.weekly-rebuild.plist``).
 
 from __future__ import annotations
 
+import json
 import shutil
 import subprocess
 import sys
@@ -80,15 +81,22 @@ def _pull_services() -> list[str]:
     return [s for s in r.stdout.split() if s != "open-webui"] if r.returncode == 0 else []
 
 
+def _backends_checked() -> bool:
+    try:
+        with urllib.request.urlopen(PIPELINE_HEALTH, timeout=5) as resp:  # noqa: S310 - localhost
+            if resp.status != 200:
+                return False
+            body = json.loads(resp.read().decode())
+    except Exception:  # noqa: BLE001 - still starting
+        return False
+    return bool(body.get("backends_checked"))
+
+
 def _pipeline_healthy(timeout_s: int = 600) -> bool:
     deadline = time.monotonic() + timeout_s
     while time.monotonic() < deadline:
-        try:
-            with urllib.request.urlopen(PIPELINE_HEALTH, timeout=5) as r:  # noqa: S310 - localhost
-                if r.status == 200:
-                    return True
-        except Exception:  # noqa: BLE001 - still starting
-            pass
+        if _backends_checked():
+            return True
         time.sleep(10)
     return False
 

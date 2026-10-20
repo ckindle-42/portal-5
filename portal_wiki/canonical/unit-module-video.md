@@ -11,15 +11,15 @@ sources:
   path: config/portal.yaml
 - type: code
   path: module-state-change:video:cli
-- type: code
-  path: module-state-change:video:cli
-claims: []
+claims:
+- probe: modules.disabled
+  contains: video
 confidence: high
 tags:
 - video
 - module
-created_at: 1792465593.484575
-updated_at: 1792465593.484575
+created_at: 1787967818.3609989
+updated_at: 1787967818.3609989
 ---
 
 # Video Module — MLX-native video generation (off by default)
@@ -39,24 +39,16 @@ a backend swap, not a tool-rename cascade.
 
 ## Module State
 
-```yaml
-enabled: false
-```
+The switch is `modules.video.enabled` in `config/portal.yaml` (`portal module enable|disable` writes it). This unit documents the switch; it does not hold it.
 
 ## Why
 
 Video is the heaviest media surface — LTX-2.3 int4 runs a ~20-24GB MLX
 working set, is thermally punishing on a 64GB box, and produces
-preview-grade clips practically capped at ~4-6s — so it is footprint-first
-and **off by default** (the design default, mirroring `eval`), but
-**shipped enabled** as of the video end-to-end wiring (`3d15c417`):
-`config/modules.generated.yaml` currently carries `enabled: true` and the
-`auto-video` workspace is exposed to Open WebUI (`expose_to_owui: true`).
-An operator disables it with `portal module disable video`, after which
-sync-config drops the `video_mlx` fleet id from `launched_mcp_ids` and the
-`auto-video` workspace from the presets; re-enabling restores both with no
-code change. Membership is derived from the `module: video` tag on the
-`video_mlx` fleet entry and the `auto-video` workspace in
-`config/portal.yaml`; the fenced `enabled:` value is read by
-`portal/platform/wiki/adapters/modules.py` (`_unit_enabled_state`), and a
-missing value falls back to `DEFAULT_DISABLED_MODULES` (off).
+preview-grade clips practically capped at ~4-6s — so it ships disabled
+(`modules.video.enabled: false`). While it is off, sync-config drops the
+`video_mlx` fleet id from `launched_mcp_ids` and the `auto-video` workspace
+from the presets; `portal module enable video` restores both.
+Membership comes from the `module: video` tag on the `video_mlx` fleet
+entry and the `auto-video` workspace in `config/portal.yaml`. A missing
+key falls back to `DEFAULT_DISABLED_MODULES` (off).

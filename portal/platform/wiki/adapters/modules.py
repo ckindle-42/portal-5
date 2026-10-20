@@ -1,24 +1,11 @@
-"""Module toggle resolver — M7 of BUILD_PROGRAM_MODULARIZATION_ALL_V1
-(folding in DESIGN-MODULES-V1, the July-4 toggle design, now that modules
-are structural).
+"""Module toggle resolver.
 
-Lives in wiki/adapters/, not wiki/ core: launched_mcp_ids() needs the live
-mcp_fleet id list from portal.platform.inference.config, which core (the
-extracted, Portal-agnostic wiki engine) may never import.
-
-Enabled/disabled state lives in each unit-module-<name> wiki unit's
-fenced yaml config block (`enabled: true|false`) — the wiki is the
-source of truth, same as everything else in this system. This module
-reads that state and cross-references it against the module -> workspace
-ids / module -> mcp_fleet ids maps (BUILD_PROGRAM_COLLAPSE_V1.md Phase 3:
-derived from each entry's `module:` tag in config/portal.yaml, not
-hand-maintained) to answer the three resolver questions the four gates
-need.
+Enabled state is `config/portal.yaml` `modules.<name>.enabled`. Wiki
+`unit-module-*` units document the switch; they do not hold it. Workspace
+and fleet membership still come from each entry's `module:` tag.
 """
 
 from __future__ import annotations
-
-import re
 
 DEFAULT_ENABLED_MODULES: frozenset[str] = frozenset(
     {
@@ -38,15 +25,10 @@ DEFAULT_ENABLED_MODULES: frozenset[str] = frozenset(
         "netforensics",
     }
 )
-# Per DESIGN-MODULES-V1: bench/testing apparatus is off by default. `video` is
-# the heaviest media surface (LTX-2 MLX ~20-24GB working set, thermally punishing,
-# preview-grade) — footprint-first, off by default, mirroring `eval`; an operator
-# opts in with `portal module enable video`.
-DEFAULT_DISABLED_MODULES: frozenset[str] = frozenset({"eval", "video"})
+# Bench apparatus, video, and music are off unless config (or, for eval, the env) says on.
+DEFAULT_DISABLED_MODULES: frozenset[str] = frozenset({"eval", "music", "video"})
 
 ALL_MODULES: frozenset[str] = DEFAULT_ENABLED_MODULES | DEFAULT_DISABLED_MODULES
-
-_ENABLED_RE = re.compile(r"^\s*enabled:\s*(true|false)\s*$", re.MULTILINE | re.IGNORECASE)
 
 
 def module_workspace_ids() -> dict[str, tuple[str, ...]]:
@@ -74,19 +56,14 @@ def module_mcp_ids() -> dict[str, tuple[str, ...]]:
     return {"platform": tuple(sorted(platform)), **{k: tuple(sorted(v)) for k, v in out.items()}}
 
 
-def _unit_enabled_state(module: str) -> bool | None:
-    """Read the `enabled:` field from unit-module-<module>'s fenced yaml
-    config block. Returns None if the unit doesn't exist or has no
-    explicit field (caller falls back to the DEFAULT_*_MODULES sets)."""
-    from portal.platform.wiki.store import load_unit
+def _config_enabled_state(module: str) -> bool | None:
+    """Return `modules.<name>.enabled` from portal.yaml, or None if unset."""
+    from portal.platform.inference.config import load_portal_config
 
-    unit = load_unit(f"unit-module-{module}")
-    if unit is None:
+    spec = load_portal_config().modules.get(module)
+    if spec is None:
         return None
-    m = _ENABLED_RE.search(unit.body)
-    if m is None:
-        return None
-    return m.group(1).lower() == "true"
+    return spec.enabled
 
 
 def _eval_env_opt_in() -> bool:
@@ -109,16 +86,13 @@ def _eval_env_opt_in() -> bool:
 
 
 def enabled_modules() -> list[str]:
-    """Every module currently enabled — wiki state if present, else the
-    documented default (everything except eval). eval additionally honors
-    PORTAL_ENABLE_EVAL as a transient opt-in that doesn't require flipping
-    the persisted toggle (see _eval_env_opt_in)."""
+    """Modules whose config switch is on, else the documented default."""
     result = []
     for mod in sorted(ALL_MODULES):
         if mod == "eval" and _eval_env_opt_in():
             result.append(mod)
             continue
-        state = _unit_enabled_state(mod)
+        state = _config_enabled_state(mod)
         if state is None:
             state = mod in DEFAULT_ENABLED_MODULES
         if state:

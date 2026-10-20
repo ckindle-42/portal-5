@@ -8,8 +8,20 @@ wiki dirs, same pattern as test_growth_writeback.py.
 
 from __future__ import annotations
 
+from pathlib import Path
+
 from portal.platform.wiki.schema import KnowledgeUnit, SourceRef
 from portal.platform.wiki.store import reset_canonical_dir, set_canonical_dir
+
+
+def _patch_modules(monkeypatch, states: dict[str, bool]) -> None:
+    import portal.platform.inference.config as cfg
+    from portal.platform.inference.config import ModuleToggle, load_portal_config
+
+    real = load_portal_config()
+    modules = {name: ModuleToggle(enabled=on) for name, on in states.items()}
+    patched = real.model_copy(update={"modules": modules})
+    monkeypatch.setattr(cfg, "load_portal_config", lambda *a, **k: patched)
 
 
 def _seed_module_unit(name: str, enabled: bool) -> None:
@@ -27,76 +39,89 @@ def _seed_module_unit(name: str, enabled: bool) -> None:
 
 
 class TestModulesResolver:
-    def test_enabled_modules_falls_back_to_defaults_when_no_wiki_units(self, tmp_path, monkeypatch):
+    def test_enabled_modules_falls_back_to_defaults_when_config_omits_them(self, monkeypatch):
         from portal.platform.wiki.adapters.modules import DEFAULT_ENABLED_MODULES, enabled_modules
 
-        # Isolate from PORTAL_ENABLE_EVAL leaking in from another test in the
-        # same session (eval's env-var opt-in is intentionally independent of
-        # the wiki toggle this test exercises — see _eval_env_opt_in).
         monkeypatch.delenv("PORTAL_ENABLE_EVAL", raising=False)
-        set_canonical_dir(tmp_path / "canonical")
-        try:
-            assert set(enabled_modules()) == set(DEFAULT_ENABLED_MODULES)
-        finally:
-            reset_canonical_dir()
+        _patch_modules(monkeypatch, {})
+        assert set(enabled_modules()) == set(DEFAULT_ENABLED_MODULES)
 
-    def test_enabled_modules_reads_wiki_state_when_present(self, tmp_path):
+    def test_enabled_modules_reads_config(self, monkeypatch):
         from portal.platform.wiki.adapters.modules import ALL_MODULES, enabled_modules
 
-        set_canonical_dir(tmp_path / "canonical")
-        try:
-            for mod in ALL_MODULES:
-                _seed_module_unit(mod, enabled=(mod != "coding"))
-            result = set(enabled_modules())
-            assert "coding" not in result
-            assert result == set(ALL_MODULES) - {"coding"}
-        finally:
-            reset_canonical_dir()
+        monkeypatch.delenv("PORTAL_ENABLE_EVAL", raising=False)
+        _patch_modules(monkeypatch, {mod: mod != "coding" for mod in ALL_MODULES})
+        result = set(enabled_modules())
+        assert "coding" not in result
+        assert result == set(ALL_MODULES) - {"coding"}
 
-    def test_launched_mcp_ids_always_includes_unmapped_platform_ids(self, tmp_path):
+    def test_launched_mcp_ids_always_includes_unmapped_platform_ids(self, monkeypatch):
         """memory/mlx_transcribe/pipeline/wiki have no module mapping — they
         must never be dropped just because every discipline module is off."""
         from portal.platform.wiki.adapters.modules import ALL_MODULES, launched_mcp_ids
 
+        _patch_modules(monkeypatch, dict.fromkeys(ALL_MODULES, False))
+        ids = launched_mcp_ids()
+        for platform_id in ("memory", "mlx_transcribe", "pipeline", "wiki"):
+            assert platform_id in ids, f"{platform_id} was dropped with all modules disabled"
+        for base_id in ("filesystem", "fetch", "git", "docker"):
+            assert base_id in ids
+        assert "proxmox" not in ids
+
+    def test_is_workspace_disabled(self, monkeypatch):
+        from portal.platform.wiki.adapters.modules import ALL_MODULES, is_workspace_disabled
+
+        _patch_modules(monkeypatch, {mod: mod != "coding" for mod in ALL_MODULES})
+        assert is_workspace_disabled("auto-coding") is True
+        assert is_workspace_disabled("auto-research") is False
+        assert is_workspace_disabled("auto-security") is False
+
+    def test_owui_workspaces_returns_none_when_nothing_disabled(self, monkeypatch):
+        from portal.platform.wiki.adapters.modules import ALL_MODULES, owui_workspaces
+
+        _patch_modules(monkeypatch, dict.fromkeys(ALL_MODULES, True))
+        assert owui_workspaces() is None
+
+    def test_wiki_fence_does_not_override_config(self, tmp_path, monkeypatch):
+        from portal.platform.wiki.adapters.modules import ALL_MODULES, enabled_modules
+
+        monkeypatch.delenv("PORTAL_ENABLE_EVAL", raising=False)
         set_canonical_dir(tmp_path / "canonical")
         try:
             for mod in ALL_MODULES:
                 _seed_module_unit(mod, enabled=False)
-            ids = launched_mcp_ids()
-            for platform_id in ("memory", "mlx_transcribe", "pipeline", "wiki"):
-                assert platform_id in ids, f"{platform_id} was dropped with all modules disabled"
-            # general's base tools stay on too, per spec
-            for base_id in ("filesystem", "fetch", "git", "docker"):
-                assert base_id in ids
-            # but a module-owned id (e.g. security's tools) must be gone
-            assert "proxmox" not in ids
+            assert "general" in enabled_modules()
+            assert "media" in enabled_modules()
+            assert "music" not in enabled_modules()
+            assert "image" not in enabled_modules()
+            assert "video" not in enabled_modules()
         finally:
             reset_canonical_dir()
 
-    def test_is_workspace_disabled(self, tmp_path):
-        from portal.platform.wiki.adapters.modules import ALL_MODULES, is_workspace_disabled
+    def test_toggle_changes_one_config_line_and_no_wiki_file(self, tmp_path):
+        from portal.platform.inference.cli.module import write_module_enabled
 
-        set_canonical_dir(tmp_path / "canonical")
-        try:
-            for mod in ALL_MODULES:
-                _seed_module_unit(mod, enabled=(mod != "coding"))
-            assert is_workspace_disabled("auto-coding") is True
-            assert is_workspace_disabled("auto-research") is False
-            # unmapped workspace (e.g. security's) is never considered disabled
-            assert is_workspace_disabled("auto-security") is False
-        finally:
-            reset_canonical_dir()
-
-    def test_owui_workspaces_returns_none_when_nothing_disabled(self, tmp_path):
-        from portal.platform.wiki.adapters.modules import ALL_MODULES, owui_workspaces
-
-        set_canonical_dir(tmp_path / "canonical")
-        try:
-            for mod in ALL_MODULES:
-                _seed_module_unit(mod, enabled=True)
-            assert owui_workspaces() is None
-        finally:
-            reset_canonical_dir()
+        repo = Path(__file__).resolve().parents[2]
+        src = (repo / "config" / "portal.yaml").read_text(encoding="utf-8")
+        dest = tmp_path / "portal.yaml"
+        dest.write_text(src, encoding="utf-8")
+        wiki = repo / "portal_wiki"
+        before = sorted(
+            (p.relative_to(wiki), p.read_bytes()) for p in wiki.rglob("*") if p.is_file()
+        )
+        write_module_enabled("documents", False, path=dest)
+        lines_before = src.splitlines()
+        lines_after = dest.read_text(encoding="utf-8").splitlines()
+        diff_at = [
+            i for i, (a, b) in enumerate(zip(lines_before, lines_after, strict=True)) if a != b
+        ]
+        assert len(diff_at) == 1
+        assert lines_before[diff_at[0] - 1].strip() == "documents:"
+        assert lines_after[diff_at[0]] == "    enabled: false"
+        after = sorted(
+            (p.relative_to(wiki), p.read_bytes()) for p in wiki.rglob("*") if p.is_file()
+        )
+        assert before == after
 
 
 class TestModuleWriteback:

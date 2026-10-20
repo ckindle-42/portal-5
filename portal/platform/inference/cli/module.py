@@ -1,17 +1,13 @@
-"""``portal module <cmd>`` — module enable/disable operations (M7 toggle layer,
-BUILD_PROGRAM_COLLAPSE_V1.md Phase 9).
+"""``portal module`` — enable or disable a module.
 
-State lives in each unit-module-<name> wiki unit's fenced yaml `enabled:`
-field (portal.platform.wiki.adapters.modules is the resolver, writeback_module is the
-confirm-gated state-change path). Confirm-gated by default (auto_confirm=False,
-same discipline as ``portal bench``/``portal wiki writeback``) — pass ``--yes``
-to apply immediately. A confirmed change re-runs sync-config so
-config/modules.generated.yaml, .mcp.json, and OWUI presets never drift from
-the wiki's now-current state.
+State is `config/portal.yaml` `modules.<name>.enabled`. ``--yes`` writes
+that one line and re-runs sync-config. Wiki units are not modified.
 """
 
 from __future__ import annotations
 
+import re
+from pathlib import Path
 from typing import Any
 
 import typer
@@ -57,7 +53,7 @@ def module_status(name: str = typer.Argument(..., help="Module name, e.g. 'eval'
     from portal.platform.inference.config import load_portal_config
     from portal.platform.wiki.adapters.modules import (
         ALL_MODULES,
-        _unit_enabled_state,
+        _config_enabled_state,
         enabled_modules,
     )
 
@@ -66,14 +62,14 @@ def module_status(name: str = typer.Argument(..., help="Module name, e.g. 'eval'
         raise typer.Exit(code=1)
 
     cfg = load_portal_config()
-    wiki_state = _unit_enabled_state(name)
+    config_state = _config_enabled_state(name)
     effective = name in enabled_modules()
     ws_ids = sorted(k for k, v in cfg.workspaces.items() if v.module == name)
     persona_slugs = sorted(p.slug for p in load_persona_map_safe().values() if p.module == name)
     mcp_ids = sorted(m.id for m in cfg.mcp_fleet if m.module == name)
 
     typer.echo(f"module:    {name}")
-    typer.echo(f"enabled:   {effective}  (wiki unit-module-{name}: {wiki_state!r})")
+    typer.echo(f"enabled:   {effective}  (config modules.{name}: {config_state!r})")
     typer.echo(f"workspaces ({len(ws_ids)}): {', '.join(ws_ids) or '(none)'}")
     typer.echo(
         f"personas ({len(persona_slugs)}): {', '.join(persona_slugs[:10])}"
@@ -110,42 +106,60 @@ def load_persona_map_safe() -> dict[str, Any]:
     return load_persona_map()
 
 
+def _modules_region(text: str) -> tuple[int, int]:
+    marker = "\nmodules:\n"
+    start = text.find(marker)
+    if start < 0:
+        raise ValueError("config/portal.yaml has no modules: block")
+    body = start + len(marker)
+    nxt = re.search(r"\n(?=[A-Za-z])", text[body:])
+    end = body + nxt.start() if nxt else len(text)
+    return body, end
+
+
+def write_module_enabled(name: str, enabled: bool, path: Path | None = None) -> None:
+    """Flip the one `modules.<name>.enabled` line. Does not touch the wiki."""
+    from portal.platform.inference import config as cfg
+
+    target = path or cfg.PORTAL_YAML
+    text = target.read_text(encoding="utf-8")
+    body, end = _modules_region(text)
+    block = text[body:end]
+    value = "true" if enabled else "false"
+    pat = re.compile(rf"(^  {re.escape(name)}:\n    enabled: )(true|false)\s*$", re.M)
+    new_block, n = pat.subn(rf"\g<1>{value}", block, count=1)
+    if n != 1:
+        raise ValueError(f"modules.{name}.enabled not found in {target}")
+    target.write_text(text[:body] + new_block + text[end:], encoding="utf-8")
+    cfg._CONFIG_CACHE = None
+
+
 def _set_module_state(name: str, to_state: bool, actor: str, auto_confirm: bool) -> None:
     from portal.platform.wiki.adapters.modules import ALL_MODULES, enabled_modules
-    from portal.platform.wiki.adapters.writeback_module import module_state_change
 
     if name not in ALL_MODULES:
         typer.echo(f"❌ Unknown module: {name!r}. Known: {sorted(ALL_MODULES)}", err=True)
         raise typer.Exit(code=1)
 
     from_state = name in enabled_modules()
+    verb = "enabled" if to_state else "disabled"
     if from_state == to_state:
-        verb = "enabled" if to_state else "disabled"
         typer.echo(f"'{name}' is already {verb} — no change.")
         return
-
-    result = module_state_change(
-        name, from_state=from_state, to_state=to_state, actor=actor, auto_confirm=auto_confirm
-    )
-    if result is None:
+    if not auto_confirm:
         typer.echo(
-            f"❌ Could not propose state change for '{name}' "
-            f"(unit-module-{name} not found in wiki).",
-            err=True,
-        )
-        raise typer.Exit(code=1)
-
-    status = result.get("status", "proposed")
-    verb = "enabled" if to_state else "disabled"
-    typer.echo(f"✅ '{name}' {verb} ({status}).")
-    if status != "confirmed":
-        typer.echo(
-            "   Awaiting confirmation — see wiki proposal queue. Re-run with --yes to apply now."
+            f"'{name}' would be {verb} (requested by {actor}). "
+            "Re-run with --yes to write config/portal.yaml."
         )
         return
 
-    # Confirmed: re-run sync-config so modules.generated.yaml/.mcp.json/OWUI
-    # presets never drift from the wiki's now-current state.
+    try:
+        write_module_enabled(name, to_state)
+    except ValueError as exc:
+        typer.echo(f"❌ {exc}", err=True)
+        raise typer.Exit(code=1) from exc
+
+    typer.echo(f"✅ '{name}' {verb}.")
     from portal.platform.inference.sync_config import main as sync_config_main
 
     typer.echo("   Regenerating derived config (sync-config)...")

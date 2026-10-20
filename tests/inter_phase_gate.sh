@@ -66,12 +66,29 @@ _ollama_loaded_count() {
 }
 
 # ---- Gate 1: pipeline health (auto-restart attempt before hard stop) ----
-if ! curl -sf --max-time 5 http://localhost:9099/health > /dev/null; then
+# HTTP 200 is not enough: counts are assumed until backends_checked.
+_pipeline_measured() {
+    python3 -c 'import json,urllib.request
+try:
+    d=json.load(urllib.request.urlopen("http://localhost:9099/health", timeout=5))
+except Exception:
+    raise SystemExit(1)
+raise SystemExit(0 if d.get("backends_checked") else 1)'
+}
+_wait_pipeline() {
+    local i
+    for i in 1 2 3 4 5 6; do
+        _pipeline_measured && return 0
+        sleep 5
+    done
+    return 1
+}
+if ! _wait_pipeline; then
     echo "[GATE:$PHASE_NUM] Pipeline DOWN — attempting Docker restart (one attempt)..."
     docker restart portal5-pipeline 2>/dev/null || true
     echo "[GATE:$PHASE_NUM] Waiting 30s for pipeline to come up..."
     sleep 30
-    if ! curl -sf --max-time 5 http://localhost:9099/health > /dev/null; then
+    if ! _wait_pipeline; then
         echo "[GATE:$PHASE_NUM] FATAL: pipeline still DOWN after restart — cannot proceed."
         echo "| $PHASE_NUM. gate | BLOCKED | $(date -u +%H:%MZ) | — | — | — | pipeline DOWN (restart failed) |" >> tests/UAT_RUN_LOG.md
         exit 1

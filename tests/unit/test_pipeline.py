@@ -210,6 +210,7 @@ class TestPipelineAPI:
         data = resp.json()
         assert "status" in data
         assert "backends_healthy" in data
+        assert "backends_checked" in data
 
     def test_models_requires_auth(self, client):
         resp = client.get("/v1/models")

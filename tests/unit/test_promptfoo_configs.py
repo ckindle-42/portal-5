@@ -18,25 +18,12 @@ CONFIG_DIR = Path("config/promptfoo")
 
 @pytest.fixture(scope="module")
 def known_models():
-    # module: eval workspaces (bench-*) are gated off the module-level
-    # WORKSPACES dict by default (BUILD_PROGRAM_COLLAPSE_V1.md Phase 4);
-    # promptfoo quality configs legitimately reference bench model_hints,
-    # so resolve against the full (eval-enabled) set instead.
-    import os
+    # Resolve against every workspace in portal.yaml. Eval workspaces and
+    # modules that ship disabled (image, music, video) stay in the catalog,
+    # and promptfoo quality configs legitimately name their model hints.
+    from portal.platform.inference.config import load_portal_config
 
-    from portal.platform.inference.config import get_workspace_dict, load_portal_config
-
-    prev = os.environ.get("PORTAL_ENABLE_EVAL")
-    os.environ["PORTAL_ENABLE_EVAL"] = "1"
-    try:
-        all_ws = get_workspace_dict(load_portal_config())
-    finally:
-        if prev is None:
-            os.environ.pop("PORTAL_ENABLE_EVAL", None)
-        else:
-            os.environ["PORTAL_ENABLE_EVAL"] = prev
-    configured = {w.model_hint for w in load_portal_config().workspaces.values() if w.model_hint}
-    return configured | {info["model_hint"] for info in all_ws.values() if info.get("model_hint")}
+    return {ws.model_hint for ws in load_portal_config().workspaces.values() if ws.model_hint}
 
 
 def _extract_model_refs(config_path):

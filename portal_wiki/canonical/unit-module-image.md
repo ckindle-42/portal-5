@@ -1,7 +1,7 @@
 ---
 id: unit-module-image
 kind: mixed
-title: "Image Module \u2014 MLX-native image generation (MFLUX)"
+title: "Image Module — MLX-native image generation (MFLUX)"
 sources:
 - type: code
   path: portal/modules/media/tools/mflux_mcp.py
@@ -9,15 +9,13 @@ sources:
   path: portal/platform/wiki/adapters/modules.py
 - type: code
   path: config/portal.yaml
-- type: code
-  path: module-state-change:image:cli
-claims: []
+claims:
+- probe: modules.disabled
+  contains: image
 confidence: high
 tags:
 - image
 - module
-created_at: 1792465591.256565
-updated_at: 1792465591.256565
 ---
 
 # Image Module — MLX-native image generation (MFLUX)
@@ -38,16 +36,14 @@ tool-rename cascade.
 
 ## Module State
 
-```yaml
-enabled: false
-```
+The switch is `modules.image.enabled` in `config/portal.yaml` (`portal module enable|disable` writes it). This unit documents the switch; it does not hold it.
 
 ## Why
 
 Image generation is carved out of the `media` toggle into its own module so
 a tight-footprint box can disable image generation (a ~25GB MLX working set)
-while keeping the audio media. The module gates the `mflux` fleet id and the
-`auto-image` workspace, both derived from their `module: image` tag in
-`config/portal.yaml`. The fenced `enabled:` value is read as live config by
-`portal/platform/wiki/adapters/modules.py` (`_unit_enabled_state`); a
-missing value falls back to `DEFAULT_ENABLED_MODULES` (on).
+while keeping speech and transcription. The module gates the `mflux` fleet
+id and the `auto-image` workspace, both derived from their `module: image`
+tag in `config/portal.yaml`. The shipped switch is
+`modules.image.enabled: false`. A missing key falls back to
+`DEFAULT_ENABLED_MODULES` (on).

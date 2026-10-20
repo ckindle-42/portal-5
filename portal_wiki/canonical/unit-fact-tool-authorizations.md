@@ -5,7 +5,7 @@ title: tool authorizations for 34 production workspaces
 sources:
 - type: code
   path: config/portal.yaml
-  commit: 8813e0589d6a
+  commit: 7a63b0db70ac
   section: workspaces[].tools
 claims: []
 confidence: high
@@ -14,7 +14,7 @@ tags:
 - tools
 - workspaces
 created_at: 1784049584.703768
-updated_at: 1791554376.062481
+updated_at: 1792466869.8392289
 ---
 
 # Tool authorizations (per-workspace `tools:` whitelist)
@@ -38,7 +38,7 @@ The pipeline strips any tool a workspace does not authorize (metric `portal5_too
 | `auto-general-uncensored` | general | `execute_bash`, `execute_python`, `read_word_document`, `read_pdf`, `remember`!, `recall`! |
 | `auto-image` | image | `generate_image`, `edit_image` |
 | `auto-math` | general | _(none)_ |
-| `auto-music` | media | `minimax_generate`, `minimax_status`, `minimax_models`, `speak`, `transcribe_audio`, `clone_voice`, `register_voice`, `list_voices` |
+| `auto-music` | music | `minimax_generate`, `minimax_status`, `minimax_models`, `speak`, `transcribe_audio`, `clone_voice`, `register_voice`, `list_voices` |
 | `auto-nemotron` | general | `web_search`!, `web_fetch`!, `kb_search`!, `kb_list`!, `read_pdf`, `read_word_document`, `remember`!, `recall`! |
 | `auto-reasoning` | general | _(none)_ |
 | `auto-research` | research | `web_search`!, `web_fetch`!, `news_search`!, `kb_search`!, `kb_search_all`!, `kb_list`!, `remember`!, `recall`!, `graph_recall`!, `neighbors`!, `entity_timeline`! |

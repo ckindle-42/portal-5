@@ -292,19 +292,15 @@ class TestSlackAdapter:
             slack_bot.build_app()
 
     def test_channel_workspace_map_all_valid(self):
-        """Every workspace in CHANNEL_WORKSPACE_MAP is a real workspace ID."""
-        import sys
-
-        sys.path.insert(0, ".")
+        """Every CHANNEL_WORKSPACE_MAP target is a workspace declared in portal.yaml."""
         from portal.platform.inference.config import load_portal_config
-
-        workspaces = load_portal_config().workspaces  # a disabled module's lane is still valid
         from portal_channels.slack.bot import CHANNEL_WORKSPACE_MAP
 
+        catalog = load_portal_config().workspaces
         for channel_keyword, (workspace_id, _variant) in CHANNEL_WORKSPACE_MAP.items():
-            assert workspace_id in workspaces, (
+            assert workspace_id in catalog, (
                 f"Slack channel '{channel_keyword}' → '{workspace_id}' "
-                f"is not a valid workspace. Valid: {sorted(workspaces)}"
+                f"is not a declared workspace. Valid: {sorted(catalog)}"
             )
 
     def test_workspace_for_channel_routing(self):

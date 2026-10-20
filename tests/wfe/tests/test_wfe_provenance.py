@@ -127,6 +127,8 @@ async def test_pipeline_health_reports_its_build(monkeypatch):
     from portal.platform.inference.router import handlers
 
     class Reg:
+        health_checked = True
+
         def list_healthy_backends(self):
             return [1]
 

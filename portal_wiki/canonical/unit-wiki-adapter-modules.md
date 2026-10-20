@@ -1,7 +1,7 @@
 ---
 id: unit-wiki-adapter-modules
 kind: mixed
-title: "Wiki module adapter \u2014 toggle resolver with wiki-as-state"
+title: "Wiki module adapter — toggle resolver (config holds the switch)"
 sources:
 - type: code
   path: portal/platform/wiki/adapters/modules.py
@@ -25,9 +25,10 @@ never import.
 
 ## Why
 
-Enabled/disabled state lives in each `unit-module-<name>` wiki unit's fenced
-yaml block — the wiki is the source of truth, same as everything else in the
-system. The resolver reads that state and cross-references it against the
+Enabled/disabled state lives in `config/portal.yaml` under
+`modules.<name>.enabled`. `portal module enable|disable` writes that one
+line. Each `unit-module-<name>` unit documents the switch; it does not hold
+it. The resolver reads the config value and cross-references it against the
 module-to-workspace and module-to-fleet maps (derived from each entry's
 `module:` tag in `config/portal.yaml`, never hand-maintained). This is the
 mechanical hook that makes the module toggle real: `enabled_modules()`
@@ -43,6 +44,7 @@ opt-in.
 
 ## Gotchas
 
-The defaults split enabled from disabled (`eval` off by default) — the 
-bench/testing apparatus must opt in, which is the July-4 toggle design
-folding into the module structure.
+A missing key falls back to the defaults: `eval`, `music`, and `video` off,
+everything else on (including `image`). The shipped `modules:` block turns
+image, music, and video off. Bench apparatus still opts in through that
+block or `PORTAL_ENABLE_EVAL`.

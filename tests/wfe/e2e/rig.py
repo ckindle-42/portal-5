@@ -153,19 +153,21 @@ class Rig:
             stdout=open(self.tmp / "pipeline.out", "a"),
             stderr=subprocess.STDOUT,
         )
-        self._wait(f"http://127.0.0.1:{self.pp}/health")
+        self._wait(f"http://127.0.0.1:{self.pp}/health", checked=True)
         end = time.time() + 60  # the warmup request must not land in a scenario's window
         while time.time() < end and log.read_text().count("Warmup complete") <= warmed:
             time.sleep(0.5)
 
-    def _wait(self, url: str, timeout: float = 90) -> None:
+    def _wait(self, url: str, timeout: float = 90, *, checked: bool = False) -> None:
         end = time.time() + timeout
         while time.time() < end:
             try:
-                with urllib.request.urlopen(url, timeout=2):
-                    return
+                with urllib.request.urlopen(url, timeout=2) as resp:
+                    if not checked or json.loads(resp.read().decode()).get("backends_checked"):
+                        return
             except Exception:
-                time.sleep(0.5)
+                pass
+            time.sleep(0.5)
         raise RuntimeError(f"rig: {url} did not come up; see {self.tmp}")
 
     def stop(self, name: str) -> None:

@@ -48,20 +48,13 @@ explicitly-named cross-cutting harness in the spec.
 
 ## Module State
 
-```yaml
-enabled: false
-```
+The switch is `modules.eval.enabled` in `config/portal.yaml` (`portal module enable|disable` writes it). This unit documents the switch; it does not hold it.
 
 ## Why
 
-The eval module is the one module disabled by default, and that default is
-load-bearing: `portal/platform/wiki/adapters/modules.py` treats a missing
-or `false` `enabled:` field as off (per `DEFAULT_DISABLED_MODULES`), and
-the bench workspaces it owns stay unrouted until an operator flips the
-toggle or sets `PORTAL_ENABLE_EVAL` (mirrored by the adapter's
-`_eval_env_opt_in`). Because bench apparatus is cross-cutting rather than
-owned by one discipline, its activation is an explicit, confirm-gated
-decision — the state change is recorded as a `module-state-change:`
-provenance source by `writeback_module.py`. The unit is sourced to the
-adapter that reads the toggle, the persona-matrix package it gates, and
-`config/portal.yaml` where the bench workspaces are declared.
+Eval ships disabled. `portal/platform/wiki/adapters/modules.py` treats a
+missing `modules.eval` key, or `enabled: false`, as off
+(`DEFAULT_DISABLED_MODULES`). Bench workspaces stay unrouted until an
+operator sets `modules.eval.enabled` or `PORTAL_ENABLE_EVAL` (the
+adapter's `_eval_env_opt_in`). The unit is sourced to the adapter, the
+persona-matrix package it gates, and `config/portal.yaml`.

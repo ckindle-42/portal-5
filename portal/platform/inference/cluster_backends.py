@@ -404,6 +404,11 @@ class BackendRegistry:
         """Return all registered backends."""
         return list(self._backends.values())
 
+    @property
+    def health_checked(self) -> bool:
+        """True once a health cycle has completed (counts before that are assumed)."""
+        return self._cached_healthy is not None
+
     def list_healthy_backends(self) -> list[Backend]:
         """Return backends currently passing health checks.
 

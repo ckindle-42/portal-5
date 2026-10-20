@@ -71,18 +71,14 @@ Also uses the general module's filesystem/git base tools for repo work.
 
 ## Module State
 
-```yaml
-enabled: true
-```
+The switch is `modules.coding.enabled` in `config/portal.yaml` (`portal module enable|disable` writes it). This unit documents the switch; it does not hold it.
 
 ## Why
 
-The coding module is the largest always-on discipline after security, and
-its unit is live config the same way every `unit-module-*` is: the
-`enabled:` field is read by `portal/platform/wiki/adapters/modules.py`
-(`_unit_enabled_state`) to gate `auto-coding` routing and the `execution`
-sandbox fleet id, with a confirm-gated CLI write-back
-(`writeback_module.py`) as the only allowed way to flip it. The variant
+The coding module is the largest always-on discipline after security.
+`modules.coding.enabled` in `config/portal.yaml` gates `auto-coding`
+routing and the `execution` sandbox fleet id; `portal module
+enable|disable` writes that line. The variant
 list above is grounded to the `variants:` block of the `auto-coding`
 entry in `config/portal.yaml`, and variant selection itself is enforced
 by `_resolve_workspace_variant()` in `preinject.py` — so this unit's prose

@@ -44,7 +44,7 @@ def cmd_test(
             backends = h.get("backends_healthy", 0)
             ok = status in ("ok", "degraded")
             _check(f"Pipeline reachable (status={status})", ok)
-            if status == "ok":
+            if status == "ok" and h.get("backends_checked"):
                 typer.echo(f"  ✅ Ollama connected ({backends} backends healthy)")
                 passed += 1
             else:
