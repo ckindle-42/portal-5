@@ -344,6 +344,17 @@ def cell_expected(manifest: dict, workspace: str, incumbent: str, candidate: str
     return inc
 
 
+def _reused_rows(rows: list[dict]) -> list[dict]:
+    fields = ("run_id", "arm_role", "arm", "workspace", "suite", "task_id", "repeat", "reused_from")
+    return [
+        {key: row.get(key) for key in fields}
+        for row in sorted(
+            (r for r in rows if r.get("reused_from")),
+            key=lambda r: tuple(str(r.get(k) or "") for k in fields),
+        )
+    ]
+
+
 def _collect_warnings(rows: list[dict], manifest: dict, allow_mixed: bool) -> list[str]:
     warnings = (
         _fingerprint_check(rows, allow_mixed)
@@ -351,11 +362,11 @@ def _collect_warnings(rows: list[dict], manifest: dict, allow_mixed: bool) -> li
         + _grader_check(rows, allow_mixed)
         + _identity_check(rows, manifest, allow_mixed)
     )
-    reused_n = sum(1 for r in rows if r.get("reused_from"))
+    reused_n = len(_reused_rows(rows))
     if reused_n:
         warnings.append(
-            f"{reused_n} incumbent row(s) reused from an earlier campaign (reused_from) "
-            "and re-graded with the current checkers"
+            f"{reused_n} row(s) reused from earlier campaigns and re-graded with the current "
+            "checkers; see Reused rows for each source"
         )
     degen = sorted({r["repeat_degeneracy"] for r in rows if r.get("repeat_degeneracy")})
     warnings += [
@@ -802,7 +813,6 @@ def build(campaign_dir: Path, allow_mixed: bool = False, only_arm: str | None = 
         rows = [r for r in rows if r["arm"] == only_arm]
     warnings = _collect_warnings(rows, manifest, allow_mixed)
     reviews = _review_scores(campaign_dir)
-
     by_key: dict[tuple, list[dict]] = defaultdict(list)
     for r in rows:
         by_key[(r["workspace"], r["suite"], r["arm"])].append(r)
@@ -878,6 +888,7 @@ def build(campaign_dir: Path, allow_mixed: bool = False, only_arm: str | None = 
             else []
         ),
         "matrix": matrix,
+        "reused_rows": _reused_rows(rows),
         "comparisons": comparisons,
         # Lanes that were measured but have nothing to rank against, because the
         # plan carries no incumbent arm for them. Recorded explicitly so their
@@ -1004,6 +1015,25 @@ def _sec_header(a, rep) -> None:
         for w in rep["warnings"]:
             a(f"- **{w}**")
         a("")
+
+
+def _sec_reused_rows(a, rep) -> None:
+    rows = rep.get("reused_rows") or []
+    if not rows:
+        return
+    a("## Reused rows")
+    a("")
+    a("Each entry is a copied row and its original campaign/row source.")
+    a("")
+    a("| Run ID | Arm | Task | Repeat | Reused from |")
+    a("|---|---|---|---:|---|")
+    for row in rows:
+        task = f"{row.get('suite') or ''}/{row.get('task_id') or ''}"
+        a(
+            f"| `{row.get('run_id')}` | `{row.get('arm')}` | `{task}` | "
+            f"{row.get('repeat')} | `{row.get('reused_from')}` |"
+        )
+    a("")
 
 
 def _sec_instrument(a, rep) -> None:
@@ -1206,6 +1236,7 @@ def render_markdown(rep: dict) -> str:
     a = lines.append
     for section in (
         _sec_header,
+        _sec_reused_rows,
         _sec_instrument,
         _sec_matrix,
         _sec_speed,
