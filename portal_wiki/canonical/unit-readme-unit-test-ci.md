@@ -16,10 +16,10 @@ created_at: 1784946220.6919382
 updated_at: 1784946220.6919382
 ---
 
-The unit test suite runs on every PR and push to `main` via GitHub Actions. The
-workflow `.github/workflows/unit-tests.yml` runs `pytest` on `tests/unit` (with
-`-n auto -x --tb=short -v`) in a clean environment, so a change that breaks
-import-only unit tests blocks the merge.
+The test suite runs on every PR and push to `main` via GitHub Actions. The
+workflow `.github/workflows/unit-tests.yml` runs `pytest tests portal` (with
+`-n auto -x --tb=short -v`) in a clean environment, so a change that breaks any
+test blocks the merge.
 
 For local pre-commit feedback, install the hooks once:
 

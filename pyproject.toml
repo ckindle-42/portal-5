@@ -433,7 +433,7 @@ module = [
 ignore_missing_imports = true
 
 [tool.pytest.ini_options]
-testpaths = ["tests", "portal/modules/security/tests"]
+testpaths = ["tests", "portal"]
 pythonpath = ["tests/benchmarks", "."]
 asyncio_mode = "auto"
 # -v: show each test name + PASSED/FAILED/ERROR as it runs (no dots)

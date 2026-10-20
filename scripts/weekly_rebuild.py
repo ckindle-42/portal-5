@@ -12,8 +12,9 @@ any pinned-image/dependency bumps:
    a no-op; floating tags move) — except Open WebUI, see 4.
 3. ``./launch.sh down`` + ``./launch.sh up`` — only if 1 and 2 succeeded, so a
    failed build never takes the running stack down.
-4. Open WebUI's new ``:main`` build, if any, via ``image_security_update.owui_update``
-   (data backup + health gate + rollback) — never by the bulk pull/up.
+4. Open WebUI's pinned release, if not yet running, via
+   ``image_security_update.owui_update`` (data backup + health gate + rollback) —
+   never by the bulk pull/up.
 5. Rebuild the DinD sandbox images (pwsh, data) and load them, as ``rebuild`` does.
 6. Health-gate the pipeline, prune dangling images (only on success, so a
    broken upgrade can be rolled back), push a summary.
