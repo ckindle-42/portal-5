@@ -12,6 +12,8 @@ sources:
 - type: code
   path: portal/platform/retrieval/extraction.py
 - type: code
+  path: portal/platform/plugins.py
+- type: code
   path: portal/platform/retrieval/embedding.py
 - type: code
   path: portal/platform/retrieval/store.py
@@ -75,7 +77,8 @@ Pure (Phase 2 — no services):
 - `pages` — `render_pages` (pymupdf → PNG, records text-layer length in
   `_PAGE_TEXT_LEN`) and `figure_pages` (the deterministic sparse-text subset
   worth transcribing).
-- `extraction` — `read_text`, delegating to `rag_mcp`'s docling-first chain.
+- `extraction` — `read_text`, delegating through the research plugin's
+  `document_reader` hook to `rag_mcp`'s docling-first chain.
 
 Service-touching (Phase 3):
 

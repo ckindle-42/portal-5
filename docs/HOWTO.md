@@ -660,6 +660,7 @@ Checklists for extending Portal 5 with a new MCP tool server, persona, workspace
 2. Add the service to `deploy/portal-5/docker-compose.yml` on an unused port (Rule 7).
 3. Add the server to `config/portal.yaml` under `mcp_fleet:` with the canonical `id`, `name`, `port`, and flags.
 4. Run `./launch.sh sync-config` — regenerates `.mcp.json` and the OWUI workspace presets.
+   `config/owui_tool_servers.yaml` maps registered tool names to Open WebUI server ids.
 5. Add tool JSON to `imports/openwebui/tools/portal_<name>.json`.
 6. `openwebui_init.py` registers tool servers from the fleet-derived `.mcp.json` automatically.
 7. Reconcile the wiki: `./launch.sh sync-config` refreshes fact-units and

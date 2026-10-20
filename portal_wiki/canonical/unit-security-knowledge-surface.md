@@ -5,6 +5,8 @@ title: "Security knowledge \u2014 detection grounding re-export boundary"
 sources:
 - type: code
   path: portal/modules/security/knowledge/__init__.py
+- type: code
+  path: portal/modules/security/wiki_seed.py
   commit: 4c3d1e89
 claims: []
 confidence: high
@@ -20,8 +22,8 @@ updated_at: 1785795023.449225
 The knowledge subpackage is the stable re-export boundary over the security
 module's detection grounding: the SPL detection library and technique
 reference (from `core.siem`), the scenario definitions (`SCENARIOS`), and the
-wiki-backed technique-signature seeding (from `portal.platform.wiki`
-adapters). The RBP engine stays intact; this package is the one public door
+wiki-backed technique-signature seeding (from the module's `wiki_seed`).
+The RBP engine stays intact; this package is the one public door
 onto its knowledge.
 
 ## Why

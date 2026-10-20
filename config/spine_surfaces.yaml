@@ -432,6 +432,10 @@ surfaces:
   globs:
   - portal/modules/compliance/core/vocabulary_bridge.py
   unit: unit-compliance-engine
+- name: file-portal-modules-compliance-plugin
+  globs:
+  - portal/modules/compliance/plugin.py
+  unit: unit-design-spine-drift-census
 - name: file-portal-modules-compliance-tests-test_compliance_mcp
   globs:
   - portal/modules/compliance/tests/test_compliance_mcp.py
@@ -520,6 +524,10 @@ surfaces:
   globs:
   - portal/modules/netforensics/tools/netforensics_mcp.py
   unit: unit-capability-netforensics
+- name: file-portal-modules-research-plugin
+  globs:
+  - portal/modules/research/plugin.py
+  unit: unit-design-spine-drift-census
 - name: file-portal-modules-research-tools-browser_mcp
   globs:
   - portal/modules/research/tools/browser_mcp.py
@@ -572,6 +580,10 @@ surfaces:
   globs:
   - portal/modules/security/knowledge/__init__.py
   unit: unit-security-knowledge-surface
+- name: file-portal-modules-security-plugin
+  globs:
+  - portal/modules/security/plugin.py
+  unit: unit-security-cli-pass-through
 - name: file-portal-modules-security-tools-__init__
   globs:
   - portal/modules/security/tools/__init__.py
@@ -596,6 +608,10 @@ surfaces:
   globs:
   - portal/modules/security/tools/security_mcp.py
   unit: unit-capability-security
+- name: file-portal-modules-security-wiki_seed
+  globs:
+  - portal/modules/security/wiki_seed.py
+  unit: unit-security-knowledge-surface
 - name: file-portal-modules-vulnintel-tests-test_vulnintel_mcp
   globs:
   - portal/modules/vulnintel/tests/test_vulnintel_mcp.py
@@ -676,6 +692,10 @@ surfaces:
   globs:
   - portal/platform/memory/test_graph_memory.py
   unit: unit-capability-memory
+- name: file-portal-platform-plugins
+  globs:
+  - portal/platform/plugins.py
+  unit: unit-design-spine-drift-census
 - name: file-portal-platform-retrieval-__init__
   globs:
   - portal/platform/retrieval/__init__.py
@@ -1456,6 +1476,10 @@ surfaces:
   globs:
   - tests/wfe/tests/test_wfe_ledger_check.py
   unit: unit-wfe-workspace-fitness
+- name: file-tests-wfe-tests-test_wfe_next_screens_slice
+  globs:
+  - tests/wfe/tests/test_wfe_next_screens_slice.py
+  unit: unit-wfe-workspace-fitness
 - name: file-tests-wfe-tests-test_wfe_office_contains
   globs:
   - tests/wfe/tests/test_wfe_office_contains.py
@@ -1479,10 +1503,6 @@ surfaces:
 - name: file-tests-wfe-tests-test_wfe_reading_long_slice
   globs:
   - tests/wfe/tests/test_wfe_reading_long_slice.py
-  unit: unit-wfe-workspace-fitness
-- name: file-tests-wfe-tests-test_wfe_next_screens_slice
-  globs:
-  - tests/wfe/tests/test_wfe_next_screens_slice.py
   unit: unit-wfe-workspace-fitness
 - name: file-tests-wfe-tests-test_wfe_reading_slice
   globs:

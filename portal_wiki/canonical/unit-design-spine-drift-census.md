@@ -6,6 +6,12 @@ sources:
 - type: code
   path: portal/platform/wiki/claims.py
 - type: code
+  path: portal/platform/plugins.py
+- type: code
+  path: portal/modules/compliance/plugin.py
+- type: code
+  path: portal/modules/research/plugin.py
+- type: code
   path: portal/platform/wiki/drift.py
 - type: code
   path: tests/unit/test_spine_drift.py
@@ -64,7 +70,9 @@ reported as comprehension rather than exposure, and K.4's own one-entry
 zero-record shape as a permanent regression case); the doc-ledger `AK`
 check was removed once the ledger was emptied in TASK_WIKI_ZERO_DEBT_V1).
 
-A **claim** binds a figure in a unit body to a live probe. The claim names the
+A **claim** binds a figure in a unit body to a live probe. `claims.py` combines
+platform probes with compliance and research probes supplied by module plugins.
+The claim names the
 probe and a `pattern` containing `{value}`; the probe result is substituted and
 the result must appear in the body. There is deliberately no second copy of the
 number — an earlier draft allowed `equals: 65`, which compared the probe with

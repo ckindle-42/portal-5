@@ -11,7 +11,7 @@ Stages:
 
 * ``chunking`` — pure text → chunk spans (fixed / structured / dispatch).
 * ``pages``    — pure PDF-page rendering + figure-page selection.
-* ``extraction`` — document text extraction (delegates to ``rag_mcp``).
+* ``extraction`` — document text extraction through a module plugin.
 
 Service-touching stages (embedding, store, fusion, pipeline) are extracted in
 Phase 3.

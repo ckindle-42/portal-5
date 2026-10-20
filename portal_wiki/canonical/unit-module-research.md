@@ -8,6 +8,8 @@ sources:
 - type: code
   path: portal/modules/research/tools/rag_mcp.py
 - type: code
+  path: portal/modules/research/plugin.py
+- type: code
   path: portal/platform/wiki/adapters/modules.py
 - type: code
   path: config/portal.yaml
@@ -39,6 +41,9 @@ Obscura) — all registered under the `research` module in
 
 `browser_mcp` is assigned here (not its own module) — web automation
 supports research, per operator best-fit direction.
+
+The research plugin supplies document extraction to platform retrieval and
+contributes the module's claim probes.
 
 ## Module State
 

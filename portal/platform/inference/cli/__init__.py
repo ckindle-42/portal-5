@@ -32,10 +32,7 @@ _sync.register(app)
 _smoke.register(app)
 _update.register(app)
 
-# Module CLI registration: this is the composition root (not platform
-# internals depending on a module) — a module's cli/ package registers
-# its subcommands onto the shared app here, same relationship as any
-# plugin registering into a host. See portal.modules.security.cli.
-from portal.modules.security.cli import register as _security_register  # noqa: E402
+# Module CLI registration: each module plugin adds its own subcommands.
+from portal.platform import plugins as _plugins  # noqa: E402
 
-_security_register(app)
+_plugins.register_cli(app)
