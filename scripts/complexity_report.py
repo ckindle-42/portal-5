@@ -8,10 +8,12 @@ Reports four independently-actionable pathologies, each with a hard number:
   PROSE   comment + docstring lines, and files where prose outweighs code
   INERT   unwired scripts, byte-identical file pairs, committed result blobs
 
-Exit code is 0 in ``--report`` mode always; in ``--gate`` mode it is 1 when any
-budget in ``config/complexity_budget.yaml`` is exceeded. Report first, gate later:
-the budget file starts as a recorded baseline and ratchets down, mirroring the
-BR spine-coverage gate's ratchet→absolute path.
+Exit code is 0 in ``--report`` mode always; in ``--gate`` mode it is 1 when a
+gated total exceeds its ceiling in ``config/complexity_budget.yaml``. Ceilings
+carry explicit headroom and a ``reason:`` per metric; prose and the
+god-function count are reported by every run but never gated. Nothing
+re-stamps the file: raising a ceiling is an operator edit recorded with a new
+reason, or ``--write-budget --reason "..."``.
 """
 
 from __future__ import annotations
@@ -20,6 +22,7 @@ import argparse
 import ast
 import io
 import json
+import math
 import subprocess
 import sys
 import tokenize
@@ -277,73 +280,149 @@ def render(c: Census, top: int = 15) -> str:
 
 BUDGET_PATH = REPO / "config" / "complexity_budget.yaml"
 
+# Gated: --gate exits 1 when one of these totals exceeds its declared ceiling.
 GATED_KEYS = (
     "data_lines",
-    "god_funcs",
     "god_lines",
-    "prose",
     "unwired_scripts",
     "identical_pairs",
     "committed_blob_bytes",
 )
+# Reported: printed by --gate, never compared (B4, DESIGN_ROOTS_REFINEMENT_20261020).
+REPORTED_KEYS = ("prose", "god_funcs")
+
+# Headroom a ceiling carries over the total it was set from.
+CEILING_HEADROOM = 0.05
+
+BUDGET_USAGE = 'scripts/complexity_report.py --write-budget requires --reason "<why>"'
+
+BUDGET_HEADER = (
+    "# Complexity ceilings — operator-owned (B4: docs/DESIGN_ROOTS_REFINEMENT_20261020.md).\n"
+    "# `ceilings` gate: --gate fails when a census total exceeds `value`; `reported` prints only.\n"
+    "# Raising a ceiling is an operator decision: set `value` and a fresh `reason:` alongside it.\n"
+    '# Rewritten only by scripts/complexity_report.py --write-budget --reason "<why>".\n'
+)
 
 
-def gate(c: Census) -> int:
-    """Fail when any gated total exceeds the recorded budget. Never raises."""
+def _load_budget() -> tuple[dict[str, dict], list[str]]:
+    """Parse the budget file; return (declared metrics, schema problems)."""
     import yaml
 
     if not BUDGET_PATH.exists():
-        print(f"[complexity] no budget at {BUDGET_PATH.relative_to(REPO)} — run --write-budget")
-        return 0
-    budget = yaml.safe_load(BUDGET_PATH.read_text()) or {}
-    totals = c.totals
-    failures = []
-    for key in GATED_KEYS:
-        allowed = budget.get(key)
-        if allowed is None:
+        return {}, [f"missing {BUDGET_PATH.relative_to(REPO)}"]
+    raw = yaml.safe_load(BUDGET_PATH.read_text()) or {}
+    if not isinstance(raw, dict):
+        return {}, ["budget file is not a YAML mapping"]
+    problems = [f"unknown top-level key `{k}`" for k in raw if k not in ("ceilings", "reported")]
+    declared: dict[str, dict] = {}
+    for section, allowed in (("ceilings", GATED_KEYS), ("reported", REPORTED_KEYS)):
+        entries = raw.get(section)
+        if not isinstance(entries, dict):
+            problems.append(f"missing `{section}:` section")
             continue
-        actual = totals[key]
-        if actual > allowed:
-            failures.append(f"  {key}: {actual:,} > budget {allowed:,}")
-    if failures:
-        print("[complexity] GATE FAIL — complexity increased above the recorded budget:")
-        print("\n".join(failures))
-        print("  Reduce the complexity, or lower the budget only alongside a real reduction.")
+        for name, spec in entries.items():
+            if name not in allowed:
+                problems.append(f"{section}: unknown metric `{name}`")
+                continue
+            value = spec.get("value") if isinstance(spec, dict) else None
+            reason = spec.get("reason") if isinstance(spec, dict) else None
+            if not isinstance(value, int) or isinstance(value, bool) or value < 0:
+                problems.append(f"{section}.{name}: `value` must be a non-negative integer")
+            elif not isinstance(reason, str) or not reason.strip():
+                problems.append(f"{section}.{name}: `reason` must be a non-empty string")
+            else:
+                declared[name] = {"value": value, "reason": reason.strip()}
+    for name in (*GATED_KEYS, *REPORTED_KEYS):
+        if name not in declared:
+            problems.append(f"metric `{name}` is not declared — nothing to gate or report on")
+    return declared, problems
+
+
+def gate(c: Census) -> int:
+    """Fail when a gated total exceeds its declared ceiling. Never raises."""
+    declared, problems = _load_budget()
+    if problems:
+        print(
+            "[complexity] GATE FAIL — config/complexity_budget.yaml is not a valid ceiling record:"
+        )
+        print("\n".join(f"  {p}" for p in problems))
+        print("  Every metric carries a `reason:`; raise one only as an operator decision,")
+        print('  or run scripts/complexity_report.py --write-budget --reason "<why>".')
         return 1
-    print("[complexity] GATE OK — all totals at or below budget:")
+    totals = c.totals
+    failures = [
+        f"  {key}: {totals[key]:,} > ceiling {declared[key]['value']:,}"
+        for key in GATED_KEYS
+        if totals[key] > declared[key]["value"]
+    ]
+    if failures:
+        print("[complexity] GATE FAIL — a total exceeded its ceiling:")
+        print("\n".join(failures))
+        print("  Raise the ceiling only as an operator decision: change its `value` and")
+        print(
+            '  `reason:` in config/complexity_budget.yaml, or run --write-budget --reason "<why>".'
+        )
+        return 1
+    print("[complexity] GATE OK — totals within the declared ceilings:")
     for key in GATED_KEYS:
-        if budget.get(key) is not None:
-            print(f"  {key}: {totals[key]:,} <= {budget[key]:,}")
+        value = declared[key]["value"]
+        print(f"  {key}: {totals[key]:,} <= {value:,} (headroom {value - totals[key]:,})")
+    reported = ", ".join(
+        f"{key} {totals[key]:,} (baseline {declared[key]['value']:,})" for key in REPORTED_KEYS
+    )
+    print(f"reported, not gated: {reported}")
     return 0
 
 
-def write_budget(c: Census) -> int:
+def write_budget(c: Census, reason: str) -> int:
+    """Operator command: record current totals as ceilings (+ headroom) under `reason`."""
     import yaml
 
+    if not reason.strip():
+        print(BUDGET_USAGE, file=sys.stderr)
+        return 2
     totals = c.totals
-    payload = {k: totals[k] for k in GATED_KEYS}
+    payload = {
+        "ceilings": {
+            key: {
+                "value": totals[key] + math.ceil(totals[key] * CEILING_HEADROOM),
+                "reason": reason.strip(),
+            }
+            for key in GATED_KEYS
+        },
+        "reported": {
+            key: {"value": totals[key], "reason": reason.strip()} for key in REPORTED_KEYS
+        },
+    }
     BUDGET_PATH.parent.mkdir(parents=True, exist_ok=True)
     BUDGET_PATH.write_text(
-        "# Recorded complexity budget — written by scripts/complexity_report.py --write-budget.\n"
-        "# Values are ceilings. Re-baseline after intentional code growth; lower them when complexity falls.\n"
-        + yaml.safe_dump(payload, sort_keys=True)
+        BUDGET_HEADER + yaml.safe_dump(payload, sort_keys=False, default_flow_style=False)
     )
-    print(f"[complexity] wrote budget to {BUDGET_PATH.relative_to(REPO)}")
-    print(yaml.safe_dump(payload, sort_keys=True))
+    shown = BUDGET_PATH.relative_to(REPO) if BUDGET_PATH.is_relative_to(REPO) else BUDGET_PATH
+    print(f"[complexity] wrote ceilings to {shown} — reason: {reason}")
     return 0
 
 
 def main() -> int:
     ap = argparse.ArgumentParser(description="Portal complexity census")
     ap.add_argument("--json", action="store_true", help="emit machine-readable totals")
-    ap.add_argument("--gate", action="store_true", help="exit 1 if over recorded budget")
-    ap.add_argument("--write-budget", action="store_true", help="record current totals as budget")
+    ap.add_argument("--gate", action="store_true", help="exit 1 if a total exceeds its ceiling")
+    ap.add_argument(
+        "--write-budget",
+        action="store_true",
+        help="operator command: record current totals as ceilings (requires --reason)",
+    )
+    ap.add_argument("--reason", help="why the ceilings change; required with --write-budget")
     ap.add_argument("--top", type=int, default=15, help="rows per section")
     args = ap.parse_args()
 
+    reason = (args.reason or "").strip()
+    if args.write_budget and not reason:
+        print(BUDGET_USAGE, file=sys.stderr)
+        return 2
     c = run_census()
     if args.write_budget:
-        return write_budget(c)
+        return write_budget(c, reason)
     if args.gate:
         return gate(c)
     if args.json:

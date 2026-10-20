@@ -30,6 +30,8 @@ env -i HOME="$HOME" PATH="$VENV/bin:$PATH" VIRTUAL_ENV="$VENV" bash -c '
   uv sync --active --all-extras --frozen -q
   ruff check .
   ruff format --check .
+  # Complexity ceilings (B4): exceeding one fails here and in CI.
+  python3 scripts/complexity_report.py --gate
   # Compliance remains pre-service; keep its unfinished typing debt outside the
   # production gate until it is promoted. --active targets the isolated venv.
   uv run --active mypy --exclude "portal/modules/compliance/" portal/

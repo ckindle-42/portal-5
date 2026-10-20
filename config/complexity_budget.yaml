@@ -1,9 +1,27 @@
-# Recorded complexity budget — written by scripts/complexity_report.py --write-budget.
-# Values are ceilings. Re-baseline after intentional code growth; lower them when complexity falls.
-committed_blob_bytes: 1784396
-data_lines: 12733
-god_funcs: 546
-god_lines: 67801
-identical_pairs: 0
-prose: 60282
-unwired_scripts: 23
+# Complexity ceilings — operator-owned (B4: docs/DESIGN_ROOTS_REFINEMENT_20261020.md).
+# `ceilings` gate: --gate fails when a census total exceeds `value`; `reported` prints only.
+# Raising a ceiling is an operator decision: set `value` and a fresh `reason:` alongside it.
+# Rewritten only by scripts/complexity_report.py --write-budget --reason "<why>".
+ceilings:
+  data_lines:
+    value: 13370
+    reason: "B4 initial ceiling: census 12733 + 5% headroom (2026-10-20)"
+  god_lines:
+    value: 71192
+    reason: "B4 initial ceiling: census 67801 + 5% headroom (2026-10-20)"
+  unwired_scripts:
+    value: 25
+    reason: "B4 initial ceiling: census 23 + 5% headroom (2026-10-20)"
+  identical_pairs:
+    value: 0
+    reason: "B4 initial ceiling: census 0 — zero tolerance (5% of 0 is 0), 2026-10-20"
+  committed_blob_bytes:
+    value: 1873616
+    reason: "B4 initial ceiling: census 1784396 + 5% headroom (2026-10-20)"
+reported:
+  prose:
+    value: 60282
+    reason: "B4: reported, not gated — census baseline 60282 (2026-10-20)"
+  god_funcs:
+    value: 546
+    reason: "B4: reported, not gated — census baseline 546 (2026-10-20)"

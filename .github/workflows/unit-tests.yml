@@ -15,6 +15,7 @@ on:
       - "tests/**"
       - "config/**.yaml"
       - "config/**.md"
+      - "scripts/**"
       - "pyproject.toml"
       - ".github/workflows/unit-tests.yml"
       - ".pre-commit-config.yaml"
@@ -52,6 +53,9 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install -e ".[dev]"
+
+      - name: Complexity ceiling gate
+        run: python scripts/complexity_report.py --gate
 
       - name: Run test suite
         run: pytest tests portal -n auto -x --tb=short -v
