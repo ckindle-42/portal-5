@@ -17,6 +17,7 @@ from typing import Any, cast
 import lancedb
 import pyarrow as pa  # type: ignore[import-untyped]  # pyarrow ships no stubs/py.typed
 
+from portal.platform.lance_guard import list_all_table_names
 from portal.platform.retrieval import embedding as _embedding
 from portal.platform.retrieval.embedding import VLUnavailableError
 
@@ -39,19 +40,7 @@ def get_db() -> Any:
 
 def table_names(db: Any) -> list[str]:
     """Read the entire catalog; LanceDB's default page contains only ten tables."""
-    names: list[str] = []
-    token = None
-    while True:
-        # The installed list_tables API returns the first *unreturned* name as
-        # a token but resumes after it, skipping one table. table_names uses
-        # explicit start-after semantics and is lossless with the last name.
-        page = list(db.table_names(page_token=token, limit=100))
-        if not page:
-            return names
-        if page[-1] == token:
-            raise RuntimeError("LanceDB table listing did not advance")
-        names.extend(page)
-        token = page[-1]
+    return list_all_table_names(db)
 
 
 # SEAM V1 P7: a second composition (compliance) reuses this stage with its own

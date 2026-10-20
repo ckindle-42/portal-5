@@ -14,6 +14,8 @@ import os
 import sys
 from pathlib import Path
 
+import pytest
+
 # Provide a test API key so router_pipe module-level import doesn't call sys.exit(1).
 # This must be set before any portal.platform.inference import.
 os.environ.setdefault("PIPELINE_API_KEY", "test-pipeline-key-for-unit-tests")
@@ -47,3 +49,12 @@ if sys.prefix == sys.base_prefix:
             if site_packages.exists() and str(site_packages) not in sys.path:
                 sys.path.insert(0, str(site_packages))
             break
+
+
+@pytest.fixture(autouse=True)
+def _scratch_provenance_ledger(tmp_path):
+    from portal.platform.wiki import provenance_ledger
+
+    provenance_ledger.set_ledger_path(tmp_path / "provenance_ledger.jsonl")
+    yield
+    provenance_ledger.reset_ledger_path()

@@ -25,6 +25,7 @@ from starlette.responses import JSONResponse
 
 from portal.platform.embedding.client import EmbeddingClient
 from portal.platform.embedding.contract import NATIVE_DIM, Role, Task
+from portal.platform.lance_guard import list_all_table_names
 from portal.platform.mcp_host import eval_scope
 
 LANCE_DIR = os.environ.get("PORTAL5_LANCE_DIR", "/Volumes/data01/portal5_lance")
@@ -114,7 +115,7 @@ def _memory_table() -> Any:
         )
         _tables["mem"] = (
             db.create_table(MEMORY_TABLE, schema=schema)
-            if MEMORY_TABLE not in db.table_names()
+            if MEMORY_TABLE not in list_all_table_names(db)
             else _open_checked(db, MEMORY_TABLE)
         )
     return _tables["mem"]
@@ -138,7 +139,7 @@ def _entities() -> Any:
         )
         _tables["ent"] = (
             db.create_table(ENTITIES_TABLE, schema=schema)
-            if ENTITIES_TABLE not in db.table_names()
+            if ENTITIES_TABLE not in list_all_table_names(db)
             else _open_checked(db, ENTITIES_TABLE)
         )
     return _tables["ent"]
@@ -161,7 +162,7 @@ def _relations() -> Any:
         )
         _tables["rel"] = (
             db.create_table(RELATIONS_TABLE, schema=schema)
-            if RELATIONS_TABLE not in db.table_names()
+            if RELATIONS_TABLE not in list_all_table_names(db)
             else db.open_table(RELATIONS_TABLE)
         )
     return _tables["rel"]
@@ -174,7 +175,7 @@ def graph_stats() -> dict[str, Any]:
     memories>0 with entities==0 and `graph_intact` False.
     """
     db = _conn()
-    names = set(db.table_names())
+    names = set(list_all_table_names(db))
     memories = _memory_table().count_rows()
     entities = _entities().count_rows() if ENTITIES_TABLE in names else 0
     relations = _relations().count_rows() if RELATIONS_TABLE in names else 0

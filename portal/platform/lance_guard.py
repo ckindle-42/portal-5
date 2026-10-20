@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import os
 from pathlib import Path
+from typing import Any
 
 
 class LanceStoreUnavailableError(RuntimeError):
@@ -47,3 +48,19 @@ def require_lance_dir(lance_dir: str) -> str:
             f"PORTAL5_LANCE_DIR={lance_dir}: parent {parent} does not exist."
         )
     return lance_dir
+
+
+def list_all_table_names(db: Any) -> list[str]:
+    """Every table name in `db`: list_tables() is paginated, table_names() is deprecated."""
+    names: list[str] = []
+    seen_tokens: set[str] = set()
+    token: str | None = None
+    while True:
+        page = db.list_tables(page_token=token, limit=100)
+        names.extend(page.tables)
+        token = page.page_token
+        if not token:
+            return names
+        if token in seen_tokens:
+            raise RuntimeError("LanceDB list_tables pagination did not advance")
+        seen_tokens.add(token)

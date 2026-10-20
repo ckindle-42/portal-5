@@ -25,6 +25,7 @@ from starlette.requests import Request
 from starlette.responses import JSONResponse, Response
 
 from portal.platform.data_loader import load_data
+from portal.platform.lance_guard import list_all_table_names
 from portal.platform.mcp_host.build_info import build_info
 from portal.platform.memory.graph_memory import (
     LANCE_DIR,
@@ -47,7 +48,7 @@ _route: Callable[
 
 def _stored_count() -> int:
     db = lancedb.connect(LANCE_DIR)
-    if MEMORY_TABLE not in db.table_names():
+    if MEMORY_TABLE not in list_all_table_names(db):
         return 0
     return len(db.open_table(MEMORY_TABLE))
 

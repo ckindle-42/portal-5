@@ -120,7 +120,7 @@ def test_graph_stats_detects_restore_shortfall(
     s = gm.graph_stats()
     assert s["memories"] == 1 and s["entities"] == 0
     assert s["graph_intact"] is False
-    assert set(db.table_names()) == {gm.MEMORY_TABLE}  # not created as a side effect
+    assert set(gm.list_all_table_names(db)) == {gm.MEMORY_TABLE}  # not created as a side effect
 
 
 def test_graph_stats_intact_after_remember() -> None:

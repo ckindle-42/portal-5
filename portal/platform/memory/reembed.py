@@ -27,6 +27,7 @@ from typing import Any
 import pyarrow as pa  # type: ignore[import-untyped]  # pyarrow ships no stubs/py.typed
 
 from portal.platform.embedding.contract import Role, Task
+from portal.platform.lance_guard import list_all_table_names
 from portal.platform.memory import graph_memory as gm
 
 BATCH = 64
@@ -47,7 +48,7 @@ def _dim(tbl: Any) -> int:
 
 
 def _names(db: Any) -> set[str]:
-    return set(db.table_names())
+    return set(list_all_table_names(db))
 
 
 def _load_checkpoint() -> dict[str, dict[str, list[float]]]:
