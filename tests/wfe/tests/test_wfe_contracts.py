@@ -927,22 +927,22 @@ class TestOfflineRescore:
             assert s["temperature"] == wsc["declared_temperature"]
 
     def test_variant_context_merges_like_production(self):
-        """`workspace::variant` is production's synthetic id: variant keys override
-        the base, and system_prompt_append lands in the system prompt as the
-        router injects it."""
+        """Variants override base settings, merge tools, and inject prompt text."""
         import yaml
 
+        from portal.platform.inference.config import effective_workspace
         from tests.wfe.prompt_surface import HARNESS_NOTE_MARKER
         from tests.wfe.runner import REPO, workspace_context
 
         ws = yaml.safe_load((REPO / "config/portal.yaml").read_text())["workspaces"]
         variant = ws["auto-coding"]["variants"]["laguna"]
+        expected = effective_workspace(ws, "auto-coding::laguna")
         wsc = workspace_context("auto-coding::laguna")
         assert wsc["model"] == variant["model_hint"]
         assert wsc["sampling"]["temperature"] == variant["temperature"]
         served = wsc["system_prompt"].split("\n\n" + HARNESS_NOTE_MARKER)[0]
         assert served.endswith(variant["system_prompt_append"])
-        assert wsc["declared_tools"] == variant["tools"]
+        assert wsc["declared_tools"] == expected["tools"]
 
     def test_reasoning_math_variant_uses_effective_settings(self):
         from portal.platform.inference.config import effective_workspace

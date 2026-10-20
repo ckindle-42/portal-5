@@ -430,6 +430,18 @@ aliases:
     to: auto-general-uncensored::creative
     remove_after: 2026-12-31
     reason: Uncensored family merge; retain live API callers during migration.
+  auto-bigfix:
+    to: auto-coding::bigfix
+    remove_after: 2026-12-31
+    reason: Coding family merge; retain live API callers during migration.
+  auto-cad:
+    to: auto-coding::cad
+    remove_after: 2026-12-31
+    reason: Coding family merge; retain live API callers during migration.
+  compliance-reading:
+    to: auto-compliance::reading
+    remove_after: 2026-12-31
+    reason: Compliance family merge; retain live API callers during migration.
 
 workspaces:
   auto:
@@ -1079,6 +1091,87 @@ workspaces:
         - recall
         mode: agentic
         guardrail: default
+
+      cad:
+        module: cad
+        name: 📐 Portal CAD / 3D-Print Designer
+        description: |-
+          Parametric 3D-model generation as exact build123d BREP solids (arm64-native CAD image, STEP + STL + PNG out): generate_part turns a feature-level JSON description (base + holes/pockets/standoffs/ribs/shell/patterns/fillets/chamfers) into a validated solid in one call; cad_build/cad_execute/cad_measure/cad_find_holes/cad_render/cad_finalize drive a free-form build123d script with a measure-and-verify loop for everything else (brackets, revolves, gears, lofts). OpenSCAD (render_openscad, Manifold backend) remains as a fallback only on explicit request; Python+trimesh for procedural meshes. Every result is BREP- or mesh-validated (watertight, volume, bbox, FDM printability). Qwen3-Coder 30B-A3B MoE (Ollama, tool-capable, >20 t/s).
+        # 2026-09-25: card sampling (0.7/0.8/20) REVERTED same day — on oMLX it breaks tool calls (2-4 of 6 returned as text: the qwen3_coder parser misses a call preceded by text); prior values restored, 6/6. KNOWN_LIMITATIONS P5-OMLX-QWEN3CODER-TOOLTEXT-001 (resolved same day: the pipeline recovers text-written calls; the loss was prompt-shaped, so low temperature never covered it. Card A/B is unblocked.)
+        model_hint: qwen3-coder:30b-a3b-q4_K_M-ctx32k
+        context_limit: 32768  # 2026-10-06: fixed overhead (system+20 tool schemas) measured 5193 tok = 31.7% of 16384
+        predict_limit: 16384
+        temperature: 0.7
+        top_p: 0.8
+        top_k: 20
+        repeat_penalty: 1.05
+        # Kept `required` (B0-comparable; the gauntlet driver relaxes it to auto once an
+        # artifact exists). 2026-10-06 pipeline preflight under request-level
+        # tool_choice=auto, "40x20x5 plate with two 4 mm holes": 6/6 delivered through
+        # real generate_part/cad_* calls (STEP+STL URLs), no hallucinated tool names
+        # (2 of the first 6 attempts were aborted by oMLX's memory guard before any
+        # tool call and re-run) — auto is viable here; revisit after the REDEVELOP gauntlet.
+        # Earlier history: the old toolset hallucinated names ("write_note", "render_3d").
+        tool_choice: required
+        tool_choice_verified: true
+        system_prompt_append: |2-
+
+
+          CAD OUTPUT RULE: You design parts as exact BREP solids with build123d. Units mm, right-handed, Z-up (width=X, depth=Y, height=Z; a plate's thickness is its height). FIRST list every feature in the request with its numbers (overall size; each hole/bore with diameter, position, through or blind; fillets, chamfers, countersinks; counts) — a feature missing from the build is a wrong part. THEN choose the path from the part's outline. PATH 1 — generate_part (feature-level JSON, never raw 3D coordinates; read the structured error and call again corrected): rectangular block/plate (base box), round disc/tube (cylinder), regular polygon bar such as hex stock, nut or hex standoff (base prism: sides + across_flats), stepped/flanged/revolved body such as a bushing, spacer or pulley (base revolve: a [radius, z] profile that INCLUDES the bore), L-bracket (base angle: width, depth, height, thickness, inner_radius). Holes (with chamfer/counterbore/countersink) work on all of them; pockets, ribs, standoffs on outer faces, shell, patterns and outer-edge fillets/chamfers work on box/cylinder; prism/revolve take holes on top/bottom, angle takes holes on bottom (horizontal leg) and front (vertical leg). When generate_part returns ok:true and its measure matches the request, you are DONE — it already delivered STEP + STL + PNG: report the dimensions and URLs, do not rebuild. PATH 2 — cad_build, only when the outline is none of those: gears, T/U shapes, multi-body assemblies, lofts/sweeps, and any feature INSIDE a shelled box (bosses/standoffs on the inner floor). Never approximate a part with a different base: a round or square stand-in is a wrong part. Write ONE complete build123d script: start `from build123d import *` (add `from math import sqrt, cos, sin, pi, radians` if used); parameters as named variables; ALGEBRA mode only (no `with BuildPart()`); end with `show(part, 'part')`. Primitives take positional sizes and are centred unless aligned: `Box(w, d, h)`, `Cylinder(radius, height)`, `Cylinder(r, h, align=(Align.CENTER, Align.CENTER, Align.MIN))`; place with `Pos(x, y, z) * shape`; combine with `+` and `-` (there is no `Union`); vectors use UPPERCASE `.X .Y .Z`. Select edges by position, not by lambda: `part.edges().filter_by(Axis.X).filter_by_position(Axis.Y, lo, hi).filter_by_position(Axis.Z, lo, hi)` then `fillet(edges, r)`. Patterns: interior bosses `shell = Box(W, D, H, align=(Align.MIN, Align.MIN, Align.MIN)) - Pos(wall, wall, floor) * Box(W-2*wall, D-2*wall, H, align=(Align.MIN, Align.MIN, Align.MIN))` then `shell + Pos(x, y, floor) * Cylinder(r, boss_h, align=(Align.CENTER, Align.CENTER, Align.MIN))` and a blind pilot `- Pos(x, y, floor + boss_h - pilot_depth) * Cylinder(pilot_r, pilot_depth, align=(Align.CENTER, Align.CENTER, Align.MIN))`; fastener holes `Pos(x, y, top_z) * CounterSinkHole(radius, countersink_radius, depth=d)`; gears `from bd_warehouse.gear import SpurGear` then `SpurGear(module=m, tooth_count=n, pressure_angle=20, root_fillet=0.5, thickness=t)` and cut the centre bore `- Cylinder(bore_r, t)`. If cad_build returns ok:false, read error, last_error and repair_hints, fix the script and call cad_build again (cad_execute appends code for small edits); after at most three rebuilds, deliver the best valid version. VERIFY once with cad_measure (bbox, volume) and cad_find_holes (count, diameters) against your feature list, fix real mismatches, then DELIVER with cad_finalize (basename = short part name) — a build alone delivers nothing — and report the overall dimensions plus the step_url, stl_url and png_url. Use render_openscad only when the user explicitly asks for OpenSCAD/.scad; use execute_python+trimesh only for procedural meshes (lattices, TPMS) that BREP cannot express. Do not leave stubs.
+        tools:
+        - execute_python
+        - execute_bash
+        - sandbox_status
+        - read_pdf
+        - read_word_document
+        - web_search
+        - web_fetch
+        - remember
+        - recall
+        - kb_search
+        - render_mesh
+        - render_openscad
+        - convert_cad
+        - generate_part
+        - cad_build
+        - cad_execute
+        - cad_measure
+        - cad_find_holes
+        - cad_render
+        - cad_finalize
+        expose_to_owui: true
+
+        enable_web_search: false
+        min_p: null
+        owui_system_prompt: null
+
+      bigfix:
+        module: general
+        name: 🩹 Portal BigFix Analyst
+        description: |-
+          HCL BigFix endpoint management and patch compliance workspace. Handles: BigFix REST API queries and response parsing, Relevance Language expressions for targeting endpoints, RQL fixlet applicability queries, patch deployment status reporting, computer property retrieval, and compliance gap analysis across managed endpoints. Model_hint pending D10 sec10-bigfix-parse probe results — will be set to the top D10 scorer from TASK_MODEL_EVAL_V9_CANDIDATES.
+        # 2026-09-25: card sampling (0.7/0.8/20) REVERTED same day — on oMLX it breaks tool calls (2-4 of 6 returned as text: the qwen3_coder parser misses a call preceded by text); prior values restored, 6/6. KNOWN_LIMITATIONS P5-OMLX-QWEN3CODER-TOOLTEXT-001 (resolved same day: the pipeline recovers text-written calls; the loss was prompt-shaped, so low temperature never covered it. Card A/B is unblocked.)
+        model_hint: qwen3-coder:30b-a3b-q4_K_M-ctx16k
+        context_limit: 16384
+        temperature: 0.7
+        top_p: 0.8
+        top_k: 20
+        min_p: 0.05
+        repeat_penalty: 1.05
+        tools:
+        - execute_python
+        - execute_bash
+        - web_search
+        expose_to_owui: true
+
+        enable_web_search: false
+        # Observed narrating an intent to search BigFix syntax knowledge and
+        # then stopping without completing the search (finish_reason=stop,
+        # zero tool_calls emitted) — force the model to actually follow through.
+        tool_choice: required
+        predict_limit: null
+        system_prompt_append: null
+        owui_system_prompt: null
   auto-spl:
     module: general
     name: 🔍 Portal SPL Engineer
@@ -1638,33 +1731,6 @@ workspaces:
         depth: default
         guardrail: default
         role: blue
-  auto-bigfix:
-    module: general
-    name: 🩹 Portal BigFix Analyst
-    description: |-
-      HCL BigFix endpoint management and patch compliance workspace. Handles: BigFix REST API queries and response parsing, Relevance Language expressions for targeting endpoints, RQL fixlet applicability queries, patch deployment status reporting, computer property retrieval, and compliance gap analysis across managed endpoints. Model_hint pending D10 sec10-bigfix-parse probe results — will be set to the top D10 scorer from TASK_MODEL_EVAL_V9_CANDIDATES.
-    # 2026-09-25: card sampling (0.7/0.8/20) REVERTED same day — on oMLX it breaks tool calls (2-4 of 6 returned as text: the qwen3_coder parser misses a call preceded by text); prior values restored, 6/6. KNOWN_LIMITATIONS P5-OMLX-QWEN3CODER-TOOLTEXT-001 (resolved same day: the pipeline recovers text-written calls; the loss was prompt-shaped, so low temperature never covered it. Card A/B is unblocked.)
-    model_hint: qwen3-coder:30b-a3b-q4_K_M-ctx16k
-    context_limit: 16384
-    temperature: 0.7
-    top_p: 0.8
-    top_k: 20
-    min_p: 0.05
-    repeat_penalty: 1.05
-    tools:
-    - execute_python
-    - execute_bash
-    - web_search
-    expose_to_owui: true
-    # C3 growth guard: declared user-facing engine — coding variant: bigfix
-    engine: true
-    engine_reason: "coding variant: bigfix"
-
-    enable_web_search: false
-    # Observed narrating an intent to search BigFix syntax knowledge and
-    # then stopping without completing the search (finish_reason=stop,
-    # zero tool_calls emitted) — force the model to actually follow through.
-    tool_choice: required
   tools-specialist:
     module: general
     name: 🔧 Portal Tool Composer
@@ -2276,8 +2342,155 @@ workspaces:
   # system_prompt_append and offers its tools to every request, so every
   # strict-JSON map reading carried compliance-reading's conversational persona
   # (its own citation-token rules) and 19 tool schemas from e36364eb on.
-  # Conversation addresses compliance-reading by id and is unaffected.
+  # Conversation addresses auto-compliance::reading; the old id resolves through its alias.
   # Guarded by tests/unit/test_compliance_machine_seat_isolation.py.
+
+    variants:
+      reading:
+        module: compliance
+        name: ⚖️ Portal Compliance Reading
+        description: |-
+          Focused NERC CIP reading loop with only the corpus, reading, currency, and review tools. Requirement reading lives here, in conversation; auto-compliance keeps catalog lookups, CVE triage and document production. Other frameworks remain catalog-only.
+        # WINDOW_AND_SEAT_V1 §P8.1 bound the seat; TASK_COMPLIANCE_DELIVER_AND_
+        # SETTLE_ENGINE_V1 §A2/A3 RE-BOUND it on the proving instrument. The
+        # §A2 read-test (reports/compliance/prove_then_scale/p1/A2_SPLASH_MODEL_
+        # JUDGMENT.md) ran the six §P1 cases one-call/no-tools on three candidates:
+        # gemma4, Qwen3.8-27B and Qwen3.6-35B-A3B each read 4/6 with the IDENTICAL
+        # two failures (choice: the policy's "and"-joined restatement of Part 2.3
+        # goes unflagged; no_operator_side: the policy's verbatim restatement of
+        # Part 5.2 cited as demonstration). A tie does not displace a
+        # twice-measured incumbent, so the seat binds gemma4 — the seat that
+        # proved 6/6 verbatim citations at §P1 and carried the family sweep.
+        # Ling and Nemotron are DISQUALIFIED FOR FABRICATION, NOT SPEED: Ling is
+        # the fastest decoder measured (104.5 tok/s) and scored 1/6 — failing
+        # read_check 0-of-6 and writing "the material does not include our
+        # implementation" over operator sections labelled in the same message;
+        # Nemotron failed read_check cells the same way. Neither is deleted.
+        # Previously bound: hf.co/inclusionAI/Ling-3.0-tiny-GGUF:Q4_K_M-ctx32k
+        # (§P3's binding criterion was speed-first; §A2's is read-first). Before
+        # that: hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k (dense 27B, 12.0
+        # tok/s decode, 94 tok/s prefill — turn one 397.8 s on the old prompt/
+        # tool surface, and the 32k window overflowed there).
+        # DATA_TRUTH Amendment 1 (operator-approved PROMOTE_POLICY=confirm,
+        # 2026-10-04): same weights, window 32k -> 128k. The dual-document payload
+        # (standard + the operator's document set, 6k-86k tokens) cannot fit 32k;
+        # the oMLX conversion served a 124.7k-token real-document read (211 s,
+        # 59% memory free, deep facts quoted exactly) and the Ollama fallback tag
+        # bakes num_ctx 131072 so neither route truncates silently.
+        model_hint: gemma4:26b-a4b-it-q4_K_M-ctx128k
+        context_limit: 131072
+        predict_limit: 24576
+        # compliance is a deterministic lane (settings_audit LANE_SAMPLING ceiling
+        # 0.3, settled WINDOW_AND_SEAT_V1 §P4.4: 0.3 IS the workspace policy — the
+        # reading transport's 0.0 governs only the nested batch engine; both are
+        # within the lane, and the lane value is what /v1 serves).
+        temperature: 1.0
+        # top_k / repeat_penalty: the google/gemma-4 card (top_p 0.95, top_k 64, no
+        # repetition penalty). The 20 / 1.1 here were the Ling seat's, carried over
+        # when 60021a9d rebound the hint to gemma4 (PIPELINE_ALIGNMENT_V1 §13).
+        top_p: 0.95
+        top_k: 64
+        min_p: 0.0
+        repeat_penalty: 1.0
+        think: false
+        emits_reasoning: false
+        tools:
+        - nerc_cip_requirement
+        - compliance_requirement
+        - nerc_cip_currency
+        - compliance_search
+        - compliance_read
+        - compliance_links
+        - compliance_timeline
+        - compliance_note
+        - compliance_notes
+        - compliance_answers
+        - compliance_correct
+        - compliance_context
+        - compliance_coverage
+        - compliance_conflicts
+        - compliance_standing_questions
+        - compliance_review_list
+        - compliance_review_decide
+        - compliance_review_decide_batch
+        - compliance_sources
+        # WINDOW_AND_SEAT_V1 §P8.3 + §P1.2 list edits, on live evidence: removed
+        # compliance_trace (zero calls in the P1.4 transcripts), kb_search +
+        # kb_list (22 dispatch errors on the deployed rag MCP and an empty KB for
+        # this lane; one turn derailed into a 19-retry loop that hit the 20-hop
+        # ceiling), and compliance_ask (launches the BATCH reader inside a
+        # conversation turn — a turn was measured stuck >40 min in a nested
+        # reading; the batch engine stays reachable at the MCP for standing
+        # questions and the unattended sweep, never in this list). No code was
+        # deleted: reader.read() remains the unattended sweep engine.
+        expose_to_owui: true
+
+        enable_web_search: false
+        # prompt_version: workspace-reading-v2.9-2026-10-02 (A2: the REQUIRED latitude
+        # statement becomes a two-direction reading instruction; A3: one true
+        # instruction set — false cite-header claim, duplicate rule and preset
+        # contradiction removed; artifact of record:
+        # config/compliance/workspace_reading_prompt.md — the artifact is the
+        # record, this inline copy is what serves; edit both together). v2.7
+        # (CITE_AND_SCOPE_V1 §P1) makes the QUOTE the citation: a claim is
+        # supported by a double-quoted span of the section's exact words, resolved
+        # by store containment — a 20-hex id is not transcribable by this seat
+        # without error (three failure modes in six answers), and quotes resolve
+        # deterministically instead. v2.4 adds rule 3a: the short cite_as token
+        # stays the optional id form beside every section id.
+        system_prompt_append: |-
+          You are the focused NERC CIP reading seat, reading with a compliance analyst, in conversation.
+
+          The tools, and what they are for:
+          - compliance_context — THE MATERIAL TOOL. Call it once with a requirement's ref and mode="material": it returns the whole neighbourhood in one payload — the standard's own fixed body first, then every section the standard's join and the operator's recorded edges place in this requirement's scope, each labelled with what it is and the standing it carries. Nothing is missing from it. Answer from what it returns; support every claim that rests on the material by quoting, in double quotes, the exact words it rests on — the quoted words ARE the citation. (Its default mode="index" lists section ids only; mode="packet" is a batch-reader artifact, not a conversation turn.)
+          - compliance_requirement / nerc_cip_requirement — the requirement with Parts, VRF, time horizon, applicable systems, Measures and Technical Basis, in one call. Use it when the question is about the requirement's own text and Measures rather than the operator's posture.
+          - compliance_read — verbatim text of any id from either side, per-call capped, truncation stated. Use it only to go further than the material reaches.
+          - compliance_links — returns REFERENCES, not text. What it names is unread until you read it.
+          - compliance_notes — the operator's own recorded decisions. They outrank the procedure when the two conflict, and say so when they do.
+
+          The rest of the list is supporting cast: nerc_cip_currency for currency, compliance_conflicts for cross-tier contradictions, compliance_coverage for the deterministic link report, the review queue for recorded decisions.
+
+          How to work:
+          1. For a question about a requirement, call the material tool ONCE with that requirement's ref and answer from what it returns. It is the whole neighbourhood — the standard and the operator's own documents — and nothing is missing from it. Do not search. Use the other tools only to go further than it reaches. The operator's OWN linked sections are inside the material: a document that mentions the standard is not the section that states the duty, and the material already carries the sections that do.
+          2. Compare the two sides on the SPECIFIC duty: the interval, the deadline, the choice among permitted actions, the condition, the threshold.
+          3. Follow-up turns: if the question moves to a requirement or Part whose material is not already in THIS conversation, call the material tool once for THAT ref before answering. NEVER write a section id from memory: an id appears in your answer only if a tool result in THIS turn or an earlier turn you can actually see carried it — when in doubt, re-read the section and copy the id from the tool's own output. An id that does not resolve is a fabricated citation, and a fabricated citation is a broken answer.
+          3a. YOUR CITATION IS THE QUOTE: every claim that rests on a section is supported by a double-quoted span of that section's exact words, copied from what a tool returned in this conversation. One quoted span comes from ONE document. Quote the sentence or clause as it stands; when part of a span is omitted, mark it with exactly three dots and keep every word you do quote verbatim — never change a word, a word ending, or a number, never put your own words, brackets or a citation token inside a quote, and never quote a document title as if it were section text. When a claim states what the standard requires, quote the standard's own text — not only the operator document that responds to it. A quotation that is not a section's own words supports nothing. The quote is the citation.
+          3b. A question that names NO requirement and no Part — a topic, a position, a comparison, a change — is a SEARCH question, not a material question: call compliance_search FIRST with the question's own words, on both sides (once without jurisdiction, or once per side), then read what ranks. The material tool needs a ref and cannot serve a question that names none; hunting section-by-section with compliance_read instead of searching is the failure this rule exists to prevent.
+          4. Answer what was asked, name what you have not read, and offer to go further. Do not read the whole neighbourhood before speaking: a follow-up question costs only its own tokens, and a rollup answer needs the Parts' rows and the operator's linked sections — not every section in the store.
+          5. STOP RULE: after TWO searches for the same thing — or two attempts of any kind — STOP and answer from what you have, naming what you could not find. Eighteen searches is not diligence; it is a failure to speak.
+          6. If a tool ERRORS twice, stop calling it: say it is unavailable and answer from what you have. Retrying a failing tool is not reading.
+          7. If asked what you have read, or whether you read something: answer from THIS conversation — name the sections you actually read — and verify any specific one by reading it again. Never ask the analyst which document they mean when the conversation already names it.
+
+          The answer's last section is always the citations. End EVERY answer with a final section exactly in this form:
+
+          Quoted sources:
+          - "the quoted words"  (what it is — document and heading)
+          - "the quoted words"  (what it is)
+
+          List every quotation you relied on, each with the document or heading it came from. An answer with no Quoted sources list is an incomplete answer, even when the analysis is good. The rest of your reply is prose for the analyst: NEVER write tool-call syntax in it — calls go through the tool mechanism, and markup in your answer is a broken answer.
+
+          Compare in both directions, and report what the texts show:
+          - For each duty, read the standard's text and the operator's text and report what they show, quoting both. The operator's text may be stricter than the standard, may match it, may be looser, or may narrow a choice the standard leaves open. Say which, and give both figures or both wordings. A match is a finding; do not look for a difference that is not in the texts.
+          - Exceeding a requirement is permitted and is not a gap. Where the standard grants a choice or sets no maximum — permitted actions, "within the timeframe specified in the plan", an either/or — and the procedure has narrowed it, name the narrowing and what the standard would permit.
+          - The Guidelines and Technical Basis is citable interpretive material, and for many questions it is the answer source. It is never binding duty text.
+          - An obligation whose operator side is not in scope is an UNVERIFIED obligation: say plainly that nothing in scope addresses it. That is not a confirmed gap, and material you did not read is not coverage.
+        owui_system_prompt: |-
+          Focused NERC CIP reading workspace, in conversation. For a requirement, call compliance_context once with mode="material"; use compliance_read for verbatim text, compliance_links for references only, compliance_notes for the operator's own decisions. Answer what was asked, name what you have not read, offer to go further, and support each claim by quoting the exact words it rests on. Compare in both directions and report what the texts show, including that they match: exceeding a requirement is permitted, and a narrowing of a choice the standard leaves open is worth naming. Other frameworks have catalog lookups only.
+
+      # ── compliance council seats (TASK_COMPLIANCE_PIPELINE_ALIGNMENT_V1 §P1) ──
+      # The three council seats in config/compliance/council.yaml previously
+      # resolved through model_hint borrowing: qwen38 landed in auto-compliance
+      # (the CVE-triage conversation lane), granite41 in bench-granite41-30b (a
+      # bench workspace), deepseek_r1 in auto-reasoning (a general reasoning
+      # lane). Whatever those lanes set was what the council ran — and a retune
+      # of CVE triage would have changed compliance judgments with nothing to
+      # say so. These workspaces are compliance's own: each carries the same
+      # model_hint its seat uses (same models — a re-homing, not a swap), the
+      # settings workspace-addressed seats take from this config, addressed by workspace id at
+      # the council call sites (council.yaml `workspace:`), so hint resolution
+      # order can never move a seat back into a borrowed lane. Not
+      # expose_to_owui: they are engine seats, not conversation lanes.
+        presence_penalty: null
   compliance-mapping:
     module: compliance
     name: ⚖️ Compliance Mapping (machine seat)
@@ -2300,153 +2513,6 @@ workspaces:
     tools: [] # callers bring their own schemas (portal_client_tools_only) or none (portal_no_tools)
     expose_to_owui: false
     enable_web_search: false
-  compliance-reading:
-    module: compliance
-    name: ⚖️ Portal Compliance Reading
-    description: |-
-      Focused NERC CIP reading loop with only the corpus, reading, currency, and review tools. Requirement reading lives here, in conversation; auto-compliance keeps catalog lookups, CVE triage and document production. Other frameworks remain catalog-only.
-    # WINDOW_AND_SEAT_V1 §P8.1 bound the seat; TASK_COMPLIANCE_DELIVER_AND_
-    # SETTLE_ENGINE_V1 §A2/A3 RE-BOUND it on the proving instrument. The
-    # §A2 read-test (reports/compliance/prove_then_scale/p1/A2_SPLASH_MODEL_
-    # JUDGMENT.md) ran the six §P1 cases one-call/no-tools on three candidates:
-    # gemma4, Qwen3.8-27B and Qwen3.6-35B-A3B each read 4/6 with the IDENTICAL
-    # two failures (choice: the policy's "and"-joined restatement of Part 2.3
-    # goes unflagged; no_operator_side: the policy's verbatim restatement of
-    # Part 5.2 cited as demonstration). A tie does not displace a
-    # twice-measured incumbent, so the seat binds gemma4 — the seat that
-    # proved 6/6 verbatim citations at §P1 and carried the family sweep.
-    # Ling and Nemotron are DISQUALIFIED FOR FABRICATION, NOT SPEED: Ling is
-    # the fastest decoder measured (104.5 tok/s) and scored 1/6 — failing
-    # read_check 0-of-6 and writing "the material does not include our
-    # implementation" over operator sections labelled in the same message;
-    # Nemotron failed read_check cells the same way. Neither is deleted.
-    # Previously bound: hf.co/inclusionAI/Ling-3.0-tiny-GGUF:Q4_K_M-ctx32k
-    # (§P3's binding criterion was speed-first; §A2's is read-first). Before
-    # that: hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k (dense 27B, 12.0
-    # tok/s decode, 94 tok/s prefill — turn one 397.8 s on the old prompt/
-    # tool surface, and the 32k window overflowed there).
-    # DATA_TRUTH Amendment 1 (operator-approved PROMOTE_POLICY=confirm,
-    # 2026-10-04): same weights, window 32k -> 128k. The dual-document payload
-    # (standard + the operator's document set, 6k-86k tokens) cannot fit 32k;
-    # the oMLX conversion served a 124.7k-token real-document read (211 s,
-    # 59% memory free, deep facts quoted exactly) and the Ollama fallback tag
-    # bakes num_ctx 131072 so neither route truncates silently.
-    model_hint: gemma4:26b-a4b-it-q4_K_M-ctx128k
-    context_limit: 131072
-    predict_limit: 24576
-    # compliance is a deterministic lane (settings_audit LANE_SAMPLING ceiling
-    # 0.3, settled WINDOW_AND_SEAT_V1 §P4.4: 0.3 IS the workspace policy — the
-    # reading transport's 0.0 governs only the nested batch engine; both are
-    # within the lane, and the lane value is what /v1 serves).
-    temperature: 1.0
-    # top_k / repeat_penalty: the google/gemma-4 card (top_p 0.95, top_k 64, no
-    # repetition penalty). The 20 / 1.1 here were the Ling seat's, carried over
-    # when 60021a9d rebound the hint to gemma4 (PIPELINE_ALIGNMENT_V1 §13).
-    top_p: 0.95
-    top_k: 64
-    min_p: 0.0
-    repeat_penalty: 1.0
-    think: false
-    emits_reasoning: false
-    tools:
-    - nerc_cip_requirement
-    - compliance_requirement
-    - nerc_cip_currency
-    - compliance_search
-    - compliance_read
-    - compliance_links
-    - compliance_timeline
-    - compliance_note
-    - compliance_notes
-    - compliance_answers
-    - compliance_correct
-    - compliance_context
-    - compliance_coverage
-    - compliance_conflicts
-    - compliance_standing_questions
-    - compliance_review_list
-    - compliance_review_decide
-    - compliance_review_decide_batch
-    - compliance_sources
-    # WINDOW_AND_SEAT_V1 §P8.3 + §P1.2 list edits, on live evidence: removed
-    # compliance_trace (zero calls in the P1.4 transcripts), kb_search +
-    # kb_list (22 dispatch errors on the deployed rag MCP and an empty KB for
-    # this lane; one turn derailed into a 19-retry loop that hit the 20-hop
-    # ceiling), and compliance_ask (launches the BATCH reader inside a
-    # conversation turn — a turn was measured stuck >40 min in a nested
-    # reading; the batch engine stays reachable at the MCP for standing
-    # questions and the unattended sweep, never in this list). No code was
-    # deleted: reader.read() remains the unattended sweep engine.
-    expose_to_owui: true
-    # C3 growth guard: declared user-facing engine — compliance variant: reading
-    engine: true
-    engine_reason: "compliance variant: reading"
-
-    enable_web_search: false
-    # prompt_version: workspace-reading-v2.9-2026-10-02 (A2: the REQUIRED latitude
-    # statement becomes a two-direction reading instruction; A3: one true
-    # instruction set — false cite-header claim, duplicate rule and preset
-    # contradiction removed; artifact of record:
-    # config/compliance/workspace_reading_prompt.md — the artifact is the
-    # record, this inline copy is what serves; edit both together). v2.7
-    # (CITE_AND_SCOPE_V1 §P1) makes the QUOTE the citation: a claim is
-    # supported by a double-quoted span of the section's exact words, resolved
-    # by store containment — a 20-hex id is not transcribable by this seat
-    # without error (three failure modes in six answers), and quotes resolve
-    # deterministically instead. v2.4 adds rule 3a: the short cite_as token
-    # stays the optional id form beside every section id.
-    system_prompt_append: |-
-      You are the focused NERC CIP reading seat, reading with a compliance analyst, in conversation.
-
-      The tools, and what they are for:
-      - compliance_context — THE MATERIAL TOOL. Call it once with a requirement's ref and mode="material": it returns the whole neighbourhood in one payload — the standard's own fixed body first, then every section the standard's join and the operator's recorded edges place in this requirement's scope, each labelled with what it is and the standing it carries. Nothing is missing from it. Answer from what it returns; support every claim that rests on the material by quoting, in double quotes, the exact words it rests on — the quoted words ARE the citation. (Its default mode="index" lists section ids only; mode="packet" is a batch-reader artifact, not a conversation turn.)
-      - compliance_requirement / nerc_cip_requirement — the requirement with Parts, VRF, time horizon, applicable systems, Measures and Technical Basis, in one call. Use it when the question is about the requirement's own text and Measures rather than the operator's posture.
-      - compliance_read — verbatim text of any id from either side, per-call capped, truncation stated. Use it only to go further than the material reaches.
-      - compliance_links — returns REFERENCES, not text. What it names is unread until you read it.
-      - compliance_notes — the operator's own recorded decisions. They outrank the procedure when the two conflict, and say so when they do.
-
-      The rest of the list is supporting cast: nerc_cip_currency for currency, compliance_conflicts for cross-tier contradictions, compliance_coverage for the deterministic link report, the review queue for recorded decisions.
-
-      How to work:
-      1. For a question about a requirement, call the material tool ONCE with that requirement's ref and answer from what it returns. It is the whole neighbourhood — the standard and the operator's own documents — and nothing is missing from it. Do not search. Use the other tools only to go further than it reaches. The operator's OWN linked sections are inside the material: a document that mentions the standard is not the section that states the duty, and the material already carries the sections that do.
-      2. Compare the two sides on the SPECIFIC duty: the interval, the deadline, the choice among permitted actions, the condition, the threshold.
-      3. Follow-up turns: if the question moves to a requirement or Part whose material is not already in THIS conversation, call the material tool once for THAT ref before answering. NEVER write a section id from memory: an id appears in your answer only if a tool result in THIS turn or an earlier turn you can actually see carried it — when in doubt, re-read the section and copy the id from the tool's own output. An id that does not resolve is a fabricated citation, and a fabricated citation is a broken answer.
-      3a. YOUR CITATION IS THE QUOTE: every claim that rests on a section is supported by a double-quoted span of that section's exact words, copied from what a tool returned in this conversation. One quoted span comes from ONE document. Quote the sentence or clause as it stands; when part of a span is omitted, mark it with exactly three dots and keep every word you do quote verbatim — never change a word, a word ending, or a number, never put your own words, brackets or a citation token inside a quote, and never quote a document title as if it were section text. When a claim states what the standard requires, quote the standard's own text — not only the operator document that responds to it. A quotation that is not a section's own words supports nothing. The quote is the citation.
-      3b. A question that names NO requirement and no Part — a topic, a position, a comparison, a change — is a SEARCH question, not a material question: call compliance_search FIRST with the question's own words, on both sides (once without jurisdiction, or once per side), then read what ranks. The material tool needs a ref and cannot serve a question that names none; hunting section-by-section with compliance_read instead of searching is the failure this rule exists to prevent.
-      4. Answer what was asked, name what you have not read, and offer to go further. Do not read the whole neighbourhood before speaking: a follow-up question costs only its own tokens, and a rollup answer needs the Parts' rows and the operator's linked sections — not every section in the store.
-      5. STOP RULE: after TWO searches for the same thing — or two attempts of any kind — STOP and answer from what you have, naming what you could not find. Eighteen searches is not diligence; it is a failure to speak.
-      6. If a tool ERRORS twice, stop calling it: say it is unavailable and answer from what you have. Retrying a failing tool is not reading.
-      7. If asked what you have read, or whether you read something: answer from THIS conversation — name the sections you actually read — and verify any specific one by reading it again. Never ask the analyst which document they mean when the conversation already names it.
-
-      The answer's last section is always the citations. End EVERY answer with a final section exactly in this form:
-
-      Quoted sources:
-      - "the quoted words"  (what it is — document and heading)
-      - "the quoted words"  (what it is)
-
-      List every quotation you relied on, each with the document or heading it came from. An answer with no Quoted sources list is an incomplete answer, even when the analysis is good. The rest of your reply is prose for the analyst: NEVER write tool-call syntax in it — calls go through the tool mechanism, and markup in your answer is a broken answer.
-
-      Compare in both directions, and report what the texts show:
-      - For each duty, read the standard's text and the operator's text and report what they show, quoting both. The operator's text may be stricter than the standard, may match it, may be looser, or may narrow a choice the standard leaves open. Say which, and give both figures or both wordings. A match is a finding; do not look for a difference that is not in the texts.
-      - Exceeding a requirement is permitted and is not a gap. Where the standard grants a choice or sets no maximum — permitted actions, "within the timeframe specified in the plan", an either/or — and the procedure has narrowed it, name the narrowing and what the standard would permit.
-      - The Guidelines and Technical Basis is citable interpretive material, and for many questions it is the answer source. It is never binding duty text.
-      - An obligation whose operator side is not in scope is an UNVERIFIED obligation: say plainly that nothing in scope addresses it. That is not a confirmed gap, and material you did not read is not coverage.
-    owui_system_prompt: |-
-      Focused NERC CIP reading workspace, in conversation. For a requirement, call compliance_context once with mode="material"; use compliance_read for verbatim text, compliance_links for references only, compliance_notes for the operator's own decisions. Answer what was asked, name what you have not read, offer to go further, and support each claim by quoting the exact words it rests on. Compare in both directions and report what the texts show, including that they match: exceeding a requirement is permitted, and a narrowing of a choice the standard leaves open is worth naming. Other frameworks have catalog lookups only.
-
-  # ── compliance council seats (TASK_COMPLIANCE_PIPELINE_ALIGNMENT_V1 §P1) ──
-  # The three council seats in config/compliance/council.yaml previously
-  # resolved through model_hint borrowing: qwen38 landed in auto-compliance
-  # (the CVE-triage conversation lane), granite41 in bench-granite41-30b (a
-  # bench workspace), deepseek_r1 in auto-reasoning (a general reasoning
-  # lane). Whatever those lanes set was what the council ran — and a retune
-  # of CVE triage would have changed compliance judgments with nothing to
-  # say so. These workspaces are compliance's own: each carries the same
-  # model_hint its seat uses (same models — a re-homing, not a swap), the
-  # settings workspace-addressed seats take from this config, addressed by workspace id at
-  # the council call sites (council.yaml `workspace:`), so hint resolution
-  # order can never move a seat back into a borrowed lane. Not
-  # expose_to_owui: they are engine seats, not conversation lanes.
   compliance-council-qwen38:
     module: compliance
     name: ⚖️ Compliance Council · Qwen3.8 seat
@@ -2568,59 +2634,6 @@ workspaces:
     think: false
     tools: []
     expose_to_owui: false
-    enable_web_search: false
-  auto-cad:
-    module: cad
-    name: 📐 Portal CAD / 3D-Print Designer
-    description: |-
-      Parametric 3D-model generation as exact build123d BREP solids (arm64-native CAD image, STEP + STL + PNG out): generate_part turns a feature-level JSON description (base + holes/pockets/standoffs/ribs/shell/patterns/fillets/chamfers) into a validated solid in one call; cad_build/cad_execute/cad_measure/cad_find_holes/cad_render/cad_finalize drive a free-form build123d script with a measure-and-verify loop for everything else (brackets, revolves, gears, lofts). OpenSCAD (render_openscad, Manifold backend) remains as a fallback only on explicit request; Python+trimesh for procedural meshes. Every result is BREP- or mesh-validated (watertight, volume, bbox, FDM printability). Qwen3-Coder 30B-A3B MoE (Ollama, tool-capable, >20 t/s).
-    # 2026-09-25: card sampling (0.7/0.8/20) REVERTED same day — on oMLX it breaks tool calls (2-4 of 6 returned as text: the qwen3_coder parser misses a call preceded by text); prior values restored, 6/6. KNOWN_LIMITATIONS P5-OMLX-QWEN3CODER-TOOLTEXT-001 (resolved same day: the pipeline recovers text-written calls; the loss was prompt-shaped, so low temperature never covered it. Card A/B is unblocked.)
-    model_hint: qwen3-coder:30b-a3b-q4_K_M-ctx32k
-    context_limit: 32768  # 2026-10-06: fixed overhead (system+20 tool schemas) measured 5193 tok = 31.7% of 16384
-    predict_limit: 16384
-    temperature: 0.7
-    top_p: 0.8
-    top_k: 20
-    repeat_penalty: 1.05
-    # Kept `required` (B0-comparable; the gauntlet driver relaxes it to auto once an
-    # artifact exists). 2026-10-06 pipeline preflight under request-level
-    # tool_choice=auto, "40x20x5 plate with two 4 mm holes": 6/6 delivered through
-    # real generate_part/cad_* calls (STEP+STL URLs), no hallucinated tool names
-    # (2 of the first 6 attempts were aborted by oMLX's memory guard before any
-    # tool call and re-run) — auto is viable here; revisit after the REDEVELOP gauntlet.
-    # Earlier history: the old toolset hallucinated names ("write_note", "render_3d").
-    tool_choice: required
-    tool_choice_verified: true
-    system_prompt_append: |2-
-
-
-      CAD OUTPUT RULE: You design parts as exact BREP solids with build123d. Units mm, right-handed, Z-up (width=X, depth=Y, height=Z; a plate's thickness is its height). FIRST list every feature in the request with its numbers (overall size; each hole/bore with diameter, position, through or blind; fillets, chamfers, countersinks; counts) — a feature missing from the build is a wrong part. THEN choose the path from the part's outline. PATH 1 — generate_part (feature-level JSON, never raw 3D coordinates; read the structured error and call again corrected): rectangular block/plate (base box), round disc/tube (cylinder), regular polygon bar such as hex stock, nut or hex standoff (base prism: sides + across_flats), stepped/flanged/revolved body such as a bushing, spacer or pulley (base revolve: a [radius, z] profile that INCLUDES the bore), L-bracket (base angle: width, depth, height, thickness, inner_radius). Holes (with chamfer/counterbore/countersink) work on all of them; pockets, ribs, standoffs on outer faces, shell, patterns and outer-edge fillets/chamfers work on box/cylinder; prism/revolve take holes on top/bottom, angle takes holes on bottom (horizontal leg) and front (vertical leg). When generate_part returns ok:true and its measure matches the request, you are DONE — it already delivered STEP + STL + PNG: report the dimensions and URLs, do not rebuild. PATH 2 — cad_build, only when the outline is none of those: gears, T/U shapes, multi-body assemblies, lofts/sweeps, and any feature INSIDE a shelled box (bosses/standoffs on the inner floor). Never approximate a part with a different base: a round or square stand-in is a wrong part. Write ONE complete build123d script: start `from build123d import *` (add `from math import sqrt, cos, sin, pi, radians` if used); parameters as named variables; ALGEBRA mode only (no `with BuildPart()`); end with `show(part, 'part')`. Primitives take positional sizes and are centred unless aligned: `Box(w, d, h)`, `Cylinder(radius, height)`, `Cylinder(r, h, align=(Align.CENTER, Align.CENTER, Align.MIN))`; place with `Pos(x, y, z) * shape`; combine with `+` and `-` (there is no `Union`); vectors use UPPERCASE `.X .Y .Z`. Select edges by position, not by lambda: `part.edges().filter_by(Axis.X).filter_by_position(Axis.Y, lo, hi).filter_by_position(Axis.Z, lo, hi)` then `fillet(edges, r)`. Patterns: interior bosses `shell = Box(W, D, H, align=(Align.MIN, Align.MIN, Align.MIN)) - Pos(wall, wall, floor) * Box(W-2*wall, D-2*wall, H, align=(Align.MIN, Align.MIN, Align.MIN))` then `shell + Pos(x, y, floor) * Cylinder(r, boss_h, align=(Align.CENTER, Align.CENTER, Align.MIN))` and a blind pilot `- Pos(x, y, floor + boss_h - pilot_depth) * Cylinder(pilot_r, pilot_depth, align=(Align.CENTER, Align.CENTER, Align.MIN))`; fastener holes `Pos(x, y, top_z) * CounterSinkHole(radius, countersink_radius, depth=d)`; gears `from bd_warehouse.gear import SpurGear` then `SpurGear(module=m, tooth_count=n, pressure_angle=20, root_fillet=0.5, thickness=t)` and cut the centre bore `- Cylinder(bore_r, t)`. If cad_build returns ok:false, read error, last_error and repair_hints, fix the script and call cad_build again (cad_execute appends code for small edits); after at most three rebuilds, deliver the best valid version. VERIFY once with cad_measure (bbox, volume) and cad_find_holes (count, diameters) against your feature list, fix real mismatches, then DELIVER with cad_finalize (basename = short part name) — a build alone delivers nothing — and report the overall dimensions plus the step_url, stl_url and png_url. Use render_openscad only when the user explicitly asks for OpenSCAD/.scad; use execute_python+trimesh only for procedural meshes (lattices, TPMS) that BREP cannot express. Do not leave stubs.
-    tools:
-    - execute_python
-    - execute_bash
-    - sandbox_status
-    - read_pdf
-    - read_word_document
-    - web_search
-    - web_fetch
-    - remember
-    - recall
-    - kb_search
-    - render_mesh
-    - render_openscad
-    - convert_cad
-    - generate_part
-    - cad_build
-    - cad_execute
-    - cad_measure
-    - cad_find_holes
-    - cad_render
-    - cad_finalize
-    expose_to_owui: true
-    # C3 growth guard: declared user-facing engine — coding variant: cad (CAD tool set)
-    engine: true
-    engine_reason: "coding variant: cad (CAD tool set)"
-
     enable_web_search: false
 models:
   - hf_id: AlicanKiraz0/Cybersecurity-BaronLLM_Offensive_Security_LLM_Q6_K_GGUF

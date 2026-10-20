@@ -1,4 +1,4 @@
-"""Build tests/wfe/suites/reading_production.jsonl, compliance-reading's narrow suite
+"""Build tests/wfe/suites/reading_production.jsonl, auto-compliance::reading's narrow suite
 (WFE P3 triage §7; master plan S8/O5).
 
 The same planted-corpus determinations and register lookups auto-compliance measures,

@@ -650,7 +650,9 @@ async def create_persona_presets_async(
         same resolution rule as portal/platform/inference/router/workspaces.py
         _resolve_persona_tools, so OWUI's UI reflects the same tool set the
         pipeline actually grants this persona."""
-        ws_tools = _ws_raw_tools.get(workspace_model, [])
+        variant = persona.get("variant")
+        workspace_id = f"{workspace_model}::{variant}" if variant else workspace_model
+        ws_tools = _ws_raw_tools.get(workspace_id, _ws_raw_tools.get(workspace_model, []))
         allow = persona.get("tools_allow")
         deny = set(persona.get("tools_deny") or [])
         effective = set(ws_tools) if allow is None else set(allow)

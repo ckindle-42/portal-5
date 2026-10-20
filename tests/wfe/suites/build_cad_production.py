@@ -1,4 +1,4 @@
-"""Build tests/wfe/suites/cad_production.jsonl, auto-cad's production suite
+"""Build tests/wfe/suites/cad_production.jsonl, auto-coding::cad's production suite
 (WFE P3 triage §4; master plan S8/O5).
 
 Every part is a generated solid with a closed-form volume the generator computes and

@@ -1,4 +1,4 @@
-"""Build tests/wfe/suites/reading_long_production.jsonl, compliance-reading's long-context
+"""Build tests/wfe/suites/reading_long_production.jsonl, auto-compliance::reading's long-context
 reading suite (WFE new-instruments brief, I-LONGREAD).
 
 reading_production reads short tool outputs; the seat decision at the 128k window (gemma4

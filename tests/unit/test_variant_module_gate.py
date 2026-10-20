@@ -14,6 +14,7 @@ from portal.platform.inference.config import (
     ModuleToggle,
     PortalConfig,
     WorkspaceSpec,
+    effective_workspace,
     engine_tools,
     load_portal_config,
     variant_module,
@@ -60,10 +61,10 @@ def test_each_toggle_flips_only_its_variant(cfg: PortalConfig, flags: tuple[bool
     assert router_labels(cfg, mods) == offered
     assert preset_ids(cfg, mods) == {"auto-media"}  # variants never seed presets (R7)
 
-    tools = engine_tools(cfg.workspaces["auto-media"], set(mods))
-    assert tools[:2] == ["speak", "transcribe"]
-    for name, tool in VARIANT_TOOLS.items():
-        assert (tool in tools) is (name in on)
+    tools = engine_tools(cfg.workspaces["auto-media"])
+    assert tools == ["speak"]
+    for tool in VARIANT_TOOLS.values():
+        assert tool not in tools
 
     start, stop = up_plan(cfg, enabled=mods)
     start_ids = {ref.ident for ref in start}
@@ -113,11 +114,30 @@ def test_variant_without_module_inherits_and_does_not_add_tools() -> None:
     spec = cfg.workspaces["auto-media"]
     assert variant_module(spec.module, spec.variants["plain"]) == "media"
     assert served_ids(cfg, ["media"]) == {"auto-media", "auto-media::plain"}
-    assert "note_tool" not in engine_tools(spec, {"media"})
+    assert "note_tool" not in engine_tools(spec)
     assert not is_workspace_disabled("auto-media::missing", config=cfg, mods=["media"])
     assert is_workspace_disabled("auto-media", config=cfg, mods=[])
     assert is_workspace_disabled("auto-media::plain", config=cfg, mods=[])
     assert served_ids(cfg, []) == set()
+
+
+def test_variant_tools_stay_on_variant_without_base_tools(cfg: PortalConfig) -> None:
+    spec = cfg.workspaces["auto-media"]
+    workspaces = {"auto-media": spec.model_dump()}
+    assert engine_tools(spec) == ["speak"]
+    assert effective_workspace(workspaces, "auto-media::speech")["tools"] == ["transcribe"]
+
+    production = load_portal_config(_force_reload=True)
+    raw = {name: spec.model_dump() for name, spec in production.workspaces.items()}
+    coding = production.workspaces["auto-coding"]
+    cad_tools = set(coding.variants["cad"]["tools"])
+    cad_only_tools = cad_tools - set(coding.tools)
+    assert cad_only_tools.isdisjoint(engine_tools(coding))
+    assert cad_tools == set(effective_workspace(raw, "auto-coding::cad")["tools"])
+
+    compliance = production.workspaces["auto-compliance"]
+    reading_tools = set(compliance.variants["reading"]["tools"])
+    assert reading_tools == set(effective_workspace(raw, "auto-compliance::reading")["tools"])
 
 
 def test_unknown_variant_module_is_rejected() -> None:

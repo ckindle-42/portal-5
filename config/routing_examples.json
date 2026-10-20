@@ -71,22 +71,22 @@
     },
     {
       "message": "design a parametric mounting bracket in OpenSCAD for an M4 screw",
-      "workspace": "auto-cad",
+      "workspace": "auto-coding",
       "confidence": 0.98
     },
     {
       "message": "generate STL for a hex enclosure with snap-fit lid, 60x40x25mm",
-      "workspace": "auto-cad",
+      "workspace": "auto-coding",
       "confidence": 0.97
     },
     {
       "message": "query BigFix REST API for computers missing the May 2025 patch",
-      "workspace": "auto-bigfix",
+      "workspace": "auto-coding",
       "confidence": 0.98
     },
     {
       "message": "write a BigFix relevance expression to check Windows patch level",
-      "workspace": "auto-bigfix",
+      "workspace": "auto-coding",
       "confidence": 0.97
     },
     {

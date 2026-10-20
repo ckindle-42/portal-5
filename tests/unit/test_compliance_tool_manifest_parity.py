@@ -61,9 +61,10 @@ def test_schema_names_only_real_parameters_and_requires_no_defaulted_one(tool: d
 
 
 def test_every_parameter_the_reading_prompt_instructs_is_in_the_schema() -> None:
-    prompt = yaml.safe_load((ROOT / "config/portal.yaml").read_text())["workspaces"][
-        "compliance-reading"
-    ]["system_prompt_append"]
+    from portal.platform.inference.config import effective_workspace
+
+    workspaces = yaml.safe_load((ROOT / "config/portal.yaml").read_text())["workspaces"]
+    prompt = effective_workspace(workspaces, "auto-compliance::reading")["system_prompt_append"]
     schemas = {t["name"]: t["parameters"].get("properties", {}) for t in _manifest()}
     instructed = 0
     # each `param="value"` belongs to the nearest tool named before it

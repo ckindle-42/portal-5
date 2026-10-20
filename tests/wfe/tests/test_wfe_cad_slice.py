@@ -1,7 +1,7 @@
-"""auto-cad's production suite: sound under the controls gate, regenerates identically,
+"""auto-coding::cad's production suite: sound under the controls gate, regenerates identically,
 every gold volume recomputable from the instruction text alone, the gold never stated,
 the answer grounded twice (a validated build and the measured volume), and the plan's
-arms served by auto-cad's backends.yaml groups at windows that hold the tool schemas."""
+arms served by auto-coding::cad's backends.yaml groups at windows that hold the tool schemas."""
 
 from __future__ import annotations
 
@@ -12,6 +12,7 @@ from pathlib import Path
 
 import yaml
 
+from portal.platform.inference.config import effective_workspace
 from tests.wfe import controls
 from tests.wfe.checkers import CheckContext, apply_checkers
 from tests.wfe.schema import Outcome
@@ -184,7 +185,7 @@ def test_the_suite_regenerates_identically():
 
 def test_the_tool_modes_allowlist_offers_the_cad_surface_only():
     modes = yaml.safe_load((REPO / "tests/wfe/tool_modes.yaml").read_text())["workspaces"]
-    mode = modes["auto-cad"]
+    mode = modes["auto-coding::cad"]
     assert mode["tool_mode"] == "production"
     assert set(mode["allow"]) == set(gen.CAD_TOOLS)
     # nothing the checkers ground on may be missing from the allowlist
@@ -193,7 +194,8 @@ def test_the_tool_modes_allowlist_offers_the_cad_surface_only():
 
 
 def test_the_chain_fits_the_window_under_the_hard_output_cap():
-    portal = yaml.safe_load((REPO / "config/portal.yaml").read_text())["workspaces"]["auto-cad"]
+    workspaces = yaml.safe_load((REPO / "config/portal.yaml").read_text())["workspaces"]
+    portal = effective_workspace(workspaces, "auto-coding::cad")
     limit, cap = portal["context_limit"], portal["predict_limit"]
     for t in TASKS.values():
         prompt = (len(portal.get("owui_system_prompt") or "") + len(t["instruction"])) / 4
@@ -201,10 +203,11 @@ def test_the_chain_fits_the_window_under_the_hard_output_cap():
 
 
 def test_the_plan_arms_are_served_by_the_workspaces_groups_and_fit_its_window():
-    plan = yaml.safe_load(PLAN.read_text())["workloads"]["auto-cad"]
-    portal = yaml.safe_load((REPO / "config/portal.yaml").read_text())["workspaces"]["auto-cad"]
+    plan = yaml.safe_load(PLAN.read_text())["workloads"]["auto-coding::cad"]
+    workspaces = yaml.safe_load((REPO / "config/portal.yaml").read_text())["workspaces"]
+    portal = effective_workspace(workspaces, "auto-coding::cad")
     backends = yaml.safe_load((REPO / "config/backends.yaml").read_text())
-    groups = set(backends["workspace_routing"]["auto-cad"])
+    groups = set(backends["workspace_routing"]["auto-coding"])
     served = {
         m["id"] for b in backends["backends"] if b["group"] in groups for m in b.get("models") or []
     }

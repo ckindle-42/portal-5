@@ -1296,10 +1296,6 @@ workspace_routing:
   auto-security:
   - security
   - general
-  auto-bigfix:
-  - security
-  - coding
-  - general
   tools-specialist:
   - general
   auto-reasoning:
@@ -1329,8 +1325,6 @@ workspace_routing:
   - general
   compliance-mapping:
   - general
-  compliance-reading:
-  - general
   compliance-council-qwen38:
   - general
   compliance-council-granite41:
@@ -1344,9 +1338,6 @@ workspace_routing:
   - vision
   - general
   task-router:
-  - general
-  auto-cad:
-  - coding
   - general
   bench-qwen3-coder-30b:
   - general

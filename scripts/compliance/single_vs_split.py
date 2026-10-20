@@ -91,8 +91,10 @@ MAX_HOPS = 8
 
 
 def _workspace_config() -> tuple[str, list[str]]:
+    from portal.platform.inference.config import effective_workspace
+
     portal = yaml.safe_load((REPO_ROOT / "config" / "portal.yaml").read_text())
-    ws = portal["workspaces"]["compliance-reading"]
+    ws = effective_workspace(portal["workspaces"], "auto-compliance::reading")
     return str(ws["system_prompt_append"]), list(ws["tools"])
 
 

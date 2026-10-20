@@ -62,6 +62,12 @@ _DEFAULT_QUORUM = 0.66
 _PORTAL_CONFIG = _CONFIG.parent / "portal.yaml"
 
 
+def _reading_workspace_binding(workspaces: dict[str, Any]) -> dict[str, Any]:
+    engine = workspaces.get("auto-compliance") or {}
+    variant = (engine.get("variants") or {}).get("reading") or {}
+    return {**engine, **variant}
+
+
 def _read_council_config() -> dict[str, Any]:
     cfg = _CONFIG / "council.yaml"
     if not cfg.exists():
@@ -119,7 +125,7 @@ def reading_context_limits() -> dict[str, int]:
             import yaml
 
             portal = yaml.safe_load(_PORTAL_CONFIG.read_text()) or {}
-            binding = (portal.get("workspaces") or {}).get("compliance-reading") or {}
+            binding = _reading_workspace_binding(portal.get("workspaces") or {})
             limits["context_limit"] = int(binding.get("context_limit") or limits["context_limit"])
             limits["predict_limit"] = int(binding.get("predict_limit") or limits["predict_limit"])
         except Exception:  # noqa: BLE001 - defaults stand when config cannot be read
@@ -147,7 +153,8 @@ def reading_route_ceiling() -> int | None:
         import yaml
 
         raw = yaml.safe_load(_PORTAL_CONFIG.read_text()) or {}
-        binding = (raw.get("workspaces") or {}).get("compliance-reading") or {}
+        workspace_id = "auto-compliance::reading"
+        binding = _reading_workspace_binding(raw.get("workspaces") or {})
         hint = str(binding.get("model_hint") or "")
         backends_path = _PORTAL_CONFIG.parent / "backends.yaml"
         routing: dict[str, Any] = {}
@@ -158,7 +165,8 @@ def reading_route_ceiling() -> int | None:
         if hint:
             from portal.modules.compliance.core.served_window import served_window_for_hint
 
-            served = served_window_for_hint(hint, groups=routing.get("compliance-reading"))
+            routing_workspace_id = workspace_id.partition("::")[0]
+            served = served_window_for_hint(hint, groups=routing.get(routing_workspace_id))
             windows = [int(w) for _backend, w in served.route_windows if w]
             ceiling = min(windows) if windows else None
     except Exception:  # noqa: BLE001 - an unreachable probe is a recorded gap
@@ -182,10 +190,7 @@ def reading_seat() -> str:
             import yaml
 
             portal = yaml.safe_load(_PORTAL_CONFIG.read_text()) or {}
-            workspaces = portal.get("workspaces") or {}
-            binding = (
-                workspaces.get("compliance-reading") or workspaces.get("auto-compliance") or {}
-            )
+            binding = _reading_workspace_binding(portal.get("workspaces") or {})
             configured = str(binding.get("model_hint", ""))
         except Exception:  # noqa: BLE001 - a malformed binding is reported below
             configured = ""

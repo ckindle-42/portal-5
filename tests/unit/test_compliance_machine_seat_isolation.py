@@ -25,7 +25,7 @@ _REPO = Path(__file__).resolve().parents[2]
 def _machine_addresses() -> list[str]:
     ws = model_addressing.workspaces()
     addresses = [
-        ws["compliance-reading"]["model_hint"],  # sweep map_read / reduce, reader.read
+        ws["auto-compliance::reading"]["model_hint"],  # sweep map_read / reduce, reader.read
         ws["compliance-reading-overflow"]["model_hint"],  # map_read overflow_model
     ]
     council = yaml.safe_load((_REPO / "config/compliance/council.yaml").read_text()) or {}
@@ -43,5 +43,5 @@ def test_machine_address_lands_in_a_bare_compliance_workspace(address: str) -> N
 
 
 def test_reading_tag_does_not_resolve_to_the_conversational_lane() -> None:
-    hint = model_addressing.workspaces()["compliance-reading"]["model_hint"]
+    hint = model_addressing.workspaces()["auto-compliance::reading"]["model_hint"]
     assert model_addressing.workspace_id_for_model(hint) == "compliance-mapping"

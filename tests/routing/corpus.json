@@ -153,25 +153,25 @@
     "id": "routing_examples[25]",
     "message": "design a parametric mounting bracket in OpenSCAD for an M4 screw",
     "source": "config/routing_examples.json",
-    "expected_workspace": "auto-cad"
+    "expected_workspace": "auto-coding"
   },
   {
     "id": "routing_examples[26]",
     "message": "generate STL for a hex enclosure with snap-fit lid, 60x40x25mm",
     "source": "config/routing_examples.json",
-    "expected_workspace": "auto-cad"
+    "expected_workspace": "auto-coding"
   },
   {
     "id": "routing_examples[27]",
     "message": "query BigFix REST API for computers missing the May 2025 patch",
     "source": "config/routing_examples.json",
-    "expected_workspace": "auto-bigfix"
+    "expected_workspace": "auto-coding"
   },
   {
     "id": "routing_examples[28]",
     "message": "write a BigFix relevance expression to check Windows patch level",
     "source": "config/routing_examples.json",
-    "expected_workspace": "auto-bigfix"
+    "expected_workspace": "auto-coding"
   },
   {
     "id": "routing_examples[29]",

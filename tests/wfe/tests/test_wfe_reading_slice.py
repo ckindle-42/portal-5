@@ -13,6 +13,7 @@ from pathlib import Path
 
 import yaml
 
+from portal.platform.inference.config import effective_workspace
 from tests.wfe import controls
 from tests.wfe.checkers import CheckContext, apply_checkers
 from tests.wfe.schema import Outcome
@@ -114,12 +115,10 @@ def test_the_suite_regenerates_identically():
 
 def test_the_reading_subset_is_within_the_workspace_and_the_eval_instance():
     modes = yaml.safe_load((REPO / "tests/wfe/tool_modes.yaml").read_text())["workspaces"]
-    allow = set(modes["compliance-reading"]["allow"])
-    portal_tools = set(
-        yaml.safe_load((REPO / "config/portal.yaml").read_text())["workspaces"][
-            "compliance-reading"
-        ]["tools"]
-    )
+    workspace_id = "auto-compliance::reading"
+    allow = set(modes[workspace_id]["allow"])
+    workspaces = yaml.safe_load((REPO / "config/portal.yaml").read_text())["workspaces"]
+    portal_tools = set(effective_workspace(workspaces, workspace_id)["tools"])
     from portal.modules.compliance.core.eval_instance import VERIFIED_TOOLS
 
     assert allow <= portal_tools, allow - portal_tools
@@ -130,9 +129,8 @@ def test_the_reading_subset_is_within_the_workspace_and_the_eval_instance():
 
 
 def test_the_window_is_generous_but_checked():
-    portal = yaml.safe_load((REPO / "config/portal.yaml").read_text())["workspaces"][
-        "compliance-reading"
-    ]
+    workspaces = yaml.safe_load((REPO / "config/portal.yaml").read_text())["workspaces"]
+    portal = effective_workspace(workspaces, "auto-compliance::reading")
     limit, cap = portal["context_limit"], portal["predict_limit"]
     assert cap and limit
     for t in TASKS.values():
@@ -141,12 +139,12 @@ def test_the_window_is_generous_but_checked():
 
 
 def test_the_plan_arms_are_served_by_the_workspaces_groups_and_fit_its_window():
-    plan = yaml.safe_load(PLAN.read_text())["workloads"]["compliance-reading"]
-    portal = yaml.safe_load((REPO / "config/portal.yaml").read_text())["workspaces"][
-        "compliance-reading"
-    ]
+    workspace_id = "auto-compliance::reading"
+    plan = yaml.safe_load(PLAN.read_text())["workloads"][workspace_id]
+    workspaces = yaml.safe_load((REPO / "config/portal.yaml").read_text())["workspaces"]
+    portal = effective_workspace(workspaces, workspace_id)
     backends = yaml.safe_load((REPO / "config/backends.yaml").read_text())
-    groups = set(backends["workspace_routing"]["compliance-reading"])
+    groups = set(backends["workspace_routing"][workspace_id.partition("::")[0]])
     served = {
         m["id"] for b in backends["backends"] if b["group"] in groups for m in b.get("models") or []
     }

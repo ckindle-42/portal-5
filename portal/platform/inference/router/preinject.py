@@ -131,7 +131,7 @@ def _resolve_workspace_variant(
     if not variant_name:
         return workspace_id
 
-    from portal.platform.inference.config import load_portal_config
+    from portal.platform.inference.config import load_portal_config, merge_workspace_variant
 
     spec = load_portal_config().workspaces.get(workspace_id)
     if spec is None or variant_name not in spec.variants:
@@ -143,10 +143,9 @@ def _resolve_workspace_variant(
     if is_workspace_disabled(synthetic_id):
         return workspace_id
     if synthetic_id not in WORKSPACES:
-        WORKSPACES[synthetic_id] = {
-            **WORKSPACES.get(workspace_id, {}),
-            **spec.variants[variant_name],
-        }
+        WORKSPACES[synthetic_id] = merge_workspace_variant(
+            WORKSPACES.get(workspace_id, {}), spec.variants[variant_name]
+        )
     return synthetic_id
 
 

@@ -612,20 +612,9 @@ def variant_module(engine_module: str, variant: dict[str, Any]) -> str:
     return str(declared) if declared else engine_module
 
 
-def engine_tools(spec: WorkspaceSpec, enabled: set[str]) -> list[str]:
-    """Engine tools plus tools of variants whose declared module is enabled."""
-    tools = list(spec.tools)
-    seen = set(tools)
-    for variant in spec.variants.values():
-        if not isinstance(variant, dict) or "module" not in variant:
-            continue
-        if variant_module(spec.module, variant) not in enabled:
-            continue
-        for tool in variant.get("tools") or []:
-            if tool not in seen:
-                seen.add(tool)
-                tools.append(tool)
-    return tools
+def engine_tools(spec: WorkspaceSpec) -> list[str]:
+    """Return only the tools declared on an engine."""
+    return list(spec.tools)
 
 
 def get_workspace_dict(config: PortalConfig) -> dict[str, dict[str, Any]]:
@@ -651,7 +640,7 @@ def get_workspace_dict(config: PortalConfig) -> dict[str, dict[str, Any]]:
         raw = spec.model_dump(
             exclude_none=True, exclude=set(_OWUI_ONLY_FIELDS | _INTERNAL_ONLY_FIELDS)
         )
-        raw["tools"] = engine_tools(spec, enabled)
+        raw["tools"] = engine_tools(spec)
         # Original literal omitted chain when empty; pydantic emits []; normalise.
         if "chain" in raw and raw["chain"] == []:
             del raw["chain"]
@@ -812,9 +801,13 @@ def resolve_preset_tools(
     return sorted(effective - deny)
 
 
+def merge_workspace_variant(base: dict[str, Any], variant: dict[str, Any]) -> dict[str, Any]:
+    """Merge variant settings over the engine, including its tool whitelist."""
+    return {**base, **variant}
+
+
 def effective_workspace(workspaces: dict[str, Any], workspace_id: str) -> dict[str, Any]:
-    """A workspace's served settings: ``engine::variant`` is the base merged with the variant
-    (the pipeline's merge in router/preinject._resolve_workspace_variant)."""
+    """Return an engine's base settings merged with the selected variant."""
     base_id, _, variant = workspace_id.partition("::")
     base = dict(workspaces[base_id])
-    return {**base, **(base.get("variants") or {})[variant]} if variant else base
+    return merge_workspace_variant(base, (base.get("variants") or {})[variant]) if variant else base

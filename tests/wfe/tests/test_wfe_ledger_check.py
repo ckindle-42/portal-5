@@ -64,7 +64,7 @@ def test_seats_are_the_models_production_seats():
     backend-group list workspace_routing holds."""
     seats = hp._seats()
     routed = yaml.safe_load(hp.ROUTING.read_text())["workspace_routing"]
-    assert len(seats) == len(routed) >= 50
+    assert len(seats) == len(routed) >= 47
     assert all(not s.startswith("[") for s in seats.values())
     assert all(seats[ws] == REAL[ws]["model_hint"] for ws in seats)
     assert seats[WS] == SEAT

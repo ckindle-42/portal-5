@@ -1,8 +1,12 @@
 name: CAD 3D Designer
 slug: caddesigner
-delivery: role
+delivery: persona
 category: development
-workspace_model: auto-cad
+workspace_model: auto-coding
+variant: cad
+tools_deny:
+  - execute_nodejs
+persona_reason: Keep the CAD persona on the CAD tool subset when using the shared coding engine.
 preferred_models:
   - qwen3-coder:30b-a3b-q4_K_M-ctx32k
   - omnicoder2:9b-q4_k_m

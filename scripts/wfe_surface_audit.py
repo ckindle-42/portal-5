@@ -445,7 +445,7 @@ JUSTIFIED: list[tuple[str, str, str]] = [
     ),
     (
         "1",
-        r"^(auto-cad|bench-qwen3\d-cad|auto-coding) / (convert_cad|sandbox_status|execute_bash)",
+        r"^(auto-coding::cad|bench-qwen3\d-cad|auto-coding) / (convert_cad|sandbox_status|execute_bash)",
         "self-describing utility tool in a lane whose prompt is about CAD or code",
     ),
     (
@@ -456,7 +456,7 @@ JUSTIFIED: list[tuple[str, str, str]] = [
     ("4", r"^auto-compliance$", "an output-format rule, not tied to a tool's output"),
     (
         "4",
-        r"^compliance-reading$",
+        r"^auto-compliance::reading$",
         "a citations rule and a rule against writing tool syntax in prose; neither names a tool result",
     ),
 ]

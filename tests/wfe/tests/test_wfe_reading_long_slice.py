@@ -1,7 +1,7 @@
 """The long-context reading suite: sound under the controls gate, documents rendered from a
 seed (never committed), pinned by sha256, deterministic across processes, golds re-derived
 from the text, needles at their recorded depth, sized inside the 128k window by measured
-token density, and the plan's arms served by compliance-reading's group at >= 128k."""
+token density, and the plan's arms served by auto-compliance::reading's group at >= 128k."""
 
 from __future__ import annotations
 
@@ -17,6 +17,7 @@ from pathlib import Path
 import pytest
 import yaml
 
+from portal.platform.inference.config import effective_workspace
 from tests.wfe import controls
 from tests.wfe.checkers import CheckContext, apply_checkers
 from tests.wfe.runner import DOC_MARK, expand_doc, load_suite
@@ -143,8 +144,8 @@ def test_quotes_are_graded_as_the_exact_string():
 
 
 def test_the_documents_are_sized_to_their_tier_and_fit_the_window():
-    portal = yaml.safe_load((REPO / "config/portal.yaml").read_text())["workspaces"]
-    ws = portal["compliance-reading"]
+    workspaces = yaml.safe_load((REPO / "config/portal.yaml").read_text())["workspaces"]
+    ws = effective_workspace(workspaces, "auto-compliance::reading")
     assert ws["context_limit"] == WINDOW
     system = len(ws.get("owui_system_prompt") or "") / 2.5  # a pessimistic tokens estimate
     for t in TASKS.values():
@@ -172,14 +173,14 @@ def test_measured_token_counts_when_a_gemma_tokenizer_is_cached():
 
 
 def test_the_plan_arms_are_served_by_the_workspaces_group_at_the_seats_window():
-    plan = yaml.safe_load(PLAN.read_text())["workloads"]["compliance-reading"]
+    workspace_id = "auto-compliance::reading"
+    plan = yaml.safe_load(PLAN.read_text())["workloads"][workspace_id]
     reading = yaml.safe_load((REPO / "tests/wfe/plans/reading_decision_v1.yaml").read_text())
-    ref = reading["workloads"]["compliance-reading"]
-    portal = yaml.safe_load((REPO / "config/portal.yaml").read_text())["workspaces"][
-        "compliance-reading"
-    ]
+    ref = reading["workloads"][workspace_id]
+    workspaces = yaml.safe_load((REPO / "config/portal.yaml").read_text())["workspaces"]
+    portal = effective_workspace(workspaces, workspace_id)
     backends = yaml.safe_load((REPO / "config/backends.yaml").read_text())
-    groups = set(backends["workspace_routing"]["compliance-reading"])
+    groups = set(backends["workspace_routing"][workspace_id.partition("::")[0]])
     served = {
         m["id"] for b in backends["backends"] if b["group"] in groups for m in b.get("models") or []
     }

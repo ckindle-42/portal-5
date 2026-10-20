@@ -856,11 +856,13 @@ def _campaign_inputs(seat: str) -> dict[str, str]:
     try:
         import yaml as _yaml
 
+        from portal.platform.inference.config import effective_workspace
+
         portal = _yaml.safe_load((REPO / "config/portal.yaml").read_text())
         ws_prompt = str(
-            (portal.get("workspaces") or {})
-            .get("compliance-reading", {})
-            .get("system_prompt_append", "")
+            effective_workspace(portal.get("workspaces") or {}, "auto-compliance::reading").get(
+                "system_prompt_append", ""
+            )
         )
         prompt_sha = hashlib.sha256(ws_prompt.encode()).hexdigest()[:12] if ws_prompt else ""
     except Exception:  # noqa: BLE001 - an unreadable prompt sha must never pass a resume check
@@ -1019,11 +1021,13 @@ def _write_manifest(
 
         import yaml as _yaml
 
+        from portal.platform.inference.config import effective_workspace
+
         portal = _yaml.safe_load((REPO / "config/portal.yaml").read_text())
         ws_prompt = str(
-            (portal.get("workspaces") or {})
-            .get("compliance-reading", {})
-            .get("system_prompt_append", "")
+            effective_workspace(portal.get("workspaces") or {}, "auto-compliance::reading").get(
+                "system_prompt_append", ""
+            )
         )
         prompt_sha = hashlib.sha256(ws_prompt.encode()).hexdigest()[:12] if ws_prompt else ""
     except Exception:  # noqa: BLE001 - a missing sha is recorded as empty, never fatal

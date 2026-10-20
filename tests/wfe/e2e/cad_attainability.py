@@ -1,4 +1,4 @@
-"""Is each CAD task attainable through the tools auto-cad offers?
+"""Is each CAD task attainable through the tools auto-coding::cad offers?
 
 The controls gate proves grading works; it cannot prove the gold can be reached. A
 task is attainable only when, on the live CAD MCP (:8926) with one engine session per

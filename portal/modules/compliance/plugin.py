@@ -185,5 +185,7 @@ def _probe_compliance_served_window_tag(root: Path) -> int | None:
     from portal.modules.compliance.core.served_window import tag_window
 
     workspaces = _load_portal_yaml(root).get("workspaces") or {}
-    hint = str((workspaces.get("compliance-reading") or {}).get("model_hint") or "")
+    engine = workspaces.get("auto-compliance") or {}
+    binding = {**engine, **((engine.get("variants") or {}).get("reading") or {})}
+    hint = str(binding.get("model_hint") or "")
     return tag_window(hint) if hint else None

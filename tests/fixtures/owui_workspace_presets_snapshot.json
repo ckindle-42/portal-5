@@ -30,30 +30,6 @@
       "system": "You are an audio analysis assistant. Transcribe audio files, analyze speech content, identify speakers, summarize recordings, and extract key information from audio. When given an audio file, use the transcribe_audio tool to process it, then provide a clear summary with timestamps for key moments."
     }
   },
-  "auto-bigfix": {
-    "id": "auto-bigfix",
-    "meta": {
-      "description": "🩹 Portal BigFix Analyst",
-      "profile_image_url": "",
-      "toolIds": []
-    },
-    "name": "🩹 Portal BigFix Analyst",
-    "params": {
-      "model": "auto-bigfix"
-    }
-  },
-  "auto-cad": {
-    "id": "auto-cad",
-    "meta": {
-      "description": "📐 Portal CAD / 3D-Print Designer",
-      "profile_image_url": "",
-      "toolIds": []
-    },
-    "name": "📐 Portal CAD / 3D-Print Designer",
-    "params": {
-      "model": "auto-cad"
-    }
-  },
   "auto-coding": {
     "id": "auto-coding",
     "meta": {
