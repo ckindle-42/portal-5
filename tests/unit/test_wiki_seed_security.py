@@ -21,7 +21,7 @@ class TestSecuritySeeding:
     """Technique signatures seeded as cited units."""
 
     def test_seed_technique_signatures(self, tmp_path):
-        from portal.platform.wiki.adapters.seed_security import seed_technique_signatures
+        from portal.modules.security.wiki_seed import seed_technique_signatures
 
         set_canonical_dir(tmp_path)
         try:
@@ -41,7 +41,7 @@ class TestSecuritySeeding:
             reset_canonical_dir()
 
     def test_dcsync_enriched_unit(self, tmp_path):
-        from portal.platform.wiki.adapters.seed_security import seed_dcsync_specifically
+        from portal.modules.security.wiki_seed import seed_dcsync_specifically
 
         set_canonical_dir(tmp_path)
         try:
@@ -55,7 +55,7 @@ class TestSecuritySeeding:
             reset_canonical_dir()
 
     def test_units_loadable_via_mcp(self, tmp_path):
-        from portal.platform.wiki.adapters.seed_security import seed_technique_signatures
+        from portal.modules.security.wiki_seed import seed_technique_signatures
         from portal_wiki.mcp import wiki_explain, wiki_search
 
         set_canonical_dir(tmp_path)
@@ -74,7 +74,7 @@ class TestSecuritySeeding:
             reset_canonical_dir()
 
     def test_all_units_have_provenance(self, tmp_path):
-        from portal.platform.wiki.adapters.seed_security import (
+        from portal.modules.security.wiki_seed import (
             seed_dcsync_specifically,
             seed_technique_signatures,
         )

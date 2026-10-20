@@ -8,6 +8,8 @@ sources:
 - type: code
   path: portal/modules/compliance/tools/compliance_mcp.py
 - type: code
+  path: portal/modules/compliance/plugin.py
+- type: code
   path: portal/platform/wiki/adapters/modules.py
 - type: code
   path: config/portal.yaml
@@ -41,6 +43,9 @@ sources — `honest-BLOCKED` on failure, never fabricated control text.
 
 Compliance analysis also still reuses the security module's
 `compliance_report.py` for report generation.
+
+The compliance plugin contributes its module-owned wiki claim probes to the
+platform claims census.
 
 ## Workspaces
 

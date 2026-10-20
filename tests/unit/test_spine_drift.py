@@ -50,7 +50,7 @@ def test_unit_without_claims_round_trips_to_empty_list():
 
 def test_every_probe_returns_a_value_on_this_repo():
     results = claims_mod.probe_all(REPO_ROOT)
-    assert set(results) == set(claims_mod.PROBES)
+    assert set(results) == set(claims_mod.all_probes())
     broken = {k: v for k, v in results.items() if isinstance(v, str) and v.startswith("<error:")}
     assert not broken, f"probes failed: {broken}"
 

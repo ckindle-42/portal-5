@@ -8,8 +8,8 @@ into core.siem or core.exec_chain internals directly.
 
 Covers: the SPL detection library + technique reference (siem/
 spl_detections.yaml), scenario definitions (exec_chain.SCENARIOS), and
-the wiki-backed technique-signature seeding (portal.platform.wiki
-adapters — a knowledge unit per technique, cited to this library).
+the wiki-backed technique-signature seeding (wiki_seed — a knowledge unit
+per technique, cited to this library).
 """
 
 from portal.modules.security.core.exec_chain import SCENARIOS
@@ -20,7 +20,7 @@ from portal.modules.security.core.siem.spl_detections import (
     technique_signature_full,
     techniques_covered,
 )
-from portal.platform.wiki.adapters.seed_security import (
+from portal.modules.security.wiki_seed import (
     seed_dcsync_specifically,
     seed_technique_signatures,
 )

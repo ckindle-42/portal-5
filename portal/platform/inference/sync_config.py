@@ -18,7 +18,6 @@ Run:
 
 from __future__ import annotations
 
-import importlib.util
 import json
 import re
 import sys
@@ -27,24 +26,9 @@ from typing import Any
 
 import yaml
 
+from portal.platform.inference.owui_tools import all_tools_dead, compute_tool_ids
+
 REPO: Path = Path(__file__).resolve().parents[3]
-
-
-# ── scripts/update_workspace_tools.py: TOOL_TO_SERVER ground truth ────────────
-# Loaded by path (scripts/ isn't a package) so there is exactly one
-# raw-tool-name -> OWUI toolId mapping in the repo, not a hand-copied one
-# per consumer (that drift was the actual bug behind several toolIds gaps
-# found 2026-08-27 — see the fix commit for the audit).
-_uwt_spec = importlib.util.spec_from_file_location(
-    "update_workspace_tools", REPO / "scripts" / "update_workspace_tools.py"
-)
-if _uwt_spec is None or _uwt_spec.loader is None:
-    raise ImportError(
-        "sync-config requires scripts/update_workspace_tools.py (missing or unloadable)"
-    )
-_uwt = importlib.util.module_from_spec(_uwt_spec)
-_uwt_spec.loader.exec_module(_uwt)
-compute_tool_ids = _uwt.compute_tool_ids
 
 
 # ── helpers ───────────────────────────────────────────────────────────────────
@@ -317,7 +301,7 @@ def main() -> int:
     dead = [
         ws_id
         for ws_id, spec in config.workspaces.items()
-        if spec.expose_to_owui and _uwt.all_tools_dead(spec.tools)
+        if spec.expose_to_owui and all_tools_dead(spec.tools)
     ]
     if dead:
         print(

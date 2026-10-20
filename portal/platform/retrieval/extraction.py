@@ -1,7 +1,4 @@
-"""Document text extraction — moved verbatim from ``rag_multimodal`` (SEAM V1 P2).
-
-Delegates to ``rag_mcp``'s docling extraction with the same fallback chain; the
-``rag_mcp`` dependency is unchanged.
+"""Document text extraction through the research module's plugin hook.
 
 SUBSTRATE_MIGRATION_V1 P3.2 adds ``read_document`` — the ``DoclingDocument``
 itself, for the ``docling`` chunker — while ``read_text`` keeps returning the
@@ -16,9 +13,10 @@ from typing import Any, cast
 
 
 async def read_text(path: Path) -> str:
-    """Reuse rag_mcp's docling extraction; fall back to plain read for text."""
-    from portal.modules.research.tools import rag_mcp
+    """Reuse plugin-provided docling extraction; fall back to plain text."""
+    from portal.platform.plugins import document_reader
 
+    rag_mcp = document_reader()
     reader = getattr(rag_mcp, "_read_file", None)
     if reader is not None:
         with contextlib.suppress(Exception):
@@ -39,8 +37,9 @@ async def read_document(path: Path) -> tuple[str, Any | None]:
     A ``.txt`` / ``.md`` file has text and no document."""
     import asyncio
 
-    from portal.modules.research.tools import rag_mcp
+    from portal.platform.plugins import document_reader
 
+    rag_mcp = document_reader()
     getdoc = getattr(rag_mcp, "_docling_document", None)
     if getdoc is not None and path.suffix.lower() not in (".txt", ".md"):
         try:

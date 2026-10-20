@@ -5,6 +5,10 @@ title: "Security module CLI \u2014 argv pass-through to core"
 sources:
 - type: code
   path: portal/modules/security/cli/__init__.py
+- type: code
+  path: portal/modules/security/plugin.py
+- type: code
+  path: portal/platform/plugins.py
   commit: 4c3d1e89
 claims: []
 confidence: high
@@ -17,7 +21,9 @@ created_at: 1785795006.4514072
 updated_at: 1785795006.4514072
 ---
 
-The security module CLI is a thin argv pass-through to the existing
+The platform discovers `portal.modules.security.plugin` and calls its
+`register_cli` hook during CLI composition. The security module CLI is a thin
+argv pass-through to the existing
 `portal.modules.security.core` dispatcher rather than a reimplementation.
 `portal security ...` rewrites `sys.argv` and hands control to the core
 package's `__main__`, so the same surface (self-index, stage2-propose,

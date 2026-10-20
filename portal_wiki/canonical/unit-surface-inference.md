@@ -6,6 +6,8 @@ title: "Inference platform layer \u2014 config single-source, tool registry, pro
 sources:
 - type: code
   path: portal/platform/inference/*.py
+- type: code
+  path: config/owui_tool_servers.yaml
 claims: []
 confidence: high
 tags:
@@ -25,9 +27,11 @@ multiprocess first.
 
 ## Why
 
-Rule 6 makes `portal.yaml` the single source of truth and every other config file a
-derived artifact, which is why this layer splits into a validated model, a cheap
-validator, and idempotent emitters. Tool dispatch and backend selection sit on hot
+Rule 6 makes `portal.yaml` the source of truth for workspaces and the MCP fleet.
+The raw tool-to-Open-WebUI server map is declared separately in
+`config/owui_tool_servers.yaml` and loaded by `owui_tools.py`; generated presets
+derive their tool ids from that map. This layer splits into a validated model, a
+cheap validator, and idempotent emitters. Tool dispatch and backend selection sit on hot
 request paths, so freshness is a contract: `_candidate_cache` is invalidated inside
 `_refresh_healthy_cache`, and the Prometheus multiprocess dir must exist before the
 metrics client imports or workers silently corrupt shared metrics.

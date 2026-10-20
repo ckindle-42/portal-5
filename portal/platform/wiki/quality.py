@@ -353,7 +353,7 @@ def calibrate(repo_root: Path | None = None) -> dict[str, Any]:
 
     root = repo_root or _REPO_ROOT
     # Machine-seeded families. Technique signatures are ids like
-    # `unit-T1021.002-signature`, seeded by seed_security — not authorship.
+    # `unit-T1021.002-signature`, seeded by security's wiki_seed — not authorship.
     machine = ("unit-fact-", "unit-code-", "unit-api-")
     seeded = re.compile(r"^unit-T\d{4}(?:\.\d{3})?-signature$")
     authored = [

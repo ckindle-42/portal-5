@@ -33,9 +33,8 @@ from pathlib import Path
 
 import httpx
 
-# scripts/ isn't a package, so update_workspace_tools (TOOL_TO_SERVER ground
-# truth, compute_tool_ids, load_workspace_raw_tools) is loaded by path once
-# here and reused by every function below that needs OWUI toolIds.
+# scripts/ isn't a package, so its workspace loader is loaded by path once.
+# Tool-to-server mappings come from config/owui_tool_servers.yaml.
 _uwt_spec = importlib.util.spec_from_file_location(
     "update_workspace_tools", Path(__file__).parent / "update_workspace_tools.py"
 )

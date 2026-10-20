@@ -57,8 +57,8 @@ updated_at: 1787872869
   re-downloads the ~14GB checkpoint set), re-add the `music-ace` fleet entry
   and `ace_*` tools to `auto-music` in `config/portal.yaml` (both were left as
   inline comments/history at removal, not deleted outright), remove
-  `portal_music_ace` from `scripts/update_workspace_tools.py`'s
-  `DEAD_SERVERS`. Consider adding seed support first, matching MiniMax's tool,
+  `portal_music_ace` from `config/owui_tool_servers.yaml`'s `dead_servers`.
+  Consider adding seed support first, matching MiniMax's tool,
   to make future A/B comparisons reproducible.
 - **Note**: ACE-Step-1.5 is MIT-licensed.
 

@@ -18,7 +18,7 @@ from portal.platform.wiki.store import save_unit
 
 
 def _ensure_bench_path() -> None:
-    bench_path = str(Path(__file__).resolve().parents[4] / "tests" / "benchmarks")
+    bench_path = str(Path(__file__).resolve().parents[3] / "tests" / "benchmarks")
     if bench_path not in sys.path:
         sys.path.insert(0, bench_path)
 

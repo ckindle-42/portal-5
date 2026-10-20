@@ -5,6 +5,12 @@ title: "Wiki maintain \u2014 self-maintenance loop + staleness doctrine"
 sources:
 - type: code
   path: portal/platform/wiki/maintain.py
+- type: code
+  path: portal/platform/plugins.py
+- type: code
+  path: portal/modules/security/plugin.py
+- type: code
+  path: portal/modules/security/wiki_seed.py
   commit: e5c013b3dfd9e466a1964ca4832ddcc379b95488
 claims: []
 confidence: high
@@ -16,9 +22,9 @@ updated_at: 1785797305.434397
 ---
 
 The maintain module is the self-maintenance loop for the wiki: it re-runs
-the machine-derived seeders, updates WHAT units in place, re-cites them to the
-current commit, and reports staleness. Its snapshot-diff discipline means a
-no-change run produces no churn.
+the machine-derived seeders, including those registered by module plugins,
+updates WHAT units in place, re-cites them to the current commit, and reports
+staleness. Its snapshot-diff discipline means a no-change run produces no churn.
 
 ## Why
 
@@ -34,7 +40,9 @@ list rather than rewriting files for no reason.
 
 ## Interfaces
 
-`update_what_units` re-runs the code, signature, and fact seeders;
+`plugins.py` discovers module hooks for CLI commands, wiki probes, wiki
+seeders, and document reading. `update_what_units` re-runs the code, signature,
+and fact seeders;
 `check_staleness` compares stored derived bodies against fresh derivations
 and returns the stale list; `wiki_status` reports total/what/why/mixed
 counts, staleness, and integrity issues; `canonical_snapshot_hash` is the
