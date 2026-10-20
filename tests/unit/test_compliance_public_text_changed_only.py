@@ -21,7 +21,6 @@ def _small_repo(tmp_path: Path, content: dict[str, str]) -> Path:
         path.write_text(body)
     subprocess.run(["git", "-C", str(repo), "add", "-A"], check=True)
     subprocess.run(["git", "-C", str(repo), "commit", "-q", "-m", "first"], check=True)
-    # Return the repo path — all files are in "HEAD" relative to this root
     return repo
 
 
@@ -37,7 +36,6 @@ def test_full_scan_without_env_var(tmp_path: Path) -> None:
     status, detail, findings = hk.audit(root, content=False)
     assert status == "PASS"
     assert findings == []
-    # content=True without env var should still say "content scan ran" (not changed-only)
     status2, detail2, _ = hk.audit(root, content=True)
     assert "content scan ran" in detail2
     assert "changed-only" not in detail2
@@ -49,31 +47,25 @@ def test_changed_only_scans_only_diff(tmp_path: Path) -> None:
     subprocess.run(["git", "init", "-q", str(repo)], check=True)
     subprocess.run(["git", "-C", str(repo), "config", "user.email", "test@test"], check=True)
     subprocess.run(["git", "-C", str(repo), "config", "user.name", "Test"], check=True)
-    # First commit
     (repo / "reports" / "compliance" / "README.md").parent.mkdir(parents=True, exist_ok=True)
     (repo / "reports" / "compliance" / "README.md").write_text("public summary")
     (repo / "unchanged.txt").write_text("still the same")
     (repo / "change_me.txt").write_text("old content")
     subprocess.run(["git", "-C", str(repo), "add", "-A"], check=True)
     subprocess.run(["git", "-C", str(repo), "commit", "-q", "-m", "first"], check=True)
-    # Create origin/main pointing at the first commit (so merge-base works in temp repos)
     first_commit = subprocess.run(
         ["git", "-C", str(repo), "rev-parse", "HEAD"], capture_output=True, text=True, check=True
     ).stdout.strip()
     subprocess.run(["git", "-C", str(repo), "branch", "origin/main", first_commit], check=True)
-    # Second commit: change only change_me.txt
     (repo / "change_me.txt").write_text("new content")
     subprocess.run(["git", "-C", str(repo), "add", "-A"], check=True)
     subprocess.run(["git", "-C", str(repo), "commit", "-q", "-m", "second"], check=True)
 
-    # _changed_files should return only the changed files
     changed = hk._changed_files(repo)
     assert "change_me.txt" in changed
-    # unchanged.txt and README.md were in the first commit and not modified
     assert "unchanged.txt" not in changed
     assert "reports/compliance/README.md" not in changed
 
-    # Explicit _changed_only=True should use the changed list
     status, detail, findings = hk.audit(repo, content=True, _changed_only=True)
     assert "changed-only" in detail
     assert status == "PASS"  # no operator text in either file
@@ -107,6 +99,5 @@ def test_no_merge_base_falls_back_to_full(tmp_path: Path) -> None:
     subprocess.run(["git", "-C", str(root), "add", "-A"], check=True)
     subprocess.run(["git", "-C", str(root), "commit", "-q", "-m", "first"], check=True)
 
-    # No origin/main, so merge-base fails
     changed = hk._changed_files(root)
     assert changed == ["first.txt"]

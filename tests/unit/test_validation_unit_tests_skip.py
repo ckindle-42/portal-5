@@ -11,7 +11,6 @@ from scripts.validation.inference import check_unit_tests
 
 def test_skip_on_matching_clean_tree(tmp_path: Path) -> None:
     """When the marker matches HEAD^{tree} and status is clean, returns PASS without running pytest."""
-    # Create a temporary git repo
     repo = tmp_path
     subprocess.run(["git", "init", "-q", str(repo)], check=True)
     subprocess.run(["git", "-C", str(repo), "config", "user.email", "test@test"], check=True)
@@ -26,7 +25,6 @@ def test_skip_on_matching_clean_tree(tmp_path: Path) -> None:
     marker = Path(repo) / ".git" / "portal5_unit_pass"
     marker.write_text(tree + "\n", encoding="utf-8")
 
-    # Patch REPO_ROOT so check_unit_tests looks at our temp repo
     import scripts.validation.inference as inf
 
     original_root = inf.REPO_ROOT
@@ -63,7 +61,6 @@ def test_runs_when_marker_mismatch(tmp_path: Path) -> None:
             mock_run.return_value = type("R", (), {"returncode": 0, "stdout": "= 5 passed =\n"})()
             status, detail, sub = check_unit_tests()
             assert status == "PASS"
-            # Should NOT contain the skip message
             assert "already passed" not in detail
     finally:
         inf.REPO_ROOT = original_root
@@ -84,7 +81,6 @@ def test_runs_when_dirty_tree(tmp_path: Path) -> None:
     ).stdout.strip()
     marker = Path(repo) / ".git" / "portal5_unit_pass"
     marker.write_text(tree + "\n", encoding="utf-8")
-    # Create a dirty file
     (repo / "dirty.txt").write_text("modified")
 
     import scripts.validation.inference as inf
