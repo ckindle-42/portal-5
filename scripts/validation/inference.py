@@ -174,8 +174,37 @@ def check_unit_tests(*, skip_env_only: bool = True) -> tuple[str, str, list[dict
     ABI ImportError that has nothing to do with the code under test. The repo's
     ``.venv`` (or ``uv run``) is the only interpreter guaranteed to match how
     the tests are actually developed and how CI runs them.
+
+    Skips (PASS) when the pre-commit hook already passed this tree and the tree is clean.
     """
     import shutil
+
+    gp = subprocess.run(
+        ["git", "rev-parse", "--git-path", "portal5_unit_pass"],
+        capture_output=True,
+        text=True,
+        timeout=30,
+        cwd=str(REPO_ROOT),
+    )
+    marker = REPO_ROOT / gp.stdout.strip() if gp.returncode == 0 else None
+    if marker is not None and marker.exists():
+        recorded = marker.read_text(encoding="utf-8").strip()
+        tree = subprocess.run(
+            ["git", "rev-parse", "HEAD^{tree}"],
+            capture_output=True,
+            text=True,
+            timeout=30,
+            cwd=str(REPO_ROOT),
+        )
+        status = subprocess.run(
+            ["git", "status", "--porcelain"],
+            capture_output=True,
+            text=True,
+            timeout=30,
+            cwd=str(REPO_ROOT),
+        )
+        if tree.returncode == 0 and tree.stdout.strip() == recorded and not status.stdout.strip():
+            return "PASS", f"tests/unit already passed for tree {recorded}", []
 
     venv_py = REPO_ROOT / ".venv" / "bin" / "python"
     if venv_py.exists():

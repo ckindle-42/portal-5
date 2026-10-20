@@ -37,7 +37,9 @@ repos:
         # resolve to an unrelated global interpreter (e.g. Homebrew) instead
         # of this project's .venv, silently running against the wrong
         # Python/site-packages. See CLAUDE.md Tech Stack section.
-        entry: uv run python3 scripts/validate_system.py --skip-pytest
+        # PORTAL5_VALIDATE_CHANGED_ONLY=1 restricts the slow HK content scan
+        # to files changed since merge-base with origin/main.
+        entry: PORTAL5_VALIDATE_CHANGED_ONLY=1 uv run python3 scripts/validate_system.py --skip-pytest
         pass_filenames: false
         files: ^(portal/|config/|portal_wiki/|scripts/|deploy/|tests/)
         stages: [pre-push]
@@ -55,7 +57,9 @@ repos:
       - id: pytest-unit
         name: pytest unit suite
         language: system
-        entry: uv run pytest tests/unit -n auto -x --tb=short -q
+        # Wrapper records the passing tree hash for the H check in
+        # validate_system.py to skip redundant re-runs at push time.
+        entry: uv run python3 scripts/pytest_unit_with_tree_marker.py
         pass_filenames: false
         always_run: true
         stages: [pre-commit]
