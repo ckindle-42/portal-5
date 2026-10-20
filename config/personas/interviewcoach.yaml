@@ -1,5 +1,6 @@
 name: "🎤 Interview Coach"
 slug: interviewcoach
+delivery: role
 category: general
 workspace_model: auto-creative
 preferred_models:

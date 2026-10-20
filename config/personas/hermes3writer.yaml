@@ -1,5 +1,6 @@
 name: Hermes Narrative Writer
 slug: hermes3writer
+delivery: role
 category: writing
 workspace_model: auto-creative
 preferred_models:

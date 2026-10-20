@@ -1,5 +1,6 @@
 name: Creative Coder
 slug: creativecoder
+delivery: role
 category: development
 workspace_model: auto-coding
 preferred_models:

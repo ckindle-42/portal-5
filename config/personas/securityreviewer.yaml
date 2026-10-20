@@ -1,5 +1,6 @@
 name: Security Review Analyst
 slug: securityreviewer
+delivery: role
 category: security
 workspace_model: security-reviewer
 ide_expose: true

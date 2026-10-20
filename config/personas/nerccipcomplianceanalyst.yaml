@@ -1,5 +1,6 @@
 name: NERC CIP Compliance Analyst
 slug: nerccipcomplianceanalyst
+delivery: role
 category: compliance
 workspace_model: auto-compliance
 preferred_models:

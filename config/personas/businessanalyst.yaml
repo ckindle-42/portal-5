@@ -1,5 +1,6 @@
 name: "📊 Business Analyst"
 slug: businessanalyst
+delivery: role
 category: general
 workspace_model: auto-reasoning
 preferred_models:

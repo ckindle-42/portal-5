@@ -1,5 +1,6 @@
 name: "📚 Documentation Architect"
 slug: documentationarchitect
+delivery: role
 category: writing
 workspace_model: auto-documents
 preferred_models:

@@ -1,5 +1,6 @@
 name: "📋 Product Manager"
 slug: productmanager
+delivery: role
 category: general
 workspace_model: auto-reasoning
 preferred_models:

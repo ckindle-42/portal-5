@@ -1,5 +1,6 @@
 name: Phi-4 Technical Analyst
 slug: phi4specialist
+delivery: role
 category: reasoning
 workspace_model: auto-documents
 preferred_models:

@@ -1,5 +1,6 @@
 name: CIP Policy Writer
 slug: cippolicywriter
+delivery: role
 category: compliance
 workspace_model: auto-compliance
 preferred_models:

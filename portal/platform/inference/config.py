@@ -263,6 +263,10 @@ class PersonaSpec(BaseModel):
     # /v1/models can advertise it without exposing every persona in the repo.
     ide_expose: bool = False
 
+    # role: instructions only, seeded as an Open WebUI slash prompt (`/slug `).
+    # persona (default): seeded as an Open WebUI model preset, as before.
+    delivery: Literal["persona", "role"] = "persona"
+
 
 class McpServerCommand(BaseModel):
     """Command spec for local (stdio) MCP servers registered in IDE configs."""

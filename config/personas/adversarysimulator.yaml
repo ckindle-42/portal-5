@@ -1,5 +1,6 @@
 name: Adversary Simulator
 slug: adversarysimulator
+delivery: role
 category: security
 workspace_model: auto-security
 preferred_models:

@@ -1,6 +1,7 @@
 category: development
 name: Kubernetes & Docker RPG Learning Engine
 slug: kubernetesdockerrpglearningengine
+delivery: role
 source: prompts.chat
 system_prompt: |-
   TITLE: Kubernetes & Docker RPG Learning Engine

@@ -1,5 +1,6 @@
 name: "⚡ Gemma Fast"
 slug: gemma_fast
+delivery: role
 workspace_model: auto-daily
 preferred_models:
   - gemma4:26b-a4b-it-qat-ctx8k

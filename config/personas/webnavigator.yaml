@@ -1,5 +1,6 @@
 name: "🧭 Web Navigator"
 slug: webnavigator
+delivery: role
 category: general
 # workspace_model: auto + abliterated preferred_models is intentional (task
 # completion on the user's own accounts without reflexive refusals). The system

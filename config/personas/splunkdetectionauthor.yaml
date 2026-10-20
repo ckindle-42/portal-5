@@ -1,5 +1,6 @@
 name: "🔍 Splunk Detection Author"
 slug: splunkdetectionauthor
+delivery: role
 category: security
 workspace_model: auto-spl
 preferred_models:

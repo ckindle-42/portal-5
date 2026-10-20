@@ -1,5 +1,6 @@
 name: Excel Sheet
 slug: excelsheet
+delivery: role
 category: data
 source: prompts.chat
 workspace_model: auto-coding

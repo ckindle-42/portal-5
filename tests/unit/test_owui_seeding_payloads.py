@@ -71,7 +71,7 @@ def _build_persona_payload(persona: dict) -> dict:
 
 
 def test_persona_presets_match_snapshot() -> None:
-    """Every persona preset payload must match the M3 oracle byte-for-byte."""
+    """Every non-role persona preset payload must match the M3 oracle byte-for-byte."""
     snap = json.loads(PERSONAS_SNAP.read_text())
 
     diffs = []
@@ -80,6 +80,8 @@ def test_persona_presets_match_snapshot() -> None:
             persona = yaml.safe_load(f.read_text()) or {}
         except Exception as e:
             diffs.append(f"{f.name}: parse error {e}")
+            continue
+        if persona.get("delivery") == "role":
             continue
         slug = persona.get("slug", f.stem)
         payload = _build_persona_payload(persona)
@@ -111,6 +113,64 @@ def test_no_orphan_preset_points_at_missing_slug() -> None:
     snap = json.loads(PERSONAS_SNAP.read_text())
     orphan_slugs = set(snap.keys()) - persona_slugs
     assert not orphan_slugs, f"Persona snapshot entries with no YAML: {sorted(orphan_slugs)}"
+
+
+_BEHAVIOUR_KEYS = (
+    "tools_allow",
+    "tools_deny",
+    "tool_choice",
+    "variant",
+    "workspace",
+    "model_pin",
+)
+
+
+def _raw_personas() -> list[dict]:
+    loaded = []
+    for path in sorted(PERSONAS_DIR.glob("*.yaml")):
+        raw = yaml.safe_load(path.read_text()) or {}
+        raw.setdefault("slug", path.stem)
+        loaded.append(raw)
+    return loaded
+
+
+def _has_behaviour(raw: dict) -> bool:
+    # preferred_models is dead config and does not count.
+    return any(key in raw and raw[key] not in (None, [], "") for key in _BEHAVIOUR_KEYS)
+
+
+def _seeder():
+    import importlib.util
+    import os
+
+    os.environ.setdefault("OPENWEBUI_ADMIN_PASSWORD", "test-not-used")
+    spec = importlib.util.spec_from_file_location(
+        "openwebui_init_role_seed", REPO / "scripts" / "openwebui_init.py"
+    )
+    assert spec is not None and spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+def test_roles_are_prompt_seeds_not_model_presets() -> None:
+    """Prompt-only personas are delivery: role. Counts come from the YAML, not a literal."""
+    raws = _raw_personas()
+    prompt_only = {raw["slug"] for raw in raws if not _has_behaviour(raw)}
+    roles = {raw["slug"] for raw in raws if raw.get("delivery") == "role"}
+    kept = {raw["slug"] for raw in raws if raw.get("delivery", "persona") == "persona"}
+    assert roles == prompt_only
+    assert roles.isdisjoint(kept)
+    assert roles | kept == {raw["slug"] for raw in raws}
+    seeder = _seeder()
+    seeded = [seeder.role_prompt_payload(raw) for raw in raws if seeder.persona_is_role(raw)]
+    assert {item["command"] for item in seeded} == roles
+    by_slug = {raw["slug"]: raw for raw in raws}
+    for item in seeded:
+        raw = by_slug[item["command"]]
+        assert item["name"] == raw["name"]
+        assert item["content"] == f"/{raw['slug']} "
+    assert all(not seeder.persona_is_role(raw) for raw in raws if raw["slug"] in kept)
 
 
 def test_persona_count_matches_snapshot() -> None:

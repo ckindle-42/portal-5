@@ -1,5 +1,6 @@
 name: "✏️ Proofreader"
 slug: proofreader
+delivery: role
 category: writing
 workspace_model: auto-creative
 preferred_models:

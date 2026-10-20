@@ -1,5 +1,6 @@
 name: STEM Analyst
 slug: phi4stemanalyst
+delivery: role
 category: data
 workspace_model: auto-reasoning
 module: general

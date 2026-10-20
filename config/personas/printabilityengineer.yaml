@@ -1,5 +1,6 @@
 name: 3D-Print Printability Engineer
 slug: printabilityengineer
+delivery: role
 category: development
 workspace_model: auto-cad
 preferred_models:

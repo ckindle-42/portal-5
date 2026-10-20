@@ -1,5 +1,6 @@
 name: "🐹 Go Engineer"
 slug: goengineer
+delivery: role
 category: development
 workspace_model: auto-coding
 preferred_models:

@@ -1,5 +1,6 @@
 name: Creative Writer
 slug: creativewriter
+delivery: role
 category: writing
 workspace_model: auto-creative
 preferred_models:

@@ -8,6 +8,7 @@ Handles:
   2. MCP Tool Server registration via POST /api/v1/tools/server/
   3. Workspace model preset creation from imports/openwebui/workspaces/
   4. Persona model preset creation from config/personas/*.yaml
+     (delivery: role personas are slash prompts, not model presets)
   5. User management settings (signup mode, default role)
 
 Environment variables:
@@ -428,6 +429,141 @@ async def create_workspaces_async(client: httpx.AsyncClient, token: str) -> None
 # --- Persona Presets -----------------------------------------------------------
 
 
+def persona_is_role(persona: dict) -> bool:
+    """True when the YAML says this persona is delivered as a slash-command role."""
+    return persona.get("delivery") == "role"
+
+
+def role_prompt_payload(persona: dict) -> dict[str, str]:
+    """Open WebUI v0.12.3 PromptForm. `name` is the slash-menu title; content is `/slug `."""
+    slug = str(persona.get("slug") or "")
+    return {
+        "command": slug,
+        "name": str(persona.get("name") or slug),
+        "content": f"/{slug} ",
+    }
+
+
+def _load_persona_yaml(personas_dir: Path) -> list[dict]:
+    import yaml as _yaml
+
+    if not personas_dir.exists():
+        return []
+    loaded: list[dict] = []
+    for path in sorted(personas_dir.glob("*.yaml")):
+        try:
+            raw = _yaml.safe_load(path.read_text()) or {}
+        except Exception as exc:
+            print(f"  Skip {path.name}: parse error — {exc}")
+            continue
+        if isinstance(raw, dict):
+            raw.setdefault("slug", path.stem)
+            loaded.append(raw)
+    return loaded
+
+
+async def _fetch_prompts(client: httpx.AsyncClient, token: str) -> list[dict]:
+    """GET /api/v1/prompts/ — a list on v0.12.3, or a paged {items|data} envelope."""
+    try:
+        resp = await client.get(
+            f"{OPENWEBUI_URL}/api/v1/prompts/", headers=auth_headers(token), timeout=10.0
+        )
+    except Exception as exc:
+        print(f"  Warning: could not list prompts: {exc}")
+        return []
+    if resp.status_code != 200:
+        print(f"  Warning: could not list prompts: HTTP {resp.status_code}")
+        return []
+    data = resp.json()
+    if isinstance(data, list):
+        return [item for item in data if isinstance(item, dict)]
+    if isinstance(data, dict):
+        items = data.get("items") or data.get("data") or []
+        return [item for item in items if isinstance(item, dict)]
+    return []
+
+
+async def _delete_role_model_presets(
+    client: httpx.AsyncClient,
+    token: str,
+    role_slugs: list[str],
+    preset_ids: set[str],
+) -> None:
+    """Remove OWUI model presets for roles. Pipeline connection ids are left alone."""
+    for slug in role_slugs:
+        if slug not in preset_ids:
+            continue
+        try:
+            resp = await client.post(
+                f"{OPENWEBUI_URL}/api/v1/models/model/delete",
+                json={"id": slug},
+                headers=auth_headers(token),
+                timeout=10.0,
+            )
+        except Exception as exc:
+            print(f"  Warning: could not remove role preset {slug}: {exc}")
+            continue
+        if resp.status_code in (200, 201):
+            print(f"  Removed role model preset: {slug}")
+        else:
+            print(f"  Warning: could not remove role preset {slug}: HTTP {resp.status_code}")
+
+
+async def create_role_prompts_async(
+    client: httpx.AsyncClient, token: str, personas_dir: Path
+) -> None:
+    """Seed one prompt-library entry per role: command=slug, content=`/slug `."""
+    print("\nCreating Role Prompts...")
+    roles = [
+        persona
+        for persona in _load_persona_yaml(personas_dir)
+        if persona_is_role(persona) and persona.get("slug")
+    ]
+    if not roles:
+        print("  Skipping — no delivery: role personas")
+        return
+    by_command = {str(item.get("command")): item for item in await _fetch_prompts(client, token)}
+    created = updated = skipped = failed = 0
+    for persona in roles:
+        payload = role_prompt_payload(persona)
+        current = by_command.get(payload["command"])
+        unchanged = (
+            current is not None
+            and current.get("name") == payload["name"]
+            and current.get("content") == payload["content"]
+        )
+        if unchanged:
+            skipped += 1
+            continue
+        if current is not None and current.get("id"):
+            url = f"{OPENWEBUI_URL}/api/v1/prompts/id/{current['id']}/update"
+            body: dict = payload
+            action = "updated"
+        else:
+            url = f"{OPENWEBUI_URL}/api/v1/prompts/create"
+            body = {**payload, "access_grants": []}
+            action = "created"
+        try:
+            resp = await client.post(url, json=body, headers=auth_headers(token), timeout=10.0)
+        except Exception as exc:
+            print(f"  Failed {payload['command']}: {exc}")
+            failed += 1
+            continue
+        if resp.status_code not in (200, 201):
+            print(f"  Failed {payload['command']}: HTTP {resp.status_code} {resp.text[:160]}")
+            failed += 1
+            continue
+        print(f"  {action.capitalize()} role prompt: {payload['command']}")
+        if action == "created":
+            created += 1
+        else:
+            updated += 1
+    print(
+        f"  Role prompts: {created} created, {updated} updated, "
+        f"{skipped} unchanged, {failed} failed"
+    )
+
+
 async def create_persona_presets_async(
     client: httpx.AsyncClient, token: str, personas_dir: Path
 ) -> None:
@@ -453,6 +589,9 @@ async def create_persona_presets_async(
     # can collide with these connection IDs, producing 401 "already registered"
     # on create. We check both endpoints and merge the ID sets.
     existing_ids: set[str] = set()
+    # /export is user presets only. /api/models also lists pipeline connections;
+    # a role slug that is only a connection id must not be deleted.
+    preset_ids: set[str] = set()
 
     # 1. Fetch model presets via /export (unpaginated, returns all presets)
     for attempt in range(3):
@@ -470,6 +609,7 @@ async def create_persona_presets_async(
                 for m in items:
                     if isinstance(m, dict):
                         existing_ids.add(m.get("id", ""))
+                        preset_ids.add(m.get("id", ""))
                 break
         except Exception as e:
             if attempt == 2:
@@ -507,6 +647,7 @@ async def create_persona_presets_async(
 
     # Build persona payloads first (file reads, not network I/O)
     persona_payloads = []
+    role_slugs: list[str] = []
     for f in persona_files:
         try:
             persona = _yaml.safe_load(f.read_text())
@@ -514,6 +655,9 @@ async def create_persona_presets_async(
             print(f"  Skip {f.name}: parse error — {e}")
             continue
         slug = persona.get("slug", f.stem)
+        if persona_is_role(persona):
+            role_slugs.append(slug)
+            continue
         name = persona.get("name", slug)
         if persona.get("prompt_template"):
             template_path = PERSONA_PROMPTS_DIR / f"{persona['prompt_template']}.txt"
@@ -569,6 +713,8 @@ async def create_persona_presets_async(
                 },
             )
         )
+
+    await _delete_role_model_presets(client, token, role_slugs, preset_ids)
 
     # Open WebUI stores presets in SQLite: ~110 concurrent delete+create calls hit
     # "database is locked" (HTTP 500) on a few presets every reseed. Bound the fan-out
@@ -910,6 +1056,7 @@ async def main() -> int:
             register_tool_servers_async(async_client, token),
             create_workspaces_async(async_client, token),
             create_persona_presets_async(async_client, token, PERSONAS_DIR),
+            create_role_prompts_async(async_client, token, PERSONAS_DIR),
         )
     finally:
         await async_client.aclose()

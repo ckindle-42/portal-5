@@ -1,5 +1,6 @@
 name: 🔬 Bench · Qwen3.6-27B Abliterated (huihui-ai)
 slug: bench-qwen36-abl-27b
+delivery: role
 category: benchmark
 workspace_model: bench-huihui-qwen36-27b
 preferred_models:

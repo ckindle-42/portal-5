@@ -1,5 +1,6 @@
 name: CAD 3D Designer
 slug: caddesigner
+delivery: role
 category: development
 workspace_model: auto-cad
 preferred_models:

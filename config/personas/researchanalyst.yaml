@@ -1,5 +1,6 @@
 name: Research Analyst
 slug: researchanalyst
+delivery: role
 category: data
 workspace_model: auto-research
 preferred_models:

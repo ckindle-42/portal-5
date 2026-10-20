@@ -1,5 +1,6 @@
 name: "📝 Form Filler"
 slug: formfiller
+delivery: role
 category: development
 workspace_model: auto-coding
 preferred_models:

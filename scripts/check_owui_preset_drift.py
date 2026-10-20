@@ -89,6 +89,8 @@ def expected_personas(personas: Path = REPO / "config" / "personas") -> list[dic
     for f in sorted(personas.glob("*.yaml")):
         p = yaml.safe_load(f.read_text()) or {}
         slug = p.get("slug", f.stem)
+        if p.get("delivery") == "role":
+            continue
         if p.get("prompt_template"):
             tpl = prompts / f"{p['prompt_template']}.txt"
             if not tpl.is_file():

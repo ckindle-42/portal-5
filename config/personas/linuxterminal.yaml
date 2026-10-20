@@ -1,5 +1,6 @@
 name: Linux Terminal
 slug: linuxterminal
+delivery: role
 category: systems
 source: prompts.chat
 workspace_model: auto-coding

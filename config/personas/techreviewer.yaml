@@ -1,5 +1,6 @@
 name: Tech Reviewer
 slug: techreviewer
+delivery: role
 category: general
 source: prompts.chat
 # workspace_model: auto + abliterated preferred_models is intentional (candid

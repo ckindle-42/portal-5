@@ -1,5 +1,6 @@
 name: "🦀 Rust Engineer"
 slug: rustengineer
+delivery: role
 category: development
 workspace_model: auto-coding
 preferred_models:

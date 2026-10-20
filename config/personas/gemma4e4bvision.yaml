@@ -1,5 +1,6 @@
 name: Gemma 4 Edge Vision
 slug: gemma4e4bvision
+delivery: role
 category: vision
 workspace_model: auto-vision
 preferred_models:

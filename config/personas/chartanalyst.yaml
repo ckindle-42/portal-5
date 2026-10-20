@@ -1,5 +1,6 @@
 name: "📊 Chart Analyst"
 slug: chartanalyst
+delivery: role
 category: vision
 workspace_model: auto-vision
 preferred_models:

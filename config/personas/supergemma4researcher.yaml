@@ -1,5 +1,6 @@
 name: SuperGemma4 Uncensored Researcher
 slug: supergemma4researcher
+delivery: role
 category: research
 workspace_model: auto-research
 preferred_models:

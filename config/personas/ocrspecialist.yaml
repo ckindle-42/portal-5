@@ -1,5 +1,6 @@
 name: "👁️📄 OCR Specialist"
 slug: ocrspecialist
+delivery: role
 category: vision
 workspace_model: auto-vision
 preferred_models:

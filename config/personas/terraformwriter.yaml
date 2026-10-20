@@ -1,5 +1,6 @@
 name: "🏗️ Terraform Writer"
 slug: terraformwriter
+delivery: role
 category: systems
 workspace_model: auto-coding
 preferred_models:

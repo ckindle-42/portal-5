@@ -1,5 +1,6 @@
 name: "🔒 SOC 2 Auditor"
 slug: soc2auditor
+delivery: role
 category: compliance
 workspace_model: auto-compliance
 preferred_models:

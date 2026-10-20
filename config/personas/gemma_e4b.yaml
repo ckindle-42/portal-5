@@ -1,5 +1,6 @@
 name: "🎯 Gemma E4B"
 slug: gemma_e4b
+delivery: role
 workspace_model: auto-daily
 preferred_models:
   - gemma4:26b-a4b-it-qat-ctx8k

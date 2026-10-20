@@ -138,6 +138,164 @@ def test_prompt_template_persona_uses_the_template_file() -> None:
     assert out["messages"][0]["content"] == expected
 
 
+def _post_route(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch, payload: dict[str, Any]
+) -> tuple[dict[str, Any], str]:
+    import portal.platform.inference.router.handlers as handlers_mod
+
+    seen: dict[str, Any] = {}
+
+    async def capture(*args: Any, **_kwargs: Any) -> JSONResponse:
+        seen["body"] = args[1]
+        workspace = args[2]
+        return JSONResponse(
+            {
+                "id": "chatcmpl-test",
+                "choices": [{"message": {"role": "assistant", "content": "ok"}}],
+            },
+            headers={"x-portal-route": f"{workspace};fake;m"},
+        )
+
+    monkeypatch.setattr(handlers_mod, "_try_non_streaming", capture)
+    response = client.post("/v1/chat/completions", json=payload, headers=_HEADERS)
+    assert response.status_code == 200, response.text
+    return seen["body"], response.headers["x-portal-route"]
+
+
+def test_role_slash_keeps_the_engine_and_injects_the_prompt(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    prompt = _PERSONA_MAP["proofreader"].system_prompt
+    body, route = _post_route(
+        client,
+        monkeypatch,
+        {
+            "model": "auto-daily",
+            "messages": [{"role": "user", "content": "/proofreader hello"}],
+        },
+    )
+    assert route.startswith("auto-daily;")
+    assert body["model"] == "auto-daily"
+    assert _system(body).startswith(prompt)
+    user = next(message for message in body["messages"] if message["role"] == "user")
+    assert user["content"] == "hello"
+
+
+def test_unknown_slash_is_untouched(client: TestClient, monkeypatch: pytest.MonkeyPatch) -> None:
+    messages = [{"role": "user", "content": "/not-a-persona hello"}]
+    body = _post(client, monkeypatch, {"model": "auto-spl", "messages": messages})
+    assert body["messages"] == messages
+
+
+def test_slash_without_the_separating_space_is_untouched(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    messages = [{"role": "user", "content": "/proofreader"}]
+    body = _post(client, monkeypatch, {"model": "auto-spl", "messages": messages})
+    assert body["messages"] == messages
+
+
+def test_persona_slash_does_not_follow_the_persona_workspace(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    prompt = _PERSONA_MAP["proofreader"].system_prompt
+    body, route = _post_route(
+        client,
+        monkeypatch,
+        {
+            "model": "auto-spl",
+            "messages": [{"role": "user", "content": "/proofreader hello"}],
+        },
+    )
+    assert route.startswith("auto-spl;")
+    assert _system(body).startswith(prompt)
+    user = next(message for message in body["messages"] if message["role"] == "user")
+    assert user["content"] == "hello"
+
+
+def test_role_slash_streams_on_the_same_engine(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import portal.platform.inference.router.handlers as handlers_mod
+
+    prompt = _PERSONA_MAP["proofreader"].system_prompt
+    seen: dict[str, Any] = {}
+
+    async def capture_build(
+        body: dict[str, Any],
+        _backend: Any,
+        _target_model: str,
+        workspace_id: str,
+        _persona: str,
+    ) -> tuple[dict[str, Any], list[str], bool, bool]:
+        seen["body"] = body
+        seen["workspace"] = workspace_id
+        return body, [], False, True
+
+    def select_backend(_workspace_id: str, candidates: list[Any]) -> tuple[Any, ...]:
+        return candidates[0], "m", "", [], "", ""
+
+    async def chunks(*_args: Any, **_kwargs: Any) -> Any:
+        yield b"data: [DONE]\n\n"
+
+    monkeypatch.setattr(handlers_mod, "_build_streaming_request", capture_build)
+    monkeypatch.setattr(handlers_mod, "_select_streaming_backend", select_backend)
+    monkeypatch.setattr(handlers_mod, "_select_stream_fn", lambda *_a, **_k: chunks())
+    monkeypatch.setattr(handlers_mod, "_stream_with_fallback", chunks)
+    response = client.post(
+        "/v1/chat/completions",
+        json={
+            "model": "auto-daily",
+            "stream": True,
+            "messages": [{"role": "user", "content": "/proofreader hello"}],
+        },
+        headers=_HEADERS,
+    )
+    assert response.status_code == 200, response.text
+    assert seen["workspace"] == "auto-daily"
+    assert seen["body"]["model"] == "auto-daily"
+    assert _system(seen["body"]).startswith(prompt)
+    user = next(message for message in seen["body"]["messages"] if message["role"] == "user")
+    assert user["content"] == "hello"
+
+
+def test_follow_up_keeps_the_role_prompt_and_strips_history() -> None:
+    from portal.platform.inference.router.preinject import _inject_requested_prompts
+
+    prompt = _PERSONA_MAP["proofreader"].system_prompt
+    out = _inject_requested_prompts(
+        "auto-spl",
+        {
+            "messages": [
+                {"role": "user", "content": "/proofreader fix: teh cat"},
+                {"role": "assistant", "content": "fixed"},
+                {"role": "user", "content": "and the title"},
+            ]
+        },
+    )
+    assert out["messages"][0]["content"].startswith(prompt)
+    assert out["messages"][1]["content"] == "fix: teh cat"
+    assert out["messages"][2]["content"] == "fixed"
+    assert out["messages"][3]["content"] == "and the title"
+
+
+def test_role_slash_strips_a_text_part() -> None:
+    from portal.platform.inference.router.preinject import _inject_requested_prompts
+
+    out = _inject_requested_prompts(
+        "auto-spl",
+        {
+            "messages": [
+                {
+                    "role": "user",
+                    "content": [{"type": "text", "text": "/proofreader hello"}],
+                }
+            ]
+        },
+    )
+    assert out["messages"][1]["content"][0]["text"] == "hello"
+
+
 def test_list_system_content_keeps_caller_after_the_persona_prompt() -> None:
     prompt = _PERSONA_MAP["agenticheavy"].system_prompt
     out = _inject_persona_system_prompt(
@@ -151,3 +309,12 @@ def test_list_system_content_keeps_caller_after_the_persona_prompt() -> None:
     content = out["messages"][0]["content"]
     assert content[0] == {"type": "text", "text": prompt}
     assert content[1]["text"] == "CALLER_SENTINEL"
+
+
+def test_behavioural_persona_slash_is_untouched(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Only delivery: role personas ride on another engine; a behavioural one keeps its tools."""
+    messages = [{"role": "user", "content": "/dailydriver hello"}]
+    body = _post(client, monkeypatch, {"model": "auto-spl", "messages": messages})
+    assert body["messages"] == messages

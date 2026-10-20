@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import logging
 import os
+import re
 from datetime import UTC, datetime
 from typing import Any
 
@@ -339,6 +340,65 @@ def _inject_persona_system_prompt(model_id: str, body: dict[str, Any]) -> dict[s
         updated["content"] = f"{prompt}{gap}{caller}" if caller else prompt
     messages[idx] = updated
     return {**body, "messages": messages}
+
+
+# A known persona slug, then one space. Anything else that starts with "/" stays.
+_ROLE_SLASH = re.compile(r"^/([A-Za-z0-9_-]+) (.*)$", re.DOTALL)
+
+
+def _strip_role_prefix(content: Any) -> tuple[str | None, Any]:
+    """Return (slug, content without the `/slug ` token) when the text starts with one."""
+    if isinstance(content, str):
+        match = _ROLE_SLASH.match(content)
+        persona = _PERSONA_MAP.get(match.group(1)) if match is not None else None
+        # Only prompt-only roles ride on another engine; behavioural personas keep their tools.
+        if match is not None and getattr(persona, "delivery", None) == "role":
+            return match.group(1), match.group(2)
+        return None, content
+    if isinstance(content, list) and content:
+        first = content[0]
+        if isinstance(first, dict):
+            text = first.get("text")
+        elif isinstance(first, str):
+            text = first
+        else:
+            text = None
+        if isinstance(text, str):
+            slug, rest = _strip_role_prefix(text)
+            if slug is not None:
+                updated: Any = {**first, "text": rest} if isinstance(first, dict) else rest
+                return slug, [updated, *content[1:]]
+    return None, content
+
+
+def _apply_role_slash(body: dict[str, Any]) -> tuple[dict[str, Any], str | None]:
+    """Strip a leading `/slug ` from user messages. The last slug wins."""
+    messages = body.get("messages") or []
+    role_slug: str | None = None
+    changed = False
+    updated_messages: list[Any] = []
+    for message in messages:
+        if not isinstance(message, dict) or message.get("role") != "user":
+            updated_messages.append(message)
+            continue
+        slug, content = _strip_role_prefix(message.get("content"))
+        if slug is None:
+            updated_messages.append(message)
+            continue
+        role_slug = slug
+        changed = True
+        updated_messages.append({**message, "content": content})
+    if not changed:
+        return body, None
+    return {**body, "messages": updated_messages}, role_slug
+
+
+def _inject_requested_prompts(model_id: str, body: dict[str, Any]) -> dict[str, Any]:
+    """Inject a slash-command persona prompt, then the model persona's prompt."""
+    body, role_slug = _apply_role_slash(body)
+    if role_slug:
+        body = _inject_persona_system_prompt(role_slug, body)
+    return _inject_persona_system_prompt(model_id, body)
 
 
 def _inject_system_prompt_append(workspace_id: str, body: dict[str, Any]) -> dict[str, Any]:

@@ -1,5 +1,6 @@
 name: "🏥 HIPAA Privacy Officer"
 slug: hipaaprivacyofficer
+delivery: role
 category: compliance
 workspace_model: auto-compliance
 preferred_models:

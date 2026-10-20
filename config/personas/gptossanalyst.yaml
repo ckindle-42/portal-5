@@ -1,5 +1,6 @@
 name: GPT-OSS Analyst
 slug: gptossanalyst
+delivery: role
 description: |
   GPT-OSS 20B — OpenAI open-weight MoE, o3-mini level reasoning. Use for second
   opinions vs Qwen/DeepSeek, structured tool-call planning, or configurable thinking depth.

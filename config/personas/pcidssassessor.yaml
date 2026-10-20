@@ -1,5 +1,6 @@
 name: "💳 PCI-DSS Assessor"
 slug: pcidssassessor
+delivery: role
 category: compliance
 workspace_model: auto-compliance
 preferred_models:

@@ -1,5 +1,6 @@
 name: "📐 Diagram Reader"
 slug: diagramreader
+delivery: role
 category: vision
 workspace_model: auto-vision
 preferred_models:

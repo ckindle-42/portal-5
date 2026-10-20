@@ -1,5 +1,6 @@
 name: "📈 Dashboard Architect"
 slug: dashboardarchitect
+delivery: role
 category: data
 workspace_model: auto-data
 preferred_models:
