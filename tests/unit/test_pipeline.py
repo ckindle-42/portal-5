@@ -1,5 +1,6 @@
 """Portal 5 v7.0.0 Pipeline unit tests — no live backends required."""
 
+import re
 from pathlib import Path
 from unittest.mock import MagicMock
 
@@ -8,6 +9,17 @@ from fastapi.testclient import TestClient
 
 from portal.platform.inference.cluster_backends import BackendRegistry
 from portal.platform.inference.router_pipe import WORKSPACES, app
+
+
+def _seat_is_lane_served(ws: dict, ws_id: str, backends: dict) -> None:
+    groups = set(backends["workspace_routing"][ws_id])
+    served = {
+        m["id"] for b in backends["backends"] if b["group"] in groups for m in b.get("models") or []
+    }
+    hint = ws["model_hint"]
+    assert hint in served, (ws_id, hint)
+    window = int(re.search(r"ctx(\d+)k", hint).group(1)) * 1024
+    assert window >= ws["context_limit"], (ws_id, hint, window)
 
 
 def _make_fake_backend():
@@ -389,22 +401,18 @@ class TestMetricsEndpoint:
 
 
 class TestWorkspaceModelHintUpdated:
-    """Verify model hints use the updated recs.md models."""
+    """Each specialist lane seats a wired model and keeps its own tool/thinking settings."""
 
-    def test_security_uses_baronllm(self):
-        # VulnLLM-R-7B promoted to auto-security primary 2026-06-20
-        # baronllm retained in auto-security-uncensored
+    def test_security_lane_keeps_its_toolset_and_gating(self):
         ws = WORKSPACES.get("auto-security", {})
-        hint = ws.get("model_hint", "").lower()
-        assert "vulnllm" in hint or "baronllm" in hint or "baron" in hint, (
-            "Security workspace should use a dedicated security model (VulnLLM-R-7B or baronllm)"
-        )
+        assert ws.get("model_hint") and ws.get("think") is False
+        assert {"lookup_cve", "check_kev", "triage_cve"} <= set(ws.get("tools") or [])
 
-    def test_coding_uses_qwen_or_glm(self):
+    def test_coding_lane_keeps_its_sandbox_toolset(self):
         ws = WORKSPACES.get("auto-coding", {})
-        hint = ws.get("model_hint", "").lower()
-        assert "qwen" in hint or "deepseek" in hint or "laguna" in hint, (
-            "Coding workspace should use a specialized coding model (qwen3-coder or similar)"
+        assert ws.get("model_hint")
+        assert {"execute_python", "execute_bash", "execute_nodejs", "sandbox_status"} <= set(
+            ws.get("tools") or []
         )
 
     def test_reasoning_seats_a_thinking_model(self):
@@ -459,7 +467,7 @@ class TestComplianceWorkspace:
                 f"{slug}: workspace_model should be a workspace ID (auto-*), got: {wm}"
             )
 
-    def test_workspace_count_is_14(self):
+    def test_workspace_set_matches_enabled_modules(self):
         """WORKSPACES equals the module-enabled workspace set (module: eval's bench-*
         gated off by default; `video` follows its own per-deployment toggle.
         Derived from enabled_modules() so it stays correct across both."""
@@ -481,8 +489,8 @@ class TestComplianceWorkspace:
         assert must_have <= set(WORKSPACES), f"missing: {must_have - set(WORKSPACES)}"
         assert "auto" in WORKSPACES
 
-    def test_eval_gate_loads_all_116(self, monkeypatch):
-        """PORTAL_ENABLE_EVAL=1 re-admits the 49 module: eval workspaces —
+    def test_eval_gate_reads_the_eval_module_workspaces(self, monkeypatch):
+        """PORTAL_ENABLE_EVAL=1 re-admits the module: eval workspaces —
         get_workspace_dict is called fresh here (not the module-level
         WORKSPACES constant, which is computed once at import time)."""
         from portal.platform.inference.config import get_workspace_dict, load_portal_config
@@ -520,61 +528,43 @@ class TestR17bModelExpansion:
                 f"FAIL: {model} not found in any backend group in backends.yaml"
             )
 
-    def test_documents_workspace_uses_fast_coding_model(self):
-        """auto-documents seats gemma4:26b-a4b (operator G1, 2026-10-18): WFE
-        wfe_documents_20261017h found it BETTER than granite4.1:8b and tied with Qwen3.8
-        at ~5.5x the speed (docs/WFE_DECISION_AUTO_DOCUMENTS_20261017.md).
-        """
-        hint = WORKSPACES["auto-documents"]["model_hint"]
-        assert "gemma4:26b-a4b" in hint.lower(), (
-            f"Expected auto-documents to use gemma4:26b-a4b, got: {hint}"
-        )
+    def test_documents_seat_is_served_by_its_lane(self):
+        """The WFE-decided auto-documents seat resolves in its routed groups
+        at a window >= its context_limit (R8: the lane property is the contract)."""
+        import yaml
+
+        backends = yaml.safe_load(open("config/backends.yaml"))
+        _seat_is_lane_served(WORKSPACES["auto-documents"], "auto-documents", backends)
 
 
 class TestR18ModelCompleteness:
     """Verify R18 model completeness: all recs.md + models.md models wired."""
 
-    def test_all_required_llm_models_in_backends(self):
-        """All recs.md + models.md LLM models are present in backends.yaml."""
+    def test_every_workspace_seat_resolves_in_the_catalog(self):
+        """Every base and variant model_hint resolves to a model id in backends.yaml."""
         import yaml
 
         cfg = yaml.safe_load(open("config/backends.yaml"))
-        all_models = []
-        for b in cfg["backends"]:
-            for m in b.get("models", []):
-                all_models.append(m["id"] if isinstance(m, dict) else m)
+        catalog = {
+            m["id"] if isinstance(m, dict) else m
+            for b in cfg["backends"]
+            for m in b.get("models", [])
+        }
+        portal = yaml.safe_load(open("config/portal.yaml"))["workspaces"]
+        for wid, spec in portal.items():
+            seats = [spec.get("model_hint")] + [
+                var.get("model_hint") for var in (spec.get("variants") or {}).values()
+            ]
+            for hint in seats:
+                assert not hint or hint in catalog, (wid, hint)
 
-        required = [
-            # Security
-            "baronllm-abliterated",  # BaronLLM (auto-security + auto-pentest primary; q6_k removed SECURITY_FLEET_REVIEW_2026-06)
-            "hf.co/mradermacher/VulnLLM-R-7B-GGUF",  # VulnLLM-R-7B promoted to auto-security primary 2026-06-20
-            # lily-cybersecurity and dolphin3-r1-mistral removed 2026-06-20 (pruned from fleet)
-            # whiterabbitneo:33b-v1.5 and dolphin-llama3:70b intentionally removed (2026-06-16)
-            # Coding (Ollama GGUF only — MLX retired)
-            # glm-4.7-flash removed 2026-06-21: quality 0.67 (below 0.83 floor), bench-only
-            # llama3.3:70b-q4_k_m removed 2026-06-21: 3.8 TPS, supports_tools=false, bench-only
-            # Reasoning
-            "deepseek-r1:32b-q4_k_m",  # DeepSeek-R1-Distill-Qwen-32B
-        ]
-        for frag in required:
-            found = any(frag.lower() in m.lower() for m in all_models)
-            assert found, (
-                f"Model fragment '{frag}' not found in any backend group.\n"
-                f"  All models: {all_models}"
-            )
+    def test_key_lane_seats_are_served_by_their_routing_groups(self):
+        """Each key lane's seat resolves in its routed groups at >= its context window."""
+        import yaml
 
-    def test_router_hints_use_best_models(self):
-        """Key workspaces use the recommended primary model hints."""
-        assert "qwen3-coder" in WORKSPACES["auto-coding"]["model_hint"].lower(), (
-            "auto-coding should use qwen3-coder:30b-a3b-q4_K_M (Qwen3-Coder-30B MoE, primary coder, promoted V2 Phase 6)"
-        )
-        assert "gemma4:26b-a4b" in WORKSPACES["auto-documents"]["model_hint"].lower(), (
-            "auto-documents should use gemma4:26b-a4b (WFE wfe_documents_20261017h, operator G1 2026-10-18)"
-        )
-        # R23: VulnLLM-R-7B promoted to auto-security primary 2026-06-20
-        assert "vulnllm-r-7b" in WORKSPACES["auto-security"]["model_hint"].lower(), (
-            "auto-security should use VulnLLM-R-7B (UCSB SURFI, AppSec/CVE/CWE specialist, promoted 2026-06-20)"
-        )
+        backends = yaml.safe_load(open("config/backends.yaml"))
+        for wid in ("auto-coding", "auto-documents", "auto-security"):
+            _seat_is_lane_served(WORKSPACES[wid], wid, backends)
         from portal.platform.inference.router.preinject import (
             _resolve_workspace_variant,
             _unpack_synthetic_workspace,
@@ -582,11 +572,7 @@ class TestR18ModelCompleteness:
 
         base, variant = _unpack_synthetic_workspace("auto-security::blueteam")
         blueteam_id = _resolve_workspace_variant("auto-security::blueteam", base, variant)
-        assert "granite4.1" in WORKSPACES[blueteam_id]["model_hint"].lower(), (
-            "auto-blueteam (now auto-security's 'blueteam' variant, Phase 6) should use "
-            "Granite 4.1 8B (sylink is a reasoning model that doesn't call tools — "
-            "switched for autonomous investigation capability)"
-        )
+        _seat_is_lane_served(WORKSPACES[blueteam_id], "auto-security", backends)
 
     def test_env_example_has_pull_heavy(self):
         """env.example documents PULL_HEAVY (opt-in for heavy Ollama models)."""
@@ -784,14 +770,15 @@ class TestSPLWorkspace:
             "auto-spl missing from WORKSPACES in router_pipe.py — add it with model_hint"
         )
 
-    def test_auto_spl_uses_qwen3_coder_model_hint(self):
-        """auto-spl model_hint must be qwen3-coder (Ollama GGUF)."""
-        from portal.platform.inference.router_pipe import WORKSPACES
+    def test_auto_spl_seats_a_served_model_and_keeps_its_toolset(self):
+        """auto-spl's seat resolves in its routed groups at >= its window; the SPL
+        toolset stays wired (R8: lane properties, not the seat name)."""
+        import yaml
 
-        hint = WORKSPACES["auto-spl"]["model_hint"]
-        assert "qwen3-coder" in hint.lower(), (
-            f"auto-spl model_hint should be qwen3-coder variant, got: {hint}"
-        )
+        backends = yaml.safe_load(open("config/backends.yaml"))
+        ws = WORKSPACES["auto-spl"]
+        _seat_is_lane_served(ws, "auto-spl", backends)
+        assert {"query_splunk", "convert_sigma", "compile_yara"} <= set(ws.get("tools") or [])
 
     def test_auto_spl_in_backends_yaml(self):
         """auto-spl must exist in workspace_routing in backends.yaml."""
@@ -801,11 +788,11 @@ class TestSPLWorkspace:
         routing = cfg.get("workspace_routing", {})
         assert "auto-spl" in routing, "auto-spl missing from workspace_routing in backends.yaml"
 
-    def test_workspace_count_is_16(self):
+    def test_spl_workspace_set_matches_enabled_modules(self):
         """WORKSPACES equals the module-enabled workspace set (module: eval's bench-*
         gated off by default; `video` follows its own per-deployment toggle.
-        Derived from enabled_modules(). See test_eval_gate_loads_all_116 for the
-        PORTAL_ENABLE_EVAL=1 path)."""
+        Derived from enabled_modules(). See test_eval_gate_reads_the_eval_module_workspaces
+        for the PORTAL_ENABLE_EVAL=1 path)."""
         from portal.platform.inference.config import load_portal_config
         from portal.platform.inference.router_pipe import WORKSPACES
         from portal.platform.wiki.adapters.modules import enabled_modules
@@ -995,28 +982,11 @@ class TestAgenticWorkspace:
             "and TestAgenticWorkspace's docstring."
         )
 
-    def test_agentic_workspace_interim_hint(self):
-        """auto-agentic's 'heavy' variant should use the 30B interim hint while 480B is dead-by-decision.
-
-        The 480B workspace (bench-qwen3-coder-next) was removed in TASK_MODEL_FLEET_REFRESH_V2
-        Phase 3, and the 480B-specific KV-suppression context_limit was dropped with it.
-
-        A context_limit was reintroduced afterward (TASK-SEC-LIVE-EXEC-era Ollama 0.31
-        num_ctx-default fix): qwen3-coder-next's native max context (262144) made it
-        default to a KV cache that spilled off-GPU and stalled every request. auto-agentic
-        is a long-horizon agentic workspace (multi-file SWE-agent-style tool loops), so it
-        needs real room for both the accumulated tool-call history and reasoning — hence
-        the derived -ctx64k tag and context_limit=65536, not None, at the time.
-
-        Raised to the model's full native context (262144) on 2026-08-26
-        (TASK_CODING_FULL_CONTEXT_V1): real opencode agentic sessions were observed
-        reaching ~87K tokens, past the 65536 cap, causing hard context-exceeded
-        failures. The 65536 sizing was confirmed to be a 2026-07-02 workload
-        estimate, not a deliberate memory-safety decision, and the marginal memory
-        cost of the full window was confirmed negligible (~1GB) before raising it.
-        Enforced via a derived Ollama model tag (portal5/qwen3-coder-next:latest-ctx256k),
-        since Ollama's /v1/chat/completions ignores request-time options.num_ctx
-        (see portal.platform.inference.cli.models apply-params).
+    def test_agentic_workspace_bakes_its_window_into_the_seat_tag(self):
+        """auto-agentic's 'heavy' variant enforces its context_limit via a derived
+        Ollama tag's baked window (ctxNk), because Ollama's /v1/chat/completions
+        ignores request-time options.num_ctx — so the baked window must cover
+        context_limit, whatever seat WFE decides.
         """
         from portal.platform.inference.router.preinject import (
             _resolve_workspace_variant,
@@ -1029,13 +999,11 @@ class TestAgenticWorkspace:
         merged = WORKSPACES[resolved_id]
 
         hint = merged.get("model_hint")
-        assert hint is not None and "qwen3-coder-next" in hint, (
-            f"auto-agentic hint should be qwen3-coder-next:latest (V8 promotion), got: {hint}"
-        )
+        assert hint, "auto-agentic workspace missing model_hint — routing will fail on Ollama path"
         ctx = merged.get("context_limit")
-        assert ctx == 262144, (
-            f"auto-agentic context_limit should be 262144 (full native context, 2026-08-26), got: {ctx}"
-        )
+        assert ctx, "auto-agentic needs a context_limit for the num_ctx derivation"
+        window = int(re.search(r"ctx(\d+)k", hint).group(1)) * 1024
+        assert window >= ctx, (hint, window, ctx)
 
     def test_agentic_workspace_has_model_hint(self):
         """auto-agentic's resolved variant must have an Ollama model_hint as fallback."""
@@ -1384,12 +1352,16 @@ class TestResolveModelOverride:
     Phase 8, DESIGN_COLLAPSE_V1.md §D5)."""
 
     def test_known_model_overrides_hint(self):
-        from portal.platform.inference.router.preinject import _resolve_model_override
+        from portal.platform.inference.router.preinject import (
+            _known_backend_models,
+            _resolve_model_override,
+        )
         from portal.platform.inference.router.workspaces import WORKSPACES
 
-        resolved = _resolve_model_override("auto-daily", "granite4.1:8b")
-        assert resolved == "auto-daily::model=granite4.1:8b"
-        assert WORKSPACES[resolved]["model_hint"] == "granite4.1:8b"
+        hint = sorted(_known_backend_models())[0]
+        resolved = _resolve_model_override("auto-daily", hint)
+        assert resolved == f"auto-daily::model={hint}"
+        assert WORKSPACES[resolved]["model_hint"] == hint
 
     def test_unknown_model_is_silent_noop(self):
         from portal.platform.inference.router.preinject import _resolve_model_override

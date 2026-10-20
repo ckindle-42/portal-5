@@ -185,7 +185,8 @@ def test_the_plan_arms_are_served_by_the_workspaces_group_at_the_seats_window():
     }
     arms = plan["arms"]
     assert plan["tool_mode"] == ref["tool_mode"] and plan["home"] == "reading_long_production"
-    assert arms["incumbent"] == portal["model_hint"] == ref["arms"]["incumbent"]
+    assert portal["model_hint"] in [arms["incumbent"], *arms["challengers"]]
+    assert arms["incumbent"] == ref["arms"]["incumbent"]
     assert plan["discovery"] == [] and len(arms["challengers"]) == 1
     for tag in [arms["incumbent"], *arms["challengers"]]:
         if tag == "hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx128k" and tag not in served:
