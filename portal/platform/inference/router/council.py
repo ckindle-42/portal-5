@@ -24,10 +24,10 @@ import logging
 import math
 import time
 from collections import Counter
-from collections.abc import Awaitable, Callable
+from collections.abc import Awaitable, Callable, Coroutine
 from contextlib import suppress
 from dataclasses import asdict, dataclass, field, replace
-from typing import Any
+from typing import Any, cast
 
 import httpx
 
@@ -309,7 +309,9 @@ test results, or citations.
 
 def _speed_flags(council: dict[str, Any]) -> dict[str, Any]:
     """Read speed flags. Missing block means every mode is off."""
-    raw = council.get("speed") if isinstance(council.get("speed"), dict) else {}
+    raw = cast(
+        dict[str, Any], council.get("speed") if isinstance(council.get("speed"), dict) else {}
+    )
     return {
         "early_quorum": bool(raw.get("early_quorum", False)),
         "single_model": bool(raw.get("single_model", False)),
@@ -518,13 +520,16 @@ def parse_claim_checks(text: str) -> list[dict[str, Any]] | None:
 
 def _cold_load_s(data: dict[str, Any]) -> float | None:
     """Seconds of engine model-load time. Ollama's native field is nanoseconds."""
-    explicit = data.get("portal_timings") if isinstance(data.get("portal_timings"), dict) else {}
+    explicit = cast(
+        dict[str, Any],
+        data.get("portal_timings") if isinstance(data.get("portal_timings"), dict) else {},
+    )
     if explicit.get("load_s") is not None:
         try:
             return round(float(explicit["load_s"]), 6)
         except (TypeError, ValueError):
             pass
-    usage = data.get("usage") if isinstance(data.get("usage"), dict) else {}
+    usage = cast(dict[str, Any], data.get("usage") if isinstance(data.get("usage"), dict) else {})
     if usage.get("load_s") is not None:
         try:
             return round(float(usage["load_s"]), 6)
@@ -534,7 +539,7 @@ def _cold_load_s(data: dict[str, Any]) -> float | None:
     if raw is None:
         raw = usage.get("load_duration_ns")
     try:
-        nanoseconds = float(raw)
+        nanoseconds = float(cast(Any, raw))
     except (TypeError, ValueError):
         return None
     if nanoseconds < 0:
@@ -1061,13 +1066,17 @@ async def _collect_parallel(
     members: list[dict[str, Any]],
     stages: list[dict[str, Any]],
     on_seat: Callable[[CouncilOpinion], Awaitable[None]] | None,
-    review_one: Callable[[dict[str, Any]], Awaitable[tuple[CouncilOpinion, dict[str, Any]]]],
+    review_one: Callable[
+        [dict[str, Any]], Coroutine[Any, Any, tuple[CouncilOpinion, dict[str, Any]]]
+    ],
 ) -> list[CouncilOpinion]:
     """Today's path: gather, unless progress needs a line as each seat finishes."""
     if on_seat is None:
         pairs = list(await asyncio.gather(*[review_one(member) for member in members]))
     else:
-        tasks = [asyncio.create_task(review_one(member)) for member in members]
+        tasks: list[asyncio.Task[tuple[CouncilOpinion, dict[str, Any]]]] = [
+            asyncio.create_task(review_one(member)) for member in members
+        ]
         done: dict[str, tuple[CouncilOpinion, dict[str, Any]]] = {}
         for finished in asyncio.as_completed(tasks):
             opinion, stage = await finished
@@ -1179,7 +1188,7 @@ def _expect_model_name(value: Any, where: str) -> str:
 def _expect_int(value: Any, where: str, minimum: int) -> int:
     if isinstance(value, bool) or not isinstance(value, int) or value < minimum:
         raise CouncilConfigError(f"{where} must be an integer >= {minimum}")
-    return value
+    return cast(int, value)
 
 
 def _validate_member_patch(seat_id: str, patch: Any) -> dict[str, Any]:
@@ -1393,7 +1402,7 @@ async def run_council_review(
 
     trace_note(portal_council_timings=timings)
     created = int(time.time())
-    data = {
+    data: dict[str, Any] = {
         "id": f"chatcmpl-p5-council-{created}",
         "object": "chat.completion",
         "created": created,

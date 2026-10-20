@@ -34,7 +34,7 @@ import tempfile
 import time
 from contextvars import ContextVar
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 _TRUE = frozenset({"1", "true", "yes", "on"})
 
@@ -43,7 +43,7 @@ def _flag(name: str, default: str) -> bool:
     return os.environ.get(name, default).strip().lower() in _TRUE
 
 
-def _int(name: str, default: int) -> int:
+def _env_int(name: str, default: int) -> int:
     try:
         return max(1, int(os.environ.get(name, "") or default))
     except ValueError:
@@ -52,10 +52,10 @@ def _int(name: str, default: int) -> int:
 
 ENABLED: bool = _flag("PORTAL_TRACE", "1")
 CAPTURE_BODIES: bool = _flag("PORTAL_TRACE_BODIES", "0")
-MAX_RECORDS: int = _int("PORTAL_TRACE_MAX", 200)
+MAX_RECORDS: int = _env_int("PORTAL_TRACE_MAX", 200)
 # Keep enough room for the compact fallback record even when an operator sets
 # an unusually small limit. Records stay valid JSON at every configured size.
-MAX_RECORD_BYTES: int = max(512, _int("PORTAL_TRACE_MAX_BYTES", 32768))
+MAX_RECORD_BYTES: int = max(512, _env_int("PORTAL_TRACE_MAX_BYTES", 32768))
 #: Characters of each captured message kept verbatim; the rest is a size and a hash.
 HEAD_CHARS: int = 160
 
@@ -422,11 +422,13 @@ def _finish(values: dict[str, Any]) -> dict[str, Any]:
         else None
     )
     for name in _ADDITIVE:
-        if out.get(name) is not None:
-            out[name] = round(out[name], 6) if name.endswith("_s") else int(out[name])
+        value = out.get(name)
+        if value is not None:
+            out[name] = round(value, 6) if name.endswith("_s") else int(value)
     for name in ("ttft_s",):
-        if out.get(name) is not None:
-            out[name] = round(out[name], 6)
+        value = out.get(name)
+        if value is not None:
+            out[name] = round(value, 6)
     return out
 
 
@@ -486,7 +488,7 @@ def _engine_timings(data: dict[str, Any], usage: dict[str, Any]) -> dict[str, An
             None,
         )
     )
-    completion_details = usage.get("completion_tokens_details") or {}
+    completion_details = cast(dict[str, Any], usage.get("completion_tokens_details") or {})
     return {
         "prefill_s": prompt_duration,
         "generation_s": generation_duration,
@@ -504,7 +506,9 @@ def _engine_timings(data: dict[str, Any], usage: dict[str, Any]) -> dict[str, An
 def _content_phases(data: dict[str, Any], measured: dict[str, Any]) -> tuple[bool, bool]:
     choices = data.get("choices") or []
     message = choices[0].get("message") or {} if choices and isinstance(choices[0], dict) else {}
-    native = data.get("message") if isinstance(data.get("message"), dict) else {}
+    native = cast(
+        dict[str, Any], data.get("message") if isinstance(data.get("message"), dict) else {}
+    )
     has_reasoning = any(
         message.get(name) or native.get(name)
         for name in ("reasoning", "reasoning_content", "thinking")
@@ -524,10 +528,15 @@ def _content_phases(data: dict[str, Any], measured: dict[str, Any]) -> tuple[boo
 
 
 def _phase_evidence(data: dict[str, Any], measured: dict[str, Any]) -> dict[str, int | None]:
-    explicit = data.get("portal_timings") if isinstance(data.get("portal_timings"), dict) else {}
+    explicit = cast(
+        dict[str, Any],
+        data.get("portal_timings") if isinstance(data.get("portal_timings"), dict) else {},
+    )
     choices = data.get("choices") or []
     message = choices[0].get("message") or {} if choices and isinstance(choices[0], dict) else {}
-    native = data.get("message") if isinstance(data.get("message"), dict) else {}
+    native = cast(
+        dict[str, Any], data.get("message") if isinstance(data.get("message"), dict) else {}
+    )
     reasoning_text = next(
         (
             message.get(name) or native.get(name)
@@ -621,7 +630,7 @@ def _answer_duration(
     has_reasoning: bool,
     has_answer: bool,
 ) -> float | None:
-    generation_s = engine["generation_s"]
+    generation_s = _number(engine.get("generation_s"))
     if (
         generation_s is not None
         and has_answer
@@ -645,7 +654,7 @@ def _should_recompute_split(
     return (
         values.get("split_source") == "engine"
         and engine["reasoning_tokens"] is None
-        and ((has_reasoning and has_answer) or measured.get("tool_turn"))
+        and ((has_reasoning and has_answer) or bool(measured.get("tool_turn")))
     )
 
 
@@ -723,7 +732,7 @@ def normalize_engine_timings(
     """Map Ollama-native, oMLX OpenAI, and Portal timing shapes to one object."""
     measured = measured or {}
     values = _explicit_timings(data)
-    usage = data.get("usage") if isinstance(data.get("usage"), dict) else {}
+    usage = cast(dict[str, Any], data.get("usage") if isinstance(data.get("usage"), dict) else {})
     engine = _engine_timings(data, usage)
     evidence = _phase_evidence(data, measured)
     has_reasoning, has_answer = _content_phases(data, measured)
@@ -748,7 +757,7 @@ def usage_metric_kwargs(
     Tool dispatch is never included because this input describes one model call.
     """
     measured = measured or {}
-    usage = data.get("usage") if isinstance(data.get("usage"), dict) else {}
+    usage = cast(dict[str, Any], data.get("usage") if isinstance(data.get("usage"), dict) else {})
     engine = _engine_timings(data, usage)
     timings = normalize_engine_timings(data, measured)
     decode_seconds = engine["generation_s"]
@@ -797,7 +806,9 @@ def add_model_turn(data: dict[str, Any], measured: dict[str, Any] | None = None)
         rank = {"engine": 0, "deltas": 1, "chars": 2}
         previous = current.get("split_source")
         current["split_source"] = (
-            split_source if previous not in rank else max((previous, split_source), key=rank.get)
+            split_source
+            if previous not in rank
+            else max((previous, split_source), key=lambda item: rank[item])
         )
     if current.get("ttft_s") is None and turn.get("ttft_s") is not None:
         current["ttft_s"] = turn["ttft_s"]

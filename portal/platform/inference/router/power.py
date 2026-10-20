@@ -14,12 +14,11 @@ import json
 import logging
 import os
 import time
-from typing import Any
+from typing import Any, cast
 
 import portal.platform.inference.router.state as _state_mod
 from portal.platform.inference.router import truncation as _truncation
 from portal.platform.inference.router.metrics import (
-    MIN_ANSWER_TOKENS_FOR_RATE,
     _answer_seconds,
     _answer_tokens,
     _decode_seconds,
@@ -38,6 +37,7 @@ from portal.platform.inference.router.metrics import (
     _tps_unmeasured,
     _ttft_seconds,
 )
+from portal.platform.inference.router.trace import MIN_ANSWER_TOKENS_FOR_RATE
 
 logger = logging.getLogger(__name__)
 
@@ -108,7 +108,7 @@ def _nonneg_int(value: object) -> int | None:
     if isinstance(value, bool) or value is None:
         return None
     try:
-        number = int(value)  # type: ignore[arg-type]
+        number = int(cast(str | bytes | bytearray | float | int, value))
     except (TypeError, ValueError):
         return None
     if number < 0:

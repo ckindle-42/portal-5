@@ -35,6 +35,16 @@ def test_record_round_trips(trace_mod) -> None:
     assert [s["name"] for s in record["spans"]] == ["route.resolved"]
 
 
+def test_env_and_value_integer_helpers_keep_their_semantics(trace_mod, monkeypatch) -> None:
+    monkeypatch.setenv("TRACE_INTEGER", "0")
+    assert trace_mod._env_int("TRACE_INTEGER", 5) == 1
+    monkeypatch.setenv("TRACE_INTEGER", "invalid")
+    assert trace_mod._env_int("TRACE_INTEGER", 5) == 5
+    assert trace_mod._int("42") == 42
+    assert trace_mod._int("invalid") is None
+    assert trace_mod._int(-1) is None
+
+
 def test_credentials_are_redacted(trace_mod) -> None:
     trace_mod.start_trace("p5-aaaa0002")
     trace_mod.note(authorization="Bearer sk-secret", api_key="sk-secret")

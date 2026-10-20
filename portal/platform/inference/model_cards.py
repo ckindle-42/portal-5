@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import re
 from pathlib import Path
+from typing import Any
 
 import yaml
 
@@ -22,7 +23,7 @@ _SAMPLING_KEYS = frozenset(
 )
 
 
-def card_registry() -> dict:
+def card_registry() -> dict[str, Any]:
     """Load the model-card expectations registry from the repository config."""
     if not _EXPECTATIONS_PATH.exists():
         return {}
@@ -45,7 +46,9 @@ def _key_in_tag(key: str, tag: str) -> bool:
     return _norm_key(key) in _norm_key(tag)
 
 
-def card_entry(tag: str, registry: dict | None = None) -> tuple[str, dict] | None:
+def card_entry(
+    tag: str, registry: dict[str, Any] | None = None
+) -> tuple[str, dict[str, Any]] | None:
     """Return the longest matching model-card key and its entry."""
     registry = card_registry() if registry is None else registry
     best = None
@@ -60,7 +63,9 @@ def card_entry(tag: str, registry: dict | None = None) -> tuple[str, dict] | Non
     return best
 
 
-def card_sampling(tag: str, think: bool | str | None, registry: dict | None = None) -> dict:
+def card_sampling(
+    tag: str, think: bool | str | None, registry: dict[str, Any] | None = None
+) -> dict[str, Any]:
     """Return a card's recommended sampling for the requested thinking state."""
     hit = card_entry(tag, registry)
     if not hit:

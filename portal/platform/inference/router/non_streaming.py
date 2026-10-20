@@ -11,6 +11,7 @@ from __future__ import annotations
 import json
 import logging
 import time
+from collections.abc import Collection
 from typing import Any
 
 import httpx
@@ -431,13 +432,16 @@ def _collect_tool_calls(data: dict[str, Any]) -> list[dict[str, Any]]:
     ]
 
 
-def _all_offered(tool_calls: list[dict[str, Any]], offered) -> bool:
+def _all_offered(tool_calls: list[dict[str, Any]], offered: Collection[str]) -> bool:
     """True when every call names a tool this request offered (else it is not dispatchable)."""
     return all((tc.get("function") or {}).get("name", "").strip() in offered for tc in tool_calls)
 
 
 def _assistant_turn(
-    data: dict[str, Any], tool_calls: list, thinking_allowed: bool, creation_succeeded: bool
+    data: dict[str, Any],
+    tool_calls: list[dict[str, Any]],
+    thinking_allowed: bool,
+    creation_succeeded: bool,
 ) -> dict[str, Any]:
     """The model's tool-calling turn as history for the next hop: visible prose and, when
     thinking is on, its reasoning, so an interleaved-thinking model keeps its plan.
