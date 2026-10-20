@@ -21,6 +21,7 @@
   "csrf": 3,
   "ctf": 2,
   "cve-": 3,
+  "cve": 2,
   "data exfiltration": 3,
   "dcsync": 3,
   "defense evasion": 3,

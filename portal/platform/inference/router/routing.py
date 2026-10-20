@@ -267,7 +267,6 @@ _SECURITY_VARIANT_SIGNALS: dict[str, dict[str, int]] = {
 # Keys not present here (auto-coding, auto-security, auto-spl, auto-reasoning,
 # auto-compliance) are already canonical base ids — no translation needed.
 _SCORER_VARIANT_MAP: dict[str, tuple[str, str]] = {
-    "_security_redteam": ("auto-security", "redteam"),
     "_coding_laguna": ("auto-coding", "laguna"),
     "_coding_heavy": ("auto-coding", "heavy"),
 }
@@ -280,15 +279,11 @@ _SCORER_VARIANT_MAP: dict[str, tuple[str, str]] = {
 # IDENTICAL to before, just unioned into auto-reasoning. _MISTRAL_KEYWORDS
 # and _REASONING_KEYWORDS have zero key overlap (verified), so this is a
 # lossless union — no weight collisions to resolve.
+# auto-security has no entry here by design: security is never an auto-routing
+# destination (`router: false`). Its keyword sets live on in
+# _ROUTER_HANDOFF_DETECTORS, which recognises the work in order to hand it off —
+# not to route to it.
 _WORKSPACE_ROUTING: dict[str, dict[str, Any]] = {
-    "_security_redteam": {  # -> (auto-security, redteam)
-        "keywords": _REDTEAM_KEYWORDS,
-        "threshold": 4,
-    },
-    "auto-security": {
-        "keywords": _SECURITY_KEYWORDS,
-        "threshold": 3,
-    },
     "auto-spl": {
         "keywords": _SPL_KEYWORDS,
         "threshold": 3,
@@ -363,11 +358,26 @@ _LLM_ROUTER_OLLAMA_URL: str = os.environ.get(
     "LLM_ROUTER_OLLAMA_URL", "http://host.docker.internal:11434"
 )
 
+# Workspaces the auto-router must never select, declared as `router: false` in
+# config/portal.yaml, and the lane each hands off to instead. `bench-*` is
+# excluded by name below; this is the per-workspace declarative form. A
+# workspace listed here stays user-selectable and callable by id — only the
+# `auto` router is barred from choosing it.
+_ROUTER_EXCLUDED: frozenset[str] = frozenset(
+    k for k, cfg in WORKSPACES.items() if cfg.get("router") is False
+)
+_ROUTER_FALLBACK: dict[str, str] = {
+    k: fallback
+    for k in _ROUTER_EXCLUDED
+    if (fallback := WORKSPACES.get(k, {}).get("router_fallback"))
+}
+
 # Valid workspace IDs the LLM router may return.
 # Derived from WORKSPACES, excluding bench-* (those are user-selected only,
-# never auto-routed to). Updates automatically when WORKSPACES changes.
+# never auto-routed to) and any `router: false` workspace. Updates
+# automatically when WORKSPACES changes.
 _VALID_WORKSPACE_IDS: frozenset[str] = frozenset(
-    k for k in WORKSPACES if not k.startswith("bench-")
+    k for k in WORKSPACES if not k.startswith("bench-") and k not in _ROUTER_EXCLUDED
 )
 
 # JSON schema enforced by Ollama grammar decoding — derived from WORKSPACES.
@@ -530,14 +540,26 @@ def _build_router_prompt(user_message: str) -> str:
     """
     descriptions, examples = _load_routing_config()
 
-    # Workspace descriptions block
-    desc_lines = "\n".join(f"- {ws_id}: {desc}" for ws_id, desc in descriptions.items())
+    # Workspace descriptions block — only ids the router may return, so a
+    # `router: false` workspace is never offered as a label.
+    desc_lines = "\n".join(
+        f"- {ws_id}: {desc}"
+        for ws_id, desc in descriptions.items()
+        if ws_id in _VALID_WORKSPACE_IDS
+    )
 
-    # Few-shot examples block (cap at 9 examples)
+    # Few-shot examples block (cap at 9 examples). Examples naming an id the
+    # router may no longer return are dropped first — a few-shot that teaches a
+    # barred label is worse than one fewer example.
+    eligible = [
+        ex
+        for ex in (examples or [])
+        if str(ex.get("workspace", "")).split("::", 1)[0] in _VALID_WORKSPACE_IDS
+    ]
     example_lines = "\n".join(
         f'Message: "{ex["message"]}"\nWorkspace: {ex["workspace"]}\n'
         f"Confidence: {ex['confidence']}\nPosture: {ex.get('posture', 'standard')}"
-        for ex in (examples or [])[:9]
+        for ex in eligible[:9]
     )
 
     return f"""You are an intent router for an AI platform. Classify the user message into exactly one workspace, and judge the posture the request requires.
@@ -562,9 +584,11 @@ The workspace must be one of the valid IDs listed above."""
 
 # Per-base variant-signal table used by Layer 1's post-classification pass to
 # recover the variant once the LLM has picked a base workspace id.
+# Keyed by the base ids the GLOBAL router can actually return. auto-security is
+# absent: _SECURITY_VARIANT_SIGNALS is security-lane-internal (role/variant
+# selection inside the security workspace), not a global routing input.
 _VARIANT_INFERENCE_TABLE: dict[str, dict[str, dict[str, int]]] = {
     "auto-coding": _CODING_VARIANT_SIGNALS,
-    "auto-security": _SECURITY_VARIANT_SIGNALS,
 }
 # Minimum score for a variant signal set to "win" and get attached — below
 # this, the message just doesn't say enough to justify picking a specific
@@ -581,6 +605,69 @@ def _without_disabled_variant(workspace_id: str) -> str:
     if is_workspace_disabled(workspace_id):
         return workspace_id.split("::", 1)[0]
     return workspace_id
+
+
+def _merge_keywords(*sources: dict[str, int]) -> dict[str, int]:
+    """Lowercased union of weighted keyword sets, strongest weight winning."""
+    merged: dict[str, int] = {}
+    for source in sources:
+        for keyword, weight in source.items():
+            key = keyword.lower()
+            merged[key] = max(merged.get(key, 0), weight)
+    return merged
+
+
+# Hand-off detector for `router: false` workspaces. Deliberately NOT a routing
+# entry: the global router has no path to these workspaces at all. This only
+# recognises the work well enough to hand the request to the workspace's
+# `router_fallback` lane, which declines and names the workspace to select.
+#
+# For auto-security the detector is the union of the security lane's OWN
+# vocabulary — the discipline keywords plus every role/variant signal set
+# (redteam, blueteam, pentest, purpleteam…). Nothing is invented here, and the
+# role sets stay where they belong: inside security. The union matters because
+# the retired _WORKSPACE_ROUTING entry was only ever a fallback behind Layer 1's
+# label, so on its own it recognised offensive work and missed most blue-team
+# work (Sigma/YARA/IDS/CVE/IR). Measured over every security prompt in the
+# corpus and the router's former few-shot set: 29/29 recognised, 0 false
+# positives across 77 non-security prompts.
+_ROUTER_HANDOFF_THRESHOLD = 2
+_ROUTER_HANDOFF_KEYWORDS: dict[str, dict[str, int]] = {
+    "auto-security": _merge_keywords(
+        _SECURITY_KEYWORDS, _REDTEAM_KEYWORDS, *_SECURITY_VARIANT_SIGNALS.values()
+    ),
+}
+
+
+def detect_router_handoff(messages: list[dict[str, Any]]) -> str | None:
+    """The lane to hand an `auto` request to when it is a `router: false`
+    workspace's work, else ``None``.
+
+    Runs ahead of Layer 1, mirroring ``detect_harmful_intent``. The global
+    router cannot name such a workspace at all, so without this gate the
+    request would scatter to whichever remaining lane scored next-best and be
+    answered there. The fallback lane declines and names the workspace to
+    select (``router_handoff_note``).
+    """
+    text = _last_user_text(messages, 2000).lower()
+    if not text:
+        return None
+    best: tuple[int, str] | None = None
+    for ws_id, keywords in _ROUTER_HANDOFF_KEYWORDS.items():
+        if ws_id not in _ROUTER_EXCLUDED:
+            continue
+        score = sum(weight for kw, weight in keywords.items() if kw in text)
+        if score >= _ROUTER_HANDOFF_THRESHOLD and (best is None or score > best[0]):
+            best = (score, ws_id)
+    if best is None:
+        return None
+    lane = _ROUTER_FALLBACK.get(best[1]) or _HARMFUL_INTENT_LANE
+    logger.info(
+        "Auto-routing: '%s' is operator-selected only (router: false) — handing off to '%s'.",
+        best[1],
+        lane,
+    )
+    return lane
 
 
 def _infer_variant(base: str, message: str) -> str:
@@ -901,21 +988,6 @@ def _detect_workspace(messages: list[dict[str, Any]]) -> str | None:
 
     if not scores:
         return None
-
-    # Redteam takes priority over security when both exceed threshold
-    # (same model family, but redteam is more permissive)
-    if (
-        "_security_redteam" in scores
-        and "auto-security" in scores
-        and scores["_security_redteam"] >= 5
-    ):
-        logger.info(
-            "Auto-routing tiebreak: redteam=%d wins over security=%d "
-            "(same model family; redteam variant is more permissive).",
-            scores["_security_redteam"],
-            scores["auto-security"],
-        )
-        return _without_disabled_variant("auto-security::redteam")
 
     winner = max(scores, key=lambda k: scores[k])
     if winner in _SCORER_VARIANT_MAP:

@@ -50,9 +50,17 @@ def test_every_task_is_no_tools_and_graded_on_the_resolved_workspace():
         assert t["no_tools"] is True and t["requires_tools"] == [] and t["agentic"] is False, t[
             "id"
         ]
-        expected = [{"type": "routed_workspace", "workspace": t["kind"]}]
-        if t.get("refusal_is_failure"):
-            expected.append({"type": "answer_contains", "patterns": ["^OK$"]})
+        if t.get("note"):
+            # `router: false` kind: graded on the hand-off lane naming the
+            # workspace, not on the kind answering.
+            expected = [
+                {"type": "routed_workspace", "workspace": gen._ROUTER_FALLBACK[t["kind"]]},
+                {"type": "answer_contains", "patterns": gen.HANDOFF_PATTERNS},
+            ]
+        else:
+            expected = [{"type": "routed_workspace", "workspace": t["kind"]}]
+            if t.get("refusal_is_failure"):
+                expected.append({"type": "answer_contains", "patterns": ["^OK$"]})
         assert t["checkers"] == expected, t["id"]
         assert t["lane"] == "routing", t["id"]
         assert t["instruction"].endswith("Reply with the single word OK."), t[
@@ -62,9 +70,10 @@ def test_every_task_is_no_tools_and_graded_on_the_resolved_workspace():
 
 def test_sensitive_rows_fail_refusals_and_only_unscored_specialists_are_classifier_only():
     sensitive = [t for t in TASKS.values() if t.get("refusal_is_failure")]
-    assert len(sensitive) == 9
+    assert len(sensitive) == 4
+    # auto-security's sensitive rows are hand-off rows now: declining is the
+    # correct outcome there, so refusal_is_failure does not apply to them.
     assert {t["kind"] for t in sensitive} == {
-        "auto-security",
         "auto-general-uncensored",
         "auto-research",
     }
@@ -72,6 +81,13 @@ def test_sensitive_rows_fail_refusals_and_only_unscored_specialists_are_classifi
         fail_answers = {c["answer"] for c in task["controls"]["fail"]}
         assert "I cannot help with that request." in fail_answers, task["id"]
         assert "This request raises serious moral concerns. OK" in fail_answers, task["id"]
+
+    handoff = [t for t in TASKS.values() if t.get("note")]
+    assert len(handoff) == 14
+    assert {t["kind"] for t in handoff} == set(gen._ROUTER_EXCLUDED) & set(gen.PROMPTS)
+    for task in handoff:
+        assert "refusal_is_failure" not in task, task["id"]
+        assert task["checkers"][0]["workspace"] == gen._ROUTER_FALLBACK[task["kind"]], task["id"]
 
     classifier_only = [t for t in TASKS.values() if t.get("classifier_only")]
     assert len(classifier_only) == 4
@@ -110,8 +126,14 @@ def test_every_prompt_is_provably_clear_cut_offline():
     from portal.platform.inference.router import routing as rt
 
     for t in TASKS.values():
-        got = rt._detect_workspace([{"role": "user", "content": t["instruction"]}])
-        if not t.get("classifier_only"):
+        messages = [{"role": "user", "content": t["instruction"]}]
+        got = rt._detect_workspace(messages)
+        if t.get("note"):
+            # the hand-off gate claims it before either layer, and Layer 2 must
+            # not be able to name the excluded workspace at all
+            assert rt.detect_router_handoff(messages) == gen._ROUTER_FALLBACK[t["kind"]], t["id"]
+            assert got is None or got.split("::")[0] not in gen._ROUTER_EXCLUDED, (t["id"], got)
+        elif not t.get("classifier_only"):
             assert got == t["kind"], (t["id"], got)
         assert not rt.detect_harmful_intent([{"role": "user", "content": t["instruction"]}]), t[
             "id"

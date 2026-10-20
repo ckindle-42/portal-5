@@ -46,6 +46,10 @@ _load_persona_map()
 #   name                       Display name shown in Open WebUI.
 #   description                Open WebUI tooltip / model description.
 #   model_hint                 Preferred Ollama tag in the routed backend group.
+#   router                     False -> the `auto` router never selects this workspace;
+#                              it stays user-selectable and callable by id.
+#   router_fallback            Lane an auto-routed request for this workspace is handed to.
+#   router_handoff_note        One system line appended on that hand-off.
 #   tools                      Default tool-name whitelist (overridable per-persona).
 #   predict_limit              Max output tokens (Ollama: num_predict).
 #   context_limit              Max context window for this workspace.
@@ -57,7 +61,7 @@ _load_persona_map()
 #
 # Workspace ID prefixes:
 #   auto       — auto-routable (the LLM intent classifier may route here).
-#   auto-*     — user-selectable AND auto-route targets.
+#   auto-*     — user-selectable AND auto-route targets, unless `router: false`.
 #   bench-*    — user-selectable only; excluded from auto-routing.
 # ─────────────────────────────────────────────────────────────────────────────
 

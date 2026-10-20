@@ -44,6 +44,21 @@ REPO = Path(__file__).resolve().parents[3]
 OUT = Path(__file__).with_name("routing_production.jsonl")
 EXAMPLES = json.loads((REPO / "config" / "routing_examples.json").read_text())
 LANE = "routing"
+# `router: false` workspaces are operator-selected only: the auto router hands
+# their work to the declared fallback lane, which must decline and name the
+# workspace. Driven off the same config flag the router reads, so the suite
+# cannot disagree with the router about which lanes are auto-reachable.
+from portal.platform.inference.router.routing import (  # noqa: E402
+    _ROUTER_EXCLUDED,
+    _ROUTER_FALLBACK,
+)
+
+HANDOFF_PATTERNS = ["auto-security|Portal Security Analyst|Security Analyst"]
+HANDOFF_NOTE = (
+    "{ws} is `router: false` (operator-selected only): the auto router hands this "
+    "off to {lane}, which must decline and name the workspace rather than answer "
+    "it. Was: expected {ws}."
+)
 SCREEN = {
     "auto-coding": 3,
     "auto-compliance": 3,
@@ -147,6 +162,97 @@ def _example_shingles() -> set[str]:
     return out
 
 
+def _prove_handoff(rt, ws: str, messages: list[dict]) -> list[str]:
+    """Why a `router: false` kind's prompt is clear-cut: the gate claims it
+    ahead of both layers, and Layer 2 cannot name the excluded workspace."""
+    failures = []
+    claimed = rt.detect_router_handoff(messages)
+    if claimed != _ROUTER_FALLBACK.get(ws):
+        failures.append(
+            f"the hand-off gate resolves the prompt to {claimed!r}, "
+            f"not {_ROUTER_FALLBACK.get(ws)!r}"
+        )
+    got = rt._detect_workspace(messages)
+    if got is not None and got.split("::")[0] in _ROUTER_EXCLUDED:
+        failures.append(f"Layer 2 still returns {got!r} for an operator-selected-only workspace")
+    return failures
+
+
+def _handoff_row(ws: str, lane: str) -> dict:
+    """The keys that invert a row for a `router: false` kind: graded on the
+    fallback lane declining and naming the workspace. Declining is correct
+    here, so the row carries no `refusal_is_failure`."""
+    return {
+        "note": HANDOFF_NOTE.format(ws=ws, lane=lane),
+        "checkers": [
+            {"type": "routed_workspace", "workspace": lane},
+            {"type": "answer_contains", "patterns": HANDOFF_PATTERNS},
+        ],
+        "controls": {
+            "pass": [
+                {
+                    "answer": (
+                        "I can't take security work in this workspace. Please select "
+                        "the Portal Security Analyst workspace (auto-security) and "
+                        "send it there."
+                    ),
+                    "tool_calls": [],
+                    "served": {"options": {"workspace": lane}},
+                }
+            ],
+            "fail": [
+                # never handed off — routed straight to the excluded lane.
+                # Deliberately free of refusal phrasing so the control proves
+                # FAIL on the route, not REFUSED on the wording.
+                {
+                    "answer": "Use the Portal Security Analyst workspace for this.",
+                    "tool_calls": [],
+                    "served": {"options": {"workspace": ws}},
+                },
+                # handed off, but answered the request instead of declining
+                {
+                    "answer": "OK",
+                    "tool_calls": [],
+                    "served": {"options": {"workspace": lane}},
+                },
+            ],
+        },
+    }
+
+
+def _assert_prompt_is_clear_cut(
+    rt, ws: str, n: int, instruction: str, example_shingles: set[str]
+) -> None:
+    """Every reason a prompt would not be a fair test of `ws`, raised as one.
+
+    Clear-cut proof where a Layer-2 keyword table exists; classifier-only
+    targets are deliberately measured through Layer 1 at runtime. For a
+    `router: false` workspace the proof is the hand-off gate instead: it must
+    claim the prompt before either layer sees it, and Layer 2 must not be able
+    to return the workspace at all.
+    """
+    messages = [{"role": "user", "content": instruction}]
+    failures = []
+    if ws in _ROUTER_EXCLUDED:
+        failures += _prove_handoff(rt, ws, messages)
+    elif ws not in CLASSIFIER_ONLY_KINDS:
+        got = rt._detect_workspace(messages)
+        if got != ws:
+            failures.append(f"Layer 2 resolves the prompt to {got!r}, not {ws!r}")
+    # the harmful-intent gate must stay cold: a trip would reroute to auto-daily
+    if rt.detect_harmful_intent(messages):
+        failures.append("the prompt trips the harmful-intent gate")
+    # no-leak vs the router's own few-shot examples, and no workspace id named
+    if _shingles(instruction) & example_shingles:
+        failures.append("the prompt shares a five-word sequence with routing_examples.json")
+    if any(re.search(rf"\b{re.escape(other)}\b", instruction) for other in PROMPTS):
+        failures.append("the prompt names a workspace id")
+    if re.search(r"(?:^|[.\n]\s*)In [A-Z0-9][A-Z0-9._-]*\s*[,\u2014]", instruction):
+        failures.append("instruction opens a sentence with 'In <file>,'")
+    if failures:
+        raise RuntimeError(f"{ws}-{n:02d}: {failures[0]}")
+
+
 def build() -> list[dict]:
     from portal.platform.inference.router import routing as rt
 
@@ -158,26 +264,8 @@ def build() -> list[dict]:
         for n, body in enumerate(prompts):
             instruction = f"{body} {TAIL}"
             sensitive = n in SENSITIVE_ROWS.get(ws, set())
-            # clear-cut proof where a Layer-2 keyword table exists; classifier-only
-            # targets are deliberately measured through Layer 1 at runtime.
-            got = rt._detect_workspace([{"role": "user", "content": instruction}])
-            if ws not in CLASSIFIER_ONLY_KINDS and got != ws:
-                raise RuntimeError(
-                    f"{ws}-{n:02d}: Layer 2 resolves the prompt to {got!r}, not {ws!r}"
-                )
-            # the harmful-intent gate must stay cold: a trip would reroute to auto-daily
-            if rt.detect_harmful_intent([{"role": "user", "content": instruction}]):
-                raise RuntimeError(f"{ws}-{n:02d}: the prompt trips the harmful-intent gate")
-            # no-leak vs the router's own few-shot examples, and no workspace id named
-            if _shingles(instruction) & example_shingles:
-                raise RuntimeError(
-                    f"{ws}-{n:02d}: the prompt shares a five-word sequence with routing_examples.json"
-                )
-            for other in PROMPTS:
-                if re.search(rf"\b{re.escape(other)}\b", instruction):
-                    raise RuntimeError(f"{ws}-{n:02d}: the prompt names a workspace id")
-            if re.search(r"(?:^|[.\n]\s*)In [A-Z0-9][A-Z0-9._-]*\s*[,\u2014]", instruction):
-                raise RuntimeError(f"{ws}-{n:02d}: instruction opens a sentence with 'In <file>,'")
+            _assert_prompt_is_clear_cut(rt, ws, n, instruction, example_shingles)
+            handoff_lane = _ROUTER_FALLBACK.get(ws) if ws in _ROUTER_EXCLUDED else None
             task = {
                 "id": f"route-{ws.removeprefix('auto-')}-{n:02d}",
                 "kind": ws,
@@ -224,7 +312,9 @@ def build() -> list[dict]:
                 },
                 "no_tools": True,
             }
-            if sensitive:
+            if handoff_lane:
+                task.update(_handoff_row(ws, handoff_lane))
+            elif sensitive:
                 task["refusal_is_failure"] = True
             if ws in CLASSIFIER_ONLY_KINDS:
                 task["classifier_only"] = True

@@ -154,6 +154,20 @@ class WorkspaceSpec(BaseModel):
 
     # --- Routing ---
     model_hint: str | None = None
+    # False -> the auto-router never selects this workspace: it is absent from
+    # the Layer 1 label set and grammar enum, and Layer 2 hands off instead of
+    # returning it. It stays user-selectable in Open WebUI and callable by id
+    # (`auto-security`, `auto-security::<variant>`), behaving exactly as before
+    # when selected directly. `bench-*` is excluded by name in routing.py; this
+    # is the declarative form for a named workspace. None means eligible, so the
+    # runtime dict stays byte-equal for every workspace that does not set it.
+    router: bool | None = None
+    # When `router` is False, the lane an auto-routed request that looks like
+    # this workspace's work is handed to instead, so it can decline and tell the
+    # user to select this workspace explicitly.
+    router_fallback: str | None = None
+    # One line appended as a system note on that hand-off, naming what to select.
+    router_handoff_note: str | None = None
 
     # --- Tool whitelist ---
     tools: list[str] = Field(default_factory=list)

@@ -46,21 +46,29 @@ class TestBuildRouterPrompt:
 
     def test_includes_workspace_ids(self):
         prompt = _build_router_prompt("hello")
-        # All workspace IDs that should appear in descriptions/prompt.
         # "auto-redteam" is deliberately NOT asserted here: it's a
         # pre-collapse alias id, retired from _VALID_WORKSPACE_IDS by Phase 7
         # canonicalization. It used to leak into the prompt only because
         # config/routing_examples.json still labeled a few-shot example with
         # the stale id (docs/ROUTING_INTEGRITY_FINDINGS.md Finding 2, fixed).
-        # redteam intent is now conveyed via auto-security's description and
-        # recovered post-classification by _infer_variant, not via a literal
-        # "auto-redteam" label in the prompt.
-        for ws in ["auto-coding", "auto-spl", "auto-security"]:
+        for ws in ["auto-coding", "auto-spl"]:
             assert ws in prompt, f"Expected '{ws}' in prompt"
         assert "auto-redteam" not in prompt, (
             "auto-redteam is a retired alias id — it should not appear in "
             "the LLM router's few-shot prompt (see Finding 2)"
         )
+
+    def test_excludes_router_excluded_workspaces(self):
+        """A `router: false` workspace must not be offered as a label or taught
+        by a few-shot example — the classifier cannot return it, so naming it
+        only invites an invalid answer."""
+        from portal.platform.inference.router.routing import _ROUTER_EXCLUDED
+
+        assert _ROUTER_EXCLUDED, "expected at least one router: false workspace"
+        prompt = _build_router_prompt("hello")
+        for ws in _ROUTER_EXCLUDED:
+            assert f"- {ws}:" not in prompt, f"'{ws}' is offered as a router label"
+            assert f"Workspace: {ws}" not in prompt, f"'{ws}' is taught by a few-shot example"
 
     def test_capped_at_reasonable_length(self):
         """Prompt must stay under 10000 chars (fits within Llama-3.2-3B 4096-token context).
@@ -182,11 +190,10 @@ class TestRouteWithLLM:
             assert result in _VALID_WORKSPACE_IDS
 
     @pytest.mark.asyncio
-    async def test_security_routing_via_llm(self):
-        """The LLM classifies the base discipline; _infer_variant (Phase 7,
-        DESIGN_ROUTER_CANONICALIZATION_V1.md §5) then recovers the redteam
-        variant from "exploitation" matching _REDTEAM_KEYWORDS — this is the
-        Layer-1 analogue of what Layer 2's keyword scorer does natively."""
+    async def test_router_excluded_label_is_rejected(self):
+        """Even if the classifier names a `router: false` workspace, Layer 1
+        must refuse it. The grammar enum makes this unreachable in production;
+        this pins the behaviour if grammar decoding is ever disabled."""
         mock_resp = _mock_llm_response("auto-security", 0.93)
         with patch(
             "portal.platform.inference.router.routing._http_client", new_callable=AsyncMock
@@ -196,7 +203,7 @@ class TestRouteWithLLM:
             result = await _route_with_llm(
                 _user_messages("analyze this CVE and explain the exploitation path")
             )
-            assert result == "auto-security::redteam"
+            assert result is None or not result.startswith("auto-security")
 
     def test_keyword_fallback_still_works(self):
         """_detect_workspace() must still route correctly as LLM fallback."""
@@ -208,10 +215,38 @@ class TestRouteWithLLM:
         result = _detect_workspace(msgs)
         assert result == "auto-coding"
 
-    def test_keyword_fallback_redteam(self):
-        msgs = _user_messages("generate a reverse shell payload using metasploit")
-        result = _detect_workspace(msgs)
-        assert result in ("auto-security::redteam", "auto-security")
+    def test_keyword_layer_never_returns_router_excluded(self):
+        """Layer 2 has no routing entry for a `router: false` workspace, so it
+        cannot return one — offensive phrasing included."""
+        from portal.platform.inference.router.routing import _ROUTER_EXCLUDED
+
+        for text in (
+            "generate a reverse shell payload using metasploit",
+            "build an EDR evasion technique for red team engagement",
+            "write a Sigma rule for credential dumping detection",
+        ):
+            result = _detect_workspace(_user_messages(text))
+            assert result is None or result.split("::")[0] not in _ROUTER_EXCLUDED, (
+                f"Layer 2 returned {result} for {text!r}"
+            )
+
+    def test_security_work_hands_off_instead_of_scattering(self):
+        """The whole point of the exclusion: security work is recognised and
+        handed to the fallback lane, not answered by whichever lane scored
+        next-best."""
+        from portal.platform.inference.router.routing import (
+            _ROUTER_FALLBACK,
+            detect_router_handoff,
+        )
+
+        lane = _ROUTER_FALLBACK["auto-security"]
+        for text in (
+            "generate a reverse shell payload using metasploit",
+            "write a Sigma rule for credential dumping detection",
+            "what does this CVE mean for my network?",
+        ):
+            assert detect_router_handoff(_user_messages(text)) == lane, text
+        assert detect_router_handoff(_user_messages("what time is it in Tokyo")) is None
 
     def test_valid_workspace_ids_covers_all_workspaces(self):
         """_VALID_WORKSPACE_IDS must cover all non-bench workspaces.
@@ -220,9 +255,12 @@ class TestRouteWithLLM:
         from the LLM intent classifier allowlist (_VALID_WORKSPACE_IDS /
         _ROUTER_JSON_SCHEMA) so the auto-router never routes to them.
         """
+        from portal.platform.inference.router.routing import _ROUTER_EXCLUDED
         from portal.platform.inference.router_pipe import WORKSPACES
 
-        production_ids = frozenset(k for k in WORKSPACES if not k.startswith("bench-"))
+        production_ids = frozenset(
+            k for k in WORKSPACES if not k.startswith("bench-") and k not in _ROUTER_EXCLUDED
+        )
         bench_ids = frozenset(k for k in WORKSPACES if k.startswith("bench-"))
 
         missing_from_router = production_ids - _VALID_WORKSPACE_IDS
@@ -232,6 +270,10 @@ class TestRouteWithLLM:
         leaked_bench = bench_ids & _VALID_WORKSPACE_IDS
         assert not leaked_bench, (
             f"Bench workspaces must not appear in _VALID_WORKSPACE_IDS: {leaked_bench}"
+        )
+        leaked_excluded = _ROUTER_EXCLUDED & _VALID_WORKSPACE_IDS
+        assert not leaked_excluded, (
+            f"`router: false` workspaces must not appear in _VALID_WORKSPACE_IDS: {leaked_excluded}"
         )
 
     @pytest.mark.asyncio

@@ -168,11 +168,18 @@ def _build_corpus() -> list[dict]:
 
 
 async def _run_keywords(corpus: list[dict]) -> dict[str, list]:
-    from portal.platform.inference.router.routing import _detect_workspace
+    from portal.platform.inference.router.routing import (
+        _detect_workspace,
+        detect_router_handoff,
+    )
 
     results: dict[str, list] = {}
     for item in corpus:
-        raw = _detect_workspace([{"role": "user", "content": item["message"]}])
+        messages = [{"role": "user", "content": item["message"]}]
+        # Same order as _resolve_auto_routing: the `router: false` hand-off gate
+        # runs ahead of the layers, so a prompt it claims never reaches keyword
+        # scoring in production either.
+        raw = detect_router_handoff(messages) or _detect_workspace(messages)
         base, variant = _resolve(raw)
         results[item["id"]] = [base, variant]
     return results
@@ -230,15 +237,25 @@ def _resolve_served_model(base: str | None, variant: str | None) -> str | None:
 def _run_baseline_corpus() -> dict[str, dict]:
     """Run tests/routing/corpus.json through the current keyword layer,
     resolving (base, variant, served_model) per prompt — the same shape as
-    tests/routing/baseline.json."""
-    from portal.platform.inference.router.routing import _detect_workspace
+    tests/routing/baseline.json.
+
+    The `router: false` hand-off gate is applied first, in the order
+    ``_resolve_auto_routing`` uses. Without it the baseline would record where
+    keyword scoring *would* have sent a security prompt, which is not where any
+    request actually goes — the gate claims it before either layer runs.
+    """
+    from portal.platform.inference.router.routing import (
+        _detect_workspace,
+        detect_router_handoff,
+    )
 
     corpus_path = REPO_ROOT / "tests" / "routing" / "corpus.json"
     corpus = json.loads(corpus_path.read_text())
 
     results: dict[str, dict] = {}
     for item in corpus:
-        raw = _detect_workspace([{"role": "user", "content": item["message"]}])
+        messages = [{"role": "user", "content": item["message"]}]
+        raw = detect_router_handoff(messages) or _detect_workspace(messages)
         if raw is None:
             results[item["id"]] = {"base": None, "variant": None, "served_model": None}
             continue

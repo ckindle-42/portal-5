@@ -1123,6 +1123,19 @@ workspaces:
       You are an expert Splunk SPL Engineer. Write, explain, refactor, and debug SPL queries. Always filter on index and sourcetype before the first pipe. Never hallucinate eval functions.
   auto-security:
     module: security
+    # Operator-selected only: the `auto` router never picks this workspace or
+    # its variants (it is absent from the Layer 1 label set and grammar enum,
+    # and Layer 2 hands off instead). Still in the Open WebUI dropdown and
+    # callable by id — `auto-security`, `auto-security::<variant>` — with
+    # behaviour unchanged when selected directly. Security work is kept out of
+    # normal operations by deliberate selection, not by the classifier.
+    router: false
+    router_fallback: auto-daily
+    router_handoff_note: 'Security and offensive-security work is not handled by
+      the auto workspace. Do not answer the security request: tell the user to
+      select the "🔒 Portal Security Analyst" workspace (auto-security) from the
+      workspace list and re-send it there. Answer anything else in the message
+      normally.'
     name: 🔒 Portal Security Analyst
     description: 'Authorized security assessment, vulnerability analysis, CVE/CWE classification, hardening. VulnLLM-R-7B (UCSB SURFI, Dec 2025, Qwen2.5-7B base — trained on AppSec vulnerability research: CVE severity, CWE classification, vulnerable code patterns). NOTE 2026-07-16 (P5-AUTOSEC-RESELECT): the "2026-06-20: 2/2 chain wins, fastest" claim predates the reliability-scoring fix. Live re-bench on the kerberoast_to_da EXECUTION chain found valid_rate 0.89 but redundant_call_rate 0.50 (docs/reselection/AUTOSEC_VULNLLM_DIAGNOSIS_20260716T164436Z.md) — but that scenario tests live-exploit tool orchestration, not this workspace''s actual job (CVE/CWE analysis, hardening). No candidate has been benched against the analytical workload itself, so no swap is made here pending that test (see docs/reselection/AUTOSEC_RESELECT_EVIDENCE_20260716T192100Z.md for the full candidate comparison, which found glm-4.7-flash:Q4_K_M strongest on tool-reliability generically — untested for this workspace''s specific analytical use case). Retained as incumbent. Fast vuln analysis with web search, vuln classification, and code execution.'
     # 2026-09-25: sampling set to the vulnllm card (engine settings only; prompts untouched); prior values + A/B: docs/TASK_SEAT_SAMPLING_AB_V1.md
@@ -2100,6 +2113,10 @@ workspaces:
     owui_system_prompt: |-
       You analyze images and handle multimodal tasks. Describe what you observe in detail. For image generation requests, call the generate_image tool (MLX-native FLUX); pass model='qwen-image' when the image needs legible text. Use edit_image with image_url set to modify an existing image by instruction.
   security-reviewer:
+    # Operator-selected only, same rule as auto-security: security is never an
+    # auto-routing destination. No `router_fallback` — the hand-off detector
+    # covers security work generally and lands on auto-daily.
+    router: false
     module: security
     name: Portal Security Review Analyst
     description: Read-only, evidence-grounded reviews of indexed security telemetry. The analyst owns every verdict.

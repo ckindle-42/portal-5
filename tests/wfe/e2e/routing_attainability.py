@@ -38,7 +38,17 @@ def check_task(task: dict, portal: dict, example_shingles: set[str]) -> list[str
     ins = task["instruction"]
     want = task["checkers"][0]["workspace"]
     failures = []
-    if not task.get("classifier_only"):
+    if task.get("note") and task["kind"] in rt._ROUTER_EXCLUDED:
+        # `router: false` kind: the hand-off gate must claim the prompt ahead of
+        # both layers, and Layer 2 must not be able to name the excluded
+        # workspace at all.
+        claimed = rt.detect_router_handoff([{"role": "user", "content": ins}])
+        if claimed != want:
+            failures.append(f"the hand-off gate resolves the prompt to {claimed!r}, not {want!r}")
+        got = rt._detect_workspace([{"role": "user", "content": ins}])
+        if got is not None and got.split("::")[0] in rt._ROUTER_EXCLUDED:
+            failures.append(f"Layer 2 still returns {got!r} for an operator-selected-only lane")
+    elif not task.get("classifier_only"):
         got = rt._detect_workspace([{"role": "user", "content": ins}])
         if got != want:
             failures.append(f"Layer 2 resolves the prompt to {got!r}, not the gold {want!r}")
