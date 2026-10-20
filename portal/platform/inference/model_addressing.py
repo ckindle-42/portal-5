@@ -47,6 +47,14 @@ _BY_WORKSPACE: dict[str, dict[str, Any]] = {}
 _BY_ALIAS: dict[str, set[str]] = {}
 
 
+def _index_aliases(aliases: dict[str, Any]) -> None:
+    """A time-boxed alias (C4) addresses exactly what its target serves."""
+    for alias, entry in aliases.items():
+        target = entry.get("to") if isinstance(entry, dict) else None
+        if target in _BY_WORKSPACE and alias not in _BY_WORKSPACE:
+            _BY_WORKSPACE[alias] = _BY_WORKSPACE[target]
+
+
 def _load() -> None:
     if _BY_WORKSPACE:
         return
@@ -98,7 +106,8 @@ def _load() -> None:
                 variant_hint = (variant_cfg or {}).get("model_hint")
                 if variant_hint:
                     _BY_HINT.setdefault(str(variant_hint), synthetic_id)
-                _BY_WORKSPACE[synthetic_id] = variant_cfg or {}
+                _BY_WORKSPACE[synthetic_id] = {**(ws_cfg or {}), **(variant_cfg or {})}
+        _index_aliases(data.get("aliases") or {})
         try:
             import yaml  # noqa: PLC0415
 
