@@ -362,10 +362,13 @@ services:
       - ../../scripts:/scripts:ro
       - ../../imports:/imports:ro
       - ../../config/personas:/personas:ro
-      - ../../config/portal.yaml:/config/portal.yaml:ro
+      # update_workspace_tools.py imports portal.platform.inference (owui_tools, config),
+      # which reads config/owui_tool_servers.yaml and bench_workspaces.yaml beside portal.yaml.
+      - ../../config:/config:ro
+      - ../../portal:/portal:ro
       - ../../portal/modules/eval/persona_matrix/prompts:/persona_prompts:ro
     command: >
-      sh -c "pip install httpx pyyaml --quiet && python /scripts/openwebui_init.py"
+      sh -c "pip install httpx pyyaml pydantic --quiet && python /scripts/openwebui_init.py"
 
   # ── MCP: Document Generation (Word, PowerPoint, Excel) ───────────────────
   mcp-documents:
