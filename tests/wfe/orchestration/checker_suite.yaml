@@ -1,0 +1,16 @@
+suite: orchestration-checker-v1
+discipline: test_fixing
+cases:
+  - id: correct-output
+    output: {answer: "fixed"}
+    checks: [{type: equals, path: "$.answer", value: "fixed"}]
+    expected: pass
+  - id: plausible-wrong-output
+    output: {answer: "almost fixed"}
+    checks: [{type: equals, path: "$.answer", value: "fixed"}]
+    expected: reject
+  - id: missing-output-field
+    output: {answer: "fixed", extra: true}
+    checks: [{type: equals, path: "$.answer", value: "fixed"}]
+    schema: {type: object, properties: {answer: {type: string}}, required: [answer], additionalProperties: false}
+    expected: reject

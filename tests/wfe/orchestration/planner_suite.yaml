@@ -1,0 +1,18 @@
+suite: orchestration-planner-v1
+discipline: test_fixing
+cases:
+  - id: valid-small-plan
+    expected: pass
+    rule: closure-and-checks
+  - id: missing-check
+    expected: reject
+    rule: check-or-deep-review-reason
+  - id: context-over-budget
+    expected: reject
+    rule: comfortable-fast-context
+  - id: mixed-read-and-act
+    expected: reject
+    rule: separated-tool-purposes
+  - id: missing-closure
+    expected: reject
+    rule: assembly-then-final-review

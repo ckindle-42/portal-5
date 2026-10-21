@@ -13,6 +13,8 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
+import yaml
+
 _ROOT = Path(__file__).resolve().parents[3]
 sys.path[:0] = [str(_ROOT), str(_ROOT / "tests" / "unit")]
 
@@ -24,6 +26,7 @@ from orchestration_fake_pipeline import (  # noqa: E402
 )
 
 from portal.modules.orchestration.ledger import ResumeMismatchError  # noqa: E402
+from portal.modules.orchestration.planner import validate_planned_plan  # noqa: E402
 from portal.modules.orchestration.service import ArmService  # noqa: E402
 from portal.modules.orchestration.worker import Engine  # noqa: E402
 
@@ -55,6 +58,25 @@ def run_rig(workdir: Path) -> list[dict[str, str]]:
             "blocked_branch_independent_pass", lambda: _branches(tasks / "branches", "branches")
         )
     )
+    results.extend(
+        _scenario(name, lambda rejection=name: _planner_rejection(rejection))
+        for name in (
+            "planner_missing_check",
+            "planner_context_overflow",
+            "planner_mixed_read_and_action",
+            "planner_missing_assembly_and_review",
+        )
+    )
+    results.append(_scenario("deep_vote_split", lambda: _deep_vote_split(tasks / "votes", "votes")))
+    results.append(
+        _scenario("telegram_approve", lambda: _telegram_approve(tasks / "approve", "approve"))
+    )
+    results.append(_scenario("telegram_deny", lambda: _telegram_deny(tasks / "deny", "deny")))
+    results.append(
+        _scenario(
+            "calibration_pause", lambda: _calibration_pause(tasks / "calibration", "calibration")
+        )
+    )
     receipt = {
         "head": _head_sha(),
         "utc": datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ"),
@@ -74,19 +96,29 @@ def _scenario(name: str, run: Callable[[], str]) -> dict[str, str]:
 
 
 def _run_task(
-    root: Path, task_id: str, responses: list[tuple[str, Any]], bites: list[dict[str, Any]]
+    root: Path,
+    task_id: str,
+    responses: list[tuple[str, Any]],
+    bites: list[dict[str, Any]],
+    notices: Any = None,
+    calibration_overrides: dict[str, Any] | None = None,
 ) -> tuple[dict[str, Any], FakePipeline]:
     pipeline = FakePipeline()
     for seat, response in responses:
         pipeline.add(seat, response)
     (root / "config").mkdir(parents=True, exist_ok=True)
     config = root / "config" / "orchestration_arm.yaml"
-    config.write_text("residency_mode: swap\n", encoding="utf-8")
+    arm_config = _write_arm_config(config)
+    if calibration_overrides:
+        arm_config["calibration"].update(calibration_overrides)
+        config.write_text(yaml.safe_dump(arm_config, sort_keys=False), encoding="utf-8")
     engines = {
         "fast": Engine("auto-daily::fast", "fast-digest", pipeline.url, "", "omlx", "fake-fast"),
         "deep": Engine("auto-daily::deep", "deep-digest", pipeline.url, "", "omlx", "fake-deep"),
     }
-    service = ArmService(root, engines, build_sha="offline-head", residency_config=config)
+    service = ArmService(
+        root, engines, build_sha="offline-head", residency_config=config, notices=notices
+    )
     task = service.submit(
         {"task_id": task_id, "goal": "Offline rig scenario", "bites": bites}, root
     )
@@ -151,7 +183,7 @@ def _resume(root: Path, task_id: str) -> str:
     pipeline.add("fast", finish_response({"answer": "right"}))
     root.mkdir(parents=True, exist_ok=True)
     config = root / "orchestration_arm.yaml"
-    config.write_text("residency_mode: swap\n", encoding="utf-8")
+    _write_arm_config(config)
     engines = {
         "fast": Engine("auto-daily::fast", "fast-digest", pipeline.url, "", "omlx", "fake-fast"),
         "deep": Engine("auto-daily::deep", "deep-digest", pipeline.url, "", "omlx", "fake-deep"),
@@ -180,7 +212,7 @@ def _mismatch(root: Path, task_id: str) -> str:
     pipeline.add("fast", finish_response({"answer": "right"}))
     config = root / "orchestration_arm.yaml"
     config.parent.mkdir(parents=True, exist_ok=True)
-    config.write_text("residency_mode: swap\n", encoding="utf-8")
+    _write_arm_config(config)
     engines = {
         "fast": Engine("auto-daily::fast", "fast-digest", pipeline.url, "", "omlx", "fake-fast"),
         "deep": Engine("auto-daily::deep", "deep-digest", pipeline.url, "", "omlx", "fake-deep"),
@@ -210,7 +242,194 @@ def _branches(root: Path, task_id: str) -> str:
     return "failed bite blocked while independent branch passed"
 
 
-def _bite(bite_id: str, *, text: bool = False, tokens: int = 256) -> dict[str, Any]:
+def _planner_rejection(name: str) -> str:
+    config = yaml.safe_load((_ROOT / "config" / "orchestration_arm.yaml").read_text())
+    raw = _valid_planned_plan()
+    if name == "planner_missing_check":
+        raw["bites"][0]["accept"] = []
+        expected = "deterministic check or review"
+    elif name == "planner_context_overflow":
+        raw["bites"][0]["budget"]["context_tokens"] = 16385
+        expected = "exceeds Fast context budget"
+    elif name == "planner_mixed_read_and_action":
+        raw["bites"][0]["tools"] = ["file_read", "file_write"]
+        expected = "reading and acting"
+    else:
+        raw["bites"][-1]["stage"] = "work"
+        expected = "assembly and final_review"
+    try:
+        validate_planned_plan(raw, config, "test_fixing")
+    except ValueError as exc:
+        assert expected in str(exc)
+        return f"validator rejected {name.removeprefix('planner_')}"
+    raise AssertionError(f"validator accepted {name}")
+
+
+def _valid_planned_plan() -> dict[str, Any]:
+    def _bite(bite_id: str, stage: str, tools: list[str], deps: list[str]) -> dict[str, Any]:
+        return {
+            "bite_id": bite_id,
+            "goal": f"Complete {stage} for the task.",
+            "discipline": "test_fixing",
+            "inputs": [],
+            "depends_on": deps,
+            "tools": tools,
+            "output": {"path": f"bites/{bite_id}.txt", "file_type": "text"},
+            "accept": [{"type": "contains", "value": "done"}],
+            "risk": "low",
+            "stage": stage,
+            "budget": {"turns": 2, "minutes": 2, "output_tokens": 128, "context_tokens": 512},
+            "model": "fast",
+            "procedure": "Follow the configured test-fixing procedure.",
+        }
+
+    final = _bite("final", "final_review", [], ["assembly"])
+    final["accept"] = []
+    final["review"] = "deep"
+    final["review_reason"] = "Check the assembled fix is complete."
+    final["model"] = "deep"
+    return {
+        "task_id": "planner-fixture",
+        "goal": "Repair one failing unit test.",
+        "bites": [
+            _bite("inspect", "work", ["file_read"], []),
+            _bite("assembly", "assembly", ["file_write", "pytest_run"], ["inspect"]),
+            final,
+        ],
+    }
+
+
+class _FakeDenyNotices:
+    def __init__(self) -> None:
+        self.requests: list[tuple[str, str, str]] = []
+        self.notices: list[dict[str, Any]] = []
+
+    def approval(self, task_id: str, bite_id: str, reason: str) -> bool | None:
+        self.requests.append((task_id, bite_id, reason))
+        return False
+
+    def blocked(self, task_id: str, bite_id: str, failure: dict[str, Any]) -> None:
+        self.notices.append({"task_id": task_id, "bite_id": bite_id, "failure": failure})
+
+
+class _FakeApproveNotices(_FakeDenyNotices):
+    def approval(self, task_id: str, bite_id: str, reason: str) -> bool | None:
+        self.requests.append((task_id, bite_id, reason))
+        return True
+
+
+def _deep_vote_split(root: Path, task_id: str) -> str:
+    responses = [("fast", finish_response({"answer": "right"}))]
+    responses.extend(
+        [
+            ("deep", text_response('{"decision":"approve","reason":"complete"}')),
+            ("deep", text_response('{"decision":"reject","reason":"minor gap"}')),
+            ("deep", text_response('{"decision":"approve","reason":"checks hold"}')),
+        ]
+    )
+    receipt, _ = _run_task(root, task_id, responses, [_bite("b1", risk="high")])
+    review = json.loads((root / task_id / "bites/b1/attempts/01/checks.json").read_text())[
+        "deep_review"
+    ]
+    assert receipt["status"] == "PASS" and review["approvals"] == 2 and len(review["votes"]) == 3
+    return "configured 2-of-3 Deep vote passed with one dissent"
+
+
+def _telegram_deny(root: Path, task_id: str) -> str:
+    notices = _FakeDenyNotices()
+    receipt, pipeline = _run_task(
+        root,
+        task_id,
+        [],
+        [_bite("write", discipline="test_fixing", risk="high", tools=["file_write"])],
+        notices=notices,
+    )
+    assert receipt["status"] == "BLOCKED" and len(notices.requests) == 1
+    assert not pipeline.requests and "denied" in str(notices.notices[0]["failure"])
+    return "fake Telegram deny blocked the write before any Pipeline bite ran"
+
+
+def _telegram_approve(root: Path, task_id: str) -> str:
+    notices = _FakeApproveNotices()
+    responses = [("fast", finish_response({"answer": "right"}))]
+    responses.extend(
+        ("deep", text_response('{"decision":"approve","reason":"complete"}')) for _ in range(3)
+    )
+    receipt, pipeline = _run_task(
+        root,
+        task_id,
+        responses,
+        [_bite("write", discipline="test_fixing", risk="high", tools=["file_write"])],
+        notices=notices,
+    )
+    assert receipt["status"] == "PASS" and len(notices.requests) == 1
+    assert len(pipeline.requests) == 4
+    return "fake Telegram approval opened the gate before the high-risk write"
+
+
+def _calibration_pause(root: Path, task_id: str) -> str:
+    receipt, pipeline = _run_task(
+        root,
+        task_id,
+        [("fast", finish_response({"answer": "right"}))],
+        [_bite("b1"), _bite("b2"), _bite("b3")],
+        calibration_overrides={
+            "after_bites": 1,
+            "minimum_pass_probability": 0.9,
+            "rates_by_discipline": {
+                "offline-rig": {
+                    "fast": {"pass_probability": 0.5, "mean_seconds": 10},
+                    "deep": {"pass_probability": 0.5, "mean_seconds": 20},
+                }
+            },
+        },
+    )
+    assert receipt["status"] == "PAUSED_FOR_REPLAN"
+    assert receipt["calibration"][0]["projected_pass_probability"] == 0.25
+    assert len(pipeline.requests) == 1
+    engines = {
+        "fast": Engine("auto-daily::fast", "fast-digest", pipeline.url, "", "omlx", "fake-fast"),
+        "deep": Engine("auto-daily::deep", "deep-digest", pipeline.url, "", "omlx", "fake-deep"),
+    }
+    runner = ArmService(
+        root,
+        engines,
+        build_sha="offline-head",
+        residency_config=root / "config" / "orchestration_arm.yaml",
+    )
+    try:
+        runner.resume(task_id, unattended=False)
+    except ValueError as exc:
+        assert "replacement plan" in str(exc)
+    else:
+        raise AssertionError("calibration pause resumed without a replacement plan")
+    return "Gate C paused after one bite when remaining projected odds fell below threshold"
+
+
+def _write_arm_config(path: Path) -> dict[str, Any]:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    config = yaml.safe_load((_ROOT / "config" / "orchestration_arm.yaml").read_text())
+    config["calibration"]["minimum_pass_probability"] = 0.01
+    config["calibration"]["rates_by_discipline"] = {
+        name: {
+            "fast": {"pass_probability": 1.0, "mean_seconds": 1},
+            "deep": {"pass_probability": 1.0, "mean_seconds": 1},
+        }
+        for name in ("offline-rig", "test_fixing")
+    }
+    path.write_text(yaml.safe_dump(config, sort_keys=False), encoding="utf-8")
+    return config
+
+
+def _bite(
+    bite_id: str,
+    *,
+    text: bool = False,
+    tokens: int = 256,
+    discipline: str = "offline-rig",
+    risk: str = "low",
+    tools: list[str] | None = None,
+) -> dict[str, Any]:
     output = (
         {"path": f"bites/{bite_id}/output.txt", "file_type": "text"}
         if text
@@ -227,13 +446,13 @@ def _bite(bite_id: str, *, text: bool = False, tokens: int = 256) -> dict[str, A
     return {
         "bite_id": bite_id,
         "goal": "produce the expected value",
-        "discipline": "offline-rig",
+        "discipline": discipline,
         "inputs": [],
         "depends_on": [],
-        "tools": [],
+        "tools": tools or [],
         "output": output,
         "accept": accept,
-        "risk": "low",
+        "risk": risk,
         "budget": {"turns": 2, "minutes": 1, "output_tokens": tokens},
         "model": "fast",
     }

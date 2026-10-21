@@ -293,6 +293,30 @@ def emit_module_manifest(config: Any) -> bool:
     return True
 
 
+# ── Orchestration policy ─────────────────────────────────────────────────────
+
+
+def emit_orchestration_arm(config: Any) -> bool:
+    """Render arm policy while preserving operator-owned model identities."""
+    path = REPO / "config" / "orchestration_arm.yaml"
+    current = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+    if not isinstance(current, dict):
+        raise ValueError("config/orchestration_arm.yaml must contain a mapping")
+    policy = config.orchestration_arm
+    if not isinstance(policy, dict) or not policy:
+        raise ValueError("portal.yaml orchestration_arm must contain a policy mapping")
+    rendered = {key: value for key, value in current.items() if key not in policy}
+    rendered.update(policy)
+    header = (
+        "# Generated arm policy from config/portal.yaml; seat identities remain operator-owned.\n"
+    )
+    content = header + yaml.safe_dump(rendered, sort_keys=False, allow_unicode=True)
+    if content == path.read_text(encoding="utf-8"):
+        return False
+    path.write_text(content, encoding="utf-8")
+    return True
+
+
 # ── Main ──────────────────────────────────────────────────────────────────────
 
 
@@ -316,6 +340,9 @@ def main() -> int:
     # 4. OWUI workspace presets
     c, u, r = emit_owui_presets(config)
     print(f"  imports/openwebui/workspaces/: {c} created, {u} updated, {r} removed")
+
+    changed = emit_orchestration_arm(config)
+    print(f"  config/orchestration_arm.yaml: {'updated' if changed else 'no change'}")
 
     # 4b. dead-tools self-check — a workspace whose every declared tool maps
     # to a DEAD_SERVERS entry (backend intentionally removed/shelved) is

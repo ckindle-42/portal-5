@@ -38,6 +38,30 @@ def submit(
     typer.echo(str(result / "receipt.json"))
 
 
+@orchestration_app.command("goal")
+def goal(
+    task_id: Annotated[str, typer.Argument()],
+    discipline: Annotated[str, typer.Argument()],
+    goal_text: Annotated[str, typer.Argument()],
+    tasks_dir: Annotated[Path | None, typer.Option("--tasks-dir")] = None,
+    source_dir: Annotated[Path | None, typer.Option("--source-dir")] = None,
+) -> None:
+    """Plan and run a goal on the configured Deep and Fast seats."""
+    _require_enabled()
+    try:
+        result = _service(tasks_dir).submit_goal(
+            task_id=task_id,
+            discipline=discipline,
+            goal=goal_text,
+            source_dir=source_dir or Path.cwd(),
+            unattended=True,
+        )
+    except Exception as exc:
+        typer.echo(f"arm goal failed: {exc}", err=True)
+        raise typer.Exit(code=1) from exc
+    typer.echo(str(result / "receipt.json"))
+
+
 @orchestration_app.command("resume")
 def resume(
     task_id: Annotated[str, typer.Argument()],
@@ -82,6 +106,7 @@ def status(
 
 def _service(tasks_dir: Path | None) -> Any:
     from portal.modules.orchestration.service import ArmService
+    from portal.modules.orchestration.telegram import TelegramNoticeSink
     from portal.modules.orchestration.worker import Engine
 
     config_path = Path(__file__).resolve().parents[3] / "config" / "orchestration_arm.yaml"
@@ -113,7 +138,7 @@ def _service(tasks_dir: Path | None) -> Any:
             str(load_identity.get("engine", "omlx")),
             str(load_identity.get("model", "")),
         )
-    return ArmService(tasks_dir or _tasks_dir(), engines)
+    return ArmService(tasks_dir or _tasks_dir(), engines, notices=TelegramNoticeSink())
 
 
 def _tasks_dir() -> Path:

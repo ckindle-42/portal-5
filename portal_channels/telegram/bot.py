@@ -6,14 +6,28 @@ Thin adapter: no routing logic — all intelligence is in portal_pipeline/.
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import os
 import time
+from contextlib import suppress
 
-from telegram import Update
-from telegram.ext import Application, CommandHandler, ContextTypes, MessageHandler, filters
+from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
+from telegram.ext import (
+    Application,
+    CallbackQueryHandler,
+    CommandHandler,
+    ContextTypes,
+    MessageHandler,
+    filters,
+)
 
 from portal_channels.dispatcher import VALID_WORKSPACES, is_valid_workspace
+from portal_channels.telegram.arm_bridge import (
+    ArmTelegramStore,
+    default_arm_telegram_path,
+    send_outbox_once,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -38,6 +52,63 @@ def _allowed_users() -> set[int]:
 def _is_allowed(user_id: int) -> bool:
     allowed = _allowed_users()
     return not allowed or user_id in allowed
+
+
+async def handle_arm_gate_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    query = update.callback_query
+    user = update.effective_user
+    data = query.data if query else None
+    if not query or not user or not isinstance(data, str):
+        return
+    parts = data.split(":")
+    if len(parts) != 3 or parts[0] != "arm" or parts[2] not in {"approve", "deny"}:
+        await query.answer("Invalid orchestration gate.", show_alert=True)
+        return
+    store = ArmTelegramStore(default_arm_telegram_path())
+    accepted = store.decide(parts[1], parts[2], user.id, _allowed_users())
+    if not accepted:
+        await query.answer(
+            "This request is closed or you are not an authorized operator.", show_alert=True
+        )
+        return
+    await query.answer(f"Orchestration bite {parts[2]}d.")
+    if query.message:
+        await query.edit_message_text(
+            f"{query.message.text}\n\nDecision: {parts[2]}d by {user.id}."
+        )
+
+
+async def _arm_outbox(application: Application) -> None:
+    store = ArmTelegramStore(default_arm_telegram_path())
+    while True:
+        try:
+            await send_outbox_once(store, application.bot, _allowed_users(), _arm_keyboard)
+        except Exception as exc:
+            logger.error("Orchestration Telegram outbox failed: %s", exc)
+        await asyncio.sleep(2)
+
+
+async def _arm_post_init(application: Application) -> None:
+    application.bot_data["arm_outbox_task"] = asyncio.create_task(_arm_outbox(application))
+
+
+async def _arm_post_shutdown(application: Application) -> None:
+    task = application.bot_data.get("arm_outbox_task")
+    if isinstance(task, asyncio.Task):
+        task.cancel()
+        with suppress(asyncio.CancelledError):
+            await task
+
+
+def _arm_keyboard(request_id: str) -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        [
+            [
+                InlineKeyboardButton("Approve", callback_data=f"arm:{request_id}:approve"),
+                InlineKeyboardButton("Deny", callback_data=f"arm:{request_id}:deny"),
+            ]
+        ]
+    )
 
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -182,11 +253,18 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
 def build_app() -> Application:
     """Build the Telegram Application. Reads TELEGRAM_BOT_TOKEN here, not at import."""
     token = _get_token()
-    app = Application.builder().token(token).build()
+    app = (
+        Application.builder()
+        .token(token)
+        .post_init(_arm_post_init)
+        .post_shutdown(_arm_post_shutdown)
+        .build()
+    )
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CommandHandler("clear", clear))
     app.add_handler(CommandHandler("workspace", set_workspace))
     app.add_handler(CommandHandler("workspaces", list_workspaces))
+    app.add_handler(CallbackQueryHandler(handle_arm_gate_callback, pattern=r"^arm:"))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
     return app
 

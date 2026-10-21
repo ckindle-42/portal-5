@@ -711,6 +711,9 @@ services:
       - PIPELINE_URL=http://portal-pipeline:9099
       - PIPELINE_API_KEY=${PIPELINE_API_KEY}
       - TELEGRAM_DEFAULT_WORKSPACE=${TELEGRAM_DEFAULT_WORKSPACE:-auto}
+      - PORTAL_ARM_TELEGRAM_DB=/workspace/.portal_arm/telegram.sqlite3
+    volumes:
+      - ${AI_OUTPUT_DIR:-${HOME}/AI_Output}:/workspace
     command: ["python", "-m", "portal_channels.telegram.bot"]
     depends_on:
       portal-pipeline:

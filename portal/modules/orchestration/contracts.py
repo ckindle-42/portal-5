@@ -19,6 +19,7 @@ class Budget:
     turns: int
     minutes: float
     output_tokens: int
+    context_tokens: int | None = None
 
 
 @dataclass(frozen=True)
@@ -33,10 +34,14 @@ class Bite:
     output_schema: dict[str, Any] | None
     file_type: str | None
     accept: tuple[dict[str, Any], ...]
+    review: str | None
+    review_reason: str | None
     risk: str
+    stage: str
     budget: Budget
     model: ModelSeat
     procedure: str
+    reads_untrusted: bool
 
     def as_dict(self) -> dict[str, Any]:
         return {
@@ -52,14 +57,23 @@ class Bite:
                 **({"file_type": self.file_type} if self.file_type is not None else {}),
             },
             "accept": list(self.accept),
+            **({"review": self.review} if self.review else {}),
+            **({"review_reason": self.review_reason} if self.review_reason else {}),
             "risk": self.risk,
+            "stage": self.stage,
             "budget": {
                 "turns": self.budget.turns,
                 "minutes": self.budget.minutes,
                 "output_tokens": self.budget.output_tokens,
+                **(
+                    {"context_tokens": self.budget.context_tokens}
+                    if self.budget.context_tokens
+                    else {}
+                ),
             },
             "model": self.model,
             "procedure": self.procedure,
+            "reads_untrusted": self.reads_untrusted,
         }
 
 
@@ -78,7 +92,7 @@ class TaskPlan:
 
 
 def parse_plan(raw: dict[str, Any]) -> TaskPlan:
-    """Load and validate the hand-written Phase 1 plan contract."""
+    """Load and validate a normalized orchestration plan."""
     if not isinstance(raw, dict):
         raise ValueError("plan must be an object")
     task_id = _required_string(raw, "task_id")
@@ -96,34 +110,13 @@ def parse_plan(raw: dict[str, Any]) -> TaskPlan:
 def _parse_bite(raw: Any) -> Bite:
     if not isinstance(raw, dict):
         raise ValueError("each bite must be an object")
-    output = raw.get("output")
-    if not isinstance(output, dict):
-        raise ValueError("bite.output must be an object")
-    output_path = _required_string(output, "path")
-    path = Path(output_path)
-    if path.is_absolute() or ".." in path.parts:
-        raise ValueError(f"bite output path must stay inside the task directory: {output_path}")
-    schema = output.get("schema")
-    file_type = output.get("file_type")
-    if (schema is None) == (file_type is None):
-        raise ValueError("bite.output must declare exactly one of schema or file_type")
-    if schema is not None:
-        if not isinstance(schema, dict):
-            raise ValueError("bite.output.schema must be an object")
-        Draft202012Validator.check_schema(schema)
-    if file_type is not None and file_type not in {"json", "text"}:
-        raise ValueError("bite.output.file_type must be json or text")
-    raw_budget = raw.get("budget")
-    if not isinstance(raw_budget, dict):
-        raise ValueError("bite.budget must be an object")
-    budget = Budget(
-        turns=_positive_int(raw_budget, "turns"),
-        minutes=_positive_number(raw_budget, "minutes"),
-        output_tokens=_positive_int(raw_budget, "output_tokens"),
-    )
-    accept = raw.get("accept")
-    if not isinstance(accept, list) or not accept or not all(isinstance(x, dict) for x in accept):
-        raise ValueError("bite.accept must contain at least one deterministic check")
+    output_path, schema, file_type = _parse_output(raw.get("output"))
+    budget = _parse_budget(raw.get("budget"))
+    accept, review, review_reason = _parse_acceptance(raw)
+    stage = _parse_stage(raw.get("stage", "work"))
+    reads_untrusted = raw.get("reads_untrusted", False)
+    if not isinstance(reads_untrusted, bool):
+        raise ValueError("bite.reads_untrusted must be a boolean")
     model = raw.get("model", "fast")
     if model not in {"fast", "deep"}:
         raise ValueError("bite model must be fast or deep")
@@ -137,16 +130,84 @@ def _parse_bite(raw: Any) -> Bite:
         output_path=output_path,
         output_schema=schema,
         file_type=file_type,
-        accept=tuple(accept),
+        accept=accept,
+        review=review,
+        review_reason=review_reason,
         risk=str(raw.get("risk", "low")),
+        stage=stage,
         budget=budget,
         model=cast(ModelSeat, model),
         procedure=str(raw.get("procedure", "")),
+        reads_untrusted=reads_untrusted,
     )
     if bite.risk not in {"low", "high"}:
         raise ValueError(f"bite {bite.bite_id}: risk must be low or high")
     _validate_bite_tools(bite)
     return bite
+
+
+def _parse_output(value: Any) -> tuple[str, dict[str, Any] | None, str | None]:
+    if not isinstance(value, dict):
+        raise ValueError("bite.output must be an object")
+    output_path = _required_string(value, "path")
+    path = Path(output_path)
+    if path.is_absolute() or ".." in path.parts:
+        raise ValueError(f"bite output path must stay inside the task directory: {output_path}")
+    schema = value.get("schema")
+    file_type = value.get("file_type")
+    if (schema is None) == (file_type is None):
+        raise ValueError("bite.output must declare exactly one of schema or file_type")
+    if schema is not None:
+        if not isinstance(schema, dict):
+            raise ValueError("bite.output.schema must be an object")
+        Draft202012Validator.check_schema(schema)
+    if file_type is not None and file_type not in {"json", "text"}:
+        raise ValueError("bite.output.file_type must be json or text")
+    return output_path, schema, file_type
+
+
+def _parse_budget(value: Any) -> Budget:
+    if not isinstance(value, dict):
+        raise ValueError("bite.budget must be an object")
+    return Budget(
+        turns=_positive_int(value, "turns"),
+        minutes=_positive_number(value, "minutes"),
+        output_tokens=_positive_int(value, "output_tokens"),
+        context_tokens=(
+            _positive_int(value, "context_tokens")
+            if value.get("context_tokens") is not None
+            else None
+        ),
+    )
+
+
+def _parse_acceptance(
+    raw: dict[str, Any],
+) -> tuple[tuple[dict[str, Any], ...], str | None, str | None]:
+    accept = raw.get("accept")
+    review = raw.get("review")
+    reason = raw.get("review_reason")
+    if isinstance(accept, dict):
+        review = accept.get("review", review)
+        reason = accept.get("reason", reason)
+        accept = accept.get("checks", [])
+    if not isinstance(accept, list) or not all(isinstance(item, dict) for item in accept):
+        raise ValueError("bite.accept must be a list of deterministic checks")
+    if review is not None and review != "deep":
+        raise ValueError("bite.review must be deep when specified")
+    if not accept and (review != "deep" or not isinstance(reason, str) or not reason.strip()):
+        raise ValueError("bite needs a deterministic check or review: deep with a reason")
+    return (
+        tuple(accept),
+        "deep" if review == "deep" else None,
+        reason.strip() if isinstance(reason, str) else None,
+    )
+
+
+def _parse_stage(value: Any) -> str:
+    if not isinstance(value, str) or value not in {"work", "assembly", "final_review"}:
+        raise ValueError("bite.stage must be work, assembly, or final_review")
+    return value
 
 
 def _validate_bite_tools(bite: Bite) -> None:
