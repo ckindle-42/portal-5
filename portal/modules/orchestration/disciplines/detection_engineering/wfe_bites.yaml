@@ -1,0 +1,93 @@
+schema_version: 1
+discipline: detection-engineering
+seats:
+  - fast
+  - deep
+cases:
+  - id: det-spl-syntax-kerberoast
+    goal: Author syntactically valid SPL for Kerberoasting telemetry.
+    instruction: >-
+      Write a time-bounded SPL search for Windows EventCode 4769 with RC4 tickets,
+      validate the exact query, and return it as the spl artifact.
+    tools:
+      - mitre_technique_lookup
+      - spl_search_library
+      - spl_validate_syntax
+    artifact_schema:
+      type: object
+      required: [spl]
+      properties:
+        spl: {type: string}
+      additionalProperties: false
+    checker:
+      type: spl_syntax
+      artifact_field: spl
+    requires_live_lab: false
+  - id: det-sigma-whoami
+    goal: Produce one valid Sigma process-creation rule and convertible SPL.
+    instruction: >-
+      Write a Sigma rule for whoami.exe process creation, validate the exact YAML,
+      convert those same bytes to Splunk, and return the YAML as sigma_yaml.
+    tools:
+      - validate_sigma
+      - convert_sigma
+    artifact_schema:
+      type: object
+      required: [sigma_yaml]
+      properties:
+        sigma_yaml: {type: string}
+      additionalProperties: false
+    checker:
+      type: sigma_validate_convert
+      artifact_field: sigma_yaml
+      rule_count: 1
+      query_contains:
+        - whoami.exe
+    requires_live_lab: false
+  - id: det-yara-powershell
+    goal: Produce a compilable YARA rule for a PowerShell encoded-command marker.
+    instruction: >-
+      Write one YARA rule matching the ASCII and wide string powershell.exe -enc,
+      compile the exact rule, and return it as rule_text.
+    tools:
+      - compile_yara
+    artifact_schema:
+      type: object
+      required: [rule_text]
+      properties:
+        rule_text: {type: string}
+      additionalProperties: false
+    checker:
+      type: yara_compile
+      artifact_field: rule_text
+    requires_live_lab: false
+  - id: det-lab-kerberoast-known-answer
+    goal: Run a read-only lab SPL query and recover the known Kerberoast service accounts.
+    instruction: >-
+      Run the supplied time-bounded aggregation through query_splunk and return the
+      exact query and time bounds; do not substitute mock rows.
+    tools:
+      - query_splunk
+    seed_artifact:
+      spl: "EventCode=4769 TicketEncryptionType=0x17 | stats count by ServiceName"
+      earliest: "-24h"
+      latest: now
+      max_results: 100
+    artifact_schema:
+      type: object
+      required: [spl, earliest, latest, max_results]
+      properties:
+        spl: {type: string}
+        earliest: {type: string}
+        latest: {type: string}
+        max_results: {type: integer}
+      additionalProperties: false
+    checker:
+      type: lab_spl_results
+      artifact_field: spl
+      requires_live_lab: true
+      min_rows: 2
+      expected_rows:
+        - ServiceName: svc_backup
+        - ServiceName: svc_sql
+    requires_live_lab: true
