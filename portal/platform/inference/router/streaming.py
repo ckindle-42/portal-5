@@ -263,6 +263,54 @@ def _completion_finish_chunk(reason: str) -> bytes:
     return f"data: {json.dumps({'choices': [{'delta': {}, 'finish_reason': reason}]})}\n\n".encode()
 
 
+#: Opens the content notice that carries an in-band backend error (ollama#18563) to the client.
+_IN_BAND_ERROR_NOTICE = "\n\n[Backend stream error — the reply ended early: "
+
+
+def _error_text(value: Any) -> str:
+    """An engine's error value as text: a string, or an OpenAI ``{"message": ...}``."""
+    if isinstance(value, dict):
+        value = value.get("message") or value
+    return str(value or "").strip()
+
+
+def _in_band_backend_error(line: str) -> str | None:
+    """The message of an ``{"error": ...}`` object a backend wrote inside its own 200
+    stream — Ollama native NDJSON, or an OpenAI ``data:`` frame — else ``None``."""
+    if '"error"' not in line:
+        return None
+    payload = line[5:].strip() if line.startswith("data:") else line.strip()
+    if not payload.startswith("{"):
+        return None
+    try:
+        obj = json.loads(payload)
+    except Exception:
+        return None
+    if not isinstance(obj, dict) or "error" not in obj or obj.get("choices"):
+        return None
+    return _error_text(obj["error"])
+
+
+def _in_band_error_frames(
+    request_id: str, workspace_id: str, model: str, message: str
+) -> list[bytes]:
+    """Log, count, close: the error as content, one finish chunk, one ``[DONE]``."""
+    logger.error(
+        "Backend wrote an error inside a started stream (workspace=%s model=%s "
+        "correlation_id=%s): %s",
+        workspace_id,
+        model,
+        _corr_id() or "-",
+        message,
+    )
+    _record_error(workspace_id, "backend_in_band_error")
+    return [
+        _content_chunk(request_id, workspace_id, f"{_IN_BAND_ERROR_NOTICE}{message}]"),
+        _completion_finish_chunk("stop"),
+        b"data: [DONE]\n\n",
+    ]
+
+
 def _json_completion_to_sse(
     data: dict[str, Any], workspace_id: str, *, thinking_enabled: bool = True
 ) -> Iterator[bytes]:
@@ -807,6 +855,16 @@ async def _tool_loop_frames(
                     async for line in resp.aiter_lines():
                         if not line:
                             continue
+                        _in_band = _in_band_backend_error(line)
+                        if _in_band is not None:
+                            for _f in _in_band_error_frames(
+                                request_id,
+                                workspace_id,
+                                current_body.get("model", model),
+                                _in_band,
+                            ):
+                                yield _f
+                            return
                         if not line.startswith("data: "):
                             yield (line + "\n\n").encode()
                             continue
@@ -1443,6 +1501,13 @@ async def _stream_from_backend_guarded(
             async for line in resp.aiter_lines():
                 if not line:
                     continue
+                _in_band = _in_band_backend_error(line)
+                if _in_band is not None:
+                    for _frame in _in_band_error_frames(
+                        f"chatcmpl-{workspace_id}", workspace_id, model, _in_band
+                    ):
+                        yield _frame
+                    return
                 if line.startswith("data:") and line[5:].strip() == "[DONE]":
                     # The router owns the terminal sequence so it can classify
                     # an empty/reasoning-only turn before finish and [DONE].
@@ -2374,6 +2439,7 @@ async def _stream_with_fallback(
         # oMLX capacity rejection wearing a 400) fails the same on every
         # candidate. Either way, report the error and stop.
         yield _error_buffer or b'data: {"error": "Backend stream failed"}\n\n'
+        yield _completion_finish_chunk("stop")
         yield _DONE
         _record_error(workspace_id, "stream_failed_after_output" if _output_sent else "bad_request")
         trace_note(outcome="error")
