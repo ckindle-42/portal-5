@@ -37,7 +37,7 @@ COPY --from=obscura-build /out-obscura-worker /usr/local/bin/obscura-worker
 RUN chmod +x /usr/local/bin/obscura /usr/local/bin/obscura-worker
 
 # Wrapper deps (matches the fleet's MCP SDK pin).
-RUN pip install --no-cache-dir httpx starlette uvicorn "mcp>=2.0.0,<3.0.0"
+RUN pip install --no-cache-dir httpx "starlette>=1.3.0" uvicorn "mcp>=2.0.0,<3.0.0"
 
 RUN mkdir -p /app /profiles /audit
 COPY portal/modules/research/tools/browser_mcp.py /app/browser_mcp.py

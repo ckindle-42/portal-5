@@ -1,14 +1,11 @@
-#!/opt/homebrew/bin/python3
+#!/usr/bin/env python3
 """Portal 5 powermetrics reader daemon.
 
 Runs `powermetrics` continuously, parses the output, exposes current power
 consumption (in watts) plus 1-min/10-min averages on a Unix domain socket.
 
 Install:
-    sudo cp scripts/portal5-powermetrics.py /usr/local/bin/portal5-powermetrics
-    sudo chmod +x /usr/local/bin/portal5-powermetrics
-    sudo cp deploy/launchd/com.portal5.powermetrics.plist /Library/LaunchDaemons/
-    sudo launchctl load -w /Library/LaunchDaemons/com.portal5.powermetrics.plist
+    ./launch.sh install-powermetrics
 """
 
 import collections
