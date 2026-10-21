@@ -41,6 +41,7 @@ __all__ = [
     "DEFAULT_NUM_CTX",
     "DEFAULT_REASONING_ALLOWANCE",
     "DEFAULT_TEMPERATURE",
+    "CapacityRefusalError",
     "ChatResult",
     "ContextCeilingError",
     "applied_context_length",
@@ -235,6 +236,10 @@ class ContextCeilingError(RuntimeError):
     exceeded and the number that exceeded it are both in the message: the one
     thing this must never be is a silent clamp.
     """
+
+
+class CapacityRefusalError(RuntimeError):
+    """An engine refused the prompt for memory capacity, not window or thinking support."""
 
 
 def seat_ceiling(model: str) -> int:
@@ -445,15 +450,16 @@ def _post_judged(
     timeout: int,
     dialect: Any = None,
 ) -> tuple[dict[str, Any], bool | str, str]:
-    """One POST, with the two HTTP 400s this endpoint actually returns told apart.
+    """One POST, with the HTTP 400s this endpoint actually returns told apart.
 
     ``exceed_context_size_error`` is a window that could not hold the prompt and
-    becomes a named :class:`ContextCeilingError`; the other 400 is "does not
+    becomes a named :class:`ContextCeilingError`; an engine memory-capacity
+    refusal becomes :class:`CapacityRefusalError`; the other 400 is "does not
     support thinking", which is cached and retried once with the flag off. They
     used to be one branch, so an oversized prompt on a reasoning model was
     retried as a non-reasoning call and then failed again with a bare
     ``HTTPError``. A non-native dialect classifies its own 400s
-    (:meth:`Dialect.classify_400`) and gets the same two-way split.
+    (:meth:`Dialect.classify_400`) and gets the same split.
     """
     _dialect = dialect if dialect is not None else _resolve_dialect()
     try:
@@ -469,12 +475,21 @@ def _post_judged(
                     f"and the requested window is {overflow.get('n_ctx')} — the runner refused "
                     "it rather than truncating"
                 ) from exc
-        elif _dialect.classify_400(exc) == "context":
-            raise ContextCeilingError(
-                f"{model}: the {_dialect.name} server at {_dialect.endpoint} refused the "
-                "assembled prompt as over its window — the window is the server's own, "
-                "so reduce the material or raise the serve-line pin"
-            ) from exc
+        else:
+            verdict = _dialect.classify_400(exc)
+            if verdict == "context":
+                raise ContextCeilingError(
+                    f"{model}: the {_dialect.name} server at {_dialect.endpoint} refused the "
+                    "assembled prompt as over its window — the window is the server's own, "
+                    "so reduce the material or raise the serve-line pin"
+                ) from exc
+            if verdict == "capacity":
+                raise CapacityRefusalError(
+                    f"{model}: the {_dialect.name} server at {_dialect.endpoint} refused the "
+                    "assembled prompt for engine memory capacity — the request is not malformed "
+                    "and the model's thinking support is not in question; free engine memory or "
+                    "reduce the prompt"
+                ) from exc
         if not want_think:
             raise
         _THINK_CAPABLE[model] = False

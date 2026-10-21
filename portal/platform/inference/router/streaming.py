@@ -2359,7 +2359,8 @@ async def _stream_with_fallback(
         except Exception:
             stream_failed = True
         # oMLX rejected the prompt for memory it cannot reclaim from Ollama:
-        # free Ollama's idle models and retry oMLX once before cascading to the
+        # free Ollama's idle models and retry once. A prefill refusal that
+        # survives the retry surfaces; a load refusal still cascades to the
         # slower engine. The first attempt has already released the slot, and
         # release is idempotent, so the retry runs unslotted for those moments.
         if (
@@ -2396,7 +2397,7 @@ async def _stream_with_fallback(
     if stream_failed and (
         _output_sent or _is_noncascadable_stream_error(_error_status, _error_buffer)
     ):
-        # Partial output, malformed requests, and repeated prefill refusals have no safe fallback.
+        # Partial output, malformed requests, and a prefill refusal that survived the retry surface.
         if not _output_sent:
             _error_buffer = _format_omlx_prefill_error_chunk(
                 _error_status,

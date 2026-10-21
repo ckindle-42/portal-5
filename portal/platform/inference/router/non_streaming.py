@@ -18,6 +18,7 @@ import httpx
 from fastapi.responses import JSONResponse
 
 from portal.platform.inference.config import PersonaSpec
+from portal.platform.inference.router.backend_introspect import _approx_prompt_tokens
 from portal.platform.inference.router.download_links import (
     offers_file_creation,
     strip_unbacked_download_lines,
@@ -117,13 +118,11 @@ def is_omlx_prefill_refusal(status: int, detail: bytes | str) -> bool:
 
 
 def format_omlx_prefill_error(detail: str, body: dict[str, Any]) -> str:
-    """Add the existing chars/4 prompt estimate to the engine's capacity detail."""
+    """Add the shared prompt-size estimate to the engine's capacity detail."""
     prefix = "oMLX prefill memory guard refused"
     if prefix in detail:
         return detail
-    chars = len(json.dumps(body.get("messages") or [], default=str))
-    chars += len(json.dumps(body.get("tools") or [], default=str))
-    return f"{prefix} estimated prompt size ~{chars // 4:,} tokens: {detail}"
+    return f"{prefix} estimated prompt size ~{_approx_prompt_tokens(body):,} tokens: {detail}"
 
 
 def _omlx_prefill_refusal_detail(backend: Any, exc: Exception) -> str | None:
@@ -810,12 +809,14 @@ async def _try_non_streaming(
             )
 
     _prefill_refusal: str | None = None
+    _last_request_body: dict[str, Any] = req_body
 
     async def _run_request() -> JSONResponse | None:
         """POST → tool loop → normalise → return. None on any failure."""
 
-        nonlocal _prefill_refusal
+        nonlocal _prefill_refusal, _last_request_body
         _prefill_refusal = None
+        _last_request_body = req_body
         try:
             _req_tools = len(req_body.get("tools", []))
             _req_msgs = len(req_body.get("messages", []))
@@ -905,9 +906,10 @@ async def _try_non_streaming(
                 _ns_guard.grounding_retried = True
                 _record_intermediate_model(data, target_model, workspace_id, _model_started)
                 _model_started = time.monotonic()
+                _last_request_body = {**req_body, "messages": _ns_messages}
                 _ns_retry = await _http_client.post(
                     backend.chat_url,
-                    json={**req_body, "messages": _ns_messages},
+                    json=_last_request_body,
                     timeout=_timeout_obj,
                 )
                 _raise_for_backend_status(_ns_retry)
@@ -964,6 +966,7 @@ async def _try_non_streaming(
                     "tools": None if _ns_last else req_body.get("tools"),
                     "tool_choice": None if _ns_last else req_body.get("tool_choice"),
                 }
+                _last_request_body = _synth_body
                 _model_started = time.monotonic()
                 _synth_resp = await _http_client.post(
                     backend.chat_url, json=_synth_body, timeout=_timeout_obj
@@ -1066,7 +1069,8 @@ async def _try_non_streaming(
             and _is_capacity_error((tried or {}).get((backend.chat_url, target_model), ""))
         ):
             # oMLX rejected the prompt for memory held by idle Ollama models it
-            # cannot reclaim: free them and retry oMLX once before cascading.
+            # cannot reclaim: free them and retry once. A prefill refusal that
+            # survives the retry surfaces; a 507 load refusal still cascades.
             from portal.platform.inference.router.backend_introspect import free_ollama_for_omlx
 
             freed = await free_ollama_for_omlx()
@@ -1079,7 +1083,7 @@ async def _try_non_streaming(
                 result = await _run_request()
         if result is not None:
             return result
-        _raise_prefill_capacity_error(_prefill_refusal, req_body)
+        _raise_prefill_capacity_error(_prefill_refusal, _last_request_body)
         # Non-timeout failure (HTTP error, JSON parse, etc.) — cascade immediately.
         logger.warning(
             "Backend %s failed for workspace=%s — trying next candidate",

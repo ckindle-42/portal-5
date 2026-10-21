@@ -1,4 +1,4 @@
-"""oMLX capacity refusals retry after freeing idle Ollama; repeated prefill refusals stop cascading."""
+"""oMLX capacity refusals retry after freeing idle Ollama; a refusal that survives the retry surfaces."""
 
 from __future__ import annotations
 
@@ -8,6 +8,7 @@ import time
 from types import SimpleNamespace
 
 import httpx
+import pytest
 from fastapi import HTTPException
 
 from portal.platform.inference import load_guard
@@ -35,6 +36,7 @@ def test_the_predicate_matches_both_omlx_refusals_and_nothing_else() -> None:
     assert is_omlx_capacity_refusal(400, PREFILL_GUARD)
     assert is_omlx_prefill_refusal(400, PREFILL_GUARD)
     assert not is_omlx_prefill_refusal(507, LOAD_CEILING)
+    assert not is_omlx_prefill_refusal(400, b'{"error":"invalid parameter temperature"}')
     assert not is_omlx_capacity_refusal(400, b'{"error":"invalid parameter temperature"}')
     assert not is_omlx_capacity_refusal(500, LOAD_CEILING)
 
@@ -168,6 +170,23 @@ def test_a_short_prefill_refusal_still_frees_and_retries_omlx(monkeypatch) -> No
     assert b"hello" in out and b'"error"' not in out
 
 
+def test_tool_loop_surfaces_a_prefill_refusal_that_survives_the_free_retry(monkeypatch) -> None:
+    freed: list[int] = []
+
+    async def fake_free(*_args, **_kwargs):
+        freed.append(1)
+        return ["idle:30b"]
+
+    monkeypatch.setattr(streaming, "free_ollama_for_omlx", fake_free)
+    out, posts = _drive_tool_loop(
+        monkeypatch, [_Resp(400, PREFILL_GUARD), _Resp(400, PREFILL_GUARD)]
+    )
+
+    assert len(posts) == 2 and freed == [1]
+    assert b"estimated prompt size ~" in out
+    assert b"25.61 GB" in out
+
+
 def test_tool_loop_reports_prefill_capacity_when_freeing_cannot_help(monkeypatch) -> None:
     freed: list[int] = []
 
@@ -255,6 +274,36 @@ def test_non_stream_prefill_refusal_surfaces_capacity_without_ollama_timeout(mon
     assert len(calls) == 1
     assert "estimated prompt size ~" in detail
     assert "25.61 GB" in detail
+
+
+def test_non_stream_prefill_refusal_raises_after_the_free_retry(monkeypatch) -> None:
+    refusals = [
+        httpx.Response(
+            400,
+            content=PREFILL_GUARD,
+            request=httpx.Request("POST", "http://omlx.test/v1/chat/completions"),
+        ),
+        httpx.Response(
+            400,
+            content=PREFILL_GUARD,
+            request=httpx.Request("POST", "http://omlx.test/v1/chat/completions"),
+        ),
+    ]
+    calls = _setup_non_streaming(monkeypatch, refusals, ["idle:30b"])
+
+    with pytest.raises(non_streaming.BackendRequestError) as excinfo:
+        asyncio.run(
+            non_streaming._try_non_streaming(
+                _omlx_backend(),
+                {"messages": [{"role": "user", "content": "hi"}]},
+                "capacity-test",
+                time.monotonic(),
+                tried={},
+            )
+        )
+
+    assert len(calls) == 2
+    assert "estimated prompt size ~" in excinfo.value.detail
 
 
 def _drive_tool_loop(monkeypatch, outcomes: list) -> tuple[bytes, list[str]]:

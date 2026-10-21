@@ -213,8 +213,15 @@ one.
   with sync-config; never hand-edit it).
 
 Priority stays 10 (shadow-shift, automatic ollama fallback on
-unhealthy/rejects — the established pattern). Every alias ships with a live
-tool-call probe recorded in the backends.yaml comment, matching how
+unhealthy/rejects — the established pattern), with one exception: an oMLX
+**prefill memory guard** 400 is not a transient reject. It is a prompt-size
+fact, and the Ollama sibling's dense prefill of the same prompt is a
+guaranteed timeout (measured: 118K tokens, 600 s, 2026-10-21). The router
+frees idle Ollama and retries oMLX once; if nothing is freeable, or the retry
+refuses again, the refusal surfaces to the client as a capacity error naming
+the prompt estimate instead of falling back (`5ef005bf`). The 507 load-ceiling
+refusal keeps the automatic fallback. Every alias ships with a live tool-call
+probe recorded in the backends.yaml comment, matching how
 omlx-security/omlx-reasoning entries were added.
 
 DeepSeek-R1-0528-Qwen3-8B stays Ollama-only: oMLX drops its tool-call format

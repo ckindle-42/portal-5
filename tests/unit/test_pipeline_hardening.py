@@ -627,8 +627,8 @@ async def test_no_fallback_on_malformed_request(monkeypatch) -> None:
 
 
 @pytest.mark.anyio
-async def test_repeated_omlx_prefill_refusal_does_not_fall_back(monkeypatch) -> None:
-    """A repeated streamed prefill guard refusal is surfaced without another candidate call."""
+async def test_omlx_prefill_refusal_with_nothing_to_free_does_not_fall_back(monkeypatch) -> None:
+    """A streamed prefill refusal with nothing freeable surfaces without another candidate call."""
     freed_calls: list[int] = []
 
     async def fake_free() -> list[str]:
@@ -691,7 +691,38 @@ async def test_omlx_capacity_400_frees_ollama_and_retries_omlx(monkeypatch) -> N
 
 
 @pytest.mark.anyio
-async def test_omlx_prefill_refusal_surfaces_when_nothing_to_free(monkeypatch) -> None:
+async def test_omlx_prefill_refusal_surfaces_after_a_fruitless_retry(monkeypatch) -> None:
+    """Freeing idle Ollama buys one oMLX retry; a second refusal reaches the client."""
+    streams = [[_CAPACITY_ERR], [_CAPACITY_ERR]]
+    freed_calls: list[int] = []
+
+    async def fake_free() -> list[str]:
+        freed_calls.append(1)
+        return ["ollama-model"]
+
+    async def fake_ns(*_a, **_k):
+        raise AssertionError("a failed retry must not call the next candidate")
+
+    async def _gen(chunks):
+        for c in chunks:
+            yield c
+
+    monkeypatch.setattr(st, "_select_stream_fn", lambda *a, **k: _gen(streams.pop(0)))
+    monkeypatch.setattr(st, "free_ollama_for_omlx", fake_free)
+    monkeypatch.setattr(st, "_try_non_streaming", fake_ns)
+    gen = st._stream_with_fallback(
+        _omlx_backend("b0"), {}, "ws", "m", "p", [], 0.0, False, [], False, "", "",
+        [_backend("b1")], MagicMock(), {},
+    )  # fmt: skip
+    chunks = await _drain(gen)
+    assert freed_calls == [1]
+    joined = b"".join(chunks)
+    assert b"estimated prompt size ~" in joined
+    assert b'"status": 400' in joined
+
+
+@pytest.mark.anyio
+async def test_omlx_prefill_refusal_surfaces_without_a_free_retry(monkeypatch) -> None:
     freed_calls: list[int] = []
 
     async def fake_free() -> list[str]:
@@ -702,7 +733,9 @@ async def test_omlx_prefill_refusal_surfaces_when_nothing_to_free(monkeypatch) -
         yield _CAPACITY_ERR
 
     async def fake_ns(*_a, **_kw):
-        raise AssertionError("a repeated prefill refusal must not call the next candidate")
+        raise AssertionError(
+            "a prefill refusal with nothing freeable must not call the next candidate"
+        )
 
     monkeypatch.setattr(st, "_select_stream_fn", lambda *a, **k: inner())
     monkeypatch.setattr(st, "free_ollama_for_omlx", fake_free)
@@ -1198,6 +1231,36 @@ async def test_failover_runs_a_tool_loop_until_the_model_answers(monkeypatch, ns
     assert len(client.bodies) == 3
     assert client.bodies[1]["tools"] and client.bodies[2]["tools"]  # tools stay on until the answer
     assert sum(1 for m in client.bodies[2]["messages"] if m["role"] == "tool") == 2
+
+
+@pytest.mark.anyio
+async def test_tool_hop_refusal_reports_the_synthesis_prompt_size(monkeypatch, ns_tools) -> None:
+    import portal.platform.inference.router.backend_introspect as bi
+
+    monkeypatch.setattr(ns, "_inject_omlx_options", lambda body, _ws: body)
+    tool_result = "temperature 21C " * 100
+
+    async def dispatch(tc, *_a, **_k):
+        return {"role": "tool", "tool_call_id": tc.get("id"), "content": tool_result}
+
+    monkeypatch.setattr(ns, "_dispatch_tool_call", dispatch)
+    refusal = httpx.Response(
+        400, json={"error": "prefill memory guard: projected memory would exceed ceiling"}
+    )
+    client = _SeenClient([_tool_reply(), refusal])
+    monkeypatch.setattr(ns, "_http_client", client)
+
+    with pytest.raises(ns.BackendRequestError) as excinfo:
+        await ns._try_non_streaming(
+            _omlx_backend("omlx"),
+            {"messages": [{"role": "user", "content": "lookup"}]},
+            ns_tools,
+            0.0,
+        )
+
+    expected = bi._approx_prompt_tokens(client.bodies[1])
+    assert expected > bi._approx_prompt_tokens(client.bodies[0])
+    assert f"~{expected:,} tokens" in excinfo.value.detail
 
 
 @pytest.mark.anyio
