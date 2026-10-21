@@ -303,6 +303,36 @@ class LoadGuard:
             logger.warning("load_guard: could not free oMLX memory: %s", e)
             return 0.0
 
+    async def _free_ollama(
+        self, client: httpx.AsyncClient, base: str, resident: dict[str, int]
+    ) -> int:
+        """Unload every idle Ollama resident (keep_alive 0) and wait until /api/ps drops it.
+
+        Their /api/ps size can't be trusted for this: Ollama 0.40's llamacpp runner reports
+        devstral-small-2 (24B Q4) at 1.8 GB while its llama-server holds 15 GB (measured
+        2026-10-21), so `_ollama_idle` undercounts and the load waits out its deadline
+        for memory that Ollama would free on load. Unloading makes oMLX's ceiling (the
+        host oracle) show the real bytes. Returns how many models were unloaded.
+        """
+        idle = [n for n, size in resident.items() if size and self._ollama_idle({n: size}) > 0]
+        gone = 0
+        for name in idle:
+            try:
+                await client.post(
+                    f"{base}/api/generate", json={"model": name, "keep_alive": 0}, timeout=30.0
+                )
+            except Exception as e:
+                logger.warning("load_guard: could not unload idle Ollama model %s: %s", name, e)
+                continue
+            gone += 1
+            logger.info("load_guard: unloaded idle Ollama model %s", name)
+        deadline = time.monotonic() + 15.0
+        while gone and time.monotonic() < deadline:
+            if not set(idle) & set(await self._resident(client, base)):
+                break
+            await asyncio.sleep(1.0)
+        return gone
+
     async def _settled_headroom(self, client: httpx.AsyncClient, before: float) -> float:
         """Headroom after an unload, once oMLX's accounting reflects it (≤ 15 s)."""
         deadline = time.monotonic() + 15.0
@@ -418,13 +448,25 @@ class LoadGuard:
                         # each pass frees different (idle) models, so this ends.
                         await self._settled_headroom(client, headroom)
                         continue
+                    if idle and await self._free_ollama(client, base, resident):
+                        # Same termination: unloaded models leave /api/ps, so idle
+                        # reaches zero and the next shortfall falls through to waiting.
+                        await self._settled_headroom(client, headroom)
+                        continue
                     remaining = deadline - time.monotonic()
-                    if remaining <= 0:
+                    # Nothing in flight on either engine and nothing idle left to free:
+                    # no future change can make room, so waiting out the deadline is futile.
+                    if remaining <= 0 or not self._busy:
                         raise LoadRefusedError(
                             f"Cannot load {model}: projected memory {need / _GIB:.1f} GiB would "
                             f"exceed host headroom {available / _GIB:.1f} GiB (oMLX headroom "
                             f"{headroom / _GIB:.1f} + idle Ollama {idle / _GIB:.1f} - margin "
-                            f"{_MARGIN / _GIB:.0f}) after waiting {load_wait_s():.0f}s"
+                            f"{_MARGIN / _GIB:.0f}) "
+                            + (
+                                f"after waiting {load_wait_s():.0f}s"
+                                if self._busy
+                                else "with nothing in flight to wait for"
+                            )
                         )
                     logger.info(
                         "load_guard: %s needs %.1f GiB, %.1f available; waiting for in-flight work",

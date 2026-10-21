@@ -41,6 +41,9 @@ class Engines:
         self.unloaded: list[str] = []
         self.chats: list[str] = []
         self.loading_polls: list[bool] = []
+        #: Bytes an Ollama resident really holds beyond its /api/ps size (Ollama 0.40's
+        #: llamacpp runner under-reports); they are missing from oMLX's ceiling too.
+        self.hidden: dict[str, int] = {}
 
     def omlx_used(self) -> float:
         return float(sum(m["size"] for m in self.omlx.values() if m.get("loaded")))
@@ -55,6 +58,11 @@ class Engines:
             return httpx.Response(
                 200, json={"models": [{"name": n, "size": s} for n, s in self.tags.items()]}
             )
+        if path == "/api/generate":  # keep_alive 0 unloads; its real bytes return to oMLX
+            model = json.loads(req.content)["model"]
+            self.ollama.pop(model, None)
+            self.ceiling += self.hidden.pop(model, 0)
+            return httpx.Response(200, json={"done": True})
         if path == "/api/show":
             return httpx.Response(200, json={"capabilities": []})
         if path == "/api/chat":
@@ -190,6 +198,27 @@ async def test_busy_ollama_resident_is_not_evictable_idle_one_is():
     release = await g.admit(OLLAMA_URL, "qwen")
     assert release is not None
     release()
+
+
+async def test_under_reported_idle_ollama_resident_is_unloaded_and_the_load_admitted():
+    # 2026-10-21 UAT: devstral idle at 1.8 GB in /api/ps but 15 GB real; kat needs ~25 GB.
+    e = Engines(ollama={"devstral": int(1.8 * GIB)}, tags={"kat": 22 * GIB}, ceiling=21 * GIB)
+    e.hidden["devstral"] = int(13.2 * GIB)
+    release = await guard(e).admit(OLLAMA_URL, "kat")
+    assert release is not None and "devstral" not in e.ollama
+    release()
+
+
+async def test_busy_or_pinned_ollama_residents_are_never_unloaded():
+    e = Engines(
+        ollama={"router": 2 * GIB, "seat": 2 * GIB}, tags={"kat": 22 * GIB}, ceiling=10 * GIB
+    )
+    g = guard(e)
+    end = g.begin(OLLAMA, "seat")
+    with pytest.raises(lg.LoadRefusedError):
+        await g.admit(OLLAMA_URL, "kat")
+    assert set(e.ollama) == {"router", "seat"}
+    end()
 
 
 async def test_pinned_router_never_counts_as_evictable():
@@ -450,3 +479,14 @@ async def test_a_cancelled_omlx_admit_never_leaks_the_cold_load_lock():
     with pytest.raises(asyncio.CancelledError):
         await task
     assert not g._lock.locked()
+
+
+async def test_nothing_in_flight_and_nothing_to_free_refuses_without_waiting(monkeypatch):
+    # 2026-10-21 UAT: a 60 GiB seat on an idle host waited the full 120 s for nothing.
+    monkeypatch.setattr(lg, "_WAIT_S", 60.0)
+    e = Engines(tags={"next": 55 * GIB}, ceiling=40 * GIB)
+    started = asyncio.get_running_loop().time()
+    with pytest.raises(lg.LoadRefusedError) as err:
+        await guard(e).admit(OLLAMA_URL, "next")
+    assert asyncio.get_running_loop().time() - started < 1.0
+    assert "nothing in flight" in str(err.value)
