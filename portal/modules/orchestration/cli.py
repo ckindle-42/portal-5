@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import os
+import time
 from pathlib import Path
 from typing import Annotated, Any
 
@@ -104,12 +105,112 @@ def status(
     )
 
 
+@orchestration_app.command("enqueue")
+def enqueue(
+    plan_file: Annotated[Path, typer.Argument(exists=True, readable=True)],
+    tasks_dir: Annotated[Path | None, typer.Option("--tasks-dir")] = None,
+    source_dir: Annotated[Path | None, typer.Option("--source-dir")] = None,
+) -> None:
+    """Persist a hand-written plan for the overnight queue."""
+    _require_enabled()
+    from portal.modules.orchestration.contracts import parse_plan
+    from portal.modules.orchestration.queue import QueueLedger
+
+    try:
+        raw = yaml.safe_load(plan_file.read_text(encoding="utf-8"))
+        plan = parse_plan(raw)
+        with QueueLedger(tasks_dir or _tasks_dir()) as ledger:
+            ledger.enqueue(plan, source_dir or plan_file.resolve().parent)
+    except Exception as exc:
+        typer.echo(f"arm enqueue failed: {exc}", err=True)
+        raise typer.Exit(code=1) from exc
+    typer.echo(f"queued {plan.task_id}")
+
+
+@orchestration_app.command("enqueue-template")
+def enqueue_template(
+    task_id: Annotated[str, typer.Argument()],
+    discipline: Annotated[str, typer.Argument()],
+    template_key: Annotated[str, typer.Argument()],
+    parameters: Annotated[list[str] | None, typer.Option("--param")] = None,
+    tasks_dir: Annotated[Path | None, typer.Option("--tasks-dir")] = None,
+    source_dir: Annotated[Path | None, typer.Option("--source-dir")] = None,
+) -> None:
+    """Instantiate a configured plan template and enqueue its validated plan."""
+    _require_enabled()
+    from portal.modules.orchestration.planner import instantiate_plan_template
+    from portal.modules.orchestration.queue import QueueLedger
+    from portal.modules.orchestration.service import load_arm_config
+
+    try:
+        values = _template_parameters(parameters or [])
+        config = load_arm_config(_arm_config_path())
+        plan = instantiate_plan_template(
+            config,
+            template_key=template_key,
+            discipline_key=discipline,
+            task_id=task_id,
+            parameters=values,
+            source_dir=source_dir or Path.cwd(),
+        )
+        with QueueLedger(tasks_dir or _tasks_dir()) as ledger:
+            ledger.enqueue(plan, source_dir or Path.cwd())
+    except Exception as exc:
+        typer.echo(f"arm enqueue-template failed: {exc}", err=True)
+        raise typer.Exit(code=1) from exc
+    typer.echo(f"queued {plan.task_id} from {discipline}/{template_key}")
+
+
+@orchestration_app.command("queue-run")
+def queue_run(
+    tasks_dir: Annotated[Path | None, typer.Option("--tasks-dir")] = None,
+    poll_seconds: Annotated[float, typer.Option("--poll-seconds", min=0.1)] = 30,
+    override: Annotated[
+        bool, typer.Option("--override", help="Adopt changed build or model identity.")
+    ] = False,
+) -> None:
+    """Run queued tasks serially, polling again when a yield gate is active."""
+    _require_enabled()
+    from portal.modules.orchestration.queue import OvernightQueue, QueueGate
+
+    root = tasks_dir or _tasks_dir()
+    try:
+        service = _service(root)
+        policy = service.arm_config.get("queue", {})
+        if not isinstance(policy, dict):
+            raise ValueError("orchestration queue config must be a mapping")
+        runner = OvernightQueue(root, service, QueueGate(service.engines, policy))
+        while True:
+            result = runner.run_next(override=override)
+            if result.status == "EMPTY":
+                break
+            typer.echo(
+                f"{result.status}: {result.task_id or ''}"
+                f"{f' ({result.reason})' if result.reason else ''}"
+            )
+            if result.status in {"WAITING", "BUSY"}:
+                time.sleep(poll_seconds)
+    except Exception as exc:
+        typer.echo(f"arm queue-run failed: {exc}", err=True)
+        raise typer.Exit(code=1) from exc
+
+
+@orchestration_app.command("queue-status")
+def queue_status(tasks_dir: Annotated[Path | None, typer.Option("--tasks-dir")] = None) -> None:
+    """Print the durable queue ledger."""
+    _require_enabled()
+    from portal.modules.orchestration.queue import QueueLedger
+
+    with QueueLedger(tasks_dir or _tasks_dir()) as ledger:
+        typer.echo(json.dumps(ledger.items(), indent=2))
+
+
 def _service(tasks_dir: Path | None) -> Any:
     from portal.modules.orchestration.service import ArmService
     from portal.modules.orchestration.telegram import TelegramNoticeSink
     from portal.modules.orchestration.worker import Engine
 
-    config_path = Path(__file__).resolve().parents[3] / "config" / "orchestration_arm.yaml"
+    config_path = _arm_config_path()
     config = yaml.safe_load(config_path.read_text(encoding="utf-8"))
     load_plan = config.get("load_plan_models", {}) if isinstance(config, dict) else {}
     pipeline_url = os.environ.get("PORTAL_ARM_PIPELINE_URL", "http://127.0.0.1:9099")
@@ -139,6 +240,20 @@ def _service(tasks_dir: Path | None) -> Any:
             str(load_identity.get("model", "")),
         )
     return ArmService(tasks_dir or _tasks_dir(), engines, notices=TelegramNoticeSink())
+
+
+def _template_parameters(values: list[str]) -> dict[str, str]:
+    parameters: dict[str, str] = {}
+    for item in values:
+        key, separator, value = item.partition("=")
+        if not separator or not key or key in parameters:
+            raise ValueError("each --param must be a unique name=value pair")
+        parameters[key] = value
+    return parameters
+
+
+def _arm_config_path() -> Path:
+    return Path(__file__).resolve().parents[3] / "config" / "orchestration_arm.yaml"
 
 
 def _tasks_dir() -> Path:

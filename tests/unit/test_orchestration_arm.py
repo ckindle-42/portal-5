@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import os
 import signal
 import sqlite3
 import sys
@@ -14,7 +15,9 @@ import pytest
 import yaml
 from fastapi import HTTPException
 
+from portal.modules.orchestration.contracts import parse_plan
 from portal.modules.orchestration.ledger import ArmLedger, ResumeMismatchError
+from portal.modules.orchestration.queue import OvernightQueue, QueueGate, QueueLedger
 from portal.modules.orchestration.service import (
     ArmService,
     StubNoticeSink,
@@ -393,6 +396,78 @@ def test_residency_config_defaults_to_swap_and_reads_co_resident(tmp_path: Path)
 
 def test_module_switch_is_off_by_default_in_repo_config() -> None:
     assert not module_is_enabled(Path("config/portal.yaml"))
+
+
+def test_overnight_queue_runs_tasks_in_fifo_order_and_records_receipts(
+    tmp_path: Path, fake_pipeline: FakePipeline
+) -> None:
+    fake_pipeline.add("fast", finish_response({"answer": "right"}))
+    fake_pipeline.add("fast", finish_response({"answer": "right"}))
+    runner_service = service(tmp_path, fake_pipeline)
+    gate = QueueGate(
+        runner_service.engines,
+        {"yield_lock_dir": str(tmp_path / "locks")},
+        pid_file=tmp_path / "memory-pids",
+    )
+    runner = OvernightQueue(tmp_path / "tasks", runner_service, gate)
+    with QueueLedger(tmp_path / "tasks") as ledger:
+        ledger.enqueue(plan("queue-first", bite()), tmp_path)
+        ledger.enqueue(plan("queue-second", bite()), tmp_path)
+    first = runner.run_next()
+    second = runner.run_next()
+    with QueueLedger(tmp_path / "tasks") as ledger:
+        rows = ledger.items()
+    assert (first.status, first.task_id) == ("DONE", "queue-first")
+    assert (second.status, second.task_id) == ("DONE", "queue-second")
+    assert [row["state"] for row in rows] == ["done", "done"]
+    assert all((tmp_path / "tasks" / row["task_id"] / "receipt.json").is_file() for row in rows)
+
+
+def test_queue_ledger_reclaims_a_task_after_its_runner_process_dies(tmp_path: Path) -> None:
+    task_root = tmp_path / "tasks"
+    with QueueLedger(task_root) as ledger:
+        ledger.enqueue(plan("queue-recovery", bite()), tmp_path)
+        item, active = ledger.claim_next()
+        assert item is not None and not active
+    with sqlite3.connect(task_root / "queue.sqlite3") as db:
+        db.execute(
+            "UPDATE queue_task SET runner_pid = 2147483647 WHERE task_id = ?", ("queue-recovery",)
+        )
+    with QueueLedger(task_root) as ledger:
+        recovered, active = ledger.claim_next()
+    assert recovered is not None and not active
+    assert recovered["task_id"] == "queue-recovery" and recovered["state"] == "running"
+
+
+def test_queue_gate_yields_for_live_lock_and_pipeline_busy_or_unknown_fit(
+    tmp_path: Path, fake_pipeline: FakePipeline
+) -> None:
+    runner_service = service(tmp_path, fake_pipeline)
+    lock_dir = tmp_path / "locks"
+    lock_dir.mkdir()
+    lock = lock_dir / "uat.pid"
+    lock.write_text(f"{os.getpid()}\n", encoding="utf-8")
+    pid_file = tmp_path / "pids"
+    gate = QueueGate(runner_service.engines, {"yield_lock_dir": str(lock_dir)}, pid_file=pid_file)
+    task_bite = parse_plan(plan("gate", bite())).bites[0]
+    assert not gate.allows(task_bite)
+    assert "uat.pid" in str(gate.last_reason)
+    assert not fake_pipeline.admin_requests
+
+    lock.unlink()
+    pid_file.write_text(f"{os.getpid()}\n", encoding="utf-8")
+    assert not gate.allows(task_bite)
+    assert "memory-safety" in str(gate.last_reason)
+    pid_file.unlink()
+    fake_pipeline.add_admin_response({"busy": True, "fits": True, "models": []})
+    assert not gate.allows(task_bite)
+    assert "traffic" in str(gate.last_reason)
+    fake_pipeline.add_admin_response({"busy": False, "fits": None, "models": []})
+    assert not gate.allows(task_bite)
+    assert "no fit" in str(gate.last_reason)
+    fake_pipeline.add_admin_response({"fits": True, "models": []})
+    assert not gate.allows(task_bite)
+    assert "active traffic" in str(gate.last_reason)
 
 
 def _events(task_dir: Path) -> list[dict[str, Any]]:

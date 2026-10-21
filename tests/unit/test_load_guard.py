@@ -361,6 +361,17 @@ async def test_plan_counts_only_what_the_set_adds_against_idle_capacity():
     assert plan["fits"] is True  # 12 + 10 + 12 - 2 = 32 >= 26
 
 
+async def test_plan_reports_active_pipeline_traffic():
+    e = Engines(omlx={"seat": {"size": GIB, "loaded": True}})
+    g = guard(e)
+    end = g.begin(OMLX, "seat")
+    busy = await g.plan(OLLAMA_URL, [(OMLX, "seat")])
+    assert busy["busy"] is True and busy["busy_requests"] == 1
+    end()
+    idle = await g.plan(OLLAMA_URL, [(OMLX, "seat")])
+    assert idle["busy"] is False and idle["busy_requests"] == 0
+
+
 # ── the transport ─────────────────────────────────────────────────────────
 
 

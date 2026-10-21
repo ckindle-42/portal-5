@@ -110,6 +110,10 @@ class PipelineError(RuntimeError):
     """The Pipeline or its load guard rejected the bite request."""
 
 
+class QueueYieldError(RuntimeError):
+    """A queued bite must wait for the Pipeline's current admission state."""
+
+
 @dataclass(frozen=True)
 class CheckResult:
     passed: bool
@@ -146,6 +150,7 @@ def run_bite(
     *,
     input_paths: dict[str, Path],
     attempt_dir: Path,
+    require_idle: bool = False,
 ) -> WorkerResult:
     """Run a fresh bite through one Pipeline tool-loop request."""
     started = time.monotonic()
@@ -171,7 +176,16 @@ def run_bite(
     transcript.append("request", {"body": body, "model": engine.model_tag})
     try:
         plan = engine.load_plan(bite.budget.minutes * 60)
-        transcript.append("load_plan", {"model": engine.model_tag, "plan": plan})
+    except PipelineError as exc:
+        if require_idle:
+            raise QueueYieldError(str(exc)) from exc
+        elapsed = time.monotonic() - started
+        flags = ("wall_clock_cap",) if elapsed > bite.budget.minutes * 60 else ()
+        return WorkerResult(False, None, 0, elapsed, "pipeline_error", flags, (), str(exc))
+    transcript.append("load_plan", {"model": engine.model_tag, "plan": plan})
+    if require_idle and (plan.get("busy") is not False or plan.get("fits") is not True):
+        raise QueueYieldError(f"Pipeline load-plan is busy or cannot admit the seat: {plan}")
+    try:
         response = engine.chat(
             body, _remaining_time(bite, started), lambda event: transcript.append("event", event)
         )

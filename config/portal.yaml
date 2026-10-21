@@ -77,6 +77,8 @@ orchestration_arm:
     after_bites: 3
     minimum_pass_probability: null
     rates_by_discipline: {}
+  queue:
+    yield_lock_dir: "~/.portal5/locks/"
   disciplines:
     test_fixing:
       selection_reason: Existing coding WFE work already uses hidden pytest tests as hard graders for repair tasks, so this candidate can measure correctness without model review.

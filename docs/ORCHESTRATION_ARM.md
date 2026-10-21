@@ -16,6 +16,10 @@ After a valid finish, the arm checks the output schema and runs the bite's deter
 
 `config/orchestration_arm.yaml` carries the operator-owned residency mode (default `swap`) and model identities used by `POST /admin/load-plan`, plus policy rendered from `config/portal.yaml`. The scheduler runs one bite at a time. Before a request, it asks the Pipeline load guard whether that seat fits; actual model loads happen through the Pipeline transport, whose load guard serializes cold loads. In swap mode, ready Fast bites run first unless a Deep bite unlocks more downstream work than the current Fast queue.
 
+Stored plan templates live under each discipline's `plan_templates` in `config/portal.yaml`. Instantiation substitutes declared string parameters, assigns the task ID, and runs the Phase 2 plan validator before the plan enters the queue. The durable queue lives in `queue.sqlite3` under the task root; each task still uses its own append-only `ledger.db` and `receipt.json`.
+
+The overnight queue runs one task at a time. Before each bite it yields to a live PID in the memory-safety WFE file, a live PID in any file under `queue.yield_lock_dir`, or a Pipeline `/admin/load-plan` result reporting active traffic or no fit. Every model request continues through the Pipeline load guard. Queue status remains waiting until the gate clears, then resume uses the task ledger.
+
 The failure ladder retries Fast twice after its initial attempt, tries one Deep attempt, then marks the bite `blocked` and calls a notice interface. The default notice sink is an in-process stub. Independent branches continue after a bite blocks.
 
 ## Phase 2 planning and review
