@@ -36,3 +36,27 @@ def apply_eval_scope(body: dict[str, Any], tools: list[str]) -> list[str]:
         eval_scope.EVAL_SCOPE.set(scope)
         trace_note(eval=scope)
     return offered
+
+
+def apply_bite_tool_scope(
+    body: dict[str, Any], tools: list[str]
+) -> tuple[list[str], set[str] | None]:
+    """Intersect pipeline tools with a request's bite allowlist when supplied."""
+    if "portal_bite_tools" not in body:
+        return tools, None
+    requested = body.pop("portal_bite_tools")
+    if not isinstance(requested, list) or not all(
+        isinstance(name, str) and name for name in requested
+    ):
+        raise HTTPException(status_code=400, detail="portal_bite_tools must be a list of names")
+    allowed = set(requested)
+    client_tools = body.get("tools")
+    if isinstance(client_tools, list):
+        body["tools"] = [
+            tool
+            for tool in client_tools
+            if isinstance(tool, dict) and (tool.get("function") or {}).get("name") in allowed
+        ]
+    else:
+        body.pop("tools", None)
+    return [name for name in tools if name in allowed], allowed

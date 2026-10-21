@@ -1167,6 +1167,27 @@ async def test_failover_synthesis_never_delivers_tool_call_markup(monkeypatch, n
 
 
 @pytest.mark.anyio
+async def test_bite_allowlist_does_not_readd_filtered_nonstream_client_tools(
+    monkeypatch, ns_tools
+) -> None:
+    client = _SeenClient([_text_reply("done")])
+    monkeypatch.setattr(ns, "_http_client", client)
+    body = {
+        "messages": [],
+        "portal_bite_tools": ["lookup", "finish"],
+        "tools": [
+            {"type": "function", "function": {"name": "finish", "parameters": {}}},
+            {"type": "function", "function": {"name": "not_allowed", "parameters": {}}},
+        ],
+    }
+
+    await ns._try_non_streaming(_backend("b"), body, ns_tools, 0.0)
+
+    names = {tool["function"]["name"] for tool in client.bodies[0]["tools"]}
+    assert names == {"lookup", "finish"}
+
+
+@pytest.mark.anyio
 async def test_failover_runs_a_tool_loop_until_the_model_answers(monkeypatch, ns_tools) -> None:
     client = _SeenClient([_tool_reply(), _tool_reply(), _text_reply("the answer")])
     monkeypatch.setattr(ns, "_http_client", client)

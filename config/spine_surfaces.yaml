@@ -40,6 +40,9 @@ surfaces:
 - name: module-netforensics
   dir: portal/modules/netforensics
   unit: unit-module-netforensics
+- name: module-orchestration
+  dir: portal/modules/orchestration
+  unit: unit-module-orchestration
 - name: module-research
   dir: portal/modules/research
   unit: unit-module-research

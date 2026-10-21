@@ -1,0 +1,8 @@
+residency_mode: swap
+load_plan_models:
+  fast:
+    engine: omlx
+    model: unsloth--Qwen3.6-35B-A3B-UD-MLX-4bit
+  deep:
+    engine: omlx
+    model: Qwen3.8-27B-oQ4e-mtp

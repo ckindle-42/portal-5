@@ -31,7 +31,9 @@ DEFAULT_ENABLED_MODULES: frozenset[str] = frozenset(
 # security_redteam carries the offensive-generation security variants only
 # (redteam / redteam-deep / purpleteam-exec); it is enabled for a lab
 # generation run, not for everyday traffic.
-DEFAULT_DISABLED_MODULES: frozenset[str] = frozenset({"eval", "music", "security_redteam", "video"})
+DEFAULT_DISABLED_MODULES: frozenset[str] = frozenset(
+    {"eval", "music", "orchestration", "security_redteam", "video"}
+)
 
 ALL_MODULES: frozenset[str] = DEFAULT_ENABLED_MODULES | DEFAULT_DISABLED_MODULES
 

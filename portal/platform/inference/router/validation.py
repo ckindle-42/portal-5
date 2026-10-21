@@ -371,8 +371,14 @@ def _inject_ollama_options(body: dict[str, Any], workspace_id: str = "") -> dict
     # key (a max_tokens tier) was already popped by _apply_reasoning_effort
     # above, so this never overwrites a caller's value — it re-uses the wire key
     # for the only meaning Ollama itself gives it.
+    ctk = body.get("chat_template_kwargs") or {}
+    bite_thinking = (
+        "portal_bite_tools" in body and isinstance(ctk, dict) and ctk.get("enable_thinking") is True
+    )
     ws_think = ws_cfg_local.get("think")
-    if ws_think is not None:
+    if bite_thinking:
+        body["think"] = True
+    elif ws_think is not None:
         body.setdefault("think", ws_think)
         if not ws_think:
             body["reasoning_effort"] = "none"

@@ -28,6 +28,8 @@ modules:
     enabled: false
   netforensics:
     enabled: true
+  orchestration:
+    enabled: false
   research:
     enabled: true
   security:

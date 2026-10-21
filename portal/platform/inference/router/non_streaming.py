@@ -23,7 +23,7 @@ from portal.platform.inference.router.download_links import (
     strip_unbacked_download_lines,
     successful_file_creation,
 )
-from portal.platform.inference.router.eval_gate import apply_eval_scope
+from portal.platform.inference.router.eval_gate import apply_bite_tool_scope, apply_eval_scope
 from portal.platform.inference.router.metrics import (
     _answer_without_tool_retried,
     _hint_fallback_total,
@@ -734,6 +734,7 @@ async def _try_non_streaming(
     _timeout_obj = httpx.Timeout(_req_timeout, connect=5.0)
 
     req_body = {**body, "model": target_model, "stream": False}
+    req_body.pop("portal_bite_max_hops", None)
     if backend.type == "ollama":
         req_body = _inject_ollama_options(req_body, workspace_id)
     elif backend.type == "omlx":
@@ -750,6 +751,7 @@ async def _try_non_streaming(
     # same contract as streaming._build_streaming_request, so a request (or a
     # stream's non-streaming fallback) behaves the same in either mode.
     _ns_tools = apply_eval_scope(req_body, _ns_tools)
+    _ns_tools, _ = apply_bite_tool_scope(req_body, _ns_tools)
     if req_body.pop("portal_client_tools_only", False):
         _ns_tools = []
     _supports_tools = _model_supports_tools(target_model)
@@ -784,7 +786,7 @@ async def _try_non_streaming(
         # blue/purple) that inject domain-specific tools via body["tools"]
         # had them silently discarded and replaced with only the workspace's
         # own registered tools (found 2026-07-05).
-        _client_tools = [] if _required_tool else body.get("tools", [])
+        _client_tools = [] if _required_tool else req_body.get("tools", [])
         if _tools_arr:
             if _client_tools:
                 _seen_names = {t.get("function", {}).get("name") for t in _tools_arr}

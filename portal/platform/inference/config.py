@@ -43,6 +43,7 @@ ModuleName = Literal[
     "media",
     "music",
     "netforensics",
+    "orchestration",
     "research",
     "icsot",
     "security",

@@ -7,7 +7,7 @@ Canonical paths:
   - Generated:      <root>/generated/<category>/
 
 Categories:
-  transcripts, documents, images, videos, music, speech
+  transcripts, documents, images, videos, music, speech, tasks
 
 Use these helpers instead of hardcoding paths so that a future remap (e.g.,
 mounting at a different container path) requires no code changes.
@@ -21,7 +21,7 @@ from pathlib import Path
 # Container default; on host, callers can pass a path or set AI_OUTPUT_DIR.
 _DEFAULT_WORKSPACE = "/workspace"
 _VALID_CATEGORIES = frozenset(
-    {"transcripts", "documents", "images", "videos", "music", "speech", "models3d"}
+    {"transcripts", "documents", "images", "videos", "music", "speech", "tasks", "models3d"}
 )
 
 
@@ -54,7 +54,7 @@ def get_generated_dir(category: str) -> Path:
     """Return a category-specific generated output directory.
 
     Args:
-        category: One of: transcripts, documents, images, videos, music, speech, models3d.
+        category: One of: transcripts, documents, images, videos, music, speech, tasks, models3d.
 
     Raises:
         ValueError: if category is not in the canonical set.

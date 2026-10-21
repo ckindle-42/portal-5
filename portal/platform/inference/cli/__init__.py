@@ -8,7 +8,14 @@ from __future__ import annotations
 
 import typer
 
-from ._apps import agent_app, config_app, docs_app, models_app, module_app, workspace_app
+from ._apps import (
+    agent_app,
+    config_app,
+    docs_app,
+    models_app,
+    module_app,
+    workspace_app,
+)
 
 app = typer.Typer(
     name="portal",

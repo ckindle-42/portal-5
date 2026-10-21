@@ -53,7 +53,7 @@ from portal.platform.inference.router.download_links import (
     offers_file_creation,
     successful_file_creation,
 )
-from portal.platform.inference.router.eval_gate import apply_eval_scope
+from portal.platform.inference.router.eval_gate import apply_bite_tool_scope, apply_eval_scope
 from portal.platform.inference.router.metrics import (
     _answer_without_tool_retried,
     _hint_fallback_total,
@@ -682,6 +682,11 @@ async def _tool_loop_frames(
     request_id = _corr_id() or f"chatcmpl-p5-{int(time.time())}"
     hop = 0
     current_body = dict(body)
+    bite_hops_supplied = "portal_bite_max_hops" in current_body
+    requested_hops = current_body.pop("portal_bite_max_hops", MAX_TOOL_HOPS)
+    if bite_hops_supplied:
+        _validate_bite_max_hops({"portal_bite_max_hops": requested_hops})
+    hop_limit = min(requested_hops, MAX_TOOL_HOPS)
     _exec_audit: bool = bool(body.get("exec_audit"))
     _exec_audit_calls: list[
         dict[str, Any]
@@ -696,7 +701,7 @@ async def _tool_loop_frames(
         WORKSPACES.get(workspace_id.split("::")[0], {}).get("require_tool_before_answer")
     )
 
-    while hop < MAX_TOOL_HOPS:
+    while hop < hop_limit:
         hop += 1
 
         # Accumulators for this iteration
@@ -1087,7 +1092,7 @@ async def _tool_loop_frames(
                 "(workspace=%s, finish_reason=%s, backend=%s, model=%s, "
                 "reasoning_only=%s).",
                 hop,
-                MAX_TOOL_HOPS,
+                hop_limit,
                 workspace_id,
                 finish_reason,
                 backend_url,
@@ -1152,8 +1157,14 @@ async def _tool_loop_frames(
 
             _tool_loop_hops.labels(workspace=workspace_id).observe(hop)
 
+            # Client-owned tools remain returnable on a bite's final hop.
+            client_owned = not all(
+                (tc.get("function") or {}).get("name", "").strip() in effective_tools
+                for tc in all_tool_calls
+            )
+
             # Hop limit guard
-            if hop >= MAX_TOOL_HOPS:
+            if hop >= hop_limit and not (bite_hops_supplied and client_owned):
                 limit_msg = {
                     "id": request_id,
                     "object": "chat.completion.chunk",
@@ -1163,7 +1174,7 @@ async def _tool_loop_frames(
                         {
                             "index": 0,
                             "delta": {
-                                "content": f"\n\n[Tool-use limit ({MAX_TOOL_HOPS} hops) reached. Returning partial result.]"
+                                "content": f"\n\n[Tool-use limit ({hop_limit} hops) reached. Returning partial result.]"
                             },
                             "finish_reason": "stop",
                         }
@@ -1184,10 +1195,7 @@ async def _tool_loop_frames(
             # any call isn't ours to dispatch, surface the tool_calls we'd
             # been suppressing (pipeline "owns dispatch" only for its own
             # tools) as the final response instead of auto-resolving them.
-            if not all(
-                (tc.get("function") or {}).get("name", "").strip() in effective_tools
-                for tc in all_tool_calls
-            ):
+            if client_owned:
                 passthrough_chunk = {
                     "id": request_id,
                     "object": "chat.completion.chunk",
@@ -1221,7 +1229,7 @@ async def _tool_loop_frames(
                 persona,
                 request_id,
                 hop,
-                MAX_TOOL_HOPS,
+                hop_limit,
                 _repeat_guard,
             )
             assistant_msg["content"] = _content_buf if _content_buf.strip() else None
@@ -2008,6 +2016,16 @@ def _select_streaming_backend(
     return backend, target_model, model_hint, _chain, _secondary_model, _tertiary_model
 
 
+def _validate_bite_max_hops(body: dict[str, Any]) -> None:
+    value = body.get("portal_bite_max_hops")
+    if "portal_bite_max_hops" in body and (
+        isinstance(value, bool) or not isinstance(value, int) or value < 1
+    ):
+        raise HTTPException(
+            status_code=400, detail="portal_bite_max_hops must be a positive integer"
+        )
+
+
 async def _build_streaming_request(
     body: dict[str, Any],
     backend: Any,
@@ -2022,6 +2040,7 @@ async def _build_streaming_request(
     attaches the merged tool schemas. Returns
     ``(backend_body, effective_tools, _has_tools, _portal_no_tools)``.
     """
+    _validate_bite_max_hops(body)
     backend_body = {**body, "model": target_model}
 
     # Per-engine option injection: keep_alive/num_batch/options for
@@ -2042,6 +2061,7 @@ async def _build_streaming_request(
     if _client_tools_only:
         effective_tools = []
     effective_tools = apply_eval_scope(backend_body, effective_tools)
+    effective_tools, _bite_allowlist = apply_bite_tool_scope(backend_body, effective_tools)
     # Per-model supports_tools lookup for both backend types — see
     # TASK_TOOL_SUPPORT_AUDIT_V1 §A4. The previous Ollama-default-true
     # logic caused tool-using workspaces to error when their fallback
@@ -2063,7 +2083,9 @@ async def _build_streaming_request(
         _has_tools = False
     else:
         _has_tools = backend_supports_tools and (
-            bool(effective_tools) or (_client_tools_only and bool(backend_body.get("tools")))
+            bool(effective_tools)
+            or (_client_tools_only and bool(backend_body.get("tools")))
+            or (_bite_allowlist is not None and bool(backend_body.get("tools")))
         )
     if effective_tools and not backend_supports_tools:
         logger.info(
@@ -2106,6 +2128,8 @@ async def _build_streaming_request(
         # (e.g. bench blue/purple) may inject domain-specific tools
         # that complement the workspace tools, not replace them.
         client_tools = [] if _required_tool else backend_body.get("tools", [])
+        if not tools_array and _bite_allowlist is not None and client_tools:
+            tools_array = list(client_tools)
         if tools_array:
             if client_tools:
                 seen_names = {t.get("function", {}).get("name") for t in tools_array}
@@ -2130,6 +2154,8 @@ async def _build_streaming_request(
         else:
             _has_tools = False
 
+    if not _has_tools:
+        backend_body.pop("portal_bite_max_hops", None)
     return backend_body, effective_tools, _has_tools, _portal_no_tools
 
 
