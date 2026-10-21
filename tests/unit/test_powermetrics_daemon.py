@@ -1,12 +1,23 @@
 """Sample splitting in scripts/portal5-powermetrics.py (buffer leak regression)."""
 
 import importlib.util
+import plistlib
 from pathlib import Path
 
 _PATH = Path(__file__).resolve().parents[2] / "scripts" / "portal5-powermetrics.py"
 _spec = importlib.util.spec_from_file_location("portal5_powermetrics", _PATH)
 pm = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(pm)
+
+
+def test_launchd_uses_the_repo_venv_not_homebrew_python():
+    plist_path = _PATH.parents[1] / "deploy/launchd/com.portal5.powermetrics.plist"
+    with plist_path.open("rb") as stream:
+        args = plistlib.load(stream)["ProgramArguments"]
+    assert args == [
+        "__PORTAL_ROOT__/.venv/bin/python3",
+        "__PORTAL_ROOT__/scripts/portal5-powermetrics.py",
+    ]
 
 
 def _sample(cpu_mw: float) -> list[bytes]:
