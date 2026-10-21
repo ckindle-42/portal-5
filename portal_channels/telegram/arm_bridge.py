@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+import hashlib
+import json
+import os
 import sqlite3
 import uuid
 from collections.abc import Iterator
@@ -28,41 +31,61 @@ class TelegramSender(Protocol):
 class ArmTelegramStore:
     """Persist messages and gate decisions shared by the host and bot container."""
 
-    def __init__(self, path: Path) -> None:
+    def __init__(self, path: Path, approval_ttl_seconds: int | None = None) -> None:
         self.path = path
+        self.approval_ttl_seconds = _approval_ttl_seconds(approval_ttl_seconds)
         self.path.parent.mkdir(parents=True, exist_ok=True)
         with self._db() as db:
-            db.execute(
-                """CREATE TABLE IF NOT EXISTS arm_notice (
-                    request_id TEXT PRIMARY KEY,
-                    task_id TEXT NOT NULL,
-                    bite_id TEXT NOT NULL,
-                    kind TEXT NOT NULL,
-                    message TEXT NOT NULL,
-                    status TEXT NOT NULL,
-                    decision TEXT,
-                    created_at TEXT NOT NULL,
-                    UNIQUE(task_id, bite_id, kind)
-                )"""
-            )
+            self._create_schema(db)
 
-    def request_approval(self, task_id: str, bite_id: str, reason: str) -> bool | None:
-        message = f"Approve orchestration bite?\nTask: {task_id}\nBite: {bite_id}\nReason: {reason}"
-        request_id = self._enqueue(task_id, bite_id, "approval", message)
-        with self._db() as db:
-            row = db.execute(
-                "SELECT decision FROM arm_notice WHERE request_id = ?", (request_id,)
-            ).fetchone()
-        if row is None or row[0] is None:
+    def request_approval(
+        self,
+        task_id: str,
+        bite_id: str,
+        bite_definition: dict[str, Any],
+        reason: str,
+        run_id: str,
+    ) -> bool | None:
+        canonical = json.dumps(
+            {"bite": bite_definition, "reason": reason}, sort_keys=True, separators=(",", ":")
+        )
+        content_hash = hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+        message = (
+            f"Approve orchestration bite?\nTask: {task_id}\nBite: {bite_id}\n"
+            f"Content: {content_hash[:12]}\nReason: {reason}"
+        )
+        while True:
+            request_id = self._enqueue(task_id, bite_id, "approval", message, content_hash, run_id)
+            with self._db() as db:
+                row = db.execute(
+                    "SELECT status, decision, created_at FROM arm_notice WHERE request_id = ?",
+                    (request_id,),
+                ).fetchone()
+            if row is None:
+                return False
+            if row[0] not in {"queued", "pending", "approved"} or not self._expired(str(row[2])):
+                break
+        if row[0] in {"queued", "pending"} and row[1] is None:
             return None
-        return row[0] == "approve"
+        return row[0] == "approved" and row[1] == "approve"
 
     def blocked(self, task_id: str, bite_id: str, failure: dict[str, Any]) -> None:
         text = f"Orchestration bite blocked.\nTask: {task_id}\nBite: {bite_id}\nFailure: {failure}"
-        self._enqueue(task_id, bite_id, "blocked", text)
+        self._enqueue(task_id, bite_id, "blocked", text, "", "")
 
     def outbox(self) -> list[ArmNotice]:
         with self._db() as db:
+            db.execute("BEGIN IMMEDIATE")
+            rows = db.execute(
+                "SELECT request_id, created_at FROM arm_notice WHERE kind = 'approval' "
+                "AND status = 'queued'"
+            ).fetchall()
+            for request_id, created_at in rows:
+                if self._expired(str(created_at)):
+                    db.execute(
+                        "UPDATE arm_notice SET status = 'expired' WHERE request_id = ?",
+                        (request_id,),
+                    )
             rows = db.execute(
                 "SELECT request_id, kind, task_id, bite_id, message FROM arm_notice "
                 "WHERE status = 'queued' ORDER BY created_at"
@@ -81,6 +104,20 @@ class ArmTelegramStore:
         if decision not in {"approve", "deny"} or user_id not in allowed_users:
             return False
         with self._db() as db:
+            db.execute("BEGIN IMMEDIATE")
+            row = db.execute(
+                "SELECT created_at FROM arm_notice WHERE request_id = ? "
+                "AND kind = 'approval' AND status = 'pending'",
+                (request_id,),
+            ).fetchone()
+            if row is None:
+                return False
+            if self._expired(str(row[0])):
+                db.execute(
+                    "UPDATE arm_notice SET status = 'expired' WHERE request_id = ?",
+                    (request_id,),
+                )
+                return False
             cursor = db.execute(
                 "UPDATE arm_notice SET status = ?, decision = ? WHERE request_id = ? "
                 "AND kind = 'approval' AND status = 'pending'",
@@ -88,20 +125,115 @@ class ArmTelegramStore:
             )
             return cursor.rowcount == 1
 
-    def _enqueue(self, task_id: str, bite_id: str, kind: str, message: str) -> str:
+    def _enqueue(
+        self,
+        task_id: str,
+        bite_id: str,
+        kind: str,
+        message: str,
+        content_hash: str,
+        run_id: str,
+    ) -> str:
         with self._db() as db:
+            db.execute("BEGIN IMMEDIATE")
             row = db.execute(
-                "SELECT request_id FROM arm_notice WHERE task_id = ? AND bite_id = ? AND kind = ?",
-                (task_id, bite_id, kind),
+                "SELECT request_id, status, created_at FROM arm_notice WHERE task_id = ? "
+                "AND bite_id = ? AND kind = ? AND content_hash = ? AND run_id = ? "
+                "ORDER BY rowid DESC LIMIT 1",
+                (task_id, bite_id, kind, content_hash, run_id),
             ).fetchone()
             if row is not None:
-                return str(row[0])
+                request_id, status, created_at = row
+                if kind == "approval":
+                    if status == "expired":
+                        pass
+                    elif status in {"queued", "pending", "approved"} and self._expired(
+                        str(created_at)
+                    ):
+                        db.execute(
+                            "UPDATE arm_notice SET status = 'expired' WHERE request_id = ?",
+                            (request_id,),
+                        )
+                    else:
+                        return str(request_id)
+                else:
+                    return str(request_id)
             request_id = uuid.uuid4().hex
             db.execute(
-                "INSERT INTO arm_notice VALUES (?, ?, ?, ?, ?, 'queued', NULL, ?)",
-                (request_id, task_id, bite_id, kind, message, _now()),
+                "INSERT INTO arm_notice (request_id, task_id, bite_id, kind, message, status, "
+                "decision, created_at, content_hash, run_id) "
+                "VALUES (?, ?, ?, ?, ?, 'queued', NULL, ?, ?, ?)",
+                (request_id, task_id, bite_id, kind, message, _now(), content_hash, run_id),
             )
         return request_id
+
+    def _create_schema(self, db: sqlite3.Connection) -> None:
+        columns = {str(row[1]) for row in db.execute("PRAGMA table_info(arm_notice)")}
+        has_identity = {"content_hash", "run_id"}.issubset(columns)
+        has_old_unique_key = False
+        for index in db.execute("PRAGMA index_list(arm_notice)"):
+            if not index[2]:
+                continue
+            name = str(index[1]).replace('"', '""')
+            fields = tuple(str(info[2]) for info in db.execute(f'PRAGMA index_info("{name}")'))
+            if fields == ("task_id", "bite_id", "kind"):
+                has_old_unique_key = True
+                break
+        if columns and (not has_identity or has_old_unique_key):
+            db.execute("ALTER TABLE arm_notice RENAME TO arm_notice_legacy")
+            self._create_notice_table(db)
+            identity_fields = (
+                "content_hash, run_id"
+                if has_identity
+                else "CASE WHEN kind = 'approval' THEN 'legacy' ELSE '' END, "
+                "CASE WHEN kind = 'approval' THEN 'legacy' ELSE '' END"
+            )
+            if has_identity:
+                status_field = "status"
+            else:
+                status_field = (
+                    "CASE WHEN kind = 'approval' AND status IN "
+                    "('queued', 'pending', 'approved') THEN 'expired' ELSE status END"
+                )
+            db.execute(
+                "INSERT INTO arm_notice (request_id, task_id, bite_id, kind, message, status, "
+                "decision, created_at, content_hash, run_id) "
+                f"SELECT request_id, task_id, bite_id, kind, message, {status_field}, "
+                f"decision, created_at, {identity_fields} "
+                "FROM arm_notice_legacy"
+            )
+            db.execute("DROP TABLE arm_notice_legacy")
+        elif not columns:
+            self._create_notice_table(db)
+        db.execute(
+            "CREATE INDEX IF NOT EXISTS arm_notice_identity "
+            "ON arm_notice(task_id, bite_id, kind, content_hash, run_id)"
+        )
+
+    def _create_notice_table(self, db: sqlite3.Connection) -> None:
+        db.execute(
+            """CREATE TABLE arm_notice (
+                request_id TEXT PRIMARY KEY,
+                task_id TEXT NOT NULL,
+                bite_id TEXT NOT NULL,
+                kind TEXT NOT NULL,
+                message TEXT NOT NULL,
+                status TEXT NOT NULL,
+                decision TEXT,
+                created_at TEXT NOT NULL,
+                content_hash TEXT NOT NULL,
+                run_id TEXT NOT NULL
+            )"""
+        )
+
+    def _expired(self, created_at: str) -> bool:
+        try:
+            created = datetime.fromisoformat(created_at)
+        except ValueError:
+            return True
+        if created.tzinfo is None:
+            created = created.replace(tzinfo=UTC)
+        return (datetime.now(UTC) - created).total_seconds() >= self.approval_ttl_seconds
 
     @contextmanager
     def _db(self) -> Iterator[sqlite3.Connection]:
@@ -138,13 +270,26 @@ async def send_outbox_once(
 
 def default_arm_telegram_path() -> Path:
     """Return the AI_Output path mounted by the Telegram service at /workspace."""
-    import os
-
     configured = os.environ.get("PORTAL_ARM_TELEGRAM_DB")
     if configured:
         return Path(configured).expanduser()
     output_root = Path(os.environ.get("AI_OUTPUT_DIR", "~/AI_Output")).expanduser()
     return output_root / ".portal_arm" / "telegram.sqlite3"
+
+
+def _approval_ttl_seconds(configured: int | None) -> int:
+    raw = (
+        configured
+        if configured is not None
+        else os.environ.get("PORTAL_ARM_APPROVAL_TTL_SECONDS", "1800")
+    )
+    try:
+        value = int(raw)
+    except (TypeError, ValueError) as exc:
+        raise ValueError("approval TTL must be a positive integer number of seconds") from exc
+    if value <= 0:
+        raise ValueError("approval TTL must be a positive integer number of seconds")
+    return value
 
 
 def _now() -> str:

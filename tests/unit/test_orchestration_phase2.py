@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import sqlite3
 from pathlib import Path
 from typing import Any
 
@@ -167,7 +168,9 @@ def test_fake_telegram_bot_decision_round_trip(
 ) -> None:
     store = ArmTelegramStore(tmp_path / "telegram.sqlite3")
     bot = _FakeBot()
-    assert store.request_approval("task-a", "bite-a", "high-risk write") is None
+    bite_definition = {"goal": "write a file", "tools": ["file_write"]}
+    request = ("task-a", "bite-a", bite_definition, "high-risk write", "run-a")
+    assert store.request_approval(*request) is None
     notice = store.outbox()[0]
     sent = asyncio.run(
         send_outbox_once(
@@ -181,7 +184,141 @@ def test_fake_telegram_bot_decision_round_trip(
     assert bot.messages[0]["chat_id"] == 73
     assert store.decide(notice.request_id, "approve", 99, {73}) is False
     assert store.decide(notice.request_id, decision, 73, {73}) is True
-    assert store.request_approval("task-a", "bite-a", "high-risk write") is expected
+    assert store.request_approval(*request) is expected
+
+
+def test_telegram_approval_replay_with_changed_bite_requests_new_decision(tmp_path: Path) -> None:
+    store = ArmTelegramStore(tmp_path / "telegram.sqlite3")
+    first_bite = {"goal": "write safe.txt", "tools": ["file_write"]}
+    assert store.request_approval("task-a", "bite-a", first_bite, "write", "run-a") is None
+    first = store.outbox()[0]
+    store.mark_sent(first.request_id)
+    assert store.decide(first.request_id, "approve", 73, {73}) is True
+
+    changed_bite = {"goal": "write secret.txt", "tools": ["file_write"]}
+    assert store.request_approval("task-a", "bite-a", changed_bite, "write", "run-a") is None
+    second = store.outbox()[0]
+    assert second.request_id != first.request_id
+    assert "Content: " in second.message
+
+
+def test_telegram_approval_same_content_in_new_run_requests_new_decision(tmp_path: Path) -> None:
+    store = ArmTelegramStore(tmp_path / "telegram.sqlite3")
+    bite_definition = {"goal": "write safe.txt", "tools": ["file_write"]}
+    assert store.request_approval("task-a", "bite-a", bite_definition, "write", "run-a") is None
+    first = store.outbox()[0]
+    store.mark_sent(first.request_id)
+    assert store.decide(first.request_id, "approve", 73, {73}) is True
+
+    assert store.request_approval("task-a", "bite-a", bite_definition, "write", "run-b") is None
+    second = store.outbox()[0]
+    assert second.request_id != first.request_id
+    assert second.message == first.message
+
+
+@pytest.mark.parametrize("approve_first", [False, True])
+def test_expired_telegram_approval_is_replaced_and_old_click_is_rejected(
+    tmp_path: Path, approve_first: bool
+) -> None:
+    store = ArmTelegramStore(tmp_path / "telegram.sqlite3", approval_ttl_seconds=30)
+    request = ("task-a", "bite-a", {"goal": "write"}, "write", "run-a")
+    assert store.request_approval(*request) is None
+    first = store.outbox()[0]
+    store.mark_sent(first.request_id)
+    if approve_first:
+        assert store.decide(first.request_id, "approve", 73, {73}) is True
+    with sqlite3.connect(store.path) as db:
+        db.execute(
+            "UPDATE arm_notice SET created_at = '2000-01-01T00:00:00+00:00' WHERE request_id = ?",
+            (first.request_id,),
+        )
+
+    assert store.request_approval(*request) is None
+    second = store.outbox()[0]
+    assert second.request_id != first.request_id
+    assert store.decide(first.request_id, "approve", 73, {73}) is False
+
+
+def test_expired_queued_approval_gets_replaced_after_outbox_prunes_it(tmp_path: Path) -> None:
+    store = ArmTelegramStore(tmp_path / "telegram.sqlite3", approval_ttl_seconds=30)
+    request = ("task-a", "bite-a", {"goal": "write"}, "write", "run-a")
+    assert store.request_approval(*request) is None
+    first = store.outbox()[0]
+    with sqlite3.connect(store.path) as db:
+        db.execute(
+            "UPDATE arm_notice SET created_at = '2000-01-01T00:00:00+00:00' WHERE request_id = ?",
+            (first.request_id,),
+        )
+
+    assert store.outbox() == []
+    assert store.request_approval(*request) is None
+    assert store.outbox()[0].request_id != first.request_id
+
+
+def test_telegram_deny_wins_and_unknown_decision_does_not_approve(tmp_path: Path) -> None:
+    store = ArmTelegramStore(tmp_path / "telegram.sqlite3")
+    request = ("task-a", "bite-a", {"goal": "write"}, "write", "run-a")
+    assert store.request_approval(*request) is None
+    notice = store.outbox()[0]
+    store.mark_sent(notice.request_id)
+    assert store.decide(notice.request_id, "maybe", 73, {73}) is False
+    assert store.request_approval(*request) is None
+    assert store.decide(notice.request_id, "deny", 73, {73}) is True
+    assert store.decide(notice.request_id, "approve", 73, {73}) is False
+    assert store.request_approval(*request) is False
+
+
+def test_telegram_approval_ttl_is_configurable(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("PORTAL_ARM_APPROVAL_TTL_SECONDS", "45")
+    store = ArmTelegramStore(tmp_path / "telegram.sqlite3")
+    assert store.approval_ttl_seconds == 45
+
+
+def test_telegram_store_migrates_legacy_schema_without_reusing_queued_approval(
+    tmp_path: Path,
+) -> None:
+    database = tmp_path / "telegram.sqlite3"
+    with sqlite3.connect(database) as db:
+        db.execute(
+            """CREATE TABLE arm_notice (
+                request_id TEXT PRIMARY KEY,
+                task_id TEXT NOT NULL,
+                bite_id TEXT NOT NULL,
+                kind TEXT NOT NULL,
+                message TEXT NOT NULL,
+                status TEXT NOT NULL,
+                decision TEXT,
+                created_at TEXT NOT NULL,
+                UNIQUE(task_id, bite_id, kind)
+            )"""
+        )
+        db.execute(
+            "INSERT INTO arm_notice VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+            (
+                "legacy-request",
+                "task-a",
+                "bite-a",
+                "approval",
+                "old approval",
+                "queued",
+                None,
+                "2026-10-21T12:00:00+00:00",
+            ),
+        )
+
+    store = ArmTelegramStore(database)
+    assert store.outbox() == []
+    db = sqlite3.connect(database)
+    try:
+        columns = {row[1] for row in db.execute("PRAGMA table_info(arm_notice)")}
+    finally:
+        db.close()
+    assert {"content_hash", "run_id"}.issubset(columns)
+    request = ("task-a", "bite-a", {"goal": "new"}, "write", "new-run")
+    assert store.request_approval(*request) is None
+    assert store.outbox()[0].request_id != "legacy-request"
 
 
 class _FakeBot:
