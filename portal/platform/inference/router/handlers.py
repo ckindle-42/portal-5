@@ -59,6 +59,7 @@ from portal.platform.inference.router.non_streaming import (
     BackendRequestError,
     _run_non_streaming_chain,
     _try_non_streaming,
+    is_omlx_capacity_refusal,
 )
 from portal.platform.inference.router.preinject import (
     _apply_client_tools_only,
@@ -778,8 +779,10 @@ async def _dispatch_non_streaming(
     Tries each backend in priority order via ``_try_non_streaming``; the model
     hint is enforced (skip backends without the hinted model) for all but the
     last candidate, where any model is accepted. Applies the workspace's
-    ``chain`` when configured. Raises HTTPException 502 when every candidate
-    fails.
+    ``chain`` when configured. An oMLX capacity refusal falls through to the
+    remaining candidates and is reported (HTTP 400, with the prompt estimate)
+    only when none of them can serve the request; otherwise every candidate
+    failing raises HTTPException 502.
 
     Lives here (not non_streaming.py) so unit tests monkeypatch
     ``handlers._try_non_streaming`` to intercept the dispatch.
@@ -795,6 +798,7 @@ async def _dispatch_non_streaming(
     )
     _ns_chain = WORKSPACES.get(workspace_id, {}).get("chain") or []
     tried: dict[tuple[str, str], str] = {}
+    capacity_exc: BackendRequestError | None = None
     for i, backend in enumerate(candidates):
         is_last = i == len(candidates) - 1
         try:
@@ -808,6 +812,12 @@ async def _dispatch_non_streaming(
                 tried=tried,
             )
         except BackendRequestError as exc:
+            if not is_last and is_omlx_capacity_refusal(exc.status_code, exc.detail):
+                # An oMLX capacity refusal is curable by the next candidate's engine;
+                # remember it and report it only if no candidate can serve the request.
+                capacity_exc = exc
+                trace_span("backend.attempt", backend=backend.id, outcome=f"http_{exc.status_code}")
+                continue
             _record_error(workspace_id, f"backend_http_{exc.status_code}")
             trace_span("backend.attempt", backend=backend.id, outcome=f"http_{exc.status_code}")
             raise HTTPException(status_code=exc.status_code, detail=exc.detail) from None
@@ -850,6 +860,11 @@ async def _dispatch_non_streaming(
             return result
         trace_span("backend.attempt", backend=backend.id, outcome="failed")
     # All backends failed
+    if capacity_exc is not None:
+        _record_error(workspace_id, f"backend_http_{capacity_exc.status_code}")
+        raise HTTPException(
+            status_code=capacity_exc.status_code, detail=capacity_exc.detail
+        ) from None
     _record_error(workspace_id, "all_backends_failed")
     reasons = [r for r in tried.values() if r]
     raise HTTPException(

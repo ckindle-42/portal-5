@@ -18,6 +18,8 @@ P5-FANOUT-001 W1/W2. The load-bearing properties pinned here:
 from __future__ import annotations
 
 import importlib
+import io
+import json
 import urllib.error
 from typing import Any
 
@@ -193,6 +195,58 @@ def test_post_translates_http_status_error(monkeypatch):
     with pytest.raises(urllib.error.HTTPError) as excinfo:
         PipelineCompat().post({"model": "x", "messages": []}, timeout=60)
     assert excinfo.value.code == 400
+
+
+def test_classify_400_reads_the_prefill_guard_as_capacity():
+    exc = urllib.error.HTTPError(
+        "http://localhost:9099/v1/chat/completions",
+        400,
+        "Bad Request",
+        {},  # type: ignore[arg-type]
+        io.BytesIO(
+            json.dumps(
+                {
+                    "detail": "oMLX prefill memory guard refused estimated prompt size "
+                    "~118,000 tokens: Prefill would require ~25.79 GB peak "
+                    "(current 18.17 GB + KV+SDPA 7.62 GB) but dynamic ceiling is 25.61 GB"
+                }
+            ).encode()
+        ),
+    )
+    assert PipelineCompat().classify_400(exc) == "capacity"
+
+
+def test_a_capacity_refusal_is_named_and_never_poisons_the_think_cache():
+    class _RefusingPipeline(PipelineCompat):
+        def __init__(self):
+            super().__init__(base="http://pipeline.test")
+            self.posts = 0
+
+        def post(self, payload: dict[str, Any], timeout: int) -> dict[str, Any]:
+            self.posts += 1
+            raise urllib.error.HTTPError(
+                self.endpoint,
+                400,
+                "Bad Request",
+                {},  # type: ignore[arg-type]
+                io.BytesIO(
+                    json.dumps(
+                        {
+                            "detail": "oMLX prefill memory guard refused estimated prompt "
+                            "size ~118,000 tokens: Prefill would require ~25.79 GB peak"
+                        }
+                    ).encode()
+                ),
+            )
+
+    reading_transport._THINK_CAPABLE.clear()
+    dialect = _RefusingPipeline()
+    with pytest.raises(reading_transport.CapacityRefusalError) as excinfo:
+        chat("granite4.1:8b-ctx8k", system="s", user="u", think="medium", dialect=dialect)
+
+    assert "memory capacity" in str(excinfo.value)
+    assert dialect.posts == 1  # no think=False retry
+    assert reading_transport._THINK_CAPABLE == {}
 
 
 def test_post_translates_stall_to_urlerror(monkeypatch):

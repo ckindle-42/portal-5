@@ -18,6 +18,7 @@ import httpx
 from fastapi.responses import JSONResponse
 
 from portal.platform.inference.config import PersonaSpec
+from portal.platform.inference.router.backend_introspect import _approx_prompt_tokens
 from portal.platform.inference.router.download_links import (
     offers_file_creation,
     strip_unbacked_download_lines,
@@ -122,6 +123,34 @@ def is_omlx_capacity_refusal(status: int, detail: bytes | str) -> bool:
     guard or the 507 load ceiling ("does not fit under the dynamic memory ceiling"). Used by
     every path (streamed, tool-loop, non-streamed), so all three free and retry the same way."""
     return status in (400, 507) and _is_capacity_error(backend_error_detail(detail))
+
+
+def is_omlx_prefill_refusal(status: int, detail: bytes | str) -> bool:
+    """Identify oMLX's prompt-specific prefill guard response."""
+    low = backend_error_detail(detail).lower().replace("_", " ")
+    return status == 400 and "prefill" in low and "memory" in low
+
+
+def format_omlx_prefill_error(detail: str, body: dict[str, Any]) -> str:
+    """Add the shared prompt-size estimate to the engine's capacity detail."""
+    prefix = "oMLX prefill memory guard refused"
+    if prefix in detail:
+        return detail
+    return f"{prefix} estimated prompt size ~{_approx_prompt_tokens(body):,} tokens: {detail}"
+
+
+def _omlx_prefill_refusal_detail(backend: Any, exc: Exception) -> str | None:
+    if getattr(backend, "type", "") != "omlx" or not isinstance(exc, httpx.HTTPStatusError):
+        return None
+    if not is_omlx_prefill_refusal(exc.response.status_code, exc.response.content):
+        return None
+    return backend_error_detail(exc.response.content)
+
+
+def _raise_prefill_capacity_error(detail: str | None, body: dict[str, Any]) -> None:
+    """Raise the guard refusal, with the estimate, once the caller has no candidate left."""
+    if detail is not None:
+        raise BackendRequestError(400, format_omlx_prefill_error(detail, body))
 
 
 def _is_capacity_error(detail: str) -> bool:
@@ -590,7 +619,9 @@ async def _try_non_streaming(
     Every failure path returns ``None`` so the caller's loop can try the
     next candidate — except a request the backend rejects as malformed
     (``BackendRequestError``, HTTP 400/413/422), which every candidate would
-    reject alike and which the caller surfaces instead of cascading.
+    reject alike and which the caller surfaces instead of cascading, and an
+    oMLX prefill refusal that survives the free/retry, which the caller may
+    still cascade past to a candidate with a different memory profile.
     ``tried`` (shared across one request's attempts) maps each
     ``(chat_url, model)`` pair already attempted to its failure reason:
     several backend groups front the same engine, and resending an identical
@@ -810,9 +841,15 @@ async def _try_non_streaming(
                 len(_tools_arr),
             )
 
+    _prefill_refusal: str | None = None
+    _last_request_body: dict[str, Any] = req_body
+
     async def _run_request() -> JSONResponse | None:
         """POST → tool loop → normalise → return. None on any failure."""
 
+        nonlocal _prefill_refusal, _last_request_body
+        _prefill_refusal = None
+        _last_request_body = req_body
         try:
             _req_tools = len(req_body.get("tools", []))
             _req_msgs = len(req_body.get("messages", []))
@@ -902,9 +939,10 @@ async def _try_non_streaming(
                 _ns_guard.grounding_retried = True
                 _record_intermediate_model(data, target_model, workspace_id, _model_started)
                 _model_started = time.monotonic()
+                _last_request_body = {**req_body, "messages": _ns_messages}
                 _ns_retry = await _http_client.post(
                     backend.chat_url,
-                    json={**req_body, "messages": _ns_messages},
+                    json=_last_request_body,
                     timeout=_timeout_obj,
                 )
                 _raise_for_backend_status(_ns_retry)
@@ -961,6 +999,7 @@ async def _try_non_streaming(
                     "tools": None if _ns_last else req_body.get("tools"),
                     "tool_choice": None if _ns_last else req_body.get("tool_choice"),
                 }
+                _last_request_body = _synth_body
                 _model_started = time.monotonic()
                 _synth_resp = await _http_client.post(
                     backend.chat_url, json=_synth_body, timeout=_timeout_obj
@@ -1039,6 +1078,7 @@ async def _try_non_streaming(
                 if isinstance(exc, httpx.HTTPStatusError)
                 else str(exc)
             )
+            _prefill_refusal = _omlx_prefill_refusal_detail(backend, exc)
             if tried is not None:
                 tried[(backend.chat_url, target_model)] = f"{target_model}: {detail[:300]}"
             logger.warning(
@@ -1075,6 +1115,7 @@ async def _try_non_streaming(
                 result = await _run_request()
         if result is not None:
             return result
+        _raise_prefill_capacity_error(_prefill_refusal, _last_request_body)
         # Non-timeout failure (HTTP error, JSON parse, etc.) — cascade immediately.
         logger.warning(
             "Backend %s failed for workspace=%s — trying next candidate",

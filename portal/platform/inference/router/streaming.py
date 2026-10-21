@@ -68,7 +68,9 @@ from portal.platform.inference.router.non_streaming import (
     _is_capacity_error,
     _try_non_streaming,
     backend_error_detail,
+    format_omlx_prefill_error,
     is_omlx_capacity_refusal,
+    is_omlx_prefill_refusal,
     resolve_hop_target,
 )
 from portal.platform.inference.router.state import _record_error
@@ -211,6 +213,28 @@ def _stream_error_detail(chunk: bytes) -> str:
     except Exception:
         return ""
     return str(obj.get("error", "")) if isinstance(obj, dict) else ""
+
+
+def _format_omlx_prefill_detail(
+    status: int, raw: bytes, body: dict[str, Any], is_omlx: bool
+) -> bytes:
+    """Add the failing hop's prompt estimate to an oMLX prefill refusal body."""
+    if not is_omlx or not is_omlx_prefill_refusal(status, raw):
+        return raw
+    return format_omlx_prefill_error(backend_error_detail(raw), body).encode()
+
+
+def _format_omlx_prefill_error_chunk(
+    status: int | None, buffer: bytes | None, body: dict[str, Any], is_omlx: bool
+) -> bytes | None:
+    """The client-facing error once the chain is exhausted: a prefill refusal names its size."""
+    if not is_omlx or not buffer or not is_omlx_prefill_refusal(status or 0, buffer):
+        return buffer
+    detail = _stream_error_detail(buffer).removeprefix(f"Backend returned HTTP {status}: ")
+    return _backend_error_chunk(
+        status or 400,
+        format_omlx_prefill_error(detail, body).encode(),
+    )
 
 
 def _is_noncascadable_stream_error(status: int | None, buffer: bytes | None) -> bool:
@@ -801,6 +825,12 @@ async def _tool_loop_frames(
                             "Tool-loop backend returned HTTP %d: %s", resp.status_code, err[:200]
                         )
                         _record_error(workspace_id, f"backend_http_{resp.status_code}")
+                        err = _format_omlx_prefill_detail(
+                            resp.status_code,
+                            err,
+                            current_body,
+                            _backend_type_for_url(backend_url) == "omlx",
+                        )
                         yield _backend_error_chunk(resp.status_code, err)
                         return
 
@@ -2406,9 +2436,14 @@ async def _stream_with_fallback(
                         max_hops=MAX_TOOL_HOPS,
                     )
                 except BackendRequestError as exc:
+                    _error_status = exc.status_code
                     _error_buffer = (
                         f"data: {json.dumps({'error': exc.detail, 'status': exc.status_code})}\n\n"
                     ).encode()
+                    if not fb_last and is_omlx_capacity_refusal(exc.status_code, exc.detail):
+                        # An oMLX capacity refusal is curable on another engine's memory
+                        # profile; keep falling back and report it only if none can serve.
+                        continue
                     break
                 if result is not None:
                     _record_fallback_route(result, fb)
@@ -2421,6 +2456,15 @@ async def _stream_with_fallback(
                     return
 
         if _error_buffer:
+            _error_buffer = (
+                _format_omlx_prefill_error_chunk(
+                    _error_status,
+                    _error_buffer,
+                    backend_body,
+                    getattr(backend, "type", "") == "omlx",
+                )
+                or _error_buffer
+            )
             yield _error_buffer
         else:
             yield b'data: {"error": "All backends failed"}\n\n'
