@@ -229,6 +229,31 @@ dev = [
     # output, so the module fails collection without it under the dev-only extras
     # CI installs (ModuleNotFoundError, first seen 2026-09-27).
     "jinja2>=3.1.0",
+    # scipy lives in the `apple-silicon` extra (voice-clone resampling) but
+    # bully/unit_ladder.py imports it at module scope, so tests/security/bully/
+    # ladder tests and the validation checks that run them fail at collection
+    # under the dev-only extras CI installs (first seen 2026-10-20).
+    "scipy>=1.10.0",
+    # python-docx/python-pptx are `mcp`-extra packages (documents module) that
+    # the WFE suite builders import directly to produce the gold .docx/.pptx
+    # artifacts their controls verify: build_documents_production.py fails with
+    # ModuleNotFoundError under the dev-only extras CI installs (full-suite CI,
+    # first seen 2026-10-20).
+    "python-docx>=1.1.0",
+    "python-pptx>=0.6.23",
+    # pillow is transitive via the feature extras but tests/wfe vision suite
+    # builds its gold PNGs with PIL at module scope, so test_wfe_vision_slice
+    # fails collection under the dev-only extras CI installs.
+    "pillow>=10.0.0",
+    # matplotlib lives in the `cad` extra but build_vision_production renders
+    # the vision suite's gold chart images with it at module scope — same
+    # dev-only-extras collection failure as pillow above.
+    "matplotlib>=3.8.0",
+    # markdown is an `mcp`-extra package (documents module rich-text rendering):
+    # document_mcp._render_markdown lazy-imports it, and the unit tests that
+    # exercise create_word_document surface its absence as success:False under
+    # the dev-only extras CI installs.
+    "markdown>=3.6",
 ]
 
 [project.scripts]
