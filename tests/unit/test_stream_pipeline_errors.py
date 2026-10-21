@@ -499,6 +499,126 @@ async def test_error_after_output_started_ends_well_formed_without_cascade(
     assert recorded == [("ws", "stream_failed_after_output")]
 
 
+# ── a chain's own hops are a fallback cascade ────────────────────────
+
+
+def _delta(text: str) -> str:
+    frame = {"choices": [{"index": 0, "delta": {"content": text}, "finish_reason": None}]}
+    return f"data: {json.dumps(frame)}"
+
+
+def _serve_sequence(client: MagicMock, *items: typing.Any) -> None:
+    """Serve a response, or raise an exception, per call — in order."""
+    queue = list(items)
+
+    def _next(*_a: typing.Any, **_k: typing.Any) -> _Ctx:
+        item = queue.pop(0)
+        if isinstance(item, Exception):
+            raise item
+        return _Ctx(item)
+
+    client.stream.side_effect = _next
+
+
+_BLUE_HOP = {"model": "blue", "system": "defend", "user_template": "{hop_0}"}
+
+
+def _chain_gen(chain: list[dict[str, typing.Any]]) -> typing.AsyncIterator[bytes]:
+    """One single-candidate streaming request whose workspace has a multi-hop chain."""
+    return st._stream_with_chain(
+        "http://engine/v1/chat/completions",
+        {"messages": [{"role": "user", "content": "question"}]},
+        MagicMock(),
+        workspace_id="ws",
+        primary_model="red",
+        chain=chain,
+        start_time=None,
+        persona="p",
+    )
+
+
+@pytest.mark.anyio
+async def test_failed_chain_hop_falls_through_to_the_next_hop(
+    stream_client: MagicMock, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Hop 0's failure is a candidate, not the end: hop 1 still answers."""
+    monkeypatch.setattr(bi, "model_still_running", lambda *_a, **_k: _async(False))
+    _record_errors(monkeypatch)
+    monkeypatch.setattr(st, "resolve_hop_target", lambda _ws, _m, url, body: (url, body))
+    _serve_sequence(
+        stream_client,
+        httpx.ReadTimeout("idle 600s"),
+        _Resp([_delta("blue analysis"), "data: [DONE]"]),
+    )
+
+    chunks = await _drain(_chain_gen([dict(_BLUE_HOP, label="BLUE TEAM")]))
+
+    assert stream_client.stream.call_count == 2
+    _assert_well_formed(chunks)
+    assert "blue analysis" in _content(chunks)
+    assert NO_MODEL_MSG not in _content(chunks)
+
+
+@pytest.mark.anyio
+async def test_every_chain_hop_failing_ends_with_one_terminal_frame(
+    stream_client: MagicMock, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(bi, "model_still_running", lambda *_a, **_k: _async(False))
+    _record_errors(monkeypatch)
+    monkeypatch.setattr(st, "resolve_hop_target", lambda _ws, _m, url, body: (url, body))
+    _serve_sequence(stream_client, httpx.ReadTimeout("idle 600s"), httpx.ReadTimeout("idle 600s"))
+
+    chunks = await _drain(_chain_gen([dict(_BLUE_HOP)]))
+
+    assert stream_client.stream.call_count == 2
+    _assert_terminal(chunks, NO_MODEL_MSG)
+
+
+@pytest.mark.anyio
+async def test_exhausted_chain_cascades_to_the_next_candidate(
+    stream_client: MagicMock, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Hops are tried first; the candidate fallback runs once every hop has failed."""
+    monkeypatch.setattr(bi, "model_still_running", lambda *_a, **_k: _async(False))
+    _record_errors(monkeypatch)
+    monkeypatch.setattr(st, "resolve_hop_target", lambda _ws, _m, url, body: (url, body))
+    _serve_sequence(stream_client, httpx.ReadTimeout("idle 600s"), httpx.ReadTimeout("idle 600s"))
+    calls: list[str] = []
+
+    async def fake_ns(backend: typing.Any, *_a: typing.Any, **_k: typing.Any) -> JSONResponse:
+        calls.append(backend.id)
+        return _candidate_two()
+
+    monkeypatch.setattr(
+        st, "_select_stream_fn", lambda *_a, **_k: _chain_gen([dict(_BLUE_HOP, label="BLUE TEAM")])
+    )
+    monkeypatch.setattr(st, "_try_non_streaming", fake_ns)
+    gen = st._stream_with_fallback(
+        backend=_backend("b0"),
+        body={"messages": [{"role": "user", "content": "question"}]},
+        workspace_id="ws",
+        target_model="m",
+        persona="p",
+        effective_tools=[],
+        start_time=0.0,
+        has_tools=False,
+        chain=[dict(_BLUE_HOP)],
+        portal_no_tools=False,
+        secondary_model="",
+        tertiary_model="",
+        remaining=[_backend("b1")],
+        slot=MagicMock(),
+        backend_body={"messages": [{"role": "user", "content": "question"}]},
+    )
+
+    chunks = await _drain(gen)
+
+    assert calls == ["b1"]  # the hop separator is framing, not an answer on screen
+    _assert_well_formed(chunks)
+    assert "candidate two answer" in _content(chunks)
+    assert NO_MODEL_MSG not in _content(chunks)
+
+
 # ── the shared helper ────────────────────────────────────────────────
 
 

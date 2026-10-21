@@ -234,6 +234,8 @@ def _chunk_has_output(chunk: bytes) -> bool:
         obj = json.loads(chunk[5:].strip())
     except Exception:
         return False
+    if isinstance(obj, dict) and obj.get("portal_chain_label"):
+        return False  # a chain's section separator is framing, not an answer
     for choice in (obj.get("choices") or []) if isinstance(obj, dict) else []:
         d = choice.get("delta") or {}
         content = d.get("content")
@@ -295,8 +297,9 @@ def _in_band_backend_error(line: str) -> str | None:
     return _error_text(obj["error"])
 
 
-#: True while ``_stream_with_fallback`` drives this stream: a Pipeline error is then an
-#: envelope it can cascade on, not the client's final framing.
+#: True while a fallback driver (``_stream_with_fallback`` or a chain's hop loop) runs
+#: this stream: a Pipeline error is then an envelope it can cascade on, not the
+#: client's final framing.
 _CASCADE_ERRORS: contextvars.ContextVar[bool] = contextvars.ContextVar(
     "portal_cascade_stream_errors", default=False
 )
@@ -316,7 +319,7 @@ def _error_terminal_frames(
 
 
 def _stream_error_frames(request_id: str, workspace_id: str, message: str) -> list[bytes]:
-    """Under the fallback wrapper an error is the envelope it cascades on; standalone
+    """Under a fallback driver an error is the envelope it cascades on; standalone
     it is the client's well-formed ending."""
     if _CASCADE_ERRORS.get():
         return [f"data: {json.dumps({'error': message})}\n\n".encode()]
@@ -1754,6 +1757,55 @@ def _collect_text(chunk: bytes, parts: list[str]) -> None:
             logger.debug("Skipping malformed SSE chunk in _collect_text", exc_info=True)
 
 
+class _HopStream:
+    """One chain hop: what reached the client, its text, and its error envelope."""
+
+    __slots__ = ("error", "parts", "started")
+
+    def __init__(self) -> None:
+        self.parts: list[str] = []
+        self.error: bytes | None = None
+        self.started = False
+
+
+async def _hop_frames(
+    stream: AsyncIterator[bytes], hop: _HopStream, *, hold_done: bool
+) -> AsyncIterator[bytes]:
+    """Forward one hop's frames; its ``[DONE]`` and its error belong to the chain."""
+    _token = _CASCADE_ERRORS.set(True)
+    try:
+        async for chunk in stream:
+            if hop.error is not None:
+                continue
+            if _stream_error(chunk) is not None:
+                hop.error = chunk
+                continue
+            if hold_done and chunk == _DONE:
+                continue
+            if not hop.started and _chunk_has_output(chunk):
+                hop.started = True
+            _collect_text(chunk, hop.parts)
+            yield chunk
+    finally:
+        _CASCADE_ERRORS.reset(_token)
+
+
+def _hop_stop_frames(
+    hop: _HopStream,
+    *,
+    is_last: bool,
+    cascade_to_candidates: bool,
+    request_id: str,
+    workspace_id: str,
+) -> list[bytes]:
+    """The frames that end the stream for a failed hop — empty while a hop remains."""
+    if hop.error is None or (not is_last and not hop.started):
+        return []
+    if is_last and cascade_to_candidates and not hop.started:
+        return [hop.error]
+    return _error_terminal_frames(request_id, workspace_id, _stream_error_detail(hop.error))
+
+
 async def _stream_with_chain(
     url: str,
     body: dict[str, Any],
@@ -1766,6 +1818,9 @@ async def _stream_with_chain(
     primary_tools: set[str] | None = None,
 ) -> AsyncIterator[bytes]:
     """Multi-hop purple-team chain: primary model followed by any number of follow-on hops.
+
+    A hop that fails before writing output is a candidate, not the end: the next hop
+    runs, and only the last one left ends the stream with the error.
 
     ``primary_tools`` runs hop 0 through the tool loop — a tool-using chain
     workspace (auto-security::purpleteam-exec) used to take the plain tool-loop
@@ -1795,14 +1850,16 @@ async def _stream_with_chain(
     ts = int(time.time())
     request_id = f"chatcmpl-p5-{ts}"
 
-    def _make_chunk(delta: dict[str, Any]) -> bytes:
-        payload = {
+    def _make_chunk(delta: dict[str, Any], *, chain_label: bool = False) -> bytes:
+        payload: dict[str, Any] = {
             "id": request_id,
             "object": "chat.completion.chunk",
             "created": ts,
             "model": workspace_id,
             "choices": [{"index": 0, "delta": delta, "finish_reason": None}],
         }
+        if chain_label:
+            payload["portal_chain_label"] = True
         return f"data: {json.dumps(payload)}\n\n".encode()
 
     yield _make_chunk({"role": "assistant", "content": ""})
@@ -1816,11 +1873,12 @@ async def _stream_with_chain(
     # collected[i] holds the joined text output of hop i
     collected: list[str] = []
     outcome = "interrupted"
+    _cascade_to_candidates = _CASCADE_ERRORS.get()
     try:
         # ── Hop 0: primary model (uses body as-is) ───────────────────────────
-        hop0_parts: list[str] = []
         has_more = bool(_chain)
-        hop0 = (
+        hop0 = _HopStream()
+        hop0_stream = (
             _stream_with_tool_loop_impl(
                 url, body, workspace_id, primary_model, persona, primary_tools, start_time
             )
@@ -1829,17 +1887,27 @@ async def _stream_with_chain(
                 url, body, workspace_id=workspace_id, model=primary_model, start_time=start_time
             )
         )
-        async for chunk in hop0:
-            if has_more and chunk == b"data: [DONE]\n\n":
-                continue
-            _collect_text(chunk, hop0_parts)
+        async for chunk in _hop_frames(hop0_stream, hop0, hold_done=has_more):
             yield chunk
-        collected.append("".join(hop0_parts))
+        collected.append("".join(hop0.parts))
+        _stop = _hop_stop_frames(
+            hop0,
+            is_last=not has_more,
+            cascade_to_candidates=_cascade_to_candidates,
+            request_id=request_id,
+            workspace_id=workspace_id,
+        )
+        if _stop:
+            for _f in _stop:
+                yield _f
+            outcome = "error"
+            return
 
         # ── Hops 1..N ────────────────────────────────────────────────────────
+        previous_failed = hop0.error is not None
         for hop_idx, hop_cfg in enumerate(_chain):
             prior_text = collected[-1]
-            if not prior_text:
+            if not prior_text and not previous_failed:
                 # previous hop produced nothing — abort chain, emit [DONE]
                 yield b"data: [DONE]\n\n"
                 outcome = "complete"
@@ -1858,11 +1926,11 @@ async def _stream_with_chain(
                 user_content = prior_text  # safe fallback
 
             if label:
-                yield _make_chunk({"content": f"\n\n---\n\n{label}\n\n"})
+                yield _make_chunk({"content": f"\n\n---\n\n{label}\n\n"}, chain_label=True)
 
             hop_tools: list[str] = hop_cfg.get("tools") or []
             is_last_hop = hop_idx == len(_chain) - 1
-            hop_parts: list[str] = []
+            hop = _HopStream()
 
             if hop_tools:
                 # Tool-enabled hop — build body without stripping tools, then
@@ -1891,18 +1959,19 @@ async def _stream_with_chain(
                         len(tools_array),
                     )
                     hop_url, hop_body = resolve_hop_target(workspace_id, hop_model, url, hop_body)
-                    async for chunk in _stream_with_tool_loop_impl(
-                        backend_url=hop_url,
-                        body=hop_body,
-                        workspace_id=workspace_id,
-                        model=hop_model,
-                        persona=persona,
-                        effective_tools=set(hop_tools),
-                        start_time=None,
+                    async for chunk in _hop_frames(
+                        _stream_with_tool_loop_impl(
+                            backend_url=hop_url,
+                            body=hop_body,
+                            workspace_id=workspace_id,
+                            model=hop_model,
+                            persona=persona,
+                            effective_tools=set(hop_tools),
+                            start_time=None,
+                        ),
+                        hop,
+                        hold_done=not is_last_hop,
                     ):
-                        if not is_last_hop and chunk == b"data: [DONE]\n\n":
-                            continue
-                        _collect_text(chunk, hop_parts)
                         yield chunk
                 else:
                     # Tool registry returned nothing — fall through to no-tools path
@@ -1931,19 +2000,33 @@ async def _stream_with_chain(
                     if v is not None
                 }
                 hop_url, hop_body = resolve_hop_target(workspace_id, hop_model, url, hop_body)
-                async for chunk in _stream_from_backend_guarded(
-                    hop_url,
-                    hop_body,
-                    workspace_id=workspace_id,
-                    model=hop_model,
-                    start_time=None,
+                async for chunk in _hop_frames(
+                    _stream_from_backend_guarded(
+                        hop_url,
+                        hop_body,
+                        workspace_id=workspace_id,
+                        model=hop_model,
+                        start_time=None,
+                    ),
+                    hop,
+                    hold_done=not is_last_hop,
                 ):
-                    if not is_last_hop and chunk == b"data: [DONE]\n\n":
-                        continue
-                    _collect_text(chunk, hop_parts)
                     yield chunk
 
-            collected.append("".join(hop_parts))
+            collected.append("".join(hop.parts))
+            _stop = _hop_stop_frames(
+                hop,
+                is_last=is_last_hop,
+                cascade_to_candidates=_cascade_to_candidates,
+                request_id=request_id,
+                workspace_id=workspace_id,
+            )
+            if _stop:
+                for _f in _stop:
+                    yield _f
+                outcome = "error"
+                return
+            previous_failed = hop.error is not None
 
         outcome = "complete"
     except Exception:
