@@ -1228,6 +1228,7 @@ workspaces:
         repeat_penalty: 1.05
         # card: multi-turn agentic tasks want Preserved Thinking mode on.
         think: true
+        emits_reasoning: true
       hauhaucs-coder:
         module: "coding"
         model_hint: "portal5/hauhaucs-qwen36-35b:q4_K_M-ctx256k"
@@ -1266,6 +1267,7 @@ workspaces:
         repeat_penalty: 1.0
         # think pinned to the card mode the sampling block above already serves.
         think: true
+        emits_reasoning: true
       qwen38coder-dflash:
         module: "coding"
         model_hint: "Qwen3.8-27B-4bit"
@@ -1282,6 +1284,7 @@ workspaces:
         repeat_penalty: 1.0
         # think pinned to the card mode the sampling block above already serves.
         think: true
+        emits_reasoning: true
   auto-spl:
     module: general
     name: 🔍 Portal SPL Engineer
