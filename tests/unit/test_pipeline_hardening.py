@@ -574,7 +574,7 @@ def _backend(bid: str, url: str = "http://engine", models: list[str] | None = No
     )
 
 
-async def _fallback_run(monkeypatch, inner_chunks, remaining, ns_result=None):
+async def _fallback_run(monkeypatch, inner_chunks, remaining, ns_result=None, first_backend=None):
     calls: list[str] = []
 
     async def inner(*_a, **_k):
@@ -588,7 +588,7 @@ async def _fallback_run(monkeypatch, inner_chunks, remaining, ns_result=None):
     monkeypatch.setattr(st, "_select_stream_fn", lambda *a, **k: inner())
     monkeypatch.setattr(st, "_try_non_streaming", fake_ns)
     gen = st._stream_with_fallback(
-        _backend("b0"),
+        first_backend or _backend("b0"),
         {},
         "ws",
         "m",
@@ -627,24 +627,24 @@ async def test_no_fallback_on_malformed_request(monkeypatch) -> None:
 
 
 @pytest.mark.anyio
-async def test_fallback_on_omlx_capacity_400(monkeypatch) -> None:
-    """A streamed oMLX prefill_memory_guard rejection (400) must fall back to
-    the next candidate, unlike a genuinely malformed request — mirrors
-    test_omlx_capacity_400_cascades_instead_of_surfacing on the non-streaming
-    path. See non_streaming._is_capacity_error's docstring."""
-    from fastapi.responses import JSONResponse
+async def test_repeated_omlx_prefill_refusal_does_not_fall_back(monkeypatch) -> None:
+    """A repeated streamed prefill guard refusal is surfaced without another candidate call."""
+    freed_calls: list[int] = []
 
-    ok = JSONResponse(
-        {"choices": [{"message": {"role": "assistant", "content": "rescued"}}]},
-        headers={"x-portal-route": "ws;b1;m"},
-    )
+    async def fake_free() -> list[str]:
+        freed_calls.append(1)
+        return []
+
+    monkeypatch.setattr(st, "free_ollama_for_omlx", fake_free)
     inner = [
         b'data: {"error": "Backend returned HTTP 400: prefill memory guard: '
         b'projected memory would exceed ceiling", "status": 400}\n\n'
     ]
-    chunks, calls = await _fallback_run(monkeypatch, inner, [_backend("b1")], ok)
-    assert calls == ["b1"]
-    assert _content(chunks) == "rescued"
+    chunks, calls = await _fallback_run(
+        monkeypatch, inner, [_backend("b1")], first_backend=_omlx_backend("b0")
+    )
+    assert calls == [] and freed_calls == [1]
+    assert b"estimated prompt size ~" in b"".join(chunks)
 
 
 def _omlx_backend(bid: str) -> typing.Any:
@@ -691,13 +691,7 @@ async def test_omlx_capacity_400_frees_ollama_and_retries_omlx(monkeypatch) -> N
 
 
 @pytest.mark.anyio
-async def test_omlx_capacity_400_cascades_when_nothing_to_free(monkeypatch) -> None:
-    from fastapi.responses import JSONResponse
-
-    ok = JSONResponse(
-        {"choices": [{"message": {"role": "assistant", "content": "rescued"}}]},
-        headers={"x-portal-route": "ws;b1;m"},
-    )
+async def test_omlx_prefill_refusal_surfaces_when_nothing_to_free(monkeypatch) -> None:
     freed_calls: list[int] = []
 
     async def fake_free() -> list[str]:
@@ -707,8 +701,8 @@ async def test_omlx_capacity_400_cascades_when_nothing_to_free(monkeypatch) -> N
     async def inner(*_a, **_k):
         yield _CAPACITY_ERR
 
-    async def fake_ns(backend, *_a, **_kw):
-        return ok
+    async def fake_ns(*_a, **_kw):
+        raise AssertionError("a repeated prefill refusal must not call the next candidate")
 
     monkeypatch.setattr(st, "_select_stream_fn", lambda *a, **k: inner())
     monkeypatch.setattr(st, "free_ollama_for_omlx", fake_free)
@@ -718,8 +712,8 @@ async def test_omlx_capacity_400_cascades_when_nothing_to_free(monkeypatch) -> N
         [_backend("b1")], MagicMock(), {},
     )  # fmt: skip
     chunks = await _drain(gen)
-    assert freed_calls == [1]  # tried once, found nothing, then cascaded
-    assert _content(chunks) == "rescued"
+    assert freed_calls == [1]
+    assert b"estimated prompt size ~" in b"".join(chunks)
 
 
 @pytest.mark.anyio
@@ -819,19 +813,23 @@ async def test_malformed_request_raises_instead_of_cascading(monkeypatch, ns_env
 
 
 @pytest.mark.anyio
-async def test_omlx_capacity_400_cascades_instead_of_surfacing(monkeypatch, ns_env) -> None:
-    """oMLX's prefill_memory_guard returns 400 too, but it's an engine-capacity
-    fact (Ollama has a different memory profile and may well serve it), not a
-    malformed request — it must cascade like a 500/503 would, not raise
-    BackendRequestError. See _is_capacity_error's docstring for the incident."""
+async def test_omlx_prefill_refusal_surfaces_instead_of_cascading(monkeypatch, ns_env) -> None:
     _set_client(
         monkeypatch,
         httpx.Response(
             400, json={"error": "prefill memory guard: projected memory would exceed ceiling"}
         ),
     )
-    result = await ns._try_non_streaming(_backend("a"), {"messages": []}, ns_env, 0.0)
-    assert result is None  # cascades — caller tries the next candidate
+    import portal.platform.inference.router.backend_introspect as bi
+
+    async def free_nothing() -> list[str]:
+        return []
+
+    monkeypatch.setattr(bi, "free_ollama_for_omlx", free_nothing)
+    with pytest.raises(ns.BackendRequestError) as exc:
+        await ns._try_non_streaming(_omlx_backend("a"), {"messages": []}, ns_env, 0.0, tried={})
+    assert "estimated prompt size ~" in exc.value.detail
+    assert "ceiling" in exc.value.detail
 
 
 @pytest.mark.anyio

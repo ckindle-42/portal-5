@@ -68,7 +68,9 @@ from portal.platform.inference.router.non_streaming import (
     _is_capacity_error,
     _try_non_streaming,
     backend_error_detail,
+    format_omlx_prefill_error,
     is_omlx_capacity_refusal,
+    is_omlx_prefill_refusal,
     resolve_hop_target,
 )
 from portal.platform.inference.router.state import _record_error
@@ -213,15 +215,34 @@ def _stream_error_detail(chunk: bytes) -> str:
     return str(obj.get("error", "")) if isinstance(obj, dict) else ""
 
 
+def _format_omlx_prefill_detail(
+    status: int, raw: bytes, body: dict[str, Any], is_omlx: bool
+) -> bytes:
+    if not is_omlx or not is_omlx_prefill_refusal(status, raw):
+        return raw
+    return format_omlx_prefill_error(backend_error_detail(raw), body).encode()
+
+
+def _format_omlx_prefill_error_chunk(
+    status: int | None, buffer: bytes | None, body: dict[str, Any], is_omlx: bool
+) -> bytes | None:
+    if not is_omlx or not buffer or not is_omlx_prefill_refusal(status or 0, buffer):
+        return buffer
+    detail = _stream_error_detail(buffer).removeprefix(f"Backend returned HTTP {status}: ")
+    return _backend_error_chunk(
+        status or 400,
+        format_omlx_prefill_error(detail, body).encode(),
+    )
+
+
 def _is_noncascadable_stream_error(status: int | None, buffer: bytes | None) -> bool:
-    """Whether a streamed backend error should surface to the client instead of
-    falling back to the next candidate — mirrors non_streaming.py's
-    ``_raise_for_backend_status`` rule (see there for why a 400 needs a
-    capacity exception: oMLX's prefill_memory_guard also returns 400, and that
-    one should cascade to Ollama, not surface)."""
+    """Whether a streamed backend error should surface instead of falling back to another candidate."""
     if status not in _REQUEST_ERROR_STATUSES:
         return False
-    return not (status == 400 and buffer and _is_capacity_error(_stream_error_detail(buffer)))
+    detail = _stream_error_detail(buffer or b"")
+    if is_omlx_prefill_refusal(status, detail):
+        return True
+    return not (status == 400 and buffer and _is_capacity_error(detail))
 
 
 def _chunk_has_output(chunk: bytes) -> bool:
@@ -801,6 +822,12 @@ async def _tool_loop_frames(
                             "Tool-loop backend returned HTTP %d: %s", resp.status_code, err[:200]
                         )
                         _record_error(workspace_id, f"backend_http_{resp.status_code}")
+                        err = _format_omlx_prefill_detail(
+                            resp.status_code,
+                            err,
+                            current_body,
+                            _backend_type_for_url(backend_url) == "omlx",
+                        )
                         yield _backend_error_chunk(resp.status_code, err)
                         return
 
@@ -2369,10 +2396,14 @@ async def _stream_with_fallback(
     if stream_failed and (
         _output_sent or _is_noncascadable_stream_error(_error_status, _error_buffer)
     ):
-        # Part of an answer is already on screen — a fallback would append a
-        # second, different answer to it. A malformed request (4xx, minus an
-        # oMLX capacity rejection wearing a 400) fails the same on every
-        # candidate. Either way, report the error and stop.
+        # Partial output, malformed requests, and repeated prefill refusals have no safe fallback.
+        if not _output_sent:
+            _error_buffer = _format_omlx_prefill_error_chunk(
+                _error_status,
+                _error_buffer,
+                backend_body,
+                getattr(backend, "type", "") == "omlx",
+            )
         yield _error_buffer or b'data: {"error": "Backend stream failed"}\n\n'
         yield _DONE
         _record_error(workspace_id, "stream_failed_after_output" if _output_sent else "bad_request")
