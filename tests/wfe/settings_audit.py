@@ -103,7 +103,7 @@ def installed_tags(backends: dict | None = None, omlx_ids: set[str] | None = Non
     for b in (backends or {}).get("backends", []):
         if b.get("type") == "omlx":
             tags |= set(b.get("aliases") or {})
-    # oMLX-served ids with no Ollama tag and no alias (bench REAP-288, Nex-N2.5)
+    # oMLX-served ids with no Ollama tag and no alias (e.g. bench Nex-N2.5)
     # exist only in oMLX's own inventory; without this they read hint_absent.
     tags |= omlx_served_ids() if omlx_ids is None else omlx_ids
     return tags
