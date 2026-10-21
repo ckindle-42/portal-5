@@ -81,7 +81,7 @@ _launch_install_music_minimax() {
     "$MM_VENV/bin/pip" install --quiet \
         "mlx==0.30.6" "mlx-metal==0.30.6" "numpy>=2.0,<3" "tokenizers>=0.22,<0.23" \
         "huggingface_hub[hf_xet]" "fastapi>=0.109.0" "uvicorn[standard]>=0.27.0" \
-        "httpx>=0.26.0" "pyyaml>=6.0.1" "starlette>=0.35.0" "mcp>=2.0.0,<3.0.0"
+        "httpx>=0.26.0" "pyyaml>=6.0.1" "starlette>=1.3.0" "mcp>=2.0.0,<3.0.0"
 
     if [ -f "$MM_MODEL_DIR/minimax_mlx_model.py" ]; then
         echo "  ✅ Model already present at $MM_MODEL_DIR"
@@ -148,7 +148,7 @@ _launch_install_mflux() {
     "$MX_VENV/bin/pip" install --quiet --upgrade pip
     "$MX_VENV/bin/pip" install --quiet \
         "mflux" "fastapi>=0.109.0" "uvicorn[standard]>=0.27.0" "httpx>=0.26.0" \
-        "pyyaml>=6.0.1" "starlette>=0.35.0" "mcp>=2.0.0,<3.0.0"
+        "pyyaml>=6.0.1" "starlette>=1.3.0" "mcp>=2.0.0,<3.0.0"
 
     cat > "$MX_DIR/start.sh" << MX_START
 #!/bin/bash
@@ -241,9 +241,9 @@ _launch_install_video_mlx() {
     echo "  Resolving deps (uv sync)..."
     ( cd "$VX_SRC" && uv sync --all-extras )
     # The MCP server needs mcp + starlette in the same venv as ltx-2-mlx.
-    "$VX_VENV/bin/python" -m pip install --quiet "mcp>=2.0.0,<3.0.0" "starlette>=0.35.0" \
+    "$VX_VENV/bin/python" -m pip install --quiet "mcp>=2.0.0,<3.0.0" "starlette>=1.3.0" \
         "httpx>=0.26.0" "pyyaml>=6.0.1" 2>/dev/null || \
-        ( cd "$VX_SRC" && uv pip install "mcp>=2.0.0,<3.0.0" "starlette>=0.35.0" "httpx>=0.26.0" "pyyaml>=6.0.1" )
+        ( cd "$VX_SRC" && uv pip install "mcp>=2.0.0,<3.0.0" "starlette>=1.3.0" "httpx>=0.26.0" "pyyaml>=6.0.1" )
 
     cat > "$VX_DIR/start.sh" << VX_START
 #!/bin/bash
@@ -365,7 +365,7 @@ PLIST
     "$ACE_VENV/bin/pip" install --quiet --upgrade pip
     "$ACE_VENV/bin/pip" install --quiet \
         "fastapi>=0.109.0" "uvicorn[standard]>=0.27.0" "httpx>=0.26.0" \
-        "pyyaml>=6.0.1" "starlette>=0.35.0" "mcp>=2.0.0,<3.0.0"
+        "pyyaml>=6.0.1" "starlette>=1.3.0" "mcp>=2.0.0,<3.0.0"
 
     cat > "$ACE_DIR/start-mcp.sh" << ACE_MCP
 #!/bin/bash

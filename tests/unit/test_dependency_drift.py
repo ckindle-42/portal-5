@@ -66,3 +66,15 @@ def test_no_upper_bound_without_a_receipt():
         if not any(ln.lstrip().startswith("#") for ln in window):
             offenders.append(spec)
     assert not offenders, f"capped/pinned deps without a receipt comment: {offenders}"
+
+
+def test_standalone_installers_require_safe_starlette():
+    paths = (
+        "Dockerfile.cad",
+        "Dockerfile.mcp",
+        "deploy/browser-mcp/Dockerfile",
+        "scripts/lib/services.sh",
+    )
+    combined = "\n".join((_ROOT / path).read_text(encoding="utf-8") for path in paths)
+    assert "starlette>=0.35.0" not in combined
+    assert combined.count("starlette>=1.3.0") == 8
