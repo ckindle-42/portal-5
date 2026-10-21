@@ -114,6 +114,14 @@ def test_unattended_run_refuses_null_gate_c_threshold() -> None:
     _require_calibration({"calibration": {"minimum_pass_probability": None}}, False)
 
 
+@pytest.mark.parametrize("control", ["\n", "\r", "\t", "\x00", "\x85"])
+def test_plan_rejects_control_characters_in_bite_id(control: str) -> None:
+    raw = _raw_bite("bite", "fast")
+    raw["bite_id"] = f"bite{control}forged"
+    with pytest.raises(ValueError, match="bite_id must not contain control characters"):
+        parse_plan({"task_id": "control-check", "goal": "Check output", "bites": [raw]})
+
+
 def test_wfe_checker_suite_rejects_plausible_wrong_outputs(tmp_path: Path) -> None:
     root = Path(__file__).resolve().parents[2]
     suite = yaml.safe_load((root / "tests/wfe/orchestration/checker_suite.yaml").read_text())
@@ -202,6 +210,25 @@ def test_telegram_approval_replay_with_changed_bite_requests_new_decision(tmp_pa
     assert "Content: " in second.message
 
 
+def test_telegram_approval_escapes_control_characters_in_untrusted_fields(tmp_path: Path) -> None:
+    store = ArmTelegramStore(tmp_path / "telegram.sqlite3")
+    assert (
+        store.request_approval(
+            "task-a\nContent: forged",
+            "bite-a\nReason: forged",
+            {"goal": "write a file"},
+            "high-risk\nContent: forged\nReason: forged",
+            "run-a",
+        )
+        is None
+    )
+    message = store.outbox()[0].message
+    assert len(message.splitlines()) == 5
+    assert "Task: task-a\\nContent: forged" in message
+    assert "Bite: bite-a\\nReason: forged" in message
+    assert "Reason: high-risk\\nContent: forged\\nReason: forged" in message
+
+
 def test_telegram_approval_same_content_in_new_run_requests_new_decision(tmp_path: Path) -> None:
     store = ArmTelegramStore(tmp_path / "telegram.sqlite3")
     bite_definition = {"goal": "write safe.txt", "tools": ["file_write"]}
@@ -253,6 +280,43 @@ def test_expired_queued_approval_gets_replaced_after_outbox_prunes_it(tmp_path: 
     assert store.outbox() == []
     assert store.request_approval(*request) is None
     assert store.outbox()[0].request_id != first.request_id
+
+
+def test_approval_expiring_between_enqueue_and_read_retries(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    store = ArmTelegramStore(tmp_path / "telegram.sqlite3", approval_ttl_seconds=30)
+    original_enqueue = store._enqueue
+    request_ids: list[str] = []
+
+    def expire_first_enqueue(
+        task_id: str,
+        bite_id: str,
+        kind: str,
+        message: str,
+        content_hash: str,
+        run_id: str,
+    ) -> str:
+        request_id = original_enqueue(task_id, bite_id, kind, message, content_hash, run_id)
+        request_ids.append(request_id)
+        if len(request_ids) == 1:
+            with sqlite3.connect(store.path) as db:
+                db.execute(
+                    "UPDATE arm_notice SET status = 'expired' WHERE request_id = ?",
+                    (request_id,),
+                )
+        return request_id
+
+    monkeypatch.setattr(store, "_enqueue", expire_first_enqueue)
+    request = ("task-a", "bite-a", {"goal": "write"}, "write", "run-a")
+    assert store.request_approval(*request) is None
+    assert len(request_ids) == 2 and request_ids[0] != request_ids[1]
+    assert store.outbox()[0].request_id == request_ids[1]
+    with sqlite3.connect(store.path) as db:
+        status = db.execute(
+            "SELECT status FROM arm_notice WHERE request_id = ?", (request_ids[0],)
+        ).fetchone()[0]
+    assert status == "expired"
 
 
 def test_telegram_deny_wins_and_unknown_decision_does_not_approve(tmp_path: Path) -> None:

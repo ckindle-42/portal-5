@@ -6,6 +6,7 @@ import hashlib
 import json
 import os
 import sqlite3
+import unicodedata
 import uuid
 from collections.abc import Iterator
 from contextlib import contextmanager
@@ -51,8 +52,9 @@ class ArmTelegramStore:
         )
         content_hash = hashlib.sha256(canonical.encode("utf-8")).hexdigest()
         message = (
-            f"Approve orchestration bite?\nTask: {task_id}\nBite: {bite_id}\n"
-            f"Content: {content_hash[:12]}\nReason: {reason}"
+            f"Approve orchestration bite?\nTask: {_safe_notice_text(task_id)}\n"
+            f"Bite: {_safe_notice_text(bite_id)}\nContent: {content_hash[:12]}\n"
+            f"Reason: {_safe_notice_text(reason)}"
         )
         while True:
             request_id = self._enqueue(task_id, bite_id, "approval", message, content_hash, run_id)
@@ -63,6 +65,8 @@ class ArmTelegramStore:
                 ).fetchone()
             if row is None:
                 return False
+            if row[0] == "expired":
+                continue
             if row[0] not in {"queued", "pending", "approved"} or not self._expired(str(row[2])):
                 break
         if row[0] in {"queued", "pending"} and row[1] is None:
@@ -70,7 +74,10 @@ class ArmTelegramStore:
         return row[0] == "approved" and row[1] == "approve"
 
     def blocked(self, task_id: str, bite_id: str, failure: dict[str, Any]) -> None:
-        text = f"Orchestration bite blocked.\nTask: {task_id}\nBite: {bite_id}\nFailure: {failure}"
+        text = (
+            f"Orchestration bite blocked.\nTask: {_safe_notice_text(task_id)}\n"
+            f"Bite: {_safe_notice_text(bite_id)}\nFailure: {_safe_notice_text(failure)}"
+        )
         self._enqueue(task_id, bite_id, "blocked", text, "", "")
 
     def outbox(self) -> list[ArmNotice]:
@@ -290,6 +297,14 @@ def _approval_ttl_seconds(configured: int | None) -> int:
     if value <= 0:
         raise ValueError("approval TTL must be a positive integer number of seconds")
     return value
+
+
+def _safe_notice_text(value: object) -> str:
+    escapes = {"\n": r"\n", "\r": r"\r", "\t": r"\t"}
+    return "".join(
+        escapes.get(char, f"\\x{ord(char):02x}") if unicodedata.category(char) == "Cc" else char
+        for char in str(value)
+    )
 
 
 def _now() -> str:
