@@ -81,7 +81,12 @@ logger = logging.getLogger(__name__)
 
 
 class BackendRequestError(Exception):
-    """A backend rejection that should surface without trying another candidate."""
+    """The backend rejected the request itself (HTTP 4xx).
+
+    Every other candidate would reject it the same way, so the caller surfaces
+    it to the client instead of cascading — a cascade turned a bad parameter
+    into an opaque 502 after sending the request to unrelated models.
+    """
 
     def __init__(self, status_code: int, detail: str) -> None:
         super().__init__(f"HTTP {status_code}: {detail}")
@@ -89,10 +94,17 @@ class BackendRequestError(Exception):
         self.detail = detail
 
 
-#: Request-level error statuses; capacity-tagged 400s get same-engine recovery before surfacing.
+#: Statuses meaning the request itself is malformed. 404 (model not on this
+#: engine), 408 and 429 stay cascadable — another candidate can serve those.
 _REQUEST_ERROR_STATUSES = frozenset({400, 413, 422})
 
-#: Markers separate oMLX capacity responses from malformed requests for recovery and final errors.
+#: Substrings identifying oMLX's own capacity rejections (prefill_memory_guard
+#: at 400, "cannot load" at 507) rather than a genuinely malformed request.
+#: Matched case-insensitively. A false negative just means a capacity error
+#: surfaces to the client instead of cascading (the behavior before this
+#: distinction existed); a false positive would let a truly bad request loop
+#: across every candidate before failing — the narrower match is the safer
+#: side to err on.
 _CAPACITY_ERROR_MARKERS = (
     "memory guard",
     "prefill memory",
@@ -107,7 +119,9 @@ _CAPACITY_ERROR_MARKERS = (
 
 
 def is_omlx_capacity_refusal(status: int, detail: bytes | str) -> bool:
-    """Recognize oMLX prefill or model-load capacity refusal responses."""
+    """An oMLX capacity refusal that freeing idle Ollama residents can cure: the 400 prefill
+    guard or the 507 load ceiling ("does not fit under the dynamic memory ceiling"). Used by
+    every path (streamed, tool-loop, non-streamed), so all three free and retry the same way."""
     return status in (400, 507) and _is_capacity_error(backend_error_detail(detail))
 
 
@@ -134,13 +148,30 @@ def _omlx_prefill_refusal_detail(backend: Any, exc: Exception) -> str | None:
 
 
 def _raise_prefill_capacity_error(detail: str | None, body: dict[str, Any]) -> None:
-    """Surface the guard refusal instead of waiting on a doomed dense Ollama prefill."""
+    """Raise the guard refusal, with the estimate, once the caller has no candidate left."""
     if detail is not None:
         raise BackendRequestError(400, format_omlx_prefill_error(detail, body))
 
 
 def _is_capacity_error(detail: str) -> bool:
-    """Whether backend detail identifies a capacity rejection rather than a malformed request."""
+    """Whether a 400 is an engine capacity rejection, not a malformed request.
+
+    oMLX's prefill_memory_guard returns HTTP 400 when it predicts a request
+    would blow its own memory ceiling right now — a fact about current engine
+    state, not the request's shape. Another engine (Ollama has an entirely
+    different memory profile) would very likely serve it fine, so unlike a
+    genuinely malformed request (bad JSON, an invalid parameter — the same
+    failure on every candidate), this one is cascadable.
+
+    The 2026-09-25 hardening pass that introduced ``_REQUEST_ERROR_STATUSES``
+    (commit ddd4726c) didn't carry this distinction, which silently broke the
+    "automatic Ollama fallback on unhealthy/rejects" pattern the oMLX
+    shadow-shift design (P5-FANOUT-001, docs/TASK_FANOUT_CONCURRENCY_V1.md)
+    depends on for every priority-10 alias. Found in the P5-FANOUT-001 audit
+    follow-up, not yet reproduced as a live incident — the one lane that
+    reliably trips the guard (granite-30b ctx98k) was already Ollama-only for
+    an unrelated reason, and SWEEP_CONCURRENCY defaults to 1 (opt-in).
+    """
     low = detail.lower()
     return any(marker in low for marker in _CAPACITY_ERROR_MARKERS)
 
@@ -149,7 +180,7 @@ def _raise_for_backend_status(resp: httpx.Response) -> None:
     if resp.status_code in _REQUEST_ERROR_STATUSES:
         detail = backend_error_detail(resp.content)
         if resp.status_code == 400 and _is_capacity_error(detail):
-            resp.raise_for_status()  # a capacity rejection, not a malformed request
+            resp.raise_for_status()  # a capacity rejection, not a bad request — cascade
             return
         raise BackendRequestError(resp.status_code, detail)
     resp.raise_for_status()
@@ -588,7 +619,9 @@ async def _try_non_streaming(
     Every failure path returns ``None`` so the caller's loop can try the
     next candidate — except a request the backend rejects as malformed
     (``BackendRequestError``, HTTP 400/413/422), which every candidate would
-    reject alike and which the caller surfaces instead of cascading.
+    reject alike and which the caller surfaces instead of cascading, and an
+    oMLX prefill refusal that survives the free/retry, which the caller may
+    still cascade past to a candidate with a different memory profile.
     ``tried`` (shared across one request's attempts) maps each
     ``(chat_url, model)`` pair already attempted to its failure reason:
     several backend groups front the same engine, and resending an identical
@@ -1069,8 +1102,7 @@ async def _try_non_streaming(
             and _is_capacity_error((tried or {}).get((backend.chat_url, target_model), ""))
         ):
             # oMLX rejected the prompt for memory held by idle Ollama models it
-            # cannot reclaim: free them and retry once. A prefill refusal that
-            # survives the retry surfaces; a 507 load refusal still cascades.
+            # cannot reclaim: free them and retry oMLX once before cascading.
             from portal.platform.inference.router.backend_introspect import free_ollama_for_omlx
 
             freed = await free_ollama_for_omlx()
