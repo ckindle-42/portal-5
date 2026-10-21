@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+from string import Template
 from typing import Any
 
 from .contracts import TaskPlan, parse_plan
@@ -64,6 +65,52 @@ def validate_planned_plan(
     if plan.bites[-2].bite_id not in plan.bites[-1].depends_on:
         raise ValueError("final_review must depend on the assembly bite")
     return plan
+
+
+def instantiate_plan_template(
+    arm_config: dict[str, Any],
+    *,
+    template_key: str,
+    discipline_key: str,
+    task_id: str,
+    parameters: dict[str, str],
+    source_dir: Path,
+) -> TaskPlan:
+    """Render one configured plan template and validate it as planner output."""
+    disciplines = _mapping(arm_config.get("disciplines"), "disciplines")
+    discipline = _mapping(disciplines.get(discipline_key), f"discipline {discipline_key}")
+    templates = _mapping(discipline.get("plan_templates"), f"{discipline_key}.plan_templates")
+    template = _mapping(templates.get(template_key), f"plan template {template_key}")
+    declared = template.get("parameters")
+    if not isinstance(declared, list) or not all(isinstance(item, str) for item in declared):
+        raise ValueError(f"plan template {template_key} parameters must be a list of strings")
+    if len(set(declared)) != len(declared):
+        raise ValueError(f"plan template {template_key} has duplicate parameters")
+    missing = set(declared) - parameters.keys()
+    unexpected = parameters.keys() - set(declared)
+    if missing or unexpected:
+        raise ValueError(
+            f"plan template parameters mismatch; missing={sorted(missing)}, "
+            f"unexpected={sorted(unexpected)}"
+        )
+    raw_plan = _render_template_value(template.get("plan"), parameters)
+    if not isinstance(raw_plan, dict) or "task_id" in raw_plan:
+        raise ValueError(f"plan template {template_key} must define a plan without task_id")
+    raw_plan["task_id"] = task_id
+    return validate_planned_plan(raw_plan, arm_config, discipline_key, source_dir)
+
+
+def _render_template_value(value: Any, parameters: dict[str, str]) -> Any:
+    if isinstance(value, str):
+        try:
+            return Template(value).substitute(parameters)
+        except (KeyError, ValueError) as exc:
+            raise ValueError(f"invalid plan template placeholder: {exc}") from exc
+    if isinstance(value, list):
+        return [_render_template_value(item, parameters) for item in value]
+    if isinstance(value, dict):
+        return {key: _render_template_value(item, parameters) for key, item in value.items()}
+    return value
 
 
 def planner_prompt(arm_config: dict[str, Any], discipline_key: str) -> str:

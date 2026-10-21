@@ -64,3 +64,93 @@ disciplines:
       minimum_bite_pass_rate: 0.8
       minimum_fast_pass_rate: 0.8
       minimum_deep_pass_rate: 0.9
+    plan_templates:
+      repair_with_tests:
+        parameters:
+        - source_file
+        - test_file
+        - expected_behavior
+        plan:
+          goal: Repair $source_file to satisfy $expected_behavior, using $test_file
+            for verification.
+          bites:
+          - bite_id: inspect
+            goal: Read $source_file and $test_file; identify the smallest repair and
+              the relevant behavior.
+            discipline: test_fixing
+            inputs:
+            - $source_file
+            - $test_file
+            depends_on: []
+            tools:
+            - file_read
+            output:
+              path: bites/inspection.txt
+              file_type: text
+            accept:
+            - type: contains
+              value: 'Finding:'
+            risk: low
+            stage: work
+            budget:
+              turns: 3
+              minutes: 15
+              output_tokens: 2048
+              context_tokens: 8192
+            model: fast
+            procedure: Read the source and tests, then record the relevant failing
+              behavior.
+            reads_untrusted: false
+          - bite_id: repair
+            goal: Use the inspection to make the smallest change for $expected_behavior
+              and run $test_file.
+            discipline: test_fixing
+            inputs:
+            - inspect
+            depends_on:
+            - inspect
+            tools:
+            - file_write
+            - pytest_run
+            output:
+              path: bites/repair.txt
+              file_type: text
+            accept:
+            - type: contains
+              value: PASS
+            risk: low
+            stage: assembly
+            budget:
+              turns: 5
+              minutes: 30
+              output_tokens: 4096
+              context_tokens: 12288
+            model: fast
+            procedure: Apply the smallest repair, run the declared test, and report
+              its result.
+            reads_untrusted: false
+          - bite_id: final_review
+            goal: Review the repair and test evidence against $expected_behavior.
+            discipline: test_fixing
+            inputs:
+            - repair
+            depends_on:
+            - repair
+            tools: []
+            output:
+              path: bites/review.txt
+              file_type: text
+            accept: []
+            review: deep
+            review_reason: Confirm the code change and test evidence satisfy the expected
+              behavior.
+            risk: low
+            stage: final_review
+            budget:
+              turns: 2
+              minutes: 15
+              output_tokens: 2048
+              context_tokens: 8192
+            model: deep
+            procedure: Review the repair and test evidence against the bite contract.
+            reads_untrusted: false
