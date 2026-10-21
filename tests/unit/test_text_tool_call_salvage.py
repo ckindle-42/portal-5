@@ -13,6 +13,10 @@ from unittest.mock import MagicMock
 import pytest
 
 import portal.platform.inference.router.streaming as streaming
+from portal.platform.inference.router.preinject import (
+    _apply_client_tools_only,
+    _inject_system_prompt_append,
+)
 from portal.platform.inference.router.text_tool_calls import (
     TextToolCallHoldback,
     salvage_text_tool_calls,
@@ -254,6 +258,46 @@ async def test_reasoning_only_remains_separate_and_is_not_an_answer(monkeypatch)
     assert "summarize(rows) 3." not in content
     assert payloads[-1]["choices"][0]["finish_reason"] == "length"
     assert out.rstrip().endswith("data: [DONE]")
+
+
+@pytest.mark.anyio
+async def test_marked_workspace_uses_only_client_tools_and_skips_its_prompt(monkeypatch):
+    workspace_id = "test-client-tools-only"
+    monkeypatch.setitem(
+        streaming.WORKSPACES,
+        workspace_id,
+        {
+            "client_tools_only": True,
+            "system_prompt_append": "\nserver tools prompt",
+            "tools": ["execute_python"],
+        },
+    )
+    monkeypatch.setattr(streaming, "_resolve_persona_tools", lambda *_a: ["execute_python"])
+    monkeypatch.setattr(streaming, "_model_supports_tools", lambda _m: True)
+    monkeypatch.setattr(streaming, "_inject_omlx_options", lambda b, _w: dict(b))
+    body = _apply_client_tools_only(workspace_id, {"messages": [], "tools": TOOLS})
+    assert body["portal_client_tools_only"] is True
+    assert _inject_system_prompt_append(workspace_id, body) == body
+
+    out, effective, has_tools, _ = await streaming._build_streaming_request(
+        body, MagicMock(type="omlx"), "m", workspace_id, ""
+    )
+    assert has_tools and effective == []
+    assert out["tools"] == TOOLS and out["tool_choice"] == "auto"
+
+
+def test_client_tools_alone_do_not_mark_an_unmarked_workspace(monkeypatch):
+    workspace_id = "test-tools-merge"
+    monkeypatch.setitem(
+        streaming.WORKSPACES,
+        workspace_id,
+        {"system_prompt_append": "\nserver tools prompt"},
+    )
+    body = {"messages": [], "tools": TOOLS}
+    assert _apply_client_tools_only(workspace_id, body) == body
+    assert _inject_system_prompt_append(workspace_id, body)["messages"][0]["content"].endswith(
+        "server tools prompt"
+    )
 
 
 @pytest.mark.anyio
