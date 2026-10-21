@@ -19,6 +19,8 @@ import re
 from pathlib import Path
 from typing import NamedTuple
 
+from tests.wfe.suites._publish import publish_text
+
 REPO = Path(__file__).resolve().parents[3]
 DATA = REPO / "portal" / "modules" / "compliance" / "data"
 OUT = Path(__file__).with_name("compliance_production.jsonl")
@@ -429,7 +431,7 @@ def main() -> None:
         if missing := undefined_values(t["instruction"]):
             raise SystemExit(f"{t['id']}: answer values used but not defined: {missing}")
     tasks.sort(key=lambda t: not t["screen"])  # the screen tier first
-    OUT.write_text("".join(json.dumps(t) + "\n" for t in tasks))
+    publish_text(OUT, "".join(json.dumps(t) + "\n" for t in tasks))
     print(
         f"wrote {OUT.relative_to(REPO)}: {len(tasks)} tasks, {sum(t['screen'] for t in tasks)} screen"
     )

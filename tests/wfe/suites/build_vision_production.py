@@ -35,6 +35,8 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt  # noqa: E402
 from PIL import Image, ImageDraw, ImageFont  # noqa: E402
 
+from tests.wfe.suites._publish import publish_text
+
 REPO = Path(__file__).resolve().parents[3]
 OUT = Path(__file__).with_name("vision_production.jsonl")
 IMG_DIR = REPO / "tests/fixtures/vision"
@@ -350,7 +352,7 @@ def build() -> list[dict]:
 
 def main() -> None:
     tasks = build()
-    OUT.write_text("".join(json.dumps(t) + "\n" for t in tasks))
+    publish_text(OUT, "".join(json.dumps(t) + "\n" for t in tasks))
     print(f"wrote {OUT.name}: {len(tasks)} tasks, {sum(t['screen'] for t in tasks)} screen")
 
 

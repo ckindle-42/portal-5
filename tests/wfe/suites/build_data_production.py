@@ -18,6 +18,8 @@ import json
 import re
 from pathlib import Path
 
+from tests.wfe.suites._publish import publish_text
+
 OUT = Path(__file__).with_name("data_production.jsonl")
 _TIES: dict[float, float] = {}  # half-up gold -> the half-even reading of the same exact tie
 TOOLS = ["run_sql", "profile_table"]
@@ -297,7 +299,7 @@ def build() -> list[dict]:
 
 def main() -> None:
     tasks = build()
-    OUT.write_text("".join(json.dumps(t) + "\n" for t in tasks))
+    publish_text(OUT, "".join(json.dumps(t) + "\n" for t in tasks))
     print(f"wrote {OUT.name}: {len(tasks)} tasks, {sum(t['screen'] for t in tasks)} screen")
 
 

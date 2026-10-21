@@ -52,6 +52,7 @@ from portal.platform.inference.router.routing import (  # noqa: E402
     _ROUTER_EXCLUDED,
     _ROUTER_FALLBACK,
 )
+from tests.wfe.suites._publish import publish_text  # noqa: E402
 
 HANDOFF_PATTERNS = ["auto-security|Portal Security Analyst|Security Analyst"]
 HANDOFF_NOTE = (
@@ -326,7 +327,7 @@ def build() -> list[dict]:
 
 def main() -> None:
     tasks = build()
-    OUT.write_text("".join(json.dumps(t) + "\n" for t in tasks))
+    publish_text(OUT, "".join(json.dumps(t) + "\n" for t in tasks))
     print(f"wrote {OUT.name}: {len(tasks)} tasks, {sum(t['screen'] for t in tasks)} screen")
 
 

@@ -31,6 +31,7 @@ from pathlib import Path
 
 from tests.wfe.suites import build_documents_production as docs
 from tests.wfe.suites import build_research_production as res
+from tests.wfe.suites._publish import publish_text
 
 OUT = Path(__file__).with_name("general_production.jsonl")
 OUT_CORE = Path(__file__).with_name("general_core_production.jsonl")
@@ -529,9 +530,9 @@ def build_core(tasks: list[dict] | None = None) -> list[dict]:
 
 def main() -> None:
     tasks = build()
-    OUT.write_text("".join(json.dumps(t) + "\n" for t in tasks))
+    publish_text(OUT, "".join(json.dumps(t) + "\n" for t in tasks))
     core = build_core(tasks)
-    OUT_CORE.write_text("".join(json.dumps(t) + "\n" for t in core))
+    publish_text(OUT_CORE, "".join(json.dumps(t) + "\n" for t in core))
     print(f"wrote {OUT.name}: {len(tasks)} tasks, {sum(t['screen'] for t in tasks)} screen")
     print(f"wrote {OUT_CORE.name}: {len(core)} tasks, {sum(t['screen'] for t in core)} screen")
 
