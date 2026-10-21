@@ -28,6 +28,17 @@ Gate C calibration uses discipline/seat WFE pass probabilities and mean seconds 
 
 Task artifacts use `get_generated_dir("tasks")`, which defaults to `~/AI_Output/generated/tasks/`: each task contains `ledger.db`, normalized `plan.json`, resolved `inputs.json`, per-attempt transcripts and checks, output files, and `receipt.json`. The receipt follows the WFE rig shape: `head`, `utc`, `results`, and `workdir`-style task evidence.
 
+## Principle checks
+
+`scripts/validation/orchestration_arm.py` carries the arm's mechanically checkable principles into `validate_system.py`:
+
+- `arm_reading_no_write` — a configured discipline's read and action tool classes are disjoint and complete, and the plan validator rejects a bite that mixes them or reads untrusted content while holding an action tool.
+- `arm_thinking_on` — no arm config or request body suppresses reasoning, and the Pipeline keeps thinking on for a request carrying `portal_bite_tools` even when the seat's workspace card says `think: false`. Production seats without bite tools are out of scope.
+- `arm_discipline_suites` — every configured discipline declares non-empty bite, planner and checker suites plus written pass criteria.
+- `arm_gate_c_threshold` — `calibration.minimum_pass_probability` is null or a probability in [0, 1], and a null value refuses unattended runs while interactive runs stay available.
+- `arm_least_agency` — a request mounts exactly the bite's tools and turn budget, and the planner rejects a tool outside the discipline allowlist.
+- `arm_pull_notes` — bite inputs reach the worker as paths, never pre-packed contents, and the procedure rides in the system prompt.
+
 ## Offline verification boundary
 
 `tests/wfe/e2e/rig_orchestration_arm.py` runs the arm against a fake OpenAI-compatible Pipeline API on an ephemeral local port. It covers a happy path, red-flag retry, budget exhaustion, wandering, Pipeline failure, SIGTERM resume, identity mismatch refusal, a blocked bite alongside an independent pass, four planner rejections, a split Deep vote, and a Telegram deny before dispatch. `tests/unit/test_orchestration_phase2.py` checks the planner/checker WFE fixtures, calibration projection, and the fake Telegram outbox round trip. These tests prove the offline arm only; no live model or stack is started by this phase.
