@@ -7,12 +7,14 @@ uv run portal module enable orchestration --yes
 ```
 
 Set the Pipeline endpoint and the measured model digests in the shell that runs `portal arm`. The model IDs stay fixed to the existing Fast and Deep seats; load-plan IDs are read from `config/orchestration_arm.yaml`.
+Set `PORTAL_ARM_APPROVAL_TTL_SECONDS` in this shell and `.env` to the same value to configure approval expiry; the default is 1800 seconds.
 
 ```bash
 export PORTAL_ARM_PIPELINE_URL=http://127.0.0.1:9099
 export PIPELINE_API_KEY='<pipeline api key>'
 export PORTAL_ARM_FAST_DIGEST='<fast model content digest>'
 export PORTAL_ARM_DEEP_DIGEST='<deep model content digest>'
+export PORTAL_ARM_APPROVAL_TTL_SECONDS=1800
 ```
 
 Submit a YAML or JSON hand-written plan. The task directory defaults to `get_generated_dir("tasks")` (`~/AI_Output/generated/tasks/` with the default workspace root). `--tasks-dir` changes it, and `--source-dir` sets the base for relative input paths.

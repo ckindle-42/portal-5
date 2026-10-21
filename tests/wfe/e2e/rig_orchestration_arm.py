@@ -301,11 +301,18 @@ def _valid_planned_plan() -> dict[str, Any]:
 
 class _FakeDenyNotices:
     def __init__(self) -> None:
-        self.requests: list[tuple[str, str, str]] = []
+        self.requests: list[tuple[str, str, dict[str, Any], str, str]] = []
         self.notices: list[dict[str, Any]] = []
 
-    def approval(self, task_id: str, bite_id: str, reason: str) -> bool | None:
-        self.requests.append((task_id, bite_id, reason))
+    def approval(
+        self,
+        task_id: str,
+        bite_id: str,
+        bite_definition: dict[str, Any],
+        reason: str,
+        run_id: str,
+    ) -> bool | None:
+        self.requests.append((task_id, bite_id, bite_definition, reason, run_id))
         return False
 
     def blocked(self, task_id: str, bite_id: str, failure: dict[str, Any]) -> None:
@@ -313,8 +320,15 @@ class _FakeDenyNotices:
 
 
 class _FakeApproveNotices(_FakeDenyNotices):
-    def approval(self, task_id: str, bite_id: str, reason: str) -> bool | None:
-        self.requests.append((task_id, bite_id, reason))
+    def approval(
+        self,
+        task_id: str,
+        bite_id: str,
+        bite_definition: dict[str, Any],
+        reason: str,
+        run_id: str,
+    ) -> bool | None:
+        self.requests.append((task_id, bite_id, bite_definition, reason, run_id))
         return True
 
 

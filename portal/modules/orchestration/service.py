@@ -24,7 +24,14 @@ class NoticeSink(Protocol):
 
     def blocked(self, task_id: str, bite_id: str, failure: dict[str, Any]) -> None: ...
 
-    def approval(self, task_id: str, bite_id: str, reason: str) -> bool | None: ...
+    def approval(
+        self,
+        task_id: str,
+        bite_id: str,
+        bite_definition: dict[str, Any],
+        reason: str,
+        run_id: str,
+    ) -> bool | None: ...
 
 
 class StubNoticeSink:
@@ -36,7 +43,14 @@ class StubNoticeSink:
     def blocked(self, task_id: str, bite_id: str, failure: dict[str, Any]) -> None:
         self.notices.append({"task_id": task_id, "bite_id": bite_id, "failure": failure})
 
-    def approval(self, task_id: str, bite_id: str, reason: str) -> bool | None:
+    def approval(
+        self,
+        task_id: str,
+        bite_id: str,
+        bite_definition: dict[str, Any],
+        reason: str,
+        run_id: str,
+    ) -> bool | None:
         return None
 
 
@@ -225,7 +239,9 @@ class ArmService:
         decision = self.notices.approval(
             plan.task_id,
             bite.bite_id,
+            bite.as_dict(),
             f"high-risk write tools: {', '.join(bite.tools)}",
+            str(ledger.task()["created_at"]),
         )
         if decision is None:
             return "wait"
