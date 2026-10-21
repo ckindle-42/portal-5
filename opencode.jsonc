@@ -57,7 +57,6 @@
       "settings": {
         "baseURL": "http://localhost:9099/v1"
       },
-      "body": {"portal_client_tools_only": true},
       // Curated workspace subset for coding tasks — use `opencode models`
       // to see all 90 or select any workspace from the model picker.
       "models": {
