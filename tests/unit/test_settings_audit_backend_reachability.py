@@ -37,14 +37,14 @@ class _Resp:
         return json.dumps(self._payload).encode()
 
 
-def test_an_unreadable_omlx_is_one_row_naming_the_backend() -> None:
+def test_an_unreadable_omlx_is_one_non_failing_row_naming_the_backend() -> None:
     violations: list[dict] = []
     unverifiable = audit._note_omlx_reachability(
         _backends(), "HTTPError: HTTP Error 401: Unauthorized", violations
     )
     assert unverifiable == {REAP, DFLASH}
     assert [(v["workspace"], v["kind"], v["severity"]) for v in violations] == [
-        ("backend:omlx", "backend_unreachable", "FAIL")
+        ("backend:omlx", "backend_unreachable", "INFO")
     ]
     assert audit.OMLX in violations[0]["detail"]
     assert "401" in violations[0]["detail"]
@@ -159,7 +159,7 @@ def _offline(monkeypatch: pytest.MonkeyPatch, reason: str | None) -> None:
     monkeypatch.setattr(audit, "_audit_omlx_template", lambda *_a, **_k: None)
 
 
-def test_run_audit_reports_one_row_where_the_seats_would_read_absent(
+def test_run_audit_reports_one_non_failing_row_where_the_seats_would_read_absent(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     models = audit._omlx_model_ids(
@@ -175,4 +175,13 @@ def test_run_audit_reports_one_row_where_the_seats_would_read_absent(
     report = audit.run_audit()
     post = _absent_omlx_models(report, models)
     assert post == set() and pre - post
-    assert [v["kind"] for v in report["violations"]].count("backend_unreachable") == 1
+    rows = [v for v in report["violations"] if v["kind"] == "backend_unreachable"]
+    assert len(rows) == 1
+    # The 0/0 gate counts only WARN/FAIL: a down oMLX must not fail it.
+    assert rows[0]["severity"] == "INFO"
+
+
+def test_a_reachable_omlx_leaves_no_backend_row(monkeypatch: pytest.MonkeyPatch) -> None:
+    _offline(monkeypatch, None)
+    report = audit.run_audit()
+    assert [v for v in report["violations"] if v["kind"] == "backend_unreachable"] == []
