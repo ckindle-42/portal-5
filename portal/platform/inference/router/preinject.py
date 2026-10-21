@@ -460,6 +460,15 @@ def _inject_requested_prompts(model_id: str, body: dict[str, Any]) -> dict[str, 
     return _inject_persona_system_prompt(model_id, body)
 
 
+def _apply_client_tools_only(workspace_id: str, body: dict[str, Any]) -> dict[str, Any]:
+    """Apply a workspace's client-tools-only marker when the request brings tools."""
+    if body.get("portal_client_tools_only") or (
+        body.get("tools") and WORKSPACES.get(workspace_id, {}).get("client_tools_only")
+    ):
+        return {**body, "portal_client_tools_only": True}
+    return body
+
+
 def _inject_system_prompt_append(workspace_id: str, body: dict[str, Any]) -> dict[str, Any]:
     """Append workspace-level system_prompt_append to the system message.
 
@@ -467,6 +476,8 @@ def _inject_system_prompt_append(workspace_id: str, body: dict[str, Any]) -> dic
     message or injects a new system message if none is present. Returns body
     (possibly with updated messages).
     """
+    if body.get("portal_client_tools_only"):
+        return body
     _prompt_append = WORKSPACES.get(workspace_id, {}).get("system_prompt_append", "")
     if not _prompt_append:
         return body

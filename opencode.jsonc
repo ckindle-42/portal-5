@@ -45,15 +45,16 @@
   "$schema": "https://opencode.ai/config.json",
 
   // ── Local inference provider ───────────────────────────────────────────────
-  "provider": {
+  "providers": {
     "portal": {
       "name": "Portal 5 (local)",
+      "package": "aisdk:@ai-sdk/openai-compatible",
       "npm": "@ai-sdk/openai-compatible",
       // opencode reads PIPELINE_API_KEY from the environment and passes it as
       // the Bearer token. Before running opencode, export the key:
       //   export $(grep PIPELINE_API_KEY .env | xargs)
       "env": ["PIPELINE_API_KEY"],
-      "options": {
+      "settings": {
         "baseURL": "http://localhost:9099/v1"
       },
       // Curated workspace subset for coding tasks — use `opencode models`
@@ -63,134 +64,184 @@
         // ── General ───────────────────────────────────────────────────────────
         "auto-daily": {
           "name": "Portal · Daily Driver (Gemma 4 26B QAT)",
-          "attachment": true,
-          "reasoning": false
+          "capabilities": {
+            "input": ["text", "image"],
+            "reasoning": {"supported": false}
+          }
         },
         "auto-reasoning": {
           "name": "Portal · Deep Reasoner (DeepSeek-R1-0528 8B)",
-          "attachment": true,
-          "reasoning": true
+          "capabilities": {
+            "input": ["text", "image"],
+            "reasoning": {"supported": true}
+          }
         },
         "auto-research": {
           "name": "Portal · Research Assistant (web-augmented)",
-          "attachment": true,
-          "reasoning": false
+          "capabilities": {
+            "input": ["text", "image"],
+            "reasoning": {"supported": false}
+          }
         },
         "auto-data": {
           "name": "Portal · Data Analyst (Qwen3.6-27B)",
-          "attachment": true,
-          "reasoning": false
+          "capabilities": {
+            "input": ["text", "image"],
+            "reasoning": {"supported": false}
+          }
         },
 
         // ── Coding ────────────────────────────────────────────────────────────
         "auto-coding": {
           "name": "Portal · Code Expert (Qwen3-Coder 30B, one-shot)",
-          "attachment": true,
-          "reasoning": false
+          "capabilities": {
+            "input": ["text", "image"],
+            "reasoning": {"supported": false}
+          }
         },
         "codingagentic": {
           "name": "Portal · IDE Agentic (Laguna-XS-2.1 33B, opencode default)",
-          "attachment": true,
-          "reasoning": false
+          "capabilities": {
+            "input": ["text", "image"],
+            "reasoning": {"supported": false}
+          }
         },
         "agenticheavy": {
           "name": "Portal · Agentic Heavy (Qwen3-Coder-Next 80B + AgentWorld 35B fallback)",
-          "attachment": true,
-          "reasoning": false
+          "capabilities": {
+            "input": ["text", "image"],
+            "reasoning": {"supported": false}
+          }
         },
         "agenticlite": {
           "name": "Portal · Agentic Lite (AgentWorld 35B, 45 t/s, MCP/SWE/Terminal)",
-          "attachment": true,
-          "reasoning": true
+          "capabilities": {
+            "input": ["text", "image"],
+            "reasoning": {"supported": true}
+          }
         },
         "codinguncensored": {
           "name": "Portal · Code Uncensored (OmniCoder-2 9B, one-shot)",
-          "attachment": true,
-          "reasoning": false
+          "capabilities": {
+            "input": ["text", "image"],
+            "reasoning": {"supported": false}
+          }
         },
         "codinguncensoredagentic": {
           "name": "Portal · Agentic Coder Uncensored (Qwen3-Coder-Next abliterated)",
-          "attachment": true,
-          "reasoning": false
+          "capabilities": {
+            "input": ["text", "image"],
+            "reasoning": {"supported": false}
+          }
         },
         "qwen38coder-dflash": {
           "name": "Portal · Qwen3.8-27B Coder (DFlash2 speculative decoding)",
-          "attachment": true,
-          "reasoning": true
+          "capabilities": {
+            "input": ["text", "image"],
+            "reasoning": {"supported": true}
+          }
         },
         "hauhaucs-coder": {
           "name": "Portal · HauhauCS Coder (Qwen3.6-35B-A3B MoE, uncensored)",
-          "attachment": true,
-          "reasoning": true
+          "capabilities": {
+            "input": ["text", "image"],
+            "reasoning": {"supported": true}
+          }
         },
         "gemma4-heretic-coder": {
           "name": "Portal · Gemma-4-26B Heretic Coder (MoE, uncensored)",
-          "attachment": true,
-          "reasoning": false
+          "capabilities": {
+            "input": ["text", "image"],
+            "reasoning": {"supported": false}
+          }
         },
         "ornith15-coder": {
           "name": "Portal · Ornith-1.5 Coder (Qwen3.6-35B-A3B MoE, uncensored)",
-          "attachment": true,
-          "reasoning": true
+          "capabilities": {
+            "input": ["text", "image"],
+            "reasoning": {"supported": true}
+          }
         },
 
         // ── Security ──────────────────────────────────────────────────────────
         "auto-security": {
           "name": "Portal · Security Analyst (VulnLLM-R-7B)",
-          "attachment": true,
-          "reasoning": false
+          "capabilities": {
+            "input": ["text", "image"],
+            "reasoning": {"supported": false}
+          }
         },
         "pentestlead": {
           "name": "Portal · Pentest Assistant (authorized engagements)",
-          "attachment": false,
-          "reasoning": false
+          "capabilities": {
+            "input": ["text"],
+            "reasoning": {"supported": false}
+          }
         },
         "pentester": {
           "name": "Portal · Red Team (offensive, authorized)",
-          "attachment": false,
-          "reasoning": false
+          "capabilities": {
+            "input": ["text"],
+            "reasoning": {"supported": false}
+          }
         },
         "blueteamdefender": {
           "name": "Portal · Blue Team (defensive, IR, detection)",
-          "attachment": true,
-          "reasoning": false
+          "capabilities": {
+            "input": ["text", "image"],
+            "reasoning": {"supported": false}
+          }
         },
         "purpleteamlead": {
           "name": "Portal · Purple Team (TTP analysis)",
-          "attachment": true,
-          "reasoning": false
+          "capabilities": {
+            "input": ["text", "image"],
+            "reasoning": {"supported": false}
+          }
         },
         "purpleteamexec": {
           "name": "Portal · Purple Team Exec (tool-calling, live lab)",
-          "attachment": false,
-          "reasoning": true
+          "capabilities": {
+            "input": ["text"],
+            "reasoning": {"supported": true}
+          }
         },
         "auto-spl": {
           "name": "Portal · SPL Engineer (Splunk, YARA, detections)",
-          "attachment": true,
-          "reasoning": false
+          "capabilities": {
+            "input": ["text", "image"],
+            "reasoning": {"supported": false}
+          }
         },
         "securityuncensored": {
           "name": "Portal · Security Uncensored (no refusals)",
-          "attachment": false,
-          "reasoning": false
+          "capabilities": {
+            "input": ["text"],
+            "reasoning": {"supported": false}
+          }
         },
 
         // ── General uncensored ────────────────────────────────────────────────
         "auto-general-uncensored": {
           "name": "Portal · General Uncensored (Qwen3.6-abliterated 27B)",
-          "attachment": true,
-          "reasoning": false
+          "capabilities": {
+            "input": ["text", "image"],
+            "reasoning": {"supported": false}
+          }
         },
         "auto-extract-uncensored": {
           "name": "Portal · Extract Uncensored (structured data parsing)",
-          "attachment": true,
-          "reasoning": false
+          "capabilities": {
+            "input": ["text", "image"],
+            "reasoning": {"supported": false}
+          }
         }
       }
-    },
+    }
+  },
 
     // ── P40 remote Ollama (out-of-band conductor brain) ──────────────────────
+  "provider": {
     "p40": {
       "name": "P40 (remote local Ollama)",
       "npm": "@ai-sdk/openai-compatible",
@@ -200,7 +251,6 @@
       "models": {
         "ducquoc/gpt-oss-sonnet:latest": {
           "name": "P40 · Conductor (gpt-oss-sonnet)",
-          "reasoning": true,
           // Ollama's /v1 forces temperature/top_p to 1.0 when a request omits
           // them, overriding the tag's own baked 0.4/0.9 — and opencode sends
           // neither by default (captured 2026-09-25). Stating the tag's values

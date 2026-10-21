@@ -61,6 +61,7 @@ from portal.platform.inference.router.non_streaming import (
     _try_non_streaming,
 )
 from portal.platform.inference.router.preinject import (
+    _apply_client_tools_only,
     _apply_role_slash,
     _inject_attached_files,
     _inject_requested_prompts,
@@ -617,6 +618,7 @@ async def _resolve_request_route(
         workspace_id, request.query_params.get("model") or _model_pin
     )
 
+    body = _apply_client_tools_only(workspace_id, body)
     body = _inject_requested_prompts(_original_model_id, body)
 
     # Phase 5: Temporal context injection — today's date + a search-first nudge
