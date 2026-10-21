@@ -92,7 +92,7 @@ def _post(path: str, payload: dict, timeout: int = 60) -> dict:
         return json.load(r)
 
 
-def installed_tags(backends: dict | None = None) -> set[str]:
+def installed_tags(backends: dict | None = None, omlx_ids: set[str] | None = None) -> set[str]:
     """Ollama tags PLUS oMLX backend aliases (oMLX models never appear in /api/tags)."""
     tags: set[str] = set()
     try:
@@ -105,22 +105,54 @@ def installed_tags(backends: dict | None = None) -> set[str]:
             tags |= set(b.get("aliases") or {})
     # oMLX-served ids with no Ollama tag and no alias (bench REAP-288, Nex-N2.5)
     # exist only in oMLX's own inventory; without this they read hint_absent.
-    tags |= omlx_served_ids()
+    tags |= omlx_served_ids() if omlx_ids is None else omlx_ids
     return tags
 
 
 OMLX = "http://localhost:8085"
 
 
-def omlx_served_ids() -> set[str]:
-    with (
-        contextlib.suppress(Exception),
-        urllib.request.urlopen(
+def omlx_inventory() -> tuple[set[str], str | None]:
+    """oMLX's served model ids, plus why they could not be read (None when reachable)."""
+    try:
+        with urllib.request.urlopen(
             urllib.request.Request(f"{OMLX}/v1/models", headers=omlx_headers()), timeout=10
-        ) as r,
-    ):
-        return {m["id"] for m in json.load(r).get("data", [])}
-    return set()
+        ) as r:
+            return {m["id"] for m in json.load(r).get("data", [])}, None
+    except Exception as e:  # noqa: BLE001 - unreadable is a verdict, not a crash
+        return set(), f"{e.__class__.__name__}: {e}"
+
+
+def omlx_served_ids() -> set[str]:
+    return omlx_inventory()[0]
+
+
+def _omlx_model_ids(backends: dict) -> set[str]:
+    """Every model id an omlx backend in backends.yaml serves."""
+    return {
+        m["id"]
+        for b in backends.get("backends", [])
+        if b.get("type") == "omlx"
+        for m in b.get("models") or []
+        if isinstance(m, dict) and m.get("id")
+    }
+
+
+def _note_omlx_reachability(backends: dict, reason: str | None, violations: list[dict]) -> set[str]:
+    """One `backend_unreachable` row for an unreadable oMLX; returns the models whose
+    absence it makes unverifiable, so they are not reported one-by-one as `*_absent`."""
+    if reason is None:
+        return set()
+    models = _omlx_model_ids(backends)
+    _v(
+        violations,
+        "backend:omlx",
+        "backend_unreachable",
+        f"oMLX at {OMLX} could not be read ({reason}) — its {len(models)} configured model(s) "
+        "cannot be verified installed; their absence is not a finding",
+        "FAIL",
+    )
+    return models
 
 
 def seat_engine(hint: str, backends: dict, omlx_ids: set[str]) -> str:
@@ -761,11 +793,14 @@ def _audit_workspace(
     tool_flags: dict[str, bool],
     violations: list[dict],
     omlx: bool = False,
+    unverifiable: set[str] | None = None,
 ) -> None:
     hint = ws["model_hint"]
+    unverifiable = unverifiable or set()
 
     # Ollama model names are case-insensitive (:q4_k_m and :Q4_K_M are one tag).
-    if hint not in tags and hint.lower() not in {t.lower() for t in tags}:
+    absent = hint not in tags and hint.lower() not in {t.lower() for t in tags}
+    if absent and hint not in unverifiable:
         _v(
             violations,
             ws_id,
@@ -799,7 +834,7 @@ def _audit_workspace(
         )
 
     pin = ws.get("model_pin")
-    if pin and pin not in tags:
+    if pin and pin not in tags and pin not in unverifiable:
         _v(violations, ws_id, "pin_absent", f"model_pin={pin} not installed", "FAIL")
 
 
@@ -935,7 +970,10 @@ def _audit_reasoning_budget_fit(
     )
 
 
-def _audit_personas(tags: set[str], violations: list[dict]) -> int:
+def _audit_personas(
+    tags: set[str], violations: list[dict], unverifiable: set[str] | None = None
+) -> int:
+    unverifiable = unverifiable or set()
     checked = 0
     persona_files = sorted((REPO / "config/personas").glob("*.yaml"))
     persona_files += sorted((REPO / "config/personas/bench").glob("*.yaml"))
@@ -950,7 +988,7 @@ def _audit_personas(tags: set[str], violations: list[dict]) -> int:
             continue
         checked += 1
         for pin in pins:
-            if pin not in tags:
+            if pin not in tags and pin not in unverifiable:
                 _v(
                     violations,
                     f"persona:{d.get('slug', pf.stem)}",
@@ -1562,7 +1600,14 @@ def _audit_seat(ws_id: str, ws: dict, ctx: dict, violations: list[dict]) -> dict
         )
     tags, registry = ctx["tags"], ctx["registry"]
     _audit_workspace(
-        ws_id, ws, tags, ctx["registered"], ctx["tool_flags"], violations, omlx=engine == "omlx"
+        ws_id,
+        ws,
+        tags,
+        ctx["registered"],
+        ctx["tool_flags"],
+        violations,
+        omlx=engine == "omlx",
+        unverifiable=ctx["unverifiable"],
     )
     _audit_reasoning_fit(ws_id, ws, hint, registry, tags, violations)
     _audit_reasoning_budget_fit(
@@ -1603,7 +1648,8 @@ def run_audit(behavioral: bool = False) -> dict:
     backends = yaml.safe_load((REPO / "config/backends.yaml").read_text())
 
     registered, tool_flags = _registered_models(backends)
-    tags = installed_tags(backends)
+    omlx_ids, omlx_reason = omlx_inventory()
+    tags = installed_tags(backends, omlx_ids)
     council_path = REPO / "config/compliance/council.yaml"
     seats: dict = {}
     if council_path.exists():
@@ -1611,8 +1657,8 @@ def run_audit(behavioral: bool = False) -> dict:
         seats = {s.get("id"): s.get("model") for s in council.get("seats", [])}
 
     violations: list[dict] = []
+    unverifiable = _note_omlx_reachability(backends, omlx_reason, violations)
     checked = 0
-    omlx_ids = omlx_served_ids()
     from portal.platform.wiki.adapters.modules import enabled_modules
 
     served_seats, not_tested = classify_seats(portal, set(enabled_modules()))
@@ -1642,13 +1688,14 @@ def run_audit(behavioral: bool = False) -> dict:
         "shows": shows,
         "tmap": tmap,
         "behavioral": behavioral,
+        "unverifiable": unverifiable,
     }
     served_paths: dict[str, dict] = {}
     for ws_id, ws in served_seats:
         checked += 1
         served_paths[ws_id] = _audit_seat(ws_id, ws, ctx, violations)
 
-    personas_checked = _audit_personas(tags, violations)
+    personas_checked = _audit_personas(tags, violations, unverifiable)
     _audit_council(seats, tags, registered, violations)
     auto_council_models = _audit_auto_council(
         (portal.get("workspaces") or {}).get("auto-council", {}).get("council") or {},
