@@ -1,0 +1,11 @@
+# glm-4.7-flash:Q4_K_M-ctx64k-agentic — derived coding-seat tag
+# (auto-coding::glm-coder; settings_audit sampling_baked_hot 2026-10-21).
+# Bakes the GLM-4.7-Flash card's agentic_coding arm (temperature 0.7, top_p 1.0)
+# over the shared -ctx64k parent so the seat stays lane-safe even on request
+# paths that omit the workspace sampling override. Weights shared — 0 extra bytes.
+# Create with:
+#   ollama create glm-4.7-flash:Q4_K_M-ctx64k-agentic \
+#     -f config/modelfiles/glm-4.7-flash.Q4_K_M-ctx64k-agentic.Modelfile
+FROM glm-4.7-flash:Q4_K_M-ctx64k
+PARAMETER temperature 0.7
+PARAMETER top_p 1.0

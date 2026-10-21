@@ -484,6 +484,15 @@ The dual `general`/`coding` registration with `supports_tools: true` in both gro
 
 
 Since 2026-10-18 it is also the `auto-math` seat (`model_hint`, `context_limit: 24576`, Z.ai card sampling temperature 1.0 / top_p 0.95), chosen on WFE `wfe_math_20261018d`: BETTER than phi4-mini-reasoning (sign test p=0.039, 104/108 PASS), kept over the slightly more accurate Qwen3.8-27B for lineage diversity — GLM held no production seat.
+
+### `glm-4.7-flash:Q4_K_M-ctx64k-agentic`
+
+`glm-4.7-flash:Q4_K_M-ctx64k-agentic` is the coding-seat derived tag (weights shared with `-ctx64k` — 0 extra bytes) that bakes the GLM-4.7-Flash card's `agentic_coding` arm (`PARAMETER temperature 0.7`, `PARAMETER top_p 1.0`) on top of the inherited 64K window; Modelfile at `config/modelfiles/glm-4.7-flash.Q4_K_M-ctx64k-agentic.Modelfile`. Created 2026-10-21 for `auto-coding::glm-coder`: the seat serves the card's 0.7 arm (above the coding lane's 0.5, card-sanctioned), but the shared `-ctx64k` tag bakes the card's default temperature 1.0, so any request path that omitted the workspace override would exceed the lane — the settings audit's `sampling_baked_hot`. `auto-math` keeps `-ctx64k` (it serves the 1.0 default arm deliberately). Registered in `coding` (`supports_tools: true`); the 2026-09-17 tool probe on `-ctx64k` carries over (same weights and template).
+
+## Why
+
+The audit treats a hot baked tag as a real defense-in-depth gap even when the workspace pins a compliant value; baking the sanctioned arm into a dedicated tag removes the gap without changing what either seat serves.
+
 ### `hf.co/bartowski/nex-agi_Nex-N2.5-mini-GGUF:Q4_K_M`
 
 `hf.co/bartowski/nex-agi_Nex-N2.5-mini-GGUF:Q4_K_M` is bartowski's Q4_K_M (22.3 GB) of nex-agi/Nex-N2.5-mini, a 34.7B-total / ~3.5B-active `qwen35moe` model with vision, tools and adaptive thinking (`reasoning_effort` none/medium/high per the card). Pulled 2026-10-18 as the auto-research challenger named by the seat prior (docs/WFE_SEAT_PRIOR_20261018.md: same-vendor suite BrowseComp 83.4 vs 74.1 and Toolathlon 54.6 vs 33.3 over Nex-N2-mini). The GGUF bakes no stop tokens or sampling; card sampling is temperature 0.7, top_p 0.95, top_k 40. `config/backends.yaml` registers it in `group: general` with `supports_tools: true` after a direct native probe (3/3 single calls plus a clean tool-result turn).

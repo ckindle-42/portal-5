@@ -385,3 +385,36 @@ models:
     recommended_sampling: {temperature: 1.0, top_p: 0.95, top_k: 64}
     prompt_contract: "gemma-4-26b-it abliteration; keeps the gemma4 card sampling."
 
+  devstral-small-2:
+    status: verified-card
+    verified: true
+    source: "https://huggingface.co/mistralai/Devstral-Small-2-24B-Instruct-2512 (card + generation_config.json) (2026-10-21)"
+    source_tier: "2 — vendor card (Mistral): generation_config.json is the family's only published sampling; the build providers' READMEs (unsloth, bartowski GGUF) add no sampling numbers."
+    # generation_config.json: do_sample true, temperature 0.15, max_length 262144.
+    # The imported tag already bakes temperature 0.15; the seat's old 0.7 had no
+    # card basis (settings_audit sampling_hot 2026-10-21).
+    recommended_sampling: {temperature: 0.15}
+    max_context: 262144
+    tools: true
+    prompt_contract: "Instruct-only (no thinking mode) agentic coder; Mistral function-calling format; card README states a 256k context window. Covers the Ollama-library import (devstral-small-2) and the unsloth/bartowski GGUF builds."
+
+  glm-z1:
+    status: verified-card
+    verified: true
+    source: "https://huggingface.co/zai-org/GLM-Z1-Rumination-32B-0414 (README inference code + config.json) (2026-10-21)"
+    source_tier: "2 — vendor card (zai-org): the README's inference snippet AND its rumination function-call pipeline both sample at temperature 0.95 / top_p 0.7; the build provider (bartowski GGUF README) adds no sampling numbers."
+    # CONFLICT with lane policy, card wins (sampling authority order): the card's
+    # 0.95 sits above the general lane's 0.8 ceiling — glm-thinker serves it as a
+    # sanctioned sampling_card_over_lane seat.
+    recommended_sampling: {temperature: 0.95, top_p: 0.7}
+    max_context: 131072
+    # The card documents no model-level maximum output. Its function-call
+    # pipeline example budgets max_new_tokens 16384 per rumination turn — an
+    # evaluation-loop figure, not a documented cap, so recommended_max_output
+    # stays absent and reasoning_budget_fit does not apply.
+    tools: {pending_research: true}
+    prompt_contract: "Deep reasoning model with rumination (<think> blocks; the card's own pipeline strips </think>); config.json max_position_embeddings 131072. Integrates search/click/open/finish as an internal rumination protocol — generic function-calling unverified (backends has supports_tools: false)."
+    harness_policy:
+      think: "true"
+      notes: "Reasoning model: it opens <think> by default; the card's guidance is do_sample at 0.95/0.7."
+

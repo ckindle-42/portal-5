@@ -1189,7 +1189,11 @@ workspaces:
         model_hint: "devstral-small-2:latest-ctx8k"
         context_limit: 8192
         predict_limit: 16384
-        temperature: 0.7
+        # sampling: Devstral-Small-2 card generation_config.json (do_sample true,
+        # temperature 0.15 — the only published sampling; the unsloth/bartowski
+        # GGUF READMEs add none). Prior 0.7 had no card basis (settings_audit
+        # sampling_hot 2026-10-21).
+        temperature: 0.15
         top_p: 0.8
         top_k: 20
         min_p: 0.05
@@ -1207,15 +1211,23 @@ workspaces:
         repeat_penalty: 1.05
       glm-coder:
         module: "coding"
-        model_hint: "glm-4.7-flash:Q4_K_M-ctx64k"
+        model_hint: "glm-4.7-flash:Q4_K_M-ctx64k-agentic"
         context_limit: 65536
-        predict_limit: 16384
-        # sampling: glm-4.7-flash card agentic_coding arm (coding seat)
+        # reasoning_budget_fit target 32768 (card max output 131072, audit ceiling
+        # 32768, half of the 64K window); 16384 truncated hard problems mid-thought.
+        predict_limit: 32768
+        # sampling: glm-4.7-flash card agentic_coding arm (coding seat) — 0.7 is
+        # above the coding lane's 0.5 and card-sanctioned (sampling_card_over_lane).
+        # The -agentic derived tag bakes that same arm so the seat stays lane-safe
+        # on request paths that omit the workspace override (sampling_baked_hot):
+        # config/modelfiles/glm-4.7-flash.Q4_K_M-ctx64k-agentic.Modelfile
         temperature: 0.7
         top_p: 1.0
         top_k: 20
         min_p: 0.05
         repeat_penalty: 1.05
+        # card: multi-turn agentic tasks want Preserved Thinking mode on.
+        think: true
       hauhaucs-coder:
         module: "coding"
         model_hint: "portal5/hauhaucs-qwen36-35b:q4_K_M-ctx256k"
@@ -1242,7 +1254,9 @@ workspaces:
         module: "coding"
         model_hint: "hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M"
         context_limit: 262144
-        predict_limit: 16384
+        # reasoning_budget_fit target 32768 (qwen3.8 card final-response max
+        # 131072, audit ceiling 32768); 16384 truncated hard problems mid-thought.
+        predict_limit: 32768
         # sampling: qwen3.8 card thinking mode (2026-10-20 settings_audit served_vs_card fix)
         temperature: 1.0
         top_p: 0.95
@@ -1250,11 +1264,15 @@ workspaces:
         min_p: 0.0
         presence_penalty: 0.0
         repeat_penalty: 1.0
+        # think pinned to the card mode the sampling block above already serves.
+        think: true
       qwen38coder-dflash:
         module: "coding"
         model_hint: "Qwen3.8-27B-4bit"
         context_limit: 262144
-        predict_limit: 16384
+        # reasoning_budget_fit target 32768 (qwen3.8 card final-response max
+        # 131072, audit ceiling 32768); 16384 truncated hard problems mid-thought.
+        predict_limit: 32768
         # sampling: qwen3.8 card thinking mode (2026-10-20 settings_audit served_vs_card fix)
         temperature: 1.0
         top_p: 0.95
@@ -1262,6 +1280,8 @@ workspaces:
         min_p: 0.0
         presence_penalty: 0.0
         repeat_penalty: 1.0
+        # think pinned to the card mode the sampling block above already serves.
+        think: true
   auto-spl:
     module: general
     name: 🔍 Portal SPL Engineer
@@ -1948,8 +1968,11 @@ workspaces:
         model_hint: "hf.co/bartowski/THUDM_GLM-Z1-Rumination-32B-0414-GGUF:THUDM_GLM-Z1-Rumination-32B-0414-Q4_K_M.gguf-ctx64k"
         context_limit: 65536
         predict_limit: 40960
-        temperature: 1.0
-        top_p: 0.95
+        # sampling: GLM-Z1-Rumination card inference code (temperature 0.95,
+        # top_p 0.7) — 0.95 is above the general lane's 0.8 and card-sanctioned
+        # (sampling_card_over_lane). Prior 1.0/0.95 had no card basis.
+        temperature: 0.95
+        top_p: 0.7
         think: true
         emits_reasoning: true
       magistralstrategist:
