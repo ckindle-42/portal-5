@@ -39,6 +39,17 @@ def _config() -> PortalConfig:
                 module="security",
                 variants={
                     "blueteam": {"model_hint": "x"},
+                    "purpleteam-deep": {
+                        "model_hint": "p",
+                        "chain": [
+                            {
+                                "model": "follow-up",
+                                "label": "Follow-up",
+                                "system": "Analyze.",
+                                "user_template": "{hop_0}",
+                            }
+                        ],
+                    },
                     "redteam": {"module": "security_redteam", "model_hint": "y"},
                 },
             ),
@@ -83,6 +94,11 @@ def test_security_aliases_only_includes_security_targets():
 def test_split_id_splits_variant():
     assert uat._split_id("auto-security::redteam") == ("auto-security", "redteam")
     assert uat._split_id("auto-security") == ("auto-security", None)
+
+
+def test_chain_shot_gets_the_declared_chain_budget():
+    assert uat._shot_timeout(_config(), "auto-security") == uat.TIMEOUT
+    assert uat._shot_timeout(_config(), "auto-security::purpleteam-deep") == uat.CHAIN_TIMEOUT
 
 
 def test_scrape_counter_sums_matching_labels():
@@ -172,6 +188,19 @@ async def test_request_transport_error_is_caught():
     assert "refused" in error
 
 
+@pytest.mark.asyncio
+async def test_request_timeout_reports_its_budget():
+    import httpx
+
+    client = MagicMock()
+    client.post = AsyncMock(side_effect=httpx.ReadTimeout(""))
+    status, _headers, _seconds, _content, error = await uat._request(
+        client, "auto-security", "ping", timeout=321
+    )
+    assert status is None
+    assert error == "timed out after 321s"
+
+
 def test_shot_ok_for_enabled_requires_200_and_nonempty():
     assert uat.Shot(id="x", enabled=True, status=200, non_empty=True).ok
     assert not uat.Shot(id="x", enabled=True, status=200, non_empty=False).ok
@@ -193,7 +222,7 @@ async def test_run_shots_respects_only_filter():
         return_value=_mock_response(200, {"choices": [{"message": {"content": "ok"}}]})
     )
     ids = [("auto-security", True), ("auto-security::redteam", False)]
-    shots = await uat.run_shots(client, ids, only="auto-security")
+    shots = await uat.run_shots(client, _config(), ids, only="auto-security")
     assert [s.id for s in shots] == ["auto-security"]
 
 
@@ -248,7 +277,7 @@ async def test_run_design_checks_alias_mismatch_fails():
         ),
     }
 
-    async def fake_post(url, json, headers, params):  # noqa: ANN001 - test double
+    async def fake_post(url, json, headers, params, timeout):  # noqa: ANN001 - test double
         return responses[json["model"]]
 
     client.post = AsyncMock(side_effect=fake_post)

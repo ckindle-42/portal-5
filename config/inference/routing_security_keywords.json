@@ -78,6 +78,7 @@
   "reverse shell": 3,
   "rootkit": 3,
   "rop chain": 3,
+  "sam hive": 3,
   "security": 1,
   "security audit": 1,
   "shellcode": 3,

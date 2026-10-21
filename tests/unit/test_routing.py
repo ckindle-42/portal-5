@@ -244,6 +244,7 @@ class TestRouteWithLLM:
             "generate a reverse shell payload using metasploit",
             "write a Sigma rule for credential dumping detection",
             "what does this CVE mean for my network?",
+            "Walk me through enumerating SMB shares on this host and extracting the SAM hive for credential harvesting.",
         ):
             assert detect_router_handoff(_user_messages(text)) == lane, text
         assert detect_router_handoff(_user_messages("what time is it in Tokyo")) is None

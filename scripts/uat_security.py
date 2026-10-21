@@ -43,6 +43,7 @@ from portal.platform.wiki.adapters.modules import is_workspace_disabled
 PIPELINE_URL = os.environ.get("PIPELINE_URL", "http://localhost:9099")
 PIPELINE_API_KEY = os.environ.get("PIPELINE_API_KEY", "portal-pipeline")
 TIMEOUT = float(os.environ.get("UAT_SECURITY_TIMEOUT", "120"))
+CHAIN_TIMEOUT = float(os.environ.get("UAT_SECURITY_CHAIN_TIMEOUT", "1500"))
 
 SECURITY_MODULES = frozenset({"security", "security_redteam"})
 SHOT_PROMPT = "Reply with a single word."
@@ -128,7 +129,11 @@ def security_aliases(config: PortalConfig) -> list[tuple[str, str]]:
 
 
 async def _request(
-    client: httpx.AsyncClient, workspace: str, prompt: str, variant: str | None = None
+    client: httpx.AsyncClient,
+    workspace: str,
+    prompt: str,
+    variant: str | None = None,
+    timeout: float = TIMEOUT,
 ) -> tuple[int | None, dict[str, str], float, str, str]:
     """POST one non-streaming chat completion. Returns (status, headers,
     seconds, content, error) — never raises on a non-2xx response, since a
@@ -143,10 +148,19 @@ async def _request(
     started = time.monotonic()
     try:
         resp = await client.post(
-            f"{PIPELINE_URL}/v1/chat/completions", json=payload, headers=headers, params=params
+            f"{PIPELINE_URL}/v1/chat/completions",
+            json=payload,
+            headers=headers,
+            params=params,
+            timeout=timeout,
         )
     except httpx.HTTPError as exc:
-        return None, {}, time.monotonic() - started, "", str(exc)
+        error = (
+            f"timed out after {timeout:.0f}s"
+            if isinstance(exc, httpx.TimeoutException)
+            else f"{type(exc).__name__}: {exc}"
+        )
+        return None, {}, time.monotonic() - started, "", error
     elapsed = time.monotonic() - started
     content = ""
     error = ""
@@ -164,8 +178,20 @@ async def _request(
     return resp.status_code, dict(resp.headers), elapsed, content, error
 
 
+def _shot_timeout(config: PortalConfig, workspace_id: str) -> float:
+    base, variant = _split_id(workspace_id)
+    spec = config.workspaces[base]
+    chain = spec.chain
+    if variant is not None:
+        chain = spec.variants[variant].get("chain", chain)
+    return CHAIN_TIMEOUT if chain else TIMEOUT
+
+
 async def run_shots(
-    client: httpx.AsyncClient, ids: list[tuple[str, bool]], only: str | None
+    client: httpx.AsyncClient,
+    config: PortalConfig,
+    ids: list[tuple[str, bool]],
+    only: str | None,
 ) -> list[Shot]:
     shots: list[Shot] = []
     for wid, enabled in ids:
@@ -173,7 +199,7 @@ async def run_shots(
             continue
         base, variant = _split_id(wid)
         status, headers, seconds, content, error = await _request(
-            client, base, SHOT_PROMPT, variant
+            client, base, SHOT_PROMPT, variant, timeout=_shot_timeout(config, wid)
         )
         route = headers.get("x-portal-route", "")
         shots.append(
@@ -342,7 +368,7 @@ async def _amain(args: argparse.Namespace) -> int:
         return 0
 
     async with httpx.AsyncClient(timeout=TIMEOUT) as client:
-        shots = await run_shots(client, ids, args.only)
+        shots = await run_shots(client, config, ids, args.only)
         shots_by_id = {s.id: s for s in shots}
         checks = (
             [] if args.only is not None else await run_design_checks(client, aliases, shots_by_id)
