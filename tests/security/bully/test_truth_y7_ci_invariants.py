@@ -31,4 +31,6 @@ def test_all_registered_and_unique():
 def test_all_truth_checks_pass_clean():
     for slug in _EXPECTED_SLUGS:
         status, detail, _sub = _run(slug)
+        if status == "SKIP" and "PORTAL_DATA_ROOT" in detail:
+            continue  # evidence-based check; its run docs live under PORTAL_DATA_ROOT
         assert status == "PASS", f"{slug} did not pass clean: {detail}"

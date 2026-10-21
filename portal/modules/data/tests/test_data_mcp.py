@@ -45,6 +45,7 @@ def test_path_escape_rejected(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -
 
 
 def test_bad_session_id_rejected() -> None:
+    pytest.importorskip("duckdb")  # _conn lazy-imports duckdb before validating the id
     with pytest.raises(ValueError):
         mod._conn("../evil")
 
