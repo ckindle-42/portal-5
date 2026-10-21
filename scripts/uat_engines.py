@@ -551,6 +551,9 @@ def alias_checks(
             checks.append(make_check(name, False, "target owned elsewhere"))
             continue
         target_shot = shots.get(target)
+        if target_shot is None and is_workspace_disabled(target, None, config):
+            checks.append(skip_check(name, f"target {target} disabled, not tested"))
+            continue
         if target_shot is None:
             checks.append(make_check(name, False, f"target {target} was not shot"))
             continue
