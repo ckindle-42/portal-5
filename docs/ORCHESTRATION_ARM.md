@@ -4,7 +4,7 @@
 
 The Phase 1 arm runs hand-written bite plans through the Pipeline's OpenAI-compatible chat endpoint. Each attempt starts with fresh messages and selects the existing `auto-daily::fast` or `auto-daily::deep` seat. MCP tool calls stay inside the Pipeline tool loop; the arm passes `portal_bite_tools` so that each request can expose only the current bite's tools. The local `finish` client tool ends the bite and writes its checked output.
 
-The scheduler, SQLite ledger, planner, reviewer, and deterministic checker live in `portal/modules/orchestration/`. This is a separate module package because `portal/platform/agent/` is platform core and owns Security's `run_loop`; the arm does not import or wrap that goal loop. The module is registered as `orchestration` and is disabled by default. `portal arm goal` asks the Deep seat for a plan, validates it before creating task state, and then runs the bite contracts through the existing arm service.
+The scheduler, SQLite ledger, planner, reviewer, and deterministic checker live in `portal/modules/orchestration/`. This is a separate module package because `portal/platform/agent/` is platform core and owns Security's `run_loop`; the arm does not import or wrap that goal loop. The module is registered as `orchestration` and is disabled by default. `portal arm goal` asks the Deep seat for a plan, validates it before creating task state, and then runs the bite contracts through the existing arm service. Open WebUI reaches the same submission path through `portal/modules/orchestration/owui_entry.py`, exposed as the pipeline MCP tool `arm_queue_task` and resolved through the platform's module plugin seam, so platform code never imports the module.
 
 ## Worker and checks
 

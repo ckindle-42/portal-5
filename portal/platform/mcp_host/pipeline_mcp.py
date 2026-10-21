@@ -556,6 +556,53 @@ async def trigger_backend_warmup_endpoint(request: Any) -> JSONResponse:
     return JSONResponse(await _impl_trigger_backend_warmup(args.get("workspace", "codingagentic")))
 
 
+async def _impl_arm_queue_task(
+    task_id: str, goal: str, discipline: str, source_dir: str | None = None
+) -> dict[str, Any]:
+    # Resolved through the plugin seam: platform never names a module.
+    from portal.platform.plugins import owui_tools
+
+    handler = owui_tools().get("arm_queue_task")
+    if handler is None:
+        return {"error": "no module provides arm_queue_task on this build"}
+    return handler(
+        task_id, goal, discipline, source_dir=pathlib.Path(source_dir) if source_dir else None
+    )
+
+
+@mcp.tool()
+async def arm_queue_task(
+    task_id: str, goal: str, discipline: str, source_dir: str | None = None
+) -> dict[str, Any]:
+    """Queue one local orchestration-arm task and return the link to its receipt.
+
+    The arm plans the goal into small verified bites and runs them unattended
+    on the seated local models; the receipt it writes reports every bite's
+    checks. Queueing is refused while the `orchestration` module is disabled.
+
+    Args:
+        task_id: New task id (letters, digits, '.', '_', '-'); a reused id is refused.
+        goal: What the task should produce, in plain words.
+        discipline: Discipline key from config/portal.yaml, e.g. test_fixing.
+        source_dir: Directory the task's relative input paths resolve against.
+    """
+    return await _impl_arm_queue_task(task_id, goal, discipline, source_dir)
+
+
+@mcp.custom_route("/tools/arm_queue_task", methods=["POST"])
+async def arm_queue_task_endpoint(request: Any) -> JSONResponse:
+    body = await request.json()
+    args = body.get("arguments", {})
+    return JSONResponse(
+        await _impl_arm_queue_task(
+            args.get("task_id", ""),
+            args.get("goal", ""),
+            args.get("discipline", ""),
+            args.get("source_dir"),
+        )
+    )
+
+
 # ── Filesystem tools (host-native; used by auto-coding-agentic via pipeline) ──
 
 _READ_ALLOWED_ROOTS = (REPO_ROOT.resolve(), pathlib.Path("/tmp").resolve())

@@ -26,6 +26,8 @@ uv run portal arm resume <task-id> --override
 
 A resume without `--override` refuses a changed build SHA or model digest. Review the task artifacts before explicitly adopting a changed identity. `receipt.json` reports `PASS` only when every bite passes; exhausted bites are `BLOCKED`. The scheduler reads its residency mode and the load-guard model identities from `config/orchestration_arm.yaml`.
 
+Open WebUI queues through the same path via the pipeline MCP tool `arm_queue_task(task_id, goal, discipline, source_dir=None)`. It answers the queued task's `receipt.json` path, refuses while the module is disabled, and is dispatched through the platform's module plugin seam rather than a module import. Add `arm_queue_task` to a workspace's `tools:` list in `config/portal.yaml` to make it callable from that workspace's chat.
+
 The offline rig uses no live stack or model. Run it with:
 
 ```bash

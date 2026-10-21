@@ -91,6 +91,36 @@
     }
   },
   {
+    "description": "Queue one local orchestration-arm task and return the link to its receipt. Refused while the orchestration module is disabled.",
+    "name": "arm_queue_task",
+    "parameters": {
+      "properties": {
+        "discipline": {
+          "description": "Discipline key from config/portal.yaml, e.g. test_fixing",
+          "type": "string"
+        },
+        "goal": {
+          "description": "What the task should produce, in plain words",
+          "type": "string"
+        },
+        "source_dir": {
+          "description": "Directory the task's relative input paths resolve against",
+          "type": "string"
+        },
+        "task_id": {
+          "description": "New task id (letters, digits, '.', '_', '-'); a reused id is refused",
+          "type": "string"
+        }
+      },
+      "required": [
+        "task_id",
+        "goal",
+        "discipline"
+      ],
+      "type": "object"
+    }
+  },
+  {
     "description": "Read a file from the host filesystem. Accepts absolute paths or repo-relative paths. Returns line-numbered content.",
     "name": "read_text_file",
     "parameters": {

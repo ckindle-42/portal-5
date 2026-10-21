@@ -42,6 +42,7 @@ EXPECTED_TOOLS = {
     "get_workspace_recommendation",
     "explore_repository",
     "trigger_backend_warmup",
+    "arm_queue_task",
     "read_text_file",
     "list_directory",
     "search_files",
