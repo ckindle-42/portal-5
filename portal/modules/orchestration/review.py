@@ -3,11 +3,12 @@
 from __future__ import annotations
 
 import json
+from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any
 
 from .contracts import Bite
-from .worker import Engine, _response_parts
+from .worker import Engine, PipelineError, QueueYieldError, _response_parts
 
 
 @dataclass(frozen=True)
@@ -40,12 +41,17 @@ def review_output(
     *,
     vote_count: int,
     minimum_approve_votes: int,
+    require_idle: bool = False,
+    gate: Callable[[], bool] | None = None,
 ) -> ReviewResult:
     """Ask Deep for independent JSON votes and require the configured quorum."""
     if vote_count < 1 or not 1 <= minimum_approve_votes <= vote_count:
         raise ValueError("Deep review vote configuration is invalid")
     votes = []
     for _ in range(vote_count):
+        if gate is not None and not gate():
+            raise QueueYieldError("the queue gate closed before a Deep review vote")
+        _admit_review_seat(engine, require_idle)
         body = {
             "model": engine.model_tag,
             "messages": [
@@ -79,7 +85,6 @@ def review_output(
             "stream_options": {"include_usage": True},
             "chat_template_kwargs": {"enable_thinking": True},
         }
-        engine.load_plan(300)
         response = engine.chat(body, 300, lambda _event: None)
         content, _ = _response_parts(response)
         votes.append(_parse_vote(content))
@@ -90,6 +95,18 @@ def review_output(
         minimum_approve_votes,
         tuple(votes),
     )
+
+
+def _admit_review_seat(engine: Engine, require_idle: bool) -> None:
+    """Ask the load guard for the review seat; a gated review waits instead of losing an attempt."""
+    try:
+        plan = engine.load_plan(300)
+    except PipelineError as exc:
+        if not require_idle:
+            raise
+        raise QueueYieldError(str(exc)) from exc
+    if require_idle and (plan.get("busy") is not False or plan.get("fits") is not True):
+        raise QueueYieldError(f"Pipeline load-plan is busy or cannot admit the review seat: {plan}")
 
 
 def _parse_vote(content: str) -> dict[str, str]:

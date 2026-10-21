@@ -91,7 +91,7 @@
     }
   },
   {
-    "description": "Queue one local orchestration-arm task and return the link to its receipt. Refused while the orchestration module is disabled.",
+    "description": "Queue one stored orchestration-arm template on the overnight queue and return the receipt path. Refused while the orchestration module is disabled.",
     "name": "arm_queue_task",
     "parameters": {
       "properties": {
@@ -99,23 +99,30 @@
           "description": "Discipline key from config/portal.yaml, e.g. test_fixing",
           "type": "string"
         },
-        "goal": {
-          "description": "What the task should produce, in plain words",
-          "type": "string"
+        "parameters": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "description": "Template parameter names mapped to string values",
+          "type": "object"
         },
         "source_dir": {
-          "description": "Directory the task's relative input paths resolve against",
+          "description": "Existing directory under the workspace root or the repository. Defaults to the uploads directory.",
           "type": "string"
         },
         "task_id": {
           "description": "New task id (letters, digits, '.', '_', '-'); a reused id is refused",
           "type": "string"
+        },
+        "template_key": {
+          "description": "Stored plan template key, e.g. repair_with_tests",
+          "type": "string"
         }
       },
       "required": [
         "task_id",
-        "goal",
-        "discipline"
+        "discipline",
+        "template_key"
       ],
       "type": "object"
     }

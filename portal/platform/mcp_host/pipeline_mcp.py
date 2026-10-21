@@ -12,6 +12,7 @@ Claude Code and opencode pick it up automatically when opening the portal-5 proj
 
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 import os
@@ -556,8 +557,36 @@ async def trigger_backend_warmup_endpoint(request: Any) -> JSONResponse:
     return JSONResponse(await _impl_trigger_backend_warmup(args.get("workspace", "codingagentic")))
 
 
+def _arm_queue_parameter_error(parameters: Any) -> str | None:
+    if parameters is None:
+        return None
+    if not isinstance(parameters, dict):
+        return "parameters must be an object of strings"
+    for key, value in parameters.items():
+        if not isinstance(key, str) or not isinstance(value, str):
+            return "parameters must be an object of strings"
+    return None
+
+
+def _arm_queue_argument_error(args: Any) -> str | None:
+    if not isinstance(args, dict):
+        return "arguments must be an object"
+    for name in ("task_id", "discipline", "template_key"):
+        value = args.get(name)
+        if not isinstance(value, str) or not value.strip():
+            return f"{name} must be a non-empty string"
+    source_dir = args.get("source_dir")
+    if source_dir is not None and not isinstance(source_dir, str):
+        return "source_dir must be a string"
+    return _arm_queue_parameter_error(args.get("parameters"))
+
+
 async def _impl_arm_queue_task(
-    task_id: str, goal: str, discipline: str, source_dir: str | None = None
+    task_id: str,
+    discipline: str,
+    template_key: str,
+    parameters: dict[str, str] | None = None,
+    source_dir: str | None = None,
 ) -> dict[str, Any]:
     # Resolved through the plugin seam: platform never names a module.
     from portal.platform.plugins import owui_tools
@@ -565,40 +594,57 @@ async def _impl_arm_queue_task(
     handler = owui_tools().get("arm_queue_task")
     if handler is None:
         return {"error": "no module provides arm_queue_task on this build"}
-    return handler(
-        task_id, goal, discipline, source_dir=pathlib.Path(source_dir) if source_dir else None
+    source = source_dir.strip() if isinstance(source_dir, str) else ""
+    return await asyncio.to_thread(
+        handler,
+        task_id,
+        discipline,
+        template_key,
+        parameters,
+        source_dir=pathlib.Path(source) if source else None,
     )
 
 
 @mcp.tool()
 async def arm_queue_task(
-    task_id: str, goal: str, discipline: str, source_dir: str | None = None
+    task_id: str,
+    discipline: str,
+    template_key: str,
+    parameters: dict[str, str] | None = None,
+    source_dir: str | None = None,
 ) -> dict[str, Any]:
-    """Queue one local orchestration-arm task and return the link to its receipt.
+    """Queue one stored orchestration-arm template and return its receipt path.
 
-    The arm plans the goal into small verified bites and runs them unattended
-    on the seated local models; the receipt it writes reports every bite's
-    checks. Queueing is refused while the `orchestration` module is disabled.
+    Renders the discipline's plan template, validates it, and enqueues the plan
+    on the overnight queue. The receipt file appears after ``portal arm queue-run``.
+    Queueing is refused while the ``orchestration`` module is disabled.
 
     Args:
         task_id: New task id (letters, digits, '.', '_', '-'); a reused id is refused.
-        goal: What the task should produce, in plain words.
         discipline: Discipline key from config/portal.yaml, e.g. test_fixing.
-        source_dir: Directory the task's relative input paths resolve against.
+        template_key: Stored plan template key, e.g. repair_with_tests.
+        parameters: Template parameter names mapped to string values.
+        source_dir: Existing directory under the workspace root or the repository.
+            Relative template paths resolve against it. Defaults to the uploads directory.
     """
-    return await _impl_arm_queue_task(task_id, goal, discipline, source_dir)
+    return await _impl_arm_queue_task(task_id, discipline, template_key, parameters, source_dir)
 
 
 @mcp.custom_route("/tools/arm_queue_task", methods=["POST"])
 async def arm_queue_task_endpoint(request: Any) -> JSONResponse:
     body = await request.json()
-    args = body.get("arguments", {})
+    args = body.get("arguments", {}) if isinstance(body, dict) else None
+    error = _arm_queue_argument_error(args)
+    if error is not None:
+        return JSONResponse({"error": error}, status_code=422)
+    assert isinstance(args, dict)
     return JSONResponse(
         await _impl_arm_queue_task(
-            args.get("task_id", ""),
-            args.get("goal", ""),
-            args.get("discipline", ""),
-            args.get("source_dir"),
+            cast(str, args["task_id"]),
+            cast(str, args["discipline"]),
+            cast(str, args["template_key"]),
+            cast("dict[str, str] | None", args.get("parameters")),
+            cast("str | None", args.get("source_dir")),
         )
     )
 

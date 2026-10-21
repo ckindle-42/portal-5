@@ -176,6 +176,30 @@ class ArmLedger:
     def ready(self, bite: Bite, *, build_sha: str, engine: dict[str, str]) -> None:
         self.transition(bite, "ready", build_sha=build_sha, engine=engine)
 
+    def yield_attempt(
+        self, bite: Bite, *, build_sha: str, engine: dict[str, str], reason: str
+    ) -> None:
+        """Return a running bite to ready without counting an attempt that never reached a model."""
+        row = self.bite(bite.bite_id)
+        if str(row["state"]) != "running":
+            raise ValueError(f"bite {bite.bite_id}: cannot yield from {row['state']}")
+        attempts = max(0, int(row["attempts"]) - 1)
+        self.db.execute(
+            "UPDATE bite SET state = 'ready', attempts = ? WHERE bite_id = ?",
+            (attempts, bite.bite_id),
+        )
+        self._insert_event(
+            str(self.task()["task_id"]),
+            bite.bite_id,
+            "ready",
+            build_sha,
+            engine["model_tag"],
+            engine["model_digest"],
+            0,
+            {"from": "running", "attempt": attempts, "queue_yield": reason},
+        )
+        self.db.commit()
+
     def set_task_status(self, status: str, *, build_sha: str, model: dict[str, str]) -> None:
         self.db.execute("UPDATE task SET status = ?", (status,))
         self._insert_event(
