@@ -115,6 +115,28 @@ def test_thinking_on_fails_when_a_request_suppresses_thinking(tmp_path, monkeypa
     assert subs[1]["status"] == "FAIL"
 
 
+def test_thinking_on_fails_on_a_request_body_in_a_subdirectory(tmp_path, monkeypatch) -> None:
+    _write_config(tmp_path, _real_config())
+    helpers = tmp_path / "portal" / "modules" / "orchestration" / "helpers"
+    helpers.mkdir(parents=True)
+    (helpers / "bad_request.py").write_text(
+        "def body(engine):\n"
+        "    return {\n"
+        '        "model": engine.tag,\n'
+        '        "messages": [],\n'
+        '        "chat_template_kwargs": {"enable_thinking": False},\n'
+        "    }\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(arm, "REPO_ROOT", tmp_path)
+
+    status, detail, subs = arm.check_arm_thinking_stays_on()
+
+    assert status == "FAIL"
+    assert "helpers/bad_request.py: enable_thinking=False" in detail
+    assert subs[1]["status"] == "FAIL"
+
+
 def test_thinking_on_fails_when_arm_config_disables_thinking(tmp_path, monkeypatch) -> None:
     config = _real_config()
     config["disciplines"]["test_fixing"]["thinking"] = "off"
@@ -194,6 +216,31 @@ def test_least_agency_fails_when_the_request_widens_the_tool_set(monkeypatch) ->
     assert status == "FAIL"
     assert "per-bite tool mounting is not enforced" in detail
     assert subs[0]["status"] == "FAIL"
+
+
+def test_least_agency_checks_every_allowlisted_tool(monkeypatch) -> None:
+    from portal.modules.orchestration import worker
+
+    real = worker._request_body
+    allowed = _real_config()["disciplines"]["test_fixing"]["tool_allowlist"]
+    assert len(allowed) > 1
+    delayed = allowed[-1]
+
+    def drops_a_later_tool(bite, engine, messages):
+        body = real(bite, engine, messages)
+        if delayed in bite.tools:
+            body["portal_bite_tools"] = [
+                tool for tool in body["portal_bite_tools"] if tool != delayed
+            ]
+        return body
+
+    monkeypatch.setattr(worker, "_request_body", drops_a_later_tool)
+
+    status, _detail, subs = arm.check_arm_least_agency()
+
+    assert status == "FAIL"
+    assert subs[0]["status"] == "FAIL"
+    assert f"{delayed}: mounted=" in subs[0]["detail"]
 
 
 def test_pull_notes_fail_when_input_contents_are_pre_packed(monkeypatch) -> None:

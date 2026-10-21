@@ -214,11 +214,12 @@ def _suppressed(key: str, value: Any) -> bool:
 def _request_body_findings(module_dir: Path) -> tuple[list[str], int]:
     findings: list[str] = []
     bodies = 0
-    for path in sorted(module_dir.glob("*.py")):
+    for path in sorted(module_dir.rglob("*.py")):
+        relative = path.relative_to(module_dir)
         try:
             tree = ast.parse(path.read_text(encoding="utf-8"))
         except SyntaxError as exc:
-            findings.append(f"{path.name}: cannot parse ({exc.msg})")
+            findings.append(f"{relative}: cannot parse ({exc.msg})")
             continue
         for node in ast.walk(tree):
             if not isinstance(node, ast.Dict):
@@ -230,12 +231,12 @@ def _request_body_findings(module_dir: Path) -> tuple[list[str], int]:
             }
             for key, value in fields.items():
                 if key in _SUPPRESSION_KEYS and _suppressed(key, _literal(value)):
-                    findings.append(f"{path.name}: {key}={ast.unparse(value)}")
+                    findings.append(f"{relative}: {key}={ast.unparse(value)}")
             if {"model", "messages"} <= set(fields):
                 bodies += 1
                 thinking = _literal(fields.get("chat_template_kwargs"))
                 if not isinstance(thinking, dict) or thinking.get("enable_thinking") is not True:
-                    findings.append(f"{path.name}: model request omits enable_thinking=True")
+                    findings.append(f"{relative}: model request omits enable_thinking=True")
     return findings, bodies
 
 
@@ -512,16 +513,19 @@ def check_arm_least_agency() -> tuple[str, str, list[dict]]:
         return ("FAIL", "no configured discipline declares a tool allowlist", [])
     name, raw = selected
     allowed = _strings(raw["tool_allowlist"])
-    bite = parse_plan(_seeded_plan(name, [allowed[0]])).bites[0]
-    body = _request_body(
-        bite,
-        Engine(model_tag="probe", model_digest="probe", base_url="http://127.0.0.1:1"),
-        [],
-    )
-    mounted = body.get("portal_bite_tools")
-    expected = [*bite.tools, "finish"]
-    mounted_ok = isinstance(mounted, list) and mounted == expected
-    hops_ok = body.get("portal_bite_max_hops") == bite.budget.turns
+    engine = Engine(model_tag="probe", model_digest="probe", base_url="http://127.0.0.1:1")
+    mount_failures: list[str] = []
+    hop_failures: list[str] = []
+    for tool in allowed:
+        bite = parse_plan(_seeded_plan(name, [tool])).bites[0]
+        body = _request_body(bite, engine, [])
+        mounted = body.get("portal_bite_tools")
+        if not (isinstance(mounted, list) and mounted == [*bite.tools, "finish"]):
+            mount_failures.append(f"{tool}: mounted={mounted!r}")
+        if body.get("portal_bite_max_hops") != bite.budget.turns:
+            hop_failures.append(f"{tool}: max_hops={body.get('portal_bite_max_hops')!r}")
+    mounted_ok = not mount_failures
+    hops_ok = not hop_failures
 
     rejected = False
     try:
@@ -533,12 +537,12 @@ def check_arm_least_agency() -> tuple[str, str, list[dict]]:
         {
             "name": "worker mounts exactly the bite's tools plus finish",
             "status": "PASS" if mounted_ok else "FAIL",
-            "detail": f"mounted={mounted!r}",
+            "detail": "; ".join(mount_failures) or f"{len(allowed)} tool(s) mounted",
         },
         {
             "name": "worker applies the bite's turn budget",
             "status": "PASS" if hops_ok else "FAIL",
-            "detail": f"max_hops={body.get('portal_bite_max_hops')!r}",
+            "detail": "; ".join(hop_failures) or f"{len(allowed)} tool(s) budgeted",
         },
         {
             "name": "planner rejects a tool outside the discipline allowlist",
