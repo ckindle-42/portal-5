@@ -34,6 +34,18 @@ def _config() -> SimpleNamespace:
                 variants={"clip": {"module": "video"}},
             ),
             "hidden-engine": SimpleNamespace(module="general", expose_to_owui=False, variants={}),
+            "ide-engine": SimpleNamespace(
+                module="general",
+                expose_to_owui=True,
+                stack_down_only=True,
+                variants={"reap": {"stack_down_only": True}},
+            ),
+            "hybrid-engine": SimpleNamespace(
+                module="general",
+                expose_to_owui=True,
+                stack_down_only=True,
+                variants={"light": {"stack_down_only": False}},
+            ),
         }
     )
 
@@ -41,10 +53,17 @@ def _config() -> SimpleNamespace:
 def test_select_shots_skips_security_modules():
     config = _config()
     mods = ["general", "security", "media"]
-    run, skip = uat.select_shots(config, mods)
+    run, skip, down = uat.select_shots(config, mods)
 
-    assert run == ["general-engine", "general-engine::fast", "hidden-engine", "media-engine"]
+    assert run == [
+        "general-engine",
+        "general-engine::fast",
+        "hidden-engine",
+        "hybrid-engine::light",
+        "media-engine",
+    ]
     assert skip == ["general-engine::red", "sec-engine"]
+    assert down == ["hybrid-engine", "ide-engine", "ide-engine::reap"]
     assert "sec-engine::deep" not in run
     assert "sec-engine::deep" not in skip
     assert "media-engine::clip" not in run
@@ -55,13 +74,52 @@ def test_select_shots_skips_security_modules():
     assert owned == ["sec-engine::deep"]
     assert "general-engine::red" not in disabled
     listed = sorted(set(skip).union(owned))
-    plan = uat.render_plan(run, listed, [], None, None, None, disabled, [], design=True)
+    plan = uat.render_plan(run, listed, down, [], None, None, None, disabled, [], design=True)
     head, _, tail = plan.partition("disabled variants")
     assert "sec-engine::deep" in head
     assert "general-engine::red" in head
     assert "skipped: owned elsewhere" in head
+    assert "stack-down only, not tested (3):" in head
+    assert "ide-engine::reap" in head
     assert "sec-engine::deep" not in tail
     assert "media-engine::clip" in tail
+
+
+def test_stack_down_only_resolution_prefers_the_variant_override():
+    config = _config()
+    assert uat.is_stack_down_only(config, "ide-engine")
+    assert uat.is_stack_down_only(config, "ide-engine::reap")
+    assert uat.is_stack_down_only(config, "hybrid-engine")
+    assert not uat.is_stack_down_only(config, "hybrid-engine::light")
+    assert not uat.is_stack_down_only(config, "general-engine")
+    assert not uat.is_stack_down_only(config, "general-engine::fast")
+    assert not uat.is_stack_down_only(config, "missing-engine")
+
+
+def test_stack_down_ids_get_no_request_and_own_sections():
+    config = _config()
+    mods = ["general", "security", "media"]
+    run, skip, down = uat.select_shots(config, mods)
+    plan = uat.render_plan(run, skip, down, [], None, None, None, [], [], design=False)
+    assert "stack-down only, not tested (3):" in plan
+    assert "hybrid-engine" in plan
+
+    only_run, only_skip, only_down, error = uat.resolve_only("ide-engine", run, skip, down)
+    assert (only_run, only_skip, only_down, error) == ([], [], ["ide-engine"], None)
+
+    report = {
+        "shots": [],
+        "checks": [],
+        "skipped": skip,
+        "stack_down_only": down,
+        "totals": uat.compute_totals([], skip, []),
+    }
+    text = uat.render_summary(report)
+    assert "## stack-down only, not tested" in text
+    assert "- ide-engine" in text
+    assert "- hybrid-engine" in text
+    assert text.index("## skipped: owned elsewhere") < text.index("## stack-down only, not tested")
+    assert report["totals"]["shots_failed"] == 0
 
 
 def test_disabled_variant_check_reads_httpx_404():

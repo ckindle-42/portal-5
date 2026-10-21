@@ -903,6 +903,8 @@ workspaces:
         guardrail: uncensored
       uncensored-agentic:
         name: 🔓 Portal Agentic Coder (Uncensored)
+        # stack_down_only: seat peaks at 56.5 GiB — the up stack leaves only ~38-40 GiB (load guard 2026-10-21); run via the stack-down path.
+        stack_down_only: true
         description: Multi-turn agentic coding with an abliterated SWE-capable model — the uncensored counterpart to the laguna variant (auto-coding?variant=laguna). Qwen3-Coder-Next abliterated (80B/3B MoE, ~46GB, bartowski GGUF, tools per Qwen coding-family arch). Same read→explore→edit→verify loop and explore_repository subagent. [BENCH-GATED PROVISIONAL model_hint — ~46GB resident on 64GB unified memory; not a default; promotion requires a passing bench run + separate operator task. Tool support asserted by architecture, not yet audit-confirmed.]
         # 2026-09-25: sampling set to the qwen3-coder-next card (by purpose); prior values + A/B: docs/TASK_SEAT_SAMPLING_AB_V1.md
         model_hint: portal5/qwen3-coder-next-abliterated:q4_K_M-ctx256k
@@ -983,6 +985,8 @@ workspaces:
         guardrail: uncensored
       heavy:
         name: ⚡ Portal Agentic Coder (Heavy)
+        # stack_down_only: seat peaks at 60.2 GiB — the up stack leaves only ~38-40 GiB (load guard 2026-10-21); run via the stack-down path.
+        stack_down_only: true
         description: 'Agentic coding workspace for long-horizon multi-file tasks, SWE-agent-style workflows, and complex refactors. Qwen3-Coder-Next 80B/3B MoE (V8: agentic RL training on 800K executable tasks, 256K ctx, ~46GB, 20 t/s pipeline). Fallback 1: Qwen-AgentWorld-35B-A3B (~21GB, 45 t/s, MoE 3B active, 262K ctx) — language world model trained on MCP/Terminal/SWE/Web/OS env-simulation; strong tool-call coherence, available in general+coding pools. Fallback 2: gpt-oss:20b (~12GB, o3-mini level, MoE, purpose-built for agent/tool use, 2/2 security chain at 45s) — available in the coding pool when the primary is not loaded.'
         # 2026-09-25: sampling set to the qwen3-coder-next card (by purpose); prior values + A/B: docs/TASK_SEAT_SAMPLING_AB_V1.md
         model_hint: portal5/qwen3-coder-next:latest-ctx256k
@@ -1074,6 +1078,8 @@ workspaces:
         guardrail: default
       reap288:
         name: 🧪 Portal Agentic Coder (REAP-288, heavy — IDE only)
+        # stack_down_only: seat needs 40.57 GB vs the 40.41 GB oMLX ceiling with the stack up (load guard 2026-10-21); run via ./launch.sh coder-reap288.
+        stack_down_only: true
         description: 'IDE-lane agentic coder direct to Qwen3.8-Flash-Next-REAP-288-MLX-4bit (oMLX, MLX 4-bit, REAP expert-pruned 512->288 of the 180B-class Qwen3.8-Flash-Next MoE, top-10 routing, 262K native ctx). Thinking model. Explicit pick only — NEVER an auto-* default / never OWUI (TASK_OMLX_QWEN38FN_REAP288_BRINGUP_V1 operator verdict). ~39GB resident with qwen4_ple_ssd_offload:true; a ~40.6GB oMLX admission gate cannot be met with the full Portal stack up (~10GB reclaimable then). RELIABLE PATH: `./launch.sh coder-reap288` — stops the stack, frees RAM, warm-loads the model, opens opencode straight against oMLX :8085 (not this pipeline path). Warm decode ~24-29 tok/s. Prefill ceiling: ~39GB resident leaves ~17GB under the 56GB Metal cap, so full agentic turns (~18-20K token repo context) trip oMLX''s prefill guard — bounded-context coding only; heavy repo-wide work stays on the laguna default. oMLX-only, no Ollama/GGUF fallback.'
         # 2026-09-25: qwen3.8 instruct card + think pinned off — its bench seat ran think:false (code repair, not a reasoning task); the flag was lost when it became a variant (091682f1); A/B: docs/TASK_SEAT_SAMPLING_AB_V1.md B2
         model_hint: Qwen3.8-Flash-Next-REAP-288-MLX-4bit
@@ -1290,6 +1296,8 @@ workspaces:
   auto-spl:
     module: general
     name: 🔍 Portal SPL Engineer
+    # stack_down_only: seat peaks at 56.5 GiB — the up stack leaves only ~38-40 GiB (load guard 2026-10-21); run via the stack-down path.
+    stack_down_only: true
     description: |-
       Splunk SPL queries, YARA rules, detection search authoring, security scripting. Qwen3-Coder-Next abliterated (V8: 80B/3B MoE, 19 t/s, no refusals on offensive/security code, same quality as non-abliterated, ~46GB).
     # 2026-09-25: sampling set to the qwen3-coder-next card (by purpose); prior values + A/B: docs/TASK_SEAT_SAMPLING_AB_V1.md

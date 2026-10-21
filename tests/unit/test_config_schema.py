@@ -11,7 +11,13 @@ from pathlib import Path
 import pytest
 import yaml
 
-from portal.platform.inference.config import Model, PortalConfig, load_portal_config
+from portal.platform.inference.config import (
+    Model,
+    PortalConfig,
+    get_workspace_dict,
+    load_portal_config,
+    merge_workspace_variant,
+)
 
 REPO = Path(__file__).resolve().parent.parent.parent
 
@@ -62,6 +68,42 @@ def test_valid_minimal_config(tmp_path: Path) -> None:
     cfg = PortalConfig.model_validate(raw)
     assert "auto" in cfg.workspaces
     assert cfg.mcp_fleet[0].id == "documents"
+
+
+def test_stack_down_only_workspace_level_and_variant_override(tmp_path: Path) -> None:
+    """stack_down_only is accepted at workspace level and inside a variant dict;
+    the runtime dict stays byte-equal for workspaces that do not set it."""
+    raw = _load_minimal(
+        tmp_path,
+        {
+            "workspaces": {
+                "auto": {
+                    "name": "Auto",
+                    "description": "Auto router",
+                    "module": "general",
+                },
+                "ide": {
+                    "name": "IDE",
+                    "description": "IDE lane",
+                    "module": "general",
+                    "stack_down_only": True,
+                    "variants": {"heavy": {"stack_down_only": True}},
+                },
+            }
+        },
+    )
+    cfg = PortalConfig.model_validate(raw)
+    assert cfg.workspaces["ide"].stack_down_only is True
+    assert cfg.workspaces["ide"].variants["heavy"]["stack_down_only"] is True
+    assert cfg.workspaces["auto"].stack_down_only is None
+
+    dumped = get_workspace_dict(cfg)
+    assert "stack_down_only" not in dumped["auto"]
+    assert dumped["ide"]["stack_down_only"] is True
+    assert "variants" not in dumped["ide"]
+    # The variant override flows through the same merge the serving path uses.
+    merged = merge_workspace_variant(dumped["ide"], cfg.workspaces["ide"].variants["heavy"])
+    assert merged["stack_down_only"] is True
 
 
 def test_duplicate_port_raises(tmp_path: Path) -> None:

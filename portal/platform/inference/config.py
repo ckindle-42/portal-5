@@ -175,6 +175,14 @@ class WorkspaceSpec(BaseModel):
     # One line appended as a system note on that hand-off, naming what to select.
     router_handoff_note: str | None = None
 
+    # True -> the seat needs more memory than the idle host leaves while the
+    # Portal stack is up, so the operator runs it with the stack stopped. No
+    # serving-path code reads this: only scripts/uat_engines.py, which skips
+    # the id instead of reporting a 502. Valid at workspace level and as a
+    # variant override. None means unset, so the runtime dict stays byte-equal
+    # for every workspace that does not set it (same mechanism as `router`).
+    stack_down_only: bool | None = None
+
     # --- Tool whitelist ---
     tools: list[str] = Field(default_factory=list)
 

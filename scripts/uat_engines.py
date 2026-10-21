@@ -40,16 +40,34 @@ def id_module(config: Any, workspace_id: str) -> str:
     return variant_module(spec.module, variant)
 
 
-def select_shots(config: Any, mods: list[str] | None = None) -> tuple[list[str], list[str]]:
-    """Served ids to call, and served ids skipped because another session owns them."""
+def is_stack_down_only(config: Any, workspace_id: str) -> bool:
+    """True when the id's variant override, else its engine, declares stack_down_only."""
+    base, _sep, name = workspace_id.partition("::")
+    spec = config.workspaces.get(base)
+    if spec is None:
+        return False
+    if name:
+        override = spec.variants.get(name) or {}
+        if isinstance(override, dict) and override.get("stack_down_only") is not None:
+            return bool(override["stack_down_only"])
+    return bool(getattr(spec, "stack_down_only", None))
+
+
+def select_shots(
+    config: Any, mods: list[str] | None = None
+) -> tuple[list[str], list[str], list[str]]:
+    """Served ids to call, owned-elsewhere skips, and stack-down-only skips."""
     run: list[str] = []
     skip: list[str] = []
+    down: list[str] = []
     for wid in sorted(served_ids(config, mods)):
         if id_module(config, wid) in SKIP_MODULES:
             skip.append(wid)
+        elif is_stack_down_only(config, wid):
+            down.append(wid)
         else:
             run.append(wid)
-    return run, skip
+    return run, skip, down
 
 
 def _variant_ids(config: Any) -> list[str]:
@@ -388,12 +406,18 @@ def render_summary(report: dict[str, Any]) -> str:
     lines.extend(f"- {wid}" for wid in skipped)
     if not skipped:
         lines.append("- (none)")
+    lines.extend(["", "## stack-down only, not tested"])
+    down = report.get("stack_down_only") or []
+    lines.extend(f"- {wid}" for wid in down)
+    if not down:
+        lines.append("- (none)")
     return "\n".join(lines) + "\n"
 
 
 def render_plan(
     run: list[str],
     skip: list[str],
+    down: list[str],
     aliases: list[tuple[str, str, bool]],
     role: Any,
     engine: str | None,
@@ -406,6 +430,8 @@ def render_plan(
     lines = [f"shots ({len(run)}):", *[f"  {wid}" for wid in run]]
     lines.append(f"skipped: owned elsewhere ({len(skip)}):")
     lines.extend(f"  {wid}" for wid in skip)
+    lines.append(f"stack-down only, not tested ({len(down)}):")
+    lines.extend(f"  {wid}" for wid in down)
     if not design:
         lines.append("checks: not run (--only)")
         return "\n".join(lines)
@@ -632,6 +658,7 @@ def execute(
     config: Any,
     run: list[str],
     skip: list[str],
+    down: list[str],
     role: Any,
     engine: str | None,
     stream_engine: str | None,
@@ -660,6 +687,7 @@ def execute(
         "design_checks_run": design,
         "shots": shots,
         "skipped": skip,
+        "stack_down_only": down,
         "checks": checks,
     }
     report["totals"] = compute_totals(shots, skip, checks)
@@ -691,13 +719,15 @@ def parse_args(argv: list[str] | None) -> argparse.Namespace:
 
 
 def resolve_only(
-    only: str, run: list[str], skip: list[str]
-) -> tuple[list[str], list[str], str | None]:
+    only: str, run: list[str], skip: list[str], down: list[str]
+) -> tuple[list[str], list[str], list[str], str | None]:
     if only in skip:
-        return [], [only], None
+        return [], [only], [], None
+    if only in down:
+        return [], [], [only], None
     if only in run:
-        return [only], [], None
-    return [], [], f"{only} is not a served id"
+        return [only], [], [], None
+    return [], [], [], f"{only} is not a served id"
 
 
 def alias_rows(config: Any) -> list[tuple[str, str, bool]]:
@@ -711,10 +741,10 @@ def alias_rows(config: Any) -> list[tuple[str, str, bool]]:
 def main(argv: list[str] | None = None) -> int:
     args = parse_args(argv)
     config = load_portal_config()
-    run, skip = select_shots(config)
+    run, skip, down = select_shots(config)
     design = not args.only
     if args.only:
-        run, skip, error = resolve_only(args.only, run, skip)
+        run, skip, down, error = resolve_only(args.only, run, skip, down)
         if error:
             print(error, file=sys.stderr)
             return 1
@@ -731,6 +761,7 @@ def main(argv: list[str] | None = None) -> int:
             render_plan(
                 run,
                 skip,
+                down,
                 alias_rows(config) if design else [],
                 role,
                 engine,
@@ -754,6 +785,7 @@ def main(argv: list[str] | None = None) -> int:
             config,
             run,
             skip,
+            down,
             role,
             engine,
             stream_engine,
