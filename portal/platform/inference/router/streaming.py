@@ -263,6 +263,9 @@ def _completion_finish_chunk(reason: str) -> bytes:
     return f"data: {json.dumps({'choices': [{'delta': {}, 'finish_reason': reason}]})}\n\n".encode()
 
 
+#: Opens the content notice that carries a Pipeline-originated error to the client.
+_PIPELINE_ERROR_NOTICE = "\n\n[Pipeline stream error — the reply ended early: "
+
 #: Opens the content notice that carries an in-band backend error (ollama#18563) to the client.
 _IN_BAND_ERROR_NOTICE = "\n\n[Backend stream error — the reply ended early: "
 
@@ -291,6 +294,19 @@ def _in_band_backend_error(line: str) -> str | None:
     return _error_text(obj["error"])
 
 
+def _error_terminal_frames(
+    request_id: str, workspace_id: str, message: str, *, notice: str = _PIPELINE_ERROR_NOTICE
+) -> list[bytes]:
+    """The terminal framing every Pipeline error ends with: the error as content, one
+    finish chunk, one ``[DONE]`` — never a bare ``data: {"error": ...}`` frame, which
+    OpenAI-compatible clients reject as an invalid stream event and then abort on."""
+    return [
+        _content_chunk(request_id, workspace_id, f"{notice}{message}]"),
+        _completion_finish_chunk("stop"),
+        b"data: [DONE]\n\n",
+    ]
+
+
 def _in_band_error_frames(
     request_id: str, workspace_id: str, model: str, message: str
 ) -> list[bytes]:
@@ -304,11 +320,7 @@ def _in_band_error_frames(
         message,
     )
     _record_error(workspace_id, "backend_in_band_error")
-    return [
-        _content_chunk(request_id, workspace_id, f"{_IN_BAND_ERROR_NOTICE}{message}]"),
-        _completion_finish_chunk("stop"),
-        b"data: [DONE]\n\n",
-    ]
+    return _error_terminal_frames(request_id, workspace_id, message, notice=_IN_BAND_ERROR_NOTICE)
 
 
 def _json_completion_to_sse(
@@ -1002,9 +1014,11 @@ async def _tool_loop_frames(
                         backend_url,
                         workspace_id,
                     )
-                    yield (
-                        f"data: {json.dumps({'error': 'Response timed out — model may still be generating. Please retry.'})}\n\n"
-                    ).encode()
+                    _frames = _error_terminal_frames(
+                        request_id,
+                        workspace_id,
+                        "Response timed out — model may still be generating. Please retry.",
+                    )
                 else:
                     logger.warning(
                         "Backend %s: no model in /api/ps after timeout — backend may be down (workspace=%s)",
@@ -1012,14 +1026,21 @@ async def _tool_loop_frames(
                         workspace_id,
                     )
                     _record_error(workspace_id, "stream_timeout")
-                    yield (
-                        f"data: {json.dumps({'error': 'Backend timed out and no model is loaded. Please retry.'})}\n\n"
-                    ).encode()
+                    _frames = _error_terminal_frames(
+                        request_id,
+                        workspace_id,
+                        "Backend timed out and no model is loaded. Please retry.",
+                    )
+                for _f in _frames:
+                    yield _f
                 return
             except Exception as e:
                 logger.error("Tool-loop stream error from %s: %s", backend_url, e)
                 _record_error(workspace_id, "stream_error")
-                yield (f"data: {json.dumps({'error': 'Backend connection error'})}\n\n").encode()
+                for _f in _error_terminal_frames(
+                    request_id, workspace_id, "Backend connection error"
+                ):
+                    yield _f
                 return
 
         if _holdback is not None and _holdback.holding:
@@ -1206,11 +1227,12 @@ async def _tool_loop_frames(
                     workspace_id,
                 )
                 _record_error(workspace_id, "tool_parse_failure")
-                yield (
-                    f"data: {json.dumps({'error': 'Tool call could not be parsed from the model response — please retry.'})}\n\n"
-                ).encode()
-                yield _completion_finish_chunk("stop")
-                yield b"data: [DONE]\n\n"
+                for _f in _error_terminal_frames(
+                    request_id,
+                    workspace_id,
+                    "Tool call could not be parsed from the model response — please retry.",
+                ):
+                    yield _f
                 return
 
             _tool_loop_hops.labels(workspace=workspace_id).observe(hop)
@@ -1444,10 +1466,11 @@ async def _stream_from_backend_guarded(
 
     * **OpenAI SSE** (Ollama ``/v1/``, vLLM, etc.):
       ``data: {...}`` lines, mostly pass-through.
-    * **Failure** (connect error, HTTP non-200): emit explicit
-      ``data: {"error": "..."}\\n\\n`` envelope and return. This
-      is what ``_stream_or_fallback`` matches on with its
-      ``b'"error"' in chunk`` check.
+    * **Failure** (connect error, HTTP non-200): an HTTP status becomes the
+      explicit ``data: {"error": "...", "status": N}`` envelope
+      ``_stream_with_fallback`` matches on to decide whether to cascade; a
+      timeout or connection error ends the stream with ``_error_terminal_frames``
+      (content, one finish chunk, one ``[DONE]``) — never a bare error frame.
 
     **Line-based fast-path checks** replace the old byte-chunk
     scanning. Each line from ``aiter_lines()`` (which yields ``str``
@@ -1470,7 +1493,10 @@ async def _stream_from_backend_guarded(
 
     if _http_client is None:
         logger.error("HTTP client not initialised — yielding error chunk")
-        yield ("data: " + json.dumps({"error": "Pipeline not ready"}) + "\n\n").encode()
+        for _f in _error_terminal_frames(
+            f"chatcmpl-{workspace_id}", workspace_id, "Pipeline not ready"
+        ):
+            yield _f
         return
     _answer_emitted = False
     _tool_calls_emitted = False
@@ -1666,13 +1692,11 @@ async def _stream_from_backend_guarded(
                 url,
                 workspace_id,
             )
-            yield (
-                "data: "
-                + json.dumps(
-                    {"error": "Response timed out — model may still be generating. Please retry."}
-                )
-                + "\n\n"
-            ).encode()
+            _frames = _error_terminal_frames(
+                f"chatcmpl-{workspace_id}",
+                workspace_id,
+                "Response timed out — model may still be generating. Please retry.",
+            )
         else:
             logger.warning(
                 "Backend %s: no model in /api/ps after timeout — backend may be down (workspace=%s)",
@@ -1680,19 +1704,22 @@ async def _stream_from_backend_guarded(
                 workspace_id,
             )
             _record_error(workspace_id, "stream_timeout")
-            yield (
-                "data: "
-                + json.dumps({"error": "Backend timed out and no model is loaded. Please retry."})
-                + "\n\n"
-            ).encode()
+            _frames = _error_terminal_frames(
+                f"chatcmpl-{workspace_id}",
+                workspace_id,
+                "Backend timed out and no model is loaded. Please retry.",
+            )
+        for _f in _frames:
+            yield _f
     except Exception as e:
         logger.error("Stream error from %s: %s", url, e)
         _record_error(workspace_id, "stream_error")
-        yield (
-            "data: "
-            + json.dumps({"error": "Backend connection error — check server logs"})
-            + "\n\n"
-        ).encode()
+        for _f in _error_terminal_frames(
+            f"chatcmpl-{workspace_id}",
+            workspace_id,
+            "Backend connection error — check server logs",
+        ):
+            yield _f
     finally:
         if start_time is not None:
             _record_response_time(model, workspace_id, time.monotonic() - start_time)
@@ -2438,9 +2465,9 @@ async def _stream_with_fallback(
         # second, different answer to it. A malformed request (4xx, minus an
         # oMLX capacity rejection wearing a 400) fails the same on every
         # candidate. Either way, report the error and stop.
-        yield _error_buffer or b'data: {"error": "Backend stream failed"}\n\n'
-        yield _completion_finish_chunk("stop")
-        yield _DONE
+        _message = _stream_error_detail(_error_buffer) if _error_buffer else "Backend stream failed"
+        for _f in _error_terminal_frames(f"chatcmpl-{workspace_id}", workspace_id, _message):
+            yield _f
         _record_error(workspace_id, "stream_failed_after_output" if _output_sent else "bad_request")
         trace_note(outcome="error")
         finalize_trace()
@@ -2486,11 +2513,9 @@ async def _stream_with_fallback(
                     finalize_trace()
                     return
 
-        if _error_buffer:
-            yield _error_buffer
-        else:
-            yield b'data: {"error": "All backends failed"}\n\n'
-        yield _DONE
+        _message = _stream_error_detail(_error_buffer) if _error_buffer else "All backends failed"
+        for _f in _error_terminal_frames(f"chatcmpl-{workspace_id}", workspace_id, _message):
+            yield _f
         _record_error(workspace_id, "all_backends_failed")
         trace_note(outcome="error")
         trace_span("backend.failed", backend=backend.id)

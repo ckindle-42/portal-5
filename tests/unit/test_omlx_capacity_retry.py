@@ -170,7 +170,12 @@ def test_a_second_connect_timeout_and_any_read_timeout_surface_as_errors(monkeyp
     out, posts = _drive_tool_loop(
         monkeypatch, [httpx.ConnectTimeout("a"), httpx.ConnectTimeout("b")]
     )
-    assert len(posts) == 2 and b'"error"' in out
+    assert len(posts) == 2
+    assert "Backend timed out and no model is loaded" in out.decode()
+    assert b'"error"' not in out and out.endswith(b"data: [DONE]\n\n")
 
     out, posts = _drive_tool_loop(monkeypatch, [httpx.ReadTimeout("slow")])
-    assert len(posts) == 1 and b'"error"' in out  # a read timeout may have started generating
+    # A read timeout may have started generating: report it, never retry.
+    assert len(posts) == 1
+    assert "Backend timed out and no model is loaded" in out.decode()
+    assert b'"error"' not in out and out.endswith(b"data: [DONE]\n\n")
