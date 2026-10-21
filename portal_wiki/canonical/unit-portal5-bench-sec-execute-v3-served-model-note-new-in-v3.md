@@ -27,10 +27,11 @@ identity claims. Because the bench forwards workspace strings as the pipeline
 only meaningful when that persona is served its pinned model. `scripts/execute_preflight.py`
 prints every persona with a `model_pin` (slug → pin) under its "model_pin
 personas" header; cross-check any persona appearing in your run against that
-live list before trusting its capability score. The currently pinned set is
-coding/vision/reasoning personas (for example `glm_coder`, `gemma_vision`,
-`magistralstrategist`); no security-specific persona currently carries a pin, so
-the original doc's "two security-adjacent personas" phrasing is stale.
+live list before trusting its capability score. No persona carried a `model_pin`
+when this was re-grounded (2026-10-21): the model-pinned specialists became
+`auto-coding`/`auto-reasoning`/`auto-vision` role variants (for example `glm-coder`,
+`gemma_vision`, `magistralstrategist`), so their served model now comes from the
+variant's `model_hint` and the preflight list is empty until a pin is set again.
 
 ## Why
 

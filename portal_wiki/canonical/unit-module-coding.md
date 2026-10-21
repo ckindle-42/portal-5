@@ -58,14 +58,18 @@ see these tools yet (an exposure gap, would need a REST shim).
   - `laguna` (was auto-coding-agentic) — Laguna-XS.2, agentic
   - `northmini` (was auto-coding-northmini) — North-Mini-Code, single-shot
   - `uncensored` (was auto-coding-uncensored) — OmniCoder-2, single-shot
-  - `uncensored-agentic` (was auto-coding-uncensored-agentic) — Qwen3-Coder-Next abliterated, agentic
-  - `heavy` (was auto-agentic) — Qwen3-Coder-Next, agentic
+  - `uncensored-agentic` (was auto-coding-uncensored-agentic) — Qwen3-Coder-Next abliterated,
+    agentic; `stack_down_only` (peaks above the headroom an idle host leaves with the stack up)
+  - `heavy` (was auto-agentic) — Qwen3-Coder-Next, agentic; `stack_down_only` (peaks above
+    the headroom an idle host leaves with the stack up)
   - `lite` (was auto-agentic-lite) — Qwen-AgentWorld-35B-A3B, agentic
   - `ornith` (was auto-agentic-ornith) — Ornith-1.0-35B, agentic
 
 (auto-devstral, auto-glm, auto-glm-thinking, auto-mistral deleted outright
 in Phase 7 — model-tied workspaces, no distinguishing behavior beyond
-model_hint; their personas moved to `workspace_model: auto-coding`.)
+model_hint; their personas moved to `workspace_model: auto-coding`. Since
+2026-10-21 a previously model-pinned persona is a variant of that workspace plus a
+`role` delivery, selected by `/slug` or `variant:` instead of a `model_pin` field.)
 
 Also uses the general module's filesystem/git base tools for repo work.
 

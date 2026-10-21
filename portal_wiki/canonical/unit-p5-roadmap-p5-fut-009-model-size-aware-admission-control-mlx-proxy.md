@@ -69,11 +69,14 @@ engine transport, which every chat request to Ollama or oMLX passes through.
   turn and then generate concurrently, and the two engines can no longer measure the
   same free memory at once.
 - **Queue, then refuse.** An Ollama cold load that does not fit frees idle oMLX
-  models (least recently used first, through oMLX's admin API) and waits for
-  in-flight work to drain, without holding the lock. It is refused with HTTP 507 only
-  when the caller's `X-Portal-Load-Wait` runs out (default `LOAD_GUARD_WAIT_S`;
-  compliance sends `COMPLIANCE_LOAD_WAIT_S`). The router cascades the 507 as a
-  capacity rejection.
+  models (least recently used first, through oMLX's admin API); when that frees
+  nothing it unloads the idle Ollama residents with `keep_alive: 0` and re-measures
+  through oMLX's ceiling, because `/api/ps` under-reports what a llamacpp runner
+  holds (P5-LOADGUARD-PS-001). It waits for in-flight work to drain, without holding
+  the lock. It is refused with HTTP 507 when the caller's `X-Portal-Load-Wait` runs
+  out (default `LOAD_GUARD_WAIT_S`; compliance sends `COMPLIANCE_LOAD_WAIT_S`), and at
+  once when nothing is in flight and nothing idle is left to free. The router
+  cascades the 507 as a capacity rejection.
 - **Plans.** `POST /admin/load-plan` says whether a model set fits together now, so
   batch work can run in fit-sized waves.
 

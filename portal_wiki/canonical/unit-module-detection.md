@@ -43,7 +43,8 @@ single `Get-WinEvent` read. Neither ever writes.
 
 ## Workspaces
 
-- `auto-spl` — Sigma/YARA authoring and conversion, plus live SIEM search
+- `auto-spl` — Sigma/YARA authoring and conversion, plus live SIEM search; `stack_down_only`
+  (peaks above the headroom an idle host leaves with the stack up)
 - `auto-security` (blueteam) — detection engineering
 
 ## Module State

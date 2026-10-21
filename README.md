@@ -31,12 +31,13 @@ portal-5/
 │   │   ├── mcp_host/                    # ✅ Fleet supervision
 │   │   └── wiki/                        # ✅ Canonical docs engine
 │   │
-│   └── modules/                         # Implementations (16 domains)
+│   └── modules/                         # Implementations
 │       ├── general/  coding/  security/  compliance/
 │       ├── documents/  research/  media/  image/
 │       ├── data/  cad/  icsot/  vulnintel/
 │       ├── detection/  netforensics/
 │       ├── eval/                        # ⚠️ OFF by default (bench apparatus)
+│       ├── orchestration/               # ⚠️ OFF by default (local task arm)
 │       └── video/                       # ⚠️ OFF by default (20-24GB, thermal)
 │
 ├── 📁 portal_mcp/                        # 33 MCP tool servers (8910-8941)
@@ -63,9 +64,9 @@ portal-5/
 
 ## 🎯 System Capabilities
 
-### Capability Domains (16 modules)
+### Capability Domains
 
-#### Enabled by Default (14)
+#### Enabled by Default
 1. **general** — Everyday chat, math, routing fallback
 2. **coding** — Code generation, repo work, sandboxed execution
 3. **security** — Red/blue/purple lanes, MITRE, detections, Proxmox lab
@@ -81,11 +82,12 @@ portal-5/
 13. **detection** — Detection-as-code
 14. **netforensics** — Network forensics
 
-#### Off by Default (2)
+#### Off by Default
 - ⚠️ **video** — LTX-2 MLX video generation (20-24GB working set, thermally punishing)
 - ⚠️ **eval** — Benchmark and test apparatus (apparatus is not production capability)
+- ⚠️ **orchestration** — Local task arm: bite ledger, deterministic checker and failure ladder (Phase 1, no planner or Open WebUI entry point)
 
-Flip either: `portal module enable video`
+Flip any of them: `portal module enable video`
 
 ### Routing Destinations (46 workspaces)
 
@@ -130,7 +132,7 @@ Voice and constraints layered over a workspace. The workspace picks the model; t
 - ✅ **Slack** — Socket Mode, stays behind your firewall
 
 ### Total Capabilities
-- **16 capability domains** (14 enabled)
+- **capability domains** — the enabled set above plus the off-by-default modules
 - **46 workspaces** (25 functional, 21 benchmark)
 - **33 MCP tool servers** (ports 8910-8941)
 - **122 personas**
