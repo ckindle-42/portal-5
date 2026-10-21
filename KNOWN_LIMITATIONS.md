@@ -143,6 +143,21 @@ holding a correct build hostage to a multi-hour eval.
 
 ---
 
+<!-- WIKI:GENERATED unit=unit-known-limitations-transitive-dependency-cves -->
+#### Transitive DiskCache and Accelerate advisories — no untrusted input path (2026-10-21)
+
+- **ID**: P5-DEP-CVE-001
+- **Status**: NOT EXPOSED (2026-10-21).
+- **DiskCache (PYSEC-2026-2447 / CVE-2025-69872)**: `pysigma` uses `diskcache.Cache` in its ATT&CK and D3FEND tag validators under `~/.cache/pysigma/`. The detection MCP's `convert_sigma` and `validate_sigma` routes parse with `SigmaCollection.from_yaml`; they do not invoke those validators or expose the cache path. Exploitation requires an attacker to write a pickle into the cache before the service reads it. Re-evaluate if the MCP invokes those validators on untrusted rules or exposes a writable cache path.
+- **Accelerate (PYSEC-2026-3804 / CVE-2026-69112)**: Docling's RAG conversion accepts a document path through `DocumentConverter.convert`; the Portal route does not accept a model checkpoint or sharded index. Exploitation requires a malicious checkpoint weight map consumed by the upstream loader functions load_checkpoint_in_model or load_checkpoint_and_dispatch. Re-evaluate if users can supply model checkpoints or write to the model cache used by Docling.
+
+##### Why
+
+Both packages are installed transitively, but their vulnerable inputs are not supplied by Portal's current user-facing routes. This boundary would change if those routes gained control over cache paths or model checkpoint indexes.
+<!-- /WIKI:GENERATED -->
+
+---
+
 <!-- WIKI:GENERATED unit=unit-known-limitations-ollama-v1-sampling-drop -->
 - **ID**: P5-OLLAMA-V1-SAMPLING-001
 - **Status**: RESOLVED 2026-09-25 — Ollama backends are served from native `/api/chat` by `OllamaNativeTransport`; residual limits below remain.

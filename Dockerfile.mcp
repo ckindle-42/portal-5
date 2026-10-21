@@ -72,6 +72,9 @@ RUN pip install --no-cache-dir \
     "pymupdf>=1.24" \
     "docling==2.99.0"
 
+# pip cannot override Docling's cap, so replace Pillow after dependency resolution.
+RUN pip install --no-cache-dir --no-deps "Pillow>=13.0.0"
+
 # Pre-fetch Docling layout/TableFormer model weights at build time (best-effort).
 RUN docling-tools models download \
     || python3 -c "from docling.utils.model_downloader import download_models; download_models()" \

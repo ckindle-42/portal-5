@@ -52,6 +52,7 @@ RUN pip install --no-cache-dir \
     "trimesh[easy]>=4.0.0" \
     "pyrender>=0.1.45" \
     "matplotlib>=3.8.0" \
+    "Pillow>=13.0.0" \
     "numpy>=1.26.0" \
     "numpy-stl>=3.0.0" \
     "jsonschema>=4.20.0" \
