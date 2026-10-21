@@ -27,6 +27,7 @@ The shared ``httpx.AsyncClient`` is injected by ``lifespan`` as
 from __future__ import annotations
 
 import contextlib
+import contextvars
 import json
 import logging
 import os
@@ -294,17 +295,32 @@ def _in_band_backend_error(line: str) -> str | None:
     return _error_text(obj["error"])
 
 
+#: True while ``_stream_with_fallback`` drives this stream: a Pipeline error is then an
+#: envelope it can cascade on, not the client's final framing.
+_CASCADE_ERRORS: contextvars.ContextVar[bool] = contextvars.ContextVar(
+    "portal_cascade_stream_errors", default=False
+)
+
+
 def _error_terminal_frames(
     request_id: str, workspace_id: str, message: str, *, notice: str = _PIPELINE_ERROR_NOTICE
 ) -> list[bytes]:
-    """The terminal framing every Pipeline error ends with: the error as content, one
-    finish chunk, one ``[DONE]`` — never a bare ``data: {"error": ...}`` frame, which
-    OpenAI-compatible clients reject as an invalid stream event and then abort on."""
+    """The terminal framing a Pipeline error leaves the client with: the error as
+    content, one finish chunk, one ``[DONE]`` — never a bare ``data: {"error": ...}``
+    frame, which OpenAI-compatible clients reject as an invalid stream event."""
     return [
         _content_chunk(request_id, workspace_id, f"{notice}{message}]"),
         _completion_finish_chunk("stop"),
         b"data: [DONE]\n\n",
     ]
+
+
+def _stream_error_frames(request_id: str, workspace_id: str, message: str) -> list[bytes]:
+    """Under the fallback wrapper an error is the envelope it cascades on; standalone
+    it is the client's well-formed ending."""
+    if _CASCADE_ERRORS.get():
+        return [f"data: {json.dumps({'error': message})}\n\n".encode()]
+    return _error_terminal_frames(request_id, workspace_id, message)
 
 
 def _in_band_error_frames(
@@ -1014,7 +1030,7 @@ async def _tool_loop_frames(
                         backend_url,
                         workspace_id,
                     )
-                    _frames = _error_terminal_frames(
+                    _frames = _stream_error_frames(
                         request_id,
                         workspace_id,
                         "Response timed out — model may still be generating. Please retry.",
@@ -1026,7 +1042,7 @@ async def _tool_loop_frames(
                         workspace_id,
                     )
                     _record_error(workspace_id, "stream_timeout")
-                    _frames = _error_terminal_frames(
+                    _frames = _stream_error_frames(
                         request_id,
                         workspace_id,
                         "Backend timed out and no model is loaded. Please retry.",
@@ -1037,7 +1053,7 @@ async def _tool_loop_frames(
             except Exception as e:
                 logger.error("Tool-loop stream error from %s: %s", backend_url, e)
                 _record_error(workspace_id, "stream_error")
-                for _f in _error_terminal_frames(
+                for _f in _stream_error_frames(
                     request_id, workspace_id, "Backend connection error"
                 ):
                     yield _f
@@ -1227,7 +1243,7 @@ async def _tool_loop_frames(
                     workspace_id,
                 )
                 _record_error(workspace_id, "tool_parse_failure")
-                for _f in _error_terminal_frames(
+                for _f in _stream_error_frames(
                     request_id,
                     workspace_id,
                     "Tool call could not be parsed from the model response — please retry.",
@@ -1467,10 +1483,10 @@ async def _stream_from_backend_guarded(
     * **OpenAI SSE** (Ollama ``/v1/``, vLLM, etc.):
       ``data: {...}`` lines, mostly pass-through.
     * **Failure** (connect error, HTTP non-200): an HTTP status becomes the
-      explicit ``data: {"error": "...", "status": N}`` envelope
-      ``_stream_with_fallback`` matches on to decide whether to cascade; a
-      timeout or connection error ends the stream with ``_error_terminal_frames``
-      (content, one finish chunk, one ``[DONE]``) — never a bare error frame.
+      explicit ``data: {"error": "...", "status": N}`` envelope. A timeout or
+      connection error is the same envelope while a fallback wrapper is driving
+      the stream (so it cascades); standalone, it ends with
+      ``_error_terminal_frames`` (content, one finish chunk, one ``[DONE]``).
 
     **Line-based fast-path checks** replace the old byte-chunk
     scanning. Each line from ``aiter_lines()`` (which yields ``str``
@@ -1493,7 +1509,7 @@ async def _stream_from_backend_guarded(
 
     if _http_client is None:
         logger.error("HTTP client not initialised — yielding error chunk")
-        for _f in _error_terminal_frames(
+        for _f in _stream_error_frames(
             f"chatcmpl-{workspace_id}", workspace_id, "Pipeline not ready"
         ):
             yield _f
@@ -1692,7 +1708,7 @@ async def _stream_from_backend_guarded(
                 url,
                 workspace_id,
             )
-            _frames = _error_terminal_frames(
+            _frames = _stream_error_frames(
                 f"chatcmpl-{workspace_id}",
                 workspace_id,
                 "Response timed out — model may still be generating. Please retry.",
@@ -1704,7 +1720,7 @@ async def _stream_from_backend_guarded(
                 workspace_id,
             )
             _record_error(workspace_id, "stream_timeout")
-            _frames = _error_terminal_frames(
+            _frames = _stream_error_frames(
                 f"chatcmpl-{workspace_id}",
                 workspace_id,
                 "Backend timed out and no model is loaded. Please retry.",
@@ -1714,7 +1730,7 @@ async def _stream_from_backend_guarded(
     except Exception as e:
         logger.error("Stream error from %s: %s", url, e)
         _record_error(workspace_id, "stream_error")
-        for _f in _error_terminal_frames(
+        for _f in _stream_error_frames(
             f"chatcmpl-{workspace_id}",
             workspace_id,
             "Backend connection error — check server logs",
@@ -2407,20 +2423,24 @@ async def _stream_with_fallback(
                 portal_no_tools,
                 has_tools,
             )
-            async for chunk in _inner_stream:
-                if stream_failed:
-                    # Drain after an error: a trailing [DONE] forwarded here would
-                    # end the client's read before any fallback answer arrives.
-                    continue
-                _err = _stream_error(chunk)
-                if _err is not None:
-                    stream_failed = True
-                    _error_buffer = chunk
-                    _error_status = _err
-                    continue
-                if not _output_sent and _chunk_has_output(chunk):
-                    _output_sent = True
-                yield chunk
+            _cascade_token = _CASCADE_ERRORS.set(True)
+            try:
+                async for chunk in _inner_stream:
+                    if stream_failed:
+                        # Drain after an error: a trailing [DONE] forwarded here would
+                        # end the client's read before any fallback answer arrives.
+                        continue
+                    _err = _stream_error(chunk)
+                    if _err is not None:
+                        stream_failed = True
+                        _error_buffer = chunk
+                        _error_status = _err
+                        continue
+                    if not _output_sent and _chunk_has_output(chunk):
+                        _output_sent = True
+                    yield chunk
+            finally:
+                _CASCADE_ERRORS.reset(_cascade_token)
         except Exception:
             stream_failed = True
         # oMLX rejected the prompt for memory it cannot reclaim from Ollama:
