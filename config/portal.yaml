@@ -58,6 +58,48 @@ modules:
   vulnintel:
     enabled: true
 
+# Orchestration policy and discipline bindings; sync-config renders these into
+# config/orchestration_arm.yaml alongside its operator-owned seat identities.
+orchestration_arm:
+  planner:
+    fast_context_budget_tokens: 32768
+    comfortable_context_tokens: 16384
+  review:
+    vote_count: 3
+    minimum_approve_votes: 2
+    high_risk:
+      risk_levels: [high]
+      tools: [file_write]
+      write_scopes: [outside_task]
+  approval:
+    high_risk_writes: true
+  calibration:
+    after_bites: 3
+    minimum_pass_probability: null
+    rates_by_discipline: {}
+  disciplines:
+    test_fixing:
+      selection_reason: Existing coding WFE work already uses hidden pytest tests as hard graders for repair tasks, so this candidate can measure correctness without model review.
+      persona: auto-coding
+      seated_models:
+        fast: auto-daily::fast
+        deep: auto-daily::deep
+      tool_allowlist: [file_read, file_write, pytest_run]
+      read_tools: [file_read]
+      action_tools: [file_write, pytest_run]
+      write_scope: task_directory
+      data_class: local-only
+      procedures:
+        - Read the failing source and tests, make the smallest fix, run the declared pytest check.
+      bite_suite: tests/wfe/suites/orchestration_test_fixing.jsonl
+      planner_suite: tests/wfe/orchestration/planner_suite.yaml
+      checker_suite: tests/wfe/orchestration/checker_suite.yaml
+      fast_context_budget_tokens: 32768
+      pass_criteria:
+        minimum_bite_pass_rate: 0.80
+        minimum_fast_pass_rate: 0.80
+        minimum_deep_pass_rate: 0.90
+
 # ── MCP Fleet ──────────────────────────────────────────────────────────────
 # expose_to_pipeline: true  → model-callable (included in tool_registry)
 # expose_to_ide: true       → available in Claude Code / opencode (.mcp.json)

@@ -11,6 +11,7 @@ from pathlib import Path
 from typing import Any
 
 import pytest
+import yaml
 from fastapi import HTTPException
 
 from portal.modules.orchestration.ledger import ArmLedger, ResumeMismatchError
@@ -87,7 +88,16 @@ def service(
     notices: StubNoticeSink | None = None,
 ) -> ArmService:
     config = tmp_path / "orchestration_arm.yaml"
-    config.write_text("residency_mode: swap\n", encoding="utf-8")
+    repo = Path(__file__).resolve().parents[2]
+    settings = yaml.safe_load((repo / "config" / "orchestration_arm.yaml").read_text())
+    settings["calibration"]["minimum_pass_probability"] = 0.01
+    settings["calibration"]["rates_by_discipline"] = {
+        "offline-test": {
+            "fast": {"pass_probability": 1.0, "mean_seconds": 1},
+            "deep": {"pass_probability": 1.0, "mean_seconds": 1},
+        }
+    }
+    config.write_text(yaml.safe_dump(settings, sort_keys=False), encoding="utf-8")
     engines = {
         "fast": Engine(
             "auto-daily::fast", fast_digest, pipeline.url, "test-key", "omlx", "fake-fast"

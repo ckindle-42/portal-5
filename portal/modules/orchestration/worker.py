@@ -380,6 +380,7 @@ def _messages(bite: Bite, input_paths: dict[str, Path]) -> list[dict[str, Any]]:
         "Use only listed bite tools and call finish once when done. Keep reasoning enabled.\n"
         f"Goal: {bite.goal}\nProcedure: {bite.procedure}\n"
         f"Acceptance: {json.dumps(bite.accept)}\n"
+        f"Deep review: {bite.review_reason or 'not requested'}\n"
         f"Declared input paths: {json.dumps({key: str(value) for key, value in input_paths.items()})}"
     )
     inputs = {name: {"path": str(path)} for name, path in input_paths.items()}

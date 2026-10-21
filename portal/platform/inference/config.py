@@ -419,6 +419,7 @@ class PortalConfig(BaseModel):
         default_factory=dict,
         description="Per-module on/off. portal module enable/disable writes one line.",
     )
+    orchestration_arm: dict[str, Any] = Field(default_factory=dict)
     host_jobs: list[HostJob] = Field(
         default_factory=list,
         description="Launchd jobs with no mcp_fleet entry. module platform is always on.",

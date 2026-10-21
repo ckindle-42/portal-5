@@ -1,8 +1,4 @@
-# Gate A (Phase 0), measured 2026-10-21 with the full stack up: Fast + Deep need 37.8 GiB
-# together; /admin/load-plan reported 25.7 GiB available (12.5 oMLX headroom + 15.2 freeable,
-# minus margin), so they cannot co-reside -> swap mode. oMLX keeps one resident at a time.
-# One-word turns through the Pipeline: Fast cold 15-18 s vs warm 0.3 s; Deep cold ~38 s vs
-# warm 28 s (its xhigh thinking dominates). Swap cost ~15 s into Fast, ~10 s into Deep.
+# Generated arm policy from config/portal.yaml; seat identities remain operator-owned.
 residency_mode: swap
 load_plan_models:
   fast:
@@ -12,9 +8,59 @@ load_plan_models:
     engine: omlx
     model: Qwen3.8-27B-oQ4e-mtp
 residency_measured:
-  date: "2026-10-21"
+  date: '2026-10-21'
   pair_need_gib: 37.8
   available_gib: 25.7
   swap_cost_s:
     into_fast: 15
     into_deep: 10
+planner:
+  fast_context_budget_tokens: 32768
+  comfortable_context_tokens: 16384
+review:
+  vote_count: 3
+  minimum_approve_votes: 2
+  high_risk:
+    risk_levels:
+    - high
+    tools:
+    - file_write
+    write_scopes:
+    - outside_task
+approval:
+  high_risk_writes: true
+calibration:
+  after_bites: 3
+  minimum_pass_probability: null
+  rates_by_discipline: {}
+disciplines:
+  test_fixing:
+    selection_reason: Existing coding WFE work already uses hidden pytest tests as
+      hard graders for repair tasks, so this candidate can measure correctness without
+      model review.
+    persona: auto-coding
+    seated_models:
+      fast: auto-daily::fast
+      deep: auto-daily::deep
+    tool_allowlist:
+    - file_read
+    - file_write
+    - pytest_run
+    read_tools:
+    - file_read
+    action_tools:
+    - file_write
+    - pytest_run
+    write_scope: task_directory
+    data_class: local-only
+    procedures:
+    - Read the failing source and tests, make the smallest fix, run the declared pytest
+      check.
+    bite_suite: tests/wfe/suites/orchestration_test_fixing.jsonl
+    planner_suite: tests/wfe/orchestration/planner_suite.yaml
+    checker_suite: tests/wfe/orchestration/checker_suite.yaml
+    fast_context_budget_tokens: 32768
+    pass_criteria:
+      minimum_bite_pass_rate: 0.8
+      minimum_fast_pass_rate: 0.8
+      minimum_deep_pass_rate: 0.9

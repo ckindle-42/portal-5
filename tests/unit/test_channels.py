@@ -59,6 +59,33 @@ class TestTelegramAdapter:
             if env_backup:
                 os.environ["TELEGRAM_BOT_TOKEN"] = env_backup
 
+    def test_disabled_orchestration_never_starts_or_touches_arm_outbox(self, tmp_path, monkeypatch):
+        import asyncio
+
+        from telegram.ext import CallbackQueryHandler
+
+        from portal.platform.inference import config
+        from portal_channels.telegram import bot
+
+        db_path = tmp_path / "arm" / "telegram.sqlite3"
+        disabled_config = MagicMock()
+        disabled_config.modules = {"orchestration": MagicMock(enabled=False)}
+        monkeypatch.setattr(config, "load_portal_config", lambda: disabled_config)
+        monkeypatch.setattr(bot.asyncio, "create_task", MagicMock())
+        monkeypatch.setenv("TELEGRAM_BOT_TOKEN", "123456:fake-test-token")
+        monkeypatch.setenv("PORTAL_ARM_TELEGRAM_DB", str(db_path))
+
+        app = bot.build_app()
+        handlers = [handler for group in app.handlers.values() for handler in group]
+        assert not any(isinstance(handler, CallbackQueryHandler) for handler in handlers)
+        assert app.post_init is None
+        asyncio.run(bot._arm_post_init(app))
+        asyncio.run(bot._arm_outbox(app))
+
+        bot.asyncio.create_task.assert_not_called()
+        assert "arm_outbox_task" not in app.bot_data
+        assert not db_path.exists()
+
     def test_is_allowed_empty_list_permits_all(self):
         """Empty TELEGRAM_USER_IDS allows everyone."""
         import os

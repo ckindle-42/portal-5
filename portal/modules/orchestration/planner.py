@@ -1,0 +1,158 @@
+"""Deep-seat task planning and deterministic plan validation."""
+
+from __future__ import annotations
+
+import json
+from pathlib import Path
+from typing import Any
+
+from .contracts import TaskPlan, parse_plan
+from .worker import Engine, _response_parts
+
+PLANNER_RULES = """Write a JSON task plan as one object with task_id, goal, and bites.
+Every bite must have a deterministic acceptance check or review='deep' with a specific review_reason.
+Keep every bite within the supplied comfortable Fast context token budget; include budget.context_tokens.
+Split reading from acting: a bite must not combine read_tools and action_tools, and untrusted reads never act.
+Prefer small bites and give each a narrow goal and only its required tools.
+End with stage='assembly' followed by stage='final_review'; final_review depends on assembly.
+Each bite must include a checkable output, dependencies, budget, model, risk, and procedure.
+Do not invent tools, paths, or discipline names. Return JSON only."""
+
+
+def validate_planned_plan(
+    raw: dict[str, Any],
+    arm_config: dict[str, Any],
+    discipline_key: str,
+    source_dir: Path | None = None,
+) -> TaskPlan:
+    """Validate planner output against the selected discipline and arm policy."""
+    planner = _mapping(arm_config.get("planner"), "planner")
+    disciplines = _mapping(arm_config.get("disciplines"), "disciplines")
+    discipline = _mapping(disciplines.get(discipline_key), f"discipline {discipline_key}")
+    plan = parse_plan(raw)
+    max_context = min(
+        _positive_int(planner, "comfortable_context_tokens"),
+        _positive_int(discipline, "fast_context_budget_tokens"),
+    )
+    allowed_tools = _string_set(discipline, "tool_allowlist")
+    read_tools = _string_set(discipline, "read_tools")
+    action_tools = _string_set(discipline, "action_tools")
+    by_id = {bite.bite_id: bite for bite in plan.bites}
+    for bite in plan.bites:
+        if bite.discipline != discipline_key:
+            raise ValueError(f"bite {bite.bite_id}: discipline must be {discipline_key}")
+        if not set(bite.tools) <= allowed_tools:
+            raise ValueError(f"bite {bite.bite_id}: tool outside discipline allowlist")
+        if bite.budget.context_tokens is None:
+            raise ValueError(f"bite {bite.bite_id}: budget.context_tokens is required")
+        if bite.budget.context_tokens > max_context:
+            raise ValueError(
+                f"bite {bite.bite_id}: context budget {bite.budget.context_tokens} exceeds "
+                f"Fast context budget {max_context}"
+            )
+        has_read = bite.reads_untrusted or bool(set(bite.tools) & read_tools)
+        has_action = bool(set(bite.tools) & action_tools)
+        if has_read and has_action:
+            raise ValueError(f"bite {bite.bite_id}: reading and acting must be separate bites")
+        if source_dir is not None:
+            _validate_inputs(bite, by_id, source_dir)
+    if len(plan.bites) < 2 or [plan.bites[-2].stage, plan.bites[-1].stage] != [
+        "assembly",
+        "final_review",
+    ]:
+        raise ValueError("plan must end with assembly and final_review bites")
+    if plan.bites[-2].bite_id not in plan.bites[-1].depends_on:
+        raise ValueError("final_review must depend on the assembly bite")
+    return plan
+
+
+def planner_prompt(arm_config: dict[str, Any], discipline_key: str) -> str:
+    """Build the immutable planner prompt from configured budgets and tools."""
+    policy = _mapping(arm_config.get("planner"), "planner")
+    discipline = _mapping(
+        _mapping(arm_config.get("disciplines"), "disciplines").get(discipline_key), discipline_key
+    )
+    return (
+        f"{PLANNER_RULES}\n"
+        f"Comfortable Fast context budget: {min(_positive_int(policy, 'comfortable_context_tokens'), _positive_int(discipline, 'fast_context_budget_tokens'))} tokens.\n"
+        f"Allowed tools: {json.dumps(discipline.get('tool_allowlist', []))}.\n"
+        f"Read tools: {json.dumps(discipline.get('read_tools', []))}.\n"
+        f"Action tools: {json.dumps(discipline.get('action_tools', []))}.\n"
+        f"Discipline: {discipline_key}.\n"
+        f"Procedures: {json.dumps(discipline.get('procedures', []))}."
+    )
+
+
+def plan_goal(
+    engine: Engine,
+    *,
+    goal: str,
+    task_id: str,
+    discipline: str,
+    arm_config: dict[str, Any],
+    source_dir: Path | None = None,
+) -> dict[str, Any]:
+    """Ask the Deep seat for one plan and return only validated JSON."""
+    body = {
+        "model": engine.model_tag,
+        "messages": [
+            {"role": "system", "content": planner_prompt(arm_config, discipline)},
+            {
+                "role": "user",
+                "content": json.dumps(
+                    {"task_id": task_id, "goal": goal, "discipline": discipline},
+                    sort_keys=True,
+                ),
+            },
+        ],
+        "max_tokens": 8192,
+        "temperature": 0.1,
+        "stream": True,
+        "stream_options": {"include_usage": True},
+        "chat_template_kwargs": {"enable_thinking": True},
+    }
+    engine.load_plan(300)
+    response = engine.chat(body, 300, lambda _event: None)
+    content, _ = _response_parts(response)
+    raw = json.loads(content)
+    if not isinstance(raw, dict):
+        raise ValueError("planner response must be a JSON object")
+    if raw.get("task_id") != task_id:
+        raise ValueError("planner response task_id differs from the request")
+    if raw.get("goal") != goal:
+        raise ValueError("planner response goal differs from the request")
+    validate_planned_plan(raw, arm_config, discipline, source_dir)
+    return raw
+
+
+def _validate_inputs(bite: Any, by_id: dict[str, Any], source_dir: Path) -> None:
+    for reference in bite.inputs:
+        if reference in by_id:
+            if reference not in bite.depends_on:
+                raise ValueError(f"bite {bite.bite_id}: input bite {reference} is not a dependency")
+        elif not (
+            (source_dir / reference).resolve()
+            if not Path(reference).is_absolute()
+            else Path(reference)
+        ).is_file():
+            raise ValueError(f"bite {bite.bite_id}: input path does not exist: {reference}")
+
+
+def _mapping(value: Any, name: str) -> dict[str, Any]:
+    if not isinstance(value, dict):
+        raise ValueError(f"{name} configuration must be a mapping")
+    return value
+
+
+def _positive_int(raw: dict[str, Any], key: str) -> int:
+    value = raw.get(key)
+    if isinstance(value, bool) or not isinstance(value, int) or value < 1:
+        raise ValueError(f"{key} must be a positive integer")
+    return value
+
+
+def _string_set(raw: dict[str, Any], key: str) -> set[str]:
+    value = raw.get(key)
+    if not isinstance(value, list) or not all(isinstance(item, str) for item in value):
+        raise ValueError(f"{key} must be a list of strings")
+    return set(value)
