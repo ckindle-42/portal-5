@@ -349,6 +349,32 @@ def test_retrieval_eval_baseline_still_matches_the_declared_dependency_pins():
         )
 
 
+def test_uv_lock_docling_matches_the_dockerfile_mcp_pin():
+    """The invariant the first test enforces (pyproject ≈ Dockerfile) is
+    necessary but not sufficient: on 2026-10-10 the lock drifted to 2.137.0
+    while the container stayed on 2.99.0 and no test noticed because neither
+    comparison spans hosts versus containers. The container and host must
+    extract identically — otherwise the container silently runs a tau that
+    was never measured against what it produces (Dockerfile.mcp comment)."""
+    tomllib = pytest.importorskip("tomllib")  # stdlib from 3.11; the project allows 3.10
+    root = pathlib.Path(__file__).resolve().parents[2]
+    lock = tomllib.loads((root / "uv.lock").read_text(encoding="utf-8"))
+    dockerfile = (root / "Dockerfile.mcp").read_text()
+
+    resolved = next(
+        (pkg["version"] for pkg in lock["package"] if pkg.get("name") == "docling"), None
+    )
+
+    declared = (_declared_pin(dockerfile, "docling") or "").removeprefix("==")
+    assert resolved == declared, (
+        f"uv.lock resolves docling {resolved} but Dockerfile.mcp pins "
+        f"=={declared}. Container and host must extract identically — "
+        f"re-run the retrieval eval (scripts/rag_retrieval_eval.py), "
+        f"re-derive tau, then update both the lock and the Dockerfile pin "
+        f"together."
+    )
+
+
 def test_retrieval_eval_baseline_still_matches_the_configured_pipeline():
     """The other way to invalidate the eval without touching tau: change the
     embedding model, the chunker, or the fusion strategy. Each silently rebases
