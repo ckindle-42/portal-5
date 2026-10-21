@@ -48,7 +48,7 @@
   "provider": {
     "portal": {
       "name": "Portal 5 (local)",
-      "api": "openai",
+      "npm": "@ai-sdk/openai-compatible",
       // opencode reads PIPELINE_API_KEY from the environment and passes it as
       // the Bearer token. Before running opencode, export the key:
       //   export $(grep PIPELINE_API_KEY .env | xargs)
@@ -204,7 +204,7 @@
     // ── P40 remote Ollama (out-of-band conductor brain) ──────────────────────
     "p40": {
       "name": "P40 (remote local Ollama)",
-      "api": "openai",
+      "npm": "@ai-sdk/openai-compatible",
       "options": {
         "baseURL": "http://10.0.0.204:11434/v1"
       },
