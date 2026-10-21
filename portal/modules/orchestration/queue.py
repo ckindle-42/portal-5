@@ -263,7 +263,7 @@ class OvernightQueue:
             with QueueLedger(self.task_root) as ledger:
                 ledger.finish(task_id, "blocked", "BLOCKED", reason)
             self._write_failure_receipt(task_id, task_dir, reason)
-            raise
+            return QueueRun("BLOCKED", task_id, task_dir / "receipt.json", reason)
 
     def _write_failure_receipt(self, task_id: str, task_dir: Path, reason: str) -> None:
         path = task_dir / "receipt.json"

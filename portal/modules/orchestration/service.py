@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import shutil
 import subprocess
 from collections.abc import Callable
 from datetime import UTC, datetime
@@ -438,14 +439,37 @@ class ArmService:
             )
         except QueueYieldError as exc:
             self.queue_yield_reason = str(exc)
-            ledger.transition(
-                bite,
-                "ready",
-                build_sha=self.build_sha,
-                engine=engine.identity(),
-                detail={"queue_yield": str(exc)},
+            ledger.yield_attempt(
+                bite, build_sha=self.build_sha, engine=engine.identity(), reason=str(exc)
             )
+            shutil.rmtree(attempt_dir, ignore_errors=True)
             raise
+        return self._judge_attempt(
+            bite,
+            task_dir,
+            ledger,
+            engine,
+            worker,
+            attempt_dir,
+            attempt_number,
+            seat,
+            attempt_index,
+            attempt_count,
+        )
+
+    def _judge_attempt(
+        self,
+        bite: Bite,
+        task_dir: Path,
+        ledger: ArmLedger,
+        engine: Engine,
+        worker: Any,
+        attempt_dir: Path,
+        attempt_number: int,
+        seat: str,
+        attempt_index: int,
+        attempt_count: int,
+    ) -> dict[str, Any] | None:
         ledger.transition(
             bite,
             "checking",
@@ -460,7 +484,19 @@ class ArmService:
             failures.append(worker.failure)
         if checks is not None and not checks.passed:
             failures.extend(checks.failures)
-        review = self._review_attempt(bite, worker, failures)
+        try:
+            review = self._review_attempt(bite, worker, failures)
+        except QueueYieldError as exc:
+            self.queue_yield_reason = str(exc)
+            ledger.transition(
+                bite,
+                "ready",
+                build_sha=self.build_sha,
+                engine=engine.identity(),
+                detail={"queue_yield": str(exc)},
+            )
+            _inside_task(task_dir, bite.output_path).unlink(missing_ok=True)
+            raise
         if review is not None and not review["passed"]:
             failures.append(review["failure"])
         check_record = self._check_record(worker, checks, review, failures)
@@ -496,7 +532,14 @@ class ArmService:
     ) -> dict[str, Any] | None:
         if not worker.finished or failures:
             return None
-        return _review_worker(bite, worker.output, self.arm_config, self.engines["deep"])
+        gate = self.bite_gate
+        return _review_worker(
+            bite,
+            worker.output,
+            self.arm_config,
+            self.engines["deep"],
+            None if gate is None else lambda: bool(gate(bite)),
+        )
 
     @staticmethod
     def _check_record(worker: Any, checks: Any, review: Any, failures: list[Any]) -> dict[str, Any]:
@@ -615,7 +658,11 @@ def _require_calibration(
 
 
 def _review_worker(
-    bite: Bite, output: Any, config: dict[str, Any], engine: Engine
+    bite: Bite,
+    output: Any,
+    config: dict[str, Any],
+    engine: Engine,
+    gate: Callable[[], bool] | None = None,
 ) -> dict[str, Any] | None:
     review = config.get("review", {})
     disciplines = config.get("disciplines", {})
@@ -634,7 +681,11 @@ def _review_worker(
             output,
             vote_count=int(votes),
             minimum_approve_votes=int(required),
+            require_idle=gate is not None,
+            gate=gate,
         )
+    except QueueYieldError:
+        raise
     except Exception as exc:
         return {"passed": False, "failure": f"Deep review failed: {type(exc).__name__}: {exc}"}
     return {
