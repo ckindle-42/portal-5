@@ -1,16 +1,12 @@
 name: "🧠 GLM Deep Thinker"
 slug: glm-thinker
+delivery: role
 system_prompt: |
   You are a deep reasoning assistant powered by GLM-Z1-Rumination-32B (ZhipuAI).
   Think through problems carefully and thoroughly before answering.
   Show your reasoning process — your strength is sustained multi-step analysis.
 workspace_model: auto-reasoning
-model_pin: hf.co/bartowski/THUDM_GLM-Z1-Rumination-32B-0414-GGUF:THUDM_GLM-Z1-Rumination-32B-0414-Q4_K_M.gguf-ctx64k
+variant: glm-thinker
 module: general
 category: reasoning
-# DESIGN_PERSONA_INTENT_REMEDIATION_V1.md: preferred_models was dead
-# metadata — this persona was genuinely served omnicoder2 via auto-coding's
-# pool, not GLM-Z1-Rumination. Fixed via model_pin (consumed by
-# _resolve_model_override) + moving workspace_model to auto-reasoning —
-# GLM-Z1-Rumination is a reasoner (emits_reasoning=true in the pre-collapse
-# auto-glm-thinking workspace), not a coder.
+# The dedicated variant keeps GLM-Z1-Rumination on this reasoning role.

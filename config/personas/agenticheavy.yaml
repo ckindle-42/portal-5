@@ -1,5 +1,6 @@
 name: "⚡ Portal Agentic Coder (Heavy)"
 slug: agenticheavy
+delivery: role
 category: coding
 workspace_model: auto-coding
 variant: heavy

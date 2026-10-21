@@ -1145,6 +1145,16 @@ The doc body said `supports_tools` was confirmed true by audit-tools; re-groundi
 
 ---
 
+### `hf.co/douyamv/Gemma-4-31B-JANG_4M-CRACK-GGUF:gemma-4-31b-jang-crack-Q4_K_M.gguf-ctx8k`
+
+`hf.co/douyamv/Gemma-4-31B-JANG_4M-CRACK-GGUF:gemma-4-31b-jang-crack-Q4_K_M.gguf-ctx8k` is a derived variant of the base JANG tag that bakes an 8192-token `num_ctx` into the Modelfile (applied with `portal models apply-params`, since `/v1` ignores request-time `options.num_ctx`). `config/backends.yaml` registers it under the `vision` group with `supports_tools: true` (2026-10-20), and `config/portal.yaml` binds it as the `model_hint` of the `auto-vision::gemma4jangvision` variant, whose `context_limit: 8192` the baked window now matches.
+
+## Why
+
+The derived id exists so the variant's declared `context_limit` is enforced by the tag itself rather than left at Ollama's default; grounding is the `vision` group registration in `config/backends.yaml` plus the `auto-vision::gemma4jangvision` `model_hint` in `config/portal.yaml`. Weights, template and tool support are the parent's — only the window differs.
+
+---
+
 ### `hf.co/mradermacher/Qwen3.5-9B-Claude-4.6-HighIQ-THINKING-HERETIC-UNCENSORED-GGUF:Q4_K_M`
 
 `hf.co/mradermacher/Qwen3.5-9B-Claude-4.6-HighIQ-THINKING-HERETIC-UNCENSORED-GGUF:Q4_K_M` is registered in `config/backends.yaml` twice, under the `general` group and under the `vision` group, and both entries set `supports_tools: false`. The vision entry's comment records that it is a thinking model, not an agentic one, and the first uncensored vision option in the fleet. `config/portal.yaml` binds it as the `bench-qwen35-9b-heretic-vision` workspace `model_hint`, whose description preserves the ~5.6GB Q4_K_M footprint, the trohrbaugh heretic-v2 abliteration (KLD 0.079, 6/100 refusals), and the 262K-to-1M context via YaRN. The Claude-4.6 distill label is treated as unverifiable-provenance marketing; both config files mark the intake as a V11 bench-only candidate with PROMOTE_POLICY=confirm.

@@ -658,7 +658,15 @@ def _card_modes(entry: dict, think: bool | None) -> list[dict]:
         if names:
             return [dict(modes[n] or {}) for n in names]
     rec = entry.get("recommended_sampling") or {}
-    return [] if rec.get("pending_research") else [dict(rec)]
+    if rec.get("pending_research"):
+        return []
+    # Purpose-named arms (default / agentic_coding) carry no think state: each is sanctioned.
+    purpose = [
+        dict(m)
+        for n, m in modes.items()
+        if isinstance(m, dict) and m and not n.startswith(("thinking", "instruct"))
+    ]
+    return [dict(rec)] + [m for m in purpose if m != rec]
 
 
 def _card_sampling(entry: dict, think: bool | None) -> dict:

@@ -1,5 +1,6 @@
 name: "🔓 Portal Agentic Coder Uncensored"
 slug: codinguncensoredagentic
+delivery: role
 category: coding
 workspace_model: auto-coding
 variant: uncensored-agentic

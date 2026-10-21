@@ -1,5 +1,6 @@
 name: "🔓 Portal Code Uncensored"
 slug: codinguncensored
+delivery: role
 category: coding
 workspace_model: auto-coding
 variant: uncensored

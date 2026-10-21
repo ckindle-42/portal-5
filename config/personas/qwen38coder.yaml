@@ -1,7 +1,8 @@
 name: "🆕 Qwen3.8-27B Coder"
 slug: qwen38coder
+delivery: role
 workspace_model: auto-coding
-model_pin: hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M
+variant: qwen38coder
 module: coding
 category: coding
 ide_expose: true

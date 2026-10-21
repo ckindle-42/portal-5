@@ -1,5 +1,6 @@
 name: Senior Frontend Developer
 slug: seniorfrontenddeveloper
+delivery: role
 category: development
 source: prompts.chat
 workspace_model: auto-coding

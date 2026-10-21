@@ -1,7 +1,8 @@
 name: "🔓 Gemma-4-26B Heretic Coder (MoE)"
 slug: gemma4-heretic-coder
+delivery: role
 workspace_model: auto-coding
-model_pin: portal5/gemma4-26b-heretic:q4_K_M-ctx256k
+variant: gemma4-heretic-coder
 module: coding
 category: coding
 ide_expose: true

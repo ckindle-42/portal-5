@@ -1496,6 +1496,24 @@ class TestSeatSamplingFollowsTheGuidance:
     def test_a_seat_serving_the_guidance_is_clean(self, monkeypatch):
         assert self._check("auto-compliance", dict(self.CARD), monkeypatch) == []
 
+    def test_a_purpose_named_arm_is_sanctioned(self, monkeypatch):
+        # glm-4.7-flash: default + agentic_coding arms; sampling_mode_fit requires the coding arm.
+        import tests.wfe.settings_audit as sa
+
+        entry = {
+            "recommended_sampling": {"temperature": 1.0, "top_p": 0.95},
+            "recommended_sampling_modes": {
+                "default": {"temperature": 1.0, "top_p": 0.95},
+                "agentic_coding": {"temperature": 0.7, "top_p": 1.0},
+            },
+        }
+        monkeypatch.setattr(sa, "_expectations_for", lambda _h, _r: ("glm", entry))
+        monkeypatch.setattr(sa, "baked_params", lambda _h: {})
+        v: list[dict] = []
+        ws = {"model_hint": "glm", "temperature": 0.7, "top_p": 1.0}
+        sa._served_sampling_check("auto-coding::glm-coder", ws, "glm", "ollama", {}, v)
+        assert v == []
+
     def test_a_complete_override_keeps_the_seat_and_says_why(self, monkeypatch):
         ov = {"reason": "classifier", "evidence": "wfe_router_20261016"}
         v = self._check("task-router", {"temperature": 0.2, "sampling_override": ov}, monkeypatch)

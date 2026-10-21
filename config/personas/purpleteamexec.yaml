@@ -1,5 +1,6 @@
 name: "🟣 Portal Purple Team · Execute"
 slug: purpleteamexec
+delivery: role
 category: security
 workspace_model: auto-security
 variant: purpleteam-exec

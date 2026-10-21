@@ -1,5 +1,6 @@
 name: Red Team Operator
 slug: redteamoperator
+delivery: role
 category: security
 workspace_model: auto-security
 variant: redteam

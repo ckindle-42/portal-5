@@ -153,12 +153,12 @@ def _seeder():
 
 
 def test_roles_are_prompt_seeds_not_model_presets() -> None:
-    """Prompt-only personas are delivery: role. Counts come from the YAML, not a literal."""
+    """Role personas seed prompts even when they select a named workspace variant."""
     raws = _raw_personas()
     prompt_only = {raw["slug"] for raw in raws if not _has_behaviour(raw)}
     roles = {raw["slug"] for raw in raws if raw.get("delivery") == "role"}
     kept = {raw["slug"] for raw in raws if raw.get("delivery", "persona") == "persona"}
-    assert roles == prompt_only
+    assert prompt_only <= roles
     assert roles.isdisjoint(kept)
     assert roles | kept == {raw["slug"] for raw in raws}
     seeder = _seeder()

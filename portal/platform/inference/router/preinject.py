@@ -415,6 +415,21 @@ def _strip_role_prefix(content: Any) -> tuple[str | None, Any]:
     return None, content
 
 
+def _role_variant_for_workspace(body: dict[str, Any], workspace_id: str) -> str | None:
+    """Select a role's declared variant when the picked engine is its parent."""
+    role_slug: str | None = None
+    for message in body.get("messages") or []:
+        if not isinstance(message, dict) or message.get("role") != "user":
+            continue
+        slug, _content = _strip_role_prefix(message.get("content"))
+        if slug is not None:
+            role_slug = slug
+    persona = _PERSONA_MAP.get(role_slug or "")
+    if persona is None or persona.workspace_model != workspace_id:
+        return None
+    return persona.variant
+
+
 def _apply_role_slash(body: dict[str, Any]) -> tuple[dict[str, Any], str | None]:
     """Strip a leading `/slug ` from user messages. The last slug wins."""
     messages = body.get("messages") or []

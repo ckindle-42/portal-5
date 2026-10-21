@@ -1,5 +1,6 @@
 name: IT Expert
 slug: itexpert
+delivery: role
 category: general
 source: prompts.chat
 # workspace_model: auto + abliterated preferred_models is intentional — legit

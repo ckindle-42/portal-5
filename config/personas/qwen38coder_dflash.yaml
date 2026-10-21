@@ -1,7 +1,8 @@
 name: "⚡ Qwen3.8-27B Coder (DFlash2)"
 slug: qwen38coder-dflash
+delivery: role
 workspace_model: auto-coding
-model_pin: Qwen3.8-27B-4bit
+variant: qwen38coder-dflash
 module: coding
 category: coding
 ide_expose: true

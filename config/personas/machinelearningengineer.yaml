@@ -1,5 +1,6 @@
 name: Machine Learning Engineer
 slug: machinelearningengineer
+delivery: role
 category: data
 source: prompts.chat
 workspace_model: auto-research

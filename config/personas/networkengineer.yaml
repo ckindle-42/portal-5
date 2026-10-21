@@ -1,5 +1,6 @@
 name: Network Engineer
 slug: networkengineer
+delivery: role
 category: security
 source: prompts.chat
 workspace_model: auto-security

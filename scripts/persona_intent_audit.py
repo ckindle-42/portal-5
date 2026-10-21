@@ -13,7 +13,8 @@ collapse time, had it existed then.
 Checks:
 1. (hard) discipline(persona.module) == discipline(workspace_model's module)
 2. (hard) system_prompt lineage claims match the actually-served model
-   (model_pin if set, else workspace_model's model_hint)
+   (model_pin if set, else the selected variant's model_hint, else the
+   workspace_model's model_hint)
 3. (hard) model_pin, if set, is a real config/backends.yaml catalog id
 4. (warn) preferred_models[0], if set alongside model_pin, doesn't name a
    contradicting lineage (preferred_models is dead metadata — §6 — so this
@@ -185,10 +186,13 @@ def audit() -> tuple[list[dict], list[dict]]:
                 }
             )
 
-        # Check 2: system_prompt lineage claim vs actually-served model
+        # Check 2: system_prompt lineage claim vs actually-served model.
+        # Personas are served through their declared variant when present;
+        # checking only the parent workspace model would miss dedicated seats.
         claimed = _claimed_lineage(p.system_prompt)
         if claimed:
-            served_model = p.model_pin or ws.model_hint
+            persona_variant = ws.variants.get(p.variant or "", {})
+            served_model = p.model_pin or persona_variant.get("model_hint") or ws.model_hint
             served_lineage = _lineage_of(served_model or "")
             if served_lineage and served_lineage != claimed:
                 hard_failures.append(
@@ -198,7 +202,7 @@ def audit() -> tuple[list[dict], list[dict]]:
                         "detail": (
                             f"system_prompt claims {claimed!r} lineage, but "
                             f"served model {served_model!r} is {served_lineage!r} "
-                            f"lineage (model_pin={p.model_pin!r})"
+                            f"lineage (variant={p.variant!r}, model_pin={p.model_pin!r})"
                         ),
                     }
                 )

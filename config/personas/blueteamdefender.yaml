@@ -1,5 +1,6 @@
 name: Blue Team Defender
 slug: blueteamdefender
+delivery: role
 category: security
 workspace_model: auto-security
 variant: blueteam

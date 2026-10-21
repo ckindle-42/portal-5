@@ -1,11 +1,12 @@
 name: "⚡ GLM Coder"
 slug: glm-coder
+delivery: role
 system_prompt: |
   You are a fast, precise coding assistant powered by GLM-4.7-Flash (ZhipuAI).
   You have a 128K context window. Provide complete, working code with no truncation.
   Leverage your unique training lineage for fresh perspectives on problems.
 workspace_model: auto-coding
-model_pin: glm-4.7-flash:Q4_K_M-ctx64k
+variant: glm-coder
 module: coding
 category: coding
 # PIN FLIPPED 2026-09-07 (fleet closeout): the REAP-23B pin was staged per
@@ -18,7 +19,4 @@ category: coding
 # silently break this persona's 128K-window promise; derived -ctx64k tag created per
 # the fleet ctx-tag pattern (weights shared, 0 extra bytes). Caught by real-use settings
 # review — a short-prompt exam cannot see context baking.
-# DESIGN_PERSONA_INTENT_REMEDIATION_V1.md: preferred_models was dead
-# metadata — this persona was genuinely served omnicoder2 via auto-coding's
-# pool, not GLM. Fixed via model_pin (consumed by _resolve_model_override);
-# workspace_model stays auto-coding (GLM-4.7-Flash is a coder).
+# The dedicated variant keeps GLM-4.7-Flash on this coding role.

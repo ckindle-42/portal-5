@@ -1,5 +1,6 @@
 name: IT Architect
 slug: itarchitect
+delivery: role
 category: architecture
 source: prompts.chat
 workspace_model: auto-reasoning

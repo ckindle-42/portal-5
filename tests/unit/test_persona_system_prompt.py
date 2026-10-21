@@ -315,6 +315,77 @@ def test_list_system_content_keeps_caller_after_the_persona_prompt() -> None:
     assert content[1]["text"] == "CALLER_SENTINEL"
 
 
+def test_role_slash_selects_its_variant_on_its_parent_engine(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from types import SimpleNamespace
+
+    from portal.platform.inference.router.preinject import _role_variant_for_workspace
+
+    monkeypatch.setitem(
+        _PERSONA_MAP,
+        "variantrole",
+        SimpleNamespace(delivery="role", workspace_model="engine", variant="seat"),
+    )
+    body = {"messages": [{"role": "user", "content": "/variantrole work"}]}
+    assert _role_variant_for_workspace(body, "engine") == "seat"
+    assert _role_variant_for_workspace(body, "other-engine") is None
+
+
+def test_role_slash_routes_the_parent_engine_to_its_variant(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import portal.platform.inference.router.handlers as handlers_mod
+
+    seen: dict[str, Any] = {}
+
+    async def capture(*args: Any, **_kwargs: Any) -> JSONResponse:
+        seen["body"] = args[1]
+        seen["workspace"] = args[2]
+        return JSONResponse({"choices": [{"message": {"content": "ok"}}]})
+
+    monkeypatch.setattr(handlers_mod, "_try_non_streaming", capture)
+    response = client.post(
+        "/v1/chat/completions",
+        json={
+            "model": "auto-coding",
+            "messages": [{"role": "user", "content": "/agenticheavy do the work"}],
+        },
+        headers=_HEADERS,
+    )
+    assert response.status_code == 200, response.text
+    assert seen["workspace"] == "auto-coding::heavy"
+    assert _system(seen["body"]).startswith(_PERSONA_MAP["agenticheavy"].system_prompt)
+
+
+def test_role_prefix_is_removed_before_auto_routing(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import portal.platform.inference.router.handlers as handlers_mod
+
+    seen: dict[str, Any] = {}
+
+    async def route(_workspace: str, messages: list[dict[str, Any]]) -> str:
+        seen["messages"] = messages
+        return "auto-daily"
+
+    async def capture(*args: Any, **_kwargs: Any) -> JSONResponse:
+        return JSONResponse({"choices": [{"message": {"content": "ok"}}]})
+
+    monkeypatch.setattr(handlers_mod, "_resolve_auto_routing", route)
+    monkeypatch.setattr(handlers_mod, "_try_non_streaming", capture)
+    response = client.post(
+        "/v1/chat/completions",
+        json={
+            "model": "auto",
+            "messages": [{"role": "user", "content": "/itexpert help me"}],
+        },
+        headers=_HEADERS,
+    )
+    assert response.status_code == 200, response.text
+    assert seen["messages"] == [{"role": "user", "content": "help me"}]
+
+
 def test_behavioural_persona_slash_is_untouched(
     client: TestClient, monkeypatch: pytest.MonkeyPatch
 ) -> None:

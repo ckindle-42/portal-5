@@ -1,5 +1,6 @@
 name: Tech Writer
 slug: techwriter
+delivery: role
 category: writing
 source: prompts.chat
 workspace_model: auto-documents

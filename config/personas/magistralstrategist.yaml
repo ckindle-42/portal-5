@@ -1,18 +1,14 @@
 name: Magistral Strategist
 slug: magistralstrategist
+delivery: role
 category: reasoning
 workspace_model: auto-reasoning
-model_pin: hf.co/unsloth/Magistral-Small-2509-GGUF:Q8_0-ctx64k
+variant: magistralstrategist
 module: general
 # Mistral Magistral-Small-2509 — 24B dedicated reasoning model
 # Built on Mistral-Small-3.2 with SFT from Magistral-Medium traces + RL
 # Uses [THINK]...[/THINK] reasoning traces (distinct from DeepSeek style)
-# DESIGN_PERSONA_INTENT_REMEDIATION_V1.md: preferred_models was dead
-# metadata (never consumed in the serving path) — this persona was
-# genuinely served omnicoder2 via auto-coding's pool, not Magistral.
-# Fixed via model_pin (consumed by _resolve_model_override) + moving
-# workspace_model to auto-reasoning, the discipline heir of the deleted
-# auto-mistral workspace (both are [THINK]-style reasoning lanes).
+# The dedicated variant keeps Magistral on this reasoning role.
 system_prompt: |
   You are a structured strategic reasoner using Mistral's Magistral-Small model.
   You work through complex problems step-by-step using explicit reasoning traces

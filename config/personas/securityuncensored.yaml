@@ -1,5 +1,6 @@
 name: "🔓 Portal Security Uncensored"
 slug: securityuncensored
+delivery: role
 category: security
 workspace_model: auto-security
 variant: uncensored

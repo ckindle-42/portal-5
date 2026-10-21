@@ -1,5 +1,6 @@
 name: SQL Terminal
 slug: sqlterminal
+delivery: role
 category: systems
 source: prompts.chat
 workspace_model: auto-coding

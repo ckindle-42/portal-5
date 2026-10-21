@@ -805,6 +805,9 @@ backends:
     supports_tools: true
   - id: hf.co/douyamv/Gemma-4-31B-JANG_4M-CRACK-GGUF:gemma-4-31b-jang-crack-Q4_K_M.gguf
     supports_tools: true
+  # auto-vision::gemma4jangvision bakes its declared context_limit 8192 via this derived tag (2026-10-20)
+  - id: hf.co/douyamv/Gemma-4-31B-JANG_4M-CRACK-GGUF:gemma-4-31b-jang-crack-Q4_K_M.gguf-ctx8k
+    supports_tools: true
   # V11 candidate intake (2026-06-30) — bench-only, PROMOTE_POLICY=confirm
   - id: hf.co/mradermacher/Qwen3.5-9B-Claude-4.6-HighIQ-THINKING-HERETIC-UNCENSORED-GGUF:Q4_K_M
     # supports_tools=false: thinking model, not agentic. HERETIC-abliterated

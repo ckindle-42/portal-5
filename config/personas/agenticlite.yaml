@@ -1,5 +1,6 @@
 name: "⚡ Portal Agentic Coder (Lite)"
 slug: agenticlite
+delivery: role
 category: coding
 workspace_model: auto-coding
 variant: lite

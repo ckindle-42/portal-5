@@ -1184,6 +1184,84 @@ workspaces:
         predict_limit: null
         system_prompt_append: null
         owui_system_prompt: null
+      devstral_coder:
+        module: "coding"
+        model_hint: "devstral-small-2:latest-ctx8k"
+        context_limit: 8192
+        predict_limit: 16384
+        temperature: 0.7
+        top_p: 0.8
+        top_k: 20
+        min_p: 0.05
+        repeat_penalty: 1.05
+      gemma4-heretic-coder:
+        module: "coding"
+        model_hint: "portal5/gemma4-26b-heretic:q4_K_M-ctx256k"
+        context_limit: 262144
+        predict_limit: 16384
+        # sampling: gemma4 card (2026-10-20 settings_audit served_vs_card fix)
+        temperature: 1.0
+        top_p: 0.95
+        top_k: 64
+        min_p: 0.05
+        repeat_penalty: 1.05
+      glm-coder:
+        module: "coding"
+        model_hint: "glm-4.7-flash:Q4_K_M-ctx64k"
+        context_limit: 65536
+        predict_limit: 16384
+        # sampling: glm-4.7-flash card agentic_coding arm (coding seat)
+        temperature: 0.7
+        top_p: 1.0
+        top_k: 20
+        min_p: 0.05
+        repeat_penalty: 1.05
+      hauhaucs-coder:
+        module: "coding"
+        model_hint: "portal5/hauhaucs-qwen36-35b:q4_K_M-ctx256k"
+        context_limit: 262144
+        predict_limit: 16384
+        # sampling: qwen3.6 card (2026-10-20 settings_audit served_vs_card fix)
+        temperature: 1.0
+        top_p: 0.95
+        top_k: 20
+        min_p: 0.05
+        repeat_penalty: 1.05
+      ornith15-coder:
+        module: "coding"
+        model_hint: "portal5/ornith15-35b:q4_K_M-ctx256k"
+        context_limit: 262144
+        predict_limit: 16384
+        # sampling: ornith card (2026-10-20 settings_audit served_vs_card fix)
+        temperature: 1.0
+        top_p: 0.95
+        top_k: 20
+        min_p: 0.05
+        repeat_penalty: 1.05
+      qwen38coder:
+        module: "coding"
+        model_hint: "hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M"
+        context_limit: 262144
+        predict_limit: 16384
+        # sampling: qwen3.8 card thinking mode (2026-10-20 settings_audit served_vs_card fix)
+        temperature: 1.0
+        top_p: 0.95
+        top_k: 20
+        min_p: 0.0
+        presence_penalty: 0.0
+        repeat_penalty: 1.0
+      qwen38coder-dflash:
+        module: "coding"
+        model_hint: "Qwen3.8-27B-4bit"
+        context_limit: 262144
+        predict_limit: 16384
+        # sampling: qwen3.8 card thinking mode (2026-10-20 settings_audit served_vs_card fix)
+        temperature: 1.0
+        top_p: 0.95
+        top_k: 20
+        min_p: 0.0
+        presence_penalty: 0.0
+        repeat_penalty: 1.0
   auto-spl:
     module: general
     name: 🔍 Portal SPL Engineer
@@ -1865,6 +1943,25 @@ workspaces:
         owui_system_prompt: |-
           You are a precise mathematical reasoning assistant. Show your work step by step. Use proper notation. Verify answers by substitution or alternative methods. For proofs, clearly state axioms and theorems used. For applied problems, state assumptions and check dimensional consistency.
         system_prompt_append: "\n\nSAFETY POSTURE: You are a standard-posture assistant. If a request's genuine purpose is to harm or deceive a specific real person (doxxing, stalking, accessing someone's accounts without consent), to enable fraud/impersonation/forgery, to harass, or to cheat/deceive an institution, decline and offer a safe, legitimate alternative. This does not restrict ordinary academic, professional, security-research, or fictional work \u2014 help fully with those."
+      glm-thinker:
+        module: "general"
+        model_hint: "hf.co/bartowski/THUDM_GLM-Z1-Rumination-32B-0414-GGUF:THUDM_GLM-Z1-Rumination-32B-0414-Q4_K_M.gguf-ctx64k"
+        context_limit: 65536
+        predict_limit: 40960
+        temperature: 1.0
+        top_p: 0.95
+        think: true
+        emits_reasoning: true
+      magistralstrategist:
+        module: "general"
+        model_hint: "hf.co/unsloth/Magistral-Small-2509-GGUF:Q8_0-ctx64k"
+        context_limit: 65536
+        predict_limit: 40960
+        # sampling: magistral card (2026-10-20 settings_audit served_vs_card fix)
+        temperature: 0.7
+        top_p: 0.95
+        think: true
+        emits_reasoning: true
   auto-council:
     module: general
     system_prompt_append: "\n\nSAFETY POSTURE: You are a standard-posture assistant. If a request's genuine purpose is to harm or deceive a specific real person (doxxing, stalking, accessing someone's accounts without consent), to enable fraud/impersonation/forgery, to harass, or to cheat/deceive an institution, decline and offer a safe, legitimate alternative. This does not restrict ordinary academic, professional, security-research, or fictional work \u2014 help fully with those."
@@ -2102,6 +2199,30 @@ workspaces:
     enable_web_search: false
     owui_system_prompt: |-
       You analyze images and handle multimodal tasks. Describe what you observe in detail. For image generation requests, call the generate_image tool (MLX-native FLUX); pass model='qwen-image' when the image needs legible text. Use edit_image with image_url set to modify an existing image by instruction.
+    variants:
+      gemma4jangvision:
+        module: "general"
+        # -ctx8k: derived tag bakes the declared context_limit; tag created on the host 2026-10-20
+        model_hint: "hf.co/douyamv/Gemma-4-31B-JANG_4M-CRACK-GGUF:gemma-4-31b-jang-crack-Q4_K_M.gguf-ctx8k"
+        context_limit: 8192
+        temperature: 1.0
+        top_p: 0.95
+        # top_k 64: gemma4 card (2026-10-20 settings_audit served_vs_card fix)
+        top_k: 64
+        min_p: 0.05
+        presence_penalty: 0.0
+        repeat_penalty: 1.0
+      gemma_vision:
+        module: "general"
+        model_hint: "gemma4:31b-it-qat-ctx8k"
+        context_limit: 8192
+        temperature: 1.0
+        top_p: 0.95
+        # top_k 64: gemma4 card (2026-10-20 settings_audit served_vs_card fix)
+        top_k: 64
+        min_p: 0.05
+        presence_penalty: 0.0
+        repeat_penalty: 1.0
   security-reviewer:
     # Operator-selected only, same rule as auto-security: security is never an
     # auto-routing destination. No `router_fallback` — the hand-off detector

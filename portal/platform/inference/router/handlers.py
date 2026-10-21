@@ -61,6 +61,7 @@ from portal.platform.inference.router.non_streaming import (
     _try_non_streaming,
 )
 from portal.platform.inference.router.preinject import (
+    _apply_role_slash,
     _inject_attached_files,
     _inject_requested_prompts,
     _inject_system_prompt_append,
@@ -70,6 +71,7 @@ from portal.platform.inference.router.preinject import (
     _resolve_persona_workspace,
     _resolve_vision_fallback,
     _resolve_workspace_variant,
+    _role_variant_for_workspace,
     _selected_variant_name,
     _unpack_synthetic_workspace,
 )
@@ -573,7 +575,8 @@ async def _resolve_request_route(
 
     # Phase 3: Content-aware routing for 'auto' — LLM intent classification,
     # falling back to weighted keyword scoring.
-    workspace_id = await _resolve_auto_routing(workspace_id, body.get("messages", []))
+    _route_body, _ = _apply_role_slash(body)
+    workspace_id = await _resolve_auto_routing(workspace_id, _route_body.get("messages", []))
 
     # Phase 4: auto-vision text-only fallback — reroute to auto-reasoning when
     # no image_url is present in the request.
@@ -585,9 +588,12 @@ async def _resolve_request_route(
 
     # Gate 4: disabled engine, then disabled variant. The engine stays up.
     _reject_disabled_workspace(workspace_id)
-    _variant = _selected_variant_name(
-        _original_model_id, request.query_params.get("variant") or _alias_variant
+    _variant_param = (
+        request.query_params.get("variant")
+        or _alias_variant
+        or _role_variant_for_workspace(body, workspace_id)
     )
+    _variant = _selected_variant_name(_original_model_id, _variant_param)
     if _variant:
         _reject_disabled_workspace(f"{workspace_id}::{_variant}")
 
@@ -598,7 +604,7 @@ async def _resolve_request_route(
     workspace_id = _resolve_workspace_variant(
         _original_model_id,
         workspace_id,
-        request.query_params.get("variant") or _alias_variant,
+        _variant_param,
     )
 
     # Phase 4c: explicit ?model=<hint> query param overrides the resolved

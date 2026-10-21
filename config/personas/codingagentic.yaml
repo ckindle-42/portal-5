@@ -1,5 +1,6 @@
 name: "🔄 Portal IDE / Agentic Coder"
 slug: codingagentic
+delivery: role
 category: coding
 workspace_model: auto-coding
 variant: laguna
