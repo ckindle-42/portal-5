@@ -1076,42 +1076,6 @@ workspaces:
         - kb_list
         mode: agentic
         guardrail: default
-      reap288:
-        name: 🧪 Portal Agentic Coder (REAP-288, heavy — IDE only)
-        # stack_down_only: seat needs 40.57 GB vs the 40.41 GB oMLX ceiling with the stack up (load guard 2026-10-21); run via ./launch.sh coder-reap288.
-        stack_down_only: true
-        description: 'IDE-lane agentic coder direct to Qwen3.8-Flash-Next-REAP-288-MLX-4bit (oMLX, MLX 4-bit, REAP expert-pruned 512->288 of the 180B-class Qwen3.8-Flash-Next MoE, top-10 routing, 262K native ctx). Thinking model. Explicit pick only — NEVER an auto-* default / never OWUI (TASK_OMLX_QWEN38FN_REAP288_BRINGUP_V1 operator verdict). ~39GB resident with qwen4_ple_ssd_offload:true; a ~40.6GB oMLX admission gate cannot be met with the full Portal stack up (~10GB reclaimable then). RELIABLE PATH: `./launch.sh coder-reap288` — stops the stack, frees RAM, warm-loads the model, opens opencode straight against oMLX :8085 (not this pipeline path). Warm decode ~24-29 tok/s. Prefill ceiling: ~39GB resident leaves ~17GB under the 56GB Metal cap, so full agentic turns (~18-20K token repo context) trip oMLX''s prefill guard — bounded-context coding only; heavy repo-wide work stays on the laguna default. oMLX-only, no Ollama/GGUF fallback.'
-        # 2026-09-25: qwen3.8 instruct card + think pinned off — its bench seat ran think:false (code repair, not a reasoning task); the flag was lost when it became a variant (091682f1); A/B: docs/TASK_SEAT_SAMPLING_AB_V1.md B2
-        model_hint: Qwen3.8-Flash-Next-REAP-288-MLX-4bit
-        think: false
-        context_limit: 32768
-        max_concurrent: 1
-        keep_alive: 30m
-        temperature: 0.7
-        top_p: 0.8
-        top_k: 20
-        repeat_penalty: 1.0
-        min_p: 0.0
-        presence_penalty: 1.5
-        emits_reasoning: true
-        system_prompt_append: "\n\nAGENTIC CODING LOOP — follow this pattern every turn:\n1. EXPLORE: call explore_repository('what you need to find') first.\n   It returns exact file paths and line numbers — use these, do not guess paths.\n2. READ: call read_text_file(path=...) to read those specific files before editing.\n   NEVER use execute_bash cat/head/tail to read project files —\n   execute_bash runs inside an isolated Docker container with NO access to the\n   host filesystem. read_text_file/list_directory/search_files are the only way\n   to read project files.\n3. PLAN: state the minimal change needed and which files are affected\n4. EDIT: call write_file(path=..., content=...) — do not rewrite whole files\n5. VERIFY: run tests or linters with execute_bash after every change\n   (pytest tests/unit/ -q; ruff check <file>)\n6. REPORT: state what changed, what passed, and what remains\n\nTOOL ROUTING:\n- read_text_file, write_file, search_files, list_directory:\n  host-native pipeline tools — call these directly by name for ALL file I/O\n- execute_bash / execute_python / execute_nodejs:\n  isolated sandbox container — use ONLY for running code, tests, and linters\n\nHARD CONSTRAINTS:\n- Never hardcode model names, backend URLs, or credentials\n- Never modify Open WebUI source — use extension points only\n- Never commit .env or add cloud dependencies\n- Run pytest before declaring a fix complete\n- Keep portal.platform.inference lean — no ML framework imports"
-        tools:
-        - explore_repository
-        - read_text_file
-        - list_directory
-        - search_files
-        - write_file
-        - execute_bash
-        - execute_python
-        - execute_nodejs
-        - sandbox_status
-        - read_word_document
-        - read_pdf
-        - remember
-        - recall
-        mode: agentic
-        guardrail: default
-
       cad:
         module: cad
         name: 📐 Portal CAD / 3D-Print Designer

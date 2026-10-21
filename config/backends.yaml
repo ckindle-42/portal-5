@@ -926,60 +926,9 @@ backends:
   # probe (clean tool_calls, correctly typed arguments).
   - id: Qwen3.8-27B-4bit
     supports_tools: true
-  # sh0wie/Qwen3.8-Flash-Next-REAP-288-MLX-4bit added 2026-09-02
-  # (TASK_OMLX_QWEN38FN_REAP288_BRINGUP_V1). REAP expert pruning 512->288
-  # (reap_prune.source_experts 512 -> kept_experts 288, per config.json) of
-  # Qwen/Qwen3.8-Flash-Next -- qwen4_exp arch, 48 layers, num_experts_per_tok
-  # 10, 262144 native ctx. MLX affine 4-bit (backbone gs64, PLE n-gram table
-  # gs32). Bench-only candidate on the shadow-shift oMLX-coding path; the
-  # bench-qwen38-flash-next-reap288 workspace in config/portal.yaml carries
-  # the model_hint. auto-coding's own routing is byte-unchanged.
-  #
-  # OPERATOR VERDICT 2026-09-02: this MUST NOT become an auto-coding /
-  # auto-* default -- too heavy (39GB loaded + a 40.57GB admission gate
-  # that needs a quiet host). Bench / restricted manual use only, and only
-  # if it proves out against Laguna-XS-2.1 in the bench lane.
-  #
-  # MEMORY (measured 2026-09-02 -- the model card's own numbers held):
-  #   - card: 68GB disk / 68GB resident non-streamed / "39 GB streamed".
-  #     Our load: 39.13GB actual resident with PLE SSD-offload (matches the
-  #     card's 39GB and the source plan's ~39GB estimate). du -sh = 70GB;
-  #     config checkpoint_bytes 73.5GB; PLE n-gram table 32GB of that.
-  #   - REQUIRES `qwen4_ple_ssd_offload: true` in ~/.omlx/model_settings.json
-  #     (host config, not in this repo). With it oMLX logs "Qwen4-Exp PLE
-  #     mode: mmap" and the loaded footprint is 39.13GB. oMLX's *admission*
-  #     estimate is higher and padded: 40.57GB with the setting, 71.87GB
-  #     without -- and qwen4_exp_residency_estimate.resident_bytes reports a
-  #     conservative 77GB. Without the setting oMLX only auto-forces the
-  #     offload when the memory ceiling is already >=45GB and otherwise
-  #     refuses (HTTP 507, "Model (71.87GB) does not fit").
-  #   - the 40.57GB admission check will not pass co-resident with the full
-  #     Portal Docker stack + Ollama on this 64GB host (~25GB reclaimable).
-  #     Bench runs require a quiet host: `./launch.sh down` + evict the
-  #     loaded Ollama model raises reclaimable to ~41GB, enough to admit.
-  #
-  # PROBED 2026-09-02 on a quiet host (stack down): first load ~22s.
-  # DECODE (warm, sustained, 256-300 token gens): ~23-29 tok/s on this
-  # M4 Pro via the streamed-PLE path -- in line with the card's ~28 tok/s
-  # (which is stock mlx-vlm with the table RESIDENT; the card explicitly
-  # does not separately benchmark oMLX's streamed path). Earlier cold
-  # readings of 6-11 tok/s were a measurement artifact: 16/94-token gens
-  # immediately after the 22s load. Settings are NOT the bottleneck.
-  # - model_type_override: "llm" does NOT work -- qwen4_exp only runs
-  #   through oMLX's VLM engine (batched/LLM engine: "Model type qwen4_exp
-  #   not supported"). VLM engine is the only path.
-  # - no mtp.*/draft tensors in this checkpoint, so no speculative decode.
-  # - /Volumes/data01 (where the PLE table streams from) is an external
-  #   Thunderbolt PCIe SSD, ~3GB/s seq read -- adequate NVMe, not the cap.
-  # Thinking model: reasoning goes to the response's reasoning_content
-  # field, not content.
-  # No GGUF/Ollama fallback, so this hint is oMLX-only (same pattern as the
-  # Qwen3.8-27B-4bit DFlash2 entry above). supports_tools:true verified via
-  # a direct /v1/chat/completions tool-call probe: clean tool_calls block,
-  # name get_weather, arguments {"location": "Little Rock, AR"} correctly
-  # typed, finish_reason tool_calls.
-  - id: Qwen3.8-Flash-Next-REAP-288-MLX-4bit
-    supports_tools: true
+  # Qwen3.8-Flash-Next-REAP-288-MLX-4bit (bench/manual coding candidate
+  # 2026-09-02, TASK_OMLX_QWEN38FN_REAP288_BRINGUP_V1) was removed 2026-10-21:
+  # the operator deleted the weights. History in config/MODEL_CATALOG.md.
   priority: 10
   aliases:
     qwen3-coder:30b-a3b-q4_K_M-ctx256k: Qwen3-Coder-30B-A3B-Instruct-4bit
@@ -1358,8 +1307,6 @@ workspace_routing:
   - general
   bench-qwen38-27b:
   - general
-  bench-qwen38-flash-next-reap288:
-  - coding
   bench-nex-n25-mini-uncensored:
   - security
   - general

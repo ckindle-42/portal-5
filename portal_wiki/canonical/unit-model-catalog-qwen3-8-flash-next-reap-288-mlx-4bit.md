@@ -11,8 +11,10 @@ tags:
 - docs
 - verified-v1
 created_at: 1788825600.0
-updated_at: 1788825600.0
+updated_at: 1792540800.0
 ---
+
+**REMOVED 2026-10-21:** the operator deleted the weights (the model only ever ran with the stack down). The `omlx-coding` registration in `config/backends.yaml`, the `auto-coding` `reap288` variant in `config/portal.yaml`, the `bench-qwen38-flash-next-reap288` workspace in `config/bench_workspaces.yaml`, the `codingreap288` persona and `scripts/coder-reap288.sh` (`./launch.sh coder-reap288`) are all gone. The text below is kept as the history of the 2026-09-02 bring-up (`TASK_OMLX_QWEN38FN_REAP288_BRINGUP_V1`); nothing in it describes a served model anymore.
 
 `Qwen3.8-Flash-Next-REAP-288-MLX-4bit` (`sh0wie/Qwen3.8-Flash-Next-REAP-288-MLX-4bit` on Hugging Face) is a REAP expert-pruned MLX affine 4-bit conversion of `Qwen/Qwen3.8-Flash-Next`. REAP (Router-weighted Expert Activation Pruning, arXiv:2510.13999, Lasby et al., ICLR 2026) drops the MoE from 512 to 288 experts; the base is a 180B-class MoE with ~6B active params/token and top-10 routing. The backbone is quantized at group size 64 and the PLE (per-layer-embedding) n-gram table at group size 32. It was added 2026-09-02 (`TASK_OMLX_QWEN38FN_REAP288_BRINGUP_V1`) as a **bench-only** candidate wired to the `bench-qwen38-flash-next-reap288` workspace in `config/portal.yaml` (`module: eval`, `PROMOTE_POLICY=confirm`). `config/backends.yaml` registers it in the `omlx-coding` entry (group `coding`, `priority: 10`) — the same shadow-shift oMLX serving path `auto-coding` uses, but `auto-coding`'s own `model_hint`/priority/aliases are unchanged. There is no GGUF/Ollama fallback for this checkpoint, so the hint is oMLX-only, the same pattern as the `Qwen3.8-27B-4bit` DFlash2 entry.
 
