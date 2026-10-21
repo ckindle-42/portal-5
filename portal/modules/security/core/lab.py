@@ -35,6 +35,21 @@ from ._data import (
     _proxmox_mcp_call,
 )
 
+# ── Shape guards for caller-supplied values reaching shell strings ───────────
+
+_IPV4_RE = re.compile(r"^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$")
+_Windows_ACCOUNT_RE = re.compile(r"^[A-Za-z0-9_.\-]{1,64}$")
+
+
+def _valid_ipv4(ip: str) -> bool:
+    m = _IPV4_RE.match(ip)
+    return m is not None and all(0 <= int(o) <= 255 for o in m.groups())
+
+
+def _valid_windows_account(name: str) -> bool:
+    return bool(_Windows_ACCOUNT_RE.fullmatch(name))
+
+
 # ── Sandbox output parsing ───────────────────────────────────────────────────
 
 # Red's own execute_bash/execute_python results are capped far below
@@ -296,6 +311,8 @@ def dispatch_blue_response(
             ip = arguments.get("ip", "")
             if not ip:
                 return {"ok": False, "output": "ip required", "elapsed_s": 0.0}
+            if not _valid_ipv4(ip):
+                return {"ok": False, "output": "invalid ip", "elapsed_s": 0.0}
             cmd = f"nxc smb {dc} -u Administrator -p '{_LAB_ADMIN_PASS}' -x 'netsh advfirewall firewall add rule name=\"Block_Attacker\" dir=in remoteip={ip} action=block' 2>&1"
             r = _lab_mcp_call(cmd, timeout=30)
             ok, out = parse_sandbox_output(r.get("output", ""))
@@ -304,6 +321,8 @@ def dispatch_blue_response(
             username = arguments.get("username", "")
             if not username:
                 return {"ok": False, "output": "username required", "elapsed_s": 0.0}
+            if not _valid_windows_account(username):
+                return {"ok": False, "output": "invalid username", "elapsed_s": 0.0}
             cmd = f"nxc smb {dc} -u Administrator -p '{_LAB_ADMIN_PASS}' -x 'net user {username} /active:no' 2>&1"
             r = _lab_mcp_call(cmd, timeout=30)
             ok, out = parse_sandbox_output(r.get("output", ""))
@@ -339,6 +358,8 @@ def verify_defense(tool_name: str, arguments: dict[str, Any], dc: str = "") -> d
             ip = arguments.get("ip", "")
             if not ip:
                 return {"verified": False, "evidence": "no IP specified"}
+            if not _valid_ipv4(ip):
+                return {"verified": False, "evidence": "invalid ip"}
             # Verify: try to connect to the blocked IP — should fail
             cmd = f"timeout 3 bash -c 'echo > /dev/tcp/{ip}/445' 2>&1; echo EXIT=$?"
             r = _lab_mcp_call(cmd, timeout=10)
@@ -350,6 +371,8 @@ def verify_defense(tool_name: str, arguments: dict[str, Any], dc: str = "") -> d
             username = arguments.get("username", "")
             if not username:
                 return {"verified": False, "evidence": "no username specified"}
+            if not _valid_windows_account(username):
+                return {"verified": False, "evidence": "invalid username"}
             # Verify: try to authenticate with the disabled account — should fail
             cmd = f"nxc smb {dc} -u '{username}' -p 'InvalidPass123!' 2>&1 | head -3"
             r = _lab_mcp_call(cmd, timeout=15)
