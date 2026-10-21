@@ -22,10 +22,11 @@ it defers to the next day.
 Ollama:  release tarball unpacked to ``~/.portal5/engines/ollama-<ver>/`` (live + previous kept); ``~/ollama-current``
          flipped; LaunchDaemon ``com.portal5.ollama`` kickstarted (passwordless
          launchctl per the portal5 sudoers entry). Rollback flips it back.
-oMLX:    ``brew upgrade`` with cleanup disabled so the previous keg survives (older kegs pruned);
-         ``~/.omlx/settings.json`` + ``model_settings.json`` backed up first.
-         Rollback re-points ``/opt/homebrew/opt/omlx`` (what the brew service
-         runs) at the previous keg and restores the settings.
+oMLX:    installs GitHub release wheels into a staged copy of ``~/omlx-live/venv``
+         when ``com.portal5.omlx`` is loaded; the Homebrew service remains a
+         fallback until cutover. ``~/.omlx/settings.json`` + ``model_settings.json``
+         are backed up first. Rollback reinstalls the previous wheel and restores
+         those settings.
 
 Usage:
   uv run python scripts/engine_autoupdate.py            # the daily job
@@ -61,6 +62,12 @@ from scripts.check_updates import (  # noqa: E402
     check_ollama,
     check_omlx,
 )
+from scripts.omlx_venv_install import (
+    activate_venv,
+    relocate_venv_entrypoints,
+    stage_venv_upgrade,
+    venv_path,
+)
 
 STATE = Path.home() / ".portal5" / "engine_update.json"
 CONTRACT = REPO / "scripts" / "engine_contract_check.py"
@@ -75,6 +82,9 @@ OMLX_URL = "http://localhost:8085"
 OMLX_FORMULA = "jundot/omlx/omlx"
 OMLX_OPT = Path("/opt/homebrew/opt/omlx")
 OMLX_CELLAR = Path("/opt/homebrew/Cellar/omlx")
+OMLX_VENV = venv_path()
+OMLX_VENV_LABEL = "com.portal5.omlx"
+OMLX_BREW_LABEL = "sh.brew.omlx"
 OMLX_SETTINGS = [HOME / ".omlx" / "settings.json", HOME / ".omlx" / "model_settings.json"]
 WEEK = dt.timedelta(days=7)
 # wfe_campaign.sh / wfe_supervise cover the seconds between arms (only bash is alive then) and
@@ -282,20 +292,50 @@ def ollama_switch(version: str, expected_models: int) -> str:
 # ── oMLX ────────────────────────────────────────────────────────────────────
 
 
+def omlx_venv_active() -> bool:
+    if not (OMLX_VENV / "bin" / "python").is_file():
+        return False
+    return (
+        _run(["launchctl", "print", f"gui/{os.getuid()}/{OMLX_VENV_LABEL}"], timeout=10).returncode
+        == 0
+    )
+
+
+def omlx_service_label() -> str:
+    return OMLX_VENV_LABEL if omlx_venv_active() else OMLX_BREW_LABEL
+
+
 def omlx_running() -> str:
+    if omlx_venv_active():
+        r = _run(
+            [
+                str(OMLX_VENV / "bin" / "python"),
+                "-c",
+                "import importlib.metadata as m; print(m.version('omlx'))",
+            ],
+            timeout=20,
+        )
+        if r.returncode == 0 and r.stdout.strip():
+            return r.stdout.strip()
+        raise RuntimeError(f"could not read oMLX venv version: {r.stderr.strip()}")
     return os.readlink(OMLX_OPT).rstrip("/").rsplit("/", 1)[-1]
 
 
 def omlx_latest() -> str:
-    _run(["brew", "update", "--quiet"], timeout=600)
-    info = json.loads(_run(["brew", "info", "--json=v2", OMLX_FORMULA], timeout=120).stdout)
-    return str(info["formulae"][0]["versions"]["stable"])
+    release = _get("https://api.github.com/repos/jundot/omlx/releases/latest")
+    return str(release["tag_name"]).removeprefix("v")
 
 
 def _omlx_restart() -> bool:
-    r = _run(["brew", "services", "restart", OMLX_FORMULA], timeout=120)
+    if omlx_service_label() == OMLX_VENV_LABEL:
+        r = _run(
+            ["launchctl", "kickstart", "-k", f"gui/{os.getuid()}/{OMLX_VENV_LABEL}"],
+            timeout=120,
+        )
+    else:
+        r = _run(["brew", "services", "restart", OMLX_FORMULA], timeout=120)
     if r.returncode != 0:
-        log(f"omlx: brew services restart failed: {r.stderr.strip()}")
+        log(f"omlx: service restart failed: {r.stderr.strip()}")
         return False
     return _wait(lambda: _http_ok(f"{OMLX_URL}/health") is not None)
 
@@ -318,14 +358,25 @@ def omlx_model_count() -> int:
     return int(pool.get("model_count") or 0)
 
 
-def omlx_upgrade(expected_models: int) -> str:
-    """brew upgrade + restart. Returns "ok", "failed" or "tcc" (data01 popup)."""
+def omlx_upgrade(version: str, expected_models: int) -> str:
+    """Install a release wheel or use brew fallback; return update outcome."""
+    if omlx_venv_active():
+        stage = stage_venv_upgrade(version, OMLX_VENV, _run)
+        activate_venv(stage, OMLX_VENV)
+        if not _omlx_restart():
+            return "failed"
+        visible = _await_visible("omlx", omlx_model_count, expected_models, version, _omlx_restart)
+        return "ok" if visible else "tcc"
     r = _run(
         ["brew", "upgrade", OMLX_FORMULA], timeout=1800, env={"HOMEBREW_NO_INSTALL_CLEANUP": "1"}
     )
     if r.returncode != 0:
         log(f"omlx: brew upgrade failed: {r.stderr.strip()[-400:]}")
         return "failed"
+    installed = omlx_running()
+    if installed != version:
+        log(f"omlx: Homebrew has {installed}; GitHub release {version} is not in the tap yet")
+        return "unavailable"
     if not _omlx_restart():
         return "failed"
     visible = _await_visible(
@@ -335,6 +386,10 @@ def omlx_upgrade(expected_models: int) -> str:
 
 
 def omlx_prune(keep: set[str]) -> None:
+    if omlx_venv_active():
+        for suffix in ("previous", "failed", "new"):
+            shutil.rmtree(OMLX_VENV.with_name(f"{OMLX_VENV.name}.{suffix}"), ignore_errors=True)
+        return
     for d in OMLX_CELLAR.glob("*"):
         if d.is_dir() and not d.is_symlink() and d.name not in keep:
             log(f"omlx: pruning old keg {d}")
@@ -342,7 +397,27 @@ def omlx_prune(keep: set[str]) -> None:
 
 
 def omlx_point_at(version: str) -> bool:
-    """Re-point the service's opt symlink at a kept keg (rollback)."""
+    """Restore a previous service version and restart the active service."""
+    if omlx_venv_active():
+        if omlx_running() == version:
+            return _omlx_restart()
+        previous = OMLX_VENV.with_name(f"{OMLX_VENV.name}.previous")
+        if not previous.is_dir():
+            log(f"omlx: prior venv for {version} is gone — cannot roll back")
+            return False
+        stage = stage_venv_upgrade(version, previous, _run)
+        relocate_venv_entrypoints(stage, OMLX_VENV)
+        failed = OMLX_VENV.with_name(f"{OMLX_VENV.name}.failed")
+        shutil.rmtree(failed, ignore_errors=True)
+        if OMLX_VENV.exists():
+            OMLX_VENV.rename(failed)
+        try:
+            stage.rename(OMLX_VENV)
+        except OSError:
+            if failed.exists() and not OMLX_VENV.exists():
+                failed.rename(OMLX_VENV)
+            raise
+        return _omlx_restart()
     if not (OMLX_CELLAR / version).is_dir():
         log(f"omlx: keg {version} is gone — cannot roll back")
         return False
@@ -377,9 +452,7 @@ def _alert(title: str, msg: str, high: bool = False) -> None:
 _PRERELEASE = re.compile(r"(rc|alpha|beta|dev|pre)\d*", re.IGNORECASE)
 
 
-def update_engine(engine: str, state: dict, dry_run: bool, allow_prerelease: bool = False) -> bool:
-    """Update one engine if behind. Returns True when it must be retried on the
-    NEXT daily run rather than a week later (the data01 approval was not given)."""
+def _update_target(engine: str, state: dict, allow_prerelease: bool) -> tuple[str, str] | None:
     running_fn, latest_fn = {
         "ollama": (ollama_running, ollama_latest),
         "omlx": (omlx_running, omlx_latest),
@@ -388,17 +461,17 @@ def update_engine(engine: str, state: dict, dry_run: bool, allow_prerelease: boo
     rejected = state.setdefault("rejected", {}).setdefault(engine, [])
     if _semver(new) <= _semver(old):
         log(f"{engine}: {old} is current")
-        return False
+        return None
     if _PRERELEASE.search(new) and not allow_prerelease:
         log(f"{engine}: {new} is a pre-release — not auto-installed (--allow-prerelease)")
-        return False
+        return None
     if new in rejected:
         log(f"{engine}: {new} available but previously REJECTED by the contract — skipping")
-        return False
-    log(f"{engine}: updating {old} -> {new}" + (" (dry run)" if dry_run else ""))
-    if dry_run:
-        return False
-    tag = dt.datetime.now(dt.UTC).strftime("%Y%m%dT%H%M%SZ")
+        return None
+    return old, new
+
+
+def _attempt_update(engine: str, old: str, new: str, tag: str) -> tuple[str, bool, bool, str]:
     tcc = False
     try:
         if engine == "ollama":
@@ -407,34 +480,69 @@ def update_engine(engine: str, state: dict, dry_run: bool, allow_prerelease: boo
             switched, tcc = outcome == "ok", outcome == "tcc"
         else:
             omlx_backup(tag)
-            outcome = omlx_upgrade(omlx_model_count())
+            outcome = omlx_upgrade(new, omlx_model_count())
             switched, tcc = outcome == "ok", outcome == "tcc"
             new = omlx_running() if switched else new
     except Exception as e:
-        switched = False
+        switched, outcome = False, "failed"
         log(f"{engine}: install failed: {e}")
-    log(f"{engine}: switched={switched}" + (" (waited on data01 approval)" if tcc else ""))
-    rc = contract(engine) if switched else 2
-    entry = {"utc": tag, "from": old, "to": new, "contract_rc": rc}
-    if rc == 0:
-        if engine == "ollama":
-            _repin_router()
-        (ollama_prune if engine == "ollama" else omlx_prune)({old, new})
-        state.setdefault("history", []).append(entry | {"result": "updated"})
-        _alert(
-            f"{engine} updated {old} -> {new}", "engine contract passed — values reach the model"
+    return outcome, switched, tcc, new
+
+
+def _defer_failed_update(
+    engine: str, outcome: str, switched: bool, tcc: bool, state: dict, old: str, new: str, tag: str
+) -> bool:
+    if engine == "omlx" and outcome == "unavailable":
+        state.setdefault("history", []).append(
+            {"utc": tag, "from": old, "to": new, "result": "release_unavailable"}
         )
-        return False
-    # Roll back, and prove the old version still satisfies the contract.
-    back = ollama_switch(old, 1) == "ok" if engine == "ollama" else omlx_point_at(old)
-    if engine == "omlx":
+        return True
+    if engine == "omlx" and not switched and not tcc and omlx_running() == old:
         omlx_restore(tag)
-        back = _omlx_restart() and back
-    rc_old = contract(engine) if back else 2
+        _alert(
+            f"omlx {new}: install did not switch the active version",
+            "Will retry on the next daily run.",
+        )
+        state.setdefault("history", []).append(
+            {"utc": tag, "from": old, "to": new, "result": "install_failed"}
+        )
+        return True
+    return False
+
+
+def _record_success(engine: str, old: str, new: str, state: dict, entry: dict) -> None:
     if engine == "ollama":
         _repin_router()
+    (ollama_prune if engine == "ollama" else omlx_prune)({old, new})
+    state.setdefault("history", []).append(entry | {"result": "updated"})
+    _alert(f"{engine} updated {old} -> {new}", "engine contract passed — values reach the model")
+
+
+def _rollback_engine(engine: str, old: str, new: str, tag: str) -> int:
+    try:
+        back = ollama_switch(old, 1) == "ok" if engine == "ollama" else omlx_point_at(old)
+    except Exception as e:
+        back = False
+        log(f"{engine}: rollback install failed: {e}")
+    if engine == "omlx":
+        omlx_restore(tag)
+        try:
+            back = _omlx_restart() and back
+        except Exception as e:
+            back = False
+            log(f"{engine}: rollback restart failed: {e}")
+    rc_old = contract(engine) if back else 2
+    if engine == "omlx" and rc_old == 0:
+        omlx_prune({old, new})
+    if engine == "ollama":
+        _repin_router()
+    return rc_old
+
+
+def _record_rollback(
+    engine: str, old: str, new: str, state: dict, entry: dict, rc: int, rc_old: int, tcc: bool
+) -> bool:
     if tcc:
-        # Nobody clicked Allow — not a verdict on the release. Retry tomorrow.
         state.setdefault("history", []).append(entry | {"result": "awaiting_approval"})
         _alert(
             f"{engine} {new}: data01 approval not given — rolled back to {old}",
@@ -442,7 +550,7 @@ def update_engine(engine: str, state: dict, dry_run: bool, allow_prerelease: boo
             high=True,
         )
         return True
-    rejected.append(new)
+    state.setdefault("rejected", {}).setdefault(engine, []).append(new)
     state.setdefault("history", []).append(entry | {"result": "rolled_back", "rollback_rc": rc_old})
     _alert(
         f"{engine} {new} REJECTED — rolled back to {old}",
@@ -451,6 +559,29 @@ def update_engine(engine: str, state: dict, dry_run: bool, allow_prerelease: boo
         high=True,
     )
     return False
+
+
+def update_engine(engine: str, state: dict, dry_run: bool, allow_prerelease: bool = False) -> bool:
+    """Update one engine; return true when a retry is due tomorrow."""
+    target = _update_target(engine, state, allow_prerelease)
+    if target is None:
+        return False
+    old, new = target
+    log(f"{engine}: updating {old} -> {new}" + (" (dry run)" if dry_run else ""))
+    if dry_run:
+        return False
+    tag = dt.datetime.now(dt.UTC).strftime("%Y%m%dT%H%M%SZ")
+    outcome, switched, tcc, new = _attempt_update(engine, old, new, tag)
+    if _defer_failed_update(engine, outcome, switched, tcc, state, old, new, tag):
+        return True
+    log(f"{engine}: switched={switched}" + (" (waited on data01 approval)" if tcc else ""))
+    rc = contract(engine) if switched else 2
+    entry = {"utc": tag, "from": old, "to": new, "contract_rc": rc}
+    if rc == 0:
+        _record_success(engine, old, new, state, entry)
+        return False
+    rc_old = _rollback_engine(engine, old, new, tag)
+    return _record_rollback(engine, old, new, state, entry, rc, rc_old, tcc)
 
 
 def main(argv: list[str]) -> int:

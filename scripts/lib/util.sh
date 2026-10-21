@@ -358,14 +358,18 @@ _ensure_native_services() {
     fi
 
     # ── oMLX inference server (host-native, :8085) ──────────────────────────
-    # Peer infra to Ollama: serves the six omlx-* backend groups in
-    # config/backends.yaml (Lightning MTP / shadow-shift). Supervised by
-    # Homebrew's `homebrew.mxcl.omlx` LaunchAgent, whose KeepAlive only
-    # catches a clean exit — not the "process alive but not answering :8085"
-    # wedge we have hit in production. So: (1) make sure the brew service is
-    # started, (2) install the liveness watchdog LaunchAgent that restarts it
-    # on a hang (see scripts/omlx-watchdog.sh).
-    if [ "$ARCH" = "arm64" ] && command -v brew &>/dev/null && brew services list 2>/dev/null | grep -q '^omlx'; then
+    # oMLX may be managed by the fixed-path Portal LaunchAgent or Homebrew.
+    local _omlx_venv="${OMLX_VENV_PATH:-$HOME/omlx-live/venv}"
+    local _omlx_venv_active=false
+    local _omlx_service_domain="gui/$(id -u)"
+    if [ -x "$_omlx_venv/bin/python" ] \
+        && launchctl print "${_omlx_service_domain}/com.portal5.omlx" &>/dev/null; then
+        _omlx_venv_active=true
+    fi
+    if [ "$ARCH" = "arm64" ] && {
+        [ "$_omlx_venv_active" = true ] \
+            || { command -v brew &>/dev/null && brew services list 2>/dev/null | grep -q '^omlx'; }
+    }; then
         # oMLX caps every request at settings.json `sampling.max_context_window`
         # regardless of the per-request context — a stale 32768 there silently
         # truncated the auto-coding / laguna / heavy lanes below the context
@@ -389,13 +393,26 @@ sys.exit(0 if changed else 1)
 PY
         then
             echo "[portal-5]   oMLX settings.json context window raised to 262144 — restarting..."
-            brew services restart jundot/omlx/omlx &>/dev/null || true
+            if [ "$_omlx_venv_active" = true ]; then
+                launchctl kickstart -k "${_omlx_service_domain}/com.portal5.omlx" &>/dev/null || true
+            else
+                brew services restart jundot/omlx/omlx &>/dev/null || true
+            fi
         fi
-        if curl -fsS -m 5 "http://127.0.0.1:8085/v1/models" &>/dev/null 2>&1; then
+        local _omlx_api_key="${OMLX_API_KEY:-$(grep -m1 '^OMLX_API_KEY=' "${PORTAL_ROOT:-.}/.env" 2>/dev/null | cut -d= -f2-)}"
+        local -a _omlx_auth=()
+        if [ -n "$_omlx_api_key" ]; then
+            _omlx_auth=(-H "Authorization: Bearer $_omlx_api_key")
+        fi
+        if curl -fsS -m 5 "${_omlx_auth[@]}" "http://127.0.0.1:8085/v1/models" &>/dev/null 2>&1; then
             echo "[portal-5]   ✅ oMLX: running on :8085"
         else
-            echo "[portal-5]   oMLX not answering on :8085 — restarting brew service..."
-            brew services restart jundot/omlx/omlx &>/dev/null || true
+            echo "[portal-5]   oMLX not answering on :8085 — restarting service..."
+            if [ "$_omlx_venv_active" = true ]; then
+                launchctl kickstart -k "${_omlx_service_domain}/com.portal5.omlx" &>/dev/null || true
+            else
+                brew services restart jundot/omlx/omlx &>/dev/null || true
+            fi
         fi
 
         local _omlx_wd_label="com.portal5.omlx-watchdog"
