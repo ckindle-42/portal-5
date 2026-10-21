@@ -466,24 +466,36 @@ _launch_install_powermetrics() {
 
     SCRIPT_SRC="${PORTAL_ROOT}/scripts/portal5-powermetrics.py"
     PLIST_SRC="${PORTAL_ROOT}/deploy/launchd/com.portal5.powermetrics.plist"
+    SCRIPT_DST="/usr/local/libexec/portal5-powermetrics"
     PLIST_DST="/Library/LaunchDaemons/com.portal5.powermetrics.plist"
-    PYTHON="${PORTAL_ROOT}/.venv/bin/python3"
 
     if [ ! -f "$SCRIPT_SRC" ]; then
         echo "  ❌ Missing: $SCRIPT_SRC"
         exit 1
     fi
-    if [ ! -x "$PYTHON" ]; then
-        echo "  ❌ Portal venv interpreter missing: $PYTHON"
+    if [ ! -x "/usr/bin/python3" ]; then
+        echo "  ❌ System Python missing: /usr/bin/python3"
         exit 1
     fi
 
     echo "[portal-5] Installing powermetrics daemon (requires sudo)..."
-    sed -e "s#__PORTAL_ROOT__#${PORTAL_ROOT}#g" "$PLIST_SRC" | sudo tee "$PLIST_DST" >/dev/null || {
-        echo "  ❌ Failed to copy plist"
+    sudo install -d -o root -g wheel -m 0755 /usr/local/libexec || {
+        echo "  ❌ Failed to secure /usr/local/libexec"
         exit 1
     }
-    sudo launchctl load -w "$PLIST_DST" 2>/dev/null || sudo launchctl kickstart -k "system/com.portal5.powermetrics" 2>/dev/null || true
+    sudo install -o root -g wheel -m 0755 "$SCRIPT_SRC" "$SCRIPT_DST" || {
+        echo "  ❌ Failed to install daemon script"
+        exit 1
+    }
+    sudo install -o root -g wheel -m 0644 "$PLIST_SRC" "$PLIST_DST" || {
+        echo "  ❌ Failed to install plist"
+        exit 1
+    }
+    sudo launchctl unload "$PLIST_DST" 2>/dev/null || true
+    sudo launchctl load -w "$PLIST_DST" || {
+        echo "  ❌ Failed to load powermetrics daemon"
+        exit 1
+    }
 
     sleep 3
     if [ -S "/tmp/portal5-powermetrics.sock" ]; then
@@ -491,8 +503,8 @@ _launch_install_powermetrics() {
     else
         echo "[portal-5] ⏳ Powermetrics daemon installed, starting (may need 15s for first powermetrics sample)..."
     fi
-    echo "  Script: $SCRIPT_SRC"
-    echo "  Python: $PYTHON"
+    echo "  Script: $SCRIPT_DST"
+    echo "  Python: /usr/bin/python3"
     echo "  Plist:  $PLIST_DST"
     echo "  Socket: /tmp/portal5-powermetrics.sock"
     echo "  Status: sudo launchctl list com.portal5.powermetrics"
@@ -501,10 +513,10 @@ _launch_install_powermetrics() {
 
 _launch_uninstall_powermetrics() {
     PLIST_DST="/Library/LaunchDaemons/com.portal5.powermetrics.plist"
-    SCRIPT_DST="/usr/local/bin/portal5-powermetrics"
+    SCRIPT_DST="/usr/local/libexec/portal5-powermetrics"
     echo "[portal-5] Uninstalling powermetrics daemon (requires sudo)..."
     sudo launchctl unload "$PLIST_DST" 2>/dev/null || true
-    sudo rm -f "$PLIST_DST" "$SCRIPT_DST"
+    sudo rm -f "$PLIST_DST" "$SCRIPT_DST" "/usr/local/bin/portal5-powermetrics"
     rm -f "/tmp/portal5-powermetrics.sock"
     echo "[portal-5] ✅ Powermetrics daemon stopped and removed"
 }

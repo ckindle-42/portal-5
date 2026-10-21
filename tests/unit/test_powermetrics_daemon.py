@@ -5,19 +5,37 @@ import plistlib
 from pathlib import Path
 
 _PATH = Path(__file__).resolve().parents[2] / "scripts" / "portal5-powermetrics.py"
+_ROOT = _PATH.parents[1]
 _spec = importlib.util.spec_from_file_location("portal5_powermetrics", _PATH)
 pm = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(pm)
 
 
-def test_launchd_uses_the_repo_venv_not_homebrew_python():
-    plist_path = _PATH.parents[1] / "deploy/launchd/com.portal5.powermetrics.plist"
+def test_root_launchdaemons_do_not_execute_user_writable_paths():
+    root_daemons = []
+    for plist_path in (_ROOT / "deploy/launchd").glob("*.plist"):
+        with plist_path.open("rb") as stream:
+            plist = plistlib.load(stream)
+        if plist.get("UserName") == "root":
+            root_daemons.append(plist_path.name)
+            serialized = repr(plist)
+            assert not any(
+                marker in serialized
+                for marker in ("__PORTAL_ROOT__", "__HOME__", "/Users/", "/.venv/")
+            )
+    assert root_daemons == ["com.portal5.powermetrics.plist"]
+
+
+def test_powermetrics_launchdaemon_uses_root_owned_install_targets():
+    plist_path = _ROOT / "deploy/launchd/com.portal5.powermetrics.plist"
     with plist_path.open("rb") as stream:
         args = plistlib.load(stream)["ProgramArguments"]
-    assert args == [
-        "__PORTAL_ROOT__/.venv/bin/python3",
-        "__PORTAL_ROOT__/scripts/portal5-powermetrics.py",
-    ]
+    assert args == ["/usr/bin/python3", "/usr/local/libexec/portal5-powermetrics"]
+
+    services = (_ROOT / "scripts/lib/services.sh").read_text(encoding="utf-8")
+    assert 'SCRIPT_DST="/usr/local/libexec/portal5-powermetrics"' in services
+    assert 'sudo install -o root -g wheel -m 0755 "$SCRIPT_SRC" "$SCRIPT_DST"' in services
+    assert 'sudo install -o root -g wheel -m 0644 "$PLIST_SRC" "$PLIST_DST"' in services
 
 
 def _sample(cpu_mw: float) -> list[bytes]:

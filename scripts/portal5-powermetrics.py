@@ -8,6 +8,8 @@ Install:
     ./launch.sh install-powermetrics
 """
 
+from __future__ import annotations
+
 import collections
 import json
 import os

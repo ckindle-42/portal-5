@@ -7,8 +7,8 @@
     <string>com.portal5.powermetrics</string>
     <key>ProgramArguments</key>
     <array>
-        <string>__PORTAL_ROOT__/.venv/bin/python3</string>
-        <string>__PORTAL_ROOT__/scripts/portal5-powermetrics.py</string>
+        <string>/usr/bin/python3</string>
+        <string>/usr/local/libexec/portal5-powermetrics</string>
     </array>
     <key>UserName</key>
     <string>root</string>
