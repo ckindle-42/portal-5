@@ -7,6 +7,13 @@ load_plan_models:
   deep:
     engine: omlx
     model: Qwen3.8-27B-oQ4e-mtp
+residency_measured:
+  date: '2026-10-21'
+  pair_need_gib: 37.8
+  available_gib: 25.7
+  swap_cost_s:
+    into_fast: 15
+    into_deep: 10
 planner:
   fast_context_budget_tokens: 32768
   comfortable_context_tokens: 16384

@@ -490,3 +490,12 @@ async def test_nothing_in_flight_and_nothing_to_free_refuses_without_waiting(mon
         await guard(e).admit(OLLAMA_URL, "next")
     assert asyncio.get_running_loop().time() - started < 1.0
     assert "nothing in flight" in str(err.value)
+
+
+async def test_foreign_omlx_work_keeps_the_load_waiting_instead_of_refusing_at_once(monkeypatch):
+    # An IDE talking to oMLX directly is invisible to _busy; its finish may free room.
+    monkeypatch.setattr(lg, "_WAIT_S", 0.3)
+    e = Engines(tags={"next": 55 * GIB}, ceiling=40 * GIB, omlx_active=1)
+    with pytest.raises(lg.LoadRefusedError) as err:
+        await guard(e).admit(OLLAMA_URL, "next")
+    assert "after waiting" in str(err.value)

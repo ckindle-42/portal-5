@@ -19,7 +19,7 @@
       "transformers": ">=5.16.1"
     },
     "dockerfile_mcp_pins": {
-      "docling": "==2.99.0"
+      "docling": "==2.137.0"
     },
     "embed_model": "google/embeddinggemma-2",
     "rerank_model": "mlx-community/Qwen3-VL-Reranker-2B-mxfp8",
@@ -306,5 +306,24 @@
       }
     },
     "run_date": "2026-09-02"
+  },
+  "docling_2137_recheck": {
+    "run_date": "2026-10-21",
+    "docling": "2.137.0 (host lock and container)",
+    "queries": 52,
+    "chunks": 1877,
+    "page_images": 561,
+    "tau_sweep_all_r1": {
+      "0.72": 0.538,
+      "0.8": 0.827,
+      "0.84": 0.923,
+      "0.86": 0.942,
+      "0.88": 0.962,
+      "1.01": 0.962
+    },
+    "diagram_r1_at_0.88": 1.0,
+    "prose_r1_at_0.88": 0.923,
+    "verdict": "tau 0.88 unchanged (matches the 2026-10-08 R1 extended-set result, all r@1 0.962)",
+    "artifact": "/Volumes/data01/portal5_scratch_eg2/rag_d2137_20261021/eval.json (operator data, not committed)"
   }
 }

@@ -285,6 +285,19 @@ class LoadGuard:
         ]
         return url, sorted(idle, key=lambda m: float(m.get("last_access") or 0))
 
+    async def _omlx_foreign_active(self, client: httpx.AsyncClient) -> bool:
+        """oMLX is serving requests the pipeline is not tracking. Unreadable counts as active,
+        so an unmeasurable oMLX never turns a wait into an immediate refusal."""
+        url = (self._omlx_url() or "").rstrip("/")
+        if not url:
+            return False
+        try:
+            st = (await client.get(f"{url}/api/status", auth=OmlxKeyAuth())).json()
+        except Exception:
+            return True
+        tracked = sum(n for (engine, _), n in self._busy.items() if engine == OMLX)
+        return int(st.get("active_requests") or 0) + int(st.get("waiting_requests") or 0) > tracked
+
     async def _free_omlx(self, client: httpx.AsyncClient, want: float) -> float:
         """Unload idle oMLX models (LRU first) until `want` bytes are freed.
         The mirror of backend_introspect.free_ollama_for_omlx."""
@@ -454,9 +467,11 @@ class LoadGuard:
                         await self._settled_headroom(client, headroom)
                         continue
                     remaining = deadline - time.monotonic()
-                    # Nothing in flight on either engine and nothing idle left to free:
-                    # no future change can make room, so waiting out the deadline is futile.
-                    if remaining <= 0 or not self._busy:
+                    # Nothing in flight on either engine (ours, or oMLX work the pipeline did
+                    # not send, e.g. an IDE on :8085) and nothing idle left to free: no future
+                    # change can make room, so waiting out the deadline is futile.
+                    quiet = not self._busy and not await self._omlx_foreign_active(client)
+                    if remaining <= 0 or quiet:
                         raise LoadRefusedError(
                             f"Cannot load {model}: projected memory {need / _GIB:.1f} GiB would "
                             f"exceed host headroom {available / _GIB:.1f} GiB (oMLX headroom "
@@ -464,7 +479,7 @@ class LoadGuard:
                             f"{_MARGIN / _GIB:.0f}) "
                             + (
                                 f"after waiting {load_wait_s():.0f}s"
-                                if self._busy
+                                if not quiet
                                 else "with nothing in flight to wait for"
                             )
                         )

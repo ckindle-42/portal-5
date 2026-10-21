@@ -79,8 +79,12 @@ async def handle_arm_gate_callback(update: Update, context: ContextTypes.DEFAULT
 
 
 async def _arm_outbox(application: Application) -> None:
+    if not _orchestration_enabled():
+        return
     store = ArmTelegramStore(default_arm_telegram_path())
     while True:
+        if not _orchestration_enabled():
+            return
         try:
             await send_outbox_once(store, application.bot, _allowed_users(), _arm_keyboard)
         except Exception as exc:
@@ -89,7 +93,8 @@ async def _arm_outbox(application: Application) -> None:
 
 
 async def _arm_post_init(application: Application) -> None:
-    application.bot_data["arm_outbox_task"] = asyncio.create_task(_arm_outbox(application))
+    if _orchestration_enabled():
+        application.bot_data["arm_outbox_task"] = asyncio.create_task(_arm_outbox(application))
 
 
 async def _arm_post_shutdown(application: Application) -> None:
@@ -109,6 +114,12 @@ def _arm_keyboard(request_id: str) -> InlineKeyboardMarkup:
             ]
         ]
     )
+
+
+def _orchestration_enabled() -> bool:
+    from portal.platform.wiki.adapters.modules import enabled_modules
+
+    return "orchestration" in enabled_modules()
 
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -253,18 +264,17 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
 def build_app() -> Application:
     """Build the Telegram Application. Reads TELEGRAM_BOT_TOKEN here, not at import."""
     token = _get_token()
-    app = (
-        Application.builder()
-        .token(token)
-        .post_init(_arm_post_init)
-        .post_shutdown(_arm_post_shutdown)
-        .build()
-    )
+    arm_enabled = _orchestration_enabled()
+    builder = Application.builder().token(token)
+    if arm_enabled:
+        builder = builder.post_init(_arm_post_init).post_shutdown(_arm_post_shutdown)
+    app = builder.build()
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CommandHandler("clear", clear))
     app.add_handler(CommandHandler("workspace", set_workspace))
     app.add_handler(CommandHandler("workspaces", list_workspaces))
-    app.add_handler(CallbackQueryHandler(handle_arm_gate_callback, pattern=r"^arm:"))
+    if arm_enabled:
+        app.add_handler(CallbackQueryHandler(handle_arm_gate_callback, pattern=r"^arm:"))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
     return app
 
