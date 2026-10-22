@@ -32,10 +32,10 @@
     {
       "id": 17,
       "type": "table",
-      "title": "Plan resets \u2014 headroom left and when each window refills",
-      "description": "One row per prepaid plan window. Left % is the vendor's own reading, drawn with the same bar and colours as the headroom gauge below; 'Resets at' is local time and 'Resets in' counts down. Rolling windows with no fixed reset (SuperGrok) show no reset time.",
+      "title": "Plan headroom and resets \u2014 every plan that publishes a quota",
+      "description": "One row per prepaid plan window, soonest refill first. Left % is the vendor's own reading (red under 15, amber under 40); 'Resets at' is local time and 'Resets in' counts down. Rolling windows with no fixed reset (SuperGrok) show no reset time.",
       "gridPos": {
-        "h": 7,
+        "h": 10,
         "w": 24,
         "x": 0,
         "y": 1
@@ -163,6 +163,10 @@
                   "mode": "gradient",
                   "valueDisplayMode": "color"
                 }
+              },
+              {
+                "id": "custom.width",
+                "value": 420
               }
             ]
           },
@@ -194,70 +198,7 @@
       },
       "options": {
         "showHeader": true,
-        "cellHeight": "sm"
-      }
-    },
-    {
-      "id": 1,
-      "type": "bargauge",
-      "title": "Plan headroom \u2014 every plan that publishes a quota",
-      "description": "Share of each rolling window still available. Covers Z.ai's two Coding Plan pools, Claude Pro's 5-hour and 7-day windows (the orchestrator's own budget \u2014 Opus drains it faster than Sonnet) and ChatGPT Plus / Codex's two windows. Green above 40%, amber from 15%, red below; `auto` stops choosing a worker plan under 15%.",
-      "gridPos": {
-        "h": 7,
-        "w": 9,
-        "x": 0,
-        "y": 8
-      },
-      "targets": [
-        {
-          "refId": "A",
-          "expr": "100 * orchestrate_quota_remaining / orchestrate_quota_limit",
-          "legendFormat": "{{plan}} \u00b7 {{window}}",
-          "instant": true
-        }
-      ],
-      "fieldConfig": {
-        "defaults": {
-          "unit": "percent",
-          "min": 0,
-          "max": 100,
-          "decimals": 0,
-          "color": {
-            "mode": "thresholds"
-          },
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "red",
-                "value": null
-              },
-              {
-                "color": "#c98500",
-                "value": 15
-              },
-              {
-                "color": "#199e70",
-                "value": 40
-              }
-            ]
-          }
-        },
-        "overrides": []
-      },
-      "options": {
-        "displayMode": "gradient",
-        "orientation": "horizontal",
-        "showUnfilled": true,
-        "minVizHeight": 24,
-        "valueMode": "color",
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": "",
-          "values": false
-        }
+        "cellHeight": "md"
       }
     },
     {
@@ -267,9 +208,9 @@
       "description": "Cash left on the pay-as-you-go accounts. DeepSeek and Moonshot publish a balance directly. MiMo publishes none, so its figure is derived: a balance read from the Xiaomi console, less everything opencode has booked against the provider since \u2014 re-anchor with `usage_exporter.py anchor mimo <usd>` when you top up or it drifts.",
       "gridPos": {
         "h": 7,
-        "w": 7,
-        "x": 9,
-        "y": 8
+        "w": 12,
+        "x": 0,
+        "y": 11
       },
       "targets": [
         {
@@ -328,9 +269,9 @@
       "description": "Age of the cached vendor reading per plan. The exporter re-polls upstream hourly; anything over 3 hours is ignored for routing and the local run-count proxy is used instead.",
       "gridPos": {
         "h": 7,
-        "w": 8,
-        "x": 16,
-        "y": 8
+        "w": 12,
+        "x": 12,
+        "y": 11
       },
       "targets": [
         {
@@ -390,7 +331,7 @@
         "h": 8,
         "w": 24,
         "x": 0,
-        "y": 15
+        "y": 18
       },
       "targets": [
         {
@@ -468,7 +409,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 23
+        "y": 26
       },
       "collapsed": false
     },
@@ -481,7 +422,7 @@
         "h": 8,
         "w": 24,
         "x": 0,
-        "y": 24
+        "y": 27
       },
       "targets": [
         {
@@ -608,7 +549,7 @@
         "h": 5,
         "w": 6,
         "x": 0,
-        "y": 32
+        "y": 35
       },
       "targets": [
         {
@@ -650,7 +591,7 @@
         "h": 5,
         "w": 6,
         "x": 6,
-        "y": 32
+        "y": 35
       },
       "targets": [
         {
@@ -692,7 +633,7 @@
         "h": 5,
         "w": 6,
         "x": 12,
-        "y": 32
+        "y": 35
       },
       "targets": [
         {
@@ -734,7 +675,7 @@
         "h": 5,
         "w": 6,
         "x": 18,
-        "y": 32
+        "y": 35
       },
       "targets": [
         {
@@ -794,7 +735,7 @@
         "h": 9,
         "w": 24,
         "x": 0,
-        "y": 37
+        "y": 40
       },
       "targets": [
         {
@@ -956,7 +897,7 @@
         "h": 5,
         "w": 24,
         "x": 0,
-        "y": 63
+        "y": 66
       },
       "options": {
         "mode": "markdown",
@@ -970,7 +911,7 @@
         "h": 6,
         "w": 12,
         "x": 0,
-        "y": 51
+        "y": 54
       },
       "title": "Metered spend to date \u2014 including MiMo",
       "description": "Cumulative cash per metered plan. MiMo is purely pay-as-you-go and is charged like DeepSeek and Kimi; it is here rather than in the balances panel only because Xiaomi publishes no balance endpoint to read.",
@@ -1015,7 +956,7 @@
         "h": 6,
         "w": 24,
         "x": 0,
-        "y": 57
+        "y": 60
       },
       "title": "Extra usage \u2014 money spent past the plan",
       "description": "Once a window hits 100%, work bills against a monthly extra-usage cap rather than stopping. This is real money. The orchestrator's rule is to STOP and offer the choice at that point \u2014 never to continue silently, and never to refuse a decision that is the operator's.",
@@ -1080,7 +1021,7 @@
         "h": 6,
         "w": 12,
         "x": 12,
-        "y": 51
+        "y": 54
       },
       "title": "Windows that are biting",
       "description": "Each window the provider itself reports as active, with its severity. A line at 100% means that plan's included usage is gone \u2014 for Claude Pro and Codex that is the orchestrator's own budget, not a worker's.",
@@ -1145,7 +1086,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 68
+        "y": 71
       },
       "collapsed": false
     },
@@ -1158,7 +1099,7 @@
         "h": 5,
         "w": 6,
         "x": 0,
-        "y": 69
+        "y": 72
       },
       "targets": [
         {
@@ -1191,7 +1132,7 @@
         "h": 5,
         "w": 6,
         "x": 6,
-        "y": 69
+        "y": 72
       },
       "targets": [
         {
@@ -1225,7 +1166,7 @@
         "h": 5,
         "w": 6,
         "x": 12,
-        "y": 69
+        "y": 72
       },
       "targets": [
         {
@@ -1258,7 +1199,7 @@
         "h": 5,
         "w": 6,
         "x": 18,
-        "y": 69
+        "y": 72
       },
       "targets": [
         {
@@ -1290,7 +1231,7 @@
         "h": 7,
         "w": 24,
         "x": 0,
-        "y": 74
+        "y": 77
       },
       "targets": [
         {
