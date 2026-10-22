@@ -437,8 +437,8 @@ class TestStreamFallbackErrorHandling:
     """Golden-output: error chunk on non-200 and connection errors."""
 
     @pytest.mark.anyio
-    async def test_non_200_yields_error_chunk(self, mock_client, monkeypatch):
-        """HTTP != 200 yields a ``data: {"error": ...}`` chunk."""
+    async def test_non_200_yields_well_formed_error_frames(self, mock_client, monkeypatch):
+        """HTTP != 200 yields valid chat error frames."""
 
         def fake_stream(method, url, **kwargs):
             return _MockStreamContext(500, [])
@@ -454,8 +454,12 @@ class TestStreamFallbackErrorHandling:
         chunks = await _drain(gen)
         text = _decode_chunks(chunks)
 
-        assert '"error"' in text
-        assert "500" in text or "Backend returned" in text
+        payloads = _json_from_sse(chunks)
+        assert all("choices" in payload for payload in payloads)
+        assert "Backend returned HTTP 500" in text
+        assert payloads[-1]["choices"][0]["finish_reason"] == "stop"
+        assert chunks[-1] == b"data: [DONE]\n\n"
+        assert text.count("data: [DONE]") == 1
 
 
 class TestStreamFallbackDoneTermination:

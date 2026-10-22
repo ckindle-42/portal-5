@@ -200,9 +200,13 @@ async def test_client_tool_call_is_not_reported_empty(stream_client) -> None:
 
 
 @pytest.mark.anyio
-async def test_backend_error_chunk_carries_status_and_message(stream_client) -> None:
+async def test_backend_error_chunk_preserves_status_for_fallback(stream_client) -> None:
     _serve(stream_client, _Resp(400, [], b'{"error":{"message":"bad top_k"}}'))
-    chunks = await _drain(st._stream_from_backend_guarded("http://x/v1/chat/completions", {}))
+    token = st._CASCADE_ERRORS.set(True)
+    try:
+        chunks = await _drain(st._stream_from_backend_guarded("http://x/v1/chat/completions", {}))
+    finally:
+        st._CASCADE_ERRORS.reset(token)
     err = _payloads(chunks)[0]
     assert err["status"] == 400 and "bad top_k" in err["error"]
 
