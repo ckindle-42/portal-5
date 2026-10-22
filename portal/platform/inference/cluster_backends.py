@@ -273,6 +273,8 @@ class BackendRegistry:
         self._fallback_group: str = "general"
         self._health_check_interval = 30.0
         self._request_timeout = 120.0  # Match config/backends.yaml defaults.request_timeout
+        # Hot-seat prefix-cache protection window; 0.0 = disabled (today's order).
+        self._hot_seat_protect_s = 0.0
         self._health_timeout = 10.0  # Defensive default before _load_config() runs
         self._health_failure_threshold = 2
         # Cached healthy-backend list — rebuilt only after each health check
@@ -379,6 +381,7 @@ class BackendRegistry:
         self._request_timeout = float(defaults.get("request_timeout", 120.0))
         self._health_check_interval = float(defaults.get("health_check_interval", 30.0))
         self._health_timeout = float(defaults.get("health_timeout", 10.0))
+        self._hot_seat_protect_s = float(defaults.get("hot_seat_protect_s", 0.0) or 0.0)
         self._health_failure_threshold = int(
             os.environ.get(
                 "HEALTH_FAILURE_THRESHOLD", str(defaults.get("health_failure_threshold", 2))
@@ -394,10 +397,12 @@ class BackendRegistry:
                     self._tool_support[mid] = bool(meta.get("supports_tools", False))
 
         logger.info(
-            "BackendRegistry loaded: %d backends, %d workspace routes, request_timeout=%.0fs",
+            "BackendRegistry loaded: %d backends, %d workspace routes, request_timeout=%.0fs, "
+            "hot_seat_protect_s=%.0f",
             len(self._backends),
             len(self._workspace_routes),
             self._request_timeout,
+            self._hot_seat_protect_s,
         )
 
     def list_backends(self) -> list[Backend]:
@@ -765,6 +770,14 @@ class BackendRegistry:
     def request_timeout(self) -> float:
         """Request timeout in seconds, loaded from ``defaults.request_timeout`` in YAML."""
         return self._request_timeout
+
+    @property
+    def hot_seat_protect_s(self) -> float:
+        """Hot-seat protection window in seconds from ``defaults.hot_seat_protect_s``.
+
+        ``0.0`` (the default) disables the placement policy entirely.
+        """
+        return self._hot_seat_protect_s
 
     @property
     def last_memory_pct(self) -> float:
