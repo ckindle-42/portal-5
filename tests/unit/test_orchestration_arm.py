@@ -79,6 +79,7 @@ def bite(
     review: str | None = None,
     review_reason: str | None = None,
     write_paths: list[str] | None = None,
+    context_tokens: int = 8192,
 ) -> dict[str, Any]:
     return {
         "bite_id": bite_id,
@@ -93,7 +94,12 @@ def bite(
         **({"review": review} if review else {}),
         **({"review_reason": review_reason} if review_reason else {}),
         "risk": "low",
-        "budget": {"turns": turns, "minutes": 1, "output_tokens": output_tokens},
+        "budget": {
+            "turns": turns,
+            "minutes": 1,
+            "output_tokens": output_tokens,
+            "context_tokens": context_tokens,
+        },
         "model": model,
         "procedure": "Use the declared checks, then finish.",
     }
@@ -367,6 +373,89 @@ def test_client_file_tools_loop_back_to_the_model_and_keep_reading_bites_read_on
     assert followup[-1]["role"] == "tool"
     assert followup[-1]["name"] == "file_read"
     assert followup[-1]["content"] == "source contents"
+
+
+def test_action_bite_prompt_contains_read_only_snapshots_without_file_read(
+    tmp_path: Path, fake_pipeline: FakePipeline
+) -> None:
+    task_dir = tmp_path / "action-snapshot"
+    (task_dir / "data").mkdir(parents=True)
+    (task_dir / "data/source.py").write_text("def clamp(value): return value\n", encoding="utf-8")
+    (task_dir / "data/test_source.py").write_text("assert clamp(2) == 2\n", encoding="utf-8")
+    (task_dir / "data/staged.py").write_text("original = 'keep this context'\n", encoding="utf-8")
+    fake_pipeline.add("fast", finish_response({"answer": "right"}))
+    task_bite = parse_plan(
+        plan(
+            "action-snapshot",
+            bite(
+                tools=["file_write", "pytest_run"],
+                inputs=["source.py", "test_source.py"],
+                write_paths=["source.py", "staged.py"],
+            ),
+        )
+    ).bites[0]
+
+    result = run_bite(
+        task_dir,
+        task_bite,
+        Engine("auto-daily::fast", "test-digest", fake_pipeline.url, auth.PIPELINE_API_KEY),
+        input_paths={
+            "source.py": Path("source.py"),
+            "test_source.py": Path("test_source.py"),
+        },
+        attempt_dir=task_dir / "attempt",
+    )
+
+    assert result.finished
+    request = fake_pipeline.requests[0]
+    assert request["portal_bite_tools"] == ["file_write", "pytest_run", "finish"]
+    assert "read-only snapshots" in request["messages"][0]["content"]
+    assert "no file_read tool" in request["messages"][0]["content"]
+    user_content = request["messages"][1]["content"]
+    assert "def clamp(value): return value" in user_content
+    assert "assert clamp(2) == 2" in user_content
+    assert "original = 'keep this context'" in user_content
+    assert "staged copy: source.py" in user_content
+
+
+def test_action_bite_snapshot_truncates_to_its_context_budget(
+    tmp_path: Path, fake_pipeline: FakePipeline
+) -> None:
+    task_dir = tmp_path / "action-snapshot-truncated"
+    (task_dir / "data").mkdir(parents=True)
+    content = "value = 1\n" + ("# extra source material\n" * 2_000)
+    (task_dir / "data/source.py").write_text(content, encoding="utf-8")
+    fake_pipeline.add("fast", finish_response({"answer": "right"}))
+    task_bite = parse_plan(
+        plan(
+            "action-snapshot-truncated",
+            bite(
+                tools=["file_write"],
+                inputs=["source.py"],
+                write_paths=["source.py"],
+                context_tokens=2048,
+                output_tokens=128,
+            ),
+        )
+    ).bites[0]
+
+    result = run_bite(
+        task_dir,
+        task_bite,
+        Engine("auto-daily::fast", "test-digest", fake_pipeline.url, auth.PIPELINE_API_KEY),
+        input_paths={"source.py": Path("source.py")},
+        attempt_dir=task_dir / "attempt",
+    )
+
+    assert result.finished
+    request = fake_pipeline.requests[0]
+    user_content = request["messages"][1]["content"]
+    assert "value = 1" in user_content
+    assert "[TRUNCATED: input snapshot clipped to fit the bite context budget]" in user_content
+    prompt_bytes = sum(
+        len(message["content"].encode("utf-8")) for message in request["messages"]
+    ) + len(json.dumps(request["tools"]).encode("utf-8"))
+    assert prompt_bytes <= (2048 - 128 - 512) * 3
 
 
 def test_finish_ignores_model_output_path_and_records_the_worker_path(

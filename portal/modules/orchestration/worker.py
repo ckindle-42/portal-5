@@ -23,6 +23,11 @@ from .tools import (
     tool_schema,
 )
 
+DEFAULT_CONTEXT_TOKENS = 16_384
+CONTEXT_RESERVE_TOKENS = 512
+SNAPSHOT_CHARS_PER_TOKEN = 3
+SNAPSHOT_TRUNCATION_MARKER = "[TRUNCATED: input snapshot clipped to fit the bite context budget]"
+
 
 @dataclass(frozen=True)
 class Engine:
@@ -676,14 +681,83 @@ def _messages(
         f"Deep review: {bite.review_reason or 'not requested'}\n"
         f"Declared input paths: {json.dumps(declared_paths)}"
     )
+    if set(bite.tools) & ACTION_TOOLS:
+        system += (
+            "\nThe declared inputs and existing staged write targets are included in the user "
+            "message as read-only snapshots. This action bite has no file_read tool; do not call one."
+        )
     inputs = {name: {"path": path} for name, path in declared_paths.items()}
+    user_content = json.dumps({"bite_id": bite.bite_id, "inputs": inputs})
+    snapshot_paths = dict(declared_paths)
+    if set(bite.tools) & ACTION_TOOLS and root is not None:
+        for write_path in bite.write_paths:
+            staged_path = input_paths.get(write_path, Path(write_path))
+            if staged_path.is_absolute() or ".." in staged_path.parts:
+                continue
+            resolved = (root / staged_path).resolve()
+            if resolved.is_relative_to(root) and resolved.is_file():
+                snapshot_paths.setdefault(write_path, resolved.relative_to(root).as_posix())
+    if set(bite.tools) & ACTION_TOOLS and snapshot_paths and root is not None:
+        user_content += "\n\n" + _input_snapshot_text(
+            bite, snapshot_paths, root, system, user_content
+        )
     return [
         {"role": "system", "content": system},
-        {
-            "role": "user",
-            "content": json.dumps({"bite_id": bite.bite_id, "inputs": inputs}),
-        },
+        {"role": "user", "content": user_content},
     ]
+
+
+def _input_snapshot_text(
+    bite: Bite,
+    declared_paths: dict[str, str],
+    root: Path,
+    system: str,
+    user_content: str,
+) -> str:
+    prefix = "Read-only snapshots of the declared staged input files follow.\n"
+    marker = f"\n{SNAPSHOT_TRUNCATION_MARKER}\n"
+    paths = [(name, relative, root / relative) for name, relative in declared_paths.items()]
+    file_sizes = [path.stat().st_size for _, _, path in paths]
+    snapshot_headers = [
+        (f"--- BEGIN FILE {name} (staged copy: {relative}) ---\n", f"\n--- END FILE {name} ---\n")
+        for name, relative, _ in paths
+    ]
+    schemas = [*(tool_schema(name) for name in bite.tools), _finish_schema(bite)]
+    context_tokens = bite.budget.context_tokens or DEFAULT_CONTEXT_TOKENS
+    output_reserve = min(bite.budget.output_tokens, context_tokens // 2)
+    prompt_tokens = max(0, context_tokens - output_reserve - CONTEXT_RESERVE_TOKENS)
+    prompt_bytes = prompt_tokens * SNAPSHOT_CHARS_PER_TOKEN
+    fixed_bytes = (
+        len(system.encode("utf-8"))
+        + len(user_content.encode("utf-8"))
+        + len(b"\n\n")
+        + len(json.dumps(schemas).encode("utf-8"))
+        + len(prefix.encode("utf-8"))
+        + sum(
+            len(header.encode("utf-8")) + len(footer.encode("utf-8")) + len(marker.encode("utf-8"))
+            for header, footer in snapshot_headers
+        )
+    )
+    if fixed_bytes > prompt_bytes:
+        return prefix + SNAPSHOT_TRUNCATION_MARKER
+    content_budget = prompt_bytes - fixed_bytes
+    remaining_size = sum(file_sizes)
+    parts = [prefix]
+    for (_name, _relative, path), (header, footer), size in zip(
+        paths, snapshot_headers, file_sizes, strict=True
+    ):
+        allocation = min(size, content_budget * size // remaining_size) if remaining_size else 0
+        content_budget -= allocation
+        remaining_size -= size
+        with path.open("rb") as source:
+            raw = source.read(allocation)
+        content = raw.decode("utf-8", errors="ignore")
+        parts.append(header)
+        parts.append(content)
+        if allocation < size:
+            parts.append(marker)
+        parts.append(footer)
+    return "".join(parts)
 
 
 def _writable_paths(bite: Bite, input_paths: dict[str, Path]) -> tuple[str, ...]:
