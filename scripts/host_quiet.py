@@ -17,6 +17,7 @@ ROOT = Path(__file__).resolve().parents[1]
 MEMORY_PID_FILE = Path("/tmp/portal5-memory-safety-test-pids")
 ORCHESTRATE_ROOT = Path.home() / ".claude" / "orchestrate"
 DEFAULT_MIN_HEADROOM_GIB = 1.5
+DEFAULT_MAX_PYTEST_PROCESSES = 4
 _ACTIVE_STATUSES = {"active", "in_progress", "in-progress", "pending", "queued", "running"}
 
 
@@ -336,6 +337,7 @@ def capture_snapshot(pipeline_url: str, api_key: str) -> dict[str, Any]:
         "omlx_error": omlx_error,
         "busy_requests": busy_requests,
         "other_heavy_processes": heavy,
+        "maximum_pytest_processes": _maximum_pytest_processes(),
         "process_scan_error": process_error,
     }
 
@@ -359,17 +361,35 @@ def _minimum_headroom_gib() -> float:
         return DEFAULT_MIN_HEADROOM_GIB
 
 
+def _maximum_pytest_processes() -> int:
+    try:
+        return max(
+            0,
+            int(_env_value("UAT_MAX_PYTEST_PROCESSES", str(DEFAULT_MAX_PYTEST_PROCESSES))),
+        )
+    except ValueError:
+        return DEFAULT_MAX_PYTEST_PROCESSES
+
+
 def blockers(snapshot: dict[str, Any]) -> list[str]:
     """Return reasons the host is not ready for a live measurement run."""
     reasons = []
-    if snapshot.get("process_scan_error"):
-        reasons.append(snapshot["process_scan_error"])
-    for process in snapshot.get("other_heavy_processes", []):
+    processes = snapshot.get("other_heavy_processes", [])
+    for process in processes:
+        if (
+            process.get("kind") != "WFE/bench PID file"
+            and process.get("process") != "memory-safety PID file"
+        ):
+            continue
         pid = process.get("pid")
         suffix = f" (pid {pid})" if pid else ""
         reasons.append(f"{process['kind']} is running{suffix}: {process['process']}")
-    if snapshot.get("busy_requests"):
-        reasons.append(f"Pipeline reports {snapshot['busy_requests']} active request(s)")
+    pytest_count = sum(process.get("kind") == "pytest/xdist" for process in processes)
+    maximum = snapshot.get("maximum_pytest_processes", _maximum_pytest_processes())
+    if pytest_count > maximum:
+        reasons.append(
+            f"pytest/xdist process count {pytest_count} exceeds UAT_MAX_PYTEST_PROCESSES={maximum}"
+        )
     headroom = snapshot.get("headroom_gib")
     minimum = snapshot.get("minimum_headroom_gib", DEFAULT_MIN_HEADROOM_GIB)
     if headroom is None:

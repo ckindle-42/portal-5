@@ -277,6 +277,31 @@ def test_live_force_records_overridden_host_blockers(
     assert receipt["host_quiet"]["end"] == {}
 
 
+def test_live_receipt_carries_dispatch_lane_start_and_end_snapshots(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+):
+    lane = {"pid": 41, "kind": "dispatch lane job", "process": "dispatch.py"}
+    context = {
+        "allowed": True,
+        "force_requested": False,
+        "override_reason": None,
+        "blockers": [],
+        "start": {"other_heavy_processes": [lane]},
+    }
+    monkeypatch.setattr(acceptance.host_quiet, "begin_run", lambda *a, **k: context)
+    monkeypatch.setattr(
+        acceptance.host_quiet,
+        "finish_run",
+        lambda record, *a: record.update(end={"other_heavy_processes": [lane]}),
+    )
+    monkeypatch.setattr(acceptance, "SCENARIOS", {})
+
+    receipt = acceptance.run_live(tmp_path, "http://127.0.0.1:9099", "key", "fd", "dd")
+
+    assert receipt["host_quiet"]["start"]["other_heavy_processes"] == [lane]
+    assert receipt["host_quiet"]["end"]["other_heavy_processes"] == [lane]
+
+
 def test_wfe_clear_without_state(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
     """No PID file and no WFE process means clear."""
     monkeypatch.setattr(acceptance, "WFE_PID_FILE", tmp_path / "pids")

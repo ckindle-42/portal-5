@@ -6,6 +6,12 @@ isolated worktree per requested seat, commits the OpenCode provider setup, runs
 preflight appends a `preflight_blocked` row with its reasons to `seat_results.jsonl` and skips
 dispatch for that seat.
 
+`scripts/seat_preflight.py` applies the shared host-quiet gate before seat checks and prints a
+`host_quiet` receipt with start and end snapshots. It blocks below `UAT_MIN_HOST_HEADROOM_GIB`
+(default 1.5 GiB), on a live entry in `/tmp/portal5-memory-safety-test-pids`, or when detected
+pytest/xdist processes exceed `UAT_MAX_PYTEST_PROCESSES` (default 4). Dispatch lane jobs and
+Pipeline busy requests remain visible in the snapshots but do not block the screen.
+
 ## Run a screen
 
 ```bash
