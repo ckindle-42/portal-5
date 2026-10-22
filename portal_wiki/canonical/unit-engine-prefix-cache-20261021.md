@@ -5,12 +5,6 @@ title: Engine prefix-cache measurements on this host (2026-10-21)
 sources:
 - type: code
   path: portal/platform/inference/ollama_native.py
-- type: doc
-  path: /Users/chris/projects/portal-5-prefix-cache/coding_task/REPORT_PREFIX_CACHE.md
-- type: doc
-  path: /Users/chris/projects/portal-5-research-sage/coding_task/REPORT_HYBRID_CACHE.md
-- type: doc
-  path: /Users/chris/projects/portal-5-research-sage/coding_task/REPORT_FLINT.md
 claims: []
 confidence: high
 tags:
