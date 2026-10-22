@@ -1,0 +1,18 @@
+suite: orchestration-detection-engineering-planner-v1
+discipline: detection-engineering
+cases:
+  - id: valid-split-plan
+    expected: pass
+    rule: valid-plan
+  - id: mixed-reference-read-and-draft-action
+    expected: reject
+    rule: mixed-read-action
+  - id: untrusted-reference-with-action-tool
+    expected: reject
+    rule: untrusted-read-action
+  - id: over-comfortable-fast-context
+    expected: reject
+    rule: context-budget
+  - id: missing-assembly-or-review-closure
+    expected: reject
+    rule: plan-closure

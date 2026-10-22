@@ -3,13 +3,9 @@ id: detection-engineering
 persona:
   slug: splunkdetectionauthor
   source: config/personas/splunkdetectionauthor.yaml
-seats:
-  fast:
-    workspace: auto-daily::fast
-    model_binding: workspace_identity
-  deep:
-    workspace: auto-daily::deep
-    model_binding: workspace_identity
+seating:
+  status: unseated
+  reason: Assign model seats only after live Fast and Deep bite-suite rates meet the frozen criteria.
 thinking: required
 tool_allowlist:
   detection:
@@ -55,7 +51,9 @@ procedures:
       - Record ATT&CK mappings, data sources, time bounds, false positives, and tuning guidance.
 wfe:
   bite_suite: wfe_bites.yaml
-  checker_suite: wfe_checker_controls.yaml
+  planner_suite: wfe_planner.yaml
+  checker_suite: wfe_checker_suite.yaml
+  checker_controls: wfe_checker_controls.yaml
 pass_criteria:
   frozen_before_first_run: true
   checker_controls:

@@ -5,8 +5,6 @@ title: oMLX prefix cache reports stores, resets on admission, and the SSD defaul
 sources:
 - type: code
   path: portal/platform/inference/ollama_native.py
-- type: doc
-  path: /Users/chris/projects/portal-5-prefix-cache/coding_task/REPORT_PREFIX_CACHE.md
 claims: []
 confidence: high
 tags:
