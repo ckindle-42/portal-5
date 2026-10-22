@@ -340,12 +340,11 @@ class TestSlackAdapter:
         assert _workspace_for_channel("images-channel") == ("auto-vision", None)  # NOT auto-images
         assert _workspace_for_channel("unknown-channel") == ("auto", None)  # default
 
-    def test_pipeline_call_correct_endpoint(self):
+    def test_pipeline_call_correct_endpoint(self, monkeypatch):
         """_call_pipeline sends request to correct endpoint with auth."""
         import importlib
-        import os
 
-        os.environ["PIPELINE_API_KEY"] = "test-key"
+        monkeypatch.setenv("PIPELINE_API_KEY", "test-key")
         from portal_channels.slack import bot as slack_bot
 
         importlib.reload(slack_bot)

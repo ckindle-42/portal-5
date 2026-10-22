@@ -211,18 +211,18 @@ def test_the_tool_modes_allowlist_offers_the_three_tools_only():
         assert set(t["requires_tools"]) <= set(mode["allow"]), t["id"]
 
 
-def test_the_window_holds_the_prompt_and_the_default_output_budget():
-    """8k is the tightest window: prompt (chars/4) plus the harness's default
-    2048-token output budget (no workspace predict_limit) must stay inside it.
+def test_the_window_holds_the_prompt_and_the_configured_output_budget():
+    """8k is the tightest window: prompt (chars/4) plus the seat's configured
+    output budget (predict_limit) must stay inside it.
     The real P-4 prompt-token measure with the three schemas is live and backlogged."""
     portal = yaml.safe_load((REPO / "config/portal.yaml").read_text())["workspaces"][
         "tools-specialist"
     ]
-    limit = portal["context_limit"]
-    assert portal.get("predict_limit") is None  # the harness default 2048 applies
+    limit, cap = portal["context_limit"], portal["predict_limit"]
+    assert cap and limit
     for t in TASKS.values():
         prompt = (len(portal.get("owui_system_prompt") or "") + len(t["instruction"])) / 4
-        assert prompt + 2048 <= limit, (t["id"], prompt + 2048)
+        assert prompt + cap <= limit, (t["id"], prompt + cap)
 
 
 def test_the_plan_arms_are_served_by_the_workspaces_groups_and_fit_its_window():
