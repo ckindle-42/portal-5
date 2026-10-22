@@ -179,3 +179,4 @@ data/compliance/backups/
 /data/generated/
 /campaign.yaml
 /execute_local_sec_bench.sh
+/.opencode/
