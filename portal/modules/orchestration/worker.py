@@ -112,7 +112,11 @@ class Engine:
         return plan if isinstance(plan, dict) else {"response": plan}
 
     def _headers(self) -> dict[str, str]:
-        headers = {"Accept": "text/event-stream", "Content-Type": "application/json"}
+        headers = {
+            "Accept": "text/event-stream",
+            "Content-Type": "application/json",
+            "X-Portal-Client": "api",
+        }
         if self.api_key:
             headers["Authorization"] = f"Bearer {self.api_key}"
         return headers

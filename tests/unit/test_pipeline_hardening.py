@@ -237,6 +237,74 @@ async def test_tool_loop_emits_no_answer_failure_before_single_done(stream_clien
 
 
 @pytest.mark.anyio
+async def test_exec_audit_survives_client_owned_finish_return(
+    stream_client, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    lookup_call = {
+        "index": 0,
+        "id": "lookup-1",
+        "function": {"name": "lookup", "arguments": '{"id":"T1558.003"}'},
+    }
+    finish_call = {
+        "index": 0,
+        "id": "finish-1",
+        "function": {"name": "finish", "arguments": '{"output":"done"}'},
+    }
+
+    def tool_response(call: dict[str, typing.Any]) -> _Resp:
+        return _Resp(
+            200,
+            [
+                _delta(tool_calls=[call]),
+                _data({"choices": [{"index": 0, "delta": {}, "finish_reason": "tool_calls"}]}),
+                "data: [DONE]",
+            ],
+        )
+
+    _serve(stream_client, tool_response(lookup_call), tool_response(finish_call))
+
+    async def dispatch(calls, *_args):
+        return (
+            {"role": "assistant", "tool_calls": calls},
+            [{"role": "tool", "tool_call_id": "lookup-1", "content": "lookup result"}],
+        )
+
+    monkeypatch.setattr(st, "_dispatch_hop_tool_calls", dispatch)
+    chunks = await _drain(
+        st._stream_with_tool_loop_impl(
+            "http://x/v1/chat/completions",
+            {
+                "messages": [],
+                "tools": [
+                    {"type": "function", "function": {"name": "lookup"}},
+                    {"type": "function", "function": {"name": "finish"}},
+                ],
+                "portal_bite_max_hops": 4,
+                "exec_audit": True,
+            },
+            "ws",
+            "m",
+            "p",
+            {"lookup"},
+        )
+    )
+
+    audits = [event for event in _payloads(chunks) if event.get("type") == "exec_audit"]
+    assert audits == [
+        {
+            "type": "exec_audit",
+            "tool_calls": [
+                {
+                    "tool": "lookup",
+                    "arguments": '{"id":"T1558.003"}',
+                    "output": "lookup result",
+                }
+            ],
+        }
+    ]
+
+
+@pytest.mark.anyio
 async def test_post_tool_reasoning_and_newline_are_not_answer_content(
     stream_client, monkeypatch: pytest.MonkeyPatch
 ) -> None:

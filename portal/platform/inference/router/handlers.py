@@ -940,7 +940,6 @@ async def chat_completions(
 
     # How long this request's cold model loads may queue for memory (load_guard).
     set_load_wait(request.headers.get("x-portal-load-wait"))
-    no_answer.set_chat_ui(request.headers)  # a chat turn answers; a program retries on the status
     _verify_key(authorization)
 
     start_trace(get_correlation_id())
@@ -959,6 +958,7 @@ async def chat_completions(
         workspace_id, body, stream, persona, candidates = await _resolve_request_route(
             request, slot
         )
+        no_answer.set_chat_ui(request.headers, body)
         set_prompt_estimate(body)
 
         if not stream:

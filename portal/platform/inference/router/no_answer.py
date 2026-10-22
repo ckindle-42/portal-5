@@ -10,7 +10,7 @@ from __future__ import annotations
 import logging
 import time
 import uuid
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from contextvars import ContextVar
 from typing import Any
 
@@ -48,8 +48,10 @@ _RETRY = {
 _chat_ui: ContextVar[bool] = ContextVar("portal_chat_ui", default=False)
 
 
-def is_chat_ui(headers: Any) -> bool:
+def is_chat_ui(headers: Any, body: Mapping[str, Any] | None = None) -> bool:
     """Whether the reply is read in a chat UI rather than by a program (see module docstring)."""
+    if body is not None and "portal_bite_tools" in body:
+        return False
     override = str(headers.get(_CLIENT_HEADER) or "").strip().lower()
     if override:
         return override in _CHAT_CLIENTS
@@ -58,9 +60,9 @@ def is_chat_ui(headers: Any) -> bool:
     return _UA_MARKER in str(headers.get("user-agent") or "").lower()
 
 
-def set_chat_ui(headers: Any) -> None:
+def set_chat_ui(headers: Any, body: Mapping[str, Any] | None = None) -> None:
     """Record the request's audience for the whole turn (set once in the handler)."""
-    _chat_ui.set(is_chat_ui(headers))
+    _chat_ui.set(is_chat_ui(headers, body))
 
 
 def chat_ui() -> bool:

@@ -99,6 +99,14 @@ def test_explicit_client_header_wins_both_ways() -> None:
     )
 
 
+def test_bite_body_is_always_an_api_request() -> None:
+    headers = {"x-portal-client": "chat", "user-agent": "Python/3.11 aiohttp/3.14"}
+    body = {"portal_bite_tools": ["finish"]}
+    assert not no_answer.is_chat_ui(headers, body)
+    no_answer.set_chat_ui(headers, body)
+    assert not no_answer.chat_ui()
+
+
 @pytest.fixture
 def api() -> typing.Iterator[typing.Any]:
     """FastAPI TestClient over the real app with a fake backend registry."""
@@ -121,10 +129,9 @@ async def test_owui_turn_through_the_route_ends_with_a_completion(
     from portal.platform.inference.router.auth import PIPELINE_API_KEY
 
     body = {"model": WS, "messages": [{"role": "user", "content": "hi"}], "stream": False}
-    filled: dict[str, typing.Any] = {"model": WS, "messages": []}
 
-    async def resolved_route(_request: typing.Any, _slot: typing.Any) -> typing.Any:
-        return WS, filled, False, "", [_backend("b1")]
+    async def resolved_route(request: typing.Any, _slot: typing.Any) -> typing.Any:
+        return WS, await request.json(), False, "", [_backend("b1")]
 
     async def _fail(
         backend: typing.Any,
@@ -155,6 +162,13 @@ async def test_owui_turn_through_the_route_ends_with_a_completion(
         "/v1/chat/completions", json=body, headers={**auth, "user-agent": API["user-agent"]}
     )
     assert program.status_code == 502
+
+    bite = api.post(
+        "/v1/chat/completions",
+        json={**body, "portal_bite_tools": ["finish"]},
+        headers={**auth, "user-agent": OWUI["user-agent"]},
+    )
+    assert bite.status_code == 502
 
 
 # ── the message and the count ────────────────────────────────────────
