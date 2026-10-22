@@ -741,7 +741,6 @@ def _request_body(bite: Bite, engine: Engine, messages: list[dict[str, Any]]) ->
         "max_tokens": bite.budget.output_tokens,
         "stream": True,
         "stream_options": {"include_usage": True},
-        "chat_template_kwargs": {"enable_thinking": True},
     }
 
 
@@ -790,7 +789,7 @@ def _messages(
             declared_paths[name] = fallback.relative_to(root).as_posix()
     system = (
         "Execute exactly one task bite with the supplied Pipeline tools. "
-        "Use only listed bite tools and call finish once when done. Keep reasoning enabled.\n"
+        "Use only listed bite tools and call finish once when done.\n"
         f"Goal: {bite.goal}\nProcedure: {bite.procedure}\n"
         f"Acceptance: {json.dumps(bite.accept)}\n"
         f"Deep review: {bite.review_reason or 'not requested'}\n"

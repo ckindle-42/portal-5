@@ -369,6 +369,11 @@ def test_client_file_tools_loop_back_to_the_model_and_keep_reading_bites_read_on
         [tool["function"]["name"] for tool in request["tools"]] == ["file_read", "finish"]
         for request in fake_pipeline.requests
     )
+    assert all("chat_template_kwargs" not in request for request in fake_pipeline.requests)
+    assert all(
+        "Keep reasoning enabled" not in request["messages"][0]["content"]
+        for request in fake_pipeline.requests
+    )
     followup = fake_pipeline.requests[1]["messages"]
     assert followup[-1]["role"] == "tool"
     assert followup[-1]["name"] == "file_read"

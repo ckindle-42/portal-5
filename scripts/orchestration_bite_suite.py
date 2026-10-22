@@ -98,18 +98,16 @@ class SuiteEngine(Engine):
             for tool in schemas
             if isinstance(tool, dict) and isinstance(tool.get("function"), dict)
         }
-        thinking = body.get("chat_template_kwargs")
         if (
             not isinstance(allowed, list)
             or not all(isinstance(name, str) for name in allowed)
             or set(allowed) != expected
             or schema_names != expected
-            or not isinstance(thinking, dict)
-            or thinking.get("enable_thinking") is not True
+            or "chat_template_kwargs" in body
             or "portal_bite_max_hops" not in body
         ):
             raise HarnessError(
-                "arm worker bite request is missing tools, finish, thinking, or hop limits"
+                "arm worker bite tool request is missing tools, finish, or hop limits, or forces thinking"
             )
 
     def _read_trace(self, cid: str) -> dict[str, Any]:
@@ -511,7 +509,6 @@ def _request_body(
         "messages": messages,
         "stream": True,
         "stream_options": {"include_usage": True},
-        "chat_template_kwargs": {"enable_thinking": True},
     }
     if json_output:
         body["response_format"] = {"type": "json_object"}
