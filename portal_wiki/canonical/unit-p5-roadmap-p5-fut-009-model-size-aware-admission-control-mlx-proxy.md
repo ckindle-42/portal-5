@@ -83,7 +83,8 @@ engine transport, which every chat request to Ollama or oMLX passes through.
   batch work can run in fit-sized waves.
 
 Footprint is weights × 1.25 + 2 GiB, raised to the size observed the last time the
-model was resident. Headroom is oMLX's `final_ceiling` minus its resident memory, plus
+model was resident. Headroom is `LOAD_GUARD_CEILING_GB` when set, else oMLX's
+`final_ceiling`, minus its resident memory, plus
 idle Ollama residents. With oMLX 0.7.2 and `memory_guard_tier` balanced, that ceiling
 moved between 18 and 42 GB on 2026-10-22, so the headroom for a large Ollama load is
 not a fixed budget ([[unit-known-limitations-omlx-balanced-ceiling]]). Verified live: two cold Ollama seats loaded in turn and
