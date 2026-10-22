@@ -33,6 +33,7 @@ def test_process_scan_finds_dispatch_pytest_wfe_and_bench() -> None:
 
 
 def test_snapshot_uses_mocked_http_and_records_residents(monkeypatch) -> None:
+    monkeypatch.setenv("UAT_MAX_PYTEST_PROCESSES", "3")
     monkeypatch.setattr(
         host_quiet,
         "_process_lines",
@@ -64,6 +65,7 @@ def test_snapshot_uses_mocked_http_and_records_residents(monkeypatch) -> None:
     assert snapshot["ollama_residents"] == [{"name": "ollama-model", "size_gib": 1.0}]
     assert snapshot["omlx_residents"] == [{"name": "omlx-model"}]
     assert snapshot["other_heavy_processes"][0]["kind"] == "pytest/xdist"
+    assert snapshot["maximum_pytest_processes"] == 3
     assert calls[0] == (
         "http://pipeline.test/admin/load-plan",
         "POST",
@@ -90,7 +92,7 @@ def test_memory_safety_pid_and_orchestrate_locks_are_checked(monkeypatch, tmp_pa
     assert host_quiet._registry_processes(lock_root, ignore_pids={41}) == []
 
 
-def test_active_orchestrate_registry_entry_blocks(tmp_path: Path) -> None:
+def test_active_orchestrate_registry_entry_is_recorded(tmp_path: Path) -> None:
     root = tmp_path / "orchestrate"
     root.mkdir()
     registry = root / "registry.json"
@@ -121,22 +123,67 @@ def test_vm_stat_headroom_uses_free_and_inactive_pages(monkeypatch) -> None:
     assert error is None
 
 
-def test_low_headroom_and_heavy_work_block_start() -> None:
+def test_only_memory_safety_pid_excess_tests_and_low_headroom_block() -> None:
     snapshot = {
         "headroom_gib": 0.5,
         "minimum_headroom_gib": 1.5,
+        "maximum_pytest_processes": 4,
         "other_heavy_processes": [
-            {"pid": 41, "kind": "dispatch lane job", "process": "dispatch.py"}
+            {"pid": 41, "kind": "dispatch lane job", "process": "dispatch.py"},
+            {"pid": 42, "kind": "WFE/bench run", "process": "tests.wfe.campaign"},
+            {"pid": 43, "kind": "WFE/bench run", "process": "memory-safety PID file"},
+            *[
+                {"pid": pid, "kind": "pytest/xdist", "process": "pytest/xdist worker"}
+                for pid in range(100, 105)
+            ],
         ],
         "busy_requests": 0,
+        "process_scan_error": "process table unavailable",
     }
 
     reasons = host_quiet.blockers(snapshot)
 
     assert reasons == [
-        "dispatch lane job is running (pid 41): dispatch.py",
+        "WFE/bench run is running (pid 43): memory-safety PID file",
+        "pytest/xdist process count 5 exceeds UAT_MAX_PYTEST_PROCESSES=4",
         "host memory headroom 0.5 GiB is below 1.5 GiB",
     ]
+
+
+def test_dispatch_and_light_test_work_are_recorded_but_do_not_block() -> None:
+    snapshot = {
+        "headroom_gib": 4.0,
+        "minimum_headroom_gib": 1.5,
+        "maximum_pytest_processes": 4,
+        "other_heavy_processes": [
+            {"pid": 41, "kind": "dispatch lane job", "process": "dispatch.py"},
+            {"pid": 42, "kind": "WFE/bench run", "process": "tests.wfe.campaign"},
+            *[
+                {"pid": pid, "kind": "pytest/xdist", "process": "pytest/xdist worker"}
+                for pid in range(100, 104)
+            ],
+        ],
+        "busy_requests": 3,
+        "process_scan_error": "process table unavailable",
+    }
+
+    assert host_quiet.blockers(snapshot) == []
+
+
+def test_start_and_end_snapshots_retain_dispatch_lane_jobs(monkeypatch) -> None:
+    lane = {"pid": 41, "kind": "dispatch lane job", "process": "dispatch.py"}
+    snapshots = [
+        {"headroom_gib": 4.0, "other_heavy_processes": [lane]},
+        {"headroom_gib": 3.0, "other_heavy_processes": [lane]},
+    ]
+    monkeypatch.setattr(host_quiet, "capture_snapshot", lambda *_args: snapshots.pop(0))
+
+    context = host_quiet.begin_run("http://pipeline.test", "key")
+    host_quiet.finish_run(context, "http://pipeline.test", "key")
+
+    assert context["allowed"] is True
+    assert context["start"]["other_heavy_processes"] == [lane]
+    assert context["end"]["other_heavy_processes"] == [lane]
 
 
 def test_force_records_which_host_blockers_were_overridden(monkeypatch) -> None:
