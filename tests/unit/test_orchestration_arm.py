@@ -557,21 +557,25 @@ def test_parallel_file_reads_execute_in_order_and_continue_to_finish(
     assert [message["tool_call_id"] for message in exchange[1:]] == ["call-1", "call-2"]
 
 
-def test_parallel_batch_mixing_finish_keeps_red_flags_and_executes_no_tools(
+def test_parallel_batch_mixing_finish_defers_it_and_executes_the_tools(
     tmp_path: Path, fake_pipeline: FakePipeline
 ) -> None:
-    task_dir = tmp_path / "mixed-parallel"
+    task_dir = tmp_path / "mixed-defer"
     (task_dir / "data").mkdir(parents=True)
     (task_dir / "data/source.txt").write_text("source contents", encoding="utf-8")
     fake_pipeline.add(
         "fast",
         parallel_tool_response(
             ("file_read", '{"path":"source.txt"}'),
-            ("finish", '{"output":{"answer":"right"}}'),
+            ("finish", '{"output":{"answer":"decided before the results"}}'),
         ),
     )
+    fake_pipeline.add("fast", finish_response({"answer": "right"}))
     task_bite = parse_plan(
-        plan("mixed-parallel", bite(tools=["file_read"], inputs=["source.txt"]))
+        plan(
+            "mixed-defer",
+            bite(tools=["file_read"], inputs=["source.txt"], turns=3),
+        )
     ).bites[0]
 
     result = run_bite(
@@ -581,11 +585,61 @@ def test_parallel_batch_mixing_finish_keeps_red_flags_and_executes_no_tools(
         input_paths={"source.txt": Path("source.txt")},
         attempt_dir=task_dir / "attempt",
     )
+    records = [
+        json.loads(line)
+        for line in (task_dir / "attempt" / "transcript.jsonl").read_text().splitlines()
+    ]
+
+    assert result.finished and result.output == {"answer": "right"}
+    assert result.red_flags == ()
+    assert [item["name"] for item in result.tool_results] == ["file_read"]
+    assert [call["function"]["name"] for call in result.tool_calls] == ["file_read", "finish"]
+    deferred = [row for row in records if row["kind"] == "finish_deferred"]
+    assert [row["call"]["function"]["name"] for row in deferred] == ["finish"]
+    assert "decided before the results" in deferred[0]["call"]["function"]["arguments"]
+    # The dropped finish costs no hop: the follow-up request keeps one spare.
+    assert [request["portal_bite_max_hops"] for request in fake_pipeline.requests] == [3, 2]
+    followup = fake_pipeline.requests[1]["messages"][-3:]
+    assert [call["function"]["name"] for call in followup[0]["tool_calls"]] == ["file_read"]
+    assert followup[1]["role"] == "tool" and followup[1]["content"] == "source contents"
+    assert followup[2]["role"] == "user" and "finish" in followup[2]["content"]
+
+
+def test_parallel_batch_with_unoffered_tool_keeps_red_flags(
+    tmp_path: Path, fake_pipeline: FakePipeline
+) -> None:
+    task_dir = tmp_path / "mixed-unoffered"
+    (task_dir / "data").mkdir(parents=True)
+    (task_dir / "data/source.txt").write_text("source contents", encoding="utf-8")
+    fake_pipeline.add(
+        "fast",
+        parallel_tool_response(
+            ("shell_exec", '{"command":"rm -rf /"}'),
+            ("finish", '{"output":{"answer":"right"}}'),
+        ),
+    )
+    task_bite = parse_plan(
+        plan("mixed-unoffered", bite(tools=["file_read"], inputs=["source.txt"]))
+    ).bites[0]
+
+    result = run_bite(
+        task_dir,
+        task_bite,
+        Engine("auto-daily::fast", "test-digest", fake_pipeline.url, auth.PIPELINE_API_KEY),
+        input_paths={"source.txt": Path("source.txt")},
+        attempt_dir=task_dir / "attempt",
+    )
+    records = [
+        json.loads(line)
+        for line in (task_dir / "attempt" / "transcript.jsonl").read_text().splitlines()
+    ]
 
     assert not result.finished
     assert "multiple_tool_calls" in result.red_flags
     assert "missing_finish_output" in result.red_flags
     assert result.tool_results == ()
+    assert not [row for row in records if row["kind"] == "finish_deferred"]
+    assert len(fake_pipeline.requests) == 1
 
 
 def test_parallel_batch_over_hop_budget_is_rejected_before_tool_execution(
@@ -1192,6 +1246,19 @@ def test_text_only_reply_gets_one_finish_repair_turn_then_passes(
     assert kinds.count("finish_repair") >= 2
     stages = [row["stage"] for row in records if row["kind"] == "finish_repair"]
     assert stages.count("request") == 1 and stages.count("response") == 1
+
+
+def test_finish_repair_request_forces_the_finish_tool_choice(
+    tmp_path: Path, fake_pipeline: FakePipeline
+) -> None:
+    fake_pipeline.add("fast", text_response("Defect report delivered as plain text."))
+    fake_pipeline.add("fast", finish_response({"answer": "right"}))
+    result, _records = _run_direct_bite(tmp_path, fake_pipeline, "finish-repair-forced", turns=2)
+
+    assert result.finished and result.red_flags == ()
+    assert fake_pipeline.requests[0]["tool_choice"] == "auto"
+    repair = fake_pipeline.requests[1]
+    assert repair["tool_choice"] == {"type": "function", "function": {"name": "finish"}}
 
 
 def test_ignored_finish_repair_keeps_todays_red_flags(
