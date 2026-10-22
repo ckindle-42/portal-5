@@ -20,6 +20,9 @@ images and golds are original to this generator (2026-10-18), so contamination b
 pre-2026 material is not a concern.
 
     uv run python tests/wfe/suites/build_vision_production.py
+
+PNGs are written by a minimal deterministic encoder (stdlib zlib, filter 0) because
+the Pillow wheels' bundled zlib-ng encodes differently on macOS than on Linux.
 """
 
 from __future__ import annotations
@@ -27,6 +30,8 @@ from __future__ import annotations
 import json
 import random
 import re
+import struct
+import zlib
 from pathlib import Path
 
 import matplotlib
@@ -84,15 +89,34 @@ def _font(size: int) -> ImageFont.FreeTypeFont | ImageFont.ImageFont:
     return ImageFont.load_default(size=size)
 
 
+def _chunk(kind: bytes, data: bytes) -> bytes:
+    return struct.pack(">I", len(data)) + kind + data + struct.pack(">I", zlib.crc32(kind + data))
+
+
+def _write_png(img: Image.Image, path: Path) -> None:
+    # Pillow's wheels bundle zlib-ng, whose deflate stream differs between the
+    # macOS and manylinux builds; stdlib zlib and filter 0 are byte-stable.
+    raw = b"".join(
+        b"\x00" + img.tobytes()[y * img.width : (y + 1) * img.width] for y in range(img.height)
+    )
+    ihdr = struct.pack(">IIBBBBB", img.width, img.height, 8, 3, 0, 0, 0)
+    path.write_bytes(
+        b"\x89PNG\r\n\x1a\n"
+        + _chunk(b"IHDR", ihdr)
+        + _chunk(b"PLTE", img.palette.palette)
+        + _chunk(b"IDAT", zlib.compress(raw, 9))
+        + _chunk(b"IEND", b"")
+    )
+
+
 def _pattern(value: str) -> str:
     return rf'"answer"\s*:\s*"?{re.escape(value)}"?(?![\w.-])'
 
 
 def _save(img: Image.Image, name: str) -> str:
     IMG_DIR.mkdir(parents=True, exist_ok=True)
-    img.convert("P", palette=Image.Palette.ADAPTIVE, colors=64).save(
-        IMG_DIR / name, format="PNG", optimize=True
-    )
+    pal = img.convert("P", palette=Image.Palette.ADAPTIVE, colors=64)
+    _write_png(pal, IMG_DIR / name)
     return f"tests/fixtures/vision/{name}"
 
 
