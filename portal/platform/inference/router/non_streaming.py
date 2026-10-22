@@ -19,6 +19,7 @@ from fastapi.responses import JSONResponse
 
 from portal.platform.inference.config import PersonaSpec
 from portal.platform.inference.router.backend_introspect import _approx_prompt_tokens
+from portal.platform.inference.router.correlation import get_correlation_id
 from portal.platform.inference.router.download_links import (
     offers_file_creation,
     strip_unbacked_download_lines,
@@ -196,6 +197,24 @@ def backend_error_detail(raw: bytes | str) -> str:
     if isinstance(err, dict):
         err = err.get("message")
     return str(err or text)[:500]
+
+
+def _completion_body(resp: httpx.Response, workspace_id: str) -> dict[str, Any]:
+    """``resp.json()`` for a completion, refusing an error object a backend wrote in its
+    place (Ollama's qwen3coder parser abort, ollama#18563, also answers HTTP 200)."""
+    data: dict[str, Any] = resp.json()
+    if isinstance(data, dict) and "error" in data and not data.get("choices"):
+        detail = backend_error_detail(json.dumps(data))
+        logger.error(
+            "Backend wrote an error inside an HTTP 200 body instead of a completion "
+            "(workspace=%s correlation_id=%s): %s",
+            workspace_id,
+            get_correlation_id() or "-",
+            detail,
+        )
+        _record_error(workspace_id, "backend_in_band_error")
+        raise ValueError(f"backend error instead of a completion: {detail}")
+    return data
 
 
 #: Keys the primary request carries for its own engine (Ollama native options,
@@ -576,7 +595,7 @@ async def _final_toolless_answer(
     started = time.monotonic()
     final_resp = await client.post(url, json=final_body, timeout=timeout)
     _raise_for_backend_status(final_resp)
-    data = final_resp.json()
+    data = _completion_body(final_resp, workspace_id)
     _recover_or_withhold_markup(data, None, req_body.get("model", ""), workspace_id)
     late = _collect_tool_calls(data)
     if late:
@@ -871,7 +890,7 @@ async def _try_non_streaming(
             _model_started = time.monotonic()
             resp = await _http_client.post(backend.chat_url, json=req_body, timeout=_timeout_obj)
             _raise_for_backend_status(resp)
-            data = resp.json()
+            data = _completion_body(resp, workspace_id)
             # P5-OMLX-QWEN3CODER-TOOLTEXT-001: a call the engine's parser
             # missed arrives as content; recover it before the tool loop.
             _recover_or_withhold_markup(
@@ -946,7 +965,7 @@ async def _try_non_streaming(
                     timeout=_timeout_obj,
                 )
                 _raise_for_backend_status(_ns_retry)
-                data = _ns_retry.json()
+                data = _completion_body(_ns_retry, workspace_id)
                 _recover_or_withhold_markup(
                     data, req_body.get("tools"), req_body.get("model", ""), workspace_id
                 )
@@ -1005,7 +1024,7 @@ async def _try_non_streaming(
                     backend.chat_url, json=_synth_body, timeout=_timeout_obj
                 )
                 _raise_for_backend_status(_synth_resp)
-                data = _synth_resp.json()
+                data = _completion_body(_synth_resp, workspace_id)
                 _recover_or_withhold_markup(
                     data, _synth_body.get("tools"), req_body.get("model", ""), workspace_id
                 )
@@ -1055,7 +1074,6 @@ async def _try_non_streaming(
             # Persists only salient USER statements; no-op unless the workspace
             # sets memory_writeback. Never blocks or fails the response.
             from portal.platform.inference.router.context_inject import schedule_writeback
-            from portal.platform.inference.router.correlation import get_correlation_id
 
             schedule_writeback(workspace_id, body.get("messages", []), get_correlation_id())
 

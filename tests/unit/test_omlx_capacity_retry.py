@@ -183,10 +183,15 @@ def test_a_second_connect_timeout_and_any_read_timeout_surface_as_errors(monkeyp
     out, posts = _drive_tool_loop(
         monkeypatch, [httpx.ConnectTimeout("a"), httpx.ConnectTimeout("b")]
     )
-    assert len(posts) == 2 and b'"error"' in out
+    assert len(posts) == 2
+    assert "Backend timed out and no model is loaded" in out.decode()
+    assert b'"error"' not in out and out.endswith(b"data: [DONE]\n\n")
 
     out, posts = _drive_tool_loop(monkeypatch, [httpx.ReadTimeout("slow")])
-    assert len(posts) == 1 and b'"error"' in out  # a read timeout may have started generating
+    # A read timeout may have started generating: report it, never retry.
+    assert len(posts) == 1
+    assert "Backend timed out and no model is loaded" in out.decode()
+    assert b'"error"' not in out and out.endswith(b"data: [DONE]\n\n")
 
 
 # ── a refusal falls back to the Ollama sibling; capacity is the last resort ──
@@ -355,9 +360,12 @@ async def test_stream_chain_exhausted_reports_the_capacity_error(monkeypatch) ->
     out, calls = await _stream_fallback(monkeypatch, [_CAPACITY_FRAME], [_ollama_backend()], None)
 
     assert calls == ["ollama-general"]  # the sibling was tried before the error surfaced
-    assert b'"status": 400' in out
+    assert b"Backend returned HTTP 400" in out  # the refusal still names its status
     assert b"estimated prompt size ~" in out
     assert b"would exceed the memory ceiling" in out
+    # and the client gets a readable ending, not a bare error frame
+    assert b'"error"' not in out
+    assert b'"finish_reason": "stop"' in out and out.endswith(b"data: [DONE]\n\n")
 
 
 @pytest.mark.anyio

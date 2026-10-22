@@ -317,6 +317,21 @@ def to_openai_completion(native: dict[str, Any]) -> dict[str, Any]:
     return body
 
 
+def _aborted_sse(chunk: dict[str, Any], model: str, created: int, cid: str) -> bytes:
+    """The error frame and finish chunk that close a stream Ollama aborted in-band (ollama#18563)."""
+    frames = [
+        {"error": {"message": chunk["error"], "type": "api_error"}},
+        _envelope(
+            chunk.get("model", model),
+            "chat.completion.chunk",
+            [{"index": 0, "delta": {}, "finish_reason": "stop"}],
+            created,
+            cid,
+        ),
+    ]
+    return b"".join(f"data: {json.dumps(f, separators=(',', ':'))}\n\n".encode() for f in frames)
+
+
 async def native_stream_to_sse(
     lines: AsyncIterator[str], include_usage: bool
 ) -> AsyncIterator[bytes]:
@@ -333,7 +348,7 @@ async def native_stream_to_sse(
             continue
         chunk = json.loads(line)
         if chunk.get("error"):
-            yield sse({"error": {"message": chunk["error"], "type": "api_error"}})
+            yield _aborted_sse(chunk, model, created, cid)
             break
         model = chunk.get("model", model)
         msg = chunk.get("message") or {}
@@ -566,12 +581,22 @@ class OllamaNativeTransport(httpx.AsyncBaseTransport):
                 )
             raw = await resp.aread()
             await resp.aclose()
+            data = json.loads(raw)
+            if data.get("error"):
+                # The engine answered HTTP 200 with a parser abort instead of a reply.
+                logger.error("ollama_native: %s answered with an error: %s", model, data["error"])
+                return httpx.Response(
+                    500,
+                    headers={"content-type": "application/json"},
+                    content=_error_body(500, raw),
+                    request=request,
+                )
         finally:
             _run_all((release, end))
         return httpx.Response(
             200,
             headers={"content-type": "application/json"},
-            content=json.dumps(to_openai_completion(json.loads(raw))).encode(),
+            content=json.dumps(to_openai_completion(data)).encode(),
             request=request,
         )
 
