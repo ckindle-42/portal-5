@@ -1,6 +1,7 @@
 """Tests for the static checks that run before a WFE seat screen."""
 
 import subprocess
+import sys
 from pathlib import Path
 
 import pytest
@@ -82,3 +83,28 @@ def test_omlx_alias_routed_to_ollama_is_blocked(monkeypatch: pytest.MonkeyPatch)
     reasons = preflight._served_engine(preflight.ROOT, workspace_id, workspace, None)
 
     assert any("should use omlx" in reason for reason in reasons)
+
+
+def test_main_host_quiet_gate_records_snapshots_before_seat_check(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    context = {
+        "allowed": False,
+        "force_requested": False,
+        "override_reason": None,
+        "blockers": ["pytest/xdist is running (pid 42)"],
+        "start": {"headroom_gib": 4.0},
+    }
+    monkeypatch.setattr(sys, "argv", ["seat_preflight.py", "--workspace", "seat"])
+    monkeypatch.setattr(preflight, "preflight", lambda _args: [])
+    monkeypatch.setattr(preflight.host_quiet, "begin_run", lambda *a, **k: context)
+    monkeypatch.setattr(
+        preflight.host_quiet,
+        "finish_run",
+        lambda record, *a: record.update(end={"headroom_gib": 3.0}),
+    )
+
+    assert preflight.main() == 1
+    out = capsys.readouterr().out
+    assert "pytest/xdist is running" in out
+    assert '"end": {"headroom_gib": 3.0}' in out

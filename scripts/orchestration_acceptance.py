@@ -23,7 +23,6 @@ import os
 import signal
 import subprocess
 import sys
-import time
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
@@ -49,6 +48,7 @@ from portal.modules.orchestration.service import (  # noqa: E402
 )
 from portal.modules.orchestration.worker import Engine  # noqa: E402
 from portal.platform.mcp_host.workspace import get_generated_dir  # noqa: E402
+from scripts import host_quiet  # noqa: E402
 
 _SCHEMA = {
     "type": "object",
@@ -66,8 +66,6 @@ WFE_PROCESS_PATTERNS = (
     "tests/wfe/run_arm.py",
     "wfe_sweep_unattended.sh",
 )
-_WFE_WAIT_SECONDS = 300.0
-_WFE_HEARTBEAT_SECONDS = 30.0
 
 # The live check must be satisfiable from the prompt, so the checked token is stated in the goal.
 LIVE_TOKEN = "arm-live-ok"
@@ -158,25 +156,6 @@ def _wfe_active() -> str | None:
     if processes:
         return f"WFE process running: {processes[0]}"
     return None
-
-
-def _wait_for_wfe_clear(
-    timeout: float = _WFE_WAIT_SECONDS, poll_interval: float = 2.0
-) -> str | None:
-    """Return None when clear, or the active-WFE reason after the deadline."""
-    deadline = time.monotonic() + timeout
-    next_heartbeat = time.monotonic()
-    while True:
-        reason = _wfe_active()
-        if reason is None:
-            return None
-        now = time.monotonic()
-        if now >= deadline:
-            return reason
-        if now >= next_heartbeat:
-            print(f"  WFE active ({reason}); still waiting...", flush=True)
-            next_heartbeat = now + _WFE_HEARTBEAT_SECONDS
-        time.sleep(max(0.0, min(poll_interval, deadline - now)))
 
 
 def _write_arm_config(
@@ -850,15 +829,26 @@ def run_live(
     fast_digest: str,
     deep_digest: str,
     phases: list[int] | None = None,
+    force: bool = False,
 ) -> dict[str, Any]:
-    """Run scenarios against a live Pipeline; refuse while WFE is active."""
-    print("Checking for active WFE runs...", flush=True)
-    reason = _wait_for_wfe_clear()
-    if reason:
-        print(f"ERROR: refusing live acceptance while WFE is active: {reason}", file=sys.stderr)
+    """Run scenarios against a live Pipeline after the shared host preflight."""
+    print("Checking that the host is quiet...", flush=True)
+    host_context = host_quiet.begin_run(pipeline_url, api_key, force=force)
+    if not host_context["allowed"]:
+        reason = host_quiet.refusal(host_context)
+        host_quiet.finish_run(host_context, pipeline_url, api_key)
+        print(f"ERROR: {reason}", file=sys.stderr)
         return _receipt(
-            workdir, [], mode="live", pipeline_url=pipeline_url, wfe=reason, blocked=reason
+            workdir,
+            [],
+            mode="live",
+            pipeline_url=pipeline_url,
+            wfe=reason,
+            blocked=reason,
+            host_quiet=host_context,
         )
+    if host_context["override_reason"]:
+        print(f"HOST-QUIET OVERRIDE: {host_context['override_reason']}", file=sys.stderr)
     results: list[dict[str, Any]] = []
     aborted = None
     interrupted = False
@@ -866,7 +856,7 @@ def run_live(
         for name, meta in SCENARIOS.items():
             if phases and meta["phase"] not in phases:
                 continue
-            reason = _wfe_active()
+            reason = None if force else _wfe_active()
             if reason:
                 aborted = f"WFE became active before {name}: {reason}"
                 print(f"\nABORT: {aborted}", file=sys.stderr, flush=True)
@@ -886,6 +876,7 @@ def run_live(
     except KeyboardInterrupt:
         interrupted = True
         print("\nInterrupted; writing a partial receipt", file=sys.stderr, flush=True)
+    host_quiet.finish_run(host_context, pipeline_url, api_key)
     return _receipt(
         workdir,
         results,
@@ -896,6 +887,7 @@ def run_live(
         wfe="clear" if aborted is None else aborted,
         aborted=aborted,
         interrupted=interrupted,
+        host_quiet=host_context,
     )
 
 
@@ -985,6 +977,7 @@ def _parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--dry-run", action="store_true", help="Run against fake Pipeline rig (offline)"
     )
+    parser.add_argument("--force", action="store_true", help="override host-quiet blockers")
     parser.add_argument(
         "--phase", type=int, action="append", choices=[1, 2], help="Run only specific phase(s)"
     )
@@ -1017,6 +1010,7 @@ def _run(args: argparse.Namespace, workdir: Path) -> dict[str, Any]:
             args.fast_digest,
             args.deep_digest,
             phases=args.phase,
+            force=args.force,
         )
     finally:
         signal.signal(signal.SIGTERM, previous)

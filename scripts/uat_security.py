@@ -34,11 +34,13 @@ import time
 from dataclasses import asdict, dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
+from typing import Any
 
 import httpx
 
 from portal.platform.inference.config import PortalConfig, load_portal_config, variant_module
 from portal.platform.wiki.adapters.modules import is_workspace_disabled
+from scripts import host_quiet
 
 PIPELINE_URL = os.environ.get("PIPELINE_URL", "http://localhost:9099")
 PIPELINE_API_KEY = os.environ.get("PIPELINE_API_KEY", "portal-pipeline")
@@ -85,6 +87,7 @@ class Report:
     generated_at: str
     shots: list[Shot] = field(default_factory=list)
     checks: list[Check] = field(default_factory=list)
+    host_quiet: dict[str, Any] = field(default_factory=dict)
 
     @property
     def ok(self) -> bool:
@@ -324,6 +327,7 @@ def write_report(report: Report) -> Path:
                 "ok": report.ok,
                 "shots": [asdict(s) for s in report.shots],
                 "checks": [asdict(c) for c in report.checks],
+                "host_quiet": report.host_quiet,
             },
             indent=2,
         )
@@ -367,14 +371,34 @@ async def _amain(args: argparse.Namespace) -> int:
                 print(f"  - alias {alias_id!r} routes the same as its target {target_id!r}")
         return 0
 
-    async with httpx.AsyncClient(timeout=TIMEOUT) as client:
-        shots = await run_shots(client, config, ids, args.only)
-        shots_by_id = {s.id: s for s in shots}
-        checks = (
-            [] if args.only is not None else await run_design_checks(client, aliases, shots_by_id)
-        )
+    key = os.environ.get("PIPELINE_API_KEY", PIPELINE_API_KEY)
+    host_context = host_quiet.begin_run(PIPELINE_URL, key, force=args.force)
+    if host_context["allowed"]:
+        checks = [
+            Check(
+                "host-quiet preflight",
+                True,
+                host_context["override_reason"] or "host preflight passed",
+            )
+        ]
+        if host_context["override_reason"]:
+            print(f"HOST-QUIET OVERRIDE: {host_context['override_reason']}", file=sys.stderr)
+        async with httpx.AsyncClient(timeout=TIMEOUT) as client:
+            shots = await run_shots(client, config, ids, args.only)
+            shots_by_id = {s.id: s for s in shots}
+            if args.only is None:
+                checks.extend(await run_design_checks(client, aliases, shots_by_id))
+    else:
+        shots = []
+        checks = [Check("host-quiet preflight", False, host_quiet.refusal(host_context))]
+    host_quiet.finish_run(host_context, PIPELINE_URL, key)
 
-    report = Report(generated_at=datetime.now(UTC).isoformat(), shots=shots, checks=checks)
+    report = Report(
+        generated_at=datetime.now(UTC).isoformat(),
+        shots=shots,
+        checks=checks,
+        host_quiet=host_context,
+    )
     out_path = write_report(report)
     print_table(report)
     print(f"\nWrote {out_path}")
@@ -389,6 +413,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument(
         "--only", default=None, help="Run a single id's shot only (skips design checks)"
     )
+    parser.add_argument("--force", action="store_true", help="override host-quiet blockers")
     args = parser.parse_args(argv)
     return asyncio.run(_amain(args))
 

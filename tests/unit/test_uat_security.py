@@ -5,6 +5,7 @@ and mocked httpx.AsyncClient (no network), per CLAUDE.md's tests/unit/ rule.
 
 from __future__ import annotations
 
+import json
 import sys
 from datetime import date
 from pathlib import Path
@@ -305,3 +306,30 @@ def test_main_dry_run_only_filters_to_one_id(capsys, monkeypatch):
     assert "security-reviewer (enabled)" in out
     assert "auto-security (enabled)" not in out
     assert "Would run design checks" not in out
+
+
+def test_main_refuses_busy_host_and_writes_start_end_snapshots(tmp_path, monkeypatch, capsys):
+    context = {
+        "allowed": False,
+        "force_requested": False,
+        "override_reason": None,
+        "blockers": ["pytest/xdist is running (pid 42)"],
+        "start": {"headroom_gib": 4.0},
+    }
+    monkeypatch.setattr(uat, "load_portal_config", _config)
+    monkeypatch.setattr(uat.host_quiet, "begin_run", lambda *args, **kwargs: context)
+    monkeypatch.setattr(
+        uat.host_quiet,
+        "finish_run",
+        lambda record, *args: record.update(end={"headroom_gib": 3.5}),
+    )
+    monkeypatch.setenv("PORTAL_DATA_ROOT", str(tmp_path))
+
+    assert uat.main([]) == 1
+    out = capsys.readouterr().out
+    assert "pytest/xdist is running" in out
+    report_path = next((tmp_path / "uat").glob("*-security.json"))
+    report = json.loads(report_path.read_text())
+    assert report["shots"] == []
+    assert report["host_quiet"]["start"]["headroom_gib"] == 4.0
+    assert report["host_quiet"]["end"]["headroom_gib"] == 3.5
