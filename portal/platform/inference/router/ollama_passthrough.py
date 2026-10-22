@@ -22,11 +22,20 @@ import portal.platform.inference.load_guard as load_guard
 from portal.platform.inference.load_guard import OLLAMA, LoadRefusedError, set_load_wait
 from portal.platform.inference.router.auth import _verify_key
 from portal.platform.inference.router.disconnect import cancel_on_disconnect
+from portal.platform.inference.router.power import _record_engine_call
 
 logger = logging.getLogger(__name__)
 
 _registry: Any = None
 _client: httpx.AsyncClient | None = None
+
+#: Synthetic workspaces for native calls, which carry no workspace id of their own.
+PASSTHROUGH_WORKSPACE = "native-passthrough"
+PASSTHROUGH_EMBED_WORKSPACE = "native-embed"
+
+#: Body bytes kept to read the engine's usage block: a whole non-streaming
+#: answer, or a stream's terminal frame. Larger bodies still count as calls.
+_USAGE_TAIL_BYTES = 256 * 1024
 
 _REQUEST_HEADERS = {"accept", "accept-encoding", "content-type", "user-agent"}
 _RESPONSE_HEADERS = {
@@ -76,6 +85,48 @@ def _close_callbacks(*callbacks: Callable[[], None] | None) -> None:
                 logger.exception("native Ollama request cleanup failed")
 
 
+def _workspace(native_path: str) -> str:
+    """Workspace label for a proxied call; embeddings get their own so they can be split."""
+    return PASSTHROUGH_EMBED_WORKSPACE if native_path == "embed" else PASSTHROUGH_WORKSPACE
+
+
+def _body_usage(tail: bytes) -> dict[str, Any]:
+    """The engine's usage block: the whole JSON body, else the last NDJSON frame."""
+    text = tail.decode("utf-8", "replace").strip()
+    for candidate in (text, text.rsplit("\n", 1)[-1]):
+        try:
+            body = json.loads(candidate)
+        except json.JSONDecodeError:
+            continue
+        if isinstance(body, dict):
+            return body
+    return {}
+
+
+def _relay(
+    upstream: httpx.Response,
+    *,
+    workspace: str | None,
+    model: str,
+    on_close: Callable[[], None],
+) -> AsyncIterator[bytes]:
+    """Relay upstream bytes unchanged, then release the guard and count the call once."""
+
+    async def chunks() -> AsyncIterator[bytes]:
+        tail = bytearray()
+        try:
+            async for chunk in upstream.aiter_raw():
+                tail = (tail + chunk)[-_USAGE_TAIL_BYTES:]
+                yield chunk
+        finally:
+            await upstream.aclose()
+            on_close()
+            if workspace is not None and upstream.status_code == 200:
+                _record_engine_call(model, workspace, _body_usage(bytes(tail)))
+
+    return chunks()
+
+
 async def _proxy(
     request: Request,
     authorization: str | None,
@@ -94,6 +145,7 @@ async def _proxy(
         target = f"{target}?{query}"
 
     body = await request.body() if request.method != "GET" else b""
+    model = _model(body)
     headers = {
         key: value for key, value in request.headers.items() if key.lower() in _REQUEST_HEADERS
     }
@@ -114,7 +166,6 @@ async def _proxy(
             if guard is None:
                 raise HTTPException(status_code=503, detail="Host memory guard not initialised")
             set_load_wait(request.headers.get("x-portal-load-wait"))
-            model = _model(body)
             if model:
                 try:
                     release = await guard.admit(base, model)
@@ -145,15 +196,16 @@ async def _proxy(
         key: value for key, value in upstream.headers.items() if key.lower() in _RESPONSE_HEADERS
     }
 
-    async def _body() -> AsyncIterator[bytes]:
-        try:
-            async for chunk in upstream.aiter_raw():
-                yield chunk
-        finally:
-            await upstream.aclose()
-            _close_callbacks(release, end)
-
-    return StreamingResponse(_body(), status_code=upstream.status_code, headers=response_headers)
+    return StreamingResponse(
+        _relay(
+            upstream,
+            workspace=_workspace(native_path) if inference else None,
+            model=model,
+            on_close=lambda: _close_callbacks(release, end),
+        ),
+        status_code=upstream.status_code,
+        headers=response_headers,
+    )
 
 
 async def chat(request: Request, authorization: str | None = Header(default=None)) -> Any:

@@ -76,11 +76,12 @@ def pytest_configure(config) -> None:
     prometheus_client initialises mmap-backed metric files at import time.
     On Linux this defaults to /dev/shm; on macOS that path does not exist
     and import crashes with FileNotFoundError. Create a temp directory that
-    works cross-platform.
+    works cross-platform. The path is unique per session because the files are
+    keyed by pid: sharing one lets a recycled pid inherit a previous run's
+    counters, and tests that assert absolute values then fail sporadically.
     """
     if "PROMETHEUS_MULTIPROC_DIR" not in os.environ:
-        mp_dir = Path(tempfile.gettempdir()) / "portal5_pytest_metrics"
-        mp_dir.mkdir(parents=True, exist_ok=True)
+        mp_dir = Path(tempfile.mkdtemp(prefix="portal5_pytest_metrics-"))
         os.environ["PROMETHEUS_MULTIPROC_DIR"] = str(mp_dir)
 
     # Prevent lifespan background tasks (health loop, state save) from
