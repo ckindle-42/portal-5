@@ -2380,13 +2380,3 @@ The registration exists so the orchestration arm's reading/checker bites can add
 ## Why
 
 Registering the fallback tag keeps the substitution a config edit rather than a registry hole — a workspace repointed at `-ctx16k` resolves immediately, and the hint validator sees both strings before a screen needs them.
-
----
-
-### `flint:40b-a2b-qat-int4`
-
-`flint:40b-a2b-qat-int4` is RecursiveSI/flint served by Ollama 0.40.8's MLX engine (40B MoE, ~2.5B active, QAT INT4, ~22.6GB) — the library tag `ollama run flint` resolves on this host, not a derived bake. `config/backends.yaml` registers it in the `general` group with `supports_tools: false`: no tool-call probe is on record, so the flag is the registry's conservative default and flips only when the screen's step-2 probe returns typed `tool_calls`. `config/bench_workspaces.yaml` binds it as the `bench-flint` `model_hint` with card sampling (temperature 1.0, top_p 0.95, top_k 20, min_p 0.0, repeat_penalty 1.0), `think: true` and `emits_reasoning: true` — the flint renderer writes a historical `<think>` only when `message.thinking` is non-empty, so a client that drops it breaks the next turn's prefix. `predict_limit` 32768 is REPORT_FLINT's output cap (reasoning included), not a context window: the library tag bakes no `num_ctx`, so a scored 32,768-token screen needs a derived `-ctx32k` tag first (`P5-OLLAMA-OPTIONS-001`).
-
-## Why
-
-REPORT_FLINT recommends registering under `ollama-coding`, but this bench lane's generated `workspace_routing` is `[general]` (every eval-module bench workspace routes there) and strict hint validation only checks a workspace's own routing groups — the same startup failure the GATE-D and TASK_SAMPLING_PROFILE_AUDIT_V1 entries in `config/backends.yaml` were written to fix. Registered in `general` so `bench-flint` resolves; `?model=` overrides still reach it from any workspace. It is a screen candidate beside KAT's `auto-coding::fast-repair`, not a replacement for it.
