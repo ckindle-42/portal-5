@@ -87,7 +87,8 @@ orchestration_arm:
       selection_reason: Existing coding WFE work already uses hidden pytest tests as hard graders for repair tasks, so this candidate can measure correctness without model review.
       persona: auto-coding
       seated_models:
-        fast: auto-daily::fast
+        # Lineage diversity (operator 2026-10-22): Gemma fast seat, Qwen deep seat.
+        fast: auto-daily::gemma-fast
         deep: auto-daily::deep
       tool_allowlist: [file_read, file_write, pytest_run]
       read_tools: [file_read]
@@ -922,6 +923,18 @@ workspaces:
     owui_system_prompt: |-
       You are Portal's daily driver — fast, capable, local. Use for everyday chat, writing, summarization, and planning. Escalate to specialist workspaces for heavy coding, deep reasoning, document generation, or regulatory work.
     variants:
+      gemma-fast:
+        name: "⚡ General · Fast (Gemma)"
+        description: "Gemma-4-26B-A4B QAT at a 32K window — the orchestration arm's fast seat (lineage diversity with the Qwen deep seat; Gate C test_fixing 6/6 on 2026-10-22). The Qwen fast variant stays available."
+        model_hint: gemma4:26b-a4b-it-qat-ctx32k
+        context_limit: 32768
+        max_concurrent: 1
+        keep_alive: 5m
+        # gemma4 card sampling (config/model_card_expectations.yaml gemma4).
+        temperature: 1.0
+        top_p: 0.95
+        top_k: 64
+        expose_to_owui: false
       fast:
         system_prompt_append: |2-
 

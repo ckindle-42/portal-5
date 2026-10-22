@@ -133,6 +133,8 @@ backends:
     supports_tools: true
   - id: gemma4:26b-a4b-it-qat-ctx16k
     supports_tools: true
+  - id: gemma4:26b-a4b-it-qat-ctx32k
+    supports_tools: true
   - id: phi4:14b-q8_0
     supports_tools: false
   - id: hf.co/unsloth/Magistral-Small-2509-GGUF:Q8_0
@@ -788,6 +790,8 @@ backends:
   - id: gemma4:26b-a4b-it-qat-ctx8k
     supports_tools: true
   - id: gemma4:26b-a4b-it-qat-ctx16k
+    supports_tools: true
+  - id: gemma4:26b-a4b-it-qat-ctx32k
     supports_tools: true
   - id: gemma4:31b-it-qat
     supports_tools: true

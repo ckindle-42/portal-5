@@ -1281,6 +1281,14 @@ The `vision` group registration in `config/backends.yaml` supplies the tool flag
 
 ---
 
+### `gemma4:26b-a4b-it-qat-ctx32k`
+
+`gemma4:26b-a4b-it-qat-ctx32k` is the same Gemma-4-26B-A4B QAT weights and template at a 32768-token window, derived from the ctx16k tag (2026-10-22). `config/backends.yaml` registers it beside the ctx16k tag with `supports_tools: true`. `config/portal.yaml` selects it as the `auto-daily::gemma-fast` variant, the orchestration arm's fast seat, sized to the arm's `fast_context_budget_tokens` (32768).
+
+## Why
+
+The arm budgets 32K of context for fast-seat bites, and the base auto-daily tag holds 16K. A separate tag keeps the daily-driver workspace unchanged while the arm gets the window its bites are planned for. Gate C test_fixing passed 6/6 on this model on 2026-10-22.
+
 ### `gemma4:26b-a4b-it-qat-ctx16k`
 
 `gemma4:26b-a4b-it-qat-ctx16k` is the context-bounded version of `gemma4:26b-a4b-it-qat`, holding a 16384-token window, derived from the ctx8k tag (same weights and template). `config/backends.yaml` registers it under the `vision` and `general` groups with `supports_tools: true` (direct Ollama tool probe 2026-10-18: clean typed call) and aliases it onto `gemma-4-26b-a4b-it-QAT-4bit` on oMLX. `config/portal.yaml` selects it as the `auto-daily` workspace `model_hint`: the S2 production smoke measured the empty-turn prompt at 2996 of 8192 tokens (37%), docs/WFE_PRODUCTION_SMOKE_20261018.md.

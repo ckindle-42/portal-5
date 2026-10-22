@@ -42,7 +42,7 @@ disciplines:
       model review.
     persona: auto-coding
     seated_models:
-      fast: auto-daily::fast
+      fast: auto-daily::gemma-fast
       deep: auto-daily::deep
     tool_allowlist:
     - file_read
