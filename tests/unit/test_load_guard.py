@@ -788,11 +788,9 @@ async def test_queued_unload_settles_on_any_counter_drop_with_pinned_memory_left
         unload_loaded_flips={"idle"},
     )
     lg.set_load_wait("0.12")
-    started = lg.time.monotonic()
     with pytest.raises(lg.LoadRefusedError) as err:
         await guard(e).admit(OLLAMA_URL, "m")
-    elapsed = lg.time.monotonic() - started
-    assert elapsed < 0.08
+    assert lg._admit_waited.get() is False  # event check: no wait point fired
     assert "with nothing in flight to wait for" in str(err.value)
     assert f"headroom {headroom_gib:.1f} GiB" in str(err.value)  # after the pinned charge
     assert e.omlx_used() == (16 - actual_size_gib) * GIB
