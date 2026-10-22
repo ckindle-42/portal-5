@@ -228,7 +228,7 @@ async def test_bite_tools_stay_scoped_across_client_tool_turns(
     engine_requests: list[dict[str, Any]] = []
     dispatched: list[str] = []
 
-    for turn, call_name in enumerate(allowed):
+    for turn, call_name in enumerate(["file_read", "file_read", "web_search"]):
         body, effective, has_tools = await _prepare_request(
             monkeypatch,
             bite_tools=allowed,
@@ -269,7 +269,7 @@ async def test_bite_tools_stay_scoped_across_client_tool_turns(
             ]
         )
 
-    assert len(engine_requests) == 2
+    assert len(engine_requests) == 3
     assert all(
         {tool["function"]["name"] for tool in request["tools"]} == set(allowed)
         and len(request["tools"]) == len(allowed)
