@@ -5,6 +5,8 @@ from __future__ import annotations
 import subprocess
 from pathlib import Path
 
+import yaml
+
 from scripts.seat_screen import kit_apply
 
 
@@ -31,6 +33,7 @@ def test_apply_dry_run_renders_temp_config_and_runs_config_audit(
     repo = _repo(tmp_path)
     original_portal = (repo / "config/portal.yaml").read_bytes()
     calls: list[list[str]] = []
+    applied_seats: set[str] = set()
 
     def audit(
         command: list[str],
@@ -42,9 +45,18 @@ def test_apply_dry_run_renders_temp_config_and_runs_config_audit(
         assert cwd != repo
         portal = (cwd / "config/portal.yaml").read_text()
         backends = (cwd / "config/backends.yaml").read_text()
+        workspaces = yaml.safe_load(portal)["workspaces"]
+        for workspace_id in ("auto-coding", "auto-spl"):
+            applied_seats.add(workspace_id)
+            applied_seats.update(
+                f"{workspace_id}::{variant_id}"
+                for variant_id in workspaces[workspace_id].get("variants", {})
+            )
         assert "kit-qwen38-27b:" in portal
         assert "Qwen3.8-27B-Uncensored-MLX-4bit" in backends
         assert (cwd / "config/personas/kitqwen3827b.yaml").is_file()
+        workspace_arg = command.index("--workspace")
+        assert set(command[workspace_arg + 1 :]) == applied_seats
         calls.append(command)
         return subprocess.CompletedProcess(command, 0, "WFE config audit passed", "")
 
@@ -52,7 +64,7 @@ def test_apply_dry_run_renders_temp_config_and_runs_config_audit(
     code = kit_apply.dry_run("apply", repo, kit_apply.KIT, tmp_path / "backup")
 
     assert code == 0
-    assert calls and calls[0][3:] == ["--config-only", "--workspace", "auto-coding", "auto-spl"]
+    assert calls and calls[0][3:5] == ["--config-only", "--workspace"]
     assert (repo / "config/portal.yaml").read_bytes() == original_portal
     assert not (repo / "config/personas/kitqwen3827b.yaml").exists()
 

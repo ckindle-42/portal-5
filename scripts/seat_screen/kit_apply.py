@@ -174,7 +174,19 @@ def _copy_repo(repo: Path, target: Path) -> None:
     shutil.copytree(repo, target, ignore=shutil.ignore_patterns(*COPY_IGNORE))
 
 
+def _audit_workspace_ids(repo: Path) -> list[str]:
+    portal = yaml.safe_load((repo / "config/portal.yaml").read_text()) or {}
+    workspaces = portal.get("workspaces") or {}
+    workspace_ids: list[str] = []
+    for workspace_id in ("auto-coding", "auto-spl"):
+        workspace_ids.append(workspace_id)
+        variants = (workspaces.get(workspace_id) or {}).get("variants") or {}
+        workspace_ids.extend(f"{workspace_id}::{variant_id}" for variant_id in variants)
+    return workspace_ids
+
+
 def _audit_config(repo: Path) -> subprocess.CompletedProcess[str]:
+    workspace_ids = _audit_workspace_ids(repo)
     return subprocess.run(
         [
             sys.executable,
@@ -182,8 +194,7 @@ def _audit_config(repo: Path) -> subprocess.CompletedProcess[str]:
             "tests.wfe.settings_audit",
             "--config-only",
             "--workspace",
-            "auto-coding",
-            "auto-spl",
+            *workspace_ids,
         ],
         cwd=repo,
         capture_output=True,
