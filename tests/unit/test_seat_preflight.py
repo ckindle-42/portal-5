@@ -49,6 +49,14 @@ def test_jsonc_parser_accepts_comments_and_trailing_commas() -> None:
     assert value["providers"]["portal"]["models"] == {"seat": {}}
 
 
+def test_default_screen_model_uses_the_variant_slug() -> None:
+    assert preflight._default_screen_model("auto-coding") == "opencode:portal/auto-coding"
+    assert (
+        preflight._default_screen_model("auto-coding::qwen38coder-dflash")
+        == "opencode:portal/qwen38coder-dflash"
+    )
+
+
 def test_committed_opencode_model_requires_a_clean_tracked_file(tmp_path: Path) -> None:
     subprocess.run(["git", "init", "-q", str(tmp_path)], check=True)
     subprocess.run(

@@ -1,5 +1,11 @@
 """Regression tests for seat screening's card-conformance audit rows."""
 
+import json
+import textwrap
+from pathlib import Path
+
+import pytest
+
 from tests.wfe import settings_audit as audit
 
 
@@ -99,3 +105,113 @@ def test_thinking_budget_bounds_thinking_without_predict_limit() -> None:
     )
 
     assert rows == []
+
+
+def test_emits_reasoning_true_with_think_false_warns() -> None:
+    rows: list[dict] = []
+
+    audit._audit_emits_reasoning_think("seat", {"think": False, "emits_reasoning": True}, rows)
+
+    assert [(row["kind"], row["severity"]) for row in rows] == [
+        ("emits_reasoning_without_think", "WARN")
+    ]
+
+
+def test_emits_reasoning_consistent_or_absent_is_clean() -> None:
+    rows: list[dict] = []
+
+    audit._audit_emits_reasoning_think("a", {"think": True, "emits_reasoning": True}, rows)
+    audit._audit_emits_reasoning_think("b", {"think": False, "emits_reasoning": False}, rows)
+    audit._audit_emits_reasoning_think("c", {"think": False}, rows)
+
+    assert rows == []
+
+
+def _store(tmp_path: Path, params: str) -> Path:
+    root = tmp_path / "ollama"
+    manifest = root / "manifests" / "registry.ollama.ai" / "library" / "qwen3.8-test" / "latest"
+    manifest.parent.mkdir(parents=True, exist_ok=True)
+    (root / "blobs").mkdir(exist_ok=True)
+    digest = "a" * 64
+    manifest.write_text(
+        json.dumps(
+            {
+                "layers": [
+                    {
+                        "mediaType": "application/vnd.ollama.image.params",
+                        "digest": f"sha256:{digest}",
+                    }
+                ]
+            }
+        )
+    )
+    (root / "blobs" / f"sha256-{digest}").write_text(params)
+    return root
+
+
+def test_baked_params_from_store_reads_the_local_manifest(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    root = _store(tmp_path, '{"temperature": 1.0, "top_k": 20, "top_p": 0.95}')
+    monkeypatch.setenv("OLLAMA_MODELS", str(root))
+
+    assert audit.baked_params_from_store("qwen3.8-test") == {
+        "temperature": 1.0,
+        "top_k": 20,
+        "top_p": 0.95,
+    }
+    assert audit.baked_params_from_store("absent-model") == {}
+
+
+def _partial_seat_repo(tmp_path: Path) -> None:
+    config = tmp_path / "config"
+    config.mkdir()
+    (config / "portal.yaml").write_text(
+        textwrap.dedent(
+            """\
+            workspaces:
+              seat:
+                module: coding
+                name: Partial seat
+                description: declares three sampling keys, omits the rest
+                model_hint: qwen3.8-test
+                think: true
+                temperature: 0.7
+                top_p: 0.8
+                top_k: 20
+            """
+        )
+    )
+    (config / "model_card_expectations.yaml").write_text(
+        textwrap.dedent(
+            """\
+            models:
+              qwen3.8:
+                status: verified-card
+                recommended_sampling_modes:
+                  thinking: {temperature: 1.0, top_p: 0.95, top_k: 20, min_p: 0.0, presence_penalty: 0.0, repeat_penalty: 1.0}
+                  instruct: {temperature: 0.7, top_p: 0.8, top_k: 20, min_p: 0.0, presence_penalty: 1.5, repeat_penalty: 1.0}
+            """
+        )
+    )
+    (config / "backends.yaml").write_text("backends: []\n")
+
+
+def test_config_only_audit_fills_store_defaults_for_a_partial_seat(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _partial_seat_repo(tmp_path)
+    monkeypatch.setenv("OLLAMA_MODELS", str(tmp_path / "no-store"))
+
+    without_store = audit.audit_config_seats(repo=tmp_path, workspace_ids=["seat"])
+
+    assert without_store["violations"] == []
+    _store(tmp_path, '{"min_p": 0.0, "presence_penalty": 1.5, "repeat_penalty": 1.0}')
+    monkeypatch.setenv("OLLAMA_MODELS", str(tmp_path / "ollama"))
+
+    with_store = audit.audit_config_seats(repo=tmp_path, workspace_ids=["seat"])
+
+    assert [(row["kind"], row["severity"]) for row in with_store["violations"]] == [
+        ("sampling_mode_mismatch", "WARN")
+    ]
+    assert "instruct" in with_store["violations"][0]["detail"]

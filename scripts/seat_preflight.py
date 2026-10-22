@@ -250,10 +250,17 @@ def _sidecar_issues(url: str | None, keep_alive: str | None) -> list[str]:
     return []
 
 
+def _default_screen_model(workspace: str) -> str:
+    """Variant seats register under their flat variant slug in opencode.jsonc,
+    not the namespaced ``base::variant`` id."""
+    _base, _, variant = workspace.partition("::")
+    return f"opencode:portal/{variant or _base}"
+
+
 def preflight(args: argparse.Namespace, environment: dict[str, str] | None = None) -> list[str]:
     repo = Path(args.repo).resolve()
     environment = os.environ if environment is None else environment
-    model = args.model or f"opencode:portal/{args.workspace}"
+    model = args.model or _default_screen_model(args.workspace)
     issues = _committed_opencode_model(repo, model)
     issues.extend(_container_environment_issues(environment))
     keep_alive = args.ollama_keep_alive or environment.get("OLLAMA_KEEP_ALIVE")
@@ -282,7 +289,8 @@ def main() -> int:
         "--workspace", required=True, help="configured Portal workspace or variant id"
     )
     parser.add_argument(
-        "--model", help="OpenCode model reference; defaults to opencode:portal/<workspace>"
+        "--model",
+        help="OpenCode model reference; defaults to opencode:portal/<variant-or-workspace>",
     )
     parser.add_argument("--expected-engine", choices=("ollama", "omlx"))
     parser.add_argument("--ollama-sidecar-url")
