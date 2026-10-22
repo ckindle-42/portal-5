@@ -165,17 +165,17 @@ data/compliance/backups/
 .zcodeignore
 
 # Internal working files — kept local, not published (operator 2026-10-22)
-.serena/
-results/
-tests/results/
-data/generated/
-campaign.yaml
-execute_local_sec_bench.sh
+/.serena/
+/results/
+/tests/results/
+/data/generated/
+/campaign.yaml
+/execute_local_sec_bench.sh
 
 # Internal working files — kept local, not published (operator 2026-10-22)
-.serena/
-results/
-tests/results/
-data/generated/
-campaign.yaml
-execute_local_sec_bench.sh
+/.serena/
+/results/
+/tests/results/
+/data/generated/
+/campaign.yaml
+/execute_local_sec_bench.sh
