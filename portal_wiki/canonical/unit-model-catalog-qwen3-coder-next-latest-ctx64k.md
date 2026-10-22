@@ -16,7 +16,7 @@ created_at: 1784946220.656608
 updated_at: 1784946220.656608
 ---
 
-`qwen3-coder-next:latest-ctx64k` is the derived tag that bakes `PARAMETER num_ctx 65536` into `qwen3-coder-next:latest` via the `apply-params` command in `portal/platform/inference/cli/models.py`. `config/backends.yaml` registers it in `group: coding` (`ollama-coding`) with `supports_tools: true`. `config/portal.yaml` pins it as the `model_hint` of the heavy auto-coding variant with `context_limit: 65536`, so every long-horizon agentic session runs against the capped tag. The derivation exists because the pipeline talks to Ollama's `/v1/chat/completions`, which ignores request-time `options.num_ctx`; the cap must be baked into the model at creation, not requested per call. See the base tag's unit for architecture and benchmark context.
+`qwen3-coder-next:latest-ctx64k` was the derived tag that baked `PARAMETER num_ctx 65536` into `qwen3-coder-next:latest` via the `apply-params` command in `portal/platform/inference/cli/models.py`. **RETIRED 2026-10-22 (operator fleet prune): the registration and the heavy auto-coding pin are removed; `auto-coding::heavy` now hints `Qwen3.8-27B-oQ4e-mtp`.** Historical wiring: `config/backends.yaml` registered it in `group: coding` (`ollama-coding`) with `supports_tools: true`, and `config/portal.yaml` pinned it as the `model_hint` of the heavy auto-coding variant with `context_limit: 65536`, so every long-horizon agentic session ran against the capped tag. The derivation existed because the pipeline talks to Ollama's `/v1/chat/completions`, which ignores request-time `options.num_ctx`; the cap must be baked into the model at creation, not requested per call. See the base tag's unit for architecture and benchmark context.
 
 ## Why
 

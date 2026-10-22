@@ -25,6 +25,8 @@ updated_at: 1792281600
 
 Exporting a dashboard or panel as PNG/PDF (Share → Export as image / PDF) renders through the `grafana-image-renderer` sidecar defined next to `grafana` in `deploy/portal-5/docker-compose.yml` — a compose-internal service with no host port that shares the `GRAFANA_RENDERER_TOKEN` secret with Grafana (override it in `.env`; Grafana 13 requires a non-default renderer token).
 
+The Overview dashboard's "how much" panels read `increase(...[$__range])` rather than raw counters, because the worker processes share one Prometheus multiprocess directory and counters restart with each container start; `metrics_state.json` remains the daily-digest contract and is deliberately not restored into Prometheus. Engine calls that are not user traffic — the intent router, startup warmups, and the tool preselector — are recorded under `internal-*` workspace labels (`internal-router`, `internal-warmup`, `internal-preselect`): counted in Prometheus, but excluded from the Overview's user-traffic panels by `workspace!~"internal-.*"` and from the daily-summary timing accumulators. Council reviewer and synthesis calls and non-stream chain hops reach the by-model and token counters like any other engine call.
+
 **Inspect:**
 ```bash
 ./launch.sh status
