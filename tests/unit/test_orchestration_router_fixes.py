@@ -14,7 +14,7 @@ from fastapi import HTTPException
 from portal.modules.orchestration import cli as arm_cli
 from portal.modules.orchestration import service as arm_service
 from portal.platform.inference import tool_registry
-from portal.platform.inference.router import streaming, validation
+from portal.platform.inference.router import handlers, streaming, validation
 
 
 def test_cli_loads_arm_and_module_config_from_repo_root(
@@ -147,6 +147,143 @@ async def _prepare_request(
         body, SimpleNamespace(type="omlx"), "model", "arm-test", ""
     )
     return prepared[:3]
+
+
+@pytest.mark.parametrize(
+    "inject",
+    [validation._inject_ollama_options, validation._inject_omlx_options],
+)
+def test_thinking_bites_use_the_card_precise_coding_sampling(inject) -> None:
+    from portal.platform.inference.router.preinject import _resolve_workspace_variant
+
+    workspace_id = _resolve_workspace_variant("auto-daily::fast", "auto-daily", "fast")
+    model = validation.WORKSPACES[workspace_id]["model_hint"]
+    request = {
+        "model": model,
+        "portal_bite_tools": ["finish"],
+        "chat_template_kwargs": {"enable_thinking": True},
+    }
+
+    prepared = inject(request, workspace_id)
+    sampling = prepared["options"] if inject is validation._inject_ollama_options else prepared
+
+    assert sampling["temperature"] == 0.6
+    assert sampling["top_p"] == 0.95
+    assert sampling["top_k"] == 20
+    assert sampling["min_p"] == 0.0
+    assert sampling["presence_penalty"] == 0.0
+
+
+@pytest.mark.anyio
+async def test_router_bite_request_reaches_engine_without_workspace_prompt_injections(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    workspace_id = "bite-prompt-test"
+    persona_id = "bite-prompt-persona"
+    model = "bite-test-model"
+    worker_messages = [
+        {"role": "system", "content": "Worker system sentinel"},
+        {"role": "user", "content": "Run the bite"},
+    ]
+    monkeypatch.setenv("RESEARCH_DATE_INJECTION", "true")
+    monkeypatch.setitem(
+        handlers.WORKSPACES,
+        workspace_id,
+        {
+            "model_hint": model,
+            "tools": ["web_search"],
+            "enable_web_search": True,
+            "system_prompt_append": "Workspace append sentinel",
+            "inject_memory": True,
+        },
+    )
+    monkeypatch.setitem(
+        handlers._PERSONA_MAP,
+        persona_id,
+        SimpleNamespace(
+            workspace_model=workspace_id,
+            variant=None,
+            model_pin=None,
+            system_prompt="Persona prompt sentinel",
+        ),
+    )
+    backend = SimpleNamespace(
+        id="bite-test-backend",
+        type="omlx",
+        chat_url="http://engine.test/chat",
+        models=[model],
+        resolve_model=lambda hint: hint if hint == model else None,
+    )
+    monkeypatch.setattr(
+        handlers,
+        "registry",
+        SimpleNamespace(
+            get_backend_candidates=lambda _workspace: [backend], hot_seat_protect_s=0.0
+        ),
+    )
+    monkeypatch.setattr(handlers, "_reject_disabled_workspace", lambda _workspace: None)
+    monkeypatch.setattr(
+        handlers.placement, "protect_hot_seat", lambda candidates, *_args: candidates
+    )
+    monkeypatch.setattr(
+        handlers,
+        "inject_recalled_memory",
+        lambda *_args: pytest.fail("bite requests must skip workspace memory injection"),
+    )
+    monkeypatch.setattr(
+        handlers,
+        "inject_retrieved_context",
+        lambda *_args: pytest.fail("bite requests must skip workspace retrieval injection"),
+    )
+
+    class _Request:
+        query_params: dict[str, str] = {}
+
+        async def json(self):
+            return {
+                "model": persona_id,
+                "stream": True,
+                "messages": worker_messages,
+                "portal_bite_tools": ["file_read", "finish"],
+                "tools": [_tool_schema("file_read"), _tool_schema("finish")],
+            }
+
+    class _Slot:
+        async def acquire_workspace(self, _workspace: str) -> None:
+            return None
+
+        def mark_active(self) -> None:
+            return None
+
+    routed = await handlers._resolve_request_route(_Request(), _Slot())
+    resolved_workspace, routed_body, _stream, persona, _candidates = routed
+    monkeypatch.setattr(
+        streaming, "_resolve_persona_tools", lambda *_args: ["web_search", "file_read"]
+    )
+    monkeypatch.setattr(streaming, "_model_supports_tools", lambda _model: True)
+    monkeypatch.setattr(streaming, "_resolve_persona_tool_choice", lambda _persona: None)
+
+    async def refresh_tools() -> None:
+        return None
+
+    monkeypatch.setattr(tool_registry.tool_registry, "refresh", refresh_tools)
+    monkeypatch.setattr(tool_registry.tool_registry, "get_openai_tools", lambda _names: [])
+    engine_body, effective, _has_tools, _no_tools = await streaming._build_streaming_request(
+        routed_body, backend, model, resolved_workspace, persona
+    )
+    engine = _StreamClient([_answer_response()])
+    monkeypatch.setattr(streaming, "_http_client", engine)
+    monkeypatch.setattr(streaming, "_backend_type_for_url", lambda _url: "omlx")
+    async for _chunk in streaming._stream_with_tool_loop_impl(
+        backend.chat_url, engine_body, resolved_workspace, model, persona, effective
+    ):
+        pass
+
+    assert engine.requests[0]["messages"] == worker_messages
+    assert [tool["function"]["name"] for tool in engine.requests[0]["tools"]] == [
+        "file_read",
+        "finish",
+    ]
 
 
 @pytest.mark.anyio

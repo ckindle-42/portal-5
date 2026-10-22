@@ -92,7 +92,11 @@ def card_thinking_level(
 
 
 def card_sampling(
-    tag: str, think: bool | str | None, registry: dict[str, Any] | None = None
+    tag: str,
+    think: bool | str | None,
+    registry: dict[str, Any] | None = None,
+    *,
+    mode: str | None = None,
 ) -> dict[str, Any]:
     """Return a card's recommended sampling for the requested thinking state."""
     hit = card_entry(tag, registry)
@@ -101,16 +105,19 @@ def card_sampling(
     entry = hit[1]
     chosen = entry.get("recommended_sampling") or {}
     modes = entry.get("recommended_sampling_modes") or {}
+    if mode is not None and isinstance(modes.get(mode), dict):
+        chosen = modes[mode]
     think_off = think is False or (isinstance(think, str) and think.lower() == "false")
     prefixes = ("instruct", "non_thinking", "nothink") if think_off else ("thinking",)
-    chosen = next(
-        (
-            values
-            for mode, values in modes.items()
-            if mode.lower().replace("-", "_").startswith(prefixes)
-        ),
-        chosen,
-    )
+    if mode is None or not isinstance(modes.get(mode), dict):
+        chosen = next(
+            (
+                values
+                for profile, values in modes.items()
+                if profile.lower().replace("-", "_").startswith(prefixes)
+            ),
+            chosen,
+        )
     out = {}
     for key, value in (chosen or {}).items():
         key = "repeat_penalty" if key == "repetition_penalty" else key
