@@ -6,7 +6,9 @@ from __future__ import annotations
 import subprocess
 import sys
 
-CMD = ["uv", "run", "pytest", "tests/unit", "-n", "auto", "-x", "--tb=short", "-q"]
+# Capped, not "auto": lane workers commit in parallel worktrees on the same host that serves
+# the live stack, and 14 xdist workers per commit starved it (UAT 503s, 2026-10-22).
+CMD = ["uv", "run", "pytest", "tests/unit", "-n", "4", "-x", "--tb=short", "-q"]
 
 
 def marker_path() -> str:
