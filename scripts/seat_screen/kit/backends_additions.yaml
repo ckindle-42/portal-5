@@ -1,0 +1,56 @@
+# Paste into config/backends.yaml on the live portal-5 checkout.
+# Do not apply from this research repo. Do not run launch.sh or sync-config here.
+#
+# hint_unregistered matches models[].id only, not alias keys.
+# auto-coding and auto-spl routing groups are [coding, general].
+# A priority-10 oMLX alias makes seat_engine omlx and skips the Ollama num_ctx check.
+# supports_tools below is so the probe can attach tools. If that probe fails,
+# set the flag false before any promotion. Duplicate ids: tool flags are global, last wins.
+# These additions are new ids, except the HauhauCS id which already exists later
+# in the file on omlx-security / omlx-creative with supports_tools true.
+
+# --- under backends: id ollama-coding, models: ---
+ollama-coding-models:
+  - id: hf.co/unsloth/Qwen3.6-35B-A3B-GGUF:UD-Q4_K_XL-ctx128k
+    supports_tools: true  # unverified until kit probe; create the tag first
+  - id: kat-coder-v2.5-dev:Q4_K_M-ctx128k
+    supports_tools: true  # parent Q4_K_M is true; this ctx tag is new
+  # 2026-10-21 re-screen: the orcarouter and huihui 27B seats moved to oMLX
+  # directories, so the two Ollama ctx128k tags below are no longer kit seats.
+  # Leaving them pasted would invite a GGUF fallback; comment them out.
+  # - id: orcarouter/Qwen3.8-27B-Uncensored:Q4_K_M-ctx128k
+  #   supports_tools: true
+  # - id: huihui_ai/Qwen3.6-abliterated:27b-ctx128k
+  #   supports_tools: true
+  - id: orcacyber-nano-1.0:ctx64k
+    supports_tools: true  # unverified; card claims function calling, parser is qwen3.5
+
+# --- under backends: id omlx-coding (group coding, priority 10), models: ---
+# HauhauCS is only on security/creative today, so auto-coding cannot route the raw id.
+# Qwen3.8-27B-oQ4e-mtp and Qwen3.8-27B-4bit are ALREADY in live omlx-coding models;
+# do not re-add them (duplicate ids: tool flags are global, last wins).
+omlx-coding-models:
+  - id: Qwen3.6-35B-A3B-HauhauCS-Aggressive-4bit
+    supports_tools: true  # already true on omlx-security; repeated so coding can serve it
+  - id: Qwopus3.6-35B-A3B-Coder-4bit
+    supports_tools: true  # on disk as of 2026-10-21; supports_tools still unverified
+  - id: Qwen3.8-27B-Uncensored-MLX-4bit
+    supports_tools: true  # 2026-10-21 re-screen; unverified until kit probe
+  - id: Huihui-Qwen3.6-27B-abliterated-MLX-4bit
+    supports_tools: true  # 2026-10-21 re-screen; unverified until kit probe
+  - id: unsloth--Qwen3.6-27B-UD-MLX-4bit
+    supports_tools: true  # 2026-10-21 dense reference; unverified until kit probe
+
+# --- under backends: id omlx-coding, aliases: ---
+# Existing alias hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M -> oQ4e stays in the live file.
+# 2026-10-21 re-screen: kit-qwen38-27b now hints the raw oMLX id, so the two
+# GGUF-tag aliases below are belt-and-braces, not the routing path. Keep them:
+# without them those tags would fall through to Ollama GGUF.
+omlx-coding-aliases:
+  hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx128k: Qwen3.8-27B-oQ4e-mtp
+  # If the oQ4e tool probe fails, retarget that one line to Qwen3.8-27B-4bit.
+  # Do not point it at Qwen3.8-27B-DFlash2.
+  hf.co/unsloth/Qwen3.6-35B-A3B-GGUF:UD-Q4_K_XL-ctx128k: unsloth--Qwen3.6-35B-A3B-UD-MLX-4bit
+  # No alias for orcarouter, huihui, KAT, or Nano. None of the four re-screen
+  # hints is an alias key, and no alias may point at
+  # Qwen3.8-27B-Uncensored-MLX-4bit or Huihui-Qwen3.6-27B-abliterated-MLX-4bit.
