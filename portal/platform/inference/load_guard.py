@@ -207,22 +207,27 @@ class LoadGuard:
         except Exception:
             return None
 
-    async def _headroom(self, client: httpx.AsyncClient) -> float | None:
+    async def _headroom(
+        self, client: httpx.AsyncClient, deadline: float | None = None
+    ) -> float | None:
         """Host bytes free for a new load outside oMLX, or None when unmeasurable.
         Waits (bounded) while oMLX is mid-load: that memory is not yet counted."""
-        deadline = time.monotonic() + _OMLX_LOADING_WAIT_S
+        wait_until = time.monotonic() + _OMLX_LOADING_WAIT_S
+        if deadline is not None:
+            wait_until = min(wait_until, deadline)
         while True:
             st = await self._omlx_status(client)
             if st is None:
                 return None
             loading = [m["id"] for m in st.get("models") or [] if m.get("is_loading")]
-            if not loading or time.monotonic() > deadline:
+            remaining = wait_until - time.monotonic()
+            if not loading or remaining <= 0:
                 if loading:
                     logger.warning("load_guard: oMLX still loading %s; measuring anyway", loading)
                 return float(st.get("final_ceiling") or 0) - float(
                     st.get("current_model_memory") or 0
                 )
-            await asyncio.sleep(1.0)
+            await asyncio.sleep(min(1.0, remaining))
 
     async def host_free_bytes(self, base: str) -> float | None:
         """Memory a new load could use without waiting: oMLX's headroom plus idle
@@ -285,9 +290,42 @@ class LoadGuard:
         ]
         return url, sorted(idle, key=lambda m: float(m.get("last_access") or 0))
 
+    @staticmethod
+    def _has_loading(value: Any) -> bool:
+        if isinstance(value, (int, float)):
+            return value > 0
+        if isinstance(value, str):
+            return value.strip().lower() not in {"", "0", "false", "none"}
+        return bool(value)
+
+    async def _omlx_loading(self, client: httpx.AsyncClient) -> bool:
+        """Whether either oMLX status surface reports a model transition."""
+        url = (self._omlx_url() or "").rstrip("/")
+        if not url:
+            return False
+        try:
+            status = await self._omlx_status(client)
+            if status is None:
+                return True
+            if any(m.get("is_loading") for m in status.get("models") or []):
+                return True
+            runtime = (await client.get(f"{url}/api/status", auth=OmlxKeyAuth())).json()
+        except Exception:
+            return True
+        if self._has_loading(runtime.get("models_loading")):
+            return True
+        try:
+            login = await client.post(f"{url}/admin/api/login", json={"api_key": omlx_api_key()})
+            if login.status_code != 200:
+                return True
+            models = (await client.get(f"{url}/admin/api/models")).json()
+            models = models.get("models", models) if isinstance(models, dict) else models
+            return any(isinstance(m, dict) and m.get("is_loading") for m in models or [])
+        except Exception:
+            return True
+
     async def _omlx_foreign_active(self, client: httpx.AsyncClient) -> bool:
-        """oMLX is serving requests the pipeline is not tracking. Unreadable counts as active,
-        so an unmeasurable oMLX never turns a wait into an immediate refusal."""
+        """Whether oMLX serves requests the pipeline is not tracking."""
         url = (self._omlx_url() or "").rstrip("/")
         if not url:
             return False
@@ -317,7 +355,7 @@ class LoadGuard:
             return 0.0
 
     async def _free_ollama(
-        self, client: httpx.AsyncClient, base: str, resident: dict[str, int]
+        self, client: httpx.AsyncClient, base: str, resident: dict[str, int], deadline: float
     ) -> int:
         """Unload every idle Ollama resident (keep_alive 0) and wait until /api/ps drops it.
 
@@ -339,23 +377,81 @@ class LoadGuard:
                 continue
             gone += 1
             logger.info("load_guard: unloaded idle Ollama model %s", name)
-        deadline = time.monotonic() + 15.0
-        while gone and time.monotonic() < deadline:
+        settle_until = min(time.monotonic() + 15.0, deadline)
+        while gone and time.monotonic() < settle_until:
             if not set(idle) & set(await self._resident(client, base)):
                 break
-            await asyncio.sleep(1.0)
+            await asyncio.sleep(min(1.0, settle_until - time.monotonic()))
         return gone
 
-    async def _settled_headroom(self, client: httpx.AsyncClient, before: float) -> float:
+    async def _settled_headroom(
+        self, client: httpx.AsyncClient, before: float, deadline: float
+    ) -> float:
         """Headroom after an unload, once oMLX's accounting reflects it (≤ 15 s)."""
-        deadline = time.monotonic() + 15.0
+        settle_until = min(time.monotonic() + 15.0, deadline)
         headroom = before
-        while time.monotonic() < deadline:
-            await asyncio.sleep(1.0)
-            headroom = await self._headroom(client) or before
+        while time.monotonic() < settle_until:
+            await asyncio.sleep(min(1.0, settle_until - time.monotonic()))
+            headroom = await self._headroom(client, deadline) or before
             if headroom > before:
                 break
         return headroom
+
+    @staticmethod
+    def _ollama_refusal(
+        model: str, need: float, available: float, headroom: float, idle: float, quiet: bool
+    ) -> LoadRefusedError:
+        reason = (
+            f"after waiting {load_wait_s():.0f}s"
+            if not quiet
+            else "with nothing in flight to wait for"
+        )
+        return LoadRefusedError(
+            f"Cannot load {model}: projected memory {need / _GIB:.1f} GiB would "
+            f"exceed host headroom {available / _GIB:.1f} GiB (oMLX headroom "
+            f"{headroom / _GIB:.1f} + idle Ollama {idle / _GIB:.1f} - margin "
+            f"{_MARGIN / _GIB:.0f}) {reason}"
+        )
+
+    async def _wait_if_omlx_loading(
+        self,
+        client: httpx.AsyncClient,
+        model: str,
+        deadline: float,
+        release: _Release,
+        held: list[_Release],
+    ) -> _Release | None:
+        if not await self._omlx_loading(client):
+            return None
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            raise LoadRefusedError(
+                f"Cannot load {model}: engine model transition still active "
+                f"after waiting {load_wait_s():.0f}s"
+            )
+        release()
+        await self._wait_change(min(5.0, remaining, max(_POLL_S, 0.01)))
+        release = await self._acquire(deadline, model)
+        held.append(release)
+        return release
+
+    async def _free_idle_memory(
+        self,
+        client: httpx.AsyncClient,
+        base: str,
+        resident: dict[str, int],
+        idle: float,
+        shortage: float,
+        headroom: float,
+        deadline: float,
+    ) -> bool:
+        if await self._free_omlx(client, shortage):
+            await self._settled_headroom(client, headroom, deadline)
+            return True
+        if idle and await self._free_ollama(client, base, resident, deadline):
+            await self._settled_headroom(client, headroom, deadline)
+            return True
+        return False
 
     # ── the cold-load lock ───────────────────────────────────────────────
 
@@ -442,6 +538,7 @@ class LoadGuard:
                 return None  # cannot see Ollama's state: fail open
             release = await self._acquire(deadline, model)
             held.append(release)
+            transition_seen = False
             try:
                 while True:
                     resident = await self._resident(client, base)
@@ -449,49 +546,45 @@ class LoadGuard:
                         release()
                         return None
                     need = await self._need(client, base, model)
-                    headroom = await self._headroom(client)
+                    headroom = await self._headroom(client, deadline)
                     if headroom is None or not need:
                         break  # unmeasurable: fail open
                     idle = self._ollama_idle(resident)
                     available = headroom + idle - _MARGIN
+                    transition_release = await self._wait_if_omlx_loading(
+                        client, model, deadline, release, held
+                    )
+                    if transition_release is not None:
+                        release = transition_release
+                        transition_seen = True
+                        continue
+                    if transition_seen:
+                        transition_seen = False
+                        continue
                     if need <= available:
                         break
-                    if await self._free_omlx(client, need - available):
-                        # Re-measure whatever the deadline: the unload is done, and
-                        # each pass frees different (idle) models, so this ends.
-                        await self._settled_headroom(client, headroom)
-                        continue
-                    if idle and await self._free_ollama(client, base, resident):
-                        # Same termination: unloaded models leave /api/ps, so idle
-                        # reaches zero and the next shortfall falls through to waiting.
-                        await self._settled_headroom(client, headroom)
+                    if await self._free_idle_memory(
+                        client, base, resident, idle, need - available, headroom, deadline
+                    ):
                         continue
                     remaining = deadline - time.monotonic()
-                    # Nothing in flight on either engine (ours, or oMLX work the pipeline did
-                    # not send, e.g. an IDE on :8085) and nothing idle left to free: no future
-                    # change can make room, so waiting out the deadline is futile.
-                    quiet = not self._busy and not await self._omlx_foreign_active(client)
+                    changing = (
+                        bool(self._busy)
+                        or await self._omlx_foreign_active(client)
+                        or await self._omlx_loading(client)
+                    )
+                    quiet = not changing
                     if remaining <= 0 or quiet:
-                        raise LoadRefusedError(
-                            f"Cannot load {model}: projected memory {need / _GIB:.1f} GiB would "
-                            f"exceed host headroom {available / _GIB:.1f} GiB (oMLX headroom "
-                            f"{headroom / _GIB:.1f} + idle Ollama {idle / _GIB:.1f} - margin "
-                            f"{_MARGIN / _GIB:.0f}) "
-                            + (
-                                f"after waiting {load_wait_s():.0f}s"
-                                if not quiet
-                                else "with nothing in flight to wait for"
-                            )
-                        )
+                        raise self._ollama_refusal(model, need, available, headroom, idle, quiet)
                     logger.info(
-                        "load_guard: %s needs %.1f GiB, %.1f available; waiting for in-flight work",
+                        "load_guard: %s needs %.1f GiB, %.1f available; waiting for engine activity",
                         model,
                         need / _GIB,
                         available / _GIB,
                     )
-                    # Wait without the lock: other cold loads that fit go ahead.
+                    transition_seen = True
                     release()
-                    await self._wait_change(min(5.0, remaining))
+                    await self._wait_change(min(5.0, remaining, max(_POLL_S, 0.01)))
                     release = await self._acquire(deadline, model)
                     held.append(release)
             except LoadRefusedError:
