@@ -59,7 +59,6 @@ system_prompt: |
 workspace:
   enabled: true
   description: Python Code Generator — five-step structured delivery of production-ready code
-  suggested_model: qwen3-coder-next:latest-ctx64k
 tags:
   - python
   - code-generation

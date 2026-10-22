@@ -11,7 +11,7 @@ Execution of [TASK_MODEL_FLEET_CLOSEOUT_20260906](TASK_MODEL_FLEET_CLOSEOUT_2026
 | Tier | Count | Meaning |
 |---|---:|---|
 | INTEGRATED | 78 | wired role (route/hint/pin/persona/council/code) with role-appropriate evidence |
-| RETAINED_FOR_PURPOSE | 18 | 5 named-purpose seats (REAP-288 manual coding, orcarouter verified uncensored coder, qwen3-vl:8b lighter vision, 27b-ctx8k verified manual, fara1.5 CUA) + **diversity seat gpt-oss** (only OpenAI lineage; native-arm settings required) + **IDE explorer FastContext** (pipeline_mcp's wired subagent; bounded pull+verify pending) + **11 USE-PROBE** models |
+| RETAINED_FOR_PURPOSE | 18 | 5 named-purpose seats (REAP-288 manual coding and orcarouter verified uncensored coder have since been REMOVED_CLOSED — 2026-10-21 / 2026-10-22; qwen3-vl:8b lighter vision, 27b-ctx8k verified manual, fara1.5 CUA) + **diversity seat gpt-oss** (only OpenAI lineage; native-arm settings required) + **IDE explorer FastContext** (pipeline_mcp's wired subagent; bounded pull+verify pending) + **11 USE-PROBE** models |
 | REMOVED_CLOSED | 92 | Stage-1 only: decisive evidence independent of the usability lens (absent, duplicate-identical outputs, real-scenario gate failures, broken install, instruction-floor failure ×2, stale wiring) + alias folds + record-only |
 
 **Operator doctrine applied (2026-09-07):** short-prompt instruments cannot settle real-usability fit. One-size-does-not-fit-all is why the catalog is large; models set out for one task often work better at another. Therefore: (a) removals require evidence that survives the usability lens, (b) every model with a plausible untested niche is queued in the USE-PROBE tier with a named real-work assignment and a stop rule, (c) incumbents get settings/design/intent verification in real context — demonstrated when the settings review caught that the glm_coder pin flip had silently dropped the persona's 128K-window promise (base tag ships no baked `num_ctx`; derived `-ctx64k` tag created, pin repointed, cataloged).
@@ -73,7 +73,7 @@ Passed **all** pre-registered gates (repair 100%/100%, refusal 1.0/0%, judgment 
 | Identity | Purpose | Storage | Limits |
 |---|---|---:|---|
 | `Qwen3.8-Flash-Next-REAP-288-MLX-4bit` | **REMOVED_CLOSED 2026-10-21** (stack-down-only; operator; see tasks.json) — was: manual-only coding specialist; auto-default restriction STANDS | 68.5 GiB | HumanEval unreproduced; optional Laguna comparison not owed |
-| `orcarouter/Qwen3.8-27B-Uncensored:Q4_K_M` | verified uncensored-coding specialist (all gates passed) | 16.5 GiB | manual/bench-only; wiring optional; slow (~12 t/s) |
+| `orcarouter/Qwen3.8-27B-Uncensored:Q4_K_M` | **REMOVED_CLOSED 2026-10-22** (operator: OrcaRouter dropped — A/B screen failed both think-off and think-on arms with verified setup) — was: verified uncensored-coding specialist (all gates passed) | 16.5 GiB | manual/bench-only; wiring optional; slow (~12 t/s) |
 | `qwen3-vl:8b-instruct-q4_K_M` | VQA-validated lighter vision model (parity @ 6.5×) | 5.7 GiB | 4-case synthetic probe is a floor, not full vision acceptance |
 | `huihui_ai/Qwen3.6-abliterated:27b-ctx8k` | verified healthy manual model (judgment 0.90/0.952) | shares 27b weights | lost the uncensored hint on lane-instrument data |
 | `portal5/fara1.5-27b:Q4_K_M` | only CUA-capable candidate (probe-PASS) | 17.2 GiB | full CUA harness (MagenticLite) is a documented project limitation |

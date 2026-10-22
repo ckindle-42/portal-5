@@ -36,7 +36,7 @@
   },
   "fold_agentic_heavy": {
     "base": "auto-coding",
-    "served_model": "portal5/qwen3-coder-next:latest-ctx256k",
+    "served_model": "Qwen3.8-27B-oQ4e-mtp",
     "variant": "heavy"
   },
   "fold_blueteam": {
@@ -61,7 +61,7 @@
   },
   "fold_coding_uncensored_agentic": {
     "base": "auto-coding",
-    "served_model": "portal5/qwen3-coder-next:latest-ctx256k",
+    "served_model": "Qwen3.8-27B-oQ4e-mtp",
     "variant": "heavy"
   },
   "fold_devstral_manual_only": {
@@ -226,7 +226,7 @@
   },
   "routing_examples[2]": {
     "base": "auto-spl",
-    "served_model": "hf.co/bartowski/huihui-ai_Qwen3-Coder-Next-abliterated-GGUF:Q4_K_M-ctx64k",
+    "served_model": "Huihui-Qwen3.6-27B-abliterated-MLX-4bit",
     "variant": null
   },
   "routing_examples[30]": {
@@ -281,7 +281,7 @@
   },
   "routing_examples[3]": {
     "base": "auto-spl",
-    "served_model": "hf.co/bartowski/huihui-ai_Qwen3-Coder-Next-abliterated-GGUF:Q4_K_M-ctx64k",
+    "served_model": "Huihui-Qwen3.6-27B-abliterated-MLX-4bit",
     "variant": null
   },
   "routing_examples[40]": {
@@ -306,7 +306,7 @@
   },
   "routing_examples[4]": {
     "base": "auto-spl",
-    "served_model": "hf.co/bartowski/huihui-ai_Qwen3-Coder-Next-abliterated-GGUF:Q4_K_M-ctx64k",
+    "served_model": "Huihui-Qwen3.6-27B-abliterated-MLX-4bit",
     "variant": null
   },
   "routing_examples[5]": {
@@ -411,7 +411,7 @@
   },
   "rr_variant_coding_heavy": {
     "base": "auto-coding",
-    "served_model": "portal5/qwen3-coder-next:latest-ctx256k",
+    "served_model": "Qwen3.8-27B-oQ4e-mtp",
     "variant": "heavy"
   },
   "rr_variant_coding_laguna": {

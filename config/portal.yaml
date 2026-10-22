@@ -1107,7 +1107,7 @@ workspaces:
         guardrail: default
       uncensored:
         name: 🔓 Portal Code (Uncensored)
-        description: One-shot code generation with a tool-capable, lightly-aligned model — fewer content refusals than the filtered auto-coding lane. OmniCoder-2 9B (Qwen3.5-9B base, ~5.7GB, Apache 2.0, tools=True). Use for codegen the standard coder declines on policy grounds. [BENCH-GATED PROVISIONAL model_hint — not a default; promotion requires a passing GC/CC bench run and a separate operator promotion task. For the agentic loop use the uncensored-agentic variant (auto-coding?variant=uncensored-agentic).]
+        description: One-shot code generation with a tool-capable, lightly-aligned model — fewer content refusals than the filtered auto-coding lane. OmniCoder-2 9B (Qwen3.5-9B base, ~5.7GB, Apache 2.0, tools=True). Use for codegen the standard coder declines on policy grounds. [BENCH-GATED PROVISIONAL model_hint — not a default; promotion requires a passing GC/CC bench run and a separate operator promotion task.]
         # 2026-09-25: sampling set to the omnicoder card (by purpose); prior values + A/B: docs/TASK_SEAT_SAMPLING_AB_V1.md
         model_hint: portal5/omnicoder2-9b:q4_k_m-ctx256k
         context_limit: 262144
@@ -1132,21 +1132,19 @@ workspaces:
         guardrail: uncensored
       uncensored-agentic:
         name: 🔓 Portal Agentic Coder (Uncensored)
-        # stack_down_only: seat peaks at 56.5 GiB — the up stack leaves only ~38-40 GiB (load guard 2026-10-21); run via the stack-down path.
-        stack_down_only: true
-        description: Multi-turn agentic coding with an abliterated SWE-capable model — the uncensored counterpart to the laguna variant (auto-coding?variant=laguna). Qwen3-Coder-Next abliterated (80B/3B MoE, ~46GB, bartowski GGUF, tools per Qwen coding-family arch). Same read→explore→edit→verify loop and explore_repository subagent. [BENCH-GATED PROVISIONAL model_hint — ~46GB resident on 64GB unified memory; not a default; promotion requires a passing bench run + separate operator task. Tool support asserted by architecture, not yet audit-confirmed.]
-        # 2026-09-25: sampling set to the qwen3-coder-next card (by purpose); prior values + A/B: docs/TASK_SEAT_SAMPLING_AB_V1.md
-        model_hint: portal5/qwen3-coder-next-abliterated:q4_K_M-ctx256k
-        # card: Qwen3-Coder-Next is non-thinking only ("does not generate
-        # <think></think> blocks") — think pinned off, not left to the template.
+        description: 'Multi-turn agentic coding with an abliterated SWE-capable model — the uncensored counterpart to the laguna variant (auto-coding?variant=laguna). Huihui-Qwen3.6-27B-abliterated (dense 27B, 4-bit MLX, oMLX; refusal-direction orthogonalized) with the same read→explore→edit→verify loop and explore_repository subagent. 2026-10-22 coder-seat A/B screen: PASS think-off (arm A); think-on failed (arm B).'
+        # 2026-10-22: think-off arm winner (kit-huihui36-a). Card instruct sampling, think pinned off.
+        # Source: Qwen/Qwen3.6-27B README instruct mode (2026-09-25); unsloth Qwen3.6-35B-A3B card (2026-10-16) — 0.7/0.8/20/min_p 0/presence 1.5/repeat 1.0.
+        model_hint: Huihui-Qwen3.6-27B-abliterated-MLX-4bit
+        context_limit: 131072
+        predict_limit: 32768
+        temperature: 0.7
+        top_p: 0.8
+        top_k: 20
+        min_p: 0.0
+        presence_penalty: 1.5
+        repeat_penalty: 1.0
         think: false
-        context_limit: 262144
-        keep_alive: 15m
-        temperature: 1.0
-        top_p: 0.95
-        top_k: 40
-        min_p: 0.05
-        repeat_penalty: 1.05
         system_prompt_append: "\n\nAGENTIC CODING LOOP — follow this pattern every turn:\n1. EXPLORE: call explore_repository('what you need to find') first.\n   It returns exact file paths and line numbers — use these, do not guess paths.\n2. READ: use execute_bash to read those specific files/line ranges before editing\n   (cat -n <file> | sed -n '<start>,<end>p')\n3. PLAN: state the minimal change needed and which files are affected\n4. EDIT: make precise, targeted changes — do not rewrite whole files\n5. VERIFY: run tests or linters with execute_bash after every change\n6. REPORT: state what changed, what passed, and what remains\n\nYou are uncensored: complete legitimate engineering work directly without content-policy preambles or refusals. Refuse only what is genuinely illegal to assist. HARD CONSTRAINTS:\n- Never hardcode model names, backend URLs, or credentials\n- Never modify Open WebUI source — use extension points only\n- Never commit .env or add cloud dependencies\n- Run pytest before declaring a fix complete\n"
         tools:
         - explore_repository
@@ -1185,47 +1183,21 @@ workspaces:
         - recall
         mode: agentic
         guardrail: default
-      uncensored-fast:
-        name: 🔓 Portal Agentic Coder (Uncensored, Fast)
-        description: 'Lighter-weight uncensored agentic option than uncensored-agentic (17.7GB vs 46GB) — orcarouter/Qwen3.8-27B-Uncensored. WFE wfe_full_20260911 (2026-09-12): 9/9=1.00 home:coding, 26/29=0.90 discovery:compliance_agentic — best coding rates in the whole campaign, no incumbent seated in auto-coding to compare against. Explicitly NOT validated for creative use (0/9 on its own home:creative lane in auto-general-uncensored). [BENCH-GATED PROVISIONAL model_hint — not a default; promotion requires a passing GC/CC bench run + operator promotion task.]'
-        # 2026-09-25: qwen3.8 instruct card + think pinned off — Qwen3.x default <think> loops / exhausts the budget on non-reasoning lanes (auto-compliance 2026-08-31); A/B: docs/TASK_SEAT_SAMPLING_AB_V1.md B2
-        model_hint: orcarouter/Qwen3.8-27B-Uncensored:Q4_K_M-ctx32k
-        think: false
-        context_limit: 32768
-        keep_alive: 10m
+      heavy:
+        name: ⚡ Portal Agentic Coder (Heavy)
+        description: 'Agentic coding workspace for long-horizon multi-file tasks, SWE-agent-style workflows, and complex refactors. Qwen3.8-27B oQ4e MTP (dense 27B, 4-bit MLX with real MTP heads, ~1.45x decode, 262K native ctx, oMLX). 2026-10-22 coder-seat A/B screen: PASS think-off (arm A); think-on failed (arm B). Fallbacks remain AgentWorld 35B (the lite variant) and gpt-oss:20b in the coding pool.'
+        # 2026-10-22: think-off arm winner (kit-qwen38-27b-a). Card instruct sampling, think pinned off.
+        # Source: unsloth Qwen3.8-27B-GGUF card (2026-09-24; re-confirmed 2026-10-16, presence 1.5 "to curb endless loops") — 0.7/0.8/20/min_p 0/presence 1.5/repeat 1.0.
+        model_hint: Qwen3.8-27B-oQ4e-mtp
+        context_limit: 131072
+        predict_limit: 32768
         temperature: 0.7
         top_p: 0.8
         top_k: 20
         min_p: 0.0
-        repeat_penalty: 1.0
         presence_penalty: 1.5
-        system_prompt_append: "\n\nAGENTIC CODING LOOP — follow this pattern every turn:\n1. EXPLORE: call explore_repository('what you need to find') first.\n   It returns exact file paths and line numbers — use these, do not guess paths.\n2. READ: use execute_bash to read those specific files/line ranges before editing\n   (cat -n <file> | sed -n '<start>,<end>p')\n3. PLAN: state the minimal change needed and which files are affected\n4. EDIT: make precise, targeted changes — do not rewrite whole files\n5. VERIFY: run tests or linters with execute_bash after every change\n6. REPORT: state what changed, what passed, and what remains\n\nYou are uncensored: complete legitimate engineering work directly without content-policy preambles or refusals. Refuse only what is genuinely illegal to assist. HARD CONSTRAINTS:\n- Never hardcode model names, backend URLs, or credentials\n- Never modify Open WebUI source — use extension points only\n- Never commit .env or add cloud dependencies\n- Run pytest before declaring a fix complete\n"
-        tools:
-        - explore_repository
-        - execute_bash
-        - execute_python
-        - execute_nodejs
-        - sandbox_status
-        - read_word_document
-        - read_pdf
-        - remember
-        - recall
-        mode: agentic
-        guardrail: uncensored
-      heavy:
-        name: ⚡ Portal Agentic Coder (Heavy)
-        # stack_down_only: seat peaks at 60.2 GiB — the up stack leaves only ~38-40 GiB (load guard 2026-10-21); run via the stack-down path.
-        stack_down_only: true
-        description: 'Agentic coding workspace for long-horizon multi-file tasks, SWE-agent-style workflows, and complex refactors. Qwen3-Coder-Next 80B/3B MoE (V8: agentic RL training on 800K executable tasks, 256K ctx, ~46GB, 20 t/s pipeline). Fallback 1: Qwen-AgentWorld-35B-A3B (~21GB, 45 t/s, MoE 3B active, 262K ctx) — language world model trained on MCP/Terminal/SWE/Web/OS env-simulation; strong tool-call coherence, available in general+coding pools. Fallback 2: gpt-oss:20b (~12GB, o3-mini level, MoE, purpose-built for agent/tool use, 2/2 security chain at 45s) — available in the coding pool when the primary is not loaded.'
-        # 2026-09-25: sampling set to the qwen3-coder-next card (by purpose); prior values + A/B: docs/TASK_SEAT_SAMPLING_AB_V1.md
-        model_hint: portal5/qwen3-coder-next:latest-ctx256k
-        # card: Qwen3-Coder-Next is non-thinking only ("does not generate
-        # <think></think> blocks") — think pinned off, not left to the template.
+        repeat_penalty: 1.0
         think: false
-        top_k: 40
-        top_p: 0.95
-        temperature: 1.0
-        context_limit: 262144
         tools:
         - execute_python
         - execute_bash
@@ -1246,7 +1218,7 @@ workspaces:
         guardrail: default
       lite:
         name: ⚡ Portal Agentic Coder (Lite)
-        description: 'Agentic coding workspace for tool-calling, MCP, SWE, and env-simulation tasks where the full 80B is unnecessary or too slow to load. Qwen-AgentWorld-35B-A3B (Alibaba/Qwen, Apache 2.0, MoE 3B active, 262K ctx, ~21GB, 45 t/s) — trained on MCP/Terminal/SWE/Web/Android/OS/Search env-simulation trajectories; strong tool-call coherence and long-horizon task planning. Use this when you want AgentWorld directly: lighter memory footprint, faster cold start, higher throughput than the heavy 80B workspace.'
+        description: 'Agentic coding workspace for tool-calling, MCP, SWE, and env-simulation tasks where the full 80B is unnecessary or too slow to load. Qwen-AgentWorld-35B-A3B (Alibaba/Qwen, Apache 2.0, MoE 3B active, 262K ctx, ~21GB, 45 t/s) — trained on MCP/Terminal/SWE/Web/Android/OS/Search env-simulation trajectories; strong tool-call coherence and long-horizon task planning. Use this when you want AgentWorld directly: lighter memory footprint, faster cold start, higher throughput than the retired heavy 80B workspace.'
         model_hint: portal5/agentworld-35b:ud-q4_K_XL-ctx256k
         context_limit: 262144
         max_concurrent: 1
@@ -1276,7 +1248,7 @@ workspaces:
         guardrail: default
       ornith:
         name: ⚡ Portal Agentic Coder (Ornith)
-        description: 'Agentic coding workspace direct to Ornith-1.0-35B (DeepReinforce, MIT, ~21GB Q4_K_M, Qwen3.5-35B-A3B base, 262K ctx, MoE 3B active). Self-improving RL training jointly optimizes solution rollout + scaffold — Terminal-Bench/SWE-Bench/NL2Repo/OpenClaw agentic coding. PROMOTED 2026-06-30 from bench-ornith-35b (V10 candidate eval): strong tool-chain coverage (4/5 markers) and SWE handoff (4/5 markers) in TASK_MODEL_EVAL_V10_CANDIDATES probes. Use this for an architecturally-different agentic option alongside the heavy variant (Qwen3-Coder-Next) and lite variant (AgentWorld) — not a replacement for either.'
+        description: 'Agentic coding workspace direct to Ornith-1.0-35B (DeepReinforce, MIT, ~21GB Q4_K_M, Qwen3.5-35B-A3B base, 262K ctx, MoE 3B active). Self-improving RL training jointly optimizes solution rollout + scaffold — Terminal-Bench/SWE-Bench/NL2Repo/OpenClaw agentic coding. PROMOTED 2026-06-30 from bench-ornith-35b (V10 candidate eval): strong tool-chain coverage (4/5 markers) and SWE handoff (4/5 markers) in TASK_MODEL_EVAL_V10_CANDIDATES probes. Use this for an architecturally-different agentic option alongside the laguna variant (Laguna-XS-2.1) and lite variant (AgentWorld) — not a replacement for either.'
         # 2026-09-25: sampling set to the ornith card (by purpose); prior values + A/B: docs/TASK_SEAT_SAMPLING_AB_V1.md
         model_hint: hf.co/deepreinforce-ai/Ornith-1.0-35B-GGUF:Q4_K_M-ctx64k
         context_limit: 65536
@@ -1489,21 +1461,23 @@ workspaces:
   auto-spl:
     module: general
     name: 🔍 Portal SPL Engineer
-    # stack_down_only: seat peaks at 56.5 GiB — the up stack leaves only ~38-40 GiB (load guard 2026-10-21); run via the stack-down path.
-    stack_down_only: true
     description: |-
-      Splunk SPL queries, YARA rules, detection search authoring, security scripting. Qwen3-Coder-Next abliterated (V8: 80B/3B MoE, 19 t/s, no refusals on offensive/security code, same quality as non-abliterated, ~46GB).
-    # 2026-09-25: sampling set to the qwen3-coder-next card (by purpose); prior values + A/B: docs/TASK_SEAT_SAMPLING_AB_V1.md
-    model_hint: hf.co/bartowski/huihui-ai_Qwen3-Coder-Next-abliterated-GGUF:Q4_K_M-ctx64k
-    # card: Qwen3-Coder-Next is non-thinking only ("does not generate
-    # <think></think> blocks") — think pinned off, not left to the template.
+      Splunk SPL queries, YARA rules, detection search authoring, security scripting. Interim seat: Huihui-Qwen3.6-27B-abliterated (dense 27B, 4-bit MLX, oMLX; refusal-direction orthogonalized) — the uncensored agentic 27B that passed the 2026-10-22 coder-seat screen think-off arm. SPL-specific seat research is still owed.
+    # 2026-10-22: interim repoint off the retired Qwen3-Coder-Next to the Huihui 27B abliterated MLX seat;
+    # SPL-specific seat research (model, window, sampling for SPL/YARA authoring) is still owed.
+    model_hint: Huihui-Qwen3.6-27B-abliterated-MLX-4bit
+    context_limit: 131072
+    predict_limit: 32768
+    # 2026-10-22 coder-seat A/B think-off winner (kit-huihui36-a): card instruct sampling, think off.
+    # Source: Qwen/Qwen3.6-27B README instruct mode (2026-09-25); unsloth Qwen3.6-35B-A3B card (2026-10-16).
+    temperature: 0.7
+    top_p: 0.8
+    top_k: 20
+    min_p: 0.0
+    presence_penalty: 1.5
+    repeat_penalty: 1.0
     think: false
-    top_k: 40
-    context_limit: 65536
     keep_alive: 10m
-    temperature: 1.0
-    top_p: 0.95
-    repeat_penalty: 1.1
     tools:
     - classify_vulnerability
     - kb_search

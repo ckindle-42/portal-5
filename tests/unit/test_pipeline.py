@@ -18,7 +18,19 @@ def _seat_is_lane_served(ws: dict, ws_id: str, backends: dict) -> None:
     }
     hint = ws["model_hint"]
     assert hint in served, (ws_id, hint)
-    window = int(re.search(r"ctx(\d+)k", hint).group(1)) * 1024
+    match = re.search(r"ctx(\d+)k", hint)
+    if match is None:
+        # Raw oMLX id: no baked ctxNk tag exists; oMLX serves the model's native
+        # window (both 27B seats are 262K, above their 131K context_limit).
+        omlx_ids = {
+            m["id"]
+            for b in backends["backends"]
+            if b.get("type") == "omlx"
+            for m in b.get("models") or []
+        }
+        assert hint in omlx_ids, (ws_id, hint)
+        return
+    window = int(match.group(1)) * 1024
     assert window >= ws["context_limit"], (ws_id, hint, window)
 
 
@@ -1095,10 +1107,9 @@ class TestAgenticWorkspace:
         )
 
     def test_agentic_workspace_bakes_its_window_into_the_seat_tag(self):
-        """auto-agentic's 'heavy' variant enforces its context_limit via a derived
-        Ollama tag's baked window (ctxNk), because Ollama's /v1/chat/completions
-        ignores request-time options.num_ctx — so the baked window must cover
-        context_limit, whatever seat WFE decides.
+        """auto-agentic's 'heavy' variant must hold its context_limit: a derived
+        Ollama tag bakes the window (ctxNk), while a raw oMLX id serves the
+        model's native window — either way the seat's declared window must fit.
         """
         from portal.platform.inference.router.preinject import (
             _resolve_workspace_variant,
@@ -1111,14 +1122,27 @@ class TestAgenticWorkspace:
         merged = WORKSPACES[resolved_id]
 
         hint = merged.get("model_hint")
-        assert hint, "auto-agentic workspace missing model_hint — routing will fail on Ollama path"
+        assert hint, "auto-agentic workspace missing model_hint — routing will fail"
         ctx = merged.get("context_limit")
-        assert ctx, "auto-agentic needs a context_limit for the num_ctx derivation"
-        window = int(re.search(r"ctx(\d+)k", hint).group(1)) * 1024
+        assert ctx, "auto-agentic needs a context_limit for the window check"
+        import yaml
+
+        match = re.search(r"ctx(\d+)k", hint)
+        if match is None:
+            backends = yaml.safe_load(open("config/backends.yaml"))
+            omlx_ids = {
+                m["id"]
+                for b in backends["backends"]
+                if b.get("type") == "omlx"
+                for m in b.get("models") or []
+            }
+            assert hint in omlx_ids, hint
+            return
+        window = int(match.group(1)) * 1024
         assert window >= ctx, (hint, window, ctx)
 
     def test_agentic_workspace_has_model_hint(self):
-        """auto-agentic's resolved variant must have an Ollama model_hint as fallback."""
+        """auto-agentic's resolved variant must name a registered model_hint."""
         from portal.platform.inference.router.preinject import (
             _resolve_workspace_variant,
             _unpack_synthetic_workspace,

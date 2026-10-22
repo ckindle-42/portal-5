@@ -52,7 +52,6 @@
   "bench-magistral-small": "general",
   "bench-mistral-small-3-2": "general",
   "bench-nex-n2-mini": "coding",
-  "bench-nex-n25-mini-uncensored": "security",
   "bench-omnicoder2": "coding",
   "bench-qwen3-coder-30b": "coding",
   "bench-qwen35-abliterated": "general",

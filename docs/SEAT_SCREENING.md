@@ -86,15 +86,13 @@ state.
 |---|-----|------|--------------|---------------|
 | 1 | A | `auto-coding::kit-qwen38-27b-a` | `kitqwen3827ba` | `Qwen3.8-27B-oQ4e-mtp` |
 | 2 | B | `auto-coding::kit-qwen38-27b-b` | `kitqwen3827bb` | `Qwen3.8-27B-oQ4e-mtp` |
-| 3 | A | `auto-coding::kit-orcarouter-a` | `kitorcaroutera` | `Qwen3.8-27B-Uncensored-MLX-4bit` |
-| 4 | B | `auto-coding::kit-orcarouter-b` | `kitorcarouterb` | `Qwen3.8-27B-Uncensored-MLX-4bit` |
-| 5 | A | `auto-coding::kit-huihui36-a` | `kithuihui36a` | `Huihui-Qwen3.6-27B-abliterated-MLX-4bit` |
-| 6 | B | `auto-coding::kit-huihui36-b` | `kithuihui36b` | `Huihui-Qwen3.6-27B-abliterated-MLX-4bit` |
-| 7 | A | `auto-coding::kit-qwen36-27b-a` | `kitqwen3627ba` | `unsloth--Qwen3.6-27B-UD-MLX-4bit` |
-| 8 | B | `auto-coding::kit-qwen36-27b-b` | `kitqwen3627bb` | `unsloth--Qwen3.6-27B-UD-MLX-4bit` |
+| 3 | A | `auto-coding::kit-huihui36-a` | `kithuihui36a` | `Huihui-Qwen3.6-27B-abliterated-MLX-4bit` |
+| 4 | B | `auto-coding::kit-huihui36-b` | `kithuihui36b` | `Huihui-Qwen3.6-27B-abliterated-MLX-4bit` |
+| 5 | A | `auto-coding::kit-qwen36-27b-a` | `kitqwen3627ba` | `unsloth--Qwen3.6-27B-UD-MLX-4bit` |
+| 6 | B | `auto-coding::kit-qwen36-27b-b` | `kitqwen3627bb` | `unsloth--Qwen3.6-27B-UD-MLX-4bit` |
 
 Every seat in the list carries a persona, so `seat_rescreen.sh` and `seat_screen2.sh`
-screen either arm by slug. `scripts/seat_screen/kit/run_list.txt` holds these eight
+screen either arm by slug. `scripts/seat_screen/kit/run_list.txt` holds these six
 `variant slug` pairs: it is the default list of `seat_rescreen.sh`, and
 `seat_rescreen.sh --stdin < scripts/seat_screen/kit/run_list.txt` runs it explicitly.
 Its lines may name the variant with or without the `auto-coding::` prefix.
@@ -103,11 +101,9 @@ Its lines may name the variant with or without the `auto-coding::` prefix.
 
 ```bash
 scripts/seat_screen/probe_seat.py auto-coding::kit-qwen38-27b-a --think false
-scripts/seat_screen/probe_seat.py auto-coding::kit-orcarouter-a --think false
 scripts/seat_screen/probe_seat.py auto-coding::kit-huihui36-a  --think false
 scripts/seat_screen/probe_seat.py auto-coding::kit-qwen36-27b-a --think false
 scripts/seat_screen/probe_seat.py auto-coding::kit-qwen38-27b-b --think true --qwen38
-scripts/seat_screen/probe_seat.py auto-coding::kit-orcarouter-b  --think true --qwen38
 scripts/seat_screen/probe_seat.py auto-coding::kit-huihui36-b   --think true
 scripts/seat_screen/probe_seat.py auto-coding::kit-qwen36-27b-b --think true
 ```
@@ -121,5 +117,8 @@ row; no kit rows exist in `tests/wfe/workloads.yaml` yet.
 
 The first finished pair is Qwen3.8-27B oQ4e (`Qwen3.8-27B-oQ4e-mtp`). Arm A,
 `auto-coding::kit-qwen38-27b-a` (thinking off, instruct sampling), passed in 17.5 minutes.
-Arm B, `auto-coding::kit-qwen38-27b-b` (thinking on), timed out. The other three pairs in
-the run list are not part of this result.
+Arm B, `auto-coding::kit-qwen38-27b-b` (thinking on), timed out. The Huihui pair
+(`kit-huihui36-a`/`-b`) likewise passed arm A and failed arm B; its arm-A seat is now
+`auto-coding::uncensored-agentic` and the interim `auto-spl` seat. The OrcaRouter pair
+(`kit-orcarouter-a`/`-b`) failed both think arms with verified setup and was removed
+2026-10-22; its seats, personas and run-list rows are gone.

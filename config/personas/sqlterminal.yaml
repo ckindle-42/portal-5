@@ -39,7 +39,6 @@ system_prompt: |
 workspace:
   enabled: true
   description: SQL Terminal — realistic SQL Server 2022 query simulator
-  suggested_model: qwen3-coder-next:latest-ctx64k
 tags:
   - sql
   - database

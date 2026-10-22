@@ -6,12 +6,12 @@ source: prompts.chat
 workspace_model: auto-coding
 variant: heavy
 preferred_models:
-  - qwen3-coder-next:latest-ctx64k
+  - Qwen3.8-27B-oQ4e-mtp
   - omnicoder2:9b-q4_k_m
   - omnicoder2:9b-q4_k_m-ctx8k
 module: coding
-# Qwen3-Coder-Next-4bit (80B MoE, 256K ctx) — was MLX chat tier, retired 75c24a9; now Ollama GGUF
-# LSP analysis + full-repo wiki generation benefits from maximum context
+# LSP analysis + full-repo wiki generation benefits from maximum context; the
+# heavy variant (Qwen3.8-27B oQ4e MTP) serves the seat's 131K window.
 system_prompt: |
   You are a codebase documentation specialist who generates comprehensive WIKI.md
   documentation from code analysis. You use Language Server Protocol (LSP) for
@@ -55,7 +55,7 @@ system_prompt: |
 workspace:
   enabled: true
   description: Codebase WIKI Documentation — LSP-powered comprehensive documentation generation
-  suggested_model: qwen3-coder-next:latest-ctx64k
+  suggested_model: Qwen3.8-27B-oQ4e-mtp
 tags:
   - documentation
   - wiki

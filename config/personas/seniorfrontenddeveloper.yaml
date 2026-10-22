@@ -61,7 +61,6 @@ system_prompt: |
 workspace:
   enabled: true
   description: Senior Frontend Developer — accessible, performant, architecture-driven UI
-  suggested_model: qwen3-coder-next:latest-ctx64k
 tags:
   - frontend
   - react

@@ -58,10 +58,9 @@ see these tools yet (an exposure gap, would need a REST shim).
   - `laguna` (was auto-coding-agentic) — Laguna-XS.2, agentic
   - `northmini` (was auto-coding-northmini) — North-Mini-Code, single-shot
   - `uncensored` (was auto-coding-uncensored) — OmniCoder-2, single-shot
-  - `uncensored-agentic` (was auto-coding-uncensored-agentic) — Qwen3-Coder-Next abliterated,
-    agentic; `stack_down_only` (peaks above the headroom an idle host leaves with the stack up)
-  - `heavy` (was auto-agentic) — Qwen3-Coder-Next, agentic; `stack_down_only` (peaks above
-    the headroom an idle host leaves with the stack up)
+  - `uncensored-agentic` (was auto-coding-uncensored-agentic) — Huihui-Qwen3.6-27B-abliterated
+    MLX 4-bit, agentic (2026-10-22 think-off A/B winner)
+  - `heavy` (was auto-agentic) — Qwen3.8-27B oQ4e MTP, agentic (2026-10-22 think-off A/B winner)
   - `lite` (was auto-agentic-lite) — Qwen-AgentWorld-35B-A3B, agentic
   - `ornith` (was auto-agentic-ornith) — Ornith-1.0-35B, agentic
 

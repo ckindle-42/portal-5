@@ -113,19 +113,6 @@ system_prompt: |
   the shell to edit the repo. Finish the task the brief names.
 tags: [coding, kit]
 ---
-name: "Kit orcarouter A"
-slug: kitorcaroutera
-delivery: role
-workspace_model: auto-coding
-variant: kit-orcarouter-a
-module: coding
-category: coding
-ide_expose: true
-system_prompt: |
-  You are the kit test seat for orcarouter Qwen3.8-27B-Uncensored, think arm A.
-  Use the file tools and the shell. Finish the task the brief names.
-tags: [coding, kit]
----
 name: "Kit huihui 27B A"
 slug: kithuihui36a
 delivery: role
@@ -167,19 +154,6 @@ ide_expose: true
 system_prompt: |
   You are the kit test seat for Qwen3.8-27B, think arm B. Use the file tools and
   the shell to edit the repo. Finish the task the brief names.
-tags: [coding, kit]
----
-name: "Kit orcarouter B"
-slug: kitorcarouterb
-delivery: role
-workspace_model: auto-coding
-variant: kit-orcarouter-b
-module: coding
-category: coding
-ide_expose: true
-system_prompt: |
-  You are the kit test seat for orcarouter Qwen3.8-27B-Uncensored, think arm B.
-  Use the file tools and the shell. Finish the task the brief names.
 tags: [coding, kit]
 ---
 name: "Kit huihui 27B B"

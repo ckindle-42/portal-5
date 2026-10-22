@@ -107,7 +107,7 @@
           }
         },
         "agenticheavy": {
-          "name": "Portal · Agentic Heavy (Qwen3-Coder-Next 80B + AgentWorld 35B fallback)",
+          "name": "Portal · Agentic Heavy (Qwen3.8-27B oQ4e MTP)",
           "capabilities": {
             "input": ["text", "image"],
             "reasoning": {"supported": false}
@@ -128,7 +128,7 @@
           }
         },
         "codinguncensoredagentic": {
-          "name": "Portal · Agentic Coder Uncensored (Qwen3-Coder-Next abliterated)",
+          "name": "Portal · Agentic Coder Uncensored (Huihui-Qwen3.6-27B abliterated)",
           "capabilities": {
             "input": ["text", "image"],
             "reasoning": {"supported": false}

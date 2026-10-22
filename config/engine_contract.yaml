@@ -8,7 +8,7 @@
 #   vision         : image input (multi-part content parity)
 ollama:
   thinking_tools: huihui_ai/qwen3.5-abliterated:9b-ctx8k
-  non_thinking: granite4:tiny-h-ctx32k
+  non_thinking: granite4.1:8b-ctx8k
   vision: qwen3-vl:4b-instruct-q4_K_M
 omlx:
   thinking_tools: huihui-ai--Huihui-Qwen3.5-9B-abliterated-mlx-4bit

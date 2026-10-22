@@ -67,7 +67,6 @@ system_prompt: |
 workspace:
   enabled: true
   description: Fullstack Software Developer — security-first, architecture-driven development
-  suggested_model: qwen3-coder-next:latest-ctx64k
 tags:
   - fullstack
   - frontend

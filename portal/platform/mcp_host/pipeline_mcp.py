@@ -283,7 +283,7 @@ async def _impl_get_workspace_recommendation(task: str) -> dict[str, Any]:
         (
             ["heavy", "codebase", "multi-file", "long-horizon", "swe-agent"],
             "agenticheavy",
-            "Qwen3-Coder-Next 80B — full SWE-agent stack",
+            "Qwen3.8-27B oQ4e MTP — agentic, long-horizon",
         ),
         (
             ["pentest", "kerberoast", "impacket", "nmap", "exploit", "attack chain"],
@@ -313,7 +313,7 @@ async def _impl_get_workspace_recommendation(task: str) -> dict[str, Any]:
         (
             ["splunk", "spl", "tstats", "search"],
             "auto-spl",
-            "Qwen3-Coder-Next abliterated — SPL generation",
+            "Huihui-Qwen3.6-27B abliterated — SPL generation",
         ),
     ]
 
