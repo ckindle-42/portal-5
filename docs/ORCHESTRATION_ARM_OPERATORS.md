@@ -60,7 +60,7 @@ The rig prints its `receipt.json` path. Block notices go to a stub interface in 
 
 `scripts/gate_c_calculator.py` reads arm task receipts together with their `plan.json`, reports per-discipline/seat rates plus the WFE `rates_by_discipline` block, evaluates the fixed `pass_criteria`, and prints the task-level `calibration.minimum_pass_probability` floor. It never writes config. Planner and checker rows stay in the receipt. Gate C counts only final bite-suite rows (`passed`, `blocked`, `failed`). A `HARNESS_ERROR` row is excluded.
 
-Run a suite trial against one Pipeline workspace or persona. The default receipt directory is `get_generated_dir("tasks")/orchestration-bite-suite/`. Dry-run is the mode that completes without live bite tools.
+Run a suite trial against one Pipeline workspace or persona. The default receipt directory is `get_generated_dir("tasks")/orchestration-bite-suite/`. Dry-run completes without a live model or stack.
 
 ```bash
 uv run python scripts/orchestration_bite_suite.py \

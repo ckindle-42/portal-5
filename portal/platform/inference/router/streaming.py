@@ -41,6 +41,7 @@ from fastapi import HTTPException
 
 from portal.platform.inference.config import PersonaSpec
 from portal.platform.inference.load_guard import protect_failover
+from portal.platform.inference.router import no_answer
 from portal.platform.inference.router.backend_introspect import (
     _backend_type_for_url,
     free_ollama_for_omlx,
@@ -249,6 +250,19 @@ def _is_noncascadable_stream_error(status: int | None, buffer: bytes | None) -> 
     return not (status == 400 and buffer and _is_capacity_error(_stream_error_detail(buffer)))
 
 
+async def _free_ollama_for_capacity_retry(
+    engine: str, status: int, detail: bytes | str
+) -> list[str] | None:
+    """Idle Ollama models freed for an oMLX capacity refusal, or None when this is not one.
+
+    Every streamed dispatch recovers the same way: free the memory oMLX cannot reclaim
+    from Ollama, then retry the same request once. Return None means "no retry"."""
+    if engine != "omlx" or not is_omlx_capacity_refusal(status, detail):
+        return None
+    freed = await free_ollama_for_omlx()
+    return freed or None
+
+
 def _chunk_has_output(chunk: bytes) -> bool:
     """Whether an SSE chunk puts model output in front of the client (content,
     reasoning or a tool call — not the role preamble or routing status line)."""
@@ -363,14 +377,55 @@ def _stream_error_frames(request_id: str, workspace_id: str, message: str) -> li
     return _error_terminal_frames(request_id, workspace_id, message)
 
 
-def _backend_error_frames(
+async def _backend_error_ending(
     status: int, raw: bytes, request_id: str, workspace_id: str
 ) -> list[bytes]:
-    """Preserve backend status for fallback; frame a standalone error as chat chunks."""
+    """A non-200 backend reply as the client sees it, by audience.
+
+    A fallback driver gets the envelope it cascades on, a malformed request its
+    technical ending (a retry cannot fix it), any other failure the chat
+    audience's notice or the program's technical ending.
+    """
     envelope = _backend_error_chunk(status, raw)
     if _CASCADE_ERRORS.get():
         return [envelope]
-    return _error_terminal_frames(request_id, workspace_id, _stream_error_detail(envelope))
+    detail = _stream_error_detail(envelope)
+    if _is_noncascadable_stream_error(status, envelope):
+        return _error_terminal_frames(request_id, workspace_id, detail)
+    if no_answer.chat_ui():
+        text = await no_answer.chat_reply(
+            workspace_id,
+            no_answer.workspace_model(workspace_id),
+            [detail],
+            path="streaming",
+        )
+        return _no_answer_frames(request_id, workspace_id, text)
+    no_answer.record_api(workspace_id, [detail], path="streaming")
+    return _error_terminal_frames(request_id, workspace_id, detail)
+
+
+def _no_answer_frames(request_id: str, workspace_id: str, text: str) -> list[bytes]:
+    """The chat audience's ending: the notice as answer content, one finish, one ``[DONE]``."""
+    return [
+        _content_chunk(request_id, workspace_id, text),
+        _completion_finish_chunk("stop"),
+        b"data: [DONE]\n\n",
+    ]
+
+
+async def _exhausted_frames(workspace_id: str, body: dict[str, Any], message: str) -> list[bytes]:
+    """How a stream with no candidate left ends, by audience."""
+    request_id = f"chatcmpl-{workspace_id}"
+    if not no_answer.chat_ui():
+        no_answer.record_api(workspace_id, [message], path="streaming")
+        return _error_terminal_frames(request_id, workspace_id, message)
+    text = await no_answer.chat_reply(
+        workspace_id,
+        no_answer.workspace_model(workspace_id, body),
+        [message],
+        path="streaming",
+    )
+    return _no_answer_frames(request_id, workspace_id, text)
 
 
 def _in_band_error_frames(
@@ -908,23 +963,21 @@ async def _tool_loop_frames(
                 async with _http_client.stream("POST", backend_url, json=current_body) as resp:  # type: ignore[union-attr]
                     if resp.status_code != 200:
                         err = await resp.aread()
-                        if (
-                            not _freed_for_hop
-                            and _backend_type_for_url(backend_url) == "omlx"
-                            and is_omlx_capacity_refusal(resp.status_code, err)
+                        if not _freed_for_hop and (
+                            _freed := await _free_ollama_for_capacity_retry(
+                                _backend_type_for_url(backend_url), resp.status_code, err
+                            )
                         ):
                             # oMLX refused the load for memory idle Ollama residents hold.
                             # Free them once and retry this hop before the error reaches the client.
                             _freed_for_hop = True
-                            _freed = await free_ollama_for_omlx()
-                            if _freed:
-                                logger.info(
-                                    "oMLX capacity refusal (workspace=%s, hop=%d); freed Ollama %s, retrying oMLX",
-                                    workspace_id,
-                                    hop,
-                                    _freed,
-                                )
-                                continue
+                            logger.info(
+                                "oMLX capacity refusal (workspace=%s, hop=%d); freed Ollama %s, retrying oMLX",
+                                workspace_id,
+                                hop,
+                                _freed,
+                            )
+                            continue
                         logger.error(
                             "Tool-loop backend returned HTTP %d: %s", resp.status_code, err[:200]
                         )
@@ -935,7 +988,7 @@ async def _tool_loop_frames(
                             current_body,
                             _backend_type_for_url(backend_url) == "omlx",
                         )
-                        for _f in _backend_error_frames(
+                        for _f in await _backend_error_ending(
                             resp.status_code, err, request_id, workspace_id
                         ):
                             yield _f
@@ -1534,6 +1587,7 @@ async def _stream_from_backend_guarded(
     workspace_id: str = "unknown",
     model: str = "unknown",
     start_time: float | None = None,
+    _capacity_retried: bool = False,
 ) -> AsyncIterator[bytes]:
     """Stream from backend; pass-through OpenAI SSE; record metrics.
 
@@ -1589,6 +1643,30 @@ async def _stream_from_backend_guarded(
         async with _http_client.stream("POST", url, json=body) as resp:
             if resp.status_code != 200:
                 err = await resp.aread()
+                if not _capacity_retried and (
+                    _freed := await _free_ollama_for_capacity_retry(
+                        _backend_type_for_url(url), resp.status_code, err
+                    )
+                ):
+                    # oMLX refused for memory idle Ollama holds. Nothing has reached the
+                    # client yet: free it and re-issue this exact request once, as every
+                    # other dispatch (non-streamed, tool loop, chain hop) does.
+                    logger.info(
+                        "oMLX capacity refusal on %s (workspace=%s); freed Ollama %s, retrying",
+                        url,
+                        workspace_id,
+                        _freed,
+                    )
+                    async for _f in _stream_from_backend_guarded(
+                        url,
+                        body,
+                        workspace_id=workspace_id,
+                        model=model,
+                        start_time=None,
+                        _capacity_retried=True,
+                    ):
+                        yield _f
+                    return
                 logger.error(
                     "Backend %s returned HTTP %d: %s",
                     url,
@@ -1599,7 +1677,7 @@ async def _stream_from_backend_guarded(
                     workspace_id,
                     f"backend_http_{resp.status_code}",
                 )
-                for _f in _backend_error_frames(
+                for _f in await _backend_error_ending(
                     resp.status_code, err, f"chatcmpl-{workspace_id}", workspace_id
                 ):
                     yield _f
@@ -1853,7 +1931,7 @@ async def _hop_frames(
         _CASCADE_ERRORS.reset(_token)
 
 
-def _hop_stop_frames(
+async def _hop_stop_frames(
     hop: _HopStream,
     *,
     cascade_to_candidates: bool,
@@ -1865,7 +1943,14 @@ def _hop_stop_frames(
         return []
     if cascade_to_candidates and not hop.started:
         return [hop.error]
-    return _error_terminal_frames(request_id, workspace_id, _stream_error_detail(hop.error))
+    message = _stream_error_detail(hop.error)
+    if not no_answer.chat_ui():
+        no_answer.record_api(workspace_id, [message], path="streaming")
+        return _error_terminal_frames(request_id, workspace_id, message)
+    text = await no_answer.chat_reply(
+        workspace_id, no_answer.workspace_model(workspace_id), [message], path="streaming"
+    )
+    return _no_answer_frames(request_id, workspace_id, text)
 
 
 async def _stream_with_chain(
@@ -1952,7 +2037,7 @@ async def _stream_with_chain(
         async for chunk in _hop_frames(hop0_stream, hop0, hold_done=has_more):
             yield chunk
         collected.append("".join(hop0.parts))
-        _stop = _hop_stop_frames(
+        _stop = await _hop_stop_frames(
             hop0,
             cascade_to_candidates=_cascade_to_candidates,
             request_id=request_id,
@@ -2075,7 +2160,7 @@ async def _stream_with_chain(
                     yield chunk
 
             collected.append("".join(hop.parts))
-            _stop = _hop_stop_frames(
+            _stop = await _hop_stop_frames(
                 hop,
                 cascade_to_candidates=_cascade_to_candidates,
                 request_id=request_id,
@@ -2494,6 +2579,18 @@ def _select_stream_fn(
         )
 
 
+async def _with_room_for_omlx(
+    backend: Any, body: dict[str, Any], frames: AsyncIterator[bytes]
+) -> AsyncIterator[bytes]:
+    """Free idle Ollama for a large oMLX prompt before the first frame.
+
+    The non-streaming path does this before every attempt; a single-candidate stream used
+    to skip it entirely, so its large prompt met the guard instead of avoiding it."""
+    await make_room_for_omlx(backend, body)
+    async for chunk in frames:
+        yield chunk
+
+
 async def _stream_with_fallback(
     backend: Any,
     body: dict[str, Any],
@@ -2601,17 +2698,12 @@ async def _stream_with_fallback(
         # free Ollama's idle models and retry oMLX once before cascading to the
         # slower engine. The first attempt has already released the slot, and
         # release is idempotent, so the retry runs unslotted for those moments.
-        if (
-            stream_failed
-            and not _output_sent
-            and not _freed_ollama
-            and getattr(backend, "type", "") == "omlx"
-            and _error_buffer
-            and is_omlx_capacity_refusal(_error_status or 0, _error_buffer)
-        ):
-            _freed_ollama = True
-            _freed = await free_ollama_for_omlx()
+        if stream_failed and not _output_sent and not _freed_ollama and _error_buffer:
+            _freed = await _free_ollama_for_capacity_retry(
+                getattr(backend, "type", ""), _error_status or 0, _error_buffer
+            )
             if _freed:
+                _freed_ollama = True
                 logger.info(
                     "oMLX capacity rejection for workspace=%s; freed Ollama %s, retrying oMLX",
                     workspace_id,
@@ -2703,7 +2795,7 @@ async def _stream_with_fallback(
                 or _error_buffer
             )
         _message = _stream_error_detail(_error_buffer) if _error_buffer else "All backends failed"
-        for _f in _error_terminal_frames(f"chatcmpl-{workspace_id}", workspace_id, _message):
+        for _f in await _exhausted_frames(workspace_id, body, _message):
             yield _f
         _record_error(workspace_id, "all_backends_failed")
         trace_note(outcome="error")

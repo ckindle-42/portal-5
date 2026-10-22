@@ -154,6 +154,14 @@ _errors_total = Counter(
     registry=_REGISTRY,
 )
 
+_no_answer_total = Counter(
+    "portal5_no_answer_total",
+    "Turns no candidate could serve, by workspace, reason, audience and path",
+    # reason: memory_refused | timeout | engine_error | no_candidate
+    ["workspace", "reason", "client", "path"],
+    registry=_REGISTRY,
+)
+
 _concurrent_requests = Gauge(
     "portal_concurrent_requests",
     "Number of requests currently being processed",
@@ -245,6 +253,46 @@ _stream_content_yielded_total = Counter(
     "Streaming requests that yielded >=1 content chunk (declared for future H-2)",
     ["workspace", "path"],
     registry=_REGISTRY,
+)
+
+# ── Load guard (portal.platform.inference.load_guard) ──────────────────────
+_load_guard_admissions_total = Counter(
+    "portal5_load_guard_admissions_total",
+    "Cold-load admissions by engine and outcome "
+    "(admitted_immediately | admitted_after_wait | refused)",
+    ["engine", "outcome"],
+    registry=_REGISTRY,
+)
+_load_guard_wait_seconds = Histogram(
+    "portal5_load_guard_wait_seconds",
+    "Seconds a cold load spent inside admission, admitted or refused",
+    ["engine"],
+    buckets=[0.1, 0.5, 1, 2, 5, 10, 30, 60, 120, 300, 600, 1200, 3600],
+    registry=_REGISTRY,
+)
+_load_guard_unloads_total = Counter(
+    "portal5_load_guard_unloads_total",
+    "Unloads the guard issued, by engine and reason (idle_ollama | idle_omlx | queued_202)",
+    ["engine", "reason"],
+    registry=_REGISTRY,
+)
+_load_guard_refusals_total = Counter(
+    "portal5_load_guard_refusals_total",
+    "Refusals by engine and reason (projected-exceeds | transition-active | quiet | deadline)",
+    ["engine", "reason"],
+    registry=_REGISTRY,
+)
+_load_guard_headroom_bytes = Gauge(
+    "portal5_load_guard_headroom_bytes",
+    "Host headroom at the last admission decision (budget - oMLX residents + idle Ollama - margin)",
+    registry=_REGISTRY,
+    multiprocess_mode="livemostrecent",
+)
+_load_guard_ceiling_bytes = Gauge(
+    "portal5_load_guard_ceiling_bytes",
+    "oMLX final_ceiling at the last admission decision (P5-OMLX-CEILING-001)",
+    registry=_REGISTRY,
+    multiprocess_mode="livemostrecent",
 )
 # ── Power & cost metrics (M6-T02) ─────────────────────────────────────────
 _power_current_watts = Gauge(
@@ -361,3 +409,11 @@ def _record_response_time(model: str, workspace: str, duration_seconds: float) -
             _total_response_time_ms += duration_seconds * 1000
     except Exception as e:
         logger.debug("Failed to record response time: %s", e)
+
+
+def _record_no_answer(workspace: str, reason: str, client: str, path: str) -> None:
+    """Record one turn no candidate could serve (framing lives in router/no_answer.py)."""
+    try:
+        _no_answer_total.labels(workspace=workspace, reason=reason, client=client, path=path).inc()
+    except Exception as e:
+        logger.debug("Failed to record no-answer metric: %s", e)

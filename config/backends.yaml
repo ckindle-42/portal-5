@@ -426,6 +426,15 @@ backends:
     supports_tools: true
   - id: portal5/spark-x2.6:q4_K_M-ctx16k
     supports_tools: true
+  # 2026-10-21 bench-only intake: Recursive Flint on the Ollama 0.40.8 MLX
+  # engine (REPORT_FLINT GO-for-screen, not a seat). supports_tools: false is
+  # the conservative default — no tool-call probe is on record yet; flip it
+  # only when the screen's step-2 probe returns typed tool_calls. Declared in
+  # general (REPORT_FLINT said ollama-coding, but bench-flint's generated
+  # workspace_routing is [general] and strict hint validation only checks the
+  # workspace's own routing groups — the GATE-D failure class above).
+  - id: flint:40b-a2b-qat-int4
+    supports_tools: false
   type: ollama
   url: ${OLLAMA_URL:-http://host.docker.internal:11434}
 - group: coding
@@ -936,9 +945,6 @@ backends:
   # probe (clean tool_calls, correctly typed arguments).
   - id: Qwen3.8-27B-4bit
     supports_tools: true
-  # Qwen3.8-Flash-Next-REAP-288-MLX-4bit (bench/manual coding candidate
-  # 2026-09-02, TASK_OMLX_QWEN38FN_REAP288_BRINGUP_V1) was removed 2026-10-21:
-  # the operator deleted the weights. History in config/MODEL_CATALOG.md.
   priority: 10
   aliases:
     qwen3-coder:30b-a3b-q4_K_M-ctx256k: Qwen3-Coder-30B-A3B-Instruct-4bit
@@ -1232,6 +1238,11 @@ defaults:
   health_check_interval: 15
   health_timeout: 3
   request_timeout: 300
+  # Hot-seat prefix-cache protection (P5-OMLX-PREFIX-CACHE-001): seconds after an
+  # oMLX model's last request during which the router steers a *different* oMLX
+  # model's request to another candidate rather than deep-resetting that seat.
+  # 0 = off (today's first-candidate order). Never applies to a pinned ?model=.
+  hot_seat_protect_s: 0
 embedding_candidates:
 - id: google/embeddinggemma-2
   notes: 'EmbeddingGemma 2 (740M total; 270M text backbone + selectable 170M vision / 300M audio encoders; Apache 2.0;
@@ -1348,4 +1359,6 @@ workspace_routing:
   bench-magistral-small:
   - general
   bench-spark-x26:
+  - general
+  bench-flint:
   - general

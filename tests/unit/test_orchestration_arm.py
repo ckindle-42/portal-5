@@ -9,7 +9,6 @@ import os
 import signal
 import sqlite3
 import sys
-import threading
 from importlib.util import module_from_spec, spec_from_file_location
 from pathlib import Path
 from typing import Any
@@ -997,16 +996,19 @@ def test_queue_review_waits_when_a_bench_lock_appears_mid_bite(
             ),
             tmp_path,
         )
-    fake_pipeline.add("fast", DelayedResponse(finish_response({"answer": "right"}), 0.3))
-    fake_pipeline.add("deep", text_response(json.dumps({"decision": "approve", "reason": "ok"})))
-    bench = threading.Timer(
-        0.1, lambda: (lock_dir / "bench.pid").write_text(f"{os.getpid()}\n", encoding="utf-8")
+    # The bench lock appears while the fast bite is in flight, not on a timer.
+    fake_pipeline.add(
+        "fast",
+        DelayedResponse(
+            finish_response({"answer": "right"}),
+            0.3,
+            on_serve=lambda: (lock_dir / "bench.pid").write_text(
+                f"{os.getpid()}\n", encoding="utf-8"
+            ),
+        ),
     )
-    bench.start()
-    try:
-        result = runner.run_next()
-    finally:
-        bench.join()
+    fake_pipeline.add("deep", text_response(json.dumps({"decision": "approve", "reason": "ok"})))
+    result = runner.run_next()
 
     task_dir = tmp_path / "tasks" / "queue-review-lock"
     assert result.status == "WAITING"

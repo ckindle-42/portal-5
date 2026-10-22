@@ -93,3 +93,36 @@ tests/unit/test_orchestration_bite_suite.py .
 tests/unit/test_orchestration_arm.py .......
 14 passed in 1.77s
 ```
+
+## Post-merge 1dcfe12f
+
+SR-01 through SR-06 remain **PASS** after the second merge from main at `1dcfe12f`. The main-side fake timing callback is retained while queue insertion still requires `validate_execution_plan`; the all-scenario rig now builds mapped discipline policy, explicit write allowlists, and policy-validated queue plans.
+
+```text
+$ uv run --no-sync pytest /tmp/test_arm_tools_security_review.py -q --tb=short -k 'action_tools_cannot_overwrite_arm_control_files or raw_submit_rejects_tools_outside_discipline_allowlist or raw_submit_rejects_absolute_host_inputs'
+..F
+FAILED ../../../../tmp/test_arm_tools_security_review.py::test_raw_submit_rejects_absolute_host_inputs
+1 failed, 2 passed, 8 deselected in 0.64s
+
+$ uv run --no-sync pytest -q --tb=short <14 SR-01..06 regression nodes>
+collected 14 items
+tests/unit/test_orchestration_arm.py .....
+tests/unit/test_orchestration_phase2.py .
+tests/unit/test_orchestration_bite_suite.py .
+tests/unit/test_orchestration_arm.py .......
+14 passed in 2.18s
+
+$ uv run --no-sync python -m tests.wfe.e2e.rig_orchestration_arm
+22 scenarios: 22 PASS, 0 FAIL
+```
+
+The complete merged-tree gate also passes:
+
+```text
+$ uv run --no-sync pytest tests/unit/ -q && uv run --no-sync ruff check . && uv run --no-sync ruff format --check . && uv run --no-sync mypy portal/ && uv run --no-sync python scripts/complexity_report.py --gate
+3972 passed, 116 skipped, 42 warnings in 238.81s (0:03:58)
+All checks passed!
+1757 files already formatted
+Success: no issues found in 659 source files
+[complexity] GATE OK — totals within the declared ceilings
+```

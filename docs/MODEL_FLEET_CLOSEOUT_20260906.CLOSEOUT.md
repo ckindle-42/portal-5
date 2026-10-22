@@ -72,7 +72,7 @@ Passed **all** pre-registered gates (repair 100%/100%, refusal 1.0/0%, judgment 
 
 | Identity | Purpose | Storage | Limits |
 |---|---|---:|---|
-| `Qwen3.8-Flash-Next-REAP-288-MLX-4bit` | manual-only coding specialist; auto-default restriction STANDS | 68.5 GiB | HumanEval unreproduced; optional Laguna comparison not owed |
+| `Qwen3.8-Flash-Next-REAP-288-MLX-4bit` | **REMOVED_CLOSED 2026-10-21** (stack-down-only; operator; see tasks.json) — was: manual-only coding specialist; auto-default restriction STANDS | 68.5 GiB | HumanEval unreproduced; optional Laguna comparison not owed |
 | `orcarouter/Qwen3.8-27B-Uncensored:Q4_K_M` | verified uncensored-coding specialist (all gates passed) | 16.5 GiB | manual/bench-only; wiring optional; slow (~12 t/s) |
 | `qwen3-vl:8b-instruct-q4_K_M` | VQA-validated lighter vision model (parity @ 6.5×) | 5.7 GiB | 4-case synthetic probe is a floor, not full vision acceptance |
 | `huihui_ai/Qwen3.6-abliterated:27b-ctx8k` | verified healthy manual model (judgment 0.90/0.952) | shares 27b weights | lost the uncensored hint on lane-instrument data |

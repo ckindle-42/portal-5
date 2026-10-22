@@ -40,6 +40,7 @@ from typing import Any
 import httpx
 
 from portal.platform.inference.load_guard import OLLAMA, OMLX, LoadGuard, LoadRefusedError
+from portal.platform.inference.router import placement
 from portal.platform.inference.router.trace import normalize_engine_timings
 
 logger = logging.getLogger(__name__)
@@ -612,6 +613,8 @@ class OllamaNativeTransport(httpx.AsyncBaseTransport):
         except LoadRefusedError as e:
             return _refused(request, e)
         end = guard.begin(OMLX, model)
+        # Hot-seat bookkeeping (P5-OMLX-PREFIX-CACHE-001): every oMLX chat request passes this transport.
+        placement.note_omlx_activity(str(request.url).split("/v1/chat/completions")[0], model)
         try:
             resp = await self._inner.handle_async_request(request)
         except BaseException:

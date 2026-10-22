@@ -23,6 +23,9 @@ _ROOT = Path(__file__).resolve().parents[2]
 
 
 @pytest.mark.skipif(shutil.which("uv") is None, reason="uv not on PATH")
+@pytest.mark.skipif(
+    not (_ROOT / ".venv").is_dir(), reason="no project .venv (CI installs with pip)"
+)
 def test_venv_matches_lock():
     r = subprocess.run(
         ["uv", "sync", "--all-extras", "--frozen", "--check"],

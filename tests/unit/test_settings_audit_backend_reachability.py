@@ -10,7 +10,7 @@ import yaml
 
 from tests.wfe import settings_audit as audit
 
-REAP = "Qwen3.8-Flash-Next-REAP-288-MLX-4bit"
+OMLX_ONLY = "Synthetic-Omlx-Only-4bit"
 DFLASH = "Qwen3.8-27B-4bit"
 
 
@@ -18,7 +18,7 @@ def _backends() -> dict:
     return {
         "backends": [
             {"type": "ollama", "group": "coding", "models": [{"id": "llama3:8b"}]},
-            {"type": "omlx", "group": "coding", "models": [{"id": REAP}, {"id": DFLASH}]},
+            {"type": "omlx", "group": "coding", "models": [{"id": OMLX_ONLY}, {"id": DFLASH}]},
         ]
     }
 
@@ -42,7 +42,7 @@ def test_an_unreadable_omlx_is_one_non_failing_row_naming_the_backend() -> None:
     unverifiable = audit._note_omlx_reachability(
         _backends(), "HTTPError: HTTP Error 401: Unauthorized", violations
     )
-    assert unverifiable == {REAP, DFLASH}
+    assert unverifiable == {OMLX_ONLY, DFLASH}
     assert [(v["workspace"], v["kind"], v["severity"]) for v in violations] == [
         ("backend:omlx", "backend_unreachable", "INFO")
     ]
@@ -70,23 +70,23 @@ def test_inventory_lists_the_served_ids_when_reachable(monkeypatch: pytest.Monke
     monkeypatch.setattr(
         audit.urllib.request,
         "urlopen",
-        lambda *_a, **_k: _Resp({"data": [{"id": REAP}, {"id": DFLASH}]}),
+        lambda *_a, **_k: _Resp({"data": [{"id": OMLX_ONLY}, {"id": DFLASH}]}),
     )
     ids, reason = audit.omlx_inventory()
-    assert ids == {REAP, DFLASH} and reason is None
+    assert ids == {OMLX_ONLY, DFLASH} and reason is None
 
 
 def test_an_omlx_only_hint_is_not_absent_when_omlx_is_unreadable() -> None:
     violations: list[dict] = []
     audit._audit_workspace(
-        "auto-coding::reap288",
-        {"model_hint": REAP, "module": "coding"},
+        "auto-coding::synthetic-omlx",
+        {"model_hint": OMLX_ONLY, "module": "coding"},
         set(),
-        {REAP},
+        {OMLX_ONLY},
         {},
         violations,
         omlx=True,
-        unverifiable={REAP},
+        unverifiable={OMLX_ONLY},
     )
     assert violations == []
 
@@ -94,10 +94,10 @@ def test_an_omlx_only_hint_is_not_absent_when_omlx_is_unreadable() -> None:
 def test_a_reachable_backends_absence_still_fails() -> None:
     violations: list[dict] = []
     audit._audit_workspace(
-        "auto-coding::reap288",
-        {"model_hint": REAP, "module": "coding"},
+        "auto-coding::synthetic-omlx",
+        {"model_hint": OMLX_ONLY, "module": "coding"},
         set(),
-        {REAP},
+        {OMLX_ONLY},
         {},
         violations,
         omlx=True,
@@ -114,7 +114,7 @@ def test_a_model_no_backend_claims_is_still_absent_while_omlx_is_unreadable() ->
         {"gone:Q4"},
         {},
         violations,
-        unverifiable={REAP, DFLASH},
+        unverifiable={OMLX_ONLY, DFLASH},
     )
     assert [(v["kind"], v["severity"]) for v in violations] == [("hint_absent", "FAIL")]
 
@@ -131,7 +131,7 @@ def test_persona_pins_on_an_unreadable_omlx_are_not_reported_absent(
     monkeypatch.setattr(audit, "REPO", tmp_path)
 
     violations: list[dict] = []
-    checked = audit._audit_personas(set(), violations, {REAP, DFLASH})
+    checked = audit._audit_personas(set(), violations, {OMLX_ONLY, DFLASH})
     assert checked == 2
     assert [(v["workspace"], v["kind"]) for v in violations] == [
         ("persona:gone", "persona_pin_absent")

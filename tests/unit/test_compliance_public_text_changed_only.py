@@ -95,6 +95,8 @@ def test_no_merge_base_falls_back_to_full(tmp_path: Path) -> None:
     """When there is no common ancestor, _changed_files falls back to all tracked."""
     root = tmp_path
     subprocess.run(["git", "init", "-q", str(root)], check=True)
+    subprocess.run(["git", "-C", str(root), "config", "user.email", "test@test"], check=True)
+    subprocess.run(["git", "-C", str(root), "config", "user.name", "Test"], check=True)
     (root / "first.txt").write_text("a")
     subprocess.run(["git", "-C", str(root), "add", "-A"], check=True)
     subprocess.run(["git", "-C", str(root), "commit", "-q", "-m", "first"], check=True)

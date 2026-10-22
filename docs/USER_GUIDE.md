@@ -275,7 +275,7 @@ against the actual configuration.
 <!-- WIKI:HUMAN-OWNED reason="rationale — design intent, not a live fact" -->
 The original unit credited `nomic-embed-text` in Ollama as the embedding model,
 which the generated guide copied from an older stack. The deployment manifest
-shows the RAG engine is the host-native embedder on port 8917, so the claim had
+shows the RAG engine is the host-native embedder on port 8946 (EmbeddingGemma 2), so the claim had
 to be corrected against the manifest rather than preserved. Grounding the chunk
 sizes to `CHUNK_SIZE` and `CHUNK_OVERLAP` makes this unit's numbers enforceable
 against the actual configuration.
