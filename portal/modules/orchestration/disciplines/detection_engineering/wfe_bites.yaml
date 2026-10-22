@@ -72,8 +72,10 @@ cases:
       spl: "EventCode=4769 TicketEncryptionType=0x17 | stats count by ServiceName"
       # Known answers come from the lab corpus (docs/security/corpus_injection.md lanes A/B; lane C is discovery,
       # not a known answer). That corpus is historical (events 2026-07-18..2026-08-16), so a relative -24h is empty.
-      earliest: "2026-07-18T00:00:00"
-      latest: "2026-08-17T00:00:00"
+      # Epoch seconds: SplunkBackend sends time_format=%s, which Splunk also applies to earliest/latest, so an
+      # ISO date is rejected with 400. 1784332800 = 2026-07-18T00:00Z, 1786924800 = 2026-08-17T00:00Z.
+      earliest: "1784332800"
+      latest: "1786924800"
       max_results: 100
     artifact_schema:
       type: object

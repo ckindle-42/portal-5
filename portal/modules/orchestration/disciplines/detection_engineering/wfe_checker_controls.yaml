@@ -90,8 +90,8 @@ controls:
     pass:
       artifact: &lab_artifact
         spl: 'EventCode=4769 TicketEncryptionType=0x17 | stats count by ServiceName'
-        earliest: '2026-07-18T00:00:00'
-        latest: '2026-08-17T00:00:00'
+        earliest: '1784332800'
+        latest: '1786924800'
         max_results: 100
       calls:
         - name: query_splunk
