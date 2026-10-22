@@ -349,8 +349,8 @@ class LoadGuard:
 
     async def _free_omlx(
         self, client: httpx.AsyncClient, want: float, used: float
-    ) -> tuple[float, dict[str, float], float | None]:
-        """Unload idle oMLX models; report the counter's drop, queued work and post state."""
+    ) -> tuple[float, dict[str, float], float | None, float]:
+        """Unload idle oMLX models; report the drop, queued work, post state, 200 bytes."""
         try:
             url, idle = await self._omlx_idle_models(client)
             queued: dict[str, float] = {}
@@ -368,13 +368,13 @@ class LoadGuard:
                 elif r.status_code == 202:
                     queued[m["id"]] = size
             if not any_post:
-                return 0.0, queued, None
+                return 0.0, queued, None, 0.0
             after = await self._omlx_used(client)
             freed = 0.0 if after is None else max(0.0, used - after)
-            return freed, queued, after
+            return freed, queued, after, posted
         except Exception as e:
             logger.warning("load_guard: could not free oMLX memory: %s", e)
-            return 0.0, {}, None
+            return 0.0, {}, None, 0.0
 
     async def _free_ollama(
         self, client: httpx.AsyncClient, base: str, resident: dict[str, int]
@@ -515,14 +515,14 @@ class LoadGuard:
         idle: float,
         used: float,
         shortage: float,
-    ) -> tuple[bool, dict[str, float], set[str], float | None]:
-        omlx_freed, omlx_queued, after = await self._free_omlx(client, shortage, used)
+    ) -> tuple[bool, dict[str, float], set[str], float | None, float]:
+        omlx_freed, omlx_queued, after, synchronous = await self._free_omlx(client, shortage, used)
         if omlx_freed < shortage and idle:
             ollama_requested = await self._free_ollama(client, base, resident)
         else:
             ollama_requested = set()
         did_free = bool(omlx_freed or omlx_queued or ollama_requested)
-        return did_free, omlx_queued, ollama_requested, after
+        return did_free, omlx_queued, ollama_requested, after, synchronous
 
     async def _free_for_load(
         self,
@@ -534,25 +534,41 @@ class LoadGuard:
         shortage: float,
         pending_omlx: dict[str, float],
         pending_ollama: set[str],
-    ) -> tuple[bool, float]:
-        """Free idle memory, fold it into the pending sets, return the counter baseline."""
-        did_free, queued, requested, after = await self._free_idle_memory(
+    ) -> tuple[bool, float, float]:
+        """Free idle memory and fold it in; return the queued baseline and post counter."""
+        did_free, queued, requested, after, synchronous = await self._free_idle_memory(
             client, base, resident, idle, used, shortage
         )
         pending_omlx.update(queued)
         pending_ollama.update(requested)
-        return did_free, used if after is None else after
+        post = used if after is None else after
+        return did_free, self._pending_baseline(used, after, synchronous), post
+
+    @staticmethod
+    def _pending_baseline(used: float, after: float | None, synchronous: float) -> float:
+        """Counter the queued drops are measured from: the pre-pass value less 200 bytes."""
+        if after is None:
+            return used
+        return used - min(synchronous, max(0.0, used - after))
 
     async def _pending_omlx_unloads(
         self, client: httpx.AsyncClient, models: dict[str, float], used: float
-    ) -> tuple[dict[str, float], bool]:
-        """Queued unloads still pending, and whether the counter just settled one."""
+    ) -> tuple[dict[str, float], bool, float]:
+        """Retire queued unloads the counter drop covers, in post order."""
         if not models:
-            return {}, False
+            return {}, False, used
         now = await self._omlx_used(client)
-        if now is not None and now < used:
-            return {}, True
-        return models, False
+        if now is None or now >= used:
+            return models, False, used
+        drop = used - now
+        remaining = dict(models)
+        for name, charge in models.items():
+            if charge > drop:
+                break
+            drop -= charge
+            used -= charge
+            del remaining[name]
+        return remaining, len(remaining) < len(models), used
 
     # ── the cold-load lock ───────────────────────────────────────────────
 
@@ -662,7 +678,7 @@ class LoadGuard:
                     available = headroom + idle - _MARGIN
                     if need > available and not free_attempted:
                         free_attempted = True
-                        freed_or_queued, baseline = await self._free_for_load(
+                        freed_or_queued, pending_omlx_used, last_used = await self._free_for_load(
                             client,
                             base,
                             resident,
@@ -672,13 +688,12 @@ class LoadGuard:
                             pending_omlx,
                             pending_ollama,
                         )
-                        pending_omlx_used = last_used = baseline
                         if freed_or_queued:
                             continue
                     if need <= available:
                         break
                     pending_ollama.intersection_update(resident)
-                    pending_omlx, settled = await self._pending_omlx_unloads(
+                    pending_omlx, settled, pending_omlx_used = await self._pending_omlx_unloads(
                         client, pending_omlx, pending_omlx_used
                     )
                     if settled:

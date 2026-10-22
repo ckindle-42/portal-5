@@ -44,6 +44,7 @@ class Engines:
         unload_sticks: bool = False,
         actual_sizes: dict[str, float] | None = None,
         unload_counter_drops: dict[str, float] | None = None,
+        immediate_counter_drops: set[str] | None = None,
         unload_loaded_flips: set[str] | None = None,
     ) -> None:
         self.ollama = dict(ollama or {})
@@ -65,6 +66,7 @@ class Engines:
         self.unload_sticks = unload_sticks
         self.actual_sizes = dict(actual_sizes or {})
         self.unload_counter_drops = dict(unload_counter_drops or {})
+        self.immediate_counter_drops = set(immediate_counter_drops or set())
         self.unload_loaded_flips = set(unload_loaded_flips or set())
         self.pending_counter_drops: dict[str, tuple[float, int]] = {}
         self.unloaded: list[str] = []
@@ -143,9 +145,17 @@ class Engines:
             if name in self.unload_loaded_flips:
                 self.omlx[name]["loaded"] = False
             if self.omlx_memory is not None and name in self.unload_counter_drops:
-                self.pending_counter_drops[name] = (self.unload_counter_drops[name], 1)
+                self._defer_counter_drop(name)
         self.unloaded.append(name)
         return httpx.Response(status_code, json={})
+
+    def _defer_counter_drop(self, name: str) -> None:
+        """Drop the counter with the 202, or one status read later."""
+        drop = self.unload_counter_drops[name]
+        if name in self.immediate_counter_drops:
+            self.omlx_memory = max(0.0, float(self.omlx_memory or 0) - drop)
+        else:
+            self.pending_counter_drops[name] = (drop, 1)
 
     def _omlx_response(self, req: httpx.Request, path: str) -> httpx.Response | None:
         if path == "/v1/models/status":
@@ -592,6 +602,81 @@ async def test_queued_unload_settles_on_any_counter_drop_with_pinned_memory_left
     assert "headroom 30.0 GiB" in str(err.value)  # re-measured after the pinned charge
     assert e.omlx_used() == 8 * GIB
     assert e.unload_calls["idle"] == 1
+
+
+async def test_staged_two_202_unloads_keep_the_wait_alive_until_each_drop():
+    """FIX6 finding 1: b's charge is not settled by a's counter drop."""
+    e = Engines(
+        tags={"m": 30 * GIB},  # 37.5 needed
+        omlx={
+            "a": {"size": 8 * GIB, "loaded": True, "last": 1},
+            "b": {"size": 8 * GIB, "loaded": True, "last": 2},
+        },
+        ceiling=40 * GIB,
+        unload_status_code=202,
+        unload_sticks=True,
+        omlx_memory=16 * GIB,
+    )
+    lg.set_load_wait("1.4")
+    loop = asyncio.get_running_loop()
+    loop.call_later(0.15, lambda: setattr(e, "omlx_memory", 8 * GIB))
+    loop.call_later(0.6, lambda: setattr(e, "omlx_memory", 0.0))
+    started = lg.time.monotonic()
+    release = await guard(e).admit(OLLAMA_URL, "m")
+    elapsed = lg.time.monotonic() - started
+    assert release is not None
+    assert 0.55 <= elapsed < 1.4  # waited for b instead of refusing after a
+    assert e.unload_calls == {"a": 1, "b": 1}
+    release()
+
+
+async def test_202_whose_drop_lands_inside_the_free_call_refuses_quietly():
+    """FIX6 finding 2: the pre-free counter is the pending baseline."""
+    e = Engines(
+        tags={"m": 30 * GIB},  # 37.5 needed
+        omlx={"idle": {"size": 4 * GIB, "loaded": True}},
+        ceiling=20 * GIB,
+        unload_status_code=202,
+        unload_sticks=True,
+        omlx_memory=16 * GIB,
+        unload_counter_drops={"idle": 4 * GIB},
+        immediate_counter_drops={"idle"},
+    )
+    lg.set_load_wait("0.8")
+    started = lg.time.monotonic()
+    with pytest.raises(lg.LoadRefusedError) as err:
+        await guard(e).admit(OLLAMA_URL, "m")
+    assert lg.time.monotonic() - started < 0.4
+    assert "with nothing in flight to wait for" in str(err.value)
+    assert e.omlx_used() == 12 * GIB
+    assert e.unload_calls["idle"] == 1
+
+
+async def test_omlx_200_in_the_same_pass_does_not_settle_a_queued_202():
+    """The 200's own drop is not credited to the queued 202s."""
+    e = Engines(
+        tags={"m": 30 * GIB},  # 37.5 needed
+        omlx={
+            "done": {"size": 8 * GIB, "loaded": True, "last": 1},
+            "a": {"size": 8 * GIB, "loaded": True, "last": 2},
+            "b": {"size": 8 * GIB, "loaded": True, "last": 3},
+        },
+        ceiling=40 * GIB,
+        omlx_memory=24 * GIB,
+        unload_status_codes={"done": 200, "a": 202, "b": 202},
+        unload_counter_drops={"done": 8 * GIB},
+    )
+    lg.set_load_wait("1.4")
+    loop = asyncio.get_running_loop()
+    loop.call_later(0.15, lambda: setattr(e, "omlx_memory", 8 * GIB))
+    loop.call_later(0.6, lambda: setattr(e, "omlx_memory", 0.0))
+    started = lg.time.monotonic()
+    release = await guard(e).admit(OLLAMA_URL, "m")
+    elapsed = lg.time.monotonic() - started
+    assert release is not None
+    assert 0.55 <= elapsed < 1.4
+    assert e.unload_calls == {"done": 1, "a": 1, "b": 1}
+    release()
 
 
 @pytest.mark.parametrize("actual_size_gib", [6, 8])
