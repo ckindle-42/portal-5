@@ -154,6 +154,14 @@ _errors_total = Counter(
     registry=_REGISTRY,
 )
 
+_no_answer_total = Counter(
+    "portal5_no_answer_total",
+    "Turns no candidate could serve, by workspace, reason, audience and path",
+    # reason: memory_refused | timeout | engine_error | no_candidate
+    ["workspace", "reason", "client", "path"],
+    registry=_REGISTRY,
+)
+
 _concurrent_requests = Gauge(
     "portal_concurrent_requests",
     "Number of requests currently being processed",
@@ -361,3 +369,11 @@ def _record_response_time(model: str, workspace: str, duration_seconds: float) -
             _total_response_time_ms += duration_seconds * 1000
     except Exception as e:
         logger.debug("Failed to record response time: %s", e)
+
+
+def _record_no_answer(workspace: str, reason: str, client: str, path: str) -> None:
+    """Record one turn no candidate could serve (framing lives in router/no_answer.py)."""
+    try:
+        _no_answer_total.labels(workspace=workspace, reason=reason, client=client, path=path).inc()
+    except Exception as e:
+        logger.debug("Failed to record no-answer metric: %s", e)

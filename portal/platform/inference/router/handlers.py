@@ -25,6 +25,7 @@ from prometheus_client import generate_latest
 
 from portal.platform.inference.cluster_backends import BackendRegistry
 from portal.platform.inference.config import ollama_url
+from portal.platform.inference.router import no_answer
 from portal.platform.inference.router.anthropic_compat import (
     anthropic_to_openai_body,
     openai_response_to_anthropic,
@@ -766,6 +767,33 @@ async def _dispatch_council(
     )
 
 
+async def _give_up(
+    workspace_id: str,
+    body: dict[str, Any],
+    exc: BackendRequestError | None,
+    reasons: list[str],
+) -> JSONResponse:
+    """End a request no candidate could serve: a chat UI gets a completion, a program the status."""
+    if not no_answer.chat_ui():
+        no_answer.record_api(workspace_id, reasons, path="non_streaming")
+        raise HTTPException(
+            status_code=exc.status_code if exc else 502,
+            detail=(
+                exc.detail
+                if exc
+                else "All backends failed"
+                + (f" — {'; '.join(reasons)}" if reasons else " — check server logs")
+            ),
+        )
+    text = await no_answer.chat_reply(
+        workspace_id, no_answer.workspace_model(workspace_id, body), reasons, path="non_streaming"
+    )
+    return JSONResponse(
+        content=no_answer.completion(workspace_id, text),
+        headers={"x-portal-route": f"{workspace_id};;"},
+    )
+
+
 async def _dispatch_non_streaming(
     candidates: list[Any],
     body: dict[str, Any],
@@ -784,11 +812,17 @@ async def _dispatch_non_streaming(
     only when none of them can serve the request; otherwise every candidate
     failing raises HTTPException 502.
 
+    A chat-UI audience (``no_answer.chat_ui()``) is the exception: an error
+    status would cost the user their turn, so it gets a completion whose
+    assistant message names the model, the reason and what to do. API clients
+    keep the real status so they can retry.
+
     Lives here (not non_streaming.py) so unit tests monkeypatch
     ``handlers._try_non_streaming`` to intercept the dispatch.
 
     Returns:
-        ``JSONResponse`` from the first successful backend.
+        ``JSONResponse`` from the first successful backend, or the chat
+        audience's notice when none could serve.
     """
     logger.info(
         "Routing workspace=%s → %d candidate(s) stream=%s",
@@ -862,16 +896,9 @@ async def _dispatch_non_streaming(
     # All backends failed
     if capacity_exc is not None:
         _record_error(workspace_id, f"backend_http_{capacity_exc.status_code}")
-        raise HTTPException(
-            status_code=capacity_exc.status_code, detail=capacity_exc.detail
-        ) from None
+        return await _give_up(workspace_id, body, capacity_exc, [capacity_exc.detail])
     _record_error(workspace_id, "all_backends_failed")
-    reasons = [r for r in tried.values() if r]
-    raise HTTPException(
-        status_code=502,
-        detail="All backends failed"
-        + (f" — {'; '.join(reasons)}" if reasons else " — check server logs"),
-    )
+    return await _give_up(workspace_id, body, None, [r for r in tried.values() if r])
 
 
 async def chat_completions(
@@ -909,6 +936,7 @@ async def chat_completions(
 
     # How long this request's cold model loads may queue for memory (load_guard).
     set_load_wait(request.headers.get("x-portal-load-wait"))
+    no_answer.set_chat_ui(request.headers)  # a chat turn answers; a program retries on the status
     _verify_key(authorization)
 
     start_trace(get_correlation_id())
