@@ -246,6 +246,46 @@ _stream_content_yielded_total = Counter(
     ["workspace", "path"],
     registry=_REGISTRY,
 )
+
+# ── Load guard (portal.platform.inference.load_guard) ──────────────────────
+_load_guard_admissions_total = Counter(
+    "portal5_load_guard_admissions_total",
+    "Cold-load admissions by engine and outcome "
+    "(admitted_immediately | admitted_after_wait | refused)",
+    ["engine", "outcome"],
+    registry=_REGISTRY,
+)
+_load_guard_wait_seconds = Histogram(
+    "portal5_load_guard_wait_seconds",
+    "Seconds a cold load spent inside admission, admitted or refused",
+    ["engine"],
+    buckets=[0.1, 0.5, 1, 2, 5, 10, 30, 60, 120, 300, 600, 1200, 3600],
+    registry=_REGISTRY,
+)
+_load_guard_unloads_total = Counter(
+    "portal5_load_guard_unloads_total",
+    "Unloads the guard issued, by engine and reason (idle_ollama | idle_omlx | queued_202)",
+    ["engine", "reason"],
+    registry=_REGISTRY,
+)
+_load_guard_refusals_total = Counter(
+    "portal5_load_guard_refusals_total",
+    "Refusals by engine and reason (projected-exceeds | transition-active | quiet | deadline)",
+    ["engine", "reason"],
+    registry=_REGISTRY,
+)
+_load_guard_headroom_bytes = Gauge(
+    "portal5_load_guard_headroom_bytes",
+    "Host headroom at the last admission decision (budget - oMLX residents + idle Ollama - margin)",
+    registry=_REGISTRY,
+    multiprocess_mode="livemostrecent",
+)
+_load_guard_ceiling_bytes = Gauge(
+    "portal5_load_guard_ceiling_bytes",
+    "oMLX final_ceiling at the last admission decision (P5-OMLX-CEILING-001)",
+    registry=_REGISTRY,
+    multiprocess_mode="livemostrecent",
+)
 # ── Power & cost metrics (M6-T02) ─────────────────────────────────────────
 _power_current_watts = Gauge(
     "portal5_power_current_watts",

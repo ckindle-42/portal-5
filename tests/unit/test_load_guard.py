@@ -1339,3 +1339,207 @@ async def test_slow_foreign_activity_probe_refuses_instead_of_failing_open(monke
     with pytest.raises(lg.LoadRefusedError):
         await g.admit(OLLAMA_URL, "next")
     assert not g._lock.locked()
+
+
+# ── metrics ───────────────────────────────────────────────────────────────
+
+_ADMISSIONS = "portal5_load_guard_admissions_total"
+_UNLOADS = "portal5_load_guard_unloads_total"
+_REFUSALS = "portal5_load_guard_refusals_total"
+_WAIT_COUNT = "portal5_load_guard_wait_seconds_count"
+_HEADROOM = "portal5_load_guard_headroom_bytes"
+_CEILING = "portal5_load_guard_ceiling_bytes"
+
+
+def metric_value(name: str, **labels: str) -> float | None:
+    from portal.platform.inference.router.metrics import _REGISTRY
+
+    for family in _REGISTRY.collect():
+        for sample in family.samples:
+            if sample.name == name and all(sample.labels.get(k) == v for k, v in labels.items()):
+                return sample.value
+    return None
+
+
+async def test_a_fitting_cold_load_counts_admitted_immediately_and_sets_the_gauges():
+    e = Engines(tags={"m": GIB}, ceiling=40 * GIB)
+    before = metric_value(_ADMISSIONS, engine=OLLAMA, outcome="admitted_immediately")
+    waited = metric_value(_ADMISSIONS, engine=OLLAMA, outcome="admitted_after_wait")
+    waits = metric_value(_WAIT_COUNT, engine=OLLAMA)
+    release = await guard(e).admit(OLLAMA_URL, "m")
+    assert release is not None
+    release()
+    assert (
+        metric_value(_ADMISSIONS, engine=OLLAMA, outcome="admitted_immediately")
+        == (before or 0) + 1
+    )
+    assert metric_value(_ADMISSIONS, engine=OLLAMA, outcome="admitted_after_wait") == (waited or 0)
+    assert metric_value(_WAIT_COUNT, engine=OLLAMA) == (waits or 0) + 1
+    assert metric_value(_HEADROOM) == pytest.approx(38 * GIB)  # 40 ceiling - 2 margin
+    assert metric_value(_CEILING) == pytest.approx(40 * GIB)
+
+
+async def test_a_load_that_waited_for_a_sibling_counts_admitted_after_wait():
+    e = Engines(ollama={"seat": 20 * GIB}, tags={"qwen": 18 * GIB}, ceiling=8 * GIB)
+    g = guard(e)
+    end = g.begin(OLLAMA, "seat")
+    lg.set_load_wait("30")
+    before = metric_value(_ADMISSIONS, engine=OLLAMA, outcome="admitted_after_wait")
+    task = asyncio.create_task(g.admit(OLLAMA_URL, "qwen"))
+    await settle()
+    assert not task.done()
+    end()
+    release = await asyncio.wait_for(task, 2)
+    assert release is not None
+    release()
+    assert (
+        metric_value(_ADMISSIONS, engine=OLLAMA, outcome="admitted_after_wait") == (before or 0) + 1
+    )
+
+
+async def test_a_quiet_refusal_counts_refused_with_reason_quiet():
+    e = Engines(tags={"next": 55 * GIB}, ceiling=40 * GIB)
+    before = metric_value(_REFUSALS, engine=OLLAMA, reason="quiet")
+    refused = metric_value(_ADMISSIONS, engine=OLLAMA, outcome="refused")
+    waits = metric_value(_WAIT_COUNT, engine=OLLAMA)
+    with pytest.raises(lg.LoadRefusedError) as err:
+        await guard(e).admit(OLLAMA_URL, "next")
+    assert "nothing in flight" in str(err.value)
+    assert metric_value(_ADMISSIONS, engine=OLLAMA, outcome="refused") == (refused or 0) + 1
+    assert metric_value(_REFUSALS, engine=OLLAMA, reason="quiet") == (before or 0) + 1
+    assert metric_value(_WAIT_COUNT, engine=OLLAMA) == (waits or 0) + 1
+
+
+async def test_a_refusal_after_waiting_counts_projected_exceeds():
+    # oMLX busy with a tracked request: the guard waits, runs out, reports the projection.
+    e = Engines(
+        ollama={"router": 5 * GIB},
+        tags={"qwen": 18 * GIB},
+        omlx={"busy": {"size": int(20.9 * GIB), "loaded": True}},
+        ceiling=25.6 * GIB,
+        omlx_active=1,
+    )
+    g = guard(e)
+    end = g.begin(OMLX, "busy")
+    before = metric_value(_REFUSALS, engine=OLLAMA, reason="projected-exceeds")
+    with pytest.raises(lg.LoadRefusedError) as err:
+        await g.admit(OLLAMA_URL, "qwen")
+    assert "after waiting" in str(err.value)
+    end()
+    assert metric_value(_REFUSALS, engine=OLLAMA, reason="projected-exceeds") == (before or 0) + 1
+
+
+async def test_a_transition_refusal_counts_reason_transition_active():
+    e = Engines(
+        tags={"m": 30 * GIB},
+        omlx={"loading": {"size": GIB, "loaded": False}},
+        ceiling=8 * GIB,
+        loading_polls=[True] * 100,
+        status_loading_polls=[True] * 100,
+    )
+    monkeypatch = pytest.MonkeyPatch()
+    monkeypatch.setattr(lg, "_POLL_S", 0.01)  # burn the deadline inside the poll budget
+    lg.set_load_wait("0.06")
+    before = metric_value(_REFUSALS, engine=OLLAMA, reason="transition-active")
+    try:
+        with pytest.raises(lg.LoadRefusedError) as err:
+            await guard(e).admit(OLLAMA_URL, "m")
+        assert "transition still active" in str(err.value)
+    finally:
+        monkeypatch.undo()
+    assert metric_value(_REFUSALS, engine=OLLAMA, reason="transition-active") == (before or 0) + 1
+
+
+async def test_a_cold_load_lock_timeout_counts_reason_deadline():
+    e = Engines(omlx={"a": {"size": 16 * GIB}, "b": {"size": 16 * GIB}})
+    g = guard(e)
+    lg.set_load_wait("30")
+    first = await g.admit_omlx("a")
+    assert first is not None
+    lg.set_load_wait("0.05")
+    before = metric_value(_REFUSALS, engine=OMLX, reason="deadline")
+    with pytest.raises(lg.LoadRefusedError) as err:
+        await g.admit_omlx("b")
+    assert "another model load" in str(err.value)
+    assert metric_value(_REFUSALS, engine=OMLX, reason="deadline") == (before or 0) + 1
+    first()
+
+
+async def test_unloads_count_by_engine_and_reason():
+    e = Engines(
+        tags={"m": 30 * GIB},
+        omlx={"idle": {"size": 4 * GIB, "loaded": True}},
+        ceiling=40 * GIB,
+    )
+    before_omlx = metric_value(_UNLOADS, engine=OMLX, reason="idle_omlx")
+    release = await guard(e).admit(OLLAMA_URL, "m")
+    assert release is not None and e.unloaded == ["idle"]
+    release()
+    assert metric_value(_UNLOADS, engine=OMLX, reason="idle_omlx") == (before_omlx or 0) + 1
+
+    queued = Engines(
+        tags={"m": 30 * GIB},
+        omlx={"idle": {"size": 4 * GIB, "loaded": True}},
+        ceiling=40 * GIB,
+        unload_status_code=202,
+        unload_sticks=True,
+    )
+    lg.set_load_wait("0.06")
+    before_queued = metric_value(_UNLOADS, engine=OMLX, reason="queued_202")
+    with pytest.raises(lg.LoadRefusedError):
+        await guard(queued).admit(OLLAMA_URL, "m")
+    assert metric_value(_UNLOADS, engine=OMLX, reason="queued_202") == (before_queued or 0) + 1
+
+    hidden = Engines(ollama={"devstral": int(1.8 * GIB)}, tags={"kat": 22 * GIB}, ceiling=21 * GIB)
+    hidden.hidden["devstral"] = int(13.2 * GIB)
+    before_ollama = metric_value(_UNLOADS, engine=OLLAMA, reason="idle_ollama")
+    release = await guard(hidden).admit(OLLAMA_URL, "kat")
+    assert release is not None and "devstral" not in hidden.ollama
+    release()
+    assert metric_value(_UNLOADS, engine=OLLAMA, reason="idle_ollama") == (before_ollama or 0) + 1
+
+
+async def test_warm_loads_are_not_counted_as_admissions():
+    e = Engines(
+        omlx={"a": {"size": GIB, "loaded": True}},
+        ollama={"m": 5 * GIB},
+        tags={"m": GIB},
+        ceiling=40 * GIB,
+    )
+    g = guard(e)
+    before_omlx = metric_value(_ADMISSIONS, engine=OMLX, outcome="admitted_immediately")
+    before_ollama = metric_value(_ADMISSIONS, engine=OLLAMA, outcome="admitted_immediately")
+    assert await g.admit_omlx("a") is None
+    assert await g.admit(OLLAMA_URL, "m") is None
+    assert metric_value(_ADMISSIONS, engine=OMLX, outcome="admitted_immediately") == (
+        before_omlx or 0
+    )
+    assert metric_value(_ADMISSIONS, engine=OLLAMA, outcome="admitted_immediately") == (
+        before_ollama or 0
+    )
+
+
+async def test_omlx_cold_loads_count_immediate_then_after_wait():
+    e = Engines(omlx={"a": {"size": 16 * GIB}, "b": {"size": 16 * GIB}})
+    g = guard(e)
+    lg.set_load_wait("30")
+    before_imm = metric_value(_ADMISSIONS, engine=OMLX, outcome="admitted_immediately")
+    before_wait = metric_value(_ADMISSIONS, engine=OMLX, outcome="admitted_after_wait")
+    first = await g.admit_omlx("a")
+    assert first is not None
+    assert (
+        metric_value(_ADMISSIONS, engine=OMLX, outcome="admitted_immediately")
+        == (before_imm or 0) + 1
+    )
+    second = asyncio.create_task(g.admit_omlx("b"))
+    await asyncio.sleep(0)
+    assert not second.done()
+    e.omlx["a"]["loaded"] = True
+    release_b = await asyncio.wait_for(second, 2)
+    assert release_b is not None
+    assert (
+        metric_value(_ADMISSIONS, engine=OMLX, outcome="admitted_after_wait")
+        == (before_wait or 0) + 1
+    )
+    first()
+    release_b()

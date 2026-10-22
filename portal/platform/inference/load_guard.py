@@ -42,6 +42,9 @@ oMLX's own guard still decides oMLX loads; this module only serialises them.
 Fail-open: when oMLX's status cannot be read, the load is admitted. Resident
 models (the router, task-router, warm seats) never wait. ``LOAD_GUARD=0`` disables
 admission (tracking stays on, it is free).
+
+Admissions, waits, unloads, refusals and headroom are reported as
+``portal5_load_guard_*`` Prometheus metrics (declared in router/metrics.py).
 """
 
 from __future__ import annotations
@@ -60,6 +63,14 @@ from urllib.parse import quote
 import httpx
 
 from portal.platform.inference.omlx_auth import OmlxKeyAuth, omlx_api_key
+from portal.platform.inference.router.metrics import (
+    _load_guard_admissions_total,
+    _load_guard_ceiling_bytes,
+    _load_guard_headroom_bytes,
+    _load_guard_refusals_total,
+    _load_guard_unloads_total,
+    _load_guard_wait_seconds,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -90,6 +101,11 @@ _load_wait: contextvars.ContextVar[float | None] = contextvars.ContextVar(
     "portal_load_wait", default=None
 )
 
+#: Set by the wait points of the admission currently running in this context.
+_admit_waited: contextvars.ContextVar[bool] = contextvars.ContextVar(
+    "portal_admit_waited", default=False
+)
+
 
 def set_load_wait(header: str | None) -> None:
     """Record the incoming request's ``X-Portal-Load-Wait`` (seconds) for its loads."""
@@ -108,6 +124,67 @@ def load_wait_s() -> float:
 def _waited_s(deadline: float) -> float:
     """Seconds of the caller's own load wait already spent (one decimal in refusals)."""
     return load_wait_s() - max(0.0, deadline - time.monotonic())
+
+
+# ── observability ─────────────────────────────────────────────────────────
+
+
+def _metric(record: Callable[[], None]) -> None:
+    """A failed metric write is a debug line, never an admission failure."""
+    try:
+        record()
+    except Exception as e:
+        logger.debug("load_guard: metric write failed: %s", e)
+
+
+def _record_wait(engine: str, deadline: float) -> None:
+    _metric(
+        lambda: _load_guard_wait_seconds.labels(engine=engine).observe(
+            max(0.0, _waited_s(deadline))
+        )
+    )
+
+
+def _record_admission(engine: str, waited: bool, deadline: float) -> None:
+    def record() -> None:
+        _load_guard_admissions_total.labels(
+            engine=engine, outcome="admitted_after_wait" if waited else "admitted_immediately"
+        ).inc()
+        _record_wait(engine, deadline)
+
+    _metric(record)
+
+
+def _record_refusal(engine: str, exc: LoadRefusedError, deadline: float) -> None:
+    """Bucket a refusal by its raise site: the message is the module's contract."""
+    text = str(exc)
+    if "transition still active" in text:
+        reason = "transition-active"
+    elif "nothing in flight" in text:
+        reason = "quiet"
+    elif "another model load" in text:
+        reason = "deadline"
+    else:
+        reason = "projected-exceeds"
+
+    def record() -> None:
+        _load_guard_admissions_total.labels(engine=engine, outcome="refused").inc()
+        _load_guard_refusals_total.labels(engine=engine, reason=reason).inc()
+        _record_wait(engine, deadline)
+
+    _metric(record)
+
+
+def _record_unload(engine: str, reason: str) -> None:
+    _metric(lambda: _load_guard_unloads_total.labels(engine=engine, reason=reason).inc())
+
+
+def _record_headroom(available: float) -> None:
+    _metric(lambda: _load_guard_headroom_bytes.set(available))
+
+
+def _record_ceiling(status: dict[str, Any]) -> None:
+    _metric(lambda: _load_guard_ceiling_bytes.set(float(status.get("final_ceiling") or 0)))
 
 
 class LoadRefusedError(Exception):
@@ -197,6 +274,7 @@ class LoadGuard:
         return self._busy.get((engine, model), 0)
 
     async def _wait_change(self, timeout: float) -> None:
+        _admit_waited.set(True)
         event = self._changed
         with contextlib.suppress(TimeoutError):
             await asyncio.wait_for(event.wait(), timeout=max(0.0, timeout))
@@ -231,6 +309,7 @@ class LoadGuard:
         if st is None:
             return None
         used = float(st.get("current_model_memory") or 0)
+        _record_ceiling(st)
         return _budget_bytes(st) - used, used
 
     async def _omlx_used(self, client: httpx.AsyncClient) -> float | None:
@@ -408,10 +487,12 @@ class LoadGuard:
                 if r.status_code == 200:
                     posted += size
                     covered += size
+                    _record_unload(OMLX, "idle_omlx")
                     logger.info("load_guard: unloaded idle oMLX model %s", m["id"])
                 elif r.status_code == 202:
                     queued[m["id"]] = size
                     covered += size
+                    _record_unload(OMLX, "queued_202")
             if not any_post:
                 return 0.0, queued, None, 0.0
             after = await self._omlx_used(client)
@@ -436,6 +517,7 @@ class LoadGuard:
                 logger.warning("load_guard: could not unload idle Ollama model %s: %s", name, e)
                 continue
             requested.add(name)
+            _record_unload(OLLAMA, "idle_ollama")
             logger.info("load_guard: unloaded idle Ollama model %s", name)
         return requested
 
@@ -641,6 +723,7 @@ class LoadGuard:
         # Uncontended: take it now. wait_for with a zero timeout refuses even a
         # free lock, which would turn X-Portal-Load-Wait: 0 into "always refuse".
         if self._lock.locked():
+            _admit_waited.set(True)
             try:
                 await asyncio.wait_for(
                     self._lock.acquire(), timeout=max(0.0, deadline - time.monotonic())
@@ -693,6 +776,7 @@ class LoadGuard:
         if not self.enabled() or not model:
             return None
         deadline = time.monotonic() + load_wait_s()
+        _admit_waited.set(False)
         held: list[_Release] = []
         try:
             release = await self._admit_ollama(base, model, deadline, held)
@@ -702,8 +786,12 @@ class LoadGuard:
             for r in held:
                 r()
             raise
+        except LoadRefusedError as e:
+            _record_refusal(OLLAMA, e, deadline)
+            raise
         if release is None:
             return None
+        _record_admission(OLLAMA, _admit_waited.get(), deadline)
         asyncio.get_running_loop().create_task(
             self._release_when_resident(OLLAMA, base, model, release)
         )
@@ -741,6 +829,7 @@ class LoadGuard:
                     last_used, recheck = self._track_counter(used, last_used, recheck)
                     idle = self._ollama_idle(resident)
                     available = headroom + idle - _MARGIN
+                    _record_headroom(available)
                     if need > available and not free_attempted:
                         free_attempted = True
                         freed_or_queued, pending_omlx_used, last_used = await self._free_for_load(
@@ -798,6 +887,7 @@ class LoadGuard:
         if not self.enabled() or not model:
             return None
         deadline = time.monotonic() + load_wait_s()
+        _admit_waited.set(False)
         release: _Release | None = None
         try:
             async with self._client() as client:
@@ -813,6 +903,10 @@ class LoadGuard:
             if release is not None:
                 release()  # never leak the cold-load lock to a cancelled caller
             raise
+        except LoadRefusedError as e:
+            _record_refusal(OMLX, e, deadline)
+            raise
+        _record_admission(OMLX, _admit_waited.get(), deadline)
         asyncio.get_running_loop().create_task(
             self._release_when_resident(OMLX, "", model, release)
         )
