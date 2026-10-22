@@ -215,6 +215,20 @@ A tool call that comes back as text looks like a normal answer: nothing errors. 
 
 ---
 
+<!-- WIKI:GENERATED unit=unit-known-limitations-ollama-tool-call-parser-aborts-a-started-stream -->
+- **ID**: P5-OLLAMA-STREAM-ABORT-001
+- **Status**: OPEN upstream (ollama#18563; fix PRs #18571 / #14915 unmerged as of v0.40.8-rc0). The Pipeline now contains the failure on its own side.
+- **Description**: Ollama's `qwen3coder` parser (`model/parsers/qwen3coder.go`, "qwen tool call parsing failed") aborts on a malformed tool call, and `server/routes.go` writes `{"error": ...}` as an NDJSON line *inside* the already-started HTTP 200 body. The OpenAI-compat layer cannot represent it: the stream ends with its content deltas but no finish chunk and no `[DONE]`, and a client that requires a `finish_reason` (opencode's `@ai-sdk/openai-compatible`) reports "OpenAI Chat stream ended without finish_reason". `nemotron35-lightning:code` (`PARSER nemotron-3.5-nano`) and the `PARSER qwen3.5` seats (`kat-coder-35b:code`, `qwen3.6-35b-a3b:q3code`) all delegate to that parser, so the three share it. It is rare but client-fatal: one event in the 2026-10-20 incident, one other on the box since 2026-10-19, and it did not retrigger in 6 valid live probes.
+- **What the Pipeline does now**: an `{"error": ...}` line seen after a stream has started — Ollama native NDJSON or an OpenAI `data: {"error": ...}` frame — closes the client stream well-formed: the message as assistant content, one `finish_reason: "stop"` chunk, then `data: [DONE]` (`router/streaming.py`, `ollama_native.native_stream_to_sse`). The hop is logged with the correlation id and counted as `portal_errors_total{error_type="backend_in_band_error"}`; it is not retried, and no non-streaming fallback answer is appended after the partial one. The non-streaming path raises the engine's error (HTTP 500 at the Ollama transport) instead of returning a 200 body with no `choices`.
+- **Mitigation (external, unchanged)**: `nemotron35-lightning:code-fix` on thebrain lowers the trigger rate (temperature 1.0 → 0.6, `top_k 20`) but cannot prove elimination; `:code` itself is untouched.
+
+#### Why
+
+The error is generated server-side after headers are sent, so no HTTP status can carry it — the only lever the Pipeline has is how it ends the stream it is already writing. Leaving it to the engine means an agent client treats a cancelled turn as a transport failure and aborts the step; terminating with content, a finish reason and `[DONE]` turns it into an answer the client can see and continue from, without inventing a retry the operator did not ask for.
+<!-- /WIKI:GENERATED -->
+
+---
+
 <!-- WIKI:GENERATED unit=unit-known-limitations-pipeline-hardening-20260925 -->
 - **ID**: P5-PIPELINE-HARDEN-001
 - **Status**: RESOLVED 2026-09-25. Every item was reproduced against the live stack before the fix and re-verified live after it; `tests/unit/test_pipeline_hardening.py` and `tests/unit/test_ollama_native.py` pin each one.
@@ -235,9 +249,9 @@ None of these failures surfaced as an error the stack could see: each returned H
 
 <!-- WIKI:GENERATED unit=unit-known-limitations-engine-update-data01-approval -->
 - **ID**: P5-ENGINE-TCC-001
-- **Status**: MITIGATED 2026-09-25 — cannot be pre-approved without MDM; the updater detects it, asks, waits and rolls back.
-- **Description**: A new Ollama or oMLX binary must be allowed by macOS to read the external `data01` volume that holds the models; until someone clicks Allow on the popup the engine answers with no models. Pre-approval needs an MDM-installed privacy profile, which this host does not have.
-- **Mitigation**: Ollama now always runs from the fixed real path `~/ollama-live/` (macOS keys the grant to path + Developer ID, identical across Ollama releases), so one approval should cover future upgrades — in three consecutive version switches on that path on 2026-09-25 the models stayed visible, but whether each release keeps the grant is only proven one upgrade at a time. oMLX runs under Homebrew's Python, whose path changes when brew upgrades it, so it can still prompt. `scripts/engine_autoupdate.py` compares the engine's model count before and after every switch; a drop sends a high-priority Pushover asking for the click and waits 30 minutes, then rolls back without rejecting the release and retries the next day. `engine_contract_check.py` alerts the same way when a probe model vanishes after a manual upgrade.
+- **Status**: MITIGATION READY 2026-10-21 — fixed-path signed interpreter support is in the repository; host cutover and its first approval check remain pending.
+- **Description**: macOS must grant each executable identity access to the external `data01` volume that holds the models. Homebrew's ad-hoc signed Python changes identity when the formula upgrades Python, so a new build can trigger another Allow popup. Pre-approval needs an MDM-installed privacy profile, which this host does not have.
+- **Mitigation**: Ollama runs from fixed `~/ollama-live/` with a stable Developer ID requirement. The oMLX installer uses a fixed `~/omlx-live/venv` backed by a Developer ID-signed ARM64 python.org framework interpreter, and the updater replaces only the package in a staged copy at that path. The interpreter path and signing identity therefore stay constant across oMLX wheel upgrades; the first post-cutover access and later releases still require model-count verification. `scripts/engine_autoupdate.py` compares model counts after a switch; a drop sends a high-priority Pushover request and waits 30 minutes before restoring the previous version and retrying the next day. `engine_contract_check.py` alerts the same way when a probe model vanishes after a manual upgrade.
 
 #### Why
 

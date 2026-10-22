@@ -45,6 +45,18 @@ def test_native_mcp_wrapper_declares_every_host_native_service():
         assert f"    {service})" in source
 
 
+def test_native_launchers_never_fall_back_to_global_python():
+    wrapper = WRAPPER.read_text(encoding="utf-8")
+    services = (ROOT / "scripts/lib/services.sh").read_text(encoding="utf-8")
+    watchdog = (ROOT / "scripts/omlx-watchdog.sh").read_text(encoding="utf-8")
+    parser_installer = (ROOT / "scripts/install_omlx_parsers.sh").read_text(encoding="utf-8")
+    assert 'PY="$(command -v python3)"' not in wrapper
+    assert 'TR_PY="$(command -v python3)"' not in services
+    assert "nohup python3" not in services
+    assert 'stamped="$(python3' not in watchdog
+    assert '\npython3 - "$MODEL_DIR"' not in parser_installer
+
+
 def _run_data_mcp(tmp_path, env_lines: str) -> str:
     """Run the wrapper's data-mcp branch in a scratch PORTAL_ROOT whose python3 is a stub
     that prints DATA_MCP_ROOT instead of starting the server."""

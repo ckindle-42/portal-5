@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import re
+import unicodedata
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Literal, cast
@@ -121,7 +122,7 @@ def _parse_bite(raw: Any) -> Bite:
     if model not in {"fast", "deep"}:
         raise ValueError("bite model must be fast or deep")
     bite = Bite(
-        bite_id=_required_string(raw, "bite_id"),
+        bite_id=_required_bite_id(raw),
         goal=_required_string(raw, "goal"),
         discipline=_required_string(raw, "discipline"),
         inputs=_string_tuple(raw, "inputs"),
@@ -255,6 +256,15 @@ def _required_string(raw: dict[str, Any], key: str) -> str:
     value = raw.get(key)
     if not isinstance(value, str) or not value.strip():
         raise ValueError(f"{key} must be a non-empty string")
+    return value.strip()
+
+
+def _required_bite_id(raw: dict[str, Any]) -> str:
+    value = raw.get("bite_id")
+    if not isinstance(value, str) or not value.strip():
+        raise ValueError("bite_id must be a non-empty string")
+    if any(unicodedata.category(char) == "Cc" for char in value):
+        raise ValueError("bite_id must not contain control characters")
     return value.strip()
 
 

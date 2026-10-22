@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
+  "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.portal5.omlx</string>
+    <key>ProgramArguments</key>
+    <array>
+        <string>__OMLX_VENV__/bin/python</string>
+        <string>-m</string>
+        <string>omlx.cli</string>
+        <string>serve</string>
+    </array>
+    <key>WorkingDirectory</key>
+    <string>__HOME__</string>
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>HOME</key>
+        <string>__HOME__</string>
+        <key>OMLX_SUPERVISED</key>
+        <string>launchd</string>
+        <key>OMLX_VENV_PATH</key>
+        <string>__OMLX_VENV__</string>
+        <key>PATH</key>
+        <string>/opt/homebrew/bin:/opt/homebrew/sbin:/usr/bin:/bin:/usr/sbin:/sbin</string>
+    </dict>
+    <key>RunAtLoad</key>
+    <true/>
+    <key>KeepAlive</key>
+    <true/>
+    <key>ProcessType</key>
+    <string>Background</string>
+    <key>ThrottleInterval</key>
+    <integer>10</integer>
+    <key>StandardOutPath</key>
+    <string>/opt/homebrew/var/log/omlx.log</string>
+    <key>StandardErrorPath</key>
+    <string>/opt/homebrew/var/log/omlx.log</string>
+</dict>
+</plist>

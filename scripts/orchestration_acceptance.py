@@ -82,10 +82,17 @@ class DryRunNoticeSink(StubNoticeSink):
 
     def __init__(self) -> None:
         super().__init__()
-        self.approval_requests: list[tuple[str, str, str]] = []
+        self.approval_requests: list[tuple[str, str, dict[str, Any], str, str]] = []
 
-    def approval(self, task_id: str, bite_id: str, reason: str) -> bool | None:
-        self.approval_requests.append((task_id, bite_id, reason))
+    def approval(
+        self,
+        task_id: str,
+        bite_id: str,
+        bite_definition: dict[str, Any],
+        reason: str,
+        run_id: str,
+    ) -> bool | None:
+        self.approval_requests.append((task_id, bite_id, bite_definition, reason, run_id))
         return None  # "wait" - we simulate deny by not returning True
 
 
@@ -578,14 +585,28 @@ def scenario_planner_missing_assembly_and_review(
 
 
 class _FakeDenyNotices(DryRunNoticeSink):
-    def approval(self, task_id: str, bite_id: str, reason: str) -> bool | None:
-        self.approval_requests.append((task_id, bite_id, reason))
+    def approval(
+        self,
+        task_id: str,
+        bite_id: str,
+        bite_definition: dict[str, Any],
+        reason: str,
+        run_id: str,
+    ) -> bool | None:
+        self.approval_requests.append((task_id, bite_id, bite_definition, reason, run_id))
         return False
 
 
 class _FakeApproveNotices(DryRunNoticeSink):
-    def approval(self, task_id: str, bite_id: str, reason: str) -> bool | None:
-        self.approval_requests.append((task_id, bite_id, reason))
+    def approval(
+        self,
+        task_id: str,
+        bite_id: str,
+        bite_definition: dict[str, Any],
+        reason: str,
+        run_id: str,
+    ) -> bool | None:
+        self.approval_requests.append((task_id, bite_id, bite_definition, reason, run_id))
         return True
 
 

@@ -139,8 +139,8 @@ def _omlx_model_ids(backends: dict) -> set[str]:
 
 
 def _note_omlx_reachability(backends: dict, reason: str | None, violations: list[dict]) -> set[str]:
-    """One `backend_unreachable` row for an unreadable oMLX; returns the models whose
-    absence it makes unverifiable, so they are not reported one-by-one as `*_absent`."""
+    """One non-failing `backend_unreachable` row for an unreadable oMLX; returns the models
+    whose absence it makes unverifiable, so they are not reported one-by-one as `*_absent`."""
     if reason is None:
         return set()
     models = _omlx_model_ids(backends)
@@ -150,7 +150,7 @@ def _note_omlx_reachability(backends: dict, reason: str | None, violations: list
         "backend_unreachable",
         f"oMLX at {OMLX} could not be read ({reason}) — its {len(models)} configured model(s) "
         "cannot be verified installed; their absence is not a finding",
-        "FAIL",
+        "INFO",
     )
     return models
 

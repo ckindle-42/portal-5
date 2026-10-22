@@ -7,7 +7,8 @@
     <string>com.portal5.powermetrics</string>
     <key>ProgramArguments</key>
     <array>
-        <string>/usr/local/bin/portal5-powermetrics</string>
+        <string>/usr/bin/python3</string>
+        <string>/usr/local/libexec/portal5-powermetrics</string>
     </array>
     <key>UserName</key>
     <string>root</string>

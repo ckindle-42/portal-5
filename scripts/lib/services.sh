@@ -81,7 +81,7 @@ _launch_install_music_minimax() {
     "$MM_VENV/bin/pip" install --quiet \
         "mlx==0.30.6" "mlx-metal==0.30.6" "numpy>=2.0,<3" "tokenizers>=0.22,<0.23" \
         "huggingface_hub[hf_xet]" "fastapi>=0.109.0" "uvicorn[standard]>=0.27.0" \
-        "httpx>=0.26.0" "pyyaml>=6.0.1" "starlette>=0.35.0" "mcp>=2.0.0,<3.0.0"
+        "httpx>=0.26.0" "pyyaml>=6.0.1" "starlette>=1.3.0" "mcp>=2.0.0,<3.0.0"
 
     if [ -f "$MM_MODEL_DIR/minimax_mlx_model.py" ]; then
         echo "  ✅ Model already present at $MM_MODEL_DIR"
@@ -148,7 +148,7 @@ _launch_install_mflux() {
     "$MX_VENV/bin/pip" install --quiet --upgrade pip
     "$MX_VENV/bin/pip" install --quiet \
         "mflux" "fastapi>=0.109.0" "uvicorn[standard]>=0.27.0" "httpx>=0.26.0" \
-        "pyyaml>=6.0.1" "starlette>=0.35.0" "mcp>=2.0.0,<3.0.0"
+        "pyyaml>=6.0.1" "starlette>=1.3.0" "mcp>=2.0.0,<3.0.0"
 
     cat > "$MX_DIR/start.sh" << MX_START
 #!/bin/bash
@@ -241,9 +241,9 @@ _launch_install_video_mlx() {
     echo "  Resolving deps (uv sync)..."
     ( cd "$VX_SRC" && uv sync --all-extras )
     # The MCP server needs mcp + starlette in the same venv as ltx-2-mlx.
-    "$VX_VENV/bin/python" -m pip install --quiet "mcp>=2.0.0,<3.0.0" "starlette>=0.35.0" \
+    "$VX_VENV/bin/python" -m pip install --quiet "mcp>=2.0.0,<3.0.0" "starlette>=1.3.0" \
         "httpx>=0.26.0" "pyyaml>=6.0.1" 2>/dev/null || \
-        ( cd "$VX_SRC" && uv pip install "mcp>=2.0.0,<3.0.0" "starlette>=0.35.0" "httpx>=0.26.0" "pyyaml>=6.0.1" )
+        ( cd "$VX_SRC" && uv pip install "mcp>=2.0.0,<3.0.0" "starlette>=1.3.0" "httpx>=0.26.0" "pyyaml>=6.0.1" )
 
     cat > "$VX_DIR/start.sh" << VX_START
 #!/bin/bash
@@ -365,7 +365,7 @@ PLIST
     "$ACE_VENV/bin/pip" install --quiet --upgrade pip
     "$ACE_VENV/bin/pip" install --quiet \
         "fastapi>=0.109.0" "uvicorn[standard]>=0.27.0" "httpx>=0.26.0" \
-        "pyyaml>=6.0.1" "starlette>=0.35.0" "mcp>=2.0.0,<3.0.0"
+        "pyyaml>=6.0.1" "starlette>=1.3.0" "mcp>=2.0.0,<3.0.0"
 
     cat > "$ACE_DIR/start-mcp.sh" << ACE_MCP
 #!/bin/bash
@@ -406,23 +406,24 @@ _launch_stop_music_ace() {
 
 _launch_start_speech() {
     set -a; source "$ENV_FILE" 2>/dev/null || true; set +a
+    local speech_py="$PORTAL_ROOT/.venv/bin/python3"
 
     if [ "$(uname -m)" != "arm64" ]; then
         echo "  ℹ️  MLX Speech requires Apple Silicon. Docker TTS/ASR services are available as fallback."
         exit 0
     fi
 
-    if ! python3 -c "import mlx_audio" &>/dev/null 2>&1; then
-        echo "  ❌ mlx-audio not installed. Run: pip3 install mlx-audio"
+    if [ ! -x "$speech_py" ] || ! "$speech_py" -c "import mlx_audio" &>/dev/null 2>&1; then
+        echo "  ❌ mlx-audio not installed in $speech_py. Run: uv sync --extra apple-silicon"
         exit 1
     fi
 
     mkdir -p "${VOICE_PROFILES_DIR:-$HOME/.portal5/voice_profiles}"
     # Warm the voice-clone weights so the first clone isn't a cold multi-GB download.
     _clone_model="${MLX_CLONE_MODEL:-${MLX_CHATTERBOX_MODEL:-mlx-community/higgs-audio-v2-3B-mlx-q8}}"
-    python3 -c "from mlx_audio.tts.utils import load_model; load_model('${_clone_model}')" >/dev/null 2>&1 \
+    "$speech_py" -c "from mlx_audio.tts.utils import load_model; load_model('${_clone_model}')" >/dev/null 2>&1 \
         && echo "  ✅ Voice-clone model ready (${_clone_model})" \
-        || echo "  ⚠️  Voice-clone warmup failed — first clone will cold-load (or run: pip3 install -U mlx-audio)"
+        || echo "  ⚠️  Voice-clone warmup failed — first clone will cold-load (or run: uv sync --extra apple-silicon)"
 
     PID_FILE="/tmp/portal-mlx-speech.pid"
     LOG_FILE="$HOME/.portal5/logs/mlx-speech.log"
@@ -434,7 +435,7 @@ _launch_start_speech() {
     fi
 
     echo "Starting MLX Speech Server (Kokoro + voice clone + Qwen3-ASR)..."
-    nohup python3 "$PORTAL_ROOT/scripts/mlx-speech.py" >> "$LOG_FILE" 2>&1 &
+    nohup "$speech_py" "$PORTAL_ROOT/scripts/mlx-speech.py" >> "$LOG_FILE" 2>&1 &
     echo $! > "$PID_FILE"
     echo "  ✅ MLX Speech started (PID $!, port ${MLX_SPEECH_PORT:-8918})"
     echo "  📋 Log: $LOG_FILE"
@@ -465,24 +466,36 @@ _launch_install_powermetrics() {
 
     SCRIPT_SRC="${PORTAL_ROOT}/scripts/portal5-powermetrics.py"
     PLIST_SRC="${PORTAL_ROOT}/deploy/launchd/com.portal5.powermetrics.plist"
-    SCRIPT_DST="/usr/local/bin/portal5-powermetrics"
+    SCRIPT_DST="/usr/local/libexec/portal5-powermetrics"
     PLIST_DST="/Library/LaunchDaemons/com.portal5.powermetrics.plist"
 
     if [ ! -f "$SCRIPT_SRC" ]; then
         echo "  ❌ Missing: $SCRIPT_SRC"
         exit 1
     fi
+    if [ ! -x "/usr/bin/python3" ]; then
+        echo "  ❌ System Python missing: /usr/bin/python3"
+        exit 1
+    fi
 
     echo "[portal-5] Installing powermetrics daemon (requires sudo)..."
-    sudo cp "$SCRIPT_SRC" "$SCRIPT_DST" && sudo chmod +x "$SCRIPT_DST" || {
-        echo "  ❌ Failed to copy daemon script"
+    sudo install -d -o root -g wheel -m 0755 /usr/local/libexec || {
+        echo "  ❌ Failed to secure /usr/local/libexec"
         exit 1
     }
-    sudo cp "$PLIST_SRC" "$PLIST_DST" || {
-        echo "  ❌ Failed to copy plist"
+    sudo install -o root -g wheel -m 0755 "$SCRIPT_SRC" "$SCRIPT_DST" || {
+        echo "  ❌ Failed to install daemon script"
         exit 1
     }
-    sudo launchctl load -w "$PLIST_DST" 2>/dev/null || sudo launchctl kickstart -k "system/com.portal5.powermetrics" 2>/dev/null || true
+    sudo install -o root -g wheel -m 0644 "$PLIST_SRC" "$PLIST_DST" || {
+        echo "  ❌ Failed to install plist"
+        exit 1
+    }
+    sudo launchctl unload "$PLIST_DST" 2>/dev/null || true
+    sudo launchctl load -w "$PLIST_DST" || {
+        echo "  ❌ Failed to load powermetrics daemon"
+        exit 1
+    }
 
     sleep 3
     if [ -S "/tmp/portal5-powermetrics.sock" ]; then
@@ -491,6 +504,7 @@ _launch_install_powermetrics() {
         echo "[portal-5] ⏳ Powermetrics daemon installed, starting (may need 15s for first powermetrics sample)..."
     fi
     echo "  Script: $SCRIPT_DST"
+    echo "  Python: /usr/bin/python3"
     echo "  Plist:  $PLIST_DST"
     echo "  Socket: /tmp/portal5-powermetrics.sock"
     echo "  Status: sudo launchctl list com.portal5.powermetrics"
@@ -499,10 +513,10 @@ _launch_install_powermetrics() {
 
 _launch_uninstall_powermetrics() {
     PLIST_DST="/Library/LaunchDaemons/com.portal5.powermetrics.plist"
-    SCRIPT_DST="/usr/local/bin/portal5-powermetrics"
+    SCRIPT_DST="/usr/local/libexec/portal5-powermetrics"
     echo "[portal-5] Uninstalling powermetrics daemon (requires sudo)..."
     sudo launchctl unload "$PLIST_DST" 2>/dev/null || true
-    sudo rm -f "$PLIST_DST" "$SCRIPT_DST"
+    sudo rm -f "$PLIST_DST" "$SCRIPT_DST" "/usr/local/bin/portal5-powermetrics"
     rm -f "/tmp/portal5-powermetrics.sock"
     echo "[portal-5] ✅ Powermetrics daemon stopped and removed"
 }
@@ -575,7 +589,11 @@ _launch_start_transcribe() {
     # The service itself runs with HF_HUB_OFFLINE=1 — under launchd the cached-file
     # revalidation HEAD requests hang indefinitely, so the service must never touch
     # the network. Warm now, serve from cache.
-    TR_PY="$PORTAL_ROOT/.venv/bin/python3"; [ -x "$TR_PY" ] || TR_PY="$(command -v python3)"
+    TR_PY="$PORTAL_ROOT/.venv/bin/python3"
+    if [ ! -x "$TR_PY" ]; then
+      echo "❌ Portal venv interpreter missing: $TR_PY"
+      exit 1
+    fi
     "$TR_PY" -c "from mlx_audio.stt.utils import load as sload; from mlx_audio.vad import load as vload; sload('${MLX_PARAKEET_MODEL:-mlx-community/parakeet-tdt-0.6b-v3}'); vload('${MLX_DIARIZE_MODEL:-mlx-community/diar_sortformer_4spk-v1-fp32}')" >/dev/null 2>&1 \
       && echo "  ✅ Parakeet + Sortformer cached" || echo "  ⚠️  Engine warmup skipped — first request will fail if models aren't already cached (run: uv pip install -U mlx-audio)"
     echo "Starting MLX Transcribe (port 8924, Parakeet transcript + Sortformer diarization)..."

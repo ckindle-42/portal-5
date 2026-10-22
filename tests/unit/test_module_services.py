@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import subprocess
 from pathlib import Path
 
 import pytest
@@ -145,3 +146,16 @@ def test_launch_does_not_hardcode_module_launchd_starts() -> None:
     assert "launchctl start com.portal5.music-minimax" not in util
     assert "_compose_up_enabled" in launch
     assert "_portal_module_services --status" in util
+
+
+def test_omlx_probe_auth_expansion_handles_empty_bash_array() -> None:
+    util = (ROOT / "scripts" / "lib" / "util.sh").read_text(encoding="utf-8")
+    command = next(
+        line.strip() for line in util.splitlines() if line.strip().startswith("if curl -fsS -m 5")
+    )
+    auth_argument = command.split("-m 5 ", 1)[1].split(' "http://127.0.0.1:8085/v1/models"', 1)[0]
+    script = f'_omlx_auth=(); set -- {auth_argument}; test "$#" -eq 0'
+
+    result = subprocess.run(["/bin/bash", "-uc", script], capture_output=True, text=True)
+
+    assert result.returncode == 0, result.stderr

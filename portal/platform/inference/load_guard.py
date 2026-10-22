@@ -567,7 +567,10 @@ class LoadGuard:
                 sum(float(m.get("actual_size") or m.get("estimated_size") or 0) for m in idle)
             )
         available = None if headroom is None else headroom + idle_ollama + freeable_omlx - _MARGIN
+        busy_requests = sum(self._busy.values())
         return {
+            "busy": busy_requests > 0,
+            "busy_requests": busy_requests,
             "fits": None if available is None else need <= available,
             "need_gib": need / _GIB,
             "available_gib": None if available is None else available / _GIB,

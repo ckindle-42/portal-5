@@ -4,10 +4,13 @@ no engines: every side effect is monkeypatched)."""
 from __future__ import annotations
 
 import json
+import subprocess
+from pathlib import Path
 
 import pytest
 
 from scripts import engine_autoupdate as eu
+from scripts import omlx_venv_install as omlx_install
 
 
 @pytest.fixture(autouse=True)
@@ -106,7 +109,7 @@ def test_omlx_unapproved_popup_rolls_back_without_rejecting(monkeypatch):
     monkeypatch.setattr(eu, "omlx_model_count", lambda: 36)
     monkeypatch.setattr(eu, "omlx_backup", lambda tag: None)
     monkeypatch.setattr(eu, "omlx_restore", lambda tag: calls.append("restore"))
-    monkeypatch.setattr(eu, "omlx_upgrade", lambda n: "tcc")
+    monkeypatch.setattr(eu, "omlx_upgrade", lambda version, n: "tcc")
     monkeypatch.setattr(eu, "omlx_point_at", lambda v: calls.append(("point", v)) or True)
     monkeypatch.setattr(eu, "_omlx_restart", lambda: True)
     monkeypatch.setattr(eu, "contract", lambda e: 0)
@@ -115,6 +118,188 @@ def test_omlx_unapproved_popup_rolls_back_without_rejecting(monkeypatch):
     assert eu.update_engine("omlx", state, False) is True
     assert ("point", "0.6.4") in calls and "restore" in calls
     assert not state.get("rejected", {}).get("omlx")
+
+
+def _mock_omlx_subprocess(calls: list[list[str]], version: str):
+    def run(cmd: list[str], timeout: int = 1800):
+        calls.append(cmd)
+        if cmd[0] == "codesign":
+            return subprocess.CompletedProcess(
+                cmd, 0, "Authority=Developer ID Application: Python", ""
+            )
+        if "-m" in cmd and "venv" in cmd:
+            stage = Path(cmd[-1])
+            (stage / "bin").mkdir(parents=True)
+            (stage / "bin" / "python").touch()
+            return subprocess.CompletedProcess(cmd, 0, "", "")
+        if "-c" in cmd:
+            code = cmd[-1]
+            output = "cp313\n" if "sys.version_info" in code else "arm64\n"
+            if "importlib.metadata" in code:
+                output += f"{version}\n"
+            return subprocess.CompletedProcess(cmd, 0, output, "")
+        if "pip" in cmd:
+            Path(cmd[0]).with_name("omlx").write_text(f"#!{cmd[0]}\n")
+        return subprocess.CompletedProcess(cmd, 0, "", "")
+
+    return run
+
+
+def _mock_release_wheel(monkeypatch):
+    monkeypatch.setattr(
+        omlx_install,
+        "_release_asset",
+        lambda version, tag: (
+            f"omlx-{version}-{tag}-{tag}-macosx_15_0_universal2.whl",
+            "https://github.com/release.whl",
+        ),
+    )
+
+    def download(url, filename):
+        Path(filename).write_bytes(b"mock wheel")
+        return str(filename), None
+
+    monkeypatch.setattr(omlx_install.urllib.request, "urlretrieve", download)
+
+
+def test_omlx_venv_installer_creates_release_venv_with_mocked_subprocess(monkeypatch, tmp_path):
+    _mock_release_wheel(monkeypatch)
+    calls: list[list[str]] = []
+    target = tmp_path / "omlx-live" / "venv"
+    python = Path("/Library/Frameworks/Python.framework/Versions/3.13/bin/python3.13")
+    omlx_install.install("0.7.2", target, python, _mock_omlx_subprocess(calls, "0.7.2"))
+    assert (target / "bin" / "python").is_file()
+    assert (target / "bin" / "omlx").read_text().splitlines()[0] == f"#!{target}/bin/python"
+    assert any(cmd[0] == "codesign" for cmd in calls)
+    assert any("-m" in cmd and "venv" in cmd for cmd in calls)
+
+
+def test_activate_venv_replaces_stale_previous_with_active_venv(tmp_path):
+    target = tmp_path / "venv"
+    previous = tmp_path / "venv.previous"
+    stage = tmp_path / "venv.new"
+    for path, version in ((target, "active"), (previous, "stale"), (stage, "staged")):
+        (path / "bin").mkdir(parents=True)
+        (path / "installed-version").write_text(version)
+
+    assert omlx_install.activate_venv(stage, target) == previous
+
+    assert (target / "installed-version").read_text() == "staged"
+    assert (previous / "installed-version").read_text() == "active"
+
+
+def test_activate_venv_keeps_previous_when_target_is_missing(tmp_path):
+    target = tmp_path / "venv"
+    previous = tmp_path / "venv.previous"
+    stage = tmp_path / "venv.new"
+    for path, version in ((previous, "active"), (stage, "staged")):
+        (path / "bin").mkdir(parents=True)
+        (path / "installed-version").write_text(version)
+
+    omlx_install.activate_venv(stage, target)
+
+    assert (target / "installed-version").read_text() == "staged"
+    assert (previous / "installed-version").read_text() == "active"
+
+
+def test_omlx_install_exception_is_in_retry_alert(monkeypatch):
+    alerts: list[tuple[str, str]] = []
+    monkeypatch.setattr(eu, "omlx_running", lambda: "0.6.4")
+    monkeypatch.setattr(eu, "omlx_latest", lambda: "0.7.0")
+    monkeypatch.setattr(eu, "omlx_model_count", lambda: 2)
+    monkeypatch.setattr(eu, "omlx_backup", lambda tag: None)
+    monkeypatch.setattr(eu, "omlx_restore", lambda tag: None)
+
+    def fail_upgrade(version, expected_models):
+        raise RuntimeError("staged wheel install failed")
+
+    monkeypatch.setattr(eu, "omlx_upgrade", fail_upgrade)
+    monkeypatch.setattr(
+        eu, "_alert", lambda title, message, **kwargs: alerts.append((title, message))
+    )
+
+    assert eu.update_engine("omlx", {}, False) is True
+    assert "staged wheel install failed" in alerts[0][1]
+    assert "Will retry on the next daily run." in alerts[0][1]
+
+
+def test_omlx_venv_upgrade_installs_wheel_into_staged_copy(monkeypatch, tmp_path):
+    venv = tmp_path / "venv"
+    (venv / "bin").mkdir(parents=True)
+    (venv / "bin" / "python").touch()
+    (venv / "installed-version").write_text("0.6.4")
+    monkeypatch.setattr(eu, "OMLX_VENV", venv)
+    monkeypatch.setattr(eu, "omlx_venv_active", lambda: True)
+    monkeypatch.setattr(eu, "_omlx_restart", lambda: True)
+    monkeypatch.setattr(eu, "omlx_model_count", lambda: 2)
+    monkeypatch.setattr(eu, "_await_visible", lambda *a, **k: True)
+    _mock_release_wheel(monkeypatch)
+    calls: list[list[str]] = []
+    monkeypatch.setattr(eu, "_run", _mock_omlx_subprocess(calls, "0.7.2"))
+    assert eu.omlx_upgrade("0.7.2", 2) == "ok"
+    assert (venv.with_name("venv.previous") / "installed-version").read_text() == "0.6.4"
+    assert (venv / "bin" / "omlx").read_text().splitlines()[0] == f"#!{venv}/bin/python"
+    assert any(
+        "pip" in cmd
+        and "install" in cmd
+        and "omlx-0.7.2-cp313-cp313-macosx_15_0_universal2.whl" in cmd[-1]
+        for cmd in calls
+    )
+
+
+def test_omlx_rollback_reinstalls_previous_release_wheel(monkeypatch, tmp_path):
+    venv = tmp_path / "venv"
+    previous = venv.with_name("venv.previous")
+    for path, version in ((venv, "0.7.2"), (previous, "0.6.4")):
+        (path / "bin").mkdir(parents=True)
+        (path / "bin" / "python").touch()
+        (path / "installed-version").write_text(version)
+    monkeypatch.setattr(eu, "OMLX_VENV", venv)
+    monkeypatch.setattr(eu, "omlx_venv_active", lambda: True)
+    monkeypatch.setattr(eu, "omlx_running", lambda: "0.7.2")
+    monkeypatch.setattr(eu, "_omlx_restart", lambda: True)
+    _mock_release_wheel(monkeypatch)
+    calls: list[list[str]] = []
+    monkeypatch.setattr(eu, "_run", _mock_omlx_subprocess(calls, "0.6.4"))
+    assert eu.omlx_point_at("0.6.4") is True
+    assert (venv / "installed-version").read_text() == "0.6.4"
+    assert (venv / "bin" / "omlx").read_text().splitlines()[0] == f"#!{venv}/bin/python"
+    assert any(
+        "pip" in cmd
+        and "install" in cmd
+        and "omlx-0.6.4-cp313-cp313-macosx_15_0_universal2.whl" in cmd[-1]
+        for cmd in calls
+    )
+
+
+def test_omlx_label_detection_uses_portal_label_only_when_venv_loaded(monkeypatch, tmp_path):
+    venv = tmp_path / "venv"
+    (venv / "bin").mkdir(parents=True)
+    (venv / "bin" / "python").touch()
+    monkeypatch.setattr(eu, "OMLX_VENV", venv)
+    monkeypatch.setattr(
+        eu,
+        "_run",
+        lambda *a, **k: subprocess.CompletedProcess(a[0], 0, "loaded", ""),
+    )
+    assert eu.omlx_service_label() == "com.portal5.omlx"
+    monkeypatch.setattr(
+        eu,
+        "_run",
+        lambda *a, **k: subprocess.CompletedProcess(a[0], 113, "", "not loaded"),
+    )
+    assert eu.omlx_service_label() == "sh.brew.omlx"
+
+
+def test_omlx_latest_version_comes_from_github_release(monkeypatch):
+    seen: list[str] = []
+    monkeypatch.setattr(
+        eu,
+        "_get",
+        lambda url: seen.append(url) or {"tag_name": "v0.7.2"},
+    )
+    assert eu.omlx_latest() == "0.7.2"
+    assert seen == ["https://api.github.com/repos/jundot/omlx/releases/latest"]
 
 
 def test_ollama_prune_keeps_only_listed_releases(monkeypatch, tmp_path):
@@ -138,5 +323,6 @@ def test_omlx_prune_keeps_only_listed_kegs(monkeypatch, tmp_path):
     for v in ("0.6.4", "0.7.0", "0.7.1"):
         (tmp_path / v).mkdir()
     monkeypatch.setattr(eu, "OMLX_CELLAR", tmp_path)
+    monkeypatch.setattr(eu, "omlx_venv_active", lambda: False)
     eu.omlx_prune({"0.7.0", "0.7.1"})
     assert sorted(p.name for p in tmp_path.iterdir()) == ["0.7.0", "0.7.1"]
