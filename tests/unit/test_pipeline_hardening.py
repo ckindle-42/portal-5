@@ -1038,11 +1038,69 @@ def test_chain_hop_goes_to_a_backend_that_serves_its_model(monkeypatch) -> None:
         get_backend_candidates=lambda _ws: [omlx, ollama], list_healthy_backends=lambda: []
     )
     monkeypatch.setattr(ns, "registry", reg)
+    monkeypatch.setitem(
+        ns.WORKSPACES,
+        "ws",
+        {"predict_limit": 321, "think": False, "temperature": 0.25},
+    )
     url, body = ns.resolve_hop_target(
-        "ws", "granite:8b", omlx.chat_url, {"model": "granite:8b", "chat_template_kwargs": {}}
+        "ws",
+        "granite:8b",
+        omlx.chat_url,
+        {
+            "model": "granite:8b",
+            "chat_template_kwargs": {"enable_thinking": True},
+            "repetition_penalty": 1.2,
+        },
     )
     assert url == ollama.chat_url
     assert "chat_template_kwargs" not in body
+    assert "repetition_penalty" not in body
+    assert body["max_tokens"] == 321
+    assert body["think"] is False
+    assert body["reasoning_effort"] == "none"
+    assert body["options"]["temperature"] == 0.25
+
+
+def test_chain_hop_rebuilds_omlx_settings_even_on_the_primary_url(monkeypatch) -> None:
+    omlx = SimpleNamespace(
+        id="omlx",
+        type="omlx",
+        chat_url="http://omlx/v1/chat/completions",
+        resolve_model=lambda hint: "native-hop" if hint == "hop" else None,
+    )
+    reg = SimpleNamespace(
+        get_backend_candidates=lambda _ws: [omlx], list_healthy_backends=lambda: []
+    )
+    monkeypatch.setattr(ns, "registry", reg)
+    monkeypatch.setitem(
+        ns.WORKSPACES,
+        "ws",
+        {"predict_limit": 654, "think": False, "temperature": 0.4},
+    )
+
+    url, body = ns.resolve_hop_target(
+        "ws",
+        "hop",
+        omlx.chat_url,
+        {
+            "model": "primary",
+            "options": {"temperature": 1.0},
+            "keep_alive": "15m",
+            "think": True,
+            "reasoning_effort": "medium",
+        },
+    )
+
+    assert url == omlx.chat_url
+    assert body["model"] == "native-hop"
+    assert "options" not in body
+    assert "keep_alive" not in body
+    assert "think" not in body
+    assert "reasoning_effort" not in body
+    assert body["max_tokens"] == 654
+    assert body["temperature"] == 0.4
+    assert body["chat_template_kwargs"]["enable_thinking"] is False
 
 
 @pytest.mark.anyio
