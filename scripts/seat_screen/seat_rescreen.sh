@@ -24,7 +24,7 @@ unload() {
 }
 
 run_seat() {
-  local variant="$1" slug="$2"
+  local variant="${1#auto-coding::}" slug="$2"
   unload
   echo "=== $(date +%T) $variant" >> "$OUTPUT_DIR/seat_gates.log"
   for think in true false; do
@@ -62,15 +62,6 @@ elif (($#)); then
 else
   while read -r variant slug; do
     run_seat "$variant" "$slug"
-  done <<'LIST'
-kit-qwen38-27b-b kitqwen3827bb
-kit-orcarouter-b kitorcarouterb
-kit-huihui36 kithuihui36
-kit-qwen36-27b kitqwen3627b
-kit-kat kitkatcoder
-kit-qwopus kitqwopus
-kit-qwen36-35b kitqwen3635b
-kit-hauhaucs kithauhaucs
-LIST
+  done < "$KIT/kit/run_list.txt"
 fi
 echo RESCREEN-DONE >> "$OUTPUT_DIR/seat_queue_run.log"

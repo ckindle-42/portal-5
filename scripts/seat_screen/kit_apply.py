@@ -66,7 +66,27 @@ def _insert_variants(lines: list[str], workspace: str, body: str) -> list[str]:
     return lines[:end] + ["    variants:\n", _indent(body, 6)] + lines[end:]
 
 
+def _run_list_rows(kit_dir: Path) -> list[tuple[str, str]]:
+    rows: list[tuple[str, str]] = []
+    for line in (kit_dir / "run_list.txt").read_text().splitlines():
+        fields = line.split()
+        if len(fields) >= 2:
+            rows.append((fields[0].partition("::")[2] or fields[0], fields[1]))
+    return rows
+
+
+def _require_run_list_personas(kit_dir: Path) -> None:
+    documents = yaml.safe_load_all((kit_dir / "personas.yaml").read_text())
+    slugs = {document.get("slug") for document in documents if document}
+    missing = [
+        f"{variant} ({slug})" for variant, slug in _run_list_rows(kit_dir) if slug not in slugs
+    ]
+    if missing:
+        raise ValueError("run list seats have no kit persona: " + ", ".join(missing))
+
+
 def render_kit(repo: Path, kit_dir: Path = KIT) -> list[Path]:
+    _require_run_list_personas(kit_dir)
     portal = repo / "config/portal.yaml"
     lines = portal.read_text().splitlines(True)
     blocks = _blocks(kit_dir)

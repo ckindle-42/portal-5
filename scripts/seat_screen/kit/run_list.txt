@@ -1,0 +1,8 @@
+kit-qwen38-27b-a kitqwen3827ba
+kit-qwen38-27b-b kitqwen3827bb
+kit-orcarouter-a kitorcaroutera
+kit-orcarouter-b kitorcarouterb
+kit-huihui36-a kithuihui36a
+kit-huihui36-b kithuihui36b
+kit-qwen36-27b-a kitqwen3627ba
+kit-qwen36-27b-b kitqwen3627bb

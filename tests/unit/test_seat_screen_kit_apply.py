@@ -2,9 +2,11 @@
 
 from __future__ import annotations
 
+import shutil
 import subprocess
 from pathlib import Path
 
+import pytest
 import yaml
 
 from scripts.seat_screen import kit_apply
@@ -85,3 +87,18 @@ def test_apply_and_revert_restore_config_and_remove_added_personas(tmp_path: Pat
     assert (repo / "config/backends.yaml").read_bytes() == original_backends
     assert not (repo / "config/personas/kitqwen3827bb.yaml").exists()
     assert not backup.exists()
+
+
+def test_apply_dry_run_fails_when_run_list_seat_has_no_persona(tmp_path: Path, monkeypatch) -> None:
+    repo = _repo(tmp_path)
+    kit = tmp_path / "kit"
+    shutil.copytree(kit_apply.KIT, kit)
+    with (kit / "run_list.txt").open("a") as stream:
+        stream.write("kit-qwen36-35b kitqwen3635ba\n")
+
+    def audit(*_args: object, **_kwargs: object) -> None:
+        raise AssertionError("config audit ran for an incomplete run list")
+
+    monkeypatch.setattr(kit_apply.subprocess, "run", audit)
+    with pytest.raises(ValueError, match=r"kit-qwen36-35b \(kitqwen3635ba\)"):
+        kit_apply.dry_run("apply", repo, kit, tmp_path / "backup")
