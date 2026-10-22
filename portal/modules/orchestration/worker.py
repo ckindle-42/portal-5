@@ -338,8 +338,12 @@ def _handle_response(
             "wall-clock budget exhausted",
             tuple(tool_results),
         )
-    names = [str((call.get("function") or {}).get("name") or "") for call in turn_calls]
-    if not turn_calls or "finish" in names or any(name not in bite.tools for name in names):
+    names = [_call_name(call) for call in turn_calls]
+    task_calls = [call for call in turn_calls if _call_name(call) in bite.tools]
+    finish_calls = [call for call in turn_calls if _call_name(call) == "finish"]
+    unoffered = any(name not in bite.tools and name != "finish" for name in names)
+    deferred = bool(finish_calls) and bool(task_calls) and not unoffered
+    if not deferred and (not turn_calls or finish_calls or unoffered):
         return _finished_response(
             task_dir,
             bite,
@@ -355,20 +359,17 @@ def _handle_response(
             calls,
             tool_results,
         )
-    hop_limit_reached = turn + len(turn_calls) >= bite.budget.turns
-    if hop_limit_reached or tokens >= bite.budget.output_tokens:
-        flag = "hop_limit_exhausted" if hop_limit_reached else "output_token_cap"
-        return WorkerResult(
-            False,
-            None,
-            tokens,
-            elapsed,
-            flag,
-            (flag,),
-            tuple(calls),
-            "no budget remains to continue the client tool loop",
-            tuple(tool_results),
+    if deferred:
+        calls[:] = [*prior_calls, *task_calls]
+    executed = len(task_calls if deferred else turn_calls)
+    stop = _budget_stop(bite, tokens, elapsed, calls, tool_results, turn=turn, executed=executed)
+    if stop is not None:
+        return stop
+    if deferred:
+        _defer_finish_exchanges(
+            finish_calls, task_calls, content, messages, transcript, executor, tool_results, turn
         )
+        return None
     _append_tool_exchanges(turn_calls, content, messages, transcript, executor, tool_results, turn)
     return None
 
@@ -402,6 +403,64 @@ def _finished_response(
         turns_remaining=bite.budget.turns - turn - 1,
     )
     return replace(result, tool_calls=tuple(calls), tool_results=tuple(tool_results))
+
+
+def _budget_stop(
+    bite: Bite,
+    tokens: int,
+    elapsed: float,
+    calls: list[dict[str, Any]],
+    tool_results: list[dict[str, Any]],
+    *,
+    turn: int,
+    executed: int,
+) -> WorkerResult | None:
+    """End state for a tool turn whose executed calls leave no budget to continue."""
+    hop_limit_reached = turn + executed >= bite.budget.turns
+    if not hop_limit_reached and tokens < bite.budget.output_tokens:
+        return None
+    flag = "hop_limit_exhausted" if hop_limit_reached else "output_token_cap"
+    return WorkerResult(
+        False,
+        None,
+        tokens,
+        elapsed,
+        flag,
+        (flag,),
+        tuple(calls),
+        "no budget remains to continue the client tool loop",
+        tuple(tool_results),
+    )
+
+
+def _defer_finish_exchanges(
+    finish_calls: list[dict[str, Any]],
+    task_calls: list[dict[str, Any]],
+    content: str,
+    messages: list[dict[str, Any]],
+    transcript: _Transcript,
+    executor: TaskToolExecutor,
+    tool_results: list[dict[str, Any]],
+    turn: int,
+) -> None:
+    """Drop a finish that raced task tools; run the tools and prompt a late finish."""
+    for call in finish_calls:
+        transcript.append("finish_deferred", {"call": call})
+    _append_tool_exchanges(task_calls, content, messages, transcript, executor, tool_results, turn)
+    messages.append(
+        {
+            "role": "user",
+            "content": (
+                "Your finish call arrived in the same turn as the task tools above, before "
+                "their results were known, so it was dropped. Review the tool results and "
+                "call finish once now with the checked output."
+            ),
+        }
+    )
+
+
+def _call_name(call: dict[str, Any]) -> str:
+    return str((call.get("function") or {}).get("name") or "")
 
 
 def _append_tool_exchanges(
@@ -712,6 +771,9 @@ def _repair_finish(
         "messages": repair_messages,
         "max_tokens": max(1, bite.budget.output_tokens - tokens),
         "portal_bite_max_hops": turns_remaining,
+        # Force the finish tool; the Ollama native path honours this by offering
+        # only finish (ollama_native._tools_for_choice).
+        "tool_choice": {"type": "function", "function": {"name": "finish"}},
     }
     transcript.append("finish_repair", {"stage": "request", "body": repair_body})
     try:
