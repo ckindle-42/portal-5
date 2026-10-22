@@ -63,8 +63,6 @@ from portal.platform.inference.router.trace import capture as trace_capture
 from portal.platform.inference.router.trace import note as trace_note
 from portal.platform.inference.router.truncation import take_notice as take_truncation_notice
 from portal.platform.inference.router.validation import (
-    _apply_ollama_thinking_budget,
-    _apply_omlx_thinking_budget,
     _inject_ollama_options,
     _inject_omlx_options,
     _model_supports_tools,
@@ -220,8 +218,8 @@ def _completion_body(resp: httpx.Response, workspace_id: str) -> dict[str, Any]:
 
 
 #: Keys the primary request carries for its own engine (Ollama native options,
-#: oMLX template kwargs, the think control). A hop served elsewhere must not
-#: inherit them.
+#: oMLX template kwargs, the think control). A chain hop must rebuild them for
+#: the backend that actually serves that hop.
 _ENGINE_SPECIFIC_KEYS = (
     "options",
     "keep_alive",
@@ -255,14 +253,12 @@ def resolve_hop_target(
         if native is None:
             continue
         body = {**hop_body, "model": native}
-        if b.chat_url != primary_url:
-            for key in _ENGINE_SPECIFIC_KEYS:
-                body.pop(key, None)
-        ws_cfg = WORKSPACES.get(workspace_id, {})
+        for key in _ENGINE_SPECIFIC_KEYS:
+            body.pop(key, None)
         if b.type == "ollama":
-            _apply_ollama_thinking_budget(body, ws_cfg)
+            body = _inject_ollama_options(body, workspace_id)
         elif b.type == "omlx":
-            _apply_omlx_thinking_budget(body, ws_cfg)
+            body = _inject_omlx_options(body, workspace_id)
         return b.chat_url, body
     logger.warning(
         "Chain hop model %s is not served by any healthy backend (workspace=%s)",
