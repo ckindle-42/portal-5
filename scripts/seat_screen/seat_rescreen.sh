@@ -7,10 +7,14 @@ OUTPUT_DIR="${SEAT_SCREEN_OUTPUT_DIR:-$ROOT/results/seat_screen}"
 DISPATCH="${SEAT_SCREEN_DISPATCH:-$HOME/.claude/orchestrate/bin/dispatch.py}"
 BASE_COMMIT="${SEAT_SCREEN_BASE_COMMIT:-e75095ef}"
 cd "$ROOT"
-set -a
-. ./.env
-set +a
-export PIPELINE_URL="${PIPELINE_URL:-http://localhost:9099}"
+# Host-side runner: take only the keys it needs from .env. Sourcing all of .env imports
+# container values (PIPELINE_URL=http://portal-pipeline:9099, a /dev/shm PROMETHEUS dir)
+# that break host requests and fail scripts/seat_preflight.py.
+env_key() { grep -E "^$1=" ./.env | head -1 | cut -d= -f2-; }
+export PIPELINE_API_KEY="${PIPELINE_API_KEY:-$(env_key PIPELINE_API_KEY)}"
+export OMLX_API_KEY="${OMLX_API_KEY:-$(env_key OMLX_API_KEY)}"
+unset PROMETHEUS_MULTIPROC_DIR
+export PIPELINE_URL="http://localhost:9099"
 
 unload() {
   curl -s localhost:11434/api/ps |
