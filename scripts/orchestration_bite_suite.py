@@ -10,6 +10,7 @@ import re
 import subprocess
 import sys
 import time
+from dataclasses import replace
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
@@ -29,6 +30,7 @@ from portal.modules.orchestration.planner import (  # noqa: E402
     planner_prompt,
     validate_planned_plan,
 )
+from portal.modules.orchestration.tools import ACTION_TOOLS, READ_TOOLS  # noqa: E402
 from portal.modules.orchestration.worker import Engine, run_bite  # noqa: E402
 from portal.platform.inference.router.text_tool_calls import TEXT_TOOL_CALL_MARKERS  # noqa: E402
 from portal.platform.mcp_host.workspace import get_generated_dir  # noqa: E402
@@ -59,8 +61,9 @@ class SuiteEngine(Engine):
         if self.expected_bite_tools is not None:
             self._validate_bite_request(body)
             body = {**body, "exec_audit": True}
+        else:
+            self.audit_calls = []
         self.correlation_id = f"bite-{uuid4().hex[:16]}"
-        self.audit_calls = []
         self.last_response = {}
 
         def capture(event: dict[str, Any]) -> None:
@@ -91,8 +94,8 @@ class SuiteEngine(Engine):
         if (
             not isinstance(allowed, list)
             or not all(isinstance(name, str) for name in allowed)
-            or not expected <= set(allowed)
-            or "finish" not in schema_names
+            or set(allowed) != expected
+            or schema_names != expected
             or not isinstance(thinking, dict)
             or thinking.get("enable_thinking") is not True
             or "portal_bite_max_hops" not in body
@@ -564,17 +567,47 @@ def _run_bite(
 ) -> tuple[str, str, dict[str, Any]]:
     bite, input_paths = _bite_contract(case, discipline, task_dir, dry_run=dry_run)
     expected_tools = (*bite.tools, "finish")
-    engine.expected_bite_tools = expected_tools
-    try:
-        worker = run_bite(
-            task_dir,
-            bite,
-            engine,
-            input_paths=input_paths,
-            attempt_dir=task_dir / "attempt-01",
+    engine.audit_calls = []
+    workers: list[Any] = []
+    offered: set[str] = set()
+    last_trace: dict[str, Any] = {}
+    for index, (stage_bite, stage_inputs) in enumerate(
+        _stage_bites(bite, input_paths, task_dir), start=1
+    ):
+        worker = _run_bite_stage(
+            engine, task_dir, stage_bite, stage_inputs, task_dir / f"attempt-{index:02d}"
         )
-    finally:
-        engine.expected_bite_tools = None
+        workers.append(worker)
+        last_trace = engine.last_trace
+        trace_tools = last_trace.get("tools_offered")
+        if isinstance(trace_tools, list):
+            offered.update(name for name in trace_tools if isinstance(name, str))
+        if not dry_run and _unparsed_tool_markup(engine.last_response):
+            return (
+                "harness_error",
+                "HARNESS_ERROR",
+                {"error": "Pipeline reply contains unparsed tool-call markup"},
+            )
+        if not dry_run and worker.loop_outcome in {"pipeline_error", "input_error"}:
+            return "blocked", "BLOCKED", {"error": worker.failure or worker.loop_outcome}
+        if not dry_run:
+            if error := _bite_tools_error(engine, (*stage_bite.tools, "finish")):
+                return "harness_error", "HARNESS_ERROR", {"error": error}
+        if not dry_run and not worker.finished:
+            return "failed", "FAIL", {"error": worker.failure or worker.loop_outcome}
+    engine.last_trace = {**last_trace, "tools_offered": sorted(offered)}
+    worker = workers[-1]
+    local_calls = [
+        {
+            "name": call["name"],
+            "args": call["arguments"],
+            "output": call["output"],
+            "error": call["output"] if call["error"] else None,
+        }
+        for result in workers
+        for call in result.tool_results
+    ]
+    audit_calls = [*engine.audit_calls, *local_calls]
     content, _ = _response_parts(engine.last_response)
     (task_dir / "response.txt").write_text(content, encoding="utf-8")
     identity_error = _live_identity(engine, seat)
@@ -587,20 +620,66 @@ def _run_bite(
                 "bite_tools": list(expected_tools),
             },
         )
-    if worker.loop_outcome in {"pipeline_error", "input_error"}:
-        return "blocked", "BLOCKED", {"error": worker.failure or worker.loop_outcome}
-    if _unparsed_tool_markup(engine.last_response):
-        return (
-            "harness_error",
-            "HARNESS_ERROR",
-            {"error": "Pipeline reply contains unparsed tool-call markup"},
-        )
     if error := _bite_tools_error(engine, expected_tools):
         return "harness_error", "HARNESS_ERROR", {"error": error}
     if identity_error:
         return "blocked", "BLOCKED", {"error": identity_error}
-    passed, evidence = _score_bite(case, worker.output, engine.audit_calls, task_dir)
+    passed, evidence = _score_bite(case, worker.output, audit_calls, task_dir)
     return ("passed", "PASS", evidence) if passed else ("failed", "FAIL", evidence)
+
+
+def _stage_bites(
+    bite: Bite, input_paths: dict[str, Path], task_dir: Path
+) -> list[tuple[Bite, dict[str, Path]]]:
+    reads = tuple(tool for tool in bite.tools if tool in READ_TOOLS)
+    actions = tuple(tool for tool in bite.tools if tool in ACTION_TOOLS)
+    if not reads or not actions:
+        return [(bite, input_paths)]
+    inspect_path = f"bites/{_safe_name(bite.bite_id)}/inspection.txt"
+    inspection = replace(
+        bite,
+        bite_id=f"{bite.bite_id}-inspect",
+        goal=f"Inspect the source and tests for this task and report the defect. Task: {bite.goal}",
+        tools=reads,
+        output_path=inspect_path,
+        output_schema=None,
+        file_type="text",
+        procedure="Read the supplied files and report the defect and expected behavior. Do not edit or run tests.",
+        reads_untrusted=True,
+    )
+    action = replace(
+        bite,
+        bite_id=f"{bite.bite_id}-act",
+        tools=actions,
+        inputs=("inspection",),
+        procedure=(
+            "Use the read-only inspection report supplied as input. Do not call file_read. "
+            "Make the smallest implementation change with file_write and verify it with pytest_run. "
+            f"Original task: {bite.procedure}"
+        ),
+        reads_untrusted=False,
+    )
+    return [(inspection, input_paths), (action, {"inspection": task_dir / inspect_path})]
+
+
+def _run_bite_stage(
+    engine: SuiteEngine,
+    task_dir: Path,
+    bite: Bite,
+    input_paths: dict[str, Path],
+    attempt_dir: Path,
+) -> Any:
+    engine.expected_bite_tools = (*bite.tools, "finish")
+    try:
+        return run_bite(
+            task_dir,
+            bite,
+            engine,
+            input_paths=input_paths,
+            attempt_dir=attempt_dir,
+        )
+    finally:
+        engine.expected_bite_tools = None
 
 
 def _run_one(

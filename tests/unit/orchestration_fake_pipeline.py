@@ -8,8 +8,11 @@ import queue
 import signal
 import threading
 import time
+from copy import deepcopy
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from typing import Any
+
+from portal.platform.inference.router.eval_gate import apply_bite_tool_scope
 
 
 class SignalResponse:
@@ -26,7 +29,11 @@ class DelayedResponse:
 class FakePipeline:
     """One fake Pipeline port for both seats, chat, and load-plan requests."""
 
-    def __init__(self) -> None:
+    def __init__(
+        self,
+        workspace_tools: list[str] | None = None,
+        registered_tools: list[str] | None = None,
+    ) -> None:
         self.responses: dict[str, queue.Queue[Any]] = {
             "auto-daily::fast": queue.Queue(),
             "auto-daily::deep": queue.Queue(),
@@ -36,6 +43,8 @@ class FakePipeline:
         self.admin_requests: list[dict[str, Any]] = []
         self.traces: dict[str, dict[str, Any]] = {}
         self.offered_tools_override: list[str] | None = None
+        self.workspace_tools = list(workspace_tools or [])
+        self.registered_tools = list(registered_tools or [])
         self._lock = threading.Lock()
         owner = self
 
@@ -68,6 +77,9 @@ class FakePipeline:
                     return
                 model = body.get("model", "")
                 correlation_id = self.headers.get("X-Correlation-ID", "")
+                offered_tools = _offered_tool_names(
+                    body, owner.workspace_tools, owner.registered_tools
+                )
                 with owner._lock:
                     owner.requests.append(body)
                     if correlation_id:
@@ -79,7 +91,7 @@ class FakePipeline:
                             "tools_offered": (
                                 owner.offered_tools_override
                                 if owner.offered_tools_override is not None
-                                else body.get("portal_bite_tools", [])
+                                else offered_tools
                             ),
                             "backend": "fake",
                             "model": model,
@@ -154,6 +166,27 @@ def tool_response(name: str, arguments: str, *, tokens: int = 4) -> dict[str, An
         ],
         "usage": {"completion_tokens": tokens},
     }
+
+
+def _offered_tool_names(
+    body: dict[str, Any],
+    workspace_tools: list[str],
+    registered_tools: list[str] | None = None,
+) -> list[str]:
+    """Mirror eval_gate's workspace intersection and retained client schemas."""
+    scoped_body = deepcopy(body)
+    effective_tools, _allowlist = apply_bite_tool_scope(scoped_body, workspace_tools)
+    client_schemas = scoped_body.get("tools", [])
+    client_names = [
+        tool["function"]["name"]
+        for tool in client_schemas
+        if isinstance(tool, dict)
+        and isinstance(tool.get("function"), dict)
+        and isinstance(tool["function"].get("name"), str)
+    ]
+    registered = set(registered_tools or [])
+    server_names = [name for name in effective_tools if name in registered]
+    return list(dict.fromkeys([*server_names, *client_names]))
 
 
 def text_response(

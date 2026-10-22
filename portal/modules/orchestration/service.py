@@ -91,8 +91,12 @@ class ArmService:
         task_dir = self.task_root / plan.task_id
         if task_dir.exists():
             raise FileExistsError(f"task already exists: {task_dir}")
-        input_map = self._input_map(plan, source_dir, task_dir)
         task_dir.mkdir(parents=True)
+        try:
+            input_map = self._input_map(plan, source_dir, task_dir)
+        except Exception:
+            shutil.rmtree(task_dir, ignore_errors=True)
+            raise
         (task_dir / "inputs.json").write_text(
             json.dumps(input_map, indent=2) + "\n", encoding="utf-8"
         )
@@ -171,13 +175,22 @@ class ArmService:
                         raise ValueError(
                             f"bite {bite.bite_id}: input bite {ref} must be a dependency"
                         )
-                    inputs[ref] = str(task_dir / by_id[ref].output_path)
+                    inputs[ref] = by_id[ref].output_path
                     continue
                 path = Path(ref).expanduser()
                 path = (path if path.is_absolute() else source_dir / path).resolve()
                 if not path.is_file():
                     raise ValueError(f"bite {bite.bite_id}: input file does not exist: {ref}")
-                inputs[ref] = str(path)
+                if path.is_relative_to(task_dir.resolve()):
+                    inputs[ref] = path.relative_to(task_dir.resolve()).as_posix()
+                    continue
+                name = path.name.replace("/", "_").replace("\\", "_")[:100] or "input"
+                digest = hashlib.sha256(str(path).encode()).hexdigest()[:12]
+                relative = Path("inputs") / f"{digest}-{name}"
+                target = task_dir / relative
+                target.parent.mkdir(parents=True, exist_ok=True)
+                shutil.copyfile(path, target)
+                inputs[ref] = relative.as_posix()
             out[bite.bite_id] = inputs
         return out
 

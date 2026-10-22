@@ -7,7 +7,7 @@ import math
 import re
 import time
 from collections.abc import Callable
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Any
 
@@ -15,6 +15,7 @@ import httpx
 from jsonschema import Draft202012Validator, ValidationError  # type: ignore[import-untyped]
 
 from .contracts import Bite
+from .tools import ACTION_TOOLS, READ_TOOLS, TaskToolExecutor, tool_schema
 
 
 @dataclass(frozen=True)
@@ -131,6 +132,7 @@ class WorkerResult:
     red_flags: tuple[str, ...]
     tool_calls: tuple[dict[str, Any], ...]
     failure: str | None = None
+    tool_results: tuple[dict[str, Any], ...] = ()
 
 
 @dataclass(frozen=True)
@@ -152,15 +154,15 @@ def run_bite(
     attempt_dir: Path,
     require_idle: bool = False,
 ) -> WorkerResult:
-    """Run a fresh bite through one Pipeline tool-loop request."""
+    """Run a fresh bite and execute its client tools within the task directory."""
     started = time.monotonic()
     transcript = _Transcript(attempt_dir / "transcript.jsonl")
     output_path = _inside_task(task_dir, bite.output_path)
     output_path.parent.mkdir(parents=True, exist_ok=True)
     output_path.unlink(missing_ok=True)
     try:
-        messages = _messages(bite, input_paths)
-    except (OSError, UnicodeError) as exc:
+        messages = _messages(bite, input_paths, task_dir)
+    except (OSError, UnicodeError, ValueError) as exc:
         elapsed = time.monotonic() - started
         return WorkerResult(
             False,
@@ -173,7 +175,7 @@ def run_bite(
             f"input could not be read: {type(exc).__name__}: {exc}",
         )
     body = _request_body(bite, engine, messages)
-    transcript.append("request", {"body": body, "model": engine.model_tag})
+    executor = TaskToolExecutor(task_dir, bite.tools)
     try:
         plan = engine.load_plan(bite.budget.minutes * 60)
     except PipelineError as exc:
@@ -185,15 +187,245 @@ def run_bite(
     transcript.append("load_plan", {"model": engine.model_tag, "plan": plan})
     if require_idle and (plan.get("busy") is not False or plan.get("fits") is not True):
         raise QueueYieldError(f"Pipeline load-plan is busy or cannot admit the seat: {plan}")
-    try:
-        response = engine.chat(
-            body, _remaining_time(bite, started), lambda event: transcript.append("event", event)
+    calls: list[dict[str, Any]] = []
+    tool_results: list[dict[str, Any]] = []
+    tokens = 0
+    for turn in range(bite.budget.turns):
+        remaining_tokens = bite.budget.output_tokens - tokens
+        if remaining_tokens < 1:
+            return WorkerResult(
+                False,
+                None,
+                tokens,
+                time.monotonic() - started,
+                "output_token_cap",
+                ("output_token_cap",),
+                tuple(calls),
+                "output token budget exhausted",
+                tuple(tool_results),
+            )
+        if time.monotonic() - started >= bite.budget.minutes * 60:
+            return WorkerResult(
+                False,
+                None,
+                tokens,
+                time.monotonic() - started,
+                "wall_clock_cap",
+                ("wall_clock_cap",),
+                tuple(calls),
+                "wall-clock budget exhausted",
+                tuple(tool_results),
+            )
+        request = {
+            **body,
+            "messages": messages,
+            "max_tokens": remaining_tokens,
+            "portal_bite_max_hops": bite.budget.turns - turn,
+        }
+        transcript.append("request", {"body": request, "model": engine.model_tag})
+        try:
+            response = engine.chat(
+                request,
+                _remaining_time(bite, started),
+                lambda event: transcript.append("event", event),
+            )
+        except PipelineError as exc:
+            elapsed = time.monotonic() - started
+            flags = ("wall_clock_cap",) if elapsed > bite.budget.minutes * 60 else ()
+            return WorkerResult(
+                False, None, tokens, elapsed, "pipeline_error", flags, tuple(calls), str(exc)
+            )
+        turn_tokens = _response_tokens(response)
+        tokens += turn_tokens
+        result = _handle_response(
+            task_dir,
+            bite,
+            engine,
+            response,
+            messages,
+            request,
+            transcript,
+            executor,
+            started,
+            turn,
+            tokens,
+            turn_tokens,
+            calls,
+            tool_results,
         )
-    except PipelineError as exc:
-        elapsed = time.monotonic() - started
-        flags = ("wall_clock_cap",) if elapsed > bite.budget.minutes * 60 else ()
-        return WorkerResult(False, None, 0, elapsed, "pipeline_error", flags, (), str(exc))
-    return _finish_response(task_dir, bite, engine, response, messages, body, transcript, started)
+        if result is not None:
+            return result
+    return WorkerResult(
+        False,
+        None,
+        tokens,
+        time.monotonic() - started,
+        "wandering",
+        ("missing_finish",),
+        tuple(calls),
+        "tool hop limit exhausted without finish",
+        tuple(tool_results),
+    )
+
+
+def _handle_response(
+    task_dir: Path,
+    bite: Bite,
+    engine: Engine,
+    response: dict[str, Any],
+    messages: list[dict[str, Any]],
+    request: dict[str, Any],
+    transcript: _Transcript,
+    executor: TaskToolExecutor,
+    started: float,
+    turn: int,
+    tokens: int,
+    turn_tokens: int,
+    calls: list[dict[str, Any]],
+    tool_results: list[dict[str, Any]],
+) -> WorkerResult | None:
+    content, turn_calls = _response_parts(response)
+    transcript.append("response", {"response": response})
+    prior_calls = list(calls)
+    calls.extend(turn_calls)
+    elapsed = time.monotonic() - started
+    if tokens > bite.budget.output_tokens:
+        return WorkerResult(
+            False,
+            None,
+            tokens,
+            elapsed,
+            "output_token_cap",
+            ("output_token_cap",),
+            tuple(calls),
+            "output token budget exhausted",
+            tuple(tool_results),
+        )
+    if elapsed > bite.budget.minutes * 60:
+        return WorkerResult(
+            False,
+            None,
+            tokens,
+            elapsed,
+            "wall_clock_cap",
+            ("wall_clock_cap",),
+            tuple(calls),
+            "wall-clock budget exhausted",
+            tuple(tool_results),
+        )
+    if len(turn_calls) != 1 or turn_calls[0].get("function", {}).get("name") == "finish":
+        return _finished_response(
+            task_dir,
+            bite,
+            engine,
+            response,
+            messages,
+            request,
+            transcript,
+            started,
+            prior_calls,
+            tokens - turn_tokens,
+            turn,
+            calls,
+            tool_results,
+        )
+    call = turn_calls[0]
+    name = str((call.get("function") or {}).get("name") or "")
+    if name not in bite.tools:
+        return _finished_response(
+            task_dir,
+            bite,
+            engine,
+            response,
+            messages,
+            request,
+            transcript,
+            started,
+            prior_calls,
+            tokens - turn_tokens,
+            turn,
+            calls,
+            tool_results,
+        )
+    if turn + 1 >= bite.budget.turns or tokens >= bite.budget.output_tokens:
+        flag = "hop_limit_exhausted" if turn + 1 >= bite.budget.turns else "output_token_cap"
+        return WorkerResult(
+            False,
+            None,
+            tokens,
+            elapsed,
+            flag,
+            (flag,),
+            tuple(calls),
+            "no budget remains to continue the client tool loop",
+            tuple(tool_results),
+        )
+    _append_tool_exchange(call, content, name, messages, transcript, executor, tool_results, turn)
+    return None
+
+
+def _finished_response(
+    task_dir: Path,
+    bite: Bite,
+    engine: Engine,
+    response: dict[str, Any],
+    messages: list[dict[str, Any]],
+    request: dict[str, Any],
+    transcript: _Transcript,
+    started: float,
+    prior_calls: list[dict[str, Any]],
+    tokens_before: int,
+    turn: int,
+    calls: list[dict[str, Any]],
+    tool_results: list[dict[str, Any]],
+) -> WorkerResult:
+    result = _finish_response(
+        task_dir,
+        bite,
+        engine,
+        response,
+        messages,
+        request,
+        transcript,
+        started,
+        prior_calls=prior_calls,
+        tokens_before=tokens_before,
+        turns_remaining=bite.budget.turns - turn - 1,
+    )
+    return replace(result, tool_calls=tuple(calls), tool_results=tuple(tool_results))
+
+
+def _append_tool_exchange(
+    call: dict[str, Any],
+    content: str,
+    name: str,
+    messages: list[dict[str, Any]],
+    transcript: _Transcript,
+    executor: TaskToolExecutor,
+    tool_results: list[dict[str, Any]],
+    turn: int,
+) -> None:
+    try:
+        arguments = _call_arguments(call)
+        result = executor.dispatch(name, arguments)
+    except (json.JSONDecodeError, ValueError) as exc:
+        arguments = {}
+        result = f"ERROR: invalid tool arguments: {exc}"
+    call_id = str(call.get("id") or f"bite-tool-{turn + 1}")
+    messages.extend(
+        [
+            {"role": "assistant", "content": content or None, "tool_calls": [call]},
+            {"role": "tool", "tool_call_id": call_id, "name": name, "content": result},
+        ]
+    )
+    record = {
+        "name": name,
+        "arguments": arguments,
+        "output": result,
+        "error": result.startswith("ERROR:"),
+    }
+    transcript.append("tool_result", record)
+    tool_results.append(record)
 
 
 def _finish_response(
@@ -205,10 +437,23 @@ def _finish_response(
     body: dict[str, Any],
     transcript: _Transcript,
     started: float,
+    *,
+    prior_calls: list[dict[str, Any]],
+    tokens_before: int,
+    turns_remaining: int,
 ) -> WorkerResult:
-    tokens = _response_tokens(response)
-    transcript.append("response", {"response": response})
-    finish = _finish_arguments(bite, engine, response, messages, body, tokens, transcript, started)
+    tokens = tokens_before + _response_tokens(response)
+    finish = _finish_arguments(
+        bite,
+        engine,
+        response,
+        messages,
+        body,
+        tokens,
+        transcript,
+        started,
+        turns_remaining=turns_remaining,
+    )
     red_flags = set(finish.red_flags)
     output = finish.arguments.get("output") if finish.arguments is not None else None
     finished, payload_flags = _validate_finish_args(bite, finish.arguments)
@@ -240,7 +485,7 @@ def _finish_response(
         elapsed,
         "finished" if finished else "wandering",
         tuple(sorted(red_flags)),
-        finish.calls,
+        (*prior_calls, *finish.calls),
         finish.failure,
     )
 
@@ -254,6 +499,8 @@ def _finish_arguments(
     tokens: int,
     transcript: _Transcript,
     started: float,
+    *,
+    turns_remaining: int,
 ) -> FinishResult:
     content, calls = _response_parts(response)
     call, flags = _select_finish_call(calls)
@@ -263,7 +510,16 @@ def _finish_arguments(
         arguments = _call_arguments(call)
     except (json.JSONDecodeError, ValueError) as exc:
         repaired, tokens, failure = _repair_json(
-            bite, engine, messages, body, call, str(exc), tokens, transcript, started
+            bite,
+            engine,
+            messages,
+            body,
+            call,
+            str(exc),
+            tokens,
+            transcript,
+            started,
+            turns_remaining=turns_remaining,
         )
         repair_content, calls = _response_parts(repaired)
         content = f"{content}{repair_content}"
@@ -319,8 +575,10 @@ def _repair_json(
     tokens: int,
     transcript: _Transcript,
     started: float,
+    *,
+    turns_remaining: int,
 ) -> tuple[dict[str, Any], int, str | None]:
-    if bite.budget.turns < 2:
+    if turns_remaining < 1:
         return {}, tokens, "JSON repair requires one additional turn"
     if tokens >= bite.budget.output_tokens:
         return {}, tokens, "JSON repair output budget exhausted"
@@ -335,7 +593,7 @@ def _repair_json(
         **body,
         "messages": repair_messages,
         "max_tokens": max(1, bite.budget.output_tokens - tokens),
-        "portal_bite_max_hops": max(1, bite.budget.turns - 1),
+        "portal_bite_max_hops": turns_remaining,
     }
     transcript.append("repair_request", {"reason": error, "body": repair_body})
     try:
@@ -352,10 +610,13 @@ def _repair_json(
 
 
 def _request_body(bite: Bite, engine: Engine, messages: list[dict[str, Any]]) -> dict[str, Any]:
+    tool_names = set(bite.tools)
+    if tool_names & READ_TOOLS and tool_names & ACTION_TOOLS:
+        raise ValueError("reading and acting tools cannot share one bite")
     return {
         "model": engine.model_tag,
         "messages": messages,
-        "tools": [_finish_schema(bite)],
+        "tools": [*(tool_schema(name) for name in bite.tools), _finish_schema(bite)],
         "tool_choice": "auto",
         "portal_bite_tools": [*bite.tools, "finish"],
         "portal_bite_max_hops": bite.budget.turns,
@@ -388,16 +649,39 @@ def _finish_schema(bite: Bite) -> dict[str, Any]:
     }
 
 
-def _messages(bite: Bite, input_paths: dict[str, Path]) -> list[dict[str, Any]]:
+def _messages(
+    bite: Bite, input_paths: dict[str, Path], task_dir: Path | None = None
+) -> list[dict[str, Any]]:
+    declared_paths: dict[str, str] = {}
+    root = task_dir.resolve() if task_dir is not None else None
+    for name, value in input_paths.items():
+        path = Path(value)
+        if root is None:
+            declared_paths[name] = str(path)
+        elif not path.is_absolute() and (root / path).resolve().is_relative_to(root):
+            declared_paths[name] = (root / path).resolve().relative_to(root).as_posix()
+        elif path.is_absolute() and path.resolve().is_relative_to(root):
+            declared_paths[name] = path.resolve().relative_to(root).as_posix()
+        else:
+            relative = Path(name)
+            fallback = (root / relative).resolve()
+            if (
+                relative.is_absolute()
+                or ".." in relative.parts
+                or not fallback.is_relative_to(root)
+                or not fallback.is_file()
+            ):
+                raise ValueError(f"input {name!r} is not staged inside the task directory")
+            declared_paths[name] = fallback.relative_to(root).as_posix()
     system = (
         "Execute exactly one task bite with the supplied Pipeline tools. "
         "Use only listed bite tools and call finish once when done. Keep reasoning enabled.\n"
         f"Goal: {bite.goal}\nProcedure: {bite.procedure}\n"
         f"Acceptance: {json.dumps(bite.accept)}\n"
         f"Deep review: {bite.review_reason or 'not requested'}\n"
-        f"Declared input paths: {json.dumps({key: str(value) for key, value in input_paths.items()})}"
+        f"Declared input paths: {json.dumps(declared_paths)}"
     )
-    inputs = {name: {"path": str(path)} for name, path in input_paths.items()}
+    inputs = {name: {"path": path} for name, path in declared_paths.items()}
     return [
         {"role": "system", "content": system},
         {

@@ -9,6 +9,8 @@ uv run portal module enable orchestration --yes
 Set the Pipeline endpoint and the measured model digests in the shell that runs `portal arm`. The model IDs stay fixed to the existing Fast and Deep seats; load-plan IDs are read from `config/orchestration_arm.yaml`.
 Set `PORTAL_ARM_APPROVAL_TTL_SECONDS` in this shell and `.env` to the same value to configure approval expiry; the default is 1800 seconds.
 
+The worker supplies each bite's declared tool schemas plus `finish`. `file_read`, `file_write`, and `pytest_run` run in the task directory; `pytest_run` is time-limited and runs only when the host network and writes outside the task directory can be sandboxed. External input files are copied under each task's `inputs/` directory before the worker sees their relative paths.
+
 ```bash
 export PORTAL_ARM_PIPELINE_URL=http://127.0.0.1:9099
 export PIPELINE_API_KEY='<pipeline api key>'

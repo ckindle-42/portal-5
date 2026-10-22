@@ -17,6 +17,7 @@ import pytest
 import yaml
 from fastapi import HTTPException
 
+from portal.modules.orchestration import tools as orchestration_tools
 from portal.modules.orchestration.contracts import parse_plan
 from portal.modules.orchestration.ledger import ArmLedger, ResumeMismatchError
 from portal.modules.orchestration.planner import instantiate_plan_template
@@ -27,7 +28,13 @@ from portal.modules.orchestration.service import (
     load_residency_mode,
     module_is_enabled,
 )
-from portal.modules.orchestration.worker import Engine
+from portal.modules.orchestration.tools import (
+    FILE_READ_LIMIT,
+    FILE_WRITE_LIMIT,
+    PYTEST_TIMEOUT_SECONDS,
+    TaskToolExecutor,
+)
+from portal.modules.orchestration.worker import Engine, run_bite
 from portal.platform.inference.router.eval_gate import apply_bite_tool_scope
 
 _fake_spec = spec_from_file_location(
@@ -258,7 +265,149 @@ def test_bite_tools_are_sent_as_a_strict_pipeline_allowlist(
     fake_pipeline.add("fast", finish_response({"answer": "right"}))
     service(tmp_path, fake_pipeline).submit(plan("scope", bite(tools=["wiki_search"])), tmp_path)
     assert fake_pipeline.requests[0]["portal_bite_tools"] == ["wiki_search", "finish"]
+    assert [tool["function"]["name"] for tool in fake_pipeline.requests[0]["tools"]] == [
+        "wiki_search",
+        "finish",
+    ]
     assert fake_pipeline.requests[0]["model"] == "auto-daily::fast"
+
+
+def test_client_file_tools_loop_back_to_the_model_and_keep_reading_bites_read_only(
+    tmp_path: Path, fake_pipeline: FakePipeline
+) -> None:
+    task_dir = tmp_path / "client-loop"
+    task_dir.mkdir()
+    (task_dir / "source.txt").write_text("source contents", encoding="utf-8")
+    fake_pipeline.add("fast", tool_response("file_read", '{"path":"source.txt"}'))
+    fake_pipeline.add("fast", finish_response({"answer": "right"}))
+    task_bite = parse_plan(plan("client-loop", bite(tools=["file_read"]))).bites[0]
+    result = run_bite(
+        task_dir,
+        task_bite,
+        Engine("auto-daily::fast", "test-digest", fake_pipeline.url),
+        input_paths={},
+        attempt_dir=task_dir / "attempt",
+    )
+
+    assert result.finished
+    assert [request["portal_bite_max_hops"] for request in fake_pipeline.requests] == [2, 1]
+    assert all(
+        [tool["function"]["name"] for tool in request["tools"]] == ["file_read", "finish"]
+        for request in fake_pipeline.requests
+    )
+    followup = fake_pipeline.requests[1]["messages"]
+    assert followup[-1]["role"] == "tool"
+    assert followup[-1]["name"] == "file_read"
+    assert followup[-1]["content"] == "source contents"
+
+
+def test_client_tool_loop_honors_the_hop_limit_before_executing_a_last_hop_action(
+    tmp_path: Path, fake_pipeline: FakePipeline
+) -> None:
+    task_dir = tmp_path / "hop-limit"
+    task_dir.mkdir()
+    fake_pipeline.add("fast", tool_response("file_write", '{"path":"new.txt","content":"x"}'))
+    raw_bite = bite(tools=["file_write"])
+    raw_bite["budget"]["turns"] = 1
+    task_bite = parse_plan(plan("hop-limit", raw_bite)).bites[0]
+
+    result = run_bite(
+        task_dir,
+        task_bite,
+        Engine("auto-daily::fast", "test-digest", fake_pipeline.url),
+        input_paths={},
+        attempt_dir=task_dir / "attempt",
+    )
+
+    assert result.loop_outcome == "hop_limit_exhausted"
+    assert result.red_flags == ("hop_limit_exhausted",)
+    assert not (task_dir / "new.txt").exists()
+    assert fake_pipeline.requests[0]["portal_bite_max_hops"] == 1
+
+
+def test_fake_pipeline_drops_server_side_tools_without_client_schemas() -> None:
+    finish_schema = {"type": "function", "function": {"name": "finish"}}
+    read_schema = {"type": "function", "function": {"name": "file_read"}}
+    missing_schema = {
+        "portal_bite_tools": ["file_read", "finish"],
+        "tools": [finish_schema],
+    }
+    client_schemas = {
+        "portal_bite_tools": ["file_read", "finish"],
+        "tools": [read_schema, finish_schema],
+    }
+
+    assert _fake_module._offered_tool_names(missing_schema, ["file_read"]) == ["finish"]
+    assert _fake_module._offered_tool_names(client_schemas, ["file_read"]) == [
+        "file_read",
+        "finish",
+    ]
+
+
+def test_task_tools_confine_paths_and_enforce_size_limits(tmp_path: Path) -> None:
+    task_dir = tmp_path / "task"
+    task_dir.mkdir()
+    outside = tmp_path / "outside.txt"
+    outside.write_text("private", encoding="utf-8")
+    (task_dir / "escape").symlink_to(outside)
+    tools = TaskToolExecutor(task_dir, ("file_read", "file_write"))
+
+    assert tools.dispatch("file_read", {"path": "../outside.txt"}).startswith("ERROR:")
+    assert tools.dispatch("file_read", {"path": str(outside)}).startswith("ERROR:")
+    assert tools.dispatch("file_read", {"path": "escape"}).startswith("ERROR:")
+    assert tools.dispatch(
+        "file_write", {"path": "../outside.txt", "content": "changed"}
+    ).startswith("ERROR:")
+    assert tools.dispatch(
+        "file_write", {"path": "large.txt", "content": "x" * (FILE_WRITE_LIMIT + 1)}
+    ).startswith("ERROR:")
+    (task_dir / "large-read.txt").write_bytes(b"x" * (FILE_READ_LIMIT + 1))
+    assert tools.dispatch("file_read", {"path": "large-read.txt"}).startswith("ERROR:")
+    assert outside.read_text(encoding="utf-8") == "private"
+
+
+def test_pytest_run_is_limited_to_local_tests_and_uses_network_sandbox(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    task_dir = tmp_path / "pytest-task"
+    task_dir.mkdir()
+    (task_dir / "test_sample.py").write_text("def test_ok(): pass\n", encoding="utf-8")
+    captured: dict[str, Any] = {}
+
+    def fake_run(command: list[str], **kwargs: Any) -> Mock:
+        captured["command"] = command
+        captured.update(kwargs)
+        return Mock(returncode=0, stdout="1 passed\n", stderr="")
+
+    monkeypatch.setattr(orchestration_tools, "_sandbox_prefix", lambda _root: ["network-sandbox"])
+    monkeypatch.setattr(orchestration_tools.subprocess, "run", fake_run)
+    tools = TaskToolExecutor(task_dir, ("pytest_run",))
+    result = tools.dispatch("pytest_run", {"args": "test_sample.py"})
+
+    assert "exit_code=0" in result and "1 passed" in result
+    assert captured["command"][0] == "network-sandbox"
+    assert captured["cwd"] == task_dir
+    assert captured["timeout"] == PYTEST_TIMEOUT_SECONDS
+    assert captured["env"]["PYTEST_DISABLE_PLUGIN_AUTOLOAD"] == "1"
+    assert tools.dispatch("pytest_run", {"args": "../outside.py"}).startswith("ERROR:")
+    assert tools.dispatch("pytest_run", {"args": "--confcutdir=/"}).startswith("ERROR:")
+
+
+def test_pytest_sandbox_blocks_network_and_host_writes(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    task_dir = tmp_path / "sandbox"
+    task_dir.mkdir()
+    monkeypatch.setattr(orchestration_tools.platform, "system", lambda: "Darwin")
+    monkeypatch.setattr(orchestration_tools.shutil, "which", lambda _name: "/usr/bin/sandbox-exec")
+
+    prefix = orchestration_tools._sandbox_prefix(task_dir)
+    profile = prefix[2]
+
+    assert prefix[:2] == ["/usr/bin/sandbox-exec", "-p"]
+    assert "(deny network*)" in profile
+    assert "(deny file-write* (require-not (subpath" in profile
+    assert str(task_dir.resolve()) in profile
 
 
 def test_worker_sends_input_paths_without_packing_file_contents(
@@ -267,11 +416,12 @@ def test_worker_sends_input_paths_without_packing_file_contents(
     (tmp_path / "source.txt").write_text("complete source text", encoding="utf-8")
     fake_pipeline.add("fast", finish_response({"answer": "right"}))
     task_bite = bite(inputs=["source.txt"])
-    service(tmp_path, fake_pipeline).submit(plan("input-read", task_bite), tmp_path)
+    task_dir = service(tmp_path, fake_pipeline).submit(plan("input-read", task_bite), tmp_path)
     request = fake_pipeline.requests[0]
     messages = request["messages"]
     source = json.loads(messages[1]["content"])["inputs"]["source.txt"]
-    assert source == {"path": str((tmp_path / "source.txt").resolve())}
+    assert source["path"].startswith("inputs/")
+    assert (task_dir / source["path"]).read_text(encoding="utf-8") == "complete source text"
     assert "complete source text" not in json.dumps(messages)
 
 

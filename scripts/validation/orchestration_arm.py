@@ -522,6 +522,18 @@ def check_arm_least_agency() -> tuple[str, str, list[dict]]:
         mounted = body.get("portal_bite_tools")
         if not (isinstance(mounted, list) and mounted == [*bite.tools, "finish"]):
             mount_failures.append(f"{tool}: mounted={mounted!r}")
+        schemas = body.get("tools")
+        schema_names = (
+            [
+                item.get("function", {}).get("name")
+                for item in schemas
+                if isinstance(item, dict) and isinstance(item.get("function"), dict)
+            ]
+            if isinstance(schemas, list)
+            else []
+        )
+        if schema_names != [*bite.tools, "finish"]:
+            mount_failures.append(f"{tool}: schemas={schema_names!r}")
         if body.get("portal_bite_max_hops") != bite.budget.turns:
             hop_failures.append(f"{tool}: max_hops={body.get('portal_bite_max_hops')!r}")
     mounted_ok = not mount_failures
