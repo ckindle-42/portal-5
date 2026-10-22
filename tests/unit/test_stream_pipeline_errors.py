@@ -465,6 +465,103 @@ async def test_tool_parse_failure_before_output_cascades_to_next_candidate(
 
 
 @pytest.mark.anyio
+async def test_client_tools_only_inband_error_before_output_cascades_to_candidate(
+    stream_client: MagicMock, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    recorded = _record_errors(monkeypatch)
+    body = {
+        "messages": [{"role": "user", "content": "lookup"}],
+        "tools": [{"type": "function", "function": {"name": "client_lookup", "parameters": {}}}],
+    }
+    tool_call = {
+        "choices": [
+            {
+                "index": 0,
+                "delta": {
+                    "tool_calls": [
+                        {
+                            "index": 0,
+                            "id": "call-client-lookup",
+                            "type": "function",
+                            "function": {"name": "client_lookup", "arguments": "{}"},
+                        }
+                    ]
+                },
+                "finish_reason": None,
+            }
+        ]
+    }
+    _serve(
+        stream_client,
+        _Resp(
+            [
+                f"data: {json.dumps(tool_call)}",
+                'data: {"error":{"message":"tool parser aborted"}}',
+            ]
+        ),
+    )
+
+    def inner() -> typing.AsyncIterator[bytes]:
+        return st._stream_with_tool_loop_impl(
+            "http://engine/v1/chat/completions", body, "ws", "m", "p", set()
+        )
+
+    chunks, calls = await _wrapped_run(
+        monkeypatch, inner, remaining=[_backend("b1")], body=body, tools=True
+    )
+
+    assert calls == ["b1"]
+    assert recorded == [("ws", "backend_in_band_error")]
+    _assert_well_formed(chunks)
+    assert _content(chunks) == "candidate two answer"
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize("client_tools_only", [False, True], ids=["plain", "client-tools-only"])
+async def test_single_candidate_http_error_ends_with_valid_chat_frames(
+    stream_client: MagicMock,
+    monkeypatch: pytest.MonkeyPatch,
+    client_tools_only: bool,
+) -> None:
+    _record_errors(monkeypatch)
+    _serve(stream_client, _Resp([], status=400, body=b'{"error":"invalid request"}'))
+    body = {"messages": [{"role": "user", "content": "edit"}]}
+    if client_tools_only:
+        body["tools"] = TOOLS
+    backend = _backend()
+    backend.chat_url = "http://engine/v1/chat/completions"
+    stream = st._select_stream_fn(
+        backend,
+        body,
+        MagicMock(),
+        "ws",
+        "m",
+        "p",
+        [],
+        None,
+        [],
+        "",
+        "",
+        False,
+        client_tools_only,
+    )
+
+    chunks = await _drain(stream)
+
+    payloads = _payloads(chunks)
+    finishes = [
+        choice.get("finish_reason")
+        for payload in payloads
+        for choice in payload.get("choices", [])
+        if choice.get("finish_reason") is not None
+    ]
+    assert finishes == ["stop"]
+    assert chunks.count(DONE) == 1
+    assert chunks[-1] == DONE
+    assert "Backend returned HTTP 400: invalid request" in _content(chunks)
+
+
+@pytest.mark.anyio
 async def test_exhausted_chain_ends_with_one_terminal_frame(
     stream_client: MagicMock, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -538,25 +635,52 @@ def _chain_gen(chain: list[dict[str, typing.Any]]) -> typing.AsyncIterator[bytes
 
 
 @pytest.mark.anyio
-async def test_failed_chain_hop_falls_through_to_the_next_hop(
+async def test_failed_chain_hop_stops_before_the_next_stage(
     stream_client: MagicMock, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """Hop 0's failure is a candidate, not the end: hop 1 still answers."""
     monkeypatch.setattr(bi, "model_still_running", lambda *_a, **_k: _async(False))
     _record_errors(monkeypatch)
     monkeypatch.setattr(st, "resolve_hop_target", lambda _ws, _m, url, body: (url, body))
-    _serve_sequence(
-        stream_client,
-        httpx.ReadTimeout("idle 600s"),
-        _Resp([_delta("blue analysis"), "data: [DONE]"]),
-    )
+    _serve_sequence(stream_client, httpx.ReadTimeout("idle 600s"))
 
     chunks = await _drain(_chain_gen([dict(_BLUE_HOP, label="BLUE TEAM")]))
 
-    assert stream_client.stream.call_count == 2
+    assert stream_client.stream.call_count == 1
+    _assert_terminal(chunks, NO_MODEL_MSG)
+
+
+@pytest.mark.anyio
+async def test_failed_intermediate_prefill_hop_uses_candidate_fallback(
+    stream_client: MagicMock, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(bi, "model_still_running", lambda *_a, **_k: _async(False))
+    monkeypatch.setattr(st, "resolve_hop_target", lambda _ws, _m, url, body: (url, body))
+    monkeypatch.setattr(st, "make_room_for_omlx", lambda *_a, **_k: _async(None))
+    _record_errors(monkeypatch)
+    _serve_sequence(
+        stream_client,
+        _Resp(
+            [],
+            status=400,
+            body=b'{"error":{"message":"prefill memory guard: would exceed the memory ceiling"}}',
+        ),
+        _Resp([_delta("later chain answer from empty hop_0"), "data: [DONE]"]),
+    )
+
+    def inner() -> typing.AsyncIterator[bytes]:
+        return _chain_gen([dict(_BLUE_HOP, label="BLUE TEAM")])
+
+    chunks, calls = await _wrapped_run(
+        monkeypatch,
+        inner,
+        remaining=[_backend("b1")],
+        body={"messages": [{"role": "user", "content": "question"}]},
+    )
+
+    assert stream_client.stream.call_count == 1
+    assert calls == ["b1"]
     _assert_well_formed(chunks)
-    assert "blue analysis" in _content(chunks)
-    assert NO_MODEL_MSG not in _content(chunks)
+    assert _content(chunks) == "candidate two answer"
 
 
 @pytest.mark.anyio
@@ -566,9 +690,20 @@ async def test_every_chain_hop_failing_ends_with_one_terminal_frame(
     monkeypatch.setattr(bi, "model_still_running", lambda *_a, **_k: _async(False))
     _record_errors(monkeypatch)
     monkeypatch.setattr(st, "resolve_hop_target", lambda _ws, _m, url, body: (url, body))
-    _serve_sequence(stream_client, httpx.ReadTimeout("idle 600s"), httpx.ReadTimeout("idle 600s"))
+    _serve_sequence(
+        stream_client,
+        _Resp([_delta("red analysis"), "data: [DONE]"]),
+        httpx.ReadTimeout("idle 600s"),
+    )
 
-    chunks = await _drain(_chain_gen([dict(_BLUE_HOP)]))
+    chunks = await _drain(
+        _chain_gen(
+            [
+                dict(_BLUE_HOP),
+                {"model": "green", "system": "review", "user_template": "{hop_1}"},
+            ]
+        )
+    )
 
     assert stream_client.stream.call_count == 2
     _assert_terminal(chunks, NO_MODEL_MSG)

@@ -272,6 +272,19 @@ def _chunk_has_output(chunk: bytes) -> bool:
     return False
 
 
+def _chunk_has_finish_reason(chunk: bytes) -> bool:
+    """Whether an SSE chunk closes an OpenAI choice."""
+    if not chunk.startswith(b"data:"):
+        return False
+    try:
+        obj = json.loads(chunk[5:].strip())
+    except Exception:
+        return False
+    return isinstance(obj, dict) and any(
+        choice.get("finish_reason") for choice in obj.get("choices", [])
+    )
+
+
 def _route(held: list[bytes] | None, frame: bytes) -> list[bytes]:
     """The frames to send now: the frame itself, or none while this hop's output is being held."""
     if held is None:
@@ -350,6 +363,16 @@ def _stream_error_frames(request_id: str, workspace_id: str, message: str) -> li
     return _error_terminal_frames(request_id, workspace_id, message)
 
 
+def _backend_error_frames(
+    status: int, raw: bytes, request_id: str, workspace_id: str
+) -> list[bytes]:
+    """Preserve backend status for fallback; frame a standalone error as chat chunks."""
+    envelope = _backend_error_chunk(status, raw)
+    if _CASCADE_ERRORS.get():
+        return [envelope]
+    return _error_terminal_frames(request_id, workspace_id, _stream_error_detail(envelope))
+
+
 def _in_band_error_frames(
     request_id: str, workspace_id: str, model: str, message: str
 ) -> list[bytes]:
@@ -363,6 +386,8 @@ def _in_band_error_frames(
         message,
     )
     _record_error(workspace_id, "backend_in_band_error")
+    if _CASCADE_ERRORS.get():
+        return _stream_error_frames(request_id, workspace_id, message)
     return _error_terminal_frames(request_id, workspace_id, message, notice=_IN_BAND_ERROR_NOTICE)
 
 
@@ -910,7 +935,10 @@ async def _tool_loop_frames(
                             current_body,
                             _backend_type_for_url(backend_url) == "omlx",
                         )
-                        yield _backend_error_chunk(resp.status_code, err)
+                        for _f in _backend_error_frames(
+                            resp.status_code, err, request_id, workspace_id
+                        ):
+                            yield _f
                         return
 
                     async for line in resp.aiter_lines():
@@ -1571,7 +1599,10 @@ async def _stream_from_backend_guarded(
                     workspace_id,
                     f"backend_http_{resp.status_code}",
                 )
-                yield _backend_error_chunk(resp.status_code, err)
+                for _f in _backend_error_frames(
+                    resp.status_code, err, f"chatcmpl-{workspace_id}", workspace_id
+                ):
+                    yield _f
                 return
             async for line in resp.aiter_lines():
                 if not line:
@@ -1801,7 +1832,7 @@ class _HopStream:
 async def _hop_frames(
     stream: AsyncIterator[bytes], hop: _HopStream, *, hold_done: bool
 ) -> AsyncIterator[bytes]:
-    """Forward one hop's frames; its ``[DONE]`` and its error belong to the chain."""
+    """Forward one hop's frames; intermediate finish, ``[DONE]`` and errors belong to the chain."""
     _token = _CASCADE_ERRORS.set(True)
     try:
         async for chunk in stream:
@@ -1811,6 +1842,8 @@ async def _hop_frames(
                 hop.error = chunk
                 continue
             if hold_done and chunk == _DONE:
+                continue
+            if hold_done and _chunk_has_finish_reason(chunk):
                 continue
             if not hop.started and _chunk_has_output(chunk):
                 hop.started = True
@@ -1823,15 +1856,14 @@ async def _hop_frames(
 def _hop_stop_frames(
     hop: _HopStream,
     *,
-    is_last: bool,
     cascade_to_candidates: bool,
     request_id: str,
     workspace_id: str,
 ) -> list[bytes]:
-    """The frames that end the stream for a failed hop — empty while a hop remains."""
-    if hop.error is None or (not is_last and not hop.started):
+    """End a failed hop; an intermediate hop cannot supply empty context downstream."""
+    if hop.error is None:
         return []
-    if is_last and cascade_to_candidates and not hop.started:
+    if cascade_to_candidates and not hop.started:
         return [hop.error]
     return _error_terminal_frames(request_id, workspace_id, _stream_error_detail(hop.error))
 
@@ -1922,7 +1954,6 @@ async def _stream_with_chain(
         collected.append("".join(hop0.parts))
         _stop = _hop_stop_frames(
             hop0,
-            is_last=not has_more,
             cascade_to_candidates=_cascade_to_candidates,
             request_id=request_id,
             workspace_id=workspace_id,
@@ -2046,7 +2077,6 @@ async def _stream_with_chain(
             collected.append("".join(hop.parts))
             _stop = _hop_stop_frames(
                 hop,
-                is_last=is_last_hop,
                 cascade_to_candidates=_cascade_to_candidates,
                 request_id=request_id,
                 workspace_id=workspace_id,
