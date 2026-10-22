@@ -160,6 +160,30 @@ def test_unattended_run_refuses_null_gate_c_threshold() -> None:
     _require_calibration({"calibration": {"minimum_pass_probability": None}}, False)
 
 
+@pytest.mark.parametrize("threshold", [0.0, -0.5, "0.9"])
+def test_unattended_run_refuses_disabled_gate_c_threshold(threshold: Any) -> None:
+    """N6: a non-positive or non-numeric threshold disables calibration, like null."""
+    policy = {"calibration": {"minimum_pass_probability": threshold}}
+    with pytest.raises(ValueError, match="unattended runs are disabled"):
+        _require_calibration(policy, True)
+    _require_calibration(policy, False)
+
+
+def test_unattended_run_accepts_a_positive_gate_c_threshold() -> None:
+    """N6: the refusal is specific to disabled thresholds, not every value."""
+    rates = {
+        "test_fixing": {
+            "fast": {"pass_probability": 0.8, "mean_seconds": 1},
+            "deep": {"pass_probability": 0.9, "mean_seconds": 1},
+        }
+    }
+    _require_calibration(
+        {"calibration": {"minimum_pass_probability": 0.01, "rates_by_discipline": rates}},
+        True,
+        {"test_fixing"},
+    )
+
+
 @pytest.mark.parametrize("control", ["\n", "\r", "\t", "\x00", "\x85"])
 def test_plan_rejects_control_characters_in_bite_id(control: str) -> None:
     raw = _raw_bite("bite", "fast")

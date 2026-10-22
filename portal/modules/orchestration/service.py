@@ -646,13 +646,18 @@ def load_arm_config(path: Path) -> dict[str, Any]:
     return raw
 
 
+def _positive_probability(value: Any) -> bool:
+    """True only for a numeric probability in (0, 1]."""
+    return isinstance(value, (int, float)) and not isinstance(value, bool) and 0 < value <= 1
+
+
 def _require_calibration(
     config: dict[str, Any], unattended: bool, disciplines: set[str] | None = None
 ) -> None:
     calibration = config["calibration"]
-    if unattended and calibration.get("minimum_pass_probability") is None:
+    if unattended and not _positive_probability(calibration.get("minimum_pass_probability")):
         raise ValueError(
-            "unattended runs are disabled until Gate C rates set the calibration threshold"
+            "unattended runs are disabled until Gate C rates set a positive calibration threshold"
         )
     if not unattended:
         return
