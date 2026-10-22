@@ -44,7 +44,7 @@ with the pinned model, is:
 | `auto-video` | `granite4.1:8b-ctx16k` (generate_video / animate_image, MLX LTX-2.3; shipped enabled) |
 | `auto-image` | `granite4.1:8b` (generate_image / edit_image, MFLUX) |
 | `auto-cad` | `qwen3-coder:30b-a3b-q4_K_M` (render_mesh, render_openscad, convert_cad) |
-| `auto-spl` | Qwen3-Coder-Next abliterated (classify_vulnerability, kb_search) |
+| `auto-spl` | `Huihui-Qwen3.6-27B-abliterated-MLX-4bit` (classify_vulnerability, kb_search) |
 | `auto-compliance` | `granite4.1:8b` (NERC CIP gap analysis) |
 | `auto-bigfix` | `qwen3-coder:30b-a3b-q4_K_M` (BigFix relevance scripting) |
 | `auto-security` | VulnLLM-R-7B (web_search, classify_vulnerability, sandbox) |
