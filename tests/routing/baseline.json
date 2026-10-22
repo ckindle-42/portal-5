@@ -226,7 +226,7 @@
   },
   "routing_examples[2]": {
     "base": "auto-spl",
-    "served_model": "Huihui-Qwen3.6-27B-abliterated-MLX-4bit",
+    "served_model": "Qwen3.8-27B-oQ4e-mtp",
     "variant": null
   },
   "routing_examples[30]": {
@@ -281,7 +281,7 @@
   },
   "routing_examples[3]": {
     "base": "auto-spl",
-    "served_model": "Huihui-Qwen3.6-27B-abliterated-MLX-4bit",
+    "served_model": "Qwen3.8-27B-oQ4e-mtp",
     "variant": null
   },
   "routing_examples[40]": {
@@ -306,7 +306,7 @@
   },
   "routing_examples[4]": {
     "base": "auto-spl",
-    "served_model": "Huihui-Qwen3.6-27B-abliterated-MLX-4bit",
+    "served_model": "Qwen3.8-27B-oQ4e-mtp",
     "variant": null
   },
   "routing_examples[5]": {
