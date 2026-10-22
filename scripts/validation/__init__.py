@@ -26,6 +26,7 @@ from . import (  # noqa: F401  (imports populate the check registry)
     security_bench,
     splash_sweep_engine,
     telemetry,
+    test_hygiene,
     wiki,
 )
 from .registry import all_checks, register

@@ -875,7 +875,7 @@ async def main() -> None:
         # keyword-UAT report, which a bare `--adaptive` run (no --section/--test, so
         # not "targeted") would otherwise overwrite via init_results(). Redirect the
         # driver's own row/summary writer to a separate adaptive file.
-        config.RESULTS_FILE = Path("tests/UAT_RESULTS_ADAPTIVE.md")
+        config.RESULTS_FILE = Path("tests/UAT_RESULTS_ADAPTIVE.md")  # local-only: run artifact
 
     print("\nPortal 5 UAT Driver")
     print(f"OWUI: {OPENWEBUI_URL}  |  User: {ADMIN_EMAIL}")

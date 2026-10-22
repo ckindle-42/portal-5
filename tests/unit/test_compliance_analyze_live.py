@@ -13,6 +13,7 @@ from pathlib import Path
 import pytest
 
 from portal.modules.compliance.core import assessment_runs
+from portal.modules.compliance.core.cip_register import PDF_DIR
 from portal.modules.compliance.core.repository import Repository
 from portal.modules.compliance.core.runtime_config import load_org_commitments, seat_roster
 from portal.modules.compliance.tools.compliance_mcp import compliance_analyze
@@ -24,9 +25,7 @@ from portal.modules.compliance.tools.compliance_mcp import compliance_analyze
 # converts the resulting FileNotFoundError into a FAILED run status rather
 # than raising it here, so there's no exception for a generic skip-on-error
 # fixture to catch.
-_CIP_PDFS_PRESENT = any(
-    (Path(__file__).resolve().parents[2] / "portal/modules/compliance/data/cip_pdfs").glob("*.pdf")
-)
+_CIP_PDFS_PRESENT = any(PDF_DIR.glob("*.pdf"))
 
 
 @pytest.fixture

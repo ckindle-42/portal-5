@@ -8,10 +8,11 @@ import math
 import random
 import statistics
 import sys
+from pathlib import Path
 
 import httpx
 
-sys.path.insert(0, "/Users/chris/projects/portal-5")
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 from PIL import Image, ImageDraw
 
 from portal.platform.embedding import contract as ec

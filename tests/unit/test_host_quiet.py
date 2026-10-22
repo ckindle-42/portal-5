@@ -10,13 +10,13 @@ from scripts import host_quiet
 
 def test_process_scan_finds_dispatch_pytest_wfe_and_bench() -> None:
     lines = [
-        "101 1 python /Users/x/.claude/orchestrate/bin/dispatch.py run lane",
+        "101 1 python /srv/x/.claude/orchestrate/bin/dispatch.py run lane",
         "102 1 /venv/bin/python -m pytest -n 4 tests/unit",
         "103 1 python -m tests.wfe.campaign --plan private.yaml",
         "104 1 python scripts/bench_engine_h2h.py --repeat 10",
         "105 106 python scripts/uat_engines.py",
         "106 107 python scripts/uat_engines.py",
-        "107 1 python /Users/x/.claude/orchestrate/bin/dispatch.py run this lane",
+        "107 1 python /srv/x/.claude/orchestrate/bin/dispatch.py run this lane",
     ]
 
     ancestors = host_quiet._ancestor_pids(lines, 106)

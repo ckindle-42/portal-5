@@ -8,6 +8,9 @@ declared corpus boundary receipt.
 
 from __future__ import annotations
 
+import os
+from pathlib import Path
+
 import pytest
 
 from portal.modules.compliance.core.candidate_closure import (
@@ -203,8 +206,10 @@ class TestRealProcedureIntegration:
     """Live-corpus check of the full classify→store→packet chain (skipped in
     CI where the private corpus is absent)."""
 
-    CORPUS = __import__("pathlib").Path(
-        "coding_task/v9_compliance/ACME-CIP/CIP-007/the operator's document.pdf"
+    # The operator corpus is private: set PORTAL5_COMPLIANCE_CORPUS to run this.
+    CORPUS = Path(
+        os.environ.get("PORTAL5_COMPLIANCE_CORPUS")
+        or Path(__file__).resolve().parents[1] / "fixtures" / "compliance" / "CIP-007-procedure.pdf"
     )
 
     @pytest.mark.skipif(not CORPUS.is_file(), reason="operator corpus is private/local")

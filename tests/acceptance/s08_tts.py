@@ -23,7 +23,7 @@ async def _ensure_speech_reference(tmp_dir: Path) -> Path | None:
     """Get a real ~12s speech clip to clone from. Prefer a local fixture; else
     synthesize one via the speech server's Qwen3 CustomVoice route (a tone
     fixture registers fine but proves nothing about clone fidelity)."""
-    fixture = Path("tests/fixtures/audio/trainer_ref_12s.wav")
+    fixture = Path("tests/fixtures/audio/trainer_ref_12s.wav")  # local-only: recorded clip
     if fixture.exists():
         return fixture
     out = tmp_dir / "trainer_ref_synth.wav"

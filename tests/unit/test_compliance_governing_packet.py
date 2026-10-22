@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import pytest
 
+from portal.modules.compliance.core.cip_register import PDF_DIR
 from portal.modules.compliance.core.determination import (
     AssessmentRequest,
     CandidateSet,
@@ -18,10 +19,7 @@ from portal.modules.compliance.core.determination import (
 )
 from portal.modules.compliance.core.reading import build_reading_packet, verify_judgment
 
-_SRC_PDF = (
-    __import__("pathlib").Path(__file__).resolve().parents[2]
-    / "portal/modules/compliance/data/cip_pdfs/cip-007-6.pdf"
-)
+_SRC_PDF = PDF_DIR / "cip-007-6.pdf"
 
 
 def _governing() -> GoverningBundle:
