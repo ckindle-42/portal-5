@@ -39,7 +39,7 @@ from typing import Any
 
 import httpx
 
-from portal.platform.inference.load_guard import OLLAMA, OMLX, LoadGuard, LoadRefusedError
+from portal.platform.inference.load_guard import OMLX, LoadGuard, LoadRefusedError
 from portal.platform.inference.router import placement
 from portal.platform.inference.router.trace import normalize_engine_timings
 
@@ -554,10 +554,9 @@ class OllamaNativeTransport(httpx.AsyncBaseTransport):
         end: Callable[[], None] | None = None
         if self._guard is not None:
             try:
-                release = await self._guard.admit(base, model)
+                release, end = await self._guard.admit_and_begin_ollama(base, model)
             except LoadRefusedError as e:
                 return _refused(request, e)
-            end = self._guard.begin(OLLAMA, model)
         try:
             resp = await self._inner.handle_async_request(native_req)
             if resp.status_code != 200:

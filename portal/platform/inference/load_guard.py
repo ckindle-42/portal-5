@@ -266,9 +266,13 @@ class LoadGuard:
 
     def begin(self, engine: str, model: str) -> Callable[[], None]:
         """Count one in-flight request; return its idempotent end()."""
+        return self._begin_with_activity_lock(engine, model, self._activity_lock(engine, model))
+
+    def _begin_with_activity_lock(
+        self, engine: str, model: str, activity_lock: Any | None
+    ) -> Callable[[], None]:
         key = (engine, model)
         self._busy[key] += 1
-        activity_lock = self._activity_lock(engine, model)
         ended = False
 
         def end() -> None:
@@ -280,8 +284,7 @@ class LoadGuard:
             if self._busy[key] <= 0:
                 del self._busy[key]
             if activity_lock is not None:
-                fcntl.flock(activity_lock.fileno(), fcntl.LOCK_UN)
-                activity_lock.close()
+                self._release_activity_lock(activity_lock)
             # Wake every waiter, then arm a fresh event for the next change.
             event, self._changed = self._changed, asyncio.Event()
             event.set()
@@ -306,6 +309,72 @@ class LoadGuard:
                 handle.close()
             logger.warning("load_guard: could not track cross-worker activity: %s", e)
             return None
+
+    def _reserve_activity(self, engine: str, model: str) -> Any | None:
+        handle = None
+        try:
+            _PROCESS_LOCK_DIR.mkdir(parents=True, exist_ok=True)
+            handle = self._activity_path(engine, model).open("a+")
+            fcntl.flock(handle.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+            return handle
+        except BlockingIOError:
+            if handle is not None:
+                handle.close()
+            return None
+        except OSError as e:
+            if handle is not None:
+                handle.close()
+            logger.warning("load_guard: could not reserve cross-worker activity: %s", e)
+            return None
+
+    @staticmethod
+    def _release_activity_lock(handle: Any) -> None:
+        fcntl.flock(handle.fileno(), fcntl.LOCK_UN)
+        handle.close()
+
+    async def _acquire_activity(self, engine: str, model: str, deadline: float) -> Any:
+        handle = None
+        started: float | None = None
+        try:
+            _PROCESS_LOCK_DIR.mkdir(parents=True, exist_ok=True)
+            handle = self._activity_path(engine, model).open("a+")
+            while True:
+                try:
+                    fcntl.flock(handle.fileno(), fcntl.LOCK_SH | fcntl.LOCK_NB)
+                    return handle
+                except BlockingIOError:
+                    _admit_waited.set(True)
+                    if started is None:
+                        started = time.monotonic()
+                    remaining = deadline - time.monotonic()
+                    if remaining <= 0:
+                        raise LoadRefusedError(
+                            f"request start for {model} would exceed its wait for a model "
+                            f"operation ({_waited_s(deadline):.1f}s)",
+                            "deadline",
+                        ) from None
+                    await asyncio.sleep(min(max(_POLL_S, 0.01), remaining))
+        except LoadRefusedError as e:
+            if handle is not None:
+                handle.close()
+            _record_refusal(engine, e)
+            raise
+        except OSError as e:
+            if handle is not None:
+                handle.close()
+            refusal = LoadRefusedError(
+                f"model operation coordination is unavailable for {model}: {e}",
+                "coordination-unavailable",
+            )
+            _record_refusal(engine, refusal)
+            raise refusal from None
+        except BaseException:
+            if handle is not None:
+                handle.close()
+            raise
+        finally:
+            if started is not None:
+                _record_wait(engine, "model_operation", time.monotonic() - started)
 
     def _active_elsewhere(self, engine: str, model: str) -> bool:
         try:
@@ -592,6 +661,9 @@ class LoadGuard:
         idle = [n for n, size in resident.items() if size and self._ollama_idle({n: size}) > 0]
         requested: dict[str, _Free] = {}
         for name in idle:
+            operation_lock = self._reserve_activity(OLLAMA, name)
+            if operation_lock is None:
+                continue
             try:
                 status = await self._omlx_status(client)
                 baseline = (
@@ -605,6 +677,8 @@ class LoadGuard:
             except Exception as e:
                 logger.warning("load_guard: could not unload idle Ollama model %s: %s", name, e)
                 continue
+            finally:
+                self._release_activity_lock(operation_lock)
             if not response.is_success:
                 logger.warning(
                     "load_guard: unload of idle Ollama model %s returned HTTP %d",
@@ -1004,6 +1078,49 @@ class LoadGuard:
             self._release_when_resident(OLLAMA, base, model, release)
         )
         return release
+
+    async def admit_and_begin_ollama(
+        self, base: str, model: str
+    ) -> tuple[Callable[[], None] | None, Callable[[], None]]:
+        """Admit then lease the model through request completion across workers."""
+        if not self.enabled() or not model:
+            return None, self.begin(OLLAMA, model)
+        release = await self.admit(base, model)
+        activity_lock = None
+        try:
+            while True:
+                activity_lock = await self._acquire_activity(
+                    OLLAMA, model, time.monotonic() + load_wait_s()
+                )
+                if release is not None:
+                    end = self._begin_with_activity_lock(OLLAMA, model, activity_lock)
+                    activity_lock = None
+                    return release, end
+                try:
+                    async with self._client() as client:
+                        resident = await self._resident(client, base)
+                except Exception as e:
+                    logger.warning(
+                        "load_guard: could not recheck Ollama residency for %s; admitting: %s",
+                        model,
+                        e,
+                    )
+                    end = self._begin_with_activity_lock(OLLAMA, model, activity_lock)
+                    activity_lock = None
+                    return release, end
+                if lookup_model(resident, model) is not None:
+                    end = self._begin_with_activity_lock(OLLAMA, model, activity_lock)
+                    activity_lock = None
+                    return release, end
+                self._release_activity_lock(activity_lock)
+                activity_lock = None
+                release = await self.admit(base, model)
+        except BaseException:
+            if activity_lock is not None:
+                self._release_activity_lock(activity_lock)
+            if release is not None:
+                release()
+            raise
 
     async def _admit_ollama(
         self, base: str, model: str, deadline: float, held: list[_Release]

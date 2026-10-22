@@ -1799,6 +1799,60 @@ async def test_independent_guards_share_cold_load_and_active_model_accounting(mo
     release()
 
 
+async def test_unload_reservation_rechecks_residency_before_cross_worker_request(monkeypatch):
+    monkeypatch.setattr(lg, "_CEILING", 8 * GIB)
+    e = Engines(ollama={"idle": 4 * GIB}, tags={"idle": 4 * GIB, "oversized": 7 * GIB})
+    unloading = asyncio.Event()
+    finish_unload = asyncio.Event()
+    first_guard, second_guard = guard(e), guard(e)
+
+    class DelayedClient:
+        def __init__(self) -> None:
+            self.inner = httpx.AsyncClient(transport=e.transport())
+
+        async def __aenter__(self):
+            await self.inner.__aenter__()
+            return self
+
+        async def __aexit__(self, *args):
+            await self.inner.__aexit__(*args)
+
+        async def get(self, *args, **kwargs):
+            return await self.inner.get(*args, **kwargs)
+
+        async def post(self, url, *args, **kwargs):
+            if url.endswith("/api/generate"):
+                unloading.set()
+                await finish_unload.wait()
+            return await self.inner.post(url, *args, **kwargs)
+
+    first_guard._client = DelayedClient
+    lg.set_load_wait("2")
+    admission = asyncio.create_task(first_guard.admit(OLLAMA_URL, "oversized"))
+    await unloading.wait()
+
+    client = httpx.AsyncClient(transport=transport(e, second_guard))
+    request = asyncio.create_task(
+        client.post(
+            f"{OLLAMA_URL}/v1/chat/completions",
+            json={"model": "idle", "messages": [{"role": "user", "content": "hi"}]},
+        )
+    )
+    await settle()
+    stayed_waiting = not request.done()
+    finish_unload.set()
+
+    with pytest.raises(lg.LoadRefusedError):
+        await admission
+    response = await request
+    await client.aclose()
+
+    assert stayed_waiting
+    assert response.status_code == 200
+    assert e.ollama["idle"] > 0
+    assert e.chats == ["idle"]
+
+
 async def test_independent_guards_serialize_ollama_and_omlx_cold_loads(monkeypatch):
     monkeypatch.setattr(lg, "_CEILING", 8 * GIB)
     e = Engines(tags={"next": 4 * GIB}, omlx={"first": {"size": 4 * GIB}}, ceiling=8 * GIB)
@@ -1850,6 +1904,26 @@ async def test_cross_worker_lock_timeout_records_deadline_reason_and_wait(monkey
         release()
     assert metric_value(_REFUSALS, engine=OLLAMA, reason="deadline") == (before or 0) + 1
     assert wait_count(OLLAMA, "in_flight") == waits + 1
+
+
+async def test_model_operation_timeout_records_deadline_reason_and_wait():
+    e = Engines(ollama={"idle": GIB}, tags={"idle": GIB})
+    first_guard, second_guard = guard(e), guard(e)
+    operation = first_guard._reserve_activity(OLLAMA, "idle")
+    assert operation is not None
+    lg.set_load_wait("0.05")
+    before = metric_value(_REFUSALS, engine=OLLAMA, reason="deadline")
+    waits = wait_count(OLLAMA, "model_operation")
+
+    try:
+        with pytest.raises(lg.LoadRefusedError) as err:
+            await second_guard.admit_and_begin_ollama(OLLAMA_URL, "idle")
+        assert err.value.reason == "deadline"
+    finally:
+        first_guard._release_activity_lock(operation)
+
+    assert metric_value(_REFUSALS, engine=OLLAMA, reason="deadline") == (before or 0) + 1
+    assert wait_count(OLLAMA, "model_operation") == waits + 1
 
 
 async def test_unavailable_cross_worker_lock_records_coordination_reason(monkeypatch, tmp_path):
