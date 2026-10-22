@@ -894,7 +894,6 @@ async def _dispatch_non_streaming(
                     backend=backend,
                     body=body,
                     workspace_id=workspace_id,
-                    start_time=start_time,
                     primary_data=primary_data,
                     primary_model=resolved_model,
                 )

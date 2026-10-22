@@ -67,6 +67,21 @@ class PreselectOutcome:
     latency_ms: int
 
 
+def _recorded_preselect_response(model: str, response: httpx.Response) -> str:
+    """Count one served preselector call and return its raw answer text."""
+    from portal.platform.inference.router.power import (  # noqa: PLC0415
+        INTERNAL_PRESELECT_WORKSPACE,
+        _record_engine_call,
+    )
+
+    try:
+        body = response.json()
+    except Exception:
+        body = {}
+    _record_engine_call(model, INTERNAL_PRESELECT_WORKSPACE, body)
+    return str(body.get("response", "")) if isinstance(body, dict) else ""
+
+
 async def preselect(
     effective_tools: set[str],
     user_turn_content: str,
@@ -144,7 +159,7 @@ async def preselect(
 
         resp = await asyncio.wait_for(_guarded_generate(), timeout=_TIMEOUT_S)
         resp.raise_for_status()
-        raw_response = resp.json().get("response", "")
+        raw_response = _recorded_preselect_response(str(payload["model"]), resp)
 
         # Step 5: parse
         indices = parse_ranked_indices(raw_response, valid_max=len(tool_names_ordered))

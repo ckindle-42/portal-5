@@ -616,26 +616,28 @@ class TestOverviewDashboard:
         assert "portal_tokens_per_second" not in joined
         assert "Avg Tokens/sec (Aggregate)" not in titles
         assert (
-            "sum by(model) (rate(portal_decode_tokens_total[5m])) "
-            "/ sum by(model) (rate(portal_decode_seconds_total[5m]))"
+            'sum by(model) (rate(portal_decode_tokens_total{workspace!~"internal-.*"}[5m])) '
+            '/ sum by(model) (rate(portal_decode_seconds_total{workspace!~"internal-.*"}[5m]))'
         ) in exprs
         assert (
-            "sum by(model) (rate(portal_answer_tokens_total[5m])) "
-            "/ sum by(model) (rate(portal_answer_seconds_total[5m]))"
+            'sum by(model) (rate(portal_answer_tokens_total{workspace!~"internal-.*"}[5m])) '
+            '/ sum by(model) (rate(portal_answer_seconds_total{workspace!~"internal-.*"}[5m]))'
         ) in exprs
         assert (
-            "sum by(workspace) (rate(portal_decode_tokens_total[5m])) "
-            "/ sum by(workspace) (rate(portal_decode_seconds_total[5m]))"
+            'sum by(workspace) (rate(portal_decode_tokens_total{workspace!~"internal-.*"}[5m])) '
+            '/ sum by(workspace) (rate(portal_decode_seconds_total{workspace!~"internal-.*"}[5m]))'
         ) in exprs
         assert (
-            "sum by(workspace) (rate(portal_answer_tokens_total[5m])) "
-            "/ sum by(workspace) (rate(portal_answer_seconds_total[5m]))"
+            'sum by(workspace) (rate(portal_answer_tokens_total{workspace!~"internal-.*"}[5m])) '
+            '/ sum by(workspace) (rate(portal_answer_seconds_total{workspace!~"internal-.*"}[5m]))'
         ) in exprs
         assert (
-            "histogram_quantile(0.50, sum by(model, le) (rate(portal_ttft_seconds_bucket[5m])))"
+            "histogram_quantile(0.50, sum by(model, le) "
+            '(rate(portal_ttft_seconds_bucket{workspace!~"internal-.*"}[5m])))'
         ) in exprs
         assert (
-            "histogram_quantile(0.90, sum by(model, le) (rate(portal_ttft_seconds_bucket[5m])))"
+            "histogram_quantile(0.90, sum by(model, le) "
+            '(rate(portal_ttft_seconds_bucket{workspace!~"internal-.*"}[5m])))'
         ) in exprs
         speed = [expr for expr in exprs if "portal_decode_" in expr or "portal_answer_" in expr]
         assert speed

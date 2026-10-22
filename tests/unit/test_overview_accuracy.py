@@ -155,11 +155,35 @@ def test_session_totals_are_range_based() -> None:
     exprs = [target["expr"] for _, target in _targets()]
     assert "sum(increase(portal_requests_total[$__range]))" in exprs
     assert "sum(increase(portal_errors_total[$__range]))" in exprs
-    assert "topk(10, sum by(model) (increase(portal_requests_by_model_total[$__range])))" in exprs
-    assert "topk(10, sum by(model) (increase(portal_output_tokens_total[$__range])))" in exprs
+    assert (
+        "topk(10, sum by(model) (increase(portal_requests_by_model_total"
+        '{workspace!~"internal-.*"}[$__range])))' in exprs
+    )
+    assert (
+        "topk(10, sum by(model) (increase(portal_output_tokens_total"
+        '{workspace!~"internal-.*"}[$__range])))' in exprs
+    )
     # No panel may display a raw counter as a total.
     for expr in exprs:
         assert not re.fullmatch(r"sum\(portal_[a-z_]+_total\)", expr), expr
+
+
+def test_overview_excludes_internal_pipeline_traffic() -> None:
+    """Warmup, intent-router and tool-preselect calls are counted but not user traffic."""
+    engine_traffic = (
+        "portal_decode",
+        "portal_answer",
+        "portal_output_tokens",
+        "portal_input_tokens",
+    )
+    for panel, target in _targets():
+        expr = target["expr"]
+        if any(name in expr for name in engine_traffic) or re.search(
+            r"portal_(requests_by_model|ttft)_", expr
+        ):
+            assert 'workspace!~"internal-.*"' in expr, (
+                f"{panel['title']!r} mixes internal engine traffic into user metrics: {expr}"
+            )
 
 
 def test_retired_mlx_panels_and_queries_are_gone() -> None:

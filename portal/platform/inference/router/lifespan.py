@@ -26,7 +26,11 @@ from portal.platform.inference.cluster_backends import BackendRegistry
 from portal.platform.inference.load_guard import LoadGuard
 from portal.platform.inference.ollama_native import OllamaNativeTransport
 from portal.platform.inference.omlx_auth import OmlxKeyAuth
-from portal.platform.inference.router.power import _power_polling_loop
+from portal.platform.inference.router.power import (
+    INTERNAL_WARMUP_WORKSPACE,
+    _power_polling_loop,
+    _record_engine_call,
+)
 from portal.platform.inference.router.routing import (
     _LLM_ROUTER_ENABLED,
     _LLM_ROUTER_MODEL,
@@ -197,6 +201,13 @@ async def _warmup_auto_model(registry: BackendRegistry) -> None:
 
         resp = await _guarded_warmup()
         if resp.status_code == 200:
+            try:
+                warmup_body = resp.json()
+            except Exception:
+                warmup_body = {}
+            _record_engine_call(
+                str(warmup_payload["model"]), INTERNAL_WARMUP_WORKSPACE, warmup_body
+            )
             logger.info(
                 "Warmup complete: %s model '%s' pre-loaded",
                 backend.type,
