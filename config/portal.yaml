@@ -726,7 +726,7 @@ workspaces:
     # -ctx8k bakes the declared context_limit (8192); /v1 and native both ignore a
     # request-time num_ctx. The 2026-09-07 "creation failed" rollback was a case
     # mismatch — the tag exists as :q4_K_M-ctx8k (Ollama names are case-insensitive).
-    model_hint: hf.co/mradermacher/Huihui-Qwen3.6-35B-A3B-abliterated-GGUF:Q4_K_M-ctx8k
+    model_hint: hf.co/mradermacher/Huihui-Qwen3.6-35B-A3B-abliterated-GGUF:q4_K_M-ctx8k
     context_limit: 8192
     keep_alive: 10m
     temperature: 0.7
@@ -1109,7 +1109,7 @@ workspaces:
         name: 🔓 Portal Code (Uncensored)
         description: One-shot code generation with a tool-capable, lightly-aligned model — fewer content refusals than the filtered auto-coding lane. OmniCoder-2 9B (Qwen3.5-9B base, ~5.7GB, Apache 2.0, tools=True). Use for codegen the standard coder declines on policy grounds. [BENCH-GATED PROVISIONAL model_hint — not a default; promotion requires a passing GC/CC bench run and a separate operator promotion task.]
         # 2026-09-25: sampling set to the omnicoder card (by purpose); prior values + A/B: docs/TASK_SEAT_SAMPLING_AB_V1.md
-        model_hint: portal5/omnicoder2-9b:q4_k_m-ctx256k
+        model_hint: portal5/omnicoder2-9b:q4_K_M-ctx256k
         context_limit: 262144
         keep_alive: 10m
         temperature: 0.7

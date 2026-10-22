@@ -176,7 +176,7 @@ backends:
     supports_tools: true
   # 2026-09-07 fleet closeout: auto-general-uncensored promotion (refusal 1.0 vs 0.75 incumbent).
   # The tag exists (Ollama names are case-insensitive: installed as :q4_K_M-ctx8k).
-  - id: hf.co/mradermacher/Huihui-Qwen3.6-35B-A3B-abliterated-GGUF:Q4_K_M-ctx8k
+  - id: hf.co/mradermacher/Huihui-Qwen3.6-35B-A3B-abliterated-GGUF:q4_K_M-ctx8k
     supports_tools: true
   # V11 candidate intake (2026-06-30) — bench-only, PROMOTE_POLICY=confirm
   - id: hf.co/mradermacher/Qwen3.5-9B-Claude-4.6-HighIQ-THINKING-HERETIC-UNCENSORED-GGUF:Q4_K_M
@@ -446,7 +446,7 @@ backends:
     supports_tools: true
   # Full-native-context tag (262144) added 2026-08-26 for the codinguncensored
   # persona -- ctx8k was severely undersized for real opencode/agentic use.
-  - id: portal5/omnicoder2-9b:q4_k_m-ctx256k
+  - id: portal5/omnicoder2-9b:q4_K_M-ctx256k
     supports_tools: true
   # auto-coding::fast-repair hints this ctx32k tag. Until
   # 2026-09-25 only the base tag was registered (ollama-general), so the

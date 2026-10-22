@@ -96,24 +96,15 @@ def test_an_exact_binding_is_not_case_only():
     assert cmb.find_case_only([("src", "model_hint", "m:Q4_K_M")], live) == []
 
 
-def test_the_recorded_tags_flag_both_swap_uat_seats():
-    """Recorded /api/tags (2026-10-22): the two seats the swap UAT found differ only by case."""
+def test_the_uat_seats_are_not_case_only_after_the_config_fix():
+    """Recorded /api/tags (2026-10-22): the two seats the swap UAT had case-mismatched
+    now carry the served casing, and nothing is flagged any more."""
     live = {m["name"] for m in json.loads(_TAGS_FIXTURE.read_text())["models"]}
     bindings = [
         *cmb._workspace_bindings(cmb.REPO_ROOT),
         *cmb._variant_bindings(cmb.REPO_ROOT),
     ]
-    flagged = {(src, tag) for src, _field, tag, _served in cmb.find_case_only(bindings, live)}
-    assert flagged == {
-        (
-            "config/portal.yaml [auto-general-uncensored]",
-            "hf.co/mradermacher/Huihui-Qwen3.6-35B-A3B-abliterated-GGUF:Q4_K_M-ctx8k",
-        ),
-        (
-            "config/portal.yaml [auto-coding::uncensored]",
-            "portal5/omnicoder2-9b:q4_k_m-ctx256k",
-        ),
-    }
+    assert cmb.find_case_only(bindings, live) == []
 
 
 def test_collect_bindings_includes_compliance_roster_models(tmp_path):

@@ -1,8 +1,8 @@
 {
   "models": [
     {
-      "name": "portal5/omnicoder2-9b:Q4_K_M-ctx256k",
-      "model": "portal5/omnicoder2-9b:Q4_K_M-ctx256k",
+      "name": "portal5/omnicoder2-9b:q4_K_M-ctx256k",
+      "model": "portal5/omnicoder2-9b:q4_K_M-ctx256k",
       "size": 5629109769,
       "digest": "c8218cb9108a8485b79f9ef2c5f4c30ed396fb9e2c53ed4024e40b92c51e1cef"
     },

@@ -319,8 +319,9 @@ async def test_resident_model_is_never_gated():
 
 async def test_a_case_only_tag_difference_sizes_from_the_served_entry():
     # UAT 2026-10-22: config `:q4_k_m` vs Ollama `:Q4_K_M` — one model to Ollama.
-    served = "portal5/omnicoder2-9b:Q4_K_M-ctx256k"
-    configured = "portal5/omnicoder2-9b:q4_k_m-ctx256k"
+    # Post-fix the served tag is `:q4_K_M`; any case-only config variant still folds to it.
+    served = "portal5/omnicoder2-9b:q4_K_M-ctx256k"
+    configured = "portal5/omnicoder2-9b:Q4_K_M-ctx256k"
     e = Engines(tags={served: 6 * GIB}, ceiling=8 * GIB)  # 7.5 projected > 6 available
     g = guard(e)
     async with httpx.AsyncClient(transport=e.transport()) as client:
@@ -330,8 +331,8 @@ async def test_a_case_only_tag_difference_sizes_from_the_served_entry():
 
 
 async def test_a_case_only_resident_is_not_a_cold_load():
-    served = "portal5/omnicoder2-9b:Q4_K_M-ctx256k"
-    configured = "portal5/omnicoder2-9b:q4_k_m-ctx256k"
+    served = "portal5/omnicoder2-9b:q4_K_M-ctx256k"
+    configured = "portal5/omnicoder2-9b:Q4_K_M-ctx256k"
     e = Engines(ollama={served: 6 * GIB}, tags={served: 6 * GIB}, ceiling=8 * GIB)
     assert await guard(e).admit(OLLAMA_URL, configured) is None
 

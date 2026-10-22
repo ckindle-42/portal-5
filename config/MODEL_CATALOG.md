@@ -281,9 +281,9 @@ Both the `general` and `vision` group registrations in `config/backends.yaml` as
 
 `hf.co/mradermacher/Huihui-Qwen3.6-35B-A3B-abliterated-GGUF:Q4_K_M` is the mradermacher Q4_K_M (~20GB, MoE 3B active) of the huihui-ai abliteration of Qwen3.6-35B-A3B — a speed play leveraging 3B active parameters for fast decode. `config/backends.yaml` registers it in the `general` group only, with `supports_tools: false`. `config/portal.yaml` selects it as the `model_hint` for `bench-huihui-qwen36-35b-a3b`, whose description retains the vanch007 origin (the deleted HF repo this moved from; mradermacher hosts the same base as a confirmed Q4_K_M) and frames the lane as a speed comparison against `bench-huihui-qwen36-27b`. The model is bench-only; no production workspace pins it.
 
-### `hf.co/mradermacher/Huihui-Qwen3.6-35B-A3B-abliterated-GGUF:Q4_K_M-ctx8k`
+### `hf.co/mradermacher/Huihui-Qwen3.6-35B-A3B-abliterated-GGUF:q4_K_M-ctx8k`
 
-`hf.co/mradermacher/Huihui-Qwen3.6-35B-A3B-abliterated-GGUF:Q4_K_M-ctx8k` is the 8K-context derived tag (baked `PARAMETER num_ctx 8192` via apply-params). PROMOTED 2026-09-07 (fleet closeout): it is the `auto-general-uncensored` workspace `model_hint` on lane-instrument data — refusal-preservation 1.0 / 0% over-refusal vs the prior incumbent `huihui_ai/Qwen3.6-abliterated:27b-ctx8k` at 0.75 / 33%, at 4.3x throughput (55.6 vs 12.9 t/s), with the cross-domain judgment tradeoff (exact 0.87 vs 0.90) recorded (`refusal_preservation_probe_20260907T025849Z.json`, `judgment_probe_v6_20260907T034934Z.json`). `config/backends.yaml` registers it in `general` with `supports_tools: false`, matching the base tag.
+`hf.co/mradermacher/Huihui-Qwen3.6-35B-A3B-abliterated-GGUF:q4_K_M-ctx8k` is the 8K-context derived tag (baked `PARAMETER num_ctx 8192` via apply-params). PROMOTED 2026-09-07 (fleet closeout): it is the `auto-general-uncensored` workspace `model_hint` on lane-instrument data — refusal-preservation 1.0 / 0% over-refusal vs the prior incumbent `huihui_ai/Qwen3.6-abliterated:27b-ctx8k` at 0.75 / 33%, at 4.3x throughput (55.6 vs 12.9 t/s), with the cross-domain judgment tradeoff (exact 0.87 vs 0.90) recorded (`refusal_preservation_probe_20260907T025849Z.json`, `judgment_probe_v6_20260907T034934Z.json`). `config/backends.yaml` registers it in `general` with `supports_tools: false`, matching the base tag.
 
 ## Why
 
@@ -1688,9 +1688,9 @@ The ctx8k variant is the tag the auto-coding uncensored lane actually serves, so
 
 ---
 
-### `portal5/omnicoder2-9b:q4_k_m-ctx256k`
+### `portal5/omnicoder2-9b:q4_K_M-ctx256k`
 
-`portal5/omnicoder2-9b:q4_k_m-ctx256k` is the full-native-context derived tag of `omnicoder2:9b-q4_k_m`, added 2026-08-26 as the `model_hint` of the `auto-coding` `uncensored` variant, replacing the severely undersized `-ctx8k` tag. `config/backends.yaml` registers it in `group: coding` with `supports_tools: true`, verified live via a direct tool-call probe (clean `tool_calls`, correctly typed arguments). `PARAMETER num_ctx 262144` is baked in via `portal models apply-params`.
+`portal5/omnicoder2-9b:q4_K_M-ctx256k` is the full-native-context derived tag of `omnicoder2:9b-q4_k_m`, added 2026-08-26 as the `model_hint` of the `auto-coding` `uncensored` variant, replacing the severely undersized `-ctx8k` tag. `config/backends.yaml` registers it in `group: coding` with `supports_tools: true`, verified live via a direct tool-call probe (clean `tool_calls`, correctly typed arguments). `PARAMETER num_ctx 262144` is baked in via `portal models apply-params`.
 
 ## Why
 

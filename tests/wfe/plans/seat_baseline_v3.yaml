@@ -58,7 +58,7 @@ workloads:
     home: creative
     discovery: []
     arms:
-      incumbent: hf.co/mradermacher/Huihui-Qwen3.6-35B-A3B-abliterated-GGUF:Q4_K_M-ctx8k
+      incumbent: hf.co/mradermacher/Huihui-Qwen3.6-35B-A3B-abliterated-GGUF:q4_K_M-ctx8k
       challengers: []
   auto-compliance:
     tool_mode: sandbox  # sandbox-era suite (its tasks need file_read); production-mode measurement uses the family suites (root-fix Part 3)
