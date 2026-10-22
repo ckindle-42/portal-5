@@ -35,6 +35,7 @@ class FakePipeline:
         self.requests: list[dict[str, Any]] = []
         self.admin_requests: list[dict[str, Any]] = []
         self.traces: dict[str, dict[str, Any]] = {}
+        self.offered_tools_override: list[str] | None = None
         self._lock = threading.Lock()
         owner = self
 
@@ -75,6 +76,11 @@ class FakePipeline:
                             "requested": model,
                             "workspace": model,
                             "persona": None,
+                            "tools_offered": (
+                                owner.offered_tools_override
+                                if owner.offered_tools_override is not None
+                                else body.get("portal_bite_tools", [])
+                            ),
                             "backend": "fake",
                             "model": model,
                         }
