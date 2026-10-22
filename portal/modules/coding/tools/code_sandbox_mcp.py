@@ -544,12 +544,16 @@ import sys
 from pathlib import Path
 
 config = json.loads(Path("/runner-config.json").read_text(encoding="utf-8"))
-shutil.copytree("/input", "/work", dirs_exist_ok=True)
-for item in Path("/work").rglob("*"):
-    if not item.is_symlink():
-        os.chown(item, 65534, 65534)
+if os.getuid() != 65534 or os.getgid() != 65534:
+    raise RuntimeError("pytest runner must start as uid/gid 65534")
+for source in Path("/input").rglob("*"):
+    target = Path("/work") / source.relative_to("/input")
+    if source.is_dir():
+        target.mkdir(parents=True, exist_ok=True)
+    else:
+        target.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copyfile(source, target)
 Path("/tmp/pytest-home").mkdir(mode=0o700, exist_ok=True)
-os.chown("/tmp/pytest-home", 65534, 65534)
 command = [
     sys.executable,
     "-m",
@@ -575,11 +579,6 @@ environment = {
     "TMPDIR": "/tmp",
 }
 
-def drop_privileges():
-    os.setgroups([])
-    os.setgid(65534)
-    os.setuid(65534)
-
 timed_out = False
 with Path("/tmp/pytest-output").open("wb") as output:
     try:
@@ -591,7 +590,6 @@ with Path("/tmp/pytest-output").open("wb") as output:
             stderr=subprocess.STDOUT,
             timeout=config["timeout"],
             check=False,
-            preexec_fn=drop_privileges,
         )
         exit_code = completed.returncode
     except subprocess.TimeoutExpired:
@@ -681,6 +679,8 @@ async def _run_orchestration_pytest(payload: dict[str, Any]) -> dict[str, Any]:
             "--name",
             container_name,
             "--init",
+            "--user",
+            "65534:65534",
             "--network",
             "none",
             "--cpus",
