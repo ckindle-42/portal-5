@@ -1238,6 +1238,11 @@ defaults:
   health_check_interval: 15
   health_timeout: 3
   request_timeout: 300
+  # Hot-seat prefix-cache protection (P5-OMLX-PREFIX-CACHE-001): seconds after an
+  # oMLX model's last request during which the router steers a *different* oMLX
+  # model's request to another candidate rather than deep-resetting that seat.
+  # 0 = off (today's first-candidate order). Never applies to a pinned ?model=.
+  hot_seat_protect_s: 0
 embedding_candidates:
 - id: google/embeddinggemma-2
   notes: 'EmbeddingGemma 2 (740M total; 270M text backbone + selectable 170M vision / 300M audio encoders; Apache 2.0;

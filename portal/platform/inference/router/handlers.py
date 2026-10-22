@@ -25,7 +25,7 @@ from prometheus_client import generate_latest
 
 from portal.platform.inference.cluster_backends import BackendRegistry
 from portal.platform.inference.config import ollama_url
-from portal.platform.inference.router import no_answer
+from portal.platform.inference.router import no_answer, placement
 from portal.platform.inference.router.anthropic_compat import (
     anthropic_to_openai_body,
     openai_response_to_anthropic,
@@ -693,6 +693,14 @@ async def _resolve_request_route(
                 "Check config/backends.yaml."
             ),
         )
+
+    # Hot-seat prefix-cache protection (P5-OMLX-PREFIX-CACHE-001): advisory reorder, off by default.
+    candidates = placement.protect_hot_seat(
+        candidates,
+        workspace_id,
+        WORKSPACES.get(workspace_id, {}).get("model_hint", ""),
+        getattr(registry, "hot_seat_protect_s", 0.0),
+    )
 
     trace_span(
         "route.resolved",
