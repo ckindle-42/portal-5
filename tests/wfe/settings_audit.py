@@ -605,14 +605,19 @@ def _audit_thinking_unbounded(
         predict_limit = int(ws.get("predict_limit") or 0)
     except (TypeError, ValueError):
         predict_limit = 0
-    if predict_limit > 0:
+    thinking_budget = ws.get("thinking_budget")
+    if predict_limit > 0 or (
+        isinstance(thinking_budget, int)
+        and not isinstance(thinking_budget, bool)
+        and thinking_budget > 0
+    ):
         return
     field, value = budget
     _v(
         violations,
         ws_id,
         "thinking_unbounded",
-        f"think=true but no predict_limit; card documents {field}={value} tokens and reasoning shares predict_limit",
+        f"think=true but no predict_limit or thinking_budget; card documents {field}={value} tokens and reasoning shares predict_limit",
         "WARN",
     )
 

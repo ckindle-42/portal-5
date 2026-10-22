@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import json
 
+import portal.platform.inference.config as inference_config
 from portal.platform.inference.router.streaming import _exec_audit_event
 from tests.wfe import runner
 from tests.wfe.checkers import CheckContext, check_tool_grounded
@@ -28,6 +29,62 @@ def test_production_payload_requests_the_audit() -> None:
     assert payload["exec_audit"] is True
     _, plain, _ = runner._build_pipeline("auto-compliance", [], "text", {}, None, "default", True)
     assert "exec_audit" not in plain
+
+
+def test_pipeline_runner_forwards_thinking_budget() -> None:
+    _, payload, _ = runner._build_pipeline(
+        "auto-compliance",
+        [],
+        "text",
+        {"thinking_budget": 8192},
+        None,
+        "default",
+        True,
+    )
+
+    assert payload["thinking_budget"] == 8192
+
+
+def test_ollama_runner_maps_card_documented_budget_to_think_level(monkeypatch) -> None:
+    monkeypatch.setattr(runner, "ENGINE", "ollama")
+    monkeypatch.setattr(runner._model_cards, "card_thinking_level", lambda _model, _budget: "low")
+
+    payload = runner._build_v1(
+        "qwen3.8-test",
+        [],
+        "none",
+        {"thinking_budget": 8192},
+        "default",
+        False,
+    )
+
+    assert payload["think"] == "low"
+    assert "thinking_budget" not in payload
+
+
+def test_workspace_context_resolves_thinking_budget(tmp_path, monkeypatch) -> None:
+    config_dir = tmp_path / "config"
+    config_dir.mkdir()
+    (config_dir / "portal.yaml").write_text("workspaces: {}\n")
+    monkeypatch.setattr(runner, "REPO", tmp_path)
+    monkeypatch.setattr(inference_config, "load_bench_workspaces_raw", lambda _repo: {})
+    monkeypatch.setattr(inference_config, "load_persona_map", lambda **_kwargs: {})
+    monkeypatch.setattr(
+        runner,
+        "effective_workspace",
+        lambda _workspaces, _ws_id: {
+            "module": "general",
+            "model_hint": "test-model",
+            "thinking_budget": 8192,
+            "tools": [],
+        },
+    )
+    monkeypatch.setattr(runner, "harness_note", lambda *_args: "")
+    monkeypatch.setattr(runner, "production_tool_names", lambda _portal: [])
+
+    context = runner.workspace_context("test::deep")
+
+    assert context["sampling"]["thinking_budget"] == 8192
 
 
 def test_audit_event_becomes_the_rows_tool_log_and_grounds_the_answer() -> None:

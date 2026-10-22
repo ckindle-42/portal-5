@@ -25,6 +25,8 @@
 #                          should fit (settings_audit reasoning_budget_fit). Absent
 #                          when the card documents no number; the citing card text
 #                          lives in the comment above each field.
+#   thinking_budget_levels : card-documented think-level token limits; Ollama uses
+#                          the nearest level only when these limits are present.
 #   verified             : true only when source URL + date are recorded below
 #   harness_policy       : how the WFE harness must drive this family —
 #       think: 'default' | 'true' | 'false'  (api endpoint only; v1 has no knob)

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import re
+from functools import lru_cache
 from pathlib import Path
 from typing import Any
 
@@ -23,6 +24,7 @@ _SAMPLING_KEYS = frozenset(
 )
 
 
+@lru_cache(maxsize=1)
 def card_registry() -> dict[str, Any]:
     """Load the model-card expectations registry from the repository config."""
     if not _EXPECTATIONS_PATH.exists():
@@ -61,6 +63,32 @@ def card_entry(
         ):
             best = (key, entry or {})
     return best
+
+
+def card_thinking_level(
+    tag: str, budget: int, registry: dict[str, Any] | None = None
+) -> str | None:
+    """Choose the closest card-documented think level with a token budget."""
+    if isinstance(budget, bool) or not isinstance(budget, int) or budget < 1:
+        return None
+    hit = card_entry(tag, registry)
+    levels = hit[1].get("thinking_budget_levels") if hit else None
+    if not isinstance(levels, dict):
+        return None
+    candidates = [
+        (level, tokens)
+        for level, tokens in levels.items()
+        if isinstance(level, str)
+        and level
+        and isinstance(tokens, int)
+        and not isinstance(tokens, bool)
+        and tokens > 0
+    ]
+    return (
+        min(candidates, key=lambda item: (abs(item[1] - budget), item[1]))[0]
+        if candidates
+        else None
+    )
 
 
 def card_sampling(

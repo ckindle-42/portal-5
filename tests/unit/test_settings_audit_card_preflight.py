@@ -89,3 +89,13 @@ def test_explicit_predict_limit_or_missing_card_budget_is_clean() -> None:
     audit._audit_thinking_unbounded("other", {"think": True}, "uncatalogued-model", registry, rows)
 
     assert rows == []
+
+
+def test_thinking_budget_bounds_thinking_without_predict_limit() -> None:
+    rows: list[dict] = []
+
+    audit._audit_thinking_unbounded(
+        "seat", {"think": True, "thinking_budget": 8192}, "qwen3.8-test", _card(), rows
+    )
+
+    assert rows == []

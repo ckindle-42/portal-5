@@ -6,8 +6,13 @@ the key is always stripped from the outgoing body, and the two backends agree.
 """
 
 import importlib
+from types import SimpleNamespace
 
 import pytest
+
+from portal.platform.inference.model_cards import card_thinking_level
+from portal.platform.inference.ollama_native import to_native_request
+from portal.platform.inference.router import streaming
 
 val = importlib.import_module("portal.platform.inference.router.validation")
 
@@ -61,6 +66,73 @@ def test_no_effort_falls_back_to_predict_limit(monkeypatch):
     for inj in (val._inject_ollama_options, val._inject_omlx_options):
         out = inj({"messages": [], "stream": False}, "ws-test")
         assert out["max_tokens"] == 1234  # workspace default when no effort given
+
+
+def test_card_thinking_level_uses_nearest_documented_token_limit():
+    registry = {
+        "qwen3.8": {"thinking_budget_levels": {"low": 4096, "medium": 16384, "xhigh": 49152}}
+    }
+    assert card_thinking_level("qwen3.8-test", 5000, registry) == "low"
+    assert card_thinking_level("qwen3.8-test", 14000, registry) == "medium"
+    assert card_thinking_level("qwen3.8-test", 4096, {"qwen3.8": {}}) is None
+
+
+def test_omlx_injector_applies_workspace_budget_and_client_override(monkeypatch):
+    monkeypatch.setitem(val.WORKSPACES, "ws-test", {"thinking_budget": 16384})
+    default = val._inject_omlx_options({"messages": [], "stream": False}, "ws-test")
+    client = val._inject_omlx_options(
+        {"messages": [], "stream": False, "thinking_budget": 4096}, "ws-test"
+    )
+    assert default["thinking_budget"] == 16384
+    assert client["thinking_budget"] == 4096
+
+
+def test_ollama_injector_maps_client_budget_using_card_and_preserves_it_for_chain(monkeypatch):
+    registry = {
+        "qwen3.8": {"thinking_budget_levels": {"low": 4096, "medium": 16384, "xhigh": 49152}}
+    }
+    monkeypatch.setattr(
+        val,
+        "card_thinking_level",
+        lambda tag, budget: card_thinking_level(tag, budget, registry),
+    )
+    monkeypatch.setitem(
+        val.WORKSPACES,
+        "ws-test",
+        {"model_hint": "qwen3.8-test", "thinking_budget": 49152, "think": True},
+    )
+    request = {"model": "qwen3.8-test", "messages": [], "stream": False, "thinking_budget": 5000}
+    out = val._inject_ollama_options(request, "ws-test")
+    assert out["think"] == "low"
+    assert out["thinking_budget"] == 5000
+    assert request["thinking_budget"] == 5000
+
+
+def test_ollama_ignores_budget_without_card_mapping_and_logs(monkeypatch, caplog):
+    monkeypatch.setattr(val, "card_thinking_level", lambda _tag, _budget: None)
+    monkeypatch.setitem(val.WORKSPACES, "ws-test", {"model_hint": "uncatalogued-model"})
+    with caplog.at_level("DEBUG", logger=val.__name__):
+        out = val._inject_ollama_options(
+            {"model": "uncatalogued-model", "messages": [], "thinking_budget": 4096}, "ws-test"
+        )
+    native = to_native_request(out, can_think=True)
+    assert "thinking_budget" not in native
+    assert "Ignoring undocumented Ollama thinking_budget" in caplog.text
+
+
+@pytest.mark.anyio
+async def test_streaming_request_injects_workspace_budget(monkeypatch):
+    workspace_id = "ws-budget-stream"
+    monkeypatch.setitem(val.WORKSPACES, workspace_id, {"thinking_budget": 8192})
+    monkeypatch.setattr(streaming, "_model_supports_tools", lambda _model: False)
+    body, _, _, _ = await streaming._build_streaming_request(
+        {"messages": [], "stream": True, "portal_no_tools": True},
+        SimpleNamespace(type="omlx"),
+        "omlx-model",
+        workspace_id,
+        "",
+    )
+    assert body["thinking_budget"] == 8192
 
 
 # ── think:false must reach the backend in the form /v1 actually honours ──────
