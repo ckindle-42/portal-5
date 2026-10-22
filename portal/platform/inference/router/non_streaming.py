@@ -217,6 +217,17 @@ def _completion_body(resp: httpx.Response, workspace_id: str) -> dict[str, Any]:
     return data
 
 
+def _protect_failed_model(backend: Any, model: str) -> None:
+    """Keep a model that just failed out of eviction while another candidate is tried.
+
+    P-2: streaming protects the model a stream failed over from; the non-streamed
+    cascade used to leave it evictable, so load_guard could free the seat this request
+    would have retried into."""
+    from portal.platform.inference import load_guard
+
+    load_guard.protect_failover(getattr(backend, "type", ""), model)
+
+
 #: Keys the primary request carries for its own engine (Ollama native options,
 #: oMLX template kwargs, the think control). A chain hop must rebuild them for
 #: the backend that actually serves that hop.
@@ -1138,6 +1149,7 @@ async def _try_non_streaming(
             return result
         _raise_prefill_capacity_error(_prefill_refusal, _last_request_body)
         # Non-timeout failure (HTTP error, JSON parse, etc.) — cascade immediately.
+        _protect_failed_model(backend, target_model)
         logger.warning(
             "Backend %s failed for workspace=%s — trying next candidate",
             backend.id,
@@ -1186,4 +1198,5 @@ async def _try_non_streaming(
                 "Backend %s: engine unreachable or no model running — cascading to next candidate",
                 backend.id,
             )
+        _protect_failed_model(backend, target_model)
         return None
