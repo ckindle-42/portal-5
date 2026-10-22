@@ -2,6 +2,7 @@
 
 import subprocess
 import sys
+from argparse import Namespace
 from pathlib import Path
 
 import pytest
@@ -55,6 +56,62 @@ def test_default_screen_model_uses_the_variant_slug() -> None:
         preflight._default_screen_model("auto-coding::qwen38coder-dflash")
         == "opencode:portal/qwen38coder-dflash"
     )
+
+
+def test_config_repo_resolves_kit_persona_outside_seat_worktree(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    seat_repo = tmp_path / "seat"
+    config_repo = tmp_path / "main"
+    (config_repo / "config/personas").mkdir(parents=True)
+    (config_repo / "config/portal.yaml").write_text("workspaces: {}\n")
+    (config_repo / "config/personas/kit-seat.yaml").write_text(
+        "slug: kit-seat\nworkspace_model: auto-coding\nvariant: kit-seat\n"
+    )
+    observed: dict[str, object] = {}
+
+    def committed(repo: Path, _model: str) -> list[str]:
+        observed["harness_repo"] = repo
+        return []
+
+    def load_seat(repo: Path, workspace_id: str) -> tuple[dict, dict, dict]:
+        observed["load"] = (repo, workspace_id)
+        return {}, {}, {}
+
+    def served_engine(
+        repo: Path, workspace_id: str, _workspace: dict, _expected: str | None
+    ) -> list[str]:
+        observed["served"] = (repo, workspace_id)
+        return []
+
+    def audit_config_seats(**kwargs: object) -> dict[str, list[object]]:
+        observed["audit_repo"] = kwargs["repo"]
+        return {"violations": []}
+
+    monkeypatch.setattr(preflight, "_committed_opencode_model", committed)
+    monkeypatch.setattr(preflight, "_container_environment_issues", lambda _env: [])
+    monkeypatch.setattr(preflight, "_sidecar_issues", lambda *_args: [])
+    monkeypatch.setattr(preflight, "_load_seat", load_seat)
+    monkeypatch.setattr(preflight, "_served_engine", served_engine)
+    monkeypatch.setattr(preflight.settings_audit, "audit_config_seats", audit_config_seats)
+
+    args = Namespace(
+        repo=seat_repo,
+        config_repo=config_repo,
+        workspace="kit-seat",
+        model="opencode:portal/kit-seat",
+        expected_engine=None,
+        ollama_keep_alive=None,
+        ollama_sidecar_url=None,
+    )
+
+    assert preflight.preflight(args, environment={}) == []
+    assert observed == {
+        "harness_repo": seat_repo.resolve(),
+        "load": (config_repo.resolve(), "auto-coding::kit-seat"),
+        "served": (config_repo.resolve(), "auto-coding::kit-seat"),
+        "audit_repo": config_repo.resolve(),
+    }
 
 
 def test_committed_opencode_model_requires_a_clean_tracked_file(tmp_path: Path) -> None:
