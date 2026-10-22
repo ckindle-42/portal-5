@@ -178,7 +178,7 @@ any row's destination you disagree with.
 | `bench-qwen35-abliterated` | eval | `huihui_ai/qwen3.5-abliterated:9b` | yes | 0 | 0 | **bench** | bench config, not seeded |
 | `bench-omnicoder2` | eval | `omnicoder2:9b-q4_k_m` | yes | 0 | 0 | **bench** | bench config, not seeded |
 | `bench-qwen38-27b` | eval | `hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M` | yes | 0 | 0 | **bench** | bench config, not seeded |
-| `bench-qwen38-flash-next-reap288` | eval | `Qwen3.8-Flash-Next-REAP-288-MLX-4bit` | no | 0 | 0 | **bench** | bench config, not seeded |
+| `bench-qwen38-flash-next-reap288` | eval | `Qwen3.8-Flash-Next-REAP-288-MLX-4bit` | no | 0 | 0 | **bench** | removed 2026-10-21 |
 | `bench-nex-n25-mini-uncensored` | eval | `Nex-N2.5-mini-Uncensored-MLX-4bit` | no | 0 | 0 | **bench** | bench config, not seeded |
 | `bench-gemma4-26b-optiq` | eval | `gemma4:26b-a4b-it-q4_K_M` | yes | 0 | 0 | **bench** | bench config, not seeded |
 | `bench-huihui-qwen36-27b` | eval | `huihui_ai/Qwen3.6-abliterated:27b` | yes | 1 | 0 | **bench** | bench config, not seeded |
@@ -217,7 +217,7 @@ any row's destination you disagree with.
 | `codereviewassistant` | `auto-coding` | — | coding | PROMPT |
 | `codereviewer` | `auto-coding` | — | coding | PROMPT |
 | `codingagentic` | `auto-coding` | variant=laguna | coding | PROMPT on variant (variant=laguna) |
-| `codingreap288` | `auto-coding` | variant=reap288 | coding | PROMPT on variant (variant=reap288) |
+| `codingreap288` | `auto-coding` | variant=reap288 | coding | removed 2026-10-21 |
 | `codinguncensored` | `auto-coding` | variant=uncensored | coding | PROMPT on variant (variant=uncensored) |
 | `codinguncensoredagentic` | `auto-coding` | variant=uncensored-agentic | coding | PROMPT on variant (variant=uncensored-agentic) |
 | `creativecoder` | `auto-coding` | — | coding | PROMPT |

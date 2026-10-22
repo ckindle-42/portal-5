@@ -5052,17 +5052,17 @@
       "symlink_target": null,
       "logical_bytes": 73515834802,
       "required_action": "Verify checkpoint/draft purpose, serving/alias dependencies and recorded acceptance; close integrated or retained-for-purpose, or retire unneeded copy with shared-cache review.",
-      "final_disposition": "RETAINED_FOR_PURPOSE",
-      "decision_reason": "manual-only coding specialist (persona codingreap288; scripts/coder-reap288.sh)",
-      "purpose_or_replacement": "manual-only coding specialist (persona codingreap288; scripts/coder-reap288.sh)",
+      "final_disposition": "REMOVED_CLOSED",
+      "decision_reason": "stack-down-only; operator 2026-10-21",
+      "purpose_or_replacement": "removed 2026-10-21; weights deleted; no config seat",
       "evidence_refs": [
-        "portal_wiki canonical REAP-288 unit",
-        "config/personas/codingreap288.yaml"
+        "portal_wiki/canonical/unit-model-catalog-qwen3-8-flash-next-reap-288-mlx-4bit.md",
+        "config/MODEL_CATALOG.md"
       ],
       "closure_record_refs": [
         "docs/MODEL_FLEET_CLOSEOUT_20260906.CLOSEOUT.md#Qwen3.8-Flash-Next-REAP-288-MLX-4bit"
       ],
-      "closed_at": "2026-09-07",
+      "closed_at": "2026-10-21",
       "verified_storage_effect_bytes": null,
       "decision_question": null,
       "test_if_needed": null,

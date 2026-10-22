@@ -43,8 +43,9 @@ revert the losers. The decision covered three points:
   `auto-coding::uncensored`. Bench workspaces had the key dropped with no
   substitute.
 - The two Qwen3.8 coding seats (`::uncensored-fast`, `::reap288`) had no `think`
-  pin, so they were thinking natively. Both now have **`think: false`** plus the
-  card's **instruct** mode, as the project's evidence and history call for:
+  pin, so they were thinking natively. Both were then pinned **`think: false`**
+  plus the card's **instruct** mode. `::reap288` was removed 2026-10-21;
+  `::uncensored-fast` still carries that pin:
   - REAP-288's bench seat ran `think: false` on purpose ("code repair, not a
     reasoning task"). The flag was lost when it became a variant (`091682f1`).
   - The Qwen3.x default `<think>` loops or exhausts the token budget on lanes
@@ -122,8 +123,8 @@ new 20; nothing else about it changed.
 ## Rules (non-negotiable; from CLAUDE.md, memory, and the parent task)
 
 1. **One request in flight, one bench at a time.** Never run two campaigns or a
-   campaign beside UAT. Stack up (production-like), except arms that need the
-   stack down (REAP-288 IDE path).
+   campaign beside UAT. Stack up (production-like). The REAP-288 stack-down
+   IDE path was removed 2026-10-21.
 2. **Back up any checkpoint before clearing or overwriting it** (`cp` to a dated
    name first, unconditionally).
 3. **One seat → one campaign → one decision → one commit.** Never batch config
@@ -224,10 +225,10 @@ below and on the card entry's `behavioral_quirks` in
       126 rows: seat / `prior` / `seat-nothink`; dry-run verified). Run it in
       pipeline mode as campaign `s2_laguna_rerun_pipeline_v1` (the plan header
       has the command). Voids the old result.
-- [ ] **B2 think check: `auto-coding::uncensored-fast` (Ollama), `auto-coding::reap288` (oMLX, stack down: `./launch.sh coder-reap288 --warm-only`)**.
-      (REAP-288's production path is IDE → oMLX directly, not the pipeline, so
-      that one arm set runs in direct `WFE_ENGINE=omlx` mode: its real path.)
-      Both are pinned `think: false` with the instruct card (incumbent). Arms:
+- [ ] **B2 think check: `auto-coding::uncensored-fast` (Ollama).**
+      `auto-coding::reap288` was removed 2026-10-21 (stack-down-only; weights
+      deleted). Do not run `./launch.sh coder-reap288`.
+      uncensored-fast is pinned `think: false` with the instruct card (incumbent). Arms:
       - `prior` (the table's prior block, `think: false`);
       - `think: true` with the thinking card `{temperature: 1.0, top_p: 0.95, top_k: 20, min_p: 0.05, repeat_penalty: 1.05}`.
 

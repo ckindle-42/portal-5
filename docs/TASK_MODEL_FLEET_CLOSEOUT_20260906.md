@@ -63,7 +63,7 @@ Use this order:
 - **September judgment cohort:** consolidate scorer versions. Phi4 Q4 has 30 HTTP 500 errors and needs runtime diagnosis if still wanted. Earlier Granite4.2-30B Q8 and Granite4.1-8B Q8 captures need comparable rescoring or explicit exclusion. A score table alone does not decide the intended production role.
 - **Completed MoE coding trio:** 210 raw samples already exist. Decide current roles using those results and only the missing current-context/tool-flow evidence.
 - **Qwen3.8 GGUF/MTP/DFlash2:** separate checkpoints/runtime modes. Close each with its actual intended role; the GGUF judgment pass does not prove an acceleration mode's correctness or benefit.
-- **REAP-288:** recorded restriction against an auto default remains. Either retain for a precise bounded manual use with documented memory limits, or remove it if that use does not earn its ~68.5 GiB. Do not leave it indefinitely in a promotion queue.
+- **REAP-288:** removed 2026-10-21 (stack-down-only; weights deleted). Do not retain it or put it back on a promotion queue.
 - **CAD:** the August 27 partial is superseded. If a CAD candidate still has a plausible role, use a corrected gauntlet; otherwise close the candidate based on the lack of a desired role, not the invalidated score.
 - **Cascade-2:** recorded dropped/closed; retire stale task references. Do not reopen its canceled challenger run.
 - **OLMo:** older plans disagree. Resolve the explicit retention/role choice rather than treating either plan as a final current inventory instruction.

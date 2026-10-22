@@ -936,9 +936,6 @@ backends:
   # probe (clean tool_calls, correctly typed arguments).
   - id: Qwen3.8-27B-4bit
     supports_tools: true
-  # Qwen3.8-Flash-Next-REAP-288-MLX-4bit (bench/manual coding candidate
-  # 2026-09-02, TASK_OMLX_QWEN38FN_REAP288_BRINGUP_V1) was removed 2026-10-21:
-  # the operator deleted the weights. History in config/MODEL_CATALOG.md.
   priority: 10
   aliases:
     qwen3-coder:30b-a3b-q4_K_M-ctx256k: Qwen3-Coder-30B-A3B-Instruct-4bit
