@@ -504,6 +504,133 @@ def _audit_sampling_mode_fit(
     )
 
 
+def _think_value(value: object) -> bool | None:
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, str) and value.strip().lower() in {"true", "false"}:
+        return value.strip().lower() == "true"
+    return None
+
+
+def _variant_think_override(ws_id: str, workspaces: dict) -> tuple[bool, str]:
+    base_id, separator, variant_id = ws_id.partition("::")
+    variant = (
+        ((workspaces.get(base_id) or {}).get("variants") or {}).get(variant_id)
+        if separator
+        else None
+    )
+    if not isinstance(variant, dict):
+        return False, ""
+    reason = str(variant.get("think_override_reason") or "").strip()
+    return "think" in variant and bool(reason), reason
+
+
+def _audit_think_vs_card_policy(
+    ws_id: str, ws: dict, hint: str, registry: dict, workspaces: dict, violations: list[dict]
+) -> None:
+    think = _think_value(ws.get("think"))
+    hit = _expectations_for(hint, registry)
+    policy = _think_value((hit[1].get("harness_policy") or {}).get("think")) if hit else None
+    if think is None or policy is None or think == policy:
+        return
+    allowed, reason = _variant_think_override(ws_id, workspaces)
+    severity = "INFO" if allowed else "WARN"
+    detail = f"served think={str(think).lower()} differs from card harness_policy.think={str(policy).lower()}"
+    if allowed:
+        detail += f"; variant override: {reason}"
+    _v(violations, ws_id, "think_vs_card_policy", detail, severity)
+
+
+def _mode_think_state(name: str) -> bool | None:
+    normalized = name.lower().replace("-", "_")
+    if re.search(r"(^|_)(instruct|non_thinking|nothink|no_think)(_|$)", normalized):
+        return False
+    if re.search(r"(^|_)(thinking|think|reasoning)(_|$)", normalized):
+        return True
+    return None
+
+
+def _audit_sampling_mode_mismatch(
+    ws_id: str, ws: dict, hint: str, defaults: dict, registry: dict, violations: list[dict]
+) -> None:
+    think = _think_value(ws.get("think"))
+    hit = _expectations_for(hint, registry)
+    modes = (hit[1].get("recommended_sampling_modes") or {}) if hit else {}
+    if think is None or not modes:
+        return
+    from portal.platform.inference.router.validation import _resolve_sampling_values
+
+    declared = _resolve_sampling_values(ws)
+    served = {key: declared.get(key, defaults.get(key)) for key in set(defaults) | set(declared)}
+    mismatches = sorted(
+        name
+        for name, mode in modes.items()
+        if isinstance(mode, dict)
+        and _mode_think_state(name) is not None
+        and _mode_think_state(name) != think
+        and _matches_mode(served, mode)
+    )
+    if mismatches:
+        _v(
+            violations,
+            ws_id,
+            "sampling_mode_mismatch",
+            f"think={str(think).lower()} but served sampling matches card mode(s) {mismatches}",
+            "WARN",
+        )
+
+
+def _card_output_budget(entry: dict) -> tuple[str, int] | None:
+    for field in (
+        "recommended_max_output",
+        "recommended_thinking_budget",
+        "recommended_reasoning_budget",
+        "thinking_budget",
+        "reasoning_budget",
+    ):
+        value = entry.get(field)
+        if isinstance(value, int) and not isinstance(value, bool) and value > 0:
+            return field, value
+    return None
+
+
+def _audit_thinking_unbounded(
+    ws_id: str, ws: dict, hint: str, registry: dict, violations: list[dict]
+) -> None:
+    hit = _expectations_for(hint, registry)
+    budget = _card_output_budget(hit[1]) if hit else None
+    if _think_value(ws.get("think")) is not True or budget is None:
+        return
+    try:
+        predict_limit = int(ws.get("predict_limit") or 0)
+    except (TypeError, ValueError):
+        predict_limit = 0
+    if predict_limit > 0:
+        return
+    field, value = budget
+    _v(
+        violations,
+        ws_id,
+        "thinking_unbounded",
+        f"think=true but no predict_limit; card documents {field}={value} tokens and reasoning shares predict_limit",
+        "WARN",
+    )
+
+
+def _audit_card_conformance(
+    ws_id: str,
+    ws: dict,
+    hint: str,
+    defaults: dict,
+    registry: dict,
+    workspaces: dict,
+    violations: list[dict],
+) -> None:
+    _audit_think_vs_card_policy(ws_id, ws, hint, registry, workspaces, violations)
+    _audit_sampling_mode_mismatch(ws_id, ws, hint, defaults, registry, violations)
+    _audit_thinking_unbounded(ws_id, ws, hint, registry, violations)
+
+
 def _audit_context(ws_id, ws, hint, bp, tags, violations) -> None:
     declared_ctx = ws.get("context_limit")
     baked_ctx = bp.get("num_ctx")
@@ -1629,12 +1756,50 @@ def _audit_seat(ws_id: str, ws: dict, ctx: dict, violations: list[dict]) -> dict
         if engine == "ollama"
         else {**omlx_default_sampling(), **_omlx_entry_sampling(omlx_entry)}
     )
+    _audit_card_conformance(ws_id, ws, hint, defaults, registry, ctx["workspaces"], violations)
     _audit_sampling_mode_fit(ws_id, ws, hint, defaults, registry, violations)
     if hint in tags:
         _card_check(hint, baked_params(hint), registry, violations, ws_id)
         if ctx["behavioral"]:
             _behavioral_probes(hint, violations, ws_id)
     return {"engine": engine, "backend": backend_id, "model": served_id}
+
+
+def audit_config_seats(
+    repo: Path = REPO,
+    workspace_ids: list[str] | None = None,
+    include_bench: bool = False,
+) -> dict:
+    """Run card-conformance settings checks from repository files only."""
+    portal = yaml.safe_load((repo / "config/portal.yaml").read_text()) or {}
+    workspaces = dict(portal.get("workspaces") or {})
+    if include_bench:
+        workspaces.update(load_bench_workspaces_raw(repo))
+    enabled = None
+    if workspace_ids is None:
+        from portal.platform.wiki.adapters.modules import enabled_modules
+
+        enabled = set(enabled_modules())
+    seats, not_tested = classify_seats({"workspaces": workspaces}, enabled)
+    if workspace_ids is not None:
+        requested = set(workspace_ids)
+        seats = [(ws_id, ws) for ws_id, ws in seats if ws_id in requested]
+    missing = sorted(set(workspace_ids or []) - {ws_id for ws_id, _ in seats})
+    data = yaml.safe_load((repo / "config/model_card_expectations.yaml").read_text()) or {}
+    registry = data.get("models", {}) or {}
+    violations: list[dict] = []
+    for ws_id, ws in seats:
+        _audit_card_conformance(ws_id, ws, ws["model_hint"], {}, registry, workspaces, violations)
+    for ws_id in missing:
+        _v(violations, ws_id, "seat_not_found", "workspace is not a configured seat", "FAIL")
+    fails = [row for row in violations if row["severity"] == "FAIL"]
+    return {
+        "checked_workspaces": len(seats),
+        "violations": violations,
+        "not_tested": not_tested,
+        "fail_count": len(fails),
+        "warn_count": sum(row["severity"] == "WARN" for row in violations),
+    }
 
 
 def run_audit(behavioral: bool = False) -> dict:
@@ -1689,6 +1854,7 @@ def run_audit(behavioral: bool = False) -> dict:
         "tmap": tmap,
         "behavioral": behavioral,
         "unverifiable": unverifiable,
+        "workspaces": portal["workspaces"],
     }
     served_paths: dict[str, dict] = {}
     for ws_id, ws in served_seats:
@@ -1780,6 +1946,12 @@ def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--json", action="store_true")
     ap.add_argument(
+        "--config-only",
+        action="store_true",
+        help="run card-conformance checks from repository files without reading live services",
+    )
+    ap.add_argument("--workspace", nargs="+", default=None, help="seat ids for --config-only")
+    ap.add_argument(
         "--behavioral",
         action="store_true",
         help="add per-model template probes (system, JSON, tools, think; ~5 calls per tag)",
@@ -1796,7 +1968,15 @@ def main() -> int:
         help="audit arbitrary tags for template + stop conformance (no workspace, no probes)",
     )
     args = ap.parse_args()
-    if args.tags:
+    if args.config_only:
+        if args.tag or args.tags or args.behavioral:
+            ap.error("--config-only cannot be combined with model probes")
+        report = audit_config_seats(
+            workspace_ids=args.workspace, include_bench=args.workspace is not None
+        )
+    elif args.workspace:
+        ap.error("--workspace requires --config-only")
+    elif args.tags:
         report = audit_tags(args.tags)
     else:
         report = probe_tag(args.tag) if args.tag else run_audit(behavioral=args.behavioral)
@@ -1811,6 +1991,8 @@ def main() -> int:
         print(f"  think probe  : {report.get('think_probe', {}).get('verdict')}")
     elif "checked_tags" in report:
         print(f"WFE settings audit — {report['checked_tags']} tags (template + stop hygiene)")
+    elif "council_seats" not in report:
+        print(f"WFE settings audit — {report['checked_workspaces']} config-only seats")
     else:
         print(
             f"WFE settings audit — {report['checked_workspaces']} workspaces, "

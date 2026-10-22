@@ -22,13 +22,25 @@ tags:
 - tests
 - evaluation
 created_at: 1788792773.476087
-updated_at: 1792350560
+updated_at: 1792647618
 ---
 
 The WFE harness evaluates a model IN its workspace context — persona system
 prompt, declared tools, multi-turn — on real checkable work, because
 short-prompt instruments cannot diagnose real usability (operator doctrine
 2026-09-07; see docs/TASK_WORKSPACE_FITNESS_EVAL_V1.md).
+
+Seat-screen results are provisional until `scripts/seat_preflight.py` passes
+for the exact seat and worktree and the model-card conformance checks hold. In
+the screen runner, after the `opencode.jsonc` provider/model entry is committed
+and immediately before dispatch, run
+`uv run python scripts/seat_preflight.py --repo "$wt" --workspace "$slug" --model "opencode:portal/$slug"`.
+Pass `--expected-engine ollama|omlx` when the configured model identity does not
+uniquely identify its intended engine. When an Ollama sidecar URL is supplied,
+also pass its configured `--ollama-keep-alive` value; zero or an unknown value
+blocks the screen. The preflight's settings audit reads repository config only
+and blocks WARN/FAIL card-policy, sampling-mode, and missing-budget findings;
+it does not claim that a live backend or model is healthy.
 
 ## Why
 
