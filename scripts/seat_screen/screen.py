@@ -66,17 +66,19 @@ def _preflight(wt: Path, slug: str, output: Path) -> tuple[bool, list[str]]:
         "uv",
         "run",
         "--project",
-        str(wt),
+        str(ROOT),
         "python",
-        str(wt / "scripts/seat_preflight.py"),
+        str(ROOT / "scripts/seat_preflight.py"),
         "--repo",
         str(wt),
+        "--config-repo",
+        str(ROOT),
         "--workspace",
         slug,
         "--model",
         f"opencode:portal/{slug}",
     ]
-    result = _run(command, wt)
+    result = _run(command, ROOT)
     output.write_text(result.stdout + result.stderr)
     reasons = [
         line.removeprefix("BLOCK:").strip()

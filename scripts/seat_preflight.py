@@ -259,6 +259,7 @@ def _default_screen_model(workspace: str) -> str:
 
 def preflight(args: argparse.Namespace, environment: dict[str, str] | None = None) -> list[str]:
     repo = Path(args.repo).resolve()
+    config_repo = Path(getattr(args, "config_repo", None) or repo).resolve()
     environment = os.environ if environment is None else environment
     model = args.model or _default_screen_model(args.workspace)
     issues = _committed_opencode_model(repo, model)
@@ -266,11 +267,11 @@ def preflight(args: argparse.Namespace, environment: dict[str, str] | None = Non
     keep_alive = args.ollama_keep_alive or environment.get("OLLAMA_KEEP_ALIVE")
     issues.extend(_sidecar_issues(args.ollama_sidecar_url, keep_alive))
     try:
-        workspace_id = _resolve_workspace_id(repo, args.workspace)
-        ws, _workspaces, _portal = _load_seat(repo, workspace_id)
-        issues.extend(_served_engine(repo, workspace_id, ws, args.expected_engine))
+        workspace_id = _resolve_workspace_id(config_repo, args.workspace)
+        ws, _workspaces, _portal = _load_seat(config_repo, workspace_id)
+        issues.extend(_served_engine(config_repo, workspace_id, ws, args.expected_engine))
         report = settings_audit.audit_config_seats(
-            repo=repo, workspace_ids=[workspace_id], include_bench=True
+            repo=config_repo, workspace_ids=[workspace_id], include_bench=True
         )
         issues.extend(
             f"settings_audit {row['severity']} {row['kind']}: {row['detail']}"
@@ -285,6 +286,7 @@ def preflight(args: argparse.Namespace, environment: dict[str, str] | None = Non
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--repo", type=Path, default=ROOT)
+    parser.add_argument("--config-repo", type=Path)
     parser.add_argument(
         "--workspace", required=True, help="configured Portal workspace or variant id"
     )
