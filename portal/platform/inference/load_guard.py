@@ -145,8 +145,8 @@ class _Free:
 
     __slots__ = ("baseline", "size", "started")
 
-    def __init__(self, size: float) -> None:
-        self.baseline: float | None = None
+    def __init__(self, size: float, baseline: float | None = None) -> None:
+        self.baseline = baseline
         self.size = size
         self.started = time.monotonic()
 
@@ -442,12 +442,18 @@ class LoadGuard:
 
     async def _free_ollama(
         self, client: httpx.AsyncClient, base: str, resident: dict[str, int]
-    ) -> set[str]:
-        """Request unload of idle Ollama residents and return the requested model names."""
+    ) -> dict[str, _Free]:
+        """Request accepted unloads and retain their pre-unload headroom records."""
         idle = [n for n, size in resident.items() if size and self._ollama_idle({n: size}) > 0]
-        requested: set[str] = set()
+        requested: dict[str, _Free] = {}
         for name in idle:
             try:
+                status = await self._omlx_status(client)
+                baseline = (
+                    None
+                    if status is None
+                    else _budget_bytes(status) - float(status.get("current_model_memory") or 0)
+                )
                 response = await client.post(
                     f"{base}/api/generate", json={"model": name, "keep_alive": 0}, timeout=30.0
                 )
@@ -461,7 +467,7 @@ class LoadGuard:
                     response.status_code,
                 )
                 continue
-            requested.add(name)
+            requested[name] = _Free(float(self._ollama_size(name, resident[name])), baseline)
             logger.info("load_guard: unloaded idle Ollama model %s", name)
         return requested
 
@@ -601,12 +607,12 @@ class LoadGuard:
         idle: float,
         used: float,
         shortage: float,
-    ) -> tuple[bool, dict[str, float], set[str], float | None, float]:
+    ) -> tuple[bool, dict[str, float], dict[str, _Free], float | None, float]:
         omlx_freed, omlx_queued, after, synchronous = await self._free_omlx(client, shortage, used)
         if omlx_freed < shortage and idle:
             ollama_requested = await self._free_ollama(client, base, resident)
         else:
-            ollama_requested = set()
+            ollama_requested = {}
         did_free = bool(omlx_freed or omlx_queued or ollama_requested)
         return did_free, omlx_queued, ollama_requested, after, synchronous
 
@@ -626,14 +632,7 @@ class LoadGuard:
             client, base, resident, idle, used, shortage
         )
         pending_omlx.update(queued)
-        frees = {name: _Free(float(resident.get(name, 0))) for name in requested}
-        if frees:
-            status = await self._omlx_status(client)
-            if status is not None:
-                baseline = _budget_bytes(status) - float(status.get("current_model_memory") or 0)
-                for free in frees.values():
-                    free.baseline = baseline
-        pending_ollama.update(frees)
+        pending_ollama.update(requested)
         post = used if after is None else after
         return did_free, self._pending_baseline(used, after, synchronous), post
 

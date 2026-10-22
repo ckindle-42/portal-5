@@ -1452,3 +1452,15 @@ async def test_rejected_ollama_unload_is_not_counted_as_pending_free():
     assert "with nothing in flight to wait for" in str(err.value)
     assert "free of idle did not settle" not in str(err.value)
     assert e.ollama == {"idle": GIB}
+
+
+async def test_ollama_free_baseline_precedes_an_immediate_host_headroom_rise():
+    e = Engines(ollama={"idle": GIB}, tags={"m": 20 * GIB}, ceiling=8 * GIB)
+    e.hidden["idle"] = 10 * GIB
+    lg.set_load_wait("0.3")
+    started = lg.time.monotonic()
+    with pytest.raises(lg.LoadRefusedError) as err:
+        await guard(e).admit(OLLAMA_URL, "m")
+    assert lg.time.monotonic() - started < 0.1
+    assert "with nothing in flight to wait for" in str(err.value)
+    assert "free of idle did not settle" not in str(err.value)
