@@ -136,6 +136,24 @@ def test_committed_opencode_model_requires_a_clean_tracked_file(tmp_path: Path) 
     )
 
 
+def test_committed_opencode_model_accepts_the_older_provider_schema(tmp_path: Path) -> None:
+    # Seat worktrees at an older task base carry `provider.portal.options`, which
+    # opencode 2.0.x still accepts.
+    subprocess.run(["git", "init", "-q", str(tmp_path)], check=True)
+    subprocess.run(
+        ["git", "-C", str(tmp_path), "config", "user.email", "test@example.invalid"], check=True
+    )
+    subprocess.run(["git", "-C", str(tmp_path), "config", "user.name", "Test"], check=True)
+    (tmp_path / "opencode.jsonc").write_text(
+        '{"provider":{"portal":{"options":{"baseURL":"http://localhost:9099/v1"},'
+        '"models":{"seat":{}}}}}'
+    )
+    subprocess.run(["git", "-C", str(tmp_path), "add", "opencode.jsonc"], check=True)
+    subprocess.run(["git", "-C", str(tmp_path), "commit", "-qm", "seat"], check=True)
+
+    assert preflight._committed_opencode_model(tmp_path, "opencode:portal/seat") == []
+
+
 def test_omlx_alias_routed_to_ollama_is_blocked(monkeypatch: pytest.MonkeyPatch) -> None:
     workspace_id = "auto-coding::qwen38coder"
     workspace, _workspaces, _portal = preflight._load_seat(preflight.ROOT, workspace_id)

@@ -102,11 +102,14 @@ def _committed_opencode_model(repo: Path, model: str) -> list[str]:
     if not match:
         return [f"screen model {model!r} must use opencode:portal/<model-id>"]
     model_id = match.group(1)
-    provider = (config.get("providers") or {}).get("portal") or {}
+    # opencode 2.0.x accepts both schemas: `providers.<id>.settings` (current repo) and the
+    # older `provider.<id>.options` that seat worktrees at an older task base still carry.
+    provider = (config.get("providers") or config.get("provider") or {}).get("portal") or {}
     models = provider.get("models") or {}
     if model_id not in models:
-        reasons.append(f"committed opencode.jsonc has no providers.portal.models[{model_id!r}]")
-    if not isinstance(provider.get("settings"), dict) or not provider["settings"].get("baseURL"):
+        reasons.append(f"committed opencode.jsonc has no portal provider model {model_id!r}")
+    settings = provider.get("settings") or provider.get("options") or {}
+    if not isinstance(settings, dict) or not settings.get("baseURL"):
         reasons.append("committed opencode.jsonc has no Portal provider baseURL")
     return reasons
 
