@@ -1,51 +1,22 @@
 # Paste-ready variant blocks. Do not edit config/portal.yaml from this repo.
 # Paste under workspaces.auto-coding.variants (coding seats) or
 # workspaces.auto-spl.variants (Nano). New keys only — do not replace incumbents.
-# 2026-10-21 dense MLX re-screen: kit-qwen38-27b, kit-orcarouter, kit-huihui36
-# hints now name oMLX directory ids, and kit-qwen36-27b is new. Every re-screen
-# hint is a raw oMLX id registered on omlx-coding, so no hint can fall through
-# to an Ollama GGUF tag if an alias line is missed.
+# 2026-10-21 dense MLX re-screen: the Qwen3.8-27B and orcarouter hints now name
+# oMLX directory ids, and kit-qwen36-27b is new. Every re-screen hint is a raw oMLX
+# id registered on omlx-coding, so no hint can fall through to an Ollama GGUF tag
+# if an alias line is missed.
+# 2026-10-22 think A/B: the old think-on kit-qwen38-27b and kit-orcarouter seats are
+# gone from this kit — they warn think_vs_card_policy against the qwen3.8 harness
+# policy and the A/B replaces them. Qwen3.8-27B-oQ4e and orcarouter now arrive as
+# `-a` plus `-b`, and kit-huihui36 / kit-qwen36-27b gain the same pair. Arm A is
+# think off + card instruct sampling; arm B is think on + card thinking sampling +
+# thinking_budget. The pair is the measurement: paste both arms, run A then B.
 # After paste, regenerate derived routing on the live checkout. This worker did not.
 # Do not run scripts/omlx_seat_defaults.py except --dry-run. Applying it rewrites
 # ~/.omlx/model_settings.json and restarts oMLX. Qwen3.8-27B-oQ4e-mtp is already
 # shared by more than one production seat; another seat must stay on request sampling.
 
 # ---------- auto-coding.variants ----------
-
-kit-qwen38-27b:
-  name: "Kit heavy — Qwen3.8-27B oQ4e"
-  client_tools_only: true
-  description: "Test seat. oMLX Qwen3.8-27B-oQ4e-mtp by raw id (re-screen 2026-10-21). The id is already in live omlx-coding models, so engine is omlx and no Ollama alias can intercept. Directory mtime 2026-08-14, so label the run old oQe. Fallback target Qwen3.8-27B-4bit if the tool parser breaks."
-  model_hint: Qwen3.8-27B-oQ4e-mtp
-  context_limit: 131072
-  predict_limit: 32768
-  # qwen3.8 thinking arm. Unsloth Qwen3.8-27B-GGUF re-confirmed 2026-10-16
-  # (model_card_expectations.yaml qwen3.8.recommended_sampling_modes.thinking).
-  # recommended_sampling on that key is the instruct arm; this seat thinks, so it serves thinking.
-  temperature: 1.0
-  top_p: 0.95
-  top_k: 20
-  min_p: 0.0
-  presence_penalty: 0.0
-  repeat_penalty: 1.0
-  think: true
-  emits_reasoning: true
-  mode: agentic
-  guardrail: default
-  tools:
-    - explore_repository
-    - read_text_file
-    - list_directory
-    - search_files
-    - write_file
-    - execute_bash
-    - execute_python
-    - execute_nodejs
-    - sandbox_status
-    - read_word_document
-    - read_pdf
-    - remember
-    - recall
 
 kit-qwen36-35b:
   name: "Kit heavy — Qwen3.6-35B-A3B UD"
@@ -183,40 +154,6 @@ kit-kat:
     - remember
     - recall
 
-kit-orcarouter:
-  name: "Kit uncensored — orcarouter Qwen3.8-27B"
-  client_tools_only: true
-  description: "Test seat. Re-screen 2026-10-21 on oMLX: raw id Qwen3.8-27B-Uncensored-MLX-4bit (on disk and in live /v1/models). Replaces the Ollama GGUF seat. README front matter names base Qwen/Qwen3.8-27B; config.json does not name orcarouter, so lineage is per repo name, not a weight hash."
-  model_hint: Qwen3.8-27B-Uncensored-MLX-4bit
-  context_limit: 131072
-  predict_limit: 32768
-  # Same qwen3.8 thinking arm as kit-qwen38-27b. Unsloth first (2026-10-16),
-  # then the Qwen3.8 card. Think-off is a request override, not a second seat.
-  temperature: 1.0
-  top_p: 0.95
-  top_k: 20
-  min_p: 0.0
-  presence_penalty: 0.0
-  repeat_penalty: 1.0
-  think: true
-  emits_reasoning: true
-  mode: agentic
-  guardrail: uncensored
-  tools:
-    - explore_repository
-    - read_text_file
-    - list_directory
-    - search_files
-    - write_file
-    - execute_bash
-    - execute_python
-    - execute_nodejs
-    - sandbox_status
-    - read_word_document
-    - read_pdf
-    - remember
-    - recall
-
 kit-hauhaucs:
   name: "Kit uncensored — HauhauCS Qwen3.6-35B"
   client_tools_only: true
@@ -270,6 +207,322 @@ kit-huihui36:
   emits_reasoning: true
   mode: agentic
   guardrail: uncensored
+  tools:
+    - explore_repository
+    - read_text_file
+    - list_directory
+    - search_files
+    - write_file
+    - execute_bash
+    - execute_python
+    - execute_nodejs
+    - sandbox_status
+    - read_word_document
+    - read_pdf
+    - remember
+    - recall
+
+# ---------- auto-coding.variants — ARM A (think off) ----------
+# Think A/B: arm A is `think: false` + the card's INSTRUCT sampling on the same
+# four oMLX ids as arm B below. The pair is the measurement: run `-a` then `-b`
+# back to back per model. No `think_override_reason` needed: the qwen3.8 card
+# harness_policy.think is false (arm A matches the policy), and the qwen3.6
+# registry row carries no harness policy at all.
+
+kit-qwen38-27b-a:
+  name: "Kit think-A — Qwen3.8-27B oQ4e"
+  client_tools_only: true
+  description: "Test seat, think A/B arm A. oMLX Qwen3.8-27B-oQ4e-mtp by raw id; card instruct sampling with think off. Pair with kit-qwen38-27b-b."
+  model_hint: Qwen3.8-27B-oQ4e-mtp
+  context_limit: 131072
+  predict_limit: 32768
+  # arm A sampling: qwen3.8 instruct mode — 0.7 / 0.8 / 20 / min_p 0 /
+  # presence_penalty 1.5 / repetition_penalty 1.0. Source: unsloth
+  # Qwen3.8-27B-GGUF card (2026-09-24; re-confirmed 2026-10-16, presence 1.5
+  # "to curb endless loops"); registry row
+  # config/model_card_expectations.yaml qwen3.8.recommended_sampling_modes.instruct.
+  temperature: 0.7
+  top_p: 0.8
+  top_k: 20
+  min_p: 0.0
+  presence_penalty: 1.5
+  repeat_penalty: 1.0
+  think: false
+  mode: agentic
+  guardrail: default
+  tools:
+    - explore_repository
+    - read_text_file
+    - list_directory
+    - search_files
+    - write_file
+    - execute_bash
+    - execute_python
+    - execute_nodejs
+    - sandbox_status
+    - read_word_document
+    - read_pdf
+    - remember
+    - recall
+
+kit-orcarouter-a:
+  name: "Kit think-A — orcarouter Qwen3.8-27B"
+  client_tools_only: true
+  description: "Test seat, think A/B arm A. oMLX Qwen3.8-27B-Uncensored-MLX-4bit by raw id; card instruct sampling with think off. Pair with kit-orcarouter-b."
+  model_hint: Qwen3.8-27B-Uncensored-MLX-4bit
+  context_limit: 131072
+  predict_limit: 32768
+  # arm A sampling: qwen3.8 instruct mode, same row as kit-qwen38-27b-a
+  # (unsloth Qwen3.8-27B-GGUF card, re-confirmed 2026-10-16; lineage per repo
+  # name, not a weight hash).
+  temperature: 0.7
+  top_p: 0.8
+  top_k: 20
+  min_p: 0.0
+  presence_penalty: 1.5
+  repeat_penalty: 1.0
+  think: false
+  mode: agentic
+  guardrail: uncensored
+  tools:
+    - explore_repository
+    - read_text_file
+    - list_directory
+    - search_files
+    - write_file
+    - execute_bash
+    - execute_python
+    - execute_nodejs
+    - sandbox_status
+    - read_word_document
+    - read_pdf
+    - remember
+    - recall
+
+kit-huihui36-a:
+  name: "Kit think-A — huihui Qwen3.6-27B"
+  client_tools_only: true
+  description: "Test seat, think A/B arm A. oMLX Huihui-Qwen3.6-27B-abliterated-MLX-4bit by raw id; card instruct sampling with think off. Pair with kit-huihui36-b."
+  model_hint: Huihui-Qwen3.6-27B-abliterated-MLX-4bit
+  context_limit: 131072
+  predict_limit: 32768
+  # arm A sampling: qwen3.6 instruct mode — 0.7 / 0.8 / 20 / min_p 0 /
+  # presence_penalty 1.5 / repetition_penalty 1.0. Source: unsloth
+  # Qwen3.6-35B-A3B-GGUF (confirmed 2026-10-16); modes from the
+  # Qwen/Qwen3.6-27B README (2026-09-25); registry row
+  # config/model_card_expectations.yaml qwen3.6.recommended_sampling_modes.instruct.
+  temperature: 0.7
+  top_p: 0.8
+  top_k: 20
+  min_p: 0.0
+  presence_penalty: 1.5
+  repeat_penalty: 1.0
+  think: false
+  mode: agentic
+  guardrail: uncensored
+  tools:
+    - explore_repository
+    - read_text_file
+    - list_directory
+    - search_files
+    - write_file
+    - execute_bash
+    - execute_python
+    - execute_nodejs
+    - sandbox_status
+    - read_word_document
+    - read_pdf
+    - remember
+    - recall
+
+kit-qwen36-27b-a:
+  name: "Kit think-A — Qwen3.6-27B UD"
+  client_tools_only: true
+  description: "Test seat, think A/B arm A. oMLX unsloth--Qwen3.6-27B-UD-MLX-4bit by raw id; card instruct sampling with think off. Pair with kit-qwen36-27b-b."
+  model_hint: unsloth--Qwen3.6-27B-UD-MLX-4bit
+  context_limit: 131072
+  predict_limit: 32768
+  # arm A sampling: qwen3.6 instruct mode, same card row as kit-huihui36-a
+  # (unsloth Qwen3.6-35B-A3B-GGUF confirmed 2026-10-16; modes from the
+  # Qwen/Qwen3.6-27B README 2026-09-25).
+  temperature: 0.7
+  top_p: 0.8
+  top_k: 20
+  min_p: 0.0
+  presence_penalty: 1.5
+  repeat_penalty: 1.0
+  think: false
+  mode: agentic
+  guardrail: default
+  tools:
+    - explore_repository
+    - read_text_file
+    - list_directory
+    - search_files
+    - write_file
+    - execute_bash
+    - execute_python
+    - execute_nodejs
+    - sandbox_status
+    - read_word_document
+    - read_pdf
+    - remember
+    - recall
+
+# ---------- auto-coding.variants — ARM B (think on) ----------
+# Think A/B: these four are the `think: true` arm on the same four oMLX ids as
+# arm A, which lands beside them as `-a` (think off, card instruct sampling).
+# Do not merge an `-a` block into a `-b`: the pair is the measurement.
+# `thinking_budget` is the Pipeline per-seat field (plan/think-budget); it
+# forwards as oMLX's top-level `thinking_budget` request field — the server's own
+# wording: "maximum number of tokens allowed inside a thinking block".
+
+kit-qwen38-27b-b:
+  name: "Kit think-B — Qwen3.8-27B oQ4e"
+  client_tools_only: true
+  description: "Test seat, think A/B arm B. oMLX Qwen3.8-27B-oQ4e-mtp by raw id; card thinking sampling plus thinking_budget 8192. Pair with kit-qwen38-27b-a."
+  model_hint: Qwen3.8-27B-oQ4e-mtp
+  context_limit: 131072
+  predict_limit: 32768
+  # arm B sampling: qwen3.8 thinking mode — 1.0 / 0.95 / 20 / min_p 0 /
+  # presence_penalty 0.0 / repetition_penalty 1.0. Source: Qwen/Qwen3.8-27B
+  # README "Sampling Parameters" (read 2026-10-22); registry row
+  # config/model_card_expectations.yaml qwen3.8.recommended_sampling_modes.thinking.
+  temperature: 1.0
+  top_p: 0.95
+  top_k: 20
+  min_p: 0.0
+  presence_penalty: 0.0
+  repeat_penalty: 1.0
+  think: true
+  # Deliberate override of the qwen3.8 card harness_policy.think=false: thinking
+  # is the variable under test (settings_audit think_vs_card_policy -> INFO).
+  think_override_reason: think A/B arm B — thinking is the variable under test; qwen3.8 card thinking sampling with thinking_budget 8192
+  emits_reasoning: true
+  # No card documents a per-request thinking cap. Qwen3.8 "Adequate Output
+  # Length" gives separate reasoning 262,144 / final 131,072 as framework
+  # limits — 262,144 exceeds this seat's predict_limit 32768, so it bounds
+  # nothing. 8192 leaves 24,576 of 32768 for the answer.
+  thinking_budget: 8192
+  mode: agentic
+  guardrail: default
+  tools:
+    - explore_repository
+    - read_text_file
+    - list_directory
+    - search_files
+    - write_file
+    - execute_bash
+    - execute_python
+    - execute_nodejs
+    - sandbox_status
+    - read_word_document
+    - read_pdf
+    - remember
+    - recall
+
+kit-orcarouter-b:
+  name: "Kit think-B — orcarouter Qwen3.8-27B"
+  client_tools_only: true
+  description: "Test seat, think A/B arm B. oMLX Qwen3.8-27B-Uncensored-MLX-4bit by raw id; card thinking sampling plus thinking_budget 8192. Pair with kit-orcarouter-a."
+  model_hint: Qwen3.8-27B-Uncensored-MLX-4bit
+  context_limit: 131072
+  predict_limit: 32768
+  # arm B sampling: qwen3.8 thinking mode — same row as kit-qwen38-27b-b
+  # (Qwen/Qwen3.8-27B README, read 2026-10-22; lineage per repo name).
+  temperature: 1.0
+  top_p: 0.95
+  top_k: 20
+  min_p: 0.0
+  presence_penalty: 0.0
+  repeat_penalty: 1.0
+  think: true
+  # Same deliberate override as kit-qwen38-27b-b (qwen3.8 card harness policy).
+  think_override_reason: think A/B arm B — thinking is the variable under test; qwen3.8 card thinking sampling with thinking_budget 8192
+  emits_reasoning: true
+  # Same reasoning as kit-qwen38-27b-b: the card's 262,144 reasoning figure is a
+  # framework limit above predict_limit 32768, so 8192 is the budget under test.
+  thinking_budget: 8192
+  mode: agentic
+  guardrail: uncensored
+  tools:
+    - explore_repository
+    - read_text_file
+    - list_directory
+    - search_files
+    - write_file
+    - execute_bash
+    - execute_python
+    - execute_nodejs
+    - sandbox_status
+    - read_word_document
+    - read_pdf
+    - remember
+    - recall
+
+kit-huihui36-b:
+  name: "Kit think-B — huihui Qwen3.6-27B"
+  client_tools_only: true
+  description: "Test seat, think A/B arm B. oMLX Huihui-Qwen3.6-27B-abliterated-MLX-4bit by raw id; card precise-coding thinking sampling plus thinking_budget 8192. Pair with kit-huihui36-a."
+  model_hint: Huihui-Qwen3.6-27B-abliterated-MLX-4bit
+  context_limit: 131072
+  predict_limit: 32768
+  # arm B sampling: qwen3.6 thinking_precise_coding — 0.6 / 0.95 / 20 / min_p 0 /
+  # presence_penalty 0.0 / repetition_penalty 1.0. Source: Qwen/Qwen3.6-27B README
+  # "Thinking mode for precise coding tasks" (read 2026-10-22); registry row
+  # config/model_card_expectations.yaml qwen3.6.recommended_sampling_modes.
+  temperature: 0.6
+  top_p: 0.95
+  top_k: 20
+  min_p: 0.0
+  presence_penalty: 0.0
+  repeat_penalty: 1.0
+  think: true
+  emits_reasoning: true
+  # No card documents a per-request thinking cap: the Qwen3.6 thinking examples
+  # use max_tokens 81,920, and that is the whole output (reasoning + answer), not
+  # a thinking-only limit. 8192 leaves 24,576 of predict_limit 32768 for the answer.
+  thinking_budget: 8192
+  mode: agentic
+  guardrail: uncensored
+  tools:
+    - explore_repository
+    - read_text_file
+    - list_directory
+    - search_files
+    - write_file
+    - execute_bash
+    - execute_python
+    - execute_nodejs
+    - sandbox_status
+    - read_word_document
+    - read_pdf
+    - remember
+    - recall
+
+kit-qwen36-27b-b:
+  name: "Kit think-B — Qwen3.6-27B UD"
+  client_tools_only: true
+  description: "Test seat, think A/B arm B. oMLX unsloth--Qwen3.6-27B-UD-MLX-4bit by raw id; card precise-coding thinking sampling plus thinking_budget 8192. Pair with kit-qwen36-27b-a."
+  model_hint: unsloth--Qwen3.6-27B-UD-MLX-4bit
+  context_limit: 131072
+  predict_limit: 32768
+  # arm B sampling: qwen3.6 thinking_precise_coding, same card row as
+  # kit-huihui36-b (Qwen/Qwen3.6-27B README "Thinking mode for precise coding
+  # tasks", read 2026-10-22).
+  temperature: 0.6
+  top_p: 0.95
+  top_k: 20
+  min_p: 0.0
+  presence_penalty: 0.0
+  repeat_penalty: 1.0
+  think: true
+  emits_reasoning: true
+  # Same reasoning as kit-huihui36-b: no card thinking cap; the 81,920 figure is
+  # the full thinking-mode output limit. 8192 leaves 24,576 of 32768 for the answer.
+  thinking_budget: 8192
+  mode: agentic
+  guardrail: default
   tools:
     - explore_repository
     - read_text_file

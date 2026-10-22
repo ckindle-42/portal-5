@@ -43,7 +43,7 @@ omlx-coding-models:
 
 # --- under backends: id omlx-coding, aliases: ---
 # Existing alias hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M -> oQ4e stays in the live file.
-# 2026-10-21 re-screen: kit-qwen38-27b now hints the raw oMLX id, so the two
+# 2026-10-21 re-screen: the Qwen3.8-27B seat now hints the raw oMLX id, so the two
 # GGUF-tag aliases below are belt-and-braces, not the routing path. Keep them:
 # without them those tags would fall through to Ollama GGUF.
 omlx-coding-aliases:
