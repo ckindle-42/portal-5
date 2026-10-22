@@ -58,7 +58,7 @@ The rig prints its `receipt.json` path. Block notices go to a stub interface in 
 
 `scripts/gate_c_calculator.py` reads arm task receipts together with their `plan.json`, reports per-discipline/seat rates plus the WFE `rates_by_discipline` block, evaluates the fixed `pass_criteria`, and prints the task-level `calibration.minimum_pass_probability` floor. It never writes config. Planner and checker rows stay in the receipt. Gate C counts only final bite-suite rows (`passed`, `blocked`, `failed`). A `HARNESS_ERROR` row is excluded.
 
-The arm cannot run a live bite yet. Bite tools are not implemented outside `tests/wfe/runner.py`, and the fake pipeline echoes `portal_bite_tools` as `tools_offered`. A live suite row that expected those tools comes back `HARNESS_ERROR` and does not enter Gate C. Task-scoped client tools on `plan/bite-mount` are do-not-merge until the Daybreak security fixes land.
+The arm cannot run a live bite yet. Bite tools are not implemented outside `tests/wfe/runner.py`. The offline fake Pipeline scripts the engine, not the decisions: it enforces the production bearer auth, computes `tools_offered` with the production `apply_bite_tool_scope`, and serves the production SSE wire, so a suite row whose expected tools the trace does not offer comes back `HARNESS_ERROR` offline as it would live, and does not enter Gate C. Task-scoped client tools on `plan/bite-mount` are do-not-merge until the Daybreak security fixes land.
 
 Run a suite trial against one Pipeline workspace or persona. The default receipt directory is `get_generated_dir("tasks")/orchestration-bite-suite/`. Dry-run is the mode that completes without live bite tools.
 
