@@ -9,6 +9,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 import pytest
+import yaml
 
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "tests" / "unit"))
@@ -48,6 +49,22 @@ def _trial(
             api_key=auth.PIPELINE_API_KEY,
             dry_run=dry_run,
         )
+
+
+def test_detection_bite_pipeline_tools_are_auto_spl_workspace_tools() -> None:
+    config = yaml.safe_load((ROOT / "config/portal.yaml").read_text(encoding="utf-8"))
+    workspace_tools = set(config["workspaces"]["auto-spl"]["tools"])
+    cases = runner.load_suite(
+        ROOT / "portal/modules/orchestration/disciplines/detection_engineering/wfe_bites.yaml"
+    )
+    local_tools = set(runner.READ_TOOLS) | set(runner.ACTION_TOOLS)
+    pipeline_tools = {name for case in cases for name in case["tools"]} - local_tools
+    assert pipeline_tools <= workspace_tools
+
+
+def test_suite_engine_identifies_as_an_api_client() -> None:
+    engine = runner.SuiteEngine("bench-spark-x26", "http://localhost")
+    assert engine._headers()["X-Portal-Client"] == "api"
 
 
 def test_bite_dry_run_sends_one_sequential_request_per_case_and_repeat(tmp_path: Path):

@@ -170,6 +170,10 @@ def _exec_audit_event(calls: list[dict[str, Any]]) -> bytes:
     return f"data: {json.dumps(event)}\n\n".encode()
 
 
+def _exec_audit_frame(enabled: bool, calls: list[dict[str, Any]]) -> bytes | None:
+    return _exec_audit_event(calls) if enabled and calls else None
+
+
 def _content_chunk(request_id: str, workspace_id: str, text: str) -> bytes:
     """One OpenAI chunk carrying ``text`` as assistant content."""
     payload = {
@@ -1406,6 +1410,8 @@ async def _tool_loop_frames(
             # been suppressing (pipeline "owns dispatch" only for its own
             # tools) as the final response instead of auto-resolving them.
             if client_owned:
+                if audit_frame := _exec_audit_frame(_exec_audit, _exec_audit_calls):
+                    yield audit_frame
                 passthrough_chunk = {
                     "id": request_id,
                     "object": "chat.completion.chunk",

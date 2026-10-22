@@ -1503,6 +1503,9 @@ workspaces:
     - protocol_hierarchy
     - extract_fields
     - conversations
+    - mitre_technique_lookup
+    - spl_search_library
+    - spl_validate_syntax
     expose_to_owui: true
     # C3 growth guard: declared user-facing engine — coding variant: spl (SPL model)
     engine: true
