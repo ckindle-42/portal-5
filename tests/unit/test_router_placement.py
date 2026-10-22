@@ -264,10 +264,11 @@ class TestKnobWiring:
         )
         assert reg.hot_seat_protect_s == 900.0
 
-    def test_production_config_ships_disabled(self) -> None:
+    def test_production_config_enables_a_bounded_window(self) -> None:
+        # Operator enabled hot-seat placement on 2026-10-22; the window must stay finite.
         repo = Path(__file__).resolve().parents[2]
         reg = BackendRegistry(config_path=str(repo / "config" / "backends.yaml"))
-        assert reg.hot_seat_protect_s == 0.0
+        assert 0.0 < reg.hot_seat_protect_s <= 3600.0
 
     def test_registry_candidates_and_knob_drive_the_policy(self, tmp_path: Path) -> None:
         reg = BackendRegistry(
