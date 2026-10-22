@@ -43,6 +43,7 @@ class Engines:
         admin_login_code: int = 200,
         admin_models_code: int = 200,
         unload_status_code: int = 200,
+        ollama_unload_status_code: int = 200,
         unload_status_codes: dict[str, int] | None = None,
         unload_sticks: bool = False,
         actual_sizes: dict[str, float] | None = None,
@@ -71,6 +72,7 @@ class Engines:
         self.admin_login_code = admin_login_code
         self.admin_models_code = admin_models_code
         self.unload_status_code = unload_status_code
+        self.ollama_unload_status_code = ollama_unload_status_code
         self.unload_status_codes = dict(unload_status_codes or {})
         self.unload_sticks = unload_sticks
         self.actual_sizes = dict(actual_sizes or {})
@@ -133,6 +135,8 @@ class Engines:
         if path == "/api/generate":  # keep_alive 0 unloads; its real bytes return to oMLX
             model = json.loads(req.content)["model"]
             self.unload_calls[model] = self.unload_calls.get(model, 0) + 1
+            if self.ollama_unload_status_code >= 400:
+                return httpx.Response(self.ollama_unload_status_code, json={"error": "rejected"})
             if self.unload_sticks:
                 pass
             elif model in self.unload_removal_polls:
@@ -275,10 +279,11 @@ class Engines:
 
 
 @pytest.fixture(autouse=True)
-def _fast(monkeypatch):
+def _fast(monkeypatch, tmp_path):
     real_sleep = asyncio.sleep
     monkeypatch.setattr(lg.asyncio, "sleep", lambda s, _r=real_sleep: _r(0))
     monkeypatch.setattr(lg, "_POLL_S", 0.0)
+    monkeypatch.setattr(lg, "_PROCESS_LOCK_DIR", tmp_path / "guard-locks")
     monkeypatch.delenv("LOAD_GUARD", raising=False)
     lg.set_load_wait(None)
     monkeypatch.setattr(lg, "_WAIT_S", 0.0)  # refuse at once unless a test opts into waiting
@@ -1734,3 +1739,130 @@ async def test_a_queued_omlx_unload_that_never_settles_counts_reason_free_settle
         await guard(e).admit(OLLAMA_URL, "m")
     assert "free of idle did not settle" in str(err.value)
     assert metric_value(_REFUSALS, engine=OLLAMA, reason="free-settle") == (before or 0) + 1
+
+
+async def test_fixed_ceiling_does_not_double_count_idle_ollama_models(monkeypatch):
+    monkeypatch.setattr(lg, "_CEILING", 8 * GIB)
+    e = Engines(
+        ollama={"idle": 4 * GIB},
+        tags={"fits": 4 * GIB, "over": 6 * GIB},
+        ceiling=40 * GIB,
+    )
+    g = guard(e)
+
+    fits = await g.admit(OLLAMA_URL, "fits")
+    assert fits is not None
+    fits()
+    with pytest.raises(lg.LoadRefusedError):
+        await g.admit(OLLAMA_URL, "over")
+
+
+async def test_rejected_ollama_unload_is_not_counted_as_pending_free():
+    e = Engines(
+        ollama={"idle": GIB},
+        tags={"m": 20 * GIB},
+        ceiling=8 * GIB,
+        ollama_unload_status_code=500,
+    )
+    g = guard(e)
+    unloads = metric_value(_UNLOADS, engine=OLLAMA, reason="idle_ollama")
+    lg.set_load_wait("0.3")
+    started = lg.time.monotonic()
+    with pytest.raises(lg.LoadRefusedError) as err:
+        await g.admit(OLLAMA_URL, "m")
+    assert lg.time.monotonic() - started < 0.1
+    assert "with nothing in flight to wait for" in str(err.value)
+    assert "free of idle did not settle" not in str(err.value)
+    assert e.ollama == {"idle": GIB}
+    assert metric_value(_UNLOADS, engine=OLLAMA, reason="idle_ollama") == (unloads or 0.0)
+
+
+async def test_independent_guards_share_cold_load_and_active_model_accounting(monkeypatch):
+    monkeypatch.setattr(lg, "_CEILING", 8 * GIB)
+    e = Engines(tags={"first": 4 * GIB, "next": 4 * GIB}, ceiling=8 * GIB)
+    first_guard, second_guard = guard(e), guard(e)
+    lg.set_load_wait("1")
+
+    release = await first_guard.admit(OLLAMA_URL, "first")
+    assert release is not None
+    end = first_guard.begin(OLLAMA, "first")
+    second = asyncio.create_task(second_guard.admit(OLLAMA_URL, "next"))
+    await settle()
+    assert not second.done()
+
+    e.ollama["first"] = 4 * GIB
+    await settle()
+    with pytest.raises(lg.LoadRefusedError) as err:
+        await asyncio.wait_for(second, 1)
+    assert "nothing in flight to wait for" in str(err.value)
+    end()
+    release()
+
+
+async def test_independent_guards_serialize_ollama_and_omlx_cold_loads(monkeypatch):
+    monkeypatch.setattr(lg, "_CEILING", 8 * GIB)
+    e = Engines(tags={"next": 4 * GIB}, omlx={"first": {"size": 4 * GIB}}, ceiling=8 * GIB)
+    first_guard, second_guard = guard(e), guard(e)
+    lg.set_load_wait("1")
+
+    release = await first_guard.admit_omlx("first")
+    assert release is not None
+    end = first_guard.begin(OMLX, "first")
+    second = asyncio.create_task(second_guard.admit(OLLAMA_URL, "next"))
+    await settle()
+    assert not second.done()
+
+    e.omlx["first"]["loaded"] = True
+    await settle()
+    with pytest.raises(lg.LoadRefusedError):
+        await asyncio.wait_for(second, 1)
+    end()
+    release()
+
+
+async def test_ollama_free_baseline_precedes_an_immediate_host_headroom_rise():
+    e = Engines(ollama={"idle": GIB}, tags={"m": 20 * GIB}, ceiling=8 * GIB)
+    e.hidden["idle"] = 10 * GIB
+    lg.set_load_wait("0.3")
+    started = lg.time.monotonic()
+    with pytest.raises(lg.LoadRefusedError) as err:
+        await guard(e).admit(OLLAMA_URL, "m")
+    assert lg.time.monotonic() - started < 0.1
+    assert "with nothing in flight to wait for" in str(err.value)
+    assert "free of idle did not settle" not in str(err.value)
+
+
+async def test_cross_worker_lock_timeout_records_deadline_reason_and_wait(monkeypatch):
+    e = Engines(tags={"first": 4 * GIB, "next": 4 * GIB}, ceiling=40 * GIB)
+    first_guard, second_guard = guard(e), guard(e)
+    lg.set_load_wait("30")
+    release = await first_guard.admit(OLLAMA_URL, "first")
+    assert release is not None
+
+    lg.set_load_wait("0.05")
+    before = metric_value(_REFUSALS, engine=OLLAMA, reason="deadline")
+    waits = wait_count(OLLAMA, "in_flight")
+    try:
+        with pytest.raises(lg.LoadRefusedError) as err:
+            await second_guard.admit(OLLAMA_URL, "next")
+        assert err.value.reason == "deadline"
+    finally:
+        release()
+    assert metric_value(_REFUSALS, engine=OLLAMA, reason="deadline") == (before or 0) + 1
+    assert wait_count(OLLAMA, "in_flight") == waits + 1
+
+
+async def test_unavailable_cross_worker_lock_records_coordination_reason(monkeypatch, tmp_path):
+    lock_path = tmp_path / "not-a-directory"
+    lock_path.write_text("x")
+    monkeypatch.setattr(lg, "_PROCESS_LOCK_DIR", lock_path)
+    before = metric_value(_REFUSALS, engine=OLLAMA, reason="coordination-unavailable")
+
+    with pytest.raises(lg.LoadRefusedError) as err:
+        await guard(Engines(tags={"m": GIB})).admit(OLLAMA_URL, "m")
+
+    assert err.value.reason == "coordination-unavailable"
+    assert (
+        metric_value(_REFUSALS, engine=OLLAMA, reason="coordination-unavailable")
+        == (before or 0) + 1
+    )
