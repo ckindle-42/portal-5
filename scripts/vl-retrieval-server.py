@@ -1,8 +1,7 @@
 """Portal 5 — Qwen3-VL retrieval server (embedding + rerank, text & image).
 
-One joint text+image space for the RAG stack's *retrieval* path. The shared text
-embedder (:8917) stays up for other subsystems (memory, the Bully ORG
-projection).
+One joint text+image space for the RAG stack's *retrieval* path. Text-only
+consumers (memory, the Bully ORG projection) use EmbeddingGemma 2 on :8946.
 
 Usage: python3 scripts/vl-retrieval-server.py --port 8942
 

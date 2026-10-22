@@ -8,7 +8,7 @@ stats. store.py is the coordination point for the outbox table itself
 (MASTER SS3: only store.py does SQL); this module calls the Store's public
 outbox_* API rather than touching sqlite3 directly.
 
-Failure semantics (I-4, critical): the embed service (:8917) unreachable ->
+Failure semantics (I-4, critical): the embed service unreachable ->
 recall unsatisfiable -> the hunt blocks honestly. There is no lexical
 fallback path here, ever -- that is the growth_loop failure mode this
 design explicitly rejects.
