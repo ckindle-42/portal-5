@@ -8,13 +8,20 @@ set to the main checkout. The seat worktree's copy of the script is not what run
 provider check accepts opencode 2.0.x `providers.<id>.settings` and the older
 `provider.<id>.options` schema a seat worktree at an older task base still carries. Either form
 must name the portal model and a `baseURL`. A blocked preflight appends a `preflight_blocked`
-row with its reasons to `seat_results.jsonl` and skips dispatch for that seat.
+row with its reasons to `seat_results.jsonl` and skips dispatch for that seat. Transient
+host-quiet blockers — pytest/xdist over `UAT_MAX_PYTEST_PROCESSES`, headroom under
+`UAT_MIN_HOST_HEADROOM_GIB`, and a live WFE/bench PID — are re-checked every
+`--quiet-poll-seconds` (default 30) until `--quiet-max-wait-seconds` (default 20 minutes).
+Each wait is logged. A card mismatch, an uncommitted `opencode.jsonc`, or the wrong engine
+fails that seat on the first check.
 
 `scripts/seat_preflight.py` applies the shared host-quiet gate before seat checks and prints a
 `host_quiet` receipt with start and end snapshots. It blocks below `UAT_MIN_HOST_HEADROOM_GIB`
 (default 1.5 GiB), on a live entry in `/tmp/portal5-memory-safety-test-pids`, or when detected
-pytest/xdist processes exceed `UAT_MAX_PYTEST_PROCESSES` (default 4). Dispatch lane jobs and
-Pipeline busy requests remain visible in the snapshots but do not block the screen.
+pytest/xdist processes exceed `UAT_MAX_PYTEST_PROCESSES` (default 4). Those three are transient
+and the screen waits them out. Other host-quiet blockers, and every config blocker, fail at once.
+Dispatch lane jobs and Pipeline busy requests remain visible in the snapshots but do not block
+the screen.
 
 ## Run a screen
 
@@ -46,7 +53,7 @@ Bytes after that block are not part of the comparison. A failed regeneration is
 `derived_check_error` and fails `PASS`. Other changed files remain in `stray_files` and fail
 `PASS`. `scripts/seat_preflight.py` also runs the host-quiet gate before the config checks and
 blocks the seat when the host is busy, unless `--force` is passed. The screen runner does not
-pass `--force`.
+pass `--force`. It waits out transient host blockers before it records `preflight_blocked`.
 
 ## Apply or revert the kit
 

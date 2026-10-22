@@ -7,6 +7,8 @@ import os
 import re
 import shlex
 import subprocess
+import sys
+import time
 import urllib.error
 import urllib.request
 from datetime import UTC, datetime
@@ -18,6 +20,8 @@ MEMORY_PID_FILE = Path("/tmp/portal5-memory-safety-test-pids")
 ORCHESTRATE_ROOT = Path.home() / ".claude" / "orchestrate"
 DEFAULT_MIN_HEADROOM_GIB = 1.5
 DEFAULT_MAX_PYTEST_PROCESSES = 4
+DEFAULT_QUIET_POLL_S = 30.0
+DEFAULT_QUIET_MAX_WAIT_S = 20 * 60.0
 _ACTIVE_STATUSES = {"active", "in_progress", "in-progress", "pending", "queued", "running"}
 
 
@@ -426,3 +430,100 @@ def finish_run(context: dict[str, Any], pipeline_url: str, api_key: str) -> None
 
 def refusal(context: dict[str, Any]) -> str:
     return "refusing to start: " + "; ".join(context.get("blockers", []))
+
+
+def is_transient_blocker(reason: str) -> bool:
+    """True for host load that can clear: pytest count, headroom, or an active WFE run."""
+    text = reason.lower()
+    return (
+        "pytest/xdist" in text
+        or "host memory headroom" in text
+        or "wfe/bench" in text
+        or text.startswith("wfe ")
+    )
+
+
+def classify_blockers(reasons: list[str]) -> tuple[list[str], list[str]]:
+    """Split reasons into transient host load and permanent failures."""
+    transient: list[str] = []
+    permanent: list[str] = []
+    for reason in reasons:
+        if is_transient_blocker(reason):
+            transient.append(reason)
+        else:
+            permanent.append(reason)
+    return transient, permanent
+
+
+def quiet_delay(remaining_s: float, poll_s: float) -> float | None:
+    """Seconds to sleep, or None when the quiet wait should stop."""
+    if remaining_s <= 0 or poll_s <= 0:
+        return None
+    return min(poll_s, remaining_s)
+
+
+def format_quiet_wait(delay_s: float, reasons: list[str]) -> str:
+    """One log line for a single transient-blocker wait."""
+    detail = "; ".join(reasons)
+    return f"host-quiet waiting {delay_s:.0f}s for transient blocker(s): {detail}"
+
+
+def format_quiet_timeout(max_wait_s: float, reasons: list[str]) -> str:
+    """One log line when the transient-blocker wait expires."""
+    detail = "; ".join(reasons)
+    return f"host-quiet wait expired after {max_wait_s:.0f}s: {detail}"
+
+
+def _log_wait(message: str) -> None:
+    print(message, file=sys.stderr, flush=True)
+
+
+def _annotate_quiet(context: dict[str, Any], waits: list[dict[str, Any]]) -> dict[str, Any]:
+    reasons = [str(reason) for reason in context.get("blockers", [])]
+    transient, permanent = classify_blockers(reasons)
+    context["transient_blockers"] = transient
+    context["permanent_blockers"] = permanent
+    context["quiet_waits"] = waits
+    return context
+
+
+def wait_for_quiet(
+    pipeline_url: str,
+    api_key: str,
+    *,
+    force: bool = False,
+    poll_s: float = DEFAULT_QUIET_POLL_S,
+    max_wait_s: float = DEFAULT_QUIET_MAX_WAIT_S,
+) -> dict[str, Any]:
+    """Re-sample until transient blockers clear, the wait expires, or one is permanent."""
+    deadline = time.monotonic() + max(0.0, max_wait_s)
+    waits: list[dict[str, Any]] = []
+    while True:
+        context = _annotate_quiet(begin_run(pipeline_url, api_key, force=force), waits)
+        if context["allowed"] or context["permanent_blockers"] or force:
+            return context
+        delay = quiet_delay(deadline - time.monotonic(), poll_s)
+        if delay is None:
+            _log_wait(format_quiet_timeout(max_wait_s, context["transient_blockers"]))
+            return context
+        message = format_quiet_wait(delay, context["transient_blockers"])
+        _log_wait(message)
+        waits.append({"delay_s": delay, "blockers": list(context["transient_blockers"])})
+        time.sleep(delay)
+
+
+def start_run(
+    pipeline_url: str,
+    api_key: str,
+    *,
+    force: bool = False,
+    wait: bool = False,
+    poll_s: float = DEFAULT_QUIET_POLL_S,
+    max_wait_s: float = DEFAULT_QUIET_MAX_WAIT_S,
+) -> dict[str, Any]:
+    """Begin a run, optionally waiting out transient host blockers."""
+    if wait and not force:
+        return wait_for_quiet(
+            pipeline_url, api_key, force=force, poll_s=poll_s, max_wait_s=max_wait_s
+        )
+    return begin_run(pipeline_url, api_key, force=force)

@@ -177,6 +177,41 @@ def test_exit_code_never_treats_required_skips_as_success(receipt: dict, expecte
     assert acceptance._exit_code(receipt) == expected
 
 
+def test_run_live_wait_for_quiet_uses_the_shared_helper(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    seen = {}
+
+    def start(*_args, force=False, wait=False, poll_s=30, max_wait_s=1200):
+        seen.update(force=force, wait=wait, poll_s=poll_s, max_wait_s=max_wait_s)
+        return {
+            "allowed": False,
+            "force_requested": force,
+            "override_reason": None,
+            "blockers": ["WFE/bench run is running (pid 43): memory-safety PID file"],
+            "start": {},
+        }
+
+    monkeypatch.setattr(acceptance.host_quiet, "start_run", start)
+    monkeypatch.setattr(
+        acceptance.host_quiet, "finish_run", lambda record, *a: record.update(end={})
+    )
+
+    receipt = acceptance.run_live(
+        tmp_path,
+        "http://127.0.0.1:9099",
+        "key",
+        "fd",
+        "dd",
+        wait=True,
+        poll_s=15,
+        max_wait_s=60,
+    )
+
+    assert seen == {"force": False, "wait": True, "poll_s": 15, "max_wait_s": 60}
+    assert "memory-safety PID file" in receipt["blocked"]
+
+
 def test_run_live_refuses_while_wfe_is_active(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
     """Live mode fails closed before any request and does not touch config/portal.yaml."""
     portal_yaml = ROOT / "config" / "portal.yaml"

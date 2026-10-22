@@ -60,6 +60,10 @@ the main checkout. The seat worktree's copy of the script is not what runs.
 `--config-repo` is the checkout whose workspace, backend, and card config
 is audited. A blocked preflight appends a `preflight_blocked`
 row to `seat_results.jsonl` and does not dispatch.
+Transient host blockers (pytest/xdist over the cap, low or missing headroom, an active
+WFE/bench PID file) are re-checked by `screen.py` every 30 seconds until
+`--quiet-max-wait-seconds` (default 20 minutes). A card mismatch, an uncommitted
+`opencode.jsonc`, or the wrong engine fails that seat on the first check.
 `scripts/seat_preflight.py` runs host-quiet first (`scripts/host_quiet.py`;
 `--force` records an override and continues) and then checks the committed
 provider model. That check accepts opencode 2.0.x `providers.<id>.settings`

@@ -333,3 +333,34 @@ def test_main_refuses_busy_host_and_writes_start_end_snapshots(tmp_path, monkeyp
     assert report["shots"] == []
     assert report["host_quiet"]["start"]["headroom_gib"] == 4.0
     assert report["host_quiet"]["end"]["headroom_gib"] == 3.5
+
+
+def test_wait_for_quiet_flag_reaches_the_shared_helper(tmp_path, monkeypatch):
+    seen = {}
+
+    def start(url, key, force=False, wait=False, poll_s=30, max_wait_s=1200):
+        seen.update(wait=wait, poll_s=poll_s, max_wait_s=max_wait_s, url=url)
+        return {
+            "allowed": False,
+            "force_requested": force,
+            "override_reason": None,
+            "blockers": ["pytest/xdist process count 5 exceeds UAT_MAX_PYTEST_PROCESSES=4"],
+            "start": {"headroom_gib": 4.0},
+        }
+
+    monkeypatch.setattr(uat, "load_portal_config", _config)
+    monkeypatch.setattr(uat.host_quiet, "start_run", start)
+    monkeypatch.setattr(
+        uat.host_quiet, "finish_run", lambda record, *args: record.update(end={"headroom_gib": 3.0})
+    )
+    monkeypatch.setenv("PORTAL_DATA_ROOT", str(tmp_path))
+
+    assert (
+        uat.main(
+            ["--wait-for-quiet", "--quiet-poll-seconds", "15", "--quiet-max-wait-seconds", "90"]
+        )
+        == 1
+    )
+    assert seen["wait"] is True
+    assert seen["poll_s"] == 15
+    assert seen["max_wait_s"] == 90

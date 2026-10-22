@@ -48,7 +48,9 @@ modes without touching repo config.
 No runner exists, so run each tool with the environment it expects; output is
 current reality, not a record. Bench runs are gated by `execute_preflight`,
 not doc-baked counts. Live UAT, acceptance, and seat-screen preflight refuse a
-busy host via `scripts/host_quiet.py`; see
+busy host via `scripts/host_quiet.py`. A seat screen waits out transient pytest,
+headroom, and WFE blockers before skipping; the UAT and acceptance runners
+still refuse immediately unless `--wait-for-quiet` is set. See
 [[unit-known-limitations-host-measurement-contention]]. A seat screen runs
 that preflight from the main checkout with `--config-repo` pointed at the
 checkout; see [[unit-wfe-workspace-fitness]]. `scripts/orchestration_bite_suite.py`
