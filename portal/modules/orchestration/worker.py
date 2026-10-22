@@ -453,7 +453,7 @@ def _finish_response(
     )
     red_flags = set(finish.red_flags)
     output = finish.arguments.get("output") if finish.arguments is not None else None
-    finished, payload_flags = _validate_finish_args(bite, finish.arguments)
+    finished, payload_flags = _validate_finish_args(finish.arguments)
     red_flags.update(payload_flags)
     if _is_refusal(finish.content) or _is_refusal(output if isinstance(output, str) else ""):
         red_flags.add("refusal")
@@ -468,15 +468,16 @@ def _finish_response(
             _write_output(
                 _inside_task(task_dir / TASK_DATA_DIRECTORY, bite.output_path), bite, output
             )
-    transcript.append(
-        "result",
-        {
-            "finished": finished,
-            "red_flags": sorted(red_flags),
-            "tokens": finish.tokens,
-            "elapsed_seconds": elapsed,
-        },
-    )
+    result_record = {
+        "finished": finished,
+        "red_flags": sorted(red_flags),
+        "tokens": finish.tokens,
+        "elapsed_seconds": elapsed,
+        "worker_output_path": bite.output_path,
+    }
+    if finish.arguments is not None and "output_path" in finish.arguments:
+        result_record["ignored_model_output_path"] = finish.arguments["output_path"]
+    transcript.append("result", result_record)
     return WorkerResult(
         finished,
         output,
@@ -556,11 +557,9 @@ def _select_finish_call(calls: list[dict[str, Any]]) -> tuple[dict[str, Any] | N
     return call, set()
 
 
-def _validate_finish_args(bite: Bite, arguments: dict[str, Any] | None) -> tuple[bool, set[str]]:
+def _validate_finish_args(arguments: dict[str, Any] | None) -> tuple[bool, set[str]]:
     if arguments is None or "output" not in arguments:
         return False, {"missing_finish_output"}
-    if arguments.get("output_path", bite.output_path) != bite.output_path:
-        return False, {"invalid_finish_path"}
     return True, set()
 
 
@@ -637,11 +636,8 @@ def _finish_schema(bite: Bite) -> dict[str, Any]:
             "description": "Finish this bite with its checked output.",
             "parameters": {
                 "type": "object",
-                "properties": {
-                    "output": output_schema,
-                    "output_path": {"type": "string", "const": bite.output_path},
-                },
-                "required": ["output", "output_path"],
+                "properties": {"output": output_schema},
+                "required": ["output"],
                 "additionalProperties": False,
             },
         },
