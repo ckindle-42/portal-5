@@ -90,7 +90,10 @@ class TestHandlers:
         state = sup.SupervisorState()
         mock_lab = MagicMock()
         mock_lab._proxmox_mcp_call.return_value = {"ok": True}
-        with patch("scripts.bench_supervisor._import_lab_exec", return_value=mock_lab):
+        with (
+            patch("scripts.bench_supervisor._import_lab_exec", return_value=mock_lab),
+            patch("scripts.bench_supervisor.time.sleep"),
+        ):
             action = sup.handle_restart_lxc_112(state, "LXC down")
         assert action == "retry"
         mock_lab._proxmox_mcp_call.assert_called_once()

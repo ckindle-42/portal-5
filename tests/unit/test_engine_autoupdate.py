@@ -323,5 +323,9 @@ def test_omlx_prune_keeps_only_listed_kegs(monkeypatch, tmp_path):
     for v in ("0.6.4", "0.7.0", "0.7.1"):
         (tmp_path / v).mkdir()
     monkeypatch.setattr(eu, "OMLX_CELLAR", tmp_path)
+    # Hermetic: with the live com.portal5.omlx launchd service loaded on this
+    # host, the unpatched probe routes prune into the venv branch, which both
+    # skips the keg assertion and reaches the real ~/omlx-live venv artifacts.
+    monkeypatch.setattr(eu, "omlx_venv_active", lambda: False)
     eu.omlx_prune({"0.7.0", "0.7.1"})
     assert sorted(p.name for p in tmp_path.iterdir()) == ["0.7.0", "0.7.1"]

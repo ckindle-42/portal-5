@@ -20,7 +20,25 @@ REPO = Path(__file__).resolve().parent.parent.parent
 FIXTURE = REPO / "tests" / "fixtures" / "wiki_search_baseline.json"
 
 
-def test_all_baseline_queries_return_expected_top_hit():
+def _pin_search_corpus(monkeypatch) -> None:
+    """Rank against the real full-store corpus, computed once.
+
+    wiki_search re-reads every unit and re-derives every fact unit on each
+    call (~1.3s); the gates below call it once per baseline query. Pinning
+    both sources to their first computed value keeps the corpus identical
+    while dropping the repeated setup.
+    """
+    from portal.platform.wiki.adapters import seed_facts
+    from portal_wiki import mcp as wiki_mcp
+
+    units = wiki_mcp.load_all()
+    facts = seed_facts.derive_facts()
+    monkeypatch.setattr(wiki_mcp, "load_all", lambda: units)
+    monkeypatch.setattr(seed_facts, "derive_facts", lambda commit=None: facts)
+
+
+def test_all_baseline_queries_return_expected_top_hit(monkeypatch):
+    _pin_search_corpus(monkeypatch)
     baseline = json.loads(FIXTURE.read_text())
     assert baseline["queries"], "fixture must not be empty"
     for entry in baseline["queries"]:
@@ -43,8 +61,9 @@ def test_workspace_routing_demotes_test_section_unit():
     assert "unit-acceptance-s03_routing" not in ids[:2], ids
 
 
-def test_fixture_is_fresh_against_store():
+def test_fixture_is_fresh_against_store(monkeypatch):
     """The pinned top hits must match what search currently returns."""
+    _pin_search_corpus(monkeypatch)
     baseline = json.loads(FIXTURE.read_text())
     for entry in baseline["queries"]:
         result = wiki_search(entry["query"], top_k=1)

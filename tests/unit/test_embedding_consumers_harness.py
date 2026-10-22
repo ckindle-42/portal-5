@@ -78,10 +78,15 @@ async def test_reference_probes_run_offline_on_real_fixtures(
         # Real canonical units, bounded to keep the unit suite fast.
         import portal_wiki.mcp as wiki_mcp
         from portal.platform.wiki import store
+        from portal.platform.wiki.adapters import seed_facts
 
         subset = sorted(store.load_all(), key=lambda u: u.id)[:40]
         monkeypatch.setattr(store, "load_all", lambda: subset)
         monkeypatch.setattr(wiki_mcp, "load_all", lambda: subset)
+        # The incumbent re-derives every live fact unit per call (~1s each);
+        # the bounded fixture is authored units only, so pin the derived ones
+        # out for the duration of the probe.
+        monkeypatch.setattr(seed_facts, "derive_facts", lambda commit=None: [])
     ctx = fw.ProbeContext(client=BagOfWordsClient(), options={"wiki_sample": "20"})
     [res] = await fw.run([cid], ctx)
     assert res.status == fw.MEASURED, res.notes

@@ -23,9 +23,21 @@ class TestLabSetup:
 
 
 class TestLabReady:
-    def test_ready_runs_without_crash(self):
+    def test_ready_runs_without_crash(self, monkeypatch):
         from scripts.lab_ready import run_readiness
 
+        # Hermetic per this module's docstring: every probe fails fast instead
+        # of reaching real Docker/ssh/lab hosts, and the harness must still
+        # return a well-formed verdict over the whole check registry.
+        monkeypatch.setattr(
+            "subprocess.run",
+            lambda *a, **k: SimpleNamespace(returncode=1, stdout="", stderr=""),
+        )
+
+        def _unreachable(*a, **k):
+            raise OSError("unit tests do not probe the lab")
+
+        monkeypatch.setattr("socket.socket.connect", _unreachable)
         passed, results = run_readiness()
         assert isinstance(passed, bool)
         assert len(results) >= 5
