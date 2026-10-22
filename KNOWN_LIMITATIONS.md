@@ -1442,7 +1442,3 @@ tool-using lane, and the symptom looked like model weakness. Recording the proxy
 and a one-command probe, and failing a test when the alias returns, keeps the next shadow-shift
 from repeating it.
 <!-- /WIKI:GENERATED -->
-
-### Load guard: oMLX unload accounting can over-wait (2026-10-22)
-
-The load guard tracks an oMLX unload as pending until the oMLX memory counter drops, and sizes what an unload frees from the admin API's `actual_size`. oMLX moves its counter by the resident charge, not by that size, so in some splits (for example a pinned model still charged, or a counter that drops less than `actual_size`) a load that would fit waits out its admission deadline before refusing. Unloads oMLX starts on its own expose no signal at all. Five review rounds narrowed this (plan/guard-race, reviews REVIEW_GUARD_NIGHT through REVIEW_GUARD_FIX5); further changes wait on live UAT evidence.
