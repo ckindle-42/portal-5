@@ -429,18 +429,28 @@ models:
     verified: true
     source: "https://huggingface.co/zai-org/GLM-Z1-Rumination-32B-0414 (README inference code + config.json) (2026-10-21)"
     source_tier: "2 — vendor card (zai-org): the README's inference snippet AND its rumination function-call pipeline both sample at temperature 0.95 / top_p 0.7; the build provider (bartowski GGUF README) adds no sampling numbers."
-    # CONFLICT with lane policy, card wins (sampling authority order): the card's
-    # 0.95 sits above the general lane's 0.8 ceiling — glm-thinker serves it as a
-    # sanctioned sampling_card_over_lane seat.
+    # 0.95 sits above the general lane's 0.8 ceiling. No production seat serves this family; glm-thinker moved to glm-z1-32b.
     recommended_sampling: {temperature: 0.95, top_p: 0.7}
     max_context: 131072
-    # The card documents no model-level maximum output. Its function-call
-    # pipeline example budgets max_new_tokens 16384 per rumination turn — an
-    # evaluation-loop figure, not a documented cap, so recommended_max_output
-    # stays absent and reasoning_budget_fit does not apply.
-    tools: {pending_research: true}
-    prompt_contract: "Deep reasoning model with rumination (<think> blocks; the card's own pipeline strips </think>); config.json max_position_embeddings 131072. Integrates search/click/open/finish as an internal rumination protocol — generic function-calling unverified (backends has supports_tools: false)."
+    # Function-call example budgets max_new_tokens 16384 per rumination turn — an evaluation-loop figure, not a model cap, so recommended_max_output stays absent.
+    tools: false
+    prompt_contract: "Not a plain chat seat. Vendor tokenizer chat_template (and the bartowski GGUF / live Ollama tag) hardcodes a Chinese deep-research system prompt, drops role=system, and requires search/click/open/finish with at least 10 calls. {\"name\":\"finish\",\"arguments\":{}} ends research; the card's pipeline then generates once more for the report. supports_tools false is correct — the protocol is raw JSON text plus an observation role, not OpenAI tool calls. config.json max_position_embeddings 131072."
     harness_policy:
       think: "true"
       notes: "Reasoning model: it opens <think> by default; the card's guidance is do_sample at 0.95/0.7."
+
+  glm-z1-32b:
+    status: verified-card
+    verified: true
+    source: "https://huggingface.co/zai-org/GLM-Z1-32B-0414 (README sampling table + YaRN section) (2026-10-22)"
+    source_tier: "2 — vendor card (zai-org): temperature 0.6 / top_p 0.95 / top_k 40 / max_new_tokens 30000. The build provider (bartowski GGUF) adds no sampling numbers."
+    recommended_sampling: {temperature: 0.6, top_p: 0.95, top_k: 40}
+    # Served window: live glm4.context_length 32768. YaRN (original_max_position_embeddings 32768, factor 4 past 8192) is not enabled.
+    max_context: 32768
+    # Card max_new_tokens 30000 cannot sit beside a prompt in 32768. reasoning_budget_fit targets min(30000, 32768, window//2) = 16384; the glm-thinker seat serves that.
+    recommended_max_output: 30000
+    prompt_contract: "Plain deep-thinking chat. chat_template.jinja injects <think> and honors role=system; a tools list is rendered only when one is passed. Native window is 32768; YaRN past 8192 is not enabled. OpenAI tool_calls were not probed."
+    harness_policy:
+      think: "true"
+      notes: "Reasoning model: the card enforces thinking by injecting <think> on the first line via chat_template.jinja. Sample at 0.6 / 0.95 / top_k 40."
 
