@@ -334,12 +334,12 @@ class LoadGuard:
         tracked = sum(n for (engine, _), n in self._busy.items() if engine == OMLX)
         return int(st.get("active_requests") or 0) + int(st.get("waiting_requests") or 0) > tracked
 
-    async def _free_omlx(self, client: httpx.AsyncClient, want: float) -> tuple[float, bool]:
+    async def _free_omlx(self, client: httpx.AsyncClient, want: float) -> tuple[float, set[str]]:
         """Unload idle oMLX models and report completed bytes separately from queued work."""
         try:
             url, idle = await self._omlx_idle_models(client)
             freed = 0.0
-            queued = False
+            queued: set[str] = set()
             for m in idle:
                 if freed >= want:
                     break
@@ -348,19 +348,18 @@ class LoadGuard:
                     freed += float(m.get("actual_size") or m.get("estimated_size") or 0)
                     logger.info("load_guard: unloaded idle oMLX model %s", m["id"])
                 elif r.status_code == 202:
-                    queued = True
-                    break
+                    queued.add(m["id"])
             return freed, queued
         except Exception as e:
             logger.warning("load_guard: could not free oMLX memory: %s", e)
-            return 0.0, False
+            return 0.0, set()
 
     async def _free_ollama(
         self, client: httpx.AsyncClient, base: str, resident: dict[str, int]
-    ) -> int:
-        """Request unload of idle Ollama residents and return how many requests were sent."""
+    ) -> set[str]:
+        """Request unload of idle Ollama residents and return the requested model names."""
         idle = [n for n, size in resident.items() if size and self._ollama_idle({n: size}) > 0]
-        gone = 0
+        requested: set[str] = set()
         for name in idle:
             try:
                 await client.post(
@@ -369,9 +368,9 @@ class LoadGuard:
             except Exception as e:
                 logger.warning("load_guard: could not unload idle Ollama model %s: %s", name, e)
                 continue
-            gone += 1
+            requested.add(name)
             logger.info("load_guard: unloaded idle Ollama model %s", name)
-        return gone
+        return requested
 
     @staticmethod
     def _ollama_refusal(
@@ -447,6 +446,7 @@ class LoadGuard:
         headroom: float,
         idle: float,
         activity_seen: bool,
+        pending_unload: bool,
     ) -> tuple[_Release, bool]:
         remaining = deadline - time.monotonic()
         release()
@@ -462,7 +462,7 @@ class LoadGuard:
                 ) from None
         changing = bool(self._busy) or foreign_active
         activity_seen = activity_seen or changing
-        quiet = not activity_seen
+        quiet = not (activity_seen or pending_unload)
         remaining = deadline - time.monotonic()
         if remaining <= 0 or quiet:
             raise self._ollama_refusal(model, need, available, headroom, idle, quiet)
@@ -484,13 +484,25 @@ class LoadGuard:
         resident: dict[str, int],
         idle: float,
         shortage: float,
-    ) -> tuple[bool, bool]:
+    ) -> tuple[bool, set[str], set[str]]:
         omlx_freed, omlx_queued = await self._free_omlx(client, shortage)
         if omlx_freed:
-            return True, omlx_queued
-        if idle and await self._free_ollama(client, base, resident):
-            return True, True
-        return omlx_queued, omlx_queued
+            return True, omlx_queued, set()
+        if idle:
+            ollama_requested = await self._free_ollama(client, base, resident)
+            if ollama_requested:
+                return True, omlx_queued, ollama_requested
+        return bool(omlx_queued), omlx_queued, set()
+
+    async def _pending_omlx_unloads(self, client: httpx.AsyncClient, models: set[str]) -> set[str]:
+        if not models:
+            return set()
+        status = await self._omlx_status(client)
+        return {
+            model
+            for model in models
+            if (entry := _omlx_entry(status, model)) is not None and entry.get("loaded")
+        }
 
     # ── the cold-load lock ───────────────────────────────────────────────
 
@@ -579,6 +591,8 @@ class LoadGuard:
             held.append(release)
             free_attempted = False
             activity_seen = False
+            pending_omlx: set[str] = set()
+            pending_ollama: set[str] = set()
             try:
                 while True:
                     resident = await self._resident(client, base)
@@ -593,20 +607,27 @@ class LoadGuard:
                     available = headroom + idle - _MARGIN
                     if need > available and not free_attempted:
                         free_attempted = True
-                        freed_or_queued, unload_pending = await self._free_idle_memory(
+                        (
+                            freed_or_queued,
+                            queued_omlx,
+                            requested_ollama,
+                        ) = await self._free_idle_memory(
                             client, base, resident, idle, need - available
                         )
-                        activity_seen = activity_seen or unload_pending
+                        pending_omlx.update(queued_omlx)
+                        pending_ollama.update(requested_ollama)
                         if freed_or_queued:
                             continue
                     if need <= available:
                         break
+                    pending_ollama.intersection_update(resident)
+                    pending_omlx = await self._pending_omlx_unloads(client, pending_omlx)
                     release, loading_seen = await self._wait_if_omlx_loading(
                         client, model, deadline, release, held
                     )
                     if loading_seen:
                         continue
-                    next_release, activity_seen = await self._wait_if_ollama_capacity_may_change(
+                    release, activity_seen = await self._wait_if_ollama_capacity_may_change(
                         client,
                         model,
                         deadline,
@@ -617,8 +638,8 @@ class LoadGuard:
                         headroom,
                         idle,
                         activity_seen,
+                        bool(pending_omlx or pending_ollama),
                     )
-                    release = next_release
             except LoadRefusedError:
                 release()
                 raise

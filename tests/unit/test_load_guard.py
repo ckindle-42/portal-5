@@ -39,6 +39,7 @@ class Engines:
         api_status_code: int = 200,
         admin_login_code: int = 200,
         unload_status_code: int = 200,
+        unload_status_codes: dict[str, int] | None = None,
         unload_sticks: bool = False,
     ) -> None:
         self.ollama = dict(ollama or {})
@@ -55,6 +56,7 @@ class Engines:
         self.api_status_code = api_status_code
         self.admin_login_code = admin_login_code
         self.unload_status_code = unload_status_code
+        self.unload_status_codes = dict(unload_status_codes or {})
         self.unload_sticks = unload_sticks
         self.unloaded: list[str] = []
         self.unload_calls: dict[str, int] = {}
@@ -162,10 +164,11 @@ class Engines:
         if path.endswith("/unload"):
             name = path.split("/")[-2]
             self.unload_calls[name] = self.unload_calls.get(name, 0) + 1
-            if not self.unload_sticks:
+            status_code = self.unload_status_codes.get(name, self.unload_status_code)
+            if status_code == 200 and not self.unload_sticks:
                 self.omlx[name]["loaded"] = False
             self.unloaded.append(name)
-            return httpx.Response(self.unload_status_code, json={})
+            return httpx.Response(status_code, json={})
         if path == "/v1/chat/completions":  # oMLX chat
             model = json.loads(req.content)["model"]
             self.omlx.setdefault(model, {"size": 4 * GIB})["loaded"] = True
@@ -580,15 +583,45 @@ async def test_sticky_unload_is_not_retried_after_admission_deadline(engine):
     assert e.unload_calls["idle"] == 1
 
 
-async def test_own_unload_settle_wait_respects_admission_deadline():
+async def test_ollama_unload_that_stays_short_refuses_when_quiet(monkeypatch):
     e = Engines(ollama={"idle": GIB}, tags={"m": 20 * GIB}, ceiling=8 * GIB)
+    g = guard(e)
     lg.set_load_wait("0.06")
+    waits: list[float] = []
+    wait_change = g._wait_change
+
+    async def track_wait(timeout: float) -> None:
+        waits.append(timeout)
+        await wait_change(timeout)
+
+    monkeypatch.setattr(g, "_wait_change", track_wait)
     started = lg.time.monotonic()
-    with pytest.raises(lg.LoadRefusedError):
-        await guard(e).admit(OLLAMA_URL, "m")
+    with pytest.raises(lg.LoadRefusedError) as err:
+        await g.admit(OLLAMA_URL, "m")
     elapsed = lg.time.monotonic() - started
     assert not e.ollama
-    assert 0.05 <= elapsed < 0.5
+    assert "with nothing in flight to wait for" in str(err.value)
+    assert not waits
+    assert elapsed < 0.05
+
+
+async def test_queued_omlx_unload_does_not_stop_idle_lru_walk():
+    e = Engines(
+        tags={"m": 25 * GIB},
+        omlx={
+            "small": {"size": 2 * GIB, "loaded": True, "last": 1},
+            "big": {"size": 30 * GIB, "loaded": True, "last": 2},
+        },
+        ceiling=40 * GIB,
+        unload_status_codes={"small": 202},
+    )
+    lg.set_load_wait("0.2")
+    release = await guard(e).admit(OLLAMA_URL, "m")
+    assert release is not None
+    assert list(e.unload_calls) == ["small", "big"]
+    assert e.omlx["small"]["loaded"]
+    assert not e.omlx["big"]["loaded"]
+    release()
 
 
 # ── freeing oMLX ──────────────────────────────────────────────────────────
