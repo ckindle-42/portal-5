@@ -188,7 +188,10 @@ def _check_minimum_samples(counts: dict[str, dict[str, dict[str, Any]]], minimum
 
 
 def _load_criteria(config_path: Path) -> dict[str, Any]:
-    raw = yaml.safe_load(config_path.read_text(encoding="utf-8")) or {}
+    try:
+        raw = yaml.safe_load(config_path.read_text(encoding="utf-8")) or {}
+    except (OSError, yaml.YAMLError) as exc:
+        raise ValueError(f"cannot read pass_criteria from {config_path}: {exc}") from exc
     disciplines = raw.get("disciplines") if isinstance(raw, dict) else None
     if not isinstance(disciplines, dict):
         raise ValueError(f"{config_path} does not define disciplines")

@@ -367,6 +367,23 @@ def test_cli_invalid_json(tmp_path: Path):
     assert main() == 3
 
 
+def test_cli_missing_config(tmp_path: Path):
+    """A missing arm config is a policy error (exit 3), not a traceback."""
+    from gate_c_calculator import main
+
+    receipt = tmp_path / "receipt.json"
+    receipt.write_text(json.dumps({"results": [_row("b1")]}))
+    sys.argv = [
+        "gate_c_calculator.py",
+        "--minimum-samples",
+        "1",
+        "--config",
+        str(tmp_path / "missing.yaml"),
+        str(receipt),
+    ]
+    assert main() == 3
+
+
 def test_cli_does_not_write_config(tmp_path: Path, capsys: pytest.CaptureFixture):
     """The calculator is read-only, including the arm config."""
     from gate_c_calculator import main
