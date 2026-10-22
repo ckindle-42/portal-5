@@ -201,6 +201,19 @@ async def test_alternative_workspace_is_a_loaded_model(monkeypatch: pytest.Monke
 
 
 @pytest.mark.anyio
+async def test_alternative_workspace_matches_a_case_only_resident(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(
+        no_answer,
+        "WORKSPACES",
+        {WS: {"model_hint": HINT}, "auto-fast": {"model_hint": "qwen3:Q4_K_M"}},
+    )
+    monkeypatch.setattr(bi, "loaded_models", _loaded({"qwen3:q4_k_m"}))
+    assert await no_answer.alternative_workspace(WS, HINT) == ("auto-fast", "qwen3:Q4_K_M")
+
+
+@pytest.mark.anyio
 async def test_no_alternative_when_nothing_else_is_loaded(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(
         no_answer, "WORKSPACES", {WS: {"model_hint": HINT}, "auto-fast": {"model_hint": "qwen3:8b"}}
