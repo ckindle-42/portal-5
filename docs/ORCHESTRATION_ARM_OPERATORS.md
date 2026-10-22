@@ -57,3 +57,15 @@ The rig prints its `receipt.json` path. Block notices go to a stub interface in 
 `scripts/orchestration_acceptance.py` is the operator-facing harness. `--dry-run` runs its scenarios against the same fake Pipeline; live mode needs `PIPELINE_API_KEY` plus both seat digests and re-checks WFE before every scenario. Its shared host-quiet preflight blocks below `UAT_MIN_HOST_HEADROOM_GIB` (default 1.5 GiB), on a live entry in `/tmp/portal5-memory-safety-test-pids`, or when detected pytest/xdist processes exceed `UAT_MAX_PYTEST_PROCESSES` (default 4). Dispatch lane jobs and Pipeline busy requests are recorded in `host_quiet.start/end` and in the receipt; lane jobs are listed under `other_heavy_processes`, busy requests under `busy_requests`, and neither blocks. It writes `acceptance_receipt.json` and `.md` under `<tasks dir>/arm-acceptance/` by default. It is a smoke/wiring harness, not Gate B/C exit evidence: scenarios that need controllable model output report `SKIP` with `required: true`, and `SKIP` exits non-zero.
 
 `scripts/gate_c_calculator.py` reads arm task receipts together with their `plan.json`, reports per-discipline/seat rates plus the WFE `rates_by_discipline` block, evaluates the fixed `pass_criteria`, and prints the task-level `calibration.minimum_pass_probability` floor. It never writes config.
+
+Run a live suite trial against one Pipeline workspace or persona. Planner and checker results stay in the receipt; Gate C counts only final bite-suite rows. The default receipt directory is `get_generated_dir("tasks")/orchestration-bite-suite/`.
+
+```bash
+uv run python scripts/orchestration_bite_suite.py \
+  --discipline detection-engineering --seat splunkdetectionauthor \
+  --suite bite --repeats 2
+uv run python scripts/orchestration_bite_suite.py \
+  --discipline test_fixing --seat auto-coding --suite all --dry-run
+```
+
+Live mode uses the shared host-quiet preflight and `PIPELINE_API_KEY`. Dry-run targets the fake Pipeline rig and marks the receipt as non-gating.
