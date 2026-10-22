@@ -1414,3 +1414,19 @@ async def test_slow_foreign_activity_probe_refuses_instead_of_failing_open(monke
     with pytest.raises(lg.LoadRefusedError):
         await g.admit(OLLAMA_URL, "next")
     assert not g._lock.locked()
+
+
+async def test_fixed_ceiling_does_not_double_count_idle_ollama_models(monkeypatch):
+    monkeypatch.setattr(lg, "_CEILING", 8 * GIB)
+    e = Engines(
+        ollama={"idle": 4 * GIB},
+        tags={"fits": 4 * GIB, "over": 6 * GIB},
+        ceiling=40 * GIB,
+    )
+    g = guard(e)
+
+    fits = await g.admit(OLLAMA_URL, "fits")
+    assert fits is not None
+    fits()
+    with pytest.raises(lg.LoadRefusedError):
+        await g.admit(OLLAMA_URL, "over")

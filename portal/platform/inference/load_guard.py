@@ -277,7 +277,7 @@ class LoadGuard:
         pinned = self._pinned()
         return float(
             sum(
-                size
+                self._ollama_size(name, size)
                 for name, size in resident.items()
                 if name != pinned
                 and name not in exclude
@@ -285,6 +285,14 @@ class LoadGuard:
                 and not self.busy(OLLAMA, name)
             )
         )
+
+    def _ollama_size(self, name: str, size: int) -> int:
+        return max(size, self._observed.get((OLLAMA, name), 0))
+
+    def _ollama_available(self, headroom: float, resident: dict[str, int], idle: float) -> float:
+        if _CEILING > 0:
+            headroom -= sum(self._ollama_size(name, size) for name, size in resident.items())
+        return headroom + idle
 
     async def _omlx_idle_models(
         self, client: httpx.AsyncClient, exclude: frozenset[str] | set[str] = frozenset()
@@ -811,7 +819,7 @@ class LoadGuard:
                     headroom, used = capacity
                     last_used, recheck = self._track_counter(used, last_used, recheck)
                     idle = self._ollama_idle(resident)
-                    available = headroom + idle - _MARGIN
+                    available = self._ollama_available(headroom, resident, idle) - _MARGIN
                     if need > available and not free_attempted:
                         free_attempted = True
                         freed_or_queued, pending_omlx_used, last_used = await self._free_for_load(
@@ -928,7 +936,11 @@ class LoadGuard:
             freeable_omlx = float(
                 sum(float(m.get("estimated_size") or m.get("actual_size") or 0) for m in idle)
             )
-        available = None if headroom is None else headroom + idle_ollama + freeable_omlx - _MARGIN
+        available = (
+            None
+            if headroom is None
+            else self._ollama_available(headroom, resident, idle_ollama) + freeable_omlx - _MARGIN
+        )
         busy_requests = sum(self._busy.values())
         return {
             "busy": busy_requests > 0,
