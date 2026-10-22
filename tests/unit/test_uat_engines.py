@@ -180,6 +180,32 @@ def test_alias_comparison_uses_route_model():
     assert why == "different-model != same-model"
 
 
+def test_alias_check_skips_when_target_has_no_route_model():
+    def unexpected_request(_request: httpx.Request) -> httpx.Response:
+        raise AssertionError("an alias shot should not run without a target route")
+
+    client = httpx.Client(transport=httpx.MockTransport(unexpected_request))
+    config = SimpleNamespace(
+        aliases={"old-name": {"to": "engine"}},
+        workspaces={"engine": SimpleNamespace(module="general", variants={})},
+    )
+    checks = uat.alias_checks(
+        client,
+        "http://pipeline.test",
+        "k",
+        config,
+        {"engine": {"route": "", "ok": False}},
+    )
+    assert checks == [
+        {
+            "name": "alias:old-name",
+            "ok": False,
+            "reason": "target engine did not produce a route model",
+            "skipped": True,
+        }
+    ]
+
+
 def test_empty_answer_fails_the_shot():
     def handler(_request: httpx.Request) -> httpx.Response:
         return httpx.Response(

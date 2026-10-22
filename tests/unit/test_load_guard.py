@@ -31,6 +31,9 @@ class Engines:
         ceiling: float = 40 * GIB,
         omlx_ok: bool = True,
         omlx_active: int = 0,
+        status_loading_polls: list[bool] | None = None,
+        admin_loading_polls: list[bool] | None = None,
+        settled_ceiling: float | None = None,
     ) -> None:
         self.ollama = dict(ollama or {})
         self.tags = dict(tags or {})
@@ -38,12 +41,22 @@ class Engines:
         self.ceiling = ceiling
         self.omlx_ok = omlx_ok
         self.omlx_active = omlx_active
+        self.status_loading_polls = list(status_loading_polls or [])
+        self.admin_loading_polls = list(admin_loading_polls or [])
+        self.settled_ceiling = settled_ceiling
         self.unloaded: list[str] = []
         self.chats: list[str] = []
         self.loading_polls: list[bool] = []
         #: Bytes an Ollama resident really holds beyond its /api/ps size (Ollama 0.40's
         #: llamacpp runner under-reports); they are missing from oMLX's ceiling too.
         self.hidden: dict[str, int] = {}
+
+    def _loading_poll(self, polls: list[bool]) -> bool:
+        loading = polls.pop(0) if polls else False
+        if not loading and self.settled_ceiling is not None:
+            self.ceiling = self.settled_ceiling
+            self.settled_ceiling = None
+        return loading
 
     def omlx_used(self) -> float:
         return float(sum(m["size"] for m in self.omlx.values() if m.get("loaded")))
@@ -73,7 +86,7 @@ class Engines:
         if path == "/v1/models/status":
             if not self.omlx_ok:
                 return httpx.Response(503)
-            loading = self.loading_polls.pop(0) if self.loading_polls else False
+            loading = self._loading_poll(self.loading_polls)
             return httpx.Response(
                 200,
                 json={
@@ -91,12 +104,19 @@ class Engines:
                 },
             )
         if path == "/api/status":
+            loading = self._loading_poll(self.status_loading_polls)
             return httpx.Response(
-                200, json={"active_requests": self.omlx_active, "waiting_requests": 0}
+                200,
+                json={
+                    "active_requests": self.omlx_active,
+                    "waiting_requests": 0,
+                    "models_loading": int(loading),
+                },
             )
         if path == "/admin/api/login":
             return httpx.Response(200, json={"success": True})
         if path == "/admin/api/models":
+            loading = self._loading_poll(self.admin_loading_polls)
             return httpx.Response(
                 200,
                 json=[
@@ -106,6 +126,7 @@ class Engines:
                         "pinned": v.get("pinned", False),
                         "actual_size": v["size"],
                         "last_access": v.get("last", 0),
+                        "is_loading": loading and not v.get("loaded"),
                     }
                     for k, v in self.omlx.items()
                 ],
@@ -223,8 +244,10 @@ async def test_busy_or_pinned_ollama_residents_are_never_unloaded():
 
 async def test_pinned_router_never_counts_as_evictable():
     e = Engines(ollama={"router": 30 * GIB}, tags={"qwen": 18 * GIB}, ceiling=8 * GIB)
+    started = lg.time.monotonic()
     with pytest.raises(lg.LoadRefusedError):
         await guard(e).admit(OLLAMA_URL, "qwen")
+    assert lg.time.monotonic() - started < 0.5
 
 
 async def test_queues_until_a_sibling_finishes_then_admits():
@@ -271,12 +294,46 @@ async def test_disabled(monkeypatch):
     assert await guard(e).admit(OLLAMA_URL, "m") is None
 
 
-async def test_waits_while_omlx_is_mid_load():
-    e = Engines(tags={"m": 4 * GIB}, omlx={"x": {"size": GIB}})
-    e.loading_polls = [True, True, False]
+@pytest.mark.parametrize("signal", ["v1", "status", "admin"])
+async def test_swap_in_progress_waits_then_admits(signal):
+    e = Engines(
+        tags={"m": int(17.52 * GIB)},
+        omlx={"swap": {"size": GIB, "loaded": False}},
+        ceiling=22.8 * GIB,
+        settled_ceiling=40 * GIB,
+    )
+    if signal == "v1":
+        e.loading_polls = [True, True, False]
+    elif signal == "status":
+        e.status_loading_polls = [True, False]
+    else:
+        e.admin_loading_polls = [True, False]
+    lg.set_load_wait("10")
     release = await guard(e).admit(OLLAMA_URL, "m")
-    assert release is not None and e.loading_polls == []
+    assert release is not None and e.settled_ceiling is None
     release()
+
+
+async def test_engine_transition_wait_respects_admission_deadline(monkeypatch):
+    e = Engines(tags={"m": 30 * GIB}, ceiling=8 * GIB, omlx_active=1)
+    lg.set_load_wait("0.06")
+    monkeypatch.setattr(lg, "_POLL_S", 0.01)
+    started = lg.time.monotonic()
+    with pytest.raises(lg.LoadRefusedError):
+        await guard(e).admit(OLLAMA_URL, "m")
+    elapsed = lg.time.monotonic() - started
+    assert 0.05 <= elapsed < 0.5
+
+
+async def test_own_unload_settle_wait_respects_admission_deadline():
+    e = Engines(ollama={"idle": GIB}, tags={"m": 20 * GIB}, ceiling=8 * GIB)
+    lg.set_load_wait("0.06")
+    started = lg.time.monotonic()
+    with pytest.raises(lg.LoadRefusedError):
+        await guard(e).admit(OLLAMA_URL, "m")
+    elapsed = lg.time.monotonic() - started
+    assert not e.ollama
+    assert 0.05 <= elapsed < 0.5
 
 
 # ── freeing oMLX ──────────────────────────────────────────────────────────

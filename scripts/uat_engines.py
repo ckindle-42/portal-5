@@ -583,6 +583,9 @@ def alias_checks(
         if target_shot is None:
             checks.append(make_check(name, False, f"target {target} was not shot"))
             continue
+        if not route_model(target_shot.get("route", "")):
+            checks.append(skip_check(name, f"target {target} did not produce a route model"))
+            continue
         alias_shot = fire_shot(client, base, key, alias_id)
         _note(f"alias {alias_id} {alias_shot['http_status']} {alias_shot['seconds']}s")
         ok, reason = compare_route_models(alias_shot["route"], target_shot["route"])
