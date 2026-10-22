@@ -83,6 +83,36 @@ async def _ollama_model_loaded(base_url: str, timeout_s: float) -> bool:
         return False
 
 
+async def loaded_models(timeout_s: float = 2.0) -> set[str]:
+    """Model names resident on the healthy engines right now — a request for one needs no load."""
+    from portal.platform.inference.router import validation
+
+    reg = validation.registry
+    if reg is None:
+        return set()
+
+    async def _resident(client: httpx.AsyncClient, backend: Any) -> set[str]:
+        base = backend.url.rstrip("/")
+        if backend.type == "omlx":
+            status = (await client.get(f"{base}/v1/models/status", auth=OmlxKeyAuth())).json()
+            return {str(m.get("id")) for m in status.get("models") or [] if m.get("loaded")}
+        ps = (await client.get(f"{base}/api/ps")).json().get("models") or []
+        return {str(m.get("name")) for m in ps if m.get("name")}
+
+    names: set[str] = set()
+    async with httpx.AsyncClient(timeout=timeout_s) as client:
+        results = await asyncio.gather(
+            *(_resident(client, backend) for backend in reg.list_healthy_backends()),
+            return_exceptions=True,
+        )
+    for result in results:
+        if isinstance(result, set):
+            names |= result
+        else:
+            logger.debug("could not list resident models: %s", result)
+    return names
+
+
 async def _omlx_engine_reachable(base_url: str, timeout_s: float) -> bool:
     """oMLX probe: engine reachable ⇒ treat as busy; unreachable ⇒ down.
 

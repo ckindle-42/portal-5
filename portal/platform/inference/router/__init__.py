@@ -27,6 +27,9 @@ monitor
 non_streaming
     Non-streaming request dispatch (mirrors streaming.py for
     ``stream=False`` completion requests).
+no_answer
+    Audience detection (chat UI vs program) and the reply a chat UI gets when
+    no candidate can serve a pinned model.
 power
     ``powermetrics`` polling, energy/cost accounting, usage recording.
 preinject

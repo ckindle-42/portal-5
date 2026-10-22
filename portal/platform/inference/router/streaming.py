@@ -41,6 +41,7 @@ from fastapi import HTTPException
 
 from portal.platform.inference.config import PersonaSpec
 from portal.platform.inference.load_guard import protect_failover
+from portal.platform.inference.router import no_answer
 from portal.platform.inference.router.backend_introspect import (
     _backend_type_for_url,
     free_ollama_for_omlx,
@@ -363,14 +364,55 @@ def _stream_error_frames(request_id: str, workspace_id: str, message: str) -> li
     return _error_terminal_frames(request_id, workspace_id, message)
 
 
-def _backend_error_frames(
+async def _backend_error_ending(
     status: int, raw: bytes, request_id: str, workspace_id: str
 ) -> list[bytes]:
-    """Preserve backend status for fallback; frame a standalone error as chat chunks."""
+    """A non-200 backend reply as the client sees it, by audience.
+
+    A fallback driver gets the envelope it cascades on, a malformed request its
+    technical ending (a retry cannot fix it), any other failure the chat
+    audience's notice or the program's technical ending.
+    """
     envelope = _backend_error_chunk(status, raw)
     if _CASCADE_ERRORS.get():
         return [envelope]
-    return _error_terminal_frames(request_id, workspace_id, _stream_error_detail(envelope))
+    detail = _stream_error_detail(envelope)
+    if _is_noncascadable_stream_error(status, envelope):
+        return _error_terminal_frames(request_id, workspace_id, detail)
+    if no_answer.chat_ui():
+        text = await no_answer.chat_reply(
+            workspace_id,
+            no_answer.workspace_model(workspace_id),
+            [detail],
+            path="streaming",
+        )
+        return _no_answer_frames(request_id, workspace_id, text)
+    no_answer.record_api(workspace_id, [detail], path="streaming")
+    return _error_terminal_frames(request_id, workspace_id, detail)
+
+
+def _no_answer_frames(request_id: str, workspace_id: str, text: str) -> list[bytes]:
+    """The chat audience's ending: the notice as answer content, one finish, one ``[DONE]``."""
+    return [
+        _content_chunk(request_id, workspace_id, text),
+        _completion_finish_chunk("stop"),
+        b"data: [DONE]\n\n",
+    ]
+
+
+async def _exhausted_frames(workspace_id: str, body: dict[str, Any], message: str) -> list[bytes]:
+    """How a stream with no candidate left ends, by audience."""
+    request_id = f"chatcmpl-{workspace_id}"
+    if not no_answer.chat_ui():
+        no_answer.record_api(workspace_id, [message], path="streaming")
+        return _error_terminal_frames(request_id, workspace_id, message)
+    text = await no_answer.chat_reply(
+        workspace_id,
+        no_answer.workspace_model(workspace_id, body),
+        [message],
+        path="streaming",
+    )
+    return _no_answer_frames(request_id, workspace_id, text)
 
 
 def _in_band_error_frames(
@@ -935,7 +977,7 @@ async def _tool_loop_frames(
                             current_body,
                             _backend_type_for_url(backend_url) == "omlx",
                         )
-                        for _f in _backend_error_frames(
+                        for _f in await _backend_error_ending(
                             resp.status_code, err, request_id, workspace_id
                         ):
                             yield _f
@@ -1599,7 +1641,7 @@ async def _stream_from_backend_guarded(
                     workspace_id,
                     f"backend_http_{resp.status_code}",
                 )
-                for _f in _backend_error_frames(
+                for _f in await _backend_error_ending(
                     resp.status_code, err, f"chatcmpl-{workspace_id}", workspace_id
                 ):
                     yield _f
@@ -1853,7 +1895,7 @@ async def _hop_frames(
         _CASCADE_ERRORS.reset(_token)
 
 
-def _hop_stop_frames(
+async def _hop_stop_frames(
     hop: _HopStream,
     *,
     cascade_to_candidates: bool,
@@ -1865,7 +1907,14 @@ def _hop_stop_frames(
         return []
     if cascade_to_candidates and not hop.started:
         return [hop.error]
-    return _error_terminal_frames(request_id, workspace_id, _stream_error_detail(hop.error))
+    message = _stream_error_detail(hop.error)
+    if not no_answer.chat_ui():
+        no_answer.record_api(workspace_id, [message], path="streaming")
+        return _error_terminal_frames(request_id, workspace_id, message)
+    text = await no_answer.chat_reply(
+        workspace_id, no_answer.workspace_model(workspace_id), [message], path="streaming"
+    )
+    return _no_answer_frames(request_id, workspace_id, text)
 
 
 async def _stream_with_chain(
@@ -1952,7 +2001,7 @@ async def _stream_with_chain(
         async for chunk in _hop_frames(hop0_stream, hop0, hold_done=has_more):
             yield chunk
         collected.append("".join(hop0.parts))
-        _stop = _hop_stop_frames(
+        _stop = await _hop_stop_frames(
             hop0,
             cascade_to_candidates=_cascade_to_candidates,
             request_id=request_id,
@@ -2075,7 +2124,7 @@ async def _stream_with_chain(
                     yield chunk
 
             collected.append("".join(hop.parts))
-            _stop = _hop_stop_frames(
+            _stop = await _hop_stop_frames(
                 hop,
                 cascade_to_candidates=_cascade_to_candidates,
                 request_id=request_id,
@@ -2703,7 +2752,7 @@ async def _stream_with_fallback(
                 or _error_buffer
             )
         _message = _stream_error_detail(_error_buffer) if _error_buffer else "All backends failed"
-        for _f in _error_terminal_frames(f"chatcmpl-{workspace_id}", workspace_id, _message):
+        for _f in await _exhausted_frames(workspace_id, body, _message):
             yield _f
         _record_error(workspace_id, "all_backends_failed")
         trace_note(outcome="error")
