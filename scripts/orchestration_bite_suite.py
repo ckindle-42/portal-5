@@ -22,13 +22,15 @@ from jsonschema import Draft202012Validator
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
+from portal.modules.orchestration.contracts import Bite, Budget  # noqa: E402
 from portal.modules.orchestration.disciplines.detection_engineering import run_checker  # noqa: E402
 from portal.modules.orchestration.planner import (  # noqa: E402
     instantiate_plan_template,
     planner_prompt,
     validate_planned_plan,
 )
-from portal.modules.orchestration.worker import Engine  # noqa: E402
+from portal.modules.orchestration.worker import Engine, run_bite  # noqa: E402
+from portal.platform.inference.router.text_tool_calls import TEXT_TOOL_CALL_MARKERS  # noqa: E402
 from portal.platform.mcp_host.workspace import get_generated_dir  # noqa: E402
 from scripts import host_quiet  # noqa: E402
 
@@ -43,7 +45,9 @@ class SuiteEngine(Engine):
         super().__init__(model_tag, "trial", base_url, api_key)
         self.correlation_id = ""
         self.last_trace: dict[str, Any] = {}
+        self.last_response: dict[str, Any] = {}
         self.audit_calls: list[dict[str, Any]] = []
+        self.expected_bite_tools: tuple[str, ...] | None = None
 
     def _headers(self) -> dict[str, str]:
         headers = super()._headers()
@@ -52,8 +56,12 @@ class SuiteEngine(Engine):
         return headers
 
     def chat(self, body: dict[str, Any], timeout: float, on_event: Any) -> dict[str, Any]:
+        if self.expected_bite_tools is not None:
+            self._validate_bite_request(body)
+            body = {**body, "exec_audit": True}
         self.correlation_id = f"bite-{uuid4().hex[:16]}"
         self.audit_calls = []
+        self.last_response = {}
 
         def capture(event: dict[str, Any]) -> None:
             if event.get("type") == "exec_audit":
@@ -61,11 +69,37 @@ class SuiteEngine(Engine):
             on_event(event)
 
         try:
-            return super().chat(body, timeout, capture)
+            response = super().chat(body, timeout, capture)
+            self.last_response = response
+            return response
         finally:
             cid = self.correlation_id
             self.correlation_id = ""
             self.last_trace = self._read_trace(cid)
+
+    def _validate_bite_request(self, body: dict[str, Any]) -> None:
+        expected = set(self.expected_bite_tools or ())
+        allowed = body.get("portal_bite_tools")
+        raw_schemas = body.get("tools")
+        schemas = raw_schemas if isinstance(raw_schemas, list) else []
+        schema_names = {
+            tool.get("function", {}).get("name")
+            for tool in schemas
+            if isinstance(tool, dict) and isinstance(tool.get("function"), dict)
+        }
+        thinking = body.get("chat_template_kwargs")
+        if (
+            not isinstance(allowed, list)
+            or not all(isinstance(name, str) for name in allowed)
+            or not expected <= set(allowed)
+            or "finish" not in schema_names
+            or not isinstance(thinking, dict)
+            or thinking.get("enable_thinking") is not True
+            or "portal_bite_max_hops" not in body
+        ):
+            raise HarnessError(
+                "arm worker bite request is missing tools, finish, thinking, or hop limits"
+            )
 
     def _read_trace(self, cid: str) -> dict[str, Any]:
         try:
@@ -79,6 +113,10 @@ class SuiteEngine(Engine):
             return value if isinstance(value, dict) else {}
         except (httpx.HTTPError, ValueError):
             return {}
+
+
+class HarnessError(RuntimeError):
+    """The suite request or response did not preserve the arm worker contract."""
 
 
 def _audit_calls(event: dict[str, Any]) -> list[dict[str, Any]]:
@@ -175,39 +213,46 @@ def _write_seeds(case: dict[str, Any], task_dir: Path) -> list[str]:
     return names
 
 
-def _bite_messages(
+def _bite_contract(
     case: dict[str, Any], discipline: str, task_dir: Path, *, dry_run: bool
-) -> tuple[list[dict[str, str]], list[str]]:
+) -> tuple[Bite, dict[str, Path]]:
     tools = case.get("requires_tools", case.get("tools", []))
     if not isinstance(tools, list) or not all(isinstance(x, str) for x in tools):
         raise ValueError(f"{case['id']} tools must be a list")
     seed_names = _write_seeds(case, task_dir)
-    prompt = {
-        "discipline": discipline,
-        "case": case,
-        "seed_files": seed_names,
-    }
-    if seed_names and not dry_run:
-        prompt["task_directory"] = _workspace_path(task_dir)
-    if seed_names:
-        system = (
-            "Complete this isolated bite using only the listed tools and files. "
-            "Do not change test files. Report completion only after running the required checks."
-        )
+    if not seed_names:
+        workspace_dir = None
+    elif dry_run:
+        workspace_dir = Path("/workspace") / _safe_name(task_dir.name)
     else:
-        system = (
-            "Complete this discipline bite. Use only the listed tools. "
-            "Return one JSON object containing the requested artifact and no surrounding prose."
-        )
-    if case.get("artifact_schema"):
-        prompt["artifact_schema"] = case["artifact_schema"]
-    if case.get("seed_artifact"):
-        prompt["seed_artifact"] = case["seed_artifact"]
-    messages = [
-        {"role": "system", "content": system},
-        {"role": "user", "content": json.dumps(prompt, ensure_ascii=False)},
-    ]
-    return messages, tools
+        workspace_dir = Path(_workspace_path(task_dir))
+    input_paths = (
+        {name: workspace_dir / name for name in seed_names} if workspace_dir is not None else {}
+    )
+    procedure = str(case.get("instruction", ""))
+    if case.get("seed_artifact") is not None:
+        procedure += "\nSeed artifact: " + json.dumps(case["seed_artifact"], ensure_ascii=False)
+    bite = Bite(
+        bite_id=_safe_name(case["id"]),
+        goal=str(case.get("goal") or case.get("instruction") or case["id"]),
+        discipline=discipline,
+        inputs=tuple(seed_names),
+        depends_on=(),
+        tools=tuple(tools),
+        output_path="bite-output.txt" if seed_names else "bite-output.json",
+        output_schema=case.get("artifact_schema") if not seed_names else None,
+        file_type="text" if seed_names else None,
+        accept=(),
+        review=None,
+        review_reason=None,
+        risk="low",
+        stage="work",
+        budget=Budget(turns=8, minutes=DEFAULT_TIMEOUT / 60, output_tokens=4096),
+        model="fast",
+        procedure=procedure,
+        reads_untrusted=False,
+    )
+    return bite, input_paths
 
 
 def _plan_template(
@@ -413,7 +458,7 @@ def _hidden_pytest(case: dict[str, Any], task_dir: Path) -> dict[str, Any]:
 
 
 def _score_bite(
-    case: dict[str, Any], content: str, audit_calls: list[dict[str, Any]], task_dir: Path
+    case: dict[str, Any], output: Any, audit_calls: list[dict[str, Any]], task_dir: Path
 ) -> tuple[bool, dict[str, Any]]:
     if case.get("seed"):
         signal = str(case.get("completion_signal", ""))
@@ -429,19 +474,16 @@ def _score_bite(
         ]
         grade = _hidden_pytest(case, task_dir)
         passed = bool(
-            signal and signal in content and tool_ok and not modified_tests and grade["passed"]
+            signal and signal in str(output) and tool_ok and not modified_tests and grade["passed"]
         )
         return passed, {
-            "completion_signal": signal in content,
+            "completion_signal": signal in str(output),
             "required_tools": sorted(required),
             "observed_tools": sorted(called),
             "modified_tests": modified_tests,
             "hidden_pytest": grade,
         }
-    try:
-        artifact = json.loads(content)
-    except json.JSONDecodeError as exc:
-        return False, {"error": f"artifact is not JSON: {exc.msg}"}
+    artifact = output
     schema = case.get("artifact_schema")
     if not isinstance(schema, dict):
         return False, {"error": "bite suite case has no artifact_schema"}
@@ -491,6 +533,76 @@ def _live_identity(engine: SuiteEngine, seat: str) -> str | None:
     return None
 
 
+def _response_parts(response: dict[str, Any]) -> tuple[str, list[dict[str, Any]]]:
+    choices = response.get("choices") or []
+    message = choices[0].get("message", {}) if choices else {}
+    content = message.get("content", "")
+    calls = message.get("tool_calls") or []
+    return (content if isinstance(content, str) else "", calls if isinstance(calls, list) else [])
+
+
+def _unparsed_tool_markup(response: dict[str, Any]) -> bool:
+    content, _ = _response_parts(response)
+    return any(marker in content for marker in TEXT_TOOL_CALL_MARKERS)
+
+
+def _bite_tools_error(engine: SuiteEngine, expected: tuple[str, ...]) -> str | None:
+    offered = engine.last_trace.get("tools_offered")
+    if not isinstance(offered, list) or not all(isinstance(name, str) for name in offered):
+        return "Pipeline trace did not verify the bite tools offered to the model"
+    missing = sorted(set(expected) - set(offered))
+    return f"Pipeline offered no bite tool(s): {missing}" if missing else None
+
+
+def _run_bite(
+    engine: SuiteEngine,
+    seat: str,
+    discipline: str,
+    case: dict[str, Any],
+    task_dir: Path,
+    dry_run: bool,
+) -> tuple[str, str, dict[str, Any]]:
+    bite, input_paths = _bite_contract(case, discipline, task_dir, dry_run=dry_run)
+    expected_tools = (*bite.tools, "finish")
+    engine.expected_bite_tools = expected_tools
+    try:
+        worker = run_bite(
+            task_dir,
+            bite,
+            engine,
+            input_paths=input_paths,
+            attempt_dir=task_dir / "attempt-01",
+        )
+    finally:
+        engine.expected_bite_tools = None
+    content, _ = _response_parts(engine.last_response)
+    (task_dir / "response.txt").write_text(content, encoding="utf-8")
+    identity_error = _live_identity(engine, seat)
+    if dry_run:
+        return (
+            "running",
+            "DRY_RUN",
+            {
+                "pipeline_trace": bool(engine.last_trace),
+                "bite_tools": list(expected_tools),
+            },
+        )
+    if worker.loop_outcome in {"pipeline_error", "input_error"}:
+        return "blocked", "BLOCKED", {"error": worker.failure or worker.loop_outcome}
+    if _unparsed_tool_markup(engine.last_response):
+        return (
+            "harness_error",
+            "HARNESS_ERROR",
+            {"error": "Pipeline reply contains unparsed tool-call markup"},
+        )
+    if error := _bite_tools_error(engine, expected_tools):
+        return "harness_error", "HARNESS_ERROR", {"error": error}
+    if identity_error:
+        return "blocked", "BLOCKED", {"error": identity_error}
+    passed, evidence = _score_bite(case, worker.output, engine.audit_calls, task_dir)
+    return ("passed", "PASS", evidence) if passed else ("failed", "FAIL", evidence)
+
+
 def _run_one(
     *,
     engine: SuiteEngine,
@@ -514,34 +626,31 @@ def _run_one(
         "model": seat,
     }
     try:
-        response = engine.chat(
-            _request_body(
-                seat,
-                messages,
-                tools,
-                json_output=suite != "bite" or not case.get("seed"),
-            ),
-            DEFAULT_TIMEOUT,
-            lambda _event: None,
-        )
-        content = _response_text(response)
-        (task_dir / "response.txt").write_text(content, encoding="utf-8")
-        identity_error = _live_identity(engine, seat)
-        if dry_run:
-            state, status = "running", "DRY_RUN"
-            evidence: dict[str, Any] = {"pipeline_trace": bool(engine.last_trace)}
-        elif identity_error:
-            state, status, evidence = "blocked", "BLOCKED", {"error": identity_error}
-        elif suite == "bite":
-            passed, evidence = _score_bite(case, content, engine.audit_calls, task_dir)
-            state, status = ("passed", "PASS") if passed else ("failed", "FAIL")
+        if suite == "bite":
+            state, status, evidence = _run_bite(engine, seat, discipline, case, task_dir, dry_run)
         else:
-            actual = _verdict(content)
-            expected = "PASS" if label == "pass" else "REJECT"
-            passed = actual == expected
-            state, status = ("passed", "PASS") if passed else ("failed", "FAIL")
-            evidence = {"expected": expected, "observed": actual}
+            response = engine.chat(
+                _request_body(seat, messages, tools, json_output=True),
+                DEFAULT_TIMEOUT,
+                lambda _event: None,
+            )
+            content = _response_text(response)
+            (task_dir / "response.txt").write_text(content, encoding="utf-8")
+            identity_error = _live_identity(engine, seat)
+            if dry_run:
+                state, status = "running", "DRY_RUN"
+                evidence = {"pipeline_trace": bool(engine.last_trace)}
+            elif identity_error:
+                state, status, evidence = "blocked", "BLOCKED", {"error": identity_error}
+            else:
+                actual = _verdict(content)
+                expected = "PASS" if label == "pass" else "REJECT"
+                passed = actual == expected
+                state, status = ("passed", "PASS") if passed else ("failed", "FAIL")
+                evidence = {"expected": expected, "observed": actual}
         row.update(state=state, status=status, evidence=evidence)
+    except HarnessError as exc:
+        row.update(state="harness_error", status="HARNESS_ERROR", evidence={"error": str(exc)})
     except Exception as exc:
         row.update(
             state="blocked", status="BLOCKED", evidence={"error": f"{type(exc).__name__}: {exc}"}
@@ -618,9 +727,7 @@ def _run_requests(
         for repeat in range(1, repeats + 1):
             task_dir = case_dir / f"repeat-{repeat:02d}"
             task_dir.mkdir(parents=True, exist_ok=True)
-            if suite == "bite":
-                messages, tools = _bite_messages(case, discipline, task_dir, dry_run=dry_run)
-            elif suite == "planner":
+            if suite == "planner":
                 messages = _planner_messages(case, config, discipline, task_dir)
             row = _run_one(
                 engine=engine,
@@ -688,7 +795,9 @@ def _write_run(
     }
     statuses = [row.get("status") for row in rows]
     if not dry_run:
-        if any(value == "BLOCKED" for value in statuses):
+        if any(value == "HARNESS_ERROR" for value in statuses):
+            receipt["status"] = "HARNESS_ERROR"
+        elif any(value == "BLOCKED" for value in statuses):
             receipt["status"] = "BLOCKED"
         elif any(value == "FAIL" for value in statuses):
             receipt["status"] = "FAIL"
@@ -734,7 +843,7 @@ def run_trial(
     extra = {
         "summary": {
             status: sum(row["status"] == status for row in rows)
-            for status in ("PASS", "FAIL", "BLOCKED", "DRY_RUN")
+            for status in ("PASS", "FAIL", "BLOCKED", "HARNESS_ERROR", "DRY_RUN")
         }
     }
     return _write_run(

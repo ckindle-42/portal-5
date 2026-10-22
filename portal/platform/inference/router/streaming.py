@@ -2407,6 +2407,17 @@ async def _build_streaming_request(
 
     if not _has_tools:
         backend_body.pop("portal_bite_max_hops", None)
+    if _bite_allowlist is not None:
+        offered_schemas = backend_body.get("tools")
+        if not isinstance(offered_schemas, list):
+            offered_schemas = []
+        trace_note(
+            tools_offered=sorted(
+                tool.get("function", {}).get("name", "")
+                for tool in offered_schemas
+                if isinstance(tool, dict) and isinstance(tool.get("function"), dict)
+            )
+        )
     return backend_body, effective_tools, _has_tools, _portal_no_tools
 
 

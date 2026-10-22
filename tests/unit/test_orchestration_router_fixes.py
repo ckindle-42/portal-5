@@ -149,6 +149,23 @@ async def _prepare_request(
     return prepared[:3]
 
 
+@pytest.mark.anyio
+async def test_bite_trace_records_the_final_tools_offered_to_the_model(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    notes: list[dict[str, Any]] = []
+    monkeypatch.setattr(streaming, "trace_note", lambda **fields: notes.append(fields))
+    body, effective, has_tools = await _prepare_request(
+        monkeypatch,
+        bite_tools=["lookup", "finish"],
+        workspace_tools=["lookup", "document_read"],
+    )
+
+    assert has_tools and effective == ["lookup"]
+    assert [schema["function"]["name"] for schema in body["tools"]] == ["lookup", "finish"]
+    assert notes[-1]["tools_offered"] == ["finish", "lookup"]
+
+
 def _payloads(chunks: list[bytes]) -> list[dict[str, Any]]:
     return [
         json.loads(line[6:])
