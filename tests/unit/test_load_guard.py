@@ -42,6 +42,9 @@ class Engines:
         unload_status_code: int = 200,
         unload_status_codes: dict[str, int] | None = None,
         unload_sticks: bool = False,
+        actual_sizes: dict[str, float] | None = None,
+        unload_counter_drops: dict[str, float] | None = None,
+        unload_loaded_flips: set[str] | None = None,
     ) -> None:
         self.ollama = dict(ollama or {})
         self.tags = dict(tags or {})
@@ -60,6 +63,10 @@ class Engines:
         self.unload_status_code = unload_status_code
         self.unload_status_codes = dict(unload_status_codes or {})
         self.unload_sticks = unload_sticks
+        self.actual_sizes = dict(actual_sizes or {})
+        self.unload_counter_drops = dict(unload_counter_drops or {})
+        self.unload_loaded_flips = set(unload_loaded_flips or set())
+        self.pending_counter_drops: dict[str, tuple[float, int]] = {}
         self.unloaded: list[str] = []
         self.unload_calls: dict[str, int] = {}
         self.chats: list[str] = []
@@ -114,10 +121,37 @@ class Engines:
             return httpx.Response(200, json={"message": {"role": "assistant", "content": "ok"}})
         return None
 
+    def _apply_pending_counter_drops(self) -> None:
+        for name, (size, polls) in list(self.pending_counter_drops.items()):
+            if polls:
+                self.pending_counter_drops[name] = (size, polls - 1)
+            else:
+                self.omlx_memory = max(0.0, float(self.omlx_memory or 0) - size)
+                del self.pending_counter_drops[name]
+
+    def _unload_response(self, name: str) -> httpx.Response:
+        self.unload_calls[name] = self.unload_calls.get(name, 0) + 1
+        status_code = self.unload_status_codes.get(name, self.unload_status_code)
+        if status_code == 200 and not self.unload_sticks:
+            self.omlx[name]["loaded"] = False
+            if self.omlx_memory is not None:
+                self.omlx_memory = max(
+                    0.0,
+                    self.omlx_memory - self.unload_counter_drops.get(name, 0.0),
+                )
+        elif status_code == 202:
+            if name in self.unload_loaded_flips:
+                self.omlx[name]["loaded"] = False
+            if self.omlx_memory is not None and name in self.unload_counter_drops:
+                self.pending_counter_drops[name] = (self.unload_counter_drops[name], 1)
+        self.unloaded.append(name)
+        return httpx.Response(status_code, json={})
+
     def _omlx_response(self, req: httpx.Request, path: str) -> httpx.Response | None:
         if path == "/v1/models/status":
             if not self.omlx_ok:
                 return httpx.Response(503)
+            self._apply_pending_counter_drops()
             loading = self._loading_poll(self.loading_polls, "v1")
             return httpx.Response(
                 200,
@@ -158,7 +192,8 @@ class Engines:
                         "id": k,
                         "loaded": v.get("loaded", False),
                         "pinned": v.get("pinned", False),
-                        "actual_size": v["size"],
+                        "estimated_size": v["size"],
+                        "actual_size": self.actual_sizes.get(k, v["size"]),
                         "last_access": v.get("last", 0),
                         "is_loading": loading and not v.get("loaded"),
                     }
@@ -166,13 +201,7 @@ class Engines:
                 ],
             )
         if path.endswith("/unload"):
-            name = path.split("/")[-2]
-            self.unload_calls[name] = self.unload_calls.get(name, 0) + 1
-            status_code = self.unload_status_codes.get(name, self.unload_status_code)
-            if status_code == 200 and not self.unload_sticks:
-                self.omlx[name]["loaded"] = False
-            self.unloaded.append(name)
-            return httpx.Response(status_code, json={})
+            return self._unload_response(path.split("/")[-2])
         if path == "/v1/chat/completions":  # oMLX chat
             model = json.loads(req.content)["model"]
             self.omlx.setdefault(model, {"size": 4 * GIB})["loaded"] = True
@@ -537,6 +566,85 @@ async def test_queued_omlx_unload_waits_for_memory_after_loaded_flips():
     release()
 
 
+@pytest.mark.parametrize("actual_size_gib", [8, 10])
+async def test_queued_unload_settles_on_any_counter_drop_with_pinned_memory_left(actual_size_gib):
+    e = Engines(
+        tags={"m": 30 * GIB},
+        omlx={
+            "idle": {"size": 8 * GIB, "loaded": True},
+            "pinned": {"size": 8 * GIB, "loaded": True, "pinned": True},
+        },
+        ceiling=40 * GIB,
+        unload_status_code=202,
+        unload_sticks=True,
+        omlx_memory=16 * GIB,
+        actual_sizes={"idle": actual_size_gib * GIB},
+        unload_counter_drops={"idle": 8 * GIB},
+        unload_loaded_flips={"idle"},
+    )
+    lg.set_load_wait("0.12")
+    started = lg.time.monotonic()
+    with pytest.raises(lg.LoadRefusedError) as err:
+        await guard(e).admit(OLLAMA_URL, "m")
+    elapsed = lg.time.monotonic() - started
+    assert elapsed < 0.08
+    assert "with nothing in flight to wait for" in str(err.value)
+    assert "headroom 30.0 GiB" in str(err.value)  # re-measured after the pinned charge
+    assert e.omlx_used() == 8 * GIB
+    assert e.unload_calls["idle"] == 1
+
+
+@pytest.mark.parametrize("actual_size_gib", [6, 8])
+async def test_partial_omlx_200_uses_counter_drop_before_ollama_free(actual_size_gib):
+    e = Engines(
+        ollama={"devstral": int(1.8 * GIB)},
+        tags={"kat": 22 * GIB},
+        omlx={"mid": {"size": 10 * GIB, "loaded": True}},
+        ceiling=30 * GIB,
+        omlx_memory=10 * GIB,
+        actual_sizes={"mid": actual_size_gib * GIB},
+        unload_counter_drops={"mid": 6 * GIB},
+    )
+    e.hidden["devstral"] = int(13.2 * GIB)
+    release = await guard(e).admit(OLLAMA_URL, "kat")
+    assert release is not None
+    assert e.unload_calls == {"mid": 1, "devstral": 1}
+    assert "devstral" not in e.ollama
+    release()
+
+
+async def test_unsignaled_omlx_counter_drop_gets_one_capacity_recheck(monkeypatch):
+    e = Engines(
+        tags={"m": 30 * GIB},
+        omlx={"pinned": {"size": 16 * GIB, "loaded": True, "pinned": True}},
+        ceiling=40 * GIB,
+        omlx_memory=16 * GIB,
+    )
+    g = guard(e)
+    loading_calls = 0
+    waits: list[float] = []
+
+    async def self_unloading(client):
+        nonlocal loading_calls
+        loading_calls += 1
+        if loading_calls == 2:
+            e.omlx_memory = 8 * GIB
+            return False
+        return loading_calls == 1
+
+    async def count_wait(timeout: float) -> None:
+        waits.append(timeout)
+
+    monkeypatch.setattr(g, "_omlx_loading", self_unloading)
+    monkeypatch.setattr(g, "_wait_change", count_wait)
+    lg.set_load_wait("0.12")
+    with pytest.raises(lg.LoadRefusedError) as err:
+        await g.admit(OLLAMA_URL, "m")
+    assert "with nothing in flight to wait for" in str(err.value)
+    assert len(waits) == 2
+    assert e.unloaded == []
+
+
 async def test_queued_omlx_unload_waits_then_remeasures_headroom(monkeypatch):
     e = Engines(
         tags={"m": 30 * GIB},
@@ -747,6 +855,7 @@ async def test_plan_counts_only_what_the_set_adds_against_idle_capacity():
             "o-cold": {"size": 16 * GIB},
         },
         ceiling=24 * GIB,  # 12 GiB headroom
+        actual_sizes={"o-idle": 20 * GIB},  # the observed delta overstates its resident charge
     )
     plan = await guard(e).plan(OLLAMA_URL, [(OLLAMA, "warm"), (OLLAMA, "cold"), (OMLX, "o-cold")])
     assert plan["need_gib"] == pytest.approx(10 + 16)  # warm adds nothing
