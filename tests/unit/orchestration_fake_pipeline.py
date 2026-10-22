@@ -19,6 +19,7 @@ import queue
 import signal
 import threading
 import time
+from collections.abc import Callable
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from typing import Any
 
@@ -39,9 +40,15 @@ class SignalResponse:
 
 
 class DelayedResponse:
-    def __init__(self, response: dict[str, Any], delay: float) -> None:
+    def __init__(
+        self,
+        response: dict[str, Any],
+        delay: float,
+        on_serve: Callable[[], object] | None = None,
+    ) -> None:
         self.response = response
         self.delay = delay
+        self.on_serve = on_serve
 
 
 class _HttpError(Exception):
@@ -165,6 +172,8 @@ class FakePipeline:
             time.sleep(0.2)
             return response.response
         if isinstance(response, DelayedResponse):
+            if response.on_serve is not None:
+                response.on_serve()
             time.sleep(response.delay)
             return response.response
         return response
