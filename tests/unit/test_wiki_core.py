@@ -122,21 +122,21 @@ class TestWikiIntegrity:
         assert issues[0].source_path == "removed/package.py"
 
     def test_existing_but_untracked_source_is_an_issue(self, tmp_path):
-        ignored = tmp_path / "coding_task" / "local_only.md"
+        ignored = tmp_path / "scratch" / "local_only.md"
         ignored.parent.mkdir()
         ignored.write_text("local scratch evidence", encoding="utf-8")
         unit = KnowledgeUnit(
             id="unit-untracked-source",
             kind="why",
             title="Untracked",
-            sources=[SourceRef(type="design", path="coding_task/local_only.md")],
+            sources=[SourceRef(type="design", path="scratch/local_only.md")],
         )
 
         issues = audit_units(tmp_path, [unit], tracked_paths=frozenset())
 
         assert len(issues) == 1
         assert issues[0].code == "untracked-source"
-        assert issues[0].source_path == "coding_task/local_only.md"
+        assert issues[0].source_path == "scratch/local_only.md"
 
     def test_tracked_directory_source_accepts_tracked_descendant(self, tmp_path):
         module_file = tmp_path / "portal" / "modules" / "media" / "__init__.py"
@@ -161,7 +161,7 @@ class TestWikiIntegrity:
         from portal.platform.wiki.adapters import seed_code
 
         tracked = tmp_path / "portal" / "one.py"
-        ignored = tmp_path / "coding_task" / "ignored.py"
+        ignored = tmp_path / "scratch" / "ignored.py"
         tracked.parent.mkdir()
         ignored.parent.mkdir()
         tracked.write_text("ONE = 1", encoding="utf-8")
@@ -171,7 +171,7 @@ class TestWikiIntegrity:
 
         units = seed_code.seed_code(dry_run=True)
 
-        assert all(unit.id != "unit-code-coding_task" for unit in units)
+        assert all(unit.id != "unit-code-scratch" for unit in units)
 
     def test_ephemeral_source_is_an_issue(self, tmp_path):
         unit = KnowledgeUnit(

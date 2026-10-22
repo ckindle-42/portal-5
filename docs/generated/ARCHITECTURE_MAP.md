@@ -2,7 +2,7 @@
 
 # Portal 5 Architecture Map
 
-*Deterministic projection of 768 canonical units.*
+*Deterministic projection of 771 canonical units.*
 
 ## Knowledge Layer
 
@@ -55,7 +55,7 @@
 | `unit-HOWTO-21-remote-api-access-pipeline-at-9099` | why | 2 |
 | `unit-HOWTO-22-mlx-acceleration-apple-silicon-retired` | why | 1 |
 | `unit-HOWTO-23-metrics-monitoring` | why | 3 |
-| `unit-HOWTO-3-workspaces` | why | 1 |
+| `unit-HOWTO-3-workspaces` | why | 7 |
 | `unit-HOWTO-4-personas` | why | 3 |
 | `unit-HOWTO-5-code-generation-execution` | why | 2 |
 | `unit-HOWTO-6-security-analysis` | why | 2 |
@@ -290,7 +290,7 @@
 | `unit-design-omlx-dual-backend-plumbing` | mixed | 12 |
 | `unit-design-spine-drift-census` | mixed | 7 |
 | `unit-design-wiki-archive-mechanism` | mixed | 5 |
-| `unit-engine-prefix-cache-20261021` | what | 4 |
+| `unit-engine-prefix-cache-20261021` | what | 1 |
 | `unit-fixture-capability-context-sample` | mixed | 1 |
 | `unit-general-config-workspace-pointers` | mixed | 1 |
 | `unit-general-fast-deep-workspaces` | mixed | 2 |
@@ -324,10 +324,12 @@
 | `unit-known-limitations-fara-cua-tag-closure` | what | 1 |
 | `unit-known-limitations-granite-8b-mxfp8-tool-garbling` | what | 3 |
 | `unit-known-limitations-higgs-voice-cloning` | mixed | 1 |
+| `unit-known-limitations-host-measurement-contention` | what | 8 |
 | `unit-known-limitations-host-native-mcp-lifecycle-launcher-child-exit` | what | 5 |
 | `unit-known-limitations-importing-the-security-bench-module-sets-a-linux-only-prometheus-multiproc-dir-host-side` | what | 4 |
 | `unit-known-limitations-known-limitations` | what | 1 |
 | `unit-known-limitations-ling-3-0-flash-turboquant-memory-gates` | what | 1 |
+| `unit-known-limitations-load-guard-omlx-swap` | what | 2 |
 | `unit-known-limitations-meta3-metasploitable3-windows-scenario-coverage-spl-precision-gaps` | what | 7 |
 | `unit-known-limitations-minimax-music3-mlx` | mixed | 1 |
 | `unit-known-limitations-mlx-inference-proxy-retired-commit-3a0c58e` | what | 3 |
@@ -341,7 +343,8 @@
 | `unit-known-limitations-ollama-tool-call-parser-aborts-a-started-stream` | what | 3 |
 | `unit-known-limitations-ollama-v1-ignores-options-num-ctx-and-options-num-batch` | what | 6 |
 | `unit-known-limitations-ollama-v1-sampling-drop` | what | 4 |
-| `unit-known-limitations-omlx-prefix-cache-accounting` | what | 2 |
+| `unit-known-limitations-omlx-balanced-ceiling` | what | 2 |
+| `unit-known-limitations-omlx-prefix-cache-accounting` | what | 1 |
 | `unit-known-limitations-omlx-qwen3coder-tool-text` | what | 3 |
 | `unit-known-limitations-owui-audio-drop-ux-task-owui-audio-drop-001` | what | 2 |
 | `unit-known-limitations-p5-emergent-002-deterministic-capability-ranker-can-t-reach-oracle-bearing-capabilities-once-any-tool-declaring-recon-capability-is-a-candidate` | what | 4 |
@@ -576,7 +579,7 @@
 | `unit-module-media` | mixed | 6 |
 | `unit-module-music` | mixed | 3 |
 | `unit-module-netforensics` | mixed | 4 |
-| `unit-module-orchestration` | mixed | 15 |
+| `unit-module-orchestration` | mixed | 20 |
 | `unit-module-research` | mixed | 5 |
 | `unit-module-security` | mixed | 5 |
 | `unit-module-security-redteam` | mixed | 3 |
@@ -676,7 +679,7 @@
 | `unit-readme-speech-text-to-speech-speech-to-text` | what | 3 |
 | `unit-readme-telegram-bot-setup` | what | 4 |
 | `unit-readme-troubleshooting` | what | 3 |
-| `unit-readme-unit-test-ci` | what | 2 |
+| `unit-readme-unit-test-ci` | what | 3 |
 | `unit-readme-what-starts-automatically` | what | 3 |
 | `unit-readme-workspaces` | what | 3 |
 | `unit-router-streaming` | mixed | 3 |
@@ -763,7 +766,7 @@
 | `unit-user-guide-uploading-documents` | what | 2 |
 | `unit-user-guide-workspaces` | what | 3 |
 | `unit-wfe-loop-attribution-protocol` | mixed | 3 |
-| `unit-wfe-workspace-fitness` | mixed | 6 |
+| `unit-wfe-workspace-fitness` | mixed | 15 |
 | `unit-wiki-adapter-modules` | mixed | 1 |
 | `unit-wiki-audit` | mixed | 1 |
 | `unit-wiki-interfaces` | mixed | 1 |
@@ -777,15 +780,15 @@
 | `unit-wiki-tests-render` | mixed | 1 |
 | `unit-wiki-writeback` | mixed | 1 |
 
-**Total:** 768 units
+**Total:** 771 units
 
 ## Source Distribution
 
 - **bench-security**: 1 references
-- **code**: 2094 references
+- **code**: 2126 references
 - **config**: 2 references
 - **data**: 1 references
-- **doc**: 9 references
+- **doc**: 6 references
 - **mitre**: 40 references
 - **scenario**: 54 references
 - **spl**: 40 references

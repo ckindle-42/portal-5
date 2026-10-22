@@ -5,6 +5,15 @@ All notable changes to Portal 5 will be documented in this file.
 ## [Unreleased]
 
 ### Changed
+- **Load-guard oMLX unload accounting now follows the memory counter.** Admission no longer sizes
+  what an unload freed from the admin API's observed `actual_size`; it snapshots
+  `current_model_memory` before the unload, treats a queued (202) unload as finished on any counter
+  drop, and decides fit from re-measured headroom. That closes the over-wait where a pinned model
+  stayed charged or the counter moved by less than `actual_size`. A counter drop between passes (an
+  unload oMLX started itself) buys one re-measure instead of a quiet refusal, and `plan()`'s
+  freeable estimate uses the resident `estimated_size`. Resolves the KNOWN_LIMITATIONS "oMLX
+  unload accounting can over-wait" entry; P5-LOADGUARD-SWAP-001 (oMLX 0.7.2 exposes no explicit
+  unload field) remains open.
 - **Root docs consolidated (B8).** Root keeps `README`, `CHANGELOG`, `CLAUDE.md`, `ROADMAP`
   (renamed from `P5_ROADMAP.md`) and a current-only `KNOWN_LIMITATIONS`; `KNOWN_ISSUES`,
   `PUNCHLIST`, `WFE_ROOT_FIX_PROGRAM`, `ACCEPTANCE_RESULTS` and `AGENTS_CAMPAIGN_SUPERVISOR`

@@ -102,11 +102,14 @@ def _committed_opencode_model(repo: Path, model: str) -> list[str]:
     if not match:
         return [f"screen model {model!r} must use opencode:portal/<model-id>"]
     model_id = match.group(1)
-    provider = (config.get("providers") or {}).get("portal") or {}
+    # opencode 2.0.x accepts both schemas: `providers.<id>.settings` (current repo) and the
+    # older `provider.<id>.options` that seat worktrees at an older task base still carry.
+    provider = (config.get("providers") or config.get("provider") or {}).get("portal") or {}
     models = provider.get("models") or {}
     if model_id not in models:
-        reasons.append(f"committed opencode.jsonc has no providers.portal.models[{model_id!r}]")
-    if not isinstance(provider.get("settings"), dict) or not provider["settings"].get("baseURL"):
+        reasons.append(f"committed opencode.jsonc has no portal provider model {model_id!r}")
+    settings = provider.get("settings") or provider.get("options") or {}
+    if not isinstance(settings, dict) or not settings.get("baseURL"):
         reasons.append("committed opencode.jsonc has no Portal provider baseURL")
     return reasons
 
@@ -283,6 +286,14 @@ def preflight(args: argparse.Namespace, environment: dict[str, str] | None = Non
     return issues
 
 
+def _emit_host_blockers(context: dict) -> None:
+    for reason in context.get("blockers", []):
+        if host_quiet.is_transient_blocker(str(reason)):
+            print(f"BLOCK transient: {reason}")
+        else:
+            print(f"BLOCK: {reason}")
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--repo", type=Path, default=ROOT)
@@ -302,20 +313,18 @@ def main() -> int:
     pipeline_url = os.environ.get("PIPELINE_URL", "http://localhost:9099").rstrip("/")
     api_key = os.environ.get("PIPELINE_API_KEY", "portal-pipeline")
     host_context = host_quiet.begin_run(pipeline_url, api_key, force=args.force)
-    if not host_context["allowed"]:
-        host_quiet.finish_run(host_context, pipeline_url, api_key)
-        print(f"host-quiet receipt: {json.dumps(host_context, sort_keys=True)}")
-        print(f"BLOCK: {host_quiet.refusal(host_context)}")
-        return 1
-    if host_context["override_reason"]:
-        print(f"HOST-QUIET OVERRIDE: {host_context['override_reason']}")
     issues = preflight(args)
     host_quiet.finish_run(host_context, pipeline_url, api_key)
     print(f"host-quiet receipt: {json.dumps(host_context, sort_keys=True)}")
+    if host_context["override_reason"]:
+        print(f"HOST-QUIET OVERRIDE: {host_context['override_reason']}")
+    if not host_context["allowed"]:
+        _emit_host_blockers(host_context)
     if issues:
         for issue in issues:
             print(f"BLOCK: {issue}")
         print(f"seat preflight BLOCKED ({len(issues)} reason(s))")
+    if issues or not host_context["allowed"]:
         return 1
     print(f"seat preflight PASS: {args.workspace} is committed and config-conformant")
     return 0

@@ -30,7 +30,7 @@ from tests.benchmarks.bench.lifecycle import (  # noqa: E402
 OLLAMA = "http://localhost:11434"
 OUT = (
     Path(__file__).resolve().parents[1]
-    / "portal/modules/compliance/data/private/runs/window_and_seat/p3_measurements.json"
+    / "portal/modules/compliance/data/private/runs/window_and_seat/p3_measurements.json"  # local-only: operator run output
 )
 
 #: ~20.5k tokens of requirement-shaped filler — the §P1.4 high-water region.

@@ -372,7 +372,14 @@ async def _amain(args: argparse.Namespace) -> int:
         return 0
 
     key = os.environ.get("PIPELINE_API_KEY", PIPELINE_API_KEY)
-    host_context = host_quiet.begin_run(PIPELINE_URL, key, force=args.force)
+    host_context = host_quiet.start_run(
+        PIPELINE_URL,
+        key,
+        force=args.force,
+        wait=args.wait_for_quiet,
+        poll_s=args.quiet_poll_seconds,
+        max_wait_s=args.quiet_max_wait_seconds,
+    )
     if host_context["allowed"]:
         checks = [
             Check(
@@ -414,6 +421,23 @@ def main(argv: list[str] | None = None) -> int:
         "--only", default=None, help="Run a single id's shot only (skips design checks)"
     )
     parser.add_argument("--force", action="store_true", help="override host-quiet blockers")
+    parser.add_argument(
+        "--wait-for-quiet",
+        action="store_true",
+        help="poll transient host blockers until they clear or the wait expires",
+    )
+    parser.add_argument(
+        "--quiet-poll-seconds",
+        type=float,
+        default=host_quiet.DEFAULT_QUIET_POLL_S,
+        help="seconds between host-quiet re-checks when waiting",
+    )
+    parser.add_argument(
+        "--quiet-max-wait-seconds",
+        type=float,
+        default=host_quiet.DEFAULT_QUIET_MAX_WAIT_S,
+        help="stop waiting for a quiet host after this many seconds",
+    )
     args = parser.parse_args(argv)
     return asyncio.run(_amain(args))
 

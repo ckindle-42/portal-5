@@ -28,6 +28,8 @@ sources:
 - type: code
   path: scripts/seat_screen/kit_apply.py
 - type: code
+  path: scripts/seat_screen/seat_rescreen.sh
+- type: code
   path: config/portal.yaml
 - type: code
   path: config/model_card_expectations.yaml
@@ -38,7 +40,7 @@ tags:
 - tests
 - evaluation
 created_at: 1788792773.476087
-updated_at: 1792668000
+updated_at: 1792680000
 ---
 
 The WFE harness evaluates a model IN its workspace context — persona system
@@ -50,11 +52,24 @@ Seat-screen results are provisional until `scripts/seat_preflight.py` passes
 for the exact seat and worktree and the model-card conformance checks hold.
 The coder-seat harness is `scripts/seat_screen/` (runbook `docs/SEAT_SCREENING.md`).
 `screen.py` adds an isolated worktree per seat, commits the OpenCode provider
-entry, and runs that seat's preflight before dispatch. A blocked preflight
-appends a `preflight_blocked` row to `seat_results.jsonl` and does not dispatch.
+entry, and runs that seat's preflight before dispatch. The preflight process
+is the main checkout's `scripts/seat_preflight.py` (`uv run --project` that
+checkout), with `--repo` set to the seat worktree and `--config-repo` set to
+the main checkout. The seat worktree's copy of the script is not what runs.
+`--repo` is the worktree whose committed `opencode.jsonc` is checked.
+`--config-repo` is the checkout whose workspace, backend, and card config
+is audited. A blocked preflight appends a `preflight_blocked`
+row to `seat_results.jsonl` and does not dispatch.
+Transient host blockers (pytest/xdist over the cap, low or missing headroom, an active
+WFE/bench PID file) are re-checked by `screen.py` every 30 seconds until
+`--quiet-max-wait-seconds` (default 20 minutes). A card mismatch, an uncommitted
+`opencode.jsonc`, or the wrong engine fails that seat on the first check.
 `scripts/seat_preflight.py` runs host-quiet first (`scripts/host_quiet.py`;
 `--force` records an override and continues) and then checks the committed
-provider model, container-environment leaks, an optional Ollama sidecar
+provider model. That check accepts opencode 2.0.x `providers.<id>.settings`
+and the older `provider.<id>.options` schema a seat worktree at an older task
+base still carries. Either form must name the portal model and a `baseURL`.
+It also checks container-environment leaks, an optional Ollama sidecar
 keep-alive, the served engine, and a config-only settings audit. Pass
 `--expected-engine ollama|omlx` when the configured model identity does not
 uniquely identify its intended engine. When an Ollama sidecar URL is supplied,
@@ -84,7 +99,11 @@ temporary copy and runs `settings_audit --config-only` for `auto-coding`,
 `auto-spl`, and every variant of those two workspaces, including every seat
 the kit leaves applied. It does not write the target worktree. `seat_rescreen.sh` probes both think
 settings and unloads resident non-E4B Ollama models before each default pair;
-`seat_screen2.sh` does not.
+`seat_screen2.sh` does not. `seat_rescreen.sh` does not source `.env`. It
+reads `PIPELINE_API_KEY` and `OMLX_API_KEY` only, unsets
+`PROMETHEUS_MULTIPROC_DIR`, and sets `PIPELINE_URL` to `http://localhost:9099`,
+so a container `PIPELINE_URL` or metrics directory in `.env` cannot fail the
+host preflight.
 
 ## Card-policy seat conformances (cbbab02c, 2026-10-22)
 
@@ -94,8 +113,8 @@ Set under the card-authority rule, for operator review. The qwen3.8 card's
 - `auto-coding::qwen38coder` and `auto-coding::qwen38coder-dflash` serve
   `think: false` with the card's non-thinking sampling (temperature 0.7,
   top_p 0.8, top_k 20, presence_penalty 1.5). Thinking-on overthought in the
-  2026-10-21 agentic coding screens. A later thinking A/B can revisit this on
-  evidence.
+  2026-10-21 agentic coding screens. The first kit A/B row is below. These
+  production seats are unchanged by that one result.
 - `auto-reasoning::deep` keeps thinking on, which differs from that
   `harness_policy`. The variant sets `think_override_reason`: thinking is the
   product of a reasoning workspace, it serves the card's thinking-mode
@@ -104,6 +123,15 @@ Set under the card-authority rule, for operator review. The qwen3.8 card's
 - `tools-specialist` sets `predict_limit` 4096. The qwen3.6 card documents an
   81,920-token output budget, which cannot fit this seat's 8K window. The cap
   is half that window so thinking cannot consume it.
+
+## Thinking A/B, first result (2026-10-22)
+
+The kit pairs each model as arm A (`think: false` plus the card's instruct
+sampling) and arm B (`think: true` plus the card's thinking sampling). The
+first finished pair is Qwen3.8-27B oQ4e (`Qwen3.8-27B-oQ4e-mtp`). Arm A,
+`auto-coding::kit-qwen38-27b-a`, passed in 17.5 minutes. Arm B,
+`auto-coding::kit-qwen38-27b-b`, timed out. The other three pairs in
+`docs/SEAT_SCREENING.md` are not part of this result.
 
 ## Why
 

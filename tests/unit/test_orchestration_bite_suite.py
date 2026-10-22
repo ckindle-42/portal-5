@@ -19,6 +19,7 @@ from orchestration_fake_pipeline import (  # noqa: E402
     tool_response,
 )
 
+from portal.platform.inference.router import auth  # noqa: E402
 from scripts import orchestration_bite_suite as runner  # noqa: E402
 from scripts.gate_c_calculator import (  # noqa: E402
     compute_gate_c_threshold,
@@ -44,6 +45,7 @@ def _trial(
             repeats=repeats,
             output_dir=tmp_path,
             pipeline_url=pipeline.url,
+            api_key=auth.PIPELINE_API_KEY,
             dry_run=dry_run,
         )
 
@@ -136,20 +138,20 @@ def test_live_bite_receipts_feed_gate_c_with_the_chosen_seat(tmp_path: Path):
     for case in cases:
         control = controls_by_id[case["checker"]["type"]]
         good = control["pass"]
-        audit = [
-            {
-                "tool": call["name"],
-                "arguments": json.dumps(call["args"]),
-                "output": json.dumps(call["output"]),
-            }
-            for call in good["calls"]
-        ]
         for _ in range(2):
             response = tool_response(
                 "finish",
                 json.dumps({"output": good["artifact"], "output_path": "bite-output.json"}),
             )
-            response["exec_audit"] = audit
+            # The pipeline-internal call shape _exec_audit_event converts —
+            # not the SSE event shape it emits.
+            response["exec_audit"] = [
+                {
+                    "function": {"name": call["name"], "arguments": json.dumps(call["args"])},
+                    "_output": json.dumps(call["output"]),
+                }
+                for call in good["calls"]
+            ]
             pipeline.add_model("bench-spark-x26", response)
     try:
         receipt = _trial(
@@ -196,6 +198,7 @@ def test_missing_tools_in_pipeline_trace_is_a_harness_error_and_gate_c_skips_it(
                 repeats=1,
                 output_dir=tmp_path,
                 pipeline_url=pipeline.url,
+                api_key=auth.PIPELINE_API_KEY,
             )
     finally:
         pipeline.close()
@@ -231,6 +234,7 @@ def test_replayed_calibration_markup_is_a_harness_error(
             repeats=1,
             output_dir=tmp_path / "AI_Output" / "generated" / "tasks",
             pipeline_url=pipeline.url,
+            api_key=auth.PIPELINE_API_KEY,
         )
     finally:
         pipeline.close()
@@ -298,6 +302,7 @@ def test_all_suite_clears_bite_guard_before_the_planner_request(
                 repeats=1,
                 output_dir=tmp_path,
                 pipeline_url=pipeline.url,
+                api_key=auth.PIPELINE_API_KEY,
             )
     finally:
         pipeline.close()

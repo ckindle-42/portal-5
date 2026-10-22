@@ -1,4 +1,15 @@
-"""Fake OpenAI-compatible Pipeline API for offline orchestration tests."""
+"""Fake OpenAI-compatible Pipeline API for offline orchestration tests.
+
+The fake scripts the ENGINE, not the pipeline's decisions: bearer auth is the
+production ``_verify_key``, the bite-tool allowlist decision is the production
+``apply_bite_tool_scope``, and the SSE wire shape is the production converter
+(``_json_completion_to_sse`` / ``_exec_audit_event``). There is no offline MCP
+registry, so ``pipeline_tools=None`` assumes the pipeline owns exactly the
+request's allowlisted names; pass a set to model a registry that lacks one and
+watch the trace (and the runner's guard) report the missing tool. The fake
+never forwards a usage chunk — the live pipeline does not either — so token
+counts travel through the worker's estimate path, as in production.
+"""
 
 from __future__ import annotations
 
@@ -8,11 +19,18 @@ import queue
 import signal
 import threading
 import time
-from copy import deepcopy
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from typing import Any
 
+from fastapi import HTTPException
+
+from portal.platform.inference.router import auth
 from portal.platform.inference.router.eval_gate import apply_bite_tool_scope
+from portal.platform.inference.router.streaming import (
+    _exec_audit_event,
+    _json_completion_to_sse,
+)
+from portal.platform.inference.router.thinking import _thinking_enabled
 
 
 class SignalResponse:
@@ -26,14 +44,30 @@ class DelayedResponse:
         self.delay = delay
 
 
+class _HttpError(Exception):
+    """A scripted status response the handler turns into send_error."""
+
+    def __init__(self, code: int, message: str) -> None:
+        super().__init__(message)
+        self.code = code
+        self.message = message
+
+
 class FakePipeline:
     """One fake Pipeline port for both seats, chat, and load-plan requests."""
 
     def __init__(
         self,
-        workspace_tools: list[str] | None = None,
-        registered_tools: list[str] | None = None,
+        *,
+        api_key: str | None = None,
+        pipeline_tools: set[str] | None = None,
     ) -> None:
+        self.api_key = auth.PIPELINE_API_KEY if api_key is None else api_key
+        self._prior_api_key: str | None = None
+        if api_key is not None:
+            self._prior_api_key = auth.PIPELINE_API_KEY
+            auth.PIPELINE_API_KEY = self.api_key
+        self.pipeline_tools = pipeline_tools
         self.responses: dict[str, queue.Queue[Any]] = {
             "auto-daily::fast": queue.Queue(),
             "auto-daily::deep": queue.Queue(),
@@ -43,8 +77,6 @@ class FakePipeline:
         self.admin_requests: list[dict[str, Any]] = []
         self.traces: dict[str, dict[str, Any]] = {}
         self.offered_tools_override: list[str] | None = None
-        self.workspace_tools = list(workspace_tools or [])
-        self.registered_tools = list(registered_tools or [])
         self._lock = threading.Lock()
         owner = self
 
@@ -54,6 +86,8 @@ class FakePipeline:
                 if not self.path.startswith(prefix):
                     self.send_error(404)
                     return
+                if not owner._authenticated(self):
+                    return
                 with owner._lock:
                     trace = owner.traces.get(self.path.removeprefix(prefix))
                 if trace is None:
@@ -62,6 +96,8 @@ class FakePipeline:
                 _json_response(self, trace)
 
             def do_POST(self) -> None:
+                if not owner._authenticated(self):
+                    return
                 body = json.loads(self.rfile.read(int(self.headers["Content-Length"])))
                 if self.path == "/admin/load-plan":
                     with owner._lock:
@@ -77,41 +113,25 @@ class FakePipeline:
                     return
                 model = body.get("model", "")
                 correlation_id = self.headers.get("X-Correlation-ID", "")
-                offered_tools = _offered_tool_names(
-                    body, owner.workspace_tools, owner.registered_tools
-                )
                 with owner._lock:
-                    owner.requests.append(body)
+                    owner.requests.append({**body})
                     if correlation_id:
                         owner.traces[correlation_id] = {
                             "correlation_id": correlation_id,
                             "requested": model,
                             "workspace": model,
                             "persona": None,
-                            "tools_offered": (
-                                owner.offered_tools_override
-                                if owner.offered_tools_override is not None
-                                else offered_tools
-                            ),
+                            "tools_offered": owner._tools_offered(body),
                             "backend": "fake",
                             "model": model,
                         }
                 try:
-                    response = owner.responses[model].get_nowait()
-                except (KeyError, queue.Empty):
-                    response = text_response("no finish call")
-                if response == "HTTP_500":
-                    self.send_error(500, "fake Pipeline failure")
+                    response = owner._next_response(model)
+                except _HttpError as exc:
+                    self.send_error(exc.code, exc.message)
                     return
-                if isinstance(response, SignalResponse):
-                    os.kill(os.getpid(), signal.SIGTERM)
-                    time.sleep(0.2)
-                    response = response.response
-                if isinstance(response, DelayedResponse):
-                    time.sleep(response.delay)
-                    response = response.response
                 try:
-                    _sse_response(self, response)
+                    _sse_response(self, response, _thinking_enabled(body))
                 except BrokenPipeError:
                     return
 
@@ -124,6 +144,57 @@ class FakePipeline:
         self.thread.start()
         self.url = f"http://127.0.0.1:{self.server.server_port}"
 
+    def _authenticated(self, handler: BaseHTTPRequestHandler) -> bool:
+        try:
+            auth._verify_key(handler.headers.get("Authorization"))
+        except HTTPException:
+            handler.send_error(401, "invalid or missing API key")
+            return False
+        return True
+
+    def _next_response(self, model: str) -> dict[str, Any]:
+        """Pop the seat's scripted completion, resolving the response controls."""
+        try:
+            response = self.responses[model].get_nowait()
+        except (KeyError, queue.Empty):
+            return text_response("no finish call")
+        if response == "HTTP_500":
+            raise _HttpError(500, "fake Pipeline failure")
+        if isinstance(response, SignalResponse):
+            os.kill(os.getpid(), signal.SIGTERM)
+            time.sleep(0.2)
+            return response.response
+        if isinstance(response, DelayedResponse):
+            time.sleep(response.delay)
+            return response.response
+        return response
+
+    def _tools_offered(self, body: dict[str, Any]) -> list[str]:
+        """The production bite gate over this fake's declared registry.
+
+        ``offered_tools_override`` stays as fault injection for harness-error
+        tests; everything else goes through apply_bite_tool_scope. The default
+        registry (None) is the request's own allowlist — the assumption that
+        the live registry carries every allowlisted name.
+        """
+        if self.offered_tools_override is not None:
+            return self.offered_tools_override
+        requested = body.get("portal_bite_tools")
+        registry = (
+            set(requested)
+            if self.pipeline_tools is None and isinstance(requested, list)
+            else (self.pipeline_tools or set())
+        )
+        schemas = body.get("tools")
+        names = [
+            tool.get("function", {}).get("name", "")
+            for tool in (schemas or [])
+            if isinstance(tool, dict)
+        ]
+        owned = sorted(registry | set(names))
+        offered, _allowed = apply_bite_tool_scope(body, owned)
+        return offered
+
     def add(self, seat: str, response: Any) -> None:
         self.responses[f"auto-daily::{seat}"].put(response)
 
@@ -134,19 +205,22 @@ class FakePipeline:
         self.admin_responses.put(response)
 
     def close(self) -> None:
+        if self._prior_api_key is not None:
+            auth.PIPELINE_API_KEY = self._prior_api_key
+            self._prior_api_key = None
         self.server.shutdown()
         self.server.server_close()
         self.thread.join(timeout=2)
 
 
-def finish_response(output: Any, *, path: str | None = None, tokens: int = 4) -> dict[str, Any]:
+def finish_response(output: Any, *, path: str | None = None) -> dict[str, Any]:
     args = {"output": output}
     if path is not None:
         args["output_path"] = path
-    return tool_response("finish", json.dumps(args), tokens=tokens)
+    return tool_response("finish", json.dumps(args))
 
 
-def tool_response(name: str, arguments: str, *, tokens: int = 4) -> dict[str, Any]:
+def tool_response(name: str, arguments: str) -> dict[str, Any]:
     return {
         "choices": [
             {
@@ -164,33 +238,12 @@ def tool_response(name: str, arguments: str, *, tokens: int = 4) -> dict[str, An
                 "finish_reason": "tool_calls",
             }
         ],
-        "usage": {"completion_tokens": tokens},
+        "usage": {"completion_tokens": 4},
     }
 
 
-def _offered_tool_names(
-    body: dict[str, Any],
-    workspace_tools: list[str],
-    registered_tools: list[str] | None = None,
-) -> list[str]:
-    """Mirror eval_gate's workspace intersection and retained client schemas."""
-    scoped_body = deepcopy(body)
-    effective_tools, _allowlist = apply_bite_tool_scope(scoped_body, workspace_tools)
-    client_schemas = scoped_body.get("tools", [])
-    client_names = [
-        tool["function"]["name"]
-        for tool in client_schemas
-        if isinstance(tool, dict)
-        and isinstance(tool.get("function"), dict)
-        and isinstance(tool["function"].get("name"), str)
-    ]
-    registered = set(registered_tools or [])
-    server_names = [name for name in effective_tools if name in registered]
-    return list(dict.fromkeys([*server_names, *client_names]))
-
-
 def text_response(
-    content: str, *, tokens: int = 4, exec_audit: list[dict[str, Any]] | None = None
+    content: str, *, exec_audit: list[dict[str, Any]] | None = None
 ) -> dict[str, Any]:
     response = {
         "choices": [
@@ -199,7 +252,7 @@ def text_response(
                 "finish_reason": "stop",
             }
         ],
-        "usage": {"completion_tokens": tokens},
+        "usage": {"completion_tokens": 4},
     }
     if exec_audit is not None:
         response["exec_audit"] = exec_audit
@@ -215,58 +268,21 @@ def _json_response(handler: BaseHTTPRequestHandler, value: dict[str, Any]) -> No
     handler.wfile.write(payload)
 
 
-def _sse_response(handler: BaseHTTPRequestHandler, response: dict[str, Any]) -> None:
+def _sse_response(
+    handler: BaseHTTPRequestHandler, response: dict[str, Any], thinking: bool
+) -> None:
+    """Serve one completion through the production JSON-to-SSE converter.
+
+    The exec_audit event rides after [DONE] here; the live pipeline emits it
+    before the finish chunk. Every consumer of this fake merges events
+    order-insensitively (worker _merge_event, SuiteEngine capture).
+    """
     handler.send_response(200)
     handler.send_header("Content-Type", "text/event-stream")
     handler.send_header("Cache-Control", "no-cache")
     handler.end_headers()
-    choice = response["choices"][0]
-    message = choice["message"]
-    if message.get("content"):
-        _event(handler, {"choices": [{"delta": {"content": message["content"]}}]})
-    for index, call in enumerate(message.get("tool_calls") or []):
-        function = call["function"]
-        _event(
-            handler,
-            {
-                "choices": [
-                    {
-                        "delta": {
-                            "tool_calls": [
-                                {
-                                    "index": index,
-                                    "id": call["id"],
-                                    "type": call["type"],
-                                    "function": {"name": function["name"]},
-                                }
-                            ]
-                        }
-                    }
-                ]
-            },
-        )
-        _event(
-            handler,
-            {
-                "choices": [
-                    {
-                        "delta": {
-                            "tool_calls": [
-                                {"index": index, "function": {"arguments": function["arguments"]}}
-                            ]
-                        }
-                    }
-                ]
-            },
-        )
-    if response.get("exec_audit"):
-        _event(handler, {"type": "exec_audit", "tool_calls": response["exec_audit"]})
-    _event(handler, {"choices": [{"delta": {}, "finish_reason": choice["finish_reason"]}]})
-    _event(handler, {"choices": [], "usage": response.get("usage", {})})
-    handler.wfile.write(b"data: [DONE]\n\n")
-    handler.wfile.flush()
-
-
-def _event(handler: BaseHTTPRequestHandler, value: dict[str, Any]) -> None:
-    handler.wfile.write(f"data: {json.dumps(value)}\n\n".encode())
-    handler.wfile.flush()
+    for chunk in _json_completion_to_sse(response, "fake", thinking_enabled=thinking):
+        handler.wfile.write(chunk)
+    calls = response.get("exec_audit")
+    if calls:
+        handler.wfile.write(_exec_audit_event(calls))

@@ -32,6 +32,8 @@ import yaml
 ROOT = Path(__file__).resolve().parents[1]
 sys.path[:0] = [str(ROOT), str(ROOT / "tests" / "unit")]
 
+os.environ.setdefault("PIPELINE_API_KEY", "wfe-acceptance-rig-key")
+
 from orchestration_fake_pipeline import (  # noqa: E402
     FakePipeline,
     SignalResponse,
@@ -47,6 +49,7 @@ from portal.modules.orchestration.service import (  # noqa: E402
     load_arm_config,
 )
 from portal.modules.orchestration.worker import Engine  # noqa: E402
+from portal.platform.inference.router import auth  # noqa: E402
 from portal.platform.mcp_host.workspace import get_generated_dir  # noqa: E402
 from scripts import host_quiet  # noqa: E402
 
@@ -250,8 +253,22 @@ def _run_task(
     config = root / "config" / "orchestration_arm.yaml"
     _write_arm_config(config, calibration_overrides=calibration_overrides)
     engines = {
-        "fast": Engine("auto-daily::fast", "fast-digest", pipeline.url, "", "omlx", "fake-fast"),
-        "deep": Engine("auto-daily::deep", "deep-digest", pipeline.url, "", "omlx", "fake-deep"),
+        "fast": Engine(
+            "auto-daily::fast",
+            "fast-digest",
+            pipeline.url,
+            auth.PIPELINE_API_KEY,
+            "omlx",
+            "fake-fast",
+        ),
+        "deep": Engine(
+            "auto-daily::deep",
+            "deep-digest",
+            pipeline.url,
+            auth.PIPELINE_API_KEY,
+            "omlx",
+            "fake-deep",
+        ),
     }
     service = ArmService(
         root, engines, build_sha="offline-head", residency_config=config, notices=notices
@@ -361,8 +378,7 @@ def scenario_budget_exhaustion(root: Path, task_id: str, live: bool, pipeline: A
     if live:
         raise ScenarioSkippedError("requires controllable responses")
     responses = [
-        (seat, finish_response({"answer": "right"}, tokens=50))
-        for seat in ("fast", "fast", "fast", "deep")
+        (seat, finish_response({"answer": "x" * 512})) for seat in ("fast", "fast", "fast", "deep")
     ]
     receipt, _ = _run_task(root, task_id, responses, [_bite("b1", tokens=8)])
     assert receipt["status"] == "BLOCKED"
@@ -403,8 +419,22 @@ def scenario_sigterm_resume(root: Path, task_id: str, live: bool, pipeline: Any,
     config = root / "config" / "orchestration_arm.yaml"
     _write_arm_config(config)
     engines = {
-        "fast": Engine("auto-daily::fast", "fast-digest", pipeline.url, "", "omlx", "fake-fast"),
-        "deep": Engine("auto-daily::deep", "deep-digest", pipeline.url, "", "omlx", "fake-deep"),
+        "fast": Engine(
+            "auto-daily::fast",
+            "fast-digest",
+            pipeline.url,
+            auth.PIPELINE_API_KEY,
+            "omlx",
+            "fake-fast",
+        ),
+        "deep": Engine(
+            "auto-daily::deep",
+            "deep-digest",
+            pipeline.url,
+            auth.PIPELINE_API_KEY,
+            "omlx",
+            "fake-deep",
+        ),
     }
     runner = ArmService(root, engines, build_sha="offline-head", residency_config=config)
     previous = signal.getsignal(signal.SIGTERM)
@@ -434,8 +464,22 @@ def scenario_identity_mismatch(root: Path, task_id: str, live: bool, pipeline: A
     config.parent.mkdir(parents=True, exist_ok=True)
     _write_arm_config(config)
     engines = {
-        "fast": Engine("auto-daily::fast", "fast-digest", pipeline.url, "", "omlx", "fake-fast"),
-        "deep": Engine("auto-daily::deep", "deep-digest", pipeline.url, "", "omlx", "fake-deep"),
+        "fast": Engine(
+            "auto-daily::fast",
+            "fast-digest",
+            pipeline.url,
+            auth.PIPELINE_API_KEY,
+            "omlx",
+            "fake-fast",
+        ),
+        "deep": Engine(
+            "auto-daily::deep",
+            "deep-digest",
+            pipeline.url,
+            auth.PIPELINE_API_KEY,
+            "omlx",
+            "fake-deep",
+        ),
     }
     root.mkdir(parents=True, exist_ok=True)
     ArmService(root, engines, build_sha="head-a", residency_config=config).submit(
@@ -448,8 +492,22 @@ def scenario_identity_mismatch(root: Path, task_id: str, live: bool, pipeline: A
     else:
         raise AssertionError("changed build SHA was accepted")
     changed = {
-        "fast": Engine("auto-daily::fast", "other-digest", pipeline.url, "", "omlx", "fake-fast"),
-        "deep": Engine("auto-daily::deep", "deep-digest", pipeline.url, "", "omlx", "fake-deep"),
+        "fast": Engine(
+            "auto-daily::fast",
+            "other-digest",
+            pipeline.url,
+            auth.PIPELINE_API_KEY,
+            "omlx",
+            "fake-fast",
+        ),
+        "deep": Engine(
+            "auto-daily::deep",
+            "deep-digest",
+            pipeline.url,
+            auth.PIPELINE_API_KEY,
+            "omlx",
+            "fake-deep",
+        ),
     }
     try:
         ArmService(root, changed, build_sha="head-a", residency_config=config).resume(task_id)
@@ -676,8 +734,22 @@ def scenario_calibration_pause(root: Path, task_id: str, live: bool, pipeline: A
     assert receipt["calibration"][0]["projected_pass_probability"] == 0.25
     assert len(pipeline.requests) == 1
     engines = {
-        "fast": Engine("auto-daily::fast", "fast-digest", pipeline.url, "", "omlx", "fake-fast"),
-        "deep": Engine("auto-daily::deep", "deep-digest", pipeline.url, "", "omlx", "fake-deep"),
+        "fast": Engine(
+            "auto-daily::fast",
+            "fast-digest",
+            pipeline.url,
+            auth.PIPELINE_API_KEY,
+            "omlx",
+            "fake-fast",
+        ),
+        "deep": Engine(
+            "auto-daily::deep",
+            "deep-digest",
+            pipeline.url,
+            auth.PIPELINE_API_KEY,
+            "omlx",
+            "fake-deep",
+        ),
     }
     runner = ArmService(
         root,
@@ -837,10 +909,20 @@ def run_live(
     deep_digest: str,
     phases: list[int] | None = None,
     force: bool = False,
+    wait: bool = False,
+    poll_s: float = host_quiet.DEFAULT_QUIET_POLL_S,
+    max_wait_s: float = host_quiet.DEFAULT_QUIET_MAX_WAIT_S,
 ) -> dict[str, Any]:
     """Run scenarios against a live Pipeline after the shared host preflight."""
     print("Checking that the host is quiet...", flush=True)
-    host_context = host_quiet.begin_run(pipeline_url, api_key, force=force)
+    host_context = host_quiet.start_run(
+        pipeline_url,
+        api_key,
+        force=force,
+        wait=wait,
+        poll_s=poll_s,
+        max_wait_s=max_wait_s,
+    )
     if not host_context["allowed"]:
         reason = host_quiet.refusal(host_context)
         host_quiet.finish_run(host_context, pipeline_url, api_key)
@@ -986,6 +1068,23 @@ def _parse_args() -> argparse.Namespace:
     )
     parser.add_argument("--force", action="store_true", help="override host-quiet blockers")
     parser.add_argument(
+        "--wait-for-quiet",
+        action="store_true",
+        help="poll transient host blockers until they clear or the wait expires",
+    )
+    parser.add_argument(
+        "--quiet-poll-seconds",
+        type=float,
+        default=host_quiet.DEFAULT_QUIET_POLL_S,
+        help="seconds between host-quiet re-checks when waiting",
+    )
+    parser.add_argument(
+        "--quiet-max-wait-seconds",
+        type=float,
+        default=host_quiet.DEFAULT_QUIET_MAX_WAIT_S,
+        help="stop waiting for a quiet host after this many seconds",
+    )
+    parser.add_argument(
         "--phase", type=int, action="append", choices=[1, 2], help="Run only specific phase(s)"
     )
     return parser.parse_args()
@@ -1018,6 +1117,9 @@ def _run(args: argparse.Namespace, workdir: Path) -> dict[str, Any]:
             args.deep_digest,
             phases=args.phase,
             force=args.force,
+            wait=args.wait_for_quiet,
+            poll_s=args.quiet_poll_seconds,
+            max_wait_s=args.quiet_max_wait_seconds,
         )
     finally:
         signal.signal(signal.SIGTERM, previous)

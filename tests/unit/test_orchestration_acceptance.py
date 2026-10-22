@@ -17,6 +17,8 @@ sys.path[:0] = [str(ROOT / "tests" / "unit"), str(ROOT / "scripts")]
 import orchestration_acceptance as acceptance  # noqa: E402
 from orchestration_fake_pipeline import FakePipeline, finish_response  # noqa: E402
 
+from portal.platform.inference.router import auth  # noqa: E402
+
 
 def _run_scenario(name: str, workdir: Path, live: bool = False) -> dict[str, Any]:
     return acceptance.run_scenario(
@@ -30,7 +32,7 @@ def _run_live_scenario(name: str, workdir: Path, pipeline_url: str) -> dict[str,
         workdir,
         live=True,
         pipeline_url=pipeline_url,
-        api_key="",
+        api_key=auth.PIPELINE_API_KEY,
         fast_digest="fast-digest",
         deep_digest="deep-digest",
     )
@@ -175,6 +177,41 @@ def test_live_scenarios_are_required_and_skip(tmp_path: Path):
 )
 def test_exit_code_never_treats_required_skips_as_success(receipt: dict, expected: int):
     assert acceptance._exit_code(receipt) == expected
+
+
+def test_run_live_wait_for_quiet_uses_the_shared_helper(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    seen = {}
+
+    def start(*_args, force=False, wait=False, poll_s=30, max_wait_s=1200):
+        seen.update(force=force, wait=wait, poll_s=poll_s, max_wait_s=max_wait_s)
+        return {
+            "allowed": False,
+            "force_requested": force,
+            "override_reason": None,
+            "blockers": ["WFE/bench run is running (pid 43): memory-safety PID file"],
+            "start": {},
+        }
+
+    monkeypatch.setattr(acceptance.host_quiet, "start_run", start)
+    monkeypatch.setattr(
+        acceptance.host_quiet, "finish_run", lambda record, *a: record.update(end={})
+    )
+
+    receipt = acceptance.run_live(
+        tmp_path,
+        "http://127.0.0.1:9099",
+        "key",
+        "fd",
+        "dd",
+        wait=True,
+        poll_s=15,
+        max_wait_s=60,
+    )
+
+    assert seen == {"force": False, "wait": True, "poll_s": 15, "max_wait_s": 60}
+    assert "memory-safety PID file" in receipt["blocked"]
 
 
 def test_run_live_refuses_while_wfe_is_active(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
@@ -377,7 +414,7 @@ def test_run_live_task_uses_repo_config_and_unattended_false(tmp_path: Path):
             "live",
             [acceptance._bite("b1", discipline="test_fixing")],
             pipeline.url,
-            "",
+            auth.PIPELINE_API_KEY,
             "fast-digest",
             "deep-digest",
         )

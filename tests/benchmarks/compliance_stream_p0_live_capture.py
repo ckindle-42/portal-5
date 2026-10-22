@@ -12,7 +12,11 @@ from portal.modules.compliance.core.transport_dialects import _pipeline_api_key
 
 ROOT = Path.cwd()
 RUN_ID = "20260927T095336Z"
-PRIVATE = ROOT / "portal/modules/compliance/data/private/stream_and_council_repair" / RUN_ID
+PRIVATE = (
+    ROOT
+    / "portal/modules/compliance/data/private/stream_and_council_repair"  # local-only: operator run artifacts
+    / RUN_ID
+)
 BASE = "http://localhost:9099"
 KEY = _pipeline_api_key()
 

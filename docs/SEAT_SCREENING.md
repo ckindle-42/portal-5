@@ -1,16 +1,27 @@
 # Coder seat screening
 
 The repository copy of the coder seat harness lives in `scripts/seat_screen/`. It creates an
-isolated worktree per requested seat, commits the OpenCode provider setup, runs
-`scripts/seat_preflight.py` against that worktree, and dispatches only seats that pass. A blocked
-preflight appends a `preflight_blocked` row with its reasons to `seat_results.jsonl` and skips
-dispatch for that seat.
+isolated worktree per requested seat, commits the OpenCode provider setup, and dispatches only
+seats that pass preflight. Preflight runs from the main checkout: `screen.py` invokes that
+checkout's `scripts/seat_preflight.py` with `--repo` set to the seat worktree and `--config-repo`
+set to the main checkout. The seat worktree's copy of the script is not what runs. The committed
+provider check accepts opencode 2.0.x `providers.<id>.settings` and the older
+`provider.<id>.options` schema a seat worktree at an older task base still carries. Either form
+must name the portal model and a `baseURL`. A blocked preflight appends a `preflight_blocked`
+row with its reasons to `seat_results.jsonl` and skips dispatch for that seat. Transient
+host-quiet blockers — pytest/xdist over `UAT_MAX_PYTEST_PROCESSES`, headroom under
+`UAT_MIN_HOST_HEADROOM_GIB`, and a live WFE/bench PID — are re-checked every
+`--quiet-poll-seconds` (default 30) until `--quiet-max-wait-seconds` (default 20 minutes).
+Each wait is logged. A card mismatch, an uncommitted `opencode.jsonc`, or the wrong engine
+fails that seat on the first check.
 
 `scripts/seat_preflight.py` applies the shared host-quiet gate before seat checks and prints a
 `host_quiet` receipt with start and end snapshots. It blocks below `UAT_MIN_HOST_HEADROOM_GIB`
 (default 1.5 GiB), on a live entry in `/tmp/portal5-memory-safety-test-pids`, or when detected
-pytest/xdist processes exceed `UAT_MAX_PYTEST_PROCESSES` (default 4). Dispatch lane jobs and
-Pipeline busy requests remain visible in the snapshots but do not block the screen.
+pytest/xdist processes exceed `UAT_MAX_PYTEST_PROCESSES` (default 5: one capped `-n 4` hook). Those three are transient
+and the screen waits them out. Other host-quiet blockers, and every config blocker, fail at once.
+Dispatch lane jobs and Pipeline busy requests remain visible in the snapshots but do not block
+the screen.
 
 ## Run a screen
 
@@ -26,6 +37,9 @@ output directory for review. `seat_rescreen.sh` runs the default variant/slug pa
 into that script, sequentially, or accepts `variant slug` pairs as arguments or on standard
 input with `--stdin`. It probes both think settings and unloads resident non-E4B Ollama models
 before each seat; it requires a prepared kit config and the live Portal and Ollama services.
+It does not source `.env`. It reads `PIPELINE_API_KEY` and `OMLX_API_KEY` only, unsets
+`PROMETHEUS_MULTIPROC_DIR`, and sets `PIPELINE_URL` to `http://localhost:9099`, so a container
+pipeline URL or metrics directory in `.env` cannot fail the host preflight.
 The single-seat `seat_screen2.sh` runner does not perform those probes or unloads.
 
 The worker brief is copied from `scripts/seat_screen/SIDECAR_BENCH_BRIEF.md`. It directs the seat
@@ -39,7 +53,7 @@ Bytes after that block are not part of the comparison. A failed regeneration is
 `derived_check_error` and fails `PASS`. Other changed files remain in `stray_files` and fail
 `PASS`. `scripts/seat_preflight.py` also runs the host-quiet gate before the config checks and
 blocks the seat when the host is busy, unless `--force` is passed. The screen runner does not
-pass `--force`.
+pass `--force`. It waits out transient host blockers before it records `preflight_blocked`.
 
 ## Apply or revert the kit
 
@@ -102,3 +116,10 @@ The Pipeline must carry the `plan/think-budget` field: without it `thinking_budg
 the workspace dict but is never forwarded, so every `-b` seat silently runs uncapped. A `-b` row
 whose oMLX request trace has no `thinking_budget` is invalid. Each seat needs its own WFE plan
 row; no kit rows exist in `tests/wfe/workloads.yaml` yet.
+
+## First result (2026-10-22)
+
+The first finished pair is Qwen3.8-27B oQ4e (`Qwen3.8-27B-oQ4e-mtp`). Arm A,
+`auto-coding::kit-qwen38-27b-a` (thinking off, instruct sampling), passed in 17.5 minutes.
+Arm B, `auto-coding::kit-qwen38-27b-b` (thinking on), timed out. The other three pairs in
+the run list are not part of this result.

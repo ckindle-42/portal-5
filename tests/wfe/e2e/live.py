@@ -334,7 +334,10 @@ def live_discipline(rig: LiveRig, inc: str, ch: str, one: list[str], c1: str) ->
 
 OPERATOR_COMPLIANCE_DB = Path(
     eval_mode.setting(
-        "COMPLIANCE_DB_PATH", str(REPO / "portal/modules/compliance/data/compliance_store.db")
+        "COMPLIANCE_DB_PATH",
+        str(
+            REPO / "portal/modules/compliance/data/compliance_store.db"
+        ),  # local-only: operator store
     )
 )
 

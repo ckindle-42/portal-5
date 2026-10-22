@@ -20,6 +20,8 @@ import yaml
 _ROOT = Path(__file__).resolve().parents[3]
 sys.path[:0] = [str(_ROOT), str(_ROOT / "tests" / "unit")]
 
+os.environ.setdefault("PIPELINE_API_KEY", "wfe-arm-rig-key")
+
 from orchestration_fake_pipeline import (  # noqa: E402
     FakePipeline,
     SignalResponse,
@@ -31,6 +33,7 @@ from orchestration_fake_pipeline import (  # noqa: E402
 from portal.modules.orchestration.ledger import ResumeMismatchError  # noqa: E402
 from portal.modules.orchestration.planner import (  # noqa: E402
     instantiate_plan_template,
+    validate_execution_plan,
     validate_planned_plan,
 )
 from portal.modules.orchestration.queue import (  # noqa: E402
@@ -43,6 +46,7 @@ from portal.modules.orchestration.worker import Engine  # noqa: E402
 from portal.modules.security.eval.orchestration_injection import (  # noqa: E402
     score_downstream_actions,
 )
+from portal.platform.inference.router import auth  # noqa: E402
 
 _SCHEMA = {
     "type": "object",
@@ -152,8 +156,22 @@ def _run_task(
         arm_config["calibration"].update(calibration_overrides)
         config.write_text(yaml.safe_dump(arm_config, sort_keys=False), encoding="utf-8")
     engines = {
-        "fast": Engine("auto-daily::fast", "fast-digest", pipeline.url, "", "omlx", "fake-fast"),
-        "deep": Engine("auto-daily::deep", "deep-digest", pipeline.url, "", "omlx", "fake-deep"),
+        "fast": Engine(
+            "auto-daily::fast",
+            "fast-digest",
+            pipeline.url,
+            auth.PIPELINE_API_KEY,
+            "omlx",
+            "fake-fast",
+        ),
+        "deep": Engine(
+            "auto-daily::deep",
+            "deep-digest",
+            pipeline.url,
+            auth.PIPELINE_API_KEY,
+            "omlx",
+            "fake-deep",
+        ),
     }
     service = ArmService(
         root, engines, build_sha="offline-head", residency_config=config, notices=notices
@@ -185,10 +203,20 @@ def _detection_engineering_unseated(root: Path, task_id: str) -> str:
         assert "detection-engineering" not in config["calibration"]["rates_by_discipline"]
         engines = {
             "fast": Engine(
-                "auto-daily::fast", "fast-digest", pipeline.url, "", "omlx", "fake-fast"
+                "auto-daily::fast",
+                "fast-digest",
+                pipeline.url,
+                auth.PIPELINE_API_KEY,
+                "omlx",
+                "fake-fast",
             ),
             "deep": Engine(
-                "auto-daily::deep", "deep-digest", pipeline.url, "", "omlx", "fake-deep"
+                "auto-daily::deep",
+                "deep-digest",
+                pipeline.url,
+                auth.PIPELINE_API_KEY,
+                "omlx",
+                "fake-deep",
             ),
         }
         notices = _FakeApproveNotices()
@@ -266,8 +294,7 @@ def _red_flag(root: Path, task_id: str) -> str:
 
 def _budget(root: Path, task_id: str) -> str:
     responses = [
-        (seat, finish_response({"answer": "right"}, tokens=50))
-        for seat in ("fast", "fast", "fast", "deep")
+        (seat, finish_response({"answer": "x" * 512})) for seat in ("fast", "fast", "fast", "deep")
     ]
     receipt, _ = _run_task(root, task_id, responses, [_bite("b1", tokens=8)])
     assert receipt["status"] == "BLOCKED"
@@ -300,8 +327,22 @@ def _resume(root: Path, task_id: str) -> str:
     config = root / "orchestration_arm.yaml"
     _write_arm_config(config)
     engines = {
-        "fast": Engine("auto-daily::fast", "fast-digest", pipeline.url, "", "omlx", "fake-fast"),
-        "deep": Engine("auto-daily::deep", "deep-digest", pipeline.url, "", "omlx", "fake-deep"),
+        "fast": Engine(
+            "auto-daily::fast",
+            "fast-digest",
+            pipeline.url,
+            auth.PIPELINE_API_KEY,
+            "omlx",
+            "fake-fast",
+        ),
+        "deep": Engine(
+            "auto-daily::deep",
+            "deep-digest",
+            pipeline.url,
+            auth.PIPELINE_API_KEY,
+            "omlx",
+            "fake-deep",
+        ),
     }
     runner = ArmService(root, engines, build_sha="offline-head", residency_config=config)
     previous = signal.getsignal(signal.SIGTERM)
@@ -329,8 +370,22 @@ def _mismatch(root: Path, task_id: str) -> str:
     config.parent.mkdir(parents=True, exist_ok=True)
     _write_arm_config(config)
     engines = {
-        "fast": Engine("auto-daily::fast", "fast-digest", pipeline.url, "", "omlx", "fake-fast"),
-        "deep": Engine("auto-daily::deep", "deep-digest", pipeline.url, "", "omlx", "fake-deep"),
+        "fast": Engine(
+            "auto-daily::fast",
+            "fast-digest",
+            pipeline.url,
+            auth.PIPELINE_API_KEY,
+            "omlx",
+            "fake-fast",
+        ),
+        "deep": Engine(
+            "auto-daily::deep",
+            "deep-digest",
+            pipeline.url,
+            auth.PIPELINE_API_KEY,
+            "omlx",
+            "fake-deep",
+        ),
     }
     root.mkdir(parents=True, exist_ok=True)
     ArmService(root, engines, build_sha="head-a", residency_config=config).submit(
@@ -364,7 +419,14 @@ def _planner_rejection(name: str) -> str:
         raw["bites"][0]["accept"] = []
         expected = "deterministic check or review"
     elif name == "planner_context_overflow":
-        raw["bites"][0]["budget"]["context_tokens"] = 16385
+        discipline = config["disciplines"]["test_fixing"]
+        raw["bites"][0]["budget"]["context_tokens"] = (
+            min(
+                config["planner"]["comfortable_context_tokens"],
+                discipline["fast_context_budget_tokens"],
+            )
+            + 1
+        )
         expected = "exceeds Fast context budget"
     elif name == "planner_mixed_read_and_action":
         raw["bites"][0]["tools"] = ["file_read", "file_write"]
@@ -464,6 +526,7 @@ def _valid_planned_plan() -> dict[str, Any]:
             "goal": f"Complete {stage} for the task.",
             "discipline": "test_fixing",
             "inputs": [],
+            **({"write_paths": ["artifact.txt"]} if "file_write" in tools else {}),
             "depends_on": deps,
             "tools": tools,
             "output": {"path": f"bites/{bite_id}.txt", "file_type": "text"},
@@ -594,8 +657,22 @@ def _calibration_pause(root: Path, task_id: str) -> str:
     assert receipt["calibration"][0]["projected_pass_probability"] == 0.25
     assert len(pipeline.requests) == 1
     engines = {
-        "fast": Engine("auto-daily::fast", "fast-digest", pipeline.url, "", "omlx", "fake-fast"),
-        "deep": Engine("auto-daily::deep", "deep-digest", pipeline.url, "", "omlx", "fake-deep"),
+        "fast": Engine(
+            "auto-daily::fast",
+            "fast-digest",
+            pipeline.url,
+            auth.PIPELINE_API_KEY,
+            "omlx",
+            "fake-fast",
+        ),
+        "deep": Engine(
+            "auto-daily::deep",
+            "deep-digest",
+            pipeline.url,
+            auth.PIPELINE_API_KEY,
+            "omlx",
+            "fake-deep",
+        ),
     }
     runner = ArmService(
         root,
@@ -618,8 +695,8 @@ def _queue_order(root: Path) -> str:
         pipeline.add("fast", finish_response({"answer": "right"}))
         pipeline.add("fast", finish_response({"answer": "right"}))
         with QueueLedger(root / "tasks") as ledger:
-            ledger.enqueue(_queue_plan("queue-first"), root)
-            ledger.enqueue(_queue_plan("queue-second"), root)
+            ledger.enqueue(_validated_queue_plan(runner, root, "queue-first"), root)
+            ledger.enqueue(_validated_queue_plan(runner, root, "queue-second"), root)
         first = runner.run_next()
         second = runner.run_next()
         assert (first.status, first.task_id) == ("DONE", "queue-first")
@@ -638,7 +715,7 @@ def _queue_bench_lock_wait(root: Path) -> str:
         lock.write_text(f"{os.getpid()}\n", encoding="utf-8")
         pipeline.add("fast", finish_response({"answer": "right"}))
         with QueueLedger(root / "tasks") as ledger:
-            ledger.enqueue(_queue_plan("queue-lock"), root)
+            ledger.enqueue(_validated_queue_plan(runner, root, "queue-lock"), root)
         waiting = runner.run_next()
         assert waiting.status == "WAITING" and not pipeline.requests
         lock.unlink()
@@ -657,7 +734,7 @@ def _queue_crash_resume(root: Path) -> str:
         pipeline.add("fast", SignalResponse(finish_response({"answer": "wrong"})))
         pipeline.add("fast", finish_response({"answer": "right"}))
         with QueueLedger(root / "tasks") as ledger:
-            ledger.enqueue(_queue_plan("queue-crash"), root)
+            ledger.enqueue(_validated_queue_plan(runner, root, "queue-crash"), root)
         previous = signal.getsignal(signal.SIGTERM)
         signal.signal(signal.SIGTERM, lambda *_: (_ for _ in ()).throw(KeyboardInterrupt()))
         try:
@@ -697,8 +774,22 @@ def _queue_runner(
     arm_config["queue"]["yield_lock_dir"] = str(selected_lock_dir)
     config.write_text(yaml.safe_dump(arm_config, sort_keys=False), encoding="utf-8")
     engines = {
-        "fast": Engine("auto-daily::fast", "fast-digest", pipeline.url, "", "omlx", "fake-fast"),
-        "deep": Engine("auto-daily::deep", "deep-digest", pipeline.url, "", "omlx", "fake-deep"),
+        "fast": Engine(
+            "auto-daily::fast",
+            "fast-digest",
+            pipeline.url,
+            auth.PIPELINE_API_KEY,
+            "omlx",
+            "fake-fast",
+        ),
+        "deep": Engine(
+            "auto-daily::deep",
+            "deep-digest",
+            pipeline.url,
+            auth.PIPELINE_API_KEY,
+            "omlx",
+            "fake-deep",
+        ),
     }
     task_root = root / "tasks"
     service = ArmService(task_root, engines, build_sha="offline-head", residency_config=config)
@@ -710,9 +801,18 @@ def _queue_plan(task_id: str) -> dict[str, Any]:
     return {"task_id": task_id, "goal": "Run a queued offline task", "bites": [_bite("b1")]}
 
 
+def _validated_queue_plan(runner: OvernightQueue, root: Path, task_id: str):
+    return validate_execution_plan(_queue_plan(task_id), runner.service.arm_config, root)
+
+
 def _write_arm_config(path: Path) -> dict[str, Any]:
     path.parent.mkdir(parents=True, exist_ok=True)
     config = yaml.safe_load((_ROOT / "config" / "orchestration_arm.yaml").read_text())
+    config["disciplines"]["offline-rig"] = {
+        "tool_allowlist": ["file_read", "file_write", "pytest_run"],
+        "read_tools": ["file_read"],
+        "action_tools": ["file_write", "pytest_run"],
+    }
     config["calibration"]["minimum_pass_probability"] = 0.01
     config["calibration"]["rates_by_discipline"] = {
         name: {
@@ -752,6 +852,7 @@ def _bite(
         "goal": "produce the expected value",
         "discipline": discipline,
         "inputs": [],
+        **({"write_paths": ["artifact.txt"]} if "file_write" in (tools or []) else {}),
         "depends_on": [],
         "tools": tools or [],
         "output": output,

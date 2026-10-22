@@ -253,7 +253,7 @@ async def vuln_severity(ctx: ProbeContext) -> ProbeResult:
         StandardScaler(), LogisticRegressionCV(Cs=[0.01, 0.1, 1.0, 10.0], cv=5, max_iter=5000)
     ).fit(xtr, ytr)
     pred_eg2 = [_LABELS[i] for i in head.predict(xte)]
-    py = Path("/Users/chris/.portal5/eg2-venv/bin/python3")
+    py = Path.home() / ".portal5" / "eg2-venv" / "bin" / "python3"
     with tempfile.TemporaryDirectory() as td:
         (Path(td) / "in.json").write_text(json.dumps(test))
         script = Path(td) / "rb.py"

@@ -33,6 +33,16 @@ sources:
   path: portal/platform/inference/config.py
 - type: config
   path: config/portal.yaml
+- type: code
+  path: portal/platform/inference/router/eval_gate.py
+- type: code
+  path: tests/wfe/runner.py
+- type: code
+  path: tests/unit/orchestration_fake_pipeline.py
+- type: code
+  path: scripts/orchestration_bite_suite.py
+- type: code
+  path: scripts/gate_c_calculator.py
 claims:
 - probe: modules.disabled
   contains: orchestration
@@ -42,7 +52,7 @@ tags:
 - module
 - verified-v1
 created_at: 1792546230.261703
-updated_at: 1792546273.110409
+updated_at: 1792680000
 ---
 
 # Orchestration Module — offline verified task runner
@@ -58,6 +68,12 @@ Offline tests drive the arm through a fake OpenAI-compatible Pipeline API. Store
 ## Module state
 
 The switch is `modules.orchestration.enabled` in `config/portal.yaml` and defaults to false. The module unit documents the switch; it does not hold it. `config/orchestration_arm.yaml` supplies the default `swap` residency mode and the underlying model IDs checked by the Pipeline load guard.
+
+## Bite tools
+
+The worker's `portal_bite_tools` list is a per-request allowlist. `apply_bite_tool_scope` intersects Pipeline-owned tools with it and retains the client schemas the worker supplied. The worker supplies schemas for each bite's task-scoped client tools plus `finish`, dispatches those task tools locally, and sends their results into the next Pipeline turn. `file_read` and `file_write` use descriptor-relative, no-follow access below the task data root. `pytest_run` sends only explicit readable and writable files into the disposable sandbox container and copies back only the write allowlist.
+
+`scripts/orchestration_bite_suite.py` writes planner, checker, and bite rows. `scripts/gate_c_calculator.py` keeps final bite-suite rows (`passed`, `blocked`, `failed`) and drops every other suite plus `HARNESS_ERROR`. A missing offered tool is a harness error, not a Gate C sample.
 
 ## Why
 

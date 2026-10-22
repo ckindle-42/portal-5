@@ -50,6 +50,33 @@ def _config() -> SimpleNamespace:
     )
 
 
+def test_wait_for_quiet_flag_reaches_the_shared_helper(tmp_path, monkeypatch):
+    seen = {}
+
+    def start(*_args, force=False, wait=False, poll_s=30, max_wait_s=1200):
+        seen.update(wait=wait, poll_s=poll_s, max_wait_s=max_wait_s)
+        return {
+            "allowed": False,
+            "force_requested": force,
+            "override_reason": None,
+            "blockers": ["pytest/xdist process count 5 exceeds UAT_MAX_PYTEST_PROCESSES=4"],
+            "start": {"headroom_gib": 4.0},
+        }
+
+    monkeypatch.setattr(uat, "load_portal_config", _config)
+    monkeypatch.setattr(uat, "select_shots", lambda _config: (["general-engine"], [], []))
+    monkeypatch.setattr(uat.host_quiet, "start_run", start)
+    monkeypatch.setattr(uat.host_quiet, "finish_run", lambda record, *_args: record.update(end={}))
+    monkeypatch.setenv("PORTAL_DATA_ROOT", str(tmp_path))
+    monkeypatch.setenv("PIPELINE_API_KEY", "test-key")
+
+    assert (
+        uat.main(["--only", "general-engine", "--wait-for-quiet", "--quiet-max-wait-seconds", "60"])
+        == 1
+    )
+    assert seen == {"wait": True, "poll_s": 30.0, "max_wait_s": 60.0}
+
+
 def test_select_shots_skips_security_modules():
     config = _config()
     mods = ["general", "security", "media"]

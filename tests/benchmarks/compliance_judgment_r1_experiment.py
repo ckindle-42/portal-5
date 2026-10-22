@@ -35,10 +35,14 @@ from tests.benchmarks.compliance_judgment_contract_v2 import (
 
 ROOT = Path(__file__).resolve().parents[2]
 RUN_ID = "20260927T095336Z"
-PUBLIC_RUN = ROOT / "portal/modules/compliance/data/private/runs/stream_and_council_repair" / RUN_ID
+PUBLIC_RUN = (
+    ROOT
+    / "portal/modules/compliance/data/private/runs/stream_and_council_repair"  # local-only: operator run artifacts
+    / RUN_ID
+)
 PRIVATE_RUN = (
     ROOT
-    / "portal/modules/compliance/data/private/stream_and_council_repair"
+    / "portal/modules/compliance/data/private/stream_and_council_repair"  # local-only: operator run artifacts
     / RUN_ID
     / "council_experiment"
 )

@@ -68,3 +68,28 @@ $ python3 scripts/complexity_report.py --gate
 ## Residual boundary
 
 This is an offline source-and-unit review. It does not claim a live Docker/DinD integration run; the brief explicitly prohibited touching the live stack. The existing live smoke remains an orchestrator responsibility after merge.
+
+## Post-merge 66ded0a7
+
+SR-01 through SR-06 remain **PASS** after merging main at `66ded0a7`. The production-authenticated fake Pipeline, production bite gate, and production SSE converter are now exercised alongside the task-tool isolation regressions. No live Pipeline or sandbox endpoint was called.
+
+The three non-live cases from the original temporary probe retain the prior result: both policy probes pass, and the absolute-input probe rejects the input but its obsolete message matcher still expects `outside the allowed roots` instead of the current `input path escapes source directory`.
+
+```text
+$ uv run pytest /tmp/test_arm_tools_security_review.py -q --tb=short -k 'action_tools_cannot_overwrite_arm_control_files or raw_submit_rejects_tools_outside_discipline_allowlist or raw_submit_rejects_absolute_host_inputs'
+..F
+FAILED ../../../../tmp/test_arm_tools_security_review.py::test_raw_submit_rejects_absolute_host_inputs
+1 failed, 2 passed, 8 deselected in 0.19s
+```
+
+The repository replacements for the exploitation, resource-limit, read/action, raw-submit, control-plane, and descriptor-race probes all pass on the merged tree:
+
+```text
+$ uv run pytest -q --tb=short <14 SR-01..06 regression nodes>
+collected 14 items
+tests/unit/test_orchestration_arm.py .....
+tests/unit/test_orchestration_phase2.py .
+tests/unit/test_orchestration_bite_suite.py .
+tests/unit/test_orchestration_arm.py .......
+14 passed in 1.77s
+```

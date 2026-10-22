@@ -17,10 +17,12 @@ if not (ROOT / "pyproject.toml").is_file():
     raise RuntimeError("run this helper from the portal-5 repository root")
 
 PUBLIC_RUN = (
-    ROOT / "portal/modules/compliance/data/private/runs/stream_and_council_repair/20260927T095336Z"
+    ROOT
+    / "portal/modules/compliance/data/private/runs/stream_and_council_repair/20260927T095336Z"  # local-only: operator run artifacts
 )
 PRIVATE_RUN = (
-    ROOT / "portal/modules/compliance/data/private/stream_and_council_repair/20260927T095336Z/p3c"
+    ROOT
+    / "portal/modules/compliance/data/private/stream_and_council_repair/20260927T095336Z/p3c"  # local-only: operator run artifacts
 )
 PRIVATE_RUN.mkdir(parents=True, exist_ok=True, mode=0o700)
 PRIVATE_RUN.chmod(0o700)

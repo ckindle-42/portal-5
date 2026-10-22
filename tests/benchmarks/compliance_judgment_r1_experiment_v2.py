@@ -48,10 +48,14 @@ from tests.benchmarks.compliance_judgment_contract_v2 import (
 
 ROOT = Path(__file__).resolve().parents[2]
 RUN_ID = "20260927T095336Z"
-PUBLIC_RUN = ROOT / "portal/modules/compliance/data/private/runs/stream_and_council_repair" / RUN_ID
+PUBLIC_RUN = (
+    ROOT
+    / "portal/modules/compliance/data/private/runs/stream_and_council_repair"  # local-only: operator run artifacts
+    / RUN_ID
+)
 PRIVATE_RUN = (
     ROOT
-    / "portal/modules/compliance/data/private/stream_and_council_repair"
+    / "portal/modules/compliance/data/private/stream_and_council_repair"  # local-only: operator run artifacts
     / RUN_ID
     / "council_experiment_v2"
 )
@@ -260,8 +264,16 @@ def frozen_manifest() -> dict[str, Any]:
             "no_model_swap_or_promotion": True,
             "v1_preflight_cells_excluded": {
                 "count": 4,
-                "receipt": "portal/modules/compliance/data/private/stream_and_council_repair/20260927T095336Z/council_experiment/dev_campaign.jsonl",
-                "public_summary": "portal/modules/compliance/data/private/runs/stream_and_council_repair/20260927T095336Z/phase-results/P3B-v1-preflight-invalid.json",
+                "receipt": str(
+                    (PRIVATE_RUN.parent / "council_experiment" / "dev_campaign.jsonl").relative_to(
+                        ROOT
+                    )
+                ),
+                "public_summary": str(
+                    (PUBLIC_RUN / "phase-results" / "P3B-v1-preflight-invalid.json").relative_to(
+                        ROOT
+                    )
+                ),
                 "reason": "The v1 manifest predicted 12288 tokens; live trace showed 8192 applied. They are preserved, not retried or included in v2 scores.",
             },
         },

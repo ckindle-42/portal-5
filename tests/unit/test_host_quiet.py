@@ -10,13 +10,13 @@ from scripts import host_quiet
 
 def test_process_scan_finds_dispatch_pytest_wfe_and_bench() -> None:
     lines = [
-        "101 1 python /Users/x/.claude/orchestrate/bin/dispatch.py run lane",
+        "101 1 python /srv/x/.claude/orchestrate/bin/dispatch.py run lane",
         "102 1 /venv/bin/python -m pytest -n 4 tests/unit",
         "103 1 python -m tests.wfe.campaign --plan private.yaml",
         "104 1 python scripts/bench_engine_h2h.py --repeat 10",
         "105 106 python scripts/uat_engines.py",
         "106 107 python scripts/uat_engines.py",
-        "107 1 python /Users/x/.claude/orchestrate/bin/dispatch.py run this lane",
+        "107 1 python /srv/x/.claude/orchestrate/bin/dispatch.py run this lane",
     ]
 
     ancestors = host_quiet._ancestor_pids(lines, 106)
@@ -204,3 +204,153 @@ def test_force_records_which_host_blockers_were_overridden(monkeypatch) -> None:
     assert context["force_requested"] is True
     assert "host memory headroom 0.5 GiB" in context["override_reason"]
     assert context["blockers"] == ["host memory headroom 0.5 GiB is below 1.5 GiB"]
+
+
+def test_pytest_headroom_and_wfe_blockers_are_transient() -> None:
+    snapshot = {
+        "headroom_gib": 0.5,
+        "minimum_headroom_gib": 1.5,
+        "maximum_pytest_processes": 4,
+        "other_heavy_processes": [
+            {"pid": 43, "kind": "WFE/bench run", "process": "memory-safety PID file"},
+            *[
+                {"pid": pid, "kind": "pytest/xdist", "process": "pytest/xdist worker"}
+                for pid in range(100, 105)
+            ],
+        ],
+    }
+
+    transient, permanent = host_quiet.classify_blockers(host_quiet.blockers(snapshot))
+
+    assert permanent == []
+    assert any("pytest/xdist process count 5" in reason for reason in transient)
+    assert any("host memory headroom 0.5 GiB" in reason for reason in transient)
+    assert any("memory-safety PID file" in reason for reason in transient)
+    assert host_quiet.classify_blockers(["uncommitted opencode.jsonc"]) == (
+        [],
+        ["uncommitted opencode.jsonc"],
+    )
+
+
+class _Clock:
+    def __init__(self) -> None:
+        self.now = 0.0
+        self.slept: list[float] = []
+
+    def monotonic(self) -> float:
+        return self.now
+
+    def sleep(self, delay: float) -> None:
+        self.slept.append(delay)
+        self.now += delay
+
+
+def _pytest_lines(count: int) -> list[str]:
+    return [f"{300 + pid} 1 /tmp/venv/bin/python -m pytest -n 4 tests/unit" for pid in range(count)]
+
+
+def _install_quiet_probes(monkeypatch, process_lines) -> None:
+    monkeypatch.setenv("UAT_MAX_PYTEST_PROCESSES", "4")
+    monkeypatch.setenv("UAT_MIN_HOST_HEADROOM_GIB", "1.5")
+    monkeypatch.setattr(host_quiet, "_process_lines", process_lines)
+    monkeypatch.setattr(host_quiet, "_registry_processes", lambda **_kwargs: [])
+    monkeypatch.setattr(host_quiet, "_pid_file_processes", lambda **_kwargs: [])
+    monkeypatch.setattr(host_quiet, "_vm_stat_free_gib", lambda: (8.0, None))
+
+    def fake_request(url, *, method="GET", api_key="", payload=None):
+        if "load-plan" in url:
+            return {"busy_requests": 0, "available_gib": 8.0}
+        return {"models": []}
+
+    monkeypatch.setattr(host_quiet, "_json_request", fake_request)
+
+
+def test_wait_for_quiet_retries_until_the_process_list_clears(monkeypatch) -> None:
+    tables = [_pytest_lines(5), _pytest_lines(5), _pytest_lines(0)]
+
+    def process_lines():
+        return tables.pop(0), None
+
+    _install_quiet_probes(monkeypatch, process_lines)
+    clock = _Clock()
+    logs: list[str] = []
+    monkeypatch.setattr(host_quiet.time, "monotonic", clock.monotonic)
+    monkeypatch.setattr(host_quiet.time, "sleep", clock.sleep)
+    monkeypatch.setattr(host_quiet, "_log_wait", logs.append)
+
+    context = host_quiet.start_run(
+        "http://pipeline.test", "key", wait=True, poll_s=30, max_wait_s=120
+    )
+
+    assert context["allowed"] is True
+    assert clock.slept == [30.0, 30.0]
+    assert len(logs) == 2
+    assert "waiting 30s" in logs[0]
+    assert "pytest/xdist process count 5 exceeds UAT_MAX_PYTEST_PROCESSES=4" in logs[0]
+    assert context["quiet_waits"] == [
+        {
+            "delay_s": 30.0,
+            "blockers": ["pytest/xdist process count 5 exceeds UAT_MAX_PYTEST_PROCESSES=4"],
+        },
+        {
+            "delay_s": 30.0,
+            "blockers": ["pytest/xdist process count 5 exceeds UAT_MAX_PYTEST_PROCESSES=4"],
+        },
+    ]
+
+
+def test_wait_for_quiet_gives_up_when_the_process_list_stays_busy(monkeypatch) -> None:
+    _install_quiet_probes(monkeypatch, lambda: (_pytest_lines(5), None))
+    clock = _Clock()
+    logs: list[str] = []
+    monkeypatch.setattr(host_quiet.time, "monotonic", clock.monotonic)
+    monkeypatch.setattr(host_quiet.time, "sleep", clock.sleep)
+    monkeypatch.setattr(host_quiet, "_log_wait", logs.append)
+
+    context = host_quiet.start_run(
+        "http://pipeline.test", "key", wait=True, poll_s=30, max_wait_s=45
+    )
+
+    assert context["allowed"] is False
+    assert clock.slept == [30.0, 15.0]
+    assert "expired after 45s" in logs[-1]
+    assert "pytest/xdist process count 5" in context["blockers"][0]
+
+
+def test_wait_for_quiet_does_not_sleep_on_a_permanent_blocker(monkeypatch) -> None:
+    def begin(_url, _key, force=False):
+        return {
+            "allowed": False,
+            "force_requested": force,
+            "override_reason": None,
+            "blockers": ["selected engine does not match the card"],
+            "start": {},
+        }
+
+    monkeypatch.setattr(host_quiet, "begin_run", begin)
+    monkeypatch.setattr(
+        host_quiet.time, "sleep", lambda _delay: (_ for _ in ()).throw(AssertionError("slept"))
+    )
+
+    context = host_quiet.wait_for_quiet("http://pipeline.test", "key", poll_s=30, max_wait_s=120)
+
+    assert context["allowed"] is False
+    assert context["permanent_blockers"] == ["selected engine does not match the card"]
+    assert context["quiet_waits"] == []
+
+
+def test_start_run_force_does_not_wait(monkeypatch) -> None:
+    monkeypatch.setattr(
+        host_quiet,
+        "begin_run",
+        lambda *_args, **_kwargs: {"allowed": True, "blockers": ["host memory headroom"]},
+    )
+    monkeypatch.setattr(
+        host_quiet,
+        "wait_for_quiet",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(AssertionError("waited")),
+    )
+
+    context = host_quiet.start_run("http://pipeline.test", "key", force=True, wait=True)
+
+    assert context["allowed"] is True
