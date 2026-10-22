@@ -249,6 +249,19 @@ def _is_noncascadable_stream_error(status: int | None, buffer: bytes | None) -> 
     return not (status == 400 and buffer and _is_capacity_error(_stream_error_detail(buffer)))
 
 
+async def _free_ollama_for_capacity_retry(
+    engine: str, status: int, detail: bytes | str
+) -> list[str] | None:
+    """Idle Ollama models freed for an oMLX capacity refusal, or None when this is not one.
+
+    Every streamed dispatch recovers the same way: free the memory oMLX cannot reclaim
+    from Ollama, then retry the same request once. Return None means "no retry"."""
+    if engine != "omlx" or not is_omlx_capacity_refusal(status, detail):
+        return None
+    freed = await free_ollama_for_omlx()
+    return freed or None
+
+
 def _chunk_has_output(chunk: bytes) -> bool:
     """Whether an SSE chunk puts model output in front of the client (content,
     reasoning or a tool call — not the role preamble or routing status line)."""
@@ -908,23 +921,21 @@ async def _tool_loop_frames(
                 async with _http_client.stream("POST", backend_url, json=current_body) as resp:  # type: ignore[union-attr]
                     if resp.status_code != 200:
                         err = await resp.aread()
-                        if (
-                            not _freed_for_hop
-                            and _backend_type_for_url(backend_url) == "omlx"
-                            and is_omlx_capacity_refusal(resp.status_code, err)
+                        if not _freed_for_hop and (
+                            _freed := await _free_ollama_for_capacity_retry(
+                                _backend_type_for_url(backend_url), resp.status_code, err
+                            )
                         ):
                             # oMLX refused the load for memory idle Ollama residents hold.
                             # Free them once and retry this hop before the error reaches the client.
                             _freed_for_hop = True
-                            _freed = await free_ollama_for_omlx()
-                            if _freed:
-                                logger.info(
-                                    "oMLX capacity refusal (workspace=%s, hop=%d); freed Ollama %s, retrying oMLX",
-                                    workspace_id,
-                                    hop,
-                                    _freed,
-                                )
-                                continue
+                            logger.info(
+                                "oMLX capacity refusal (workspace=%s, hop=%d); freed Ollama %s, retrying oMLX",
+                                workspace_id,
+                                hop,
+                                _freed,
+                            )
+                            continue
                         logger.error(
                             "Tool-loop backend returned HTTP %d: %s", resp.status_code, err[:200]
                         )
@@ -1534,6 +1545,7 @@ async def _stream_from_backend_guarded(
     workspace_id: str = "unknown",
     model: str = "unknown",
     start_time: float | None = None,
+    _capacity_retried: bool = False,
 ) -> AsyncIterator[bytes]:
     """Stream from backend; pass-through OpenAI SSE; record metrics.
 
@@ -1589,6 +1601,30 @@ async def _stream_from_backend_guarded(
         async with _http_client.stream("POST", url, json=body) as resp:
             if resp.status_code != 200:
                 err = await resp.aread()
+                if not _capacity_retried and (
+                    _freed := await _free_ollama_for_capacity_retry(
+                        _backend_type_for_url(url), resp.status_code, err
+                    )
+                ):
+                    # oMLX refused for memory idle Ollama holds. Nothing has reached the
+                    # client yet: free it and re-issue this exact request once, as every
+                    # other dispatch (non-streamed, tool loop, chain hop) does.
+                    logger.info(
+                        "oMLX capacity refusal on %s (workspace=%s); freed Ollama %s, retrying",
+                        url,
+                        workspace_id,
+                        _freed,
+                    )
+                    async for _f in _stream_from_backend_guarded(
+                        url,
+                        body,
+                        workspace_id=workspace_id,
+                        model=model,
+                        start_time=None,
+                        _capacity_retried=True,
+                    ):
+                        yield _f
+                    return
                 logger.error(
                     "Backend %s returned HTTP %d: %s",
                     url,
@@ -2494,6 +2530,18 @@ def _select_stream_fn(
         )
 
 
+async def _with_room_for_omlx(
+    backend: Any, body: dict[str, Any], frames: AsyncIterator[bytes]
+) -> AsyncIterator[bytes]:
+    """Free idle Ollama for a large oMLX prompt before the first frame.
+
+    The non-streaming path does this before every attempt; a single-candidate stream used
+    to skip it entirely, so its large prompt met the guard instead of avoiding it."""
+    await make_room_for_omlx(backend, body)
+    async for chunk in frames:
+        yield chunk
+
+
 async def _stream_with_fallback(
     backend: Any,
     body: dict[str, Any],
@@ -2601,17 +2649,12 @@ async def _stream_with_fallback(
         # free Ollama's idle models and retry oMLX once before cascading to the
         # slower engine. The first attempt has already released the slot, and
         # release is idempotent, so the retry runs unslotted for those moments.
-        if (
-            stream_failed
-            and not _output_sent
-            and not _freed_ollama
-            and getattr(backend, "type", "") == "omlx"
-            and _error_buffer
-            and is_omlx_capacity_refusal(_error_status or 0, _error_buffer)
-        ):
-            _freed_ollama = True
-            _freed = await free_ollama_for_omlx()
+        if stream_failed and not _output_sent and not _freed_ollama and _error_buffer:
+            _freed = await _free_ollama_for_capacity_retry(
+                getattr(backend, "type", ""), _error_status or 0, _error_buffer
+            )
             if _freed:
+                _freed_ollama = True
                 logger.info(
                     "oMLX capacity rejection for workspace=%s; freed Ollama %s, retrying oMLX",
                     workspace_id,
