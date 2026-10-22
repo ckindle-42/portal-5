@@ -79,9 +79,9 @@ _MAX_WAIT_S = 3600.0
 #: released anyway (the request's own end also releases it).
 _LOAD_TIMEOUT_S = 600.0
 _POLL_S = 0.5
-#: Deadline for a guard-issued Ollama free: measured admin-unload settle p50 0.78 s,
-#: p95 1.93 s, max 2.29 s (n=114, oMLX 0.7.2, 2026-10-22), doubled.
-_FREE_SETTLE_S = 4.6
+#: Expected settle of a guard-issued Ollama free, for a warning only: measured admin
+#: unloads p50 0.78 s, p95 1.93 s, max 2.29 s (n=114, oMLX 0.7.2, 2026-10-22), doubled.
+_FREE_SETTLE_EXPECTED_S = 4.6
 
 OLLAMA = "ollama"
 OMLX = "omlx"
@@ -149,10 +149,6 @@ class _Free:
         self.baseline: float | None = None
         self.size = size
         self.started = time.monotonic()
-
-    @property
-    def deadline(self) -> float:
-        return self.started + _FREE_SETTLE_S
 
 
 class LoadGuard:
@@ -534,6 +530,7 @@ class LoadGuard:
         used: float,
         activity_seen: bool,
         pending_change: bool,
+        pending_free_names: list[str],
     ) -> tuple[_Release, bool]:
         remaining = deadline - time.monotonic()
         release()
@@ -544,6 +541,10 @@ class LoadGuard:
                     self._omlx_foreign_active(client), timeout=remaining
                 )
             except TimeoutError:
+                if pending_free_names:
+                    raise self._free_settle_refusal(
+                        model, pending_free_names, need, available, _waited_s(deadline)
+                    ) from None
                 raise self._ollama_refusal(
                     model, need, available, headroom, idle, quiet=False, waited=_waited_s(deadline)
                 ) from None
@@ -559,6 +560,10 @@ class LoadGuard:
             quiet = now is None or now >= used
             remaining = deadline - time.monotonic()
         if remaining <= 0 or quiet:
+            if pending_free_names:
+                raise self._free_settle_refusal(
+                    model, pending_free_names, need, available, _waited_s(deadline)
+                )
             raise self._ollama_refusal(
                 model, need, available, headroom, idle, quiet, waited=_waited_s(deadline)
             )
@@ -646,20 +651,23 @@ class LoadGuard:
         pending: dict[str, _Free],
         deadline: float,
     ) -> dict[str, _Free]:
-        """Retire landed frees, log each settle, and refuse past the measured deadline."""
+        """Log landed frees, warn past the expected settle, and refuse only at the wait."""
         pending, settled = self._retire_ollama_frees(pending, resident, headroom)
         for name, elapsed in settled:
-            logger.info("load_guard: free of %s settled in %.1fs", name, elapsed)
-        expired = self._expired_frees(pending) if need > available else []
-        if expired:
-            raise self._free_settle_refusal(model, expired, need, available, _waited_s(deadline))
+            if elapsed >= _FREE_SETTLE_EXPECTED_S:
+                logger.warning(
+                    "load_guard: free of %s settled in %.1fs (expected %.1fs)",
+                    name,
+                    elapsed,
+                    _FREE_SETTLE_EXPECTED_S,
+                )
+            else:
+                logger.info("load_guard: free of %s settled in %.1fs", name, elapsed)
+        if pending and need > available and time.monotonic() >= deadline:
+            raise self._free_settle_refusal(
+                model, list(pending), need, available, _waited_s(deadline)
+            )
         return pending
-
-    @staticmethod
-    def _expired_frees(pending: dict[str, _Free]) -> list[str]:
-        """Names of frees whose measured settle deadline passed without the signal."""
-        now = time.monotonic()
-        return [name for name, free in pending.items() if now >= free.deadline]
 
     @staticmethod
     def _free_settle_refusal(
@@ -668,8 +676,8 @@ class LoadGuard:
         freed = ", ".join(sorted(names))
         return LoadRefusedError(
             f"Cannot load {model}: free of {freed} did not settle within "
-            f"{_FREE_SETTLE_S:.1f}s (projected {need / _GIB:.1f} GiB, host "
-            f"headroom {available / _GIB:.1f} GiB) after waiting {waited:.1f}s"
+            f"the {waited:.1f}s load wait (projected {need / _GIB:.1f} GiB, host "
+            f"headroom {available / _GIB:.1f} GiB)"
         )
 
     @staticmethod
@@ -847,6 +855,7 @@ class LoadGuard:
                         used,
                         activity_seen,
                         bool(pending_omlx or pending_ollama or recheck),
+                        list(pending_ollama),
                     )
                     recheck = False
             except LoadRefusedError:

@@ -975,11 +975,11 @@ async def test_sticky_unload_is_not_retried_after_admission_deadline(engine):
     assert e.unload_calls["idle"] == 1
 
 
-async def test_ollama_unload_that_stays_short_refuses_when_quiet(monkeypatch):
+async def test_ollama_unload_that_stays_short_waits_out_the_load_budget(monkeypatch):
     e = Engines(ollama={"idle": GIB}, tags={"m": 20 * GIB}, ceiling=8 * GIB)
     g = guard(e)
-    lg.set_load_wait("0.06")
-    monkeypatch.setattr(lg, "_FREE_SETTLE_S", 0.0)  # the free's settle deadline has passed
+    lg.set_load_wait("0.08")
+    monkeypatch.setattr(lg, "_POLL_S", 0.01)
     waits: list[float] = []
     wait_change = g._wait_change
 
@@ -994,21 +994,25 @@ async def test_ollama_unload_that_stays_short_refuses_when_quiet(monkeypatch):
     elapsed = lg.time.monotonic() - started
     assert not e.ollama
     assert "free of idle did not settle" in str(err.value)
-    assert not waits
-    assert elapsed < 0.05
+    assert "load wait" in str(err.value)
+    assert waits  # kept polling the unload instead of the quiet refusal
+    assert elapsed >= 0.07
 
 
-async def test_an_ollama_free_that_never_lifts_the_ceiling_still_refuses(monkeypatch):
-    e = Engines(ollama={"idle": GIB}, tags={"m": 20 * GIB}, ceiling=8 * GIB)
-    lg.set_load_wait("30")
-    monkeypatch.setattr(lg, "_FREE_SETTLE_S", 0.05)  # bounded: not the caller's whole wait
+async def test_a_free_that_settles_past_the_load_wait_refuses(monkeypatch):
+    e = Engines(ollama={"idle": GIB}, tags={"m": 20 * GIB}, ceiling=8 * GIB, unload_sticks=True)
+    lg.set_load_wait("0.12")
+    monkeypatch.setattr(lg, "_FREE_SETTLE_EXPECTED_S", 0.05)
+    monkeypatch.setattr(lg, "_POLL_S", 0.01)
+    loop = asyncio.get_running_loop()
+    loop.call_later(0.3, lambda: e.ollama.pop("idle", None))
+    loop.call_later(0.3, lambda: setattr(e, "ceiling", e.ceiling + GIB))
     started = lg.time.monotonic()
     with pytest.raises(lg.LoadRefusedError) as err:
         await guard(e).admit(OLLAMA_URL, "m")
     elapsed = lg.time.monotonic() - started
-    assert not e.ollama
-    assert "free of idle did not settle" in str(err.value)
-    assert 0.05 <= elapsed < 2
+    assert "free of idle did not settle within the 0.1s load wait" in str(err.value)
+    assert 0.11 <= elapsed < 0.28  # refused at the wait, not when the pages arrived
 
 
 async def test_a_settled_free_admits_early_and_logs_the_measured_settle(monkeypatch, caplog):
@@ -1020,7 +1024,7 @@ async def test_a_settled_free_admits_early_and_logs_the_measured_settle(monkeypa
         ceiling_rise_polls={"devstral": 1},
     )
     e.hidden["devstral"] = int(13.2 * GIB)
-    monkeypatch.setattr(lg, "_FREE_SETTLE_S", 2.0)
+    monkeypatch.setattr(lg, "_FREE_SETTLE_EXPECTED_S", 2.0)
     monkeypatch.setattr(lg, "_POLL_S", 0.01)
     lg.set_load_wait("30")
     started = lg.time.monotonic()
@@ -1028,50 +1032,36 @@ async def test_a_settled_free_admits_early_and_logs_the_measured_settle(monkeypa
         release = await guard(e).admit(OLLAMA_URL, "kat")
     elapsed = lg.time.monotonic() - started
     assert release is not None
-    assert elapsed < 0.5  # the signal, not the deadline, released it
+    assert elapsed < 0.5  # the signal, not the wait budget, released it
     assert re.search(r"free of devstral settled in \d+\.\d+s", caplog.text)
     release()
 
 
-async def test_a_late_free_signal_within_the_deadline_still_admits(monkeypatch, caplog):
+async def test_a_slow_free_inside_the_load_wait_admits_and_warns(monkeypatch, caplog):
     e = Engines(
         ollama={"devstral": int(1.8 * GIB)},
         tags={"kat": 22 * GIB},
         ceiling=21 * GIB,
         unload_sticks=True,  # the pages return late, not with the unload request
     )
-    monkeypatch.setattr(lg, "_FREE_SETTLE_S", 2.0)
+    monkeypatch.setattr(lg, "_FREE_SETTLE_EXPECTED_S", 0.1)
     monkeypatch.setattr(lg, "_POLL_S", 0.01)
     lg.set_load_wait("30")
     loop = asyncio.get_running_loop()
-    loop.call_later(0.05, lambda: e.ollama.pop("devstral", None))
-    loop.call_later(0.05, lambda: setattr(e, "ceiling", e.ceiling + 13.2 * GIB))
+    loop.call_later(0.2, lambda: e.ollama.pop("devstral", None))
+    loop.call_later(0.2, lambda: setattr(e, "ceiling", e.ceiling + 13.2 * GIB))
     started = lg.time.monotonic()
     with caplog.at_level(logging.INFO, logger=lg.logger.name):
         release = await guard(e).admit(OLLAMA_URL, "kat")
     elapsed = lg.time.monotonic() - started
     assert release is not None
-    assert 0.04 <= elapsed < 1.0  # polled the signal instead of trusting the free
-    assert re.search(r"free of devstral settled in \d+\.\d+s", caplog.text)
-    release()
-
-
-async def test_a_free_that_never_settles_refuses_naming_the_settle(monkeypatch):
-    e = Engines(
-        ollama={"idle": GIB},
-        tags={"m": 20 * GIB},  # 25 GiB needed
-        ceiling=8 * GIB,
-        unload_sticks=True,
+    assert 0.19 <= elapsed < 2  # the wait budget, not the expected settle, bounded it
+    warnings = [r for r in caplog.records if r.levelno == logging.WARNING]
+    assert any(
+        "free of devstral settled in" in r.getMessage() and "(expected 0.1s)" in r.getMessage()
+        for r in warnings
     )
-    monkeypatch.setattr(lg, "_FREE_SETTLE_S", 0.05)
-    monkeypatch.setattr(lg, "_POLL_S", 0.01)
-    lg.set_load_wait("30")
-    started = lg.time.monotonic()
-    with pytest.raises(lg.LoadRefusedError) as err:
-        await guard(e).admit(OLLAMA_URL, "m")
-    elapsed = lg.time.monotonic() - started
-    assert "free of idle did not settle within 0.1s" in str(err.value)
-    assert 0.05 <= elapsed < 2
+    release()
 
 
 async def test_partial_omlx_free_continues_to_idle_ollama_and_honors_failover(monkeypatch):
