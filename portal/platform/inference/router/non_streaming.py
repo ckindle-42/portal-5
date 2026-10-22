@@ -63,6 +63,8 @@ from portal.platform.inference.router.trace import capture as trace_capture
 from portal.platform.inference.router.trace import note as trace_note
 from portal.platform.inference.router.truncation import take_notice as take_truncation_notice
 from portal.platform.inference.router.validation import (
+    _apply_ollama_thinking_budget,
+    _apply_omlx_thinking_budget,
     _inject_ollama_options,
     _inject_omlx_options,
     _model_supports_tools,
@@ -256,6 +258,11 @@ def resolve_hop_target(
         if b.chat_url != primary_url:
             for key in _ENGINE_SPECIFIC_KEYS:
                 body.pop(key, None)
+        ws_cfg = WORKSPACES.get(workspace_id, {})
+        if b.type == "ollama":
+            _apply_ollama_thinking_budget(body, ws_cfg)
+        elif b.type == "omlx":
+            _apply_omlx_thinking_budget(body, ws_cfg)
         return b.chat_url, body
     logger.warning(
         "Chain hop model %s is not served by any healthy backend (workspace=%s)",

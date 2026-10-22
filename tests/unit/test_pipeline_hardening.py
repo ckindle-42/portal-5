@@ -350,6 +350,7 @@ async def test_streamed_tool_loop_carries_reasoning_and_visible_prose(
                 "messages": [{"role": "user", "content": "lookup"}],
                 "tools": [{"type": "function", "function": {"name": "lookup"}}],
                 "chat_template_kwargs": {"enable_thinking": True},
+                "thinking_budget": 8192,
             },
             "ws",
             "m",
@@ -359,6 +360,7 @@ async def test_streamed_tool_loop_carries_reasoning_and_visible_prose(
     )
 
     assistant_msg = requests[1]["messages"][-2]
+    assert requests[0]["thinking_budget"] == requests[1]["thinking_budget"] == 8192
     assert assistant_msg["content"] == "Checking the source."
     assert assistant_msg["reasoning_content"] == "PRIVATE_THOUGHT"
     assert assistant_msg["tool_calls"][0]["id"] == "call-carry"
@@ -779,6 +781,34 @@ def _set_client(monkeypatch, *responses: httpx.Response) -> _NSClient:
 
 
 @pytest.mark.anyio
+async def test_non_streaming_omlx_forwards_client_budget_over_workspace_default(
+    monkeypatch, ns_env
+) -> None:
+    seen: list[dict[str, typing.Any]] = []
+
+    class _C(_NSClient):
+        async def post(self, url, json, timeout):  # type: ignore[override]
+            seen.append(json)
+            return await super().post(url, json, timeout)
+
+    monkeypatch.setitem(
+        ns.WORKSPACES,
+        ns_env,
+        {**ns.WORKSPACES[ns_env], "thinking_budget": 8192},
+    )
+    client = _C([httpx.Response(200, json={"choices": [{"message": {"content": "ok"}}]})])
+    monkeypatch.setattr(ns, "_http_client", client)
+    await ns._try_non_streaming(
+        _omlx_backend("budget-omlx"),
+        {"messages": [], "thinking_budget": 4096},
+        ns_env,
+        0.0,
+    )
+
+    assert seen[0]["thinking_budget"] == 4096
+
+
+@pytest.mark.anyio
 async def test_null_content_reply_is_not_a_failure(monkeypatch, ns_env) -> None:
     _set_client(
         monkeypatch,
@@ -1039,10 +1069,38 @@ def test_chain_hop_goes_to_a_backend_that_serves_its_model(monkeypatch) -> None:
     )
     monkeypatch.setattr(ns, "registry", reg)
     url, body = ns.resolve_hop_target(
-        "ws", "granite:8b", omlx.chat_url, {"model": "granite:8b", "chat_template_kwargs": {}}
+        "ws",
+        "granite:8b",
+        omlx.chat_url,
+        {"model": "granite:8b", "chat_template_kwargs": {}, "thinking_budget": 2048},
     )
     assert url == ollama.chat_url
     assert "chat_template_kwargs" not in body
+    assert body["thinking_budget"] == 2048
+
+
+def test_chain_hop_injects_workspace_budget_on_omlx(monkeypatch) -> None:
+    omlx = SimpleNamespace(
+        id="omlx",
+        type="omlx",
+        chat_url="http://omlx/v1/chat/completions",
+        resolve_model=lambda hint: hint if hint == "omlx-model" else None,
+    )
+    monkeypatch.setattr(
+        ns,
+        "registry",
+        SimpleNamespace(
+            get_backend_candidates=lambda _ws: [omlx], list_healthy_backends=lambda: []
+        ),
+    )
+    monkeypatch.setitem(ns.WORKSPACES, "ws", {"thinking_budget": 8192})
+
+    url, body = ns.resolve_hop_target(
+        "ws", "omlx-model", "http://ollama/v1/chat/completions", {"model": "omlx-model"}
+    )
+
+    assert url == omlx.chat_url
+    assert body["thinking_budget"] == 8192
 
 
 @pytest.mark.anyio
