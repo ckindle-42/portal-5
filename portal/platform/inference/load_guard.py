@@ -96,6 +96,11 @@ def load_wait_s() -> float:
     return _WAIT_S if value is None else value
 
 
+def _waited_s(deadline: float) -> float:
+    """Seconds of the caller's own load wait already spent (one decimal in refusals)."""
+    return load_wait_s() - max(0.0, deadline - time.monotonic())
+
+
 class LoadRefusedError(Exception):
     """The cold load does not fit host memory within the caller's wait."""
 
@@ -265,7 +270,14 @@ class LoadGuard:
         url = (self._omlx_url() or "").rstrip("/")
         if not url:
             return "", []
-        st = (await client.get(f"{url}/api/status", auth=OmlxKeyAuth())).json()
+        response = await client.get(f"{url}/api/status", auth=OmlxKeyAuth())
+        if response.status_code != 200:
+            logger.warning(
+                "load_guard: oMLX status returned HTTP %d; not freeing oMLX memory",
+                response.status_code,
+            )
+            return url, []
+        st = response.json()
         tracked = sum(n for (engine, _), n in self._busy.items() if engine == OMLX)
         if int(st.get("active_requests") or 0) + int(st.get("waiting_requests") or 0) > tracked:
             logger.info("load_guard: oMLX serves requests the pipeline did not send; not freeing")
@@ -273,7 +285,14 @@ class LoadGuard:
         login = await client.post(f"{url}/admin/api/login", json={"api_key": omlx_api_key()})
         if login.status_code != 200:
             return url, []
-        models = (await client.get(f"{url}/admin/api/models")).json()
+        response = await client.get(f"{url}/admin/api/models")
+        if response.status_code != 200:
+            logger.warning(
+                "load_guard: oMLX model list returned HTTP %d; not freeing oMLX memory",
+                response.status_code,
+            )
+            return url, []
+        models = response.json()
         models = models.get("models", models) if isinstance(models, dict) else models
         idle = [
             m
@@ -295,17 +314,26 @@ class LoadGuard:
             return value.strip().lower() not in {"", "0", "false", "none"}
         return bool(value)
 
+    @staticmethod
+    def _loading_among(models: Any, protected: set[str]) -> bool:
+        """Whether any reported model is loading and within reach of eviction."""
+        return any(
+            isinstance(m, dict) and m.get("is_loading") and m.get("id") not in protected
+            for m in models or []
+        )
+
     async def _omlx_loading(self, client: httpx.AsyncClient) -> bool:
-        """Whether oMLX reports a load; its unload phase has no readable signal."""
+        """Whether oMLX reports a load; a protected model's load is never acted on."""
         url = (self._omlx_url() or "").rstrip("/")
         if not url:
             return False
+        protected = self.protected(OMLX)
         status_loading = False
         try:
             status = await self._omlx_status(client)
             if status is None:
                 return False
-            status_loading = any(m.get("is_loading") for m in status.get("models") or [])
+            status_loading = self._loading_among(status.get("models"), protected)
             response = await client.get(f"{url}/api/status", auth=OmlxKeyAuth())
             if response.status_code != 200:
                 return status_loading
@@ -326,7 +354,7 @@ class LoadGuard:
                 return status_loading
             models = response.json()
             models = models.get("models", models) if isinstance(models, dict) else models
-            return any(isinstance(m, dict) and m.get("is_loading") for m in models or [])
+            return self._loading_among(models, protected)
         except Exception:
             return status_loading
 
@@ -349,32 +377,35 @@ class LoadGuard:
 
     async def _free_omlx(
         self, client: httpx.AsyncClient, want: float, used: float
-    ) -> tuple[float, dict[str, float], float | None]:
-        """Unload idle oMLX models; report the counter's drop, queued work and post state."""
+    ) -> tuple[float, dict[str, float], float | None, float]:
+        """Unload idle oMLX models; report the drop, queued work, post state, 200 bytes."""
         try:
             url, idle = await self._omlx_idle_models(client)
             queued: dict[str, float] = {}
             posted = 0.0
+            covered = 0.0  # 200 plus queued 202 bytes: a queued unload can cover the shortage
             any_post = False
             for m in idle:
-                if posted >= want:
+                if covered >= want:
                     break
                 r = await client.post(f"{url}/admin/api/models/{quote(m['id'], safe='')}/unload")
                 any_post = True
                 size = float(m.get("estimated_size") or m.get("actual_size") or 0)
                 if r.status_code == 200:
                     posted += size
+                    covered += size
                     logger.info("load_guard: unloaded idle oMLX model %s", m["id"])
                 elif r.status_code == 202:
                     queued[m["id"]] = size
+                    covered += size
             if not any_post:
-                return 0.0, queued, None
+                return 0.0, queued, None, 0.0
             after = await self._omlx_used(client)
             freed = 0.0 if after is None else max(0.0, used - after)
-            return freed, queued, after
+            return freed, queued, after, posted
         except Exception as e:
             logger.warning("load_guard: could not free oMLX memory: %s", e)
-            return 0.0, {}, None
+            return 0.0, {}, None, 0.0
 
     async def _free_ollama(
         self, client: httpx.AsyncClient, base: str, resident: dict[str, int]
@@ -396,12 +427,16 @@ class LoadGuard:
 
     @staticmethod
     def _ollama_refusal(
-        model: str, need: float, available: float, headroom: float, idle: float, quiet: bool
+        model: str,
+        need: float,
+        available: float,
+        headroom: float,
+        idle: float,
+        quiet: bool,
+        waited: float,
     ) -> LoadRefusedError:
         reason = (
-            f"after waiting {load_wait_s():.0f}s"
-            if not quiet
-            else "with nothing in flight to wait for"
+            f"after waiting {waited:.1f}s" if not quiet else "with nothing in flight to wait for"
         )
         return LoadRefusedError(
             f"Cannot load {model}: projected memory {need / _GIB:.1f} GiB would "
@@ -427,7 +462,7 @@ class LoadGuard:
                     if saw_loading:
                         raise LoadRefusedError(
                             f"Cannot load {model}: engine model transition still active "
-                            f"after waiting {load_wait_s():.0f}s"
+                            f"after waiting {_waited_s(deadline):.1f}s"
                         )
                     break
                 try:
@@ -436,7 +471,7 @@ class LoadGuard:
                     if saw_loading:
                         raise LoadRefusedError(
                             f"Cannot load {model}: engine model transition still active "
-                            f"after waiting {load_wait_s():.0f}s"
+                            f"after waiting {_waited_s(deadline):.1f}s"
                         ) from None
                     break
                 if not loading:
@@ -446,7 +481,7 @@ class LoadGuard:
                 if remaining <= 0:
                     raise LoadRefusedError(
                         f"Cannot load {model}: engine model transition still active "
-                        f"after waiting {load_wait_s():.0f}s"
+                        f"after waiting {_waited_s(deadline):.1f}s"
                     )
                 await self._wait_change(min(_POLL_S, remaining))
             release = await self._acquire(deadline, model)
@@ -481,7 +516,7 @@ class LoadGuard:
                 )
             except TimeoutError:
                 raise self._ollama_refusal(
-                    model, need, available, headroom, idle, quiet=False
+                    model, need, available, headroom, idle, quiet=False, waited=_waited_s(deadline)
                 ) from None
         changing = bool(self._busy) or foreign_active
         activity_seen = activity_seen or changing
@@ -495,7 +530,9 @@ class LoadGuard:
             quiet = now is None or now >= used
             remaining = deadline - time.monotonic()
         if remaining <= 0 or quiet:
-            raise self._ollama_refusal(model, need, available, headroom, idle, quiet)
+            raise self._ollama_refusal(
+                model, need, available, headroom, idle, quiet, waited=_waited_s(deadline)
+            )
         logger.info(
             "load_guard: %s needs %.1f GiB, %.1f available; waiting for engine activity",
             model,
@@ -515,14 +552,14 @@ class LoadGuard:
         idle: float,
         used: float,
         shortage: float,
-    ) -> tuple[bool, dict[str, float], set[str], float | None]:
-        omlx_freed, omlx_queued, after = await self._free_omlx(client, shortage, used)
+    ) -> tuple[bool, dict[str, float], set[str], float | None, float]:
+        omlx_freed, omlx_queued, after, synchronous = await self._free_omlx(client, shortage, used)
         if omlx_freed < shortage and idle:
             ollama_requested = await self._free_ollama(client, base, resident)
         else:
             ollama_requested = set()
         did_free = bool(omlx_freed or omlx_queued or ollama_requested)
-        return did_free, omlx_queued, ollama_requested, after
+        return did_free, omlx_queued, ollama_requested, after, synchronous
 
     async def _free_for_load(
         self,
@@ -534,25 +571,41 @@ class LoadGuard:
         shortage: float,
         pending_omlx: dict[str, float],
         pending_ollama: set[str],
-    ) -> tuple[bool, float]:
-        """Free idle memory, fold it into the pending sets, return the counter baseline."""
-        did_free, queued, requested, after = await self._free_idle_memory(
+    ) -> tuple[bool, float, float]:
+        """Free idle memory and fold it in; return the queued baseline and post counter."""
+        did_free, queued, requested, after, synchronous = await self._free_idle_memory(
             client, base, resident, idle, used, shortage
         )
         pending_omlx.update(queued)
         pending_ollama.update(requested)
-        return did_free, used if after is None else after
+        post = used if after is None else after
+        return did_free, self._pending_baseline(used, after, synchronous), post
+
+    @staticmethod
+    def _pending_baseline(used: float, after: float | None, synchronous: float) -> float:
+        """Counter the queued drops are measured from: the pre-pass value less 200 bytes."""
+        if after is None:
+            return used
+        return used - min(synchronous, max(0.0, used - after))
 
     async def _pending_omlx_unloads(
         self, client: httpx.AsyncClient, models: dict[str, float], used: float
-    ) -> tuple[dict[str, float], bool]:
-        """Queued unloads still pending, and whether the counter just settled one."""
+    ) -> tuple[dict[str, float], bool, float]:
+        """Retire queued unloads the counter drop covers, in post order."""
         if not models:
-            return {}, False
+            return {}, False, used
         now = await self._omlx_used(client)
-        if now is not None and now < used:
-            return {}, True
-        return models, False
+        if now is None or now >= used:
+            return models, False, used
+        drop = used - now
+        remaining = dict(models)
+        for name, charge in models.items():
+            if charge > drop:
+                break
+            drop -= charge
+            used -= charge
+            del remaining[name]
+        return remaining, len(remaining) < len(models), used
 
     # ── the cold-load lock ───────────────────────────────────────────────
 
@@ -567,7 +620,7 @@ class LoadGuard:
             except TimeoutError:
                 raise LoadRefusedError(
                     f"cold load of {what} would exceed its wait for another model load "
-                    f"({load_wait_s():.0f}s)"
+                    f"({_waited_s(deadline):.1f}s)"
                 ) from None
         else:
             await self._lock.acquire()
@@ -662,7 +715,7 @@ class LoadGuard:
                     available = headroom + idle - _MARGIN
                     if need > available and not free_attempted:
                         free_attempted = True
-                        freed_or_queued, baseline = await self._free_for_load(
+                        freed_or_queued, pending_omlx_used, last_used = await self._free_for_load(
                             client,
                             base,
                             resident,
@@ -672,13 +725,12 @@ class LoadGuard:
                             pending_omlx,
                             pending_ollama,
                         )
-                        pending_omlx_used = last_used = baseline
                         if freed_or_queued:
                             continue
                     if need <= available:
                         break
                     pending_ollama.intersection_update(resident)
-                    pending_omlx, settled = await self._pending_omlx_unloads(
+                    pending_omlx, settled, pending_omlx_used = await self._pending_omlx_unloads(
                         client, pending_omlx, pending_omlx_used
                     )
                     if settled:
