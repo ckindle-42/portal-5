@@ -20,6 +20,8 @@ import yaml
 _ROOT = Path(__file__).resolve().parents[3]
 sys.path[:0] = [str(_ROOT), str(_ROOT / "tests" / "unit")]
 
+os.environ.setdefault("PIPELINE_API_KEY", "wfe-arm-rig-key")
+
 from orchestration_fake_pipeline import (  # noqa: E402
     FakePipeline,
     SignalResponse,
@@ -43,6 +45,7 @@ from portal.modules.orchestration.worker import Engine  # noqa: E402
 from portal.modules.security.eval.orchestration_injection import (  # noqa: E402
     score_downstream_actions,
 )
+from portal.platform.inference.router import auth  # noqa: E402
 
 _SCHEMA = {
     "type": "object",
@@ -152,8 +155,22 @@ def _run_task(
         arm_config["calibration"].update(calibration_overrides)
         config.write_text(yaml.safe_dump(arm_config, sort_keys=False), encoding="utf-8")
     engines = {
-        "fast": Engine("auto-daily::fast", "fast-digest", pipeline.url, "", "omlx", "fake-fast"),
-        "deep": Engine("auto-daily::deep", "deep-digest", pipeline.url, "", "omlx", "fake-deep"),
+        "fast": Engine(
+            "auto-daily::fast",
+            "fast-digest",
+            pipeline.url,
+            auth.PIPELINE_API_KEY,
+            "omlx",
+            "fake-fast",
+        ),
+        "deep": Engine(
+            "auto-daily::deep",
+            "deep-digest",
+            pipeline.url,
+            auth.PIPELINE_API_KEY,
+            "omlx",
+            "fake-deep",
+        ),
     }
     service = ArmService(
         root, engines, build_sha="offline-head", residency_config=config, notices=notices
@@ -185,10 +202,20 @@ def _detection_engineering_unseated(root: Path, task_id: str) -> str:
         assert "detection-engineering" not in config["calibration"]["rates_by_discipline"]
         engines = {
             "fast": Engine(
-                "auto-daily::fast", "fast-digest", pipeline.url, "", "omlx", "fake-fast"
+                "auto-daily::fast",
+                "fast-digest",
+                pipeline.url,
+                auth.PIPELINE_API_KEY,
+                "omlx",
+                "fake-fast",
             ),
             "deep": Engine(
-                "auto-daily::deep", "deep-digest", pipeline.url, "", "omlx", "fake-deep"
+                "auto-daily::deep",
+                "deep-digest",
+                pipeline.url,
+                auth.PIPELINE_API_KEY,
+                "omlx",
+                "fake-deep",
             ),
         }
         notices = _FakeApproveNotices()
@@ -266,8 +293,7 @@ def _red_flag(root: Path, task_id: str) -> str:
 
 def _budget(root: Path, task_id: str) -> str:
     responses = [
-        (seat, finish_response({"answer": "right"}, tokens=50))
-        for seat in ("fast", "fast", "fast", "deep")
+        (seat, finish_response({"answer": "x" * 512})) for seat in ("fast", "fast", "fast", "deep")
     ]
     receipt, _ = _run_task(root, task_id, responses, [_bite("b1", tokens=8)])
     assert receipt["status"] == "BLOCKED"
@@ -300,8 +326,22 @@ def _resume(root: Path, task_id: str) -> str:
     config = root / "orchestration_arm.yaml"
     _write_arm_config(config)
     engines = {
-        "fast": Engine("auto-daily::fast", "fast-digest", pipeline.url, "", "omlx", "fake-fast"),
-        "deep": Engine("auto-daily::deep", "deep-digest", pipeline.url, "", "omlx", "fake-deep"),
+        "fast": Engine(
+            "auto-daily::fast",
+            "fast-digest",
+            pipeline.url,
+            auth.PIPELINE_API_KEY,
+            "omlx",
+            "fake-fast",
+        ),
+        "deep": Engine(
+            "auto-daily::deep",
+            "deep-digest",
+            pipeline.url,
+            auth.PIPELINE_API_KEY,
+            "omlx",
+            "fake-deep",
+        ),
     }
     runner = ArmService(root, engines, build_sha="offline-head", residency_config=config)
     previous = signal.getsignal(signal.SIGTERM)
@@ -329,8 +369,22 @@ def _mismatch(root: Path, task_id: str) -> str:
     config.parent.mkdir(parents=True, exist_ok=True)
     _write_arm_config(config)
     engines = {
-        "fast": Engine("auto-daily::fast", "fast-digest", pipeline.url, "", "omlx", "fake-fast"),
-        "deep": Engine("auto-daily::deep", "deep-digest", pipeline.url, "", "omlx", "fake-deep"),
+        "fast": Engine(
+            "auto-daily::fast",
+            "fast-digest",
+            pipeline.url,
+            auth.PIPELINE_API_KEY,
+            "omlx",
+            "fake-fast",
+        ),
+        "deep": Engine(
+            "auto-daily::deep",
+            "deep-digest",
+            pipeline.url,
+            auth.PIPELINE_API_KEY,
+            "omlx",
+            "fake-deep",
+        ),
     }
     root.mkdir(parents=True, exist_ok=True)
     ArmService(root, engines, build_sha="head-a", residency_config=config).submit(
@@ -594,8 +648,22 @@ def _calibration_pause(root: Path, task_id: str) -> str:
     assert receipt["calibration"][0]["projected_pass_probability"] == 0.25
     assert len(pipeline.requests) == 1
     engines = {
-        "fast": Engine("auto-daily::fast", "fast-digest", pipeline.url, "", "omlx", "fake-fast"),
-        "deep": Engine("auto-daily::deep", "deep-digest", pipeline.url, "", "omlx", "fake-deep"),
+        "fast": Engine(
+            "auto-daily::fast",
+            "fast-digest",
+            pipeline.url,
+            auth.PIPELINE_API_KEY,
+            "omlx",
+            "fake-fast",
+        ),
+        "deep": Engine(
+            "auto-daily::deep",
+            "deep-digest",
+            pipeline.url,
+            auth.PIPELINE_API_KEY,
+            "omlx",
+            "fake-deep",
+        ),
     }
     runner = ArmService(
         root,
@@ -697,8 +765,22 @@ def _queue_runner(
     arm_config["queue"]["yield_lock_dir"] = str(selected_lock_dir)
     config.write_text(yaml.safe_dump(arm_config, sort_keys=False), encoding="utf-8")
     engines = {
-        "fast": Engine("auto-daily::fast", "fast-digest", pipeline.url, "", "omlx", "fake-fast"),
-        "deep": Engine("auto-daily::deep", "deep-digest", pipeline.url, "", "omlx", "fake-deep"),
+        "fast": Engine(
+            "auto-daily::fast",
+            "fast-digest",
+            pipeline.url,
+            auth.PIPELINE_API_KEY,
+            "omlx",
+            "fake-fast",
+        ),
+        "deep": Engine(
+            "auto-daily::deep",
+            "deep-digest",
+            pipeline.url,
+            auth.PIPELINE_API_KEY,
+            "omlx",
+            "fake-deep",
+        ),
     }
     task_root = root / "tasks"
     service = ArmService(task_root, engines, build_sha="offline-head", residency_config=config)

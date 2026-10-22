@@ -13,6 +13,7 @@ from pathlib import Path
 from typing import Any
 from unittest.mock import Mock
 
+import httpx
 import pytest
 import yaml
 from fastapi import HTTPException
@@ -28,6 +29,7 @@ from portal.modules.orchestration.service import (
     module_is_enabled,
 )
 from portal.modules.orchestration.worker import Engine
+from portal.platform.inference.router import auth
 from portal.platform.inference.router.eval_gate import apply_bite_tool_scope
 
 _fake_spec = spec_from_file_location(
@@ -110,10 +112,20 @@ def service(
     config.write_text(yaml.safe_dump(settings, sort_keys=False), encoding="utf-8")
     engines = {
         "fast": Engine(
-            "auto-daily::fast", fast_digest, pipeline.url, "test-key", "omlx", "fake-fast"
+            "auto-daily::fast",
+            fast_digest,
+            pipeline.url,
+            auth.PIPELINE_API_KEY,
+            "omlx",
+            "fake-fast",
         ),
         "deep": Engine(
-            "auto-daily::deep", deep_digest, pipeline.url, "test-key", "omlx", "fake-deep"
+            "auto-daily::deep",
+            deep_digest,
+            pipeline.url,
+            auth.PIPELINE_API_KEY,
+            "omlx",
+            "fake-deep",
         ),
     }
     return ArmService(
@@ -200,10 +212,20 @@ def test_detection_engineering_template_validates_and_runs_offline(
     fake_pipeline.add("deep", finish_response("PASS: final detection and evidence reviewed"))
     engines = {
         "fast": Engine(
-            "auto-daily::fast", "fast-digest", fake_pipeline.url, "test-key", "omlx", "fake-fast"
+            "auto-daily::fast",
+            "fast-digest",
+            fake_pipeline.url,
+            auth.PIPELINE_API_KEY,
+            "omlx",
+            "fake-fast",
         ),
         "deep": Engine(
-            "auto-daily::deep", "deep-digest", fake_pipeline.url, "test-key", "omlx", "fake-deep"
+            "auto-daily::deep",
+            "deep-digest",
+            fake_pipeline.url,
+            auth.PIPELINE_API_KEY,
+            "omlx",
+            "fake-deep",
         ),
     }
     notices = Mock(spec=StubNoticeSink)
@@ -323,8 +345,10 @@ def test_refusal_red_flag_is_discarded_then_retried(
 def test_output_token_budget_blocks_over_cap_output(
     tmp_path: Path, fake_pipeline: FakePipeline
 ) -> None:
+    # The pipeline forwards no usage chunk on streams, so the worker estimates
+    # tokens from the response's own content — the fake must drive that path.
     for seat in ("fast", "fast", "fast", "deep"):
-        fake_pipeline.add(seat, finish_response({"answer": "right"}, tokens=50))
+        fake_pipeline.add(seat, finish_response({"answer": "x" * 512}))
     task_dir = service(tmp_path, fake_pipeline).submit(
         plan("budget", bite(output_tokens=8)), tmp_path
     )
@@ -690,6 +714,101 @@ def test_queue_gate_yields_for_live_lock_and_pipeline_busy_or_unknown_fit(
     fake_pipeline.add_admin_response({"fits": True, "models": []})
     assert not gate.allows(task_bite)
     assert "active traffic" in str(gate.last_reason)
+
+
+def test_fake_pipeline_enforces_production_bearer_auth() -> None:
+    key = auth.PIPELINE_API_KEY
+    pipeline = FakePipeline()
+    try:
+        pipeline.add("fast", finish_response({"answer": "right"}))
+        request = {
+            "url": f"{pipeline.url}/v1/chat/completions",
+            "json": {"model": "auto-daily::fast", "messages": []},
+            "timeout": 5,
+        }
+        assert httpx.post(**request).status_code == 401
+        assert (
+            httpx.post(headers={"Authorization": "Bearer wrong-key"}, **request).status_code == 401
+        )
+        assert httpx.post(headers={"Authorization": f"Bearer {key}"}, **request).status_code == 200
+        with pytest.raises(HTTPException) as missing:
+            auth._verify_key(None)
+        with pytest.raises(HTTPException) as wrong:
+            auth._verify_key("Bearer wrong-key")
+        assert missing.value.status_code == wrong.value.status_code == 401
+    finally:
+        pipeline.close()
+
+
+def _bite_request() -> dict[str, Any]:
+    return {
+        "model": "auto-daily::fast",
+        "messages": [{"role": "user", "content": "hi"}],
+        "tools": [
+            {"type": "function", "function": {"name": "finish", "parameters": {}}},
+            {"type": "function", "function": {"name": "wiki_search", "parameters": {}}},
+        ],
+        "portal_bite_tools": ["wiki_search", "finish"],
+    }
+
+
+def _schema_names(body: dict[str, Any]) -> list[str]:
+    return [
+        tool.get("function", {}).get("name", "")
+        for tool in body.get("tools") or []
+        if isinstance(tool, dict)
+    ]
+
+
+def _post_bite_request(pipeline: FakePipeline, correlation_id: str) -> None:
+    response = httpx.post(
+        f"{pipeline.url}/v1/chat/completions",
+        json=_bite_request(),
+        headers={
+            "Authorization": f"Bearer {auth.PIPELINE_API_KEY}",
+            "X-Correlation-ID": correlation_id,
+        },
+        timeout=5,
+    )
+    assert response.status_code == 200
+
+
+def test_fake_trace_tools_offered_matches_production_bite_gate() -> None:
+    pipeline = FakePipeline()
+    try:
+        pipeline.add("fast", finish_response({"answer": "right"}))
+        _post_bite_request(pipeline, "parity-trace")
+        owned = sorted({"finish", "wiki_search"} | set(_schema_names(_bite_request())))
+        expected, _allowed = apply_bite_tool_scope(_bite_request(), owned)
+        assert expected == ["finish", "wiki_search"]
+        assert pipeline.traces["parity-trace"]["tools_offered"] == expected
+    finally:
+        pipeline.close()
+
+
+def test_fake_registry_missing_the_bite_tool_offers_only_what_it_owns() -> None:
+    pipeline = FakePipeline(pipeline_tools={"finish"})
+    try:
+        pipeline.add("fast", finish_response({"answer": "right"}))
+        body = _bite_request()
+        # The worker ships only the finish schema; the bite tools live in the
+        # pipeline's registry, which this fake declares without wiki_search.
+        body["tools"] = [{"type": "function", "function": {"name": "finish", "parameters": {}}}]
+        response = httpx.post(
+            f"{pipeline.url}/v1/chat/completions",
+            json=body,
+            headers={
+                "Authorization": f"Bearer {auth.PIPELINE_API_KEY}",
+                "X-Correlation-ID": "parity-missing-tool",
+            },
+            timeout=5,
+        )
+        assert response.status_code == 200
+        expected, _allowed = apply_bite_tool_scope(body, ["finish"])
+        assert expected == ["finish"]
+        assert pipeline.traces["parity-missing-tool"]["tools_offered"] == expected
+    finally:
+        pipeline.close()
 
 
 def _events(task_dir: Path) -> list[dict[str, Any]]:
