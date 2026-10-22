@@ -99,6 +99,29 @@ def bite(
     }
 
 
+def parallel_tool_response(*calls: tuple[str, str]) -> dict[str, Any]:
+    return {
+        "choices": [
+            {
+                "message": {
+                    "role": "assistant",
+                    "content": "",
+                    "tool_calls": [
+                        {
+                            "id": f"call-{index}",
+                            "type": "function",
+                            "function": {"name": name, "arguments": arguments},
+                        }
+                        for index, (name, arguments) in enumerate(calls, start=1)
+                    ],
+                },
+                "finish_reason": "tool_calls",
+            }
+        ],
+        "usage": {"completion_tokens": 4},
+    }
+
+
 def plan(task_id: str, *bites: dict[str, Any]) -> dict[str, Any]:
     return {"task_id": task_id, "goal": "Run the offline scenario.", "bites": list(bites)}
 
@@ -369,6 +392,112 @@ def test_client_tool_loop_honors_the_hop_limit_before_executing_a_last_hop_actio
     assert result.red_flags == ("hop_limit_exhausted",)
     assert not (task_dir / "data/new.txt").exists()
     assert fake_pipeline.requests[0]["portal_bite_max_hops"] == 1
+
+
+def test_parallel_file_reads_execute_in_order_and_continue_to_finish(
+    tmp_path: Path, fake_pipeline: FakePipeline
+) -> None:
+    task_dir = tmp_path / "parallel-reads"
+    (task_dir / "data").mkdir(parents=True)
+    (task_dir / "data/first.txt").write_text("first contents", encoding="utf-8")
+    (task_dir / "data/second.txt").write_text("second contents", encoding="utf-8")
+    fake_pipeline.add(
+        "fast",
+        parallel_tool_response(
+            ("file_read", '{"path":"first.txt"}'),
+            ("file_read", '{"path":"second.txt"}'),
+        ),
+    )
+    fake_pipeline.add("fast", finish_response({"answer": "right"}))
+    task_bite = parse_plan(
+        plan(
+            "parallel-reads",
+            bite(tools=["file_read"], inputs=["first.txt", "second.txt"], turns=3),
+        )
+    ).bites[0]
+
+    result = run_bite(
+        task_dir,
+        task_bite,
+        Engine("auto-daily::fast", "test-digest", fake_pipeline.url, auth.PIPELINE_API_KEY),
+        input_paths={"first.txt": Path("first.txt"), "second.txt": Path("second.txt")},
+        attempt_dir=task_dir / "attempt",
+    )
+
+    assert result.finished
+    assert [item["output"] for item in result.tool_results] == [
+        "first contents",
+        "second contents",
+    ]
+    assert [request["portal_bite_max_hops"] for request in fake_pipeline.requests] == [3, 1]
+    exchange = fake_pipeline.requests[1]["messages"][-3:]
+    assert [call["id"] for call in exchange[0]["tool_calls"]] == ["call-1", "call-2"]
+    assert [message["tool_call_id"] for message in exchange[1:]] == ["call-1", "call-2"]
+
+
+def test_parallel_batch_mixing_finish_keeps_red_flags_and_executes_no_tools(
+    tmp_path: Path, fake_pipeline: FakePipeline
+) -> None:
+    task_dir = tmp_path / "mixed-parallel"
+    (task_dir / "data").mkdir(parents=True)
+    (task_dir / "data/source.txt").write_text("source contents", encoding="utf-8")
+    fake_pipeline.add(
+        "fast",
+        parallel_tool_response(
+            ("file_read", '{"path":"source.txt"}'),
+            ("finish", '{"output":{"answer":"right"}}'),
+        ),
+    )
+    task_bite = parse_plan(
+        plan("mixed-parallel", bite(tools=["file_read"], inputs=["source.txt"]))
+    ).bites[0]
+
+    result = run_bite(
+        task_dir,
+        task_bite,
+        Engine("auto-daily::fast", "test-digest", fake_pipeline.url, auth.PIPELINE_API_KEY),
+        input_paths={"source.txt": Path("source.txt")},
+        attempt_dir=task_dir / "attempt",
+    )
+
+    assert not result.finished
+    assert "multiple_tool_calls" in result.red_flags
+    assert "missing_finish_output" in result.red_flags
+    assert result.tool_results == ()
+
+
+def test_parallel_batch_over_hop_budget_is_rejected_before_tool_execution(
+    tmp_path: Path, fake_pipeline: FakePipeline
+) -> None:
+    task_dir = tmp_path / "parallel-hop-limit"
+    (task_dir / "data").mkdir(parents=True)
+    (task_dir / "data/first.txt").write_text("first", encoding="utf-8")
+    (task_dir / "data/second.txt").write_text("second", encoding="utf-8")
+    fake_pipeline.add(
+        "fast",
+        parallel_tool_response(
+            ("file_read", '{"path":"first.txt"}'),
+            ("file_read", '{"path":"second.txt"}'),
+        ),
+    )
+    task_bite = parse_plan(
+        plan(
+            "parallel-hop-limit",
+            bite(tools=["file_read"], inputs=["first.txt", "second.txt"], turns=2),
+        )
+    ).bites[0]
+
+    result = run_bite(
+        task_dir,
+        task_bite,
+        Engine("auto-daily::fast", "test-digest", fake_pipeline.url, auth.PIPELINE_API_KEY),
+        input_paths={"first.txt": Path("first.txt"), "second.txt": Path("second.txt")},
+        attempt_dir=task_dir / "attempt",
+    )
+
+    assert result.loop_outcome == "hop_limit_exhausted"
+    assert result.red_flags == ("hop_limit_exhausted",)
+    assert result.tool_results == ()
 
 
 def test_fake_pipeline_drops_server_side_tools_without_client_schemas() -> None:

@@ -203,7 +203,8 @@ def run_bite(
     calls: list[dict[str, Any]] = []
     tool_results: list[dict[str, Any]] = []
     tokens = 0
-    for turn in range(bite.budget.turns):
+    turn = 0
+    while turn < bite.budget.turns:
         remaining_tokens = bite.budget.output_tokens - tokens
         if remaining_tokens < 1:
             return WorkerResult(
@@ -250,6 +251,7 @@ def run_bite(
             )
         turn_tokens = _response_tokens(response)
         tokens += turn_tokens
+        prior_call_count = len(calls)
         result = _handle_response(
             task_dir,
             bite,
@@ -268,6 +270,7 @@ def run_bite(
         )
         if result is not None:
             return result
+        turn += len(calls) - prior_call_count
     return WorkerResult(
         False,
         None,
@@ -326,7 +329,8 @@ def _handle_response(
             "wall-clock budget exhausted",
             tuple(tool_results),
         )
-    if len(turn_calls) != 1 or turn_calls[0].get("function", {}).get("name") == "finish":
+    names = [str((call.get("function") or {}).get("name") or "") for call in turn_calls]
+    if not turn_calls or "finish" in names or any(name not in bite.tools for name in names):
         return _finished_response(
             task_dir,
             bite,
@@ -342,26 +346,9 @@ def _handle_response(
             calls,
             tool_results,
         )
-    call = turn_calls[0]
-    name = str((call.get("function") or {}).get("name") or "")
-    if name not in bite.tools:
-        return _finished_response(
-            task_dir,
-            bite,
-            engine,
-            response,
-            messages,
-            request,
-            transcript,
-            started,
-            prior_calls,
-            tokens - turn_tokens,
-            turn,
-            calls,
-            tool_results,
-        )
-    if turn + 1 >= bite.budget.turns or tokens >= bite.budget.output_tokens:
-        flag = "hop_limit_exhausted" if turn + 1 >= bite.budget.turns else "output_token_cap"
+    hop_limit_reached = turn + len(turn_calls) >= bite.budget.turns
+    if hop_limit_reached or tokens >= bite.budget.output_tokens:
+        flag = "hop_limit_exhausted" if hop_limit_reached else "output_token_cap"
         return WorkerResult(
             False,
             None,
@@ -373,7 +360,7 @@ def _handle_response(
             "no budget remains to continue the client tool loop",
             tuple(tool_results),
         )
-    _append_tool_exchange(call, content, name, messages, transcript, executor, tool_results, turn)
+    _append_tool_exchanges(turn_calls, content, messages, transcript, executor, tool_results, turn)
     return None
 
 
@@ -408,37 +395,34 @@ def _finished_response(
     return replace(result, tool_calls=tuple(calls), tool_results=tuple(tool_results))
 
 
-def _append_tool_exchange(
-    call: dict[str, Any],
+def _append_tool_exchanges(
+    calls: list[dict[str, Any]],
     content: str,
-    name: str,
     messages: list[dict[str, Any]],
     transcript: _Transcript,
     executor: TaskToolExecutor,
     tool_results: list[dict[str, Any]],
     turn: int,
 ) -> None:
-    try:
-        arguments = _call_arguments(call)
-        result = executor.dispatch(name, arguments)
-    except (json.JSONDecodeError, ValueError) as exc:
-        arguments = {}
-        result = f"ERROR: invalid tool arguments: {exc}"
-    call_id = str(call.get("id") or f"bite-tool-{turn + 1}")
-    messages.extend(
-        [
-            {"role": "assistant", "content": content or None, "tool_calls": [call]},
-            {"role": "tool", "tool_call_id": call_id, "name": name, "content": result},
-        ]
-    )
-    record = {
-        "name": name,
-        "arguments": arguments,
-        "output": result,
-        "error": result.startswith("ERROR:"),
-    }
-    transcript.append("tool_result", record)
-    tool_results.append(record)
+    messages.append({"role": "assistant", "content": content or None, "tool_calls": calls})
+    for offset, call in enumerate(calls):
+        name = str((call.get("function") or {}).get("name") or "")
+        try:
+            arguments = _call_arguments(call)
+            result = executor.dispatch(name, arguments)
+        except (json.JSONDecodeError, ValueError) as exc:
+            arguments = {}
+            result = f"ERROR: invalid tool arguments: {exc}"
+        call_id = str(call.get("id") or f"bite-tool-{turn + offset + 1}")
+        messages.append({"role": "tool", "tool_call_id": call_id, "name": name, "content": result})
+        record = {
+            "name": name,
+            "arguments": arguments,
+            "output": result,
+            "error": result.startswith("ERROR:"),
+        }
+        transcript.append("tool_result", record)
+        tool_results.append(record)
 
 
 def _finish_response(
