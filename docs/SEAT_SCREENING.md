@@ -18,7 +18,7 @@ fails that seat on the first check.
 `scripts/seat_preflight.py` applies the shared host-quiet gate before seat checks and prints a
 `host_quiet` receipt with start and end snapshots. It blocks below `UAT_MIN_HOST_HEADROOM_GIB`
 (default 1.5 GiB), on a live entry in `/tmp/portal5-memory-safety-test-pids`, or when detected
-pytest/xdist processes exceed `UAT_MAX_PYTEST_PROCESSES` (default 4). Those three are transient
+pytest/xdist processes exceed `UAT_MAX_PYTEST_PROCESSES` (default 5: one capped `-n 4` hook). Those three are transient
 and the screen waits them out. Other host-quiet blockers, and every config blocker, fail at once.
 Dispatch lane jobs and Pipeline busy requests remain visible in the snapshots but do not block
 the screen.

@@ -19,7 +19,8 @@ ROOT = Path(__file__).resolve().parents[1]
 MEMORY_PID_FILE = Path("/tmp/portal5-memory-safety-test-pids")
 ORCHESTRATE_ROOT = Path.home() / ".claude" / "orchestrate"
 DEFAULT_MIN_HEADROOM_GIB = 1.5
-DEFAULT_MAX_PYTEST_PROCESSES = 4
+# One capped commit hook is `-n 4`: a controller plus four workers.
+DEFAULT_MAX_PYTEST_PROCESSES = 5
 DEFAULT_QUIET_POLL_S = 30.0
 DEFAULT_QUIET_MAX_WAIT_S = 20 * 60.0
 _ACTIVE_STATUSES = {"active", "in_progress", "in-progress", "pending", "queued", "running"}
