@@ -2,8 +2,8 @@
 """Check Portal 5's hand-pinned external components against upstream.
 
 Covers the Obscura browser ref (``ARG OBSCURA_REF`` in
-``deploy/browser-mcp/Dockerfile``), Ollama (``~/ollama-current`` symlink), the
-oMLX brew formula (``jundot/omlx/omlx``), and the orchestrator's worker
+``deploy/browser-mcp/Dockerfile``), Ollama (``~/ollama-current`` symlink), oMLX
+GitHub releases (with the Homebrew formula as a service fallback), and the worker
 harnesses (``opencode``, ``codex``, ``grok`` — see ``harnesses``). Reports how far behind each pin is
 and — the point of it — flags gaps that include a security fix or a published
 GitHub advisory, so a "review later" bump can be promoted to "do this now".
@@ -12,7 +12,7 @@ Report, not a gate; exit 0 always. Sends a Pushover push (high-priority when
 security-flagged) when a component is behind and ``PUSHOVER_API_TOKEN`` +
 ``PUSHOVER_USER_KEY`` are set. Weekly launchd job
 ``com.portal5.update-check.plist``; accepts a component subset, e.g.
-``check_updates.py ollama omlx``. Stdlib only + ``brew``; honors ``GITHUB_TOKEN``.
+``check_updates.py ollama omlx``. Stdlib only; ``brew`` is only the fallback service. Honors ``GITHUB_TOKEN``.
 """
 
 from __future__ import annotations
@@ -210,16 +210,39 @@ def check_ollama() -> Report:
 
 def check_omlx() -> Report:
     rep = Report("omlx")
-    try:
-        rep.current = os.readlink("/opt/homebrew/opt/omlx").rstrip("/").rsplit("/", 1)[-1]
-    except OSError as e:
-        rep.lines.append(f"could not determine installed oMLX version: {e}")
-        return rep
+    venv = Path(os.environ.get("OMLX_VENV_PATH", str(Path.home() / "omlx-live" / "venv")))
+    python = venv / "bin" / "python"
+    if python.is_file():
+        try:
+            active = subprocess.run(
+                ["launchctl", "print", f"gui/{os.getuid()}/com.portal5.omlx"],
+                capture_output=True,
+                text=True,
+                timeout=10,
+            )
+            if active.returncode == 0:
+                version = subprocess.run(
+                    [str(python), "-c", "import importlib.metadata as m; print(m.version('omlx'))"],
+                    capture_output=True,
+                    text=True,
+                    timeout=20,
+                )
+                if version.returncode == 0 and version.stdout.strip():
+                    rep.current = version.stdout.strip()
+        except (OSError, subprocess.SubprocessError) as e:
+            rep.lines.append(f"could not determine active venv version: {e}")
+    if not rep.current:
+        try:
+            rep.current = os.readlink("/opt/homebrew/opt/omlx").rstrip("/").rsplit("/", 1)[-1]
+        except OSError as e:
+            rep.lines.append(f"could not determine installed oMLX version: {e}")
+            return rep
     _release_gap("jundot/omlx", _semver(rep.current), rep)
     _advisories("jundot/omlx", rep)
     if rep.status == "behind":
         rep.lines.append(
-            "  bump: brew update && brew upgrade jundot/omlx/omlx && brew services restart omlx"
+            "  bump: scripts/engine_autoupdate.py (GitHub release wheel, contract-gated); "
+            "Homebrew remains the fallback until com.portal5.omlx is loaded"
         )
     return rep
 
