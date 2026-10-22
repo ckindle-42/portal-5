@@ -279,10 +279,11 @@ class Engines:
 
 
 @pytest.fixture(autouse=True)
-def _fast(monkeypatch):
+def _fast(monkeypatch, tmp_path):
     real_sleep = asyncio.sleep
     monkeypatch.setattr(lg.asyncio, "sleep", lambda s, _r=real_sleep: _r(0))
     monkeypatch.setattr(lg, "_POLL_S", 0.0)
+    monkeypatch.setattr(lg, "_PROCESS_LOCK_DIR", tmp_path / "guard-locks")
     monkeypatch.delenv("LOAD_GUARD", raising=False)
     lg.set_load_wait(None)
     monkeypatch.setattr(lg, "_WAIT_S", 0.0)  # refuse at once unless a test opts into waiting
@@ -1452,6 +1453,49 @@ async def test_rejected_ollama_unload_is_not_counted_as_pending_free():
     assert "with nothing in flight to wait for" in str(err.value)
     assert "free of idle did not settle" not in str(err.value)
     assert e.ollama == {"idle": GIB}
+
+
+async def test_independent_guards_share_cold_load_and_active_model_accounting(monkeypatch):
+    monkeypatch.setattr(lg, "_CEILING", 8 * GIB)
+    e = Engines(tags={"first": 4 * GIB, "next": 4 * GIB}, ceiling=8 * GIB)
+    first_guard, second_guard = guard(e), guard(e)
+    lg.set_load_wait("1")
+
+    release = await first_guard.admit(OLLAMA_URL, "first")
+    assert release is not None
+    end = first_guard.begin(OLLAMA, "first")
+    second = asyncio.create_task(second_guard.admit(OLLAMA_URL, "next"))
+    await settle()
+    assert not second.done()
+
+    e.ollama["first"] = 4 * GIB
+    await settle()
+    with pytest.raises(lg.LoadRefusedError) as err:
+        await asyncio.wait_for(second, 1)
+    assert "nothing in flight to wait for" in str(err.value)
+    end()
+    release()
+
+
+async def test_independent_guards_serialize_ollama_and_omlx_cold_loads(monkeypatch):
+    monkeypatch.setattr(lg, "_CEILING", 8 * GIB)
+    e = Engines(tags={"next": 4 * GIB}, omlx={"first": {"size": 4 * GIB}}, ceiling=8 * GIB)
+    first_guard, second_guard = guard(e), guard(e)
+    lg.set_load_wait("1")
+
+    release = await first_guard.admit_omlx("first")
+    assert release is not None
+    end = first_guard.begin(OMLX, "first")
+    second = asyncio.create_task(second_guard.admit(OLLAMA_URL, "next"))
+    await settle()
+    assert not second.done()
+
+    e.omlx["first"]["loaded"] = True
+    await settle()
+    with pytest.raises(lg.LoadRefusedError):
+        await asyncio.wait_for(second, 1)
+    end()
+    release()
 
 
 async def test_ollama_free_baseline_precedes_an_immediate_host_headroom_rise():

@@ -49,11 +49,14 @@ from __future__ import annotations
 import asyncio
 import contextlib
 import contextvars
+import fcntl
+import hashlib
 import logging
 import os
 import time
 from collections import Counter
 from collections.abc import Callable
+from pathlib import Path
 from typing import Any
 from urllib.parse import quote
 
@@ -79,6 +82,7 @@ _MAX_WAIT_S = 3600.0
 #: released anyway (the request's own end also releases it).
 _LOAD_TIMEOUT_S = 600.0
 _POLL_S = 0.5
+_PROCESS_LOCK_DIR = Path("/tmp/portal-5-load-guard")
 #: Expected settle of a guard-issued Ollama free, for a warning only: measured admin
 #: unloads p50 0.78 s, p95 1.93 s, max 2.29 s (n=114, oMLX 0.7.2, 2026-10-22), doubled.
 _FREE_SETTLE_EXPECTED_S = 4.6
@@ -178,6 +182,7 @@ class LoadGuard:
         """Count one in-flight request; return its idempotent end()."""
         key = (engine, model)
         self._busy[key] += 1
+        activity_lock = self._activity_lock(engine, model)
         ended = False
 
         def end() -> None:
@@ -188,11 +193,43 @@ class LoadGuard:
             self._busy[key] -= 1
             if self._busy[key] <= 0:
                 del self._busy[key]
+            if activity_lock is not None:
+                fcntl.flock(activity_lock.fileno(), fcntl.LOCK_UN)
+                activity_lock.close()
             # Wake every waiter, then arm a fresh event for the next change.
             event, self._changed = self._changed, asyncio.Event()
             event.set()
 
         return end
+
+    @staticmethod
+    def _activity_path(engine: str, model: str) -> Path:
+        digest = hashlib.sha256(f"{engine}\0{model}".encode()).hexdigest()
+        return _PROCESS_LOCK_DIR / f"active-{digest}.lock"
+
+    def _activity_lock(self, engine: str, model: str) -> Any | None:
+        try:
+            _PROCESS_LOCK_DIR.mkdir(parents=True, exist_ok=True)
+            handle = self._activity_path(engine, model).open("a+")
+            fcntl.flock(handle.fileno(), fcntl.LOCK_SH)
+            return handle
+        except OSError as e:
+            logger.warning("load_guard: could not track cross-worker activity: %s", e)
+            return None
+
+    def _active_elsewhere(self, engine: str, model: str) -> bool:
+        try:
+            _PROCESS_LOCK_DIR.mkdir(parents=True, exist_ok=True)
+            with self._activity_path(engine, model).open("a+") as handle:
+                try:
+                    fcntl.flock(handle.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+                except BlockingIOError:
+                    return True
+                fcntl.flock(handle.fileno(), fcntl.LOCK_UN)
+                return False
+        except OSError as e:
+            logger.warning("load_guard: could not inspect cross-worker activity: %s", e)
+            return True
 
     def protect(self, engine: str, model: str, seconds: float | None = None) -> None:
         """Exclude ``model`` from eviction for ``seconds`` (default FAILOVER_PROTECT_S)."""
@@ -283,6 +320,7 @@ class LoadGuard:
                 and name not in exclude
                 and name not in self.protected(OLLAMA)
                 and not self.busy(OLLAMA, name)
+                and not self._active_elsewhere(OLLAMA, name)
             )
         )
 
@@ -336,6 +374,7 @@ class LoadGuard:
             and m["id"] not in exclude
             and m["id"] not in self.protected(OMLX)
             and not self.busy(OMLX, m["id"])
+            and not self._active_elsewhere(OMLX, m["id"])
         ]
         return url, sorted(idle, key=lambda m: float(m.get("last_access") or 0))
 
@@ -737,7 +776,28 @@ class LoadGuard:
                 ) from None
         else:
             await self._lock.acquire()
-        return _Release(self._lock)
+        process_lock = None
+        try:
+            _PROCESS_LOCK_DIR.mkdir(parents=True, exist_ok=True)
+            process_lock = (_PROCESS_LOCK_DIR / "cold-load.lock").open("a+")
+            while True:
+                try:
+                    fcntl.flock(process_lock.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+                    break
+                except BlockingIOError:
+                    remaining = deadline - time.monotonic()
+                    if remaining <= 0:
+                        raise LoadRefusedError(
+                            f"cold load of {what} would exceed its wait for another model load "
+                            f"({_waited_s(deadline):.1f}s)"
+                        ) from None
+                    await asyncio.sleep(min(max(_POLL_S, 0.01), remaining))
+            return _Release(self._lock, process_lock)
+        except BaseException:
+            if process_lock is not None:
+                process_lock.close()
+            self._lock.release()
+            raise
 
     async def _release_when_resident(
         self, engine: str, base: str, model: str, release: _Release
@@ -964,14 +1024,20 @@ class LoadGuard:
 class _Release:
     """Idempotent release of the cold-load lock; knows whether it has run."""
 
-    def __init__(self, lock: asyncio.Lock) -> None:
+    def __init__(self, lock: asyncio.Lock, process_lock: Any = None) -> None:
         self._lock = lock
+        self._process_lock = process_lock
         self.released = False
 
     def __call__(self) -> None:
         if not self.released:
             self.released = True
-            self._lock.release()
+            try:
+                if self._process_lock is not None:
+                    fcntl.flock(self._process_lock.fileno(), fcntl.LOCK_UN)
+                    self._process_lock.close()
+            finally:
+                self._lock.release()
 
 
 def _omlx_entry(status: dict[str, Any] | None, model: str) -> dict[str, Any] | None:
