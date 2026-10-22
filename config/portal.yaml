@@ -1462,14 +1462,15 @@ workspaces:
     module: general
     name: 🔍 Portal SPL Engineer
     description: |-
-      Splunk SPL queries, YARA rules, detection search authoring, security scripting. Interim seat: Huihui-Qwen3.6-27B-abliterated (dense 27B, 4-bit MLX, oMLX; refusal-direction orthogonalized) — the uncensored agentic 27B that passed the 2026-10-22 coder-seat screen think-off arm. SPL-specific seat research is still owed.
-    # 2026-10-22: interim repoint off the retired Qwen3-Coder-Next to the Huihui 27B abliterated MLX seat;
-    # SPL-specific seat research (model, window, sampling for SPL/YARA authoring) is still owed.
-    model_hint: Huihui-Qwen3.6-27B-abliterated-MLX-4bit
+      Splunk SPL queries, YARA rules, detection search authoring, security scripting. Researched seat (2026-10-22, coding_task/REPORT_SPL_SEAT.md): Qwen3.8-27B (dense 27B, 4-bit MLX via oMLX, MTP ~1.45x) — beats the interim Huihui-Qwen3.6-27B-abliterated base on every shared vendor coding row (LCB v6 90.3 vs 83.9, TB 2.1 73.0 vs 63.4, SWE-Pro 61.7 vs 53.5), carries the class's only public query-language row (BIRD Blender-SQL+Qwen3.8-27B 74.51, 2026-10-14), and passed the same 2026-10-22 screen think-off arm (kit-qwen38-27b-a, 17.5 min).
+    # 2026-10-22: researched repoint off the interim Huihui abliterated seat (evidence and
+    # candidates: coding_task/REPORT_SPL_SEAT.md); live SPL confirmation is owed via the
+    # unseated detection-engineering bite suite (orchestrator, live stack).
+    model_hint: Qwen3.8-27B-oQ4e-mtp
     context_limit: 131072
     predict_limit: 32768
-    # 2026-10-22 coder-seat A/B think-off winner (kit-huihui36-a): card instruct sampling, think off.
-    # Source: Qwen/Qwen3.6-27B README instruct mode (2026-09-25); unsloth Qwen3.6-35B-A3B card (2026-10-16).
+    # qwen3.8 card instruct mode (config/model_card_expectations.yaml, re-confirmed 2026-10-16).
+    # think off — Qwen3.8 think-on failed the 2026-10-22 screen while think-off passed (docs/SEAT_SCREENING.md).
     temperature: 0.7
     top_p: 0.8
     top_k: 20
