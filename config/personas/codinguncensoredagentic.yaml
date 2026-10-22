@@ -10,9 +10,9 @@ ide_expose: true
 # picker, replacing the retired bare-alias key
 # "auto-coding-uncensored-agentic".
 system_prompt: |
-  You are Qwen3-Coder-Next abliterated (80B/3B MoE), the uncensored
-  counterpart to the Laguna agentic-coding lane — multi-turn, tool-using,
-  SWE-capable, with fewer content refusals. Use deliberately when standard
+  You are Huihui-Qwen3.6-27B-abliterated (dense 27B, 4-bit MLX), the
+  uncensored counterpart to the Laguna agentic-coding lane — multi-turn,
+  tool-using, SWE-capable, with fewer content refusals. Use deliberately when standard
   filtering interferes with legitimate low-level or security-research
   agentic coding work — not as a default lane.
 

@@ -1780,8 +1780,8 @@
       "test_if_needed": null,
       "stop_rule": null,
       "final_disposition": "REMOVED_CLOSED",
-      "decision_reason": "no home: bench-only / registered-only / dashboards-only (ruling 2026-09-07: bench-only does not confer a purpose)",
-      "purpose_or_replacement": "fold bench seat + backends registration; remove alias/weights; shared survivor weights stay intact",
+      "decision_reason": "Re-registered 2026-09 for the stack-down-only auto-coding::uncensored-agentic seat; removed 2026-10-22 (operator: no model that only runs with the stack down). The seat was repointed to Huihui-Qwen3.6-27B-abliterated-MLX-4bit; this registration is gone.",
+      "purpose_or_replacement": "Re-registered 2026-09 for the stack-down-only auto-coding::uncensored-agentic seat; removed 2026-10-22 (operator: no model that only runs with the stack down). The seat was repointed to Huihui-Qwen3.6-27B-abliterated-MLX-4bit; this registration is gone.",
       "evidence_refs": [
         "dep scan: no production ref",
         "attempt artifacts in tasks.json"
@@ -1790,7 +1790,7 @@
         "docs/MODEL_FLEET_CLOSEOUT_20260906.CLOSEOUT.md#hf.co_bartowski_huihui-ai_Qwen3-Coder-Next-abliterated-GGUF-Q4_K_M"
       ],
       "verified_storage_effect_bytes": 0,
-      "closed_at": "removed 2026-09-12 (round 2: verified bench-only via full YAML parse, no real production ref; ollama rm executed)"
+      "closed_at": "removed 2026-10-22 (operator; stack-down-only rule)"
     },
     {
       "item_id": "ollama:hf.co/bartowski/huihui-ai_Qwen3-Coder-Next-abliterated-GGUF:Q4_K_M-ctx64k",
@@ -1810,9 +1810,9 @@
       "decision_question": null,
       "test_if_needed": null,
       "stop_rule": null,
-      "final_disposition": "INTEGRATED",
-      "decision_reason": "routed: model_hint; persona pins: splunkdetectionauthor, splunksplgineer",
-      "purpose_or_replacement": "routed: model_hint; persona pins: splunkdetectionauthor, splunksplgineer",
+      "final_disposition": "REMOVED_CLOSED",
+      "decision_reason": "auto-spl model_hint + SPL persona pins; repointed to Huihui-Qwen3.6-27B-abliterated-MLX-4bit 2026-10-22 (interim; SPL seat research owed)",
+      "purpose_or_replacement": "auto-spl model_hint + SPL persona pins; repointed to Huihui-Qwen3.6-27B-abliterated-MLX-4bit 2026-10-22 (interim; SPL seat research owed)",
       "evidence_refs": [
         "config refs (dep scan)"
       ],
@@ -1820,7 +1820,7 @@
         "docs/MODEL_FLEET_CLOSEOUT_20260906.CLOSEOUT.md#hf.co_bartowski_huihui-ai_Qwen3-Coder-Next-abliterated-GGUF-Q4_K_M-ctx64k"
       ],
       "verified_storage_effect_bytes": null,
-      "closed_at": "2026-09-07"
+      "closed_at": "removed 2026-10-22 (operator; repointed to the oMLX 27B)"
     },
     {
       "item_id": "ollama:hf.co/coder543/North-Mini-Code-1.0-QAD-GGUF:NVFP4",
@@ -3771,9 +3771,9 @@
       "decision_question": "Does Qwen3.8-uncensored beat the incumbent on refusal-preservation AND utility?",
       "test_if_needed": "refusal probe + 10-problem coding subset",
       "stop_rule": "no win on either -> remove",
-      "final_disposition": "INTEGRATED",
-      "decision_reason": "Integrated 2026-09-12: WFE wfe_full_20260911 stop rule met (1.00/0.90 coding rates, best in the campaign). Wired as auto-coding.variants.uncensored-fast — explicitly NOT the creative seat (0/9 on its own home:creative lane). bench-orcarouter-q38 retired.",
-      "purpose_or_replacement": "VERIFIED uncensored coding specialist — passed all pre-registered gates: repair exam 100%/100% (ties best-ever), refusal 1.0/0% vs incumbent 0.75/33%, judgment parity 0.952/0.90; manual/bench-only until operator optionally wires an uncensored-coding variant; omnicoder2-9b small-lane NOT displaced (30+ persona pins, intent: small)",
+      "final_disposition": "REMOVED_CLOSED",
+      "decision_reason": "2026-10-22 operator: OrcaRouter dropped — A/B screen failed both think-off and think-on arms with verified setup. auto-coding::uncensored-fast seat and the backends registration are removed.",
+      "purpose_or_replacement": "2026-10-22 operator: OrcaRouter dropped — A/B screen failed both think-off and think-on arms with verified setup. auto-coding::uncensored-fast seat and the backends registration are removed.",
       "evidence_refs": [
         "BENCH_REPAIR_20260907T081156Z.md",
         "refusal_preservation_probe_20260907T025849Z.json",
@@ -3783,7 +3783,7 @@
         "docs/MODEL_FLEET_CLOSEOUT_20260906.CLOSEOUT.md#orcarouter_Qwen3.8-27B-Uncensored-Q4_K_M"
       ],
       "verified_storage_effect_bytes": null,
-      "closed_at": "2026-09-12 (WFE wfe_full_20260911 integration)"
+      "closed_at": "removed 2026-10-22 (operator; A/B failed both arms)"
     },
     {
       "item_id": "ollama:phi4-mini-reasoning:latest-ctx24k",
@@ -4173,9 +4173,9 @@
       "decision_question": null,
       "test_if_needed": null,
       "stop_rule": null,
-      "final_disposition": "INTEGRATED",
-      "decision_reason": "routed: variants.uncensored-agentic.model_hint",
-      "purpose_or_replacement": "routed: variants.uncensored-agentic.model_hint",
+      "final_disposition": "REMOVED_CLOSED",
+      "decision_reason": "auto-coding::uncensored-agentic repointed to Huihui-Qwen3.6-27B-abliterated-MLX-4bit 2026-10-22 (think-off A/B winner); this registration removed",
+      "purpose_or_replacement": "auto-coding::uncensored-agentic repointed to Huihui-Qwen3.6-27B-abliterated-MLX-4bit 2026-10-22 (think-off A/B winner); this registration removed",
       "evidence_refs": [
         "config refs (dep scan)"
       ],
@@ -4183,7 +4183,7 @@
         "docs/MODEL_FLEET_CLOSEOUT_20260906.CLOSEOUT.md#portal5_qwen3-coder-next-abliterated-q4_K_M-ctx256k"
       ],
       "verified_storage_effect_bytes": null,
-      "closed_at": "2026-09-07"
+      "closed_at": "removed 2026-10-22 (operator; seat repointed to the oMLX 27B)"
     },
     {
       "item_id": "ollama:portal5/qwen3-coder-next:latest-ctx256k",
@@ -4203,9 +4203,9 @@
       "decision_question": null,
       "test_if_needed": null,
       "stop_rule": null,
-      "final_disposition": "INTEGRATED",
-      "decision_reason": "routed: variants.heavy.model_hint",
-      "purpose_or_replacement": "routed: variants.heavy.model_hint",
+      "final_disposition": "REMOVED_CLOSED",
+      "decision_reason": "auto-coding::heavy repointed to Qwen3.8-27B-oQ4e-mtp 2026-10-22 (think-off A/B winner); this registration removed",
+      "purpose_or_replacement": "auto-coding::heavy repointed to Qwen3.8-27B-oQ4e-mtp 2026-10-22 (think-off A/B winner); this registration removed",
       "evidence_refs": [
         "config refs (dep scan)"
       ],
@@ -4213,7 +4213,7 @@
         "docs/MODEL_FLEET_CLOSEOUT_20260906.CLOSEOUT.md#portal5_qwen3-coder-next-latest-ctx256k"
       ],
       "verified_storage_effect_bytes": null,
-      "closed_at": "2026-09-07"
+      "closed_at": "removed 2026-10-22 (operator; seat repointed to the oMLX 27B)"
     },
     {
       "item_id": "ollama:portal5/xyz-aquila-mini:q4_k_m-ctx16k",
@@ -4269,8 +4269,8 @@
       "test_if_needed": null,
       "stop_rule": null,
       "final_disposition": "REMOVED_CLOSED",
-      "decision_reason": "no home: bench-only / registered-only / dashboards-only (ruling 2026-09-07: bench-only does not confer a purpose)",
-      "purpose_or_replacement": "fold bench seat + backends registration; remove alias/weights; shared survivor weights stay intact",
+      "decision_reason": "Re-registered 2026-09 for the stack-down-only auto-coding::heavy seat; removed 2026-10-22 (operator: no model that only runs with the stack down). The seat was repointed to Qwen3.8-27B-oQ4e-mtp; this registration is gone.",
+      "purpose_or_replacement": "Re-registered 2026-09 for the stack-down-only auto-coding::heavy seat; removed 2026-10-22 (operator: no model that only runs with the stack down). The seat was repointed to Qwen3.8-27B-oQ4e-mtp; this registration is gone.",
       "evidence_refs": [
         "dep scan: no production ref",
         "attempt artifacts in tasks.json"
@@ -4279,7 +4279,7 @@
         "docs/MODEL_FLEET_CLOSEOUT_20260906.CLOSEOUT.md#qwen3-coder-next-latest"
       ],
       "verified_storage_effect_bytes": 0,
-      "closed_at": "removed 2026-09-12 (round 2: verified bench-only via full YAML parse, no real production ref; ollama rm executed)"
+      "closed_at": "removed 2026-10-22 (operator; stack-down-only rule)"
     },
     {
       "item_id": "ollama:qwen3-coder-next:latest-ctx64k",
@@ -4297,9 +4297,9 @@
       "decision_question": null,
       "test_if_needed": null,
       "stop_rule": null,
-      "final_disposition": "INTEGRATED",
-      "decision_reason": "persona pins: agentorchestrator, codebasewikidocumentationskill",
-      "purpose_or_replacement": "persona pins: agentorchestrator, codebasewikidocumentationskill",
+      "final_disposition": "REMOVED_CLOSED",
+      "decision_reason": "persona pins removed 2026-10-22: agentorchestrator/codebasewikidocumentationskill preferred_models repointed to Qwen3.8-27B-oQ4e-mtp, and 10 dead workspace.suggested_model lines deleted",
+      "purpose_or_replacement": "persona pins removed 2026-10-22: agentorchestrator/codebasewikidocumentationskill preferred_models repointed to Qwen3.8-27B-oQ4e-mtp, and 10 dead workspace.suggested_model lines deleted",
       "evidence_refs": [
         "config refs (dep scan)"
       ],
@@ -4307,7 +4307,7 @@
         "docs/MODEL_FLEET_CLOSEOUT_20260906.CLOSEOUT.md#qwen3-coder-next-latest-ctx64k"
       ],
       "verified_storage_effect_bytes": null,
-      "closed_at": "2026-09-07"
+      "closed_at": "removed 2026-10-22 (operator; persona bindings repointed to the new heavy seat)"
     },
     {
       "item_id": "ollama:qwen3-coder:30b-a3b-q4_K_M",
@@ -6638,6 +6638,56 @@
       "final_disposition": "REMOVED_CLOSED",
       "reason": "plans disagree (Tier-2 candidate vs decline list); never installed; closed NOT_ADOPTED absent a named owner — closed at closeout",
       "proposed_reclaim_gib": 0.0
+    },
+    {
+      "identity": "orcarouter/Qwen3.8-27B-Uncensored:Q4_K_M-ctx32k",
+      "final_disposition": "REMOVED_CLOSED",
+      "reason": "auto-coding::uncensored-fast model_hint; seat + backends registration removed 2026-10-22 (operator: OrcaRouter dropped after the A/B screen failed both arms)"
+    },
+    {
+      "identity": "hf.co/ibm-granite/granite-4.2-8b-GGUF:Q4_K_M-ctx8k",
+      "final_disposition": "REMOVED_CLOSED",
+      "reason": "unused registration (no workspace uses it); removed 2026-10-22 (operator)"
+    },
+    {
+      "identity": "hf.co/ibm-granite/granite-4.2-30b-GGUF:Q4_K_M-ctx8k",
+      "final_disposition": "REMOVED_CLOSED",
+      "reason": "unused registration (no workspace uses it); removed 2026-10-22 (operator)"
+    },
+    {
+      "identity": "hf.co/ibm-granite/granite-4.2-30b-GGUF:Q4_K_M-ctx64k",
+      "final_disposition": "REMOVED_CLOSED",
+      "reason": "unused registration (no workspace uses it); removed 2026-10-22 (operator)"
+    },
+    {
+      "identity": "granite4:tiny-h-ctx32k",
+      "final_disposition": "REMOVED_CLOSED",
+      "reason": "unused registration (no workspace uses it); removed 2026-10-22 (operator)"
+    },
+    {
+      "identity": "granite4:small-h-ctx32k",
+      "final_disposition": "REMOVED_CLOSED",
+      "reason": "unused registration (no workspace uses it); removed 2026-10-22 (operator)"
+    },
+    {
+      "identity": "hf.co/bartowski/nex-agi_Nex-N2.5-mini-GGUF:Q4_K_M",
+      "final_disposition": "REMOVED_CLOSED",
+      "reason": "unused registration — auto-research challenger never seated; removed 2026-10-22 (operator)"
+    },
+    {
+      "identity": "hf.co/bartowski/nex-agi_Nex-N2.5-mini-GGUF:Q4_K_M-ctx16k",
+      "final_disposition": "REMOVED_CLOSED",
+      "reason": "unused registration — derived tag of the removed Nex-N2.5 challenger; removed 2026-10-22 (operator)"
+    },
+    {
+      "identity": "Nex-N2.5-mini-Uncensored-MLX-4bit",
+      "final_disposition": "REMOVED_CLOSED",
+      "reason": "oMLX model (orcarouter/Nex-N2.5-mini-Uncensored-MLX 4bit) + bench-nex-n25-mini-uncensored lane removed 2026-10-22 (operator: OrcaRouter dropped)"
+    },
+    {
+      "identity": "Qwen3.8-27B-Uncensored-MLX-4bit",
+      "final_disposition": "REMOVED_CLOSED",
+      "reason": "oMLX kit seat (kit-orcarouter-a/b) removed 2026-10-22 — failed both think arms with verified setup (operator)"
     }
   ],
   "contender_test_plan": [

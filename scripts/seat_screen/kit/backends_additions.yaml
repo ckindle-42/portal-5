@@ -15,11 +15,9 @@ ollama-coding-models:
     supports_tools: true  # unverified until kit probe; create the tag first
   - id: kat-coder-v2.5-dev:Q4_K_M-ctx128k
     supports_tools: true  # parent Q4_K_M is true; this ctx tag is new
-  # 2026-10-21 re-screen: the orcarouter and huihui 27B seats moved to oMLX
-  # directories, so the two Ollama ctx128k tags below are no longer kit seats.
-  # Leaving them pasted would invite a GGUF fallback; comment them out.
-  # - id: orcarouter/Qwen3.8-27B-Uncensored:Q4_K_M-ctx128k
-  #   supports_tools: true
+  # 2026-10-21 re-screen: the huihui 27B seat moved to an oMLX directory, so
+  # its Ollama ctx128k tag below is no longer a kit seat. Leaving it pasted
+  # would invite a GGUF fallback; comment it out.
   # - id: huihui_ai/Qwen3.6-abliterated:27b-ctx128k
   #   supports_tools: true
   - id: orcacyber-nano-1.0:ctx64k
@@ -34,8 +32,6 @@ omlx-coding-models:
     supports_tools: true  # already true on omlx-security; repeated so coding can serve it
   - id: Qwopus3.6-35B-A3B-Coder-4bit
     supports_tools: true  # on disk as of 2026-10-21; supports_tools still unverified
-  - id: Qwen3.8-27B-Uncensored-MLX-4bit
-    supports_tools: true  # 2026-10-21 re-screen; unverified until kit probe
   - id: Huihui-Qwen3.6-27B-abliterated-MLX-4bit
     supports_tools: true  # 2026-10-21 re-screen; unverified until kit probe
   - id: unsloth--Qwen3.6-27B-UD-MLX-4bit
@@ -51,6 +47,5 @@ omlx-coding-aliases:
   # If the oQ4e tool probe fails, retarget that one line to Qwen3.8-27B-4bit.
   # Do not point it at Qwen3.8-27B-DFlash2.
   hf.co/unsloth/Qwen3.6-35B-A3B-GGUF:UD-Q4_K_XL-ctx128k: unsloth--Qwen3.6-35B-A3B-UD-MLX-4bit
-  # No alias for orcarouter, huihui, KAT, or Nano. None of the four re-screen
-  # hints is an alias key, and no alias may point at
-  # Qwen3.8-27B-Uncensored-MLX-4bit or Huihui-Qwen3.6-27B-abliterated-MLX-4bit.
+  # No alias for huihui, KAT, or Nano. None of the three re-screen hints is an
+  # alias key, and no alias may point at Huihui-Qwen3.6-27B-abliterated-MLX-4bit.

@@ -12,7 +12,7 @@ providers:
     config:
       temperature: 0
       num_predict: 1024
-  - id: ollama:chat:hf.co/bartowski/huihui-ai_Qwen3-Coder-Next-abliterated-GGUF:Q4_K_M-ctx64k
+  - id: ollama:chat:Huihui-Qwen3.6-27B-abliterated-MLX-4bit
     label: auto-spl
     config:
       temperature: 0

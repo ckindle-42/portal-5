@@ -1,14 +1,15 @@
 # Paste-ready variant blocks. Do not edit config/portal.yaml from this repo.
 # Paste under workspaces.auto-coding.variants (coding seats) or
 # workspaces.auto-spl.variants (Nano). New keys only — do not replace incumbents.
-# 2026-10-21 dense MLX re-screen: the Qwen3.8-27B and orcarouter hints now name
+# 2026-10-21 dense MLX re-screen: the Qwen3.8-27B hints now name
 # oMLX directory ids, and kit-qwen36-27b is new. Every re-screen hint is a raw oMLX
 # id registered on omlx-coding, so no hint can fall through to an Ollama GGUF tag
 # if an alias line is missed.
-# 2026-10-22 think A/B: the old think-on kit-qwen38-27b and kit-orcarouter seats are
-# gone from this kit — they warn think_vs_card_policy against the qwen3.8 harness
-# policy and the A/B replaces them. Qwen3.8-27B-oQ4e and orcarouter now arrive as
-# `-a` plus `-b`, and kit-huihui36 / kit-qwen36-27b gain the same pair. Arm A is
+# 2026-10-22 think A/B: the old think-on kit-qwen38-27b seat is gone from this
+# kit — it warns think_vs_card_policy against the qwen3.8 harness policy and the
+# A/B replaces it. Qwen3.8-27B-oQ4e arrives as `-a` plus `-b`, and
+# kit-huihui36 / kit-qwen36-27b gain the same pair. The orcarouter pair was
+# removed the same day after failing both arms (operator). Arm A is
 # think off + card instruct sampling; arm B is think on + card thinking sampling +
 # thinking_budget. The pair is the measurement: paste both arms, run A then B.
 # After paste, regenerate derived routing on the live checkout. This worker did not.
@@ -191,7 +192,7 @@ kit-hauhaucs:
 kit-huihui36:
   name: "Kit control — huihui Qwen3.6-27B"
   client_tools_only: true
-  description: "Control only. Do not promote over orcarouter. Re-screen 2026-10-21 on oMLX: raw id Huihui-Qwen3.6-27B-abliterated-MLX-4bit (README base_model huihui-ai/Huihui-Qwen3.6-27B-abliterated). Replaces the Ollama ctx128k tag. Drop the seat if RSS at 128K exceeds 28 GiB."
+  description: "Control only; not a promotion candidate. Re-screen 2026-10-21 on oMLX: raw id Huihui-Qwen3.6-27B-abliterated-MLX-4bit (README base_model huihui-ai/Huihui-Qwen3.6-27B-abliterated). Replaces the Ollama ctx128k tag. Drop the seat if RSS at 128K exceeds 28 GiB."
   model_hint: Huihui-Qwen3.6-27B-abliterated-MLX-4bit
   context_limit: 131072
   predict_limit: 32768
@@ -250,40 +251,6 @@ kit-qwen38-27b-a:
   think: false
   mode: agentic
   guardrail: default
-  tools:
-    - explore_repository
-    - read_text_file
-    - list_directory
-    - search_files
-    - write_file
-    - execute_bash
-    - execute_python
-    - execute_nodejs
-    - sandbox_status
-    - read_word_document
-    - read_pdf
-    - remember
-    - recall
-
-kit-orcarouter-a:
-  name: "Kit think-A — orcarouter Qwen3.8-27B"
-  client_tools_only: true
-  description: "Test seat, think A/B arm A. oMLX Qwen3.8-27B-Uncensored-MLX-4bit by raw id; card instruct sampling with think off. Pair with kit-orcarouter-b."
-  model_hint: Qwen3.8-27B-Uncensored-MLX-4bit
-  context_limit: 131072
-  predict_limit: 32768
-  # arm A sampling: qwen3.8 instruct mode, same row as kit-qwen38-27b-a
-  # (unsloth Qwen3.8-27B-GGUF card, re-confirmed 2026-10-16; lineage per repo
-  # name, not a weight hash).
-  temperature: 0.7
-  top_p: 0.8
-  top_k: 20
-  min_p: 0.0
-  presence_penalty: 1.5
-  repeat_penalty: 1.0
-  think: false
-  mode: agentic
-  guardrail: uncensored
   tools:
     - explore_repository
     - read_text_file
@@ -406,45 +373,6 @@ kit-qwen38-27b-b:
   thinking_budget: 8192
   mode: agentic
   guardrail: default
-  tools:
-    - explore_repository
-    - read_text_file
-    - list_directory
-    - search_files
-    - write_file
-    - execute_bash
-    - execute_python
-    - execute_nodejs
-    - sandbox_status
-    - read_word_document
-    - read_pdf
-    - remember
-    - recall
-
-kit-orcarouter-b:
-  name: "Kit think-B — orcarouter Qwen3.8-27B"
-  client_tools_only: true
-  description: "Test seat, think A/B arm B. oMLX Qwen3.8-27B-Uncensored-MLX-4bit by raw id; card thinking sampling plus thinking_budget 8192. Pair with kit-orcarouter-a."
-  model_hint: Qwen3.8-27B-Uncensored-MLX-4bit
-  context_limit: 131072
-  predict_limit: 32768
-  # arm B sampling: qwen3.8 thinking mode — same row as kit-qwen38-27b-b
-  # (Qwen/Qwen3.8-27B README, read 2026-10-22; lineage per repo name).
-  temperature: 1.0
-  top_p: 0.95
-  top_k: 20
-  min_p: 0.0
-  presence_penalty: 0.0
-  repeat_penalty: 1.0
-  think: true
-  # Same deliberate override as kit-qwen38-27b-b (qwen3.8 card harness policy).
-  think_override_reason: think A/B arm B — thinking is the variable under test; qwen3.8 card thinking sampling with thinking_budget 8192
-  emits_reasoning: true
-  # Same reasoning as kit-qwen38-27b-b: the card's 262,144 reasoning figure is a
-  # framework limit above predict_limit 32768, so 8192 is the budget under test.
-  thinking_budget: 8192
-  mode: agentic
-  guardrail: uncensored
   tools:
     - explore_repository
     - read_text_file

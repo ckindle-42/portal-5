@@ -7,7 +7,7 @@
 # Usage:
 #   scripts/cc-local.sh                                    # default: agenticheavy
 #   scripts/cc-local.sh --model codingagentic              # Laguna-XS-2.1 33B agentic
-#   scripts/cc-local.sh --model agenticheavy               # Qwen3-Coder-Next 80B / AgentWorld 35B fallback
+#   scripts/cc-local.sh --model agenticheavy               # Qwen3.8-27B oQ4e MTP / AgentWorld 35B fallback
 #   scripts/cc-local.sh --model agenticlite                # AgentWorld 35B direct (lighter, 45 t/s)
 #   scripts/cc-local.sh --model auto-coding                # Qwen3-Coder 30B one-shot
 #   scripts/cc-local.sh --model auto-reasoning             # DeepSeek-R1 reasoning
@@ -54,10 +54,10 @@ fi
 export ANTHROPIC_BASE_URL="http://localhost:9099"
 export ANTHROPIC_API_KEY="$PIPELINE_API_KEY"
 
-# Default: heavy agentic persona (Qwen3-Coder-Next 80B / AgentWorld 35B fallback,
-# auto-coding + variant: heavy). AgentWorld's env-simulation training (MCP/
-# Terminal/SWE/Web trajectories) maps directly to Claude Code's agentic loop —
-# ideal when the primary 80B isn't warm.
+# Default: heavy agentic persona (Qwen3.8-27B oQ4e MTP, auto-coding + variant:
+# heavy). AgentWorld's env-simulation training (MCP/Terminal/SWE/Web
+# trajectories) maps directly to Claude Code's agentic loop — use
+# `--model agenticlite` when the primary 27B isn't warm.
 DEFAULT_MODEL="${CC_LOCAL_MODEL:-agenticheavy}"
 
 # If --model is already in args, use it; otherwise inject the default.

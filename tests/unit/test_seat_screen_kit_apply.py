@@ -55,7 +55,7 @@ def test_apply_dry_run_renders_temp_config_and_runs_config_audit(
                 for variant_id in workspaces[workspace_id].get("variants", {})
             )
         assert "kit-qwen38-27b-b:" in portal
-        assert "Qwen3.8-27B-Uncensored-MLX-4bit" in backends
+        assert "Huihui-Qwen3.6-27B-abliterated-MLX-4bit" in backends
         assert (cwd / "config/personas/kitqwen3827bb.yaml").is_file()
         workspace_arg = command.index("--workspace")
         assert set(command[workspace_arg + 1 :]) == applied_seats

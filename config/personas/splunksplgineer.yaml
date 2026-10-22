@@ -4,7 +4,7 @@ delivery: role
 category: security
 workspace_model: auto-spl
 preferred_models:
-  - hf.co/bartowski/huihui-ai_Qwen3-Coder-Next-abliterated-GGUF:Q4_K_M-ctx64k
+  - portal5/omnicoder2-9b:q4_k_m-ctx256k
   - omnicoder2:9b-q4_k_m
   - omnicoder2:9b-q4_k_m-ctx8k
 module: general

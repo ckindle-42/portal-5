@@ -4,7 +4,7 @@ category: general
 workspace_model: auto-coding
 variant: heavy
 preferred_models:
-  - qwen3-coder-next:latest-ctx64k
+  - Qwen3.8-27B-oQ4e-mtp
   - omnicoder2:9b-q4_k_m
   - omnicoder2:9b-q4_k_m-ctx8k
 module: coding

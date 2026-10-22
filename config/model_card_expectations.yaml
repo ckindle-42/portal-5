@@ -69,21 +69,6 @@ models:
     recommended_sampling: {temperature: 1.0, top_p: 0.95}
     prompt_contract: "Reasoning model (thinking channel separated by Ollama); card recommends reasoning_effort high. GGUF carries its own Jinja chat template."
     max_context: 524288
-  granite-4.2:
-    status: verified-behavioral
-    behavioral_quirks:
-      - "4.2:8b-q8_0 and 4.2:3b-q8_0: system_honored=False across TWO independent runs (Sept-6 + Sept-7) while 4.2:30b honors with the SAME template_sha (f0ba43f79b3c) — quant-level instruction-following failure, not a template bug."
-      - "4.2:30b-q4_K_M honored system and scored F2 0.6962 vs 4.1:30b 0.8434 on identical instrument — real gap, parameters standardized (temp 0)."
-    verified: behavioral-only
-    source: "local run output judgment_probe_v6_rescored_20260906T224306Z.json (not published)"
-    card_source: "https://huggingface.co/ibm-granite/granite-4.2-8b/resolve/main/generation_config.json (2026-09-25)"
-    recommended_sampling: {temperature: 1.0, top_p: 0.95}
-    # Card "Generation Parameters": thinking mode max_new_tokens 8192,
-    # "increase for complex reasoning"; non-thinking 2048 (2026-10-19).
-    recommended_max_output: 8192
-    prompt_contract: "Reasoning model (built-in <think>...</think>), base granite-4.1-8b-base. Unlike 4.1, a reasoning_uncontrolled flag DOES apply: a seat must set think explicitly."
-    max_context: {pending_research: true}
-
   glm-4.7-flash:
     status: partially-verified
     behavioral_quirks:
@@ -137,12 +122,6 @@ models:
     prompt_contract: "Non-thinking coder; Qwen3-Coder XML tool calls. Matches qwen3-coder:30b tags and the oMLX Qwen3-Coder-30B-A3B-Instruct-4bit id."
     behavioral_quirks:
       - "2026-09-25: on oMLX 0.6.4 the card sampling (0.7/0.8/20) loses tool calls: 2-4 of 6 come back as text because the model skips the <tool_call> opener and mlx_lm's qwen3_coder parser needs it. 0.2/0.9/40 is 90-100%. Ollama parses the same output 3/3. Resolved 2026-09-25: the pipeline recovers these calls (P5-OMLX-QWEN3CODER-TOOLTEXT-001); the loss turned out to be prompt-shaped, not temperature-driven."
-  qwen3-coder-next:
-    status: verified-card
-    verified: true
-    source: "https://huggingface.co/Qwen/Qwen3-Coder-Next (README + generation_config.json) (2026-09-25)"
-    recommended_sampling: {temperature: 1.0, top_p: 0.95, top_k: 40}
-    prompt_contract: "Different card from Qwen3-Coder-30B: 1.0/0.95/40. Lineage: huihui-ai/Huihui-Qwen3-Coder-Next-abliterated (bartowski GGUF, portal5/qwen3-coder-next-abliterated) keeps top_p 0.95 / top_k 40 and inherits the base temperature."
   qwen3-vl:
     status: verified-card
     verified: true
@@ -289,9 +268,9 @@ models:
   nex-n2:
     status: verified-card
     verified: true
-    source: "https://huggingface.co/nex-agi/Nex-N2-mini + https://huggingface.co/nex-agi/Nex-N2.5-mini (README sampling parameters) (2026-09-25)"
+    source: "https://huggingface.co/nex-agi/Nex-N2-mini (README sampling parameters) (2026-09-25)"
     recommended_sampling: {temperature: 0.7, top_p: 0.95, top_k: 40}
-    prompt_contract: "No generation_config.json in either repo; both READMEs state 0.7/0.95/40. Covers sjakek/Nex-N2-mini-GGUF and orcarouter Nex-N2.5-mini-Uncensored (GGUF/MLX)."
+    prompt_contract: "No generation_config.json in the repo; the README states 0.7/0.95/40. Covers sjakek/Nex-N2-mini-GGUF."
   spark-x2.6:
     status: verified-card
     verified: true

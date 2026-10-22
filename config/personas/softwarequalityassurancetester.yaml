@@ -52,7 +52,6 @@ system_prompt: |
 workspace:
   enabled: true
   description: QA Tester — structured test design, objective defect reports, coverage clarity
-  suggested_model: qwen3-coder-next:latest-ctx64k
 tags:
   - qa
   - testing

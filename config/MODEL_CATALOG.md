@@ -473,7 +473,7 @@ The dual `general`/`coding` registration with `supports_tools: true` in both gro
 
 `kat-coder-v2.5-dev:Q4_K_M` is a dense code-specialist quant (~19.9 GiB) registered in the `general` backend group with `supports_tools: true`. Fleet closeout 2026-09-07: it sits in the WFE USE-PROBE tier — the repair-loop exam measured 82% one-shot / 100% +1-repair with 7x field speed (below the pre-registered 43/50 stop rule on bare codegen, but its in-tool-loop profile was never tested). Binds to the `bench-kat-coder` workspace. Disposition after its real-work assignment: INTEGRATE as fast-repair lane or remove per stop rule.
 
-### `orcarouter/Qwen3.8-27B-Uncensored:Q4_K_M`
+### `orcarouter/Qwen3.8-27B-Uncensored:Q4_K_M` — RETIRED (2026-10-22, operator)
 
 `orcarouter/Qwen3.8-27B-Uncensored:Q4_K_M` is a dense uncensored Qwen3.8-27B quant (~16.5 GiB) registered with `supports_tools: true`. Fleet closeout 2026-09-07: RETAINED_FOR_PURPOSE — verified uncensored-coding specialist (repair exam 100%/100%, refusal 1.0/0%, judgment parity 0.952/0.90); manual/bench-only via `bench-orcarouter-q38` until optionally wired as an uncensored-coding variant. omnicoder2-9b's small-lane variant is not displaced.
 
@@ -481,7 +481,7 @@ The dual `general`/`coding` registration with `supports_tools: true` in both gro
 
 `kat-coder-v2.5-dev:Q4_K_M-ctx32k` bakes a 32768-token context onto `kat-coder-v2.5-dev:Q4_K_M` and is the `model_hint` of the `auto-coding::fast-repair` variant. `config/backends.yaml` registers it in the `coding` group with `supports_tools: true`. Until 2026-09-25 only the base tag was registered (in `general`), so the router found no backend serving the hint and silently served `omlx-creative`'s Qwen3.6-35B HauhauCS instead — caught by the settings auditor's `hint_unroutable` check.
 
-### `orcarouter/Qwen3.8-27B-Uncensored:Q4_K_M-ctx32k`
+### `orcarouter/Qwen3.8-27B-Uncensored:Q4_K_M-ctx32k` — RETIRED (2026-10-22, operator)
 
 `orcarouter/Qwen3.8-27B-Uncensored:Q4_K_M-ctx32k` bakes a 32768-token context onto `orcarouter/Qwen3.8-27B-Uncensored:Q4_K_M` and is the `model_hint` of the `auto-coding::uncensored-fast` variant. `config/backends.yaml` registers it in the `coding` group with `supports_tools: true`; before 2026-09-25 the same unregistered-hint fallback served a different model for this seat.
 
@@ -500,7 +500,7 @@ Since 2026-10-18 it is also the `auto-math` seat (`model_hint`, `context_limit: 
 
 The audit treats a hot baked tag as a real defense-in-depth gap even when the workspace pins a compliant value; baking the sanctioned arm into a dedicated tag removes the gap without changing what either seat serves.
 
-### `hf.co/bartowski/nex-agi_Nex-N2.5-mini-GGUF:Q4_K_M`
+### `hf.co/bartowski/nex-agi_Nex-N2.5-mini-GGUF:Q4_K_M` — RETIRED (2026-10-22, operator)
 
 `hf.co/bartowski/nex-agi_Nex-N2.5-mini-GGUF:Q4_K_M` is bartowski's Q4_K_M (22.3 GB) of nex-agi/Nex-N2.5-mini, a 34.7B-total / ~3.5B-active `qwen35moe` model with vision, tools and adaptive thinking (`reasoning_effort` none/medium/high per the card). Pulled 2026-10-18 as the auto-research challenger named by the seat prior (docs/WFE_SEAT_PRIOR_20261018.md: same-vendor suite BrowseComp 83.4 vs 74.1 and Toolathlon 54.6 vs 33.3 over Nex-N2-mini). The GGUF bakes no stop tokens or sampling; card sampling is temperature 0.7, top_p 0.95, top_k 40. `config/backends.yaml` registers it in `group: general` with `supports_tools: true` after a direct native probe (3/3 single calls plus a clean tool-result turn).
 
@@ -508,7 +508,7 @@ The audit treats a hot baked tag as a real defense-in-depth gap even when the wo
 
 A newer release of the auto-research seat's own family, with a clear same-vendor lead on the research lane's benchmarks; registered so WFE can screen it against the seat.
 
-### `hf.co/bartowski/nex-agi_Nex-N2.5-mini-GGUF:Q4_K_M-ctx16k`
+### `hf.co/bartowski/nex-agi_Nex-N2.5-mini-GGUF:Q4_K_M-ctx16k` — RETIRED (2026-10-22, operator)
 
 `hf.co/bartowski/nex-agi_Nex-N2.5-mini-GGUF:Q4_K_M-ctx16k` is the 16K-context derived tag (baked `PARAMETER num_ctx 16384`, weights shared with the base tag), matching the auto-research seat's `context_limit`. Registered in `group: general` with `supports_tools: true`.
 
@@ -526,7 +526,7 @@ The group-split `supports_tools` values are the core config fact: `config/backen
 
 ---
 
-### `qwen3-coder-next:latest`
+### `qwen3-coder-next:latest` — RETIRED (2026-10-22, operator)
 
 `qwen3-coder-next:latest` is an 80B-total / 3B-active MoE agentic coder (Alibaba, Apache 2.0, non-reasoning for fast code responses, ~46GB Q4, 256K context) that fits 64GB unified memory with roughly 18GB headroom, and its small active size is why throughput stays fast. `config/backends.yaml` lists it with `supports_tools: true` in every group (verified 2026-09-25 by a neutral native tool-call probe — its portal5/qwen3-coder-next:latest-ctx256k derivative: 3/3 single-call plus a clean tool-result turn); the router reads one flag per model id, last entry wins, so a per-group split never took effect. `config/portal.yaml` uses the base tag as the `model_hint` of the `bench-qwen3-coder-next` eval workspace, whose description documents the hybrid Gated DeltaNet + MoE architecture and 800K-task agentic RL training. The derived `qwen3-coder-next:latest-ctx64k` tag wires the heavy auto-coding variant.
 
@@ -536,7 +536,7 @@ The router keeps one tool flag per model id (last entry wins), so the old genera
 
 ---
 
-### `hf.co/bartowski/huihui-ai_Qwen3-Coder-Next-abliterated-GGUF:Q4_K_M`
+### `hf.co/bartowski/huihui-ai_Qwen3-Coder-Next-abliterated-GGUF:Q4_K_M` — RETIRED (2026-10-22, operator)
 
 `hf.co/bartowski/huihui-ai_Qwen3-Coder-Next-abliterated-GGUF:Q4_K_M` is the bartowski GGUF of the huihui-ai abliteration of Qwen3-Coder-Next (80B/3B MoE agentic coder, ~46GB, 74k downloads, Feb 2026) — the no-refusals variant. `config/backends.yaml` lists it with `supports_tools: true` in every group (verified 2026-09-25 by a neutral native tool-call probe — sibling -ctx64k tag: 3/3 single-call plus a clean tool-result turn); the router reads one flag per model id, last entry wins, so a per-group split never took effect. `config/portal.yaml` selects the `-ctx64k` derived tag as the `model_hint` for `auto-spl` and for the `uncensored-agentic` variant of `auto-coding`, while the base id is the `model_hint` for `bench-qwen3-coder-next-abliterated`, the head-to-head against the non-abliterated `bench-qwen3-coder-next`.
 
@@ -1385,7 +1385,7 @@ Named by the 2026-10-18 landscape review as a current, fitting candidate for its
 
 Named by the 2026-10-18 landscape review as a current, fitting candidate for its lane; registered so WFE can screen it against the seat.
 
-### `hf.co/ibm-granite/granite-4.2-30b-GGUF:Q4_K_M-ctx64k`
+### `hf.co/ibm-granite/granite-4.2-30b-GGUF:Q4_K_M-ctx64k` — RETIRED (2026-10-22, operator)
 
 `hf.co/ibm-granite/granite-4.2-30b-GGUF:Q4_K_M-ctx64k` — A 64K-context derived tag of IBM's Granite 4.2 30B Q4_K_M with the stops re-declared without the manifest's `<think>`, registered in `group: reasoning` as an auto-reasoning challenger (Granite 4.2 is a reasoning model).
 
@@ -1393,7 +1393,7 @@ Named by the 2026-10-18 landscape review as a current, fitting candidate for its
 
 Named by the 2026-10-18 landscape review as a current, fitting candidate for its lane; registered so WFE can screen it against the seat.
 
-### `hf.co/ibm-granite/granite-4.2-8b-GGUF:Q4_K_M-ctx8k`
+### `hf.co/ibm-granite/granite-4.2-8b-GGUF:Q4_K_M-ctx8k` — RETIRED (2026-10-22, operator)
 
 `hf.co/ibm-granite/granite-4.2-8b-GGUF:Q4_K_M-ctx8k` is an 8K-context derived tag of IBM's own Q4_K_M GGUF of Granite 4.2 8B (released 2026-08-25, a reasoning model with built-in `<think>`; 5.3 GB). The hf.co manifest baked `<think>` as a stop token, which would end a thinking model's turn as soon as it starts reasoning, so this tag re-declares the stops without it (`<|im_start|>`, `<|im_end|>`, `<|im_start|>user`) and bakes `num_ctx 8192`. Card sampling is temperature 1.0 and top_p 0.95 (generation_config.json). `config/backends.yaml` registers it in `group: general` with `supports_tools: true` after a direct probe: 3/3 clean tool calls with the reasoning separated. Pulled 2026-10-18 as a tools-specialist challenger.
 
@@ -1401,7 +1401,7 @@ Named by the 2026-10-18 landscape review as a current, fitting candidate for its
 
 The seat-prior and landscape reviews (docs/WFE_LANDSCAPE_FLEET_20261018.md) named Granite 4.2 as the highest-value family the fleet had not measured on its current instrument; tools-specialist is a live seat that has never been measured.
 
-### `hf.co/ibm-granite/granite-4.2-30b-GGUF:Q4_K_M-ctx8k`
+### `hf.co/ibm-granite/granite-4.2-30b-GGUF:Q4_K_M-ctx8k` — RETIRED (2026-10-22, operator)
 
 `hf.co/ibm-granite/granite-4.2-30b-GGUF:Q4_K_M-ctx8k` is an 8K-context derived tag of IBM's own Q4_K_M GGUF of Granite 4.2 30B (released 2026-08-25, a reasoning model with built-in `<think>`; 17.7 GB). The hf.co manifest baked `<think>` as a stop token, which would end a thinking model's turn as soon as it starts reasoning, so this tag re-declares the stops without it (`<|im_start|>`, `<|im_end|>`, `<|im_start|>user`) and bakes `num_ctx 8192`. Card sampling is temperature 1.0 and top_p 0.95 (generation_config.json). `config/backends.yaml` registers it in `group: general` with `supports_tools: true` after a direct probe: 3/3 clean tool calls with the reasoning separated. Pulled 2026-10-18 as a tools-specialist challenger.
 
@@ -1459,7 +1459,7 @@ The seat needs a ctx-tagged id so the declared 32768 window is the baked window.
 
 ---
 
-### `hf.co/bartowski/huihui-ai_Qwen3-Coder-Next-abliterated-GGUF:Q4_K_M-ctx64k`
+### `hf.co/bartowski/huihui-ai_Qwen3-Coder-Next-abliterated-GGUF:Q4_K_M-ctx64k` — RETIRED (2026-10-22, operator)
 
 `hf.co/bartowski/huihui-ai_Qwen3-Coder-Next-abliterated-GGUF:Q4_K_M-ctx64k` is the 64K-context derived tag of the abliterated Qwen3-Coder-Next. `config/backends.yaml` registers it in the `coding` group only, with `supports_tools: true` — the same value as its base tag in that group. `config/portal.yaml` uses it as the `model_hint` for `auto-spl` (Splunk/detection-authoring lane) and for the `uncensored-agentic` variant of `auto-coding`, both of which need the 64K window for long security-scripting or multi-turn agentic work. `PARAMETER num_ctx 65536` is baked in via `portal models apply-params` because Ollama ignores request-time `options.num_ctx`; a derived tag is what makes the wider context reachable. The base id itself carries no `model_hint` in production — only this capped variant does.
 
@@ -1469,7 +1469,7 @@ This unit previously parroted the generic derived-tag template from the doc. Re-
 
 ---
 
-### `portal5/qwen3-coder-next-abliterated:q4_K_M-ctx256k`
+### `portal5/qwen3-coder-next-abliterated:q4_K_M-ctx256k` — RETIRED (2026-10-22, operator)
 
 `portal5/qwen3-coder-next-abliterated:q4_K_M-ctx256k` is the full-native-context derived tag of the abliterated Qwen3-Coder-Next, added 2026-08-26 as the `model_hint` of the `auto-coding` `uncensored-agentic` variant, replacing the undersized `-ctx64k` tag. `config/backends.yaml` registers it in the `coding` group with `supports_tools: true`, verified live via a direct `/api/chat` tool-call probe (clean `tool_calls`, correctly typed arguments). `PARAMETER num_ctx 262144` is baked in via `portal models apply-params`. The `auto-spl` workspace still uses the `-ctx64k` tag and was left out of scope. Memory footprint at full context was empirically confirmed negligible over the `-ctx64k` tag (~1GB), so no memory-safety tradeoff exists at this size.
 
@@ -1718,7 +1718,7 @@ This derived tag is the exception case: registered in the coding backend for com
 
 ---
 
-### `qwen3-coder-next:latest-ctx64k`
+### `qwen3-coder-next:latest-ctx64k` — RETIRED (2026-10-22, operator)
 
 `qwen3-coder-next:latest-ctx64k` is the derived tag that bakes `PARAMETER num_ctx 65536` into `qwen3-coder-next:latest` via the `apply-params` command in `portal/platform/inference/cli/models.py`. `config/backends.yaml` registers it in `group: coding` (`ollama-coding`) with `supports_tools: true`. `config/portal.yaml` pins it as the `model_hint` of the heavy auto-coding variant with `context_limit: 65536`, so every long-horizon agentic session runs against the capped tag. The derivation exists because the pipeline talks to Ollama's `/v1/chat/completions`, which ignores request-time `options.num_ctx`; the cap must be baked into the model at creation, not requested per call. See the base tag's unit for architecture and benchmark context.
 
@@ -1728,7 +1728,7 @@ The heavy auto-coding variant is the only production workspace that references t
 
 ---
 
-### `portal5/qwen3-coder-next:latest-ctx256k`
+### `portal5/qwen3-coder-next:latest-ctx256k` — RETIRED (2026-10-22, operator)
 
 `portal5/qwen3-coder-next:latest-ctx256k` is the full-native-context derived tag of `qwen3-coder-next:latest`, added 2026-08-26 as the `model_hint` of the `auto-coding` `heavy` variant, replacing the undersized `-ctx64k` tag. `config/backends.yaml` registers it in `group: coding` (`ollama-coding`) with `supports_tools: true`, verified live via a direct tool-call probe (clean `tool_calls`, correctly typed arguments). `PARAMETER num_ctx 262144` is baked in via `portal models apply-params`.
 
@@ -1821,6 +1821,14 @@ Grounding anchors the model to the two omlx registrations that serve it and to t
 ## Why
 
 Grounding anchors the model to its oMLX registration, the alias that lets the existing bench-lane GGUF hint reach it unchanged, and the specific reason it replaces the prior plain conversion — a checkpoint-level MTP-weights gap, not a config mistake, verified by inspecting the safetensors index rather than assumed from the model card. The measured tok/s and accept-rate numbers are kept as measured results, not config facts.
+
+### `Huihui-Qwen3.6-27B-abliterated-MLX-4bit`
+
+`Huihui-Qwen3.6-27B-abliterated-MLX-4bit` is the 4-bit MLX conversion of huihui-ai's refusal-orthogonalized Qwen3.6-27B, served by the oMLX backend. `config/backends.yaml` registers it in the `omlx-coding` entry (`group: coding`, `priority: 10`) with `supports_tools: true` (2026-10-21 re-screen; unverified until the kit probe). It became the think-off A/B winner for `auto-coding::uncensored-agentic` and the interim `auto-spl` seat on 2026-10-22 (arm A PASS, arm B think-on failed); card instruct sampling is 0.7/0.8/20 with min_p 0, presence_penalty 1.5 and repeat_penalty 1.0.
+
+## Why
+
+The 2026-10-22 coder-seat screen needed an uncensored 27B that runs with the full stack up; this conversion passed the think-off arm where the retired Qwen3-Coder-Next abliterated seat required the stack down. The SPL seat reuses it only as an interim — dedicated SPL research is still owed.
 
 ### `gemma-4-e4b-it-4bit` — DROPPED (disk cleanup 2026-08-10, no production route; see config/UNUSED_MODELS_20260810.md)
 
@@ -2129,7 +2137,7 @@ Landed as an isolated bench candidate on the shadow-shift oMLX-coding path so it
 
 ---
 
-### `Nex-N2.5-mini-Uncensored-MLX-4bit`
+### `Nex-N2.5-mini-Uncensored-MLX-4bit` — RETIRED (2026-10-22, operator)
 
 `Nex-N2.5-mini-Uncensored-MLX-4bit` (`orcarouter/Nex-N2.5-mini-Uncensored-MLX`, the `4bit/` subfolder) is an **abliterated** (refusal-direction orthogonalized) MLX affine 4-bit build of `nex-agi/Nex-N2.5-mini` — a **35B / 3.5B-active** agentic multimodal MoE on the **Qwen3.5-MoE** architecture (`qwen3_5_moe`: 256 routed experts top-8 + 1 shared, a 3:1 hybrid of gated delta-net linear attention and full attention, 40 layers, 262K native context, a Qwen3-VL vision tower). It is a **dynamic mixed-precision** quant — routed experts at the base 4 bits, attention pinned to 8-bit, router / delta-net decay+beta projections / norms left BF16 — so ~**19.85GB on disk**, ~**20.8GB loaded** on this host. Added 2026-09-10 (`TASK_OMLX_NEX_N25_MINI_BRINGUP_V1`) as a **bench-only** candidate on the oMLX-security serving path, wired to the `bench-nex-n25-mini-uncensored` workspace in `config/portal.yaml` (`PROMOTE_POLICY=confirm`). `config/backends.yaml` registers it in the `omlx-security` group (`security`, `priority: 10`) with **no alias** — `auto-security`'s 8 role variants are byte-unchanged. There is no Ollama fallback for the MLX id; a separate GGUF arm (`orcarouter/Nex-N2.5-mini-Uncensored-GGUF`, IQ4_XS ~18.7GB — the repo ships no Q4_K_M) is planned once host disk allows `ollama create` (the arch loads and runs on llama.cpp b9950 at ~52 tok/s; the pinned Ollama 0.33.2 is new enough, but `/Volumes/data01` was at 99% at bring-up time).
 
@@ -2223,7 +2231,7 @@ CADFusion (Microsoft) surveyed and declined per TASK_CAD_MODULE_OVERHAUL_V1 P8.5
 
 ---
 
-### `granite4:tiny-h-ctx32k`
+### `granite4:tiny-h-ctx32k` — RETIRED (2026-10-22, operator)
 
 `granite4:tiny-h-ctx32k` is the 32K-context derived tag of IBM Granite 4.0 H-Tiny (6.9B total, ~1B active, `granitehybrid` Mamba-2/attention MoE), pulled 2026-09-17 from the official `ibm/granite4` Ollama collection (Q4_K_M, Apache-2.0) during WINDOW_AND_SEAT_V1. `config/backends.yaml` registers it in the `general` group with `supports_tools: true` (`settings_audit.probe_tag`: tools rendered). Measured on this box at the §P3 sweep: 78.8 tok/s decode, 1278 tok/s prefill at the 20.5k high-water (fastest of the slate), 3.3 s cold load, no swap; the two-turn prompt-cache test shows the cache holding (turn-2 prefill 0.09 s vs 3.45 s). Probe caveats: `think` answers HTTP 400 (IBM shipped 4.0 hybrid without reasoning — the /v1 suppressing inject is safe), and the model declined an absurd system instruction at the 20-token probe (small-active instruction-following; investigated to template level — the template renders system fine, same template obeys on small-h).
 
@@ -2238,7 +2246,7 @@ WINDOW_AND_SEAT_V1's seat slate: the architecture leg (hybrid/recurrent attentio
 
 ---
 
-### `granite4:small-h-ctx32k`
+### `granite4:small-h-ctx32k` — RETIRED (2026-10-22, operator)
 
 `granite4:small-h-ctx32k` is the 32K-context derived tag of IBM Granite 4.0 H-Small (32B total, ~9B active, `granitehybrid`), pulled 2026-09-17 alongside tiny-h during WINDOW_AND_SEAT_V1. Registered in the `general` group with `supports_tools: true` (probe: tools rendered; `think` refused-400 same as tiny-h). §P3 sweep: 22.2 tok/s decode, 275 tok/s prefill at the high-water, no swap, cache holds.
 
