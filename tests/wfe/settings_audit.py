@@ -26,6 +26,7 @@ from __future__ import annotations
 import argparse
 import contextlib
 import json
+import os
 import re
 import time
 import urllib.error
@@ -199,6 +200,45 @@ def baked_params(tag: str) -> dict:
             k, _, v = line.strip().partition(" ")
             with contextlib.suppress(ValueError):
                 params[k] = float(v) if "." in v else int(v)
+    return params
+
+
+def _ollama_store_root() -> Path:
+    return Path(os.environ.get("OLLAMA_MODELS") or Path.home() / ".ollama" / "models")
+
+
+def _store_manifest(root: Path, tag: str) -> Path:
+    base, _, tag_name = tag.partition(":")
+    parts = base.split("/")
+    if len(parts) == 1:
+        parts = ["registry.ollama.ai", "library", parts[0]]
+    return root / "manifests" / Path(*parts) / (tag_name or "latest")
+
+
+def baked_params_from_store(tag: str) -> dict:
+    """``baked_params`` without the live /api/show: the tag's params layer read
+    from the local Ollama model store ({} when store or tag is not on disk)."""
+    params: dict = {}
+    with contextlib.suppress(Exception):
+        root = _ollama_store_root()
+        manifest = json.loads(_store_manifest(root, tag).read_text())
+        layer = next(
+            row
+            for row in manifest.get("layers") or []
+            if row.get("mediaType") == "application/vnd.ollama.image.params"
+        )
+        text = (root / "blobs" / str(layer["digest"]).replace(":", "-")).read_text()
+        try:
+            data = json.loads(text)
+        except json.JSONDecodeError:
+            data = None
+        if isinstance(data, dict):
+            params.update(data)
+        else:
+            for line in text.splitlines():
+                k, _, v = line.strip().partition(" ")
+                with contextlib.suppress(ValueError):
+                    params[k] = float(v) if "." in v else int(v)
     return params
 
 
@@ -622,6 +662,19 @@ def _audit_thinking_unbounded(
     )
 
 
+def _audit_emits_reasoning_think(ws_id: str, ws: dict, violations: list[dict]) -> None:
+    if _think_value(ws.get("think")) is False and ws.get("emits_reasoning"):
+        _v(
+            violations,
+            ws_id,
+            "emits_reasoning_without_think",
+            "think=false but emits_reasoning=true — the router's only emits_reasoning "
+            "effect is a 600s non-streaming timeout (router/non_streaming.py), "
+            "unreachable while thinking is suppressed",
+            "WARN",
+        )
+
+
 def _audit_card_conformance(
     ws_id: str,
     ws: dict,
@@ -634,6 +687,7 @@ def _audit_card_conformance(
     _audit_think_vs_card_policy(ws_id, ws, hint, registry, workspaces, violations)
     _audit_sampling_mode_mismatch(ws_id, ws, hint, defaults, registry, violations)
     _audit_thinking_unbounded(ws_id, ws, hint, registry, violations)
+    _audit_emits_reasoning_think(ws_id, ws, violations)
 
 
 def _audit_context(ws_id, ws, hint, bp, tags, violations) -> None:
@@ -1770,6 +1824,22 @@ def _audit_seat(ws_id: str, ws: dict, ctx: dict, violations: list[dict]) -> dict
     return {"engine": engine, "backend": backend_id, "model": served_id}
 
 
+def _config_only_defaults(repo: Path, ws_id: str, hint: str) -> dict:
+    """The config-only twin of ``_audit_seat``'s resolved defaults: what the
+    serving engine bakes for keys the seat omits, read from local model stores —
+    no live endpoint. {} when nothing is resolvable, the old degraded behaviour."""
+    with contextlib.suppress(Exception):
+        from portal.platform.inference.cluster_backends import BackendRegistry
+
+        resolved = _served_path(ws_id, hint, BackendRegistry(str(repo / "config/backends.yaml")))
+        if resolved and resolved[0] == "omlx":
+            return {
+                **omlx_default_sampling(),
+                **_omlx_entry_sampling(_omlx_model_settings(resolved[2])),
+            }
+    return baked_params_from_store(hint)
+
+
 def audit_config_seats(
     repo: Path = REPO,
     workspace_ids: list[str] | None = None,
@@ -1794,7 +1864,10 @@ def audit_config_seats(
     registry = data.get("models", {}) or {}
     violations: list[dict] = []
     for ws_id, ws in seats:
-        _audit_card_conformance(ws_id, ws, ws["model_hint"], {}, registry, workspaces, violations)
+        defaults = _config_only_defaults(repo, ws_id, ws["model_hint"])
+        _audit_card_conformance(
+            ws_id, ws, ws["model_hint"], defaults, registry, workspaces, violations
+        )
     for ws_id in missing:
         _v(violations, ws_id, "seat_not_found", "workspace is not a configured seat", "FAIL")
     fails = [row for row in violations if row["severity"] == "FAIL"]
