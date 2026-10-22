@@ -718,10 +718,15 @@ def test_orchestration_pytest_uses_the_locked_down_dind_envelope(
     assert "--cpus 0.5" in command
     assert "--pids-limit 64" in command
     assert "--read-only" in captured
+    assert captured[captured.index("--user") + 1] == "65534:65534"
+    assert captured[captured.index("--cap-drop") + 1] == "ALL"
+    assert "--cap-add" not in captured
     assert "/workspace" not in command
     assert "PYTHONPATH" not in command
     assert "os.environ" not in sandbox_mcp._PYTEST_RUNNER
-    assert "os.setuid(65534)" in sandbox_mcp._PYTEST_RUNNER
+    assert "os.chown" not in sandbox_mcp._PYTEST_RUNNER
+    assert "preexec_fn" not in sandbox_mcp._PYTEST_RUNNER
+    assert "os.getuid() != 65534" in sandbox_mcp._PYTEST_RUNNER
 
 
 def test_orchestration_pytest_timeout_removes_the_whole_container(
