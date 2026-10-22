@@ -10,7 +10,7 @@ dispatch for that seat.
 
 ```bash
 scripts/seat_screen/seat_screen2.sh --dispatch ~/.claude/orchestrate/bin/dispatch.py \
-  --output-dir results/seat_screen kitqwen3827b
+  --output-dir results/seat_screen kitqwen3827bb
 ```
 
 The default setup base is `e75095ef`; pass `--base-commit` when screening from another setup
@@ -43,6 +43,43 @@ scripts/seat_screen/kit_apply.py revert --repo /path/to/worktree
 ```
 
 The dry run renders into a temporary repository copy and runs
-`python -m tests.wfe.settings_audit --config-only --workspace auto-coding auto-spl`. It does not
-write the target worktree. The screen runner does not start or stop the stack; its OpenCode
-dispatch can send the worker's requested model calls through the configured Portal provider.
+`python -m tests.wfe.settings_audit --config-only --workspace` with every seat the render
+produced — both workspaces and each of their variants, so a bad kit seat cannot be missed by
+auditing only the bare workspace. It does not write the target worktree. The screen runner does
+not start or stop the stack; its OpenCode dispatch can send the worker's requested model calls
+through the configured Portal provider.
+
+## Think A/B run list
+
+Eight kit variants pair arm A (`think: false` plus the card's instruct sampling) with arm B
+(`think: true` plus the card's thinking sampling and `thinking_budget: 8192`) on one oMLX id.
+Run each pair back to back, A then B, before moving to the next model: the pair is the
+measurement, and a `-b` row only compares with the `-a` row taken next to it on the same host
+state.
+
+| # | arm | seat | persona slug | oMLX model id |
+|---|-----|------|--------------|---------------|
+| 1 | A | `auto-coding::kit-qwen38-27b-a` | — | `Qwen3.8-27B-oQ4e-mtp` |
+| 2 | B | `auto-coding::kit-qwen38-27b-b` | `kitqwen3827bb` | `Qwen3.8-27B-oQ4e-mtp` |
+| 3 | A | `auto-coding::kit-orcarouter-a` | — | `Qwen3.8-27B-Uncensored-MLX-4bit` |
+| 4 | B | `auto-coding::kit-orcarouter-b` | `kitorcarouterb` | `Qwen3.8-27B-Uncensored-MLX-4bit` |
+| 5 | A | `auto-coding::kit-huihui36-a` | — | `Huihui-Qwen3.6-27B-abliterated-MLX-4bit` |
+| 6 | B | `auto-coding::kit-huihui36-b` | `kithuihui36b` | `Huihui-Qwen3.6-27B-abliterated-MLX-4bit` |
+| 7 | A | `auto-coding::kit-qwen36-27b-a` | — | `unsloth--Qwen3.6-27B-UD-MLX-4bit` |
+| 8 | B | `auto-coding::kit-qwen36-27b-b` | `kitqwen3627bb` | `unsloth--Qwen3.6-27B-UD-MLX-4bit` |
+
+Only arm B carries a persona, so `seat_rescreen.sh` and `seat_screen2.sh` screen arm B by slug;
+arm A is addressed by seat id from `probe_seat.py` or a WFE plan row on
+`--workspace auto-coding::kit-<seat>-a`. Probe each seat before the campaign:
+
+```bash
+scripts/seat_screen/probe_seat.py auto-coding::kit-qwen38-27b-b --think true --qwen38
+scripts/seat_screen/probe_seat.py auto-coding::kit-orcarouter-b  --think true --qwen38
+scripts/seat_screen/probe_seat.py auto-coding::kit-huihui36-b   --think true
+scripts/seat_screen/probe_seat.py auto-coding::kit-qwen36-27b-b --think true
+```
+
+The Pipeline must carry the `plan/think-budget` field: without it `thinking_budget` parses into
+the workspace dict but is never forwarded, so every `-b` seat silently runs uncapped. A `-b` row
+whose oMLX request trace has no `thinking_budget` is invalid. Each seat needs its own WFE plan
+row; no kit rows exist in `tests/wfe/workloads.yaml` yet.

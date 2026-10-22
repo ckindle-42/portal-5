@@ -52,9 +52,9 @@ def test_apply_dry_run_renders_temp_config_and_runs_config_audit(
                 f"{workspace_id}::{variant_id}"
                 for variant_id in workspaces[workspace_id].get("variants", {})
             )
-        assert "kit-qwen38-27b:" in portal
+        assert "kit-qwen38-27b-b:" in portal
         assert "Qwen3.8-27B-Uncensored-MLX-4bit" in backends
-        assert (cwd / "config/personas/kitqwen3827b.yaml").is_file()
+        assert (cwd / "config/personas/kitqwen3827bb.yaml").is_file()
         workspace_arg = command.index("--workspace")
         assert set(command[workspace_arg + 1 :]) == applied_seats
         calls.append(command)
@@ -66,7 +66,7 @@ def test_apply_dry_run_renders_temp_config_and_runs_config_audit(
     assert code == 0
     assert calls and calls[0][3:5] == ["--config-only", "--workspace"]
     assert (repo / "config/portal.yaml").read_bytes() == original_portal
-    assert not (repo / "config/personas/kitqwen3827b.yaml").exists()
+    assert not (repo / "config/personas/kitqwen3827bb.yaml").exists()
 
 
 def test_apply_and_revert_restore_config_and_remove_added_personas(tmp_path: Path) -> None:
@@ -76,12 +76,12 @@ def test_apply_and_revert_restore_config_and_remove_added_personas(tmp_path: Pat
     original_backends = (repo / "config/backends.yaml").read_bytes()
 
     kit_apply.apply_kit(repo, kit_apply.KIT, backup)
-    assert "kit-qwen38-27b:" in (repo / "config/portal.yaml").read_text()
-    assert (repo / "config/personas/kitqwen3827b.yaml").is_file()
+    assert "kit-qwen38-27b-b:" in (repo / "config/portal.yaml").read_text()
+    assert (repo / "config/personas/kitqwen3827bb.yaml").is_file()
 
     kit_apply.revert_kit(repo, backup)
 
     assert (repo / "config/portal.yaml").read_bytes() == original_portal
     assert (repo / "config/backends.yaml").read_bytes() == original_backends
-    assert not (repo / "config/personas/kitqwen3827b.yaml").exists()
+    assert not (repo / "config/personas/kitqwen3827bb.yaml").exists()
     assert not backup.exists()

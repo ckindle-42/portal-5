@@ -63,8 +63,8 @@ else
   while read -r variant slug; do
     run_seat "$variant" "$slug"
   done <<'LIST'
-kit-qwen38-27b kitqwen3827b
-kit-orcarouter kitorcarouter
+kit-qwen38-27b-b kitqwen3827bb
+kit-orcarouter-b kitorcarouterb
 kit-huihui36 kithuihui36
 kit-qwen36-27b kitqwen3627b
 kit-kat kitkatcoder
