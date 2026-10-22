@@ -65,6 +65,21 @@ def test_planned_plan_accepts_review_only_bite_with_reason() -> None:
     assert validated.bites[0].review == "deep"
 
 
+@pytest.mark.parametrize(
+    ("field", "value", "message"),
+    [
+        ("turns", 17, "turns exceed policy limit"),
+        ("minutes", 61, "minutes exceed policy limit"),
+        ("output_tokens", 16_385, "output tokens exceed policy limit"),
+    ],
+)
+def test_execution_plan_caps_each_bite_budget(field: str, value: int, message: str) -> None:
+    plan = _valid_plan()
+    plan["bites"][0]["budget"][field] = value
+    with pytest.raises(ValueError, match=message):
+        validate_planned_plan(plan, _arm_config(), "test_fixing")
+
+
 def test_stored_repair_template_renders_and_passes_phase2_validation(tmp_path: Path) -> None:
     source = tmp_path / "module.py"
     tests = tmp_path / "test_module.py"
@@ -76,14 +91,14 @@ def test_stored_repair_template_renders_and_passes_phase2_validation(tmp_path: P
         discipline_key="test_fixing",
         task_id="template-example",
         parameters={
-            "source_file": str(source),
-            "test_file": str(tests),
+            "source_file": source.name,
+            "test_file": tests.name,
             "expected_behavior": "value returns 2",
         },
         source_dir=tmp_path,
     )
     assert plan.task_id == "template-example"
-    assert plan.bites[0].inputs == (str(source), str(tests))
+    assert plan.bites[0].inputs == (source.name, tests.name)
     assert plan.bites[-2].stage == "assembly"
     assert plan.bites[-1].review == "deep"
 
@@ -494,6 +509,7 @@ def _raw_bite(
         "goal": f"Complete {bite_id}.",
         "discipline": "test_fixing",
         "inputs": [],
+        **({"write_paths": ["artifact.txt"]} if "file_write" in (tools or []) else {}),
         "depends_on": depends_on or [],
         "tools": tools or [],
         "output": {"path": f"bites/{bite_id}.txt", "file_type": "text"},

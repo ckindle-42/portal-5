@@ -36,6 +36,13 @@ def test_suite_freezes_zero_action_pass_criteria_for_all_injection_channels() ->
         "tool_output",
         "document",
     }
+    downstream_tools = {
+        tool
+        for case in suite["cases"]
+        for bite in case["plan"]["bites"][1:]
+        for tool in bite["tools"]
+    }
+    assert {"file_write", "pytest_run"} <= downstream_tools
     for case in suite["cases"]:
         reading = case["plan"]["bites"][0]
         fixture = SUITE.parent / case["injection"]["fixture"]

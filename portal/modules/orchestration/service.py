@@ -14,10 +14,11 @@ from typing import Any, Protocol
 import yaml
 
 from .calibration import calibration_status
-from .contracts import Bite, TaskPlan, parse_plan
+from .contracts import Bite, TaskPlan
 from .ledger import ArmLedger
-from .planner import plan_goal
+from .planner import plan_goal, validate_execution_plan
 from .review import is_high_risk, review_output
+from .tools import TASK_BYTES_LIMIT, TASK_DATA_DIRECTORY, TASK_FILE_LIMIT
 from .worker import Engine, QueueYieldError, check_output, run_bite
 
 
@@ -86,13 +87,17 @@ class ArmService:
     def submit(
         self, raw_plan: dict[str, Any], source_dir: Path, *, unattended: bool = True
     ) -> Path:
-        plan = parse_plan(raw_plan)
+        plan = validate_execution_plan(raw_plan, self.arm_config, source_dir)
         _require_calibration(self.arm_config, unattended, {bite.discipline for bite in plan.bites})
         task_dir = self.task_root / plan.task_id
         if task_dir.exists():
             raise FileExistsError(f"task already exists: {task_dir}")
-        input_map = self._input_map(plan, source_dir, task_dir)
         task_dir.mkdir(parents=True)
+        try:
+            input_map = self._input_map(plan, source_dir, task_dir)
+        except Exception:
+            shutil.rmtree(task_dir, ignore_errors=True)
+            raise
         (task_dir / "inputs.json").write_text(
             json.dumps(input_map, indent=2) + "\n", encoding="utf-8"
         )
@@ -136,7 +141,8 @@ class ArmService:
         task_dir = self.task_root / task_id
         if not task_dir.is_dir():
             raise FileNotFoundError(f"no task directory: {task_dir}")
-        plan = parse_plan(json.loads((task_dir / "plan.json").read_text(encoding="utf-8")))
+        raw_plan = json.loads((task_dir / "plan.json").read_text(encoding="utf-8"))
+        plan = validate_execution_plan(raw_plan, self.arm_config)
         _require_calibration(self.arm_config, unattended, {bite.discipline for bite in plan.bites})
         if plan.task_id != task_id:
             raise ValueError("task directory and plan task_id differ")
@@ -162,6 +168,11 @@ class ArmService:
         self, plan: TaskPlan, source_dir: Path, task_dir: Path
     ) -> dict[str, dict[str, str]]:
         by_id = {bite.bite_id: bite for bite in plan.bites}
+        source_root = source_dir.expanduser().resolve()
+        data_dir = task_dir / TASK_DATA_DIRECTORY
+        data_dir.mkdir()
+        staged: dict[Path, str] = {}
+        staged_bytes = 0
         out: dict[str, dict[str, str]] = {}
         for bite in plan.bites:
             inputs: dict[str, str] = {}
@@ -171,13 +182,31 @@ class ArmService:
                         raise ValueError(
                             f"bite {bite.bite_id}: input bite {ref} must be a dependency"
                         )
-                    inputs[ref] = str(task_dir / by_id[ref].output_path)
+                    inputs[ref] = by_id[ref].output_path
                     continue
-                path = Path(ref).expanduser()
-                path = (path if path.is_absolute() else source_dir / path).resolve()
+                relative_ref = Path(ref)
+                path = (source_root / relative_ref).resolve()
+                if (
+                    relative_ref.is_absolute()
+                    or ".." in relative_ref.parts
+                    or not path.is_relative_to(source_root)
+                ):
+                    raise ValueError(f"bite {bite.bite_id}: input path escapes source directory")
                 if not path.is_file():
                     raise ValueError(f"bite {bite.bite_id}: input file does not exist: {ref}")
-                inputs[ref] = str(path)
+                if path in staged:
+                    inputs[ref] = staged[path]
+                    continue
+                if len(staged) >= TASK_FILE_LIMIT:
+                    raise ValueError(f"task inputs exceed the {TASK_FILE_LIMIT}-file limit")
+                name = path.name.replace("/", "_").replace("\\", "_")[:100] or "input"
+                digest = hashlib.sha256(str(path).encode()).hexdigest()[:12]
+                relative = Path("inputs") / f"{digest}-{name}"
+                target = data_dir / relative
+                target.parent.mkdir(parents=True, exist_ok=True)
+                staged_bytes += _copy_input(path, target, TASK_BYTES_LIMIT - staged_bytes)
+                staged[path] = relative.as_posix()
+                inputs[ref] = staged[path]
             out[bite.bite_id] = inputs
         return out
 
@@ -494,7 +523,11 @@ class ArmService:
             wall_seconds=worker.elapsed_seconds,
             detail={"loop_outcome": worker.loop_outcome, "red_flags": list(worker.red_flags)},
         )
-        checks = check_output(bite, worker.output, task_dir) if worker.finished else None
+        checks = (
+            check_output(bite, worker.output, task_dir / TASK_DATA_DIRECTORY)
+            if worker.finished
+            else None
+        )
         failures = list(worker.red_flags)
         if worker.failure:
             failures.append(worker.failure)
@@ -511,7 +544,7 @@ class ArmService:
                 engine=engine.identity(),
                 detail={"queue_yield": str(exc)},
             )
-            _inside_task(task_dir, bite.output_path).unlink(missing_ok=True)
+            _inside_task(task_dir / TASK_DATA_DIRECTORY, bite.output_path).unlink(missing_ok=True)
             raise
         if review is not None and not review["passed"]:
             failures.append(review["failure"])
@@ -591,7 +624,7 @@ class ArmService:
             detail={"checks": check_record, "retry_available": retry_available},
             failure=failure,
         )
-        _inside_task(task_dir, bite.output_path).unlink(missing_ok=True)
+        _inside_task(task_dir / TASK_DATA_DIRECTORY, bite.output_path).unlink(missing_ok=True)
         if retry_available:
             ledger.transition(
                 bite,
@@ -762,6 +795,17 @@ def _downstream_count(bite: Bite, plan: TaskPlan) -> int:
         found.update(children)
         frontier = children
     return len(found)
+
+
+def _copy_input(source: Path, target: Path, remaining_bytes: int) -> int:
+    copied = 0
+    with source.open("rb") as input_stream, target.open("xb") as output_stream:
+        while chunk := input_stream.read(min(1024 * 1024, remaining_bytes - copied + 1)):
+            copied += len(chunk)
+            if copied > remaining_bytes:
+                raise ValueError(f"task inputs exceed the {TASK_BYTES_LIMIT}-byte limit")
+            output_stream.write(chunk)
+    return copied
 
 
 def _receipt_bite_status(state: str) -> str:

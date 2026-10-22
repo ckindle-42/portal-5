@@ -50,6 +50,17 @@ def test_freeable_skips_the_router_busy_and_protected_models(monkeypatch) -> Non
     assert bi._freeable(names, "router:1b") == ["idle:30b"]
 
 
+def test_freeable_matches_a_config_id_that_differs_from_the_served_tag_by_case(
+    monkeypatch,
+) -> None:
+    g = load_guard.LoadGuard(omlx_url=lambda: None)
+    g.begin(load_guard.OLLAMA, "busy:q4_k_m")
+    g.protect(load_guard.OLLAMA, "failover:Q4_K_M")
+    monkeypatch.setattr(load_guard, "GUARD", g)
+    names = ["router:1b", "busy:Q4_K_M", "failover:q4_k_m", "idle:30b"]
+    assert bi._freeable(names, "Router:1B") == ["idle:30b"]
+
+
 def test_an_omlx_protection_never_shields_an_ollama_model(monkeypatch) -> None:
     class _Guard(load_guard.LoadGuard):
         def __init__(self) -> None:  # bypass the real constructor

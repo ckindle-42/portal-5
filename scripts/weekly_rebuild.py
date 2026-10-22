@@ -119,7 +119,7 @@ def _sandbox_images() -> bool:
         ).returncode
         == 0
     )
-    data = "FROM python:3.11-slim\nRUN pip install --no-cache-dir pandas openpyxl\n"
+    data = "FROM python:3.11-slim\nRUN pip install --no-cache-dir pandas openpyxl pytest\n"
     ok &= (
         _run(
             [DOCKER, "build", "--pull", "-t", "portal5-sandbox-data:latest", "-"], 1800, data

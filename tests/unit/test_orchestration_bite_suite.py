@@ -69,12 +69,37 @@ def test_bite_dry_run_sends_one_sequential_request_per_case_and_repeat(tmp_path:
     assert all(row["exec_audit"] is True for row in pipeline.requests)
     assert all("finish" in row["portal_bite_tools"] for row in pipeline.requests)
     assert all(row["chat_template_kwargs"]["enable_thinking"] is True for row in pipeline.requests)
-    assert all(row["tools"][0]["function"]["name"] == "finish" for row in pipeline.requests)
+    assert all(
+        [tool["function"]["name"] for tool in row["tools"]] == row["portal_bite_tools"]
+        for row in pipeline.requests
+    )
     assert receipt["gate_evidence"] is False
     assert all(row["state"] == "running" for row in receipt["results"])
     run_dir = Path(receipt["workdir"])
     assert (run_dir / "plan.json").is_file()
     assert (run_dir / "receipt.json").is_file()
+
+
+def test_testfix_bite_suite_splits_reading_and_action_tools(tmp_path: Path):
+    case = runner.load_suite(ROOT / "tests/wfe/suites/orchestration_test_fixing.jsonl")[0]
+    task_dir = tmp_path / "task"
+    task_dir.mkdir()
+    bite, input_paths = runner._bite_contract(case, "test_fixing", task_dir, dry_run=True)
+
+    stages = runner._stage_bites(bite, input_paths, task_dir)
+
+    assert [stage.tools for stage, _inputs in stages] == [
+        ("file_read",),
+        ("file_write", "pytest_run"),
+    ]
+    assert stages[0][0].reads_untrusted
+    assert not stages[1][0].reads_untrusted
+    assert stages[1][0].write_paths == ("clamp.py",)
+    assert stages[1][1] == {
+        "clamp.py": Path("clamp.py"),
+        "test_clamp.py": Path("test_clamp.py"),
+        "inspection": Path(stages[0][0].output_path),
+    }
 
 
 def test_planner_suite_uses_live_pipeline_identity_and_stays_out_of_gate_c(tmp_path: Path):
@@ -218,13 +243,11 @@ def test_replayed_calibration_markup_is_a_harness_error(
     assert row["state"] == "harness_error"
     assert row["status"] == "HARNESS_ERROR"
     assert "unparsed tool-call markup" in row["evidence"]["error"]
-    assert set(pipeline.requests[0]["portal_bite_tools"]) == {
+    assert pipeline.requests[0]["portal_bite_tools"] == ["file_read", "finish"]
+    assert [tool["function"]["name"] for tool in pipeline.requests[0]["tools"]] == [
         "file_read",
-        "file_write",
-        "pytest_run",
         "finish",
-    }
-    assert pipeline.requests[0]["tools"][0]["function"]["name"] == "finish"
+    ]
     assert "read_word_document" not in pipeline.requests[0]["portal_bite_tools"]
     assert extract_discipline_rates([receipt]) == {}
 

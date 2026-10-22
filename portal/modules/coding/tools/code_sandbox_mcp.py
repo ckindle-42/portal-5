@@ -15,6 +15,8 @@ Start with: python -m mcp.execution.code_sandbox_mcp
 from __future__ import annotations
 
 import asyncio
+import base64
+import json
 import logging
 import os
 import shutil
@@ -78,6 +80,9 @@ SANDBOX_WORKSPACE_DIR = os.getenv("SANDBOX_WORKSPACE_DIR", "/workspace-src")
 NODE_IMAGE = os.getenv("SANDBOX_NODE_IMAGE", "node:20-alpine")
 BASH_IMAGE = os.getenv("SANDBOX_BASH_IMAGE", "alpine:latest")
 MAX_OUTPUT_BYTES = 50_000  # 50KB output cap
+ORCHESTRATION_TASK_MAX_FILES = 128
+ORCHESTRATION_TASK_MAX_BYTES = 16 * 1024 * 1024
+ORCHESTRATION_WRITE_MAX_BYTES = 200_000
 SANDBOX_ARTIFACT_MAX_FILES = int(os.getenv("SANDBOX_ARTIFACT_MAX_FILES", "8"))
 SANDBOX_ARTIFACT_MAX_BYTES = int(os.getenv("SANDBOX_ARTIFACT_MAX_BYTES", str(25 * 1024 * 1024)))
 SANDBOX_SESSIONS_DIR = SANDBOX_DIR / "sessions"
@@ -529,6 +534,224 @@ async def _run_in_docker(
             pass
 
 
+_PYTEST_RUNNER = r"""
+import base64
+import json
+import os
+import shutil
+import subprocess
+import sys
+from pathlib import Path
+
+config = json.loads(Path("/runner-config.json").read_text(encoding="utf-8"))
+shutil.copytree("/input", "/work", dirs_exist_ok=True)
+for item in Path("/work").rglob("*"):
+    if not item.is_symlink():
+        os.chown(item, 65534, 65534)
+Path("/tmp/pytest-home").mkdir(mode=0o700, exist_ok=True)
+os.chown("/tmp/pytest-home", 65534, 65534)
+command = [
+    sys.executable,
+    "-m",
+    "pytest",
+    "-c",
+    "/dev/null",
+    "--rootdir",
+    "/work",
+    "--confcutdir",
+    "/work",
+    "-q",
+    "-p",
+    "no:cacheprovider",
+    "--import-mode=importlib",
+    *config["selectors"],
+]
+environment = {
+    "HOME": "/tmp/pytest-home",
+    "LANG": "C.UTF-8",
+    "PATH": "/usr/local/bin:/usr/bin:/bin",
+    "PYTEST_DISABLE_PLUGIN_AUTOLOAD": "1",
+    "PYTHONDONTWRITEBYTECODE": "1",
+    "TMPDIR": "/tmp",
+}
+
+def drop_privileges():
+    os.setgroups([])
+    os.setgid(65534)
+    os.setuid(65534)
+
+timed_out = False
+with Path("/tmp/pytest-output").open("wb") as output:
+    try:
+        completed = subprocess.run(
+            command,
+            cwd="/work",
+            env=environment,
+            stdout=output,
+            stderr=subprocess.STDOUT,
+            timeout=config["timeout"],
+            check=False,
+            preexec_fn=drop_privileges,
+        )
+        exit_code = completed.returncode
+    except subprocess.TimeoutExpired:
+        timed_out = True
+        exit_code = -1
+output = Path("/tmp/pytest-output").read_bytes()[:8000].decode("utf-8", "replace")
+files = {}
+errors = []
+total = 0
+for relative in config["write_paths"]:
+    path = Path("/work") / relative
+    if path.is_symlink() or not path.is_file():
+        continue
+    content = path.read_bytes()
+    total += len(content)
+    if len(content) > 200000 or total > 16777216:
+        errors.append(f"copy-back limit exceeded: {relative}")
+        continue
+    files[relative] = base64.b64encode(content).decode("ascii")
+print(json.dumps({
+    "exit_code": exit_code,
+    "stdout": output,
+    "stderr": "\n".join(errors),
+    "timed_out": timed_out,
+    "files": files,
+}))
+"""
+
+
+def _stage_orchestration_task(work_dir: Path, files: Any) -> Path:
+    if not isinstance(files, dict) or len(files) > ORCHESTRATION_TASK_MAX_FILES:
+        raise ValueError("invalid orchestration task file map")
+    input_dir = work_dir / "input"
+    input_dir.mkdir()
+    total = 0
+    for relative, encoded in files.items():
+        if not isinstance(relative, str) or not isinstance(encoded, str):
+            raise ValueError("invalid orchestration task file entry")
+        path = Path(relative)
+        if path.is_absolute() or ".." in path.parts or path == Path("."):
+            raise ValueError("orchestration task path escapes its data root")
+        content = base64.b64decode(encoded, validate=True)
+        total += len(content)
+        if total > ORCHESTRATION_TASK_MAX_BYTES:
+            raise ValueError("orchestration task exceeds byte limit")
+        target = input_dir / path
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_bytes(content)
+    return input_dir
+
+
+def _orchestration_write_paths(value: Any) -> list[str]:
+    if not isinstance(value, list) or len(value) > ORCHESTRATION_TASK_MAX_FILES:
+        raise ValueError("invalid orchestration write path list")
+    paths: list[str] = []
+    for raw in value:
+        path = Path(raw) if isinstance(raw, str) else Path("..")
+        if path.is_absolute() or ".." in path.parts or path == Path("."):
+            raise ValueError("orchestration write path escapes its data root")
+        paths.append(path.as_posix())
+    return paths
+
+
+async def _run_orchestration_pytest(payload: dict[str, Any]) -> dict[str, Any]:
+    selectors = payload.get("selectors")
+    if not isinstance(selectors, list) or not all(isinstance(item, str) for item in selectors):
+        raise ValueError("invalid pytest selectors")
+    timeout = min(max(int(payload.get("timeout", DEFAULT_TIMEOUT)), 1), 180)
+    write_paths = _orchestration_write_paths(payload.get("write_paths", []))
+    run_id = uuid.uuid4().hex
+    container_name = f"portal5-arm-pytest-{run_id[:12]}"
+    work_dir = SANDBOX_DIR / f"arm-{run_id}"
+    work_dir.mkdir(parents=True)
+    try:
+        input_dir = _stage_orchestration_task(work_dir, payload.get("files"))
+        runner = work_dir / "pytest_runner.py"
+        runner.write_text(_PYTEST_RUNNER, encoding="utf-8")
+        config = work_dir / "runner_config.json"
+        config.write_text(
+            json.dumps({"selectors": selectors, "write_paths": write_paths, "timeout": timeout}),
+            encoding="utf-8",
+        )
+        command = [
+            "docker",
+            "run",
+            "--rm",
+            "--name",
+            container_name,
+            "--init",
+            "--network",
+            "none",
+            "--cpus",
+            "0.5",
+            "--memory",
+            "256m",
+            "--pids-limit",
+            "64",
+            "--security-opt",
+            "no-new-privileges",
+            "--cap-drop",
+            "ALL",
+            "--read-only",
+            "--tmpfs",
+            "/work:size=64m,exec,mode=1777",
+            "--tmpfs",
+            "/tmp:size=64m,exec,mode=1777",
+            "-v",
+            f"{input_dir.absolute()}:/input:ro",
+            "-v",
+            f"{runner.absolute()}:/pytest_runner.py:ro",
+            "-v",
+            f"{config.absolute()}:/runner-config.json:ro",
+            _resolve_image(PYTHON_IMAGE),
+            "python3",
+            "/pytest_runner.py",
+        ]
+        process = await asyncio.create_subprocess_exec(
+            *command,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+            env=_get_docker_env(),
+        )
+        try:
+            stdout, stderr = await asyncio.wait_for(process.communicate(), timeout=timeout + 5)
+        except TimeoutError:
+            process.kill()
+            await process.communicate()
+            cleanup = await asyncio.create_subprocess_exec(
+                "docker",
+                "rm",
+                "-f",
+                container_name,
+                stdout=asyncio.subprocess.DEVNULL,
+                stderr=asyncio.subprocess.DEVNULL,
+                env=_get_docker_env(),
+            )
+            await cleanup.wait()
+            return {
+                "exit_code": -1,
+                "stdout": "",
+                "stderr": f"Execution timed out after {timeout} seconds",
+                "timed_out": True,
+                "files": {},
+            }
+        if process.returncode != 0:
+            return {
+                "exit_code": -1,
+                "stdout": "",
+                "stderr": stderr[:8000].decode("utf-8", "replace"),
+                "timed_out": False,
+                "files": {},
+            }
+        result = json.loads(stdout)
+        if not isinstance(result, dict):
+            raise ValueError("pytest sandbox returned a non-object result")
+        return result
+    finally:
+        shutil.rmtree(work_dir, ignore_errors=True)
+
+
 @mcp.tool()
 async def execute_python(
     code: str,
@@ -760,6 +983,20 @@ async def sandbox_status() -> dict[str, Any]:
 # REST dispatch endpoints — called by portal-pipeline tool_registry.py via
 # POST /tools/<tool_name> with body {"arguments": {...}, "request_id": "..."}
 # ---------------------------------------------------------------------------
+
+
+@_route("/internal/orchestration/pytest", methods=["POST"])
+async def orchestration_pytest_endpoint(request: Request) -> JSONResponse:
+    body = await request.body()
+    if len(body) > 24 * 1024 * 1024:
+        return JSONResponse({"error": "task payload exceeds request limit"}, status_code=413)
+    try:
+        payload = json.loads(body)
+        if not isinstance(payload, dict):
+            raise ValueError("request body must be an object")
+        return JSONResponse(await _run_orchestration_pytest(payload))
+    except (ValueError, OSError, json.JSONDecodeError) as exc:
+        return JSONResponse({"error": str(exc)}, status_code=400)
 
 
 @_route("/tools/execute_python", methods=["POST"])

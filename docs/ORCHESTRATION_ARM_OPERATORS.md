@@ -9,6 +9,8 @@ uv run portal module enable orchestration --yes
 Set the Pipeline endpoint and the measured model digests in the shell that runs `portal arm`. The model IDs stay fixed to the existing Fast and Deep seats; load-plan IDs are read from `config/orchestration_arm.yaml`.
 Set `PORTAL_ARM_APPROVAL_TTL_SECONDS` in this shell and `.env` to the same value to configure approval expiry; the default is 1800 seconds.
 
+The worker supplies each bite's declared tool schemas plus `finish`. `file_read`, `file_write`, and `pytest_run` run in the task directory; `pytest_run` is time-limited and runs only when the host network and writes outside the task directory can be sandboxed. External input files are copied under each task's `inputs/` directory before the worker sees their relative paths.
+
 ```bash
 export PORTAL_ARM_PIPELINE_URL=http://127.0.0.1:9099
 export PIPELINE_API_KEY='<pipeline api key>'
@@ -58,9 +60,7 @@ The rig prints its `receipt.json` path. Block notices go to a stub interface in 
 
 `scripts/gate_c_calculator.py` reads arm task receipts together with their `plan.json`, reports per-discipline/seat rates plus the WFE `rates_by_discipline` block, evaluates the fixed `pass_criteria`, and prints the task-level `calibration.minimum_pass_probability` floor. It never writes config. Planner and checker rows stay in the receipt. Gate C counts only final bite-suite rows (`passed`, `blocked`, `failed`). A `HARNESS_ERROR` row is excluded.
 
-The arm cannot run a live bite yet. Bite tools are not implemented outside `tests/wfe/runner.py`. The offline fake Pipeline scripts the engine, not the decisions: it enforces the production bearer auth, computes `tools_offered` with the production `apply_bite_tool_scope`, and serves the production SSE wire, so a suite row whose expected tools the trace does not offer comes back `HARNESS_ERROR` offline as it would live, and does not enter Gate C. Task-scoped client tools on `plan/bite-mount` are do-not-merge until the Daybreak security fixes land.
-
-Run a suite trial against one Pipeline workspace or persona. The default receipt directory is `get_generated_dir("tasks")/orchestration-bite-suite/`. Dry-run is the mode that completes without live bite tools.
+Run a suite trial against one Pipeline workspace or persona. The default receipt directory is `get_generated_dir("tasks")/orchestration-bite-suite/`. Dry-run completes without a live model or stack.
 
 ```bash
 uv run python scripts/orchestration_bite_suite.py \

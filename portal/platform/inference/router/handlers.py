@@ -25,7 +25,7 @@ from prometheus_client import generate_latest
 
 from portal.platform.inference.cluster_backends import BackendRegistry
 from portal.platform.inference.config import ollama_url
-from portal.platform.inference.router import no_answer
+from portal.platform.inference.router import no_answer, placement
 from portal.platform.inference.router.anthropic_compat import (
     anthropic_to_openai_body,
     openai_response_to_anthropic,
@@ -90,6 +90,7 @@ from portal.platform.inference.router.streaming import (
     _select_stream_fn,
     _select_streaming_backend,
     _stream_with_fallback,
+    _with_room_for_omlx,
 )
 from portal.platform.inference.router.trace import (
     capture as trace_capture,
@@ -693,6 +694,14 @@ async def _resolve_request_route(
             ),
         )
 
+    # Hot-seat prefix-cache protection (P5-OMLX-PREFIX-CACHE-001): advisory reorder, off by default.
+    candidates = placement.protect_hot_seat(
+        candidates,
+        workspace_id,
+        WORKSPACES.get(workspace_id, {}).get("model_hint", ""),
+        getattr(registry, "hot_seat_protect_s", 0.0),
+    )
+
     trace_span(
         "route.resolved",
         requested=_original_model_id,
@@ -1001,7 +1010,9 @@ async def chat_completions(
         )
 
         if len(candidates) == 1:
-            # Single candidate — no fallback possible, return streaming directly
+            # Single candidate — no fallback possible, return streaming directly.
+            # Room for a large oMLX prompt is made here: _stream_with_fallback does it
+            # for the multi-candidate path, and the non-streaming path before every attempt.
             _record_persona(persona, target_model)
             _stream_fn = _select_stream_fn(
                 backend,
@@ -1019,7 +1030,7 @@ async def chat_completions(
                 _has_tools,
             )
             _streaming_response = StreamingResponse(
-                _with_portal_timings(_stream_fn),
+                _with_portal_timings(_with_room_for_omlx(backend, backend_body, _stream_fn)),
                 media_type="text/event-stream",
                 headers={"x-portal-route": f"{workspace_id};{backend.id};{target_model}"},
             )

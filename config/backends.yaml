@@ -298,6 +298,10 @@ backends:
     supports_tools: false
   - id: hf.co/bartowski/THUDM_GLM-Z1-Rumination-32B-0414-GGUF:THUDM_GLM-Z1-Rumination-32B-0414-Q4_K_M.gguf
     supports_tools: false
+  - id: hf.co/bartowski/THUDM_GLM-Z1-32B-0414-GGUF:Q4_K_M
+    supports_tools: false
+  - id: hf.co/bartowski/THUDM_GLM-Z1-32B-0414-GGUF:Q4_K_M-ctx32k
+    supports_tools: false
   - id: supergemma4-26b-uncensored:Q4_K_M
     supports_tools: true
   - id: sylink/sylink:8b
@@ -570,6 +574,10 @@ backends:
     supports_tools: false
   - id: hf.co/bartowski/THUDM_GLM-Z1-Rumination-32B-0414-GGUF:THUDM_GLM-Z1-Rumination-32B-0414-Q4_K_M.gguf-ctx64k
     supports_tools: false
+  - id: hf.co/bartowski/THUDM_GLM-Z1-32B-0414-GGUF:Q4_K_M
+    supports_tools: false
+  - id: hf.co/bartowski/THUDM_GLM-Z1-32B-0414-GGUF:Q4_K_M-ctx32k
+    supports_tools: false
   - id: hf.co/deepreinforce-ai/Ornith-1.0-35B-GGUF:Q4_K_M
     supports_tools: true
   - id: hf.co/deepreinforce-ai/Ornith-1.0-35B-GGUF:Q4_K_M-ctx64k
@@ -719,6 +727,10 @@ backends:
   - id: hf.co/bartowski/THUDM_GLM-Z1-Rumination-32B-0414-GGUF:THUDM_GLM-Z1-Rumination-32B-0414-Q4_K_M.gguf
     supports_tools: false
   - id: hf.co/bartowski/THUDM_GLM-Z1-Rumination-32B-0414-GGUF:THUDM_GLM-Z1-Rumination-32B-0414-Q4_K_M.gguf-ctx64k
+    supports_tools: false
+  - id: hf.co/bartowski/THUDM_GLM-Z1-32B-0414-GGUF:Q4_K_M
+    supports_tools: false
+  - id: hf.co/bartowski/THUDM_GLM-Z1-32B-0414-GGUF:Q4_K_M-ctx32k
     supports_tools: false
   - id: gpt-oss:20b
     supports_tools: true
@@ -1238,6 +1250,11 @@ defaults:
   health_check_interval: 15
   health_timeout: 3
   request_timeout: 300
+  # Hot-seat prefix-cache protection (P5-OMLX-PREFIX-CACHE-001): seconds after an
+  # oMLX model's last request during which the router steers a *different* oMLX
+  # model's request to another candidate rather than deep-resetting that seat.
+  # 0 = off (today's first-candidate order). Never applies to a pinned ?model=.
+  hot_seat_protect_s: 0
 embedding_candidates:
 - id: google/embeddinggemma-2
   notes: 'EmbeddingGemma 2 (740M total; 270M text backbone + selectable 170M vision / 300M audio encoders; Apache 2.0;

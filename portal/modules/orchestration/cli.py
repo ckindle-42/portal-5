@@ -113,14 +113,16 @@ def enqueue(
 ) -> None:
     """Persist a hand-written plan for the overnight queue."""
     _require_enabled()
-    from portal.modules.orchestration.contracts import parse_plan
+    from portal.modules.orchestration.planner import validate_execution_plan
     from portal.modules.orchestration.queue import QueueLedger
+    from portal.modules.orchestration.service import load_arm_config
 
     try:
         raw = yaml.safe_load(plan_file.read_text(encoding="utf-8"))
-        plan = parse_plan(raw)
+        root = source_dir or plan_file.resolve().parent
+        plan = validate_execution_plan(raw, load_arm_config(_arm_config_path()), root)
         with QueueLedger(tasks_dir or _tasks_dir()) as ledger:
-            ledger.enqueue(plan, source_dir or plan_file.resolve().parent)
+            ledger.enqueue(plan, root)
     except Exception as exc:
         typer.echo(f"arm enqueue failed: {exc}", err=True)
         raise typer.Exit(code=1) from exc

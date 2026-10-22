@@ -55,6 +55,6 @@ still refuse immediately unless `--wait-for-quiet` is set. See
 that preflight from the main checkout with `--config-repo` pointed at the
 checkout; see [[unit-wfe-workspace-fitness]]. `scripts/orchestration_bite_suite.py`
 writes suite receipts, and `scripts/gate_c_calculator.py` drops `HARNESS_ERROR`
-rows; see [[unit-known-limitations-arm-bite-tools]]. Corpus injection is
+rows. Corpus injection is
 reviewed dry-run first; matrix analyzers like `blend_acceptance_results` merge
 evidence without a verdict; supervisor recovery is bounded to `ALLOWED_ACTIONS`.

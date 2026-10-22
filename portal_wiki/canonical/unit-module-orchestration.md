@@ -69,11 +69,11 @@ Offline tests drive the arm through a fake OpenAI-compatible Pipeline API. Store
 
 The switch is `modules.orchestration.enabled` in `config/portal.yaml` and defaults to false. The module unit documents the switch; it does not hold it. `config/orchestration_arm.yaml` supplies the default `swap` residency mode and the underlying model IDs checked by the Pipeline load guard.
 
-## Live bites
+## Bite tools
 
-The arm cannot run a live bite yet. The worker's `portal_bite_tools` list is an allowlist. `apply_bite_tool_scope` filters tools the pipeline already has, and the only client schema the worker attaches is `finish`. The bite tool implementations live in `tests/wfe/runner.py`. The fake pipeline scripts the engine, not the decisions: bearer auth, `tools_offered` (through the production `apply_bite_tool_scope` over a declared registry, default exactly the allowlisted names), and the SSE wire are production code, pinned by parity tests. Task-scoped client tools are being built on `plan/bite-mount` and are do-not-merge until the Daybreak security fixes land. The open constraint is [[unit-known-limitations-arm-bite-tools]].
+The worker's `portal_bite_tools` list is a per-request allowlist. `apply_bite_tool_scope` intersects Pipeline-owned tools with it and retains the client schemas the worker supplied. The worker supplies schemas for each bite's task-scoped client tools plus `finish`, dispatches those task tools locally, and sends their results into the next Pipeline turn. `file_read` and `file_write` use descriptor-relative, no-follow access below the task data root. `pytest_run` sends only explicit readable and writable files into the disposable sandbox container and copies back only the write allowlist.
 
-`scripts/orchestration_bite_suite.py` writes planner, checker, and bite rows. `scripts/gate_c_calculator.py` keeps final bite-suite rows (`passed`, `blocked`, `failed`) and drops every other suite plus `HARNESS_ERROR`. A missing bite tool is a harness error, not a Gate C sample.
+`scripts/orchestration_bite_suite.py` writes planner, checker, and bite rows. `scripts/gate_c_calculator.py` keeps final bite-suite rows (`passed`, `blocked`, `failed`) and drops every other suite plus `HARNESS_ERROR`. A missing offered tool is a harness error, not a Gate C sample.
 
 ## Why
 

@@ -124,7 +124,8 @@ orchestration_arm:
               - bite_id: repair
                 goal: "Use the inspection to make the smallest change for $expected_behavior and run $test_file."
                 discipline: test_fixing
-                inputs: [inspect]
+                inputs: [$source_file, $test_file, inspect]
+                write_paths: [$source_file]
                 depends_on: [inspect]
                 tools: [file_write, pytest_run]
                 output: {path: bites/repair.txt, file_type: text}
@@ -245,6 +246,7 @@ orchestration_arm:
                 goal: "Draft the detection for $expected_behavior and validate the exact artifact."
                 discipline: detection-engineering
                 inputs: [research]
+                write_paths: [artifacts/detection.spl]
                 depends_on: [research]
                 tools: [file_write, spl_validate_syntax]
                 output: {path: bites/draft_validate.txt, file_type: text}
@@ -2173,14 +2175,14 @@ workspaces:
         system_prompt_append: "\n\nSAFETY POSTURE: You are a standard-posture assistant. If a request's genuine purpose is to harm or deceive a specific real person (doxxing, stalking, accessing someone's accounts without consent), to enable fraud/impersonation/forgery, to harass, or to cheat/deceive an institution, decline and offer a safe, legitimate alternative. This does not restrict ordinary academic, professional, security-research, or fictional work \u2014 help fully with those."
       glm-thinker:
         module: "general"
-        model_hint: "hf.co/bartowski/THUDM_GLM-Z1-Rumination-32B-0414-GGUF:THUDM_GLM-Z1-Rumination-32B-0414-Q4_K_M.gguf-ctx64k"
-        context_limit: 65536
-        predict_limit: 40960
-        # sampling: GLM-Z1-Rumination card inference code (temperature 0.95,
-        # top_p 0.7) — 0.95 is above the general lane's 0.8 and card-sanctioned
-        # (sampling_card_over_lane). Prior 1.0/0.95 had no card basis.
-        temperature: 0.95
-        top_p: 0.7
+        model_hint: "hf.co/bartowski/THUDM_GLM-Z1-32B-0414-GGUF:Q4_K_M-ctx32k"
+        context_limit: 32768
+        # Card max_new_tokens is 30000; half of the 32768 window still leaves a prompt.
+        predict_limit: 16384
+        # GLM-Z1-32B-0414 card: temperature 0.6, top_p 0.95, top_k 40.
+        temperature: 0.6
+        top_p: 0.95
+        top_k: 40
         think: true
         emits_reasoning: true
       magistralstrategist:

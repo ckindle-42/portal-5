@@ -10,7 +10,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
-from .contracts import Bite, TaskPlan, parse_plan, plan_json
+from .contracts import Bite, TaskPlan, plan_json
 from .service import ArmService
 from .worker import Engine, PipelineError
 
@@ -127,8 +127,10 @@ class QueueLedger:
     def close(self) -> None:
         self.db.close()
 
-    def enqueue(self, plan: TaskPlan | dict[str, Any], source_dir: Path) -> None:
-        normalized = plan if isinstance(plan, TaskPlan) else parse_plan(plan)
+    def enqueue(self, plan: TaskPlan, source_dir: Path) -> None:
+        if not isinstance(plan, TaskPlan) or not plan.policy_validated:
+            raise TypeError("queue plans must be policy-validated TaskPlan objects")
+        normalized = plan
         if (self.task_root / normalized.task_id).exists():
             raise FileExistsError(f"task directory already exists: {normalized.task_id}")
         now = _now()

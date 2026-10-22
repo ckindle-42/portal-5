@@ -215,7 +215,7 @@ def test_symlink_input_that_resolves_outside_the_allowlist_is_not_queued(
 
     result = _queue("t-8", parameters, source_dir=uploads)
 
-    assert "outside the allowed roots" in str(result["error"])
+    assert "input path escapes source directory" in str(result["error"])
     assert _queued_ids(get_generated_dir("tasks")) == []
 
 
