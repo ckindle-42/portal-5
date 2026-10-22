@@ -12,18 +12,18 @@ sources:
 - type: code
   path: deploy/launchd/com.portal5.omlx.plist
 claims: []
-confidence: medium
+confidence: high
 tags:
 - known-limitations
 - ollama
 - omlx
 - macos
 created_at: 1790333591
-updated_at: 1790333591
+updated_at: 1792627200
 ---
 
 - **ID**: P5-ENGINE-TCC-001
-- **Status**: MITIGATION READY 2026-10-21 — fixed-path signed interpreter support is in the repository; host cutover and its first approval check remain pending.
+- **Status**: RUNNING 2026-10-22. oMLX serves from LaunchAgent `com.portal5.omlx` and the fixed `~/omlx-live/venv`. Wheel upgrades stay on that signed interpreter, which is what macOS keys `data01` access to. A release that loses model visibility still pages and rolls back.
 - **Description**: macOS must grant each executable identity access to the external `data01` volume that holds the models. Homebrew's ad-hoc signed Python changes identity when the formula upgrades Python, so a new build can trigger another Allow popup. Pre-approval needs an MDM-installed privacy profile, which this host does not have.
 - **Mitigation**: Ollama runs from fixed `~/ollama-live/` with a stable Developer ID requirement. The oMLX installer uses a fixed `~/omlx-live/venv` backed by a Developer ID-signed ARM64 python.org framework interpreter, and the updater replaces only the package in a staged copy at that path. The interpreter path and signing identity therefore stay constant across oMLX wheel upgrades; the first post-cutover access and later releases still require model-count verification. `scripts/engine_autoupdate.py` compares model counts after a switch; a drop sends a high-priority Pushover request and waits 30 minutes before restoring the previous version and retrying the next day. `engine_contract_check.py` alerts the same way when a probe model vanishes after a manual upgrade.
 

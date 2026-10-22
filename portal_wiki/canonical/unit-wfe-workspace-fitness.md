@@ -39,8 +39,10 @@ Pass `--expected-engine ollama|omlx` when the configured model identity does not
 uniquely identify its intended engine. When an Ollama sidecar URL is supplied,
 also pass its configured `--ollama-keep-alive` value; zero or an unknown value
 blocks the screen. The preflight's settings audit reads repository config only
-and blocks WARN/FAIL card-policy, sampling-mode, and missing-budget findings;
-it does not claim that a live backend or model is healthy.
+and blocks WARN/FAIL findings from the card-policy rules
+`think_vs_card_policy`, `sampling_mode_mismatch`, and `thinking_unbounded`,
+plus sampling-mode and missing-budget findings. It does not claim that a
+live backend or model is healthy.
 
 ## Why
 

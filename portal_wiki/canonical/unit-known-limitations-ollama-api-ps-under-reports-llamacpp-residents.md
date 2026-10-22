@@ -12,7 +12,7 @@ tags:
 - ollama
 - memory
 created_at: 1792540800
-updated_at: 1792540800
+updated_at: 1792627200
 ---
 
 #### Ollama 0.40 `/api/ps` under-reports llamacpp-runner residents — the load guard unloads to measure (2026-10-21)
@@ -20,7 +20,7 @@ updated_at: 1792540800
 - **ID**: P5-LOADGUARD-PS-001
 - **Description**: Ollama 0.40's llamacpp runner reports a resident model's `/api/ps` size from less than its `llama-server` child actually holds: `devstral-small-2` (24B Q4) reported **1.8 GB** while the child process held **~15 GB** RSS (measured 2026-10-21). The load guard builds host headroom as oMLX's ceiling minus its residents, plus idle Ollama residents at their reported size, so an idle resident that under-reports is credited with a fraction of the memory it would release.
 - **Impact**: A cold load could wait out its full deadline (120 s) and then refuse with HTTP 507 for memory Ollama frees on load. On 2026-10-21, 9 of 54 engine-UAT shots did exactly that.
-- **Mitigation**: When a shortfall survives the oMLX pass, `LoadGuard._free_ollama` unloads every idle, unpinned, unprotected, not-busy Ollama resident with `keep_alive: 0` and re-measures through oMLX's ceiling, which sees the freed bytes even though `/api/ps` never counted them. Busy models are never unloaded; with nothing in flight and nothing idle left to free, admission refuses at once instead of waiting out the deadline.
+- **Mitigation**: When a shortfall survives the oMLX pass, `LoadGuard._free_ollama` unloads every idle, unpinned, unprotected, not-busy Ollama resident with `keep_alive: 0` and re-measures through oMLX's ceiling, which sees the freed bytes even though `/api/ps` never counted them. Busy models are never unloaded. When the pipeline has no in-flight work, oMLX reports no load, and no idle resident remains, admission refuses at once instead of waiting out the deadline. A model swap inside oMLX can look like that settled state; [[unit-known-limitations-load-guard-omlx-swap]] records the 2026-10-22 refusal.
 
 #### Why
 

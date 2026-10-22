@@ -24,7 +24,7 @@ tags:
 - router
 - verified-v1
 created_at: 1785451451.3742568
-updated_at: 1790375000
+updated_at: 1792627200
 ---
 
 - **ID**: P5-ROUTER-EVICTION-001
@@ -140,7 +140,7 @@ updated_at: 1790375000
   ~41 GiB of unified memory Ollama could not reclaim (`system_limited=true`).
   `~/.omlx/settings.json` now sets `idle_timeout.idle_timeout_seconds: 300`
   (Ollama's default), verified firing (idle 305 s > ttl 300 s). oMLX's
-  `memory_guard_tier` stays `balanced` pending data.
+  `memory_guard_tier` stays `balanced`. On 2026-10-22 that tier's ceiling moved with host free memory between 18 and 42 GB, and the load guard's headroom for a large Ollama load moved with it ([[unit-known-limitations-omlx-balanced-ceiling]]).
 
 ## Why
 

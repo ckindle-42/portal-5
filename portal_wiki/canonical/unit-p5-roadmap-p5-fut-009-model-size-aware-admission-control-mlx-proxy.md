@@ -23,7 +23,7 @@ tags:
 - docs
 - verified-v1
 created_at: 1784946220.5915961
-updated_at: 1784946220.5915961
+updated_at: 1792627200
 ---
 
 P5-FUT-009 shipped in the retired MLX proxy and is now historical. The archived
@@ -75,14 +75,18 @@ engine transport, which every chat request to Ollama or oMLX passes through.
   holds (P5-LOADGUARD-PS-001). It waits for in-flight work to drain, without holding
   the lock. It is refused with HTTP 507 when the caller's `X-Portal-Load-Wait` runs
   out (default `LOAD_GUARD_WAIT_S`; compliance sends `COMPLIANCE_LOAD_WAIT_S`), and at
-  once when nothing is in flight and nothing idle is left to free. The router
-  cascades the 507 as a capacity rejection.
+  once when nothing is in flight and nothing idle is left to free. That immediate
+  refusal is for a settled host. On 2026-10-22 it fired while oMLX was mid-swap;
+  [[unit-known-limitations-load-guard-omlx-swap]] records the fix and the missing
+  unload signal. The router cascades the 507 as a capacity rejection.
 - **Plans.** `POST /admin/load-plan` says whether a model set fits together now, so
   batch work can run in fit-sized waves.
 
 Footprint is weights × 1.25 + 2 GiB, raised to the size observed the last time the
 model was resident. Headroom is oMLX's `final_ceiling` minus its resident memory, plus
-idle Ollama residents. Verified live: two cold Ollama seats loaded in turn and
+idle Ollama residents. With oMLX 0.7.2 and `memory_guard_tier` balanced, that ceiling
+moved between 18 and 42 GB on 2026-10-22, so the headroom for a large Ollama load is
+not a fixed budget ([[unit-known-limitations-omlx-balanced-ceiling]]). Verified live: two cold Ollama seats loaded in turn and
 generated concurrently; two cold oMLX seats were serialised; an oMLX cold load
 followed by an Ollama cold load was serialised across engines; no refusals, and swap
 stayed above the watchdog floor. Resident models (the router, `task-router`) are
