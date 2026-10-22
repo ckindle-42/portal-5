@@ -72,6 +72,8 @@ def _seeded_plan(
             "procedure": procedure if bite_id == "work" else "Assemble and review.",
             "reads_untrusted": reads_untrusted if bite_id == "work" else False,
         }
+        if "file_write" in bite_tools:
+            raw["write_paths"] = ["artifact.txt"]
         if review:
             raw["accept"] = []
             raw["review"] = "deep"
@@ -193,6 +195,43 @@ def check_arm_reading_bites_hold_no_write_tools() -> tuple[str, str, list[dict]]
             )
     if bad:
         return ("FAIL", "; ".join(bad), subs)
+    from portal.modules.orchestration.tools import TaskToolExecutor, _task_snapshot
+
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp)
+        data = root / "data"
+        data.mkdir()
+        (data / "declared.txt").write_text("declared", encoding="utf-8")
+        (data / "hidden.txt").write_text("hidden", encoding="utf-8")
+        (root / "plan.json").write_text("control", encoding="utf-8")
+        reader = TaskToolExecutor(data, ("file_read",), readable_paths=("declared.txt",))
+        actor = TaskToolExecutor(
+            data,
+            ("file_write", "pytest_run"),
+            readable_paths=("declared.txt",),
+            writable_paths=("artifact.txt",),
+        )
+        snapshot = _task_snapshot(data, actor.readable_paths | actor.writable_paths)
+        capability_ok = (
+            reader.file_read("declared.txt") == "declared"
+            and reader.file_read("hidden.txt").startswith("ERROR:")
+            and reader.dispatch("file_write", {"path": "artifact.txt", "content": "x"}).startswith(
+                "ERROR:"
+            )
+            and set(snapshot) == {"declared.txt"}
+            and (root / "plan.json").read_text(encoding="utf-8") == "control"
+        )
+    subs.append(
+        {
+            "name": "read and action runners receive distinct effective file capabilities",
+            "status": "PASS" if capability_ok else "FAIL",
+            "detail": "declared input only; control plane excluded"
+            if capability_ok
+            else "effective capability isolation failed",
+        }
+    )
+    if not capability_ok:
+        return ("FAIL", "effective read/action capability isolation failed", subs)
     return ("PASS", f"{len(disciplines)} discipline(s) keep reading and acting apart", subs)
 
 
@@ -496,7 +535,7 @@ def check_arm_gate_c_threshold() -> tuple[str, str, list[dict]]:
 def check_arm_least_agency() -> tuple[str, str, list[dict]]:
     """HV. The request mounts the bite's tools; the validator rejects anything else."""
     from portal.modules.orchestration.contracts import parse_plan
-    from portal.modules.orchestration.planner import validate_planned_plan
+    from portal.modules.orchestration.planner import validate_execution_plan
     from portal.modules.orchestration.worker import Engine, _request_body
 
     config = _arm_config(REPO_ROOT)
@@ -522,6 +561,18 @@ def check_arm_least_agency() -> tuple[str, str, list[dict]]:
         mounted = body.get("portal_bite_tools")
         if not (isinstance(mounted, list) and mounted == [*bite.tools, "finish"]):
             mount_failures.append(f"{tool}: mounted={mounted!r}")
+        schemas = body.get("tools")
+        schema_names = (
+            [
+                item.get("function", {}).get("name")
+                for item in schemas
+                if isinstance(item, dict) and isinstance(item.get("function"), dict)
+            ]
+            if isinstance(schemas, list)
+            else []
+        )
+        if schema_names != [*bite.tools, "finish"]:
+            mount_failures.append(f"{tool}: schemas={schema_names!r}")
         if body.get("portal_bite_max_hops") != bite.budget.turns:
             hop_failures.append(f"{tool}: max_hops={body.get('portal_bite_max_hops')!r}")
     mounted_ok = not mount_failures
@@ -529,7 +580,7 @@ def check_arm_least_agency() -> tuple[str, str, list[dict]]:
 
     rejected = False
     try:
-        validate_planned_plan(_seeded_plan(name, ["outside_allowlist_tool"]), config, name)
+        validate_execution_plan(_seeded_plan(name, ["outside_allowlist_tool"]), config)
     except ValueError as exc:
         rejected = "tool outside discipline allowlist" in str(exc)
 
@@ -545,12 +596,31 @@ def check_arm_least_agency() -> tuple[str, str, list[dict]]:
             "detail": "; ".join(hop_failures) or f"{len(allowed)} tool(s) budgeted",
         },
         {
-            "name": "planner rejects a tool outside the discipline allowlist",
+            "name": "execution entry validator rejects a tool outside the discipline allowlist",
             "status": "PASS" if rejected else "FAIL",
             "detail": "rejected" if rejected else "accepted",
         },
     ]
-    if not (mounted_ok and hops_ok and rejected):
+    service_source = (REPO_ROOT / "portal/modules/orchestration/service.py").read_text(
+        encoding="utf-8"
+    )
+    cli_source = (REPO_ROOT / "portal/modules/orchestration/cli.py").read_text(encoding="utf-8")
+    queue_source = (REPO_ROOT / "portal/modules/orchestration/queue.py").read_text(encoding="utf-8")
+    entries_ok = (
+        service_source.count("validate_execution_plan(") >= 2
+        and "validate_execution_plan(" in cli_source
+        and "policy_validated" in queue_source
+    )
+    subs.append(
+        {
+            "name": "submit, resume, enqueue, and queue persistence require policy validation",
+            "status": "PASS" if entries_ok else "FAIL",
+            "detail": "service and CLI validate; queue requires validated immutable plans"
+            if entries_ok
+            else "one or more public entry points bypass policy validation",
+        }
+    )
+    if not (mounted_ok and hops_ok and rejected and entries_ok):
         return ("FAIL", "per-bite tool mounting is not enforced", subs)
     return ("PASS", "requests carry only the bite's tools and turn budget", subs)
 

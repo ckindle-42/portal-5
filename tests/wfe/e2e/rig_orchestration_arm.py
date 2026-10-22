@@ -33,6 +33,7 @@ from orchestration_fake_pipeline import (  # noqa: E402
 from portal.modules.orchestration.ledger import ResumeMismatchError  # noqa: E402
 from portal.modules.orchestration.planner import (  # noqa: E402
     instantiate_plan_template,
+    validate_execution_plan,
     validate_planned_plan,
 )
 from portal.modules.orchestration.queue import (  # noqa: E402
@@ -418,7 +419,14 @@ def _planner_rejection(name: str) -> str:
         raw["bites"][0]["accept"] = []
         expected = "deterministic check or review"
     elif name == "planner_context_overflow":
-        raw["bites"][0]["budget"]["context_tokens"] = 16385
+        discipline = config["disciplines"]["test_fixing"]
+        raw["bites"][0]["budget"]["context_tokens"] = (
+            min(
+                config["planner"]["comfortable_context_tokens"],
+                discipline["fast_context_budget_tokens"],
+            )
+            + 1
+        )
         expected = "exceeds Fast context budget"
     elif name == "planner_mixed_read_and_action":
         raw["bites"][0]["tools"] = ["file_read", "file_write"]
@@ -518,6 +526,7 @@ def _valid_planned_plan() -> dict[str, Any]:
             "goal": f"Complete {stage} for the task.",
             "discipline": "test_fixing",
             "inputs": [],
+            **({"write_paths": ["artifact.txt"]} if "file_write" in tools else {}),
             "depends_on": deps,
             "tools": tools,
             "output": {"path": f"bites/{bite_id}.txt", "file_type": "text"},
@@ -686,8 +695,8 @@ def _queue_order(root: Path) -> str:
         pipeline.add("fast", finish_response({"answer": "right"}))
         pipeline.add("fast", finish_response({"answer": "right"}))
         with QueueLedger(root / "tasks") as ledger:
-            ledger.enqueue(_queue_plan("queue-first"), root)
-            ledger.enqueue(_queue_plan("queue-second"), root)
+            ledger.enqueue(_validated_queue_plan(runner, root, "queue-first"), root)
+            ledger.enqueue(_validated_queue_plan(runner, root, "queue-second"), root)
         first = runner.run_next()
         second = runner.run_next()
         assert (first.status, first.task_id) == ("DONE", "queue-first")
@@ -706,7 +715,7 @@ def _queue_bench_lock_wait(root: Path) -> str:
         lock.write_text(f"{os.getpid()}\n", encoding="utf-8")
         pipeline.add("fast", finish_response({"answer": "right"}))
         with QueueLedger(root / "tasks") as ledger:
-            ledger.enqueue(_queue_plan("queue-lock"), root)
+            ledger.enqueue(_validated_queue_plan(runner, root, "queue-lock"), root)
         waiting = runner.run_next()
         assert waiting.status == "WAITING" and not pipeline.requests
         lock.unlink()
@@ -725,7 +734,7 @@ def _queue_crash_resume(root: Path) -> str:
         pipeline.add("fast", SignalResponse(finish_response({"answer": "wrong"})))
         pipeline.add("fast", finish_response({"answer": "right"}))
         with QueueLedger(root / "tasks") as ledger:
-            ledger.enqueue(_queue_plan("queue-crash"), root)
+            ledger.enqueue(_validated_queue_plan(runner, root, "queue-crash"), root)
         previous = signal.getsignal(signal.SIGTERM)
         signal.signal(signal.SIGTERM, lambda *_: (_ for _ in ()).throw(KeyboardInterrupt()))
         try:
@@ -792,9 +801,18 @@ def _queue_plan(task_id: str) -> dict[str, Any]:
     return {"task_id": task_id, "goal": "Run a queued offline task", "bites": [_bite("b1")]}
 
 
+def _validated_queue_plan(runner: OvernightQueue, root: Path, task_id: str):
+    return validate_execution_plan(_queue_plan(task_id), runner.service.arm_config, root)
+
+
 def _write_arm_config(path: Path) -> dict[str, Any]:
     path.parent.mkdir(parents=True, exist_ok=True)
     config = yaml.safe_load((_ROOT / "config" / "orchestration_arm.yaml").read_text())
+    config["disciplines"]["offline-rig"] = {
+        "tool_allowlist": ["file_read", "file_write", "pytest_run"],
+        "read_tools": ["file_read"],
+        "action_tools": ["file_write", "pytest_run"],
+    }
     config["calibration"]["minimum_pass_probability"] = 0.01
     config["calibration"]["rates_by_discipline"] = {
         name: {
@@ -834,6 +852,7 @@ def _bite(
         "goal": "produce the expected value",
         "discipline": discipline,
         "inputs": [],
+        **({"write_paths": ["artifact.txt"]} if "file_write" in (tools or []) else {}),
         "depends_on": [],
         "tools": tools or [],
         "output": output,

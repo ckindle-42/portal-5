@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import asyncio
+import base64
 import json
 import os
 import signal
@@ -17,9 +19,11 @@ import pytest
 import yaml
 from fastapi import HTTPException
 
+from portal.modules.coding.tools import code_sandbox_mcp as sandbox_mcp
+from portal.modules.orchestration import tools as orchestration_tools
 from portal.modules.orchestration.contracts import parse_plan
 from portal.modules.orchestration.ledger import ArmLedger, ResumeMismatchError
-from portal.modules.orchestration.planner import instantiate_plan_template
+from portal.modules.orchestration.planner import instantiate_plan_template, validate_execution_plan
 from portal.modules.orchestration.queue import OvernightQueue, QueueGate, QueueLedger
 from portal.modules.orchestration.service import (
     ArmService,
@@ -27,7 +31,15 @@ from portal.modules.orchestration.service import (
     load_residency_mode,
     module_is_enabled,
 )
-from portal.modules.orchestration.worker import Engine
+from portal.modules.orchestration.tools import (
+    FILE_READ_LIMIT,
+    FILE_WRITE_LIMIT,
+    PYTEST_TIMEOUT_SECONDS,
+    TASK_BYTES_LIMIT,
+    TASK_FILE_LIMIT,
+    TaskToolExecutor,
+)
+from portal.modules.orchestration.worker import Engine, run_bite
 from portal.platform.inference.router import auth
 from portal.platform.inference.router.eval_gate import apply_bite_tool_scope
 
@@ -66,12 +78,14 @@ def bite(
     model: str = "fast",
     review: str | None = None,
     review_reason: str | None = None,
+    write_paths: list[str] | None = None,
 ) -> dict[str, Any]:
     return {
         "bite_id": bite_id,
         "goal": f"Produce the answer for {bite_id}.",
         "discipline": "offline-test",
         "inputs": inputs or [],
+        **({"write_paths": write_paths or ["new.txt"]} if "file_write" in (tools or []) else {}),
         "depends_on": depends_on or [],
         "tools": tools or [],
         "output": {"path": f"bites/{bite_id}/output.json", "schema": _SCHEMA},
@@ -101,6 +115,11 @@ def service(
     config = tmp_path / "orchestration_arm.yaml"
     repo = Path(__file__).resolve().parents[2]
     settings = yaml.safe_load((repo / "config" / "orchestration_arm.yaml").read_text())
+    settings["disciplines"]["offline-test"] = {
+        "tool_allowlist": ["file_read", "file_write", "pytest_run", "wiki_search"],
+        "read_tools": ["file_read", "wiki_search"],
+        "action_tools": ["file_write", "pytest_run"],
+    }
     settings["calibration"]["minimum_pass_probability"] = 0.01
     settings["calibration"]["rates_by_discipline"] = {
         "offline-test": {
@@ -279,7 +298,330 @@ def test_bite_tools_are_sent_as_a_strict_pipeline_allowlist(
     fake_pipeline.add("fast", finish_response({"answer": "right"}))
     service(tmp_path, fake_pipeline).submit(plan("scope", bite(tools=["wiki_search"])), tmp_path)
     assert fake_pipeline.requests[0]["portal_bite_tools"] == ["wiki_search", "finish"]
+    assert [tool["function"]["name"] for tool in fake_pipeline.requests[0]["tools"]] == [
+        "wiki_search",
+        "finish",
+    ]
     assert fake_pipeline.requests[0]["model"] == "auto-daily::fast"
+
+
+def test_client_file_tools_loop_back_to_the_model_and_keep_reading_bites_read_only(
+    tmp_path: Path, fake_pipeline: FakePipeline
+) -> None:
+    task_dir = tmp_path / "client-loop"
+    task_dir.mkdir()
+    (task_dir / "data").mkdir()
+    (task_dir / "data/source.txt").write_text("source contents", encoding="utf-8")
+    fake_pipeline.add("fast", tool_response("file_read", '{"path":"source.txt"}'))
+    fake_pipeline.add("fast", finish_response({"answer": "right"}))
+    task_bite = parse_plan(
+        plan("client-loop", bite(tools=["file_read"], inputs=["source.txt"]))
+    ).bites[0]
+    result = run_bite(
+        task_dir,
+        task_bite,
+        Engine(
+            "auto-daily::fast",
+            "test-digest",
+            fake_pipeline.url,
+            auth.PIPELINE_API_KEY,
+        ),
+        input_paths={"source.txt": Path("source.txt")},
+        attempt_dir=task_dir / "attempt",
+    )
+
+    assert result.finished
+    assert [request["portal_bite_max_hops"] for request in fake_pipeline.requests] == [2, 1]
+    assert all(
+        [tool["function"]["name"] for tool in request["tools"]] == ["file_read", "finish"]
+        for request in fake_pipeline.requests
+    )
+    followup = fake_pipeline.requests[1]["messages"]
+    assert followup[-1]["role"] == "tool"
+    assert followup[-1]["name"] == "file_read"
+    assert followup[-1]["content"] == "source contents"
+
+
+def test_client_tool_loop_honors_the_hop_limit_before_executing_a_last_hop_action(
+    tmp_path: Path, fake_pipeline: FakePipeline
+) -> None:
+    task_dir = tmp_path / "hop-limit"
+    task_dir.mkdir()
+    fake_pipeline.add("fast", tool_response("file_write", '{"path":"new.txt","content":"x"}'))
+    raw_bite = bite(tools=["file_write"])
+    raw_bite["budget"]["turns"] = 1
+    task_bite = parse_plan(plan("hop-limit", raw_bite)).bites[0]
+
+    result = run_bite(
+        task_dir,
+        task_bite,
+        Engine(
+            "auto-daily::fast",
+            "test-digest",
+            fake_pipeline.url,
+            auth.PIPELINE_API_KEY,
+        ),
+        input_paths={},
+        attempt_dir=task_dir / "attempt",
+    )
+
+    assert result.loop_outcome == "hop_limit_exhausted"
+    assert result.red_flags == ("hop_limit_exhausted",)
+    assert not (task_dir / "data/new.txt").exists()
+    assert fake_pipeline.requests[0]["portal_bite_max_hops"] == 1
+
+
+def test_fake_pipeline_drops_server_side_tools_without_client_schemas() -> None:
+    finish_schema = {"type": "function", "function": {"name": "finish"}}
+    read_schema = {"type": "function", "function": {"name": "file_read"}}
+    missing_schema = {
+        "portal_bite_tools": ["file_read", "finish"],
+        "tools": [finish_schema],
+    }
+    client_schemas = {
+        "portal_bite_tools": ["file_read", "finish"],
+        "tools": [read_schema, finish_schema],
+    }
+
+    pipeline = FakePipeline(pipeline_tools=set())
+    try:
+        assert pipeline._tools_offered(missing_schema) == ["finish"]
+        assert pipeline._tools_offered(client_schemas) == ["file_read", "finish"]
+    finally:
+        pipeline.close()
+
+
+def test_task_tools_confine_paths_and_enforce_size_limits(tmp_path: Path) -> None:
+    task_dir = tmp_path / "task"
+    task_dir.mkdir()
+    outside = tmp_path / "outside.txt"
+    outside.write_text("private", encoding="utf-8")
+    (task_dir / "escape").symlink_to(outside)
+    tools = TaskToolExecutor(task_dir, ("file_read", "file_write"), writable_paths=("safe.txt",))
+
+    assert tools.dispatch("file_read", {"path": "../outside.txt"}).startswith("ERROR:")
+    assert tools.dispatch("file_read", {"path": str(outside)}).startswith("ERROR:")
+    assert tools.dispatch("file_read", {"path": "escape"}).startswith("ERROR:")
+    assert tools.dispatch(
+        "file_write", {"path": "../outside.txt", "content": "changed"}
+    ).startswith("ERROR:")
+    assert tools.dispatch(
+        "file_write", {"path": "large.txt", "content": "x" * (FILE_WRITE_LIMIT + 1)}
+    ).startswith("ERROR:")
+    (task_dir / "large-read.txt").write_bytes(b"x" * (FILE_READ_LIMIT + 1))
+    assert tools.dispatch("file_read", {"path": "large-read.txt"}).startswith("ERROR:")
+    assert outside.read_text(encoding="utf-8") == "private"
+
+
+@pytest.mark.parametrize("operation", ["read", "write"])
+def test_task_tools_resist_parent_symlink_swap(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, operation: str
+) -> None:
+    task_dir = tmp_path / "task"
+    safe_dir = task_dir / "safe"
+    outside_dir = tmp_path / "outside"
+    safe_dir.mkdir(parents=True)
+    outside_dir.mkdir()
+    (safe_dir / "target.txt").write_text("inside", encoding="utf-8")
+    (outside_dir / "target.txt").write_text("outside", encoding="utf-8")
+    tools = TaskToolExecutor(
+        task_dir,
+        ("file_read", "file_write"),
+        readable_paths=("safe/target.txt",),
+        writable_paths=("safe/target.txt",),
+    )
+    real_open = os.open
+    swapped = False
+
+    def racing_open(
+        path: str | bytes | os.PathLike[str] | os.PathLike[bytes],
+        flags: int,
+        mode: int = 0o777,
+        *,
+        dir_fd: int | None = None,
+    ) -> int:
+        nonlocal swapped
+        is_final_write = bool(flags & os.O_WRONLY)
+        if path == "target.txt" and not swapped and (operation == "read" or is_final_write):
+            safe_dir.rename(task_dir / "contained")
+            safe_dir.symlink_to(outside_dir, target_is_directory=True)
+            swapped = True
+        return real_open(path, flags, mode, dir_fd=dir_fd)
+
+    monkeypatch.setattr(os, "open", racing_open)
+
+    if operation == "read":
+        assert tools.file_read("safe/target.txt") == "inside"
+    else:
+        assert tools.file_write("safe/target.txt", "changed") == "wrote 7 chars to safe/target.txt"
+        assert (task_dir / "contained/target.txt").read_text(encoding="utf-8") == "changed"
+    assert swapped
+    assert (outside_dir / "target.txt").read_text(encoding="utf-8") == "outside"
+
+
+def test_task_tools_cannot_write_control_plane_files(tmp_path: Path) -> None:
+    task_dir = tmp_path / "task"
+    data_dir = task_dir / "data"
+    data_dir.mkdir(parents=True)
+    control_plan = task_dir / "plan.json"
+    control_plan.write_text('{"trusted": true}\n', encoding="utf-8")
+    tools = TaskToolExecutor(data_dir, ("file_write",), writable_paths=("plan.json",))
+
+    assert tools.file_write("plan.json", "model data") == "wrote 10 chars to plan.json"
+    assert control_plan.read_text(encoding="utf-8") == '{"trusted": true}\n'
+    assert (data_dir / "plan.json").read_text(encoding="utf-8") == "model data"
+
+
+def test_task_tools_enforce_a_cumulative_data_quota(tmp_path: Path) -> None:
+    task_dir = tmp_path / "task"
+    task_dir.mkdir()
+    (task_dir / "padding.bin").write_bytes(b"x" * TASK_BYTES_LIMIT)
+    tools = TaskToolExecutor(task_dir, ("file_write",), writable_paths=("safe.txt",))
+
+    assert "task data exceeds" in tools.file_write("safe.txt", "x")
+    assert not (task_dir / "safe.txt").exists()
+
+
+def test_task_tools_enforce_a_cumulative_file_quota(tmp_path: Path) -> None:
+    task_dir = tmp_path / "task"
+    task_dir.mkdir()
+    for index in range(TASK_FILE_LIMIT):
+        (task_dir / f"existing-{index}.txt").touch()
+    tools = TaskToolExecutor(task_dir, ("file_write",), writable_paths=("safe.txt",))
+
+    with pytest.raises(ValueError, match="file limit"):
+        tools.file_write("safe.txt", "x")
+    assert not (task_dir / "safe.txt").exists()
+
+
+def test_pytest_copyback_uses_the_exact_write_allowlist(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    task_dir = tmp_path / "task"
+    task_dir.mkdir()
+    (task_dir / "module.py").write_text("value = 1\n", encoding="utf-8")
+
+    def fake_request(_url: str, _payload: dict[str, Any]) -> dict[str, Any]:
+        return {
+            "exit_code": 0,
+            "stdout": "1 passed\n",
+            "stderr": "",
+            "files": {"test_module.py": base64.b64encode(b"tampered\n").decode("ascii")},
+        }
+
+    monkeypatch.setattr(orchestration_tools, "_sandbox_request", fake_request)
+    tools = TaskToolExecutor(
+        task_dir,
+        ("pytest_run",),
+        readable_paths=("module.py",),
+        writable_paths=("module.py",),
+    )
+
+    result = tools.pytest_run()
+
+    assert "copy-back rejected" in result
+    assert not (task_dir / "test_module.py").exists()
+
+
+def test_orchestration_pytest_uses_the_locked_down_dind_envelope(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    captured: list[str] = []
+
+    class Process:
+        returncode = 0
+
+        async def communicate(self) -> tuple[bytes, bytes]:
+            return b'{"exit_code":0,"stdout":"1 passed","stderr":"","files":{}}', b""
+
+    async def fake_exec(*command: str, **_kwargs: Any) -> Process:
+        captured.extend(command)
+        return Process()
+
+    monkeypatch.setattr(sandbox_mcp, "SANDBOX_DIR", tmp_path)
+    monkeypatch.setattr(sandbox_mcp.asyncio, "create_subprocess_exec", fake_exec)
+    payload = {
+        "files": {"test_sample.py": base64.b64encode(b"def test_ok(): pass\n").decode()},
+        "selectors": ["test_sample.py"],
+        "write_paths": [],
+        "timeout": 10,
+    }
+
+    result = asyncio.run(sandbox_mcp._run_orchestration_pytest(payload))
+
+    command = " ".join(captured)
+    assert result["exit_code"] == 0
+    assert "--network none" in command
+    assert "--memory 256m" in command
+    assert "--cpus 0.5" in command
+    assert "--pids-limit 64" in command
+    assert "--read-only" in captured
+    assert "/workspace" not in command
+    assert "PYTHONPATH" not in command
+    assert "os.environ" not in sandbox_mcp._PYTEST_RUNNER
+    assert "os.setuid(65534)" in sandbox_mcp._PYTEST_RUNNER
+
+
+def test_orchestration_pytest_timeout_removes_the_whole_container(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    commands: list[tuple[str, ...]] = []
+
+    class TimedOut:
+        returncode = None
+        calls = 0
+
+        async def communicate(self) -> tuple[bytes, bytes]:
+            self.calls += 1
+            if self.calls == 1:
+                raise TimeoutError
+            return b"", b""
+
+        def kill(self) -> None:
+            return None
+
+    class Cleanup:
+        async def wait(self) -> int:
+            return 0
+
+    async def fake_exec(*command: str, **_kwargs: Any) -> Any:
+        commands.append(command)
+        return TimedOut() if len(commands) == 1 else Cleanup()
+
+    monkeypatch.setattr(sandbox_mcp, "SANDBOX_DIR", tmp_path)
+    monkeypatch.setattr(sandbox_mcp.asyncio, "create_subprocess_exec", fake_exec)
+    payload = {"files": {}, "selectors": [], "write_paths": [], "timeout": 1}
+
+    result = asyncio.run(sandbox_mcp._run_orchestration_pytest(payload))
+
+    assert result["timed_out"] is True
+    assert commands[1][:3] == ("docker", "rm", "-f")
+
+
+def test_pytest_run_is_limited_to_local_tests_and_uses_container_sandbox(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    task_dir = tmp_path / "pytest-task"
+    task_dir.mkdir()
+    (task_dir / "test_sample.py").write_text("def test_ok(): pass\n", encoding="utf-8")
+    (task_dir / "undeclared-secret.txt").write_text("not for this bite\n", encoding="utf-8")
+    captured: dict[str, Any] = {}
+
+    def fake_run(url: str, payload: dict[str, Any]) -> dict[str, Any]:
+        captured["url"] = url
+        captured["payload"] = payload
+        return {"exit_code": 0, "stdout": "1 passed\n", "stderr": "", "files": {}}
+
+    monkeypatch.setattr(orchestration_tools, "_sandbox_request", fake_run)
+    tools = TaskToolExecutor(task_dir, ("pytest_run",), readable_paths=("test_sample.py",))
+    result = tools.dispatch("pytest_run", {"args": "test_sample.py"})
+
+    assert "exit_code=0" in result and "1 passed" in result
+    assert captured["url"] == "http://127.0.0.1:8914"
+    assert captured["payload"]["timeout"] == PYTEST_TIMEOUT_SECONDS
+    assert set(captured["payload"]["files"]) == {"test_sample.py"}
+    assert tools.dispatch("pytest_run", {"args": "../outside.py"}).startswith("ERROR:")
+    assert tools.dispatch("pytest_run", {"args": "--confcutdir=/"}).startswith("ERROR:")
 
 
 def test_worker_sends_input_paths_without_packing_file_contents(
@@ -288,12 +630,49 @@ def test_worker_sends_input_paths_without_packing_file_contents(
     (tmp_path / "source.txt").write_text("complete source text", encoding="utf-8")
     fake_pipeline.add("fast", finish_response({"answer": "right"}))
     task_bite = bite(inputs=["source.txt"])
-    service(tmp_path, fake_pipeline).submit(plan("input-read", task_bite), tmp_path)
+    task_dir = service(tmp_path, fake_pipeline).submit(plan("input-read", task_bite), tmp_path)
     request = fake_pipeline.requests[0]
     messages = request["messages"]
     source = json.loads(messages[1]["content"])["inputs"]["source.txt"]
-    assert source == {"path": str((tmp_path / "source.txt").resolve())}
+    assert source["path"].startswith("inputs/")
+    assert (task_dir / "data" / source["path"]).read_text(
+        encoding="utf-8"
+    ) == "complete source text"
     assert "complete source text" not in json.dumps(messages)
+
+
+def test_submit_rejects_tools_outside_the_discipline_allowlist(
+    tmp_path: Path, fake_pipeline: FakePipeline
+) -> None:
+    with pytest.raises(ValueError, match="tool outside discipline allowlist"):
+        service(tmp_path, fake_pipeline).submit(
+            plan("raw-tool", bite(tools=["send_message"])), tmp_path
+        )
+    assert not (tmp_path / "tasks/raw-tool").exists()
+
+
+def test_submit_rejects_absolute_inputs_outside_the_source_root(
+    tmp_path: Path, fake_pipeline: FakePipeline
+) -> None:
+    outside = tmp_path.parent / "arm-outside.txt"
+    outside.write_text("host data", encoding="utf-8")
+    try:
+        with pytest.raises(ValueError, match="input path escapes source directory"):
+            service(tmp_path, fake_pipeline).submit(
+                plan("raw-input", bite(tools=["file_read"], inputs=[str(outside)])),
+                tmp_path,
+            )
+    finally:
+        outside.unlink()
+    assert not (tmp_path / "tasks/raw-input").exists()
+
+
+def test_queue_rejects_unvalidated_raw_plan(tmp_path: Path) -> None:
+    with (
+        QueueLedger(tmp_path / "tasks") as ledger,
+        pytest.raises(TypeError, match="policy-validated TaskPlan"),
+    ):
+        ledger.enqueue(plan("raw-queue", bite()), tmp_path)  # type: ignore[arg-type]
 
 
 def test_absent_bite_scope_preserves_existing_pipeline_tools() -> None:
@@ -354,7 +733,7 @@ def test_output_token_budget_blocks_over_cap_output(
     receipt = json.loads((task_dir / "receipt.json").read_text())
     assert receipt["status"] == "BLOCKED"
     assert "output_token_cap" in receipt["results"][0]["failure"]["failures"]
-    assert not (task_dir / "bites/b1/output.json").exists()
+    assert not (task_dir / "data/bites/b1/output.json").exists()
 
 
 def test_wall_clock_budget_rejects_late_pipeline_output(
@@ -539,8 +918,18 @@ def test_overnight_queue_runs_tasks_in_fifo_order_and_records_receipts(
     )
     runner = OvernightQueue(tmp_path / "tasks", runner_service, gate)
     with QueueLedger(tmp_path / "tasks") as ledger:
-        ledger.enqueue(plan("queue-first", bite()), tmp_path)
-        ledger.enqueue(plan("queue-second", bite()), tmp_path)
+        ledger.enqueue(
+            validate_execution_plan(
+                plan("queue-first", bite()), runner_service.arm_config, tmp_path
+            ),
+            tmp_path,
+        )
+        ledger.enqueue(
+            validate_execution_plan(
+                plan("queue-second", bite()), runner_service.arm_config, tmp_path
+            ),
+            tmp_path,
+        )
     first = runner.run_next()
     second = runner.run_next()
     with QueueLedger(tmp_path / "tasks") as ledger:
@@ -562,8 +951,18 @@ def test_queue_blocks_one_broken_task_and_still_runs_the_next(
     )
     runner = OvernightQueue(tmp_path / "tasks", runner_service, gate)
     with QueueLedger(tmp_path / "tasks") as ledger:
-        ledger.enqueue(plan("queue-broken", bite()), tmp_path)
-        ledger.enqueue(plan("queue-after", bite()), tmp_path)
+        ledger.enqueue(
+            validate_execution_plan(
+                plan("queue-broken", bite()), runner_service.arm_config, tmp_path
+            ),
+            tmp_path,
+        )
+        ledger.enqueue(
+            validate_execution_plan(
+                plan("queue-after", bite()), runner_service.arm_config, tmp_path
+            ),
+            tmp_path,
+        )
     (tmp_path / "tasks" / "queue-broken").mkdir()
     fake_pipeline.add("fast", finish_response({"answer": "right"}))
 
@@ -591,7 +990,12 @@ def test_queue_review_waits_when_a_bench_lock_appears_mid_bite(
     runner = OvernightQueue(tmp_path / "tasks", runner_service, gate)
     reviewed = bite(review="deep", review_reason="review must respect the bench lock")
     with QueueLedger(tmp_path / "tasks") as ledger:
-        ledger.enqueue(plan("queue-review-lock", reviewed), tmp_path)
+        ledger.enqueue(
+            validate_execution_plan(
+                plan("queue-review-lock", reviewed), runner_service.arm_config, tmp_path
+            ),
+            tmp_path,
+        )
     # The bench lock appears while the fast bite is in flight, not on a timer.
     fake_pipeline.add(
         "fast",
@@ -649,7 +1053,12 @@ def test_queue_yield_before_the_request_does_not_count_an_attempt(
     )
     runner = OvernightQueue(tmp_path / "tasks", runner_service, gate)
     with QueueLedger(tmp_path / "tasks") as ledger:
-        ledger.enqueue(plan("queue-yield", bite()), tmp_path)
+        ledger.enqueue(
+            validate_execution_plan(
+                plan("queue-yield", bite()), runner_service.arm_config, tmp_path
+            ),
+            tmp_path,
+        )
     fake_pipeline.add_admin_response({"busy": False, "fits": True, "models": []})
     fake_pipeline.add_admin_response({"busy": True, "fits": True, "models": []})
 
@@ -671,10 +1080,18 @@ def test_queue_yield_before_the_request_does_not_count_an_attempt(
     assert len(fake_pipeline.requests) == 1
 
 
-def test_queue_ledger_reclaims_a_task_after_its_runner_process_dies(tmp_path: Path) -> None:
+def test_queue_ledger_reclaims_a_task_after_its_runner_process_dies(
+    tmp_path: Path, fake_pipeline: FakePipeline
+) -> None:
     task_root = tmp_path / "tasks"
+    runner_service = service(tmp_path, fake_pipeline)
     with QueueLedger(task_root) as ledger:
-        ledger.enqueue(plan("queue-recovery", bite()), tmp_path)
+        ledger.enqueue(
+            validate_execution_plan(
+                plan("queue-recovery", bite()), runner_service.arm_config, tmp_path
+            ),
+            tmp_path,
+        )
         item, active = ledger.claim_next()
         assert item is not None and not active
     with sqlite3.connect(task_root / "queue.sqlite3") as db:

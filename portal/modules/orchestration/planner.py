@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from dataclasses import replace
 from pathlib import Path
 from string import Template
 from typing import Any
@@ -14,10 +15,16 @@ PLANNER_RULES = """Write a JSON task plan as one object with task_id, goal, and 
 Every bite must have a deterministic acceptance check or review='deep' with a specific review_reason.
 Keep every bite within the supplied comfortable Fast context token budget; include budget.context_tokens.
 Split reading from acting: a bite must not combine read_tools and action_tools, and untrusted reads never act.
+Every file_write bite must declare its exact writable data-plane paths in write_paths.
 Prefer small bites and give each a narrow goal and only its required tools.
 End with stage='assembly' followed by stage='final_review'; final_review depends on assembly.
 Each bite must include a checkable output, dependencies, budget, model, risk, and procedure.
 Do not invent tools, paths, or discipline names. Return JSON only."""
+MAX_PLAN_BITES = 64
+MAX_BITE_TURNS = 16
+MAX_BITE_MINUTES = 60
+MAX_BITE_OUTPUT_TOKENS = 16_384
+MAX_WRITE_PATHS = 128
 
 
 def validate_planned_plan(
@@ -30,20 +37,14 @@ def validate_planned_plan(
     planner = _mapping(arm_config.get("planner"), "planner")
     disciplines = _mapping(arm_config.get("disciplines"), "disciplines")
     discipline = _mapping(disciplines.get(discipline_key), f"discipline {discipline_key}")
-    plan = parse_plan(raw)
+    plan = validate_execution_plan(raw, arm_config, source_dir)
     max_context = min(
         _positive_int(planner, "comfortable_context_tokens"),
         _positive_int(discipline, "fast_context_budget_tokens"),
     )
-    allowed_tools = _string_set(discipline, "tool_allowlist")
-    read_tools = _string_set(discipline, "read_tools")
-    action_tools = _string_set(discipline, "action_tools")
-    by_id = {bite.bite_id: bite for bite in plan.bites}
     for bite in plan.bites:
         if bite.discipline != discipline_key:
             raise ValueError(f"bite {bite.bite_id}: discipline must be {discipline_key}")
-        if not set(bite.tools) <= allowed_tools:
-            raise ValueError(f"bite {bite.bite_id}: tool outside discipline allowlist")
         if bite.budget.context_tokens is None:
             raise ValueError(f"bite {bite.bite_id}: budget.context_tokens is required")
         if bite.budget.context_tokens > max_context:
@@ -51,12 +52,6 @@ def validate_planned_plan(
                 f"bite {bite.bite_id}: context budget {bite.budget.context_tokens} exceeds "
                 f"Fast context budget {max_context}"
             )
-        has_read = bite.reads_untrusted or bool(set(bite.tools) & read_tools)
-        has_action = bool(set(bite.tools) & action_tools)
-        if has_read and has_action:
-            raise ValueError(f"bite {bite.bite_id}: reading and acting must be separate bites")
-        if source_dir is not None:
-            _validate_inputs(bite, by_id, source_dir)
     if len(plan.bites) < 2 or [plan.bites[-2].stage, plan.bites[-1].stage] != [
         "assembly",
         "final_review",
@@ -65,6 +60,42 @@ def validate_planned_plan(
     if plan.bites[-2].bite_id not in plan.bites[-1].depends_on:
         raise ValueError("final_review must depend on the assembly bite")
     return plan
+
+
+def validate_execution_plan(
+    raw: dict[str, Any], arm_config: dict[str, Any], source_dir: Path | None = None
+) -> TaskPlan:
+    """Validate every executable entry point against immutable discipline policy."""
+    disciplines = _mapping(arm_config.get("disciplines"), "disciplines")
+    plan = parse_plan(raw)
+    if len(plan.bites) > MAX_PLAN_BITES:
+        raise ValueError(f"plan exceeds the {MAX_PLAN_BITES}-bite limit")
+    by_id = {bite.bite_id: bite for bite in plan.bites}
+    for bite in plan.bites:
+        discipline = _mapping(disciplines.get(bite.discipline), f"discipline {bite.discipline}")
+        allowed_tools = _string_set(discipline, "tool_allowlist")
+        read_tools = _string_set(discipline, "read_tools")
+        action_tools = _string_set(discipline, "action_tools")
+        if not set(bite.tools) <= allowed_tools:
+            raise ValueError(f"bite {bite.bite_id}: tool outside discipline allowlist")
+        has_read = bite.reads_untrusted or bool(set(bite.tools) & read_tools)
+        has_action = bool(set(bite.tools) & action_tools)
+        if has_read and has_action:
+            raise ValueError(f"bite {bite.bite_id}: reading and acting must be separate bites")
+        if "file_write" in bite.tools and not bite.write_paths:
+            raise ValueError(f"bite {bite.bite_id}: file_write requires write_paths")
+        if len(bite.write_paths) > MAX_WRITE_PATHS:
+            raise ValueError(f"bite {bite.bite_id}: too many write_paths")
+        if bite.budget.turns > MAX_BITE_TURNS:
+            raise ValueError(f"bite {bite.bite_id}: turns exceed policy limit")
+        if bite.budget.minutes > MAX_BITE_MINUTES:
+            raise ValueError(f"bite {bite.bite_id}: minutes exceed policy limit")
+        if bite.budget.output_tokens > MAX_BITE_OUTPUT_TOKENS:
+            raise ValueError(f"bite {bite.bite_id}: output tokens exceed policy limit")
+        _validate_write_paths(bite)
+        if source_dir is not None:
+            _validate_inputs(bite, by_id, source_dir)
+    return replace(plan, policy_validated=True)
 
 
 def instantiate_plan_template(
@@ -173,16 +204,31 @@ def plan_goal(
 
 
 def _validate_inputs(bite: Any, by_id: dict[str, Any], source_dir: Path) -> None:
+    source_root = source_dir.expanduser().resolve()
     for reference in bite.inputs:
         if reference in by_id:
             if reference not in bite.depends_on:
                 raise ValueError(f"bite {bite.bite_id}: input bite {reference} is not a dependency")
-        elif not (
-            (source_dir / reference).resolve()
-            if not Path(reference).is_absolute()
-            else Path(reference)
-        ).is_file():
-            raise ValueError(f"bite {bite.bite_id}: input path does not exist: {reference}")
+        else:
+            relative = Path(reference)
+            target = (source_root / relative).resolve()
+            if (
+                relative.is_absolute()
+                or ".." in relative.parts
+                or not target.is_relative_to(source_root)
+            ):
+                raise ValueError(f"bite {bite.bite_id}: input path escapes source directory")
+            if not target.is_file():
+                raise ValueError(f"bite {bite.bite_id}: input path does not exist: {reference}")
+
+
+def _validate_write_paths(bite: Any) -> None:
+    for value in bite.write_paths:
+        if value in bite.inputs:
+            continue
+        path = Path(value)
+        if path.is_absolute() or ".." in path.parts or path == Path("."):
+            raise ValueError(f"bite {bite.bite_id}: write path must stay inside task data")
 
 
 def _mapping(value: Any, name: str) -> dict[str, Any]:

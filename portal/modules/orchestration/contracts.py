@@ -29,6 +29,7 @@ class Bite:
     goal: str
     discipline: str
     inputs: tuple[str, ...]
+    write_paths: tuple[str, ...]
     depends_on: tuple[str, ...]
     tools: tuple[str, ...]
     output_path: str
@@ -50,6 +51,7 @@ class Bite:
             "goal": self.goal,
             "discipline": self.discipline,
             "inputs": list(self.inputs),
+            **({"write_paths": list(self.write_paths)} if self.write_paths else {}),
             "depends_on": list(self.depends_on),
             "tools": list(self.tools),
             "output": {
@@ -83,6 +85,7 @@ class TaskPlan:
     task_id: str
     goal: str
     bites: tuple[Bite, ...]
+    policy_validated: bool = False
 
     def as_dict(self) -> dict[str, Any]:
         return {
@@ -126,6 +129,7 @@ def _parse_bite(raw: Any) -> Bite:
         goal=_required_string(raw, "goal"),
         discipline=_required_string(raw, "discipline"),
         inputs=_string_tuple(raw, "inputs"),
+        write_paths=_string_tuple(raw, "write_paths"),
         depends_on=_string_tuple(raw, "depends_on"),
         tools=_string_tuple(raw, "tools"),
         output_path=output_path,

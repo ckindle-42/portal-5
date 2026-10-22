@@ -108,7 +108,11 @@ disciplines:
               and run $test_file.
             discipline: test_fixing
             inputs:
+            - $source_file
+            - $test_file
             - inspect
+            write_paths:
+            - $source_file
             depends_on:
             - inspect
             tools:
@@ -273,6 +277,8 @@ disciplines:
             discipline: detection-engineering
             inputs:
             - research
+            write_paths:
+            - artifacts/detection.spl
             depends_on:
             - research
             tools:
