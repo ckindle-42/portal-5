@@ -14,6 +14,7 @@ from collections.abc import Sequence
 from contextvars import ContextVar
 from typing import Any
 
+from portal.platform.inference.model_names import model_key
 from portal.platform.inference.router.metrics import _record_no_answer
 from portal.platform.inference.router.non_streaming import _is_capacity_error
 from portal.platform.inference.router.workspaces import WORKSPACES
@@ -125,11 +126,12 @@ async def alternative_workspace(workspace_id: str, model_hint: str) -> tuple[str
         return None
     if not resident:
         return None
+    resident_keys = {model_key(name) for name in resident}
     for name in sorted(WORKSPACES):
         hint = str(WORKSPACES[name].get("model_hint") or "")
         if name == workspace_id or not hint or hint == model_hint or name.startswith("bench-"):
             continue
-        if hint in resident:
+        if model_key(hint) in resident_keys:
             return name, hint
     return None
 

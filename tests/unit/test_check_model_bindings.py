@@ -6,6 +6,7 @@ Regression guard for the false-positive FAIL fixed alongside the Obscura swap.
 """
 
 import importlib.util
+import json
 from pathlib import Path
 
 _spec = importlib.util.spec_from_file_location(
@@ -71,6 +72,48 @@ def test_environment_model_bindings_prefer_dotenv_then_example(tmp_path):
         (".env.example", "LLM_ROUTER_MODEL", "router:latest"),
         (".env.example", "PORTAL5_TOOL_PRESELECT_MODEL", "preselect:latest"),
     ]
+
+
+_TAGS_FIXTURE = Path(__file__).resolve().parents[1] / "fixtures" / "ollama_tags_20261022.json"
+
+
+def test_a_case_only_binding_is_flagged_with_the_served_tag():
+    live = {"hf.co/bartowski/Foo-GGUF:q4_K_M-ctx8k"}
+    bindings = [("src", "model_hint", "hf.co/bartowski/Foo-GGUF:Q4_K_M-ctx8k")]
+    assert cmb.find_orphans(bindings, live) == []
+    assert cmb.find_case_only(bindings, live) == [
+        (
+            "src",
+            "model_hint",
+            "hf.co/bartowski/Foo-GGUF:Q4_K_M-ctx8k",
+            "hf.co/bartowski/Foo-GGUF:q4_K_M-ctx8k",
+        )
+    ]
+
+
+def test_an_exact_binding_is_not_case_only():
+    live = {"m:Q4_K_M"}
+    assert cmb.find_case_only([("src", "model_hint", "m:Q4_K_M")], live) == []
+
+
+def test_the_recorded_tags_flag_both_swap_uat_seats():
+    """Recorded /api/tags (2026-10-22): the two seats the swap UAT found differ only by case."""
+    live = {m["name"] for m in json.loads(_TAGS_FIXTURE.read_text())["models"]}
+    bindings = [
+        *cmb._workspace_bindings(cmb.REPO_ROOT),
+        *cmb._variant_bindings(cmb.REPO_ROOT),
+    ]
+    flagged = {(src, tag) for src, _field, tag, _served in cmb.find_case_only(bindings, live)}
+    assert flagged == {
+        (
+            "config/portal.yaml [auto-general-uncensored]",
+            "hf.co/mradermacher/Huihui-Qwen3.6-35B-A3B-abliterated-GGUF:Q4_K_M-ctx8k",
+        ),
+        (
+            "config/portal.yaml [auto-coding::uncensored]",
+            "portal5/omnicoder2-9b:q4_k_m-ctx256k",
+        ),
+    }
 
 
 def test_collect_bindings_includes_compliance_roster_models(tmp_path):

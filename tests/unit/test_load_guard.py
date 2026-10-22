@@ -312,6 +312,36 @@ async def test_resident_model_is_never_gated():
     assert await guard(e).admit(OLLAMA_URL, "big") is None
 
 
+async def test_a_case_only_tag_difference_sizes_from_the_served_entry():
+    # UAT 2026-10-22: config `:q4_k_m` vs Ollama `:Q4_K_M` — one model to Ollama.
+    served = "portal5/omnicoder2-9b:Q4_K_M-ctx256k"
+    configured = "portal5/omnicoder2-9b:q4_k_m-ctx256k"
+    e = Engines(tags={served: 6 * GIB}, ceiling=8 * GIB)  # 7.5 projected > 6 available
+    g = guard(e)
+    async with httpx.AsyncClient(transport=e.transport()) as client:
+        assert await g._need(client, OLLAMA_URL, configured) == pytest.approx(6 * GIB * lg._FACTOR)
+    with pytest.raises(lg.LoadRefusedError):
+        await g.admit(OLLAMA_URL, configured)
+
+
+async def test_a_case_only_resident_is_not_a_cold_load():
+    served = "portal5/omnicoder2-9b:Q4_K_M-ctx256k"
+    configured = "portal5/omnicoder2-9b:q4_k_m-ctx256k"
+    e = Engines(ollama={served: 6 * GIB}, tags={served: 6 * GIB}, ceiling=8 * GIB)
+    assert await guard(e).admit(OLLAMA_URL, configured) is None
+
+
+async def test_a_case_only_busy_resident_is_not_evictable():
+    served = "seat:Q4_K_M"
+    e = Engines(ollama={served: 20 * GIB}, tags={"kat": 18 * GIB}, ceiling=2 * GIB)
+    g = guard(e)
+    end = g.begin(OLLAMA, "seat:q4_k_m")
+    with pytest.raises(lg.LoadRefusedError):
+        await g.admit(OLLAMA_URL, "kat")
+    assert served in e.ollama  # the sibling request's model was not unloaded
+    end()
+
+
 async def test_lock_is_load_scoped_released_once_resident():
     e = Engines(tags={"m": 4 * GIB})
     g = guard(e)
@@ -1450,7 +1480,9 @@ async def test_a_fitting_cold_load_counts_admitted_immediately_and_sets_the_gaug
         metric_value(_ADMISSIONS, engine=OLLAMA, outcome="admitted_immediately")
         == (before or 0) + 1
     )
-    assert metric_value(_ADMISSIONS, engine=OLLAMA, outcome="admitted_after_wait") == (waited or 0)
+    assert (metric_value(_ADMISSIONS, engine=OLLAMA, outcome="admitted_after_wait") or 0) == (
+        waited or 0
+    )
     assert metric_value(_WAIT_COUNT, engine=OLLAMA) == (waits or 0) + 1
     assert metric_value(_HEADROOM) == pytest.approx(38 * GIB)  # 40 ceiling - 2 margin
     assert metric_value(_CEILING) == pytest.approx(40 * GIB)

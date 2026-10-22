@@ -24,6 +24,7 @@ from typing import Any
 
 import httpx
 
+from portal.platform.inference.model_names import model_key
 from portal.platform.inference.omlx_auth import OmlxKeyAuth
 
 logger = logging.getLogger(__name__)
@@ -142,10 +143,11 @@ def _freeable(names: list[str], router_model: str) -> list[str]:
     guard = load_guard.GUARD
     out: list[str] = []
     for name in names:
-        if name == router_model:
+        if model_key(name) == model_key(router_model):
             continue
         if guard is not None and (
-            guard.busy(load_guard.OLLAMA, name) or name in guard.protected(load_guard.OLLAMA)
+            guard.busy(load_guard.OLLAMA, name)
+            or model_key(name) in guard.protected(load_guard.OLLAMA)
         ):
             continue
         out.append(name)
