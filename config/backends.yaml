@@ -416,6 +416,25 @@ backends:
     supports_tools: true
   - id: hf.co/QuantFactory/Llama-3.2-3B-Instruct-abliterated-GGUF:latest
     supports_tools: true
+  # 2026-10-21 bench-only intake (module: eval) — Spark-X2.6-4B Q4_K_M screen
+  # tags, built per ../portal-5-research-sage/coding_task/spark_kit (REPORT_SPARK
+  # GO). supports_tools per the kit's conformance check 2: tool calls parse
+  # clean (typed arguments, no markup left in content). Both tags declared here,
+  # not ollama-coding: every eval-module bench-* workspace routes to the general
+  # group (same class as the TASK_SAMPLING_PROFILE_AUDIT_V1 entries above).
+  - id: portal5/spark-x2.6:q4_K_M-ctx64k
+    supports_tools: true
+  - id: portal5/spark-x2.6:q4_K_M-ctx16k
+    supports_tools: true
+  # 2026-10-21 bench-only intake: Recursive Flint on the Ollama 0.40.8 MLX
+  # engine (REPORT_FLINT GO-for-screen, not a seat). supports_tools: false is
+  # the conservative default — no tool-call probe is on record yet; flip it
+  # only when the screen's step-2 probe returns typed tool_calls. Declared in
+  # general (REPORT_FLINT said ollama-coding, but bench-flint's generated
+  # workspace_routing is [general] and strict hint validation only checks the
+  # workspace's own routing groups — the GATE-D failure class above).
+  - id: flint:40b-a2b-qat-int4
+    supports_tools: false
   type: ollama
   url: ${OLLAMA_URL:-http://host.docker.internal:11434}
 - group: coding
@@ -1336,4 +1355,8 @@ workspace_routing:
   bench-mistral-small-3-2:
   - general
   bench-magistral-small:
+  - general
+  bench-spark-x26:
+  - general
+  bench-flint:
   - general

@@ -2360,3 +2360,33 @@ The compliance-reading seat is the §P8.1-bound production seat; moving it to oM
 ### `hf.co/fdtn-ai/Foundation-Sec-8B-Reasoning-Q8_0-GGUF:Q8_0-ctx8k`
 
 `hf.co/fdtn-ai/Foundation-Sec-8B-Reasoning-Q8_0-GGUF:Q8_0-ctx8k` is the derived tag of the Foundation-Sec-8B reasoning GGUF with `PARAMETER num_ctx 8192` baked in (P-4 prevent, 2026-10-15). `config/portal.yaml`'s `auto-security::security-expert-foundation-sec-8b` names it as `model_hint`, matching its `context_limit` of 8192, and `config/backends.yaml` registers it in the `ollama-security` pool with `supports_tools: false`, as the base weights are registered.
+
+---
+
+### `portal5/spark-x2.6:q4_K_M-ctx64k`
+
+`portal5/spark-x2.6:q4_K_M-ctx64k` is the Spark-X2.6-4B Q4_K_M GGUF (XHToken/Spark-X2.6-4B-GGUF, `spark2_5`, 9 full-attention + 27 sliding layers, 3,543,441,312 bytes) with `PARAMETER num_ctx 65536` baked in via `ollama create` from the spark kit Modelfile (2026-10-21). `config/backends.yaml` registers it in the `general` group with `supports_tools: true` — the kit's conformance check 2 returned clean typed `tool_calls` with no markup left in `message.content`, so the flag is a probe result, not a template inference. `config/bench_workspaces.yaml` binds it as the `bench-spark-x26` `model_hint`, whose `context_limit` of 65536 matches the baked window and carries `ctx_validated: true`. Sampling is the vendor `generation_config.json` row (temperature 1.0, top_p 0.95, top_k `-1` = disabled, repeat_penalty 1.0). The seat is serialized: `keep_alive: "0"` and `max_concurrent: 1`, because Fast+Deep alone measured 37.8 GiB against 25.7 GiB available (2026-10-21) and Spark (~6 GiB RSS at 64k) is arithmetically excluded from co-residency.
+
+## Why
+
+The registration exists so the orchestration arm's reading/checker bites can address Spark through the Pipeline instead of a direct Ollama call — an unregistered hint is a silent no-op (`P5-HINT-FALLBACK-001`). It sits in the `general` group because every `module: eval` bench workspace routes there; the `?model=` probe path in the kit uses `auto-daily`, whose routing is `[general]`. PROMOTE_POLICY=confirm — nothing here promotes the model.
+
+---
+
+### `portal5/spark-x2.6:q4_K_M-ctx16k`
+
+`portal5/spark-x2.6:q4_K_M-ctx16k` is the same Spark-X2.6-4B Q4_K_M weights with `PARAMETER num_ctx 16384` baked in — the fit tag the spark kit's run order creates and measures before the 64k stretch (≈3.93 GiB weights + KV at 16k vs ≈5.60 GiB at 64k). `config/backends.yaml` registers it in the `general` group with `supports_tools: true` (same weights and template as the ctx64k tag; same probe). No workspace pins it today: `bench-spark-x26` uses the ctx64k target tag, and this entry is the registered fallback the screen substitutes if the 64k window ever fails its RSS gate.
+
+## Why
+
+Registering the fallback tag keeps the substitution a config edit rather than a registry hole — a workspace repointed at `-ctx16k` resolves immediately, and the hint validator sees both strings before a screen needs them.
+
+---
+
+### `flint:40b-a2b-qat-int4`
+
+`flint:40b-a2b-qat-int4` is RecursiveSI/flint served by Ollama 0.40.8's MLX engine (40B MoE, ~2.5B active, QAT INT4, ~22.6GB) — the library tag `ollama run flint` resolves on this host, not a derived bake. `config/backends.yaml` registers it in the `general` group with `supports_tools: false`: no tool-call probe is on record, so the flag is the registry's conservative default and flips only when the screen's step-2 probe returns typed `tool_calls`. `config/bench_workspaces.yaml` binds it as the `bench-flint` `model_hint` with card sampling (temperature 1.0, top_p 0.95, top_k 20, min_p 0.0, repeat_penalty 1.0), `think: true` and `emits_reasoning: true` — the flint renderer writes a historical `<think>` only when `message.thinking` is non-empty, so a client that drops it breaks the next turn's prefix. `predict_limit` 32768 is REPORT_FLINT's output cap (reasoning included), not a context window: the library tag bakes no `num_ctx`, so a scored 32,768-token screen needs a derived `-ctx32k` tag first (`P5-OLLAMA-OPTIONS-001`).
+
+## Why
+
+REPORT_FLINT recommends registering under `ollama-coding`, but this bench lane's generated `workspace_routing` is `[general]` (every eval-module bench workspace routes there) and strict hint validation only checks a workspace's own routing groups — the same startup failure the GATE-D and TASK_SAMPLING_PROFILE_AUDIT_V1 entries in `config/backends.yaml` were written to fix. Registered in `general` so `bench-flint` resolves; `?model=` overrides still reach it from any workspace. It is a screen candidate beside KAT's `auto-coding::fast-repair`, not a replacement for it.
