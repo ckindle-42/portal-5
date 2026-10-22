@@ -83,6 +83,7 @@ def _strip_think(text: str) -> str:
 # ── API baseline (no browser) ─────────────────────────────────────────────────
 
 
+@pytest.mark.live_port_ok
 @pytest.mark.timeout(RESPONSE_TIMEOUT_S)
 def test_pipeline_reasoning_response():
     """Pipeline returns non-empty actual content after thinking for auto-security.
@@ -90,6 +91,8 @@ def test_pipeline_reasoning_response():
     This is the ground truth — if this fails, it's a pipeline/model issue,
     not a frontend rendering issue.
     """
+    if os.environ.get("PORTAL_NETGUARD") == "1":
+        pytest.skip("offline boundary active — live checks run against the stack directly")
     if not PIPELINE_API_KEY or PIPELINE_API_KEY == _SYNTHETIC_TEST_API_KEY:
         pytest.skip("live PIPELINE_API_KEY not set")
 
