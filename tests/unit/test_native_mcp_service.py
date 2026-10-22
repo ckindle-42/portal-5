@@ -45,6 +45,17 @@ def test_native_mcp_wrapper_declares_every_host_native_service():
         assert f"    {service})" in source
 
 
+def test_native_mcp_wrapper_usage_guard_matches_its_dispatch():
+    import re
+
+    source = WRAPPER.read_text(encoding="utf-8")
+    guard_block = source.split('case "$SERVICE" in', 2)[1].split("    *)", 1)[0]
+    guard = set(re.findall(r"[a-z0-9]+(?:-[a-z0-9]+)*", guard_block.replace("\\\n", "")))
+    dispatch_block = source.split('case "$SERVICE" in', 2)[2]
+    dispatch = set(re.findall(r"^    ([a-z0-9-]+)\)", dispatch_block, re.MULTILINE))
+    assert guard == dispatch
+
+
 def test_native_launchers_never_fall_back_to_global_python():
     wrapper = WRAPPER.read_text(encoding="utf-8")
     services = (ROOT / "scripts/lib/services.sh").read_text(encoding="utf-8")
