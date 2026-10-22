@@ -738,6 +738,25 @@ def _finish_repair_result(
     )
 
 
+def _validated_calls_note(transcript: _Transcript) -> str:
+    """Quote the last server-side call per tool so the model resubmits exactly what it checked."""
+    last: dict[str, Any] = {}
+    for call in transcript.audited_calls:
+        if call.get("tool"):
+            last[str(call["tool"])] = call.get("arguments")
+    if not last:
+        return ""
+    quoted = "\n".join(
+        f"- {tool}: {args if isinstance(args, str) else json.dumps(args)}"
+        for tool, args in last.items()
+    )
+    return (
+        "\nThe Pipeline already ran these tool calls for you in this bite (exact arguments):\n"
+        f"{quoted}\nIf your answer is the artifact you checked with one of these tools, put that exact "
+        "text in finish unchanged — the checker compares it byte for byte."
+    )
+
+
 def _repair_finish(
     bite: Bite,
     engine: Engine,
@@ -763,6 +782,7 @@ def _repair_finish(
             "content": (
                 "You replied with plain text and no tool call. Call finish once now, "
                 f"passing your answer as its required field(s): {required}."
+                + _validated_calls_note(transcript)
             ),
         },
     ]
@@ -803,6 +823,8 @@ def _request_body(bite: Bite, engine: Engine, messages: list[dict[str, Any]]) ->
         "max_tokens": bite.budget.output_tokens,
         "stream": True,
         "stream_options": {"include_usage": True},
+        # The Pipeline reports the tools it ran server-side; the finish repair quotes them back.
+        "exec_audit": True,
     }
 
 
@@ -1060,9 +1082,12 @@ def _admin_url(base_url: str) -> str:
 class _Transcript:
     def __init__(self, path: Path) -> None:
         self.path = path
+        self.audited_calls: list[dict[str, Any]] = []
         path.parent.mkdir(parents=True, exist_ok=True)
 
     def append(self, kind: str, payload: dict[str, Any]) -> None:
+        if payload.get("type") == "exec_audit" and isinstance(payload.get("tool_calls"), list):
+            self.audited_calls.extend(c for c in payload["tool_calls"] if isinstance(c, dict))
         with self.path.open("a", encoding="utf-8") as stream:
             stream.write(json.dumps({"kind": kind, "time": time.time(), **payload}, default=str))
             stream.write("\n")
