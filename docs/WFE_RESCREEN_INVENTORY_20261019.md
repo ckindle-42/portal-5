@@ -37,7 +37,7 @@ limitation below.
 | `auto-security::pentest` | HauhauCS Qwen3.6 thinking variant; 7 tools | No decision-grade WFE campaign found | No evidence to compare; variant qualifies for a future screen |
 | `auto-coding::uncensored-fast` | Qwen3.8 thinking variant; 9 tools | No decision-grade WFE campaign found | No evidence to compare; variant qualifies for a future screen |
 | `auto-coding::lite` | AgentWorld seat variant; card says thinking on by default; 15 tools | No decision-grade WFE campaign found | No evidence to compare; variant qualifies for a future screen |
-| `auto-coding::reap288` | Qwen3.8-Flash-Next thinking variant; 13 tools | No decision-grade WFE campaign found | No evidence to compare; variant qualifies for a future screen |
+| `auto-coding::reap288` | Qwen3.8-Flash-Next thinking variant; 13 tools | No decision-grade WFE campaign found | Removed 2026-10-21 (stack-down-only). Do not screen. |
 | `auto-documents` | Granite seat, but Qwen3.8 thinking challenger has recorded WFE rows; 7 tools | `wfe_documents_20261017h` (2026-10-17; confirm and screen) | **PRE** — the ledger records the rows on 2026-10-18 02:35 UTC (2026-10-17 21:35 -0500), before `c8fe`; raw manifest absent |
 
 ## Review notes

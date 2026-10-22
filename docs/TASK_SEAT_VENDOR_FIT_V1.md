@@ -137,10 +137,11 @@ really served; `auto-security::purpleteam-exec` `tools_unsupported`
 1. **`auto-coding::laguna` rerun** — `tests/wfe/plans/s2_laguna_rerun_omlx.yaml`
    (seat / card / seat-nothink). Replaces the void result.
 2. **Seats with no explicit `think` whose card says off** —
-   `auto-coding::uncensored-fast`, `auto-coding::reap288` (IDE-only; needs the
-   stack down: `./launch.sh coder-reap288 --warm-only` path). Arms: native vs
-   `think: false`. Decide and then **pin `think` explicitly** in portal.yaml so
-   the harness and production can never diverge on it again.
+   `auto-coding::uncensored-fast`. `auto-coding::reap288` was removed
+   2026-10-21 (stack-down-only; weights deleted); do not run
+   `./launch.sh coder-reap288`. Arms: native vs `think: false`. Decide and
+   then **pin `think` explicitly** in portal.yaml so the harness and
+   production can never diverge on it again.
 3. **Ollama-served seats**, now that their sampling is real — highest traffic
    first: `auto-general-uncensored`, `auto-data`, `auto-research`,
    `auto-reasoning`, `auto-council`, `auto-vision`, `compliance-reading`, the
@@ -234,7 +235,7 @@ Qwen's guidance warns that near-greedy decoding on Qwen3.x causes performance lo
 ### S0 — auditor fixes (no model calls)
 - `tests/wfe/settings_audit.py` compares the card only with *baked* tag params. Add a check of the **served** workspace sampling against the card (the diff behind the numbers above), and report `prompt_contract` presence.
 - Family matching misses `granite4.1:*` tags against the `granite-4.1` key. Normalise separators, and give `qwen3-vl` its own entry so it no longer inherits the qwen3-coder card.
-- oMLX-served hints (REAP-288, Nex-N2.5-MLX, `Qwen3.8-27B-4bit`) are reported `hint_absent`/`persona_pin_absent` because the auditor checks only Ollama. Also check oMLX `/v1/models`.
+- oMLX-served hints (Nex-N2.5-MLX, `Qwen3.8-27B-4bit`; REAP-288 removed 2026-10-21) are reported `hint_absent`/`persona_pin_absent` because the auditor checks only Ollama. Also check oMLX `/v1/models`.
 - Granite 4.1 has no thinking mode, so drop its `reasoning_uncontrolled` flags (they belong to granite 4.2).
 
 ### S1 — cards still owed (research only)
@@ -365,14 +366,13 @@ completed row once fixed rather than assuming its PASS is real.
   exclude 4.1 and match only `granite4\.2`.
 - oMLX-served hints for **bench** workspaces (not production workspaces —
   those already resolve via `backends.yaml` aliases) still report
-  `hint_absent`: `bench-qwen38-flash-next-reap288`
-  (`Qwen3.8-Flash-Next-REAP-288-MLX-4bit`) and
-  `bench-nex-n25-mini-uncensored` (`Nex-N2.5-mini-Uncensored-MLX-4bit`) are
-  raw oMLX-served ids with no Ollama tag and no `backends.yaml` alias
-  pointing at them; `installed_tags()` in `settings_audit.py` only reads
-  Ollama `/api/tags` + declared aliases, not oMLX's own `/v1/models`
-  inventory, so it can't see them. Confirmed live: both ids exist in
-  `GET :8085/v1/models`.
+  `hint_absent`: `bench-nex-n25-mini-uncensored`
+  (`Nex-N2.5-mini-Uncensored-MLX-4bit`) is a raw oMLX-served id with no
+  Ollama tag and no `backends.yaml` alias pointing at it;
+  `installed_tags()` in `settings_audit.py` only reads Ollama `/api/tags` +
+  declared aliases, not oMLX's own `/v1/models` inventory, so it can't see
+  it. `bench-qwen38-flash-next-reap288`
+  (`Qwen3.8-Flash-Next-REAP-288-MLX-4bit`) was removed 2026-10-21.
 - No `qwen3-vl` card existed before this session; it now has one
   (`recommended_sampling` 0.7/0.8/20/1.0/1.5, sourced from
   `Qwen/Qwen3-VL-32B-Instruct`) — `auto-vision` now reports real `FAIL`
