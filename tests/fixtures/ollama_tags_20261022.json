@@ -1,0 +1,16 @@
+{
+  "models": [
+    {
+      "name": "portal5/omnicoder2-9b:Q4_K_M-ctx256k",
+      "model": "portal5/omnicoder2-9b:Q4_K_M-ctx256k",
+      "size": 5629109769,
+      "digest": "c8218cb9108a8485b79f9ef2c5f4c30ed396fb9e2c53ed4024e40b92c51e1cef"
+    },
+    {
+      "name": "hf.co/mradermacher/Huihui-Qwen3.6-35B-A3B-abliterated-GGUF:q4_K_M-ctx8k",
+      "model": "hf.co/mradermacher/Huihui-Qwen3.6-35B-A3B-abliterated-GGUF:q4_K_M-ctx8k",
+      "size": 21780953698,
+      "digest": "51f8b5a9582ae0bdb8029be89603f17246f08ce4e8c93b9ee9449083401a06fe"
+    }
+  ]
+}

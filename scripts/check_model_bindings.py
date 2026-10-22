@@ -21,6 +21,8 @@ A binding resolves if its tag matches an installed Ollama tag (case-insensitivel
 — Ollama's own tag lookup is case-folded, so ``:Q4_K_M`` and ``:q4_K_M`` are the
 same model) OR an oMLX-served model id (``:8085/v1/models``) — omlx-* backends and
 oMLX personas pin those and they never appear in Ollama's tag list.
+A binding that resolves only by case is reported as WARN: Ollama serves it, but
+an exact-name lookup (the load guard's footprint) misses it.
 
 Usage:
     python3 scripts/check_model_bindings.py                # full live gate
@@ -102,6 +104,28 @@ def _persona_bindings(repo_root: Path) -> list[Binding]:
         data = yaml.safe_load(p.read_text())
         if isinstance(data, dict) and isinstance(data.get("model_pin"), str):
             out.append((str(p.relative_to(repo_root)), "model_pin", data["model_pin"]))
+    return out
+
+
+def _variant_bindings(repo_root: Path) -> list[Binding]:
+    """Variant seats carry their own explicit model_hint, so they resolve like the base."""
+    portal_yaml = repo_root / "config" / "portal.yaml"
+    if not portal_yaml.exists():
+        return []
+    cfg = yaml.safe_load(portal_yaml.read_text()) or {}
+    out: list[Binding] = []
+    for ws_id, ws in (cfg.get("workspaces") or {}).items():
+        if not isinstance(ws, dict):
+            continue
+        for variant_id, variant in (ws.get("variants") or {}).items():
+            if isinstance(variant, dict) and isinstance(variant.get("model_hint"), str):
+                out.append(
+                    (
+                        f"config/portal.yaml [{ws_id}::{variant_id}]",
+                        "model_hint",
+                        variant["model_hint"],
+                    )
+                )
     return out
 
 
@@ -226,6 +250,19 @@ def find_orphans(bindings: list[Binding], live_tags: set[str]) -> list[Binding]:
     ]
 
 
+def find_case_only(
+    bindings: list[Binding], ollama_tags: set[str]
+) -> list[tuple[str, str, str, str]]:
+    """Bindings that resolve only because Ollama folds tag case: (source, field, tag, served)."""
+    exact = set(ollama_tags)
+    folded = {tag.lower(): tag for tag in ollama_tags}
+    return [
+        (src, field, tag, folded[tag.lower()])
+        for src, field, tag in bindings
+        if tag not in exact and tag.lower() in folded
+    ]
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(
         description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
@@ -263,6 +300,11 @@ def main() -> int:
         f"{len(bindings)} model binding(s) checked against {len(ollama_tags)} Ollama tag(s) "
         f"+ {len(omlx_ids)} oMLX model(s)."
     )
+    case_only = find_case_only([*bindings, *_variant_bindings(REPO_ROOT)], ollama_tags)
+    if case_only:
+        print(f"WARN — {len(case_only)} binding(s) differ from the served Ollama tag only by case:")
+        for src, field, tag, served in case_only:
+            print(f"  {src}  ({field}) -> {tag!r} differs from served {served!r}")
     if not orphans:
         print("PASS — every binding resolves to an installed model.")
         return 0

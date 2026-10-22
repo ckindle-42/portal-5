@@ -62,6 +62,7 @@ from urllib.parse import quote
 
 import httpx
 
+from portal.platform.inference.model_names import lookup_model, model_key
 from portal.platform.inference.omlx_auth import OmlxKeyAuth, omlx_api_key
 from portal.platform.inference.router.metrics import (
     _load_guard_admissions_total,
@@ -277,12 +278,21 @@ class LoadGuard:
         self._protected[(engine, model)] = time.monotonic() + span
 
     def protected(self, engine: str) -> set[str]:
-        """The models of ``engine`` currently protected from eviction."""
+        """The models of ``engine`` currently protected from eviction (Ollama names case-folded)."""
         now = time.monotonic()
-        return {m for (e, m), until in self._protected.items() if e == engine and until > now}
+        return {
+            model_key(m) if engine == OLLAMA else m
+            for (e, m), until in self._protected.items()
+            if e == engine and until > now
+        }
 
     def busy(self, engine: str, model: str) -> int:
-        return self._busy.get((engine, model), 0)
+        if engine != OLLAMA:
+            return self._busy.get((engine, model), 0)
+        key = model_key(model)
+        return sum(
+            n for (e, name), n in self._busy.items() if e == engine and model_key(name) == key
+        )
 
     async def _wait_change(self, timeout: float) -> None:
         _admit_waited.set(True)
@@ -297,12 +307,13 @@ class LoadGuard:
         return {m["name"]: int(m.get("size") or 0) for m in models}
 
     async def _need(self, client: httpx.AsyncClient, base: str, model: str) -> float:
-        if (base, model) not in self._sizes:
+        key = (base, model_key(model))
+        if key not in self._sizes:
             tags = (await client.get(f"{base}/api/tags")).json().get("models") or []
             for t in tags:
-                self._sizes[(base, t["name"])] = int(t.get("size") or 0)
-        estimate = self._sizes.get((base, model), 0) * _FACTOR
-        return max(estimate, float(self._observed.get((OLLAMA, model), 0)))
+                self._sizes[(base, model_key(str(t["name"])))] = int(t.get("size") or 0)
+        estimate = self._sizes.get(key, 0) * _FACTOR
+        return max(estimate, float(self._observed.get((OLLAMA, model_key(model)), 0)))
 
     async def _omlx_status(self, client: httpx.AsyncClient) -> dict[str, Any] | None:
         url = self._omlx_url()
@@ -353,14 +364,16 @@ class LoadGuard:
     def _ollama_idle(
         self, resident: dict[str, int], exclude: frozenset[str] | set[str] = frozenset()
     ) -> float:
-        pinned = self._pinned()
+        pinned = model_key(self._pinned())
+        excluded = {model_key(name) for name in exclude}
+        protected = self.protected(OLLAMA)
         return float(
             sum(
                 size
                 for name, size in resident.items()
-                if name != pinned
-                and name not in exclude
-                and name not in self.protected(OLLAMA)
+                if model_key(name) != pinned
+                and model_key(name) not in excluded
+                and model_key(name) not in protected
                 and not self.busy(OLLAMA, name)
             )
         )
@@ -820,10 +833,10 @@ class LoadGuard:
                     try:
                         if engine == OLLAMA:
                             resident = await self._resident(client, base)
-                            if model in resident:
-                                self._observed[(OLLAMA, model)] = max(
-                                    resident[model], self._observed.get((OLLAMA, model), 0)
-                                )
+                            size = lookup_model(resident, model)
+                            if size is not None:
+                                key = (OLLAMA, model_key(model))
+                                self._observed[key] = max(size, self._observed.get(key, 0))
                                 return
                         else:
                             st = await self._omlx_status(client)
@@ -873,7 +886,7 @@ class LoadGuard:
     ) -> _Release | None:
         async with self._client() as client:
             try:
-                if model in await self._resident(client, base):
+                if lookup_model(await self._resident(client, base), model) is not None:
                     return None
             except Exception:
                 return None  # cannot see Ollama's state: fail open
@@ -889,7 +902,7 @@ class LoadGuard:
             try:
                 while True:
                     resident = await self._resident(client, base)
-                    if model in resident:
+                    if lookup_model(resident, model) is not None:
                         release()
                         return None
                     need = await self._need(client, base, model)
@@ -1005,7 +1018,7 @@ class LoadGuard:
             per_model = []
             for engine, model in models:
                 if engine == OLLAMA:
-                    loaded = model in resident
+                    loaded = lookup_model(resident, model) is not None
                     footprint = await self._need(client, ollama_base, model)
                 else:
                     entry = _omlx_entry(st, model) or {}
