@@ -154,8 +154,12 @@ def check_yara_compile(
 
 
 def _row_matches(expected: Mapping[str, Any], row: Mapping[str, Any]) -> bool:
+    # SplunkBackend rows carry the search's columns under "fields"; flat rows are accepted too.
+    nested = row.get("fields")
+    values = {**row, **nested} if isinstance(nested, Mapping) else row
     return all(
-        str(row.get(key, "")).casefold() == str(value).casefold() for key, value in expected.items()
+        str(values.get(key, "")).casefold() == str(value).casefold()
+        for key, value in expected.items()
     )
 
 

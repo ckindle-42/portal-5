@@ -8,7 +8,9 @@ cases:
     goal: Author syntactically valid SPL for Kerberoasting telemetry.
     instruction: >-
       Write a time-bounded SPL search for Windows EventCode 4769 with RC4 tickets,
-      validate the exact query, and return it as the spl artifact.
+      validate it with spl_validate_syntax, and return as the spl artifact the exact
+      string you last passed to spl_validate_syntax with a valid result. If you change
+      the query after validating it, validate the changed query again before finishing.
     tools:
       - mitre_technique_lookup
       - spl_search_library
