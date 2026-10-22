@@ -21,11 +21,12 @@ reports it here. The guard keeps four things true:
    too closes the incident's race (both engines measuring the same free memory).
 3. **Queue, then refuse.** An Ollama cold load that does not fit waits for
    in-flight work to drain, re-checking on every request completion and at least
-   every 5 s, and frees idle oMLX models on each pass. It is refused with
-   HTTP 507 only when the caller's wait runs out. The wait is the request's
-   ``X-Portal-Load-Wait`` header (seconds; batch callers send a large value) or
-   ``LOAD_GUARD_WAIT_S``. The 507 says "would exceed", which the router already
-   cascades as a capacity rejection.
+   every 5 s, and frees idle oMLX models on each pass. A free it issues stays
+   pending until the host returns those pages to oMLX's ceiling (5 s). It is
+   refused with HTTP 507 only when the caller's wait runs out. The wait is the
+   request's ``X-Portal-Load-Wait`` header (seconds; batch callers send a large
+   value) or ``LOAD_GUARD_WAIT_S``. The 507 says "would exceed", which the router
+   already cascades as a capacity rejection.
 4. **Fit can be asked in advance.** ``plan()`` (route ``POST /admin/load-plan``)
    says whether a set of models fits together right now, so batch work can run
    in fit-sized waves instead of discovering the answer as refusals.
@@ -78,6 +79,9 @@ _MAX_WAIT_S = 3600.0
 #: released anyway (the request's own end also releases it).
 _LOAD_TIMEOUT_S = 600.0
 _POLL_S = 0.5
+#: How long a free the guard just issued keeps admission waiting for the host to
+#: return those pages to oMLX's host-derived ceiling before the quiet refusal.
+_FREE_SETTLE_S = 5.0
 
 OLLAMA = "ollama"
 OMLX = "omlx"
@@ -578,18 +582,32 @@ class LoadGuard:
         resident: dict[str, int],
         idle: float,
         used: float,
+        headroom: float,
         shortage: float,
         pending_omlx: dict[str, float],
-        pending_ollama: set[str],
+        pending_ollama: dict[str, tuple[float, float]],
     ) -> tuple[bool, float, float]:
         """Free idle memory and fold it in; return the queued baseline and post counter."""
         did_free, queued, requested, after, synchronous = await self._free_idle_memory(
             client, base, resident, idle, used, shortage
         )
         pending_omlx.update(queued)
-        pending_ollama.update(requested)
+        until = time.monotonic() + _FREE_SETTLE_S
+        pending_ollama.update(dict.fromkeys(requested, (until, headroom)))
         post = used if after is None else after
         return did_free, self._pending_baseline(used, after, synchronous), post
+
+    @staticmethod
+    def _retire_ollama_frees(
+        pending: dict[str, tuple[float, float]], resident: dict[str, int], headroom: float
+    ) -> dict[str, tuple[float, float]]:
+        """Keep a freed model pending until its pages reach the host-derived ceiling."""
+        now = time.monotonic()
+        return {
+            name: (until, baseline)
+            for name, (until, baseline) in pending.items()
+            if name in resident or (now < until and headroom <= baseline)
+        }
 
     @staticmethod
     def _pending_baseline(used: float, after: float | None, synchronous: float) -> float:
@@ -706,7 +724,7 @@ class LoadGuard:
             activity_seen = False
             pending_omlx: dict[str, float] = {}
             pending_omlx_used = 0.0
-            pending_ollama: set[str] = set()
+            pending_ollama: dict[str, tuple[float, float]] = {}
             last_used: float | None = None
             recheck = False
             try:
@@ -731,6 +749,7 @@ class LoadGuard:
                             resident,
                             idle,
                             used,
+                            headroom,
                             need - available,
                             pending_omlx,
                             pending_ollama,
@@ -739,7 +758,7 @@ class LoadGuard:
                             continue
                     if need <= available:
                         break
-                    pending_ollama.intersection_update(resident)
+                    pending_ollama = self._retire_ollama_frees(pending_ollama, resident, headroom)
                     pending_omlx, settled, pending_omlx_used = await self._pending_omlx_unloads(
                         client, pending_omlx, pending_omlx_used
                     )

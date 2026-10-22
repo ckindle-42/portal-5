@@ -51,6 +51,7 @@ class Engines:
         unload_loaded_flips: set[str] | None = None,
         forced_loading: set[str] | None = None,
         omit_estimated_size: set[str] | None = None,
+        defer_ceiling_rise: set[str] | None = None,
     ) -> None:
         self.ollama = dict(ollama or {})
         self.tags = dict(tags or {})
@@ -78,6 +79,10 @@ class Engines:
         self.forced_loading = set(forced_loading or set())
         #: Models whose admin payload omits estimated_size (the actual_size fallback).
         self.omit_estimated_size = set(omit_estimated_size or set())
+        #: Models whose hidden bytes reach the ceiling one status read after the unload
+        #: (the host returns the pages asynchronously).
+        self.defer_ceiling_rise = set(defer_ceiling_rise or set())
+        self.pending_ceiling_rises: dict[str, tuple[int, int]] = {}
         self.pending_counter_drops: dict[str, tuple[float, int]] = {}
         self.unloaded: list[str] = []
         self.unload_calls: dict[str, int] = {}
@@ -122,7 +127,11 @@ class Engines:
             self.unload_calls[model] = self.unload_calls.get(model, 0) + 1
             if not self.unload_sticks:
                 self.ollama.pop(model, None)
-            self.ceiling += self.hidden.pop(model, 0)
+            rise = self.hidden.pop(model, 0)
+            if rise and model in self.defer_ceiling_rise:
+                self.pending_ceiling_rises[model] = (rise, 1)
+            else:
+                self.ceiling += rise
             return httpx.Response(200, json={"done": True})
         if path == "/api/show":
             return httpx.Response(200, json={"capabilities": []})
@@ -140,6 +149,14 @@ class Engines:
             else:
                 self.omlx_memory = max(0.0, float(self.omlx_memory or 0) - size)
                 del self.pending_counter_drops[name]
+
+    def _apply_pending_ceiling_rises(self) -> None:
+        for name, (rise, reads) in list(self.pending_ceiling_rises.items()):
+            if reads:
+                self.pending_ceiling_rises[name] = (rise, reads - 1)
+            else:
+                self.ceiling += rise
+                del self.pending_ceiling_rises[name]
 
     def _unload_response(self, name: str) -> httpx.Response:
         self.unload_calls[name] = self.unload_calls.get(name, 0) + 1
@@ -172,6 +189,7 @@ class Engines:
             if not self.omlx_ok:
                 return httpx.Response(503)
             self._apply_pending_counter_drops()
+            self._apply_pending_ceiling_rises()
             loading = self._loading_poll(self.loading_polls, "v1")
             return httpx.Response(
                 200,
@@ -322,6 +340,25 @@ async def test_under_reported_idle_ollama_resident_is_unloaded_and_the_load_admi
     e.hidden["devstral"] = int(13.2 * GIB)
     release = await guard(e).admit(OLLAMA_URL, "kat")
     assert release is not None and "devstral" not in e.ollama
+    release()
+
+
+async def test_a_freed_ollama_resident_lifts_the_ceiling_before_the_quiet_refusal():
+    """UAT 2026-10-22 (auto-coding::fast-repair): oMLX empty at 19.8 GiB headroom, a
+    24.9 GiB hinted load, and devstral the only idle Ollama resident. Its freed bytes
+    reach oMLX's host-derived ceiling one status read later."""
+    e = Engines(
+        ollama={"devstral": int(1.8 * GIB)},  # /api/ps under-reports the real 15 GiB
+        tags={"kat": int(19.92 * GIB)},  # 24.9 GiB projected
+        ceiling=int(19.8 * GIB),
+        defer_ceiling_rise={"devstral"},
+    )
+    e.hidden["devstral"] = int(15 * GIB)
+    lg.set_load_wait("30")
+    release = await guard(e).admit(OLLAMA_URL, "kat")
+    assert release is not None
+    assert "devstral" not in e.ollama
+    assert e.ceiling == pytest.approx(34.8 * GIB, abs=1)
     release()
 
 
@@ -920,6 +957,7 @@ async def test_ollama_unload_that_stays_short_refuses_when_quiet(monkeypatch):
     e = Engines(ollama={"idle": GIB}, tags={"m": 20 * GIB}, ceiling=8 * GIB)
     g = guard(e)
     lg.set_load_wait("0.06")
+    monkeypatch.setattr(lg, "_FREE_SETTLE_S", 0.0)  # the free's settle window has expired
     waits: list[float] = []
     wait_change = g._wait_change
 
@@ -936,6 +974,19 @@ async def test_ollama_unload_that_stays_short_refuses_when_quiet(monkeypatch):
     assert "with nothing in flight to wait for" in str(err.value)
     assert not waits
     assert elapsed < 0.05
+
+
+async def test_an_ollama_free_that_never_lifts_the_ceiling_still_refuses(monkeypatch):
+    e = Engines(ollama={"idle": GIB}, tags={"m": 20 * GIB}, ceiling=8 * GIB)
+    lg.set_load_wait("30")
+    monkeypatch.setattr(lg, "_FREE_SETTLE_S", 0.05)  # bounded: not the caller's whole wait
+    started = lg.time.monotonic()
+    with pytest.raises(lg.LoadRefusedError) as err:
+        await guard(e).admit(OLLAMA_URL, "m")
+    elapsed = lg.time.monotonic() - started
+    assert not e.ollama
+    assert "with nothing in flight to wait for" in str(err.value)  # the settle expired
+    assert 0.05 <= elapsed < 2
 
 
 async def test_partial_omlx_free_continues_to_idle_ollama_and_honors_failover(monkeypatch):
