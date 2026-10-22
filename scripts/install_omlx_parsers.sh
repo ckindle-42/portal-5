@@ -21,7 +21,7 @@ fi
 cp "$PARSER_SRC" "$TARGET_DIR/deepseek_r1.py"
 echo "installed: $TARGET_DIR/deepseek_r1.py"
 
-python3 - "$MODEL_DIR" <<'EOF'
+"$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/.venv/bin/python3" - "$MODEL_DIR" <<'EOF'
 import json, sys, pathlib
 cfg_path = pathlib.Path(sys.argv[1]) / "tokenizer_config.json"
 cfg = json.loads(cfg_path.read_text())

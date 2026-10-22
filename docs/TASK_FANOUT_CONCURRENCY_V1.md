@@ -213,7 +213,13 @@ one.
   with sync-config; never hand-edit it).
 
 Priority stays 10 (shadow-shift, automatic ollama fallback on
-unhealthy/rejects — the established pattern). Every alias ships with a live
+unhealthy/rejects — the established pattern). An oMLX **prefill memory guard**
+400 is a reject like any other: the router frees idle Ollama and retries oMLX
+once, then falls back to the Ollama sibling, because a user must always get an
+answer rather than an error that dies on the vine. Only when that whole chain
+fails does the client see a 400 carrying the guard's prompt estimate
+(`format_omlx_prefill_error`, the `backend_introspect` estimator over the hop
+that was actually refused). Every alias ships with a live
 tool-call probe recorded in the backends.yaml comment, matching how
 omlx-security/omlx-reasoning entries were added.
 

@@ -183,6 +183,9 @@ class WorkspaceSpec(BaseModel):
     # for every workspace that does not set it (same mechanism as `router`).
     stack_down_only: bool | None = None
 
+    # True -> requests with client tools use only those schemas and skip workspace tools.
+    client_tools_only: bool | None = None
+
     # --- Tool whitelist ---
     tools: list[str] = Field(default_factory=list)
 
@@ -419,6 +422,7 @@ class PortalConfig(BaseModel):
         default_factory=dict,
         description="Per-module on/off. portal module enable/disable writes one line.",
     )
+    orchestration_arm: dict[str, Any] = Field(default_factory=dict)
     host_jobs: list[HostJob] = Field(
         default_factory=list,
         description="Launchd jobs with no mcp_fleet entry. module platform is always on.",

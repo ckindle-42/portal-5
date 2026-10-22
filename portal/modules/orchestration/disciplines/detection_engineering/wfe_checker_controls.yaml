@@ -1,0 +1,111 @@
+schema_version: 1
+discipline: detection-engineering
+controls:
+  - checker:
+      type: spl_syntax
+      artifact_field: spl
+    pass:
+      artifact:
+        spl: 'index=portal5_lab EventCode=4769 | stats count by ServiceName'
+      calls:
+        - name: spl_validate_syntax
+          args:
+            spl: 'index=portal5_lab EventCode=4769 | stats count by ServiceName'
+          output: {ok: true, errors: []}
+    fail:
+      artifact:
+        spl: 'index=portal5_lab EventCode=4769 | stats count by ServiceName'
+      calls:
+        - name: spl_validate_syntax
+          args:
+            spl: 'index=portal5_lab | head 1'
+          output: {ok: true, errors: []}
+  - checker:
+      type: sigma_validate_convert
+      artifact_field: sigma_yaml
+      rule_count: 1
+      query_contains: [whoami.exe]
+    pass:
+      artifact:
+        sigma_yaml: &sigma_good |-
+          title: Suspicious Whoami
+          logsource: {product: windows, category: process_creation}
+          detection:
+            selection: {Image|endswith: '\whoami.exe'}
+            condition: selection
+      calls:
+        - name: validate_sigma
+          args: {sigma_yaml: *sigma_good}
+          output: {valid: true, rule_count: 1, titles: [Suspicious Whoami]}
+        - name: convert_sigma
+          args: {sigma_yaml: *sigma_good, target: splunk}
+          output:
+            target: splunk
+            valid: true
+            rule_count: 1
+            queries: ['Image="*\\whoami.exe"']
+    fail:
+      artifact:
+        sigma_yaml: 'title: Plausible but never validated'
+      calls:
+        - name: validate_sigma
+          args: {sigma_yaml: *sigma_good}
+          output: {valid: true, rule_count: 1, titles: [Suspicious Whoami]}
+        - name: convert_sigma
+          args: {sigma_yaml: *sigma_good, target: splunk}
+          output:
+            target: splunk
+            valid: true
+            rule_count: 1
+            queries: ['Image="*\\whoami.exe"']
+  - checker:
+      type: yara_compile
+      artifact_field: rule_text
+    pass:
+      artifact:
+        rule_text: &yara_good 'rule encoded_ps { strings: $a = "powershell.exe -enc" nocase condition: $a }'
+      calls:
+        - name: compile_yara
+          args: {rule_text: *yara_good}
+          output: {valid: true}
+    fail:
+      artifact:
+        rule_text: 'rule broken {'
+      calls:
+        - name: compile_yara
+          args: {rule_text: *yara_good}
+          output: {valid: true}
+  - checker:
+      type: lab_spl_results
+      artifact_field: spl
+      requires_live_lab: true
+      min_rows: 2
+      expected_rows:
+        - ServiceName: svc_backup
+        - ServiceName: svc_sql
+    pass:
+      artifact: &lab_artifact
+        spl: 'EventCode=4769 TicketEncryptionType=0x17 | stats count by ServiceName'
+        earliest: '-24h'
+        latest: now
+        max_results: 100
+      calls:
+        - name: query_splunk
+          args: *lab_artifact
+          output:
+            requested_spl: 'EventCode=4769 TicketEncryptionType=0x17 | stats count by ServiceName'
+            row_count: 2
+            rows:
+              - {ServiceName: svc_backup, count: '1'}
+              - {ServiceName: svc_sql, count: '1'}
+    fail:
+      artifact: *lab_artifact
+      calls:
+        - name: query_splunk
+          args: *lab_artifact
+          output:
+            requested_spl: 'EventCode=4769 TicketEncryptionType=0x17 | stats count by ServiceName'
+            row_count: 2
+            rows:
+              - {ServiceName: svc_backup, count: '1'}
+              - {ServiceName: svc_web, count: '1'}

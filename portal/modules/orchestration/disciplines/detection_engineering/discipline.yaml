@@ -1,0 +1,78 @@
+schema_version: 1
+id: detection-engineering
+persona:
+  slug: splunkdetectionauthor
+  source: config/personas/splunkdetectionauthor.yaml
+seats:
+  fast:
+    workspace: auto-daily::fast
+    model_binding: workspace_identity
+  deep:
+    workspace: auto-daily::deep
+    model_binding: workspace_identity
+thinking: required
+tool_allowlist:
+  detection:
+    - convert_sigma
+    - validate_sigma
+    - compile_yara
+    - query_splunk
+    - query_windows_events
+  detections:
+    - spl_search_library
+    - spl_validate_syntax
+    - spl_explain_detection
+    - spl_techniques_covered
+    - spl_diff_hypothesis
+  mitre:
+    - mitre_technique_lookup
+    - mitre_data_sources_for_technique
+    - mitre_detections_for_technique
+    - mitre_techniques_list
+write_scope:
+  root: task_directory
+  allow:
+    - "**/*"
+  deny_outside_root: true
+data_class: local-only
+procedures:
+  - id: map-before-authoring
+    steps:
+      - Resolve the ATT&CK technique and required data sources with MITRE and detections tools.
+      - Read the local reference detection before drafting new logic.
+  - id: validate-before-accepting
+    steps:
+      - Validate every SPL artifact with spl_validate_syntax.
+      - Validate every Sigma artifact and convert the same bytes to Splunk SPL.
+      - Compile every YARA artifact before accepting it.
+  - id: prove-known-answers-in-lab
+    steps:
+      - Run SPL only through the read-only query_splunk lab tool.
+      - Compare structured rows with the suite's predeclared known answers.
+      - Treat a missing lab call as not run, never as a pass.
+  - id: document-operational-use
+    steps:
+      - Record ATT&CK mappings, data sources, time bounds, false positives, and tuning guidance.
+wfe:
+  bite_suite: wfe_bites.yaml
+  checker_suite: wfe_checker_controls.yaml
+pass_criteria:
+  frozen_before_first_run: true
+  checker_controls:
+    false_passes: 0
+    false_failures: 0
+  per_seat_bite_suite:
+    fast:
+      minimum_passed: 3
+      total: 4
+    deep:
+      minimum_passed: 4
+      total: 4
+  live_lab:
+    required_cases_must_run: true
+    known_answer_cases_must_pass: true
+  first_real_run:
+    final_status: PASS
+    blocked_bites: 0
+    deterministic_checks: all_pass
+    red_flags: 0

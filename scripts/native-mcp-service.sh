@@ -7,7 +7,8 @@ ENV_FILE="$PORTAL_ROOT/.env"
 PY="$PORTAL_ROOT/.venv/bin/python3"
 
 if [ ! -x "$PY" ]; then
-    PY="$(command -v python3)"
+    echo "Portal venv interpreter missing: $PY" >&2
+    exit 1
 fi
 
 if [ -f "$ENV_FILE" ]; then

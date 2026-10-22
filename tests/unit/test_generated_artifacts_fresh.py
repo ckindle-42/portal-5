@@ -1,7 +1,7 @@
 """Tests that sync-config is idempotent and generated artifacts match portal.yaml.
 
 Verifies the CI guard: running sync-config twice should produce no diff in
-workspace_routing (backends.yaml), .mcp.json, or imports/openwebui/workspaces/.
+workspace routing, the module and arm manifests, .mcp.json, or OWUI presets.
 """
 
 from __future__ import annotations
@@ -104,6 +104,7 @@ def test_model_swap_sync_writes_only_runtime_artifacts(tmp_path, monkeypatch):
     changed = {path for path in before.keys() | after.keys() if before.get(path) != after.get(path)}
     allowed = {
         "config/backends.yaml",
+        "config/orchestration_arm.yaml",
         ".mcp.json",
         "config/modules.generated.yaml",
     }

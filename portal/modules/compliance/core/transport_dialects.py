@@ -416,6 +416,12 @@ class OpenAICompat:
         blob = json.dumps(detail).lower()
         if "context" in blob and ("exceed" in blob or "longer" in blob or "maximum" in blob):
             return "context"
+        if (
+            "memory guard" in blob
+            or ("prefill" in blob and "memory" in blob)
+            or "dynamic ceiling" in blob
+        ):
+            return "capacity"
         if "reasoning" in blob or "think" in blob:
             return "think"
         return ""

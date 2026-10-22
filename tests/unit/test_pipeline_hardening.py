@@ -1203,6 +1203,37 @@ async def test_failover_runs_a_tool_loop_until_the_model_answers(monkeypatch, ns
 
 
 @pytest.mark.anyio
+async def test_tool_hop_refusal_reports_the_synthesis_prompt_size(monkeypatch, ns_tools) -> None:
+    """The estimate describes the hop that was refused, not the pre-tool-loop prompt."""
+    import portal.platform.inference.router.backend_introspect as bi
+
+    monkeypatch.setattr(ns, "_inject_omlx_options", lambda body, _ws: body)
+    tool_result = "temperature 21C " * 100
+
+    async def dispatch(tc, *_a, **_k):
+        return {"role": "tool", "tool_call_id": tc.get("id"), "content": tool_result}
+
+    monkeypatch.setattr(ns, "_dispatch_tool_call", dispatch)
+    refusal = httpx.Response(
+        400, json={"error": "prefill memory guard: projected memory would exceed ceiling"}
+    )
+    client = _SeenClient([_tool_reply(), refusal])
+    monkeypatch.setattr(ns, "_http_client", client)
+
+    with pytest.raises(ns.BackendRequestError) as excinfo:
+        await ns._try_non_streaming(
+            _omlx_backend("omlx"),
+            {"messages": [{"role": "user", "content": "lookup"}]},
+            ns_tools,
+            0.0,
+        )
+
+    expected = bi._approx_prompt_tokens(client.bodies[1])
+    assert expected > bi._approx_prompt_tokens(client.bodies[0])
+    assert f"~{expected:,} tokens" in excinfo.value.detail
+
+
+@pytest.mark.anyio
 @pytest.mark.parametrize("reasoning_field", ["reasoning", "reasoning_content", "thinking"])
 async def test_failover_tool_loop_carries_reasoning_and_visible_prose(
     monkeypatch, ns_tools, reasoning_field: str

@@ -23,6 +23,7 @@ LOG_FILE="${LOG_DIR}/omlx-watchdog.log"
 FAIL_THRESHOLD=2
 PROBE_TIMEOUT=8
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+PY="$REPO_ROOT/.venv/bin/python3"
 
 export PATH="/opt/homebrew/bin:/opt/homebrew/sbin:/usr/bin:/bin:/usr/sbin:/sbin:${PATH}"
 mkdir -p "$LOG_DIR"
@@ -57,7 +58,7 @@ _check_deepseek_parser() {
         _log "PARSER CHECK: model dir ${MODEL_DIR} not found — skipping stamp check"
         return 0
     fi
-    stamped="$(python3 -c "import json; print(json.load(open('${MODEL_DIR}/tokenizer_config.json')).get('tool_parser_type',''))" 2>/dev/null || true)"
+    stamped="$("$PY" -c "import json; print(json.load(open('${MODEL_DIR}/tokenizer_config.json')).get('tool_parser_type',''))" 2>/dev/null || true)"
     if [ "$stamped" != "deepseek_r1" ]; then
         _log "PARSER CHECK FAILED: tokenizer_config.json tool_parser_type='${stamped}' (expected deepseek_r1)"
         return 1

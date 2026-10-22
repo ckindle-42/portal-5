@@ -36,9 +36,10 @@ def test_cli_loads_arm_and_module_config_from_repo_root(
     captured: dict[str, Any] = {}
     sentinel = object()
 
-    def make_service(task_root, engines):
+    def make_service(task_root, engines, **kwargs):
         captured["task_root"] = task_root
         captured["engines"] = engines
+        captured["service_kwargs"] = kwargs
         return sentinel
 
     monkeypatch.setattr(arm_service, "ArmService", make_service)
