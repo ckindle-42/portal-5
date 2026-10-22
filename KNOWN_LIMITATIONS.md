@@ -164,11 +164,58 @@ Both packages are installed transitively, but their vulnerable inputs are not su
 - **ID**: P5-LOADGUARD-PS-001
 - **Description**: Ollama 0.40's llamacpp runner reports a resident model's `/api/ps` size from less than its `llama-server` child actually holds: `devstral-small-2` (24B Q4) reported **1.8 GB** while the child process held **~15 GB** RSS (measured 2026-10-21). The load guard builds host headroom as oMLX's ceiling minus its residents, plus idle Ollama residents at their reported size, so an idle resident that under-reports is credited with a fraction of the memory it would release.
 - **Impact**: A cold load could wait out its full deadline (120 s) and then refuse with HTTP 507 for memory Ollama frees on load. On 2026-10-21, 9 of 54 engine-UAT shots did exactly that.
-- **Mitigation**: When a shortfall survives the oMLX pass, `LoadGuard._free_ollama` unloads every idle, unpinned, unprotected, not-busy Ollama resident with `keep_alive: 0` and re-measures through oMLX's ceiling, which sees the freed bytes even though `/api/ps` never counted them. Busy models are never unloaded; with nothing in flight and nothing idle left to free, admission refuses at once instead of waiting out the deadline.
+- **Mitigation**: When a shortfall survives the oMLX pass, `LoadGuard._free_ollama` unloads every idle, unpinned, unprotected, not-busy Ollama resident with `keep_alive: 0` and re-measures through oMLX's ceiling, which sees the freed bytes even though `/api/ps` never counted them. Busy models are never unloaded. When the pipeline has no in-flight work, oMLX reports no load, and no idle resident remains, admission refuses at once instead of waiting out the deadline. A model swap inside oMLX can look like that settled state; [[unit-known-limitations-load-guard-omlx-swap]] records the 2026-10-22 refusal.
 
 #### Why
 
 The reported size is engine bookkeeping, not an accounting of the child process, so trusting it made the guard wait for memory it could have freed itself. Unloading makes oMLX's ceiling the measurement authority — the host sees bytes the model scheduler does not — at the cost of a cold load for whoever asks for that model next, which is why only idle, unpinned, unprotected residents are candidates.
+<!-- /WIKI:GENERATED -->
+
+---
+
+<!-- WIKI:GENERATED unit=unit-known-limitations-load-guard-omlx-swap -->
+#### Load guard refused during an oMLX model swap (2026-10-22)
+
+- **ID**: P5-LOADGUARD-SWAP-001
+- **Status**: OPEN. A reported load is waited out. oMLX still exposes no unload signal.
+- **Description**: On 2026-10-22 the load guard refused an Ollama cold load at once, with the reason "nothing in flight to wait for", while oMLX was mid-swap. A swap is not an in-flight pipeline request and not an idle resident the guard can free, so the quiet path treated the host as settled and returned HTTP 507 without waiting.
+- **First fix**: `1a32e66f` merges `9ff0deeb` (wait during engine model swaps). Admission waits while oMLX reports `is_loading` or `models_loading`, and keeps refusing at once only when those surfaces are clear and nothing is in flight.
+- **Rework**: `plan/guard-race` continues that wait so a transition the guard can see is not classified as quiet.
+- **Remaining gap**: oMLX exposes no unload signal. A swap whose unload does not set `is_loading` and does not count as a request still looks like nothing in flight, and admission can refuse at once.
+
+#### Why
+
+The quiet path exists so a load that cannot fit, and that nothing currently running will free, fails immediately instead of sitting out the deadline. That is the right call when oMLX's memory is stable. The status surfaces the guard reads name loads and active requests. They do not name an unload, so the guard cannot tell a swap in progress from an idle host. Until oMLX reports unloads, a swap it starts on its own can still be refused as if the machine were settled.
+<!-- /WIKI:GENERATED -->
+
+---
+
+<!-- WIKI:GENERATED unit=unit-known-limitations-omlx-balanced-ceiling -->
+#### oMLX balanced memory-guard ceiling moves with free memory (2026-10-22)
+
+- **ID**: P5-OMLX-CEILING-001
+- **Status**: OPEN. Observed 2026-10-22 on oMLX 0.7.2 with `memory_guard_tier` `balanced` in the host oMLX settings.
+- **Description**: oMLX's `final_ceiling` under the balanced tier moves with host free memory. Across one night it ranged from 18 GB to 42 GB. The load guard takes headroom as that ceiling minus oMLX's residents, plus idle Ollama residents, minus the margin. The same large Ollama load can fit or be refused as the ceiling moves, with no change in this repo.
+- **Mitigation**: The guard already reads the ceiling at admission time. A fit recorded earlier in the night is stale. Live measurements of large Ollama loads need a quiet host so other work is not also pushing the ceiling around. The balanced ceiling is not a fixed budget.
+
+#### Why
+
+The guard uses oMLX's ceiling as the host oracle because Ollama's own resident sizes under-report what a runner holds. That oracle is only as stable as the tier that computes it. Balanced follows free memory, so other loads, cache, and parallel test workers move the number the guard subtracts from. An admission or a refusal then describes the host at that moment, not a property of the model.
+<!-- /WIKI:GENERATED -->
+
+---
+
+<!-- WIKI:GENERATED unit=unit-known-limitations-host-measurement-contention -->
+#### Parallel pre-commit unit workers starved live UAT (2026-10-22)
+
+- **ID**: P5-HOST-MEASURE-001
+- **Status**: MITIGATED 2026-10-22 for the hook (`2fd0da3a`). Live measurements still require a quiet host.
+- **Description**: The pre-commit unit hook used `pytest -n auto`. On this host that started 14 workers. Lane worktrees committing at the same time each ran that hook on the machine that serves the live stack. Host memory fell until UAT shots received HTTP 503 from the memory gate.
+- **Mitigation**: `scripts/pytest_unit_with_tree_marker.py` caps the hook at `-n 4`. GitHub Actions keeps `-n auto` in `.github/workflows/unit-tests.yml` because that runner does not serve the live stack. A UAT, a WFE campaign, or any other live measurement on this host still needs the machine quiet, with no parallel unit-suite commits beside it.
+
+#### Why
+
+The unit suite is offline and mocked, so it looks safe to run beside a live eval. On this machine the workers still occupy the unified memory the load guard and oMLX's ceiling are measuring. A 503 during UAT then records host contention, which is a property of the night, not of the seat under test. Capping one hook bounds a single commit. Several commits plus a campaign still share the same pool, which is why a live number is only meaningful on a quiet host.
 <!-- /WIKI:GENERATED -->
 
 ---
@@ -255,6 +302,7 @@ The error is generated server-side after headers are sent, so no HTTP status can
 - **Request shapes**: list-form `system` content (OpenAI content parts, sent by IDE clients) raised a 500 in every workspace with a system-prompt append, temporal context or memory injection. The native Ollama adapter 500'd on `stop` as a string and ignored `tool_choice: "none"` / a named function (now expressed through the offered tools), and dropped message fields on the final `done` chunk.
 - **Anthropic `/v1/messages` (Claude Code)**: `x-api-key` auth — what `ANTHROPIC_API_KEY` sends, as `scripts/cc-local.sh` sets — was rejected with 401; streamed tool calls were dropped (`stop_reason: tool_use` with no `tool_use` block); parallel `tool_result` blocks kept only the last; images were dropped; the ASGI loopback buffered the whole reply (first byte at completion). The endpoint now calls `chat_completions` in-process and streams incrementally.
 - **Chains**: chain hops were posted to the primary backend's URL with the hop's raw model id, so with the primary on oMLX every Ollama-tagged hop 404'd (the purple-team blue-team/detection/IR hops); a tool-using chain workspace (`auto-security::purpleteam-exec`) skipped its chain entirely when streaming. Hops now resolve their own backend, and the first hop of a tool-using chain runs through the tool loop.
+- **Chain settings (2026-10-22)**: hops after the first dropped the workspace's per-backend output cap, think setting, and sampling. `resolve_hop_target` removed engine-specific keys when the hop's URL differed from the primary and did not rebuild them, so a later hop ran without `max_tokens` / `predict_limit`, `think`, and the sampling keys. The auto-security `purpleteam-deep` chain took about 500 s because of it. Fixed on `plan/purple-latency` `938f3d2c` (merging): every hop drops those keys and reapplies the workspace settings through `_inject_ollama_options` or `_inject_omlx_options` for the backend that serves the hop. The 2026-09-25 routing fix is unchanged.
 - **Tools and memory**: an MCP rejecting a model's arguments (HTTP 400/422) tripped the tool's circuit breaker, locking the tool for every request — including the model's corrected retry — for 30 s to 1 h. OWUI's background task prompts (title, tags, follow-ups: `### Task:` + `<chat_history>`) were written back as user memories on `auto-daily` and recalled into later conversations; they are now neither written back nor given memory. The council synthesizer now receives the workspace's `think` setting. Memories already stored from task prompts are not removed by this fix.
 
 #### Why
@@ -266,7 +314,7 @@ None of these failures surfaced as an error the stack could see: each returned H
 
 <!-- WIKI:GENERATED unit=unit-known-limitations-engine-update-data01-approval -->
 - **ID**: P5-ENGINE-TCC-001
-- **Status**: MITIGATION READY 2026-10-21 — fixed-path signed interpreter support is in the repository; host cutover and its first approval check remain pending.
+- **Status**: RUNNING 2026-10-22. oMLX serves from LaunchAgent `com.portal5.omlx` and the fixed `~/omlx-live/venv`. Wheel upgrades stay on that signed interpreter, which is what macOS keys `data01` access to. A release that loses model visibility still pages and rolls back.
 - **Description**: macOS must grant each executable identity access to the external `data01` volume that holds the models. Homebrew's ad-hoc signed Python changes identity when the formula upgrades Python, so a new build can trigger another Allow popup. Pre-approval needs an MDM-installed privacy profile, which this host does not have.
 - **Mitigation**: Ollama runs from fixed `~/ollama-live/` with a stable Developer ID requirement. The oMLX installer uses a fixed `~/omlx-live/venv` backed by a Developer ID-signed ARM64 python.org framework interpreter, and the updater replaces only the package in a staged copy at that path. The interpreter path and signing identity therefore stay constant across oMLX wheel upgrades; the first post-cutover access and later releases still require model-count verification. `scripts/engine_autoupdate.py` compares model counts after a switch; a drop sends a high-priority Pushover request and waits 30 minutes before restoring the previous version and retrying the next day. `engine_contract_check.py` alerts the same way when a probe model vanishes after a manual upgrade.
 
