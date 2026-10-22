@@ -85,6 +85,37 @@ def test_select_shots_skips_security_modules():
     assert "media-engine::clip" in tail
 
 
+def test_execute_records_host_snapshots_around_the_run(monkeypatch):
+    context = {"allowed": True, "override_reason": None, "start": {"headroom_gib": 4.0}}
+    monkeypatch.setattr(
+        uat.host_quiet,
+        "finish_run",
+        lambda record, *args: record.update(end={"headroom_gib": 3.0}),
+    )
+    client = httpx.Client(transport=httpx.MockTransport(lambda _request: httpx.Response(500)))
+
+    report = uat.execute(
+        client,
+        "http://pipeline.test",
+        "key",
+        _config(),
+        [],
+        [],
+        [],
+        None,
+        None,
+        None,
+        [],
+        design=False,
+        host_context=context,
+    )
+
+    assert report["host_quiet"]["start"]["headroom_gib"] == 4.0
+    assert report["host_quiet"]["end"]["headroom_gib"] == 3.0
+    assert report["checks"][0]["name"] == "host-quiet"
+    client.close()
+
+
 def test_stack_down_only_resolution_prefers_the_variant_override():
     config = _config()
     assert uat.is_stack_down_only(config, "ide-engine")

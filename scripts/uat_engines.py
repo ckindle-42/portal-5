@@ -18,6 +18,7 @@ import httpx
 
 from portal.platform.inference.config import load_persona_map, load_portal_config, variant_module
 from portal.platform.wiki.adapters.modules import is_workspace_disabled, served_ids
+from scripts import host_quiet
 
 # Another session owns these lanes; this runner does not call them.
 SKIP_MODULES = frozenset({"security", "security_redteam"})
@@ -668,10 +669,19 @@ def execute(
     disabled: list[str],
     *,
     design: bool,
+    host_context: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     shots = run_shots(client, base, key, run)
     by_id = {shot["id"]: shot for shot in shots}
     checks: list[dict[str, Any]] = []
+    if host_context is not None:
+        checks.append(
+            make_check(
+                "host-quiet",
+                True,
+                host_context["override_reason"] or "host preflight passed",
+            )
+        )
     if design:
         presets = preset_ids(PRESET_DIR)
         checks.extend(alias_checks(client, base, key, config, by_id))
@@ -684,6 +694,8 @@ def execute(
             if stream_engine
             else make_check("streaming", False, "no engine")
         )
+    if host_context is not None:
+        host_quiet.finish_run(host_context, base, key)
     report = {
         "started_at": datetime.now(UTC).isoformat(),
         "pipeline": base,
@@ -693,6 +705,8 @@ def execute(
         "stack_down_only": down,
         "checks": checks,
     }
+    if host_context is not None:
+        report["host_quiet"] = host_context
     report["totals"] = compute_totals(shots, skip, checks)
     return report
 
@@ -718,6 +732,7 @@ def parse_args(argv: list[str] | None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="One shot per enabled engine and variant.")
     parser.add_argument("--dry-run", action="store_true", help="list the plan and send nothing")
     parser.add_argument("--only", metavar="ID", help="run one served id and skip design checks")
+    parser.add_argument("--force", action="store_true", help="override host-quiet blockers")
     return parser.parse_args(argv)
 
 
@@ -739,6 +754,22 @@ def alias_rows(config: Any) -> list[tuple[str, str, bool]]:
         target = alias_target(spec)
         rows.append((alias_id, target, id_module(config, target) in SKIP_MODULES))
     return rows
+
+
+def _blocked_host_report(base: str, key: str, context: dict[str, Any]) -> dict[str, Any]:
+    host_quiet.finish_run(context, base, key)
+    reason = host_quiet.refusal(context)
+    return {
+        "started_at": datetime.now(UTC).isoformat(),
+        "pipeline": base,
+        "design_checks_run": False,
+        "shots": [],
+        "skipped": [],
+        "stack_down_only": [],
+        "checks": [make_check("host-quiet", False, reason)],
+        "host_quiet": context,
+        "totals": compute_totals([], [], [make_check("host-quiet", False, reason)]),
+    }
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -780,6 +811,15 @@ def main(argv: list[str] | None = None) -> int:
         print("PIPELINE_API_KEY is not set", file=sys.stderr)
         return 1
     base = pipeline_base()
+    host_context = host_quiet.begin_run(base, key, force=args.force)
+    if not host_context["allowed"]:
+        report = _blocked_host_report(base, key, host_context)
+        path = write_report(report)
+        print(host_quiet.refusal(host_context), file=sys.stderr)
+        print(f"json: {path}")
+        return 1
+    if host_context["override_reason"]:
+        print(f"HOST-QUIET OVERRIDE: {host_context['override_reason']}", file=sys.stderr)
     with make_client() as client:
         report = execute(
             client,
@@ -794,6 +834,7 @@ def main(argv: list[str] | None = None) -> int:
             stream_engine,
             disabled,
             design=design,
+            host_context=host_context,
         )
     path = write_report(report)
     print(render_summary(report), end="")

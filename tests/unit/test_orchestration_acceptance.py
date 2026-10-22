@@ -181,12 +181,23 @@ def test_run_live_refuses_while_wfe_is_active(tmp_path: Path, monkeypatch: pytes
     """Live mode fails closed before any request and does not touch config/portal.yaml."""
     portal_yaml = ROOT / "config" / "portal.yaml"
     before = portal_yaml.read_bytes()
-    monkeypatch.setattr(acceptance, "_wait_for_wfe_clear", lambda *args, **kwargs: "PID 1 is live")
+    context = {
+        "allowed": False,
+        "force_requested": False,
+        "override_reason": None,
+        "blockers": ["WFE process is running"],
+        "start": {"other_heavy_processes": []},
+    }
+    monkeypatch.setattr(acceptance.host_quiet, "begin_run", lambda *a, **k: context)
+    monkeypatch.setattr(
+        acceptance.host_quiet, "finish_run", lambda record, *a: record.update(end={})
+    )
 
     receipt = acceptance.run_live(tmp_path, "http://127.0.0.1:9099", "key", "fd", "dd")
 
-    assert receipt["blocked"] == "PID 1 is live"
+    assert "WFE process is running" in receipt["blocked"]
     assert receipt["results"] == []
+    assert receipt["host_quiet"]["end"] == {}
     assert acceptance._exit_code(receipt) == 3
     assert portal_yaml.read_bytes() == before
 
@@ -205,10 +216,20 @@ def test_run_live_rechecks_before_each_scenario(tmp_path: Path, monkeypatch: pyt
             "required": True,
         }
 
+    context = {
+        "allowed": True,
+        "force_requested": False,
+        "override_reason": None,
+        "blockers": [],
+        "start": {},
+    }
+    monkeypatch.setattr(acceptance.host_quiet, "begin_run", lambda *a, **k: context)
+    monkeypatch.setattr(
+        acceptance.host_quiet, "finish_run", lambda record, *a: record.update(end={})
+    )
     reasons = iter([None, "WFE started"])
     monkeypatch.setattr(acceptance, "SCENARIOS", {name: {"phase": 1} for name in ("one", "two")})
     monkeypatch.setattr(acceptance, "run_scenario", fake_run)
-    monkeypatch.setattr(acceptance, "_wait_for_wfe_clear", lambda *a, **k: None)
     monkeypatch.setattr(acceptance, "_wfe_active", lambda: next(reasons))
 
     receipt = acceptance.run_live(tmp_path, "http://127.0.0.1:9099", "key", "fd", "dd")
@@ -218,12 +239,50 @@ def test_run_live_rechecks_before_each_scenario(tmp_path: Path, monkeypatch: pyt
     assert receipt["summary"]["passed"] == 1
 
 
+def test_live_force_records_overridden_host_blockers(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+):
+    context = {
+        "allowed": True,
+        "force_requested": True,
+        "override_reason": "operator supplied --force; overridden blockers: WFE is running",
+        "blockers": ["WFE is running"],
+        "start": {},
+    }
+    monkeypatch.setattr(acceptance.host_quiet, "begin_run", lambda *a, **k: context)
+    monkeypatch.setattr(
+        acceptance.host_quiet, "finish_run", lambda record, *a: record.update(end={})
+    )
+    monkeypatch.setattr(acceptance, "SCENARIOS", {"one": {"phase": 1}})
+    monkeypatch.setattr(
+        acceptance,
+        "run_scenario",
+        lambda name, *a, **k: {
+            "scenario": name,
+            "status": "PASS",
+            "evidence": "ok",
+            "phase": "1",
+            "required": True,
+        },
+    )
+    monkeypatch.setattr(
+        acceptance,
+        "_wfe_active",
+        lambda: (_ for _ in ()).throw(AssertionError("forced run must honor the override")),
+    )
+
+    receipt = acceptance.run_live(tmp_path, "http://127.0.0.1:9099", "key", "fd", "dd", force=True)
+
+    assert receipt["host_quiet"]["override_reason"].endswith("WFE is running")
+    assert receipt["host_quiet"]["end"] == {}
+
+
 def test_wfe_clear_without_state(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
     """No PID file and no WFE process means clear."""
     monkeypatch.setattr(acceptance, "WFE_PID_FILE", tmp_path / "pids")
     monkeypatch.setattr(acceptance, "_wfe_processes", lambda: [])
 
-    assert acceptance._wait_for_wfe_clear(timeout=0.2, poll_interval=0.01) is None
+    assert acceptance._wfe_active() is None
 
 
 def test_wfe_pid_file_live_pid(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
@@ -234,7 +293,6 @@ def test_wfe_pid_file_live_pid(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
     monkeypatch.setattr(acceptance, "_wfe_processes", lambda: [])
 
     assert "is live" in acceptance._wfe_active()
-    assert "is live" in acceptance._wait_for_wfe_clear(timeout=0, poll_interval=0)
 
 
 def test_wfe_pid_file_dead_pid(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):

@@ -22,6 +22,7 @@ from portal.platform.inference.config import (  # noqa: E402
     effective_workspace,
     load_bench_workspaces_raw,
 )
+from scripts import host_quiet  # noqa: E402
 from tests.wfe import settings_audit  # noqa: E402
 
 CONTAINER_PIPELINE_HOSTS = {"pipeline", "portal-pipeline", "portal5-pipeline"}
@@ -286,8 +287,21 @@ def main() -> int:
     parser.add_argument("--expected-engine", choices=("ollama", "omlx"))
     parser.add_argument("--ollama-sidecar-url")
     parser.add_argument("--ollama-keep-alive")
+    parser.add_argument("--force", action="store_true", help="override host-quiet blockers")
     args = parser.parse_args()
+    pipeline_url = os.environ.get("PIPELINE_URL", "http://localhost:9099").rstrip("/")
+    api_key = os.environ.get("PIPELINE_API_KEY", "portal-pipeline")
+    host_context = host_quiet.begin_run(pipeline_url, api_key, force=args.force)
+    if not host_context["allowed"]:
+        host_quiet.finish_run(host_context, pipeline_url, api_key)
+        print(f"host-quiet receipt: {json.dumps(host_context, sort_keys=True)}")
+        print(f"BLOCK: {host_quiet.refusal(host_context)}")
+        return 1
+    if host_context["override_reason"]:
+        print(f"HOST-QUIET OVERRIDE: {host_context['override_reason']}")
     issues = preflight(args)
+    host_quiet.finish_run(host_context, pipeline_url, api_key)
+    print(f"host-quiet receipt: {json.dumps(host_context, sort_keys=True)}")
     if issues:
         for issue in issues:
             print(f"BLOCK: {issue}")
