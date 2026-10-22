@@ -1150,6 +1150,104 @@ def test_one_json_repair_turn_reaches_pipeline_again(
     assert all(request["model"] == "auto-daily::fast" for request in fake_pipeline.requests)
 
 
+def _run_direct_bite(
+    tmp_path: Path, fake_pipeline: FakePipeline, name: str, turns: int
+) -> tuple[Any, list[dict[str, Any]]]:
+    task_dir = tmp_path / name
+    task_bite = parse_plan(plan(name, bite(turns=turns))).bites[0]
+    result = run_bite(
+        task_dir,
+        task_bite,
+        Engine("auto-daily::fast", "test-digest", fake_pipeline.url, auth.PIPELINE_API_KEY),
+        input_paths={},
+        attempt_dir=task_dir / "attempt",
+    )
+    records = [
+        json.loads(line)
+        for line in (task_dir / "attempt" / "transcript.jsonl").read_text().splitlines()
+    ]
+    return result, records
+
+
+def test_text_only_reply_gets_one_finish_repair_turn_then_passes(
+    tmp_path: Path, fake_pipeline: FakePipeline
+) -> None:
+    fake_pipeline.add("fast", text_response("Defect report delivered as plain text."))
+    fake_pipeline.add("fast", finish_response({"answer": "right"}))
+    result, records = _run_direct_bite(tmp_path, fake_pipeline, "finish-repair", turns=2)
+
+    assert result.finished and result.output == {"answer": "right"}
+    assert result.red_flags == ()
+    assert len(fake_pipeline.requests) == 2
+    repair = fake_pipeline.requests[1]
+    assert repair["portal_bite_max_hops"] == 1
+    assert repair["messages"][-2] == {
+        "role": "assistant",
+        "content": "Defect report delivered as plain text.",
+    }
+    assert repair["messages"][-1]["role"] == "user"
+    assert "finish" in repair["messages"][-1]["content"]
+    assert "output" in repair["messages"][-1]["content"]
+    kinds = [row["kind"] for row in records]
+    assert kinds.count("finish_repair") >= 2
+    stages = [row["stage"] for row in records if row["kind"] == "finish_repair"]
+    assert stages.count("request") == 1 and stages.count("response") == 1
+
+
+def test_ignored_finish_repair_keeps_todays_red_flags(
+    tmp_path: Path, fake_pipeline: FakePipeline
+) -> None:
+    fake_pipeline.add("fast", text_response("The answer is right, but as plain text."))
+    fake_pipeline.add("fast", text_response("Still no tool call."))
+    result, records = _run_direct_bite(tmp_path, fake_pipeline, "finish-repair-ignored", turns=2)
+
+    assert not result.finished
+    assert result.red_flags == ("missing_finish", "missing_finish_output")
+    assert result.loop_outcome == "wandering"
+    assert len(fake_pipeline.requests) == 2
+    stages = [row["stage"] for row in records if row["kind"] == "finish_repair"]
+    assert stages.count("request") == 1 and stages.count("response") == 1
+
+
+def test_no_finish_repair_when_the_turn_budget_is_exhausted(
+    tmp_path: Path, fake_pipeline: FakePipeline
+) -> None:
+    fake_pipeline.add("fast", text_response("Answer as text with no turns left."))
+    result, records = _run_direct_bite(tmp_path, fake_pipeline, "finish-repair-capped", turns=1)
+
+    assert not result.finished
+    assert result.red_flags == ("missing_finish", "missing_finish_output")
+    assert len(fake_pipeline.requests) == 1
+    assert not [row for row in records if row["kind"] == "finish_repair"]
+
+
+def test_no_finish_repair_when_the_token_budget_is_exhausted(
+    tmp_path: Path, fake_pipeline: FakePipeline
+) -> None:
+    # The fake forwards no usage chunk, so the worker estimates this reply at
+    # ceil(34/4) = 9 tokens — exactly the bite's whole output budget.
+    fake_pipeline.add("fast", text_response("Answer as text with no turns left."))
+    raw_bite = bite(turns=2, output_tokens=9)
+    task_dir = tmp_path / "finish-repair-token-capped"
+    task_bite = parse_plan(plan("finish-repair-token-capped", raw_bite)).bites[0]
+    result = run_bite(
+        task_dir,
+        task_bite,
+        Engine("auto-daily::fast", "test-digest", fake_pipeline.url, auth.PIPELINE_API_KEY),
+        input_paths={},
+        attempt_dir=task_dir / "attempt",
+    )
+    records = [
+        json.loads(line)
+        for line in (task_dir / "attempt" / "transcript.jsonl").read_text().splitlines()
+    ]
+
+    assert not result.finished
+    assert result.red_flags == ("missing_finish", "missing_finish_output")
+    assert len(fake_pipeline.requests) == 1
+    assert not [row for row in records if row["kind"] == "finish_repair"]
+
+
 def test_residency_config_defaults_to_swap_and_reads_co_resident(tmp_path: Path) -> None:
     assert load_residency_mode(tmp_path / "missing.yaml") == "swap"
     config = tmp_path / "arm.yaml"

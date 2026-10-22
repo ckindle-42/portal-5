@@ -514,6 +514,20 @@ def _finish_arguments(
     content, calls = _response_parts(response)
     call, flags = _select_finish_call(calls)
     if call is None:
+        repair_result = _finish_repair_result(
+            bite,
+            engine,
+            messages,
+            body,
+            content,
+            calls,
+            tokens,
+            transcript,
+            started,
+            turns_remaining=turns_remaining,
+        )
+        if repair_result is not None:
+            return repair_result
         return FinishResult(content, tuple(calls), None, tokens, frozenset(flags), None)
     try:
         arguments = _call_arguments(call)
@@ -613,6 +627,103 @@ def _repair_json(
         return {}, tokens, f"JSON repair failed: {exc}"
     tokens += _response_tokens(response)
     transcript.append("repair_response", {"response": response})
+    return response, tokens, None
+
+
+def _finish_repair_result(
+    bite: Bite,
+    engine: Engine,
+    messages: list[dict[str, Any]],
+    body: dict[str, Any],
+    content: str,
+    calls: list[dict[str, Any]],
+    tokens: int,
+    transcript: _Transcript,
+    started: float,
+    *,
+    turns_remaining: int,
+) -> FinishResult | None:
+    if calls or not content:
+        return None
+    repaired, tokens, _failure = _repair_finish(
+        bite,
+        engine,
+        messages,
+        body,
+        content,
+        tokens,
+        transcript,
+        started,
+        turns_remaining=turns_remaining,
+    )
+    repair_content, repair_calls = _response_parts(repaired)
+    repaired_call, repaired_flags = _select_finish_call(repair_calls)
+    arguments: dict[str, Any] | None = None
+    if repaired_call is not None:
+        try:
+            arguments = _call_arguments(repaired_call)
+        except (json.JSONDecodeError, ValueError):
+            arguments = None
+    if arguments is None:
+        _unused_call, flags = _select_finish_call(calls)
+        return FinishResult(
+            f"{content}{repair_content}", tuple(calls), None, tokens, frozenset(flags), None
+        )
+    return FinishResult(
+        f"{content}{repair_content}",
+        tuple(repair_calls),
+        arguments,
+        tokens,
+        frozenset(repaired_flags),
+        None,
+    )
+
+
+def _repair_finish(
+    bite: Bite,
+    engine: Engine,
+    messages: list[dict[str, Any]],
+    body: dict[str, Any],
+    content: str,
+    tokens: int,
+    transcript: _Transcript,
+    started: float,
+    *,
+    turns_remaining: int,
+) -> tuple[dict[str, Any], int, str | None]:
+    if turns_remaining < 1:
+        return {}, tokens, "finish repair requires one additional turn"
+    if tokens >= bite.budget.output_tokens:
+        return {}, tokens, "finish repair output budget exhausted"
+    required = ", ".join(_finish_schema(bite)["function"]["parameters"]["required"])
+    repair_messages = [
+        *messages,
+        {"role": "assistant", "content": content},
+        {
+            "role": "user",
+            "content": (
+                "You replied with plain text and no tool call. Call finish once now, "
+                f"passing your answer as its required field(s): {required}."
+            ),
+        },
+    ]
+    repair_body = {
+        **body,
+        "messages": repair_messages,
+        "max_tokens": max(1, bite.budget.output_tokens - tokens),
+        "portal_bite_max_hops": turns_remaining,
+    }
+    transcript.append("finish_repair", {"stage": "request", "body": repair_body})
+    try:
+        response = engine.chat(
+            repair_body,
+            _remaining_time(bite, started),
+            lambda event: transcript.append("finish_repair", {"stage": "event", "event": event}),
+        )
+    except PipelineError as exc:
+        return {}, tokens, f"finish repair failed: {exc}"
+    tokens += _response_tokens(response)
+    transcript.append("finish_repair", {"stage": "response", "response": response})
     return response, tokens, None
 
 
