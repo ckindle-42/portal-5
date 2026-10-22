@@ -243,17 +243,12 @@ dev = [
     "python-pptx>=0.6.23",
     # pillow is transitive via the feature extras but tests/wfe vision suite
     # builds its gold PNGs with PIL at module scope, so test_wfe_vision_slice
-    # fails collection under the dev-only extras CI installs. Pinned because
-    # the committed vision PNGs are hash-checked against a regeneration and
-    # Pillow's renderer (baked-in Aileron, quantize) moves between releases.
-    "pillow==13.0.0; python_version >= '3.11'",
-    "pillow>=10.0.0; python_version < '3.11'",
+    # fails collection under the dev-only extras CI installs.
+    "pillow>=10.0.0",
     # matplotlib lives in the `cad` extra but build_vision_production renders
     # the vision suite's gold chart images with it at module scope — same
-    # dev-only-extras collection failure as pillow above; pinned for the same
-    # hash-check reason (Agg/FreeType rendering moves between releases).
-    "matplotlib==3.11.1; python_version >= '3.11'",
-    "matplotlib>=3.8.0; python_version < '3.11'",
+    # dev-only-extras collection failure as pillow above.
+    "matplotlib>=3.8.0",
     # markdown is an `mcp`-extra package (documents module rich-text rendering):
     # document_mcp._render_markdown lazy-imports it, and the unit tests that
     # exercise create_word_document surface its absence as success:False under
