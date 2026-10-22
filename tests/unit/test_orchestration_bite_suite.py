@@ -92,7 +92,12 @@ def test_testfix_bite_suite_splits_reading_and_action_tools(tmp_path: Path):
     ]
     assert stages[0][0].reads_untrusted
     assert not stages[1][0].reads_untrusted
-    assert stages[1][1] == {"inspection": task_dir / stages[0][0].output_path}
+    assert stages[1][0].write_paths == ("clamp.py",)
+    assert stages[1][1] == {
+        "clamp.py": Path("clamp.py"),
+        "test_clamp.py": Path("test_clamp.py"),
+        "inspection": Path(stages[0][0].output_path),
+    }
 
 
 def test_planner_suite_uses_live_pipeline_identity_and_stays_out_of_gate_c(tmp_path: Path):

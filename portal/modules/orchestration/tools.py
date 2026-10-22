@@ -2,20 +2,21 @@
 
 from __future__ import annotations
 
-import os
-import platform
+import base64
 import re
 import shlex
-import shutil
-import subprocess
-import sys
 from pathlib import Path, PureWindowsPath
 from typing import Any
+
+import httpx
 
 FILE_READ_LIMIT = 20_000
 FILE_WRITE_LIMIT = 200_000
 PYTEST_OUTPUT_LIMIT = 8_000
 PYTEST_TIMEOUT_SECONDS = 180
+TASK_DATA_DIRECTORY = "data"
+TASK_FILE_LIMIT = 128
+TASK_BYTES_LIMIT = 16 * 1024 * 1024
 READ_TOOLS = frozenset({"file_read"})
 ACTION_TOOLS = frozenset({"file_write", "pytest_run"})
 
@@ -77,11 +78,22 @@ def _schema(
 
 
 class TaskToolExecutor:
-    """Execute the three host tools within one task directory."""
+    """Execute confined client tools against one task data directory."""
 
-    def __init__(self, task_dir: Path, allowed_tools: tuple[str, ...]) -> None:
+    def __init__(
+        self,
+        task_dir: Path,
+        allowed_tools: tuple[str, ...],
+        *,
+        readable_paths: tuple[str, ...] = (),
+        writable_paths: tuple[str, ...] = (),
+        sandbox_url: str = "http://127.0.0.1:8914",
+    ) -> None:
         self.task_dir = Path(task_dir).resolve()
         self.allowed_tools = frozenset(allowed_tools)
+        self.readable_paths = frozenset(self._relative_path(path) for path in readable_paths)
+        self.writable_paths = frozenset(self._relative_path(path) for path in writable_paths)
+        self.sandbox_url = sandbox_url.rstrip("/")
 
     def dispatch(self, name: str, arguments: dict[str, Any]) -> str:
         """Return a bounded tool result, including structured argument errors."""
@@ -102,6 +114,8 @@ class TaskToolExecutor:
 
     def file_read(self, path: str) -> str:
         target = self._resolve(path)
+        if target.relative_to(self.task_dir).as_posix() not in self.readable_paths:
+            return f"ERROR: {path} is not readable for this bite"
         if not target.is_file():
             return f"ERROR: cannot read {path}"
         with target.open("rb") as stream:
@@ -117,8 +131,18 @@ class TaskToolExecutor:
         if len(encoded) > FILE_WRITE_LIMIT:
             return f"ERROR: content exceeds the {FILE_WRITE_LIMIT}-byte write limit"
         target = self._resolve(path)
+        relative = target.relative_to(self.task_dir).as_posix()
+        if relative not in self.writable_paths:
+            return f"ERROR: {path} is not writable for this bite"
         if target == self.task_dir or target.is_dir():
             return f"ERROR: {path} is a directory"
+        current_size = target.stat().st_size if target.is_file() else 0
+        additional_files = 0 if target.is_file() else 1
+        if (
+            _task_size(self.task_dir, additional_files) - current_size + len(encoded)
+            > TASK_BYTES_LIMIT
+        ):
+            return f"ERROR: task data exceeds the {TASK_BYTES_LIMIT}-byte limit"
         target.parent.mkdir(parents=True, exist_ok=True)
         target = self._resolve(path)
         if target == self.task_dir or target.is_dir():
@@ -129,48 +153,25 @@ class TaskToolExecutor:
     def pytest_run(self, args: str = "") -> str:
         try:
             selectors = _pytest_selectors(args, self.task_dir)
-            self._prepare_temp_dir()
-            command = [
-                *_sandbox_prefix(self.task_dir),
-                sys.executable,
-                "-m",
-                "pytest",
-                "-c",
-                os.devnull,
-                "--rootdir",
-                str(self.task_dir),
-                "--confcutdir",
-                str(self.task_dir),
-                "--log-file",
-                str(self.task_dir / ".pytest-tmp" / "pytest.log"),
-                "-q",
-                "-p",
-                "no:cacheprovider",
-                "--import-mode=importlib",
-                *selectors,
-            ]
-            env = {
-                **os.environ,
-                "PYTEST_DISABLE_PLUGIN_AUTOLOAD": "1",
-                "PYTHONDONTWRITEBYTECODE": "1",
-                "PYTHONPATH": str(self.task_dir),
-                "TMPDIR": str(self.task_dir / ".pytest-tmp"),
+            payload = {
+                "files": _task_snapshot(self.task_dir, self.readable_paths | self.writable_paths),
+                "selectors": selectors,
+                "write_paths": sorted(self.writable_paths),
+                "timeout": PYTEST_TIMEOUT_SECONDS,
             }
-            result = subprocess.run(
-                command,
-                capture_output=True,
-                text=True,
-                timeout=PYTEST_TIMEOUT_SECONDS,
-                cwd=self.task_dir,
-                env=env,
-                check=False,
-            )
-            output = (result.stdout + result.stderr)[:PYTEST_OUTPUT_LIMIT]
-            return f"exit_code={result.returncode}\n{output}"
-        except subprocess.TimeoutExpired as exc:
-            output = _timeout_output(exc)[:PYTEST_OUTPUT_LIMIT]
-            return f"ERROR: pytest timed out after {PYTEST_TIMEOUT_SECONDS}s\n{output}"
-        except (OSError, RuntimeError, ValueError) as exc:
+            result = _sandbox_request(self.sandbox_url, payload)
+            if not isinstance(result, dict):
+                raise RuntimeError("sandbox returned a non-object response")
+            for path, encoded in _returned_files(result).items():
+                content = base64.b64decode(encoded, validate=True).decode("utf-8")
+                copied = self.file_write(path, content)
+                if copied.startswith("ERROR:"):
+                    raise RuntimeError(f"sandbox copy-back rejected: {copied}")
+            output = str(result.get("stdout", "")) + str(result.get("stderr", ""))
+            if result.get("timed_out"):
+                return f"ERROR: pytest timed out after {PYTEST_TIMEOUT_SECONDS}s\n{output[:PYTEST_OUTPUT_LIMIT]}"
+            return f"exit_code={int(result.get('exit_code', -1))}\n{output[:PYTEST_OUTPUT_LIMIT]}"
+        except (OSError, RuntimeError, UnicodeError, ValueError, httpx.HTTPError) as exc:
             return f"ERROR: pytest could not run: {type(exc).__name__}: {exc}"
 
     def _resolve(self, path: str) -> Path:
@@ -187,8 +188,8 @@ class TaskToolExecutor:
             raise ValueError("path escapes the task directory")
         return target
 
-    def _prepare_temp_dir(self) -> None:
-        (self.task_dir / ".pytest-tmp").mkdir(exist_ok=True)
+    def _relative_path(self, path: str) -> str:
+        return self._resolve(path).relative_to(self.task_dir).as_posix()
 
 
 def _pytest_selectors(args: str, task_dir: Path) -> list[str]:
@@ -234,42 +235,56 @@ def _pytest_path_selector(token: str, task_dir: Path) -> str:
     return target.relative_to(task_dir).as_posix() + suffix
 
 
-def _sandbox_prefix(task_dir: Path) -> list[str]:
-    """Fail closed unless the host can isolate pytest from network and host writes."""
-    system = platform.system()
-    if system == "Darwin":
-        executable = shutil.which("sandbox-exec")
-        if executable is None:
-            raise RuntimeError("sandbox-exec is required for network-isolated pytest")
-        profile = f'(version 1) (allow default) (deny network*) (deny file-write* (require-not (subpath "{task_dir}")))'
-        return [executable, "-p", profile]
-    if system == "Linux":
-        executable = shutil.which("bwrap")
-        if executable is None:
-            raise RuntimeError("bwrap is required for network-isolated pytest")
-        return [
-            executable,
-            "--die-with-parent",
-            "--unshare-net",
-            "--ro-bind",
-            "/",
-            "/",
-            "--bind",
-            str(task_dir),
-            str(task_dir),
-            "--dev",
-            "/dev",
-            "--proc",
-            "/proc",
-            "--chdir",
-            str(task_dir),
-        ]
-    raise RuntimeError(f"network-isolated pytest is unsupported on {system}")
+def _task_snapshot(task_dir: Path, visible_paths: frozenset[str]) -> dict[str, str]:
+    files: dict[str, str] = {}
+    total = 0
+    for relative in sorted(visible_paths):
+        path = task_dir / relative
+        if not path.exists():
+            continue
+        if path.is_symlink():
+            raise ValueError(f"task data contains a symlink: {path.relative_to(task_dir)}")
+        if not path.is_file():
+            raise ValueError(f"task data path is not a file: {relative}")
+        if len(files) >= TASK_FILE_LIMIT:
+            raise ValueError(f"task data exceeds the {TASK_FILE_LIMIT}-file limit")
+        content = path.read_bytes()
+        total += len(content)
+        if total > TASK_BYTES_LIMIT:
+            raise ValueError(f"task data exceeds the {TASK_BYTES_LIMIT}-byte limit")
+        files[path.relative_to(task_dir).as_posix()] = base64.b64encode(content).decode("ascii")
+    return files
 
 
-def _timeout_output(exc: subprocess.TimeoutExpired) -> str:
-    output = exc.stdout or b""
-    errors = exc.stderr or b""
-    output_text = output.decode("utf-8", errors="replace") if isinstance(output, bytes) else output
-    error_text = errors.decode("utf-8", errors="replace") if isinstance(errors, bytes) else errors
-    return output_text + error_text
+def _task_size(task_dir: Path, additional_files: int = 0) -> int:
+    total = 0
+    files = additional_files
+    for path in task_dir.rglob("*"):
+        if path.is_symlink():
+            raise ValueError(f"task data contains a symlink: {path.relative_to(task_dir)}")
+        if not path.is_file():
+            continue
+        files += 1
+        if files > TASK_FILE_LIMIT:
+            raise ValueError(f"task data exceeds the {TASK_FILE_LIMIT}-file limit")
+        total += path.stat().st_size
+    return total
+
+
+def _returned_files(result: dict[str, Any]) -> dict[str, str]:
+    value = result.get("files", {})
+    if not isinstance(value, dict) or not all(
+        isinstance(path, str) and isinstance(content, str) for path, content in value.items()
+    ):
+        raise RuntimeError("sandbox returned invalid file data")
+    return value
+
+
+def _sandbox_request(url: str, payload: dict[str, Any]) -> dict[str, Any]:
+    with httpx.Client(trust_env=False, timeout=PYTEST_TIMEOUT_SECONDS + 10) as client:
+        response = client.post(f"{url}/internal/orchestration/pytest", json=payload)
+        response.raise_for_status()
+        result = response.json()
+    if not isinstance(result, dict):
+        raise RuntimeError("sandbox returned a non-object response")
+    return result

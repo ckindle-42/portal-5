@@ -7,6 +7,7 @@ import argparse
 import json
 import os
 import re
+import shutil
 import subprocess
 import sys
 import time
@@ -30,7 +31,12 @@ from portal.modules.orchestration.planner import (  # noqa: E402
     planner_prompt,
     validate_planned_plan,
 )
-from portal.modules.orchestration.tools import ACTION_TOOLS, READ_TOOLS  # noqa: E402
+from portal.modules.orchestration.tools import (  # noqa: E402
+    ACTION_TOOLS,
+    READ_TOOLS,
+    TASK_DATA_DIRECTORY,
+    TaskToolExecutor,
+)
 from portal.modules.orchestration.worker import Engine, run_bite  # noqa: E402
 from portal.platform.inference.router.text_tool_calls import TEXT_TOOL_CALL_MARKERS  # noqa: E402
 from portal.platform.mcp_host.workspace import get_generated_dir  # noqa: E402
@@ -207,8 +213,9 @@ def _write_seeds(case: dict[str, Any], task_dir: Path) -> list[str]:
         relative = Path(str(name))
         if relative.is_absolute() or ".." in relative.parts or not isinstance(content, str):
             raise ValueError(f"{case['id']} has an invalid seed file")
-        target = (task_dir / relative).resolve()
-        if not target.is_relative_to(task_dir.resolve()):
+        data_dir = task_dir / TASK_DATA_DIRECTORY
+        target = (data_dir / relative).resolve()
+        if not target.is_relative_to(data_dir.resolve()):
             raise ValueError(f"{case['id']} seed escapes the task directory")
         target.parent.mkdir(parents=True, exist_ok=True)
         target.write_text(content, encoding="utf-8")
@@ -223,15 +230,7 @@ def _bite_contract(
     if not isinstance(tools, list) or not all(isinstance(x, str) for x in tools):
         raise ValueError(f"{case['id']} tools must be a list")
     seed_names = _write_seeds(case, task_dir)
-    if not seed_names:
-        workspace_dir = None
-    elif dry_run:
-        workspace_dir = Path("/workspace") / _safe_name(task_dir.name)
-    else:
-        workspace_dir = Path(_workspace_path(task_dir))
-    input_paths = (
-        {name: workspace_dir / name for name in seed_names} if workspace_dir is not None else {}
-    )
+    input_paths = {name: Path(name) for name in seed_names}
     procedure = str(case.get("instruction", ""))
     if case.get("seed_artifact") is not None:
         procedure += "\nSeed artifact: " + json.dumps(case["seed_artifact"], ensure_ascii=False)
@@ -240,6 +239,12 @@ def _bite_contract(
         goal=str(case.get("goal") or case.get("instruction") or case["id"]),
         discipline=discipline,
         inputs=tuple(seed_names),
+        write_paths=tuple(
+            str(name)
+            for checker in case.get("checkers", [])
+            if checker.get("type") == "hidden_pytest"
+            for name in checker.get("impl_files", [])
+        ),
         depends_on=(),
         tools=tuple(tools),
         output_path="bite-output.txt" if seed_names else "bite-output.json",
@@ -420,40 +425,27 @@ def _hidden_pytest(case: dict[str, Any], task_dir: Path) -> dict[str, Any]:
     grade = (ROOT / "tests/wfe/graded" / str(checker["graded"])).resolve()
     if not grade.is_relative_to((ROOT / "tests/wfe/graded").resolve()) or not grade.is_dir():
         return {"passed": False, "detail": "hidden pytest fixture is unavailable"}
+    data_dir = task_dir / TASK_DATA_DIRECTORY
     impl_files = checker.get("impl_files", [])
-    missing = [name for name in impl_files if not (task_dir / name).is_file()]
+    missing = [name for name in impl_files if not (data_dir / name).is_file()]
     if missing:
         return {"passed": False, "detail": f"missing implementation files: {missing}"}
-    env = {**os.environ, "PYTHONPATH": str(task_dir), "PYTEST_DISABLE_PLUGIN_AUTOLOAD": "1"}
+    hidden = data_dir / ".arm-hidden-tests"
+    shutil.copytree(grade, hidden)
     try:
-        result = subprocess.run(
-            [
-                "uv",
-                "run",
-                "pytest",
-                "-q",
-                "-p",
-                "no:cacheprovider",
-                "--import-mode=importlib",
-                "--basetemp",
-                str(task_dir / ".pytest-tmp"),
-                str(grade),
-            ],
-            cwd=task_dir,
-            env=env,
-            capture_output=True,
-            text=True,
-            timeout=90,
-            check=False,
+        readable = tuple(
+            path.relative_to(data_dir).as_posix() for path in data_dir.rglob("*") if path.is_file()
         )
-    except (OSError, subprocess.TimeoutExpired) as exc:
-        return {"passed": False, "detail": f"hidden pytest failed to run: {type(exc).__name__}"}
-    output = (result.stdout + result.stderr)[-3000:]
+        output = TaskToolExecutor(data_dir, ("pytest_run",), readable_paths=readable).pytest_run(
+            ".arm-hidden-tests"
+        )
+    finally:
+        shutil.rmtree(hidden, ignore_errors=True)
     match = re.search(r"(\d+) passed", output)
     passed = int(match.group(1)) if match else 0
     minimum = int(checker.get("min_passed", 1))
     return {
-        "passed": result.returncode == 0 and passed >= minimum,
+        "passed": output.startswith("exit_code=0") and passed >= minimum,
         "passed_tests": passed,
         "required": minimum,
         "output": output,
@@ -472,8 +464,8 @@ def _score_bite(
             name
             for name, seeded in case["seed"].items()
             if Path(name).name.startswith("test_")
-            and (task_dir / name).is_file()
-            and (task_dir / name).read_text(encoding="utf-8") != seeded
+            and (task_dir / TASK_DATA_DIRECTORY / name).is_file()
+            and (task_dir / TASK_DATA_DIRECTORY / name).read_text(encoding="utf-8") != seeded
         ]
         grade = _hidden_pytest(case, task_dir)
         passed = bool(
@@ -651,7 +643,7 @@ def _stage_bites(
         bite,
         bite_id=f"{bite.bite_id}-act",
         tools=actions,
-        inputs=("inspection",),
+        inputs=(*bite.inputs, "inspection"),
         procedure=(
             "Use the read-only inspection report supplied as input. Do not call file_read. "
             "Make the smallest implementation change with file_write and verify it with pytest_run. "
@@ -659,7 +651,10 @@ def _stage_bites(
         ),
         reads_untrusted=False,
     )
-    return [(inspection, input_paths), (action, {"inspection": task_dir / inspect_path})]
+    return [
+        (inspection, input_paths),
+        (action, {**input_paths, "inspection": Path(inspect_path)}),
+    ]
 
 
 def _run_bite_stage(

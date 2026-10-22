@@ -124,7 +124,8 @@ orchestration_arm:
               - bite_id: repair
                 goal: "Use the inspection to make the smallest change for $expected_behavior and run $test_file."
                 discipline: test_fixing
-                inputs: [inspect]
+                inputs: [$source_file, $test_file, inspect]
+                write_paths: [$source_file]
                 depends_on: [inspect]
                 tools: [file_write, pytest_run]
                 output: {path: bites/repair.txt, file_type: text}
@@ -245,6 +246,7 @@ orchestration_arm:
                 goal: "Draft the detection for $expected_behavior and validate the exact artifact."
                 discipline: detection-engineering
                 inputs: [research]
+                write_paths: [artifacts/detection.spl]
                 depends_on: [research]
                 tools: [file_write, spl_validate_syntax]
                 output: {path: bites/draft_validate.txt, file_type: text}

@@ -15,7 +15,13 @@ import httpx
 from jsonschema import Draft202012Validator, ValidationError  # type: ignore[import-untyped]
 
 from .contracts import Bite
-from .tools import ACTION_TOOLS, READ_TOOLS, TaskToolExecutor, tool_schema
+from .tools import (
+    ACTION_TOOLS,
+    READ_TOOLS,
+    TASK_DATA_DIRECTORY,
+    TaskToolExecutor,
+    tool_schema,
+)
 
 
 @dataclass(frozen=True)
@@ -157,11 +163,13 @@ def run_bite(
     """Run a fresh bite and execute its client tools within the task directory."""
     started = time.monotonic()
     transcript = _Transcript(attempt_dir / "transcript.jsonl")
-    output_path = _inside_task(task_dir, bite.output_path)
+    data_dir = task_dir / TASK_DATA_DIRECTORY
+    data_dir.mkdir(parents=True, exist_ok=True)
+    output_path = _inside_task(data_dir, bite.output_path)
     output_path.parent.mkdir(parents=True, exist_ok=True)
     output_path.unlink(missing_ok=True)
     try:
-        messages = _messages(bite, input_paths, task_dir)
+        messages = _messages(bite, input_paths, data_dir)
     except (OSError, UnicodeError, ValueError) as exc:
         elapsed = time.monotonic() - started
         return WorkerResult(
@@ -175,7 +183,12 @@ def run_bite(
             f"input could not be read: {type(exc).__name__}: {exc}",
         )
     body = _request_body(bite, engine, messages)
-    executor = TaskToolExecutor(task_dir, bite.tools)
+    executor = TaskToolExecutor(
+        data_dir,
+        bite.tools,
+        readable_paths=tuple(path.as_posix() for path in input_paths.values()),
+        writable_paths=_writable_paths(bite, input_paths),
+    )
     try:
         plan = engine.load_plan(bite.budget.minutes * 60)
     except PipelineError as exc:
@@ -468,7 +481,9 @@ def _finish_response(
     if finished:
         _validate_output(bite, output, red_flags, transcript)
         if not red_flags:
-            _write_output(_inside_task(task_dir, bite.output_path), bite, output)
+            _write_output(
+                _inside_task(task_dir / TASK_DATA_DIRECTORY, bite.output_path), bite, output
+            )
     transcript.append(
         "result",
         {
@@ -689,6 +704,16 @@ def _messages(
             "content": json.dumps({"bite_id": bite.bite_id, "inputs": inputs}),
         },
     ]
+
+
+def _writable_paths(bite: Bite, input_paths: dict[str, Path]) -> tuple[str, ...]:
+    paths: list[str] = []
+    for declared in bite.write_paths:
+        resolved = input_paths.get(declared, Path(declared))
+        if resolved.is_absolute() or ".." in resolved.parts:
+            raise ValueError(f"write path escapes task data: {declared}")
+        paths.append(resolved.as_posix())
+    return tuple(paths)
 
 
 def _response_parts(response: dict[str, Any]) -> tuple[str, list[dict[str, Any]]]:

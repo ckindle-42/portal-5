@@ -171,6 +171,11 @@ def _write_arm_config(
         }
         for name in ("offline-rig", "test_fixing")
     }
+    config["disciplines"]["offline-rig"] = {
+        "tool_allowlist": ["file_read", "file_write", "pytest_run"],
+        "read_tools": ["file_read"],
+        "action_tools": ["file_write", "pytest_run"],
+    }
     if calibration_overrides:
         config["calibration"].update(calibration_overrides)
     path.write_text(yaml.safe_dump(config, sort_keys=False), encoding="utf-8")
@@ -207,6 +212,7 @@ def _bite(
         "goal": "produce the expected value",
         "discipline": discipline,
         "inputs": [],
+        **({"write_paths": ["artifact.txt"]} if "file_write" in (tools or []) else {}),
         "depends_on": depends_on or [],
         "tools": tools or [],
         "output": output,
@@ -480,6 +486,7 @@ def _valid_planned_plan() -> dict[str, Any]:
             "goal": f"Complete {stage} for the task.",
             "discipline": "test_fixing",
             "inputs": [],
+            **({"write_paths": ["artifact.txt"]} if "file_write" in tools else {}),
             "depends_on": deps,
             "tools": tools,
             "output": {"path": f"bites/{bite_id}.txt", "file_type": "text"},
