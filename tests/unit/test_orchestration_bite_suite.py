@@ -92,7 +92,7 @@ def test_bite_dry_run_sends_one_sequential_request_per_case_and_repeat(tmp_path:
         parameters = finish["function"]["parameters"]
         assert parameters["required"] == ["output"]
         assert "output_path" not in parameters["properties"]
-    assert all(row["chat_template_kwargs"]["enable_thinking"] is True for row in pipeline.requests)
+    assert all("chat_template_kwargs" not in row for row in pipeline.requests)
     assert all(
         [tool["function"]["name"] for tool in row["tools"]] == row["portal_bite_tools"]
         for row in pipeline.requests

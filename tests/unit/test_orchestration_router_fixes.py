@@ -153,7 +153,7 @@ async def _prepare_request(
     "inject",
     [validation._inject_ollama_options, validation._inject_omlx_options],
 )
-def test_thinking_bites_use_the_card_precise_coding_sampling(inject) -> None:
+def test_bite_sampling_follows_think_off_seat(inject) -> None:
     from portal.platform.inference.router.preinject import _resolve_workspace_variant
 
     workspace_id = _resolve_workspace_variant("auto-daily::fast", "auto-daily", "fast")
@@ -161,17 +161,22 @@ def test_thinking_bites_use_the_card_precise_coding_sampling(inject) -> None:
     request = {
         "model": model,
         "portal_bite_tools": ["finish"],
-        "chat_template_kwargs": {"enable_thinking": True},
+        "max_tokens": 4096,
     }
 
     prepared = inject(request, workspace_id)
     sampling = prepared["options"] if inject is validation._inject_ollama_options else prepared
 
-    assert sampling["temperature"] == 0.6
-    assert sampling["top_p"] == 0.95
+    assert sampling["temperature"] == 0.7
+    assert sampling["top_p"] == 0.8
     assert sampling["top_k"] == 20
     assert sampling["min_p"] == 0.0
-    assert sampling["presence_penalty"] == 0.0
+    assert sampling["presence_penalty"] == 1.5
+    assert not prepared.get("thinking_budget")
+    if inject is validation._inject_omlx_options:
+        assert prepared["chat_template_kwargs"]["enable_thinking"] is False
+    else:
+        assert prepared["think"] is False
 
 
 @pytest.mark.anyio
@@ -556,18 +561,28 @@ async def test_configured_nonpositive_global_hops_keeps_empty_loop_for_ordinary_
     assert client.requests == []
 
 
-def test_bite_thinking_survives_both_engine_injectors(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_thinking_bite_follows_think_on_seat_and_reserves_answer_budget(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     workspace = "arm-thinking-test"
-    monkeypatch.setitem(validation.WORKSPACES, workspace, {"think": False})
+    model = "Qwen3.6-35B-A3B-test"
+    monkeypatch.setitem(
+        validation.WORKSPACES,
+        workspace,
+        {"model_hint": model, "think": True},
+    )
     body = {
+        "model": model,
         "portal_bite_tools": ["finish"],
-        "chat_template_kwargs": {"enable_thinking": True},
+        "max_tokens": 4096,
     }
-    ollama = validation._inject_ollama_options(body, workspace)
     omlx = validation._inject_omlx_options(body, workspace)
-    assert ollama["think"] is True
-    assert ollama.get("reasoning_effort") != "none"
     assert omlx["chat_template_kwargs"]["enable_thinking"] is True
+    assert omlx["temperature"] == 0.6
+    assert omlx["top_p"] == 0.95
+    assert omlx["presence_penalty"] == 0.0
+    assert omlx["thinking_budget"] == 3072
+    assert omlx["max_tokens"] - omlx["thinking_budget"] == 1024
 
 
 def test_production_fast_and_deep_seats_remain_think_off() -> None:

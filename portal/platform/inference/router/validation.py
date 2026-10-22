@@ -12,7 +12,7 @@ import re
 from typing import Any
 
 from portal.platform.inference.cluster_backends import BackendRegistry
-from portal.platform.inference.model_cards import card_sampling, card_thinking_level
+from portal.platform.inference.model_cards import card_entry, card_sampling, card_thinking_level
 from portal.platform.inference.router.workspaces import WORKSPACES
 
 logger = logging.getLogger(__name__)
@@ -213,13 +213,49 @@ def _resolve_request_sampling_values(
 ) -> dict[str, Any]:
     values = _resolve_sampling_values(ws_cfg_local)
     ctk = body.get("chat_template_kwargs") or {}
-    if "portal_bite_tools" not in body or not isinstance(ctk, dict):
+    if "portal_bite_tools" not in body:
         return values
-    if ctk.get("enable_thinking") is not True:
+    if not isinstance(ctk, dict):
+        ctk = {}
+    think = ctk.get("enable_thinking", ws_cfg_local.get("think"))
+    if think is None:
         return values
     model = str(body.get("model") or ws_cfg_local.get("model_hint") or "")
-    values.update(card_sampling(model, True, mode="thinking_precise_coding"))
+    think_off = think is False or (isinstance(think, str) and think.lower() == "false")
+    if think_off:
+        profile = card_sampling(model, False, mode="instruct")
+    else:
+        entry = card_entry(model)
+        modes = entry[1].get("recommended_sampling_modes") if entry else {}
+        profile = (
+            card_sampling(model, True, mode="thinking_precise_coding")
+            if isinstance(modes, dict) and "thinking_precise_coding" in modes
+            else card_sampling(model, True)
+        )
+    values.update(profile)
     return values
+
+
+def _apply_bite_thinking_budget(body: dict[str, Any], ws_cfg: dict[str, Any]) -> None:
+    if "portal_bite_tools" not in body:
+        return
+    ctk = body.get("chat_template_kwargs") or {}
+    think = ctk.get("enable_thinking") if isinstance(ctk, dict) else None
+    if think is None:
+        think = ws_cfg.get("think")
+    if think is False or (isinstance(think, str) and think.lower() == "false"):
+        return
+    if think is None:
+        return
+    output_limit = body.get("max_tokens")
+    if isinstance(output_limit, bool) or not isinstance(output_limit, int) or output_limit < 2:
+        return
+    answer_reserve = min(output_limit - 1, max(256, output_limit // 4))
+    thinking_limit = output_limit - answer_reserve
+    existing = body.get("thinking_budget", ws_cfg.get("thinking_budget"))
+    if isinstance(existing, int) and not isinstance(existing, bool) and existing > 0:
+        thinking_limit = min(thinking_limit, existing)
+    body["thinking_budget"] = thinking_limit
 
 
 # reasoning_effort -> output-token cap. Explicit request-level override of a
@@ -372,6 +408,7 @@ def _inject_ollama_options(body: dict[str, Any], workspace_id: str = "") -> dict
             if mv is not None:
                 body["options"].setdefault(mk, mv)
 
+    _apply_bite_thinking_budget(body, ws_cfg_local)
     budget_level = _apply_ollama_thinking_budget(body, ws_cfg_local)
     ws_think = ws_cfg_local.get("think")
 
@@ -463,6 +500,8 @@ def _inject_omlx_options(body: dict[str, Any], workspace_id: str = "") -> dict[s
         ctk = dict(body.get("chat_template_kwargs") or {})
         ctk.setdefault("enable_thinking", ws_think)
         body["chat_template_kwargs"] = ctk
+
+    _apply_bite_thinking_budget(body, ws_cfg_local)
 
     _note_applied_options(body, workspace_id)
 

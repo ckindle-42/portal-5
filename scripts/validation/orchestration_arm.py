@@ -1,11 +1,9 @@
 """Orchestration-arm principle checks (Phase 3).
 
 The arm's design principles are prose unless a gate reads them. These checks
-read the arm's own config, suites and request builders: the read/action split a
-bite plan must obey, thinking on for every arm model request, the suites and
-written pass criteria every configured discipline needs, the Gate C threshold
-and its unattended refusal, per-bite tool mounting, and path-only inputs with
-the procedure in context.
+read the arm's config, suites and request builders: read/action separation,
+seat-following thinking, discipline suites and pass criteria, Gate C, tool
+mounting, and path-only inputs with the procedure in context.
 """
 
 from __future__ import annotations
@@ -271,11 +269,13 @@ def _request_body_findings(module_dir: Path) -> tuple[list[str], int]:
             for key, value in fields.items():
                 if key in _SUPPRESSION_KEYS and _suppressed(key, _literal(value)):
                     findings.append(f"{relative}: {key}={ast.unparse(value)}")
-            if {"model", "messages"} <= set(fields):
+            if {"model", "messages", "portal_bite_tools"} <= set(fields):
                 bodies += 1
                 thinking = _literal(fields.get("chat_template_kwargs"))
-                if not isinstance(thinking, dict) or thinking.get("enable_thinking") is not True:
-                    findings.append(f"{relative}: model request omits enable_thinking=True")
+                if isinstance(thinking, dict) and "enable_thinking" in thinking:
+                    findings.append(
+                        f"{relative}: bite request sets enable_thinking={thinking['enable_thinking']}"
+                    )
     return findings, bodies
 
 
@@ -318,31 +318,33 @@ def _pipeline_bite_override_findings() -> list[str]:
     from portal.platform.inference.router import validation
 
     saved = validation.WORKSPACES
-    body = {"portal_bite_tools": ["file_read"], "chat_template_kwargs": {"enable_thinking": True}}
+    body = {
+        "model": "qwen3.8-arm-probe",
+        "portal_bite_tools": ["file_read"],
+        "max_tokens": 4096,
+    }
     try:
-        validation.WORKSPACES = {"arm_probe": {"think": False}}
-        ollama = validation._inject_ollama_options(dict(body), "arm_probe")
-        omlx = validation._inject_omlx_options(dict(body), "arm_probe")
+        validation.WORKSPACES = {"arm_probe": {"model_hint": body["model"], "think": False}}
+        think_off = validation._inject_omlx_options(dict(body), "arm_probe")
+        validation.WORKSPACES = {"arm_probe": {"model_hint": body["model"], "think": True}}
+        think_on = validation._inject_omlx_options(dict(body), "arm_probe")
     finally:
         validation.WORKSPACES = saved
     findings: list[str] = []
-    if ollama.get("think") is not True:
-        findings.append("Pipeline ollama transport does not force think for a bite request")
-    if ollama.get("reasoning_effort") == "none":
-        findings.append("Pipeline ollama transport still suppresses a bite request's reasoning")
-    if (omlx.get("chat_template_kwargs") or {}).get("enable_thinking") is not True:
-        findings.append("Pipeline omlx transport does not keep a bite request's thinking flag")
+    if (think_off.get("chat_template_kwargs") or {}).get("enable_thinking") is not False:
+        findings.append("Pipeline does not apply a think:false seat to a bite request")
+    if think_off.get("temperature") != 0.7 or think_off.get("presence_penalty") != 1.5:
+        findings.append("Pipeline does not apply the seat's card instruct sampling")
+    if (think_on.get("chat_template_kwargs") or {}).get("enable_thinking") is not True:
+        findings.append("Pipeline does not apply a think:true seat to a bite request")
+    if think_on.get("thinking_budget") != 3072 or think_on.get("max_tokens") != 4096:
+        findings.append("Pipeline does not reserve 25% of a thinking bite's output for its answer")
     return findings
 
 
-@register("arm_thinking_on", "HS. arm model requests keep thinking on", order=208)
+@register("arm_thinking_on", "HS. arm bite requests follow seat thinking", order=208)
 def check_arm_thinking_stays_on() -> tuple[str, str, list[dict]]:
-    """HS. Every arm request enables thinking and no arm config suppresses it.
-
-    The Pipeline's bite-request override is checked too: a seat's workspace card
-    may say think:false, but a request carrying portal_bite_tools must still
-    reason. Production seats without bite tools are deliberately out of scope.
-    """
+    """HS. Arm requests follow seat thinking and leave answer budget on thinking bites."""
     subs: list[dict] = []
     bad: list[str] = []
 
@@ -362,9 +364,10 @@ def check_arm_thinking_stays_on() -> tuple[str, str, list[dict]]:
         source_findings.append("no arm model request body found")
     subs.append(
         {
-            "name": "every arm model request enables thinking",
+            "name": "every arm bite request leaves thinking to the seat",
             "status": "PASS" if not source_findings else "FAIL",
-            "detail": "; ".join(source_findings) or f"{bodies} request body(s) verified",
+            "detail": "; ".join(source_findings)
+            or f"{bodies} request body(s) leave thinking to the seat",
         }
     )
     bad += source_findings
@@ -372,16 +375,17 @@ def check_arm_thinking_stays_on() -> tuple[str, str, list[dict]]:
     override_findings = _pipeline_bite_override_findings()
     subs.append(
         {
-            "name": "Pipeline keeps a bite request thinking over a think:false seat card",
+            "name": "Pipeline applies seat thinking and reserves an answer",
             "status": "PASS" if not override_findings else "FAIL",
-            "detail": "; ".join(override_findings) or "bite override wins on ollama and omlx",
+            "detail": "; ".join(override_findings)
+            or "seat policy, card sampling, and answer reserve verified",
         }
     )
     bad += override_findings
 
     if bad:
         return ("FAIL", f"{len(bad)} reasoning-suppression finding(s): {'; '.join(bad)}", subs)
-    return ("PASS", f"{bodies} arm request body(s) keep thinking on", subs)
+    return ("PASS", f"{bodies} arm request body(s) follow their seat's thinking policy", subs)
 
 
 def _case_count(path: Path) -> int:
