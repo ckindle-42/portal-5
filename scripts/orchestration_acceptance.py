@@ -69,6 +69,9 @@ WFE_PROCESS_PATTERNS = (
 _WFE_WAIT_SECONDS = 300.0
 _WFE_HEARTBEAT_SECONDS = 30.0
 
+# The live check must be satisfiable from the prompt, so the checked token is stated in the goal.
+LIVE_TOKEN = "arm-live-ok"
+
 
 class ScenarioSkippedError(RuntimeError):
     """The scenario cannot run in this mode and must not be reported as PASS."""
@@ -230,6 +233,15 @@ def _bite(
     }
 
 
+def _live_bite() -> dict[str, Any]:
+    """A live bite a real model can satisfy: the goal states the checked token."""
+    bite = _bite("b1", text=True, discipline="test_fixing", tokens=1024)
+    bite["goal"] = f"Call finish once with output text containing {LIVE_TOKEN}."
+    bite["procedure"] = f"Reply with {LIVE_TOKEN}; surrounding text is fine."
+    bite["accept"] = [{"type": "contains", "value": LIVE_TOKEN}]
+    return bite
+
+
 def _run_task(
     root: Path,
     task_id: str,
@@ -302,14 +314,27 @@ def _failures(receipt: dict[str, Any], bite_id: str = "b1") -> list[str]:
     return []
 
 
+def _bite_failure(receipt: dict[str, Any], bite_id: str = "b1") -> str:
+    """Name the recorded cause so a live assertion failure is actionable."""
+    for result in receipt.get("results", []):
+        if result.get("bite_id") != bite_id:
+            continue
+        failure = result.get("failure") or {}
+        detail = failure.get("failures") or failure.get("reason") or "no recorded failure"
+        return f"{result.get('status')} after {result.get('attempts')} attempt(s): {detail}"
+    return f"no result recorded for bite {bite_id}"
+
+
 # --- Phase 1 (Gate B) Scenarios ---
 
 
 def scenario_happy_path(root: Path, task_id: str, live: bool, pipeline: Any, **kw) -> str:
     if live:
-        receipt = _run_live_task(root, task_id, [_bite("b1", discipline="test_fixing")], **kw)
-        assert receipt["status"] == "PASS"
-        return "one live Fast request passed for the seated test_fixing discipline"
+        receipt = _run_live_task(root, task_id, [_live_bite()], **kw)
+        result = next((row for row in receipt.get("results", []) if row.get("bite_id") == "b1"), {})
+        if receipt["status"] != "PASS" or result.get("attempts") != 1:
+            raise AssertionError(_bite_failure(receipt, "b1"))
+        return "one live Fast request returned the token its goal asked for"
     receipt, pipeline = _run_task(
         root, task_id, [("fast", finish_response({"answer": "right"}))], [_bite("b1")]
     )
@@ -716,10 +741,12 @@ def run_scenario(
     required = bool(scenario.get("required", True))
     task_dir = workdir / "tasks" / name
     task_dir.mkdir(parents=True, exist_ok=True)
+    # A per-run task id keeps a repeated run from colliding with the previous run's task.
+    task_id = f"{name}-{datetime.now(UTC).strftime('%Y%m%dT%H%M%S%fZ')}"
     try:
         evidence = scenario["fn"](
             task_dir,
-            name,
+            task_id,
             live=live,
             pipeline=None,
             pipeline_url=pipeline_url,

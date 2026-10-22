@@ -24,6 +24,62 @@ def _run_scenario(name: str, workdir: Path, live: bool = False) -> dict[str, Any
     )
 
 
+def _run_live_scenario(name: str, workdir: Path, pipeline_url: str) -> dict[str, Any]:
+    return acceptance.run_scenario(
+        name,
+        workdir,
+        live=True,
+        pipeline_url=pipeline_url,
+        api_key="",
+        fast_digest="fast-digest",
+        deep_digest="deep-digest",
+    )
+
+
+def test_live_happy_path_accepts_a_goal_stated_answer(tmp_path: Path):
+    """N1: the live criterion is satisfiable because the goal states the checked token."""
+    bite = acceptance._live_bite()
+    assert bite["accept"] == [{"type": "contains", "value": acceptance.LIVE_TOKEN}]
+    assert acceptance.LIVE_TOKEN in bite["goal"]
+
+    pipeline = FakePipeline()
+    pipeline.add("fast", finish_response(acceptance.LIVE_TOKEN))
+    try:
+        result = _run_live_scenario("happy_path", tmp_path, pipeline.url)
+    finally:
+        pipeline.close()
+
+    assert result["status"] == "PASS", result["evidence"]
+    assert pipeline.requests[0]["model"] == "auto-daily::fast"
+
+
+def test_live_happy_path_reports_the_failed_check(tmp_path: Path):
+    """N1: a wrong live answer fails with its cause, not an empty AssertionError."""
+    pipeline = FakePipeline()
+    for _ in range(3):
+        pipeline.add("fast", finish_response("no token here"))
+    pipeline.add("deep", finish_response("no token here"))
+    try:
+        result = _run_live_scenario("happy_path", tmp_path, pipeline.url)
+    finally:
+        pipeline.close()
+
+    assert result["status"] == "FAIL"
+    assert "BLOCKED after 4 attempt(s)" in result["evidence"]
+    assert "not found" in result["evidence"]
+
+
+def test_acceptance_dry_run_repeats_in_the_same_workdir(tmp_path: Path):
+    """N2: a second run in the same workdir must not collide with the first run's tasks."""
+    first = acceptance.run_dry_run(tmp_path)
+    second = acceptance.run_dry_run(tmp_path)
+
+    assert first["summary"]["failed"] == 0
+    assert second["summary"] == first["summary"], second["summary"]
+    for result in second["results"]:
+        assert result["status"] == "PASS", f"{result['scenario']}: {result['evidence']}"
+
+
 def test_acceptance_dry_run_all_scenarios_pass(tmp_path: Path):
     """The full dry-run passes and reports a truthful summary."""
     receipt = acceptance.run_dry_run(tmp_path)
