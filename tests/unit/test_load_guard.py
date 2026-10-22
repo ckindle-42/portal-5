@@ -49,6 +49,8 @@ class Engines:
         unload_counter_drops: dict[str, float] | None = None,
         immediate_counter_drops: set[str] | None = None,
         unload_loaded_flips: set[str] | None = None,
+        unload_removal_polls: dict[str, int] | None = None,
+        ceiling_rise_polls: dict[str, int] | None = None,
         forced_loading: set[str] | None = None,
         omit_estimated_size: set[str] | None = None,
         defer_ceiling_rise: set[str] | None = None,
@@ -75,6 +77,11 @@ class Engines:
         self.unload_counter_drops = dict(unload_counter_drops or {})
         self.immediate_counter_drops = set(immediate_counter_drops or set())
         self.unload_loaded_flips = set(unload_loaded_flips or set())
+        #: Ollama models that stay in /api/ps for N reads after their unload request.
+        self.unload_removal_polls = dict(unload_removal_polls or {})
+        #: Pending host-ceiling rises that land only after N status reads.
+        self.ceiling_rise_polls = dict(ceiling_rise_polls or {})
+        self.pending_removals: dict[str, int] = {}
         #: Models that report is_loading even while their loaded bit stays true.
         self.forced_loading = set(forced_loading or set())
         #: Models whose admin payload omits estimated_size (the actual_size fallback).
@@ -115,6 +122,7 @@ class Engines:
 
     def _ollama_response(self, req: httpx.Request, path: str) -> httpx.Response | None:
         if path == "/api/ps":
+            self._apply_pending_removals()
             return httpx.Response(
                 200, json={"models": [{"name": n, "size": s} for n, s in self.ollama.items()]}
             )
@@ -125,11 +133,17 @@ class Engines:
         if path == "/api/generate":  # keep_alive 0 unloads; its real bytes return to oMLX
             model = json.loads(req.content)["model"]
             self.unload_calls[model] = self.unload_calls.get(model, 0) + 1
-            if not self.unload_sticks:
+            if self.unload_sticks:
+                pass
+            elif model in self.unload_removal_polls:
+                self.pending_removals[model] = self.unload_removal_polls[model]
+            else:
                 self.ollama.pop(model, None)
             rise = self.hidden.pop(model, 0)
             if rise and model in self.defer_ceiling_rise:
                 self.pending_ceiling_rises[model] = (rise, 1)
+            elif rise and model in self.ceiling_rise_polls:
+                self.pending_ceiling_rises[model] = (rise, self.ceiling_rise_polls[model])
             else:
                 self.ceiling += rise
             return httpx.Response(200, json={"done": True})
@@ -149,6 +163,14 @@ class Engines:
             else:
                 self.omlx_memory = max(0.0, float(self.omlx_memory or 0) - size)
                 del self.pending_counter_drops[name]
+
+    def _apply_pending_removals(self) -> None:
+        for name, polls in list(self.pending_removals.items()):
+            if polls:
+                self.pending_removals[name] = polls - 1
+            else:
+                self.ollama.pop(name, None)
+                del self.pending_removals[name]
 
     def _apply_pending_ceiling_rises(self) -> None:
         for name, (rise, reads) in list(self.pending_ceiling_rises.items()):
@@ -957,7 +979,7 @@ async def test_ollama_unload_that_stays_short_refuses_when_quiet(monkeypatch):
     e = Engines(ollama={"idle": GIB}, tags={"m": 20 * GIB}, ceiling=8 * GIB)
     g = guard(e)
     lg.set_load_wait("0.06")
-    monkeypatch.setattr(lg, "_FREE_SETTLE_S", 0.0)  # the free's settle window has expired
+    monkeypatch.setattr(lg, "_FREE_SETTLE_S", 0.0)  # the free's settle deadline has passed
     waits: list[float] = []
     wait_change = g._wait_change
 
@@ -971,7 +993,7 @@ async def test_ollama_unload_that_stays_short_refuses_when_quiet(monkeypatch):
         await g.admit(OLLAMA_URL, "m")
     elapsed = lg.time.monotonic() - started
     assert not e.ollama
-    assert "with nothing in flight to wait for" in str(err.value)
+    assert "free of idle did not settle" in str(err.value)
     assert not waits
     assert elapsed < 0.05
 
@@ -985,7 +1007,70 @@ async def test_an_ollama_free_that_never_lifts_the_ceiling_still_refuses(monkeyp
         await guard(e).admit(OLLAMA_URL, "m")
     elapsed = lg.time.monotonic() - started
     assert not e.ollama
-    assert "with nothing in flight to wait for" in str(err.value)  # the settle expired
+    assert "free of idle did not settle" in str(err.value)
+    assert 0.05 <= elapsed < 2
+
+
+async def test_a_settled_free_admits_early_and_logs_the_measured_settle(monkeypatch, caplog):
+    e = Engines(
+        ollama={"devstral": int(1.8 * GIB)},
+        tags={"kat": 22 * GIB},
+        ceiling=21 * GIB,
+        unload_removal_polls={"devstral": 0},
+        ceiling_rise_polls={"devstral": 1},
+    )
+    e.hidden["devstral"] = int(13.2 * GIB)
+    monkeypatch.setattr(lg, "_FREE_SETTLE_S", 2.0)
+    monkeypatch.setattr(lg, "_POLL_S", 0.01)
+    lg.set_load_wait("30")
+    started = lg.time.monotonic()
+    with caplog.at_level(logging.INFO, logger=lg.logger.name):
+        release = await guard(e).admit(OLLAMA_URL, "kat")
+    elapsed = lg.time.monotonic() - started
+    assert release is not None
+    assert elapsed < 0.5  # the signal, not the deadline, released it
+    assert re.search(r"free of devstral settled in \d+\.\d+s", caplog.text)
+    release()
+
+
+async def test_a_late_free_signal_within_the_deadline_still_admits(monkeypatch, caplog):
+    e = Engines(
+        ollama={"devstral": int(1.8 * GIB)},
+        tags={"kat": 22 * GIB},
+        ceiling=21 * GIB,
+        unload_sticks=True,  # the pages return late, not with the unload request
+    )
+    monkeypatch.setattr(lg, "_FREE_SETTLE_S", 2.0)
+    monkeypatch.setattr(lg, "_POLL_S", 0.01)
+    lg.set_load_wait("30")
+    loop = asyncio.get_running_loop()
+    loop.call_later(0.05, lambda: e.ollama.pop("devstral", None))
+    loop.call_later(0.05, lambda: setattr(e, "ceiling", e.ceiling + 13.2 * GIB))
+    started = lg.time.monotonic()
+    with caplog.at_level(logging.INFO, logger=lg.logger.name):
+        release = await guard(e).admit(OLLAMA_URL, "kat")
+    elapsed = lg.time.monotonic() - started
+    assert release is not None
+    assert 0.04 <= elapsed < 1.0  # polled the signal instead of trusting the free
+    assert re.search(r"free of devstral settled in \d+\.\d+s", caplog.text)
+    release()
+
+
+async def test_a_free_that_never_settles_refuses_naming_the_settle(monkeypatch):
+    e = Engines(
+        ollama={"idle": GIB},
+        tags={"m": 20 * GIB},  # 25 GiB needed
+        ceiling=8 * GIB,
+        unload_sticks=True,
+    )
+    monkeypatch.setattr(lg, "_FREE_SETTLE_S", 0.05)
+    monkeypatch.setattr(lg, "_POLL_S", 0.01)
+    lg.set_load_wait("30")
+    started = lg.time.monotonic()
+    with pytest.raises(lg.LoadRefusedError) as err:
+        await guard(e).admit(OLLAMA_URL, "m")
+    elapsed = lg.time.monotonic() - started
+    assert "free of idle did not settle within 0.1s" in str(err.value)
     assert 0.05 <= elapsed < 2
 
 
