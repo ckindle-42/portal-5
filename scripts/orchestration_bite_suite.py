@@ -54,6 +54,7 @@ class SuiteEngine(Engine):
         self.correlation_id = ""
         self.last_trace: dict[str, Any] = {}
         self.last_response: dict[str, Any] = {}
+        self.bite_responses: list[dict[str, Any]] = []
         self.audit_calls: list[dict[str, Any]] = []
         self.expected_bite_tools: tuple[str, ...] | None = None
 
@@ -80,6 +81,7 @@ class SuiteEngine(Engine):
         try:
             response = super().chat(body, timeout, capture)
             self.last_response = response
+            self.bite_responses.append(response)
             return response
         finally:
             cid = self.correlation_id
@@ -560,6 +562,7 @@ def _run_bite(
     bite, input_paths = _bite_contract(case, discipline, task_dir, dry_run=dry_run)
     expected_tools = (*bite.tools, "finish")
     engine.audit_calls = []
+    engine.bite_responses = []
     workers: list[Any] = []
     offered: set[str] = set()
     last_trace: dict[str, Any] = {}
@@ -574,7 +577,9 @@ def _run_bite(
         trace_tools = last_trace.get("tools_offered")
         if isinstance(trace_tools, list):
             offered.update(name for name in trace_tools if isinstance(name, str))
-        if not dry_run and _unparsed_tool_markup(engine.last_response):
+        if not dry_run and any(
+            _unparsed_tool_markup(response) for response in engine.bite_responses
+        ):
             return (
                 "harness_error",
                 "HARNESS_ERROR",

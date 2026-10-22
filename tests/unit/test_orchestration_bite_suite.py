@@ -64,7 +64,9 @@ def test_bite_dry_run_sends_one_sequential_request_per_case_and_repeat(tmp_path:
     finally:
         pipeline.close()
 
-    assert len(pipeline.requests) == 8
+    # Each case-repeat sends its bite request plus one finish-repair turn for
+    # the fake's default text-only reply.
+    assert len(pipeline.requests) == 16
     assert all(row["model"] == "bench-spark-x26" for row in pipeline.requests)
     assert all(row["exec_audit"] is True for row in pipeline.requests)
     assert all("finish" in row["portal_bite_tools"] for row in pipeline.requests)
