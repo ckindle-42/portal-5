@@ -32,8 +32,10 @@ reports it here. The guard keeps four things true:
 
 Headroom is oMLX's ``final_ceiling`` minus its resident model memory (oMLX derives
 the ceiling from host free + inactive memory), plus idle Ollama residents, minus
-``LOAD_GUARD_MARGIN_GB``. A model's footprint is the larger of weights ×
-``LOAD_GUARD_FACTOR`` and the footprint observed the last time it was resident.
+``LOAD_GUARD_MARGIN_GB``. ``LOAD_GUARD_CEILING_GB`` replaces that ceiling with a
+fixed budget; the balanced tier's ceiling follows free memory (P5-OMLX-CEILING-001).
+A model's footprint is the larger of weights × ``LOAD_GUARD_FACTOR`` and the
+footprint observed the last time it was resident.
 oMLX's own guard still decides oMLX loads; this module only serialises them.
 
 Fail-open: when oMLX's status cannot be read, the load is admitted. Resident
@@ -65,6 +67,9 @@ _GIB = 1024**3
 #: the crash's model was ~18 GB on disk and Ollama predicted 22.7 GiB at 32K ctx.
 _FACTOR = float(os.environ.get("LOAD_GUARD_FACTOR", "1.25"))
 _MARGIN = float(os.environ.get("LOAD_GUARD_MARGIN_GB", "2")) * _GIB
+#: A fixed model-memory budget (GiB). 0 budgets against oMLX's live ceiling, which
+#: the balanced tier derives from host free memory, so a verdict moves with the host.
+_CEILING = float(os.environ.get("LOAD_GUARD_CEILING_GB", "0") or 0) * _GIB
 #: Default wait for a cold load (interactive traffic). Batch callers raise it per
 #: request with X-Portal-Load-Wait.
 _WAIT_S = float(os.environ.get("LOAD_GUARD_WAIT_S", "120"))
@@ -124,6 +129,11 @@ def protect_failover(engine: str, model: str) -> None:
             model,
             FAILOVER_PROTECT_S,
         )
+
+
+def _budget_bytes(status: dict[str, Any]) -> float:
+    """The ceiling to budget against: the fixed one when set, else oMLX's live one."""
+    return _CEILING if _CEILING > 0 else float(status.get("final_ceiling") or 0)
 
 
 class LoadGuard:
@@ -217,7 +227,7 @@ class LoadGuard:
         if st is None:
             return None
         used = float(st.get("current_model_memory") or 0)
-        return float(st.get("final_ceiling") or 0) - used, used
+        return _budget_bytes(st) - used, used
 
     async def _omlx_used(self, client: httpx.AsyncClient) -> float | None:
         """oMLX's memory counter: what an unload actually releases."""
@@ -239,7 +249,7 @@ class LoadGuard:
             st = await self._omlx_status(client)
             if st is None or st.get("final_ceiling") is None:
                 return None
-            headroom = float(st["final_ceiling"]) - float(st.get("current_model_memory") or 0)
+            headroom = _budget_bytes(st) - float(st.get("current_model_memory") or 0)
             try:
                 resident = await self._resident(client, base)
             except Exception:
@@ -802,9 +812,7 @@ class LoadGuard:
             headroom = (
                 None
                 if st is None
-                else (
-                    float(st.get("final_ceiling") or 0) - float(st.get("current_model_memory") or 0)
-                )
+                else (_budget_bytes(st) - float(st.get("current_model_memory") or 0))
             )
             need = 0.0
             per_model = []

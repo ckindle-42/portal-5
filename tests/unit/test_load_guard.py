@@ -389,6 +389,44 @@ async def test_disabled(monkeypatch):
     assert await guard(e).admit(OLLAMA_URL, "m") is None
 
 
+@pytest.mark.parametrize("live_gib", [20, 60])
+async def test_a_fixed_ceiling_keeps_the_verdict_while_final_ceiling_moves(monkeypatch, live_gib):
+    """P5-OMLX-CEILING-001: the budget is the configured number, not the live ceiling."""
+    monkeypatch.setattr(lg, "_CEILING", 40 * GIB)
+    e = Engines(tags={"m": 20 * GIB}, ceiling=live_gib * GIB)  # 25 GiB needed
+    release = await guard(e).admit(OLLAMA_URL, "m")
+    assert release is not None
+    release()
+
+
+@pytest.mark.parametrize("live_gib", [20, 60])
+async def test_a_fixed_ceiling_refuses_while_final_ceiling_moves(monkeypatch, live_gib):
+    monkeypatch.setattr(lg, "_CEILING", 40 * GIB)
+    e = Engines(tags={"m": 36 * GIB}, ceiling=live_gib * GIB)  # 45 GiB needed
+    with pytest.raises(lg.LoadRefusedError) as err:
+        await guard(e).admit(OLLAMA_URL, "m")
+    assert "host headroom 38.0 GiB" in str(err.value)  # 40 fixed - 2 margin
+
+
+async def test_without_a_fixed_ceiling_the_live_ceiling_still_decides():
+    e = Engines(tags={"m": 20 * GIB}, ceiling=20 * GIB)  # 25 needed, 18 available
+    with pytest.raises(lg.LoadRefusedError):
+        await guard(e).admit(OLLAMA_URL, "m")
+
+
+async def test_plan_uses_the_fixed_ceiling(monkeypatch):
+    monkeypatch.setattr(lg, "_CEILING", 30 * GIB)
+    e = Engines(
+        tags={"m": 8 * GIB},
+        ceiling=60 * GIB,
+        omlx={"seat": {"size": 10 * GIB, "loaded": True}},
+    )
+    plan = await guard(e).plan(OLLAMA_URL, [(OLLAMA, "m")])
+    assert plan["headroom_gib"] == pytest.approx(20)  # 30 - 10 resident
+    assert plan["available_gib"] == pytest.approx(28)  # + 10 freeable - 2 margin
+    assert plan["fits"] is True
+
+
 @pytest.mark.parametrize("signal", ["v1", "status", "admin"])
 async def test_loading_signal_waits_then_remeasures_headroom(signal):
     e = Engines(

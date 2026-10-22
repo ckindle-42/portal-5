@@ -71,6 +71,28 @@ async def test_host_free_bytes_is_omlx_headroom_plus_idle_ollama(monkeypatch):
     assert await guard.host_free_bytes("http://ollama:11434") == 7 * GIB
 
 
+async def test_host_free_bytes_uses_a_fixed_ceiling_when_one_is_set(monkeypatch):
+    monkeypatch.setattr(lg.LoadGuard, "host_free_bytes", _REAL_HOST_FREE_BYTES)
+    monkeypatch.setattr(lg, "_CEILING", 20 * GIB)
+
+    def handler(req: httpx.Request) -> httpx.Response:
+        if req.url.path == "/v1/models/status":
+            return httpx.Response(
+                200, json={"final_ceiling": 10 * GIB, "current_model_memory": 7 * GIB}
+            )
+        if req.url.path == "/api/ps":
+            return httpx.Response(200, json={"models": [{"name": "idle", "size": 4 * GIB}]})
+        return httpx.Response(404)
+
+    guard = lg.LoadGuard(
+        omlx_url=lambda: "http://omlx:8085",
+        pinned=lambda: "router",
+        client=lambda: httpx.AsyncClient(transport=httpx.MockTransport(handler)),
+    )
+    # The fixed 20 GiB budget, not the 10 GiB ceiling oMLX reports right now.
+    assert await guard.host_free_bytes("http://ollama:11434") == 17 * GIB
+
+
 async def test_host_free_bytes_is_none_when_omlx_is_unreadable(monkeypatch):
     monkeypatch.setattr(lg.LoadGuard, "host_free_bytes", _REAL_HOST_FREE_BYTES)
     guard = lg.LoadGuard(
