@@ -6,6 +6,17 @@ PORTAL_ROOT="${PORTAL_ROOT:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
 ENV_FILE="$PORTAL_ROOT/.env"
 PY="$PORTAL_ROOT/.venv/bin/python3"
 
+# Usage error first: unknown service names exit 2 before any environment check
+case "$SERVICE" in
+    mlx-transcribe|mlx-speech|vl-retrieval|eg2-embedding|pipeline-mcp|mitre-mcp|\
+detections-mcp|vulnintel-mcp|icsot-mcp|compliance-mcp|compliance-mcp-eval|\
+detection-mcp|data-mcp|netforensics-mcp|review-mcp|wiki-mcp) ;;
+    *)
+        echo "Unknown native MCP service: ${SERVICE:-<empty>}" >&2
+        exit 2
+        ;;
+esac
+
 if [ ! -x "$PY" ]; then
     echo "Portal venv interpreter missing: $PY" >&2
     exit 1
