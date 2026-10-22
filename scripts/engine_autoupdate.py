@@ -471,8 +471,9 @@ def _update_target(engine: str, state: dict, allow_prerelease: bool) -> tuple[st
     return old, new
 
 
-def _attempt_update(engine: str, old: str, new: str, tag: str) -> tuple[str, bool, bool, str]:
+def _attempt_update(engine: str, old: str, new: str, tag: str) -> tuple[str, bool, bool, str, str]:
     tcc = False
+    error = ""
     try:
         if engine == "ollama":
             ollama_install(new)
@@ -485,12 +486,21 @@ def _attempt_update(engine: str, old: str, new: str, tag: str) -> tuple[str, boo
             new = omlx_running() if switched else new
     except Exception as e:
         switched, outcome = False, "failed"
+        error = str(e)
         log(f"{engine}: install failed: {e}")
-    return outcome, switched, tcc, new
+    return outcome, switched, tcc, new, error
 
 
 def _defer_failed_update(
-    engine: str, outcome: str, switched: bool, tcc: bool, state: dict, old: str, new: str, tag: str
+    engine: str,
+    outcome: str,
+    switched: bool,
+    tcc: bool,
+    state: dict,
+    old: str,
+    new: str,
+    tag: str,
+    error: str,
 ) -> bool:
     if engine == "omlx" and outcome == "unavailable":
         state.setdefault("history", []).append(
@@ -499,9 +509,10 @@ def _defer_failed_update(
         return True
     if engine == "omlx" and not switched and not tcc and omlx_running() == old:
         omlx_restore(tag)
+        detail = f"{error[:400]}\n" if error else ""
         _alert(
             f"omlx {new}: install did not switch the active version",
-            "Will retry on the next daily run.",
+            f"{detail}Will retry on the next daily run.",
         )
         state.setdefault("history", []).append(
             {"utc": tag, "from": old, "to": new, "result": "install_failed"}
@@ -571,8 +582,8 @@ def update_engine(engine: str, state: dict, dry_run: bool, allow_prerelease: boo
     if dry_run:
         return False
     tag = dt.datetime.now(dt.UTC).strftime("%Y%m%dT%H%M%SZ")
-    outcome, switched, tcc, new = _attempt_update(engine, old, new, tag)
-    if _defer_failed_update(engine, outcome, switched, tcc, state, old, new, tag):
+    outcome, switched, tcc, new, error = _attempt_update(engine, old, new, tag)
+    if _defer_failed_update(engine, outcome, switched, tcc, state, old, new, tag, error):
         return True
     log(f"{engine}: switched={switched}" + (" (waited on data01 approval)" if tcc else ""))
     rc = contract(engine) if switched else 2

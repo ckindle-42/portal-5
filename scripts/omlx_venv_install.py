@@ -166,10 +166,10 @@ def relocate_venv_entrypoints(stage: Path, target: Path) -> None:
 
 def activate_venv(stage: Path, target: Path) -> Path:
     previous = target.with_name(f"{target.name}.previous")
-    if previous.exists():
-        raise RuntimeError(f"refusing to replace pending rollback venv: {previous}")
     relocate_venv_entrypoints(stage, target)
     if target.exists():
+        if previous.exists():
+            shutil.rmtree(previous)
         target.rename(previous)
     try:
         stage.rename(target)

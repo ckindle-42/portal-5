@@ -404,7 +404,7 @@ PY
         if [ -n "$_omlx_api_key" ]; then
             _omlx_auth=(-H "Authorization: Bearer $_omlx_api_key")
         fi
-        if curl -fsS -m 5 "${_omlx_auth[@]}" "http://127.0.0.1:8085/v1/models" &>/dev/null 2>&1; then
+        if curl -fsS -m 5 "${_omlx_auth[@]+"${_omlx_auth[@]}"}" "http://127.0.0.1:8085/v1/models" &>/dev/null 2>&1; then
             echo "[portal-5]   ✅ oMLX: running on :8085"
         else
             echo "[portal-5]   oMLX not answering on :8085 — restarting service..."

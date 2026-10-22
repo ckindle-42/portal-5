@@ -174,6 +174,55 @@ def test_omlx_venv_installer_creates_release_venv_with_mocked_subprocess(monkeyp
     assert any("-m" in cmd and "venv" in cmd for cmd in calls)
 
 
+def test_activate_venv_replaces_stale_previous_with_active_venv(tmp_path):
+    target = tmp_path / "venv"
+    previous = tmp_path / "venv.previous"
+    stage = tmp_path / "venv.new"
+    for path, version in ((target, "active"), (previous, "stale"), (stage, "staged")):
+        (path / "bin").mkdir(parents=True)
+        (path / "installed-version").write_text(version)
+
+    assert omlx_install.activate_venv(stage, target) == previous
+
+    assert (target / "installed-version").read_text() == "staged"
+    assert (previous / "installed-version").read_text() == "active"
+
+
+def test_activate_venv_keeps_previous_when_target_is_missing(tmp_path):
+    target = tmp_path / "venv"
+    previous = tmp_path / "venv.previous"
+    stage = tmp_path / "venv.new"
+    for path, version in ((previous, "active"), (stage, "staged")):
+        (path / "bin").mkdir(parents=True)
+        (path / "installed-version").write_text(version)
+
+    omlx_install.activate_venv(stage, target)
+
+    assert (target / "installed-version").read_text() == "staged"
+    assert (previous / "installed-version").read_text() == "active"
+
+
+def test_omlx_install_exception_is_in_retry_alert(monkeypatch):
+    alerts: list[tuple[str, str]] = []
+    monkeypatch.setattr(eu, "omlx_running", lambda: "0.6.4")
+    monkeypatch.setattr(eu, "omlx_latest", lambda: "0.7.0")
+    monkeypatch.setattr(eu, "omlx_model_count", lambda: 2)
+    monkeypatch.setattr(eu, "omlx_backup", lambda tag: None)
+    monkeypatch.setattr(eu, "omlx_restore", lambda tag: None)
+
+    def fail_upgrade(version, expected_models):
+        raise RuntimeError("staged wheel install failed")
+
+    monkeypatch.setattr(eu, "omlx_upgrade", fail_upgrade)
+    monkeypatch.setattr(
+        eu, "_alert", lambda title, message, **kwargs: alerts.append((title, message))
+    )
+
+    assert eu.update_engine("omlx", {}, False) is True
+    assert "staged wheel install failed" in alerts[0][1]
+    assert "Will retry on the next daily run." in alerts[0][1]
+
+
 def test_omlx_venv_upgrade_installs_wheel_into_staged_copy(monkeypatch, tmp_path):
     venv = tmp_path / "venv"
     (venv / "bin").mkdir(parents=True)
