@@ -152,6 +152,138 @@ orchestration_arm:
                 procedure: Review the repair and test evidence against the bite contract.
                 reads_untrusted: false
 
+    detection-engineering:
+      selection_reason: >-
+        The design names detection engineering as the starting candidate because lab-run SPL
+        provides hard known-answer checks. Keep it unseated until its live Fast and Deep bite
+        suite rates meet the frozen criteria; no model binding or calibration rate is selected.
+      seating_status: unseated
+      persona: splunkdetectionauthor
+      tool_allowlist:
+        - file_read
+        - file_write
+        - mitre_technique_lookup
+        - mitre_data_sources_for_technique
+        - mitre_detections_for_technique
+        - mitre_techniques_list
+        - spl_search_library
+        - spl_explain_detection
+        - spl_techniques_covered
+        - spl_diff_hypothesis
+        - query_splunk
+        - query_windows_events
+        - spl_validate_syntax
+        - validate_sigma
+        - convert_sigma
+        - compile_yara
+      read_tools:
+        - file_read
+        - mitre_technique_lookup
+        - mitre_data_sources_for_technique
+        - mitre_detections_for_technique
+        - mitre_techniques_list
+        - spl_search_library
+        - spl_explain_detection
+        - spl_techniques_covered
+        - spl_diff_hypothesis
+        - query_splunk
+        - query_windows_events
+      action_tools:
+        - file_write
+        - spl_validate_syntax
+        - validate_sigma
+        - convert_sigma
+        - compile_yara
+      write_scope: task_directory
+      data_class: local-only
+      procedures:
+        - Map the ATT&CK technique and required data sources before authoring.
+        - Read the local reference detection in a read-only bite before drafting.
+        - Validate the exact artifact bytes; run SPL only in the read-only lab query tool.
+        - Record ATT&CK mappings, data sources, time bounds, false positives, and tuning guidance.
+      bite_suite: portal/modules/orchestration/disciplines/detection_engineering/wfe_bites.yaml
+      planner_suite: portal/modules/orchestration/disciplines/detection_engineering/wfe_planner.yaml
+      checker_suite: portal/modules/orchestration/disciplines/detection_engineering/wfe_checker_suite.yaml
+      fast_context_budget_tokens: 32768
+      pass_criteria:
+        frozen_before_first_run: true
+        checker_controls:
+          false_passes: 0
+          false_failures: 0
+        per_seat_bite_suite:
+          fast: {minimum_passed: 3, total: 4}
+          deep: {minimum_passed: 4, total: 4}
+        live_lab:
+          required_cases_must_run: true
+          known_answer_cases_must_pass: true
+        first_real_run:
+          final_status: PASS
+          blocked_bites: 0
+          deterministic_checks: all_pass
+          red_flags: 0
+      plan_templates:
+        author_and_validate_detection:
+          parameters: [reference_file, technique, expected_behavior]
+          plan:
+            goal: "Author and validate a detection for $technique that $expected_behavior."
+            bites:
+              - bite_id: research
+                goal: "Read $reference_file and map $technique to its data sources."
+                discipline: detection-engineering
+                inputs: [$reference_file]
+                depends_on: []
+                tools: [file_read, mitre_technique_lookup, mitre_data_sources_for_technique, spl_search_library]
+                output: {path: bites/research.txt, file_type: text}
+                accept: [{type: contains, value: "Finding:"}]
+                risk: low
+                stage: work
+                budget: {turns: 3, minutes: 15, output_tokens: 2048, context_tokens: 8192}
+                model: fast
+                procedure: Map the technique, data sources, and local reference before drafting.
+                reads_untrusted: true
+              - bite_id: draft_validate
+                goal: "Draft the detection for $expected_behavior and validate the exact artifact."
+                discipline: detection-engineering
+                inputs: [research]
+                depends_on: [research]
+                tools: [file_write, spl_validate_syntax]
+                output: {path: bites/draft_validate.txt, file_type: text}
+                accept: [{type: contains, value: "PASS"}]
+                risk: low
+                stage: work
+                budget: {turns: 4, minutes: 20, output_tokens: 3072, context_tokens: 12288}
+                model: fast
+                procedure: Draft only inside the task directory and validate the exact bytes produced.
+                reads_untrusted: false
+              - bite_id: assembly
+                goal: "Assemble the detection, mapping, validation, and operational guidance."
+                discipline: detection-engineering
+                inputs: [research, draft_validate]
+                depends_on: [research, draft_validate]
+                tools: []
+                output: {path: bites/assembly.txt, file_type: text}
+                accept: [{type: contains, value: "PASS"}]
+                risk: low
+                stage: assembly
+                budget: {turns: 3, minutes: 15, output_tokens: 2048, context_tokens: 8192}
+                model: fast
+                procedure: Assemble the evidence and state false positives and tuning guidance.
+                reads_untrusted: false
+              - bite_id: final_review
+                goal: "Review the assembled detection against $expected_behavior and its evidence."
+                discipline: detection-engineering
+                inputs: [assembly]
+                depends_on: [assembly]
+                tools: []
+                output: {path: bites/final_review.txt, file_type: text}
+                accept: [{type: contains, value: "PASS"}]
+                risk: low
+                stage: final_review
+                budget: {turns: 2, minutes: 15, output_tokens: 2048, context_tokens: 8192}
+                model: deep
+                procedure: Check the final artifact and evidence against the bite contract.
+                reads_untrusted: false
+
 # ── MCP Fleet ──────────────────────────────────────────────────────────────
 # expose_to_pipeline: true  → model-callable (included in tool_registry)
 # expose_to_ide: true       → available in Claude Code / opencode (.mcp.json)

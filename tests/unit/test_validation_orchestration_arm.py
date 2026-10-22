@@ -41,11 +41,12 @@ def _copy_arm_module(root: Path) -> None:
 
 
 def _copy_suites(root: Path, config: dict[str, Any]) -> None:
-    for key in ("bite_suite", "planner_suite", "checker_suite"):
-        relative = config["disciplines"]["test_fixing"][key]
-        target = root / relative
-        target.parent.mkdir(parents=True, exist_ok=True)
-        shutil.copy2(ROOT / relative, target)
+    for discipline in config["disciplines"].values():
+        for key in ("bite_suite", "planner_suite", "checker_suite"):
+            relative = discipline[key]
+            target = root / relative
+            target.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(ROOT / relative, target)
 
 
 def test_all_arm_checks_pass_on_head() -> None:
@@ -222,7 +223,7 @@ def test_least_agency_checks_every_allowlisted_tool(monkeypatch) -> None:
     from portal.modules.orchestration import worker
 
     real = worker._request_body
-    allowed = _real_config()["disciplines"]["test_fixing"]["tool_allowlist"]
+    allowed = _real_config()["disciplines"]["detection-engineering"]["tool_allowlist"]
     assert len(allowed) > 1
     delayed = allowed[-1]
 

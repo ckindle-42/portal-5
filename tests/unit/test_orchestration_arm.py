@@ -11,6 +11,7 @@ import threading
 from importlib.util import module_from_spec, spec_from_file_location
 from pathlib import Path
 from typing import Any
+from unittest.mock import Mock
 
 import pytest
 import yaml
@@ -18,6 +19,7 @@ from fastapi import HTTPException
 
 from portal.modules.orchestration.contracts import parse_plan
 from portal.modules.orchestration.ledger import ArmLedger, ResumeMismatchError
+from portal.modules.orchestration.planner import instantiate_plan_template
 from portal.modules.orchestration.queue import OvernightQueue, QueueGate, QueueLedger
 from portal.modules.orchestration.service import (
     ArmService,
@@ -150,6 +152,104 @@ def test_happy_path_uses_one_pipeline_port_and_guarded_model_seat(
     assert request["portal_bite_tools"] == ["finish"]
     assert request["tools"][-1]["function"]["name"] == "finish"
     assert fake_pipeline.admin_requests == [{"models": [{"engine": "omlx", "model": "fake-fast"}]}]
+
+
+def test_detection_engineering_template_validates_and_runs_offline(
+    tmp_path: Path, fake_pipeline: FakePipeline
+) -> None:
+    repo = Path(__file__).resolve().parents[2]
+    arm_config = yaml.safe_load((repo / "config/orchestration_arm.yaml").read_text())
+    detection = arm_config["disciplines"]["detection-engineering"]
+    assert detection["seating_status"] == "unseated"
+    assert "seated_models" not in detection
+    assert "detection-engineering" not in arm_config["calibration"]["rates_by_discipline"]
+    arm_config["calibration"]["minimum_pass_probability"] = 0.01
+    config_path = tmp_path / "orchestration_arm.yaml"
+    config_path.write_text(yaml.safe_dump(arm_config, sort_keys=False), encoding="utf-8")
+    reference = tmp_path / "reference.spl"
+    reference.write_text("index=portal5_lab EventCode=4769\n", encoding="utf-8")
+    task_plan = instantiate_plan_template(
+        arm_config,
+        template_key="author_and_validate_detection",
+        discipline_key="detection-engineering",
+        task_id="detection-offline",
+        parameters={
+            "reference_file": reference.name,
+            "technique": "T1110.001",
+            "expected_behavior": "finds repeated authentication failures",
+        },
+        source_dir=tmp_path,
+    )
+    assert task_plan.bites[0].reads_untrusted
+    assert task_plan.bites[0].tools == (
+        "file_read",
+        "mitre_technique_lookup",
+        "mitre_data_sources_for_technique",
+        "spl_search_library",
+    )
+    assert task_plan.bites[1].tools == ("file_write", "spl_validate_syntax")
+
+    fake_pipeline.add("fast", finish_response("Finding: T1110.001; authentication telemetry"))
+    fake_pipeline.add("fast", finish_response("PASS: exact SPL passed syntax validation"))
+    for reason in ("artifact is valid", "mapping is complete", "scope is safe"):
+        fake_pipeline.add(
+            "deep",
+            text_response(json.dumps({"decision": "approve", "reason": reason})),
+        )
+    fake_pipeline.add("fast", finish_response("PASS: detection and operational notes assembled"))
+    fake_pipeline.add("deep", finish_response("PASS: final detection and evidence reviewed"))
+    engines = {
+        "fast": Engine(
+            "auto-daily::fast", "fast-digest", fake_pipeline.url, "test-key", "omlx", "fake-fast"
+        ),
+        "deep": Engine(
+            "auto-daily::deep", "deep-digest", fake_pipeline.url, "test-key", "omlx", "fake-deep"
+        ),
+    }
+    notices = Mock(spec=StubNoticeSink)
+    notices.approval.return_value = True
+    arm = ArmService(
+        tmp_path / "tasks",
+        engines,
+        build_sha="detection-offline-build",
+        residency_config=config_path,
+        notices=notices,
+    )
+
+    with pytest.raises(ValueError, match="WFE rates for detection-engineering"):
+        arm.submit(task_plan.as_dict(), tmp_path)
+    arm.arm_config["calibration"]["minimum_pass_probability"] = None
+    task_dir = arm.submit(task_plan.as_dict(), tmp_path, unattended=False)
+
+    receipt = json.loads((task_dir / "receipt.json").read_text())
+    assert receipt["status"] == "PASS"
+    assert len(receipt["results"]) == 4
+    assert notices.approval.call_count == 1
+    assert [
+        request["portal_bite_tools"]
+        for request in fake_pipeline.requests
+        if "portal_bite_tools" in request
+    ] == [
+        [
+            "file_read",
+            "mitre_technique_lookup",
+            "mitre_data_sources_for_technique",
+            "spl_search_library",
+            "finish",
+        ],
+        ["file_write", "spl_validate_syntax", "finish"],
+        ["finish"],
+        ["finish"],
+    ]
+    assert [request["model"] for request in fake_pipeline.requests] == [
+        "auto-daily::fast",
+        "auto-daily::fast",
+        "auto-daily::deep",
+        "auto-daily::deep",
+        "auto-daily::deep",
+        "auto-daily::fast",
+        "auto-daily::deep",
+    ]
 
 
 def test_bite_tools_are_sent_as_a_strict_pipeline_allowlist(

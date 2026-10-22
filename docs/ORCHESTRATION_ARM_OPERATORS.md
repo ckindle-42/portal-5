@@ -26,6 +26,8 @@ uv run portal arm resume <task-id>
 uv run portal arm resume <task-id> --override
 ```
 
+`detection-engineering` is an unseated candidate. Its hard-check bite suite, planner suite, checker controls, and stored authoring template are ready for offline validation, but it has no model binding or calibration rates. The module remains disabled, and unattended runs for this discipline stay unavailable until live Fast and Deep suite rates meet its fixed pass criteria.
+
 A resume without `--override` refuses a changed build SHA or model digest. Review the task artifacts before explicitly adopting a changed identity. `receipt.json` reports `PASS` only when every bite passes; exhausted bites are `BLOCKED`. The scheduler reads its residency mode and the load-guard model identities from `config/orchestration_arm.yaml`.
 
 Queue a hand-written plan or instantiate a configured template. Template parameters use repeated `--param name=value` options and are checked by the same Phase 2 plan validator as planner output:

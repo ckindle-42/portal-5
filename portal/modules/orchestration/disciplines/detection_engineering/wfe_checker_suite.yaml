@@ -1,0 +1,20 @@
+suite: orchestration-detection-engineering-checker-v1
+discipline: detection-engineering
+controls_file: portal/modules/orchestration/disciplines/detection_engineering/wfe_checker_controls.yaml
+cases:
+  - id: exact-spl-validation
+    checker: spl_syntax
+    control_id: spl_syntax
+    expected: pass_and_reject_wrong_artifact
+  - id: sigma-validation-and-conversion
+    checker: sigma_validate_convert
+    control_id: sigma_validate_convert
+    expected: pass_and_reject_wrong_artifact
+  - id: exact-yara-compilation
+    checker: yara_compile
+    control_id: yara_compile
+    expected: pass_and_reject_wrong_artifact
+  - id: live-lab-known-answer
+    checker: lab_spl_results
+    control_id: lab_spl_results
+    expected: pass_and_reject_wrong_rows

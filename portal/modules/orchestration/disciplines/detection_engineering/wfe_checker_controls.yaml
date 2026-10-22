@@ -1,7 +1,8 @@
 schema_version: 1
 discipline: detection-engineering
 controls:
-  - checker:
+  - id: spl_syntax
+    checker:
       type: spl_syntax
       artifact_field: spl
     pass:
@@ -20,7 +21,8 @@ controls:
           args:
             spl: 'index=portal5_lab | head 1'
           output: {ok: true, errors: []}
-  - checker:
+  - id: sigma_validate_convert
+    checker:
       type: sigma_validate_convert
       artifact_field: sigma_yaml
       rule_count: 1
@@ -58,7 +60,8 @@ controls:
             valid: true
             rule_count: 1
             queries: ['Image="*\\whoami.exe"']
-  - checker:
+  - id: yara_compile
+    checker:
       type: yara_compile
       artifact_field: rule_text
     pass:
@@ -75,7 +78,8 @@ controls:
         - name: compile_yara
           args: {rule_text: *yara_good}
           output: {valid: true}
-  - checker:
+  - id: lab_spl_results
+    checker:
       type: lab_spl_results
       artifact_field: spl
       requires_live_lab: true

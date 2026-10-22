@@ -29,7 +29,10 @@ from orchestration_fake_pipeline import (  # noqa: E402
 )
 
 from portal.modules.orchestration.ledger import ResumeMismatchError  # noqa: E402
-from portal.modules.orchestration.planner import validate_planned_plan  # noqa: E402
+from portal.modules.orchestration.planner import (  # noqa: E402
+    instantiate_plan_template,
+    validate_planned_plan,
+)
 from portal.modules.orchestration.queue import (  # noqa: E402
     OvernightQueue,
     QueueGate,
@@ -76,6 +79,12 @@ def run_rig(workdir: Path) -> list[dict[str, str]]:
             "planner_context_overflow",
             "planner_mixed_read_and_action",
             "planner_missing_assembly_and_review",
+        )
+    )
+    results.append(
+        _scenario(
+            "detection_engineering_unseated_fake_pipeline",
+            lambda: _detection_engineering_unseated(tasks / "detection", "detection-rig"),
         )
     )
     results.append(_scenario("deep_vote_split", lambda: _deep_vote_split(tasks / "votes", "votes")))
@@ -163,6 +172,82 @@ def _happy(root: Path, task_id: str) -> str:
     )
     assert receipt["status"] == "PASS" and pipeline.requests[0]["model"] == "auto-daily::fast"
     return "one auto-daily::fast request passed through the fake Pipeline port"
+
+
+def _detection_engineering_unseated(root: Path, task_id: str) -> str:
+    pipeline = FakePipeline()
+    try:
+        config_path = root / "config" / "orchestration_arm.yaml"
+        config = _write_arm_config(config_path)
+        discipline = config["disciplines"]["detection-engineering"]
+        assert discipline["seating_status"] == "unseated"
+        assert "seated_models" not in discipline
+        assert "detection-engineering" not in config["calibration"]["rates_by_discipline"]
+        engines = {
+            "fast": Engine(
+                "auto-daily::fast", "fast-digest", pipeline.url, "", "omlx", "fake-fast"
+            ),
+            "deep": Engine(
+                "auto-daily::deep", "deep-digest", pipeline.url, "", "omlx", "fake-deep"
+            ),
+        }
+        notices = _FakeApproveNotices()
+        service = ArmService(
+            root / "tasks",
+            engines,
+            build_sha="offline-head",
+            residency_config=config_path,
+            notices=notices,
+        )
+        reference = root / "reference.spl"
+        reference.parent.mkdir(parents=True, exist_ok=True)
+        reference.write_text("index=portal5_lab EventCode=4769\n", encoding="utf-8")
+        plan = instantiate_plan_template(
+            config,
+            template_key="author_and_validate_detection",
+            discipline_key="detection-engineering",
+            task_id=task_id,
+            parameters={
+                "reference_file": reference.name,
+                "technique": "T1110.001",
+                "expected_behavior": "finds repeated authentication failures",
+            },
+            source_dir=root,
+        )
+        try:
+            service.submit(plan.as_dict(), root)
+        except ValueError as exc:
+            assert "WFE rates for detection-engineering" in str(exc)
+        else:
+            raise AssertionError("unseated discipline unexpectedly passed the unattended gate")
+
+        pipeline.add("fast", finish_response("Finding: T1110.001; authentication telemetry"))
+        pipeline.add("fast", finish_response("PASS: exact SPL passed syntax validation"))
+        for reason in ("artifact is valid", "mapping is complete", "scope is safe"):
+            pipeline.add(
+                "deep",
+                text_response(json.dumps({"decision": "approve", "reason": reason})),
+            )
+        pipeline.add("fast", finish_response("PASS: detection and operational notes assembled"))
+        pipeline.add("deep", finish_response("PASS: final detection and evidence reviewed"))
+        service.arm_config["calibration"]["minimum_pass_probability"] = None
+        task = service.submit(plan.as_dict(), root, unattended=False)
+        receipt = json.loads((task / "receipt.json").read_text(encoding="utf-8"))
+        assert receipt["status"] == "PASS"
+        assert len(receipt["results"]) == 4
+        assert len(notices.requests) == 1
+        assert [request["model"] for request in pipeline.requests] == [
+            "auto-daily::fast",
+            "auto-daily::fast",
+            "auto-daily::deep",
+            "auto-daily::deep",
+            "auto-daily::deep",
+            "auto-daily::fast",
+            "auto-daily::deep",
+        ]
+        return "template validated; no-rate unattended run was refused; approved fake Pipeline run passed"
+    finally:
+        pipeline.close()
 
 
 def _red_flag(root: Path, task_id: str) -> str:
