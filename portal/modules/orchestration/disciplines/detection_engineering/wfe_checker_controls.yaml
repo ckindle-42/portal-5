@@ -86,12 +86,12 @@ controls:
       min_rows: 2
       expected_rows:
         - ServiceName: svc_backup
-        - ServiceName: svc_sql
+        - ServiceName: svc_mssql
     pass:
       artifact: &lab_artifact
         spl: 'EventCode=4769 TicketEncryptionType=0x17 | stats count by ServiceName'
-        earliest: '-24h'
-        latest: now
+        earliest: '2026-07-18T00:00:00'
+        latest: '2026-08-17T00:00:00'
         max_results: 100
       calls:
         - name: query_splunk
@@ -101,7 +101,7 @@ controls:
             row_count: 2
             rows:
               - {ServiceName: svc_backup, count: '1'}
-              - {ServiceName: svc_sql, count: '1'}
+              - {ServiceName: svc_mssql, count: '1'}
     fail:
       artifact: *lab_artifact
       calls:
