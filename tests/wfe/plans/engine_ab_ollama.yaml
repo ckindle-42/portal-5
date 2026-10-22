@@ -11,7 +11,7 @@ workloads:
     home: coding
     discovery: []
     arms:
-      incumbent: portal5/omnicoder2-9b:q4_k_m-ctx256k
+      incumbent: portal5/omnicoder2-9b:q4_K_M-ctx256k
       challengers: []
   tools-specialist::fast:
     home: coding
