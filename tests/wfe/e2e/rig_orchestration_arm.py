@@ -61,6 +61,12 @@ def run_rig(workdir: Path) -> list[dict[str, str]]:
     tasks.mkdir(parents=True, exist_ok=True)
     results = []
     results.append(_scenario("happy_path", lambda: _happy(tasks / "happy", "happy")))
+    results.append(
+        _scenario(
+            "finish_output_path_worker_owned",
+            lambda: _finish_output_path_worker_owned(tasks / "finish-path", "finish-path"),
+        )
+    )
     results.append(_scenario("red_flag_retry", lambda: _red_flag(tasks / "red", "red")))
     results.append(_scenario("budget_exhaustion", lambda: _budget(tasks / "budget", "budget")))
     results.append(_scenario("wandering_bite", lambda: _wander(tasks / "wander", "wander")))
@@ -189,7 +195,28 @@ def _happy(root: Path, task_id: str) -> str:
         root, task_id, [("fast", finish_response({"answer": "right"}))], [_bite("b1")]
     )
     assert receipt["status"] == "PASS" and pipeline.requests[0]["model"] == "auto-daily::fast"
+    parameters = pipeline.requests[0]["tools"][-1]["function"]["parameters"]
+    assert parameters["required"] == ["output"] and "output_path" not in parameters["properties"]
     return "one auto-daily::fast request passed through the fake Pipeline port"
+
+
+def _finish_output_path_worker_owned(root: Path, task_id: str) -> str:
+    wrong_path = "defect_report.txt"
+    receipt, pipeline = _run_task(
+        root,
+        task_id,
+        [("fast", finish_response({"answer": "right"}, path=wrong_path))],
+        [_bite("b1")],
+    )
+    assert receipt["status"] == "PASS"
+    assert len(list(root.rglob("output.json"))) == 1
+    assert not list(root.rglob(wrong_path))
+    transcripts = list(root.rglob("transcript.jsonl"))
+    assert len(transcripts) == 1
+    events = [json.loads(line) for line in transcripts[0].read_text().splitlines()]
+    finish_record = next(row for row in events if row["kind"] == "result")
+    assert finish_record["ignored_model_output_path"] == wrong_path
+    return "finish succeeded without a model path; its supplied path was ignored and audited"
 
 
 def _detection_engineering_unseated(root: Path, task_id: str) -> str:

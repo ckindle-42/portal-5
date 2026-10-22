@@ -204,6 +204,10 @@ def test_happy_path_uses_one_pipeline_port_and_guarded_model_seat(
     assert request["model"] == "auto-daily::fast"
     assert request["portal_bite_tools"] == ["finish"]
     assert request["tools"][-1]["function"]["name"] == "finish"
+    finish_parameters = request["tools"][-1]["function"]["parameters"]
+    assert finish_parameters["required"] == ["output"]
+    assert "output_path" not in finish_parameters["properties"]
+    assert (task_dir / "data/bites/b1/output.json").is_file()
     assert fake_pipeline.admin_requests == [{"models": [{"engine": "omlx", "model": "fake-fast"}]}]
 
 
@@ -363,6 +367,35 @@ def test_client_file_tools_loop_back_to_the_model_and_keep_reading_bites_read_on
     assert followup[-1]["role"] == "tool"
     assert followup[-1]["name"] == "file_read"
     assert followup[-1]["content"] == "source contents"
+
+
+def test_finish_ignores_model_output_path_and_records_the_worker_path(
+    tmp_path: Path, fake_pipeline: FakePipeline
+) -> None:
+    task_dir = tmp_path / "finish-output-path"
+    wrong_path = "bites/b1/defect_report.txt"
+    fake_pipeline.add("fast", finish_response({"answer": "right"}, path=wrong_path))
+    task_bite = parse_plan(plan("finish-output-path", bite())).bites[0]
+
+    result = run_bite(
+        task_dir,
+        task_bite,
+        Engine("auto-daily::fast", "test-digest", fake_pipeline.url, auth.PIPELINE_API_KEY),
+        input_paths={},
+        attempt_dir=task_dir / "attempt",
+    )
+
+    output_file = task_dir / "data" / task_bite.output_path
+    assert result.finished
+    assert json.loads(output_file.read_text(encoding="utf-8")) == {"answer": "right"}
+    assert not list(task_dir.rglob("defect_report.txt"))
+    records = [
+        json.loads(line)
+        for line in (task_dir / "attempt" / "transcript.jsonl").read_text().splitlines()
+    ]
+    finish_record = next(row for row in records if row["kind"] == "result")
+    assert finish_record["worker_output_path"] == task_bite.output_path
+    assert finish_record["ignored_model_output_path"] == wrong_path
 
 
 def test_client_tool_loop_honors_the_hop_limit_before_executing_a_last_hop_action(
