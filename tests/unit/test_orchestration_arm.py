@@ -3,9 +3,11 @@
 from __future__ import annotations
 
 import json
+import os
 import signal
 import sqlite3
 import sys
+import threading
 from importlib.util import module_from_spec, spec_from_file_location
 from pathlib import Path
 from typing import Any
@@ -14,7 +16,9 @@ import pytest
 import yaml
 from fastapi import HTTPException
 
+from portal.modules.orchestration.contracts import parse_plan
 from portal.modules.orchestration.ledger import ArmLedger, ResumeMismatchError
+from portal.modules.orchestration.queue import OvernightQueue, QueueGate, QueueLedger
 from portal.modules.orchestration.service import (
     ArmService,
     StubNoticeSink,
@@ -57,6 +61,8 @@ def bite(
     turns: int = 2,
     output_tokens: int = 256,
     model: str = "fast",
+    review: str | None = None,
+    review_reason: str | None = None,
 ) -> dict[str, Any]:
     return {
         "bite_id": bite_id,
@@ -67,6 +73,8 @@ def bite(
         "tools": tools or [],
         "output": {"path": f"bites/{bite_id}/output.json", "schema": _SCHEMA},
         "accept": [{"type": "equals", "path": "$.answer", "value": expected}],
+        **({"review": review} if review else {}),
+        **({"review_reason": review_reason} if review_reason else {}),
         "risk": "low",
         "budget": {"turns": turns, "minutes": 1, "output_tokens": output_tokens},
         "model": model,
@@ -393,6 +401,195 @@ def test_residency_config_defaults_to_swap_and_reads_co_resident(tmp_path: Path)
 
 def test_module_switch_is_off_by_default_in_repo_config() -> None:
     assert not module_is_enabled(Path("config/portal.yaml"))
+
+
+def test_overnight_queue_runs_tasks_in_fifo_order_and_records_receipts(
+    tmp_path: Path, fake_pipeline: FakePipeline
+) -> None:
+    fake_pipeline.add("fast", finish_response({"answer": "right"}))
+    fake_pipeline.add("fast", finish_response({"answer": "right"}))
+    runner_service = service(tmp_path, fake_pipeline)
+    gate = QueueGate(
+        runner_service.engines,
+        {"yield_lock_dir": str(tmp_path / "locks")},
+        pid_file=tmp_path / "memory-pids",
+    )
+    runner = OvernightQueue(tmp_path / "tasks", runner_service, gate)
+    with QueueLedger(tmp_path / "tasks") as ledger:
+        ledger.enqueue(plan("queue-first", bite()), tmp_path)
+        ledger.enqueue(plan("queue-second", bite()), tmp_path)
+    first = runner.run_next()
+    second = runner.run_next()
+    with QueueLedger(tmp_path / "tasks") as ledger:
+        rows = ledger.items()
+    assert (first.status, first.task_id) == ("DONE", "queue-first")
+    assert (second.status, second.task_id) == ("DONE", "queue-second")
+    assert [row["state"] for row in rows] == ["done", "done"]
+    assert all((tmp_path / "tasks" / row["task_id"] / "receipt.json").is_file() for row in rows)
+
+
+def test_queue_blocks_one_broken_task_and_still_runs_the_next(
+    tmp_path: Path, fake_pipeline: FakePipeline
+) -> None:
+    runner_service = service(tmp_path, fake_pipeline)
+    gate = QueueGate(
+        runner_service.engines,
+        {"yield_lock_dir": str(tmp_path / "locks")},
+        pid_file=tmp_path / "memory-pids",
+    )
+    runner = OvernightQueue(tmp_path / "tasks", runner_service, gate)
+    with QueueLedger(tmp_path / "tasks") as ledger:
+        ledger.enqueue(plan("queue-broken", bite()), tmp_path)
+        ledger.enqueue(plan("queue-after", bite()), tmp_path)
+    (tmp_path / "tasks" / "queue-broken").mkdir()
+    fake_pipeline.add("fast", finish_response({"answer": "right"}))
+
+    broken = runner.run_next()
+    after = runner.run_next()
+
+    assert (broken.status, broken.task_id) == ("BLOCKED", "queue-broken")
+    assert "FileNotFoundError" in str(broken.reason)
+    assert (after.status, after.task_id) == ("DONE", "queue-after")
+    with QueueLedger(tmp_path / "tasks") as ledger:
+        assert [row["state"] for row in ledger.items()] == ["blocked", "done"]
+
+
+def test_queue_review_waits_when_a_bench_lock_appears_mid_bite(
+    tmp_path: Path, fake_pipeline: FakePipeline
+) -> None:
+    lock_dir = tmp_path / "locks"
+    lock_dir.mkdir()
+    runner_service = service(tmp_path, fake_pipeline)
+    gate = QueueGate(
+        runner_service.engines,
+        {"yield_lock_dir": str(lock_dir)},
+        pid_file=tmp_path / "memory-pids",
+    )
+    runner = OvernightQueue(tmp_path / "tasks", runner_service, gate)
+    reviewed = bite(review="deep", review_reason="review must respect the bench lock")
+    with QueueLedger(tmp_path / "tasks") as ledger:
+        ledger.enqueue(plan("queue-review-lock", reviewed), tmp_path)
+    fake_pipeline.add("fast", DelayedResponse(finish_response({"answer": "right"}), 0.3))
+    fake_pipeline.add("deep", text_response(json.dumps({"decision": "approve", "reason": "ok"})))
+    bench = threading.Timer(
+        0.1, lambda: (lock_dir / "bench.pid").write_text(f"{os.getpid()}\n", encoding="utf-8")
+    )
+    bench.start()
+    try:
+        result = runner.run_next()
+    finally:
+        bench.join()
+
+    task_dir = tmp_path / "tasks" / "queue-review-lock"
+    assert result.status == "WAITING"
+    assert [request["model"] for request in fake_pipeline.requests] == ["auto-daily::fast"]
+    assert json.loads((task_dir / "receipt.json").read_text())["status"] == "WAITING"
+    assert _bite_state(task_dir, "b1") == "ready"
+
+
+def test_queue_review_capacity_refusal_waits_instead_of_burning_an_attempt(
+    tmp_path: Path, fake_pipeline: FakePipeline
+) -> None:
+    runner_service = service(tmp_path, fake_pipeline)
+    runner_service.bite_gate = lambda _bite: True
+    reviewed = bite(review="deep", review_reason="review seat admission must not spend the ladder")
+    fake_pipeline.add("fast", finish_response({"answer": "right"}))
+    fake_pipeline.add_admin_response({"busy": False, "fits": True, "models": []})
+    fake_pipeline.add_admin_response({"busy": False, "fits": False, "models": []})
+    fake_pipeline.add("deep", text_response(json.dumps({"decision": "approve", "reason": "ok"})))
+
+    waiting = runner_service.submit(plan("queue-review-fit", reviewed), tmp_path)
+    receipt = json.loads((waiting / "receipt.json").read_text())
+
+    assert receipt["status"] == "WAITING"
+    assert receipt["results"][0]["attempts"] == 1
+    assert [request["model"] for request in fake_pipeline.requests] == ["auto-daily::fast"]
+
+    fake_pipeline.add("fast", finish_response({"answer": "right"}))
+    resumed = runner_service.resume("queue-review-fit")
+    receipt = json.loads((resumed / "receipt.json").read_text())
+    assert receipt["status"] == "PASS"
+    assert receipt["results"][0]["attempts"] == 2
+
+
+def test_queue_yield_before_the_request_does_not_count_an_attempt(
+    tmp_path: Path, fake_pipeline: FakePipeline
+) -> None:
+    runner_service = service(tmp_path, fake_pipeline)
+    gate = QueueGate(
+        runner_service.engines,
+        {"yield_lock_dir": str(tmp_path / "locks")},
+        pid_file=tmp_path / "memory-pids",
+    )
+    runner = OvernightQueue(tmp_path / "tasks", runner_service, gate)
+    with QueueLedger(tmp_path / "tasks") as ledger:
+        ledger.enqueue(plan("queue-yield", bite()), tmp_path)
+    fake_pipeline.add_admin_response({"busy": False, "fits": True, "models": []})
+    fake_pipeline.add_admin_response({"busy": True, "fits": True, "models": []})
+
+    first = runner.run_next()
+    task_dir = tmp_path / "tasks" / "queue-yield"
+    attempts_dir = task_dir / "bites/b1/attempts"
+
+    assert first.status == "WAITING"
+    assert _bite_state(task_dir, "b1") == "ready"
+    assert json.loads((task_dir / "receipt.json").read_text())["results"][0]["attempts"] == 0
+    assert not attempts_dir.exists() or not any(attempts_dir.iterdir())
+
+    fake_pipeline.add("fast", finish_response({"answer": "right"}))
+    second = runner.run_next()
+    receipt = json.loads((task_dir / "receipt.json").read_text())
+    assert second.status == "DONE"
+    assert receipt["results"][0]["attempts"] == 1
+    assert sorted(path.name for path in attempts_dir.iterdir()) == ["01"]
+    assert len(fake_pipeline.requests) == 1
+
+
+def test_queue_ledger_reclaims_a_task_after_its_runner_process_dies(tmp_path: Path) -> None:
+    task_root = tmp_path / "tasks"
+    with QueueLedger(task_root) as ledger:
+        ledger.enqueue(plan("queue-recovery", bite()), tmp_path)
+        item, active = ledger.claim_next()
+        assert item is not None and not active
+    with sqlite3.connect(task_root / "queue.sqlite3") as db:
+        db.execute(
+            "UPDATE queue_task SET runner_pid = 2147483647 WHERE task_id = ?", ("queue-recovery",)
+        )
+    with QueueLedger(task_root) as ledger:
+        recovered, active = ledger.claim_next()
+    assert recovered is not None and not active
+    assert recovered["task_id"] == "queue-recovery" and recovered["state"] == "running"
+
+
+def test_queue_gate_yields_for_live_lock_and_pipeline_busy_or_unknown_fit(
+    tmp_path: Path, fake_pipeline: FakePipeline
+) -> None:
+    runner_service = service(tmp_path, fake_pipeline)
+    lock_dir = tmp_path / "locks"
+    lock_dir.mkdir()
+    lock = lock_dir / "uat.pid"
+    lock.write_text(f"{os.getpid()}\n", encoding="utf-8")
+    pid_file = tmp_path / "pids"
+    gate = QueueGate(runner_service.engines, {"yield_lock_dir": str(lock_dir)}, pid_file=pid_file)
+    task_bite = parse_plan(plan("gate", bite())).bites[0]
+    assert not gate.allows(task_bite)
+    assert "uat.pid" in str(gate.last_reason)
+    assert not fake_pipeline.admin_requests
+
+    lock.unlink()
+    pid_file.write_text(f"{os.getpid()}\n", encoding="utf-8")
+    assert not gate.allows(task_bite)
+    assert "memory-safety" in str(gate.last_reason)
+    pid_file.unlink()
+    fake_pipeline.add_admin_response({"busy": True, "fits": True, "models": []})
+    assert not gate.allows(task_bite)
+    assert "traffic" in str(gate.last_reason)
+    fake_pipeline.add_admin_response({"busy": False, "fits": None, "models": []})
+    assert not gate.allows(task_bite)
+    assert "no fit" in str(gate.last_reason)
+    fake_pipeline.add_admin_response({"fits": True, "models": []})
+    assert not gate.allows(task_bite)
+    assert "active traffic" in str(gate.last_reason)
 
 
 def _events(task_dir: Path) -> list[dict[str, Any]]:

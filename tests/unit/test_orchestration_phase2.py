@@ -13,7 +13,11 @@ from jsonschema import Draft202012Validator
 
 from portal.modules.orchestration.calibration import calibration_status, project_remaining
 from portal.modules.orchestration.contracts import parse_plan
-from portal.modules.orchestration.planner import PLANNER_RULES, validate_planned_plan
+from portal.modules.orchestration.planner import (
+    PLANNER_RULES,
+    instantiate_plan_template,
+    validate_planned_plan,
+)
 from portal.modules.orchestration.service import _require_calibration
 from portal.modules.orchestration.worker import check_output
 from portal_channels.telegram.arm_bridge import ArmTelegramStore, send_outbox_once
@@ -59,6 +63,48 @@ def test_planned_plan_accepts_review_only_bite_with_reason() -> None:
     work["review_reason"] = "The output has no deterministic equivalence oracle."
     validated = validate_planned_plan(plan, _arm_config(), "test_fixing")
     assert validated.bites[0].review == "deep"
+
+
+def test_stored_repair_template_renders_and_passes_phase2_validation(tmp_path: Path) -> None:
+    source = tmp_path / "module.py"
+    tests = tmp_path / "test_module.py"
+    source.write_text("def value(): return 1\n")
+    tests.write_text("def test_value(): assert value() == 2\n")
+    plan = instantiate_plan_template(
+        _arm_config(),
+        template_key="repair_with_tests",
+        discipline_key="test_fixing",
+        task_id="template-example",
+        parameters={
+            "source_file": str(source),
+            "test_file": str(tests),
+            "expected_behavior": "value returns 2",
+        },
+        source_dir=tmp_path,
+    )
+    assert plan.task_id == "template-example"
+    assert plan.bites[0].inputs == (str(source), str(tests))
+    assert plan.bites[-2].stage == "assembly"
+    assert plan.bites[-1].review == "deep"
+
+
+def test_stored_template_rejects_phase2_read_and_action_violation(tmp_path: Path) -> None:
+    config = _arm_config()
+    template = config["disciplines"]["test_fixing"]["plan_templates"]["repair_with_tests"]
+    template["plan"]["bites"][0]["tools"] = ["file_read", "pytest_run"]
+    with pytest.raises(ValueError, match="reading and acting"):
+        instantiate_plan_template(
+            config,
+            template_key="repair_with_tests",
+            discipline_key="test_fixing",
+            task_id="invalid-template",
+            parameters={
+                "source_file": "module.py",
+                "test_file": "test_module.py",
+                "expected_behavior": "value returns 2",
+            },
+            source_dir=tmp_path,
+        )
 
 
 def test_wfe_planner_suite_is_backed_by_the_validator() -> None:

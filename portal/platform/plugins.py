@@ -62,6 +62,24 @@ def wiki_seeders() -> list[Callable[[bool], list[Any]]]:
     return seeders
 
 
+def owui_tools() -> dict[str, Callable[..., dict[str, Any]]]:
+    """Merge each module's Open WebUI tool handlers by tool name.
+
+    Handlers are plain callables that return the tool's response dict and
+    report failures inside it rather than raising.
+    """
+    merged: dict[str, Callable[..., dict[str, Any]]] = {}
+    for plugin in plugins():
+        hook = getattr(plugin, "owui_tools", None)
+        if hook is None:
+            continue
+        for name, fn in hook().items():
+            if name in merged:
+                raise ValueError(f"owui tool {name!r} is contributed by two module plugins")
+            merged[name] = fn
+    return merged
+
+
 def document_reader() -> Any | None:
     """Return the first module-provided document reader."""
     for plugin in plugins():
