@@ -381,6 +381,52 @@ def test_task_tools_confine_paths_and_enforce_size_limits(tmp_path: Path) -> Non
     assert outside.read_text(encoding="utf-8") == "private"
 
 
+@pytest.mark.parametrize("operation", ["read", "write"])
+def test_task_tools_resist_parent_symlink_swap(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, operation: str
+) -> None:
+    task_dir = tmp_path / "task"
+    safe_dir = task_dir / "safe"
+    outside_dir = tmp_path / "outside"
+    safe_dir.mkdir(parents=True)
+    outside_dir.mkdir()
+    (safe_dir / "target.txt").write_text("inside", encoding="utf-8")
+    (outside_dir / "target.txt").write_text("outside", encoding="utf-8")
+    tools = TaskToolExecutor(
+        task_dir,
+        ("file_read", "file_write"),
+        readable_paths=("safe/target.txt",),
+        writable_paths=("safe/target.txt",),
+    )
+    real_open = os.open
+    swapped = False
+
+    def racing_open(
+        path: str | bytes | os.PathLike[str] | os.PathLike[bytes],
+        flags: int,
+        mode: int = 0o777,
+        *,
+        dir_fd: int | None = None,
+    ) -> int:
+        nonlocal swapped
+        is_final_write = bool(flags & os.O_WRONLY)
+        if path == "target.txt" and not swapped and (operation == "read" or is_final_write):
+            safe_dir.rename(task_dir / "contained")
+            safe_dir.symlink_to(outside_dir, target_is_directory=True)
+            swapped = True
+        return real_open(path, flags, mode, dir_fd=dir_fd)
+
+    monkeypatch.setattr(os, "open", racing_open)
+
+    if operation == "read":
+        assert tools.file_read("safe/target.txt") == "inside"
+    else:
+        assert tools.file_write("safe/target.txt", "changed") == "wrote 7 chars to safe/target.txt"
+        assert (task_dir / "contained/target.txt").read_text(encoding="utf-8") == "changed"
+    assert swapped
+    assert (outside_dir / "target.txt").read_text(encoding="utf-8") == "outside"
+
+
 def test_task_tools_cannot_write_control_plane_files(tmp_path: Path) -> None:
     task_dir = tmp_path / "task"
     data_dir = task_dir / "data"

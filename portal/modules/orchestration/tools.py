@@ -3,8 +3,12 @@
 from __future__ import annotations
 
 import base64
+import os
 import re
 import shlex
+import stat
+from collections.abc import Iterator
+from contextlib import contextmanager, suppress
 from pathlib import Path, PureWindowsPath
 from typing import Any
 
@@ -113,13 +117,13 @@ class TaskToolExecutor:
             return f"ERROR: {name} failed: {type(exc).__name__}: {exc}"
 
     def file_read(self, path: str) -> str:
-        target = self._resolve(path)
-        if target.relative_to(self.task_dir).as_posix() not in self.readable_paths:
+        relative = self._relative_path(path)
+        if relative not in self.readable_paths:
             return f"ERROR: {path} is not readable for this bite"
-        if not target.is_file():
+        try:
+            content = _read_task_file(self.task_dir, relative, FILE_READ_LIMIT + 1)
+        except FileNotFoundError:
             return f"ERROR: cannot read {path}"
-        with target.open("rb") as stream:
-            content = stream.read(FILE_READ_LIMIT + 1)
         if len(content) > FILE_READ_LIMIT:
             return f"ERROR: {path} exceeds the {FILE_READ_LIMIT}-byte read limit"
         return content.decode("utf-8", errors="ignore")
@@ -130,24 +134,17 @@ class TaskToolExecutor:
         encoded = content.encode("utf-8")
         if len(encoded) > FILE_WRITE_LIMIT:
             return f"ERROR: content exceeds the {FILE_WRITE_LIMIT}-byte write limit"
-        target = self._resolve(path)
-        relative = target.relative_to(self.task_dir).as_posix()
+        relative = self._relative_path(path)
         if relative not in self.writable_paths:
             return f"ERROR: {path} is not writable for this bite"
-        if target == self.task_dir or target.is_dir():
-            return f"ERROR: {path} is a directory"
-        current_size = target.stat().st_size if target.is_file() else 0
-        additional_files = 0 if target.is_file() else 1
+        current_size = _task_file_size(self.task_dir, relative)
+        additional_files = 1 if current_size is None else 0
         if (
-            _task_size(self.task_dir, additional_files) - current_size + len(encoded)
+            _task_size(self.task_dir, additional_files) - (current_size or 0) + len(encoded)
             > TASK_BYTES_LIMIT
         ):
             return f"ERROR: task data exceeds the {TASK_BYTES_LIMIT}-byte limit"
-        target.parent.mkdir(parents=True, exist_ok=True)
-        target = self._resolve(path)
-        if target == self.task_dir or target.is_dir():
-            return f"ERROR: {path} is a directory"
-        target.write_bytes(encoded)
+        _write_task_file(self.task_dir, relative, encoded)
         return f"wrote {len(content)} chars to {path}"
 
     def pytest_run(self, args: str = "") -> str:
@@ -174,7 +171,7 @@ class TaskToolExecutor:
         except (OSError, RuntimeError, UnicodeError, ValueError, httpx.HTTPError) as exc:
             return f"ERROR: pytest could not run: {type(exc).__name__}: {exc}"
 
-    def _resolve(self, path: str) -> Path:
+    def _relative_path(self, path: str) -> str:
         if not isinstance(path, str) or not path.strip():
             raise ValueError("relative path required")
         posix = Path(path)
@@ -183,13 +180,10 @@ class TaskToolExecutor:
             raise ValueError("absolute paths are not allowed")
         if ".." in posix.parts or ".." in windows.parts:
             raise ValueError("parent traversal is not allowed")
-        target = (self.task_dir / path).resolve()
-        if not target.is_relative_to(self.task_dir):
-            raise ValueError("path escapes the task directory")
-        return target
-
-    def _relative_path(self, path: str) -> str:
-        return self._resolve(path).relative_to(self.task_dir).as_posix()
+        parts = tuple(part for part in posix.parts if part not in ("", "."))
+        if not parts:
+            raise ValueError("file path required")
+        return Path(*parts).as_posix()
 
 
 def _pytest_selectors(args: str, task_dir: Path) -> list[str]:
@@ -228,47 +222,165 @@ def _pytest_path_selector(token: str, task_dir: Path) -> str:
         raise ValueError("pytest paths must be relative to the task directory")
     if ".." in relative.parts or ".." in windows.parts:
         raise ValueError("pytest paths cannot traverse to a parent directory")
-    target = (task_dir / relative).resolve()
-    if not target.is_relative_to(task_dir) or not target.exists():
-        raise ValueError(f"pytest path is missing or outside the task directory: {path_text}")
+    normalized = Path(*(part for part in relative.parts if part not in ("", "."))).as_posix()
+    try:
+        with _open_task_path(task_dir, normalized or "."):
+            pass
+    except FileNotFoundError:
+        raise ValueError(
+            f"pytest path is missing or outside the task directory: {path_text}"
+        ) from None
     suffix = separator + node_id if separator else ""
-    return target.relative_to(task_dir).as_posix() + suffix
+    return normalized + suffix
 
 
 def _task_snapshot(task_dir: Path, visible_paths: frozenset[str]) -> dict[str, str]:
     files: dict[str, str] = {}
     total = 0
     for relative in sorted(visible_paths):
-        path = task_dir / relative
-        if not path.exists():
+        try:
+            content = _read_task_file(task_dir, relative)
+        except FileNotFoundError:
             continue
-        if path.is_symlink():
-            raise ValueError(f"task data contains a symlink: {path.relative_to(task_dir)}")
-        if not path.is_file():
-            raise ValueError(f"task data path is not a file: {relative}")
         if len(files) >= TASK_FILE_LIMIT:
             raise ValueError(f"task data exceeds the {TASK_FILE_LIMIT}-file limit")
-        content = path.read_bytes()
         total += len(content)
         if total > TASK_BYTES_LIMIT:
             raise ValueError(f"task data exceeds the {TASK_BYTES_LIMIT}-byte limit")
-        files[path.relative_to(task_dir).as_posix()] = base64.b64encode(content).decode("ascii")
+        files[relative] = base64.b64encode(content).decode("ascii")
     return files
 
 
 def _task_size(task_dir: Path, additional_files: int = 0) -> int:
-    total = 0
-    files = additional_files
-    for path in task_dir.rglob("*"):
-        if path.is_symlink():
-            raise ValueError(f"task data contains a symlink: {path.relative_to(task_dir)}")
-        if not path.is_file():
-            continue
-        files += 1
-        if files > TASK_FILE_LIMIT:
-            raise ValueError(f"task data exceeds the {TASK_FILE_LIMIT}-file limit")
-        total += path.stat().st_size
+    with _open_task_root(task_dir) as root_fd:
+        total, files = _directory_size(root_fd, "", additional_files)
+    if files > TASK_FILE_LIMIT:
+        raise ValueError(f"task data exceeds the {TASK_FILE_LIMIT}-file limit")
     return total
+
+
+_DIRECTORY_FLAGS = os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW | os.O_CLOEXEC
+_FILE_READ_FLAGS = os.O_RDONLY | os.O_NOFOLLOW | os.O_CLOEXEC | os.O_NONBLOCK
+
+
+@contextmanager
+def _open_task_root(task_dir: Path) -> Iterator[int]:
+    descriptor = os.open(task_dir, _DIRECTORY_FLAGS)
+    try:
+        yield descriptor
+    finally:
+        os.close(descriptor)
+
+
+@contextmanager
+def _open_task_parent(
+    task_dir: Path, relative: str, *, create: bool = False
+) -> Iterator[tuple[int, str]]:
+    parts = Path(relative).parts
+    if not parts:
+        raise ValueError("file path required")
+    with _open_task_root(task_dir) as root_fd:
+        parent_fd = root_fd
+        try:
+            for component in parts[:-1]:
+                if create:
+                    with suppress(FileExistsError):
+                        os.mkdir(component, dir_fd=parent_fd)
+                child_fd = os.open(component, _DIRECTORY_FLAGS, dir_fd=parent_fd)
+                if parent_fd != root_fd:
+                    os.close(parent_fd)
+                parent_fd = child_fd
+            yield parent_fd, parts[-1]
+        finally:
+            if parent_fd != root_fd:
+                os.close(parent_fd)
+
+
+@contextmanager
+def _open_task_path(task_dir: Path, relative: str) -> Iterator[int]:
+    if relative == ".":
+        with _open_task_root(task_dir) as root_fd:
+            yield root_fd
+        return
+    with _open_task_parent(task_dir, relative) as (parent_fd, name):
+        descriptor = os.open(name, _FILE_READ_FLAGS, dir_fd=parent_fd)
+        try:
+            yield descriptor
+        finally:
+            os.close(descriptor)
+
+
+def _read_task_file(task_dir: Path, relative: str, limit: int | None = None) -> bytes:
+    with _open_task_path(task_dir, relative) as descriptor:
+        if not stat.S_ISREG(os.fstat(descriptor).st_mode):
+            raise ValueError(f"task data path is not a file: {relative}")
+        chunks: list[bytes] = []
+        remaining = limit
+        while remaining is None or remaining > 0:
+            chunk = os.read(
+                descriptor, 64 * 1024 if remaining is None else min(64 * 1024, remaining)
+            )
+            if not chunk:
+                break
+            chunks.append(chunk)
+            if remaining is not None:
+                remaining -= len(chunk)
+        return b"".join(chunks)
+
+
+def _task_file_size(task_dir: Path, relative: str) -> int | None:
+    try:
+        with _open_task_path(task_dir, relative) as descriptor:
+            metadata = os.fstat(descriptor)
+    except FileNotFoundError:
+        return None
+    if not stat.S_ISREG(metadata.st_mode):
+        raise ValueError(f"task data path is not a file: {relative}")
+    return metadata.st_size
+
+
+def _write_task_file(task_dir: Path, relative: str, content: bytes) -> None:
+    flags = os.O_WRONLY | os.O_CREAT | os.O_TRUNC | os.O_NOFOLLOW | os.O_CLOEXEC | os.O_NONBLOCK
+    with _open_task_parent(task_dir, relative, create=True) as (parent_fd, name):
+        descriptor = os.open(name, flags, 0o666, dir_fd=parent_fd)
+        try:
+            if not stat.S_ISREG(os.fstat(descriptor).st_mode):
+                raise ValueError(f"task data path is not a file: {relative}")
+            view = memoryview(content)
+            while view:
+                view = view[os.write(descriptor, view) :]
+        finally:
+            os.close(descriptor)
+
+
+def _directory_size(directory_fd: int, prefix: str, files: int) -> tuple[int, int]:
+    total = 0
+    with os.scandir(directory_fd) as entries:
+        for entry in entries:
+            relative = f"{prefix}/{entry.name}" if prefix else entry.name
+            metadata = entry.stat(follow_symlinks=False)
+            if stat.S_ISLNK(metadata.st_mode):
+                raise ValueError(f"task data contains a symlink: {relative}")
+            if stat.S_ISDIR(metadata.st_mode):
+                child_fd = os.open(entry.name, _DIRECTORY_FLAGS, dir_fd=directory_fd)
+                try:
+                    child_total, files = _directory_size(child_fd, relative, files)
+                finally:
+                    os.close(child_fd)
+                total += child_total
+            elif stat.S_ISREG(metadata.st_mode):
+                descriptor = os.open(entry.name, _FILE_READ_FLAGS, dir_fd=directory_fd)
+                try:
+                    opened = os.fstat(descriptor)
+                    if not stat.S_ISREG(opened.st_mode):
+                        raise ValueError(f"task data path changed during scan: {relative}")
+                    total += opened.st_size
+                finally:
+                    os.close(descriptor)
+                files += 1
+                if files > TASK_FILE_LIMIT:
+                    return total, files
+    return total, files
 
 
 def _returned_files(result: dict[str, Any]) -> dict[str, str]:
