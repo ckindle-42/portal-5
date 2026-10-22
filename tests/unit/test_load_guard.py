@@ -36,6 +36,7 @@ class Engines:
         admin_loading_polls: list[bool] | None = None,
         settled_ceiling: float | None = None,
         settled_signal: str = "v1",
+        omlx_memory: float | None = None,
         api_status_code: int = 200,
         admin_login_code: int = 200,
         unload_status_code: int = 200,
@@ -53,6 +54,7 @@ class Engines:
         self.admin_loading_polls = list(admin_loading_polls or [])
         self.settled_ceiling = settled_ceiling
         self.settled_signal = settled_signal
+        self.omlx_memory = omlx_memory
         self.api_status_code = api_status_code
         self.admin_login_code = admin_login_code
         self.unload_status_code = unload_status_code
@@ -74,6 +76,8 @@ class Engines:
         return loading
 
     def omlx_used(self) -> float:
+        if self.omlx_memory is not None:
+            return self.omlx_memory
         return float(sum(m["size"] for m in self.omlx.values() if m.get("loaded")))
 
     def handler(self, req: httpx.Request) -> httpx.Response:
@@ -514,6 +518,25 @@ async def test_fitting_load_is_not_delayed_by_a_recent_guard_issued_unload():
     release()
 
 
+async def test_queued_omlx_unload_waits_for_memory_after_loaded_flips():
+    e = Engines(
+        tags={"m": 30 * GIB},
+        omlx={"idle": {"size": 4 * GIB, "loaded": True}},
+        unload_status_code=202,
+        unload_sticks=True,
+        omlx_memory=4 * GIB,
+    )
+    lg.set_load_wait("0.3")
+    task = asyncio.create_task(guard(e).admit(OLLAMA_URL, "m"))
+    asyncio.get_running_loop().call_later(0.03, lambda: e.omlx["idle"].update({"loaded": False}))
+    asyncio.get_running_loop().call_later(0.08, lambda: setattr(e, "omlx_memory", 0.0))
+    release = await asyncio.wait_for(task, 1)
+    assert release is not None
+    assert not e.omlx["idle"]["loaded"]
+    assert e.omlx_used() == 0
+    release()
+
+
 async def test_queued_omlx_unload_waits_then_remeasures_headroom(monkeypatch):
     e = Engines(
         tags={"m": 30 * GIB},
@@ -603,6 +626,32 @@ async def test_ollama_unload_that_stays_short_refuses_when_quiet(monkeypatch):
     assert "with nothing in flight to wait for" in str(err.value)
     assert not waits
     assert elapsed < 0.05
+
+
+async def test_partial_omlx_free_continues_to_idle_ollama_and_honors_failover(monkeypatch):
+    e = Engines(
+        ollama={"failover": GIB, "devstral": int(1.8 * GIB)},
+        tags={"kat": 22 * GIB},
+        omlx={
+            "lru": {"size": GIB, "loaded": True, "last": 1},
+            "mid": {"size": GIB, "loaded": True, "last": 2},
+        },
+        ceiling=21 * GIB,
+        unload_status_codes={"lru": 202},
+    )
+    e.hidden["devstral"] = int(13.2 * GIB)
+    g = guard(e)
+    monkeypatch.setattr(lg, "GUARD", g)
+    lg.protect_failover(OLLAMA, "failover")
+    lg.set_load_wait("0.2")
+    release = await g.admit(OLLAMA_URL, "kat")
+    assert release is not None
+    assert e.unload_calls == {"lru": 1, "mid": 1, "devstral": 1}
+    assert e.omlx["lru"]["loaded"]
+    assert not e.omlx["mid"]["loaded"]
+    assert "devstral" not in e.ollama
+    assert e.ollama["failover"] == GIB
+    release()
 
 
 async def test_queued_omlx_unload_does_not_stop_idle_lru_walk():

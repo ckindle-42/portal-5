@@ -206,12 +206,13 @@ class LoadGuard:
         except Exception:
             return None
 
-    async def _headroom(self, client: httpx.AsyncClient) -> float | None:
+    async def _headroom(self, client: httpx.AsyncClient) -> tuple[float, float] | None:
         """Current oMLX headroom, without waiting for transition state."""
         st = await self._omlx_status(client)
         if st is None:
             return None
-        return float(st.get("final_ceiling") or 0) - float(st.get("current_model_memory") or 0)
+        used = float(st.get("current_model_memory") or 0)
+        return float(st.get("final_ceiling") or 0) - used, used
 
     async def host_free_bytes(self, base: str) -> float | None:
         """Memory a new load could use without waiting: oMLX's headroom plus idle
@@ -334,12 +335,14 @@ class LoadGuard:
         tracked = sum(n for (engine, _), n in self._busy.items() if engine == OMLX)
         return int(st.get("active_requests") or 0) + int(st.get("waiting_requests") or 0) > tracked
 
-    async def _free_omlx(self, client: httpx.AsyncClient, want: float) -> tuple[float, set[str]]:
+    async def _free_omlx(
+        self, client: httpx.AsyncClient, want: float
+    ) -> tuple[float, dict[str, float]]:
         """Unload idle oMLX models and report completed bytes separately from queued work."""
         try:
             url, idle = await self._omlx_idle_models(client)
             freed = 0.0
-            queued: set[str] = set()
+            queued: dict[str, float] = {}
             for m in idle:
                 if freed >= want:
                     break
@@ -348,11 +351,11 @@ class LoadGuard:
                     freed += float(m.get("actual_size") or m.get("estimated_size") or 0)
                     logger.info("load_guard: unloaded idle oMLX model %s", m["id"])
                 elif r.status_code == 202:
-                    queued.add(m["id"])
+                    queued[m["id"]] = float(m.get("actual_size") or m.get("estimated_size") or 0)
             return freed, queued
         except Exception as e:
             logger.warning("load_guard: could not free oMLX memory: %s", e)
-            return 0.0, set()
+            return 0.0, {}
 
     async def _free_ollama(
         self, client: httpx.AsyncClient, base: str, resident: dict[str, int]
@@ -483,25 +486,33 @@ class LoadGuard:
         base: str,
         resident: dict[str, int],
         idle: float,
+        used: float,
         shortage: float,
-    ) -> tuple[bool, set[str], set[str]]:
+    ) -> tuple[bool, dict[str, float], set[str], float]:
         omlx_freed, omlx_queued = await self._free_omlx(client, shortage)
-        if omlx_freed:
-            return True, omlx_queued, set()
-        if idle:
+        memory_floor = max(0.0, used - omlx_freed - sum(omlx_queued.values()))
+        if omlx_freed < shortage and idle:
             ollama_requested = await self._free_ollama(client, base, resident)
-            if ollama_requested:
-                return True, omlx_queued, ollama_requested
-        return bool(omlx_queued), omlx_queued, set()
+        else:
+            ollama_requested = set()
+        did_free = bool(omlx_freed or omlx_queued or ollama_requested)
+        return did_free, omlx_queued, ollama_requested, memory_floor
 
-    async def _pending_omlx_unloads(self, client: httpx.AsyncClient, models: set[str]) -> set[str]:
+    async def _pending_omlx_unloads(
+        self, client: httpx.AsyncClient, models: dict[str, float], memory_floor: float
+    ) -> dict[str, float]:
         if not models:
-            return set()
+            return {}
         status = await self._omlx_status(client)
+        if status is None or status.get("current_model_memory") is None:
+            return models
+        memory_settled = float(status["current_model_memory"]) <= memory_floor
         return {
-            model
-            for model in models
-            if (entry := _omlx_entry(status, model)) is not None and entry.get("loaded")
+            model: size
+            for model, size in models.items()
+            if not memory_settled
+            or (entry := _omlx_entry(status, model)) is not None
+            and entry.get("loaded")
         }
 
     # ── the cold-load lock ───────────────────────────────────────────────
@@ -591,7 +602,8 @@ class LoadGuard:
             held.append(release)
             free_attempted = False
             activity_seen = False
-            pending_omlx: set[str] = set()
+            pending_omlx: dict[str, float] = {}
+            pending_omlx_memory_floor = 0.0
             pending_ollama: set[str] = set()
             try:
                 while True:
@@ -600,9 +612,10 @@ class LoadGuard:
                         release()
                         return None
                     need = await self._need(client, base, model)
-                    headroom = await self._headroom(client)
-                    if headroom is None or not need:
+                    capacity = await self._headroom(client)
+                    if capacity is None or not need:
                         break  # unmeasurable: fail open
+                    headroom, used = capacity
                     idle = self._ollama_idle(resident)
                     available = headroom + idle - _MARGIN
                     if need > available and not free_attempted:
@@ -611,8 +624,9 @@ class LoadGuard:
                             freed_or_queued,
                             queued_omlx,
                             requested_ollama,
+                            pending_omlx_memory_floor,
                         ) = await self._free_idle_memory(
-                            client, base, resident, idle, need - available
+                            client, base, resident, idle, used, need - available
                         )
                         pending_omlx.update(queued_omlx)
                         pending_ollama.update(requested_ollama)
@@ -621,7 +635,9 @@ class LoadGuard:
                     if need <= available:
                         break
                     pending_ollama.intersection_update(resident)
-                    pending_omlx = await self._pending_omlx_unloads(client, pending_omlx)
+                    pending_omlx = await self._pending_omlx_unloads(
+                        client, pending_omlx, pending_omlx_memory_floor
+                    )
                     release, loading_seen = await self._wait_if_omlx_loading(
                         client, model, deadline, release, held
                     )
