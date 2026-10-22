@@ -285,7 +285,14 @@ class LoadGuard:
         login = await client.post(f"{url}/admin/api/login", json={"api_key": omlx_api_key()})
         if login.status_code != 200:
             return url, []
-        models = (await client.get(f"{url}/admin/api/models")).json()
+        response = await client.get(f"{url}/admin/api/models")
+        if response.status_code != 200:
+            logger.warning(
+                "load_guard: oMLX model list returned HTTP %d; not freeing oMLX memory",
+                response.status_code,
+            )
+            return url, []
+        models = response.json()
         models = models.get("models", models) if isinstance(models, dict) else models
         idle = [
             m

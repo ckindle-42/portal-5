@@ -41,6 +41,7 @@ class Engines:
         omlx_memory: float | None = None,
         api_status_code: int = 200,
         admin_login_code: int = 200,
+        admin_models_code: int = 200,
         unload_status_code: int = 200,
         unload_status_codes: dict[str, int] | None = None,
         unload_sticks: bool = False,
@@ -65,6 +66,7 @@ class Engines:
         self.omlx_memory = omlx_memory
         self.api_status_code = api_status_code
         self.admin_login_code = admin_login_code
+        self.admin_models_code = admin_models_code
         self.unload_status_code = unload_status_code
         self.unload_status_codes = dict(unload_status_codes or {})
         self.unload_sticks = unload_sticks
@@ -203,6 +205,8 @@ class Engines:
         if path == "/admin/api/login":
             return httpx.Response(self.admin_login_code, json={"success": True})
         if path == "/admin/api/models":
+            if self.admin_models_code != 200:
+                return httpx.Response(self.admin_models_code)
             loading = self._loading_poll(self.admin_loading_polls, "admin")
             models = []
             for k, v in self.omlx.items():
@@ -1014,6 +1018,25 @@ async def test_unreadable_runtime_status_frees_nothing_and_logs_the_code(caplog)
     assert e.unload_calls == {}
     assert "could not free oMLX memory" not in caplog.text
     assert "503" in caplog.text
+
+
+async def test_unreadable_model_list_frees_nothing_and_logs_the_code(caplog):
+    """A non-200 /admin/api/models means "no idle models", not a JSON error."""
+    e = Engines(
+        tags={"m": 30 * GIB},
+        omlx={"idle": {"size": 16 * GIB, "loaded": True}},
+        ceiling=20 * GIB,
+        omlx_memory=16 * GIB,
+        admin_models_code=503,
+    )
+    with (
+        caplog.at_level(logging.WARNING, logger=lg.logger.name),
+        pytest.raises(lg.LoadRefusedError),
+    ):
+        await guard(e).admit(OLLAMA_URL, "m")
+    assert e.unload_calls == {}
+    assert "could not free oMLX memory" not in caplog.text
+    assert "model list returned HTTP 503" in caplog.text
 
 
 # ── oMLX serialisation ────────────────────────────────────────────────────
