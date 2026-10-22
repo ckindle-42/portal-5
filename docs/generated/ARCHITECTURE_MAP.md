@@ -2,7 +2,7 @@
 
 # Portal 5 Architecture Map
 
-*Deterministic projection of 771 canonical units.*
+*Deterministic projection of 772 canonical units.*
 
 ## Knowledge Layer
 
@@ -21,6 +21,7 @@
 | `unit-ADMIN_GUIDE-first-login` | why | 3 |
 | `unit-ADMIN_GUIDE-how-the-llm-router-works` | why | 3 |
 | `unit-ADMIN_GUIDE-inference-health-monitoring` | why | 3 |
+| `unit-ADMIN_GUIDE-load-guard-model-memory` | why | 5 |
 | `unit-ADMIN_GUIDE-network-exposure` | why | 4 |
 | `unit-ADMIN_GUIDE-ollama-is-native-plist-is-the-source-of-truth` | why | 8 |
 | `unit-ADMIN_GUIDE-ollama-max-loaded-models-3` | why | 4 |
@@ -329,7 +330,7 @@
 | `unit-known-limitations-importing-the-security-bench-module-sets-a-linux-only-prometheus-multiproc-dir-host-side` | what | 4 |
 | `unit-known-limitations-known-limitations` | what | 1 |
 | `unit-known-limitations-ling-3-0-flash-turboquant-memory-gates` | what | 1 |
-| `unit-known-limitations-load-guard-omlx-swap` | what | 2 |
+| `unit-known-limitations-load-guard-omlx-swap` | what | 3 |
 | `unit-known-limitations-meta3-metasploitable3-windows-scenario-coverage-spl-precision-gaps` | what | 7 |
 | `unit-known-limitations-minimax-music3-mlx` | mixed | 1 |
 | `unit-known-limitations-mlx-inference-proxy-retired-commit-3a0c58e` | what | 3 |
@@ -344,7 +345,7 @@
 | `unit-known-limitations-ollama-v1-ignores-options-num-ctx-and-options-num-batch` | what | 6 |
 | `unit-known-limitations-ollama-v1-sampling-drop` | what | 4 |
 | `unit-known-limitations-omlx-balanced-ceiling` | what | 2 |
-| `unit-known-limitations-omlx-prefix-cache-accounting` | what | 1 |
+| `unit-known-limitations-omlx-prefix-cache-accounting` | what | 3 |
 | `unit-known-limitations-omlx-qwen3coder-tool-text` | what | 3 |
 | `unit-known-limitations-owui-audio-drop-ux-task-owui-audio-drop-001` | what | 2 |
 | `unit-known-limitations-p5-emergent-002-deterministic-capability-ranker-can-t-reach-oracle-bearing-capabilities-once-any-tool-declaring-recon-capability-is-a-candidate` | what | 4 |
@@ -354,7 +355,7 @@
 | `unit-known-limitations-p5-mlx-eval-004-large-single-blob-mlx-downloads-hang-intermittently` | what | 3 |
 | `unit-known-limitations-p5-mlx-eval-005-two-security-tier-fine-tunes-have-no-working-mlx-conversion` | what | 3 |
 | `unit-known-limitations-phi4-reasoning-plus-crashes-ollama-s-llama-server-on-this-host-confirmed-not-a-corrupted-download` | what | 3 |
-| `unit-known-limitations-pipeline-hardening-20260925` | what | 8 |
+| `unit-known-limitations-pipeline-hardening-20260925` | what | 9 |
 | `unit-known-limitations-post-v1-messages-anthropic-compat-endpoint-returns-http-200-with-a-null-body` | what | 3 |
 | `unit-known-limitations-pytest-portal-leaves-real-write-through-test-artifacts` | what | 4 |
 | `unit-known-limitations-rbp-benign-corpus-alert-fatigue` | what | 5 |
@@ -780,12 +781,12 @@
 | `unit-wiki-tests-render` | mixed | 1 |
 | `unit-wiki-writeback` | mixed | 1 |
 
-**Total:** 771 units
+**Total:** 772 units
 
 ## Source Distribution
 
 - **bench-security**: 1 references
-- **code**: 2126 references
+- **code**: 2135 references
 - **config**: 2 references
 - **data**: 1 references
 - **doc**: 6 references
