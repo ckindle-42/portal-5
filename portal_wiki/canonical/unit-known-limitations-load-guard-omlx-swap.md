@@ -6,6 +6,8 @@ sources:
 - type: code
   path: portal/platform/inference/load_guard.py
 - type: code
+  path: portal/platform/inference/router/metrics.py
+- type: code
   path: tests/unit/test_load_guard.py
 claims: []
 confidence: high
@@ -14,7 +16,7 @@ tags:
 - omlx
 - memory
 created_at: 1792627200
-updated_at: 1792681229
+updated_at: 1792684036
 ---
 
 #### Load guard refused during an oMLX model swap (2026-10-22)
@@ -26,6 +28,7 @@ updated_at: 1792681229
 - **Rework**: `plan/guard-race` continues that wait so a transition the guard can see is not classified as quiet.
 - **Counter round**: round 6 (commit a73c88dc) makes oMLX's memory counter act as the unload signal the status surfaces lack: admission snapshots `current_model_memory` before posting an unload, treats a queued (202) unload as settled on any counter drop, and re-measures instead of refusing quiet when the counter drops between passes or on the quiet path's own re-measure.
 - **Round 9 (2026-10-22 UAT `auto-coding::fast-repair`)**: the guard had already unloaded the idle oMLX seat (202 at 08:18:58.9, unloaded 08:19:02.4, 16.00 GB freed); the refusal's `oMLX headroom 19.8` was the whole host-derived ceiling with nothing resident. The only reclaimable memory was an idle Ollama resident, which admission unloaded and then wrote off as soon as `/api/ps` dropped it, refusing quiet ~0.2 s later against the pre-free ceiling. A free now stays pending until `/api/ps` drops the model and headroom has risen by its reported bytes; a settle slower than `_FREE_SETTLE_EXPECTED_S` (measured, 4.6 s from oMLX admin unloads) warns with its measured time, and the free waits inside the request's own load wait, the only refusal bound.
+- **Fixed budget and metrics (2026-10-22)**: with `LOAD_GUARD_CEILING_GB` set, a free retires on the `/api/ps` drop alone — the headroom-rise half of the test measures against oMLX's moving ceiling, which a fixed budget replaces. Refusals are now counted by their raise site in `portal5_load_guard_refusals_total` (this remaining gap is the `quiet` bucket) and charted with admissions, waits, unloads and the last-decision headroom/ceiling on the Model Management dashboard, so a recurrence is visible without a log dive.
 - **Remaining gap**: oMLX still exposes no unload field. A swap whose unload has not yet moved the counter when the guard re-measures still looks like a settled host, and admission can refuse at once; an observed drop buys one re-measure, so an unload that lands later still races the deadline.
 
 #### Why
