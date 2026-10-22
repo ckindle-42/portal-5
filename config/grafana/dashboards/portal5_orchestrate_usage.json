@@ -32,8 +32,8 @@
     {
       "id": 17,
       "type": "table",
-      "title": "Plan resets \u2014 when each window refills",
-      "description": "One row per prepaid plan window. Used % is the vendor's own reading; 'Resets at' is local time and 'Resets in' counts down. Rolling windows with no fixed reset (SuperGrok) show no reset time.",
+      "title": "Plan resets \u2014 headroom left and when each window refills",
+      "description": "One row per prepaid plan window. Left % is the vendor's own reading, drawn with the same bar and colours as the headroom gauge below; 'Resets at' is local time and 'Resets in' counts down. Rolling windows with no fixed reset (SuperGrok) show no reset time.",
       "gridPos": {
         "h": 7,
         "w": 24,
@@ -43,7 +43,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "orchestrate_quota_pct_used",
+          "expr": "100 * orchestrate_quota_remaining / orchestrate_quota_limit",
           "instant": true,
           "format": "table"
         },
@@ -84,7 +84,7 @@
             "renameByName": {
               "plan": "Plan",
               "window": "Window",
-              "Value #A": "Used %",
+              "Value #A": "Left %",
               "Value #B": "Resets at",
               "Value #C": "Resets in"
             }
@@ -111,7 +111,7 @@
           {
             "matcher": {
               "id": "byName",
-              "options": "Used %"
+              "options": "Left %"
             },
             "properties": [
               {
@@ -123,9 +123,17 @@
                 "value": 0
               },
               {
-                "id": "custom.cellOptions",
+                "id": "min",
+                "value": 0
+              },
+              {
+                "id": "max",
+                "value": 100
+              },
+              {
+                "id": "color",
                 "value": {
-                  "type": "color-background"
+                  "mode": "thresholds"
                 }
               },
               {
@@ -134,18 +142,26 @@
                   "mode": "absolute",
                   "steps": [
                     {
-                      "color": "green",
+                      "color": "red",
                       "value": null
                     },
                     {
-                      "color": "orange",
-                      "value": 70
+                      "color": "#c98500",
+                      "value": 15
                     },
                     {
-                      "color": "red",
-                      "value": 90
+                      "color": "#199e70",
+                      "value": 40
                     }
                   ]
+                }
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "gauge",
+                  "mode": "gradient",
+                  "valueDisplayMode": "color"
                 }
               }
             ]
