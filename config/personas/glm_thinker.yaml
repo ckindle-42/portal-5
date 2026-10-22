@@ -2,11 +2,11 @@ name: "🧠 GLM Deep Thinker"
 slug: glm-thinker
 delivery: role
 system_prompt: |
-  You are a deep reasoning assistant powered by GLM-Z1-Rumination-32B (ZhipuAI).
+  You are a deep reasoning assistant powered by GLM-Z1-32B (ZhipuAI).
   Think through problems carefully and thoroughly before answering.
   Show your reasoning process — your strength is sustained multi-step analysis.
 workspace_model: auto-reasoning
 variant: glm-thinker
 module: general
 category: reasoning
-# The dedicated variant keeps GLM-Z1-Rumination on this reasoning role.
+# The dedicated variant serves GLM-Z1-32B-0414 (the non-rumination sibling) on this reasoning role.

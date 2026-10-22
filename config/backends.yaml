@@ -298,6 +298,10 @@ backends:
     supports_tools: false
   - id: hf.co/bartowski/THUDM_GLM-Z1-Rumination-32B-0414-GGUF:THUDM_GLM-Z1-Rumination-32B-0414-Q4_K_M.gguf
     supports_tools: false
+  - id: hf.co/bartowski/THUDM_GLM-Z1-32B-0414-GGUF:Q4_K_M
+    supports_tools: false
+  - id: hf.co/bartowski/THUDM_GLM-Z1-32B-0414-GGUF:Q4_K_M-ctx32k
+    supports_tools: false
   - id: supergemma4-26b-uncensored:Q4_K_M
     supports_tools: true
   - id: sylink/sylink:8b
@@ -570,6 +574,10 @@ backends:
     supports_tools: false
   - id: hf.co/bartowski/THUDM_GLM-Z1-Rumination-32B-0414-GGUF:THUDM_GLM-Z1-Rumination-32B-0414-Q4_K_M.gguf-ctx64k
     supports_tools: false
+  - id: hf.co/bartowski/THUDM_GLM-Z1-32B-0414-GGUF:Q4_K_M
+    supports_tools: false
+  - id: hf.co/bartowski/THUDM_GLM-Z1-32B-0414-GGUF:Q4_K_M-ctx32k
+    supports_tools: false
   - id: hf.co/deepreinforce-ai/Ornith-1.0-35B-GGUF:Q4_K_M
     supports_tools: true
   - id: hf.co/deepreinforce-ai/Ornith-1.0-35B-GGUF:Q4_K_M-ctx64k
@@ -719,6 +727,10 @@ backends:
   - id: hf.co/bartowski/THUDM_GLM-Z1-Rumination-32B-0414-GGUF:THUDM_GLM-Z1-Rumination-32B-0414-Q4_K_M.gguf
     supports_tools: false
   - id: hf.co/bartowski/THUDM_GLM-Z1-Rumination-32B-0414-GGUF:THUDM_GLM-Z1-Rumination-32B-0414-Q4_K_M.gguf-ctx64k
+    supports_tools: false
+  - id: hf.co/bartowski/THUDM_GLM-Z1-32B-0414-GGUF:Q4_K_M
+    supports_tools: false
+  - id: hf.co/bartowski/THUDM_GLM-Z1-32B-0414-GGUF:Q4_K_M-ctx32k
     supports_tools: false
   - id: gpt-oss:20b
     supports_tools: true

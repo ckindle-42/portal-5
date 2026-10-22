@@ -1439,6 +1439,26 @@ The old body was the generic derived-tag template copied across the ctx-family u
 
 ---
 
+### `hf.co/bartowski/THUDM_GLM-Z1-32B-0414-GGUF:Q4_K_M`
+
+`hf.co/bartowski/THUDM_GLM-Z1-32B-0414-GGUF:Q4_K_M` is the bartowski Q4_K_M of GLM-Z1-32B-0414, the non-rumination deep-thinking sibling of GLM-Z1-Rumination-32B. `config/backends.yaml` registers it in the `general`, `coding`, and `reasoning` groups with `supports_tools: false` in each; OpenAI tool calls were not probed. `config/portal.yaml` does not select this base id. `auto-reasoning::glm-thinker` selects the derived `-ctx32k` tag. The vendor card (zai-org/GLM-Z1-32B-0414) samples at temperature 0.6, top_p 0.95, top_k 40, with max_new_tokens 30000. The bartowski README publishes a system-role prompt that ends in `<think>` and no sampling numbers. The served native window is 32768; YaRN past 8192 is not enabled.
+
+## Why
+
+The id is registered beside the Rumination tags so the glm-thinker seat can leave the research-agent GGUF. This base id is the parent `apply-params` derives `-ctx32k` from. `supports_tools: false` matches the Rumination registration until a tool-call probe exists.
+
+---
+
+### `hf.co/bartowski/THUDM_GLM-Z1-32B-0414-GGUF:Q4_K_M-ctx32k`
+
+`hf.co/bartowski/THUDM_GLM-Z1-32B-0414-GGUF:Q4_K_M-ctx32k` is the 32K-context derived tag of GLM-Z1-32B-0414 Q4_K_M (`_derive_ctx_tag` at context 32768). `config/backends.yaml` registers it in the `general`, `coding`, and `reasoning` groups with `supports_tools: false` in each. `config/portal.yaml` selects it as the `model_hint` for `auto-reasoning::glm-thinker`, with `context_limit` 32768, `predict_limit` 16384, temperature 0.6, top_p 0.95, top_k 40, and `think: true`. This change does not create the Ollama tag. `portal models apply-params` bakes `PARAMETER num_ctx 32768`, because Ollama ignores request-time `options.num_ctx`.
+
+## Why
+
+The seat needs a ctx-tagged id so the declared 32768 window is the baked window. Half the window is the output budget: the card's 30000 max_new_tokens does not leave room for a prompt inside 32768.
+
+---
+
 ### `hf.co/bartowski/huihui-ai_Qwen3-Coder-Next-abliterated-GGUF:Q4_K_M-ctx64k`
 
 `hf.co/bartowski/huihui-ai_Qwen3-Coder-Next-abliterated-GGUF:Q4_K_M-ctx64k` is the 64K-context derived tag of the abliterated Qwen3-Coder-Next. `config/backends.yaml` registers it in the `coding` group only, with `supports_tools: true` — the same value as its base tag in that group. `config/portal.yaml` uses it as the `model_hint` for `auto-spl` (Splunk/detection-authoring lane) and for the `uncensored-agentic` variant of `auto-coding`, both of which need the 64K window for long security-scripting or multi-turn agentic work. `PARAMETER num_ctx 65536` is baked in via `portal models apply-params` because Ollama ignores request-time `options.num_ctx`; a derived tag is what makes the wider context reachable. The base id itself carries no `model_hint` in production — only this capped variant does.
