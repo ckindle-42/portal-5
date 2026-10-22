@@ -91,6 +91,43 @@
     }
   },
   {
+    "description": "Queue one stored orchestration-arm template on the overnight queue and return the receipt path. Refused while the orchestration module is disabled.",
+    "name": "arm_queue_task",
+    "parameters": {
+      "properties": {
+        "discipline": {
+          "description": "Discipline key from config/portal.yaml, e.g. test_fixing",
+          "type": "string"
+        },
+        "parameters": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "description": "Template parameter names mapped to string values",
+          "type": "object"
+        },
+        "source_dir": {
+          "description": "Existing directory under the workspace root or the repository. Defaults to the uploads directory.",
+          "type": "string"
+        },
+        "task_id": {
+          "description": "New task id (letters, digits, '.', '_', '-'); a reused id is refused",
+          "type": "string"
+        },
+        "template_key": {
+          "description": "Stored plan template key, e.g. repair_with_tests",
+          "type": "string"
+        }
+      },
+      "required": [
+        "task_id",
+        "discipline",
+        "template_key"
+      ],
+      "type": "object"
+    }
+  },
+  {
     "description": "Read a file from the host filesystem. Accepts absolute paths or repo-relative paths. Returns line-numbered content.",
     "name": "read_text_file",
     "parameters": {

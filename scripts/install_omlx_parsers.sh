@@ -12,7 +12,13 @@ REPO_ROOT="${0:a:h:h}"
 PARSER_SRC="$REPO_ROOT/scripts/omlx/deepseek_r1_tool_parser.py"
 MODEL_DIR="/Volumes/data01/omlx-models/DeepSeek-R1-0528-Qwen3-8B-4bit"
 
-TARGET_DIR=$(ls -d /opt/homebrew/Cellar/omlx/*/libexec/lib/python*/site-packages/mlx_lm/tool_parsers 2>/dev/null | sort | tail -1)
+OMLX_VENV_PATH="${OMLX_VENV_PATH:-$HOME/omlx-live/venv}"
+if [[ -x "$OMLX_VENV_PATH/bin/python" ]] \
+  && launchctl print "gui/$(id -u)/com.portal5.omlx" &>/dev/null; then
+  TARGET_DIR=$("$OMLX_VENV_PATH/bin/python" -c 'import site; from pathlib import Path; print(next((str(Path(p) / "mlx_lm" / "tool_parsers") for p in site.getsitepackages() if (Path(p) / "mlx_lm" / "tool_parsers").is_dir()), ""))')
+else
+  TARGET_DIR=$(ls -d /opt/homebrew/Cellar/omlx/*/libexec/lib/python*/site-packages/mlx_lm/tool_parsers 2>/dev/null | sort | tail -1)
+fi
 if [[ -z "$TARGET_DIR" ]]; then
   echo "ERROR: no mlx_lm/tool_parsers dir under /opt/homebrew/Cellar/omlx — is omlx installed?" >&2
   exit 1
@@ -21,7 +27,7 @@ fi
 cp "$PARSER_SRC" "$TARGET_DIR/deepseek_r1.py"
 echo "installed: $TARGET_DIR/deepseek_r1.py"
 
-python3 - "$MODEL_DIR" <<'EOF'
+"$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/.venv/bin/python3" - "$MODEL_DIR" <<'EOF'
 import json, sys, pathlib
 cfg_path = pathlib.Path(sys.argv[1]) / "tokenizer_config.json"
 cfg = json.loads(cfg_path.read_text())
@@ -33,4 +39,4 @@ else:
     print(f"already stamped: {cfg_path}")
 EOF
 
-echo "restart oMLX to pick up the parser (brew services restart omlx)"
+echo "restart oMLX to pick up the parser using the active service label"

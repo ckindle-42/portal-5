@@ -309,20 +309,20 @@ via YaRN), unsloth GGUF quant (~17GB). `config/backends.yaml` registers it in `g
 with `supports_tools: true`, verified via a direct `/api/chat` tool-call probe (clean structured
 `tool_calls`, correctly typed arguments) rather than inferred from the model card. `config/portal.yaml`
 gives it the `bench-qwen38-27b` workspace `model_hint`. Also live in the coding IDE lane directly
-via `config/personas/qwen38coder.yaml` (`workspace_model: auto-coding`, `model_pin` to this exact
-tag, `ide_expose: true`) for real-work evaluation instead of a synthetic bench sweep — TPS bench
-measured 6.8 t/s (dense 27B, well below any web-lane floor, but IDE lanes accept below-floor speed
-if quality holds up). Model card claims (unverified in-fleet): SWE-bench Pro 61.7%, Terminal-Bench
+via `config/personas/qwen38coder.yaml` (`workspace_model: auto-coding`, `variant: qwen38coder`
+whose `model_hint` is this exact tag, `ide_expose: true`) for real-work evaluation instead of a
+synthetic bench sweep — TPS bench measured 6.8 t/s (dense 27B, well below any web-lane floor, but
+IDE lanes accept below-floor speed if quality holds up). Model card claims (unverified in-fleet): SWE-bench Pro 61.7%, Terminal-Bench
 73.0%, OSWorld-Verified 84.3%, GPQA Diamond 89.2%, LiveCodeBench 90.3%. PROMOTE_POLICY=confirm.
 
 ## Why
 
 Added live to `auto-coding`'s IDE lane rather than run the full `bench_repair` 10-problem sweep
 first — at 6.8 t/s the sweep's 70 samples would have taken 2-4+ hours, and the operator preferred
-real usage data over a long synthetic run for this intake. The `model_pin` + `ide_expose: true`
-combination mirrors the existing `devstral_coder`/`glm_coder` (model_pin) and `agenticheavy`/
-`pentestlead` (ide_expose) personas, giving this candidate its own selectable IDE picker slot
-without disturbing `auto-coding`'s primary routing.
+real usage data over a long synthetic run for this intake. The `variant` + `ide_expose: true`
+combination mirrors the existing `devstral_coder`/`glm_coder` coding roles (engine variants since
+2026-10-21) and `agenticheavy`/`pentestlead` (ide_expose) personas, giving this candidate its own
+selectable IDE picker slot without disturbing `auto-coding`'s primary routing.
 
 ---
 
@@ -581,7 +581,7 @@ The tool-capable status is asserted by the `coding` and `security` group registr
 
 ### `hf.co/unsloth/GLM-4.7-Flash-REAP-23B-A3B-GGUF:UD-Q4_K_XL`
 
-`hf.co/unsloth/GLM-4.7-Flash-REAP-23B-A3B-GGUF:UD-Q4_K_XL` is a ~14.2GB Unsloth quant of the GLM-4.7-Flash base using REAP expert pruning plus Unsloth Dynamic imatrix, giving the fleet non-Meta/Qwen lineage diversity. `config/backends.yaml` registers it under the `general` group with `supports_tools: false` and under the `coding` group with `supports_tools: true`. `config/portal.yaml` binds it as the `bench-glm-reap` workspace `model_hint`, staged head-to-head against the standard `glm-4.7-flash:Q4_K_M` quant with a promotion policy of beating that baseline on quality and a TPS floor. The production consumption path is the `glm-coder` persona, which pins the `-ctx64k` variant onto `auto-coding`.
+`hf.co/unsloth/GLM-4.7-Flash-REAP-23B-A3B-GGUF:UD-Q4_K_XL` is a ~14.2GB Unsloth quant of the GLM-4.7-Flash base using REAP expert pruning plus Unsloth Dynamic imatrix, giving the fleet non-Meta/Qwen lineage diversity. `config/backends.yaml` registers it under the `general` group with `supports_tools: false` and under the `coding` group with `supports_tools: true`. `config/portal.yaml` binds it as the `bench-glm-reap` workspace `model_hint`, staged head-to-head against the standard `glm-4.7-flash:Q4_K_M` quant with a promotion policy of beating that baseline on quality and a TPS floor. No production workspace or persona consumes it: the `glm-coder` coding role is served by `auto-coding`'s `glm-coder` variant on `glm-4.7-flash:Q4_K_M-ctx64k-agentic`.
 
 ## Why
 
@@ -1494,7 +1494,7 @@ The distinction that matters here is routing: `config/portal.yaml` resolves the 
 
 ### `hf.co/unsloth/DeepSeek-R1-0528-Qwen3-8B-GGUF:Q4_K_XL-ctx64k`
 
-`hf.co/unsloth/DeepSeek-R1-0528-Qwen3-8B-GGUF:Q4_K_XL-ctx64k` is the 64K-context derived tag that `auto-reasoning` actually routes to: `config/portal.yaml` carries it as that workspace's `model_hint` and as the Operator and User Advocate role in the `auto-council` chain, and it appears in several persona `model_pin` / preferred lists. `config/backends.yaml` lists it with `supports_tools: true` in every group (verified 2026-09-25 by a neutral native tool-call probe — 3/3 single-call plus a clean tool-result turn); the router reads one flag per model id, last entry wins, so a per-group split never took effect. The `PARAMETER num_ctx 65536` is baked into the derived tag because Ollama's chat completions ignore request-time `options.num_ctx`, so a per-workspace context cap has to be a distinct model id. Full model detail lives in the base tag's entry.
+`hf.co/unsloth/DeepSeek-R1-0528-Qwen3-8B-GGUF:Q4_K_XL-ctx64k` is the 64K-context derived tag that `auto-reasoning` actually routes to: `config/portal.yaml` carries it as that workspace's `model_hint` and as the Operator and User Advocate role in the `auto-council` chain, and it appears in several personas' `preferred_models` lists. `config/backends.yaml` lists it with `supports_tools: true` in every group (verified 2026-09-25 by a neutral native tool-call probe — 3/3 single-call plus a clean tool-result turn); the router reads one flag per model id, last entry wins, so a per-group split never took effect. The `PARAMETER num_ctx 65536` is baked into the derived tag because Ollama's chat completions ignore request-time `options.num_ctx`, so a per-workspace context cap has to be a distinct model id. Full model detail lives in the base tag's entry.
 
 ## Why
 
@@ -1504,11 +1504,11 @@ The grounding here is routing: `config/portal.yaml` proves the `-ctx64k` tag, no
 
 ### `hf.co/unsloth/GLM-4.7-Flash-REAP-23B-A3B-GGUF:UD-Q4_K_XL-ctx64k`
 
-`hf.co/unsloth/GLM-4.7-Flash-REAP-23B-A3B-GGUF:UD-Q4_K_XL-ctx64k` is the 64K-context derived tag that `config/portal.yaml` does not route as a workspace `model_hint`; instead it is consumed as a persona `model_pin` by the `glm-coder` persona in `config/personas/glm_coder.yaml`, which pins it onto the `auto-coding` workspace so the persona is served this exact tag. `config/backends.yaml` registers it under the `coding` group with `supports_tools: true`, the same group-level flag as its base tag. The `PARAMETER num_ctx 65536` is baked into the derived tag because Ollama's `/v1/chat/completions` ignores request-time `options.num_ctx`, making a context cap a per-tag property. See the base tag's entry for the full REAP detail.
+`hf.co/unsloth/GLM-4.7-Flash-REAP-23B-A3B-GGUF:UD-Q4_K_XL-ctx64k` is the 64K-context derived tag that `config/portal.yaml` does not route as a workspace `model_hint`, and that no persona or variant selects: the `glm-coder` coding role is served by `auto-coding`'s `glm-coder` variant, whose `model_hint` is `glm-4.7-flash:Q4_K_M-ctx64k-agentic`. `config/backends.yaml` registers it under the `coding` group with `supports_tools: true`, the same group-level flag as its base tag. The `PARAMETER num_ctx 65536` is baked into the derived tag because Ollama's `/v1/chat/completions` ignores request-time `options.num_ctx`, making a context cap a per-tag property. See the base tag's entry for the full REAP detail.
 
 ## Why
 
-This derived tag's grounding is the persona `model_pin`, not a workspace `model_hint` — the `glm-coder` persona pins the exact id, and `config/backends.yaml` fixes the `coding` group and `supports_tools: true`. Preserving the num_ctx mechanism is essential because it explains why the derived tag exists: the context window is encoded in the model id because the request-time option is ignored.
+This derived tag's grounding is its `config/backends.yaml` entry, not a workspace `model_hint` or a persona selection — the `coding` group carries it with `supports_tools: true`, and nothing in `config/portal.yaml` or `config/personas/` resolves to it. Preserving the num_ctx mechanism is essential because it explains why the derived tag exists: the context window is encoded in the model id because the request-time option is ignored.
 
 ---
 
@@ -2086,7 +2086,9 @@ Both bugs looked identical from the outside ("nothing happens on large prompts")
 
 ---
 
-### `Qwen3.8-Flash-Next-REAP-288-MLX-4bit`
+### `Qwen3.8-Flash-Next-REAP-288-MLX-4bit` — RETIRED 2026-10-21 (weights removed)
+
+**REMOVED 2026-10-21:** the operator deleted the weights (the model only ever ran with the stack down). The `omlx-coding` registration, the `auto-coding` `reap288` variant, the `bench-qwen38-flash-next-reap288` workspace, the `codingreap288` persona and the `coder-reap288` helper script (`./launch.sh coder-reap288`) are all gone. The record below is kept as the history of the 2026-09-02 bring-up (`TASK_OMLX_QWEN38FN_REAP288_BRINGUP_V1`).
 
 `Qwen3.8-Flash-Next-REAP-288-MLX-4bit` (`sh0wie/Qwen3.8-Flash-Next-REAP-288-MLX-4bit` on Hugging Face) is a REAP expert-pruned (arXiv:2510.13999, Lasby et al.) MLX affine 4-bit conversion of `Qwen/Qwen3.8-Flash-Next` — a 180B-class MoE with ~6B active params/token and top-10 routing, pruned from 512 to 288 experts. Backbone quantized at group size 64, the PLE (per-layer-embedding) n-gram table at group size 32. Added 2026-09-02 (`TASK_OMLX_QWEN38FN_REAP288_BRINGUP_V1`) as a **bench-only** candidate on the existing oMLX-coding serving path, wired to the `bench-qwen38-flash-next-reap288` workspace in `config/portal.yaml` (`PROMOTE_POLICY=confirm`). `config/backends.yaml` registers it in the `omlx-coding` group (`coding`, `priority: 10`); there is no GGUF/Ollama fallback for this checkpoint, so the hint is oMLX-only, same pattern as the `Qwen3.8-27B-4bit` DFlash2 entry above. Requires oMLX ≥ 0.6.4 **and** `qwen4_ple_ssd_offload: true` in `~/.omlx/model_settings.json` (host config, not in this repo): with it oMLX keeps the ~32GB PLE n-gram table on SSD (`Qwen4-Exp PLE mode: mmap` in the server log) and the loaded footprint is **39.13GB actual resident** — matching the model card's "39 GB streamed" and the source plan's ~39GB estimate. oMLX's *admission* estimate is padded higher (40.57GB with the setting, 71.87GB without; `qwen4_exp_residency_estimate.resident_bytes` reports a conservative 77GB), and without the setting oMLX auto-forces the offload only when the memory ceiling is already ≥45GB and otherwise refuses the load (HTTP 507, `Model (71.87GB) does not fit`). On-disk ~70GB (`du -sh`; config `checkpoint_bytes` 73.5GB; card says 68GB). `auto-coding`'s production routing is unchanged. **Operator verdict 2026-09-02: this must never become an `auto-*` default — too heavy (39GB loaded plus a 40.57GB admission gate that needs a quiet host). Bench / restricted manual use only, and only if it proves out against the Laguna-XS.2 primary in the bench lane.**
 
@@ -2096,7 +2098,7 @@ Probed on this host 2026-09-02: the 40.57GB admission estimate will not pass co-
 
 Landed as an isolated bench candidate on the shadow-shift oMLX-coding path so it can be evaluated without touching production coding traffic. The REAP provenance (512→288 expert pruning of a 180B-class MoE — card: 125B main + 51B n-gram table) and the memory picture — 39GB loaded only with the SSD-offload setting, but a 40.57GB admission gate that needs a quiet host — are what a future session needs before trying to bench it. The decode speed and tool-call result are recorded as measured results from the quiet-host probe, not config facts.
 
-**IDE-lane wiring (2026-09-02):** exposed to the opencode / Pi harness picker as the `codingreap288` persona -> `auto-coding` variant `reap288` (agentic, IDE tool set, `ide_expose: true`, **not in OWUI**). Reliable path: `./launch.sh coder-reap288` (`scripts/coder-reap288.sh`) stops the stack, frees RAM, warm-loads the model, and runs opencode straight against oMLX `:8085` (scratch config, project `opencode.jsonc` untouched, opencode's own built-in tools). The Portal-integrated pipeline path (`portal/codingreap288`) is fragile -- with the full stack up only ~10GB is reclaimable, below the 40.57GB admission gate, and the model is evicted as the stack starts. **Prefill ceiling on this 64GB M4 Pro:** ~39GB resident leaves ~17GB under the 56GB Metal cap; short/medium prompts run at ~24-29 tok/s, but a full agentic turn pulling ~18-20K tokens of repo context peaks at ~52-53GB and trips oMLX's prefill guard -- `--raise-metal-cap` helps a little, heavy repo-wide work stays on `laguna`.
+**IDE-lane wiring (2026-09-02):** exposed to the opencode / Pi harness picker as the `codingreap288` persona -> `auto-coding` variant `reap288` (agentic, IDE tool set, `ide_expose: true`, **not in OWUI**). Reliable path: `./launch.sh coder-reap288` (the coder-reap288 helper script, since deleted) stops the stack, frees RAM, warm-loads the model, and runs opencode straight against oMLX `:8085` (scratch config, project `opencode.jsonc` untouched, opencode's own built-in tools). The Portal-integrated pipeline path (the `codingreap288` persona's pipeline seat) is fragile -- with the full stack up only ~10GB is reclaimable, below the 40.57GB admission gate, and the model is evicted as the stack starts (the variant is marked `stack_down_only` since 2026-10-21, so `scripts/uat_engines.py` skips it instead of reporting a 502). **Prefill ceiling on this 64GB M4 Pro:** ~39GB resident leaves ~17GB under the 56GB Metal cap; short/medium prompts run at ~24-29 tok/s, but a full agentic turn pulling ~18-20K tokens of repo context peaks at ~52-53GB and trips oMLX's prefill guard -- `--raise-metal-cap` helps a little, heavy repo-wide work stays on `laguna`.
 
 ---
 

@@ -50,6 +50,24 @@ from pathlib import Path
 from typing import Any
 
 from portal.modules.compliance.core.answer_contract import SECTION_ID_PATTERN
+from portal.modules.compliance.core.reading_transport import (
+    CapacityRefusalError,
+    ContextCeilingError,
+)
+
+
+def _reading_failure(exc: BaseException, step: int) -> tuple[str, str]:
+    """The failure text and stop reason for one transport exception."""
+    if isinstance(exc, ContextCeilingError):
+        return str(exc), f"context ceiling reached at step {step}: {exc}"
+    if isinstance(exc, CapacityRefusalError):
+        return str(exc), f"capacity refusal at step {step}: {exc}"
+    detail = f"{type(exc).__name__}: {exc}"
+    return (
+        f"the transport failed at step {step}: {detail}",
+        f"transport failure at step {step}: {detail}",
+    )
+
 
 #: Section ids as they appear in an answer, when there is no answer_contract in
 #: scope for the material being read. Built on the one shared definition
@@ -703,7 +721,6 @@ def read(  # noqa: PLR0912, PLR0915
         DEFAULT_NUM_CTX,
         DEFAULT_REASONING_ALLOWANCE,
         ChatResult,
-        ContextCeilingError,
         chat,
     )
 
@@ -875,6 +892,7 @@ def read(  # noqa: PLR0912, PLR0915
     model_calls = 0
     max_steps = 12
     ceiling_failure = ""
+
     # The ratio the thread is measured against. Seeded from the assembly's
     # constant and replaced by the runner's own count after the first call, so
     # the check calibrates itself instead of trusting an estimate that was
@@ -908,7 +926,13 @@ def read(  # noqa: PLR0912, PLR0915
                 num_ctx=window,
                 timeout=timeout,
             )
-        except (ContextCeilingError, urllib.error.HTTPError, urllib.error.URLError, OSError) as exc:
+        except (
+            ContextCeilingError,
+            CapacityRefusalError,
+            urllib.error.HTTPError,
+            urllib.error.URLError,
+            OSError,
+        ) as exc:
             # ANY transport failure ends the reading as a FAILED READING WITH A
             # RECEIPT, never as an exception escaping into a caller's generic
             # handler. Only the ceiling error was caught before, so an Ollama
@@ -917,16 +941,7 @@ def read(  # noqa: PLR0912, PLR0915
             # and twelve tool calls left NO record of what it had done, which is
             # the exact inverse of this module's stated rule that a failed
             # reading is the one most worth keeping.
-            ceiling_failure = (
-                str(exc)
-                if isinstance(exc, ContextCeilingError)
-                else f"the transport failed at step {step + 1}: {type(exc).__name__}: {exc}"
-            )
-            stop_reason = (
-                f"context ceiling reached at step {step + 1}: {exc}"
-                if isinstance(exc, ContextCeilingError)
-                else f"transport failure at step {step + 1}: {type(exc).__name__}: {exc}"
-            )
+            ceiling_failure, stop_reason = _reading_failure(exc, step + 1)
             if answer_result is None:
                 # Failed on the FIRST call: there is no result to report from, so
                 # an empty one is constructed rather than letting the receipt

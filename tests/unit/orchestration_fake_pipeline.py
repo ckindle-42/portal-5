@@ -31,6 +31,7 @@ class FakePipeline:
             "auto-daily::fast": queue.Queue(),
             "auto-daily::deep": queue.Queue(),
         }
+        self.admin_responses: queue.Queue[Any] = queue.Queue()
         self.requests: list[dict[str, Any]] = []
         self.admin_requests: list[dict[str, Any]] = []
         self._lock = threading.Lock()
@@ -42,7 +43,11 @@ class FakePipeline:
                 if self.path == "/admin/load-plan":
                     with owner._lock:
                         owner.admin_requests.append(body)
-                    _json_response(self, {"fits": True, "models": body["models"]})
+                    try:
+                        response = owner.admin_responses.get_nowait()
+                    except queue.Empty:
+                        response = {"busy": False, "fits": True, "models": body["models"]}
+                    _json_response(self, response)
                     return
                 if self.path != "/v1/chat/completions":
                     self.send_error(404)
@@ -80,6 +85,9 @@ class FakePipeline:
 
     def add(self, seat: str, response: Any) -> None:
         self.responses[f"auto-daily::{seat}"].put(response)
+
+    def add_admin_response(self, response: dict[str, Any]) -> None:
+        self.admin_responses.put(response)
 
     def close(self) -> None:
         self.server.shutdown()

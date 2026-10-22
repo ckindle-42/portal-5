@@ -2,7 +2,7 @@
 
 # Portal 5 Architecture Map
 
-*Deterministic projection of 760 canonical units.*
+*Deterministic projection of 765 canonical units.*
 
 ## Knowledge Layer
 
@@ -22,7 +22,7 @@
 | `unit-ADMIN_GUIDE-how-the-llm-router-works` | why | 3 |
 | `unit-ADMIN_GUIDE-inference-health-monitoring` | why | 3 |
 | `unit-ADMIN_GUIDE-network-exposure` | why | 4 |
-| `unit-ADMIN_GUIDE-ollama-is-native-plist-is-the-source-of-truth` | why | 5 |
+| `unit-ADMIN_GUIDE-ollama-is-native-plist-is-the-source-of-truth` | why | 8 |
 | `unit-ADMIN_GUIDE-ollama-max-loaded-models-3` | why | 4 |
 | `unit-ADMIN_GUIDE-ollama-memory-limit-deferred` | why | 2 |
 | `unit-ADMIN_GUIDE-pull-additional-models` | what | 3 |
@@ -319,7 +319,7 @@
 | `unit-known-limitations-devstral-24b-runtime-vram-footprint-25-7-gb` | what | 3 |
 | `unit-known-limitations-diarized-transcription-task-transcribe-001` | what | 3 |
 | `unit-known-limitations-emergent-objective-loop-curated-capability-tool-names-vs-live-dispatch-whitelist` | what | 8 |
-| `unit-known-limitations-engine-update-data01-approval` | what | 2 |
+| `unit-known-limitations-engine-update-data01-approval` | what | 4 |
 | `unit-known-limitations-fara-cua-tag-closure` | what | 1 |
 | `unit-known-limitations-granite-8b-mxfp8-tool-garbling` | what | 3 |
 | `unit-known-limitations-higgs-voice-cloning` | mixed | 1 |
@@ -334,6 +334,7 @@
 | `unit-known-limitations-models-out-of-m4-pro-64-gb-budget` | what | 2 |
 | `unit-known-limitations-narrated-tool-call-instead-of-real-dispatch` | what | 4 |
 | `unit-known-limitations-no-built-in-multi-user-rate-limiting` | what | 2 |
+| `unit-known-limitations-ollama-api-ps-under-reports-llamacpp-residents` | what | 1 |
 | `unit-known-limitations-ollama-gpu-overhead-ceiling` | what | 1 |
 | `unit-known-limitations-ollama-native-mlx-engine-evaluation-findings-2026-07-01` | what | 3 |
 | `unit-known-limitations-ollama-v1-ignores-options-num-ctx-and-options-num-batch` | what | 6 |
@@ -358,6 +359,7 @@
 | `unit-known-limitations-speculative-decoding-mtp-retired-with-the-mlx-proxy-commit-3a0c58e` | what | 3 |
 | `unit-known-limitations-spine-code-coverage-ratchet` | what | 2 |
 | `unit-known-limitations-tool-preselection-candidate-1b-models-cannot-rank-tools` | what | 6 |
+| `unit-known-limitations-transitive-dependency-cves` | what | 2 |
 | `unit-known-limitations-unregistered-hint-fallback` | what | 3 |
 | `unit-known-limitations-v5-model-visible-corpus-retrieval-coverage` | what | 4 |
 | `unit-known-limitations-v8-catalog-deferred-insufficient-hardware` | what | 2 |
@@ -571,8 +573,10 @@
 | `unit-module-media` | mixed | 6 |
 | `unit-module-music` | mixed | 3 |
 | `unit-module-netforensics` | mixed | 4 |
+| `unit-module-orchestration` | mixed | 12 |
 | `unit-module-research` | mixed | 5 |
 | `unit-module-security` | mixed | 5 |
+| `unit-module-security-redteam` | mixed | 3 |
 | `unit-module-video` | mixed | 4 |
 | `unit-module-vulnintel` | mixed | 3 |
 | `unit-ollama-native-passthrough` | mixed | 20 |
@@ -677,6 +681,7 @@
 | `unit-router-test-correlation` | mixed | 1 |
 | `unit-routing-build-corpus` | mixed | 1 |
 | `unit-routing-measure` | mixed | 1 |
+| `unit-routing-security-operator-selected` | mixed | 3 |
 | `unit-scripts-alias_census` | mixed | 1 |
 | `unit-scripts-mlx-speech` | mixed | 1 |
 | `unit-scripts-mlx-transcribe` | mixed | 1 |
@@ -769,13 +774,13 @@
 | `unit-wiki-tests-render` | mixed | 1 |
 | `unit-wiki-writeback` | mixed | 1 |
 
-**Total:** 760 units
+**Total:** 765 units
 
 ## Source Distribution
 
 - **bench-security**: 1 references
-- **code**: 2058 references
-- **config**: 1 references
+- **code**: 2083 references
+- **config**: 2 references
 - **data**: 1 references
 - **doc**: 5 references
 - **mitre**: 40 references

@@ -29,6 +29,8 @@ import re
 from pathlib import Path
 from typing import NamedTuple
 
+from tests.wfe.suites._publish import publish_text
+
 OUT = Path(__file__).with_name("research_production.jsonl")
 KB_TOOLS = ["kb_search", "kb_search_all"]
 MEM_TOOLS = ["recall", "graph_recall"]
@@ -520,7 +522,7 @@ def build() -> list[dict]:
 
 def main() -> None:
     tasks = build()
-    OUT.write_text("".join(json.dumps(t) + "\n" for t in tasks))
+    publish_text(OUT, "".join(json.dumps(t) + "\n" for t in tasks))
     print(f"wrote {OUT.name}: {len(tasks)} tasks, {sum(t['screen'] for t in tasks)} screen")
 
 

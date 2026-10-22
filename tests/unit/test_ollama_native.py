@@ -202,6 +202,52 @@ async def test_error_reshaped_like_v1():
 
 
 @pytest.mark.asyncio
+async def test_streamed_inband_error_ends_with_finish_chunk_then_done():
+    """Ollama's qwen3coder parser abort (ollama#18563) is written inside the started
+    body; without a finish chunk an OpenAI client reports a broken stream."""
+    ndjson = "\n".join(
+        json.dumps(x)
+        for x in [
+            {"model": "m", "message": {"role": "assistant", "content": "Let me restructure:"}},
+            {"error": "XML syntax error on line 58: element <function> closed by </parameter>"},
+        ]
+    )
+
+    def handler(req):
+        if req.url.path == "/api/show":
+            return _show(req)
+        return httpx.Response(200, content=ndjson.encode())
+
+    client, _ = _mock(handler)
+    body = {"model": "m", "messages": [{"role": "user", "content": "x"}], "stream": True}
+    lines = []
+    async with client.stream("POST", f"{BASE}/v1/chat/completions", json=body) as r:
+        lines = [line async for line in r.aiter_lines() if line]
+    assert lines[-1] == "data: [DONE]"
+    frames = [json.loads(line[6:]) for line in lines if line.startswith("data: {")]
+    assert frames[-2]["error"]["message"].startswith("XML syntax error")
+    assert frames[-1]["choices"][0]["finish_reason"] == "stop"
+
+
+@pytest.mark.asyncio
+async def test_non_streamed_inband_error_is_an_http_error_not_a_completion():
+    """A 200 body carrying {"error": ...} used to be translated into an empty completion."""
+
+    def handler(req):
+        if req.url.path == "/api/show":
+            return _show(req)
+        return httpx.Response(200, json={"error": "XML syntax error on line 58"})
+
+    client, _ = _mock(handler)
+    r = await client.post(
+        f"{BASE}/v1/chat/completions",
+        json={"model": "m", "messages": [{"role": "user", "content": "x"}]},
+    )
+    assert r.status_code == 500
+    assert r.json()["error"]["message"] == "XML syntax error on line 58"
+
+
+@pytest.mark.asyncio
 async def test_non_thinking_model_never_gets_think():
     def handler(req):
         if req.url.path == "/api/show":

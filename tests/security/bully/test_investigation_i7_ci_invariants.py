@@ -31,6 +31,8 @@ def test_all_eleven_invariants_registered_and_pass_clean():
     assert set(_SLUGS) <= slugs
     for slug in _SLUGS:
         status, detail, _sub = _run(slug)
+        if status == "SKIP" and "PORTAL_DATA_ROOT" in detail:
+            continue  # evidence-based check; its run docs live under PORTAL_DATA_ROOT
         assert status == "PASS", f"{slug} did not pass clean: {detail}"
 
 

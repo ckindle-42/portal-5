@@ -2,11 +2,10 @@
 """Make oMLX's per-model sampling defaults equal the seat that serves the model.
 
 The pipeline sends every seat's sampling explicitly, so pipeline traffic never
-depends on these defaults. A client that talks to oMLX DIRECTLY does — the IDE
-paths (``./launch.sh coder-reap288`` opens opencode straight at :8085, sending
-no sampling at all). Without this, REAP-288 ran there on oMLX's global defaults
-(temperature 1.0, top_k 0, repetition_penalty 1.0) instead of its seat's
-0.6 / 20 / min_p 0.05 / 1.05.
+depends on these defaults. A client that talks to oMLX DIRECTLY does — e.g. an
+IDE harness that opens opencode straight at :8085 sends no sampling at all, so
+without this it runs on oMLX's global defaults (temperature 1.0, top_k 0,
+repetition_penalty 1.0) instead of its seat's (0.6 / 20 / min_p 0.05 / 1.05).
 
 oMLX honours per-model defaults in ``~/.omlx/model_settings.json`` (temperature,
 top_p, top_k, min_p, repetition_penalty, presence_penalty, enable_thinking) for
@@ -23,7 +22,7 @@ it — and reported. Keys this script wrote before but no longer
 applies are removed; keys it never wrote are never touched. oMLX is restarted
 only when the file changed.
 
-Run by ``./launch.sh sync-config`` and ``./launch.sh coder-reap288``.
+Run by ``./launch.sh sync-config``.
 Usage: uv run python scripts/omlx_seat_defaults.py [--dry-run] [--no-restart]
 """
 

@@ -1,12 +1,11 @@
 #!/usr/bin/env python3
 """Set oMLX's memory guard tier in ~/.omlx/settings.json; restart oMLX only on change.
 
-Daily operation (Portal stack + Ollama up) runs `balanced`. The REAP-288 IDE
-session (`./launch.sh coder-reap288`) runs `aggressive`: on oMLX 0.7.0 with the
-stack down, `balanced` leaves a ~39.8GB prefill ceiling and rejects the model's
-~39.97GB peak even for a one-word prompt, while `aggressive` (1.5GB reserve vs
-5.1GB) loads it and serves a 15K-token prefill (measured 2026-10-01).
-`./launch.sh up` puts `balanced` back.
+Daily operation (Portal stack + Ollama up) runs `balanced`. `aggressive` (1.5GB
+reserve vs 5.1GB) was added 2026-10-01 for the removed REAP-288 IDE session:
+with the stack down `balanced` left a ~39.8GB prefill ceiling that rejected its
+~39.97GB peak even for a one-word prompt. Nothing sets it since the removal
+(2026-10-21); `./launch.sh up` always puts `balanced` back.
 
 Usage: omlx_memory_tier.py {safe|balanced|aggressive} [--no-restart]
 """

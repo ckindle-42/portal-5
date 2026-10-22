@@ -38,6 +38,8 @@ def test_all_seven_invariants_registered_and_pass_clean():
     for slug in _SLUGS:
         verdict, detail, _findings = _run(slug)
         allowed = {"PASS", "WARN"} if slug.endswith("trust_axis_not_hardcoded_nulls") else {"PASS"}
+        if verdict == "SKIP" and "PORTAL_DATA_ROOT" in detail:
+            continue  # evidence-based check; its run docs live under PORTAL_DATA_ROOT
         assert verdict in allowed, f"{slug} should PASS/WARN on the clean repo but got: {detail}"
 
 

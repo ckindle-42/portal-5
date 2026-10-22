@@ -28,6 +28,8 @@ import re
 import textwrap
 from pathlib import Path
 
+from tests.wfe.suites._publish import publish_text
+
 HERE = Path(__file__).resolve().parent
 OUT = HERE / "coding_production.jsonl"
 GRADED = HERE.parent / "graded"
@@ -1016,7 +1018,7 @@ def formatted(text: str) -> str:
 def write_graded(name: str, module: str, text: str) -> None:
     d_ = GRADED / name
     d_.mkdir(parents=True, exist_ok=True)
-    (d_ / f"test_{module}.py").write_text(formatted(text))
+    publish_text(d_ / f"test_{module}.py", formatted(text))
 
 
 def sha16(text: str) -> str:
@@ -1201,7 +1203,7 @@ def build() -> list[dict]:
 
 def main() -> None:
     tasks = build()
-    OUT.write_text("".join(json.dumps(t) + "\n" for t in tasks))
+    publish_text(OUT, "".join(json.dumps(t) + "\n" for t in tasks))
     print(f"wrote {OUT.name}: {len(tasks)} tasks, {sum(t['screen'] for t in tasks)} screen")
 
 

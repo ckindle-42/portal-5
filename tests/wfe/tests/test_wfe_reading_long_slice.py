@@ -164,6 +164,7 @@ def test_measured_token_counts_when_a_gemma_tokenizer_is_cached():
     )
     if not found:
         pytest.skip("no cached Gemma tokenizer")
+    pytest.importorskip("tokenizers")
     from tokenizers import Tokenizer
 
     tk = Tokenizer.from_file(found[0])

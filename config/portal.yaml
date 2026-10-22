@@ -77,6 +77,8 @@ orchestration_arm:
     after_bites: 3
     minimum_pass_probability: null
     rates_by_discipline: {}
+  queue:
+    yield_lock_dir: "~/.portal5/locks/"
   disciplines:
     test_fixing:
       selection_reason: Existing coding WFE work already uses hidden pytest tests as hard graders for repair tasks, so this candidate can measure correctness without model review.
@@ -99,6 +101,56 @@ orchestration_arm:
         minimum_bite_pass_rate: 0.80
         minimum_fast_pass_rate: 0.80
         minimum_deep_pass_rate: 0.90
+      plan_templates:
+        repair_with_tests:
+          parameters: [source_file, test_file, expected_behavior]
+          plan:
+            goal: "Repair $source_file to satisfy $expected_behavior, using $test_file for verification."
+            bites:
+              - bite_id: inspect
+                goal: "Read $source_file and $test_file; identify the smallest repair and the relevant behavior."
+                discipline: test_fixing
+                inputs: [$source_file, $test_file]
+                depends_on: []
+                tools: [file_read]
+                output: {path: bites/inspection.txt, file_type: text}
+                accept: [{type: contains, value: "Finding:"}]
+                risk: low
+                stage: work
+                budget: {turns: 3, minutes: 15, output_tokens: 2048, context_tokens: 8192}
+                model: fast
+                procedure: Read the source and tests, then record the relevant failing behavior.
+                reads_untrusted: false
+              - bite_id: repair
+                goal: "Use the inspection to make the smallest change for $expected_behavior and run $test_file."
+                discipline: test_fixing
+                inputs: [inspect]
+                depends_on: [inspect]
+                tools: [file_write, pytest_run]
+                output: {path: bites/repair.txt, file_type: text}
+                accept: [{type: contains, value: "PASS"}]
+                risk: low
+                stage: assembly
+                budget: {turns: 5, minutes: 30, output_tokens: 4096, context_tokens: 12288}
+                model: fast
+                procedure: Apply the smallest repair, run the declared test, and report its result.
+                reads_untrusted: false
+              - bite_id: final_review
+                goal: "Review the repair and test evidence against $expected_behavior."
+                discipline: test_fixing
+                inputs: [repair]
+                depends_on: [repair]
+                tools: []
+                output: {path: bites/review.txt, file_type: text}
+                accept: []
+                review: deep
+                review_reason: Confirm the code change and test evidence satisfy the expected behavior.
+                risk: low
+                stage: final_review
+                budget: {turns: 2, minutes: 15, output_tokens: 2048, context_tokens: 8192}
+                model: deep
+                procedure: Review the repair and test evidence against the bite contract.
+                reads_untrusted: false
 
 # ── MCP Fleet ──────────────────────────────────────────────────────────────
 # expose_to_pipeline: true  → model-callable (included in tool_registry)
@@ -872,6 +924,7 @@ workspaces:
       laguna:
         name: 🔄 Portal IDE / Agentic Coder
         description: 'Multi-turn agentic coding workspace — the default model for opencode and Claude Code in this repo. Laguna-XS-2.1 (Poolside AI, 33B-A3B MoE, ~19GB, 70.9% SWE-bench Verified, interleaved reasoning; replaced XS.2 2026-09-25 — XS.2 could not stop after a tool call on this stack; 2.1 scored 29/42 on the laguna-seat WFE via oMLX, coding 9/9). Tuned for the read → understand → edit → verify loop: inspects files via explore_repository + execute_bash, makes targeted changes, runs tests, iterates. Devstral-small-2 (V2, 256K ctx, vision) is the first fallback in the coding pool. For one-shot code generation, use auto-coding instead.'
+        client_tools_only: true
         # 2026-09-25: sampling set to the laguna card (by purpose); prior values + A/B: docs/TASK_SEAT_SAMPLING_AB_V1.md
         model_hint: portal5/laguna-xs21:q4_K_M-ctx128k
         context_limit: 131072
@@ -1118,42 +1171,6 @@ workspaces:
         - kb_list
         mode: agentic
         guardrail: default
-      reap288:
-        name: 🧪 Portal Agentic Coder (REAP-288, heavy — IDE only)
-        # stack_down_only: seat needs 40.57 GB vs the 40.41 GB oMLX ceiling with the stack up (load guard 2026-10-21); run via ./launch.sh coder-reap288.
-        stack_down_only: true
-        description: 'IDE-lane agentic coder direct to Qwen3.8-Flash-Next-REAP-288-MLX-4bit (oMLX, MLX 4-bit, REAP expert-pruned 512->288 of the 180B-class Qwen3.8-Flash-Next MoE, top-10 routing, 262K native ctx). Thinking model. Explicit pick only — NEVER an auto-* default / never OWUI (TASK_OMLX_QWEN38FN_REAP288_BRINGUP_V1 operator verdict). ~39GB resident with qwen4_ple_ssd_offload:true; a ~40.6GB oMLX admission gate cannot be met with the full Portal stack up (~10GB reclaimable then). RELIABLE PATH: `./launch.sh coder-reap288` — stops the stack, frees RAM, warm-loads the model, opens opencode straight against oMLX :8085 (not this pipeline path). Warm decode ~24-29 tok/s. Prefill ceiling: ~39GB resident leaves ~17GB under the 56GB Metal cap, so full agentic turns (~18-20K token repo context) trip oMLX''s prefill guard — bounded-context coding only; heavy repo-wide work stays on the laguna default. oMLX-only, no Ollama/GGUF fallback.'
-        # 2026-09-25: qwen3.8 instruct card + think pinned off — its bench seat ran think:false (code repair, not a reasoning task); the flag was lost when it became a variant (091682f1); A/B: docs/TASK_SEAT_SAMPLING_AB_V1.md B2
-        model_hint: Qwen3.8-Flash-Next-REAP-288-MLX-4bit
-        think: false
-        context_limit: 32768
-        max_concurrent: 1
-        keep_alive: 30m
-        temperature: 0.7
-        top_p: 0.8
-        top_k: 20
-        repeat_penalty: 1.0
-        min_p: 0.0
-        presence_penalty: 1.5
-        emits_reasoning: true
-        system_prompt_append: "\n\nAGENTIC CODING LOOP — follow this pattern every turn:\n1. EXPLORE: call explore_repository('what you need to find') first.\n   It returns exact file paths and line numbers — use these, do not guess paths.\n2. READ: call read_text_file(path=...) to read those specific files before editing.\n   NEVER use execute_bash cat/head/tail to read project files —\n   execute_bash runs inside an isolated Docker container with NO access to the\n   host filesystem. read_text_file/list_directory/search_files are the only way\n   to read project files.\n3. PLAN: state the minimal change needed and which files are affected\n4. EDIT: call write_file(path=..., content=...) — do not rewrite whole files\n5. VERIFY: run tests or linters with execute_bash after every change\n   (pytest tests/unit/ -q; ruff check <file>)\n6. REPORT: state what changed, what passed, and what remains\n\nTOOL ROUTING:\n- read_text_file, write_file, search_files, list_directory:\n  host-native pipeline tools — call these directly by name for ALL file I/O\n- execute_bash / execute_python / execute_nodejs:\n  isolated sandbox container — use ONLY for running code, tests, and linters\n\nHARD CONSTRAINTS:\n- Never hardcode model names, backend URLs, or credentials\n- Never modify Open WebUI source — use extension points only\n- Never commit .env or add cloud dependencies\n- Run pytest before declaring a fix complete\n- Keep portal.platform.inference lean — no ML framework imports"
-        tools:
-        - explore_repository
-        - read_text_file
-        - list_directory
-        - search_files
-        - write_file
-        - execute_bash
-        - execute_python
-        - execute_nodejs
-        - sandbox_status
-        - read_word_document
-        - read_pdf
-        - remember
-        - recall
-        mode: agentic
-        guardrail: default
-
       cad:
         module: cad
         name: 📐 Portal CAD / 3D-Print Designer

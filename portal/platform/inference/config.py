@@ -183,6 +183,9 @@ class WorkspaceSpec(BaseModel):
     # for every workspace that does not set it (same mechanism as `router`).
     stack_down_only: bool | None = None
 
+    # True -> requests with client tools use only those schemas and skip workspace tools.
+    client_tools_only: bool | None = None
+
     # --- Tool whitelist ---
     tools: list[str] = Field(default_factory=list)
 

@@ -14,6 +14,12 @@ sources:
 - type: code
   path: portal/modules/orchestration/plugin.py
 - type: code
+  path: portal/modules/orchestration/owui_entry.py
+- type: code
+  path: portal/modules/orchestration/queue.py
+- type: code
+  path: portal/modules/orchestration/planner.py
+- type: code
   path: portal/modules/orchestration/ledger.py
 - type: code
   path: portal/modules/orchestration/contracts.py
@@ -47,7 +53,7 @@ The orchestration module exposes `portal arm submit`, `resume`, and `status` for
 
 ## Phase 1 boundary
 
-The skeleton is offline-tested against a fake OpenAI-compatible Pipeline API. It has no planner, Open WebUI entry point, Deep review, or Telegram transport. The default block-notice sink is a stub. Live acceptance remains outside this offline phase.
+Offline tests drive the arm through a fake OpenAI-compatible Pipeline API. Stored plan templates enqueue through `QueueLedger.enqueue`. Open WebUI reaches that queue through the pipeline MCP tool `arm_queue_task` (`portal/modules/orchestration/owui_entry.py`). The module stays disabled by default. Live model acceptance remains outside this offline phase.
 
 ## Module state
 

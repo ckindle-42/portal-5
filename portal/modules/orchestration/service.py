@@ -4,7 +4,9 @@ from __future__ import annotations
 
 import hashlib
 import json
+import shutil
 import subprocess
+from collections.abc import Callable
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, Protocol
@@ -16,7 +18,7 @@ from .contracts import Bite, TaskPlan, parse_plan
 from .ledger import ArmLedger
 from .planner import plan_goal
 from .review import is_high_risk, review_output
-from .worker import Engine, check_output, run_bite
+from .worker import Engine, QueueYieldError, check_output, run_bite
 
 
 class NoticeSink(Protocol):
@@ -24,7 +26,14 @@ class NoticeSink(Protocol):
 
     def blocked(self, task_id: str, bite_id: str, failure: dict[str, Any]) -> None: ...
 
-    def approval(self, task_id: str, bite_id: str, reason: str) -> bool | None: ...
+    def approval(
+        self,
+        task_id: str,
+        bite_id: str,
+        bite_definition: dict[str, Any],
+        reason: str,
+        run_id: str,
+    ) -> bool | None: ...
 
 
 class StubNoticeSink:
@@ -36,7 +45,14 @@ class StubNoticeSink:
     def blocked(self, task_id: str, bite_id: str, failure: dict[str, Any]) -> None:
         self.notices.append({"task_id": task_id, "bite_id": bite_id, "failure": failure})
 
-    def approval(self, task_id: str, bite_id: str, reason: str) -> bool | None:
+    def approval(
+        self,
+        task_id: str,
+        bite_id: str,
+        bite_definition: dict[str, Any],
+        reason: str,
+        run_id: str,
+    ) -> bool | None:
         return None
 
 
@@ -51,6 +67,7 @@ class ArmService:
         build_sha: str | None = None,
         residency_config: Path | None = None,
         notices: NoticeSink | None = None,
+        bite_gate: Callable[[Bite], bool] | None = None,
     ) -> None:
         self.task_root = task_root
         self.engines = engines
@@ -63,6 +80,8 @@ class ArmService:
         self.arm_config = load_arm_config(self.config_path)
         self.residency_mode = load_residency_mode(self.config_path)
         self.notices = notices or StubNoticeSink()
+        self.bite_gate = bite_gate
+        self.queue_yield_reason: str | None = None
 
     def submit(
         self, raw_plan: dict[str, Any], source_dir: Path, *, unattended: bool = True
@@ -172,17 +191,18 @@ class ArmService:
         ledger: ArmLedger,
         input_map: dict[str, dict[str, str]],
     ) -> None:
+        self.queue_yield_reason = None
         self._refresh_ready(plan, ledger)
         completed = {
             bite.bite_id
             for bite in plan.bites
             if ledger.bite(bite.bite_id)["state"] in {"passed", "blocked"}
         }
-        waiting, paused, calibration_records = self._execute_ready(
+        waiting, paused, calibration_records, waiting_for_capacity = self._execute_ready(
             plan, task_dir, ledger, input_map, completed
         )
         results = self._receipt_results(plan, ledger)
-        status = self._task_status(results, waiting, paused)
+        status = self._task_status(results, waiting, paused, waiting_for_capacity)
         ledger.set_task_status(status, build_sha=self.build_sha, model=self._identities()["fast"])
         self._write_receipt(task_dir, plan, status, results, calibration_records)
 
@@ -193,15 +213,18 @@ class ArmService:
         ledger: ArmLedger,
         input_map: dict[str, dict[str, str]],
         completed: set[str],
-    ) -> tuple[bool, bool, list[dict[str, Any]]]:
+    ) -> tuple[bool, bool, list[dict[str, Any]], bool]:
         calibration_records: list[dict[str, Any]] = []
-        waiting_for_approval = paused_for_replan = False
+        waiting_for_approval = paused_for_replan = waiting_for_capacity = False
         while True:
             self._block_unreachable(plan, ledger)
             ready = [bite for bite in plan.bites if ledger.bite(bite.bite_id)["state"] == "ready"]
             if not ready:
                 break
             bite = self._choose(ready, plan, ledger)
+            if self.bite_gate is not None and not self.bite_gate(bite):
+                waiting_for_capacity = True
+                break
             decision = self._approval_decision(plan, bite, ledger)
             if decision == "wait":
                 waiting_for_approval = True
@@ -210,14 +233,18 @@ class ArmService:
                 completed.add(bite.bite_id)
                 self._refresh_ready(plan, ledger)
                 continue
-            self._run_bite(plan, bite, task_dir, ledger, input_map[bite.bite_id])
+            try:
+                self._run_bite(plan, bite, task_dir, ledger, input_map[bite.bite_id])
+            except QueueYieldError:
+                waiting_for_capacity = True
+                break
             if ledger.bite(bite.bite_id)["state"] in {"passed", "blocked"}:
                 completed.add(bite.bite_id)
             if self._calibration_checkpoint(plan, completed, calibration_records):
                 paused_for_replan = True
                 break
             self._refresh_ready(plan, ledger)
-        return waiting_for_approval, paused_for_replan, calibration_records
+        return waiting_for_approval, paused_for_replan, calibration_records, waiting_for_capacity
 
     def _approval_decision(self, plan: TaskPlan, bite: Bite, ledger: ArmLedger) -> str:
         if not self._approval_required(bite):
@@ -225,7 +252,9 @@ class ArmService:
         decision = self.notices.approval(
             plan.task_id,
             bite.bite_id,
+            bite.as_dict(),
             f"high-risk write tools: {', '.join(bite.tools)}",
+            str(ledger.task()["created_at"]),
         )
         if decision is None:
             return "wait"
@@ -274,8 +303,10 @@ class ArmService:
             )
         return pause
 
-    def _task_status(self, results: list[dict[str, Any]], waiting: bool, paused: bool) -> str:
-        if waiting:
+    def _task_status(
+        self, results: list[dict[str, Any]], waiting: bool, paused: bool, waiting_for_capacity: bool
+    ) -> str:
+        if waiting or waiting_for_capacity:
             return "WAITING"
         if paused:
             return "PAUSED_FOR_REPLAN"
@@ -413,9 +444,48 @@ class ArmService:
         attempt_number = int(ledger.bite(bite.bite_id)["attempts"])
         attempt_dir = task_dir / "bites" / bite.bite_id / "attempts" / f"{attempt_number:02d}"
         resolved_inputs = {key: Path(value) for key, value in input_paths.items()}
-        worker = run_bite(
-            task_dir, bite, engine, input_paths=resolved_inputs, attempt_dir=attempt_dir
+        try:
+            worker = run_bite(
+                task_dir,
+                bite,
+                engine,
+                input_paths=resolved_inputs,
+                attempt_dir=attempt_dir,
+                require_idle=self.bite_gate is not None,
+            )
+        except QueueYieldError as exc:
+            self.queue_yield_reason = str(exc)
+            ledger.yield_attempt(
+                bite, build_sha=self.build_sha, engine=engine.identity(), reason=str(exc)
+            )
+            shutil.rmtree(attempt_dir, ignore_errors=True)
+            raise
+        return self._judge_attempt(
+            bite,
+            task_dir,
+            ledger,
+            engine,
+            worker,
+            attempt_dir,
+            attempt_number,
+            seat,
+            attempt_index,
+            attempt_count,
         )
+
+    def _judge_attempt(
+        self,
+        bite: Bite,
+        task_dir: Path,
+        ledger: ArmLedger,
+        engine: Engine,
+        worker: Any,
+        attempt_dir: Path,
+        attempt_number: int,
+        seat: str,
+        attempt_index: int,
+        attempt_count: int,
+    ) -> dict[str, Any] | None:
         ledger.transition(
             bite,
             "checking",
@@ -430,7 +500,19 @@ class ArmService:
             failures.append(worker.failure)
         if checks is not None and not checks.passed:
             failures.extend(checks.failures)
-        review = self._review_attempt(bite, worker, failures)
+        try:
+            review = self._review_attempt(bite, worker, failures)
+        except QueueYieldError as exc:
+            self.queue_yield_reason = str(exc)
+            ledger.transition(
+                bite,
+                "ready",
+                build_sha=self.build_sha,
+                engine=engine.identity(),
+                detail={"queue_yield": str(exc)},
+            )
+            _inside_task(task_dir, bite.output_path).unlink(missing_ok=True)
+            raise
         if review is not None and not review["passed"]:
             failures.append(review["failure"])
         check_record = self._check_record(worker, checks, review, failures)
@@ -466,7 +548,14 @@ class ArmService:
     ) -> dict[str, Any] | None:
         if not worker.finished or failures:
             return None
-        return _review_worker(bite, worker.output, self.arm_config, self.engines["deep"])
+        gate = self.bite_gate
+        return _review_worker(
+            bite,
+            worker.output,
+            self.arm_config,
+            self.engines["deep"],
+            None if gate is None else lambda: bool(gate(bite)),
+        )
 
     @staticmethod
     def _check_record(worker: Any, checks: Any, review: Any, failures: list[Any]) -> dict[str, Any]:
@@ -585,7 +674,11 @@ def _require_calibration(
 
 
 def _review_worker(
-    bite: Bite, output: Any, config: dict[str, Any], engine: Engine
+    bite: Bite,
+    output: Any,
+    config: dict[str, Any],
+    engine: Engine,
+    gate: Callable[[], bool] | None = None,
 ) -> dict[str, Any] | None:
     review = config.get("review", {})
     disciplines = config.get("disciplines", {})
@@ -604,7 +697,11 @@ def _review_worker(
             output,
             vote_count=int(votes),
             minimum_approve_votes=int(required),
+            require_idle=gate is not None,
+            gate=gate,
         )
+    except QueueYieldError:
+        raise
     except Exception as exc:
         return {"passed": False, "failure": f"Deep review failed: {type(exc).__name__}: {exc}"}
     return {

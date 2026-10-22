@@ -1,21 +1,25 @@
 #!/usr/bin/env bash
 # omlx-watchdog.sh — liveness watchdog for the host-native oMLX server (:8085).
 #
-# Why this exists: oMLX is supervised by Homebrew's `homebrew.mxcl.omlx`
-# LaunchAgent, whose `KeepAlive` only restarts the process when it *exits*.
+# Why this exists: oMLX is supervised by either the fixed-path Portal LaunchAgent
+# or Homebrew's LaunchAgent, whose `KeepAlive` only restarts it when it *exits*.
 # oMLX has been observed to wedge instead — the process stays alive but stops
 # answering on :8085 (RSS collapses, the OpenAI surface times out). launchd
 # never notices, and every `omlx-*` backend group in config/backends.yaml then
 # reports unhealthy (the "6/12 backends healthy" symptom) until someone runs
 # `brew services restart omlx` by hand. This watchdog closes that gap: launchd
 # runs it on an interval, it probes the OpenAI surface, and it restarts the
-# brew service after two consecutive failures (one failure can just be a long
+# active service after two consecutive failures (one failure can just be a long
 # cold model load on a single-user box).
 set -u
 
+REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 HEALTH_URL="${OMLX_HEALTH_URL:-http://127.0.0.1:8085/v1/models}"
 # launchd gives this script no .env; read the oMLX key from it when not exported.
-OMLX_API_KEY="${OMLX_API_KEY:-$(grep -m1 '^OMLX_API_KEY=' "$(cd "$(dirname "$0")/.." && pwd)/.env" 2>/dev/null | cut -d= -f2-)}"
+OMLX_API_KEY="${OMLX_API_KEY:-$(grep -m1 '^OMLX_API_KEY=' "$REPO_ROOT/.env" 2>/dev/null | cut -d= -f2-)}"
+OMLX_VENV_PATH="${OMLX_VENV_PATH:-$(grep -m1 '^OMLX_VENV_PATH=' "$REPO_ROOT/.env" 2>/dev/null | cut -d= -f2- | sed -e 's/^"//' -e 's/"$//')}"
+OMLX_VENV_PATH="${OMLX_VENV_PATH:-${HOME}/omlx-live/venv}"
+OMLX_SERVICE_LABEL="com.portal5.omlx"
 BREW_SERVICE="${OMLX_BREW_SERVICE:-jundot/omlx/omlx}"
 STATE_FILE="${OMLX_WATCHDOG_STATE:-${TMPDIR:-/tmp}/portal5-omlx-watchdog.state}"
 LOG_DIR="${HOME}/.portal5/logs"
@@ -23,9 +27,27 @@ LOG_FILE="${LOG_DIR}/omlx-watchdog.log"
 FAIL_THRESHOLD=2
 PROBE_TIMEOUT=8
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+PY="$REPO_ROOT/.venv/bin/python3"
 
 export PATH="/opt/homebrew/bin:/opt/homebrew/sbin:/usr/bin:/bin:/usr/sbin:/sbin:${PATH}"
 mkdir -p "$LOG_DIR"
+
+_uses_venv_service() {
+    [[ -x "${OMLX_VENV_PATH}/bin/python" ]] \
+        && launchctl print "gui/$(id -u)/${OMLX_SERVICE_LABEL}" >/dev/null 2>&1
+}
+
+_service_label() {
+    if _uses_venv_service; then echo "$OMLX_SERVICE_LABEL"; else echo "$BREW_SERVICE"; fi
+}
+
+_restart_service() {
+    if _uses_venv_service; then
+        launchctl kickstart -k "gui/$(id -u)/${OMLX_SERVICE_LABEL}"
+    else
+        brew services restart "$BREW_SERVICE"
+    fi
+}
 
 _log() { printf '%s  %s\n' "$(date '+%Y-%m-%dT%H:%M:%S%z')" "$*" >> "$LOG_FILE"; }
 
@@ -44,7 +66,11 @@ PARSER_STATE_FILE="${OMLX_WATCHDOG_PARSER_STATE:-${TMPDIR:-/tmp}/portal5-omlx-pa
 
 _check_deepseek_parser() {
     local target_dir stamped
-    target_dir="$(ls -d /opt/homebrew/Cellar/omlx/*/libexec/lib/python*/site-packages/mlx_lm/tool_parsers 2>/dev/null | sort | tail -1)"
+    if _uses_venv_service; then
+        target_dir="$("${OMLX_VENV_PATH}/bin/python" -c 'import site; from pathlib import Path; print(next((str(Path(p) / "mlx_lm" / "tool_parsers") for p in site.getsitepackages() if (Path(p) / "mlx_lm" / "tool_parsers").is_dir()), ""))' 2>/dev/null)"
+    else
+        target_dir="$(ls -d /opt/homebrew/Cellar/omlx/*/libexec/lib/python*/site-packages/mlx_lm/tool_parsers 2>/dev/null | sort | tail -1)"
+    fi
     if [ -z "$target_dir" ]; then
         _log "PARSER CHECK: no mlx_lm/tool_parsers dir found under Cellar — skipping (oMLX layout may have changed)"
         return 0
@@ -57,7 +83,7 @@ _check_deepseek_parser() {
         _log "PARSER CHECK: model dir ${MODEL_DIR} not found — skipping stamp check"
         return 0
     fi
-    stamped="$(python3 -c "import json; print(json.load(open('${MODEL_DIR}/tokenizer_config.json')).get('tool_parser_type',''))" 2>/dev/null || true)"
+    stamped="$("$PY" -c "import json; print(json.load(open('${MODEL_DIR}/tokenizer_config.json')).get('tool_parser_type',''))" 2>/dev/null || true)"
     if [ "$stamped" != "deepseek_r1" ]; then
         _log "PARSER CHECK FAILED: tokenizer_config.json tool_parser_type='${stamped}' (expected deepseek_r1)"
         return 1
@@ -81,7 +107,7 @@ _run_parser_check() {
         _log "PARSER CHECK: reinstalling via install_omlx_parsers.sh"
         if "${REPO_ROOT}/scripts/install_omlx_parsers.sh" >> "$LOG_FILE" 2>&1; then
             _log "PARSER CHECK: reinstalled — restarting oMLX to load it"
-            brew services restart "$BREW_SERVICE" >> "$LOG_FILE" 2>&1 \
+            _restart_service >> "$LOG_FILE" 2>&1 \
                 && _log "restart issued OK (parser reinstall)" \
                 || _log "restart FAILED after parser reinstall — manual intervention needed"
         else
@@ -110,8 +136,8 @@ echo "$fails" > "$STATE_FILE"
 _log "probe failed (http_code='${code:-000}') — consecutive failures: ${fails}/${FAIL_THRESHOLD}"
 
 if [ "$fails" -ge "$FAIL_THRESHOLD" ]; then
-    _log "restarting brew service '${BREW_SERVICE}'"
-    if brew services restart "$BREW_SERVICE" >> "$LOG_FILE" 2>&1; then
+    _log "restarting service '$(_service_label)'"
+    if _restart_service >> "$LOG_FILE" 2>&1; then
         _log "restart issued OK"
     else
         _log "restart FAILED — check 'brew services list' and /opt/homebrew/var/log/omlx.log"

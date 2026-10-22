@@ -11,38 +11,26 @@ import typer
 
 from ._common import _detect_ollama_cmd, _resolve_model_name
 
+# Ollama pull list for `portal update`; every entry must be a live model id in
+# config/backends.yaml (retired identities are dropped, not pulled, per the
+# 2026-09-06 fleet closeout).
 _DEFAULT_MODELS: list[str] = [
     "${DEFAULT_MODEL:-dolphin-llama3:8b}",
     "huihui_ai/qwen3.5-abliterated:9b",
     "hf.co/QuantFactory/Llama-3.2-3B-Instruct-abliterated-GGUF",
-    "nomic-embed-text:latest",
-    "hf.co/AlicanKiraz0/Cybersecurity-BaronLLM_Offensive_Security_LLM_Q6_K_GGUF",
-    "hf.co/segolilylabs/Lily-Cybersecurity-7B-v0.2-GGUF",
-    "hf.co/cognitivecomputations/Dolphin3.0-R1-Mistral-24B-GGUF",
-    "xploiter/the-xploiter",
-    "hf.co/WhiteRabbitNeo/WhiteRabbitNeo-33B-v1.5-GGUF",
     "huihui_ai/baronllm-abliterated",
-    "lazarevtill/Llama-3-WhiteRabbitNeo-8B-v2.0:q4_0",
-    "qwen3.5:9b",
-    "qwen3-coder:30b",
-    "deepseek-coder-v2:16b-lite-instruct-q4_K_M",
     "devstral:24b",
     "granite4.1:8b",
     "granite4.1:30b",
-    "hf.co/deepseek-ai/DeepSeek-R1-32B-GGUF",
     "gpt-oss:20b",
     "huihui_ai/tongyi-deepresearch-abliterated",
-    "hf.co/Jiunsong/supergemma4-26b-uncensored-gguf-v2",
     "qwen3-vl:32b",
-    "llava:7b",
     "huihui_ai/Qwen3.6-abliterated:27b",
-    "hf.co/mradermacher/OmniCoder-2-9B-GGUF",
 ]
 
-_HEAVY_MODELS: list[str] = [
-    "hf.co/cognitivecomputations/dolphin-3-llama3-70b-GGUF",
-    "hf.co/meta-llama/Meta-Llama-3.3-70B-GGUF",
-]
+# Both 70B entries were REMOVED_CLOSED in the 2026-09-06 fleet closeout; the
+# list is empty until an operator adds a live heavy model back.
+_HEAVY_MODELS: list[str] = []
 
 
 def cmd_update(
