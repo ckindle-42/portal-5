@@ -34,10 +34,23 @@ class FakePipeline:
         self.admin_responses: queue.Queue[Any] = queue.Queue()
         self.requests: list[dict[str, Any]] = []
         self.admin_requests: list[dict[str, Any]] = []
+        self.traces: dict[str, dict[str, Any]] = {}
         self._lock = threading.Lock()
         owner = self
 
         class Handler(BaseHTTPRequestHandler):
+            def do_GET(self) -> None:
+                prefix = "/v1/trace/"
+                if not self.path.startswith(prefix):
+                    self.send_error(404)
+                    return
+                with owner._lock:
+                    trace = owner.traces.get(self.path.removeprefix(prefix))
+                if trace is None:
+                    self.send_error(404)
+                    return
+                _json_response(self, trace)
+
             def do_POST(self) -> None:
                 body = json.loads(self.rfile.read(int(self.headers["Content-Length"])))
                 if self.path == "/admin/load-plan":
@@ -53,8 +66,18 @@ class FakePipeline:
                     self.send_error(404)
                     return
                 model = body.get("model", "")
+                correlation_id = self.headers.get("X-Correlation-ID", "")
                 with owner._lock:
                     owner.requests.append(body)
+                    if correlation_id:
+                        owner.traces[correlation_id] = {
+                            "correlation_id": correlation_id,
+                            "requested": model,
+                            "workspace": model,
+                            "persona": None,
+                            "backend": "fake",
+                            "model": model,
+                        }
                 try:
                     response = owner.responses[model].get_nowait()
                 except (KeyError, queue.Empty):
@@ -85,6 +108,9 @@ class FakePipeline:
 
     def add(self, seat: str, response: Any) -> None:
         self.responses[f"auto-daily::{seat}"].put(response)
+
+    def add_model(self, model: str, response: Any) -> None:
+        self.responses.setdefault(model, queue.Queue()).put(response)
 
     def add_admin_response(self, response: dict[str, Any]) -> None:
         self.admin_responses.put(response)
@@ -124,8 +150,10 @@ def tool_response(name: str, arguments: str, *, tokens: int = 4) -> dict[str, An
     }
 
 
-def text_response(content: str, *, tokens: int = 4) -> dict[str, Any]:
-    return {
+def text_response(
+    content: str, *, tokens: int = 4, exec_audit: list[dict[str, Any]] | None = None
+) -> dict[str, Any]:
+    response = {
         "choices": [
             {
                 "message": {"role": "assistant", "content": content, "tool_calls": []},
@@ -134,6 +162,9 @@ def text_response(content: str, *, tokens: int = 4) -> dict[str, Any]:
         ],
         "usage": {"completion_tokens": tokens},
     }
+    if exec_audit is not None:
+        response["exec_audit"] = exec_audit
+    return response
 
 
 def _json_response(handler: BaseHTTPRequestHandler, value: dict[str, Any]) -> None:
@@ -189,6 +220,8 @@ def _sse_response(handler: BaseHTTPRequestHandler, response: dict[str, Any]) -> 
                 ]
             },
         )
+    if response.get("exec_audit"):
+        _event(handler, {"type": "exec_audit", "tool_calls": response["exec_audit"]})
     _event(handler, {"choices": [{"delta": {}, "finish_reason": choice["finish_reason"]}]})
     _event(handler, {"choices": [], "usage": response.get("usage", {})})
     handler.wfile.write(b"data: [DONE]\n\n")

@@ -138,11 +138,28 @@ def test_extract_joins_plan_when_rows_lack_identity():
     assert rates == {"test_fixing": {"deep": (1, 1)}}
 
 
-def test_extract_rejects_unknown_seat():
-    """A model tag is not silently attributed to Fast."""
-    receipts = [{"results": [_row("b1", seat="Qwen3.8-27B-oQ4e-mtp")]}]
-    with pytest.raises(ValueError, match="unknown seat"):
-        extract_discipline_rates(receipts)
+def test_extract_preserves_custom_seat_ids():
+    """A chosen workspace id remains its own measured seat."""
+    receipts = [{"results": [_row("b1", seat="bench-spark-x26")]}]
+
+    rates = extract_discipline_rates(receipts)
+
+    assert rates == {"test_fixing": {"bench-spark-x26": (1, 1)}}
+
+
+def test_extract_ignores_planner_and_checker_rows():
+    """Only bite-suite results contribute Gate C rates."""
+    receipts = [
+        {
+            "results": [
+                {**_row("b1", seat="bench-spark-x26"), "suite": "bite"},
+                {**_row("p1", seat="bench-spark-x26"), "suite": "planner"},
+                {**_row("c1", seat="bench-spark-x26"), "suite": "checker"},
+            ]
+        }
+    ]
+
+    assert extract_discipline_rates(receipts) == {"test_fixing": {"bench-spark-x26": (1, 1)}}
 
 
 def test_extract_requires_results_list():
@@ -172,6 +189,41 @@ def test_compute_threshold_is_task_level_and_criteria_derived(tmp_path: Path):
     assert details["threshold_domain"] == "task-level projected pass probability"
     assert details["pass_criteria_met"] is True
     assert details["rates_by_discipline"]["test_fixing"]["fast"]["pass_probability"] == 1.0
+
+
+def test_custom_seat_receipt_uses_fixed_criteria_and_only_final_bites(tmp_path: Path):
+    config = _write_config(tmp_path / "arm.yaml")
+    receipt = {
+        "results": [{**_row("b1", seat="bench-spark-x26"), "suite": "bite"}],
+        "plan": {
+            "bites": [
+                {
+                    "bite_id": "b1",
+                    "discipline": "test_fixing",
+                    "model": "bench-spark-x26",
+                    "suite": "bite",
+                },
+                {
+                    "bite_id": "b2",
+                    "discipline": "test_fixing",
+                    "model": "bench-spark-x26",
+                    "suite": "bite",
+                },
+                {
+                    "bite_id": "p1",
+                    "discipline": "test_fixing",
+                    "model": "bench-spark-x26",
+                    "suite": "planner",
+                },
+            ]
+        },
+    }
+
+    threshold, details = compute_gate_c_threshold([receipt], minimum_samples=1, config_path=config)
+
+    assert threshold == pytest.approx(0.9)
+    assert details["task_floors"][0]["bites"] == 1
+    assert details["rates_by_discipline"]["test_fixing"]["bench-spark-x26"]["samples"] == 1
 
 
 def test_compute_requires_minimum_samples(tmp_path: Path):

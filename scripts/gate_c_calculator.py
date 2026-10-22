@@ -55,7 +55,7 @@ _Z_SCORES = {
 }
 DEFAULT_Z = 1.96
 DEFAULT_MINIMUM_SAMPLES = 5
-_SEATS = {"fast", "deep"}
+_STANDARD_SEATS = {"fast", "deep"}
 _FINAL_STATES = {"passed", "blocked", "failed"}
 _FINAL_STATUSES = {"PASS", "BLOCKED", "FAILED"}
 
@@ -118,6 +118,8 @@ def _collect_rows(receipts: list[dict[str, Any]]) -> list[dict[str, Any]]:
     for index, receipt in enumerate(receipts):
         if not isinstance(receipt, dict):
             raise ValueError("each receipt must be a JSON object")
+        if receipt.get("suite") not in (None, "bite"):
+            continue
         results = receipt.get("results", [])
         if not isinstance(results, list):
             raise ValueError("receipt.results must be a list")
@@ -125,20 +127,22 @@ def _collect_rows(receipts: list[dict[str, Any]]) -> list[dict[str, Any]]:
         for result in results:
             if not isinstance(result, dict):
                 raise ValueError("each receipt result must be an object")
+            if result.get("suite") not in (None, "bite"):
+                continue
             state = _final_state(result)
             if state is None:
                 continue
             discipline, seat = _row_identity(result, plan)
             if discipline is None:
                 continue
-            if seat not in _SEATS:
+            if not isinstance(seat, str) or not seat.strip() or any(ord(c) < 32 for c in seat):
                 raise ValueError(
-                    f"receipt {index} bite {result.get('bite_id')!r} has unknown seat {seat!r}; "
-                    "expected 'fast' or 'deep' (join plan.json or emit the seat)"
+                    f"receipt {index} bite {result.get('bite_id')!r} has invalid seat {seat!r}"
                 )
             rows.append(
                 {
                     "receipt": index,
+                    "bite_id": result.get("bite_id"),
                     "discipline": discipline,
                     "seat": seat,
                     "passed": state == "passed",
@@ -206,13 +210,38 @@ def _load_criteria(config_path: Path) -> dict[str, Any]:
 
 
 def _seat_criterion(discipline: str, entry: dict[str, Any], seat: str) -> float:
-    value = entry.get(f"minimum_{seat}_pass_rate", entry.get("minimum_bite_pass_rate"))
-    if not isinstance(value, (int, float)) or isinstance(value, bool) or not 0 < value <= 1:
-        raise ValueError(
-            f"pass_criteria for {discipline} needs a (0, 1] minimum_{seat}_pass_rate "
-            "or minimum_bite_pass_rate"
-        )
-    return float(value)
+    if seat in _STANDARD_SEATS:
+        value = entry.get(f"minimum_{seat}_pass_rate", entry.get("minimum_bite_pass_rate"))
+        if _valid_probability(value):
+            return float(value)
+    values = [entry.get("minimum_bite_pass_rate")]
+    values.extend(entry.get(f"minimum_{name}_pass_rate") for name in sorted(_STANDARD_SEATS))
+    configured = [float(value) for value in values if _valid_probability(value)]
+    per_seat = entry.get("per_seat_bite_suite")
+    if isinstance(per_seat, dict):
+        for policy in per_seat.values():
+            if not isinstance(policy, dict):
+                continue
+            passed, total = policy.get("minimum_passed"), policy.get("total")
+            if (
+                isinstance(passed, int)
+                and not isinstance(passed, bool)
+                and isinstance(total, int)
+                and not isinstance(total, bool)
+                and total > 0
+                and 0 < passed <= total
+            ):
+                configured.append(passed / total)
+    if configured:
+        return max(configured)
+    raise ValueError(
+        f"pass_criteria for {discipline} has no fixed rate for seat {seat!r} "
+        "or a general bite-suite rate"
+    )
+
+
+def _valid_probability(value: Any) -> bool:
+    return isinstance(value, (int, float)) and not isinstance(value, bool) and 0 < value <= 1
 
 
 def _task_shapes(
@@ -220,6 +249,11 @@ def _task_shapes(
 ) -> dict[int, list[tuple[str, str]]]:
     shapes: dict[int, list[tuple[str, str]]] = {}
     for index, receipt in enumerate(receipts):
+        final_ids = {
+            str(row.get("bite_id"))
+            for row in rows
+            if row["receipt"] == index and row.get("bite_id")
+        }
         plan = receipt.get("plan")
         shape: list[tuple[str, str]] = []
         bites = plan.get("bites") if isinstance(plan, dict) else None
@@ -228,7 +262,13 @@ def _task_shapes(
                 if not isinstance(bite, dict):
                     continue
                 discipline, seat = bite.get("discipline"), bite.get("model")
-                if isinstance(discipline, str) and seat in _SEATS:
+                if (
+                    bite.get("suite") in (None, "bite")
+                    and str(bite.get("bite_id")) in final_ids
+                    and isinstance(discipline, str)
+                    and isinstance(seat, str)
+                    and seat.strip()
+                ):
                     shape.append((discipline, seat))
         if not shape:
             shape = [(row["discipline"], row["seat"]) for row in rows if row["receipt"] == index]
@@ -280,8 +320,13 @@ def _evaluate_criteria(
             "bite_pass_rate": _rate(seats, None),
             "fast_pass_rate": _rate(seats, "fast"),
             "deep_pass_rate": _rate(seats, "deep"),
+            "candidate_seat_pass_rates": {
+                seat: _rate(seats, seat) for seat in seats if seat not in _STANDARD_SEATS
+            },
         }
         checks: dict[str, dict[str, Any]] = {}
+        standard_seats = [seat for seat in seats if seat in _STANDARD_SEATS]
+        custom_seats = [seat for seat in seats if seat not in _STANDARD_SEATS]
         for key, observed_key in (
             ("minimum_bite_pass_rate", "bite_pass_rate"),
             ("minimum_fast_pass_rate", "fast_pass_rate"),
@@ -289,12 +334,31 @@ def _evaluate_criteria(
         ):
             if key not in entry:
                 continue
+            if (
+                custom_seats
+                and not standard_seats
+                and key
+                in {
+                    "minimum_fast_pass_rate",
+                    "minimum_deep_pass_rate",
+                }
+            ):
+                continue
             actual = observed[observed_key]
             checks[key] = {
                 "required": float(entry[key]),
                 "observed": actual,
                 "met": actual is not None and actual >= float(entry[key]),
             }
+        if custom_seats:
+            for seat in custom_seats:
+                required = _seat_criterion(discipline, entry, seat)
+                actual = _rate(seats, seat)
+                checks[f"minimum_{seat}_pass_rate"] = {
+                    "required": required,
+                    "observed": actual,
+                    "met": actual is not None and actual >= required,
+                }
         out[discipline] = {
             "configured": True,
             "criteria": {key: value["required"] for key, value in checks.items()},
@@ -382,7 +446,7 @@ def compute_gate_c_threshold(
         "threshold": threshold,
         "threshold_domain": "task-level projected pass probability",
         "derivation": (
-            "min over task shapes of the product of the pre-written per-seat pass criteria; "
+            "min over task shapes of fixed per-seat pass criteria; unknown seat ids use the strictest configured rate; "
             "independent of observed pass counts"
         ),
         "per_discipline_seat": per_discipline_seat,
@@ -483,7 +547,11 @@ def _print_criteria(details: dict[str, Any]) -> None:
             continue
         state = "MET" if status["met"] else "NOT MET"
         observed = ", ".join(
-            f"{name}={value:.3f}" if value is not None else f"{name}=n/a"
+            f"{name}=n/a"
+            if value is None
+            else f"{name}={value:.3f}"
+            if isinstance(value, (int, float))
+            else f"{name}={json.dumps(value, sort_keys=True)}"
             for name, value in status["observed"].items()
         )
         print(f"pass_criteria {discipline}: {state} ({observed})", file=sys.stderr)
