@@ -1,0 +1,122 @@
+# Paste each document to config/personas/<slug>.yaml on the live checkout.
+# Do not edit config/personas from this repo. Do not seed. ide_expose makes
+# GET /v1/models advertise the slug after the orchestrator's own seed.
+# opencode addresses portal/<slug>. Curl probes use auto-coding::kit-...
+# and do not need these files. :: is unpacked by the pipeline; some clients mangle it.
+---
+name: "Kit Qwen3.8-27B"
+slug: kitqwen3827b
+delivery: role
+workspace_model: auto-coding
+variant: kit-qwen38-27b
+module: coding
+category: coding
+ide_expose: true
+system_prompt: |
+  You are the kit test seat for Qwen3.8-27B. Use the file tools and the shell
+  to edit the repo. Finish the task the brief names.
+tags: [coding, kit]
+---
+name: "Kit Qwen3.6-35B"
+slug: kitqwen3635b
+delivery: role
+workspace_model: auto-coding
+variant: kit-qwen36-35b
+module: coding
+category: coding
+ide_expose: true
+system_prompt: |
+  You are the kit test seat for Qwen3.6-35B-A3B. Use the file tools and the shell
+  to edit the repo. Finish the task the brief names.
+tags: [coding, kit]
+---
+name: "Kit Qwen3.6-27B dense"
+slug: kitqwen3627b
+delivery: role
+workspace_model: auto-coding
+variant: kit-qwen36-27b
+module: coding
+category: coding
+ide_expose: true
+system_prompt: |
+  You are the kit dense reference seat for Qwen3.6-27B. Use the file tools and
+  the shell to edit the repo. Finish the task the brief names.
+tags: [coding, kit]
+---
+name: "Kit Qwopus"
+slug: kitqwopus
+delivery: role
+workspace_model: auto-coding
+variant: kit-qwopus
+module: coding
+category: coding
+ide_expose: true
+system_prompt: |
+  You are the kit test seat for Qwopus. Thinking is off. Use the file tools and
+  the shell. Finish the task the brief names.
+tags: [coding, kit]
+---
+name: "Kit KAT-Coder"
+slug: kitkatcoder
+delivery: role
+workspace_model: auto-coding
+variant: kit-kat
+module: coding
+category: coding
+ide_expose: true
+system_prompt: |
+  You are the kit test seat for KAT-Coder-V2.5-Dev. Use the file tools and the
+  shell. Finish the task the brief names.
+tags: [coding, kit]
+---
+name: "Kit orcarouter"
+slug: kitorcarouter
+delivery: role
+workspace_model: auto-coding
+variant: kit-orcarouter
+module: coding
+category: coding
+ide_expose: true
+system_prompt: |
+  You are the kit test seat for orcarouter Qwen3.8-27B-Uncensored. Use the file
+  tools and the shell. Finish the task the brief names.
+tags: [coding, kit]
+---
+name: "Kit HauhauCS"
+slug: kithauhaucs
+delivery: role
+workspace_model: auto-coding
+variant: kit-hauhaucs
+module: coding
+category: coding
+ide_expose: true
+system_prompt: |
+  You are the kit test seat for HauhauCS Qwen3.6-35B. Use the file tools and the
+  shell. Finish the task the brief names.
+tags: [coding, kit]
+---
+name: "Kit huihui 27B"
+slug: kithuihui36
+delivery: role
+workspace_model: auto-coding
+variant: kit-huihui36
+module: coding
+category: coding
+ide_expose: true
+system_prompt: |
+  You are the kit control seat for huihui Qwen3.6-27B. Use the file tools and
+  the shell. Finish the task the brief names.
+tags: [coding, kit]
+---
+name: "Kit OrcaCyber Nano"
+slug: kitnano
+delivery: role
+workspace_model: auto-spl
+variant: kit-orcacyber
+module: general
+category: general
+ide_expose: true
+system_prompt: |
+  You write detection content: SPL, Sigma, and YARA. Filter index and sourcetype
+  before the first pipe. Do not invent Splunk commands.
+tags: [spl, kit]

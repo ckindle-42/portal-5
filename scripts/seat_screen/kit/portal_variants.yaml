@@ -1,0 +1,309 @@
+# Paste-ready variant blocks. Do not edit config/portal.yaml from this repo.
+# Paste under workspaces.auto-coding.variants (coding seats) or
+# workspaces.auto-spl.variants (Nano). New keys only — do not replace incumbents.
+# 2026-10-21 dense MLX re-screen: kit-qwen38-27b, kit-orcarouter, kit-huihui36
+# hints now name oMLX directory ids, and kit-qwen36-27b is new. Every re-screen
+# hint is a raw oMLX id registered on omlx-coding, so no hint can fall through
+# to an Ollama GGUF tag if an alias line is missed.
+# After paste, regenerate derived routing on the live checkout. This worker did not.
+# Do not run scripts/omlx_seat_defaults.py except --dry-run. Applying it rewrites
+# ~/.omlx/model_settings.json and restarts oMLX. Qwen3.8-27B-oQ4e-mtp is already
+# shared by more than one production seat; another seat must stay on request sampling.
+
+# ---------- auto-coding.variants ----------
+
+kit-qwen38-27b:
+  name: "Kit heavy — Qwen3.8-27B oQ4e"
+  client_tools_only: true
+  description: "Test seat. oMLX Qwen3.8-27B-oQ4e-mtp by raw id (re-screen 2026-10-21). The id is already in live omlx-coding models, so engine is omlx and no Ollama alias can intercept. Directory mtime 2026-08-14, so label the run old oQe. Fallback target Qwen3.8-27B-4bit if the tool parser breaks."
+  model_hint: Qwen3.8-27B-oQ4e-mtp
+  context_limit: 131072
+  predict_limit: 32768
+  # qwen3.8 thinking arm. Unsloth Qwen3.8-27B-GGUF re-confirmed 2026-10-16
+  # (model_card_expectations.yaml qwen3.8.recommended_sampling_modes.thinking).
+  # recommended_sampling on that key is the instruct arm; this seat thinks, so it serves thinking.
+  temperature: 1.0
+  top_p: 0.95
+  top_k: 20
+  min_p: 0.0
+  presence_penalty: 0.0
+  repeat_penalty: 1.0
+  think: true
+  emits_reasoning: true
+  mode: agentic
+  guardrail: default
+  tools:
+    - explore_repository
+    - read_text_file
+    - list_directory
+    - search_files
+    - write_file
+    - execute_bash
+    - execute_python
+    - execute_nodejs
+    - sandbox_status
+    - read_word_document
+    - read_pdf
+    - remember
+    - recall
+
+kit-qwen36-35b:
+  name: "Kit heavy — Qwen3.6-35B-A3B UD"
+  client_tools_only: true
+  description: "Test seat. oMLX unsloth--Qwen3.6-35B-A3B-UD-MLX-4bit at 128K. Ollama fallback is the new ctx128k tag."
+  model_hint: hf.co/unsloth/Qwen3.6-35B-A3B-GGUF:UD-Q4_K_XL-ctx128k
+  context_limit: 131072
+  predict_limit: 32768
+  # qwen3.6 thinking_precise_coding. Unsloth GGUF confirmed 2026-10-16;
+  # modes from the Qwen3.6-27B README. A think-on coding seat must serve this arm
+  # (sampling_mode_fit). thinking_general (temp 1.0, presence 1.5) FAILs that check.
+  temperature: 0.6
+  top_p: 0.95
+  top_k: 20
+  min_p: 0.0
+  presence_penalty: 0.0
+  repeat_penalty: 1.0
+  think: true
+  emits_reasoning: true
+  mode: agentic
+  guardrail: default
+  tools:
+    - explore_repository
+    - read_text_file
+    - list_directory
+    - search_files
+    - write_file
+    - execute_bash
+    - execute_python
+    - execute_nodejs
+    - sandbox_status
+    - read_word_document
+    - read_pdf
+    - remember
+    - recall
+
+kit-qwen36-27b:
+  name: "Kit dense reference — Qwen3.6-27B UD"
+  client_tools_only: true
+  description: "Test seat. Re-screen 2026-10-21. Dense Qwen3.6-27B reference on oMLX: raw id unsloth--Qwen3.6-27B-UD-MLX-4bit (on disk and in live /v1/models). Also on omlx-general; the omlx-coding row is what makes auto-coding hit it first."
+  model_hint: unsloth--Qwen3.6-27B-UD-MLX-4bit
+  context_limit: 131072
+  predict_limit: 32768
+  # qwen3.6 thinking_precise_coding, same card row as kit-qwen36-35b
+  # (Unsloth GGUF 2026-10-16). Think-on coding seat, so it serves that arm.
+  temperature: 0.6
+  top_p: 0.95
+  top_k: 20
+  min_p: 0.0
+  presence_penalty: 0.0
+  repeat_penalty: 1.0
+  think: true
+  emits_reasoning: true
+  mode: agentic
+  guardrail: default
+  tools:
+    - explore_repository
+    - read_text_file
+    - list_directory
+    - search_files
+    - write_file
+    - execute_bash
+    - execute_python
+    - execute_nodejs
+    - sandbox_status
+    - read_word_document
+    - read_pdf
+    - remember
+    - recall
+
+kit-qwopus:
+  name: "Kit heavy — Qwopus 4-bit"
+  client_tools_only: true
+  description: "Test seat. Needs mlx-community/Qwopus3.6-35B-A3B-Coder-4bit downloaded into the oMLX model dir first. Think off. Not oQ6."
+  model_hint: Qwopus3.6-35B-A3B-Coder-4bit
+  context_limit: 131072
+  predict_limit: 32768
+  # No Qwopus row in model_card_expectations.yaml. Inherit Qwen3.6 instruct
+  # (Unsloth GGUF 2026-10-16): 0.7 / 0.8 / 20 / min_p 0 / presence 1.5 / rep 1.0.
+  # The tune is thinking-off. Expect sampling_hot WARN (coding lane ceiling 0.5, no card match).
+  temperature: 0.7
+  top_p: 0.8
+  top_k: 20
+  min_p: 0.0
+  presence_penalty: 1.5
+  repeat_penalty: 1.0
+  think: false
+  mode: agentic
+  guardrail: default
+  tools:
+    - explore_repository
+    - read_text_file
+    - list_directory
+    - search_files
+    - write_file
+    - execute_bash
+    - execute_python
+    - execute_nodejs
+    - sandbox_status
+    - read_word_document
+    - read_pdf
+    - remember
+    - recall
+
+kit-kat:
+  name: "Kit heavy — KAT-Coder-V2.5-Dev"
+  client_tools_only: true
+  description: "Test seat. Ollama kat-coder-v2.5-dev:Q4_K_M-ctx128k. Not the ctx32k tag. No MLX."
+  model_hint: kat-coder-v2.5-dev:Q4_K_M-ctx128k
+  context_limit: 131072
+  predict_limit: 32768
+  # kat-coder card default (Kwaipilot README + generation_config.json, 2026-09-25):
+  # temperature 1.0, top_p 0.95, top_k 20. SWE-bench on that card is 1.0/0.95.
+  # terminal_agent (0.7/1.0) is the other sanctioned arm. The Qwen3.6 0.6 row is
+  # NOT sanctioned for this hint (longest card key is kat-coder) and FAILs served_vs_card.
+  temperature: 1.0
+  top_p: 0.95
+  top_k: 20
+  think: true
+  emits_reasoning: true
+  mode: agentic
+  guardrail: default
+  tools:
+    - explore_repository
+    - read_text_file
+    - list_directory
+    - search_files
+    - write_file
+    - execute_bash
+    - execute_python
+    - execute_nodejs
+    - sandbox_status
+    - read_word_document
+    - read_pdf
+    - remember
+    - recall
+
+kit-orcarouter:
+  name: "Kit uncensored — orcarouter Qwen3.8-27B"
+  client_tools_only: true
+  description: "Test seat. Re-screen 2026-10-21 on oMLX: raw id Qwen3.8-27B-Uncensored-MLX-4bit (on disk and in live /v1/models). Replaces the Ollama GGUF seat. README front matter names base Qwen/Qwen3.8-27B; config.json does not name orcarouter, so lineage is per repo name, not a weight hash."
+  model_hint: Qwen3.8-27B-Uncensored-MLX-4bit
+  context_limit: 131072
+  predict_limit: 32768
+  # Same qwen3.8 thinking arm as kit-qwen38-27b. Unsloth first (2026-10-16),
+  # then the Qwen3.8 card. Think-off is a request override, not a second seat.
+  temperature: 1.0
+  top_p: 0.95
+  top_k: 20
+  min_p: 0.0
+  presence_penalty: 0.0
+  repeat_penalty: 1.0
+  think: true
+  emits_reasoning: true
+  mode: agentic
+  guardrail: uncensored
+  tools:
+    - explore_repository
+    - read_text_file
+    - list_directory
+    - search_files
+    - write_file
+    - execute_bash
+    - execute_python
+    - execute_nodejs
+    - sandbox_status
+    - read_word_document
+    - read_pdf
+    - remember
+    - recall
+
+kit-hauhaucs:
+  name: "Kit uncensored — HauhauCS Qwen3.6-35B"
+  client_tools_only: true
+  description: "Test seat. On-disk MLX id Qwen3.6-35B-A3B-HauhauCS-Aggressive-4bit at 128K. Not the Ollama ctx256k tag."
+  model_hint: Qwen3.6-35B-A3B-HauhauCS-Aggressive-4bit
+  context_limit: 131072
+  predict_limit: 32768
+  # qwen3.6 thinking_precise_coding, same sources as kit-qwen36-35b.
+  # Lineage note on the qwen3.6 card covers HauhauCS. Think-off is a request spot check.
+  temperature: 0.6
+  top_p: 0.95
+  top_k: 20
+  min_p: 0.0
+  presence_penalty: 0.0
+  repeat_penalty: 1.0
+  think: true
+  emits_reasoning: true
+  mode: agentic
+  guardrail: uncensored
+  tools:
+    - explore_repository
+    - read_text_file
+    - list_directory
+    - search_files
+    - write_file
+    - execute_bash
+    - execute_python
+    - execute_nodejs
+    - sandbox_status
+    - read_word_document
+    - read_pdf
+    - remember
+    - recall
+
+kit-huihui36:
+  name: "Kit control — huihui Qwen3.6-27B"
+  client_tools_only: true
+  description: "Control only. Do not promote over orcarouter. Re-screen 2026-10-21 on oMLX: raw id Huihui-Qwen3.6-27B-abliterated-MLX-4bit (README base_model huihui-ai/Huihui-Qwen3.6-27B-abliterated). Replaces the Ollama ctx128k tag. Drop the seat if RSS at 128K exceeds 28 GiB."
+  model_hint: Huihui-Qwen3.6-27B-abliterated-MLX-4bit
+  context_limit: 131072
+  predict_limit: 32768
+  # qwen3.6 thinking_precise_coding. The oMLX directory's generation_config bakes
+  # 1.0 / 0.95 / 20; pipeline requests carry the seat sampling, which is this arm.
+  temperature: 0.6
+  top_p: 0.95
+  top_k: 20
+  min_p: 0.0
+  presence_penalty: 0.0
+  repeat_penalty: 1.0
+  think: true
+  emits_reasoning: true
+  mode: agentic
+  guardrail: uncensored
+  tools:
+    - explore_repository
+    - read_text_file
+    - list_directory
+    - search_files
+    - write_file
+    - execute_bash
+    - execute_python
+    - execute_nodejs
+    - sandbox_status
+    - read_word_document
+    - read_pdf
+    - remember
+    - recall
+
+# ---------- auto-spl.variants ----------
+# Module stays general (inherited). Do not restate tools: the parent whitelist
+# (convert_sigma, validate_sigma, compile_yara, query_splunk, ...) is the seat's.
+# spl_validate_syntax is not on that whitelist; the grader imports it.
+
+kit-orcacyber:
+  name: "Kit SPL — OrcaCyber Nano"
+  description: "Test seat. Existing tag orcacyber-nano-1.0:ctx64k (num_ctx 65536). License file was not readable."
+  model_hint: orcacyber-nano-1.0:ctx64k
+  context_limit: 65536
+  predict_limit: 16384
+  # Nano card sampling (REPORT_QWEN_DERIVATIVES): temperature 1.0, top_p 0.95, top_k 20.
+  # The local tag bakes that plus min_p 0, presence_penalty 0, repeat_penalty 1, num_ctx 65536.
+  # No model_card_expectations row. Expect sampling_hot and sampling_baked_hot WARNs
+  # (general lane ceiling 0.8). Do not add a card row and do not drop the temperature to silence them.
+  temperature: 1.0
+  top_p: 0.95
+  top_k: 20
+  min_p: 0.0
+  presence_penalty: 0.0
+  repeat_penalty: 1.0
+  think: false
