@@ -43,6 +43,7 @@ class Engines:
         admin_login_code: int = 200,
         admin_models_code: int = 200,
         unload_status_code: int = 200,
+        ollama_unload_status_code: int = 200,
         unload_status_codes: dict[str, int] | None = None,
         unload_sticks: bool = False,
         actual_sizes: dict[str, float] | None = None,
@@ -71,6 +72,7 @@ class Engines:
         self.admin_login_code = admin_login_code
         self.admin_models_code = admin_models_code
         self.unload_status_code = unload_status_code
+        self.ollama_unload_status_code = ollama_unload_status_code
         self.unload_status_codes = dict(unload_status_codes or {})
         self.unload_sticks = unload_sticks
         self.actual_sizes = dict(actual_sizes or {})
@@ -133,6 +135,8 @@ class Engines:
         if path == "/api/generate":  # keep_alive 0 unloads; its real bytes return to oMLX
             model = json.loads(req.content)["model"]
             self.unload_calls[model] = self.unload_calls.get(model, 0) + 1
+            if self.ollama_unload_status_code >= 400:
+                return httpx.Response(self.ollama_unload_status_code, json={"error": "rejected"})
             if self.unload_sticks:
                 pass
             elif model in self.unload_removal_polls:
@@ -1430,3 +1434,21 @@ async def test_fixed_ceiling_does_not_double_count_idle_ollama_models(monkeypatc
     fits()
     with pytest.raises(lg.LoadRefusedError):
         await g.admit(OLLAMA_URL, "over")
+
+
+async def test_rejected_ollama_unload_is_not_counted_as_pending_free():
+    e = Engines(
+        ollama={"idle": GIB},
+        tags={"m": 20 * GIB},
+        ceiling=8 * GIB,
+        ollama_unload_status_code=500,
+    )
+    g = guard(e)
+    lg.set_load_wait("0.3")
+    started = lg.time.monotonic()
+    with pytest.raises(lg.LoadRefusedError) as err:
+        await g.admit(OLLAMA_URL, "m")
+    assert lg.time.monotonic() - started < 0.1
+    assert "with nothing in flight to wait for" in str(err.value)
+    assert "free of idle did not settle" not in str(err.value)
+    assert e.ollama == {"idle": GIB}

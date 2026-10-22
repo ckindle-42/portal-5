@@ -448,11 +448,18 @@ class LoadGuard:
         requested: set[str] = set()
         for name in idle:
             try:
-                await client.post(
+                response = await client.post(
                     f"{base}/api/generate", json={"model": name, "keep_alive": 0}, timeout=30.0
                 )
             except Exception as e:
                 logger.warning("load_guard: could not unload idle Ollama model %s: %s", name, e)
+                continue
+            if not response.is_success:
+                logger.warning(
+                    "load_guard: unload of idle Ollama model %s returned HTTP %d",
+                    name,
+                    response.status_code,
+                )
                 continue
             requested.add(name)
             logger.info("load_guard: unloaded idle Ollama model %s", name)
