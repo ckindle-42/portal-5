@@ -191,7 +191,7 @@ def revert_kit(repo: Path, backup_dir: Path | None = None) -> None:
 
 
 def _copy_repo(repo: Path, target: Path) -> None:
-    shutil.copytree(repo, target, ignore=shutil.ignore_patterns(*COPY_IGNORE))
+    shutil.copytree(repo, target, symlinks=True, ignore=shutil.ignore_patterns(*COPY_IGNORE))
 
 
 def _audit_workspace_ids(repo: Path) -> list[str]:
