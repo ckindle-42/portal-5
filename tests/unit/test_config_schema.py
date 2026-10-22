@@ -14,6 +14,7 @@ import yaml
 from portal.platform.inference.config import (
     Model,
     PortalConfig,
+    WorkspaceSpec,
     get_workspace_dict,
     load_portal_config,
     merge_workspace_variant,
@@ -104,6 +105,55 @@ def test_stack_down_only_workspace_level_and_variant_override(tmp_path: Path) ->
     # The variant override flows through the same merge the serving path uses.
     merged = merge_workspace_variant(dumped["ide"], cfg.workspaces["ide"].variants["heavy"])
     assert merged["stack_down_only"] is True
+
+
+def test_thinking_budget_workspace_and_variant_schema(tmp_path: Path) -> None:
+    raw = _load_minimal(
+        tmp_path,
+        {
+            "workspaces": {
+                "auto": {
+                    "name": "Auto",
+                    "description": "Auto router",
+                    "module": "general",
+                    "thinking_budget": 4096,
+                    "variants": {"deep": {"thinking_budget": 8192}},
+                }
+            }
+        },
+    )
+    cfg = PortalConfig.model_validate(raw)
+    workspace = cfg.workspaces["auto"]
+    assert workspace.thinking_budget == 4096
+    assert workspace.variants["deep"]["thinking_budget"] == 8192
+    assert (
+        merge_workspace_variant(get_workspace_dict(cfg)["auto"], workspace.variants["deep"])[
+            "thinking_budget"
+        ]
+        == 8192
+    )
+
+
+@pytest.mark.parametrize("budget", [0, -1, True, "4096"])
+def test_thinking_budget_must_be_a_positive_integer(budget: object) -> None:
+    with pytest.raises(ValueError):
+        WorkspaceSpec.model_validate(
+            {
+                "name": "Budget",
+                "description": "Budget",
+                "module": "general",
+                "thinking_budget": budget,
+            }
+        )
+    with pytest.raises(ValueError):
+        WorkspaceSpec.model_validate(
+            {
+                "name": "Budget",
+                "description": "Budget",
+                "module": "general",
+                "variants": {"invalid": {"thinking_budget": budget}},
+            }
+        )
 
 
 def test_duplicate_port_raises(tmp_path: Path) -> None:

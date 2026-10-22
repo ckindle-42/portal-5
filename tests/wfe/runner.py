@@ -40,6 +40,7 @@ import datetime as dt
 import hashlib
 import importlib
 import json
+import logging
 import os
 import re
 import shutil
@@ -64,6 +65,7 @@ from tests.wfe.checkers import CheckContext, apply_checkers
 from tests.wfe.prompt_surface import harness_note, production_tool_names
 from tests.wfe.schema import Economics, Outcome, ResultRow, env_fingerprint, sha12
 
+logger = logging.getLogger(__name__)
 REPO = Path(__file__).resolve().parents[2]
 _card_registry = _model_cards.card_registry
 _key_in_tag = _model_cards._key_in_tag
@@ -660,6 +662,16 @@ def _v1_think_fields(think: str) -> dict:
     return {"think": think == "true"} | ({"reasoning_effort": "none"} if think == "false" else {})
 
 
+def _apply_ollama_thinking_budget(payload: dict, model: str, budget) -> None:
+    if budget is None:
+        return
+    level = _model_cards.card_thinking_level(model, budget)
+    if level is not None and "think" not in payload:
+        payload["think"] = level
+    else:
+        logger.debug("Ignoring undocumented Ollama thinking_budget=%r for model=%s", budget, model)
+
+
 #: Every sampling key the workspace resolves is sent. Until 2026-09-24 only
 #: temperature/top_p/seed were, so top_k, min_p, repeat_penalty and
 #: presence_penalty never reached the model; llama-server and MTPLX default to no
@@ -719,6 +731,8 @@ def _build_v1(
     for k in SAMPLING_KEYS:
         if sampling.get(k) is not None:
             payload[k] = sampling[k]
+    if sampling.get("thinking_budget") is not None:
+        payload["thinking_budget"] = int(sampling["thinking_budget"])
     if ENGINE != "ollama" and "repeat_penalty" in payload:
         # MLX servers (oMLX, mlx_lm, vllm-mlx) name it repetition_penalty and
         # ignore repeat_penalty; llama-server takes repeat_penalty. Sending
@@ -727,7 +741,12 @@ def _build_v1(
         payload["repetition_penalty"] = payload["repeat_penalty"]
     if fmt == "json":
         payload["response_format"] = {"type": "json_object"}
-    return payload | _v1_think_fields(think)
+    payload |= _v1_think_fields(think)
+    if ENGINE == "ollama":
+        _apply_ollama_thinking_budget(
+            model=model, payload=payload, budget=payload.pop("thinking_budget", None)
+        )
+    return payload
 
 
 def _build_payload(
@@ -781,6 +800,8 @@ def _build_payload(
         payload["format"] = "json"
     if think in ("true", "false"):
         payload["think"] = think == "true"
+    if ENGINE == "ollama":
+        _apply_ollama_thinking_budget(model, payload, sampling.get("thinking_budget"))
     if schemas:
         payload["tools"] = schemas
     return f"{OLLAMA}/api/chat", payload, []
@@ -808,6 +829,8 @@ def _build_pipeline(
     for k in SAMPLING_KEYS:
         if sampling.get(k) is not None:
             payload[k] = sampling[k]
+    if sampling.get("thinking_budget") is not None:
+        payload["thinking_budget"] = int(sampling["thinking_budget"])
     if "repeat_penalty" in payload:
         # The pipeline fills an oMLX seat's `repetition_penalty` by setdefault,
         # so an override must name it too or the seat value wins there.
@@ -1247,6 +1270,11 @@ def resolve_persona(
     return None, ""
 
 
+def _workspace_thinking_budget(ws: dict) -> int | None:
+    budget = ws.get("thinking_budget")
+    return int(budget) if budget is not None else None
+
+
 def workspace_context(ws_id: str, persona: str | None = None) -> dict:
     """`ws_id` may name a variant as `workspace::variant`, the synthetic id
     production uses (router/preinject.py `_resolve_workspace_variant`): the
@@ -1302,6 +1330,8 @@ def workspace_context(ws_id: str, persona: str | None = None) -> dict:
             sampling[k] = val
     if ws.get("predict_limit"):
         sampling["max_tokens"] = int(ws["predict_limit"])
+    if (budget := _workspace_thinking_budget(ws)) is not None:
+        sampling["thinking_budget"] = budget
 
     return {
         "model": ws.get("model_hint"),

@@ -191,6 +191,7 @@ class WorkspaceSpec(BaseModel):
 
     # --- Output budget / context ---
     predict_limit: int | None = None
+    thinking_budget: int | None = Field(default=None, ge=1, strict=True)
     context_limit: int | None = None
 
     # --- Concurrency ---
@@ -252,6 +253,11 @@ class WorkspaceSpec(BaseModel):
             module = cfg.get("module") if isinstance(cfg, dict) else None
             if module is not None and module not in known:
                 raise ValueError(f"variant {name!r}: unknown module {module!r}")
+            budget = cfg.get("thinking_budget") if isinstance(cfg, dict) else None
+            if budget is not None and (
+                isinstance(budget, bool) or not isinstance(budget, int) or budget < 1
+            ):
+                raise ValueError(f"variant {name!r}: thinking_budget must be a positive integer")
         return self
 
 

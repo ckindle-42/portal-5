@@ -12,12 +12,14 @@ tags:
 - docs
 - verified-v1
 created_at: 1783195000.839686
-updated_at: 1783195000.839686
+updated_at: 1792651360
 ---
 
 **What:** Each workspace routes to a specialized model and activates the relevant tools.
 
 **How:** Workspaces are defined in `config/portal.yaml` under the `workspaces:` block — each entry declares `module`, `name`, `model_hint`, `tools`, and `expose_to_owui`. Select one from the model dropdown; the exposed ones are exactly those with `expose_to_owui: true`. `./launch.sh sync-config` regenerates the derived artifacts (`workspace_routing` in `config/backends.yaml`, `.mcp.json`, and the Open WebUI workspace presets under `imports/openwebui/workspaces/`) so `config/portal.yaml` stays the single source of truth.
+
+`thinking_budget` is an optional positive token limit at workspace or variant level. oMLX receives it as a top-level request field; Ollama uses the nearest think level only when the model-card registry records token limits for those levels, and otherwise logs that it ignored the value.
 
 For the full live roster (production + eval workspaces, module, model hint) use `unit-fact-workspace-roster` — do not maintain a second handwritten table here. A few flagship examples verified against `config/portal.yaml`:
 

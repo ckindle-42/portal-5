@@ -6,12 +6,16 @@ by the non-streaming + streaming dispatch paths (option injection).
 
 from __future__ import annotations
 
+import logging
 import os
 import re
 from typing import Any
 
 from portal.platform.inference.cluster_backends import BackendRegistry
+from portal.platform.inference.model_cards import card_thinking_level
 from portal.platform.inference.router.workspaces import WORKSPACES
+
+logger = logging.getLogger(__name__)
 
 # Env-overridable Ollama request defaults
 _OLLAMA_KEEP_ALIVE: str = os.environ.get("OLLAMA_KEEP_ALIVE_REQUEST", "-1")
@@ -250,6 +254,24 @@ def _apply_reasoning_effort(body: dict[str, Any]) -> tuple[int, str] | None:
     return cap, label
 
 
+def _apply_ollama_thinking_budget(body: dict[str, Any], ws_cfg: dict[str, Any]) -> str | None:
+    if "thinking_budget" not in body and ws_cfg.get("thinking_budget") is not None:
+        body["thinking_budget"] = ws_cfg["thinking_budget"]
+    budget = body.get("thinking_budget")
+    model = str(body.get("model") or ws_cfg.get("model_hint") or "")
+    level = card_thinking_level(model, budget) if budget is not None else None
+    if budget is not None and level is None:
+        logger.debug("Ignoring undocumented Ollama thinking_budget=%r for model=%s", budget, model)
+    if level is not None and "think" not in body and ws_cfg.get("think") is not False:
+        body["think"] = level
+    return level
+
+
+def _apply_omlx_thinking_budget(body: dict[str, Any], ws_cfg: dict[str, Any]) -> None:
+    if "thinking_budget" not in body and ws_cfg.get("thinking_budget") is not None:
+        body["thinking_budget"] = ws_cfg["thinking_budget"]
+
+
 def _inject_ollama_options(body: dict[str, Any], workspace_id: str = "") -> dict[str, Any]:
     """Add Ollama-specific tuning to the outgoing request body. Returns a copy.
 
@@ -336,6 +358,9 @@ def _inject_ollama_options(body: dict[str, Any], workspace_id: str = "") -> dict
             if mv is not None:
                 body["options"].setdefault(mk, mv)
 
+    budget_level = _apply_ollama_thinking_budget(body, ws_cfg_local)
+    ws_think = ws_cfg_local.get("think")
+
     # extended thinking toggle (Qwen3/DeepSeek).
     #
     # CURRENT (2026-09-25): Ollama backends are served from native /api/chat by
@@ -375,9 +400,8 @@ def _inject_ollama_options(body: dict[str, Any], workspace_id: str = "") -> dict
     bite_thinking = (
         "portal_bite_tools" in body and isinstance(ctk, dict) and ctk.get("enable_thinking") is True
     )
-    ws_think = ws_cfg_local.get("think")
     if bite_thinking:
-        body["think"] = True
+        body["think"] = budget_level or True
     elif ws_think is not None:
         body.setdefault("think", ws_think)
         if not ws_think:
@@ -396,6 +420,8 @@ def _inject_omlx_options(body: dict[str, Any], workspace_id: str = "") -> dict[s
     """
     body = dict(body)
     ws_cfg_local = WORKSPACES.get(workspace_id, {}) if workspace_id else {}
+
+    _apply_omlx_thinking_budget(body, ws_cfg_local)
 
     _effort = _apply_reasoning_effort(body)
     if _effort is None:
