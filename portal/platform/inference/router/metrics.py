@@ -265,9 +265,18 @@ _load_guard_admissions_total = Counter(
 )
 _load_guard_wait_seconds = Histogram(
     "portal5_load_guard_wait_seconds",
-    "Seconds a cold load spent inside admission, admitted or refused",
-    ["engine"],
+    "Seconds one cold load spent in one admission wait, by engine and what it waited on "
+    "(engine_transition | free_settle | in_flight)",
+    ["engine", "waited_on"],
     buckets=[0.1, 0.5, 1, 2, 5, 10, 30, 60, 120, 300, 600, 1200, 3600],
+    registry=_REGISTRY,
+)
+_load_guard_free_settle_seconds = Histogram(
+    "portal5_load_guard_free_settle_seconds",
+    "Seconds a guard-issued free took to show as released, per free and engine "
+    "(Ollama /api/ps drop plus headroom, oMLX queued-unload counter drop)",
+    ["engine"],
+    buckets=[0.05, 0.1, 0.25, 0.5, 1, 2, 3, 5, 10, 30, 60],
     registry=_REGISTRY,
 )
 _load_guard_unloads_total = Counter(
@@ -278,7 +287,8 @@ _load_guard_unloads_total = Counter(
 )
 _load_guard_refusals_total = Counter(
     "portal5_load_guard_refusals_total",
-    "Refusals by engine and reason (projected-exceeds | transition-active | quiet | deadline)",
+    "Refusals by engine and reason "
+    "(projected-exceeds | quiet | free-settle | transition-active | deadline)",
     ["engine", "reason"],
     registry=_REGISTRY,
 )

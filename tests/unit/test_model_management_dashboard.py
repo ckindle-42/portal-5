@@ -56,8 +56,13 @@ def test_each_required_quantity_has_a_panel():
         "portal5_load_guard_admissions_total",
         "portal5_load_guard_refusals_total",
         "portal5_load_guard_wait_seconds_bucket",
+        "portal5_load_guard_free_settle_seconds_bucket",
         "portal5_load_guard_unloads_total",
         "portal5_load_guard_headroom_bytes",
         "portal5_load_guard_ceiling_bytes",
     ):
         assert fragment in joined
+
+
+def test_wait_stage_breakdown_is_paneled():
+    assert any("waited_on" in expr for expr in _exprs())
