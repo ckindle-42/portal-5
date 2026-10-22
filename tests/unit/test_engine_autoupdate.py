@@ -323,5 +323,6 @@ def test_omlx_prune_keeps_only_listed_kegs(monkeypatch, tmp_path):
     for v in ("0.6.4", "0.7.0", "0.7.1"):
         (tmp_path / v).mkdir()
     monkeypatch.setattr(eu, "OMLX_CELLAR", tmp_path)
+    monkeypatch.setattr(eu, "omlx_venv_active", lambda: False)
     eu.omlx_prune({"0.7.0", "0.7.1"})
     assert sorted(p.name for p in tmp_path.iterdir()) == ["0.7.0", "0.7.1"]

@@ -18,6 +18,8 @@
     <dict>
         <key>HOME</key>
         <string>__HOME__</string>
+        <key>OMLX_SUPERVISED</key>
+        <string>launchd</string>
         <key>OMLX_VENV_PATH</key>
         <string>__OMLX_VENV__</string>
         <key>PATH</key>
