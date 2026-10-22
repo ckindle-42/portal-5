@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import asyncio
 import json
+import logging
+import re
 from typing import Any
 
 import httpx
@@ -46,6 +48,8 @@ class Engines:
         unload_counter_drops: dict[str, float] | None = None,
         immediate_counter_drops: set[str] | None = None,
         unload_loaded_flips: set[str] | None = None,
+        forced_loading: set[str] | None = None,
+        omit_estimated_size: set[str] | None = None,
     ) -> None:
         self.ollama = dict(ollama or {})
         self.tags = dict(tags or {})
@@ -68,6 +72,10 @@ class Engines:
         self.unload_counter_drops = dict(unload_counter_drops or {})
         self.immediate_counter_drops = set(immediate_counter_drops or set())
         self.unload_loaded_flips = set(unload_loaded_flips or set())
+        #: Models that report is_loading even while their loaded bit stays true.
+        self.forced_loading = set(forced_loading or set())
+        #: Models whose admin payload omits estimated_size (the actual_size fallback).
+        self.omit_estimated_size = set(omit_estimated_size or set())
         self.pending_counter_drops: dict[str, tuple[float, int]] = {}
         self.unloaded: list[str] = []
         self.unload_calls: dict[str, int] = {}
@@ -172,7 +180,8 @@ class Engines:
                         {
                             "id": k,
                             "loaded": v.get("loaded", False),
-                            "is_loading": loading and not v.get("loaded"),
+                            "is_loading": (loading and not v.get("loaded"))
+                            or k in self.forced_loading,
                             "estimated_size": v["size"],
                         }
                         for k, v in self.omlx.items()
@@ -188,28 +197,27 @@ class Engines:
                 json={
                     "active_requests": self.omlx_active,
                     "waiting_requests": 0,
-                    "models_loading": int(loading),
+                    "models_loading": int(loading) + len(self.forced_loading),
                 },
             )
         if path == "/admin/api/login":
             return httpx.Response(self.admin_login_code, json={"success": True})
         if path == "/admin/api/models":
             loading = self._loading_poll(self.admin_loading_polls, "admin")
-            return httpx.Response(
-                200,
-                json=[
-                    {
-                        "id": k,
-                        "loaded": v.get("loaded", False),
-                        "pinned": v.get("pinned", False),
-                        "estimated_size": v["size"],
-                        "actual_size": self.actual_sizes.get(k, v["size"]),
-                        "last_access": v.get("last", 0),
-                        "is_loading": loading and not v.get("loaded"),
-                    }
-                    for k, v in self.omlx.items()
-                ],
-            )
+            models = []
+            for k, v in self.omlx.items():
+                entry: dict[str, Any] = {
+                    "id": k,
+                    "loaded": v.get("loaded", False),
+                    "pinned": v.get("pinned", False),
+                    "actual_size": self.actual_sizes.get(k, v["size"]),
+                    "last_access": v.get("last", 0),
+                    "is_loading": (loading and not v.get("loaded")) or k in self.forced_loading,
+                }
+                if k not in self.omit_estimated_size:
+                    entry["estimated_size"] = v["size"]
+                models.append(entry)
+            return httpx.Response(200, json=models)
         if path.endswith("/unload"):
             return self._unload_response(path.split("/")[-2])
         if path == "/v1/chat/completions":  # oMLX chat
@@ -243,6 +251,13 @@ def guard(e: Engines) -> lg.LoadGuard:
 async def settle() -> None:
     for _ in range(50):
         await asyncio.sleep(0)
+
+
+def printed_wait_s(message: str) -> float:
+    """The wait a refusal reports, parsed from "after waiting X.Ys" (one decimal)."""
+    match = re.search(r"after waiting (\d+\.\d)s", message)
+    assert match is not None, message
+    return float(match.group(1))
 
 
 # ── Ollama admission ──────────────────────────────────────────────────────
@@ -420,6 +435,25 @@ async def test_engine_transition_wait_respects_admission_deadline(monkeypatch):
     assert 0.05 <= elapsed < 0.5
 
 
+async def test_transition_refusal_reports_the_real_elapsed_wait(monkeypatch):
+    """FIX6 finding 4b: a 0.35 s stuck transition is not "after waiting 0s"."""
+    e = Engines(
+        tags={"m": 30 * GIB},
+        omlx={"swap": {"size": GIB, "loaded": False}},
+        ceiling=8 * GIB,
+        loading_polls=[True] * 1000,
+        status_loading_polls=[True] * 1000,
+    )
+    lg.set_load_wait("0.35")
+    monkeypatch.setattr(lg, "_POLL_S", 0.01)
+    started = lg.time.monotonic()
+    with pytest.raises(lg.LoadRefusedError) as err:
+        await guard(e).admit(OLLAMA_URL, "m")
+    elapsed = lg.time.monotonic() - started
+    assert "engine model transition still active" in str(err.value)
+    assert printed_wait_s(str(err.value)) == pytest.approx(elapsed, abs=0.1)
+
+
 async def test_transition_poll_releases_lock_and_headroom_is_nonblocking(monkeypatch):
     e = Engines(tags={"m": 30 * GIB}, ceiling=8 * GIB)
     lg.set_load_wait("1")
@@ -536,6 +570,27 @@ async def test_idle_model_is_freed_before_transition_wait_and_failover_is_protec
     release()
 
 
+async def test_protected_model_transition_does_not_spend_the_admission_budget():
+    """FIX6 finding 3: the guard never acts on a protected model's oMLX load."""
+    e = Engines(
+        tags={"m": 30 * GIB},  # 37.5 needed
+        omlx={"seat": {"size": 8 * GIB, "loaded": True}},
+        ceiling=16 * GIB,
+        omlx_memory=8 * GIB,
+        forced_loading={"seat"},
+    )
+    g = guard(e)
+    g.protect(OMLX, "seat", seconds=60)
+    lg.set_load_wait("0.4")
+    started = lg.time.monotonic()
+    with pytest.raises(lg.LoadRefusedError) as err:
+        await g.admit(OLLAMA_URL, "m")
+    assert lg.time.monotonic() - started < 0.1
+    assert "with nothing in flight to wait for" in str(err.value)
+    assert e.unloaded == []
+    assert e.omlx["seat"]["loaded"]
+
+
 async def test_fitting_load_is_not_delayed_by_a_recent_guard_issued_unload():
     e = Engines(
         tags={"big": 40 * GIB, "small": GIB},
@@ -576,8 +631,10 @@ async def test_queued_omlx_unload_waits_for_memory_after_loaded_flips():
     release()
 
 
-@pytest.mark.parametrize("actual_size_gib", [8, 10])
-async def test_queued_unload_settles_on_any_counter_drop_with_pinned_memory_left(actual_size_gib):
+@pytest.mark.parametrize(("actual_size_gib", "headroom_gib"), [(8, 30.0), (10, 32.0)])
+async def test_queued_unload_settles_on_any_counter_drop_with_pinned_memory_left(
+    actual_size_gib, headroom_gib
+):
     e = Engines(
         tags={"m": 30 * GIB},
         omlx={
@@ -589,7 +646,8 @@ async def test_queued_unload_settles_on_any_counter_drop_with_pinned_memory_left
         unload_sticks=True,
         omlx_memory=16 * GIB,
         actual_sizes={"idle": actual_size_gib * GIB},
-        unload_counter_drops={"idle": 8 * GIB},
+        omit_estimated_size={"idle"},  # charge the queue by actual_size, not estimated_size
+        unload_counter_drops={"idle": actual_size_gib * GIB},
         unload_loaded_flips={"idle"},
     )
     lg.set_load_wait("0.12")
@@ -599,8 +657,8 @@ async def test_queued_unload_settles_on_any_counter_drop_with_pinned_memory_left
     elapsed = lg.time.monotonic() - started
     assert elapsed < 0.08
     assert "with nothing in flight to wait for" in str(err.value)
-    assert "headroom 30.0 GiB" in str(err.value)  # re-measured after the pinned charge
-    assert e.omlx_used() == 8 * GIB
+    assert f"headroom {headroom_gib:.1f} GiB" in str(err.value)  # after the pinned charge
+    assert e.omlx_used() == (16 - actual_size_gib) * GIB
     assert e.unload_calls["idle"] == 1
 
 
@@ -777,6 +835,23 @@ async def test_queued_omlx_unload_refuses_at_deadline_without_reposting():
     assert not g._lock.locked()
 
 
+async def test_waiting_refusal_reports_the_real_elapsed_wait():
+    """FIX6 finding 4b: a 0.55 s stuck 202 is not "after waiting 1s"."""
+    e = Engines(
+        tags={"m": 30 * GIB},  # 37.5 needed
+        omlx={"idle": {"size": 4 * GIB, "loaded": True}},
+        unload_status_code=202,
+        unload_sticks=True,
+        omlx_memory=16 * GIB,
+    )
+    lg.set_load_wait("0.55")
+    started = lg.time.monotonic()
+    with pytest.raises(lg.LoadRefusedError) as err:
+        await guard(e).admit(OLLAMA_URL, "m")
+    elapsed = lg.time.monotonic() - started
+    assert printed_wait_s(str(err.value)) == pytest.approx(elapsed, abs=0.1)
+
+
 @pytest.mark.parametrize("engine", ["ollama", "omlx"])
 async def test_sticky_unload_is_not_retried_after_admission_deadline(engine):
     if engine == "ollama":
@@ -866,6 +941,25 @@ async def test_queued_omlx_unload_does_not_stop_idle_lru_walk():
     release()
 
 
+async def test_queued_202_that_covers_the_shortage_stops_the_idle_walk():
+    """FIX6 finding 4c: queued 202 bytes count toward the shortage."""
+    e = Engines(
+        tags={"m": 20 * GIB},  # 25 needed
+        omlx={
+            "big": {"size": 24 * GIB, "loaded": True, "last": 1},
+            "small": {"size": GIB, "loaded": True, "last": 2},
+        },
+        ceiling=30 * GIB,  # 5 GiB headroom; 22 GiB to free
+        omlx_memory=25 * GIB,
+        unload_status_code=202,
+        unload_sticks=True,
+    )
+    lg.set_load_wait("0.05")
+    with pytest.raises(lg.LoadRefusedError):
+        await guard(e).admit(OLLAMA_URL, "m")
+    assert e.unload_calls == {"big": 1}  # 24 GiB queued covers the shortage; small never posted
+
+
 # ── freeing oMLX ──────────────────────────────────────────────────────────
 
 
@@ -900,6 +994,26 @@ async def test_foreign_omlx_activity_blocks_freeing():
     with pytest.raises(lg.LoadRefusedError):
         await guard(e).admit(OLLAMA_URL, "nex")
     assert e.unloaded == []
+
+
+async def test_unreadable_runtime_status_frees_nothing_and_logs_the_code(caplog):
+    """FIX6 finding 4a: a non-200 /api/status means "no idle models", not a JSON error."""
+    e = Engines(
+        tags={"m": 30 * GIB},
+        omlx={"idle": {"size": 16 * GIB, "loaded": True}},
+        ceiling=20 * GIB,
+        omlx_memory=16 * GIB,
+        api_status_code=503,
+    )
+    with (
+        caplog.at_level(logging.WARNING, logger=lg.logger.name),
+        pytest.raises(lg.LoadRefusedError) as err,
+    ):
+        await guard(e).admit(OLLAMA_URL, "m")
+    assert "with nothing in flight to wait for" in str(err.value)
+    assert e.unload_calls == {}
+    assert "could not free oMLX memory" not in caplog.text
+    assert "503" in caplog.text
 
 
 # ── oMLX serialisation ────────────────────────────────────────────────────
