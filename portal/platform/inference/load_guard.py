@@ -22,7 +22,7 @@ reports it here. The guard keeps four things true:
 3. **Queue, then refuse.** An Ollama cold load that does not fit waits for
    in-flight work to drain, re-checking on every request completion and at least
    every 5 s, and frees idle oMLX models on each pass. A free it issues stays
-   pending until the host returns those pages to oMLX's ceiling (5 s). It is
+   pending until /api/ps drops the model and oMLX's ceiling covers its bytes. It is
    refused with HTTP 507 only when the caller's wait runs out. The wait is the
    request's ``X-Portal-Load-Wait`` header (seconds; batch callers send a large
    value) or ``LOAD_GUARD_WAIT_S``. The 507 says "would exceed", which the router
@@ -79,9 +79,9 @@ _MAX_WAIT_S = 3600.0
 #: released anyway (the request's own end also releases it).
 _LOAD_TIMEOUT_S = 600.0
 _POLL_S = 0.5
-#: How long a free the guard just issued keeps admission waiting for the host to
-#: return those pages to oMLX's host-derived ceiling before the quiet refusal.
-_FREE_SETTLE_S = 5.0
+#: Expected settle of a guard-issued Ollama free, for a warning only: measured admin
+#: unloads p50 0.78 s, p95 1.93 s, max 2.29 s (n=114, oMLX 0.7.2, 2026-10-22), doubled.
+_FREE_SETTLE_EXPECTED_S = 4.6
 
 OLLAMA = "ollama"
 OMLX = "omlx"
@@ -138,6 +138,17 @@ def protect_failover(engine: str, model: str) -> None:
 def _budget_bytes(status: dict[str, Any]) -> float:
     """The ceiling to budget against: the fixed one when set, else oMLX's live one."""
     return _CEILING if _CEILING > 0 else float(status.get("final_ceiling") or 0)
+
+
+class _Free:
+    """A guard-issued Ollama free: its pages must reach oMLX's ceiling."""
+
+    __slots__ = ("baseline", "size", "started")
+
+    def __init__(self, size: float) -> None:
+        self.baseline: float | None = None
+        self.size = size
+        self.started = time.monotonic()
 
 
 class LoadGuard:
@@ -519,6 +530,7 @@ class LoadGuard:
         used: float,
         activity_seen: bool,
         pending_change: bool,
+        pending_free_names: list[str],
     ) -> tuple[_Release, bool]:
         remaining = deadline - time.monotonic()
         release()
@@ -529,6 +541,10 @@ class LoadGuard:
                     self._omlx_foreign_active(client), timeout=remaining
                 )
             except TimeoutError:
+                if pending_free_names:
+                    raise self._free_settle_refusal(
+                        model, pending_free_names, need, available, _waited_s(deadline)
+                    ) from None
                 raise self._ollama_refusal(
                     model, need, available, headroom, idle, quiet=False, waited=_waited_s(deadline)
                 ) from None
@@ -544,6 +560,10 @@ class LoadGuard:
             quiet = now is None or now >= used
             remaining = deadline - time.monotonic()
         if remaining <= 0 or quiet:
+            if pending_free_names:
+                raise self._free_settle_refusal(
+                    model, pending_free_names, need, available, _waited_s(deadline)
+                )
             raise self._ollama_refusal(
                 model, need, available, headroom, idle, quiet, waited=_waited_s(deadline)
             )
@@ -582,32 +602,83 @@ class LoadGuard:
         resident: dict[str, int],
         idle: float,
         used: float,
-        headroom: float,
         shortage: float,
         pending_omlx: dict[str, float],
-        pending_ollama: dict[str, tuple[float, float]],
+        pending_ollama: dict[str, _Free],
     ) -> tuple[bool, float, float]:
         """Free idle memory and fold it in; return the queued baseline and post counter."""
         did_free, queued, requested, after, synchronous = await self._free_idle_memory(
             client, base, resident, idle, used, shortage
         )
         pending_omlx.update(queued)
-        until = time.monotonic() + _FREE_SETTLE_S
-        pending_ollama.update(dict.fromkeys(requested, (until, headroom)))
+        frees = {name: _Free(float(resident.get(name, 0))) for name in requested}
+        if frees:
+            status = await self._omlx_status(client)
+            if status is not None:
+                baseline = _budget_bytes(status) - float(status.get("current_model_memory") or 0)
+                for free in frees.values():
+                    free.baseline = baseline
+        pending_ollama.update(frees)
         post = used if after is None else after
         return did_free, self._pending_baseline(used, after, synchronous), post
 
     @staticmethod
     def _retire_ollama_frees(
-        pending: dict[str, tuple[float, float]], resident: dict[str, int], headroom: float
-    ) -> dict[str, tuple[float, float]]:
-        """Keep a freed model pending until its pages reach the host-derived ceiling."""
+        pending: dict[str, _Free], resident: dict[str, int], headroom: float
+    ) -> tuple[dict[str, _Free], list[tuple[str, float]]]:
+        """Retire a free once /api/ps drops it and headroom covers its bytes."""
         now = time.monotonic()
-        return {
-            name: (until, baseline)
-            for name, (until, baseline) in pending.items()
-            if name in resident or (now < until and headroom <= baseline)
-        }
+        remaining: dict[str, _Free] = {}
+        settled: list[tuple[str, float]] = []
+        for name, free in pending.items():
+            if free.baseline is None:
+                free.baseline = headroom
+            baseline = free.baseline
+            landed = name not in resident and (_CEILING > 0 or headroom >= baseline + free.size)
+            if landed:
+                settled.append((name, now - free.started))
+            else:
+                remaining[name] = free
+        return remaining, settled
+
+    def _settle_ollama_frees(
+        self,
+        model: str,
+        need: float,
+        available: float,
+        resident: dict[str, int],
+        headroom: float,
+        pending: dict[str, _Free],
+        deadline: float,
+    ) -> dict[str, _Free]:
+        """Log landed frees, warn past the expected settle, and refuse only at the wait."""
+        pending, settled = self._retire_ollama_frees(pending, resident, headroom)
+        for name, elapsed in settled:
+            if elapsed >= _FREE_SETTLE_EXPECTED_S:
+                logger.warning(
+                    "load_guard: free of %s settled in %.1fs (expected %.1fs)",
+                    name,
+                    elapsed,
+                    _FREE_SETTLE_EXPECTED_S,
+                )
+            else:
+                logger.info("load_guard: free of %s settled in %.1fs", name, elapsed)
+        if pending and need > available and time.monotonic() >= deadline:
+            raise self._free_settle_refusal(
+                model, list(pending), need, available, _waited_s(deadline)
+            )
+        return pending
+
+    @staticmethod
+    def _free_settle_refusal(
+        model: str, names: list[str], need: float, available: float, waited: float
+    ) -> LoadRefusedError:
+        freed = ", ".join(sorted(names))
+        return LoadRefusedError(
+            f"Cannot load {model}: free of {freed} did not settle within "
+            f"the {waited:.1f}s load wait (projected {need / _GIB:.1f} GiB, host "
+            f"headroom {available / _GIB:.1f} GiB)"
+        )
 
     @staticmethod
     def _pending_baseline(used: float, after: float | None, synchronous: float) -> float:
@@ -724,7 +795,7 @@ class LoadGuard:
             activity_seen = False
             pending_omlx: dict[str, float] = {}
             pending_omlx_used = 0.0
-            pending_ollama: dict[str, tuple[float, float]] = {}
+            pending_ollama: dict[str, _Free] = {}
             last_used: float | None = None
             recheck = False
             try:
@@ -749,22 +820,23 @@ class LoadGuard:
                             resident,
                             idle,
                             used,
-                            headroom,
                             need - available,
                             pending_omlx,
                             pending_ollama,
                         )
                         if freed_or_queued:
                             continue
-                    if need <= available:
-                        break
-                    pending_ollama = self._retire_ollama_frees(pending_ollama, resident, headroom)
                     pending_omlx, settled, pending_omlx_used = await self._pending_omlx_unloads(
                         client, pending_omlx, pending_omlx_used
                     )
                     if settled:
                         recheck = False  # our own unload moved the counter
                         continue  # re-measure headroom before deciding
+                    pending_ollama = self._settle_ollama_frees(
+                        model, need, available, resident, headroom, pending_ollama, deadline
+                    )
+                    if need <= available:
+                        break
                     release, loading_seen = await self._wait_if_omlx_loading(
                         client, model, deadline, release, held
                     )
@@ -783,6 +855,7 @@ class LoadGuard:
                         used,
                         activity_seen,
                         bool(pending_omlx or pending_ollama or recheck),
+                        list(pending_ollama),
                     )
                     recheck = False
             except LoadRefusedError:
