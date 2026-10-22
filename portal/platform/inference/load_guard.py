@@ -823,7 +823,8 @@ class LoadGuard:
 
         Pure measurement, no side effects. Counts what the set would add (models
         not yet resident), against headroom plus idle Ollama residents and idle
-        oMLX models outside the set."""
+        oMLX models outside the set. Each row reports its footprint
+        (``projected_gib``) and the delta it adds (``adds_gib``)."""
         names = {m for _, m in models}
         async with self._client() as client:
             resident = await self._resident(client, ollama_base)
@@ -838,14 +839,21 @@ class LoadGuard:
             for engine, model in models:
                 if engine == OLLAMA:
                     loaded = model in resident
-                    size = 0.0 if loaded else await self._need(client, ollama_base, model)
+                    footprint = await self._need(client, ollama_base, model)
                 else:
                     entry = _omlx_entry(st, model) or {}
                     loaded = bool(entry.get("loaded"))
-                    size = 0.0 if loaded else float(entry.get("estimated_size") or 0)
+                    footprint = float(entry.get("estimated_size") or 0)
+                size = 0.0 if loaded else footprint
                 need += size
                 per_model.append(
-                    {"engine": engine, "model": model, "resident": loaded, "adds_gib": size / _GIB}
+                    {
+                        "engine": engine,
+                        "model": model,
+                        "resident": loaded,
+                        "adds_gib": size / _GIB,
+                        "projected_gib": footprint / _GIB,
+                    }
                 )
             idle_ollama = self._ollama_idle(resident, exclude=names)
             try:

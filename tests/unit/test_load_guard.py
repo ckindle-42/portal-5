@@ -1170,6 +1170,8 @@ async def test_plan_counts_only_what_the_set_adds_against_idle_capacity():
     )
     plan = await guard(e).plan(OLLAMA_URL, [(OLLAMA, "warm"), (OLLAMA, "cold"), (OMLX, "o-cold")])
     assert plan["need_gib"] == pytest.approx(10 + 16)  # warm adds nothing
+    assert [row["adds_gib"] for row in plan["models"]] == pytest.approx([0, 10, 16])
+    assert [row["projected_gib"] for row in plan["models"]] == pytest.approx([6.25, 10, 16])
     assert plan["idle_ollama_gib"] == pytest.approx(10)  # router pinned; warm in the set
     assert plan["freeable_omlx_gib"] == pytest.approx(12)
     assert plan["fits"] is True  # 12 + 10 + 12 - 2 = 32 >= 26
