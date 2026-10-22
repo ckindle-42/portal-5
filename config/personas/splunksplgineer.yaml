@@ -4,7 +4,7 @@ delivery: role
 category: security
 workspace_model: auto-spl
 preferred_models:
-  - portal5/omnicoder2-9b:q4_k_m-ctx256k
+  - Huihui-Qwen3.6-27B-abliterated-MLX-4bit
   - omnicoder2:9b-q4_k_m
   - omnicoder2:9b-q4_k_m-ctx8k
 module: general
