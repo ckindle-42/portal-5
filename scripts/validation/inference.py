@@ -163,6 +163,15 @@ def check_cli_introspection() -> tuple[str, str, list[dict]]:
     return "PASS", f"all {len(commands)} CLI invocations rc=0", subs
 
 
+# H budget. Measured 2026-10-21 (M4 Pro, quiet, full extras): 3637 passed +
+# 116 skipped in 166s serial; the same-day incident this replaces measured
+# ~335s on a busier host (2x variance). 3x the quiet measurement absorbs both
+# without letting a hung suite stall validate_system indefinitely. If this
+# fires, re-measure with `uv run pytest tests/unit -q --durations=20` and
+# re-derive, don't just raise it.
+_UNIT_SUITE_BUDGET_S = 500
+
+
 @register("unit_tests", "H. unit test suite", order=7)
 def check_unit_tests(*, skip_env_only: bool = True) -> tuple[str, str, list[dict]]:
     """H. Run pytest tests/unit (optionally excluding environment-only files).
@@ -221,7 +230,21 @@ def check_unit_tests(*, skip_env_only: bool = True) -> tuple[str, str, list[dict
             "--ignore=tests/unit/test_proxmox_mcp.py",
             "--ignore=tests/unit/test_transcribe_diarize.py",
         ]
-    result = subprocess.run(args, capture_output=True, text=True, timeout=300, cwd=str(REPO_ROOT))
+    try:
+        result = subprocess.run(
+            args,
+            capture_output=True,
+            text=True,
+            timeout=_UNIT_SUITE_BUDGET_S,
+            cwd=str(REPO_ROOT),
+        )
+    except subprocess.TimeoutExpired:
+        return (
+            "FAIL",
+            f"tests/unit exceeded the {_UNIT_SUITE_BUDGET_S}s budget — "
+            "profile with: uv run pytest tests/unit -q --durations=20",
+            [],
+        )
     # Parse the summary line ("= N failed, N passed, ... =")
     summary_line = ""
     for line in result.stdout.splitlines()[::-1]:
