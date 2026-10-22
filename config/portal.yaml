@@ -75,7 +75,10 @@ orchestration_arm:
     high_risk_writes: true
   calibration:
     after_bites: 3
-    minimum_pass_probability: null
+    # Frozen 2026-10-22 from scripts/gate_c_calculator.py (95% Wilson floor) over the post-fix test_fixing
+    # bite suites: auto-daily::fast 6/6, auto-daily::deep 6/6 (pass_criteria MET; receipts in
+    # results/arm/gate_c_calibration.json). Re-derive only with a new frozen criteria set.
+    minimum_pass_probability: 0.531441
     rates_by_discipline: {}
   queue:
     yield_lock_dir: "~/.portal5/locks/"

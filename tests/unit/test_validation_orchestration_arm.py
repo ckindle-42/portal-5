@@ -193,6 +193,13 @@ def test_gate_c_threshold_fails_when_unattended_is_not_refused(monkeypatch) -> N
     from portal.modules.orchestration import service
 
     monkeypatch.setattr(service, "_require_calibration", lambda *_a, **_k: None)
+    # Exercise the null-threshold path even though the shipped config now carries a frozen value.
+    real_config = arm._arm_config(arm.REPO_ROOT)
+    null_config = {
+        **real_config,
+        "calibration": {**real_config["calibration"], "minimum_pass_probability": None},
+    }
+    monkeypatch.setattr(arm, "_arm_config", lambda *_a, **_k: null_config)
 
     status, detail, _subs = arm.check_arm_gate_c_threshold()
 

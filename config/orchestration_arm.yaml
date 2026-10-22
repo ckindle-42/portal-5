@@ -31,7 +31,7 @@ approval:
   high_risk_writes: true
 calibration:
   after_bites: 3
-  minimum_pass_probability: null
+  minimum_pass_probability: 0.531441
   rates_by_discipline: {}
 queue:
   yield_lock_dir: ~/.portal5/locks/
