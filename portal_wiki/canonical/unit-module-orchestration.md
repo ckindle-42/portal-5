@@ -33,6 +33,16 @@ sources:
   path: portal/platform/inference/config.py
 - type: config
   path: config/portal.yaml
+- type: code
+  path: portal/platform/inference/router/eval_gate.py
+- type: code
+  path: tests/wfe/runner.py
+- type: code
+  path: tests/unit/orchestration_fake_pipeline.py
+- type: code
+  path: scripts/orchestration_bite_suite.py
+- type: code
+  path: scripts/gate_c_calculator.py
 claims:
 - probe: modules.disabled
   contains: orchestration
@@ -42,7 +52,7 @@ tags:
 - module
 - verified-v1
 created_at: 1792546230.261703
-updated_at: 1792546273.110409
+updated_at: 1792680000
 ---
 
 # Orchestration Module — offline verified task runner
@@ -58,6 +68,12 @@ Offline tests drive the arm through a fake OpenAI-compatible Pipeline API. Store
 ## Module state
 
 The switch is `modules.orchestration.enabled` in `config/portal.yaml` and defaults to false. The module unit documents the switch; it does not hold it. `config/orchestration_arm.yaml` supplies the default `swap` residency mode and the underlying model IDs checked by the Pipeline load guard.
+
+## Live bites
+
+The arm cannot run a live bite yet. The worker's `portal_bite_tools` list is an allowlist. `apply_bite_tool_scope` filters tools the pipeline already has, and the only client schema the worker attaches is `finish`. The bite tool implementations live in `tests/wfe/runner.py`. The fake pipeline copies `portal_bite_tools` into `tools_offered`, so the rig echoes the allowlist. Task-scoped client tools are being built on `plan/bite-mount` and are do-not-merge until the Daybreak security fixes land. The open constraint is [[unit-known-limitations-arm-bite-tools]].
+
+`scripts/orchestration_bite_suite.py` writes planner, checker, and bite rows. `scripts/gate_c_calculator.py` keeps final bite-suite rows (`passed`, `blocked`, `failed`) and drops every other suite plus `HARNESS_ERROR`. A missing bite tool is a harness error, not a Gate C sample.
 
 ## Why
 

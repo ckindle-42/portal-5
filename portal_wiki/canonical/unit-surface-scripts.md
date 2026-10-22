@@ -15,7 +15,7 @@ tags:
 - authored-v1
 - scripts
 created_at: 1785883000.0
-updated_at: 1792668000.0
+updated_at: 1792680000.0
 ---
 
 The `scripts/` tree is the operator tool farm: standalone executables run from
@@ -49,6 +49,10 @@ No runner exists, so run each tool with the environment it expects; output is
 current reality, not a record. Bench runs are gated by `execute_preflight`,
 not doc-baked counts. Live UAT, acceptance, and seat-screen preflight refuse a
 busy host via `scripts/host_quiet.py`; see
-[[unit-known-limitations-host-measurement-contention]]. Corpus injection is
+[[unit-known-limitations-host-measurement-contention]]. A seat screen runs
+that preflight from the main checkout with `--config-repo` pointed at the
+checkout; see [[unit-wfe-workspace-fitness]]. `scripts/orchestration_bite_suite.py`
+writes suite receipts, and `scripts/gate_c_calculator.py` drops `HARNESS_ERROR`
+rows; see [[unit-known-limitations-arm-bite-tools]]. Corpus injection is
 reviewed dry-run first; matrix analyzers like `blend_acceptance_results` merge
 evidence without a verdict; supervisor recovery is bounded to `ALLOWED_ACTIONS`.

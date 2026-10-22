@@ -316,11 +316,27 @@ None of these failures surfaced as an error the stack could see: each returned H
 - **ID**: P5-ENGINE-TCC-001
 - **Status**: RUNNING 2026-10-22. oMLX serves from LaunchAgent `com.portal5.omlx` and the fixed `~/omlx-live/venv`. Wheel upgrades stay on that signed interpreter, which is what macOS keys `data01` access to. A release that loses model visibility still pages and rolls back.
 - **Description**: macOS must grant each executable identity access to the external `data01` volume that holds the models. Homebrew's ad-hoc signed Python changes identity when the formula upgrades Python, so a new build can trigger another Allow popup. Pre-approval needs an MDM-installed privacy profile, which this host does not have.
-- **Mitigation**: Ollama runs from fixed `~/ollama-live/` with a stable Developer ID requirement. The oMLX installer uses a fixed `~/omlx-live/venv` backed by a Developer ID-signed ARM64 python.org framework interpreter, and the updater replaces only the package in a staged copy at that path. The interpreter path and signing identity therefore stay constant across oMLX wheel upgrades; the first post-cutover access and later releases still require model-count verification. `scripts/engine_autoupdate.py` compares model counts after a switch; a drop sends a high-priority Pushover request and waits 30 minutes before restoring the previous version and retrying the next day. `engine_contract_check.py` alerts the same way when a probe model vanishes after a manual upgrade.
+- **Mitigation**: Ollama runs from fixed `~/ollama-live/` with a stable Developer ID requirement. The oMLX installer uses a fixed `~/omlx-live/venv` backed by a Developer ID-signed ARM64 python.org framework interpreter, and the updater replaces only the package in a staged copy at that path. The interpreter path and signing identity therefore stay constant across oMLX wheel upgrades; the first post-cutover access and later releases still require model-count verification. `scripts/engine_autoupdate.py` compares model counts after a switch; a drop sends a high-priority Pushover request and waits 30 minutes before restoring the previous version and retrying the next day. `engine_contract_check.py` alerts the same way when a probe model vanishes after a manual upgrade. The 2026-10-22 updater run moved this host's Ollama from 0.40.5 to 0.40.8 and recorded `contract_rc` 0 (`updated` in `~/.portal5/engine_update.json`). `flint:40b-a2b-qat-int4` is installed on that release. The tag is not registered in `config/backends.yaml`.
 
 #### Why
 
 An unattended update that silently leaves the engine blind to its models would take every seat down while reporting success; the popup is the one step automation cannot perform, so the design makes it loud, bounded and reversible.
+<!-- /WIKI:GENERATED -->
+
+---
+
+<!-- WIKI:GENERATED unit=unit-known-limitations-arm-bite-tools -->
+#### Arm cannot run a live bite — bite tools have no production implementation (2026-10-22)
+
+- **ID**: P5-ARM-BITE-001
+- **Status**: OPEN. Offline rigs pass. A live bite does not. Task-scoped client tools are on `plan/bite-mount` (`d5f3eca9`) and are do-not-merge until the Daybreak security fixes land.
+- **Description**: The worker sends `portal_bite_tools` (the bite's names plus `finish`) and a client `tools` list that contains only the `finish` schema. `apply_bite_tool_scope` intersects that allowlist with tools the pipeline already has. It does not implement the bite tools. File read, list, search, pytest, write, and HTTP get exist in `tests/wfe/runner.py` and are not a production service. The fake pipeline used by the rig and by `scripts/orchestration_bite_suite.py --dry-run` copies `portal_bite_tools` into `tools_offered`, so an offline pass echoes the allowlist. A live trace offers only names the pipeline actually has, and the suite records `HARNESS_ERROR` when an expected bite tool is missing.
+- **Gate C**: `scripts/gate_c_calculator.py` counts final bite-suite rows only (`passed`, `blocked`, `failed`, or statuses `PASS`, `BLOCKED`, `FAILED`). Planner and checker suites are skipped. `HARNESS_ERROR` is not a final state, so those rows stay in the receipt and do not enter the rates. A live suite that fails closed on missing tools therefore cannot be read as a model rate.
+- **What not to do**: do not merge `plan/bite-mount` ahead of the Daybreak security fixes, and do not treat a dry-run receipt as evidence that a live bite ran.
+
+#### Why
+
+The request field looks like a tool mount, and the fake rig reports the allowlist as tools offered, so an offline pass reads as if the bite tools executed. They did not. Recording the gap next to the arm keeps a green rig from being taken as a license to run live bites, and it keeps a harness error out of Gate C so a missing tool is not averaged in as a model failure.
 <!-- /WIKI:GENERATED -->
 
 ---
