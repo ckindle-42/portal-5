@@ -2,7 +2,7 @@
 
 # Portal 5 Architecture Map
 
-*Deterministic projection of 765 canonical units.*
+*Deterministic projection of 768 canonical units.*
 
 ## Knowledge Layer
 
@@ -290,6 +290,7 @@
 | `unit-design-omlx-dual-backend-plumbing` | mixed | 12 |
 | `unit-design-spine-drift-census` | mixed | 7 |
 | `unit-design-wiki-archive-mechanism` | mixed | 5 |
+| `unit-engine-prefix-cache-20261021` | what | 4 |
 | `unit-fixture-capability-context-sample` | mixed | 1 |
 | `unit-general-config-workspace-pointers` | mixed | 1 |
 | `unit-general-fast-deep-workspaces` | mixed | 2 |
@@ -337,8 +338,10 @@
 | `unit-known-limitations-ollama-api-ps-under-reports-llamacpp-residents` | what | 1 |
 | `unit-known-limitations-ollama-gpu-overhead-ceiling` | what | 1 |
 | `unit-known-limitations-ollama-native-mlx-engine-evaluation-findings-2026-07-01` | what | 3 |
+| `unit-known-limitations-ollama-tool-call-parser-aborts-a-started-stream` | what | 3 |
 | `unit-known-limitations-ollama-v1-ignores-options-num-ctx-and-options-num-batch` | what | 6 |
 | `unit-known-limitations-ollama-v1-sampling-drop` | what | 4 |
+| `unit-known-limitations-omlx-prefix-cache-accounting` | what | 2 |
 | `unit-known-limitations-omlx-qwen3coder-tool-text` | what | 3 |
 | `unit-known-limitations-owui-audio-drop-ux-task-owui-audio-drop-001` | what | 2 |
 | `unit-known-limitations-p5-emergent-002-deterministic-capability-ranker-can-t-reach-oracle-bearing-capabilities-once-any-tool-declaring-recon-capability-is-a-candidate` | what | 4 |
@@ -382,7 +385,7 @@
 | `unit-mcp-dev-tooling-2-export-the-pipeline-api-key-into-the-environment` | what | 5 |
 | `unit-mcp-dev-tooling-3-launch-opencode-reads-opencode-jsonc-mcp-json-automatically` | what | 2 |
 | `unit-mcp-dev-tooling-adding-a-feature-opencode-with-local-laguna` | what | 3 |
-| `unit-mcp-dev-tooling-auto-coding-workspace-laguna-variant` | what | 3 |
+| `unit-mcp-dev-tooling-auto-coding-workspace-laguna-variant` | what | 6 |
 | `unit-mcp-dev-tooling-checking-what-s-in-vram-before-a-long-task` | what | 1 |
 | `unit-mcp-dev-tooling-claude-code-integration` | what | 3 |
 | `unit-mcp-dev-tooling-debugging-a-failing-mcp-server-claude-code` | what | 3 |
@@ -573,7 +576,7 @@
 | `unit-module-media` | mixed | 6 |
 | `unit-module-music` | mixed | 3 |
 | `unit-module-netforensics` | mixed | 4 |
-| `unit-module-orchestration` | mixed | 12 |
+| `unit-module-orchestration` | mixed | 15 |
 | `unit-module-research` | mixed | 5 |
 | `unit-module-security` | mixed | 5 |
 | `unit-module-security-redteam` | mixed | 3 |
@@ -774,15 +777,15 @@
 | `unit-wiki-tests-render` | mixed | 1 |
 | `unit-wiki-writeback` | mixed | 1 |
 
-**Total:** 765 units
+**Total:** 768 units
 
 ## Source Distribution
 
 - **bench-security**: 1 references
-- **code**: 2083 references
+- **code**: 2094 references
 - **config**: 2 references
 - **data**: 1 references
-- **doc**: 5 references
+- **doc**: 9 references
 - **mitre**: 40 references
 - **scenario**: 54 references
 - **spl**: 40 references
