@@ -33,3 +33,7 @@ uv run python tests/wfe/e2e/rig_orchestration_arm.py
 ```
 
 The rig prints its `receipt.json` path. Block notices go to a stub interface in this phase; no Telegram message is sent.
+
+`scripts/orchestration_acceptance.py` is the operator-facing harness. `--dry-run` runs its scenarios against the same fake Pipeline; live mode needs `PIPELINE_API_KEY` plus both seat digests, refuses to start while a WFE sweep is registered in `/tmp/portal5-memory-safety-test-pids` or running as `tests.wfe.campaign`, and re-checks before every scenario. It writes `acceptance_receipt.json` and `.md` under `<tasks dir>/arm-acceptance/` by default. It is a smoke/wiring harness, not Gate B/C exit evidence: scenarios that need controllable model output report `SKIP` with `required: true`, and `SKIP` exits non-zero.
+
+`scripts/gate_c_calculator.py` reads arm task receipts together with their `plan.json`, reports per-discipline/seat rates plus the WFE `rates_by_discipline` block, evaluates the fixed `pass_criteria`, and prints the task-level `calibration.minimum_pass_probability` floor. It never writes config.
