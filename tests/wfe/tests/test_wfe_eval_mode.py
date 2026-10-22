@@ -214,9 +214,9 @@ def test_settings_resolve_like_the_services(tmp_path, monkeypatch):
     env = tmp_path / ".env"
     env.write_text("# comment\nexport AI_OUTPUT_DIR='/srv/ai'\nOTHER=1\n")
     monkeypatch.delenv("AI_OUTPUT_DIR", raising=False)
-    assert eval_mode.setting("AI_OUTPUT_DIR", "/home/x/AI_Output", env) == "/srv/ai"
+    assert eval_mode.setting("AI_OUTPUT_DIR", "/srv/x/AI_Output", env) == "/srv/ai"
     monkeypatch.setenv("AI_OUTPUT_DIR", "/from/env")
-    assert eval_mode.setting("AI_OUTPUT_DIR", "/home/x/AI_Output", env) == "/from/env"
+    assert eval_mode.setting("AI_OUTPUT_DIR", "/srv/x/AI_Output", env) == "/from/env"
     assert eval_mode.setting("MISSING", "dflt", env) == "dflt"
 
 

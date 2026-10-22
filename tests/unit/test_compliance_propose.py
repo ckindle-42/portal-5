@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import asyncio
 from dataclasses import replace
-from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, Mock
 
@@ -12,7 +11,7 @@ import pytest
 
 from portal.modules.compliance.core import propose as p
 from portal.modules.compliance.core.applicability import AssetScope
-from portal.modules.compliance.core.cip_register import Register
+from portal.modules.compliance.core.cip_register import PDF_DIR, Register
 from portal.modules.compliance.core.coverage import ProposalError, coverage_matrix
 from portal.modules.compliance.core.mapping_store import MappingStore
 from portal.platform.retrieval import embedding, pipeline
@@ -26,9 +25,7 @@ TARGET = next(n for n in Register.load().nodes if n.id == "CIP-007-6 R5 Part 5.4
 # path; compliance_gaps wraps its whole sync path in try/except and returns
 # {"error": ...} instead of raising, so there's no exception for a generic
 # skip-on-error fixture to catch.
-_CIP_PDFS_PRESENT = any(
-    (Path(__file__).resolve().parents[2] / "portal/modules/compliance/data/cip_pdfs").glob("*.pdf")
-)
+_CIP_PDFS_PRESENT = any(PDF_DIR.glob("*.pdf"))
 OTHER = next(n for n in Register.load().nodes if n.id == "CIP-007-6 R1 Part 1.1")
 SCOPE = AssetScope(impact_present={"high", "medium"}, declared_by="test")
 TEXT = "Change known default passwords, per Cyber Asset capability."

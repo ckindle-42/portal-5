@@ -10,6 +10,7 @@ Cartesian proposals out of established impact.
 from __future__ import annotations
 
 import hashlib
+import os
 import pathlib
 
 import pytest
@@ -558,8 +559,13 @@ class TestMigrationAndRepository:
 # ── private-corpus integration (skipped when the operator PDFs are absent) ──
 
 
-CORPUS = __import__("pathlib").Path(
-    "coding_task/v9_compliance/ACME-CIP/CIP-007/the operator's document.pdf"
+CORPUS = pathlib.Path(
+    # The operator corpus is private: set PORTAL5_COMPLIANCE_CORPUS to run this.
+    os.environ.get("PORTAL5_COMPLIANCE_CORPUS")
+    or pathlib.Path(__file__).resolve().parents[1]
+    / "fixtures"
+    / "compliance"
+    / "CIP-007-procedure.pdf"
 )
 
 

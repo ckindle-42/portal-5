@@ -33,6 +33,7 @@ from portal.modules.compliance.core.cip_extract import (
 _DATA = Path(__file__).resolve().parent.parent / "data"
 REGISTER_PATH = _DATA / "nerc_cip_register.json"
 DERIVED_MAP_PATH = _DATA / "nerc_cip_map.json"
+PDF_DIR = _DATA / "cip_pdfs"
 
 # FERC-approved effective dates — public record (nerc.com/pa/Stand, "Reliability
 # Standards Under Development" / "Enforcement Dates"). The standard PDFs
@@ -415,7 +416,7 @@ if __name__ == "__main__":
     import sys
 
     if len(sys.argv) > 1 and sys.argv[1] in ("build", "fetch"):
-        src = sys.argv[2] if len(sys.argv) > 2 else str(_DATA / "cip_pdfs")
+        src = sys.argv[2] if len(sys.argv) > 2 else str(PDF_DIR)
         okp, badp = fetch_pdfs(src)
         if badp:
             print(f"honest-BLOCKED: could not fetch {badp} from nerc.com")

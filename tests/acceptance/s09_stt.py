@@ -65,7 +65,7 @@ async def run() -> None:
     # S9-04: MLX Transcribe end-to-end with fixture (only if service is up)
     if mlx_transcribe_code == 200:
         t0 = time.time()
-        fixture = Path("tests/fixtures/audio/two_speaker_10s.wav")
+        fixture = Path("tests/fixtures/audio/two_speaker_10s.wav")  # local-only: recorded clip
         if not fixture.exists():
             record(sec, "S9-04", "MLX Transcribe diarization", "INFO", "fixture missing", t0=t0)
         else:
@@ -133,7 +133,7 @@ async def run() -> None:
     # S9-05: MCP tool resolves OWUI-style upload (workspace integration)
     if mlx_transcribe_code == 200:
         t0 = time.time()
-        fixture = Path("tests/fixtures/audio/two_speaker_10s.wav")
+        fixture = Path("tests/fixtures/audio/two_speaker_10s.wav")  # local-only: recorded clip
         if not fixture.exists():
             record(sec, "S9-05", "Workspace upload resolution", "INFO", "fixture missing", t0=t0)
         else:
