@@ -71,7 +71,7 @@ The switch is `modules.orchestration.enabled` in `config/portal.yaml` and defaul
 
 ## Live bites
 
-The arm cannot run a live bite yet. The worker's `portal_bite_tools` list is an allowlist. `apply_bite_tool_scope` filters tools the pipeline already has, and the only client schema the worker attaches is `finish`. The bite tool implementations live in `tests/wfe/runner.py`. The fake pipeline copies `portal_bite_tools` into `tools_offered`, so the rig echoes the allowlist. Task-scoped client tools are being built on `plan/bite-mount` and are do-not-merge until the Daybreak security fixes land. The open constraint is [[unit-known-limitations-arm-bite-tools]].
+The arm cannot run a live bite yet. The worker's `portal_bite_tools` list is an allowlist. `apply_bite_tool_scope` filters tools the pipeline already has, and the only client schema the worker attaches is `finish`. The bite tool implementations live in `tests/wfe/runner.py`. The fake pipeline scripts the engine, not the decisions: bearer auth, `tools_offered` (through the production `apply_bite_tool_scope` over a declared registry, default exactly the allowlisted names), and the SSE wire are production code, pinned by parity tests. Task-scoped client tools are being built on `plan/bite-mount` and are do-not-merge until the Daybreak security fixes land. The open constraint is [[unit-known-limitations-arm-bite-tools]].
 
 `scripts/orchestration_bite_suite.py` writes planner, checker, and bite rows. `scripts/gate_c_calculator.py` keeps final bite-suite rows (`passed`, `blocked`, `failed`) and drops every other suite plus `HARNESS_ERROR`. A missing bite tool is a harness error, not a Gate C sample.
 
