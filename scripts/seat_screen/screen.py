@@ -16,6 +16,11 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+
+from scripts import host_quiet  # noqa: E402
+
 DEFAULT_BASE = "e75095ef"
 
 
@@ -80,16 +85,61 @@ def _preflight(wt: Path, slug: str, output: Path) -> tuple[bool, list[str]]:
     ]
     result = _run(command, ROOT)
     output.write_text(result.stdout + result.stderr)
-    reasons = [
-        line.removeprefix("BLOCK:").strip()
-        for line in (result.stdout + result.stderr).splitlines()
-        if line.startswith("BLOCK:")
-    ]
+    reasons = []
+    for line in (result.stdout + result.stderr).splitlines():
+        if line.startswith("BLOCK transient:"):
+            reasons.append("transient: " + line.removeprefix("BLOCK transient:").strip())
+        elif line.startswith("BLOCK:"):
+            reasons.append(line.removeprefix("BLOCK:").strip())
     if result.returncode and not reasons:
         reasons = [
             (result.stdout + result.stderr).strip() or f"seat preflight exited {result.returncode}"
         ]
     return result.returncode == 0, reasons
+
+
+def _classified_reasons(reasons: list[str]) -> tuple[list[str], bool]:
+    display: list[str] = []
+    transient_only = bool(reasons)
+    for reason in reasons:
+        if reason.startswith("transient: "):
+            display.append(reason.removeprefix("transient: "))
+        else:
+            transient_only = False
+            display.append(reason)
+    return display, transient_only
+
+
+def _note_waits(output: Path, waited: list[str]) -> None:
+    if waited:
+        with output.open("a", encoding="utf-8") as stream:
+            stream.write("\n".join(waited) + "\n")
+
+
+def _preflight_until_quiet(
+    args: argparse.Namespace, wt: Path, slug: str, output: Path
+) -> tuple[bool, list[str]]:
+    poll_s = float(getattr(args, "quiet_poll_seconds", host_quiet.DEFAULT_QUIET_POLL_S))
+    max_wait_s = float(getattr(args, "quiet_max_wait_seconds", host_quiet.DEFAULT_QUIET_MAX_WAIT_S))
+    deadline = time.monotonic() + max(0.0, max_wait_s)
+    waited: list[str] = []
+    while True:
+        passed, reasons = _preflight(wt, slug, output)
+        display, transient_only = _classified_reasons(reasons)
+        if passed or not transient_only:
+            _note_waits(output, waited)
+            return passed, display
+        delay = host_quiet.quiet_delay(deadline - time.monotonic(), poll_s)
+        if delay is None:
+            message = host_quiet.format_quiet_timeout(max_wait_s, display)
+            print(message, file=sys.stderr, flush=True)
+            waited.append(message)
+            _note_waits(output, waited)
+            return False, display
+        message = host_quiet.format_quiet_wait(delay, display)
+        print(message, file=sys.stderr, flush=True)
+        waited.append(message)
+        time.sleep(delay)
 
 
 def _dispatch_log(role: str) -> Path | None:
@@ -192,7 +242,9 @@ def _screen_one(args: argparse.Namespace, slug: str, results: Path) -> bool:
     wt: Path | None = None
     try:
         wt, seat_base = _prepare_worktree(args, slug, role)
-        passed, reasons = _preflight(wt, slug, args.output_dir / f"seat_{slug}_preflight.log")
+        passed, reasons = _preflight_until_quiet(
+            args, wt, slug, args.output_dir / f"seat_{slug}_preflight.log"
+        )
         if not passed:
             _append_result(
                 results,
@@ -241,6 +293,18 @@ def main() -> int:
     )
     parser.add_argument("--output-dir", type=Path, default=ROOT / "results/seat_screen")
     parser.add_argument("--timeout", type=int, default=1500)
+    parser.add_argument(
+        "--quiet-poll-seconds",
+        type=float,
+        default=host_quiet.DEFAULT_QUIET_POLL_S,
+        help="seconds between re-checks of a transient host blocker",
+    )
+    parser.add_argument(
+        "--quiet-max-wait-seconds",
+        type=float,
+        default=host_quiet.DEFAULT_QUIET_MAX_WAIT_S,
+        help="give up on a transient host blocker after this many seconds",
+    )
     args = parser.parse_args()
     args.repo = args.repo.resolve()
     args.dispatch = args.dispatch.resolve()

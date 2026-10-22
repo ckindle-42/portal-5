@@ -286,6 +286,14 @@ def preflight(args: argparse.Namespace, environment: dict[str, str] | None = Non
     return issues
 
 
+def _emit_host_blockers(context: dict) -> None:
+    for reason in context.get("blockers", []):
+        if host_quiet.is_transient_blocker(str(reason)):
+            print(f"BLOCK transient: {reason}")
+        else:
+            print(f"BLOCK: {reason}")
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--repo", type=Path, default=ROOT)
@@ -305,20 +313,18 @@ def main() -> int:
     pipeline_url = os.environ.get("PIPELINE_URL", "http://localhost:9099").rstrip("/")
     api_key = os.environ.get("PIPELINE_API_KEY", "portal-pipeline")
     host_context = host_quiet.begin_run(pipeline_url, api_key, force=args.force)
-    if not host_context["allowed"]:
-        host_quiet.finish_run(host_context, pipeline_url, api_key)
-        print(f"host-quiet receipt: {json.dumps(host_context, sort_keys=True)}")
-        print(f"BLOCK: {host_quiet.refusal(host_context)}")
-        return 1
-    if host_context["override_reason"]:
-        print(f"HOST-QUIET OVERRIDE: {host_context['override_reason']}")
     issues = preflight(args)
     host_quiet.finish_run(host_context, pipeline_url, api_key)
     print(f"host-quiet receipt: {json.dumps(host_context, sort_keys=True)}")
+    if host_context["override_reason"]:
+        print(f"HOST-QUIET OVERRIDE: {host_context['override_reason']}")
+    if not host_context["allowed"]:
+        _emit_host_blockers(host_context)
     if issues:
         for issue in issues:
             print(f"BLOCK: {issue}")
         print(f"seat preflight BLOCKED ({len(issues)} reason(s))")
+    if issues or not host_context["allowed"]:
         return 1
     print(f"seat preflight PASS: {args.workspace} is committed and config-conformant")
     return 0

@@ -830,10 +830,20 @@ def run_live(
     deep_digest: str,
     phases: list[int] | None = None,
     force: bool = False,
+    wait: bool = False,
+    poll_s: float = host_quiet.DEFAULT_QUIET_POLL_S,
+    max_wait_s: float = host_quiet.DEFAULT_QUIET_MAX_WAIT_S,
 ) -> dict[str, Any]:
     """Run scenarios against a live Pipeline after the shared host preflight."""
     print("Checking that the host is quiet...", flush=True)
-    host_context = host_quiet.begin_run(pipeline_url, api_key, force=force)
+    host_context = host_quiet.start_run(
+        pipeline_url,
+        api_key,
+        force=force,
+        wait=wait,
+        poll_s=poll_s,
+        max_wait_s=max_wait_s,
+    )
     if not host_context["allowed"]:
         reason = host_quiet.refusal(host_context)
         host_quiet.finish_run(host_context, pipeline_url, api_key)
@@ -979,6 +989,23 @@ def _parse_args() -> argparse.Namespace:
     )
     parser.add_argument("--force", action="store_true", help="override host-quiet blockers")
     parser.add_argument(
+        "--wait-for-quiet",
+        action="store_true",
+        help="poll transient host blockers until they clear or the wait expires",
+    )
+    parser.add_argument(
+        "--quiet-poll-seconds",
+        type=float,
+        default=host_quiet.DEFAULT_QUIET_POLL_S,
+        help="seconds between host-quiet re-checks when waiting",
+    )
+    parser.add_argument(
+        "--quiet-max-wait-seconds",
+        type=float,
+        default=host_quiet.DEFAULT_QUIET_MAX_WAIT_S,
+        help="stop waiting for a quiet host after this many seconds",
+    )
+    parser.add_argument(
         "--phase", type=int, action="append", choices=[1, 2], help="Run only specific phase(s)"
     )
     return parser.parse_args()
@@ -1011,6 +1038,9 @@ def _run(args: argparse.Namespace, workdir: Path) -> dict[str, Any]:
             args.deep_digest,
             phases=args.phase,
             force=args.force,
+            wait=args.wait_for_quiet,
+            poll_s=args.quiet_poll_seconds,
+            max_wait_s=args.quiet_max_wait_seconds,
         )
     finally:
         signal.signal(signal.SIGTERM, previous)

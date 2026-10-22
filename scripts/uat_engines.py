@@ -733,6 +733,23 @@ def parse_args(argv: list[str] | None) -> argparse.Namespace:
     parser.add_argument("--dry-run", action="store_true", help="list the plan and send nothing")
     parser.add_argument("--only", metavar="ID", help="run one served id and skip design checks")
     parser.add_argument("--force", action="store_true", help="override host-quiet blockers")
+    parser.add_argument(
+        "--wait-for-quiet",
+        action="store_true",
+        help="poll transient host blockers until they clear or the wait expires",
+    )
+    parser.add_argument(
+        "--quiet-poll-seconds",
+        type=float,
+        default=host_quiet.DEFAULT_QUIET_POLL_S,
+        help="seconds between host-quiet re-checks when waiting",
+    )
+    parser.add_argument(
+        "--quiet-max-wait-seconds",
+        type=float,
+        default=host_quiet.DEFAULT_QUIET_MAX_WAIT_S,
+        help="stop waiting for a quiet host after this many seconds",
+    )
     return parser.parse_args(argv)
 
 
@@ -811,7 +828,14 @@ def main(argv: list[str] | None = None) -> int:
         print("PIPELINE_API_KEY is not set", file=sys.stderr)
         return 1
     base = pipeline_base()
-    host_context = host_quiet.begin_run(base, key, force=args.force)
+    host_context = host_quiet.start_run(
+        base,
+        key,
+        force=args.force,
+        wait=args.wait_for_quiet,
+        poll_s=args.quiet_poll_seconds,
+        max_wait_s=args.quiet_max_wait_seconds,
+    )
     if not host_context["allowed"]:
         report = _blocked_host_report(base, key, host_context)
         path = write_report(report)

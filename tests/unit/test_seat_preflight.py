@@ -189,5 +189,31 @@ def test_main_host_quiet_gate_records_snapshots_before_seat_check(
 
     assert preflight.main() == 1
     out = capsys.readouterr().out
-    assert "pytest/xdist is running" in out
+    assert "BLOCK transient: pytest/xdist is running (pid 42)" in out
     assert '"end": {"headroom_gib": 3.0}' in out
+
+
+def test_main_reports_permanent_config_issues_while_the_host_is_busy(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    context = {
+        "allowed": False,
+        "force_requested": False,
+        "override_reason": None,
+        "blockers": ["host memory headroom 0.4 GiB is below 1.5 GiB"],
+        "start": {"headroom_gib": 0.4},
+    }
+    monkeypatch.setattr(sys, "argv", ["seat_preflight.py", "--workspace", "seat"])
+    monkeypatch.setattr(
+        preflight, "preflight", lambda _args: ["opencode.jsonc has uncommitted changes"]
+    )
+    monkeypatch.setattr(preflight.host_quiet, "begin_run", lambda *a, **k: context)
+    monkeypatch.setattr(
+        preflight.host_quiet, "finish_run", lambda record, *a: record.update(end={})
+    )
+
+    assert preflight.main() == 1
+    out = capsys.readouterr().out
+    assert "BLOCK transient: host memory headroom 0.4 GiB is below 1.5 GiB" in out
+    assert "BLOCK: opencode.jsonc has uncommitted changes" in out
+    assert "BLOCK transient: opencode.jsonc" not in out
