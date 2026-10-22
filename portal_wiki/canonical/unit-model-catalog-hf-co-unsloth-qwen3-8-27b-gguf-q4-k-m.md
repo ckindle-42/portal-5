@@ -15,7 +15,7 @@ tags:
 - docs
 - verified-v1
 created_at: 1786636000.0
-updated_at: 1786636000.0
+updated_at: 1792668000.0
 ---
 
 `hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M` is Qwen's Qwen3.8-27B (released 2026-08, Apache 2.0) —
@@ -30,6 +30,13 @@ synthetic bench sweep — TPS bench
 measured 6.8 t/s (dense 27B, well below any web-lane floor, but IDE lanes accept below-floor speed
 if quality holds up). Model card claims (unverified in-fleet): SWE-bench Pro 61.7%, Terminal-Bench
 73.0%, OSWorld-Verified 84.3%, GPQA Diamond 89.2%, LiveCodeBench 90.3%. PROMOTE_POLICY=confirm.
+
+As of `cbbab02c` (2026-10-22), `auto-coding::qwen38coder` serves this tag with thinking off,
+matching the qwen3.8 card `harness_policy.think: false`, because thinking-on overthought in the
+2026-10-21 agentic coding screens. `auto-coding::qwen38coder-dflash` follows the same policy on
+its MLX hint. `auto-reasoning::deep` keeps thinking on under `think_override_reason`. Sampling
+values and the `tools-specialist` output cap from that same change are in
+[[unit-wfe-workspace-fitness]].
 
 ## Why
 

@@ -15,6 +15,22 @@ sources:
   path: tests/wfe/prompt_surface.py
 - type: doc
   path: docs/TASK_WORKSPACE_FITNESS_EVAL_V1.md
+- type: doc
+  path: docs/SEAT_SCREENING.md
+- type: code
+  path: scripts/seat_preflight.py
+- type: code
+  path: scripts/host_quiet.py
+- type: code
+  path: scripts/seat_screen/screen.py
+- type: code
+  path: scripts/seat_screen/grade_sidecar.py
+- type: code
+  path: scripts/seat_screen/kit_apply.py
+- type: code
+  path: config/portal.yaml
+- type: code
+  path: config/model_card_expectations.yaml
 claims: []
 confidence: high
 tags:
@@ -22,7 +38,7 @@ tags:
 - tests
 - evaluation
 created_at: 1788792773.476087
-updated_at: 1792647618
+updated_at: 1792668000
 ---
 
 The WFE harness evaluates a model IN its workspace context — persona system
@@ -31,18 +47,63 @@ short-prompt instruments cannot diagnose real usability (operator doctrine
 2026-09-07; see docs/TASK_WORKSPACE_FITNESS_EVAL_V1.md).
 
 Seat-screen results are provisional until `scripts/seat_preflight.py` passes
-for the exact seat and worktree and the model-card conformance checks hold. In
-the screen runner, after the `opencode.jsonc` provider/model entry is committed
-and immediately before dispatch, run
-`uv run python scripts/seat_preflight.py --repo "$wt" --workspace "$slug" --model "opencode:portal/$slug"`.
-Pass `--expected-engine ollama|omlx` when the configured model identity does not
+for the exact seat and worktree and the model-card conformance checks hold.
+The coder-seat harness is `scripts/seat_screen/` (runbook `docs/SEAT_SCREENING.md`).
+`screen.py` adds an isolated worktree per seat, commits the OpenCode provider
+entry, and runs that seat's preflight before dispatch. A blocked preflight
+appends a `preflight_blocked` row to `seat_results.jsonl` and does not dispatch.
+`scripts/seat_preflight.py` runs host-quiet first (`scripts/host_quiet.py`;
+`--force` records an override and continues) and then checks the committed
+provider model, container-environment leaks, an optional Ollama sidecar
+keep-alive, the served engine, and a config-only settings audit. Pass
+`--expected-engine ollama|omlx` when the configured model identity does not
 uniquely identify its intended engine. When an Ollama sidecar URL is supplied,
 also pass its configured `--ollama-keep-alive` value; zero or an unknown value
-blocks the screen. The preflight's settings audit reads repository config only
-and blocks WARN/FAIL findings from the card-policy rules
-`think_vs_card_policy`, `sampling_mode_mismatch`, and `thinking_unbounded`,
-plus sampling-mode and missing-budget findings. It does not claim that a
-live backend or model is healthy.
+blocks the screen. The audit reads repository config only and blocks WARN/FAIL
+findings, including `think_vs_card_policy`, `sampling_mode_mismatch`, and
+`thinking_unbounded`, plus sampling-mode and missing-budget findings. A
+positive `thinking_budget` satisfies `thinking_unbounded` the same way
+`predict_limit` does. The audit does not claim that a live backend or model is
+healthy. Host-quiet is a separate gate on memory headroom, pipeline busy
+requests, and other heavy processes.
+
+`grade_sidecar.py` lists `derived_regenerated` for changed derived artifacts
+that match `python -m portal.platform.inference.cli sync-config` in a temporary
+copy of the seat tree (`.mcp.json`, `config/modules.generated.yaml`,
+`imports/openwebui/workspaces/`, and `config/backends.yaml`). Other derived
+files must be byte-identical to that copy. For `config/backends.yaml`, the
+bytes before `workspace_routing` must match `SEAT_BASE` and the
+`workspace_routing` block must match the regenerated block. Bytes after that
+block are not part of the comparison. A failed regeneration is
+`derived_check_error` and fails `PASS`. Other changed files, aside from the
+allowed suite inputs and paths under `coding_task/` or `.venv/`, are
+`stray_files` and fail `PASS`.
+
+A dry run of `kit_apply.py apply` or `revert` renders that action into a
+temporary copy and runs `settings_audit --config-only` for `auto-coding`,
+`auto-spl`, and every variant of those two workspaces, including every seat
+the kit leaves applied. It does not write the target worktree. `seat_rescreen.sh` probes both think
+settings and unloads resident non-E4B Ollama models before each default pair;
+`seat_screen2.sh` does not.
+
+## Card-policy seat conformances (cbbab02c, 2026-10-22)
+
+Set under the card-authority rule, for operator review. The qwen3.8 card's
+`harness_policy.think` is false.
+
+- `auto-coding::qwen38coder` and `auto-coding::qwen38coder-dflash` serve
+  `think: false` with the card's non-thinking sampling (temperature 0.7,
+  top_p 0.8, top_k 20, presence_penalty 1.5). Thinking-on overthought in the
+  2026-10-21 agentic coding screens. A later thinking A/B can revisit this on
+  evidence.
+- `auto-reasoning::deep` keeps thinking on, which differs from that
+  `harness_policy`. The variant sets `think_override_reason`: thinking is the
+  product of a reasoning workspace, it serves the card's thinking-mode
+  sampling, and `predict_limit` 24576 bounds it. The override records the
+  difference as INFO instead of WARN.
+- `tools-specialist` sets `predict_limit` 4096. The qwen3.6 card documents an
+  81,920-token output budget, which cannot fit this seat's 8K window. The cap
+  is half that window so thinking cannot consume it.
 
 ## Why
 
