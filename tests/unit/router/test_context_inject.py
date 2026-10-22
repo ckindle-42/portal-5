@@ -130,3 +130,23 @@ def test_recall_dispatch_args_match_memory_contract(monkeypatch):
     assert set(captured["args"]) == {"query", "top_k"}, captured["args"]
     assert 1 <= captured["args"]["top_k"] <= 20
     assert captured["args"]["top_k"] == ci._TOP_K
+
+
+def test_recalled_memory_is_skipped_for_bite_requests(monkeypatch):
+    from portal.platform.inference.router.workspaces import WORKSPACES
+    from portal.platform.inference.tool_registry import tool_registry
+
+    async def fail_dispatch(*_args, **_kwargs):
+        raise AssertionError("bite request must not recall user memory")
+
+    monkeypatch.setattr(tool_registry, "dispatch", fail_dispatch)
+    monkeypatch.setattr(ci, "_AUTO_MEMORY_ENABLED", True)
+    monkeypatch.setitem(WORKSPACES, "ws-bite", {"inject_memory": True})
+    body = {
+        "portal_bite_tools": ["file_read", "finish"],
+        "messages": [{"role": "user", "content": "private task request"}],
+    }
+
+    result = asyncio.run(ci.inject_recalled_memory("ws-bite", body, "cid"))
+
+    assert result is body

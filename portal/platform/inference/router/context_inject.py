@@ -181,6 +181,8 @@ async def _dispatch_bounded(tool: str, args: dict[str, Any], cid: str) -> dict[s
 async def inject_recalled_memory(
     workspace_id: str, body: dict[str, Any], cid: str
 ) -> dict[str, Any]:
+    if "portal_bite_tools" in body:
+        return body
     if not _AUTO_MEMORY_ENABLED:
         return body
     if not WORKSPACES.get(workspace_id, {}).get("inject_memory", False):
