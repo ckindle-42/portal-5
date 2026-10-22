@@ -12,7 +12,7 @@ import re
 from typing import Any
 
 from portal.platform.inference.cluster_backends import BackendRegistry
-from portal.platform.inference.model_cards import card_thinking_level
+from portal.platform.inference.model_cards import card_sampling, card_thinking_level
 from portal.platform.inference.router.workspaces import WORKSPACES
 
 logger = logging.getLogger(__name__)
@@ -208,6 +208,20 @@ def _resolve_sampling_values(ws_cfg_local: dict[str, Any]) -> dict[str, Any]:
     return resolved
 
 
+def _resolve_request_sampling_values(
+    body: dict[str, Any], ws_cfg_local: dict[str, Any]
+) -> dict[str, Any]:
+    values = _resolve_sampling_values(ws_cfg_local)
+    ctk = body.get("chat_template_kwargs") or {}
+    if "portal_bite_tools" not in body or not isinstance(ctk, dict):
+        return values
+    if ctk.get("enable_thinking") is not True:
+        return values
+    model = str(body.get("model") or ws_cfg_local.get("model_hint") or "")
+    values.update(card_sampling(model, True, mode="thinking_precise_coding"))
+    return values
+
+
 # reasoning_effort -> output-token cap. Explicit request-level override of a
 # reasoning lane's fixed predict_limit (A4, TASK_REASONING_GROUP_OVERHAUL_V1 §1).
 # Env-overridable so the three tiers retune without a code change.
@@ -345,7 +359,7 @@ def _inject_ollama_options(body: dict[str, Any], workspace_id: str = "") -> dict
     # reach the model because Ollama backends are served from native /api/chat
     # (ollama_native.OllamaNativeTransport); Ollama's /v1 silently drops the
     # whole `options` object, so until 2026-09-25 none of this was applied.
-    for key, val in _resolve_sampling_values(ws_cfg_local).items():
+    for key, val in _resolve_request_sampling_values(body, ws_cfg_local).items():
         body["options"].setdefault(key, val)
 
     # mirostat (perplexity-based adaptive sampling) — mutually exclusive with
@@ -434,7 +448,7 @@ def _inject_omlx_options(body: dict[str, Any], workspace_id: str = "") -> dict[s
     if body.get("stream", True):
         body.setdefault("stream_options", {})["include_usage"] = True
 
-    sampling_values = _resolve_sampling_values(ws_cfg_local)
+    sampling_values = _resolve_request_sampling_values(body, ws_cfg_local)
     for key in ("temperature", "top_p", "top_k", "min_p", "presence_penalty", "seed"):
         val = sampling_values.get(key)
         if val is not None:

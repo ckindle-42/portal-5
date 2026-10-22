@@ -621,27 +621,7 @@ async def _resolve_request_route(
         workspace_id, request.query_params.get("model") or _model_pin
     )
 
-    body = _apply_client_tools_only(workspace_id, body)
-    body = _inject_requested_prompts(_original_model_id, body)
-
-    # Phase 5: Temporal context injection — today's date + a search-first nudge
-    # for web-tool-enabled workspaces.
-    body = _inject_temporal_context(workspace_id, body)
-    body = _inject_system_prompt_append(workspace_id, body)
-
-    # Phase 7: File attachment injection — OWUI uploads live in body["files"];
-    # inject notes into the last user message so the model can reference file IDs.
-    body = _inject_attached_files(body)
-
-    # Phase 7b: a WFE evaluation scope binds before any tool call the handler makes, so
-    # injection and write-back below read and write only the row's own memory and KB.
-    bind_eval_scope(body)
-
-    # Phase 8: Auto-context injection — proactive memory recall + KB retrieval
-    # for opted-in workspaces (no-op unless inject_memory / auto_rag).
-    _cid = get_correlation_id()
-    body = await inject_recalled_memory(workspace_id, body, _cid)
-    body = await inject_retrieved_context(workspace_id, body, _cid)
+    body = await _prepare_request_context(_original_model_id, workspace_id, body)
 
     # Phase 6b: strict-seat enforcement (TASK_AUTO_COUNCIL_PIPELINE_REVISIT_V1
     # P1.2/P1.3), opt-in per request via portal_strict_seat -- NOT a global
@@ -711,6 +691,24 @@ async def _resolve_request_route(
     trace_capture(messages=body.get("messages", []))
 
     return workspace_id, body, stream, persona, candidates
+
+
+async def _prepare_request_context(
+    original_model_id: str, workspace_id: str, body: dict[str, Any]
+) -> dict[str, Any]:
+    is_bite = "portal_bite_tools" in body
+    if not is_bite:
+        body = _apply_client_tools_only(workspace_id, body)
+        body = _inject_requested_prompts(original_model_id, body)
+        body = _inject_temporal_context(workspace_id, body)
+        body = _inject_system_prompt_append(workspace_id, body)
+        body = _inject_attached_files(body)
+    bind_eval_scope(body)
+    if is_bite:
+        return body
+    correlation_id = get_correlation_id()
+    body = await inject_recalled_memory(workspace_id, body, correlation_id)
+    return await inject_retrieved_context(workspace_id, body, correlation_id)
 
 
 async def _dispatch_council(
