@@ -408,12 +408,12 @@ async def test_unreadable_runtime_status_does_not_create_transition_wait(api_sta
     release()
 
 
-async def test_failed_admin_login_is_unknown_and_agreeing_statuses_skip_login():
+async def test_fitting_load_skips_transition_probe_and_agreeing_statuses_skip_login():
     e = Engines(
         tags={"m": GIB},
         omlx={"loading": {"size": GIB, "loaded": False}},
         ceiling=20 * GIB,
-        loading_polls=[False, True],
+        loading_polls=[True],
         admin_login_code=400,
     )
     lg.set_load_wait("0.2")
@@ -421,7 +421,8 @@ async def test_failed_admin_login_is_unknown_and_agreeing_statuses_skip_login():
     release = await guard(e).admit(OLLAMA_URL, "m")
     assert release is not None
     assert lg.time.monotonic() - started < 0.1
-    assert e.request_counts["/admin/api/login"] == 1
+    assert e.request_counts.get("/admin/api/login", 0) == 0
+    assert e.request_counts.get("/api/status", 0) == 0
     release()
 
     agreeing = Engines(tags={"m": GIB}, ceiling=20 * GIB, admin_login_code=400)
@@ -431,9 +432,43 @@ async def test_failed_admin_login_is_unknown_and_agreeing_statuses_skip_login():
     release()
 
 
-async def test_idle_model_is_freed_before_transition_wait_and_failover_is_protected(
-    monkeypatch,
-):
+async def test_v1_loading_survives_unreadable_runtime_status():
+    e = Engines(
+        tags={"m": int(17.52 * GIB)},
+        omlx={"loading": {"size": GIB, "loaded": False}},
+        ceiling=22.8 * GIB,
+        settled_ceiling=40 * GIB,
+        settled_signal="v1",
+        loading_polls=[True, True, False],
+        api_status_code=503,
+    )
+    lg.set_load_wait("10")
+    release = await guard(e).admit(OLLAMA_URL, "m")
+    assert release is not None
+    assert e.ceiling == 40 * GIB
+    assert e.request_counts["/api/status"] >= 2
+    release()
+
+
+async def test_v1_loading_survives_failed_admin_login():
+    e = Engines(
+        tags={"m": int(17.52 * GIB)},
+        omlx={"loading": {"size": GIB, "loaded": False}},
+        ceiling=22.8 * GIB,
+        settled_ceiling=40 * GIB,
+        settled_signal="v1",
+        loading_polls=[True, True, False],
+        admin_login_code=400,
+    )
+    lg.set_load_wait("10")
+    release = await guard(e).admit(OLLAMA_URL, "m")
+    assert release is not None
+    assert e.ceiling == 40 * GIB
+    assert e.request_counts["/admin/api/login"] >= 1
+    release()
+
+
+async def test_idle_model_is_freed_before_transition_wait_and_failover_is_protected():
     e = Engines(
         tags={"m": 20 * GIB},
         omlx={
@@ -448,23 +483,79 @@ async def test_idle_model_is_freed_before_transition_wait_and_failover_is_protec
     g = guard(e)
     g.protect(OMLX, "protected", seconds=60)
     lg.set_load_wait("0.04")
-    monkeypatch.setattr(lg, "_POLL_S", 0.01)
-    with pytest.raises(lg.LoadRefusedError):
-        await g.admit(OLLAMA_URL, "m")
+    release = await g.admit(OLLAMA_URL, "m")
+    assert release is not None
     assert e.unloaded == ["free"]
     assert e.omlx["protected"]["loaded"]
+    release()
 
 
-async def test_guard_issued_omlx_unload_is_a_transition_during_settle(monkeypatch):
-    e = Engines(omlx={"idle": {"size": GIB, "loaded": True}}, unload_status_code=202)
+async def test_fitting_load_is_not_delayed_by_a_recent_guard_issued_unload():
+    e = Engines(
+        tags={"big": 40 * GIB, "small": GIB},
+        omlx={"idle": {"size": 4 * GIB, "loaded": True}},
+        unload_status_code=202,
+        unload_sticks=True,
+    )
     g = guard(e)
-    monkeypatch.setattr(lg, "_UNLOAD_SETTLE_S", 0.05)
-    async with g._client() as client:
-        assert await g._free_omlx(client, GIB) == GIB
-        assert await g._omlx_loading(client)
-        g._omlx_unload_until = 0.0
-        assert not await g._omlx_loading(client)
-    assert e.request_counts["/api/status"] >= 2
+    lg.set_load_wait("0.05")
+    with pytest.raises(lg.LoadRefusedError):
+        await g.admit(OLLAMA_URL, "big")
+    assert e.unload_calls["idle"] == 1
+
+    lg.set_load_wait("0.2")
+    started = lg.time.monotonic()
+    release = await g.admit(OLLAMA_URL, "small")
+    assert release is not None
+    assert lg.time.monotonic() - started < 0.05
+    release()
+
+
+async def test_queued_omlx_unload_waits_then_remeasures_headroom(monkeypatch):
+    e = Engines(
+        tags={"m": 30 * GIB},
+        omlx={"idle": {"size": 4 * GIB, "loaded": True}},
+        unload_status_code=202,
+        unload_sticks=True,
+    )
+    g = guard(e)
+    lg.set_load_wait("1")
+    waiting = asyncio.Event()
+    original = g._omlx_foreign_active
+
+    async def check_unlocked(client):
+        assert not g._lock.locked()
+        waiting.set()
+        return await original(client)
+
+    monkeypatch.setattr(g, "_omlx_foreign_active", check_unlocked)
+    task = asyncio.create_task(g.admit(OLLAMA_URL, "m"))
+    await asyncio.wait_for(waiting.wait(), 1)
+    assert not task.done()
+    assert e.unload_calls["idle"] == 1
+    asyncio.get_running_loop().call_later(0.03, lambda: e.omlx["idle"].update({"loaded": False}))
+    release = await asyncio.wait_for(task, 1)
+    assert release is not None
+    assert e.ceiling - e.omlx_used() - 2 * GIB >= 30 * GIB * lg._FACTOR
+    release()
+
+
+async def test_queued_omlx_unload_refuses_at_deadline_without_reposting():
+    e = Engines(
+        tags={"m": 30 * GIB},
+        omlx={"idle": {"size": 4 * GIB, "loaded": True}},
+        unload_status_code=202,
+        unload_sticks=True,
+    )
+    g = guard(e)
+    lg.set_load_wait("0.06")
+    started = lg.time.monotonic()
+    with pytest.raises(lg.LoadRefusedError):
+        await g.admit(OLLAMA_URL, "m")
+    elapsed = lg.time.monotonic() - started
+    assert 0.05 <= elapsed < 0.5
+    assert e.unload_calls["idle"] == 1
+    assert not g._lock.locked()
 
 
 @pytest.mark.parametrize("engine", ["ollama", "omlx"])
@@ -731,3 +822,18 @@ async def test_foreign_omlx_work_keeps_the_load_waiting_instead_of_refusing_at_o
     with pytest.raises(lg.LoadRefusedError) as err:
         await guard(e).admit(OLLAMA_URL, "next")
     assert "after waiting" in str(err.value)
+
+
+async def test_slow_foreign_activity_probe_refuses_instead_of_failing_open(monkeypatch):
+    e = Engines(tags={"next": 30 * GIB}, ceiling=8 * GIB)
+    g = guard(e)
+    lg.set_load_wait("0.05")
+    never = asyncio.Event()
+
+    async def blocked_probe(_client):
+        await never.wait()
+
+    monkeypatch.setattr(g, "_omlx_foreign_active", blocked_probe)
+    with pytest.raises(lg.LoadRefusedError):
+        await g.admit(OLLAMA_URL, "next")
+    assert not g._lock.locked()
