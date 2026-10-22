@@ -190,6 +190,7 @@ async def _run_tool_loop(
     effective_tools: list[str],
     responses: list[_StreamResponse],
     dispatched: list[str],
+    recorded_requests: list[dict[str, Any]] | None = None,
 ) -> list[bytes]:
     client = _StreamClient(responses)
     monkeypatch.setattr(streaming, "_http_client", client)
@@ -201,7 +202,7 @@ async def _run_tool_loop(
         return {"role": "tool", "tool_call_id": call.get("id"), "name": name, "content": "ok"}
 
     monkeypatch.setattr(streaming, "_dispatch_tool_call", dispatch)
-    return [
+    chunks = [
         chunk
         async for chunk in streaming._tool_loop_frames(
             "http://fake/v1/chat/completions",
@@ -212,6 +213,69 @@ async def _run_tool_loop(
             set(effective_tools),
         )
     ]
+    if recorded_requests is not None:
+        recorded_requests.extend(client.requests)
+    return chunks
+
+
+@pytest.mark.anyio
+async def test_bite_tools_stay_scoped_across_client_tool_turns(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    allowed = ["file_read", "finish"]
+    client_schemas = [_tool_schema(name) for name in allowed]
+    messages = [{"role": "user", "content": "run the bite"}]
+    engine_requests: list[dict[str, Any]] = []
+    dispatched: list[str] = []
+
+    for turn, call_name in enumerate(["file_read", "file_read", "web_search"]):
+        body, effective, has_tools = await _prepare_request(
+            monkeypatch,
+            bite_tools=allowed,
+            client_tools=client_schemas,
+            workspace_tools=["web_search", "document_read"],
+        )
+        body["messages"] = messages
+        assert has_tools and effective == []
+
+        chunks = await _run_tool_loop(
+            monkeypatch,
+            body,
+            effective,
+            [_tool_response(call_name, f"call-{turn}")],
+            dispatched,
+            recorded_requests=engine_requests,
+        )
+        assert _tool_names(chunks) == [call_name]
+        messages.extend(
+            [
+                {
+                    "role": "assistant",
+                    "content": None,
+                    "tool_calls": [
+                        {
+                            "id": f"call-{turn}",
+                            "type": "function",
+                            "function": {"name": call_name, "arguments": "{}"},
+                        }
+                    ],
+                },
+                {
+                    "role": "tool",
+                    "tool_call_id": f"call-{turn}",
+                    "name": call_name,
+                    "content": "ok",
+                },
+            ]
+        )
+
+    assert len(engine_requests) == 3
+    assert all(
+        {tool["function"]["name"] for tool in request["tools"]} == set(allowed)
+        and len(request["tools"]) == len(allowed)
+        for request in engine_requests
+    )
+    assert dispatched == []
 
 
 @pytest.mark.anyio
