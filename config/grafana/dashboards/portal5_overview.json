@@ -5,8 +5,9 @@
   "tags": ["portal5"],
   "timezone": "browser",
   "schemaVersion": 38,
-  "version": 6,
+  "version": 7,
   "refresh": "15s",
+  "description": "Pipeline traffic. Counters restart with each container start (PIPELINE_WORKERS share one multiprocess dir), so every \"how much\" panel is increase() over the selected range; metrics_state.json is the daily-digest contract and is deliberately not restored into Prometheus.",
   "panels": [
     {
       "id": 1,
@@ -14,7 +15,7 @@
       "title": "Healthy Backends",
       "gridPos": { "h": 4, "w": 3, "x": 0, "y": 0 },
       "targets": [{ "expr": "portal_backends_healthy", "datasource": { "type": "prometheus", "uid": "prometheus" } }],
-      "fieldConfig": { "defaults": { "color": { "mode": "thresholds" }, "thresholds": { "steps": [{ "color": "red", "value": 0 }, { "color": "yellow", "value": 1 }, { "color": "green", "value": 2 }] } } }
+      "fieldConfig": { "defaults": { "color": { "mode": "thresholds" }, "thresholds": { "steps": [{ "color": "red", "value": 0 }, { "color": "#c98500", "value": 1 }, { "color": "#199e70", "value": 2 }] } } }
     },
     {
       "id": 2,
@@ -22,7 +23,7 @@
       "title": "Total Backends",
       "gridPos": { "h": 4, "w": 3, "x": 3, "y": 0 },
       "targets": [{ "expr": "portal_backends_total", "datasource": { "type": "prometheus", "uid": "prometheus" } }],
-      "fieldConfig": { "defaults": { "color": { "mode": "fixed", "fixedColor": "blue" } } }
+      "fieldConfig": { "defaults": { "color": { "mode": "fixed", "fixedColor": "#3987e5" } } }
     },
     {
       "id": 3,
@@ -30,12 +31,13 @@
       "title": "Workspaces",
       "gridPos": { "h": 4, "w": 3, "x": 6, "y": 0 },
       "targets": [{ "expr": "portal_workspaces_total", "datasource": { "type": "prometheus", "uid": "prometheus" } }],
-      "fieldConfig": { "defaults": { "color": { "mode": "fixed", "fixedColor": "purple" } } }
+      "fieldConfig": { "defaults": { "color": { "mode": "fixed", "fixedColor": "#d55181" } } }
     },
     {
       "id": 4,
       "type": "stat",
       "title": "Pipeline Uptime",
+      "description": "Seconds since this pipeline container started — a restart resets it.",
       "gridPos": { "h": 4, "w": 3, "x": 9, "y": 0 },
       "targets": [{ "expr": "portal_uptime_seconds", "datasource": { "type": "prometheus", "uid": "prometheus" } }],
       "fieldConfig": { "defaults": { "unit": "s" } },
@@ -45,40 +47,40 @@
       "id": 26,
       "type": "stat",
       "title": "Peak Concurrent Requests",
-      "description": "Maximum concurrent requests since pipeline started.",
+      "description": "Highest number of requests in flight at once over the selected range, summed across pipeline workers.",
       "gridPos": { "h": 4, "w": 3, "x": 12, "y": 0 },
-      "targets": [{ "expr": "max_over_time(portal_concurrent_requests[1h])", "datasource": { "type": "prometheus", "uid": "prometheus" } }],
-      "fieldConfig": { "defaults": { "color": { "mode": "fixed", "fixedColor": "orange" } } },
+      "targets": [{ "expr": "max_over_time(sum(portal_concurrent_requests)[$__range:])", "datasource": { "type": "prometheus", "uid": "prometheus" } }],
+      "fieldConfig": { "defaults": { "color": { "mode": "fixed", "fixedColor": "#d95926" }, "decimals": 0 } },
       "options": { "reduceOptions": { "calcs": ["max"] } }
     },
     {
       "id": 27,
       "type": "stat",
       "title": "Current Concurrent",
-      "description": "Requests currently being processed.",
+      "description": "Requests currently being processed, summed across pipeline workers.",
       "gridPos": { "h": 4, "w": 3, "x": 15, "y": 0 },
-      "targets": [{ "expr": "portal_concurrent_requests", "datasource": { "type": "prometheus", "uid": "prometheus" } }],
-      "fieldConfig": { "defaults": { "color": { "mode": "fixed", "fixedColor": "green" } } },
+      "targets": [{ "expr": "sum(portal_concurrent_requests)", "datasource": { "type": "prometheus", "uid": "prometheus" } }],
+      "fieldConfig": { "defaults": { "color": { "mode": "fixed", "fixedColor": "#199e70" }, "decimals": 0 } },
       "options": { "reduceOptions": { "calcs": ["lastNotNull"] } }
     },
     {
       "id": 28,
       "type": "stat",
-      "title": "Total Requests (session)",
-      "description": "Cumulative requests since pipeline restart.",
+      "title": "Total Requests (range)",
+      "description": "Requests served over the selected range. Counters restart with the container, so this is increase() over $__range, not the raw counter.",
       "gridPos": { "h": 4, "w": 3, "x": 18, "y": 0 },
-      "targets": [{ "expr": "sum(portal_requests_total)", "datasource": { "type": "prometheus", "uid": "prometheus" } }],
-      "fieldConfig": { "defaults": { "color": { "mode": "fixed", "fixedColor": "blue" } } },
+      "targets": [{ "expr": "sum(increase(portal_requests_total[$__range]))", "datasource": { "type": "prometheus", "uid": "prometheus" } }],
+      "fieldConfig": { "defaults": { "color": { "mode": "fixed", "fixedColor": "#3987e5" }, "decimals": 0 } },
       "options": { "reduceOptions": { "calcs": ["lastNotNull"] } }
     },
     {
       "id": 29,
       "type": "stat",
-      "title": "Total Errors (session)",
-      "description": "Cumulative failed requests since pipeline restart.",
+      "title": "Total Errors (range)",
+      "description": "Failed requests over the selected range (increase over $__range; the raw counter restarts with the container).",
       "gridPos": { "h": 4, "w": 3, "x": 21, "y": 0 },
-      "targets": [{ "expr": "sum(portal_errors_total)", "datasource": { "type": "prometheus", "uid": "prometheus" } }],
-      "fieldConfig": { "defaults": { "color": { "mode": "thresholds" }, "thresholds": { "steps": [{ "color": "green", "value": 0 }, { "color": "yellow", "value": 1 }, { "color": "red", "value": 10 }] } } },
+      "targets": [{ "expr": "sum(increase(portal_errors_total[$__range]))", "datasource": { "type": "prometheus", "uid": "prometheus" } }],
+      "fieldConfig": { "defaults": { "decimals": 0, "color": { "mode": "thresholds" }, "thresholds": { "steps": [{ "color": "#199e70", "value": 0 }, { "color": "#c98500", "value": 1 }, { "color": "red", "value": 10 }] } } },
       "options": { "reduceOptions": { "calcs": ["lastNotNull"] } }
     },
     {
@@ -95,18 +97,18 @@
       "id": 30,
       "type": "timeseries",
       "title": "Concurrent Requests Over Time",
-      "description": "How many requests are being processed simultaneously.",
+      "description": "How many requests are being processed simultaneously, summed across pipeline workers.",
       "gridPos": { "h": 6, "w": 8, "x": 8, "y": 4 },
-      "targets": [{ "expr": "portal_concurrent_requests", "legendFormat": "Active", "datasource": { "type": "prometheus", "uid": "prometheus" } }],
+      "targets": [{ "expr": "sum(portal_concurrent_requests)", "legendFormat": "Active", "datasource": { "type": "prometheus", "uid": "prometheus" } }],
       "fieldConfig": { "defaults": { "custom": { "lineWidth": 2 } } }
     },
     {
       "id": 31,
       "type": "timeseries",
       "title": "Error Rate by Type",
-      "description": "Failed requests per minute broken down by error type.",
+      "description": "Failed requests per minute, summed across workspaces for each error type.",
       "gridPos": { "h": 6, "w": 8, "x": 16, "y": 4 },
-      "targets": [{ "expr": "rate(portal_errors_total[5m]) * 60", "legendFormat": "{{error_type}}", "datasource": { "type": "prometheus", "uid": "prometheus" } }],
+      "targets": [{ "expr": "sum by(error_type) (rate(portal_errors_total[$__rate_interval])) * 60", "legendFormat": "{{error_type}}", "datasource": { "type": "prometheus", "uid": "prometheus" } }],
       "fieldConfig": { "defaults": { "unit": "reqpm", "custom": { "lineWidth": 2 } } },
       "options": { "legend": { "displayMode": "table", "placement": "bottom", "calcs": ["sum", "last"] } }
     },
@@ -134,47 +136,50 @@
       "id": 9,
       "type": "timeseries",
       "title": "Requests by Model (rate/min)",
-      "description": "Which models are being called and how often.",
+      "description": "Which models are being called and how often, over the selected range. Model calls include tool-loop hops; a window with no traffic is empty until the next completion.",
       "gridPos": { "h": 8, "w": 12, "x": 12, "y": 11 },
-      "targets": [{ "expr": "rate(portal_requests_by_model_total[5m]) * 60", "legendFormat": "{{model}} ({{workspace}})", "datasource": { "type": "prometheus", "uid": "prometheus" } }],
+      "targets": [{ "expr": "sum by(model, workspace) (rate(portal_requests_by_model_total[$__rate_interval])) * 60", "legendFormat": "{{model}} ({{workspace}})", "datasource": { "type": "prometheus", "uid": "prometheus" } }],
       "fieldConfig": { "defaults": { "unit": "reqpm", "custom": { "lineWidth": 2 } } },
       "options": { "legend": { "displayMode": "table", "placement": "bottom", "calcs": ["sum", "last"] } }
     },
     {
       "id": 10,
       "type": "stat",
-      "title": "Total Output Tokens",
-      "description": "Cumulative output tokens since pipeline restart.",
+      "title": "Output Tokens (range)",
+      "description": "Output tokens generated over the selected range (increase over $__range; the raw counter restarts with the container).",
       "gridPos": { "h": 4, "w": 4, "x": 0, "y": 19 },
-      "targets": [{ "expr": "sum(portal_output_tokens_total)", "datasource": { "type": "prometheus", "uid": "prometheus" } }],
-      "fieldConfig": { "defaults": { "unit": "short", "color": { "mode": "fixed", "fixedColor": "blue" } } }
+      "targets": [{ "expr": "sum(increase(portal_output_tokens_total[$__range]))", "datasource": { "type": "prometheus", "uid": "prometheus" } }],
+      "fieldConfig": { "defaults": { "unit": "short", "decimals": 0, "color": { "mode": "fixed", "fixedColor": "#3987e5" } } },
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] } }
     },
     {
       "id": 11,
       "type": "stat",
-      "title": "Total Input Tokens",
-      "description": "Cumulative prompt tokens processed since pipeline restart.",
+      "title": "Input Tokens (range)",
+      "description": "Prompt tokens processed over the selected range (increase over $__range).",
       "gridPos": { "h": 4, "w": 4, "x": 4, "y": 19 },
-      "targets": [{ "expr": "sum(portal_input_tokens_total)", "datasource": { "type": "prometheus", "uid": "prometheus" } }],
-      "fieldConfig": { "defaults": { "unit": "short", "color": { "mode": "fixed", "fixedColor": "purple" } } }
+      "targets": [{ "expr": "sum(increase(portal_input_tokens_total[$__range]))", "datasource": { "type": "prometheus", "uid": "prometheus" } }],
+      "fieldConfig": { "defaults": { "unit": "short", "decimals": 0, "color": { "mode": "fixed", "fixedColor": "#d55181" } } },
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] } }
     },
     {
       "id": 24,
       "type": "stat",
       "title": "Token Ratio (out/in)",
-      "description": "Output tokens per input token. Higher = more verbose models.",
+      "description": "Output tokens per input token over the selected range. Higher = more verbose models.",
       "gridPos": { "h": 4, "w": 4, "x": 8, "y": 19 },
-      "targets": [{ "expr": "sum(portal_output_tokens_total) / sum(portal_input_tokens_total)", "datasource": { "type": "prometheus", "uid": "prometheus" } }],
-      "fieldConfig": { "defaults": { "unit": "none", "decimals": 2, "color": { "mode": "fixed", "fixedColor": "orange" } } }
+      "targets": [{ "expr": "sum(increase(portal_output_tokens_total[$__range])) / sum(increase(portal_input_tokens_total[$__range]))", "datasource": { "type": "prometheus", "uid": "prometheus" } }],
+      "fieldConfig": { "defaults": { "unit": "none", "decimals": 2, "color": { "mode": "fixed", "fixedColor": "#d95926" } } },
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] } }
     },
     {
       "id": 23,
       "type": "barchart",
       "title": "Top 10 Models by Request Count",
-      "description": "Which models are handling the most requests this session.",
+      "description": "Model calls per model over the selected range — survives pipeline restarts, unlike the raw counter.",
       "gridPos": { "h": 4, "w": 12, "x": 12, "y": 19 },
-      "targets": [{ "expr": "topk(10, sum by(model) (portal_requests_by_model_total))", "legendFormat": "{{model}}", "datasource": { "type": "prometheus", "uid": "prometheus" }, "instant": true }],
-      "fieldConfig": { "defaults": { "unit": "short" } }
+      "targets": [{ "expr": "topk(10, sum by(model) (increase(portal_requests_by_model_total[$__range])))", "legendFormat": "{{model}}", "datasource": { "type": "prometheus", "uid": "prometheus" }, "instant": true }],
+      "fieldConfig": { "defaults": { "unit": "short", "decimals": 0 } }
     },
     {
       "id": 13,
@@ -189,7 +194,7 @@
       "title": "Requests by Workspace Over Time",
       "description": "Request rate (req/min) per workspace over time.",
       "gridPos": { "h": 8, "w": 12, "x": 0, "y": 24 },
-      "targets": [{ "expr": "rate(portal_requests_total[5m]) * 60", "legendFormat": "{{workspace}}", "datasource": { "type": "prometheus", "uid": "prometheus" } }],
+      "targets": [{ "expr": "sum by(workspace) (rate(portal_requests_total[$__rate_interval])) * 60", "legendFormat": "{{workspace}}", "datasource": { "type": "prometheus", "uid": "prometheus" } }],
       "fieldConfig": { "defaults": { "unit": "reqpm", "custom": { "lineWidth": 2 } } },
       "options": { "legend": { "displayMode": "table", "placement": "bottom", "calcs": ["mean", "max", "last"] } }
     },
@@ -199,18 +204,18 @@
       "title": "Current Request Rate",
       "description": "Aggregate request throughput across all workspaces (req/min).",
       "gridPos": { "h": 4, "w": 6, "x": 12, "y": 24 },
-      "targets": [{ "expr": "sum(rate(portal_requests_total[5m])) * 60", "datasource": { "type": "prometheus", "uid": "prometheus" } }],
-      "fieldConfig": { "defaults": { "unit": "reqpm", "color": { "mode": "fixed", "fixedColor": "green" } } },
+      "targets": [{ "expr": "sum(rate(portal_requests_total[$__rate_interval])) * 60", "datasource": { "type": "prometheus", "uid": "prometheus" } }],
+      "fieldConfig": { "defaults": { "unit": "reqpm", "color": { "mode": "fixed", "fixedColor": "#199e70" } } },
       "options": { "colorMode": "value", "graphMode": "area", "reduceOptions": { "calcs": ["lastNotNull"] } }
     },
     {
       "id": 32,
       "type": "barchart",
       "title": "Error Distribution by Workspace",
-      "description": "Which workspaces are experiencing the most errors.",
+      "description": "Which workspaces experienced the most errors over the selected range.",
       "gridPos": { "h": 4, "w": 6, "x": 18, "y": 24 },
-      "targets": [{ "expr": "topk(10, sum by(workspace) (portal_errors_total))", "legendFormat": "{{workspace}}", "datasource": { "type": "prometheus", "uid": "prometheus" }, "instant": true }],
-      "fieldConfig": { "defaults": { "unit": "short" } }
+      "targets": [{ "expr": "topk(10, sum by(workspace) (increase(portal_errors_total[$__range])))", "legendFormat": "{{workspace}}", "datasource": { "type": "prometheus", "uid": "prometheus" }, "instant": true }],
+      "fieldConfig": { "defaults": { "unit": "short", "decimals": 0 } }
     },
     {
       "id": 15,
@@ -218,7 +223,7 @@
       "title": "Tokens by Workspace",
       "description": "Output token generation rate per workspace (tokens/sec).",
       "gridPos": { "h": 8, "w": 12, "x": 12, "y": 28 },
-      "targets": [{ "expr": "sum by(workspace) (rate(portal_output_tokens_total[5m]))", "legendFormat": "{{workspace}}", "datasource": { "type": "prometheus", "uid": "prometheus" } }],
+      "targets": [{ "expr": "sum by(workspace) (rate(portal_output_tokens_total[$__rate_interval]))", "legendFormat": "{{workspace}}", "datasource": { "type": "prometheus", "uid": "prometheus" } }],
       "fieldConfig": { "defaults": { "unit": "none", "custom": { "lineWidth": 2 } } },
       "options": { "legend": { "displayMode": "table", "placement": "bottom", "calcs": ["mean", "max", "last"] } }
     },
@@ -238,7 +243,7 @@
       "title": "Model Distribution per Workspace",
       "description": "Which models are handling each workspace — shows model switching behavior.",
       "gridPos": { "h": 8, "w": 8, "x": 8, "y": 32 },
-      "targets": [{ "expr": "topk(10, sum by(workspace, model) (rate(portal_requests_by_model_total[5m])) * 60)", "legendFormat": "{{workspace}} → {{model}}", "datasource": { "type": "prometheus", "uid": "prometheus" } }],
+      "targets": [{ "expr": "topk(10, sum by(workspace, model) (rate(portal_requests_by_model_total[$__rate_interval])) * 60)", "legendFormat": "{{workspace}} → {{model}}", "datasource": { "type": "prometheus", "uid": "prometheus" } }],
       "fieldConfig": { "defaults": { "unit": "reqpm", "custom": { "lineWidth": 2 } } },
       "options": { "legend": { "displayMode": "table", "placement": "bottom", "calcs": ["last"] } }
     },
@@ -246,10 +251,10 @@
       "id": 33,
       "type": "barchart",
       "title": "Persona Usage (Top 10)",
-      "description": "Most used personas/model presets selected by users.",
+      "description": "Most used personas/model presets over the selected range — one count per served turn, by the model that served it.",
       "gridPos": { "h": 8, "w": 8, "x": 16, "y": 32 },
-      "targets": [{ "expr": "topk(10, sum by(persona) (persona_usage_total))", "legendFormat": "{{persona}}", "datasource": { "type": "prometheus", "uid": "prometheus" }, "instant": true }],
-      "fieldConfig": { "defaults": { "unit": "short" } },
+      "targets": [{ "expr": "topk(10, sum by(persona) (increase(persona_usage_total[$__range])))", "legendFormat": "{{persona}}", "datasource": { "type": "prometheus", "uid": "prometheus" }, "instant": true }],
+      "fieldConfig": { "defaults": { "unit": "short", "decimals": 0 } },
       "options": { "orientation": "horizontal", "displayLabels": ["name", "value"], "legend": { "displayMode": "list", "placement": "bottom" } }
     },
     {
@@ -263,9 +268,9 @@
       "id": 20,
       "type": "timeseries",
       "title": "Avg Response Time by Model",
-      "description": "Average end-to-end response time per model. Lower is better.",
+      "description": "Average end-to-end response time per model, summed across workspaces. Lower is better.",
       "gridPos": { "h": 8, "w": 12, "x": 0, "y": 41 },
-      "targets": [{ "expr": "rate(portal_response_time_seconds_sum[5m]) / rate(portal_response_time_seconds_count[5m]) * 1000", "legendFormat": "{{model}}", "datasource": { "type": "prometheus", "uid": "prometheus" } }],
+      "targets": [{ "expr": "sum by(model) (rate(portal_response_time_seconds_sum[$__rate_interval])) / sum by(model) (rate(portal_response_time_seconds_count[$__rate_interval])) * 1000", "legendFormat": "{{model}}", "datasource": { "type": "prometheus", "uid": "prometheus" } }],
       "fieldConfig": { "defaults": { "unit": "ms", "custom": { "lineWidth": 2 } } },
       "options": { "legend": { "displayMode": "table", "placement": "bottom", "calcs": ["mean", "max", "last"] } }
     },
@@ -273,12 +278,12 @@
       "id": 21,
       "type": "timeseries",
       "title": "Response Time Percentiles (p50 / p95 / p99)",
-      "description": "End-to-end latency distribution across all requests.",
+      "description": "End-to-end latency distribution across all workspaces and models.",
       "gridPos": { "h": 8, "w": 12, "x": 12, "y": 41 },
       "targets": [
-        { "expr": "histogram_quantile(0.50, rate(portal_response_time_seconds_bucket[5m])) * 1000", "legendFormat": "p50", "datasource": { "type": "prometheus", "uid": "prometheus" } },
-        { "expr": "histogram_quantile(0.95, rate(portal_response_time_seconds_bucket[5m])) * 1000", "legendFormat": "p95", "datasource": { "type": "prometheus", "uid": "prometheus" } },
-        { "expr": "histogram_quantile(0.99, rate(portal_response_time_seconds_bucket[5m])) * 1000", "legendFormat": "p99", "datasource": { "type": "prometheus", "uid": "prometheus" } }
+        { "expr": "histogram_quantile(0.50, sum by(le) (rate(portal_response_time_seconds_bucket[$__rate_interval]))) * 1000", "legendFormat": "p50", "datasource": { "type": "prometheus", "uid": "prometheus" } },
+        { "expr": "histogram_quantile(0.95, sum by(le) (rate(portal_response_time_seconds_bucket[$__rate_interval]))) * 1000", "legendFormat": "p95", "datasource": { "type": "prometheus", "uid": "prometheus" } },
+        { "expr": "histogram_quantile(0.99, sum by(le) (rate(portal_response_time_seconds_bucket[$__rate_interval]))) * 1000", "legendFormat": "p99", "datasource": { "type": "prometheus", "uid": "prometheus" } }
       ],
       "fieldConfig": { "defaults": { "unit": "ms", "custom": { "lineWidth": 2 } } },
       "options": { "legend": { "displayMode": "table", "placement": "bottom", "calcs": ["last"] } }
@@ -287,10 +292,10 @@
       "id": 12,
       "type": "barchart",
       "title": "Top Models by Output Tokens",
-      "description": "Which models have generated the most tokens this session.",
+      "description": "Which models generated the most tokens over the selected range.",
       "gridPos": { "h": 8, "w": 12, "x": 0, "y": 49 },
-      "targets": [{ "expr": "topk(10, sum by(model) (portal_output_tokens_total))", "legendFormat": "{{model}}", "datasource": { "type": "prometheus", "uid": "prometheus" }, "instant": true }],
-      "fieldConfig": { "defaults": { "unit": "short" } }
+      "targets": [{ "expr": "topk(10, sum by(model) (increase(portal_output_tokens_total[$__range])))", "legendFormat": "{{model}}", "datasource": { "type": "prometheus", "uid": "prometheus" }, "instant": true }],
+      "fieldConfig": { "defaults": { "unit": "short", "decimals": 0 } }
     },
     {
       "id": 25,
@@ -319,89 +324,84 @@
       "options": { "legend": { "displayMode": "table", "placement": "bottom", "calcs": ["last"] } }
     },
     {
-      "id": 30,
+      "id": 43,
+      "type": "row",
+      "title": "Load Guard & No-Answer",
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 65 },
+      "collapsed": false
+    },
+    {
+      "id": 44,
       "type": "stat",
-      "title": "[RETIRED] MLX Free Memory",
-      "description": "Current free memory reported by MLX proxy (retired 75c24a9).",
-      "gridPos": { "h": 4, "w": 4, "x": 0, "y": 65 },
-      "targets": [{ "expr": "mlx_memory_free_gb", "datasource": { "type": "prometheus", "uid": "prometheus" } }],
-      "fieldConfig": { "defaults": { "unit": "decgbytes", "color": { "mode": "thresholds" }, "thresholds": { "steps": [{ "color": "red", "value": 0 }, { "color": "yellow", "value": 10 }, { "color": "green", "value": 25 }] } } },
+      "title": "Load Guard Refusals (range)",
+      "description": "Cold loads the host memory guard refused over the selected range (portal5_load_guard_refusals_total, by reason). A refusal is a turn that could not start because its model would not fit beside what is already resident.",
+      "gridPos": { "h": 4, "w": 4, "x": 0, "y": 66 },
+      "targets": [{ "expr": "sum(increase(portal5_load_guard_refusals_total[$__range]))", "datasource": { "type": "prometheus", "uid": "prometheus" } }],
+      "links": [{ "title": "Load guard detail", "url": "/d/portal5-model-management" }],
+      "fieldConfig": { "defaults": { "decimals": 0, "color": { "mode": "thresholds" }, "thresholds": { "steps": [{ "color": "#199e70", "value": 0 }, { "color": "red", "value": 1 }] } } },
       "options": { "reduceOptions": { "calcs": ["lastNotNull"] } }
     },
     {
-      "id": 31,
+      "id": 45,
       "type": "stat",
-      "title": "[RETIRED] MLX Memory Used %",
-      "description": "System memory usage percentage from MLX proxy (retired 75c24a9).",
-      "gridPos": { "h": 4, "w": 4, "x": 4, "y": 65 },
-      "targets": [{ "expr": "mlx_memory_used_pct", "datasource": { "type": "prometheus", "uid": "prometheus" } }],
-      "fieldConfig": { "defaults": { "unit": "percent", "color": { "mode": "thresholds" }, "thresholds": { "steps": [{ "color": "green", "value": 0 }, { "color": "yellow", "value": 70 }, { "color": "red", "value": 85 }] } } },
+      "title": "Load Guard Unloads (range)",
+      "description": "Unloads the guard issued over the selected range (portal5_load_guard_unloads_total, by reason: idle_ollama | idle_omlx | queued_202).",
+      "gridPos": { "h": 4, "w": 4, "x": 4, "y": 66 },
+      "targets": [{ "expr": "sum(increase(portal5_load_guard_unloads_total[$__range]))", "datasource": { "type": "prometheus", "uid": "prometheus" } }],
+      "links": [{ "title": "Load guard detail", "url": "/d/portal5-model-management" }],
+      "fieldConfig": { "defaults": { "decimals": 0, "color": { "mode": "fixed", "fixedColor": "#c98500" } } },
       "options": { "reduceOptions": { "calcs": ["lastNotNull"] } }
     },
     {
-      "id": 32,
+      "id": 46,
       "type": "stat",
-      "title": "[RETIRED] MLX Peak Memory",
-      "description": "Peak memory usage since proxy started (retired 75c24a9).",
-      "gridPos": { "h": 4, "w": 4, "x": 8, "y": 65 },
-      "targets": [{ "expr": "mlx_memory_peak_used_pct", "datasource": { "type": "prometheus", "uid": "prometheus" } }],
-      "fieldConfig": { "defaults": { "unit": "percent", "color": { "mode": "thresholds" }, "thresholds": { "steps": [{ "color": "green", "value": 0 }, { "color": "yellow", "value": 70 }, { "color": "red", "value": 85 }] } } },
+      "title": "Load Guard Headroom",
+      "description": "Host memory headroom at the last admission decision (budget minus current residents and margin). Low headroom is why a cold load waits or is refused.",
+      "gridPos": { "h": 4, "w": 4, "x": 8, "y": 66 },
+      "targets": [{ "expr": "sum(portal5_load_guard_headroom_bytes)", "datasource": { "type": "prometheus", "uid": "prometheus" } }],
+      "links": [{ "title": "Load guard detail", "url": "/d/portal5-model-management" }],
+      "fieldConfig": { "defaults": { "unit": "bytes", "decimals": 1, "color": { "mode": "thresholds" }, "thresholds": { "steps": [{ "color": "red", "value": 0 }, { "color": "#c98500", "value": 4000000000 }, { "color": "#199e70", "value": 12000000000 }] } } },
       "options": { "reduceOptions": { "calcs": ["lastNotNull"] } }
     },
     {
-      "id": 33,
+      "id": 47,
       "type": "stat",
-      "title": "[RETIRED] MLX Model Switches",
-      "description": "Total model switch count since proxy started (retired 75c24a9).",
-      "gridPos": { "h": 4, "w": 4, "x": 12, "y": 65 },
-      "targets": [{ "expr": "mlx_proxy_switch_count", "datasource": { "type": "prometheus", "uid": "prometheus" } }],
-      "fieldConfig": { "defaults": { "color": { "mode": "fixed", "fixedColor": "orange" } } },
+      "title": "No-Answer Turns (range)",
+      "description": "portal5_no_answer_total — turns no candidate could serve over the selected range, one series per reason (memory_refused | timeout | engine_error | no_candidate). Every non-zero reason is a user-visible failure to answer.",
+      "gridPos": { "h": 4, "w": 4, "x": 12, "y": 66 },
+      "targets": [{ "expr": "sum by(reason) (increase(portal5_no_answer_total[$__range]))", "legendFormat": "{{reason}}", "datasource": { "type": "prometheus", "uid": "prometheus" } }],
+      "links": [{ "title": "Load guard detail", "url": "/d/portal5-model-management" }],
+      "fieldConfig": { "defaults": { "decimals": 0, "color": { "mode": "thresholds" }, "thresholds": { "steps": [{ "color": "#199e70", "value": 0 }, { "color": "red", "value": 1 }] } } },
       "options": { "reduceOptions": { "calcs": ["lastNotNull"] } }
     },
     {
-      "id": 34,
-      "type": "stat",
-      "title": "[RETIRED] MLX Proxy State",
-      "description": "Current MLX proxy state (retired 75c24a9).",
-      "gridPos": { "h": 4, "w": 4, "x": 16, "y": 65 },
-      "targets": [{ "expr": "mlx_proxy_state", "datasource": { "type": "prometheus", "uid": "prometheus" } }],
-      "fieldConfig": { "defaults": { "color": { "mode": "thresholds" }, "thresholds": { "steps": [{ "color": "red", "value": 0 }, { "color": "green", "value": 1 }] } } },
-      "options": { "reduceOptions": { "calcs": ["lastNotNull"] } }
-    },
-    {
-      "id": 35,
-      "type": "timeseries",
-      "title": "[RETIRED] System Memory Over Time",
-      "description": "Memory usage tracked by MLX proxy watchdog (retired 75c24a9).",
-      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 69 },
-      "targets": [
-        { "expr": "mlx_memory_free_gb", "legendFormat": "Free (GB)", "datasource": { "type": "prometheus", "uid": "prometheus" } },
-        { "expr": "mlx_memory_wired_gb", "legendFormat": "Wired (GB)", "datasource": { "type": "prometheus", "uid": "prometheus" } },
-        { "expr": "mlx_memory_active_gb", "legendFormat": "Active (GB)", "datasource": { "type": "prometheus", "uid": "prometheus" } }
-      ],
-      "fieldConfig": { "defaults": { "unit": "decgbytes", "custom": { "lineWidth": 2, "fillOpacity": 10 } } },
-      "options": { "legend": { "displayMode": "table", "placement": "bottom", "calcs": ["mean", "min", "max", "last"] } }
+      "id": 48,
+      "type": "text",
+      "title": "Load guard detail",
+      "gridPos": { "h": 4, "w": 8, "x": 16, "y": 66 },
+      "options": { "mode": "markdown", "content": "Admissions, refusal reasons, admission waits, unloads and headroom-vs-ceiling live on the **[Model management dashboard](/d/portal5-model-management)**.\n\nRefusals and no-answer turns are the two ways a turn fails to reach a model; both should stay at 0 in steady state." },
+      "fieldConfig": { "defaults": {}, "overrides": [] }
     },
     {
       "id": 40,
       "type": "stat",
-      "title": "Hint Fallback Total (session)",
-      "description": "portal5_hint_fallback_total — requests where a workspace model_hint or persona model_pin did not resolve and a pool-default model was served instead. Nonzero means an intended model is unreachable by its workspace's routing groups (FINDINGS_MODEL_REACHABILITY.md class of bug) — should stay 0 in steady state; a rising count needs the same reachability fix applied to config/backends.yaml / config/personas.",
-      "gridPos": { "h": 4, "w": 4, "x": 0, "y": 77 },
-      "targets": [{ "expr": "sum(portal5_hint_fallback_total)", "datasource": { "type": "prometheus", "uid": "prometheus" } }],
-      "fieldConfig": { "defaults": { "color": { "mode": "thresholds" }, "thresholds": { "steps": [{ "color": "green", "value": 0 }, { "color": "red", "value": 1 }] } } },
+      "title": "Hint Fallbacks (range)",
+      "description": "portal5_hint_fallback_total — requests where a workspace model_hint or persona model_pin did not resolve and a pool-default model was served instead, over the selected range. Nonzero means an intended model is unreachable by its workspace's routing groups (FINDINGS_MODEL_REACHABILITY.md class of bug) — should stay 0 in steady state; a rising count needs the same reachability fix applied to config/backends.yaml / config/personas.",
+      "gridPos": { "h": 4, "w": 4, "x": 0, "y": 70 },
+      "targets": [{ "expr": "sum(increase(portal5_hint_fallback_total[$__range]))", "datasource": { "type": "prometheus", "uid": "prometheus" } }],
+      "fieldConfig": { "defaults": { "decimals": 0, "color": { "mode": "thresholds" }, "thresholds": { "steps": [{ "color": "#199e70", "value": 0 }, { "color": "red", "value": 1 }] } } },
       "options": { "reduceOptions": { "calcs": ["lastNotNull"] } }
     },
     {
       "id": 41,
       "type": "barchart",
       "title": "Hint Fallbacks by Workspace / Hinted Model",
-      "description": "Which workspace+hinted-model combos are silently falling back to a pool default instead of serving the pin/hint.",
-      "gridPos": { "h": 6, "w": 20, "x": 4, "y": 77 },
+      "description": "Which workspace+hinted-model combos silently fell back to a pool default instead of serving the pin/hint, over the selected range.",
+      "gridPos": { "h": 6, "w": 20, "x": 4, "y": 70 },
       "targets": [
-        { "expr": "topk(10, sum by(workspace, hinted, served) (portal5_hint_fallback_total))", "legendFormat": "{{workspace}} {{hinted}} -> {{served}}", "datasource": { "type": "prometheus", "uid": "prometheus" }, "instant": true }
+        { "expr": "topk(10, sum by(workspace, hinted, served) (increase(portal5_hint_fallback_total[$__range])))", "legendFormat": "{{workspace}} {{hinted}} -> {{served}}", "datasource": { "type": "prometheus", "uid": "prometheus" }, "instant": true }
       ],
-      "fieldConfig": { "defaults": { "unit": "short" } }
+      "fieldConfig": { "defaults": { "unit": "short", "decimals": 0 } }
     }
   ],
   "time": { "from": "now-1h", "to": "now" },

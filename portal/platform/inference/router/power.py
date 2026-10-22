@@ -379,3 +379,12 @@ def _record_usage(
 
     except Exception as e:
         logger.debug("Failed to record usage metrics: %s", e)
+
+
+def _record_model_request(model: str, workspace: str) -> None:
+    """Count a served model call whose response carried no usage payload."""
+    try:
+        _requests_by_model.labels(model=model, workspace=workspace).inc()
+        _state_mod._req_count_by_model[model] = _state_mod._req_count_by_model.get(model, 0) + 1
+    except Exception as e:
+        logger.debug("Failed to record model request: %s", e)
