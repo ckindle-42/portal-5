@@ -5,6 +5,18 @@ title: "HOWTO \u2014 3. Workspaces"
 sources:
 - type: code
   path: config/portal.yaml
+- type: code
+  path: portal/platform/inference/config.py
+- type: code
+  path: portal/platform/inference/router/validation.py
+- type: code
+  path: portal/platform/inference/router/non_streaming.py
+- type: code
+  path: portal/platform/inference/model_cards.py
+- type: code
+  path: portal/platform/inference/ollama_native.py
+- type: code
+  path: tests/wfe/settings_audit.py
 claims: []
 confidence: high
 tags:
@@ -12,14 +24,14 @@ tags:
 - docs
 - verified-v1
 created_at: 1783195000.839686
-updated_at: 1792651360
+updated_at: 1792668000
 ---
 
 **What:** Each workspace routes to a specialized model and activates the relevant tools.
 
 **How:** Workspaces are defined in `config/portal.yaml` under the `workspaces:` block — each entry declares `module`, `name`, `model_hint`, `tools`, and `expose_to_owui`. Select one from the model dropdown; the exposed ones are exactly those with `expose_to_owui: true`. `./launch.sh sync-config` regenerates the derived artifacts (`workspace_routing` in `config/backends.yaml`, `.mcp.json`, and the Open WebUI workspace presets under `imports/openwebui/workspaces/`) so `config/portal.yaml` stays the single source of truth.
 
-`thinking_budget` is an optional positive token limit at workspace or variant level. oMLX receives it as a top-level request field; Ollama uses the nearest think level only when the model-card registry records token limits for those levels, and otherwise logs that it ignored the value.
+`thinking_budget` is an optional positive integer on a workspace or a variant (`dab8ff79`). Streaming and non-streaming chat completions, and every chain hop, pass it through `_inject_omlx_options` or `_inject_ollama_options`. On oMLX it is forwarded as the top-level field `thinking_budget`. A value already present on the request is kept; the seat value is filled in only when the field is absent. Ollama does not receive the integer: `to_native_request` omits it from `/api/chat`. `card_thinking_level` maps it to the nearest name in that model's card `thinking_budget_levels`, and that name is sent as `think` only when the request has no `think` yet and the seat's `think` is not false. With no documented levels the integer is left unused and a debug line records that it was ignored. The OpenAI-shaped body keeps the integer so a later hop still sees the caller's value. Council payloads are built beside those injectors and do not receive this field. `settings_audit` treats a positive `thinking_budget` as a bound for `thinking_unbounded`, the same way it treats `predict_limit`.
 
 For the full live roster (production + eval workspaces, module, model hint) use `unit-fact-workspace-roster` — do not maintain a second handwritten table here. A few flagship examples verified against `config/portal.yaml`:
 

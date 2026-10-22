@@ -15,7 +15,7 @@ tags:
 - authored-v1
 - scripts
 created_at: 1785883000.0
-updated_at: 1785883000.0
+updated_at: 1792668000.0
 ---
 
 The `scripts/` tree is the operator tool farm: standalone executables run from
@@ -47,6 +47,8 @@ modes without touching repo config.
 
 No runner exists, so run each tool with the environment it expects; output is
 current reality, not a record. Bench runs are gated by `execute_preflight`,
-not doc-baked counts; corpus injection is reviewed dry-run first; matrix
-analyzers like `blend_acceptance_results` merge evidence without a verdict;
-supervisor recovery is bounded to `ALLOWED_ACTIONS`.
+not doc-baked counts. Live UAT, acceptance, and seat-screen preflight refuse a
+busy host via `scripts/host_quiet.py`; see
+[[unit-known-limitations-host-measurement-contention]]. Corpus injection is
+reviewed dry-run first; matrix analyzers like `blend_acceptance_results` merge
+evidence without a verdict; supervisor recovery is bounded to `ALLOWED_ACTIONS`.

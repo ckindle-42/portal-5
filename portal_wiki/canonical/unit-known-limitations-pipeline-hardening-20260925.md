@@ -27,7 +27,7 @@ tags:
 - resolved
 - streaming
 created_at: 1790370000
-updated_at: 1792627200
+updated_at: 1792668000
 ---
 
 - **ID**: P5-PIPELINE-HARDEN-001
@@ -38,7 +38,7 @@ updated_at: 1792627200
 - **Request shapes**: list-form `system` content (OpenAI content parts, sent by IDE clients) raised a 500 in every workspace with a system-prompt append, temporal context or memory injection. The native Ollama adapter 500'd on `stop` as a string and ignored `tool_choice: "none"` / a named function (now expressed through the offered tools), and dropped message fields on the final `done` chunk.
 - **Anthropic `/v1/messages` (Claude Code)**: `x-api-key` auth — what `ANTHROPIC_API_KEY` sends, as `scripts/cc-local.sh` sets — was rejected with 401; streamed tool calls were dropped (`stop_reason: tool_use` with no `tool_use` block); parallel `tool_result` blocks kept only the last; images were dropped; the ASGI loopback buffered the whole reply (first byte at completion). The endpoint now calls `chat_completions` in-process and streams incrementally.
 - **Chains**: chain hops were posted to the primary backend's URL with the hop's raw model id, so with the primary on oMLX every Ollama-tagged hop 404'd (the purple-team blue-team/detection/IR hops); a tool-using chain workspace (`auto-security::purpleteam-exec`) skipped its chain entirely when streaming. Hops now resolve their own backend, and the first hop of a tool-using chain runs through the tool loop.
-- **Chain settings (2026-10-22)**: hops after the first dropped the workspace's per-backend output cap, think setting, and sampling. `resolve_hop_target` removed engine-specific keys when the hop's URL differed from the primary and did not rebuild them, so a later hop ran without `max_tokens` / `predict_limit`, `think`, and the sampling keys. The auto-security `purpleteam-deep` chain took about 500 s because of it. Fixed on `plan/purple-latency` `938f3d2c` (merging): every hop drops those keys and reapplies the workspace settings through `_inject_ollama_options` or `_inject_omlx_options` for the backend that serves the hop. The 2026-09-25 routing fix is unchanged.
+- **Chain settings (2026-10-22)**: hops after the first dropped the workspace's per-backend output cap, think setting, and sampling. `resolve_hop_target` removed engine-specific keys when the hop's URL differed from the primary and did not rebuild them, so a later hop ran without `max_tokens` / `predict_limit`, `think`, and the sampling keys. The auto-security `purpleteam-deep` chain took about 500 s because of it. Merged in `be56ac40` (fix `938f3d2c`): streaming and non-streaming hops both call `resolve_hop_target`, which drops those engine-specific keys and reapplies the workspace settings for the destination backend through `_inject_ollama_options` or `_inject_omlx_options`. That reapply includes `thinking_budget` (oMLX top-level field; Ollama only as a card-documented think level). The 2026-09-25 routing fix is unchanged.
 - **Tools and memory**: an MCP rejecting a model's arguments (HTTP 400/422) tripped the tool's circuit breaker, locking the tool for every request — including the model's corrected retry — for 30 s to 1 h. OWUI's background task prompts (title, tags, follow-ups: `### Task:` + `<chat_history>`) were written back as user memories on `auto-daily` and recalled into later conversations; they are now neither written back nor given memory. The council synthesizer now receives the workspace's `think` setting. Memories already stored from task prompts are not removed by this fix.
 
 #### Why
