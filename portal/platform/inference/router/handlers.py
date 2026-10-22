@@ -677,11 +677,9 @@ async def _resolve_request_route(
     _requests_total.labels(workspace=workspace_id).inc()
     slot.mark_active()
 
-    # Track persona usage — the "model" field in the request is the persona
-    # (workspace ID) the user selected in Open WebUI.
+    # The request's "model" field is the persona (workspace id) the user picked; its
+    # usage is recorded once the turn is served, with the model that served it.
     persona = body.get("model") or "auto"
-    if persona in WORKSPACES:
-        _record_persona(persona, "unknown")
 
     candidates = registry.get_backend_candidates(workspace_id)
     if not candidates:

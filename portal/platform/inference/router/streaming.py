@@ -1620,7 +1620,7 @@ async def _stream_from_backend_guarded(
     Yields:
         SSE bytes for OWUI consumption.
     """
-    from portal.platform.inference.router.power import _record_usage
+    from portal.platform.inference.router.power import _record_model_request, _record_usage
 
     if _http_client is None:
         logger.error("HTTP client not initialised — yielding error chunk")
@@ -1797,6 +1797,9 @@ async def _stream_from_backend_guarded(
                     continue
                 yield (line + "\n\n").encode()
 
+            if not _usage_recorded:
+                # Served the turn without a usage frame: still one request for this model.
+                _record_model_request(model, workspace_id)
             trace_note(
                 portal_timings=add_model_turn(
                     _timing_measurement.engine_data,

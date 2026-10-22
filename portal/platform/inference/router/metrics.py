@@ -166,6 +166,8 @@ _concurrent_requests = Gauge(
     "portal_concurrent_requests",
     "Number of requests currently being processed",
     registry=_REGISTRY,
+    # Live sum across worker pids: one series for the pipeline, not one per worker.
+    multiprocess_mode="livesum",
 )
 
 _persona_usage = Counter(

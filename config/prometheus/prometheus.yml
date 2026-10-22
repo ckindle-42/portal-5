@@ -11,19 +11,9 @@ scrape_configs:
     metrics_path: '/metrics'
     scrape_interval: 15s
 
-  # Ollama — exposes /metrics in versions >= 0.3.0
-  # If scraping fails (older Ollama), Prometheus will retry silently
-  - job_name: 'ollama'
-    static_configs:
-      - targets: ['ollama:11434']          # Docker-profile Ollama
-    metrics_path: '/metrics'
-    scrape_interval: 30s
-
-  - job_name: 'ollama-native'
-    static_configs:
-      - targets: ['host.docker.internal:11434']   # Native Ollama (default setup)
-    metrics_path: '/metrics'
-    scrape_interval: 30s
+  # Ollama does not expose /metrics (native :11434/metrics -> 404, and the
+  # Docker-profile service has no exporter either), so it is deliberately not
+  # scraped: token and model counters come from the pipeline's own /metrics.
 
   # Orchestrated-worker usage: plan quota straight from the vendors (Z.ai Coding Plan
   # pools, DeepSeek and Moonshot balances) plus per-tier spend from the dispatcher's
