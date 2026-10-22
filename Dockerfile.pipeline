@@ -19,10 +19,15 @@ RUN pip install --no-cache-dir \
 # portal_pipeline/ was a compat shim re-exporting from portal/platform/inference/;
 # it was removed once all internal/external importers were repointed
 # (BUILD-SPEC-PORTAL-MODULES-V1 Slice 8, commit d101f7a). Real code lives at
-# portal/platform/inference/ only. Only portal/platform/ (not portal/modules/) is
-# needed here — keeps the image lean.
+# portal/platform/inference/ only. Only portal/platform/ plus the shared
+# prompt bodies below ship here — nothing else under portal/modules/ is needed
+# and the image stays lean.
 COPY portal/__init__.py ./portal/__init__.py
 COPY portal/platform/ ./portal/platform/
+# prompt_template: personas resolve their body under portal/modules/ at load
+# time (config.py _PROMPT_TEMPLATES_DIR); without this the persona is skipped
+# with ENOENT inside the container.
+COPY portal/modules/eval/persona_matrix/prompts/ ./portal/modules/eval/persona_matrix/prompts/
 COPY config/ ./config/
 COPY scripts/pipeline-entrypoint.sh /app/scripts/pipeline-entrypoint.sh
 RUN chmod +x /app/scripts/pipeline-entrypoint.sh
