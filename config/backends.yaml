@@ -1254,7 +1254,8 @@ defaults:
   # oMLX model's last request during which the router steers a *different* oMLX
   # model's request to another candidate rather than deep-resetting that seat.
   # 0 = off (today's first-candidate order). Never applies to a pinned ?model=.
-  hot_seat_protect_s: 0
+  # 900 s = 15 min: enabled by the operator 2026-10-22.
+  hot_seat_protect_s: 900
 embedding_candidates:
 - id: google/embeddinggemma-2
   notes: 'EmbeddingGemma 2 (740M total; 270M text backbone + selectable 170M vision / 300M audio encoders; Apache 2.0;
