@@ -17,6 +17,8 @@ sys.path[:0] = [str(ROOT / "tests" / "unit"), str(ROOT / "scripts")]
 import orchestration_acceptance as acceptance  # noqa: E402
 from orchestration_fake_pipeline import FakePipeline, finish_response  # noqa: E402
 
+from portal.platform.inference.router import auth  # noqa: E402
+
 
 def _run_scenario(name: str, workdir: Path, live: bool = False) -> dict[str, Any]:
     return acceptance.run_scenario(
@@ -30,7 +32,7 @@ def _run_live_scenario(name: str, workdir: Path, pipeline_url: str) -> dict[str,
         workdir,
         live=True,
         pipeline_url=pipeline_url,
-        api_key="",
+        api_key=auth.PIPELINE_API_KEY,
         fast_digest="fast-digest",
         deep_digest="deep-digest",
     )
@@ -412,7 +414,7 @@ def test_run_live_task_uses_repo_config_and_unattended_false(tmp_path: Path):
             "live",
             [acceptance._bite("b1", discipline="test_fixing")],
             pipeline.url,
-            "",
+            auth.PIPELINE_API_KEY,
             "fast-digest",
             "deep-digest",
         )
