@@ -187,7 +187,7 @@ def test_replayed_calibration_markup_is_a_harness_error(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ):
     pipeline = FakePipeline()
-    evidence = (ROOT / "coding_task/calib_evidence/deep_clamp_response.txt").read_text(
+    evidence = (ROOT / "tests/fixtures/orchestration/deep_clamp_response_20261022.txt").read_text(
         encoding="utf-8"
     )
     pipeline.add_model("auto-daily::deep", text_response(evidence))

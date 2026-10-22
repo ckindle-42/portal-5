@@ -1,0 +1,8 @@
+
+
+I'll start by reading the two files in the task directory.
+
+<tool_call>
+<function=read_word_document>
+</function>
+</tool_call>
