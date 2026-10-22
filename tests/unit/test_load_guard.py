@@ -1450,7 +1450,9 @@ async def test_a_fitting_cold_load_counts_admitted_immediately_and_sets_the_gaug
         metric_value(_ADMISSIONS, engine=OLLAMA, outcome="admitted_immediately")
         == (before or 0) + 1
     )
-    assert metric_value(_ADMISSIONS, engine=OLLAMA, outcome="admitted_after_wait") == (waited or 0)
+    assert (metric_value(_ADMISSIONS, engine=OLLAMA, outcome="admitted_after_wait") or 0) == (
+        waited or 0
+    )
     assert metric_value(_WAIT_COUNT, engine=OLLAMA) == (waits or 0) + 1
     assert metric_value(_HEADROOM) == pytest.approx(38 * GIB)  # 40 ceiling - 2 margin
     assert metric_value(_CEILING) == pytest.approx(40 * GIB)
