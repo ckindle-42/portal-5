@@ -705,6 +705,9 @@ async def _post_model(
         data = response.json()
         if not isinstance(data, dict):
             data = {}
+        from portal.platform.inference.router.power import _record_engine_call  # noqa: PLC0415
+
+        _record_engine_call(model, workspace_id, data)
         return _EngineCall(
             text=_message_text(data),
             data=data,

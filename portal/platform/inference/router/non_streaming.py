@@ -32,7 +32,7 @@ from portal.platform.inference.router.metrics import (
     _tool_calls_recovered,
     _tool_repeat_suppressed,
 )
-from portal.platform.inference.router.power import _record_usage
+from portal.platform.inference.router.power import _record_engine_call, _record_usage
 from portal.platform.inference.router.state import _record_error
 from portal.platform.inference.router.text_tool_calls import (
     drop_unparsed_markup,
@@ -285,7 +285,6 @@ async def _run_non_streaming_chain(
     backend: Any,
     body: dict[str, Any],
     workspace_id: str,
-    start_time: float,
     primary_data: dict[str, Any],
     primary_model: str,
 ) -> JSONResponse:
@@ -327,14 +326,20 @@ async def _run_non_streaming_chain(
         hop_url, hop_body = resolve_hop_target(workspace_id, hop_model, backend.chat_url, hop_body)
 
         hop_parts: list[str] = []
+        hop_usage: dict[str, Any] | None = None
+        hop_served = False
         try:
             async with _http_client.stream("POST", hop_url, json=hop_body) as resp:
                 resp.raise_for_status()
+                hop_served = True
                 async for line in resp.aiter_lines():
                     if not line.startswith("data: ") or line == "data: [DONE]":
                         continue
                     try:
                         d = _json.loads(line[6:])
+                        usage_frame = d.get("usage")
+                        if isinstance(usage_frame, dict) and usage_frame:
+                            hop_usage = d
                         c = d["choices"][0]["delta"].get("content") or ""
                         if c:
                             hop_parts.append(c)
@@ -350,6 +355,8 @@ async def _run_non_streaming_chain(
                 exc,
             )
             hop_text = ""
+        if hop_served:
+            _record_engine_call(str(hop_body.get("model") or hop_model), workspace_id, hop_usage)
 
         collected.append(hop_text)
         if hop_text:
@@ -358,13 +365,6 @@ async def _run_non_streaming_chain(
 
     full_content = "".join(combined_parts)
     primary_data["choices"][0]["message"]["content"] = full_content
-    _record_usage(
-        model=primary_model,
-        workspace=workspace_id,
-        data=primary_data,
-        elapsed_seconds=time.monotonic() - start_time,
-        **usage_metric_kwargs(primary_data),
-    )
     return JSONResponse(
         content=primary_data,
         headers={"x-portal-route": f"{workspace_id};{backend.id};{primary_model}"},

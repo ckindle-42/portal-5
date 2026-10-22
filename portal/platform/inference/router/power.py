@@ -37,12 +37,23 @@ from portal.platform.inference.router.metrics import (
     _tps_unmeasured,
     _ttft_seconds,
 )
-from portal.platform.inference.router.trace import MIN_ANSWER_TOKENS_FOR_RATE
+from portal.platform.inference.router.trace import MIN_ANSWER_TOKENS_FOR_RATE, usage_metric_kwargs
 
 logger = logging.getLogger(__name__)
 
 _POWERMETRICS_SOCKET = "/tmp/portal5-powermetrics.sock"
 ELECTRICITY_RATE_USD_PER_KWH = float(os.environ.get("ELECTRICITY_RATE_USD_PER_KWH", "0.15"))
+
+#: Operational engine calls share this prefix so the overview can exclude them.
+INTERNAL_WORKSPACE_PREFIX = "internal-"
+INTERNAL_WARMUP_WORKSPACE = f"{INTERNAL_WORKSPACE_PREFIX}warmup"
+INTERNAL_ROUTER_WORKSPACE = f"{INTERNAL_WORKSPACE_PREFIX}router"
+INTERNAL_PRESELECT_WORKSPACE = f"{INTERNAL_WORKSPACE_PREFIX}preselect"
+
+
+def _digest_excluded(workspace: str) -> bool:
+    """True for traffic kept out of the daily-summary accumulators."""
+    return workspace.startswith(("bench-", INTERNAL_WORKSPACE_PREFIX))
 
 
 async def _power_polling_loop() -> None:
@@ -175,10 +186,10 @@ def _record_timing_series(
     When neither is available and the response has completion tokens, the
     request is counted on ``portal_tps_unmeasured_total`` and left out of the
     new series. Answer counters move only when the caller passes the split.
-    ``bench-*`` workspaces still update Prometheus and are left out of the
-    daily-digest accumulators.
+    ``bench-*`` and ``internal-*`` workspaces still update Prometheus and are left
+    out of the daily-digest timing accumulators.
     """
-    bench = workspace.startswith("bench-")
+    excluded = _digest_excluded(workspace)
     observed = _decode_observation(
         completion_tokens, eval_duration_ns, engine_decode_seconds, decode_seconds
     )
@@ -190,7 +201,7 @@ def _record_timing_series(
             completion_tokens
         )
         _decode_seconds.labels(model=model, workspace=workspace, source=source).inc(decode_s)
-        if not bench:
+        if not excluded:
             _state_mod._decode_tokens += completion_tokens
             _state_mod._decode_seconds += decode_s
 
@@ -201,7 +212,7 @@ def _record_timing_series(
         ttft_source = "measured"
     if ttft is not None:
         _ttft_seconds.labels(model=model, workspace=workspace, source=ttft_source).observe(ttft)
-        if not bench:
+        if not excluded:
             _state_mod._ttft_samples.append(ttft)
 
     resolved_answer = _resolve_answer_tokens(completion_tokens, reasoning_tokens, answer_tokens)
@@ -220,7 +231,7 @@ def _record_timing_series(
             resolved_answer
         )
         _answer_seconds.labels(model=model, workspace=workspace, source=answer_source).inc(answer_s)
-        if not bench:
+        if not excluded:
             _state_mod._answer_tokens += resolved_answer
             _state_mod._answer_seconds += answer_s
             _state_mod._answer_tokens_by_model[model] = (
@@ -253,8 +264,8 @@ def _record_usage(
 
     The deprecated ``portal_tokens_per_second`` histogram still prefers
     ``eval_duration`` and then ``elapsed_seconds`` (wall clock). The decode,
-    answer, and TTFT series do not use wall clock. ``bench-*`` traffic is
-    excluded from the daily-summary accumulators.
+    answer, and TTFT series do not use wall clock. ``bench-*`` and
+    ``internal-*`` traffic is excluded from the daily-summary timing accumulators.
 
     Keyword-only timings, for a later streaming caller. Omit any you do not
     have; do not pass wall clock as ``decode_seconds``.
@@ -311,22 +322,25 @@ def _record_usage(
         )
 
         _requests_by_model.labels(model=model, workspace=workspace).inc()
-        _truncation.check(model, workspace, prompt_tokens)
+        if not workspace.startswith(INTERNAL_WORKSPACE_PREFIX):
+            _truncation.check(model, workspace, prompt_tokens)
 
         if completion_tokens > 0:
             _output_tokens.labels(model=model, workspace=workspace).inc(completion_tokens)
-            _state_mod._total_output_tokens += completion_tokens
+            if not workspace.startswith(INTERNAL_WORKSPACE_PREFIX):
+                _state_mod._total_output_tokens += completion_tokens
 
         if prompt_tokens > 0:
             _input_tokens.labels(model=model, workspace=workspace).inc(prompt_tokens)
-            _state_mod._total_input_tokens += prompt_tokens
+            if not workspace.startswith(INTERNAL_WORKSPACE_PREFIX):
+                _state_mod._total_input_tokens += prompt_tokens
 
         # TPS: prefer Ollama's eval_duration; fall back to wall-clock elapsed time (streaming)
         if completion_tokens > 0 and eval_duration_ns > 0:
             tps = completion_tokens / (eval_duration_ns / 1_000_000_000)
             _tokens_per_second.labels(model=model, workspace=workspace).observe(tps)
-            # Exclude bench-* traffic from daily summary (cold model loads inflate wall-clock TPS)
-            if not workspace.startswith("bench-"):
+            # Exclude bench/internal traffic from the daily summary (cold-load TPS).
+            if not _digest_excluded(workspace):
                 _state_mod._total_tps += tps
                 _state_mod._request_tps_count += 1
             logger.debug(
@@ -339,8 +353,8 @@ def _record_usage(
         elif completion_tokens > 0 and elapsed_seconds and elapsed_seconds > 0:
             tps = completion_tokens / elapsed_seconds
             _tokens_per_second.labels(model=model, workspace=workspace).observe(tps)
-            # Exclude bench-* traffic from daily summary (cold model loads inflate wall-clock TPS)
-            if not workspace.startswith("bench-"):
+            # Exclude bench/internal traffic from the daily summary (wall-clock TPS).
+            if not _digest_excluded(workspace):
                 _state_mod._total_tps += tps
                 _state_mod._request_tps_count += 1
             logger.debug(
@@ -361,7 +375,8 @@ def _record_usage(
             )
 
         # Track per-model request count for summary (plain dict, not the Counter)
-        _state_mod._req_count_by_model[model] = _state_mod._req_count_by_model.get(model, 0) + 1
+        if not workspace.startswith(INTERNAL_WORKSPACE_PREFIX):
+            _state_mod._req_count_by_model[model] = _state_mod._req_count_by_model.get(model, 0) + 1
 
         _record_timing_series(
             model=model,
@@ -388,3 +403,17 @@ def _record_model_request(model: str, workspace: str) -> None:
         _state_mod._req_count_by_model[model] = _state_mod._req_count_by_model.get(model, 0) + 1
     except Exception as e:
         logger.debug("Failed to record model request: %s", e)
+
+
+def _record_engine_call(model: str, workspace: str, data: object = None) -> None:
+    """Count one served engine call; tokens and timings only when the body carries them."""
+    try:
+        body: dict[str, Any] = data if isinstance(data, dict) else {}
+        _record_usage(
+            model=str(body.get("model") or model),
+            workspace=workspace,
+            data=body,
+            **usage_metric_kwargs(body),
+        )
+    except Exception as e:
+        logger.debug("Failed to record engine call: %s", e)
