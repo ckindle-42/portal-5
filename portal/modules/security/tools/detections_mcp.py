@@ -8,6 +8,7 @@ Port: 8932 (configurable via DETECTIONS_MCP_PORT env var; bumped from 8930 to re
 
 from __future__ import annotations
 
+import inspect
 import logging
 import os
 import sys
@@ -132,6 +133,29 @@ async def health_check(request: Request) -> JSONResponse:
 @mcp.custom_route("/tools", methods=["GET"])
 async def list_tools(request: Request) -> JSONResponse:
     return JSONResponse({"tools": TOOLS_MANIFEST})
+
+
+@mcp.custom_route("/tools/{tool_name}", methods=["POST"])
+async def invoke_tool(request: Request) -> JSONResponse:
+    """REST dispatch endpoint used by portal-pipeline tool_registry (POST /tools/{name})."""
+    tool_name = request.path_params.get("tool_name", "")
+    if tool_name not in {tool["name"] for tool in TOOLS_MANIFEST}:
+        return JSONResponse({"error": f"Unknown tool: {tool_name}"}, status_code=404)
+    try:
+        body: Any = await request.json()
+    except Exception:
+        body = {}
+    arguments = body.get("arguments", body) if isinstance(body, dict) else {}
+    try:
+        result = globals()[tool_name](**arguments)
+        if inspect.isawaitable(result):
+            result = await result
+        return JSONResponse(result)
+    except TypeError as e:
+        return JSONResponse({"error": f"Invalid arguments: {e}"}, status_code=400)
+    except Exception as e:
+        logger.error("%s failed: %s", tool_name, e, exc_info=True)
+        return JSONResponse({"error": str(e)}, status_code=500)
 
 
 # ── Tool Implementations ─────────────────────────────────────────────────────
