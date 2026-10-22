@@ -945,13 +945,37 @@ services:
       - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASSWORD}
       - GF_USERS_ALLOW_SIGN_UP=false
       - GF_AUTH_ANONYMOUS_ENABLED=false
+      - GF_RENDERING_SERVER_URL=http://grafana-image-renderer:8081/render
+      - GF_RENDERING_CALLBACK_URL=http://grafana:3000/
+      - GF_RENDERING_RENDERER_TOKEN=${GRAFANA_RENDERER_TOKEN:-portal5-renderer}
     depends_on:
       - prometheus
+      - grafana-image-renderer
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:3000/api/health"]
       interval: 30s
       timeout: 5s
       retries: 3
+
+  # ── Grafana Image Renderer — remote PNG/PDF export sidecar ──────────────
+  # The in-Grafana renderer plugin is deprecated upstream; the remote service
+  # is the supported path (Grafana 13: renderAuthJWT requires a non-default
+  # shared token — AUTH_TOKEN here must match GF_RENDERING_RENDERER_TOKEN).
+  # Internal network only (no host port, rule 7); its container :8081 is
+  # unrelated to the host MLX proxy :8081. Healthcheck ships in the image.
+  grafana-image-renderer:
+    image: grafana/grafana-image-renderer:v5.12.8
+    container_name: portal5-grafana-image-renderer
+    restart: unless-stopped
+    environment:
+      - AUTH_TOKEN=${GRAFANA_RENDERER_TOKEN:-portal5-renderer}
+      # GOMEMLIMIT stays below the container limit — Chromium needs free memory on top.
+      - GOMEMLIMIT=1GiB
+    deploy:
+      resources:
+        limits:
+          cpus: "2.0"
+          memory: 2G
 
 volumes:
   ollama-models:       # Ollama model weights — survives docker compose down

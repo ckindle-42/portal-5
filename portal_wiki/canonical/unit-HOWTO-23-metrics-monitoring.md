@@ -23,6 +23,8 @@ updated_at: 1792281600
 
 **How:** The pipeline exposes Prometheus-compatible metrics at `GET /metrics` (`metrics` in `portal/platform/inference/router/handlers.py` — intentionally unauthenticated so Prometheus can scrape it). The `prometheus` service scrapes on port 9090 using `config/prometheus/prometheus.yml`, and the `grafana` service serves on port 3000 with dashboards and datasources provisioned from `config/grafana/dashboards` and `config/grafana/datasources` (both defined in `deploy/portal-5/docker-compose.yml`). Grafana login is `admin` / `GRAFANA_PASSWORD` from `.env`. Both are part of the default `./launch.sh up` stack.
 
+Exporting a dashboard or panel as PNG/PDF (Share → Export as image / PDF) renders through the `grafana-image-renderer` sidecar defined next to `grafana` in `deploy/portal-5/docker-compose.yml` — a compose-internal service with no host port that shares the `GRAFANA_RENDERER_TOKEN` secret with Grafana (override it in `.env`; Grafana 13 requires a non-default renderer token).
+
 **Inspect:**
 ```bash
 ./launch.sh status
