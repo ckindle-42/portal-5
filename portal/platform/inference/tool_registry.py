@@ -1,8 +1,8 @@
 """Tool registry — discovers model-facing tools from MCP servers and dispatches calls.
 
 Maps ``tool_name → MCP server URL + JSON schema`` for every model-callable tool:
-discovery (poll each MCP's ``/tools`` endpoint), advertisement (serialize to the
-OpenAI ``tools:`` array), and dispatch (POST a tool call and return its result).
+discovery (native ``tools/list`` or migration ``/tools`` endpoint), advertisement
+(serialize to the OpenAI ``tools:`` array), and dispatch (call the source server).
 
 A module-level singleton ``tool_registry = ToolRegistry()`` is used by
 ``router_pipe.py``; discovery runs lazily on the first ``refresh()`` and on
@@ -32,6 +32,7 @@ from typing import Any, cast
 import httpx
 
 from portal.platform.inference.config import get_pipeline_mcp_servers, load_portal_config
+from portal.platform.inference.mcp_http import MCPHTTPError, call_tool, list_tools
 
 logger = logging.getLogger(__name__)
 
@@ -45,6 +46,26 @@ TOOL_REGISTRY_REFRESH_S = float(os.environ.get("TOOL_REGISTRY_REFRESH_S", "3600"
 TOOL_REGISTRY_RETRY_S = float(os.environ.get("TOOL_REGISTRY_RETRY_S", "30"))
 TOOL_DISCOVERY_TIMEOUT_S = 5.0
 TOOL_DISPATCH_TIMEOUT_S = float(os.environ.get("TOOL_DISPATCH_TIMEOUT_S", "60"))
+PIPELINE_NATIVE_MCP_CLIENT = os.environ.get("PIPELINE_NATIVE_MCP_CLIENT", "0") == "1"
+
+
+def _uses_native_mcp(server_id: str) -> bool:
+    """Gate the modern Streamable HTTP pilot to the Pipeline MCP server."""
+    return PIPELINE_NATIVE_MCP_CLIENT and server_id == "pipeline"
+
+
+async def _fetch_tools(
+    client: httpx.AsyncClient, server_id: str, base_url: str
+) -> list[dict[str, Any]] | None:
+    """Fetch one server's native MCP or migration REST tool list."""
+    if _uses_native_mcp(server_id):
+        return await list_tools(client, base_url, TOOL_DISCOVERY_TIMEOUT_S)
+    response = await client.get(f"{base_url.rstrip('/')}/tools")
+    if response.status_code != 200:
+        logger.warning("Tool discovery: %s returned %d", server_id, response.status_code)
+        return None
+    payload = response.json()
+    return payload if isinstance(payload, list) else payload.get("tools", [])
 
 
 @functools.lru_cache(maxsize=1)
@@ -97,7 +118,7 @@ def _backoff_seconds(failures: int) -> float:
 class ToolDefinition:
     """One discovered tool, with attached circuit-breaker state.
 
-    Constructed by ``ToolRegistry.refresh`` from an MCP's ``/tools`` response.
+    Constructed by ``ToolRegistry.refresh`` from native MCP or migration REST metadata.
     The first five fields describe the tool; the rest track dispatch history so
     the registry can apply backoff. State lives on this object so ``refresh``
     can preserve it with a field copy when a tool re-appears — without that, a
@@ -229,15 +250,12 @@ class ToolRegistry:
             succeeded_servers: set[str] = set()
 
             async def _discover_one(server_id: str, base_url: str) -> None:
-                """Fetch and parse one MCP server's ``/tools`` endpoint."""
+                """Fetch and parse one server's native or REST tool list."""
                 try:
-                    r = await client.get(f"{base_url.rstrip('/')}/tools")
-                    if r.status_code != 200:
-                        logger.warning("Tool discovery: %s returned %d", server_id, r.status_code)
+                    tools = await _fetch_tools(client, server_id, base_url)
+                    if tools is None:
                         return
                     succeeded_servers.add(server_id)
-                    payload = r.json()
-                    tools = payload if isinstance(payload, list) else payload.get("tools", [])
                     for raw in tools:
                         # Most `/tools` manifests are flat
                         # ({"name", "description", "parameters"}); at least
@@ -255,7 +273,7 @@ class ToolRegistry:
                         new_tools[name] = ToolDefinition(
                             name=name,
                             description=tdef.get("description", ""),
-                            parameters=tdef.get("parameters", {}),
+                            parameters=tdef.get("parameters", tdef.get("inputSchema", {})),
                             server_id=server_id,
                             server_url=base_url,
                             last_seen=now,
@@ -396,6 +414,8 @@ class ToolRegistry:
             }
 
         timeout_s = tool.custom_timeout_s or TOOL_DISPATCH_TIMEOUT_S
+        if _uses_native_mcp(getattr(tool, "server_id", "")):
+            return await self._dispatch_native_mcp(tool, arguments, timeout_s, now)
         url = f"{tool.server_url.rstrip('/')}/tools/{tool_name}"
 
         try:
@@ -440,6 +460,35 @@ class ToolRegistry:
             tool.healthy = False
             tool.next_retry_at = now + _backoff_seconds(tool.consecutive_failures)
             return {"error": f"Tool '{tool_name}' dispatch failed: {e}"}
+
+    async def _dispatch_native_mcp(
+        self,
+        tool: ToolDefinition,
+        arguments: dict[str, Any],
+        timeout_s: float,
+        now: float,
+    ) -> dict[str, Any]:
+        """Dispatch through native MCP while preserving the REST path's breaker rules."""
+        try:
+            result = await call_tool(
+                await self._client(), tool.server_url, tool.name, arguments, timeout_s
+            )
+            tool.healthy = True
+            tool.consecutive_failures = 0
+            tool.next_retry_at = 0.0
+            return result
+        except MCPHTTPError as exc:
+            if exc.code in {-32601, -32602}:
+                return {"error": f"Tool '{tool.name}' rejected the MCP request", "detail": str(exc)}
+            detail = str(exc)
+        except (TimeoutError, httpx.TimeoutException):
+            detail = f"timed out after {timeout_s}s"
+        except Exception as exc:
+            detail = f"dispatch failed: {exc}"
+        tool.consecutive_failures += 1
+        tool.healthy = False
+        tool.next_retry_at = now + _backoff_seconds(tool.consecutive_failures)
+        return {"error": f"Tool '{tool.name}' {detail}"}
 
     async def close(self) -> None:
         """Close the shared HTTP client; safe to call multiple times.
