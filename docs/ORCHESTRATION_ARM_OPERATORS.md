@@ -1,6 +1,6 @@
 # Orchestration arm operator guide
 
-The `orchestration` module is disabled by default. Enable it when the Pipeline and its seated models are already available:
+The `orchestration` module is enabled in the repo. It is ready to run as long as the Pipeline and its seated models are already available:
 
 ```bash
 uv run portal module enable orchestration --yes
@@ -28,7 +28,7 @@ uv run portal arm resume <task-id>
 uv run portal arm resume <task-id> --override
 ```
 
-`detection-engineering` is an unseated candidate. Its hard-check bite suite, planner suite, checker controls, and stored authoring template are ready for offline validation, but it has no model binding or calibration rates. The module remains disabled, and unattended runs for this discipline stay unavailable until live Fast and Deep suite rates meet its fixed pass criteria.
+`detection-engineering` is an unseated candidate. Its hard-check bite suite, planner suite, checker controls, and stored authoring template are ready for offline validation, but it has no model binding or calibration rates. The module is enabled, but unattended runs for this discipline stay unavailable until live Fast and Deep suite rates meet its fixed pass criteria.
 
 A resume without `--override` refuses a changed build SHA or model digest. Review the task artifacts before explicitly adopting a changed identity. `receipt.json` reports `PASS` only when every bite passes; exhausted bites are `BLOCKED`. The scheduler reads its residency mode and the load-guard model identities from `config/orchestration_arm.yaml`.
 
@@ -46,7 +46,7 @@ uv run portal arm queue-run
 
 The queue waits while a WFE run has a live PID in `/tmp/portal5-memory-safety-test-pids`, while a configured yield lock has a live PID, or while the Pipeline load plan reports busy/no fit. Bench and UAT runners can opt into the same convention by writing their PID as the only line in a file under `~/.portal5/locks/` and removing the file on exit. Set `queue.yield_lock_dir` in `config/portal.yaml` to use another directory. The queue records plans and state in `queue.sqlite3`; interrupted bites resume from their task ledger after restart.
 
-Open WebUI uses that same queue. The pipeline MCP tool `arm_queue_task(task_id, discipline, template_key, parameters, source_dir=None)` renders a stored plan template and calls `QueueLedger.enqueue`; it does not plan on the Deep seat and does not need the digest variables above. It returns the `receipt.json` path under `get_generated_dir("tasks")`. `portal arm queue-run` writes that file. The tool refuses while the module is disabled. `source_dir` must be an existing directory under the workspace root or the repository; omitted, it is the uploads directory. Template parameters that name host paths are held to those same roots. The tool is dispatched through the platform's module plugin seam rather than a module import. Add `arm_queue_task` to a workspace's `tools:` list in `config/portal.yaml`, then restart the pipeline MCP (:8928), before a chat can call it.
+Open WebUI uses that same queue. The pipeline MCP tool `arm_queue_task(task_id, discipline, template_key, parameters, source_dir=None)` renders a stored plan template and calls `QueueLedger.enqueue`; it does not plan on the Deep seat and does not need the digest variables above. It returns the `receipt.json` path under `get_generated_dir("tasks")`. `portal arm queue-run` writes that file. The tool is active when the module is enabled. `source_dir` must be an existing directory under the workspace root or the repository; omitted, it is the uploads directory. Template parameters that name host paths are held to those same roots. The tool is dispatched through the platform's module plugin seam rather than a module import. Add `arm_queue_task` to a workspace's `tools:` list in `config/portal.yaml`, then restart the pipeline MCP (:8928), before a chat can call it.
 
 The offline rig uses no live stack or model. Run it with:
 
