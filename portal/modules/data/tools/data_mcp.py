@@ -193,6 +193,12 @@ def _conn(session_id: str) -> Any:
     return _conns[session_id]
 
 
+def _owned_session(session_id: str) -> str:
+    """Under an evaluation scope the run id owns the session."""
+    scope = eval_scope.EVAL_SCOPE.get()
+    return str(scope["run"]) if scope else session_id
+
+
 @mcp.tool()
 def attach_source(session_id: str, path: str, table: str) -> dict[str, Any]:
     """Attach a CSV/Parquet/JSON/xlsx file as a queryable table in a session.
@@ -202,6 +208,7 @@ def attach_source(session_id: str, path: str, table: str) -> dict[str, Any]:
     filesystem access permanently disabled, so it can never read the file (or any
     other path) again.
     """
+    session_id = _owned_session(session_id)
     try:
         if not _IDENT.match(table):
             raise ValueError(f"bad table name: {table!r}")
@@ -259,6 +266,7 @@ def attach_source(session_id: str, path: str, table: str) -> dict[str, Any]:
 @mcp.tool()
 def run_sql(session_id: str, sql: str, max_rows: int = _MAX_ROWS) -> dict[str, Any]:
     """Run a SQL query against the session. Mutating/escape statements are blocked."""
+    session_id = _owned_session(session_id)
     try:
         if _BLOCKED.search(sql):
             return {
@@ -289,6 +297,7 @@ def run_sql(session_id: str, sql: str, max_rows: int = _MAX_ROWS) -> dict[str, A
 @mcp.tool()
 def profile_table(session_id: str, table: str) -> dict[str, Any]:
     """Per-column profile: type, null count, distinct count, min/max/mean for numerics."""
+    session_id = _owned_session(session_id)
     try:
         if not _IDENT.match(table):
             raise ValueError("bad table name")
@@ -313,6 +322,7 @@ def profile_table(session_id: str, table: str) -> dict[str, Any]:
 @mcp.tool()
 def list_session(session_id: str) -> dict[str, Any]:
     """List tables/views currently in a session."""
+    session_id = _owned_session(session_id)
     try:
         con = _conn(session_id)
         tables = [r[0] for r in con.execute("SHOW TABLES").fetchall()]

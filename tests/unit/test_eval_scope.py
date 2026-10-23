@@ -248,15 +248,19 @@ def _scoped(fn, **kwargs):
         es.EVAL_SCOPE.reset(token)
 
 
-def test_data_scope_confines_attach_to_the_evaluation_namespace(data):
+def test_data_scope_owns_the_session_and_confines_attach(data):
     dm, root, sess = data
     fx = es.run_root(root, SCOPE) / "in"
     fx.mkdir()
     (fx / "sales.csv").write_text("region,amount\neast,10\nwest,5\n")
     body = _scoped(dm.attach_source, session_id="someone_else", path="sales.csv", table="sales")
-    assert body["session_id"] == "someone_else" and body["rows"] == 2
-    body = _scoped(dm.run_sql, session_id="someone_else", sql="SELECT sum(amount) AS t FROM sales")
-    assert json.dumps(body).count("15") >= 1
+    assert body["session_id"] == RUN and body["rows"] == 2
+    assert (sess / f"{RUN}.duckdb").exists() and not (sess / "someone_else.duckdb").exists()
+    body = _scoped(dm.run_sql, session_id="ignored", sql="SELECT sum(amount) AS t FROM sales")
+    assert body["session_id"] == RUN and json.dumps(body).count("15") >= 1
+    body = _scoped(dm.list_session, session_id="other")
+    assert body["session_id"] == RUN and "sales" in body["tables"]
+    assert not (sess / "other.duckdb").exists()
     (root / "operator.csv").write_text("a\n1\n")
     body = _scoped(dm.attach_source, session_id="x", path=str(root / "operator.csv"), table="t")
     assert "outside the evaluation namespace" in body.get("error", "")
