@@ -950,7 +950,7 @@ def test_worker_sends_input_paths_without_packing_file_contents(
 ) -> None:
     (tmp_path / "source.txt").write_text("complete source text", encoding="utf-8")
     fake_pipeline.add("fast", finish_response({"answer": "right"}))
-    task_bite = bite(inputs=["source.txt"])
+    task_bite = bite(inputs=["source.txt"], tools=["file_read"])
     task_dir = service(tmp_path, fake_pipeline).submit(plan("input-read", task_bite), tmp_path)
     request = fake_pipeline.requests[0]
     messages = request["messages"]
@@ -961,6 +961,18 @@ def test_worker_sends_input_paths_without_packing_file_contents(
         encoding="utf-8"
     ) == "complete source text"
     assert "complete source text" not in json.dumps(messages)
+
+
+def test_toolless_bite_gets_its_inputs_as_snapshots(
+    tmp_path: Path, fake_pipeline: FakePipeline
+) -> None:
+    # A final review has no file tools; without snapshots it cannot see what it reviews.
+    (tmp_path / "source.txt").write_text("complete source text", encoding="utf-8")
+    fake_pipeline.add("fast", finish_response({"answer": "right"}))
+    service(tmp_path, fake_pipeline).submit(plan("toolless", bite(inputs=["source.txt"])), tmp_path)
+    messages = fake_pipeline.requests[0]["messages"]
+    assert "complete source text" in messages[1]["content"]
+    assert "do not call one" in messages[0]["content"]
 
 
 def test_submit_rejects_tools_outside_the_discipline_allowlist(

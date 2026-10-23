@@ -880,10 +880,13 @@ def _messages(
         f"Deep review: {bite.review_reason or 'not requested'}\n"
         f"Declared input paths: {json.dumps(declared_paths)}"
     )
-    if set(bite.tools) & ACTION_TOOLS:
+    # Any bite that cannot read files (action bites, and tool-less ones such as a final review)
+    # gets its inputs inline; otherwise it has no way to see them.
+    snapshot_inputs = not set(bite.tools) & READ_TOOLS
+    if snapshot_inputs:
         system += (
             "\nThe declared inputs and existing staged write targets are included in the user "
-            "message as read-only snapshots. This action bite has no file_read tool; do not call one."
+            "message as read-only snapshots. This bite has no file_read tool; do not call one."
         )
     inputs = {name: {"path": path} for name, path in declared_paths.items()}
     user_content = json.dumps({"bite_id": bite.bite_id, "inputs": inputs})
@@ -896,7 +899,7 @@ def _messages(
             resolved = (root / staged_path).resolve()
             if resolved.is_relative_to(root) and resolved.is_file():
                 snapshot_paths.setdefault(write_path, resolved.relative_to(root).as_posix())
-    if set(bite.tools) & ACTION_TOOLS and snapshot_paths and root is not None:
+    if snapshot_inputs and snapshot_paths and root is not None:
         user_content += "\n\n" + _input_snapshot_text(
             bite, snapshot_paths, root, system, user_content
         )
