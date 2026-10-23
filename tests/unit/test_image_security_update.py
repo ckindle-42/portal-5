@@ -216,3 +216,28 @@ def test_nothing_else_pulls_open_webui():
     launch = (_ROOT / "launch.sh").read_text()
     pulls = [ln for ln in launch.splitlines() if re.search(r"docker compose pull\b", ln)]
     assert pulls and all("grep -vx open-webui" in ln for ln in pulls)
+
+
+def test_failed_bump_build_restores_the_previous_pin(tmp_path, monkeypatch):
+    import scripts.image_security_update as m
+
+    compose = tmp_path / "docker-compose.yml"
+    original = (
+        "services:\n  open-webui:\n    image: portal5-open-webui:v0.12.3-hardened\n"
+        "    build:\n      args:\n        OPENWEBUI_VERSION: v0.12.3\n  other:\n    image: x\n"
+    )
+    compose.write_text(original)
+    monkeypatch.setattr(m, "COMPOSE", compose)
+    monkeypatch.setattr(
+        m,
+        "_docker",
+        lambda *a, **k: type("R", (), {"returncode": 0, "stdout": "sha:old", "stderr": ""})(),
+    )
+    monkeypatch.setattr(
+        m,
+        "_compose",
+        lambda *a, **k: type("R", (), {"returncode": 1, "stdout": "", "stderr": "x"})(),
+    )
+    ok, msg = m.owui_update(bump="v0.12.4")
+    assert ok and "build of v0.12.4 failed" in msg
+    assert compose.read_text() == original

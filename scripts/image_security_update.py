@@ -339,6 +339,7 @@ def _apply_pinned(previous: str, dry_run: bool, proposal: str = "") -> tuple[boo
     if dry_run:
         return True, f"[dry-run] would build {release} and apply it behind the health gate"
     if _compose("build", OWUI_SVC, timeout=3600).returncode != 0:
+        COMPOSE.write_text(previous)  # a failed --bump must not leave the new pin behind
         return True, f"open-webui: build of {release} failed — staying on the current build"
     new_id = _image_id(pinned)
     # Inherited from the upstream base; a derived build without it is tracked by release.
