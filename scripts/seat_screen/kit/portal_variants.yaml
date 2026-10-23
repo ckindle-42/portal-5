@@ -223,6 +223,23 @@ kit-huihui36:
     - remember
     - recall
 
+kit-flint:
+  name: "Kit Flint 40B-A2B QAT INT4 (Recursive)"
+  client_tools_only: true
+  description: "Screen seat (2026-10-23). Ollama 0.40.8 MLX runner, flint:40b-a2b-qat-int4-ctx32k (baked num_ctx 32768). Direct conformance passed: typed tool_calls, clean post-tool turn, think on/off, 19.7 GiB RSS."
+  model_hint: flint:40b-a2b-qat-int4-ctx32k
+  context_limit: 32768
+  predict_limit: 16384
+  # Card sampling (REPORT_FLINT): 1.0 / 0.95 / 20 / min_p 0.0; not KAT's 1.05/0.05.
+  temperature: 1.0
+  top_p: 0.95
+  top_k: 20
+  min_p: 0.0
+  repeat_penalty: 1.0
+  think: true
+  emits_reasoning: true
+  mode: agentic
+
 # ---------- auto-coding.variants — ARM A (think off) ----------
 # Think A/B: arm A is `think: false` + the card's INSTRUCT sampling on the same
 # four oMLX ids as arm B below. The pair is the measurement: run `-a` then `-b`

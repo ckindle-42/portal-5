@@ -11,6 +11,8 @@
 
 # --- under backends: id ollama-coding, models: ---
 ollama-coding-models:
+  - id: flint:40b-a2b-qat-int4-ctx32k
+    supports_tools: true  # direct probe 2026-10-23: typed tool_calls + post-tool turn
   - id: hf.co/unsloth/Qwen3.6-35B-A3B-GGUF:UD-Q4_K_XL-ctx128k
     supports_tools: true  # unverified until kit probe; create the tag first
   - id: kat-coder-v2.5-dev:Q4_K_M-ctx128k

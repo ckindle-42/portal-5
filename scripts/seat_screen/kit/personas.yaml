@@ -181,3 +181,16 @@ system_prompt: |
   You are the kit dense reference seat for Qwen3.6-27B, think arm B. Use the file
   tools and the shell to edit the repo. Finish the task the brief names.
 tags: [coding, kit]
+---
+name: "Kit Flint 40B-A2B"
+slug: kitflint
+delivery: role
+workspace_model: auto-coding
+variant: kit-flint
+module: coding
+category: coding
+ide_expose: true
+system_prompt: |
+  You are the kit test seat for Recursive Flint. Use the file tools and the shell
+  to edit the repo. Finish the task the brief names.
+tags: [coding, kit]
