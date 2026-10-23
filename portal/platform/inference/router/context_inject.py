@@ -164,7 +164,7 @@ def _inject_context_block(body: dict[str, Any], header: str, items: list[str]) -
     return {**body, "messages": messages}
 
 
-async def _dispatch_bounded(tool: str, args: dict[str, Any], cid: str) -> dict[str, Any]:
+async def _dispatch_bounded(tool: str, args: dict[str, Any], cid: str) -> Any:
     try:
         return await asyncio.wait_for(
             tool_registry.dispatch(tool, args, request_id=cid),

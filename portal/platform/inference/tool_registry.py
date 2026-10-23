@@ -27,18 +27,24 @@ import logging
 import os
 import time
 from dataclasses import dataclass
-from typing import Any, cast
+from typing import Any
 
 import httpx
 
-from portal.platform.inference.config import get_pipeline_mcp_servers, load_portal_config
-from portal.platform.inference.mcp_http import MCPHTTPError, call_tool, list_tools
+from portal.platform.inference.config import (
+    get_pipeline_mcp_client_modes,
+    get_pipeline_mcp_servers,
+    load_portal_config,
+)
+from portal.platform.inference.mcp_http import MCPHTTPError, call_tool, list_tools, map_tool_result
 
 logger = logging.getLogger(__name__)
 
 # MCP server base URLs — derived from the portal.yaml fleet table; env vars
 # MCP_<ID_UPPER>_URL override individual entries.
-MCP_SERVERS: dict[str, str] = get_pipeline_mcp_servers(load_portal_config())
+_PORTAL_CONFIG = load_portal_config()
+MCP_SERVERS: dict[str, str] = get_pipeline_mcp_servers(_PORTAL_CONFIG)
+MCP_CLIENT_MODES = get_pipeline_mcp_client_modes(_PORTAL_CONFIG)
 
 TOOL_REGISTRY_REFRESH_S = float(os.environ.get("TOOL_REGISTRY_REFRESH_S", "3600"))
 # While any MCP is undiscovered (a partial startup, e.g. memory not up yet), refresh on this
@@ -46,12 +52,11 @@ TOOL_REGISTRY_REFRESH_S = float(os.environ.get("TOOL_REGISTRY_REFRESH_S", "3600"
 TOOL_REGISTRY_RETRY_S = float(os.environ.get("TOOL_REGISTRY_RETRY_S", "30"))
 TOOL_DISCOVERY_TIMEOUT_S = 5.0
 TOOL_DISPATCH_TIMEOUT_S = float(os.environ.get("TOOL_DISPATCH_TIMEOUT_S", "60"))
-PIPELINE_NATIVE_MCP_CLIENT = os.environ.get("PIPELINE_NATIVE_MCP_CLIENT", "0") == "1"
 
 
 def _uses_native_mcp(server_id: str) -> bool:
-    """Gate the modern Streamable HTTP pilot to the Pipeline MCP server."""
-    return PIPELINE_NATIVE_MCP_CLIENT and server_id == "pipeline"
+    """Return whether this fleet server opts into the native Streamable HTTP client."""
+    return MCP_CLIENT_MODES.get(server_id, "rest") == "native"
 
 
 async def _fetch_tools(
@@ -96,6 +101,19 @@ def _dispatch_body(arguments: dict[str, Any], request_id: str) -> dict[str, Any]
 
     scope = EVAL_SCOPE.get()
     return {"arguments": arguments, "request_id": request_id, **({"eval": scope} if scope else {})}
+
+
+def _native_scope_error(server_id: str) -> dict[str, str] | None:
+    """Keep scoped compliance calls on the REST path until MCP metadata carries their scope."""
+    if server_id != "compliance":
+        return None
+    from portal.platform.mcp_host.eval_scope import EVAL_SCOPE  # noqa: PLC0415
+
+    return (
+        {"error": "native MCP client cannot carry the WFE compliance scope"}
+        if EVAL_SCOPE.get()
+        else None
+    )
 
 
 def _backoff_seconds(failures: int) -> float:
@@ -372,7 +390,7 @@ class ToolRegistry:
 
     async def dispatch(
         self, tool_name: str, arguments: dict[str, Any], request_id: str = ""
-    ) -> dict[str, Any]:
+    ) -> Any:
         """Dispatch a tool call to its source MCP; return the result or an error dict.
 
         Never raises — every failure path (unknown tool, cool-down, HTTP
@@ -415,6 +433,9 @@ class ToolRegistry:
 
         timeout_s = tool.custom_timeout_s or TOOL_DISPATCH_TIMEOUT_S
         if _uses_native_mcp(getattr(tool, "server_id", "")):
+            scope_error = _native_scope_error(tool.server_id)
+            if scope_error is not None:
+                return scope_error
             return await self._dispatch_native_mcp(tool, arguments, timeout_s, now)
         url = f"{tool.server_url.rstrip('/')}/tools/{tool_name}"
 
@@ -433,7 +454,7 @@ class ToolRegistry:
                 tool.healthy = True
                 tool.consecutive_failures = 0
                 tool.next_retry_at = 0.0
-                return cast(dict[str, Any], r.json())
+                return r.json()
             elif r.status_code in (400, 422):
                 # The MCP rejected the model's arguments; the tool itself is
                 # fine. Tripping the breaker here locked the tool for every
@@ -467,16 +488,29 @@ class ToolRegistry:
         arguments: dict[str, Any],
         timeout_s: float,
         now: float,
-    ) -> dict[str, Any]:
+    ) -> Any:
         """Dispatch through native MCP while preserving the REST path's breaker rules."""
         try:
             result = await call_tool(
                 await self._client(), tool.server_url, tool.name, arguments, timeout_s
             )
+            mapped = map_tool_result(result)
+            if result.get("isError") is True:
+                if isinstance(mapped, dict) and "error" in mapped:
+                    error = mapped
+                else:
+                    error = {
+                        "error": f"Tool '{tool.name}' returned an MCP tool error",
+                        "detail": mapped,
+                    }
+                tool.consecutive_failures += 1
+                tool.healthy = False
+                tool.next_retry_at = now + _backoff_seconds(tool.consecutive_failures)
+                return error
             tool.healthy = True
             tool.consecutive_failures = 0
             tool.next_retry_at = 0.0
-            return result
+            return mapped
         except MCPHTTPError as exc:
             if exc.code in {-32601, -32602}:
                 return {"error": f"Tool '{tool.name}' rejected the MCP request", "detail": str(exc)}

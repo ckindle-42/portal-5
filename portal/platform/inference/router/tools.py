@@ -310,11 +310,12 @@ async def _dispatch_tool_call(
         trace_note(portal_timings=add_tool_time(elapsed))
         raise
     elapsed = time.monotonic() - t0
+    dispatch_error = isinstance(result, dict) and "error" in result
     trace_span(
         "tool.completed",
         tool=tool_name,
         tool_call_id=tool_call_id,
-        outcome="error" if "error" in result else "ok",
+        outcome="error" if dispatch_error else "ok",
         duration_ms=round(elapsed * 1000, 1),
     )
     trace_note(portal_timings=add_tool_time(elapsed))
@@ -322,7 +323,7 @@ async def _dispatch_tool_call(
     # Metrics
     _tool_calls_total.labels(tool=tool_name, workspace=workspace_id).inc()
     _tool_call_duration.labels(tool=tool_name).observe(elapsed)
-    if "error" in result:
+    if dispatch_error:
         _tool_call_errors.labels(tool=tool_name, workspace=workspace_id).inc()
 
     return {
