@@ -39,6 +39,35 @@ def corruption(content: str, calls: list[dict], tool_names: set[str]) -> list[st
     return found
 
 
+def _server_tools(port: object) -> list[dict]:
+    """Native tools/list for one fleet port, else its REST /tools manifest."""
+    import asyncio
+
+    import httpx
+
+    from portal.platform.inference.mcp_http import list_tools
+
+    if not isinstance(port, int):
+        return []
+    base = f"http://localhost:{port}"
+
+    async def fetch() -> list[dict]:
+        async with httpx.AsyncClient() as client:
+            return await list_tools(client, base, 3.0)
+
+    try:
+        return asyncio.run(fetch())
+    except Exception:  # noqa: BLE001
+        pass
+    try:
+        with urllib.request.urlopen(f"{base}/tools", timeout=3) as response:  # noqa: S310
+            payload = json.load(response)
+    except Exception:  # noqa: BLE001
+        return []
+    tools = payload.get("tools", []) if isinstance(payload, dict) else []
+    return [tool for tool in tools if isinstance(tool, dict)]
+
+
 def workspace_tools(workspace: str) -> list[dict]:
     """The OpenAI function schemas a workspace offers, from its `tools` and the MCP manifests."""
     import yaml
@@ -58,16 +87,10 @@ def workspace_tools(workspace: str) -> list[dict]:
                 schemas[t["name"]] = t
     if missing := [n for n in names if n not in schemas]:  # an MCP with no manifest file
         for e in yaml.safe_load((root / "config/portal.yaml").read_text())["mcp_fleet"]:
-            try:
-                with urllib.request.urlopen(  # noqa: S310
-                    f"http://localhost:{e['port']}/tools", timeout=3
-                ) as r:
-                    for t in json.load(r).get("tools", []):
-                        params = t.get("parameters") or t.get("inputSchema")
-                        if t.get("name") in missing and params:
-                            schemas[t["name"]] = {**t, "parameters": params}
-            except Exception:  # noqa: BLE001, S110
-                continue
+            for t in _server_tools(e.get("port")):
+                params = t.get("parameters") or t.get("inputSchema")
+                if t.get("name") in missing and params:
+                    schemas[t["name"]] = {**t, "parameters": params}
     return [
         {
             "type": "function",

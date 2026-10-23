@@ -290,6 +290,93 @@ def filtering_dispatchers() -> list[Row]:
     ]
 
 
+def _native_tool_list(base: str) -> list[dict] | None:
+    """Native tools/list, or None when that surface does not answer."""
+    import asyncio
+
+    import httpx
+
+    from portal.platform.inference.mcp_http import list_tools
+
+    async def fetch() -> list[dict]:
+        async with httpx.AsyncClient() as client:
+            return await list_tools(client, base, 3.0)
+
+    try:
+        return asyncio.run(fetch())
+    except Exception:  # noqa: BLE001
+        return None
+
+
+def _listed_tools(base: str) -> tuple[list[dict] | None, str]:
+    """Tools from native tools/list, else the REST /tools manifest."""
+    native = _native_tool_list(base)
+    if native is not None:
+        return native, "native"
+    try:
+        with urllib.request.urlopen(f"{base}/tools", timeout=3) as response:  # noqa: S310
+            payload = json.load(response)
+    except Exception:  # noqa: BLE001
+        return None, ""
+    tools = payload.get("tools", []) if isinstance(payload, dict) else []
+    return [t for t in tools if isinstance(t, dict)], "rest"
+
+
+def _invoke_native_tool(base: str, name: str, args: dict) -> tuple[str, int]:
+    import asyncio
+
+    import httpx
+
+    from portal.platform.inference.mcp_http import MCPHTTPError, call_tool
+
+    async def fetch() -> dict:
+        async with httpx.AsyncClient() as client:
+            return await call_tool(client, base, name, args, 30.0)
+
+    try:
+        return json.dumps(asyncio.run(fetch())), 200
+    except MCPHTTPError as exc:
+        return str(exc), exc.status_code or 500
+
+
+def _invoke_listed_tool(base: str, mode: str, name: str, args: dict) -> tuple[str, int]:
+    if mode == "native":
+        return _invoke_native_tool(base, name, args)
+    request = urllib.request.Request(
+        f"{base}/tools/{name}",
+        data=json.dumps({"arguments": args}).encode(),
+        headers={"Content-Type": "application/json"},
+    )
+    try:
+        with urllib.request.urlopen(request, timeout=30) as response:  # noqa: S310
+            return response.read().decode(), response.status
+    except urllib.error.HTTPError as err:
+        return err.read().decode(), err.code
+
+
+def _rejected_unknown(body: str, code: int) -> bool:
+    try:
+        parsed = json.loads(body)
+    except json.JSONDecodeError:
+        parsed = None
+    is_error = isinstance(parsed, dict) and parsed.get("isError") is True
+    if code not in (400, 422) and not is_error:
+        return False
+    return re.search(r"unexpected|invalid|unknown|extra|zz_unknown", body, re.I) is not None
+
+
+def _without_is_error(body: str) -> str:
+    """Drop the MCP isError flag so a successful native result is not an 'error' hit."""
+    try:
+        parsed = json.loads(body)
+    except json.JSONDecodeError:
+        return body
+    if not isinstance(parsed, dict) or "isError" not in parsed:
+        return body
+    rest = {key: value for key, value in parsed.items() if key != "isError"}
+    return json.dumps(rest)
+
+
 def class3() -> list[Row]:
     rows = filtering_dispatchers()
     for e in load_portal()["mcp_fleet"]:
@@ -297,11 +384,9 @@ def class3() -> list[Row]:
         if not port or not e.get("expose_to_pipeline", True):
             continue
         base = f"http://localhost:{port}"
-        try:
-            with urllib.request.urlopen(f"{base}/tools", timeout=3) as r:  # noqa: S310
-                tools = json.load(r).get("tools", [])
-        except Exception:  # noqa: BLE001
-            rows.append(("3", e["id"], "info", "MCP unreachable or serves no /tools"))
+        tools, mode = _listed_tools(base)
+        if tools is None:
+            rows.append(("3", e["id"], "info", "MCP unreachable"))
             continue
         for t in tools:
             name = t.get("name", "")
@@ -321,26 +406,17 @@ def class3() -> list[Row]:
                 for k in schema.get("required", [])
             }
             args["zz_unknown_probe"] = 1
-            req = urllib.request.Request(
-                f"{base}/tools/{name}",
-                data=json.dumps({"arguments": args}).encode(),
-                headers={"Content-Type": "application/json"},
-            )
             try:
-                with urllib.request.urlopen(req, timeout=30) as resp:  # noqa: S310
-                    body, code = resp.read().decode(), resp.status
-            except urllib.error.HTTPError as err:
-                body, code = err.read().decode(), err.code
+                body, code = _invoke_listed_tool(base, mode, name, args)
             except Exception as err:  # noqa: BLE001
                 rows.append(("3", f"{e['id']} / {name}", "info", f"call failed: {err}"))
                 continue
-            rejected = code in (400, 422) and re.search(
-                r"unexpected|invalid|unknown|extra|zz_unknown", body, re.I
-            )
+            rejected = _rejected_unknown(body, code)
+            visible = _without_is_error(body)
             ok = (
-                bool(re.search(r'"success"\s*:\s*true', body))
+                bool(re.search(r'"success"\s*:\s*true', visible))
                 or code == 200
-                and not re.search(r"error", body, re.I)
+                and not re.search(r"error", visible, re.I)
             )
             if rejected:
                 rows.append(

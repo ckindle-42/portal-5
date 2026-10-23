@@ -767,6 +767,8 @@ _HARNESS_TOOLS = frozenset(TOOL_NAMES)
 _SHA_RE = re.compile(r"[0-9a-f]{7,40}\Z")
 _TOOL_DEF_RE = re.compile(r"def ([A-Za-z_][A-Za-z0-9_]*)\b")
 _TOOL_ROUTE_RE = re.compile(r'custom_route\("/tools/([A-Za-z_][A-Za-z0-9_]*)"')
+_NATIVE_DEF_RE = re.compile(r"(?:async\s+)?def\s+([A-Za-z_][A-Za-z0-9_]*)\b")
+_GREP_PATH_TEXT = re.compile(r"^[0-9a-f]+:(.+\.py)[:\-](.*)$")
 _tool_index_cache: dict[str, dict[str, str]] = {}
 REUSE_FIELDS = (
     "suite_digest",
@@ -1011,8 +1013,58 @@ def _tool_index(sha: str) -> dict[str, str]:
             and parts[1] in ("modules", "platform")
         ):
             index[found.group(1)] = f"portal/{parts[1]}/{parts[2]}"
+    _index_native_tools(sha, index)
     _tool_index_cache[sha] = index
     return index
+
+
+def _grep_path_text(line: str) -> tuple[str, str] | None:
+    """`sha:path:text` or `sha:path-text` from `git grep -A`."""
+    matched = _GREP_PATH_TEXT.match(line)
+    if matched is None:
+        return None
+    return matched.group(1), matched.group(2)
+
+
+def _module_of(path: str) -> str | None:
+    parts = path.split("/")
+    if len(parts) >= 3 and parts[0] == "portal" and parts[1] in ("modules", "platform"):
+        return f"portal/{parts[1]}/{parts[2]}"
+    return None
+
+
+def _index_native_tools(sha: str, index: dict[str, str]) -> None:
+    """`@mcp.tool()` definitions are the served tool, including native-only servers."""
+    out = _git(
+        "grep",
+        "-A",
+        "1",
+        "-E",
+        r"@mcp\.tool\(",
+        sha,
+        "--",
+        "portal/modules",
+        "portal/platform",
+    )
+    pending: str | None = None
+    for line in out.splitlines():
+        if line == "--" or not line:
+            pending = None
+            continue
+        parsed = _grep_path_text(line)
+        if parsed is None:
+            pending = None
+            continue
+        path, text = parsed
+        if "@mcp.tool(" in text:
+            pending = path
+            continue
+        if pending != path:
+            continue
+        found = _NATIVE_DEF_RE.search(text)
+        pending = None
+        if found and (module := _module_of(path)):
+            index[found.group(1)] = module
 
 
 def tool_module_trees(sha: str, tools: list | None) -> dict | None:

@@ -589,3 +589,27 @@ def test_tool_index_places_route_served_and_async_tools(monkeypatch):
     assert index["execute_python"] == "portal/modules/coding"
     assert index["remember"] == "portal/platform/memory"
     assert index["recall"] == "portal/platform/memory"
+
+
+def test_tool_index_places_native_decorator_tools(monkeypatch):
+    """A native `@mcp.tool()` in portal/platform places the tool and beats a same-named def."""
+    sha = "b" * 40
+    defs = f"{sha}:portal/modules/security/core/field_journal.py:def get_pipeline_status("
+    native = "\n".join(
+        [
+            f"{sha}:portal/platform/mcp_host/pipeline_mcp.py:@mcp.tool()",
+            f"{sha}:portal/platform/mcp_host/pipeline_mcp.py-async def get_pipeline_status(",
+        ]
+    )
+
+    def fake_git(*args: str) -> str:
+        if any("@mcp" in arg or "mcp\\.tool" in arg for arg in args):
+            return native
+        if any("custom_route" in arg for arg in args):
+            return ""
+        return defs
+
+    monkeypatch.setattr(campaign, "_git", fake_git)
+    monkeypatch.setattr(campaign, "_tool_index_cache", {})
+    index = campaign._tool_index(sha)
+    assert index["get_pipeline_status"] == "portal/platform/mcp_host"
