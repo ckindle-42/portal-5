@@ -126,6 +126,11 @@ def test_registry_forwards_the_scope_to_the_mcp(monkeypatch):
             "server_url": "http://mcp",
             "consecutive_failures": 0,
             "output_schema": None,
+            "parameters": {
+                "type": "object",
+                "properties": {"title": {"type": "string"}},
+                "required": ["title"],
+            },
         },
     )()
     monkeypatch.setattr(reg, "get", lambda name: tool)

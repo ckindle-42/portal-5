@@ -236,6 +236,66 @@ async def test_tool_registry_uses_configured_native_mcp_server(
 
 
 @pytest.mark.asyncio
+async def test_native_dispatch_rejects_unknown_and_missing_arguments(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The model sees a rejection; the SDK never gets a chance to drop the extra key."""
+    calls: list[str] = []
+
+    async def handler(request: httpx.Request) -> httpx.Response:
+        body = json.loads(request.content)
+        calls.append(body["method"])
+        if body["method"] == "tools/list":
+            return _response(
+                body["id"],
+                {
+                    "tools": [
+                        {
+                            "name": "transcribe_audio",
+                            "inputSchema": {
+                                "type": "object",
+                                "properties": {
+                                    "file_path": {"type": "string"},
+                                    "language": {"type": "string"},
+                                },
+                                "required": ["file_path"],
+                            },
+                        },
+                        {
+                            "name": "open_object",
+                            "inputSchema": {
+                                "type": "object",
+                                "properties": {"name": {"type": "string"}},
+                                "additionalProperties": True,
+                            },
+                        },
+                    ]
+                },
+            )
+        return _response(body["id"], {"structuredContent": {"ok": True}, "content": []})
+
+    monkeypatch.setattr(registry_module, "MCP_SERVERS", {"whisper": "http://whisper.test"})
+    registry = registry_module.ToolRegistry()
+    registry._http = httpx.AsyncClient(transport=httpx.MockTransport(handler))
+    await registry.refresh(force=True)
+    unknown = await registry.dispatch("transcribe_audio", {"audio_path": "/x.wav"})
+    missing = await registry.dispatch("transcribe_audio", {"language": "en"})
+    ok = await registry.dispatch("transcribe_audio", {"file_path": "a.wav"})
+    extra = await registry.dispatch("open_object", {"name": "a", "extra": 1})
+    tool = registry.get("transcribe_audio")
+    await registry.close()
+
+    assert unknown == {
+        "error": "Tool 'transcribe_audio' rejected the arguments",
+        "detail": "unexpected keyword argument(s) ['audio_path']; accepted: ['file_path', 'language']",
+    }
+    assert missing["detail"] == "missing required argument(s) ['file_path']"
+    assert ok == {"ok": True} and extra == {"ok": True}
+    assert calls.count("tools/call") == 2
+    assert tool is not None and tool.healthy and tool.consecutive_failures == 0
+
+
+@pytest.mark.asyncio
 async def test_native_scoped_compliance_routes_to_eval_and_forwards_scope(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

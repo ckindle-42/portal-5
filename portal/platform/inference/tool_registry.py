@@ -87,6 +87,32 @@ def _backoff_seconds(failures: int) -> float:
     return float(schedule[min(failures - 1, len(schedule) - 1)])
 
 
+def _argument_error(name: str, schema: Any, arguments: Any) -> dict[str, str] | None:
+    """Error dict when arguments have unknown keys or omit required ones."""
+    if not isinstance(schema, dict) or not isinstance(arguments, dict):
+        return None
+    properties = schema.get("properties")
+    additional = schema.get("additionalProperties", False)
+    allow_unknown = additional is True or isinstance(additional, dict)
+    if isinstance(properties, dict) and not allow_unknown:
+        unknown = sorted(set(arguments) - set(properties))
+        if unknown:
+            accepted = sorted(properties)
+            return {
+                "error": f"Tool '{name}' rejected the arguments",
+                "detail": f"unexpected keyword argument(s) {unknown}; accepted: {accepted}",
+            }
+    required = schema.get("required")
+    if isinstance(required, list):
+        missing = [key for key in required if isinstance(key, str) and key not in arguments]
+        if missing:
+            return {
+                "error": f"Tool '{name}' rejected the arguments",
+                "detail": f"missing required argument(s) {missing}",
+            }
+    return None
+
+
 def _tool_timeout(tdef: dict[str, Any]) -> float | None:
     timeout_s = tdef.get("timeout_s")
     meta = tdef.get("_meta")
@@ -363,8 +389,9 @@ class ToolRegistry:
         Args:
             tool_name: Must match a key in ``self._tools``. Unknown names
                 return an error dict.
-            arguments: JSON-serialisable kwargs forwarded as the MCP tool's
-                ``arguments``; the MCP validates the schema.
+            arguments: JSON-serialisable kwargs. Unknown keys and missing
+                required keys are rejected before the call so the model sees
+                the error instead of the SDK dropping them.
             request_id: Opaque request correlator forwarded as
                 ``portal5/request_id`` metadata so MCP logs can be
                 cross-referenced with pipeline logs. May be empty.
@@ -388,6 +415,9 @@ class ToolRegistry:
         scope_error = _native_scope_error(tool.server_id)
         if scope_error is not None:
             return scope_error
+        argument_error = _argument_error(tool.name, tool.parameters, arguments)
+        if argument_error is not None:
+            return argument_error
         return await self._dispatch_native_mcp(tool, arguments, timeout_s, now, request_id)
 
     async def _dispatch_native_mcp(
