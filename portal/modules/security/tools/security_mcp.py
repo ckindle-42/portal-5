@@ -11,17 +11,17 @@ import os
 from collections.abc import Awaitable, Callable
 from typing import Any, cast
 
-import torch
 from mcp.server import MCPServer
 from starlette.requests import Request
 from starlette.responses import JSONResponse, Response
-from transformers import AutoModelForSequenceClassification, AutoTokenizer
 
 from portal.modules.security.core.perception import (
     LabPerception,
     OutOfScopeError,
     default_lab_prober,
 )
+from portal.platform.mcp_host.eval_scope import bind_native_context
+from portal.platform.mcp_host.tool_support import align_native_tools
 
 logger = logging.getLogger(__name__)
 
@@ -50,6 +50,8 @@ class _TypedMCPServer(MCPServer):
 
 def _ensure_model() -> None:
     """Load the VLAI model on first use. Downloads from HuggingFace if not cached."""
+    from transformers import AutoModelForSequenceClassification, AutoTokenizer
+
     global _tokenizer, _model
     if _model is not None:
         return
@@ -67,17 +69,6 @@ mcp = _TypedMCPServer(
     "Portal Security Tools",
     instructions="Vulnerability severity classification and security analysis tools",
 )
-
-# Pre-warm the VLAI model at startup so the first tool call doesn't stall.
-# Gate behind SECURITY_MCP_PREWARM (default "1" — production behavior unchanged).
-# Set to "0" for faster dev startup; first call will load on demand.
-if os.environ.get("SECURITY_MCP_PREWARM", "1") == "1":
-    try:
-        _ensure_model()
-        logger.info("VLAI model pre-warm complete")
-    except Exception as e:
-        logger.warning("VLAI model pre-warm failed (will retry on first call): %s", e)
-
 
 TOOLS_MANIFEST = [
     {
@@ -187,6 +178,8 @@ def classify_vulnerability(description: str) -> dict[str, Any]:
         description: The vulnerability description text to classify.
                      Works best with CVE-style descriptions (1-3 sentences).
     """
+    import torch
+
     _ensure_model()
     tokenizer = _tokenizer
     model = _model
@@ -226,5 +219,19 @@ def lab_perception(hosts: list[str]) -> dict[str, Any]:
 
 
 # ── Serve ────────────────────────────────────────────────────────────────────
-if __name__ == "__main__":
+bind_native_context(mcp)
+align_native_tools(mcp, TOOLS_MANIFEST)
+
+
+def main() -> None:
+    if os.environ.get("SECURITY_MCP_PREWARM", "1") == "1":
+        try:
+            _ensure_model()
+            logger.info("VLAI model pre-warm complete")
+        except Exception as e:
+            logger.warning("VLAI model pre-warm failed (will retry on first call): %s", e)
     mcp.run(transport="streamable-http", host="0.0.0.0", port=_port)
+
+
+if __name__ == "__main__":
+    main()

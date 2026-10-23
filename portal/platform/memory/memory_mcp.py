@@ -17,6 +17,7 @@ Port: 8920 (MEMORY_MCP_PORT env override).
 import logging
 import os
 from collections.abc import Awaitable, Callable
+from typing import Any
 
 import lancedb
 from mcp.server import MCPServer
@@ -27,6 +28,9 @@ from starlette.responses import JSONResponse, Response
 from portal.platform.data_loader import load_data
 from portal.platform.lance_guard import list_all_table_names
 from portal.platform.mcp_host.build_info import build_info
+from portal.platform.mcp_host.eval_scope import bind_native_context
+from portal.platform.mcp_host.tool_support import align_native_tools, call_json_route
+from portal.platform.memory import graph_memory
 from portal.platform.memory.graph_memory import (
     LANCE_DIR,
     MEMORY_TABLE,
@@ -94,10 +98,88 @@ async def list_tools(request: Request) -> JSONResponse:
 register_memory_routes(mcp)
 
 
+@mcp.tool()
+async def remember(
+    text: str, category: str = "fact", tags: list[str] | None = None
+) -> dict[str, Any]:
+    args: dict[str, Any] = {"text": text, "category": category}
+    if tags is not None:
+        args["tags"] = tags
+    return await call_json_route(graph_memory._remember, args)
+
+
+@mcp.tool()
+async def recall(
+    query: str,
+    category: str | None = None,
+    tags: list[str] | None = None,
+    hops: int = 2,
+    top_k: int = 5,
+) -> dict[str, Any]:
+    args: dict[str, Any] = {"query": query, "hops": hops, "top_k": top_k}
+    if category is not None:
+        args["category"] = category
+    if tags is not None:
+        args["tags"] = tags
+    return await call_json_route(graph_memory._recall, args)
+
+
+@mcp.tool()
+async def graph_recall(query: str, hops: int = 2, top_k: int = 5) -> dict[str, Any]:
+    return await call_json_route(
+        graph_memory._recall, {"query": query, "hops": hops, "top_k": top_k}
+    )
+
+
+@mcp.tool()
+async def link(
+    src: str, dst: str, rel_type: str = "related_to", weight: float = 1.0
+) -> dict[str, Any]:
+    return await call_json_route(
+        graph_memory._link,
+        {"src": src, "dst": dst, "rel_type": rel_type, "weight": weight},
+    )
+
+
+@mcp.tool()
+async def neighbors(name: str, hops: int = 1) -> dict[str, Any]:
+    return await call_json_route(graph_memory._neighbors, {"name": name, "hops": hops})
+
+
+@mcp.tool()
+async def entity_timeline(name: str) -> dict[str, Any]:
+    return await call_json_route(graph_memory._entity_timeline, {"name": name})
+
+
+@mcp.tool()
+async def forget(id: str) -> dict[str, Any]:
+    return await call_json_route(graph_memory._forget, {"id": id})
+
+
+@mcp.tool()
+async def list_memories(
+    category: str | None = None, limit: int = 50, tags: list[str] | None = None
+) -> dict[str, Any]:
+    args: dict[str, Any] = {"limit": limit}
+    if category is not None:
+        args["category"] = category
+    if tags is not None:
+        args["tags"] = tags
+    return await call_json_route(graph_memory._list_memories, args)
+
+
+@mcp.tool()
+async def clear_memories(confirm_token: str) -> dict[str, Any]:
+    return await call_json_route(graph_memory._clear_memories, {"confirm_token": confirm_token})
+
+
 def main() -> None:
     port = int(os.environ.get("MEMORY_MCP_PORT", "8920"))
     mcp.run(transport="streamable-http", host="0.0.0.0", port=port)
 
+
+bind_native_context(mcp)
+align_native_tools(mcp, TOOLS_MANIFEST)
 
 if __name__ == "__main__":
     main()

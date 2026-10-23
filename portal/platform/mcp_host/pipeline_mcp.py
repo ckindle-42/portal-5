@@ -26,6 +26,8 @@ from mcp.server import MCPServer
 from starlette.responses import JSONResponse, Response
 
 from portal.platform.data_loader import load_data
+from portal.platform.mcp_host.eval_scope import bind_native_context
+from portal.platform.mcp_host.tool_support import align_native_tools
 
 logger = logging.getLogger(__name__)
 
@@ -988,6 +990,9 @@ def _extract_label(line: str, label: str) -> str:
 
 
 # ── Entrypoint ────────────────────────────────────────────────────────────────
+
+bind_native_context(mcp)
+align_native_tools(mcp, TOOLS_MANIFEST)
 
 if __name__ == "__main__":
     import uvicorn

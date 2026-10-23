@@ -21,6 +21,9 @@ from mcp.server import MCPServer
 from starlette.requests import Request
 from starlette.responses import JSONResponse, Response
 
+from portal.platform.mcp_host.eval_scope import bind_native_context
+from portal.platform.mcp_host.tool_support import align_native_tools, call_json_route
+
 logger = logging.getLogger(__name__)
 mcp = MCPServer("research")
 
@@ -500,10 +503,31 @@ async def web_fetch_endpoint(request: Request) -> JSONResponse:
         return fb or JSONResponse({"error": str(e)[:200], "url": url}, status_code=502)
 
 
+@mcp.tool()
+async def web_search(query: str, num_results: int = 5, time_range: str = "any") -> dict[str, Any]:
+    return await call_json_route(
+        web_search_endpoint,
+        {"query": query, "num_results": num_results, "time_range": time_range},
+    )
+
+
+@mcp.tool()
+async def news_search(query: str, num_results: int = 5) -> dict[str, Any]:
+    return await call_json_route(news_search_endpoint, {"query": query, "num_results": num_results})
+
+
+@mcp.tool()
+async def web_fetch(url: str, max_chars: int = 50000) -> dict[str, Any]:
+    return await call_json_route(web_fetch_endpoint, {"url": url, "max_chars": max_chars})
+
+
 def main() -> None:
     port = int(os.environ.get("RESEARCH_MCP_PORT", "8922"))
     mcp.run(transport="streamable-http", host="0.0.0.0", port=port)
 
+
+bind_native_context(mcp)
+align_native_tools(mcp, TOOLS_MANIFEST)
 
 if __name__ == "__main__":
     main()

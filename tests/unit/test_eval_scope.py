@@ -21,10 +21,14 @@ SCOPE = {"campaign": CAMP, "run": RUN, "allow": ["create_word_document"]}
 def _no_scope_leaks():
     """Every test starts and must end with no evaluation scope set in this context."""
     assert es.EVAL_SCOPE.get() is None
+    assert es.REQUEST_ID.get() == ""
     yield
     leaked = es.EVAL_SCOPE.get()
+    leaked_request_id = es.REQUEST_ID.get()
     es.EVAL_SCOPE.set(None)
+    es.REQUEST_ID.set("")
     assert leaked is None, "a test left an evaluation scope set"
+    assert leaked_request_id == "", "a test left a request id set"
 
 
 @pytest.mark.parametrize(
@@ -39,6 +43,29 @@ def _no_scope_leaks():
 def test_malformed_scopes_are_refused(raw):
     with pytest.raises(es.ScopeError):
         es.parse(raw)
+
+
+def test_native_mcp_call_binds_eval_scope_and_request_id():
+    from types import SimpleNamespace
+
+    class NativeServer:
+        async def call_tool(self, name, arguments, context):
+            return es.EVAL_SCOPE.get(), es.REQUEST_ID.get()
+
+    server = NativeServer()
+    es.bind_native_context(server)
+    context = SimpleNamespace(
+        request_context=SimpleNamespace(
+            params={
+                "_meta": {
+                    es.EVAL_META_KEY: SCOPE,
+                    es.REQUEST_ID_META_KEY: "chat-17",
+                }
+            }
+        )
+    )
+    assert asyncio.run(server.call_tool("tool", {}, context)) == (SCOPE, "chat-17")
+    assert es.EVAL_SCOPE.get() is None and es.REQUEST_ID.get() == ""
 
 
 def test_paths_are_confined_to_the_run_root(tmp_path):

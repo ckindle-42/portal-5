@@ -6,6 +6,9 @@ must be a subset of the fleet. The IDE-advertised set must also be a subset.
 
 from __future__ import annotations
 
+import asyncio
+import importlib
+import importlib.util
 import json
 from pathlib import Path
 
@@ -15,6 +18,32 @@ from portal.platform.inference.config import get_pipeline_mcp_servers, load_port
 from portal.platform.inference.tool_registry import MCP_SERVERS
 
 REPO = Path(__file__).resolve().parent.parent.parent
+NATIVE_MODULES = {
+    "music-minimax": "portal.modules.media.tools.music_minimax_mcp",
+    "mflux": "portal.modules.media.tools.mflux_mcp",
+    "video_mlx": "portal.modules.media.tools.video_mlx_mcp",
+    "documents": "portal.modules.documents.tools.document_mcp",
+    "execution": "portal.modules.coding.tools.code_sandbox_mcp",
+    "whisper": "portal.modules.media.tools.whisper_mcp",
+    "tts": "portal.modules.media.tools.tts_mcp",
+    "security": "portal.modules.security.tools.security_mcp",
+    "memory": "portal.platform.memory.memory_mcp",
+    "rag": "portal.modules.research.tools.rag_mcp",
+    "research": "portal.modules.research.tools.web_search_mcp",
+    "mlx_transcribe": None,
+    "cad_render": "portal.modules.cad.tools.cad_render_mcp",
+    "pipeline": "portal.platform.mcp_host.pipeline_mcp",
+    "mitre": "portal.modules.security.tools.mitre_mcp",
+    "detections": "portal.modules.security.tools.detections_mcp",
+    "wiki": "portal_wiki.wiki_mcp",
+    "vulnintel": "portal.modules.vulnintel.tools.vulnintel_mcp",
+    "icsot": "portal.modules.icsot.tools.icsot_mcp",
+    "compliance": "portal.modules.compliance.tools.compliance_mcp",
+    "detection": "portal.modules.detection.tools.detection_mcp",
+    "data": "portal.modules.data.tools.data_mcp",
+    "netforensics": "portal.modules.netforensics.tools.netforensics_mcp",
+    "review": "portal.modules.security.tools.review_mcp",
+}
 
 
 @pytest.fixture(autouse=True)
@@ -132,3 +161,44 @@ def test_browser_is_ide_only() -> None:
         assert not browser.expose_to_pipeline, (
             "browser MCP should not be pipeline-exposed (raw browser tools are not model-callable)"
         )
+
+
+def test_pipeline_exposed_native_tools_match_rest_manifests(monkeypatch) -> None:
+    pytest.importorskip("mcp")
+    monkeypatch.setenv("SECURITY_MCP_PREWARM", "0")
+    from portal.platform.mcp_host.eval_scope import TOOL_TIMEOUT_META_KEY
+
+    config = load_portal_config()
+    exposed = {server.id for server in config.mcp_fleet if server.expose_to_pipeline}
+    assert exposed == set(NATIVE_MODULES)
+
+    for server_id, module_path in NATIVE_MODULES.items():
+        if module_path is None:
+            spec = importlib.util.spec_from_file_location(
+                "portal_mlx_transcribe_parity", REPO / "scripts" / "mlx-transcribe.py"
+            )
+            assert spec is not None and spec.loader is not None
+            module = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(module)
+        else:
+            module = importlib.reload(importlib.import_module(module_path))
+
+        manifest = module.TOOLS_MANIFEST
+        if isinstance(manifest, dict):
+            manifest = manifest["tools"]
+        rows = [entry.get("function", entry) for entry in manifest]
+        native = asyncio.run(module.mcp.list_tools())
+        native_by_name = {tool.name: tool for tool in native}
+        assert set(native_by_name) == {entry["name"] for entry in rows}, server_id
+
+        for entry in rows:
+            tool = native_by_name[entry["name"]]
+            assert tool.description == entry.get("description", ""), (server_id, tool.name)
+            assert tool.input_schema == entry.get("parameters", entry.get("inputSchema", {})), (
+                server_id,
+                tool.name,
+            )
+            assert tool.output_schema is not None, (server_id, tool.name)
+            expected_timeout = entry.get("timeout_s")
+            actual_timeout = (tool.meta or {}).get(TOOL_TIMEOUT_META_KEY)
+            assert actual_timeout == expected_timeout, (server_id, tool.name)

@@ -37,6 +37,12 @@ from portal.platform.inference.config import (
     load_portal_config,
 )
 from portal.platform.inference.mcp_http import MCPHTTPError, call_tool, list_tools, map_tool_result
+from portal.platform.mcp_host.eval_scope import (
+    EVAL_META_KEY,
+    EVAL_SCOPE,
+    REQUEST_ID_META_KEY,
+    TOOL_TIMEOUT_META_KEY,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -104,16 +110,15 @@ def _dispatch_body(arguments: dict[str, Any], request_id: str) -> dict[str, Any]
 
 
 def _native_scope_error(server_id: str) -> dict[str, str] | None:
-    """Keep scoped compliance calls on the REST path until MCP metadata carries their scope."""
-    if server_id != "compliance":
+    """Keep compliance evaluation calls fail-closed when no isolated server is set."""
+    if server_id != "compliance" or EVAL_SCOPE.get() is None:
         return None
-    from portal.platform.mcp_host.eval_scope import EVAL_SCOPE  # noqa: PLC0415
-
-    return (
-        {"error": "native MCP client cannot carry the WFE compliance scope"}
-        if EVAL_SCOPE.get()
-        else None
-    )
+    if os.environ.get("MCP_COMPLIANCE_EVAL_URL", "").rstrip("/"):
+        return None
+    return {
+        "error": "no compliance evaluation instance is configured "
+        "(MCP_COMPLIANCE_EVAL_URL); a scoped call never reaches the operator's store"
+    }
 
 
 def _backoff_seconds(failures: int) -> float:
@@ -130,6 +135,16 @@ def _backoff_seconds(failures: int) -> float:
     """
     schedule = [30, 120, 300, 900, 3600]
     return float(schedule[min(failures - 1, len(schedule) - 1)])
+
+
+def _tool_timeout(tdef: dict[str, Any]) -> float | None:
+    timeout_s = tdef.get("timeout_s")
+    meta = tdef.get("_meta")
+    if timeout_s is None and isinstance(meta, dict):
+        timeout_s = meta.get(TOOL_TIMEOUT_META_KEY)
+    if isinstance(timeout_s, (int, float)) and not isinstance(timeout_s, bool):
+        return float(timeout_s)
+    return None
 
 
 @dataclass
@@ -152,10 +167,8 @@ class ToolDefinition:
         last_seen: Monotonic time of the last successful discovery.
         healthy: ``False`` after any failed dispatch. Re-set to ``True``
             on the next successful dispatch.
-        custom_timeout_s: Per-tool dispatch timeout override. Currently
-            unpopulated by any MCP's ``/tools`` response — reserved for
-            tools that need longer than ``TOOL_DISPATCH_TIMEOUT_S`` (60s
-            default; insufficient for video / music generation).
+        custom_timeout_s: Per-tool dispatch timeout from REST ``timeout_s`` or
+            native MCP ``_meta``.
         next_retry_at: Epoch seconds. While ``healthy`` is False and
             ``time.time() < next_retry_at``, the tool is filtered out of
             ``get_openai_tools`` and ``dispatch`` returns an error
@@ -296,9 +309,7 @@ class ToolRegistry:
                             server_id=server_id,
                             server_url=base_url,
                             last_seen=now,
-                            custom_timeout_s=float(tdef["timeout_s"])
-                            if tdef.get("timeout_s")
-                            else None,
+                            custom_timeout_s=_tool_timeout(tdef),
                             output_schema=tdef.get("outputSchema"),
                         )
                 except Exception as e:
@@ -324,6 +335,7 @@ class ToolRegistry:
                                 last_seen=tool.last_seen,
                                 healthy=tool.healthy,
                                 custom_timeout_s=tool.custom_timeout_s,
+                                output_schema=tool.output_schema,
                                 next_retry_at=tool.next_retry_at,
                                 consecutive_failures=tool.consecutive_failures,
                             )
@@ -438,7 +450,7 @@ class ToolRegistry:
             scope_error = _native_scope_error(tool.server_id)
             if scope_error is not None:
                 return scope_error
-            return await self._dispatch_native_mcp(tool, arguments, timeout_s, now)
+            return await self._dispatch_native_mcp(tool, arguments, timeout_s, now, request_id)
         url = f"{tool.server_url.rstrip('/')}/tools/{tool_name}"
 
         try:
@@ -490,11 +502,31 @@ class ToolRegistry:
         arguments: dict[str, Any],
         timeout_s: float,
         now: float,
+        request_id: str,
     ) -> Any:
         """Dispatch through native MCP while preserving the REST path's breaker rules."""
+        server_url = tool.server_url
+        if tool.server_id == "compliance" and EVAL_SCOPE.get() is not None:
+            server_url = os.environ.get("MCP_COMPLIANCE_EVAL_URL", "").rstrip("/")
+        metadata: dict[str, Any] = {}
+        scope = EVAL_SCOPE.get()
+        if scope is not None:
+            metadata[EVAL_META_KEY] = scope
+        if request_id:
+            metadata[REQUEST_ID_META_KEY] = request_id
+        if not server_url:
+            return {
+                "error": "no compliance evaluation instance is configured "
+                "(MCP_COMPLIANCE_EVAL_URL); a scoped call never reaches the operator's store"
+            }
         try:
             result = await call_tool(
-                await self._client(), tool.server_url, tool.name, arguments, timeout_s
+                await self._client(),
+                server_url,
+                tool.name,
+                arguments,
+                timeout_s,
+                metadata=metadata,
             )
             mapped = map_tool_result(result, tool.output_schema)
             if result.get("isError") is True:

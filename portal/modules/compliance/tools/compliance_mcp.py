@@ -50,6 +50,8 @@ from portal.modules.compliance.core.graph_queries import links as _graph_links
 from portal.modules.compliance.core.graph_queries import timeline as _graph_timeline
 from portal.platform.data_loader import load_data
 from portal.platform.mcp_host.build_info import build_info
+from portal.platform.mcp_host.eval_scope import bind_native_context
+from portal.platform.mcp_host.tool_support import align_native_tools
 
 logger = logging.getLogger(__name__)
 _port = int(os.environ.get("COMPLIANCE_MCP_PORT") or os.environ.get("MCP_PORT", "8937"))
@@ -571,6 +573,7 @@ def nerc_cip_currency() -> dict[str, Any]:
 # is necessary but not sufficient (Do Not: "stop at MCP registration").
 
 
+@mcp.tool()
 def compliance_ingest(
     source_dir: str, kb_id: str = "operator_corpus", rebuild: bool = False
 ) -> dict[str, Any]:
@@ -588,6 +591,7 @@ def compliance_ingest(
         return {"error": str(e)}
 
 
+@mcp.tool()
 def compliance_kb_search(kb_id: str, query: str, top_k: int = 5) -> dict[str, Any]:
     """Sync dispatch wrapper over ``compliance_retrieval.search`` — raw
     kb-scoped retrieval, one corpus, no section resolution and no clocks.
@@ -2918,6 +2922,17 @@ async def invoke_tool(request: Request) -> JSONResponse:
     except TypeError as e:
         return JSONResponse({"error": f"bad params: {e}"}, status_code=400)
 
+
+def _native_eval_tool_guard(name: str) -> bool:
+    if os.environ.get("COMPLIANCE_EVAL_INSTANCE") != "1":
+        return True
+    from portal.modules.compliance.core.eval_instance import VERIFIED_TOOLS
+
+    return name in VERIFIED_TOOLS
+
+
+bind_native_context(mcp, _native_eval_tool_guard)
+align_native_tools(mcp, TOOLS_MANIFEST)
 
 if __name__ == "__main__":
     mcp.run(transport="streamable-http", host="0.0.0.0", port=_port)

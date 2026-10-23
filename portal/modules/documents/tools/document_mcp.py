@@ -29,7 +29,9 @@ from starlette.responses import JSONResponse, Response
 from portal.platform.data_loader import load_data
 from portal.platform.mcp_host import eval_scope
 from portal.platform.mcp_host.build_info import build_info
+from portal.platform.mcp_host.eval_scope import bind_native_context
 from portal.platform.mcp_host.owui_files import publish_file_sync
+from portal.platform.mcp_host.tool_support import align_native_tools
 
 if TYPE_CHECKING:
     from docx.document import Document
@@ -1171,6 +1173,9 @@ def read_pdf(
         logger.exception("PDF read failed")
         return {"success": False, "error": str(e)}
 
+
+bind_native_context(mcp)
+align_native_tools(mcp, TOOLS_MANIFEST)
 
 if __name__ == "__main__":
     mcp.run(transport="streamable-http", host="0.0.0.0", port=port)

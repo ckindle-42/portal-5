@@ -26,6 +26,8 @@ from portal.modules.security.core.review.service import (
 )
 from portal.modules.security.core.review.window import SourceSpec
 from portal.platform.data_loader import load_data
+from portal.platform.mcp_host.eval_scope import bind_native_context
+from portal.platform.mcp_host.tool_support import align_native_tools
 
 logger = logging.getLogger(__name__)
 _port = int(os.environ.get("REVIEW_MCP_PORT") or os.environ.get("MCP_PORT", "8943"))
@@ -229,6 +231,9 @@ async def invoke_tool(request: Request) -> JSONResponse:
         logger.exception("review REST dispatch %s failed", name)
         return JSONResponse({"error": f"{type(exc).__name__}: {exc}"}, status_code=500)
 
+
+bind_native_context(mcp)
+align_native_tools(mcp, TOOLS_MANIFEST)
 
 if __name__ == "__main__":
     mcp.run(transport="streamable-http", host="0.0.0.0", port=_port)

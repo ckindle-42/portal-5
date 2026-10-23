@@ -38,7 +38,9 @@ from portal.modules.cad.tools.capabilities import cad_capabilities, cad_status
 from portal.modules.cad.tools.mesh_validator import validate_mesh
 from portal.modules.cad.tools.scad_emitter import FN_DEFAULT, EmitError, emit_scad
 from portal.platform.data_loader import load_data
+from portal.platform.mcp_host.eval_scope import REQUEST_ID, bind_native_context
 from portal.platform.mcp_host.owui_files import publish_file
+from portal.platform.mcp_host.tool_support import align_native_tools
 from portal.platform.mcp_host.workspace import get_generated_dir
 
 logger = logging.getLogger(__name__)
@@ -699,6 +701,47 @@ async def generate_part_endpoint(request: Request) -> JSONResponse:
     result = await generate_part(args.get("geometry", {}), body.get("request_id"))
     return JSONResponse(result)
 
+
+async def _native_bridge_tool(name: str, arguments: dict[str, Any]) -> dict[str, Any]:
+    return await b123d_bridge.dispatch(name, arguments, REQUEST_ID.get(), _out_dir(), _publish_url)
+
+
+@mcp.tool()
+async def cad_build(code: str) -> dict[str, Any]:
+    return await _native_bridge_tool("cad_build", {"code": code})
+
+
+@mcp.tool()
+async def cad_execute(code: str) -> dict[str, Any]:
+    return await _native_bridge_tool("cad_execute", {"code": code})
+
+
+@mcp.tool()
+async def cad_measure(object_name: str = "") -> dict[str, Any]:
+    return await _native_bridge_tool("cad_measure", {"object_name": object_name})
+
+
+@mcp.tool()
+async def cad_find_holes(object_name: str = "") -> dict[str, Any]:
+    return await _native_bridge_tool("cad_find_holes", {"object_name": object_name})
+
+
+@mcp.tool()
+async def cad_render(direction: str = "iso", object_name: str = "") -> dict[str, Any]:
+    return await _native_bridge_tool(
+        "cad_render", {"direction": direction, "object_name": object_name}
+    )
+
+
+@mcp.tool()
+async def cad_finalize(basename: str, object_name: str = "") -> dict[str, Any]:
+    return await _native_bridge_tool(
+        "cad_finalize", {"basename": basename, "object_name": object_name}
+    )
+
+
+bind_native_context(mcp)
+align_native_tools(mcp, TOOLS_MANIFEST)
 
 if __name__ == "__main__":
     if not b123d_bridge.start_engine(_out_dir()):

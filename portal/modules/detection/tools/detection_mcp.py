@@ -22,6 +22,8 @@ from starlette.requests import Request
 from starlette.responses import JSONResponse, Response
 
 from portal.platform.data_loader import load_data
+from portal.platform.mcp_host.eval_scope import bind_native_context
+from portal.platform.mcp_host.tool_support import align_native_tools
 
 logger = logging.getLogger(__name__)
 _port = int(os.environ.get("DETECTION_MCP_PORT") or os.environ.get("MCP_PORT", "8938"))
@@ -268,6 +270,9 @@ async def invoke_tool(request: Request) -> JSONResponse:
     except TypeError as e:
         return JSONResponse({"error": f"bad params: {e}"}, status_code=400)
 
+
+bind_native_context(mcp)
+align_native_tools(mcp, TOOLS_MANIFEST)
 
 if __name__ == "__main__":
     mcp.run(transport="streamable-http", host="0.0.0.0", port=_port)

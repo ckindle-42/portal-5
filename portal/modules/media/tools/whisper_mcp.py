@@ -67,6 +67,9 @@ from starlette.datastructures import UploadFile
 from starlette.requests import Request
 from starlette.responses import JSONResponse, Response
 
+from portal.platform.mcp_host.eval_scope import bind_native_context
+from portal.platform.mcp_host.tool_support import align_native_tools
+
 mcp = MCPServer("whisper-transcription")
 
 # MCPServer.custom_route() has no return annotation upstream (mcp SDK), so mypy
@@ -322,6 +325,9 @@ async def transcribe_with_speakers(
 
 
 # ── End diarized transcription ────────────────────────────────────────────────
+
+bind_native_context(mcp)
+align_native_tools(mcp, TOOLS_MANIFEST)
 
 if __name__ == "__main__":
     port = int(os.getenv("WHISPER_MCP_PORT", "8915"))

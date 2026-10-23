@@ -20,7 +20,9 @@ from starlette.responses import JSONResponse, Response
 
 from portal.modules.media.tools._admission import admit
 from portal.platform.data_loader import load_data
+from portal.platform.mcp_host.eval_scope import bind_native_context
 from portal.platform.mcp_host.owui_files import publish_file_sync
+from portal.platform.mcp_host.tool_support import align_native_tools
 
 port = int(os.getenv("MUSIC_MINIMAX_MCP_PORT", "8912"))
 mcp = MCPServer("music-minimax")
@@ -285,6 +287,9 @@ async def minimax_models() -> dict[str, Any]:
         "note": "Job-based (minimax_generate + minimax_status). Apple Silicon only, no fallback. Complete-quality default is 60s / 30 steps.",
     }
 
+
+bind_native_context(mcp)
+align_native_tools(mcp, TOOLS_MANIFEST)
 
 if __name__ == "__main__":
     mcp.run(transport="streamable-http", host="0.0.0.0", port=port)

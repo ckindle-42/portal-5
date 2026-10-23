@@ -76,6 +76,8 @@ async def test_call_tool_parses_sse_and_sets_mcp_name_header() -> None:
         assert request.headers["Mcp-Name"] == "get_pipeline_status"
         assert body["params"]["name"] == "get_pipeline_status"
         assert body["params"]["arguments"] == {"verbose": True}
+        assert body["params"]["_meta"]["portal5/request_id"] == "request-7"
+        assert body["params"]["_meta"]["portal5/eval"]["run"].startswith("wfe_")
         progress = {"jsonrpc": "2.0", "method": "notifications/progress", "params": {}}
         result = {
             "resultType": "complete",
@@ -97,6 +99,14 @@ async def test_call_tool_parses_sse_and_sets_mcp_name_header() -> None:
             "get_pipeline_status",
             {"verbose": True},
             timeout_s=2,
+            metadata={
+                "portal5/request_id": "request-7",
+                "portal5/eval": {
+                    "campaign": "wfe_aaaaaaaaaaaaaaaa",
+                    "run": "wfe_bbbbbbbbbbbbbbbb",
+                    "allow": ["get_pipeline_status"],
+                },
+            },
         )
 
     assert result["structuredContent"] == {"status": "ok"}
@@ -157,6 +167,7 @@ async def test_tool_registry_uses_configured_native_mcp_server(
                             "name": "get_pipeline_status",
                             "description": "health",
                             "inputSchema": {"type": "object", "properties": {}},
+                            "_meta": {"portal5/timeout_s": 120},
                         }
                     ]
                 },
@@ -176,11 +187,64 @@ async def test_tool_registry_uses_configured_native_mcp_server(
     await registry.close()
 
     assert registry.get("get_pipeline_status") is not None
+    assert registry.get("get_pipeline_status").custom_timeout_s == 120.0
     assert result == "ok"
     assert [json.loads(request.content)["method"] for request in requests] == [
         "tools/list",
         "tools/call",
     ]
+
+
+@pytest.mark.asyncio
+async def test_native_scoped_compliance_routes_to_eval_and_forwards_scope(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from portal.platform.inference.tool_registry import ToolDefinition, ToolRegistry
+    from portal.platform.mcp_host import eval_scope
+
+    scope = {
+        "campaign": "wfe_aaaaaaaaaaaaaaaa",
+        "run": "wfe_bbbbbbbbbbbbbbbb",
+        "allow": ["compliance_read"],
+    }
+    requests: list[httpx.Request] = []
+
+    async def handler(request: httpx.Request) -> httpx.Response:
+        requests.append(request)
+        body = json.loads(request.content)
+        return _response(
+            body["id"],
+            {
+                "resultType": "complete",
+                "content": [],
+                "structuredContent": {"ok": True},
+            },
+        )
+
+    monkeypatch.setattr(registry_module, "MCP_CLIENT_MODES", {"compliance": "native"})
+    monkeypatch.setenv("MCP_COMPLIANCE_EVAL_URL", "http://compliance-eval.test")
+    registry = ToolRegistry()
+    registry._tools["compliance_read"] = ToolDefinition(
+        name="compliance_read",
+        description="read",
+        parameters={"type": "object"},
+        server_id="compliance",
+        server_url="http://compliance.test",
+    )
+    registry._http = httpx.AsyncClient(transport=httpx.MockTransport(handler))
+    token = eval_scope.EVAL_SCOPE.set(scope)
+    try:
+        result = await registry.dispatch("compliance_read", {"requirement": "R1"}, "chat-9")
+    finally:
+        eval_scope.EVAL_SCOPE.reset(token)
+        await registry.close()
+
+    body = json.loads(requests[0].content)
+    assert result == {"ok": True}
+    assert requests[0].url.host == "compliance-eval.test"
+    assert requests[0].url.path == "/mcp"
+    assert body["params"]["_meta"]["portal5/eval"] == scope
+    assert body["params"]["_meta"]["portal5/request_id"] == "chat-9"
 
 
 @pytest.mark.asyncio
@@ -217,14 +281,21 @@ async def test_legacy_server_falls_back_once_and_caches_its_session() -> None:
         if method == "notifications/initialized":
             return httpx.Response(202)
         assert request.headers["Mcp-Session-Id"] == "legacy-session"
-        assert "_meta" not in body.get("params", {})
         if method == "tools/list":
             return _response(body["id"], {"tools": [{"name": "legacy_tool"}]})
+        assert body["params"]["_meta"]["portal5/request_id"] == "legacy-req"
         return _response(body["id"], {"content": [{"type": "text", "text": '{"ok": true}'}]})
 
     async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
         tools = await list_tools(client, "http://legacy.test", timeout_s=2)
-        result = await call_tool(client, "http://legacy.test", "legacy_tool", {}, timeout_s=2)
+        result = await call_tool(
+            client,
+            "http://legacy.test",
+            "legacy_tool",
+            {},
+            timeout_s=2,
+            metadata={"portal5/request_id": "legacy-req"},
+        )
 
     assert [tool["name"] for tool in tools] == ["legacy_tool"]
     assert map_tool_result(result) == {"ok": True}

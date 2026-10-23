@@ -10,6 +10,8 @@ from typing import Any, Literal
 
 import httpx
 
+from portal.platform.mcp_host.eval_scope import EVAL_META_KEY, REQUEST_ID_META_KEY
+
 PROTOCOL_VERSION = "2026-07-28"
 LEGACY_PROTOCOL_VERSION = "2025-11-25"
 _CLIENT_INFO = {"name": "portal-pipeline", "version": "1.0.0"}
@@ -132,14 +134,17 @@ async def _modern_request(
 ) -> dict[str, Any]:
     """Send one current-revision MCP request."""
     request_id = str(uuid.uuid4())
-    request_params = {
-        **params,
-        "_meta": {
+    extra_meta = params.get("_meta")
+    request_meta = dict(extra_meta) if isinstance(extra_meta, dict) else {}
+    request_meta.update(
+        {
             _PROTOCOL_KEY: PROTOCOL_VERSION,
             _CLIENT_KEY: _CLIENT_INFO,
             _CAPABILITIES_KEY: {},
-        },
-    }
+        }
+    )
+    request_params = {key: value for key, value in params.items() if key != "_meta"}
+    request_params["_meta"] = request_meta
     payload = {"jsonrpc": "2.0", "id": request_id, "method": method, "params": request_params}
     response = await _post(client, url, payload, _modern_headers(method, params), deadline)
     return _response_result(response, request_id)
@@ -212,7 +217,7 @@ async def _legacy_request(
         "jsonrpc": "2.0",
         "id": request_id,
         "method": method,
-        "params": {key: value for key, value in params.items() if key != "_meta"},
+        "params": params,
     }
     response = await _post(client, url, payload, _legacy_headers(state), deadline)
     if response.status_code == 404 and retry_expired:
@@ -299,11 +304,17 @@ async def call_tool(
     name: str,
     arguments: dict[str, Any],
     timeout_s: float,
+    metadata: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Call one MCP tool and preserve its standard result object."""
-    result = await _request(
-        client, base_url, "tools/call", {"name": name, "arguments": arguments}, timeout_s
-    )
+    params: dict[str, Any] = {"name": name, "arguments": arguments}
+    if metadata:
+        params["_meta"] = {
+            key: value
+            for key, value in metadata.items()
+            if key in {EVAL_META_KEY, REQUEST_ID_META_KEY}
+        }
+    result = await _request(client, base_url, "tools/call", params, timeout_s)
     if result.get("resultType") in {"input_required", "task"}:
         raise MCPHTTPError(f"MCP {result['resultType']} responses are not enabled in this client")
     return result

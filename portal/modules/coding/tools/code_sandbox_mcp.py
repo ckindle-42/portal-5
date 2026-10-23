@@ -30,7 +30,9 @@ from starlette.requests import Request
 from starlette.responses import JSONResponse, Response
 
 from portal.platform.data_loader import load_data
+from portal.platform.mcp_host.eval_scope import bind_native_context
 from portal.platform.mcp_host.owui_files import publish_file_sync
+from portal.platform.mcp_host.tool_support import align_native_tools
 
 mcp = MCPServer("code-sandbox")
 
@@ -1103,6 +1105,9 @@ async def reset_session_endpoint(request: Request) -> JSONResponse:
         return JSONResponse({"error": "session_id is required"}, status_code=400)
     return JSONResponse(reset_session(args["session_id"]))
 
+
+bind_native_context(mcp)
+align_native_tools(mcp, TOOLS_MANIFEST)
 
 if __name__ == "__main__":
     port = int(os.getenv("SANDBOX_MCP_PORT", "8914"))

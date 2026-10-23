@@ -23,9 +23,12 @@ from mcp.server import MCPServer
 from starlette.requests import Request
 from starlette.responses import JSONResponse, Response
 
+from portal.modules.research.tools import rag_multimodal
 from portal.modules.research.tools.rag_multimodal import register_retrieval_routes
 from portal.platform.data_loader import load_data
 from portal.platform.mcp_host.build_info import build_info
+from portal.platform.mcp_host.eval_scope import bind_native_context
+from portal.platform.mcp_host.tool_support import align_native_tools, call_json_route
 from portal.platform.retrieval import store as _store
 
 logger = logging.getLogger(__name__)
@@ -310,10 +313,61 @@ async def kb_list_endpoint(request: Request) -> JSONResponse:
 register_retrieval_routes(mcp)
 
 
+@mcp.tool()
+async def kb_ingest(
+    kb_id: str, source_dir: str, rebuild: bool = False, fts: bool = False
+) -> dict[str, Any]:
+    return await call_json_route(
+        rag_multimodal._ingest,
+        {"kb_id": kb_id, "source_dir": source_dir, "rebuild": rebuild, "fts": fts},
+    )
+
+
+@mcp.tool()
+async def kb_search(
+    kb_id: str, query: str, query_type: str = "vector", top_k: int = 5
+) -> dict[str, Any]:
+    return await call_json_route(
+        rag_multimodal._search,
+        {"kb_id": kb_id, "query": query, "query_type": query_type, "top_k": top_k},
+    )
+
+
+@mcp.tool()
+async def kb_search_all(query: str, query_type: str = "vector", top_k: int = 5) -> dict[str, Any]:
+    return await call_json_route(
+        rag_multimodal._search_all,
+        {"query": query, "query_type": query_type, "top_k": top_k},
+    )
+
+
+@mcp.tool()
+async def kb_list() -> dict[str, Any]:
+    return await call_json_route(kb_list_endpoint, {})
+
+
+@mcp.tool()
+async def kb_optimize(kb_id: str) -> dict[str, Any]:
+    return await call_json_route(kb_optimize_endpoint, {"kb_id": kb_id})
+
+
+@mcp.tool()
+async def kb_versions(kb_id: str) -> dict[str, Any]:
+    return await call_json_route(kb_versions_endpoint, {"kb_id": kb_id})
+
+
+@mcp.tool()
+async def kb_restore(kb_id: str, version: int) -> dict[str, Any]:
+    return await call_json_route(kb_restore_endpoint, {"kb_id": kb_id, "version": version})
+
+
 def main() -> None:
     port = int(os.environ.get("RAG_MCP_PORT", "8921"))
     mcp.run(transport="streamable-http", host="0.0.0.0", port=port)
 
+
+bind_native_context(mcp)
+align_native_tools(mcp, TOOLS_MANIFEST)
 
 if __name__ == "__main__":
     main()

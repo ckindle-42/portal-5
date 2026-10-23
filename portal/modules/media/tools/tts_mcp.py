@@ -28,7 +28,9 @@ from starlette.requests import Request
 from starlette.responses import JSONResponse, Response
 
 from portal.platform.data_loader import load_data
+from portal.platform.mcp_host.eval_scope import bind_native_context
 from portal.platform.mcp_host.owui_files import publish_file
+from portal.platform.mcp_host.tool_support import align_native_tools
 from portal.platform.mcp_host.workspace import (
     get_generated_dir,
     get_uploads_dir,
@@ -325,6 +327,9 @@ async def list_voices() -> dict[str, Any]:
     except Exception as e:
         return {"error": f"host speech server unreachable at {SPEECH_URL}: {e}"}
 
+
+bind_native_context(mcp)
+align_native_tools(mcp, TOOLS_MANIFEST)
 
 if __name__ == "__main__":
     mcp.run(transport="streamable-http", host="0.0.0.0", port=port)

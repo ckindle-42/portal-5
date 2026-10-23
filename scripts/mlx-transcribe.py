@@ -723,67 +723,69 @@ async def _dispatch_tool(tool_name: str, arguments: dict) -> JSONResponse:
         return JSONResponse({"error": f"Unknown tool: {tool_name}"}, status_code=404)
 
 
+TOOLS_MANIFEST = [
+    {
+        "name": "transcribe_audio",
+        "description": "Fast, accurate transcription (Parakeet-TDT-v3, word-level timestamps, no speaker "
+        "labels). Writes JSON + Markdown + Word (.docx) sidecars and returns their "
+        "download URLs. Call with no arguments to auto-detect the most recently uploaded "
+        "audio file.",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "file": {
+                    "type": "string",
+                    "description": "Audio file reference: OWUI file ID, "
+                    "filename in uploads/, or absolute path. "
+                    "Omit to auto-detect most recent upload.",
+                },
+                "language": {
+                    "type": "string",
+                    "description": "ISO language code (e.g. 'en'). Auto-detected if omitted.",
+                },
+            },
+            "required": [],
+        },
+    },
+    {
+        "name": "transcribe_with_speakers",
+        "description": "Transcribe an audio file and label who is speaking: full transcript (Parakeet) "
+        "plus speaker turns (Sortformer diarization), merged at the word level. A "
+        "monologue comes back as one speaker; a conversation gets "
+        "SPEAKER_00/SPEAKER_01/... per turn. Up to 4 speakers, no HuggingFace token. "
+        "Writes JSON + Markdown + Word (.docx) sidecars and returns their download URLs. "
+        "Call with no arguments to auto-detect the most recently uploaded audio file.",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "file": {
+                    "type": "string",
+                    "description": "Audio file reference: OWUI file ID, "
+                    "filename in uploads/, or absolute path. "
+                    "Omit to auto-detect most recent upload.",
+                },
+                "num_speakers": {
+                    "type": "integer",
+                    "description": "Optional cap on speaker count — "
+                    "folds over-segmented speakers "
+                    "into the nearest kept one. "
+                    "Diarization infers the count when "
+                    "omitted.",
+                },
+                "language": {
+                    "type": "string",
+                    "description": "ISO language code (e.g. 'en'). Auto-detected if omitted.",
+                },
+            },
+            "required": [],
+        },
+    },
+]
+
+
 @app.get("/tools")
 async def list_tools() -> JSONResponse:
-    return JSONResponse(
-        {
-            "tools": [
-                {
-                    "name": "transcribe_audio",
-                    "description": (
-                        "Fast, accurate transcription (Parakeet-TDT-v3, word-level timestamps, "
-                        "no speaker labels). Writes JSON + Markdown + Word (.docx) sidecars and "
-                        "returns their download URLs. Call with no arguments to auto-detect the "
-                        "most recently uploaded audio file."
-                    ),
-                    "parameters": {
-                        "type": "object",
-                        "properties": {
-                            "file": {
-                                "type": "string",
-                                "description": "Audio file reference: OWUI file ID, filename in uploads/, or absolute path. Omit to auto-detect most recent upload.",
-                            },
-                            "language": {
-                                "type": "string",
-                                "description": "ISO language code (e.g. 'en'). Auto-detected if omitted.",
-                            },
-                        },
-                        "required": [],
-                    },
-                },
-                {
-                    "name": "transcribe_with_speakers",
-                    "description": (
-                        "Transcribe an audio file and label who is speaking: full transcript "
-                        "(Parakeet) plus speaker turns (Sortformer diarization), merged at the "
-                        "word level. A monologue comes back as one speaker; a conversation gets "
-                        "SPEAKER_00/SPEAKER_01/... per turn. Up to 4 speakers, no HuggingFace "
-                        "token. Writes JSON + Markdown + Word (.docx) sidecars and returns their "
-                        "download URLs. Call with no arguments to auto-detect the most recently "
-                        "uploaded audio file."
-                    ),
-                    "parameters": {
-                        "type": "object",
-                        "properties": {
-                            "file": {
-                                "type": "string",
-                                "description": "Audio file reference: OWUI file ID, filename in uploads/, or absolute path. Omit to auto-detect most recent upload.",
-                            },
-                            "num_speakers": {
-                                "type": "integer",
-                                "description": "Optional cap on speaker count — folds over-segmented speakers into the nearest kept one. Diarization infers the count when omitted.",
-                            },
-                            "language": {
-                                "type": "string",
-                                "description": "ISO language code (e.g. 'en'). Auto-detected if omitted.",
-                            },
-                        },
-                        "required": [],
-                    },
-                },
-            ]
-        }
-    )
+    return JSONResponse({"tools": TOOLS_MANIFEST})
 
 
 @app.get("/files/{filename}", response_model=None)
@@ -843,13 +845,16 @@ async def http_transcribe(
 
 # ── MCP wrapper ────────────────────────────────────────────────────────────────
 
-from mcp.server import MCPServer  # noqa: E402
+from mcp.server import MCPServer
+
+from portal.platform.mcp_host.eval_scope import bind_native_context
+from portal.platform.mcp_host.tool_support import align_native_tools  # noqa: E402
 
 mcp = MCPServer("mlx-transcribe")
 
 
 @mcp.tool()
-async def transcribe_audio(file: str = "", language: str | None = None) -> dict:
+async def transcribe_audio(file: str = "", language: str | None = None) -> dict[str, Any]:
     """
     Fast transcription (Parakeet-TDT-v3, word-level timestamps, no speaker labels).
 
@@ -881,7 +886,7 @@ async def transcribe_with_speakers(
     file: str = "",
     num_speakers: int | None = None,
     language: str | None = None,
-) -> dict:
+) -> dict[str, Any]:
     """
     Transcribe an audio file and label who is speaking.
 
@@ -951,6 +956,9 @@ app.mount("/mcp", _mcp_sub_app)
 
 # ── Entrypoint ─────────────────────────────────────────────────────────────────
 
+
+bind_native_context(mcp)
+align_native_tools(mcp, TOOLS_MANIFEST)
 
 if __name__ == "__main__":
     logger.info("Starting mlx-transcribe on %s:%d", HOST, PORT)

@@ -17,6 +17,9 @@ class _FakeServer:
     def custom_route(self, *_args, **_kwargs):
         return lambda function: function
 
+    async def call_tool(self, *_args, **_kwargs):
+        raise NotImplementedError
+
 
 @pytest.fixture
 def cad_module(monkeypatch):

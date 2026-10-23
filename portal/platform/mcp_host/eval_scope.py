@@ -12,16 +12,45 @@ import hashlib
 import json
 import re
 import time
+from collections.abc import Callable, Mapping
 from contextvars import ContextVar
 from pathlib import Path
 from typing import Any
 
 TOKEN = re.compile(r"^wfe_[0-9a-f]{16,40}$")
 EVAL_SCOPE: ContextVar[dict[str, Any] | None] = ContextVar("portal_eval_scope", default=None)
+REQUEST_ID: ContextVar[str] = ContextVar("portal_request_id", default="")
+EVAL_META_KEY = "portal5/eval"
+REQUEST_ID_META_KEY = "portal5/request_id"
+TOOL_TIMEOUT_META_KEY = "portal5/timeout_s"
 
 
 class ScopeError(ValueError):
     """A malformed scope, or a path outside the run's namespace."""
+
+
+def bind_native_context(mcp: Any, tool_guard: Callable[[str], bool] | None = None) -> None:
+    """Bind native MCP metadata to the existing evaluation and request contextvars."""
+    call_tool = mcp.call_tool
+
+    async def dispatch(name: str, arguments: dict[str, Any], context: Any) -> Any:
+        if tool_guard is not None and not tool_guard(name):
+            raise PermissionError(f"{name} is not served by this MCP instance")
+        request = getattr(context, "request_context", None)
+        params = getattr(request, "params", None)
+        meta = params.get("_meta", {}) if isinstance(params, Mapping) else {}
+        if not isinstance(meta, Mapping):
+            meta = {}
+        scope_token = EVAL_SCOPE.set(parse(meta.get(EVAL_META_KEY)))
+        request_id = meta.get(REQUEST_ID_META_KEY)
+        request_token = REQUEST_ID.set(request_id if isinstance(request_id, str) else "")
+        try:
+            return await call_tool(name, arguments, context)
+        finally:
+            REQUEST_ID.reset(request_token)
+            EVAL_SCOPE.reset(scope_token)
+
+    mcp.call_tool = dispatch
 
 
 def parse(raw: Any) -> dict[str, Any] | None:

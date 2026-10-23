@@ -11,9 +11,13 @@ from __future__ import annotations
 import logging
 import os
 from pathlib import Path
+from typing import Any
 
 from mcp.server import MCPServer
 from starlette.responses import JSONResponse
+
+from portal.platform.mcp_host.eval_scope import bind_native_context
+from portal.platform.mcp_host.tool_support import align_native_tools
 
 logger = logging.getLogger(__name__)
 
@@ -100,7 +104,7 @@ async def list_tools(request):
 
 
 @mcp.tool()
-def wiki_search(query: str, top_k: int = 10) -> dict:
+def wiki_search(query: str, top_k: int = 10) -> dict[str, Any]:
     """Search the canonical knowledge layer by keyword.
 
     Args:
@@ -117,7 +121,7 @@ def wiki_search(query: str, top_k: int = 10) -> dict:
 
 
 @mcp.tool()
-def wiki_get_unit(unit_id: str) -> dict:
+def wiki_get_unit(unit_id: str) -> dict[str, Any]:
     """Get a specific knowledge unit by ID.
 
     Args:
@@ -133,7 +137,7 @@ def wiki_get_unit(unit_id: str) -> dict:
 
 
 @mcp.tool()
-def wiki_explain(query: str) -> dict:
+def wiki_explain(query: str) -> dict[str, Any]:
     """Explain something by searching the canonical layer and returning
     a cited answer.
 
@@ -150,6 +154,9 @@ def wiki_explain(query: str) -> dict:
 
 
 # ── Serve ────────────────────────────────────────────────────────────────────
+
+bind_native_context(mcp)
+align_native_tools(mcp, TOOLS_MANIFEST)
 
 if __name__ == "__main__":
     mcp.run(transport="streamable-http", host="0.0.0.0", port=_port)
