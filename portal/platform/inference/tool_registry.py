@@ -173,6 +173,7 @@ class ToolDefinition:
     custom_timeout_s: float | None = None  # override TOOL_DISPATCH_TIMEOUT_S
     next_retry_at: float = 0.0  # epoch seconds; 0 = retry allowed immediately
     consecutive_failures: int = 0  # for exponential backoff calc
+    output_schema: dict[str, Any] | None = None  # native MCP outputSchema, for result unwrapping
 
     def to_openai_tool(self) -> dict[str, Any]:
         """Render as one entry of an OpenAI-format ``tools`` array.
@@ -298,6 +299,7 @@ class ToolRegistry:
                             custom_timeout_s=float(tdef["timeout_s"])
                             if tdef.get("timeout_s")
                             else None,
+                            output_schema=tdef.get("outputSchema"),
                         )
                 except Exception as e:
                     logger.warning("Tool discovery for %s failed: %s", server_id, e)
@@ -494,7 +496,7 @@ class ToolRegistry:
             result = await call_tool(
                 await self._client(), tool.server_url, tool.name, arguments, timeout_s
             )
-            mapped = map_tool_result(result)
+            mapped = map_tool_result(result, tool.output_schema)
             if result.get("isError") is True:
                 if isinstance(mapped, dict) and "error" in mapped:
                     error = mapped

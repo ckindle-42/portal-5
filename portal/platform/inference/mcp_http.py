@@ -309,10 +309,30 @@ async def call_tool(
     return result
 
 
-def map_tool_result(result: dict[str, Any]) -> Any:
+def _wraps_result(output_schema: dict[str, Any] | None) -> bool:
+    """True when the SDK wrapped a non-object return as ``{"result": value}``."""
+    if not isinstance(output_schema, dict):
+        return False
+    properties = output_schema.get("properties")
+    return (
+        isinstance(properties, dict)
+        and set(properties) == {"result"}
+        and output_schema.get("required") == ["result"]
+    )
+
+
+def map_tool_result(result: dict[str, Any], output_schema: dict[str, Any] | None = None) -> Any:
     """Map a CallToolResult to the raw JSON value returned by REST tool routes."""
     if "structuredContent" in result:
-        return result["structuredContent"]
+        structured = result["structuredContent"]
+        # A list/scalar return travels as {"result": value} with a matching outputSchema.
+        if (
+            _wraps_result(output_schema)
+            and isinstance(structured, dict)
+            and set(structured) == {"result"}
+        ):
+            return structured["result"]
+        return structured
     content = result.get("content")
     if not isinstance(content, list):
         return ""

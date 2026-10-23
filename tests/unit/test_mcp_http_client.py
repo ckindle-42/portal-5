@@ -455,3 +455,21 @@ def test_pipeline_mcp_native_tools_list_matches_rest_manifest() -> None:
     assert _schema_signature(native_tools, "input_schema") == _schema_signature(
         rest_tools, "parameters"
     )
+
+
+def test_map_tool_result_unwraps_sdk_wrapped_non_object_returns() -> None:
+    from portal.platform.inference.mcp_http import map_tool_result
+
+    wrapped_schema = {
+        "type": "object",
+        "properties": {"result": {"type": "array"}},
+        "required": ["result"],
+    }
+    result = {"structuredContent": {"result": [{"name": "m"}]}, "content": [], "isError": False}
+    assert map_tool_result(result, wrapped_schema) == [{"name": "m"}]
+    # An object tool that happens to return a "result" key is left alone without the schema.
+    assert map_tool_result(result) == {"result": [{"name": "m"}]}
+    obj = {"structuredContent": {"status": "ok"}, "content": []}
+    assert map_tool_result(obj, {"type": "object", "additionalProperties": True}) == {
+        "status": "ok"
+    }
