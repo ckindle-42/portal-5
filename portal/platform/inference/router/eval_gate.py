@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable, Collection, Mapping
 from typing import Any
 
 from fastapi import HTTPException
@@ -36,6 +37,51 @@ def apply_eval_scope(body: dict[str, Any], tools: list[str]) -> list[str]:
         eval_scope.EVAL_SCOPE.set(scope)
         trace_note(eval=scope)
     return offered
+
+
+def resolve_bite_tool_pool(
+    body: dict[str, Any],
+    default_persona: str,
+    workspace_id: str,
+    personas: Mapping[str, Any],
+    workspaces: Mapping[str, Any],
+    resolve_tools: Callable[[Any, str], list[str]],
+) -> list[str]:
+    """Resolve and remove the bite-only tool persona selector."""
+    supplied = "portal_bite_persona" in body
+    requested = body.pop("portal_bite_persona", None)
+    if "portal_bite_tools" not in body or not supplied:
+        return resolve_tools(personas.get(default_persona, {}), workspace_id)
+    if not isinstance(requested, str) or (
+        requested not in personas and requested not in workspaces
+    ):
+        raise HTTPException(status_code=400, detail="portal_bite_persona must name a known persona")
+    if requested in personas:
+        return resolve_tools(personas[requested], workspace_id)
+    return resolve_tools({}, requested)
+
+
+def filter_bite_client_tools(
+    body: dict[str, Any],
+    bite_allowlist: set[str] | None,
+    effective_tools: Collection[str],
+    registered_tools: Collection[str],
+) -> None:
+    """Remove registered Pipeline schemas outside the bite's effective tool pool."""
+    if bite_allowlist is None:
+        return
+    denied = set(registered_tools) - set(effective_tools)
+    client_tools = body.get("tools")
+    if isinstance(client_tools, list):
+        body["tools"] = [
+            tool
+            for tool in client_tools
+            if not (
+                isinstance(tool, dict)
+                and isinstance(tool.get("function"), dict)
+                and tool["function"].get("name") in denied
+            )
+        ]
 
 
 def apply_bite_tool_scope(

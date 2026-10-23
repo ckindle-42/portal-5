@@ -55,7 +55,12 @@ from portal.platform.inference.router.download_links import (
     offers_file_creation,
     successful_file_creation,
 )
-from portal.platform.inference.router.eval_gate import apply_bite_tool_scope, apply_eval_scope
+from portal.platform.inference.router.eval_gate import (
+    apply_bite_tool_scope,
+    apply_eval_scope,
+    filter_bite_client_tools,
+    resolve_bite_tool_pool,
+)
 from portal.platform.inference.router.metrics import (
     _answer_without_tool_retried,
     _hint_fallback_total,
@@ -2397,7 +2402,9 @@ async def _build_streaming_request(
 
     # Resolve effective tool list for this request (M2)
     persona_data: PersonaSpec | dict[str, Any] = _PERSONA_MAP.get(persona, {})
-    effective_tools = _resolve_persona_tools(persona_data, workspace_id)
+    effective_tools = resolve_bite_tool_pool(
+        backend_body, persona, workspace_id, _PERSONA_MAP, WORKSPACES, _resolve_persona_tools
+    )
     # portal_client_tools_only: a client that brings its own toolset (an
     # external agent, the WFE harness) is offered exactly those tools. The tool
     # loop still runs, so a call written as text is recovered and passed back
@@ -2468,6 +2475,12 @@ async def _build_streaming_request(
                 _required_tool,
             )
         await tool_registry.refresh()
+        filter_bite_client_tools(
+            backend_body,
+            _bite_allowlist,
+            effective_tools,
+            tool_registry.list_tool_names(),
+        )
         tools_array = tool_registry.get_openai_tools(_offer_tools)
         # Merge client-injected tools with workspace tools — clients
         # (e.g. bench blue/purple) may inject domain-specific tools

@@ -168,6 +168,7 @@ def run_bite(
     input_paths: dict[str, Path],
     attempt_dir: Path,
     require_idle: bool = False,
+    persona: str | None = None,
 ) -> WorkerResult:
     """Run a fresh bite and execute its client tools within the task directory."""
     started = time.monotonic()
@@ -191,7 +192,7 @@ def run_bite(
             (),
             f"input could not be read: {type(exc).__name__}: {exc}",
         )
-    body = _request_body(bite, engine, messages)
+    body = _request_body(bite, engine, messages, persona=persona)
     executor = TaskToolExecutor(
         data_dir,
         bite.tools,
@@ -810,11 +811,13 @@ def _repair_finish(
     return response, tokens, None
 
 
-def _request_body(bite: Bite, engine: Engine, messages: list[dict[str, Any]]) -> dict[str, Any]:
+def _request_body(
+    bite: Bite, engine: Engine, messages: list[dict[str, Any]], *, persona: str | None = None
+) -> dict[str, Any]:
     tool_names = set(bite.tools)
     if tool_names & READ_TOOLS and tool_names & ACTION_TOOLS:
         raise ValueError("reading and acting tools cannot share one bite")
-    return {
+    body = {
         "model": engine.model_tag,
         "messages": messages,
         "tools": [*(tool_schema(name) for name in bite.tools), _finish_schema(bite)],
@@ -827,6 +830,9 @@ def _request_body(bite: Bite, engine: Engine, messages: list[dict[str, Any]]) ->
         # The Pipeline reports the tools it ran server-side; the finish repair quotes them back.
         "exec_audit": True,
     }
+    if persona is not None:
+        body["portal_bite_persona"] = persona
+    return body
 
 
 def _finish_schema(bite: Bite) -> dict[str, Any]:

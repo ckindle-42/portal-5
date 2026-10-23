@@ -7,6 +7,7 @@ from pathlib import Path
 from types import SimpleNamespace
 from typing import Any
 
+import httpx
 import pytest
 import yaml
 from fastapi import HTTPException
@@ -14,7 +15,7 @@ from fastapi import HTTPException
 from portal.modules.orchestration import cli as arm_cli
 from portal.modules.orchestration import service as arm_service
 from portal.platform.inference import tool_registry
-from portal.platform.inference.router import handlers, streaming, validation
+from portal.platform.inference.router import handlers, non_streaming, streaming, validation
 
 
 def test_cli_loads_arm_and_module_config_from_repo_root(
@@ -306,6 +307,192 @@ async def test_bite_trace_records_the_final_tools_offered_to_the_model(
     assert has_tools and effective == ["lookup"]
     assert [schema["function"]["name"] for schema in body["tools"]] == ["lookup", "finish"]
     assert notes[-1]["tools_offered"] == ["finish", "lookup"]
+
+
+def _configure_detection_tool_pool(monkeypatch: pytest.MonkeyPatch) -> tuple[str, list[str]]:
+    workspace_id = "auto-daily::deep"
+    detection_tools = ["compile_yara", "query_splunk", "spl_validate_syntax"]
+    for module in (streaming, non_streaming):
+        monkeypatch.setitem(
+            module.WORKSPACES,
+            workspace_id,
+            {"model_hint": "deep-seat-model", "tools": ["web_search"]},
+        )
+        monkeypatch.setitem(
+            module._PERSONA_MAP,
+            "splunkdetectionauthor",
+            {"tools_allow": detection_tools},
+        )
+    return workspace_id, detection_tools
+
+
+def _stub_tool_registry(monkeypatch: pytest.MonkeyPatch, registered_tools: list[str]) -> None:
+    async def refresh() -> None:
+        return None
+
+    monkeypatch.setattr(tool_registry.tool_registry, "refresh", refresh)
+    monkeypatch.setattr(tool_registry.tool_registry, "list_tool_names", lambda: registered_tools)
+    monkeypatch.setattr(
+        tool_registry.tool_registry,
+        "get_openai_tools",
+        lambda names: [_tool_schema(name) for name in names if name in registered_tools],
+    )
+
+
+@pytest.mark.anyio
+async def test_streaming_bite_persona_selects_pool_without_changing_seat(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    workspace_id, detection_tools = _configure_detection_tool_pool(monkeypatch)
+    _stub_tool_registry(monkeypatch, [*detection_tools, "web_search", "workspace_only"])
+    monkeypatch.setattr(streaming, "_inject_omlx_options", lambda body, _workspace: body)
+    monkeypatch.setattr(streaming, "_model_supports_tools", lambda _model: True)
+    backend = SimpleNamespace(type="omlx")
+
+    bite_body = {
+        "model": workspace_id,
+        "messages": [{"role": "user", "content": "validate this SPL"}],
+        "tools": [_tool_schema(name) for name in [*detection_tools, "finish", "workspace_only"]],
+        "tool_choice": "auto",
+        "portal_bite_tools": [*detection_tools, "finish", "workspace_only"],
+        "portal_bite_persona": "splunkdetectionauthor",
+    }
+    engine_body, effective, has_tools, _no_tools = await streaming._build_streaming_request(
+        bite_body, backend, "deep-seat-model", workspace_id, workspace_id
+    )
+    offered = [tool["function"]["name"] for tool in engine_body["tools"]]
+    assert has_tools
+    assert effective == detection_tools
+    assert set(offered) == {*detection_tools, "finish"}
+    assert "workspace_only" not in offered
+    assert "portal_bite_persona" not in engine_body
+    assert bite_body["model"] == workspace_id
+
+    non_bite_body = {
+        "model": workspace_id,
+        "messages": [{"role": "user", "content": "hello"}],
+        "portal_bite_persona": "unknown-but-ignored-without-bite-scope",
+    }
+    (
+        non_bite_engine_body,
+        non_bite_tools,
+        _has_tools,
+        _no_tools,
+    ) = await streaming._build_streaming_request(
+        non_bite_body, backend, "deep-seat-model", workspace_id, workspace_id
+    )
+    non_bite_offered = [tool["function"]["name"] for tool in non_bite_engine_body["tools"]]
+    assert non_bite_tools == ["web_search"]
+    assert not set(detection_tools) & set(non_bite_offered)
+    assert "portal_bite_persona" not in non_bite_engine_body
+
+    invalid_body = {**bite_body, "portal_bite_persona": "not-a-persona"}
+    with pytest.raises(HTTPException) as caught:
+        await streaming._build_streaming_request(
+            invalid_body, backend, "deep-seat-model", workspace_id, workspace_id
+        )
+    assert caught.value.status_code == 400
+
+
+@pytest.mark.anyio
+async def test_streaming_bite_persona_accepts_workspace_slug(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setitem(streaming.WORKSPACES, "auto-coding", {"tools": ["execute_python"]})
+    _stub_tool_registry(monkeypatch, ["execute_python"])
+    monkeypatch.setattr(streaming, "_inject_omlx_options", lambda body, _workspace: body)
+    monkeypatch.setattr(streaming, "_model_supports_tools", lambda _model: True)
+    monkeypatch.setattr(streaming, "_select_explicit_required_tool", lambda *_args: None)
+    body = {
+        "model": "auto-daily::deep",
+        "messages": [{"role": "user", "content": "run python"}],
+        "tools": [_tool_schema("execute_python"), _tool_schema("finish")],
+        "portal_bite_tools": ["execute_python", "finish"],
+        "portal_bite_persona": "auto-coding",
+    }
+    engine_body, effective, _has_tools, _no_tools = await streaming._build_streaming_request(
+        body,
+        SimpleNamespace(type="omlx"),
+        "deep-seat-model",
+        "auto-daily::deep",
+        "auto-daily::deep",
+    )
+
+    assert effective == ["execute_python"]
+    assert [tool["function"]["name"] for tool in engine_body["tools"]] == [
+        "execute_python",
+        "finish",
+    ]
+    assert engine_body["model"] == "deep-seat-model"
+    assert "portal_bite_persona" not in engine_body
+
+
+class _JsonClient:
+    def __init__(self) -> None:
+        self.requests: list[dict[str, Any]] = []
+
+    async def post(self, url: str, *, json: dict[str, Any], timeout: Any) -> httpx.Response:
+        self.requests.append(json)
+        return httpx.Response(
+            200,
+            json={"choices": [{"message": {"role": "assistant", "content": "done"}}]},
+            request=httpx.Request("POST", url),
+        )
+
+
+@pytest.mark.anyio
+async def test_non_streaming_bite_persona_selects_pool_without_changing_seat(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    workspace_id, detection_tools = _configure_detection_tool_pool(monkeypatch)
+    _stub_tool_registry(monkeypatch, [*detection_tools, "web_search", "workspace_only"])
+    monkeypatch.setattr(non_streaming, "_inject_omlx_options", lambda body, _workspace: body)
+    monkeypatch.setattr(non_streaming, "_model_supports_tools", lambda _model: True)
+    client = _JsonClient()
+    monkeypatch.setattr(non_streaming, "_http_client", client)
+    backend = SimpleNamespace(
+        id="bite-persona-test",
+        type="omlx",
+        chat_url="http://engine.test/chat",
+        resolve_model=lambda hint: hint,
+    )
+
+    bite_body = {
+        "model": workspace_id,
+        "messages": [{"role": "user", "content": "validate this SPL"}],
+        "tools": [_tool_schema(name) for name in [*detection_tools, "finish", "workspace_only"]],
+        "tool_choice": "auto",
+        "portal_bite_tools": [*detection_tools, "finish", "workspace_only"],
+        "portal_bite_persona": "splunkdetectionauthor",
+    }
+    await non_streaming._try_non_streaming(
+        backend, bite_body, workspace_id, 0.0, persona=workspace_id
+    )
+    offered = [tool["function"]["name"] for tool in client.requests[0]["tools"]]
+    assert set(offered) == {*detection_tools, "finish"}
+    assert "workspace_only" not in offered
+    assert "portal_bite_persona" not in client.requests[0]
+    assert bite_body["model"] == workspace_id
+
+    non_bite_body = {
+        "model": workspace_id,
+        "messages": [{"role": "user", "content": "hello"}],
+        "portal_bite_persona": "unknown-but-ignored-without-bite-scope",
+    }
+    await non_streaming._try_non_streaming(
+        backend, non_bite_body, workspace_id, 0.0, persona=workspace_id
+    )
+    non_bite_offered = [tool["function"]["name"] for tool in client.requests[1]["tools"]]
+    assert not set(detection_tools) & set(non_bite_offered)
+    assert "portal_bite_persona" not in client.requests[1]
+
+    invalid_body = {**bite_body, "portal_bite_persona": "not-a-persona"}
+    with pytest.raises(HTTPException) as caught:
+        await non_streaming._try_non_streaming(
+            backend, invalid_body, workspace_id, 0.0, persona=workspace_id
+        )
+    assert caught.value.status_code == 400
+    assert len(client.requests) == 2
 
 
 def _payloads(chunks: list[bytes]) -> list[dict[str, Any]]:

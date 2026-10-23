@@ -471,6 +471,9 @@ class ArmService:
         attempt_number = int(ledger.bite(bite.bite_id)["attempts"])
         attempt_dir = task_dir / "bites" / bite.bite_id / "attempts" / f"{attempt_number:02d}"
         resolved_inputs = {key: Path(value) for key, value in input_paths.items()}
+        disciplines = self.arm_config.get("disciplines", {})
+        discipline = disciplines.get(bite.discipline, {}) if isinstance(disciplines, dict) else {}
+        persona = discipline.get("persona") if isinstance(discipline, dict) else None
         try:
             worker = run_bite(
                 task_dir,
@@ -479,6 +482,7 @@ class ArmService:
                 input_paths=resolved_inputs,
                 attempt_dir=attempt_dir,
                 require_idle=self.bite_gate is not None,
+                persona=persona,
             )
         except QueueYieldError as exc:
             self.queue_yield_reason = str(exc)
@@ -749,6 +753,7 @@ def _review_worker(
             output,
             vote_count=int(votes),
             minimum_approve_votes=int(required),
+            persona=discipline.get("persona"),
             require_idle=gate is not None,
             gate=gate,
         )

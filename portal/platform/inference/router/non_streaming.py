@@ -25,7 +25,12 @@ from portal.platform.inference.router.download_links import (
     strip_unbacked_download_lines,
     successful_file_creation,
 )
-from portal.platform.inference.router.eval_gate import apply_bite_tool_scope, apply_eval_scope
+from portal.platform.inference.router.eval_gate import (
+    apply_bite_tool_scope,
+    apply_eval_scope,
+    filter_bite_client_tools,
+    resolve_bite_tool_pool,
+)
 from portal.platform.inference.router.metrics import (
     _answer_without_tool_retried,
     _hint_fallback_total,
@@ -810,12 +815,14 @@ async def _try_non_streaming(
     # (empty streaming chunks indicate a streaming/non-streaming shape
     # mismatch), so the tool schemas aren't silently dropped in the fallback.
     _persona_data: PersonaSpec | dict[str, Any] = _PERSONA_MAP.get(persona, {}) if persona else {}
-    _ns_tools = _resolve_persona_tools(_persona_data, workspace_id)
+    _ns_tools = resolve_bite_tool_pool(
+        req_body, persona, workspace_id, _PERSONA_MAP, WORKSPACES, _resolve_persona_tools
+    )
     # portal_client_tools_only / portal_no_tools / the non-tool-model strip:
     # same contract as streaming._build_streaming_request, so a request (or a
     # stream's non-streaming fallback) behaves the same in either mode.
     _ns_tools = apply_eval_scope(req_body, _ns_tools)
-    _ns_tools, _ = apply_bite_tool_scope(req_body, _ns_tools)
+    _ns_tools, _bite_allowlist = apply_bite_tool_scope(req_body, _ns_tools)
     if req_body.pop("portal_client_tools_only", False):
         _ns_tools = []
     _supports_tools = _model_supports_tools(target_model)
@@ -844,6 +851,12 @@ async def _try_non_streaming(
                 _required_tool,
             )
         await tool_registry.refresh()
+        filter_bite_client_tools(
+            req_body,
+            _bite_allowlist,
+            _ns_tools,
+            tool_registry.list_tool_names(),
+        )
         _tools_arr = tool_registry.get_openai_tools(_ns_offer_tools)
         # Merge client-injected tools with workspace tools — same logic as the
         # streaming path (handlers.py). Without this, clients (e.g. bench

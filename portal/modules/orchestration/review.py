@@ -41,6 +41,7 @@ def review_output(
     *,
     vote_count: int,
     minimum_approve_votes: int,
+    persona: str | None = None,
     require_idle: bool = False,
     gate: Callable[[], bool] | None = None,
 ) -> ReviewResult:
@@ -90,6 +91,8 @@ def review_output(
             # 265,244 tokens (> 262,144) and the reply died mid-stream (e2e-gemma-8).
             "portal_bite_tools": [],
         }
+        if persona is not None:
+            body["portal_bite_persona"] = persona
         response = engine.chat(body, 300, lambda _event: None)
         content, _ = _response_parts(response)
         votes.append(_parse_vote(content))

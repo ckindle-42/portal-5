@@ -151,6 +151,7 @@ def service(
     repo = Path(__file__).resolve().parents[2]
     settings = yaml.safe_load((repo / "config" / "orchestration_arm.yaml").read_text())
     settings["disciplines"]["offline-test"] = {
+        "persona": "auto-coding",
         "tool_allowlist": ["file_read", "file_write", "pytest_run", "wiki_search"],
         "read_tools": ["file_read", "wiki_search"],
         "action_tools": ["file_write", "pytest_run"],
@@ -214,6 +215,7 @@ def test_happy_path_uses_one_pipeline_port_and_guarded_model_seat(
     assert len(fake_pipeline.requests) == 1
     request = fake_pipeline.requests[0]
     assert request["model"] == SEAT_TAGS["fast"]
+    assert request["portal_bite_persona"] == "auto-coding"
     assert request["portal_bite_tools"] == ["finish"]
     assert request["tools"][-1]["function"]["name"] == "finish"
     finish_parameters = request["tools"][-1]["function"]["parameters"]
@@ -330,6 +332,10 @@ def test_detection_engineering_template_validates_and_runs_offline(
         SEAT_TAGS["fast"],
         SEAT_TAGS["deep"],
     ]
+    assert all(
+        request["portal_bite_persona"] == "splunkdetectionauthor"
+        for request in fake_pipeline.requests
+    )
 
 
 def test_bite_tools_are_sent_as_a_strict_pipeline_allowlist(
@@ -1770,7 +1776,9 @@ def test_review_votes_are_tool_less_bite_requests() -> None:
         "PASS",
         vote_count=1,
         minimum_approve_votes=1,
+        persona="auto-coding",
     )
     assert result.passed
     # No tools: the deep workspace's server tools let one vote overflow its context.
     assert bodies[0]["portal_bite_tools"] == []
+    assert bodies[0]["portal_bite_persona"] == "auto-coding"
