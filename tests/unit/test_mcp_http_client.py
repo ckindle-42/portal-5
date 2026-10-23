@@ -108,6 +108,52 @@ async def test_call_tool_parses_sse_and_sets_mcp_name_header() -> None:
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize("status_code", [307, 308])
+async def test_call_tool_follows_same_origin_redirect_and_keeps_the_post(status_code: int) -> None:
+    """mlx-transcribe answers /mcp with a redirect to /mcp/; the body must survive."""
+    seen: list[httpx.Request] = []
+
+    async def handler(request: httpx.Request) -> httpx.Response:
+        seen.append(request)
+        body = json.loads(request.content)
+        if request.url.path == "/mcp":
+            return httpx.Response(status_code, headers={"location": "/mcp/"})
+        assert request.method == "POST"
+        assert body["params"]["arguments"] == {"file_path": "a.wav"}
+        return _response(body["id"], {"structuredContent": {"ok": True}, "content": []})
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+        result = await call_tool(
+            client, "http://127.0.0.1:8924", "transcribe_audio", {"file_path": "a.wav"}, timeout_s=2
+        )
+
+    assert result["structuredContent"] == {"ok": True}
+    assert [request.url.path for request in seen] == ["/mcp", "/mcp/"]
+    assert all(request.method == "POST" for request in seen)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("status_code", "location"),
+    [(307, "http://evil.test/mcp"), (302, "/mcp/")],
+)
+async def test_call_tool_does_not_follow_cross_origin_or_method_changing_redirects(
+    status_code: int, location: str
+) -> None:
+    seen: list[httpx.Request] = []
+
+    async def handler(request: httpx.Request) -> httpx.Response:
+        seen.append(request)
+        return httpx.Response(status_code, headers={"location": location})
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+        with pytest.raises(MCPHTTPError):
+            await call_tool(client, "http://127.0.0.1:8924", "transcribe_audio", {}, timeout_s=2)
+
+    assert [request.url.path for request in seen] == ["/mcp"]
+
+
+@pytest.mark.asyncio
 async def test_jsonrpc_errors_are_preserved_even_on_http_error_status() -> None:
     async def handler(request: httpx.Request) -> httpx.Response:
         body = json.loads(request.content)

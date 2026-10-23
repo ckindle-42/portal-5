@@ -40,6 +40,8 @@ class _ServerState:
 
 _SERVER_STATES: dict[str, _ServerState] = {}
 _SERVER_LOCKS: dict[str, asyncio.Lock] = {}
+_SAME_ORIGIN_REDIRECTS = frozenset({307, 308})
+_MAX_SAME_ORIGIN_REDIRECTS = 5
 
 
 def _messages(response: httpx.Response) -> list[dict[str, Any]]:
@@ -96,6 +98,43 @@ def _response_result(response: httpx.Response, request_id: str) -> dict[str, Any
     )
 
 
+def _origin(url: httpx.URL) -> tuple[str, str, int | None]:
+    """Scheme, host, and port, with the scheme's default port filled in."""
+    default = 443 if url.scheme == "https" else 80 if url.scheme == "http" else None
+    return (url.scheme, (url.host or "").lower(), url.port or default)
+
+
+async def _follow_same_origin(
+    client: httpx.AsyncClient,
+    url: str,
+    payload: dict[str, Any],
+    headers: dict[str, str],
+    deadline: float,
+    response: httpx.Response,
+) -> httpx.Response:
+    """Follow 307/308 that stay on the request origin, keeping POST and its body."""
+    origin = _origin(httpx.URL(url))
+    for _ in range(_MAX_SAME_ORIGIN_REDIRECTS):
+        if response.status_code not in _SAME_ORIGIN_REDIRECTS:
+            return response
+        location = response.headers.get("location")
+        if not location:
+            return response
+        target = httpx.URL(url).join(location)
+        if _origin(target) != origin:
+            return response
+        await response.aclose()
+        url = str(target)
+        remaining = deadline - asyncio.get_running_loop().time()
+        if remaining <= 0:
+            raise TimeoutError
+        response = await asyncio.wait_for(
+            client.post(url, json=payload, headers=headers, timeout=None),
+            timeout=remaining,
+        )
+    return response
+
+
 async def _post(
     client: httpx.AsyncClient,
     url: str,
@@ -107,9 +146,10 @@ async def _post(
     remaining = deadline - asyncio.get_running_loop().time()
     if remaining <= 0:
         raise TimeoutError
-    return await asyncio.wait_for(
+    response = await asyncio.wait_for(
         client.post(url, json=payload, headers=headers, timeout=None), timeout=remaining
     )
+    return await _follow_same_origin(client, url, payload, headers, deadline, response)
 
 
 def _modern_headers(method: str, params: dict[str, Any]) -> dict[str, str]:
