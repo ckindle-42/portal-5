@@ -820,7 +820,9 @@ def _run_requests(
             row["bite_id"] = f"{row['bite_id']}-r{repeat:02d}"
             row["repeat"] = repeat
             rows.append(row)
-            print(f"  {suite}/{case['id']} repeat {repeat}: {row['status']}", flush=True)
+            elapsed = row.get("elapsed_seconds")
+            timing = f" ({elapsed:.1f}s)" if isinstance(elapsed, int | float) else ""
+            print(f"  {suite}/{case['id']} repeat {repeat}: {row['status']}{timing}", flush=True)
     return rows
 
 
@@ -948,6 +950,20 @@ def _parser() -> argparse.ArgumentParser:
     return parser
 
 
+def _timing(results: list[dict[str, Any]]) -> dict[str, float | int]:
+    """Total and median per-bite wall time, so a seat comparison never lacks speed."""
+    elapsed = sorted(
+        float(row["elapsed_seconds"])
+        for row in results
+        if isinstance(row.get("elapsed_seconds"), int | float)
+    )
+    if not elapsed:
+        return {"timed": 0}
+    middle = len(elapsed) // 2
+    median = elapsed[middle] if len(elapsed) % 2 else (elapsed[middle - 1] + elapsed[middle]) / 2
+    return {"timed": len(elapsed), "total_s": round(sum(elapsed), 1), "median_s": round(median, 1)}
+
+
 def main() -> int:
     args = _parser().parse_args()
     if args.repeats < 1:
@@ -990,6 +1006,7 @@ def main() -> int:
                 "status": receipt["status"],
                 "workdir": receipt["workdir"],
                 "summary": receipt.get("summary", {}),
+                "timing": _timing(receipt.get("results", [])),
             },
             indent=2,
         )
