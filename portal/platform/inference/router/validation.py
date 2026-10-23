@@ -297,6 +297,12 @@ def _apply_reasoning_effort(body: dict[str, Any]) -> tuple[int, str] | None:
     if not effort:
         return None
     label = str(effort).strip().lower()
+    if label == "none":
+        # OpenAI semantics: no reasoning. Popping the key would lose that before the
+        # backend adapters map it, so carry it as an explicit think-off unless the
+        # caller already chose one.
+        body.setdefault("think", False)
+        return None
     cap = _REASONING_EFFORT_PREDICT.get(label)
     if cap is None:
         return None

@@ -36,6 +36,16 @@ def test_apply_helper_unknown_is_noop_but_strips():
     assert "reasoning_effort" not in body  # still stripped so backend never sees it
 
 
+def test_apply_helper_none_turns_thinking_off():
+    body = {"reasoning_effort": "none", "messages": []}
+    assert val._apply_reasoning_effort(body) is None
+    assert body["think"] is False  # OpenAI "none" = no reasoning; must survive the strip
+    assert "reasoning_effort" not in body and "max_tokens" not in body
+    explicit = {"reasoning_effort": "none", "think": True, "messages": []}
+    val._apply_reasoning_effort(explicit)
+    assert explicit["think"] is True  # an explicit think wins
+
+
 def test_apply_helper_absent_is_noop():
     body = {"messages": []}
     assert val._apply_reasoning_effort(body) is None
