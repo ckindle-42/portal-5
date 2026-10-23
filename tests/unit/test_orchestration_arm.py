@@ -1687,3 +1687,39 @@ def test_seated_model_tags_default_follow_config_and_reject_conflicts() -> None:
         seated_model_tags(config({"fast": "auto-daily::fast"}, {"fast": "auto-daily::gemma-fast"}))
     with pytest.raises(ValueError, match="auto-daily"):
         seated_model_tags(config({"fast": "some-raw-model"}))
+
+
+def test_tools_resolve_listed_input_names_to_staged_paths(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    (tmp_path / "inputs").mkdir()
+    (tmp_path / "inputs" / "discount.py").write_text("old\n", encoding="utf-8")
+    (tmp_path / "inputs" / "test_discount.py").write_text("def test(): pass\n", encoding="utf-8")
+    captured: dict[str, Any] = {}
+
+    def fake_run(url: str, payload: dict[str, Any]) -> dict[str, Any]:
+        captured["selectors"] = payload["selectors"]
+        return {"exit_code": 0, "stdout": "1 passed\n", "stderr": "", "files": {}}
+
+    monkeypatch.setattr(orchestration_tools, "_sandbox_request", fake_run)
+    tools = TaskToolExecutor(
+        tmp_path,
+        ("file_read", "file_write", "pytest_run"),
+        readable_paths=("inputs/discount.py", "inputs/test_discount.py"),
+        writable_paths=("inputs/discount.py",),
+        aliases={
+            "discount.py": "inputs/discount.py",
+            "test_discount.py": "inputs/test_discount.py",
+        },
+    )
+
+    assert tools.dispatch("file_write", {"path": "discount.py", "content": "new\n"}).startswith(
+        "wrote"
+    )
+    assert (tmp_path / "inputs" / "discount.py").read_text(encoding="utf-8") == "new\n"
+    assert tools.dispatch("file_read", {"path": "test_discount.py"}) == "def test(): pass\n"
+    assert "exit_code=0" in tools.dispatch("pytest_run", {"args": "test_discount.py::test -q"})
+    assert captured["selectors"] == ["inputs/test_discount.py::test", "-q"]
+    assert tools.dispatch("file_write", {"path": "test_discount.py", "content": "x"}).startswith(
+        "ERROR:"
+    )

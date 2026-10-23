@@ -140,7 +140,9 @@ orchestration_arm:
                 accept: [{type: contains, value: "PASS"}]
                 risk: low
                 stage: assembly
-                budget: {turns: 5, minutes: 30, output_tokens: 4096, context_tokens: 12288}
+                # Thinking seats spend ~1.3-1.6K reasoning tokens per turn (Gemma 4, measured
+                # 2026-10-22 e2e-discount-4); 4096 ran out before finish on five-turn repairs.
+                budget: {turns: 5, minutes: 30, output_tokens: 12288, context_tokens: 12288}
                 model: fast
                 procedure: Apply the smallest repair, run the declared test, and report its result.
                 reads_untrusted: false

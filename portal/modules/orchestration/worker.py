@@ -197,6 +197,7 @@ def run_bite(
         bite.tools,
         readable_paths=tuple(path.as_posix() for path in input_paths.values()),
         writable_paths=_writable_paths(bite, input_paths),
+        aliases={name: path.as_posix() for name, path in input_paths.items()},
     )
     try:
         plan = engine.load_plan(bite.budget.minutes * 60)

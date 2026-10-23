@@ -578,18 +578,13 @@ environment = {
     "PYTHONDONTWRITEBYTECODE": "1",
     "TMPDIR": "/tmp",
 }
-# importlib mode leaves sys.path alone, so put each selected test's directory on it the way a
-# plain `pytest dir/test_x.py` run would; otherwise tests cannot import their sibling modules.
-test_dirs = []
-expect_expression = False
-for selector in config["selectors"]:
-    if expect_expression or selector.startswith("-"):
-        expect_expression = selector == "-k"
-        continue
-    path = Path("/work") / selector.partition("::")[0]
-    test_dirs.append(str(path if path.is_dir() else path.parent))
+# importlib mode leaves sys.path alone; mirror pytest's default (prepend) mode by putting every
+# test file's directory on it, otherwise tests cannot import their sibling modules.
+test_dirs = sorted(
+    {str(path.parent) for pattern in ("test_*.py", "*_test.py") for path in Path("/work").rglob(pattern)}
+)
 if test_dirs:
-    environment["PYTHONPATH"] = ":".join(dict.fromkeys(test_dirs))
+    environment["PYTHONPATH"] = ":".join(test_dirs)
 
 timed_out = False
 with Path("/tmp/pytest-output").open("wb") as output:

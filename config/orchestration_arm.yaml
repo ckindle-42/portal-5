@@ -138,7 +138,7 @@ disciplines:
             budget:
               turns: 5
               minutes: 30
-              output_tokens: 4096
+              output_tokens: 12288
               context_tokens: 12288
             model: fast
             procedure: Apply the smallest repair, run the declared test, and report

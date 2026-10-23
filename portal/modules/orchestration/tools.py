@@ -91,12 +91,18 @@ class TaskToolExecutor:
         *,
         readable_paths: tuple[str, ...] = (),
         writable_paths: tuple[str, ...] = (),
+        aliases: dict[str, str] | None = None,
         sandbox_url: str = "http://127.0.0.1:8914",
     ) -> None:
         self.task_dir = Path(task_dir).resolve()
         self.allowed_tools = frozenset(allowed_tools)
         self.readable_paths = frozenset(self._relative_path(path) for path in readable_paths)
         self.writable_paths = frozenset(self._relative_path(path) for path in writable_paths)
+        # Input names as the bite prompt lists them (discount.py) resolve to their staged paths.
+        self.aliases = {
+            self._relative_path(name): self._relative_path(path)
+            for name, path in (aliases or {}).items()
+        }
         self.sandbox_url = sandbox_url.rstrip("/")
 
     def dispatch(self, name: str, arguments: dict[str, Any]) -> str:
@@ -117,7 +123,7 @@ class TaskToolExecutor:
             return f"ERROR: {name} failed: {type(exc).__name__}: {exc}"
 
     def file_read(self, path: str) -> str:
-        relative = self._relative_path(path)
+        relative = self._resolve(path)
         if relative not in self.readable_paths:
             return f"ERROR: {path} is not readable for this bite"
         try:
@@ -134,7 +140,7 @@ class TaskToolExecutor:
         encoded = content.encode("utf-8")
         if len(encoded) > FILE_WRITE_LIMIT:
             return f"ERROR: content exceeds the {FILE_WRITE_LIMIT}-byte write limit"
-        relative = self._relative_path(path)
+        relative = self._resolve(path)
         if relative not in self.writable_paths:
             return f"ERROR: {path} is not writable for this bite"
         current_size = _task_file_size(self.task_dir, relative)
@@ -149,7 +155,7 @@ class TaskToolExecutor:
 
     def pytest_run(self, args: str = "") -> str:
         try:
-            selectors = _pytest_selectors(args, self.task_dir)
+            selectors = _pytest_selectors(args, self.task_dir, self.aliases)
             payload = {
                 "files": _task_snapshot(self.task_dir, self.readable_paths | self.writable_paths),
                 "selectors": selectors,
@@ -171,6 +177,10 @@ class TaskToolExecutor:
         except (OSError, RuntimeError, UnicodeError, ValueError, httpx.HTTPError) as exc:
             return f"ERROR: pytest could not run: {type(exc).__name__}: {exc}"
 
+    def _resolve(self, path: str) -> str:
+        relative = self._relative_path(path)
+        return self.aliases.get(relative, relative)
+
     def _relative_path(self, path: str) -> str:
         if not isinstance(path, str) or not path.strip():
             raise ValueError("relative path required")
@@ -186,7 +196,9 @@ class TaskToolExecutor:
         return Path(*parts).as_posix()
 
 
-def _pytest_selectors(args: str, task_dir: Path) -> list[str]:
+def _pytest_selectors(
+    args: str, task_dir: Path, aliases: dict[str, str] | None = None
+) -> list[str]:
     """Allow only local test paths and a small set of harmless pytest selectors."""
     if not isinstance(args, str):
         raise ValueError("pytest args must be a string")
@@ -200,7 +212,7 @@ def _pytest_selectors(args: str, task_dir: Path) -> list[str]:
             selectors.extend((token, expression))
             continue
         if not _append_pytest_option(token, selectors):
-            selectors.append(_pytest_path_selector(token, task_dir))
+            selectors.append(_pytest_path_selector(token, task_dir, aliases or {}))
     return selectors
 
 
@@ -214,8 +226,9 @@ def _append_pytest_option(token: str, selectors: list[str]) -> bool:
     return False
 
 
-def _pytest_path_selector(token: str, task_dir: Path) -> str:
+def _pytest_path_selector(token: str, task_dir: Path, aliases: dict[str, str]) -> str:
     path_text, separator, node_id = token.partition("::")
+    path_text = aliases.get(path_text, path_text)
     relative = Path(path_text or ".")
     windows = PureWindowsPath(path_text)
     if relative.is_absolute() or windows.is_absolute() or windows.drive:
