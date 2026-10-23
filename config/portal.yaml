@@ -81,9 +81,10 @@ orchestration_arm:
     minimum_pass_probability: 0.531441
     # Gate C bite-suite rates (2026-10-22, results/arm/gate_c_calibration.json), keyed by seat role.
     rates_by_discipline:
+      # Re-measured 2026-10-23 on the fixed harness (gate_c_calculator, 6/6 each).
       test_fixing:
-        fast: {pass_probability: 1.0, mean_seconds: 35.8, samples: 6}
-        deep: {pass_probability: 1.0, mean_seconds: 87.6, samples: 6}
+        fast: {pass_probability: 1.0, mean_seconds: 35.1, samples: 6}
+        deep: {pass_probability: 1.0, mean_seconds: 34.6, samples: 6}
   queue:
     yield_lock_dir: "~/.portal5/locks/"
   disciplines:

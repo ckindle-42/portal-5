@@ -36,11 +36,11 @@ calibration:
     test_fixing:
       fast:
         pass_probability: 1.0
-        mean_seconds: 35.8
+        mean_seconds: 35.1
         samples: 6
       deep:
         pass_probability: 1.0
-        mean_seconds: 87.6
+        mean_seconds: 34.6
         samples: 6
 queue:
   yield_lock_dir: ~/.portal5/locks/
