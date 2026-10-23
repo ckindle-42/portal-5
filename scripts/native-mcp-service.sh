@@ -29,19 +29,29 @@ if [ -f "$ENV_FILE" ]; then
     set +a
 fi
 
-# `.env` is shared with the Docker stack, so its host-facing URLs are written
-# from a CONTAINER's point of view (OLLAMA_URL=http://host.docker.internal:11434).
-# Every service started here is host-native, where that name does not resolve at
-# all — the failure is a bare `[Errno 8] nodename nor servname provided`, which
-# reads like a dead service rather than a misaddressed one. Found 2026-09-12:
-# pipeline-mcp's `explore_repository` had been failing this way since it was
-# wired, which is why its FastContext explorer was never validated. Rewrite the
-# Docker-only alias back to loopback for the host side; an OLLAMA_URL that
-# points anywhere else (a real remote node) is left exactly as the operator set
-# it.
-case "${OLLAMA_URL:-}" in
-    *host.docker.internal*) export OLLAMA_URL="${OLLAMA_URL//host.docker.internal/localhost}" ;;
-esac
+# `.env` is shared with the Docker stack, so its URLs are written from a CONTAINER's
+# point of view (OLLAMA_URL=http://host.docker.internal:11434,
+# PIPELINE_URL=http://portal-pipeline:9099). Every service started here is host-native,
+# where those names do not resolve at all — the failure is a bare `[Errno 8] nodename
+# nor servname provided`, which reads like a dead service rather than a misaddressed
+# one (2026-09-12 `explore_repository` via OLLAMA_URL, 2026-10-23 `list_workspaces` via
+# PIPELINE_URL). Rewrite the Docker-only host of any *_URL / *_ENDPOINT to loopback for
+# the host side; a URL naming anything else (a remote node, an unpublishable lab
+# container) is left exactly as the operator set it.
+_CONTAINER_ONLY_HOSTS="host.docker.internal portal-pipeline portal-browser open-webui searxng"
+for _var in $(compgen -v); do
+    case "$_var" in
+        *_URL | *_ENDPOINT) ;;
+        *) continue ;;
+    esac
+    _value="${!_var}"
+    for _host in $_CONTAINER_ONLY_HOSTS; do
+        _value="${_value//$_host/localhost}"
+    done
+    if [ "$_value" != "${!_var}" ]; then
+        export "${_var}=${_value}"
+    fi
+done
 
 export PYTHONPATH="$PORTAL_ROOT${PYTHONPATH:+:$PYTHONPATH}"
 cd "$PORTAL_ROOT"

@@ -165,3 +165,54 @@ def test_native_services_report_the_head_and_dirtiness_they_launched_from(tmp_pa
 def test_a_launch_outside_a_git_checkout_still_starts_and_says_unknown(tmp_path):
     """set -e + pipefail must not stop a native service whose root is not a git checkout."""
     assert _run_data_mcp(tmp_path, "AI_OUTPUT_DIR=/srv/ai\n") == "DATA_MCP_ROOT=/srv/ai"
+
+
+def _run_pipeline_mcp(tmp_path, env_lines: str) -> list[str]:
+    """Run the wrapper's pipeline-mcp branch in a scratch PORTAL_ROOT whose python3 is a
+    stub that prints the host-facing URLs instead of starting the server."""
+    import os
+    import shutil
+    from pathlib import Path
+
+    repo = Path(__file__).resolve().parents[2]
+    root = tmp_path / "portal"
+    (root / "scripts" / "lib").mkdir(parents=True)
+    shutil.copy(repo / "scripts/native-mcp-service.sh", root / "scripts/native-mcp-service.sh")
+    shutil.copy(repo / "scripts/lib/venv_preflight.sh", root / "scripts/lib/venv_preflight.sh")
+    py = root / ".venv" / "bin" / "python3"
+    py.parent.mkdir(parents=True)
+    py.write_text('#!/bin/sh\necho "PIPELINE_URL=$PIPELINE_URL"\necho "OLLAMA_URL=$OLLAMA_URL"\n')
+    py.chmod(0o755)
+    (root / ".env").write_text(env_lines)
+    env = {
+        k: v
+        for k, v in os.environ.items()
+        if k not in ("AI_OUTPUT_DIR", "DATA_MCP_ROOT", "PORTAL_ROOT", "PIPELINE_URL", "OLLAMA_URL")
+    }
+    env["HOME"] = str(tmp_path / "home")
+    r = subprocess.run(
+        ["bash", str(root / "scripts/native-mcp-service.sh"), "pipeline-mcp"],
+        env=env,
+        capture_output=True,
+        text=True,
+        timeout=30,
+    )
+    return r.stdout.strip().splitlines()[-2:]
+
+
+def test_container_urls_from_env_are_rewritten_to_loopback_for_host_services(tmp_path):
+    """`.env` is written for containers; a host-native MCP must not inherit an unresolvable
+    host (2026-10-23: list_workspaces failed with Errno 8 on PIPELINE_URL=portal-pipeline)."""
+    lines = _run_pipeline_mcp(
+        tmp_path,
+        "PIPELINE_URL=http://portal-pipeline:9099\nOLLAMA_URL=http://host.docker.internal:11434\n",
+    )
+    assert lines == ["PIPELINE_URL=http://localhost:9099", "OLLAMA_URL=http://localhost:11434"]
+
+
+def test_a_url_naming_a_real_host_is_left_as_the_operator_set_it(tmp_path):
+    lines = _run_pipeline_mcp(
+        tmp_path,
+        "PIPELINE_URL=http://192.168.1.5:9099\nOLLAMA_URL=http://ollama.lan:11434\n",
+    )
+    assert lines == ["PIPELINE_URL=http://192.168.1.5:9099", "OLLAMA_URL=http://ollama.lan:11434"]
