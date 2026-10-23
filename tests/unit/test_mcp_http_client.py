@@ -465,9 +465,11 @@ def test_native_tool_result_maps_to_raw_rest_json() -> None:
 def test_pipeline_client_mode_is_per_server_and_defaults_to_rest() -> None:
     config = load_portal_config()
     modes = get_pipeline_mcp_client_modes(config)
-    # pipeline passed live native/REST parity on 2026-10-23; the rest stay on REST until they do.
+    # pipeline + the 16 servers that passed live native/REST parity on 2026-10-23 are native;
+    # the rest stay on REST until they do (whisper/research/vulnintel: no deterministic tool;
+    # mlx_transcribe: /mcp 307-redirects; music/mflux/video: modules disabled).
     assert modes["pipeline"] == "native"
-    assert modes["documents"] == "rest"
+    assert modes["documents"] == "native"
 
     raw = config.model_dump()
     entry = next(server for server in raw["mcp_fleet"] if server["id"] == "documents")

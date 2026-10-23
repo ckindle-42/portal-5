@@ -6,6 +6,7 @@ from unittest.mock import MagicMock, patch
 import httpx
 import pytest
 
+from portal.platform.inference import tool_registry
 from portal.platform.inference.tool_registry import (
     MCP_SERVERS,
     ToolDefinition,
@@ -122,8 +123,11 @@ class TestRefreshCarryForward:
         assert n >= 2
 
     @pytest.mark.asyncio
-    async def test_recovering_server_replaces_carried_forward(self):
+    async def test_recovering_server_replaces_carried_forward(self, monkeypatch):
         """B recovering on next refresh replaces the carried-forward set."""
+        # These refresh tests mock the REST /tools client, so pin every server
+        # to REST regardless of the production pipeline_client flips.
+        monkeypatch.setattr(tool_registry, "MCP_CLIENT_MODES", {})
         tr = ToolRegistry()
 
         # Seed with a carried-forward tool from a previously-failed server
@@ -173,8 +177,9 @@ class TestRefreshCarryForward:
             assert tr._tools["tool-b-new"].healthy is True
 
     @pytest.mark.asyncio
-    async def test_successful_server_drops_removed_tool(self):
+    async def test_successful_server_drops_removed_tool(self, monkeypatch):
         """A successfully-probed server that drops a tool loses it."""
+        monkeypatch.setattr(tool_registry, "MCP_CLIENT_MODES", {})
         tr = ToolRegistry()
 
         tr._tools["old-tool"] = ToolDefinition(
