@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import importlib
 import json
+import re
 import sys
 from pathlib import Path
 
@@ -12,6 +13,18 @@ import pytest
 
 BENCH = Path(__file__).resolve().parents[2] / "tests" / "benchmarks"
 QSET = BENCH / "fixtures" / "research_eval_qset.jsonl"
+LARGE_QSET = BENCH / "fixtures" / "research_eval_qset_large.jsonl"
+
+TIME_SENSITIVE = re.compile(
+    r"\b(as of|at present|current|currently|latest|most recent|nowadays|recent|recently|today)\b",
+    re.IGNORECASE,
+)
+QSET_KEYS = ("id", "question", "checkable", "category", "source")
+
+
+def _load(path: Path) -> list[dict]:
+    """Same one-line loader the probe's main() uses."""
+    return [json.loads(line) for line in path.read_text().splitlines() if line.strip()]
 
 
 @pytest.fixture
@@ -95,3 +108,31 @@ def test_rq03_is_date_anchored() -> None:
     rows = [json.loads(line) for line in QSET.read_text().splitlines() if line.strip()]
     q = next(r for r in rows if r["id"] == "rq03")["question"]
     assert "As of" in q and "most recent" not in q.lower()
+
+
+def test_large_qset_every_item_loads() -> None:
+    rows = _load(LARGE_QSET)
+    assert len(rows) >= 30
+    assert len({r["id"] for r in rows}) == len(rows)
+    for row in rows:
+        missing = [key for key in QSET_KEYS if not isinstance(row.get(key), str)]
+        assert not missing, (row.get("id"), missing)
+        assert row["question"].strip().endswith("?"), row["id"]
+        assert row["source"].startswith(("https://", "http://")), row["id"]
+        assert isinstance(row.get("multi_hop"), bool), row["id"]
+
+
+def test_large_qset_every_item_has_a_scorable_answer_key() -> None:
+    for row in _load(LARGE_QSET):
+        key = row["checkable"].strip()
+        assert len(key) >= 40, row["id"]
+        assert key != row["question"].strip(), row["id"]
+        assert "{" not in key and "}" not in key, row["id"]
+        assert len(set(key.split())) >= 5, row["id"]
+        assert not TIME_SENSITIVE.search(f"{row['question']} {key}"), row["id"]
+
+
+def test_large_qset_is_non_security_and_mixes_multi_hop() -> None:
+    rows = _load(LARGE_QSET)
+    assert all(row["category"].lower() != "security" for row in rows)
+    assert sum(1 for row in rows if row["multi_hop"]) >= 10

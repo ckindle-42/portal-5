@@ -11,7 +11,8 @@ Usage:
     python3 tests/benchmarks/bench_research_probe.py \
         --candidate portal5/xyz-aquila-mini:q4_k_m-ctx16k \
         --incumbent huihui_ai/tongyi-deepresearch-abliterated:latest-ctx64k \
-        --qset tests/benchmarks/fixtures/research_eval_qset.jsonl
+        --qset tests/benchmarks/fixtures/research_eval_qset_large.jsonl
+    # research_eval_qset.jsonl is the original 10-item set (INSUFFICIENT_N for a verdict).
 """
 
 from __future__ import annotations
