@@ -44,7 +44,7 @@ sources:
 - type: code
   path: scripts/gate_c_calculator.py
 claims:
-- probe: modules.disabled
+- probe: modules.enabled
   contains: orchestration
 confidence: high
 tags:
@@ -63,11 +63,11 @@ The orchestration module exposes `portal arm submit`, `resume`, and `status` for
 
 ## Phase 1 boundary
 
-Offline tests drive the arm through a fake OpenAI-compatible Pipeline API. Stored plan templates enqueue through `QueueLedger.enqueue`. Open WebUI reaches that queue through the pipeline MCP tool `arm_queue_task` (`portal/modules/orchestration/owui_entry.py`). The module stays disabled by default. Live model acceptance remains outside this offline phase.
+Offline tests drive the arm through a fake OpenAI-compatible Pipeline API. Stored plan templates enqueue through `QueueLedger.enqueue`. Open WebUI reaches that queue through the pipeline MCP tool `arm_queue_task` (`portal/modules/orchestration/owui_entry.py`). The module is enabled in the repo since the 2026-10-23 live end-to-end run (Telegram approval, repair, review).
 
 ## Module state
 
-The switch is `modules.orchestration.enabled` in `config/portal.yaml` and defaults to false. The module unit documents the switch; it does not hold it. `config/orchestration_arm.yaml` supplies the default `swap` residency mode and the underlying model IDs checked by the Pipeline load guard.
+The switch is `modules.orchestration.enabled` in `config/portal.yaml` and is on. The module unit documents the switch; it does not hold it. `config/orchestration_arm.yaml` supplies the default `swap` residency mode and the underlying model IDs checked by the Pipeline load guard.
 
 ## Bite tools
 

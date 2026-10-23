@@ -59,8 +59,7 @@ def review_output(
                     "role": "system",
                     "content": (
                         "Review one completed task bite against its goal and stated review reason. "
-                        "Return only JSON with decision='approve' or 'reject' and a concise reason. "
-                        "Keep reasoning enabled."
+                        "Return only JSON with decision='approve' or 'reject' and a concise reason."
                     ),
                 },
                 {
@@ -85,7 +84,11 @@ def review_output(
             "temperature": 0,
             "stream": True,
             "stream_options": {"include_usage": True},
-            "chat_template_kwargs": {"enable_thinking": True},
+            # A vote is a tool-less bite: it follows the deep seat's thinking policy and judges
+            # the supplied output only. Without a bite scope the deep workspace
+            # offered its full toolset, and one vote re-read files until the prompt hit
+            # 265,244 tokens (> 262,144) and the reply died mid-stream (e2e-gemma-8).
+            "portal_bite_tools": [],
         }
         response = engine.chat(body, 300, lambda _event: None)
         content, _ = _response_parts(response)
@@ -112,10 +115,15 @@ def _admit_review_seat(engine: Engine, require_idle: bool) -> None:
 
 
 def _parse_vote(content: str) -> dict[str, str]:
+    # Accept the vote object even when the model wraps it in prose or a code fence.
+    start = content.find("{")
     try:
-        raw = json.loads(content)
+        if start < 0:
+            raise json.JSONDecodeError("no object", content, 0)
+        raw, _end = json.JSONDecoder().raw_decode(content, start)
     except json.JSONDecodeError:
-        return {"decision": "reject", "reason": "review response was not JSON"}
+        snippet = " ".join(content.split())[:160]
+        return {"decision": "reject", "reason": f"review response was not JSON: {snippet!r}"}
     if not isinstance(raw, dict) or raw.get("decision") not in {"approve", "reject"}:
         return {"decision": "reject", "reason": "review response had an invalid decision"}
     reason = raw.get("reason")

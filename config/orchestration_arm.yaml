@@ -104,7 +104,7 @@ disciplines:
             risk: low
             stage: work
             budget:
-              turns: 3
+              turns: 4
               minutes: 15
               output_tokens: 2048
               context_tokens: 8192

@@ -42,7 +42,7 @@ modules:
   netforensics:
     enabled: true
   orchestration:
-    enabled: false
+    enabled: true
   research:
     enabled: true
   security:
@@ -125,7 +125,9 @@ orchestration_arm:
                 accept: [{type: contains, value: "Finding:"}]
                 risk: low
                 stage: work
-                budget: {turns: 3, minutes: 15, output_tokens: 2048, context_tokens: 8192}
+                # Two reads + finish used every turn, leaving none for the forced-finish repair
+                # when a model answers in text (Gemma, e2e-discount-5).
+                budget: {turns: 4, minutes: 15, output_tokens: 2048, context_tokens: 8192}
                 model: fast
                 procedure: Read the source and tests, then record the relevant failing behavior.
                 reads_untrusted: false

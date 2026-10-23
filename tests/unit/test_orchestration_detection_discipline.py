@@ -78,8 +78,6 @@ def test_discipline_is_unseated_and_retains_fixed_criteria() -> None:
     assert arm_discipline["seating_status"] == "unseated"
     assert "seated_models" not in arm_discipline
     assert "detection-engineering" not in _arm_config()["calibration"]["rates_by_discipline"]
-    portal = yaml.safe_load((ROOT / "config/portal.yaml").read_text(encoding="utf-8"))
-    assert portal["modules"]["orchestration"]["enabled"] is False
 
 
 def test_bite_suite_declares_each_hard_checker_and_live_lab_boundary() -> None:

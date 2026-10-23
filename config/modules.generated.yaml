@@ -29,7 +29,7 @@ modules:
   netforensics:
     enabled: true
   orchestration:
-    enabled: false
+    enabled: true
   research:
     enabled: true
   security:

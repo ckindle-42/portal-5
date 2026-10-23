@@ -307,7 +307,8 @@ def test_detection_engineering_template_validates_and_runs_offline(
     assert [
         request["portal_bite_tools"]
         for request in fake_pipeline.requests
-        if "portal_bite_tools" in request
+        # Review votes are tool-less bite requests ([]); this lists the task bites' scopes.
+        if request.get("portal_bite_tools")
     ] == [
         [
             "file_read",
@@ -1346,8 +1347,9 @@ def test_residency_config_defaults_to_swap_and_reads_co_resident(tmp_path: Path)
     assert load_residency_mode(config) == "co-resident"
 
 
-def test_module_switch_is_off_by_default_in_repo_config() -> None:
-    assert not module_is_enabled(Path("config/portal.yaml"))
+def test_module_switch_is_on_in_repo_config() -> None:
+    # Enabled after the 2026-10-23 end-to-end run (Telegram approval, repair, review) passed.
+    assert module_is_enabled(Path("config/portal.yaml"))
 
 
 def test_overnight_queue_runs_tasks_in_fifo_order_and_records_receipts(
@@ -1735,3 +1737,40 @@ def test_tools_resolve_listed_input_names_to_staged_paths(
     assert tools.dispatch("file_write", {"path": "test_discount.py", "content": "x"}).startswith(
         "ERROR:"
     )
+
+
+def test_review_vote_parser_accepts_fenced_json_and_reports_bad_replies() -> None:
+    from portal.modules.orchestration.review import _parse_vote
+
+    fenced = '\n\n```json\n{"decision": "approve", "reason": "tests pass"}\n```'
+    assert _parse_vote(fenced) == {"decision": "approve", "reason": "tests pass"}
+    bad = _parse_vote("⚠️ The model did not produce an answer.")
+    assert bad["decision"] == "reject" and "did not produce an answer" in bad["reason"]
+
+
+def test_review_votes_are_tool_less_bite_requests() -> None:
+    from portal.modules.orchestration import review as review_module
+
+    bodies: list[dict[str, Any]] = []
+
+    class StubEngine:
+        model_tag = "auto-daily::deep"
+
+        def load_plan(self, _seconds: float) -> dict[str, Any]:
+            return {"busy": False, "fits": True}
+
+        def chat(self, body: dict[str, Any], _timeout: float, _on_event: Any) -> dict[str, Any]:
+            bodies.append(body)
+            vote = '{"decision": "approve", "reason": "ok"}'
+            return {"choices": [{"message": {"content": vote}}]}
+
+    result = review_module.review_output(
+        StubEngine(),  # type: ignore[arg-type]
+        parse_plan(plan("review-scope", bite())).bites[0],
+        "PASS",
+        vote_count=1,
+        minimum_approve_votes=1,
+    )
+    assert result.passed
+    # No tools: the deep workspace's server tools let one vote overflow its context.
+    assert bodies[0]["portal_bite_tools"] == []
