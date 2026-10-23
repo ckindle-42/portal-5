@@ -58,7 +58,7 @@ def test_portal_config_show_mcp_fleet() -> None:
         assert entry["pipeline_client"] in {"native", "rest"}
     assert (
         next(entry for entry in data["mcp_fleet"] if entry["id"] == "pipeline")["pipeline_client"]
-        == "rest"
+        == "native"
     )
 
 

@@ -486,7 +486,7 @@ mcp_fleet:
     name: portal-pipeline
     port: 8928
     expose_to_pipeline: true
-    pipeline_client: rest
+    pipeline_client: native
     expose_to_ide: true
     host_native: true
     launchd_label: com.portal5.pipeline-mcp

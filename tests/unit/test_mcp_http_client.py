@@ -391,18 +391,17 @@ def test_native_tool_result_maps_to_raw_rest_json() -> None:
     )
 
 
-def test_pipeline_client_mode_defaults_to_rest_and_can_be_opted_in() -> None:
+def test_pipeline_client_mode_is_per_server_and_defaults_to_rest() -> None:
     config = load_portal_config()
     modes = get_pipeline_mcp_client_modes(config)
-    assert modes["pipeline"] == "rest"
+    # pipeline passed live native/REST parity on 2026-10-23; the rest stay on REST until they do.
+    assert modes["pipeline"] == "native"
     assert modes["documents"] == "rest"
 
     raw = config.model_dump()
-    next(server for server in raw["mcp_fleet"] if server["id"] == "pipeline")["pipeline_client"] = (
-        "native"
-    )
-    opted_in = PortalConfig.model_validate(raw)
-    assert get_pipeline_mcp_client_modes(opted_in)["pipeline"] == "native"
+    entry = next(server for server in raw["mcp_fleet"] if server["id"] == "documents")
+    entry.pop("pipeline_client", None)
+    assert get_pipeline_mcp_client_modes(PortalConfig.model_validate(raw))["documents"] == "rest"
 
 
 @pytest.mark.asyncio
