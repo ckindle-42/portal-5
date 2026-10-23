@@ -199,8 +199,7 @@ _model: Any | None = None
 def get_model() -> Any:
     global _model
     if _model is None:
-        # faster-whisper ships no py.typed marker (stubless C-extension wrapper)
-        from faster_whisper import WhisperModel  # type: ignore[import-untyped]
+        from faster_whisper import WhisperModel
 
         _model = WhisperModel(WHISPER_MODEL_SIZE, device="auto", compute_type="auto")
     return _model

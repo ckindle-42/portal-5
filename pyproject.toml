@@ -458,6 +458,8 @@ module = [
     "openpyxl",
     "openpyxl.*",
     "yara",
+    # faster-whisper ships no py.typed marker and is absent from .[dev]-only venvs.
+    "faster_whisper",
     # Runtime-only benchmark harness helper: _data.py inserts tests/benchmarks on
     # sys.path and imports `bench_lab_exec` bare under try/except; it lives
     # outside the strict-checked portal tree (mypy can't resolve it).

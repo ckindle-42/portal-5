@@ -372,7 +372,7 @@ def test_wfe_pid_file_dead_pid(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
 def test_wfe_pid_file_malformed_line_fails_closed(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
     """Corrupt state is treated as active, not as 'no WFE'."""
     pid_file = tmp_path / "pids"
-    pid_file.write_text("123\n# a comment\n")
+    pid_file.write_text("# a comment\n")
     monkeypatch.setattr(acceptance, "WFE_PID_FILE", pid_file)
     monkeypatch.setattr(acceptance, "_wfe_processes", lambda: [])
 
